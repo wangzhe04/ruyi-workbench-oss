@@ -483,7 +483,7 @@ async function previewGrant() {
       else bits.push(t('permission.preview.commands', { commands: (r.grant.cmdAllow || []).join(' / ') }));
       if (r.dropped && r.dropped.length) bits.push(t('permission.preview.dropped', { count: r.dropped.length, reasons: r.dropped.map(d => d.reason).join(';') }));
       if (box) box.textContent = bits.join(';');
-    } else if (box) box.textContent = t('permission.preview.failed', { reason: r && r.error || t('common.unknown') });
+    } else if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(r && r.error) || t('common.unknown') });
   } catch (e) { if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(e) }); }
 }
 async function submitGrant(ev) {
@@ -500,7 +500,7 @@ async function submitGrant(ev) {
       toast(r.dropped && r.dropped.length ? t('permission.grantIssuedWithDrops', { count: r.dropped.length }) : t('permission.grantIssued'), 'ok');
       $('autonomyIssueForm').classList.add('hidden');
       await loadAutonomyGrants();
-    } else { toast(t('permission.grant.failed', { reason: r && r.error || t('common.unknown') }), 'err'); }
+    } else { toast(t('permission.grant.failed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); }
   } catch (e) { toast(t('permission.grant.failed', { reason: apiErrText(e) }), 'err'); }
 }
 
@@ -597,7 +597,7 @@ async function revealArtifact(fullPath, mode) {
   const sid = state.currentSession?.id || '';
   try {
     const r = await api('/api/file/reveal', { method: 'POST', body: JSON.stringify({ sessionId: sid, path: fullPath, mode }) });
-    if (!r || !r.ok) { toast((r && r.error) || t('file.open.unavailable'), 'err'); return; }
+    if (!r || !r.ok) { toast(apiErrText(r && r.error) || t('file.open.unavailable'), 'err'); return; }
     if (r.degradedTo && r.note) toast(r.note, '');
   } catch (e) {
     toast(t('file.open.failed', { reason: apiErrText(e) }), 'err');
@@ -714,7 +714,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
     const r = await api('/api/checkpoints/rollback', { method: 'POST', body: JSON.stringify(payload) });
     if (!r || !r.ok) {
       if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }
-      toast(t('changes.revert.failed', { reason: (r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
+      toast(t('changes.revert.failed', { reason: apiErrText(r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
       return;
     }
     // 代码走查 C6：撤回了一部分（比如改前内容太大没留底）时服务端仍回 ok:true ＋ failed[]。修前只看 ok，
@@ -875,7 +875,7 @@ function openBulkCleanupModal() {
         method: 'POST',
         body: JSON.stringify({ preserveSessionId: currentId, purgeAssociated: purgeBox.checked }),
       });
-      if (!r || !r.ok) throw new Error((r && r.error) || 'unknown error');
+      if (!r || !r.ok) throw new Error(apiErrText(r && r.error) || 'unknown error');
       modal.close();
       const removal = sessionRemoval();   // 128f-⑫：删掉的那些立刻不画（同 removeSession）
       for (const deletedId of (Array.isArray(r.deleted) ? r.deleted : [])) removal.done.add(String(deletedId));
@@ -1631,7 +1631,7 @@ function openPlaybookModal(pb) {
         try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
         catch (e) { toast(t('skills.playbook.pickerError', { reason: apiErrText(e) }), 'err'); return; }
         if (r && r.ok && r.path) { ta.value = r.path; }
-        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: r.error || t('common.unknown') }), 'err');
+        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: apiErrText(r.error) || t('common.unknown') }), 'err');
       };
       row.append(ta, pick);
       field.appendChild(row);

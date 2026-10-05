@@ -837,7 +837,7 @@ async function updateMemoryMetadata(memory, patch, button) {
   if (button) button.disabled = true;
   try {
     const result = await api('/api/memory/metadata', { method: 'POST', body: JSON.stringify({ id: memory.id, scope: memory.scope, patch, cwd: currentWorkspace() || '' }) });
-    if (!result || !result.ok) throw new Error((result && result.error) || t('common.unknownError'));
+    if (!result || !result.ok) throw new Error(apiErrText(result && result.error) || t('common.unknownError'));
     await refreshMemoryViews();
   } catch (error) { toast(t('memory.toolbox.updateFailed', { err: apiErrText(error) }), 'err'); if (button) button.disabled = false; }
 }
@@ -989,7 +989,7 @@ async function deleteMemoryRow(m) {
   if (!confirm(t('memory.deleteConfirm', { name: m.name || m.id }))) return;
   try {
     const r = await api('/api/memory/' + encodeURIComponent(m.id), { method: 'POST', headers: { 'x-http-method': 'DELETE' }, body: JSON.stringify({ scope: m.scope, cwd: currentWorkspace() || '' }) });
-    if (!r || !r.ok) { toast(t("toast.deleteFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+    if (!r || !r.ok) { toast(t("toast.deleteFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
     toast(t("toast.memoryDeleted"), 'ok');
   } catch (e) { toast(t("toast.deleteFail", { p1: apiErrText(e) }), 'err'); return; }
   await refreshMemoryViews();
@@ -1024,7 +1024,7 @@ async function saveAsMemory(btn, sessionId = '') {
   if (btn) { btn.disabled = true; btn.textContent = t('common.drafting'); }
   try {
     const r = await api('/api/memory/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-    if (!r || !r.ok || !r.draft) { toast(t("toast.draftFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+    if (!r || !r.ok || !r.draft) { toast(t("toast.draftFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
     openMemoryEditModal({ ...r.draft, scope: 'project', _isDraft: true });
   } catch (e) { toast(t("toast.draftFail", { p1: apiErrText(e) }), 'err'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
@@ -1100,7 +1100,7 @@ async function suggestMemoryFromTurn(sessionId, host) {
     // 维护提议(改记忆/建边/撤边)：确认后由后端 apply 落盘，模型不直接写。
     try {
       const r = await api('/api/memory/proposal/apply', { method: 'POST', body: JSON.stringify({ sessionId, proposalId: result.proposalId, cwd: currentWorkspace() || '' }) });
-      if (!r || !r.ok) throw new Error((r && r.error) || t('common.unknownError'));
+      if (!r || !r.ok) throw new Error(apiErrText(r && r.error) || t('common.unknownError'));
       toast(t('memory.proposal.applied'), 'ok');
       removeCard();
       await refreshMemoryViews();   // 128f-⑫（审计 D）：修前工具箱／记忆弹窗开着的话还是应用之前那一份
@@ -1275,7 +1275,7 @@ async function openMemoryEditModal(m) {
       const r = await api('/api/memory', { method: 'POST', body: JSON.stringify(payload) });
       // 存失败时弹层【不关】：修前先 close 再判 r.ok，一次失败就把用户刚敲的整段正文一起扔掉。
       // 失败 = 报原因 + 把「保存」还给用户，改一改或稍后再点即可。
-      if (!r || !r.ok) { toast(t("toast.saveFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); restoreSave(); return; }
+      if (!r || !r.ok) { toast(t("toast.saveFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); restoreSave(); return; }
       modal.close();
       toast(t("toast.memorySaved"), 'ok');
       editSettled = true;

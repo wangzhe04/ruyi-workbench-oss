@@ -73,7 +73,7 @@ export function createSettingsOperationsDomain({
       });
       if (!result || result.cancelled) return;
       if (!result.ok) {
-        toast(result.error || t('settings.update.pickFailed'), 'err');
+        toast(apiErrText(result.error) || t('settings.update.pickFailed'), 'err');   // 走查 W1-3：error 是 {code,params,message} 信封，直接插值印 [object Object]
         return;
       }
       overlayZipPath = result.path;
@@ -156,7 +156,7 @@ export function createSettingsOperationsDomain({
         renderOverlayResult('err', t('settings.update.precheckFailed') + ': ' + (result.errors || []).join('; '));
         if (applyButton) { applyButton.disabled = false; applyButton.textContent = t('settings.update.apply'); }
       } else {
-        const error = result.error || (result.verify && result.verify.mismatches && result.verify.mismatches.length
+        const error = apiErrText(result.error) || (result.verify && result.verify.mismatches && result.verify.mismatches.length
           ? result.verify.mismatches.join('; ')
           : t('settings.update.applyFailed'));
         renderOverlayResult('err', t('settings.update.applyFailed') + ': ' + String(error), true);
@@ -179,8 +179,9 @@ export function createSettingsOperationsDomain({
         toast(t('settings.update.rolledBackShort'), 'ok');
         refreshOverlayStatus();
       } else {
-        if (hint) hint.textContent = result.error || t('settings.update.rollbackFailed');
-        toast(result.error || t('settings.update.rollbackFailed'), 'err');
+        const reason = apiErrText(result.error) || t('settings.update.rollbackFailed');
+        if (hint) hint.textContent = reason;
+        toast(reason, 'err');
       }
     } catch (error) {
       if (hint) hint.textContent = apiErrText(error);

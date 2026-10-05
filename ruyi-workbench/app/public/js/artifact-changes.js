@@ -385,7 +385,7 @@ export function createArtifactChangesDomain({
     box.append(head);
     if (!diffData || diffData.ok === false) {
       box.append(el('div', 'cdiff-note muted', t('changes.diffUnavailable', {
-        err: (diffData && diffData.error) || t('common.unknown'),
+        err: apiErrText(diffData && diffData.error) || t('common.unknown'),
       })));
       return;
     }
@@ -466,7 +466,7 @@ export function createArtifactChangesDomain({
           button.disabled = false;
           button.textContent = t('changes.revert');   // 按钮文字是 changes.revert(「撤销」);changes.revertTitle 是 tooltip 长句,不能当按钮文字
         }
-        const reason = (result && result.error)
+        const reason = apiErrText(result && result.error)
           || (result && result.failed && result.failed[0] && result.failed[0].reason)
           || t('common.unknownError');
         toast(t('toast.rollbackFail', { p1: reason }), 'err');
