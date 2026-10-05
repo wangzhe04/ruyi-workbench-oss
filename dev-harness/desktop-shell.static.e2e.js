@@ -77,5 +77,20 @@ ok(/\/platform:x64/.test(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbe
     'WM_NCACTIVATE 以 lParam=-1 交给 DefWindowProc(失焦不重画非客户区边框)');
 }
 
+// 走查 S-09：宿主这一头（上面第 19 行那条）只收 chrome.webview.postMessage({ ruyiNotification:{ title, body } })，
+// 修前前端却【没有任何发送方】（quiet-card 只会 new Notification，WebView2 里权限是 default、静默不显示）。
+// 钉「前端真有发送方」：桌面壳判据与宿主桥写法、消息字段名与 C# 解析的 title／body 一一对上，
+// 且浏览器模式（没有桌面壳）仍回落到 Notification。
+{
+  const quiet = fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'js', 'quiet-card.js'), 'utf8');
+  ok(/globalThis\.__ruyiDesktop === 1 && bridge && typeof bridge\.postMessage === 'function'/.test(quiet)
+    && /bridge\.postMessage\(\{ ruyiNotification: \{ id: entry\.key, title, body \} \}\)/.test(quiet),
+    'S-09 前端有发送方：桌面壳里 maybeNotify 经 chrome.webview.postMessage({ ruyiNotification:{ title, body } }) 投递');
+  ok(/TryGetValue\("title"/.test(source) && /TryGetValue\("body"/.test(source) && /TryGetValue\("ruyiNotification"/.test(source),
+    'S-09 宿主解析的字段名就是前端发的 ruyiNotification.title／.body');
+  ok(/new notificationApi\(title, \{ body, tag: entry\.key \}\)/.test(quiet),
+    'S-09 没有桌面壳（浏览器模式）仍回落到 Notification');
+}
+
 console.log('\nDESKTOP SHELL STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);
