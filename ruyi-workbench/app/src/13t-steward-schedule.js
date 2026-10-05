@@ -40,6 +40,17 @@ function schedulerToolGate(schedConfig) {
   return null;
 }
 
+// 装载任务表,读不出来就答完。tasks-v1.json 在、但此刻读不出来(Windows 上杀软/备份软件短暂持锁的 EBUSY 等)时,
+// schedulerLoad 不置 loaded:内存里那张空表不是事实,schedulerSaveTasks 也已拒写。修前五个工具照常往下走 ——
+// list 回 ok + 空表(模型会对用户说「你没有定时任务」),pause/resume/run_now/delete 回 not_found,create 回 ok
+// 却什么都没落盘。与 HTTP 六条路由的闸(13s schedulerRouteGate 的 503 scheduler.unavailable)同一个口径。
+async function schedulerToolLoad() {
+  await schedulerLoad();
+  if (schedulerRuntime.loaded) return null;
+  return stewardFail('scheduler.unavailable',
+    '定时任务表存在,但这会儿读不出来(可能被别的程序占着);什么都没有改动。过一会儿再试,不要当成「没有任务」告诉用户');
+}
+
 // 工具面回给模型的一行。**不是** schedulerPublicTask 那一份:那份是给界面的全量(含 policy /
 // state / payload 正文),进模型上下文纯属浪费。这里只留模型说人话需要的六个字段。
 function schedulerToolRow(schedTask) {
@@ -73,7 +84,7 @@ async function stewardImplScheduleCreate(args, ctx, config) {
         reason: 'unattended', tool: 'steward_schedule_create',
       });
   }
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   if (schedulerRuntime.tasks.length >= SCHEDULER_LIMITS.maxTasks) {
     return stewardFail('scheduler.capacity_exceeded',
       `定时任务最多 ${SCHEDULER_LIMITS.maxTasks} 条,先删掉几条再来`, { max: SCHEDULER_LIMITS.maxTasks });
@@ -168,7 +179,7 @@ function schedulerNormalizationNotes(schedArgs, schedTask) {
 // 2) steward_schedule_list —— 只读。不进决策日志(读工具没有「做过什么」可记)。
 async function stewardImplScheduleList(args, ctx, config) {
   const gate = schedulerToolGate(config); if (gate) return gate;
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   return { ok: true, tasks: schedulerRuntime.tasks.map(schedulerToolRow) };
 }
 
@@ -176,7 +187,7 @@ async function stewardImplScheduleList(args, ctx, config) {
 //       任务本来就是用户自己下的单,开关它不改载荷、不改权限档,所以无人值守时也可以做。
 async function schedulerToolSetEnabled(args, ctx, config, wantEnabled, toolName) {
   const gate = schedulerToolGate(config); if (gate) return gate;
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
@@ -189,6 +200,13 @@ async function schedulerToolSetEnabled(args, ctx, config, wantEnabled, toolName)
   // 从熔断里被重新打开:连败计数清零(与 PATCH /api/scheduler/tasks/:id 同口径 —— 不清零的话
   // 下一次失败会立刻再熔断,用户会以为「继续」这枚按钮没生效)。
   if (wantEnabled && !was) task.state.consecutiveFailures = 0;
+  // 从暂停里恢复:nextFireAt 要按「此刻」重算(与 PATCH /api/scheduler/tasks/:id 同口径)。暂停期间 tick 不碰这条任务,
+  // 盘上的 nextFireAt 还停在暂停时的旧时点 —— 不重算的话恢复后第一拍会把暂停期间的时点当「错过」补跑一次,
+  // 或记一条没人错过的 skipped。算不出下一次(过期的 once)就落空串,与新建时同一个表示。
+  if (wantEnabled && !was) {
+    const resumedNext = nextFireAt(task.schedule, schedulerClockNow());
+    task.state.nextFireAt = resumedNext == null ? '' : new Date(resumedNext).toISOString();
+  }
   task.revision = (Number(task.revision) || 0) + 1;
   task.updatedAt = new Date(schedulerClockNow()).toISOString();
   await schedulerSaveTasks();
@@ -225,7 +243,7 @@ async function stewardImplScheduleRunNow(args, ctx, config) {
         reason: 'unattended', tool: 'steward_schedule_run_now',
       });
   }
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
@@ -258,7 +276,7 @@ async function stewardImplScheduleDelete(args, ctx, config) {
         reason: 'unattended', tool: 'steward_schedule_delete',
       });
   }
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const removed = schedulerToolRow(found.task);

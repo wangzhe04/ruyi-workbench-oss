@@ -891,7 +891,7 @@ export function createChatRenderPrimitives(deps = {}) {
     const save = contextWindowSave.catch(() => {}).then(async () => {
       const overrides = { ...state.config?.contextWindowOverrides, [key]: value };
       const result = await api('/api/config', { method: 'POST', body: JSON.stringify({ contextWindowOverrides: overrides }) });
-      if (result?.ok === false) throw new Error(result.error || 'Unable to save context window');
+      if (result?.ok === false) throw new Error(apiErrText(result.error) || 'Unable to save context window');
       state.config.contextWindowOverrides = result?.config?.contextWindowOverrides || overrides;
       // Status/manual usage from before this edit must not reappear after selecting Auto.
       if (state.status) state.status.contextWindowResolved = null;
@@ -1130,7 +1130,7 @@ export function createChatRenderPrimitives(deps = {}) {
     if (btn) { btn.disabled = true; btn.textContent = t('playbook.create.drafting'); }
     try {
       const r = await api('/api/playbooks/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-      if (!r || !r.ok || !r.draft) { toast(t('playbook.create.draftFailed', { reason: (r && r.error) || t('common.unknown') }), 'err'); return; }
+      if (!r || !r.ok || !r.draft) { toast(t('playbook.create.draftFailed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); return; }
       openPlaybookEditModal(r.draft);
     } catch (e) { toast(t('playbook.create.draftFailed', { reason: apiErrText(e) }), 'err'); }
     finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
@@ -1170,7 +1170,7 @@ export function createChatRenderPrimitives(deps = {}) {
       try {
         const r = await api('/api/playbooks', { method: 'POST', body: JSON.stringify({ playbook: pb }) });
         modal.close();
-        if (!r || !r.ok) { toast(t('playbook.create.saveFailed', { reason: (r && r.error) || t('common.unknown') }), 'err'); return; }
+        if (!r || !r.ok) { toast(t('playbook.create.saveFailed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); return; }
         toast(t('playbook.create.saved'), 'ok');
         refreshPlaybooks(); // reflect the new card in the empty state
       } catch (e) { modal.close(); toast(t('playbook.create.saveFailed', { reason: apiErrText(e) }), 'err'); }
@@ -1242,7 +1242,7 @@ export function createChatRenderPrimitives(deps = {}) {
       try {
         const r = await api('/api/session/rewind', { method: 'POST', body: JSON.stringify({ sessionId: sid, targetTurnSeq, rollbackFiles: !!(fileBox && fileBox.checked) }) });
         modal.close();
-        if (!r || !r.ok) { toast(t("toast.rewindFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+        if (!r || !r.ok) { toast(t("toast.rewindFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
         // Reload the truncated session and re-render; refill the composer with the removed user text.
         // v1.0-S7 (perf): reset the window cursor so the shrunken conversation re-windows from its new tail.
         // GET 期间切到了别的会话:别把回溯后的这条写回 state(会盖掉刚打开的那条)—— 取回来之后再判一次。

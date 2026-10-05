@@ -9,7 +9,7 @@ Use this skill for bug-focused code review when public services are unavailable.
 
 Workflow:
 
-1. Run `git_status`, then `git_diff` for the change content, when reviewing uncommitted changes.
+1. For uncommitted changes, run `git_status`, then read both `git_diff` (unstaged) and `git_diff` with `staged: true` (staged); the default call alone misses staged work. Read untracked new files with `file_read`. For a branch, use `git_diff` with `ref` (e.g. `main...HEAD`).
 2. Run `code_review_scan` to collect lightweight security and quality signals.
 3. Read the exact files and lines behind any finding before reporting it.
 4. Prioritize behavioral bugs, data loss, security exposure, regressions, and missing tests.

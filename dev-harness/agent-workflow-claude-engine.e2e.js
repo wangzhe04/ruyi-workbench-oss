@@ -7,6 +7,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      OpenAI-compatible Provider configured at all — previously the launch handler hard-required one.
 //  (C) a Claude-engine DAG node's exec-tier bridged MCP access is scoped by role.mcpServers (or, if
 //      unset, gets the full workbench MCP config); read/edit tiers get no MCP config at all.
+//  (D) 2026-10: a Claude-engine node is gated by the permission mode like the OpenAI path — default /
+//      acceptEdits run as `dontAsk` with the allowlist capped to the tiers that mode allows (no more bypass).
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
@@ -23,6 +25,10 @@ let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
 function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function get(port, p, headers = {}) { return new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 1000, headers }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); }); }
+function req(port, method, p, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body || {}); const r = http.request({ host: '127.0.0.1', port, path: p, method, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', reject); r.write(raw); r.end(); }); }
+// spawnCmdLineLength:与运行时同一把尺子量命令行长度(下面 (R) 段据此定预算,不靠猜)。
+const srv = require(path.join(WB, 'app', 'server.js'));
+let longRoleArgvLength = 0;
 function post(port, p, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch (e) { reject(e); } }); }); r.on('error', reject); r.write(raw); r.end(); }); }
 function stream(port, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = '', events = []; res.on('data', c => { b += c; let i; while ((i = b.indexOf('\n')) >= 0) { const line = b.slice(0, i); b = b.slice(i + 1); try { if (line.trim()) events.push(JSON.parse(line)); } catch { /* ignore */ } } }); res.on('end', () => resolve(events)); }); r.on('error', reject); r.write(raw); r.end(); }); }
 async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
@@ -33,6 +39,15 @@ async function tokenFor(port) {
 }
 
 (async () => {
+  // ---- (K) 2026-10:Kimi Code 父回合(reg.kind 'kimi-acp')不再被当成 'openai' ----
+  // 修前 `reg ? (reg.kind === 'claude' ? 'claude' : 'openai') : …`:没配 provider 时路由成 provider=null,节点一启动就抛。
+  // 活的 Kimi 父回合在离线夹具里起不来,这里钉结构:只有活的 provider 父回合才映射成 'openai',其余按可用引擎挑。
+  {
+    const { sliceBlock } = require('./lib/source-slice.js');
+    const routing = sliceBlock(fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8'), 'const parentEngine = ', ';', { inclusive: true });
+    ok(/reg && reg\.kind === 'claude' \? 'claude'/.test(routing) && /reg && reg\.kind === 'openai' \? 'openai'/.test(routing) && /provider \? 'openai' : 'claude'/.test(routing),
+      'K launch routing maps only a live provider parent to openai; a Kimi parent (or none) picks from the available engines');
+  }
   // ---- (A) config-driven third-party endpoint/model reaches the actually-spawned CLI child ----
   {
     const HOME = path.join(os.tmpdir(), 'ruyi-claude-env-e2e');
@@ -103,6 +118,9 @@ async function tokenFor(port) {
       ok(argv2.includes('--model') && argv2[argv2.indexOf('--model') + 1] === 'claude-haiku-4-5', 'per-node model override reaches --model, not the role default');
       ok(argv2.includes('--permission-mode') && argv2[argv2.indexOf('--permission-mode') + 1] === 'plan', "explorer role's own permission mode (plan) is honored, distinct from the run default");
       ok(argv2.includes('--allowed-tools') && argv2[argv2.indexOf('--allowed-tools') + 1] === 'Read,Grep,Glob,WebSearch,WebFetch', "role.claudeTools drives --allowed-tools (explorer 内置角色第22波起含联网)");
+      const rolePromptArg = String(argv2[argv2.indexOf('--append-system-prompt') + 1] || '');
+      ok(rolePromptArg.includes('你是 Explorer') && rolePromptArg.includes('<response-language-policy>'),
+        '2026-10: Claude 节点的 --append-system-prompt 带上角色提示词(修前只有语言政策,角色规矩在 Claude 引擎下全丢)');
 
       const listed = await get(PORT, '/api/agent-runs?sessionId=' + encodeURIComponent(sid), hdr);
       ok(listed.runs.every(r => r.nodes.every(n => n.engine === 'claude')), 'persisted run records the engine each node actually used');
@@ -143,6 +161,179 @@ async function tokenFor(port) {
       ok(readRun.ok === true && readRun.results[0].status === 'succeeded', 'read-tier Claude-engine node still runs successfully');
       const argv4 = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
       ok(!argv4.includes('--mcp-config'), 'read-tier node gets no --mcp-config at all (bridged MCP is exec-only)');
+    } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  }
+
+  // ---- (D) 2026-10「两引擎都按权限档拒绝」:非全自动档下 Claude 节点不再被抬成 bypass ----
+  // 修前 default/acceptEdits 在 edit/exec 档被强转成 bypassPermissions(OpenAI 路径同档却是拒绝)。现在与 nativeToolGate
+  // 同口径:default 只放 read 级,acceptEdits 再放 edit 级,exec 级(Bash/桥接 MCP)拒;CLI 侧用 dontAsk 落实。
+  {
+    const HOME = path.join(os.tmpdir(), 'ruyi-claude-permgate-e2e');
+    const PORT = await getFreePort();
+    fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+    const argvCapture = path.join(HOME, 'argv-capture.json');
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 14, permissionMode: 'default', defaultWorkspace: HOME, providers: [], activeProvider: '',
+      desktopMcp: { enabled: false },
+    }, null, 2));
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], {
+      cwd: WB, windowsHide: true,
+      env: { ...process.env, RUYI_HOME: HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: argvCapture },
+    });
+    try {
+      ok(await up(PORT), 'permission-gate test server starts');
+      const token = await tokenFor(PORT); const hdr = { 'x-wcw-token': token };
+      const created = await post(PORT, '/api/sessions', { title: 'dag-permgate', cwd: HOME }, hdr);
+      const sid = created.session.id;
+      const launch = async node => {
+        const r = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: sid, nodes: [node] });
+        return { r, argv: JSON.parse(fs.readFileSync(argvCapture, 'utf8')) };
+      };
+      const flag = (argv, f) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : null; };
+      const READ = 'Read,Grep,Glob,WebSearch,WebFetch';
+
+      let { r, argv } = await launch({ id: 'coder_default', task: 'implement', role: 'coder', engine: 'claude' });
+      ok(r.ok === true && r.results[0].status === 'succeeded', 'D1 exec-tier coder node still runs under the default mode');
+      ok(flag(argv, '--permission-mode') === 'dontAsk', `D1 default mode is no longer coerced to bypass: exec node runs as dontAsk (got ${flag(argv, '--permission-mode')})`);
+      ok(flag(argv, '--allowed-tools') === READ, `D1 default mode: an unrestricted exec role is capped to the read-tier allowlist (got ${flag(argv, '--allowed-tools')})`);
+      ok(!argv.includes('--mcp-config'), 'D1 default mode: no bridged MCP for an exec node whose exec tier is refused');
+
+      ({ r, argv } = await launch({ id: 'verifier_default', task: 'verify', role: 'verifier', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'dontAsk' && flag(argv, '--allowed-tools') === READ,
+        `D2 default mode: verifier's declared Bash is filtered out (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+
+      ({ r, argv } = await launch({ id: 'read_default', task: 'look around', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'dontAsk' && flag(argv, '--allowed-tools') === READ,
+        `D3 default mode: read-tier node keeps its read allowlist under dontAsk (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+
+      ({ r, argv } = await launch({ id: 'explorer_default', task: 'explore', role: 'explorer', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'plan', "D4 a role's own plan mode still passes straight through");
+
+      const denyOf = argv => String(flag(argv, '--disallowed-tools') || '').split(',');
+      ok(['Write', 'Edit', 'PowerShell', 'Bash', 'Task'].every(t => denyOf(argv).includes(t)), 'D3b read-tier node also gets the hard --disallowed-tools cap');
+
+      // 自定义角色:read 档却声明了 Write;角色自带 acceptEdits;超长角色提示(给下面的命令行阶梯用例量长度)。
+      const LONG_MARKER = 'LONG_ROLE_MARKER_77';
+      const roles = await post(PORT, '/api/config', { agentRoleOverrides: [
+        { id: 'read-writer', label: 'Read Writer', prompt: 'reads', toolTier: 'read', claudeTools: ['Read', 'Write'], permissionMode: 'inherit' },
+        { id: 'edits-role', label: 'Edits Role', prompt: 'edits', toolTier: 'edit', permissionMode: 'acceptEdits' },
+        { id: 'long-role', label: 'Long Role', prompt: LONG_MARKER + ' ' + 'x'.repeat(3000), toolTier: 'read' },
+      ] }, hdr);
+      ok(roles && roles.ok !== false, 'D roles configured');
+
+      const toEdits = await post(PORT, '/api/config', { permissionMode: 'acceptEdits' }, hdr);
+      ok(toEdits && toEdits.config && toEdits.config.permissionMode === 'acceptEdits', 'D5 global mode switched to acceptEdits');
+      ({ r, argv } = await launch({ id: 'coder_edits', task: 'implement', role: 'coder', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'dontAsk' && flag(argv, '--allowed-tools') === READ + ',Write,Edit',
+        `D5 acceptEdits: exec node gets read + edit tools, still no Bash (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+      ({ r, argv } = await launch({ id: 'rw_edits', task: 'look', role: 'read-writer', engine: 'claude' }));
+      ok(flag(argv, '--allowed-tools') === 'Read' && denyOf(argv).includes('Write'),
+        `D5b acceptEdits + a read-tier node: the node tier caps it (declared Write is dropped; got ${flag(argv, '--allowed-tools')})`);
+
+      // 线程收紧到只做计划:压过角色自带的 acceptEdits(与 OpenAI 路径同一条优先级)。
+      const toPlan = await req(PORT, 'PATCH', '/api/sessions/' + sid, { permissionMode: 'plan' }, hdr);
+      ok(toPlan && toPlan.ok === true, 'D5c thread narrowed to plan');
+      ({ r, argv } = await launch({ id: 'edits_plan', task: 'edit', role: 'edits-role', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'plan', `D5c a thread in plan mode overrides the role's own acceptEdits (got ${flag(argv, '--permission-mode')})`);
+      await req(PORT, 'PATCH', '/api/sessions/' + sid, { permissionMode: null }, hdr);
+
+      const toAuto = await post(PORT, '/api/config', { permissionMode: 'auto', confirm: true }, hdr);
+      ok(toAuto && toAuto.config && toAuto.config.permissionMode === 'auto', 'D6 global mode switched to auto (with confirm)');
+      ({ r, argv } = await launch({ id: 'coder_auto', task: 'implement', role: 'coder', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'auto' && !argv.includes('--allowed-tools') && !argv.includes('--disallowed-tools'),
+        `D6 auto passes straight to the CLI's own classifier with the exec tier unrestricted (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+      // auto 档的 --allowed-tools 不是硬边界(实测 read 节点照样能 Write / PowerShell):read 节点靠 --disallowed-tools 封顶。
+      ({ r, argv } = await launch({ id: 'read_auto', task: 'look around', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'auto' && ['Write', 'Edit', 'PowerShell', 'Task', 'CronCreate'].every(t => denyOf(argv).includes(t)),
+        `D7 auto + read-tier node: hard-capped by --disallowed-tools (got ${flag(argv, '--disallowed-tools')})`);
+      ({ r, argv } = await launch({ id: 'long_auto', task: 'look', role: 'long-role', engine: 'claude' }));
+      longRoleArgvLength = srv.spawnCmdLineLength(process.execPath, argv);
+      ok(String(flag(argv, '--append-system-prompt') || '').includes(LONG_MARKER), 'D8 a long role prompt rides on --append-system-prompt when it fits');
+    } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  }
+
+  // ---- (R) 2026-10:命令行超预算时角色提示改走首条用户消息,语言政策留在 argv ----
+  // 修前阶梯第一步就把整条 --append-system-prompt 丢掉,语言政策跟着没了。预算定在「带长角色提示放不下、挪走后放得下」之间。
+  {
+    const HOME = path.join(os.tmpdir(), 'ruyi-claude-ladder-e2e');
+    const PORT = await getFreePort();
+    fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+    const argvCapture = path.join(HOME, 'argv-capture.json');
+    const stdinCapture = path.join(HOME, 'stdin-capture.txt');
+    const LONG_MARKER = 'LONG_ROLE_MARKER_77';
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 14, permissionMode: 'auto', configExplicitKeysV1: ['permissionMode'], defaultWorkspace: HOME, providers: [], activeProvider: '',
+      desktopMcp: { enabled: false },
+      agentRoleOverrides: [{ id: 'long-role', label: 'Long Role', prompt: LONG_MARKER + ' ' + 'x'.repeat(3000), toolTier: 'read' }],
+    }, null, 2));
+    const budget = Math.max(1000, longRoleArgvLength - 1500);
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], {
+      cwd: WB, windowsHide: true,
+      env: { ...process.env, RUYI_HOME: HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: argvCapture, WCW_FAKE_STDIN_CAPTURE: stdinCapture, WCW_CLAUDE_CMDLINE_BUDGET: String(budget) },
+    });
+    try {
+      ok(longRoleArgvLength > 3000, `R0 measured the long-role command line (${longRoleArgvLength} chars; budget ${budget})`);
+      ok(await up(PORT), 'R ladder test server starts');
+      const token = await tokenFor(PORT); const hdr = { 'x-wcw-token': token };
+      const sid = (await post(PORT, '/api/sessions', { title: 'dag-ladder', cwd: HOME }, hdr)).session.id;
+      const res = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: sid, nodes: [{ id: 'long_ladder', task: 'look', role: 'long-role', engine: 'claude' }] });
+      ok(res.ok === true && res.results[0].status === 'succeeded', 'R1 the long-role node still runs under a tight command-line budget');
+      const argv = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
+      const appendArg = String(argv[argv.indexOf('--append-system-prompt') + 1] || '');
+      ok(argv.includes('--append-system-prompt') && appendArg.includes('<response-language-policy>') && !appendArg.includes(LONG_MARKER),
+        'R2 the language policy stays on argv; only the role prompt left it');
+      ok(argv.includes('--disallowed-tools'), 'R3 the hard tier cap survives the ladder');
+      const stdinText = fs.existsSync(stdinCapture) ? fs.readFileSync(stdinCapture, 'utf8') : '';
+      ok(stdinText.includes(LONG_MARKER), 'R4 the role prompt moved into the first user message (stdin)');
+    } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  }
+
+  // ---- (E) 61-C6:Claude CLI 找不到时,节点错误里说清找过哪、该怎么办(修前只有一句「未找到」)----
+  {
+    const HOME = path.join(os.tmpdir(), 'ruyi-claude-missing-e2e');
+    const PORT = await getFreePort();
+    fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+    const missing = path.join(HOME, 'no-such-dir', 'claude.cmd');
+    // 配一个模型服务商(地址不通也无妨:engine:'claude' 的节点不走它),让启动越过「两个引擎都不可用」的入口拒绝,
+    // 走到逐节点那一层;入口拒绝的文案另由 E2 钉。
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME, claudePath: missing,
+      providers: [{ id: 'p', label: 'P', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9', apiKey: 'k', model: 'm', models: [{ id: 'm', label: 'm' }] }], activeProvider: 'p',
+    }, null, 2));
+    const env = { ...process.env, RUYI_HOME: HOME };
+    delete env.WCW_FAKE_CLAUDE;   // 走真的「找可执行文件」判定
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, windowsHide: true, env });
+    try {
+      ok(await up(PORT), 'claude-missing test server starts');
+      const token = await tokenFor(PORT); const hdr = { 'x-wcw-token': token };
+      const created = await post(PORT, '/api/sessions', { title: 'dag-claude-missing', cwd: HOME }, hdr);
+      const run = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: created.session.id, nodes: [{ id: 'cli_node', task: 'say hi', engine: 'claude' }] });
+      const r0 = run && Array.isArray(run.results) ? run.results[0] : null;
+      const err = String((r0 && r0.error) || '');
+      ok(r0 && r0.status !== 'succeeded' && err.includes('Claude CLI 未找到') && err.includes(missing) && /engine:'claude'/.test(err) && /claudePath/.test(err),
+        "E1 Claude CLI 缺失:错误里带找过的路径与修法(去掉 engine:'claude' / 配 claudePath)(got " + JSON.stringify(r0 ? { status: r0.status, error: r0.error } : run) + ')');
+    } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  }
+  // ---- (E2) 两个引擎都不可用:入口拒绝也说清找过哪(修前对不存在的 claude.cmd 也判「可用」,根本走不到这条拒绝)----
+  {
+    const HOME = path.join(os.tmpdir(), 'ruyi-claude-missing-noprov-e2e');
+    const PORT = await getFreePort();
+    fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+    const missing = path.join(HOME, 'no-such-dir', 'claude.cmd');
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME, providers: [], activeProvider: '', claudePath: missing,
+    }, null, 2));
+    const env = { ...process.env, RUYI_HOME: HOME };
+    delete env.WCW_FAKE_CLAUDE;
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, windowsHide: true, env });
+    try {
+      ok(await up(PORT), 'claude-missing/no-provider test server starts');
+      const token = await tokenFor(PORT); const hdr = { 'x-wcw-token': token };
+      const created = await post(PORT, '/api/sessions', { title: 'dag-none', cwd: HOME }, hdr);
+      const run = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: created.session.id, nodes: [{ id: 'n', task: 'say hi' }] });
+      const e0 = run && run.error;
+      const err = String((e0 && typeof e0 === 'object' ? e0.message : e0) || '');   // json() 把裸串 error 包成 {code, params, message} 信封
+      ok(run && run.ok === false && /Claude CLI/.test(err) && err.includes(missing), 'E2 两个引擎都不可用:入口拒绝,并说清找过的 Claude CLI 路径(got ' + JSON.stringify(run) + ')');
     } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
   }
 

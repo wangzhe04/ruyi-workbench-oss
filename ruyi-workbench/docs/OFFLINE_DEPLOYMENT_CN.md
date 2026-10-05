@@ -52,6 +52,8 @@ claude mcp add-json ruyi "{...}" -s user
 >   mcp
 > ```
 >
+> 这只影响在 PowerShell 里手敲 `add-json`：随包的 `install-workbench.ps1` 自己拼命令行、绕开了 PowerShell 的参数改写，工作台的 `install` 子命令走 Node 直接起进程，两者都不受影响。
+>
 > 详细配置步骤（含第三方 Anthropic 兼容端点接入）见管理员手册 [§2.1.1](manuals/ADMIN-GUIDE_CN.md#211-接入第三方-anthropic-兼容端点)。
 
 如果自动注册失败，手动导入：

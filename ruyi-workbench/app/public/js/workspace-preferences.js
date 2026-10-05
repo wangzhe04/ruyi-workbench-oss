@@ -3,7 +3,7 @@
 // EC-D：主题、界面密度、工作区选择与最近工作区领域。
 import { state } from './state.js';
 import { api } from './net.js';
-import { $, el, toast, visibleFavoriteWorkspaces } from './util.js';
+import { $, el, toast, visibleFavoriteWorkspaces, stripWrappingQuotes, looksAbsolutePath } from './util.js';   // 两个纯判定住 util.js：顶栏粘贴路径与设置页「添加/默认工作文件夹」共用同一口径
 import { t } from './i18n.js';
 
 export function createWorkspacePreferencesDomain({
@@ -199,24 +199,8 @@ async function pickWorkspaceNative({ alsoDefault = false } = {}) {
 // v1.0.2 (G6): 顶栏工作文件夹选择器点击 → 小 popover:「浏览文件夹…」(原生选择器,主力) + 「或粘贴文件夹路径」
 // 输入框(兜底,视觉次要)。粘贴路径:前端仅初查非空 + 看起来是绝对路径,然后走现有 setWorkspace(带 cwd 护栏);
 // 无效路径后端会拒,toast 其错误。回车提交。
-// v1.0.2 返修:Windows「复制文件地址」会给路径包上双引号("C:\path"),部分终端复制还带单引号/全角引号——
+// v1.0.2 返修(stripWrappingQuotes／looksAbsolutePath 现住 util.js):Windows「复制文件地址」会给路径包上双引号("C:\path"),部分终端复制还带单引号/全角引号——
 // 先剥掉成对的包裹引号再校验,否则用户按系统习惯复制的路径全被误拒。只剥【成对且在首尾】的引号,不动路径内部。
-function stripWrappingQuotes(p) {
-  let s = String(p || '').trim();
-  const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
-  for (let guard = 0; guard < 3; guard++) { // 最多剥三层(防 ""C:\x"" 类粘贴),够用且防死循环
-    const hit = pairs.find(([a, b]) => s.length >= 2 && s.startsWith(a) && s.endsWith(b));
-    if (!hit) break;
-    s = s.slice(1, -1).trim();
-  }
-  return s;
-}
-function looksAbsolutePath(p) {
-  const s = stripWrappingQuotes(p);
-  if (!s) return false;
-  // Windows 盘符 (C:\ / C:/) 或 UNC (\\server\share) 或 POSIX 绝对 (/foo)。
-  return /^[a-zA-Z]:[\\/]/.test(s) || /^\\\\/.test(s) || /^\//.test(s);
-}
 async function submitPastedWorkspace(input, close) {
   const raw = stripWrappingQuotes(input.value);
   if (!raw) { toast(t('workspace.pathRequired'), 'err'); input.focus(); return; }

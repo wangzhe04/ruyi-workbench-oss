@@ -22,7 +22,22 @@ const MEMORY_RULE_TOUCH_MS = 24 * 60 * 60 * 1000; // 核心偏好/惯例被基�
 const MEMORY_PROPOSAL_MIN_TURN_GAP = 3; // 非显式请求至少间隔 3 轮，避免候选卡片形成固定回合噪音
 const MEMORY_PROPOSAL_MIN_JUDGE_GAP = 2; // 模型否决后也至少隔一轮再判断，控制辅助 token 与重复审稿
 const MEMORY_PROPOSAL_HISTORY_MAX = 32;
+// C3(61 号文):workbench_memory_propose 一次可带 items[≤3] —— 仍是【一个】待决提案(同一个候选单槽、一张卡),
+// 只是卡里有几条可逐条确认。上限 3:够装「一轮里顺手攒下的几条独立偏好/约定」,又不至于让一张卡长成清单。
+const MEMORY_PROPOSAL_BATCH_MAX = 3;
+// 候选状态文件(memory/proposals/<session>.json)的读上限:超过就当空(与修前 64KB 同一语义,只是数抬了)。
+// 为什么不能再是 64KB —— 按落盘形状(atomicWriteJson 两空格缩进、JSON 转义)算最坏情形:
+//   每条候选可变文本 = name 120 + description 400 + body 4000 + reason 240 = 4760 个 UTF-16 码元;
+//   JSON.stringify 把控制字符 / 孤立代理项转成 \uXXXX,一个码元最坏 6 字节(中文正文是 3 字节/字)。
+//   · 批量 3 条:3 × 4760 × 6 ≈ 86KB(中文 ≈ 43KB);
+//   · 历史 32 行,每行 summary = name+description ≤ 521 码元:32 × (521 × 6 + 约 150) ≈ 105KB(中文 ≈ 55KB);
+//   · 其余字段(id、来源、时间、projectKey、批量 summary 等)< 4KB。
+// 合计最坏 ≈ 195KB、中文常见 ≈ 100KB —— 64KB 连「3 条中文长正文 + 满历史」都装不下,写得进去、下次读却判空,
+// 用户就再也看不到那张卡。取 256KB(与记忆正文 256KB 读上限同一量级),最坏情形还留约 60KB 余量;
+// 写侧另有兜底(writeMemoryProposalState 超限时先丢最旧的历史行,当前提案永不丢),所以「写进去却读成空」不会再发生。
+const MEMORY_PROPOSAL_STATE_MAX_BYTES = 256 * 1024;
 const memoryProposalInFlight = new Map(); // 同会话同回合幂等，避免重试/双击重复消耗辅助调用
+const memoryProposalStateChains = new Map(); // 模型工具写槽与批量卡确认按会话串行(并行派发不互相覆盖、双击不会把同一条存两遍)
 
 // frontmatter 单行值消毒:去换行(parseFrontmatter 按行 key: value 解析,值里的换行会破坏结构)。
 function fmVal(s) { return String(s == null ? '' : s).replace(/[\r\n]+/g, ' ').trim(); }
@@ -712,43 +727,125 @@ async function proposeWorkbenchMemory(args, ctx) {
   const state = await readMemoryProposalState(sid);
   // 同一回合只有一个候选槽，先到者胜：模型工具先提交时，回合后自动规则只回放；若自动规则已先
   // 生成（重试/直接调用等边界路径），模型工具也不得覆盖。跨回合才允许新候选替代旧 pending。
-  if (state.current && state.current.status === 'pending'
-    && Number(state.current.proposal && state.current.proposal.sourceTurnSeq) === turnSeq) {
-    return { ok: true, proposalId: state.current.id, proposal: state.current.proposal, pendingUserConfirmation: true,
-      alreadyPending: true, submitted: false, source: state.current.source || 'automatic', note: '本回合已有一条记忆候选(见 proposal)；这一次的内容【没有】提交，也不会覆盖它。需要的话下一回合再提。' };
-  }
-  const parsed = parseMemoryDraft(args || {});
-  if (!parsed) return { ok: false, error: 'name and body are required' };
-  if (!parsed.description || parsed.body.length > 4000 || !fmVal(args && args.reason)) return { ok: false, error: 'description/reason are required and body must be at most 4000 characters' };
-  const proposal = { ...parsed, scope: args && args.scope === 'global' ? 'global' : 'project', reason: fmVal(args && args.reason).slice(0, 240) };
+  // C3:批量(items)占的也是这一个槽 —— 「一个待决提案」,只是里面有 ≤3 条。
+  if (toolMemoryProposalAlreadyPending(state, turnSeq)) return memoryProposeAlreadyPendingResult(state.current);
+  const a = args && typeof args === 'object' ? args : {};
+  const batchInput = memoryProposalBatchInput(a);
+  if (batchInput.error) return { ok: false, error: batchInput.error, ...(batchInput.maxItems ? { maxItems: batchInput.maxItems } : {}) };
   const lastUser = [...(Array.isArray(session.messages) ? session.messages : [])].reverse().find(m => m && m.role === 'user' && !m.steered);
   const userText = String(lastUser && lastUser.content || '');
+  if (!batchInput.list) {
+    // 单条形式(含 items 只有一条):与修前同一套校验、同一份回执、同一张卡。
+    const one = normalizeMemoryProposalCandidate(batchInput.single || a, userText);
+    if (!one.ok) return { ok: false, error: one.error };
+    const registry = await loadMemoryRegistry(cwd).catch(() => []);
+    const dup = findMemoryProposalDuplicate(one.proposal, registry, state);
+    if (dup) return { ok: false, ...memoryProposalDuplicateFailure(dup) };
+    return commitSingleMemoryProposal(sid, turnSeq, cwd, one, []);
+  }
+  // 批量:逐条同一套校验(必填/长度/敏感/与已有记忆或本会话评审过的重复),再查同一次调用里的两条是否其实是一条。
+  // 不合格的那几条点名退回(rejected),其余照样成卡;只剩一条就退回单条形式(单条卡),一条都不剩才整体失败。
+  const registry = await loadMemoryRegistry(cwd).catch(() => []);
+  const accepted = [];
+  const rejected = [];
+  batchInput.list.forEach((raw, index) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) { rejected.push({ index, error: 'item must be an object with name/description/type/scope/body/reason' }); return; }
+    const one = normalizeMemoryProposalCandidate(raw, userText);
+    if (!one.ok) { rejected.push({ index, error: one.error }); return; }
+    const dup = findMemoryProposalDuplicate(one.proposal, registry, state);
+    if (dup) { rejected.push({ index, ...memoryProposalDuplicateFailure(dup) }); return; }
+    const twin = findMemoryProposalDuplicate(one.proposal, accepted.map(x => x.proposal), { history: [] });
+    if (twin) {
+      const at = accepted.find(x => x.proposal === twin.existing);
+      rejected.push({ index, duplicate: true, error: `same or very similar to items[${at ? at.index : '?'}] in this call; merge them into one candidate` });
+      return;
+    }
+    accepted.push({ index, proposal: one.proposal, scopeAdjusted: one.scopeAdjusted });
+  });
+  if (!accepted.length) return { ok: false, error: 'none of the items was submitted (see rejected); nothing is pending', rejected };
+  if (accepted.length === 1) return commitSingleMemoryProposal(sid, turnSeq, cwd, accepted[0], rejected);
+  const items = accepted.map(x => ({ ...x.proposal, status: 'pending' }));
+  const proposal = { kind: 'memory_batch', items };
+  const semanticKey = 'batch:' + accepted.map(x => memoryProposalSemanticKey(x.proposal)).join(',');
+  const summary = items.map(item => item.name).join(' / ');
+  const committed = await commitToolMemoryProposal(sid, turnSeq, cwd, proposal, semanticKey, summary);
+  if (committed.alreadyPending) return memoryProposeAlreadyPendingResult({ id: committed.proposalId, proposal: committed.proposal, source: committed.source });
+  const scopeAdjustedItems = accepted.map((x, i) => (x.scopeAdjusted ? i : -1)).filter(i => i >= 0);
+  return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, batch: true, count: items.length, proposal: committed.proposal,
+    ...(rejected.length ? { rejected } : {}), ...(scopeAdjustedItems.length ? { scopeAdjustedItems } : {}),
+    note: `${items.length} 条候选已合成一张卡提交；用户在回合后的卡片上逐条确认，确认的才写入工作台记忆，其余丢弃。`
+      + (rejected.length ? `另有 ${rejected.length} 条没有提交(见 rejected 的 index 与原因)。` : '')
+      + (scopeAdjustedItems.length ? '（部分条目的 scope 已从 global 改成 project：用户这一轮没有说要跨项目生效。）' : '') };
+}
+
+// 单条候选的校验与归一(单条形式与批量的每一条同一套判据,措辞与修前逐字一致)。
+function normalizeMemoryProposalCandidate(raw, userText) {
+  const parsed = parseMemoryDraft(raw || {});
+  if (!parsed) return { ok: false, error: 'name and body are required' };
+  if (!parsed.description || parsed.body.length > 4000 || !fmVal(raw && raw.reason)) return { ok: false, error: 'description/reason are required and body must be at most 4000 characters' };
+  const proposal = { ...parsed, scope: raw && raw.scope === 'global' ? 'global' : 'project', reason: fmVal(raw && raw.reason).slice(0, 240) };
   let scopeAdjusted = false;
   if (proposal.scope === 'global' && !/(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(userText)) { proposal.scope = 'project'; scopeAdjusted = true; }
   if (memoryProposalLooksSensitive(proposal)) return { ok: false, error: 'candidate looks sensitive and was not proposed' };
-  const registry = await loadMemoryRegistry(cwd).catch(() => []);
-  const dup = findMemoryProposalDuplicate(proposal, registry, state);
-  if (dup) {
-    if (dup.existing && dup.existing.id) {
-      const ex = dup.existing;
-      return { ok: false, duplicate: true, existingId: ex.id, existingScope: ex.scope, existingName: ex.name,
-        error: `same or very similar memory already exists: id=${ex.id} (${ex.scope}, "${String(ex.name || '').slice(0, 80)}"). To change it call workbench_memory_revise {id:"${ex.id}", scope:"${ex.scope}", ...}; do not propose a new one.` };
-    }
-    return { ok: false, duplicate: true, error: 'same or very similar memory was already reviewed in this session (accepted or dismissed earlier); not proposing it again' };
+  return { ok: true, proposal, scopeAdjusted };
+}
+
+// 重复判定 → 回给模型的失败字段(不含 ok)。点名已有记忆的 id,让模型改走 workbench_memory_revise。
+function memoryProposalDuplicateFailure(dup) {
+  if (dup && dup.existing && dup.existing.id) {
+    const ex = dup.existing;
+    return { duplicate: true, existingId: ex.id, existingScope: ex.scope, existingName: ex.name,
+      error: `same or very similar memory already exists: id=${ex.id} (${ex.scope}, "${String(ex.name || '').slice(0, 80)}"). To change it call workbench_memory_revise {id:"${ex.id}", scope:"${ex.scope}", ...}; do not propose a new one.` };
   }
-  const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
-  const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
-  if (state.current && state.current.status === 'pending') {
-    state.current.status = 'superseded';
-    state.history.push({ semanticKey: state.current.semanticKey, summary: state.current.summary, status: 'superseded', turnSeq: state.current.proposal && state.current.proposal.sourceTurnSeq, decidedAt: nowIso() });
+  return { duplicate: true, error: 'same or very similar memory was already reviewed in this session (accepted or dismissed earlier); not proposing it again' };
+}
+
+// 本回合槽已被占时 workbench_memory_propose 的回执(先到者胜,这一次什么都没写)。
+function memoryProposeAlreadyPendingResult(current) {
+  const isBatch = !!(current && current.proposal && current.proposal.kind === 'memory_batch');
+  return { ok: true, proposalId: current.id, proposal: current.proposal, pendingUserConfirmation: true,
+    alreadyPending: true, submitted: false, source: current.source || 'automatic',
+    note: (isBatch ? '本回合已有一张记忆候选卡(见 proposal)' : '本回合已有一条记忆候选(见 proposal)') + '；这一次的内容【没有】提交，也不会覆盖它。需要的话下一回合再提。' };
+}
+
+// 解析 items:{ list:null }(单条形式)、{ list:null, single }(items 只有一条)、{ list:[…] }(批量)或 { error }。
+// 超过上限整体拒绝、什么都不占 —— 模型挑出最值得留的 3 条重发即可;不替它截断(被截掉的那条可能正是用户最想留的)。
+function memoryProposalBatchInput(args) {
+  let items = args.items;
+  if (items === undefined || items === null) return { list: null };
+  if (typeof items === 'string') items = safeJsonParse(items, null);   // 有的模型把数组再 JSON 串一次
+  if (!Array.isArray(items)) return { error: 'items must be an array of candidate objects (each with name/description/type/scope/body/reason)' };
+  if (!items.length) return { list: null };                             // 空数组 = 没给(有的模型把每个可选键都填上)
+  const singleFields = ['name', 'description', 'body'].filter(k => args[k] !== undefined && args[k] !== null && String(args[k]).trim() !== '');
+  if (singleFields.length) return { error: `pass either items (batch) or the single-candidate fields, not both (got items plus ${singleFields.join('/')}); nothing was submitted` };
+  if (items.length > MEMORY_PROPOSAL_BATCH_MAX) {
+    return { maxItems: MEMORY_PROPOSAL_BATCH_MAX,
+      error: `items holds at most ${MEMORY_PROPOSAL_BATCH_MAX} candidates per call (got ${items.length}); nothing was submitted. Resend the ${MEMORY_PROPOSAL_BATCH_MAX} most durable ones now and propose the rest in a later turn.` };
   }
-  state.lastEvaluatedTurn = turnSeq;
-  state.lastShownTurn = turnSeq;
-  state.current = { id, status: 'pending', source: 'tool', semanticKey: memoryProposalSemanticKey(safeProposal), summary: [safeProposal.name, safeProposal.description].join(' '), proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
-  state.history = state.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX);
-  await writeMemoryProposalState(sid, state);
-  return { ok: true, proposalId: id, pendingUserConfirmation: true, proposal: safeProposal, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。'
-    + (scopeAdjusted ? '（scope 已从 global 改成 project：用户这一轮没有说要跨项目生效。）' : ''), ...(scopeAdjusted ? { scopeAdjusted: 'global->project' } : {}) };
+  if (items.length === 1) return { list: null, single: items[0] && typeof items[0] === 'object' && !Array.isArray(items[0]) ? items[0] : {} };
+  return { list: items };
+}
+
+// 单条候选写槽并回执(单条形式,或批量里只剩一条)。rejected 非空时一并回给模型。
+async function commitSingleMemoryProposal(sid, turnSeq, cwd, one, rejected) {
+  const proposal = one.proposal;
+  const committed = await commitToolMemoryProposal(sid, turnSeq, cwd, proposal, memoryProposalSemanticKey(proposal), [proposal.name, proposal.description].join(' '));
+  if (committed.alreadyPending) return memoryProposeAlreadyPendingResult({ id: committed.proposalId, proposal: committed.proposal, source: committed.source });
+  const extra = rejected && rejected.length ? { rejected } : {};
+  return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, proposal: committed.proposal, ...extra, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。'
+    + (one.scopeAdjusted ? '（scope 已从 global 改成 project：用户这一轮没有说要跨项目生效。）' : '')
+    + (extra.rejected ? `items 里另有 ${extra.rejected.length} 条没有提交(见 rejected 的 index 与原因)。` : ''), ...(one.scopeAdjusted ? { scopeAdjusted: 'global->project' } : {}) };
+}
+
+// 一个待决提案落进历史的行:批量按条各记一行(各自的去重键与结论),其余整份一行。
+// 历史是去重降噪用的元数据 —— 批量里被忽略的那条,本会话之后再提会被认出来。
+function memoryProposalHistoryRows(current, status, decidedAt) {
+  const p = (current && current.proposal) || {};
+  if (p.kind === 'memory_batch' && Array.isArray(p.items)) {
+    return p.items.map(item => ({ semanticKey: memoryProposalSemanticKey(item), summary: [item.name, item.description].join(' '),
+      status: item.status && item.status !== 'pending' ? item.status : status, turnSeq: p.sourceTurnSeq, decidedAt }));
+  }
+  return [{ semanticKey: current.semanticKey, summary: current.summary, status, turnSeq: p.sourceTurnSeq, decidedAt }];
 }
 
 // R4 主回合记忆维护工具(建边/改记忆/撤边)。三者与 workbench_memory_propose 共用同一个候选单槽
@@ -763,18 +860,23 @@ function toolMemoryProposalAlreadyPending(state, turnSeq) {
 }
 
 // 把一条模型工具提议写进候选单槽(source:'tool')。返回 {proposalId, proposal, alreadyPending}。
-async function commitToolMemoryProposal(sid, turnSeq, cwd, proposal, semanticKey, summary) {
+// 按会话串行(与批量卡的确认同一条链):「读槽 → 判先到 → 写槽」不再与同会话另一次写交错。
+function commitToolMemoryProposal(sid, turnSeq, cwd, proposal, semanticKey, summary) {
+  return runKeyedChain(memoryProposalStateChains, sid, () => commitToolMemoryProposalUnlocked(sid, turnSeq, cwd, proposal, semanticKey, summary));
+}
+async function commitToolMemoryProposalUnlocked(sid, turnSeq, cwd, proposal, semanticKey, summary) {
   const state = await readMemoryProposalState(sid);
   // 同回合并发窗口 re-check:入口检查之后、写槽之前,另一工具可能已写入本回合 pending(provider 引擎可并行
   // 派发 function_call)。保持先到者胜,不覆盖,与 proposeWorkbenchMemory 的幂等语义一致。
   if (toolMemoryProposalAlreadyPending(state, turnSeq)) {
-    return { proposalId: state.current.id, proposal: state.current.proposal, alreadyPending: true };
+    return { proposalId: state.current.id, proposal: state.current.proposal, source: state.current.source || 'automatic', alreadyPending: true };
   }
   const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
   if (state.current && state.current.status === 'pending') {
+    // 跨回合新提案顶掉旧 pending;旧的是批量卡就按条各记一行 superseded(之后再提同一条照样认得出)。
     state.current.status = 'superseded';
-    state.history.push({ semanticKey: state.current.semanticKey, summary: state.current.summary, status: 'superseded', turnSeq: state.current.proposal && state.current.proposal.sourceTurnSeq, decidedAt: nowIso() });
+    state.history.push(...memoryProposalHistoryRows(state.current, 'superseded', nowIso()));
   }
   state.lastEvaluatedTurn = turnSeq;
   state.lastShownTurn = turnSeq;
@@ -1116,7 +1218,7 @@ async function readMemoryProposalState(sessionId) {
   if (!file) return { schema: 1, history: [] };
   try {
     const stat = await fsp.stat(file);
-    if (!stat.isFile() || stat.size > 64 * 1024) return { schema: 1, history: [] };
+    if (!stat.isFile() || stat.size > MEMORY_PROPOSAL_STATE_MAX_BYTES) return { schema: 1, history: [] };
     const raw = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
     if (!raw || typeof raw !== 'object') return { schema: 1, history: [] };
     return { schema: 1, lastEvaluatedTurn: Math.max(0, Number(raw.lastEvaluatedTurn) || 0), lastShownTurn: Math.max(0, Number(raw.lastShownTurn) || 0), current: raw.current && typeof raw.current === 'object' ? raw.current : null, history: Array.isArray(raw.history) ? raw.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX) : [] };
@@ -1128,7 +1230,14 @@ async function writeMemoryProposalState(sessionId, state) {
   if (!file) return;
   await fsp.mkdir(path.dirname(file), { recursive: true });
   const clean = { schema: 1, lastEvaluatedTurn: Math.max(0, Number(state.lastEvaluatedTurn) || 0), lastShownTurn: Math.max(0, Number(state.lastShownTurn) || 0), current: state.current || null, history: (Array.isArray(state.history) ? state.history : []).slice(-MEMORY_PROPOSAL_HISTORY_MAX) };
-  await atomicWriteJson(file, clean);
+  // 写侧兜底:与读侧同一把尺(UTF-8 字节、atomicWriteJson 同款两空格缩进)。按上限推算正常写不到这里;真超了就先丢
+  // 最旧的历史行(去重降噪用的元数据),当前提案永不丢 —— 保证「写进去的,下次一定读得回来」。
+  let payload = JSON.stringify(clean, null, 2);
+  while (clean.history.length && Buffer.byteLength(payload, 'utf8') > MEMORY_PROPOSAL_STATE_MAX_BYTES) {
+    clean.history = clean.history.slice(Math.max(1, Math.ceil(clean.history.length / 4)));
+    payload = JSON.stringify(clean, null, 2);
+  }
+  await atomicWriteJson(file, payload);
 }
 
 function recordMemoryProposalUsage(sc, provider, session) {
@@ -1239,19 +1348,74 @@ async function decideMemoryProposal(sessionId, proposalId, decision) {
   const sid = safeSessionId(sessionId);
   const decided = decision === 'saved' ? 'saved' : (decision === 'dismissed' ? 'dismissed' : '');
   if (!sid || !decided) return { ok: false, error: 'invalid proposal decision' };
+  return runKeyedChain(memoryProposalStateChains, sid, async () => {
+    const state = await readMemoryProposalState(sid);
+    if (!state.current || state.current.id !== String(proposalId || '') || state.current.status !== 'pending') return { ok: false, error: 'proposal not found' };
+    const p = state.current.proposal || {};
+    let status = decided;
+    if (p.kind === 'memory_batch') {
+      // 批量卡只能在这里整张忽略;要存哪几条走 /api/memory/proposal/apply 的 accept(逐条落盘),这里不替用户「整张存」。
+      if (decided === 'saved') return { ok: false, error: 'batch proposals are confirmed item by item via /api/memory/proposal/apply' };
+      const at = nowIso();
+      for (const item of Array.isArray(p.items) ? p.items : []) if (item && item.status === 'pending') { item.status = 'dismissed'; item.decidedAt = at; }
+      // 先前一次确认存成了几条(其余失败后用户改成整张忽略)→ 这张卡仍算「存过」。
+      if ((p.items || []).some(item => item && item.status === 'saved')) status = 'saved';
+    }
+    state.current.status = status;
+    state.current.decidedAt = nowIso();
+    state.history.push(...memoryProposalHistoryRows(state.current, status, state.current.decidedAt));
+    state.history = state.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX);
+    await writeMemoryProposalState(sid, state);
+    return { ok: true, proposalId: state.current.id, status };
+  });
+}
+
+// C3 批量卡的确认:accept = 用户勾上的条目下标(proposal.items 里的位置)。勾上的逐条 saveMemory(与编辑弹窗保存
+// 同一个写入口),其余记成 dismissed,整张卡 settle,每条的结论各记一行历史。仍然只有用户点了才写 —— 本函数只由
+// /api/memory/proposal/apply(UI)调用,模型够不着。某条写失败:已存的那几条记成 saved、失败的留 pending、整张卡
+// 不 settle,回 ok:false —— 用户再点一次只重试还没存上的,不会把存过的再存一遍。
+async function applyMemoryBatchProposal(sid, proposalId, cwd, accept) {
   const state = await readMemoryProposalState(sid);
-  if (!state.current || state.current.id !== String(proposalId || '') || state.current.status !== 'pending') return { ok: false, error: 'proposal not found' };
-  state.current.status = decided;
-  state.current.decidedAt = nowIso();
-  state.history.push({ semanticKey: state.current.semanticKey, summary: state.current.summary, status: decided, turnSeq: state.current.proposal && state.current.proposal.sourceTurnSeq, decidedAt: state.current.decidedAt });
+  if (!state.current || state.current.id !== proposalId || state.current.status !== 'pending') return { ok: false, error: 'proposal not found' };
+  if (state.current.projectKey && state.current.projectKey !== projectKeyForCwd(cwd)) return { ok: false, conflict: true, error: '候选来源项目已变化，请回到原项目后再操作' };
+  if (!Array.isArray(accept)) return { ok: false, error: 'accept (indexes of the items the user confirmed) is required for a batch proposal' };
+  const p = state.current.proposal;
+  const items = Array.isArray(p.items) ? p.items : [];
+  const picked = new Set(accept.map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < items.length));
+  const failed = [];
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index];
+    if (!item || item.status !== 'pending' || !picked.has(index)) continue;
+    // 与单条卡「查看并保存」弹窗的默认值一致:偏好/惯例默认进核心(弹窗里那个勾默认勾上),其余不进;用户事后可在工具箱改。
+    const r = await saveMemory({ name: item.name, description: item.description, type: item.type, body: item.body,
+      scope: item.scope === 'global' ? 'global' : 'project', core: item.type === 'preference' || item.type === 'convention',
+      sourceSessionId: p.sourceSessionId || sid }, cwd);
+    if (r && r.ok) { item.status = 'saved'; item.memoryId = r.memory.id; item.memoryScope = r.memory.scope; item.decidedAt = nowIso(); }
+    else failed.push({ index, name: item.name, error: (r && r.error) || 'save failed' });
+  }
+  // 回执里的 saved 是这张卡【到目前为止】存上的全部(含上一次部分成功的),按 proposal.items 的下标。
+  const saved = items.map((item, index) => (item && item.status === 'saved' ? { index, id: item.memoryId, scope: item.memoryScope || item.scope, name: item.name } : null)).filter(Boolean);
+  if (failed.length) {
+    await writeMemoryProposalState(sid, state);
+    return { ok: false, partial: saved.length > 0, saved, failed,
+      error: `${failed.length} confirmed item(s) could not be saved (${failed.map(f => `#${f.index}: ${f.error}`).join('; ')}); the card stays pending, retry to save the rest` };
+  }
+  const at = nowIso();
+  const dismissed = [];
+  items.forEach((item, index) => { if (item && item.status === 'pending') { item.status = 'dismissed'; item.decidedAt = at; dismissed.push({ index, name: item.name }); } });
+  const status = items.some(item => item && item.status === 'saved') ? 'saved' : 'dismissed';
+  state.current.status = status;
+  state.current.decidedAt = at;
+  state.history.push(...memoryProposalHistoryRows(state.current, status, at));
   state.history = state.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX);
   await writeMemoryProposalState(sid, state);
-  return { ok: true, proposalId: state.current.id, status: decided };
+  return { ok: true, proposalId, kind: 'memory_batch', status, saved, dismissed };
 }
 
 // 应用一条已确认的维护提议(memory_revise → saveMemory 覆盖；relation_propose → 写 confirmed 边；
-// relation_revoke → 删边)。memory(新增)仍走前端编辑弹窗保存,不经此函数。校验候选仍 pending + 项目一致后按 kind 分发并 settle。
-async function applyMemoryRelationProposal(sessionId, proposalId, cwd) {
+// relation_revoke → 删边;C3 起 memory_batch → 按 opts.accept 逐条落盘,见 applyMemoryBatchProposal)。
+// memory(新增单条)仍走前端编辑弹窗保存,不经此函数。校验候选仍 pending + 项目一致后按 kind 分发并 settle。
+async function applyMemoryRelationProposal(sessionId, proposalId, cwd, opts = {}) {
   const sid = safeSessionId(sessionId);
   if (!sid || !proposalId) return { ok: false, error: 'invalid proposal source' };
   const state = await readMemoryProposalState(sid);
@@ -1259,6 +1423,9 @@ async function applyMemoryRelationProposal(sessionId, proposalId, cwd) {
   if (state.current.projectKey && state.current.projectKey !== projectKeyForCwd(cwd)) return { ok: false, conflict: true, error: '候选来源项目已变化，请回到原项目后再操作' };
   const p = state.current.proposal || {};
   const kind = p.kind || 'memory';
+  if (kind === 'memory_batch') {
+    return runKeyedChain(memoryProposalStateChains, sid, () => applyMemoryBatchProposal(sid, String(proposalId), cwd, opts && opts.accept));
+  }
   if (kind !== 'memory_revise' && kind !== 'relation_propose' && kind !== 'relation_revoke') return { ok: false, error: '该候选不是记忆维护提议，请用编辑弹窗保存' };
   let applied;
   if (kind === 'memory_revise') {
@@ -1293,6 +1460,8 @@ async function validateMemoryProposalSave(sessionId, proposalId, cwd) {
   const state = await readMemoryProposalState(sid);
   if (!state.current || state.current.id !== String(proposalId) || state.current.status !== 'pending') return { ok: false, error: 'proposal not found' };
   if (state.current.projectKey && state.current.projectKey !== projectKeyForCwd(cwd)) return { ok: false, conflict: true, error: '候选来源项目已变化，请回到原项目后再保存' };
+  // 批量卡不走编辑弹窗那条「存一条 = 整张 settle」的路(会把另外几条一起记成已存),逐条确认走 apply。
+  if (state.current.proposal && state.current.proposal.kind === 'memory_batch') return { ok: false, error: 'batch proposals are confirmed item by item on the card (/api/memory/proposal/apply)' };
   return { ok: true };
 }
 

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-03T04:08:13.785Z",
+  "generatedAt": "2026-10-05T17:50:34.930Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -891,6 +891,7 @@
       "domain": "core-inline",
       "auth": "open",
       "coveredBy": [
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
         "dev-harness\\dom-smoke.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
@@ -919,6 +920,7 @@
       "domain": "core-inline",
       "auth": "open",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\asr-transcribe.e2e.js",
         "dev-harness\\asr-warmup.e2e.js",
@@ -956,9 +958,11 @@
         "dev-harness\\repo-hygiene.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\settings-catalog.browser.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
         "dev-harness\\settings-skills.browser.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\simple-mode.browser.e2e.js",
         "dev-harness\\start-error-surface.e2e.js",
@@ -970,6 +974,7 @@
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-tools.e2e.js",
         "dev-harness\\steward-tools.static.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
@@ -1127,6 +1132,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\onboarding-workspace.browser.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\workspace-resolve.e2e.js"
       ]
     },
@@ -1159,7 +1165,8 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
-        "dev-harness\\overlay-update-gui.static.e2e.js"
+        "dev-harness\\overlay-update-gui.static.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js"
       ]
     },
     {
@@ -1198,6 +1205,8 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\asr-transcribe.e2e.js",
         "dev-harness\\asr-warmup.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
@@ -1223,6 +1232,7 @@
         "dev-harness\\onboard.e2e.js",
         "dev-harness\\onboarding.e2e.js",
         "dev-harness\\onboarding.static.e2e.js",
+        "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\repo-hygiene.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
@@ -1269,6 +1279,7 @@
         "dev-harness\\config-mutate-mcp-parity.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
@@ -1289,6 +1300,7 @@
         "dev-harness\\config-mutate-mcp-parity.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
@@ -1308,6 +1320,7 @@
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\ui-bugfix.static.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
@@ -1328,6 +1341,7 @@
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\ui-bugfix.static.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
@@ -1346,7 +1360,8 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
-        "dev-harness\\auth-deny-default.e2e.js"
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js"
       ]
     },
     {
@@ -1449,6 +1464,7 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\session-id-path-guard.e2e.js",
+        "dev-harness\\unit\\session-memory-cap.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -1469,6 +1485,7 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -1505,7 +1522,9 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\action-feedback.static.e2e.js",
-        "dev-harness\\memory-auto-proposal-api.e2e.js"
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1521,7 +1540,9 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
-        "dev-harness\\memory-auto-proposal-api.e2e.js"
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1537,7 +1558,9 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
-        "dev-harness\\action-feedback.static.e2e.js"
+        "dev-harness\\action-feedback.static.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1605,6 +1628,7 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -1711,6 +1735,8 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
@@ -1728,6 +1754,7 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
@@ -1758,6 +1785,7 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
@@ -1793,7 +1821,8 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
-        "dev-harness\\kimi-agent-cli.e2e.js"
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js"
       ]
     },
     {
@@ -1954,6 +1983,7 @@
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
@@ -2028,6 +2058,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\model-menu-no-shift.browser.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
@@ -2073,6 +2104,7 @@
         "dev-harness\\changes-diff.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
@@ -2182,6 +2214,7 @@
       "coveredBy": [
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
+        "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\i18n.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
@@ -2279,6 +2312,7 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\tool-result-render.browser.e2e.js",
         "dev-harness\\unit\\tool-result-shrink.test.js",
@@ -2318,6 +2352,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\action-model-view.e2e.js",
         "dev-harness\\adaptive-budget.e2e.js",
@@ -2325,10 +2360,12 @@
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-parent-heartbeat.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-role-openai.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\anthropic-fake.e2e.js",
@@ -2343,6 +2380,7 @@
         "dev-harness\\capabilities.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
@@ -2369,6 +2407,7 @@
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
@@ -2386,6 +2425,7 @@
         "dev-harness\\mcp-bridge.e2e.js",
         "dev-harness\\mcp-config.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-tools.e2e.js",
         "dev-harness\\migration-center.e2e.js",
@@ -2406,9 +2446,13 @@
         "dev-harness\\parallel-read-island.e2e.js",
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\playbook-skill-tools.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\prefix-layout.e2e.js",
+        "dev-harness\\preflight-relative-write.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
@@ -2430,6 +2474,7 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-turn-core.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\shell-session.e2e.js",
@@ -2792,6 +2837,7 @@
         "dev-harness\\action-feedback.static.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
@@ -2812,6 +2858,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\action-feedback.static.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
@@ -3104,7 +3151,8 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\overlay-update-core.e2e.js",
-        "dev-harness\\overlay-update-gui.static.e2e.js"
+        "dev-harness\\overlay-update-gui.static.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js"
       ]
     },
     {
@@ -3122,6 +3170,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
@@ -3129,11 +3178,13 @@
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-parent-heartbeat.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
         "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-budget-finalizer.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
@@ -3161,6 +3212,7 @@
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
@@ -3180,10 +3232,12 @@
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\file-guard.e2e.js",
+        "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\fixture-home.static.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
@@ -3205,6 +3259,7 @@
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
@@ -3232,7 +3287,10 @@
         "dev-harness\\permission-survives-reload.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\preflight-relative-write.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
@@ -3255,6 +3313,7 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\shell-session.e2e.js",
@@ -3292,6 +3351,7 @@
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
@@ -3341,7 +3401,8 @@
       "coveredBy": [
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\session-search.e2e.js",
-        "dev-harness\\steward-runner.e2e.js"
+        "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js"
       ]
     },
     {
@@ -3359,6 +3420,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
@@ -3366,11 +3428,13 @@
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-parent-heartbeat.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
         "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-budget-finalizer.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
@@ -3398,6 +3462,7 @@
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
@@ -3417,10 +3482,12 @@
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\file-guard.e2e.js",
+        "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\fixture-home.static.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
@@ -3442,6 +3509,7 @@
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
@@ -3469,7 +3537,10 @@
         "dev-harness\\permission-survives-reload.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\preflight-relative-write.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
@@ -3492,6 +3563,7 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\shell-session.e2e.js",
@@ -3529,6 +3601,7 @@
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
@@ -3610,16 +3683,21 @@
       "domain": "session",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\autocompact.e2e.js",
         "dev-harness\\background-completion.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
@@ -3634,6 +3712,7 @@
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
@@ -3656,6 +3735,7 @@
         "dev-harness\\perf.e2e.js",
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
@@ -3675,6 +3755,7 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\skills-registry.e2e.js",
@@ -3700,6 +3781,7 @@
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
@@ -4244,6 +4326,7 @@
       "domain": "intervention",
       "auth": "body-token",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js"
       ]
@@ -4261,6 +4344,7 @@
       "domain": "intervention",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\autonomy-pause.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
@@ -4269,6 +4353,7 @@
         "dev-harness\\interventions-snapshot.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\permission-plain.browser.e2e.js",
+        "dev-harness\\preflight-relative-write.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-exempt-no-swap.e2e.js",
@@ -4332,9 +4417,12 @@
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\agent-workflow-transient-repro.e2e.js",
         "dev-harness\\agent-workflow-ui-progress.e2e.js",
@@ -4379,8 +4467,10 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
         "dev-harness\\i18n.e2e.js",
@@ -4412,8 +4502,10 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
         "dev-harness\\i18n.e2e.js",
@@ -4445,8 +4537,10 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
         "dev-harness\\i18n.e2e.js",
@@ -4478,8 +4572,10 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
         "dev-harness\\i18n.e2e.js",
@@ -4866,6 +4962,7 @@
         "dev-harness\\event-stream.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\steward-contract-guard.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
@@ -4931,11 +5028,13 @@
         "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler-ui.browser.e2e.js",
         "dev-harness\\scheduler.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
-        "dev-harness\\unit\\scheduler-persist.test.js"
+        "dev-harness\\unit\\scheduler-persist.test.js",
+        "dev-harness\\unit\\scheduler-review-fixes.test.js"
       ]
     },
     {
@@ -4958,11 +5057,13 @@
         "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler-ui.browser.e2e.js",
         "dev-harness\\scheduler.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
-        "dev-harness\\unit\\scheduler-persist.test.js"
+        "dev-harness\\unit\\scheduler-persist.test.js",
+        "dev-harness\\unit\\scheduler-review-fixes.test.js"
       ]
     },
     {
@@ -4986,7 +5087,8 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
-        "dev-harness\\unit\\scheduler-persist.test.js"
+        "dev-harness\\unit\\scheduler-persist.test.js",
+        "dev-harness\\unit\\scheduler-review-fixes.test.js"
       ]
     },
     {
@@ -5010,7 +5112,8 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
-        "dev-harness\\unit\\scheduler-persist.test.js"
+        "dev-harness\\unit\\scheduler-persist.test.js",
+        "dev-harness\\unit\\scheduler-review-fixes.test.js"
       ]
     },
     {
@@ -5034,7 +5137,8 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
-        "dev-harness\\unit\\scheduler-persist.test.js"
+        "dev-harness\\unit\\scheduler-persist.test.js",
+        "dev-harness\\unit\\scheduler-review-fixes.test.js"
       ]
     },
     {
@@ -5058,7 +5162,8 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
-        "dev-harness\\unit\\scheduler-persist.test.js"
+        "dev-harness\\unit\\scheduler-persist.test.js",
+        "dev-harness\\unit\\scheduler-review-fixes.test.js"
       ]
     }
   ],

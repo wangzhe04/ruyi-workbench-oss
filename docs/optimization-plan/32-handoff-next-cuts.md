@@ -228,7 +228,7 @@ F5a 的三条硬约束：① 一份词汇表，`grep "M12 3a9 9" public/js/` 事
 
 6. **CLI 引擎拿不到「结论先行」层** —— 用户「不反对就照办」：折进拆 13h 那一刀顺手还掉（`05-claude-engine.js:234` 只拼四层进 `--append-system-prompt`），补一条两引擎对称的锁。
 
-7. **桥接桌面工具经不经 `allowDesktopTools` 闸的修法判据** —— **待拍板（2026-09-10，E-手②b③ 登记）**。核锁已钉死事实（27 号文 §11.21.8）：桥接工具没有 desktop 档，full 模式注入与 auto `tool_load` 显式拉入都**可达且不看闸**（已知洞，guardrails R4/R5 反向钉住，谁修好当场红）。修法三选一：① 按包名 `desktop` 滤（`07:375`，会把所有未知外部工具一起滤掉）；② 按账本 kind（`02:2070` 只盖写族，漏 screenshot/ocr）；③ 按服务器身份 `ai-computer-control`（最贴产品口径，但是一份新判据）。**不拍就维持「已知洞」现状。**
+7. ~~**桥接桌面工具经不经 `allowDesktopTools` 闸的修法判据**~~ —— **已修（2026-10）**：取第 ③ 种判据（服务器身份 `ai-computer-control` + ACC 裸工具名单：命令族随 `allowCommandTools`、桌面族随 `allowDesktopTools` 与会话覆盖、`batch_actions`/`macro_run` 任一闸关就关），判据收在 07 `toolDisabledByPolicy`，offer 面与 09/08/12/13d 分发面共用；CLI 直挂面经 `ACC_HIDE_TOOLS` 在 ACC 注册表里摘掉。guardrails R3/R4/R5 已翻成反向断言，端到端见 `acc-capability-gates.e2e.js`。原登记如下 —— **待拍板（2026-09-10，E-手②b③ 登记）**。核锁已钉死事实（27 号文 §11.21.8）：桥接工具没有 desktop 档，full 模式注入与 auto `tool_load` 显式拉入都**可达且不看闸**（已知洞，guardrails R4/R5 反向钉住，谁修好当场红）。修法三选一：① 按包名 `desktop` 滤（`07:375`，会把所有未知外部工具一起滤掉）；② 按账本 kind（`02:2070` 只盖写族，漏 screenshot/ocr）；③ 按服务器身份 `ai-computer-control`（最贴产品口径，但是一份新判据）。**不拍就维持「已知洞」现状。**
 
 8. ~~**第 121 波「一台两视」五条拍板**~~ —— **已拍板（2026-09-10 晚，用户「其余按你推荐的来」）**：① 视角命名「管家｜工作台」；② 线程索引口径「在途∪今天∪最近 30∪管家盯的」；③ `stewardEnabledV1` 默认 `true`；④ 交办台通知策略层改名 `notify-policy.js` 保留；⑤ `13e-pretender-index.js` 本波不改名。同轮追加四条设计修订（34 号文 §0.1）：管家视角以**任务**为单位、文字预算、费用只在「用量」页、切换动效走 View Transitions；「＋」两视角两义（管家＝新任务、工作台＝新线程）。**可开工**，入口 34 号文 §9 K0。
 
@@ -303,7 +303,7 @@ F5a 的三条硬约束：① 一份词汇表，`grep "M12 3a9 9" public/js/` 事
 | ~~`01-config` 对 `workspaces` 的 20 行帽子吞掉派生行~~ | **已还** W1④ `b9453c7`：帽 64、派生超帽 fail-closed；交付记录 §11.19.9 | ✅ |
 | ~~`STEWARD_ACTION_HOOKS` 没有 `steward_thread_permission`~~ | **已还**：E-手②b ① `d3ceccf`（挂钩＋人话标签＋前端 `STEWARD_TOOL_LABEL_KEYS`＋两个 locale 键）；交付记录 27 号文 §11.21.8 | ✅ |
 | ~~PATCH `desktopTools:true` 不要 `confirm:true`~~ | **已还**：E-手②b ② `0af605a`（与切全自动同一个 409 `permission.confirm_required`；清除与 false 不要确认）；交付记录 27 号文 §11.21.8 | ✅ |
-| **`allowDesktopTools` 只滤两个原生工具，桥接工具不经它** | **已核**（E-手②b ③ `392f82a`）：桥接工具没有 desktop 档；full 注入与 auto `tool_load` 拉入都**可达且不看闸**——已知洞被 R4/R5 反向钉住，谁修好当场红 | 修法判据（按包名／按账本／按服务器身份）是**拍板项**，见 §3 第 7 条；拍完后按判据滤并翻转 R4/R5 |
+| ~~`allowDesktopTools` 只滤两个原生工具，桥接工具不经它~~ | **已还（2026-10）**：按服务器身份 + ACC 裸名单判（07 `toolDisabledByPolicy`，命令闸同修），R3/R4/R5 已翻转；见 §3 第 7 条 | ✅（残余：Kimi 直挂 ACC 只按全局闸裁剪，会话级 desktopTools 管不到；旧版 ACC 不认 `ACC_HIDE_TOOLS`） |
 | ~~夹具设 `RUYI_HOME` 不设 `USERPROFILE` 会摸真机主目录~~ | E-手② 执行者的夹具在真机 `~/Ruyi/` 建过一条测试目录（已清）。**已还**：A 刀 `37011b5`——run-all 单点注入临时 HOME/USERPROFILE（真机家走 `RUYI_REAL_HOME`）、`--require` 守卫装进每件夹具、静态钉 120 处 spawn 判据＋4 个真子进程探针；反向验证（不 spread → 真红 → 逐字节还原） | ✅（残余：直跑单件不经 run-all 守卫不生效，另立刀） |
 | ~~派生的「占位＋建目录」不是原子的~~ | W1④ 登记：两条线程同时过预检 → 行被截；且 `stewardRegisterDerivedWorkspace` 吞掉写失败。**已还**：A 刀 `88d63ac`——`stewardClaimDerivedWorkspace` 把帽检查＋建目录＋append＋落盘坐进一次 `mutateConfig` 临界区，`landed` 后置校验，失败回滚本次新建目录；P7（并发）/P8（落盘失败）锁＋静态 ⑪ 重钉 | ✅（登记：单摘帽复检时 P7/P8 仍绿——`landed` 兜底，只被静态 ⑪ 钉住） |
 | ~~（原行保留供回看）~~ **`01-config` 对 `workspaces` 的 20 行帽子吞掉派生行** | `if (clean.length >= 20) break;` 两处；用户已有 20 个工作区时 W1 派生的那一行下次 normalize 被截掉，线程 cwd 指向表外目录、再用被拒；候选表折叠句生产不可达 | **W1④，合并后第一刀**：帽子抬 64、派生超帽 fail-closed 拒开并明说，锁「要么行落盘要么拒」 |

@@ -58,6 +58,7 @@ function handle(m) {
   if (m.method === 'tools/call') {
     const name = m.params && m.params.name;
     if (mode === 'nocall') return;
+    if (mode === 'srverr') return send({ jsonrpc: '2.0', id: m.id, error: { code: -32000, message: 'upstream API timed out after 30s (retry later)' } });
     if (mode === 'ping') { send({ jsonrpc: '2.0', id: m.id, method: 'ping' }); setTimeout(() => text(m.id, 'real'), 50); return; }
     if (name === 'array') return text(m.id, '[{"a":1},{"a":2}]');
     if (name === 'errok') return text(m.id, '{"ok":true,"detail":"x"}', { isError: true });
@@ -318,4 +319,81 @@ test('[16] tools/list 跟 nextCursor 翻页', async () => {
   const c = new McpStdioClient(entry('paged', 'paged'));
   await c.start();
   try { assert.deepEqual(c.listTools().map(t => t.name), ['a', 'b']); } finally { c.kill(); }
+});
+
+// 走查 W1·F7:callTool 只认「桥接自己的」超时 / 中断标记,不再用 /timed out/ 匹配错误文本。
+// 修前 MCP 服务端自己回的 JSON-RPC error 只要含 "timed out",就被当成桥接超时:杀掉健康的 MCP 进程树、
+// 回「tool timed out after Ns; 桥接进程树已终止」,服务端的原话被吞掉。
+test('[F7] stdio:服务端自己回的 "timed out" 错误原样交给模型,不杀健康的 MCP 进程', async () => {
+  const pidFile = path.join(root, 'f7-stdio.pid');
+  const c = new McpStdioClient(entry('f7', 'srverr', { env: { MODE: 'srverr', PID_FILE: pidFile } }));
+  await c.start();
+  try {
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+    const r = await c.callTool('t', {}, 5000);
+    assert.deepEqual(r, { ok: false, error: 'upstream API timed out after 30s (retry later)' });
+    assert.equal(c.dead, false, '客户端不该被标死');
+    assert.ok(alive(pid), '服务端进程不该被杀');
+    const again = await c.callTool('t', {}, 5000);   // 仍可继续用(没被重连)
+    assert.equal(again.error, 'upstream API timed out after 30s (retry later)');
+    assert.equal(Number(fs.readFileSync(pidFile, 'utf8')), pid, '没有重新拉起进程');
+  } finally { c.kill(); }
+});
+
+test('[F7] stdio:桥接自己的超时仍照旧 —— 杀进程树并如实说', async () => {
+  const pidFile = path.join(root, 'f7-stdio-hang.pid');
+  const c = new McpStdioClient(entry('f7b', 'nocall', { env: { MODE: 'nocall', PID_FILE: pidFile } }));
+  await c.start();
+  const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+  const r = await c.callTool('t', {}, 1000);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /tool timed out after 1s; 桥接进程树已终止/);
+  let gone = !alive(pid);
+  for (let i = 0; i < 30 && !gone; i++) { await new Promise(res => setTimeout(res, 100)); gone = !alive(pid); }
+  assert.ok(gone, '桥接超时后进程树被杀');
+  assert.equal(c.dead, true);
+});
+
+test('[F7] stdio:用户插话中断仍走 steerInterrupted', async () => {
+  const c = new McpStdioClient(entry('f7c', 'nocall'));
+  await c.start();
+  const ac = new AbortController();
+  setTimeout(() => ac.abort(), 200);
+  const r = await c.callTool('t', {}, 10000, { signal: ac.signal });
+  assert.equal(r.ok, false);
+  assert.equal(r.steerInterrupted, true, JSON.stringify(r));
+  assert.equal(c.dead, true);
+});
+
+test('[F7] http:服务端 JSON-RPC error 含 "timed out" 原样回传、连接不重置;真超时与插话照旧', async () => {
+  let mode = 'srverr';
+  const s = await listen((req, res) => {
+    let b = ''; req.on('data', d => { b += d; }); req.on('end', () => {
+      const m = JSON.parse(b || '{}');
+      if (m.id == null) { res.writeHead(202); return res.end(); }
+      if (m.method === 'tools/call' && mode === 'hang') return;   // 不回:触发桥接侧的超时
+      res.writeHead(200, { 'content-type': 'application/json' });
+      if (m.method === 'tools/call') return res.end(JSON.stringify({ jsonrpc: '2.0', id: m.id, error: { code: -32000, message: 'query timed out on server' } }));
+      res.end(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: m.method === 'tools/list' ? { tools: [{ name: 't' }] } : {} }));
+    });
+  });
+  try {
+    const c = new McpHttpClient({ id: 'f7h', transport: 'http', url: `http://127.0.0.1:${s.address().port}/mcp` });
+    await c.start();
+    const r = await c.callTool('t', {}, 5000);
+    assert.deepEqual(r, { ok: false, error: 'query timed out on server' });
+    assert.equal(c.dead, false, '服务端的错误不该重置连接');
+    mode = 'hang';
+    const t = await c.callTool('t', {}, 1000);
+    assert.match(t.error, /tool timed out after 1s; 远程连接已重置/, JSON.stringify(t));
+    assert.equal(c.dead, true);
+    const c2 = new McpHttpClient({ id: 'f7h2', transport: 'http', url: `http://127.0.0.1:${s.address().port}/mcp` });
+    mode = 'srverr';
+    await c2.start();
+    mode = 'hang';
+    const ac = new AbortController();
+    setTimeout(() => ac.abort(), 200);
+    const st = await c2.callTool('t', {}, 10000, { signal: ac.signal });
+    assert.equal(st.steerInterrupted, true, JSON.stringify(st));
+  } finally { s.closeAllConnections(); s.close(); }
 });

@@ -1202,6 +1202,10 @@
                   <p class="field-help muted" data-i18n="settings.advanced.subagentPerTurn.hint">单次对话回合内经 orchestrate_agents 累计启动的代理节点数上限；设为 0 可关闭代理。</p>
                 </div>
               </div>
+              <div class="field-row">
+                <label class="check"><input type="checkbox" id="cfgAgentAutoWake" /> <span data-i18n="settings.advanced.agentAutoWake">后台代理跑完后自动唤醒对话</span></label>
+                <p class="field-help muted" data-i18n="settings.advanced.agentAutoWake.hint">模型把任务交给后台代理后先结束了回合，代理跑完时由工作台自动起一个回合把结果交给模型继续处理；关掉则等你下一句话时再送达。</p>
+              </div>
             </section>
             <section class="settings-section settings-expert-only" id="settingsSecWorkflow" aria-labelledby="settingsSecWorkflowHeading">
               <h4 id="settingsSecWorkflowHeading" class="settings-subhead" data-i18n="settings.limits.workflowTitle">工作流与时限</h4>
@@ -1799,7 +1803,7 @@
                 </div>
                 <div class="field-block">
                   <label for="cfgDesktopMcpCwd" data-i18n="settings.workingDirectory">工作目录 cwd（留空 = 自动）</label>
-                  <input id="cfgDesktopMcpCwd" type="text" placeholder="C:\\Users\\...\\ai-computer-control" />
+                  <input id="cfgDesktopMcpCwd" type="text" placeholder="C:\Users\...\ai-computer-control" />
                 </div>
               </div>
             </section>

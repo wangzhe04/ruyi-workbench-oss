@@ -70,6 +70,20 @@ const TOOLS = [
   { name: 'memory_delete', description: 'Delete a memory entry (mirrors ACC memory_delete契约)', inputSchema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] } },
   { name: 'sequential_thinking', description: 'Record a thinking step (mirrors ACC sequential_thinking契约)', inputSchema: { type: 'object', properties: { thought: { type: 'string' }, thought_number: { type: 'number' }, total_thoughts: { type: 'number' }, next_thought_needed: { type: 'boolean' } }, required: ['thought', 'thought_number', 'total_thoughts', 'next_thought_needed'] } },
 ];
+// 2026-10 能力总闸(acc-capability-gates.e2e):FAKE_MCP_ACC_POLICY=1 时再追加几件与 ACC 真身【同名】的工具 ——
+// 命令族 run_command、桌面族 screenshot / mouse_click、转调器 batch_actions、名单外的 read_document —— 供 e2e 断言
+// 「内置桌面 MCP 里被设置关掉的工具不提供、不执行;名单外的照常;外部 MCP 的同名工具不受影响」。它们只回一个固定的
+// 成功形状、不碰真桌面;是否真被调到看 FAKE_MCP_CALL_CAPTURE(每次 tools/call 追加一行 {tag,name})。
+// 默认不开 —— TOOLS 仍是那 29 件(fake-mcp-contract.e2e 钉着数目)。
+const ACC_POLICY_TOOLS = [
+  { name: 'run_command', description: 'Run a shell command (fake ACC run_command)', inputSchema: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } },
+  { name: 'screenshot', description: 'Capture the screen (fake ACC screenshot)', inputSchema: { type: 'object', properties: {} } },
+  { name: 'mouse_click', description: 'Click at x,y (fake ACC mouse_click)', inputSchema: { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' } }, required: ['x', 'y'] } },
+  { name: 'batch_actions', description: 'Run several ACC tools in one call (fake ACC batch_actions)', inputSchema: { type: 'object', properties: { actions: { type: 'array' } }, required: ['actions'] } },
+  { name: 'read_document', description: 'Read a document as text (fake ACC read_document)', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
+];
+const ACC_POLICY_ON = process.env.FAKE_MCP_ACC_POLICY === '1';
+if (ACC_POLICY_ON) TOOLS.push(...ACC_POLICY_TOOLS);
 let OPTIONAL = { ocr: true, uia: true, cv2: false, playwright: false };
 try { const v = process.env.FAKE_MCP_OPTIONAL; if (v) { const o = JSON.parse(v); if (o && typeof o === 'object') OPTIONAL = { ocr: !!o.ocr, uia: !!o.uia, cv2: !!o.cv2, playwright: !!o.playwright }; } } catch { /* ignore */ }
 // 47b:pid 捕获(追加,一行一个)—— 让 e2e 能断言"第一个 fake-mcp 超时后确实被杀、重连的新 pid 活着"。
@@ -123,7 +137,12 @@ rl.on('line', line => {
       const name = msg.params && msg.params.name;
       const args = (msg.params && msg.params.arguments) || {};
       let result, isError = false;
-      if (name === 'echo') {
+      if (process.env.FAKE_MCP_CALL_CAPTURE) {
+        try { fs.appendFileSync(process.env.FAKE_MCP_CALL_CAPTURE, JSON.stringify({ tag: process.env.FAKE_MCP_SERVER_TAG || 'default', name }) + '\n', 'utf8'); } catch { /* ignore */ }
+      }
+      if (ACC_POLICY_ON && ACC_POLICY_TOOLS.some(t => t.name === name)) {
+        result = { ok: true, fake: name, tag: process.env.FAKE_MCP_SERVER_TAG || 'default' };
+      } else if (name === 'echo') {
         result = { ok: true, echoed: String(args.message == null ? '' : args.message) };
       } else if (name === 'add') {
         const a = Number(args.a), b = Number(args.b);

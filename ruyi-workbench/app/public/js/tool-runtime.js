@@ -207,14 +207,14 @@ function handlePlanEvent(evt, main, live) {
   };
   card.__resolveIntervention = finish;
 
-  approve.onclick = async () => { const r = await decidePlan(planId, 'approve'); if (r && r.ok) finish('approve'); else if (r) toast(r.error || t('plan.expired'), ''); };
-  reject.onclick = async () => { const r = await decidePlan(planId, 'reject'); if (r && r.ok) finish('reject'); else if (r) toast(r.error || t('plan.expired'), ''); };
+  approve.onclick = async () => { const r = await decidePlan(planId, 'approve'); if (r && r.ok) finish('approve'); else if (r) toast(apiErrText(r.error) || t('plan.expired'), ''); };
+  reject.onclick = async () => { const r = await decidePlan(planId, 'reject'); if (r && r.ok) finish('reject'); else if (r) toast(apiErrText(r.error) || t('plan.expired'), ''); };
   amend.onclick = () => { noteWrap.style.display = ''; noteTa.focus(); };
   noteSend.onclick = async () => {
     const note = noteTa.value.trim();
     const r = await decidePlan(planId, 'approve', note);
     if (r && r.ok) finish('approve', note);
-    else if (r) toast(r.error || t('plan.expired'), '');
+    else if (r) toast(apiErrText(r.error) || t('plan.expired'), '');
   };
 
   const host = main || $('messages');

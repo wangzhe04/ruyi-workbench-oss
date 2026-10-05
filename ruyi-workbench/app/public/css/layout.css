@@ -240,7 +240,7 @@
    菜单的第五、六、七项。原先这里那条 `display:none`（连同它上面「动作由『更多』那一项给」
    的注释）整条删除。#capBadge 自己还有一枚 .hidden：那是「能力探针还没回来」的态，
    renderCapBadge 拿到结果就摘掉，与本条无关。 */
-.app-gear-menu > #capBadge { gap: 8px; }
+.app-gear-menu > #capBadge { gap: 8px; border-color: transparent; background: transparent; text-align: start; }   /* 菜单里它就是普通一项,不画 .cap-badge 的边框底色胶囊 */
 .app-gear-sep { height: 1px; margin: 4px 6px; border: 0; background: var(--line); }   /* 体验走查 #21：破坏性操作与普通项隔开 */
 .app-gear-menu > .gear-danger { color: var(--danger-fg); }
 .app-gear-menu > #capBadge .mm-label { flex: 1; }

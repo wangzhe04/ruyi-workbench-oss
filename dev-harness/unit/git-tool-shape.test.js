@@ -141,3 +141,63 @@ test('[G7] git_commit:addAll 默认 false;schema 文字与代码一致;没暂存
   const addAllLine = schema.split('\n').find(l => /addAll:\s*\{/.test(l));
   assert.ok(addAllLine && /default false/.test(addAllLine) && !/default true/.test(addAllLine), addAllLine);
 });
+
+// 走查 W1·F6:git_commit 超时的人话与收尸。修前 30s 超时被报成「提交被 pre-commit 钩子拒绝 hookRejected:true detail:''」,
+// 钩子起的子进程成了孤儿(还攥着管道)。钩子是 sh 脚本(Git for Windows 自带 sh,Windows 上同样会跑)。
+function writeHook(repo, name, body) {
+  const file = path.join(repo, '.git', 'hooks', name);
+  fs.writeFileSync(file, '#!/bin/sh\n' + body + '\n');
+  fs.chmodSync(file, 0o755);
+}
+const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+
+test('[G8] git_commit 超时:说「被终止」+ timedOut,不是 hookRejected;暂存区状态照实报', opts, async () => {
+  const repo = mkRepo('g8');
+  writeHook(repo, 'pre-commit', 'sleep 30');
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n');
+  const t0 = Date.now();
+  const r = await srv.toolCall('git_commit', { message: 'slow', addAll: true, timeoutMs: 1500 }, ctxFor(repo));
+  const took = Date.now() - t0;
+  assert.equal(r.ok, false);
+  assert.equal(r.timedOut, true, JSON.stringify(r).slice(0, 400));
+  assert.notEqual(r.hookRejected, true, '超时不是钩子拒绝');
+  assert.match(String(r.error), /超过 \d+ 秒仍未结束,已被终止/);
+  assert.match(String(r.hint), /git_status/);
+  assert.match(String(r.hint), /pre-commit/, '仓库有 pre-commit 钩子:点一句多半是钩子慢');
+  assert.match(String(r.hint), /timeoutMs/);
+  assert.equal(r.stagedCount, 1, '文件仍在暂存区,要如实说');
+  assert.ok(took < 12000, `超时后应及时返回(耗时 ${took}ms)`);
+});
+
+test('[G8] 钩子起的整棵进程树随超时一并结束(不留孤儿)', { skip: !haveGit ? '本机没有 git' : process.platform === 'win32' ? 'sh 子进程号不是 Windows 进程号' : false }, async () => {
+  const repo = mkRepo('g8b');
+  const pidFile = path.join(repo, 'hook-sleep.pid');
+  // 孙进程:后台 sleep(它的 stdout/stderr 仍连着 git 的管道),脚本 wait 它
+  writeHook(repo, 'pre-commit', `sleep 60 &\necho $! > "${pidFile}"\nwait`);
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n');
+  const r = await srv.toolCall('git_commit', { message: 'slow', addAll: true, timeoutMs: 1500 }, ctxFor(repo));
+  assert.equal(r.timedOut, true, JSON.stringify(r).slice(0, 300));
+  const grandchild = Number(fs.readFileSync(pidFile, 'utf8').trim());
+  assert.ok(grandchild > 0);
+  let gone = !alive(grandchild);
+  for (let i = 0; i < 30 && !gone; i++) { await new Promise(res => setTimeout(res, 100)); gone = !alive(grandchild); }
+  if (!gone) { try { process.kill(grandchild, 'SIGKILL'); } catch { /* ignore */ } }
+  assert.ok(gone, '钩子的孙进程(sleep 60)应随超时被杀掉');
+});
+
+test('[G8] 钩子真的拒绝(快速非零退出)仍报 hookRejected,不被误当超时', opts, async () => {
+  const repo = mkRepo('g8c');
+  writeHook(repo, 'pre-commit', 'echo "lint failed: no console.log"\nexit 1');
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n');
+  const r = await srv.toolCall('git_commit', { message: 'x', addAll: true }, ctxFor(repo));
+  assert.equal(r.ok, false);
+  assert.equal(r.hookRejected, true, JSON.stringify(r).slice(0, 300));
+  assert.notEqual(r.timedOut, true);
+  assert.match(String(r.detail), /lint failed/);
+});
+
+test('[G8] git_commit 的 schema 暴露 timeoutMs、默认超时说清', opts, () => {
+  const t = srv.buildOpenAiTools({ ...srv.defaultConfig(), toolLoadingMode: 'full' }, null, { skillsEnabled: true }).find(x => x.function.name === 'git_commit');
+  assert.ok(t && t.function.parameters.properties.timeoutMs, 'timeoutMs 在 schema 里');
+  assert.match(t.function.description, /90s/);
+});

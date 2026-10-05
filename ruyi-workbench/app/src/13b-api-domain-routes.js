@@ -287,6 +287,9 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
         },
       });
       await markTurnSummaryReverted(sessionId, Number(body.turnSeq), rollback.reverted).catch(() => {});
+      // C4:记下「用户撤销了哪回合的什么」—— checkpoint_list 据此标 reverted,下一个 provider 回合起跑时 09 把它写成一行告知
+      // 追加到那条 user 消息(见 02 journalRevertLogRecord 头注)。旁路写,失败只是模型少收到一句告知。
+      await journalRevertLogRecord(sessionId, rollback.reverted).catch(() => {});
     }
     return send(res, json(rollback));
   }

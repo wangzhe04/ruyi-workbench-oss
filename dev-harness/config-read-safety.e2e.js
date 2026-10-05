@@ -105,6 +105,9 @@ try {
   r = await reqJson('POST', '/api/config', { locale: 'en-US' });
   ok(r.status >= 400, `D2 writes are refused while degraded (status ${r.status})`);
   ok(diskText() === '{ broken after restart', 'D3 the refused write left the file untouched');
+  // 2026-10:降级时用的是出厂默认 —— 但权限档不跟出厂的智能自动,钉最保守的 'default'(读不出用户配置时不该放权)。
+  r = await reqJson('GET', '/api/status');
+  ok(r.json && r.json.config && r.json.config.permissionMode === 'default', `D3b while degraded the permission mode is the conservative default (got ${r.json && r.json.config && r.json.config.permissionMode})`);
   fs.writeFileSync(CONFIG, JSON.stringify({ ...seeded, locale: 'en-US' }, null, 2));
   r = await reqJson('GET', '/api/status');
   r = await reqJson('POST', '/api/config', { locale: 'zh-CN' });
@@ -122,7 +125,7 @@ try {
   r = await reqJson('GET', '/api/status');
   await sleep(300);
   // 128a(48 号文 §2):全新安装落的是稀疏文件(簿记键 ＋ 迁移播种的工作区表),等于默认的 providers:[] 不落盘。
-  ok(fs.existsSync(CONFIG) && diskJson().configSchema === 13 && (diskJson().providers === undefined || diskJson().providers.length === 0),
+  ok(fs.existsSync(CONFIG) && diskJson().configSchema === 14 && (diskJson().providers === undefined || diskJson().providers.length === 0),
     'F1 fresh install (no file, no .prev) writes a fresh config (sparse: no providers on disk)');
 } catch (e) {
   fail++; console.log('FAIL exception ' + (e && e.stack || e));

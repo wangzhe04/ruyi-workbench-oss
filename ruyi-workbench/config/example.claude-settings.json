@@ -1,8 +1,10 @@
 {
+  "extraKnownMarketplaces": {
+    "ruyi-offline": {
+      "source": { "source": "directory", "path": "%PACKAGE_ROOT%\\resources\\plugins\\ruyi-offline" }
+    }
+  },
   "enabledPlugins": {
     "offline-toolkit@ruyi-offline": true
-  },
-  "env": {
-    "CLAUDE_CODE_PLUGIN_SEED_DIR": "%PACKAGE_ROOT%\\resources\\plugins"
   }
 }

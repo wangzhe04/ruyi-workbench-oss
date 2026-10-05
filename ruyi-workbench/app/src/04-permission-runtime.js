@@ -29,7 +29,7 @@ async function makeAttachmentRecord(input) {
   // v1.9:svg 是文本(矢量图源码)进 textPreview;像素图(png/jpg/…)不进,打 kind:'image' 走图片预处理。
   const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|svg|html|css|yaml|yml|ini|log)$/i.test(safeName);
   if (textLike && buffer.length <= 256 * 1024) {
-    textPreview = buffer.toString('utf8').slice(0, 12000);
+    textPreview = decodeTextFileBytes(buffer, true).slice(0, 12000);   // 走查 W1·F4:GBK / UTF-16(带 BOM)按内容判编码,不再一律当 UTF-8
   }
   // 127-114c②(26 号文 §3):音频附件打 kind:'audio'(扩展名白名单)——上传路由凭它触发尽力转写;
   // 非音频不落此字段(与 hiddenModels/caps「空不落字段」同模具,存量记录形状零漂移)。
@@ -854,6 +854,17 @@ function bridgedServerSpawnEnv(baseEnv, ownEnv) {
   return { ...out, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
 }
 
+// 走查 W1·F7:桥接超时 / 用户插话中断的 reject 打【标记】(err.mcpTimeout / err.mcpAborted),callTool 只认标记。
+// 修前 callTool 用 /timed out/ 匹配 e.message —— MCP 服务端自己回的 JSON-RPC error(「upstream API timed out」「query timed out」)
+// 文本里只要带这几个字,就被当成桥接超时:工作台杀掉一个健康的 MCP 进程树、报「桥接进程树已终止」,而服务端的原话被吞掉。
+// 现在服务端的错误(没有标记)原样回给模型。
+function mcpBridgeError(message, kind) {
+  const e = new Error(message);
+  if (kind === 'timeout') e.mcpTimeout = true;
+  else if (kind === 'abort') e.mcpAborted = true;
+  return e;
+}
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -898,14 +909,14 @@ class McpStdioClient {
         // 可收手);真正的兜底是 callTool catch 里的 kill 进程树(ACC 侧不响应取消也不留僵尸执行)。
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
         cleanup();
-        reject(new Error(`mcp ${method} timed out`));
+        reject(mcpBridgeError(`mcp ${method} timed out`, 'timeout'));
       }, Math.max(1000, timeoutMs));
       abortHandler = () => {
         if (!this._pending.has(id)) return;
         this._pending.delete(id);
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'user_steer' }); } catch { /* best-effort */ } }
         cleanup();
-        reject(new Error(`mcp ${method} aborted by user steer`));
+        reject(mcpBridgeError(`mcp ${method} aborted by user steer`, 'abort'));
       };
       this._pending.set(id, { resolve, reject, timer, cleanup });
       if (signal) {
@@ -1052,13 +1063,13 @@ class McpStdioClient {
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
       if (e && e.mcpChildExit) return mcpChildExitResult(this, name, e.mcpChildExit);   // 审计 A14
-      if (/aborted by user steer/.test(m)) {
+      if (e && e.mcpAborted) {
         // A cooperative notification is not enough for an arbitrary local MCP server: terminate the
         // process tree as the safety backstop so an interrupted write cannot continue as a zombie.
         try { this.kill(); } catch { /* already dead */ }
         return { ok: false, error: '工具已因用户插话中断；桥接进程树已终止，模型将立即处理新指令', steerInterrupted: true };
       }
-      if (/timed out/.test(m)) {
+      if (e && e.mcpTimeout) {
         // 47b:超时即杀桥进程树 —— 旧行为是桥先超时、ACC 继续僵尸执行(用户"纠偏"后旧命令仍在后台写文件,
         // 比不能打断更危险)。cancelled 通知已在 _rpc 超时点发出;此处保证无论对端是否协作取消都不留活口。
         try { this.kill(); } catch { /* already dead */ }
@@ -1140,11 +1151,12 @@ class McpHttpClient {
       const signal = options && options.signal;
       let settled = false;
       let abortHandler = null;
+      let why = '';   // 'timeout' / 'abort':这次失败是我们自己的超时 / 用户中断(不是对端的错误),随 error 一起交出去
       const finish = value => {
         if (settled) return;
         settled = true;
         if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
-        resolve(value);
+        resolve(why && value && value.error ? { ...value, why } : value);
       };
       const req = lib.request(u, {
         method,
@@ -1160,9 +1172,9 @@ class McpHttpClient {
         res.on('end', () => finish({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
         res.on('error', e => finish({ error: (e && e.message) || String(e) }));
       });
-      req.on('timeout', () => { req.destroy(new Error('request timed out')); });
+      req.on('timeout', () => { why = 'timeout'; req.destroy(new Error('request timed out')); });
       req.on('error', e => finish({ error: (e && e.message) || String(e) }));
-      abortHandler = () => req.destroy(new Error('request aborted by user steer'));
+      abortHandler = () => { why = 'abort'; req.destroy(new Error('request aborted by user steer')); };
       if (signal) {
         signal.addEventListener('abort', abortHandler, { once: true });
         if (signal.aborted) abortHandler();
@@ -1202,8 +1214,8 @@ class McpHttpClient {
     if (resp.error) {
       // 49c 对抗验证修(第50波):_rpcHttp 超时也发 notifications/cancelled(与 _rpcSse/stdio _rpc 一致--
       //   对端若实现协作式取消可收手,不留无主处理)。连接可能已断,_notify 静默失败 best-effort。
-      if (method === 'tools/call' && /timed out|aborted by user steer/i.test(resp.error)) { try { this._notify('notifications/cancelled', { requestId: id, reason: /aborted/i.test(resp.error) ? 'user_steer' : 'timeout' }); } catch { /* best-effort */ } }
-      throw new Error('mcp http: ' + resp.error);
+      if (method === 'tools/call' && resp.why) { try { this._notify('notifications/cancelled', { requestId: id, reason: resp.why === 'abort' ? 'user_steer' : 'timeout' }); } catch { /* best-effort */ } }
+      throw mcpBridgeError('mcp http: ' + resp.error, resp.why);
     }
     const sid = resp.headers && (resp.headers['mcp-session-id'] || resp.headers['Mcp-Session-Id']);
     if (sid && !this._sessionId) this._sessionId = String(sid);
@@ -1246,14 +1258,14 @@ class McpHttpClient {
         this._pending.delete(id);
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
         cleanup();
-        reject(new Error(`mcp ${method} timed out`));
+        reject(mcpBridgeError(`mcp ${method} timed out`, 'timeout'));
       }, Math.max(1000, timeoutMs));
       abortHandler = () => {
         if (!this._pending.has(id)) return;
         this._pending.delete(id);
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'user_steer' }); } catch { /* best-effort */ } }
         cleanup();
-        reject(new Error(`mcp ${method} aborted by user steer`));
+        reject(mcpBridgeError(`mcp ${method} aborted by user steer`, 'abort'));
       };
       this._pending.set(id, { resolve, reject, timer, cleanup });
       if (signal) {
@@ -1264,7 +1276,7 @@ class McpHttpClient {
         .then(resp => {
           if (resp.error || (resp.status && resp.status >= 400)) {
             cleanup(); this._pending.delete(id);
-            reject(new Error('mcp sse post: ' + (resp.error || ('HTTP ' + resp.status))));
+            reject(mcpBridgeError('mcp sse post: ' + (resp.error || ('HTTP ' + resp.status)), resp.why));
           }
         });
     });
@@ -1407,11 +1419,11 @@ class McpHttpClient {
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
-      if (/aborted by user steer/.test(m)) {
+      if (e && e.mcpAborted) {
         try { this.kill(); } catch { /* already dead */ }
         return { ok: false, error: '工具已因用户插话中断；远程 MCP 连接已重置，模型将立即处理新指令', steerInterrupted: true };
       }
-      if (/timed out/.test(m)) {
+      if (e && e.mcpTimeout) {
         // 远程无进程树可杀 —— 断连接 + 下次调用惰性重建(sse 流 / session 重新握手)。
         try { this.kill(); } catch { /* already dead */ }
         return { ok: false, error: `tool timed out after ${Math.round(limit / 1000)}s; 远程连接已重置,下次调用将自动重连` };
