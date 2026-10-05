@@ -1326,6 +1326,7 @@
   "migration.error.nothing_to_apply": "The selected items are gone. Refresh and try again.",
   "migration.error.no_migration_to_undo": "There is no migration to undo.",
   "migration.error.already_undone": "This migration was already undone.",
+  "migration.error.undo_incomplete": "The undo did not fully complete: some files could not be restored (they may be in use or locked). Files already restored will not be touched again; fix the cause and click Undo again to continue.",
   "migration.card.title": "Found things you can migrate",
   "migration.card.instructions": "{{count}} instruction files",
   "migration.card.mcp": "{{count}} MCP servers",

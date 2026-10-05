@@ -249,8 +249,14 @@ async function runClaudeTurn({
   // for a doomed CLI spawn: (1) cwd changed, so Claude will search a different projects/<cwd> bucket;
   // (2) model/vendor route changed, so the old native branch is no longer a safe continuation target.
   if (!_resumeRecoveryAttempt && config.autoResumeClaudeSessions && session.claudeSessionId) {
-    const boundModel = typeof session.claudeSessionModel === 'string'
-      ? session.claudeSessionModel : lastSuccessfulClaudeModel(session.messages);
+    // 续接闸比的是「绑定那一刻【请求】的模型」(claudeSessionRequestedModel),不是 CLI 回报的实际模型。Kimi 在
+    // config.model 为空(用「默认模型」)时,05b 会把 claudeSessionModel 改写成 Kimi 报回的实际模型(状态面板/上下文窗口要用),
+    // 拿它和空的 currentClaudeModel 比永远不等 → 每回合判「模型变了」、把原生会话重置。没有这个字段(绑定于修前的老会话 /
+    // Claude 引擎老数据)才退回 claudeSessionModel 与最近成功回合的模型。
+    const boundModel = typeof session.claudeSessionRequestedModel === 'string'
+      ? session.claudeSessionRequestedModel
+      : (typeof session.claudeSessionModel === 'string'
+        ? session.claudeSessionModel : lastSuccessfulClaudeModel(session.messages));
     const boundCwd = typeof session.claudeSessionCwd === 'string' && session.claudeSessionCwd
       ? session.claudeSessionCwd
       : await engineTranscriptCwd(session.claudeSessionId).catch(() => '');
@@ -260,6 +266,7 @@ async function runClaudeTurn({
     if (resumeResetReason) {
       session.claudeSessionId = null;
       delete session.claudeSessionModel;
+      delete session.claudeSessionRequestedModel;
       delete session.claudeSessionCwd;
       delete session.claudeSessionRouteKey;
       session.injectedIndexHash = null;
@@ -316,7 +323,9 @@ async function runClaudeTurn({
     });
   }
 
-  if (!fakeClaude && (!claude || !probeAgentCliLauncher(claude))) {
+  // 回合入口的 CLI 在位判据走异步 + 记忆的 agentCliLauncherUsable(01):修前同步 spawnSync「--version」每回合钉住事件循环最长 4 s,
+  // 且超时被当成「未检测到」。现在只有真的缺失(起不来 / 退出码非 0)才走下面的引导卡;WCW_FAKE_CLAUDE 测试缝照旧整段绕过。
+  if (!fakeClaude && (!claude || !(await agentCliLauncherUsable(claude)))) {
     // v1.0.2-S6: engine=claude 且 CLI 探测失败 —— 错误文本改中文人话, 并给错误事件附加 code:'cli-missing'
     // (只增字段, 前端按 code 渲染引导卡)。首荐直接配 API 引擎(对小白更简单), 次选指定 CLI 路径。
     const fallback = [
@@ -843,6 +852,7 @@ async function runClaudeTurn({
     if (!sid) return;
     session.claudeSessionId = sid;
     session.claudeSessionModel = currentClaudeModel;
+    session.claudeSessionRequestedModel = currentClaudeModel;   // 续接闸的比较对象(见上方「Proactive compatibility gate」)
     session.claudeSessionCwd = workingDir;
     session.claudeSessionRouteKey = currentResumeRouteKey;
   };
@@ -1066,6 +1076,7 @@ async function runClaudeTurn({
   if (resumeTranscriptMissing && !_resumeRecoveryAttempt) {
     session.claudeSessionId = null;
     delete session.claudeSessionModel;
+    delete session.claudeSessionRequestedModel;
     delete session.claudeSessionCwd;
     delete session.claudeSessionRouteKey;
     session.injectedIndexHash = null;

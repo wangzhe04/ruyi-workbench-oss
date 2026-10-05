@@ -1326,6 +1326,7 @@
   "migration.error.nothing_to_apply": "选中的项已经不在了，请刷新后再试。",
   "migration.error.no_migration_to_undo": "没有可撤销的迁移。",
   "migration.error.already_undone": "这次迁移已经撤销过了。",
+  "migration.error.undo_incomplete": "撤销没有完全完成：有文件没能改回（可能被占用或没有权限）。已改回的不会重复处理，处理好后再点一次「撤销」即可继续。",
   "migration.card.title": "发现可以迁移的内容",
   "migration.card.instructions": "{{count}} 份全局指令",
   "migration.card.mcp": "{{count}} 个 MCP",

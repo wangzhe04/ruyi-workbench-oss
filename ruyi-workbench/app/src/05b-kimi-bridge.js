@@ -51,7 +51,7 @@ async function ensureKimiServer(config) {
     let token = '';
     try { token = String(await fsp.readFile(tokenFile, 'utf8')).trim(); } catch { /* login/server may create it */ }
     const driver = selectedAgentCli({ ...config, agentCliType: 'kimi' });
-    if (!driver.path || !probeAgentCliLauncher(driver.path)) throw new Error('未检测到 Kimi Code CLI');
+    if (!driver.path || !(await agentCliLauncherUsable(driver.path))) throw new Error('未检测到 Kimi Code CLI');   // 异步 + 记忆,超时不算缺失(见 01 agentCliLauncherUsable)
     const port = await freeLoopbackPort();
     const launch = prepareAgentCliSpawn('kimi', driver.path, ['web', '--port', String(port), '--no-open', '--log-level', 'warn']);
     const child = cp.spawn(launch.command, launch.args, {
@@ -2337,6 +2337,7 @@ async function runKimiAcpTurnPrepared(context) {
   let rpc = null;
   let reg = null;
   let updateQueue = Promise.resolve();
+  let promptDelivered = false;   // session/prompt 已得到 Kimi 的应答(见 catch 里清「已注入索引」hash 的判据)
   const markActivity = () => { if (reg) reg.lastEventAt = Date.now(); };
   const emitUpdate = async params => {
     markActivity();
@@ -2670,6 +2671,9 @@ async function runKimiAcpTurnPrepared(context) {
     if (!nativeSessionId) throw new Error('Kimi ACP did not return a sessionId');
     reg.nativeSessionId = nativeSessionId;
     session.claudeSessionId = nativeSessionId;
+    // 续接闸(05)比的是这里记下的【请求】模型,而不是下面 kimiAcpSyncActualConfig 会写进 claudeSessionModel 的 Kimi 实际模型:
+    // config.model 为空(默认模型)时两者永远不等,每回合都会被误判「模型变了」而重置原生会话。
+    session.claudeSessionRequestedModel = String(currentClaudeModel || '');
     session.claudeSessionCwd = workingDir;
     session.claudeSessionRouteKey = currentResumeRouteKey;
     session.kimiAcpConfigOptions = activated && Array.isArray(activated.configOptions) ? activated.configOptions : [];
@@ -2786,6 +2790,7 @@ async function runKimiAcpTurnPrepared(context) {
         sessionId: nativeSessionId,
         prompt: Array.isArray(promptParts) && promptParts.length ? promptParts : [{ type: 'text', text: prompt }],
       }, 0);
+      promptDelivered = true;
       // Notifications can arrive just before/after the prompt result. Preserve their wire order and make
       // the final plan/config snapshot visible before this prompt is considered complete.
       await updateQueue;
@@ -2817,6 +2822,13 @@ async function runKimiAcpTurnPrepared(context) {
     }
   } catch (error) {
     state.error = error;
+    // 第35波 P2 的索引去重(05 injectedIndexHash)对 Kimi 同样成立:05 在拼 prompt 时就先把 hash 置上了。session/prompt 还没有得到
+    // 应答就失败(进程没起来 / initialize、session/new、session/resume 失败 / 设置项中止 / 管道断了 / 看门狗或 Stop 在应答前杀掉进程),
+    // Kimi 的原生会话里多半根本没有本回合注入的技能/记忆/编排索引 —— 不清 hash,下回合会因「内容没变」而不再补发,模型从此看不到索引。
+    // 与 05 的 Claude 路径同一处理(那边:进程没启动 → 清 hash)。宁可多补发一次(重复无害)也不丢。
+    // 例外:Kimi 对 session/prompt 回了 JSON-RPC 错误(额度/鉴权等)= prompt 已送达并进了它的转录,不清。
+    const promptReachedAgent = Boolean(error && error.method === 'session/prompt' && error.code !== undefined);
+    if (!promptDelivered && !promptReachedAgent) session.injectedIndexHash = null;
   } finally {
     // hunt2-engines#6:循环以 break / throw / 看门狗中止离开时,acceptingSteer 原先还是 true —— 下面的收尾要等好几个
     // await(队列、终端清理、关进程最多 350ms),这期间 /api/steer 仍回 queued:1,然后插话随回合结束被静默丢掉。

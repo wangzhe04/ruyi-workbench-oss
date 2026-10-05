@@ -2048,18 +2048,46 @@ function mutateConfig(mutator) {
 //   applyConfigPatch(rawBody) -> Promise<next>(06k 加载时填入;契约见 06k 里那个函数的头注)
 const ConfigPatchHooks = {};
 
+// 读-改-写用户自己的 JSON 配置(~/.claude/settings.json、$KIMI_CODE_HOME/mcp.json)前的「读」。修前把【任何】读失败 /
+// 解析失败都当成空对象继续合并、再原子写回 —— 用户手写的文件多一个尾逗号、被别的程序占着(EBUSY/EPERM)、被编辑器
+// 存成带 BOM,整份内容就被工作台的那几个键覆盖掉(丢数据)。现在只有三种情形允许往下走:
+//   · 文件不存在(ENOENT/ENOTDIR)—— 真的是「空」,合并后新建;
+//   · 全空白(0 字节 / 只有换行)—— 没有任何用户内容可丢;
+//   · 解析成功且根是普通对象(UTF-8 BOM 先剥掉:Windows 记事本存的 JSON 常带 BOM)。
+// 其余(非法 JSON、根不是对象、EBUSY / EPERM / EACCES 等读错误)一律返回 { ok:false, reason },调用方记一条事件、
+// 本次同步整个跳过(不写),把文件原样留给用户。
+async function readUserJsonObjectForMerge(file) {
+  let raw;
+  try { raw = await fsp.readFile(file, 'utf8'); }
+  catch (error) {
+    const code = error && error.code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { ok: true, value: {}, existed: false };
+    return { ok: false, reason: `read-failed:${code || (error && error.message) || 'unknown'}` };
+  }
+  const text = raw.replace(/^\uFEFF/, '');
+  if (!text.trim()) return { ok: true, value: {}, existed: true };
+  let parsed;
+  try { parsed = JSON.parse(text); }
+  catch (error) { return { ok: false, reason: `invalid-json:${(error && error.message) || 'parse error'}` }; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, reason: 'root-not-object' };
+  return { ok: true, value: parsed, existed: true };
+}
+
 // v1.4.3: Sync workbench settings to ~/.claude/settings.json so the Claude CLI's own config stays
 // aligned with what the user selected in the Ruyi UI. This is a MERGE: existing keys are preserved.
 // Covers: permissionMode, model, thinkingBudget, appendSystemPrompt.
+// 读不动 / 不合法的 settings.json 不碰(整次跳过),见上面的 readUserJsonObjectForMerge。
 async function syncClaudeCliSettings(config) {
   try {
     const claudeDir = path.join(os.homedir(), '.claude');
     const settingsPath = path.join(claudeDir, 'settings.json');
-    let settings = {};
-    try {
-      settings = JSON.parse(await fsp.readFile(settingsPath, 'utf8'));
-      if (!settings || typeof settings !== 'object') settings = {};
-    } catch { /* file doesn't exist or invalid JSON */ }
+    const read = await readUserJsonObjectForMerge(settingsPath);
+    if (!read.ok) {
+      // 用户的 settings.json 读不动 / 不合法:不碰它(写回会把用户内容整份覆盖掉)。CLI 回合另有 --permission-mode 等命令行参数兜底。
+      logEvent({ kind: 'claude_settings_sync_skipped', file: settingsPath, reason: read.reason });
+      return;
+    }
+    const settings = read.value;
 
     // 1. Permission mode
     const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
@@ -2071,16 +2099,23 @@ async function syncClaudeCliSettings(config) {
     // 时宁可留一次陈旧值也不误删。
     const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
     let prevSyncedModel = null;
+    let prevSyncedThinking = null;
     try {
       const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
       if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
+      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
     } catch { /* no sidecar yet */ }
     if (config.model && typeof config.model === 'string') settings.model = config.model;
     else if (prevSyncedModel && settings.model === prevSyncedModel) delete settings.model;
-    // 3. Thinking budget -> env.MAX_THINKING_TOKENS
+    // 3. Thinking budget -> env.MAX_THINKING_TOKENS。与上面的 model 同一条权属纪律:工作台没设预算时,只删【自己写过的】
+    // 那个值(仍等于 sidecar 记的上次同步值才删);用户自己在 settings.json 里手写的 MAX_THINKING_TOKENS 原样保留。
+    // 修前无条件 delete,会把用户手写的值一并抹掉。sidecar 缺这个键(老版本升级)时宁可留一次陈旧值也不误删。
     if (config.thinkingBudget) {
-      settings.env = { ...(settings.env || {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
-    } else { if (settings.env) delete settings.env.MAX_THINKING_TOKENS; }
+      settings.env = { ...(settings.env && typeof settings.env === 'object' ? settings.env : {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
+    } else if (prevSyncedThinking !== null && settings.env && typeof settings.env === 'object'
+      && String(settings.env.MAX_THINKING_TOKENS) === prevSyncedThinking) {
+      delete settings.env.MAX_THINKING_TOKENS;
+    }
     // 4. Append-system-prompt: intentionally NOT written to settings.json (E2). The official Claude Code
     // settings schema has no top-level `appendSystemPrompt` key, so writing it was a dead config at best and
     // a double-injection risk at worst (it is already, reliably, passed as the --append-system-prompt spawn
@@ -2093,18 +2128,30 @@ async function syncClaudeCliSettings(config) {
     // 第36波: 记录本次同步的 model 权属(见上方 "2. Model");null 表示本工作台当前无 model 可声明。
     await atomicWriteJson(sidecarPath, JSON.stringify({
       model: (config.model && typeof config.model === 'string') ? config.model : null,
+      maxThinkingTokens: config.thinkingBudget ? String(config.thinkingBudget) : null,   // 同上,见 "3. Thinking budget"
     })).catch(() => {});
   } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
 }
 
 // v1.4.3: Write workbench-managed agent roles to ~/.claude/agents/*.md so they are available
 // when running `claude` directly (not just via the workbench's --agents flag).
+//
+// 所有权:~/.claude/agents 是用户自己的目录(reviewer.md / planner.md 这类同名子代理文件很常见)。修前启动时无条件整文件覆盖、
+// 无备份。现在只覆盖【自己写的】文件 —— 写出的文件在 frontmatter 之后第一行带标记注释(HTML 注释:不进 frontmatter,
+// 不影响 Claude Code 对 frontmatter 的解析;只多一行进子代理提示词),目标已存在时:
+//   · 带标记 → 自家文件,照常更新(内容相同就不写);
+//   · 无标记但内容与「老版本(无标记)会为当前角色生成的内容」逐字相同 → 老版本写的、用户没动过,认作自家,升级成带标记的;
+//   · 其余(用户自己的同名文件 / 老版本写的但用户或后来的角色配置改过 / 读不动)→ 保守跳过,记一条审计事件。
+//     想接管某个角色:删掉标记行即可,之后不再被覆盖。
+const RUYI_AGENT_FILE_MARKER = '<!-- ruyi-managed: 由如意工作台同步生成,会被后续同步覆盖;删掉本行即改由你自己维护 -->';
+const RUYI_AGENT_FILE_MARKER_RE = /^---\n[\s\S]*?\n---\n\s*<!-- ruyi-managed\b/;
 async function syncAgentRolesToClaude(cwd, config) {
   try {
     const claudeDir = path.join(os.homedir(), '.claude');
     const agentsDir = path.join(claudeDir, 'agents');
     await fsp.mkdir(agentsDir, { recursive: true }).catch(() => {});
     const roles = await getAgentRoleLibrary(cwd, config);
+    const skipped = [];
     for (const role of roles) {
       if (role.nativeClaude) continue;
       const cliMode = claudePermissionMode(role.permissionMode);
@@ -2115,10 +2162,22 @@ async function syncAgentRolesToClaude(cwd, config) {
       if (role.claudeTools && role.claudeTools.length) fm.push('tools: ' + JSON.stringify(role.claudeTools));
       fm.push('---');
       var body = role.prompt || role.description || role.label;
-      var md = fm.join('\n') + '\n\n' + body + '\n';
+      const legacyMd = fm.join('\n') + '\n\n' + body + '\n';   // 老版本(无标记)的写法
+      var md = fm.join('\n') + '\n\n' + RUYI_AGENT_FILE_MARKER + '\n\n' + body + '\n';
       var file = path.join(agentsDir, role.id + '.md');
+      let existing = null;
+      try { existing = await fsp.readFile(file, 'utf8'); }
+      catch (error) {
+        if (!(error && (error.code === 'ENOENT' || error.code === 'ENOTDIR'))) { skipped.push({ id: role.id, reason: `read-failed:${(error && error.code) || 'unknown'}` }); continue; }
+      }
+      if (existing !== null) {
+        const text = existing.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+        if (!RUYI_AGENT_FILE_MARKER_RE.test(text) && text !== legacyMd) { skipped.push({ id: role.id, reason: 'user-file' }); continue; }
+        if (text === md) continue;   // 已是最新,不重写
+      }
       await atomicWriteJson(file, md);   // 25.1 收编(md 字符串直接透传)
     }
+    if (skipped.length) logEvent({ kind: 'claude_agent_sync_skipped', dir: agentsDir, skipped });
   } catch { /* non-fatal */ }
 }
 
@@ -2194,9 +2253,15 @@ async function syncMcpServersToKimiNow(config, kimiDir) {
     await ensureDirs();
     const target = path.join(kimiDir, 'mcp.json');
     const sidecar = path.join(paths.data, 'kimi-mcp-sync.json');
-    let current = {};
-    try { current = safeJsonParse(await fsp.readFile(target, 'utf8'), {}) || {}; } catch { current = {}; }
-    if (!current.mcpServers || typeof current.mcpServers !== 'object') current.mcpServers = {};
+    // 用户自己的 mcp.json:读不动 / 不是合法 JSON 对象就整次同步跳过(不写 mcp.json,也不写所有权旁账 —— 旁账记的是
+    // 「写进去了什么」,没写就不能记)。修前当成空对象继续合并再写回,会把用户的其它条目整份覆盖掉。见 readUserJsonObjectForMerge。
+    const read = await readUserJsonObjectForMerge(target);
+    if (!read.ok) {
+      logEvent({ kind: 'kimi_mcp_sync_skipped', file: target, reason: read.reason });
+      return;
+    }
+    const current = read.value;
+    if (!current.mcpServers || typeof current.mcpServers !== 'object' || Array.isArray(current.mcpServers)) current.mcpServers = {};
     let ownership = { managedIds: [], previous: {} };
     try { ownership = { ...ownership, ...(safeJsonParse(await fsp.readFile(sidecar, 'utf8'), {}) || {}) }; } catch { /* first sync */ }
     if (!Array.isArray(ownership.managedIds)) ownership.managedIds = [];
@@ -2585,13 +2650,24 @@ function probeAgentCliLauncher(command) {
     return !ok.error && ok.status === 0;
   } catch { return false; }
 }
-async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面逐字相同
-  if (!command) return false;
+// 探测结果三态('ok' | 'missing' | 'slow')。spawnProbeAsync 带 timeout 选项:到点 Node 杀掉子进程,close 事件给
+// status=null 且【没有 error】—— 与「启动器根本起不来」(spawn 的 'error':ENOENT/EACCES…)、「--version 退出码非 0」
+// (装坏了/不是 CLI)都区分得开。慢(CLI 冷启动、杀软扫描、网络盘)不等于不存在,回合入口不能因此报「未检测到 CLI」。
+function agentCliProbeVerdict(result) {
+  if (result && result.error) return result.error.code === 'ETIMEDOUT' ? 'slow' : 'missing';
+  if (result && result.status === 0) return 'ok';
+  if (result && result.status === null) return 'slow';
+  return 'missing';
+}
+async function probeAgentCliLauncherVerdictAsync(command) {
+  if (!command) return 'missing';
   try {
     const s = agentCliProbeSpawn(command);
-    const ok = await spawnProbeAsync(s.command, s.args, s.opts);
-    return !ok.error && ok.status === 0;
-  } catch { return false; }
+    return agentCliProbeVerdict(await spawnProbeAsync(s.command, s.args, s.opts));
+  } catch { return 'missing'; }
+}
+async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面同步版逐字相同(只有 'ok' 为真)
+  return (await probeAgentCliLauncherVerdictAsync(command)) === 'ok';
 }
 function agentCliInstallCandidates(type) {
   if (!isAgentCliType(type)) return [];
@@ -2682,7 +2758,26 @@ async function agentCliLauncherOk(command) {
   }
   return probeAgentCliLauncherRemembered(command);
 }
-function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); _agentCliLauncherOk.clear(); }
+// 回合入口(05 runClaudeTurn / 05b ensureKimiServer)问「选中的 CLI 启动器能不能用」。修前直接 spawnSync「<cli> --version」
+// (最长 4 s):每个回合都把整个事件循环钉住一次,超时还被当成「未检测到 CLI」把用户的输入挡在门外。现在:
+//   · 异步探(不钉事件循环);
+//   · 只有判定「缺失」(起不来 / 退出码非 0)才拒绝回合,超时算「在,只是慢」放行 —— 真起不来,后面的 spawn 自己会报;
+//   · 「在」(含慢)的结果按 60 s 记忆(与路径探测同一个记忆期与作废口);【缺失不记】,用户刚装好 CLI 要立刻就能用。
+const _agentCliLauncherPresent = new Map();   // command -> 记下「在」的时刻
+async function agentCliLauncherUsable(command) {
+  if (!command) return false;
+  const at = _agentCliLauncherPresent.get(command);
+  if (at !== undefined && Date.now() - at < CLAUDEPATH_CACHE_MS) return true;
+  const generation = _cliProbeGeneration;
+  const verdict = await probeAgentCliLauncherVerdictAsync(command);
+  if (verdict === 'missing') { _agentCliLauncherPresent.delete(command); return false; }
+  if (generation === _cliProbeGeneration) {
+    if (_agentCliLauncherPresent.size > 32) _agentCliLauncherPresent.clear();
+    _agentCliLauncherPresent.set(command, Date.now());
+  }
+  return true;
+}
+function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); _agentCliLauncherOk.clear(); _agentCliLauncherPresent.clear(); }
 
 // Claude Code normally writes UTF-8, but its Windows launcher can forward a local
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8

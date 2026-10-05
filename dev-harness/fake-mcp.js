@@ -248,7 +248,11 @@ rl.on('line', line => {
             // fake:不真解码像素;按面积(scale²)截短源字节落盘 —— 契约件只关心落盘与形状,
             // 而超限压缩(13b maybeCompressImageAttachment)要看到派生件确实变小才会采用。
             const src = fs.readFileSync(p);
-            fs.writeFileSync(o, scale < 1 ? src.subarray(0, Math.max(1, Math.round(src.length * scale * scale))) : src);
+            let out = scale < 1 ? src.subarray(0, Math.max(1, Math.round(src.length * scale * scale))) : src;
+            // 输出路径是 .jpg / .jpeg 时,真 ACC 写出的就是 JPEG 字节;发送侧(04-visual-pipeline buildUserContentParts)的 MIME 以字节魔数为准,
+            // 夹具若在 send.jpg 里留着 PNG 头,就会与「文件名 = JPEG」对不上。只换开头三个魔数字节,长度(超限压缩要看「变小了」)不变。
+            if (/\.jpe?g$/i.test(o)) out = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), out.subarray(Math.min(3, out.length))]);
+            fs.writeFileSync(o, out);
             result = { ok: true, path: path.resolve(p), output_path: path.resolve(o), original_size: [100, 80], new_size: [Math.round(100 * scale), Math.round(80 * scale)], format: 'PNG' };
           }
         } catch (e) { result = { ok: false, error: (e && e.message) || String(e) }; isError = true; }
