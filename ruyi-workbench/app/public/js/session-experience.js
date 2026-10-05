@@ -852,7 +852,7 @@ function openBulkCleanupModal() {
 
   const count = candidates.length;
   const body = el('div');
-  body.append(el('p', '', t('session.bulkCleanup.description', { count })));
+  body.append(el('p', '', tCount('session.bulkCleanup.description', count)));
   const note = el('p', 'muted', t('session.bulkCleanup.note'));
   body.append(note);
   const purgeLabel = el('label', 'check');
@@ -864,7 +864,7 @@ function openBulkCleanupModal() {
 
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', t('common.cancel'));
-  const go = el('button', 'danger', t('session.bulkCleanup.action', { count }));
+  const go = el('button', 'danger', tCount('session.bulkCleanup.action', count));
   foot.append(cancel, go);
   const modal = buildModal(t('session.bulkCleanup.title'), body, foot);
   cancel.onclick = () => modal.close();
@@ -880,9 +880,9 @@ function openBulkCleanupModal() {
       const removal = sessionRemoval();   // 128f-⑫：删掉的那些立刻不画（同 removeSession）
       for (const deletedId of (Array.isArray(r.deleted) ? r.deleted : [])) removal.done.add(String(deletedId));
       await refreshSessions();
-      toast(t('session.bulkCleanup.success', { count: r.deletedCount || 0 }), 'ok');
+      toast(tCount('session.bulkCleanup.success', r.deletedCount || 0), 'ok');
     } catch (e) {
-      go.disabled = false; go.textContent = t('session.bulkCleanup.action', { count });
+      go.disabled = false; go.textContent = tCount('session.bulkCleanup.action', count);
       toast(t('session.bulkCleanup.failed', { reason: apiErrText(e) }), 'err');
     }
   };

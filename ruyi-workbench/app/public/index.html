@@ -293,13 +293,14 @@
                  createQuickSwitchChips({compact:false}) 挂进来 —— 与焦点栏、左栏看板密度同一份工厂。 -->
             <div id="threadChips" class="steward-chips" aria-label="线程配置"
                  data-i18n-attr="aria-label:threadHead.chips"></div>
-            <div id="contextMeter" class="ctx-meter" title="上下文用量（点击查看/设置）" aria-haspopup="dialog">
+            <div id="contextMeter" class="ctx-meter" title="上下文用量（点击查看/设置）" aria-haspopup="dialog" role="button" tabindex="0"
+                 aria-label="上下文用量" aria-describedby="contextMeterText" data-i18n-attr="aria-label:ctx.meter.aria">
               <svg class="ctx-batt" viewBox="0 0 26 13" width="26" height="13" aria-hidden="true">
                 <rect class="batt-body" x="0.6" y="1.6" width="21.8" height="9.8" rx="2.2" fill="none" stroke-width="1"/>
                 <rect class="batt-cap" x="23" y="4.4" width="2.4" height="4.2" rx="1"/>
                 <rect class="batt-fill" x="2" y="3.1" width="17.8" height="6.8" rx="1"/>
               </svg>
-              <span class="ctx-text"></span>
+              <span class="ctx-text" id="contextMeterText"></span>
             </div>
             <!-- 连接态（§13.7 登记⑦）：setStatus() 全仓唯一的落点，从顶栏那个 sr-only 的
                  #statusLine 搬到这里 —— 线程头第二行右端一颗点 ＋ 一句话，是【真看得见】的位置。
@@ -590,7 +591,7 @@
             <button id="auditRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
           </div>
           <div class="audit-filters">
-            <select id="auditSourceFilter" class="mini-select">
+            <select id="auditSourceFilter" class="mini-select" aria-label="按来源过滤" data-i18n-attr="aria-label:audit.sourceFilterLabel">
               <option value="" data-i18n="audit.allSources">全部来源</option>
               <option value="workbench" data-i18n="audit.source.workbench">工作台</option>
               <option value="desktop" data-i18n="audit.source.desktop">桌面</option>

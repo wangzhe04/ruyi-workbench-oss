@@ -2,7 +2,7 @@
 
 import { api, apiErrorInfo } from './net.js';
 import { el, fmtBytes, fmtTime, toast } from './util.js';
-import { t } from './i18n.js';
+import { t, tCount } from './i18n.js';
 import { confirmDanger } from './confirm-panel.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
       if (okText) toast(okText, 'ok');
       return res;
     } catch (e) {
-      toast(errorText(e), 'error');
+      toast(errorText(e), 'err');
       return null;
     } finally {
       busy = false;
@@ -201,7 +201,7 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
     for (const x of present) {
       const r = row('migration-row-instruction');
       r.dataset.key = x.key;
-      const detail = x.displayPath + (x.entries ? ' · ' + t('migration.import.entries', { count: x.entries, core: x.coreEntries }) : '')
+      const detail = x.displayPath + (x.entries ? ' · ' + tCount('migration.import.entries', x.entries, { core: x.coreEntries }) : '')
         + (x.userModified ? ' · ' + t('migration.import.userModified') : '');
       r.append(rowText(x.label, detail), statusChip(x.status));
       const actions = el('div', 'migration-row-actions');
@@ -253,7 +253,7 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
     if (importable.length > 1) {
       const all = button(t('migration.action.importAllMcp', { count: importable.length }), 'mini primary', async () => {
         const res = await apply({ importMcp: importable.map(x => ({ origin: x.origin, id: x.id })) });
-        if (res) { toast(t('migration.toast.importedCount', { count: (res.mcp && res.mcp.added || []).length }), 'ok'); void refresh_(); }
+        if (res) { toast(tCount('migration.toast.importedCount', (res.mcp && res.mcp.added || []).length), 'ok'); void refresh_(); }
       });
       all.dataset.migrationAction = 'import-mcp-all';
       mcp.appendChild(all);
@@ -323,9 +323,9 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
       ? t('migration.skill.conflictCopy', { source: migrationSourceText(x.conflictWith) }) : t('migration.skill.conflictUser'));
     else if (x.status === 'copy-edited') bits.push(t('migration.skill.copyEditedHint'));
     else if (x.status === 'source-updated') bits.push(t('migration.skill.sourceUpdatedHint'));
-    else if (x.tooLarge) bits.push(t('migration.skill.tooLargeHint', { size: fmtBytes(x.bytes || 0), files: x.files || 0 }));
+    else if (x.tooLarge) bits.push(tCount('migration.skill.tooLargeHint', x.files || 0, { size: fmtBytes(x.bytes || 0), files: x.files || 0 }));
     else if (x.status === 'live' && x.shadowedBy) bits.push(t('migration.skill.shadowed', { source: migrationSourceText(x.shadowedBy) }));
-    if (x.links) bits.push(t('migration.skill.links', { count: x.links }));
+    if (x.links) bits.push(tCount('migration.skill.links', x.links));
     return bits.join(' · ');
   }
   async function copySkills(list) {
@@ -344,9 +344,9 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
       const names = new Map(chosen.map(x => [x.key, x.name || x.id]));
       skillResult = { id: res.id || null, undone: false, items: (res.results || []).map(r => ({ ...r, name: names.get(r.key) || r.id || r.key })) };
       pickedSkills.clear();
-      toast(res.copied ? t('migration.skill.toastCopied', { count: res.copied }) : t('migration.skill.toastNone'), res.copied ? 'ok' : '');
+      toast(res.copied ? tCount('migration.skill.toastCopied', res.copied) : t('migration.skill.toastNone'), res.copied ? 'ok' : '');
     } catch (e) {
-      toast(errorText(e), 'error');
+      toast(errorText(e), 'err');
     } finally { busy = false; }
     await refresh_();
   }
@@ -373,7 +373,7 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
           r.undone = true;
           r.undoLine = kept.length ? t('migration.skill.undoneKept', { names: kept.map(x => x.id).join(t('migration.card.sep')) }) : t('migration.skill.undone');
           toast(r.undoLine, 'ok');
-        } catch (e) { toast(errorText(e), 'error'); }
+        } catch (e) { toast(errorText(e), 'err'); }
         finally { busy = false; }
         void refresh_();
       });
@@ -400,7 +400,7 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
       const bits = [p.root];
       if (p.sizeBytes != null) bits.push((p.sizeCapped ? '≥ ' : '') + fmtBytes(p.sizeBytes));
       bits.push(p.lastLaunchedAt ? t('migration.old.lastLaunched', { time: fmtTime(p.lastLaunchedAt) }) : t('migration.old.neverLaunched'));
-      if (p.refCount) bits.push(t('migration.old.refs', { count: p.refCount }));
+      if (p.refCount) bits.push(tCount('migration.old.refs', p.refCount));
       r.appendChild(rowText(t('migration.old.version', { version: p.version || '?' }), bits.join(' · ')));
       if (p.running) r.appendChild(statusChip('running'));
       const actions = el('div', 'migration-row-actions');
@@ -411,7 +411,7 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
         try {
           await api('/api/migration/recycle', { method: 'POST', body: JSON.stringify({ root: p.root, confirm: p.root }) });
           toast(t('migration.toast.recycled', { version: p.version || '?' }), 'ok');
-        } catch (e) { toast(errorText(e), 'error'); }
+        } catch (e) { toast(errorText(e), 'err'); }
         finally { busy = false; }
         void refresh_();
       });
@@ -448,8 +448,8 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
       const ids = refs.filter(x => x.action !== 'manual' && !unchecked.has(x.id)).map(x => x.id);
       if (!ids.length) { toast(t('migration.toast.nothing')); return; }
       const res = await apply({ rewriteRefs: ids });
-      if (res && res.refs && res.refs.ok) toast(t('migration.toast.applied', { count: res.refs.items }), 'ok');
-      else if (res) toast(errorText(res.refs || res), 'error');
+      if (res && res.refs && res.refs.ok) toast(tCount('migration.toast.applied', res.refs.items), 'ok');
+      else if (res) toast(errorText(res.refs || res), 'err');
       void refresh_();
     });
     applyBtn.dataset.migrationAction = 'apply-refs';
@@ -460,8 +460,8 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
       busy = true;
       try {
         const res = await api('/api/migration/undo', { method: 'POST', body: JSON.stringify({}) });
-        toast(t('migration.toast.undone', { count: res.restored || 0 }), 'ok');
-      } catch (e) { toast(errorText(e), 'error'); }
+        toast(tCount('migration.toast.undone', res.restored || 0), 'ok');
+      } catch (e) { toast(errorText(e), 'err'); }
       finally { busy = false; }
       void refresh_();
     });
@@ -511,10 +511,10 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
   }
   function cardLine(counts) {
     const parts = [];
-    if (counts.instructions || counts.instructionsImportable) parts.push(t('migration.card.instructions', { count: counts.instructions + counts.instructionsImportable }));
-    if (counts.mcpImported || counts.mcpImportable) parts.push(t('migration.card.mcp', { count: counts.mcpImported + counts.mcpImportable }));
-    if (counts.skills) parts.push(t('migration.card.skills', { count: counts.skills }));
-    if (counts.packages) parts.push(t('migration.card.packages', { count: counts.packages }));
+    if (counts.instructions || counts.instructionsImportable) parts.push(tCount('migration.card.instructions', counts.instructions + counts.instructionsImportable));
+    if (counts.mcpImported || counts.mcpImportable) parts.push(tCount('migration.card.mcp', counts.mcpImported + counts.mcpImportable));
+    if (counts.skills) parts.push(tCount('migration.card.skills', counts.skills));
+    if (counts.packages) parts.push(tCount('migration.card.packages', counts.packages));
     return parts.join(t('migration.card.sep'));
   }
   function showCard(s) {
