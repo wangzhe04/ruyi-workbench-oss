@@ -14,7 +14,7 @@
 
 **如意（Ruyi）** 是一个 clean-room 实现的 Windows 本地 AI 工作台。给它一个能用的模型：任意 OpenAI 兼容端点（云端 API、内网 vLLM、本机 Ollama / LM Studio 都行），或者本机装好的 Claude Code / Kimi Code 命令行。它就能在你的电脑上**真正动手**：读写文件、跑脚本、操作 Office 和桌面、派一队子代理去调研；还有一位「管家」替你盯着所有在办的事。
 
-> **当前版本：3.0 预览版 `v3.0.0-preview.2`**（2026-09-25，GitHub pre-release）。功能已冻结，自动化全量回归与离线包冒烟已过。安全红队终审、真读屏与人因走查这几项人工终验留到正式 3.0 前（见 [55 号文](docs/optimization-plan/55-release-3.0-preview.md)）。上一个正式 Release 是 `v2.6.2`；2.7.0 / 2.8.0 的变化随本预览版一起发布，全部变更见 [CHANGELOG](CHANGELOG.md)。
+> **当前版本：3.0 预览版 `v3.0.0-preview.3`**（2026-10-05，GitHub pre-release）。在预览版 2 之上并入 43 个 PR：权限回到五档、新装默认智能自动，模型干活更顺手（知道当前时间、草稿本、检查点可见、找工具少绕路），语音词库，Anthropic Messages 协议，Mermaid 全面走查，以及多轮走查、偿债与长会话性能优化；Windows CI 全量回归与离线包冒烟已过。安全红队终审、真读屏与人因走查这几项人工终验留到正式 3.0 前（见 [55 号文](docs/optimization-plan/55-release-3.0-preview.md)）。上一个正式 Release 是 `v2.6.2`；2.7.0 / 2.8.0 的变化随本预览版一起发布，全部变更见 [CHANGELOG](CHANGELOG.md)。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png" />
