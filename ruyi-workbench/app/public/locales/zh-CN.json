@@ -654,11 +654,11 @@
   "onboarding.wizard.provider.localDown.readManual": "看手册这一节",
   "onboarding.wizard.provider.localNeedModel": "先点一下「测试连接」，让如意看看你本机有哪些模型，选一个再保存。",
   "onboarding.wizard.provider.baseUrl": "接口地址（Base URL）",
-  "onboarding.wizard.provider.hint": "只需要一个密钥；接口地址和默认模型由预设带出。",
+  "onboarding.wizard.provider.hint": "先填密钥；接口地址和模型名在「高级」里确认——选了预设的会自动带出，「自定义」要自己填。",
   "onboarding.wizard.provider.keyPrivacy": "密钥只发给本机服务保存，界面不会再显示它。",
   "onboarding.wizard.provider.localHint": "本地服务通常不需要密钥，留空即可；请确认下面的地址就是你本机服务的地址。",
   "onboarding.wizard.provider.model": "模型",
-  "onboarding.wizard.provider.modelPlaceholder": "留空则用预设默认模型",
+  "onboarding.wizard.provider.modelPlaceholder": "填模型名（预设自带的会自动填入）",
   "onboarding.wizard.provider.noBaseUrl": "地址需要自己填",
   "onboarding.wizard.provider.noPresets": "暂时读不到预设清单，请在「高级」里手填地址与模型",
   "onboarding.wizard.provider.saveAndNext": "保存并继续",
@@ -1011,7 +1011,7 @@
   "settings.asr.addProtocol": "接口类型",
   "settings.asr.addPlaceholder": "例如 qwen3-asr-flash、whisper-1",
   "settings.asr.addButton": "添加并启用",
-  "settings.asr.addNeedFields": "先选服务商，再从下拉里选模型（清单里没有的语音模型，先加进该服务商卡片的模型清单）",
+  "settings.asr.addNeedFields": "先选服务商，再填模型名（下拉里有的可以直接选，没有的手填即可）",
   "settings.asr.addRealtime": "名字带 realtime 的是实时流式型号，语音输入用不了。请填不带 realtime 的型号，例如 qwen3-asr-flash。",
   "settings.asr.added": "已添加并启用语音识别：{{model}}",
   "settings.asr.noProvider": "先在上面添加一个服务商，再回到这里添加语音识别模型。",
@@ -3753,4 +3753,10 @@
   ,"settings.steward.auto.continueUnfinished": "任务没做完时，自己让线程接着做"
   ,"settings.steward.auto.continueUnfinishedHint": "线程这一回合收了，但计划还有没完成的步骤、或界面亮着「上次任务未完成」时，管家替你点一下「继续」。同一条线程最多连续续几次，计划没往前走就停；每一次都记进行动流水。"
   ,"settings.steward.tool.continueStopped": "没做完，不再自动续"
+  ,"role.discardTitle": "放弃未保存的角色修改？"
+  ,"role.discardBody": "当前页上有还没保存的角色修改，继续会把它们丢掉，换成已保存的内容。"
+  ,"role.discardOk": "放弃修改"
+  ,"provider.baseUrlInvalid": "服务商「{{name}}」的接口地址不合格：{{reason}}。请改好后再保存。"
+  ,"onboarding.wizard.provider.cloudNeedModel": "还没有模型名：请在「高级」里填写要用的模型名（「自定义」没有默认模型），或先点「测试连接」从返回的清单里选一个。"
+  ,"settings.positiveIntegerOnly": "请填正整数，留空表示不设置"
 }

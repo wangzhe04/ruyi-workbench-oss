@@ -654,11 +654,11 @@
   "onboarding.wizard.provider.localDown.readManual": "Read this manual section",
   "onboarding.wizard.provider.localNeedModel": "Press Test connection first so Ruyi can list the models on this computer, then pick one and save.",
   "onboarding.wizard.provider.baseUrl": "Base URL",
-  "onboarding.wizard.provider.hint": "One key is all you need. The preset brings its own base URL and default model.",
+  "onboarding.wizard.provider.hint": "Enter the key first. Confirm the base URL and model name under Advanced: a preset fills them in, but Custom needs both typed by hand.",
   "onboarding.wizard.provider.keyPrivacy": "The key is sent to the local service only, and the interface never shows it again.",
   "onboarding.wizard.provider.localHint": "A local service usually needs no key, so leave it empty. Confirm that the address below is your local service.",
   "onboarding.wizard.provider.model": "Model",
-  "onboarding.wizard.provider.modelPlaceholder": "Leave empty to use the preset default",
+  "onboarding.wizard.provider.modelPlaceholder": "Model name (a preset fills this in for you)",
   "onboarding.wizard.provider.noBaseUrl": "You need to fill in the address",
   "onboarding.wizard.provider.noPresets": "The preset list is unavailable. Fill in the address and model under Advanced.",
   "onboarding.wizard.provider.saveAndNext": "Save and continue",
@@ -1011,7 +1011,7 @@
   "settings.asr.addProtocol": "Interface type",
   "settings.asr.addPlaceholder": "e.g. qwen3-asr-flash, whisper-1",
   "settings.asr.addButton": "Add and enable",
-  "settings.asr.addNeedFields": "Choose a provider, then pick a model from the list (if the speech model is missing, add it to that provider's model list first)",
+  "settings.asr.addNeedFields": "Choose a provider, then enter a model name (pick one from the suggestions, or type one that is not listed)",
   "settings.asr.addRealtime": "Models with \"realtime\" in the name are live-streaming models and do not work for voice input. Enter a non-realtime model, for example qwen3-asr-flash.",
   "settings.asr.added": "Speech recognition enabled: {{model}}",
   "settings.asr.noProvider": "Add a provider above first, then come back here to add a speech recognition model.",
@@ -3753,4 +3753,10 @@
   ,"settings.steward.auto.continueUnfinished": "Keep an unfinished thread going on its own"
   ,"settings.steward.auto.continueUnfinishedHint": "When a thread ends a turn but its plan still has open steps, or the \"previous task is unfinished\" banner is showing, the steward presses Continue for you. A thread is continued only a few times in a row and stops when the plan makes no progress; every continuation is logged in the action log."
   ,"settings.steward.tool.continueStopped": "Unfinished, no more auto-continue"
+  ,"role.discardTitle": "Discard unsaved role changes?"
+  ,"role.discardBody": "This page has role edits that are not saved yet. Continuing discards them and loads the saved roles instead."
+  ,"role.discardOk": "Discard changes"
+  ,"provider.baseUrlInvalid": "The base URL of provider \"{{name}}\" is not valid: {{reason}}. Fix it and save again."
+  ,"onboarding.wizard.provider.cloudNeedModel": "No model name yet: enter the model to use under Advanced (Custom has no default model), or press Test connection and pick one from the returned list."
+  ,"settings.positiveIntegerOnly": "Enter a positive whole number, or leave it empty for no setting"
 }

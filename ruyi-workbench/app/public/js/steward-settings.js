@@ -1062,7 +1062,17 @@ export function createStewardSettingsDomain({
     if (kind === 'monthly') return { kind, at, dayOfMonth: Number((byId('cfgStewardScheduleDom') || {}).value || 1) };
     return { kind, at };
   }
+  // 走查 W1-14：「建这一条」没有在途锁，网慢时双击就 POST 两次建出两条任务。在途标志 + 禁用按钮，finally 恢复。
+  let scheduleSubmitting = false;
   async function submitSchedule() {
+    if (scheduleSubmitting) return false;
+    scheduleSubmitting = true;
+    const submitBtn = byId('cfgStewardScheduleSubmitBtn');
+    if (submitBtn) submitBtn.disabled = true;
+    try { return await submitScheduleOnce(); }
+    finally { scheduleSubmitting = false; if (submitBtn) submitBtn.disabled = false; }
+  }
+  async function submitScheduleOnce() {
     scheduleFormError('');
     const kind = String((byId('cfgStewardScheduleKind') || {}).value || 'once');
     const payloadKind = String((byId('cfgStewardSchedulePayloadKind') || {}).value || 'reminder');
@@ -1171,10 +1181,18 @@ export function createStewardSettingsDomain({
   }
 
   // change 即存（与基础页同风格）。seeding 期间一律不回写。
+  // 走查 W1-4：数字框清空（或被浏览器判成非数字）时 node.value === ''，Number('') 是 0 —— 修前清空一个框就写 0：
+  // 每日费用上限（stewardMaxCostPerDay / stewardGlobalMaxCostPerDay）为 0 等于关闭费用闸，别的键被服务端钳到最小值而框里仍是空的。
+  // 与设置目录（settings-catalog.js：输入无效 → 不写盘，按落盘值回显）同一口径，统一收在这一道门里：
+  // number 输入留空 → 不调处理器、整块按落盘值回填。
   function onChange(id, handler) {
     const node = byId(id);
     if (!node) return;
-    node.addEventListener('change', event => { if (!seeding) handler(event); });
+    node.addEventListener('change', event => {
+      if (seeding) return;
+      if (node.type === 'number' && String(node.value == null ? '' : node.value).trim() === '') { fillStewardSettings(); return; }
+      handler(event);
+    });
   }
 
   function bindStewardSettings() {

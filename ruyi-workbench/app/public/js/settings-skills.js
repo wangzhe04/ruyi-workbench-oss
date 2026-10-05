@@ -372,7 +372,7 @@ export function createSettingsSkillsDomain({
     busy.add(key);
     try {
       const result = await api('/api/playbooks', { method: 'POST', body: JSON.stringify({ playbook: payload }) });
-      if (!result || !result.ok) throw new Error((result && result.error) || t('common.unknownError'));
+      if (!result || !result.ok) throw new Error(apiErrText(result && result.error) || t('common.unknownError'));
       toast(t('settings.skills.playbooks.renamed', { name: payload.title }), 'ok');
       editingPlaybook = '';
       await reloadPlaybooks();
@@ -397,7 +397,7 @@ export function createSettingsSkillsDomain({
     busy.add(key);
     try {
       const result = await api('/api/playbooks/' + encodeURIComponent(pb.id), { method: 'DELETE' });
-      if (result && result.ok === false) throw new Error(result.error || t('common.unknownError'));
+      if (result && result.ok === false) throw new Error(apiErrText(result.error) || t('common.unknownError'));
       toast(t('settings.skills.playbooks.deleted', { name }), 'ok');
       if (editingPlaybook === pb.id) editingPlaybook = '';
       await reloadPlaybooks();
