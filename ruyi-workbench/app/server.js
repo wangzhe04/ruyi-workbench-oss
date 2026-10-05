@@ -430,6 +430,26 @@ function createConsoleLineDecoder() {
   };
 }
 
+// 走查 W1·F4:【文本文件】字节 → 文本(附件 textPreview、/api/file/preview 用)。修前一律按 UTF-8 解:GBK 的 .txt/.csv(中文 Windows
+// 上最常见的「另存为」结果)、带 BOM 的 UTF-16LE(PowerShell Out-File 的默认输出)满屏 U+FFFD,而且附件预览还会原样进
+// 喂给模型的 <attached_files>。判据与 11b FileTextIo.sniffEncoding / decodeBuffer(…, 'auto') 同口径:BOM(UTF-8 / UTF-16LE / UTF-16BE)优先 →
+// 严格 UTF-8 → 严格 GB18030 → 都不是就宽松 UTF-8(坏字节显示 U+FFFD)。UTF-8 BOM 留在文本里(同修前与 file_read),UTF-16 的 BOM 剥掉。
+// 本函数住在 00-boot 而不直接用 FileTextIo:11b 是工具层,03/04(基础层)引用它会新增一条反向层级的依赖边(module-dependency-graph
+// 静态锁拒绝);改判据要两边同改,unit/text-file-decode.test.js 在一张字节样本网格上逐格比对两者的输出。
+// complete=false:buf 只是文件的前缀(被截断在 N 字节处),尾部切在多字节字符中间不算非法、也不留半个字符的 U+FFFD;
+// 修前截断预览是 toString('utf8'),切开的尾字符会多一个 U+FFFD。
+function decodeTextFileBytes(buf, complete = true) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  const stream = complete === false;
+  const td = (label, fatal) => new TextDecoder(label, { fatal, ignoreBOM: true });
+  if (b.length >= 3 && b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) return td('utf-8', false).decode(b, { stream });
+  if (b.length >= 2 && b[0] === 0xff && b[1] === 0xfe) return td('utf-16le', false).decode(b.subarray(2), { stream });
+  if (b.length >= 2 && b[0] === 0xfe && b[1] === 0xff) return td('utf-16be', false).decode(b.subarray(2), { stream });
+  try { return td('utf-8', true).decode(b, { stream }); } catch { /* 不是合法 UTF-8 */ }
+  try { return td('gb18030', true).decode(b, { stream }); } catch { /* 也不是 GBK,或这个 Node 没带 GB18030 的 ICU */ }
+  return td('utf-8', false).decode(b, { stream });
+}
+
 function createNdjsonLineFeeder(onLine) {
   const decoder = new StringDecoder('utf8');
   let remainder = '';
@@ -1861,18 +1881,34 @@ function memoryFixedSelectionMax(config) { return memoryLimit(config, 'memoryFix
 function memoryIndexCharCap(config) { return memoryLimit(config, 'memoryIndexCharCapV1', 500, 100000, 6000); }
 
 
-// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;纯搬家,零行为变更)。
+// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;搬家时零行为变更,其后 quoteWinArg 补了 CRT 层反斜杠转义)。
 // Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
 // (CVE-2024-27980). The intranet `claude` is almost always claude.cmd, so route batch launchers
 // through cmd.exe with verbatim, manually-quoted args (the cross-spawn-proven pattern).
 function isBatchLauncher(command) {
   return process.platform === 'win32' && /\.(cmd|bat)$/i.test(String(command || ''));
 }
+// 一个实参要过【两层】解析,两层都得对(只顾一层是历史上的两类事故):
+//   ① cmd.exe(/d /s /c "整行" 与 .cmd 垫片里的 %*):只认 `"` 切换引号态 —— 引号态里 ^ & | < > ( ) 都是字面量。
+//      所以每个 `"` 必须成对地出现(写成 `""`,一进一出,引号态不被带歪),元字符才始终被护在引号里。
+//   ② 目标进程的 C 运行时(Node/Python/MSVCRT 2008+ 同规则):按 `2N 个反斜杠 + "` → N 个反斜杠并翻转引号态、
+//      `2N+1 个反斜杠 + "` → N 个反斜杠 + 字面 `"`;引号态内的 `""` → 一个字面 `"`;其余反斜杠原样。
+// 只做 `"`→`""` 过得了 ① 却过不了 ②:参数里本来就有「反斜杠 + 引号」(JSON.stringify 的 `\"`,--agents 里角色 prompt
+// 带双引号时必现)时,`\""` 在 ② 眼里是「转义引号 + 一个落单引号」—— 落单的那个把引号态关掉,后面的空格把参数劈开;
+// 含空格且以 `\` 结尾的路径(`C:\My Docs\`)同理,收尾的 `\"` 被当成转义引号吞掉。修法按 ② 的规则补反斜杠:
+// 每个 `"` 前面那一串反斜杠、以及结尾引号前面那一串反斜杠都加倍;`"` 仍写成 `""`(① 不变)。
+// %、! 在 cmd 里即使在引号内也会展开,这里没有通用的转义,保持原状(只在判据里触发加引号)。
 function quoteWinArg(a) {
   a = String(a);
   if (a === '') return '""';
   if (!/[\s"^&|<>()%!]/.test(a)) return a;
-  return '"' + a.replace(/"/g, '""') + '"';
+  let out = '"', backslashes = 0;   // 逐字符一遍过(反斜杠串先攒着,看到后一个字符再定怎么写),不用回溯正则
+  for (const ch of a) {
+    if (ch === '\\') { backslashes++; continue; }
+    out += ch === '"' ? '\\'.repeat(backslashes * 2) + '""' : '\\'.repeat(backslashes) + ch;
+    backslashes = 0;
+  }
+  return out + '\\'.repeat(backslashes * 2) + '"';
 }
 // Returns { command, args, opts } ready for cp.spawn/spawnSync — transparently wrapping .cmd/.bat.
 function batchSafeSpawn(command, args) {
@@ -5554,6 +5590,26 @@ async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
     try {
       const st = await fsp.stat(file);
       if (st.isFile() && nowMs - st.mtimeMs > SESSION_MCP_CONFIG_MAX_AGE_MS) { await fsp.unlink(file); removed += 1; }
+    } catch { /* 并发删除 / 一时被锁:下个进程再扫 */ }
+  }
+  return removed;
+}
+
+// 走查 W1·F10:script_run 把脚本明文落在 <generated>/scripts/,正常路径执行完立刻删(12 script_run 的 finally);进程被强杀 / 杀毒占着删不掉时
+// 会留下孤儿 —— 里面可能有模型嵌进去的密钥。这里按龄兜底:启动时扫一次(13 起服务处调),超过 SCRIPT_FILE_MAX_AGE_MS 没动过的删。
+// 脚本最长跑 30 分钟(timeoutMs 上限 1800000),一天的余量足够不碰在跑的。只删 scripts/ 下的普通文件,失败静默(旁路清理)。
+// screenshot-*.png 不在此列:聊天里的工具图片卡片经 /api/file/preview 按路径回读它们,清掉会让历史对话里的截图变成裂图。
+const SCRIPT_FILE_MAX_AGE_MS = 24 * 3600 * 1000;
+async function sweepStaleScriptFiles(nowMs = Date.now()) {
+  const dir = path.join(paths.generated, 'scripts');
+  let names = [];
+  try { names = await fsp.readdir(dir); } catch { return 0; }
+  let removed = 0;
+  for (const name of names) {
+    const file = path.join(dir, name);
+    try {
+      const st = await fsp.lstat(file);
+      if (st.isFile() && nowMs - st.mtimeMs > SCRIPT_FILE_MAX_AGE_MS) { await fsp.unlink(file); removed += 1; }
     } catch { /* 并发删除 / 一时被锁:下个进程再扫 */ }
   }
   return removed;
@@ -12509,6 +12565,11 @@ const AUTOEXEC_DENYLIST = [
   //   自动导入它);Kimi Code:.kimi/mcp.json 与 ~/.kimi-code/mcp.json;ruyi-toolbox 组件登记 ~/.ruyi-toolbox/components/。
   /(^|[\\/])\.claude[\\/]settings(?:\.local)?\.json$/i, /(^|[\\/])\.mcp\.json$/i, /(^|[\\/])\.claude\.json$/i,
   /(^|[\\/])\.kimi(?:-code)?[\\/]mcp\.json$/i, /(^|[\\/])\.ruyi-toolbox[\\/]components[\\/]/i,
+  // 走查 W1·F2:子模块 / 链接工作树的 git 目录不在 .git 的直接子项下,而在 .git/modules/<名字,名字里可以有斜杠>/ 与 .git/worktrees/<id>/ ——
+  // 它们各带一套 hooks/ 与 config(.worktree)。上面 .git/hooks/、.git/config 两条只认 .git 的直接子项,可写的 hook 或
+  // core.hooksPath 就从这里绕过去(子模块里一次 git commit 即触发)。按段匹配,嵌套子模块(modules/a/modules/b/)也在内。
+  /(^|[\\/])\.git[\\/]modules[\\/](?:[^\\/]+[\\/])*(?:hooks[\\/]|config(?:\.worktree)?$)/i,
+  /(^|[\\/])\.git[\\/]worktrees[\\/][^\\/]+[\\/](?:hooks[\\/]|config(?:\.worktree)?$)/i,
 ];
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
 function normalizeAutoexecPath(absPath) {
@@ -12656,14 +12717,21 @@ async function guardFileToolPath(rawPath, ctx, opts) {
 }
 // 走查 U5:要改文件的原生工具,在弹权限窗【之前】先过一遍写边界。修前先问「允许写入 report.md」,
 // 用户点了允许,工具才报越界 —— 卡片上「已允许」紧跟着「出错」。只查【写】的那几个参数(file_copy 的 from 是读);
-// 路径解析与各工具 handler 一致(path.resolve)。返回 null = 放行去问;否则是与 handler 同形的失败结果。
+// 路径解析与各工具 handler 一致:走 12 的 resolveFileToolPath(相对路径接在会话工作区下,`~` / %USERPROFILE% 先展开),
+// 不再裸 path.resolve(它把相对路径落到服务进程 cwd,默认档下 file_write {path:'a.txt'} 还没弹窗就被判「工作文件夹外面」;
+// 真正的 handler 却是按工作区解析的)。03 排在 12 之前,直接引用 12 会多出一条 03→12 的前向边(依赖图静态锁拒绝),
+// 所以走 *Hooks 延迟绑定(先例 PermissionWaitHooks):12 加载时把 resolveFileToolPath 挂到 WriteBoundaryHooks.resolvePath。
+// 路径里带 NUL 之类让解析器抛错:不在这里拦,交给 handler 回 bad_path 信封。
+// 返回 null = 放行去问;否则是与 handler 同形的失败结果。
+const WriteBoundaryHooks = {};
 const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'] });
 async function preflightWriteBoundary(toolName, args, ctx) {
   const keys = Object.prototype.hasOwnProperty.call(WRITE_PATH_ARGS, toolName) ? WRITE_PATH_ARGS[toolName] : null;
   if (!keys || !args || typeof args !== 'object') return null;
   for (const k of keys) {
     if (typeof args[k] !== 'string' || !args[k].trim()) continue;
-    const p = path.resolve(args[k]);
+    let p;
+    try { p = typeof WriteBoundaryHooks.resolvePath === 'function' ? await WriteBoundaryHooks.resolvePath(args[k], ctx) : path.resolve(args[k]); } catch { continue; }
     const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
     if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
   }
@@ -13005,7 +13073,7 @@ const PREVIEW_IMG_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpe
 // endpoint contract: {ok, kind:'text'|'image'|'image-toobig'|'html'|'binary', ...}. Never throws for a
 // well-formed missing file — returns {ok:false,error}. Kind selection is suffix-driven (kindForPath +
 // PREVIEW_TEXT_EXTS): html gets its own kind (front-end sandboxes it); img → dataURI (≤5MB, else too-big);
-// text-family → utf8 content (≤1MB, truncated flag); everything else → binary (front-end offers「打开」).
+// text-family → decoded text content (≤1MB, truncated flag; 走查 W1·F4: BOM / UTF-8 / GBK 按内容判,见 00-boot decodeTextFileBytes); everything else → binary (front-end offers「打开」).
 async function readFilePreview(absPath) {
   let st;
   try { st = await fsp.stat(absPath); } catch { return { ok: false, error: 'file not found' }; }
@@ -13023,19 +13091,19 @@ async function readFilePreview(absPath) {
   if (ext === 'html' || ext === 'htm') {
     if (st.size > PREVIEW_TEXT_MAX) {
       const fd = await fsp.open(absPath, 'r');
-      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'html', content: b.slice(0, bytesRead).toString('utf8'), truncated: true, size: st.size }; }
+      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'html', content: decodeTextFileBytes(b.subarray(0, bytesRead), false), truncated: true, size: st.size }; }
       finally { await fd.close(); }
     }
-    return { ok: true, kind: 'html', content: await fsp.readFile(absPath, 'utf8'), truncated: false, size: st.size };
+    return { ok: true, kind: 'html', content: decodeTextFileBytes(await fsp.readFile(absPath), true), truncated: false, size: st.size };
   }
   // Text family (md/csv/txt/json/js/py/…) → utf8 content, ≤1MB (truncated flag when larger).
   if (PREVIEW_TEXT_EXTS.has(ext)) {
     if (st.size > PREVIEW_TEXT_MAX) {
       const fd = await fsp.open(absPath, 'r');
-      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'text', content: b.slice(0, bytesRead).toString('utf8'), truncated: true, size: st.size }; }
+      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'text', content: decodeTextFileBytes(b.subarray(0, bytesRead), false), truncated: true, size: st.size }; }
       finally { await fd.close(); }
     }
-    return { ok: true, kind: 'text', content: await fsp.readFile(absPath, 'utf8'), truncated: false, size: st.size };
+    return { ok: true, kind: 'text', content: decodeTextFileBytes(await fsp.readFile(absPath), true), truncated: false, size: st.size };
   }
   // xlsx/docx/pdf/other → binary; the front-end offers「用系统程序打开」(office_open). Station-side
   // preview of office formats is DEFERRED to v1.0 (zero-npm constraint: no xlsx/docx/pdf parsing lib).
@@ -13337,7 +13405,7 @@ async function makeAttachmentRecord(input) {
   // v1.9:svg 是文本(矢量图源码)进 textPreview;像素图(png/jpg/…)不进,打 kind:'image' 走图片预处理。
   const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|svg|html|css|yaml|yml|ini|log)$/i.test(safeName);
   if (textLike && buffer.length <= 256 * 1024) {
-    textPreview = buffer.toString('utf8').slice(0, 12000);
+    textPreview = decodeTextFileBytes(buffer, true).slice(0, 12000);   // 走查 W1·F4:GBK / UTF-16(带 BOM)按内容判编码,不再一律当 UTF-8
   }
   // 127-114c②(26 号文 §3):音频附件打 kind:'audio'(扩展名白名单)——上传路由凭它触发尽力转写;
   // 非音频不落此字段(与 hiddenModels/caps「空不落字段」同模具,存量记录形状零漂移)。
@@ -14162,6 +14230,17 @@ function bridgedServerSpawnEnv(baseEnv, ownEnv) {
   return { ...out, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
 }
 
+// 走查 W1·F7:桥接超时 / 用户插话中断的 reject 打【标记】(err.mcpTimeout / err.mcpAborted),callTool 只认标记。
+// 修前 callTool 用 /timed out/ 匹配 e.message —— MCP 服务端自己回的 JSON-RPC error(「upstream API timed out」「query timed out」)
+// 文本里只要带这几个字,就被当成桥接超时:工作台杀掉一个健康的 MCP 进程树、报「桥接进程树已终止」,而服务端的原话被吞掉。
+// 现在服务端的错误(没有标记)原样回给模型。
+function mcpBridgeError(message, kind) {
+  const e = new Error(message);
+  if (kind === 'timeout') e.mcpTimeout = true;
+  else if (kind === 'abort') e.mcpAborted = true;
+  return e;
+}
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -14206,14 +14285,14 @@ class McpStdioClient {
         // 可收手);真正的兜底是 callTool catch 里的 kill 进程树(ACC 侧不响应取消也不留僵尸执行)。
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
         cleanup();
-        reject(new Error(`mcp ${method} timed out`));
+        reject(mcpBridgeError(`mcp ${method} timed out`, 'timeout'));
       }, Math.max(1000, timeoutMs));
       abortHandler = () => {
         if (!this._pending.has(id)) return;
         this._pending.delete(id);
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'user_steer' }); } catch { /* best-effort */ } }
         cleanup();
-        reject(new Error(`mcp ${method} aborted by user steer`));
+        reject(mcpBridgeError(`mcp ${method} aborted by user steer`, 'abort'));
       };
       this._pending.set(id, { resolve, reject, timer, cleanup });
       if (signal) {
@@ -14360,13 +14439,13 @@ class McpStdioClient {
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
       if (e && e.mcpChildExit) return mcpChildExitResult(this, name, e.mcpChildExit);   // 审计 A14
-      if (/aborted by user steer/.test(m)) {
+      if (e && e.mcpAborted) {
         // A cooperative notification is not enough for an arbitrary local MCP server: terminate the
         // process tree as the safety backstop so an interrupted write cannot continue as a zombie.
         try { this.kill(); } catch { /* already dead */ }
         return { ok: false, error: '工具已因用户插话中断；桥接进程树已终止，模型将立即处理新指令', steerInterrupted: true };
       }
-      if (/timed out/.test(m)) {
+      if (e && e.mcpTimeout) {
         // 47b:超时即杀桥进程树 —— 旧行为是桥先超时、ACC 继续僵尸执行(用户"纠偏"后旧命令仍在后台写文件,
         // 比不能打断更危险)。cancelled 通知已在 _rpc 超时点发出;此处保证无论对端是否协作取消都不留活口。
         try { this.kill(); } catch { /* already dead */ }
@@ -14448,11 +14527,12 @@ class McpHttpClient {
       const signal = options && options.signal;
       let settled = false;
       let abortHandler = null;
+      let why = '';   // 'timeout' / 'abort':这次失败是我们自己的超时 / 用户中断(不是对端的错误),随 error 一起交出去
       const finish = value => {
         if (settled) return;
         settled = true;
         if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
-        resolve(value);
+        resolve(why && value && value.error ? { ...value, why } : value);
       };
       const req = lib.request(u, {
         method,
@@ -14468,9 +14548,9 @@ class McpHttpClient {
         res.on('end', () => finish({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
         res.on('error', e => finish({ error: (e && e.message) || String(e) }));
       });
-      req.on('timeout', () => { req.destroy(new Error('request timed out')); });
+      req.on('timeout', () => { why = 'timeout'; req.destroy(new Error('request timed out')); });
       req.on('error', e => finish({ error: (e && e.message) || String(e) }));
-      abortHandler = () => req.destroy(new Error('request aborted by user steer'));
+      abortHandler = () => { why = 'abort'; req.destroy(new Error('request aborted by user steer')); };
       if (signal) {
         signal.addEventListener('abort', abortHandler, { once: true });
         if (signal.aborted) abortHandler();
@@ -14510,8 +14590,8 @@ class McpHttpClient {
     if (resp.error) {
       // 49c 对抗验证修(第50波):_rpcHttp 超时也发 notifications/cancelled(与 _rpcSse/stdio _rpc 一致--
       //   对端若实现协作式取消可收手,不留无主处理)。连接可能已断,_notify 静默失败 best-effort。
-      if (method === 'tools/call' && /timed out|aborted by user steer/i.test(resp.error)) { try { this._notify('notifications/cancelled', { requestId: id, reason: /aborted/i.test(resp.error) ? 'user_steer' : 'timeout' }); } catch { /* best-effort */ } }
-      throw new Error('mcp http: ' + resp.error);
+      if (method === 'tools/call' && resp.why) { try { this._notify('notifications/cancelled', { requestId: id, reason: resp.why === 'abort' ? 'user_steer' : 'timeout' }); } catch { /* best-effort */ } }
+      throw mcpBridgeError('mcp http: ' + resp.error, resp.why);
     }
     const sid = resp.headers && (resp.headers['mcp-session-id'] || resp.headers['Mcp-Session-Id']);
     if (sid && !this._sessionId) this._sessionId = String(sid);
@@ -14554,14 +14634,14 @@ class McpHttpClient {
         this._pending.delete(id);
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'timeout' }); } catch { /* best-effort */ } }
         cleanup();
-        reject(new Error(`mcp ${method} timed out`));
+        reject(mcpBridgeError(`mcp ${method} timed out`, 'timeout'));
       }, Math.max(1000, timeoutMs));
       abortHandler = () => {
         if (!this._pending.has(id)) return;
         this._pending.delete(id);
         if (method === 'tools/call') { try { this._notify('notifications/cancelled', { requestId: id, reason: 'user_steer' }); } catch { /* best-effort */ } }
         cleanup();
-        reject(new Error(`mcp ${method} aborted by user steer`));
+        reject(mcpBridgeError(`mcp ${method} aborted by user steer`, 'abort'));
       };
       this._pending.set(id, { resolve, reject, timer, cleanup });
       if (signal) {
@@ -14572,7 +14652,7 @@ class McpHttpClient {
         .then(resp => {
           if (resp.error || (resp.status && resp.status >= 400)) {
             cleanup(); this._pending.delete(id);
-            reject(new Error('mcp sse post: ' + (resp.error || ('HTTP ' + resp.status))));
+            reject(mcpBridgeError('mcp sse post: ' + (resp.error || ('HTTP ' + resp.status)), resp.why));
           }
         });
     });
@@ -14715,11 +14795,11 @@ class McpHttpClient {
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
-      if (/aborted by user steer/.test(m)) {
+      if (e && e.mcpAborted) {
         try { this.kill(); } catch { /* already dead */ }
         return { ok: false, error: '工具已因用户插话中断；远程 MCP 连接已重置，模型将立即处理新指令', steerInterrupted: true };
       }
-      if (/timed out/.test(m)) {
+      if (e && e.mcpTimeout) {
         // 远程无进程树可杀 —— 断连接 + 下次调用惰性重建(sse 流 / session 重新握手)。
         try { this.kill(); } catch { /* already dead */ }
         return { ok: false, error: `tool timed out after ${Math.round(limit / 1000)}s; 远程连接已重置,下次调用将自动重连` };
@@ -16805,7 +16885,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
 //
 // 纪律:
 //   ① 绝不阻塞启动。startServer 里 void 调用;探活用 fetch(异步),拉起用 spawn(异步),一发 spawnSync 都没有
-//      (128f-⑬ 的教训:同步探测会把整个服务钉住)。只有进程退出那一刻的收尾用同步 taskkill —— 那时已经没有请求要服务了。
+//      (128f-⑬ 的教训:同步探测会把整个服务钉住)。进程退出那一刻的收尾也走 killChildTree(发出去就算,不等它)—— 那时已经没有请求要服务了。
 //   ② 已经有人起好了就不起第二个:端口上站着的 /health 回 component 对得上 → 直接用(owned:false,退出时也不杀它)。
 //   ③ 端口被【别人】占了 → 另挑空闲端口经 portEnv 告诉组件。component 对不上的端口绝不配成端点。
 //   ④ 不经 shell、不拼接参数、不展开变量;windowsHide;stdin 忽略;stderr 只留尾巴给设置页看,不进日志正文。
@@ -16845,16 +16925,13 @@ async function toolboxPortFree(port) { return (await toolboxListenOnce(port)) ==
 async function toolboxFreePort() { return toolboxListenOnce(0); }
 
 // 整棵树:Windows 上 venv 的 python.exe 是个启动器,真正的解释器是它的子进程 —— 只 kill 启动器会留下孤儿(还占着显存)。
-function toolboxKillTree(child, sync) {
+// 走查 W1·F12:收尸一律走 04 的 killChildTree(128i:按创建时间只认自己的子孙,动手前核启动时间;发出去就算,服务正在退出时也能跑完),
+// 不再自己 `taskkill /PID /T /F`(/T 按父号认子孙,父号过期撞号会带走别人的树 —— 128i 把其余 14 处调用点都换掉了,这一处当时漏了)。
+// 也不再接一句立即的 child.kill():Windows 上它会在 killChildTree 的 PowerShell 做进程表快照之前先把根杀掉,孙辈就认不出来了(ROOT-GONE)。
+// 进程退出那一刻的收尾同样走它(同步 / 异步没有区别,所以不再有 sync 形参)。
+function toolboxKillTree(child) {
   if (!child || !child.pid || child.exitCode !== null || child.signalCode) return;
-  if (process.platform === 'win32') {
-    const args = ['/PID', String(child.pid), '/T', '/F'];
-    try {
-      if (sync) cp.spawnSync('taskkill', args, { windowsHide: true, stdio: 'ignore', timeout: 5000 });
-      else cp.spawn('taskkill', args, { windowsHide: true, stdio: 'ignore' }).on('error', () => {});
-    } catch { /* taskkill 不在也别抛:下面再补一刀 */ }
-  }
-  try { child.kill(); } catch { /* 已经没了 */ }
+  killChildTree(child.pid);
 }
 
 function toolboxEntry(component) {
@@ -16886,7 +16963,7 @@ function startToolboxService(component) {
         const stale = entry.child;
         logEvent({ kind: 'toolbox_service', action: 'stale-child', id: component.id, pid: entry.pid, port: entry.port });
         entry.child = null;                 // 旧子进程的 exit 回调据此认出自己已不是现任,不再改状态
-        toolboxKillTree(stale, false);      // 残留的启动器连同它的树一起收掉,别留孤儿
+        toolboxKillTree(stale);      // 残留的启动器连同它的树一起收掉,别留孤儿
       }
     }
     entry.error = ''; entry.stderrTail = ''; entry.stopping = false;
@@ -16937,7 +17014,7 @@ function startToolboxService(component) {
     }
     // 没起来:不重试到天荒地老。杀掉、记一笔、把 stderr 的尾巴留给设置页。
     entry.stopping = true;
-    toolboxKillTree(child, false);
+    toolboxKillTree(child);
     Object.assign(entry, { state: 'failed', error: spawnError || (child.exitCode !== null ? 'exit ' + child.exitCode : 'health-timeout') });
     logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, pid: entry.pid, reason: entry.error });
     return entry;
@@ -16952,16 +17029,16 @@ function startToolboxService(component) {
 // 设置页的显式启动与对账照旧立刻起。修前每按一次麦克风都重新拉起一遍,一直起不来的组件每次都让用户白等最长 20 s。
 function toolboxRetryCooldownMs(failures) { return Math.min(300000, 15000 * 2 ** Math.max(0, (Number(failures) || 1) - 1)); }
 
-function stopToolboxService(id, sync) {
+function stopToolboxService(id) {
   const entry = toolboxServices.get(id);
   if (!entry) return;
   entry.stopping = true;
-  if (entry.owned && entry.child) toolboxKillTree(entry.child, sync === true);   // 接管来的(用户自己起的)不杀
+  if (entry.owned && entry.child) toolboxKillTree(entry.child);   // 接管来的(用户自己起的)不杀
   if (entry.state !== 'failed') entry.state = 'stopped';
 }
 // 进程退出那一刻(13 cleanupMcp):同步杀干净自己拉起的。如意被强杀时走不到这里 —— 那种情况靠组件自己的父进程看门狗。
 function stopAllToolboxServicesSync() {
-  for (const id of toolboxServices.keys()) { try { stopToolboxService(id, true); } catch { /* 收尾绝不抛 */ } }
+  for (const id of toolboxServices.keys()) { try { stopToolboxService(id); } catch { /* 收尾绝不抛 */ } }
 }
 
 // 把启用的服务类组件的 provides 落成配置。只在真有变化时才写盘(mutateConfig 的 abort 支)。
@@ -17063,7 +17140,7 @@ function reconcileToolbox() {
     const enabled = enabledToolboxComponents(config).filter(c => c.kind === 'service');
     const keep = new Set(enabled.map(c => c.id));
     for (const [id, entry] of toolboxServices) {
-      if (!keep.has(id) && entry.state !== 'stopped') stopToolboxService(id, false);
+      if (!keep.has(id) && entry.state !== 'stopped') stopToolboxService(id);
     }
     await Promise.all(enabled.map(c => startToolboxService(c).catch(() => null)));
     await syncToolboxProviders().catch(err => { logEvent({ kind: 'toolbox_service', action: 'config-sync-failed', error: String(err && err.message || err).slice(0, 200) }); });
@@ -37491,7 +37568,17 @@ async function finalizeAgentWorktree(isolation, runId, nodeId) {
     isolation.path = ''; return isolation;
   }
   await gitExec(isolation.path, ['add', '-A']);
-  await gitExec(isolation.path, ['-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', 'commit', '-m', `agent(${nodeId}): isolated result for ${runId}`], 60000);
+  // 走查 W1·F5:这是工作台自己给隔离节点拍的内部快照提交,不是用户的提交 —— 不能受用户仓库配置牵连:
+  //   · pre-commit / commit-msg 钩子(lint、测试、commitlint)会让快照失败,整个隔离节点跟着报错 → --no-verify;
+  //     prepare-commit-msg / post-commit 钩子(commitizen、通知脚本)--no-verify 管不到,worktree 与主仓共用钩子目录,
+  //     所以再把 core.hooksPath 指到一个不存在的目录,一并不跑;
+  //   · commit.gpgsign=true 在没有 gpg / 没有私钥的环境里直接报错 → 显式关掉。
+  //   user.name / user.email 照旧用 -c 注入(用户没配身份时也提得成)。
+  await gitExec(isolation.path, [
+    '-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', '-c', 'commit.gpgsign=false',
+    '-c', 'core.hooksPath=' + path.join(paths.agentWorktrees, '.no-hooks'),
+    'commit', '--no-verify', '-m', `agent(${nodeId}): isolated result for ${runId}`,
+  ], 60000);
   isolation.commit = await gitExec(isolation.path, ['rev-parse', 'HEAD']);
   isolation.status = 'ready'; isolation.completedAt = nowIso(); isolation.changeSummary = changes.split(/\r?\n/).slice(0, 100);
   return isolation;
@@ -50017,7 +50104,10 @@ function rgListHighByteFiles(rg, base, filt, timeoutMs) {
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
     const child = cp.spawn(rg, ['--no-messages', '-l', '--crlf', ...filt, '--', '(?-u)[\\x80-\\xFF]', base], { cwd: base, windowsHide: true });
     const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, timeoutMs);
-    child.stdout.on('data', d => { out += d.toString('utf8'); if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    // setEncoding 走 StringDecoder:块边界切在多字节字符中间时先扣住残字节、下一块拼齐再出字(逐块 d.toString('utf8') 会把
+    // 被切开的字符各变成 U+FFFD,中文路径整条损坏 —— 管道块大小由 OS 决定,长输出必现)。
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', d => { out += d; if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
     child.on('error', () => finish(null));
     child.on('close', code => finish(code === 2 && !out ? null : out.split(/\r?\n/).filter(Boolean)));
   });
@@ -50086,8 +50176,10 @@ function searchFileContentRg(root, pattern, opts = {}) {
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
     const child = cp.spawn(rg, args, { cwd: base, windowsHide: true });
     const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, Number(opts.rgTimeoutMs || 10000));
-    child.stdout.on('data', d => { stdout += d.toString('utf8'); if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
-    child.stderr.on('data', d => { stderr += d.toString('utf8'); });
+    child.stdout.setEncoding('utf8');   // 同上:按块 toString 会把跨块的中文路径 / 命中行劈成 U+FFFD
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', d => { stdout += d; if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    child.stderr.on('data', d => { stderr += d; });
     child.on('error', () => finish(null));
     child.on('close', async code => {
       // rg exit 1 = no matches (valid: empty result). exit 2 = error → fall back.
@@ -50223,32 +50315,56 @@ function gitHeadToJsonBudget(text, budget) {
 // 前置(commit 亦安全:它不读 fsmonitor;合法 pre-commit hook 走 core.hooksPath,未被触碰,仍在 exec 档权限门下)。
 // NE-7:core.quotepath=false —— 否则中文路径在 status/diff 里被写成 "\346\226\260..." 八进制转义,模型和用户都读不了。
 const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0', '-c', 'core.quotepath=false'];
-// execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等) }。
+// execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等), timedOut?, timeoutMs? }。
 // 永不 reject —— 传输层错误(git 缺失、cwd 不存在)落在 result.error / result.code<0 上,由调用方转人话。
 // opts.encoding:'buffer' 时 stdout/stderr 是原字节(Buffer)—— 读文件内容(blob)必须走这条,按 utf8 解码会把
 // GBK 等非 UTF-8 字节变成 U+FFFD(hunt2 #4)。
+// 走查 W1·F6:超时由自己的计时器管,不用 execFile 的 timeout 选项 —— 后者只给 git 本身发 SIGTERM(Windows 上是 TerminateProcess),
+// pre-commit 钩子起的子进程(lint / 测试)成了孤儿,还攥着 stdout 管道,execFile 的回调要等它们退出才来;而且超时后的错误形状
+// (code:null、killed:true)被 gitCommit 当成「钩子拒绝」。现在:到点 → timedOut:true,用 killChildTree 整棵树杀(128i:只认
+// 自己的子孙);树杀不掉、管道仍不关(杀树命令失败 / 极端孤儿)时,5 秒后强行收尾,不让调用方永远挂着。
 function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
-    let child;
+    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number(timeoutMs || 15000)));
+    let child, timer = null, grace = null, timedOut = false, settled = false;
+    const settle = r => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer); clearTimeout(grace);
+      resolve(timedOut ? { ...r, ok: false, timedOut: true, timeoutMs: limitMs } : r);
+    };
     try {
       // 安全加固前缀(GIT_SAFE_FLAGS)必须在子命令之前;args 以 `-C <dir> <subcmd> …` 开头,故整体前置合法。
       child = cp.execFile('git', [...GIT_SAFE_FLAGS, ...args], {
         cwd: cwd || process.cwd(),
         windowsHide: true,
-        timeout: Math.max(1000, Number(timeoutMs || 15000)),
         maxBuffer: opts && opts.maxBuffer ? opts.maxBuffer : 24 * 1024 * 1024,
         encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
       }, (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
-        resolve({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
+        settle({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
       });
     } catch (e) {
-      resolve({ ok: false, code: -1, stdout: '', stderr: '', error: e });
+      settle({ ok: false, code: -1, stdout: '', stderr: '', error: e });
       return;
     }
     child.on('error', () => { /* handled via the callback's `error` arg */ });
+    timer = setTimeout(() => {
+      timedOut = true;
+      try { killChildTree(child.pid); } catch { /* 已经退出 */ }
+      grace = setTimeout(() => {
+        try { child.kill('SIGKILL'); } catch { /* 已经退出 */ }
+        try { if (child.stdout) child.stdout.destroy(); if (child.stderr) child.stderr.destroy(); } catch { /* ignore */ }
+        settle({ ok: false, code: -1, stdout: '', stderr: '', error: Object.assign(new Error('git 超时被终止'), { killed: true }) });
+      }, 5000);
+      if (grace.unref) grace.unref();
+    }, limitMs);
   });
 }
+// git 单条命令的超时上限(模型经 timeoutMs 能放宽到的最大值):钩子再慢也不该让一个工具调用挂过十分钟。
+const GIT_TIMEOUT_MAX_MS = 10 * 60 * 1000;
+// git_commit 默认超时:提交会跑 pre-commit / commit-msg 钩子(lint、测试常要几十秒),30s 对真实仓库偏紧;给 90s,模型可经 timeoutMs 放宽。
+const GIT_COMMIT_TIMEOUT_DEFAULT_MS = 90 * 1000;
 // 安全修复(审计 B):read 档的 git 调用还会执行仓库自带配置指定的【过滤器】—— `.gitattributes` 里一行
 // `* filter=x` 加 `.git/config` 里 `[filter "x"] clean = <命令>`,git status / git diff 在比对工作区文件时就会
 // spawn 那条命令(stat 变了就重算哈希,先过 clean)。子模块同理:status/diff 会在子模块里再起一个 git,
@@ -50304,6 +50420,17 @@ function gitHumanError(res, cwd) {
   const err = res && res.error;
   if (err && (err.code === 'ENOENT' || /ENOENT/.test(String(err.message || '')))) {
     return { ok: false, error: '未检测到 Git', hint: '请安装 Git for Windows(https://git-scm.com/download/win)后重试,或让 AI 用命令确认 git 是否在 PATH 上。', cwd };
+  }
+  // 走查 W1·F6:超时被杀(runGit 打 timedOut)—— 说「被终止」,不要落进下面的泛化报错,更不能被 gitCommit 归因成钩子拒绝。
+  if (res && res.timedOut) {
+    const sec = Math.round(Number(res.timeoutMs || 0) / 1000);
+    return {
+      ok: false, timedOut: true, timeoutMs: Number(res.timeoutMs) || undefined, cwd,
+      error: `git 命令超过 ${sec} 秒仍未结束,已被终止(进程树已一并结束)`,
+      hint: '这不是失败原因,只是没跑完:先用 git_status 确认当前状态(文件是否还在暂存区、提交有没有生成),再决定重试。'
+        + '常见原因:pre-commit / commit-msg 钩子(lint、测试)耗时过长或在等交互输入,或仓库很大。需要更久可传 timeoutMs(毫秒,最多 600000)重试。',
+      detail: String((res && res.stderr) || '').trim().slice(0, 2000) || undefined,
+    };
   }
   const stderr = String((res && res.stderr) || '').trim();
   const low = stderr.toLowerCase();
@@ -50599,7 +50726,7 @@ async function gitCommit(args = {}) {
   const commitArgs = paths.length
     ? ['-C', cwd, 'commit', '--only', '-m', message, '--', ...paths]
     : ['-C', cwd, 'commit', '-m', message];
-  const res = await runGit(commitArgs, cwd, args.timeoutMs || 30000);
+  const res = await runGit(commitArgs, cwd, args.timeoutMs || GIT_COMMIT_TIMEOUT_DEFAULT_MS);
   if (!res.ok) {
     // "nothing to commit" is a benign, common case — surface it as a clear 人话 result, not a scary error.
     const low = (String(res.stdout || '') + String(res.stderr || '')).toLowerCase();
@@ -50609,7 +50736,11 @@ async function gitCommit(args = {}) {
     // 暂存之后才失败(缺身份 / 钩子拒绝 / …):文件还留在暂存区,失败结果要说 —— 否则模型以为「什么都没发生」,下一次提交会把它们一起带走。
     const failure = gitHumanError(res, cwd);
     const merged = (String(res.stdout || '') + '\n' + String(res.stderr || '')).trim();
-    if (failure.error === 'Git 命令执行失败') {
+    if (res.timedOut) {
+      // 超时:可能是钩子慢(提示一句),但不是「被钩子拒绝」—— 不打 hookRejected。
+      const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
+      if (hooks.length) failure.hint += ` 这个仓库有 ${hooks.join(' / ')} 钩子,多半是钩子耗时过长(钩子进程已随超时一并结束)。`;
+    } else if (failure.error === 'Git 命令执行失败') {
       // 钩子拒绝:git 自己不打任何标签,只有钩子的输出;失败码非 0 且仓库里确有 pre-commit / commit-msg 钩子时归因于钩子。
       const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
       if (hooks.length && !/^fatal:/m.test(merged)) {
@@ -55191,6 +55322,7 @@ async function resolveFileToolPath(raw, ctx) {
   if (path.isAbsolute(s)) return path.resolve(s);
   return path.resolve(await resolveFileToolRoot({}, ctx), s);
 }
+WriteBoundaryHooks.resolvePath = resolveFileToolPath;   // 03 的写边界预检(弹窗之前)与 handler 同一条解析链,见 03 preflightWriteBoundary
 function fileToolNotFound(p, raw) {
   const rel = raw != null && !path.isAbsolute(String(raw));
   return { ok: false, code: 'not_found', error: '文件不存在', path: p,
@@ -55204,6 +55336,7 @@ function fileToolFsFailure(e, p, extra) {
 // F4:file_read 的体积预算。模型侧(10 truncateToolResult)对序列化后 > TOOL_RESULT_CAP(60000)的 file_read 结果只留
 // 头 40000 + 尾 8000,中间静默丢掉而工具自己还回 truncated:false。这里让【内容序列化后】≤ 预算(给信封/non_ascii 留 8K),
 // 于是模型看到的就是工具返回的全部,截断时给 nextOffset/nextLine 让它接着读。默认 40000 字符(中文/代码序列化后一般 <50K)。
+const FILE_EDIT_MAX_BYTES = 50 * 1024 * 1024;   // file_edit 整文件进内存的体积上限(先 stat 判,不先读)
 const FILE_READ_CHAR_DEFAULT = 40000;
 const FILE_READ_CHAR_MAX = 50000;
 const FILE_READ_LINE_DEFAULT = 2000;
@@ -55572,15 +55705,25 @@ const FILE_TOOL_HANDLERS = {
       const newText = String(args.newText);
       return withFileToolWriteLock([p], async () => {
         // v0.8-S7 error guidance: distinguish "file doesn't exist" (structured hint) from other read errors.
-        let rawBytes;
-        try { rawBytes = await fsp.readFile(p); }
+        // 走查 W1·F8:先 stat 再读 —— 修前整份 readFile 完才判 >50MB(先吃了内存;>2GiB 时 readFile 直接抛裸 ERR_FS_FILE_TOO_LARGE)。
+        let stBefore = null;
+        try { stBefore = await fsp.stat(p); }
         catch (e) {
           if (e && e.code === 'ENOENT') return fileToolNotFound(p, args.path);
           const f = fileToolFsFailure(e, p); if (f) return f;
           throw e;
         }
+        let rawBytes;
+        if (!(stBefore.isFile() && stBefore.size > FILE_EDIT_MAX_BYTES)) {
+          try { rawBytes = await fsp.readFile(p); }
+          catch (e) {
+            if (e && e.code === 'ENOENT') return fileToolNotFound(p, args.path);
+            const f = fileToolFsFailure(e, p); if (f) return f;
+            throw e;
+          }
+        }
         // b2-P1: 超大文件编辑需整文件进内存 + 双份快照 —— 拒绝并提示改用人话行定位/分段处理
-        if (rawBytes.length > 50 * 1024 * 1024) {
+        if (!rawBytes || rawBytes.length > FILE_EDIT_MAX_BYTES) {
           return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 file_read(行模式 / offset)定位 + powershell_run 或 script_run 分段处理', path: p, hint: '大文件建议先用 file_read 的 lineOffset/lineLimit 定位,再用脚本按行分段改写(file_write 会整份覆盖)' };
         }
         // hunt2 #2:只编辑「能无损往返」的文本。修前按 utf8 宽松解码 —— GBK/ANSI 源文件里每个汉字都变成 U+FFFD,替换一处
@@ -56001,8 +56144,17 @@ const ARCHIVE_TOOL_HANDLERS = {
       catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
       if (!entries.length) return { ok: false, error: '没有可打包的文件（源为空、全是符号链接,或只有 dest 自己）', ...(entries.skippedLinks ? { skippedLinks: entries.skippedLinks } : {}) };
       const zipBuf = await zipWriteAsync(entries);   // F9:压缩走线程池 + 让出事件循环,不再同步卡住服务
-      const destExists = await fsp.stat(dest).then(() => true).catch(() => false);
-      const destBefore = destExists ? await fsp.readFile(dest) : null;
+      // 走查 W1·F8:已存在的旧 zip 先 stat、按检查点上限决定读不读(超限只记 skippedBytes 标记),不再不看大小整份读进内存。
+      const destSt = await fsp.stat(dest).catch(() => null);
+      const destExists = !!destSt;
+      let destBefore = null;
+      if (destSt) {
+        try { destBefore = await fileToolBeforeForCheckpoint(dest, destSt.size); }
+        catch (e) {
+          if (e && e.code === 'ENOENT') destBefore = null;
+          else { const f = fileToolFsFailure(e, dest); if (f) return f; throw e; }
+        }
+      }
       const jctx = await journalSessionCtx(ctx);
       const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_zip', dest, destExists ? 'modify' : 'create', destExists ? destBefore : null);
       // 2026-10 走查(R2):原子写(同目录临时文件 + rename),与 file_write / file_edit 同一条路 —— 修前 writeFile 直写,
@@ -56178,9 +56330,14 @@ const ARCHIVE_TOOL_HANDLERS = {
         if (exists && !args.overwrite) return failWithWritten('目标文件已存在', { path: absPath, hint: '若要覆盖请设置 overwrite=true' });
         // 目标位置是个目录(包里的文件名与已有目录同名):读它当「旧内容」做检查点会抛 EISDIR —— 明说冲突。
         if (exSt && exSt.isDirectory()) return failWithWritten('目标位置已存在同名目录,无法写成文件', { path: absPath, entry: rec.name, code: 'target_is_directory', hint: '包内的这个文件名与磁盘上的目录冲突;换一个 destDir,或先移走该目录' });
-        const before = exists ? await fsp.readFile(absPath) : null;
+        // 走查 W1·F8:同 file_delete / file_write —— 已存在的目标按检查点上限先 stat 再决定读不读(超限记 skippedBytes 标记)。
+        let before = null;
+        if (exSt) {
+          try { before = await fileToolBeforeForCheckpoint(absPath, exSt.size); }
+          catch (e) { if (!(e && e.code === 'ENOENT')) { const f = fileToolFsFailure(e, absPath); return failWithWritten('读取已存在的目标文件失败', { path: absPath, ...(f ? { code: f.code, hint: f.hint } : {}) }); } }
+        }
         pending.push({ absPath, exists, before, data, name: rec.name });
-        pendingBytes += data.length + (before ? before.length : 0);
+        pendingBytes += data.length + (before && Buffer.isBuffer(before) ? before.length : 0);
         if (pending.length >= 200 || pendingBytes >= 32 * 1024 * 1024) { await flush(); if (writeErr) return failWithWritten('解压写入失败'); }
       }
       await flush();
@@ -56296,10 +56453,16 @@ const SHELL_TOOL_HANDLERS = {
       const id = makeId('script');
       const dir = path.join(paths.generated, 'scripts');
       await fsp.mkdir(dir, { recursive: true });
+      // 走查 W1·F10:脚本明文落在 generated/scripts,修前执行完不删 —— 模型嵌在脚本里的密钥 / token 就一直躺在数据目录里。
+      // 执行是【同步等到进程结束 / 超时 / 被中断】才返回的(runProcess 在 close 或超时兜底后才 resolve;没有后台 / 脱离执行分支),
+      // 解释器启动时已把整份脚本读完(PowerShell -File、python、node 都是),所以 finally 里删是安全的 —— 与 04 runPowerShell 的临时 .ps1 同一做法。
+      // 删不掉(Windows 上杀毒 / 索引器瞬时占着)不报错,按龄清扫(01 sweepStaleScriptFiles,启动时跑)兜底。
+      const dropScript = p => fsp.unlink(p).catch(() => {});
       if (language === 'python') {
         const p = path.join(dir, `${id}.py`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return runPythonScript(p, { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        try { return await runPythonScript(p, { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal }); }
+        finally { await dropScript(p); }
       }
       if (language === 'node' || language === 'javascript') {
         const p = path.join(dir, `${id}.js`);
@@ -56307,7 +56470,8 @@ const SHELL_TOOL_HANDLERS = {
         // 脚本文件落在应用目录(generated/scripts),Node 按脚本所在目录找模块:修前工作区里装好的 node_modules 一个都 require 不到。
         // NODE_PATH 补上工作目录的 node_modules(裸模块名);相对路径的 require 仍按脚本目录算,提示里用 path.join(process.cwd(), …)。
         const nodePath = [path.join(g.cwd, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
-        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal, shape: true, env: { NODE_PATH: nodePath } });
+        try { return await DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal, shape: true, env: { NODE_PATH: nodePath } }); }
+        finally { await dropScript(p); }
       }
       const p = path.join(dir, `${id}.ps1`);
       // hunt2 #10:带 BOM 落盘 —— Windows PowerShell 5.1 按 ANSI 读无 BOM 的 .ps1,脚本里的中文字面量会被读成乱码
@@ -56315,12 +56479,14 @@ const SHELL_TOOL_HANDLERS = {
       await fsp.writeFile(p, '\ufeff' + DesktopShell.withQuietProgress(String(args.code || '')), 'utf8');
       // NE-3:-NonInteractive(提示立刻报错而不是挂到超时);stdin 由 runProcess 关掉;NE-15:脚本头静音进度条。
       // language 缺省是 powershell:非 Windows 上没有 powershell.exe,回 windows_only 并指路 python / node(而不是裸 ENOENT)。
-      return powershellMissingOr(await DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', p], {
-        cwd: g.cwd,
-        timeoutMs: args.timeoutMs || 60000,
-        signal: ctx && ctx.signal,
-        shape: true,
-      }), '本机没有 PowerShell;script_run 的 language 缺省就是 powershell,请显式传 language:"python" 或 language:"node"');
+      try {
+        return powershellMissingOr(await DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', p], {
+          cwd: g.cwd,
+          timeoutMs: args.timeoutMs || 60000,
+          signal: ctx && ctx.signal,
+          shape: true,
+        }), '本机没有 PowerShell;script_run 的 language 缺省就是 powershell,请显式传 language:"python" 或 language:"node"');
+      } finally { await dropScript(p); }
   } },
   shell_start: { paths: null, guardNote: "持久 shell 会话状态面,exec tier 门+MCP 子进程拒;不直接触文件路径", handler: async (args, ctx) => {
     // v0.8-S2 shell session族 — provider-engine only. In the one-shot MCP child (Claude CLI engine) the
@@ -56433,7 +56599,9 @@ const DESKTOP_TOOL_HANDLERS = {
   desktop_screenshot: { paths: "conditional", guardNote: '', handler: async (args, ctx) => {
       // outputPath 不是字符串(模型传了数字 / 对象)时 path.resolve 抛 TypeError 变成工具异常:明说参数不对。
       if (args.outputPath != null && typeof args.outputPath !== 'string') return { ok: false, code: 'invalid_args', error: 'outputPath 必须是字符串路径', hint: '省略 outputPath 则存到应用的 generated 目录' };
-      const outPathRaw = path.resolve(args.outputPath || path.join(paths.generated, `screenshot-${Date.now()}.png`));
+      // 模型给的 outputPath 与 file_write 同一条解析链(resolveFileToolPath:相对路径接在会话工作区下、~ / %USERPROFILE% 先展开);
+      // 修前裸 path.resolve 把 'shot.png' 落到服务进程 cwd,被写闸判成「工作文件夹外面」,提示里的路径也是模型从没见过的启动目录。
+      const outPathRaw = args.outputPath ? await resolveFileToolPath(args.outputPath, ctx) : path.resolve(path.join(paths.generated, `screenshot-${Date.now()}.png`));
       // 第36波(v1.7): 模型【给定】的 outputPath 过工作区写闸(越界写恒拒,与 file_write 同闸;bypass 模式下这是
       // 唯一防线)。缺省落 generated/ 是应用自选路径,不过此闸 —— generated 属 isSensitiveDataPath 敏感名单
       // (内含带 token 的会话 MCP 配置),文件工具闸会连缺省路径一起误拒;应用自身写自己的产物目录本就合法。
@@ -56508,13 +56676,24 @@ const NETWORK_TOOL_HANDLERS = {
       return httpRequest(args, { signal: ctx && ctx.signal });
   } },
   http_download: { paths: "write", guardNote: '', handler: async (args, ctx) => {
-    // v1.1-W2 (T1) http_download(url, dest, maxBytes=100MB): 下载文件到工作区。复用 web_fetch 的 SSRF 全套护栏
+    // v1.1-W2 (T1) http_download(url, dest, maxBytes=100MB,上限即 100MB): 下载文件到工作区。复用 web_fetch 的 SSRF 全套护栏
     //   （httpGetGuarded：逐跳 ssrfCheck + dnsResolvesToPrivate）。dest 过工作区路径护栏（guardDownloadDest）。
     //   dest 已存在 → before 快照（op:modify，回滚=写回）；新建 op:create（回滚=删）。Content-Length 与实收都卡 maxBytes。
       const url = String(args.url || '').trim();
       if (!url) return { ok: false, error: 'url 不能为空' };
       if (!args.dest) return { ok: false, error: 'dest 不能为空' };
-      const maxBytes = Math.min(ZIP_MAX_SINGLE_FILE, Math.max(1, Number(args.maxBytes) || 100 * 1024 * 1024));
+      const maxBytesAsked = Number(args.maxBytes) || 100 * 1024 * 1024;
+      const maxBytes = Math.min(ZIP_MAX_SINGLE_FILE, Math.max(1, maxBytesAsked));
+      // 走查 W1·F9:maxBytes 被 ZIP_MAX_SINGLE_FILE(100MB)夹住 —— 只能调小、不能放宽。修前超限提示说「增大 maxBytes」,模型照做(甚至传 10GB)
+      // 仍被同一个 100MB 拒绝,反复失败。现在按「是否已到硬上限」给不同的话,到顶了就指向别的办法。
+      const mbOf = n => Math.round(n / 1024 / 1024);
+      const tooBig = () => ({
+        error: `文件超过大小上限（${mbOf(maxBytes)}MB）` + (maxBytesAsked > ZIP_MAX_SINGLE_FILE ? `（传入的 maxBytes 超过单文件硬上限,已按 ${mbOf(ZIP_MAX_SINGLE_FILE)}MB 处理）` : ''),
+        maxBytesCap: ZIP_MAX_SINGLE_FILE,
+        hint: maxBytes < ZIP_MAX_SINGLE_FILE
+          ? `可把 maxBytes 调大重试(最多 ${mbOf(ZIP_MAX_SINGLE_FILE)}MB)`
+          : `已是单文件硬上限 ${mbOf(ZIP_MAX_SINGLE_FILE)}MB,再调大 maxBytes 也不会放宽;更大的文件请改用 powershell_run(Invoke-WebRequest -OutFile)下载,或让用户手动下载`,
+      });
       // ① SSRF 前置拒绝（与 webFetch 同：内网/回环/非 http(s) 一律不发包）。
       const pre = ssrfCheck(url);
       if (!pre.allowed) return { ok: false, error: pre.reason, blocked: pre.host };
@@ -56537,13 +56716,13 @@ const NETWORK_TOOL_HANDLERS = {
       const totalMs = Number(args.timeoutMs) > 0 ? Number(args.timeoutMs) : 30 * 60 * 1000;
       const got = await httpGetGuarded(url, { maxBytes, timeoutMs: idleMs, totalTimeoutMs: totalMs, rejectOverMaxBytes: true, signal: (ctx && ctx.signal) || null });
       if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
-      if (got.failClass === 'too-big') return { ok: false, error: `文件超过大小上限（${Math.round(maxBytes / 1024 / 1024)}MB）`, contentLength: got.contentLength, hint: '增大 maxBytes 或改用其它方式下载' };
+      if (got.failClass === 'too-big') return { ok: false, ...tooBig(), contentLength: got.contentLength };
       if (!got.ok || !got.body) {
         const mapped = webFetchFailMessage(got);
         return { ok: false, error: mapped.error, failClass: got.failClass || 'other', statusCode: got.statusCode, ...(mapped.hint ? { hint: mapped.hint } : {}) };
       }
       // 实收字节卡上限：httpGetGuarded 在 maxBytes 处截断并置 truncated → 视为超限拒绝（不落半截文件）。
-      if (got.truncated) return { ok: false, error: `文件超过大小上限（${Math.round(maxBytes / 1024 / 1024)}MB）`, hint: '增大 maxBytes 或改用其它方式下载' };
+      if (got.truncated) return { ok: false, ...tooBig() };
       let pathForJournal = path.resolve(rawDest);
       if (intoDir) {
         dest = path.join(dest, downloadFileNameFrom(got.contentDisposition, got.finalUrl || url));
@@ -56559,7 +56738,7 @@ const NETWORK_TOOL_HANDLERS = {
         const st2 = await fsp.stat(dest).catch(() => null);
         if (st2 && st2.isDirectory()) return { ok: false, code: 'EISDIR', error: `${dest} 是一个文件夹,不能当文件写`, hint: '给 dest 一个文件名,或以 / 结尾表示存进该文件夹' };
         exists = !!st2;
-        before = exists ? await fsp.readFile(dest) : null;
+        before = exists ? await fileToolBeforeForCheckpoint(dest, st2.size) : null;   // 走查 W1·F8:先 stat,超检查点上限的旧文件不整份读进内存
         const jctx = await journalSessionCtx(ctx);
         jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', pathForJournal, exists ? 'modify' : 'create', exists ? before : null);
         await fsp.mkdir(path.dirname(dest), { recursive: true });
@@ -57189,7 +57368,7 @@ async function toolCall(name, args = {}, ctx = null) {
     // 路径里混进 NUL(\0):Node 在 stat/open 上抛 ERR_INVALID_ARG_VALUE,修前是裸 TypeError 一路抛给模型。
     // 只认这一类(fsErrorEnvelope 给 bad_path),其余异常照旧向上抛。
     if (e && e.code === 'ERR_INVALID_ARG_VALUE') {
-      const f = FileTextIo.fsErrorEnvelope(e, String((args && (args.path || args.from || args.src || args.dest || args.root)) || ''));
+      const f = FileTextIo.fsErrorEnvelope(e, String((args && (args.path || args.from || args.src || args.dest || args.root || args.outputPath)) || ''));
       if (f && f.code === 'bad_path') return f;
     }
     throw e;
@@ -57949,13 +58128,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'http_download',
-    description: '从一个 http(s) 网址下载文件保存到工作区内的 dest（内网/回环地址会被 SSRF 防护拒绝）。dest 已存在时先存检查点，可撤销。默认单文件上限 100MB（maxBytes 可调），Content-Length 与实际字节都会卡上限，超限拒绝。返回 {path, bytes, contentType}。',
+    description: '从一个 http(s) 网址下载文件保存到工作区内的 dest（内网/回环地址会被 SSRF 防护拒绝）。dest 已存在时先存检查点，可撤销。单文件上限 100MB（maxBytes 只能调低），Content-Length 与实际字节都会卡上限，超限拒绝。返回 {path, bytes, contentType}。',
     inputSchema: {
       type: 'object',
       properties: {
         url: { type: 'string', description: '要下载的 http(s) 网址' },
         dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）；文件夹（或以 / 结尾）则存进其中' },
-        maxBytes: { type: 'number', description: '最大字节数，默认 100MB' },
+        maxBytes: { type: 'number', description: '最大字节数，默认且最多 100MB' },
         timeoutMs: { type: 'number', description: '总期限（毫秒），默认空闲30s/总30分钟' },
       },
       required: ['url', 'dest'],
@@ -58132,14 +58311,15 @@ const MCP_TOOLS = [
   },
   {
     name: 'git_commit',
-    description: 'Stage changes and create a git commit. Runs git hooks (exec tier). No configured Git identity -> guiding error (never a fake one).',
+    description: 'Stage + git commit. Runs git hooks (exec tier; 90s default timeout). No Git identity -> guiding error (never a fake one).',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'repo folder (default: conversation working folder; must exist)' },
-        message: { type: 'string', description: 'commit message; body may follow a blank line' },
-        addAll: { type: 'boolean', description: 'git add -A first (default false: only what is already staged)' },
+        cwd: { type: 'string', description: 'repo folder (default: working folder; must exist)' },
+        message: { type: 'string', description: 'message (body after a blank line)' },
+        addAll: { type: 'boolean', description: 'git add -A first (default false: staged only)' },
         paths: { type: 'array', items: { type: 'string' }, description: 'stage only these files (overrides addAll)' },
+        timeoutMs: { type: 'number', description: 'ms' },
       },
       required: ['message'],
     },
@@ -61036,6 +61216,7 @@ async function startServerInner(opts) {
   if (config.importAgentInstructions !== false) await syncAgentInstructionImports({ auto: true }).catch(() => null);
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
+  void sweepStaleScriptFiles().catch(() => {});   // 走查 W1·F10:script_run 遗留的脚本明文(强杀 / 杀毒占着没删成的)按龄清掉
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {
@@ -78913,9 +79094,9 @@ if (require.main === module) {
 }
 
 module.exports = {
-  // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调。
+  // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12;走查 W1·F10 的 sweepStaleScriptFiles)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调(sweepStaleScriptFiles:unit/script-run-cleanup.test.js)。
   // 2026-10 能力总闸补桥接面:toolDisabledByPolicy / accPolicyHiddenToolNames / dropPolicyDisabledBridgedTools / ACC_POLICY_TOOL_FAMILIES 同住这个键(unit/acc-capability-gates.test.js 直调)。
-  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, toolDisabledByPolicy, accPolicyHiddenToolNames, dropPolicyDisabledBridgedTools, ACC_POLICY_TOOL_FAMILIES, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
+  dispatchTestHooks: { sweepStaleScriptFiles, validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, toolDisabledByPolicy, accPolicyHiddenToolNames, dropPolicyDisabledBridgedTools, ACC_POLICY_TOOL_FAMILIES, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)

@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3487,
-    "requiredSymbols": 3127,
-    "edges": 535,
+    "providedSymbols": 3495,
+    "requiredSymbols": 3135,
+    "edges": 536,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -78,6 +78,7 @@
         "dataRootMemoKey",
         "decodeConsoleSegment",
         "decodeConsoleText",
+        "decodeTextFileBytes",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -371,6 +372,7 @@
         "DurableJsonStore",
         "RESERVED_SESSION_FILE_IDS",
         "RUNTIME",
+        "SCRIPT_FILE_MAX_AGE_MS",
         "SESSION_MCP_CONFIG_MAX_AGE_MS",
         "STEWARD_MANAGED_WORKSPACES_CAP",
         "STEWARD_WORKSPACE_LEGACY_NOTE",
@@ -515,6 +517,7 @@
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
+        "sweepStaleScriptFiles",
         "sweepStaleSessionMcpConfigs",
         "syncAgentCliMcpManifests",
         "syncAgentRolesToClaude",
@@ -1899,6 +1902,7 @@
         "WRITE_PATH_ARGS",
         "WRITE_PROTECTED_DATA_DIRS",
         "WRITE_PROTECTED_DATA_FILES",
+        "WriteBoundaryHooks",
         "_dataRootReal",
         "_defaultBrowserExecutable",
         "_gitCliProbe",
@@ -1982,6 +1986,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -2276,6 +2287,7 @@
         "logStreamDay",
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
+        "mcpBridgeError",
         "mcpChildExitResult",
         "mcpClientFailures",
         "mcpClientFingerprints",
@@ -2354,6 +2366,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -2789,6 +2808,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "invalidateToolboxCache",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "killChildTree",
           "kinds": [
             "call"
           ]
@@ -10856,6 +10882,7 @@
         "BROWSE_IGNORE_DIRS",
         "DEFAULT_IGNORE_DIRS",
         "DOTNET_PROJECT_RE",
+        "GIT_COMMIT_TIMEOUT_DEFAULT_MS",
         "GIT_DIFF_MAX_BUFFER",
         "GIT_DIFF_MAX_CHARS",
         "GIT_DIFF_STAT_MAX_CHARS",
@@ -10863,6 +10890,7 @@
         "GIT_REF_RE",
         "GIT_SAFE_FLAGS",
         "GIT_STATUS_MAX_LINES",
+        "GIT_TIMEOUT_MAX_MS",
         "GIT_UNTRACKED_LIST_MAX",
         "HARD_IGNORE_DIRS",
         "PATH_MATCH_WORKER_SRC",
@@ -11295,6 +11323,7 @@
         "EXEC_CACHE_WHITELIST",
         "FILE_EDIT_ENCODING_HINT_NOT_ROUNDTRIP",
         "FILE_EDIT_ENCODING_HINT_UNDECODABLE",
+        "FILE_EDIT_MAX_BYTES",
         "FILE_EDIT_PS_ENCODING_TIP",
         "FILE_READ_CHAR_DEFAULT",
         "FILE_READ_CHAR_MAX",
@@ -11801,6 +11830,20 @@
           ]
         },
         {
+          "provider": "03-bridge-guard.js",
+          "symbol": "WriteBoundaryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "bridgedServerUnavailableMessage",
           "kinds": [
@@ -12163,6 +12206,13 @@
           "kinds": [
             "call",
             "read"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "powershellMissingOr",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -12731,6 +12781,13 @@
         {
           "provider": "01-config.js",
           "symbol": "serveStatic",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sweepStaleScriptFiles",
           "kinds": [
             "call"
           ]
@@ -22273,6 +22330,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "sweepStaleScriptFiles",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "syncAgentCliMcpManifests",
           "kinds": [
             "read"
@@ -26514,6 +26578,7 @@
         "crypto",
         "dataRoot",
         "dataRootAliases",
+        "decodeTextFileBytes",
         "fs",
         "fsp",
         "os",
@@ -26621,6 +26686,7 @@
         "cp",
         "crypto",
         "dataRoot",
+        "decodeTextFileBytes",
         "ensureDirs",
         "externalRoot",
         "fs",
@@ -26751,6 +26817,7 @@
         "ToolboxHooks",
         "enabledToolboxComponents",
         "invalidateToolboxCache",
+        "killChildTree",
         "logEvent",
         "redact",
         "scanToolboxComponents"
@@ -29087,6 +29154,7 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "REVEAL_OPEN_SAFE_EXTS",
+        "WriteBoundaryHooks",
         "bridgedOfficeScriptGate",
         "bridgedReadPathGate",
         "buildBrowserOpenSpawn",
@@ -29098,6 +29166,14 @@
         "normalizeCwd",
         "pathWithinRoot",
         "realpathForContainment"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "12-tool-dispatch.js",
+      "to": "04-desktop-shell.js",
+      "symbols": [
+        "DesktopShell"
       ],
       "direction": "backward"
     },
@@ -29213,6 +29289,7 @@
         "gitStatus",
         "isBinaryReadPath",
         "levenshtein",
+        "powershellMissingOr",
         "probeRgAsync",
         "readIfExists"
       ],
@@ -29309,6 +29386,7 @@
         "send",
         "sendError",
         "serveStatic",
+        "sweepStaleScriptFiles",
         "syncAgentCliMcpManifests",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
@@ -32118,6 +32196,7 @@
         "readConfig",
         "readFileTail",
         "resolveClaudeLauncher",
+        "sweepStaleScriptFiles",
         "syncAgentCliMcpManifests",
         "syncMcpServersToKimi"
       ],
