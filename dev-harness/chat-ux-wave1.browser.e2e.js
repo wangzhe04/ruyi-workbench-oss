@@ -62,7 +62,7 @@ async function main() {
         // 自动起标题的那一发(「用户原话:…」)不是回合,别记、别挂起。
         if (/^用户原话:/.test(text)) { ctx.text('标题'); ctx.stop(); return; }
         calls.push(text);
-        if (/ASK me$/.test(text)) {
+        if (/ASK me/.test(text)) {
           if (!ctx.answered) {
             ctx.toolCall('request_user_input', { questions: [
               { id: 'q1', question: '项目叫什么?', answerMode: 'text' },
@@ -76,11 +76,11 @@ async function main() {
           ctx.stop();
           return;
         }
-        if (/PERM write$/.test(text)) {
+        if (/PERM write/.test(text)) {
           if (!ctx.answered) { ctx.toolCall('file_write', { path: workFile.path, content: 'hello' }, 'call_perm1'); return; }
           ctx.text('写好了'); ctx.stop(); return;
         }
-        // 不加行尾锚:带附件的消息文字后面还跟着 <attached_files> 段。
+        // 不加行尾锚:带附件的消息文字后面还跟着 <attached_files> 段,而且每条消息末尾会被附上「本条消息发送于…」。
         if (/HOLD-(focus|attach)/.test(text)) { ctx.text('先说一句,'); await hold(); ctx.text('再说完'); ctx.stop(); return; }
         ctx.text('好的:' + text.slice(0, 20)); ctx.stop();
       },
@@ -123,7 +123,9 @@ async function main() {
 
     /* ───────── F2 空会话里连按两次 Enter ───────── */
     {
-      const before = await fx.request('GET', '/api/sessions');
+      // 机器忙时偶发请求超时(request 回 null):多试几次再下结论。
+      let before = null;
+      for (let i = 0; i < 5 && !(before && before.json); i++) { before = await fx.request('GET', '/api/sessions'); if (!(before && before.json)) await sleep(500); }
       const cur0 = await fx.evaluate(`window.state.currentSession && window.state.currentSession.id`);
       ok(before && before.json && before.json.sessions.length === 0 && !cur0, `F2-0 前提:全新家目录、没有会话(实得 ${JSON.stringify([before && before.json && before.json.sessions.length, cur0])})`);
       await setText('DOUBLE-ENTER-ONCE');
@@ -132,7 +134,7 @@ async function main() {
       await sleep(600);
       const sessions = await fx.request('GET', '/api/sessions');
       ok(sessions.json.sessions.length === 1, `F2-1 连按两次 Enter 只建一个会话(实得 ${sessions.json.sessions.length} 个)`);
-      const turnsSent = calls.filter(x => x.endsWith('DOUBLE-ENTER-ONCE')).length;
+      const turnsSent = calls.filter(x => x.includes('DOUBLE-ENTER-ONCE')).length;   // 不加行尾锚:消息后面还会被附上「本条消息发送于…」的时间戳
       ok(turnsSent === 1, `F2-2 同一句话只发一遍(实得 ${turnsSent} 遍)`);
       ok(await fx.evaluate(`document.querySelectorAll('.message.user').length`) === 1, 'F2-3 屏上只有一条用户消息');
     }
@@ -467,7 +469,7 @@ async function main() {
       provider: async ctx => {
         const text = lastUserText(ctx);
         const spoken = ctx.messages.some(m => m.role === 'assistant');
-        if (/PLAN (one|two)$/.test(text) && !spoken) { ctx.text('PLAN: 1. 读文件 2. 改文件'); ctx.stop(); return; }
+        if (/PLAN (one|two)/.test(text) && !spoken) { ctx.text('PLAN: 1. 读文件 2. 改文件'); ctx.stop(); return; }
         ctx.text('开始执行,');
         await hold();
         ctx.text('做完了');

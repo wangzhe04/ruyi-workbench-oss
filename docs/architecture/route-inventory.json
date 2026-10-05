@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-05T17:39:21.656Z",
+  "generatedAt": "2026-10-05T17:42:43.335Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2303,6 +2303,7 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\chat-ux-wave1.browser.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\tool-result-render.browser.e2e.js",
         "dev-harness\\unit\\tool-result-shrink.test.js",
@@ -3199,6 +3200,7 @@
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\bridge-cancel-timeout.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
+        "dev-harness\\chat-ux-wave1.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
         "dev-harness\\checkpoint-visibility.e2e.js",
@@ -3445,6 +3447,7 @@
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\bridge-cancel-timeout.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
+        "dev-harness\\chat-ux-wave1.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
         "dev-harness\\checkpoint-visibility.e2e.js",

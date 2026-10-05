@@ -31,6 +31,7 @@ import { createInteractionPromptsDomain } from './js/interaction-prompts.js';
 import { createToolRuntimeDomain } from './js/tool-runtime.js';
 import { createWorkspacePreferencesDomain } from './js/workspace-preferences.js';
 import { createChatRenderPrimitives } from './js/chat-render-primitives.js';
+import { createAttachmentTray } from './js/attachment-tray.js'; // 附件托盘:渲染 / 上传(上传中占位)/ 预览 URL 释放(F13)
 // Agent CLI 登记表（ENGINEERING-SPEC §11.1）：两个零 import 工厂（渲染原语／流运行时）经 deps.agentCliMeta 拿它。
 import { agentCliMeta } from './js/agent-cli-registry.js';
 import { renderMermaidBlocks } from './js/mermaid-runtime.js';
@@ -262,6 +263,7 @@ const {
   fillStewardSettings: () => stewardShellGuard?.fillStewardSettings(), // 117e：设置页「管家」页签随 config 回填
 });
 
+const { renderAttachments, revokeAttachmentPreview, uploadFiles } = createAttachmentTray({ apiErrText });
 const {
   buildStaticToolGroup,
   ctxTokensOf,
@@ -701,70 +703,6 @@ function attachmentImageUrl(att) {
   }
   return pending;
 }
-// F13:上传期间的占位(只给托盘画「上传中…」,不进 state.attachments —— 发送的是 state.attachments,占位永远不会被发出去)。
-// state.uploading = 在飞的上传数,sendPrompt 据此拦住发送:修前上传慢于发送时,这一条消息漏掉附件、附件挂到下一条上。
-const pendingUploads = [];
-// 缩略图预览用的是 URL.createObjectURL(file):不释放就一直占着内存。移除 / 发送出去 / 清场时调这一个。
-function revokeAttachmentPreview(record) {
-  if (!record || !record.previewUrl) return;
-  try { URL.revokeObjectURL(record.previewUrl); } catch { /* ignore */ }
-  delete record.previewUrl;
-}
-function renderAttachments() {
-  const tray = $('attachmentTray');
-  tray.innerHTML = '';
-  state.attachments.forEach((f, i) => {
-    const pill = el('span', 'attachment-pill');
-    if (f.previewUrl) {
-      const thumb = document.createElement('img');
-      thumb.className = 'attach-pill-thumb';
-      thumb.src = f.previewUrl;
-      thumb.alt = f.name || '';
-      pill.appendChild(thumb);
-    }
-    pill.append(el('span', '', `${f.name} · ${fmtBytes(f.size)}`));
-    const x = el('button', 'attach-x'); x.appendChild(icon('close', 12)); x.setAttribute('aria-label', t('chat.attachRemoveAria')); x.title = t('common.remove');
-    x.onclick = () => { const [removed] = state.attachments.splice(i, 1); revokeAttachmentPreview(removed); renderAttachments(); };
-    pill.appendChild(x);
-    tray.appendChild(pill);
-  });
-  for (const slot of pendingUploads) {
-    const pill = el('span', 'attachment-pill uploading');
-    pill.setAttribute('aria-busy', 'true');
-    pill.append(el('span', '', `${slot.name} · ${t('chat.attachmentUploading')}`));
-    tray.appendChild(pill);
-  }
-}
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); });
-}
-async function uploadFiles(files) {
-  const list = [...files].filter(Boolean);
-  // 一进来就给每个文件放一个「上传中…」占位并计数;放行一个(成功 / 失败 / 过大)就撤一个。
-  const slots = list.map(file => ({ name: file.name, size: file.size }));
-  pendingUploads.push(...slots);
-  state.uploading = pendingUploads.length;
-  renderAttachments();
-  const settleSlot = slot => {
-    const at = pendingUploads.indexOf(slot);
-    if (at >= 0) pendingUploads.splice(at, 1);
-    state.uploading = pendingUploads.length;
-    renderAttachments();
-  };
-  for (let i = 0; i < list.length; i++) {
-    const file = list[i], slot = slots[i];
-    try {
-      if (file.size > 90 * 1048576) { toast(t("toast.fileTooLarge", { p1: file.name }), 'err'); continue; }
-      const data = await fileToBase64(file);
-      const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
-      const record = res.file;
-      if (record && /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i.test(String(record.name || ''))) record.previewUrl = URL.createObjectURL(file);
-      if (record) state.attachments.push(record);
-    } catch (e) { toast(t("toast.uploadFail", { p1: apiErrText(e) }), 'err'); }
-    finally { settleSlot(slot); }
-  }
-}
-
 /* ---------------- v0.9-S3 (C3): folder-drag → set workspace ---------------- */
 // The browser never gives a dropped folder's absolute path (webkitGetAsEntry → name + child names only).
 // So we read the folder's name + first-level child names (≤50) as a FINGERPRINT and POST it to the server,
