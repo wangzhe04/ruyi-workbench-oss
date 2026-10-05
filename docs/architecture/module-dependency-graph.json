@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3474,
-    "requiredSymbols": 3126,
+    "providedSymbols": 3477,
+    "requiredSymbols": 3127,
     "edges": 535,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -10003,6 +10003,7 @@
         "CompactionPlan",
         "ECON_AUX_FLAG_CACHE",
         "ESTIMATION_RULES",
+        "EXCLUSIVE_TURN_SOURCES",
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
@@ -21104,6 +21105,7 @@
         "schedulerTasksPath",
         "schedulerTick",
         "schedulerTickMs",
+        "schedulerTurnTimeoutMs",
         "startScheduler",
         "stopScheduler"
       ],
@@ -21285,6 +21287,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionRank",
           "kinds": [
             "call"
@@ -21382,6 +21391,7 @@
         "schedulerPrepareThread",
         "schedulerToolFind",
         "schedulerToolGate",
+        "schedulerToolLoad",
         "schedulerToolRow",
         "schedulerToolSetEnabled",
         "stewardImplScheduleCreate",
@@ -31828,6 +31838,7 @@
       "to": "06i-steward-core.js",
       "symbols": [
         "STEWARD_SESSION_ID",
+        "StewardHooks",
         "stewardPermissionRank"
       ],
       "direction": "backward"

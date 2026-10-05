@@ -3058,9 +3058,14 @@ async function runSessionTurn(input) {
   // 刚开跑的用户回合 superseded 掉(用户那句话丢了)。turnSettlers 条目覆盖整个 runSessionTurn(含
   // until-done 驱动器两回合之间的空档),正是「这条线程此刻有一个回合归别人」的完整区间。
   // 检查与下面 turnSettlers.set 之间没有 await,两个并发调用不会都判成空闲。
+  // 同源也算忙的发起面(EXCLUSIVE_TURN_SOURCES,定义在本文件 AGENT_WAKE_SOURCE 旁):'http' 同一扇窗里再发一句 = 顶替(上面
+  // 那条既有语义),'steward' 同理保持原样;而定时调度器('scheduler')与后台代理唤醒('agent_wake')是【系统自己】起的回合,
+  // 不是某个人在同一扇窗口里改口。两条定时任务同刻指向同一条既有线程时,修前后一个把前一个当「同源」顶掉
+  // (09/05 的 supersede):前一个的消息丢了,它的记账却还是 succeeded。现在后来者拿 409,13s 按 target_busy 记 skipped
+  // (不计连败),唤醒侧(runAgentWake)则把账退回去等那一回合收尾时补唤醒。
   const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
-  if (busySettler && busySource && busySource !== source) {
+  if (busySettler && busySource && (busySource !== source || EXCLUSIVE_TURN_SOURCES.has(source))) {
     throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
       code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
     });
@@ -3384,6 +3389,8 @@ async function runSessionTurn(input) {
 //   · 管家会话不唤醒(它有自己的运行器);会话已删不唤醒;
 //   · 唤醒回合不是用户的意思表示:source 不是 'http',所以不改「上次用的引擎」、不清 stewardTaint(见 runSessionTurn)。
 const AGENT_WAKE_SOURCE = 'agent_wake';
+// 系统自己起的回合:同一条线程上已经有一个同源回合在跑时,后来者不顶替、而是被挡回去(见 runSessionTurn 的忙判定)。
+const EXCLUSIVE_TURN_SOURCES = new Set(['scheduler', AGENT_WAKE_SOURCE]);
 const AGENT_WAKE_DEBOUNCE_MS = 1500;   // 同一批并行代理前后脚收尾时合成一次唤醒
 const AGENT_WAKE_CHAIN_MAX = 6;
 const agentWakeTimers = new Map();     // sessionId -> 防抖定时器

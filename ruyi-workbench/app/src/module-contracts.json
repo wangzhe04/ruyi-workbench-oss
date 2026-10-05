@@ -9903,6 +9903,7 @@
         "CompactionPlan",
         "ECON_AUX_FLAG_CACHE",
         "ESTIMATION_RULES",
+        "EXCLUSIVE_TURN_SOURCES",
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
@@ -20960,6 +20961,7 @@
         "schedulerTasksPath",
         "schedulerTick",
         "schedulerTickMs",
+        "schedulerTurnTimeoutMs",
         "startScheduler",
         "stopScheduler"
       ],
@@ -21141,6 +21143,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionRank",
           "kinds": [
             "call"
@@ -21236,6 +21245,7 @@
         "schedulerPrepareThread",
         "schedulerToolFind",
         "schedulerToolGate",
+        "schedulerToolLoad",
         "schedulerToolRow",
         "schedulerToolSetEnabled",
         "stewardImplScheduleCreate",

@@ -34748,7 +34748,11 @@ const SCHEDULER_SCHEDULE_KINDS = Object.freeze(['once', 'daily', 'weekly', 'mont
 const SCHEDULER_PAYLOAD_KINDS = Object.freeze(['reminder', 'prompt']);   // playbook/workflow → 127 波
 const SCHEDULER_TARGET_MODES = Object.freeze(['new-session', 'existing-session']);
 const SCHEDULER_ON_MISSED = Object.freeze(['run-once-late', 'skip']);
-const SCHEDULER_ON_FAILURE = Object.freeze(['notify', 'retry-once']);
+// 失败后的处理:目前只有 'notify'(记账、计入连败、三次熔断)。29 号文设计过 'retry-once',但调度器从未实现它 ——
+// 修前它被接受、落盘、回显,却没有任何代码读它,用户以为失败会自动重试。界面与管家工具也从没给过这个选项,
+// 只有裸 HTTP body 能写进来。所以归一化时不再认它(回落 'notify',即它实际的行为);盘上已有的旧值装载时同样回落。
+// 将来真要做重试,在这里加值的同时必须有 13s 的实现与 e2e,不要只加枚举。
+const SCHEDULER_ON_FAILURE = Object.freeze(['notify']);
 const SCHEDULER_FIRE_MODES = Object.freeze(['ontime', 'late', 'manual']);
 const SCHEDULER_PHASES = Object.freeze(['registered', 'dispatched', 'running', 'reconciled']);
 const SCHEDULER_OUTCOMES = Object.freeze(['succeeded', 'failed', 'needs_you', 'skipped', 'unknown']);
@@ -35218,12 +35222,12 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   if (!rawPayload) return schedulerFail('invalid_request', 'payload is required');
   const payloadKind = String(rawPayload.kind || '');
   if (!SCHEDULER_PAYLOAD_KINDS.includes(payloadKind)) {
-    return schedulerFail('invalid_request', 'payload.kind must be one of ' + SCHEDULER_PAYLOAD_KINDS.join('/') + ' (playbook/workflow land in wave 127)');
+    return schedulerFail('invalid_request', 'payload.kind must be one of ' + SCHEDULER_PAYLOAD_KINDS.join('/') + ' (other payload kinds are not supported yet)');
   }
   const forbidden = schedulerFindForbiddenKey(rawPayload, 0);
   if (forbidden) {
     return schedulerFail('payload_forbidden_key',
-      'payload must not carry ' + forbidden + ' (29 号文 §10:本地命令/密钥/环境变量/数据目录一律不进任务载荷)');
+      'payload must not carry ' + forbidden + ' (local commands, secrets, environment variables and the data directory must never go into a task payload)');
   }
   // 同上:局部名不能叫 text(纪律 12)。
   const payloadText = schedulerCleanBlock(rawPayload.text, SCHEDULER_LIMITS.textChars);
@@ -47753,9 +47757,14 @@ async function runSessionTurn(input) {
   // 刚开跑的用户回合 superseded 掉(用户那句话丢了)。turnSettlers 条目覆盖整个 runSessionTurn(含
   // until-done 驱动器两回合之间的空档),正是「这条线程此刻有一个回合归别人」的完整区间。
   // 检查与下面 turnSettlers.set 之间没有 await,两个并发调用不会都判成空闲。
+  // 同源也算忙的发起面(EXCLUSIVE_TURN_SOURCES,定义在本文件 AGENT_WAKE_SOURCE 旁):'http' 同一扇窗里再发一句 = 顶替(上面
+  // 那条既有语义),'steward' 同理保持原样;而定时调度器('scheduler')与后台代理唤醒('agent_wake')是【系统自己】起的回合,
+  // 不是某个人在同一扇窗口里改口。两条定时任务同刻指向同一条既有线程时,修前后一个把前一个当「同源」顶掉
+  // (09/05 的 supersede):前一个的消息丢了,它的记账却还是 succeeded。现在后来者拿 409,13s 按 target_busy 记 skipped
+  // (不计连败),唤醒侧(runAgentWake)则把账退回去等那一回合收尾时补唤醒。
   const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
-  if (busySettler && busySource && busySource !== source) {
+  if (busySettler && busySource && (busySource !== source || EXCLUSIVE_TURN_SOURCES.has(source))) {
     throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
       code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
     });
@@ -48079,6 +48088,8 @@ async function runSessionTurn(input) {
 //   · 管家会话不唤醒(它有自己的运行器);会话已删不唤醒;
 //   · 唤醒回合不是用户的意思表示:source 不是 'http',所以不改「上次用的引擎」、不清 stewardTaint(见 runSessionTurn)。
 const AGENT_WAKE_SOURCE = 'agent_wake';
+// 系统自己起的回合:同一条线程上已经有一个同源回合在跑时,后来者不顶替、而是被挡回去(见 runSessionTurn 的忙判定)。
+const EXCLUSIVE_TURN_SOURCES = new Set(['scheduler', AGENT_WAKE_SOURCE]);
 const AGENT_WAKE_DEBOUNCE_MS = 1500;   // 同一批并行代理前后脚收尾时合成一次唤醒
 const AGENT_WAKE_CHAIN_MAX = 6;
 const agentWakeTimers = new Map();     // sessionId -> 防抖定时器
@@ -76166,6 +76177,13 @@ function schedulerAskWaitMs(schedConfig) {
     : SCHEDULER_LIMITS.askWaitMinutesDefault;
   return clamped * 60000;
 }
+// 回合超时(task.policy.timeoutMinutes,最小 1 分钟)。测试旗 WCW_SCHEDULER_TIMEOUT_MS 把它压到毫秒级(同上面几个旗:
+// 只读 process.env,缺省即生产取值,不进 config、不进 UI、不落盘)。
+function schedulerTurnTimeoutMs(schedTask) {
+  const raw = Number(process.env.WCW_SCHEDULER_TIMEOUT_MS);
+  if (Number.isFinite(raw) && raw >= 50) return Math.round(raw);
+  return Math.max(1000, schedTask.policy.timeoutMinutes * 60000);
+}
 // 崩溃钩子:在四段边界上把服务打死(process.exit(3)),供 scheduler-crash.e2e.js 造真崩溃。
 // 四个点名与 §3.2 逐字:after-register / after-dispatch / mid-run / before-reconcile。
 function schedulerMaybeCrash(schedPoint) {
@@ -76577,6 +76595,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   let sessionId = '';
   let costTokens = 0;
   let targetBusy = false;   // 8a:目标线程正被别处的回合占着(SESSION_TURN_BUSY_ELSEWHERE),见下
+  let targetBusySource = '';   // 占着它的回合是谁发起的(runSessionTurn 的 source:'http' / 'steward' / 'scheduler' / 'agent_wake')
   try {
     await schedulerSaveTasks();
     await schedulerAppendFire({ ...fireBase, phase: 'registered' });
@@ -76648,10 +76667,32 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
 
       // 无人值守的 ask:只把「等多久」换掉(见 07-autonomy 的 schedulerAskWaitSessions);
       // 成对写/清 —— finally 里删,否则一条被换过窗口的会话会把这个值带到后面的手动回合上。
-      schedulerAskWaitSessions.set(sessionId, schedulerAskWaitMs(config));
+      const askWaitMs = schedulerAskWaitMs(config);
+      schedulerAskWaitSessions.set(sessionId, askWaitMs);
       let permissionDenied = 0;
+      // 超时只计回合真正在干活的时间,【不含】卡在「等你批准」上的那一段。无人值守的批准窗口(schedulerAskWaitMinutes,
+      // 缺省 30 分)与回合超时(timeoutMinutes,缺省 30 分,从回合开始算)同量级:修前回合头一个动作就是要批准的话,
+      // 超时计时器与批准窗口同刻到期,超时那一支又排在 permissionDenied 之前判 —— needs_you 实际走不到,
+      // 一条「只是没人来批」的任务被记成 failed/timeout,三次就熔断停用。现在待批的区间不记进超时的账:
+      // 下面的计时器在到点时扣掉它再看还剩多少(到点时还有未决审批,当下那一段也按已等的时间扣)。
+      // 只靠事件配对记账:requestNativePermission / CLI 桥都【无论怎么收场】(批准、拒绝、到时、停止)发 permission_decision。
+      // 单段待批最多只扣 askCapMs(批准窗口 + 存档暂停的 TTL + 余量):万一哪条路径漏发了 decision,超时也不会被无限推迟。
+      const turnTimeoutMs = schedulerTurnTimeoutMs(task);
+      const askCapMs = askWaitMs + Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000) + 60000;
+      const pendingAsks = new Set();
+      let askClosedMs = 0;     // 已经结束的待批区间累计(每段按 askCapMs 封顶)
+      let askOpenSince = 0;    // 当前这一段待批(可能有几条并发审批)从何时起,0 = 此刻没有未决审批
+      const askSpentMs = () => askClosedMs + (askOpenSince ? Math.min(Date.now() - askOpenSince, askCapMs) : 0);
       const onEvent = evt => {
         if (!evt || typeof evt !== 'object') return;
+        if (evt.type === 'permission_request' && evt.requestId) {
+          if (!pendingAsks.size) askOpenSince = Date.now();
+          pendingAsks.add(String(evt.requestId));
+        }
+        if (evt.type === 'permission_decision' && evt.requestId && pendingAsks.delete(String(evt.requestId)) && !pendingAsks.size) {
+          askClosedMs += Math.min(Date.now() - askOpenSince, askCapMs);
+          askOpenSince = 0;
+        }
         if (evt.type === 'permission_decision' && evt.behavior !== 'allow') permissionDenied += 1;
         if (evt.type === 'usage' && evt.usage) {
           const u = evt.usage;
@@ -76659,18 +76700,36 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
             + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
         }
       };
-      let timedOut = false;
-      // 127 波 2-ter 登记的已知债(C18 code-review finding)已在本刀修:回合在仲裁器里等锁/等并发位、
+      let timedOut = false;        // 真的因超时叫停了一个【活回合】
+      let queueTimedOut = false;   // 回合在 13n 仲裁器里排队排过了超时、还没起跑就被撤出队列
+      // 127 波 2-ter 登记的已知债(C18 code-review finding)的前一半早已修:回合在仲裁器里等锁/等并发位、
       // 或本身跑得慢时,下面这个 await 一直挂着只挡【这一条任务自己】—— 不再借道 schedulerRuntime.ticking
       // 把整个调度器一起拖住(见 schedulerDispatchFire / schedulerTick 头注:tick 不再 await 单条任务的
-      // schedulerFireOnce)。仍然没解的是超时计时器那一半:stopSession 只认活回合,这条任务如果此刻还
-      // 【排队中】(还没真的起 runSessionTurn),它不会被出队 —— 那要等它排到、真的起了回合才轮到超时计时器。
-      // S-b 让定时线程不再与 defaultWorkspace 上的手工线程抢同一把锁,缓解了排队最常见的一个来源。
-      const timer = setTimeout(() => {
-        timedOut = true;
-        try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
-      }, Math.max(1000, task.policy.timeoutMinutes * 60000));
-      if (timer && typeof timer.unref === 'function') timer.unref();
+      // schedulerFireOnce)。后一半是超时计时器:stopSession 只认活回合(activeChildren),这条任务若此刻还【排队中】
+      // (在 13n 仲裁器里等并发位 / 同工作文件夹写锁,没真的起回合),它拿不到活回合、什么都没停 —— 修前计时器是
+      // 一次性的、照样先把 timedOut 置上:回合排到了照常跑完,记账却是 failed/timeout,与实际不符,还计入连败熔断。
+      // 现在到点时:① 有活回合 → 停它(timedOut);② 没有活回合但排着队 → 经 StewardHooks.cancelQueuedTurn 把它撤出队列
+      // (与 POST /api/stop 同一条路),按「这一次没跑成」记账(queueTimedOut,见下);③ 两样都没有 = 回合还在起跑前
+      // (装载会话 / 引擎还没登记中止器)或刚好收尾 —— 不判超时,稍后再看,而不是留一个永远不会再触发的计时器。
+      const turnStartedMs = Date.now();
+      let timer = null;
+      const armTimeout = delayMs => {
+        timer = setTimeout(onTimeout, Math.max(1, Math.round(delayMs)));
+        if (timer && typeof timer.unref === 'function') timer.unref();
+      };
+      const onTimeout = () => {
+        timer = null;
+        const leftMs = turnTimeoutMs - (Date.now() - turnStartedMs - askSpentMs());
+        if (leftMs > 50) { armTimeout(leftMs); return; }   // 扣掉等批准的时间,还没到
+        let stopped = false;
+        try { stopped = stopSession(sessionId, 'scheduler_timeout') === true; } catch { /* 会话已经收尾 */ }
+        if (stopped) { timedOut = true; return; }
+        let cancelled = false;
+        try { cancelled = typeof StewardHooks.cancelQueuedTurn === 'function' && StewardHooks.cancelQueuedTurn(sessionId) === true; } catch { /* 仲裁器不在 = 没有排队这回事 */ }
+        if (cancelled) { queueTimedOut = true; return; }
+        armTimeout(1000);
+      };
+      armTimeout(turnTimeoutMs);
       let result = null;
       try {
         result = await runSessionTurn({
@@ -76687,26 +76746,34 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         // 8a:目标线程(existing-session)此刻有一个别处发起的回合在跑 —— runSessionTurn 在起回合【之前】
         // 就回 409,一个字节都没动那条线程。这不是这条任务的失败:修前记成 failed、计入连败,用户在那条线程里
         // 连着聊三次就把任务熔断停用了。判据只认稳定错误码,不认文案。
-        if (e && e.code === 'SESSION_TURN_BUSY_ELSEWHERE') targetBusy = true;
+        if (e && e.code === 'SESSION_TURN_BUSY_ELSEWHERE') { targetBusy = true; targetBusySource = String(e.turnSource || ''); }
       } finally {
-        clearTimeout(timer);
-        schedulerAskWaitSessions.delete(sessionId);
+        if (timer) { clearTimeout(timer); timer = null; }
+        // 挡回我们的若是【另一个定时回合】(两条任务同刻指向同一条既有线程,见 10 runSessionTurn 的同源忙判定),
+        // 表里那一格是它正在用的无人值守等待窗口(两边写进去的值相同)—— 在这里删掉,它后面的批准就退回 120 秒的默认窗口。
+        if (!(targetBusy && targetBusySource === 'scheduler')) schedulerAskWaitSessions.delete(sessionId);
       }
       // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
       // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
       const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
-      const turnOk = inner ? inner.ok === true : !!(result && result.ok);
-      if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
-      else if (!result || !turnOk) { outcome = 'failed'; error = error || String((inner && inner.errorClass) || 'turn_failed'); }
+      // 没有内层 result 事件而 stopped:回合是在【排队时】被撤的(runSessionTurn 的 STEWARD_TURN_CANCELLED 分支只发 process/stopped,
+      // 返回 ok:true、result:null)—— 它一个字都没跑,不能顺着外层 ok 记成 succeeded。
+      const neverRan = !inner && !!(result && result.stopped);
+      const turnOk = inner ? inner.ok === true : !!(result && result.ok && !neverRan);
+      if (queueTimedOut) { outcome = 'skipped'; error = 'queue_timeout'; }
+      else if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
+      else if (!result || !turnOk) { outcome = 'failed'; error = error || (neverRan ? 'stopped' : String((inner && inner.errorClass) || 'turn_failed')); }
       else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
       else outcome = 'succeeded';
-      if (targetBusy) {
+      if (targetBusy || queueTimedOut) {
         // 8a:按「这一次不跑」记 skipped(与撞上限同一个结果值,原因 target_busy),不计连败;日程推进到【下一个】
         // 时点(收尾段对非 manual 一律如此)—— 不选「下一拍重试」:用户在那条线程里一聊半小时,每 30 秒一拍的
         // 重试会在他每说完一句话的空档里立刻插进一个定时回合,而 cron 的下一个时点本来就是这条任务的节奏。
         // 登记时预扣的两份当日计数退回(什么都没跑,不该占今天的上限)。
+        // 排队超时(queue_timeout)同一口径:回合在 13n 仲裁器里排了一整个超时都没轮到(并发位 / 同文件夹写锁 / 预算被别的线程占着),
+        // 计时器已把它撤出队列、什么都没跑 —— 那是工作台忙,不是这条任务的错,不该计入连败(修前记 failed/timeout 还让回合排到后照跑)。
         outcome = 'skipped';
-        error = 'target_busy';
+        error = targetBusy ? 'target_busy' : 'queue_timeout';
         if (task.state.runsToday && task.state.runsToday.date === day) task.state.runsToday = { date: day, count: Math.max(0, task.state.runsToday.count - 1) };
         if (schedulerRuntime.globalRuns.date === day) schedulerRuntime.globalRuns = { date: day, count: Math.max(0, schedulerRuntime.globalRuns.count - 1) };
       }
@@ -76717,7 +76784,8 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
       // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
       // 8a:target_busy 时这条线程上根本没有定时回合,不往别人的回合头上记一笔「管家末回合」。
-      if (!targetBusy) void updateSessionMeta(sessionId, {
+      // queue_timeout 同理:回合没跑过,线程上没有它的成败可记。
+      if (!targetBusy && !queueTimedOut) void updateSessionMeta(sessionId, {
         launchedBy: 'steward',
         stewardLastTurn: {
           seq: Math.max(0, Number(result && result.turnSeq) || 0),
@@ -77085,7 +77153,11 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
     normalized.task.revision = (Number(current.revision) || 0) + 1;
     // 计划没变时保住盘上的 nextFireAt(改个标题不该把下一次往后推);变了才用新算的那个。
-    if (JSON.stringify(normalized.task.schedule) === JSON.stringify(current.schedule)) {
+    // 例外:从暂停(含熔断停用)里被重新打开 —— 暂停期间 tick 不碰这条任务,盘上的 nextFireAt 还停在暂停那一刻的
+    // 旧时点上;保住它的话,恢复后第一拍就把暂停期间的时点当「错过」补跑一次(或记一条没人错过的 skipped)。
+    // 此时用 normalizeSchedulerTask 刚按「此刻」算好的那个(与 13t schedulerToolSetEnabled 同口径)。
+    const resumedFromPause = normalized.task.state.enabled && !current.state.enabled;
+    if (!resumedFromPause && JSON.stringify(normalized.task.schedule) === JSON.stringify(current.schedule)) {
       normalized.task.state.nextFireAt = current.state.nextFireAt;
     }
     normalized.task.state.inFlightRunId = current.state.inFlightRunId;
@@ -77192,6 +77264,17 @@ function schedulerToolGate(schedConfig) {
   return null;
 }
 
+// 装载任务表,读不出来就答完。tasks-v1.json 在、但此刻读不出来(Windows 上杀软/备份软件短暂持锁的 EBUSY 等)时,
+// schedulerLoad 不置 loaded:内存里那张空表不是事实,schedulerSaveTasks 也已拒写。修前五个工具照常往下走 ——
+// list 回 ok + 空表(模型会对用户说「你没有定时任务」),pause/resume/run_now/delete 回 not_found,create 回 ok
+// 却什么都没落盘。与 HTTP 六条路由的闸(13s schedulerRouteGate 的 503 scheduler.unavailable)同一个口径。
+async function schedulerToolLoad() {
+  await schedulerLoad();
+  if (schedulerRuntime.loaded) return null;
+  return stewardFail('scheduler.unavailable',
+    '定时任务表存在,但这会儿读不出来(可能被别的程序占着);什么都没有改动。过一会儿再试,不要当成「没有任务」告诉用户');
+}
+
 // 工具面回给模型的一行。**不是** schedulerPublicTask 那一份:那份是给界面的全量(含 policy /
 // state / payload 正文),进模型上下文纯属浪费。这里只留模型说人话需要的六个字段。
 function schedulerToolRow(schedTask) {
@@ -77225,7 +77308,7 @@ async function stewardImplScheduleCreate(args, ctx, config) {
         reason: 'unattended', tool: 'steward_schedule_create',
       });
   }
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   if (schedulerRuntime.tasks.length >= SCHEDULER_LIMITS.maxTasks) {
     return stewardFail('scheduler.capacity_exceeded',
       `定时任务最多 ${SCHEDULER_LIMITS.maxTasks} 条,先删掉几条再来`, { max: SCHEDULER_LIMITS.maxTasks });
@@ -77320,7 +77403,7 @@ function schedulerNormalizationNotes(schedArgs, schedTask) {
 // 2) steward_schedule_list —— 只读。不进决策日志(读工具没有「做过什么」可记)。
 async function stewardImplScheduleList(args, ctx, config) {
   const gate = schedulerToolGate(config); if (gate) return gate;
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   return { ok: true, tasks: schedulerRuntime.tasks.map(schedulerToolRow) };
 }
 
@@ -77328,7 +77411,7 @@ async function stewardImplScheduleList(args, ctx, config) {
 //       任务本来就是用户自己下的单,开关它不改载荷、不改权限档,所以无人值守时也可以做。
 async function schedulerToolSetEnabled(args, ctx, config, wantEnabled, toolName) {
   const gate = schedulerToolGate(config); if (gate) return gate;
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
@@ -77341,6 +77424,13 @@ async function schedulerToolSetEnabled(args, ctx, config, wantEnabled, toolName)
   // 从熔断里被重新打开:连败计数清零(与 PATCH /api/scheduler/tasks/:id 同口径 —— 不清零的话
   // 下一次失败会立刻再熔断,用户会以为「继续」这枚按钮没生效)。
   if (wantEnabled && !was) task.state.consecutiveFailures = 0;
+  // 从暂停里恢复:nextFireAt 要按「此刻」重算(与 PATCH /api/scheduler/tasks/:id 同口径)。暂停期间 tick 不碰这条任务,
+  // 盘上的 nextFireAt 还停在暂停时的旧时点 —— 不重算的话恢复后第一拍会把暂停期间的时点当「错过」补跑一次,
+  // 或记一条没人错过的 skipped。算不出下一次(过期的 once)就落空串,与新建时同一个表示。
+  if (wantEnabled && !was) {
+    const resumedNext = nextFireAt(task.schedule, schedulerClockNow());
+    task.state.nextFireAt = resumedNext == null ? '' : new Date(resumedNext).toISOString();
+  }
   task.revision = (Number(task.revision) || 0) + 1;
   task.updatedAt = new Date(schedulerClockNow()).toISOString();
   await schedulerSaveTasks();
@@ -77377,7 +77467,7 @@ async function stewardImplScheduleRunNow(args, ctx, config) {
         reason: 'unattended', tool: 'steward_schedule_run_now',
       });
   }
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
@@ -77410,7 +77500,7 @@ async function stewardImplScheduleDelete(args, ctx, config) {
         reason: 'unattended', tool: 'steward_schedule_delete',
       });
   }
-  await schedulerLoad();
+  const unavailable = await schedulerToolLoad(); if (unavailable) return unavailable;
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const removed = schedulerToolRow(found.task);
