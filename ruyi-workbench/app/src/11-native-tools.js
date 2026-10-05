@@ -1566,7 +1566,10 @@ function rgListHighByteFiles(rg, base, filt, timeoutMs) {
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
     const child = cp.spawn(rg, ['--no-messages', '-l', '--crlf', ...filt, '--', '(?-u)[\\x80-\\xFF]', base], { cwd: base, windowsHide: true });
     const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, timeoutMs);
-    child.stdout.on('data', d => { out += d.toString('utf8'); if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    // setEncoding 走 StringDecoder:块边界切在多字节字符中间时先扣住残字节、下一块拼齐再出字(逐块 d.toString('utf8') 会把
+    // 被切开的字符各变成 U+FFFD,中文路径整条损坏 —— 管道块大小由 OS 决定,长输出必现)。
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', d => { out += d; if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
     child.on('error', () => finish(null));
     child.on('close', code => finish(code === 2 && !out ? null : out.split(/\r?\n/).filter(Boolean)));
   });
@@ -1635,8 +1638,10 @@ function searchFileContentRg(root, pattern, opts = {}) {
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
     const child = cp.spawn(rg, args, { cwd: base, windowsHide: true });
     const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, Number(opts.rgTimeoutMs || 10000));
-    child.stdout.on('data', d => { stdout += d.toString('utf8'); if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
-    child.stderr.on('data', d => { stderr += d.toString('utf8'); });
+    child.stdout.setEncoding('utf8');   // 同上:按块 toString 会把跨块的中文路径 / 命中行劈成 U+FFFD
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', d => { stdout += d; if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    child.stderr.on('data', d => { stderr += d; });
     child.on('error', () => finish(null));
     child.on('close', async code => {
       // rg exit 1 = no matches (valid: empty result). exit 2 = error → fall back.

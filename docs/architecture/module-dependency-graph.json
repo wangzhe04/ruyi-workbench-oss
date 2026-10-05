@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3380,
-    "requiredSymbols": 3071,
+    "providedSymbols": 3382,
+    "requiredSymbols": 3074,
     "edges": 532,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -77,6 +77,7 @@
         "dataRootMemoKey",
         "decodeConsoleSegment",
         "decodeConsoleText",
+        "decodeTextFileBytes",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -1852,6 +1853,7 @@
         "WRITE_PATH_ARGS",
         "WRITE_PROTECTED_DATA_DIRS",
         "WRITE_PROTECTED_DATA_FILES",
+        "WriteBoundaryHooks",
         "_dataRootReal",
         "_defaultBrowserExecutable",
         "_gitCliProbe",
@@ -1935,6 +1937,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -2300,6 +2309,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -11426,6 +11442,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "REVEAL_OPEN_SAFE_EXTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "WriteBoundaryHooks",
           "kinds": [
             "read"
           ]
@@ -26012,6 +26035,7 @@
         "crypto",
         "dataRoot",
         "dataRootAliases",
+        "decodeTextFileBytes",
         "fs",
         "fsp",
         "os",
@@ -26117,6 +26141,7 @@
         "cp",
         "crypto",
         "dataRoot",
+        "decodeTextFileBytes",
         "ensureDirs",
         "externalRoot",
         "fs",
@@ -28529,6 +28554,7 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "REVEAL_OPEN_SAFE_EXTS",
+        "WriteBoundaryHooks",
         "bridgedOfficeScriptGate",
         "bridgedReadPathGate",
         "buildBrowserOpenSpawn",

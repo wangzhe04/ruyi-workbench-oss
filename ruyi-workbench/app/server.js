@@ -411,6 +411,26 @@ function createConsoleLineDecoder() {
   };
 }
 
+// 走查 W1·F4:【文本文件】字节 → 文本(附件 textPreview、/api/file/preview 用)。修前一律按 UTF-8 解:GBK 的 .txt/.csv(中文 Windows
+// 上最常见的「另存为」结果)、带 BOM 的 UTF-16LE(PowerShell Out-File 的默认输出)满屏 U+FFFD,而且附件预览还会原样进
+// 喂给模型的 <attached_files>。判据与 11b FileTextIo.sniffEncoding / decodeBuffer(…, 'auto') 同口径:BOM(UTF-8 / UTF-16LE / UTF-16BE)优先 →
+// 严格 UTF-8 → 严格 GB18030 → 都不是就宽松 UTF-8(坏字节显示 U+FFFD)。UTF-8 BOM 留在文本里(同修前与 file_read),UTF-16 的 BOM 剥掉。
+// 本函数住在 00-boot 而不直接用 FileTextIo:11b 是工具层,03/04(基础层)引用它会新增一条反向层级的依赖边(module-dependency-graph
+// 静态锁拒绝);改判据要两边同改,unit/text-file-decode.test.js 在一张字节样本网格上逐格比对两者的输出。
+// complete=false:buf 只是文件的前缀(被截断在 N 字节处),尾部切在多字节字符中间不算非法、也不留半个字符的 U+FFFD;
+// 修前截断预览是 toString('utf8'),切开的尾字符会多一个 U+FFFD。
+function decodeTextFileBytes(buf, complete = true) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  const stream = complete === false;
+  const td = (label, fatal) => new TextDecoder(label, { fatal, ignoreBOM: true });
+  if (b.length >= 3 && b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) return td('utf-8', false).decode(b, { stream });
+  if (b.length >= 2 && b[0] === 0xff && b[1] === 0xfe) return td('utf-16le', false).decode(b.subarray(2), { stream });
+  if (b.length >= 2 && b[0] === 0xfe && b[1] === 0xff) return td('utf-16be', false).decode(b.subarray(2), { stream });
+  try { return td('utf-8', true).decode(b, { stream }); } catch { /* 不是合法 UTF-8 */ }
+  try { return td('gb18030', true).decode(b, { stream }); } catch { /* 也不是 GBK,或这个 Node 没带 GB18030 的 ICU */ }
+  return td('utf-8', false).decode(b, { stream });
+}
+
 function createNdjsonLineFeeder(onLine) {
   const decoder = new StringDecoder('utf8');
   let remainder = '';
@@ -1829,18 +1849,34 @@ function memoryFixedSelectionMax(config) { return memoryLimit(config, 'memoryFix
 function memoryIndexCharCap(config) { return memoryLimit(config, 'memoryIndexCharCapV1', 500, 100000, 6000); }
 
 
-// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;纯搬家,零行为变更)。
+// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;搬家时零行为变更,其后 quoteWinArg 补了 CRT 层反斜杠转义)。
 // Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
 // (CVE-2024-27980). The intranet `claude` is almost always claude.cmd, so route batch launchers
 // through cmd.exe with verbatim, manually-quoted args (the cross-spawn-proven pattern).
 function isBatchLauncher(command) {
   return process.platform === 'win32' && /\.(cmd|bat)$/i.test(String(command || ''));
 }
+// 一个实参要过【两层】解析,两层都得对(只顾一层是历史上的两类事故):
+//   ① cmd.exe(/d /s /c "整行" 与 .cmd 垫片里的 %*):只认 `"` 切换引号态 —— 引号态里 ^ & | < > ( ) 都是字面量。
+//      所以每个 `"` 必须成对地出现(写成 `""`,一进一出,引号态不被带歪),元字符才始终被护在引号里。
+//   ② 目标进程的 C 运行时(Node/Python/MSVCRT 2008+ 同规则):按 `2N 个反斜杠 + "` → N 个反斜杠并翻转引号态、
+//      `2N+1 个反斜杠 + "` → N 个反斜杠 + 字面 `"`;引号态内的 `""` → 一个字面 `"`;其余反斜杠原样。
+// 只做 `"`→`""` 过得了 ① 却过不了 ②:参数里本来就有「反斜杠 + 引号」(JSON.stringify 的 `\"`,--agents 里角色 prompt
+// 带双引号时必现)时,`\""` 在 ② 眼里是「转义引号 + 一个落单引号」—— 落单的那个把引号态关掉,后面的空格把参数劈开;
+// 含空格且以 `\` 结尾的路径(`C:\My Docs\`)同理,收尾的 `\"` 被当成转义引号吞掉。修法按 ② 的规则补反斜杠:
+// 每个 `"` 前面那一串反斜杠、以及结尾引号前面那一串反斜杠都加倍;`"` 仍写成 `""`(① 不变)。
+// %、! 在 cmd 里即使在引号内也会展开,这里没有通用的转义,保持原状(只在判据里触发加引号)。
 function quoteWinArg(a) {
   a = String(a);
   if (a === '') return '""';
   if (!/[\s"^&|<>()%!]/.test(a)) return a;
-  return '"' + a.replace(/"/g, '""') + '"';
+  let out = '"', backslashes = 0;   // 逐字符一遍过(反斜杠串先攒着,看到后一个字符再定怎么写),不用回溯正则
+  for (const ch of a) {
+    if (ch === '\\') { backslashes++; continue; }
+    out += ch === '"' ? '\\'.repeat(backslashes * 2) + '""' : '\\'.repeat(backslashes) + ch;
+    backslashes = 0;
+  }
+  return out + '\\'.repeat(backslashes * 2) + '"';
 }
 // Returns { command, args, opts } ready for cp.spawn/spawnSync — transparently wrapping .cmd/.bat.
 function batchSafeSpawn(command, args) {
@@ -12199,6 +12235,11 @@ const AUTOEXEC_DENYLIST = [
   //   自动导入它);Kimi Code:.kimi/mcp.json 与 ~/.kimi-code/mcp.json;ruyi-toolbox 组件登记 ~/.ruyi-toolbox/components/。
   /(^|[\\/])\.claude[\\/]settings(?:\.local)?\.json$/i, /(^|[\\/])\.mcp\.json$/i, /(^|[\\/])\.claude\.json$/i,
   /(^|[\\/])\.kimi(?:-code)?[\\/]mcp\.json$/i, /(^|[\\/])\.ruyi-toolbox[\\/]components[\\/]/i,
+  // 走查 W1·F2:子模块 / 链接工作树的 git 目录不在 .git 的直接子项下,而在 .git/modules/<名字,名字里可以有斜杠>/ 与 .git/worktrees/<id>/ ——
+  // 它们各带一套 hooks/ 与 config(.worktree)。上面 .git/hooks/、.git/config 两条只认 .git 的直接子项,可写的 hook 或
+  // core.hooksPath 就从这里绕过去(子模块里一次 git commit 即触发)。按段匹配,嵌套子模块(modules/a/modules/b/)也在内。
+  /(^|[\\/])\.git[\\/]modules[\\/](?:[^\\/]+[\\/])*(?:hooks[\\/]|config(?:\.worktree)?$)/i,
+  /(^|[\\/])\.git[\\/]worktrees[\\/][^\\/]+[\\/](?:hooks[\\/]|config(?:\.worktree)?$)/i,
 ];
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
 function normalizeAutoexecPath(absPath) {
@@ -12346,14 +12387,21 @@ async function guardFileToolPath(rawPath, ctx, opts) {
 }
 // 走查 U5:要改文件的原生工具,在弹权限窗【之前】先过一遍写边界。修前先问「允许写入 report.md」,
 // 用户点了允许,工具才报越界 —— 卡片上「已允许」紧跟着「出错」。只查【写】的那几个参数(file_copy 的 from 是读);
-// 路径解析与各工具 handler 一致(path.resolve)。返回 null = 放行去问;否则是与 handler 同形的失败结果。
+// 路径解析与各工具 handler 一致:走 12 的 resolveFileToolPath(相对路径接在会话工作区下,`~` / %USERPROFILE% 先展开),
+// 不再裸 path.resolve(它把相对路径落到服务进程 cwd,默认档下 file_write {path:'a.txt'} 还没弹窗就被判「工作文件夹外面」;
+// 真正的 handler 却是按工作区解析的)。03 排在 12 之前,直接引用 12 会多出一条 03→12 的前向边(依赖图静态锁拒绝),
+// 所以走 *Hooks 延迟绑定(先例 PermissionWaitHooks):12 加载时把 resolveFileToolPath 挂到 WriteBoundaryHooks.resolvePath。
+// 路径里带 NUL 之类让解析器抛错:不在这里拦,交给 handler 回 bad_path 信封。
+// 返回 null = 放行去问;否则是与 handler 同形的失败结果。
+const WriteBoundaryHooks = {};
 const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'] });
 async function preflightWriteBoundary(toolName, args, ctx) {
   const keys = Object.prototype.hasOwnProperty.call(WRITE_PATH_ARGS, toolName) ? WRITE_PATH_ARGS[toolName] : null;
   if (!keys || !args || typeof args !== 'object') return null;
   for (const k of keys) {
     if (typeof args[k] !== 'string' || !args[k].trim()) continue;
-    const p = path.resolve(args[k]);
+    let p;
+    try { p = typeof WriteBoundaryHooks.resolvePath === 'function' ? await WriteBoundaryHooks.resolvePath(args[k], ctx) : path.resolve(args[k]); } catch { continue; }
     const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
     if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
   }
@@ -12695,7 +12743,7 @@ const PREVIEW_IMG_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpe
 // endpoint contract: {ok, kind:'text'|'image'|'image-toobig'|'html'|'binary', ...}. Never throws for a
 // well-formed missing file — returns {ok:false,error}. Kind selection is suffix-driven (kindForPath +
 // PREVIEW_TEXT_EXTS): html gets its own kind (front-end sandboxes it); img → dataURI (≤5MB, else too-big);
-// text-family → utf8 content (≤1MB, truncated flag); everything else → binary (front-end offers「打开」).
+// text-family → decoded text content (≤1MB, truncated flag; 走查 W1·F4: BOM / UTF-8 / GBK 按内容判,见 00-boot decodeTextFileBytes); everything else → binary (front-end offers「打开」).
 async function readFilePreview(absPath) {
   let st;
   try { st = await fsp.stat(absPath); } catch { return { ok: false, error: 'file not found' }; }
@@ -12713,19 +12761,19 @@ async function readFilePreview(absPath) {
   if (ext === 'html' || ext === 'htm') {
     if (st.size > PREVIEW_TEXT_MAX) {
       const fd = await fsp.open(absPath, 'r');
-      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'html', content: b.slice(0, bytesRead).toString('utf8'), truncated: true, size: st.size }; }
+      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'html', content: decodeTextFileBytes(b.subarray(0, bytesRead), false), truncated: true, size: st.size }; }
       finally { await fd.close(); }
     }
-    return { ok: true, kind: 'html', content: await fsp.readFile(absPath, 'utf8'), truncated: false, size: st.size };
+    return { ok: true, kind: 'html', content: decodeTextFileBytes(await fsp.readFile(absPath), true), truncated: false, size: st.size };
   }
   // Text family (md/csv/txt/json/js/py/…) → utf8 content, ≤1MB (truncated flag when larger).
   if (PREVIEW_TEXT_EXTS.has(ext)) {
     if (st.size > PREVIEW_TEXT_MAX) {
       const fd = await fsp.open(absPath, 'r');
-      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'text', content: b.slice(0, bytesRead).toString('utf8'), truncated: true, size: st.size }; }
+      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'text', content: decodeTextFileBytes(b.subarray(0, bytesRead), false), truncated: true, size: st.size }; }
       finally { await fd.close(); }
     }
-    return { ok: true, kind: 'text', content: await fsp.readFile(absPath, 'utf8'), truncated: false, size: st.size };
+    return { ok: true, kind: 'text', content: decodeTextFileBytes(await fsp.readFile(absPath), true), truncated: false, size: st.size };
   }
   // xlsx/docx/pdf/other → binary; the front-end offers「用系统程序打开」(office_open). Station-side
   // preview of office formats is DEFERRED to v1.0 (zero-npm constraint: no xlsx/docx/pdf parsing lib).
@@ -13021,7 +13069,7 @@ async function makeAttachmentRecord(input) {
   // v1.9:svg 是文本(矢量图源码)进 textPreview;像素图(png/jpg/…)不进,打 kind:'image' 走图片预处理。
   const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|svg|html|css|yaml|yml|ini|log)$/i.test(safeName);
   if (textLike && buffer.length <= 256 * 1024) {
-    textPreview = buffer.toString('utf8').slice(0, 12000);
+    textPreview = decodeTextFileBytes(buffer, true).slice(0, 12000);   // 走查 W1·F4:GBK / UTF-16(带 BOM)按内容判编码,不再一律当 UTF-8
   }
   // 127-114c②(26 号文 §3):音频附件打 kind:'audio'(扩展名白名单)——上传路由凭它触发尽力转写;
   // 非音频不落此字段(与 hiddenModels/caps「空不落字段」同模具,存量记录形状零漂移)。
@@ -36662,7 +36710,17 @@ async function finalizeAgentWorktree(isolation, runId, nodeId) {
     isolation.path = ''; return isolation;
   }
   await gitExec(isolation.path, ['add', '-A']);
-  await gitExec(isolation.path, ['-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', 'commit', '-m', `agent(${nodeId}): isolated result for ${runId}`], 60000);
+  // 走查 W1·F5:这是工作台自己给隔离节点拍的内部快照提交,不是用户的提交 —— 不能受用户仓库配置牵连:
+  //   · pre-commit / commit-msg 钩子(lint、测试、commitlint)会让快照失败,整个隔离节点跟着报错 → --no-verify;
+  //     prepare-commit-msg / post-commit 钩子(commitizen、通知脚本)--no-verify 管不到,worktree 与主仓共用钩子目录,
+  //     所以再把 core.hooksPath 指到一个不存在的目录,一并不跑;
+  //   · commit.gpgsign=true 在没有 gpg / 没有私钥的环境里直接报错 → 显式关掉。
+  //   user.name / user.email 照旧用 -c 注入(用户没配身份时也提得成)。
+  await gitExec(isolation.path, [
+    '-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', '-c', 'commit.gpgsign=false',
+    '-c', 'core.hooksPath=' + path.join(paths.agentWorktrees, '.no-hooks'),
+    'commit', '--no-verify', '-m', `agent(${nodeId}): isolated result for ${runId}`,
+  ], 60000);
   isolation.commit = await gitExec(isolation.path, ['rev-parse', 'HEAD']);
   isolation.status = 'ready'; isolation.completedAt = nowIso(); isolation.changeSummary = changes.split(/\r?\n/).slice(0, 100);
   return isolation;
@@ -48659,7 +48717,10 @@ function rgListHighByteFiles(rg, base, filt, timeoutMs) {
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
     const child = cp.spawn(rg, ['--no-messages', '-l', '--crlf', ...filt, '--', '(?-u)[\\x80-\\xFF]', base], { cwd: base, windowsHide: true });
     const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, timeoutMs);
-    child.stdout.on('data', d => { out += d.toString('utf8'); if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    // setEncoding 走 StringDecoder:块边界切在多字节字符中间时先扣住残字节、下一块拼齐再出字(逐块 d.toString('utf8') 会把
+    // 被切开的字符各变成 U+FFFD,中文路径整条损坏 —— 管道块大小由 OS 决定,长输出必现)。
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', d => { out += d; if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
     child.on('error', () => finish(null));
     child.on('close', code => finish(code === 2 && !out ? null : out.split(/\r?\n/).filter(Boolean)));
   });
@@ -48728,8 +48789,10 @@ function searchFileContentRg(root, pattern, opts = {}) {
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
     const child = cp.spawn(rg, args, { cwd: base, windowsHide: true });
     const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, Number(opts.rgTimeoutMs || 10000));
-    child.stdout.on('data', d => { stdout += d.toString('utf8'); if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
-    child.stderr.on('data', d => { stderr += d.toString('utf8'); });
+    child.stdout.setEncoding('utf8');   // 同上:按块 toString 会把跨块的中文路径 / 命中行劈成 U+FFFD
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', d => { stdout += d; if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    child.stderr.on('data', d => { stderr += d; });
     child.on('error', () => finish(null));
     child.on('close', async code => {
       // rg exit 1 = no matches (valid: empty result). exit 2 = error → fall back.
@@ -53674,6 +53737,7 @@ async function resolveFileToolPath(raw, ctx) {
   if (path.isAbsolute(s)) return path.resolve(s);
   return path.resolve(await resolveFileToolRoot({}, ctx), s);
 }
+WriteBoundaryHooks.resolvePath = resolveFileToolPath;   // 03 的写边界预检(弹窗之前)与 handler 同一条解析链,见 03 preflightWriteBoundary
 function fileToolNotFound(p, raw) {
   const rel = raw != null && !path.isAbsolute(String(raw));
   return { ok: false, code: 'not_found', error: '文件不存在', path: p,
@@ -54905,7 +54969,9 @@ const DESKTOP_TOOL_HANDLERS = {
   desktop_screenshot: { paths: "conditional", guardNote: '', handler: async (args, ctx) => {
       // outputPath 不是字符串(模型传了数字 / 对象)时 path.resolve 抛 TypeError 变成工具异常:明说参数不对。
       if (args.outputPath != null && typeof args.outputPath !== 'string') return { ok: false, code: 'invalid_args', error: 'outputPath 必须是字符串路径', hint: '省略 outputPath 则存到应用的 generated 目录' };
-      const outPathRaw = path.resolve(args.outputPath || path.join(paths.generated, `screenshot-${Date.now()}.png`));
+      // 模型给的 outputPath 与 file_write 同一条解析链(resolveFileToolPath:相对路径接在会话工作区下、~ / %USERPROFILE% 先展开);
+      // 修前裸 path.resolve 把 'shot.png' 落到服务进程 cwd,被写闸判成「工作文件夹外面」,提示里的路径也是模型从没见过的启动目录。
+      const outPathRaw = args.outputPath ? await resolveFileToolPath(args.outputPath, ctx) : path.resolve(path.join(paths.generated, `screenshot-${Date.now()}.png`));
       // 第36波(v1.7): 模型【给定】的 outputPath 过工作区写闸(越界写恒拒,与 file_write 同闸;bypass 模式下这是
       // 唯一防线)。缺省落 generated/ 是应用自选路径,不过此闸 —— generated 属 isSensitiveDataPath 敏感名单
       // (内含带 token 的会话 MCP 配置),文件工具闸会连缺省路径一起误拒;应用自身写自己的产物目录本就合法。
@@ -55533,7 +55599,7 @@ async function toolCall(name, args = {}, ctx = null) {
     // 路径里混进 NUL(\0):Node 在 stat/open 上抛 ERR_INVALID_ARG_VALUE,修前是裸 TypeError 一路抛给模型。
     // 只认这一类(fsErrorEnvelope 给 bad_path),其余异常照旧向上抛。
     if (e && e.code === 'ERR_INVALID_ARG_VALUE') {
-      const f = FileTextIo.fsErrorEnvelope(e, String((args && (args.path || args.from || args.src || args.dest || args.root)) || ''));
+      const f = FileTextIo.fsErrorEnvelope(e, String((args && (args.path || args.from || args.src || args.dest || args.root || args.outputPath)) || ''));
       if (f && f.code === 'bad_path') return f;
     }
     throw e;

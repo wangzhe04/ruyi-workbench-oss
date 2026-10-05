@@ -1743,7 +1743,17 @@ async function finalizeAgentWorktree(isolation, runId, nodeId) {
     isolation.path = ''; return isolation;
   }
   await gitExec(isolation.path, ['add', '-A']);
-  await gitExec(isolation.path, ['-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', 'commit', '-m', `agent(${nodeId}): isolated result for ${runId}`], 60000);
+  // 走查 W1·F5:这是工作台自己给隔离节点拍的内部快照提交,不是用户的提交 —— 不能受用户仓库配置牵连:
+  //   · pre-commit / commit-msg 钩子(lint、测试、commitlint)会让快照失败,整个隔离节点跟着报错 → --no-verify;
+  //     prepare-commit-msg / post-commit 钩子(commitizen、通知脚本)--no-verify 管不到,worktree 与主仓共用钩子目录,
+  //     所以再把 core.hooksPath 指到一个不存在的目录,一并不跑;
+  //   · commit.gpgsign=true 在没有 gpg / 没有私钥的环境里直接报错 → 显式关掉。
+  //   user.name / user.email 照旧用 -c 注入(用户没配身份时也提得成)。
+  await gitExec(isolation.path, [
+    '-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', '-c', 'commit.gpgsign=false',
+    '-c', 'core.hooksPath=' + path.join(paths.agentWorktrees, '.no-hooks'),
+    'commit', '--no-verify', '-m', `agent(${nodeId}): isolated result for ${runId}`,
+  ], 60000);
   isolation.commit = await gitExec(isolation.path, ['rev-parse', 'HEAD']);
   isolation.status = 'ready'; isolation.completedAt = nowIso(); isolation.changeSummary = changes.split(/\r?\n/).slice(0, 100);
   return isolation;

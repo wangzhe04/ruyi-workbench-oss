@@ -29,7 +29,7 @@ async function makeAttachmentRecord(input) {
   // v1.9:svg 是文本(矢量图源码)进 textPreview;像素图(png/jpg/…)不进,打 kind:'image' 走图片预处理。
   const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|svg|html|css|yaml|yml|ini|log)$/i.test(safeName);
   if (textLike && buffer.length <= 256 * 1024) {
-    textPreview = buffer.toString('utf8').slice(0, 12000);
+    textPreview = decodeTextFileBytes(buffer, true).slice(0, 12000);   // 走查 W1·F4:GBK / UTF-16(带 BOM)按内容判编码,不再一律当 UTF-8
   }
   // 127-114c②(26 号文 §3):音频附件打 kind:'audio'(扩展名白名单)——上传路由凭它触发尽力转写;
   // 非音频不落此字段(与 hiddenModels/caps「空不落字段」同模具,存量记录形状零漂移)。

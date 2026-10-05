@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3380 | 3071 | 532 | 67 | 0 | 1 |
+| 70 | 3382 | 3074 | 532 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 133 | 7 | 4 |
+| 0 | `00-boot.js` | bootstrap | 134 | 7 | 4 |
 | 1 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 2 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 3 | `01c-runtime-flags.js` | foundation | 36 | 0 | 0 |
@@ -28,9 +28,9 @@
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 11 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
 | 12 | `02-session-store.js` | foundation | 301 | 72 | 16 |
-| 13 | `03-bridge-guard.js` | foundation | 87 | 25 | 7 |
+| 13 | `03-bridge-guard.js` | foundation | 88 | 26 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 3 | 1 |
-| 15 | `04-permission-runtime.js` | foundation | 155 | 38 | 9 |
+| 15 | `04-permission-runtime.js` | foundation | 155 | 39 | 9 |
 | 16 | `04-desktop-shell.js` | foundation | 1 | 10 | 3 |
 | 17 | `04f-toolbox-services.js` | foundation | 26 | 13 | 3 |
 | 18 | `04h-provider-http.js` | foundation | 10 | 0 | 0 |
@@ -62,7 +62,7 @@
 | 44 | `10-context-governance.js` | orchestration | 175 | 92 | 17 |
 | 45 | `11-native-tools.js` | tools | 128 | 38 | 5 |
 | 46 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
-| 47 | `12-tool-dispatch.js` | tools | 60 | 102 | 17 |
+| 47 | `12-tool-dispatch.js` | tools | 60 | 103 | 17 |
 | 48 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 49 | `13-http-router.js` | transport | 65 | 236 | 28 |
 | 50 | `13b-api-domain-routes.js` | transport | 40 | 64 | 9 |
@@ -126,7 +126,7 @@
 | `02-session-store.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
 | `02d-session-overrides.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
 | `02e-session-engine-route.js` | `01f-agent-cli-types.js` | backward | `normalizeAgentCliType` |
-| `03-bridge-guard.js` | `00-boot.js` | backward | `URL`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `fs`, `fsp`, `os`, `path`, `spawnDetachedChecked`, `zlib` |
+| `03-bridge-guard.js` | `00-boot.js` | backward | `URL`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `decodeTextFileBytes`, `fs`, `fsp`, `os`, `path`, `spawnDetachedChecked`, `zlib` |
 | `03-bridge-guard.js` | `01-config.js` | backward | `readConfig`, `spawnProbeAsync` |
 | `03-bridge-guard.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
 | `03-bridge-guard.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `collectBridgedWriteTargets`, `journalDir`, `journalRecord`, `journalSessionCtx`, `kindForPath` |
@@ -136,7 +136,7 @@
 | `04-desktop-shell.js` | `00-boot.js` | backward | `cp`, `decodeConsoleText`, `fs`, `fsp`, `os`, `path`, `spawnDetachedChecked`, `text` |
 | `04-desktop-shell.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
 | `04-desktop-shell.js` | `04-permission-runtime.js` | backward | `killChildTree` |
-| `04-permission-runtime.js` | `00-boot.js` | backward | `URL`, `VERSION`, `cp`, `crypto`, `dataRoot`, `ensureDirs`, `externalRoot`, `fs`, `fsp`, `http`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
+| `04-permission-runtime.js` | `00-boot.js` | backward | `URL`, `VERSION`, `cp`, `crypto`, `dataRoot`, `decodeTextFileBytes`, `ensureDirs`, `externalRoot`, `fs`, `fsp`, `http`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `04-permission-runtime.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_SERVER_ID`, `isRuyiMcpServerId` |
 | `04-permission-runtime.js` | `01-config.js` | backward | `BROWSER_AUTOMATION_MODES`, `bridgedEnvKeyStripped`, `detectDesktopMcp`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `selectedAgentCli` |
 | `04-permission-runtime.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
@@ -336,7 +336,7 @@
 | `12-tool-dispatch.js` | `02-session-store.js` | backward | `JOURNAL_MAX_BEFORE_BYTES`, `bridgedWriteRelativePathArg`, `journalDropEntries`, `journalRecord`, `journalRecordMany`, `journalSessionCtx`, `loadSession`, `normalizeMetaToolArgs`, `normalizeTodoItems` |
 | `12-tool-dispatch.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf` |
 | `12-tool-dispatch.js` | `02f-turn-effect-kinds.js` | backward | `normalizeToolInvokeArgs` |
-| `12-tool-dispatch.js` | `03-bridge-guard.js` | backward | `REVEAL_OPEN_SAFE_EXTS`, `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `buildBrowserOpenSpawn`, `buildOpenSpawn`, `buildRevealSpawn`, `guardFileToolPath`, `isBrowserDocumentTarget`, `journalBridgedWrite`, `normalizeCwd`, `pathWithinRoot`, `realpathForContainment` |
+| `12-tool-dispatch.js` | `03-bridge-guard.js` | backward | `REVEAL_OPEN_SAFE_EXTS`, `WriteBoundaryHooks`, `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `buildBrowserOpenSpawn`, `buildOpenSpawn`, `buildRevealSpawn`, `guardFileToolPath`, `isBrowserDocumentTarget`, `journalBridgedWrite`, `normalizeCwd`, `pathWithinRoot`, `realpathForContainment` |
 | `12-tool-dispatch.js` | `04-permission-runtime.js` | backward | `bridgedServerUnavailableMessage`, `configureMcpFromTool`, `getBridgedClient`, `logEvent`, `resolveBridge`, `resolveExternalMcpServers`, `safeMcpInventory` |
 | `12-tool-dispatch.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `resolveAsrProvider`, `transcribeAudioViaProvider`, `voiceLexiconAsrPromptFor` |
 | `12-tool-dispatch.js` | `06-provider-engine.js` | backward | `PLAYBOOK_REQUIRES`, `buildRuntimeIdentityFacts`, `evalPlaybookAvailability`, `getCapabilities`, `loadAllPlaybooks`, `markNetworkOnline`, `peekCapabilities` |

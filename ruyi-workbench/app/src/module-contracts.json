@@ -65,6 +65,7 @@
         "dataRootMemoKey",
         "decodeConsoleSegment",
         "decodeConsoleText",
+        "decodeTextFileBytes",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -1814,6 +1815,7 @@
         "WRITE_PATH_ARGS",
         "WRITE_PROTECTED_DATA_DIRS",
         "WRITE_PROTECTED_DATA_FILES",
+        "WriteBoundaryHooks",
         "_dataRootReal",
         "_defaultBrowserExecutable",
         "_gitCliProbe",
@@ -1897,6 +1899,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -2258,6 +2267,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -11320,6 +11336,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "REVEAL_OPEN_SAFE_EXTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "WriteBoundaryHooks",
           "kinds": [
             "read"
           ]

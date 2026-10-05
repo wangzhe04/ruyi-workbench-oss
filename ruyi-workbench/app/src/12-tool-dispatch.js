@@ -778,6 +778,7 @@ async function resolveFileToolPath(raw, ctx) {
   if (path.isAbsolute(s)) return path.resolve(s);
   return path.resolve(await resolveFileToolRoot({}, ctx), s);
 }
+WriteBoundaryHooks.resolvePath = resolveFileToolPath;   // 03 的写边界预检(弹窗之前)与 handler 同一条解析链,见 03 preflightWriteBoundary
 function fileToolNotFound(p, raw) {
   const rel = raw != null && !path.isAbsolute(String(raw));
   return { ok: false, code: 'not_found', error: '文件不存在', path: p,
@@ -2009,7 +2010,9 @@ const DESKTOP_TOOL_HANDLERS = {
   desktop_screenshot: { paths: "conditional", guardNote: '', handler: async (args, ctx) => {
       // outputPath 不是字符串(模型传了数字 / 对象)时 path.resolve 抛 TypeError 变成工具异常:明说参数不对。
       if (args.outputPath != null && typeof args.outputPath !== 'string') return { ok: false, code: 'invalid_args', error: 'outputPath 必须是字符串路径', hint: '省略 outputPath 则存到应用的 generated 目录' };
-      const outPathRaw = path.resolve(args.outputPath || path.join(paths.generated, `screenshot-${Date.now()}.png`));
+      // 模型给的 outputPath 与 file_write 同一条解析链(resolveFileToolPath:相对路径接在会话工作区下、~ / %USERPROFILE% 先展开);
+      // 修前裸 path.resolve 把 'shot.png' 落到服务进程 cwd,被写闸判成「工作文件夹外面」,提示里的路径也是模型从没见过的启动目录。
+      const outPathRaw = args.outputPath ? await resolveFileToolPath(args.outputPath, ctx) : path.resolve(path.join(paths.generated, `screenshot-${Date.now()}.png`));
       // 第36波(v1.7): 模型【给定】的 outputPath 过工作区写闸(越界写恒拒,与 file_write 同闸;bypass 模式下这是
       // 唯一防线)。缺省落 generated/ 是应用自选路径,不过此闸 —— generated 属 isSensitiveDataPath 敏感名单
       // (内含带 token 的会话 MCP 配置),文件工具闸会连缺省路径一起误拒;应用自身写自己的产物目录本就合法。
@@ -2637,7 +2640,7 @@ async function toolCall(name, args = {}, ctx = null) {
     // 路径里混进 NUL(\0):Node 在 stat/open 上抛 ERR_INVALID_ARG_VALUE,修前是裸 TypeError 一路抛给模型。
     // 只认这一类(fsErrorEnvelope 给 bad_path),其余异常照旧向上抛。
     if (e && e.code === 'ERR_INVALID_ARG_VALUE') {
-      const f = FileTextIo.fsErrorEnvelope(e, String((args && (args.path || args.from || args.src || args.dest || args.root)) || ''));
+      const f = FileTextIo.fsErrorEnvelope(e, String((args && (args.path || args.from || args.src || args.dest || args.root || args.outputPath)) || ''));
       if (f && f.code === 'bad_path') return f;
     }
     throw e;
