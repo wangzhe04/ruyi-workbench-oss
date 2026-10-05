@@ -1059,6 +1059,14 @@ async function reloadCurrentSessionAfterAway() {
   return true;
 }
 bindLiveEventStream();
+// #sessionTitle 带 data-i18n(没有会话时的「未命名线程」占位),applyTranslations 每次都会把它改回占位文案;开机第二次
+// setLocale(changed:false)不重画会话,于是刷新后线程头一直写着「未命名线程」(真浏览器走查实测)。标题是数据,事件到了就写回。
+window.addEventListener('i18n:change', () => {
+  const node = $('sessionTitle');
+  if (!node || !state.currentSession) return;
+  node.textContent = isUntitledTitle(state.currentSession.title) ? t('session.untitled') : String(state.currentSession.title).trim();
+  node.title = node.textContent;
+});
 // 一拍：重取信封 → 还在跑就只刷这张气泡（整份重绘会抹掉阅读位置，长会话还很贵）；
 // 已经跑完就把服务端刚落盘的正文整份换上来，临时气泡随之消失。
 async function refreshLiveTurn() {
@@ -1230,7 +1238,7 @@ function reconcileMessageChildren(box, wanted) {
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
-  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('session.untitled') : session.title.trim(); // 121-K8（§13.7 ⑤）：未命名线程的回落不再是 navigation.workbench「工作台」——那是视角名，印在线程标题上等于说「这条线程叫工作台」
+  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('session.untitled') : session.title.trim(); $('sessionTitle').title = $('sessionTitle').textContent; // 121-K8（§13.7 ⑤）：未命名线程的回落不再是 navigation.workbench「工作台」——那是视角名，印在线程标题上等于说「这条线程叫工作台」
   paintSessionMeta($('sessionMeta'), session);
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)

@@ -136,7 +136,7 @@
 .thread-head .th-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap; }
 .thread-head .th-row-main { min-height: 28px; }
 .thread-head .th-row-config { min-height: 24px; }
-.thread-head .th-row-main .topbar-title { flex: 1 1 auto; }
+.thread-head .th-row-main .topbar-title { flex: 1 1 10em; }   /* 基准 10em:收缩按「因子×基准」摊,管家条(基准 ~528px)让得多、线程名留得住。修前 1 1 auto,英文下线程名被挤成 0(1024/1280 实测);别加 min-width —— 900 宽下会撑破栅格 */
 .thread-head .th-row-main .topbar-actions { flex: 0 0 auto; flex-wrap: nowrap; }
 /* 三枚 chip 先于其它两样拿宽度：窄屏下要让的是连接态那一句（它在 title 里还有全文），不是
    「这条线程怎么跑」。所以 chip 行只收不切（min-width:0 让 .steward-chip-value 自己省略号），
@@ -172,12 +172,14 @@
 .thread-head .th-origin { display: inline-flex; align-items: center; color: var(--muted); flex: none; }
 /* 管家条（§2.5／§4.4）：工作台里管家在场的唯一表达。 */
 .thread-head .th-steward {
-  display: flex; align-items: center; gap: 6px; flex: none; min-width: 0;
+  /* 可以收(收缩因子 4,比线程名让得多),由里面那句管家话先让位 —— 修前 flex:none,英文下整条 528px 不让,线程名被挤没、工具箱钮挤出头部。 */
+  display: flex; align-items: center; gap: 6px; flex: 0 4 auto; min-width: 0;
   padding: 3px 8px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--panel-2);
 }
 .thread-head .th-steward[hidden] { display: none; }
 .thread-head .th-steward-avatar { width: 18px; height: 18px; flex: none; }
 .thread-head .th-steward-text {
+  min-width: 0;
   color: var(--ink-2); font-size: var(--fs-xs);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 14em;
 }

@@ -22,13 +22,13 @@
   border-radius: var(--r-pill); padding: 1px var(--sp-2); white-space: nowrap;
 }
 .onboard-wiz-rail-item.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
-.onboard-wiz-rail-item.current { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.onboard-wiz-rail-item.current { color: var(--link); border-color: var(--accent); background: var(--accent-soft); }
 
 .onboard-wiz-body { display: block; }
 .onboard-wiz-step { display: flex; flex-direction: column; gap: var(--sp-3); }
 .onboard-wiz-step-title { margin: 0; font-size: var(--fs-lg); }
 .onboard-wiz-step-hint { margin: 0; font-size: var(--fs-sm); line-height: 1.6; }
-.onboard-wiz-note { margin: 0; font-size: var(--fs-xs); line-height: 1.6; word-break: break-all; }
+.onboard-wiz-note { margin: 0; font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }   /* 长路径照样能断,正文不再齐腰断词(修前 break-all:「run co / mmands」) */
 .onboard-wiz-error { color: var(--danger-fg); }   /* 选择器没打开：就地说清原因（走查 #8） */
 .onboard-wiz-path { display: flex; gap: var(--sp-2); align-items: center; }
 .onboard-wiz-path-input { flex: 1; min-width: 0; }
@@ -113,7 +113,7 @@
 .help-viewer-head { gap: var(--sp-2); }
 .help-viewer-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .help-viewer-langs { display: flex; gap: var(--sp-1); flex: none; }
-.help-viewer-lang.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.help-viewer-lang.active { border-color: var(--accent); background: var(--accent-soft); color: var(--link); }
 
 /* Two columns: a sticky jump list on the left, the document on the right. One scroll container
    (.modal-body) so the jump targets scroll into view without a nested scrollbar fight. */

@@ -3429,7 +3429,7 @@
   ,"usage.range.month": "This month"
   ,"usage.range.all": "All"
   ,"usage.rangeAria": "Date range"
-  ,"usage.tabHint.pre": "Summarized by currency across engines, providers, and threads. Cost is a usage-based"
+  ,"usage.tabHint.pre": "Summarized by currency across engines, providers, and threads. Cost is a usage-based "
   ,"usage.tabHint.strong": "equivalent estimate"
   ,"usage.tabHint.post": " (not an actual charge); cost only appears once a provider has a configured unit price, and subscription-billed usage shows tokens only."
   ,"layout.rightResizeHandle.title": "Drag to resize the right panel · double-click to cycle widths"
