@@ -9,7 +9,7 @@
 //   ③ styles.css 首跑引导区样式只用令牌（.onboard-drop 无 #hex / rgba() 字面量；hover/dragging 走 --accent）。
 //
 // 动态断言（临时 HOME 起服务）:
-//   ④ 全新 HOME 首启 config: permissionMode==='default' && engineMode==='interactive'
+//   ④ 全新 HOME 首启 config: permissionMode==='auto'(2026-10 出厂档翻成智能自动) && engineMode==='interactive'
 //      && permissionBridge===true && uiMode==='simple'。
 //   ⑤ searchBackend 掩码回存往返: POST {type:'searxng',baseUrl,apiKey:真值} → GET /api/status apiKey 是掩码
 //      （非明文、hasKey===true）→ 把掩码原样 POST 回去 → 读磁盘 config.json: apiKey 仍是真值（掩码回存不覆盖）。
@@ -136,7 +136,8 @@ function between(hay, startNeedle, endNeedle) {
     // ④ 小白安全默认（三键联动 + simple）。
     let st = await getJson(WB_PORT, '/api/status');
     const c0 = (st.json && st.json.config) || {};
-    ok(c0.permissionMode === 'default', '④ 新装 permissionMode === default（got ' + c0.permissionMode + '）');
+    // 2026-10 拍板:出厂档是智能自动(存量配置由 to:14 迁移钉回 default,见 unit/config-migrations.test.js)。
+    ok(c0.permissionMode === 'auto', '④ 新装 permissionMode === auto（got ' + c0.permissionMode + '）');
     ok(c0.engineMode === 'interactive', '④ 新装 engineMode === interactive（got ' + c0.engineMode + '）');
     ok(c0.permissionBridge === true, '④ 新装 permissionBridge === true（got ' + c0.permissionBridge + '）');
     ok(c0.uiMode === 'simple', '④ 新装 uiMode === simple（got ' + c0.uiMode + '）');

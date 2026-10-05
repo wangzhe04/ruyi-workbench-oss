@@ -79,28 +79,29 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 59 号文 §6 从修改里学续钉(前值 b0b677a3…＝59 号文语音词库续钉):零新增、零删除层,改一层 ——
-//   `css/views/chat-shell.css`:语音词库卡多了一个开关(「从我的修改里学」),两个开关共用一条 `.asr-lexicon-toggle`
-//   (原 `.asr-lexicon-base` 的两条规则改名合并;内置表那一行仍带 `.asr-lexicon-base` 这个类名给测试与读屏定位)。规则内容零改动。
-// 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = b0b677a3…,与被替换的旧值
+// 2026-10 mermaid 五路走查续钉(前值 331a296d…＝2026-10 mermaid 图表配色续钉):零新增、零删除层,改一层 ——
+//   `css/views/chat-narrative.css`:`.mermaid-view svg` / `.mermaid-lightbox-stage svg` 收窄成子选择器 `> svg`
+//   (修前 height:auto 也落在架构图 / 流程图图标那层嵌套 <svg> 上,计算高度撑成整图高、图标整排错位);
+//   新增 `.mermaid-hint-detail`(回落提示下面那行解析器原话:等宽字、长行可断)。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-narrative.css>` 重算 = 331a296d…,与被替换的旧值
 // 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 2026-10 词库框光标续钉(前值 6e88cdc0…＝59 号文 §6 从修改里学续钉):零新增、零删除层,改一层 ——
-//   `css/views/chat-shell.css`:`.asr-lexicon-text` 添一条 cursor —— 自带白描边的深色 I 形光标(SVG data URI,退回系统 text)。
-//   用户实报在设置弹窗的白底大框里系统反色 I 形光标被画成白色、看不见。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-shell.css>` 重算 = 6e88cdc0…,与被替换的旧值
+// 61 号文 C3 记忆批量卡续钉(前值 18e23fa1…＝2026-10 mermaid 五路走查续钉):零新增、零删除层,改一层 ——
+//   `css/states/chat-live.css`:记忆候选卡下面加批量卡的几条(`.memory-proposal-items` / `-item` / `-item-head` / `-pick` /
+//   `-body` / `-body-text`):每条一行、行间细分隔线,勾选框与名称同一行,正文收在 <details> 里(限高可滚)。
+//   颜色全走既有 token / color-mix,零新增动效;单条卡的规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-live.css>` 重算 = 18e23fa1…,与被替换的旧值
 // 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 2026-10 全自动档回界面续钉(前值 cdcc8edd…＝2026-10 词库框光标续钉):零新增、零删除层,改一层 ——
-//   `css/views/steward-settings.css`:bypass(全自动)回到权限档位表 —— 盾牌 `[data-permission="bypass"]` 用警示色
-//   (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 2026-10 chip 菜单往上翻续钉(前值 16c9bd86…＝2026-10 全自动档回界面续钉):零新增、零删除层,改一层 ——
-//   `css/views/steward-drawer.css`:`.steward-chip-menu.is-flip-up`(top:auto / bottom:100% / 上下外边距互换)。权限菜单五档之后
-//   更高,左栏靠下那几行的菜单被线程列表(滚动容器)裁掉、底下的口袋叠上来(walkthrough-round1.browser E4,CI 实测);
-//   js/steward-chips.js 的 placeChipMenu 判「下面放不下、上面更宽敞」才加这个类。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 16c9bd86…,与被替换的旧值逐字相同
+// 2026-10 3.0 收口走查第一波续钉(前值 ecad3e8f…＝61 号文 C3 记忆批量卡续钉):零新增、零删除层,真浏览器走查的布局修复改八层 ——
+//   `css/views/steward-shell.css`:≤1180 容器查询里补一条与基础规则同选择器的「右栏不占列」(修前特异度输掉,1024 宽中栏 364px＋392px 死列);
+//   `css/views/chat-shell.css`:线程头管家条可收(flex 0 4 auto)、线程名基准 10em(英文下线程名被挤成 0);
+//   `css/components/chat-primitives.css` / `css/components/onboarding.css`:拖放区按钮 white-space:normal、向导说明 overflow-wrap:anywhere、
+//   向导当前步与手册语言钮文字改 --link;`css/views/settings.css`:设置导航当前项文字改 --link(暗色 accent 3.0:1);
+//   `css/views/steward-settings.css`:星期勾选 / 筛选标签里的 input/select 不吃 width:100%;`css/views/workspace.css`:审计时间线类型名可收;
+//   `css/views/chat-narrative.css`:markdown 表格单元格 min-width 4.5em;`css/base.css`:复选框 / 单选框 :focus-visible 实线焦点环;
+//   `css/layout.css`:齿轮菜单里的能力矩阵去掉胶囊边框底色。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9bbe566:<css>` 重算 = ecad3e8f…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '5e1ed875bceff267ffb5bedb72745f1c96f7519c068b97840d078d67e292eedd';
+const LEGACY_STYLES_SHA256 = 'c9f2039277a07c79084d82cc48970b66af7751264cd7f53d7f885ee0bf560471';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

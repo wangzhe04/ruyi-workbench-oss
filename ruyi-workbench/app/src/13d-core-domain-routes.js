@@ -2097,6 +2097,19 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     {
       const cliToolName = String(body.toolName || '');
       if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
+        // 2026-10 能力总闸(纵深):CLI 直挂的内置桌面 MCP(mcp__ai-computer-control__<tool>)来问权限时,按与 09/08/12 同一个
+        // toolDisabledByPolicy 判,被 allowCommandTools / allowDesktopTools(+ 这条线程的 desktopTools)关掉的直接拒,不弹窗。
+        // 主防线在源头:01 把同一张表算成 ACC_HIDE_TOOLS 交给 ACC,它根本不注册这些工具;这里兜的是旧版 ACC(不认该变量)。
+        // 同样覆盖不到 CLI 不来问的档(bypass / auto、exec 档 DAG 节点)—— 那几档只靠源头裁剪。
+        const accPrefix = `mcp__${DESKTOP_MCP_SERVER_ID}__`;
+        if (cliToolName.startsWith(accPrefix)) {
+          const policyOff = toolDisabledByPolicy(cliToolName, config, sessionDesktopToolsOf(reg.session),
+            { serverId: DESKTOP_MCP_SERVER_ID, toolName: cliToolName.slice(accPrefix.length) });
+          if (policyOff) {
+            logEvent({ kind: 'permission_bridge_policy_deny', sessionId, tool: cliToolName, reason: policyOff });
+            return send(res, json({ behavior: 'deny', message: toolDisabledResult(cliToolName, policyOff).error, requestId }));
+          }
+        }
         const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
         const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config });
         if (readRefusal) {

@@ -125,6 +125,8 @@ def diagnostics() -> dict:
         "tool_count": tool_count,
         # Tool modules that failed to import (their tools are NOT registered). Empty dict = all loaded.
         "load_errors": dict(_server._LOAD_ERRORS),
+        # Tools the host removed via ACC_HIDE_TOOLS (sorted). Empty list = nothing hidden.
+        "hidden_tools": list(getattr(_server, "HIDDEN_TOOLS", [])),
     }
 
 

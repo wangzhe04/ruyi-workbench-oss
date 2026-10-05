@@ -136,7 +136,11 @@
 /* 新建表单：与设置页其余分组同一档间距，不自造第二套栅格。 */
 .steward-schedule-form { display: grid; gap: var(--sp-2); margin: var(--sp-2) 0 0; }
 .steward-schedule-days { display: flex; flex-wrap: wrap; gap: var(--sp-2); border: 0; margin: 0; padding: 0; }
-.steward-schedule-days label { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); }
+.steward-schedule-days label { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); white-space: nowrap; }
+/* base.css 给 input/select 统一 width:100%,放进收缩包裹的 inline-flex 标签里就把字挤成一字一行(「周/一」「按线/程」)。 */
+.steward-schedule-days label > input,
+.steward-settings-filter > input, .steward-settings-filter > select { width: auto; flex: none; }
+.steward-settings-filter { white-space: nowrap; }
 .steward-memory-item {
   display: flex;
   flex-direction: column;

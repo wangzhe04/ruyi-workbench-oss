@@ -43,6 +43,7 @@ const FIELDS = {
   statusEndpoint: 'string',
   alwaysInteractive: 'boolean',
   legacyUsageSources: 'array',
+  claudeUserCommands: 'boolean',
 };
 // 引擎族取值(不是 CLI 分叉):'claude' = Agent CLI 族的历史名,'openai' = 服务商族。
 const ENGINE_FAMILY_IDS = new Set(['claude', 'openai']);

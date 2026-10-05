@@ -2,13 +2,13 @@
   "id": "ocr-scan",
   "title": "扫描件 OCR 转文字",
   "icon": "🔍",
-  "desc": "把扫描件图片或扫描版 PDF 通过 OCR 识别成可编辑文字",
+  "desc": "把扫描件图片通过 OCR 识别成可编辑文字；带文字层的 PDF 直接提取文字",
   "service": "organize",
   "inputs": [
-    { "key": "folder", "label": "扫描件所在文件夹", "type": "folder" },
+    { "key": "folder", "label": "扫描件所在文件夹", "type": "folder", "required": true },
     { "key": "output", "label": "识别结果保存文件名(.md)", "type": "text" }
   ],
-  "promptTemplate": "请对文件夹 {folder} 里的扫描件(图片或扫描版 PDF)做 OCR 文字识别,结果写入 {output}。\n\n步骤:\n1. 用 file_list / glob 列出该文件夹下的图片(png/jpg/jpeg/tiff/bmp)和 PDF 文件,报告数量。\n2. 对每个文件调用桌面控制的 OCR 能力识别其中的文字。多页 PDF 逐页识别并按页标注(第 1 页 / 第 2 页……)。\n3. 尽量保留原文的段落与换行结构;识别不确定的地方用「[?]」标出而不要瞎猜。\n4. 每个文件的识别结果作为独立小节写入 {output},小节标题用原文件名。\n\n验收标准:每个扫描件都有对应的识别文本小节;识别失败的文件被单独列出并说明原因(如图像太模糊);输出是结构清晰的 Markdown。最后一句话汇报:成功识别 N 个、失败 K 个、结果文件路径。注意:OCR 识别依赖桌面控制能力,若该能力不可用请明确告诉我需要先启用桌面控制,不要静默失败。",
+  "promptTemplate": "请对文件夹 {folder} 里的扫描件做 OCR 文字识别,结果写入 {output}。\n\n这个任务依赖桌面控制:识别用 ocr_image(只收图片文件)。桌面控制不可用时明确告诉我需要先启用,不要静默失败。\n\n步骤:\n1. 用 file_list(root 设为该文件夹)列出图片(png/jpg/jpeg/tiff/bmp)和 PDF,报告数量。\n2. 图片:逐个用 ocr_image(path 指向该文件)识别。不要用识别屏幕的 OCR 工具去处理文件。\n3. PDF:先用 pdf_read_pages(pages: '1' 拿到 total_pages,再读 '2-<total_pages>',truncated 时按 next_pages 续读)看有没有文字层。有文字就直接用提取出的文字,不必 OCR;没有文字层的是扫描版,目前没有把 PDF 页转成图片的工具,把它列进「需要先导出成图片」清单告诉我(可以在阅读器里另存为图片后再跑一次),不要硬识别。\n4. 尽量保留原文的段落与换行结构;识别不确定的地方用「[?]」标出,不要瞎猜。\n5. 每个文件的结果作为独立小节写入 {output},小节标题用原文件名;多页 PDF 按页标注(第 1 页 / 第 2 页……)。\n\n验收标准:每个图片都有对应的识别文本小节;识别失败的文件单独列出并说明原因(如图像太模糊);需要先导出成图片的 PDF 单独列出;输出是结构清晰的 Markdown。最后汇报:成功识别几个、失败几个、待导出几个、结果文件路径。",
   "requires": ["desktopMcp"],
   "engineHint": "",
   "uiMode": "both"

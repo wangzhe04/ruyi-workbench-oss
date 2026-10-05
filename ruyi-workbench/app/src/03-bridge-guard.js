@@ -1136,7 +1136,8 @@ function existsExecutable(command) {
   if (!command) return false;
   const s = batchSafeSpawn(command, ['--version']);
   const result = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 6000, ...s.opts });
-  return !result.error;
+  if (result.error) return false;
+  return !(isBatchLauncher(command) && result.status !== 0);   // 61-C6:判据同下方异步版(批处理启动器要求退出码 0)
 }
 // 128f-⑬:同一个判据的异步版。服务在跑的时候(请求路径、回合入口、能力矩阵刷新)一律用它 —— 同步那一发会把整个
 // 服务钉住一次 CLI 冷启动(node 起一个进程,几百毫秒到秒级),期间所有请求与推送一起等。同步版只留给启动期与 CLI 子命令。
@@ -1144,7 +1145,12 @@ async function existsExecutableAsync(command) {
   if (!command) return false;
   const s = batchSafeSpawn(command, ['--version']);
   const result = await spawnProbeAsync(s.command, s.args, s.opts, 6000);
-  return !result.error;
+  if (result.error) return false;
+  // 61-C6:.cmd/.bat 启动器经 cmd.exe /c 探测 —— cmd 自己总能起来(spawn 不报错),目标不存在时它回 1/9009 并打印
+  // 「系统找不到指定的路径」。修前只看 spawn 有没有报错,配了个不存在的 claude.cmd 也判「可执行」,真起节点时才报出
+  // 那句看不懂的 cmd 错误。批处理启动器要求退出码 0(真 CLI 的 --version 都回 0);直启的可执行文件仍只看 spawn。
+  if (isBatchLauncher(command) && result.status !== 0) return false;
+  return true;
 }
 
 // v1.0-S4: `gitCli` capability — is `git` installed & runnable? Probes `git --version` (execFile, 3s), result

@@ -99,8 +99,12 @@ test('[G2] tool_search 命中带 args:没装的带,已装的不带;MCP 路径一
   const st = srv.createToolLoadingState(cfg, '你好', null, tools, {}, null);
   const r = st.search('zip archive', 8);
   const zip = r.matches.find(m => m.name === 'archive_zip');
-  assert.ok(zip && /^paths\*:array<string>, dest\*:string/.test(zip.args), JSON.stringify(zip));
+  // 61-B1:排在前 3 的未装载命中给 full 骨架(「参数 — 用途; …」,全部参数),之后的仍是 brief。
+  assert.ok(zip && /^paths\*:array<string>( — [^;]*)?; dest\*:string/.test(zip.args), JSON.stringify(zip));
   assert.ok(zip.name && zip.pack && zip.tier && typeof zip.description === 'string', '原有字段都在');
+  const withArgs = r.matches.filter(m => typeof m.args === 'string');
+  assert.ok(withArgs.slice(0, 3).every(m => !/…\(\+\d+/.test(m.args)), '前 3 个不截断: ' + JSON.stringify(withArgs.slice(0, 3).map(m => m.args)));
+  assert.ok(withArgs.slice(3).every(m => !/ — /.test(m.args)), '前 3 个之后是 brief(不带用途说明)');
   const web = st.search('web fetch page', 8).matches.find(m => m.name === 'web_fetch');
   assert.ok(web && web.args === undefined, '起手工具已在工具表里,不重复给骨架: ' + JSON.stringify(web));
   const viaMcp = srv.searchToolCatalog(srv.buildToolCatalog(tools, {}, cfg), { query: 'web fetch page' }, cfg, { legacyNameBoost: 3 });

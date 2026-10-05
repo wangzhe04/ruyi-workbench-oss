@@ -201,5 +201,10 @@ export function bindNotifySettings({
   const end = byId('cfgNotifyQuietEnd');
   if (end) end.onchange = event => save({ quietEnd: event.target.value });
   syncControls();
+  // 走查 W1-2：「提醒」那一行状态文案是 syncControls 那一刻用 t() 焊死的；开机先按系统语言画、读到 config.locale 才切语言，
+  // 运行时切语言也一样 —— 听 i18n.js setLocale 末尾派的那发全局 i18n:change，把状态行按新语言重算一遍（不动开关与时段的值）。
+  try {
+    if (typeof globalThis.addEventListener === 'function') globalThis.addEventListener('i18n:change', syncControls);
+  } catch { /* 无 window（单测）时不挂 */ }
   return settings;
 }

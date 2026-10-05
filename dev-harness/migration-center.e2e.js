@@ -392,6 +392,22 @@ const apply = async body => request('POST', '/api/migration/apply', body);
     const skP = (((await request('GET', '/api/skills')) || {}).json || {}).skills || [];
     ok(c11 && resOf(c11, 'claude-plugin:p1@mk:w8-p').outcome === 'created' && recP.source === 'claude-plugin' && recP.plugin === 'p1@mk'
       && skP.some(s => s.id === 'w8-p' && s.copiedFrom === 'claude-plugin' && s.copiedFromPlugin === 'p1@mk'), 'H16 插件技能复制:来源记录与注册表都记下插件名');
+    // 2026-10:随包 offline-toolkit 装进 Claude Code 后,缓存里那份旧副本不许把内置技能顶成 claude-plugin
+    // (修前:20 个内置技能全变 claude-plugin,已启用的 {id, source:'builtin'} 因来源对不上被静默跳过注入)。
+    const OURS = path.join(ROOT, 'plugins', 'offline-toolkit-cache');
+    write(path.join(HOME, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: {
+      'p1@mk': [{ scope: 'user', installPath: PLUG }],
+      'offline-toolkit@ruyi-offline': [{ scope: 'user', installPath: OURS }],
+      'offline-toolkit@win-workbench-offline': [{ scope: 'user', installPath: OURS }],
+    } }));
+    write(path.join(OURS, 'skills', 'api-debugger', 'SKILL.md'), '---\nname: stale\ndescription: STALE_CACHED_COPY\n---\nSTALE_CACHED_COPY\n');
+    write(path.join(OURS, 'skills', 'w8-bundled-only', 'SKILL.md'), '---\nname: x\ndescription: x\n---\nx\n');
+    const skB = (((await request('GET', '/api/skills')) || {}).json || {}).skills || [];
+    const apiDebugger = skB.find(s => s.id === 'api-debugger') || {};
+    ok(apiDebugger.source === 'builtin' && !/STALE_CACHED_COPY/.test(apiDebugger.description || '') && !skB.some(s => s.id === 'w8-bundled-only'),
+      'H17 随包插件(ruyi-offline / 旧名 win-workbench-offline)的已装副本不顶替内置技能,也不作为外来插件技能列出(实得 api-debugger 来源 ' + apiDebugger.source + ')');
+    const rowsB = await skillRows();
+    ok(!rowsB.some(r => String(r.key || '').includes('ruyi-offline') || String(r.key || '').includes('w8-bundled-only')), 'H17b 迁移中心也不把随包插件的技能当成可复制的外来技能');
   } finally {
     try { killOwnTree(wb); } catch { /* already gone */ }
     await new Promise(resolve => provider.close(resolve));

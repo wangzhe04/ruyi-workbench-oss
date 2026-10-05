@@ -186,7 +186,7 @@ claude mcp add ruyi --scope user `
   mcp
 ```
 
-> **`add-json` 在 PowerShell 上的已知问题**：`claude mcp add-json` 接收一个 JSON 字符串参数，但在 PowerShell 中调用 `.cmd` 文件时，JSON 中的双引号会被 `cmd.exe` 参数解析层吞掉，导致 `Invalid configuration: : Invalid input` 错误。**改用 `claude mcp add`（非 JSON 版）可绕过此问题**——它通过 `--` 分隔符和独立参数传递命令、参数、环境变量，不涉及 JSON 引号转义。工作台自带的 `install` 子命令内部也走 `add-json`，在纯 PowerShell 环境下同样会触发此问题；在 `cmd.exe` 环境或 Node.js `child_process.spawn` 直调时不受影响。
+> **`add-json` 在 PowerShell 上的已知问题**：`claude mcp add-json` 接收一个 JSON 字符串参数，但在 PowerShell 中调用 `.cmd` 文件时，JSON 中的双引号会被 `cmd.exe` 参数解析层吞掉，导致 `Invalid configuration: : Invalid input` 错误。**改用 `claude mcp add`（非 JSON 版）可绕过此问题**——它通过 `--` 分隔符和独立参数传递命令、参数、环境变量，不涉及 JSON 引号转义。这只影响在 PowerShell 里手敲 `add-json`：工作台自带的 `install` 子命令虽然也走 `add-json`，但它经 Node.js 直接起进程、按参数数组传，不受影响；随包的 `install-workbench.ps1` 自己拼命令行（绕开 PowerShell 的参数改写），也不受影响。
 
 **第六步 · 验证**
 

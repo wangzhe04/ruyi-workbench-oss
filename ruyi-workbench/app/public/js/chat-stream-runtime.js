@@ -657,14 +657,14 @@ export function createChatStreamRuntime(deps = {}) {
     try {
       const endpoint = isProviderMode() ? '/api/provider/compact' : '/api/agent/compact';
       const r = await api(endpoint, { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-      if (!r || !r.ok) { toast(t("toast.compactFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+      if (!r || !r.ok) { toast(t("toast.compactFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
       if (state.currentSession?.id === sid) {
         const s = await api(`/api/sessions/${sid}`);
         // await 期间可能已切走:再判一次,别用被压缩那条覆盖当前打开的会话。
         if (state.currentSession?.id === sid) { state.currentSession = s.session; renderCurrentSession(); }
       }
       await refreshSessions();
-      toast(t("toast.compactDone", { p1: fmtTokens(r.beforeTokens || 0), p2: fmtTokens(r.afterTokens || 0) }), 'ok');
+      toast(t(r.level === 1 ? "toast.compactL1Done" : "toast.compactDone", { p1: fmtTokens(r.beforeTokens || 0), p2: fmtTokens(r.afterTokens || 0) }), 'ok'); // level 1 = 服务商手动压缩只做了免费的 L1(没调摘要)
     } catch (e) { toast(t("toast.compactFail", { p1: apiErrText(e) }), 'err'); }
     finally { endCompactIndicator(); }
   }

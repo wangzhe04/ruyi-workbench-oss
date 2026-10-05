@@ -500,7 +500,7 @@ async function previewGrant() {
       else bits.push(t('permission.preview.commands', { commands: (r.grant.cmdAllow || []).join(' / ') }));
       if (r.dropped && r.dropped.length) bits.push(t('permission.preview.dropped', { count: r.dropped.length, reasons: r.dropped.map(d => d.reason).join(';') }));
       if (box) box.textContent = bits.join(';');
-    } else if (box) box.textContent = t('permission.preview.failed', { reason: r && r.error || t('common.unknown') });
+    } else if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(r && r.error) || t('common.unknown') });
   } catch (e) { if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(e) }); }
 }
 async function submitGrant(ev) {
@@ -517,7 +517,7 @@ async function submitGrant(ev) {
       toast(r.dropped && r.dropped.length ? t('permission.grantIssuedWithDrops', { count: r.dropped.length }) : t('permission.grantIssued'), 'ok');
       $('autonomyIssueForm').classList.add('hidden');
       await loadAutonomyGrants();
-    } else { toast(t('permission.grant.failed', { reason: r && r.error || t('common.unknown') }), 'err'); }
+    } else { toast(t('permission.grant.failed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); }
   } catch (e) { toast(t('permission.grant.failed', { reason: apiErrText(e) }), 'err'); }
 }
 
@@ -614,7 +614,7 @@ async function revealArtifact(fullPath, mode) {
   const sid = state.currentSession?.id || '';
   try {
     const r = await api('/api/file/reveal', { method: 'POST', body: JSON.stringify({ sessionId: sid, path: fullPath, mode }) });
-    if (!r || !r.ok) { toast((r && r.error) || t('file.open.unavailable'), 'err'); return; }
+    if (!r || !r.ok) { toast(apiErrText(r && r.error) || t('file.open.unavailable'), 'err'); return; }
     if (r.degradedTo && r.note) toast(r.note, '');
   } catch (e) {
     toast(t('file.open.failed', { reason: apiErrText(e) }), 'err');
@@ -731,7 +731,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
     const r = await api('/api/checkpoints/rollback', { method: 'POST', body: JSON.stringify(payload) });
     if (!r || !r.ok) {
       if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }
-      toast(t('changes.revert.failed', { reason: (r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
+      toast(t('changes.revert.failed', { reason: apiErrText(r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
       return;
     }
     // 代码走查 C6：撤回了一部分（比如改前内容太大没留底）时服务端仍回 ok:true ＋ failed[]。修前只看 ok，
@@ -893,7 +893,7 @@ function openBulkCleanupModal() {
         method: 'POST',
         body: JSON.stringify({ preserveSessionId: currentId, purgeAssociated: purgeBox.checked }),
       });
-      if (!r || !r.ok) throw new Error((r && r.error) || 'unknown error');
+      if (!r || !r.ok) throw new Error(apiErrText(r && r.error) || 'unknown error');
       modal.close();
       const removal = sessionRemoval();   // 128f-⑫：删掉的那些立刻不画（同 removeSession）
       for (const deletedId of (Array.isArray(r.deleted) ? r.deleted : [])) removal.done.add(String(deletedId));
@@ -1078,6 +1078,14 @@ async function reloadCurrentSessionAfterAway() {
   return true;
 }
 bindLiveEventStream();
+// #sessionTitle 带 data-i18n(没有会话时的「未命名线程」占位),applyTranslations 每次都会把它改回占位文案;开机第二次
+// setLocale(changed:false)不重画会话,于是刷新后线程头一直写着「未命名线程」(真浏览器走查实测)。标题是数据,事件到了就写回。
+window.addEventListener('i18n:change', () => {
+  const node = $('sessionTitle');
+  if (!node || !state.currentSession) return;
+  node.textContent = isUntitledTitle(state.currentSession.title) ? t('session.untitled') : String(state.currentSession.title).trim();
+  node.title = node.textContent;
+});
 // 一拍：重取信封 → 还在跑就只刷这张气泡（整份重绘会抹掉阅读位置，长会话还很贵）；
 // 已经跑完就把服务端刚落盘的正文整份换上来，临时气泡随之消失。
 async function refreshLiveTurn() {
@@ -1249,7 +1257,7 @@ function reconcileMessageChildren(box, wanted) {
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
-  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('session.untitled') : session.title.trim(); // 121-K8（§13.7 ⑤）：未命名线程的回落不再是 navigation.workbench「工作台」——那是视角名，印在线程标题上等于说「这条线程叫工作台」
+  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('session.untitled') : session.title.trim(); $('sessionTitle').title = $('sessionTitle').textContent; // 121-K8（§13.7 ⑤）：未命名线程的回落不再是 navigation.workbench「工作台」——那是视角名，印在线程标题上等于说「这条线程叫工作台」
   paintSessionMeta($('sessionMeta'), session);
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)
@@ -1628,8 +1636,9 @@ function openPlaybookModal(pb) {
   const fields = new Map(); // key -> input element
   for (const inp of (pb.inputs || [])) {
     const field = el('div', 'pb-field');
-    field.appendChild(el('label', 'pb-field-label', playbookInputLabel(pb, inp)));
+    field.appendChild(el('label', 'pb-field-label', playbookInputLabel(pb, inp) + (inp.required ? ' *' : '')));
     const ta = el('textarea', 'pb-field-input');
+    if (inp.required) ta.setAttribute('aria-required', 'true');
     ta.rows = (inp.type === 'text') ? 3 : 1;
     ta.placeholder = inp.type === 'folder' ? t('skills.playbook.folderPlaceholder') : (inp.type === 'file' ? t('skills.playbook.filePlaceholder') : '');
     // v0.9-S3 (C3): folder inputs get a 📁 button that pops the native picker and fills the field.
@@ -1641,7 +1650,7 @@ function openPlaybookModal(pb) {
         try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
         catch (e) { toast(t('skills.playbook.pickerError', { reason: apiErrText(e) }), 'err'); return; }
         if (r && r.ok && r.path) { ta.value = r.path; }
-        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: r.error || t('common.unknown') }), 'err');
+        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: apiErrText(r.error) || t('common.unknown') }), 'err');
       };
       row.append(ta, pick);
       field.appendChild(row);
@@ -1666,6 +1675,14 @@ function openPlaybookModal(pb) {
   go.onclick = () => {
     const values = {};
     for (const [key, ta] of fields) values[key] = ta.value.trim();
+    // 2026-10:标了 required 的输入不许空着发出去 —— 修前清理下载、批量重命名这类卡片的文件夹留空也照发,
+    // 模型只能对着一句「请清理文件夹 。」猜。其余输入照旧可以留空(留空是用户的选择)。
+    const missing = (pb.inputs || []).find(inp => inp.required && !values[inp.key]);
+    if (missing) {
+      toast(t('skills.playbook.inputRequired', { label: playbookInputLabel(pb, missing) }), 'err');
+      const ta = fields.get(missing.key); if (ta) ta.focus();
+      return;
+    }
     const prompt = assemblePlaybookPrompt(pb, values);
     // 走查 S-13：先判「这会儿能不能发」再关表单 —— 修前先 modal.close() 再判 streaming，当前回合还在跑时表单没了、
     // 刚填好的几段话也跟着丢了。现在被拦下时表单原样留着，等回合收尾再点「开始」。
@@ -1677,13 +1694,12 @@ function openPlaybookModal(pb) {
 // Pure placeholder substitution: replace every {key} in the template with the user's value (missing values
 // become an empty string). Extracted so the e2e can drive the same assembly logic deterministically. Only
 // keys the playbook declares are substituted (a stray {foo} in the template is left as-is).
+// 2026-10:单遍替换(与服务端 06i stewardAssemblePlaybookPrompt 逐字同义):只扫模板一遍,填进去的值不再被扫描 ——
+// 修前按 key 逐个 split/join,用户在会议记录里写的「{output}」会被后一轮替换成文件名。
 function assemblePlaybookPrompt(pb, values) {
-  let out = String(pb.promptTemplate || '');
-  for (const inp of (pb.inputs || [])) {
-    const v = (values && values[inp.key] != null) ? String(values[inp.key]) : '';
-    out = out.split('{' + inp.key + '}').join(v);
-  }
-  return out;
+  const template = String(pb.promptTemplate || '');
+  const declared = new Set((pb.inputs || []).map(inp => String((inp && inp.key) || '')).filter(Boolean));
+  return template.replace(/\{([^{}]+)\}/g, (whole, key) => (declared.has(key) ? ((values && values[key] != null) ? String(values[key]) : '') : whole));
 }
 // The single conditional call-to-action for the empty state (§4.7), or null when everything's healthy.
 function buildEmptyCTA() {

@@ -58,7 +58,7 @@ async function launchAgentWorkflow(workflow, context) {
     const body = { token: wcwToken(), sessionId: state.currentSession.id, nodes: wf.nodes, workflowId: wf.id, async: true };
     if (context && context.trim()) body.context = context.trim();
     const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify(body) });
-    if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || t('chat.startFailed'));
+    if (!r || (!r.ok && !r.runId)) throw new Error(apiErrText(r && r.error) || t('chat.startFailed'));
     toast(t('workflow.started', { title: workflowTemplateLabel(wf).title }), 'ok'); switchTab('agent-runs'); await loadAgentRuns(true);
   } catch (e) { toast(t('workflow.start.failed', { reason: apiErrText(e) }), 'err'); }
 }
@@ -79,7 +79,13 @@ function launchAgentWorkflowFromQuickSelect() {
   foot.append(cancel, run);
   const modal = buildModal(t('workflow.quickRun.title', { title: label.title }), body, foot);
   cancel.onclick = () => modal.close();
-  run.onclick = async () => { const context = ctx.value; modal.close(); await launchAgentWorkflow(wf, context); };
+  // 2026-10:内置模板的节点任务不含主题(「从支持方立场分析议题」),空 context 启动只会让各节点对着不存在的议题空转。
+  // 与服务端 resolveOrchestrateNodes 同一条规矩(那边管模型只传 workflowId 的路径;这里发的是 nodes + workflowId)。
+  run.onclick = async () => {
+    const context = ctx.value;
+    if (wf.source === 'builtin' && !context.trim()) { toast(t('workflow.quickRun.contextRequired'), 'err'); ctx.focus(); return; }
+    modal.close(); await launchAgentWorkflow(wf, context);
+  };
 }
 function workflowBlank() { return { id: `workflow-${Date.now().toString(36)}`, title: t('workflow.editor.newBlank'), description: '', source: 'personal', nodes: [{ id: 'step_1', task: t('workflow.editor.defaultTask'), role: 'worker', dependsOn: [], failurePolicy: 'block', position: { x: 40, y: 120 } }] }; }
 function workflowField(label, input) { const wrap = el('label', 'workflow-field'); wrap.append(el('span', '', label), input); return wrap; }
@@ -321,7 +327,7 @@ async function openWorkflowEditor(initialId) {
     selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();
     if(cleared)toast(t("toast.wfNodeDeleted", { p1: cleared }),'');
   };
-  async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error(t('workflow.invalidFields'));err.__quiet=true;throw err;}}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||t('workflow.saveFailed'));draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
+  async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error(t('workflow.invalidFields'));err.__quiet=true;throw err;}}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(apiErrText(r.error)||t('workflow.saveFailed'));draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
   // 「保存」「保存并运行」在飞时两枚一起锁住：修前连点两下「保存并运行」= 存两次、起两个一模一样的 run。
   const lockFoot=on=>{save.disabled=on;run.disabled=on;};
   cancel.onclick=()=>modal.close();save.onclick=async()=>{if(save.disabled)return;lockFoot(true);try{await saveDraft();toast(t('workflow.editor.saved'),'ok');modal.close();}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}finally{lockFoot(false);}};run.onclick=async()=>{if(run.disabled)return;lockFoot(true);try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}finally{lockFoot(false);}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast(t('workflow.editor.builtinCannotDelete'),'err');if(!confirm(t('workflow.editor.delete.confirm',{title:draft.title||draft.id})))return;try{const r=await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();if(r&&r.ok===false){toast(t('workflow.editor.delete.none'),'err');}else{toast(t('workflow.editor.deleted'),'ok');modal.close();}}catch(e){toast(apiErrText(e),'err');}};
@@ -351,7 +357,7 @@ async function poolDecide(runId, poolId, approve) {
   const sid = state.currentSession?.id; if (!sid) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action: approve ? 'pool_approve' : 'pool_reject', poolId }) });
-    if (!r || !r.ok) throw new Error((r && r.error) || t('workflow.operationFailed'));
+    if (!r || !r.ok) throw new Error(apiErrText(r && r.error) || t('workflow.operationFailed'));
     toast(approve ? t('workflow.pool.approvedToast') : t('workflow.pool.rejectedToast'), 'ok');
     await loadAgentRuns(true); // 29a: 动作后强制全量(审批物化的新节点等不靠事件推断,直接拉权威快照)
   } catch (e) { toast(t('workflow.pool.err', { err: apiErrText(e) }), 'err'); }
@@ -406,7 +412,7 @@ async function agentRunAction(runId, action, extra) {
   const sid = state.currentSession?.id; if (!sid) return;
   try {
     const r = await api(`/api/agent-runs/${encodeURIComponent(runId)}`, { method: 'POST', body: JSON.stringify({ sessionId: sid, action, ...(extra || {}) }) });
-    if (!r.ok) throw new Error(r.error || t('workflow.operationFailed'));
+    if (!r.ok) throw new Error(apiErrText(r.error) || t('workflow.operationFailed'));
     toast(t("toast.wfActionSubmitted"), 'ok'); await loadAgentRuns(true); // 29a: 动作后强制全量(apply_isolation 等冷路径不发事件)
   } catch (e) { toast(t("toast.wfError", { p1: apiErrText(e) }), 'err'); }
 }

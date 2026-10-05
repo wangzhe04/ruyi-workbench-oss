@@ -50,6 +50,9 @@ const PAYLOAD_FILES = [
   'app/public/js/chat-stream-runtime.js',
   // 109a: mermaid 图表运行时(懒加载 vendor/mermaid.min.js;vendor 缺失时原样降级)。
   'app/public/js/mermaid-runtime.js',
+  // 109c: mermaid 源码预处理 / 画完收尾(由 mermaid-runtime.js 静态 import)。
+  'app/public/js/mermaid-source.js',
+  'app/public/js/mermaid-postprocess.js',
   'app/public/js/settings-operations.js',
   'app/public/js/file-browser.js',
   'app/public/js/artifact-changes.js',
@@ -211,8 +214,16 @@ const PAYLOAD_FILES = [
   'resources/playbooks/weekly-report.json',
   // 107-P0 同一次普查(grep 服务端所有 externalRoot()/resources 读口):内置技能与内置斜杠命令也是运行时读的 ——
   // 12-tool-dispatch.js loadSkillRegistry 从 offline-toolkit/skills/<id>/SKILL.md 与 offline-toolkit/commands/*.md
-  // 建技能库(/api/skills、提示词里的技能索引)。同一个漏法,一并登记。同插件下的 agents/*.md 与 .claude-plugin/*.json
-  // 服务端不读(只有 install-workbench.ps1 把整个 marketplace 交给 Claude CLI 装),不在本表。
+  // 建技能库(/api/skills、提示词里的技能索引)。同一个漏法,一并登记。
+  // 2026-10:同插件下的 .claude-plugin/*.json 与 agents/*.md 服务端不读,但 install-workbench.ps1 把整个 marketplace
+  // 交给 Claude CLI 装 —— 只发技能/命令,覆盖包用户重跑安装脚本时装的还是旧清单(那份 plugin.json 正是让
+  // `claude plugin install` 直接失败的那份)。整个插件目录一起登记,unit/offline-plugin-bundle.test.js 钉着「目录里每个文件都在表里」。
+  'resources/plugins/ruyi-offline/.claude-plugin/marketplace.json',
+  'resources/plugins/ruyi-offline/offline-toolkit/.claude-plugin/plugin.json',
+  'resources/plugins/ruyi-offline/offline-toolkit/agents/code-reviewer-offline.md',
+  'resources/plugins/ruyi-offline/offline-toolkit/agents/frontend-offline.md',
+  'resources/plugins/ruyi-offline/offline-toolkit/agents/release-packager.md',
+  'resources/plugins/ruyi-offline/offline-toolkit/agents/windows-operator.md',
   'resources/plugins/ruyi-offline/offline-toolkit/skills/api-debugger/SKILL.md',
   'resources/plugins/ruyi-offline/offline-toolkit/skills/browser-debug/SKILL.md',
   'resources/plugins/ruyi-offline/offline-toolkit/skills/claude-md-management/SKILL.md',

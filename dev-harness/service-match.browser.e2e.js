@@ -257,11 +257,12 @@ try {
   })()`);
   ok(c2 && /未知/.test(c2.status || '') && c2.dataStatus === 'unknown' && !/可用|可直接用/.test(c2.rowText || '') && c2.greyed === false,
     'C2 技能库行 pb:f01-unknown-coding:状态行「未知」、整行不含「可用」、未置灰 — 实得 ' + JSON.stringify(c2));
-  // C3 混合类(两条可用内置 + 一条未知):「可直接用」只数 status===available,未知的单独说。
+  // C3 混合类(可用内置 + 一条未知):「可直接用」只数 status===available,未知的单独说。2026-10 起 pdf-summarize 声明
+  // requires desktopMcp —— 可用条数随这台机器有没有桌面控制而变(研究类里 compare-documents 无前置能力恒可用),按实况数,不写死。
   const c3 = await cdp.evaluate(`${TYPE_AND_STRIP}('对比')`);
   const c3Text = (c3 && c3.text) || '';
   const c3Count = Number((c3Text.match(/(\d+) 个模板可直接用/) || [])[1]);
-  ok(researchAvail === 2 && c3Count === researchAvail && /1 个状态未知/.test(c3Text),
+  ok(researchAvail >= 1 && c3Count === researchAvail && /1 个状态未知/.test(c3Text),
     'C3 研究比较服务条可直接用数 = ' + researchAvail + '(status===available),未知 1 条单独说 — 实得 ' + JSON.stringify(c3Text));
   // C4 首页任务卡:状态行只长在非可用模板上;未知卡说「未知」且仍是可点的 <button>。
   await cdp.evaluate(`(() => { const s = document.getElementById('skillSearch'); s.value = ''; s.dispatchEvent(new Event('input', { bubbles: true })); })()`, false);

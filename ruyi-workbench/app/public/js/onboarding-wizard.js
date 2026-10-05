@@ -138,8 +138,8 @@ export function onboardingStepsFor(config) {
   const c = asObject(config);
   const providers = asArray(c.providers).filter(p => p && !isSpeechOnlyProvider(p));   // 自动接入的本地语音识别不是对话引擎:不能让它把「配置引擎」这一步标成已完成
   const engineReady = providers.length > 0 || Boolean(c.claudePath) || Boolean(c.kimiPath);
-  // 走查 #10：defaultWorkspace 永远有值（缺省＝整个用户目录）、permissionMode 缺省就是 'default' —— 拿它们判「做过了」
-  // 等于新装第一秒就把「文件夹」「安全档」画成绿的。改成要有真凭据：选过文件夹（recentWorkspaces）或整套向导走完过。
+  // 走查 #10：defaultWorkspace 永远有值（缺省＝整个用户目录）、permissionMode 永远有出厂值 —— 拿它们判「做过了」
+  // 等于新装第一秒就把「文件夹」「安全档」画成绿的。改成要有真凭据：选过文件夹（recentWorkspaces）、选过档位（显式键）或整套向导走完过。
   const completed = Boolean(asObject(c.onboarding).completedAt);
   const workspaceReady = asArray(c.recentWorkspaces).length > 0 || (completed && Boolean(c.defaultWorkspace));
   const doneFlag = {
@@ -151,7 +151,10 @@ export function onboardingStepsFor(config) {
     // 有着落（与 engine 同一条判据，不给「留空」硬造一个新字段来记「他真的看过了」）。
     steward: engineReady,
     workspace: workspaceReady,
-    safety: typeof c.permissionMode === 'string' && c.permissionMode !== '' && (completed || c.permissionMode !== 'default'),
+    // 2026-10:出厂档改成智能自动后,「不等于 default」不再是「选过」的凭据(新装第一秒就是 auto)。改看显式键:
+    // 用户在任何地方选过档位,服务端就把 permissionMode 记进 configExplicitKeysV1(存量用户经 to:14 迁移也在里面)。
+    safety: typeof c.permissionMode === 'string' && c.permissionMode !== ''
+      && (completed || (Array.isArray(c.configExplicitKeysV1) && c.configExplicitKeysV1.includes('permissionMode'))),
     done: Boolean(asObject(c.onboarding).completedAt),
   };
   return ONBOARDING_STEP_IDS.map((id, index) => ({
@@ -339,7 +342,7 @@ export function createOnboardingWizardDomain({
       });
     }
     if (doc && doc.body && typeof doc.body.appendChild === 'function') doc.body.appendChild(backdrop);
-    return { backdrop, modal, counter, rail, body, status, foot, close: () => finish(false), cancel: () => finish(true) };
+    return { backdrop, modal, title, closeBtn, counter, rail, body, status, foot, close: () => finish(false), cancel: () => finish(true) };
   }
 
   /* ---------------- small builders ---------------- */
@@ -378,9 +381,12 @@ export function createOnboardingWizardDomain({
       message: '',
       messageKind: '',
       messageAction: null, // 118e: {label, onClick} for the in-app manual jump on a local-endpoint failure
-      permissionMode: ONBOARDING_SAFETY_MODES.includes(config.permissionMode) ? config.permissionMode : 'default',
+      // 照实记盘上的档(含全自动 / dontAsk 这类不在四张卡里的档:那时一张卡都不亮)。修前把它们折成 'default' 显示选中,
+      // 「已是这一档就不落盘」的短路会让这些用户点「每步都问」收紧变成空操作。
+      permissionMode: typeof config.permissionMode === 'string' ? config.permissionMode : '',
       workspaceError: '',  // 走查 #8：选择器失败时就地显示的那句（服务端给的 hint 优先）
       workspacePath: '',   // 手填框里的草稿（重画不丢）
+      stewardCustom: false, // 管家步「另挑一个」卡被点中（还没填模型名时也要显示选中态）
     };
     const presets = asArray(state.status && state.status.providerPresets);
     // 用户 2026-09-27：不再内置厂商预设。云端一支默认落在第一条【要密钥】的模板上（即「自定义」，地址由用户填），
@@ -396,7 +402,14 @@ export function createOnboardingWizardDomain({
     const requestedStep = ONBOARDING_STEP_IDS.indexOf(String(options.startStep || ''));
     if (requestedStep > 0) wiz.step = requestedStep;
 
-    const frame = buildFrame(async () => { await markOnboarding({ skipped: true }); toast(t('onboarding.wizard.skipped'), ''); });
+    // 走查 W1-13：已完成引导的用户从设置里重开向导再关掉，修前这里写 {completedAt:null, skipped:true}，把完成记录整个盖没了。
+    // 开向导那一刻已经有 completedAt → 关闭不写盘（「以后再说」对一个早就走完的人没有意义）。
+    const priorCompletedAt = asObject(config.onboarding).completedAt || null;
+    const frame = buildFrame(async () => {
+      if (priorCompletedAt) return;
+      await markOnboarding({ skipped: true });
+      toast(t('onboarding.wizard.skipped'), '');
+    });
     openBackdrop = frame.backdrop;
 
     // 118e: a status line may now carry ONE in-app action button (today: 「read the manual's local-models
@@ -444,6 +457,9 @@ export function createOnboardingWizardDomain({
       const steps = onboardingStepsFor(state.config);
       const meta = STEP_META[stepId];
       frame.modal.setAttribute('aria-label', t('onboarding.wizard.title'));
+      // 走查 W1-10：标题与关闭钮的 aria-label 原来只在 buildFrame 写一次，第一步切语言后停在旧语言 —— 每次 render 都按当前语言重写。
+      frame.title.textContent = t('onboarding.wizard.title');
+      frame.closeBtn.setAttribute('aria-label', t('common.close'));
       frame.counter.textContent = t('onboarding.wizard.stepCounter', {
         current: wiz.step + 1, total: ids.length, title: t(stepId === 'provider' && wiz.engineChoice === 'local' ? 'onboarding.wizard.provider.titleLocal' : meta.titleKey),   // 走查 U11：本机服务那一支，步骤计数行也别写「填入 API Key」
       });
@@ -832,6 +848,18 @@ export function createOnboardingWizardDomain({
         setMessage(t('onboarding.wizard.provider.localNeedModel'), 'warn');
         return;
       }
+      // 走查 W1-9：只拦本机预设的空模型还不够 —— 云端唯一的预设「自定义」既没地址也没默认模型，却一样能存成 model:""，
+      // 首条消息才撞一句看不懂的报错。所有分支都要有模型：本机（上面）让用户先测试连接再选，云端让用户在「高级」里填模型名。
+      if (!String(wiz.model || '').trim()) {
+        setMessage(t('onboarding.wizard.provider.cloudNeedModel'), 'warn');
+        try {
+          const advanced = frame.body.querySelector('.onboard-wiz-advanced');
+          if (advanced) advanced.open = true;
+          const field = frame.body.querySelector('.onboard-wiz-model');
+          if (field && typeof field.focus === 'function') field.focus();
+        } catch { /* 无 DOM */ }
+        return;
+      }
       wiz.saving = true;
       render();
       const providers = asArray(asObject(state.config).providers).filter(p => p && p.id !== draft.id);
@@ -857,7 +885,7 @@ export function createOnboardingWizardDomain({
       const pick = async () => {
         const r = await pickWorkspace({ alsoDefault: true });
         // 原因用服务端的 error（「仅支持 Windows」这类）—— 「去下面粘贴路径」这半句由文案自己说，不重复 hint。
-        wiz.workspaceError = r && r.ok === false ? String(r.error || r.hint || t('common.unknown')) : '';
+        wiz.workspaceError = r && r.ok === false ? errorMessageOf(r) || String(r.hint || '') || t('common.unknown') : '';
         render();
         // render() 下一拍会把焦点给这一步的第一个控件；失败时要落在手填框上，所以也排在下一拍、且排在它后面。
         if (wiz.workspaceError) setTimeout(() => { try { frame.body.querySelector('.onboard-wiz-path-input')?.focus(); } catch { /* 无 DOM */ } }, 0);
@@ -914,7 +942,7 @@ export function createOnboardingWizardDomain({
           try {
             const r = await api('/api/workspace/dedicated', { method: 'POST', body: '{}' });
             if (r && r.ok && r.path) await setWorkspacePath(String(r.path));
-            else wiz.workspaceError = String((r && r.error) || t('common.unknown'));
+            else wiz.workspaceError = errorMessageOf(r) || t('common.unknown');
           } catch (error) { wiz.workspaceError = apiErrText(error); }
           render();
         };
@@ -947,28 +975,35 @@ export function createOnboardingWizardDomain({
       const group = el('div', 'onboard-wiz-cards onboard-wiz-steward-cards');
       group.setAttribute('role', 'radiogroup');
       group.setAttribute('aria-label', t('onboarding.wizard.steward.title'));
+      const customPicked = Boolean(current) || wiz.stewardCustom === true;
       const follow = choiceCard({
-        selected: !current,
+        selected: !customPicked,
         title: t('onboarding.wizard.steward.follow'),
         description: t('onboarding.wizard.steward.followHint'),
         onSelect: async () => {
           if (!(await persist({ stewardModel: '' }))) return;
+          wiz.stewardCustom = false;
           render();
           setMessage(t('onboarding.wizard.steward.savedFollow'), 'ok');
         },
       });
       follow.setAttribute('role', 'radio');
-      follow.setAttribute('aria-checked', current ? 'false' : 'true');
+      follow.setAttribute('aria-checked', customPicked ? 'false' : 'true');
       group.append(follow);
       const custom = choiceCard({
-        selected: Boolean(current),
+        selected: customPicked,
         title: t('onboarding.wizard.steward.custom'),
         description: t('onboarding.wizard.steward.customHint'),
-        // 已经填过就不清掉他填的那个（点一下只是把这张卡选中）。
-        onSelect: () => { render(); },
+        // 已经填过就不清掉他填的那个（点一下只是把这张卡选中）。走查 W1：没填过时点它修前毫无反应（render 画回原样）——
+        // 现在记下「选了它」，卡片亮起选中态并把光标送进模型名输入框。
+        onSelect: () => {
+          wiz.stewardCustom = true;
+          render();
+          setTimeout(() => { try { frame.body.querySelector('#onboardStewardModel')?.focus(); } catch { /* 无 DOM */ } }, 0);
+        },
       });
       custom.setAttribute('role', 'radio');
-      custom.setAttribute('aria-checked', current ? 'true' : 'false');
+      custom.setAttribute('aria-checked', customPicked ? 'true' : 'false');
       group.append(custom);
       wrap.append(group);
       const input = el('input', '');
@@ -1019,7 +1054,10 @@ export function createOnboardingWizardDomain({
           title: t('onboarding.wizard.safety.' + mode + '.title'),
           description: t('onboarding.wizard.safety.' + mode + '.description'),
           onSelect: async () => {
-            if (needsConfirm(mode) && wiz.permissionMode !== mode) { wiz.pendingSafety = mode; render(); return; }
+            // 已是这一档就不再落盘:出厂档是智能自动(2026-10),新用户点一下已选中的卡片会不带 confirm 回写 auto,
+            // 被服务端那道二次确认门 409 挡回来,只剩一句报错。
+            if (wiz.permissionMode === mode) { wiz.pendingSafety = ''; render(); return; }
+            if (needsConfirm(mode)) { wiz.pendingSafety = mode; render(); return; }
             wiz.pendingSafety = '';
             await choose(mode);
           },
