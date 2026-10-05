@@ -54,7 +54,11 @@ const SCHEDULER_SCHEDULE_KINDS = Object.freeze(['once', 'daily', 'weekly', 'mont
 const SCHEDULER_PAYLOAD_KINDS = Object.freeze(['reminder', 'prompt']);   // playbook/workflow → 127 波
 const SCHEDULER_TARGET_MODES = Object.freeze(['new-session', 'existing-session']);
 const SCHEDULER_ON_MISSED = Object.freeze(['run-once-late', 'skip']);
-const SCHEDULER_ON_FAILURE = Object.freeze(['notify', 'retry-once']);
+// 失败后的处理:目前只有 'notify'(记账、计入连败、三次熔断)。29 号文设计过 'retry-once',但调度器从未实现它 ——
+// 修前它被接受、落盘、回显,却没有任何代码读它,用户以为失败会自动重试。界面与管家工具也从没给过这个选项,
+// 只有裸 HTTP body 能写进来。所以归一化时不再认它(回落 'notify',即它实际的行为);盘上已有的旧值装载时同样回落。
+// 将来真要做重试,在这里加值的同时必须有 13s 的实现与 e2e,不要只加枚举。
+const SCHEDULER_ON_FAILURE = Object.freeze(['notify']);
 const SCHEDULER_FIRE_MODES = Object.freeze(['ontime', 'late', 'manual']);
 const SCHEDULER_PHASES = Object.freeze(['registered', 'dispatched', 'running', 'reconciled']);
 const SCHEDULER_OUTCOMES = Object.freeze(['succeeded', 'failed', 'needs_you', 'skipped', 'unknown']);
@@ -524,12 +528,12 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   if (!rawPayload) return schedulerFail('invalid_request', 'payload is required');
   const payloadKind = String(rawPayload.kind || '');
   if (!SCHEDULER_PAYLOAD_KINDS.includes(payloadKind)) {
-    return schedulerFail('invalid_request', 'payload.kind must be one of ' + SCHEDULER_PAYLOAD_KINDS.join('/') + ' (playbook/workflow land in wave 127)');
+    return schedulerFail('invalid_request', 'payload.kind must be one of ' + SCHEDULER_PAYLOAD_KINDS.join('/') + ' (other payload kinds are not supported yet)');
   }
   const forbidden = schedulerFindForbiddenKey(rawPayload, 0);
   if (forbidden) {
     return schedulerFail('payload_forbidden_key',
-      'payload must not carry ' + forbidden + ' (29 号文 §10:本地命令/密钥/环境变量/数据目录一律不进任务载荷)');
+      'payload must not carry ' + forbidden + ' (local commands, secrets, environment variables and the data directory must never go into a task payload)');
   }
   // 同上:局部名不能叫 text(纪律 12)。
   const payloadText = schedulerCleanBlock(rawPayload.text, SCHEDULER_LIMITS.textChars);

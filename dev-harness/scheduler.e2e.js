@@ -180,7 +180,7 @@ function startProvider(port) {
     // 没有人把它写进 config 或 UI);② 本进程【没有】设过任何一个旗,而 tickMs 读到的是生产默认
     // 30 s、崩溃钩子一次都没触发(上面那两次 startScheduler 都活着回来了)。
     {
-      const FLAGS = ['WCW_SCHEDULER_CLOCK_FILE', 'WCW_SCHEDULER_TICK_MS', 'WCW_SCHEDULER_ASK_WAIT_MS', 'WCW_SCHEDULER_CRASH_AT'];
+      const FLAGS = ['WCW_SCHEDULER_CLOCK_FILE', 'WCW_SCHEDULER_TICK_MS', 'WCW_SCHEDULER_ASK_WAIT_MS', 'WCW_SCHEDULER_CRASH_AT', 'WCW_SCHEDULER_TIMEOUT_MS'];   // 第五个旗 TIMEOUT_MS:走查修复(等批准不被超时吃掉 / 排队超时)的单测用
       const srcDir = path.join(WB, 'app', 'src');
       const files = fs.readdirSync(srcDir).filter(f => f.endsWith('.js'));
       for (const flag of FLAGS) {

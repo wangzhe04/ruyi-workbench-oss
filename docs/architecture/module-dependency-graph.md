@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3483 | 3126 | 535 | 67 | 0 | 1 |
+| 70 | 3487 | 3127 | 535 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -51,7 +51,7 @@
 | 33 | `06d-memory-domain.js` | engine | 142 | 37 | 10 |
 | 34 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 35 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
-| 36 | `06g-resource-leases.js` | engine | 20 | 5 | 3 |
+| 36 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
 | 37 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 38 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
 | 39 | `07-autonomy.js` | orchestration | 139 | 67 | 17 |
@@ -59,7 +59,7 @@
 | 41 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 42 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 43 | `09-workflow.js` | orchestration | 26 | 244 | 27 |
-| 44 | `10-context-governance.js` | orchestration | 197 | 94 | 17 |
+| 44 | `10-context-governance.js` | orchestration | 198 | 94 | 17 |
 | 45 | `11-native-tools.js` | tools | 128 | 39 | 5 |
 | 46 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 47 | `12-tool-dispatch.js` | tools | 70 | 118 | 17 |
@@ -81,8 +81,8 @@
 | 63 | `13q-steward-runner-turn.js` | transport | 37 | 76 | 19 |
 | 64 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
 | 65 | `13r-event-stream.js` | transport | 25 | 17 | 6 |
-| 66 | `13s-scheduler.js` | transport | 51 | 36 | 9 |
-| 67 | `13t-steward-schedule.js` | transport | 22 | 39 | 10 |
+| 66 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
+| 67 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
 | 68 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
 | 69 | `14-main.js` | entrypoint | 1 | 586 | 47 |
 
@@ -558,7 +558,7 @@
 | `13s-scheduler.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
 | `13s-scheduler.js` | `02-session-store.js` | backward | `createSession`, `loadSession`, `repairMissionChangeTornTail`, `saveSession`, `updateSessionMeta` |
 | `13s-scheduler.js` | `04-permission-runtime.js` | backward | `logEvent`, `stopSession` |
-| `13s-scheduler.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `stewardPermissionRank` |
+| `13s-scheduler.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `StewardHooks`, `stewardPermissionRank` |
 | `13s-scheduler.js` | `06j-scheduler-core.js` | backward | `SCHEDULER_LIMITS`, `SCHEDULER_PHASES`, `SchedulerHooks`, `describeSchedule`, `missedOccurrence`, `nextFireAt`, `normalizeSchedulerTask`, `occurrenceKey` |
 | `13s-scheduler.js` | `07-autonomy.js` | backward | `schedulerAskWaitSessions` |
 | `13s-scheduler.js` | `10-context-governance.js` | backward | `runSessionTurn` |
