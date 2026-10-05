@@ -2628,7 +2628,7 @@
   "settings.mcp.limitations": "限制",
   "settings.mcp.compat.stdio.capabilities": "initialize, tools/list, tools/call, notifications/cancelled",
   "settings.mcp.compat.stdio.limitations": "无服务端推送 tools/list_changed(工具列表变化需重新 tools/list 探测)",
-  "settings.mcp.compat.http.capabilities": "initialize, tools/list, tools/call, Mcp-Session-Id 会话, tools/list_changed 推送",
+  "settings.mcp.compat.http.capabilities": "initialize, tools/list, tools/call, 带状态的连接, tools/list_changed 推送",
   "settings.mcp.compat.http.limitations": "需可访问 URL;密钥引用连接时才展开(不落盘明文)",
   "settings.mcp.compat.sse.capabilities": "initialize, tools/list, tools/call, tools/list_changed 推送",
   "settings.mcp.compat.sse.limitations": "legacy transport;新建连接器优先 streamable-HTTP",

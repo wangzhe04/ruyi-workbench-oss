@@ -2628,7 +2628,7 @@
   "settings.mcp.limitations": "Limitations",
   "settings.mcp.compat.stdio.capabilities": "initialize, tools/list, tools/call, notifications/cancelled",
   "settings.mcp.compat.stdio.limitations": "No server-pushed tools/list_changed (re-run tools/list to detect tool-list changes)",
-  "settings.mcp.compat.http.capabilities": "initialize, tools/list, tools/call, Mcp-Session-Id sessions, tools/list_changed push",
+  "settings.mcp.compat.http.capabilities": "initialize, tools/list, tools/call, stateful connections, tools/list_changed push",
   "settings.mcp.compat.http.limitations": "Needs a reachable URL; secret references are expanded only at connect time (never written to disk in plain text)",
   "settings.mcp.compat.sse.capabilities": "initialize, tools/list, tools/call, tools/list_changed push",
   "settings.mcp.compat.sse.limitations": "Legacy transport; prefer streamable-HTTP for new connectors",

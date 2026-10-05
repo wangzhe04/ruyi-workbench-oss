@@ -58,8 +58,10 @@
 /* 文件行里可聚焦的主体(预览),与行尾的 @ 并列:见 file-browser.js 的 fileTreeRow。 */
 .ftree-main { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
 /* min-height:0 —— 继承 base.css 的 button{min-height:var(--tap-min)} 会把有 @ 钮的文件行撑到 52px、目录行只有 24px。 */
-.ftree-at { flex: none; min-height: 0; padding: 0 6px; font-size: var(--fs-xs); line-height: 1.6; background: transparent;
+.ftree-at { flex: none; min-height: 0; padding: 0 6px; font-size: var(--fs-xs); line-height: 1.2; background: transparent;
   border: 1px solid transparent; color: var(--muted); border-radius: 4px; opacity: 0; }
+/* tool-pane.css 的 .tool-section button{margin-bottom:6px}(特异度更高)也会给 @ 钮垫 6px,文件行因此仍比目录行高 —— 在行内压回 0。 */
+.ftree-row > .ftree-at { margin: 0; }
 .ftree-row:hover .ftree-at { opacity: 1; }
 /* 键盘 Tab 到 @ 上时平时 opacity:0 的钮要看得见;焦点在行主体上时也把它亮出来(同一行的两个动作一起露面)。 */
 .ftree-at:focus-visible, .ftree-row:focus-within .ftree-at { opacity: 1; }
