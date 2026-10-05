@@ -182,6 +182,10 @@
   "chat.background.failed": "Background task failed; details delivered to its conversation",
   "chat.background.timed_out": "Background task timed out; details delivered to its conversation",
   "chat.background.cancelled": "Background task cancelled",
+  "chat.background.partial": "Background task partly completed; details delivered to its conversation",
+  "chat.background.stopped": "Background task stopped",
+  "chat.background.interrupted": "Background task was interrupted; details delivered to its conversation",
+  "chat.background.finished": "Background task finished; details delivered to its conversation",
   "chat.steerDelivery.queue": "Add instructions (keep current work)",
   "chat.steerDelivery.interrupt": "Apply now (interrupt current tool)",
   "chat.steerInjectedBadge": "✓ Injected",
@@ -2750,6 +2754,7 @@
   ,"stewardShell.settings.onlyTitle": "Showing only “{{name}}”"
   ,"stewardShell.settings.showAll": "Show all steward settings"
   ,"stewardShell.compose.placeholder": "Say something to Ruyi"
+  ,"stewardShell.compose.attachNeedsSteward": "Attachments can only go to Ruyi, not straight to a thread. Switch the target back to Ruyi, or remove the attachments first."
   ,"stewardShell.compose.needModel": "Connect a model first so the steward can reply"
   ,"stewardShell.compose.placeholderChange": "Tell me what to change"
   ,"stewardShell.compose.targetLabel": "Hand to"
@@ -2863,6 +2868,7 @@
   ,"stewardShell.drawer.rewindConfirm": "Rewinding takes this thread back to before its first message and undoes the files it changed since. Go ahead?"
   ,"stewardShell.drawer.rewindDone": "Rewound the whole thread."
   ,"stewardShell.drawer.rewindNoTarget": "This thread has no turn to rewind yet."
+  ,"stewardShell.drawer.threadSwitchedCancelled": "You switched threads while confirming, so this was cancelled and nothing was changed."
   ,"stewardShell.drawer.noPausableRun": "This thread has no orchestration run to pause."
   ,"stewardShell.drawer.sent": "Sent to it."
   ,"stewardShell.drawer.steered": "Slipped it in mid-turn."
@@ -3258,6 +3264,7 @@
   ,"rail.collapse": "Collapse"
   ,"rail.liveTool": "{{tool}} · output {{elapsed}} ago"
   ,"rail.liveRunning": "Running…"
+  ,"rail.liveToolAgo": "{{tool}} · output {{ago}}"
   ,"rail.justNow": "just now"
   ,"rail.origin.steward": "Started by Ruyi"
   ,"rail.origin.user": "Started by you"
@@ -3288,6 +3295,8 @@
   ,"quietCard.snooze.title": "Later: {{title}}"
   ,"quietCard.snooze.text": "From the \"Later\" you tapped {{minutes}} minutes ago: {{ask}}"
   ,"quietCard.snooze.failed": "Could not schedule \"Later\" — keeping this card"
+  ,"quietCard.answerGone": "This no longer needs your answer (it may have been answered elsewhere or the thread has ended), so the card was dismissed."
+  ,"quietCard.answerFailed": "Could not submit the answer: {{reason}}"
   ,"quietCard.fallbackTitle": "A thread"
   ,"quietCard.deferred": "Left for you, {{minutes}} min left: {{ask}}"
   ,"quietCard.deferredNoDeadline": "Left for you: {{ask}}"
