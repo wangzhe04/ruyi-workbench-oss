@@ -299,7 +299,16 @@ async function deleteMemory(id, scope, cwd) {
   const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
   const file = path.join(dir, safe + '.md');
   try { await fsp.access(file); } catch { return { ok: false, error: 'memory not found' }; }
-  await fsp.unlink(file).catch(() => {});
+  // 修前 .catch(() => {}) 把 unlink 失败吞掉、照样回 ok:true —— Windows 上文件被占用(EBUSY)/只读(EPERM)/无权限(EACCES)时,
+  // 前端提示「已删除」,列表一刷新条目又回来了,用量旁账却已被清掉。现在:只有 ENOENT(access 之后被别处删掉了,目标已达成)当成功;
+  // 其余失败如实回 ok:false(不动用量状态,记忆还在),前端 deleteMemoryRow 已按 !ok / 非 2xx 弹「删除失败」。
+  try { await fsp.unlink(file); }
+  catch (error) {
+    if (!(error && error.code === 'ENOENT')) {
+      const code = (error && error.code) || 'UNKNOWN';
+      return { ok: false, unlinkFailed: true, error: `记忆文件删除失败(${code}):文件可能正被其它程序占用或没有删除权限,请关闭占用它的程序后重试` };
+    }
+  }
   await mutateMemoryUsageState(entries => { const key = scope === 'global' ? 'global:' + safe : 'project:' + projectKeyForCwd(cwd) + ':' + safe; if (!entries[key]) return false; delete entries[key]; });
   return { ok: true, deleted: safe, scope };
 }
@@ -1184,7 +1193,10 @@ function memoryProposalSemanticKey(proposal) {
 
 function memoryProposalLooksSensitive(proposal) {
   const text = [proposal && proposal.name, proposal && proposal.description, proposal && proposal.body].filter(Boolean).join('\n');
-  return /-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|密码|密钥|authorization)\s*[:=]\s*[^\s*]{6,}|\b(?:sk|ghp|github_pat|xox[baprs])-[-A-Za-z0-9_]{12,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b|(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql):\/\/[^\s:@/]+:[^\s@/]+@/i.test(text);
+  // 「关键词 + 冒号/等号 + ≥6 个非空白字符」。JS 的 \b 只认 ASCII 单词字符:修前把 密码|密钥 放进 \b(?:…) 里,CJK 关键词两侧都是
+  // 非单词字符,\b 永远不成立 → 中文「数据库密码: xxx」一条都拦不住;冒号也只认半角。现在 ASCII 关键词保留 \b,CJK 关键词不带 \b,
+  // 分隔符同时认全角「：」「＝」(中文输入法下几乎都是全角)。
+  return /-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|authorization)|密码|密钥)\s*[:：=＝]\s*[^\s*]{6,}|\b(?:sk|ghp|github_pat|xox[baprs])-[-A-Za-z0-9_]{12,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b|(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql):\/\/[^\s:@/]+:[^\s@/]+@/i.test(text);
 }
 
 // 找出让候选算「重复」的那一条:{ existing: <注册表条目> }(已有记忆)或 { reviewed: true }(本会话评审过的候选),没有则 null。
@@ -1850,28 +1862,55 @@ async function analyzeMemoryMaintenance(cwd, scope, opts = {}) {
 
 // 默认检索的轻量词项抽取：ASCII 单词 + 中文二元组。这里只扫描 registry 的 name/description/id，
 // 不读取正文，故每轮成本与文件大小无关；正文仍由模型在确认相关后按需读取。
+// 停用词只剔「几乎每句话都有、对记忆检索零区分度」的虚词。英文这一半必须够全:词项是拿去在 id/name/description 上做子串匹配的,
+// to / in / it / you 这类短词是几乎所有英文条目(甚至 "tool"、"within"、"city")的子串,留着它们等于任何英文提问都能「命中」。
 const MEMORY_QUERY_STOP = new Set([
+  // 英文:冠词/连词/介词/代词/助动词/疑问词/高频副词与口语动词
   'the', 'and', 'for', 'with', 'this', 'that', 'from', 'into', 'please', 'help', 'look', 'check', 'today',
+  'a', 'an', 'or', 'but', 'nor', 'so', 'if', 'then', 'than', 'as', 'at', 'by', 'of', 'on', 'in', 'to', 'up', 'out', 'off', 'over',
+  'is', 'are', 'was', 'were', 'be', 'been', 'being', 'am', 'do', 'does', 'did', 'done', 'doing', 'has', 'have', 'had', 'having',
+  'it', 'its', 'he', 'she', 'we', 'us', 'our', 'ours', 'you', 'your', 'yours', 'they', 'them', 'their', 'theirs', 'me', 'my', 'mine', 'him', 'her', 'his', 'hers',
+  'can', 'could', 'would', 'should', 'will', 'shall', 'may', 'might', 'must', 'cannot',
+  'how', 'what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'why', 'not', 'no', 'yes', 'any', 'all', 'some', 'each', 'every', 'both', 'more', 'most', 'much', 'many', 'few', 'other', 'another', 'such', 'same',
+  'about', 'after', 'before', 'again', 'also', 'just', 'only', 'very', 'too', 'here', 'there', 'now', 'still', 'even', 'ever', 'once', 'because', 'while', 'between', 'through', 'under', 'against', 'without', 'within',
+  'get', 'got', 'gets', 'let', 'lets', 'use', 'used', 'using', 'make', 'made', 'want', 'wants', 'need', 'needs', 'try', 'tried', 'see', 'show', 'tell', 'give', 'take', 'put', 'say', 'said', 'know', 'like', 'new', 'one', 'two',
+  'thing', 'things', 'something', 'anything', 'really', 'maybe', 'okay', 'thanks', 'thank', 'hello', 'hi',
+  // 中文
   '用户', '帮我', '看下', '看看', '这个', '那个', '今天', '现在', '可以', '直接', '继续', '推进', '一下', '相关',
 ]);
+// 词项总预算 96,但 ASCII 与 CJK 各自先保底 48 个:修前 ASCII 词全收完才轮到中文二元组、最后整体 slice(0,96),
+// 「日志(上百个 ASCII 词)+ 中文提问」的中文词被整段截掉,召回只剩日志里的英文碎片。一边没用满,余额让给另一边(纯中文/纯英文仍是 96)。
+const MEMORY_SEARCH_TERMS_MAX = 96;
 function memorySearchTerms(text) {
   const src = String(text || '').normalize('NFKC').toLowerCase();
-  const out = new Set();
+  const ascii = new Set();
+  const cjk = new Set();
   for (const m of src.matchAll(/[a-z0-9][a-z0-9_.-]{1,63}/g)) {
     const term = m[0].replace(/^[_.-]+|[_.-]+$/g, '');
-    if (term.length >= 2 && !MEMORY_QUERY_STOP.has(term)) out.add(term);
+    if (term.length >= 2 && !MEMORY_QUERY_STOP.has(term)) ascii.add(term);
     // snake_case / kebab-case id 既保留全词也拆分，确保任务里的模块名能命中记忆 id 的稳定片段。
-    for (const part of term.split(/[_.-]+/)) if (part.length >= 2 && !MEMORY_QUERY_STOP.has(part)) out.add(part);
+    for (const part of term.split(/[_.-]+/)) if (part.length >= 2 && !MEMORY_QUERY_STOP.has(part)) ascii.add(part);
   }
   for (const m of src.matchAll(/[\u3400-\u9fff]{2,32}/g)) {
     const run = m[0];
-    if (run.length <= 6 && !MEMORY_QUERY_STOP.has(run)) out.add(run);
+    if (run.length <= 6 && !MEMORY_QUERY_STOP.has(run)) cjk.add(run);
     for (let i = 0; i < run.length - 1; i++) {
       const pair = run.slice(i, i + 2);
-      if (!MEMORY_QUERY_STOP.has(pair)) out.add(pair);
+      if (!MEMORY_QUERY_STOP.has(pair)) cjk.add(pair);
     }
   }
-  return [...out].slice(0, 96);
+  const half = MEMORY_SEARCH_TERMS_MAX / 2;
+  const a = [...ascii];
+  const c = [...cjk];
+  const takeA = Math.min(a.length, half + Math.max(0, half - c.length));
+  const takeC = Math.min(c.length, MEMORY_SEARCH_TERMS_MAX - takeA);
+  return [...a.slice(0, takeA), ...c.slice(0, takeC)];
+}
+// 词项在条目头部文本(id/name/description/type 拼成、已 NFKC+小写)里算不算命中。≥3 字符的 ASCII 词与 CJK 二元组照旧子串匹配;
+// 2 字符的 ASCII 词(ui / ci / db / go…)只认整词 —— 子串匹配时 "ai" ⊂ "main"、"id" ⊂ "valid",任何英文条目都会被误命中。
+function memoryHaystackHasTerm(hay, term) {
+  if (term.length >= 3 || term.charCodeAt(0) > 127) return hay.includes(term);
+  return (' ' + hay.replace(/[^a-z0-9\u3400-\u9fff]+/g, ' ') + ' ').includes(' ' + term + ' ');
 }
 
 // 113a: 词法层的打分与排序从 rankRelevantMemories 里提出来，融合层要拿完整名次表而不只是 Top-N。
@@ -1883,7 +1922,7 @@ function rankRelevantMemoriesScored(registry, query) {
     if (!entry || !entry.id) continue;
     const hay = [entry.id, entry.name, entry.description, entry.type].filter(Boolean).join(' ').normalize('NFKC').toLowerCase();
     let shared = 0;
-    for (const term of queryTerms) if (hay.includes(term)) shared += Math.min(12, Math.max(2, term.length));
+    for (const term of queryTerms) if (memoryHaystackHasTerm(hay, term)) shared += Math.min(12, Math.max(2, term.length));
     // preference/convention 是默认应遵守的稳定规则，即使用户没复述关键词也参与候选；lesson/reference 必须命中。
     if (!shared && entry.type !== 'convention' && entry.type !== 'preference') continue;
     const score = shared * 10 + (entry.scope === 'project' ? 4 : 0) + ((entry.type === 'convention' || entry.type === 'preference') ? 2 : 0);

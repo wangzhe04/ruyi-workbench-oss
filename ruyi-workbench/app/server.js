@@ -4203,18 +4203,46 @@ function mutateConfig(mutator) {
 //   applyConfigPatch(rawBody) -> Promise<next>(06k 加载时填入;契约见 06k 里那个函数的头注)
 const ConfigPatchHooks = {};
 
+// 读-改-写用户自己的 JSON 配置(~/.claude/settings.json、$KIMI_CODE_HOME/mcp.json)前的「读」。修前把【任何】读失败 /
+// 解析失败都当成空对象继续合并、再原子写回 —— 用户手写的文件多一个尾逗号、被别的程序占着(EBUSY/EPERM)、被编辑器
+// 存成带 BOM,整份内容就被工作台的那几个键覆盖掉(丢数据)。现在只有三种情形允许往下走:
+//   · 文件不存在(ENOENT/ENOTDIR)—— 真的是「空」,合并后新建;
+//   · 全空白(0 字节 / 只有换行)—— 没有任何用户内容可丢;
+//   · 解析成功且根是普通对象(UTF-8 BOM 先剥掉:Windows 记事本存的 JSON 常带 BOM)。
+// 其余(非法 JSON、根不是对象、EBUSY / EPERM / EACCES 等读错误)一律返回 { ok:false, reason },调用方记一条事件、
+// 本次同步整个跳过(不写),把文件原样留给用户。
+async function readUserJsonObjectForMerge(file) {
+  let raw;
+  try { raw = await fsp.readFile(file, 'utf8'); }
+  catch (error) {
+    const code = error && error.code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { ok: true, value: {}, existed: false };
+    return { ok: false, reason: `read-failed:${code || (error && error.message) || 'unknown'}` };
+  }
+  const text = raw.replace(/^\uFEFF/, '');
+  if (!text.trim()) return { ok: true, value: {}, existed: true };
+  let parsed;
+  try { parsed = JSON.parse(text); }
+  catch (error) { return { ok: false, reason: `invalid-json:${(error && error.message) || 'parse error'}` }; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, reason: 'root-not-object' };
+  return { ok: true, value: parsed, existed: true };
+}
+
 // v1.4.3: Sync workbench settings to ~/.claude/settings.json so the Claude CLI's own config stays
 // aligned with what the user selected in the Ruyi UI. This is a MERGE: existing keys are preserved.
 // Covers: permissionMode, model, thinkingBudget, appendSystemPrompt.
+// 读不动 / 不合法的 settings.json 不碰(整次跳过),见上面的 readUserJsonObjectForMerge。
 async function syncClaudeCliSettings(config) {
   try {
     const claudeDir = path.join(os.homedir(), '.claude');
     const settingsPath = path.join(claudeDir, 'settings.json');
-    let settings = {};
-    try {
-      settings = JSON.parse(await fsp.readFile(settingsPath, 'utf8'));
-      if (!settings || typeof settings !== 'object') settings = {};
-    } catch { /* file doesn't exist or invalid JSON */ }
+    const read = await readUserJsonObjectForMerge(settingsPath);
+    if (!read.ok) {
+      // 用户的 settings.json 读不动 / 不合法:不碰它(写回会把用户内容整份覆盖掉)。CLI 回合另有 --permission-mode 等命令行参数兜底。
+      logEvent({ kind: 'claude_settings_sync_skipped', file: settingsPath, reason: read.reason });
+      return;
+    }
+    const settings = read.value;
 
     // 1. Permission mode —— 只在用户【选过】档位时同步(显式键)。2026-10 出厂档改成智能自动后,修前全新安装一启动就把
     // 用户自己的 ~/.claude/settings.json 写成 defaultMode:auto,单独用 claude 的人被悄悄放宽、没经过任何确认。
@@ -4231,16 +4259,23 @@ async function syncClaudeCliSettings(config) {
     // 时宁可留一次陈旧值也不误删。
     const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
     let prevSyncedModel = null;
+    let prevSyncedThinking = null;
     try {
       const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
       if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
+      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
     } catch { /* no sidecar yet */ }
     if (config.model && typeof config.model === 'string') settings.model = config.model;
     else if (prevSyncedModel && settings.model === prevSyncedModel) delete settings.model;
-    // 3. Thinking budget -> env.MAX_THINKING_TOKENS
+    // 3. Thinking budget -> env.MAX_THINKING_TOKENS。与上面的 model 同一条权属纪律:工作台没设预算时,只删【自己写过的】
+    // 那个值(仍等于 sidecar 记的上次同步值才删);用户自己在 settings.json 里手写的 MAX_THINKING_TOKENS 原样保留。
+    // 修前无条件 delete,会把用户手写的值一并抹掉。sidecar 缺这个键(老版本升级)时宁可留一次陈旧值也不误删。
     if (config.thinkingBudget) {
-      settings.env = { ...(settings.env || {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
-    } else { if (settings.env) delete settings.env.MAX_THINKING_TOKENS; }
+      settings.env = { ...(settings.env && typeof settings.env === 'object' ? settings.env : {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
+    } else if (prevSyncedThinking !== null && settings.env && typeof settings.env === 'object'
+      && String(settings.env.MAX_THINKING_TOKENS) === prevSyncedThinking) {
+      delete settings.env.MAX_THINKING_TOKENS;
+    }
     // 4. Append-system-prompt: intentionally NOT written to settings.json (E2). The official Claude Code
     // settings schema has no top-level `appendSystemPrompt` key, so writing it was a dead config at best and
     // a double-injection risk at worst (it is already, reliably, passed as the --append-system-prompt spawn
@@ -4253,18 +4288,30 @@ async function syncClaudeCliSettings(config) {
     // 第36波: 记录本次同步的 model 权属(见上方 "2. Model");null 表示本工作台当前无 model 可声明。
     await atomicWriteJson(sidecarPath, JSON.stringify({
       model: (config.model && typeof config.model === 'string') ? config.model : null,
+      maxThinkingTokens: config.thinkingBudget ? String(config.thinkingBudget) : null,   // 同上,见 "3. Thinking budget"
     })).catch(() => {});
   } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
 }
 
 // v1.4.3: Write workbench-managed agent roles to ~/.claude/agents/*.md so they are available
 // when running `claude` directly (not just via the workbench's --agents flag).
+//
+// 所有权:~/.claude/agents 是用户自己的目录(reviewer.md / planner.md 这类同名子代理文件很常见)。修前启动时无条件整文件覆盖、
+// 无备份。现在只覆盖【自己写的】文件 —— 写出的文件在 frontmatter 之后第一行带标记注释(HTML 注释:不进 frontmatter,
+// 不影响 Claude Code 对 frontmatter 的解析;只多一行进子代理提示词),目标已存在时:
+//   · 带标记 → 自家文件,照常更新(内容相同就不写);
+//   · 无标记但内容与「老版本(无标记)会为当前角色生成的内容」逐字相同 → 老版本写的、用户没动过,认作自家,升级成带标记的;
+//   · 其余(用户自己的同名文件 / 老版本写的但用户或后来的角色配置改过 / 读不动)→ 保守跳过,记一条审计事件。
+//     想接管某个角色:删掉标记行即可,之后不再被覆盖。
+const RUYI_AGENT_FILE_MARKER = '<!-- ruyi-managed: 由如意工作台同步生成,会被后续同步覆盖;删掉本行即改由你自己维护 -->';
+const RUYI_AGENT_FILE_MARKER_RE = /^---\n[\s\S]*?\n---\n\s*<!-- ruyi-managed\b/;
 async function syncAgentRolesToClaude(cwd, config) {
   try {
     const claudeDir = path.join(os.homedir(), '.claude');
     const agentsDir = path.join(claudeDir, 'agents');
     await fsp.mkdir(agentsDir, { recursive: true }).catch(() => {});
     const roles = await getAgentRoleLibrary(cwd, config);
+    const skipped = [];
     for (const role of roles) {
       if (role.nativeClaude) continue;
       const cliMode = claudePermissionMode(role.permissionMode);
@@ -4275,10 +4322,22 @@ async function syncAgentRolesToClaude(cwd, config) {
       if (role.claudeTools && role.claudeTools.length) fm.push('tools: ' + JSON.stringify(role.claudeTools));
       fm.push('---');
       var body = role.prompt || role.description || role.label;
-      var md = fm.join('\n') + '\n\n' + body + '\n';
+      const legacyMd = fm.join('\n') + '\n\n' + body + '\n';   // 老版本(无标记)的写法
+      var md = fm.join('\n') + '\n\n' + RUYI_AGENT_FILE_MARKER + '\n\n' + body + '\n';
       var file = path.join(agentsDir, role.id + '.md');
+      let existing = null;
+      try { existing = await fsp.readFile(file, 'utf8'); }
+      catch (error) {
+        if (!(error && (error.code === 'ENOENT' || error.code === 'ENOTDIR'))) { skipped.push({ id: role.id, reason: `read-failed:${(error && error.code) || 'unknown'}` }); continue; }
+      }
+      if (existing !== null) {
+        const text = existing.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+        if (!RUYI_AGENT_FILE_MARKER_RE.test(text) && text !== legacyMd) { skipped.push({ id: role.id, reason: 'user-file' }); continue; }
+        if (text === md) continue;   // 已是最新,不重写
+      }
       await atomicWriteJson(file, md);   // 25.1 收编(md 字符串直接透传)
     }
+    if (skipped.length) logEvent({ kind: 'claude_agent_sync_skipped', dir: agentsDir, skipped });
   } catch { /* non-fatal */ }
 }
 
@@ -4356,9 +4415,15 @@ async function syncMcpServersToKimiNow(config, kimiDir) {
     await ensureDirs();
     const target = path.join(kimiDir, 'mcp.json');
     const sidecar = path.join(paths.data, 'kimi-mcp-sync.json');
-    let current = {};
-    try { current = safeJsonParse(await fsp.readFile(target, 'utf8'), {}) || {}; } catch { current = {}; }
-    if (!current.mcpServers || typeof current.mcpServers !== 'object') current.mcpServers = {};
+    // 用户自己的 mcp.json:读不动 / 不是合法 JSON 对象就整次同步跳过(不写 mcp.json,也不写所有权旁账 —— 旁账记的是
+    // 「写进去了什么」,没写就不能记)。修前当成空对象继续合并再写回,会把用户的其它条目整份覆盖掉。见 readUserJsonObjectForMerge。
+    const read = await readUserJsonObjectForMerge(target);
+    if (!read.ok) {
+      logEvent({ kind: 'kimi_mcp_sync_skipped', file: target, reason: read.reason });
+      return;
+    }
+    const current = read.value;
+    if (!current.mcpServers || typeof current.mcpServers !== 'object' || Array.isArray(current.mcpServers)) current.mcpServers = {};
     let ownership = { managedIds: [], previous: {} };
     try { ownership = { ...ownership, ...(safeJsonParse(await fsp.readFile(sidecar, 'utf8'), {}) || {}) }; } catch { /* first sync */ }
     if (!Array.isArray(ownership.managedIds)) ownership.managedIds = [];
@@ -4751,13 +4816,24 @@ function probeAgentCliLauncher(command) {
     return !ok.error && ok.status === 0;
   } catch { return false; }
 }
-async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面逐字相同
-  if (!command) return false;
+// 探测结果三态('ok' | 'missing' | 'slow')。spawnProbeAsync 带 timeout 选项:到点 Node 杀掉子进程,close 事件给
+// status=null 且【没有 error】—— 与「启动器根本起不来」(spawn 的 'error':ENOENT/EACCES…)、「--version 退出码非 0」
+// (装坏了/不是 CLI)都区分得开。慢(CLI 冷启动、杀软扫描、网络盘)不等于不存在,回合入口不能因此报「未检测到 CLI」。
+function agentCliProbeVerdict(result) {
+  if (result && result.error) return result.error.code === 'ETIMEDOUT' ? 'slow' : 'missing';
+  if (result && result.status === 0) return 'ok';
+  if (result && result.status === null) return 'slow';
+  return 'missing';
+}
+async function probeAgentCliLauncherVerdictAsync(command) {
+  if (!command) return 'missing';
   try {
     const s = agentCliProbeSpawn(command);
-    const ok = await spawnProbeAsync(s.command, s.args, s.opts);
-    return !ok.error && ok.status === 0;
-  } catch { return false; }
+    return agentCliProbeVerdict(await spawnProbeAsync(s.command, s.args, s.opts));
+  } catch { return 'missing'; }
+}
+async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面同步版逐字相同(只有 'ok' 为真)
+  return (await probeAgentCliLauncherVerdictAsync(command)) === 'ok';
 }
 function agentCliInstallCandidates(type) {
   if (!isAgentCliType(type)) return [];
@@ -4848,7 +4924,26 @@ async function agentCliLauncherOk(command) {
   }
   return probeAgentCliLauncherRemembered(command);
 }
-function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); _agentCliLauncherOk.clear(); }
+// 回合入口(05 runClaudeTurn / 05b ensureKimiServer)问「选中的 CLI 启动器能不能用」。修前直接 spawnSync「<cli> --version」
+// (最长 4 s):每个回合都把整个事件循环钉住一次,超时还被当成「未检测到 CLI」把用户的输入挡在门外。现在:
+//   · 异步探(不钉事件循环);
+//   · 只有判定「缺失」(起不来 / 退出码非 0)才拒绝回合,超时算「在,只是慢」放行 —— 真起不来,后面的 spawn 自己会报;
+//   · 「在」(含慢)的结果按 60 s 记忆(与路径探测同一个记忆期与作废口);【缺失不记】,用户刚装好 CLI 要立刻就能用。
+const _agentCliLauncherPresent = new Map();   // command -> 记下「在」的时刻
+async function agentCliLauncherUsable(command) {
+  if (!command) return false;
+  const at = _agentCliLauncherPresent.get(command);
+  if (at !== undefined && Date.now() - at < CLAUDEPATH_CACHE_MS) return true;
+  const generation = _cliProbeGeneration;
+  const verdict = await probeAgentCliLauncherVerdictAsync(command);
+  if (verdict === 'missing') { _agentCliLauncherPresent.delete(command); return false; }
+  if (generation === _cliProbeGeneration) {
+    if (_agentCliLauncherPresent.size > 32) _agentCliLauncherPresent.clear();
+    _agentCliLauncherPresent.set(command, Date.now());
+  }
+  return true;
+}
+function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); _agentCliLauncherOk.clear(); _agentCliLauncherPresent.clear(); }
 
 // Claude Code normally writes UTF-8, but its Windows launcher can forward a local
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8
@@ -13229,7 +13324,10 @@ const VisualPipeline = ((fspModule, pathModule) => {
         if (!st) throw new Error('missing');
         if (st.size > IMAGE_ATTACH_MAX) { parts[0].text += `\n[图片过大未发送:${a.name || path.basename(a.path)}]`; continue; }
         const buf = await fsp.readFile(target);
-        const uri = `data:${attachmentMime(target)};base64,${buf.toString('base64')}`;
+        // 字节魔数优先,扩展名兜底:文件名说 .png 字节却是 JPEG(截图工具/改名)时,Anthropic Messages 协议会因
+        // media_type 与字节不符直接 400(04i 的编码照单全收这里给的 mime)。与下方工具截图的 toImageDataUri 同一口径。
+        const b64 = buf.toString('base64');
+        const uri = `data:${sniffImageMime(b64) || attachmentMime(target)};base64,${b64}`;
         parts.push({ type: 'image_url', image_url: { url: uri } });
       } catch { parts[0].text += `\n[图片读取失败:${a.name || path.basename(a.path)}]`; }
     }
@@ -13289,10 +13387,21 @@ const VisualPipeline = ((fspModule, pathModule) => {
   }
   // 像图像载荷吗:data URI,或一长串 base64/base64url 字符(排除 `nginx:latest`、`C:\\x.png` 这类恰好叫 image 的普通字符串 ——
   // 非视觉路径会把命中的字段换成占位,误伤普通字段比漏掉一张图更糟)。
+  // 非 data: 分支光靠「≥12 字符且全是 base64 字符集」不够:`{image:'bitnami/postgresql'}` 这样的普通镜像名/标识符也满足,
+  // 被当成截图后会生成非法图片块(provider 400,还写进 providerHistory 反复 400)并抹掉原字段。现在两层:
+  //   ① 魔数确认(最强证据):解出的头字节是 PNG/JPEG/GIF/WEBP/BMP(sniffImageMime,与随后 toImageDataUri 认的是同一张表)→ 是图;
+  //   ② 魔数认不出时,排除「全小写标识符」形状(IDENT_SLUG_RE:容器镜像名 bitnami/postgresql、nginx-ingress-controller、my_module_v2
+  //      这一整类 —— 镜像名按规范必须全小写,恰是 `image` 字段最常见的非图撞名)。真 base64 载荷在 ≥12 个字符里一个大写字母都没有的
+  //      概率可忽略不计,所以不会误杀真图。
+  // 不把「②」收成「必须魔数」:既有断言(unit/tool-dispatch-hardening F3、vision-loop 的 fake-mcp 夹具)锁着「字节认不出时回落兄弟键声明的
+  // 类型 / png」—— 未知格式或占位串形态的载荷照旧当图(混合大小写的标识符仍有撞名可能,但那比误杀未知格式的真图更可接受)。
+  const IDENT_SLUG_RE = /^[a-z0-9]+(?:[/_-][a-z0-9]+)*$/;
   function looksLikeImagePayload(v) {
     if (typeof v !== 'string') return false;
     if (v.startsWith('data:')) return /^data:image\//i.test(v);
-    return v.length >= 12 && /^[A-Za-z0-9+/=_-]+$/.test(v.length > 512 ? v.slice(0, 512) : v);
+    const head = v.length > 512 ? v.slice(0, 512) : v;
+    if (v.length < 12 || !/^[A-Za-z0-9+/=_-]+$/.test(head)) return false;
+    return sniffImageMime(v) !== '' || !IDENT_SLUG_RE.test(head);
   }
   // 结果里所有图像字段的引用:{ value, mime(推断出的 data URI 之前的类型), width, height, replace(text) → 就地改克隆 }。
   function imageFieldRefs(resultObj) {
@@ -20571,8 +20680,14 @@ async function runClaudeTurn({
   // for a doomed CLI spawn: (1) cwd changed, so Claude will search a different projects/<cwd> bucket;
   // (2) model/vendor route changed, so the old native branch is no longer a safe continuation target.
   if (!_resumeRecoveryAttempt && config.autoResumeClaudeSessions && session.claudeSessionId) {
-    const boundModel = typeof session.claudeSessionModel === 'string'
-      ? session.claudeSessionModel : lastSuccessfulClaudeModel(session.messages);
+    // 续接闸比的是「绑定那一刻【请求】的模型」(claudeSessionRequestedModel),不是 CLI 回报的实际模型。Kimi 在
+    // config.model 为空(用「默认模型」)时,05b 会把 claudeSessionModel 改写成 Kimi 报回的实际模型(状态面板/上下文窗口要用),
+    // 拿它和空的 currentClaudeModel 比永远不等 → 每回合判「模型变了」、把原生会话重置。没有这个字段(绑定于修前的老会话 /
+    // Claude 引擎老数据)才退回 claudeSessionModel 与最近成功回合的模型。
+    const boundModel = typeof session.claudeSessionRequestedModel === 'string'
+      ? session.claudeSessionRequestedModel
+      : (typeof session.claudeSessionModel === 'string'
+        ? session.claudeSessionModel : lastSuccessfulClaudeModel(session.messages));
     const boundCwd = typeof session.claudeSessionCwd === 'string' && session.claudeSessionCwd
       ? session.claudeSessionCwd
       : await engineTranscriptCwd(session.claudeSessionId).catch(() => '');
@@ -20582,6 +20697,7 @@ async function runClaudeTurn({
     if (resumeResetReason) {
       session.claudeSessionId = null;
       delete session.claudeSessionModel;
+      delete session.claudeSessionRequestedModel;
       delete session.claudeSessionCwd;
       delete session.claudeSessionRouteKey;
       session.injectedIndexHash = null;
@@ -20640,7 +20756,9 @@ async function runClaudeTurn({
     });
   }
 
-  if (!fakeClaude && (!claude || !probeAgentCliLauncher(claude))) {
+  // 回合入口的 CLI 在位判据走异步 + 记忆的 agentCliLauncherUsable(01):修前同步 spawnSync「--version」每回合钉住事件循环最长 4 s,
+  // 且超时被当成「未检测到」。现在只有真的缺失(起不来 / 退出码非 0)才走下面的引导卡;WCW_FAKE_CLAUDE 测试缝照旧整段绕过。
+  if (!fakeClaude && (!claude || !(await agentCliLauncherUsable(claude)))) {
     // v1.0.2-S6: engine=claude 且 CLI 探测失败 —— 错误文本改中文人话, 并给错误事件附加 code:'cli-missing'
     // (只增字段, 前端按 code 渲染引导卡)。首荐直接配 API 引擎(对小白更简单), 次选指定 CLI 路径。
     const fallback = [
@@ -21167,6 +21285,7 @@ async function runClaudeTurn({
     if (!sid) return;
     session.claudeSessionId = sid;
     session.claudeSessionModel = currentClaudeModel;
+    session.claudeSessionRequestedModel = currentClaudeModel;   // 续接闸的比较对象(见上方「Proactive compatibility gate」)
     session.claudeSessionCwd = workingDir;
     session.claudeSessionRouteKey = currentResumeRouteKey;
   };
@@ -21390,6 +21509,7 @@ async function runClaudeTurn({
   if (resumeTranscriptMissing && !_resumeRecoveryAttempt) {
     session.claudeSessionId = null;
     delete session.claudeSessionModel;
+    delete session.claudeSessionRequestedModel;
     delete session.claudeSessionCwd;
     delete session.claudeSessionRouteKey;
     session.injectedIndexHash = null;
@@ -22736,7 +22856,7 @@ async function ensureKimiServer(config) {
     let token = '';
     try { token = String(await fsp.readFile(tokenFile, 'utf8')).trim(); } catch { /* login/server may create it */ }
     const driver = selectedAgentCli({ ...config, agentCliType: 'kimi' });
-    if (!driver.path || !probeAgentCliLauncher(driver.path)) throw new Error('未检测到 Kimi Code CLI');
+    if (!driver.path || !(await agentCliLauncherUsable(driver.path))) throw new Error('未检测到 Kimi Code CLI');   // 异步 + 记忆,超时不算缺失(见 01 agentCliLauncherUsable)
     const port = await freeLoopbackPort();
     const launch = prepareAgentCliSpawn('kimi', driver.path, ['web', '--port', String(port), '--no-open', '--log-level', 'warn']);
     const child = cp.spawn(launch.command, launch.args, {
@@ -25022,6 +25142,7 @@ async function runKimiAcpTurnPrepared(context) {
   let rpc = null;
   let reg = null;
   let updateQueue = Promise.resolve();
+  let promptDelivered = false;   // session/prompt 已得到 Kimi 的应答(见 catch 里清「已注入索引」hash 的判据)
   const markActivity = () => { if (reg) reg.lastEventAt = Date.now(); };
   const emitUpdate = async params => {
     markActivity();
@@ -25355,6 +25476,9 @@ async function runKimiAcpTurnPrepared(context) {
     if (!nativeSessionId) throw new Error('Kimi ACP did not return a sessionId');
     reg.nativeSessionId = nativeSessionId;
     session.claudeSessionId = nativeSessionId;
+    // 续接闸(05)比的是这里记下的【请求】模型,而不是下面 kimiAcpSyncActualConfig 会写进 claudeSessionModel 的 Kimi 实际模型:
+    // config.model 为空(默认模型)时两者永远不等,每回合都会被误判「模型变了」而重置原生会话。
+    session.claudeSessionRequestedModel = String(currentClaudeModel || '');
     session.claudeSessionCwd = workingDir;
     session.claudeSessionRouteKey = currentResumeRouteKey;
     session.kimiAcpConfigOptions = activated && Array.isArray(activated.configOptions) ? activated.configOptions : [];
@@ -25471,6 +25595,7 @@ async function runKimiAcpTurnPrepared(context) {
         sessionId: nativeSessionId,
         prompt: Array.isArray(promptParts) && promptParts.length ? promptParts : [{ type: 'text', text: prompt }],
       }, 0);
+      promptDelivered = true;
       // Notifications can arrive just before/after the prompt result. Preserve their wire order and make
       // the final plan/config snapshot visible before this prompt is considered complete.
       await updateQueue;
@@ -25502,6 +25627,13 @@ async function runKimiAcpTurnPrepared(context) {
     }
   } catch (error) {
     state.error = error;
+    // 第35波 P2 的索引去重(05 injectedIndexHash)对 Kimi 同样成立:05 在拼 prompt 时就先把 hash 置上了。session/prompt 还没有得到
+    // 应答就失败(进程没起来 / initialize、session/new、session/resume 失败 / 设置项中止 / 管道断了 / 看门狗或 Stop 在应答前杀掉进程),
+    // Kimi 的原生会话里多半根本没有本回合注入的技能/记忆/编排索引 —— 不清 hash,下回合会因「内容没变」而不再补发,模型从此看不到索引。
+    // 与 05 的 Claude 路径同一处理(那边:进程没启动 → 清 hash)。宁可多补发一次(重复无害)也不丢。
+    // 例外:Kimi 对 session/prompt 回了 JSON-RPC 错误(额度/鉴权等)= prompt 已送达并进了它的转录,不清。
+    const promptReachedAgent = Boolean(error && error.method === 'session/prompt' && error.code !== undefined);
+    if (!promptDelivered && !promptReachedAgent) session.injectedIndexHash = null;
   } finally {
     // hunt2-engines#6:循环以 break / throw / 看门狗中止离开时,acceptingSteer 原先还是 true —— 下面的收尾要等好几个
     // await(队列、终端清理、关进程最多 350ms),这期间 /api/steer 仍回 queued:1,然后插话随回合结束被静默丢掉。
@@ -32296,7 +32428,16 @@ async function deleteMemory(id, scope, cwd) {
   const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
   const file = path.join(dir, safe + '.md');
   try { await fsp.access(file); } catch { return { ok: false, error: 'memory not found' }; }
-  await fsp.unlink(file).catch(() => {});
+  // 修前 .catch(() => {}) 把 unlink 失败吞掉、照样回 ok:true —— Windows 上文件被占用(EBUSY)/只读(EPERM)/无权限(EACCES)时,
+  // 前端提示「已删除」,列表一刷新条目又回来了,用量旁账却已被清掉。现在:只有 ENOENT(access 之后被别处删掉了,目标已达成)当成功;
+  // 其余失败如实回 ok:false(不动用量状态,记忆还在),前端 deleteMemoryRow 已按 !ok / 非 2xx 弹「删除失败」。
+  try { await fsp.unlink(file); }
+  catch (error) {
+    if (!(error && error.code === 'ENOENT')) {
+      const code = (error && error.code) || 'UNKNOWN';
+      return { ok: false, unlinkFailed: true, error: `记忆文件删除失败(${code}):文件可能正被其它程序占用或没有删除权限,请关闭占用它的程序后重试` };
+    }
+  }
   await mutateMemoryUsageState(entries => { const key = scope === 'global' ? 'global:' + safe : 'project:' + projectKeyForCwd(cwd) + ':' + safe; if (!entries[key]) return false; delete entries[key]; });
   return { ok: true, deleted: safe, scope };
 }
@@ -33181,7 +33322,10 @@ function memoryProposalSemanticKey(proposal) {
 
 function memoryProposalLooksSensitive(proposal) {
   const text = [proposal && proposal.name, proposal && proposal.description, proposal && proposal.body].filter(Boolean).join('\n');
-  return /-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|密码|密钥|authorization)\s*[:=]\s*[^\s*]{6,}|\b(?:sk|ghp|github_pat|xox[baprs])-[-A-Za-z0-9_]{12,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b|(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql):\/\/[^\s:@/]+:[^\s@/]+@/i.test(text);
+  // 「关键词 + 冒号/等号 + ≥6 个非空白字符」。JS 的 \b 只认 ASCII 单词字符:修前把 密码|密钥 放进 \b(?:…) 里,CJK 关键词两侧都是
+  // 非单词字符,\b 永远不成立 → 中文「数据库密码: xxx」一条都拦不住;冒号也只认半角。现在 ASCII 关键词保留 \b,CJK 关键词不带 \b,
+  // 分隔符同时认全角「：」「＝」(中文输入法下几乎都是全角)。
+  return /-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|authorization)|密码|密钥)\s*[:：=＝]\s*[^\s*]{6,}|\b(?:sk|ghp|github_pat|xox[baprs])-[-A-Za-z0-9_]{12,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b|(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql):\/\/[^\s:@/]+:[^\s@/]+@/i.test(text);
 }
 
 // 找出让候选算「重复」的那一条:{ existing: <注册表条目> }(已有记忆)或 { reviewed: true }(本会话评审过的候选),没有则 null。
@@ -33847,28 +33991,55 @@ async function analyzeMemoryMaintenance(cwd, scope, opts = {}) {
 
 // 默认检索的轻量词项抽取：ASCII 单词 + 中文二元组。这里只扫描 registry 的 name/description/id，
 // 不读取正文，故每轮成本与文件大小无关；正文仍由模型在确认相关后按需读取。
+// 停用词只剔「几乎每句话都有、对记忆检索零区分度」的虚词。英文这一半必须够全:词项是拿去在 id/name/description 上做子串匹配的,
+// to / in / it / you 这类短词是几乎所有英文条目(甚至 "tool"、"within"、"city")的子串,留着它们等于任何英文提问都能「命中」。
 const MEMORY_QUERY_STOP = new Set([
+  // 英文:冠词/连词/介词/代词/助动词/疑问词/高频副词与口语动词
   'the', 'and', 'for', 'with', 'this', 'that', 'from', 'into', 'please', 'help', 'look', 'check', 'today',
+  'a', 'an', 'or', 'but', 'nor', 'so', 'if', 'then', 'than', 'as', 'at', 'by', 'of', 'on', 'in', 'to', 'up', 'out', 'off', 'over',
+  'is', 'are', 'was', 'were', 'be', 'been', 'being', 'am', 'do', 'does', 'did', 'done', 'doing', 'has', 'have', 'had', 'having',
+  'it', 'its', 'he', 'she', 'we', 'us', 'our', 'ours', 'you', 'your', 'yours', 'they', 'them', 'their', 'theirs', 'me', 'my', 'mine', 'him', 'her', 'his', 'hers',
+  'can', 'could', 'would', 'should', 'will', 'shall', 'may', 'might', 'must', 'cannot',
+  'how', 'what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'why', 'not', 'no', 'yes', 'any', 'all', 'some', 'each', 'every', 'both', 'more', 'most', 'much', 'many', 'few', 'other', 'another', 'such', 'same',
+  'about', 'after', 'before', 'again', 'also', 'just', 'only', 'very', 'too', 'here', 'there', 'now', 'still', 'even', 'ever', 'once', 'because', 'while', 'between', 'through', 'under', 'against', 'without', 'within',
+  'get', 'got', 'gets', 'let', 'lets', 'use', 'used', 'using', 'make', 'made', 'want', 'wants', 'need', 'needs', 'try', 'tried', 'see', 'show', 'tell', 'give', 'take', 'put', 'say', 'said', 'know', 'like', 'new', 'one', 'two',
+  'thing', 'things', 'something', 'anything', 'really', 'maybe', 'okay', 'thanks', 'thank', 'hello', 'hi',
+  // 中文
   '用户', '帮我', '看下', '看看', '这个', '那个', '今天', '现在', '可以', '直接', '继续', '推进', '一下', '相关',
 ]);
+// 词项总预算 96,但 ASCII 与 CJK 各自先保底 48 个:修前 ASCII 词全收完才轮到中文二元组、最后整体 slice(0,96),
+// 「日志(上百个 ASCII 词)+ 中文提问」的中文词被整段截掉,召回只剩日志里的英文碎片。一边没用满,余额让给另一边(纯中文/纯英文仍是 96)。
+const MEMORY_SEARCH_TERMS_MAX = 96;
 function memorySearchTerms(text) {
   const src = String(text || '').normalize('NFKC').toLowerCase();
-  const out = new Set();
+  const ascii = new Set();
+  const cjk = new Set();
   for (const m of src.matchAll(/[a-z0-9][a-z0-9_.-]{1,63}/g)) {
     const term = m[0].replace(/^[_.-]+|[_.-]+$/g, '');
-    if (term.length >= 2 && !MEMORY_QUERY_STOP.has(term)) out.add(term);
+    if (term.length >= 2 && !MEMORY_QUERY_STOP.has(term)) ascii.add(term);
     // snake_case / kebab-case id 既保留全词也拆分，确保任务里的模块名能命中记忆 id 的稳定片段。
-    for (const part of term.split(/[_.-]+/)) if (part.length >= 2 && !MEMORY_QUERY_STOP.has(part)) out.add(part);
+    for (const part of term.split(/[_.-]+/)) if (part.length >= 2 && !MEMORY_QUERY_STOP.has(part)) ascii.add(part);
   }
   for (const m of src.matchAll(/[\u3400-\u9fff]{2,32}/g)) {
     const run = m[0];
-    if (run.length <= 6 && !MEMORY_QUERY_STOP.has(run)) out.add(run);
+    if (run.length <= 6 && !MEMORY_QUERY_STOP.has(run)) cjk.add(run);
     for (let i = 0; i < run.length - 1; i++) {
       const pair = run.slice(i, i + 2);
-      if (!MEMORY_QUERY_STOP.has(pair)) out.add(pair);
+      if (!MEMORY_QUERY_STOP.has(pair)) cjk.add(pair);
     }
   }
-  return [...out].slice(0, 96);
+  const half = MEMORY_SEARCH_TERMS_MAX / 2;
+  const a = [...ascii];
+  const c = [...cjk];
+  const takeA = Math.min(a.length, half + Math.max(0, half - c.length));
+  const takeC = Math.min(c.length, MEMORY_SEARCH_TERMS_MAX - takeA);
+  return [...a.slice(0, takeA), ...c.slice(0, takeC)];
+}
+// 词项在条目头部文本(id/name/description/type 拼成、已 NFKC+小写)里算不算命中。≥3 字符的 ASCII 词与 CJK 二元组照旧子串匹配;
+// 2 字符的 ASCII 词(ui / ci / db / go…)只认整词 —— 子串匹配时 "ai" ⊂ "main"、"id" ⊂ "valid",任何英文条目都会被误命中。
+function memoryHaystackHasTerm(hay, term) {
+  if (term.length >= 3 || term.charCodeAt(0) > 127) return hay.includes(term);
+  return (' ' + hay.replace(/[^a-z0-9\u3400-\u9fff]+/g, ' ') + ' ').includes(' ' + term + ' ');
 }
 
 // 113a: 词法层的打分与排序从 rankRelevantMemories 里提出来，融合层要拿完整名次表而不只是 Top-N。
@@ -33880,7 +34051,7 @@ function rankRelevantMemoriesScored(registry, query) {
     if (!entry || !entry.id) continue;
     const hay = [entry.id, entry.name, entry.description, entry.type].filter(Boolean).join(' ').normalize('NFKC').toLowerCase();
     let shared = 0;
-    for (const term of queryTerms) if (hay.includes(term)) shared += Math.min(12, Math.max(2, term.length));
+    for (const term of queryTerms) if (memoryHaystackHasTerm(hay, term)) shared += Math.min(12, Math.max(2, term.length));
     // preference/convention 是默认应遵守的稳定规则，即使用户没复述关键词也参与候选；lesson/reference 必须命中。
     if (!shared && entry.type !== 'convention' && entry.type !== 'preference') continue;
     const score = shared * 10 + (entry.scope === 'project' ? 4 : 0) + ((entry.type === 'convention' || entry.type === 'preference') ? 2 : 0);
@@ -47141,6 +47312,7 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
       };
       fresh.claudeSessionId = null;
       delete fresh.claudeSessionModel;
+      delete fresh.claudeSessionRequestedModel;
       delete fresh.claudeSessionCwd;
       delete fresh.claudeSessionRouteKey;
       fresh.injectedIndexHash = null;
@@ -57555,7 +57727,8 @@ function parseFrontmatter(raw) {
         fm[mm[1].toLowerCase()] = foldFrontmatterBlock(block[1], cont);
         continue;
       }
-      fm[mm[1].toLowerCase()] = mm[2].replace(/^["']|["']$/g, '').trim();
+      // 只剥【成对】的外层引号:修前两端各剥一次,`description: 当用户说 "继续"` 读回 `当用户说 "继续`(尾引号是正文的一部分)。
+      fm[mm[1].toLowerCase()] = mm[2].trim().replace(/^(["'])(.*)\1$/, '$2').trim();
     }
   }
   return fm;
@@ -60088,7 +60261,7 @@ async function handleApi(req, res, pathname) {
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     if (scope === 'project' && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));   // 对抗轮 P3: 与保存分支同款 root 校验
     const r = await deleteMemory(id, scope, cwd);
-    return send(res, json(r, r.ok ? 200 : 404));
+    return send(res, json(r, r.ok ? 200 : (r.unlinkFailed ? 500 : 404)));   // 文件还在、删不掉(占用/权限)是 500,不是「找不到」
   }
   if (req.method === 'POST' && pathname === '/api/stop') {
     const body = await readJsonBody(req);
@@ -78739,29 +78912,43 @@ function migrationGetField(server, field) {
   if (m[1] === 'args') return Array.isArray(server.args) ? server.args[Number(m[2])] : undefined;
   return server.env && typeof server.env === 'object' ? server.env[m[2]] : undefined;
 }
-// TOML 的 [mcp_servers.<id>] 段在全文里的 [start, end) 字符区间(找不到回 null)。
-function migrationTomlSection(text, serverId) {
-  const lines = text.split('\n');
+// 一个服务器 mcp_servers.<id> 在 TOML 全文里占的全部 [start, end) 字符区间:[mcp_servers.<id>] 本段,加上它的子表
+// ([mcp_servers.<id>.env] / .http_headers / .tools.x …)。区间 = 表头的下一行起,到下一个表头(任何 [ 开头的行)之前。
+// 同一服务器的几段在 TOML 里可以不相邻,所以回的是区间数组(找不到回 [])。
+// 修前只认精确的 [mcp_servers.<id>]:Codex 常把 env 写成 [mcp_servers.<id>.env] 子表,解析侧(_parseTomlMcpServers)把子表里的
+// 老包路径算进了 env.<KEY> 的改写项,这里却搜不到子表 → 那一项改写不了(单独一项时整体 nothing-applied,与别的字段同批时被静默漏掉)。
+// 表头的键路径按 TOML 规则拆(带引号的段、点号都处理),与解析侧同一个 _tomlKeyPath。
+function migrationTomlSections(text, serverId) {
+  const ranges = [];
   let pos = 0, start = -1;
-  for (const line of lines) {
-    const m = line.match(/^\s*\[\s*mcp_servers\.([^\]\s]+)\s*\]\s*$/);
-    if (start >= 0 && /^\s*\[/.test(line)) return { start, end: pos };
-    if (m && m[1].replace(/^["']|["']$/g, '') === serverId) start = pos + line.length + 1;
+  for (const line of text.split('\n')) {
+    if (/^\s*\[/.test(line)) {
+      if (start >= 0) { ranges.push({ start, end: pos }); start = -1; }
+      const m = /^\s*\[(?!\[)\s*([^\]]+?)\s*\]\s*(?:#.*)?$/.exec(line.replace(/\r$/, ''));
+      if (m) {
+        const keyPath = _tomlKeyPath(m[1]);
+        if (keyPath[0] === 'mcp_servers' && keyPath[1] === serverId) start = pos + line.length + 1;
+      }
+    }
     pos += line.length + 1;
   }
-  return start >= 0 ? { start, end: text.length } : null;
+  if (start >= 0) ranges.push({ start, end: text.length });
+  return ranges;
 }
-// 在 TOML 段内把带引号的旧值换成新值(保留原引号样式)。返回 { text, count }。
+// 在 TOML 服务器区间(本段 + 子表)内把带引号的旧值换成新值(保留原引号样式)。返回 { text, count }。
 function migrationTomlReplace(text, serverId, from, to) {
-  const sec = migrationTomlSection(text, serverId);
-  if (!sec) return { text, count: 0 };
-  let body = text.slice(sec.start, sec.end);
+  const ranges = migrationTomlSections(text, serverId);
+  if (!ranges.length) return { text, count: 0 };
   let count = 0;
-  for (const q of ['"', "'"]) {
-    const needle = q + from + q;
-    while (body.includes(needle)) { body = body.replace(needle, q + to + q); count++; }
+  for (const sec of ranges.slice().reverse()) {   // 从后往前改:前面区间的偏移不受影响
+    let body = text.slice(sec.start, sec.end);
+    for (const q of ['"', "'"]) {
+      const needle = q + from + q;
+      while (body.includes(needle)) { body = body.replace(needle, () => q + to + q); count++; }
+    }
+    text = text.slice(0, sec.start) + body + text.slice(sec.end);
   }
-  return { text: text.slice(0, sec.start) + body + text.slice(sec.end), count };
+  return { text, count };
 }
 
 async function migrationBackup(file, ts) {
@@ -78904,8 +79091,11 @@ async function migrationUndo(body) {
     if (!log) return { ok: false, error: 'no-migration-to-undo', status: 404 };
     if (log.undoneAt) return { ok: false, error: 'already-undone', status: 409 };
     let restored = 0, skipped = 0;
+    const failed = [];   // 读写抛错、这一轮没能改回的文件(与「值已被用户改过、按设计留着」的 skipped 不是一回事)
     const skills = [];
     for (const f of log.files || []) {
+      if (f.undoneAt) continue;   // 上一轮(部分失败的撤销)已经改回的文件:重试时不再动,免得重复处理
+      const mark = { restored, skipped };   // 这个文件中途抛错时把计数退回来(没落盘的不算「已还原」;重试时会重新数)
       try {
         if (f.kind === 'skill-copy') {
           const r = await migrationUndoSkillCopy(f);
@@ -78935,7 +79125,8 @@ async function migrationUndo(body) {
           void generateMcpConfig().catch(() => {});
         } else if (f.kind === 'json') {
           let text = '';
-          try { text = await fsp.readFile(f.file, 'utf8'); } catch { text = ''; }
+          // 只有 ENOENT(文件被删了,被删条目要放回去)才当空;EBUSY / EPERM 等读错误当成空再写回会把现有内容整份覆盖 —— 抛出去记成失败、可重试。
+          try { text = await fsp.readFile(f.file, 'utf8'); } catch (e) { if (!(e && e.code === 'ENOENT')) throw e; text = ''; }
           const obj = text ? JSON.parse(text) : {};
           for (const item of f.items || []) {
             let container = migrationGetAt(obj, item.container);
@@ -78956,22 +79147,47 @@ async function migrationUndo(body) {
           }
           await atomicWriteJson(f.file, JSON.stringify(obj, null, 2) + (text.endsWith('\n') ? '\n' : ''));
         } else if (f.kind === 'toml') {
-          let text = await fsp.readFile(f.file, 'utf8');
-          for (const item of f.items || []) {
-            for (const c of item.changes || []) {
-              const r = migrationTomlReplace(text, item.serverId, c.to, c.from);
-              if (r.count) { text = r.text; restored++; } else skipped++;
+          let text = null;
+          try { text = await fsp.readFile(f.file, 'utf8'); } catch (e) { if (!(e && e.code === 'ENOENT')) throw e; }
+          if (text === null) {
+            for (const item of f.items || []) skipped += (item.changes || []).length;   // 文件已被删掉:无处可还原,算「留着」不算失败
+          } else {
+            for (const item of f.items || []) {
+              for (const c of item.changes || []) {
+                const r = migrationTomlReplace(text, item.serverId, c.to, c.from);
+                if (r.count) { text = r.text; restored++; } else skipped++;
+              }
             }
+            await atomicWriteJson(f.file, text);
           }
-          await atomicWriteJson(f.file, text);
         }
-      } catch { skipped++; }
+        f.undoneAt = nowIso();
+      } catch (e) {
+        restored = mark.restored; skipped = mark.skipped;
+        failed.push({ file: tildePath(f.file || ''), error: (e && e.message) || String(e) });
+      }
     }
+    const logFile = path.join(migrationDir(), log.id + '.json');
+    // 累计账:部分失败后重试,restored / skipped 接着前几轮算(最终写进 undoResult)。
+    const prior = log.undoProgress && typeof log.undoProgress === 'object' ? log.undoProgress : {};
+    const total = { restored: restored + (Number(prior.restored) || 0), skipped: skipped + (Number(prior.skipped) || 0) };
+    const allSkills = [...(Array.isArray(prior.skills) ? prior.skills : []), ...skills];   // 技能副本的逐项结局也跨轮累计(前端据 kept 提示哪些被留下)
+    if (allSkills.length) total.skills = allSkills;
+    if (failed.length) {
+      // 修前:单个文件失败只 skipped++,照样写 undoneAt —— 剩下没改回的部分从此再也撤不了(重试得 409 already-undone)。
+      // 现在:有失败就【不】置 undoneAt,已改回的文件各自带 undoneAt 落盘,这条迁移仍是「可撤销的最近一次」,
+      // 处理掉原因(文件被占用/权限)后再点一次撤销,只重做没完成的文件。
+      log.undoProgress = total;
+      await atomicWriteJson(logFile, log);
+      logEvent({ kind: 'migration_undo_partial', id: log.id, restored, skipped, failed: failed.length });
+      return { ok: false, error: 'undo-incomplete', status: 500, id: log.id, restored, skipped, failed, ...(skills.length ? { skills } : {}) };
+    }
+    delete log.undoProgress;
     log.undoneAt = nowIso();
-    log.undoResult = { restored, skipped, ...(skills.length ? { skills } : {}) };
-    await atomicWriteJson(path.join(migrationDir(), log.id + '.json'), log);
+    log.undoResult = { restored: total.restored, skipped: total.skipped, ...(allSkills.length ? { skills: allSkills } : {}) };
+    await atomicWriteJson(logFile, log);
     logEvent({ kind: 'migration_undo', id: log.id, restored, skipped });
-    return { ok: true, id: log.id, restored, skipped, ...(skills.length ? { skills } : {}) };
+    return { ok: true, id: log.id, restored, skipped, ...(allSkills.length ? { skills: allSkills } : {}) };
   });
 }
 

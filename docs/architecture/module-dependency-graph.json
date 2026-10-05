@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3495,
-    "requiredSymbols": 3135,
+    "providedSymbols": 3504,
+    "requiredSymbols": 3136,
     "edges": 536,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -372,6 +372,8 @@
         "DurableJsonStore",
         "RESERVED_SESSION_FILE_IDS",
         "RUNTIME",
+        "RUYI_AGENT_FILE_MARKER",
+        "RUYI_AGENT_FILE_MARKER_RE",
         "SCRIPT_FILE_MAX_AGE_MS",
         "SESSION_MCP_CONFIG_MAX_AGE_MS",
         "STEWARD_MANAGED_WORKSPACES_CAP",
@@ -382,6 +384,7 @@
         "WORKSPACE_NOTE_MAX",
         "WORKSPACE_TABLE_CAP",
         "_agentCliLauncherOk",
+        "_agentCliLauncherPresent",
         "_agentCliPathProbe",
         "_claudePathProbe",
         "_cliProbeGeneration",
@@ -390,7 +393,9 @@
         "addExternalMcpServersToMap",
         "agentCliInstallCandidates",
         "agentCliLauncherOk",
+        "agentCliLauncherUsable",
         "agentCliProbeSpawn",
+        "agentCliProbeVerdict",
         "agentCliProbeable",
         "agentMcpImportSources",
         "applyConfigMigrations",
@@ -490,6 +495,7 @@
         "probeAgentCliLauncher",
         "probeAgentCliLauncherAsync",
         "probeAgentCliLauncherRemembered",
+        "probeAgentCliLauncherVerdictAsync",
         "probeDesktopPython",
         "probeDesktopPythonAsync",
         "readBody",
@@ -499,6 +505,7 @@
         "readDesktopPythonDiskEntry",
         "readFileTail",
         "readJsonBody",
+        "readUserJsonObjectForMerge",
         "refreshInBackground",
         "rememberClaudeLauncher",
         "resolveClaudeLauncher",
@@ -3345,6 +3352,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "agentCliLauncherUsable",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "buildUserEnvelope",
           "kinds": [
             "call"
@@ -3388,13 +3402,6 @@
         {
           "provider": "01-config.js",
           "symbol": "prepareAgentCliSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "probeAgentCliLauncher",
           "kinds": [
             "call"
           ]
@@ -4449,6 +4456,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "agentCliLauncherUsable",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
@@ -4457,13 +4471,6 @@
         {
           "provider": "01-config.js",
           "symbol": "prepareAgentCliSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "probeAgentCliLauncher",
           "kinds": [
             "call"
           ]
@@ -5816,6 +5823,7 @@
         "MEMORY_RELATION_TYPES",
         "MEMORY_RELEVANCE_MAX",
         "MEMORY_RULE_TOUCH_MS",
+        "MEMORY_SEARCH_TERMS_MAX",
         "MEMORY_TYPES",
         "MEMORY_USAGE_TOUCH_MS",
         "accMemoryImportMarker",
@@ -5860,6 +5868,7 @@
         "memoryDraftFromObject",
         "memoryExclusionSet",
         "memoryGlobalDir",
+        "memoryHaystackHasTerm",
         "memoryIsExpired",
         "memoryProjectDir",
         "memoryProposalBatchInput",
@@ -21806,7 +21815,7 @@
         "migrationSkillTree",
         "migrationStamp",
         "migrationTomlReplace",
-        "migrationTomlSection",
+        "migrationTomlSections",
         "migrationTreeHash",
         "migrationUndo",
         "migrationUndoSkillCopy"
@@ -22011,6 +22020,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "_parseTomlMcpServers",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "_tomlKeyPath",
           "kinds": [
             "call"
           ]
@@ -26915,13 +26931,13 @@
       "to": "01-config.js",
       "symbols": [
         "DurableJsonStore",
+        "agentCliLauncherUsable",
         "buildUserEnvelope",
         "decodeClaudeCliText",
         "effectiveAnthropicEnv",
         "generateSessionMcpConfig",
         "isAskUserTool",
         "prepareAgentCliSpawn",
-        "probeAgentCliLauncher",
         "readConfig",
         "selectedAgentCli",
         "syncMcpServersToKimi",
@@ -27214,9 +27230,9 @@
       "to": "01-config.js",
       "symbols": [
         "RUNTIME",
+        "agentCliLauncherUsable",
         "decodeClaudeCliText",
         "prepareAgentCliSpawn",
-        "probeAgentCliLauncher",
         "readConfig",
         "selectedAgentCli",
         "syncMcpServersToKimi"
@@ -32125,6 +32141,7 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "_parseTomlMcpServers",
+        "_tomlKeyPath",
         "logEvent",
         "parseMcpConfigFile",
         "safeUrlForDisplay"

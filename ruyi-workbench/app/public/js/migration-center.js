@@ -91,7 +91,7 @@ export function migrationRefSummary(ref) {
 }
 // 服务端稳定码 migration.<原因> → 人话。只翻登记过的码(t() 对缺键会告警),其余退回服务端原文。
 const ERROR_CODES = new Set(['confirm_mismatch', 'root_required', 'current_package', 'contains_data', 'contains_home', 'not_an_old_package',
-  'running', 'referenced', 'recycle_failed', 'unsupported_platform', 'nothing_applied', 'nothing_to_apply', 'no_migration_to_undo', 'already_undone']);
+  'running', 'referenced', 'recycle_failed', 'unsupported_platform', 'nothing_applied', 'nothing_to_apply', 'no_migration_to_undo', 'already_undone', 'undo_incomplete']);
 export function migrationErrorText(e) {
   let src = e;
   if (src && typeof src === 'object' && !(src instanceof Error) && typeof src.error === 'string') src = { error: { code: 'migration.' + src.error.replace(/-/g, '_'), message: src.error } };

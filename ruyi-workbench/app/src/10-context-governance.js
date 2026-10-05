@@ -2350,6 +2350,7 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
       };
       fresh.claudeSessionId = null;
       delete fresh.claudeSessionModel;
+      delete fresh.claudeSessionRequestedModel;
       delete fresh.claudeSessionCwd;
       delete fresh.claudeSessionRouteKey;
       fresh.injectedIndexHash = null;
