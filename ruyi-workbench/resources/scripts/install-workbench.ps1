@@ -14,12 +14,40 @@ function Resolve-WorkbenchRoot {
   return (Resolve-Path (Join-Path $scriptDir "..\..")).Path
 }
 
+# One command-line token under the MSVC / CommandLineToArgvW rules: wrap in quotes when needed, double the backslashes
+# that precede a quote (or the closing quote), escape the quote itself.
+function ConvertTo-CommandLineToken {
+  param([string]$Value)
+  if ($Value -ne '' -and $Value -notmatch '[\s"]') { return $Value }
+  return '"' + (($Value -replace '(\\*)"', '$1$1\"') -replace '(\\+)\z', '$1$1') + '"'
+}
+
+# Runs a native program with exactly these argv items and returns its exit code (output goes to the console).
+# `& $exe ... $json` cannot carry JSON on Windows PowerShell 5.1 (or 7.0-7.2): it does not escape embedded quotes and
+# decides whether to wrap a value by counting every quote in it, so `claude mcp add-json ruyi <json>` received
+# {command:C:\...} and failed. Building the command line here sidesteps PowerShell's argument rewriting.
+function Invoke-NativeExact {
+  param([string]$FilePath, [string[]]$ArgumentList)
+  # Process.Start resolves a relative path against the process directory, not PowerShell's current location.
+  $resolved = Resolve-Path -LiteralPath $FilePath -ErrorAction SilentlyContinue
+  if ($resolved) { $FilePath = $resolved.ProviderPath }
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $FilePath
+  $psi.Arguments = (@($ArgumentList) | ForEach-Object { ConvertTo-CommandLineToken $_ }) -join ' '
+  $psi.UseShellExecute = $false
+  $proc = [System.Diagnostics.Process]::Start($psi)
+  $proc.WaitForExit()
+  return $proc.ExitCode
+}
+
 function Find-Claude {
   param([string]$Preferred)
   if ($Preferred) { return $Preferred }
-  $cmd = Get-Command claude -ErrorAction SilentlyContinue
+  # Applications only (.exe / .cmd): an npm global install also drops a claude.ps1 shim, which PowerShell prefers but
+  # Invoke-NativeExact (Process.Start) cannot launch.
+  $cmd = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($cmd) { return $cmd.Source }
-  $cmd = Get-Command claude.cmd -ErrorAction SilentlyContinue
+  $cmd = Get-Command claude.cmd -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($cmd) { return $cmd.Source }
   return ""
 }
@@ -76,8 +104,14 @@ if ($ClaudePath) {
     foreach ($legacyScope in @('local', 'user', 'project')) {
       try { & $ClaudePath mcp remove win-claude-workbench -s $legacyScope *> $null } catch { }
     }
-    & $ClaudePath mcp add-json ruyi $serverJson -s $Scope
-    if ($LASTEXITCODE -ne 0) { Write-Warning "claude mcp add-json failed (exit $LASTEXITCODE). Manually import: $mcpConfigPath" }
+    # A .cmd shim is re-parsed by cmd.exe, which ignores \" escapes: & | ^ % < > inside the JSON would leak out as cmd
+    # syntax. Such a config (the characters can only come from paths) is left for manual import instead of half-running.
+    if ($ClaudePath -match '\.(cmd|bat)$' -and $serverJson -match '[&|^%<>]') {
+      Write-Warning "The MCP config contains characters cmd.exe would misread (& | ^ % < >). Manually import: $mcpConfigPath"
+    } else {
+      $addExit = Invoke-NativeExact $ClaudePath @('mcp', 'add-json', 'ruyi', $serverJson, '-s', $Scope)
+      if ($addExit -ne 0) { Write-Warning "claude mcp add-json failed (exit $addExit). Manually import: $mcpConfigPath" }
+    }
   } catch {
     Write-Warning "claude mcp add-json could not run. You can manually import: $mcpConfigPath"
   }
@@ -95,7 +129,7 @@ if ($ClaudePath) {
           Write-Warning "plugin marketplace add failed (exit $LASTEXITCODE); skipping install. Claude CLI may not support plugins yet."
         } else {
           & $ClaudePath plugin install offline-toolkit@ruyi-offline --scope $Scope
-          if ($LASTEXITCODE -ne 0) { Write-Warning "plugin install failed (exit $LASTEXITCODE)." }
+          if ($LASTEXITCODE -ne 0) { Write-Warning "plugin install failed (exit $LASTEXITCODE). See why with: `"$ClaudePath`" plugin validate `"$marketplaceRoot`"" }
         }
       } catch {
         Write-Warning "Plugin marketplace/install could not run. Claude CLI may not support plugins yet, or policy may block local marketplaces."
@@ -104,10 +138,17 @@ if ($ClaudePath) {
   }
 }
 
+# CLAUDE_CODE_PLUGIN_SEED_DIR expects a pre-populated Claude plugins directory (known_marketplaces.json, marketplaces/,
+# cache/), not a marketplace source folder, so pointing it at resources\plugins never registered anything; the plugin is
+# installed by `claude plugin marketplace add` + `plugin install` above. Older versions of this script set the variable
+# to exactly this path: clear that stale value and leave anything else the user set alone.
 $seed = Join-Path $root "resources\plugins"
+if ([Environment]::GetEnvironmentVariable("CLAUDE_CODE_PLUGIN_SEED_DIR", "User") -eq $seed) {
+  [Environment]::SetEnvironmentVariable("CLAUDE_CODE_PLUGIN_SEED_DIR", $null, "User")
+  Write-Host "Cleared stale user CLAUDE_CODE_PLUGIN_SEED_DIR=$seed"
+}
 if ($SetUserPluginSeedEnv) {
-  [Environment]::SetEnvironmentVariable("CLAUDE_CODE_PLUGIN_SEED_DIR", $seed, "User")
-  Write-Host "Set user CLAUDE_CODE_PLUGIN_SEED_DIR=$seed"
+  Write-Warning "-SetUserPluginSeedEnv is no longer used: the offline plugin is installed with 'claude plugin install' instead."
 }
 
 Write-Host ""
@@ -118,4 +159,4 @@ if ($useNode) {
   Write-Host "UI: run `"$WorkbenchExe`" serve --open  (or Start-Workbench.cmd)"
 }
 Write-Host "MCP config: $mcpConfigPath"
-Write-Host "Offline plugin seed: $seed"
+Write-Host "Offline plugin marketplace: $(Join-Path $root 'resources\plugins\ruyi-offline')"

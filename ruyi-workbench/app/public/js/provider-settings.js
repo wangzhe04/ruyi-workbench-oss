@@ -793,6 +793,7 @@ function fillSettings() {
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 100; }
   { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
   { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 32)); }
+  { const el0 = $('cfgAgentAutoWake'); if (el0) el0.checked = c.agentAutoWake !== false; }
   populateSubagentPreferenceSelects(c.subagentPreferredProvider, c.subagentPreferredModel);
   { const el0 = $('cfgAgentWorkflowMaxNodes'); if (el0) el0.value = Math.max(1, Math.min(64, Number(c.agentWorkflowMaxNodes) || 48)); }
   { const el0 = $('cfgAgentNodeWrapUpMinutes'); if (el0) el0.value = Math.max(0, Math.min(120, Math.round((Number(c.agentNodeWrapUpMs) || 0) / 60000))); }
@@ -1620,6 +1621,7 @@ const INSTANT_SETTINGS = Object.freeze([
   { ids: ['cfgMaxTurns'], patch: () => ({ maxTurns: $('cfgMaxTurns').value.trim() }) },
   { ids: ['cfgSubagentMaxConcurrent'], patch: () => ({ subagentMaxConcurrent: clampedInt('cfgSubagentMaxConcurrent', 8, 1, 8) }) },
   { ids: ['cfgSubagentMaxPerTurn'], patch: () => ({ subagentMaxPerTurn: clampedInt('cfgSubagentMaxPerTurn', 32, 0, 32) }) },
+  { ids: ['cfgAgentAutoWake'], patch: () => ({ agentAutoWake: $('cfgAgentAutoWake').checked }) },
   { ids: ['cfgAgentWorkflowMaxNodes'], patch: () => ({ agentWorkflowMaxNodes: clampedInt('cfgAgentWorkflowMaxNodes', 48, 1, 64) }) },
   { ids: ['cfgAgentNodeWrapUpMinutes'], patch: () => ({ agentNodeWrapUpMs: clampedInt('cfgAgentNodeWrapUpMinutes', 8, 0, 120) * 60000 }) },
   { ids: ['cfgTurnIdleMinutes'], patch: () => ({ turnIdleTimeoutMs: clampedInt('cfgTurnIdleMinutes', 10, 1, 60) * 60000 }) },
@@ -2454,13 +2456,14 @@ function addTemplateFromPrompt() {
 function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; autoGrow(ta); ta.focus(); }
 
 /* ---------------- skill library panel (v1 技能体系) ---------------- */
-// 「技能库」三分组:技能支持本会话启用 + 全局常驻;命令在 Claude 下插入 /name,Provider 下插入同一
-// 命令正文作为可编辑任务模板;一键任务走 Playbook 表单。skillFiltered 供键盘上下 + Enter。
+// 「技能库」三分组:技能支持本会话启用 + 全局常驻;命令点选后插入命令正文作为可编辑任务模板(只有 ~/.claude/commands
+// 的用户命令在 Claude Code 下插 /name,见 skills-memory commandInsertionText);一键任务走 Playbook 表单。
   return Object.freeze({
     activeProviderObj,
     addProviderFromPreset,
     addTemplateFromPrompt,   // 命令面板「把当前输入存为模板」(navigation-controls 经组合根取它;修前漏导出,一按就 ReferenceError)
     applyClaudeEndpointPreset,
+    currentAgentCliType,   // 技能库点选用户命令时按 CLI 能力(agent-cli-registry claudeUserCommands)决定插 /name 还是插模板
     currentEngineMeta,
     currentModelId,
     engineLabel,

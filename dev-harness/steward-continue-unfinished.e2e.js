@@ -53,7 +53,9 @@ const READ_TARGETS = Array.from({ length: 12 }, (_, i) => {
   return f;
 });
 const textOf = m => (typeof (m && m.content) === 'string' ? m.content : JSON.stringify((m && m.content) || ''));
-const plan5 = done => Array.from({ length: 5 }, (_, i) => ({ id: `t${i + 1}`, text: `步骤${i + 1}`, status: i < done ? 'done' : 'pending' }));
+// 61-A3/C4:工作台在 user 消息落历史时追加「\n\n[本条消息发送于 …]」时间行(其后可能还有一行撤销告知)。逐字比对用户原话前先剥掉。
+const userTextOf = m => textOf(m).replace(/\n\n\[(?:本条消息发送于|Message sent) [^\]\n]*\][\s\S]*$/, '');
+const plan5 =done => Array.from({ length: 5 }, (_, i) => ({ id: `t${i + 1}`, text: `步骤${i + 1}`, status: i < done ? 'done' : 'pending' }));
 let readSeq = 0;
 function threadScript(req) {
   const msgs = req.messages || [];
@@ -66,7 +68,7 @@ function threadScript(req) {
   const planCall = done => toolCallFrames('todo_write', { items: plan5(done) }, 'call_p' + (++readSeq));
   const text = s => [...textFrames(s), usageFrame(8, 4)];
   switch (marker) {
-    case 'S6': if (textOf(msgs[lastUser]).trim() === '继续') return text('恢复了,这次做完了。');   // 管家自理重试递的那句
+    case 'S6': if (userTextOf(msgs[lastUser]).trim() === '继续') return text('恢复了,这次做完了。');   // 管家自理重试递的那句
                if (toolsAfter < 2) return readOne();
                req.res.socket.destroy();                                                                // 第 3 发起断线(传输失败)
                return undefined;

@@ -61,6 +61,20 @@ export function createChatScrollController({
     updateJumpLatest();
   }
 
+  // 不走流式路径的异步内容（mermaid 图画完替换源码块）用它包住那次 DOM 改动：改之前还在跟随且贴着底，
+  // 改完重新贴底（修前一条回复 8 张图画完，视图停在半途）。只看粘性不够：「加载更早」直接把 scrollTop
+  // 写成 0、滚动事件还没到时粘性仍为 true，那时换图会把刚跳到顶的视图拽回底部。
+  function keepPinnedAcross(mutate) {
+    const pin = stickToBottom && messagesAtBottom();
+    try {
+      mutate();
+    } finally {
+      const box = messagesBox();
+      if (pin && box) { box.scrollTop = box.scrollHeight; markProgrammaticScroll(); }
+      updateJumpLatest();
+    }
+  }
+
   // 只由 #messages 的真实 scroll 事件调用。DOM 增长本身不应误判为用户上滑；
   // 程序化滚动窗口内的回声事件同样跳过（避免把自己的滚动误判成上滑）——
   // 但判定改为「scrollTop 恰等于程序化目标」才跳过：程序化回声必然停在目标值，
@@ -113,6 +127,7 @@ export function createChatScrollController({
   return {
     allowRestick,
     isStickyScroll,
+    keepPinnedAcross,
     maybeScrollToBottom,
     messagesAtBottom,
     releaseSticky,

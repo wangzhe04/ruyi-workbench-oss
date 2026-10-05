@@ -72,7 +72,10 @@ async function launchStack(tag, flags) {
   const cleanup = async () => { kill(wb); kill(fake); await sleep(300); fs.rmSync(EHOME, { recursive: true, force: true }); };
   return { EHOME, WB_PORT, readCap, waitLog, cleanup, healthy: !!h };
 }
-const userMsgs = body => (((body && body.messages) || []).filter(m => m && m.role === 'user').map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')));
+// 61-A3:每条 user 消息落历史时带一行本地时间(「\n\n[本条消息发送于 …]」,落盘后字节不变)。本件比的是 volatile 层的投放位置,
+// 先把这行剥掉再比;时间行本身由 harness-friction.e2e 的 [T] 段钉。
+const stripTurnTime = s => String(s).replace(/\n\n\[(?:本条消息发送于|Message sent) [^\]\n]*\]/g, '');
+const userMsgs = body => (((body && body.messages) || []).filter(m => m && m.role === 'user').map(m => stripTurnTime(typeof m.content === 'string' ? m.content : JSON.stringify(m.content || ''))));
 const toolNames = body => (((body && body.tools) || []).map(t => t && t.function && t.function.name).filter(Boolean));
 
 (async () => {

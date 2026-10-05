@@ -65,7 +65,9 @@ async function stewardImplRunsStatus(args, ctx, config) {
         status: String(mem.status || ''),
         live: !!live,
         paused: !!(live && live.paused),
-        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'done').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
+        // done 数的是成功态:09 工作流里节点的成功终态叫 'succeeded'(没有 'done' 这个值)。修前统计 status === 'done',
+        // 恒为 0 —— 一个全部跑完的 run 也报「0 个节点完成」。键名 done 不动(模型与测试已经按它读)。
+        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'succeeded').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
         // 等待原因单一化:优先「等你」(池提案待批),其次「等锁」(资源),再次「已暂停」。
         waitReason: (Array.isArray(mem.taskPool) ? mem.taskPool : []).some(p => p && p.status === 'proposed') ? '等你批任务池提案'
           : nodes.some(n => n && n.status === 'waiting_resource') ? '等资源锁'
@@ -465,7 +467,7 @@ async function stewardRunResumeTier(sessionId, runId, config) {
   }
   const run = safeJsonParse(raw, null);
   if (!run) return 'unknown';
-  return String(classifyRunResumeTier(run, config && config.permissionMode).tier || '');
+  return String(classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config || {})).tier || '');
 }
 async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);

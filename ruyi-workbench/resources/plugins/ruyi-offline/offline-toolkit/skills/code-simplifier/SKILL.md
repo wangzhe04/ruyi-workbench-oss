@@ -9,7 +9,7 @@ Use this skill when asked to simplify recently changed or confusing code without
 
 Workflow:
 
-1. Inspect `git_status` and read the relevant files.
+1. Find the recent changes: `git_status`, then `git_diff` (unstaged) and `git_diff` with `staged: true` (staged). Read untracked new files and the relevant files with `file_read`.
 2. Identify duplication, tangled conditionals, unclear names, and local abstractions that no longer pay for themselves.
 3. Make small, behavior-preserving edits.
 4. Keep public APIs stable unless the user explicitly asks for a refactor.

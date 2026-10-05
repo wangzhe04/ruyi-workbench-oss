@@ -21,7 +21,10 @@ function defaultConfig() {
     claudePath: detectClaudePath(),
     kimiPath: detectKimiPath(),
     defaultWorkspace: os.homedir(),
-    permissionMode: 'default',
+    // 2026-10 拍板:出厂档是「智能自动」。只管没有存过档的新配置 —— 老用户 config.json 里已有的档原样保留;
+    // 「切到」智能自动 / 全自动仍要二次确认(01e PERMISSION_MODES_REQUIRING_CONFIRM),那道门防的是被悄悄放开,
+    // 出厂值不是谁替用户切的。存了一个不认识的档时下面仍回落最保守的 'default',不回落到这里。
+    permissionMode: 'auto',
     includeWorkbenchMcp: true,
     autoResumeClaudeSessions: true,
     model: '',
@@ -360,6 +363,9 @@ function defaultConfig() {
     // (subagentMaxConcurrent 1..8, subagentMaxPerTurn 0..32) — most real workflows were hitting these.
     subagentMaxConcurrent: 8,
     subagentMaxPerTurn: 32,
+    // 后台代理(orchestrate_agents{background:true})跑完时主回合已经结束 → 工作台自己起一个回合把交付信封送给模型
+    // (10 scheduleAgentWake)。false = 旧行为:信封等用户下一句话时才随回合开头送达。
+    agentAutoWake: true,
     // 52x: 子 agent 优先端点+模型。spawn_agent/orchestrate 的 openai 节点默认用此 provider+model(可跨 provider);
     //   模型仍可经 spawn_agent.model 参数选同端点下别的模型(如 Pro 版),或 omit 继承默认。未配置 -> fallback 主 provider + provider.subagentModel。
     subagentPreferredProvider: '',
@@ -752,8 +758,23 @@ const CONFIG_MIGRATIONS = Object.freeze([
       return true;
     },
   }),
+  Object.freeze({
+    to: 14,
+    // 2026-10 拍板:出厂权限档 'default' → 'auto'(智能自动)。新默认只给全新安装:稀疏文件(13)里没碰过档的用户
+    // 本来不存这个键,光翻 defaultConfig 会让他们升级后被悄悄放成智能自动 —— 而「切到」智能自动按 01e 是要二次
+    // 确认的。所以盘上已有配置、却没有 permissionMode 的,钉回当年的默认 'default';下面的显式键推断(迁移读看全部键)
+    // 会因它不等于新默认把它记成显式、落盘,之后不再跑。盘上本来就写着档的(<13 整份老文件、手改)原样保留,
+    // 不学 to:13 把旧默认当「没选」—— 权限只收紧不放开。全新安装(无文件 / 空文件)不动,吃到 'auto'。
+    // 读:ctx.rawKeys(盘上原始键)、ctx.rawExplicit。
+    apply(config, ctx) {
+      if (!ctx.rawKeys.size || ctx.rawKeys.has('permissionMode') || ctx.rawExplicit.has('permissionMode')) return false;
+      config.permissionMode = 'default';
+      return true;
+    },
+  }),
 ]);
-// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合 }。返回是否有迁移动过 config。
+// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合, rawKeys: raw 的顶层键集合
+// (无文件 / 空文件为空集) }。返回是否有迁移动过 config。
 function applyConfigMigrations(config, ctx) {
   let moved = false;
   for (const migration of CONFIG_MIGRATIONS) {
@@ -1236,7 +1257,8 @@ function normalizeConfig(raw, opts = {}) {
   }
   // 一次性 schema 迁移的唯一调用点(见 CONFIG_MIGRATIONS 头注):被迁移读到的键到这里都已完成字段级校验,
   // 而下面的工作区表那一段要消费 to:10 播进来的种子。
-  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit })) changed = true;
+  const rawKeys = new Set(raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.keys(raw) : []);
+  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit, rawKeys })) changed = true;
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
   // from defaultWorkspace + recentWorkspaces lives in CONFIG_MIGRATIONS (to:10), which runs just above and
@@ -1287,6 +1309,11 @@ function normalizeConfig(raw, opts = {}) {
   }
   // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
   // v1.4.4: fallback defaults raised to the top of each range (8 / 32) — see defaultConfig() note.
+  {
+    // 后台代理完成自动唤醒:只有显式 false 才关(缺省 / 非布尔一律按开)。
+    const aw = config.agentAutoWake !== false;
+    if (aw !== config.agentAutoWake) { config.agentAutoWake = aw; changed = true; }
+  }
   {
     const sc = Number(config.subagentMaxConcurrent);
     const clamped = Number.isFinite(sc) ? Math.min(8, Math.max(1, Math.round(sc))) : 8;
@@ -1942,7 +1969,8 @@ async function readConfig() {
     try { logEvent({ kind: 'config_read_failed', code, degraded: !lastGoodConfig }); } catch { /* 日志是旁路 */ }
     if (lastGoodConfig) return lastGoodConfig;
     configDegraded = true;
-    return normalizeConfig(null).config;   // 只供本次请求使用，绝不落盘
+    // 只供本次请求使用，绝不落盘。权限档钉最保守的 'default':读不出用户配置时不该按出厂的智能自动放权。
+    return { ...normalizeConfig(null).config, permissionMode: 'default' };
   };
   if (readError) {
     if (readError.code !== 'ENOENT') return degrade(String(readError.code || 'EREAD'));
@@ -1957,6 +1985,12 @@ async function readConfig() {
       if (prev) { raw = prev; recoveredFrom = 'prev'; }
       else return degrade('EJSON');
     }
+  }
+  // 2026-10:没有可用配置(文件缺失 / 空文件 / {},且没有 .prev)不一定是全新安装 —— 数据目录里已经有会话,说明是一份
+  // 用过的安装丢了配置。这时不给出厂的智能自动,钉回最保守的 'default'(显式键,落盘后不再走这里)。
+  const rawEmpty = !raw || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0);
+  if (rawEmpty && (await fsp.readdir(paths.sessions).catch(() => [])).length > 0) {
+    raw = { permissionMode: 'default', configExplicitKeysV1: ['permissionMode'] };
   }
   const { config, changed, persisted } = normalizeConfig(raw);
   configDegraded = false;
@@ -2061,9 +2095,14 @@ async function syncClaudeCliSettings(config) {
       if (!settings || typeof settings !== 'object') settings = {};
     } catch { /* file doesn't exist or invalid JSON */ }
 
-    // 1. Permission mode
-    const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-    settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+    // 1. Permission mode —— 只在用户【选过】档位时同步(显式键)。2026-10 出厂档改成智能自动后,修前全新安装一启动就把
+    // 用户自己的 ~/.claude/settings.json 写成 defaultMode:auto,单独用 claude 的人被悄悄放宽、没经过任何确认。
+    // 出厂值不代表用户的意思,不碰它;存量用户经 to:14 迁移钉成显式 default,照旧同步。
+    const explicitMode = Array.isArray(config.configExplicitKeysV1) && config.configExplicitKeysV1.includes('permissionMode');
+    if (explicitMode) {
+      const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
+      settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+    }
     // 2. Model. 第36波(v1.7): 只删【自己写过的】model —— settings.json 是用户自己的配置,工作台未设模型时
     // 无条件 delete 会把用户手写的 settings.model 一并抹掉(越权接管,与本函数 "MERGE: existing keys are
     // preserved" 的契约直接冲突)。权属用工作台侧 sidecar(dataRoot, 非用户 ~/.claude)追踪:记住上次同步写入的
@@ -2154,7 +2193,9 @@ async function syncMcpServersToClaude(config) {
       if (s._toolbox) continue;
       const remain = SYNC_BUDGET_MS - (Date.now() - t0);
       if (remain <= 0) break;
-      var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
+      // 2026-10 能力总闸:如意的 Claude 引擎起 CLI 时不带 --strict-mcp-config,这里写进 ~/.claude.json 的用户级条目在 Claude
+      // 线程里同样会被 CLI 加载(adaptive 模式也一样)—— 直挂 ACC 的条目同样带上被关掉的工具名(全局口径,见 desktopMcpPolicyEnv)。
+      var sc = { type: 'stdio', command: s.command, args: s.args || [], env: { ...(s.env || {}), ...desktopMcpPolicyEnv(s.id, config) } };
       if (s.cwd) sc.cwd = s.cwd;
       try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: Math.min(remain, 10000) }); } catch {}
     }
@@ -2519,8 +2560,11 @@ function detectClaudePathUncached() {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
       const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+      // 61-C6:批处理启动器(claude.cmd)经 cmd.exe 探,没装时 cmd 也有退出码(1 / 9009)—— 修前「有退出码就算探到」,
+      // 没装 Claude Code 的机器也报「Claude Code: claude.cmd」。批处理要求退出码 0;直启的 exe 仍是有退出码即可。
+      const found = !ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0);
       // P1: shim(claude.cmd)命中时优先解析出真身 claude.exe(绕过 cmd.exe 8191 上限);解析不出原样返回。
-      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(command);
+      if (found) return resolveClaudeLauncher(command);
     } catch {
       // keep scanning
     }
@@ -2533,7 +2577,8 @@ async function detectClaudePathUncachedAsync() {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
       const ok = await spawnProbeAsync(s.command, s.args, s.opts);
-      if (!ok.error && ok.status !== null) return await resolveClaudeLauncherAsync(command);
+      // 判据与同步版逐字相同(61-C6:批处理启动器要求退出码 0)。
+      if (!ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0)) return await resolveClaudeLauncherAsync(command);
     } catch {
       // keep scanning
     }
@@ -3338,12 +3383,24 @@ function bridgedCliServerEnv(ownEnv, baseEnv = process.env) {
   return { ...blanks, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
 }
 
+// 2026-10 能力总闸的 CLI 直挂面:交给 agent CLI 自己 spawn、自己调的 ACC 不经工作台的分发点(09/08/12),唯一能插手的是它的
+// 启动环境 —— 把 07 toolDisabledByPolicy 判下来被关掉的 ACC 工具名(accPolicyHiddenToolNames,与分发面同一张表)经
+// ACC_HIDE_TOOLS 交给 ACC,它在注册表里摘掉:tools/list 里没有,batch_actions / macro_run 也转调不到。只给内置桌面 MCP
+// 条目;一个都没关时不加这个键(生成的配置与修前逐字节相同)。旧版 ACC 不认这个变量 —— 那时只剩 13d 权限桥那道纵深。
+function desktopMcpPolicyEnv(entryId, config, desktopOverride = null) {
+  if (entryId !== DESKTOP_MCP_SERVER_ID || !config) return {};
+  const hidden = accPolicyHiddenToolNames(config, desktopOverride);
+  return hidden.length ? { ACC_HIDE_TOOLS: hidden.join(',') } : {};
+}
+
 // v0.7d: mutate an mcpServers map in place, adding the desktop MCP (id 'ai-computer-control') and every
 // enabled user externalMcpServers entry. Back-compat: when nothing is detected/configured, the map is
 // left exactly as it was, so the generated config equals the pre-0.7d output.
 // stdio 条目一律带 env 块(bridgedCliServerEnv:置空工作台凭据 + 条目自己的 env);远程(sse/http)条目没有子进程。
-function addExternalMcpServersToMap(mcpServers, config) {
+// opts.desktopOverride:会话级 desktopTools(null = 跟随全局;只有按会话生成的配置才传,见 generateSessionMcpConfig)。
+function addExternalMcpServersToMap(mcpServers, config, opts) {
   if (!config) return;
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
   try {
     for (const entry of resolveExternalMcpServers(config)) {
       if (mcpServers[entry.id]) continue;    // never clobber Ruyi's own server (id 'ruyi') or an earlier entry
@@ -3355,7 +3412,7 @@ function addExternalMcpServersToMap(mcpServers, config) {
       } else {
         server = { type: 'stdio', command: entry.command, args: entry.args || [] };
         if (entry.cwd) server.cwd = entry.cwd;
-        server.env = bridgedCliServerEnv(entry.env);
+        server.env = { ...bridgedCliServerEnv(entry.env), ...desktopMcpPolicyEnv(entry.id, config, desktopOverride) };
       }
       mcpServers[entry.id] = server;
     }
@@ -3419,7 +3476,9 @@ async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
 
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
-async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
+// opts.desktopOverride:这条线程的会话级 desktopTools(05 Claude 引擎按会话头传;子代理节点不传 = 跟随全局),只影响直挂 ACC
+// 条目的 ACC_HIDE_TOOLS(见 desktopMcpPolicyEnv)。
+async function generateSessionMcpConfig(sessionId, mode, toolPacks, opts) {
   await ensureDirs();
   if (!sessionMcpConfigSweepDone) { sessionMcpConfigSweepDone = true; void sweepStaleSessionMcpConfigs().catch(() => {}); }
   const cfg = await readConfig().catch(() => null);
@@ -3447,7 +3506,7 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   };
   // In adaptive mode external schemas stay behind the typed invoke proxies, so a simple Claude turn
   // does not ingest an entire desktop/Office catalog. Full mode retains the historical direct servers.
-  if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg);
+  if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg, { desktopOverride: opts && opts.desktopOverride });
   await atomicWriteJson(configPath, mcp);
   return configPath;
 }

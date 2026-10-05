@@ -115,7 +115,7 @@
 #settingsTabs button[data-stab].active {
   background: var(--accent-soft);
   border-color: transparent;
-  color: var(--accent);
+  color: var(--link);   /* 文字用 --link:暗色下 --accent 压在 accent-soft 上只有 3.0:1(走查实测) */
   font-weight: 650;
   box-shadow: inset 2px 0 0 var(--accent);
 }

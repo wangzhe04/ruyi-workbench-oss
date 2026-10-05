@@ -50,6 +50,10 @@ function persistBackgroundJob(job) {
   }
   // The global SSE bus only carries metadata; tool output stays on the authenticated session route.
   RUYI_EVENTS.emit('background.completed', { sessionId: job.sessionId, jobId: job.id, status: job.status, persisted, kind: job.kind || 'shell', runId: job.runId || '' });
+  // 后台代理的信封落账 → 线程此刻没有回合在跑就唤醒它(10 scheduleAgentWake;判据与防抖全在那边)。
+  if (persisted && job.kind === 'agent' && job.background === true && EventStreamHooks.onAgentEnvelopePersisted) {
+    try { EventStreamHooks.onAgentEnvelopePersisted(job); } catch { /* 唤醒是旁路,绝不反噬落账 */ }
+  }
   return persisted;
 }
 // A separate completion ledger cannot be overwritten by an older turn snapshot. Both session load
@@ -156,7 +160,15 @@ EventStreamHooks.notifyAgentRunEnvelope = (sessionId, run, envelope) => {
     id: EventStreamHooks.agentEnvelopeJobId(run.id), kind: 'agent', runId: String(run.id), shellId: String(run.id), name, sessionId,
     status: String(run.status || 'unknown'), exitCode: run.status === 'succeeded' ? 0 : 1,
     output: output.slice(0, 24000), truncated: output.length > 24000, completedAt: run.completedAt || nowIso(),
+    // 模型以 background:true 起的 run(含它的续跑/重试)才唤醒主会话;界面上同步跑完补投的那份不唤醒(没人在等它)。
+    ...(run.background === true ? { background: true } : {}),
   });
+};
+// 还没送达、可以唤醒主会话的后台代理信封(账本里 kind:'agent' 且 background、不在 seen 表里)。10 的唤醒判据只经这里读账本。
+EventStreamHooks.pendingAgentWakeJobs = session => {
+  if (!session || !session.id) return [];
+  const seen = new Set(Array.isArray(session.backgroundJobSeen) ? session.backgroundJobSeen : []);
+  return readBackgroundJobs(session.id).filter(job => job && job.kind === 'agent' && job.background === true && !seen.has(job.id));
 };
 
 function shellIdValid(id) { return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,32}$/.test(id); }
@@ -286,10 +298,18 @@ async function shellStart(args, config, ctx = {}) {
   const mode = command ? 'background' : 'interactive';
   const timeoutMs = Math.min(24 * 60 * 60 * 1000, Math.max(1000, Number(args.timeoutMs) || SHELL_IDLE_MS));
   const launchArgs = ['-NoLogo', '-NoProfile'];
-  if (command) {
+  if (!command) {
+    // 交互式 shell:没有脚本可前置,用 -NoExit -Command 先跑一遍 UTF-8 输出编码前导,然后照常读 stdin(2026-10 实测:
+    // 提示符与回显的格式与不带它时一致,启动时不多出任何输出)。注意不能用 -EncodedCommand:它会让 PowerShell 往 stderr
+    // 写一份 CLIXML 进度对象(`#< CLIXML ...`),污染 shell_poll 的输出。前导是纯 ASCII、无需引号转义(spawn 不经 shell)。
+    // 为什么要它:非中文代码页(en-US 的 437/1252)的机器上不设的话,Write-Output '中文' 在源头就是 `?`(见 00-boot 注释)。
+    launchArgs.push('-NoExit', '-Command', PS_UTF8_OUTPUT_PREAMBLE);
+  } else {
     // A finite command has an actual completion/exit code; shell_poll.running now describes the job,
     // rather than an interactive prompt that stays alive forever after its command completed.
-    const script = "$ErrorActionPreference = 'Stop'\n$global:LASTEXITCODE = 0\ntry {\n& {\n" + command
+    // 第一行前面接 UTF-8 输出编码前导(00-boot PS_UTF8_OUTPUT_PREAMBLE):同一行、不加换行,用户命令的行号不漂。
+    // 不需要像 04 withQuietProgress 那样豁免 param()/using —— 用户命令在 `& { }` 里,不是脚本的第一条语句。
+    const script = PS_UTF8_OUTPUT_PREAMBLE + "$ErrorActionPreference = 'Stop'\n$global:LASTEXITCODE = 0\ntry {\n& {\n" + command
       + "\n}\nif (-not $?) { exit 1 }\nexit $LASTEXITCODE\n} catch { [Console]::Error.WriteLine($_.ToString()); exit 1 }";
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
     if (encoded.length > SHELL_ENCODED_COMMAND_MAX) {
@@ -327,6 +347,8 @@ async function shellStart(args, config, ctx = {}) {
   // 每条流一个按行的控制台解码器(00-boot createConsoleLineDecoder):中文 Windows 上无控制台的 powershell.exe
   // 往管道里写的是 GBK(用户实测:shell 会话里的中文输出全是乱码),修前一律按 UTF-8 解。整行才解码(chunk 切开的
   // 多字节字符不会变成 U+FFFD);不带换行的尾巴(提示符、「[Y/N]」)停 150ms 没有新输出就先吐出来;关闭时 end()。
+  // 2026-10 起 PowerShell 的输出编码在源头就设成 UTF-8(上面的 PS_UTF8_OUTPUT_PREAMBLE),这里的按行解码退为兜底
+  // (中文系统上设置失败、原生命令自己写 GBK):UTF-8 优先的判定正好接住源头已是 UTF-8 的输出。
   const outDecoder = createConsoleLineDecoder();
   const errDecoder = createConsoleLineDecoder();
   let idleFlush = null;
@@ -5222,5 +5244,9 @@ async function adaptiveCatalogForMcp(config, opts) {
     .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { /* native-only catalog is still useful */ }
-  return { bridged, catalog: buildToolCatalog(native.concat(bridged.tools), bridged.route, config) };
+  // 2026-10 能力总闸补桥接面:被 allowCommandTools / allowDesktopTools(+ opts.desktopOverride,调用方按会话取)关掉的内置
+  // 桌面 MCP 工具不进 list_tools / tool_search / 代理的目录。route 原样交回:12 invokeAdaptiveMcpTool 先按它认出被关的目标、回 tool-disabled。
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
+  const offeredBridged = dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, desktopOverride);
+  return { bridged, catalog: buildToolCatalog(native.concat(offeredBridged), bridged.route, config) };
 }

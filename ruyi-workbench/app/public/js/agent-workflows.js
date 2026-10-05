@@ -79,7 +79,13 @@ function launchAgentWorkflowFromQuickSelect() {
   foot.append(cancel, run);
   const modal = buildModal(t('workflow.quickRun.title', { title: label.title }), body, foot);
   cancel.onclick = () => modal.close();
-  run.onclick = async () => { const context = ctx.value; modal.close(); await launchAgentWorkflow(wf, context); };
+  // 2026-10:内置模板的节点任务不含主题(「从支持方立场分析议题」),空 context 启动只会让各节点对着不存在的议题空转。
+  // 与服务端 resolveOrchestrateNodes 同一条规矩(那边管模型只传 workflowId 的路径;这里发的是 nodes + workflowId)。
+  run.onclick = async () => {
+    const context = ctx.value;
+    if (wf.source === 'builtin' && !context.trim()) { toast(t('workflow.quickRun.contextRequired'), 'err'); ctx.focus(); return; }
+    modal.close(); await launchAgentWorkflow(wf, context);
+  };
 }
 function workflowBlank() { return { id: `workflow-${Date.now().toString(36)}`, title: t('workflow.editor.newBlank'), description: '', source: 'personal', nodes: [{ id: 'step_1', task: t('workflow.editor.defaultTask'), role: 'worker', dependsOn: [], failurePolicy: 'block', position: { x: 40, y: 120 } }] }; }
 function workflowField(label, input) { const wrap = el('label', 'workflow-field'); wrap.append(el('span', '', label), input); return wrap; }

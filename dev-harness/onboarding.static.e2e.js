@@ -264,6 +264,11 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   });
   ok(doneSteps.every(s => s.done === true), 'B4 done 位纯由 config 派生(全配齐 -> 六步全绿)');
   ok(mod.onboardingStepsFor({ locale: 'auto' })[0].done === false, 'B5 locale=auto 不算已选语言');
+  // 2026-10:出厂档改成智能自动,「不等于 default」不再是「选过」的凭据 —— 看显式键(或向导走完)。
+  const safetyDone = cfg => mod.onboardingStepsFor(cfg).find(s => s.id === 'safety').done;
+  ok(safetyDone({ permissionMode: 'auto' }) === false && safetyDone({ permissionMode: 'auto', configExplicitKeysV1: ['permissionMode'] }) === true
+    && safetyDone({ permissionMode: 'default', configExplicitKeysV1: ['permissionMode'] }) === true,
+    'B6 安全档:出厂的智能自动不算选过;显式键里有 permissionMode 才算');
 
   /* ③ 前置校验 */
   ok(mod.validateApiKeyShape('openai-compatible', '').ok === false && mod.validateApiKeyShape('openai-compatible', '').code === 'keyEmpty', 'C1 空 key 被拦');
@@ -437,6 +442,11 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
       && findAll(backdrop, 'onboard-wiz-card')[autoIndex].getAttribute('aria-checked') === 'true'
       && findOne(backdrop, 'onboard-wiz-safety-confirm') === null,
       'D15d 确认之后带 confirm:true 落盘成功（桩照服务端的 409 门写），卡片标成选中、确认收起');
+    // 2026-10:出厂档是智能自动,新用户会点那张已选中的卡 —— 不许再不带 confirm 回写 auto(会被 409 挡回、只剩一句报错)。
+    const before = host1.calls.length;
+    await findAll(backdrop, 'onboard-wiz-card')[autoIndex].onclick();
+    await flush();
+    ok(host1.calls.length === before && findOne(backdrop, 'onboard-wiz-safety-confirm') === null, 'D15e 点已选中的那张卡:不落盘、不弹确认');
   }
   findOne(backdrop, 'onboard-wiz-next').onclick();
   await flush();
@@ -557,6 +567,21 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     'D6b openOnboardingWizard({startStep}) 直接打开指定步骤');
   deep.__cancel();
   await flush();
+  // 2026-10:全自动(不在四张卡里)的用户:一张卡都不亮;点「每步都问」要真的落盘收紧(修前档被折成 'default' 显示选中,
+  // 「已是这一档就不落盘」的短路让这一下变成空操作)。
+  {
+    const hostBypass = makeHost();
+    hostBypass.state.config.permissionMode = 'bypass';
+    const wizB = hostBypass.domain.openOnboardingWizard({ startStep: 'safety' });
+    await flush();
+    const cardsB = findAll(wizB, 'onboard-wiz-card');
+    ok(cardsB.length === 4 && cardsB.every(c => c.getAttribute('aria-checked') === 'false'), 'D6c 全自动用户打开安全步:四张卡都不亮');
+    await cardsB[mod.ONBOARDING_SAFETY_MODES.indexOf('default')].onclick();
+    await flush();
+    ok(hostBypass.state.config.permissionMode === 'default', 'D6d 全自动用户点「每步都问」真的落盘收紧');
+    wizB.__cancel();
+    await flush();
+  }
 
   /* ⑧ 手册阅读器(118a-fix):导出面 + 纯函数 + DOM 桩行为 */
   const help = await import(`data:text/javascript;base64,${Buffer.from(helpViewerSrc).toString('base64')}`);

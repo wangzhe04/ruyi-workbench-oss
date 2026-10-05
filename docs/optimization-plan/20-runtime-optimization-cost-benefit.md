@@ -1,8 +1,8 @@
 # 20 · 运行时优化性价比收敛方案——工具检索、上下文与失败恢复
 
-> 状态：**shadow 总开关已默认启用；283/89/75 对抗审计仍判定“非纯收益”：shadow 可继续，C1 主动启用被阻断；F1 分类器已升至 deterministic-v2，但仍仅 telemetry**
+> 状态：**shadow 总开关已默认启用；283/89/75 对抗审计仍判定“非纯收益”：shadow 可继续，C1 主动启用被阻断；F1 分类器已升至 deterministic-v3，但仍仅 telemetry**
 > 决策日期：2026-08-15
-> 最近修订：2026-08-17（F1 deterministic-v2）
+> 最近修订：2026-10-04（F1 deterministic-v3）
 > 目标：不扩张产品边界，以最少的新机制提升 Ruyi 在真实任务中的工具命中率、长程执行成本与失败后恢复能力。
 > 约束：沿用 M4 单轴消融纪律；每项独立开关、独立回测、可随时回退。
 
@@ -92,6 +92,30 @@
 对32条历史事件只读重放：`unknown 30 → 0`；重分类为 `side_effect_unknown 11`、`execution_failed 8`、`edit_conflict 6`、`invalid_arguments 2`、`policy_blocked 2`、`permission_denied 1`、`resource_not_found 1`、`tool_unavailable 1`，关联率 `32/32`，edit/exec 被映射为 `retry_once` 的数量为 `0`。扩展对抗集增至75条，分类与 repair policy 准确率均为 `100%`，原错误泄漏 `0`，1,000 指纹碰撞 `0`，全部 Shadow 安全门通过。
 
 这次结果证明分类口径已显著改善，但**不批准自动恢复**：部署后 `deterministic-v2` 从零开始积累独立 cohort；达到30条新版真实样本后，再按第6.5节的数据门决定 Recovery Brief/有界修复是否值得实现。
+
+### 0.6 2026-10-04 F1 deterministic-v3：补读结构化信封，修一处误判
+
+v2 部署后真机又攒到 52 条失败，其中 28 条（54%）仍落 `unknown`；逐条回看原始信封，缺口集中在**网络与策略侧**：`web_fetch`/`http_request`/`http_download`/`web_search` 的失败信封带 `failClass`（dns/connect/proxy/reset/tls/timeout/aborted/http/network…）、数值 `statusCode`、SSRF 拦截的 `blocked`；参数被截断带 `argsInvalid`；steward 工具把码放在 `error` 里（`not_found`、`budget_exceeded`、`not_in_artifacts`）；计划模式拒绝与读预算耗尽是固定措辞。v2 只读 `error/message/detail/hint/stderr` 文本，这些全进了 `unknown`。另有一处**误判**：`web_fetch` 的「网站拒绝了请求(HTTP 403,可能反爬)」被 `/拒绝/` 吞成 `permission_denied / request_authority`——但这不是用户授权能解决的事。
+
+v3 的改动（**换版本 = 换 cohort**：`runtime-failure-report` 只按最新 `vN` 统计，v2 的样本不混入 v3 的门）：
+
+| 信号（均为精确码/数值/专属文案，不扫 stderr 与 hint） | 类别 → `allowedRepair` |
+|---|---|
+| 状态码 401/403/451；`failClass: tls`；`blocked`（SSRF/重定向拦截）；「网站拒绝了请求」「反爬」「人机验证」「验证码」「captcha」「cloudflare」等专属文案（只看 `error/message`，且非进程结果） | **新类 `remote_blocked`** → `use_alternative_source`（判定在 `/拒绝/` 的 `permission_denied` 之前） |
+| 状态码 404/410；`failClass: dns`；`code`/`error` 为 `not_found`/`not_in_artifacts`；非进程结果里的 `ENOENT`/`no such file` | `resource_not_found` → `reacquire_resource` |
+| 读工具：`failClass` ∈ reset/connect/proxy/timeout/network；空 message 的 `request error`；状态码 408/500（429/502/503/504 沿用 v2 的文本规则）；`dns` 且含 EAI_AGAIN 或「当前疑似离线」 | `transient_read` → `retry_once` |
+| `code: tier-mismatch`、控制面不能经代理、`argsInvalid`（参数不是完整 JSON / 被截断）、`disposition: args_invalid`、`invalid_args`/`invalid_request`/`invalid_target`/`invalid_ref`/`bad_path`/`bad_pattern`、非 http 协议/无法解析的 URL | `invalid_arguments` → `modify_arguments` |
+| 计划模式「请先提交 PLAN」（`disposition: plan_refused`） | `policy_blocked` → `replan`（可恢复） |
+| `budget_exceeded`/`quota_exceeded`（steward 读预算、`observation_recall` 配额） | `policy_blocked` → `diagnose_only`（原文即「别重试」，不宣称可恢复） |
+| `code: ambiguous`（`file_edit` 多处匹配） | `edit_conflict` → `refresh_then_modify`（`oldText` 找不到同样带 `code: not_found`，仍先判为 `edit_conflict`） |
+
+两个**有意偏离**最初设想的点：① `failClass: tls` 判 `remote_blocked` 而非 `transient_read`——证书异常是确定性故障，同参重试无意义；② `failClass: aborted`（用户中断）读工具**不**判 `transient_read`——重试一次用户刚中断的请求是错的，它保持 `unknown`/`diagnose_only`（改动类仍是 `side_effect_unknown`）。
+
+**不变量保持**：「改动中的工具（edit/exec）遇到超时/断连/中断/5xx（500 与 429/502/503/504）/传输歧义一律 `side_effect_unknown`」这条分支仍在所有新规则**之前**；`failClass` 的 reset/connect/proxy/timeout/network/aborted 与状态码 5xx 同样触发它（`http_download` 断连因此是 `side_effect_unknown`）。分类器仍无任何重试/修复路径，任何 edit/exec 结果都不会得到 `retry_once`（`unit/runtime-failure-classifier.test.js` 与静态门双重钉住）。
+
+对 52 条真机失败的只读重放（`dev-harness/runtime-failure-replay.js`，49 条能与会话里的原始工具结果配上）：`unknown 25（51%）→ 0`；分布 `invalid_arguments 17`、`transient_read 10`、`resource_not_found 7`、`policy_blocked 4`、`remote_blocked 4`、`side_effect_unknown 4`、`execution_failed 2`、`tool_unavailable 1`；`permission_denied 4 → 0`（4 条全是 web 403 的误判）；改动类被映射成 `retry_once` 的数量仍为 `0`。**这是样本内结果**：真机再无更多失败可作 holdout，规则又是看着这批数据写的，0% 只说明「没有已知形状漏网」，不是泛化精度；真正的验证是 v3 cohort 从零积累到 30 条后的 `unknown` 占比。扩展对抗集增至 88 条（新增 13 条取自源码的真实信封，含防误伤的 stderr 反例），分类与 repair policy 准确率均为 `100%`，安全探针 13 条无遗漏，原错误泄漏 `0`。
+
+仍然**不批准自动恢复**：`remote_blocked`/`resource_not_found` 的 `recoverableHint` 为 `true` 会抬高 6.5 门里的「可恢复占比」，评估门时要区分「换源/换参」与「同参重试」两类，不要把它们并成一个 `recoverableRate`。
 
 ---
 
@@ -303,9 +327,10 @@ model view（模型下一轮看到的紧凑结果 + rawRef + omission metadata�
 | `edit_conflict` | `oldText`/编辑锚点与当前文件不一致 | 重新读取目标并生成新 patch；禁止原参数盲重试 |
 | `execution_failed` | 非零退出码、Traceback、ParserError 等 | 读取脱敏错误摘要后修改命令/脚本；不原样重放 |
 | `policy_blocked` | 内部数据边界、专用工具规程等产品硬规则 | 改走受支持工具或允许的作用域；不请求无效的权限升级 |
-| `resource_not_found` | shell/session 等短生命周期句柄失效 | 重新列举或创建资源后再构造调用 |
+| `resource_not_found` | shell/session 等短生命周期句柄失效；文件/产出物/快照不存在；HTTP 404/410、域名不存在（v3） | 重新列举或创建资源后再构造调用；网页换来源/重新检索，不原样重放 |
 | `tool_unavailable` | unknown tool、connector/offline | 触发一次 T1 再检索；不重复原调用 |
 | `permission_denied` | permission gate/user deny | 不重试，不把拒绝写成“暂时错误” |
+| `remote_blocked`（v3） | HTTP 401/403/451、反爬/验证码/Cloudflare 文案、TLS 失败、SSRF/重定向拦截（`blocked`） | 不重试、不请求权限升级；换一个来源（web_search/镜像/用户提供），由模型决定 |
 | `transient_read` | timeout、429/5xx、明确的临时连接错误，且工具为 read/idempotent | 指数退避后同参重试 1 次 |
 | `no_progress` | 已有 fingerprint/watchdog | 禁止原样重试；交给现有 replan，提供差异摘要 |
 | `verification_failed` | quality/coverage/schema gate | 保留验证证据，给出针对缺口的修改建议 |

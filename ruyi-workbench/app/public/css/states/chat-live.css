@@ -151,6 +151,16 @@
 .memory-proposal-desc, .memory-proposal-reason { margin-top: 3px; color: var(--ink-2); font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: anywhere; }
 .memory-proposal-reason { color: var(--muted); }
 .memory-proposal-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
+/* C3 批量候选卡:每条一行,行间一条细分隔线;勾选框跟名称同一行,正文收在折叠里。 */
+.memory-proposal-items { display: flex; flex-direction: column; }
+.memory-proposal-item { padding: 7px 0; border-top: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); }
+.memory-proposal-item:first-child { border-top: 0; padding-top: 2px; }
+.memory-proposal-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.memory-proposal-pick { align-items: flex-start; min-width: 0; }
+.memory-proposal-pick > input { flex: none; margin-top: 3px; }
+.memory-proposal-body { margin-top: 4px; font-size: var(--fs-sm); color: var(--muted); }
+.memory-proposal-body > summary { cursor: pointer; width: max-content; }
+.memory-proposal-body-text { margin-top: 4px; padding: 6px 8px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--muted) 8%, transparent); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
 
 /* v0.9-S5 (真流程 plan mode): the in-flow plan approval card. Assistant-bubble variant tinted with --accent
    so it reads as a decision point, not ordinary chat. Greys out once decided. */

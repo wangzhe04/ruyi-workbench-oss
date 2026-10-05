@@ -98,25 +98,103 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
 // 返回空串 = 放行;否则是给模型看的中文原因。desktopOverride 语义同 buildOpenAiTools(null = 跟随全局)。
 const NATIVE_COMMAND_TOOL_NAMES = new Set(['powershell_run', 'script_run', 'shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
 const NATIVE_DESKTOP_TOOL_NAMES = new Set(['desktop_screenshot', 'keyboard_send_keys']);
+// 桌面闸的唯一判法(原生与桥接共用):会话级覆盖 desktopOverride 非 null 时以它为准,否则跟随全局 allowDesktopTools。
+function desktopToolsDisabledReason(cfg, desktopOverride) {
+  const allowDesk = desktopOverride == null ? (cfg || {}).allowDesktopTools !== false : desktopOverride === true;
+  if (allowDesk) return '';
+  return desktopOverride === false ? 'desktopTools=false (this session)' : 'allowDesktopTools=false';
+}
 function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
   const cfg = config || {};
   if (NATIVE_COMMAND_TOOL_NAMES.has(name) && cfg.allowCommandTools === false) return 'allowCommandTools=false';
-  if (NATIVE_DESKTOP_TOOL_NAMES.has(name)) {
-    const allowDesk = desktopOverride == null ? cfg.allowDesktopTools !== false : desktopOverride === true;
-    if (!allowDesk) return desktopOverride === false ? 'desktopTools=false (this session)' : 'allowDesktopTools=false';
-  }
+  if (NATIVE_DESKTOP_TOOL_NAMES.has(name)) return desktopToolsDisabledReason(cfg, desktopOverride);
   return '';
+}
+// 2026-10 能力总闸补上桥接面。设置页承诺「关掉之后,对应的工具在所有线程里既不提供给模型、也不会执行」,修前只兑现了上面
+// 两张原生名单 —— 内置桌面 MCP(ACC:serverId 'ai-computer-control',桥接名前缀 ai_computer_control__)的 run_command /
+// screenshot / mouse_click 等在两个开关都关掉之后照常提供、照常执行。下面按 ACC 的【裸工具名】补两族(逐个对过
+// mcp/ai-computer-control/src/ai_computer_control/tools/*.py:108 件里收 55 件),【只认内置桌面 MCP】—— 外部 MCP 服务器
+// 哪怕有同名工具也不受影响(它们的语义由用户接入时自己负责,工作台不替它猜)。判据收在 toolDisabledByPolicy 一个函数里,
+// offer 面(09 目录 / 08 子代理 / 11 MCP 子进程目录 / 07 createToolLoadingState)与分发面(09 / 08 / 12 代理 / 13d CLI 权限桥)
+// 都调它;CLI 直挂 ACC 的那一路(01 addExternalMcpServersToMap / syncMcpServersToClaude)按同一张表算出 ACC_HIDE_TOOLS 交给
+// ACC 自己在注册表里摘掉。
+//   命令族(随 allowCommandTools):起进程 / 跑命令 / 杀进程,与原生 powershell_run / script_run / shell_* 同一类能力。
+//     list_processes 只读进程表、不执行任何东西,不收。
+//   桌面族(随 allowDesktopTools 与会话级 desktopTools 覆盖,判法与 NATIVE_DESKTOP_TOOL_NAMES 是同一个 desktopToolsDisabledReason):
+//     按「作用于真实桌面」归类 ——
+//     · screen / capture / mouse / keyboard / window / uia / vision / sync / observe / act_and_verify 全族:读屏、点屏、动键鼠、摆窗口;
+//     · ocr 只收读屏的 ocr_screen / ocr_click / ocr_find_text(后者内部就是 ocr_screen);ocr_image 读的是图片文件、
+//       ocr_available_languages 只列语言包,不收;
+//     · desktop_extra 的像素 / 窗口等待 / 显示器与 DPI 查询;它的 get_clipboard_image / set_clipboard_image 与 clipboard
+//       模块一起按剪贴板算(剪贴板是桌面会话的共享状态,原生 keyboard_send_keys 同族);
+//     · record 全族:record_start 装全局键鼠钩子录下用户的真实输入;macro_list 只列宏文件,但它唯一的用途是喂给 macro_run 回放,随宏族一起关。
+//     名单外的(文件、Office、浏览器自动化、提示音 / 通知弹窗、系统信息、诊断、记忆、fetch)不受影响。
+//   转调器(两个开关【任一】关掉都关):batch_actions / macro_run 按步骤名转调 ACC 实时注册表里的【任意】工具(batch.py
+//     _tool_map,含 run_command / launch_application)—— 只随桌面闸关,它就是命令族的后门;只随命令闸关,反过来也一样。
+const DESKTOP_MCP_SERVER_ID = 'ai-computer-control';
+const ACC_POLICY_TOOL_FAMILIES = Object.freeze({
+  command: Object.freeze(['run_command', 'launch_application', 'kill_process']),
+  desktop: Object.freeze([
+    'screenshot', 'screenshot_region', 'get_screen_info', 'find_on_screen',                                    // screen
+    'window_screenshot',                                                                                       // capture
+    'mouse_click', 'mouse_move', 'mouse_drag', 'mouse_scroll', 'scroll_at', 'get_mouse_position',              // mouse
+    'type_text', 'press_key', 'hotkey', 'key_down', 'key_up',                                                  // keyboard
+    'list_windows', 'get_active_window', 'focus_window', 'resize_window', 'move_window',                       // window
+    'minimize_window', 'maximize_window', 'close_window', 'set_window_topmost',
+    'ui_inspect', 'ui_find', 'ui_invoke',                                                                      // uia
+    'find_template', 'find_all_templates', 'vision_click', 'wait_for_image',                                   // vision
+    'ocr_screen', 'ocr_click', 'ocr_find_text',                                                                // ocr(只收读屏的)
+    'wait_for_pixel',                                                                                          // sync
+    'get_pixel_color', 'wait_for_window', 'wait_for_window_idle', 'list_monitors', 'get_dpi_info',             // desktop_extra
+    'observe', 'act_and_verify',                                                                               // observe / act_and_verify
+    'record_start', 'record_stop', 'macro_list',                                                               // record
+    'get_clipboard', 'set_clipboard', 'get_clipboard_image', 'set_clipboard_image',                            // clipboard
+  ]),
+  dispatcher: Object.freeze(['batch_actions', 'macro_run']),
+});
+const ACC_COMMAND_TOOL_NAMES = new Set(ACC_POLICY_TOOL_FAMILIES.command);
+const ACC_DESKTOP_TOOL_NAMES = new Set(ACC_POLICY_TOOL_FAMILIES.desktop);
+const ACC_DISPATCHER_TOOL_NAMES = new Set(ACC_POLICY_TOOL_FAMILIES.dispatcher);
+// bridge = resolveBridge 的结果 { serverId, toolName }(toolName 是裸名)。不是内置桌面 MCP 的一律放行。
+function bridgedToolDisabledByPolicy(bridge, config, desktopOverride = null) {
+  if (!bridge || bridge.serverId !== DESKTOP_MCP_SERVER_ID) return '';
+  const cfg = config || {};
+  const bare = String(bridge.toolName || '');
+  const commandOff = cfg.allowCommandTools === false;
+  if (ACC_COMMAND_TOOL_NAMES.has(bare)) return commandOff ? 'allowCommandTools=false' : '';
+  if (ACC_DESKTOP_TOOL_NAMES.has(bare)) return desktopToolsDisabledReason(cfg, desktopOverride);
+  if (ACC_DISPATCHER_TOOL_NAMES.has(bare)) return desktopToolsDisabledReason(cfg, desktopOverride) || (commandOff ? 'allowCommandTools=false' : '');
+  return '';
+}
+// 唯一入口:bridge 为空 = 原生工具(按名字判),否则按桥接目标判。返回空串 = 放行,否则是原因(给 toolDisabledResult)。
+function toolDisabledByPolicy(name, config, desktopOverride = null, bridge = null) {
+  return bridge ? bridgedToolDisabledByPolicy(bridge, config, desktopOverride) : nativeToolDisabledByPolicy(name, config, desktopOverride);
+}
+// 这份配置(+ 会话覆盖)下内置桌面 MCP 里被关掉的裸工具名(升序)—— 交给 ACC 的 ACC_HIDE_TOOLS 在注册表里摘掉(CLI 直挂面)。
+function accPolicyHiddenToolNames(config, desktopOverride = null) {
+  const names = [...ACC_POLICY_TOOL_FAMILIES.command, ...ACC_POLICY_TOOL_FAMILIES.desktop, ...ACC_POLICY_TOOL_FAMILIES.dispatcher];
+  return names.filter(n => bridgedToolDisabledByPolicy({ serverId: DESKTOP_MCP_SERVER_ID, toolName: n }, config, desktopOverride)).sort();
+}
+// offer 面:从 [openai fn schema] 里去掉被设置关掉的【桥接】工具(原生工具由 buildOpenAiTools 自己滤)。route 不动 ——
+// 分发面要靠它认出「这是被关掉的 ACC 工具」,回 tool-disabled 而不是 unknown-tool。
+function dropPolicyDisabledBridgedTools(tools, bridgedRoute, config, desktopOverride = null) {
+  return (Array.isArray(tools) ? tools : []).filter(t => {
+    const name = t && t.function && t.function.name;
+    const bridge = name ? resolveBridge(bridgedRoute || {}, name) : null;
+    return !bridge || !bridgedToolDisabledByPolicy(bridge, config, desktopOverride);
+  });
 }
 function toolDisabledResult(name, reason) {
   return { ok: false, code: 'tool-disabled', error: `tool '${name}' is disabled by settings (${reason})`, hint: '该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。' };
 }
 // 审计 N5:按名字取原生工具自己的 JSON schema(13f MCP_TOOLS),供分发前的入参校验(12 validateNativeToolArgs)。
 // 放在 07 而不是 12:07 本就读 MCP_TOOLS,12 再读就是新增一条前向边(module-dependency-graph 的债务上限会红)。
+// C2:13f 的 PROVIDER_SESSION_TOOL_SCHEMAS(只发给模型服务商主回合、不进 MCP_TOOLS 的 scratchpad_write)同走这道校验。
 let _nativeToolSchemaByName = null;
 function nativeToolSchema(name) {
   if (!_nativeToolSchemaByName) {
     _nativeToolSchemaByName = new Map();
-    for (const t of MCP_TOOLS) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
+    for (const t of MCP_TOOLS.concat(PROVIDER_SESSION_TOOL_SCHEMAS)) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
   }
   return _nativeToolSchemaByName.get(name) || null;
 }
@@ -179,6 +257,15 @@ function buildOpenAiTools(config, caps, opts) {
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
     if (caps && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
+  }
+  // C2(61 号文)会话草稿本:只在调用方显式传 opts.scratchpadEnabled 时 offer —— 09 主回合对非管家会话传;08 子代理、
+  // 管家会话(末尾唯一出口只留 steward_*)、各类探针不传。schema 在 13f PROVIDER_SESSION_TOOL_SCHEMAS(不进 MCP_TOOLS,
+  // 所以 Claude/Kimi CLI 的 MCP 面、/api/status、代理目录天然没有它)。read 档,tierFilter 也挡不住它,照常过一遍。
+  if (opts && opts.scratchpadEnabled === true) {
+    for (const t of PROVIDER_SESSION_TOOL_SCHEMAS) {
+      if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
+      out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
+    }
   }
   // 代理模式 v2:wait_agents / agent_result 现随 MCP_TOOLS 一起 offer(上面的 AGENT_TOOL_NAMES 门),不再在此手工追加 ——
   // MCP 子进程侧靠 /api/agent-workflow/wait|result 回环,两面同一份 schema。
@@ -246,6 +333,7 @@ const NATIVE_TOOL_TIER = {
   workbench_memory_list: 'read', workbench_memory_read: 'read', workbench_memory_propose: 'read',
   workbench_memory_relation_propose: 'read', workbench_memory_revise: 'read', workbench_memory_relation_revoke: 'read',
   observation_recall: 'read', // 105a: 只读当前会话快照,授权来自 ctx 会话归属 → auto-allow
+  checkpoint_list: 'read', // C4: 只读当前会话的检查点索引与撤销记录(会话取自 ctx,不触文件路径、不回滚;撤销只能由用户在界面做)→ auto-allow
   list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
@@ -256,6 +344,9 @@ const NATIVE_TOOL_TIER = {
   mcp_list: 'read', mcp_configure: 'exec',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
+  // C2(61 号文):会话草稿本与 todo_write 同类 —— 只写工作台自有的会话旁车(sessions/<id>.scratchpad.json),不碰用户文件、
+  // 不执行任何东西,会话只取回合 ctx(12 handler) → read 档 auto-allow。计划阶段也放行(见 09 PLAN_DISCOVERY_BLOCKED_TOOLS 头注)。
+  scratchpad_write: 'read',
   workbench_self_status: 'read', // 108c: 只读自状态(版本/位置/端口/健康/计数/设置掩码),不触文件路径 → auto-allow
   // 116c(27 号文 §3.5 tier 分档):管家工具族。观察族 read(只读如意自身账面,零副作用);线程族 edit
   // (建线程/递话/改名,全部返回 undoRef 可撤销);决策族 exec(替用户答复待决、控制班组运行,最高危)。
@@ -304,6 +395,9 @@ const NATIVE_TOOL_TIER = {
   steward_schedule_create: 'edit', steward_schedule_pause: 'edit', steward_schedule_resume: 'edit',
   steward_schedule_run_now: 'edit', steward_schedule_delete: 'edit',
   skill_read: 'read', // v1 技能体系: 只读已启用技能的 SKILL.md + 目录清单(路径受限该技能目录内)→ auto-allow
+  // 61 号文 C1:Playbook / 技能清单与 Playbook 步骤文本 —— 只读如意自己的注册表与模板目录,零副作用 → auto-allow。
+  // 「读到模板」不等于「被授权照做」:照做须用户点名或明确同意,由结果 note + 系统提示尾行讲明,不靠把它们归成 edit。
+  playbook_list: 'read', playbook_read: 'read', skill_list: 'read',
   web_search: 'read', web_fetch: 'read', // v0.9-S9: read-only network reads (no local mutation) → auto-allow (SSRF-guarded)
   file_write: 'edit', file_edit: 'edit', file_delete: 'edit', // v0.8-S4a: delete is journaled (revertible) → edit tier
   // v1.1-W2 (T1): 移动/复制/压缩/解压/下载 —— 均落盘且经检查点(可撤销) → edit tier。
@@ -421,7 +515,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
   office: 'Excel, Word, PowerPoint and PDF document operations',
   archive: 'zip and unzip archives',
   agents: 'sub-agents and workflow orchestration',
-  skills: 'read enabled skill instructions',
+  skills: 'list installed skills and Playbooks, read enabled skill instructions and Playbook steps',
   integrations: 'inspect and configure MCP connectors and browser targets',
   memory: 'Workbench Memory maintenance: propose relations between memories, revise a confirmed memory, revoke a relation (plus external memory_save/read/list/delete)',
   thinking: 'step-by-step reasoning chains and sequential thinking',
@@ -442,16 +536,25 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   // 用户话里提到记忆/修订/关系时 classifyToolPacks 自动装载;没装时仍可 tool_load({packs:['memory']}) 或 tool_invoke_read 调用。
   workbench_memory_relation_propose: 'memory', workbench_memory_revise: 'memory', workbench_memory_relation_revoke: 'memory',
   observation_recall: 'core', workbench_self_status: 'core', // 108c: core 常驻,不依赖 classifyToolPacks 意图分类
+  // C2(61 号文)会话草稿本归 core(开局即在):它的用处在压缩之后,而笔记得在压缩【之前】就记下 —— 放进按需包,模型要么不知道
+  // 有它,要么中途 tool_load 一次,提供方前缀缓存整段失效(起手工具表头注的实测:97%→3%)。常驻的代价是 schema 约 710 字符
+  // (≈200 token),每发基本命中缓存。core 同时决定 Claude CLI 的 MCP 工具清单,但它不在 MCP_TOOLS 里(13f 头注),CLI 那边不受影响。
+  scratchpad_write: 'core',
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   audio_transcribe: 'files_read', // 127-114c③:读本地音频文件转写,目录归 files_read(tier 仍是 exec)
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
+  // C4:检查点清单归 files_write 而不是 core / files_read —— 它回答的是「刚才那些写操作哪些能撤」,只有手里有写类工具时才有用,
+  // 随写包一起装(写包本就按「修改/创建/删除…」意图装载,下面 classifyToolPacks 另补了撤销/回滚/检查点);放 core 会每回合常驻
+  // 并泄给 Claude CLI 的 MCP 清单(CLI 自己有 Edit/Write),放 files_read 则读文件的回合白背一个用不上的 schema。
+  checkpoint_list: 'files_write',
   dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code', codebase_symbol_search: 'code', debug_hypothesis: 'code', data_profile: 'code',
   git_status: 'code', git_diff: 'code', git_log: 'code', git_commit: 'code',
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
   archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', skill_read: 'skills',
+  playbook_list: 'skills', playbook_read: 'skills', skill_list: 'skills', // 61 号文 C1:不进 PROVIDER_STARTER_TOOLS(起手工具影响前缀缓存),说到 Playbook/技能时 classifyToolPacks 带出
   mcp_list: 'integrations', mcp_configure: 'integrations',
   // 116c: 管家工具族全部归 steward 包 —— 普通会话的 classifyToolPacks 永远不会路由到这个包
   // (四个 offer 面在包路由【之前】就按 isStewardToolName 拦掉了,包只是目录归属的一致性声明)。
@@ -524,7 +627,11 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   wait_agents: { capabilities: ['agent.workflow.wait'], aliases: ['等待代理完成', '收代理结果', 'wait for agents'] },
   agent_result: { capabilities: ['agent.workflow.result'], aliases: ['读取代理产出全文', '代理结果', 'read agent result'] },
   skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
+  playbook_list: { capabilities: ['playbook.catalog.list'], aliases: ['列出预置流程', '有哪些流程模板', '查看 playbook 清单', 'list playbooks'] },
+  playbook_read: { capabilities: ['playbook.steps.read'], aliases: ['读取预置流程步骤', '流程模板填参', '查看 playbook 步骤', 'read playbook steps'] },
+  skill_list: { capabilities: ['skill.catalog.list'], aliases: ['列出可用技能', '有哪些技能', '查看技能清单', 'list installed skills'] },
   workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
+  checkpoint_list: { capabilities: ['workspace.checkpoint.list'], aliases: ['查看检查点', '可撤销的修改', '哪些改动能撤销', '已撤销的修改', 'list checkpoints', 'what can be undone'] },
   observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
   workbench_memory_propose: { capabilities: ['memory.propose'], aliases: ['提议保存记忆', '记住经验', 'propose memory'] },
 });
@@ -658,7 +765,7 @@ function classifyToolPacks(message, attachments) {
   // 2026-10:泛化的动词(修改/编辑/更新/写入/创建/删除…)只带文件读写,不再顺带 code 包。code 包(git/依赖/审查/符号检索等
   // 12 个工具、约 2.3K token)本机 4 天 0 次使用,却被「file_edit」里的 edit、「更新」这类词带进来;而会话工具表只增不减,
   // 带进来就跟着整个会话。只有明确的代码意图(实现/修复/重构,或下一条的代码词)才装 code。
-  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update)/i.test(s)) add('files_read', 'files_write');
+  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|撤销|回滚|检查点|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update|undo|rollback|checkpoint)/i.test(s)) add('files_read', 'files_write');
   if (/(实现|修复|重构|implement|fix|refactor)/i.test(s)) add('code');
   // 「编码」多指「编码能力」或字符编码、「测试」多指「测一下」,都不再单独算代码意图(「测试」仍带 shell:跑测试要命令行);
   // 明确的「单测 / 单元测试」照旧算。
@@ -671,7 +778,8 @@ function classifyToolPacks(message, attachments) {
   if (/(截图|桌面|窗口|鼠标|键盘|点击|屏幕|ocr|screenshot|desktop|window|mouse|keyboard|click)/i.test(s)) add('desktop');
   if (/(压缩|解压|zip|archive|unzip)/i.test(s)) add('archive', 'files_read', 'files_write');
   if (/(子代理|多代理|工作流|并行|agent|orchestrat|delegate)/i.test(s)) add('agents');
-  if (/(技能|skill)/i.test(s)) add('skills');
+  // 61 号文 C1:Playbook / 预置流程 / 流程模板 / 操作流程 也带 skills 包(playbook_list / playbook_read / skill_list 住在那里)。
+  if (/(技能|skill|playbook|预置流程|预置操作|流程模板|模板流程|操作流程)/i.test(s)) add('skills');
   if (/(mcp|连接器|工具配置|浏览器目标|browser target|connector|tool config)/i.test(s)) add('integrations');
   // 「偏好 / preference」不再单独装 memory 包:记下一条偏好用的是 core 里的 workbench_memory_propose,memory 包是关系边 /
   // 修订 / 撤销这几件维护工具;修前「这两家模型谁更强…偏好」这类话题词就把它带进来、跟着整个会话。
@@ -851,21 +959,62 @@ function toolArgsSkeleton(schema0, mode) {
 // 检索结果统一出口:还没装进工具表的命中带上参数骨架(args)。已装的不带 —— 它的完整说明书本来就在工具表里。
 // opts.loadedNames 只有模型服务商回合给(09 的 toolLoading.search);MCP / CLI 路径不知道 CLI 手里有什么,一律带。
 // 与 metaToolHintsV1(requiredArgs / callHint / 待办去重)无关:那个开关仍管它自己那几样,这里默认开。
+// 61-B1:排在最前的 3 个未装载命中给 full 骨架(全部参数 + 用途说明),其余仍是 brief。真机里 brief 有 41% 被截成「…(+N)」,
+// 模型要么多一轮 tool_load、要么猜参数代叫;最可能被选中的那几个直接给全,文本落在 tool_result 里,不动工具表(缓存中性)。
+const TOOL_SEARCH_FULL_ARGS_TOP = 3;
 function withToolArgSkeletons(result, catalog, opts) {
   if (!result || !Array.isArray(result.matches) || !result.matches.length) return result;
   const loaded = (opts && opts.loadedNames instanceof Set) ? opts.loadedNames : null;
   const byName = new Map((catalog || []).map(x => [x && x.name, x]));
+  let fullLeft = TOOL_SEARCH_FULL_ARGS_TOP;
   const matches = result.matches.map(m => {
     if (!m || m.args !== undefined || (loaded && loaded.has(m.name))) return m;
     const item = byName.get(m.name);
     const params = item && item.tool && item.tool.function && item.tool.function.parameters;
-    const args = toolArgsSkeleton(params, 'brief');
-    return args ? { ...m, args } : m;   // 压不成骨架的(根上是 $ref / 自由对象)不加,别拿「无参」误导
+    const full = fullLeft > 0;
+    const args = toolArgsSkeleton(params, full ? 'full' : 'brief');
+    if (!args) return m;   // 压不成骨架的(根上是 $ref / 自由对象)不加,别拿「无参」误导
+    if (full) fullLeft -= 1;
+    return { ...m, args };
   });
   return { ...result, matches };
 }
+// 61-B3:桌面 MCP 里与内置工具同一件事的桥接工具(按桥接裸名)。只做目录标注:对应的内置工具在本回合目录里时,命中卡带
+// preferred、排到同批未遮蔽项之后。不隐藏、不改 tier / 闸 / 分发 —— 桥接版有内置没有的能力(追加写、目录级 move/copy、
+// cmd.exe 语义),模型确有需要时照样能用。内置版受工作区边界与写前检查点保护,这是首选的理由。
+const BRIDGED_SHADOWED_BY_NATIVE = Object.freeze({
+  read_file: 'file_read', write_file: 'file_write', edit_file: 'file_edit',
+  delete_file: 'file_delete', move_file: 'file_move', copy_file: 'file_copy',
+  list_directory: 'file_list', fetch: 'web_fetch', run_command: 'powershell_run',
+});
+function bridgedShadowNative(item, nativeNames) {
+  if (!item || !item.bridged) return '';
+  const raw = String(item.name || '').split('__').pop();
+  const native = Object.prototype.hasOwnProperty.call(BRIDGED_SHADOWED_BY_NATIVE, raw) ? BRIDGED_SHADOWED_BY_NATIVE[raw] : '';
+  return native && nativeNames.has(native) ? native : '';
+}
+function withShadowedBridgeHints(result, catalog) {
+  if (!result || !Array.isArray(result.matches) || !result.matches.length) return result;
+  const nativeNames = new Set((catalog || []).filter(x => x && !x.bridged).map(x => x.name));
+  const byName = new Map((catalog || []).map(x => [x && x.name, x]));
+  let any = false;
+  const tagged = result.matches.map(m => {
+    const native = m && bridgedShadowNative(byName.get(m.name), nativeNames);
+    if (!native) return m;
+    any = true;
+    return { ...m, preferred: native };
+  });
+  if (!any) return result;
+  // 稳定分区:同一批命中里未遮蔽的在前,被遮蔽的桥接项挪到后面(只在已截好的 Top-K 内重排,不动两套排序本身)。
+  return { ...result, matches: tagged.filter(m => !m || !m.preferred).concat(tagged.filter(m => m && m.preferred)) };
+}
+// 61-A4:零命中不再只回一张空表 —— 模型分不清「措辞没对上」和「真没有这类工具」,于是换着说法连搜(真机搜「撤销/回滚」)。
+const TOOL_SEARCH_EMPTY_NOTE = 'No dedicated tool matched. Try other capability words (Chinese or English) or browse with list_tools {pack}; if nothing fits, do it with the general tools you already have (e.g. powershell_run / script_run when available) or tell the user it is not supported.';
 function searchToolCatalog(catalog, args, config, opts) {
-  return withToolArgSkeletons(rankToolCatalog(catalog, args, config, opts), catalog, opts);
+  // 先分区再给骨架:full 骨架的 3 个名额先给未遮蔽项(被遮蔽的桥接项已挪到后面)。
+  const result = withToolArgSkeletons(withShadowedBridgeHints(rankToolCatalog(catalog, args, config, opts), catalog), catalog, opts);
+  if (result && Array.isArray(result.matches) && !result.matches.length && String(args && args.query || '').trim()) return { ...result, note: TOOL_SEARCH_EMPTY_NOTE };
+  return result;
 }
 
 function rankToolCatalog(catalog, args, config, opts) {
@@ -981,7 +1130,28 @@ function compareToolRetrievalShadow(baseline, candidate) {
 // error/message/detail, which collapsed almost every real process failure into `unknown`. These fields are used
 // in-memory for deterministic classification and the HMAC evidence fingerprint only. Raw stderr/hints are never
 // returned or logged by this function.
-const RUNTIME_FAILURE_CLASSIFIER_VERSION = 'deterministic-v2';
+//
+// v3 (2026-10) closes the network/policy gap v2 left. A real-machine replay of 52 failures still had 28 (54%) in
+// `unknown` because v2 never read the STRUCTURED envelope the tools actually emit: `failClass` (web_fetch /
+// http_request / http_download / web_search: dns|connect|proxy|reset|tls|timeout|aborted|http|network…), a numeric
+// `statusCode`, `blocked` (SSRF / redirect guard), `argsInvalid` (truncated model arguments), `disposition`
+// (plan_refused / args_invalid) and identifier-shaped codes carried in `code` or — for steward tools — in `error`
+// (`not_found`, `budget_exceeded`…). It also had one false positive: web_fetch's "网站拒绝了请求(HTTP 403,可能反爬)"
+// matched /拒绝/ and became permission_denied/request_authority although no user grant can help (a remote refusal is
+// remote_blocked). v3 reads those fields first and keeps the text rules as the fallback. Rules are anchored to exact
+// tokens / numeric statuses / error-or-message text — never to stderr or hints — so unrelated output that merely
+// mentions "blocked" or "captcha" is not reclassified. The mutating-tool safety branch below still runs before every
+// other rule, and nothing here retries or repairs anything.
+const RUNTIME_FAILURE_CLASSIFIER_VERSION = 'deterministic-v3';
+// failClass values (11-native-tools classifyFetchError / httpGetGuarded / web_search) that describe a broken
+// transport: the request may or may not have reached the remote end. A mutating tool is therefore
+// side_effect_unknown; a read tool is transient. (`dns` and `tls` fail before any request byte is sent and are
+// handled separately; `aborted` is a user/steer interrupt, not a fault.)
+const RUNTIME_FAILCLASS_TRANSPORT = new Set(['reset', 'connect', 'proxy', 'timeout', 'network']);
+// Exact code / error tokens (lower-case) emitted by the native, proxy and steward tools. Equality only, no substring.
+const RUNTIME_CODE_INVALID_ARGUMENTS = new Set(['invalid-arguments', 'invalid_args', 'invalid_request', 'invalid_target', 'invalid_ref', 'bad_path', 'bad_pattern', 'tier-mismatch']);
+const RUNTIME_CODE_NOT_FOUND = new Set(['not_found', 'not_in_artifacts']);
+const RUNTIME_CODE_BUDGET = new Set(['budget_exceeded', 'quota_exceeded']);
 function classifyRuntimeToolFailure(toolName, result, meta) {
   if (!result || typeof result !== 'object' || result.ok === true || (result.ok !== false && !result.error)) return null;
   const disposition = String(meta && meta.disposition || 'executed');
@@ -989,12 +1159,36 @@ function classifyRuntimeToolFailure(toolName, result, meta) {
   const code = String(result.code == null ? '' : result.code).trim();
   const text = [result.errorClass, code, result.statusCode, result.error, result.message, result.detail, result.hint, result.stderr]
     .map(value => String(value == null ? '' : value).slice(0, 4000)).join(' ').slice(0, 12000);
+  // v3 structured signals. `primary` is the tool's own error wording only (never stderr/hint), used by the anchored
+  // text rules; the steward tools put their identifier-shaped code in `error` (`{ok:false, error:'not_found', message}`).
+  const primary = [result.error, result.message, result.detail].map(value => String(value == null ? '' : value).slice(0, 2000)).join(' ');
+  const failClass = String(result.failClass == null ? '' : result.failClass).trim().toLowerCase().slice(0, 24);
+  const statusNum = Number(result.statusCode);
+  const httpStatus = Number.isInteger(statusNum) ? statusNum : 0;
+  const errToken = typeof result.error === 'string' && /^[a-z][a-z0-9_-]{2,40}$/i.test(result.error.trim()) ? result.error.trim().toLowerCase() : '';
+  const tokenIs = tokens => tokens.has(code.toLowerCase()) || tokens.has(errToken);
   const mutating = tier !== 'read';
   const timedOut = result.timedOut === true || /timeout|timed out|etimedout|连接.{0,6}超时|超时/i.test(text);
-  const interrupted = result.interrupted === true || result.steerInterrupted === true || /interrupted by user steer|用户插话中断|因用户.{0,8}中断/i.test(text);
-  const transientTransport = timedOut || /econnreset|eai_again|econnrefused|enotfound|socket hang up|network error|connection (?:error|reset|refused|timeout)|remote host closed|\b429\b|\b50[234]\b|temporar|连接.{0,6}(重置|断开)|临时.{0,6}(错误|不可用)/i.test(text);
+  const interrupted = result.interrupted === true || result.steerInterrupted === true || failClass === 'aborted' || /interrupted by user steer|用户插话中断|因用户.{0,8}中断/i.test(text);
+  // `request error` / `response error` is the fallback Node socket error with an empty message (11-native-tools): a
+  // connection-level failure whose cause the tool could not name.
+  const bareSocketError = /^(?:request|response) error$/i.test(String(result.error == null ? '' : result.error).trim());
+  const transportFailure = RUNTIME_FAILCLASS_TRANSPORT.has(failClass) || (failClass === 'dns' && /当前疑似离线/.test(text)) || bareSocketError
+    || httpStatus === 408 || httpStatus === 500;   // 429/502/503/504 are already matched by the text rule below (v2)
+  const transientTransport = timedOut || transportFailure || /econnreset|eai_again|econnrefused|enotfound|socket hang up|network error|connection (?:error|reset|refused|timeout)|remote host closed|\b429\b|\b50[234]\b|temporar|连接.{0,6}(重置|断开)|临时.{0,6}(错误|不可用)/i.test(text);
   const mutatingAmbiguity = transientTransport || interrupted || /operation aborted|effect unknown|outcome unknown|执行结果未知|副作用未知/i.test(text);
   const nonzeroExit = /^-?\d+$/.test(code) && Number(code) !== 0;
+  // A process result (non-zero exit or stderr) is the program's own output: its text must not be mistaken for a
+  // tool-level HTTP/ENOENT/captcha signal.
+  const processResult = nonzeroExit || (typeof result.stderr === 'string' && result.stderr.trim() !== '');
+  const urlShapeRejected = /URL 无法解析|仅允许 http\/https 协议|url must start with http/i.test(primary);
+  const planRefused = disposition === 'plan_refused' || /计划模式.{0,8}请先提交|请先提交\s*PLAN\s*:/i.test(primary);
+  const budgetExhausted = tokenIs(RUNTIME_CODE_BUDGET) || /read budget exhausted|quota exhausted for this/i.test(primary);
+  const guardBlocked = (typeof result.blocked === 'string' && result.blocked.trim() !== '') || failClass === 'blocked';
+  const remoteRefused = !processResult && ((httpStatus === 401 || httpStatus === 403 || httpStatus === 451) || failClass === 'tls'
+    || (guardBlocked && !urlShapeRejected)
+    || /网站拒绝了请求|反爬|人机验证|验证码|\bcaptcha\b|\bcloudflare\b|just a moment|are you (?:a )?(?:human|robot)|bot (?:detection|protection|challenge)/i.test(primary));
+  const pageOrHostMissing = !processResult && (httpStatus === 404 || httpStatus === 410 || failClass === 'dns' || /\benoent\b|no such file or directory/i.test(text));
   let failureClass = 'unknown', recoverableHint = false, allowedRepair = 'diagnose_only';
   // A mutating call that timed out/lost transport/was interrupted may already have changed state. This safety
   // branch intentionally precedes every "repairable" text rule: never turn an ambiguous edit/exec into retry_once.
@@ -1004,13 +1198,30 @@ function classifyRuntimeToolFailure(toolName, result, meta) {
     failureClass = 'transient_read'; recoverableHint = true; allowedRepair = 'retry_once';
   } else if (code === 'not-allowed' || /应用内部数据|已禁止文件工具访问|检测到脚本.{0,50}office|office.{0,40}工具层强制|请改用现成工具|use (?:a )?supported tool/i.test(text)) {
     failureClass = 'policy_blocked'; recoverableHint = true; allowedRepair = 'use_supported_tool';
+  } else if (planRefused) {
+    // Plan mode refuses every non-discovery tool until a `PLAN:` message is submitted: the way out is to plan, not to retry.
+    failureClass = 'policy_blocked'; recoverableHint = true; allowedRepair = 'replan';
+  } else if (budgetExhausted) {
+    // Per-visit / per-turn read budgets and quotas say "answer from what you have instead of retrying": nothing to repair.
+    failureClass = 'policy_blocked';
+  } else if (remoteRefused) {
+    // Must precede permission_denied: "网站拒绝了请求(HTTP 403)" contains 拒绝 but no user grant can help. 401/403/451,
+    // anti-bot/captcha wording, TLS failure, and the SSRF / redirect guard are all "this source is unusable for us".
+    failureClass = 'remote_blocked'; recoverableHint = true; allowedRepair = 'use_alternative_source';
   } else if (/permission|denied|拒绝|拒绝授权|无权限|not allowed|blocked by permission/i.test(text)) {
     failureClass = 'permission_denied'; allowedRepair = 'request_authority';
-  } else if (/old[_ ]?text.{0,24}(not found|missing|匹配.{0,8}(?:0|不到)|未找到)|找不到.{0,16}old[_ ]?text|expected text.{0,16}not found/i.test(text)) {
+  } else if (/old[_ ]?text.{0,24}(not found|missing|匹配.{0,8}(?:0|不到)|未找到)|找不到.{0,16}old[_ ]?text|expected text.{0,16}not found/i.test(text) || code === 'ambiguous') {
+    // `ambiguous` = file_edit's oldText matches several places: re-read and give a longer, unique anchor.
     failureClass = 'edit_conflict'; recoverableHint = true; allowedRepair = 'refresh_then_modify';
-  } else if (/invalid.{0,20}(argument|parameter|input)|schema.{0,20}(fail|invalid)|required.{0,20}(property|field)|\b[a-z_][\w.-]*\s+is\s+required\b|参数.{0,12}(错误|无效|缺少)|缺少.{0,8}(参数|字段)|unexpected.{0,8}(argument|field)/i.test(text)) {
+  } else if (result.argsInvalid === true || disposition === 'args_invalid' || tokenIs(RUNTIME_CODE_INVALID_ARGUMENTS) || urlShapeRejected
+    || /参数不是完整的 JSON 对象|工具调用参数被截断|control-plane tools cannot be invoked through a proxy|risk tier mismatch|tier mismatch \(bridged recheck\)/i.test(primary)
+    || /invalid.{0,20}(argument|parameter|input)|schema.{0,20}(fail|invalid)|required.{0,20}(property|field)|\b[a-z_][\w.-]*\s+is\s+required\b|参数.{0,12}(错误|无效|缺少)|缺少.{0,8}(参数|字段)|unexpected.{0,8}(argument|field)/i.test(text)) {
     failureClass = 'invalid_arguments'; recoverableHint = true; allowedRepair = 'modify_arguments';
-  } else if (/unknown\s+(?:shell|session|resource)(?:id)?|(?:shell|session|resource).{0,20}(?:not found|missing|不存在|已结束)|未知\s*(?:shellid|会话|资源)/i.test(text)) {
+  } else if (/unknown\s+(?:shell|session|resource)(?:id)?|(?:shell|session|resource).{0,20}(?:not found|missing|不存在|已结束)|未知\s*(?:shellid|会话|资源)/i.test(text)
+    || tokenIs(RUNTIME_CODE_NOT_FOUND) || pageOrHostMissing) {
+    // Handles that expired, files/artifacts/observations that are gone (`not_found`, `not_in_artifacts`, ENOENT),
+    // HTTP 404/410 and a DNS name that does not resolve. (A DNS failure that looks transient — EAI_AGAIN or the
+    // "疑似离线" probe hint — was already taken by the transport branches above.)
     failureClass = 'resource_not_found'; recoverableHint = true; allowedRepair = 'reacquire_resource';
   } else if (/unknown tool|tool not found|connector.{0,16}(offline|unavailable)|mcp server.{0,20}not available|工具.{0,8}(不存在|不可用)/i.test(text)) {
     failureClass = 'tool_unavailable'; recoverableHint = true; allowedRepair = 'retrieve_alternative_tool';
@@ -1038,14 +1249,17 @@ function listCompactTools(catalog, args) {
     .slice().sort((a, b) => a.pack.localeCompare(b.pack) || a.name.localeCompare(b.name));
   const page = available.slice(cursor, cursor + limit);
   const groups = {};
+  // 61-B2:代叫要选对 tool_invoke_<tier>,修前 tier 只有 tool_search 给。这里只列非 read 的名字(read 是多数,省 token)。
+  const tiers = {};
   for (const item of page) {
     if (!groups[item.pack]) groups[item.pack] = [];
     groups[item.pack].push(item.name);
+    if (item.tier && item.tier !== 'read') (tiers[item.tier] || (tiers[item.tier] = [])).push(item.name);
   }
   const nextCursor = cursor + page.length < available.length ? cursor + page.length : null;
   return {
     ok: true, pack: pack || null, total: available.length, cursor, count: page.length, nextCursor,
-    groups, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS), packs: TOOL_PACK_DESCRIPTIONS,   // 包说明全表只在这里给(tool_search 只带命中的包)
+    groups, tiers, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS), packs: TOOL_PACK_DESCRIPTIONS,   // 包说明全表只在这里给(tool_search 只带命中的包)
     next: nextCursor === null ? 'Use tool_search with a capability or exact name for descriptions and risk tiers.' : `Call list_tools again with cursor ${nextCursor}.`,
   };
 }
@@ -1084,7 +1298,11 @@ function sanitizeToolSchemaNames(v) {
 }
 
 function createToolLoadingState(config, message, attachments, tools, bridgedRoute, freezeKey, opts) {
-  const catalog = buildToolCatalog(tools, bridgedRoute, config);
+  // 2026-10 能力总闸:被设置关掉的内置桌面 MCP 工具不进目录 —— 于是 full 注入、tool_load 按名拉入、tool_search / list_tools
+  // 都看不见它;冻结表里早先记下的名字按「目录里已经没有」处理(下方 current() 只输出仍在目录里的,与原生工具被关时同一条路)。
+  // opts.desktopOverride 语义同 buildOpenAiTools(null = 跟随全局;09 传会话头上的 desktopTools)。
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
+  const catalog = buildToolCatalog(dropPolicyDisabledBridgedTools(tools, bridgedRoute, config, desktopOverride), bridgedRoute, config);
   const full = config && config.toolLoadingMode === 'full';
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
   // 116f: 目录里出现 steward 包 = 这是管家会话(四个 offer 面已经保证普通会话的目录里永远没有它们)。
@@ -1177,8 +1395,23 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
     for (const n of asList(args && args.tools)) { if (catalog.some(x => x.name === n)) activeNames.add(n); else unknown.push(String(n)); }
     for (const x of liveList()) if (!before.has(x.name) && !reasonOf.has(x.name)) reasonOf.set(x.name, reason || 'tool_load');
     const after = current().map(t => t.function.name);
+    // 61-A4:auto 模式下桥接工具不随包装载(见 liveList 头注)。修前 tool_load({packs:['desktop']}) 回 ok:true、loaded:[],
+    // 模型以为装上了。这里如实点名:包里还有哪些桥接工具没装、该怎么拿(只在模型自己调 tool_load 时给,代理自动装载不需要)。
+    const bridgedLeft = {};
+    if (!full && reason !== 'proxy_promote') {
+      for (const p of asList(args && args.packs)) {
+        if (!TOOL_PACK_DESCRIPTIONS[p]) continue;
+        const names = catalog.filter(x => x.bridged && x.pack === p && !activeNames.has(x.name)).map(x => x.name);
+        if (names.length) bridgedLeft[p] = names.slice(0, 12).concat(names.length > 12 ? [`…(+${names.length - 12})`] : []);
+      }
+    }
+    const hasBridgedLeft = Object.keys(bridgedLeft).length > 0;
+    const hints = [];
+    if (unknown.length) hints.push('这些 pack/工具名不存在;用 list_tools 看可用的 pack,或 tool_search 按用途找工具名');
+    if (hasBridgedLeft) hints.push('桥接(桌面/MCP)工具不随包装载:要用时 tool_load {tools:[精确名]},或直接 tool_invoke_<tier> {name, arguments} 代叫');
     return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length,
-      ...(unknown.length ? { unknown, hint: '这些 pack/工具名不存在;用 list_tools 看可用的 pack,或 tool_search 按用途找工具名' } : {}) };
+      ...(unknown.length ? { unknown } : {}), ...(hasBridgedLeft ? { bridgedNotLoaded: bridgedLeft } : {}),
+      ...(hints.length ? { hint: hints.join(';') } : {}) };
   };
   const list = args => listCompactTools(catalog, args);
   // 冻结表的当前内容(按序),09 写回 session.toolSchemaNames 供重启后恢复;没开冻结时为 null。
@@ -1889,12 +2122,40 @@ async function buildClaudeAgentDefinitions(cwd, config, jsonBudget = 6000) {
 // web_search/web_fetch 定为 read 级的既有裁定对齐(此前 Claude 引擎的研究/审查类 read 节点连检索都不行,两引擎
 // 能力面不对称)。落盘/执行面(Write/Edit/Bash/MCP)分级不变。
 const CLAUDE_SUBAGENT_TIER_TOOLS = { read: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], edit: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Write', 'Edit'], exec: [] };
-// Permission modes that resolve without a human/bridge to answer a prompt: 'bypass' skips all asking,
-// 'auto' is the CLI's own built-in risk classifier (v1.4.3, documented above at runClaudeTurn's
-// usePermissionBridge computation), 'dontAsk' skips by name, and 'plan' never executes a mutating tool in
-// the first place. Anything else ('default', 'acceptEdits') can still block on Bash/exec-tier calls with
-// no one to answer — a one-shot unattended DAG node would hang forever, so those get coerced below.
-const CLAUDE_SUBAGENT_SAFE_MODES = new Set(['bypass', 'auto', 'dontAsk', 'plan']);
+// Permission modes passed straight to the CLI: 'bypass' skips all asking, 'auto' is the CLI's own built-in
+// risk classifier (v1.4.3, documented above at runClaudeTurn's usePermissionBridge computation), and 'plan'
+// never executes a mutating tool in the first place. 'default'/'acceptEdits' would block on a prompt nobody
+// can answer in a one-shot print-mode node, so they go through claudeSubagentPermission below.
+const CLAUDE_SUBAGENT_PASSTHROUGH_MODES = new Set(['bypass', 'auto', 'plan']);
+// 2026-10 拍板「两引擎都按权限档拒绝」:修前 default/acceptEdits 在 edit/exec 档被抬成 bypass —— 用户选了「每步都问」,
+// 工作流里的 Claude 节点却全自动跑,而 OpenAI 路径同档是拒绝(runSubAgentCore 里 nativeToolGate !== 'allow' → 拒绝结果)。
+// 现在与 nativeToolGate 同一条判据:default / dontAsk 只放 read 级,acceptEdits 再放 edit 级,exec 级(Bash/MCP)一律拒。
+// CLI 侧用 dontAsk 落实 —— 不在 --allowed-tools 里的工具直接拒、不弹窗,子进程不会卡在没人按的那一步。
+// capped=true 表示白名单就是授权本身(参数阶梯不能丢它,exec 档也不挂桥接 MCP:挂上去也全被拒)。
+// 节点档位的硬上限(deny):--allowed-tools 在 auto / bypass 下不是硬边界(实测 auto 档 read 节点照样能 Write / PowerShell),
+// 而 OpenAI 路径的 tierFilter 不管什么档都按节点档位封顶。所以 read / edit 档另给 --disallowed-tools,把改文件、跑命令、
+// 起子代理、对外发布 / 定时这类内建工具从模型手里拿掉(实测 auto 与 bypassPermissions 下都生效)。用拒绝清单而不是
+// --tools 允许清单,是为了兼容还不认 --tools 的旧版 CLI;exec 档不封。
+const CLAUDE_SUBAGENT_EXEC_TOOLS = ['Bash', 'PowerShell', 'BashOutput', 'KillShell', 'KillBash', 'Task', 'Agent', 'Workflow', 'TaskStop',
+  'SendMessage', 'PushNotification', 'RemoteTrigger', 'CronCreate', 'CronDelete', 'ScheduleWakeup', 'Artifact', 'ArtifactData',
+  'ArtifactComments', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
+const CLAUDE_SUBAGENT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
+const CLAUDE_SUBAGENT_TIER_DENY = {
+  read: [...CLAUDE_SUBAGENT_EDIT_TOOLS, ...CLAUDE_SUBAGENT_EXEC_TOOLS],
+  edit: CLAUDE_SUBAGENT_EXEC_TOOLS,
+  exec: [],
+};
+const CLAUDE_SUBAGENT_TIER_RANK = { read: 0, edit: 1, exec: 2 };
+function claudeSubagentPermission(requestedMode, tier, roleTools) {
+  const declared = (Array.isArray(roleTools) && roleTools.length) ? roleTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
+  const deny = CLAUDE_SUBAGENT_TIER_DENY[tier] || [];
+  if (CLAUDE_SUBAGENT_PASSTHROUGH_MODES.has(requestedMode)) return { mode: requestedMode, tools: declared, deny, capped: false };
+  // 白名单上限取「档位许可」与「节点档位」里更窄的那个:acceptEdits + read 节点也不许 Write。
+  const modeTier = requestedMode === 'acceptEdits' ? 'edit' : 'read';
+  const ceiling = CLAUDE_SUBAGENT_TIER_TOOLS[CLAUDE_SUBAGENT_TIER_RANK[tier] < CLAUDE_SUBAGENT_TIER_RANK[modeTier] ? tier : modeTier];
+  const base = declared.length ? declared : ceiling; // exec 档的空清单 = 不限 → 收到该档的上限
+  return { mode: 'dontAsk', tools: base.filter(t => ceiling.includes(t)), deny, capped: true };
+}
 
 // One-shot, session-free Claude CLI turn for a single DAG node: spawns `claude -p` with the node/role's
 // own model + tool restriction, feeds stdout through the same parseClaudeEvent normalizer runClaudeTurn
@@ -1957,15 +2218,22 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
   if (!fakeClaude && (!claude || !(await existsExecutableAsync(claude)))) {   // 128f-⑬:子代理入口不钉事件循环
-    return { ok: false, error: 'Claude CLI 未找到，无法以 Claude 引擎运行该节点', iters: 0, toolCalls: 0 };
+    // 61-C6:修前只回一句「未找到」,模型(和用户)不知道找的是哪、该怎么办 —— 真机上 claude.cmd 没装,模型只能猜。
+    // 走到这里的是指定了 engine:'claude' 的节点,或会话里没有可用的模型服务商;provider 节点走 HTTP,不需要 Claude CLI。
+    // 修法写进 error 本身:节点结果往上只带 error(编排信封、工作流节点卡都读它),另起的 hint 字段到不了模型。
+    const where = claude ? `找过 ${claude}` : '没有配置 claudePath,PATH 里也找不到 claude';
+    return { ok: false, error: `Claude CLI 未找到(${where}),无法以 Claude 引擎运行该节点。可以去掉该节点的 engine:'claude'(或不指定引擎)让它经模型服务商运行;或请用户在设置里填 Claude Code 的路径(claudePath)/安装 Claude Code 后重试`,
+      iters: 0, toolCalls: 0 };
   }
   const role = roleDefinition || null;
   const tier = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
   const subModel = String(model || (role && role.models && role.models.claude !== 'inherit' && role.models.claude) || '').trim();
 
   const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-  const requestedMode = roleMode || permModeOverride || config.permissionMode || 'bypass';
-  const effMode = CLAUDE_SUBAGENT_SAFE_MODES.has(requestedMode) ? requestedMode : (tier === 'read' ? 'plan' : 'bypass');
+  // 线程 / 工作流下发的只做计划档压过角色自带的档(与 OpenAI 路径 08 runSubAgentCoreBody 同一条优先级)。
+  const requestedMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || config.permissionMode || 'default');
+  const grant = claudeSubagentPermission(requestedMode, tier, role && role.claudeTools);
+  const effMode = grant.mode;
 
   // Keep the print-mode process input channel open. Claude's documented stream-json input accepts additional
   // user envelopes while a turn is running, which lets the workflow orchestrator steer a long Claude node
@@ -1974,12 +2242,17 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
   if (subModel && subModel !== 'inherit') args.push('--model', subModel);
   if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
-  const allowedTools = (role && role.claudeTools && role.claudeTools.length) ? role.claudeTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
-  if (allowedTools && allowedTools.length) args.push('--allowed-tools', allowedTools.join(','));
+  if (grant.tools.length) args.push('--allowed-tools', grant.tools.join(','));
+  if (grant.deny.length) args.push('--disallowed-tools', grant.deny.join(',')); // 节点档位硬上限,下面的命令行阶梯永不丢它
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(300, Math.round(turnBudget))));
   // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
-  args.push('--append-system-prompt', appendResponseLanguagePolicy('', config, 0, task));
+  // 2026-10:角色提示词(role.prompt)也走这里 —— 修前 Claude 节点只带语言政策,Reviewer 不改文件、Verifier 不改产品代码、
+  // Critic 默认怀疑这些靠提示词立的规矩在 Claude 引擎下全丢(OpenAI 路径 runSubAgentCoreBody 一直把它放进系统提示)。
+  // 下面的命令行阶梯若丢掉 --append-system-prompt,角色提示改放进首条用户消息(stdin,不受命令行长度限制),不会丢。
+  const roleBrief = role && role.prompt ? `角色：${role.label || role.id}\n${role.prompt}` : '';
+  let roleBriefInTask = false;
+  args.push('--append-system-prompt', appendResponseLanguagePolicy(roleBrief ? roleBrief + '\n\n' : '', config, 0, task));
   if (cwd) args.push('--add-dir', cwd);
   // 第28波(§28a):Claude 引擎【不适用】服务端子代理压缩(maybeCompactSubHistory)—— claude CLI 自管上下文窗口与压缩,
   // 服务端一次性 spawn 后只累积 assistantText/resultText 求聚合结果,不持有可压缩的 history 数组。与上文桥接分级不对称同源
@@ -1991,20 +2264,23 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // role.mcpServers narrows an exec-tier node to just those servers; empty/absent means everything the
   // workbench has configured (generateAgentNodeMcpConfig mirrors generateSessionMcpConfig, keyed by subagentId).
   const roleMcpServers = (role && role.mcpServers) || [];
-  const mcpConfigPath = tier === 'exec' ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
+  const mcpConfigPath = (tier === 'exec' && !grant.capped) ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
   if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
 
   // cmd8191 防线(子代理): 子代理 args 小(无技能索引),但自定义 role.claudeTools/超长路径仍可能顶爆 cmd 上限。
-  // 降级阶梯: ① 丢 --append-system-prompt(仅语言政策,可恢复性最低) ② 非 plan 模式丢 --allowed-tools
-  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式下它有意义,不丢)
+  // 降级阶梯: ① 先把角色提示挪进首条用户消息,仍超再丢整条 --append-system-prompt(语言政策) ② 非 plan 模式丢 --allowed-tools
+  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式与按档收紧的 dontAsk 下它就是授权,不丢)
   // ③ 仍超 → 明确报错(分类器把「命令行太长。」列为 definitive,不会无谓重试 3 次)。
   {
     const guardCmd = fakeClaude ? process.execPath : claude;
     const guardBudget = cmdLineBudgetFor(guardCmd);
     if (guardBudget > 0 && spawnCmdLineLength(guardCmd, args) > guardBudget) {
       const pi = args.indexOf('--append-system-prompt');
-      if (pi >= 0) args.splice(pi, 2);
-      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan') {
+      // ①a 先只把角色提示挪进首条用户消息(角色提示可长达 8000 字,是最常见的超预算原因),语言 / 工程政策留在 argv;
+      // ①b 仍超才整条丢掉(修前一步就整条丢,语言政策跟着没了)。
+      if (pi >= 0 && roleBrief) { args[pi + 1] = appendResponseLanguagePolicy('', config, 0, task); roleBriefInTask = true; }
+      if (pi >= 0 && spawnCmdLineLength(guardCmd, args) > guardBudget) args.splice(pi, 2);
+      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan' && !grant.capped) {
         const ti = args.indexOf('--allowed-tools');
         if (ti >= 0) args.splice(ti, 2);
       }
@@ -2066,7 +2342,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       }
       return delivered;
     };
-    try { child.stdin.write(JSON.stringify(buildUserEnvelope(String(taskForAttempt || ''))) + '\n', 'utf8'); } catch { /* ignore */ }
+    try { child.stdin.write(JSON.stringify(buildUserEnvelope((roleBriefInTask ? roleBrief + '\n\n' : '') + String(taskForAttempt || ''))) + '\n', 'utf8'); } catch { /* ignore */ }
     // Polling is intentionally local to this child attempt. It supports both a user steering a live node and
     // the scheduler's automatic wrap-up instruction; queued messages are consumed in order and acknowledged
     // through the same subagent_steered event as Provider nodes.

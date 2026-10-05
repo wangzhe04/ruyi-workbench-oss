@@ -25,6 +25,8 @@
 //   statusEndpoint           打开线程／电量表时刷新原生用量的接口（'' = 这个 CLI 没有）
 //   alwaysInteractive        true = 活回合永远可插话；false = 要 engineMode === 'interactive' 才行
 //   legacyUsageSources       旧用量行（没有 contextEngine 标签）按 usage.source 认领到这个 CLI 的取值
+//   claudeUserCommands       true = 这个 CLI 自己展开 ~/.claude/commands 里的斜杠命令（技能库点选用户命令时插 /name）；
+//                            false = 它不认那些命令，点选时插命令正文作为可编辑模板
 export const AGENT_CLI_DEFAULT_ID = 'claude';
 
 export const AGENT_CLI_REGISTRY = Object.freeze({
@@ -42,6 +44,7 @@ export const AGENT_CLI_REGISTRY = Object.freeze({
     statusEndpoint: '',
     alwaysInteractive: false,
     legacyUsageSources: Object.freeze([]),
+    claudeUserCommands: true,
   }),
   kimi: Object.freeze({
     id: 'kimi',
@@ -57,6 +60,7 @@ export const AGENT_CLI_REGISTRY = Object.freeze({
     statusEndpoint: '/api/kimi/status',
     alwaysInteractive: true,
     legacyUsageSources: Object.freeze(['kimi-native', 'kimi-wire']),
+    claudeUserCommands: false,
   }),
 });
 

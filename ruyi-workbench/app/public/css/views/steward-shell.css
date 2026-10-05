@@ -36,6 +36,12 @@
 :root[data-shell-mode="steward"] .app-views > .steward-shell:has(> .steward-side[hidden]) {
   grid-template-columns: minmax(0, 1fr) 0;
 }
+/* ≤1180:右栏是盖在视角槽位上的滑出层(layout.css §7.3 那条容器查询),这一格不该再占列。修前那条规则写的是
+   `.app-views > .steward-shell`,特异度压不过上面带 :root[data-shell-mode] 的基础规则 —— 1024 宽下中栏被挤到 364px、
+   右边留一整列 392px 的死空白(真浏览器走查实测)。这里用同一个选择器、排在基础规则之后。 */
+@container frame (max-width: 1180px) {
+  :root[data-shell-mode="steward"] .app-views > .steward-shell { grid-template-columns: minmax(0, 1fr) 0; }
+}
 /* 2026-09-24（用户：「右边的线程永远收不起来」）：右栏【可收起】—— 用户收起时那一格只留一条窄条
    （宽度只有这一个 token，窄条本体在 steward-board.css 的 .steward-side 一族里读它）。判据仍然是右栏
    自己的属性（data-collapsed 与 hidden 都由 steward-board.js 的 syncNow 一处写）。

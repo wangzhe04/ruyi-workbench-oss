@@ -409,8 +409,8 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 .audit-badge.src-workbench .audit-dot { background: var(--accent); }
 .audit-badge.src-desktop { color: var(--warn-fg); background: var(--warn-bg); }
 .audit-badge.src-desktop .audit-dot { background: var(--warn); }
-.audit-type { flex: none; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
-.audit-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.audit-type { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }   /* 可收:修前 flex:none,英文类型名把摘要挤成 0、折叠箭头挤出视口 */
+.audit-summary { flex: 1 1 6em; min-width: 3em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .audit-caret { flex: none; color: var(--muted); transition: transform var(--dur-fast) var(--ease-out); }
 .audit-row.open .audit-caret { transform: rotate(90deg); }
 .audit-detail { padding: 8px 10px; margin: 0; background: var(--panel-2); border-top: 1px solid var(--line);
