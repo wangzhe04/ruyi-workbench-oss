@@ -873,7 +873,8 @@ async function handleApi(req, res, pathname) {
     const sessionId = safeSessionId(String(body.sessionId || ''));
     if (!sessionId) return send(res, apiSessionIdInvalid());
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
-    return send(res, json(await runProviderCompact(sessionId)));
+    // mode:'summary' = 跳过「L1 够了就停」直接做摘要(缺省 'auto':先 L1,不够再摘要,见 runProviderCompact)。
+    return send(res, json(await runProviderCompact(sessionId, { mode: body.mode })));
   }
   if (req.method === 'POST' && pathname === '/api/agent/compact') {
     const body = await readJsonBody(req);

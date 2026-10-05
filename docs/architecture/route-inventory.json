@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-05T15:53:59.086Z",
+  "generatedAt": "2026-10-05T16:54:36.194Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1773,6 +1773,7 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
@@ -2430,6 +2431,7 @@
         "dev-harness\\playbook-skill-tools.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\prefix-layout.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
@@ -3262,6 +3264,7 @@
         "dev-harness\\permission-survives-reload.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
@@ -3505,6 +3508,7 @@
         "dev-harness\\permission-survives-reload.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
@@ -3699,6 +3703,7 @@
         "dev-harness\\perf.e2e.js",
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",

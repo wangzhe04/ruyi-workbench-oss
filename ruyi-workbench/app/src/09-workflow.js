@@ -2628,6 +2628,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
             beforeTokens: estBeforeCall, error: call.httpError,
             signal: ctrl && ctrl.signal,   // Stop 当场取消强压的摘要调用(10 runForcedOverflowCompaction)
+            scratchpadHint: session.kind !== 'steward',   // 摘要后的工具索引多一句「要原样留着的写进草稿本」(C2 草稿本只给普通会话)
           });
           // 摘要是被停止取消的:回合已停,不重试、不报「压缩无果」,直接按停止收尾(L1 的原地蒸发配对完好)。
           if (forced.aborted || reg.state !== 'running') { aborted = true; ok = false; break; }

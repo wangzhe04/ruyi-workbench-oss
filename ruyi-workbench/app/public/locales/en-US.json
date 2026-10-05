@@ -1665,6 +1665,7 @@
   "toast.answerFail": "Failed to send answer: {{p1}}",
   "toast.cleanFail": "Cleanup failed: {{err}}",
   "toast.compactDone": "Context compacted: {{p1}} → ~{{p2}} (est.)",
+  "toast.compactL1Done": "Context compacted: older tool output folded (originals recoverable, no summary call) {{p1}} → ~{{p2}} (est.)",
   "toast.compactEmpty": "Nothing to compact yet",
   "toast.compactFail": "Compaction failed: {{p1}}",
   "toast.compactRequested": "Context compaction requested (/compact)",
