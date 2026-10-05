@@ -34536,11 +34536,21 @@ function resourceBlockers(group, resources) {
   }
   return blockers;
 }
+// 这个组手里此刻是否已经握着任何租约。节点级声明与它名下的工具级请求用同一个组名(`${runId}:${node.id}`),
+// 所以「握着租约的组又来要租约」就是嵌套请求:它的释放要等这次请求完成,别的组可能正等着它释放。
+function groupHoldsLease(group) {
+  for (const [, lease] of resourceLeases) if (lease.group === group) return true;
+  return false;
+}
 function drainResourceWaiters() {
   for (let i = 0; i < resourceWaiters.length;) {
     const waiter = resourceWaiters[i];
     if (waiter.signal && waiter.signal.aborted) { resourceWaiters.splice(i, 1); waiter.reject(Object.assign(new Error('resource wait aborted'), { name: 'AbortError' })); continue; }
-    const earlierConflict = resourceWaiters.slice(0, i).some(earlier => waiter.resources.some(a => earlier.resources.some(b => agentResourcesConflict(a, b))));
+    // 公平排队(写者不被后来的读者插队)只约束【手里没有租约】的组。握着租约的组不排在任何人后面,只看真正的持有者:
+    // 更早的等待者若正等着这个组释放(典型:节点 A 持有 workspace 租约、节点 B 在等它,A 的某次工具调用再要 A 自己
+    // workspace 下的文件),排在它后面就是 A 等 B、B 等 A 的死局 —— wouldDeadlock 只给「持有者」建边,看不见排队边。
+    const earlierConflict = !groupHoldsLease(waiter.group)
+      && resourceWaiters.slice(0, i).some(earlier => waiter.resources.some(a => earlier.resources.some(b => agentResourcesConflict(a, b))));
     if (earlierConflict || resourceBlockers(waiter.group, waiter.resources).length) { i += 1; continue; }
     resourceWaiters.splice(i, 1);
     const token = makeId('lease');
@@ -34584,10 +34594,14 @@ async function acquireResourceLease(group, resources, signal, onWait, timeoutMs)
   const specs = Array.isArray(resources) ? resources : [];
   if (!specs.length) return '';
   const blockers = resourceBlockers(group, specs);
-  const queuedAhead = resourceWaiters.filter(waiter => specs.some(a => waiter.resources.some(b => agentResourcesConflict(a, b))));
+  // 握着租约的组不排队(理由见 groupHoldsLease / drainResourceWaiters):嵌套的工具级请求只会被真正的持有者挡住。
+  const queuedAhead = groupHoldsLease(group) ? [] : resourceWaiters.filter(waiter => specs.some(a => waiter.resources.some(b => agentResourcesConflict(a, b))));
   if (!blockers.length && !queuedAhead.length) {
     const token = makeId('lease'); resourceLeases.set(token, { group, resources: specs, acquiredAt: nowIso() }); return token;
   }
+  // 传进来的 signal 已经 aborted 时,下面挂的 'abort' 监听永远不会再触发 —— 入队前先判,免得一个已取消的请求
+  // 无限期挂在队里(还会挡住排在它后面的人)。
+  if (signal && signal.aborted) throw Object.assign(new Error('resource wait aborted'), { name: 'AbortError' });
   // v1.x (B1 hardening): before parking a BLOCKED waiter, detect a real wait-for cycle. A cycle can NEVER be
   // drained (drainResourceWaiters would loop forever), so reject at once instead of waiting out the long
   // backstop timeout. This is the primary mechanism; the timeout below is only the extreme-case backstop.
@@ -41330,11 +41344,21 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     : Math.max(60000, idleLimitMs);
   runtime.lastActivityAt = Date.now(); // on the SHARED runtime so the resume handler can reset it atomically with clearing paused (closes the race where the watchdog fires after paused=false but before the loop resets the clock)
   let idleAborted = false;
+  // 父回合被用户 Stop / 断线而中止了这个 run(区别于 runtime.stopRequested 的「停止这个 run」与 idleAborted 的看门狗):
+  // 收尾据此把 run 记成 stopped 而不是 failed / partial(见下面 run.status 的赋值)。在循环里的中止分支置上。
+  let parentStopped = false;
   const idleWatchdog = setInterval(() => {
     if (!activeAgentRuns.has(runId)) return;
     if (localCtrl && localCtrl.signal && localCtrl.signal.aborted) return;
     if (runtime.paused) return; // v1.x (B1-fix): a paused run accrues NO idle time - the watchdog must never kill a paused run (its pause-wait loop only wakes on resume/stop, not on a localCtrl abort)
     if (runtime.inPoolGrace) return; // 团队模式 v2 (A2): 宽限窗期间在等待任务池审批,不计空闲——同 paused,窗内绝不被 watchdog 杀
+    // 有节点在 waiting_resource(排在别的 run / 别的回合持有的资源租约后面)= 在排队,不是卡死,不计空闲。
+    // 节点级租约(08 runSubAgent 的 acquireResourceLease,按设计不带超时)等待期间没有任何事件:工具级等待有 startToolBeat 的
+    // 心跳,节点级这一段没有 —— 修前所有节点都在等别的 run 释放资源、且等得比 idleLimitMs(默认 10 分钟)久时,整个 run
+    // 被当成「无进展」中止,节点记 idle_timeout。真死锁另有两道兜底,不靠这里:06g 的等待环检测(RESOURCE_DEADLOCK)与
+    // 工具级租约的 30 分钟超时;节点级自己的卡死由下面 workflowControlTimer 里的节点 watchdog 盯(只盯 running 节点)。
+    // 刷新而不是单纯跳过:等待一结束、节点转 running 时,时钟是新的,不会在下一拍就撞上陈旧的 lastActivityAt。
+    if (nodes.some(n => n && n.status === 'waiting_resource')) { runtime.lastActivityAt = Date.now(); return; }
     if (Date.now() - runtime.lastActivityAt > idleLimitMs) {
       idleAborted = true; run.idleAborted = true;
       onEvent({ type: 'stderr', text: `[watchdog] agent workflow idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
@@ -41568,6 +41592,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (run.status === 'paused') { run.status = 'running'; runtime.lastActivityAt = Date.now(); await saveAgentRun(run).catch(() => {}); } // v1.x (B1-fix): resume resets the idle clock so a long pause does not make the very next watchdog tick false-fire
     if (runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) {
       while (inFlight.size) await raceInFlight();   // 第26波: ctrl 已 abort,在飞节点快速收敛;drain 后再统一取消
+      // 不是「停止这个 run」(stopRequested)也不是看门狗(idleAborted)—— 那就是父回合被停 / 断线把它一起中止了。
+      // 只有确有未成功的节点才算「被停止打断」:全部节点都已成功 / 跳过 / 被质量门驳回时,run 照常按 succeeded 收尾。
+      if (!runtime.stopRequested && !idleAborted && nodes.some(n => n.status !== 'succeeded' && n.status !== 'skipped' && n.status !== 'rejected')) parentStopped = true;
       for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.errorClass = idleAborted && !runtime.stopRequested ? 'idle_timeout' : 'cancelled'; node.completedAt = nowIso(); }
       break;
     }
@@ -42106,7 +42133,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // 不该把本来成功的 run 拉成 partial(设计 A3 明示)。故把 fromPool && continue 的非成功节点排除出失败统计。范围仅限
   // 池节点,不改动普通节点的 continue 语义(避免回归)。下游不阻塞早由 failureContinues 处理,此处只影响 run 总态判定。
   const failed = nodes.filter(n => n.status !== 'succeeded' && n.status !== 'skipped' && n.status !== 'rejected' && !(n.fromPool && n.failurePolicy === 'continue'));
-  run.status = runtime.stopRequested ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
+  // 父回合被用户 Stop 导致 run 中止:记 stopped,与 stopRequested 同一个终态(修前落成 failed / partial,界面显示「失败」,
+  // 后台 run 的完成信封也会被当成失败去唤醒主会话 —— 用户刚叫停的,不该再被唤醒)。看门狗空闲中止仍是真失败。
+  run.status = (runtime.stopRequested || parentStopped) ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
   run.completedAt = nowIso();
   run.summary = summarizeAgentWorkflowRun(run);
   // 29c: 收尾聚合失败分类 —— 幂等重算(非增量),resume 重跑后自动反映最新状态。errorClass 由各 error
@@ -69800,7 +69829,9 @@ async function stewardImplRunsStatus(args, ctx, config) {
         status: String(mem.status || ''),
         live: !!live,
         paused: !!(live && live.paused),
-        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'done').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
+        // done 数的是成功态:09 工作流里节点的成功终态叫 'succeeded'(没有 'done' 这个值)。修前统计 status === 'done',
+        // 恒为 0 —— 一个全部跑完的 run 也报「0 个节点完成」。键名 done 不动(模型与测试已经按它读)。
+        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'succeeded').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
         // 等待原因单一化:优先「等你」(池提案待批),其次「等锁」(资源),再次「已暂停」。
         waitReason: (Array.isArray(mem.taskPool) ? mem.taskPool : []).some(p => p && p.status === 'proposed') ? '等你批任务池提案'
           : nodes.some(n => n && n.status === 'waiting_resource') ? '等资源锁'

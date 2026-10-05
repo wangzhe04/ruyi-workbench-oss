@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3473,
+    "providedSymbols": 3474,
     "requiredSymbols": 3126,
     "edges": 535,
     "forwardEdges": 67,
@@ -6414,6 +6414,7 @@
         "bridgedDesktopLeaseMode",
         "canonicalResourcePath",
         "drainResourceWaiters",
+        "groupHoldsLease",
         "inferToolResources",
         "normalizeAgentResource",
         "normalizeAgentResources",

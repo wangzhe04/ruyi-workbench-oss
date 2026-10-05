@@ -95,11 +95,21 @@ function resourceBlockers(group, resources) {
   }
   return blockers;
 }
+// 这个组手里此刻是否已经握着任何租约。节点级声明与它名下的工具级请求用同一个组名(`${runId}:${node.id}`),
+// 所以「握着租约的组又来要租约」就是嵌套请求:它的释放要等这次请求完成,别的组可能正等着它释放。
+function groupHoldsLease(group) {
+  for (const [, lease] of resourceLeases) if (lease.group === group) return true;
+  return false;
+}
 function drainResourceWaiters() {
   for (let i = 0; i < resourceWaiters.length;) {
     const waiter = resourceWaiters[i];
     if (waiter.signal && waiter.signal.aborted) { resourceWaiters.splice(i, 1); waiter.reject(Object.assign(new Error('resource wait aborted'), { name: 'AbortError' })); continue; }
-    const earlierConflict = resourceWaiters.slice(0, i).some(earlier => waiter.resources.some(a => earlier.resources.some(b => agentResourcesConflict(a, b))));
+    // 公平排队(写者不被后来的读者插队)只约束【手里没有租约】的组。握着租约的组不排在任何人后面,只看真正的持有者:
+    // 更早的等待者若正等着这个组释放(典型:节点 A 持有 workspace 租约、节点 B 在等它,A 的某次工具调用再要 A 自己
+    // workspace 下的文件),排在它后面就是 A 等 B、B 等 A 的死局 —— wouldDeadlock 只给「持有者」建边,看不见排队边。
+    const earlierConflict = !groupHoldsLease(waiter.group)
+      && resourceWaiters.slice(0, i).some(earlier => waiter.resources.some(a => earlier.resources.some(b => agentResourcesConflict(a, b))));
     if (earlierConflict || resourceBlockers(waiter.group, waiter.resources).length) { i += 1; continue; }
     resourceWaiters.splice(i, 1);
     const token = makeId('lease');
@@ -143,10 +153,14 @@ async function acquireResourceLease(group, resources, signal, onWait, timeoutMs)
   const specs = Array.isArray(resources) ? resources : [];
   if (!specs.length) return '';
   const blockers = resourceBlockers(group, specs);
-  const queuedAhead = resourceWaiters.filter(waiter => specs.some(a => waiter.resources.some(b => agentResourcesConflict(a, b))));
+  // 握着租约的组不排队(理由见 groupHoldsLease / drainResourceWaiters):嵌套的工具级请求只会被真正的持有者挡住。
+  const queuedAhead = groupHoldsLease(group) ? [] : resourceWaiters.filter(waiter => specs.some(a => waiter.resources.some(b => agentResourcesConflict(a, b))));
   if (!blockers.length && !queuedAhead.length) {
     const token = makeId('lease'); resourceLeases.set(token, { group, resources: specs, acquiredAt: nowIso() }); return token;
   }
+  // 传进来的 signal 已经 aborted 时,下面挂的 'abort' 监听永远不会再触发 —— 入队前先判,免得一个已取消的请求
+  // 无限期挂在队里(还会挡住排在它后面的人)。
+  if (signal && signal.aborted) throw Object.assign(new Error('resource wait aborted'), { name: 'AbortError' });
   // v1.x (B1 hardening): before parking a BLOCKED waiter, detect a real wait-for cycle. A cycle can NEVER be
   // drained (drainResourceWaiters would loop forever), so reject at once instead of waiting out the long
   // backstop timeout. This is the primary mechanism; the timeout below is only the extreme-case backstop.

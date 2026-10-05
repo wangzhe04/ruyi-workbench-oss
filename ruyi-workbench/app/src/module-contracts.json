@@ -6330,6 +6330,7 @@
         "bridgedDesktopLeaseMode",
         "canonicalResourcePath",
         "drainResourceWaiters",
+        "groupHoldsLease",
         "inferToolResources",
         "normalizeAgentResource",
         "normalizeAgentResources",

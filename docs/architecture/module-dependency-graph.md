@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3473 | 3126 | 535 | 67 | 0 | 1 |
+| 70 | 3474 | 3126 | 535 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -51,7 +51,7 @@
 | 33 | `06d-memory-domain.js` | engine | 142 | 37 | 10 |
 | 34 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 35 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
-| 36 | `06g-resource-leases.js` | engine | 20 | 5 | 3 |
+| 36 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
 | 37 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 38 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
 | 39 | `07-autonomy.js` | orchestration | 139 | 67 | 17 |
