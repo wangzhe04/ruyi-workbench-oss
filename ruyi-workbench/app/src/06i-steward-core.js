@@ -1538,7 +1538,7 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'stewardContextBudgetRatio',
   // 132b:并发与班组 —— 同时跑几个就是同时花几份钱。
   'subagentMaxConcurrent', 'subagentMaxPerTurn', 'agentWorkflowMaxNodes', 'agentNodeWrapUpMs', 'agentTaskPoolPolicy', 'agentTaskPoolAutoCap',
-  'agentAutoModelTiering', 'shellSessionMax',
+  'agentAutoModelTiering', 'shellSessionMax', 'agentAutoWake',
   // 132b:模型清单(改了它,下一条线程可能跑在另一个模型上)。
   'knownModels', 'extraModels', 'discoverModelsFromProxy',
   // 132b:调度器与安静卡 —— 123 波原本留在 forbidden(「让模型决定用户多久看见」);按用户新拍板改成 confirm:
@@ -1681,6 +1681,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['openaiMaxToolIterations', 'OpenAI 兼容引擎一回合最多调几次工具(1–200)', 'Max tool iterations per turn on OpenAI-compatible engines (1–200)'],
   ['subagentMaxConcurrent', '子代理同时最多几个', 'Max concurrent sub-agents'],
   ['subagentMaxPerTurn', '一回合最多派几个子代理', 'Max sub-agents per turn'],
+  ['agentAutoWake', '后台代理跑完后自动唤醒对话', 'Wake the conversation when background agents finish'],
   ['agentWorkflowMaxNodes', '工作流最多多少个节点', 'Max workflow nodes'],
   ['agentNodeWrapUpMs', '节点收尾宽限,毫秒', 'Node wrap-up grace, ms'],
   ['agentTaskPoolPolicy', '任务池策略:manual / auto', 'Task pool policy: manual / auto'],

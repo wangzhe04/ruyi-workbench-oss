@@ -363,6 +363,9 @@ function defaultConfig() {
     // (subagentMaxConcurrent 1..8, subagentMaxPerTurn 0..32) — most real workflows were hitting these.
     subagentMaxConcurrent: 8,
     subagentMaxPerTurn: 32,
+    // 后台代理(orchestrate_agents{background:true})跑完时主回合已经结束 → 工作台自己起一个回合把交付信封送给模型
+    // (10 scheduleAgentWake)。false = 旧行为:信封等用户下一句话时才随回合开头送达。
+    agentAutoWake: true,
     // 52x: 子 agent 优先端点+模型。spawn_agent/orchestrate 的 openai 节点默认用此 provider+model(可跨 provider);
     //   模型仍可经 spawn_agent.model 参数选同端点下别的模型(如 Pro 版),或 omit 继承默认。未配置 -> fallback 主 provider + provider.subagentModel。
     subagentPreferredProvider: '',
@@ -1306,6 +1309,11 @@ function normalizeConfig(raw, opts = {}) {
   }
   // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
   // v1.4.4: fallback defaults raised to the top of each range (8 / 32) — see defaultConfig() note.
+  {
+    // 后台代理完成自动唤醒:只有显式 false 才关(缺省 / 非布尔一律按开)。
+    const aw = config.agentAutoWake !== false;
+    if (aw !== config.agentAutoWake) { config.agentAutoWake = aw; changed = true; }
+  }
   {
     const sc = Number(config.subagentMaxConcurrent);
     const clamped = Number.isFinite(sc) ? Math.min(8, Math.max(1, Math.round(sc))) : 8;

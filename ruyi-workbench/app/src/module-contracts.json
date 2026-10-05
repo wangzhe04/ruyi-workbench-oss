@@ -9881,6 +9881,9 @@
       "file": "10-context-governance.js",
       "layer": "orchestration",
       "provides": [
+        "AGENT_WAKE_CHAIN_MAX",
+        "AGENT_WAKE_DEBOUNCE_MS",
+        "AGENT_WAKE_SOURCE",
         "COMPACTION_REFETCH_LIMITS",
         "COMPACTION_REFETCH_REFUSED",
         "COMPACTION_REFETCH_TOOLS",
@@ -9942,6 +9945,11 @@
         "_calibKey",
         "agentConversationContextMeta",
         "agentNodeContextWindow",
+        "agentWakeAttempted",
+        "agentWakeChain",
+        "agentWakeMessage",
+        "agentWakeSkipsStatus",
+        "agentWakeTimers",
         "aggregateSummaryCalls",
         "anySummarySignal",
         "appendPromptToLastUserMessage",
@@ -10022,10 +10030,12 @@
         "resolveContextWindow",
         "resolveSummaryCallPolicy",
         "runAgentExternalCompact",
+        "runAgentWake",
         "runAutoCompaction",
         "runForcedOverflowCompaction",
         "runProviderCompact",
         "runSessionTurn",
+        "scheduleAgentWake",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -10092,6 +10102,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
           "kinds": [
             "read"
           ]
@@ -10465,6 +10482,13 @@
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
           ]
         },
         {

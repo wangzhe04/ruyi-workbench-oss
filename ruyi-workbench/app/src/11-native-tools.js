@@ -50,6 +50,10 @@ function persistBackgroundJob(job) {
   }
   // The global SSE bus only carries metadata; tool output stays on the authenticated session route.
   RUYI_EVENTS.emit('background.completed', { sessionId: job.sessionId, jobId: job.id, status: job.status, persisted, kind: job.kind || 'shell', runId: job.runId || '' });
+  // 后台代理的信封落账 → 线程此刻没有回合在跑就唤醒它(10 scheduleAgentWake;判据与防抖全在那边)。
+  if (persisted && job.kind === 'agent' && job.background === true && EventStreamHooks.onAgentEnvelopePersisted) {
+    try { EventStreamHooks.onAgentEnvelopePersisted(job); } catch { /* 唤醒是旁路,绝不反噬落账 */ }
+  }
   return persisted;
 }
 // A separate completion ledger cannot be overwritten by an older turn snapshot. Both session load
@@ -156,7 +160,15 @@ EventStreamHooks.notifyAgentRunEnvelope = (sessionId, run, envelope) => {
     id: EventStreamHooks.agentEnvelopeJobId(run.id), kind: 'agent', runId: String(run.id), shellId: String(run.id), name, sessionId,
     status: String(run.status || 'unknown'), exitCode: run.status === 'succeeded' ? 0 : 1,
     output: output.slice(0, 24000), truncated: output.length > 24000, completedAt: run.completedAt || nowIso(),
+    // 模型以 background:true 起的 run(含它的续跑/重试)才唤醒主会话;界面上同步跑完补投的那份不唤醒(没人在等它)。
+    ...(run.background === true ? { background: true } : {}),
   });
+};
+// 还没送达、可以唤醒主会话的后台代理信封(账本里 kind:'agent' 且 background、不在 seen 表里)。10 的唤醒判据只经这里读账本。
+EventStreamHooks.pendingAgentWakeJobs = session => {
+  if (!session || !session.id) return [];
+  const seen = new Set(Array.isArray(session.backgroundJobSeen) ? session.backgroundJobSeen : []);
+  return readBackgroundJobs(session.id).filter(job => job && job.kind === 'agent' && job.background === true && !seen.has(job.id));
 };
 
 function shellIdValid(id) { return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,32}$/.test(id); }
