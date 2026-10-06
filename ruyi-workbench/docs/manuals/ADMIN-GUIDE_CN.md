@@ -76,11 +76,12 @@ $env:RUYI_HOME = "D:\workbench-data"
 
 默认端口 **8765**（`DEFAULT_PORT`）。取值优先级：`--port <n>` → 环境变量 `PORT` → 8765。绑定 `127.0.0.1`（仅本机）。
 
-**被占接管语义**（`listenWithFallback`，`EADDRINUSE` 时）：
+**被占时怎么办**（`listenWithFallback`，`EADDRINUSE` 时）。一句话口径：**端口上有响应 `/health` 的如意实例会被接管；别的程序占着则顺延到下一个端口。**
 
-- 若 `killPortOnStart=false`（配置）或 `WCW_KILL_PORT=0`（环境变量）→ **不接管**，直接报错让你换端口（`--port`）。
-- 否则探测占用者：**只有当占用进程确认是本工作台的陈旧实例时才结束它并在同一端口重试**（最多重试若干次）；若占用者是**非工作台进程**，为避免误杀会拒绝接管，报出占用 PID / 进程名让你手动处理。
-- 注意：接管不是「端口自增」——它是「结束陈旧实例、在原端口重来」。
+- 若 `killPortOnStart=false`（配置）或 `WCW_KILL_PORT=0`（环境变量，`false` / `off` / `no` 同义）→ **不接管**，直接顺延：依次试 port+1 … port+9，第一个能监听的就用它。
+- 否则探测占用者（`freeStalePort`）：该端口 `/health` 的回应像如意（`app` 是产品名，或带 `overlayId` / `version`）→ 判为如意实例，**结束它（连同它的子孙进程），并在原端口重试**（最多等约 4 秒）。`/health` 不像如意时，再看占用者是不是 `runtime.json` 记着的那个 PID、进程镜像名是不是 `Ruyi` / `WinClaudeWorkbench`，或是 `node.exe` 且命令行指向本应用的 `server.js`；都不是就**不动它**，改为顺延。
+- **判据只看「像不像如意」**，不看它是不是陈旧、有没有回合在跑、是不是同一个数据目录。所以同一个人先后启动两份不同目录的如意（升级时常见），后启动的会结束先启动的，连同它正在跑的回合。想并行跑两份：第二份用 `--port` 指一个没人占的端口，或设 `killPortOnStart=false`，让它被占时顺延而不是接管。
+- 顺延后的**实际端口**写进 `runtime.json`、控制台地址与 `--open`，界面顶部条会说明「已改用 8766（原 8765 被占用）」。port+1 … port+9 全部不可用才报错退出（原因落 `last-start-error.json`，下次成功启动时在界面里提示）。
 
 ### 1.6 Win10/11 要求
 
@@ -97,7 +98,7 @@ Windows 10 / 11（或 Windows Server）；Node ≥ 20（打包 exe 自带运行�
 `activeProvider` 为空或 `'claude-cli'`（默认）。spawn 内网 `claude` CLI，走 `stream-json`。相关配置：
 
 - **`claudePath`**：CLI 可执行文件路径（留空则自动探测常见位置）。
-- **第三方端点 / 密钥（`modelsApiBase` / `modelsApiKey` / `claudeAuthMode`）**：v1.4.4 起这三项**同时**决定两件事——① 模型清单发现（`GET /v1/models`）；② 实际 spawn 的 `claude` 子进程本身的环境变量（`buildClaudeCliEnv`，见 §2.1.1「环境变量干扰与优先级」）。baseUrl 取值优先级：`config.modelsApiBase` → 继承的 `ANTHROPIC_BASE_URL` → `ANTHROPIC_BASE`；密钥按 `claudeAuthMode` 精确二选一写入 `ANTHROPIC_AUTH_TOKEN`（`bearer`，多数第三方 Coding Plan）或 `ANTHROPIC_API_KEY`（`x-api-key`，Anthropic 官方协议），`auto` 两者都发。在工作台设置 → Claude CLI 里改这三项**立即对下一轮对话生效**，无需 `setx`、无需重启终端。探测失败自动回退到内置模型清单。
+- **第三方端点 / 密钥（`modelsApiBase` / `modelsApiKey` / `claudeAuthMode`）**：v1.4.4 起这三项**同时**决定两件事——① 模型清单发现（`GET /v1/models`）；② 实际 spawn 的 `claude` 子进程本身的环境变量（`buildClaudeCliEnv`，见 §2.1.1「环境变量干扰与优先级」）。baseUrl 取值优先级：`config.modelsApiBase` → 继承的 `ANTHROPIC_BASE_URL` → `ANTHROPIC_BASE`；密钥按 `claudeAuthMode` 精确二选一写入 `ANTHROPIC_AUTH_TOKEN`（`bearer`，多数第三方 Coding Plan）或 `ANTHROPIC_API_KEY`（`x-api-key`，Anthropic 官方协议），`auto` 两者都发。在工作台 设置 → 模型与服务 → Agent CLI 里改这三项**立即对下一轮对话生效**，无需 `setx`、无需重启终端。探测失败自动回退到内置模型清单。
 - **`engineMode`**：`legacy`（stdin 关闭，单向，稳定）｜ `interactive`（stdin 常开，支持 AskUserQuestion 提问弹窗与权限桥接）。
 - MCP 工具由 CLI 原生发现调用（工作台经 `mcp-config` / `install` 把自身 MCP 写进 CLI 配置）。
 
@@ -148,7 +149,7 @@ $env:ANTHROPIC_MODEL = "厂商给出的模型名"
 
 **第二步（备选，v1.4.4 起推荐）· 工作台前端一键配置**
 
-以上 `setx` 步骤现在是可选的。打开工作台 → 设置 → Claude CLI →「第三方 Anthropic 兼容端点（Coding Plan）」，预设选「自定义」→ 按厂商文档填 Base URL、鉴权方式（多为 Bearer Token）、可选的模型清单 → 填入密钥 → 保存。
+以上 `setx` 步骤现在是可选的。打开工作台 → 设置 → 模型与服务 → Agent CLI →「第三方 Anthropic 兼容端点（Coding Plan）」，预设选「自定义」→ 按厂商文档填 Base URL、鉴权方式（多为 Bearer Token）、可选的模型清单 → 填入密钥 → 保存。
 
 这三个字段（`modelsApiBase` / `modelsApiKey` / `claudeAuthMode`）会直接覆盖下一轮对话时 `claude` 子进程收到的 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN`（或 `ANTHROPIC_API_KEY`），无需重启工作台或终端，也不再依赖继承的 OS 环境变量——**这修复了「改了模型/端点、实际对话还是老值」的已知问题**：只要在顶栏「模型」里选或输入一个具体模型名，保存后立即对下一轮生效；留空则沿用端点的默认模型（通常由厂商控制台管理）。
 
@@ -195,14 +196,14 @@ claude mcp list                    # 应显示: ruyi - ✔ Connected（3.0 之�
 node app\server.js doctor          # 应显示: claudeWorks: true
 ```
 
-在工作台 UI 顶栏点击「引擎」切到 Claude CLI 即可使用。模型可直接在顶栏「模型」下拉里热切（也可在设置 → Claude CLI → 第三方端点里指定具体模型名）——两者保存后立即对下一轮生效。若不指定具体模型，则由端点厂商的控制台决定当前实际使用的模型。
+在工作台 UI 顶栏点击「引擎」切到 Claude CLI 即可使用。模型可直接在顶栏「模型」下拉里热切（也可在设置 → 模型与服务 → Agent CLI → 第三方端点里指定具体模型名）——两者保存后立即对下一轮生效。若不指定具体模型，则由端点厂商的控制台决定当前实际使用的模型。
 
 **排障速查**
 
 | 症状 | 处理 |
 |---|---|
 | `claude` 命令报 PowerShell 执行策略错误 | 用 `claude.cmd` 替代；或在工作台设置中填 `claude.cmd` 全路径 |
-| 401 认证失败 | 在工作台设置 → Claude CLI 里把「鉴权方式」明确选成 Bearer Token（对应 `ANTHROPIC_AUTH_TOKEN`）或 x-api-key（对应官方 `ANTHROPIC_API_KEY`），不要用 `auto` 二选一都发；确认 API Key 未过期、属于该端点 |
+| 401 认证失败 | 在工作台 设置 → 模型与服务 → Agent CLI 里把「鉴权方式」明确选成 Bearer Token（对应 `ANTHROPIC_AUTH_TOKEN`）或 x-api-key（对应官方 `ANTHROPIC_API_KEY`），不要用 `auto` 二选一都发；确认 API Key 未过期、属于该端点 |
 | `mcp add-json` 报 Invalid input | 改用 `claude mcp add`（非 JSON 版），见上方第五步 |
 | 改了模型/端点，实际对话还是旧值 | v1.4.4 之前的已知问题：`modelsApiBase`/`modelsApiKey` 只喂给了模型清单探测，没写进真正对话的子进程环境变量，纯靠继承的 OS `setx` 值。升级后这三个字段（连同 `model`）会覆盖继承值、随每轮对话生效，不再需要重启工作台或终端；若仍未生效，检查是否被下面「高风险」表里的 `settings.json` 项覆盖 |
 | settings.json 覆盖了环境变量 | 检查 `~/.claude/settings.json` 中 `env.ANTHROPIC_BASE_URL`，若指向官方则改为你的第三方端点——这是 CLI 自身的用户级配置文件，优先级高于工作台注入的环境变量 |
@@ -211,7 +212,7 @@ node app\server.js doctor          # 应显示: claudeWorks: true
 
 **环境变量干扰与优先级（维护必读）**
 
-工作台 spawn Claude CLI 子进程时，环境变量传播链路为：`用户级环境变量(setx) → 启动终端 → workbench 进程 → { ...process.env } → 工作台配置覆盖 → Claude CLI 子进程`（[server.js](../../app/server.js) 中 `buildClaudeCliEnv(config)` / `effectiveAnthropicEnv(config)`，v1.4.4 起）。传播链路本身不变——**所有用户级环境变量仍会原样继承给 CLI 子进程**；新增的是最后一层覆盖：只要工作台设置 → Claude CLI 里填了对应字段，就会覆盖继承来的值，具体：
+工作台 spawn Claude CLI 子进程时，环境变量传播链路为：`用户级环境变量(setx) → 启动终端 → workbench 进程 → { ...process.env } → 工作台配置覆盖 → Claude CLI 子进程`（[server.js](../../app/server.js) 中 `buildClaudeCliEnv(config)` / `effectiveAnthropicEnv(config)`，v1.4.4 起）。传播链路本身不变——**所有用户级环境变量仍会原样继承给 CLI 子进程**；新增的是最后一层覆盖：只要工作台 设置 → 模型与服务 → Agent CLI 里填了对应字段，就会覆盖继承来的值，具体：
 
 - `modelsApiBase` → `ANTHROPIC_BASE_URL`，同时强制清空 `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX`（这两个变量会让 CLI 完全无视 `ANTHROPIC_BASE_URL`）。
 - `modelsApiKey` 按 `claudeAuthMode` 精确写入 `ANTHROPIC_AUTH_TOKEN`（`bearer`）或 `ANTHROPIC_API_KEY`（`x-api-key`），并**强制清空另一个**——避免两者同时存在时 CLI 认错认证方式；`auto` 保留旧的「两者都发」兜底行为。
@@ -242,7 +243,7 @@ node app\server.js doctor          # 应显示: claudeWorks: true
 
 | 环境变量 | 影响 |
 |---|---|
-| `WCW_KILL_PORT=0` | 禁止端口自动接管，8765 被占时不会自动清理陈旧实例 |
+| `WCW_KILL_PORT=0` | 禁止端口接管：8765 被占时不结束占用者，改为顺延到下一个端口 |
 | `WCW_FAKE_CLAUDE` | 测试用，指向假 CLI 脚本（生产环境**绝不应设**） |
 | `MAX_THINKING_TOKENS` | 限制思考 token 数（workbench 会用 `config.thinkingBudget` 覆盖它） |
 
@@ -263,12 +264,13 @@ foreach ($v in $vars) {
 
 ### 2.2 引擎 B · OpenAI 兼容 Provider
 
-`activeProvider` = 某个 `providers[].id`。直连 HTTP + SSE 流式，自带**原生工具循环**（把本机 MCP 工具翻成 OpenAI function-calling，迭代上限 `openaiMaxToolIterations` 默认 12）。Provider 对象字段（经 `sanitizeProvider` 归一）：
+`activeProvider` = 某个 `providers[].id`。直连 HTTP + SSE 流式，自带**原生工具循环**（把本机 MCP 工具翻成 OpenAI function-calling，迭代上限 `openaiMaxToolIterations` 默认 100：基础预算 1..200，长回合从 200 起、有进展时可延伸到 300 的硬上限）。Provider 对象字段（经 `sanitizeProvider` 归一）：
 
 | 字段 | 说明 |
 |---|---|
 | `id` / `label` | 标识 / 显示名 |
 | `baseUrl` | 端点根地址 |
+| `apiStyle` | 线协议：`chat`（Chat Completions，缺省）／`responses`（Responses API）／`anthropic`（Anthropic Messages，官方与国产 / 内网的兼容网关）。主回合、子代理、摘要与 Playbook 起草都跟随所选协议 |
 | `extraBaseUrls` | 备用端点数组（≤3，故障转移用，见下） |
 | `apiKey` | 密钥（响应中掩码，见 §3） |
 | `model` / `models` | 当前模型 / 可选模型清单 |
@@ -278,7 +280,7 @@ foreach ($v in $vars) {
 | `subagentModel` | 子代理专用模型（空 = 同主 model） |
 | `temperature` / `extraHeaders` | 采样温度 / 额外请求头 |
 
-内置预设：`deepseek`（api.deepseek.com）、`dashscope`（通义千问）、`glm`（智谱），也可手填任意 OpenAI 兼容 baseURL（内网 vLLM / Ollama / Xinference 等）。
+**不内置任何厂商预设**：「模型服务商」页的起点模板只有本机 Ollama（`http://127.0.0.1:11434/v1`）、本机 LM Studio（`http://127.0.0.1:1234/v1`，两者免密钥）和「自定义」；云端 API、one-api 网关、内网 vLLM / Xinference 等一律手填 Base URL 与密钥。已经配好的服务商不受影响。
 
 **extraBaseUrls 备用端点故障转移语义（v1.0-S6）**——这是接入多端点时必须理解的一条：
 
@@ -308,7 +310,7 @@ foreach ($v in $vars) {
 
 工作台自身 MCP 新增只读 `mcp_list` 与执行级 `mcp_configure`。仅当用户在对话里明确要求修改工具/MCP 时，AI 才会检查脱敏清单、说明拟改差异、等待执行级权限确认后持久化并刷新连接。清单只返回环境变量名，不返回值；内置 ACC 可改浏览器目标，但不能由该工具替换可执行程序或降低权限等级。
 
-**ACC 传输与工具面（49c/49d）**：ACC server 支持三种传输——`stdio`（本地子进程）、`SSE`（Server-Sent Events，适合远端桥接）与 `Streamable HTTP`（统一流式入口，推荐新接入）。`ACC_TOOLSETS` 允许按场景子集注册工具（如只暴露截图/OCR/查找等只读族给低权限会话），在 MCP 配置中声明 `toolset` 字段即可限定可见工具面，无需修改 server 代码。
+**ACC 传输与工具面（49c/49d）**：ACC server 只有 `stdio` 一种传输（`server.py` 里是 `mcp.run(transport="stdio")`），工作台把它当本地子进程拉起；工作台自己作为 MCP 客户端接**外部**连接器时才认 `stdio` / `sse` / `http` 三种形态（见 §2.3 末尾的 MCP 配置导入器）。按场景裁剪 ACC 工具面靠 ACC 进程的环境变量 `ACC_TOOLSETS`：逗号分隔的能力名（`desktop` / `office` / `browser` / `filesystem` / `shell` / `uia` / `ocr` / `vision` / `macro` / `memory` / `web` / `thinking` / `observe` / `audio` / `sync`），例如 `filesystem,shell,office`；不设就是全开，`audit` 与 `diagnostics` 永远注册，不认识的名字忽略并在 stderr 给一行提示。工作台的 MCP 配置里**没有** `toolset` 字段；工作台这一侧收紧桌面工具靠权限分级（`BRIDGED_TOOL_TIERS` / `config.bridgedToolTiers`）与角色的工具白名单。
 
 **MCP 配置导入器（48c）**：工作台设置 → 集成/MCP 面板支持直接粘贴或导入外部 `mcp.json` 片段，自动校验 schema、合并到现有配置并即时生效（无需手动编辑 `~/.ruyi-workbench/generated/.mcp.json`）。导入时会做去重——同名 server id 按「保留本地、提示冲突」处理。
 
@@ -329,22 +331,33 @@ foreach ($v in $vars) {
 
 **全路径入账**：主回合、工作流子代理（`kind:'subagent'`）、自动/手动压缩摘要与 Playbook 起草（`kind:'aux'`）均入账，不漏算。`config.usageBudget {monthly, currency}` 设月度预算后，看板显示当月可信花费与预算告警。
 
+### 2.5 语音转写（2.8.0）
+
+语音识别开启后复用同一条服务商记录：`audioBaseUrl`（缺省回落到 `baseUrl`）加同一把 API 密钥。如意向它说哪一种方言，是**每个服务商自己的设置** `providers[].asrProtocol`：`transcriptions`（OpenAI 形 multipart `/audio/transcriptions`，缺省，2.8.0 之前也只有这一种）或 `chat-audio`（`/chat/completions` ＋ `input_audio` data URI，MiMo 与百炼文档里的 ASR 就是这种）。百炼的 Fun-ASR（`fun-asr-*`）不在兼容口上（回 400 `{}`），对话形服务商上这类模型自动改走 DashScope 原生口 `/api/v1/services/aigc/multimodal-generation/generation`；同一家的 Qwen3-ASR 照旧走 `/chat/completions`。两种都不说的服务商根本做不了语音，如意会直说而不是猜。对话形只收上游声明支持的格式（MiMo 拒 webm，直接回 400），所以麦克风录音在浏览器里先转成 16 kHz 单声道 WAV 再上传，而音频附件与 `audio_transcribe` 工具送的是用户原文件，不转码。
+
+`POST /api/audio/transcribe` 是 2.8.0 唯一新增的出网面：25 MB 闸（声明的 Content-Length ＋ 流式累计）、120 s 超时，按 `providers[].asrProtocol` 选的方言打服务商，记一行 `kind:'aux'` 的用量台账（上游不报 usage 时标 `estimated`；对话形的 `prompt_tokens` / `completion_tokens` 会映射过来，通常能拿到真实数字）。原生工具 `audio_transcribe` 是 exec 档，因为它把用户文件送出本机，其结果打 untrusted 标记。`asrProviderId` 与 `asrModel` 都设了才开启转写；没设时输入框连麦克风节点都不建。
+
+自 2.8.0 起，**改了某个服务商的端点、却让掩码密钥原样留着，这次保存会被拒**（HTTP 409，`config.masked_secret_vector_changed`），见 §3.4。
+
 ---
 
 ## 3. 安全边界（重点）
 
 工作台的安全模型照代码写实，以下每条都是生效机制。
 
-### 3.1 权限四模式 × 工具 tier 门控
+### 3.1 权限五档 × 工具 tier 门控
 
-权限模式 `PERMISSION_MODES = ['default','acceptEdits','plan','bypass']`。每个工具有 tier：**read / edit / exec**（`NATIVE_TOOL_TIER` 映射：只读族如 `file_read`/`file_list`/`glob`/`git_status`/`git_diff`/`git_log`/`web_search`/`web_fetch`/`todo_write` 为 read；`file_write`/`file_edit`/`file_delete` 为 edit；`powershell_run`/`script_run`/`http_request`/`git_commit`/`spawn_agent`/`shell_start` 等为 exec）。门控 `nativeToolGate(mode, tier)`：
+权限模式 `PERMISSION_MODES = ['default','acceptEdits','plan','auto','bypass']`（五档，`01e-permission-modes.js`；括号里是界面上的档名）。每个工具有 tier：**read / edit / exec**（`NATIVE_TOOL_TIER` 映射：只读族如 `file_read`/`file_list`/`glob`/`git_status`/`git_diff`/`git_log`/`web_search`/`web_fetch`/`todo_write` 为 read；`file_write`/`file_edit`/`file_delete` 为 edit；`powershell_run`/`script_run`/`http_request`/`git_commit`/`spawn_agent`/`shell_start` 等为 exec）。门控 `nativeToolGate(mode, tier)`：
 
 | 模式 | read | edit | exec |
 |---|---|---|---|
 | `bypass`（全自动） | 放行 | 放行 | 放行 |
+| `auto`（智能自动，新装默认） | 放行 | 放行 | 放行；但「永久豁免」类动作（删数据、装卸软件、推送、对外发送等，见用户手册第 9 章）与拼接 / 编码 / 求值出来的命令仍然询问 |
 | `default`（每步都问） | 放行 | 询问 | 询问 |
-| `acceptEdits`（小改动自动做） | 放行 | 放行 | 询问 |
-| `plan`（先计划再动手） | 放行 | 拦截 | 拦截 |
+| `acceptEdits`（改文件不问） | 放行 | 放行 | 询问 |
+| `plan`（只做计划） | 放行 | 拦截 | 拦截 |
+
+> 档名以顶栏盾牌与线程头权限 chip 上的文案为准（每步都问／改文件不问／只做计划／智能自动／全自动）；定时任务表单里的「它能自己做到哪一步」下拉沿用较早的短名（「小改动自动做」＝改文件不问，「先计划再动手」＝只做计划）。
 
 > `git_commit` 特意定为 **exec**（会触发 `.git/hooks` 里的任意代码，绝不下调）。计划模式的批准是**本 turn 闭包标志**，绝不改全局 `config.permissionMode`（防一次批准永久放权）。子代理 tier 还有执行期二次闸：即便被 bypass，read tier 子回合也写不成文件。
 >
@@ -368,22 +381,24 @@ v2.0 起 token 不再明文嵌入 HTML：浏览器在页面加载后经 `POST /a
 
 **2.8.0 之前的掩码面**：`providers[].apiKey` 与 `searchBackend.apiKey`。
 
-**2.8.0 新进掩码面的两类**（都是真实存在过的本机泄密面，见下）：
+**2.8.0 新进掩码面的几类**（都是真实存在过的本机泄密面，见下）：
 
 - `modelsApiKey`（Agent CLI 的模型接口密钥，顶层键）。设置页那个框与 `providers[].apiKey` 同一模具：播种掩码、原样回传、保存时还原。
 - `externalMcpServers[].env` 与远程条目的 `headers` —— **每一个值**都掩，**不按键名挑**。理由照实记：MCP 的 env 变量名由各家服务自己起（`GITHUB_PERSONAL_ACCESS_TOKEN`／`X_KEY`／`DB_URL`／…），而这一格的常态恰恰是「值就是凭据」，按名字挑一定漏。代价也照实记：非密钥值也看不见了（`PYTHONUTF8=1` 显示成 `••••1`），远程头里的 `${VAR}` 引用也被遮成 `••••KEN}`（往返照常还原）。**键名全部可见**，运维与管家仍看得出配了哪几个变量；换值 = 回传新明文。
 - 同一批还给 `externalMcpServers[].args` 加了**显示脱敏**（走 `redact()`，`--token <值>` 与 `postgres://user:pw@host` 这类会被抹成 `«redacted»`）。
+- **URL 里的凭据。** `user:pass@` 一律剥掉；查询串里形似凭据的参数（`api_key`、`key`、`access_token`、`token`、`secret`、`password`、`auth`、`authorization`、`credential`、`sig`、`signature`、`session`，含带 `x-` 前缀的写法）只掩值，协议、主机、端口与路径照常可见，端点仍认得出来。覆盖 `providers[].baseUrl` / `audioBaseUrl` / `extraBaseUrls`、`searchBackend.baseUrl`、`modelsApiBase` 与远程 MCP 条目的 `url`。**出站请求照旧用真 URL**；不带凭据参数的 URL 逐字节原样透传。
 
-**还原的额外一道闸（只对 MCP）**：按 id 找到磁盘那一条之后，还要求**启动目标没变**才还原 —— stdio 比 `command`＋`cwd`，`args` 整串也要相同才还原 `env`；远程比 `url`。**这是为了堵「看不见密钥也能把它改接到别的程序／端点上」**：否则一份回传的掩码就成了把手（管家提议一份换掉 `command`、`env` 仍是掩码的 patch，用户随手一按，密钥跟着去了新程序）。**代价**：同一次保存里改了命令／参数／地址，那几个值要重填。`providers` 那一套**没有**这道闸（登记在下面 §3.9）。
+**还原的额外一道闸（MCP）**：按 id 找到磁盘那一条之后，还要求**启动目标没变**才还原 —— stdio 比 `command`＋`cwd`，`args` 整串也要相同才还原 `env`；远程比 `url`。**这是为了堵「看不见密钥也能把它改接到别的程序／端点上」**：否则一份回传的掩码就成了把手（管家提议一份换掉 `command`、`env` 仍是掩码的 patch，用户随手一按，密钥跟着去了新程序）。**代价**：同一次保存里改了命令／参数／地址，那几个值要重填。
 
-**最后一道闸**：`sanitizeExternalMcpServer` 里，仍是掩码的值、仍带脱敏标记的 arg **一律清空**。sanitize 落在每次读／写配置、文件夹导入、`import-config/apply`、`mcp_configure upsert`、Claude Code 自动导入与 drop-in 运行时合并上，所以**掩码到不了** `config.json`、`generated/*.mcp.json`、Claude／Kimi 同步产物和 MCP 子进程的 env。
+**providers、`searchBackend` 与 `modelsApiKey` 这一组：拒存，而不是静默清空。** 一把密钥实际会去的地址集合是 `baseUrl` ＋ `audioBaseUrl`（缺省回落到 `baseUrl`）＋ `extraBaseUrls` —— 故障转移那条路会把同一个 `Authorization` 发给每一个。一次保存若**放宽**了这个集合、同时回传的还是掩码密钥，服务端回 **409 `config.masked_secret_vector_changed`**，**一个字节都不写**，保留你的草稿，并点名是哪一条、哪几个字段（只写字段名，不写值），请你把密钥重新输一遍或明确清空密钥框。**收窄不受影响**（删掉一条 `extraBaseUrls`、清掉 `audioBaseUrl` 让转写回落到 `baseUrl`，都是子集）。`searchBackend`（向量＝`type` ＋ `baseUrl`）与 `modelsApiKey`（向量＝`modelsApiBase`）改用「相等」比较，因为那里 `baseUrl` 留空意味着「改用官方主机」，本身就是一个新地址。`POST /api/provider/test` 同样检查并且**不发请求就拒绝**；管家的 `steward_config_set` 上能触发它的只有远程 MCP 的 `url`。
+
+**最后一道闸**：`sanitizeExternalMcpServer` 里，仍是掩码的值、仍带脱敏标记的 arg **一律清空**（唯一例外是远程 MCP 的 `url`：清空会让连接器无声消失，所以那一条整条丢弃——而上面的「拒存」让正常写入走不到这一行）。sanitize 落在每次读／写配置、文件夹导入、`import-config/apply`、`mcp_configure upsert`、Claude Code 自动导入与 drop-in 运行时合并上，所以**掩码到不了** `config.json`、`generated/*.mcp.json`、Claude／Kimi 同步产物和 MCP 子进程的 env。
 
 **这一处修的是什么（照实写）**：`GET /api/status` 的鉴权档是 **`open`——只有 host 门、不要 UI token**。2.8.0 之前，本机任何一个进程不带 token 一个请求就能读到 `modelsApiKey` 与全部外部 MCP 的 `env`／`headers`／命令行参数。Claude Code 自动导入（`autoImportClaudeCodeMcp` 默认开）会把 `~/.claude.json` 里带 token 的 env 原样搬进来，所以真机上这是实在的暴露面。掩码一处生效多处：`GET /api/status`、`POST /api/config` 回包、`steward_config_get`、`mcp_list`／`mcp_configure` 回包、文件夹导入回包与管家决策日志的 `before`／`applied` 都经同一支。
 
-**仍然已知未掩的两处（登记，运维要知道）**：
+**仍然已知未掩的一处（登记，运维要知道）**：`POST /api/mcp/import-config/scan`（token 档）**原样回显** `~/.claude.json`／`~/.codex/config.toml` 里的 env 与 headers。没掩是因为 scan → apply 的契约是「客户端把 scan 拿到的整条原样交给 apply」，扫描结果一掩 apply 就得回头重读源文件——要改契约。前端今天没有调用方（只有 e2e）。
 
-- `POST /api/mcp/import-config/scan`（token 档）**原样回显** `~/.claude.json`／`~/.codex/config.toml` 里的 env 与 headers。没掩是因为 scan → apply 的契约是「客户端把 scan 拿到的整条原样交给 apply」，扫描结果一掩 apply 就得回头重读源文件——要改契约。前端今天没有调用方（只有 e2e）。
-- **远程 MCP 条目的 `url` 不掩**。`https://user:pass@…` 与 `?api_key=…` 这两种形态会经 `GET /api/status`、`steward_config_get`、`mcp_list` 明文下发（`GET /api/mcp/connectors` 用 `safeUrlForDisplay` 只剥 userinfo）。要掩得先定一件事：`url` 是远程条目活过 sanitize 的必备字段，「无匹配清空」会让整条连接器静默消失。**运维口径：远程 MCP 的凭据放 `headers`，不要塞进 url。**
+**运维口径：远程 MCP 的凭据放 `headers`，不要塞进 url。**
 
 ### 3.5 审计日志
 
@@ -421,19 +436,20 @@ v1.5 新增的技能、工作台记忆、节点间消息都可能来自**不可�
 - **`needs_you` 的事件唤醒（2026-10 已补，原登记作废）。** 修前管家链路是「轮询 ＋ 防抖 ＋ 排队 ＋ 模型」，实测代批端到端延迟在 15 s 轮询档均值 31.5 s。现在待决一产生就立刻补一拍收件箱（`thread.needs_you` 事件，0.4 s 与 2.5 s 两拍），有线程卡在权限 / 提问上时管家回合的防抖从 5 s 压到 1 s：假端点实测「待决产生 → 进收件箱」约 0.45 s，剩下的就是管家模型自己的一次往返。**另一条口径更正**：`permissionTimeoutMs` 自 2026-09-24 起出厂为 **0（不限时）**，普通线程的权限请求不会因为管家慢而被自动拒；只有你在设置里配了时限，管家经手的线程才至少等 600 s；定时任务无人值守时按 `schedulerAskWaitMinutes`（出厂 30 分钟）到点拒。`stewardMaxTurnsPerHour`（出厂 **30**）仍要留够余量：触顶时管家自己也跑不了回合。
 - **git 族工具缺省 `cwd` 仍是家目录**（它们不过执行闸，不属于上面那一类「判的与跑的不一致」）。
 - **管家决策日志不回溯清洗**：2.8.0 之前若管家用 `steward_config_set` 改过 `externalMcpServers`，`steward/decisions-v1.ndjson` 里已有明文，`GET /api/steward/decisions` 原样下发 `undoRef`。需要的话手工清理那个文件。
-- **`providers` 的密钥还原没有「启动目标没变」那道闸**：同一次保存里改了 `baseUrl`、`apiKey` 仍是掩码，照样还原真 key（与 §3.4 给 MCP 关上的是同一类口子）。
 - **界面上今天没有 MCP `env`／`headers` 的编辑器**：设置页的运维面板只显示 `commandOrUrl`。「看见键名、换掉值」目前只能经 `POST /api/config`、管家 `steward_config_set` 或模型的 `mcp_configure`。
+- **混淆命令只拦代批，不拦执行。** 间接构造（字符串拼接、`-enc`、`FromBase64String`、`iex`）会让管家不代你批，但并不改变「什么算永久豁免动作」的判定，所以智能自动档下一条纯混淆的命令仍然**根本不会停下来问**。
+- **管家提议的改设置按钮，确认面板只在前端。** 服务端仍把 `act` 路由当作「用户按下了」的唯一判据，所以一个不经浏览器的本机进程仍可直接 POST 这样的 act。该路由有路由鉴权表与 UI token 兜着，但 confirm 档在服务端再加一道独立凭据，不在本版范围内。
 
 ---
 
 ## 4. 专家模式与诊断
 
-右侧工作区在精简和专家模式下都保持 6 个任务入口：文件、产物、变更、Agent 工作流、用量、活动。终端、桌面、MCP、搜索和读文件仍是完整的模型工具能力，但不再提供绕开对话上下文的手动运行器；它们由模型按 read/edit/exec 权限、检查点与审计策略调用。
+右侧工作区在精简和专家模式下都保持 7 个页签：文件、产物、改动、记忆、工作流、用量、记录（审计时间线）。终端、桌面、MCP、搜索和读文件仍是完整的模型工具能力，但不再提供绕开对话上下文的手动运行器；它们由模型按 read/edit/exec 权限、检查点与审计策略调用。
 
 专家运维入口集中在「设置」：
 
-- **集成 / MCP**：查看连接器来源、健康状态、工具数与失败原因，并管理允许修改的用户连接器；这里是连接器配置面，不是逐工具执行器。
-- **体检**：以折叠区展示部署诊断、存储管理、性能指标与原始事件日志。部署诊断覆盖引擎路径、git/rg/python 探测、overlay 完整性和 `/health`；原始日志可清空或下载 `.ndjson`。
+- **集成与 MCP**（设置 → 工具与集成）：查看连接器来源、健康状态、工具数与失败原因，并管理允许修改的用户连接器；这里是连接器配置面，不是逐工具执行器。
+- **体检**（设置 → 系统）：以折叠区展示部署诊断、存储管理、性能指标与原始事件日志。部署诊断覆盖引擎路径、git/rg/python 探测、overlay 完整性和 `/health`；原始日志可清空或下载 `.ndjson`。
 
 存储诊断支持各仓库占用分析、保留策略配置与手动清理；`GET /api/metrics`（需 token）可拉取进程内存、请求耗时分布（P50/P95/P99）与存储趋势等性能观测指标，供运维监控集成。
 
@@ -451,7 +467,7 @@ v1.5 新增的技能、工作台记忆、节点间消息都可能来自**不可�
 node dev-harness\<name>.e2e.js      # 判定行形如 "<NAME> E2E: ALL PASS"
 ```
 
-**判定看每件末尾的 `E2E:` 判定行**（`grep "E2E:"` 汇总）。离线件应 ALL PASS；**排除三件实弹件**（`deepseek-live` / `deepseek-tools` / `desktop-bridge-live`，它们打真端点 / 真 Python）。
+**判定看每件末尾的 `E2E:` 判定行**（`grep "E2E:"` 汇总）。离线件应 ALL PASS。`npm test`（即 `node ../dev-harness/run-all.js`）串行跑默认回归，`--parallel 4` 并行、`--fast` 只跑 `.static` 纯静态锁；它会跳过 7 件**实弹件**（`deepseek-live` / `deepseek-tools` / `desktop-bridge-live` / `claude-binary-live` / `claude-compact-probe-live` / `compact-quality-live` / `prompt-cache-discipline-live`，它们打真端点、真 CLI 或真桌面）。件数以根 `facts.json` 为准（`e2eCount` 总数、`e2eLiveSkipped` 实弹件数）。
 
 ### 5.2 实弹件与探针
 
@@ -480,17 +496,17 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 | 症状 | 处理 |
 |---|---|
-| **端口占用** | 默认 8765 被占：若占用者是本工作台陈旧实例且 `killPortOnStart` 未禁用，会自动接管；若是非工作台进程则拒绝误杀，报出 PID / 进程名——换端口 `--port <n>` 或手动结束该进程。禁用了自动接管（`killPortOnStart=false` / `WCW_KILL_PORT=0`）时也需手动换端口。 |
+| **端口占用** | 默认 8765 被占：该端口上有响应 `/health` 的如意实例会被接管（结束旧实例后在原端口重来）；别的程序占着则不会误杀，顺延到下一个端口（port+1 … port+9，界面顶部条说明实际端口）。禁用了自动接管（`killPortOnStart=false` / `WCW_KILL_PORT=0`）时，被占一律顺延，不再接管。候选端口全被占才会报错——换端口 `--port <n>` 或手动结束占用进程。 |
 | **引擎 401** | Claude CLI：检查 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` 与 `ANTHROPIC_BASE_URL`（或设置里的模型接口 Base / 密钥）。Provider：检查 apiKey 是否有效。注意 **401 不触发端点故障转移**（归因保留），换备用端点无益，应先修密钥。 |
 | **流断线 / failover 提示** | 前端收到 `failover` 事件即说明主端点预首字节不可用、已切备用（连接失败或 502/503/504）。若备用也不通会最终报错。SSE 正文已开始后的中断不会切端点（防重放），需重发本轮。 |
 | **搜索后端不通** | 检查 `searchBackend.type` 与对应的 baseUrl（searxng/custom 必填）/ apiKey（bing/brave 必填，tavily 必填、bocha 可选）。搜索后端是**受信端点不过 SSRF**，但仍需网络可达。断网时 web_fetch 会回落本地 webcache（`fromCache:true`）。 |
 | **PDF 字体 / CID 回退** | `write_pdf`（ACC 工具）在无微软雅黑 / 宋体的机器上会回退到内置 `STSong-Light`（CID，零外部文件，阅读器侧渲染中文），属**预期行为**；返回的 `font` 字段标明实际所用字体。reportlab 缺失则整个 `write_pdf` 优雅降级（不影响其它工具）。 |
 | **性能 / 大会话** | 长会话渲染 v1.0-S7 已做消息虚拟化 / 分页；上下文接近窗口上限时自动 / 手动压缩（`autoCompactThreshold` 默认 0.8 × `contextWindow`），压缩前把 providerHistory 快照存 `checkpoints/<sid>/history-*.json.gz`。 |
-| **权限弹窗超时** | 权限 / 提问弹窗默认 `permissionTimeoutMs`（120000ms）后**自动拒绝**（不替用户放权）；需要更长思考时间可调此配置。 |
+| **权限弹窗超时** | 权限 / 提问弹窗**默认不限时**：`permissionTimeoutMs` 与 `questionTimeoutMs` 出厂为 0，一直挂着等你，弹窗收进右下角小窗。设了时限（设置 → 权限与安全 →「等你回话的时限」；权限 5–600 秒、提问 1–60 分钟）则到点权限请求按**拒绝**、提问按取消（不替用户放权）。定时任务无人值守时另按 `schedulerAskWaitMinutes`（出厂 30 分钟）到点拒绝。 |
 
 ---
 
-## 7. 2.8.0 默认启用清单、升级与回滚
+## 7. 默认启用清单、升级与回滚（2.8.0 基线，3.0 预览版补充见 §7.6）
 
 > **归类口径**：**有实测读数、且出厂默认开 → 已交付**；**出厂默认关 → 实验**（§7.3 是第 126 波那一族的合并表：同一张表里三个已翻默认开、两个仍默认关，逐行写明）。「默认关」的含义是显式 `false` 或缺省时**与上一版逐字节等价**；**已翻默认开的那三个，只有显式 `false` 才是上一版的行为，「缺省」不再是**。证据只来自假端点（fake provider／假时钟）的条目打 ⚠。
 > **改法**：全部是数据目录 `config.json` 的**顶层键**，写 `false` 即关；改完重启服务（少数开关下一回合即生效）。这一节只列 2.8.0 要点名的那些，不是 `01-config.js` 默认值区的全表。
@@ -516,7 +532,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 | 开关 | 是什么 | 读数 | 关掉 |
 |---|---|---|---|
-| `stewardEnabledV1` | 管家总开关（第 121 波起**默认开**，新装直接落管家视角） | e2e ＋ 人工走查 | `false`（会退回经典布局，零后台活动） |
+| `stewardEnabledV1` | 管家总开关（第 121 波起**默认开**，新装直接落管家视角） | e2e ＋ 人工走查 | `false`（回到工作台视角，零后台活动） |
 | `schedulerEnabledV1` | 定时任务 | ⚠ 假时钟 e2e | `false`（无任务时本来就零轮询） |
 | `newThreadEngine: 'last'` | 新线程跟随**上次用的**引擎 | ⚠ API 级 e2e；**改变了存量用户的默认行为** | 设成 `'global'` |
 | `stewardExemptDelegationV1` | 管家代批永久豁免的非底线动作（十道闸，见用户手册第 9 章） | ⚠ 假端点 46 条；**真管家模型延迟实测**：轮询 5 s 档均值 17.7 s／最大 30.6 s，轮询 15 s 档（出厂值）均值 31.5 s／最大 42.7 s，5 次全部代批成功、审计行逐条对得上 —— 2026-10 起有事件唤醒，见上文「已知缺口」那一条的更正 | `false`（设置页「管家」→「它可以自己做的事」同一个键；**管家自己改不了它**） |
@@ -575,6 +591,15 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 - **定时任务在 2.7.0 里整块不存在**（调度器是 2.7.0 之后才有的）。`scheduler\` 目录留在盘上不动，升回来任务还在、只是这段时间一次都没触发过。
 - **顶层新键本身不会被删**：2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，不认识的顶层键原样留着。所以 `asrProviderId`／`asrModel`／`stewardExemptDelegationV1`／`schedulerEnabledV1`／`newThreadEngine` 这些键降级后只是**没人读**，升回来照旧生效。**会被抹掉的只有 §7.5 开头那两类**：`providers[]` 里的**嵌套**字段（`models[].caps`／`audioBaseUrl`／`asrProtocol`／`hiddenModels`，被 `sanitizeProvider` 重建掉）与管家记忆里的 `expiresAt`／`scope`。三个压缩开关的键也属于「留在盘上、没人读」这一类（2.7.0 没有这三项）。
 - **降级再升级，会把你在 2.8.0 里关掉的压缩开关重新打开一次**：2.7.0 写盘时把 `configSchema` 改回 11，回到 2.8.0 时那道 `< 12` 的一次性迁移会再跑一遍（第 107 波 P1 实测）。要保持关着，升回来之后再写一次 `false`。
+
+### 7.6 3.0 预览版补充：`CONFIG_SCHEMA` 12 → 14
+
+上面各节按 2.8.0 写成，对 2.7.0 ↔ 2.8.0 仍然准确。当前树是 **3.0.0-preview.3**，`CONFIG_SCHEMA` 已到 **14**（`app/src/00-boot.js`；迁移表是 `app/src/01-config.js` 的 `CONFIG_MIGRATIONS`）。从 2.8.0 升上来，怎么升同 §7.4：下载完整包、解压到新目录、旧目录留着当回退路径；数据目录与 MCP server id 的改名见 §1.4 与文末「品牌与兼容」。多出来的两道一次性迁移：
+
+- **13（稀疏落盘）**：配置只落「改过的键」，显式键集合记在 `configExplicitKeysV1`，没碰过的设置跟随产品当前默认。同时 `killOnDisconnect` 缺省翻成 `false`（刷新／关窗不再结束回合）；老文件里写着的 `true` 若不在显式键里，按「当年的默认」处理。
+- **14（出厂权限档）**：出厂权限档由「每步都问」翻成**智能自动**，**只给全新安装**。盘上已有配置、却没存过 `permissionMode` 的，迁移钉回 `default`，不会被悄悄放开；盘上本来就写着档的原样保留。「切到」智能自动与全自动仍要二次确认。
+
+3.0 预览版的其余默认值变化（例如后台代理跑完自动唤醒主会话的 `agentAutoWake`，出厂开）见根目录 `CHANGELOG.md`。本章的回滚演练只覆盖 2.8.0 ↔ 2.7.0；3.0 预览版回退到 2.8.0 没有做过同样的实测，回退前请按 §7.5 的办法把数据目录整份备份。
 
 ---
 

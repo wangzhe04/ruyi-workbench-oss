@@ -7,7 +7,7 @@
 
 | 路径 | 内容 |
 |---|---|
-| `app/src/` | 后端源码：66 个有序模块，顺序记在 `app/src/manifest.json` |
+| `app/src/` | 后端源码：70 个有序模块，顺序记在 `app/src/manifest.json` |
 | `app/server.js` | 后端运行产物：`node app/build.js` 把 `app/src/` 拼接成这一个文件，**零 npm 运行时依赖**；改代码只改 `app/src/`，再重建 |
 | `app/public/` | 前端：`index.html`、`app.js` 组合根、`js/` 下的原生 ES 模块、分层 CSS、`locales/` 中英语言包；无框架、无构建 |
 | `desktop/` | WinForms + WebView2 桌面壳 `RuyiDesktop.exe` 的源码与构建脚本 |
@@ -20,7 +20,7 @@
 ## 运行
 
 ```powershell
-node .\app\server.js serve --open     # 只监听 127.0.0.1，默认端口 8765，被占自动顺延
+node .\app\server.js serve --open     # 只监听 127.0.0.1，默认端口 8765；该端口上有响应 /health 的如意实例会被接管，别的程序占着则顺延到下一个端口
 node .\app\server.js doctor           # 体检：引擎、依赖、端口、数据目录
 node .\app\server.js mcp-config       # 输出工作台 MCP 配置
 node .\app\server.js install          # 把工作台 MCP 注册进本机 Claude Code

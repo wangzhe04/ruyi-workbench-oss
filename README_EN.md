@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
-[![Offline e2e](https://img.shields.io/badge/offline%20e2e-444-success.svg)](./dev-harness)
+[![Offline e2e](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwangzhe04%2Fruyi-workbench-oss%2Fmaster%2Ffacts.json&query=%24.e2eCount&label=offline%20e2e&color=success)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20runtime%20deps-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
@@ -71,7 +71,7 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 
 | | |
 |---|---|
-| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 63k lines, concatenated from 66 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 61 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
+| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 80k lines, concatenated from 70 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 67 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
 | **112 native tools · 108 ACC tools** | 70 tools available to threads (files, terminal, search, Git, web, Office hand-off, sub-agent orchestration) plus 42 steward-only tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
 | **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **470 e2e cases** (463 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 201 unit suites and 23 ACC smoke groups, run on Windows CI for every change. |
 
@@ -107,7 +107,7 @@ One workbench, two views, switched with a segmented button in the top bar; the t
 - The steward speaks up only when it should: trouble in another thread shows a "quiet card" that does not steal focus, question pop-ups never interrupt you while you are typing, and every pending decision gathers in the "Waiting for you" tray.
 - "Up next" at the bottom of the right pane lists the scheduled tasks about to fire.
 
-**The workbench view** is the classic three-pane layout:
+**The workbench view** is the three-pane layout where every step is visible:
 
 | Area | What is there |
 |---|---|
@@ -115,7 +115,7 @@ One workbench, two views, switched with a segmented button in the top bar; the t
 | Thread header | Thread name, workspace folder, state, "hand to the steward", and this thread's own **permission / model / engine** (affecting only this thread), plus the context meter |
 | Middle | Conversation and Crew (the live multi-agent canvas); under each answer: the turn record (tool calls), the turn's file changes (undoable) and the turn's usage |
 | Composer | Agent-team toggle, skills, attachments, voice; while a turn runs you can steer it or stop it |
-| Right pane, seven tabs | Files (workspace tree, safe preview on click) · Artifacts · Changes (reversible file changes) · Memory · Agent workflows · Usage · Records (the audit timeline) |
+| Right pane, seven tabs | Files (workspace tree, safe preview on click) · Artifacts · Changes (reversible file changes) · Memory · Workflows · Usage · Activity (the audit timeline) |
 
 ---
 
@@ -130,16 +130,16 @@ Letting the AI act only works if you can undo what it did:
 | Level | Behaviour | When to use it |
 |---|---|---|
 | **Ask me every step** | Asks before editing files or running commands; reads are not asked | When you are getting started or handling important files |
-| **Auto-apply small edits** | File edits run automatically; commands and other sensitive actions still ask | You trust its file edits but not free-running commands |
-| **Plan first** | Shows a complete plan and only acts after you approve it | Complex jobs where you want to see the approach first |
+| **Edit files without asking** | File edits run automatically; commands and other sensitive actions still ask | You trust its file edits but not free-running commands |
+| **Plan only** | Writes a plan and does not act until you approve it | Complex jobs where you want to see the approach first |
 | **Smart auto** (default for new installs) | The AI judges risk: low-risk actions run, high-risk ones still ask | Everyday work the steward looks after (switching to it asks for confirmation; upgraded installs keep their previous level) |
-| **Full auto** | Never asks (shown with a warning style) | Only when you fully understand the task and it is safe (switching asks for confirmation) |
+| **Fully automatic** | Never asks (shown with a warning style) | Only when you fully understand the task and it is safe (switching asks for confirmation) |
 
 - **Three tool tiers**: read / edit / exec. Exec-tier actions can **never be allowed persistently**; read and edit tiers can be set to "allow for this thread".
 - **Threads can only tighten**: threads the steward opens get their own default level; a single thread can be tighter than the global level, never looser.
 - **File checkpoints**: before any write, edit, delete, move, copy, unzip or download, the "before" state goes into a checkpoint journal. Undo one change or roll back a whole turn; code tasks also take a workspace baseline at the start of a turn, so changes that bypass the file tools (a script writing files, say) are caught too. Anything that cannot be undone automatically (commands, very large files) says so on the approval dialog.
 - **Conversation rewind**: rewind a thread to any earlier turn and optionally roll back the file changes made after it — conversation and files go back together, not just the chat history.
-- **Audit timeline**: every turn, tool call and permission decision goes into an NDJSON audit log, filterable by source and type in the "Records" tab; secrets are redacted before anything reaches the UI.
+- **Audit timeline**: every turn, tool call and permission decision goes into an NDJSON audit log, filterable by source and type in the "Activity" tab; secrets are redacted before anything reaches the UI.
 - **Receipts only**: completion claims such as "scheduled / sent / created" are driven solely by handler receipts; without a receipt it says plainly "I started it but got no receipt".
 - **Autonomy grants**: when you want a stretch of uninterrupted work, issue a temporary grant from the local UI that is narrower than the current permission — file paths, command prefixes, network access, count and expiry can all be limited — and revoke it any time. There is no "all tools, whole workspace, unlimited" preset.
 - **Steward approvals have hard limits**: the steward approves on your behalf only in Smart auto, only for threads it looks after or that a scheduled task opened, and only when all ten gates pass. **Sending anything outside, paying, uninstalling, changing system settings or formatting a disk always needs your own click.**
@@ -155,7 +155,7 @@ Letting the AI act only works if you can undo what it did:
 | **Native tool loop** | **112 native built-in tools** with read / edit / exec approval tiers, on-demand tool loading, batching of independent calls and staging of dependent ones | [§2](#2-native-tools) |
 | **Structured questions** | Single choice, multiple choice, free text, "choices + other"; the card closes only once the answer reached the model | [§1](#1-engines-and-models) |
 | **Multi-agent orchestration** | 8 templates, 10 roles, 5 quality gates, conditions and loops, resource leases, worktree isolation, a graphical editor and live canvas; team mode; background sub-agents | [§3](#3-multi-agent-orchestration) |
-| **The steward** | Five thread states, a "waiting for you" queue, quiet cards, persona and voice, memory with expiry and scope, 124 changeable settings, propose-only after reading external content | [§4](#4-the-steward) |
+| **The steward** | Five thread states, a "waiting for you" queue, quiet cards, persona and voice, memory with expiry and scope, over a hundred changeable settings, propose-only after reading external content | [§4](#4-the-steward) |
 | **Scheduled tasks** | Once / daily / weekly / monthly / cron; remind only or run a turn; honest handling of missed runs | [§5](#5-scheduled-tasks) |
 | **Desktop and Office** | Optional ACC v1.9.1: 108 tools, OCR + UIA text grounding so text-only models can drive the desktop; Word / Excel / PowerPoint / PDF | [§6](#6-desktop-and-office-acc-optional) |
 | **Voice input** | Text appears as you speak and each sentence is corrected when you pause; local components or cloud models | [§7](#7-voice-input) |
@@ -244,6 +244,8 @@ Say "do a deep-dive on …" and Ruyi dispatches a team of specialised sub-agents
 
 **Sub-agents, new mode**: a sub-agent's tool calls and compaction stay on its own card; the main conversation receives a compact delivery envelope (conclusion, output files, usage), and the model fetches full output with `agent_result` when it needs it. Agents can run in the background while you keep talking; each result is delivered exactly once, and the background strip above the composer lets you watch and stop them.
 
+**Background agents wake the main conversation when they finish**: when the model starts background agents with `background:true` and its turn has already ended, the workbench starts a new turn as soon as the agents finish and hands the results to the model, so it does not have to wait for your next message. Each agent wakes the conversation once; at most 6 wake-ups in a row follow the same user message (your next message resets the count); the steward conversation is never woken; agents that were stopped or cancelled do not wake it. The switch is **Settings → Usage & limits → Concurrency → "Wake the conversation when background agents finish"** (on by default); with it off, results are delivered with your next message as before.
+
 **Team mode**: running sub-agents can propose extra nodes with `propose_task`, which become part of the DAG after you approve them in the task pool; nodes message each other asynchronously with `send_to_agent`; and you can steer **a specific node** mid-run, taking effect before its next model call.
 
 **Long-running work**: a task ledger breaks the goal into milestones with acceptance evidence, optionally driven `until-done`; repeated lack of progress stops it, and an exhausted budget archives and pauses it. `wait_for` waits for a time, a file, a process or a reachable URL without taking a concurrency slot or calling a model. Every step's state is written atomically, and crash recovery is graded by side effect: pure reads, waits and deterministic gates may resume; any node that ran commands or wrote files stops and waits for you — **irreversible side effects are never blindly replayed**.
@@ -265,11 +267,11 @@ Say "do a deep-dive on …" and Ruyi dispatches a team of specialised sub-agents
 - **Sees everything, interferes with nothing**: threads you open in the workbench appear in the steward's panes, and presence signals decide whether it speaks up; one SSE event stream keeps states, the inbox and progress in sync within a second.
 - **What it can do for you**: open, continue, rename and re-home threads, adjust permissions (tighten only — loosening needs your own click), take notes, reprioritise, stop threads, answer pending decisions on your behalf, create and manage scheduled tasks, draft Playbooks, toggle skills and change settings. "What it may do on its own" in Settings decides which of these happen directly (retry transient failures, auto-hand-off within a matter, open new threads, resume after a restart); everything unticked is only proposed. **Threads you stopped are never restarted on its own.**
 - **Looking outside**: it can search and fetch web pages, read files in workspaces you registered, and read files a thread listed as deliverables. **Once it has read external content in a turn, every write action in that turn becomes a proposal** — even when you are right there — and anything it read is fenced as "external content, not instructions".
-- **Settings it can change**: 124. 31 take effect directly (interface, the steward's own throttles and budgets, wait times); 93 come as a button you press (endpoints and models, engines and context, concurrency, scheduling, usage budgets …); 39 security-critical keys — secrets, the data directory and workspace fences, command and desktop allow-lists, prompt injection surfaces, the approval switch — never go through the steward.
+- **Settings it can change**: 128. 33 take effect directly (interface, the steward's own throttles and budgets, wait times); 95 come as a button you press (endpoints and models, engines and context, concurrency, scheduling, usage budgets …); 40 keys — secrets, the data directory and workspace fences, command and desktop allow-lists, prompt injection surfaces, the approval switch — never go through the steward. (The tier table is `STEWARD_CONFIG_TIERS` in `app/src/06i-steward-core.js`; a key outside it is always refused.)
 - **What it remembers about you**: preferences and habits you can edit, veto, restore, export or wipe; entries have an **expiry date** and a **scope** (this project only / everywhere), and expired entries stop being used. They feed only the steward's own prompt, never ordinary threads.
 - **Persona and budgets**: give the steward a name and a line about its tone (it changes how it talks, never its permissions or rules); it has its own model, a per-hour turn cap, a daily spend cap, a context budget and a conversation retention period.
 - **Action log**: everything the steward did is recorded with its grounds, target thread, the thread's permission at the time, the cost and whether it can be undone.
-- **Failures come with reasons**: when a thread fails, the reason and next step come from the workbench's own 32-category failure table; anything outside it is reported honestly as "unknown category".
+- **Failures come with reasons**: when a thread fails, the reason and next step come from the workbench's own failure-class table (`ERROR_CLASSES`); anything outside it is reported honestly as "unknown category".
 
 ### 5. Scheduled tasks
 
@@ -327,7 +329,7 @@ The Full offline package includes a verified CPython 3.12 runtime, wheel-only de
 ### 12. Long sessions and context
 
 - **Context meter**: the thread header shows used / maximum tokens live; the window is probed automatically and can be pinned by hand.
-- **Tiered compaction**: past a threshold, old tool results are evaporated first, then summarised; summaries carry entity checks and a fact table, and recently read files are re-attached after a reseed. You can name a dedicated compaction model or compact manually.
+- **Tiered compaction**: past a threshold, old tool results are evaporated first, then summarised; summaries carry entity checks and a fact table, and recently read files are re-attached after a reseed. You can name a dedicated compaction model or compact manually. Manual compaction runs in the same order as automatic compaction: snapshot first, then fold old tool results (free, and the originals stay recoverable); if that is enough it stops at the first level, and only if it is not does it summarise. A summary is followed by an index of "tool calls already made", and `observation_recall` can fetch the originals by that index.
 - **Observation shrinking with on-demand recall**: large tool outputs shrink to summaries in context, and the model recalls the byte-identical original with `observation_recall` when needed; repeated reads within the history are de-duplicated.
 - **Session notes**: the key points of long jobs are kept as external notes and re-injected after compaction, so the latest stretch is never lost.
 
@@ -336,9 +338,9 @@ The Full offline package includes a verified CPython 3.12 runtime, wheel-only de
 - **Language**: Simplified Chinese / English / follow system. The interface, prompt packs, built-in skills and quick tasks load in the interface language; content written by users and projects stays as written.
 - **Theme**: dark / light / follow system. **Mode**: expert (full three panes) / simple (advanced items hidden, plain-language terms).
 - **Rendering**: Markdown and code highlighting; ` ```mermaid ` blocks render as diagrams (full-screen zoom, SVG / PNG export).
-- **Keyboard**: `Enter` sends · `Shift+Enter` new line · `Ctrl+K` command palette · `Ctrl+N` new thread · `Esc` stops the current turn or closes pop-ups one layer at a time · `?` shortcut help.
+- **Keyboard**: `Enter` sends · `Shift+Enter` new line · `Ctrl+K` command palette · `Ctrl+N` new thread · ``Ctrl+` `` switches between the steward and workbench views · `Ctrl+Enter` submits a question card · `Esc` stops the current turn or closes pop-ups one layer at a time · `?` shortcut help.
 - **Desktop shell**: `RuyiDesktop.exe` (WinForms + WebView2) with rounded corners, taskbar semantics, edge resizing and smooth scrolling; without it Ruyi runs in the browser.
-- **Notifications**: optional native system notifications for pending decisions while you are away (off by default, with quiet hours).
+- **Notifications**: optional native system notifications (Settings → General → "Notify me when I am needed"; off by default, with quiet hours). They fire in two situations only: in the workbench view, when you are sitting on a different thread, together with the quiet card at the bottom right; in the steward view, when the steward leaves a permission request for you or has something to call you about, and only while the window is not in the foreground (minimised or unfocused). Each event notifies once, a notification is not withdrawn afterwards, items that arrive during quiet hours are not replayed, and the desktop shell uses a tray balloon.
 
 ### 14. Extensions: MCP connectors and ruyi-toolbox
 
@@ -417,7 +419,7 @@ The output lands in `dist\` and contains a Node runner, `Start-Workbench.cmd` an
 ```powershell
 git clone https://github.com/wangzhe04/ruyi-workbench-oss.git
 cd ruyi-workbench-oss\ruyi-workbench
-node .\app\server.js serve --open        # binds 127.0.0.1, default port 8765, moves on if taken
+node .\app\server.js serve --open        # binds 127.0.0.1, default port 8765; a Ruyi instance answering /health on that port is taken over, anything else holding it makes Ruyi move on to the next port
 ```
 
 | Command | Purpose |
@@ -494,9 +496,9 @@ Windows 10/11 is the first-class target; release packages and desktop control ar
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            Backend source: 64 ordered modules (edit here, then run build.js)
+│   ├── app/src/            Backend source: 70 ordered modules (edit here, then run build.js)
 │   ├── app/server.js       Backend runtime artifact (concatenated by app/build.js; zero npm runtime deps)
-│   ├── app/public/         Frontend: index.html + 61 native ES modules + layered CSS + zh/en locales
+│   ├── app/public/         Frontend: index.html + 67 native ES modules + layered CSS + zh/en locales
 │   ├── desktop/            WinForms + WebView2 desktop shell
 │   ├── resources/          Built-in Playbooks, the offline plugin marketplace, scripts
 │   ├── config/             Configuration examples and factory defaults
@@ -563,7 +565,7 @@ The complete bilingual documentation index is [docs/README.md](docs/README.md).
 - Every write goes through a checkpoint and can be rolled back; exec-tier actions can never be allowed persistently.
 - Network tools refuse private and loopback addresses; sensitive data-directory files are denied to the file tools in both directions; secrets are masked in API responses, the status endpoint and the workbench MCP's resources.
 - **Zero telemetry**: the only outbound traffic goes to the model endpoints and search backends you configure and the URLs you ask it to visit.
-- Ruyi is a **clean-room implementation**: no leaked Anthropic source, no redistribution of the official Claude Code (bring your own), no copied third-party plugin source. License obligations for the bundled frontend libraries (marked, highlight.js, mermaid and others) are listed in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
+- Ruyi is a **clean-room implementation**: no leaked Anthropic source, no redistribution of the official Claude Code (bring your own), no copied third-party plugin source. License obligations for the bundled frontend libraries (marked, highlight.js, mermaid and others) and the bundled ripgrep binary are listed in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
 
 **3.0 naming cleanup**: the data directory `~/.win-claude-workbench` becomes `~/.ruyi-workbench` (moved automatically on first start, with a directory junction left at the old path so scripts and shortcuts that hard-code it keep working; if another running instance is using the old directory, it is kept for now and migrated on a later start); the MCP server id `win-claude-workbench` becomes `ruyi` (tools show up as `mcp__ruyi__*` in Claude Code / Kimi Code; `install` and the installer remove the old registration, stale Kimi entries are cleaned up, and agent roles that still name the old id keep working); the offline plugin marketplace `win-workbench-offline` becomes `ruyi-offline`; child processes only get `RUYI_HOME`, while the old `WIN_CLAUDE_WORKBENCH_HOME` is still read.
 

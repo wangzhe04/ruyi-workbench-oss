@@ -5,7 +5,7 @@ This is the English companion to [离线部署说明](OFFLINE_DEPLOYMENT_CN.md).
 ## Target-machine requirements
 
 - Windows 10, Windows 11, or Windows Server.
-- An available internal Claude CLI, or an OpenAI-compatible provider configured later in the UI.
+- A usable model: an OpenAI-compatible provider (on-prem vLLM, a local Ollama or LM Studio, and so on, configured in the UI after installation) or a Claude Code / Kimi Code CLI already installed on the machine (the CLI path can also be set later in Settings).
 - No public internet access is required.
 - Release archives always include a bundled Node runtime; Ruyi.exe is an optional build artifact. Runtime npm
   installation is not required.
@@ -37,7 +37,9 @@ from being released or activated. After installation, ACC `diagnostics` must rep
 
 The installer attempts to register the workbench MCP server. If JSON registration fails under PowerShell because a
 cmd.exe layer strips JSON quotes, use the non-JSON Claude MCP add command or run Ruyi.exe mcp-config and add the
-generated ruyi server entry to the Claude CLI configuration manually.
+generated ruyi server entry to the Claude CLI configuration manually. Detailed steps, including a third-party
+Anthropic-compatible endpoint, are in the administrator guide
+([Connecting a third-party Anthropic-compatible endpoint](manuals/ADMIN-GUIDE_EN.md#connecting-a-third-party-anthropic-compatible-endpoint)).
 
 Since 3.0 the MCP server id is ruyi (it was win-claude-workbench; the installer removes the old registration) and
 the default data root is .ruyi-workbench (the old .win-claude-workbench is migrated on first start). The legacy
@@ -60,5 +62,9 @@ dependency_inventory or code_review_scan against a workspace.
 - Ruyi does not bundle Anthropic's Claude CLI or official plugins.
 - Web search, OAuth, and online marketplace updates are unavailable without a network.
 - The offline package does not copy third-party plugin source. It provides clean-room local alternatives.
-- Browser automation is a lightweight handoff by default; advanced DOM automation requires a preinstalled internal
-  Playwright environment and script_run.
+- Browser automation is a lightweight handoff by default: `system` mode only hands a URL to the user's default browser
+  (a new tab or window), after which Ruyi works through desktop screenshots, UIA, OCR and the keyboard. For
+  element-level DOM automation, choose `managed`, `custom` or `cdp` as the browser target under Settings → Tools &
+  integrations → Integrations and MCP; the Full package carries the Playwright wheels and Chromium (only `bundled`
+  explicitly uses the isolated Chrome for Testing inside it). The Slim package has no desktop-control component and
+  therefore none of these browser modes.

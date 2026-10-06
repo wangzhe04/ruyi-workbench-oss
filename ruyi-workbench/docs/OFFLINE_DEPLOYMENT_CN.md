@@ -3,7 +3,7 @@
 ## 目标机器要求
 
 - Windows 10/11 或 Windows Server。
-- 已有可用的内网 `claude` CLI，或稍后在 UI 设置 Claude CLI 路径。
+- 有一个可用的模型：OpenAI 兼容端点（内网 vLLM、本机 Ollama / LM Studio 等，装好后在界面里配置），或本机已装好的 Claude Code / Kimi Code 命令行（也可以装好后再在设置里指定 CLI 路径）。
 - 不要求公网。
 - 不要求 npm install；发布压缩包固定携带 Node 运行时，`Ruyi.exe` 为可选构建产物。
 
@@ -116,4 +116,4 @@ claude plugin install offline-toolkit@ruyi-offline --scope user
 - 本工具不内置 Anthropic 官方 Claude CLI，也不分发官方插件。
 - 无公网环境下，Web 搜索、OAuth、在线 marketplace 更新不可用。
 - 为避免授权和供应链风险，压缩包不会直接复制第三方公开插件源码；这里提供的是常见能力的本地复刻版和离线提示词。
-- 浏览器深度自动化目前是轻量交接：打开 URL、截图、键盘输入；复杂 DOM 自动化建议在内网预装 Playwright 后通过 `script_run` 调用。
+- 浏览器自动化默认是轻量交接：`system` 模式只把网址交给用户的默认浏览器（新标签页 / 窗口），之后靠桌面截图、UIA、OCR 与键盘操作。需要元素级 DOM 自动化时，在 设置 → 工具与集成 →「集成与 MCP」的浏览器目标里改用 `managed` / `custom` / `cdp`；Full 包随带 Playwright 的 wheel 与 Chromium（`bundled` 才会显式使用其中隔离的 Chrome for Testing）。Slim 包不含桌面控制组件，也就没有这些浏览器模式。
