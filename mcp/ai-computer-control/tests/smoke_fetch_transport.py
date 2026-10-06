@@ -98,6 +98,11 @@ def main() -> int:
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{port}"
     real_check = wf._check_url
+    real_connect_allowed = wf._connect_allowed
+
+    def allow_test_server_ip(ip):
+        # 连接时的第二道闸(_pinned_connect)同样只放行本测试服务器的回环地址;其它地址仍走真判定。
+        return ip == "127.0.0.1" or real_connect_allowed(ip)
 
     def allow_test_server(url):
         # 只放行本测试服务器;其它一切(含重定向到 10.0.0.5)仍走真实 SSRF 判定。
@@ -112,6 +117,7 @@ def main() -> int:
               f"真 _check_url 仍拒绝回环服务器 (got {r.get('error')!r})")
 
         wf._check_url = allow_test_server
+        wf._connect_allowed = allow_test_server_ip
         print("\n== ② 真传输: 不 stub _fetch_once, 走完整 opener ==")
         r = _FNS["fetch"](url=base + "/other")
         check(r.get("ok") is True and r.get("content") == "hello" and r.get("status") == 200,
@@ -175,6 +181,7 @@ def main() -> int:
               and https_handlers[0]._context.check_hostname is True, "HTTPSHandler 带默认(校验)SSL 上下文")
     finally:
         wf._check_url = real_check
+        wf._connect_allowed = real_connect_allowed
         srv.shutdown()
 
     print()

@@ -3,7 +3,7 @@ const MCP_TOOLS = [
   ...adaptiveMetaToolSchemas(true),
   {
     name: 'workbench_memory_list',
-    description: 'List/search confirmed Workbench Memory metadata for the current project and global scope. Use when the user asks what is remembered or the injected memory preflight/index is insufficient. This does not read full bodies.',
+    description: 'List/search confirmed Workbench Memory metadata (current project + global), no bodies. Use when the user asks what is remembered or the injected index is insufficient.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -15,7 +15,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_read',
-    description: 'Read one confirmed Workbench Memory entry by id. Read only entries relevant to the current request and verify stale facts against the workspace before relying on them.',
+    description: 'Read one confirmed Workbench Memory entry by id. Read only relevant entries; verify stale facts against the workspace before relying on them.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: {
@@ -29,23 +29,23 @@ const MCP_TOOLS = [
     // C3:一次可带 items[≤3](一张卡、用户逐条确认)。顶层不再写 required —— 批量形式不带顶层字段;单条形式六个字段
     // 照旧都要,由描述说明、处理器逐字段校验(措辞与修前一致)。items 的元素不重抄六个属性的 schema(每回合常驻,
     // 字符预算见 unit/tool-schema-budget),靠描述指回上面那六个。
-    description: 'Propose durable memories for user review, saved only after the user confirms the post-turn card. Use when the user explicitly asks to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson not in repository files. Never include secrets, transient status, guesses, or ordinary task output. One candidate: all six fields. 2-3 independent ones: items.',
+    description: 'Propose durable memories; saved only after the user confirms the post-turn card. Use when asked to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson not in repo files. Never secrets, transient status, guesses, or ordinary task output. One candidate: all six fields; 2-3 independent ones: items.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
         name: { type: 'string', maxLength: 120, description: 'short title' },
         description: { type: 'string', maxLength: 400, description: 'When this memory is useful.' },
         type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'habit | project rule | pitfall | pointer, in enum order' },
-        scope: { type: 'string', enum: ['project', 'global'], description: 'Use global only for an explicitly cross-project personal preference.' },
-        body: { type: 'string', maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
-        reason: { type: 'string', maxLength: 240, description: 'Why this will remain useful across future sessions.' },
+        scope: { type: 'string', enum: ['project', 'global'], description: 'project by default; global only if the user said it applies to all projects/sessions (or it is a personal preference), else stored as project. The user can switch it on the card.' },
+        body: { type: 'string', maxLength: 4000, description: 'Concise Markdown: conclusion, when it applies, concrete practice.' },
+        reason: { type: 'string', maxLength: 240, description: 'Why it stays useful across sessions.' },
         items: { type: 'array', maxItems: 3, items: { type: 'object' }, description: 'Batch: 2-3 objects with the six fields above' },
       },
     },
   },
   {
     name: 'workbench_memory_relation_propose',
-    description: 'Propose a relation edge between two existing confirmed Workbench Memory entries (supports/contradicts/supersedes/derived_from). It never saves directly: the user must confirm the card after the turn. from/to must be memory ids that already exist in the same scope.',
+    description: 'Propose a relation edge between two existing confirmed Workbench Memory entries (supports/contradicts/supersedes/derived_from). It never saves directly: the user must confirm the card after the turn.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['type', 'from', 'to'],
       properties: {
@@ -60,12 +60,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_revise',
-    description: 'Propose a revision to an existing confirmed Workbench Memory entry (name/description/type/body). It never saves directly: the user must confirm the card after the turn. Provide the suggested replacement values; unchanged fields may be omitted.',
+    description: 'Propose a revision to an existing confirmed Workbench Memory entry (name/description/type/body, or newScope to move it). It never saves directly: the user must confirm the card after the turn. Unchanged fields may be omitted.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id', 'reason'],
       properties: {
         id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'Memory id to revise.' },
         scope: { type: 'string', enum: ['project', 'global'], description: 'Scope of the target memory.' },
+        newScope: { type: 'string', enum: ['project', 'global'], description: 'Move it here (project to global = promote). Needs the user saying it applies to all projects.' },
         name: { type: 'string', minLength: 1, maxLength: 120, description: 'Suggested replacement name (omit to keep).' },
         description: { type: 'string', minLength: 1, maxLength: 400, description: 'Suggested replacement description (omit to keep).' },
         type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'Suggested replacement type (omit to keep).' },
@@ -76,7 +77,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_relation_revoke',
-    description: 'Propose revoking (deleting) an existing memory relation edge. It never deletes directly: the user must confirm the card after the turn. Use relationId from listMemoryRelations or a prior confirmed relation.',
+    description: 'Propose revoking (deleting) an existing memory relation edge. It never deletes directly: the user must confirm the card after the turn.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['relationId'],
       properties: {
@@ -1072,7 +1073,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_memory_write',
-    description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。**用户这次明确改了主意、要把一条否决过的重新记上**时,带 supersedesVetoed 指名那条的 id 再调一次(见该参数)。',
+    description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user),且 sourceRef.quote 须是那条消息里的原话(quote_not_found)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。**用户这次明确改了主意、要把一条否决过的重新记上**时,带 supersedesVetoed 指名那条的 id 再调一次(见该参数)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['kind', 'text', 'sourceRef'],
       properties: {
@@ -1083,11 +1084,12 @@ const MCP_TOOLS = [
         expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
         supersedesVetoed: { type: 'string', description: '可选。要盖掉的那条【被否决条目】的 id(id 在提示词的「用户否决过」清单里)。**只在用户这一回合自己明确要求重新记上时才填** —— 例:他当初说「别记我喜欢深色」,今天说「还是记着吧,我就是喜欢深色」。填对 id 时那条【原地复活】(id 不变、内容取这次的说法,不新增条目);id 不存在或那条不是被否决状态 → not_found;没填而内容又与某条被否决的几乎同句 → vetoed_duplicate。不许用它来绕过否决:用户没这么说就别填,换个说法把否决过的内容写回去同样是不行的。' },
         sourceRef: {
-          type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq'],
-          description: '来源:该事实出自哪条线程的哪个回合的【用户消息】。会被服务端核对角色。',
+          type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq', 'quote'],
+          description: '来源:该事实出自哪条线程的哪个回合的【用户消息】。服务端核对角色,并把 quote 逐字比对那条用户消息。',
           properties: {
             sessionId: { type: 'string', description: '来源线程 id。' },
             turnSeq: { type: 'integer', minimum: 0, description: '来源回合号(用户消息所在回合)。' },
+            quote: { type: 'string', description: '那条用户消息里的【原话片段】,逐字照抄(≥6 字;消息本身更短就抄整条)。改述或引别的消息 → quote_not_found;text 与 quote 毫无共同用词 → quote_unrelated。' },
           },
         },
       },

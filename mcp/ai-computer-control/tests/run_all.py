@@ -29,8 +29,11 @@ PYTHON = _VENV_PY if os.path.exists(_VENV_PY) else sys.executable
 # smoke_action_tools: 纯逻辑(假 win32/UIA/pyautogui),不依赖真实显示会话:动作类工具的边界/等待/批量图片/路由判定。
 # smoke_fetch_transport / smoke_office_read_v2: 本机回环 http.server + 临时目录现造文件,无显示依赖、
 # 各约 3-10 秒;可选依赖(reportlab/python-pptx)缺失时相关断言自行跳过。
+# smoke_desktop_edges / smoke_fetch_pinning: 纯逻辑(假 win32/pyautogui/WinRT、本机回环 server + 打桩 DNS),无显示依赖;
+# desktop_edges 末尾的真 PowerShell / 真大小写不敏感卷断言只在 Windows 上跑。
 CI_SUBSET = ("smoke_registry", "smoke_stdio", "smoke_async_contracts", "smoke_toolsets", "smoke_descriptions",
-             "smoke_envelope", "smoke_action_tools", "smoke_fetch_transport", "smoke_office_read_v2")
+             "smoke_envelope", "smoke_action_tools", "smoke_fetch_transport", "smoke_office_read_v2",
+             "smoke_desktop_edges", "smoke_fetch_pinning")
 
 TIMEOUT_S = 300
 

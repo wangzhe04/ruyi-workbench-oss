@@ -136,7 +136,12 @@ const toolNames = body => (((body && body.tools) || []).map(t => t && t.function
       const req2 = A.readCap(2);
       const users = userMsgs(req2);
       ok(users.length === 2 && users[0] !== M1 && users[0].endsWith(M1) && users[0].length > M1.length + 50, 'E2a 开关关:volatile 前插首条 user(现状,前缀缓存从 messages[1] 断裂的布局)');
-      ok(users[1] === M2, 'E3a 开关关:最新 user 无注入(无 recall/notes 对象的_plain 回合)');
+      // #9:随每条消息变化的记忆回执/相关索引改投末条 user 尾部(原断言「最新 user 一字不加」的前提已变:现在允许且只允许这一段 <workbench-memory-check> 起的尾巴)。
+      ok(users[1] === M2 || (users[1].startsWith(M2 + '\n\n<workbench-memory-check mode=') && !/<workbench-memory>|<workbench-memory-core>/.test(users[1])), 'E3a 开关关:最新 user 除记忆回执尾巴外无其它注入(无 recall/notes 对象的_plain 回合)');
+      // #9 的核心:首条 user(前插的易变层)里不再有随消息变化的记忆回执/相关索引 —— 第二回合的首条 user 恰好是第一回合首条 user 的前缀
+      // (第一回合那条既是首条也是末条,多出来的只有尾部那段记忆回执)。
+      const users1 = userMsgs(A.readCap(1));
+      ok(users1.length === 1 && users1[0].startsWith(users[0]) && !/<workbench-memory-check mode=/.test(users[0]), 'E3a2 开关关:第二回合首条 user 与第一回合逐字节同前缀、且不含记忆回执(回执只在末条 user 尾部)');
     } finally { await A.cleanup(); }
   }
   { // B: 开关开 —— 首条 user 逐字节不动,volatile 追加最新 user 尾部

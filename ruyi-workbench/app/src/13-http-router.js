@@ -683,7 +683,9 @@ async function handleApi(req, res, pathname) {
     const coreState = await resolveCoreMemoryState(cwd, registry, config).catch(() => ({ all: registry, active: [], standby: [], expired: [], stats: { total: registry.length, coreRequested: 0, active: 0, standby: 0, expired: 0, reviewDue: 0, charsUsed: 0, charLimit: coreMemoryCharBudget(config), itemLimit: coreMemoryMaxItems(config) } }));
     const projectKey = projectKeyForCwd(cwd);
     const otherProjects = await listMemoryProjectGroups(projectKey).catch(() => []);
-    return send(res, json({ ok: true, memories: coreState.all, core: coreState.stats, projectKey, cwd, otherProjects }));
+    // limits:前端文案/上限读这里,不再各写一份死数(设置页可调:每回合相关记忆条数、会话固定选择上限)。
+    const limits = { relevanceMax: memoryRelevanceMax(config), fixedSelectionMax: memoryFixedSelectionMax(config), coreItemMax: coreMemoryMaxItems(config), coreCharBudget: coreMemoryCharBudget(config) };
+    return send(res, json({ ok: true, memories: coreState.all, core: coreState.stats, limits, projectKey, cwd, otherProjects }));
   }
   // GET /api/memory/item?id=&scope=&cwd= —— 读单条记忆全文(编辑回填)。返回文件正文 → 只读内容型 GET,须 tokenOk
   // 自校验(同 /api/memory 与 /api/file/preview 的 DNS-rebinding 加固模式)。
@@ -704,6 +706,8 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
     if (!sessionId) return send(res, apiSessionIdInvalid());
+    // replay:true = 只读回放(线程打开/页面刷新后把仍待确认的候选卡画回来),不跑自动审稿、不写状态。
+    if (body && body.replay === true) return send(res, json(await replayPendingMemoryProposal(sessionId)));
     return send(res, json(await proposeMemoryFromSession(sessionId)));
   }
   // POST /api/memory/proposal/decision —— 只有用户在卡片上保存/忽略时落候选状态；仍不替用户写记忆。
@@ -724,9 +728,10 @@ async function handleApi(req, res, pathname) {
     const config = await readConfig();
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     if (!pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
-    const r = await applyMemoryRelationProposal(sessionId, String(body && body.proposalId || ''), cwd, { accept: body && body.accept });
+    const r = await applyMemoryRelationProposal(sessionId, String(body && body.proposalId || ''), cwd, { accept: body && body.accept, overrides: body && body.overrides });
     // 批量卡里有条目写盘失败(r.failed)是服务端故障,不是「候选不存在」:回 500,卡片留着让用户重试。
-    return send(res, json(r, r.ok ? 200 : (r.conflict ? 409 : (Array.isArray(r.failed) ? 500 : 404))));
+    // 带 errorCode 的失败(修订建议已过期等)走 apiFailure 稳定码,前端按码本地化。
+    return send(res, memoryFailureResponse(r, r.ok ? 200 : (r.conflict ? 409 : (Array.isArray(r.failed) ? 500 : 404))));
   }
   // POST /api/memory/draft {sessionId} —— provider 起草(镜像 playbook/draft)。必须在通配 /api/memory/<id> 之前。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/draft') {   // 对抗轮 P3: 放行删除约定穿透
@@ -770,19 +775,24 @@ async function handleApi(req, res, pathname) {
     const config = await readConfig();
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     const memIn = (body && body.memory) || {};
-    if (memIn.scope === 'project' && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
+    // 围栏:saveMemory 把【任何】非 global 的 scope(含缺省、拼错)都当 project 落进 cwd 的项目组,所以这里也一律按「非 global」校验
+    // (修前只拦 === 'project',缺省 scope 能绕过去,在围栏外的 cwd 下建出项目目录)。换作用域时旧作用域是 project 也要校验。
+    const moveFrom = body && (body.moveFromScope === 'global' || body.moveFromScope === 'project') ? body.moveFromScope : '';
+    if ((memIn.scope !== 'global' || moveFrom === 'project') && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
     const proposalSourceSessionId = body && body.proposalId ? String(body.sourceSessionId || '') : '';
     const proposalId = body && body.proposalId ? String(body.proposalId || '') : '';
     if (proposalId) {
       const sourceCheck = await validateMemoryProposalSave(proposalSourceSessionId, proposalId, cwd);
       if (!sourceCheck.ok) return send(res, json(sourceCheck, sourceCheck.conflict ? 409 : 404));
     }
-    const r = await saveMemory(memIn, cwd);
+    // moveFromScope:编辑弹窗里改了作用域 = 换作用域(另存到新作用域 + 删旧的,服务端一步做完、失败回滚),见 moveMemoryScope。
+    const toScope = memIn.scope === 'global' ? 'global' : 'project';
+    const r = moveFrom && moveFrom !== toScope && memIn.id ? await moveMemoryScope({ ...memIn, scope: toScope }, moveFrom, cwd) : await saveMemory(memIn, cwd);
     // The memory write and proposal acknowledgement belong to the same server-side
     // operation from the UI's perspective. Settle here so a dropped browser response
     // does not normally leave a successfully saved candidate pending.
     if (r.ok && proposalId) await decideMemoryProposal(proposalSourceSessionId, proposalId, 'saved').catch(() => {});
-    return send(res, json(r, r.ok ? 200 : 400));
+    return send(res, memoryFailureResponse(r, r.ok ? 200 : (r.conflict ? 409 : 400)));
   }
   // R4 Local Memory Graph(设计稿 15-r4-memory-graph.md)。relations 路由须在通配 /api/memory/<id>(下文 DELETE)之前,
   // 否则 path.basename('/api/memory/relations/rel-x')='rel-x' 会误删记忆。模型只 propose;confirm/delete 仅用户。

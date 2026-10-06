@@ -35,12 +35,14 @@ REM 118c: no black console window on the node fallback path any more. PowerShell
 REM hidden and detached, then this launcher exits immediately, so the transient cmd window closes
 REM at once instead of staying open for the whole session (and no pause on failure).
 REM Paths travel through environment variables, never inline quoting, so a folder name with spaces,
-REM single quotes or ampersands cannot break the command line.
+REM single quotes or ampersands cannot break the command line. -ArgumentList is ONE string with the server
+REM path already wrapped in quotes: Windows PowerShell 5.1 joins an array form with plain spaces and does not
+REM quote elements that contain spaces, which split C:\Program Files\... into two arguments for node.
 REM Startup failures are not printed here: the server writes a plain-language last-start-error.json
 REM into its data folder and the next successful launch shows it in the in-app notice bar.
 set "RUYI_NODE=%RUYI_ROOT%runtime\node\node.exe"
 set "RUYI_SERVER=%RUYI_ROOT%app\server.js"
-powershell -NoLogo -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath $env:RUYI_NODE -ArgumentList @($env:RUYI_SERVER,'serve','--open') -WindowStyle Hidden"
+powershell -NoLogo -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath $env:RUYI_NODE -ArgumentList ('{0}{1}{0} serve --open' -f ([char]34),$env:RUYI_SERVER) -WindowStyle Hidden"
 if not errorlevel 1 exit /b 0
 
 REM PowerShell unavailable (removed, or blocked by policy): start node directly so the workbench still

@@ -60,10 +60,15 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
 // passes none, preserving prior behavior):
 //   opts.tierFilter : 'read' | 'edit' | 'exec' — keep only tools at or below this native tier (used by
 //     runSubAgent to enforce toolTier: read=only read-tier, edit=read+edit, exec=all). Absent → no filter.
+//   opts.noMemoryWriteTools : true → 不 offer 记忆写工具(propose / revise / relation_*;子代理用,见 MEMORY_WRITE_TOOL_NAMES)
 //   opts.noAgentTools : true → never include the agent tools orchestrate_agents / wait_agents / agent_result
 //     (禁嵌套: sub-turns pass this). The top-level turn omits it and lets the subagentMaxPerTurn>0 check decide.
 // 代理模式 v2:模型侧的三个代理工具(单一启动入口 + 收件 + 取全文)。offer 门、禁嵌套压制、按需装载分类共用这张表。
 const AGENT_TOOL_NAMES = new Set(['orchestrate_agents', 'wait_agents', 'agent_result']);
+// 走查 #15:子代理不拿的记忆【写】工具。它们只写候选槽,而候选槽是父会话每回合唯一的一个 —— 子代理以 parentSession 的身份调用,
+// 写了就占掉主模型的槽(同回合先到者胜,主模型反而得到 alreadyPending),卡片上还看不出是谁提的。list / read 是只读,留着。
+// offer 面(buildOpenAiTools 的 opts.noMemoryWriteTools)与分发面(08 子代理循环的拒绝分支)共用这一张表。
+const MEMORY_WRITE_TOOL_NAMES = new Set(['workbench_memory_propose', 'workbench_memory_revise', 'workbench_memory_relation_propose', 'workbench_memory_relation_revoke']);
 function adaptiveMetaToolSchemas(includeInvoke = false) {
   const tools = [
     {
@@ -245,6 +250,7 @@ function buildOpenAiTools(config, caps, opts) {
     if (t.name === 'permission_prompt') continue;
     if (t.name === 'request_user_input' && noAgentTools) continue;
     if (AGENT_TOOL_NAMES.has(t.name) && !agentToolsEnabled) continue;
+    if (opts && opts.noMemoryWriteTools === true && MEMORY_WRITE_TOOL_NAMES.has(t.name)) continue;
     if (nativeToolDisabledByPolicy(t.name, config, desktopOverride)) continue; // allowCommandTools / allowDesktopTools(offer 与分发共用同一判据)
     // 105a: observation_recall 仅在 recall+reducer 双开关生效时 offer;默认关 → 不出现在工具集。
     if (t.name === 'observation_recall' && !observationRecallEnabled(config)) continue;
