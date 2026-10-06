@@ -218,6 +218,10 @@ const TIMEOUT_OVERRIDES = {
   // 切视角七个来回、开合六张浮层各量三点命中、两档密度各悬停一次、再切一次模型跑一个真回合，
   // 外加两张截图。24 核机器上实测单跑 ~120 s（独占桶里）。豁免到 300 s，与同族两件同一档。
   'walkthrough-round1.browser.e2e.js': 300000,
+  // 3.0 收口走查第三波:界面修复件。H1–H6 逐项在出问题的宽度 × 中英两种语言上量(线程头 11 档宽 × 2 语言、
+  // 设置页签 3 档 × 2 语言、抽屉 Tab 序、定时任务表单……)再加 M 组的真回合,单跑实测 128 s,已越过默认 120 s
+  // (本机 4 路全量里撞墙 TIMEOUT,断言全 PASS)。豁免到 300 s,与同族走查件同一档。
+  'frontend-wave3.browser.e2e.js': 300000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 
