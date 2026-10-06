@@ -20,11 +20,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     onEvent = evt => baseOnEvent(evt && typeof evt === 'object' && !evt.background ? { ...evt, background: true } : evt);
   }
   // 安全走查 S3:项目来源的角色按这次运行的父档(permModeOverride > 线程档)带上有效档位标注;节点工具级用夹过的那个(卡片如实显示)。
-  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config, { parentMode: permModeOverride || config.permissionMode })).map(role => [role.id, role]));
-  const nodeTierFor = (role, explicitTier) => {
-    const t = explicitTier || (role && role.toolTier) || 'read';
-    return role && agentRoleIsUntrusted(role) ? clampAgentRoleToParent(role, t, permModeOverride || config.permissionMode).toolTier : t;
-  };
+  // 项目来源的角色在这里换成「夹后」的 toolTier(声明值留在 declaredToolTier):下面节点的 toolTier / 选模型都读 role.toolTier,卡片与快照如实显示夹后的档位。
+  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config, { parentMode: permModeOverride || config.permissionMode }))
+    .map(role => [role.id, (agentRoleIsUntrusted(role) && role.effectiveToolTier && role.effectiveToolTier !== role.toolTier) ? { ...role, declaredToolTier: role.toolTier, toolTier: role.effectiveToolTier } : role]));
   let defaultRoute = {
     engine: parentEngine === 'claude' ? 'claude' : (provider ? 'openai' : 'claude'),
     provider: provider || null,
@@ -145,7 +143,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (roleId && !role) return { ok: false, error: `节点 ${id} 引用了不存在的角色: ${roleId}`, startedCount: 0 };
       ids.add(id);
       const resourceSpecs = normalizeAgentResources(raw.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace));
-      const explicitTier = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      // 模型显式给的档位对项目来源的角色同样不得高于父档(clamp 只对 untrusted 角色生效,其余原样)。
+      const explicitTier0 = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      const explicitTier = (explicitTier0 && role && agentRoleIsUntrusted(role)) ? clampAgentRoleToParent(role, explicitTier0, permModeOverride || config.permissionMode).toolTier : explicitTier0;
       const outputSchema = sanitizeAgentOutputSchema(raw.outputSchema);
       const gate = normalizeAgentGate(raw.gate, roleId);
       const failurePolicy = ['block', 'continue', 'retry'].includes(raw.failurePolicy) ? raw.failurePolicy : 'block';
@@ -160,7 +160,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
       // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
       const matProvider = engine === 'openai' ? (defaultRoute.provider || provider) : provider;
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: nodeTierFor(role, explicitTier), engine, model: resolveNodeModel(raw.model, roleModel, nodeTierFor(role, explicitTier), engine, routeConfig, matProvider), maxIters: Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));

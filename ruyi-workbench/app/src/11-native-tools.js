@@ -1587,11 +1587,11 @@ function ignoreGlobsForRg(opts, allowDirs) {
 function sensitiveGlobsForRg(base) {
   const globs = [];
   try {
-    // 安全走查 S7:名单与 03 的 isSensitiveDataPath 同一张表(SENSITIVE_DATA_NAMES);根要把【realpath 后的数据根】也算进来 ——
+    // 安全走查 S7:名单与 03 的 isSensitiveDataPath 内的那份一致(unit/unc-and-traversal-gates.test.js 逐名比对);根要把【realpath 后的数据根】也算进来 ——
     // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
     const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
     for (const r of roots) {
-      for (const n of SENSITIVE_DATA_NAMES) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
       }

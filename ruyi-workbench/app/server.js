@@ -12708,9 +12708,9 @@ async function ensureDataRootReal() {
   if (!_dataRootReal) { const r = dataRoot(); _dataRootReal = await fsp.realpath(r).catch(() => r); }
   return _dataRootReal;
 }
-// 敏感子路径(相对 dataRoot)的唯一事实源:isSensitiveDataPath 与 11 的 sensitiveGlobsForRg(rg 的 !glob 排除)读同一张表,不各抄一份。
-const SENSITIVE_DATA_NAMES = Object.freeze(['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
-  'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json']);
+// 注意:isSensitiveDataPath 必须保持【自包含】(dev-harness/audit-w23.e2e.js 把整段函数体切出来、只喂 path / dataRoot / dataRootAliases / _dataRootReal /
+// pathWithinRoot 就地实跑),所以名单字面量留在函数里,不外提成模块常量。11 的 sensitiveGlobsForRg(rg 的 !glob 排除)有另一份同内容的名单 ——
+// 两份必须一致,unit/unc-and-traversal-gates.test.js 逐个名字比对(改一份忘了另一份会红)。
 function isSensitiveDataPath(p) {
   if (!p) return false;
   const root = dataRoot();
@@ -12721,7 +12721,8 @@ function isSensitiveDataPath(p) {
   // 工作台自己拥有的内部数据,没有任何文件工具的合法读取场景 —— 界面与管家工具走各自的 API,不经 guardFileToolPath。
   // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
   // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
-  const names = SENSITIVE_DATA_NAMES;
+  const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
@@ -30767,7 +30768,7 @@ const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
     //     别名 ri / del / erase / rd / rm 同样吃这些开关;
     //   · GNU rm 把开关放在操作数后面(`rm dir -rf`,上面那条只认紧跟 rm 的开关)、argv 数组形态(['rm','-rf',…]);
     //   · cmd 的 rd /s、erase /s;find … -delete;
-    //   · 脚本语言的 API:python shutil.rmtree、node 的 .rm / .rmSync / .rmdir(带 recursive;`require('fs').rmSync(…)` 这种链式写法里没有 `fs.` 前缀,所以不锚 fs)、rimraf、.NET [IO.Directory]::Delete。
+    //   · 脚本语言的 API:python shutil.rmtree、node 的 .rm / .rmSync / .rmdir(带 recursive;require 链式调用的 rmSync 前面没有 fs. 前缀,所以不锚 fs)、rimraf、.NET [IO.Directory]::Delete。
     /\b(?:remove-item|ri|del|erase|rd|rmdir|rm)\b[^\n]{0,200}?\s-(?:r|re|rec|recu|recur|recurs|recurse)(?=[\s:]|$)/i,
     /\b(?:remove-item|ri|del|erase|rd)\b[^\n]{0,200}?\s-fo(?:r|rc|rce)?(?=[\s:]|$)/i,
     /\brm\b[^\n]{0,200}?\s-[a-z]*r[a-z]*(?=\s|$)/i, /\brm['"]?\s*,\s*['"]-[a-z]*r/i,
@@ -40502,7 +40503,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               const webWhy = webPayloadReason(tc.name, args);
               resultObj = webWhy
                 ? { ok: false, error: `这个联网请求的网址 / 查询看起来带了大段数据(${webWhy}),需要用户确认,子代理无法征求确认,已拒绝;请缩短后重试,或让主线程发起` }
-                : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
+                : (effMode === 'auto' && ntier === 'exec'
+                  // 智能自动档对 exec 只在命中高风险判据(网络外发 / 递归删除 / 推送发布 / 改系统 / 读数据根密钥 / 拼接编码求值)时问人,子代理无法征求确认。
+                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
+                  : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` });
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
               if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
@@ -42536,11 +42540,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     onEvent = evt => baseOnEvent(evt && typeof evt === 'object' && !evt.background ? { ...evt, background: true } : evt);
   }
   // 安全走查 S3:项目来源的角色按这次运行的父档(permModeOverride > 线程档)带上有效档位标注;节点工具级用夹过的那个(卡片如实显示)。
-  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config, { parentMode: permModeOverride || config.permissionMode })).map(role => [role.id, role]));
-  const nodeTierFor = (role, explicitTier) => {
-    const t = explicitTier || (role && role.toolTier) || 'read';
-    return role && agentRoleIsUntrusted(role) ? clampAgentRoleToParent(role, t, permModeOverride || config.permissionMode).toolTier : t;
-  };
+  // 项目来源的角色在这里换成「夹后」的 toolTier(声明值留在 declaredToolTier):下面节点的 toolTier / 选模型都读 role.toolTier,卡片与快照如实显示夹后的档位。
+  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config, { parentMode: permModeOverride || config.permissionMode }))
+    .map(role => [role.id, (agentRoleIsUntrusted(role) && role.effectiveToolTier && role.effectiveToolTier !== role.toolTier) ? { ...role, declaredToolTier: role.toolTier, toolTier: role.effectiveToolTier } : role]));
   let defaultRoute = {
     engine: parentEngine === 'claude' ? 'claude' : (provider ? 'openai' : 'claude'),
     provider: provider || null,
@@ -42661,7 +42663,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (roleId && !role) return { ok: false, error: `节点 ${id} 引用了不存在的角色: ${roleId}`, startedCount: 0 };
       ids.add(id);
       const resourceSpecs = normalizeAgentResources(raw.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace));
-      const explicitTier = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      // 模型显式给的档位对项目来源的角色同样不得高于父档(clamp 只对 untrusted 角色生效,其余原样)。
+      const explicitTier0 = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      const explicitTier = (explicitTier0 && role && agentRoleIsUntrusted(role)) ? clampAgentRoleToParent(role, explicitTier0, permModeOverride || config.permissionMode).toolTier : explicitTier0;
       const outputSchema = sanitizeAgentOutputSchema(raw.outputSchema);
       const gate = normalizeAgentGate(raw.gate, roleId);
       const failurePolicy = ['block', 'continue', 'retry'].includes(raw.failurePolicy) ? raw.failurePolicy : 'block';
@@ -42676,7 +42680,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
       // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
       const matProvider = engine === 'openai' ? (defaultRoute.provider || provider) : provider;
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: nodeTierFor(role, explicitTier), engine, model: resolveNodeModel(raw.model, roleModel, nodeTierFor(role, explicitTier), engine, routeConfig, matProvider), maxIters: Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -51603,11 +51607,11 @@ function ignoreGlobsForRg(opts, allowDirs) {
 function sensitiveGlobsForRg(base) {
   const globs = [];
   try {
-    // 安全走查 S7:名单与 03 的 isSensitiveDataPath 同一张表(SENSITIVE_DATA_NAMES);根要把【realpath 后的数据根】也算进来 ——
+    // 安全走查 S7:名单与 03 的 isSensitiveDataPath 内的那份一致(unit/unc-and-traversal-gates.test.js 逐名比对);根要把【realpath 后的数据根】也算进来 ——
     // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
     const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
     for (const r of roots) {
-      for (const n of SENSITIVE_DATA_NAMES) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
       }

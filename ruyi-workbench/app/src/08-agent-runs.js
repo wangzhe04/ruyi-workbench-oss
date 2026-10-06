@@ -1091,7 +1091,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               const webWhy = webPayloadReason(tc.name, args);
               resultObj = webWhy
                 ? { ok: false, error: `这个联网请求的网址 / 查询看起来带了大段数据(${webWhy}),需要用户确认,子代理无法征求确认,已拒绝;请缩短后重试,或让主线程发起` }
-                : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
+                : (effMode === 'auto' && ntier === 'exec'
+                  // 智能自动档对 exec 只在命中高风险判据(网络外发 / 递归删除 / 推送发布 / 改系统 / 读数据根密钥 / 拼接编码求值)时问人,子代理无法征求确认。
+                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
+                  : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` });
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
               if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };

@@ -462,9 +462,9 @@ async function ensureDataRootReal() {
   if (!_dataRootReal) { const r = dataRoot(); _dataRootReal = await fsp.realpath(r).catch(() => r); }
   return _dataRootReal;
 }
-// 敏感子路径(相对 dataRoot)的唯一事实源:isSensitiveDataPath 与 11 的 sensitiveGlobsForRg(rg 的 !glob 排除)读同一张表,不各抄一份。
-const SENSITIVE_DATA_NAMES = Object.freeze(['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
-  'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json']);
+// 注意:isSensitiveDataPath 必须保持【自包含】(dev-harness/audit-w23.e2e.js 把整段函数体切出来、只喂 path / dataRoot / dataRootAliases / _dataRootReal /
+// pathWithinRoot 就地实跑),所以名单字面量留在函数里,不外提成模块常量。11 的 sensitiveGlobsForRg(rg 的 !glob 排除)有另一份同内容的名单 ——
+// 两份必须一致,unit/unc-and-traversal-gates.test.js 逐个名字比对(改一份忘了另一份会红)。
 function isSensitiveDataPath(p) {
   if (!p) return false;
   const root = dataRoot();
@@ -475,7 +475,8 @@ function isSensitiveDataPath(p) {
   // 工作台自己拥有的内部数据,没有任何文件工具的合法读取场景 —— 界面与管家工具走各自的 API,不经 guardFileToolPath。
   // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
   // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
-  const names = SENSITIVE_DATA_NAMES;
+  const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;

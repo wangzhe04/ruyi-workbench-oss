@@ -311,7 +311,7 @@ const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
     //     别名 ri / del / erase / rd / rm 同样吃这些开关;
     //   · GNU rm 把开关放在操作数后面(`rm dir -rf`,上面那条只认紧跟 rm 的开关)、argv 数组形态(['rm','-rf',…]);
     //   · cmd 的 rd /s、erase /s;find … -delete;
-    //   · 脚本语言的 API:python shutil.rmtree、node 的 .rm / .rmSync / .rmdir(带 recursive;`require('fs').rmSync(…)` 这种链式写法里没有 `fs.` 前缀,所以不锚 fs)、rimraf、.NET [IO.Directory]::Delete。
+    //   · 脚本语言的 API:python shutil.rmtree、node 的 .rm / .rmSync / .rmdir(带 recursive;require 链式调用的 rmSync 前面没有 fs. 前缀,所以不锚 fs)、rimraf、.NET [IO.Directory]::Delete。
     /\b(?:remove-item|ri|del|erase|rd|rmdir|rm)\b[^\n]{0,200}?\s-(?:r|re|rec|recu|recur|recurs|recurse)(?=[\s:]|$)/i,
     /\b(?:remove-item|ri|del|erase|rd)\b[^\n]{0,200}?\s-fo(?:r|rc|rce)?(?=[\s:]|$)/i,
     /\brm\b[^\n]{0,200}?\s-[a-z]*r[a-z]*(?=\s|$)/i, /\brm['"]?\s*,\s*['"]-[a-z]*r/i,
