@@ -212,6 +212,30 @@ test('[A5] 非流式解码', () => {
   assert.equal(wire.decodeCompletion(null).text, '');
 });
 
+test('[A5b] 2026-10 走查(w1-provider):失败回体的 httpError 文本 failureText;窗口超限归一成 context_exceeded 而不是 length', () => {
+  // 窗口满了 ≠ 输出上限:09 据此给「先压缩 / 新开线程」而不是「发继续」。incomplete 仍为 true(摘要重试判据不变)。
+  const ctx = wire.decodeCompletion({ content: [{ type: 'text', text: '半' }], stop_reason: 'model_context_window_exceeded' });
+  assert.equal(ctx.finishReason, 'context_exceeded');
+  assert.equal(ctx.incomplete, true);
+  assert.equal(wire.decodeCompletion({ content: [], stop_reason: 'max_tokens' }).finishReason, 'length', 'max_tokens 仍是 length');
+  // 失败回体:与流式 error 事件同形(还没吐内容且认得出状态码 → HTTP <status>: …;认不出 → 'Anthropic error: …')
+  const overloaded = wire.decodeCompletion({ type: 'error', error: { type: 'overloaded_error', message: 'busy sk-ant-xxxxabcdefghijklmnopqrstuvwxyz0123456789' } });
+  assert.equal(overloaded.failed, true);
+  assert.match(overloaded.failureText, /^HTTP 529: overloaded_error: busy /);
+  assert.doesNotMatch(overloaded.failureText, /abcdefghijklmnop/, '失败文本经脱敏');
+  const bad = wire.decodeCompletion({ type: 'error', error: { type: 'invalid_request_error', message: 'bad' } });
+  assert.equal(bad.failureText, 'Anthropic error: invalid_request_error: bad');
+  const refused = wire.decodeCompletion({ content: [], stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'cyber', explanation: 'no' } });
+  assert.equal(refused.failureText, 'Anthropic refusal (cyber): no');
+  assert.equal(wire.decodeCompletion({ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }).failureText, '', '成功回体 failureText 为空串');
+  // 流式:窗口超限同样归一
+  const dec = wire.createStreamDecoder({ onEvent: () => {}, markUsage: () => {} });
+  dec.feed({ type: 'message_start', message: { id: 'm', model: 'claude-opus-5-5' } });
+  dec.feed({ type: 'message_delta', delta: { stop_reason: 'model_context_window_exceeded' } });
+  dec.feed({ type: 'message_stop' });
+  assert.equal(dec.finish().finishReason, 'context_exceeded');
+});
+
 function runStream(events, requestModel) {
   const seen = [];
   const usages = [];

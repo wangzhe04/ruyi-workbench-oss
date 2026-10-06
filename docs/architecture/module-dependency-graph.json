@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3505,
-    "requiredSymbols": 3136,
+    "providedSymbols": 3513,
+    "requiredSymbols": 3143,
     "edges": 536,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -2862,15 +2862,19 @@
       "layer": "foundation",
       "note": "架构还债批 2·A:OpenAI 兼容服务商 HTTP 原语的唯一住处(端点 URL 归一化/请求头/非流式 POST/瞬时错误重试骨架;自 05/06/07/08/09/10 纯搬家,零出边故不进任何环)",
       "provides": [
+        "PROVIDER_LAN_HOST_SUFFIXES",
         "abortableDelay",
         "providerApiBase",
+        "providerBaseIsLocalOrLan",
         "providerBaseWithV1",
         "providerCallIsTransient",
         "providerCompletionUrl",
         "providerPostJsonOnce",
         "providerRequestHeaders",
         "providerResponsesBase",
+        "providerRetryAfterMs",
         "providerSseAsCompletion",
+        "providerThrownErrorText",
         "withTransientRetry"
       ],
       "requires": []
@@ -2962,6 +2966,8 @@
         "normalizeProviderApiStyle",
         "providerReasoningEffort",
         "providerServerSearchCard",
+        "providerWireContentFiltered",
+        "providerWireContextExceeded",
         "providerWireDecoded",
         "providerWireFailureDetail",
         "providerWireIncomplete",
@@ -2973,7 +2979,9 @@
         "providerWireStreamErrorText",
         "providerWireToolCallsFromSlots",
         "reasoningContentField",
+        "responsesFailedText",
         "responsesHistoryWithCompleteToolPairs",
+        "responsesIncompleteFinishReason",
         "responsesInstructions",
         "responsesOutputText",
         "setTemperature",
@@ -5450,6 +5458,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerBaseIsLocalOrLan",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
@@ -7211,6 +7226,20 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerRetryAfterMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerThrownErrorText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -8925,6 +8954,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerThrownErrorText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -8940,6 +8976,20 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "providerServerSearchCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireContentFiltered",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireContextExceeded",
           "kinds": [
             "call"
           ]
@@ -9024,6 +9074,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "neutralizeAuthoredText",
           "kinds": [
             "call"
           ]
@@ -27500,6 +27557,7 @@
       "from": "06-provider-engine.js",
       "to": "04h-provider-http.js",
       "symbols": [
+        "providerBaseIsLocalOrLan",
         "providerBaseWithV1",
         "providerPostJsonOnce"
       ],
@@ -28013,6 +28071,8 @@
       "from": "07-autonomy.js",
       "to": "04h-provider-http.js",
       "symbols": [
+        "providerRetryAfterMs",
+        "providerThrownErrorText",
         "withTransientRetry"
       ],
       "direction": "backward"
@@ -28487,6 +28547,7 @@
       "to": "04h-provider-http.js",
       "symbols": [
         "providerCallIsTransient",
+        "providerThrownErrorText",
         "withTransientRetry"
       ],
       "direction": "backward"
@@ -28497,6 +28558,8 @@
       "symbols": [
         "applyProviderReasoningEffort",
         "providerServerSearchCard",
+        "providerWireContentFiltered",
+        "providerWireContextExceeded",
         "providerWireOutputLimited",
         "providerWireProtocol"
       ],
@@ -28523,6 +28586,7 @@
         "evalPlaybookAvailability",
         "getCapabilities",
         "loadAllPlaybooks",
+        "neutralizeAuthoredText",
         "readProjectMemory",
         "repairNodeJsonViaProvider",
         "resolveToolIterationBudget",

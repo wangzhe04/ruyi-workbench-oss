@@ -326,7 +326,9 @@ function anthropicFinishReason(stopReason) {
   switch (String(stopReason || '')) {
     case 'end_turn': case 'stop_sequence': case 'pause_turn': return 'stop';
     case 'tool_use': return 'tool_calls';
-    case 'max_tokens': case 'model_context_window_exceeded': return 'length';
+    case 'max_tokens': return 'length';
+    // 上下文窗口满了不是「输出上限」:归一成 context_exceeded,09 给「先压缩 / 新开线程」的提示,而不是「发继续」(那只会让窗口更满)。
+    case 'model_context_window_exceeded': return 'context_exceeded';
     case 'refusal': return 'refusal';
     default: return stopReason ? String(stopReason) : null;
   }
@@ -368,6 +370,8 @@ function decodeAnthropicCompletion(j, opts) {
   const errorDetail = isError && j.error ? String(j.error.message || j.error.type || 'provider error') : '';
   const refusal = stop === 'refusal';
   const providerBlocks = anthropicProviderBlocks(blocks, j && j.model, opts && opts.requestModel);
+  // 失败回体的 httpError 文本(与流式解码器同形:还没吐内容且认得出状态码 → 'HTTP <status>: …'):07 非流式分支据此报 httpError。
+  const failureText = isError ? anthropicStreamErrorText(j.error || {}, false, opts && opts.scrub, 'Anthropic error') : (refusal ? anthropicRefusalDetail(j.stop_details) : '');
   return {
     text: outText, reasoning, toolCalls,
     finishReason: isError ? 'error' : anthropicFinishReason(stop),
@@ -375,6 +379,7 @@ function decodeAnthropicCompletion(j, opts) {
     incompleteReason: String(stop || 'output limit'),
     failed: isError || refusal,
     failedDetail: isError ? errorDetail : (refusal ? anthropicRefusalDetail(j.stop_details) : ''),
+    failureText,
     usage: normalizeAnthropicUsage(j && j.usage) || null,
     responseId: (j && typeof j.id === 'string' && j.id) || '',
     ...(providerBlocks ? { providerBlocks } : {}),
@@ -383,12 +388,12 @@ function decodeAnthropicCompletion(j, opts) {
 // 流中的 error 事件:还没吐出任何内容时按 HTTP 状态口径报(overloaded → 529、限流 → 429、api_error → 500,
 // 04h providerCallIsTransient 据此走瞬时重试);已经吐过内容就不带状态码 —— 重试会让界面上的内容重放一遍。
 const ANTHROPIC_STREAM_ERROR_STATUS = { overloaded_error: 529, rate_limit_error: 429, api_error: 500, request_too_large: 413 };
-function anthropicStreamErrorText(err, emitted, scrub) {
+function anthropicStreamErrorText(err, emitted, scrub, label) {
   const kind = String((err && err.type) || 'error');
   const msg = String((err && err.message) || '');
   const detail = kind + (msg ? ': ' + (typeof scrub === 'function' ? scrub(msg.slice(0, 400)) : msg.slice(0, 400)) : '');
   const status = ANTHROPIC_STREAM_ERROR_STATUS[kind];
-  return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Anthropic stream error: ' + detail;
+  return !emitted && status ? 'HTTP ' + status + ': ' + detail : (label || 'Anthropic stream error') + ': ' + detail;
 }
 // 用量合并:后到的只覆盖有限数字。message_delta.usage 里 input_tokens / cache_* 可以是 null(SDK 类型就是可空),
 // 直接展开会把 message_start 的真实计数抹成 0,上下文校准与用量台账跟着错。

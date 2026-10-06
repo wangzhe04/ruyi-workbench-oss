@@ -336,6 +336,8 @@
   "error.networkDown.next": "联网后重试，或改用可离线完成的任务",
   "error.permissionDenied": "此操作被权限拒绝",
   "error.permissionDenied.next": "在弹窗中允许，或在“安全与权限”中调整模式",
+  "error.providerError": "模型服务商返回了错误",
+  "error.providerError.next": "多为服务端暂时故障或请求被拒：请稍后重试；反复出现时查看错误详情，或前往“设置 → 模型服务商”检查模型名与地址",
   "error.providerMisconfigured": "模型端点未配置或不可用",
   "error.providerMisconfigured.next": "前往“设置 → 模型服务商”检查地址与密钥",
   "error.toolFailed": "工具执行出错",

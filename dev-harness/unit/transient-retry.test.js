@@ -48,6 +48,16 @@ test('[R1] providerCallIsTransient 判据', () => {
   assert.equal(providerCallIsTransient(null), false);
 });
 
+test('[R1b] 状态码只认开头的 HTTP <nnn>:流内错误文案里引用的 "HTTP 429" 不算瞬时失败(防已吐内容的重放)', () => {
+  assert.equal(providerCallIsTransient({ httpError: 'Provider stream error: server_error: upstream replied HTTP 429 earlier' }), false);
+  assert.equal(providerCallIsTransient({ httpError: 'Anthropic stream error: api_error: got HTTP 529 from origin' }), false);
+  assert.equal(providerCallIsTransient({ httpError: 'Responses failed: gateway said HTTP 429' }), false);
+  assert.equal(providerCallIsTransient({ httpError: 'Provider error: error: HTTP 429' }), false);
+  assert.equal(providerCallIsTransient({ httpError: 'HTTP 529: overloaded_error: busy' }), true, 'Anthropic 过载仍是瞬时');
+  assert.equal(providerCallIsTransient({ httpError: 'HTTP 429: rate_limit_exceeded: slow down HTTP 400' }), true, '开头是 429 就算,正文里再引用别的状态码无关');
+  assert.equal(providerCallIsTransient({ httpError: 'HTTP 400: bad request mentioning HTTP 429' }), false, '开头是 400:正文引用 429 不能翻案');
+});
+
 test('[R2] 非瞬时失败只打一次、不睡', async () => {
   const s = scripted([{ httpError: 'HTTP 401: bad key' }]);
   const out = await withTransientRetry({ ...SUB_TURN, attempt: s.attempt, classify: classifyOpenAi, delay: s.delay });
@@ -121,6 +131,20 @@ test('[R5] 每次发出前查中止;onRetry 先于睡眠,拿到 (result, 第几�
   assert.deepEqual(s.log, ['attempt:0', 'retry:1:1', 'sleep:250', 'attempt:1', 'retry:2:2', 'sleep:500']);
 });
 
+test('[R5b] backoffMs 的第二个实参是触发重试的那次结果:服务商 Retry-After 可以抬高退避(09 主回合用),只收序号的老调用方不受影响', async () => {
+  // 09 主回合:取 max(自己的指数退避, retryAfterMs 封顶 30 s)
+  const mainTurnBackoff = (n, c) => Math.max(500 * 2 ** (n - 1), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0);
+  const s = scripted([{ httpError: 'HTTP 429', retryAfterMs: 7000 }, { httpError: 'HTTP 429' }, { httpError: 'HTTP 429', retryAfterMs: 600000 }, { text: 'ok' }]);
+  const out = await withTransientRetry({ maxRetries: 3, backoffMs: mainTurnBackoff, attempt: s.attempt, classify: classifyOpenAi, delay: s.delay });
+  assert.equal(out.retries, 3);
+  assert.deepEqual(s.log.filter(x => x.startsWith('sleep:')), ['sleep:7000', 'sleep:1000', 'sleep:30000'],
+    '带 Retry-After 的取它(7 s);没带的走自己的 1000;离谱的 600 s 封顶 30 s');
+  // 老形状(只收序号)原样工作
+  const legacy = scripted([{ httpError: 'HTTP 429', retryAfterMs: 9999 }, { text: 'ok' }]);
+  await withTransientRetry({ ...SUB_TURN, attempt: legacy.attempt, classify: classifyOpenAi, delay: legacy.delay });
+  assert.deepEqual(legacy.log, ['attempt:0', 'sleep:250', 'attempt:1']);
+});
+
 test('[R6] attempt 抛出(首字节之后的失败)原样上抛,不重试', async () => {
   const s = scripted([new Error('terminated')]);
   await assert.rejects(withTransientRetry({ ...SUB_TURN, attempt: s.attempt, classify: classifyOpenAi, delay: s.delay }), /terminated/);
@@ -170,6 +194,33 @@ test('[R6] 真 openAiStreamOnce:首字节前 503 被重试;流式开始后断连
   } finally {
     await fake.close();
   }
+});
+
+test('[R6b] 真 openAiStreamOnce:429 的 Retry-After(秒 / HTTP 日期)被带出为 retryAfterMs,封顶 30 s', async () => {
+  const headersFor = { n: 0 };
+  const fake = await startFakeProvider({
+    handler(req) {
+      headersFor.n += 1;
+      if (headersFor.n === 1) return { status: 429, json: { error: { message: 'slow down' } }, headers: { 'retry-after': '4' } };
+      if (headersFor.n === 2) return { status: 429, json: { error: { message: 'slow down' } }, headers: { 'retry-after': new Date(Date.now() + 9000).toUTCString() } };
+      if (headersFor.n === 3) return { status: 503, json: { error: { message: 'busy' } }, headers: { 'retry-after': '3600' } };
+      return { status: 429, json: { error: { message: 'slow down' } } };
+    },
+  });
+  try {
+    const provider = { id: 'fake', baseUrl: fake.url, apiKey: 'k', model: 'm' };
+    const once = () => openAiStreamOnce({ chatUrl: providerCompletionUrl(provider.baseUrl, false), headers: providerRequestHeaders(provider), body: { model: 'm', messages: [{ role: 'user', content: 'hi' }], stream: true }, ctrl: null, onEvent: () => {}, markUsage: () => {}, rawSeqRef: { n: 0 }, touch: () => {} });
+    const a = await once();
+    assert.equal(a.retryAfterMs, 4000);
+    assert.match(a.httpError, /^HTTP 429/);
+    const b = await once();
+    assert.ok(b.retryAfterMs > 6000 && b.retryAfterMs <= 9000, `HTTP 日期形式换算成毫秒(实得 ${b.retryAfterMs})`);
+    const c = await once();
+    assert.equal(c.retryAfterMs, 30000, '3600 s 封顶 30 s');
+    assert.equal(c.failoverStatus, 503);
+    const d = await once();
+    assert.ok(!('retryAfterMs' in d), '没带头就没有这个键');
+  } finally { await fake.close(); }
 });
 
 test('[R7] abortableDelay:中止截断;已中止的 signal 照睡满', async () => {

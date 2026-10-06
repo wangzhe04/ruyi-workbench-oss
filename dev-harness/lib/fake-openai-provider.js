@@ -25,7 +25,7 @@
 //                          非流式请求(请求体里显式 stream:false):把帧聚合成一份 chat.completion JSON 回。
 //   · 字符串             → textFrames(字符串) 的简写。
 //   · { frames, delayMs, done } → 同帧数组;delayMs 为帧间间隔,done:false 时不补 [DONE](模拟不发终止符的网关)。
-//   · { status, json }  → 按该状态码回一份 JSON(429/500/503 之类的错误信封)。
+//   · { status, json[, headers] } → 按该状态码回一份 JSON(429/500/503 之类的错误信封);headers 追加响应头(如 { 'retry-after': '2' })。
 //   · undefined / null  → handler 自己接管 req.res(例如 setTimeout 后再写、或者故意挂住不回)。
 //                          接管时可用 req.open() 写 SSE 头、req.sse(frame) 写一帧、req.end() 补 [DONE] 并 end。
 // handler 抛错 → 回 500 JSON(头已写出则直接 end),错误记进 fake.errors。
@@ -126,7 +126,7 @@ async function startFakeProvider(opts = {}) {
     if (out === undefined || out === null) return; // handler 自己接管
     if (typeof out === 'string') out = textFrames(out);
     if (!Array.isArray(out) && typeof out === 'object' && out.status !== undefined && !out.frames) {
-      res.writeHead(out.status, { 'content-type': 'application/json' });
+      res.writeHead(out.status, { 'content-type': 'application/json', ...(out.headers && typeof out.headers === 'object' ? out.headers : {}) });
       res.end(JSON.stringify(out.json === undefined ? {} : out.json));
       return;
     }

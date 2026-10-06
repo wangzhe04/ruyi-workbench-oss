@@ -1775,7 +1775,12 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     // endpoint. This is still a pre-first-byte failure (we только read the error body, not an SSE stream).
     // Auth/request/rate-limit statuses (401/403/400/404/422/429) carry NO failoverStatus → caller won't switch.
     const failoverStatus = (res && FAILOVER_HTTP_STATUSES.has(res.status)) ? res.status : undefined;
-    return { httpError: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 500)) : ''}`, toolsRejected: /tool|function/i.test(d), failoverStatus, text: '', reasoning: '', toolCalls: [] };
+    // 「工具被拒」只在 400 / 422(请求体校验类)时才有意义:修前对【所有】非 ok 状态都按 /tool|function/ 打标,
+    // 一发 500 的正文里带 "function dispatcher" 就让 09 整回合去掉工具重打、回合还报 ok:true。
+    const toolsRejectedStatus = Boolean(res && (res.status === 400 || res.status === 422));
+    // Retry-After(429 / 503 常带;秒或 HTTP 日期,封顶 30 s):带出给调用方的退避取 max(自己的退避, 它)。没有 / 认不出不带这个键。
+    const retryAfterMs = res && res.headers && typeof res.headers.get === 'function' ? providerRetryAfterMs(name => res.headers.get(name), Date.now()) : 0;
+    return { httpError: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 500)) : ''}`, toolsRejected: toolsRejectedStatus && /tool|function/i.test(d), failoverStatus, ...(retryAfterMs > 0 ? { retryAfterMs } : {}), text: '', reasoning: '', toolCalls: [] };
   }
   // Non-streaming fallback: single JSON body. The protocol decoder normalizes it to the same
   // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
@@ -1786,11 +1791,16 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   if (!res.body || typeof res.body.getReader !== 'function' || jsonBody) {
     const j = await res.json().catch(() => null);
     const d = wire.decodeCompletion(j, { requestModel: body.model });
+    // 回体本身装着失败(200 + 顶层 error、Responses status:'failed'、Anthropic type:'error' / refusal):与流式分支一致地报 httpError。
+    // 修前这里把 failed / failedDetail 全丢了,落成「空回复」,真因(额度用尽 / 拒答 / 服务端报错)用户看不到。用量照记(失败那一发也花了钱)。
+    if (d.usage) markUsage(d.usage);
+    if (d.failureText) {
+      return { text: d.text, reasoning: d.reasoning, finishReason: 'error', toolCalls: [], httpError: redact(String(d.failureText).slice(0, 500)), providerResponseId: d.responseId };
+    }
     // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
     // chain used to be invisible in the UI).
     if (d.reasoning) onEvent({ type: 'thinking_delta', text: d.reasoning });
     if (d.text) onEvent({ type: 'assistant_delta', text: d.text });
-    if (d.usage) markUsage(d.usage);
     return { text: d.text, reasoning: d.reasoning, toolCalls: d.toolCalls, finishReason: d.finishReason, providerResponseId: d.responseId, ...(d.providerBlocks ? { providerBlocks: d.providerBlocks } : {}) };
   }
   const reader = res.body.getReader();
@@ -1835,7 +1845,15 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     return false;
   };
   while (!done) {
-    const r = await reader.read();
+    let r;
+    try { r = await reader.read(); }
+    catch (e) {
+      // 流中途断线:undici 抛的是 TypeError('terminated'),真因(other side closed / UND_ERR_SOCKET / ECONNRESET)只挂在 e.cause。
+      // 把它并进 message(原错误对象照旧上抛,name / cause / 栈都在):回合的 errorMsg 与 errorClass 才看得出这是掉线。
+      // 中止(用户 Stop / 看门狗)原样上抛,09 靠 e.name === 'AbortError' 认它。
+      if (e && e.name !== 'AbortError' && e.cause) { try { e.message = providerThrownErrorText(e); } catch { /* 只读 message:保持原样 */ } }
+      throw e;
+    }
     if (r.done) break;
     touch();
     buf += decoder.decode(r.value, { stream: true });
