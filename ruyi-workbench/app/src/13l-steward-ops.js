@@ -262,6 +262,13 @@ async function stewardImplDecide(args, ctx, config) {
       delegable: false, blockedBy: 'indirect_command',
     });
   }
+  // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串,07 webPayloadReason)—— 它是「可能在外传数据」的那一问,管家同样不替用户批,放行类一律交回用户。
+  if (type === 'permission' && !refusing && webPayloadReason(toolName, current.input)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次的网址 / 查询带了大段数据,可能是在往外传内容 —— 这一条必须你亲自决定`, {
+      reason: 'web_payload', missionId, interventionId, type, toolName, tier, permissionMode,
+      delegable: false, blockedBy: 'web_payload',
+    });
+  }
   let delegation = null;
   if (type === 'permission' && exemptHit && !refusing) {
     const safeTool = stewardSanitizeText(toolName);

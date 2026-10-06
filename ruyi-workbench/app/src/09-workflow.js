@@ -3152,8 +3152,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // F5 (安全·自防御): re-check the native tier at the decision point — do NOT rely on normalizeConfig
           // having cleansed the rule table upstream. Only read/edit-tier native tools may be auto-allowed by a
           // persistent rule; an exec/desktop rule (however it got into the file) can never short-circuit here.
+          // 安全走查 S1:联网请求带疑似载荷时的这一问,不被「始终允许」规则短路 —— 否则用户对一次长网址点过「始终允许」,保护就对所有后续请求永久失效。
           if (gate === 'ask' && !bridge && config.toolAllowRules && config.toolAllowRules[tc.name] === 'allow'
-              && (nativeToolTier(tc.name) === 'read' || nativeToolTier(tc.name) === 'edit')) gate = 'allow';
+              && (nativeToolTier(tc.name) === 'read' || nativeToolTier(tc.name) === 'edit') && !webPayloadReason(tc.name, args)) gate = 'allow';
           // 第27波:自主性授权书消耗点(native 主 gate)。仅在 gate==='ask' 且 !bridge 时介入(子集律:只 ask→allow);
           // 命中 → 就地降 allow + 计数 + 事件。exec/edit/read 全档可授,但均受 grant 的路径 glob / cmdAllow / TTL / 次数约束,
           // 且真正执行仍过 guardFileToolPath/SSRF/journal。子代理有独立 gate(runSubAgentCore),【不】走此处 → 不消耗父授权(R-P1-1)。

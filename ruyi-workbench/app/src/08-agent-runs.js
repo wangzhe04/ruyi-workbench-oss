@@ -1087,7 +1087,11 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             if (bridgedPolicyOff) {
               resultObj = toolDisabledResult(tc.name, bridgedPolicyOff);
             } else if (gate !== 'allow') {
-              resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
+              // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串)在除 bypass 外的档位要用户确认,子代理没有交互通道 —— 拒绝并说清缘由,别说成「无权执行 read 级工具」。
+              const webWhy = webPayloadReason(tc.name, args);
+              resultObj = webWhy
+                ? { ok: false, error: `这个联网请求的网址 / 查询看起来带了大段数据(${webWhy}),需要用户确认,子代理无法征求确认,已拒绝;请缩短后重试,或让主线程发起` }
+                : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
               if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
