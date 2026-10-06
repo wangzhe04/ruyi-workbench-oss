@@ -262,6 +262,17 @@ async function stewardImplDecide(args, ctx, config) {
       delegable: false, blockedBy: 'indirect_command',
     });
   }
+  // 安全走查 S2:命令里有网络外发 / 读数据根密钥文件(06i stewardAutoAskSensitiveKind,智能自动正是因为它才停下来问):不在五类豁免里,
+  // 但「外发什么、读了什么」管家同样判不出 —— 放行类一律交回用户,拒绝类照常可以。
+  if (type === 'permission' && !exemptHit && !refusing) {
+    const sensitiveKind = stewardAutoAskSensitiveKind(toolName, exemptInput);
+    if (sensitiveKind) {
+      return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令会${sensitiveKind === 'dataroot' ? '读取如意数据目录里的密钥 / 状态文件' : '访问外部网络'},可能在外传数据 —— 这一条必须你亲自决定`, {
+        reason: sensitiveKind === 'dataroot' ? 'dataroot_read' : 'network_egress', missionId, interventionId, type, toolName, tier, permissionMode,
+        delegable: false, blockedBy: sensitiveKind === 'dataroot' ? 'dataroot_read' : 'network_egress',
+      });
+    }
+  }
   // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串,07 webPayloadReason)—— 它是「可能在外传数据」的那一问,管家同样不替用户批,放行类一律交回用户。
   if (type === 'permission' && !refusing && webPayloadReason(toolName, current.input)) {
     return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次的网址 / 查询带了大段数据,可能是在往外传内容 —— 这一条必须你亲自决定`, {

