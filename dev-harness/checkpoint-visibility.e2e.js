@@ -38,6 +38,9 @@ const parseJson = s => { try { return JSON.parse(s); } catch { return null; } };
 const userTexts = req => (req ? req.messages.filter(m => m.role === 'user').map(m => contentText(m.content)) : []);
 const NOTICE = '[用户已在界面撤销：';
 const TIME_THEN_NOTICE_RE = /\n\n\[本条消息发送于 [^\]\n]+\]\n\[用户已在界面撤销：[^\n]*\]$/;
+// 3.0 收口 · 记忆召回 #9(77751c2)起,每回合会变的记忆回执与相关索引贴在末条 user 的最后、不落盘(与 recall / notes 同位)。
+// 「告知在时间行之后、落盘后逐字节不变」比的是落盘的那一段:先摘掉本回合的记忆块再判 —— 告知落盘、重放不变这条不变量原样钉着。
+const persistedUserText = s => { const i = String(s || '').lastIndexOf('\n\n<workbench-memory-check'); return i >= 0 ? s.slice(0, i) : String(s || ''); };
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-cp-visibility-'));
 const WS = path.join(HOME, 'ws');
@@ -180,7 +183,7 @@ try {
   const evAfter = await stream({ message: 'SCN-AFTER 继续', sessionId: sidA });
   ok(sidOf(evAfter) === sidA, 'N3 同一会话继续');
   const after1 = userTexts(reqsOf('AFTER')[0]);
-  const lastAfter = after1[after1.length - 1] || '';
+  const lastAfter = persistedUserText(after1[after1.length - 1] || '');
   ok(lastAfter.startsWith('SCN-AFTER 继续') && TIME_THEN_NOTICE_RE.test(lastAfter), `N4 请求里这条 user 消息末尾(时间行之后)带撤销告知(got …${JSON.stringify(lastAfter.slice(-260))})`);
   ok(lastAfter.includes('第 1 回合') && lastAfter.includes(path.resolve(OLD)) && lastAfter.includes('已恢复到修改前') && lastAfter.includes('新建的 ' + path.resolve(A) + ' 已删除'),
     'N5 告知点明回合、被恢复的文件与被删掉的新建文件');
@@ -211,7 +214,7 @@ try {
   token = await tokenOf();
   await stream({ message: 'SCN-LISTRESTART 重启之后', sessionId: sidA });
   const rs = userTexts(reqsOf('LISTRESTART')[0]);
-  const lastRs = rs[rs.length - 1] || '';
+  const lastRs = persistedUserText(rs[rs.length - 1] || '');
   ok(TIME_THEN_NOTICE_RE.test(lastRs) && lastRs.includes(`第 ${eTurn} 回合`) && lastRs.includes('新建的 ' + path.resolve(E) + ' 已删除'), `R3 重启后的第一个回合照样带告知(got …${JSON.stringify(lastRs.slice(-200))})`);
   ok(!lastRs.includes(path.resolve(OLD)), 'R4 回合 1 那条已告知过,不再重复');
 

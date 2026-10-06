@@ -94,6 +94,17 @@ const EVIL_MD = [
     }
     const shown = await fx.waitForEval(`(() => { const m = document.querySelector('#messages .msg.assistant .md, #messages .assistant .md'); return m && m.textContent.includes('会话已过期') ? 1 : null; })()`);
     ok(Boolean(shown), 'D2 助手消息渲染出来了(文字还在)');
+    // 视角 / 线程切换走 View Transition:过渡进行中 elementFromPoint 命中的是根元素 html(过渡伪元素盖在最上),
+    // E5 会误判成「被盖住」(Windows CI 3a585e7 红,本机偶发同样复现)。先等过渡收尾 —— 命中任何非 html 的元素都算可量,
+    // 真被覆盖层盖住时命中的是覆盖层,E5 照样红。
+    await fx.waitForEval(`(() => {
+      if (document.documentElement.dataset.vt) return null;
+      const row = document.querySelector('#railList .steward-board-thread'); if (!row) return null;
+      row.scrollIntoView({ block: 'center' });
+      const r = row.getBoundingClientRect();
+      const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return h && h !== document.documentElement ? 1 : null;
+    })()`, 200);   // ≈8 s(每次间隔 40 ms)
     const dom = await fx.evaluate(`(() => {
       const root = document.getElementById('messages');
       const md = root.querySelector('.md');
@@ -104,8 +115,11 @@ const EVIL_MD = [
       const divs = [...md.querySelectorAll('div')].filter(d => d.textContent.includes('会话已过期'));
       const link = md.querySelector('a[href^="https://evil.example"]');
       const row = document.querySelector('#railList .steward-board-thread');
+      if (row) row.scrollIntoView({ block: 'center' });   // 量之前先让它在视口里(Windows CI 上窗口与字体不同)
       const r = row ? row.getBoundingClientRect() : null;
       const hit = r ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
+      const desc = el => { const out = []; for (let n = el, i = 0; n && n.nodeType === 1 && i < 4; n = n.parentElement, i++) out.push(n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + (n.className && typeof n.className === 'string' ? '.' + n.className.trim().split(/\\s+/).slice(0, 3).join('.') : '')); return out.join(' < '); };
+      const railHitInfo = { hit: hit ? desc(hit) : null, row: r ? [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] : null, vw: window.innerWidth, vh: window.innerHeight };
       // 对照:同一页里直接给节点挂这个类(绕过净化),应当是全屏 fixed
       const control = document.createElement('div'); control.className = 'modal-backdrop'; document.body.appendChild(control);
       const cs = getComputedStyle(control); const cr = control.getBoundingClientRect();
@@ -116,7 +130,7 @@ const EVIL_MD = [
       return {
         withClass, fixed, divCount: divs.length, divsHaveClass: divs.some(d => d.hasAttribute('class')), linkStillALink: Boolean(link),
         mdHeight: Math.round(md.getBoundingClientRect().height), vh: window.innerHeight,
-        railHitIsRail: Boolean(hit && row && (row === hit || row.contains(hit))),
+        railHitIsRail: Boolean(hit && row && (row === hit || row.contains(hit))), railHitInfo,
         controlFixed, hasJs: Boolean(code), hljsOnJs: Boolean(code && (code.classList.contains('hljs') || code.querySelector('[class^="hljs-"]'))),
         mermaidFenceKept: Boolean(mer) || Boolean(md.querySelector('.mermaid-view, .mermaid-block, svg')),
       };
@@ -125,7 +139,7 @@ const EVIL_MD = [
     ok(dom.fixed.length === 0, `E2 消息区里没有 position:fixed 的元素(${JSON.stringify(dom.fixed)})`);
     ok(dom.divCount >= 3 && dom.divsHaveClass === false, `E3 那三层 div 本身还在(白名单标签),但不带 class(含该文字的 div ${dom.divCount} 个)`);
     ok(dom.mdHeight < dom.vh / 2, `E4 这条消息没有撑成全屏(高 ${dom.mdHeight}px,窗口 ${dom.vh}px)`);
-    ok(dom.railHitIsRail === true, 'E5 页面别处照常能点:左栏线程行中心点上的就是线程行,没有被盖住');
+    ok(dom.railHitIsRail === true, `E5 页面别处照常能点:左栏线程行中心点上的就是线程行,没有被盖住(${JSON.stringify(dom.railHitInfo)})`);
     ok(dom.controlFixed === true, 'E6 对照:直接挂 modal-backdrop 类的节点是全屏 fixed(这些类在本页是活的,E1-E5 不是空转)');
     ok(dom.linkStillALink === true, 'E7 普通链接不受影响');
     ok(dom.hasJs === true && dom.hljsOnJs === true, `E8 围栏代码块的 language-js 保留且被高亮(hljs)——自己的渲染没被打坏(${JSON.stringify({ hasJs: dom.hasJs, hljsOnJs: dom.hljsOnJs })})`);
