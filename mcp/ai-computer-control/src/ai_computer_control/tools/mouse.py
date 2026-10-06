@@ -38,6 +38,26 @@ def _reached(x: int, y: int, tol: int = 2) -> dict:
     return {"actual_x": ax, "actual_y": ay, "reached": abs(ax - x) <= tol and abs(ay - y) <= tol}
 
 
+def _move_for_scroll(x: int, y: int) -> dict | None:
+    """Park the cursor at (x, y) before a wheel event; a refusal dict if the wheel must NOT be sent.
+
+    The wheel goes to whatever window is under the cursor, so scrolling after a clamped/off-screen move would
+    scroll an unrelated window at the screen edge. Same two guards as click/move/drag: refuse a target outside
+    the virtual desktop before moving, and read the cursor back after moving.
+    """
+    refused = _off_desktop("scroll", (x, y))
+    if refused:
+        return refused
+    pyautogui.moveTo(x, y)
+    landed = _reached(x, y)
+    if not landed["reached"]:
+        return {"ok": False,
+                "error": (f"cursor did not land on ({x},{y}) (it is at {landed['actual_x']},{landed['actual_y']}); "
+                          f"not scrolling, the wheel would hit another window"),
+                **landed}
+    return None
+
+
 @mcp.tool(audit=True)
 def mouse_click(
     x: int,
@@ -163,11 +183,14 @@ def mouse_scroll(
             no-op on Windows).
 
     Returns:
-        dict with 'ok' and scroll details.
+        dict with 'ok' and scroll details. With x/y, a target outside the virtual desktop (see get_screen_info
+        'virtual') or a cursor that does not land there is refused BEFORE any wheel event.
     """
     try:
         if x is not None and y is not None:
-            pyautogui.moveTo(x, y)
+            refused = _move_for_scroll(x, y)
+            if refused:
+                return refused
         if direction == "horizontal":
             # pyautogui.hscroll delegates to the vertical wheel on Windows -> content moves the wrong
             # way. Send a genuine horizontal wheel event instead. dwData>0 = right.
@@ -186,10 +209,13 @@ def scroll_at(x: int, y: int, amount: int) -> dict:
     Convenience wrapper over mouse_scroll for the (x, y, amount) calling convention.
 
     Returns:
-        dict with 'ok', position, and amount.
+        dict with 'ok', position, and amount. A target outside the virtual desktop, or a cursor that does not
+        land there, is refused before any wheel event.
     """
     try:
-        pyautogui.moveTo(x, y)
+        refused = _move_for_scroll(x, y)
+        if refused:
+            return refused
         pyautogui.scroll(amount)
         return {"ok": True, "x": x, "y": y, "amount": amount}
     except Exception as e:  # noqa: BLE001

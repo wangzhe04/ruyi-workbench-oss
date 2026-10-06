@@ -420,7 +420,10 @@ def move_file(source: str, destination: str, allow_protected: bool = False) -> d
         return {"error": f"refused: {reason}. Pass allow_protected=true to override."}
     try:
         os.makedirs(os.path.dirname(os.path.abspath(destination)), exist_ok=True)
-        if os.path.exists(destination) and os.path.abspath(source) != os.path.abspath(destination):
+        # normcase: on Windows a case-only rename (readme.md -> README.md) names the SAME file, so the
+        # destination "already exists" only because it is the source itself — that must be allowed.
+        same_path = os.path.normcase(os.path.abspath(source)) == os.path.normcase(os.path.abspath(destination))
+        if os.path.exists(destination) and not same_path:
             return {"error": f"refused: destination '{destination}' already exists. Delete it first or pick a different destination."}
         shutil.move(source, destination)
         return {"success": True, "source": source, "destination": destination}

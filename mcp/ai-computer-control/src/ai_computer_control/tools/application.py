@@ -56,11 +56,39 @@ def _resolve_app_path(name: str) -> str | None:
     return None
 
 
+# Extensions CreateProcess can start directly. Any other EXISTING file (a .docx/.xlsx/.pdf/.lnk/.txt...) is a
+# document: Popen([doc]) fails with WinError 193, so it must go to the default handler (os.startfile).
+_EXECUTABLE_EXTS = (".exe", ".com", ".bat", ".cmd")
+
+
+def _is_executable_file(path: str) -> bool:
+    if not os.path.isfile(path):
+        return False
+    if os.path.splitext(path)[1].lower() in _EXECUTABLE_EXTS:
+        return True
+    return os.name != "nt" and os.access(path, os.X_OK)   # POSIX dev/test hosts: the exec bit decides
+
+
+def _document_scheme(target: str) -> str:
+    """URL scheme of a document/URL target, '' for a plain path.
+
+    A one-letter "scheme" is a Windows drive letter (``D:\\x\\y.xlsx`` parses as scheme 'd'), not a protocol, so it
+    must not be refused as an unknown scheme.
+    """
+    import urllib.parse as _up
+    scheme = _up.urlparse(target).scheme.lower()
+    return "" if len(scheme) == 1 else scheme
+
+
 def _resolve_executable(path: str) -> str | None:
-    """Best-effort resolve `path` to a concrete executable file, or None if it isn't one."""
+    """Best-effort resolve `path` to a concrete executable file, or None if it isn't one.
+
+    An existing file that is not an executable type (a document) resolves to None so the caller opens it with
+    its default handler instead of trying to execute it.
+    """
     import shutil
     if os.path.isfile(path):
-        return os.path.abspath(path)
+        return os.path.abspath(path) if _is_executable_file(path) else None
     found = shutil.which(path)
     if found and os.path.isfile(found):
         return found
@@ -151,12 +179,15 @@ def launch_application(
     # Not a resolvable executable -> treat as a document/URL association (os.startfile).
     if exe is None:
         if args:
+            if os.path.isfile(path):
+                return {"error": f"'{path}' is a document, not an executable: it opens with its default handler and "
+                                 f"cannot take args. Drop args, or pass the program's own executable as path."}
             return {"error": f"could not resolve executable '{path}' (not a file, not on PATH, not a registered app). "
                              f"Provide a full path, or drop args if you meant to open a document/URL."}
         try:
-            # b2-P2: 仅放行已知安全协议 —— 任意 URL 协议会触发系统处理程序(如 javascript: 或自定义协议)
-            import urllib.parse as _up
-            _scheme = _up.urlparse(path).scheme.lower()
+            # b2-P2: 仅放行已知安全协议 —— 任意 URL 协议会触发系统处理程序(如 javascript: 或自定义协议)。
+            # 盘符(D:\x\y.xlsx)不是协议:单字母「scheme」按普通路径放行。
+            _scheme = _document_scheme(path)
             if _scheme and _scheme not in ("http", "https", "file"):
                 return {"error": "refused to open scheme " + repr(_scheme) + " via shell association; only http(s)/file and plain paths are allowed"}
             os.startfile(path)  # raises FileNotFoundError on a bad path -> real error, not false success
