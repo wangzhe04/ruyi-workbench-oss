@@ -232,6 +232,19 @@ function applyKimiStatusToSession(session, status) {
   return usage;
 }
 
+// 会话上「Kimi 上下文状态」的指纹(kimiContextStatus 去掉每次都变的 updatedAt + 最后一条 assistant 的 usage):
+// /api/kimi/status 只在指纹变了才落盘(见 13-http-router)。
+function kimiStatusFingerprint(session) {
+  const st = session && session.kimiContextStatus;
+  const { updatedAt: _ts, ...rest } = (st && typeof st === 'object') ? st : {};
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  let usage = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i] && messages[i].role === 'assistant') { usage = messages[i].usage || null; break; }
+  }
+  return JSON.stringify([st ? rest : null, usage]);
+}
+
 async function syncKimiSessionUsage(session, config, onEvent) {
   const status = await kimiSessionStatus(config, session && session.claudeSessionId, session && session.claudeSessionModel);
   if (!status.ok) return null;

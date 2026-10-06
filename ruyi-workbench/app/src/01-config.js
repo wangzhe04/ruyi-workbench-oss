@@ -1871,7 +1871,7 @@ async function writeConfigAtomic(data) {
     // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
     // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
     try {
-      const current = JSON.parse(await fsp.readFile(paths.config, 'utf8'));
+      const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
       if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
     } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
     return atomicWriteJson(paths.config, data);
@@ -1981,8 +1981,13 @@ async function readConfig() {
     raw = safeJsonParse(text, null);
     if (raw === null && String(text).trim()) {
       // 文件在但不是合法 JSON（截断/被外部写坏）：不覆盖它；能从 .prev 恢复就恢复，否则降级。
+      // (UTF-8 BOM 已由 safeJsonParse 剥掉,记事本另存的合法 JSON 不会走到这里。)
       const prev = await readConfigPrev();
-      if (prev) { raw = prev; recoveredFrom = 'prev'; }
+      if (prev) {
+        raw = prev; recoveredFrom = 'prev';
+        // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
+        await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
+      }
       else return degrade('EJSON');
     }
   }

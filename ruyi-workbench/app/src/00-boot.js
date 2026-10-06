@@ -332,9 +332,11 @@ function safeDecodeURIComponent(segment) {
   try { return decodeURIComponent(String(segment == null ? '' : segment)); } catch { return null; }
 }
 
+// 开头的 UTF-8 BOM(U+FEFF)先剥掉再解析:Windows 记事本/PowerShell 5.1 另存的 JSON 常带 BOM,JSON.parse 对它抛 SyntaxError,
+// 修前 config.json、各类用户手改的清单被当成「损坏」(config 还会因此回滚到 .prev 覆盖用户的编辑)。只处理字符串入参。
 function safeJsonParse(raw, fallback = null) {
   try {
-    return JSON.parse(raw);
+    return JSON.parse((typeof raw === 'string' && raw.charCodeAt(0) === 0xFEFF) ? raw.slice(1) : raw);
   } catch {
     return fallback;
   }
