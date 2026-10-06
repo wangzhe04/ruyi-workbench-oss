@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3626,
-    "requiredSymbols": 3189,
-    "edges": 538,
+    "providedSymbols": 3630,
+    "requiredSymbols": 3191,
+    "edges": 539,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2931,6 +2931,7 @@
         "providerRequestHeaders",
         "providerResponsesBase",
         "providerRetryAfterMs",
+        "providerScrubSecrets",
         "providerSseAsCompletion",
         "providerThrownErrorText",
         "withTransientRetry"
@@ -2964,6 +2965,7 @@
         "anthropicClassicThinking",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicLearnedCapKey",
         "anthropicLearnedMaxTokens",
         "anthropicMaxTokensCapFromError",
         "anthropicMaxTokensFor",
@@ -5911,6 +5913,7 @@
         "MEMORY_EXCLUSION_MAX",
         "MEMORY_FUSION_SCOPE_BONUS",
         "MEMORY_FUSION_TYPE_BONUS",
+        "MEMORY_GLOBAL_PROGRAMMING_RE",
         "MEMORY_GLOBAL_SCOPE_RE",
         "MEMORY_HEAD_CACHE",
         "MEMORY_HEAD_CACHE_MAX",
@@ -5975,6 +5978,7 @@
         "listMemoryRelations",
         "listWorkbenchMemories",
         "loadMemoryRegistry",
+        "memoryAutoGlobalAllowed",
         "memoryCoreLine",
         "memoryCoreScore",
         "memoryDraftFromObject",
@@ -7385,6 +7389,13 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "providerRetryAfterMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerScrubSecrets",
           "kinds": [
             "call"
           ]
@@ -13605,6 +13616,13 @@
           "symbol": "ToolboxHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerScrubSecrets",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -28524,6 +28542,7 @@
       "to": "04h-provider-http.js",
       "symbols": [
         "providerRetryAfterMs",
+        "providerScrubSecrets",
         "providerThrownErrorText",
         "withTransientRetry"
       ],
@@ -30058,6 +30077,14 @@
         "redact",
         "resolveExternalMcpServers",
         "stopSession"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13-http-router.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "providerScrubSecrets"
       ],
       "direction": "backward"
     },

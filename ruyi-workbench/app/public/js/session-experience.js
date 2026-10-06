@@ -16,7 +16,7 @@ import { createHelpViewerDomain, registerHelpViewer } from './help-viewer.js';
 // 118b: 体检项的人话映射(纯函数)。首跑卡的「体检摘要」与设置页的体检行读同一张表。
 import { healthSummaryText } from './health-i18n.js';
 import { providerDraftFromPreset } from './provider-settings.js';
-import { normalizeProviderDraftEndpoint } from './provider-settings.js';
+import { normalizeProviderDraftEndpoint, providerTestErrorText } from './provider-settings.js';
 import {
   activeTurnUserIsPersisted,
   captureScrollAnchor,
@@ -113,6 +113,7 @@ const onboardingWizard = registerOnboardingWizard(createOnboardingWizardDomain({
   setLocale,
   providerDraftFromPreset,
   normalizeProviderDraftEndpoint,
+  providerTestErrorText,
   pickWorkspace: opts => pickWorkspaceNative(opts),
   setWorkspacePath: dir => setWorkspace(dir, { alsoDefault: true }),
   openSettings: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'basic', true); },

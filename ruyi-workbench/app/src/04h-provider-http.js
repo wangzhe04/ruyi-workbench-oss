@@ -91,6 +91,28 @@ function providerCallIsTransient(call) {
   const status0 = Number((/^\s*HTTP (\d{3})\b/.exec(he0) || [])[1]);
   return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429 || status0 === 529));
 }
+// 把【本次请求带出去的凭据】(provider.apiKey 与 extraHeaders 的各个值)在文本里按字面抹掉。redact() 的模式表认的是常见形态
+// (sk- / Bearer / 「key: 值」标签…),服务商把 key 回显成别的形态(zk9.xxx、前面是「key=」而不是标签)时它抹不掉 —— 「测试连接」把
+// 服务商报文的前 300 字原样回给界面,所以先按字面抹、再过 redact()。短于 6 个字符的值不抹(免得把「k」「1」之类处处替换);
+// 「Bearer xxx」「Basic xxx」形的头值连同它去掉前缀后的部分一起抹;JSON 转义形(含引号 / 反斜杠的 key)同样抹。
+function providerScrubSecrets(source, provider) {   // 形参不叫 text:裸 text 会被依赖扫描器记成一条 04h → 00-boot 的边(见 04i-provider-wire.js 头注)
+  let s = String(source == null ? '' : source);
+  if (!provider || typeof provider !== 'object') return s;
+  const secrets = new Set();
+  const add = value => {
+    const v = String(value == null ? '' : value).trim();
+    if (v.length < 6) return;
+    secrets.add(v);
+    const escaped = JSON.stringify(v).slice(1, -1);
+    if (escaped !== v) secrets.add(escaped);
+    const m = /^(?:bearer|basic|token)\s+(.+)$/i.exec(v);
+    if (m && m[1].trim().length >= 6) secrets.add(m[1].trim());
+  };
+  add(provider.apiKey);
+  if (provider.extraHeaders && typeof provider.extraHeaders === 'object') for (const value of Object.values(provider.extraHeaders)) add(value);
+  for (const secret of [...secrets].sort((a, b) => b.length - a.length)) s = s.split(secret).join('«redacted»');
+  return s;
+}
 // 服务商 Retry-After(429/503 常带):`retry-after-ms`(OpenAI 系,毫秒)优先,其次 `retry-after`(整数/小数秒,或 HTTP 日期)。
 // 封顶 maxMs(缺省 30 s):退避睡眠要可被停止截断、且不能让一回合被一个离谱的头挂住。认不出 / 非正 → 0(调用方回落自己的退避)。
 // getHeader(name) 是 res.headers.get 的形状(调用方包一层,本函数不碰 Response)。

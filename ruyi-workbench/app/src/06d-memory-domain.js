@@ -898,6 +898,15 @@ const MEMORY_GLOBAL_SCOPE_RE = new RegExp([
   '\\bpersonal (?:preference|habit)s?\\b',
   '\\b(?:regardless of|no matter (?:which|what)) (?:the )?(?:project|workspace|repo)',
 ].join('|'), 'i');
+// 「全局」「global」在编码讨论里首先是术语(全局变量 / global state / 全局搜索替换),不是在说「这条记忆全局生效」。判「用户有没有说全局」之前
+// 先把这些编程用语从文本里去掉:用户说「不要用全局变量」就不能让模型把一条只管本模块的约定提成 global(卡上还默认选中「全局」、没有「AI 建议全局」说明)。
+// 去掉之后文本里还剩的「全局」(全局偏好 / 全局生效 / globally)与其它跨项目说法照旧算。只收明确的编程名词搭配,「全局设置 / 全局配置」这类范围语义不收。
+const MEMORY_GLOBAL_PROGRAMMING_RE = new RegExp([
+  '全局(?:变量|搜索|替换|查找|状态|对象|命名空间|作用域|锁|异常|样式|函数|常量|单例|声明|引用|符号)',
+  '\\bglobals\\b',
+  '\\bglobal[ -](?:variables?|vars?|state|search|find|replace|namespace|scope|lock|exception|handler|objects?|singleton|constants?|declarations?|statements?|keyword|functions?|references?|styles?)\\b',
+  '\\bglobal\\s*(?:语句|声明|关键字|关键词)',
+].join('|'), 'gi');
 const MEMORY_PERSONAL_PREFERENCE_RE = /(?:我(?:更|比较|一直|总是|还是)?(?:喜欢|偏好|习惯|希望|倾向|想要|爱用|讨厌|不喜欢)|\bI (?:prefer|like|love|hate|dislike|usually|always|want)\b|\bmy (?:preference|habit|style)\b)/i;
 const MEMORY_PROJECT_ONLY_RE = /(?:这个项目|本项目|当前项目|该项目|这个仓库|本仓库|当前仓库|这个工作区|当前工作区|\bthis (?:project|repo|repository|workspace|codebase)\b|\bin the current (?:project|repo)\b)/i;
 
@@ -919,9 +928,15 @@ function memoryGlobalScopeAllowed(type, userTexts) {
   const list = Array.isArray(userTexts) ? userTexts : [String(userTexts == null ? '' : userTexts)];
   return list.some(text => {
     const t = String(text || '');
-    if (MEMORY_GLOBAL_SCOPE_RE.test(t)) return true;
+    if (MEMORY_GLOBAL_SCOPE_RE.test(t.replace(MEMORY_GLOBAL_PROGRAMMING_RE, ' '))) return true;
     return type === 'preference' && MEMORY_PERSONAL_PREFERENCE_RE.test(t) && !MEMORY_PROJECT_ONLY_RE.test(t);
   });
+}
+// 自动审稿路径(回合结束后同一 provider 起草候选)的作用域闸:与工具路径同一道 memoryGlobalScopeAllowed,另要求本轮有「长期」信号 ——
+// durablePreference(以后 / 默认 / 一律 / prefer…)或 explicit(「记住」「remember this」:用户明说要记,本身就是长期信号)。
+// 修前只认 durablePreference,用户说「记住:所有项目的提交信息都用中文」(工具路径放行 global)自动路径却降成 project。
+function memoryAutoGlobalAllowed(gate, type, userTexts) {
+  return Boolean(gate && (gate.durablePreference || gate.explicit)) && memoryGlobalScopeAllowed(type, userTexts);
 }
 
 // 单条候选的校验与归一(单条形式与批量的每一条同一套判据,措辞与修前逐字一致)。userText:字符串或最近几条用户消息数组。
@@ -1499,7 +1514,7 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
   // 被改的记进 proposal,卡片上和模型工具那条路一样标出「AI 建议全局」。
   proposal.requestedScope = proposal.scope;
   proposal.scopeAdjusted = false;
-  const globalAllowed = gate.durablePreference && memoryGlobalScopeAllowed(proposal.type, [gate.userText, ...memoryRecentUserTexts(session, 3)]);
+  const globalAllowed = memoryAutoGlobalAllowed(gate, proposal.type, [gate.userText, ...memoryRecentUserTexts(session, 3)]);
   if (proposal.scope === 'global' && !globalAllowed) { proposal.scope = 'project'; proposal.scopeAdjusted = true; }
   const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: session.id, sourceTurnSeq: gate.turnSeq };

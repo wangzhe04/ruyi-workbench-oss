@@ -17914,6 +17914,28 @@ function providerCallIsTransient(call) {
   const status0 = Number((/^\s*HTTP (\d{3})\b/.exec(he0) || [])[1]);
   return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429 || status0 === 529));
 }
+// 把【本次请求带出去的凭据】(provider.apiKey 与 extraHeaders 的各个值)在文本里按字面抹掉。redact() 的模式表认的是常见形态
+// (sk- / Bearer / 「key: 值」标签…),服务商把 key 回显成别的形态(zk9.xxx、前面是「key=」而不是标签)时它抹不掉 —— 「测试连接」把
+// 服务商报文的前 300 字原样回给界面,所以先按字面抹、再过 redact()。短于 6 个字符的值不抹(免得把「k」「1」之类处处替换);
+// 「Bearer xxx」「Basic xxx」形的头值连同它去掉前缀后的部分一起抹;JSON 转义形(含引号 / 反斜杠的 key)同样抹。
+function providerScrubSecrets(source, provider) {   // 形参不叫 text:裸 text 会被依赖扫描器记成一条 04h → 00-boot 的边(见 04i-provider-wire.js 头注)
+  let s = String(source == null ? '' : source);
+  if (!provider || typeof provider !== 'object') return s;
+  const secrets = new Set();
+  const add = value => {
+    const v = String(value == null ? '' : value).trim();
+    if (v.length < 6) return;
+    secrets.add(v);
+    const escaped = JSON.stringify(v).slice(1, -1);
+    if (escaped !== v) secrets.add(escaped);
+    const m = /^(?:bearer|basic|token)\s+(.+)$/i.exec(v);
+    if (m && m[1].trim().length >= 6) secrets.add(m[1].trim());
+  };
+  add(provider.apiKey);
+  if (provider.extraHeaders && typeof provider.extraHeaders === 'object') for (const value of Object.values(provider.extraHeaders)) add(value);
+  for (const secret of [...secrets].sort((a, b) => b.length - a.length)) s = s.split(secret).join('«redacted»');
+  return s;
+}
 // 服务商 Retry-After(429/503 常带):`retry-after-ms`(OpenAI 系,毫秒)优先,其次 `retry-after`(整数/小数秒,或 HTTP 日期)。
 // 封顶 maxMs(缺省 30 s):退避睡眠要可被停止截断、且不能让一回合被一个离谱的头挂住。认不出 / 非正 → 0(调用方回落自己的退避)。
 // getHeader(name) 是 res.headers.get 的形状(调用方包一层,本函数不碰 Response)。
@@ -18045,7 +18067,9 @@ const ANTHROPIC_THINKING_BUDGET_MIN = 1024;
 const ANTHROPIC_THINKING_BUDGET_MAX = 16000;
 const ANTHROPIC_THINKING_EFFORT_BUDGET = { low: 2048, medium: 6144, high: 12000, xhigh: 16000, max: 16000 };
 // 兼容网关按模型限制输出上限(DeepSeek:「Invalid max_tokens value, the valid range of max_tokens is [1, 8192]」)。第一次 400
-// 时从报文读出上限记在进程里(按模型名),之后同一模型的请求直接按它发 —— 修前每个回合都先吃一次 400。
+// 时从报文读出上限记在进程里,之后同一端点上的同一模型的请求直接按它发 —— 修前每个回合都先吃一次 400。
+// 键是「端点 + 模型」(anthropicLearnedCapKey):上限是某个网关对某个模型的限制,不是模型名本身的属性 —— 修前只按模型名记、进程全局,
+// 某个小网关教会 8192 之后,同名模型在官方 / 别的网关上也被腰斩到 8192,直到重启。
 const anthropicLearnedMaxTokens = new Map();
 
 function normalizeAnthropicAuth(value) {
@@ -18077,6 +18101,11 @@ function anthropicMessagesUrl(baseUrl) {
 function anthropicModelsUrl(baseUrl) {
   const base = anthropicApiBase(baseUrl);
   return base ? base + '/models' : '';
+}
+// 学到的上限的键。endpoint 可以是 Base URL(编码一侧手里有 provider.baseUrl),也可以是本次请求的完整端点(重打一侧手里有 chatUrl):
+// 两者都过 anthropicApiBase,于是「…/anthropic」「…/anthropic/」「…/anthropic/v1/messages」是同一个键;主机名大小写不分。缺省端点 = ''。
+function anthropicLearnedCapKey(endpoint, model) {
+  return anthropicApiBase(endpoint).toLowerCase() + '\n' + String(model || '');
 }
 // 按模型名认 Claude 家族的请求面差异(claude-api 技能 2026-09 的迁移指南;网关上的非 Claude 模型一律 false,走最保守的请求):
 //   adaptive        自适应思考:4.6 起的 opus / sonnet / fable / mythos(更早的与 haiku 走 budget_tokens,发 adaptive 会 400)
@@ -18281,8 +18310,8 @@ function anthropicMessagesFromHistory(history, model, hasTools) {
 // 基础请求体。messages 是 chat 形历史,首条 system;instructions 显式给了就用它当顶层 system。
 // foldSystem 在这里没有区别:后插的 system 规则总是以 <system-reminder> 留在对话里(Messages 没有多 system 通道,但丢掉不行)。
 // hasTools:这一发会不会带 tools(调用方随后 applyTools)。不是 true 时工具块改写成文字(见 anthropicAssistantBlocks),也不回放思考块。
-function anthropicMaxTokensFor(model, wanted) {
-  const cap = anthropicLearnedMaxTokens.get(String(model || ''));
+function anthropicMaxTokensFor(provider, model, wanted) {
+  const cap = anthropicLearnedMaxTokens.get(anthropicLearnedCapKey(provider && provider.baseUrl, model));
   return cap && cap < wanted ? cap : wanted;
 }
 // 从 400 报文里读出网关允许的 max_tokens 上限:「valid range … is [1, 8192]」/「max_tokens: 64000 > 32000」/「less than or equal to 8192」。
@@ -18302,7 +18331,7 @@ function encodeAnthropicMessages({ model, messages, stream, instructions, provid
   const rest = hasLead ? list.slice(1) : list;
   const officialClaude = anthropicOfficialHost(provider && provider.baseUrl) && anthropicModelTraits(model).adaptive;
   const wantedMax = stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS;
-  const body = { model, max_tokens: anthropicMaxTokensFor(model, wantedMax) };
+  const body = { model, max_tokens: anthropicMaxTokensFor(provider, model, wantedMax) };
   if (system.trim()) body.system = system;
   body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true);
   const thinking = anthropicThinkingFor(provider, model, body.max_tokens);
@@ -18357,11 +18386,11 @@ function applyAnthropicTools(body, tools) {
   body.tool_choice = { type: 'auto' };
   return body;
 }
-function encodeAnthropicQuick({ model, messages, plain }) {
+function encodeAnthropicQuick({ model, messages, plain, provider }) {
   const list = Array.isArray(messages) ? messages : [];
   const system = list.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
   const user = list.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
-  const body = { model, max_tokens: 400, messages: [{ role: 'user', content: [{ type: 'text', text: anthropicNonEmpty(user) }] }], stream: false };
+  const body = { model, max_tokens: anthropicMaxTokensFor(provider, model, 400), messages: [{ role: 'user', content: [{ type: 'text', text: anthropicNonEmpty(user) }] }], stream: false };
   if (system.trim()) body.system = system;
   if (!plain && anthropicModelTraits(model).claude) body.output_config = { effort: 'low' };   // 网关上的非 Claude 模型不认 output_config
   return body;
@@ -18544,14 +18573,15 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
 //   0) 端点不认 thinking.block_binding / between_tools(官方以外):只去这一项(先于 1,报文里也有 thinking.block 字样);
 //   1) 思考块签名校验失败(前缀被改过):去掉全部 thinking / redacted_thinking 块;
 //   2) 兼容网关不认某个参数(thinking / output_config / temperature / top_p / top_k / fallbacks):去掉报文里点名的那几个。
-function anthropicRetryBodyOn400(body, errText) {
+// ctx.url:本次请求的端点(openAiStreamOnce 的 chatUrl)—— 学到的上限记在这个端点名下;老调用形态不带 ctx 就记在「无端点」名下。
+function anthropicRetryBodyOn400(body, errText, ctx) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
   // 网关的输出上限比我们发的小:按报文给的上限重打,并记住(同一模型之后直接按它发);经典思考的预算跟着收。
   if (body.max_tokens != null && /max_tokens/i.test(msg)) {
     const cap = anthropicMaxTokensCapFromError(msg);
     if (cap && cap < Number(body.max_tokens)) {
-      anthropicLearnedMaxTokens.set(String(body.model || ''), cap);
+      anthropicLearnedMaxTokens.set(anthropicLearnedCapKey(ctx && ctx.url, body.model), cap);
       const copy = { ...body, max_tokens: cap };
       if (copy.thinking && copy.thinking.type === 'enabled') {
         const thinking = anthropicClassicThinking(cap, '');
@@ -18618,7 +18648,8 @@ function anthropicRetryBodyOn400(body, errText) {
 //   applyTemperature(body, t)  采样温度(t 为 undefined 不写;anthropic 对拒收采样参数的新 Claude 模型不写)
 //   applyTools(body, tools, { serverWebSearch })   工具 + tool_choice:'auto'(工具是 chat 形,协议自己翻译)
 //   outputTokensField          输出上限字段名
-//   encodeQuick({ model, messages, plain })        句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
+//   encodeQuick({ model, messages, plain, provider })  句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
+//                              (provider 可选:anthropic 据它的端点取「学到的 max_tokens 上限」,另两种协议不看)
 //   decodeCompletion(payload, { requestModel })    非流式回体 → { text, reasoning, toolCalls, finishReason, incomplete, incompleteReason,
 //                              failed, failedDetail, failureText, usage, responseId[, providerBlocks] }(text 未 trim)
 //                              failureText:回体本身装着失败(chat 200 + 顶层 error、Responses status:'failed'、Anthropic type:'error' / refusal)时
@@ -18627,7 +18658,8 @@ function anthropicRetryBodyOn400(body, errText) {
 //                              finish() → { text, reasoning, finishReason, toolCalls, [httpError,] providerResponseId[, providerBlocks] }
 //   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
 //   assistantHistoryFields(call)                   本次回复随 assistant 消息落进历史的协议字段
-//   retryOn400(body, errText)  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//   retryOn400(body, errText, { url })  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//                              (url = 本次请求的端点:anthropic 把从 400 学到的 max_tokens 上限记在「端点 + 模型」名下)
 //
 // encodeMessages 还收 provider(可选,anthropic 据它决定思考方式)与 hasTools(这一发随后会不会 applyTools;anthropic 不带 tools
 // 的请求里不许有 tool_use / tool_result 块,要改写成文字);另两种协议两个都不看。
@@ -23241,7 +23273,7 @@ async function providerFixCompletion(provider, model, messages) {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
   const headers = wire.requestHeaders(provider, { model });
-  const build = plain => wire.encodeQuick({ model, messages, plain });
+  const build = plain => wire.encodeQuick({ model, messages, plain, provider });
   const once = async bodyObj => {
     // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
     const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
@@ -33802,6 +33834,15 @@ const MEMORY_GLOBAL_SCOPE_RE = new RegExp([
   '\\bpersonal (?:preference|habit)s?\\b',
   '\\b(?:regardless of|no matter (?:which|what)) (?:the )?(?:project|workspace|repo)',
 ].join('|'), 'i');
+// 「全局」「global」在编码讨论里首先是术语(全局变量 / global state / 全局搜索替换),不是在说「这条记忆全局生效」。判「用户有没有说全局」之前
+// 先把这些编程用语从文本里去掉:用户说「不要用全局变量」就不能让模型把一条只管本模块的约定提成 global(卡上还默认选中「全局」、没有「AI 建议全局」说明)。
+// 去掉之后文本里还剩的「全局」(全局偏好 / 全局生效 / globally)与其它跨项目说法照旧算。只收明确的编程名词搭配,「全局设置 / 全局配置」这类范围语义不收。
+const MEMORY_GLOBAL_PROGRAMMING_RE = new RegExp([
+  '全局(?:变量|搜索|替换|查找|状态|对象|命名空间|作用域|锁|异常|样式|函数|常量|单例|声明|引用|符号)',
+  '\\bglobals\\b',
+  '\\bglobal[ -](?:variables?|vars?|state|search|find|replace|namespace|scope|lock|exception|handler|objects?|singleton|constants?|declarations?|statements?|keyword|functions?|references?|styles?)\\b',
+  '\\bglobal\\s*(?:语句|声明|关键字|关键词)',
+].join('|'), 'gi');
 const MEMORY_PERSONAL_PREFERENCE_RE = /(?:我(?:更|比较|一直|总是|还是)?(?:喜欢|偏好|习惯|希望|倾向|想要|爱用|讨厌|不喜欢)|\bI (?:prefer|like|love|hate|dislike|usually|always|want)\b|\bmy (?:preference|habit|style)\b)/i;
 const MEMORY_PROJECT_ONLY_RE = /(?:这个项目|本项目|当前项目|该项目|这个仓库|本仓库|当前仓库|这个工作区|当前工作区|\bthis (?:project|repo|repository|workspace|codebase)\b|\bin the current (?:project|repo)\b)/i;
 
@@ -33823,9 +33864,15 @@ function memoryGlobalScopeAllowed(type, userTexts) {
   const list = Array.isArray(userTexts) ? userTexts : [String(userTexts == null ? '' : userTexts)];
   return list.some(text => {
     const t = String(text || '');
-    if (MEMORY_GLOBAL_SCOPE_RE.test(t)) return true;
+    if (MEMORY_GLOBAL_SCOPE_RE.test(t.replace(MEMORY_GLOBAL_PROGRAMMING_RE, ' '))) return true;
     return type === 'preference' && MEMORY_PERSONAL_PREFERENCE_RE.test(t) && !MEMORY_PROJECT_ONLY_RE.test(t);
   });
+}
+// 自动审稿路径(回合结束后同一 provider 起草候选)的作用域闸:与工具路径同一道 memoryGlobalScopeAllowed,另要求本轮有「长期」信号 ——
+// durablePreference(以后 / 默认 / 一律 / prefer…)或 explicit(「记住」「remember this」:用户明说要记,本身就是长期信号)。
+// 修前只认 durablePreference,用户说「记住:所有项目的提交信息都用中文」(工具路径放行 global)自动路径却降成 project。
+function memoryAutoGlobalAllowed(gate, type, userTexts) {
+  return Boolean(gate && (gate.durablePreference || gate.explicit)) && memoryGlobalScopeAllowed(type, userTexts);
 }
 
 // 单条候选的校验与归一(单条形式与批量的每一条同一套判据,措辞与修前逐字一致)。userText:字符串或最近几条用户消息数组。
@@ -34403,7 +34450,7 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
   // 被改的记进 proposal,卡片上和模型工具那条路一样标出「AI 建议全局」。
   proposal.requestedScope = proposal.scope;
   proposal.scopeAdjusted = false;
-  const globalAllowed = gate.durablePreference && memoryGlobalScopeAllowed(proposal.type, [gate.userText, ...memoryRecentUserTexts(session, 3)]);
+  const globalAllowed = memoryAutoGlobalAllowed(gate, proposal.type, [gate.userText, ...memoryRecentUserTexts(session, 3)]);
   if (proposal.scope === 'global' && !globalAllowed) { proposal.scope = 'project'; proposal.scopeAdjusted = true; }
   const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: session.id, sourceTurnSeq: gate.turnSeq };
@@ -36952,7 +36999,14 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
   try {
     const res = await fetch(modelsUrl, { headers, signal: ctrl ? ctrl.signal : undefined });
     if (!res || !res.ok) return { ok: false, error: 'HTTP ' + (res ? res.status : '?'), models: [] };
-    const body = await res.json();
+    // 200 却不是 JSON(/models 被 SPA 兜底页 / 反代的登录页 / 空体顶掉):这不是「连接失败」,是「这个端点没有模型清单」。
+    // 带 notAList 交给「测试连接」当缺清单处理(改用补全试探);超时中止(AbortError)照旧往外抛给下面的 catch。
+    let body;
+    try { body = await res.json(); }
+    catch (parseError) {
+      if (parseError && parseError.name === 'AbortError') throw parseError;
+      return { ok: false, error: 'HTTP ' + res.status + ': the response is not a model list (not JSON)', notAList: true, models: [] };
+    }
     const data = Array.isArray(body && body.data) ? body.data : (Array.isArray(body) ? body : []);
     // v1.0.2-S2: 同时保留上游条目里的 context_length 类字段(取第一个正数), 存为 contextLength,
     // 并按 provider+model 写入探测缓存(TTL 10 分钟), 供 providerContextWindow 解析激活模型时查用。
@@ -37003,13 +37057,14 @@ async function probeProviderCompletion(provider, model, timeoutMs = 15000) {
   const wire = providerWireProtocol(provider);
   const url = wire.completionUrl(provider && provider.baseUrl);
   if (!url || typeof fetch !== 'function') return { ok: false, error: url ? 'fetch unavailable' : 'no base URL' };
-  const body = wire.encodeQuick({ model, messages: [{ role: 'user', content: 'ping' }], plain: true });
+  const body = wire.encodeQuick({ model, messages: [{ role: 'user', content: 'ping' }], plain: true, provider });
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
     const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
     const raw = await res.text().catch(() => '');
-    if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + raw.replace(/\s+/g, ' ').slice(0, 300) : '') };
+    // 报文原样回给界面之前,先把本次请求带出去的凭据按字面抹掉再截断(先截会把横跨 300 字边界的 key 切成认不出的半截)。
+    if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + providerScrubSecrets(raw, provider).replace(/\s+/g, ' ').slice(0, 300) : '') };
     let payload = null; try { payload = JSON.parse(raw); } catch { payload = null; }
     const decoded = payload ? wire.decodeCompletion(payload, { requestModel: model }) : null;
     if (decoded && decoded.failed) return { ok: false, error: String(decoded.failureText || 'provider error').slice(0, 300) };
@@ -38809,7 +38864,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
     // 58 号批 2:协议内的兼容重打(Anthropic:思考块签名校验失败 → 去掉思考块;网关不认 thinking / output_config 等 → 去掉点名字段)。
     // chat / responses 恒返回 null,走下面原有的 stream_options 分支,行为不变。
-    const retryBody = wire.retryOn400(body, t);
+    const retryBody = wire.retryOn400(body, t, { url: chatUrl });   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
     if (retryBody) {
       res = await doFetch(retryBody);
     } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
@@ -61621,7 +61676,7 @@ async function handleApi(req, res, pathname) {
     // 先列模型清单(顺带回填下拉);端点不提供清单(404 / 405 / 501,或回了空表)时,用填好的模型发一次最小补全确认能通 ——
     // 多数 Anthropic 兼容网关(如 https://api.deepseek.com/anthropic)没有 /v1/models,修前这一步直接判「端点地址可能不对」。
     let probe = await fetchOpenAiModels(sp, 6000);
-    const modelsMissing = (!probe.ok && /\bHTTP (?:404|405|501)\b/.test(String(probe.error || ''))) || (probe.ok && !(probe.models || []).length);
+    const modelsMissing = (!probe.ok && (probe.notAList === true || /\bHTTP (?:404|405|501)\b/.test(String(probe.error || '')))) || (probe.ok && !(probe.models || []).length);
     const apiStyle = normalizeProviderApiStyle(sp.apiStyle);
     if (modelsMissing) {
       const model = String(sp.model || (sp.models && sp.models[0] && sp.models[0].id) || '').trim();
@@ -61637,8 +61692,12 @@ async function handleApi(req, res, pathname) {
     // 稳定 code(前端按 code 取本地化文案,并按协议给 Base URL 的写法提示)+ errorClass;error 仍是中文兜底句,detail 是原始报文。
     if (!probe.ok && probe.error) {
       const e = String(probe.error);
-      const detail = redact(e).slice(0, 300);
+      // 先按字面抹掉本次请求带出去的 key / 自定义头的值(服务商常把它们回显在报文里,模式表认不全),再过模式表。
+      const detail = redact(providerScrubSecrets(e, sp)).slice(0, 300);
       if (/\bHTTP 40[13]\b|unauthorized|authentication/i.test(e)) Object.assign(probe, { code: 'provider.test_unauthorized', errorClass: 'provider_misconfigured', error: '密钥无效或无权限(' + detail + '):请检查 API Key 是否正确、是否有额度/权限' });
+      // 补全试探的 404 若正文点名了模型(Anthropic 官方 / OpenAI / vLLM 对未知模型都回 404)是「模型名」的问题,不是地址;
+      // 裸 404(地址 / 路径错)正文里没有独立的 model 一词。model 后面接 _ 的(model_not_found)照算,models / remodel 不算。
+      else if (probe.probe === 'completion' && /\bHTTP 404\b/.test(e) && /(?<![a-z])model(?![a-z])/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
       else if (/\bHTTP 404\b/i.test(e)) Object.assign(probe, { code: 'provider.test_not_found', errorClass: 'provider_misconfigured', error: '端点地址可能不对(' + detail + '):检查 Base URL' });
       else if (probe.probe === 'completion' && /\bHTTP 4\d\d\b/.test(e) && /model/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
       else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) Object.assign(probe, { code: 'provider.test_unreachable', errorClass: 'network_down', error: '连不上端点(' + detail + '):检查网络与 Base URL,内网端点确认可达' });

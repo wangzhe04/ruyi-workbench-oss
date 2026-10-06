@@ -2883,6 +2883,7 @@
         "providerRequestHeaders",
         "providerResponsesBase",
         "providerRetryAfterMs",
+        "providerScrubSecrets",
         "providerSseAsCompletion",
         "providerThrownErrorText",
         "withTransientRetry"
@@ -2914,6 +2915,7 @@
         "anthropicClassicThinking",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicLearnedCapKey",
         "anthropicLearnedMaxTokens",
         "anthropicMaxTokensCapFromError",
         "anthropicMaxTokensFor",
@@ -5833,6 +5835,7 @@
         "MEMORY_EXCLUSION_MAX",
         "MEMORY_FUSION_SCOPE_BONUS",
         "MEMORY_FUSION_TYPE_BONUS",
+        "MEMORY_GLOBAL_PROGRAMMING_RE",
         "MEMORY_GLOBAL_SCOPE_RE",
         "MEMORY_HEAD_CACHE",
         "MEMORY_HEAD_CACHE_MAX",
@@ -5897,6 +5900,7 @@
         "listMemoryRelations",
         "listWorkbenchMemories",
         "loadMemoryRegistry",
+        "memoryAutoGlobalAllowed",
         "memoryCoreLine",
         "memoryCoreScore",
         "memoryDraftFromObject",
@@ -7295,6 +7299,13 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "providerRetryAfterMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerScrubSecrets",
           "kinds": [
             "call"
           ]
@@ -13495,6 +13506,13 @@
           "symbol": "ToolboxHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerScrubSecrets",
+          "kinds": [
+            "call"
           ]
         },
         {

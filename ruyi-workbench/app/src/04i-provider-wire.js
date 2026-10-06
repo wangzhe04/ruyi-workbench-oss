@@ -29,7 +29,8 @@
 //   applyTemperature(body, t)  采样温度(t 为 undefined 不写;anthropic 对拒收采样参数的新 Claude 模型不写)
 //   applyTools(body, tools, { serverWebSearch })   工具 + tool_choice:'auto'(工具是 chat 形,协议自己翻译)
 //   outputTokensField          输出上限字段名
-//   encodeQuick({ model, messages, plain })        句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
+//   encodeQuick({ model, messages, plain, provider })  句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
+//                              (provider 可选:anthropic 据它的端点取「学到的 max_tokens 上限」,另两种协议不看)
 //   decodeCompletion(payload, { requestModel })    非流式回体 → { text, reasoning, toolCalls, finishReason, incomplete, incompleteReason,
 //                              failed, failedDetail, failureText, usage, responseId[, providerBlocks] }(text 未 trim)
 //                              failureText:回体本身装着失败(chat 200 + 顶层 error、Responses status:'failed'、Anthropic type:'error' / refusal)时
@@ -38,7 +39,8 @@
 //                              finish() → { text, reasoning, finishReason, toolCalls, [httpError,] providerResponseId[, providerBlocks] }
 //   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
 //   assistantHistoryFields(call)                   本次回复随 assistant 消息落进历史的协议字段
-//   retryOn400(body, errText)  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//   retryOn400(body, errText, { url })  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//                              (url = 本次请求的端点:anthropic 把从 400 学到的 max_tokens 上限记在「端点 + 模型」名下)
 //
 // encodeMessages 还收 provider(可选,anthropic 据它决定思考方式)与 hasTools(这一发随后会不会 applyTools;anthropic 不带 tools
 // 的请求里不许有 tool_use / tool_result 块,要改写成文字);另两种协议两个都不看。

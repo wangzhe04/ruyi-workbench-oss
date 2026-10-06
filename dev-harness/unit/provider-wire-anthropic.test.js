@@ -497,7 +497,8 @@ test('[A9] 兼容网关:粘进来的完整端点、经典思考的预算、max_t
   // ③ 网关回「valid range of max_tokens is [1, 8192]」:按它重打并记住,同一模型之后直接按它发
   const first = enc('deepseek-chat-a9', gwOn);
   assert.equal(first.max_tokens, 32000);
-  const retried = wire.retryOn400(first, 'HTTP 400: {"error":{"message":"Invalid max_tokens value, the valid range of max_tokens is [1, 8192]","type":"invalid_request_error"}}');
+  // (第三波复核:上限按「端点 + 模型」记 —— 生产调用点 openAiStreamOnce 总是带上本次请求的端点,这里同样带;键的隔离见 [A11])
+  const retried = wire.retryOn400(first, 'HTTP 400: {"error":{"message":"Invalid max_tokens value, the valid range of max_tokens is [1, 8192]","type":"invalid_request_error"}}', { url: wire.completionUrl(gwOn.baseUrl) });
   assert.equal(retried.max_tokens, 8192);
   assert.deepEqual(retried.thinking, { type: 'enabled', budget_tokens: 4096 }, '思考预算跟着收进新上限');
   assert.equal(enc('deepseek-chat-a9', gwOn).max_tokens, 8192, '学到的上限下一次直接用');
@@ -506,4 +507,28 @@ test('[A9] 兼容网关:粘进来的完整端点、经典思考的预算、max_t
   const big = { model: 'claude-x-a9', max_tokens: 64000, messages: [] };
   assert.equal(wire.retryOn400(big, 'HTTP 400: max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens').max_tokens, 32000);
   assert.equal(wire.retryOn400({ model: 'm', max_tokens: 100 }, 'HTTP 400: max_tokens must be less than or equal to 8192'), null, '上限比现在大:不重打');
+});
+
+// 第三波复核:学到的 max_tokens 上限修前只按模型名记、进程全局 —— 某个网关教会 8192 之后,同名模型在官方 / 别的端点上也被腰斩到 8192。
+test('[A11] 学到的 max_tokens 上限按「端点 + 模型」记:不跨服务商串味;编码 / 非流式 / 短补全 / 重打都认端点', () => {
+  const MODEL = 'claude-sonnet-4-5-a11';
+  const SMALL = { ...GATEWAY, baseUrl: 'https://small-gw.example/anthropic', anthropicThinking: 'adaptive' };
+  const OTHER = { ...GATEWAY, baseUrl: 'https://other-gw.example/anthropic', anthropicThinking: 'adaptive' };
+  const enc = (model, provider, stream = true) => wire.encodeMessages({ model, messages: [{ role: 'user', content: 'hi' }], stream, provider });
+  const err = 'HTTP 400: {"error":{"message":"Invalid max_tokens value, the valid range of max_tokens is [1, 8192]"}}';
+  assert.equal(enc(MODEL, SMALL).max_tokens, 32000);
+  const retried = wire.retryOn400(enc(MODEL, SMALL), err, { url: wire.completionUrl(SMALL.baseUrl) });
+  assert.equal(retried.max_tokens, 8192, '这个端点上重打按它给的上限');
+  assert.equal(enc(MODEL, SMALL).max_tokens, 8192, '同一端点 + 同一模型:下一次直接用');
+  assert.equal(enc(MODEL, OFFICIAL).max_tokens, 32000, '官方主机上的同名模型不受影响(修前也被压到 8192)');
+  assert.equal(enc(MODEL, OTHER).max_tokens, 32000, '另一个网关上的同名模型不受影响');
+  assert.equal(enc(MODEL, { ...SMALL, baseUrl: 'https://small-gw.example/anthropic/v1/messages/' }).max_tokens, 8192, '同一端点换种写法(完整端点 + 尾斜杠)是同一个键');
+  assert.equal(enc(MODEL, SMALL, false).max_tokens, 8192, '非流式同样按端点取');
+  assert.equal(enc('another-model-a11', SMALL).max_tokens, 32000, '只记那一个模型');
+  // 短补全(句尾改字):学到的上限比 400 还小时也得守住,且同样只管那个端点
+  const q = { model: 'quick-a11', messages: [{ role: 'user', content: 'x' }], plain: true };
+  wire.retryOn400({ model: 'quick-a11', max_tokens: 32000, messages: [] }, 'Invalid max_tokens value, the valid range of max_tokens is [1, 300]', { url: wire.completionUrl(SMALL.baseUrl) });
+  assert.equal(wire.encodeQuick({ ...q, provider: SMALL }).max_tokens, 300);
+  assert.equal(wire.encodeQuick({ ...q, provider: OTHER }).max_tokens, 400);
+  assert.equal(wire.encodeQuick(q).max_tokens, 400, '不带 provider 的老调用形态照旧');
 });
