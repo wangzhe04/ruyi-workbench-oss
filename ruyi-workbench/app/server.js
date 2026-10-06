@@ -6036,7 +6036,7 @@ function hostAllowed(req) {
 }
 // 安全走查 S13:Host 头是客户端自己写的,挡不住「绑了非回环地址 + 远端把 Host 写成 127.0.0.1:PORT」。
 // 所以再加一层看【TCP 对端地址】(req.socket.remoteAddress,内核给的,改不了):127.0.0.0/8、::1、::ffff:127.x 才算本机。
-// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 assertBindHostAllowed);即使放行,非本机对端也拿不到 token
+// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 resolveBindHost);即使放行,非本机对端也拿不到 token
 // (/api/bootstrap 与页面里的 token 注入都拒),其余接口一律要带头 token。没有 socket 的测试替身按本机算;
 // 有 socket 却读不出对端地址(连接已断)按非本机算,偏安全。
 function isLoopbackAddress(addr) {
@@ -12866,7 +12866,10 @@ async function sensitiveFileIdentities() {
   const ids = new Set();
   let root = '';
   try { root = dataRoot(); } catch { return ids; }
-  for (const name of SENSITIVE_HARDLINK_FILES) {
+  // 第三波(复核 #10):config.json 的备份族(.prev / .bak-* / .bak-providers-* / .corrupt)同样含真 key,硬链接别名一并比;名字族与 isSensitiveDataPath 同一条(/^config\.json(\.|$)/)。
+  let names = SENSITIVE_HARDLINK_FILES;
+  try { names = [...new Set([...SENSITIVE_HARDLINK_FILES, ...(await fsp.readdir(root)).filter(n => /^config\.json\./i.test(n))])]; } catch { /* 读不了目录:只比两份正本 */ }
+  for (const name of names) {
     try {
       const st = await fsp.stat(path.join(root, name), { bigint: true });
       if (st.isFile() && st.ino) ids.add(String(st.dev) + ':' + String(st.ino));
@@ -12944,7 +12947,7 @@ async function guardWorkspacePath(rawPath, session, config) {
   const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
   // 安全走查 W1:非本机 UNC 在任何 I/O(下面的 realpath 会去连对方主机)之前按「不在工作区」拒,除非它落在用户配置的 UNC 工作区里。
-  if (remoteUncDenial([String(rawPath), targetRaw, target], session, config)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
+  if (await remoteUncDenialResolved([String(rawPath), targetRaw, target], session, config)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   const resolved = await resolveContainmentPath(targetRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:链接读不出目标 / 链接层数超限 —— 不知道真实落点,不放行。
@@ -13081,8 +13084,11 @@ function userHomePersistenceHit(absPath) {
   return false;
 }
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
+// 第三波(安全走查复核 #1):再砍掉 NTFS 备用数据流后缀 —— `profile.ps1::$DATA` / `authorized_keys:stream` 与正名是同一个文件(`::$DATA` 就是默认数据流),
+// 目标还不存在时 realpath 不会替我们还原正名,于是以 `$` 收尾的正则与「整串相等」的家目录比对都会落空。Windows 文件名里除盘符外不可能出现 `:`,
+// 所以非盘符段(`C:` 这种单独的盘符段除外)从第一个 `:` 起整段丢掉;POSIX 上带冒号的怪文件名也只是被保守地并到前缀上,只会多拦不会漏。
 function normalizeAutoexecPath(absPath) {
-  return absPath.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
+  return absPath.split(/[\\/]/).map(s => (/^[a-z]:$/i.test(s) ? s : s.replace(/:.*$/, '')).replace(/[. ]+$/, '')).join('/').toLowerCase();
 }
 // v2.7.1 (opt#1 全自动宽写): 操作系统关键目录硬地板 -- bypass/auto 宽写模式下仍始终拒绝写入的 OS 系统路径。
 // 与 isSensitiveDataPath(应用自身数据) + AUTOEXEC_DENYLIST 互补,构成"系统级安全保护"三层地板的第三层:
@@ -13161,7 +13167,9 @@ function uncHostAndPath(p, forwardSlash) {
   const isSep = ch => ch === '\\' || (fwd && ch === '/');
   if (s.length < 3 || !isSep(s[0]) || !isSep(s[1])) return null;
   let rest = s.slice(2);
-  const ext = /^\?[\\/]UNC[\\/]+(.*)$/i.exec(rest);
+  // 第三波(复核 #5):`\\.\UNC\主机\共享` 与 `\\?\UNC\…` 是同一个东西(`UNC` 是 \GLOBAL?? 下指向 \Device\Mup 的符号链接,`\\.\` 与 `\\?\` 都映射到它),
+  // 再加 `\\?\Global\UNC\…`。其余设备命名空间写法(GLOBALROOT\Device\Mup\… 等)这里不当 UNC 解析,由 deviceNamespaceIsLocalVolume 一律按远端拒。
+  const ext = /^[?.][\\/]+(?:Global[\\/]+)?UNC[\\/]+(.*)$/i.exec(rest);
   if (ext) rest = ext[1];
   else if (/^[?.](?:[\\/]|$)/.test(rest) || isSep(rest[0])) return null;   // \\?\C:\ 与 \\.\device;三个及以上的分隔符不是 UNC
   const segs = [];
@@ -13172,7 +13180,10 @@ function uncHostAndPath(p, forwardSlash) {
   }
   if (!segs.length || !segs[0]) return null;
   const host = segs[0].toLowerCase().replace(/^\[|\]$/g, '');
-  return { host, norm: ('\\\\' + segs.join('\\')).toLowerCase() };
+  // 第三波(复核 #6):`\\wsl$\发行版` 与 `\\wsl.localhost\发行版` 是同一个 WSL 共享的两种拼法(Windows 11 的 realpath 可能把前者还原成后者)。
+  // host 原样保留(本机主机名判据不受影响),只在【比较用的 norm】里把两种拼法并成一个,工作区例外按 norm 比。
+  const normSegs = host === 'wsl$' ? ['wsl.localhost', ...segs.slice(1)] : segs;
+  return { host, norm: ('\\\\' + normSegs.join('\\')).toLowerCase() };
 }
 function uncIsLocalHost(host) {
   const h = String(host || '').toLowerCase();
@@ -13180,12 +13191,27 @@ function uncIsLocalHost(host) {
   try { me = (os.hostname ? os.hostname() : '').toLowerCase(); } catch { me = ''; }
   return h === 'localhost' || h === '127.0.0.1' || h === '::1' || (me !== '' && h === me);
 }
+// 第三波(复核 #5):设备命名空间前缀(`\\?\` / `\\.\` / NT 写法 `\??\`)后面接的东西,只有「盘符 `X:`」与「`Volume{GUID}`」(可带 `Global\`)是本地卷;
+// 其余一律按远端(`\\?\GLOBALROOT\Device\Mup\…`、`\\.\pipe\…`、UNC 别名以外的未知写法)—— 文件工具没有任何理由去碰这些。
+// 返回 null(不是设备命名空间写法)/ true(本地卷)/ false(其余)。UNC 别名写法由 uncHostAndPath 先认出主机,不走这里。
+function deviceNamespaceIsLocalVolume(p, forwardSlash) {
+  const s = String(p == null ? '' : p);
+  const fwd = forwardSlash === undefined ? process.platform === 'win32' : !!forwardSlash;
+  const isSep = ch => ch === '\\' || (fwd && ch === '/');
+  let rest = null;
+  if (s.length >= 4 && isSep(s[0]) && isSep(s[1]) && (s[2] === '?' || s[2] === '.') && isSep(s[3])) rest = s.slice(4);
+  else if (s.length >= 4 && s[0] === '\\' && s[1] === '?' && s[2] === '?' && s[3] === '\\') rest = s.slice(4);
+  if (rest === null) return null;
+  return /^(?:Global[\\/]+)?(?:[A-Za-z]:(?:[\\/]|$)|Volume\{[0-9a-fA-F-]+\}(?:[\\/]|$))/i.test(rest);
+}
 // 返回 '' = 不拦;否则是拒绝原因。candidates:要判的几种拼法(原串 / resolve 后 / realpath 后),任一是越界 UNC 即拒。
-function remoteUncDenial(candidates, session, config, forwardSlash) {
+// extraRoots:调用方已经 realpath 过的 UNC 工作区根(见 remoteUncDenialResolved)—— 例外同时认「字面拼法」与「realpath 拼法」。
+function remoteUncDenial(candidates, session, config, forwardSlash, extraRoots) {
   const hits = [];
   for (const c of candidates) {
     const u = uncHostAndPath(c, forwardSlash);
     if (u && !uncIsLocalHost(u.host)) hits.push(u);
+    else if (!u && deviceNamespaceIsLocalVolume(c, forwardSlash) === false) hits.push({ host: '(device-namespace)', norm: '\\\\?\\' + String(c).toLowerCase() });
   }
   if (!hits.length) return '';
   const roots = [];
@@ -13194,10 +13220,37 @@ function remoteUncDenial(candidates, session, config, forwardSlash) {
   if (config && typeof config.defaultWorkspace === 'string') push(config.defaultWorkspace);
   for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) push(w);
   for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) { if (w && typeof w === 'object') push(w.path); }
+  for (const r of (Array.isArray(extraRoots) ? extraRoots : [])) push(r);
   for (const u of hits) {
     if (!roots.some(r => u.norm === r || u.norm.startsWith(r + '\\'))) return u.host;
   }
   return '';
+}
+// 第三波(复核 #6):工作区根可能是「映射盘 Z:\」「\\wsl$\…」「DFS 名字空间」—— 它们的 realpath(GetFinalPathNameByHandle)是另一种拼法
+// (\\fileserver\dept\…、\\wsl.localhost\…、\\目标服务器\…)。纯词法的例外只认字面,于是工具回给模型的 realpath 拼法路径再喂回来就被当成「别人的共享」。
+// 所以【只在字面判据要拒的时候】才把配置里的工作区根逐个 realpath(用户自己配的根;每个最多等 3 秒,连不上就当没有),
+// 把其中仍是非本机 UNC 的拼法并进例外再判一次。热路径(绝大多数调用字面判据就放行)零额外 I/O。
+async function realUncWorkspaceRoots(session, config) {
+  const raw = [];
+  if (session && typeof session.cwd === 'string') raw.push(session.cwd);
+  if (config && typeof config.defaultWorkspace === 'string') raw.push(config.defaultWorkspace);
+  for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) raw.push(w);
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) { if (w && typeof w === 'object') raw.push(w.path); }
+  const out = [];
+  for (const r of [...new Set(raw.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()))].slice(0, 32)) {
+    let real = '';
+    try { real = await Promise.race([realpathForContainment(r), new Promise(resolve => setTimeout(() => resolve(''), 3000).unref())]); } catch { real = ''; }
+    const u = real ? uncHostAndPath(real) : null;
+    if (u && !uncIsLocalHost(u.host)) out.push(real);
+  }
+  return out;
+}
+async function remoteUncDenialResolved(candidates, session, config) {
+  const first = remoteUncDenial(candidates, session, config);
+  if (!first) return '';
+  let extra = [];
+  try { extra = await realUncWorkspaceRoots(session, config); } catch { extra = []; }
+  return extra.length ? remoteUncDenial(candidates, session, config, undefined, extra) : first;
 }
 const UNC_DENIED_ERROR = '不允许经文件工具访问网络共享(\\\\主机\\共享 形式的路径):这会把文件内容或本机登录凭据交给对方主机。要使用某个网络共享,请先在「设置 › 基础 › 工作区权限」把它添加为工作区';
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
@@ -13214,7 +13267,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
   // 安全走查 W1:非本机 UNC 在任何 I/O 之前拒(realpath 自己就会去连对方主机的 SMB),排在所有逃生舱与宽写之前。
-  if (remoteUncDenial([String(rawPath || ''), absRaw, abs], session, config)) {
+  if (await remoteUncDenialResolved([String(rawPath || ''), absRaw, abs], session, config)) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   }
@@ -13238,7 +13291,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
         const du = uncHostAndPath(await realpathForContainment(dm[1] + '\\'));
         mappedDrive = !!(du && !uncIsLocalHost(du.host));
       }
-      if (!mappedDrive && remoteUncDenial([real], session, config)) {
+      if (!mappedDrive && await remoteUncDenialResolved([real], session, config)) {
         logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
         return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
       }
@@ -17944,6 +17997,28 @@ function providerCallIsTransient(call) {
   const status0 = Number((/^\s*HTTP (\d{3})\b/.exec(he0) || [])[1]);
   return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429 || status0 === 529));
 }
+// 把【本次请求带出去的凭据】(provider.apiKey 与 extraHeaders 的各个值)在文本里按字面抹掉。redact() 的模式表认的是常见形态
+// (sk- / Bearer / 「key: 值」标签…),服务商把 key 回显成别的形态(zk9.xxx、前面是「key=」而不是标签)时它抹不掉 —— 「测试连接」把
+// 服务商报文的前 300 字原样回给界面,所以先按字面抹、再过 redact()。短于 6 个字符的值不抹(免得把「k」「1」之类处处替换);
+// 「Bearer xxx」「Basic xxx」形的头值连同它去掉前缀后的部分一起抹;JSON 转义形(含引号 / 反斜杠的 key)同样抹。
+function providerScrubSecrets(source, provider) {   // 形参不叫 text:裸 text 会被依赖扫描器记成一条 04h → 00-boot 的边(见 04i-provider-wire.js 头注)
+  let s = String(source == null ? '' : source);
+  if (!provider || typeof provider !== 'object') return s;
+  const secrets = new Set();
+  const add = value => {
+    const v = String(value == null ? '' : value).trim();
+    if (v.length < 6) return;
+    secrets.add(v);
+    const escaped = JSON.stringify(v).slice(1, -1);
+    if (escaped !== v) secrets.add(escaped);
+    const m = /^(?:bearer|basic|token)\s+(.+)$/i.exec(v);
+    if (m && m[1].trim().length >= 6) secrets.add(m[1].trim());
+  };
+  add(provider.apiKey);
+  if (provider.extraHeaders && typeof provider.extraHeaders === 'object') for (const value of Object.values(provider.extraHeaders)) add(value);
+  for (const secret of [...secrets].sort((a, b) => b.length - a.length)) s = s.split(secret).join('«redacted»');
+  return s;
+}
 // 服务商 Retry-After(429/503 常带):`retry-after-ms`(OpenAI 系,毫秒)优先,其次 `retry-after`(整数/小数秒,或 HTTP 日期)。
 // 封顶 maxMs(缺省 30 s):退避睡眠要可被停止截断、且不能让一回合被一个离谱的头挂住。认不出 / 非正 → 0(调用方回落自己的退避)。
 // getHeader(name) 是 res.headers.get 的形状(调用方包一层,本函数不碰 Response)。
@@ -18075,7 +18150,9 @@ const ANTHROPIC_THINKING_BUDGET_MIN = 1024;
 const ANTHROPIC_THINKING_BUDGET_MAX = 16000;
 const ANTHROPIC_THINKING_EFFORT_BUDGET = { low: 2048, medium: 6144, high: 12000, xhigh: 16000, max: 16000 };
 // 兼容网关按模型限制输出上限(DeepSeek:「Invalid max_tokens value, the valid range of max_tokens is [1, 8192]」)。第一次 400
-// 时从报文读出上限记在进程里(按模型名),之后同一模型的请求直接按它发 —— 修前每个回合都先吃一次 400。
+// 时从报文读出上限记在进程里,之后同一端点上的同一模型的请求直接按它发 —— 修前每个回合都先吃一次 400。
+// 键是「端点 + 模型」(anthropicLearnedCapKey):上限是某个网关对某个模型的限制,不是模型名本身的属性 —— 修前只按模型名记、进程全局,
+// 某个小网关教会 8192 之后,同名模型在官方 / 别的网关上也被腰斩到 8192,直到重启。
 const anthropicLearnedMaxTokens = new Map();
 
 function normalizeAnthropicAuth(value) {
@@ -18107,6 +18184,11 @@ function anthropicMessagesUrl(baseUrl) {
 function anthropicModelsUrl(baseUrl) {
   const base = anthropicApiBase(baseUrl);
   return base ? base + '/models' : '';
+}
+// 学到的上限的键。endpoint 可以是 Base URL(编码一侧手里有 provider.baseUrl),也可以是本次请求的完整端点(重打一侧手里有 chatUrl):
+// 两者都过 anthropicApiBase,于是「…/anthropic」「…/anthropic/」「…/anthropic/v1/messages」是同一个键;主机名大小写不分。缺省端点 = ''。
+function anthropicLearnedCapKey(endpoint, model) {
+  return anthropicApiBase(endpoint).toLowerCase() + '\n' + String(model || '');
 }
 // 按模型名认 Claude 家族的请求面差异(claude-api 技能 2026-09 的迁移指南;网关上的非 Claude 模型一律 false,走最保守的请求):
 //   adaptive        自适应思考:4.6 起的 opus / sonnet / fable / mythos(更早的与 haiku 走 budget_tokens,发 adaptive 会 400)
@@ -18311,8 +18393,8 @@ function anthropicMessagesFromHistory(history, model, hasTools) {
 // 基础请求体。messages 是 chat 形历史,首条 system;instructions 显式给了就用它当顶层 system。
 // foldSystem 在这里没有区别:后插的 system 规则总是以 <system-reminder> 留在对话里(Messages 没有多 system 通道,但丢掉不行)。
 // hasTools:这一发会不会带 tools(调用方随后 applyTools)。不是 true 时工具块改写成文字(见 anthropicAssistantBlocks),也不回放思考块。
-function anthropicMaxTokensFor(model, wanted) {
-  const cap = anthropicLearnedMaxTokens.get(String(model || ''));
+function anthropicMaxTokensFor(provider, model, wanted) {
+  const cap = anthropicLearnedMaxTokens.get(anthropicLearnedCapKey(provider && provider.baseUrl, model));
   return cap && cap < wanted ? cap : wanted;
 }
 // 从 400 报文里读出网关允许的 max_tokens 上限:「valid range … is [1, 8192]」/「max_tokens: 64000 > 32000」/「less than or equal to 8192」。
@@ -18332,7 +18414,7 @@ function encodeAnthropicMessages({ model, messages, stream, instructions, provid
   const rest = hasLead ? list.slice(1) : list;
   const officialClaude = anthropicOfficialHost(provider && provider.baseUrl) && anthropicModelTraits(model).adaptive;
   const wantedMax = stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS;
-  const body = { model, max_tokens: anthropicMaxTokensFor(model, wantedMax) };
+  const body = { model, max_tokens: anthropicMaxTokensFor(provider, model, wantedMax) };
   if (system.trim()) body.system = system;
   body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true);
   const thinking = anthropicThinkingFor(provider, model, body.max_tokens);
@@ -18387,11 +18469,11 @@ function applyAnthropicTools(body, tools) {
   body.tool_choice = { type: 'auto' };
   return body;
 }
-function encodeAnthropicQuick({ model, messages, plain }) {
+function encodeAnthropicQuick({ model, messages, plain, provider }) {
   const list = Array.isArray(messages) ? messages : [];
   const system = list.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
   const user = list.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
-  const body = { model, max_tokens: 400, messages: [{ role: 'user', content: [{ type: 'text', text: anthropicNonEmpty(user) }] }], stream: false };
+  const body = { model, max_tokens: anthropicMaxTokensFor(provider, model, 400), messages: [{ role: 'user', content: [{ type: 'text', text: anthropicNonEmpty(user) }] }], stream: false };
   if (system.trim()) body.system = system;
   if (!plain && anthropicModelTraits(model).claude) body.output_config = { effort: 'low' };   // 网关上的非 Claude 模型不认 output_config
   return body;
@@ -18574,14 +18656,15 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
 //   0) 端点不认 thinking.block_binding / between_tools(官方以外):只去这一项(先于 1,报文里也有 thinking.block 字样);
 //   1) 思考块签名校验失败(前缀被改过):去掉全部 thinking / redacted_thinking 块;
 //   2) 兼容网关不认某个参数(thinking / output_config / temperature / top_p / top_k / fallbacks):去掉报文里点名的那几个。
-function anthropicRetryBodyOn400(body, errText) {
+// ctx.url:本次请求的端点(openAiStreamOnce 的 chatUrl)—— 学到的上限记在这个端点名下;老调用形态不带 ctx 就记在「无端点」名下。
+function anthropicRetryBodyOn400(body, errText, ctx) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
   // 网关的输出上限比我们发的小:按报文给的上限重打,并记住(同一模型之后直接按它发);经典思考的预算跟着收。
   if (body.max_tokens != null && /max_tokens/i.test(msg)) {
     const cap = anthropicMaxTokensCapFromError(msg);
     if (cap && cap < Number(body.max_tokens)) {
-      anthropicLearnedMaxTokens.set(String(body.model || ''), cap);
+      anthropicLearnedMaxTokens.set(anthropicLearnedCapKey(ctx && ctx.url, body.model), cap);
       const copy = { ...body, max_tokens: cap };
       if (copy.thinking && copy.thinking.type === 'enabled') {
         const thinking = anthropicClassicThinking(cap, '');
@@ -18648,7 +18731,8 @@ function anthropicRetryBodyOn400(body, errText) {
 //   applyTemperature(body, t)  采样温度(t 为 undefined 不写;anthropic 对拒收采样参数的新 Claude 模型不写)
 //   applyTools(body, tools, { serverWebSearch })   工具 + tool_choice:'auto'(工具是 chat 形,协议自己翻译)
 //   outputTokensField          输出上限字段名
-//   encodeQuick({ model, messages, plain })        句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
+//   encodeQuick({ model, messages, plain, provider })  句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
+//                              (provider 可选:anthropic 据它的端点取「学到的 max_tokens 上限」,另两种协议不看)
 //   decodeCompletion(payload, { requestModel })    非流式回体 → { text, reasoning, toolCalls, finishReason, incomplete, incompleteReason,
 //                              failed, failedDetail, failureText, usage, responseId[, providerBlocks] }(text 未 trim)
 //                              failureText:回体本身装着失败(chat 200 + 顶层 error、Responses status:'failed'、Anthropic type:'error' / refusal)时
@@ -18657,7 +18741,8 @@ function anthropicRetryBodyOn400(body, errText) {
 //                              finish() → { text, reasoning, finishReason, toolCalls, [httpError,] providerResponseId[, providerBlocks] }
 //   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
 //   assistantHistoryFields(call)                   本次回复随 assistant 消息落进历史的协议字段
-//   retryOn400(body, errText)  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//   retryOn400(body, errText, { url })  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//                              (url = 本次请求的端点:anthropic 把从 400 学到的 max_tokens 上限记在「端点 + 模型」名下)
 //
 // encodeMessages 还收 provider(可选,anthropic 据它决定思考方式)与 hasTools(这一发随后会不会 applyTools;anthropic 不带 tools
 // 的请求里不许有 tool_use / tool_result 块,要改写成文字);另两种协议两个都不看。
@@ -23271,7 +23356,7 @@ async function providerFixCompletion(provider, model, messages) {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
   const headers = wire.requestHeaders(provider, { model });
-  const build = plain => wire.encodeQuick({ model, messages, plain });
+  const build = plain => wire.encodeQuick({ model, messages, plain, provider });
   const once = async bodyObj => {
     // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
     const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
@@ -27337,7 +27422,7 @@ function toolRequirementsMet(toolName, caps, toolRequiresEnabled, config) {
 // Seeded now so the v0.9 error-humanization UI has real data to render. `result` events attach `errorClass`
 // when determinable (additive field). Exported for the UI + tests.
 const ERROR_CLASSES = {
-  provider_misconfigured: { zh: '模型端点未配置或不可用', next: '到 设置→Providers 检查地址与密钥' },
+  provider_misconfigured: { zh: '模型端点未配置或不可用', next: '到 设置 → 模型与服务 → 模型服务商 检查地址与密钥' },
   network_down: { zh: '网络不可用（当前离线）', next: '联网后重试；或改用离线可完成的任务' },
   permission_denied: { zh: '此操作被权限拒绝', next: '在弹窗中允许，或在 设置→权限 调整模式' },
   tool_error: { zh: '工具执行出错', next: '查看工具返回的错误详情，调整参数后重试' },
@@ -27377,10 +27462,10 @@ const ERROR_CLASSES = {
   cli_missing: { zh: '找不到可用的 CLI', next: '到 设置 检查 CLI 路径' },
   launch_error: { zh: '这一回合根本没起来', next: '重发一次;仍然不行就看工作台日志' },
   // hunt2:主回合 429 已自动退避重试过几次仍被限流(09 runOpenAiTurn)。修前归 tool_error,把人引去查工具。
-  rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置→Providers 检查额度或换备用端点' },
+  rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置 → 模型与服务 → 模型服务商 检查额度或换备用端点' },
   // 服务商自己报的错(HTTP 5xx / 其它 4xx、流内错误帧、Responses failed、Anthropic 拒答)。修前这些全落成 tool_error「工具执行出错」,
   // 把人引去查工具;它不是工具的错,也不一定是配置的错(404 / 401 / 403 另有 provider_misconfigured),多半是服务端暂时故障或请求被拒。
-  provider_error: { zh: '模型服务商返回了错误', next: '多为服务端暂时故障或请求被拒:稍后重试;反复出现就看错误详情,或到 设置→Providers 检查模型名与地址' },
+  provider_error: { zh: '模型服务商返回了错误', next: '多为服务端暂时故障或请求被拒:稍后重试;反复出现就看错误详情,或到 设置 → 模型与服务 → 模型服务商 检查模型名与地址' },
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
@@ -31143,7 +31228,40 @@ function stewardAutoAskSensitiveKind(toolName, input) {
   const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
   if (!composed) return '';
   if (STEWARD_AUTO_ASK_DATAROOT_PATTERNS.some(pattern => pattern.test(composed))) return 'dataroot';
-  if (STEWARD_AUTO_ASK_EGRESS_PATTERNS.some(pattern => pattern.test(composed))) return 'egress';
+  // 第三波(复核 #8):网络外发那张表【不】看工作目录这一叶子 —— cwd 是 `D:\src\curl` / `axios` / `httpx` 的人,每条无害命令都不该因为目录名里有 curl 而停问。
+  // 命令本身写在别的叶子里照扫;读数据根那张表仍看 cwd(目录就在数据根里时,相对路径的 config.json 也要认)。
+  const egressText = stewardAutoAskEgressText(input);
+  if (egressText && STEWARD_AUTO_ASK_EGRESS_PATTERNS.some(pattern => pattern.test(egressText))) return 'egress';
+  return '';
+}
+const STEWARD_AUTO_ASK_CWD_KEY_RE = /^(?:cwd|workdir|working_?dir(?:ectory)?)$/i;
+function stewardAutoAskEgressText(input) {
+  const base = (input && typeof input === 'object' && !Array.isArray(input))
+    ? Object.fromEntries(Object.entries(input).filter(([key]) => !STEWARD_AUTO_ASK_CWD_KEY_RE.test(key)))
+    : input;
+  return stewardExemptInputText(base).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
+}
+// 第三波(复核 #4):上面所有判据(五类豁免 / 间接构造 / 外发 / 数据根)都只看摊平文本的前 STEWARD_EXEMPT_INPUT_CHARS 个字符。命令前面垫 4000 个空格,
+// 后面的 curl / git push / Remove-Item -Recurse 就没人看了 —— 窗口之后的内容【没被检查过】不等于【安全】。所以非编排类的命令工具,摊平文本超过窗口
+// (或嵌套过深 / 摊平时被截)就当「没扫全」,智能自动档停下来问。编排类(任务描述是散文,子代理每一步自己过闸)不受此限。
+function stewardAutoAskScanIncomplete(toolName, input) {
+  if (input == null) return false;
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (STEWARD_AUTO_ASK_PROSE_TOOLS.includes(bare)) return false;
+  const scanNote = { truncated: false };
+  const full = stewardExemptInputText(input, 0, scanNote);
+  return scanNote.truncated || full.length > STEWARD_EXEMPT_INPUT_CHARS;
+}
+// 智能自动停下来问的原因(给子代理的拒绝文案 / 日志用):命中哪一类就说哪一类;没有命中返回 ''。
+function stewardAutoAskReason(toolName, input) {
+  if (input == null && !toolName) return '';
+  const hit = stewardExemptReason(toolName, input);
+  if (hit) return hit.category && STEWARD_EXEMPT_CATEGORY_LABELS[hit.category] ? STEWARD_EXEMPT_CATEGORY_LABELS[hit.category] : '高风险工具';
+  if (stewardAutoAskIndirect(input)) return '命令是拼接 / 编码 / 求值出来的,看不出真正要跑什么';
+  const kind = stewardAutoAskSensitiveKind(toolName, input);
+  if (kind === 'dataroot') return '会读取如意数据目录里的密钥 / 状态文件';
+  if (kind === 'egress') return '会访问外部网络';
+  if (stewardAutoAskScanIncomplete(toolName, input)) return '命令文本过长,超出了安全检查的范围';
   return '';
 }
 // 107-S1 ③(46 号文 §5 ⑦b H2 实验 E1):**删数据类只在目标是相对路径时才可代批**。
@@ -33833,6 +33951,15 @@ const MEMORY_GLOBAL_SCOPE_RE = new RegExp([
   '\\bpersonal (?:preference|habit)s?\\b',
   '\\b(?:regardless of|no matter (?:which|what)) (?:the )?(?:project|workspace|repo)',
 ].join('|'), 'i');
+// 「全局」「global」在编码讨论里首先是术语(全局变量 / global state / 全局搜索替换),不是在说「这条记忆全局生效」。判「用户有没有说全局」之前
+// 先把这些编程用语从文本里去掉:用户说「不要用全局变量」就不能让模型把一条只管本模块的约定提成 global(卡上还默认选中「全局」、没有「AI 建议全局」说明)。
+// 去掉之后文本里还剩的「全局」(全局偏好 / 全局生效 / globally)与其它跨项目说法照旧算。只收明确的编程名词搭配,「全局设置 / 全局配置」这类范围语义不收。
+const MEMORY_GLOBAL_PROGRAMMING_RE = new RegExp([
+  '全局(?:变量|搜索|替换|查找|状态|对象|命名空间|作用域|锁|异常|样式|函数|常量|单例|声明|引用|符号)',
+  '\\bglobals\\b',
+  '\\bglobal[ -](?:variables?|vars?|state|search|find|replace|namespace|scope|lock|exception|handler|objects?|singleton|constants?|declarations?|statements?|keyword|functions?|references?|styles?)\\b',
+  '\\bglobal\\s*(?:语句|声明|关键字|关键词)',
+].join('|'), 'gi');
 const MEMORY_PERSONAL_PREFERENCE_RE = /(?:我(?:更|比较|一直|总是|还是)?(?:喜欢|偏好|习惯|希望|倾向|想要|爱用|讨厌|不喜欢)|\bI (?:prefer|like|love|hate|dislike|usually|always|want)\b|\bmy (?:preference|habit|style)\b)/i;
 const MEMORY_PROJECT_ONLY_RE = /(?:这个项目|本项目|当前项目|该项目|这个仓库|本仓库|当前仓库|这个工作区|当前工作区|\bthis (?:project|repo|repository|workspace|codebase)\b|\bin the current (?:project|repo)\b)/i;
 
@@ -33854,9 +33981,15 @@ function memoryGlobalScopeAllowed(type, userTexts) {
   const list = Array.isArray(userTexts) ? userTexts : [String(userTexts == null ? '' : userTexts)];
   return list.some(text => {
     const t = String(text || '');
-    if (MEMORY_GLOBAL_SCOPE_RE.test(t)) return true;
+    if (MEMORY_GLOBAL_SCOPE_RE.test(t.replace(MEMORY_GLOBAL_PROGRAMMING_RE, ' '))) return true;
     return type === 'preference' && MEMORY_PERSONAL_PREFERENCE_RE.test(t) && !MEMORY_PROJECT_ONLY_RE.test(t);
   });
+}
+// 自动审稿路径(回合结束后同一 provider 起草候选)的作用域闸:与工具路径同一道 memoryGlobalScopeAllowed,另要求本轮有「长期」信号 ——
+// durablePreference(以后 / 默认 / 一律 / prefer…)或 explicit(「记住」「remember this」:用户明说要记,本身就是长期信号)。
+// 修前只认 durablePreference,用户说「记住:所有项目的提交信息都用中文」(工具路径放行 global)自动路径却降成 project。
+function memoryAutoGlobalAllowed(gate, type, userTexts) {
+  return Boolean(gate && (gate.durablePreference || gate.explicit)) && memoryGlobalScopeAllowed(type, userTexts);
 }
 
 // 单条候选的校验与归一(单条形式与批量的每一条同一套判据,措辞与修前逐字一致)。userText:字符串或最近几条用户消息数组。
@@ -34436,7 +34569,7 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
   // 被改的记进 proposal,卡片上和模型工具那条路一样标出「AI 建议全局」。
   proposal.requestedScope = proposal.scope;
   proposal.scopeAdjusted = false;
-  const globalAllowed = gate.durablePreference && memoryGlobalScopeAllowed(proposal.type, [gate.userText, ...memoryRecentUserTexts(session, 3)]);
+  const globalAllowed = memoryAutoGlobalAllowed(gate, proposal.type, [gate.userText, ...memoryRecentUserTexts(session, 3)]);
   if (proposal.scope === 'global' && !globalAllowed) { proposal.scope = 'project'; proposal.scopeAdjusted = true; }
   const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: session.id, sourceTurnSeq: gate.turnSeq };
@@ -36985,7 +37118,14 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
   try {
     const res = await fetch(modelsUrl, { headers, signal: ctrl ? ctrl.signal : undefined });
     if (!res || !res.ok) return { ok: false, error: 'HTTP ' + (res ? res.status : '?'), models: [] };
-    const body = await res.json();
+    // 200 却不是 JSON(/models 被 SPA 兜底页 / 反代的登录页 / 空体顶掉):这不是「连接失败」,是「这个端点没有模型清单」。
+    // 带 notAList 交给「测试连接」当缺清单处理(改用补全试探);超时中止(AbortError)照旧往外抛给下面的 catch。
+    let body;
+    try { body = await res.json(); }
+    catch (parseError) {
+      if (parseError && parseError.name === 'AbortError') throw parseError;
+      return { ok: false, error: 'HTTP ' + res.status + ': the response is not a model list (not JSON)', notAList: true, models: [] };
+    }
     const data = Array.isArray(body && body.data) ? body.data : (Array.isArray(body) ? body : []);
     // v1.0.2-S2: 同时保留上游条目里的 context_length 类字段(取第一个正数), 存为 contextLength,
     // 并按 provider+model 写入探测缓存(TTL 10 分钟), 供 providerContextWindow 解析激活模型时查用。
@@ -37036,13 +37176,14 @@ async function probeProviderCompletion(provider, model, timeoutMs = 15000) {
   const wire = providerWireProtocol(provider);
   const url = wire.completionUrl(provider && provider.baseUrl);
   if (!url || typeof fetch !== 'function') return { ok: false, error: url ? 'fetch unavailable' : 'no base URL' };
-  const body = wire.encodeQuick({ model, messages: [{ role: 'user', content: 'ping' }], plain: true });
+  const body = wire.encodeQuick({ model, messages: [{ role: 'user', content: 'ping' }], plain: true, provider });
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
     const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
     const raw = await res.text().catch(() => '');
-    if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + raw.replace(/\s+/g, ' ').slice(0, 300) : '') };
+    // 报文原样回给界面之前,先把本次请求带出去的凭据按字面抹掉再截断(先截会把横跨 300 字边界的 key 切成认不出的半截)。
+    if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + providerScrubSecrets(raw, provider).replace(/\s+/g, ' ').slice(0, 300) : '') };
     let payload = null; try { payload = JSON.parse(raw); } catch { payload = null; }
     const decoded = payload ? wire.decodeCompletion(payload, { requestModel: model }) : null;
     if (decoded && decoded.failed) return { ok: false, error: String(decoded.failureText || 'provider error').slice(0, 300) };
@@ -38453,8 +38594,14 @@ function estimateToolSchemaTokens(tools) {
 // 没覆盖的(诚实):低于阈值的小额外传(一个 API key 约 50 字符、一个 32 位 token 能从阈值下面过去)—— 这条挡的是批量载荷,不是逐字符审计;
 // 要杜绝得对「本回合读过本地文件之后的新域名」做确认(产品形态变更,未做)。
 // 同一判据覆盖 http_request / http_download 的网址(读档以上的同类外联口:GET 带长查询串同样能外传),以及 CLI 引擎的 WebFetch / WebSearch。
-const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300 });
-const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download']);
+// 第三波(复核 #2 / #7):另加三条整体长度判据 —— pathChars(路径【解码后】总长)、hostChars(主机名总长)、urlChars(整条网址原长);
+// 查询串 / fragment 的 256 改按【解码后】计(中文搜索词一个字符编码成 9 个字符,30 个汉字就超了);用户信息段(`user:pass@`)一律问
+// (Node 会把它发成 Authorization 头 —— 无提示外传通道;web_fetch 没有任何理由带凭据)。阈值依据:真实网址路径解码后极少过 200,
+// 合法主机名几乎不超过 70(codespaces / vercel 预览域 ~60),整条网址过 1024 已超出多数服务端的 URL 上限。
+const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300, pathChars: 300, hostChars: 100, urlChars: 1024 });
+// 第三波(复核 #3):browser_open(原生与 ACC 的同名工具)= 把网址交给浏览器去 GET,ACC 的 fetch 同理;裸名匹配,mcp__server__ 前缀已被 webPayloadReason 剥掉。
+// (ACC 的 browser_navigate 只有 back / forward / reload,没有网址入参,不在此列;管家的 steward_web_fetch / steward_web_search 不走本闸,见 13l。)
+const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download', 'browser_open', 'fetch']);
 const WEB_PAYLOAD_QUERY_TOOLS = Object.freeze(['web_search', 'WebSearch']);
 // 「像编码出来的」:≥ encodedRunChars 的 hex 连续串;或 [A-Za-z0-9+/_=-] 连续串(base64 / base64url),且同时有字母和数字、连字符 / 下划线占比 ≤ 1/8
 // (长文章 slug 如 how-to-install-…-2026 连字符多、词与词之间有分隔,不算;真 base64url 里 - _ 的期望占比约 3%)。
@@ -38487,13 +38634,19 @@ function webUrlPayloadReason(url) {
   const qAt = noHash.indexOf('?');
   const query = qAt >= 0 ? noHash.slice(qAt + 1) : '';
   const head = qAt >= 0 ? noHash.slice(0, qAt) : noHash;
-  if (query.length + frag.length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
+  if (s.length > WEB_PAYLOAD_LIMITS.urlChars) return 'url_long';
+  if (webSafeDecode(query).length + webSafeDecode(frag).length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
   const afterScheme = head.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
   const slashAt = afterScheme.indexOf('/');
   const hostPort = slashAt >= 0 ? afterScheme.slice(0, slashAt) : afterScheme;
   const pathPart = slashAt >= 0 ? afterScheme.slice(slashAt) : '';
-  const host = hostPort.replace(/^[^@]*@/, '').replace(/:\d*$/, '');
+  // 用户信息段:带口令(`user:pass@`)或长到能装数据(> 32 字符)一律问;`http://user@intranet.corp:8080/…` 这种只有短用户名的内网写法不算(既有零误伤样本)。
+  const atAt = hostPort.lastIndexOf('@');
+  if (atAt >= 0) { const userinfo = hostPort.slice(0, atAt); if (userinfo.length > 32 || userinfo.includes(':')) return 'userinfo'; }
+  const host = (atAt >= 0 ? hostPort.slice(atAt + 1) : hostPort).replace(/:\d*$/, '');
+  if (host.length > WEB_PAYLOAD_LIMITS.hostChars) return 'host_long';
   if (host.split('.').some(label => label.length >= WEB_PAYLOAD_LIMITS.hostLabelChars)) return 'host_label_long';
+  if (webSafeDecode(pathPart).length > WEB_PAYLOAD_LIMITS.pathChars) return 'path_long';
   const values = [];
   for (const pair of query.split('&')) {
     if (!pair) continue;
@@ -38501,7 +38654,10 @@ function webUrlPayloadReason(url) {
     values.push(webSafeDecode(eq >= 0 ? pair.slice(eq + 1) : pair));
   }
   if (values.some(v => v.length > WEB_PAYLOAD_LIMITS.paramValueChars)) return 'param_long';
-  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)];
+  // 第三波(复核 #7):`#diff-<64 位 hex>`(GitHub 的 diff 锚点)与 `sha256-<64 位 hex>` / `sha256:<64 位 hex>`(镜像 / 包的摘要)恰好 64 位 hex,是日常网址里
+  // 仅有的几种「像编码」的正常写法;只摘掉【恰好 64 位】的这两种前缀形态再判(128 位 hex 之类仍命中),整体长度另有 pathChars / urlChars 兜着。
+  const withoutDigests = piece => piece.replace(/(?:sha256[-:]|diff-)[0-9a-fA-F]{64}(?![0-9a-fA-F])/gi, '');
+  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)].map(withoutDigests);
   if (pieces.some(webLooksEncoded)) return 'encoded_run';
   return '';
 }
@@ -38522,19 +38678,22 @@ function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
   // 安全走查 S1:联网请求看起来带了载荷 → 除 bypass 以外所有档位(含 plan、read 档)先确认;走既有的权限请求,不另造一套。
-  if (toolName && webPayloadReason(toolName, input)) return 'ask';
-  if (tier === 'read') return 'allow';
+  // 第三波(复核):载荷这一问只把本来的 allow 升成 ask,【不】把 block 放宽成 ask —— plan / dontAsk 档里本来就被挡的 exec / edit 工具(http_request / browser_open 等)带长网址仍是 block。
+  const payloadAsk = toolName && webPayloadReason(toolName, input) ? 'ask' : 'allow';
+  if (tier === 'read') return payloadAsk;
   if (mode === 'plan' || mode === 'dontAsk') return 'block';
   // v1.4.3: 'auto' mode — AI risk-classifier decides. In the native engine we approximate:
   // allow edit-tier (low-risk, reversible) and prompt for exec-tier.
-  if (mode === 'auto' && tier === 'edit') return 'allow';
-  if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
+  if (mode === 'auto' && tier === 'edit') return payloadAsk;
+  if (mode === 'acceptEdits' && tier === 'edit') return payloadAsk;
   if (mode === 'auto') {
     if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
     // 2026-10:命令是拼出来 / 编码出来 / 求值出来的(强信号,06i stewardAutoAskIndirect)也停下来问 ——
     // 字面量判据看不穿它真正要跑什么。管家对这一类不代批(13l),只能用户亲自按。
     // 安全走查 S2:网络外发与读数据根密钥文件(06i stewardAutoAskSensitiveKind)同样停下来问;命令类工具才扫,编排类的任务描述文字不扫。
-    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== '') ? 'ask' : 'allow';
+    // 第三波(复核 #4):摊平文本超出扫描窗口的(窗口之后没人看过)同样问 —— 见 06i stewardAutoAskScanIncomplete。
+    return (payloadAsk === 'ask' || stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== ''
+      || stewardAutoAskScanIncomplete(toolName, input)) ? 'ask' : 'allow';
   }
   return 'ask';
 }
@@ -38842,7 +39001,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
     // 58 号批 2:协议内的兼容重打(Anthropic:思考块签名校验失败 → 去掉思考块;网关不认 thinking / output_config 等 → 去掉点名字段)。
     // chat / responses 恒返回 null,走下面原有的 stream_options 分支,行为不变。
-    const retryBody = wire.retryOn400(body, t);
+    const retryBody = wire.retryOn400(body, t, { url: chatUrl });   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
     if (retryBody) {
       res = await doFetch(retryBody);
     } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
@@ -40733,7 +40892,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                 ? { ok: false, error: `这个联网请求的网址 / 查询看起来带了大段数据(${webWhy}),需要用户确认,子代理无法征求确认,已拒绝;请缩短后重试,或让主线程发起` }
                 : (effMode === 'auto' && ntier === 'exec'
                   // 智能自动档对 exec 只在命中高风险判据(网络外发 / 递归删除 / 推送发布 / 改系统 / 读数据根密钥 / 拼接编码求值)时问人,子代理无法征求确认。
-                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
+                  // 第三波(复核 #9):说清【这一条】具体命中了哪一类(06i stewardAutoAskReason:删数据 / 推送远端 / 会访问外部网络 / 会读数据目录密钥 / 拼接编码 / 命令过长未能完整检查),
+                  // 模型才知道换哪种写法;认不出具体类别时仍回整张清单。
+                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(${stewardAutoAskReason(tc.name, args) || '网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的'}),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
                   : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` });
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
@@ -44398,7 +44559,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // 走查 W1-9：中文界面里这句曾是整句英文。跟 emptyReplyNotice 同一口径按 config.locale 选语言；`why` 仍是英文机器诊断（给钩子的 error 字段）。
     const providerName = provider.label || provider.id;
     const msg = getPromptPack(config && config.locale) === PROMPT_EN
-      ? `Cannot start a ${providerName} turn: ${why}. Open Settings → Providers to fix it.`
+      ? `Cannot start a ${providerName} turn: ${why}. Open Settings → Models & Services → Model providers to fix it.`
       : `无法发起「${providerName}」这一轮对话：${!chatUrl ? '服务商的接口地址没填' : (!model ? '还没有选定模型' : '当前运行环境不支持 fetch')}。请到「设置 → 服务商」补全后再试。`;
     session.messages.push({ role: 'assistant', content: msg, segments: [{ id: 'segment-1', type: 'text', text: msg }], createdAt: nowIso(), source: 'fallback' });
     session.providerHistoryCursor = session.messages.length;
@@ -57920,6 +58081,7 @@ const FILE_TOOL_HANDLERS = {
         // 调用方在 pattern(正则或 glob)/ root 里显式点名的目录不剪(`^dist/`、root=…/build)。
         allowDirs: explicitAllowDirs(root, cls.kind === 'regex' ? explicitSegmentsOfRegex(args.pattern) : cls.kind === 'glob' ? explicitSegmentsOfGlob(args.pattern) : []),
       });
+      respellWalkPaths(walked, walkRoot, root);   // 第三波(复核 #6):回给模型的绝对路径保持调用方的写法(映射盘 / 别名不换成 UNC / 真身)
       // F12:信封只带相对路径(root 已在顶层);absolute:true 才补绝对 path。
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'file_list'); }
@@ -57956,6 +58118,7 @@ const FILE_TOOL_HANDLERS = {
           kept.push(m);
         }
         matches = kept;
+        respellWalkPaths(matches, walkRoot, root);   // 第三波(复核 #6):敏感名单与硬链接判据已按 realpath 判完,回给模型的 path 换回调用方的写法
       }
       const resp = { ok: true, root, matches };
       if (meta.engine) resp.engine = meta.engine;
@@ -58016,6 +58179,7 @@ const FILE_TOOL_HANDLERS = {
         emitDirs: false, accept: rel => globRe.test(rel), ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true,
         allowDirs: explicitAllowDirs(walkRoot, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
       });
+      respellWalkPaths(all, walkRoot, root);   // 第三波(复核 #6)
       const matched = all.filter(f => f.type === 'file').map(f => ({ path: f.path, relativePath: f.relativePath, mtime: f.mtimeMs || 0 }));
       matched.sort((a, b) => b.mtime - a.mtime);
       const truncated = matched.length > maxResults || all.truncated === true;
@@ -58040,6 +58204,7 @@ const FILE_TOOL_HANDLERS = {
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
       const walked = await walkFiles(walkRoot, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(walkRoot, []) });
+      respellWalkPaths(walked, walkRoot, root);   // 第三波(复核 #6)
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'project_snapshot') + ' (entries are listed breadth-first: every top-level entry comes before deeper ones)'; }
       if (walked.prunedDirs) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('project_snapshot'); }
@@ -58307,6 +58472,29 @@ async function nearestGitignore(root) {
 // 信封里回显的 root 仍是调用方给的写法(只换遍历用的那一份);守门没给 absPath(不该发生)时退回原 root。
 function guardedWalkRoot(root, g) {
   return (g && typeof g.absPath === 'string' && g.absPath) ? g.absPath : root;
+}
+// 第三波(复核 #6):遍历用的是 realpath 根,但回给模型的路径必须保持【调用方的写法】—— 映射盘 `Z:\proj` 的 realpath 是 `\\fileserver\dept\proj`,
+// 若把后者原样交给模型,它再拿去 file_read / file_edit 就会撞上 UNC 外联闸(那是用户自己配的工作区);符号链接 / 联接工作区同理(别名换成了真身)。
+// 遍历结果里凡是以 walkRoot 开头(且下一个字符是分隔符或到此为止)的字符串,把这段前缀换回 root;walkRoot 与 root 相同时什么都不做。
+// 就地改写并返回同一个对象(数组上挂的 engine / truncated 之类元数据不丢)。敏感名单 / 硬链接判据必须在改写【之前】按 realpath 判。
+function respellWalkPaths(value, walkRoot, root) {
+  const from = String(walkRoot == null ? '' : walkRoot).replace(/[\\/]+$/, '');
+  const to = String(root == null ? '' : root).replace(/[\\/]+$/, '');
+  if (!from || from === to || !value || typeof value !== 'object') return value;
+  const fix = str => (str === from || ((str[from.length] === '\\' || str[from.length] === '/') && str.startsWith(from))) ? to + str.slice(from.length) : str;
+  let budget = 200000;
+  const visit = (node, depth) => {
+    if (depth > 8) return;
+    const keys = Array.isArray(node) ? node.keys() : Object.keys(node);
+    for (const k of keys) {
+      if (--budget < 0) return;
+      const v = node[k];
+      if (typeof v === 'string') node[k] = fix(v);
+      else if (v && typeof v === 'object') visit(v, depth + 1);
+    }
+  };
+  visit(value, 0);
+  return value;
 }
 async function toolRootProblem(root) {
   let st = null;
@@ -58752,7 +58940,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return dependencyInventory(guardedWalkRoot(root, g));
+      return respellWalkPaths(await dependencyInventory(guardedWalkRoot(root, g)), guardedWalkRoot(root, g), root);
   } },
   code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58760,7 +58948,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codeReviewScan(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await codeReviewScan(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58768,7 +58956,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return frontendAudit(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await frontendAudit(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58776,7 +58964,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return claudeMdAudit(guardedWalkRoot(root, g));
+      return respellWalkPaths(await claudeMdAudit(guardedWalkRoot(root, g)), guardedWalkRoot(root, g), root);
   } },
   docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58784,7 +58972,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args);
+      return respellWalkPaths(await docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args), guardedWalkRoot(root, g), root);
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
@@ -58794,7 +58982,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codebaseSymbolSearch(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await codebaseSymbolSearch(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
       return debugHypothesis(args);
@@ -61741,7 +61929,7 @@ async function handleApi(req, res, pathname) {
     // 先列模型清单(顺带回填下拉);端点不提供清单(404 / 405 / 501,或回了空表)时,用填好的模型发一次最小补全确认能通 ——
     // 多数 Anthropic 兼容网关(如 https://api.deepseek.com/anthropic)没有 /v1/models,修前这一步直接判「端点地址可能不对」。
     let probe = await fetchOpenAiModels(sp, 6000);
-    const modelsMissing = (!probe.ok && /\bHTTP (?:404|405|501)\b/.test(String(probe.error || ''))) || (probe.ok && !(probe.models || []).length);
+    const modelsMissing = (!probe.ok && (probe.notAList === true || /\bHTTP (?:404|405|501)\b/.test(String(probe.error || '')))) || (probe.ok && !(probe.models || []).length);
     const apiStyle = normalizeProviderApiStyle(sp.apiStyle);
     if (modelsMissing) {
       const model = String(sp.model || (sp.models && sp.models[0] && sp.models[0].id) || '').trim();
@@ -61757,8 +61945,12 @@ async function handleApi(req, res, pathname) {
     // 稳定 code(前端按 code 取本地化文案,并按协议给 Base URL 的写法提示)+ errorClass;error 仍是中文兜底句,detail 是原始报文。
     if (!probe.ok && probe.error) {
       const e = String(probe.error);
-      const detail = redact(e).slice(0, 300);
+      // 先按字面抹掉本次请求带出去的 key / 自定义头的值(服务商常把它们回显在报文里,模式表认不全),再过模式表。
+      const detail = redact(providerScrubSecrets(e, sp)).slice(0, 300);
       if (/\bHTTP 40[13]\b|unauthorized|authentication/i.test(e)) Object.assign(probe, { code: 'provider.test_unauthorized', errorClass: 'provider_misconfigured', error: '密钥无效或无权限(' + detail + '):请检查 API Key 是否正确、是否有额度/权限' });
+      // 补全试探的 404 若正文点名了模型(Anthropic 官方 / OpenAI / vLLM 对未知模型都回 404)是「模型名」的问题,不是地址;
+      // 裸 404(地址 / 路径错)正文里没有独立的 model 一词。model 后面接 _ 的(model_not_found)照算,models / remodel 不算。
+      else if (probe.probe === 'completion' && /\bHTTP 404\b/.test(e) && /(?<![a-z])model(?![a-z])/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
       else if (/\bHTTP 404\b/i.test(e)) Object.assign(probe, { code: 'provider.test_not_found', errorClass: 'provider_misconfigured', error: '端点地址可能不对(' + detail + '):检查 Base URL' });
       else if (probe.probe === 'completion' && /\bHTTP 4\d\d\b/.test(e) && /model/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
       else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) Object.assign(probe, { code: 'provider.test_unreachable', errorClass: 'network_down', error: '连不上端点(' + detail + '):检查网络与 Base URL,内网端点确认可达' });
@@ -62726,7 +62918,7 @@ async function handleApi(req, res, pathname) {
     const config = await readConfig();
     const roots = fileAllowedRoots(session, config);
     // 安全走查 W1:非本机 UNC 在 realpath(会去连对方主机)之前拒,除非落在用户配置的 UNC 工作区里。
-    if (remoteUncDenial([rawPath, target], session, config)) return send(res, apiFailure('file.not_in_workspace', {}, 'path not in an allowed workspace', 403));
+    if (await remoteUncDenialResolved([rawPath, target], session, config)) return send(res, apiFailure('file.not_in_workspace', {}, 'path not in an allowed workspace', 403));
     // v0.9 F3: check the REALPATH (symlink-resolved) target, not the lexical path. A symlink living inside an
     // allowed root but pointing OUTSIDE it would otherwise pass the lexical containment check and leak an
     // arbitrary file. ENOENT/EPERM (missing/unresolvable) → fall back to `target` so readFilePreview surfaces a
@@ -63206,7 +63398,7 @@ function resolveBindHost(opts) {
   const allowed = flag === true || (typeof flag === 'string' && !/^(0|false|off|no)$/i.test(flag.trim()));
   if (allowed) return host;
   const error = new Error(`拒绝绑定非回环地址 ${host}:如意只应监听本机(127.0.0.1),页面与接口令牌的保护都以「对端在本机」为前提。`
-    + ' 确需让别的机器访问,请显式追加 --allow-remote(并自行用防火墙/反向代理限制来源;非本机对端拿不到页面 token,须自带头 token)。'
+    + ' 确需让别的机器访问,请显式追加 --allow-remote(并自行用防火墙限制来源;不要用同机反向代理转发 —— 经它进来的请求对端地址是 127.0.0.1,会被当成本机而拿到页面 token;非本机对端拿不到页面 token,须自带头 token)。'
     + ` / Refusing to bind non-loopback address ${host}: Ruyi is a local single-user tool. Pass --allow-remote explicitly if you really need it.`);
   throw error;
 }
@@ -63285,7 +63477,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   void sweepStaleScriptFiles().catch(() => {});   // 走查 W1·F10:script_run 遗留的脚本明文(强杀 / 杀毒占着没删成的)按龄清掉
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = bindHost;
-  if (!isLoopbackBindHost(host)) console.log(`[warn] --allow-remote:正在监听非回环地址 ${host}。非本机对端拿不到页面 token(须自带头 token);请用防火墙限制来源。`);
+  if (!isLoopbackBindHost(host)) console.log(`[warn] --allow-remote:正在监听非回环地址 ${host}。非本机对端拿不到页面 token(须自带头 token);请用防火墙限制来源,不要用同机反向代理转发(转发来的请求会被当成本机)。`);
   const server = http.createServer(async (req, res) => {
     const reqT0 = Date.now(); // 第40波:请求耗时插桩(res finish 时入账,/health 不计 —— 高频探针会淹没真分布)
     res.on('finish', () => { try { const u0 = new URL(req.url, 'http://x'); if (u0.pathname !== '/health') recordRequestMetric(req.method, u0.pathname, Date.now() - reqT0); } catch { /* 观测不阻断 */ } });
@@ -73318,6 +73510,9 @@ function stewardEyesSettle(ctx, charged, used) {
 async function stewardImplWebSearch(args, ctx, config) {
   const q = stewardSanitizeText(String((args && args.q) || '')).trim();
   if (!q) return stewardFail('invalid_request', 'q is required');
+  // 第三波(复核 #3):管家回合不过 07 nativeToolGate,联网载荷闸(S1)在这里自己查一遍。管家没有向用户确认的通道 —— 命中就【拒绝】并说清缘由,不「问」。
+  const payloadWhy = webPayloadReason('web_search', { query: q });
+  if (payloadWhy) return stewardFail('invalid_request', `这个搜索词看起来带了大段数据(${payloadWhy}),可能是在往外传内容;管家没有向你确认的通道,已拒绝。请换成简短的关键词`, { reason: 'web_payload', blockedBy: 'web_payload' });
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 直接调 11 的实现(11 排在 13l 之前,后向边);搜索后端是管理端可信端点,SSRF 豁免录在案。
@@ -73340,6 +73535,9 @@ async function stewardImplWebSearch(args, ctx, config) {
 async function stewardImplWebFetch(args, ctx, config) {
   const url = String((args && args.url) || '').trim();
   if (!url) return stewardFail('invalid_request', 'url is required');
+  // 第三波(复核 #3):同上 —— 网址带疑似载荷(超长查询串 / 编码串 / 用户信息段 / 超长路径或主机名)一律拒,不发请求。
+  const payloadWhy = webPayloadReason('web_fetch', { url });
+  if (payloadWhy) return stewardFail('invalid_request', `这个网址看起来带了大段数据(${payloadWhy}),可能是在往外传内容;管家没有向你确认的通道,已拒绝。请用简短的、不带参数数据的网址`, { reason: 'web_payload', blockedBy: 'web_payload' });
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // SSRF 全套护栏在 12 的实现里(逐跳 ssrfCheck + dnsResolvesToPrivate),这里【不】另写一份。

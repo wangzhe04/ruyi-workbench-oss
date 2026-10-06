@@ -8,7 +8,8 @@
 //   [R]  readMemoryItem 回传来源字段,「读原条目 → saveMemory」的元数据快捷操作不再抹掉 sourceSessionId;
 //   [M]  moveMemoryScope:提升/下放,createdAt、用量旁账随迁,关系边(不能跨作用域)摘掉并如实计数,同 id 冲突拒绝;
 //   [P]  迁移导入的敏感扫描:命中的块不导入(含横跨硬切接缝的 key=value),sync 行如实带 sensitiveSkipped,旧记录补扫重导;
-//   [K]  起草上下文超长时留最新的。
+//   [K]  起草上下文超长时留最新的;
+//   [G4][G5]  (第三波复核)编程语义的「全局变量 / global variables / 全局搜索」不算「全局生效」;自动审稿路径与工具路径同一口径(explicit 也放行)。
 // 反向验证:RUYI_TEST_SERVER_JS 指到修前的 server.js,本文件应当红(见各用例的「修前」说明)。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -36,7 +37,8 @@ const WANT = ['memoryGlobalScopeAllowed', 'memoryRecentUserTexts', 'normalizeMem
   'saveMemory', 'readMemoryItem', 'moveMemoryScope', 'memoryGlobalDir', 'memoryProjectDir', 'memoryUsageKey', 'touchMemoryUsage', 'readMemoryUsageState',
   'writeMemoryRelations', 'readMemoryRelations', 'loadMemoryRegistry', 'resolveCoreMemoryState', 'buildCoreMemoryPromptSection',
   'planAgentInstructionEntries', 'syncAgentInstructionImports', 'agentInstructionSources', 'readAgentInstructionSource', 'splitAgentInstructionText',
-  'renderAgentInstructionMemory', 'agentInstructionMemoryId', 'agentInstructionImportFile', 'sha256Hex', 'clipRecentMemoryDraftContext', 'parseFrontmatter'];
+  'renderAgentInstructionMemory', 'agentInstructionMemoryId', 'agentInstructionImportFile', 'sha256Hex', 'clipRecentMemoryDraftContext', 'parseFrontmatter',
+  'memoryAutoGlobalAllowed', 'memoryProposalPrefilter'];
 const present = WANT.filter(n => new RegExp('(?:function|const|let)\\s+' + n + '\\b').test(SERVER_SRC));
 const I = loadServerInternals(present);
 const need = name => { assert.equal(typeof I[name], 'function', `${name} 不存在(修前代码没有这个功能)`); return I[name]; };
@@ -82,6 +84,46 @@ test('[G3] 看最近 3 条非插话用户消息,不只最后一条;插话 / 后�
   assert.equal(allow('convention', texts.slice(0, 1)), false, '只有最后一条时没有信号');
   assert.deepEqual(recent(session, 1), ['好,那就记下来吧']);
   assert.deepEqual(recent({ messages: [] }, 3), []);
+});
+
+// 第三波复核:「全局」「global」在编码讨论里是常用术语(全局变量 / global state / 全局搜索替换),不是在说「这条记忆全局生效」。
+test('[G4] 编程语义的「全局变量 / global variables / 全局搜索」不放行 global;同一句里另有跨项目说法照旧放行', () => {
+  const allow = need('memoryGlobalScopeAllowed');
+  for (const text of ['这个模块里不要用全局变量,用依赖注入', 'avoid global variables in this repo, pass config explicitly', '踩坑:全局搜索替换会把测试夹具也改掉',
+    'use global search to find the callers', '别在这里读全局状态', 'global state makes the tests flaky', 'the global namespace is polluted', '全局对象不要挂东西',
+    'Python 里的 global 语句要慎用', 'the global keyword makes this function impure']) {
+    assert.equal(allow('convention', text), false, `编程用语不该放行:${text}`);
+    assert.equal(allow('lesson', text), false, `编程用语不该放行(lesson):${text}`);
+  }
+  // 同一条消息里既有编程用语、又明说跨项目 → 放行(以说「所有项目」为准)
+  assert.equal(allow('convention', '不要用全局变量;这条对所有项目都适用'), true);
+  assert.equal(allow('convention', 'avoid global variables, in every project'), true);
+  // 剥掉编程用语之后剩下的「全局」仍算(全局偏好 / 全局生效 / globally)
+  assert.equal(allow('convention', '不要用全局变量,这条设成全局偏好'), true);
+  assert.equal(allow('convention', 'no global variables, apply this globally'), true);
+  // 编程用语不影响 preference 的第二条路(个人口味)
+  assert.equal(allow('preference', '我喜欢不用全局变量的写法'), true);
+  // 候选的 scope 不被编程用语抬成 global(模型要 global、用户只说了「全局变量」→ 降成 project 并如实记下)
+  const norm = need('normalizeMemoryProposalCandidate');
+  const r = norm({ name: '禁用全局变量', description: '写本模块时适用', type: 'convention', scope: 'global', body: '不要使用全局变量,依赖通过参数注入。', reason: '用户明确要求' }, ['这个模块里不要用全局变量,用依赖注入']);
+  assert.deepEqual([r.proposal.scope, r.proposal.requestedScope, r.proposal.scopeAdjusted], ['project', 'global', true]);
+});
+
+// 第三波复核:自动审稿路径修前要求 durablePreference(以后 / 默认 / 一律…),用户明说「记住:所有项目…」(explicit)却降成 project,与工具路径不一致。
+test('[G5] memoryAutoGlobalAllowed:durablePreference 或 explicit(记住 / remember this)+ 用户说了跨项目 → 放行;两者皆无 → 不放行', () => {
+  const auto = need('memoryAutoGlobalAllowed'), pre = need('memoryProposalPrefilter');
+  const gateOf = text => pre({ turnSeq: 1, messages: [{ role: 'user', content: text, turnSeq: 1 }, { role: 'assistant', content: '好的,我已经记下了这条要求,之后提交信息都会按你说的写,并在每个项目里照做。'.repeat(3), turnSeq: 1 }] });
+  const g1 = gateOf('记住:所有项目的提交信息都用中文');
+  assert.deepEqual([g1.explicit, g1.durablePreference], [true, false], '前置:这句话是 explicit、不是 durablePreference');
+  assert.equal(auto(g1, 'preference', [g1.userText]), true, '修前:durablePreference 为假 → 降成 project');
+  const g2 = gateOf('Remember this: use Chinese commit messages in every project');
+  assert.equal(auto(g2, 'preference', [g2.userText]), true);
+  const g3 = gateOf('以后所有项目的提交信息都用中文');
+  assert.equal(g3.durablePreference, true);
+  assert.equal(auto(g3, 'preference', [g3.userText]), true, '原有放行路径不退化');
+  const g4 = gateOf('记住:提交信息用中文写');
+  assert.equal(auto(g4, 'convention', [g4.userText]), false, 'explicit 但用户没说跨项目 → 仍降成 project');
+  assert.equal(auto({ explicit: false, durablePreference: false }, 'convention', ['所有项目都这样']), false, '既不是 explicit 也不是 durablePreference → 不放行');
 });
 
 // ───────────── [N] requestedScope / scopeAdjusted ─────────────

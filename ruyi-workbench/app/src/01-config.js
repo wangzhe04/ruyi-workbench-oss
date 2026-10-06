@@ -3825,7 +3825,7 @@ function hostAllowed(req) {
 }
 // 安全走查 S13:Host 头是客户端自己写的,挡不住「绑了非回环地址 + 远端把 Host 写成 127.0.0.1:PORT」。
 // 所以再加一层看【TCP 对端地址】(req.socket.remoteAddress,内核给的,改不了):127.0.0.0/8、::1、::ffff:127.x 才算本机。
-// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 assertBindHostAllowed);即使放行,非本机对端也拿不到 token
+// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 resolveBindHost);即使放行,非本机对端也拿不到 token
 // (/api/bootstrap 与页面里的 token 注入都拒),其余接口一律要带头 token。没有 socket 的测试替身按本机算;
 // 有 socket 却读不出对端地址(连接已断)按非本机算,偏安全。
 function isLoopbackAddress(addr) {

@@ -79,7 +79,7 @@ safety); set a single thread from the **permission chip** in its header.
 | Ask me every step | Asks before editing files or running commands (reads never ask). | First use and important files. |
 | Edit files without asking | File edits proceed; commands and outbound actions still ask. | Trusted editing tasks. |
 | Plan only | Ruyi writes a plan and does not act. | Complex work you want to review first. |
-| Smart auto | Stops asking and reports back. Deleting data, installing software, pushing, sending outbound, and spliced or encoded commands whose real intent cannot be read stop (rule-based, not a sandbox); the steward may approve the non-floor ones under its rules (see section 9). | Handing the work to the steward without step-by-step interruptions. |
+| Smart auto | Stops asking and reports back. Deleting data, installing software, pushing, sending outbound, network access started from a command or script (curl, Invoke-WebRequest, Python or Node requests, … — plain reads count too), reading secret files in the Ruyi data folder, and spliced or encoded commands whose real intent cannot be read stop (rule-based, not a sandbox); the steward may approve the non-floor ones under its rules, but never the network and secret-file ones (see section 9). | Handing the work to the steward without step-by-step interruptions. |
 | Fully automatic | Never asks and nothing is vetted - even floor actions such as payments, shutdown, or sending mail run straight away; only system folders stay write-protected (red warning style). | Only in an isolated environment or when you fully trust the task. Scheduled tasks never use it. |
 
 Switching to Smart auto or Fully automatic asks you to confirm first, each with its own explanation. When unsure, use
@@ -100,6 +100,12 @@ until delivery is confirmed, so a temporary network failure can be retried witho
 Before writing, editing, or deleting a file, Ruyi records a checkpoint. The Activity tab in the right pane records
 tool and permission events. You can roll back an individual change or a whole turn, returning files to their prior contents. Batch
 renames are previewed as an old-name to new-name table because they are not automatically reversible.
+
+Together these are the three layers behind "everything the AI changes, you can see and undo": a **checkpoint** keeps
+the original of a file automatically before it is written, edited or deleted; the **audit** timeline (the Activity tab)
+records everything the AI did; and **rollback** puts files back as they were, one step or a whole turn. So the line at
+the bottom of the permission prompt, "File changes have checkpoints; review and revert them in Activity.", is meant
+literally.
 
 ## 3. Common tasks
 
@@ -204,7 +210,7 @@ Diagnostics.
 ### Composer
 
 The composer supports attachments, task cards, slash commands, and ordinary natural-language requests, and it
-exists in both views (with a microphone beside Send once speech recognition is configured).
+exists in both views (with a microphone beside Send; until speech recognition is configured it is a grey "set up" button).
 Switch between simple and pro mode from the gear menu, under "Interface" (also under Settings → General →
 General).
 
@@ -245,7 +251,7 @@ steward master switch is off, only the workbench view is available.
 
 To be alerted while away, explicitly enable **Settings → General → General → Notify me when I am needed**. It is off
 by default and stores only a local preference. The browser asks for system-notification permission on that click.
-Quiet hours default to 22:00–08:00 and can be changed.
+Quiet hours default to 22:00–08:00 and can be changed; they apply only once local notifications are switched on (with notifications off, quiet cards appear as usual).
 
 A notification is sent in two situations only:
 
@@ -316,7 +322,7 @@ guide before run.
 
 Opening a URL now defaults to a new tab/window in your system browser and existing signed-in session. The current
 Ruyi Workbench tab is protected: browser tools do not navigate, reuse, or close it. Chrome for Testing is used only
-when you explicitly select the isolated bundled mode under **Settings → Integrations and MCP → Browser target**.
+when you explicitly select "Bundled Chrome for Testing (isolated testing)" under **Settings → Tools & integrations → Integrations and MCP → Browser target**.
 Use CDP mode to reuse an already attached browser when element-level DOM automation is required.
 
 If a hardware-accelerated page exposes only browser chrome through UI Automation, the AI switches to CDP/DOM,
@@ -407,25 +413,28 @@ when it does not work.**
 
 ### Voice input: speak instead of typing
 
-**Configure it once.** Open **Settings → Models & Services → Model providers → Speech recognition (voice
-input)** and pick a **provider** and a **model**. Only models tagged as speech-capable in that provider's model
-list are offered; when
-there is no candidate at all the block renders no controls — **that is not the feature hiding, it means this
-machine has no speech model to choose**. Once saved, the page confirms that speech recognition is on; choosing
-**Off** turns it back off.
+**Configure it once.** Open **Settings → Models & Services → Speech recognition**: pick a level under "Voice input"
+(Light / Standard / Heavy need the matching ruyi-toolbox speech add-on installed first), or open "Pick each part
+yourself (advanced)" and choose a **provider** and a **model** under "Full-clip recognition (attachments · sentence
+re-listen)". If the model you want is not listed, use "Add a speech recognition model" below it: choose the provider,
+type the model name, pick the **interface type** and press "Add and enable" (it is also selected as the full-clip
+model). Once saved, the page confirms that speech recognition is on; choosing **Off** turns it back off. Until it is
+configured, the microphone in the composer is a grey "set up" button, and pressing it takes you straight to this page.
 
 > **The prerequisite, stated plainly.** Transcription endpoints come in two dialects. Ruyi speaks both, but
 > **you have to tell it which one this provider speaks**. The default is the OpenAI-shaped
 > `/audio/transcriptions`; of the four ASR models tested on the developer's own machine — MiMo, two on Bailian,
 > and Hunyuan — **not one offers it; all four returned 404**, because they expose ASR through the chat endpoint
 > instead. So **record one short take right after you configure it**. If it fails, you did not configure it
-> wrong — the protocol is most likely set wrong. Ask your administrator to go to Settings → "Models and
-> services" → expand that provider's "Protocol & capabilities" → set "Speech-to-text protocol" to **Chat
-> style**, then try again. MiMo and Bailian work over the chat style on the developer's machine; the Hunyuan
+> wrong — the interface type is most likely set wrong. Ask your administrator to go to Settings → Models & Services
+> → Model providers → expand that provider's "Capabilities & options" → set "Speech-to-text interface" to
+> **Chat-based (Alibaba Bailian, Xiaomi MiMo and similar)**, or add the model again under "Add a speech recognition
+> model" on the Speech recognition page with the right interface type, then try again. MiMo and Bailian work over the chat-based interface on the developer's machine; the Hunyuan
 > one was never verified on either.
 
-**Using it.** Once configured, a microphone appears next to the send button in the composer of **both the
-Workbench lens and the Steward lens**.
+**Using it.** Once configured, the microphone next to the send button in the composer of **both the Workbench
+lens and the Steward lens** is the record switch (before that it is a grey "set up" button that opens the page
+above; if the browser itself cannot record, the button is not shown at all).
 
 - Click once to start; the button counts up (`0:01`). Click again to finish; the take goes off to be
   transcribed and the button shows a busy state.
@@ -458,7 +467,7 @@ shows no microphone at all — there is no fallback path.
 **Also**: you can **attach a recording as a file**. Ruyi transcribes it best-effort and hands the text to the
 model with the file. A failed transcription never blocks the upload, and the original file stays downloadable.
 
-**Names and jargon keep coming out wrong? Use the voice vocabulary.** Settings → Voice recognition, the last card: one term per line for words you say often that keep getting misrecognized (names, projects, jargon), optionally followed by how they tend to be misheard, e.g. `Kubernetes = 酷伯奈提斯`; then click "Save vocabulary". These are **hints, never blind replacements**: live recognition uses them as hotwords, and the end-of-sentence re-listening (local Qwen3-ASR or a Whisper-style cloud endpoint) and LLM correction switch to a term only when both the sound and the context fit. A built-in list of 472 common Chinese/English terms (tech, office, AI, game engines) is on by default and is only hinted when a sentence looks like a mishearing of one; you can turn it off. Conversational cloud recognizers (e.g. MiMo) don't get the list yet.
+**Names and jargon keep coming out wrong? Use the voice vocabulary.** Settings → Models & Services → Speech recognition, the last card: one term per line for words you say often that keep getting misrecognized (names, projects, jargon), optionally followed by how they tend to be misheard, e.g. `Kubernetes = 酷伯奈提斯`; then click "Save vocabulary". These are **hints, never blind replacements**: live recognition uses them as hotwords, and the end-of-sentence re-listening (local Qwen3-ASR or a Whisper-style cloud endpoint) and LLM correction switch to a term only when both the sound and the context fit. A built-in list of 472 common Chinese/English terms (tech, office, AI, game engines) is on by default and is only hinted when a sentence looks like a mishearing of one; you can turn it off. Conversational cloud recognizers (e.g. MiMo) don't get the list yet.
 
 **It remembers what you fix.** After dictating, the words you correct by hand before sending (say, `张伟` → `张玮`, or `刀客` → `Docker`) are checked when you send: if the change sounds alike and looks like a name or a term that was misheard, it goes into this vocabulary so recognition leans that way next time. A term is learned after you make the same fix twice (once is enough for terms on the built-in list or words you have typed yourself); if LLM correction is configured, that model is also asked to double-check, and when it agrees the term is learned at once, with names learned in full. A short notice ("Learned: 刀客 → Docker") tells you when a new word is learned. English proper nouns you type yourself without dictating (such as `useState` or `GitHub Actions`) are collected too once they show up in three messages. Learned words appear in the vocabulary text box; delete one and it will never be learned again, and one you keep changing back is retired on its own after two reversals. To stop learning, untick "Learn from my edits" on the card. It all stays on this machine: the edited text never goes into the logs, and only when LLM double-checking is configured are the edited sentences sent to that model.
 
@@ -520,7 +529,7 @@ simply dismisses it.
 
 ### Service entry in the skill library: type a sentence, see what already exists
 
-**How.** Press `/` in the composer (or, in pro mode, open the skill library) and **type a plain sentence into the
+**How.** Press `/` in the composer (or press the "Skills" button in the composer, in simple and pro mode alike) and **type a plain sentence into the
 search box**: "tidy up downloads", "compare these PDFs", "summarize this every day". When it matches one of six
 services, a **service row** appears at the **top** of the list. Unrelated words produce nothing, and clearing the
 search box removes the row — it does not sit there taking up space.
@@ -585,8 +594,8 @@ that button for you within the rules**, so a scheduled task does not sit blocked
 
 **What it will never approve for you** (floor items; any profile, any condition): payments, purchases, and
 transfers; formatting and partitioning; shutdown, restart, and boot-entry changes; registry and firewall changes;
-registering an MCP server; tools whose very name means sending a message, plus `sendmail`; and any command that
-takes `/`, `C:\`, or your home directory as its deletion target.
+scheduled tasks, system services, execution-policy and Defender-exclusion changes (system changes that "stay once installed"); registering an MCP server; tools whose very name means sending a message, plus `sendmail`; and any command that
+takes `/`, `C:\`, or your home directory as its deletion target. In addition, network access started from a command or script (plain reads included) and reading secret files in the Ruyi data folder also stop to ask in Smart auto, and the steward never approves those either; a networked request that looks like it carries a payload (a very long query string, a long encoded run) asks first at every level except Fully automatic, and sub-agents are refused.
 
 **What you will see:**
 

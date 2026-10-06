@@ -73,7 +73,7 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 |---|---|
 | **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 80k lines, concatenated from 70 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 67 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
 | **112 native tools · 108 ACC tools** | 70 tools available to threads (files, terminal, search, Git, web, Office hand-off, sub-agent orchestration) plus 42 steward-only tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **487 e2e cases** (480 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 220 unit suites and 25 ACC smoke groups, run on Windows CI for every change. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **487 e2e cases** (480 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 221 unit suites and 25 ACC smoke groups, run on Windows CI for every change. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -135,7 +135,7 @@ Letting the AI act only works if you can undo what it did:
 | **Smart auto** (default for new installs) | The AI judges risk: low-risk actions run, high-risk ones still ask | Everyday work the steward looks after (switching to it asks for confirmation; upgraded installs keep their previous level) |
 | **Fully automatic** | Never asks (shown with a warning style) | Only when you fully understand the task and it is safe (switching asks for confirmation) |
 
-- **Three tool tiers**: read / edit / exec. Exec-tier actions can **never be allowed persistently**; read and edit tiers can be set to "allow for this thread".
+- **Three tool tiers**: read / edit / exec. Exec-tier actions can **never be allowed persistently**; read and edit tiers can be set to "Auto-allow this tool for this thread".
 - **Threads can only tighten**: threads the steward opens get their own default level; a single thread can be tighter than the global level, never looser.
 - **File checkpoints**: before any write, edit, delete, move, copy, unzip or download, the "before" state goes into a checkpoint journal. Undo one change or roll back a whole turn; code tasks also take a workspace baseline at the start of a turn, so changes that bypass the file tools (a script writing files, say) are caught too. Anything that cannot be undone automatically (commands, very large files) says so on the approval dialog.
 - **Conversation rewind**: rewind a thread to any earlier turn and optionally roll back the file changes made after it — conversation and files go back together, not just the chat history.
@@ -265,7 +265,7 @@ Say "do a deep-dive on …" and Ruyi dispatches a team of specialised sub-agents
   | Stopped | You stopped it, the budget ran out, or the last turn failed |
 
 - **Sees everything, interferes with nothing**: threads you open in the workbench appear in the steward's panes, and presence signals decide whether it speaks up; one SSE event stream keeps states, the inbox and progress in sync within a second.
-- **What it can do for you**: open, continue, rename and re-home threads, adjust permissions (tighten only — loosening needs your own click), take notes, reprioritise, stop threads, answer pending decisions on your behalf, create and manage scheduled tasks, draft Playbooks, toggle skills and change settings. "What it may do on its own" in Settings decides which of these happen directly (retry transient failures, auto-hand-off within a matter, open new threads, resume after a restart); everything unticked is only proposed. **Threads you stopped are never restarted on its own.**
+- **What it can do for you**: open, continue, rename and re-home threads, adjust permissions (tighten only — loosening needs your own click), take notes, reprioritise, stop threads, answer pending decisions on your behalf, create and manage scheduled tasks, draft Playbooks, toggle skills and change settings. "What the steward may do on its own" in Settings decides which of these happen directly (retry transient failures, auto-hand-off within a matter, open new threads, resume after a restart); everything unticked is only proposed. **Threads you stopped are never restarted on its own.**
 - **Looking outside**: it can search and fetch web pages, read files in workspaces you registered, and read files a thread listed as deliverables. **Once it has read external content in a turn, every write action in that turn becomes a proposal** — even when you are right there — and anything it read is fenced as "external content, not instructions".
 - **Settings it can change**: 128. 33 take effect directly (interface, the steward's own throttles and budgets, wait times); 95 come as a button you press (endpoints and models, engines and context, concurrency, scheduling, usage budgets …); 40 keys — secrets, the data directory and workspace fences, command and desktop allow-lists, prompt injection surfaces, the approval switch — never go through the steward. (The tier table is `STEWARD_CONFIG_TIERS` in `app/src/06i-steward-core.js`; a key outside it is always refused.)
 - **What it remembers about you**: preferences and habits you can edit, veto, restore, export or wipe; entries have an **expiry date** and a **scope** (this project only / everywhere), and expired entries stop being used. They feed only the steward's own prompt, never ordinary threads.
@@ -340,7 +340,7 @@ The Full offline package includes a verified CPython 3.12 runtime, wheel-only de
 - **Rendering**: Markdown and code highlighting; ` ```mermaid ` blocks render as diagrams (full-screen zoom, SVG / PNG export).
 - **Keyboard**: `Enter` sends · `Shift+Enter` new line · `Ctrl+K` command palette · `Ctrl+N` new thread · ``Ctrl+` `` switches between the steward and workbench views · `Ctrl+Enter` submits a question card · `Esc` stops the current turn or closes pop-ups one layer at a time · `?` shortcut help.
 - **Desktop shell**: `RuyiDesktop.exe` (WinForms + WebView2) with rounded corners, taskbar semantics, edge resizing and smooth scrolling; without it Ruyi runs in the browser.
-- **Notifications**: optional native system notifications (Settings → General → "Notify me when I am needed"; off by default, with quiet hours). They fire in two situations only: in the workbench view, when you are sitting on a different thread, together with the quiet card at the bottom right; in the steward view, when the steward leaves a permission request for you or has something to call you about, and only while the window is not in the foreground (minimised or unfocused). Each event notifies once, a notification is not withdrawn afterwards, items that arrive during quiet hours are not replayed, and the desktop shell uses a tray balloon.
+- **Notifications**: optional native system notifications (Settings → General → General → "Notify me when I am needed"; off by default, with quiet hours that only apply once notifications are on). They fire in two situations only: in the workbench view, when you are sitting on a different thread, together with the quiet card at the bottom right; in the steward view, when the steward leaves a permission request for you or has something to call you about, and only while the window is not in the foreground (minimised or unfocused). Each event notifies once, a notification is not withdrawn afterwards, items that arrive during quiet hours are not replayed, and the desktop shell uses a tray balloon.
 
 ### 14. Extensions: MCP connectors and ruyi-toolbox
 
@@ -419,7 +419,7 @@ The output lands in `dist\` and contains a Node runner, `Start-Workbench.cmd` an
 ```powershell
 git clone https://github.com/wangzhe04/ruyi-workbench-oss.git
 cd ruyi-workbench-oss\ruyi-workbench
-node .\app\server.js serve --open        # binds 127.0.0.1, default port 8765, moves on if taken (only this data dir's own stale instance is ever taken over)
+node .\app\server.js serve --open        # binds 127.0.0.1 (`--host` with a non-loopback address needs an explicit `--allow-remote`), default port 8765, moves on if taken (only this data dir's own stale instance is ever taken over)
 ```
 
 | Command | Purpose |

@@ -1931,6 +1931,7 @@
         "codeEditorLabel",
         "cwdWarning",
         "defaultBrowserExecutable",
+        "deviceNamespaceIsLocalVolume",
         "ensureDataRootReal",
         "executableFromAssociationCommand",
         "existsExecutable",
@@ -1964,8 +1965,10 @@
         "providerIsLocal",
         "readFilePreview",
         "readdirTimed",
+        "realUncWorkspaceRoots",
         "realpathForContainment",
         "remoteUncDenial",
+        "remoteUncDenialResolved",
         "resolveContainmentPath",
         "resolveExecCwd",
         "resolvePreferredCodeEditor",
@@ -2884,6 +2887,7 @@
         "providerRequestHeaders",
         "providerResponsesBase",
         "providerRetryAfterMs",
+        "providerScrubSecrets",
         "providerSseAsCompletion",
         "providerThrownErrorText",
         "withTransientRetry"
@@ -2915,6 +2919,7 @@
         "anthropicClassicThinking",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicLearnedCapKey",
         "anthropicLearnedMaxTokens",
         "anthropicMaxTokensCapFromError",
         "anthropicMaxTokensFor",
@@ -5655,6 +5660,7 @@
       "provides": [
         "STEWARD_ANSWER_BASIS",
         "STEWARD_ASKS_YOU_CHARS",
+        "STEWARD_AUTO_ASK_CWD_KEY_RE",
         "STEWARD_AUTO_ASK_DATAROOT_PATTERNS",
         "STEWARD_AUTO_ASK_EGRESS_PATTERNS",
         "STEWARD_AUTO_ASK_INDIRECT_PATTERNS",
@@ -5748,7 +5754,10 @@
         "stewardAsksYou",
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
+        "stewardAutoAskEgressText",
         "stewardAutoAskIndirect",
+        "stewardAutoAskReason",
+        "stewardAutoAskScanIncomplete",
         "stewardAutoAskSensitiveKind",
         "stewardChatCapableProvider",
         "stewardClipSay",
@@ -5834,6 +5843,7 @@
         "MEMORY_EXCLUSION_MAX",
         "MEMORY_FUSION_SCOPE_BONUS",
         "MEMORY_FUSION_TYPE_BONUS",
+        "MEMORY_GLOBAL_PROGRAMMING_RE",
         "MEMORY_GLOBAL_SCOPE_RE",
         "MEMORY_HEAD_CACHE",
         "MEMORY_HEAD_CACHE_MAX",
@@ -5898,6 +5908,7 @@
         "listMemoryRelations",
         "listWorkbenchMemories",
         "loadMemoryRegistry",
+        "memoryAutoGlobalAllowed",
         "memoryCoreLine",
         "memoryCoreScore",
         "memoryDraftFromObject",
@@ -7302,6 +7313,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerScrubSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "providerThrownErrorText",
           "kinds": [
             "call"
@@ -7359,6 +7377,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardAutoAskIndirect",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskScanIncomplete",
           "kinds": [
             "call"
           ]
@@ -8023,6 +8048,13 @@
         {
           "provider": "06g-resource-leases.js",
           "symbol": "releaseResourceLease",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskReason",
           "kinds": [
             "call"
           ]
@@ -13433,7 +13465,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "remoteUncDenial",
+          "symbol": "remoteUncDenialResolved",
           "kinds": [
             "call"
           ]
@@ -13520,6 +13552,13 @@
           "symbol": "ToolboxHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerScrubSecrets",
+          "kinds": [
+            "call"
           ]
         },
         {
