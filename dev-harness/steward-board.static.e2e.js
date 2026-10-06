@@ -193,8 +193,11 @@ ok(needsYouSites === 10 && count(focusBody, /needs_you/g) === 1 && count(statusB
   && !/export function focusThreadFor/.test(boardCode) && /export \{ focusThreadFor \};/.test(boardCode),
   `B5 'needs_you' 的两处【计算】现场一处不多一处不少（叶子 thread-facts.js 的焦点优先级 1 ＋ 本模块状态行计数 1），本模块其余都是分组映射；本模块总数 10（实测 ${needsYouSites}，焦点体 ${count(focusBody, /needs_you/g)}）`);
 // 等待原因单一性（§8.10「排队可解释」）：wait.label 只渲染一处，没有第二套等待文案。
-ok(count(boardCode, /wait\.label/g) === 1,
-  `B6 每行只渲染 wait.label 一处（实测 ${count(boardCode, /wait\.label/g)}）`);
+// W2-F5 改写（语义不变：等待文案仍只有一个渲染落点）：原断言数的是字面 `wait.label`（=1）。英文界面直接印它会漏服务端中文，
+// 现在唯一落点改成 stewardWaitText(wait, t)（按 reason ＋ 结构化字段取本地化句，缺字段才退回 wait.label，且这个退回住在叶子 thread-facts.js），
+// 所以本模块里：stewardWaitText( 恰好 1 处渲染 + 其余一处是 failNote 递 t 的 stewardQueuedWaitLabel；字面 wait.label 一处都不该再有（不许绕过本地化直印）。
+ok(count(boardCode, /stewardWaitText\(wait, t\)/g) === 1 && count(boardCode, /\bwait\.label\b/g) === 0,
+  `B6 每行只渲染等待原因一处（stewardWaitText 恰 1 处，裸 wait.label 0 处；实测 ${count(boardCode, /stewardWaitText\(wait, t\)/g)}／${count(boardCode, /\bwait\.label\b/g)}）`);
 // 117q-B3b 重钉（理由：30 号文 §4.4 P0-4——五态人话原本抄了四份，其中 previewShell.state.* 与
 // stewardShell.drawer.state.* 两套 locale key 已判出不同文案结果。本条原判据「看板复用抽屉那一组
 // stewardShell.drawer.state.* 键」不再成立，不是因为键被删掉了，而是六个键搬到了中性的
@@ -282,7 +285,8 @@ ok(/const result = await stewardThreadRunAction\(\{ api, sessionId, runId: run\.
 //   ② 看板里【零原生 confirm】（globalThis./window./裸调用三种写法一起扫，注释先剥离）；
 //   ③ 确认走共用件 confirmDanger，键从登记表取（看板里不再出现那个确认文案键的字面量）；
 //   ④ 共用件真的导出 confirmDanger，且登记表那一格指的就是 stewardShell.board.stopBlocker*(标题复用按钮自己的说法)。
-ok(/String\(wait\.reason\) === 'lock' && wait\.blockedBy/.test(boardCode)
+// W2-F5 改写：条件里的 wait.blockedBy 换成 stewardWaitBlockerId(wait)（blockedBy 是 {sessionId,title} 对象，旧写法 String(对象)＝"[object Object]"，按钮停的是不存在的线程）。
+ok(/String\(wait\.reason\) === 'lock' && stewardWaitBlockerId\(wait\)/.test(boardCode)
   && !/globalThis\.confirm|window\.confirm|\bconfirm\(/.test(boardCode)
   && /if \(!await confirmDanger\(\{ name: 'stopBlocker', bodyParams: \{ title \} \}\)\) return false;/.test(boardCode)
   && !/stewardShell\.board\.stopBlockerConfirm/.test(boardCode)
@@ -315,7 +319,7 @@ ok(!/String\(\(error && error\.message\) \|\| error \|\| 'failed'\)/.test(boardC
 const failNoteBody = boardCode.slice(boardCode.indexOf('function failNote'), boardCode.indexOf('function failNote') + 600);
 ok(/const code = stewardErrorCode\(error\);/.test(failNoteBody)
   && /if \(code === 'steward\.queued'\) \{/.test(failNoteBody)
-  && /stewardQueuedWaitLabel\(error\)/.test(failNoteBody)
+  && /stewardQueuedWaitLabel\(error(?:, t)?\)/.test(failNoteBody)   // W2-F5：可带第二个参数 t（本地化等待原因）
   && /stewardErrorText\(error\)/.test(failNoteBody),
   'D9c failNote 先查 steward.queued 并取 wait.label（照 steward-drawer.js:287 的形状），其余情形一律经 stewardErrorText，不直落 String(error)');
 for (const key of ['stewardShell.chat.errQueued', 'stewardShell.chat.errQueuedPlain']) {

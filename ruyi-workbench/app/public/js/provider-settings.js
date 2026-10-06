@@ -1304,8 +1304,8 @@ function buildAsrLexiconBlock() {
     if (last) {
       const learned = Number(last.learned) || 0, typed = Number(last.typed) || 0, pending = Number(last.pending) || 0;
       count.textContent = learned || typed || pending
-        ? t('settings.asrLexicon.countLearned', { count: Number(last.count) || 0, learned, typed, pending })
-        : t('settings.asrLexicon.count', { count: Number(last.count) || 0 });
+        ? tCount('settings.asrLexicon.countLearned', Number(last.count) || 0, { learned, typed, pending })
+        : tCount('settings.asrLexicon.count', Number(last.count) || 0);
       baseText.textContent = t('settings.asrLexicon.base', { count: Number(last.base && last.base.count) || 0 });
     }
   };
@@ -1328,7 +1328,7 @@ function buildAsrLexiconBlock() {
     try {
       const r = await api('/api/audio/lexicon', { method: 'POST', body: JSON.stringify({ text: area.value }) });
       paint(r);
-      toast(r.skipped ? t('settings.asrLexicon.savedSkipped', { count: r.count, skipped: r.skipped }) : t('settings.asrLexicon.saved', { count: r.count }), 'ok');
+      toast(r.skipped ? tCount('settings.asrLexicon.savedSkipped', r.count, { skipped: r.skipped }) : tCount('settings.asrLexicon.saved', r.count), 'ok');
     } catch (e) {
       toast(t(asrLexiconErrorKey(e), apiErrorInfo(e).params || {}), 'err');
     } finally { save.disabled = false; }

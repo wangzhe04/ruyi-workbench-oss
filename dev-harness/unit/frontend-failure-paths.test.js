@@ -363,7 +363,7 @@ test('⑧ MCP 运维：慢的探测后到，不把新列表与计数盖回去；
   assert.equal(hint.textContent, t('settings.mcp.loading'), '旧的那一发不许把提示改成它的错误');
   listGate.resolve({ ok: true, connectors: [] });
   await fresh; await flush();
-  assert.equal(hint.textContent, t('settings.mcp.count', { p1: 0 }));
+  assert.equal(hint.textContent, t('settings.mcp.count.other', { p1: 0 }));
   assert.equal(button.disabled, false);
   assert.equal(list.textContent, t('settings.mcp.empty'));
   hint.remove(); button.remove(); list.remove();

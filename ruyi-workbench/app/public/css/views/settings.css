@@ -64,6 +64,10 @@
   font-weight: 600;
   line-height: var(--lh-title);
   text-align: start;
+  /* W2-F8：base.css 的全局 `button { white-space: nowrap }` 被组头继承，英文组名 "Tools & integrations" 比 159px 的内容宽长，
+     被 overflow-x:hidden 裁掉约 12px。组头本来就写好了「靠 white-space:normal 折行」（见上面 overflow-x 的注释）——这里真的把它翻回 normal。 */
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--muted);
   background: none;
   border: none;
@@ -71,6 +75,7 @@
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
+#settingsTabs .settings-nav-label > span:not(.settings-nav-chevron) { min-width: 0; }
 #settingsTabs .settings-nav-label:hover { color: var(--ink); background: color-mix(in srgb, var(--panel) 82%, transparent); }
 #settingsTabs .settings-nav-chevron {
   flex: 0 0 auto;

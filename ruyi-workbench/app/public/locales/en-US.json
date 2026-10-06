@@ -122,7 +122,8 @@
   "changes.revert.partialDone": "Partly reverted",
   "changes.revert.failed": "Could not revert: {{reason}}",
   "changes.revert.reason.tooLarge": "the file was too large to keep a copy of its earlier content",
-  "changes.revert.partial": "Reverted {{reverted}} file(s); {{failed}} could not be reverted: {{reason}}",
+  "changes.revert.partial.one": "Reverted {{reverted}} file; {{failed}} could not be reverted: {{reason}}",
+  "changes.revert.partial.other": "Reverted {{reverted}} files; {{failed}} could not be reverted: {{reason}}",
   "changes.revertTitle": "Revert to previous state",
   "changes.revertTurn": "Revert entire turn",
   "changes.revertTurn.confirm": "Revert this turn? Files changed in this turn go back to how they were, files it created are deleted, and files it deleted come back. This can't be redone.",
@@ -168,6 +169,7 @@
   "changes.turnLabel": "entire turn",
   "changes.viewDiff": "View changes",
   "chat.attachRemoveAria": "Remove attachment",
+  "chat.attachCancelAria": "Cancel upload of {{name}}",
   "chat.attachmentUploading": "Uploading…",
   "chat.codeCopied": "Code copied",
   "chat.copyCode": "Copy",
@@ -202,7 +204,8 @@
   "chat.saveMemoryBtn": "Save as memory",
   "chat.send": "Send",
   "chat.steer": "Steer",
-  "chat.agentWake": "{{n}} background agent run(s) finished — the Workbench woke this conversation so the model can pick up the results",
+  "chat.agentWake.one": "{{n}} background agent run finished — the Workbench woke this conversation so the model can pick up the result",
+  "chat.agentWake.other": "{{n}} background agent runs finished — the Workbench woke this conversation so the model can pick up the results",
   "chat.turnBusyElsewhere": "This thread is busy with a turn started elsewhere (usually a background agent result being handled), so your message was not sent and is back in the box. Send it again when the thread is idle, or now as a steer.",
   "chat.steerCancel": "Cancel",
   "chat.steerCancelAria": "Cancel this steer",
@@ -427,6 +430,7 @@
   "help.anchor.localModels": "8. Local models (Ollama / LM Studio)",
   "help.anchor.power": "6. Skills, memories, usage, and workflows",
   "help.anchor.settings": "5. Settings",
+  "help.answerQuestion": "Submit the answer on a question card",
   "help.commandPalette": "Command palette",
   "help.doc.langLabel": "Manual language",
   "help.doc.lang.en-US": "English",
@@ -463,6 +467,7 @@
   "help.open.unknownTarget": "That location cannot be opened.",
   "help.sendMessage": "Send message",
   "help.stopOrClose": "Stop the current turn / close dialog",
+  "help.switchLens": "Switch view (Steward / Workbench)",
   "help.tabHelp": "How does this page work?",
   "help.thisHelp": "This help",
   "help.title": "Keyboard shortcuts",
@@ -470,6 +475,7 @@
   "mcp.missing.title": "Missing MCP manifest",
   "memory.check.disabled": "Memory=disabled for this thread",
   "memory.check.done": "Memory=checked {{candidates}} candidates, matched {{matches}} (project {{project}} / global {{global}})",
+  "memory.check.fill": "; default rules added: {{fill}}",
   "memory.check.unavailable": "Memory=preflight unavailable (safely degraded for this turn)",
   "memory.createNew": "＋ Write a new memory",
   "memory.defaultPolicyHint": "Core summaries load every turn; other project and global memories participate in lightweight relevance retrieval, adding at most {{count}} matches per turn.",
@@ -1109,9 +1115,12 @@
   "settings.asrLexicon.help": "Words you say often that keep getting misrecognized (names, project names, jargon). One per line; optionally list how it tends to be misheard, e.g. \"Ruyi = 如艺, 如一\".",
   "settings.asrLexicon.placeholder": "Kubernetes = 酷伯奈提斯\nRuyi = 如艺, 如一\nZhang Wei",
   "settings.asrLexicon.save": "Save vocabulary",
-  "settings.asrLexicon.count": "{{count}} term(s)",
-  "settings.asrLexicon.saved": "Vocabulary saved ({{count}} term(s))",
-  "settings.asrLexicon.savedSkipped": "Vocabulary saved ({{count}} term(s)); skipped {{skipped}} unreadable line(s)",
+  "settings.asrLexicon.count.one": "{{count}} term",
+  "settings.asrLexicon.count.other": "{{count}} terms",
+  "settings.asrLexicon.saved.one": "Vocabulary saved ({{count}} term)",
+  "settings.asrLexicon.saved.other": "Vocabulary saved ({{count}} terms)",
+  "settings.asrLexicon.savedSkipped.one": "Vocabulary saved ({{count}} term); unreadable lines skipped: {{skipped}}",
+  "settings.asrLexicon.savedSkipped.other": "Vocabulary saved ({{count}} terms); unreadable lines skipped: {{skipped}}",
   "settings.asrLexicon.base": "Also use the built-in list ({{count}} common tech, office, AI and game-engine terms; hinted only when a sentence looks like a mishearing of one)",
   "settings.asrLexicon.baseOn": "Built-in list enabled",
   "settings.asrLexicon.baseOff": "Built-in list disabled",
@@ -1125,7 +1134,8 @@
   "settings.asrLexicon.learn": "Learn from my edits: words you fix by hand after dictating (names, project names, jargon) are added to this vocabulary automatically, and English proper nouns you type are collected too. You get a short notice whenever a new word is learned. Delete a learned word and it won't be learned again",
   "settings.asrLexicon.learnOn": "Learning from your edits is on",
   "settings.asrLexicon.learnOff": "Learning from your edits is off (learned words are kept)",
-  "settings.asrLexicon.countLearned": "{{count}} term(s) ({{learned}} learned from edits, {{typed}} from typing; {{pending}} still gathering evidence)",
+  "settings.asrLexicon.countLearned.one": "{{count}} term ({{learned}} learned from edits, {{typed}} from typing; {{pending}} still gathering evidence)",
+  "settings.asrLexicon.countLearned.other": "{{count}} terms ({{learned}} learned from edits, {{typed}} from typing; {{pending}} still gathering evidence)",
   "settings.toolbox.kind.asrStream": "Local live speech recognition",
   "settings.apiKey": "API key",
   "settings.apiKeyPlaceholder": "Leave blank to keep the saved key unchanged",
@@ -1749,8 +1759,10 @@
   "toast.fileTooLarge": "{{p1}} is too large (>90MB)",
   "toast.externalDiffFailed": "Could not open in a local app: {{err}}",
   "toast.externalDiffFallback": "{{app}} does not support command-line diff; the file was opened and the diff remains available in Ruyi.",
-  "toast.externalDiffOpened": "Opened {{count}} diff(s) in {{app}}",
-  "toast.externalDiffPartial": "{{count}} additional file(s) could not be opened",
+  "toast.externalDiffOpened.one": "Opened {{count}} diff in {{app}}",
+  "toast.externalDiffOpened.other": "Opened {{count}} diffs in {{app}}",
+  "toast.externalDiffPartial.one": "{{count}} additional file could not be opened",
+  "toast.externalDiffPartial.other": "{{count}} additional files could not be opened",
   "toast.grantAuto": "Auto-approved by grant: {{tool}} ({{remaining}} left)",
   "toast.homeCwdWarn": "⚠ Working directory is your home folder — pick a project folder for this task",
   "toast.importFail": "Import failed: {{err}}",
@@ -2597,7 +2609,8 @@
   "settings.mcp.import": "📁 Import MCP from folder",
   "settings.mcp.loading": "Loading connectors…",
   "settings.mcp.probing": "Retesting all connectors (may take a few seconds)…",
-  "settings.mcp.count": "{{p1}} connector(s)",
+  "settings.mcp.count.one": "{{p1}} connector",
+  "settings.mcp.count.other": "{{p1}} connectors",
   "settings.mcp.empty": "No connectors yet. Use \"Import from folder\" above to add one.",
   "settings.mcp.source.desktop": "Built-in desktop",
   "settings.mcp.source.config": "User config",
@@ -2659,7 +2672,8 @@
   "settings.update.current": "Current state",
   "settings.update.notApplied": "No overlay applied",
   "settings.update.noBackups": "No backups",
-  "settings.update.backupsCount": "{{p1}} backup(s)",
+  "settings.update.backupsCount.one": "{{p1}} backup",
+  "settings.update.backupsCount.other": "{{p1}} backups",
   "settings.update.selectZip": "Select overlay update package (zip)",
   "settings.update.browse": "Browse zip",
   "settings.update.selectZip.hint": "Precheck (path/integrity/version/idempotency) before applying. CLI rescue: Manage-Overlay.cmd apply.",
@@ -2889,6 +2903,13 @@
   ,"stewardShell.drawer.workspace": "Workspace: {{name}}"
   ,"stewardShell.drawer.queueHead": "What it is waiting for"
   ,"stewardShell.drawer.queueUnknown": "Queued, not its turn yet"
+  ,"stewardShell.wait.needsYou": "Waiting on you ({{n}} pending)"
+  ,"stewardShell.wait.lock": "Waiting for the folder lock: held by “{{who}}”"
+  ,"stewardShell.wait.lockUnknown": "Waiting for the folder lock: held by another thread"
+  ,"stewardShell.wait.budgetCost": "Waiting on budget: all threads spent {{spent}} today, the limit is {{limit}}"
+  ,"stewardShell.wait.budgetTurns": "Waiting on budget: all threads started {{spent}} turns this hour, the limit is {{limit}}"
+  ,"stewardShell.wait.slotAhead": "Waiting for a slot: {{n}} ahead of it"
+  ,"stewardShell.wait.slotNext": "Waiting for a slot: it is next"
   ,"stewardShell.drawer.jumpQueue": "Jump the queue"
   ,"stewardShell.drawer.maxParallel": "Parallel limit"
   ,"stewardShell.drawer.maxParallelMissing": "The parallel limit lives in the task rail header"
@@ -3103,7 +3124,7 @@
   ,"settings.steward.group.index": "Task index"
   ,"settings.steward.group.indexHint": "Which threads the rail can show. An old thread that is not in flight, has not moved today, and is not watched only shows up if it is among this many most-recent ones."
   ,"settings.steward.threadIndexRecent": "How many recent threads the rail keeps"
-  ,"settings.steward.threadIndexRecentHint": "Between 10 and 200. Smaller keeps the rail clean, larger keeps it complete; threads outside the window are still searchable (Ctrl+K)."
+  ,"settings.steward.threadIndexRecentHint": "Between 10 and 200. Smaller keeps the rail clean, larger keeps it complete; threads outside the window are still searchable (use the rail search box)."
   ,"settings.steward.quietSnoozeMinutes": "Snooze a quiet card for how long (minutes)"
   ,"settings.steward.quietSnoozeMinutesHint": "Between 1 and 1440 minutes. Snooze schedules a real reminder at this interval, and it comes back to you when it is due."
   ,"settings.steward.group.schedule": "Scheduled tasks"

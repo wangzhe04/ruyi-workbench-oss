@@ -122,7 +122,8 @@
   "changes.revert.partialDone": "部分已撤销",
   "changes.revert.failed": "撤销失败：{{reason}}",
   "changes.revert.reason.tooLarge": "改动前的内容太大，当时没有留底",
-  "changes.revert.partial": "撤回了 {{reverted}} 个文件，另有 {{failed}} 个没能撤回：{{reason}}",
+  "changes.revert.partial.one": "撤回了 {{reverted}} 个文件，另有 {{failed}} 个没能撤回：{{reason}}",
+  "changes.revert.partial.other": "撤回了 {{reverted}} 个文件，另有 {{failed}} 个没能撤回：{{reason}}",
   "changes.revertTitle": "回撤到此前状态",
   "changes.revertTurn": "撤销整轮",
   "changes.revertTurn.confirm": "撤销这一轮的改动？本轮改过的文件会恢复到改动前，本轮新建的文件会被删除，本轮删掉的文件会被找回。撤销之后不能再重做。",
@@ -168,6 +169,7 @@
   "changes.turnLabel": "整轮",
   "changes.viewDiff": "查看改动",
   "chat.attachRemoveAria": "移除附件",
+  "chat.attachCancelAria": "取消上传 {{name}}",
   "chat.attachmentUploading": "上传中…",
   "chat.codeCopied": "已复制代码",
   "chat.copyCode": "复制",
@@ -202,7 +204,8 @@
   "chat.saveMemoryBtn": "存为记忆",
   "chat.send": "发送",
   "chat.steer": "插话",
-  "chat.agentWake": "后台代理已完成（{{n}} 个），工作台已自动唤醒本对话，把结果交给模型继续处理",
+  "chat.agentWake.one": "后台代理已完成（{{n}} 个），工作台已自动唤醒本对话，把结果交给模型继续处理",
+  "chat.agentWake.other": "后台代理已完成（{{n}} 个），工作台已自动唤醒本对话，把结果交给模型继续处理",
   "chat.turnBusyElsewhere": "这条线程此刻正被别处起的回合占着（多半是后台代理的结果正在处理），这句话没有发出，已放回输入框；等它结束再发，或现在按发送当作插话。",
   "chat.steerCancel": "撤回",
   "chat.steerCancelAria": "撤回此插话",
@@ -427,6 +430,7 @@
   "help.anchor.localModels": "8. 用本机模型（Ollama / LM Studio）",
   "help.anchor.power": "6. 用得更顺手（技能库 / 工作台记忆 / 用量看板 / 工作流插话）",
   "help.anchor.settings": "5. 设置指南（用户视角）",
+  "help.answerQuestion": "提交问题卡的回答",
   "help.commandPalette": "命令面板",
   "help.doc.langLabel": "手册语言",
   "help.doc.lang.en-US": "English",
@@ -463,6 +467,7 @@
   "help.open.unknownTarget": "这个位置打不开。",
   "help.sendMessage": "发送消息",
   "help.stopOrClose": "停止当前回合 / 关闭弹窗",
+  "help.switchLens": "切换视角（管家 / 工作台）",
   "help.tabHelp": "这一页怎么用？",
   "help.thisHelp": "本帮助",
   "help.title": "快捷键",
@@ -470,6 +475,7 @@
   "mcp.missing.title": "缺少 MCP 清单",
   "memory.check.disabled": "记忆=当前线程已关闭",
   "memory.check.done": "记忆=已检索 {{candidates}} 条候选，匹配 {{matches}} 条（项目 {{project}} / 全局 {{global}}）",
+  "memory.check.fill": "；另补入默认规则 {{fill}} 条",
   "memory.check.unavailable": "记忆=预检暂不可用（本轮已安全降级）",
   "memory.createNew": "＋ 手写新建记忆",
   "memory.defaultPolicyHint": "核心摘要每轮自动加载；其余项目与全局记忆参与轻量相关性检索，每轮最多补充 {{count}} 条结果。",
@@ -1109,9 +1115,12 @@
   "settings.asrLexicon.help": "说话时常用、但总被识别错的词（人名、项目名、专业术语）。一行一个；后面可以写它常被听成的样子，例如「如意 = 如艺, 如一」。",
   "settings.asrLexicon.placeholder": "Kubernetes = 酷伯奈提斯\n如意 = 如艺, 如一\n张伟",
   "settings.asrLexicon.save": "保存词库",
-  "settings.asrLexicon.count": "共 {{count}} 个词",
-  "settings.asrLexicon.saved": "词库已保存（{{count}} 个词）",
-  "settings.asrLexicon.savedSkipped": "词库已保存（{{count}} 个词）；{{skipped}} 行认不出词，已跳过",
+  "settings.asrLexicon.count.one": "共 {{count}} 个词",
+  "settings.asrLexicon.count.other": "共 {{count}} 个词",
+  "settings.asrLexicon.saved.one": "词库已保存（{{count}} 个词）",
+  "settings.asrLexicon.saved.other": "词库已保存（{{count}} 个词）",
+  "settings.asrLexicon.savedSkipped.one": "词库已保存（{{count}} 个词）；{{skipped}} 行认不出词，已跳过",
+  "settings.asrLexicon.savedSkipped.other": "词库已保存（{{count}} 个词）；{{skipped}} 行认不出词，已跳过",
   "settings.asrLexicon.base": "同时用内置常用词表（{{count}} 个中英文技术、办公、AI 与游戏引擎术语；只在一句话里像是把它们听错了时才提示）",
   "settings.asrLexicon.baseOn": "已启用内置常用词表",
   "settings.asrLexicon.baseOff": "已停用内置常用词表",
@@ -1125,7 +1134,8 @@
   "settings.asrLexicon.learn": "从我的修改里学：语音输入后你手动改过的字（人名、项目名、术语）会自动记进这份词库，你打过的英文专名也会收进来；学会新词时提示一句。删掉学来的词，就不会再学回来",
   "settings.asrLexicon.learnOn": "已开启：从我的修改里学",
   "settings.asrLexicon.learnOff": "已关闭：从我的修改里学（学会的词留着）",
-  "settings.asrLexicon.countLearned": "共 {{count}} 个词（学来的 {{learned}} 个，打字里收的 {{typed}} 个；还在攒证据的 {{pending}} 个）",
+  "settings.asrLexicon.countLearned.one": "共 {{count}} 个词（学来的 {{learned}} 个，打字里收的 {{typed}} 个；还在攒证据的 {{pending}} 个）",
+  "settings.asrLexicon.countLearned.other": "共 {{count}} 个词（学来的 {{learned}} 个，打字里收的 {{typed}} 个；还在攒证据的 {{pending}} 个）",
   "settings.toolbox.kind.asrStream": "本地实时语音识别",
   "settings.apiKey": "API 密钥",
   "settings.apiKeyPlaceholder": "留空=不改动已保存的密钥",
@@ -1749,8 +1759,10 @@
   "toast.fileTooLarge": "{{p1}} 过大（>90MB）",
   "toast.externalDiffFailed": "无法在本机程序中打开：{{err}}",
   "toast.externalDiffFallback": "{{app}} 不支持命令行 Diff，已打开文件；差异仍可在如意中查看。",
-  "toast.externalDiffOpened": "已用 {{app}} 打开 {{count}} 个 Diff",
-  "toast.externalDiffPartial": "另有 {{count}} 个文件未能打开",
+  "toast.externalDiffOpened.one": "已用 {{app}} 打开 {{count}} 个 Diff",
+  "toast.externalDiffOpened.other": "已用 {{app}} 打开 {{count}} 个 Diff",
+  "toast.externalDiffPartial.one": "另有 {{count}} 个文件未能打开",
+  "toast.externalDiffPartial.other": "另有 {{count}} 个文件未能打开",
   "toast.grantAuto": "授权自动放行：{{tool}}（剩 {{remaining}} 次）",
   "toast.homeCwdWarn": "⚠ 当前工作目录是用户主目录，建议为任务选择具体文件夹",
   "toast.importFail": "导入失败：{{err}}",
@@ -2597,7 +2609,8 @@
   "settings.mcp.import": "📁 从文件夹导入 MCP",
   "settings.mcp.loading": "正在加载连接器清单…",
   "settings.mcp.probing": "正在重测全部连接器（可能需要几秒）…",
-  "settings.mcp.count": "共 {{p1}} 个连接器",
+  "settings.mcp.count.one": "共 {{p1}} 个连接器",
+  "settings.mcp.count.other": "共 {{p1}} 个连接器",
   "settings.mcp.empty": "暂无连接器。用上方「从文件夹导入」添加一个 MCP 服务。",
   "settings.mcp.source.desktop": "内置桌面",
   "settings.mcp.source.config": "用户导入",
@@ -2659,7 +2672,8 @@
   "settings.update.current": "当前状态",
   "settings.update.notApplied": "未应用任何 overlay",
   "settings.update.noBackups": "无备份",
-  "settings.update.backupsCount": "{{p1}} 个备份",
+  "settings.update.backupsCount.one": "{{p1}} 个备份",
+  "settings.update.backupsCount.other": "{{p1}} 个备份",
   "settings.update.selectZip": "选择增量更新包(zip)",
   "settings.update.browse": "选择 zip",
   "settings.update.selectZip.hint": "先预检(路径/完整性/版本兼容/幂等)再决定是否应用。CLI 救援:Manage-Overlay.cmd apply。",
@@ -2889,6 +2903,13 @@
   ,"stewardShell.drawer.workspace": "工作区：{{name}}"
   ,"stewardShell.drawer.queueHead": "在等什么"
   ,"stewardShell.drawer.queueUnknown": "在排队，还没轮到它"
+  ,"stewardShell.wait.needsYou": "等你({{n}} 条待决)"
+  ,"stewardShell.wait.lock": "等锁：同一个文件夹被「{{who}}」占着"
+  ,"stewardShell.wait.lockUnknown": "等锁：同一个文件夹被别的线程占着"
+  ,"stewardShell.wait.budgetCost": "等预算：今天全部线程已花 {{spent}}，到了上限 {{limit}}"
+  ,"stewardShell.wait.budgetTurns": "等预算：本小时全部线程已开 {{spent}} 个回合，到了上限 {{limit}}"
+  ,"stewardShell.wait.slotAhead": "等并发位：前面还有 {{n}} 条"
+  ,"stewardShell.wait.slotNext": "等并发位：下一个就是它"
   ,"stewardShell.drawer.jumpQueue": "插队"
   ,"stewardShell.drawer.maxParallel": "并发上限"
   ,"stewardShell.drawer.maxParallelMissing": "并发上限在左栏栏头调"
@@ -3103,7 +3124,7 @@
   ,"settings.steward.group.index": "任务索引"
   ,"settings.steward.group.indexHint": "左栏里能看见哪些线程。一条既不在途、今天也没动静、管家也不盯的旧线程，只有排在最近这么多条里才出现在左栏。"
   ,"settings.steward.threadIndexRecent": "左栏最近保留多少条线程"
-  ,"settings.steward.threadIndexRecentHint": "10 到 200 之间。调小左栏更干净，调大更全；窗口之外的线程仍然搜得到（Ctrl+K）。"
+  ,"settings.steward.threadIndexRecentHint": "10 到 200 之间。调小左栏更干净，调大更全；窗口之外的线程仍然搜得到（用左栏的搜索框）。"
   ,"settings.steward.quietSnoozeMinutes": "安静卡「稍后」推迟多久（分钟）"
   ,"settings.steward.quietSnoozeMinutesHint": "1 到 1440 分钟。按下「稍后」会按这个间隔排一条真的提醒，到点它会自己回来找你。"
   ,"settings.steward.group.schedule": "定时任务"

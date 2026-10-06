@@ -101,6 +101,9 @@ export function createStewardSettingsDomain({
   let seeding = false;          // fillStewardSettings 期间抑制 change 回写（否则每次刷新都在存）
   let stopped = false;          // 最近一次已知的停机态（来自 GET /api/steward/state）
   let memoryLoaded = false;
+  let lastMemoryPayload = null;   // W2-F7a：切语言时按它原样重画（数据不重拉，只换文案）
+  let memoryShowsDisabled = false;   // W2-F7a：记忆块此刻画的是「管家没开」那一句（切语言时只重写这一句，不读配置）
+  let decisionsShowDisabled = false;
   let decisionsLoaded = false;
   let decisionsLimit = STEWARD_DECISIONS_PAGE;
   let decisionRows = [];
@@ -493,6 +496,7 @@ export function createStewardSettingsDomain({
   function renderMemory(payload) {
     const panel = byId('cfgStewardMemoryPanel');
     if (!panel) return;
+    lastMemoryPayload = payload;
     clear(panel);
     const groups = (payload && payload.groups) || {};
     let any = false;
@@ -515,11 +519,13 @@ export function createStewardSettingsDomain({
       clear(panel);
       if (panel) panel.appendChild(el('p', 'steward-memory-empty', t('settings.steward.memory.disabled')));
       memoryLoaded = false;
+      memoryShowsDisabled = true;
       return null;
     }
     const payload = await call('/api/steward/memory');
     if (!payload) return null;
     memoryLoaded = true;
+    memoryShowsDisabled = false;
     renderMemory(payload);
     return payload;
   }
@@ -731,11 +737,13 @@ export function createStewardSettingsDomain({
       clear(host);
       if (host) host.appendChild(el('p', 'steward-decisions-empty', t('settings.steward.decisions.disabled')));
       decisionsLoaded = false;
+      decisionsShowDisabled = true;
       return null;
     }
     const payload = await call(`/api/steward/decisions?limit=${encodeURIComponent(decisionsLimit)}`);
     if (!payload) return null;
     decisionsLoaded = true;
+    decisionsShowDisabled = false;
     decisionRows = Array.isArray(payload.rows) ? payload.rows : [];
     renderDecisionsThreadFilter();
     renderDecisions();
@@ -1430,6 +1438,17 @@ export function createStewardSettingsDomain({
       renderShield();
       if (scheduleLoaded) renderSchedule(scheduleRows);
       if (onlyBarRef && onlyBarRef.bar && onlyBarRef.bar.isConnected) paintOnlyBar(onlyBarRef.tab, onlyBarRef.target, onlyBarRef.bar);
+      // W2-F7a：「管家」设置页的记忆与决策两块（含它们的空态／未启用句）同样是数据到达那一刻 t() 焊死的 —— 修前切语言后停在旧语言。
+      // 按【上次画的是什么】重画，不读配置（配置这一刻怎样不关这一步的事）：画的是数据就按上一次的数据原样重画（不重拉），
+      // 画的是「管家没开」那一句就重写那一句，没画过的没东西可换。
+      try {
+        const memoryPanel = byId('cfgStewardMemoryPanel');
+        if (memoryShowsDisabled && memoryPanel) { clear(memoryPanel); memoryPanel.appendChild(el('p', 'steward-memory-empty', t('settings.steward.memory.disabled'))); }
+        else if (memoryLoaded && lastMemoryPayload) renderMemory(lastMemoryPayload);
+        const decisionsHost = byId('cfgStewardDecisions');
+        if (decisionsShowDisabled && decisionsHost) { clear(decisionsHost); decisionsHost.appendChild(el('p', 'steward-decisions-empty', t('settings.steward.decisions.disabled'))); }
+        else if (decisionsLoaded) { renderDecisionsThreadFilter(); renderDecisions(); }
+      } catch { /* 重画失败不该影响别的 i18n:change 监听 */ }
     });
   } catch { /* ignore */ }
 

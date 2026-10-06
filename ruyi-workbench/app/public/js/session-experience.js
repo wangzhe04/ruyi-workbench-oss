@@ -751,7 +751,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
     if (btn) { btn.textContent = failed.length ? t('changes.revert.partialDone') : t('changes.revert.done'); btn.classList.add('done'); btn.disabled = true; }
     try { refreshToolPane(); } catch { /* 128f-⑫：右栏「变更」页签开着的话，刚撤掉的那几处要当场消失 */ }
     if (failed.length) {
-      toast(t('changes.revert.partial', { reverted: n, failed: failed.length, reason: revertFailureReason(failed[0].reason) }), 'err');
+      toast(tCount('changes.revert.partial', n, { reverted: n, failed: failed.length, reason: revertFailureReason(failed[0].reason) }), 'err');   // W2-F6：按撤回的文件数分 .one/.other
       return;
     }
     toast(t('changes.reverted', { label: `${label}${n ? ` (${tCount('changes.fileCount', n)})` : ''}` }), 'ok');

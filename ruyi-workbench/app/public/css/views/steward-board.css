@@ -489,6 +489,15 @@
 .rail-list .steward-board-thread:focus-within .steward-board-more,
 .rail-list .steward-board-thread.is-actions-open .steward-board-more { display: inline-grid; }
 .app-frame.rail-board .rail-list .steward-board-more { display: none; }
+/* W2-F9：「⋯」悬停才出现，而它原来是行头 flex 里的一个流内项 —— 带「它在问你」胶囊的行头本来就满，「⋯」一出现就把自己折到
+   下一行，整行从 98px 涨到 126px，指针底下的行跟着跳（1280／1024 都实测）。改成【出流】：绝对定位在行头右端，不参与排布，
+   所以出现与否一个像素都不挪别的东西；它盖住的是右端那句时间，悬停时把时间 visibility:hidden（仍占着自己的位置，不重排）。
+   触屏（常显、没有悬停）仍走流内，见下面 @media (hover: none)。 */
+.rail-list .steward-board-thread-head { position: relative; }
+.rail-list .steward-board-thread-head > .steward-board-more { position: absolute; inset-inline-end: 0; top: 0; margin: 0; }
+.rail-list .steward-board-thread:hover .steward-board-thread-head > .steward-board-meta,
+.rail-list .steward-board-thread:focus-within .steward-board-thread-head > .steward-board-meta,
+.rail-list .steward-board-thread.is-actions-open .steward-board-thread-head > .steward-board-meta { visibility: hidden; }
 /* 121 走查1-②／④：菜单开着的那一行要【压过后面的行】。行本来就是 position:relative（上面那条），
    但 z-index:auto 时同为 0 层、后来者赢 —— 真浏览器实测（walkthrough-round1.browser 的 E4）：
    A 行的 chip 菜单被它下面那一行盖住。只在「真开着」时抬，平时一层不动。 */
@@ -530,6 +539,9 @@
   .steward-board-actions { opacity: 1; display: flex; }
   .app-frame.rail-board .rail-list .steward-board-actions { opacity: 1; display: flex; }
   .rail-list .steward-board-more { display: inline-grid; }
+  .rail-list .steward-board-thread-head > .steward-board-more { position: static; margin-inline-start: 2px; }   /* W2-F9：触屏常显，仍占流内位置，时间不被盖 */
+  .rail-list .steward-board-thread:hover .steward-board-thread-head > .steward-board-meta,
+  .rail-list .steward-board-thread:focus-within .steward-board-thread-head > .steward-board-meta { visibility: visible; }
   .app-frame.rail-board .rail-list .steward-board-more { display: none; }
 }
 /* 紧凑 chip：看板行寸土寸金，菜单靠左展开免得被右栏切掉。 */

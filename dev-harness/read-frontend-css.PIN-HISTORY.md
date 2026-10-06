@@ -826,3 +826,9 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   `css/layout.css`:齿轮菜单里的能力矩阵去掉胶囊边框底色。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9bbe566:<css>` 重算 = ecad3e8f…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
+// 2026-10 3.0 收口走查第一波 · 杂项续钉(前值 c9f20392…＝收口走查第一波续钉):零新增、零删除层,改两层 ——
+//   `css/views/workspace.css`:文件树文件行的 @ 钮不再吃 button 的 min-height / .tool-section 的 margin(文件行 42px → 22px,与目录行齐),
+//   新增 `.ftree-main`(文件行可聚焦主体)与 @ 钮 :focus-visible / 行 :focus-within 时可见;
+//   `css/views/settings.css`:竖排设置导航允许长英文标签折行、导航列不出横向滚动条,≤640px 横排仍 nowrap。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9f22cb4:<css>` 重算 = c9f20392…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。

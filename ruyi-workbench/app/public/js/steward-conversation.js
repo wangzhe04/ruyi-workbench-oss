@@ -23,6 +23,7 @@ import { stewardShortTitle, chatProviders } from './util.js';   // chatProviders
 // 121-K6b（34 号文 §13.3 ①）：新任务的验收里程碑生产者。全仓只有这一份（thread-facts.js 是纯函数
 // 叶子，零 DOM 零 fetch），本文件只在「这一回合真开出了一条新线程」那一刻调它一次。
 import { dispatchAcceptanceMilestones, focusThreadFor, threadShownTitle } from './thread-facts.js';   // 124 还债④：焦点线程的判据与看板同一份（§8.5 ④）
+import { stewardWaitText } from './thread-facts.js';   // W2-F5：等待原因本地化（单开一行：上一行被 J2 类静态锁逐字钉着）
 // 107-S1 ④（46 号文 §5 ⑦b H1）：管家给的 confirm 族按钮（改设置／改技能／给线程开桌面）在 POST 之前
 // 必须先得到用户明确的「是」。确认件走全仓那一份 confirmDanger（背影／Tab 焦点陷阱／焦点归还／Esc／
 // 点背影都在它里面，33 号文 §4 的「四套收一套」），本文件不自己搭第二个模态。
@@ -549,7 +550,10 @@ export function stewardActErrorKey(error) {
 // （`wait.label`，与看板行、抽屉、steward_thread_status 逐字同源），这里【只取不编】：
 // 结构化信封的三种落点都找一遍（error.params.wait / error.wait / 再套一层的 error.error.*），
 // 一个都取不到就回空串，由调用方落到不带括号的那一句 —— 宁可少说一句，不许编一个等待原因出来。
-export function stewardQueuedWaitLabel(error) {
+// W2-F5：wait 带结构化字段（reason＋pending／blockedBy／axis·spent·limit／ahead）时按本地化键说（英文界面不印服务端中文 label），
+// 缺字段退回 label。translate 由调用方递（看板／抽屉的 failNote 递自己的 t，stewardActErrorMessage 递它的 say）；
+// 不递就只回 label（本文件零 i18n import，P10 的 import 白名单不动）。
+export function stewardQueuedWaitLabel(error, translate = null) {
   if (error == null) return '';
   const info = (error instanceof Error) ? apiErrorInfo(error) : error;
   if (!info || typeof info !== 'object') return '';
@@ -558,7 +562,8 @@ export function stewardQueuedWaitLabel(error) {
     || info.wait
     || (nested && ((nested.params && nested.params.wait) || nested.wait))
     || null;
-  return (wait && typeof wait === 'object' && wait.label) ? String(wait.label) : '';
+  if (!wait || typeof wait !== 'object') return '';
+  return stewardWaitText(wait, translate) || (wait.label ? String(wait.label) : '');
 }
 
 // 稳定码 → 一句人话。除 `steward.queued` 之外都是「查表 + t(key)」；那一条要把 wait.label 插进去，
@@ -569,7 +574,7 @@ export function stewardActErrorMessage(error, translate) {
   const key = stewardActErrorKey(error);
   if (!key) return '';
   if (key !== 'stewardShell.chat.errQueued') return say(key);
-  const wait = stewardQueuedWaitLabel(error);
+  const wait = stewardQueuedWaitLabel(error, say);
   return wait ? say(key, { wait }) : say('stewardShell.chat.errQueuedPlain');
 }
 

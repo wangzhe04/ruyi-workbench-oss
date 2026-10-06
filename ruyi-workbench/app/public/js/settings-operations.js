@@ -7,7 +7,7 @@
 // 由组合根注入，避免反向依赖 app.js。
 import { $, el, toast } from './util.js';
 import { api, apiErrText as fallbackApiErrText } from './net.js';
-import { getLocale, hasTranslation, t } from './i18n.js';
+import { getLocale, hasTranslation, t, tCount } from './i18n.js';
 
 export function createSettingsOperationsDomain({
   apiErrText = fallbackApiErrText,
@@ -42,7 +42,7 @@ export function createSettingsOperationsDomain({
       if (status.current) {
         current.textContent = `v${status.current.version}  ·  ${new Date(status.current.appliedAt).toLocaleString(getLocale())}`;
         hint.textContent = status.backups && status.backups.length
-          ? t('settings.update.backupsCount', { p1: status.backups.length })
+          ? tCount('settings.update.backupsCount', status.backups.length, { p1: status.backups.length })
           : t('settings.update.noBackups');
       } else {
         current.textContent = t('settings.update.notApplied');
@@ -229,7 +229,7 @@ export function createSettingsOperationsDomain({
       mcpConnectorCache = Array.isArray(result.connectors) ? result.connectors : [];
       renderMcpCompat(result.compat);
       renderMcpConnList();
-      if (hint) hint.textContent = t('settings.mcp.count', { p1: mcpConnectorCache.length });
+      if (hint) hint.textContent = tCount('settings.mcp.count', mcpConnectorCache.length, { p1: mcpConnectorCache.length });
     } catch (error) {
       if (seq !== mcpOpsSeq) return;
       if (hint) hint.textContent = apiErrText(error);

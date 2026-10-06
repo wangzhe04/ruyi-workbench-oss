@@ -70,7 +70,7 @@ for (const cls of ['.mcp-conn-list', '.mcp-conn-item', '.mcp-lamp-ok', '.mcp-lam
 // ── locale:43 键四份对等(运行时 zh/en + docs 事实源 zh/en)──
 const KEYS = [
   'settings.mcp.tab', 'settings.mcp.title', 'settings.mcp.hint', 'settings.mcp.refreshAll', 'settings.mcp.import',
-  'settings.mcp.loading', 'settings.mcp.probing', 'settings.mcp.count', 'settings.mcp.empty',
+  'settings.mcp.loading', 'settings.mcp.probing', 'settings.mcp.count.one', 'settings.mcp.count.other', 'settings.mcp.empty',   // W2-F6：count 拆成 .one/.other（en 去掉 (s)）
   'settings.mcp.source.desktop', 'settings.mcp.source.config', 'settings.mcp.source.dropIn',
   'settings.mcp.status.enabled', 'settings.mcp.status.disabled',
   'settings.mcp.health.ok', 'settings.mcp.health.degraded', 'settings.mcp.health.failed', 'settings.mcp.health.disabled', 'settings.mcp.health.unknown',
@@ -82,16 +82,16 @@ const KEYS = [
   'settings.mcp.removedOk', 'settings.mcp.removeConfirm', 'settings.mcp.guardDesktop', 'settings.mcp.guardDropIn',
   'settings.mcp.compat', 'settings.mcp.capabilities', 'settings.mcp.limitations',
 ];
-ok(KEYS.length === 43, 'M15 键清单 43 个(自锁)');
+ok(KEYS.length === 44, 'M15 键清单 44 个(自锁;W2-F6 把 settings.mcp.count 拆成 .one/.other,原 43 个 +1)');
 let keysOk = true;
 for (const k of KEYS) {
   for (const [name, cat] of [['zh', zh], ['en', en], ['zhDoc', zhDoc], ['enDoc', enDoc]]) {
     if (!cat[k]) { keysOk = false; console.error(`  missing ${k} in ${name}`); }
   }
 }
-ok(keysOk, 'M16 43 键在四份 catalog 全在(运行时==事实源)');
+ok(keysOk, 'M16 44 键在四份 catalog 全在(运行时==事实源)');
 // 占位符契约:{{p1}}/{{p2}} 中英对称。
-for (const k of ['settings.mcp.count', 'settings.mcp.toolCount', 'settings.mcp.enabledOk', 'settings.mcp.disabledOk', 'settings.mcp.removedOk', 'settings.mcp.removeConfirm']) {
+for (const k of ['settings.mcp.count.one', 'settings.mcp.count.other', 'settings.mcp.toolCount', 'settings.mcp.enabledOk', 'settings.mcp.disabledOk', 'settings.mcp.removedOk', 'settings.mcp.removeConfirm']) {
   ok(zh[k].includes('{{p1}}') && en[k].includes('{{p1}}'), `M17 ${k} 占位符 {{p1}} 中英对称`);
 }
 ok(zh['settings.mcp.retestOk'].includes('{{p1}}') && zh['settings.mcp.retestOk'].includes('{{p2}}') && en['settings.mcp.retestOk'].includes('{{p1}}') && en['settings.mcp.retestOk'].includes('{{p2}}'), 'M18 retestOk 占位符 {{p1}}/{{p2}} 中英对称');

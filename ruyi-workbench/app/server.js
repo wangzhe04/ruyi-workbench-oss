@@ -31752,15 +31752,17 @@ function stewardThreadStateRank(state) {
 //           lock:  { sessionId, title }  谁占着这个工作文件夹;
 //           budget:{ axis, spent, limit } 哪条闸触顶;
 //           slot:  { ahead }             队列里排在它前面还有几条。
-// 返回 null(不在等)或 { reason, label, blockedBy?, ahead? } —— 四个调用面(steward_thread_status /
+// 返回 null(不在等)或 { reason, label, pending?, blockedBy?, axis?, spent?, limit?, ahead? } —— 四个调用面(steward_thread_status /
 // 总览行 / GET /api/missions 的线程行 / steward_missions 的 threads)输出同一形状。
+// label 是服务端中文整句(给 agent 工具与日志读);W2-F5:前端按 reason ＋ 结构化字段(pending / blockedBy / axis·spent·limit / ahead)
+// 自己取本地化文案,英文界面不再印中文 label —— 所以每个原因都把它句子里用到的数带出来(只加字段,label 一个字没动)。
 const STEWARD_WAIT_REASONS = Object.freeze(['needs_you', 'lock', 'budget', 'slot']);
 const STEWARD_WAIT_LABELS = Object.freeze({ needs_you: '等你', lock: '等锁', budget: '等预算', slot: '等并发位' });
 function waitReasonFor(thread, ctx) {
   const t = (thread && typeof thread === 'object') ? thread : {};
   const c = (ctx && typeof ctx === 'object') ? ctx : {};
   const pending = Math.max(0, Number(t.pending) || 0);
-  if (pending > 0) return { reason: 'needs_you', label: `等你(${pending} 条待决)` };
+  if (pending > 0) return { reason: 'needs_you', label: `等你(${pending} 条待决)`, pending };
   const lock = (c.lock && typeof c.lock === 'object') ? c.lock : null;
   if (lock) {
     // blockedBy 只说事实(title 缺就是空,不拿 id 冒充标题);人话另算一个 who,标题缺了退回 id。
@@ -31781,7 +31783,13 @@ function waitReasonFor(thread, ctx) {
     const detail = axis === 'cost_per_day'
       ? `今天全部线程已花 ${Number.isFinite(spent) ? spent : '?'}，到了上限 ${Number.isFinite(limit) ? limit : '?'}`
       : `本小时全部线程已开 ${Number.isFinite(spent) ? spent : '?'} 个回合，到了上限 ${Number.isFinite(limit) ? limit : '?'}`;
-    return { reason: 'budget', label: `等预算：${stewardSanitizeText(detail)}` };
+    return {
+      reason: 'budget',
+      label: `等预算：${stewardSanitizeText(detail)}`,
+      axis,
+      spent: Number.isFinite(spent) ? spent : null,
+      limit: Number.isFinite(limit) ? limit : null,
+    };
   }
   const slot = (c.slot && typeof c.slot === 'object') ? c.slot : null;
   if (slot) {

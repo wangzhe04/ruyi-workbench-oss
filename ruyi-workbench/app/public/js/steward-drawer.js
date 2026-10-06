@@ -5,7 +5,7 @@ import './mission-state.js';
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
 import { apiErrorInfo } from './net.js';
-import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, threadIsBlank, threadShownTitle } from './thread-facts.js';
+import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, stewardWaitText, threadIsBlank, threadShownTitle } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
@@ -432,7 +432,7 @@ export function createStewardDrawer({
     const code = stewardErrorCode(info);
     if (STEWARD_DRAWER_SESSION_ERROR_KEYS[code]) { note(t(STEWARD_DRAWER_SESSION_ERROR_KEYS[code])); return; }
     if (code === 'steward.queued') {
-      const label = stewardQueuedWaitLabel(info);
+      const label = stewardQueuedWaitLabel(info, t);   // W2-F5：递 t，等待原因按本地化键说
       note(label ? t('stewardShell.chat.errQueued', { wait: label }) : t('stewardShell.chat.errQueuedPlain'));
       return;
     }
@@ -1066,7 +1066,7 @@ export function createStewardDrawer({
     const waitNode = byId('stewardDrawerWait');
     if (waitNode) {
       const wait = (missionRow && missionRow.wait) || null;
-      const label = wait ? String(wait.label || '') : '';
+      const label = wait ? stewardWaitText(wait, t) : '';   // W2-F5：本地化（见 thread-facts.js stewardWaitText）
       waitNode.textContent = label || (queued ? t('stewardShell.drawer.queueUnknown') : '');
       waitNode.hidden = !waitNode.textContent;
     }
@@ -1141,8 +1141,11 @@ export function createStewardDrawer({
       return { phase: 'waiting_you', waiting: { kind: String(pendingForThread.type || ''), label: String(pendingForThread.toolName || '') }, turnActive: false, notices: [] };
     }
     if (reason && reason !== 'user') {
-      const blockedBy = wait && wait.blockedBy ? [String(wait.blockedBy)] : [];
-      return { phase: 'waiting_resource', resourceWait: { resources: [String(wait.label || reason)], blockers: blockedBy }, turnActive: false, notices: [] };
+      // 「被谁占着」给人读的是标题（界面不出现内部 id）；服务端给的是 { sessionId, title }，老形状是 id 字符串。
+      const blocker = wait && wait.blockedBy;
+      const blockerName = blocker && typeof blocker === 'object' ? String(blocker.title || '').trim() : String(blocker || '').trim();
+      const blockedBy = blockerName ? [blockerName] : [];
+      return { phase: 'waiting_resource', resourceWait: { resources: [stewardWaitText(wait, t) || reason], blockers: blockedBy }, turnActive: false, notices: [] };
     }
     return null;
   }
@@ -1175,7 +1178,7 @@ export function createStewardDrawer({
     if (progress) progress.textContent = progressText();
     if (waiting) {
       const wait = (missionRow && missionRow.wait) || null;
-      waiting.textContent = (wait && wait.label) || (view && view.action) || t('stewardShell.drawer.none');
+      waiting.textContent = (wait && stewardWaitText(wait, t)) || (view && view.action) || t('stewardShell.drawer.none');
     }
   }
 

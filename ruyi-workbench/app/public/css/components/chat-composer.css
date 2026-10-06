@@ -1,5 +1,8 @@
 /* Composer, attachments, resume/compact indicators, team controls, and steer queue. */
-.steer-delivery-mode { max-width: min(260px, 42vw); min-height: 32px; border: 1px solid var(--line-2); border-radius: var(--radius-sm); background: var(--panel); color: var(--ink); font: inherit; padding: 4px 6px; }
+/* W2-F4：回合进行中打字时这枚下拉由 chat-stream-runtime.js 插在发送钮前。修前它按【最长那个选项】撑到 260px、
+   .composer-actions 又是 flex:none 不让，右栏开着的 1280 下输入框被挤成 5px（看不见自己在敲什么）。
+   现在它定宽 8em（收起时只显示选中项的前半句，展开的列表里是全文，aria-label 不变），输入框另有 8em 的底（见 .composer-box textarea）。 */
+.steer-delivery-mode { flex: 0 0 8em; width: 8em; min-width: 0; max-width: min(260px, 42vw); min-height: 32px; border: 1px solid var(--line-2); border-radius: var(--radius-sm); background: var(--panel); color: var(--ink); font: inherit; padding: 4px 6px; text-overflow: ellipsis; }
 .steer-delivery-mode[hidden] { display: none; }
 /* ============================ composer ============================ */
 .composer { flex: 0 0 auto; position: relative; background: var(--glass-bg-1);
@@ -153,6 +156,12 @@
 @media (max-width: 760px) {
   .composer-actions { flex-wrap: nowrap; }
 }
+/* W2-F4：回合进行中（下拉可见）的那一拍 —— 按【内容】决定放不放得下，不靠视口断点：胶囊允许折行，输入框以 14em 为基准、8em 为底，
+   一行放不下「输入框 ＋ 工具键 ＋ 插话方式下拉 ＋ 发送」时，输入框独占第一行、工具键与发送靠右落第二行
+   （与上面录音那条 :has 规则同形）。放得下（宽屏）就仍是一行。下拉隐藏时排布逐像素不变。 */
+.composer-box:has(> .composer-actions > .steer-delivery-mode:not([hidden])) { flex-wrap: wrap; row-gap: 4px; }
+.composer-box:has(> .composer-actions > .steer-delivery-mode:not([hidden])) > textarea { flex: 1 1 14em; min-width: 8em; }
+.composer-box:has(> .composer-actions > .steer-delivery-mode:not([hidden])) > .composer-actions { margin-left: auto; }
 /* ≤560px composer fold (§4.3): the ＋ trigger is hidden on wide screens (buttons tiled); the media
    query below flips it — hiding 📎/⌘/🗜 and revealing ＋, which opens a popover with those three. */
 #composerMoreBtn { display: none; }

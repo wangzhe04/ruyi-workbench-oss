@@ -264,7 +264,7 @@ const {
   fillStewardSettings: () => stewardShellGuard?.fillStewardSettings(), // 117e：设置页「管家」页签随 config 回填
 });
 
-const { renderAttachments, revokeAttachmentPreview, uploadFiles } = createAttachmentTray({ apiErrText });
+const { renderAttachments, revokeAttachmentPreview, uploadFiles, resetUploads } = createAttachmentTray({ apiErrText });
 const {
   buildStaticToolGroup,
   ctxTokensOf,
@@ -1005,7 +1005,7 @@ function startFromRail() {
 function clearThreadStage() {
   for (const record of state.attachments) revokeAttachmentPreview(record);
   state.attachments.length = 0;
-  renderAttachments();
+  resetUploads();   // W2-F10：在飞的上传一并中止、占位撤掉、回来的结果作废（内部会重画托盘）
   const input = $('promptInput');
   if (input) { input.value = ''; autoGrow(input); }
   try { localStorage.removeItem('wcw.draft'); } catch { /* 本机偏好不可用不影响本次清场 */ }

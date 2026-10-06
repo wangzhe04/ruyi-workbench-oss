@@ -116,7 +116,7 @@ const fill = (s, params) => s.replace(/\{\{(\w+)\}\}/g, (_, k) => (params[k] == 
     })()`, 300);
     ok(Boolean(card) && card.text.split('\n').includes('Docker = 刀客') && card.learn === true && card.learnLabel === ZH['settings.asrLexicon.learn'],
       `L5a 语音词库卡:文本框里有「Docker = 刀客」、「从我的修改里学」勾着(实得 ${JSON.stringify(card && { text: card.text, learn: card.learn })})`);
-    ok(Boolean(card) && card.count === fill(ZH['settings.asrLexicon.countLearned'], { count: 1, learned: 1, typed: 0, pending: 0 }), `L5b 计数说了学来几个(实得 ${JSON.stringify(card && card.count)})`);
+    ok(Boolean(card) && card.count === fill(ZH['settings.asrLexicon.countLearned.one'], { count: 1, learned: 1, typed: 0, pending: 0 }), `L5b 计数说了学来几个(实得 ${JSON.stringify(card && card.count)})`);
     ok(Boolean(card) && /asr-lexicon-actions\|asr-lexicon-toggle asr-lexicon-learn\|asr-lexicon-toggle asr-lexicon-base/.test(card.order), `L5c 开关排在保存那一行之后、内置表开关之前(实得 ${card && card.order})`);
 
     /* ── L6 关掉 ── */
