@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3630,
-    "requiredSymbols": 3191,
-    "edges": 539,
+    "providedSymbols": 3637,
+    "requiredSymbols": 3193,
+    "edges": 540,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1968,6 +1968,7 @@
         "codeEditorLabel",
         "cwdWarning",
         "defaultBrowserExecutable",
+        "deviceNamespaceIsLocalVolume",
         "ensureDataRootReal",
         "executableFromAssociationCommand",
         "existsExecutable",
@@ -2001,8 +2002,10 @@
         "providerIsLocal",
         "readFilePreview",
         "readdirTimed",
+        "realUncWorkspaceRoots",
         "realpathForContainment",
         "remoteUncDenial",
+        "remoteUncDenialResolved",
         "resolveContainmentPath",
         "resolveExecCwd",
         "resolvePreferredCodeEditor",
@@ -5732,6 +5735,7 @@
       "provides": [
         "STEWARD_ANSWER_BASIS",
         "STEWARD_ASKS_YOU_CHARS",
+        "STEWARD_AUTO_ASK_CWD_KEY_RE",
         "STEWARD_AUTO_ASK_DATAROOT_PATTERNS",
         "STEWARD_AUTO_ASK_EGRESS_PATTERNS",
         "STEWARD_AUTO_ASK_INDIRECT_PATTERNS",
@@ -5825,7 +5829,10 @@
         "stewardAsksYou",
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
+        "stewardAutoAskEgressText",
         "stewardAutoAskIndirect",
+        "stewardAutoAskReason",
+        "stewardAutoAskScanIncomplete",
         "stewardAutoAskSensitiveKind",
         "stewardChatCapableProvider",
         "stewardClipSay",
@@ -7465,6 +7472,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskScanIncomplete",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardAutoAskSensitiveKind",
           "kinds": [
             "call"
@@ -8125,6 +8139,13 @@
         {
           "provider": "06g-resource-leases.js",
           "symbol": "releaseResourceLease",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskReason",
           "kinds": [
             "call"
           ]
@@ -13529,7 +13550,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "remoteUncDenial",
+          "symbol": "remoteUncDenialResolved",
           "kinds": [
             "call"
           ]
@@ -28573,6 +28594,7 @@
       "symbols": [
         "isStewardToolName",
         "stewardAutoAskIndirect",
+        "stewardAutoAskScanIncomplete",
         "stewardAutoAskSensitiveKind",
         "stewardToolPermanentlyExempt"
       ],
@@ -28769,6 +28791,14 @@
         "inferToolResources",
         "normalizeAgentResources",
         "releaseResourceLease"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "08-agent-runs.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "stewardAutoAskReason"
       ],
       "direction": "backward"
     },
@@ -30050,7 +30080,7 @@
         "pathWithinAnyRoot",
         "pathWithinRoot",
         "readFilePreview",
-        "remoteUncDenial",
+        "remoteUncDenialResolved",
         "resolvePreferredCodeEditor",
         "resolveWorkspace"
       ],
