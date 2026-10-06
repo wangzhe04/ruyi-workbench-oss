@@ -1229,7 +1229,8 @@ export function createStewardBoard({
   //   · 行外的事实：选中（railSelectedId：管家＝焦点，工作台＝当前会话）、删除在飞（sessionRemoval.pending）、
   //     色号（threadHueOf）、置顶（会话元数据 pinned）、任务展开态、搜索摘录；
   //     chip 的字由 railRowChips 每拍喂会话就地重画，「印不印」那一位不同也重建；
-  //   · 随时间变的字：「多久以前」与第二行按此刻算好放进签名（railAgoLabel／railSubLine）；「今天／更早」每拍按此刻重分组；
+  //   · 随时间变的字：「多久以前」与第二行里的时间【不进签名】—— 每拍按此刻算一份 railUnitTimeSig 与上次比，变了只就地改那几个
+  //     文本节点（paintRailTime），整行不重建（W2-F1：修前跨分钟边界整行重建，键盘停在行上的人焦点被拔回 body）；「今天／更早」每拍按此刻重分组；
   //   · 语言：railLocaleStamp（<html lang> ＋ 行上用到的全部固定文案）一变就整栏重建。
   // 被就地改过的行（paintRailLive 改第二行）签名作废；background-tray 的 ⟳ 标记与 chip 自己对账，不进签名。
   const RAIL_STAMP_KEYS = Object.freeze(['session.untitled', 'common.more', 'stewardShell.board.updated',
@@ -1260,9 +1261,11 @@ export function createStewardBoard({
     const removal = removalOf();
     const meta = sessionForRow(row);
     const threadState = threadStateOf(row);
+    // 「多久以前」与第二行的【字】随时间变，不进签名（改走 railUnitTimeSig ＋ paintRailTime 就地改字，见下）；
+    // 但它们【有没有】是结构，进签名 —— 有无变了就得重建，不能只改字。
     return [railRowJson(row), selected && String(selected) === sessionId ? 1 : 0,
       removal && removal.pending.has(sessionId) ? 1 : 0, threadHueOf(sessionId), stateLabel(threadState),
-      railAgoLabel(row.updatedAt), railSubLine(row, threadState), meta && meta.pinned ? 1 : 0].join('\u0001');
+      railAgoLabel(row.updatedAt) ? 1 : 0, railSubLine(row, threadState) ? 1 : 0, meta && meta.pinned ? 1 : 0].join('\u0001');
   }
   // 任务行那一段排在前面：与构建顺序一致（任务行先问色号，再轮到它的线程行）。
   function railUnitSig(group, selected, snippet) {
@@ -1272,13 +1275,49 @@ export function createStewardBoard({
       const aggregate = String(group.aggregateState || '');
       parts.push([railTaskOpen(group) ? 1 : 0, group.rows.some(row => String(row.sessionId || '') === String(selected || '')) ? 1 : 0,
         threadHueOf(String(lead.sessionId || group.missionId), String(group.missionId || '')),
-        stateLabel(aggregate), railSubLine(lead, aggregate)].join('\u0001'));
+        stateLabel(aggregate), railSubLine(lead, aggregate) ? 1 : 0].join('\u0001'));
     }
     for (const row of group.rows) parts.push(railRowSig(row, selected));
     parts.push(String(snippet || ''));
     return parts.join('\u0002');
   }
-  // 一件：签名相同且每行 chip「印不印」没变 → 原样复用上一拍那几个节点；否则照原样重建。
+  // 随时间变的那几个字（「多久以前」＋ 第二行）：每拍按此刻算一份，与上一拍比；只有它变了就地改字（paintRailTime）。
+  function railUnitTimeSig(group) {
+    const parts = [];
+    if (group.rows.length > 1) parts.push(railSubLine(group.rows[0] || {}, String(group.aggregateState || '')));
+    for (const row of group.rows) parts.push(railAgoLabel(row.updatedAt), railSubLine(row, threadStateOf(row)));
+    return parts.join('\u0001');
+  }
+  // 就地改字：只动 .steward-board-meta（文字与 title）和第二行 <p> 的文本，节点身份、焦点、悬停、行内别人挂的东西都不动。
+  // 「有没有」这两样在签名里（有无一变整件重建），所以这里只会遇到「都有、字不同」。
+  function paintRailTime(unit, group) {
+    const patchSub = (li, text) => {
+      const line = li.querySelector(':scope > .steward-board-sub:not(.rail-search-snippet)');
+      if (line && text && line.textContent !== text) line.textContent = text;
+    };
+    const byId = new Map();
+    for (const node of unit.nodes) {
+      if (!node || typeof node.querySelectorAll !== 'function') continue;
+      const lis = node.matches && node.matches('li.steward-board-thread[data-session-id]') ? [node] : [...node.querySelectorAll('li.steward-board-thread[data-session-id]')];
+      for (const li of lis) byId.set(li.dataset.sessionId, li);
+    }
+    if (group.rows.length > 1) {
+      const task = unit.nodes.find(node => node && node.matches && node.matches('li.rail-task'));
+      if (task) patchSub(task, railSubLine(group.rows[0] || {}, String(group.aggregateState || '')));
+    }
+    for (const row of group.rows) {
+      const li = byId.get(String(row.sessionId || ''));
+      if (!li) continue;
+      const ago = railAgoLabel(row.updatedAt);
+      const meta = li.querySelector('.steward-board-thread-head > .steward-board-meta');
+      if (meta && ago && meta.textContent !== ago) {
+        meta.textContent = ago;
+        meta.title = t('stewardShell.board.updated', { elapsed: ago });
+      }
+      patchSub(li, railSubLine(row, threadStateOf(row)));
+    }
+  }
+  // 一件：签名相同且每行 chip「印不印」没变 → 原样复用上一拍那几个节点（时间字变了就地改字）；否则照原样重建。
   function railUnit(group, selected, filter) {
     const multi = group.rows.length > 1;
     const key = (multi ? 'm:' : 's:') + group.missionId;
@@ -1288,13 +1327,18 @@ export function createStewardBoard({
     if (cached && cached.sig === sig && group.rows.every(row => {
       const chips = cached.chips.get(String(row.sessionId || ''));
       return Boolean(chips) && railRowChips(row, chips.host) === chips.shown;
-    })) return [key, cached];
+    })) {
+      const timeSig = railUnitTimeSig(group);
+      if (cached.timeSig !== timeSig) { paintRailTime(cached, group); cached.timeSig = timeSig; }
+      return [key, cached];
+    }
     const chips = new Map();
-    if (multi) return [key, { sig, chips, nodes: [railTaskRow(group, selected), railThreadList(group, selected, chips)] }];
+    const timeSig = railUnitTimeSig(group);
+    if (multi) return [key, { sig, timeSig, chips, nodes: [railTaskRow(group, selected), railThreadList(group, selected, chips)] }];
     // 单线程任务：那一行【就是】它的线程行（不画任务层）。验收 a/b 落在它的卡尾。
     const threadRow = renderThreadRow(group.rows[0], { missionId: group.missionId, selected, facts: missionFacts(group), chips });
     if (snippet) threadRow.appendChild(el('div', 'steward-board-sub rail-search-snippet', snippet));
-    return [key, { sig, chips, nodes: [threadRow] }];
+    return [key, { sig, timeSig, chips, nodes: [threadRow] }];
   }
   // 按 wanted 的顺序对账 parent 的子节点：已在位的不动，其余插入／挪动，多出来的摘掉。
   function reconcileRailChildren(parent, wanted) {
@@ -1318,6 +1362,49 @@ export function createStewardBoard({
     reconcileRailChildren(entry.section, [entry.head, entry.tasks]);
     return entry;
   }
+  // W2-F1：左栏重画保键盘焦点。行/组头被重建（状态变了、折叠/展开、置顶……）时，停在里面的焦点会随旧节点一起掉回 body，
+  // 键盘用户下一次 Tab 从页首重来。重画前记下「焦点在哪一件、哪个控件」，重画后若旧节点已摘下就在新节点上还原。
+  // 身份＝作用域（会话行 s／任务行 m／组头 g）＋ 控件的标签、类名、dataset 摘要（＋同形控件里的序号）；找不到同形控件时退到该作用域的主控件。
+  function railFocusKey(node) {
+    const data = Object.keys(node.dataset || {}).sort().map(key => `${key}=${node.dataset[key]}`).join('&');
+    return `${node.tagName}.${String(node.className || '')}|${data}`;
+  }
+  function railFocusScope(host, node) {
+    const row = node.closest('li.steward-board-thread');
+    if (row && host.contains(row)) {
+      if (row.dataset.sessionId) return { kind: 's', id: row.dataset.sessionId, root: row };
+      if (row.dataset.missionId) return { kind: 'm', id: row.dataset.missionId, root: row };
+    }
+    const group = node.closest('.rail-group');
+    if (group && host.contains(group)) return { kind: 'g', id: String(group.dataset.group || ''), root: group };
+    return null;
+  }
+  function railFocusSnapshot(host) {
+    const document_ = doc();
+    const active = document_ && document_.activeElement;
+    if (!active || active === host || typeof host.contains !== 'function' || !host.contains(active) || typeof active.closest !== 'function') return null;
+    const scope = railFocusScope(host, active);
+    if (!scope) return null;
+    const key = railFocusKey(active);
+    const same = [...scope.root.querySelectorAll(active.tagName)].filter(node => railFocusKey(node) === key);
+    return { node: active, kind: scope.kind, id: scope.id, key, tag: active.tagName, index: Math.max(0, same.indexOf(active)) };
+  }
+  function railFocusRestore(host, snap) {
+    if (!snap || snap.node.isConnected) return false;
+    const document_ = doc();
+    const active = document_ && document_.activeElement;
+    if (active && active !== document_.body && host.contains(active)) return false;   // 别处已经接手了焦点（比如用户刚点了别的）
+    let root = null;
+    if (snap.kind === 'g') root = [...host.querySelectorAll('.rail-group')].find(node => String(node.dataset.group || '') === snap.id) || null;
+    else root = [...host.querySelectorAll('li.steward-board-thread')].find(node => (snap.kind === 's' ? node.dataset.sessionId : (node.dataset.sessionId ? '' : node.dataset.missionId)) === snap.id) || null;
+    if (!root) return false;
+    const same = [...root.querySelectorAll(snap.tag)].filter(node => railFocusKey(node) === snap.key);
+    const target = same[snap.index] || same[0]
+      || root.querySelector(snap.kind === 'g' ? '.rail-gh-toggle' : '.steward-board-thread-title');
+    if (!target || typeof target.focus !== 'function') return false;
+    target.focus({ preventScroll: true });
+    return true;
+  }
   function renderRail() {
     renderStatusLine();
     renderArbiterFacts();
@@ -1328,6 +1415,7 @@ export function createStewardBoard({
     const host = byId('railList');
     if (!host) return 0;
     railRenderedSelected = railSelectedId();
+    const focusSnap = railFocusSnapshot(host);
     const filter = railFilter();
     loadSearchExtras(filter);
     const groups = groupRows({ withSearchExtras: Boolean(filter) }).filter(group => group.rows.some(row => railRowMatches(row, filter)));
@@ -1372,6 +1460,7 @@ export function createStewardBoard({
       sections.set(key, entry);
     }
     reconcileRailChildren(host, [...sections.values()].map(entry => entry.section));
+    railFocusRestore(host, focusSnap);
     railUnits = units;
     railSections = sections;
     railUnitBySession.clear();
