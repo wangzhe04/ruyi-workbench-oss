@@ -341,9 +341,9 @@
   "error.permissionDenied": "此操作被权限拒绝",
   "error.permissionDenied.next": "在弹窗中允许，或在“安全与权限”中调整模式",
   "error.providerError": "模型服务商返回了错误",
-  "error.providerError.next": "多为服务端暂时故障或请求被拒：请稍后重试；反复出现时查看错误详情，或前往“设置 → 模型服务商”检查模型名与地址",
+  "error.providerError.next": "多为服务端暂时故障或请求被拒：请稍后重试；反复出现时查看错误详情，或前往“设置 → 模型与服务 → 模型服务商”检查模型名与地址",
   "error.providerMisconfigured": "模型端点未配置或不可用",
-  "error.providerMisconfigured.next": "前往“设置 → 模型服务商”检查地址与密钥",
+  "error.providerMisconfigured.next": "前往“设置 → 模型与服务 → 模型服务商”检查地址与密钥",
   "error.toolFailed": "工具执行出错",
   "error.toolLoop": "检测到重复的工具调用，已停止本轮",
   "file.open": "打开",
@@ -618,7 +618,7 @@
   "modelMenu.modelCount.other": "{{count}} 个模型",
   "modelMenu.modelDeleted": "已删除自定义模型 {{model}}",
   "modelMenu.modelRemoved": "已从模型列表移除 {{model}}",
-  "modelMenu.noModelsHint": "（先在设置→Providers 测试连接）",
+  "modelMenu.noModelsHint": "（先在「设置 → 模型与服务 → 模型服务商」里测试连接）",
   "modelMenu.refreshFailed": "刷新模型失败：{{error}}",
   "modelMenu.refreshModels": "刷新模型列表",
   "modelMenu.refreshSuccessBuiltin": "模型已刷新（内置清单；代理未返回）",
@@ -727,7 +727,7 @@
   "onboarding.wizard.safety.auto.description": "低风险的直接做、做完给回执；删数据、装卸软件、推送、对外发送这类动作仍会停下来问你。",
   "onboarding.wizard.safety.auto.title": "智能自动（新装默认）",
   "onboarding.wizard.safety.autoConfirm.title": "确定用「智能自动」吗？",
-  "onboarding.wizard.safety.autoConfirm.body": "选了它，AI 会在你不在时直接改文件、运行命令，不再逐步问你。以后随时可以在「设置 → 权限与安全」里改回来。",
+  "onboarding.wizard.safety.autoConfirm.body": "选了它，AI 会在你不在时直接改文件、运行命令，不再逐步问你。以后随时可以在「设置 → 通用 → 权限与安全」里改回来。",
   "onboarding.wizard.safety.autoConfirm.ok": "确定，用智能自动",
   "onboarding.wizard.safety.autoConfirm.cancel": "再想想",
   "onboarding.wizard.safety.default.description": "任何改动前都先弹窗问你。最安全，也最费点击。",
@@ -740,8 +740,8 @@
   "onboarding.wizard.saveFailed": "保存失败：{{reason}}",
   "onboarding.wizard.settingsLabel": "新手引导",
   "onboarding.wizard.skip": "退出引导",
-  "onboarding.wizard.skipTitle": "整个引导以后再走；随时可以在「设置 › 其他」里重新打开",
-  "onboarding.wizard.skipped": "已跳过引导，可在「设置 → 基础」里随时重新打开",
+  "onboarding.wizard.skipTitle": "整个引导以后再走；随时可以在「设置 → 通用 → 基础」或帮助菜单里重新打开",
+  "onboarding.wizard.skipped": "已跳过引导，可在「设置 → 通用 → 基础」或帮助菜单里随时重新打开",
   "onboarding.wizard.start": "开始引导",
   "onboarding.wizard.startHint": "六步、几分钟，配好就能干活；中途可以随时退出。",
   "onboarding.wizard.step.done": "完成",
@@ -3128,7 +3128,7 @@
   ,"settings.steward.quietSnoozeMinutes": "安静卡「稍后」推迟多久（分钟）"
   ,"settings.steward.quietSnoozeMinutesHint": "1 到 1440 分钟。按下「稍后」会按这个间隔排一条真的提醒，到点它会自己回来找你。"
   ,"settings.steward.group.schedule": "定时任务"
-  ,"settings.steward.group.scheduleHint": "到点自己开一条线程去办的事。这里只看，改在别处。"
+  ,"settings.steward.group.scheduleHint": "到点自己去办的事。可以在这里直接建，也可以直接对管家说。"
   ,"settings.steward.schedule.refresh": "刷新"
   ,"settings.steward.schedule.empty": "还没有定时任务。"
   ,"settings.steward.schedule.next": "下次 {{when}}"
@@ -3436,8 +3436,8 @@
   ,"composer.voice.error.notConfigured": "语音识别还没配置好，输入框没有改动"
   ,"composer.voice.error.tooLarge": "这段录音太长，超过了转写上限，输入框没有改动"
   ,"composer.voice.error.upstream": "语音转文字的服务报错了，多半是模型名不对，或服务商暂时不可用；输入框没有改动"
-  ,"composer.voice.error.protocol": "这家服务商不认现在的语音接口类型。到「设置 → 服务商 → 语音识别」重新添加一次，换另一种接口类型；输入框没有改动"
-  ,"composer.voice.error.auth": "语音转文字的服务商不认这把密钥，或这个账号没开通语音模型。到「设置 → 服务商」检查这家的 API 密钥；输入框没有改动"
+  ,"composer.voice.error.protocol": "这家服务商不认现在的语音接口类型。到「设置 → 模型与服务 → 语音识别」重新添加一次，换另一种接口类型；输入框没有改动"
+  ,"composer.voice.error.auth": "语音转文字的服务商不认这把密钥，或这个账号没开通语音模型。到「设置 → 模型与服务 → 模型服务商」检查这家的 API 密钥；输入框没有改动"
   ,"composer.voice.error.failed": "转写没有成功，稍后再试；输入框没有改动"
   ,"composer.voice.error.empty": "没有听出文字，输入框没有改动"
   ,"composer.voice.hintStream": "语音输入：点一下开始说，文字边说边出；每句说完自动校正错字；再点一下结束，Esc 取消。不会自动发送"
@@ -3450,8 +3450,8 @@
   ,"composer.voice.warming.ready": "语音识别已就绪，请说话"
   ,"composer.voice.warming.readyIdle": "语音识别已就绪，点一下麦克风开始说话"
   ,"composer.voice.warming.failed": "更准的本地识别模型没能加载好，这次先用实时识别，说完的字可能不会被校正"
-  ,"composer.voice.learned": "记住了：{{heard}} → {{term}}{{more}}（可在 设置 → 语音识别 → 语音词库 里管理）"
-  ,"composer.voice.learnedTerm": "记住了：{{term}}{{more}}（可在 设置 → 语音识别 → 语音词库 里管理）"
+  ,"composer.voice.learned": "记住了：{{heard}} → {{term}}{{more}}（可在 设置 → 模型与服务 → 语音识别 → 语音词库 里管理）"
+  ,"composer.voice.learnedTerm": "记住了：{{term}}{{more}}（可在 设置 → 模型与服务 → 语音识别 → 语音词库 里管理）"
   ,"composer.voice.learnedMore": "（另有 {{count}} 个）"
   ,"promptQueue.dock.title": "等你处理的提问与权限"
   ,"promptQueue.dock.label": "等你处理"

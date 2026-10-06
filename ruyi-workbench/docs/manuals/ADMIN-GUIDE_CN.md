@@ -54,7 +54,7 @@ Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 
 **桌面壳在运行时套用**：`RuyiDesktop.exe` / `WebView2Loader.dll` 被占用、不能直接覆盖，这两类文件改为先把旧映像改名挪开（`<名>.old-<时间戳>`，NTFS 允许改名运行中的映像）再放新文件，**重启桌面壳后才载入新版**；回执里的 `replacedInUse` 列出这样处理的文件，以往留下的 `.old-*` 在下一次 apply 时清掉。`rollback` 时 `.overlay-applied.json` 标记同步回到套用前（备份里存着上一份就放回原处，没有就清掉），所以回滚掉的版本可以再套，不会被幂等预检当成「已应用」。打覆盖包用 `node tools/build-overlay.js <version>`，`<version>` 必填，每包用不同的 version。
 
-**应用内更新（第53波 EC-B）**：设置 -> 「更新中心」页签(专家模式可见)编排后端四条 token 级路由(`POST /api/overlay/precheck|apply|rollback` + `GET /api/overlay/status`),不复制第二套 PS1 实现。流程:选 zip(`/api/pick-file` 原生文件选择器) -> 预检预览(新增/覆盖/未变/移除 + 宿主/最低版本兼容) -> 确认 apply -> restartNeeded 提示 -> 失败恢复卡(一键回滚) + 审计尾 + 回滚按钮。CLI 保留为救援路径。
+**应用内更新（第53波 EC-B）**：设置 → 系统 →「更新中心」页签编排后端四条 token 级路由(`POST /api/overlay/precheck|apply|rollback` + `GET /api/overlay/status`),不复制第二套 PS1 实现。流程:选 zip(`/api/pick-file` 原生文件选择器) -> 预检预览(新增/覆盖/未变/移除 + 宿主/最低版本兼容) -> 确认 apply -> restartNeeded 提示 -> 失败恢复卡(一键回滚) + 审计尾 + 回滚按钮。CLI 保留为救援路径。
 
 > 套用后验证：浏览器打开 `http://127.0.0.1:<端口>/health` 应返回 `{"ok":true,...}`；「体检」页签的 `overlay-integrity` 应为 `verified`。
 
@@ -66,7 +66,7 @@ Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 RUYI_HOME  →  WIN_CLAUDE_WORKBENCH_HOME（旧变量名，只读）  →  ~/.ruyi-workbench（默认）
 ```
 
-新变量 `RUYI_HOME` 优先，旧变量继续识别（兼容存量部署）。**3.0 起默认目录改名**：旧默认目录 `~/.win-claude-workbench` 在首次启动（`serve`，且没设任何数据根环境变量）时自动搬成 `~/.ruyi-workbench`，原处留一个指回新目录的目录联接（写死旧路径的脚本、计划任务、Claude CLI 里的旧登记照样能用）；旧目录里有正在运行的实例、或搬不动（被占用、权限）时，本次继续用旧目录，启动日志记一笔 `data_root_migration`，下次启动再试。目录下含：`config.json`、`sessions/*.json`（原子写：先 `.tmp` 再 rename；损坏文件改名 `.corrupt` 隔离而非删）、`uploads/*`、`generated/*`（含生成的 `.mcp.json`）、`logs/*`、`checkpoints/<sessionId>/*`（文件检查点 journal + 压缩前历史快照）、`playbooks/*.json`（用户自定义任务模板）、`webcache/<sha256(url)>.json`（联网检索正文缓存）。
+新变量 `RUYI_HOME` 优先，旧变量继续识别（兼容存量部署）。**3.0 起默认目录改名**：旧默认目录 `~/.win-claude-workbench` 在首次启动（`serve`，且没设任何数据根环境变量）时自动搬成 `~/.ruyi-workbench`，原处留一个指回新目录的目录联接（写死旧路径的脚本、计划任务、Claude CLI 里的旧登记照样能用）；旧目录里有正在运行的实例、或搬不动（被占用、权限）时，本次继续用旧目录，启动日志记一笔 `data_root_migration`，下次启动再试。目录下含：`config.json`（读坏时先另存为 `config.json.corrupt`，再从 `config.json.prev` 恢复）、`sessions/*.json`（原子写：先 `.tmp` 再 rename；损坏文件改名 `.corrupt` 隔离而非删）、`uploads/*`、`generated/*`（含生成的 `.mcp.json`）、`logs/*`、`checkpoints/<sessionId>/*`（文件检查点 journal + 压缩前历史快照）、`playbooks/*.json`（用户自定义任务模板）、`webcache/<sha256(url)>.json`（联网检索正文缓存）。
 
 覆盖示例：
 
@@ -302,7 +302,7 @@ foreach ($v in $vars) {
 
 自动探测 `detectDesktopMcp()`：认 `ai-computer-control` 仓库（存在 `src/ai_computer_control/server.py`），优先读 `AI_COMPUTER_CONTROL_HOME`，找到即用 `python -X utf8 -m ai_computer_control.server` 启动。config：`desktopMcp { enabled, command, args, cwd, autodetect }`。
 
-浏览器由 `browserAutomation { mode, executable, cdpUrl }` 控制，界面入口为“设置 → 集成/MCP”：
+浏览器由 `browserAutomation { mode, executable, cdpUrl }` 控制，界面入口为“设置 → 工具与集成 → 集成与 MCP”：
 
 - `system`（默认）：以新标签页/窗口交给系统关联的用户浏览器，不需要 Playwright，也不拥有/关闭用户窗口；当前如意工作台标签页不会被导航、复用或关闭，后续用桌面截图、UIA、OCR 和键盘操作。
 - `managed`：用 Playwright 启动已安装的默认 Chromium 浏览器，并加 `--force-renderer-accessibility`；可能出现独立自动化窗口。
@@ -314,7 +314,7 @@ foreach ($v in $vars) {
 
 **ACC 传输与工具面（49c/49d）**：ACC server 只有 `stdio` 一种传输（`server.py` 里是 `mcp.run(transport="stdio")`），工作台把它当本地子进程拉起；工作台自己作为 MCP 客户端接**外部**连接器时才认 `stdio` / `sse` / `http` 三种形态（见 §2.3 末尾的 MCP 配置导入器）。按场景裁剪 ACC 工具面靠 ACC 进程的环境变量 `ACC_TOOLSETS`：逗号分隔的能力名（`desktop` / `office` / `browser` / `filesystem` / `shell` / `uia` / `ocr` / `vision` / `macro` / `memory` / `web` / `thinking` / `observe` / `audio` / `sync`），例如 `filesystem,shell,office`；不设就是全开，`audit` 与 `diagnostics` 永远注册，不认识的名字忽略并在 stderr 给一行提示。工作台的 MCP 配置里**没有** `toolset` 字段；工作台这一侧收紧桌面工具靠权限分级（`BRIDGED_TOOL_TIERS` / `config.bridgedToolTiers`）与角色的工具白名单。
 
-**MCP 配置导入器（48c）**：工作台设置 → 集成/MCP 面板支持直接粘贴或导入外部 `mcp.json` 片段，自动校验 schema、合并到现有配置并即时生效（无需手动编辑 `~/.ruyi-workbench/generated/.mcp.json`）。导入时会做去重——同名 server id 按「保留本地、提示冲突」处理。
+**MCP 配置导入器（48c）**：工作台设置 → 工具与集成 → 集成与 MCP 页支持直接粘贴或导入外部 `mcp.json` 片段，自动校验 schema、合并到现有配置并即时生效（无需手动编辑 `~/.ruyi-workbench/generated/.mcp.json`）。导入时会做去重——同名 server id 按「保留本地、提示冲突」处理。
 
 **offline wheels 安装**：ACC 支持离线部署——`python installer/build_offline_package.py`（需联网一次）生成含 CPython 3.12 + 全部 wheels + Playwright Chromium 的 zip，目标机解压跑 `install.bat` 即可，无需公网。默认 OCR 调用 Windows.Media.Ocr（`winsdk`），不使用 Tesseract；构建、安装与导入探针都会验证 `winsdk`，且 CPython 3.12 是因为其提供 cp312 wheel。旧安装做 overlay 时先运行 `update.bat --deps`（安装 uiautomation / comtypes / winsdk）再运行 `update.bat --code`。可选依赖缺失时对应工具优雅降级，不崩服务；`write_pdf` 的中文字体按「微软雅黑 → 宋体 → 内置 STSong-Light CID → Helvetica」顺序注册。
 
@@ -335,9 +335,9 @@ foreach ($v in $vars) {
 
 ### 2.5 语音转写（2.8.0）
 
-语音识别开启后复用同一条服务商记录：`audioBaseUrl`（缺省回落到 `baseUrl`）加同一把 API 密钥。如意向它说哪一种方言，是**每个服务商自己的设置** `providers[].asrProtocol`：`transcriptions`（OpenAI 形 multipart `/audio/transcriptions`，缺省，2.8.0 之前也只有这一种）或 `chat-audio`（`/chat/completions` ＋ `input_audio` data URI，MiMo 与百炼文档里的 ASR 就是这种）。百炼的 Fun-ASR（`fun-asr-*`）不在兼容口上（回 400 `{}`），对话形服务商上这类模型自动改走 DashScope 原生口 `/api/v1/services/aigc/multimodal-generation/generation`；同一家的 Qwen3-ASR 照旧走 `/chat/completions`。两种都不说的服务商根本做不了语音，如意会直说而不是猜。对话形只收上游声明支持的格式（MiMo 拒 webm，直接回 400），所以麦克风录音在浏览器里先转成 16 kHz 单声道 WAV 再上传，而音频附件与 `audio_transcribe` 工具送的是用户原文件，不转码。
+语音识别开启后复用同一条服务商记录：`audioBaseUrl`（缺省回落到 `baseUrl`）加同一把 API 密钥。如意向它说哪一种方言，是**每个服务商自己的设置** `providers[].asrProtocol`：`transcriptions`（OpenAI 形 multipart `/audio/transcriptions`，缺省，2.8.0 之前也只有这一种）或 `chat-audio`（`/chat/completions` ＋ `input_audio` data URI，MiMo 与百炼文档里的 ASR 就是这种）。百炼的 Fun-ASR（`fun-asr-*`）不在兼容口上（回 400 `{}`），对话型服务商上这类模型自动改走 DashScope 原生口 `/api/v1/services/aigc/multimodal-generation/generation`；同一家的 Qwen3-ASR 照旧走 `/chat/completions`。两种都不说的服务商根本做不了语音，如意会直说而不是猜。对话型只收上游声明支持的格式（MiMo 拒 webm，直接回 400），所以麦克风录音在浏览器里先转成 16 kHz 单声道 WAV 再上传，而音频附件与 `audio_transcribe` 工具送的是用户原文件，不转码。
 
-`POST /api/audio/transcribe` 是 2.8.0 唯一新增的出网面：25 MB 闸（声明的 Content-Length ＋ 流式累计）、120 s 超时，按 `providers[].asrProtocol` 选的方言打服务商，记一行 `kind:'aux'` 的用量台账（上游不报 usage 时标 `estimated`；对话形的 `prompt_tokens` / `completion_tokens` 会映射过来，通常能拿到真实数字）。原生工具 `audio_transcribe` 是 exec 档，因为它把用户文件送出本机，其结果打 untrusted 标记。`asrProviderId` 与 `asrModel` 都设了才开启转写；没设时输入框连麦克风节点都不建。
+`POST /api/audio/transcribe` 是 2.8.0 唯一新增的出网面：25 MB 闸（声明的 Content-Length ＋ 流式累计）、120 s 超时，按 `providers[].asrProtocol` 选的方言打服务商，记一行 `kind:'aux'` 的用量台账（上游不报 usage 时标 `estimated`；对话型的 `prompt_tokens` / `completion_tokens` 会映射过来，通常能拿到真实数字）。原生工具 `audio_transcribe` 是 exec 档，因为它把用户文件送出本机，其结果打 untrusted 标记。`asrProviderId` 与 `asrModel` 都设了才开启转写；没设时输入框里的麦克风只是一枚灰色的「待开启」按钮，点它跳到设置页，不录音、不出网（浏览器本身录不了 webm/opus、或不是安全上下文时连按钮都不出）。
 
 自 2.8.0 起，**改了某个服务商的端点、却让掩码密钥原样留着，这次保存会被拒**（HTTP 409，`config.masked_secret_vector_changed`），见 §3.4。
 
@@ -354,7 +354,7 @@ foreach ($v in $vars) {
 | 模式 | read | edit | exec |
 |---|---|---|---|
 | `bypass`（全自动） | 放行 | 放行 | 放行 |
-| `auto`（智能自动，新装默认） | 放行 | 放行 | 放行；但「永久豁免」类动作（删数据、装卸软件、推送、对外发送等，见用户手册第 9 章）与拼接 / 编码 / 求值出来的命令仍然询问 |
+| `auto`（智能自动，新装默认） | 放行 | 放行 | 放行；但「永久豁免」类动作（删数据、装卸软件、推送、对外发送等，见用户手册第 9 章）、经命令行或脚本发起的联网（含纯读取）、读取数据目录里的密钥文件，以及拼接 / 编码 / 求值出来的命令仍然询问（联网与读密钥两类管家不代批） |
 | `default`（每步都问） | 放行 | 询问 | 询问 |
 | `acceptEdits`（改文件不问） | 放行 | 放行 | 询问 |
 | `plan`（只做计划） | 放行 | 拦截 | 拦截 |
@@ -504,7 +504,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 | **搜索后端不通** | 检查 `searchBackend.type` 与对应的 baseUrl（searxng/custom 必填）/ apiKey（bing/brave 必填，tavily 必填、bocha 可选）。搜索后端是**受信端点不过 SSRF**，但仍需网络可达。断网时 web_fetch 会回落本地 webcache（`fromCache:true`）。 |
 | **PDF 字体 / CID 回退** | `write_pdf`（ACC 工具）在无微软雅黑 / 宋体的机器上会回退到内置 `STSong-Light`（CID，零外部文件，阅读器侧渲染中文），属**预期行为**；返回的 `font` 字段标明实际所用字体。reportlab 缺失则整个 `write_pdf` 优雅降级（不影响其它工具）。 |
 | **性能 / 大会话** | 长会话渲染 v1.0-S7 已做消息虚拟化 / 分页；上下文接近窗口上限时自动 / 手动压缩（`autoCompactThreshold` 默认 0.8 × `contextWindow`），压缩前把 providerHistory 快照存 `checkpoints/<sid>/history-*.json.gz`。 |
-| **权限弹窗超时** | 权限 / 提问弹窗**默认不限时**：`permissionTimeoutMs` 与 `questionTimeoutMs` 出厂为 0，一直挂着等你，弹窗收进右下角小窗。设了时限（设置 → 权限与安全 →「等你回话的时限」；权限 5–600 秒、提问 1–60 分钟）则到点权限请求按**拒绝**、提问按取消（不替用户放权）。定时任务无人值守时另按 `schedulerAskWaitMinutes`（出厂 30 分钟）到点拒绝。 |
+| **权限弹窗超时** | 权限 / 提问弹窗**默认不限时**：`permissionTimeoutMs` 与 `questionTimeoutMs` 出厂为 0，一直挂着等你，弹窗收进右下角小窗。设了时限（设置 → 通用 → 权限与安全 →「等你回话的时限」；权限 5–600 秒、提问 1–60 分钟）则到点权限请求按**拒绝**、提问按取消（不替用户放权）。定时任务无人值守时另按 `schedulerAskWaitMinutes`（出厂 30 分钟）到点拒绝。 |
 
 ---
 
@@ -539,8 +539,8 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 | `stewardEnabledV1` | 管家总开关（第 121 波起**默认开**，新装直接落管家视角） | e2e ＋ 人工走查 | `false`（回到工作台视角，零后台活动） |
 | `schedulerEnabledV1` | 定时任务 | ⚠ 假时钟 e2e | `false`（无任务时本来就零轮询） |
 | `newThreadEngine: 'last'` | 新线程跟随**上次用的**引擎 | ⚠ API 级 e2e；**改变了存量用户的默认行为** | 设成 `'global'` |
-| `stewardExemptDelegationV1` | 管家代批永久豁免的非底线动作（十道闸，见用户手册第 9 章） | ⚠ 假端点 46 条；**真管家模型延迟实测**：轮询 5 s 档均值 17.7 s／最大 30.6 s，轮询 15 s 档（出厂值）均值 31.5 s／最大 42.7 s，5 次全部代批成功、审计行逐条对得上 —— 2026-10 起有事件唤醒，见上文「已知缺口」那一条的更正 | `false`（设置页「管家」→「它可以自己做的事」同一个键；**管家自己改不了它**） |
-| 语音识别（`asrProviderId`／`asrModel`，出厂两空） | 语音输入 | **未配置＝零行为**已验（麦克风结构上不存在）；缺省协议（OpenAI 形 `/audio/transcriptions`）在四个候选端点上**全部 404**，需逐服务商把「语音识别协议」改成「对话形」（`providers[].asrProtocol='chat-audio'`）——MiMo 与百炼实测可用，混元未验，见 §7.5。百炼的 Fun-ASR（`fun-asr-*`）不在兼容口上（回 400 `{}`），对话形服务商上这类模型自动改走 DashScope 原生口 `/api/v1/services/aigc/multimodal-generation/generation`，同一家的 Qwen3-ASR 照旧走 `/chat/completions` | 语音识别选「不启用」，或把两个键清空 |
+| `stewardExemptDelegationV1` | 管家代批永久豁免的非底线动作（十道闸，见用户手册第 9 章） | ⚠ 假端点 46 条；**真管家模型延迟实测**：轮询 5 s 档均值 17.7 s／最大 30.6 s，轮询 15 s 档（出厂值）均值 31.5 s／最大 42.7 s，5 次全部代批成功、审计行逐条对得上 —— 2026-10 起有事件唤醒，见上文「已知缺口」那一条的更正 | `false`（设置页「管家」→「管家可以自己做的事」同一个键；**管家自己改不了它**） |
+| 语音识别（`asrProviderId`／`asrModel`，出厂两空） | 语音输入 | **未配置＝零行为**已验（麦克风只是点了跳设置页的灰按钮，不录音、不出网）；缺省协议（OpenAI 形 `/audio/transcriptions`）在四个候选端点上**全部 404**，需逐服务商把「语音转文字接口」改成「对话型」（服务商卡「能力与选项」里，或在「语音识别」页「添加语音识别模型」时选对「接口类型」）（`providers[].asrProtocol='chat-audio'`）——MiMo 与百炼实测可用，混元未验，见 §7.5。百炼的 Fun-ASR（`fun-asr-*`）不在兼容口上（回 400 `{}`），对话型服务商上这类模型自动改走 DashScope 原生口 `/api/v1/services/aigc/multimodal-generation/generation`，同一家的 Qwen3-ASR 照旧走 `/chat/completions` | 语音识别选「不启用」，或把两个键清空 |
 | 记忆条目的到期日与作用域 | 管家记忆 `expiresAt`／`scope` | e2e；纯增量字段 | 无开关（不填＝永久有效、到处有效，与 2.7.0 行为相同） |
 
 ### 7.3 第 126 波压缩 v2 五个开关（三个已翻默认开，两个仍在实验档）
@@ -570,7 +570,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
   2. **定时任务默认开**（`schedulerEnabledV1`）—— 没有任务时零轮询、零写入。
   3. **新线程跟随上次用的引擎**（`newThreadEngine: 'last'`）—— 要回到「永远跟全局」就设 `'global'`。
   4. **三个压缩开关被一次性打开**（`runtimeSummaryPromptI18nV1`／`runtimeHistoryReadDedupV1`／`runtimeReseedTailUnitsV1`）—— **包括你此前在 `config.json` 里显式关过的**，这是 `configSchema < 12` 那道一次性迁移干的（见 §7.3 的说明框）。`locale=en-US` 的用户从此拿到英文摘要，摘要费用约 **+60%**。**2.8.0 之后你自己再关掉的，升级不会再动。** 不想要就在升级后把对应键写回 `false`。
-- 语音识别**不会**被自动打开：`asrProviderId`／`asrModel` 出厂两空，未配置时麦克风连节点都不建。
+- 语音识别**不会**被自动打开：`asrProviderId`／`asrModel` 出厂两空，未配置时麦克风只是一枚点了跳设置页的灰按钮。
 - 定时任务的数据面是新建的（`<dataRoot>/scheduler/tasks-v1.json` 与 `fires-v1.ndjson`），不动任何 2.7.0 的文件。
 
 ### 7.5 回滚到 2.7.0：**先备份，否则会静默丢字段**
@@ -588,7 +588,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 2. **备份两样，拷到数据目录之外**：`<dataRoot>\config.json`（连同 `config.json.prev`）与 `<dataRoot>\steward\` **整个目录**（`memory-v1.json`、`decisions-v1.ndjson` 等）。想更保险就整个 `<dataRoot>` 拷一份。
 3. 回到 2.7.0 的安装目录（升级时留着的那个旧目录），或重新解压 2.7.0 的完整包。
 4. **要回到 2.8.0 时顺序不能反**：先把 2.8.0 装回去，**再**把备份的 `config.json` 与 `steward\` 拷回覆盖，**然后**才启动。先启动再拷，会被启动期那一轮 normalize 写过一遍。
-5. **如果已经降级过、又没有备份**：`models[].caps` 要在设置里给每个语音／向量模型重新打标、语音识别那一对、`audioBaseUrl` 与「语音识别协议」要重选、`hiddenModels` 里隐藏过的模型会重新出现在模型列表里、管家记忆的到期日与作用域回到「永久有效、到处有效」。
+5. **如果已经降级过、又没有备份**：`models[].caps` 要在设置里给每个语音／向量模型重新打标、语音识别那一对、`audioBaseUrl` 与「语音转文字接口」要重选、`hiddenModels` 里隐藏过的模型会重新出现在模型列表里、管家记忆的到期日与作用域回到「永久有效、到处有效」。
 
 **另外两件降级时会发生的事，先知道**：
 

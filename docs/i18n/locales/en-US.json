@@ -341,9 +341,9 @@
   "error.permissionDenied": "Permission was denied for this operation",
   "error.permissionDenied.next": "Allow it in the prompt, or adjust the mode in Safety and permissions",
   "error.providerError": "The model provider returned an error",
-  "error.providerError.next": "Usually a temporary server fault or a rejected request: retry shortly. If it keeps happening, check the error details, or open Settings → Model providers and check the model name and URL",
+  "error.providerError.next": "Usually a temporary server fault or a rejected request: retry shortly. If it keeps happening, check the error details, or open Settings → Models & Services → Model providers and check the model name and URL",
   "error.providerMisconfigured": "The model endpoint is not configured or unavailable",
-  "error.providerMisconfigured.next": "Open Settings → Model providers and check the URL and API key",
+  "error.providerMisconfigured.next": "Open Settings → Models & Services → Model providers and check the URL and API key",
   "error.toolFailed": "Tool execution failed",
   "error.toolLoop": "Repeated tool calls were detected, so this turn was stopped",
   "file.open": "Open",
@@ -618,7 +618,7 @@
   "modelMenu.modelCount.other": "{{count}} models",
   "modelMenu.modelDeleted": "Removed custom model {{model}}",
   "modelMenu.modelRemoved": "Removed {{model}} from the model list",
-  "modelMenu.noModelsHint": "(Test the connection in Settings → Providers first)",
+  "modelMenu.noModelsHint": "(Test the connection in Settings → Models & Services → Model providers first)",
   "modelMenu.refreshFailed": "Could not refresh model list: {{error}}",
   "modelMenu.refreshModels": "Refresh model list",
   "modelMenu.refreshSuccessBuiltin": "Model list refreshed (built-in list; provider returned none)",
@@ -727,7 +727,7 @@
   "onboarding.wizard.safety.auto.description": "Low-risk work runs and reports back; deleting data, installing software, pushing and sending anything outside still stop and ask you.",
   "onboarding.wizard.safety.auto.title": "Smart auto (new-install default)",
   "onboarding.wizard.safety.autoConfirm.title": "Use \"Smart auto\"?",
-  "onboarding.wizard.safety.autoConfirm.body": "With it, AI edits files and runs commands on its own while you are away, without asking step by step. You can switch back any time under Settings → Permissions & safety.",
+  "onboarding.wizard.safety.autoConfirm.body": "With it, AI edits files and runs commands on its own while you are away, without asking step by step. You can switch back any time under Settings → General → Permissions & safety.",
   "onboarding.wizard.safety.autoConfirm.ok": "Yes, use Smart auto",
   "onboarding.wizard.safety.autoConfirm.cancel": "Not now",
   "onboarding.wizard.safety.default.description": "Asks before every change. Safest, and the most clicking.",
@@ -740,8 +740,8 @@
   "onboarding.wizard.saveFailed": "Could not save: {{reason}}",
   "onboarding.wizard.settingsLabel": "Setup guide",
   "onboarding.wizard.skip": "Exit setup",
-  "onboarding.wizard.skipTitle": "Finish setup another time; you can reopen it any time from Settings › Other",
-  "onboarding.wizard.skipped": "Guide skipped. Reopen it any time from Settings and then Basics.",
+  "onboarding.wizard.skipTitle": "Finish setup another time; you can reopen it any time from Settings → General → General or the Help menu",
+  "onboarding.wizard.skipped": "Guide skipped. Reopen it any time from Settings → General → General or the Help menu.",
   "onboarding.wizard.start": "Start the guide",
   "onboarding.wizard.startHint": "Six steps, a few minutes, and you are ready to work. You can leave at any point.",
   "onboarding.wizard.step.done": "Done",
@@ -3128,7 +3128,7 @@
   ,"settings.steward.quietSnoozeMinutes": "Snooze a quiet card for how long (minutes)"
   ,"settings.steward.quietSnoozeMinutesHint": "Between 1 and 1440 minutes. Snooze schedules a real reminder at this interval, and it comes back to you when it is due."
   ,"settings.steward.group.schedule": "Scheduled tasks"
-  ,"settings.steward.group.scheduleHint": "Things that open a thread on their own when the time comes. Read-only here."
+  ,"settings.steward.group.scheduleHint": "Things that open a thread on their own when the time comes. You can create them right here, or just ask the steward."
   ,"settings.steward.schedule.refresh": "Refresh"
   ,"settings.steward.schedule.empty": "No scheduled tasks yet."
   ,"settings.steward.schedule.next": "Next {{when}}"
@@ -3436,8 +3436,8 @@
   ,"composer.voice.error.notConfigured": "Speech recognition is not set up yet. The input box is unchanged"
   ,"composer.voice.error.tooLarge": "This recording is too long to transcribe. The input box is unchanged"
   ,"composer.voice.error.upstream": "The speech-to-text service returned an error, most likely a wrong model name or a provider outage; the input box is unchanged"
-  ,"composer.voice.error.protocol": "This provider does not accept the current speech interface type. Go to Settings → Providers → Speech recognition, add the model again and choose the other interface type; the input box is unchanged"
-  ,"composer.voice.error.auth": "The speech-to-text provider rejected the API key, or this account has no access to the speech model. Check the key under Settings → Providers; the input box is unchanged"
+  ,"composer.voice.error.protocol": "This provider does not accept the current speech interface type. Go to Settings → Models & Services → Speech recognition, add the model again and choose the other interface type; the input box is unchanged"
+  ,"composer.voice.error.auth": "The speech-to-text provider rejected the API key, or this account has no access to the speech model. Check the key under Settings → Models & Services → Model providers; the input box is unchanged"
   ,"composer.voice.error.failed": "Transcription did not succeed. Try again later; the input box is unchanged"
   ,"composer.voice.error.empty": "No words were recognized. The input box is unchanged"
   ,"composer.voice.hintStream": "Voice input: click to start, text appears as you speak, each finished sentence is corrected automatically; click again to finish, Esc to cancel. Nothing is sent automatically"
@@ -3450,8 +3450,8 @@
   ,"composer.voice.warming.ready": "Speech recognition is ready, go ahead and speak"
   ,"composer.voice.warming.readyIdle": "Speech recognition is ready, click the microphone to start"
   ,"composer.voice.warming.failed": "The more accurate local model could not be loaded; using live recognition this time, so finished sentences may not be corrected"
-  ,"composer.voice.learned": "Learned: {{heard}} → {{term}}{{more}} (manage it in Settings → Speech recognition → Voice vocabulary)"
-  ,"composer.voice.learnedTerm": "Learned: {{term}}{{more}} (manage it in Settings → Speech recognition → Voice vocabulary)"
+  ,"composer.voice.learned": "Learned: {{heard}} → {{term}}{{more}} (manage it in Settings → Models & Services → Speech recognition → Voice vocabulary)"
+  ,"composer.voice.learnedTerm": "Learned: {{term}}{{more}} (manage it in Settings → Models & Services → Speech recognition → Voice vocabulary)"
   ,"composer.voice.learnedMore": " (+{{count}} more)"
   ,"promptQueue.dock.title": "Questions and permissions waiting for you"
   ,"promptQueue.dock.label": "Waiting for you"
