@@ -25,7 +25,8 @@ The first-run card asks you to:
 3. Try a task card. Cards turn a common task into a clear prompt with a few fields to fill in.
 
 A new install starts in Smart auto: low-risk work runs without asking, while deleting data, installing software, pushing and
-sending outbound still stop for you. An upgraded install keeps the level it had. Switch to Ask me every step from the shield
+sending outbound stop for you (recognized by rules over the command text — common phrasings are covered, but it is not a
+sandbox; see SECURITY.md in the repository). An upgraded install keeps the level it had. Switch to Ask me every step from the shield
 button when you want Ruyi to ask before each change.
 
 ### Send your first request
@@ -78,7 +79,7 @@ safety); set a single thread from the **permission chip** in its header.
 | Ask me every step | Asks before editing files or running commands (reads never ask). | First use and important files. |
 | Edit files without asking | File edits proceed; commands and outbound actions still ask. | Trusted editing tasks. |
 | Plan only | Ruyi writes a plan and does not act. | Complex work you want to review first. |
-| Smart auto | Stops asking and reports back. Deleting data, installing software, pushing, sending outbound, and spliced or encoded commands whose real intent cannot be read still stop; the steward may approve the non-floor ones under its rules (see section 9). | Handing the work to the steward without step-by-step interruptions. |
+| Smart auto | Stops asking and reports back. Deleting data, installing software, pushing, sending outbound, and spliced or encoded commands whose real intent cannot be read stop (rule-based, not a sandbox); the steward may approve the non-floor ones under its rules (see section 9). | Handing the work to the steward without step-by-step interruptions. |
 | Fully automatic | Never asks and nothing is vetted - even floor actions such as payments, shutdown, or sending mail run straight away; only system folders stay write-protected (red warning style). | Only in an isolated environment or when you fully trust the task. Scheduled tasks never use it. |
 
 Switching to Smart auto or Fully automatic asks you to confirm first, each with its own explanation. When unsure, use
