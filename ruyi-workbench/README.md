@@ -20,7 +20,7 @@
 ## 运行
 
 ```powershell
-node .\app\server.js serve --open     # 只监听 127.0.0.1，默认端口 8765，被占自动顺延（只接管本数据目录自己的陈旧实例，别的实例不动）
+node .\app\server.js serve --open     # 只监听 127.0.0.1（`--host` 绑非回环地址须显式加 `--allow-remote`），默认端口 8765，被占自动顺延（只接管本数据目录自己的陈旧实例，别的实例不动）
 node .\app\server.js doctor           # 体检：引擎、依赖、端口、数据目录
 node .\app\server.js mcp-config       # 输出工作台 MCP 配置
 node .\app\server.js install          # 把工作台 MCP 注册进本机 Claude Code

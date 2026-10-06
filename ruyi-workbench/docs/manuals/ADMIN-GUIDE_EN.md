@@ -87,7 +87,7 @@ one is put back from the backup, or the marker is cleared if there was none), so
 again without the idempotence precheck calling it "already applied". Build an overlay with
 `node tools/build-overlay.js <version>`; `<version>` is required, and every package needs a different one.
 
-**In-app update.** **Settings → System → Update Center** (visible in pro mode) drives four token-level routes
+**In-app update.** **Settings → System → Update Center** drives four token-level routes
 (`POST /api/overlay/precheck|apply|rollback` and `GET /api/overlay/status`) and does not carry a second PowerShell
 implementation: pick a zip (native file picker) → preview (added / overwritten / unchanged / removed, host and
 minimum-version compatibility) → confirm apply → a "restart needed" prompt → on failure a recovery card (one-click
@@ -98,12 +98,40 @@ After applying, open `http://127.0.0.1:<port>/health`: it should return `{"ok":t
 
 ### Data root
 
-The data root defaults to .ruyi-workbench under the user profile (called .win-claude-workbench before 3.0; the
-first 3.0 start moves it and leaves a directory junction at the old path). Resolution order in `dataRoot()`:
+The data root defaults to .ruyi-workbench under the user profile (called .win-claude-workbench before 3.0).
+Resolution order in `dataRoot()`:
+
+```
+RUYI_HOME  →  WIN_CLAUDE_WORKBENCH_HOME (legacy name, read-only)  →  ~/.ruyi-workbench (default)
+```
+
+`RUYI_HOME` wins and the legacy variable is still recognised, so existing deployments keep working. **Since 3.0 the
+default directory is renamed**: on the first `serve` start (with no data-root variable set) the old default
+`~/.win-claude-workbench` is moved to `~/.ruyi-workbench` and a directory junction is left at the old path, so scripts,
+scheduled tasks and Claude CLI registrations that hard-code the old path keep working. If the old directory has a
+running instance, or cannot be moved (in use, permissions), that start keeps using the old directory, logs one
+`data_root_migration` event, and tries again at the next start. The directory holds `config.json` (a broken one is first
+copied aside as `config.json.corrupt` before recovery from `config.json.prev`), `sessions/*.json` (atomic writes via
+`.tmp` + rename; a damaged file is renamed `.corrupt` instead of deleted), `uploads/*`, `generated/*` (including the
+generated `.mcp.json`), `logs/*`, `checkpoints/<sessionId>/*` (the file-checkpoint journal plus pre-compaction history
+snapshots), `playbooks/*.json` (user-defined task templates) and `webcache/<sha256(url)>.json` (cached page text for web
+fetches). To override it:
+
+```powershell
+$env:RUYI_HOME = "D:\workbench-data"
+```
+
+### Port
 
 The default HTTP port is 8765 (`--port <n>` → `PORT` → 8765). Ruyi binds `127.0.0.1` only; `--host` with any non-loopback address is refused at startup unless you also pass `--allow-remote` explicitly (and even then non-local peers never receive the page token — see `SECURITY.md`). Ruyi is not a multi-user or public web service.
 
 When the port is taken, Ruyi only takes over **its own data directory's stale instance**: the process holding the port must be the pid recorded in *this data directory's* `runtime.json` (cross-checked against overlayId / image name). A Ruyi instance from another install or another data directory — which may be running a turn — and any other program are never touched. In every other case Ruyi moves on to the first free port in original+1 … original+9; the actual port is written to `runtime.json` and the console URL, and the top bar in the UI says which port is in use. Only when all nine are unavailable does startup fail (leaving `last-start-error.json` for the next start to surface). `killPortOnStart=false` / `WCW_KILL_PORT=0` disables takeover entirely, even of its own stale instance.
+
+### Windows 10/11 requirements
+
+Windows 10 / 11 (or Windows Server); Node ≥ 20 (a packaged exe carries its own runtime); no public internet and no
+`npm install` are required. Desktop control, OCR and visual matching also need the Python desktop MCP (see "Desktop MCP
+and honest metering").
 
 ## 2. Engine integration
 
@@ -168,12 +196,12 @@ API key from the endpoint vendor.
 6. **Verify.** `claude mcp list` should show `ruyi - ✔ Connected` (remove a pre-3.0 `win-claude-workbench`
    registration first; `install` does it for you), and `node app\server.js doctor` should show `claudeWorks: true`.
    Then pick the Claude CLI engine in the top bar. The model can be switched in the top-bar model drop-down or under
-   Settings → Agent CLI; both take effect on the next turn. With no specific model, the vendor console decides.
+   Settings → Models & Services → Agent CLI; both take effect on the next turn. With no specific model, the vendor console decides.
 
 | Symptom | What to do |
 |---|---|
 | `claude` fails with a PowerShell execution-policy error | Use `claude.cmd`, or enter the full `claude.cmd` path in Settings. |
-| 401 | Under Settings → Agent CLI set the authentication method to Bearer Token (`ANTHROPIC_AUTH_TOKEN`) or x-api-key (`ANTHROPIC_API_KEY`) explicitly rather than `auto`; check the key is current and belongs to that endpoint. |
+| 401 | Under Settings → Models & Services → Agent CLI set the authentication method to Bearer Token (`ANTHROPIC_AUTH_TOKEN`) or x-api-key (`ANTHROPIC_API_KEY`) explicitly rather than `auto`; check the key is current and belongs to that endpoint. |
 | `mcp add-json` says Invalid input | Use `claude mcp add` (step 5). |
 | Changed model/endpoint but chats still use the old one | A pre-v1.4.4 defect: the three fields fed only model discovery, not the child's environment. After upgrading they (plus `model`) override inherited values on every turn; if it still does not take, look at the `settings.json` row below. |
 | `settings.json` overrides the environment | Check `env.ANTHROPIC_BASE_URL` in `~/.claude/settings.json`; it is the CLI's own user-level file and outranks anything the workbench injects. |
@@ -183,7 +211,7 @@ API key from the endpoint vendor.
 **Environment-variable interference and precedence (required reading for maintainers).** The chain is user-level
 variables (`setx`) → launching terminal → workbench process → `{ ...process.env }` → workbench overrides → the
 Claude CLI child (`buildClaudeCliEnv(config)` / `effectiveAnthropicEnv(config)`). Every user-level variable is still
-inherited unchanged; the last layer overrides only when the matching field is filled in under Settings → Agent CLI:
+inherited unchanged; the last layer overrides only when the matching field is filled in under Settings → Models & Services → Agent CLI:
 `modelsApiBase` → `ANTHROPIC_BASE_URL` (and `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX` are forced empty,
 since they make the CLI ignore `ANTHROPIC_BASE_URL` entirely); `modelsApiKey` is written to exactly one of
 `ANTHROPIC_AUTH_TOKEN` (`bearer`) or `ANTHROPIC_API_KEY` (`x-api-key`) according to `claudeAuthMode`, and the other
@@ -363,8 +391,9 @@ selects (OpenAI-shaped multipart to `/audio/transcriptions` by default, or `/cha
 usage (the chat dialect's `prompt_tokens` / `completion_tokens` are mapped, so it normally reports real numbers).
 The native tool `audio_transcribe` is exec tier because it sends a user file off the machine, and its result is
 flagged untrusted.
-Transcription is off until `asrProviderId` and `asrModel` are both set; unset means the composer builds no
-microphone node at all.
+Transcription is off until `asrProviderId` and `asrModel` are both set; unset, the composer's microphone is only a grey
+"set up" button that opens the settings page (no recording, no outbound call; the button is not shown at all when the
+browser cannot record webm/opus or the page is not a secure context).
 
 ## 3. Security boundaries
 
@@ -411,7 +440,7 @@ The gate `nativeToolGate(mode, tier)` is:
 | Level | read | edit | exec |
 |---|---|---|---|
 | `bypass` (Fully automatic) | allow | allow | allow |
-| `auto` (Smart auto, the default for new installs) | allow | allow | allow, except permanently exempt actions (deleting data, installing or uninstalling software, pushing, sending outbound; see user guide section 9) and commands built by concatenation, encoding or evaluation, which still ask |
+| `auto` (Smart auto, the default for new installs) | allow | allow | allow, except permanently exempt actions (deleting data, installing or uninstalling software, pushing, sending outbound; see user guide section 9), network access started from a command or script (plain reads included), reading secret files in the data folder, and commands built by concatenation, encoding or evaluation, which still ask (the steward never approves the network and secret-file ones) |
 | `default` (Ask me every step) | allow | ask | ask |
 | `acceptEdits` (Edit files without asking) | allow | allow | ask |
 | `plan` (Plan only) | allow | block | block |
@@ -560,7 +589,7 @@ timeline when escalating an issue; do not paste unmasked keys or chat content in
 | **Search backend unreachable** | Check `searchBackend.type` and its baseUrl (required for searxng/custom) and apiKey (required for bing/brave and tavily, optional for bocha). The search backend is a **trusted endpoint, outside SSRF checks**, but must still be reachable. Offline, `web_fetch` falls back to the local webcache (`fromCache: true`). |
 | **PDF fonts / CID fallback** | On a machine without Microsoft YaHei or SimSun, `write_pdf` (an ACC tool) falls back to the built-in `STSong-Light` (CID, no external file, Chinese rendered by the reader); this is **expected**, and the returned `font` field names the font actually used. Without reportlab the whole of `write_pdf` degrades gracefully without affecting other tools. |
 | **Performance / large sessions** | Long conversations are virtualized and paged in the UI; near the window limit, automatic or manual compaction runs (`autoCompactThreshold` defaults to 0.8 × `contextWindow`), and the providerHistory snapshot is stored first at `checkpoints/<sid>/history-*.json.gz`. |
-| **Permission prompt timeout** | Permission and question prompts **default to no time limit**: `permissionTimeoutMs` and `questionTimeoutMs` ship as 0, so a prompt waits for you and folds into the small tray at the bottom right. If you set a limit (Settings → Permissions & safety → "How long to wait for you"; permission 5–600 s, question 1–60 min), a permission request is **rejected** at the deadline and a question is cancelled (Ruyi never grants permission for you). An unattended scheduled task rejects after `schedulerAskWaitMinutes` (30 minutes by default). |
+| **Permission prompt timeout** | Permission and question prompts **default to no time limit**: `permissionTimeoutMs` and `questionTimeoutMs` ship as 0, so a prompt waits for you and folds into the small tray at the bottom right. If you set a limit (Settings → General → Permissions & safety → "How long to wait for you"; permission 5–600 s, question 1–60 min), a permission request is **rejected** at the deadline and a question is cancelled (Ruyi never grants permission for you). An unattended scheduled task rejects after `schedulerAskWaitMinutes` (30 minutes by default). |
 
 ## 7. Secret masking and the launch-target gate (2.8.0)
 
@@ -711,7 +740,7 @@ Product features:
 | `schedulerEnabledV1` | Scheduled tasks | ⚠ fake-clock e2e only | `false` (with no tasks it already polls nothing) |
 | `newThreadEngine: 'last'` | A new thread follows the engine you last used | ⚠ API-level e2e only; **changes existing users' default behaviour** | set it to `'global'` |
 | `stewardExemptDelegationV1` | The steward may approve permanently exempt, non-floor actions (ten gates; see user guide section 9) | ⚠ 46 fake-endpoint cases; **measured real steward-model latency**: mean 17.7 s / max 30.6 s at the 5 s poll, mean 31.5 s / max 42.7 s at the 15 s poll (the factory value), all five delegations succeeded and every audit line matched; since 2026-10 there is event wake-up, see the correction in section 7 | `false` (the same key as the Settings checkbox; **the steward cannot change it itself**) |
-| `asrProviderId` / `asrModel` (both empty from the factory) | Voice input | **Unconfigured means zero behaviour**, verified: the microphone node is never built. The default protocol (OpenAI-shaped `/audio/transcriptions`) returned **404 on all four candidate endpoints**, so set "Speech-to-text protocol" to Chat style per provider (`providers[].asrProtocol='chat-audio'`) — MiMo and Bailian verified working, Hunyuan never verified | choose Off for speech recognition, or clear both keys |
+| `asrProviderId` / `asrModel` (both empty from the factory) | Voice input | **Unconfigured means zero behaviour**, verified: the microphone is only a grey button that opens the settings page. The default protocol (OpenAI-shaped `/audio/transcriptions`) returned **404 on all four candidate endpoints**, so set "Speech-to-text interface" to Chat-based per provider (in the provider card's "Capabilities & options", or by choosing the right interface type under "Add a speech recognition model") (`providers[].asrProtocol='chat-audio'`) — MiMo and Bailian verified working, Hunyuan never verified | choose Off for speech recognition, or clear both keys |
 | Steward memory `expiresAt` / `scope` | Expiry and scope on remembered lines | e2e; purely additive fields | no switch (absent means permanent and everywhere, as in 2.7.0) |
 
 ### 8.2 Wave 126's compaction switches: three now on, two still experimental
@@ -800,7 +829,7 @@ v2.7.0 in wave 107's P1 drill (a provider carrying all four fields, one downgrad
    and `steward\` over it, **then** start. Starting first and restoring after lets the startup normalization pass
    run over them once.
 5. **If you already downgraded without a backup**: re-tag `models[].caps` for each speech or vector model in
-   Settings, re-pick the speech recognition pair, `audioBaseUrl` and the speech-to-text protocol, expect models hidden through `hiddenModels`
+   Settings, re-pick the speech recognition pair, `audioBaseUrl` and the speech-to-text interface, expect models hidden through `hiddenModels`
    to reappear in the model list, and expect steward memory expiry and scope to be back at permanent and
    everywhere.
 
