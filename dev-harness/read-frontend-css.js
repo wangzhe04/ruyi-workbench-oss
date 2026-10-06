@@ -79,27 +79,29 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 mermaid 图表配色续钉(前值 5e1ed875…＝2026-10 chip 菜单往上翻续钉):零新增、零删除层,改两层 ——
-//   `css/views/chat-narrative.css`:mermaid 灯箱 —— 幕布从 `--glass-bg-3`(浅色下 46% 白毛玻璃)换成两套主题都压暗的
-//   `--viewer-scrim`;`.mermaid-lightbox-stage` 加实底卡片(`--panel-2` 底、`--line-2` 描边、圆角、投影;内边距由 JS 写)。
-//   用户实报浅色下点开放大后光标糊在发白的背景与透明底图里、看不见。
-//   `css/themes/color-schemes.css`:两套主题各加一个 `--viewer-scrim`(暗 rgba(8,12,20,.78) / 亮 rgba(20,28,44,.62))。
-//   其余规则零改动;图本身的配色在 js/mermaid-runtime.js 的色板里(mermaid 只认十六进制,不走 CSS 变量)。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 366ffa5:<两层>` 重算 = 5e1ed875…,与被替换的旧值逐字相同
+// 2026-10 3.0 收口走查 · 记忆作用域续钉(前值 33d8aa55…＝2026-10 3.0 收口走查第一波 · 聊天区续钉):零新增、零删除层,改一层 ——
+//   `css/states/chat-live.css`:记忆候选卡补作用域选择与说明(`.memory-proposal-scope` / `-scope-note`)、批量卡每条的选项行与「加入核心」开关(`.memory-proposal-opts` / `.memory-proposal-core` 及其 `[aria-pressed]` 态)。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 77751c2:<css>` 重算 = 33d8aa55…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
-// 2026-10 mermaid 五路走查续钉(前值 331a296d…＝2026-10 mermaid 图表配色续钉):零新增、零删除层,改一层 ——
-//   `css/views/chat-narrative.css`:`.mermaid-view svg` / `.mermaid-lightbox-stage svg` 收窄成子选择器 `> svg`
-//   (修前 height:auto 也落在架构图 / 流程图图标那层嵌套 <svg> 上,计算高度撑成整图高、图标整排错位);
-//   新增 `.mermaid-hint-detail`(回落提示下面那行解析器原话:等宽字、长行可断)。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-narrative.css>` 重算 = 331a296d…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
-// 61 号文 C3 记忆批量卡续钉(前值 18e23fa1…＝2026-10 mermaid 五路走查续钉):零新增、零删除层,改一层 ——
-//   `css/states/chat-live.css`:记忆候选卡下面加批量卡的几条(`.memory-proposal-items` / `-item` / `-item-head` / `-pick` /
-//   `-body` / `-body-text`):每条一行、行间细分隔线,勾选框与名称同一行,正文收在 <details> 里(限高可滚)。
-//   颜色全走既有 token / color-mix,零新增动效;单条卡的规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-live.css>` 重算 = 18e23fa1…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = 'ecad3e8fd7b70f515a92fe26cfb8cb2aec20c5c6615cb2c2d5f160db0e0f8836';
+// 2026-10 3.0 收口走查第二波 · 前端续钉(前值 eb011087…＝2026-10 3.0 收口走查 · 记忆作用域续钉):零新增、零删除层,改四层 ——
+//   `css/views/chat-shell.css`:线程头钉回 flex-wrap:nowrap 并做 container: thhead / inline-size,按线程头自身宽度分档收起管家话与开关文字(中英各一套阈值,<460px 管家条独占一行);`.topbar-title` 最小宽 6em。
+//   `css/components/chat-composer.css`:回合进行中胶囊允许折行,输入框以 14em 为基、8em 为底,下拉定宽 8em。
+//   `css/views/settings.css`:`.settings-nav-label` 允许折行。
+//   `css/views/steward-board.css`:左栏行「⋯」出流定位,悬停时右端时间 visibility:hidden 不再改行高;hover:none 仍流内常显。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show a77a57e:<css>` 重算 = eb011087…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
+// 2026-10 3.0 收口走查第三波 · 界面续钉(前值 503807bf…＝2026-10 3.0 收口走查第二波 · 前端续钉):零新增、零删除层,改八层 ——
+//   `css/layout.css`:顶栏改三列(1fr / auto / max-content),窄档收状态胶囊;抽屉关着时 visibility:hidden(不进 Tab 序、不漏阴影)。
+//   `css/views/steward-settings.css`:权限档菜单限宽、选项可换行,≤640 改顶栏下方全宽;定时任务表单与星期块的 [hidden] 补 display:none。
+//   `css/views/steward-board.css`:左栏行标题限宽,「等你放行」胶囊限高省略。
+//   `css/views/settings.css`:窄屏页签自适应宽度,不再互相叠印。
+//   `css/states/chat-live.css`:子代理卡头允许换行、标题保底 6em。
+//   `css/themes/ui-modes.css`:简洁模式工具卡动词不换行。
+//   `css/views/chat-shell.css`:上下文电量条可收缩;线程头 chip 值在线程头 ≥400 宽时保底 2em,英文窄档标签可换行。
+//   `css/views/workbench.css`:配合线程头窄档的小调整。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 3d9067f:<css>` 重算 = 503807bf…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = 'ae8f54cb7e2f0b595b86999ea34feda1f3236cc61df5f1968352dc76b2b05a68';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

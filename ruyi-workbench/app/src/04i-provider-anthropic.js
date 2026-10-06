@@ -36,6 +36,15 @@ const ANTHROPIC_AUTH_MODES = new Set(['x-api-key', 'bearer']);
 const ANTHROPIC_THINKING_MODES = new Set(['adaptive', 'off']);
 // provider.anthropicFallbacks:'off' 关掉官方主机上的服务端拒答改派;缺省开(见 anthropicModelTraits.fallbacks)。
 const ANTHROPIC_FALLBACK_MODES = new Set(['off']);
+// 经典思考({type:'enabled', budget_tokens})的预算:API 要求 ≥1024 且小于 max_tokens;上限 16K,其余留给作答。
+const ANTHROPIC_THINKING_BUDGET_MIN = 1024;
+const ANTHROPIC_THINKING_BUDGET_MAX = 16000;
+const ANTHROPIC_THINKING_EFFORT_BUDGET = { low: 2048, medium: 6144, high: 12000, xhigh: 16000, max: 16000 };
+// 兼容网关按模型限制输出上限(DeepSeek:「Invalid max_tokens value, the valid range of max_tokens is [1, 8192]」)。第一次 400
+// 时从报文读出上限记在进程里,之后同一端点上的同一模型的请求直接按它发 —— 修前每个回合都先吃一次 400。
+// 键是「端点 + 模型」(anthropicLearnedCapKey):上限是某个网关对某个模型的限制,不是模型名本身的属性 —— 修前只按模型名记、进程全局,
+// 某个小网关教会 8192 之后,同名模型在官方 / 别的网关上也被腰斩到 8192,直到重启。
+const anthropicLearnedMaxTokens = new Map();
 
 function normalizeAnthropicAuth(value) {
   return typeof value === 'string' && ANTHROPIC_AUTH_MODES.has(value) ? value : '';
@@ -51,9 +60,26 @@ function anthropicOfficialHost(baseUrl) {
   const m = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?([^:/?#]+)/i.exec(String(baseUrl || '').trim());
   return Boolean(m && m[1].toLowerCase() === 'api.anthropic.com');
 }
+// Base URL 只到 /anthropic(网关)或主机(官方)这一级;用户常把完整端点粘进来(…/v1/messages、…/messages)—— 剥掉端点后缀,
+// 修前拼成 …/v1/messages/v1/messages,404。
+function anthropicBaseUrl(baseUrl) {
+  return String(baseUrl || '').trim().replace(/\/+$/, '').replace(/(?:\/v\d+)?\/messages$/i, '');
+}
+function anthropicApiBase(baseUrl) {
+  return providerBaseWithV1(anthropicBaseUrl(baseUrl));
+}
 function anthropicMessagesUrl(baseUrl) {
-  const base = providerBaseWithV1(baseUrl);
+  const base = anthropicApiBase(baseUrl);
   return base ? base + '/messages' : '';
+}
+function anthropicModelsUrl(baseUrl) {
+  const base = anthropicApiBase(baseUrl);
+  return base ? base + '/models' : '';
+}
+// 学到的上限的键。endpoint 可以是 Base URL(编码一侧手里有 provider.baseUrl),也可以是本次请求的完整端点(重打一侧手里有 chatUrl):
+// 两者都过 anthropicApiBase,于是「…/anthropic」「…/anthropic/」「…/anthropic/v1/messages」是同一个键;主机名大小写不分。缺省端点 = ''。
+function anthropicLearnedCapKey(endpoint, model) {
+  return anthropicApiBase(endpoint).toLowerCase() + '\n' + String(model || '');
 }
 // 按模型名认 Claude 家族的请求面差异(claude-api 技能 2026-09 的迁移指南;网关上的非 Claude 模型一律 false,走最保守的请求):
 //   adaptive        自适应思考:4.6 起的 opus / sonnet / fable / mythos(更早的与 haiku 走 budget_tokens,发 adaptive 会 400)
@@ -106,11 +132,21 @@ function anthropicRequestHeaders(provider, opts) {
 // 思考配置。display:'summarized' 让界面拿得到可读的推理摘要 —— Opus 5.5 / Sonnet 5.5 把工具调用之间的进度说明也放进思考块,
 // 缺省 display:'omitted' 时界面会在整个长回合里一声不吭。官方主机再带 block_binding:drop_block(前缀对不上的思考块由 API 丢掉,
 // 不回 400;配套 beta 头由 anthropicRequestHeaders 按同一判据带上)。
-function anthropicThinkingFor(provider, model) {
+// 经典思考:网关上的非 Claude 模型(DeepSeek / Kimi / GLM / MiniMax 的 Anthropic 兼容端点)与不认自适应思考的旧 Claude 要开思考,
+// 发的是 {type:'enabled', budget_tokens} —— 各家兼容网关都实现的那一种。adaptive 是官方新模型才认的类型,网关普遍回 400,
+// 再被 retryOn400 整个去掉思考:修前「思考:开」在网关上等于静默关。预算按本次 max_tokens 留出作答余量,放不下就不开。
+function anthropicClassicThinking(maxTokens, effort) {
+  const max = Number(maxTokens) || 0;
+  const wanted = ANTHROPIC_THINKING_EFFORT_BUDGET[String(effort || '')] || Math.floor(max / 2);
+  const budget = Math.min(ANTHROPIC_THINKING_BUDGET_MAX, wanted, max - 1024);
+  return budget >= ANTHROPIC_THINKING_BUDGET_MIN ? { type: 'enabled', budget_tokens: budget } : null;
+}
+function anthropicThinkingFor(provider, model, maxTokens) {
   const mode = normalizeAnthropicThinking(provider && provider.anthropicThinking);
   const traits = anthropicModelTraits(model);
   if (mode === 'off') return traits.betweenTools ? { type: 'between_tools' } : null;
   if (mode !== 'adaptive' && !traits.adaptive) return null;
+  if (!traits.adaptive) return anthropicClassicThinking(maxTokens == null ? ANTHROPIC_STREAM_MAX_TOKENS : maxTokens);
   const thinking = { type: 'adaptive', display: 'summarized' };
   if (anthropicOfficialFeatures(provider, model).thinkingBinding) thinking.block_binding = { prefix_mismatch_behavior: 'drop_block' };
   return thinking;
@@ -248,6 +284,19 @@ function anthropicMessagesFromHistory(history, model, hasTools) {
 // 基础请求体。messages 是 chat 形历史,首条 system;instructions 显式给了就用它当顶层 system。
 // foldSystem 在这里没有区别:后插的 system 规则总是以 <system-reminder> 留在对话里(Messages 没有多 system 通道,但丢掉不行)。
 // hasTools:这一发会不会带 tools(调用方随后 applyTools)。不是 true 时工具块改写成文字(见 anthropicAssistantBlocks),也不回放思考块。
+function anthropicMaxTokensFor(provider, model, wanted) {
+  const cap = anthropicLearnedMaxTokens.get(anthropicLearnedCapKey(provider && provider.baseUrl, model));
+  return cap && cap < wanted ? cap : wanted;
+}
+// 从 400 报文里读出网关允许的 max_tokens 上限:「valid range … is [1, 8192]」/「max_tokens: 64000 > 32000」/「less than or equal to 8192」。
+function anthropicMaxTokensCapFromError(errText) {
+  const msg = String(errText || '');
+  const m = /\[\s*\d+\s*,\s*(\d{3,7})\s*\]/.exec(msg)
+    || /max_tokens[^0-9]{0,40}\d+\s*>\s*(\d{3,7})/i.exec(msg)
+    || /(?:less than or equal to|<=|at most|maximum(?: value)?(?: is| of)?)\s*(\d{3,7})/i.exec(msg);
+  const n = m ? Number(m[1]) : 0;
+  return n >= 256 ? n : 0;
+}
 function encodeAnthropicMessages({ model, messages, stream, instructions, provider, hasTools }) {
   const list = Array.isArray(messages) ? messages : [];
   const hasLead = Boolean(list[0] && (list[0].role === 'system' || list[0].role === 'developer'));
@@ -255,10 +304,11 @@ function encodeAnthropicMessages({ model, messages, stream, instructions, provid
   const system = typeof instructions === 'string' ? instructions : lead;
   const rest = hasLead ? list.slice(1) : list;
   const officialClaude = anthropicOfficialHost(provider && provider.baseUrl) && anthropicModelTraits(model).adaptive;
-  const body = { model, max_tokens: stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS };
+  const wantedMax = stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS;
+  const body = { model, max_tokens: anthropicMaxTokensFor(provider, model, wantedMax) };
   if (system.trim()) body.system = system;
   body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true);
-  const thinking = anthropicThinkingFor(provider, model);
+  const thinking = anthropicThinkingFor(provider, model, body.max_tokens);
   if (thinking) body.thinking = thinking;
   // 官方 API 上的新模型:安全分类器误拒时由服务端按类别改派推荐模型(fallbacks:'default',beta 头见 anthropicRequestHeaders)。
   // 改派后的回复里 message.model 是接手的模型;回放判据认请求时的 model(providerBlocks.requestModel),接手模型读不了的思考块由 API 丢掉。
@@ -271,6 +321,14 @@ function applyAnthropicEffort(body, effort) {
   if (!e) return body;
   const mapped = (e === 'none' || e === 'minimal') ? 'low' : e;
   if (!ANTHROPIC_EFFORTS.has(mapped)) return body;
+  // 网关上的非 Claude 模型不认 output_config(官方新字段):强度只折算成经典思考的预算(开着思考时才有意义)。
+  if (!anthropicModelTraits(body && body.model).claude) {
+    if (body.thinking && body.thinking.type === 'enabled') {
+      const thinking = anthropicClassicThinking(body.max_tokens, mapped);
+      if (thinking) body.thinking = thinking;
+    }
+    return body;
+  }
   body.output_config = Object.assign({}, body.output_config, { effort: mapped });
   // between_tools 只接受 high 及以下;更高的档位要自适应思考(否则 400)。
   if (body.thinking && body.thinking.type === 'between_tools' && (mapped === 'xhigh' || mapped === 'max')) body.thinking = { type: 'adaptive', display: 'summarized' };
@@ -302,13 +360,13 @@ function applyAnthropicTools(body, tools) {
   body.tool_choice = { type: 'auto' };
   return body;
 }
-function encodeAnthropicQuick({ model, messages, plain }) {
+function encodeAnthropicQuick({ model, messages, plain, provider }) {
   const list = Array.isArray(messages) ? messages : [];
   const system = list.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
   const user = list.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
-  const body = { model, max_tokens: 400, messages: [{ role: 'user', content: [{ type: 'text', text: anthropicNonEmpty(user) }] }], stream: false };
+  const body = { model, max_tokens: anthropicMaxTokensFor(provider, model, 400), messages: [{ role: 'user', content: [{ type: 'text', text: anthropicNonEmpty(user) }] }], stream: false };
   if (system.trim()) body.system = system;
-  if (!plain) body.output_config = { effort: 'low' };
+  if (!plain && anthropicModelTraits(model).claude) body.output_config = { effort: 'low' };   // 网关上的非 Claude 模型不认 output_config
   return body;
 }
 
@@ -326,7 +384,9 @@ function anthropicFinishReason(stopReason) {
   switch (String(stopReason || '')) {
     case 'end_turn': case 'stop_sequence': case 'pause_turn': return 'stop';
     case 'tool_use': return 'tool_calls';
-    case 'max_tokens': case 'model_context_window_exceeded': return 'length';
+    case 'max_tokens': return 'length';
+    // 上下文窗口满了不是「输出上限」:归一成 context_exceeded,09 给「先压缩 / 新开线程」的提示,而不是「发继续」(那只会让窗口更满)。
+    case 'model_context_window_exceeded': return 'context_exceeded';
     case 'refusal': return 'refusal';
     default: return stopReason ? String(stopReason) : null;
   }
@@ -368,6 +428,8 @@ function decodeAnthropicCompletion(j, opts) {
   const errorDetail = isError && j.error ? String(j.error.message || j.error.type || 'provider error') : '';
   const refusal = stop === 'refusal';
   const providerBlocks = anthropicProviderBlocks(blocks, j && j.model, opts && opts.requestModel);
+  // 失败回体的 httpError 文本(与流式解码器同形:还没吐内容且认得出状态码 → 'HTTP <status>: …'):07 非流式分支据此报 httpError。
+  const failureText = isError ? anthropicStreamErrorText(j.error || {}, false, opts && opts.scrub, 'Anthropic error') : (refusal ? anthropicRefusalDetail(j.stop_details) : '');
   return {
     text: outText, reasoning, toolCalls,
     finishReason: isError ? 'error' : anthropicFinishReason(stop),
@@ -375,6 +437,7 @@ function decodeAnthropicCompletion(j, opts) {
     incompleteReason: String(stop || 'output limit'),
     failed: isError || refusal,
     failedDetail: isError ? errorDetail : (refusal ? anthropicRefusalDetail(j.stop_details) : ''),
+    failureText,
     usage: normalizeAnthropicUsage(j && j.usage) || null,
     responseId: (j && typeof j.id === 'string' && j.id) || '',
     ...(providerBlocks ? { providerBlocks } : {}),
@@ -383,12 +446,12 @@ function decodeAnthropicCompletion(j, opts) {
 // 流中的 error 事件:还没吐出任何内容时按 HTTP 状态口径报(overloaded → 529、限流 → 429、api_error → 500,
 // 04h providerCallIsTransient 据此走瞬时重试);已经吐过内容就不带状态码 —— 重试会让界面上的内容重放一遍。
 const ANTHROPIC_STREAM_ERROR_STATUS = { overloaded_error: 529, rate_limit_error: 429, api_error: 500, request_too_large: 413 };
-function anthropicStreamErrorText(err, emitted, scrub) {
+function anthropicStreamErrorText(err, emitted, scrub, label) {
   const kind = String((err && err.type) || 'error');
   const msg = String((err && err.message) || '');
   const detail = kind + (msg ? ': ' + (typeof scrub === 'function' ? scrub(msg.slice(0, 400)) : msg.slice(0, 400)) : '');
   const status = ANTHROPIC_STREAM_ERROR_STATUS[kind];
-  return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Anthropic stream error: ' + detail;
+  return !emitted && status ? 'HTTP ' + status + ': ' + detail : (label || 'Anthropic stream error') + ': ' + detail;
 }
 // 用量合并:后到的只覆盖有限数字。message_delta.usage 里 input_tokens / cache_* 可以是 null(SDK 类型就是可空),
 // 直接展开会把 message_start 的真实计数抹成 0,上下文校准与用量台账跟着错。
@@ -484,9 +547,23 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
 //   0) 端点不认 thinking.block_binding / between_tools(官方以外):只去这一项(先于 1,报文里也有 thinking.block 字样);
 //   1) 思考块签名校验失败(前缀被改过):去掉全部 thinking / redacted_thinking 块;
 //   2) 兼容网关不认某个参数(thinking / output_config / temperature / top_p / top_k / fallbacks):去掉报文里点名的那几个。
-function anthropicRetryBodyOn400(body, errText) {
+// ctx.url:本次请求的端点(openAiStreamOnce 的 chatUrl)—— 学到的上限记在这个端点名下;老调用形态不带 ctx 就记在「无端点」名下。
+function anthropicRetryBodyOn400(body, errText, ctx) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
+  // 网关的输出上限比我们发的小:按报文给的上限重打,并记住(同一模型之后直接按它发);经典思考的预算跟着收。
+  if (body.max_tokens != null && /max_tokens/i.test(msg)) {
+    const cap = anthropicMaxTokensCapFromError(msg);
+    if (cap && cap < Number(body.max_tokens)) {
+      anthropicLearnedMaxTokens.set(anthropicLearnedCapKey(ctx && ctx.url, body.model), cap);
+      const copy = { ...body, max_tokens: cap };
+      if (copy.thinking && copy.thinking.type === 'enabled') {
+        const thinking = anthropicClassicThinking(cap, '');
+        if (thinking) copy.thinking = thinking; else delete copy.thinking;
+      }
+      return copy;
+    }
+  }
   // 官方以外的端点不认 block_binding / between_tools:只去掉这一项,思考照开。
   // 只在「去掉之后请求体真的变了」时走这一支:签名不匹配的官方报文里也点名 block_binding(建议你设 prefix_mismatch_behavior),
   // 而请求体里并没有它 —— 这时原样重打只会再吃一次同一个 400,要落到下面的「去掉思考块」。

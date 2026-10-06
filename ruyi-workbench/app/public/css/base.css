@@ -103,6 +103,10 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
+/* 原生复选框 / 单选框只有 13px,上面那圈 22% 淡光晕在键盘焦点时几乎看不见(走查放大 400% 才认得出)。 */
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
 
 .hidden { display: none !important; }
 .muted { color: var(--muted); font-size: var(--fs-sm); }

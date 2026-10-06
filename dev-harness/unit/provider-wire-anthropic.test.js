@@ -102,7 +102,11 @@ test('[A2] 请求编码', () => {
   assert.equal(think('claude-haiku-4-5', GATEWAY), undefined);
   assert.equal(think('claude-sonnet-4-20250514', GATEWAY), undefined, '日期后缀不当次版本号');
   assert.equal(think('kimi-k2', GATEWAY), undefined);
-  assert.deepEqual(think('kimi-k2', { ...GATEWAY, anthropicThinking: 'adaptive' }), { type: 'adaptive', display: 'summarized' });
+  // 2026-10(用户报 DeepSeek /anthropic 接入):网关上的非 Claude 模型「思考:开」发经典形 {type:'enabled', budget_tokens} ——
+  // adaptive 只有官方新 Claude 认,网关回 400 后被 retryOn400 整个去掉思考,修前这里钉的 adaptive 在网关上等于静默关。
+  assert.deepEqual(think('kimi-k2', { ...GATEWAY, anthropicThinking: 'adaptive' }), { type: 'enabled', budget_tokens: 16000 });
+  assert.equal(think('deepseek-reasoner', { ...GATEWAY, reasoning: true }), undefined, 'Anthropic 协议只认 anthropicThinking 一个开关(通用的 reasoning 不串进来)');
+  assert.deepEqual(think('claude-sonnet-4-5', { ...GATEWAY, anthropicThinking: 'adaptive' }), { type: 'enabled', budget_tokens: 16000 }, '不认 adaptive 的旧 Claude 同样走经典形');
   assert.equal(think('claude-opus-5-5', { ...OFFICIAL, anthropicThinking: 'off' }), undefined);
   // 没有 system 时不发空 system
   assert.ok(!('system' in wire.encodeMessages({ model: 'm', messages: [{ role: 'user', content: 'x' }], stream: true })));
@@ -156,7 +160,8 @@ test('[A3b] 不带 tools 的请求:工具块改写成文字,不回放思考块',
 });
 
 test('[A4] 推理强度、工具、短补全', () => {
-  const eff = e => wire.applyEffort({ output_config: { keep: 1 } }, e);
+  // output_config 是官方 Claude 的字段(网关上的非 Claude 模型不发,见下面 gateway 那几条);这里钉 Claude 模型上的映射。
+  const eff = e => { const b = wire.applyEffort({ model: 'claude-opus-5-5', output_config: { keep: 1 } }, e); delete b.model; return b; };
   assert.deepEqual(eff('high'), { output_config: { keep: 1, effort: 'high' } });
   assert.deepEqual(eff('minimal').output_config.effort, 'low');
   assert.deepEqual(eff('none').output_config.effort, 'low');
@@ -177,9 +182,14 @@ test('[A4] 推理强度、工具、短补全', () => {
   });
   assert.equal(wire.outputTokensField, 'max_tokens');
   assert.equal(wire.serverWebSearch, false);
-  assert.deepEqual(wire.encodeQuick({ model: 'm', messages: [{ role: 'system', content: 'FIX' }, { role: 'user', content: '句子' }] }),
-    { model: 'm', max_tokens: 400, messages: [{ role: 'user', content: [{ type: 'text', text: '句子' }] }], stream: false, system: 'FIX', output_config: { effort: 'low' } });
-  assert.ok(!('output_config' in wire.encodeQuick({ model: 'm', messages: [{ role: 'user', content: 'x' }], plain: true })));
+  assert.deepEqual(wire.encodeQuick({ model: 'claude-opus-5-5', messages: [{ role: 'system', content: 'FIX' }, { role: 'user', content: '句子' }] }),
+    { model: 'claude-opus-5-5', max_tokens: 400, messages: [{ role: 'user', content: [{ type: 'text', text: '句子' }] }], stream: false, system: 'FIX', output_config: { effort: 'low' } });
+  assert.ok(!('output_config' in wire.encodeQuick({ model: 'claude-opus-5-5', messages: [{ role: 'user', content: 'x' }], plain: true })));
+  // 网关上的非 Claude 模型:不发 output_config(短补全与推理强度都是);强度只折算经典思考的预算。
+  assert.ok(!('output_config' in wire.encodeQuick({ model: 'deepseek-chat', messages: [{ role: 'user', content: 'x' }] })));
+  assert.deepEqual(wire.applyEffort({ model: 'deepseek-chat' }, 'high'), { model: 'deepseek-chat' }, '没开思考:强度什么也不发');
+  assert.deepEqual(wire.applyEffort({ model: 'deepseek-reasoner', max_tokens: 32000, thinking: { type: 'enabled', budget_tokens: 16000 } }, 'low'),
+    { model: 'deepseek-reasoner', max_tokens: 32000, thinking: { type: 'enabled', budget_tokens: 2048 } }, '开着经典思考:强度折算预算');
 });
 
 test('[A5] 非流式解码', () => {
@@ -210,6 +220,30 @@ test('[A5] 非流式解码', () => {
   assert.equal(err.failed, true);
   assert.equal(err.failedDetail, 'bad');
   assert.equal(wire.decodeCompletion(null).text, '');
+});
+
+test('[A5b] 2026-10 走查(w1-provider):失败回体的 httpError 文本 failureText;窗口超限归一成 context_exceeded 而不是 length', () => {
+  // 窗口满了 ≠ 输出上限:09 据此给「先压缩 / 新开线程」而不是「发继续」。incomplete 仍为 true(摘要重试判据不变)。
+  const ctx = wire.decodeCompletion({ content: [{ type: 'text', text: '半' }], stop_reason: 'model_context_window_exceeded' });
+  assert.equal(ctx.finishReason, 'context_exceeded');
+  assert.equal(ctx.incomplete, true);
+  assert.equal(wire.decodeCompletion({ content: [], stop_reason: 'max_tokens' }).finishReason, 'length', 'max_tokens 仍是 length');
+  // 失败回体:与流式 error 事件同形(还没吐内容且认得出状态码 → HTTP <status>: …;认不出 → 'Anthropic error: …')
+  const overloaded = wire.decodeCompletion({ type: 'error', error: { type: 'overloaded_error', message: 'busy sk-ant-xxxxabcdefghijklmnopqrstuvwxyz0123456789' } });
+  assert.equal(overloaded.failed, true);
+  assert.match(overloaded.failureText, /^HTTP 529: overloaded_error: busy /);
+  assert.doesNotMatch(overloaded.failureText, /abcdefghijklmnop/, '失败文本经脱敏');
+  const bad = wire.decodeCompletion({ type: 'error', error: { type: 'invalid_request_error', message: 'bad' } });
+  assert.equal(bad.failureText, 'Anthropic error: invalid_request_error: bad');
+  const refused = wire.decodeCompletion({ content: [], stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'cyber', explanation: 'no' } });
+  assert.equal(refused.failureText, 'Anthropic refusal (cyber): no');
+  assert.equal(wire.decodeCompletion({ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }).failureText, '', '成功回体 failureText 为空串');
+  // 流式:窗口超限同样归一
+  const dec = wire.createStreamDecoder({ onEvent: () => {}, markUsage: () => {} });
+  dec.feed({ type: 'message_start', message: { id: 'm', model: 'claude-opus-5-5' } });
+  dec.feed({ type: 'message_delta', delta: { stop_reason: 'model_context_window_exceeded' } });
+  dec.feed({ type: 'message_stop' });
+  assert.equal(dec.finish().finishReason, 'context_exceeded');
 });
 
 function runStream(events, requestModel) {
@@ -443,4 +477,58 @@ test('[A10] 同一 tool_use_id 只出一块 tool_result', () => {
   const results = body.messages.flatMap(m => m.content).filter(b => b.type === 'tool_result');
   assert.equal(results.length, 1);
   assert.equal(results[0].content, 'real', '留后到的真结果');
+});
+
+// 2026-10(用户报 DeepSeek /anthropic 接入有问题):兼容网关的三处常见坑。
+test('[A9] 兼容网关:粘进来的完整端点、经典思考的预算、max_tokens 超网关上限的 400 自学', () => {
+  // ① Base URL 粘的是完整端点:剥掉 /v1/messages,不再拼成 …/v1/messages/v1/messages
+  assert.equal(wire.completionUrl('https://api.deepseek.com/anthropic'), 'https://api.deepseek.com/anthropic/v1/messages');
+  assert.equal(wire.completionUrl('https://api.deepseek.com/anthropic/v1/messages'), 'https://api.deepseek.com/anthropic/v1/messages');
+  assert.equal(wire.completionUrl('https://api.deepseek.com/anthropic/messages/'), 'https://api.deepseek.com/anthropic/v1/messages');
+  assert.equal(wire.completionUrl('https://api.anthropic.com/v1/messages'), 'https://api.anthropic.com/v1/messages');
+  assert.equal(wire.completionUrl('https://gw.example.cn/anthropic/v1'), 'https://gw.example.cn/anthropic/v1/messages');
+  assert.equal(wire.modelsUrl('https://api.deepseek.com/anthropic/v1/messages'), 'https://api.deepseek.com/anthropic/v1/models');
+  // ② 经典思考的预算放得进 max_tokens:非流式(8192)也开得了,预算留出作答余量
+  const enc = (model, provider, stream = true) => wire.encodeMessages({ model, messages: [{ role: 'user', content: 'hi' }], stream, provider });
+  const gwOn = { ...GATEWAY, anthropicThinking: 'adaptive' };
+  const nonStream = enc('deepseek-reasoner', gwOn, false);
+  assert.equal(nonStream.max_tokens, 8192);
+  assert.deepEqual(nonStream.thinking, { type: 'enabled', budget_tokens: 4096 });
+  // ③ 网关回「valid range of max_tokens is [1, 8192]」:按它重打并记住,同一模型之后直接按它发
+  const first = enc('deepseek-chat-a9', gwOn);
+  assert.equal(first.max_tokens, 32000);
+  // (第三波复核:上限按「端点 + 模型」记 —— 生产调用点 openAiStreamOnce 总是带上本次请求的端点,这里同样带;键的隔离见 [A11])
+  const retried = wire.retryOn400(first, 'HTTP 400: {"error":{"message":"Invalid max_tokens value, the valid range of max_tokens is [1, 8192]","type":"invalid_request_error"}}', { url: wire.completionUrl(gwOn.baseUrl) });
+  assert.equal(retried.max_tokens, 8192);
+  assert.deepEqual(retried.thinking, { type: 'enabled', budget_tokens: 4096 }, '思考预算跟着收进新上限');
+  assert.equal(enc('deepseek-chat-a9', gwOn).max_tokens, 8192, '学到的上限下一次直接用');
+  assert.equal(enc('other-model-a9', gwOn).max_tokens, 32000, '只记那一个模型');
+  // 官方报文的另一种写法
+  const big = { model: 'claude-x-a9', max_tokens: 64000, messages: [] };
+  assert.equal(wire.retryOn400(big, 'HTTP 400: max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens').max_tokens, 32000);
+  assert.equal(wire.retryOn400({ model: 'm', max_tokens: 100 }, 'HTTP 400: max_tokens must be less than or equal to 8192'), null, '上限比现在大:不重打');
+});
+
+// 第三波复核:学到的 max_tokens 上限修前只按模型名记、进程全局 —— 某个网关教会 8192 之后,同名模型在官方 / 别的端点上也被腰斩到 8192。
+test('[A11] 学到的 max_tokens 上限按「端点 + 模型」记:不跨服务商串味;编码 / 非流式 / 短补全 / 重打都认端点', () => {
+  const MODEL = 'claude-sonnet-4-5-a11';
+  const SMALL = { ...GATEWAY, baseUrl: 'https://small-gw.example/anthropic', anthropicThinking: 'adaptive' };
+  const OTHER = { ...GATEWAY, baseUrl: 'https://other-gw.example/anthropic', anthropicThinking: 'adaptive' };
+  const enc = (model, provider, stream = true) => wire.encodeMessages({ model, messages: [{ role: 'user', content: 'hi' }], stream, provider });
+  const err = 'HTTP 400: {"error":{"message":"Invalid max_tokens value, the valid range of max_tokens is [1, 8192]"}}';
+  assert.equal(enc(MODEL, SMALL).max_tokens, 32000);
+  const retried = wire.retryOn400(enc(MODEL, SMALL), err, { url: wire.completionUrl(SMALL.baseUrl) });
+  assert.equal(retried.max_tokens, 8192, '这个端点上重打按它给的上限');
+  assert.equal(enc(MODEL, SMALL).max_tokens, 8192, '同一端点 + 同一模型:下一次直接用');
+  assert.equal(enc(MODEL, OFFICIAL).max_tokens, 32000, '官方主机上的同名模型不受影响(修前也被压到 8192)');
+  assert.equal(enc(MODEL, OTHER).max_tokens, 32000, '另一个网关上的同名模型不受影响');
+  assert.equal(enc(MODEL, { ...SMALL, baseUrl: 'https://small-gw.example/anthropic/v1/messages/' }).max_tokens, 8192, '同一端点换种写法(完整端点 + 尾斜杠)是同一个键');
+  assert.equal(enc(MODEL, SMALL, false).max_tokens, 8192, '非流式同样按端点取');
+  assert.equal(enc('another-model-a11', SMALL).max_tokens, 32000, '只记那一个模型');
+  // 短补全(句尾改字):学到的上限比 400 还小时也得守住,且同样只管那个端点
+  const q = { model: 'quick-a11', messages: [{ role: 'user', content: 'x' }], plain: true };
+  wire.retryOn400({ model: 'quick-a11', max_tokens: 32000, messages: [] }, 'Invalid max_tokens value, the valid range of max_tokens is [1, 300]', { url: wire.completionUrl(SMALL.baseUrl) });
+  assert.equal(wire.encodeQuick({ ...q, provider: SMALL }).max_tokens, 300);
+  assert.equal(wire.encodeQuick({ ...q, provider: OTHER }).max_tokens, 400);
+  assert.equal(wire.encodeQuick(q).max_tokens, 400, '不带 provider 的老调用形态照旧');
 });

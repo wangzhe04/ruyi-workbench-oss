@@ -5,7 +5,7 @@ import './mission-state.js';
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
 import { apiErrorInfo } from './net.js';
-import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, threadIsBlank, threadShownTitle } from './thread-facts.js';
+import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, stewardAskText, stewardWaitText, threadIsBlank, threadShownTitle } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
@@ -168,7 +168,7 @@ export const STEWARD_ASKS_YOU_CHARS = 300;
 // 人话【不在这里编】：permission／plan／pool 那一句一律来自服务端 06i 的 stewardPendingOneLine
 // （经行上的 asksYou.text 送过来）；行还没到就先不摆那句话，绝不在前端另写一句。
 export const STEWARD_ASK_PENDING_KINDS = Object.freeze(['question', 'permission', 'plan', 'pool']);
-export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantText = '', live = false } = {}) {
+export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantText = '', live = false, translate = null } = {}) {
   if (pending && String(pending.type) === 'question') {
     const questions = (Array.isArray(pending.questions) ? pending.questions : [])
       .map(q => String((q && (q.question || q.title)) || '').trim()).filter(Boolean);
@@ -179,7 +179,7 @@ export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantTe
     };
   }
   const row = (rowAsksYou && typeof rowAsksYou === 'object') ? rowAsksYou : null;
-  const rowText = String((row && row.text) || '').trim();
+  const rowText = (row ? stewardAskText(row, translate) : '').trim();   // 第三波 M4：translate 缺省时 stewardAskText 原样返回服务端原句（既有单测口径不变）
   const type = String((pending && pending.type) || '');
   if (type === 'permission' || type === 'plan' || type === 'pool') {
     return {
@@ -224,6 +224,12 @@ export const STEWARD_THREAD_TOOL_LABEL_KEYS = Object.freeze({
   // 挂在提问上时 liveTail.tool 就是这个 —— 说「正在用一个工具」是假话，它在【等你】。
   request_user_input: 'stewardShell.drawer.tool.askYou',
 });
+
+// 工具名 → 人话（表外落到「一个工具」）。纯函数，t 由调用方绑（抽屉的当前动作行与左栏在跑行的第二行是同一份说法）。
+export function stewardThreadToolLabel(tool, t = key => key) {
+  const key = STEWARD_THREAD_TOOL_LABEL_KEYS[String(tool || '')];
+  return String(t(key || 'stewardShell.drawer.tool.other'));
+}
 
 // 「你可以说」的来源是【确定性优先级】，不是模型生成（§8.13）：
 //   待决的选项（question 的候选答案 / permission 的允许·拒绝） > 最后一句是问句 > 五态默认。
@@ -354,12 +360,56 @@ export function createStewardDrawer({
   // 是看板（etag／304／解析全在它的 loadMissions 一处），本模块只读它刚取回来的快照，并能在需要
   // 新鲜时请它刷一趟。与上面三条同一纪律：不动被静态锁逐字钉住的构造调用，新依赖一律走 setter。
   let missionRowsFrom = null;     // { rows: () => rows, refresh: async () => n } | null
+  // 走查 S-06：底部「直接对这条线程说」与问答卡「自由回答」两个输入框是抽屉里【唯一一份】，换线程时它们不跟着换 ——
+  // 给 A 打了一半的话回车就发给了新焦点 B，问答框更会把给 A 的话当成 B 那个问题的答案。按线程暂存／恢复：
+  // 离开一条线程（换线程、关抽屉）时把两个框里的字按它的 id 存起来并清空，回到它再原样放回来。
+  // 只记最近 DRAFT_LIMIT 条线程（Map 的插入序当 LRU），不落盘。
+  // 键是 sessionId（非整数串，对象键保持插入序，当 LRU 用；无原型的纯字典，不是任何「登记表」）。
+  const DRAFT_LIMIT = 30;
+  const draftsBySession = Object.create(null);   // sessionId -> { direct, ask }
 
   const chips = createQuickSwitchChips({
     api, t, state,
     // chip 改完立即回填：PATCH 的响应已经把新 session 交回来了，这里只需把抽屉其它面刷新一遍。
     onChanged: next => { session = next || session; renderAll(); },
   });
+
+  function stashDrafts(forId) {
+    if (!forId) return;
+    const direct = byId('stewardDrawerInput');
+    const ask = byId('stewardDrawerAskInput');
+    const draft = { direct: direct ? String(direct.value || '') : '', ask: ask ? String(ask.value || '') : '' };
+    delete draftsBySession[forId];
+    if (draft.direct || draft.ask) {
+      draftsBySession[forId] = draft;
+      const keys = Object.keys(draftsBySession);
+      for (let i = 0; i < keys.length - DRAFT_LIMIT; i++) delete draftsBySession[keys[i]];
+    }
+    if (direct) direct.value = '';
+    if (ask) ask.value = '';
+  }
+  function restoreDrafts(forId) {
+    const draft = draftsBySession[forId];
+    if (!draft) return;
+    const direct = byId('stewardDrawerInput');
+    const ask = byId('stewardDrawerAskInput');
+    if (direct && !direct.value) direct.value = draft.direct;
+    if (ask && !ask.value) ask.value = draft.ask;
+  }
+  // 发送成功之后才清（走查 S-13：修前是先清后发，relay 被拒／网络断了那句话就丢了）。只在输入框里还是【发出去的那句】时
+  // 才清 —— 发送在飞期间用户接着改了字，不能把新写的也抹掉；人若已经切去别的线程，那句话在暂存里，同样按此判。
+  function clearSentDraft(forId, kind, text) {
+    if (forId === sessionId) {
+      const input = byId(kind === 'ask' ? 'stewardDrawerAskInput' : 'stewardDrawerInput');
+      if (input && String(input.value || '').trim() === text) input.value = '';
+      return;
+    }
+    const draft = draftsBySession[forId];
+    if (draft && String(draft[kind] || '').trim() === text) {
+      draft[kind] = '';
+      if (!draft.direct && !draft.ask) delete draftsBySession[forId];
+    }
+  }
 
   // 117n-M1：el/clear 从 steward-chips.js import（六个消费方零本地重复定义）。
   function note(text) {
@@ -382,7 +432,7 @@ export function createStewardDrawer({
     const code = stewardErrorCode(info);
     if (STEWARD_DRAWER_SESSION_ERROR_KEYS[code]) { note(t(STEWARD_DRAWER_SESSION_ERROR_KEYS[code])); return; }
     if (code === 'steward.queued') {
-      const label = stewardQueuedWaitLabel(info);
+      const label = stewardQueuedWaitLabel(info, t);   // W2-F5：递 t，等待原因按本地化键说
       note(label ? t('stewardShell.chat.errQueued', { wait: label }) : t('stewardShell.chat.errQueuedPlain'));
       return;
     }
@@ -414,6 +464,8 @@ export function createStewardDrawer({
   }
 
   // 工具名 → 人话（表外落到「一个工具」）。表住模块顶层，本函数只做查表。
+  // 左栏在跑行的第二行也要这句人话（走查 S-14），用的是模块级 stewardThreadToolLabel（同一张表、同一个兜底键）；
+  // 本函数的函数体被 steward-drawer.static J4 逐字钉着，所以保持原样、不改成转调。
   function threadToolLabel(tool) {
     const key = STEWARD_THREAD_TOOL_LABEL_KEYS[String(tool || '')];
     return key ? t(key) : t('stewardShell.drawer.tool.other');
@@ -815,6 +867,7 @@ export function createStewardDrawer({
       rowAsksYou: missionRow && missionRow.asksYou,
       lastAssistantText: lastAssistantText(),
       live: isLive(),
+      translate: t,
     });
   }
 
@@ -899,31 +952,49 @@ export function createStewardDrawer({
 
   // 卡片里的自由回答。正式待决 question 走 /api/chat/answer（content ＋ otherText，与选项按钮
   // 同一条路）；其余（软问句、或行上说在问你而本地待决还没到）走递话单口 /api/steward/relay。
+  let askSending = false;
+  let directSending = false;
   async function submitAsk() {
     const input = byId('stewardDrawerAskInput');
     const text = input ? String(input.value || '').trim() : '';
     if (!text || !sessionId) return;
     const ask = asksYouNow();
     if (!ask) return;
-    if (input) input.value = '';
-    if (ask.kind === 'question' && pendingForThread && String(pendingForThread.type) === 'question') {
-      const first = (Array.isArray(pendingForThread.questions) ? pendingForThread.questions : [])[0] || null;
-      try {
-        const answered = await api('/api/chat/answer', {
-          method: 'POST',
-          body: JSON.stringify({
-            sessionId,
-            questionId: String(pendingForThread.id || ''),
-            answers: [{ questionId: String((first && first.id) || ''), selectedOptionIds: [], otherText: text }],
-            content: text,
-          }),
-        });
-        if (!answered || answered.ok !== true) { failNote((answered && answered.error) || 'answer_failed'); return; }
-        note(t('stewardShell.drawer.answered'));
-      } catch (error) { failNote(error); return; }
-    } else if (!(await sayToThread(text))) return;
+    // 走查 S-13：成功之后才清输入框（修前先清后发，被拒／断网那句话就丢了）；在飞期间挡掉重复回车，免得同一句发两遍。
+    if (askSending) return;
+    askSending = true;
+    const id = sessionId;
+    try {
+      if (ask.kind === 'question' && pendingForThread && String(pendingForThread.type) === 'question') {
+        const first = (Array.isArray(pendingForThread.questions) ? pendingForThread.questions : [])[0] || null;
+        try {
+          const answered = await api('/api/chat/answer', {
+            method: 'POST',
+            body: JSON.stringify({
+              sessionId: id,
+              questionId: String(pendingForThread.id || ''),
+              answers: [{ questionId: String((first && first.id) || ''), selectedOptionIds: [], otherText: text }],
+              content: text,
+            }),
+          });
+          if (!answered || answered.ok !== true) { failNote((answered && answered.error) || 'answer_failed'); return; }
+          note(t('stewardShell.drawer.answered'));
+        } catch (error) { failNote(error); return; }
+      } else if (!(await sayToThread(text))) return;
+      clearSentDraft(id, 'ask', text);
+    } finally { askSending = false; }
     await refreshOnce();
     lastPollAt = 0;   // 与 runQuickReply 同一条：把节拍闸清零，让已经在跑的那张表下一拍真去拉
+  }
+
+  // 走查（真浏览器，1024／1180 宽）：窄屏下右栏是盖在栅格上的滑出层（layout.css 的 translateX(100%)），而 #stewardShell
+  // 是 overflow:hidden 的栅格 —— 往滑出层里的节点 focus()（不带 preventScroll）或 scrollIntoView，浏览器会为了
+  // 「让它进视野」把 #stewardShell 横向拨到 392，中栏（头部／对话／输入框）整体移到 x=-124，屏幕中间一片空白。
+  // 抽屉里所有程序性聚焦一律 preventScroll，并在聚焦之后保险地把这个容器的横向滚动归零
+  // （overflow:hidden 的容器用户拨不动，它只可能是被聚焦／滚动入视野这类副作用拨动的）。
+  function keepShellUnscrolled() {
+    const shell = byId('stewardShell');
+    if (shell && shell.scrollLeft !== 0) shell.scrollLeft = 0;
   }
 
   // 「打开线程回答」按下去该发生的事（走查①）：抽屉开出来之后，焦点落在问答框里。
@@ -942,7 +1013,8 @@ export function createStewardDrawer({
       ? input
       : (byId('stewardDrawerAskOptions') || section).querySelector('.steward-drawer-reply');
     if (!target || typeof target.focus !== 'function') return false;
-    try { target.focus(); } catch { return false; }
+    try { target.focus({ preventScroll: true }); } catch { return false; }
+    keepShellUnscrolled();
     return true;
   }
 
@@ -954,7 +1026,8 @@ export function createStewardDrawer({
   function focusComposer() {
     const input = byId('stewardDrawerInput');
     if (!input || typeof input.focus !== 'function') return false;
-    try { input.focus(); } catch { return false; }
+    try { input.focus({ preventScroll: true }); } catch { return false; }
+    keepShellUnscrolled();
     return true;
   }
 
@@ -994,7 +1067,7 @@ export function createStewardDrawer({
     const waitNode = byId('stewardDrawerWait');
     if (waitNode) {
       const wait = (missionRow && missionRow.wait) || null;
-      const label = wait ? String(wait.label || '') : '';
+      const label = wait ? stewardWaitText(wait, t) : '';   // W2-F5：本地化（见 thread-facts.js stewardWaitText）
       waitNode.textContent = label || (queued ? t('stewardShell.drawer.queueUnknown') : '');
       waitNode.hidden = !waitNode.textContent;
     }
@@ -1069,8 +1142,11 @@ export function createStewardDrawer({
       return { phase: 'waiting_you', waiting: { kind: String(pendingForThread.type || ''), label: String(pendingForThread.toolName || '') }, turnActive: false, notices: [] };
     }
     if (reason && reason !== 'user') {
-      const blockedBy = wait && wait.blockedBy ? [String(wait.blockedBy)] : [];
-      return { phase: 'waiting_resource', resourceWait: { resources: [String(wait.label || reason)], blockers: blockedBy }, turnActive: false, notices: [] };
+      // 「被谁占着」给人读的是标题（界面不出现内部 id）；服务端给的是 { sessionId, title }，老形状是 id 字符串。
+      const blocker = wait && wait.blockedBy;
+      const blockerName = blocker && typeof blocker === 'object' ? String(blocker.title || '').trim() : String(blocker || '').trim();
+      const blockedBy = blockerName ? [blockerName] : [];
+      return { phase: 'waiting_resource', resourceWait: { resources: [stewardWaitText(wait, t) || reason], blockers: blockedBy }, turnActive: false, notices: [] };
     }
     return null;
   }
@@ -1103,7 +1179,7 @@ export function createStewardDrawer({
     if (progress) progress.textContent = progressText();
     if (waiting) {
       const wait = (missionRow && missionRow.wait) || null;
-      waiting.textContent = (wait && wait.label) || (view && view.action) || t('stewardShell.drawer.none');
+      waiting.textContent = (wait && stewardWaitText(wait, t)) || (view && view.action) || t('stewardShell.drawer.none');
     }
   }
 
@@ -1352,12 +1428,17 @@ export function createStewardDrawer({
     if (!target) { note(t('stewardShell.drawer.rewindNoTarget')); return; }
     // 33 号文 §4（M3-a）：原生 confirm 退役 —— 整单回退会撤销这期间改过的文件，不可逆，确认件必须
     // 跟主题、跟语言、焦点归壳管。同步变异步：没得到允许就不动手。
+    // 走查 S-02：确认框开着的这段时间焦点可能被自动切走（管家换焦点、推送顺位）。线程 id 在确认【之前】就固定，
+    // 确认返回后焦点若已不在这一条，就不动手 —— 修前这里确认之后才读闭包里的 sessionId，会把另一条线程
+    // 停掉并按【这一条】的 turnSeq 回退文件。
+    const id = sessionId;
     if (!await confirmDanger({ name: 'rewindAll' })) return;
+    if (!id || sessionId !== id) { note(t('stewardShell.drawer.threadSwitchedCancelled')); return; }
     try {
-      await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId }) });
+      await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: id }) });
       const rewound = await api('/api/session/rewind', {
         method: 'POST',
-        body: JSON.stringify({ sessionId, targetTurnSeq: target, rollbackFiles: true }),
+        body: JSON.stringify({ sessionId: id, targetTurnSeq: target, rollbackFiles: true }),
       });
       if (!rewound || rewound.ok === false) { failNote((rewound && rewound.error) || 'rewind_failed'); return; }
       note(t('stewardShell.drawer.rewindDone'));
@@ -1634,6 +1715,8 @@ export function createStewardDrawer({
     const keep = sameOpen ? captureFrame()
       : (lastFrame && lastFrame.sessionId === id && (Date.now() - lastFrame.at) < STEWARD_DRAWER_FRAME_KEEP_MS ? lastFrame : null);
     lastFrame = null;
+    // 走查 S-06：换线程（或关着抽屉重开）时，旧线程的两个草稿按它的 id 暂存、新线程的放回来。同一条线程重复打开不动。
+    if (sessionId !== id) { stashDrafts(sessionId); restoreDrafts(id); }
     sessionId = id;
     drawer.dataset.sessionId = id;   // 2026-10：在场信号 viewing 读它（js/interaction-prompts.js：用户正看着的待决，管家不插手）
     if (keep) {
@@ -1655,7 +1738,8 @@ export function createStewardDrawer({
     syncPolling();
     const title = byId('stewardDrawerTitle');
     if (title) title.tabIndex = -1;
-    if (wantFocus && title && typeof title.focus === 'function') title.focus();
+    if (wantFocus && title && typeof title.focus === 'function') { try { title.focus({ preventScroll: true }); } catch { /* ignore */ } }
+    keepShellUnscrolled();   // 见 keepShellUnscrolled 头注：renderAll／applyModal 里也可能有滚动入视野的副作用，开完线程统一归零
     // 117l D4（用户第四轮走查①）：数据到齐、「读取中」闸落下的【那一帧】，如果「它在问你」真的
     // 在，焦点就落进那个回答框 —— 这才是「打开线程回答」按下去该发生的事（open_thread act →
     // steward:focus-thread → 抽屉）。闸落之前不抢焦点：那时候还不知道它到底有没有在问你。
@@ -1675,6 +1759,7 @@ export function createStewardDrawer({
     // 128f-④：记下收摊前这一帧，重开同一条时先画它（见 openThread 头注）。离开管家视角时收摊会连来两次（看板的
     // syncNow 一次、本模块的视角观察者一次），第二次手上已经没有线程了 —— 【不许】拿空值把刚记下的那一帧冲掉。
     { const frame = captureFrame(); if (frame) lastFrame = frame; }
+    stashDrafts(sessionId);   // 走查 S-06：收摊时两个输入框的字按线程存起来，不留给下一条被打开的线程
     sessionId = '';
     polling.stop();
     // 117h：docked 那一份被关掉 = 用户「关掉」了「现在这一件」（Esc 与 × 也算），本机偏好由
@@ -1761,7 +1846,9 @@ export function createStewardDrawer({
       document_.addEventListener('steward:open-thread', event => { if (openGate()) openThread(event && event.detail && event.detail.sessionId); });
       document_.addEventListener('steward:focus-thread', event => { if (openGate()) openThread(event && event.detail && event.detail.sessionId); });
       document_.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && isOpen()) { event.stopPropagation(); closeDrawer({ focusComposer: true }); }
+        // 第三波 M3：弹窗（快捷键／权限／设置…）叠在抽屉上时，这一下 Esc 是给弹窗的 —— 先前无条件收抽屉并 stopPropagation，
+        // window 上关弹窗的那一处收不到，焦点还被抢回弹窗背后的输入框；要按第二下才关得掉弹窗。
+        if (event.key === 'Escape' && isOpen()) { if (document_.querySelector('.modal-backdrop:not(.hidden)')) return; event.stopPropagation(); closeDrawer({ focusComposer: true }); }
       });
       document_.addEventListener('visibilitychange', syncPolling);
     }
@@ -1827,9 +1914,15 @@ export function createStewardDrawer({
   async function submitDirect() {
     const input = byId('stewardDrawerInput');
     const text = input ? String(input.value || '').trim() : '';
-    if (!text) return;
-    if (input) input.value = '';
-    if (await sayToThread(text)) await refreshOnce();
+    if (!text || directSending) return;
+    // 走查 S-13：同 submitAsk —— 发成功了才清，失败原样留着让人重发；在飞期间挡重复回车。
+    directSending = true;
+    const id = sessionId;
+    let sent = false;
+    try { sent = await sayToThread(text); } finally { directSending = false; }
+    if (!sent) return;
+    clearSentDraft(id, 'direct', text);
+    await refreshOnce();
   }
 
   return Object.freeze({

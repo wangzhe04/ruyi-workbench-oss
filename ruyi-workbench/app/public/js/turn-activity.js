@@ -430,7 +430,12 @@ export function createTurnActivity({ now = () => Date.now() } = {}) {
 
   // 壳层在流开始/结束时调用(经典壳的 start/settled、Preview 壳的 envelope.type)。
   function start(at) { beginTurn(at); }
-  function settle() { endTurn(state.ended); }
+  // dropPlan:回合是被停止 / 断流 / 出错收掉的 —— 服务端那头的计划审批等待已随回合作废,别再让状态条停在「等你拍板」。
+  // 正常收尾(result)不传它:计划审批本就停在回合之外,endTurn 故意保留 plan 待决。
+  function settle(options) {
+    endTurn(state.ended);
+    if (options && options.dropPlan) clearPendingKinds(state, ['plan']);
+  }
   function reset() { state = blankState(); }
 
   function snapshot(at) {

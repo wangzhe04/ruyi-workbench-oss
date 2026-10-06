@@ -101,6 +101,9 @@ export function createStewardSettingsDomain({
   let seeding = false;          // fillStewardSettings 期间抑制 change 回写（否则每次刷新都在存）
   let stopped = false;          // 最近一次已知的停机态（来自 GET /api/steward/state）
   let memoryLoaded = false;
+  let lastMemoryPayload = null;   // W2-F7a：切语言时按它原样重画（数据不重拉，只换文案）
+  let memoryShowsDisabled = false;   // W2-F7a：记忆块此刻画的是「管家没开」那一句（切语言时只重写这一句，不读配置）
+  let decisionsShowDisabled = false;
   let decisionsLoaded = false;
   let decisionsLimit = STEWARD_DECISIONS_PAGE;
   let decisionRows = [];
@@ -493,6 +496,7 @@ export function createStewardSettingsDomain({
   function renderMemory(payload) {
     const panel = byId('cfgStewardMemoryPanel');
     if (!panel) return;
+    lastMemoryPayload = payload;
     clear(panel);
     const groups = (payload && payload.groups) || {};
     let any = false;
@@ -515,11 +519,13 @@ export function createStewardSettingsDomain({
       clear(panel);
       if (panel) panel.appendChild(el('p', 'steward-memory-empty', t('settings.steward.memory.disabled')));
       memoryLoaded = false;
+      memoryShowsDisabled = true;
       return null;
     }
     const payload = await call('/api/steward/memory');
     if (!payload) return null;
     memoryLoaded = true;
+    memoryShowsDisabled = false;
     renderMemory(payload);
     return payload;
   }
@@ -731,11 +737,13 @@ export function createStewardSettingsDomain({
       clear(host);
       if (host) host.appendChild(el('p', 'steward-decisions-empty', t('settings.steward.decisions.disabled')));
       decisionsLoaded = false;
+      decisionsShowDisabled = true;
       return null;
     }
     const payload = await call(`/api/steward/decisions?limit=${encodeURIComponent(decisionsLimit)}`);
     if (!payload) return null;
     decisionsLoaded = true;
+    decisionsShowDisabled = false;
     decisionRows = Array.isArray(payload.rows) ? payload.rows : [];
     renderDecisionsThreadFilter();
     renderDecisions();
@@ -1062,7 +1070,17 @@ export function createStewardSettingsDomain({
     if (kind === 'monthly') return { kind, at, dayOfMonth: Number((byId('cfgStewardScheduleDom') || {}).value || 1) };
     return { kind, at };
   }
+  // 走查 W1-14：「建这一条」没有在途锁，网慢时双击就 POST 两次建出两条任务。在途标志 + 禁用按钮，finally 恢复。
+  let scheduleSubmitting = false;
   async function submitSchedule() {
+    if (scheduleSubmitting) return false;
+    scheduleSubmitting = true;
+    const submitBtn = byId('cfgStewardScheduleSubmitBtn');
+    if (submitBtn) submitBtn.disabled = true;
+    try { return await submitScheduleOnce(); }
+    finally { scheduleSubmitting = false; if (submitBtn) submitBtn.disabled = false; }
+  }
+  async function submitScheduleOnce() {
     scheduleFormError('');
     const kind = String((byId('cfgStewardScheduleKind') || {}).value || 'once');
     const payloadKind = String((byId('cfgStewardSchedulePayloadKind') || {}).value || 'reminder');
@@ -1171,10 +1189,18 @@ export function createStewardSettingsDomain({
   }
 
   // change 即存（与基础页同风格）。seeding 期间一律不回写。
+  // 走查 W1-4：数字框清空（或被浏览器判成非数字）时 node.value === ''，Number('') 是 0 —— 修前清空一个框就写 0：
+  // 每日费用上限（stewardMaxCostPerDay / stewardGlobalMaxCostPerDay）为 0 等于关闭费用闸，别的键被服务端钳到最小值而框里仍是空的。
+  // 与设置目录（settings-catalog.js：输入无效 → 不写盘，按落盘值回显）同一口径，统一收在这一道门里：
+  // number 输入留空 → 不调处理器、整块按落盘值回填。
   function onChange(id, handler) {
     const node = byId(id);
     if (!node) return;
-    node.addEventListener('change', event => { if (!seeding) handler(event); });
+    node.addEventListener('change', event => {
+      if (seeding) return;
+      if (node.type === 'number' && String(node.value == null ? '' : node.value).trim() === '') { fillStewardSettings(); return; }
+      handler(event);
+    });
   }
 
   function bindStewardSettings() {
@@ -1372,9 +1398,12 @@ export function createStewardSettingsDomain({
     openSettingsTab(STEWARD_SETTINGS_TAB);
     fillStewardSettings();
     const loads = [refreshRunState()];
-    if (!memoryLoaded) loads.push(loadMemory());
-    if (!decisionsLoaded) loads.push(loadDecisions());
-    if (!scheduleLoaded) loads.push(loadSchedule());
+    // 走查 S-07：修前三块都只在「首次打开」时拉，之后再从口袋进来看到的是第一次那份旧列表（口袋角标却写着「新」）。
+    // 现在【被点名的那一段】每次打开都重载；没点名的段仍只在没载过时才拉（不为没人看的列表发请求）。
+    const wanted = String(section || '');
+    if (wanted === 'memory' || !memoryLoaded) loads.push(loadMemory());
+    if (wanted === 'decisions' || !decisionsLoaded) loads.push(loadDecisions());
+    if (wanted === 'schedule' || !scheduleLoaded) loads.push(loadSchedule());
     const targetId = PANEL_SECTIONS[String(section || '')] || '';
     const target = targetId ? byId(targetId) : null;
     // 焦点跟到目标段落（preventScroll），openModal 随后那一拍看见焦点已在弹层里就不再抢回页首——
@@ -1409,6 +1438,17 @@ export function createStewardSettingsDomain({
       renderShield();
       if (scheduleLoaded) renderSchedule(scheduleRows);
       if (onlyBarRef && onlyBarRef.bar && onlyBarRef.bar.isConnected) paintOnlyBar(onlyBarRef.tab, onlyBarRef.target, onlyBarRef.bar);
+      // W2-F7a：「管家」设置页的记忆与决策两块（含它们的空态／未启用句）同样是数据到达那一刻 t() 焊死的 —— 修前切语言后停在旧语言。
+      // 按【上次画的是什么】重画，不读配置（配置这一刻怎样不关这一步的事）：画的是数据就按上一次的数据原样重画（不重拉），
+      // 画的是「管家没开」那一句就重写那一句，没画过的没东西可换。
+      try {
+        const memoryPanel = byId('cfgStewardMemoryPanel');
+        if (memoryShowsDisabled && memoryPanel) { clear(memoryPanel); memoryPanel.appendChild(el('p', 'steward-memory-empty', t('settings.steward.memory.disabled'))); }
+        else if (memoryLoaded && lastMemoryPayload) renderMemory(lastMemoryPayload);
+        const decisionsHost = byId('cfgStewardDecisions');
+        if (decisionsShowDisabled && decisionsHost) { clear(decisionsHost); decisionsHost.appendChild(el('p', 'steward-decisions-empty', t('settings.steward.decisions.disabled'))); }
+        else if (decisionsLoaded) { renderDecisionsThreadFilter(); renderDecisions(); }
+      } catch { /* 重画失败不该影响别的 i18n:change 监听 */ }
     });
   } catch { /* ignore */ }
 

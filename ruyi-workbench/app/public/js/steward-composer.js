@@ -329,6 +329,14 @@ export function createStewardComposer({
     const text = String(input.value || '').trim();
     if (!text) return;
     const target = currentTarget();
+    // 走查 S-13：两种「发不出去」都要在【清空输入框之前】拦下，话与附件原样留着（修前先清后发，那句话既不上屏也不保留）：
+    //   ① 手选了目标线程却带着附件 —— 直递走的是 relay（只传文字），附件会被静默丢掉；拦下并说清楚；
+    //   ② 管家那条路上一句还在跑、排队已满 —— sendToSteward 会拒收，同样不能把话吞掉。
+    if (target && attachments.length) { note(t('stewardShell.compose.attachNeedsSteward')); return; }
+    if (!target && typeof conversation.sendQueueFull === 'function' && conversation.sendQueueFull()) {
+      note(t('stewardShell.chat.queueFull'));
+      return;
+    }
     const files = attachments.splice(0, attachments.length);   // 133e：这一句带走托盘里全部附件，托盘随即清空
     renderTray();
     composerSent(input, text);                                 // 59 号文 §6：麦克风拿这次机器写的几句与发出去的字去学改字

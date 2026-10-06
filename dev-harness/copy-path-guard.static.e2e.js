@@ -334,7 +334,11 @@ const ALLOWED_CJK_CODE = Object.freeze({
     // 回合起点 session 事件增量(perf round 4 S3):发送前记 knownMessages 5 行、session 事件分支展开 8 行 —— 1555 → 1569,同一行原样位移。
     // review 跟进:rememberTurnLine / surfaceBackgroundQuestion 先按子串筛再解析(+4 行)—— 1569 → 1573,同一行原样位移。
     // 全仓走查修复(回合收尾只收拾自己、中止后装回会话、重放不重复副作用、await 后再判会话)共 +24 行 —— 1573 → 1597,同一行原样位移。
-    1597:'正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
+    // 前端走查第一波·聊天区(W1-chat):计划卡收尾 / 发送前置互斥 / 回放工具耗时 / plan_decision 收卡等共 +48 行(都在这一行之前)——
+    // 1597 → 1645,同一行原样位移(逐行 byte 比对过:仍是那条 SSE 词表正则,是位移不是新增)。
+    // 子代理事件不再切碎父回合的思考块(2026-10):isThinkingNarrativeBoundary 头上多 1 行注释(其余改动都在原行内:同一行里加判据,不增删行)——
+    // 1645 → 1646,同一行原样位移(逐行 byte 比对过:仍是那条 SSE 词表正则,是位移不是新增)。
+    1646:'正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
   },
   // 前端架构债第一批：节点 aria-label／判定／置信度／依赖四处已改走 t()（workflow.node.ariaLabel、
   // workflow.detail.verdict、workflow.meta.confidence、workflow.node.dependsOn），白名单清空。

@@ -335,7 +335,7 @@ ok(count(chipsCode, /\bfetch\(/g) === 0, 'F3 chip 模块一律经注入的 api()
 // 把任意一处换回本地解包，这条当场红。
 const failNoteBody = drawerCode.slice(drawerCode.indexOf('function failNote'), drawerCode.indexOf('function failNote') + 800);
 ok(/const code = stewardErrorCode\(info\);/.test(failNoteBody)
-  && /stewardQueuedWaitLabel\(info\)/.test(failNoteBody)
+  && /stewardQueuedWaitLabel\(info(?:, t)?\)/.test(failNoteBody)   // W2-F5：可带第二个参数 t（本地化等待原因）
   && /stewardErrorText\(info\)/.test(failNoteBody)
   && !/String\(\(info && info\.message\)/.test(failNoteBody)
   && /stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel \} from '\.\/steward-conversation\.js';/.test(drawer),

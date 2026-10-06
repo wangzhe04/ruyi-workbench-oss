@@ -4,9 +4,9 @@
 //
 // 三个面板都遵循「打开时懒加载、手动刷新、缓存重绘、无轮询」的生命周期，
 // 由同一模块持有加载状态，避免组合根直接读写各面板的内部状态。
-import { $, el, fmtBytes, toast } from './util.js';
+import { $, bindKeyboardClick, el, fmtBytes, toast } from './util.js';
 import { api, apiErrText as fallbackApiErrText } from './net.js';
-import { getLocale, t } from './i18n.js';
+import { getLocale, hasTranslation, t, tCount } from './i18n.js';
 
 const STORAGE_STORE_KEYS = [
   'logs',
@@ -29,6 +29,40 @@ export function formatObservabilityTime(timestamp) {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return String(timestamp);
   return date.toLocaleString(getLocale());
+}
+
+// 审计行的一句话摘要。服务端(06-provider-engine.js 的 auditSummaryFor)写的是中文,英文界面不能照单全收:
+// 工作台来源的行,type 就是日志的 kind、detail 是同一条记录(已脱敏),有 audit.kind.<type> 就在前端按同一套取词重拼;
+// 没有对应键的 kind(新增的、桌面来源的)回落服务端给的 summary,保证时间线上永远有字。
+export function auditSummaryText(entry) {
+  const type = String((entry && entry.type) || '');
+  const key = 'audit.kind.' + type;
+  const fallback = String((entry && entry.summary) || '');
+  if (!entry || entry.source === 'desktop' || !type || !hasTranslation(key)) return fallback;
+  const detail = entry.detail && typeof entry.detail === 'object' ? entry.detail : {};
+  const bits = [];
+  if (type === 'turn_start') {
+    if (detail.engine) bits.push(detail.engine === 'openai' ? t('audit.bit.provider') : String(detail.engine));
+    if (detail.model) bits.push(String(detail.model));
+  } else if (type === 'turn_end') {
+    bits.push(detail.ok ? t('audit.bit.ok') : t('audit.bit.notOk'));
+    if (detail.aborted) bits.push(t('audit.bit.aborted'));
+  } else if (type === 'server_start') {
+    if (detail.version) bits.push('v' + detail.version);
+  } else if (type === 'mcp_bridge_start_failed') {
+    if (detail.serverId) bits.push(String(detail.serverId));
+  } else if (type === 'autonomy_grant_issued') {
+    if (detail.tool) bits.push(String(detail.tool));
+    if (detail.tier) bits.push(String(detail.tier));
+  } else if (type === 'autonomy_grant_consume') {
+    if (detail.tool) bits.push(String(detail.tool));
+    if (detail.remaining != null) bits.push(tCount('audit.bit.remaining', Number(detail.remaining)));
+  } else if (type === 'autonomy_grant_revoked') {
+    if (detail.count != null) bits.push(tCount('audit.bit.grants', Number(detail.count)));
+    else if (detail.tool) bits.push(String(detail.tool));
+  }
+  const base = t(key);
+  return bits.length ? t('audit.summaryWithBits', { base, bits: bits.join(' · ') }) : base;
 }
 
 export function createOperationsObservabilityDomain({
@@ -94,13 +128,21 @@ export function createOperationsObservabilityDomain({
         : t('audit.source.workbench')));
       head.appendChild(badge);
       head.appendChild(el('span', 'audit-type', String(entry.type || '')));
-      head.appendChild(el('span', 'audit-summary', String(entry.summary || '')));
-      head.appendChild(el('span', 'audit-caret', '▸'));
+      head.appendChild(el('span', 'audit-summary', auditSummaryText(entry)));
+      const caret = el('span', 'audit-caret', '▸');
+      caret.setAttribute('aria-hidden', 'true');
+      head.appendChild(caret);
+      // a11y:整行是展开/收起详情的按钮(里面都是纯文字 span,不嵌套可操作元素),补键盘 Enter/空格。
+      head.setAttribute('role', 'button');
+      head.tabIndex = 0;
+      head.setAttribute('aria-expanded', 'false');
+      bindKeyboardClick(head);
       row.appendChild(head);
       let detail = null;
       head.onclick = () => {
         if (row.classList.contains('open')) {
           row.classList.remove('open');
+          head.setAttribute('aria-expanded', 'false');
           if (detail) {
             detail.remove();
             detail = null;
@@ -108,6 +150,7 @@ export function createOperationsObservabilityDomain({
           return;
         }
         row.classList.add('open');
+        head.setAttribute('aria-expanded', 'true');
         detail = el('pre', 'audit-detail');
         try {
           detail.textContent = JSON.stringify(entry.detail, null, 2);
@@ -179,23 +222,21 @@ export function createOperationsObservabilityDomain({
       const row = el('div', 'storage-row');
       row.appendChild(el('span', 'storage-name', t('storage.store.' + key)));
       row.appendChild(el('span', 'storage-bytes', fmtBytes(store.bytes) + (store.truncated ? '+' : '')));
-      row.appendChild(el('span', 'storage-files muted', t('storage.fileCount', { n: store.files })));
+      row.appendChild(el('span', 'storage-files muted', tCount('storage.fileCount', Number(store.files) || 0)));
       table.appendChild(row);
     }
     host.appendChild(table);
     if (data.engineTranscripts) {
       const transcripts = data.engineTranscripts;
-      host.appendChild(el('div', 'storage-note muted', t('storage.transcriptNote', {
+      host.appendChild(el('div', 'storage-note muted', tCount('storage.transcriptNote', Number(transcripts.files) || 0, {
         bytes: fmtBytes(transcripts.bytes),
-        n: transcripts.files,
       })));
     }
     if (data.sweep && data.sweep.lastAt) {
       const last = data.sweep.lastResult || {};
-      host.appendChild(el('div', 'storage-note muted', t('storage.lastSweepNote', {
+      host.appendChild(el('div', 'storage-note muted', tCount('storage.lastSweepNote', Number(last.actions) || 0, {
         when: formatObservabilityTime(data.sweep.lastAt),
         bytes: fmtBytes(last.freedBytes || 0),
-        n: last.actions || 0,
       })));
     }
   }
@@ -229,7 +270,7 @@ export function createOperationsObservabilityDomain({
       });
       const actions = Array.isArray(result && result.actions) ? result.actions.length : 0;
       toast(actions
-        ? t('storage.cleanDone', { bytes: fmtBytes(result.freedBytes), n: actions })
+        ? tCount('storage.cleanDone', actions, { bytes: fmtBytes(result.freedBytes) })
         : t('storage.cleanNothing'), 'ok');
     } catch (error) {
       toast(t('toast.cleanFail', { err: apiErrText(error) }), 'err');

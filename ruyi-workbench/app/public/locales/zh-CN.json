@@ -27,6 +27,27 @@
   "audit.loading": "加载中…",
   "audit.source.desktop": "桌面",
   "audit.source.workbench": "工作台",
+  "audit.sourceFilterLabel": "按来源过滤",
+  "audit.summaryWithBits": "{{base}}（{{bits}}）",
+  "audit.kind.turn_start": "开始回合",
+  "audit.kind.turn_end": "结束回合",
+  "audit.kind.turn_kill": "中止回合",
+  "audit.kind.server_start": "服务启动",
+  "audit.kind.mcp_bridge_start_failed": "MCP 桥接启动失败",
+  "audit.kind.provider_compact": "上下文摘要压缩",
+  "audit.kind.auto_compact": "自动压缩上下文",
+  "audit.kind.autonomy_grant_issued": "签发授权书",
+  "audit.kind.autonomy_grant_consume": "消耗授权",
+  "audit.kind.autonomy_grant_revoked": "撤销授权",
+  "audit.kind.autonomy_grant_expired": "授权过期",
+  "audit.bit.provider": "服务商",
+  "audit.bit.ok": "成功",
+  "audit.bit.notOk": "未成功",
+  "audit.bit.aborted": "已中止",
+  "audit.bit.remaining.one": "剩 {{count}} 次",
+  "audit.bit.remaining.other": "剩 {{count}} 次",
+  "audit.bit.grants.one": "{{count}} 张",
+  "audit.bit.grants.other": "{{count}} 张",
   "audit.title": "审计时间线",
   "brand.name": "如意 Ruyi",
   "capability.available": "可用",
@@ -85,6 +106,7 @@
   "changes.op.create": "新建",
   "changes.op.delete": "删除",
   "changes.op.modify": "修改",
+  "changes.op.unknown": "变更",
   "changes.openCurrentFile": "用本机应用打开当前文件",
   "changes.openExternalDiff": "本机 Diff",
   "changes.openFileView": "打开文件查看",
@@ -100,14 +122,16 @@
   "changes.revert.partialDone": "部分已撤销",
   "changes.revert.failed": "撤销失败：{{reason}}",
   "changes.revert.reason.tooLarge": "改动前的内容太大，当时没有留底",
-  "changes.revert.partial": "撤回了 {{reverted}} 个文件，另有 {{failed}} 个没能撤回：{{reason}}",
+  "changes.revert.partial.one": "撤回了 {{reverted}} 个文件，另有 {{failed}} 个没能撤回：{{reason}}",
+  "changes.revert.partial.other": "撤回了 {{reverted}} 个文件，另有 {{failed}} 个没能撤回：{{reason}}",
   "changes.revertTitle": "回撤到此前状态",
   "changes.revertTurn": "撤销整轮",
   "changes.revertTurn.confirm": "撤销这一轮的改动？本轮改过的文件会恢复到改动前，本轮新建的文件会被删除，本轮删掉的文件会被找回。撤销之后不能再重做。",
   "changes.revertTurn.confirmTitle": "撤销这一轮的全部改动",
   "changes.reverted": "已撤销：{{label}}",
   "changes.reverting": "回撤中…",
-  "changes.roundCount": "{{n}} 个",
+  "changes.roundCount.one": "{{count}} 个",
+  "changes.roundCount.other": "{{count}} 个",
   "changes.roundTitle": "第 {{n}} 轮",
   "changes.sizeCreate": "新建",
   "changes.sizeCreateSized": "新建 {{size}}",
@@ -122,6 +146,7 @@
   "changes.tool.chart_image": "制图",
   "changes.tool.copy_file": "复制",
   "changes.tool.delete_file": "删除",
+  "changes.tool.edit_file": "编辑",
   "changes.tool.excel_beautify": "美化 Excel",
   "changes.tool.excel_chart": "Excel 图表",
   "changes.tool.file_copy": "复制",
@@ -129,11 +154,14 @@
   "changes.tool.file_edit": "编辑",
   "changes.tool.file_move": "移动",
   "changes.tool.file_write": "写入",
+  "changes.tool.get_clipboard_image": "读取剪贴板图片",
   "changes.tool.http_download": "下载",
   "changes.tool.image_resize": "缩放图片",
   "changes.tool.move_file": "移动",
   "changes.tool.turn_baseline": "任务基线",
+  "changes.tool.window_screenshot": "窗口截图",
   "changes.tool.write_document": "生成 Word",
+  "changes.tool.write_docx": "生成 Word",
   "changes.tool.write_excel": "生成 Excel",
   "changes.tool.write_file": "写入",
   "changes.tool.write_pdf": "导出 PDF",
@@ -141,10 +169,13 @@
   "changes.turnLabel": "整轮",
   "changes.viewDiff": "查看改动",
   "chat.attachRemoveAria": "移除附件",
+  "chat.attachCancelAria": "取消上传 {{name}}",
+  "chat.attachmentUploading": "上传中…",
   "chat.codeCopied": "已复制代码",
   "chat.copyCode": "复制",
   "chat.diffExpand": "展开全部（共 {{total}} 行）",
   "chat.editResend": "编辑重发",
+  "chat.editResendKeepDraft": "输入框里已有一段没发出去的内容，先发送或清空它，再编辑重发",
   "chat.expandAll": "展开全部",
   "chat.loadEarlier": "加载更早的 {{count}} 条（还有 {{remaining}} 条）",
   "chat.placeholder": "说你想做什么",
@@ -159,9 +190,11 @@
   "chat.resume.prompt": "请继续完成上一个未完成的任务。",
   "chat.resume.title": "上次任务未完成",
   "chat.retry": "重试",
+  "chat.retryWaitTurn": "这条线程的回合还在进行，等它结束（或先停止）再重试",
   "chat.rewind": "回溯",
   "chat.rewindBtn": "⏪ 回溯到此处",
-  "chat.rewindConfirm": "回到这条消息之前?将删除之后的 {{turns}} 轮对话。",
+  "chat.rewindConfirm.one": "回到这条消息之前?将删除之后的 {{turns}} 轮对话。",
+  "chat.rewindConfirm.other": "回到这条消息之前?将删除之后的 {{turns}} 轮对话。",
   "chat.rewindFileCheck": " 同时撤销这些轮次的文件改动({{fileCount}} 个文件)",
   "chat.rewindModalTitle": "回溯对话",
   "chat.rewindToast": "已回溯,删除 {{removed}} 条消息",
@@ -171,6 +204,9 @@
   "chat.saveMemoryBtn": "存为记忆",
   "chat.send": "发送",
   "chat.steer": "插话",
+  "chat.agentWake.one": "后台代理已完成（{{n}} 个），工作台已自动唤醒本对话，把结果交给模型继续处理",
+  "chat.agentWake.other": "后台代理已完成（{{n}} 个），工作台已自动唤醒本对话，把结果交给模型继续处理",
+  "chat.turnBusyElsewhere": "这条线程此刻正被别处起的回合占着（多半是后台代理的结果正在处理），这句话没有发出，已放回输入框；等它结束再发，或现在按发送当作插话。",
   "chat.steerCancel": "撤回",
   "chat.steerCancelAria": "撤回此插话",
   "chat.steerClearAll": "清空队列",
@@ -182,6 +218,10 @@
   "chat.background.failed": "后台任务失败，详情已送达所属线程",
   "chat.background.timed_out": "后台任务超时，详情已送达所属线程",
   "chat.background.cancelled": "后台任务已取消",
+  "chat.background.partial": "后台任务部分完成，详情已送达所属线程",
+  "chat.background.stopped": "后台任务已停止",
+  "chat.background.interrupted": "后台任务被中断，详情已送达所属线程",
+  "chat.background.finished": "后台任务已结束，详情已送达所属线程",
   "chat.steerDelivery.queue": "补充要求（保留当前工作）",
   "chat.steerDelivery.interrupt": "立即调整（中断当前工具）",
   "chat.steerInjectedBadge": "✓ 已注入",
@@ -199,7 +239,8 @@
   "chat.toolImage.openInSidebar": "在侧栏预览",
   "chat.toolWaiting": "（等待结果）",
   "chat.turnStoppedNote": "已停止",
-  "chat.usageTurns": "{{n}} 轮",
+  "chat.usageTurns.one": "{{count}} 轮",
+  "chat.usageTurns.other": "{{count}} 轮",
   "chat.waitCurrentTurn": "请先等待当前回合结束",
   "common.add": "添加",
   "common.apply": "应用",
@@ -299,8 +340,10 @@
   "error.networkDown.next": "联网后重试，或改用可离线完成的任务",
   "error.permissionDenied": "此操作被权限拒绝",
   "error.permissionDenied.next": "在弹窗中允许，或在“安全与权限”中调整模式",
+  "error.providerError": "模型服务商返回了错误",
+  "error.providerError.next": "多为服务端暂时故障或请求被拒：请稍后重试；反复出现时查看错误详情，或前往“设置 → 模型与服务 → 模型服务商”检查模型名与地址",
   "error.providerMisconfigured": "模型端点未配置或不可用",
-  "error.providerMisconfigured.next": "前往“设置 → 模型服务商”检查地址与密钥",
+  "error.providerMisconfigured.next": "前往“设置 → 模型与服务 → 模型服务商”检查地址与密钥",
   "error.toolFailed": "工具执行出错",
   "error.toolLoop": "检测到重复的工具调用，已停止本轮",
   "file.open": "打开",
@@ -316,6 +359,9 @@
   "file.reveal": "在资源管理器中定位",
   "file.tree.empty": "（空文件夹）",
   "file.tree.loading": "加载中…",
+  "file.tree.notFound": "文件夹不存在或已被移走",
+  "file.tree.notAllowed": "不允许访问这个位置",
+  "file.tree.truncated": "（只列出前 {{count}} 项，更多项未显示）",
   "file.tree.mention.title": "@ 提及：把相对路径插入输入框",
   "file.tree.readFailed": "读取失败：{{reason}}",
   "file.tree.rootUnset": "（未设置工作文件夹）",
@@ -384,6 +430,7 @@
   "help.anchor.localModels": "8. 用本机模型（Ollama / LM Studio）",
   "help.anchor.power": "6. 用得更顺手（技能库 / 工作台记忆 / 用量看板 / 工作流插话）",
   "help.anchor.settings": "5. 设置指南（用户视角）",
+  "help.answerQuestion": "提交问题卡的回答",
   "help.commandPalette": "命令面板",
   "help.doc.langLabel": "手册语言",
   "help.doc.lang.en-US": "English",
@@ -420,6 +467,7 @@
   "help.open.unknownTarget": "这个位置打不开。",
   "help.sendMessage": "发送消息",
   "help.stopOrClose": "停止当前回合 / 关闭弹窗",
+  "help.switchLens": "切换视角（管家 / 工作台）",
   "help.tabHelp": "这一页怎么用？",
   "help.thisHelp": "本帮助",
   "help.title": "快捷键",
@@ -427,9 +475,10 @@
   "mcp.missing.title": "缺少 MCP 清单",
   "memory.check.disabled": "记忆=当前线程已关闭",
   "memory.check.done": "记忆=已检索 {{candidates}} 条候选，匹配 {{matches}} 条（项目 {{project}} / 全局 {{global}}）",
+  "memory.check.fill": "；另补入默认规则 {{fill}} 条",
   "memory.check.unavailable": "记忆=预检暂不可用（本轮已安全降级）",
   "memory.createNew": "＋ 手写新建记忆",
-  "memory.defaultPolicyHint": "核心摘要每轮自动加载；其余项目与全局记忆参与轻量相关性检索，每轮最多补充 3 条结果。",
+  "memory.defaultPolicyHint": "核心摘要每轮自动加载；其余项目与全局记忆参与轻量相关性检索，每轮最多补充 {{count}} 条结果。",
   "memory.deleteConfirm": "删除记忆「{{name}}」？此操作不可撤销。",
   "memory.disableForSession": "本线程关闭记忆",
   "memory.draftFromSession": "✎ 从当前线程起草",
@@ -569,7 +618,7 @@
   "modelMenu.modelCount.other": "{{count}} 个模型",
   "modelMenu.modelDeleted": "已删除自定义模型 {{model}}",
   "modelMenu.modelRemoved": "已从模型列表移除 {{model}}",
-  "modelMenu.noModelsHint": "（先在设置→Providers 测试连接）",
+  "modelMenu.noModelsHint": "（先在「设置 → 模型与服务 → 模型服务商」里测试连接）",
   "modelMenu.refreshFailed": "刷新模型失败：{{error}}",
   "modelMenu.refreshModels": "刷新模型列表",
   "modelMenu.refreshSuccessBuiltin": "模型已刷新（内置清单；代理未返回）",
@@ -653,11 +702,11 @@
   "onboarding.wizard.provider.localDown.readManual": "看手册这一节",
   "onboarding.wizard.provider.localNeedModel": "先点一下「测试连接」，让如意看看你本机有哪些模型，选一个再保存。",
   "onboarding.wizard.provider.baseUrl": "接口地址（Base URL）",
-  "onboarding.wizard.provider.hint": "只需要一个密钥；接口地址和默认模型由预设带出。",
+  "onboarding.wizard.provider.hint": "先填密钥；接口地址和模型名在「高级」里确认——选了预设的会自动带出，「自定义」要自己填。",
   "onboarding.wizard.provider.keyPrivacy": "密钥只发给本机服务保存，界面不会再显示它。",
   "onboarding.wizard.provider.localHint": "本地服务通常不需要密钥，留空即可；请确认下面的地址就是你本机服务的地址。",
   "onboarding.wizard.provider.model": "模型",
-  "onboarding.wizard.provider.modelPlaceholder": "留空则用预设默认模型",
+  "onboarding.wizard.provider.modelPlaceholder": "填模型名（预设自带的会自动填入）",
   "onboarding.wizard.provider.noBaseUrl": "地址需要自己填",
   "onboarding.wizard.provider.noPresets": "暂时读不到预设清单，请在「高级」里手填地址与模型",
   "onboarding.wizard.provider.saveAndNext": "保存并继续",
@@ -678,7 +727,7 @@
   "onboarding.wizard.safety.auto.description": "低风险的直接做、做完给回执；删数据、装卸软件、推送、对外发送这类动作仍会停下来问你。",
   "onboarding.wizard.safety.auto.title": "智能自动（新装默认）",
   "onboarding.wizard.safety.autoConfirm.title": "确定用「智能自动」吗？",
-  "onboarding.wizard.safety.autoConfirm.body": "选了它，AI 会在你不在时直接改文件、运行命令，不再逐步问你。以后随时可以在「设置 → 权限与安全」里改回来。",
+  "onboarding.wizard.safety.autoConfirm.body": "选了它，AI 会在你不在时直接改文件、运行命令，不再逐步问你。以后随时可以在「设置 → 通用 → 权限与安全」里改回来。",
   "onboarding.wizard.safety.autoConfirm.ok": "确定，用智能自动",
   "onboarding.wizard.safety.autoConfirm.cancel": "再想想",
   "onboarding.wizard.safety.default.description": "任何改动前都先弹窗问你。最安全，也最费点击。",
@@ -691,8 +740,8 @@
   "onboarding.wizard.saveFailed": "保存失败：{{reason}}",
   "onboarding.wizard.settingsLabel": "新手引导",
   "onboarding.wizard.skip": "退出引导",
-  "onboarding.wizard.skipTitle": "整个引导以后再走；随时可以在「设置 › 其他」里重新打开",
-  "onboarding.wizard.skipped": "已跳过引导，可在「设置 → 基础」里随时重新打开",
+  "onboarding.wizard.skipTitle": "整个引导以后再走；随时可以在「设置 → 通用 → 基础」或帮助菜单里重新打开",
+  "onboarding.wizard.skipped": "已跳过引导，可在「设置 → 通用 → 基础」或帮助菜单里随时重新打开",
   "onboarding.wizard.start": "开始引导",
   "onboarding.wizard.startHint": "六步、几分钟，配好就能干活；中途可以随时退出。",
   "onboarding.wizard.step.done": "完成",
@@ -782,7 +831,7 @@
   "permission.mode": "权限模式",
   "permission.mode.acceptEdits.description": "文件编辑自动执行，命令等敏感操作仍会问你",
   "permission.mode.acceptEdits.option": "接受编辑",
-  "permission.mode.acceptEdits.short": "小改动自动做",
+  "permission.mode.acceptEdits.short": "改文件不问",
   "permission.mode.auto.activated": "已切到智能自动模式",
   "permission.mode.auto.confirm": "切换到「智能自动」模式？AI 将自动判断风险并执行低风险操作。确定切换？",
   "permission.mode.auto.description": "AI 自动判断风险，低风险自动执行，高风险仍会问你",
@@ -797,11 +846,11 @@
   "permission.mode.default.description": "每个操作先征得你同意，最稳妥",
   "permission.mode.default.option": "默认（询问）",
   "permission.mode.default.short": "每步都问",
-  "permission.mode.footer": "文件改动都有检查点，可在审计中回看、可撤销",
+  "permission.mode.footer": "文件改动都有检查点，可在「记录」里回看、可撤销",
   "permission.mode.initialChipTitle": "安全 / 权限（点击设置）",
   "permission.mode.plan.description": "AI 先给完整计划，你批准后才执行",
   "permission.mode.plan.option": "计划模式",
-  "permission.mode.plan.short": "先计划再动手",
+  "permission.mode.plan.short": "只做计划",
   "permission.mode.title": "安全 / 权限模式",
   "permission.network": "联网",
   "permission.notRevertible": "⚠ 此操作无法自动撤销，请确认",
@@ -850,6 +899,7 @@
   "plan.result.approved": "✓ 计划已批准",
   "plan.result.approvedWithNote": "✓ 计划已批准（带修改意见）",
   "plan.result.expandHint": "（点此展开原文）",
+  "plan.result.expired": "计划已失效（回合已结束）",
   "plan.result.rejected": "✕ 已放弃该计划",
   "plan.kimiSnapshot.heading": "Kimi 计划快照（只读）",
   "plan.kimiSnapshot.path": "来源：{{path}}",
@@ -927,14 +977,17 @@
   "provider.toggleApiKeyVisibility": "显示/隐藏密钥",
   "provider.vision": "支持视觉（能看图/截图）",
   "session.bulkCleanup": "清理历史",
-  "session.bulkCleanup.action": "清理 {{count}} 条线程",
-  "session.bulkCleanup.description": "将删除 {{count}} 条未置顶的历史线程。",
+  "session.bulkCleanup.action.one": "清理 {{count}} 条线程",
+  "session.bulkCleanup.action.other": "清理 {{count}} 条线程",
+  "session.bulkCleanup.description.one": "将删除 {{count}} 条未置顶的历史线程。",
+  "session.bulkCleanup.description.other": "将删除 {{count}} 条未置顶的历史线程。",
   "session.bulkCleanup.empty": "没有可清理的历史线程",
   "session.bulkCleanup.failed": "清理历史失败：{{reason}}",
   "session.bulkCleanup.note": "当前线程、置顶线程和正在运行的线程会被保留。此操作不可撤销。",
   "session.bulkCleanup.purgeAssociated": "同时删除关联的回滚检查点和 Agent 工作流记录",
   "session.bulkCleanup.purgeHint": "不会删除工作区中的文件。取消勾选时，只删除对话主记录。",
-  "session.bulkCleanup.success": "已清理 {{count}} 条历史线程",
+  "session.bulkCleanup.success.one": "已清理 {{count}} 条历史线程",
+  "session.bulkCleanup.success.other": "已清理 {{count}} 条历史线程",
   "session.bulkCleanup.title": "批量清理历史",
   "session.delete": "删除",
   "session.delete.confirm": "删除该线程？",
@@ -967,6 +1020,8 @@
   "settings.advanced.subagentConcurrency.hint": "同一阶段可同时运行的子代理数，范围 1–8（默认 8，上限）。",
   "settings.advanced.subagentPerTurn": "子代理每回合总数",
   "settings.advanced.subagentPerTurn.hint": "单次对话回合内经 orchestrate_agents 累计启动的代理节点数上限；设为 0 可关闭代理。",
+  "settings.advanced.agentAutoWake": "后台代理跑完后自动唤醒对话",
+  "settings.advanced.agentAutoWake.hint": "模型把任务交给后台代理后先结束了回合，代理跑完时由工作台自动起一个回合把结果交给模型继续处理；关掉则等你下一句话时再送达。",
   "settings.advanced.subagentPreferredModel": "子代理优先模型",
   "settings.advanced.subagentPreferredModel.automatic": "自动（角色 / 分级 / 主模型）",
   "settings.advanced.subagentPreferredModel.hint": "子代理默认模型 id；留空则按 角色 / 分级 / 主模型 兜底。",
@@ -986,7 +1041,7 @@
   "settings.advanced.workflowMaxNodes": "Agent 工作流节点数上限",
   "settings.advanced.workflowMaxNodes.hint": "持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–64（默认 48）。与上面的“每回合总数”是两个独立预算。",
   "settings.advanced.agentNodeWrapUp": "节点自动收尾（分钟）",
-  "settings.advanced.agentNodeWrapUp.hint": "单个模型节点运行超过该时长后，编排器会要求它停止扩展并立即总结；宽限期后仍未结束则只中止该节点。设为 0 可关闭。",
+  "settings.advanced.agentNodeWrapUp.hint": "单个模型节点运行超过该时长（默认 30 分钟）后，编排器会要求它停止扩展并立即总结，这一步不会中止它。此后只有两种情况才会中止该节点（兄弟节点不受影响）：宽限期内完全没有进展，或总时长达到硬上限（约为该值的 2 倍，默认 60 分钟）；仍在持续产出的节点不会被中止。设为 0 可关闭。",
   "settings.agentRoles.add": "+ 自定义角色",
   "settings.agentRoles.hint": "同一套角色可用于 OpenAI 兼容 API 和 Claude CLI。Claude 使用原生 --agents；项目中的 .claude/agents 也会自动识别并显示。",
   "settings.agentRoles.save": "保存角色",
@@ -1008,7 +1063,7 @@
   "settings.asr.addProtocol": "接口类型",
   "settings.asr.addPlaceholder": "例如 qwen3-asr-flash、whisper-1",
   "settings.asr.addButton": "添加并启用",
-  "settings.asr.addNeedFields": "先选服务商，再从下拉里选模型（清单里没有的语音模型，先加进该服务商卡片的模型清单）",
+  "settings.asr.addNeedFields": "先选服务商，再填模型名（下拉里有的可以直接选，没有的手填即可）",
   "settings.asr.addRealtime": "名字带 realtime 的是实时流式型号，语音输入用不了。请填不带 realtime 的型号，例如 qwen3-asr-flash。",
   "settings.asr.added": "已添加并启用语音识别：{{model}}",
   "settings.asr.noProvider": "先在上面添加一个服务商，再回到这里添加语音识别模型。",
@@ -1060,9 +1115,12 @@
   "settings.asrLexicon.help": "说话时常用、但总被识别错的词（人名、项目名、专业术语）。一行一个；后面可以写它常被听成的样子，例如「如意 = 如艺, 如一」。",
   "settings.asrLexicon.placeholder": "Kubernetes = 酷伯奈提斯\n如意 = 如艺, 如一\n张伟",
   "settings.asrLexicon.save": "保存词库",
-  "settings.asrLexicon.count": "共 {{count}} 个词",
-  "settings.asrLexicon.saved": "词库已保存（{{count}} 个词）",
-  "settings.asrLexicon.savedSkipped": "词库已保存（{{count}} 个词）；{{skipped}} 行认不出词，已跳过",
+  "settings.asrLexicon.count.one": "共 {{count}} 个词",
+  "settings.asrLexicon.count.other": "共 {{count}} 个词",
+  "settings.asrLexicon.saved.one": "词库已保存（{{count}} 个词）",
+  "settings.asrLexicon.saved.other": "词库已保存（{{count}} 个词）",
+  "settings.asrLexicon.savedSkipped.one": "词库已保存（{{count}} 个词）；{{skipped}} 行认不出词，已跳过",
+  "settings.asrLexicon.savedSkipped.other": "词库已保存（{{count}} 个词）；{{skipped}} 行认不出词，已跳过",
   "settings.asrLexicon.base": "同时用内置常用词表（{{count}} 个中英文技术、办公、AI 与游戏引擎术语；只在一句话里像是把它们听错了时才提示）",
   "settings.asrLexicon.baseOn": "已启用内置常用词表",
   "settings.asrLexicon.baseOff": "已停用内置常用词表",
@@ -1076,7 +1134,8 @@
   "settings.asrLexicon.learn": "从我的修改里学：语音输入后你手动改过的字（人名、项目名、术语）会自动记进这份词库，你打过的英文专名也会收进来；学会新词时提示一句。删掉学来的词，就不会再学回来",
   "settings.asrLexicon.learnOn": "已开启：从我的修改里学",
   "settings.asrLexicon.learnOff": "已关闭：从我的修改里学（学会的词留着）",
-  "settings.asrLexicon.countLearned": "共 {{count}} 个词（学来的 {{learned}} 个，打字里收的 {{typed}} 个；还在攒证据的 {{pending}} 个）",
+  "settings.asrLexicon.countLearned.one": "共 {{count}} 个词（学来的 {{learned}} 个，打字里收的 {{typed}} 个；还在攒证据的 {{pending}} 个）",
+  "settings.asrLexicon.countLearned.other": "共 {{count}} 个词（学来的 {{learned}} 个，打字里收的 {{typed}} 个；还在攒证据的 {{pending}} 个）",
   "settings.toolbox.kind.asrStream": "本地实时语音识别",
   "settings.apiKey": "API 密钥",
   "settings.apiKeyPlaceholder": "留空=不改动已保存的密钥",
@@ -1199,7 +1258,7 @@
   "settings.limits.parallelTitle": "并发",
   "settings.limits.workflowTitle": "工作流与时限",
   "settings.limits.turnIdle": "一个回合多久没动静算卡住（分钟）",
-  "settings.limits.turnIdleHint": "回合里连续这么久收不到任何事件，就判定它卡住并结束这一回合。范围 1–60 分钟（默认 10）。",
+  "settings.limits.turnIdleHint": "回合里连续这么久收不到任何事件（流式输出、工具心跳、子代理进度都算动静），就判定它卡住并结束这一回合；子代理节点与工作流同样按这个时长判空闲。范围 1–60 分钟（默认 10）。",
   "settings.models.tab": "模型分配",
   "settings.models.title": "谁用哪个模型",
   "settings.models.hint": "每一行管一件事，选中即保存。「跟随」＝这一行不单独指定。服务商的地址、密钥与模型清单在「服务商」页里管。",
@@ -1234,7 +1293,8 @@
   "migration.import.title": "从 Claude Code / Codex / Kimi 导入",
   "migration.import.instructions": "全局指令文件 → 核心记忆",
   "migration.import.noInstructions": "本机没有找到其它工具的全局指令文件（~/.claude/CLAUDE.md、~/.codex/AGENTS.md、~/.kimi-code/AGENTS.md、~/.gemini/GEMINI.md）。",
-  "migration.import.entries": "{{count}} 条记忆（{{core}} 条进核心）",
+  "migration.import.entries.one": "{{count}} 条记忆（{{core}} 条进核心）",
+  "migration.import.entries.other": "{{count}} 条记忆（{{core}} 条进核心）",
   "migration.import.userModified": "你改过导入的条目，来源更新时不会自动覆盖",
   "migration.import.mcp": "MCP（已用 {{used}} / {{limit}}）",
   "migration.import.noMcp": "其它工具里没有找到 MCP 配置。",
@@ -1249,13 +1309,16 @@
   "migration.skill.conflictCopy": "如意里的同名技能是从 {{source}} 复制的，不会覆盖",
   "migration.skill.copyEditedHint": "如意里的副本改过；再复制会用来源覆盖你的改动（会先问你）",
   "migration.skill.sourceUpdatedHint": "来源有更新，可以重新复制",
-  "migration.skill.tooLargeHint": "太大，不能复制（{{size}}，{{files}} 个文件；上限 20 MB / 500 个文件）",
+  "migration.skill.tooLargeHint.one": "太大，不能复制（{{size}}，{{files}} 个文件；上限 20 MB / 500 个文件）",
+  "migration.skill.tooLargeHint.other": "太大，不能复制（{{size}}，{{files}} 个文件；上限 20 MB / 500 个文件）",
   "migration.skill.shadowed": "同名时用的是 {{source}} 那份",
-  "migration.skill.links": "{{count}} 个符号链接不会复制",
+  "migration.skill.links.one": "{{count}} 个符号链接不会复制",
+  "migration.skill.links.other": "{{count}} 个符号链接不会复制",
   "migration.skill.overwriteTitle": "覆盖你改过的副本？",
   "migration.skill.overwriteBody": "下面这些技能在如意里的副本被改过。重新复制会用来源覆盖你的改动；之后点「撤销这次复制」可以换回来。",
   "migration.skill.overwriteOk": "覆盖",
-  "migration.skill.toastCopied": "已复制 {{count}} 个技能到如意",
+  "migration.skill.toastCopied.one": "已复制 {{count}} 个技能到如意",
+  "migration.skill.toastCopied.other": "已复制 {{count}} 个技能到如意",
   "migration.skill.toastNone": "没有复制任何技能",
   "migration.skill.resultCopied": "已复制 {{count}} 个：{{names}}",
   "migration.skill.resultSkipped": "{{name}} 没复制：{{reason}}",
@@ -1304,7 +1367,8 @@
   "migration.old.version": "如意 {{version}}",
   "migration.old.lastLaunched": "最后启动 {{time}}",
   "migration.old.neverLaunched": "没有启动记录",
-  "migration.old.refs": "{{count}} 处引用",
+  "migration.old.refs.one": "{{count}} 处引用",
+  "migration.old.refs.other": "{{count}} 处引用",
   "migration.refs.title": "还指着老版本的配置（{{count}}）",
   "migration.refs.none": "没有配置再指着老版本。",
   "migration.ref.rewrite": "{{field}} 改为 {{to}}",
@@ -1315,11 +1379,14 @@
   "migration.recycle.body": "如意 {{version}}（{{root}}）会被移进系统回收站，需要时可以从回收站还原。数据（线程、记忆、设置）不在安装包里，不受影响。",
   "migration.toast.saved": "已保存",
   "migration.toast.imported": "已导入",
-  "migration.toast.importedCount": "已导入 {{count}} 项",
+  "migration.toast.importedCount.one": "已导入 {{count}} 项",
+  "migration.toast.importedCount.other": "已导入 {{count}} 项",
   "migration.toast.removed": "已移除，不会再自动导入",
   "migration.toast.nothing": "没有需要处理的项",
-  "migration.toast.applied": "已改到当前版本（{{count}} 项），原文件已备份",
-  "migration.toast.undone": "已撤销（还原 {{count}} 处）",
+  "migration.toast.applied.one": "已改到当前版本（{{count}} 项），原文件已备份",
+  "migration.toast.applied.other": "已改到当前版本（{{count}} 项），原文件已备份",
+  "migration.toast.undone.one": "已撤销（还原 {{count}} 处）",
+  "migration.toast.undone.other": "已撤销（还原 {{count}} 处）",
   "migration.toast.recycled": "如意 {{version}} 已移到回收站",
   "migration.error.confirm_mismatch": "确认信息不符，没有执行。",
   "migration.error.root_required": "缺少安装包路径。",
@@ -1335,11 +1402,16 @@
   "migration.error.nothing_to_apply": "选中的项已经不在了，请刷新后再试。",
   "migration.error.no_migration_to_undo": "没有可撤销的迁移。",
   "migration.error.already_undone": "这次迁移已经撤销过了。",
+  "migration.error.undo_incomplete": "撤销没有完全完成：有文件没能改回（可能被占用或没有权限）。已改回的不会重复处理，处理好后再点一次「撤销」即可继续。",
   "migration.card.title": "发现可以迁移的内容",
-  "migration.card.instructions": "{{count}} 份全局指令",
-  "migration.card.mcp": "{{count}} 个 MCP",
-  "migration.card.skills": "{{count}} 个技能",
-  "migration.card.packages": "{{count}} 个老版本安装包",
+  "migration.card.instructions.one": "{{count}} 份全局指令",
+  "migration.card.instructions.other": "{{count}} 份全局指令",
+  "migration.card.mcp.one": "{{count}} 个 MCP",
+  "migration.card.mcp.other": "{{count}} 个 MCP",
+  "migration.card.skills.one": "{{count}} 个技能",
+  "migration.card.skills.other": "{{count}} 个技能",
+  "migration.card.packages.one": "{{count}} 个老版本安装包",
+  "migration.card.packages.other": "{{count}} 个老版本安装包",
   "migration.card.sep": "、",
   "migration.card.generic": "本机其它 AI 工具或老版本如意里有可以接过来的设置。",
   "migration.card.go": "查看并迁移",
@@ -1363,7 +1435,7 @@
   "settings.outputStyle.concise": "简洁（直接给结果）",
   "settings.outputStyle.detailed": "详细（默认）",
   "settings.partialStreaming": "实时流式 (--include-partial-messages)",
-  "settings.permissionBridge": "权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）",
+  "settings.permissionBridge": "权限弹窗桥接（--permission-prompt-tool；需非「全自动」档）",
   "settings.permissions": "安全与权限",
   "settings.preset": "预设",
   "settings.pricing.hint": "若上方端点是第三方 Coding Plan，此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。",
@@ -1631,10 +1703,13 @@
   "status.currentProvider": "当前 Provider",
   "status.processState": "{{engine}} 进程状态：{{state}}",
   "stepBar.progress": "已完成 {{done}}/{{total}}",
-  "storage.cleanDone": "清理完成: 释放 {{bytes}}({{n}} 项)",
+  "storage.cleanDone.one": "清理完成: 释放 {{bytes}}({{count}} 项)",
+  "storage.cleanDone.other": "清理完成: 释放 {{bytes}}({{count}} 项)",
   "storage.cleanNothing": "没有需要清理的内容",
-  "storage.fileCount": "{{n}} 个文件",
-  "storage.lastSweepNote": "上次清理: {{when}} · 释放 {{bytes}}({{n}} 项)",
+  "storage.fileCount.one": "{{count}} 个文件",
+  "storage.fileCount.other": "{{count}} 个文件",
+  "storage.lastSweepNote.one": "上次清理: {{when}} · 释放 {{bytes}}({{count}} 项)",
+  "storage.lastSweepNote.other": "上次清理: {{when}} · 释放 {{bytes}}({{count}} 项)",
   "storage.loadFailed": "存储统计加载失败:{{err}}",
   "storage.loading": "正在统计各仓占用…",
   "storage.store.agentRuns": "工作流运行",
@@ -1651,7 +1726,8 @@
   "storage.store.usage": "用量台账",
   "storage.store.webcache": "网页缓存",
   "storage.totalLabel": "数据目录总计",
-  "storage.transcriptNote": "引擎转录(Claude CLI 自管目录): {{bytes}} / {{n}} 个文件 -- 自动清理只限本工作台发起且已无线程引用、超过保留天数的转录",
+  "storage.transcriptNote.one": "引擎转录(Claude CLI 自管目录): {{bytes}} / {{count}} 个文件 -- 自动清理只限本工作台发起且已无线程引用、超过保留天数的转录",
+  "storage.transcriptNote.other": "引擎转录(Claude CLI 自管目录): {{bytes}} / {{count}} 个文件 -- 自动清理只限本工作台发起且已无线程引用、超过保留天数的转录",
   "storage.unavailable": "存储统计不可用",
   "thinkingEffort.default": "默认（继承 CLI 配置）",
   "thinkingEffort.high": "高",
@@ -1660,8 +1736,10 @@
   "thinkingEffort.medium": "中",
   "thinkingEffort.xhigh": "超高",
   "toast.answerFail": "回答发送失败：{{p1}}",
+  "toast.answerNotDelivered": "回答没有送达，这道提问可能已经结束",
   "toast.cleanFail": "清理失败：{{err}}",
   "toast.compactDone": "已压缩上下文：{{p1}}→约 {{p2}}（估算）",
+  "toast.compactL1Done": "已压缩上下文：较早的工具输出已折叠（原文可回捞，没有调用摘要模型）{{p1}}→约 {{p2}}（估算）",
   "toast.compactEmpty": "还没有可压缩的对话",
   "toast.compactFail": "压缩失败：{{p1}}",
   "toast.compactRequested": "已请求压缩上下文（/compact）",
@@ -1681,8 +1759,10 @@
   "toast.fileTooLarge": "{{p1}} 过大（>90MB）",
   "toast.externalDiffFailed": "无法在本机程序中打开：{{err}}",
   "toast.externalDiffFallback": "{{app}} 不支持命令行 Diff，已打开文件；差异仍可在如意中查看。",
-  "toast.externalDiffOpened": "已用 {{app}} 打开 {{count}} 个 Diff",
-  "toast.externalDiffPartial": "另有 {{count}} 个文件未能打开",
+  "toast.externalDiffOpened.one": "已用 {{app}} 打开 {{count}} 个 Diff",
+  "toast.externalDiffOpened.other": "已用 {{app}} 打开 {{count}} 个 Diff",
+  "toast.externalDiffPartial.one": "另有 {{count}} 个文件未能打开",
+  "toast.externalDiffPartial.other": "另有 {{count}} 个文件未能打开",
   "toast.grantAuto": "授权自动放行：{{tool}}（剩 {{remaining}} 次）",
   "toast.homeCwdWarn": "⚠ 当前工作目录是用户主目录，建议为任务选择具体文件夹",
   "toast.importFail": "导入失败：{{err}}",
@@ -1690,7 +1770,7 @@
   "toast.locateFolderFail": "定位文件夹失败：{{p1}}",
   "toast.memoryDeleted": "已删除记忆",
   "toast.memoryFieldsRequired": "名称和正文不能为空",
-  "toast.memoryMax8": "最多同时启用 12 条记忆",
+  "toast.memoryMax8": "最多同时启用 {{count}} 条记忆",
   "toast.memoryPruned": "已移除失效记忆：{{p1}}",
   "toast.memorySaved": "已保存工作台记忆",
   "toast.memorySetFail": "设置记忆失败：{{err}}",
@@ -1729,6 +1809,7 @@
   "toast.uiModeExpert": "已切到专家界面",
   "toast.uiModeSimple": "已切到精简界面",
   "toast.uploadFail": "上传失败：{{p1}}",
+  "toast.uploadInProgress": "附件还在上传，等「上传中…」结束再发送",
   "toast.wfActionSubmitted": "Agent 工作流操作已提交",
   "toast.wfCondInvalid": "运行条件格式无效",
   "toast.wfDepAdded": "已新增依赖箭头",
@@ -2030,6 +2111,8 @@
   "workflow.run.heartbeat": "仍在运行 · {{done}}/{{total}} · {{seconds}} 秒 · 活动节点：{{active}}",
   "workflow.run.wrapUpRequested": "节点 {{nodeId}} 运行较久，已要求立即收尾",
   "workflow.run.wrapUpForced": "节点 {{nodeId}} 未按时收尾，已仅中止该节点",
+  "workflow.run.wrapUpForcedCap": "节点 {{nodeId}} 总时长已达硬上限（约为自动收尾时限的 2 倍），已仅中止该节点；可在设置里调大「节点自动收尾」",
+  "workflow.run.wrapUpForcedQuiet": "节点 {{nodeId}} 超过自动收尾时限，且在宽限期内没有任何进展，已仅中止该节点；可在设置里调大「节点自动收尾」",
   "workflow.run.ended": "{{status}} · 成功 {{succeeded}} / 失败 {{failed}}",
   "workflow.run.endedDefault": "已结束",
   "workflow.run.loop": "{{nodeId}} 循环 {{iteration}}/{{maxIterations}} · 无进展 {{count}}",
@@ -2375,6 +2458,7 @@
   "status.failed": "✗ 失败",
   "ctx.auto": "自动",
   "ctx.customLimit": "自定义上限（Enter 生效）",
+  "ctx.meter.aria": "上下文用量（点击查看、设置上限或立即压缩）",
   "ctx.compact.label": "压缩模型",
   "ctx.compact.defaultProvider": "默认（当前 Provider 模型）",
   "ctx.compact.defaultKimi": "默认（Kimi 原生压缩）",
@@ -2405,6 +2489,7 @@
   "chat.subagent.generating": "生成中 · {{chars}} 字",
   "chat.subagent.retrying": "重试中 {{attempt}}/{{max}} · {{reason}}",
   "chat.subagent.dependsOn": " · 依赖 {{deps}}",
+  "chat.subagent.roleClamped": " · 受线程权限限制",
   "chat.subagent.backgroundHandedOff": "后台执行中 · 已交给 Claude CLI",
   "chat.subagent.done": "✓ 完成",
   "chat.subagent.resultChars": "{{chars}} 字结论",
@@ -2455,6 +2540,7 @@
   "role.permReadOnly": "只读计划",
   "role.permSmart": "智能自动",
   "role.permSkip": "跳过权限",
+  "role.clampedBadge": "(项目角色,按线程权限实际生效:{{tier}} / {{mode}})",
   "role.noIsolation": "不隔离",
   "chat.roleUser": "你",
   "chat.thinkingProcessCount": "思考 · {{count}} 字",
@@ -2523,7 +2609,8 @@
   "settings.mcp.import": "📁 从文件夹导入 MCP",
   "settings.mcp.loading": "正在加载连接器清单…",
   "settings.mcp.probing": "正在重测全部连接器（可能需要几秒）…",
-  "settings.mcp.count": "共 {{p1}} 个连接器",
+  "settings.mcp.count.one": "共 {{p1}} 个连接器",
+  "settings.mcp.count.other": "共 {{p1}} 个连接器",
   "settings.mcp.empty": "暂无连接器。用上方「从文件夹导入」添加一个 MCP 服务。",
   "settings.mcp.source.desktop": "内置桌面",
   "settings.mcp.source.config": "用户导入",
@@ -2575,10 +2662,18 @@
   "settings.mcp.compat": "传输兼容性说明",
   "settings.mcp.capabilities": "能力",
   "settings.mcp.limitations": "限制",
+  "settings.mcp.compat.stdio.capabilities": "initialize, tools/list, tools/call, notifications/cancelled",
+  "settings.mcp.compat.stdio.limitations": "无服务端推送 tools/list_changed(工具列表变化需重新 tools/list 探测)",
+  "settings.mcp.compat.http.capabilities": "initialize, tools/list, tools/call, 带状态的连接, tools/list_changed 推送",
+  "settings.mcp.compat.http.limitations": "需可访问 URL;密钥引用连接时才展开(不落盘明文)",
+  "settings.mcp.compat.sse.capabilities": "initialize, tools/list, tools/call, tools/list_changed 推送",
+  "settings.mcp.compat.sse.limitations": "legacy transport;新建连接器优先 streamable-HTTP",
+  "settings.mcp.desktopControl.label": "桌面控制 (ai-computer-control)",
   "settings.update.current": "当前状态",
   "settings.update.notApplied": "未应用任何 overlay",
   "settings.update.noBackups": "无备份",
-  "settings.update.backupsCount": "{{p1}} 个备份",
+  "settings.update.backupsCount.one": "{{p1}} 个备份",
+  "settings.update.backupsCount.other": "{{p1}} 个备份",
   "settings.update.selectZip": "选择增量更新包(zip)",
   "settings.update.browse": "选择 zip",
   "settings.update.selectZip.hint": "先预检(路径/完整性/版本兼容/幂等)再决定是否应用。CLI 救援:Manage-Overlay.cmd apply。",
@@ -2630,7 +2725,7 @@
   ,"provider.pricing.outputShort": "输出价"
   ,"usage.cachedInputTokens": "其中缓存命中 {{count}}"
 
-  ,"provider.capabilities": "协议与能力"
+  ,"provider.capabilities": "能力与选项"
   ,"provider.serverWebSearch": "服务端搜索 (仅 DeepSeek Responses)"
   ,"provider.serverWebSearch.hint": "开启后 web_search 由 DeepSeek 服务端执行(免一轮往返);关闭或端点不支持时回退内置本地搜索(builtin/searxng/bing…)。仅 apiStyle=responses 时可用。"
 
@@ -2767,6 +2862,7 @@
   ,"stewardShell.settings.onlyTitle": "只看「{{name}}」"
   ,"stewardShell.settings.showAll": "显示全部管家设置"
   ,"stewardShell.compose.placeholder": "跟如意说点什么"
+  ,"stewardShell.compose.attachNeedsSteward": "附件只能发给如意，直接递给线程时带不过去 —— 先把目标换回「→ 如意」，或者先取下附件。"
   ,"stewardShell.compose.needModel": "先接一个模型，管家才能回话"
   ,"stewardShell.compose.placeholderChange": "告诉我怎么改"
   ,"stewardShell.compose.targetLabel": "递给谁"
@@ -2807,6 +2903,13 @@
   ,"stewardShell.drawer.workspace": "工作区：{{name}}"
   ,"stewardShell.drawer.queueHead": "在等什么"
   ,"stewardShell.drawer.queueUnknown": "在排队，还没轮到它"
+  ,"stewardShell.wait.needsYou": "等你({{n}} 条待决)"
+  ,"stewardShell.wait.lock": "等锁：同一个文件夹被「{{who}}」占着"
+  ,"stewardShell.wait.lockUnknown": "等锁：同一个文件夹被别的线程占着"
+  ,"stewardShell.wait.budgetCost": "等预算：今天全部线程已花 {{spent}}，到了上限 {{limit}}"
+  ,"stewardShell.wait.budgetTurns": "等预算：本小时全部线程已开 {{spent}} 个回合，到了上限 {{limit}}"
+  ,"stewardShell.wait.slotAhead": "等并发位：前面还有 {{n}} 条"
+  ,"stewardShell.wait.slotNext": "等并发位：下一个就是它"
   ,"stewardShell.drawer.jumpQueue": "插队"
   ,"stewardShell.drawer.maxParallel": "并发上限"
   ,"stewardShell.drawer.maxParallelMissing": "并发上限在左栏栏头调"
@@ -2880,6 +2983,7 @@
   ,"stewardShell.drawer.rewindConfirm": "整单回退会把这条线程退回到第一句话之前，并撤销这期间改过的文件。要退吗？"
   ,"stewardShell.drawer.rewindDone": "已整单回退。"
   ,"stewardShell.drawer.rewindNoTarget": "这条线程还没有可回退的回合。"
+  ,"stewardShell.drawer.threadSwitchedCancelled": "确认期间你切换了线程，这次操作已取消，没有动任何东西。"
   ,"stewardShell.drawer.noPausableRun": "这条线程没有可暂停的编排运行。"
   ,"stewardShell.drawer.sent": "已发给它。"
   ,"stewardShell.drawer.steered": "已插话给它。"
@@ -2911,8 +3015,14 @@
   ,"stewardShell.chips.noMatch": "没有匹配的模型。"
   ,"stewardShell.chips.usedToday": "今天"
   ,"stewardShell.chips.usedDaysAgo": "{{days}} 天前"
+  ,"stewardShell.chips.usedDaysAgo.one": "{{days}} 天前"
+  ,"stewardShell.chips.usedDaysAgo.other": "{{days}} 天前"
   ,"stewardShell.chips.usageLine": "上次用 · {{when}} · 共 {{turns}} 回合"
+  ,"stewardShell.chips.usageLine.one": "上次用 · {{when}} · 共 {{turns}} 回合"
+  ,"stewardShell.chips.usageLine.other": "上次用 · {{when}} · 共 {{turns}} 回合"
   ,"stewardShell.chips.usageTurns": "共 {{turns}} 回合"
+  ,"stewardShell.chips.usageTurns.one": "共 {{turns}} 回合"
+  ,"stewardShell.chips.usageTurns.other": "共 {{turns}} 回合"
   ,"stewardShell.permission.default.label": "每步都问"
   ,"stewardShell.permission.default.hint": "改文件、跑命令前都先问过你（只读不问）；如意只提议，一律等你点。"
   ,"stewardShell.permission.acceptEdits.label": "改文件不问"
@@ -3014,11 +3124,11 @@
   ,"settings.steward.group.index": "任务索引"
   ,"settings.steward.group.indexHint": "左栏里能看见哪些线程。一条既不在途、今天也没动静、管家也不盯的旧线程，只有排在最近这么多条里才出现在左栏。"
   ,"settings.steward.threadIndexRecent": "左栏最近保留多少条线程"
-  ,"settings.steward.threadIndexRecentHint": "10 到 200 之间。调小左栏更干净，调大更全；窗口之外的线程仍然搜得到（Ctrl+K）。"
+  ,"settings.steward.threadIndexRecentHint": "10 到 200 之间。调小左栏更干净，调大更全；窗口之外的线程仍然搜得到（用左栏的搜索框）。"
   ,"settings.steward.quietSnoozeMinutes": "安静卡「稍后」推迟多久（分钟）"
   ,"settings.steward.quietSnoozeMinutesHint": "1 到 1440 分钟。按下「稍后」会按这个间隔排一条真的提醒，到点它会自己回来找你。"
   ,"settings.steward.group.schedule": "定时任务"
-  ,"settings.steward.group.scheduleHint": "到点自己开一条线程去办的事。这里只看，改在别处。"
+  ,"settings.steward.group.scheduleHint": "到点自己去办的事。可以在这里直接建，也可以直接对管家说。"
   ,"settings.steward.schedule.refresh": "刷新"
   ,"settings.steward.schedule.empty": "还没有定时任务。"
   ,"settings.steward.schedule.next": "下次 {{when}}"
@@ -3275,6 +3385,7 @@
   ,"rail.collapse": "收起"
   ,"rail.liveTool": "{{tool}} · {{elapsed}}前有输出"
   ,"rail.liveRunning": "运行中…"
+  ,"rail.liveToolAgo": "{{tool}} · {{ago}}有输出"
   ,"rail.justNow": "刚刚"
   ,"rail.origin.steward": "如意开的"
   ,"rail.origin.user": "我开的"
@@ -3305,6 +3416,8 @@
   ,"quietCard.snooze.title": "稍后再说：{{title}}"
   ,"quietCard.snooze.text": "来自你 {{minutes}} 分钟前按的「稍后」：{{ask}}"
   ,"quietCard.snooze.failed": "没能排上「稍后」，这张卡先留着"
+  ,"quietCard.answerGone": "这条已经不需要你回答了（可能在别处答过，或线程已经结束），卡片已收起。"
+  ,"quietCard.answerFailed": "没能提交回答：{{reason}}"
   ,"quietCard.fallbackTitle": "一条线程"
   ,"quietCard.deferred": "如意留给你了，还等 {{minutes}} 分钟：{{ask}}"
   ,"quietCard.deferredNoDeadline": "如意留给你了：{{ask}}"
@@ -3323,8 +3436,8 @@
   ,"composer.voice.error.notConfigured": "语音识别还没配置好，输入框没有改动"
   ,"composer.voice.error.tooLarge": "这段录音太长，超过了转写上限，输入框没有改动"
   ,"composer.voice.error.upstream": "语音转文字的服务报错了，多半是模型名不对，或服务商暂时不可用；输入框没有改动"
-  ,"composer.voice.error.protocol": "这家服务商不认现在的语音接口类型。到「设置 → 服务商 → 语音识别」重新添加一次，换另一种接口类型；输入框没有改动"
-  ,"composer.voice.error.auth": "语音转文字的服务商不认这把密钥，或这个账号没开通语音模型。到「设置 → 服务商」检查这家的 API 密钥；输入框没有改动"
+  ,"composer.voice.error.protocol": "这家服务商不认现在的语音接口类型。到「设置 → 模型与服务 → 语音识别」重新添加一次，换另一种接口类型；输入框没有改动"
+  ,"composer.voice.error.auth": "语音转文字的服务商不认这把密钥，或这个账号没开通语音模型。到「设置 → 模型与服务 → 模型服务商」检查这家的 API 密钥；输入框没有改动"
   ,"composer.voice.error.failed": "转写没有成功，稍后再试；输入框没有改动"
   ,"composer.voice.error.empty": "没有听出文字，输入框没有改动"
   ,"composer.voice.hintStream": "语音输入：点一下开始说，文字边说边出；每句说完自动校正错字；再点一下结束，Esc 取消。不会自动发送"
@@ -3337,8 +3450,8 @@
   ,"composer.voice.warming.ready": "语音识别已就绪，请说话"
   ,"composer.voice.warming.readyIdle": "语音识别已就绪，点一下麦克风开始说话"
   ,"composer.voice.warming.failed": "更准的本地识别模型没能加载好，这次先用实时识别，说完的字可能不会被校正"
-  ,"composer.voice.learned": "记住了：{{heard}} → {{term}}{{more}}（可在 设置 → 语音识别 → 语音词库 里管理）"
-  ,"composer.voice.learnedTerm": "记住了：{{term}}{{more}}（可在 设置 → 语音识别 → 语音词库 里管理）"
+  ,"composer.voice.learned": "记住了：{{heard}} → {{term}}{{more}}（可在 设置 → 模型与服务 → 语音识别 → 语音词库 里管理）"
+  ,"composer.voice.learnedTerm": "记住了：{{term}}{{more}}（可在 设置 → 模型与服务 → 语音识别 → 语音词库 里管理）"
   ,"composer.voice.learnedMore": "（另有 {{count}} 个）"
   ,"promptQueue.dock.title": "等你处理的提问与权限"
   ,"promptQueue.dock.label": "等你处理"
@@ -3683,11 +3796,11 @@
   ,"provider.anthropicAuth.xApiKey": "x-api-key 请求头"
   ,"provider.anthropicAuth.bearer": "Bearer 令牌"
   ,"provider.anthropicAuth.hint": "密钥怎么交给对方。自动：官方地址只发 x-api-key，其它地址两种都发。网关提示认证失败时再手动换。"
-  ,"provider.anthropicThinking": "思考方式"
-  ,"provider.anthropicThinking.auto": "自动（按模型判断）"
-  ,"provider.anthropicThinking.adaptive": "总是自适应思考"
-  ,"provider.anthropicThinking.off": "尽量少想"
-  ,"provider.anthropicThinking.hint": "自动：新一代 Claude 模型自动开启自适应思考。网关上的非 Claude 模型想强制开或关时才改。"
+  ,"provider.anthropicThinking": "思考"
+  ,"provider.anthropicThinking.auto": "按模型默认（新一代 Claude 自动开）"
+  ,"provider.anthropicThinking.adaptive": "开"
+  ,"provider.anthropicThinking.off": "关（尽量少想）"
+  ,"provider.anthropicThinking.hint": "网关上的模型（DeepSeek、Kimi、GLM 等）选「开」才会思考；新一代 Claude 不选也会思考。下面「能力与选项」里的思考强度只在这里不是「关」时生效。"
   ,"provider.anthropicFallbacks": "被拒答时自动改派"
   ,"provider.anthropicFallbacks.hint": "只对 Anthropic 官方地址（api.anthropic.com）上的部分新模型生效：模型拒绝回答时，由服务端自动换一个模型重试。不想换模型就取消勾选。"
   ,"role.color": "颜色"
@@ -3749,4 +3862,52 @@
   ,"settings.steward.auto.continueUnfinished": "任务没做完时，自己让线程接着做"
   ,"settings.steward.auto.continueUnfinishedHint": "线程这一回合收了，但计划还有没完成的步骤、或界面亮着「上次任务未完成」时，管家替你点一下「继续」。同一条线程最多连续续几次，计划没往前走就停；每一次都记进行动流水。"
   ,"settings.steward.tool.continueStopped": "没做完，不再自动续"
+  ,"role.discardTitle": "放弃未保存的角色修改？"
+  ,"role.discardBody": "当前页上有还没保存的角色修改，继续会把它们丢掉，换成已保存的内容。"
+  ,"role.discardOk": "放弃修改"
+  ,"provider.baseUrlInvalid": "服务商「{{name}}」的接口地址不合格：{{reason}}。请改好后再保存。"
+  ,"onboarding.wizard.provider.cloudNeedModel": "还没有模型名：请在「高级」里填写要用的模型名（「自定义」没有默认模型），或先点「测试连接」从返回的清单里选一个。"
+  ,"settings.positiveIntegerOnly": "请填正整数，留空表示不设置"
+  ,"memory.defaultPolicyHintNoRelated": "核心摘要每轮自动加载；设置里「每回合带几条相关记忆」为 0，其余记忆不会自动附上。"
+  ,"memory.proposal.scopeAria": "记忆作用域"
+  ,"memory.proposal.scopeAdjusted": "AI 建议：{{requested}} · 已按保守原则改为{{final}}（可用上方的作用域下拉改回）"
+  ,"memory.proposal.scopeRestored": "AI 建议：{{requested}} · 已按你的选择使用{{requested}}"
+  ,"memory.proposal.scopeMove": "{{from}} → {{to}}"
+  ,"memory.proposal.moveNote": "确认后会把这条记忆从「{{from}}」移到「{{to}}」；它与其它记忆之间的关系边不能跨作用域保留，会一并移除。"
+  ,"memory.proposal.moved": "已把这条记忆移到「{{scope}}」"
+  ,"memory.proposal.movedDropped.one": "已把这条记忆移到「{{scope}}」；{{count}} 条关系边无法跨作用域保留，已移除"
+  ,"memory.proposal.movedDropped.other": "已把这条记忆移到「{{scope}}」；{{count}} 条关系边无法跨作用域保留，已移除"
+  ,"memory.proposal.coreOn": "将加入核心（每轮注入）"
+  ,"memory.proposal.coreOff": "不加入核心"
+  ,"memory.proposal.batchBodyCount": "（{{count}} 字）"
+  ,"memory.edit.scopeMoveHint": "改变范围会把这条记忆移到新的范围（另存并删除原来的）；它与其它记忆的关系边不能跨范围保留，会被移除。"
+  ,"error.api.memoryProposalStale": "「{{name}}」在这条修改建议提出之后又被改过了；为免覆盖你的改动，这张卡没有应用。请忽略它，需要的话让 AI 对着最新内容重新提议"
+  ,"error.api.memoryMoveConflict": "目标作用域里已经有同 id 的记忆（{{id}}），没有移动"
+  ,"migration.import.sensitiveSkipped.one": "{{count}} 段疑似含口令或密钥，已跳过不导入"
+  ,"migration.import.sensitiveSkipped.other": "{{count}} 段疑似含口令或密钥，已跳过不导入"
+  ,"provider.anthropic.more": "连接细节（一般不用改）"
+  ,"provider.apiStyle.urlHint.chat": "OpenAI 兼容：Base URL 填到 /v1 这一级（例如 https://api.example.com/v1），工作台自己补端点路径。"
+  ,"provider.apiStyle.urlHint.responses": "Responses API：Base URL 填服务商给的根地址（例如 https://api.example.com），工作台自己补 /responses。"
+  ,"provider.apiStyle.urlHint.anthropic": "Anthropic：官方填 https://api.anthropic.com；兼容网关填到 /anthropic 这一级（例如 https://api.deepseek.com/anthropic），不要带 /v1/messages。很多网关不提供模型清单，在下面「模型」里手动填上模型名即可。"
+  ,"provider.baseUrlPlaceholder.chat": "https://api.example.com/v1"
+  ,"provider.baseUrlPlaceholder.responses": "https://api.example.com"
+  ,"provider.baseUrlPlaceholder.anthropic": "https://api.anthropic.com 或 https://…/anthropic"
+  ,"provider.apiStyle.autoSwitched": "已按地址切到「{{name}}」协议（不对的话在上面改回）"
+  ,"provider.baseUrlSuffixStripped": "已去掉地址末尾的端点路径（工作台会自己补上）"
+  ,"provider.testSuccessNoList": "✓ 连接成功（用「{{model}}」发了一句试探；这个端点不提供模型清单，模型名请手动填写）"
+  ,"provider.testError.unauthorized": "密钥无效或无权限：请检查 API Key 是否正确、是否还有额度（{{detail}}）"
+  ,"provider.testError.notFound": "端点地址可能不对（{{detail}}）。"
+  ,"provider.testError.modelRejected": "模型名可能不对：请确认「模型」里填的是这家服务商的模型名（{{detail}}）"
+  ,"provider.testError.unreachable": "连不上端点：检查网络与 Base URL，内网端点确认可达（{{detail}}）"
+  ,"provider.testError.needsModel": "这个端点不提供模型清单：请先在「模型」里填上这家服务商的模型名，再测试连接。"
+  ,"provider.testError.failed": "连接失败（{{detail}}）"
+  ,"chat.subagent.note.init": "子代理初始化中"
+  ,"chat.subagent.note.streaming": "模型流式响应中"
+  ,"chat.subagent.note.generating": "生成中 · {{chars}} 字"
+  ,"chat.subagent.note.kimiRunning": "Kimi 子代理运行中"
+  ,"chat.subagent.note.kimiRunningFor": "Kimi 子代理运行中 · {{secs}}s"
+  ,"chat.subagent.note.kimiPaused": "Kimi 子代理已暂停：{{reason}}"
+  ,"chat.subagent.note.kimiPausedWaiting": "Kimi 子代理已暂停：等待继续"
+  ,"stewardShell.askYou.permission": "等你放行:{{what}}"
+  ,"stewardShell.askYou.permissionTarget": "{{verb}}「{{name}}」"
 }

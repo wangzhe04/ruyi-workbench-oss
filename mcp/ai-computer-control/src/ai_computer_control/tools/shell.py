@@ -3,6 +3,7 @@
 import ctypes
 import locale
 import os
+import re
 import subprocess
 import tempfile
 from ai_computer_control.server import mcp
@@ -36,6 +37,75 @@ def _default_console_encoding() -> str:
             return locale.getpreferredencoding(False) or "utf-8"
         except Exception:
             return "utf-8"
+
+
+# PowerShell encodes its stdout/stderr with the console code page. On a non-Chinese Windows (OEM 437 / ANSI 1252)
+# every Chinese character is written as "?" at the source, which no decoder can bring back. Same one-liner (and
+# same reasoning) as the workbench's own PowerShell tools: UTF-8 without BOM, and $OutputEncoding in step.
+# A failed assignment (no console) is swallowed and leaves the old behaviour; the child restores the code page on exit.
+_PS_UTF8_PREAMBLE = ("try{[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)}catch{};"
+                     "$OutputEncoding=[Console]::OutputEncoding;")
+
+_PS_EXE_RX = re.compile(r'^\s*(?:"[^"]*[\\/]|[^\s"]*[\\/])?(?:powershell|pwsh)(?:\.exe)?"?(?=\s|$)', re.I)
+_PS_FLAG_RX = re.compile(r'\s+-{1,2}([A-Za-z]+)(?=\s|$)')
+_PS_VALUE_RX = re.compile(r'\s+("[^"]*"|\S+)')
+# Startup switches whose arity we know; anything else (-File, -EncodedCommand, -Version, ...) means "leave the
+# command alone". -Command may be abbreviated to any prefix (-c, -co, ...).
+_PS_FLAGS_NOARG = frozenset({"noprofile", "nop", "noninteractive", "noni", "nologo", "nol", "noexit", "noe",
+                             "sta", "mta"})
+_PS_FLAGS_ARG = frozenset({"executionpolicy", "ep", "windowstyle", "w", "inputformat", "outputformat"})
+
+
+def _powershell_utf8_command(command: str) -> str | None:
+    """`command` with the UTF-8 output preamble spliced in, or None when it is not a plain PowerShell call.
+
+    Handles a command that STARTS with powershell/pwsh (optionally a quoted or full path to it) followed by only
+    known startup switches and then -Command <text> (or bare command text). Everything else - -File,
+    -EncodedCommand, a script block, `-Command -`, PowerShell behind `cmd /c` or `&&` - returns None and runs
+    exactly as written. Pure string work (testable off Windows); the splice goes right after the opening quote
+    of a quoted -Command text, or in front of unquoted text.
+    """
+    m = _PS_EXE_RX.match(command)
+    if not m:
+        return None
+    pos = m.end()
+    while True:
+        f = _PS_FLAG_RX.match(command, pos)
+        if f:
+            name = f.group(1).lower()
+            if "command".startswith(name):                 # -c / -co / ... / -command
+                pos = f.end()
+                break
+            if name in _PS_FLAGS_NOARG:
+                pos = f.end()
+                continue
+            if name in _PS_FLAGS_ARG:
+                v = _PS_VALUE_RX.match(command, f.end())
+                if not v:
+                    return None
+                pos = v.end()
+                continue
+            return None
+        break                                              # no more switches: bare command text follows
+    rest = command[pos:]
+    stripped = rest.lstrip()
+    if not stripped or stripped[0] in "{-":                # nothing to run / script block / `-` (stdin) / other switch
+        return None
+    at = pos + (len(rest) - len(stripped))
+    if stripped[0] == '"':
+        return command[:at + 1] + _PS_UTF8_PREAMBLE + command[at + 1:]
+    return command[:at] + _PS_UTF8_PREAMBLE + " " + command[at:]
+
+
+def _maybe_powershell_utf8(command: str, encoding: str | None, is_windows: bool | None = None) -> str | None:
+    """The spliced command when run_command should force PowerShell to UTF-8, else None.
+
+    Only on Windows, and not when the caller forced an output encoding (their encoding must keep decoding the bytes
+    exactly as the program writes them).
+    """
+    if encoding or not (os.name == "nt" if is_windows is None else is_windows):
+        return None
+    return _powershell_utf8_command(command)
 
 
 def _decode(b, enc: str, cut_start: bool = False, cut_end: bool = False, enc_first: bool = False) -> str:
@@ -152,7 +222,8 @@ def run_command(
         working_dir: Working directory.
         timeout: Seconds (default 60, cap 600); on expiry the whole process tree is killed.
         shell: Run through the shell (default True).
-        encoding: Force an output encoding. Default: strict UTF-8, then the OEM/console code page (cp936 on zh-CN).
+        encoding: Force an output encoding. Default: strict UTF-8, then the OEM/console code page (cp936 on zh-CN);
+            `powershell -Command ...` is made to emit UTF-8 so Chinese survives non-Chinese Windows code pages.
         allow_dangerous: Override the destructive-command denylist.
         max_output_chars: Per-stream budget (stderr gets half, min 2000), default 16000, max 200000; longer output
             keeps head + tail with an "[…N chars omitted…]" marker.
@@ -173,6 +244,10 @@ def run_command(
         max_chars = _DEFAULT_OUTPUT_CHARS
     err_chars = min(max_chars, max(2000, max_chars // 2))
     enc = encoding or _default_console_encoding()
+    # PowerShell on a non-Chinese code page would write "?" for Chinese; make it emit UTF-8 (skipped when the caller
+    # forces an encoding, and for anything that is not a plain `powershell -Command ...` invocation).
+    patched = _maybe_powershell_utf8(command, encoding)
+    run_cmd, ps_utf8 = (command, False) if patched is None else (patched, True)
     try:
         # Pipes make subprocess.run()/communicate() wait for EOF from every descendant that inherited the
         # handles. A launcher may exit successfully while its detached child keeps those handles open, leaving
@@ -192,7 +267,7 @@ def run_command(
                 popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
             else:
                 popen_kwargs["start_new_session"] = True
-            proc = subprocess.Popen(command, **popen_kwargs)
+            proc = subprocess.Popen(run_cmd, **popen_kwargs)
             timed_out = False
             try:
                 return_code = proc.wait(timeout=timeout)
@@ -229,6 +304,8 @@ def run_command(
             result["stderr"] = stderr
             result["stdout"] = stdout
             result["encoding"] = enc
+            if ps_utf8:
+                result["powershell_utf8"] = True
             return result
     except Exception as e:
         return {"ok": False, "error": exc_text(e)}

@@ -11,7 +11,8 @@ See also: [Chinese edition](USER-GUIDE_CN.md) · [administrator guide](ADMIN-GUI
 ### Open the workbench
 
 Double-click Start-Workbench.cmd or the shortcut prepared by your administrator. A browser opens the local Ruyi
-page. If it does not, open the local address supplied by the administrator; the default port is 8765.
+page; the window title reads Ruyi Workbench and the top bar carries a **Steward | Workbench** segmented control. If
+the page does not open, open the local address supplied by the administrator; the default port is 8765.
 
 ### Complete first-run setup
 
@@ -24,7 +25,8 @@ The first-run card asks you to:
 3. Try a task card. Cards turn a common task into a clear prompt with a few fields to fill in.
 
 A new install starts in Smart auto: low-risk work runs without asking, while deleting data, installing software, pushing and
-sending outbound still stop for you. An upgraded install keeps the level it had. Switch to Ask every time from the shield
+sending outbound stop for you (recognized by rules over the command text — common phrasings are covered, but it is not a
+sandbox; see SECURITY.md in the repository). An upgraded install keeps the level it had. Switch to Ask me every step from the shield
 button when you want Ruyi to ask before each change.
 
 ### Send your first request
@@ -45,26 +47,43 @@ the local files and actions involved.
 The workspace is Ruyi's activity boundary. File reads, writes, and searches are scoped to the selected folder.
 Choose it carefully: selecting the correct workspace defines where the AI may operate.
 
-### Chat
+### Thread
 
-A chat is one complete conversation. The sidebar lets you create, search, rename, pin, and delete chats. Use
-separate chats for unrelated work to keep histories clear.
+A thread is one conversation about one piece of work. The left rail, titled Tasks, groups all your threads by
+state (Waiting on you / Running / Queued / Wrapped up today / Earlier); you can search threads, rename, pin and
+delete them, and **New thread** starts another (in the steward view the same button reads **Start a task**). Use
+separate threads for unrelated work to keep histories clear.
+
+### One workbench, two views
+
+Ruyi has one interface with two **views**, switched with the **Steward | Workbench** segmented control in the
+middle of the top bar (shortcut ``Ctrl+` ``):
+
+- The **steward view** is a conversation: tell it what you want, and the steward opens threads to do it, reports
+  back, and keeps an eye on everything in flight.
+- The **workbench view** is the three-pane layout where every step is visible: threads on the left, the
+  conversation in the middle, files and changes on the right.
+
+Both views read the **same** threads, messages, pending decisions and checkpoints. Switching moves and deletes
+nothing, and the thread rail on the left is the same list in both. A new install starts in the steward view; to
+start in the workbench instead, change **Settings → General → General → Default view on launch**. Section 4 says
+what is in each view.
 
 ### Permission modes
 
-Pick the default for new threads from the **shield** at the top right of the steward view (or Settings →
-Permissions & safety); set a single thread from the **permission chip** in its header.
+Pick the default for new threads from the **shield** in the top bar (or Settings → General → Permissions &
+safety); set a single thread from the **permission chip** in its header.
 
 | Mode | Meaning | Good for |
 |---|---|---|
-| Ask every time | Asks before editing files or running commands (reads never ask). | First use and important files. |
+| Ask me every step | Asks before editing files or running commands (reads never ask). | First use and important files. |
 | Edit files without asking | File edits proceed; commands and outbound actions still ask. | Trusted editing tasks. |
 | Plan only | Ruyi writes a plan and does not act. | Complex work you want to review first. |
-| Smart auto | Stops asking and reports back. Deleting data, installing software, pushing, sending outbound, and spliced or encoded commands whose real intent cannot be read still stop; the steward may approve the non-floor ones under its rules (see section 9). | Handing the work to the steward without step-by-step interruptions. |
+| Smart auto | Stops asking and reports back. Deleting data, installing software, pushing, sending outbound, network access started from a command or script (curl, Invoke-WebRequest, Python or Node requests, … — plain reads count too), reading secret files in the Ruyi data folder, and spliced or encoded commands whose real intent cannot be read stop (rule-based, not a sandbox); the steward may approve the non-floor ones under its rules, but never the network and secret-file ones (see section 9). | Handing the work to the steward without step-by-step interruptions. |
 | Fully automatic | Never asks and nothing is vetted - even floor actions such as payments, shutdown, or sending mail run straight away; only system folders stay write-protected (red warning style). | Only in an isolated environment or when you fully trust the task. Scheduled tasks never use it. |
 
 Switching to Smart auto or Fully automatic asks you to confirm first, each with its own explanation. When unsure, use
-Ask every time. A change applies from the next turn and does not interrupt a turn in progress.
+Ask me every step. A change applies from the next turn and does not interrupt a turn in progress.
 
 ### Questions from the AI
 
@@ -78,9 +97,15 @@ until delivery is confirmed, so a temporary network failure can be retried witho
 
 ### Checkpoints, audit, and rollback
 
-Before writing, editing, or deleting a file, Ruyi records a checkpoint. The Audit tab records tool and permission
-events. You can roll back an individual change or a whole turn, returning files to their prior contents. Batch
+Before writing, editing, or deleting a file, Ruyi records a checkpoint. The Activity tab in the right pane records
+tool and permission events. You can roll back an individual change or a whole turn, returning files to their prior contents. Batch
 renames are previewed as an old-name to new-name table because they are not automatically reversible.
+
+Together these are the three layers behind "everything the AI changes, you can see and undo": a **checkpoint** keeps
+the original of a file automatically before it is written, edited or deleted; the **audit** timeline (the Activity tab)
+records everything the AI did; and **rollback** puts files back as they were, one step or a whole turn. So the line at
+the bottom of the permission prompt, "File changes have checkpoints; review and revert them in Activity.", is meant
+literally.
 
 ## 3. Common tasks
 
@@ -116,86 +141,171 @@ work and reports that online search is unavailable. Cached material can still be
 
 ## 4. Tour of the interface
 
-The layout has a chat sidebar, the central conversation, and a right-hand tool panel.
+Ruyi is **one workbench with two views**. The screen has a top bar, a left rail, a middle area and a right pane: the
+top bar and the left rail are shared by both views, while the middle and the right change with the view.
 
-- The top bar selects the workspace, permission mode, engine, theme, UI mode, and language. It also shows context
-  usage when relevant.
-- Files shows the workspace tree and previews text files. Ask Ruyi in chat when you need to search content or read
-  a specific path. Artifacts lists files generated in the current chat.
-  Changes shows reversible file edits grouped by turn. Audit shows a filterable timeline of actions and decisions.
-  Agent Workflows is the monitoring canvas for multi-agent orchestrations. Usage displays token consumption
-  and cost for the current turn.
-- The composer supports attachments, task cards, slash commands, and ordinary natural-language requests.
-- Simple mode emphasizes files, artifacts, changes, and progress with plain-language labels. Pro mode adds richer
-  status and configuration, while low-level terminal, desktop, MCP, search, and read operations remain model tools
-  governed by permissions rather than manual runners. Connector management lives in Settings → Integrations / MCP;
-  diagnostics, storage, metrics, and raw logs live in Settings → Doctor.
+### Top bar (shared; from the middle to the right)
+
+- **The view control, Steward | Workbench**: click to switch views, shortcut ``Ctrl+` ``. A new install starts in
+  the steward view.
+- **"N running · M waiting on you"**: a global status pill counting running threads and items waiting for you;
+  click it and the rail scrolls to the matching group. It is hidden while there are no threads.
+- **The shield**: the default permission level for new threads; open it to pick one of the five levels (section 2).
+  A single thread can be tightened from its own permission chip.
+- **The power button, "Stop the steward"**: halts the steward's own polling and in-flight turns (threads already
+  running carry on); once stopped, the same button reads "Wake the steward".
+- **The gear**: Settings, Help (user manual, administrator manual, reopen the setup guide, view logs), keyboard
+  shortcuts, dark / light theme, interface (simple / pro), the capability matrix, and, last, the destructive
+  "Clean up history".
+
+### Left rail: the thread list (shared)
+
+- The number beside the title "Tasks" is the thread count; "Search threads" searches titles and bodies.
+- **New thread** opens a thread (in the steward view the button reads **Start a task** and asks the steward to
+  start it).
+- Threads are grouped by state: **Waiting on you** (a pending permission, question, plan or proposal),
+  **Running**, **Queued**, **New**, **Stopped today**, **Wrapped up today** and **Earlier**. "Max at once" and
+  "Pause everything" control concurrency.
+- At the foot are four entries: **Scheduled tasks**, **Action log**, **What it remembers**, **Health · usage**.
+
+### The steward view
+
+The middle is the conversation with the steward (the box reads "Say something to Ruyi"): you ask for something, it
+opens a thread to do it (or hands it to an existing one) and reports back; ask "how are these going?" and it
+answers thread by thread. The right pane shows the thread selected in the rail: what it is waiting for, the Allow /
+Deny buttons you can press right there, its permission / model / engine, a box to **talk to that thread directly**
+(the message goes straight to it, not through the steward), and "Open in the workbench" and "Stop".
+
+The steward speaks up only when it should: trouble in another thread shows a **quiet card** at the bottom right that
+does not steal focus, question pop-ups never interrupt you while you are typing, and every pending decision gathers
+in the "Waiting for you" tray at the bottom right.
+
+### The workbench view
+
+| Area | What is there |
+|---|---|
+| Thread header | The thread name and state, the **workspace folder** button (click it to change folder), the "hand to the steward" toggle and a way back to the steward, this thread's own **permission / model / engine** chips (affecting only this thread), the **context meter** (used / limit; click it to see usage, set the limit, or **Compact now**), and the connection status |
+| Middle | **Conversation** and **Crew** (the live multi-agent canvas) tabs; under each answer: the turn record (tool calls), the turn's file changes (undoable) and the turn's usage |
+| Composer | See the next paragraph; while a turn runs you can steer it or stop it |
+| Right pane, seven tabs | Below |
+
+The seven tabs on the right:
+
+- **Files**: the workspace tree. Click a text file to preview it; ask Ruyi in chat when you need to search content or
+  read a specific path.
+- **Artifacts**: the files generated in this thread, grouped by turn, which you can preview and open. The easiest
+  place to collect the result of a job.
+- **Changes**: reversible file edits grouped by turn; undo one at a time or roll back a whole turn.
+- **Memory**: workbench memory (section 6).
+- **Workflows**: the monitoring canvas for multi-agent orchestrations.
+- **Usage**: token consumption and cost for the current turn.
+- **Activity**: a filterable timeline of everything the AI did; click a row for the full record.
+
+Simple mode emphasizes files, artifacts, changes, and progress with plain-language labels. Pro mode adds richer
+status and configuration, while low-level terminal, desktop, MCP, search, and read operations remain model tools
+governed by permissions rather than manual runners. Connector management lives in Settings → Tools &
+integrations → Integrations and MCP; diagnostics, storage, metrics, and raw logs live in Settings → System →
+Diagnostics.
+
+### Composer
+
+The composer supports attachments, task cards, slash commands, and ordinary natural-language requests, and it
+exists in both views (with a microphone beside Send; until speech recognition is configured it is a grey "set up" button).
+Switch between simple and pro mode from the gear menu, under "Interface" (also under Settings → General →
+General).
 
 ## 5. Settings
 
-Configure either a local Claude CLI path or an OpenAI-compatible provider; one configured engine is enough to
-start. Provider keys are stored locally and masked in UI responses.
+Open the **gear** at the top right of the top bar and choose Settings. The left side has five groups: **General**
+(General / Permissions & safety / Usage & limits), **Steward**, **Models & Services** (Model assignment / Model
+providers / Speech recognition / Agent CLI / Agent roles), **Tools & integrations** (Web search / Integrations and
+MCP / Add-on components / Skills & templates / Migration center) and **System** (Diagnostics / Storage & data /
+Advanced / Update Center). The "?" on each page opens the matching section of this guide.
 
-The Web Search page configures SearXNG, Bing, Brave, Tavily, Bocha, or a custom endpoint. It is optional.
+Configure either a local Agent CLI path (Claude Code or Kimi Code, under Models & Services → Agent CLI) or an
+OpenAI-compatible provider (Models & Services → Model providers: press "+ Add Provider" and pick a starting point from the
+drop-down beside it: local Ollama, local LM Studio, or the one "custom" entry (OpenAI-compatible / self-hosted). A cloud
+API and an Anthropic-compatible gateway both use "custom": enter the base URL and key the service gave you. The
+protocol drop-down sits right under the Base URL and **follows the address automatically**: `api.anthropic.com`, an
+address whose path ends in `/anthropic` (or `/anthropic/vN`) or in `/messages` means Anthropic Messages; one ending in
+`/chat/completions` means Chat Completions; one ending in `/responses` means the Responses API. Once you pick a protocol
+by hand the address stops changing it, and when the address box loses focus a pasted `/v1/messages`,
+`/chat/completions` or `/responses` suffix is stripped. For an Anthropic-compatible gateway, for example, add a
+"custom" card and paste `https://api.example.com/anthropic`; the protocol switches by itself. "Test connection" reads the
+endpoint's model list; when the endpoint has none (404 / 405 / 501, or an empty list) it falls back to one minimal
+completion with the configured model, and asks you to fill in a model if none is set. Finally press "Save providers"); one configured
+engine is enough to start. Ruyi ships **no vendor presets**. Once configured, choose it from the engine chip in a
+thread's header, or decide who uses which model under Models & Services → Model assignment. Provider keys are
+stored locally and masked in UI responses.
 
-On the General page, choose Simple or Pro UI, detailed or concise response style, and language: Follow system,
-Simplified Chinese, or English.
+The Web Search page (Settings → Tools & integrations) configures SearXNG, Bing, Brave, Tavily, Bocha, or a custom
+endpoint. It is optional.
 
-### New task desk preview and classic layout
+On the General page (Settings → General → General), choose Simple or Pro UI, detailed or concise response style,
+language (Follow system, Simplified Chinese, or English), and the **Default view on launch**: whether the next start
+lands in the **Steward (default)** or the **Workbench**. That is only a local interface preference: it migrates and
+rewrites no thread data, you can switch back at any time, and the top-bar control always works too. While the
+steward master switch is off, only the workbench view is available.
 
-Open **Settings → General → Task desk layout** to switch between **Classic layout (default)** and the **New task
-desk preview**. This changes only the presentation preference on this computer; it is not a data migration. Both
-layouts read the same tasks, chats, messages, pending decisions, and checkpoints. Nothing is copied, moved, or
-deleted, and you can switch back at any time.
+### Notify me when I am needed
 
-- Use **Dispatch desk** in the classic sidebar to return immediately; use **Classic layout** at the bottom of the
-  task dock to go back. They are two interfaces over the same task facts.
-- The dispatch desk restates the goal, workspace, and turn-specific permission mode before you start. A Quick Ask
-  ending in `?` returns to the classic conversation without creating a task.
-- The task dock opens the raw message worksite plus Needs you, Results, and a real change ledger. Archived tasks
-  retain the same undo handles. Its top `+` opens a clean task draft and focuses the dispatch box.
-- A task opens on the **Worksite log**, which turns starts, turns, failures, usage, decisions, results, and rewinds
-  into one continuous duty log. Every sentence expands to its raw type, time, source cursor, and fact detail. Switch
-  to **Crew stages** or **Raw record** at any time; these are lenses over the same facts, not separate task state.
-  Long logs keep a normal 160-row DOM window and reveal earlier notes in explicit batches.
-- Multi-agent tasks show a **crew stage map** in the Crew stages lens. Every member, dependency, status, and latest
-  progress line comes from the same task record; the foreman sentence is a deterministic summary and does not call
-  a model. A dotted gold member is proposed work awaiting approval and opens its exact Needs you item. Select a
-  running member to pass a note; the UI reports immediate delivery, queued delivery, or honest unavailability and
-  preserves the draft after failure.
-- The **Mission telegraph** below the title separates three scopes. Pause, Continue, and Human takeover affect the
-  current turn and driver; Stop and Retry affect the whole Mission; Pause/Continue/Stop inside Crew stages affect
-  only the selected Run. Every button shows its scope and disabled controls explain why. Stop, Retry, and Run Stop
-  restate their impact in place and require a second confirmation.
-- **Change ledger & undo handles** groups real checkpoint rows by turn with file, operation, tool, and time. A
-  Reversible row can be undone alone; Rollback Mission reverses recoverable files since Mission start and resets
-  that conversation tail and its milestones. Large files without a before-snapshot, commands, and other
-  irreversible actions are listed separately and are never reported as undone. Entry and whole-Mission rollback
-  require confirmation and are disabled while a turn or team Run is still writing.
-- Needs you in the desk bar or task intake opens the same cross-task drawer. Permissions, questions, plans, and
-  helper proposals are decided there; Allow and Approve require a second confirmation. A question first shows the
-  background the model gave immediately before asking, then presents full-row choices with no default selection;
-  Other is only the fallback when no option fits. An offline worksite offers only an honest classic-layout handoff.
-- The desk-bar **Workspace / Safety / Engine** facts open the workspace picker, permission-mode panel, and model
-  menu respectively. Only **Settings** in the task dock opens the full Settings page.
-- A stopped task lists unfinished work and offers Try again, Change approach, or Leave it for now. Try again opens
-  the inline whole-Mission Retry confirmation, then clears the stopped stamp and starts a new turn. Change approach
-  prepares an unsent classic-composer draft; Leave it for now only archives local UI state.
-- While you were away is generated only from persisted change records, and advances its local read position only
-  after the task view has rendered successfully.
-- Archive search, filters, pinning, and archiving are local UI preferences. They never rewrite task facts.
-- A completed task gains a **Closeout dossier** with Acceptance, Artifacts, Unfinished, Changes, Usage, and Audit
-  facts from the sealed result. It can be saved as familiar work, remembered as a habit, or archived in place.
+To be alerted while away, explicitly enable **Settings → General → General → Notify me when I am needed**. It is off
+by default and stores only a local preference. The browser asks for system-notification permission on that click.
+Quiet hours default to 22:00–08:00 and can be changed; they apply only once local notifications are switched on (with notifications off, quiet cards appear as usual).
 
-To be alerted while away, explicitly enable **Settings → General → Notify me when I am needed**. The browser asks
-for system-notification permission on that click. Quiet hours default to 22:00–08:00 and can be changed locally.
-Each pending decision is notified at most once and its notification is withdrawn when the decision becomes
-terminal. Items seen during quiet hours or denied permission are not replayed later, and restarting the workbench
-does not emit a backlog. The feature is off by default and stores only a local preference.
+A notification is sent in two situations only:
 
-If the task projection cannot load, the failure view offers both **Retry** and **Return to classic layout**. Classic
-mode remains fully usable, and the failure does not rewrite task or chat data. A damaged local preview-preference
-record may reset read, pin, and archive positions, but the task remains authoritative and intact.
+- In the **workbench view**, when you are sitting on a different thread and a quiet card appears at the bottom
+  right, a system notification goes out with it.
+- In the **steward view**, when the steward leaves a permission request for you or has something to call you about,
+  and only while the window is not in the foreground (minimised or unfocused).
+
+Each event notifies once and a notification is not withdrawn afterwards. Items that arrive during quiet hours, or
+while permission is denied, are not replayed later, and restarting the workbench does not emit a backlog. The desktop
+shell uses a tray balloon.
+
+### The Steward tab
+
+**Settings → Steward.** The steward is a conversational view (section 4): you say one sentence and it dispatches the
+work to threads and reports back. **It is on from the factory** (a new install lands in the steward view). The page
+has eight groups from top to bottom:
+
+- **Steward switch**: "Turn the steward on", "Switch to the steward view" and "Stop the steward". Turning the switch
+  off stops the steward at once and leaves no background activity; if you are in the steward view at that moment you
+  are returned to the workbench view straight away. "Stop the steward" only halts its own polling and in-flight
+  turns; threads already running carry on under their own permission.
+- **Steward persona**: a name and a tone preference. It changes only how the steward speaks, never permissions or
+  discipline.
+- **What the steward may do on its own**: retry once after a failure, resume after a restart, hand off within a
+  task, open a new thread when needed, keep an unfinished thread going on its own, answer a thread's question for you
+  while you are away (only with a source), and approve a permanently exempt action under its rules (section 9).
+  This list only applies to threads at "Edit files without asking" or above; threads that ask every step only ever
+  get a suggestion, and anything left unticked is only ever suggested.
+- **Pace & context**: how often to check the inbox, the idle time that starts a new visit, how long to keep the
+  steward conversation, the steward's context budget and the compaction trigger. **"Name each thread
+  automatically" is in this group too**: for each new thread it spends one small call to produce a short name and a
+  one-line gist instead of using your whole message as the title; your own words are never rewritten (hover to see
+  them in full).
+- **Task index**: how many recent threads the rail keeps (10 to 200); threads outside that window can still be
+  found by search.
+- **Scheduled tasks**: see section 9.
+- **What the steward remembers about you**: the preferences and habits it noted. Every entry can be edited, vetoed or
+  restored, and the whole set can be exported or cleared. They enter only the steward's own prompt, never ordinary
+  threads.
+- **Action log**: the record of everything the steward did for you: what, on which thread, when, and whether it can be
+  undone.
+
+The model the steward uses (blank follows the main endpoint, but the steward cannot run when the main endpoint is a
+command-line engine, and the page says which setting to change) is chosen under Settings → Models & Services →
+Model assignment; its hourly turn cap, daily spending cap and how many threads may run at once are under Settings →
+General → Usage & limits; and the default permission level for new threads is under Settings → General →
+Permissions & safety (the top-bar shield is the same setting). **Switching to Smart auto or Fully automatic always
+asks you to confirm again** (each with its own explanation); Settings, the top-bar shield and a thread header's
+permission chip go through the same gate. A single thread can be tightened from its own chip, but only tightened,
+never loosened.
+
+Keyboard: in the steward view **Esc closes one layer at a time**: the topmost layer first (menu, candidate list,
+evidence pop-over), and the thread drawer on the right only once they are all closed.
 
 ## 6. Skills, memories, usage, and workflows
 
@@ -212,7 +322,7 @@ guide before run.
 
 Opening a URL now defaults to a new tab/window in your system browser and existing signed-in session. The current
 Ruyi Workbench tab is protected: browser tools do not navigate, reuse, or close it. Chrome for Testing is used only
-when you explicitly select the isolated bundled mode under **Settings → Integrations and MCP → Browser target**.
+when you explicitly select "Bundled Chrome for Testing (isolated testing)" under **Settings → Tools & integrations → Integrations and MCP → Browser target**.
 Use CDP mode to reuse an already attached browser when element-level DOM automation is required.
 
 If a hardware-accelerated page exposes only browser chrome through UI Automation, the AI switches to CDP/DOM,
@@ -227,7 +337,7 @@ Workbench memory stores personal practices or project conventions after a draft-
 apply to their matching workspace; global memories are enabled deliberately. Keep repository-wide shared rules in
 CLAUDE.md and personal habits in workbench memory.
 
-The Usage page groups tokens and cost by engine, provider, chat, and day. It labels subscription-plan traffic
+The Usage tab in the right pane groups tokens and cost by engine, provider, thread, and day. It labels subscription-plan traffic
 honestly rather than inventing a monetary cost, and includes sub-agent and compaction usage. You can set a monthly
 budget warning. Provider settings support default input, cache-hit, and output rates plus exact per-model overrides
 within the same provider. Blank model fields inherit provider defaults, and a blank cache-hit rate conservatively
@@ -239,20 +349,32 @@ choose Add task or No thanks.
 
 ## 7. FAQ
 
-**No engine is ready.** Configure a Claude CLI path or add a provider in Settings, then select it in the top bar.
+**No engine is ready.** Configure an Agent CLI path or add a model provider in Settings (section 5); the connection status in the thread header turns green once one works.
 
 **Why am I seeing a permission prompt?** Ruyi is asking before a sensitive action. Review the action, scope, and
-reversibility, then approve or reject it. An unattended prompt expires as a rejection.
+reversibility, then approve or reject it. If you ignore it, it **waits without a time limit by default** (the prompt folds
+into the small tray at the bottom right); if you or an administrator set a limit under Settings → General →
+Permissions & safety, a permission request is rejected at the deadline (Ruyi never approves for you), and an
+unattended scheduled-task prompt is rejected after 30 minutes (configurable).
 
-**How do I undo a change?** Open Audit or Changes, or use Change ledger & undo handles at the bottom of a task
-sheet. You can undo one checkpoint row or roll the whole Mission back to its start. Operations without a usable
-before-snapshot remain explicitly listed as irreversible.
+**How do I undo a change?** Open the Changes tab in the right pane to undo one edit or a whole turn, and the
+Activity tab to see what Ruyi did; each answer also carries a turn-changes card. Operations without a usable
+before-snapshot are explicitly marked as not automatically reversible and are never counted as undone.
 
 **Does Ruyi work offline?** Local files, scripts, desktop control, Office work, PDF export, and OCR are local.
 Only online search needs a configured network service.
 
-**The conversation is long.** Open the context meter and use Compact now; Ruyi summarizes earlier context so the
-chat can continue.
+**The conversation is long.** Open the context meter in the thread header and use Compact now. Manual compaction runs in
+the same order as automatic compaction: it saves a snapshot, then folds old tool results (free, and the originals stay
+recoverable); if that is enough it stops there, and only if it is not does it summarise earlier context. A summary is
+followed by an index of the tool calls already made, and the AI can fetch the originals by that index with
+`observation_recall`, so the chat carries on.
+
+**The AI handed work to background agents and then went quiet.** By default, when background agents finish the
+workbench starts a turn by itself and hands the results to the AI, so you do not have to say anything (each delivered result wakes
+the conversation once; at most 6 wake-ups happen in a row and your next message resets the count; stopped, cancelled or
+restart-interrupted agents and the steward conversation never wake it; neither do runs you started yourself from the Agent workflows panel, nor anything after you pressed Stop or rewound the conversation - those results wait for your next message). If you turned off "Wake the conversation when background agents finish" under Settings →
+General → Usage & limits → Concurrency, the results arrive with your next message instead.
 
 ## 8. Local models (Ollama / LM Studio)
 
@@ -261,12 +383,12 @@ Ruyi can talk to a model running on your own computer. This route needs **no API
 ### Three steps
 
 1. Install Ollama or LM Studio on this computer and leave its local server running.
-2. In Ruyi, open step 3 of the welcome wizard (Help in the sidebar reopens it any time) and pick the
+2. In Ruyi, open step 3 of the welcome wizard (gear menu → Help → Reopen the setup guide brings it back any time) and pick the
    **Ollama (local model, no key)** or **LM Studio (local model, no key)** preset card.
 3. Leave the API key blank and press Test connection. Ruyi asks the local server which models it has and fills
    the model list under Advanced; choose one, press Save and continue, and the top bar switches to it.
 
-Settings, Providers behaves the same way: neither preset requires a key, and the key field says so.
+Settings → Models & Services → Model providers behaves the same way: neither preset requires a key, and the key field says so.
 
 ### Test connection says it cannot connect
 
@@ -291,25 +413,28 @@ when it does not work.**
 
 ### Voice input: speak instead of typing
 
-**Configure it once.** Open **Settings → Models & Services → Model providers → Speech recognition (voice
-input)** and pick a **provider** and a **model**. Only models tagged as speech-capable in that provider's model
-list are offered; when
-there is no candidate at all the block renders no controls — **that is not the feature hiding, it means this
-machine has no speech model to choose**. Once saved, the page confirms that speech recognition is on; choosing
-**Off** turns it back off.
+**Configure it once.** Open **Settings → Models & Services → Speech recognition**: pick a level under "Voice input"
+(Light / Standard / Heavy need the matching ruyi-toolbox speech add-on installed first), or open "Pick each part
+yourself (advanced)" and choose a **provider** and a **model** under "Full-clip recognition (attachments · sentence
+re-listen)". If the model you want is not listed, use "Add a speech recognition model" below it: choose the provider,
+type the model name, pick the **interface type** and press "Add and enable" (it is also selected as the full-clip
+model). Once saved, the page confirms that speech recognition is on; choosing **Off** turns it back off. Until it is
+configured, the microphone in the composer is a grey "set up" button, and pressing it takes you straight to this page.
 
 > **The prerequisite, stated plainly.** Transcription endpoints come in two dialects. Ruyi speaks both, but
 > **you have to tell it which one this provider speaks**. The default is the OpenAI-shaped
 > `/audio/transcriptions`; of the four ASR models tested on the developer's own machine — MiMo, two on Bailian,
 > and Hunyuan — **not one offers it; all four returned 404**, because they expose ASR through the chat endpoint
 > instead. So **record one short take right after you configure it**. If it fails, you did not configure it
-> wrong — the protocol is most likely set wrong. Ask your administrator to go to Settings → "Models and
-> services" → expand that provider's "Protocol & capabilities" → set "Speech-to-text protocol" to **Chat
-> style**, then try again. MiMo and Bailian work over the chat style on the developer's machine; the Hunyuan
+> wrong — the interface type is most likely set wrong. Ask your administrator to go to Settings → Models & Services
+> → Model providers → expand that provider's "Capabilities & options" → set "Speech-to-text interface" to
+> **Chat-based (Alibaba Bailian, Xiaomi MiMo and similar)**, or add the model again under "Add a speech recognition
+> model" on the Speech recognition page with the right interface type, then try again. MiMo and Bailian work over the chat-based interface on the developer's machine; the Hunyuan
 > one was never verified on either.
 
-**Using it.** Once configured, a microphone appears next to the send button in the composer of **both the
-Workbench lens and the Steward lens**.
+**Using it.** Once configured, the microphone next to the send button in the composer of **both the Workbench
+lens and the Steward lens** is the record switch (before that it is a grey "set up" button that opens the page
+above; if the browser itself cannot record, the button is not shown at all).
 
 - Click once to start; the button counts up (`0:01`). Click again to finish; the take goes off to be
   transcribed and the button shows a busy state.
@@ -342,7 +467,7 @@ shows no microphone at all — there is no fallback path.
 **Also**: you can **attach a recording as a file**. Ruyi transcribes it best-effort and hands the text to the
 model with the file. A failed transcription never blocks the upload, and the original file stays downloadable.
 
-**Names and jargon keep coming out wrong? Use the voice vocabulary.** Settings → Voice recognition, the last card: one term per line for words you say often that keep getting misrecognized (names, projects, jargon), optionally followed by how they tend to be misheard, e.g. `Kubernetes = 酷伯奈提斯`; then click "Save vocabulary". These are **hints, never blind replacements**: live recognition uses them as hotwords, and the end-of-sentence re-listening (local Qwen3-ASR or a Whisper-style cloud endpoint) and LLM correction switch to a term only when both the sound and the context fit. A built-in list of 472 common Chinese/English terms (tech, office, AI, game engines) is on by default and is only hinted when a sentence looks like a mishearing of one; you can turn it off. Conversational cloud recognizers (e.g. MiMo) don't get the list yet.
+**Names and jargon keep coming out wrong? Use the voice vocabulary.** Settings → Models & Services → Speech recognition, the last card: one term per line for words you say often that keep getting misrecognized (names, projects, jargon), optionally followed by how they tend to be misheard, e.g. `Kubernetes = 酷伯奈提斯`; then click "Save vocabulary". These are **hints, never blind replacements**: live recognition uses them as hotwords, and the end-of-sentence re-listening (local Qwen3-ASR or a Whisper-style cloud endpoint) and LLM correction switch to a term only when both the sound and the context fit. A built-in list of 472 common Chinese/English terms (tech, office, AI, game engines) is on by default and is only hinted when a sentence looks like a mishearing of one; you can turn it off. Conversational cloud recognizers (e.g. MiMo) don't get the list yet.
 
 **It remembers what you fix.** After dictating, the words you correct by hand before sending (say, `张伟` → `张玮`, or `刀客` → `Docker`) are checked when you send: if the change sounds alike and looks like a name or a term that was misheard, it goes into this vocabulary so recognition leans that way next time. A term is learned after you make the same fix twice (once is enough for terms on the built-in list or words you have typed yourself); if LLM correction is configured, that model is also asked to double-check, and when it agrees the term is learned at once, with names learned in full. A short notice ("Learned: 刀客 → Docker") tells you when a new word is learned. English proper nouns you type yourself without dictating (such as `useState` or `GitHub Actions`) are collected too once they show up in three messages. Learned words appear in the vocabulary text box; delete one and it will never be learned again, and one you keep changing back is retired on its own after two reversals. To stop learning, untick "Learn from my edits" on the card. It all stays on this machine: the edited text never goes into the logs, and only when LLM double-checking is configured are the edited sentences sent to that model.
 
@@ -404,7 +529,7 @@ simply dismisses it.
 
 ### Service entry in the skill library: type a sentence, see what already exists
 
-**How.** Press `/` in the composer (or, in pro mode, open the skill library) and **type a plain sentence into the
+**How.** Press `/` in the composer (or press the "Skills" button in the composer, in simple and pro mode alike) and **type a plain sentence into the
 search box**: "tidy up downloads", "compare these PDFs", "summarize this every day". When it matches one of six
 services, a **service row** appears at the **top** of the list. Unrelated words produce nothing, and clearing the
 search box removes the row — it does not sit there taking up space.
@@ -469,8 +594,8 @@ that button for you within the rules**, so a scheduled task does not sit blocked
 
 **What it will never approve for you** (floor items; any profile, any condition): payments, purchases, and
 transfers; formatting and partitioning; shutdown, restart, and boot-entry changes; registry and firewall changes;
-registering an MCP server; tools whose very name means sending a message, plus `sendmail`; and any command that
-takes `/`, `C:\`, or your home directory as its deletion target.
+scheduled tasks, system services, execution-policy and Defender-exclusion changes (system changes that "stay once installed"); registering an MCP server; tools whose very name means sending a message, plus `sendmail`; and any command that
+takes `/`, `C:\`, or your home directory as its deletion target. In addition, network access started from a command or script (plain reads included) and reading secret files in the Ruyi data folder also stop to ask in Smart auto, and the steward never approves those either; a networked request that looks like it carries a payload (a very long query string, a long encoded run) asks first at every level except Fully automatic, and sub-agents are refused.
 
 **What you will see:**
 

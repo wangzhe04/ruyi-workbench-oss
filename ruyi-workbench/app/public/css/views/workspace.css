@@ -55,9 +55,16 @@
 .ftree-caret { width: 12px; flex: none; color: var(--muted); font-size: var(--fs-xs); text-align: center; }
 .ftree-icon { flex: none; font-size: var(--fs-sm); }
 .ftree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-.ftree-at { flex: none; padding: 0 6px; font-size: var(--fs-xs); line-height: 1.6; background: transparent;
+/* 文件行里可聚焦的主体(预览),与行尾的 @ 并列:见 file-browser.js 的 fileTreeRow。 */
+.ftree-main { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+/* min-height:0 —— 继承 base.css 的 button{min-height:var(--tap-min)} 会把有 @ 钮的文件行撑到 52px、目录行只有 24px。 */
+.ftree-at { flex: none; min-height: 0; padding: 0 6px; font-size: var(--fs-xs); line-height: 1.2; background: transparent;
   border: 1px solid transparent; color: var(--muted); border-radius: 4px; opacity: 0; }
+/* tool-pane.css 的 .tool-section button{margin-bottom:6px}(特异度更高)也会给 @ 钮垫 6px,文件行因此仍比目录行高 —— 在行内压回 0。 */
+.ftree-row > .ftree-at { margin: 0; }
 .ftree-row:hover .ftree-at { opacity: 1; }
+/* 键盘 Tab 到 @ 上时平时 opacity:0 的钮要看得见;焦点在行主体上时也把它亮出来(同一行的两个动作一起露面)。 */
+.ftree-at:focus-visible, .ftree-row:focus-within .ftree-at { opacity: 1; }
 .ftree-at:hover { background: var(--panel-3); border-color: var(--line-2); color: var(--ink); }
 .ftree-children { border-left: 1px dotted var(--line); margin-left: 8px; }
 .ftree-loading, .ftree-empty { padding: 4px 8px; font-size: var(--fs-xs); color: var(--muted); }
@@ -404,8 +411,8 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 .audit-badge.src-workbench .audit-dot { background: var(--accent); }
 .audit-badge.src-desktop { color: var(--warn-fg); background: var(--warn-bg); }
 .audit-badge.src-desktop .audit-dot { background: var(--warn); }
-.audit-type { flex: none; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
-.audit-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.audit-type { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }   /* 可收:修前 flex:none,英文类型名把摘要挤成 0、折叠箭头挤出视口 */
+.audit-summary { flex: 1 1 6em; min-width: 3em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .audit-caret { flex: none; color: var(--muted); transition: transform var(--dur-fast) var(--ease-out); }
 .audit-row.open .audit-caret { transform: rotate(90deg); }
 .audit-detail { padding: 8px 10px; margin: 0; background: var(--panel-2); border-top: 1px solid var(--line);

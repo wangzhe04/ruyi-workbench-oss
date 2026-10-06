@@ -39,6 +39,15 @@ const toolNames = req => (req.tools || []).map(x => x && x.function && x.functio
 const toolMsg = (req, id) => (req ? contentText((req.messages.find(m => m.role === 'tool' && m.tool_call_id === id) || {}).content) : '');
 const parseJson = s => { try { return JSON.parse(s); } catch { return null; } };
 const TURN_TIME_RE = /\n\n\[本条消息发送于 (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) 周[日一二三四五六]\(本地时间 UTC[+-]\d{2}:\d{2}\)\]$/;
+// 3.0 收口 · 记忆召回 #9(77751c2)起:每回合会变的记忆回执与相关索引贴在末条 user 的【时间行之后】、不落盘(与 recall / notes /
+// 草稿本同位;修前它前插历史首条 user,召回一变就从 messages[1] 起整段失去前缀缓存)。所以 T1「末尾带时间行」改判为
+// 「时间行之后只剩本回合的易变块」,T3「逐字节不变」比的是落盘的那一段(用户原话 + 时间行)—— 时间落盘、重放不变这条不变量原样钉着。
+const TURN_TIME_LINE_RE = new RegExp(TURN_TIME_RE.source.replace(/\$$/, ''));
+const splitTurnTime = s => {
+  const m = TURN_TIME_LINE_RE.exec(s || '');
+  return m ? { persisted: s.slice(0, m.index + m[0].length), tail: s.slice(m.index + m[0].length) } : null;
+};
+const tailIsTurnVolatile = tail => tail === '' || (/^\n\n/.test(tail) && tail.includes('</workbench-memory-check>'));
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-harness-friction-'));
 const WS = path.join(HOME, 'ws');
@@ -143,7 +152,9 @@ try {
   const t1 = reqsOf('TIME')[0];
   const t1Users = t1 ? t1.messages.filter(m => m.role === 'user').map(m => contentText(m.content)) : [];
   const t1Last = t1Users[t1Users.length - 1] || '';
-  ok(TURN_TIME_RE.test(t1Last) && t1Last.includes('SCN-TIME 你好'), `T1 请求里这条 user 消息末尾带本地时间行(got …${JSON.stringify(t1Last.slice(-80))})`);
+  const t1Split = splitTurnTime(t1Last);
+  ok(t1Split && TURN_TIME_RE.test(t1Split.persisted) && t1Split.persisted.includes('SCN-TIME 你好') && tailIsTurnVolatile(t1Split.tail),
+    `T1 请求里这条 user 消息带本地时间行,其后只有本回合的易变块(got …${JSON.stringify(t1Last.slice(-80))})`);
   const sessBody = parseJson(await getText('/api/sessions/' + sid));
   const sess = sessBody && sessBody.session;
   const shown = sess && Array.isArray(sess.messages) ? sess.messages.find(m => m.role === 'user') : null;
@@ -151,8 +162,10 @@ try {
   await stream({ message: 'SCN-TIMETWO 继续', sessionId: sid });
   const t2 = reqsOf('TIMETWO')[0];
   const t2Users = t2 ? t2.messages.filter(m => m.role === 'user').map(m => contentText(m.content)) : [];
-  ok(t2Users.length >= 2 && t2Users[t2Users.length - 2] === t1Last, 'T3 下一回合请求里上一轮那条 user 消息逐字节不变(时间落盘,不破前缀缓存)');
-  ok(TURN_TIME_RE.test(t2Users[t2Users.length - 1] || ''), 'T4 新一轮 user 消息带它自己的时间行');
+  ok(t2Users.length >= 2 && t1Split && t2Users[t2Users.length - 2] === t1Split.persisted,
+    'T3 下一回合请求里上一轮那条 user 消息 = 上一轮落盘的那一段,逐字节不变(时间落盘,易变块不落盘)');
+  const t2Split = splitTurnTime(t2Users[t2Users.length - 1] || '');
+  ok(t2Split && t2Split.persisted.includes('SCN-TIMETWO 继续') && tailIsTurnVolatile(t2Split.tail), 'T4 新一轮 user 消息带它自己的时间行');
 
   // ── [S] 搜到即会调 + 冗余桥接标首选 ──
   await stream({ message: 'SCN-SEARCH 你好' });

@@ -643,6 +643,7 @@ let memoryRegistry = [];
 let memoryOtherProjects = [];
 let memoryCurrentProjectKey = '';
 let memoryCoreStats = null;
+let memoryLimits = null;   // GET /api/memory 回的 { relevanceMax, fixedSelectionMax }(来自配置;设置页「每回合带几条相关记忆」「会话固定选择上限」可调)
 let memoryToolboxFilter = 'all';
 let memoryToggleChain = Promise.resolve();
 const memoryTogglePending = new Set();
@@ -665,7 +666,18 @@ async function loadMemoryData() {
     memoryOtherProjects = (r && r.otherProjects) || [];
     memoryCurrentProjectKey = (r && r.projectKey) || '';
     memoryCoreStats = (r && r.core) || null;
-  } catch { memoryRegistry = []; memoryOtherProjects = []; memoryCurrentProjectKey = ''; memoryCoreStats = null; }
+    memoryLimits = (r && r.limits) || null;
+  } catch { memoryRegistry = []; memoryOtherProjects = []; memoryCurrentProjectKey = ''; memoryCoreStats = null; memoryLimits = null; }
+}
+// 面板里出现的记忆数量上限一律读配置,不再各写一份旧常量(修前文案写死「每轮最多补充 3 条」「最多同时启用 12 条」、
+// 核心预算兜底 4200/24,而后端默认早已是 8 / 64 / 16000 / 200 且设置页都能调)。优先用后端随 /api/memory 回的值,
+// 其次前端已有的配置,最后才是与后端默认一致的兜底。
+function memoryLimitValue(serverKey, configKey, fallback) {
+  const pick = value => (value !== undefined && value !== null && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null);
+  const fromServer = memoryLimits ? pick(memoryLimits[serverKey]) : null;
+  if (fromServer !== null) return fromServer;
+  const fromConfig = pick(state.config && state.config[configKey]);
+  return fromConfig !== null ? fromConfig : fallback;
 }
 function renderMemoryViews() {
   renderMemoryList();
@@ -706,7 +718,10 @@ function renderMemoryList() {
   list.appendChild(actions);
   if (!session) list.appendChild(el('div', 'muted', t('memory.needSessionHint')));
   const explicit = session && session.memoriesExplicit === true;
-  if (session && !explicit) list.appendChild(el('div', 'memory-hint muted', t('memory.defaultPolicyHint')));
+  if (session && !explicit) {
+    const relevanceMax = memoryLimitValue('relevanceMax', 'memoryRelevanceMaxV1', 8);
+    list.appendChild(el('div', 'memory-hint muted', relevanceMax > 0 ? t('memory.defaultPolicyHint', { count: relevanceMax }) : t('memory.defaultPolicyHintNoRelated')));
+  }
   if (session && explicit) list.appendChild(el('div', 'memory-hint muted', (session.memories || []).length ? t('memory.fixedPolicyHint') : t('memory.sessionDisabledHint')));
   const enabled = enabledMemoryKeySet();
   const globals = (memoryRegistry || []).filter(e => e.scope === 'global');
@@ -761,8 +776,9 @@ function memoryShortDate(value) {
 function renderMemoryToolbox() {
   const host = $('memoryToolboxList'), overview = $('memoryToolboxOverview');
   if (!host || !overview) return;
-  const stats = memoryCoreStats || { total: memoryRegistry.length, active: 0, standby: 0, reviewDue: 0, charsUsed: 0, charLimit: 4200, itemLimit: 24 };
-  const pct = Math.min(100, Math.round((Number(stats.charsUsed) || 0) / Math.max(1, Number(stats.charLimit) || 4200) * 100));
+  const coreCharFallback = memoryLimitValue('coreCharBudget', 'coreMemoryCharBudgetV1', 16000), coreItemFallback = memoryLimitValue('coreItemMax', 'coreMemoryMaxItemsV1', 200);
+  const stats = memoryCoreStats || { total: memoryRegistry.length, active: 0, standby: 0, reviewDue: 0, charsUsed: 0, charLimit: coreCharFallback, itemLimit: coreItemFallback };
+  const pct = Math.min(100, Math.round((Number(stats.charsUsed) || 0) / Math.max(1, Number(stats.charLimit) || coreCharFallback) * 100));
   overview.innerHTML = '';
   const overviewTop = el('div', 'memory-overview-top');
   for (const [value, label, cls] of [
@@ -777,10 +793,10 @@ function renderMemoryToolbox() {
   }
   const budget = el('div', 'memory-budget');
   const budgetLine = el('div', 'memory-budget-line');
-  budgetLine.append(el('span', '', t('memory.toolbox.budget')), el('span', '', `${stats.charsUsed || 0} / ${stats.charLimit || 4200}`));
+  budgetLine.append(el('span', '', t('memory.toolbox.budget')), el('span', '', `${stats.charsUsed || 0} / ${stats.charLimit || coreCharFallback}`));
   const track = el('div', 'memory-budget-track');
   const fill = el('span', 'memory-budget-fill'); fill.style.width = pct + '%'; track.appendChild(fill);
-  budget.append(budgetLine, track, el('p', '', t('memory.toolbox.lruHint', { count: stats.itemLimit || 24 })));
+  budget.append(budgetLine, track, el('p', '', t('memory.toolbox.lruHint', { count: stats.itemLimit || coreItemFallback })));
   overview.append(overviewTop, budget);
 
   const query = String($('memoryToolboxSearch')?.value || '').normalize('NFKC').toLowerCase().trim();
@@ -837,7 +853,7 @@ async function updateMemoryMetadata(memory, patch, button) {
   if (button) button.disabled = true;
   try {
     const result = await api('/api/memory/metadata', { method: 'POST', body: JSON.stringify({ id: memory.id, scope: memory.scope, patch, cwd: currentWorkspace() || '' }) });
-    if (!result || !result.ok) throw new Error((result && result.error) || t('common.unknownError'));
+    if (!result || !result.ok) throw new Error(apiErrText(result && result.error) || t('common.unknownError'));
     await refreshMemoryViews();
   } catch (error) { toast(t('memory.toolbox.updateFailed', { err: apiErrText(error) }), 'err'); if (button) button.disabled = false; }
 }
@@ -939,7 +955,7 @@ async function doToggleMemory(m) {
   const cur = [...enabled].map(k => { const i = k.indexOf(':'); const scope = k.slice(0, i), id = k.slice(i + 1); const o = { scope, id }; if (scope === 'project' && pkByKey.get(k)) o.projectKey = pkByKey.get(k); return o; });
   let next;
   if (enabled.has(key)) next = cur.filter(x => (x.scope + ':' + x.id) !== key);
-  else { if (cur.length >= 12) { toast(t("toast.memoryMax8"), 'err'); return; } next = cur.concat({ scope: m.scope, id: m.id }); }
+  else { const fixedMax = memoryLimitValue('fixedSelectionMax', 'memoryFixedSelectionMaxV1', 64); if (cur.length >= fixedMax) { toast(t("toast.memoryMax8", { count: fixedMax }), 'err'); return; } next = cur.concat({ scope: m.scope, id: m.id }); }
   try {
     const r = await api('/api/session/memories', { method: 'POST', body: JSON.stringify({ sessionId: session.id, memories: next }) });
     session.memories = (r && Array.isArray(r.memories)) ? r.memories : next;
@@ -989,7 +1005,7 @@ async function deleteMemoryRow(m) {
   if (!confirm(t('memory.deleteConfirm', { name: m.name || m.id }))) return;
   try {
     const r = await api('/api/memory/' + encodeURIComponent(m.id), { method: 'POST', headers: { 'x-http-method': 'DELETE' }, body: JSON.stringify({ scope: m.scope, cwd: currentWorkspace() || '' }) });
-    if (!r || !r.ok) { toast(t("toast.deleteFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+    if (!r || !r.ok) { toast(t("toast.deleteFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
     toast(t("toast.memoryDeleted"), 'ok');
   } catch (e) { toast(t("toast.deleteFail", { p1: apiErrText(e) }), 'err'); return; }
   await refreshMemoryViews();
@@ -1024,7 +1040,7 @@ async function saveAsMemory(btn, sessionId = '') {
   if (btn) { btn.disabled = true; btn.textContent = t('common.drafting'); }
   try {
     const r = await api('/api/memory/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-    if (!r || !r.ok || !r.draft) { toast(t("toast.draftFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+    if (!r || !r.ok || !r.draft) { toast(t("toast.draftFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
     openMemoryEditModal({ ...r.draft, scope: 'project', _isDraft: true });
   } catch (e) { toast(t("toast.draftFail", { p1: apiErrText(e) }), 'err'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
@@ -1045,7 +1061,44 @@ async function suggestMemoryFromTurn(sessionId, host) {
   catch { return; }
   if (!result || !result.ok || !result.proposal || !result.proposalId) return;
   if (!host.isConnected || state.currentSession?.id !== sessionId) return;
-  // 同一会话界面最多保留一张候选卡；跨多轮未处理的旧卡不会和新卡堆叠。
+  renderMemoryProposalResult(sessionId, host, result);
+}
+// 打开线程 / 刷新页面后,把服务端仍待确认的候选卡画回来。修前卡片只在回合刚结束那一刻画一次(全前端唯一调用点是
+// suggestMemoryFromTurn),刷新、切线程、回合被中断之后卡就没了,候选却在服务端一直 pending 到下一回合被顶掉。
+// 走 replay:true 的只读回放(服务端不跑自动审稿、不写状态);卡挂在最后一条助手消息上,与回合刚结束时画的位置一致。
+// 不重复画:同一个 proposalId 的卡已经在对话里了就什么都不做;回合刚结束再画新卡时,renderMemoryProposalResult 会先摘掉旧卡。
+async function restoreMemoryProposalCard(sessionId) {
+  if (!sessionId || state.currentSession?.id !== sessionId) return;
+  let result;
+  try { result = await api('/api/memory/proposal', { method: 'POST', body: JSON.stringify({ sessionId, replay: true }) }); }
+  catch { return; }
+  if (!result || !result.ok || !result.proposal || !result.proposalId) return;
+  if (state.currentSession?.id !== sessionId) return;
+  const box = $('messages');
+  if (!box) return;
+  const hosts = box.querySelectorAll('article.message.assistant .msg-main');
+  const host = hosts[hosts.length - 1];
+  if (!host || !host.isConnected) return;
+  for (const card of box.querySelectorAll('.memory-proposal-card')) if (card.dataset.proposalId === String(result.proposalId)) return;
+  renderMemoryProposalResult(sessionId, host, result);
+}
+function memoryScopeText(scope) { return scope === 'global' ? t('memory.scope.global') : t('memory.scope.project'); }
+// 候选卡上的作用域下拉(单条卡与批量卡每一条共用):用户保存前随时能在「全局 / 项目」之间改。
+function buildMemoryScopeSelect(scope) {
+  const sel = el('select', 'memory-proposal-scope');
+  sel.setAttribute('aria-label', t('memory.proposal.scopeAria'));
+  for (const v of ['global', 'project']) { const o = el('option', '', memoryScopeText(v)); o.value = v; sel.appendChild(o); }
+  sel.value = scope === 'global' ? 'global' : 'project';
+  return sel;
+}
+// 「AI 建议全局、被保守原则改成了项目」的人话。没被改过的候选返回空串;chosen = 下拉当前值(用户改回全局后换一句)。
+function memoryScopeNoteText(item, chosen) {
+  if (!item || item.scopeAdjusted !== true || item.requestedScope !== 'global') return '';
+  if (chosen === 'global') return t('memory.proposal.scopeRestored', { requested: memoryScopeText('global') });
+  return t('memory.proposal.scopeAdjusted', { requested: memoryScopeText('global'), final: memoryScopeText(item.scope) });
+}
+// 画一张候选卡(回合刚结束与回放共用)。同一会话界面最多保留一张候选卡；跨多轮未处理的旧卡不会和新卡堆叠。
+function renderMemoryProposalResult(sessionId, host, result) {
   const messages = host.closest && host.closest('#messages');
   for (const old of (messages ? messages.querySelectorAll('.memory-proposal-card') : [])) old.remove();
   const proposal = result.proposal;
@@ -1053,6 +1106,7 @@ async function suggestMemoryFromTurn(sessionId, host) {
   // C3:一次提议里 2–3 条新记忆 → 一张批量卡(逐条勾选)。其余 kind 仍是下面这张单条卡,形状不变。
   if (kind === 'memory_batch') { host.appendChild(buildMemoryBatchProposalCard(sessionId, result)); return; }
   const card = el('section', 'memory-proposal-card');
+  card.dataset.proposalId = String(result.proposalId);
   card.setAttribute('aria-label', t('memory.proposal.aria'));
   const head = el('div', 'memory-proposal-head');
   if (kind === 'relation_propose') head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerRelation')));
@@ -1060,18 +1114,27 @@ async function suggestMemoryFromTurn(sessionId, host) {
   else if (kind === 'memory_revise') head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerRevise')));
   else head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kicker')));
   const tags = el('span', 'memory-proposal-tags');
+  let scopeSelect = null;
+  let reviseFrom = '', reviseTo = '';
   if (kind === 'relation_propose') {
     tags.append(
-      el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
+      el('span', 'memory-proposal-tag', memoryScopeText(proposal.scope)),
       el('span', 'memory-proposal-tag', proposal.relationType || ''),
     );
   } else if (kind === 'relation_revoke') {
-    tags.append(el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')));
-  } else {
+    tags.append(el('span', 'memory-proposal-tag', memoryScopeText(proposal.scope)));
+  } else if (kind === 'memory_revise') {
+    // 修订建议只有 targetScope(没有 scope):修前这里读 proposal.scope,恒为 undefined → 标签永远是「项目」,哪怕目标是全局记忆。
+    // 带 newScope = 提议换作用域,标签写「项目 → 全局」。
+    reviseFrom = (proposal.scope || proposal.targetScope) === 'global' ? 'global' : 'project';
+    reviseTo = proposal.newScope === 'global' || proposal.newScope === 'project' ? proposal.newScope : reviseFrom;
     tags.append(
-      el('span', 'memory-proposal-tag', proposal.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
+      el('span', 'memory-proposal-tag', reviseTo !== reviseFrom ? t('memory.proposal.scopeMove', { from: memoryScopeText(reviseFrom), to: memoryScopeText(reviseTo) }) : memoryScopeText(reviseFrom)),
       el('span', 'memory-proposal-tag', memoryTypeLabel(proposal.type)),
     );
+  } else {
+    scopeSelect = buildMemoryScopeSelect(proposal.scope);
+    tags.append(scopeSelect, el('span', 'memory-proposal-tag', memoryTypeLabel(proposal.type)));
   }
   head.appendChild(tags);
   let title = proposal.name || '';
@@ -1079,6 +1142,14 @@ async function suggestMemoryFromTurn(sessionId, host) {
   if (kind === 'relation_propose') { title = (proposal.from || '') + ' ' + (proposal.relationType || '') + ' ' + (proposal.to || ''); desc = proposal.note || proposal.description || ''; }
   else if (kind === 'relation_revoke') { title = proposal.relation ? (proposal.relation.type + ' ' + proposal.relation.from + ' → ' + proposal.relation.to) : (proposal.relationId || ''); desc = proposal.note || ''; }
   card.append(head, el('div', 'memory-proposal-title', title), el('div', 'memory-proposal-desc', desc));
+  if (scopeSelect) {
+    const note = el('div', 'memory-proposal-scope-note', memoryScopeNoteText(proposal, scopeSelect.value));
+    note.hidden = !note.textContent;
+    scopeSelect.onchange = () => { note.textContent = memoryScopeNoteText(proposal, scopeSelect.value); note.hidden = !note.textContent; };
+    card.appendChild(note);
+  } else if (reviseTo !== reviseFrom) {
+    card.appendChild(el('div', 'memory-proposal-scope-note', t('memory.proposal.moveNote', { from: memoryScopeText(reviseFrom), to: memoryScopeText(reviseTo) })));
+  }
   if (proposal.reason) card.appendChild(el('div', 'memory-proposal-reason', t('memory.proposal.reason', { reason: proposal.reason })));
   const actions = el('div', 'memory-proposal-actions');
   const dismiss = el('button', 'mini', t('memory.proposal.dismiss'));
@@ -1094,14 +1165,15 @@ async function suggestMemoryFromTurn(sessionId, host) {
     if (review.disabled) return;
     review.disabled = true;
     if (kind === 'memory') {
-      openMemoryEditModal({ ...proposal, scope: proposal.scope || 'project', _isDraft: true, _proposalId: result.proposalId, _onProposalSaved: removeCard, _onProposalEditCancelled: () => { if (card.isConnected) review.disabled = false; } });
+      openMemoryEditModal({ ...proposal, scope: scopeSelect ? scopeSelect.value : (proposal.scope || 'project'), _isDraft: true, _proposalId: result.proposalId, _onProposalSaved: removeCard, _onProposalEditCancelled: () => { if (card.isConnected) review.disabled = false; } });
       return;
     }
     // 维护提议(改记忆/建边/撤边)：确认后由后端 apply 落盘，模型不直接写。
     try {
       const r = await api('/api/memory/proposal/apply', { method: 'POST', body: JSON.stringify({ sessionId, proposalId: result.proposalId, cwd: currentWorkspace() || '' }) });
-      if (!r || !r.ok) throw new Error((r && r.error) || t('common.unknownError'));
-      toast(t('memory.proposal.applied'), 'ok');
+      if (!r || !r.ok) throw new Error(apiErrText(r && r.error) || t('common.unknownError'));
+      if (r.applied && r.applied.moved) toast(memoryMovedToast(r.applied), 'ok');
+      else toast(t('memory.proposal.applied'), 'ok');
       removeCard();
       await refreshMemoryViews();   // 128f-⑫（审计 D）：修前工具箱／记忆弹窗开着的话还是应用之前那一份
     } catch (error) {
@@ -1111,19 +1183,32 @@ async function suggestMemoryFromTurn(sessionId, host) {
   };
   host.appendChild(card);
 }
-// C3 批量候选卡:模型一次提议的 2–3 条相互独立的新记忆。每条一行(勾选框默认勾上、名称、范围/类型、何时有用、
-// 提议原因,正文收在「正文」折叠里);「保存选中」只存勾上的(后端按 accept 逐条落盘,其余记成忽略),「全部忽略」
-// 整张丢弃。和单条卡一样:不点就什么都不写。保存失败时卡片留着、勾选不丢,再点只重试还没存上的。
+// 换作用域落盘后的提示(服务端回 moved:{ to, relationsDropped });不是换作用域返回空串,调用方走原来的「已保存/已应用」。
+function memoryMovedToast(res) {
+  const moved = res && res.moved;
+  if (!moved) return '';
+  const scope = memoryScopeText(moved.to);
+  const dropped = Math.max(0, Math.floor(Number(moved.relationsDropped) || 0));
+  return dropped ? tCount('memory.proposal.movedDropped', dropped, { scope }) : t('memory.proposal.moved', { scope });
+}
+// C3 批量候选卡:模型一次提议的 2–3 条相互独立的新记忆。每条一行(勾选框默认勾上、名称、作用域下拉/类型、何时有用、
+// 提议原因、「加入核心」开关,正文收在「正文(N 字)」折叠里);「保存选中」只存勾上的(后端按 accept 逐条落盘,其余记成忽略),
+// 「全部忽略」整张丢弃。和单条卡一样:不点就什么都不写。保存失败时卡片留着、勾选不丢,再点只重试还没存上的。
+// 每条的作用域与「加入核心」都在卡上可见可改(修前批量卡没有作用域控件,保存直接落 project,偏好/惯例还悄悄进核心 = 每轮注入)。
+// 默认仍全勾:这些是模型已筛过的 ≤3 条,逐条可见可改,且不点「保存选中」什么都不写 —— 默认全不勾只会让常见的 2–3 条多点 3 下。
 function buildMemoryBatchProposalCard(sessionId, result) {
   const proposal = result.proposal || {};
   const items = Array.isArray(proposal.items) ? proposal.items : [];
+  // 回放时可能已有几条存/忽略过(部分保存后失败):只画还待确认的,下标仍是 proposal.items 里的原位置(apply 的 accept 按它)。
+  const entries = items.map((item, index) => ({ item, index })).filter(e => e.item && (!e.item.status || e.item.status === 'pending'));
   const card = el('section', 'memory-proposal-card memory-proposal-batch');
+  card.dataset.proposalId = String(result.proposalId);
   card.setAttribute('aria-label', t('memory.proposal.aria'));
   const head = el('div', 'memory-proposal-head');
-  head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerBatch', { count: items.length })));
+  head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerBatch', { count: entries.length })));
   card.appendChild(head);
   const list = el('div', 'memory-proposal-items');
-  const checks = items.map((item, index) => {
+  const rows = entries.map(({ item, index }) => {
     const row = el('div', 'memory-proposal-item');
     row.dataset.index = String(index);
     const top = el('div', 'memory-proposal-item-head');
@@ -1133,19 +1218,32 @@ function buildMemoryBatchProposalCard(sessionId, result) {
     box.checked = true;
     box.setAttribute('aria-label', t('memory.proposal.batchPick', { name: item.name || '' }));
     pick.append(box, el('span', 'memory-proposal-title', item.name || ''));
+    const scopeSel = buildMemoryScopeSelect(item.scope);
     const tags = el('span', 'memory-proposal-tags');
-    tags.append(
-      el('span', 'memory-proposal-tag', item.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
-      el('span', 'memory-proposal-tag', memoryTypeLabel(item.type)),
-    );
+    tags.append(scopeSel, el('span', 'memory-proposal-tag', memoryTypeLabel(item.type)));
     top.append(pick, tags);
     row.append(top, el('div', 'memory-proposal-desc', item.description || ''));
+    const note = el('div', 'memory-proposal-scope-note', memoryScopeNoteText(item, scopeSel.value));
+    note.hidden = !note.textContent;
+    scopeSel.onchange = () => { note.textContent = memoryScopeNoteText(item, scopeSel.value); note.hidden = !note.textContent; };
+    row.appendChild(note);
     if (item.reason) row.appendChild(el('div', 'memory-proposal-reason', t('memory.proposal.reason', { reason: item.reason })));
+    // 「加入核心」= 这条的 description 会成为每轮注入的核心摘要:默认与单条弹窗一致(偏好/惯例开,其余关),卡上可见可改。
+    // 用 aria-pressed 的开关按钮而不是复选框:这一行里的 input[type=checkbox] 只留「保存这条」那一个。
+    let coreOn = item.type === 'preference' || item.type === 'convention';
+    const coreBtn = el('button', 'memory-proposal-core');
+    coreBtn.type = 'button';
+    const paintCore = () => { coreBtn.setAttribute('aria-pressed', coreOn ? 'true' : 'false'); coreBtn.textContent = coreOn ? t('memory.proposal.coreOn') : t('memory.proposal.coreOff'); };
+    paintCore();
+    coreBtn.onclick = () => { coreOn = !coreOn; paintCore(); };
+    const opts = el('div', 'memory-proposal-opts');
+    opts.appendChild(coreBtn);
+    row.appendChild(opts);
     const more = el('details', 'memory-proposal-body');
-    more.append(el('summary', '', t('memory.proposal.batchBody')), el('div', 'memory-proposal-body-text', item.body || ''));
+    more.append(el('summary', '', t('memory.proposal.batchBody') + t('memory.proposal.batchBodyCount', { count: String(item.body || '').length })), el('div', 'memory-proposal-body-text', item.body || ''));
     row.appendChild(more);
     list.appendChild(row);
-    return box;
+    return { index, box, scopeSel, coreBtn, core: () => coreOn, scope0: scopeSel.value, core0: coreOn };
   });
   card.appendChild(list);
   const actions = el('div', 'memory-proposal-actions');
@@ -1154,15 +1252,15 @@ function buildMemoryBatchProposalCard(sessionId, result) {
   actions.append(dismiss, save);
   card.appendChild(actions);
   let busy = false;
-  const picked = () => checks.map((box, index) => (box.checked ? index : -1)).filter(index => index >= 0);
+  const picked = () => rows.filter(r => r.box.checked).map(r => r.index);
   const sync = () => {
     const count = picked().length;
     save.textContent = t('memory.proposal.saveSelected', { count });
     save.disabled = busy || count === 0;   // 一条都不勾 = 用「全部忽略」
     dismiss.disabled = busy;
-    for (const box of checks) box.disabled = busy;
+    for (const r of rows) { r.box.disabled = busy; r.scopeSel.disabled = busy; r.coreBtn.disabled = busy; }
   };
-  for (const box of checks) box.onchange = sync;
+  for (const r of rows) r.box.onchange = sync;
   sync();
   const removeCard = () => { card.classList.add('settled'); setTimeout(() => card.remove(), 160); };
   dismiss.onclick = () => {
@@ -1175,8 +1273,20 @@ function buildMemoryBatchProposalCard(sessionId, result) {
     const accept = picked();
     if (busy || !accept.length) return;
     busy = true; sync();
+    // 用户在卡上改过的才交给后端(后端只认 scope / core 两个字段;没改的条目按提议原值,与卡上画的默认一致)。
+    // 一条都没改时不带 overrides —— 请求体与修前逐字相同。
+    const overrides = {};
+    for (const r of rows) {
+      if (!r.box.checked) continue;
+      const change = {};
+      if (r.scopeSel.value !== r.scope0) change.scope = r.scopeSel.value;
+      if (r.core() !== r.core0) change.core = r.core();
+      if (Object.keys(change).length) overrides[r.index] = change;
+    }
+    const body = { sessionId, proposalId: result.proposalId, cwd: currentWorkspace() || '', accept };
+    if (Object.keys(overrides).length) body.overrides = overrides;
     try {
-      const r = await api('/api/memory/proposal/apply', { method: 'POST', body: JSON.stringify({ sessionId, proposalId: result.proposalId, cwd: currentWorkspace() || '', accept }) });
+      const r = await api('/api/memory/proposal/apply', { method: 'POST', body: JSON.stringify(body) });
       if (!r || !r.ok) throw new Error((r && r.error) || t('common.unknownError'));
       toast(tCount('memory.proposal.batchSaved', Array.isArray(r.saved) ? r.saved.length : accept.length), 'ok');
       removeCard();
@@ -1218,8 +1328,13 @@ async function openMemoryEditModal(m) {
   const scopeField = el('div', 'pb-field'); scopeField.appendChild(el('label', 'pb-field-label', t('memory.edit.scope')));
   const scopeSel = el('select', 'pb-field-input');
   for (const [v, label] of [['project', t('memory.edit.scopeProject')], ['global', t('memory.edit.scopeGlobal')]]) { const o = el('option', '', label); o.value = v; if (((full && full.scope) || 'project') === v) o.selected = true; scopeSel.appendChild(o); }
-  if (editing) scopeSel.disabled = true; // 编辑不改范围(改范围=另存,请新建)
-  scopeField.appendChild(scopeSel); body.appendChild(scopeField);
+  // 编辑态也能改范围(项目 ↔ 全局):实现为「另存到新范围 + 删旧的」,服务端一步做完、失败回滚(POST /api/memory 的 moveFromScope)。
+  // 修前这里是灰的,项目记忆一旦存成项目就升不了全局,唯一出路是手工删了重建。
+  const originalScope = editing ? ((m && m.scope) === 'global' ? 'global' : 'project') : '';
+  const scopeHint = el('p', 'field-help muted', t('memory.edit.scopeMoveHint'));
+  scopeHint.hidden = true;
+  scopeSel.onchange = () => { scopeHint.hidden = !(editing && scopeSel.value !== originalScope); };
+  scopeField.append(scopeSel, scopeHint); body.appendChild(scopeField);
   const corePanel = el('div', 'memory-edit-core');
   const coreLabel = el('label', 'check memory-core-check');
   const coreCheck = el('input'); coreCheck.type = 'checkbox';
@@ -1233,6 +1348,11 @@ async function openMemoryEditModal(m) {
   typeSel.onchange = () => { if (!coreTouched) coreCheck.checked = ['preference', 'convention'].includes(typeSel.value); };
   const coreSummaryEl = mkField(t('memory.edit.coreSummary'), full ? full.coreSummary : '', 3);
   coreSummaryEl.maxLength = 520;
+  // 核心摘要每轮注入,说明改了摘要却还停在旧文字就是在注入旧内容。摘要还只是「说明的副本」(没单独写过)时,说明一改它就跟着改;
+  // 一旦用户自己动过摘要(与说明不同了)就不再自动跟。服务端 saveMemory 对同一情形有同口径兜底。
+  let summaryFollows = !!(full && full.coreSummary) && String(full.coreSummary).trim() === String(full.description || '').trim();
+  descEl.addEventListener('input', () => { if (summaryFollows) coreSummaryEl.value = descEl.value.trim().slice(0, 520); });
+  coreSummaryEl.addEventListener('input', () => { summaryFollows = coreSummaryEl.value.trim() === descEl.value.trim(); });
   const importanceField = el('div', 'pb-field'); importanceField.appendChild(el('label', 'pb-field-label', t('memory.edit.importance')));
   const importanceSel = el('select', 'pb-field-input');
   for (const [v, label] of [['normal', t('memory.edit.importanceNormal')], ['important', t('memory.edit.importanceImportant')]]) { const o = el('option', '', label); o.value = v; if (((full && full.importance) || 'normal') === v) o.selected = true; importanceSel.appendChild(o); }
@@ -1271,13 +1391,14 @@ async function openMemoryEditModal(m) {
     const restoreSave = () => { save.disabled = false; save.textContent = t('common.save'); };
     try {
       const payload = { memory, cwd: currentWorkspace() || '' };
+      if (editing && scopeSel.value !== originalScope) payload.moveFromScope = originalScope;
       if (full && full._proposalId && full.sourceSessionId) { payload.proposalId = full._proposalId; payload.sourceSessionId = full.sourceSessionId; }
       const r = await api('/api/memory', { method: 'POST', body: JSON.stringify(payload) });
       // 存失败时弹层【不关】：修前先 close 再判 r.ok，一次失败就把用户刚敲的整段正文一起扔掉。
       // 失败 = 报原因 + 把「保存」还给用户，改一改或稍后再点即可。
-      if (!r || !r.ok) { toast(t("toast.saveFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); restoreSave(); return; }
+      if (!r || !r.ok) { toast(t("toast.saveFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); restoreSave(); return; }
       modal.close();
-      toast(t("toast.memorySaved"), 'ok');
+      toast(memoryMovedToast(r) || t("toast.memorySaved"), 'ok');
       editSettled = true;
       if (full && full._proposalId && full.sourceSessionId) {
         // The save route settles this server-side; this idempotent best-effort call is
@@ -1349,6 +1470,7 @@ async function openMemoryEditModal(m) {
     playbookInputLabel,
     playbookStatusText,
     renderSkillList,
+    restoreMemoryProposalCard,
     saveAsMemory,
     suggestMemoryFromTurn,
     updateSkillBadge,

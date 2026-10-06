@@ -83,10 +83,90 @@ async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback
 // transportError)、网关不可用 502/503/504(failoverStatus)、限流 429。流式已开始后的错误 openAiStreamOnce 直接抛出,
 // 根本到不了这里 —— 防重放是结构性的,不靠这个判据。
 // 529 是 Anthropic 的「服务过载」(58 号批 2;流内 overloaded_error 在还没吐内容时也报成 HTTP 529),对别的协议无害。
+// 状态码只认【开头】的 `HTTP <nnn>`:openAiStreamOnce / 04i 解码器报的 httpError 恒以它起头;流内错误(已吐过内容)写成
+// 'Provider stream error: …' / 'Anthropic stream error: …',错误正文里完全可能引用别处的 "HTTP 429" —— 不锚定就把这种
+// 「已显示内容的流内失败」误判成瞬时失败重放一遍。
 function providerCallIsTransient(call) {
   const he0 = String((call && call.httpError) || '');
-  const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
+  const status0 = Number((/^\s*HTTP (\d{3})\b/.exec(he0) || [])[1]);
   return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429 || status0 === 529));
+}
+// 把【本次请求带出去的凭据】(provider.apiKey 与 extraHeaders 的各个值)在文本里按字面抹掉。redact() 的模式表认的是常见形态
+// (sk- / Bearer / 「key: 值」标签…),服务商把 key 回显成别的形态(zk9.xxx、前面是「key=」而不是标签)时它抹不掉 —— 「测试连接」把
+// 服务商报文的前 300 字原样回给界面,所以先按字面抹、再过 redact()。短于 6 个字符的值不抹(免得把「k」「1」之类处处替换);
+// 「Bearer xxx」「Basic xxx」形的头值连同它去掉前缀后的部分一起抹;JSON 转义形(含引号 / 反斜杠的 key)同样抹。
+function providerScrubSecrets(source, provider) {   // 形参不叫 text:裸 text 会被依赖扫描器记成一条 04h → 00-boot 的边(见 04i-provider-wire.js 头注)
+  let s = String(source == null ? '' : source);
+  if (!provider || typeof provider !== 'object') return s;
+  const secrets = new Set();
+  const add = value => {
+    const v = String(value == null ? '' : value).trim();
+    if (v.length < 6) return;
+    secrets.add(v);
+    const escaped = JSON.stringify(v).slice(1, -1);
+    if (escaped !== v) secrets.add(escaped);
+    const m = /^(?:bearer|basic|token)\s+(.+)$/i.exec(v);
+    if (m && m[1].trim().length >= 6) secrets.add(m[1].trim());
+  };
+  add(provider.apiKey);
+  if (provider.extraHeaders && typeof provider.extraHeaders === 'object') for (const value of Object.values(provider.extraHeaders)) add(value);
+  for (const secret of [...secrets].sort((a, b) => b.length - a.length)) s = s.split(secret).join('«redacted»');
+  return s;
+}
+// 服务商 Retry-After(429/503 常带):`retry-after-ms`(OpenAI 系,毫秒)优先,其次 `retry-after`(整数/小数秒,或 HTTP 日期)。
+// 封顶 maxMs(缺省 30 s):退避睡眠要可被停止截断、且不能让一回合被一个离谱的头挂住。认不出 / 非正 → 0(调用方回落自己的退避)。
+// getHeader(name) 是 res.headers.get 的形状(调用方包一层,本函数不碰 Response)。
+function providerRetryAfterMs(getHeader, nowMs, maxMs) {
+  const cap = Number.isFinite(Number(maxMs)) && Number(maxMs) > 0 ? Number(maxMs) : 30000;
+  const read = name => { try { return String(getHeader(name) == null ? '' : getHeader(name)).trim(); } catch { return ''; } };
+  const ms = read('retry-after-ms');
+  if (/^\d+(?:\.\d+)?$/.test(ms) && Number(ms) > 0) return Math.min(cap, Math.round(Number(ms)));
+  const ra = read('retry-after');
+  if (!ra) return 0;
+  if (/^\d+(?:\.\d+)?$/.test(ra)) { const n = Number(ra) * 1000; return n > 0 ? Math.min(cap, Math.round(n)) : 0; }
+  const at = Date.parse(ra);
+  if (!Number.isFinite(at)) return 0;
+  const wait = at - (Number.isFinite(Number(nowMs)) ? Number(nowMs) : Date.now());
+  return wait > 0 ? Math.min(cap, Math.round(wait)) : 0;
+}
+// 抛出的错误的人话文本:message 之外带上 cause 里的真因。undici 在响应流中途断线时对 reader.read() 抛 TypeError('terminated'),
+// 真正的原因(SocketError 'other side closed' / UND_ERR_SOCKET / ECONNRESET)只挂在 e.cause —— 只取 e.message 用户看到的就是
+// 一个孤零零的 "terminated",errorClass 也认不出是掉线。message 里已经包含 cause 文字的不重复追加。
+function providerThrownErrorText(e) {
+  const msg = e && e.message ? String(e.message) : String(e == null ? '' : e);
+  const cause = e && typeof e === 'object' ? e.cause : null;
+  if (!cause) return msg;
+  const causeMsg = typeof cause === 'string' ? cause : (cause && cause.message ? String(cause.message) : '');
+  const causeCode = cause && typeof cause === 'object' && cause.code ? String(cause.code) : '';
+  const extra = [causeCode, causeMsg].filter(part => part && !msg.includes(part)).join(' ');
+  return extra ? `${msg} (${extra})` : msg;
+}
+// 服务商地址是不是本机 / 局域网:回环、RFC1918、链路本地、CGNAT、*.local 等内网后缀、单标签主机名(`ollama`、`nas`)。
+// 这类端点能应答只说明「本机/内网通」,证明不了公网可达 —— 联网探测不能拿它当锚点(06 networkAnchors)。解析不了 → false(按公网处理,保持原行为)。
+const PROVIDER_LAN_HOST_SUFFIXES = ['.localhost', '.local', '.lan', '.internal', '.localdomain', '.home.arpa'];
+function providerBaseIsLocalOrLan(baseUrl) {
+  // 手工取主机名,不用全局 URL:本模块零出边(URL 在 00-boot 里是个顶层符号,一引用就多一条 04h → 00-boot 的边、把本模块拖进依赖环)。
+  // 形状:[协议://][userinfo@]主机[:端口][/路径];主机可以是 [IPv6];没写协议的 `localhost:11434/v1` 也认。
+  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/?#]*@)?(\[[^\]]*\]|[^:/?#]*)/i.exec(String(baseUrl || '').trim());
+  const host = String(m ? m[1] : '').toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+  if (!host) return false;
+  if (host === 'localhost' || PROVIDER_LAN_HOST_SUFFIXES.some(suffix => host.endsWith(suffix))) return true;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number);
+    return a === 127 || a === 10 || a === 0 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127);
+  }
+  if (host.includes(':')) {
+    if (host === '::1' || host === '::') return true;
+    if (/^f[cd][0-9a-f]{0,2}:/.test(host) || /^fe[89ab][0-9a-f]?:/.test(host)) return true;   // fc00::/7 唯一本地、fe80::/10 链路本地
+    // IPv4 映射地址:WHATWG URL 会把 ::ffff:127.0.0.1 规范成十六进制的 ::ffff:7f00:1,两种写法都认。
+    const dotted = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(host);
+    if (dotted) return providerBaseIsLocalOrLan('http://' + dotted[1]);
+    const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host);
+    if (hex) { const hi = parseInt(hex[1], 16), lo = parseInt(hex[2], 16); return providerBaseIsLocalOrLan(`http://${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`); }
+    return false;
+  }
+  return !host.includes('.');   // 单标签主机名:只有本机 / 内网 DNS 或 hosts 解析得了
 }
 // 可被中止截断的退避睡眠。与修前两份手写逐字同形:signal 已经 aborted 时监听器永不触发,睡满整段
 // (两处调用方都在睡前/睡后自己查中止,这个细节不能在这里「顺手修好」,否则事件时序会变)。
@@ -101,7 +181,7 @@ function abortableDelay(ms, signal) {
 //              超了就按终局交回;
 //   'again' —— 立即、不计数、不睡地重来一次(08 的「工具被拒 → 去掉工具再打一次」,由 classify 自己保证只给一次);
 //   其他   —— 终局,原样交回。
-// retries 从 0 计;backoffMs 收到的是本次重试的序号(1 起),所以 08 的 min(2000, 250·n) 与 07 的 min(2000, 300·attempt)
+// retries 从 0 计;backoffMs 收到的是本次重试的序号(1 起;第二个实参是触发重试的那次结果),所以 08 的 min(2000, 250·n) 与 07 的 min(2000, 300·attempt)
 // 都能原样表达。classify 收到 { retries }(本次 attempt 之前已用掉的重试数),07 据此还原它的 attempt 序号。
 // 不吞异常:attempt 抛出(流式中途失败)原样上抛,不重试。
 async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, signal, isAborted, onRetry, delay }) {
@@ -115,6 +195,8 @@ async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, si
     if (verdict !== 'retry' || retries >= maxRetries) return { aborted: false, result, retries };
     retries += 1;
     if (typeof onRetry === 'function') onRetry(result, retries);
-    await pause(backoffMs(retries), signal);
+    // backoffMs 的第二个参数是触发这次重试的结果:服务商回了 Retry-After(result.retryAfterMs)时,调用方据此取 max(自己的退避, 它)。
+    // 只收序号的老调用方(08 / 07 CLI 子代理)忽略多出来的实参,行为不变。
+    await pause(backoffMs(retries, result), signal);
   }
 }

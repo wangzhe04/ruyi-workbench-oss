@@ -190,10 +190,13 @@ export function validateApiKeyShape(presetId, key) {
 // Front-of-the-line base URL shape check. Same intent: catch 「粘贴了控制台首页地址」 before the request.
 // 向导再存一次时该复用的已有服务商：同一预设谱系（id 为 presetId 或 presetId-N，providerDraftFromPreset
 // 就是这么起号的）且地址相同（忽略首尾空白、末尾斜杠与大小写）。没有就返回 null，照旧新建一条。
-export function reusableProviderFor(providers, presetId, baseUrl) {
+// normalizeUrl(可选):地址比较前先过的收拾函数。已存的服务商地址是保存时剥过端点后缀的(…/anthropic),用户重开向导再粘完整端点
+// (…/anthropic/v1/messages)直接比对比不上 —— 不复用、重复建 -2、还要求重填 key。向导把注入的 normalizeProviderDraftEndpoint 包成它传进来。
+export function reusableProviderFor(providers, presetId, baseUrl, normalizeUrl) {
   const id = String(presetId || '');
   if (!id) return null;
-  const norm = value => String(value || '').trim().replace(/\/+$/, '').toLowerCase();
+  const prep = typeof normalizeUrl === 'function' ? normalizeUrl : value => value;
+  const norm = value => String(prep(String(value || '').trim()) || '').trim().replace(/\/+$/, '').toLowerCase();
   const target = norm(baseUrl);
   const lineage = new RegExp('^' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(-\\d+)?$');
   return asArray(providers).find(p => p && lineage.test(String(p.id || '')) && norm(p.baseUrl) === target) || null;
@@ -231,6 +234,10 @@ export function createOnboardingWizardDomain({
   getLocale = () => 'zh-CN',
   setLocale = async locale => locale,
   providerDraftFromPreset = null,
+  // 2026-10:按地址收拾草稿(剥端点后缀、地址明显是 Anthropic / Responses 时补协议)—— 与设置页同一实现,由 provider-settings.js 注入。
+  normalizeProviderDraftEndpoint = null,
+  // 「测试连接」失败文案:按服务端稳定 code(provider.test_*)取本地化句子,与设置页同一个函数(provider-settings.js 的 providerTestErrorText)。
+  providerTestErrorText = null,
   pickWorkspace = async () => {},
   // 走查 #8：原生选择器用不了（非 Windows、WinForms 起不来）时的兜底 —— 手填一个完整路径，设成默认工作文件夹。
   setWorkspacePath = async () => {},
@@ -342,7 +349,7 @@ export function createOnboardingWizardDomain({
       });
     }
     if (doc && doc.body && typeof doc.body.appendChild === 'function') doc.body.appendChild(backdrop);
-    return { backdrop, modal, counter, rail, body, status, foot, close: () => finish(false), cancel: () => finish(true) };
+    return { backdrop, modal, title, closeBtn, counter, rail, body, status, foot, close: () => finish(false), cancel: () => finish(true) };
   }
 
   /* ---------------- small builders ---------------- */
@@ -386,6 +393,7 @@ export function createOnboardingWizardDomain({
       permissionMode: typeof config.permissionMode === 'string' ? config.permissionMode : '',
       workspaceError: '',  // 走查 #8：选择器失败时就地显示的那句（服务端给的 hint 优先）
       workspacePath: '',   // 手填框里的草稿（重画不丢）
+      stewardCustom: false, // 管家步「另挑一个」卡被点中（还没填模型名时也要显示选中态）
     };
     const presets = asArray(state.status && state.status.providerPresets);
     // 用户 2026-09-27：不再内置厂商预设。云端一支默认落在第一条【要密钥】的模板上（即「自定义」，地址由用户填），
@@ -401,7 +409,14 @@ export function createOnboardingWizardDomain({
     const requestedStep = ONBOARDING_STEP_IDS.indexOf(String(options.startStep || ''));
     if (requestedStep > 0) wiz.step = requestedStep;
 
-    const frame = buildFrame(async () => { await markOnboarding({ skipped: true }); toast(t('onboarding.wizard.skipped'), ''); });
+    // 走查 W1-13：已完成引导的用户从设置里重开向导再关掉，修前这里写 {completedAt:null, skipped:true}，把完成记录整个盖没了。
+    // 开向导那一刻已经有 completedAt → 关闭不写盘（「以后再说」对一个早就走完的人没有意义）。
+    const priorCompletedAt = asObject(config.onboarding).completedAt || null;
+    const frame = buildFrame(async () => {
+      if (priorCompletedAt) return;
+      await markOnboarding({ skipped: true });
+      toast(t('onboarding.wizard.skipped'), '');
+    });
     openBackdrop = frame.backdrop;
 
     // 118e: a status line may now carry ONE in-app action button (today: 「read the manual's local-models
@@ -449,6 +464,9 @@ export function createOnboardingWizardDomain({
       const steps = onboardingStepsFor(state.config);
       const meta = STEP_META[stepId];
       frame.modal.setAttribute('aria-label', t('onboarding.wizard.title'));
+      // 走查 W1-10：标题与关闭钮的 aria-label 原来只在 buildFrame 写一次，第一步切语言后停在旧语言 —— 每次 render 都按当前语言重写。
+      frame.title.textContent = t('onboarding.wizard.title');
+      frame.closeBtn.setAttribute('aria-label', t('common.close'));
       frame.counter.textContent = t('onboarding.wizard.stepCounter', {
         current: wiz.step + 1, total: ids.length, title: t(stepId === 'provider' && wiz.engineChoice === 'local' ? 'onboarding.wizard.provider.titleLocal' : meta.titleKey),   // 走查 U11：本机服务那一支，步骤计数行也别写「填入 API Key」
       });
@@ -744,16 +762,21 @@ export function createOnboardingWizardDomain({
     // fields the wizard collected. No second provider shape lives here.
     // 重开向导、对同一个端点再存一次时，就地更新已有那一条（沿用它的 id），不再追加 local-2、local-3……
     // 用户没重填密钥就原样回传掩码 —— 服务端 unmaskSecrets 按「同一 id、同一地址」还原真密钥，测试连接同理。
+    // 比较地址前的收拾:与保存时同一道(剥端点后缀),由注入的 normalizeProviderDraftEndpoint 给出,不在向导里另写一份。
+    function comparableUrl(url) {
+      return typeof normalizeProviderDraftEndpoint === 'function' ? String(normalizeProviderDraftEndpoint({ baseUrl: url }).baseUrl || '') : String(url || '');
+    }
     function buildDraft() {
       const preset = currentPreset();
       const providers = asArray(asObject(state.config).providers);
       const existing = providers.map(p => p && p.id).filter(Boolean);
-      const reuse = reusableProviderFor(providers, preset && preset.id, wiz.baseUrl);
+      const reuse = reusableProviderFor(providers, preset && preset.id, wiz.baseUrl, comparableUrl);
       const draft = reuse
         ? { ...reuse, models: asArray(reuse.models).map(m => ({ ...m })) }
         : (typeof providerDraftFromPreset === 'function' ? providerDraftFromPreset(preset, existing) : null);
       if (!draft) return null;
       draft.baseUrl = wiz.baseUrl;
+      if (typeof normalizeProviderDraftEndpoint === 'function') normalizeProviderDraftEndpoint(draft);
       if (!reuse || wiz.apiKey) draft.apiKey = wiz.apiKey;
       if (wiz.model) draft.model = wiz.model;
       if (wiz.models.length) {
@@ -768,7 +791,7 @@ export function createOnboardingWizardDomain({
       const url = validateBaseUrlShape(wiz.baseUrl);
       if (!url.ok) { setMessage(t('onboarding.wizard.validate.' + url.code), 'err'); return null; }
       // 同一端点已存过密钥（服务端回来的是掩码）且这次没重填：不逼用户再贴一遍，沿用已存的那把。
-      const saved = reusableProviderFor(asObject(state.config).providers, currentPreset() && currentPreset().id, wiz.baseUrl);
+      const saved = reusableProviderFor(asObject(state.config).providers, currentPreset() && currentPreset().id, wiz.baseUrl, comparableUrl);
       const keepsSavedKey = !String(wiz.apiKey || '').trim() && !!saved && String(saved.apiKey || '').startsWith('•');
       const key = keepsSavedKey ? { ok: true, code: '', warn: '' } : validateApiKeyShape(presetKey, wiz.apiKey);
       if (!key.ok) { setMessage(t('onboarding.wizard.validate.' + key.code), 'err'); return null; }
@@ -798,7 +821,9 @@ export function createOnboardingWizardDomain({
         render();
         // The server already returns a human sentence; errorClass adds the 「怎么办」 line from the same
         // catalog the error cards use, so the wizard never invents its own diagnosis.
-        const detail = errorMessageOf(result) || t('provider.testFailure');
+        // 带稳定 code(provider.test_*)的失败按 code 取本地化文案(与设置页同一个函数);修前这里只认服务端的中文兜底句,英文界面里照样弹中文。
+        const coded = typeof providerTestErrorText === 'function' && result && /^provider\.test_/.test(String(result.code || ''));
+        const detail = (coded ? providerTestErrorText(result) : errorMessageOf(result)) || t('provider.testFailure');
         const nextKey = result && result.errorClass === 'network_down' ? 'error.networkDown.next'
           : result && result.errorClass === 'provider_misconfigured' ? 'error.providerMisconfigured.next' : '';
         // 118e: for a LOCAL preset an unreachable endpoint has exactly one plain-language meaning -- the
@@ -837,6 +862,18 @@ export function createOnboardingWizardDomain({
         setMessage(t('onboarding.wizard.provider.localNeedModel'), 'warn');
         return;
       }
+      // 走查 W1-9：只拦本机预设的空模型还不够 —— 云端唯一的预设「自定义」既没地址也没默认模型，却一样能存成 model:""，
+      // 首条消息才撞一句看不懂的报错。所有分支都要有模型：本机（上面）让用户先测试连接再选，云端让用户在「高级」里填模型名。
+      if (!String(wiz.model || '').trim()) {
+        setMessage(t('onboarding.wizard.provider.cloudNeedModel'), 'warn');
+        try {
+          const advanced = frame.body.querySelector('.onboard-wiz-advanced');
+          if (advanced) advanced.open = true;
+          const field = frame.body.querySelector('.onboard-wiz-model');
+          if (field && typeof field.focus === 'function') field.focus();
+        } catch { /* 无 DOM */ }
+        return;
+      }
       wiz.saving = true;
       render();
       const providers = asArray(asObject(state.config).providers).filter(p => p && p.id !== draft.id);
@@ -862,7 +899,7 @@ export function createOnboardingWizardDomain({
       const pick = async () => {
         const r = await pickWorkspace({ alsoDefault: true });
         // 原因用服务端的 error（「仅支持 Windows」这类）—— 「去下面粘贴路径」这半句由文案自己说，不重复 hint。
-        wiz.workspaceError = r && r.ok === false ? String(r.error || r.hint || t('common.unknown')) : '';
+        wiz.workspaceError = r && r.ok === false ? errorMessageOf(r) || String(r.hint || '') || t('common.unknown') : '';
         render();
         // render() 下一拍会把焦点给这一步的第一个控件；失败时要落在手填框上，所以也排在下一拍、且排在它后面。
         if (wiz.workspaceError) setTimeout(() => { try { frame.body.querySelector('.onboard-wiz-path-input')?.focus(); } catch { /* 无 DOM */ } }, 0);
@@ -919,7 +956,7 @@ export function createOnboardingWizardDomain({
           try {
             const r = await api('/api/workspace/dedicated', { method: 'POST', body: '{}' });
             if (r && r.ok && r.path) await setWorkspacePath(String(r.path));
-            else wiz.workspaceError = String((r && r.error) || t('common.unknown'));
+            else wiz.workspaceError = errorMessageOf(r) || t('common.unknown');
           } catch (error) { wiz.workspaceError = apiErrText(error); }
           render();
         };
@@ -952,28 +989,35 @@ export function createOnboardingWizardDomain({
       const group = el('div', 'onboard-wiz-cards onboard-wiz-steward-cards');
       group.setAttribute('role', 'radiogroup');
       group.setAttribute('aria-label', t('onboarding.wizard.steward.title'));
+      const customPicked = Boolean(current) || wiz.stewardCustom === true;
       const follow = choiceCard({
-        selected: !current,
+        selected: !customPicked,
         title: t('onboarding.wizard.steward.follow'),
         description: t('onboarding.wizard.steward.followHint'),
         onSelect: async () => {
           if (!(await persist({ stewardModel: '' }))) return;
+          wiz.stewardCustom = false;
           render();
           setMessage(t('onboarding.wizard.steward.savedFollow'), 'ok');
         },
       });
       follow.setAttribute('role', 'radio');
-      follow.setAttribute('aria-checked', current ? 'false' : 'true');
+      follow.setAttribute('aria-checked', customPicked ? 'false' : 'true');
       group.append(follow);
       const custom = choiceCard({
-        selected: Boolean(current),
+        selected: customPicked,
         title: t('onboarding.wizard.steward.custom'),
         description: t('onboarding.wizard.steward.customHint'),
-        // 已经填过就不清掉他填的那个（点一下只是把这张卡选中）。
-        onSelect: () => { render(); },
+        // 已经填过就不清掉他填的那个（点一下只是把这张卡选中）。走查 W1：没填过时点它修前毫无反应（render 画回原样）——
+        // 现在记下「选了它」，卡片亮起选中态并把光标送进模型名输入框。
+        onSelect: () => {
+          wiz.stewardCustom = true;
+          render();
+          setTimeout(() => { try { frame.body.querySelector('#onboardStewardModel')?.focus(); } catch { /* 无 DOM */ } }, 0);
+        },
       });
       custom.setAttribute('role', 'radio');
-      custom.setAttribute('aria-checked', current ? 'true' : 'false');
+      custom.setAttribute('aria-checked', customPicked ? 'true' : 'false');
       group.append(custom);
       wrap.append(group);
       const input = el('input', '');
@@ -1068,8 +1112,10 @@ export function createOnboardingWizardDomain({
         const playbook = all.find(p => p && p.id === id);
         const card = el('button', 'onboard-wiz-card onboard-wiz-playbook');
         card.type = 'button';
-        card.append(el('div', 'onboard-wiz-card-title', (playbook && (playbook.title || playbook.name)) || t('onboarding.wizard.done.playbook.' + id)));
-        card.append(el('div', 'onboard-wiz-card-desc', (playbook && playbook.desc) || t('onboarding.wizard.done.playbookHint.' + id)));
+        // W2-F7b：卡面文字只认本地化键。修前优先取 state.playbooks 的 title/desc，那份是向导【打开前】按当时语言取回来的 ——
+        // 在第一步切到 English 之后第七步三张卡仍是中文。键（zh/en 各一份）本来就齐，playbook 对象只管点开（openPlaybook）。
+        card.append(el('div', 'onboard-wiz-card-title', t('onboarding.wizard.done.playbook.' + id)));
+        card.append(el('div', 'onboard-wiz-card-desc', t('onboarding.wizard.done.playbookHint.' + id)));
         card.onclick = () => {
           if (!playbook) { setMessage(t('onboarding.wizard.done.playbookMissing'), 'warn'); return; }
           frame.close();

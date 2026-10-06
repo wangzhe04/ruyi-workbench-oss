@@ -1,6 +1,46 @@
 // 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch/rollbackReplanPatch)抽至 09b-replan-ledger.js。
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, onRegistered }) {
+// 子代理核心胶囊的实现(口住 00-boot 的 SubAgentMemoryHooks,理由见那里)。只取【核心】:relevance 压到 0,相关召回是按主线那句话排的,
+// 子任务是另一件事,顺带也让 preflight 不给没注入的条目记 use。走 parentSession:会话级排除 / 固定选择 / 关闭记忆同样管着子代理。
+Object.assign(SubAgentMemoryHooks, {
+  async coreSnapshot({ parentSession, workingDir, task, config }) {
+    const preflight = await resolveMemoryPreflight(parentSession, workingDir, String(task || ''), undefined, { ...config, memoryRelevanceMaxV1: 0 }, {});
+    const entries = Array.isArray(preflight.coreEntries) ? preflight.coreEntries : [];
+    return { entries, conflicts: entries.length ? await buildMemoryConflictMap(workingDir).catch(() => null) : null };
+  },
+});
+
+// 节点时限(纯函数;unit/agent-time-limits 经 lib/server-internals 直调,不加 14-main 导出):
+//   wrapUpMs  自动收尾时限 —— config.agentNodeWrapUpMs,出厂 30 分钟,0 = 关闭自动收尾(也就没有下面的宽限与硬上限);
+//   graceMs   催收尾之后的宽限期 —— 出厂 = wrapUpMs/6,夹在 [2, 10] 分钟(30 分钟 → 5 分钟);
+//   hardCapMs 总时长硬上限 —— 出厂 = wrapUpMs × 2(30 分钟 → 60 分钟),且不低于 wrapUpMs + graceMs(所以设得很小时略高于 2 倍)。
+// env 缝(只读、缺省即生产;测试用来把分钟缩成秒):WCW_AGENT_NODE_WRAPUP_MS / _WRAPUP_GRACE_MS / _HARDCAP_MS。
+function agentNodeTimeLimits(config, env) {
+  const source = env || {};
+  const configured = Number(config && config.agentNodeWrapUpMs);
+  const wrapUpMs = source.WCW_AGENT_NODE_WRAPUP_MS != null
+    ? Math.max(0, Number(source.WCW_AGENT_NODE_WRAPUP_MS) || 0)
+    : (Number.isFinite(configured) ? Math.max(0, configured) : 1800000);
+  const graceMs = Math.max(250, Number(source.WCW_AGENT_NODE_WRAPUP_GRACE_MS)
+    || Math.max(120000, Math.min(600000, Math.floor((wrapUpMs || 1800000) / 6))));
+  const hardCapMs = Math.max(wrapUpMs + graceMs, Number(source.WCW_AGENT_NODE_HARDCAP_MS) || (wrapUpMs * 2));
+  return { wrapUpMs, graceMs, hardCapMs };
+}
+// 一个【正在跑】的节点这一拍该做什么(全部毫秒时间戳;requestedAt = 0 表示还没催过收尾):
+//   'nudge'    运行到自动收尾时限,注入一条「停止扩展、立即总结」的插话 —— 只是催,不杀;
+//   'hard_cap' 总时长到硬上限,不论是否还在产出都中止;
+//   'quiet'    催过之后,在宽限期内一点进展都没有(最近一次动静 / 催收尾的时刻起算)才中止 —— 还在持续产出的节点不会被它中止;
+//   'none'     什么都不做。
+// lastActivityAt 是节点的任何事件(流式字节 / 工具心跳 / 工具事件)刷新的那个时钟,与空闲看门狗同一个信号。
+function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, forced }, limits) {
+  if (!limits || !(limits.wrapUpMs > 0) || forced) return 'none';
+  if (!requestedAt) return now - modelStartedAt >= limits.wrapUpMs ? 'nudge' : 'none';
+  if (now - modelStartedAt >= limits.hardCapMs) return 'hard_cap';
+  if (now - Math.max(requestedAt, Number(lastActivityAt) || 0) >= limits.graceMs) return 'quiet';
+  return 'none';
+}
+
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered }) {
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
   // 段账本据此不把它们标 cancelled(回合结束不杀它),前端据此把它们画进自己的卡/后台任务条而不是父回合的活动条。
@@ -9,7 +49,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const baseOnEvent = onEvent;
     onEvent = evt => baseOnEvent(evt && typeof evt === 'object' && !evt.background ? { ...evt, background: true } : evt);
   }
-  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
+  // 安全走查 S3:项目来源的角色按这次运行的父档(permModeOverride > 线程档)带上有效档位标注;节点工具级用夹过的那个(卡片如实显示)。
+  // 项目来源的角色在这里换成「夹后」的 toolTier(声明值留在 declaredToolTier):下面节点的 toolTier / 选模型都读 role.toolTier,卡片与快照如实显示夹后的档位。
+  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config, { parentMode: permModeOverride || config.permissionMode }))
+    .map(role => [role.id, (agentRoleIsUntrusted(role) && role.effectiveToolTier && role.effectiveToolTier !== role.toolTier) ? { ...role, declaredToolTier: role.toolTier, toolTier: role.effectiveToolTier } : role]));
   let defaultRoute = {
     engine: parentEngine === 'claude' ? 'claude' : (provider ? 'openai' : 'claude'),
     provider: provider || null,
@@ -78,7 +121,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // prompt-visible or verify claims after that attempt has been invalidated.
       purgeNodeEvidence(run, n.id);
       delete n.errorClass; // 29c: 失败类别随重跑清场(与 error 同生命周期),重跑成功不残留旧分类
-      delete n.modelStartedAt; delete n.wrapUpRequestedAt; delete n.wrapUpDeadlineAt; delete n.wrapUpForcedAt;
+      delete n.modelStartedAt; delete n.wrapUpRequestedAt; delete n.wrapUpDeadlineAt; delete n.wrapUpForcedAt; delete n.wrapUpForcedReason;
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
     run.concurrency = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || run.concurrency || 2));
@@ -130,7 +173,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (roleId && !role) return { ok: false, error: `节点 ${id} 引用了不存在的角色: ${roleId}`, startedCount: 0 };
       ids.add(id);
       const resourceSpecs = normalizeAgentResources(raw.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace));
-      const explicitTier = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      // 模型显式给的档位对项目来源的角色同样不得高于父档(clamp 只对 untrusted 角色生效,其余原样)。
+      const explicitTier0 = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      const explicitTier = (explicitTier0 && role && agentRoleIsUntrusted(role)) ? clampAgentRoleToParent(role, explicitTier0, permModeOverride || config.permissionMode).toolTier : explicitTier0;
       const outputSchema = sanitizeAgentOutputSchema(raw.outputSchema);
       const gate = normalizeAgentGate(raw.gate, roleId);
       const failurePolicy = ['block', 'continue', 'retry'].includes(raw.failurePolicy) ? raw.failurePolicy : 'block';
@@ -170,6 +215,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       kind: String(runKind || 'orchestrate_agents'), title: String(runTitle || ''),
       // 代理模式 v2:后台 run 与父回合 abort 解耦(调用方不传 ctrl),回合结束不杀;完成信封经后台任务账本投递一次。
       background: isBackgroundRun,
+      // 「是模型自己起的后台 run」:只有这种 run 跑完才会唤醒主会话(10 scheduleAgentWake)。与 background 分开记 ——
+      // 面板 / HTTP 的 async 启动(用户点的)同样是 background:true,但没有模型在等它,不该替模型起回合。
+      launchedByModel: launchedByModel === true,
       // 29b/29c: 首跑权限面存档(boot 自动恢复分级用 —— 恢复时 config.permissionMode 若比首跑更宽,自动续跑
       // 等于权限静默升级,必须降人工)+ 运营指标(interventions 干预计数 / failuresByClass 收尾聚合)。
       permissionModeAtLaunch: String(permModeOverride || config.permissionMode || ''), metrics: { interventions: {} }, replanPatches: [], replanBaseline: null, nodes };
@@ -250,11 +298,21 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     : Math.max(60000, idleLimitMs);
   runtime.lastActivityAt = Date.now(); // on the SHARED runtime so the resume handler can reset it atomically with clearing paused (closes the race where the watchdog fires after paused=false but before the loop resets the clock)
   let idleAborted = false;
+  // 父回合被用户 Stop / 断线而中止了这个 run(区别于 runtime.stopRequested 的「停止这个 run」与 idleAborted 的看门狗):
+  // 收尾据此把 run 记成 stopped 而不是 failed / partial(见下面 run.status 的赋值)。在循环里的中止分支置上。
+  let parentStopped = false;
   const idleWatchdog = setInterval(() => {
     if (!activeAgentRuns.has(runId)) return;
     if (localCtrl && localCtrl.signal && localCtrl.signal.aborted) return;
     if (runtime.paused) return; // v1.x (B1-fix): a paused run accrues NO idle time - the watchdog must never kill a paused run (its pause-wait loop only wakes on resume/stop, not on a localCtrl abort)
     if (runtime.inPoolGrace) return; // 团队模式 v2 (A2): 宽限窗期间在等待任务池审批,不计空闲——同 paused,窗内绝不被 watchdog 杀
+    // 有节点在 waiting_resource(排在别的 run / 别的回合持有的资源租约后面)= 在排队,不是卡死,不计空闲。
+    // 节点级租约(08 runSubAgent 的 acquireResourceLease,按设计不带超时)等待期间没有任何事件:工具级等待有 startToolBeat 的
+    // 心跳,节点级这一段没有 —— 修前所有节点都在等别的 run 释放资源、且等得比 idleLimitMs(默认 10 分钟)久时,整个 run
+    // 被当成「无进展」中止,节点记 idle_timeout。真死锁另有两道兜底,不靠这里:06g 的等待环检测(RESOURCE_DEADLOCK)与
+    // 工具级租约的 30 分钟超时;节点级自己的卡死由下面 workflowControlTimer 里的节点 watchdog 盯(只盯 running 节点)。
+    // 刷新而不是单纯跳过:等待一结束、节点转 running 时,时钟是新的,不会在下一拍就撞上陈旧的 lastActivityAt。
+    if (nodes.some(n => n && n.status === 'waiting_resource')) { runtime.lastActivityAt = Date.now(); return; }
     if (Date.now() - runtime.lastActivityAt > idleLimitMs) {
       idleAborted = true; run.idleAborted = true;
       onEvent({ type: 'stderr', text: `[watchdog] agent workflow idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
@@ -269,12 +327,22 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // genuinely wedged DAG. The env seams keep the regression test fast.
   const heartbeatMs = Math.max(250, Number(process.env.WCW_AGENT_WORKFLOW_HEARTBEAT_MS)
     || Math.min(15000, Math.max(1000, Math.floor(idleLimitMs / 4))));
-  const configuredWrapUpMs = Number(config.agentNodeWrapUpMs);
-  const wrapUpMs = process.env.WCW_AGENT_NODE_WRAPUP_MS != null
-    ? Math.max(0, Number(process.env.WCW_AGENT_NODE_WRAPUP_MS) || 0)
-    : (Number.isFinite(configuredWrapUpMs) ? Math.max(0, configuredWrapUpMs) : 480000);
-  const wrapUpGraceMs = Math.max(250, Number(process.env.WCW_AGENT_NODE_WRAPUP_GRACE_MS)
-    || Math.max(60000, Math.min(120000, Math.floor((wrapUpMs || 480000) / 4))));
+  // 节点时限的三层(都只管【这一个节点】,run 里的兄弟节点不受牵连):
+  //   ① 空闲(nodeIdleLimitMs,见上):没有任何进展(流式字节 / 工具心跳 / 事件)就中止 —— 判「有没有动静」,不看墙钟;
+  //   ② 自动收尾(wrapUpMs,config.agentNodeWrapUpMs,出厂 30 分钟):模型运行到这个时长,【只】注入一条「停止扩展、立即总结」的插话,不杀;
+  //   ③ 收尾之后:节点在宽限期(wrapUpGraceMs)内【没有任何进展】才中止(它还在产出就让它写完);
+  //      总时长另有硬上限 hardCapMs(出厂 = 自动收尾时限的 2 倍 = 60 分钟),到点不论是否还在产出都中止 —— 兜住「一直在吐字、从不收尾」。
+  // 修前:到点注入后 2 分钟墙钟一到就杀(出厂 8+2 = 10 分钟的硬上限),正在持续产出的节点也被杀,结果只剩一半。
+  // env 缝(只读、缺省即生产):WCW_AGENT_NODE_WRAPUP_MS / _WRAPUP_GRACE_MS / _HARDCAP_MS。
+  const nodeLimits = agentNodeTimeLimits(config, process.env);
+  const { wrapUpMs, graceMs: wrapUpGraceMs, hardCapMs } = nodeLimits;
+  const minutesText = ms => String(Math.max(0.1, Math.round(ms / 6000) / 10)); // 一位小数的分钟
+  const secondsText = ms => String(Math.max(1, Math.round(ms / 1000)));
+  // 节点被「收尾」流程中止时给模型(envelope.node.error)与用户(运行卡/调试面板)的说明:说清是哪一种时限、怎么调。
+  const wrapUpStopMessage = node => (node.wrapUpForcedReason === 'hard_cap'
+    ? `节点超过自动收尾宽限期后仍在运行,总运行时长已达硬上限(${minutesText(hardCapMs)} 分钟,约为自动收尾时限 ${minutesText(wrapUpMs)} 分钟的 2 倍),已中止该节点,已产出的部分保留在结果里。可在「设置 → 工作流与时限 → 节点自动收尾(分钟)」调大(硬上限随之成倍增长;0 = 关闭自动收尾),或把任务拆小。`
+    : `节点运行已超过自动收尾时限(${minutesText(wrapUpMs)} 分钟),并在自动收尾宽限期(${secondsText(wrapUpGraceMs)} 秒)内没有任何进展,已中止该节点,已产出的部分保留在结果里。仍在产出的节点不会因此被中止;可在「设置 → 工作流与时限 → 节点自动收尾(分钟)」调大(0 = 关闭),或把任务拆小。`);
+  const nodeIdleStopMessage = () => `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展：没有流式输出、工具心跳或事件），已中止该节点。可在「设置 → 工作流与时限 → 一个回合多久没动静算卡住」调大。`;
   let lastWorkflowHeartbeatAt = 0;
   const workflowControlTimer = setInterval(() => {
     if (!activeAgentRuns.has(runId)) return;
@@ -338,7 +406,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (!node || node.status !== 'running' || !node.modelStartedAt) continue;
       const modelStarted = Date.parse(node.modelStartedAt);
       if (!Number.isFinite(modelStarted)) continue;
-      if (!node.wrapUpRequestedAt && now - modelStarted >= wrapUpMs) {
+      const wrapUpAction = nodeWrapUpAction({
+        now, modelStartedAt: modelStarted, requestedAt: node.wrapUpRequestedAt ? (Date.parse(node.wrapUpRequestedAt) || now) : 0,
+        lastActivityAt: Number(node.lastActivityAt) || 0, forced: !!node.wrapUpForcedAt,
+      }, nodeLimits);
+      if (wrapUpAction === 'nudge') {
         const instruction = '你已运行较长时间。现在停止扩展范围，不再启动新的工具或子任务；请基于已经取得的证据立即整理最终结论。若仍有未完成项，明确列出并标注，不要为了补齐它们继续长跑。';
         let q = runtime.autoSteerQueues.get(node.id);
         if (!q) { q = []; runtime.autoSteerQueues.set(node.id, q); }
@@ -353,16 +425,19 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         throttledSaveRun();
         continue;
       }
-      const deadline = Date.parse(node.wrapUpDeadlineAt || '');
-      if (node.wrapUpRequestedAt && !node.wrapUpForcedAt && Number.isFinite(deadline) && now >= deadline) {
+      if (wrapUpAction === 'hard_cap' || wrapUpAction === 'quiet') {
+        // 收尾之后只在两种情形下中止:① 硬上限(总时长到点,不论是否还在产出);② 宽限期内没有任何进展(从催收尾 / 最近一次动静起算)。
+        const overHardCap = wrapUpAction === 'hard_cap';
         node.wrapUpForcedAt = nowIso();
+        node.wrapUpForcedReason = overHardCap ? 'hard_cap' : 'quiet';
         const nodeCtrl = runtime.nodeControls.get(node.id);
         try { if (nodeCtrl && nodeCtrl.signal && !nodeCtrl.signal.aborted) nodeCtrl.abort('node_wrapup_timeout'); } catch {}
         runtime.lastActivityAt = now;
         node.lastActivityAt = now; // A3: wrapup 强制收尾也是该节点活跃(收尾后节点即将终态)
-        recordAgentNodeProgress(run, node, { type: 'subagent_wrapup_forced', graceMs: wrapUpGraceMs });
-        appendAgentRunEvent(run, { type: 'node_wrapup_forced', nodeId: node.id, data: { graceMs: wrapUpGraceMs } });
-        try { onEvent({ type: 'agent_workflow', state: 'node_wrapup_forced', id: runId, nodeId: node.id, graceMs: wrapUpGraceMs }); } catch {}
+        recordAgentNodeProgress(run, node, { type: 'subagent_wrapup_forced', graceMs: wrapUpGraceMs, reason: node.wrapUpForcedReason, hardCapMs });
+        appendAgentRunEvent(run, { type: 'node_wrapup_forced', nodeId: node.id, data: { graceMs: wrapUpGraceMs, reason: node.wrapUpForcedReason, hardCapMs, wrapUpMs, elapsedMs: now - modelStarted } });
+        try { onEvent({ type: 'agent_workflow', state: 'node_wrapup_forced', id: runId, nodeId: node.id, graceMs: wrapUpGraceMs, reason: node.wrapUpForcedReason, hardCapMs }); } catch {}
+        try { onEvent({ type: 'stderr', text: `[watchdog] node ${node.id} ${overHardCap ? `reached the hard cap (${Math.round(hardCapMs / 1000)}s)` : `made no progress for ${Math.round(wrapUpGraceMs / 1000)}s after the wrap-up request`} — aborting node` }); } catch { /* observer gone */ }
         throttledSaveRun();
       }
     }
@@ -488,7 +563,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (run.status === 'paused') { run.status = 'running'; runtime.lastActivityAt = Date.now(); await saveAgentRun(run).catch(() => {}); } // v1.x (B1-fix): resume resets the idle clock so a long pause does not make the very next watchdog tick false-fire
     if (runtime.stopRequested || (localCtrl && localCtrl.signal && localCtrl.signal.aborted)) {
       while (inFlight.size) await raceInFlight();   // 第26波: ctrl 已 abort,在飞节点快速收敛;drain 后再统一取消
-      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.errorClass = idleAborted && !runtime.stopRequested ? 'idle_timeout' : 'cancelled'; node.completedAt = nowIso(); }
+      // 不是「停止这个 run」(stopRequested)也不是看门狗(idleAborted)—— 那就是父回合被停 / 断线把它一起中止了。
+      // 只有确有未成功的节点才算「被停止打断」:全部节点都已成功 / 跳过 / 被质量门驳回时,run 照常按 succeeded 收尾。
+      if (!runtime.stopRequested && !idleAborted && nodes.some(n => n.status !== 'succeeded' && n.status !== 'skipped' && n.status !== 'rejected')) parentStopped = true;
+      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒没有任何节点有进展：无流式输出、工具心跳或事件），已中止。可在「设置 → 工作流与时限 → 一个回合多久没动静算卡住」调大。` : '父回合已停止'); node.errorClass = idleAborted && !runtime.stopRequested ? 'idle_timeout' : 'cancelled'; node.completedAt = nowIso(); }
       break;
     }
     // 第28e波(§28e):轮询 waiting 节点(【零 token】——纯 fs/net/process 探测,不起子代理)。满足→succeeded 放行下游;
@@ -697,7 +775,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeMemoryConflicts = nodeMemoryEntries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
       const memoryInstruction = [
         buildMemoryCheckPrompt(nodeMemory.status, config),
-        buildMemoryPromptSection(nodeMemoryEntries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts),
+        // #15:openai 节点走 runSubAgentCore,它现在把【核心胶囊】放进子代理系统提示 —— 这里只补相关索引,免得胶囊在同一次请求里出现两遍;
+        // claude 节点不经 runSubAgentCore(自己 spawn CLI),仍整段(核心 + 相关)进任务正文。
+        // 读取线索按引擎分叉(#6):openai 节点是 [id](scope) + workbench_memory_read,claude 节点仍是绝对路径 + Read。
+        buildMemoryPromptSection(nodeMemoryEntries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts, node.engine === 'claude' ? undefined : { part: 'related' }),
       ].filter(Boolean).join('\n');
       const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + evidenceInstruction + (memoryInstruction ? '\n\n' + memoryInstruction : '') + schemaInstruction;
       let agentSession = parentSession;
@@ -804,9 +885,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           }
           node.status = sub.ok ? 'succeeded' : 'failed';
           node.result = String(sub.result || '').slice(0, 24000);
-          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (node.idleAborted ? `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展），已中止该节点` : (node.noProgressAborted ? `节点连续 ${node.noProgressCount} 次工具结果无新进展（语义死循环），已中止该节点` : (sub.error || '子代理失败')))).slice(0, 4000);
+          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? wrapUpStopMessage(node) : (node.idleAborted ? nodeIdleStopMessage() : (node.noProgressAborted ? `节点连续 ${node.noProgressCount} 次工具结果无新进展（语义死循环），已中止该节点` : (sub.error || '子代理失败')))).slice(0, 4000);
           if (sub.ok) delete node.errorClass;
           else if (node.idleAborted) node.errorClass = 'idle_timeout'; // A3: 节点级卡死归因(区别于 workflow 级 idleAborted / 常规失败)
+          else if (node.wrapUpForcedAt) node.errorClass = 'timeout'; // 自动收尾流程中止(宽限期内无进展 / 总时长硬上限):归「超时」,不落成泛泛的 subagent_failed
           else if (node.noProgressAborted) node.errorClass = 'semantic_stall'; // G2: 语义死循环归因(有事件但结果无进展)
           else node.errorClass = classifyNodeErrorText(node.error); // 29c(重试成功即清旧类)
           // 审计 P2: 透传 degraded —— Claude CLI 产出可用输出后异常退出的「降级成功」(runClaudeSubAgentOnce 返回
@@ -981,7 +1063,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     for (const id of step.toDispatch) {
       const node = nodes.find(n => n.id === id); if (!node) continue;
       node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); delete node.toolEvidence;
-      delete node.modelStartedAt; delete node.wrapUpRequestedAt; delete node.wrapUpDeadlineAt; delete node.wrapUpForcedAt;
+      delete node.modelStartedAt; delete node.wrapUpRequestedAt; delete node.wrapUpDeadlineAt; delete node.wrapUpForcedAt; delete node.wrapUpForcedReason;
       runtime.autoSteerQueues.delete(node.id);
       startedCount += 1; dispatched += 1;
       appendAgentRunEvent(run, { type: 'node_start', nodeId: node.id, attemptId: node.attempts }); // 25.3
@@ -1026,7 +1108,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // 不该把本来成功的 run 拉成 partial(设计 A3 明示)。故把 fromPool && continue 的非成功节点排除出失败统计。范围仅限
   // 池节点,不改动普通节点的 continue 语义(避免回归)。下游不阻塞早由 failureContinues 处理,此处只影响 run 总态判定。
   const failed = nodes.filter(n => n.status !== 'succeeded' && n.status !== 'skipped' && n.status !== 'rejected' && !(n.fromPool && n.failurePolicy === 'continue'));
-  run.status = runtime.stopRequested ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
+  // 父回合被用户 Stop 导致 run 中止:记 stopped,与 stopRequested 同一个终态(修前落成 failed / partial,界面显示「失败」,
+  // 后台 run 的完成信封也会被当成失败去唤醒主会话 —— 用户刚叫停的,不该再被唤醒)。看门狗空闲中止仍是真失败。
+  run.status = (runtime.stopRequested || parentStopped) ? 'stopped' : (failed.length ? (nodes.some(n => n.status === 'succeeded') ? 'partial' : 'failed') : 'succeeded');
   run.completedAt = nowIso();
   run.summary = summarizeAgentWorkflowRun(run);
   // 29c: 收尾聚合失败分类 —— 幂等重算(非增量),resume 重跑后自动反映最新状态。errorClass 由各 error
@@ -1058,20 +1142,32 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
 // 结果可在本回合或之后任一回合收取,不依赖内存 promise。读取优先活对象(磁盘快照在节点运行期间有意节流),
 // 并把每个 id 限定在本会话的 run 目录。返回的是【交付信封】(buildAgentRunEnvelope),不是整份 run。
 const AGENT_RUN_TERMINAL = new Set(['succeeded', 'failed', 'partial', 'stopped', 'interrupted', 'cancelled']);
-async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
+// wait_agents 的等待窗:默认 2 分钟、上限 5 分钟(修前 30 秒 / 60 秒:一个跑十分钟的后台代理要被轮询二十次,每次都是一整个模型调用)。
+// 到点只是「这一次不等了」—— run 本身不受影响(见下面 timedOut 的说明)。等待期间不算父回合空闲(见 waitForAgentRunResults 的 onWaiting)。
+// env 缝(只读、缺省即生产):WCW_WAIT_AGENTS_DEFAULT_MS / WCW_WAIT_AGENTS_MAX_MS。
+const WAIT_AGENTS_DEFAULT_MS = 120000;
+const WAIT_AGENTS_MAX_MS = 300000;
+function waitAgentsMaxMs() { return Math.max(1, Number(process.env.WCW_WAIT_AGENTS_MAX_MS) || WAIT_AGENTS_MAX_MS); }
+// 调用方传的 timeoutMs(缺省 / null = 用默认窗)→ 实际等待毫秒;非数字按 0(不等),超上限按上限。
+function resolveWaitAgentsMs(timeoutMs) {
+  const raw = timeoutMs == null ? Math.max(1, Number(process.env.WCW_WAIT_AGENTS_DEFAULT_MS) || WAIT_AGENTS_DEFAULT_MS) : timeoutMs;
+  return Math.min(waitAgentsMaxMs(), Math.max(0, Number(raw) || 0));
+}
+async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal, onWaiting) {
   const runIds = [...new Set((Array.isArray(rawRunIds) ? rawRunIds : [])
     .map(id => safeSessionId(String(id || ''))).filter(Boolean))].slice(0, 16);
-  if (!runIds.length) return { ok: false, error: '没有可等待的后台代理 runId', settled: true, timedOut: false, runs: [] };
-  const waitMs = Math.min(60000, Math.max(0, Number(timeoutMs) || 0));
+  const waitMs = Math.min(waitAgentsMaxMs(), Math.max(0, Number(timeoutMs) || 0));
+  if (!runIds.length) return { ok: false, error: '没有可等待的后台代理 runId', settled: true, timedOut: false, waitMs, runs: [] };
   const deadline = Date.now() + waitMs;
   const readOne = runId => readAgentRunRecord(sessionId, runId);
   let rows = [];
   for (;;) {
     rows = await Promise.all(runIds.map(readOne));
     // hunt3:不存在的 runId(读不到 = null)没有什么可等 —— 修前 `row && !row.live` 把它算成「未结算」,
-    // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(最长 60 秒)。只有【活的】 run 才值得等。
+    // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(现在最长 5 分钟)。只有【活的】 run 才值得等。
     const settled = rows.every(row => !row || !row.live);
     if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
+    if (typeof onWaiting === 'function') { try { onWaiting(); } catch { /* 心跳回调失败不影响等待 */ } }   // 等待中的父回合不是「空闲」:调用方借此刷新自己的看门狗时钟
     await new Promise(resolve => {
       let done = false;
       const finish = () => {
@@ -1102,9 +1198,12 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   // 部分不存在 → 保持 ok:true,另列 notFound。
   const notFound = runs.filter(run => run.status === 'not_found').map(run => run.runId);
   if (notFound.length && notFound.length === runs.length) {
-    return { ok: false, error: `没有找到这些后台代理 run:${notFound.join(', ')}(runId 打错,或不属于当前会话);它们不是「仍在运行」。runId 以 orchestrate_agents{background:true} 的返回为准,或省略 runIds 收取本会话的后台代理。`, settled, timedOut: false, notFound, runs };
+    return { ok: false, error: `没有找到这些后台代理 run:${notFound.join(', ')}(runId 打错,或不属于当前会话);它们不是「仍在运行」。runId 以 orchestrate_agents{background:true} 的返回为准,或省略 runIds 收取本会话的后台代理。`, settled, timedOut: false, waitMs, notFound, runs };
   }
-  return { ok: true, settled, timedOut: runs.some(run => run.live === true), ...(notFound.length ? { notFound } : {}), runs };
+  const timedOut = runs.some(run => run.live === true);
+  // 到点还有 run 在跑:说清这是【这一次等待窗】到了(不是代理超时、也没中止任何东西),以及怎么办。
+  const timeoutNote = timedOut ? `等待窗(${Math.round(waitMs / 1000)} 秒)已到,仍有代理在后台运行,没有被中止。可以先做别的工作,完成通知会自动送达;或再调 wait_agents(timeoutMs 最大 ${Math.round(waitAgentsMaxMs() / 1000)} 秒)继续等。` : '';
+  return { ok: true, settled, timedOut, waitMs, ...(timeoutNote ? { note: timeoutNote } : {}), ...(notFound.length ? { notFound } : {}), runs };
 }
 // wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
 //  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;
@@ -1129,6 +1228,8 @@ function settleWaitEnvelopes(session, out) {
 }
 // 后台 run 收尾 → 一份信封进后台任务账本(下一迭代边界 / 下一回合开头注入一次;toast + 后台任务条随 background.completed 刷新)。
 async function deliverAgentRunEnvelope(sessionId, run) {
+  // 起它的那个回合已被用户撤回(10 onSessionRewound 停掉并打了标):对话里已经没有这件事了,信封只会让下一回合凭空多出一份「已停止」通知。
+  if (run && run.cancelledByRewind === true) return;
   try {
     const envelope = buildAgentRunEnvelope(run);
     if (EventStreamHooks.notifyAgentRunEnvelope) EventStreamHooks.notifyAgentRunEnvelope(sessionId, run, envelope);
@@ -1443,7 +1544,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 存量配置零变化。
   const wire = providerWireProtocol(provider);
   const apiStyle = wire.id;
-  const base = wire.endpointBase(provider.baseUrl); // 显示用 base 见 meta 事件
+  // 显示用 base 见 meta 事件:剥 basic-auth userinfo —— baseUrl 写成 https://user:pass@host 时,明文凭据会随 meta 的 command 进界面头部与回放
+  // (failover 候选的 base 早就剥了;chatUrl 仍保留原样以完成认证)。
+  const base = stripUrlUserinfo(wire.endpointBase(provider.baseUrl));
   const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
@@ -1544,7 +1647,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 
   if (!chatUrl || !model || typeof fetch !== 'function') {
     const why = !chatUrl ? 'provider base URL is not set' : (!model ? 'no model is selected for this provider' : 'fetch API is unavailable in this Node runtime');
-    const msg = `Cannot start a ${provider.label || provider.id} turn: ${why}. Open Settings → Providers to fix it.`;
+    // 走查 W1-9：中文界面里这句曾是整句英文。跟 emptyReplyNotice 同一口径按 config.locale 选语言；`why` 仍是英文机器诊断（给钩子的 error 字段）。
+    const providerName = provider.label || provider.id;
+    const msg = getPromptPack(config && config.locale) === PROMPT_EN
+      ? `Cannot start a ${providerName} turn: ${why}. Open Settings → Models & Services → Model providers to fix it.`
+      : `无法发起「${providerName}」这一轮对话：${!chatUrl ? '服务商的接口地址没填' : (!model ? '还没有选定模型' : '当前运行环境不支持 fetch')}。请到「设置 → 服务商」补全后再试。`;
     session.messages.push({ role: 'assistant', content: msg, segments: [{ id: 'segment-1', type: 'text', text: msg }], createdAt: nowIso(), source: 'fallback' });
     session.providerHistoryCursor = session.messages.length;
     await saveSession(session);
@@ -1681,7 +1788,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
   let volatileExtras = ''; // 52c(51d C2): 920-945 附加提示移 user 侧(与 turnVolatile 合并),sys 纯稳定(prefix-cache 完整命中)
   if (agentRoleMap.size && initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
-    volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
+    // 角色的 description 来自项目目录(.claude/agents/*.md、.ruyi/agents.json 随仓库走)—— 外来文本,与 08 buildOrchestrateHint 对工作流模板
+    // 同口径:压成单行、中和尖括号、截到 80 字再进易变层,不让一份角色文件用换行 / 伪造标签冒充一段指令。内置角色的说明都在 25 字内,不受影响。
+    const roleHintText = v => neutralizeAuthoredText(String(v || '').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim()).slice(0, 80);
+    volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${roleHintText(r.description || r.label)})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
   }
   // v1.4.4: list saved/built-in workflow templates so orchestrate_agents' workflowId can actually be used
   // — the model has no other way to discover which ids exist. Only relevant when the tool is offered.
@@ -1694,7 +1804,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     volatileExtras += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
     // 代理模式 v2:后台规则 + 信封契约(只改这段子代理/后台文字)。
-    volatileExtras += '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。';
+    volatileExtras += '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）；届时本对话若已空闲，工作台会自己起一个新回合把信封送来，所以主线做完就可以结束本回合（告诉用户代理还在后台跑），不必空等。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。';
   }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
@@ -1722,13 +1832,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     try { stewardPrompt = await StewardHooks.buildSystemPrompt(session, config, { tools: initialTools }); } catch { stewardPrompt = null; }
   }
   if (stewardPrompt && typeof stewardPrompt.stable === 'string' && stewardPrompt.stable) sys = stewardPrompt.stable;
-  const turnVolatile = (stewardPrompt && typeof stewardPrompt.volatile === 'string')
+  // #9: 随每条消息变化的那一半记忆(检索回执 + 相关索引)不再前插首条 user —— 召回一变,首条 user 就变,provider 的前缀缓存从 messages[1]
+  // 起整段作废(实测两回合 matches="1"→"2"、related 列表一变,其后全部历史按未缓存计)。它改投末条 user 尾部(buildBody 里,与 recall/notes 同位);
+  // 前插的这一层只留跨回合稳定的核心胶囊 + 指南。管家回合整段换了提示词(不用工作台记忆),不拆。
+  const stewardVolatile = !!(stewardPrompt && typeof stewardPrompt.volatile === 'string');
+  const memoryTurnTail = stewardVolatile ? '' : buildMemoryTurnSection(enabledMemoryEntries, 'openai', config, enabledMemoryConflicts, memoryPreflight.status);
+  const turnVolatile = stewardVolatile
     ? stewardPrompt.volatile
-    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }) + (volatileExtras ? '\n\n' + volatileExtras : '');
+    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }, { memoryTurnTail: true }) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
   const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+  // 记忆回合尾部也要计预算(它最多一整个索引上限,默认 6000 字符,可配到 10 万)。上下文治理一律用 budgetPromptFull。
+  const budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
   // 105d-A: session notes 回注 —— 每回合至多一次 IO,结果存局部变量供 buildBody 闭包使用。
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
@@ -1827,6 +1944,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
       }
     }
+    if (memoryTurnTail) appendPromptToLastUserMessage(msgs, memoryTurnTail); // #9: 每回合变化的记忆回执 + 相关索引,贴末条 user,非持久
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
     if (scratchpadPrompt) appendPromptToLastUserMessage(msgs, scratchpadPrompt); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
@@ -1861,6 +1979,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }, 5000);
 
   let assistantText = '';
+  // 本回合【最后一个有文字】的迭代的正文:session.summary 取它(answerShape 要求最终答复首段就是结论)。修前取整段正文的前 160 字,
+  // 多迭代回合拿到的是第一轮的开场白(「我先看一下文件」),不是结论。
+  let lastIterationText = '';
+  // 各迭代的文字之间补一个空行再拼:修前直接首尾相接,「我先看一下文件。」+「结论:…」粘成一句。前后任一侧为空不补;
+  // 两侧已有的换行算数(别在 '\n\n[…提示]' 之后再多补)。
+  const iterationTextGap = (prev, next) => {
+    if (!String(prev).trim() || !String(next).trim()) return '';
+    const have = /\n*$/.exec(String(prev))[0].length + /^\n*/.exec(String(next))[0].length;
+    return '\n'.repeat(Math.max(0, 2 - have));
+  };
+  // 一个无工具的迭代(最终回答后的自检 / 插话续跑)之后还要再转一圈:上一段文字与下一轮文字之间在【事件流】里也隔一个空行 ——
+  // 两段之间没有工具卡,叙事账本里它们是同一个文本段,不补就在界面与落盘 segments 里粘在一起。
+  const separateNextIterationText = () => {
+    const gap = iterationTextGap(assistantText, 'x');
+    if (!gap) return;
+    assistantText += gap; onEvent({ type: 'assistant_delta', text: gap });
+  };
   let thinkingText = '';
   let usageObj = null;
   // v1.8: server-side tool items (web_search_call) to echo verbatim into the NEXT request's `input`.
@@ -1869,6 +2004,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const serverToolItems = [];
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
+  // 本回合与会话历史里【已经用过】的 tool_call id。有的服务商每次迭代都从 call_1 起编(甚至同一批里重复):同 id 的第二次 tool_use
+  // 在叙事账本里不建段(02c 以 id 为键),tool_result 回写第一张卡;Anthropic 还要求 tool_use id 唯一,重复会 400。
+  // 新到的调用 id 撞了就规范成唯一(id + '_' + 迭代序号):下游 —— providerHistory 的 assistant.tool_calls[].id、role:'tool' 的
+  // tool_call_id、界面事件、回合账、并行预执行表 —— 全部读同一个改过的 tc.id,配对不会断。
+  const usedToolCallIds = new Set();
+  for (const m of session.providerHistory) {
+    if (m && m.role === 'assistant' && Array.isArray(m.tool_calls)) for (const tc of m.tool_calls) if (tc && tc.id != null) usedToolCallIds.add(String(tc.id));
+  }
+  const claimUniqueToolCallIds = (calls, iterNo) => {
+    for (const tc of (Array.isArray(calls) ? calls : [])) {
+      if (!tc || tc.serverSide) continue;   // 服务端工具项(web_search_call)原样回传给服务商,id 不动
+      const id = String(tc.id == null ? '' : tc.id);
+      if (id && !usedToolCallIds.has(id)) { usedToolCallIds.add(id); continue; }
+      let next = `${id || 'call'}_${iterNo}`;
+      for (let n = 2; usedToolCallIds.has(next); n++) next = `${id || 'call'}_${iterNo}_${n}`;
+      tc.id = next; usedToolCallIds.add(next);
+    }
+  };
   const toolHookStartedAt = new Map();  // observational hooks only; never changes dispatch/permission semantics
   // 21-E0/E1: 三层调用账本 shadow(默认开、带采样与每回合事件上限)。只追加脱敏观测事件,不改
   // prompt/调度/history;任何异常都不影响工具分发。modelCallId 每 iter 生成,贯穿 started/completed
@@ -2336,13 +2489,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 团队模式 v2: 回合内 orchestrate 一律关任务池(propose_task 不注册);持久化 launch 才走审批流。
       poolPolicy: 'off', runIdOverride: runId, background,
     };
-    const failedRun = error => ({ schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, kind: 'orchestrate_agents', background, status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error, nodes: [] });
+    const failedRun = error => ({ schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, kind: 'orchestrate_agents', background, launchedByModel: background, status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error, nodes: [] });
     if (background) {
       backgroundAgentRunIds.add(runId);
       subagentTotal += nodeCount;
       // 事件只在【本回合】仍是活回合时进父流(关掉的 SSE 不写);run 自己的 progressLog/事件日志与 GET /api/agent-runs 是权威实时面。
       const detachedOnEvent = evt => { if (activeChildren.get(session.id) === reg) onNestedEvent(evt); };
-      void runAgentWorkflow({ ...common, onEvent: detachedOnEvent, ctrl: null, onComplete: run => deliverAgentRunEnvelope(session.id, run) })
+      void runAgentWorkflow({ ...common, launchedByModel: true, onEvent: detachedOnEvent, ctrl: null, onComplete: run => deliverAgentRunEnvelope(session.id, run) })
         .then(async res => {
           // 启动期被拒(校验失败等)时 run 文件不存在 → 补一份失败 run 并投递失败信封,wait_agents 才不会 not_found。
           if (res && res.ok === false && !(Number(res.startedCount) > 0) && !activeAgentRuns.has(runId)) {
@@ -2460,11 +2613,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
-      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) {
+      else if (await maybeAutoCompact(session, provider, budgetPromptFull, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) {
         touch();
         await refreshScratchpadPrompt('compaction'); // C2:历史刚被改写、缓存本就断了 —— 顺手换上本回合写入后的草稿本
       }
-      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
+      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
       estStreamBase = estBeforeCall; estStreamText = '';
@@ -2570,13 +2723,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         maxRetries: 3,
         signal: ctrl && ctrl.signal,
         isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
-        backoffMs: n => Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)),
+        // 服务商回了 Retry-After(07 openAiStreamOnce 带出 retryAfterMs,已封顶 30 s)就至少等这么久:修前固定 0.5/1/2 s 共约 3.5 s,
+        // 限流窗口还没过就把 3 次重试用光,整回合失败。
+        backoffMs: (n, c) => Math.max(Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
         attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
         classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
           touch();
-          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)})`;
+          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)}${c && c.retryAfterMs > 0 ? `,服务商要求等待 ${Math.round(Math.min(30000, c.retryAfterMs) / 1000)} 秒` : ''})`;
           onEvent({ type: 'stderr', text: `[provider] ${what},稍后重试(${n}/3)` });
           logEvent({ kind: 'model_call_retry', sessionId: session.id, provider: provider.id, attempt: n, reason: c && c.transportError ? 'transport' : String(c && c.httpError || '').slice(0, 8) });
         },
@@ -2628,6 +2783,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
             beforeTokens: estBeforeCall, error: call.httpError,
             signal: ctrl && ctrl.signal,   // Stop 当场取消强压的摘要调用(10 runForcedOverflowCompaction)
+            scratchpadHint: session.kind !== 'steward',   // 摘要后的工具索引多一句「要原样留着的写进草稿本」(C2 草稿本只给普通会话)
           });
           // 摘要是被停止取消的:回合已停,不重试、不报「压缩无果」,直接按停止收尾(L1 的原地蒸发配对完好)。
           if (forced.aborted || reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -2635,7 +2791,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
             // 与 estBeforeCall 同一口径(含系统提示与工具定义),否则「压前→压后」把工具 schema 那一截也算成了省下来的
-            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current());
+            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
@@ -2651,7 +2807,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
           if (forced.level === 1) {
-            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current());
+            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
@@ -2672,9 +2828,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
       if (call.text) {
-        assistantText += call.text;
+        assistantText += iterationTextGap(assistantText, call.text) + call.text;
+        if (call.text.trim()) lastIterationText = call.text;
         reg.questionContext = assistantText;
       }
+      claimUniqueToolCallIds(call.toolCalls, iter);   // 先于计划相位 / 本地批 / 历史写入:后面所有读 tc.id 的地方看到的都是唯一 id
       activeProviderBatchId = call.toolCalls && call.toolCalls.length ? turnSegments.createBatchId('openai') : '';
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
       if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -2775,11 +2933,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall)   // 写歪的代理壳先还原(见该函数头注)
           .map(tc => retierToolInvokeCall(tc, toolLoading.catalog, bridgedRoute, config));                      // 61-B2:代理档低报只升不降地改道
         const outputLimited = providerWireOutputLimited(call.finishReason);
+        const contextLimited = providerWireContextExceeded(call.finishReason);   // 上下文窗口满了而被截断:同样不执行,但建议不同
         const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
           ok: false, argsInvalid: true,
           error: outputLimited
             ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小(分几次写入)后重试'
-            : '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试',
+            : (contextLimited
+              ? '工具调用参数被截断(上下文窗口已满),该调用未执行;请先压缩上下文或新开线程后重试'
+              : '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试'),
         });
         // 21-E0: 一次模型响应 = 一个 assistant batch(serverToolCalls 不参与本地工具批,只占 batch 总宽度)。
         if (econThisIter && localToolCalls.length) {
@@ -3005,7 +3166,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
             if (tc.name === 'wait_agents') {
               const requestedRunIds = Array.isArray(args.runIds) && args.runIds.length ? args.runIds : [...backgroundAgentRunIds];
-              resultObj = settleWaitEnvelopes(session, await waitForAgentRunResults(session.id, requestedRunIds, args.timeoutMs == null ? 30000 : args.timeoutMs, ctrl && ctrl.signal));
+              resultObj = settleWaitEnvelopes(session, await waitForAgentRunResults(session.id, requestedRunIds, resolveWaitAgentsMs(args.timeoutMs), ctrl && ctrl.signal, touch));
             } else if (tc.name === 'agent_result') {
               resultObj = await agentRunResultSlice({ sessionId: session.id, runId: args.runId, nodeId: args.nodeId, maxChars: args.maxChars, offset: args.offset });
               if (resultObj && resultObj.ok && resultObj.live !== true && AGENT_RUN_TERMINAL.has(String(resultObj.runStatus)) && EventStreamHooks.markAgentEnvelopeDelivered) EventStreamHooks.markAgentEnvelopeDelivered(session, resultObj.runId);
@@ -3059,8 +3220,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // F5 (安全·自防御): re-check the native tier at the decision point — do NOT rely on normalizeConfig
           // having cleansed the rule table upstream. Only read/edit-tier native tools may be auto-allowed by a
           // persistent rule; an exec/desktop rule (however it got into the file) can never short-circuit here.
+          // 安全走查 S1:联网请求带疑似载荷时的这一问,不被「始终允许」规则短路 —— 否则用户对一次长网址点过「始终允许」,保护就对所有后续请求永久失效。
           if (gate === 'ask' && !bridge && config.toolAllowRules && config.toolAllowRules[tc.name] === 'allow'
-              && (nativeToolTier(tc.name) === 'read' || nativeToolTier(tc.name) === 'edit')) gate = 'allow';
+              && (nativeToolTier(tc.name) === 'read' || nativeToolTier(tc.name) === 'edit') && !webPayloadReason(tc.name, args)) gate = 'allow';
           // 第27波:自主性授权书消耗点(native 主 gate)。仅在 gate==='ask' 且 !bridge 时介入(子集律:只 ask→allow);
           // 命中 → 就地降 allow + 计数 + 事件。exec/edit/read 全档可授,但均受 grant 的路径 glob / cmdAllow / TTL / 次数约束,
           // 且真正执行仍过 guardFileToolPath/SSRF/journal。子代理有独立 gate(runSubAgentCore),【不】走此处 → 不消耗父授权(R-P1-1)。
@@ -3339,8 +3501,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // No tool calls → final answer for this turn.
       if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
       // 回答命中输出上限被截断:修前与完整回答无从区分。给用户一句看得见的提示(只进显示正文,不进 providerHistory)。
+      // 另两种「没说完」各有各的原因与建议,不能混进「输出上限 → 发继续」:内容安全策略拦截(换个说法)、上下文窗口满了(先压缩 / 新开线程;
+      // 此时发「继续」只会让窗口更满)。修前 Responses 的 content_filter 与 Anthropic 的窗口超限都被归一成 length,chat 的 content_filter
+      // 空回答则落成「空回复」,用户被告知的是错的原因。
+      const answerContentFiltered = providerWireContentFiltered(call.finishReason);
+      const answerContextExceeded = providerWireContextExceeded(call.finishReason);
       if (providerWireOutputLimited(call.finishReason)) {
         const note = '\n\n[回复达到模型输出上限,可能不完整;可发送「继续」让它接着写]';
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+      } else if (answerContextExceeded) {
+        const note = '\n\n[上下文窗口已满,回复被截断;请先压缩上下文(或新开线程)再继续,直接发「继续」只会让窗口更满]';
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+      } else if (answerContentFiltered) {
+        const note = '\n\n[回复被服务商的内容安全策略拦截,可能不完整或为空;可以换个说法,或换个模型再试]';
         assistantText += note; onEvent({ type: 'assistant_delta', text: note });
       }
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
@@ -3357,17 +3530,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const selfCheckPrompt = '【产物自检】请对照原任务的每一项显式要求，逐项核对你已生成的产物：(1) 是否覆盖所有要求项（清单/字段/类别/行）？(2) 数值与格式是否自洽（CSV 列与摘要一致、金额归位正确、大小写不同的文件名未误判重复）？若发现漏项或不一致，用最小步骤补全；若全部满足，简短确认完成即可。不要重复已完成的步骤。';
           session.providerHistory.push({ role: 'user', content: selfCheckPrompt });
           onEvent({ type: 'self_check', state: 'invoked', turnSeq: session.turnSeq });
+          separateNextIterationText();
           continue;
         }
       }
       // 最终回答流式期间到达的插话:/api/steer 已回 ok(接受了),这里若直接 break,队列随回合结束被丢掉、
       // 模型永远看不到。回合还在跑就再转一圈:循环顶端 drainSteerQueue 注入插话,模型接着回应(同 Kimi 的 follow-up)。
       // 历史此刻是完整的(最终回答已入历史,没有未配对的工具调用),在边界注入是配对安全的。
-      if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) continue;
+      if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) { separateNextIterationText(); continue; }
       // 空回复(正常结束、没有文字也没有工具调用):修前回合就这么静悄悄地结束,界面上只剩一个空气泡,用户分不清是
       // 还在跑、出错了还是模型真的什么都没说。给一句看得见的提示 —— 同上面「输出上限」那句,只进显示正文、不进
       // providerHistory(历史里不塞一条伪造的 assistant,下一回合的请求照旧合法)。命中输出上限的那种已经有自己的提示。
-      if (!String(call.text || '').trim() && !providerWireOutputLimited(call.finishReason)) {
+      if (!String(call.text || '').trim() && !providerWireOutputLimited(call.finishReason) && !answerContextExceeded && !answerContentFiltered) {
         const note = emptyReplyNotice(config && config.locale, Boolean(assistantText.trim()));
         assistantText += note; onEvent({ type: 'assistant_delta', text: note });
         try { logEvent({ kind: 'provider_empty_reply', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, iter, finishReason: call.finishReason || '', hadReasoning: Boolean(call.reasoning) }); } catch { /* telemetry must never break a turn */ }
@@ -3376,7 +3550,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
   } catch (e) {
     if (e && (e.name === 'AbortError' || reg.state !== 'running')) { aborted = true; ok = false; }
-    else { ok = false; errorMsg = (e && e.message) ? e.message : String(e); }
+    // errorMsg 带上 cause 的真因:流中途断线 undici 只抛 TypeError('terminated'),原因挂在 e.cause(04h providerThrownErrorText),
+    // 不并进来用户看到的只是 "terminated",下面的 errorClass 也认不出这是掉线。
+    else { ok = false; errorMsg = providerThrownErrorText(e); }
   }
   clearInterval(watchdog);
 
@@ -3405,7 +3581,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // approximate context occupancy. Flagged estimated:true so the client renders it as approximate; calls:0
     // records that no real usage frame arrived. This branch only runs when NO real usage frame was seen, so
     // it never clobbers a provider-reported figure.
-    const estTotal = estimateHistoryTokens(session.providerHistory, budgetPrompt);
+    const estTotal = estimateHistoryTokens(session.providerHistory, budgetPromptFull);
     if (estTotal > 0) {
       const lastMsg = session.providerHistory[session.providerHistory.length - 1];
       const estOut = (lastMsg && lastMsg.role === 'assistant') ? Math.round(estimateContentTokens(lastMsg.content)) : 0;
@@ -3418,9 +3594,44 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       onEvent({ type: 'usage', ...usageObj });
     }
   }
-  if (!ok && !aborted && errorMsg && !assistantText.trim()) {
-    assistantText = `[${provider.label || provider.id} 请求失败] ${redact(errorMsg)}`;
-    onEvent({ type: 'assistant_delta', text: assistantText });
+  // v0.8-S6: best-effort errorClass (§C6 seed, additive). idle-timeout abort → idle_timeout; a transport-
+  // level failure (fetch/DNS/ECONN/timeout in errorMsg) → network_down; any other HTTP error → provider_error / tool_error.
+  // A clean or user-initiated stop carries no errorClass. The枚举 table is ERROR_CLASSES (exported).
+  // (分类先于落盘助手消息算:失败段要带着它写进 segments。)
+  let errorClass;
+  if (planRejected) errorClass = 'plan_rejected'; // v0.9-S5: user rejected the plan (no tool ran; normal completion)
+  else if (loopAborted) errorClass = 'tool_loop'; // v0.8-S7: repeated-call guard (distinct from idle/network/tool_error)
+  else if (idleAborted) errorClass = 'idle_timeout';
+  else if (!ok && errorMsg) {
+    // 审计 P2: 认证/授权失败(密钥错/无权限,首跑最高频故障)先归 provider_misconfigured —— 否则落到 tool_error
+    // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
+    // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
+    // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
+    // 限流在重试用尽后仍是限流,不是「工具执行出错」:单独归 rate_limited(人话「稍等再发」,而不是让用户去查工具)。
+    if (/^HTTP 429\b/.test(errorMsg)) errorClass = 'rate_limited';
+    else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
+    // 掉线:除了 fetch / DNS / 超时,还认流中途被掐断的写法 —— undici 的 'terminated'(真因在 cause:other side closed / UND_ERR_SOCKET)、
+    // ECONNRESET、「流在没有终止信号时关闭」(07 openAiStreamOnce 的截断流判据)。修前这些全落成 tool_error「工具执行出错」。
+    // (裸词 terminated 只认开头:'HTTP 500: process terminated' 这类服务端报文不是掉线。)
+    else if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|ECONNRESET|UND_ERR_|fetch failed|network|socket|timed out|timeout|other side closed|stream ended unexpectedly/i.test(errorMsg) || /^terminated\b/i.test(errorMsg)) errorClass = 'network_down';
+    // 服务商自己报的错(HTTP 4xx/5xx、流内错误帧、Responses failed、Anthropic 拒答)不是「工具执行出错」:404 多半是地址 / 模型名配错,
+    // 归 provider_misconfigured(「检查地址与密钥」);其余归 provider_error(「服务商返回了错误」)。
+    else if (/^HTTP 404\b/.test(errorMsg)) errorClass = 'provider_misconfigured';
+    else if (/^(?:HTTP \d{3}\b|Provider (?:stream )?error\b|Anthropic (?:stream )?error\b|Anthropic refusal\b|Responses failed\b)/.test(errorMsg)) errorClass = 'provider_error';
+    else errorClass = 'tool_error';
+  }
+  // 失败文案【总是】进落盘助手消息:修前只在「本回合没有任何正文」时才写 —— 多迭代回合中途失败(前面已有文字 / 工具卡)时,落盘消息
+  // 没有任何失败痕迹,刷新后像正常结束;空闲看门狗中止同理(它没有 errorMsg,更是什么都不留)。用户自己点的停止不算失败。
+  // 有正文时前面空一行;同一段文字再作为一个 error 段写进 segments(带 errorClass),经典壳静态重绘时按现成的 msg-error 样式画出来
+  // (live 仍是这句话作为正文 + 回合结束的错误卡,所以实时那一发绕开叙事账本,免得静态重绘时同一句话出两遍)。
+  let failureNote = '';
+  if (idleAborted) failureNote = `[${provider.label || provider.id} 空闲超时] 本回合超过 ${Math.round(idleLimitMs / 1000)} 秒没有任何进展(没有流式输出、工具心跳或子代理事件),已自动中止;可以重新发送。时长可在「设置 → 工作流与时限 → 一个回合多久没动静算卡住」调大`;
+  else if (!ok && !aborted && errorMsg) failureNote = `[${provider.label || provider.id} 请求失败] ${redact(stripUrlUserinfo(errorMsg))}`;
+  if (failureNote) {
+    const failureText = iterationTextGap(assistantText, failureNote) + failureNote;
+    assistantText += failureText;
+    downstreamEvent({ type: 'assistant_delta', text: failureText, traceId: activeTraceId });
+    turnSegments.consume({ type: 'result', ok: false, error: failureNote, errorClass: errorClass || '' });
   }
 
   if (activeChildren.get(session.id) === reg) {
@@ -3478,7 +3689,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
-  session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
+  // 摘要取【最后一个有文字的迭代】的开头(= 最终答复的首段,answerShape 要求它是结论),不取整段正文的前 160 字:多迭代回合里整段正文
+  // 以第一轮的开场白起头(「我先看一下文件」)。回合没有任何迭代文字(整回合只有失败 / 提示)时才回落整段正文。
+  session.summary = (String(lastIterationText || finalText).replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
   // P2-3: a mid-turn POST /api/session/skills wrote the new enable set to DISK (and updated reg.session in place);
   // re-read it before the final save so the turn's stale in-memory copy can't clobber a mid-turn skill toggle.
   // P2-3(记忆): 同款回读 session.memories + memoriesExplicit —— 免得回合边缘窗口用户「全部停用」被陈旧内存副本回滚,
@@ -3515,23 +3728,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
-  // v0.8-S6: best-effort errorClass (§C6 seed, additive). idle-timeout abort → idle_timeout; a transport-
-  // level failure (fetch/DNS/ECONN/timeout in errorMsg) → network_down; any other HTTP error → tool_error.
-  // A clean or user-initiated stop carries no errorClass. The枚举 table is ERROR_CLASSES (exported).
-  let errorClass;
-  if (planRejected) errorClass = 'plan_rejected'; // v0.9-S5: user rejected the plan (no tool ran; normal completion)
-  else if (loopAborted) errorClass = 'tool_loop'; // v0.8-S7: repeated-call guard (distinct from idle/network/tool_error)
-  else if (idleAborted) errorClass = 'idle_timeout';
-  else if (!ok && errorMsg) {
-    // 审计 P2: 认证/授权失败(密钥错/无权限,首跑最高频故障)先归 provider_misconfigured —— 否则落到 tool_error
-    // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
-    // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
-    // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
-    // 限流在重试用尽后仍是限流,不是「工具执行出错」:单独归 rate_limited(人话「稍等再发」,而不是让用户去查工具)。
-    if (/^HTTP 429\b/.test(errorMsg)) errorClass = 'rate_limited';
-    else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
-    else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
-  }
   if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: errorClass || (!ok && !wasStopped) ? 'failure' : 'progress',
     cursor: { turnSeq: session.turnSeq, engine: 'openai' },

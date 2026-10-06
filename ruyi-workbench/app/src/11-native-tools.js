@@ -50,6 +50,10 @@ function persistBackgroundJob(job) {
   }
   // The global SSE bus only carries metadata; tool output stays on the authenticated session route.
   RUYI_EVENTS.emit('background.completed', { sessionId: job.sessionId, jobId: job.id, status: job.status, persisted, kind: job.kind || 'shell', runId: job.runId || '' });
+  // 后台代理的信封落账 → 线程此刻没有回合在跑就唤醒它(10 scheduleAgentWake;判据与防抖全在那边)。
+  if (persisted && job.kind === 'agent' && job.wakeParent === true && EventStreamHooks.onAgentEnvelopePersisted) {
+    try { EventStreamHooks.onAgentEnvelopePersisted(job); } catch { /* 唤醒是旁路,绝不反噬落账 */ }
+  }
   return persisted;
 }
 // A separate completion ledger cannot be overwritten by an older turn snapshot. Both session load
@@ -156,7 +160,46 @@ EventStreamHooks.notifyAgentRunEnvelope = (sessionId, run, envelope) => {
     id: EventStreamHooks.agentEnvelopeJobId(run.id), kind: 'agent', runId: String(run.id), shellId: String(run.id), name, sessionId,
     status: String(run.status || 'unknown'), exitCode: run.status === 'succeeded' ? 0 : 1,
     output: output.slice(0, 24000), truncated: output.length > 24000, completedAt: run.completedAt || nowIso(),
+    // 只有【模型自己】以 background:true 起的 run(run.launchedByModel;含它的续跑/重试)才在账本行上打唤醒标 wakeParent:
+    // 面板 / HTTP 的 async 启动是用户点的(run.background 同样为 true,但没有模型在等它),界面上同步跑完补投的那份同理 ——
+    // 它们的信封照常进账本、随下一回合送达,不替模型起回合。
+    ...(run.launchedByModel === true ? { wakeParent: true } : {}),
   });
+};
+// 还没送达、可以唤醒主会话的后台代理信封(账本里 kind:'agent' 且 wakeParent、不在 seen 表里)。10 的唤醒判据只经这里读账本。
+EventStreamHooks.pendingAgentWakeJobs = session => {
+  if (!session || !session.id) return [];
+  const seen = new Set(Array.isArray(session.backgroundJobSeen) ? session.backgroundJobSeen : []);
+  return readBackgroundJobs(session.id).filter(job => job && job.kind === 'agent' && job.wakeParent === true && !seen.has(job.id));
+};
+// 启动时补排唤醒用(10 scheduleAgentWakesAtBoot):账本里有 sinceMs 之后完成的、带唤醒标(wakeParent)的后台代理信封的会话 id。
+// 是否已读由 10 按会话判。异步 + 有界:账本文件单个可达 MB 级(100 行 × 24KB 信封),修前启动期同步全量读完才 listen;现在
+//   · 先 stat,mtime < sinceMs 的整文件跳过 —— 账本每次落账都整份重写,文件 mtime ≥ 其中任何一行的完成时刻,所以这一滤不会漏;
+//   · 只读 mtime 够新的,异步读,同时最多 BACKGROUND_LEDGER_SCAN_CONCURRENCY 个,让出事件循环。
+const BACKGROUND_LEDGER_SCAN_CONCURRENCY = 8;
+EventStreamHooks.recentBackgroundAgentJobSessions = async sinceMs => {
+  const dir = path.join(paths.sessions, 'background-jobs');
+  let files = [];
+  try { files = await fsp.readdir(dir); } catch { return []; }
+  const candidates = files.filter(file => file.endsWith('.json') && safeSessionId(file.slice(0, -'.json'.length)));
+  const out = [];
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const file = candidates[next++];
+      if (file === undefined) return;
+      try {
+        const full = path.join(dir, file);
+        const st = await fsp.stat(full);
+        if (!st.isFile() || st.mtimeMs < sinceMs) continue;
+        const rows = JSON.parse(await fsp.readFile(full, 'utf8'));
+        const recent = Array.isArray(rows) && rows.some(job => job && job.kind === 'agent' && job.wakeParent === true && Date.parse(job.completedAt || '') >= sinceMs);
+        if (recent) out.push(file.slice(0, -'.json'.length));
+      } catch { /* 读不出 / 损坏的账本:当没有,不挡启动 */ }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(BACKGROUND_LEDGER_SCAN_CONCURRENCY, candidates.length) }, worker));
+  return out;
 };
 
 function shellIdValid(id) { return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,32}$/.test(id); }
@@ -1079,6 +1122,9 @@ async function walkFiles(root, opts = {}) {
   // home/.ruyi-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
+  // 安全走查 S7:config.json / runtime.json 的硬链接别名(同 inode 不同名)按 dev+ino 挡在 emit 处 —— 那里本来就要 stat 文件,
+  // nlink>1 的才多一次 bigint stat 比对;遍历到却不入结果的文件不付这个成本。ids 每次遍历现取一次(两个 stat)。
+  const sensitiveIds = await sensitiveFileIdentities();
   // 指向遍历根之外的符号链接/联接不返回:guardFileToolPath 只判了 root,修前 ws/link.md -> /outside/secret.md 被当成
   // 普通文件列出来,docs_search / codebase_symbol_search / code_review_scan 接着就把区外文件的内容读出来了
   // (file_read 读同一个链接是 not-allowed)。只对链接条目多做一次 realpath,普通文件不受影响。
@@ -1093,6 +1139,7 @@ async function walkFiles(root, opts = {}) {
   const emit = async (full, rel, isDir) => {
     // 目录不需要 stat(size 恒记 0;信封里目录不带 size);文件要 size,glob 还要 mtime。
     const stat = isDir ? null : await fsp.stat(full).catch(() => null);
+    if (stat && sensitiveIds.size && stat.nlink > 1 && await isSensitiveHardlinkAlias(full, sensitiveIds)) return;
     const rec = { path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 };
     if (stat) rec.mtimeMs = Math.round(stat.mtimeMs);
     out.push(rec);
@@ -1129,7 +1176,8 @@ async function walkFiles(root, opts = {}) {
       for (const entry of entries) {
         if (patternTimedOut) break;
         if (++visited > maxVisited) { capped('maxVisited'); stopped = true; break; }
-        const isDir = entry.isDirectory();
+        let isDir = entry.isDirectory();
+        let linkedDir = false;   // 指向目录的符号链接/联接(仅 browse 模式下被认成目录,见下),不能下钻
         const rel = relDir ? relDir + path.sep + entry.name : entry.name;
         let entryHiddenOk = hiddenOk;
         if (skipHidden && !hiddenOk && entry.name.charCodeAt(0) === 46) {
@@ -1142,7 +1190,21 @@ async function walkFiles(root, opts = {}) {
         }
         const full = path.join(dir, entry.name);
         if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
-        if (entry.isSymbolicLink() && !pathWithinRoot(await realpathForContainment(full), baseReal)) { skippedLinks += 1; continue; }
+        if (entry.isSymbolicLink()) {
+          if (!pathWithinRoot(await realpathForContainment(full), baseReal)) { skippedLinks += 1; continue; }
+          // browse(file_list 非递归 = 目录浏览)下,指向目录的符号链接/联接(Windows 的 My Documents 之类)Dirent 报的是链接而不是目录,
+          // 修前被标成 file,前端点开报「is a directory」。已过上面的包含校验后 stat 一下:是目录就标 directory(也要过一遍剪枝名单)。
+          // 只改标记不下钻:递归遍历(browse 为假)不跟随符号链接 —— 防环,链接目标要列就以它为 root 单独列。
+          if (opts.browse === true && !isDir) {
+            const target = await fsp.stat(full).catch(() => null);
+            if (target && target.isDirectory()) {
+              isDir = true;
+              linkedDir = true;
+              const relSlash = toSlash(rel);
+              if (ignore.pruneName(entry.name, relSlash, dotnetDir)) { if (pruned.size < 12) pruned.add(relSlash); continue; }
+            }
+          }
+        }
         if ((emitDirs || !isDir) && (!accept || accept(rel, isDir))) {
           if (matcher) {
             deferred.push({ full, rel, isDir });
@@ -1153,8 +1215,8 @@ async function walkFiles(root, opts = {}) {
             await emit(full, rel, isDir);
           }
         }
-        if (recursive && isDir && depth < maxDepth) subdirs.push({ dir: full, relDir: rel, depth: depth + 1, hiddenOk: entryHiddenOk });
-        else if (recursive && isDir) {
+        if (recursive && isDir && !linkedDir && depth < maxDepth) subdirs.push({ dir: full, relDir: rel, depth: depth + 1, hiddenOk: entryHiddenOk });
+        else if (recursive && isDir && !linkedDir) {
           // 2026-10 走查(R2):到了 maxDepth 的目录不再下钻 —— 修前这一刀完全静默,glob/file_list 在 12/8 层之下「什么都没有」,
           // 与「确实没有」无法区分。只在目录【非空】时才算被截(空目录没东西可漏),探查有上限(200 次 readdir),够给几个例子就停。
           if (depthExamples.length < 5 && depthProbes < 200) {
@@ -1542,9 +1604,11 @@ function ignoreGlobsForRg(opts, allowDirs) {
 function sensitiveGlobsForRg(base) {
   const globs = [];
   try {
-    const roots = [...new Set([dataRoot(), ...dataRootAliases()])];
+    // 安全走查 S7:名单与 03 的 isSensitiveDataPath 内的那份一致(unit/unc-and-traversal-gates.test.js 逐名比对);根要把【realpath 后的数据根】也算进来 ——
+    // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
+    const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs']) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
       }
@@ -1576,7 +1640,10 @@ function rgListHighByteFiles(rg, base, filt, timeoutMs) {
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
     const child = cp.spawn(rg, ['--no-messages', '-l', '--crlf', ...filt, '--', '(?-u)[\\x80-\\xFF]', base], { cwd: base, windowsHide: true });
     const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, timeoutMs);
-    child.stdout.on('data', d => { out += d.toString('utf8'); if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    // setEncoding 走 StringDecoder:块边界切在多字节字符中间时先扣住残字节、下一块拼齐再出字(逐块 d.toString('utf8') 会把
+    // 被切开的字符各变成 U+FFFD,中文路径整条损坏 —— 管道块大小由 OS 决定,长输出必现)。
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', d => { out += d; if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
     child.on('error', () => finish(null));
     child.on('close', code => finish(code === 2 && !out ? null : out.split(/\r?\n/).filter(Boolean)));
   });
@@ -1645,8 +1712,10 @@ function searchFileContentRg(root, pattern, opts = {}) {
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
     const child = cp.spawn(rg, args, { cwd: base, windowsHide: true });
     const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, Number(opts.rgTimeoutMs || 10000));
-    child.stdout.on('data', d => { stdout += d.toString('utf8'); if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
-    child.stderr.on('data', d => { stderr += d.toString('utf8'); });
+    child.stdout.setEncoding('utf8');   // 同上:按块 toString 会把跨块的中文路径 / 命中行劈成 U+FFFD
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', d => { stdout += d; if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    child.stderr.on('data', d => { stderr += d; });
     child.on('error', () => finish(null));
     child.on('close', async code => {
       // rg exit 1 = no matches (valid: empty result). exit 2 = error → fall back.
@@ -1782,32 +1851,58 @@ function gitHeadToJsonBudget(text, budget) {
 // 前置(commit 亦安全:它不读 fsmonitor;合法 pre-commit hook 走 core.hooksPath,未被触碰,仍在 exec 档权限门下)。
 // NE-7:core.quotepath=false —— 否则中文路径在 status/diff 里被写成 "\346\226\260..." 八进制转义,模型和用户都读不了。
 const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0', '-c', 'core.quotepath=false'];
-// execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等) }。
+// execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等), timedOut?, timeoutMs? }。
 // 永不 reject —— 传输层错误(git 缺失、cwd 不存在)落在 result.error / result.code<0 上,由调用方转人话。
 // opts.encoding:'buffer' 时 stdout/stderr 是原字节(Buffer)—— 读文件内容(blob)必须走这条,按 utf8 解码会把
 // GBK 等非 UTF-8 字节变成 U+FFFD(hunt2 #4)。
+// 走查 W1·F6:超时由自己的计时器管,不用 execFile 的 timeout 选项 —— 后者只给 git 本身发 SIGTERM(Windows 上是 TerminateProcess),
+// pre-commit 钩子起的子进程(lint / 测试)成了孤儿,还攥着 stdout 管道,execFile 的回调要等它们退出才来;而且超时后的错误形状
+// (code:null、killed:true)被 gitCommit 当成「钩子拒绝」。现在:到点 → timedOut:true,用 killChildTree 整棵树杀(128i:只认
+// 自己的子孙);树杀不掉、管道仍不关(杀树命令失败 / 极端孤儿)时,5 秒后强行收尾,不让调用方永远挂着。
 function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
-    let child;
+    // 非数字(模型给 git_status 之类自造 timeoutMs:"30s")回落缺省:修前 NaN 一路传到 setTimeout,等于 1 ms 就把跑完的 git 杀掉、报「超过 0 秒」。
+    const askedMs = Number(timeoutMs);
+    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number.isFinite(askedMs) && askedMs > 0 ? askedMs : 15000));
+    let child, timer = null, grace = null, timedOut = false, settled = false;
+    const settle = r => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer); clearTimeout(grace);
+      resolve(timedOut ? { ...r, ok: false, timedOut: true, timeoutMs: limitMs } : r);
+    };
     try {
       // 安全加固前缀(GIT_SAFE_FLAGS)必须在子命令之前;args 以 `-C <dir> <subcmd> …` 开头,故整体前置合法。
       child = cp.execFile('git', [...GIT_SAFE_FLAGS, ...args], {
         cwd: cwd || process.cwd(),
         windowsHide: true,
-        timeout: Math.max(1000, Number(timeoutMs || 15000)),
         maxBuffer: opts && opts.maxBuffer ? opts.maxBuffer : 24 * 1024 * 1024,
         encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
       }, (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
-        resolve({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
+        settle({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
       });
     } catch (e) {
-      resolve({ ok: false, code: -1, stdout: '', stderr: '', error: e });
+      settle({ ok: false, code: -1, stdout: '', stderr: '', error: e });
       return;
     }
     child.on('error', () => { /* handled via the callback's `error` arg */ });
+    timer = setTimeout(() => {
+      timedOut = true;
+      try { killChildTree(child.pid); } catch { /* 已经退出 */ }
+      grace = setTimeout(() => {
+        try { child.kill('SIGKILL'); } catch { /* 已经退出 */ }
+        try { if (child.stdout) child.stdout.destroy(); if (child.stderr) child.stderr.destroy(); } catch { /* ignore */ }
+        settle({ ok: false, code: -1, stdout: '', stderr: '', error: Object.assign(new Error('git 超时被终止'), { killed: true }) });
+      }, 5000);
+      if (grace.unref) grace.unref();
+    }, limitMs);
   });
 }
+// git 单条命令的超时上限(模型经 timeoutMs 能放宽到的最大值):钩子再慢也不该让一个工具调用挂过十分钟。
+const GIT_TIMEOUT_MAX_MS = 10 * 60 * 1000;
+// git_commit 默认超时:提交会跑 pre-commit / commit-msg 钩子(lint、测试常要几十秒),30s 对真实仓库偏紧;给 90s,模型可经 timeoutMs 放宽。
+const GIT_COMMIT_TIMEOUT_DEFAULT_MS = 90 * 1000;
 // 安全修复(审计 B):read 档的 git 调用还会执行仓库自带配置指定的【过滤器】—— `.gitattributes` 里一行
 // `* filter=x` 加 `.git/config` 里 `[filter "x"] clean = <命令>`,git status / git diff 在比对工作区文件时就会
 // spawn 那条命令(stat 变了就重算哈希,先过 clean)。子模块同理:status/diff 会在子模块里再起一个 git,
@@ -1863,6 +1958,17 @@ function gitHumanError(res, cwd) {
   const err = res && res.error;
   if (err && (err.code === 'ENOENT' || /ENOENT/.test(String(err.message || '')))) {
     return { ok: false, error: '未检测到 Git', hint: '请安装 Git for Windows(https://git-scm.com/download/win)后重试,或让 AI 用命令确认 git 是否在 PATH 上。', cwd };
+  }
+  // 走查 W1·F6:超时被杀(runGit 打 timedOut)—— 说「被终止」,不要落进下面的泛化报错,更不能被 gitCommit 归因成钩子拒绝。
+  if (res && res.timedOut) {
+    const sec = Math.round(Number(res.timeoutMs || 0) / 1000);
+    return {
+      ok: false, timedOut: true, timeoutMs: Number(res.timeoutMs) || undefined, cwd,
+      error: `git 命令超过 ${sec} 秒仍未结束,已被终止(进程树已一并结束)`,
+      hint: '这不是失败原因,只是没跑完:先用 git_status 确认当前状态(文件是否还在暂存区、提交有没有生成),再决定重试。'
+        + '常见原因:pre-commit / commit-msg 钩子(lint、测试)耗时过长或在等交互输入,或仓库很大。需要更久可传 timeoutMs(毫秒,最多 600000)重试。',
+      detail: String((res && res.stderr) || '').trim().slice(0, 2000) || undefined,
+    };
   }
   const stderr = String((res && res.stderr) || '').trim();
   const low = stderr.toLowerCase();
@@ -2158,7 +2264,7 @@ async function gitCommit(args = {}) {
   const commitArgs = paths.length
     ? ['-C', cwd, 'commit', '--only', '-m', message, '--', ...paths]
     : ['-C', cwd, 'commit', '-m', message];
-  const res = await runGit(commitArgs, cwd, args.timeoutMs || 30000);
+  const res = await runGit(commitArgs, cwd, args.timeoutMs || GIT_COMMIT_TIMEOUT_DEFAULT_MS);
   if (!res.ok) {
     // "nothing to commit" is a benign, common case — surface it as a clear 人话 result, not a scary error.
     const low = (String(res.stdout || '') + String(res.stderr || '')).toLowerCase();
@@ -2168,7 +2274,11 @@ async function gitCommit(args = {}) {
     // 暂存之后才失败(缺身份 / 钩子拒绝 / …):文件还留在暂存区,失败结果要说 —— 否则模型以为「什么都没发生」,下一次提交会把它们一起带走。
     const failure = gitHumanError(res, cwd);
     const merged = (String(res.stdout || '') + '\n' + String(res.stderr || '')).trim();
-    if (failure.error === 'Git 命令执行失败') {
+    if (res.timedOut) {
+      // 超时:可能是钩子慢(提示一句),但不是「被钩子拒绝」—— 不打 hookRejected。
+      const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
+      if (hooks.length) failure.hint += ` 这个仓库有 ${hooks.join(' / ')} 钩子,多半是钩子耗时过长(钩子进程已随超时一并结束)。`;
+    } else if (failure.error === 'Git 命令执行失败') {
       // 钩子拒绝:git 自己不打任何标签,只有钩子的输出;失败码非 0 且仓库里确有 pre-commit / commit-msg 钩子时归因于钩子。
       const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
       if (hooks.length && !/^fatal:/m.test(merged)) {
@@ -4864,6 +4974,7 @@ async function zipCollectEntries(rootPaths, opts = {}) {
     if (isSensitiveDataPath(absPath)) { entries.skippedSensitive += 1; return; }
     const st = await fsp.lstat(absPath);
     if (st.isSymbolicLink()) { entries.skippedLinks += 1; return; } // 安全：符号链接不入包（避免打进包外内容）
+    if (st.isFile() && st.nlink > 1 && await isSensitiveHardlinkAlias(absPath)) { entries.skippedSensitive += 1; return; } // 安全走查 S7:config.json / runtime.json 的硬链接别名不入包
     if (st.isDirectory()) {
       entries.push({ name: zipName.replace(/\/?$/, '/'), data: Buffer.alloc(0), isDir: true });
       const kids = await fsp.readdir(absPath, { withFileTypes: true });

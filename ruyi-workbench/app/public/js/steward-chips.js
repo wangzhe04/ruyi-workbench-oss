@@ -33,6 +33,8 @@ import { buildModelMenuRow, MODEL_MENU_CLASSES } from './model-menu.js';
 // 住在 js/popover.js。本模块只从它取那套【开合】，并把 3.0 自己的 .steward-chip-menu 经 opts.layer 交给
 // 它 —— 容器、类名、data-kind、role、[hidden] 与「就地在 .steward-chip-wrap 里」一个字不改。
 import { popover, closePopover } from './popover.js';
+import { apiErrText } from './net.js';   // 走查 S-05：失败回执取人话（api() 抛的是整段 JSON／「Failed to fetch」），不再 String(error.message) 直落
+import { getLocale } from './i18n.js';
 import { chatProviders } from './util.js';   // 纯函数:只做语音的服务商不进引擎菜单
 // Agent CLI 的品牌名与「有哪几个 CLI」只问这一张登记表（ENGINEERING-SPEC §11.1；与 provider-settings.js 同源）。
 import { AGENT_CLI_IDS, agentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
@@ -40,6 +42,13 @@ import { AGENT_CLI_IDS, agentCliMeta, normalizeAgentCliType } from './agent-cli-
 // 【唯一登记表】住在危险操作确认的共用件 js/confirm-panel.js。本模块只从那边取，再 re-export
 // 维持 117d 起的公开面（settings 与经典壳仍从本模块 import 同名导出，拿到的是同一个数组对象）。
 import { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES, permissionConfirmSpec } from './confirm-panel.js';
+
+// 复数:口径同 i18n.js 的 tCount(按当前语言的 Intl.PluralRules 在 `${key}.one` / `${key}.other` 里挑),
+// 但文案函数用本模块注入的 t(单测的假壳靠它读 zh 目录)。英文「1 days ago / 1 turns」就是漏了这一步。
+function tPlural(translate, key, count, params = {}) {
+  const category = new Intl.PluralRules(getLocale()).select(Number(count));
+  return translate(`${key}.${category === 'one' ? 'one' : 'other'}`, { ...params, count });
+}
 
 const escapeLayers = [];
 export const stewardEscapeStack = Object.freeze({
@@ -635,8 +644,9 @@ export function createQuickSwitchChips({
   // （index.html 的 <aside>），工作台视角下整块 display:none，于是在线程头改完档【一个字的回执
   // 都看不到】（真浏览器实测 walkthrough-round1.browser 的 F7：改完 .toast-tray 与任何可见处皆空）。
   // 管家两处宿主（焦点卡、左栏行）仍是原来那条路，形状与文案一个字没改。
-  function note(text) {
-    if (typeof noteSink === 'function') { try { return noteSink(text); } catch { /* 回执写不出去不该把改动打回去 */ } }
+  // kind：'err' 表示这是一句失败回执（走查 S-05：修前 noteSink 只收文本，工作台那头把失败也套成功样式的 toast）。
+  function note(text, kind = '') {
+    if (typeof noteSink === 'function') { try { return noteSink(text, kind); } catch { /* 回执写不出去不该把改动打回去 */ } }
     return writeNote('stewardDrawerNote', text);
   }
 
@@ -651,7 +661,7 @@ export function createQuickSwitchChips({
         body: JSON.stringify(patch),
       });
       if (!response || response.ok !== true) {
-        note(t('stewardShell.chips.changeFailed', { error: String((response && response.error) || 'failed') }));
+        note(t('stewardShell.chips.changeFailed', { error: apiErrText((response && response.error) || 'failed') }), 'err');
         return null;
       }
       session = response.session || session;
@@ -661,7 +671,7 @@ export function createQuickSwitchChips({
       for (const other of LIVE_CHIPS) if (other !== peer && other.sessionIdOf() === sessionId) other.adopt(session);
       return session;
     } catch (error) {
-      note(t('stewardShell.chips.changeFailed', { error: String((error && error.message) || error) }));
+      note(t('stewardShell.chips.changeFailed', { error: apiErrText(error) }), 'err');
       return null;
     }
   }
@@ -682,7 +692,7 @@ export function createQuickSwitchChips({
     try {
       const response = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) });
       if (!response || !response.config) {
-        note(t('stewardShell.chips.changeFailed', { error: String((response && response.error) || 'failed') }));
+        note(t('stewardShell.chips.changeFailed', { error: apiErrText((response && response.error) || 'failed') }), 'err');
         return null;
       }
       if (state) state.config = response.config;
@@ -691,7 +701,7 @@ export function createQuickSwitchChips({
       note(t('stewardShell.chips.defaultSaved'));
       return response.config;
     } catch (error) {
-      note(t('stewardShell.chips.changeFailed', { error: String((error && error.message) || error) }));
+      note(t('stewardShell.chips.changeFailed', { error: apiErrText(error) }), 'err');
       return null;
     }
   }
@@ -857,12 +867,12 @@ export function createQuickSwitchChips({
           if (!model.usage) return null;
           const when = model.usage.days === 0
             ? t('stewardShell.chips.usedToday')
-            : t('stewardShell.chips.usedDaysAgo', { days: model.usage.days });
+            : tPlural(t, 'stewardShell.chips.usedDaysAgo', model.usage.days, { days: model.usage.days });
           return {
             className: 'steward-chip-option-hint',
             text: model.usage.days >= 0
-              ? t('stewardShell.chips.usageLine', { when, turns: model.usage.turns })
-              : t('stewardShell.chips.usageTurns', { turns: model.usage.turns }),
+              ? tPlural(t, 'stewardShell.chips.usageLine', model.usage.turns, { when, turns: model.usage.turns })
+              : tPlural(t, 'stewardShell.chips.usageTurns', model.usage.turns, { turns: model.usage.turns }),
           };
         },
       },

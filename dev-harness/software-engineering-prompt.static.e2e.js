@@ -60,7 +60,9 @@ ok(/授权与指令边界/.test(stable) && /不得改用终端、其他工具或
 const memory = srv.buildMemoryPromptSection([
   { id: 'repo-conventions', name: 'Repo conventions', description: 'project rules', file: 'C:\\memory\\repo.md' },
 ], 'openai', { locale: 'zh-CN' });
-ok(/每次收到新的用户消息/.test(memory) && /相关的记忆/.test(memory) && /file_read/.test(memory), 'memory index requires a lightweight relevance check on every user message');
+// 走查 #6:provider 的 file_read 封了记忆目录(isSensitiveDataPath),索引不再让模型 file_read 绝对路径,改按方括号 id 用 workbench_memory_read 读。
+// 「每条用户消息先查索引」的要求本身不变;原断言里 /file_read/ 那一项随之换成 /workbench_memory_read/(并钉死不再提 file_read)。
+ok(/每次收到新的用户消息/.test(memory) && /相关的记忆/.test(memory) && /workbench_memory_read/.test(memory) && !/file_read/.test(memory), 'memory index requires a lightweight relevance check on every user message');
 ok(/可能过时/.test(memory) && /当前工作区仍成立/.test(memory) && /实质改变/.test(memory), 'matching memory is verified against current workspace state before use');
 const zeroMemoryCheck = srv.buildMemoryCheckPrompt({ mode: 'default', enabled: true, checked: true, candidateCount: 12, matchCount: 0, projectMatches: 0, globalMatches: 0 }, { locale: 'zh-CN' });
 ok(/<workbench-memory-check[^>]*candidates="12"[^>]*matches="0"/.test(zeroMemoryCheck), 'zero-match memory preflight remains machine-readable');

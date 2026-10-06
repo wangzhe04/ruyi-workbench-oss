@@ -68,6 +68,25 @@ export function createChatStaticRenderer(deps = {}) {
   function validTurnSegments(msg) {
     return normalizeTurnSegments(msg);
   }
+  // 老会话里,后台 run 的子代理段(provider 引擎没有原生记录,静态不画)夹在同一段思考中间落盘成
+  // thinking | subagent | thinking —— 画出来是两块紧挨着的思考。隔着「不画的子代理段」的思考并成一块
+  // (新落盘的会话由 02c 的账本本身保证不再切开)。只并文本、不动其它段,画得出来的卡片仍是切分点。
+  function mergeThinkingAcrossHiddenSubagents(segments, nativeAgents) {
+    const hidden = segment => segment.type === 'subagent' && !nativeAgents.has(String(segment.toolCallId || ''));
+    const out = [];
+    for (const segment of segments) {
+      if (segment.type === 'thinking') {
+        let k = out.length - 1;
+        while (k >= 0 && hidden(out[k])) k -= 1;
+        if (k >= 0 && k < out.length - 1 && out[k].type === 'thinking') {
+          out[k] = { ...out[k], text: String(out[k].text || '') + String(segment.text || '') };
+          continue;
+        }
+      }
+      out.push(segment);
+    }
+    return out;
+  }
   function narrativeToolAnchor(toolCallId, scope) {
     return turnToolAnchorId(toolCallId, scope);
   }
@@ -167,7 +186,14 @@ export function createChatStaticRenderer(deps = {}) {
       const deny = el('button', '', t('permission.deny'));
       for (const [btn, behavior] of [[allow, 'allow'], [deny, 'deny']]) {
         btn.type = 'button';
-        btn.addEventListener('click', () => { allow.disabled = true; deny.disabled = true; decidePermission(String(segment.requestId), behavior); });
+        btn.addEventListener('click', async () => {
+          allow.disabled = true; deny.disabled = true;
+          // decidePermission 返回 false = 请求没送达(网络 / 落盘失败),申请还在等:恢复按钮让用户再点。
+          // 成功(或已了结)时保持禁用 —— 结果事件到了这张卡会被整张重画。老形状(无返回值)按成功算。
+          let ok = true;
+          try { ok = await decidePermission(String(segment.requestId), behavior); } catch { ok = false; }
+          if (ok === false) { allow.disabled = false; deny.disabled = false; }
+        });
       }
       actions.append(allow, deny);
       card.append(actions);
@@ -314,10 +340,11 @@ export function createChatStaticRenderer(deps = {}) {
     flush(block);
   }
   function renderStaticTurnNarrative(msg, host, idScope = '') {
-    const segments = validTurnSegments(msg);
-    if (!segments.length) return null;
+    const rawSegments = validTurnSegments(msg);
+    if (!rawSegments.length) return null;
     const tools = new Map((Array.isArray(msg.toolCalls) ? msg.toolCalls : []).filter(Boolean).map(tc => [String(tc.id || ''), tc]));
     const nativeAgents = new Map((Array.isArray(msg.nativeAgents) ? msg.nativeAgents : []).filter(Boolean).map(record => [String(record.toolUseId || ''), record]));
+    const segments = mergeThinkingAcrossHiddenSubagents(rawSegments, nativeAgents);
     const narrative = el('div', 'turn-narrative');
     const toolIndex = [];
     const renderedNative = new Set();
@@ -467,7 +494,7 @@ export function createChatStaticRenderer(deps = {}) {
           img.src = url;
         }).catch(() => {});
         img.addEventListener('error', () => { if (btn.isConnected) btn.replaceWith(attachmentChip(att, name)); });
-        btn.onclick = () => { if (loadedUrl) openAttachmentViewer(name, loadedUrl); };
+        btn.onclick = () => { if (loadedUrl) openAttachmentViewer(name, loadedUrl, btn); };
         strip.appendChild(btn);
       } else {
         strip.appendChild(attachmentChip(att, name));
@@ -482,10 +509,12 @@ export function createChatStaticRenderer(deps = {}) {
     chip.title = String(att.path || name);
     return chip;
   }
-  function openAttachmentViewer(name, url) {
+  function openAttachmentViewer(name, url, trigger) {
     const backdrop = el('div', 'attachment-viewer-backdrop');
     backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
     backdrop.setAttribute('aria-label', t('chat.attachmentViewerAria'));
+    backdrop.tabIndex = -1;   // 打开时把焦点放进来(键盘用户不会还停在背后的缩略图上),关闭时再还给它
     const figure = el('figure', 'attachment-viewer');
     const img = document.createElement('img');
     img.src = url;
@@ -493,14 +522,44 @@ export function createChatStaticRenderer(deps = {}) {
     const caption = el('figcaption', 'attachment-viewer-caption', name);
     figure.append(img, caption);
     backdrop.appendChild(figure);
-    const close = () => { document.removeEventListener('keydown', onKey); backdrop.remove(); };
-    const onKey = e => { if (e.key === 'Escape') close(); };
+    const opener = trigger || document.activeElement;
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      document.removeEventListener('keydown', onKey, true);
+      backdrop.remove();
+      // 焦点还给触发它的缩略图(它可能已随会话重画被换掉,那就不动)。
+      if (opener && opener.isConnected && typeof opener.focus === 'function') { try { opener.focus(); } catch { /* ignore */ } }
+    };
+    // document 捕获相位 + stopPropagation(同 help-viewer):app.js 的全局 Esc 兜底挂在 window 冒泡相位,
+    // 修前这里只在冒泡相位听、不拦,按一下 Esc 关大图的同时会把正在跑的回合也停掉。
+    const onKey = e => {
+      if (e.key === 'Tab') { e.preventDefault(); return; }   // 里面没有别的可聚焦件,别让 Tab 把焦点漏到背后的页面
+      if (e.key !== 'Escape') return;
+      e.stopPropagation(); e.preventDefault();
+      close();
+    };
     backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) close(); });
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
     document.body.appendChild(backdrop);
+    try { backdrop.focus(); } catch { /* ignore */ }
   }
 
   function renderStaticMessage(msg, messageKey, renderSignature, options = {}) {
+    // 后台代理唤醒(服务端 10 scheduleAgentWake):那条 user 消息是工作台替模型起回合的系统通知,不是用户说的话 ——
+    // 画成一行系统提示(本地化的短句),不出「编辑重发 / 重试 / 回溯」这些只对用户原话有意义的按钮。
+    if (msg.role === 'user' && msg.meta && msg.meta.origin === 'agent_wake') {
+      const { row, main } = messageShell('system', msg.createdAt, null);
+      row.classList.add('agent-wake');
+      const runs = Array.isArray(msg.meta.runIds) ? msg.meta.runIds.length : 0;
+      const note = el('div', 'bubble plain', tCount('chat.agentWake', Math.max(1, runs), { n: Math.max(1, runs) }));
+      note.title = String(msg.content || '');
+      main.appendChild(note);
+      if (messageKey) row.dataset.messageKey = messageKey;
+      if (renderSignature) row.dataset.renderSignature = renderSignature;
+      return row;
+    }
     const meta = msg.role === 'assistant' ? metaFromMessage(msg) : null;
     const { row, main } = messageShell(msg.role, msg.createdAt, meta);
     const segments = validTurnSegments(msg);

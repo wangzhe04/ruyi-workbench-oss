@@ -16,6 +16,7 @@ import { createHelpViewerDomain, registerHelpViewer } from './help-viewer.js';
 // 118b: 体检项的人话映射(纯函数)。首跑卡的「体检摘要」与设置页的体检行读同一张表。
 import { healthSummaryText } from './health-i18n.js';
 import { providerDraftFromPreset } from './provider-settings.js';
+import { normalizeProviderDraftEndpoint, providerTestErrorText } from './provider-settings.js';
 import {
   activeTurnUserIsPersisted,
   captureScrollAnchor,
@@ -30,6 +31,17 @@ import { confirmDanger } from './confirm-panel.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
 
+// 走查 S-11：run 的终态有 succeeded／failed／timed_out／cancelled／partial／stopped／interrupted 七种，而文案键修前只有前四种 ——
+// 其余三种显示成「[chat.background.partial]」，还一律红色。颜色按「这对用户意味着什么」分：成功＝绿、部分完成＝黄（warn）、
+// 用户自己停的（stopped／cancelled）＝中性、失败／超时／中断＝红；表外的状态不编文案，回落一句通用的「已结束」。
+export const BACKGROUND_TOAST_OUTCOMES = Object.freeze({
+  succeeded: 'ok', partial: 'warn', stopped: '', cancelled: '', failed: 'err', timed_out: 'err', interrupted: 'err',
+});
+export function backgroundToastOutcome(status) {
+  const name = String(status || '');
+  if (!Object.prototype.hasOwnProperty.call(BACKGROUND_TOAST_OUTCOMES, name)) return { key: 'chat.background.finished', kind: '' };
+  return { key: 'chat.background.' + name, kind: BACKGROUND_TOAST_OUTCOMES[name] };
+}
 export function createSessionExperienceDomain({
   // 121-K2b（34 号文 §6.2）：组合根那【一条】事件流。工作台视角用它两件事：①「它正在跑」那张卡
   // 改吃 thread.live（3 s 轮询降为断连兜底）；②换会话时报一次新的在场信号（§4.3 —— 服务端只在
@@ -80,6 +92,8 @@ export function createSessionExperienceDomain({
   applyShellMode = () => 'classic',
   // 128f-⑫（审计 D／E）：右栏打开着的页签（变更、文件、审计…）重读一遍。组合根注入 navigation-controls 那一份。
   refreshToolPane = () => {},
+  // 打开线程后把服务端仍待确认的记忆候选卡画回来(js/skills-memory.js;只读回放)。缺席 = 不画,与修前一样。
+  restoreMemoryProposalCard = async () => {},
 } = {}) {
 // 118a: 本壳持有的向导实例。经典壳有原生文件夹选择器与设置页入口,直接注入;向导模块本身壳无关。
 // 118a-fix: 手册阅读器实例。向导完成页的「打开手册」落在这里:取 /api/help/doc 的 markdown,
@@ -98,6 +112,8 @@ const onboardingWizard = registerOnboardingWizard(createOnboardingWizardDomain({
   getLocale,
   setLocale,
   providerDraftFromPreset,
+  normalizeProviderDraftEndpoint,
+  providerTestErrorText,
   pickWorkspace: opts => pickWorkspaceNative(opts),
   setWorkspacePath: dir => setWorkspace(dir, { alsoDefault: true }),
   openSettings: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'basic', true); },
@@ -231,6 +247,12 @@ function bindRailSessionActions() {
   return true;
 }
 
+// 在场信号(§4.3)读 state.currentSession：凡是改了「当前会话」的动作（打开／新建／删当前）都要调它，服务端的在场门才不会拿旧线程判。
+// sync 自己幂等（key 没变就什么都不做）、重连去抖，所以多调无害。
+function syncEventStreamPresence() {
+  if (eventStream && typeof eventStream.sync === 'function') eventStream.sync();
+}
+
 // 后发先至:两次刷新并发时,晚回来的旧列表不许盖掉已经画上的新列表(只认最后一次发出的那一发)。
 let refreshSessionsSeq = 0;
 async function refreshSessions() {
@@ -278,9 +300,12 @@ async function openSession(id, opts = {}) {
   renderResumeBanner();
   syncStreamingUi();
   mountActiveTurn(id);
+  // 记忆候选卡不持久的补丁:刷新页面/切线程回来后,候选在服务端仍是 pending,卡片却只在回合刚结束时画过一次。
+  // 在跑的回合不回放(回合结束时 suggestMemoryFromTurn 会画);失败静默。
+  if (!activeTurns.has(id)) Promise.resolve(restoreMemoryProposalCard(id)).catch(() => {});
   syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
   syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
-  if (switchedSession && eventStream && typeof eventStream.sync === 'function') eventStream.sync(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
+  if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
   // The global status denominator describes the new-session default. Resolve this session's pinned route
   // after every switch so the context meter and model list do not lag behind until the next completed turn.
   api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
@@ -483,7 +508,7 @@ async function previewGrant() {
       else bits.push(t('permission.preview.commands', { commands: (r.grant.cmdAllow || []).join(' / ') }));
       if (r.dropped && r.dropped.length) bits.push(t('permission.preview.dropped', { count: r.dropped.length, reasons: r.dropped.map(d => d.reason).join(';') }));
       if (box) box.textContent = bits.join(';');
-    } else if (box) box.textContent = t('permission.preview.failed', { reason: r && r.error || t('common.unknown') });
+    } else if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(r && r.error) || t('common.unknown') });
   } catch (e) { if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(e) }); }
 }
 async function submitGrant(ev) {
@@ -500,7 +525,7 @@ async function submitGrant(ev) {
       toast(r.dropped && r.dropped.length ? t('permission.grantIssuedWithDrops', { count: r.dropped.length }) : t('permission.grantIssued'), 'ok');
       $('autonomyIssueForm').classList.add('hidden');
       await loadAutonomyGrants();
-    } else { toast(t('permission.grant.failed', { reason: r && r.error || t('common.unknown') }), 'err'); }
+    } else { toast(t('permission.grant.failed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); }
   } catch (e) { toast(t('permission.grant.failed', { reason: apiErrText(e) }), 'err'); }
 }
 
@@ -597,7 +622,7 @@ async function revealArtifact(fullPath, mode) {
   const sid = state.currentSession?.id || '';
   try {
     const r = await api('/api/file/reveal', { method: 'POST', body: JSON.stringify({ sessionId: sid, path: fullPath, mode }) });
-    if (!r || !r.ok) { toast((r && r.error) || t('file.open.unavailable'), 'err'); return; }
+    if (!r || !r.ok) { toast(apiErrText(r && r.error) || t('file.open.unavailable'), 'err'); return; }
     if (r.degradedTo && r.note) toast(r.note, '');
   } catch (e) {
     toast(t('file.open.failed', { reason: apiErrText(e) }), 'err');
@@ -608,6 +633,7 @@ async function revealArtifact(fullPath, mode) {
 // for unknown classes from an older/newer server, so it is no longer the UI's sole error-language contract.
 const ERROR_CLASS_I18N = {
   provider_misconfigured: { title: 'error.providerMisconfigured', next: 'error.providerMisconfigured.next' },
+  provider_error: { title: 'error.providerError', next: 'error.providerError.next' },
   network_down: { title: 'error.networkDown', next: 'error.networkDown.next' },
   permission_denied: { title: 'error.permissionDenied', next: 'error.permissionDenied.next' },
   tool_error: { title: 'error.toolFailed' },
@@ -616,6 +642,7 @@ const ERROR_CLASS_I18N = {
 };
 const ERROR_CLASSES_LEGACY = {
   provider_misconfigured: { zh: () => t('error.providerMisconfigured'), next: () => t('error.providerMisconfigured.next') },
+  provider_error: { zh: () => t('error.providerError'), next: () => t('error.providerError.next') },
   network_down: { zh: () => t('error.networkDown'), next: () => t('error.networkDown.next') },
   permission_denied: { zh: () => t('error.permissionDenied'), next: () => t('error.permissionDenied.next') },
   tool_error: { zh: () => t('error.toolFailed'), next: () => t('error.toolFailed.next') },
@@ -714,7 +741,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
     const r = await api('/api/checkpoints/rollback', { method: 'POST', body: JSON.stringify(payload) });
     if (!r || !r.ok) {
       if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }
-      toast(t('changes.revert.failed', { reason: (r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
+      toast(t('changes.revert.failed', { reason: apiErrText(r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
       return;
     }
     // 代码走查 C6：撤回了一部分（比如改前内容太大没留底）时服务端仍回 ok:true ＋ failed[]。修前只看 ok，
@@ -725,7 +752,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
     if (btn) { btn.textContent = failed.length ? t('changes.revert.partialDone') : t('changes.revert.done'); btn.classList.add('done'); btn.disabled = true; }
     try { refreshToolPane(); } catch { /* 128f-⑫：右栏「变更」页签开着的话，刚撤掉的那几处要当场消失 */ }
     if (failed.length) {
-      toast(t('changes.revert.partial', { reverted: n, failed: failed.length, reason: revertFailureReason(failed[0].reason) }), 'err');
+      toast(tCount('changes.revert.partial', n, { reverted: n, failed: failed.length, reason: revertFailureReason(failed[0].reason) }), 'err');   // W2-F6：按撤回的文件数分 .one/.other
       return;
     }
     toast(t('changes.reverted', { label: `${label}${n ? ` (${tCount('changes.fileCount', n)})` : ''}` }), 'ok');
@@ -799,6 +826,7 @@ async function newSession(options = {}) {
   state.currentSession = res.session;
   state.resumable = null; // fresh session never dangles
   try { localStorage.setItem('wcw.lastSession', res.session.id); } catch { /* ignore */ }
+  syncEventStreamPresence(); // 走查 S-04：新建也换了「坐在哪条线程」，在场信号要跟着重连（openSession 那一路有，这里补）
   await refreshSessions();
   updateEngineDependentUI();
   renderCurrentSession();
@@ -837,7 +865,7 @@ async function removeSession(id) {
   }
   removal.pending.delete(id);
   removal.done.add(id);
-  if (state.currentSession?.id === id) state.currentSession = null;
+  if (state.currentSession?.id === id) { state.currentSession = null; syncEventStreamPresence(); }   // 走查 S-04：当前会话没了，在场信号别停在已删的线程上
   await refreshSessions();
   renderCurrentSession();
   return true;
@@ -852,7 +880,7 @@ function openBulkCleanupModal() {
 
   const count = candidates.length;
   const body = el('div');
-  body.append(el('p', '', t('session.bulkCleanup.description', { count })));
+  body.append(el('p', '', tCount('session.bulkCleanup.description', count)));
   const note = el('p', 'muted', t('session.bulkCleanup.note'));
   body.append(note);
   const purgeLabel = el('label', 'check');
@@ -864,7 +892,7 @@ function openBulkCleanupModal() {
 
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', t('common.cancel'));
-  const go = el('button', 'danger', t('session.bulkCleanup.action', { count }));
+  const go = el('button', 'danger', tCount('session.bulkCleanup.action', count));
   foot.append(cancel, go);
   const modal = buildModal(t('session.bulkCleanup.title'), body, foot);
   cancel.onclick = () => modal.close();
@@ -875,14 +903,14 @@ function openBulkCleanupModal() {
         method: 'POST',
         body: JSON.stringify({ preserveSessionId: currentId, purgeAssociated: purgeBox.checked }),
       });
-      if (!r || !r.ok) throw new Error((r && r.error) || 'unknown error');
+      if (!r || !r.ok) throw new Error(apiErrText(r && r.error) || 'unknown error');
       modal.close();
       const removal = sessionRemoval();   // 128f-⑫：删掉的那些立刻不画（同 removeSession）
       for (const deletedId of (Array.isArray(r.deleted) ? r.deleted : [])) removal.done.add(String(deletedId));
       await refreshSessions();
-      toast(t('session.bulkCleanup.success', { count: r.deletedCount || 0 }), 'ok');
+      toast(tCount('session.bulkCleanup.success', r.deletedCount || 0), 'ok');
     } catch (e) {
-      go.disabled = false; go.textContent = t('session.bulkCleanup.action', { count });
+      go.disabled = false; go.textContent = tCount('session.bulkCleanup.action', count);
       toast(t('session.bulkCleanup.failed', { reason: apiErrText(e) }), 'err');
     }
   };
@@ -1003,7 +1031,8 @@ function bindLiveEventStream() {
   if (!eventStream || typeof eventStream.on !== 'function') return false;
   eventStream.on('background.completed', data => {
     if (!data || !data.sessionId) return;
-    toast(t('chat.background.' + data.status), data.status === 'succeeded' ? 'ok' : 'err');
+    const outcome = backgroundToastOutcome(data.status);
+    toast(t(outcome.key), outcome.kind);
     // Fetch only on completion push, never a polling timer. Do not replace a streaming message tree.
     void (async () => {
       const id = data.sessionId;
@@ -1059,6 +1088,14 @@ async function reloadCurrentSessionAfterAway() {
   return true;
 }
 bindLiveEventStream();
+// #sessionTitle 带 data-i18n(没有会话时的「未命名线程」占位),applyTranslations 每次都会把它改回占位文案;开机第二次
+// setLocale(changed:false)不重画会话,于是刷新后线程头一直写着「未命名线程」(真浏览器走查实测)。标题是数据,事件到了就写回。
+window.addEventListener('i18n:change', () => {
+  const node = $('sessionTitle');
+  if (!node || !state.currentSession) return;
+  node.textContent = isUntitledTitle(state.currentSession.title) ? t('session.untitled') : String(state.currentSession.title).trim();
+  node.title = node.textContent;
+});
 // 一拍：重取信封 → 还在跑就只刷这张气泡（整份重绘会抹掉阅读位置，长会话还很贵）；
 // 已经跑完就把服务端刚落盘的正文整份换上来，临时气泡随之消失。
 async function refreshLiveTurn() {
@@ -1230,7 +1267,7 @@ function reconcileMessageChildren(box, wanted) {
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
-  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('session.untitled') : session.title.trim(); // 121-K8（§13.7 ⑤）：未命名线程的回落不再是 navigation.workbench「工作台」——那是视角名，印在线程标题上等于说「这条线程叫工作台」
+  $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('session.untitled') : session.title.trim(); $('sessionTitle').title = $('sessionTitle').textContent; // 121-K8（§13.7 ⑤）：未命名线程的回落不再是 navigation.workbench「工作台」——那是视角名，印在线程标题上等于说「这条线程叫工作台」
   paintSessionMeta($('sessionMeta'), session);
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)
@@ -1623,7 +1660,7 @@ function openPlaybookModal(pb) {
         try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
         catch (e) { toast(t('skills.playbook.pickerError', { reason: apiErrText(e) }), 'err'); return; }
         if (r && r.ok && r.path) { ta.value = r.path; }
-        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: r.error || t('common.unknown') }), 'err');
+        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: apiErrText(r.error) || t('common.unknown') }), 'err');
       };
       row.append(ta, pick);
       field.appendChild(row);
@@ -1657,8 +1694,10 @@ function openPlaybookModal(pb) {
       return;
     }
     const prompt = assemblePlaybookPrompt(pb, values);
-    modal.close();
+    // 走查 S-13：先判「这会儿能不能发」再关表单 —— 修前先 modal.close() 再判 streaming，当前回合还在跑时表单没了、
+    // 刚填好的几段话也跟着丢了。现在被拦下时表单原样留着，等回合收尾再点「开始」。
     if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return; }
+    modal.close();
     sendPrompt(prompt);
   };
 }

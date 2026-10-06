@@ -195,6 +195,33 @@ test('[M] 非流式回体解码、用量、落历史字段', () => {
   }
 });
 
+test('[M2] 2026-10 走查(w1-provider):200 回体里装着失败 → failed / failureText;content_filter 与 Responses 的 incomplete 原因', () => {
+  const { chat, responses } = PROVIDER_WIRE_PROTOCOLS;
+  // chat:顶层 {error}(没有 choices)、choices[0].error、finish_reason:'error'
+  const quota = chat.decodeCompletion({ error: { message: 'You exceeded your current quota', code: 'insufficient_quota', type: 'insufficient_quota' } });
+  assert.equal(quota.failed, true, '200 + 顶层 error 现在算失败(10 的摘要调用也据此报真因,不再是「空摘要」)');
+  assert.equal(quota.failureText, 'HTTP 429: insufficient_quota: You exceeded your current quota');
+  assert.equal(quota.failedDetail, 'You exceeded your current quota');
+  assert.equal(quota.finishReason, 'error');
+  const inChoice = chat.decodeCompletion({ choices: [{ finish_reason: 'error', error: { code: 'server_error', message: 'upstream died' }, message: { role: 'assistant', content: '' } }] });
+  assert.match(inChoice.failureText, /^HTTP 500: server_error: upstream died/);
+  const bareFinish = chat.decodeCompletion({ choices: [{ finish_reason: 'error', message: { role: 'assistant', content: '半截' } }] });
+  assert.match(bareFinish.failureText, /^Provider error: error: finish_reason=error/, 'finish_reason:error 即使带半截正文也是失败(与流式同口径)');
+  const okWithNullError = chat.decodeCompletion({ error: null, choices: [{ finish_reason: 'stop', message: { content: 'hi' } }] });
+  assert.equal(okWithNullError.failed, false);
+  assert.equal(okWithNullError.failureText, '');
+  assert.equal(chat.decodeCompletion({ choices: [{ finish_reason: 'stop', message: { content: 'x' } }], error: { message: 'warn' } }).failed, false, '有正文的回体里夹一个 error 不算失败');
+  assert.equal(chat.decodeCompletion({ choices: [{ finish_reason: 'content_filter', message: { content: '' } }] }).finishReason, 'content_filter', 'chat 的 content_filter 原样透传');
+  // Responses:failed 带文本(含超窗语义 → HTTP 400 前缀,与流式 response.failed 同口径);incomplete 的原因
+  assert.equal(responses.decodeCompletion({ status: 'failed', error: { code: 'server_error', message: 'boom' } }).failureText, 'Responses failed: boom');
+  assert.equal(responses.decodeCompletion({ status: 'failed' }).failureText, 'Responses failed (no error detail)');
+  assert.match(responses.decodeCompletion({ status: 'failed', error: { message: 'maximum context length exceeded' } }).failureText, /^HTTP 400: Responses failed: maximum context/);
+  assert.equal(responses.decodeCompletion({ status: 'completed', output: [] }).failureText, '');
+  assert.equal(responses.decodeCompletion({ status: 'incomplete', incomplete_details: { reason: 'content_filter' }, output: [] }).finishReason, 'content_filter');
+  assert.equal(responses.decodeCompletion({ status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' }, output: [] }).finishReason, 'length');
+  assert.equal(responses.decodeCompletion({ status: 'incomplete', output: [] }).finishReason, 'length', '没有原因时仍按 length(老行为)');
+});
+
 test('[H] 延迟绑定的环内工具已由 07 填好', () => {
   const { chat, responses } = PROVIDER_WIRE_PROTOCOLS;
   const calls = chat.decodeCompletion({ choices: [{ message: { tool_calls: [{ function: { name: 'file_read' } }] } }] }).toolCalls;

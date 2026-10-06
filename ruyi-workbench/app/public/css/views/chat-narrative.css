@@ -50,6 +50,10 @@
 .md pre:hover .copy-code { opacity: 1; }
 .md table { border-collapse: collapse; margin: .6em 0; display: block; overflow-x: auto; }
 .md th,.md td { border: 1px solid var(--line-2); padding: 5px 9px; }
+/* 气泡的 overflow-wrap:anywhere 会被表格继承,anywhere 把每列的最小宽度压到一个字 —— 某列有长路径时别的列被挤成
+   「状/态」「行/数」(走查实测)。给单元格一个最小宽度:长路径照样在自己那列里折行,短列不再被齐腰断开,也不用横向滚动
+   (真浏览器对比过:换回 normal 会让长路径那列撑到 700px+、别的列滚出视野)。 */
+.md th,.md td { min-width: 4.5em; }
 .md hr { border: none; border-top: 1px solid var(--line); margin: 1em 0; }
 /* 109a: mermaid 图表块。渲染成功=图 + 工具条(源码/复制/导出 SVG/导出 PNG),原 <pre> 收起;
    vendor 缺失或渲染失败=原代码块留在原地 + 一行小提示。配色全部走既有 token,亮暗双主题自适应。 */

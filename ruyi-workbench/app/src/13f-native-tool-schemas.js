@@ -3,7 +3,7 @@ const MCP_TOOLS = [
   ...adaptiveMetaToolSchemas(true),
   {
     name: 'workbench_memory_list',
-    description: 'List/search confirmed Workbench Memory metadata for the current project and global scope. Use when the user asks what is remembered or the injected memory preflight/index is insufficient. This does not read full bodies.',
+    description: 'List/search confirmed Workbench Memory metadata (current project + global), no bodies. Use when the user asks what is remembered or the injected index is insufficient.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -15,7 +15,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_read',
-    description: 'Read one confirmed Workbench Memory entry by id. Read only entries relevant to the current request and verify stale facts against the workspace before relying on them.',
+    description: 'Read one confirmed Workbench Memory entry by id. Read only relevant entries; verify stale facts against the workspace before relying on them.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: {
@@ -29,23 +29,23 @@ const MCP_TOOLS = [
     // C3:一次可带 items[≤3](一张卡、用户逐条确认)。顶层不再写 required —— 批量形式不带顶层字段;单条形式六个字段
     // 照旧都要,由描述说明、处理器逐字段校验(措辞与修前一致)。items 的元素不重抄六个属性的 schema(每回合常驻,
     // 字符预算见 unit/tool-schema-budget),靠描述指回上面那六个。
-    description: 'Propose durable memories for user review, saved only after the user confirms the post-turn card. Use when the user explicitly asks to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson not in repository files. Never include secrets, transient status, guesses, or ordinary task output. One candidate: all six fields. 2-3 independent ones: items.',
+    description: 'Propose durable memories; saved only after the user confirms the post-turn card. Use when asked to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson not in repo files. Never secrets, transient status, guesses, or ordinary task output. One candidate: all six fields; 2-3 independent ones: items.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
         name: { type: 'string', maxLength: 120, description: 'short title' },
         description: { type: 'string', maxLength: 400, description: 'When this memory is useful.' },
         type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'habit | project rule | pitfall | pointer, in enum order' },
-        scope: { type: 'string', enum: ['project', 'global'], description: 'Use global only for an explicitly cross-project personal preference.' },
-        body: { type: 'string', maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
-        reason: { type: 'string', maxLength: 240, description: 'Why this will remain useful across future sessions.' },
+        scope: { type: 'string', enum: ['project', 'global'], description: 'project by default; global only if the user said it applies to all projects/sessions (or it is a personal preference), else stored as project. The user can switch it on the card.' },
+        body: { type: 'string', maxLength: 4000, description: 'Concise Markdown: conclusion, when it applies, concrete practice.' },
+        reason: { type: 'string', maxLength: 240, description: 'Why it stays useful across sessions.' },
         items: { type: 'array', maxItems: 3, items: { type: 'object' }, description: 'Batch: 2-3 objects with the six fields above' },
       },
     },
   },
   {
     name: 'workbench_memory_relation_propose',
-    description: 'Propose a relation edge between two existing confirmed Workbench Memory entries (supports/contradicts/supersedes/derived_from). It never saves directly: the user must confirm the card after the turn. from/to must be memory ids that already exist in the same scope.',
+    description: 'Propose a relation edge between two existing confirmed Workbench Memory entries (supports/contradicts/supersedes/derived_from). It never saves directly: the user must confirm the card after the turn.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['type', 'from', 'to'],
       properties: {
@@ -60,12 +60,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_revise',
-    description: 'Propose a revision to an existing confirmed Workbench Memory entry (name/description/type/body). It never saves directly: the user must confirm the card after the turn. Provide the suggested replacement values; unchanged fields may be omitted.',
+    description: 'Propose a revision to an existing confirmed Workbench Memory entry (name/description/type/body, or newScope to move it). It never saves directly: the user must confirm the card after the turn. Unchanged fields may be omitted.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id', 'reason'],
       properties: {
         id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'Memory id to revise.' },
         scope: { type: 'string', enum: ['project', 'global'], description: 'Scope of the target memory.' },
+        newScope: { type: 'string', enum: ['project', 'global'], description: 'Move it here (project to global = promote). Needs the user saying it applies to all projects.' },
         name: { type: 'string', minLength: 1, maxLength: 120, description: 'Suggested replacement name (omit to keep).' },
         description: { type: 'string', minLength: 1, maxLength: 400, description: 'Suggested replacement description (omit to keep).' },
         type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'Suggested replacement type (omit to keep).' },
@@ -76,7 +77,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_relation_revoke',
-    description: 'Propose revoking (deleting) an existing memory relation edge. It never deletes directly: the user must confirm the card after the turn. Use relationId from listMemoryRelations or a prior confirmed relation.',
+    description: 'Propose revoking (deleting) an existing memory relation edge. It never deletes directly: the user must confirm the card after the turn.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['relationId'],
       properties: {
@@ -333,13 +334,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'http_download',
-    description: '从一个 http(s) 网址下载文件保存到工作区内的 dest（内网/回环地址会被 SSRF 防护拒绝）。dest 已存在时先存检查点，可撤销。默认单文件上限 100MB（maxBytes 可调），Content-Length 与实际字节都会卡上限，超限拒绝。返回 {path, bytes, contentType}。',
+    description: '从一个 http(s) 网址下载文件保存到工作区内的 dest（内网/回环地址会被 SSRF 防护拒绝）。dest 已存在时先存检查点，可撤销。单文件上限 100MB（maxBytes 只能调低），Content-Length 与实际字节都会卡上限，超限拒绝。返回 {path, bytes, contentType}。',
     inputSchema: {
       type: 'object',
       properties: {
         url: { type: 'string', description: '要下载的 http(s) 网址' },
         dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）；文件夹（或以 / 结尾）则存进其中' },
-        maxBytes: { type: 'number', description: '最大字节数，默认 100MB' },
+        maxBytes: { type: 'number', description: '最大字节数，默认且最多 100MB' },
         timeoutMs: { type: 'number', description: '总期限（毫秒），默认空闲30s/总30分钟' },
       },
       required: ['url', 'dest'],
@@ -516,14 +517,15 @@ const MCP_TOOLS = [
   },
   {
     name: 'git_commit',
-    description: 'Stage changes and create a git commit. Runs git hooks (exec tier). No configured Git identity -> guiding error (never a fake one).',
+    description: 'Stage + git commit. Runs git hooks (exec tier; 90s default timeout). No Git identity -> guiding error (never a fake one).',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'repo folder (default: conversation working folder; must exist)' },
-        message: { type: 'string', description: 'commit message; body may follow a blank line' },
-        addAll: { type: 'boolean', description: 'git add -A first (default false: only what is already staged)' },
+        cwd: { type: 'string', description: 'repo folder (default: working folder; must exist)' },
+        message: { type: 'string', description: 'message (body after a blank line)' },
+        addAll: { type: 'boolean', description: 'git add -A first (default false: staged only)' },
         paths: { type: 'array', items: { type: 'string' }, description: 'stage only these files (overrides addAll)' },
+        timeoutMs: { type: 'number', description: 'ms' },
       },
       required: ['message'],
     },
@@ -1071,7 +1073,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_memory_write',
-    description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。**用户这次明确改了主意、要把一条否决过的重新记上**时,带 supersedesVetoed 指名那条的 id 再调一次(见该参数)。',
+    description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user),且 sourceRef.quote 须是那条消息里的原话(quote_not_found)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。**用户这次明确改了主意、要把一条否决过的重新记上**时,带 supersedesVetoed 指名那条的 id 再调一次(见该参数)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['kind', 'text', 'sourceRef'],
       properties: {
@@ -1082,11 +1084,12 @@ const MCP_TOOLS = [
         expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
         supersedesVetoed: { type: 'string', description: '可选。要盖掉的那条【被否决条目】的 id(id 在提示词的「用户否决过」清单里)。**只在用户这一回合自己明确要求重新记上时才填** —— 例:他当初说「别记我喜欢深色」,今天说「还是记着吧,我就是喜欢深色」。填对 id 时那条【原地复活】(id 不变、内容取这次的说法,不新增条目);id 不存在或那条不是被否决状态 → not_found;没填而内容又与某条被否决的几乎同句 → vetoed_duplicate。不许用它来绕过否决:用户没这么说就别填,换个说法把否决过的内容写回去同样是不行的。' },
         sourceRef: {
-          type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq'],
-          description: '来源:该事实出自哪条线程的哪个回合的【用户消息】。会被服务端核对角色。',
+          type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq', 'quote'],
+          description: '来源:该事实出自哪条线程的哪个回合的【用户消息】。服务端核对角色,并把 quote 逐字比对那条用户消息。',
           properties: {
             sessionId: { type: 'string', description: '来源线程 id。' },
             turnSeq: { type: 'integer', minimum: 0, description: '来源回合号(用户消息所在回合)。' },
+            quote: { type: 'string', description: '那条用户消息里的【原话片段】,逐字照抄(≥6 字;消息本身更短就抄整条)。改述或引别的消息 → quote_not_found;text 与 quote 毫无共同用词 → quote_unrelated。' },
           },
         },
       },
@@ -1338,7 +1341,7 @@ const MCP_TOOLS = [
   // 完成信封经后台任务账本恰好投递一次。子代理自身拿不到这三个工具(禁嵌套:07 buildOpenAiTools noAgentTools)。
   {
     name: 'orchestrate_agents',
-    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent: top-level {task, role?, toolTier?, model?, resources?} runs as a one-node run; (2) inline `nodes` for a one-off DAG; (3) `workflowId` of a saved/built-in template (ids are in the system prompt) plus `context`, a short description of THIS run's subject (template node tasks are generic placeholders). Prefer (3) for complex multi-step tasks matching a template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work: the call returns {runId, status:'running'} at once, the run outlives this turn, and its delivery envelope is injected exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you need the result before continuing. The result is a bounded envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; agent_result({runId, nodeId?}) returns a node's full text. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the grace period. Supports JSON Schema outputs, Reviewer/Verifier gates, voting/dedupe, cross-review, loop progress keys, tool-evidence requirements and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes built to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
+    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent: top-level {task, role?, toolTier?, model?, resources?} runs as a one-node run; (2) inline `nodes` for a one-off DAG; (3) `workflowId` of a saved/built-in template (ids are in the system prompt) plus `context`, a short description of THIS run's subject (template node tasks are generic placeholders). Prefer (3) for complex multi-step tasks matching a template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work: the call returns {runId, status:'running'} at once, the run outlives this turn, and its delivery envelope is injected exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you need the result before continuing. The result is a bounded envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; agent_result({runId, nodeId?}) returns a node's full text. The runtime emits workflow heartbeats during quiet windows, asks a node still running after 30 min to wrap up, and stops only that node if it then makes no progress or passes 60 min in total (a node that keeps producing is not cut off). Supports JSON Schema outputs, gates, voting/dedupe, cross-review, loops, tool-evidence requirements and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes built to consume failed inputs; every dependency of a vote node must output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -1362,7 +1365,7 @@ const MCP_TOOLS = [
               gate: {
                 type: 'object', description: 'quality gate; reviewer/verifier roles get one automatically',
                 properties: {
-                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe', 'coverage', 'propagate'], description: 'vote/dedupe/coverage/propagate are deterministic aggregator nodes and do not execute task' },
+                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe', 'coverage', 'propagate'], description: 'vote/dedupe/coverage/propagate are deterministic aggregators (task not executed)' },
                   threshold: { type: 'number', description: 'vote pass ratio, 0..1' },
                   minApprovals: { type: 'number' },
                   minConfidence: { type: 'number', description: 'minimum aggregate vote confidence, 0..1' },
@@ -1371,7 +1374,7 @@ const MCP_TOOLS = [
                   propagateKey: { type: 'string', description: 'item record key used to inherit assignments among equal-key items' },
                   allowPartialCoverage: { type: 'boolean', description: 'allow coverage nodes or model gates with uncovered items to succeed with a warning' },
                   allowPartial: { type: 'boolean', description: 'allow propagate nodes with unpropagated items to succeed' },
-                  requireEvidence: { type: 'boolean', description: 'high-stakes gate (audit/research): when true, structuredResult.findings claims with missing/invalid/cross-workspace evidenceRefs are marked unverified and any unverified claim rejects the node (gate_unverified). Default false: only marked, not blocking.' },
+                  requireEvidence: { type: 'boolean', description: 'high-stakes gate (audit/research): when true, findings claims with missing/invalid/cross-workspace evidenceRefs are marked unverified and any unverified claim rejects the node (gate_unverified). Default false: marked only.' },
                 },
               },
               failurePolicy: { type: 'string', enum: ['block', 'continue', 'retry'], description: 'block downstream (default), continue in degraded mode, or retry automatically' },
@@ -1394,7 +1397,7 @@ const MCP_TOOLS = [
         maxIters: { type: 'number', description: 'single-agent shorthand: iteration budget (default 100).' },
         model: { type: 'string', description: 'single-agent shorthand: optional explicit model id; omit to use the configured sub-agent preference.' },
         resources: { type: 'array', items: { type: 'string' }, description: 'single-agent shorthand: resources held for the whole task (desktop, browser:default, file:..., workspace:...; read: prefix for shared access).' },
-        background: { type: 'boolean', description: 'true = return {runId, status:"running"} immediately and keep working; the run survives the end of this turn and its envelope is delivered once on completion (or via wait_agents). false/default = block until the run finishes and return the envelope.' },
+        background: { type: 'boolean', description: 'true = return {runId, status:"running"} at once; the run outlives this turn and its envelope is delivered once on completion (or via wait_agents). Default false = block until done.' },
         providerId: { type: 'string', description: 'optional explicit OpenAI-compatible provider override. Omit by default so runtime routing can validate the configured sub-agent preference and safely fall back to the current conversation route.' },
         workflowId: { type: 'string', description: 'saved/built-in workflow id to launch instead of sending nodes' },
         context: { type: 'string', description: "this run's actual subject/task, prepended to every node's task — required in practice when workflowId is used, since template node tasks are generic placeholders" },
@@ -1404,12 +1407,12 @@ const MCP_TOOLS = [
   // 代理模式 v2:收件与取全文。两面共享(provider 直跑 / MCP 子进程回环 /api/agent-workflow/wait|result)。
   {
     name: 'wait_agents',
-    description: 'Collect delivery envelopes from background agent runs. Omit runIds to wait for every background run launched in the current chat turn, or pass launch-receipt runIds (including from an earlier turn). Waits at most timeoutMs and returns the current bounded envelope (status may still be running). A terminal envelope returned here will not be re-injected later.',
+    description: 'Collect delivery envelopes from background agent runs. Omit runIds to wait for every background run launched in the current chat turn, or pass launch-receipt runIds (including from an earlier turn). Waits at most timeoutMs (default 120000, max 300000; returns as soon as every run settles). timedOut:true means only the wait window ended: the run is still going, not failed; do other work or wait again. A terminal envelope returned here will not be re-injected later.',
     inputSchema: {
       type: 'object',
       properties: {
         runIds: { type: 'array', items: { type: 'string' }, description: 'Optional runIds from background launch receipts (up to 16).' },
-        timeoutMs: { type: 'number', description: 'Maximum wait in milliseconds, 0..60000 (default 30000).' },
+        timeoutMs: { type: 'number', description: 'Max wait ms, 0..300000 (default 120000).' },
       },
     },
   },

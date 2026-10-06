@@ -262,7 +262,12 @@ function defaultConfig() {
     // 113a: 记忆召回的离线向量层（特征哈希 + TF-IDF + 余弦）与词法层的 RRF 融合。
     // 合成门实测 Recall@3 90% -> 95%（+5pp），未达 25 号预设的 +10pp 自动翻默认条件；
     // 2026-09-04 用户明确拍板默认打开（证据是正收益且无回归，门槛是自动翻牌线、不是否决线）。
-    // 显式 false = 回到纯词法排序，结果集与开关引入前逐字节相同。
+    // 显式 false = 回到纯词法排序（词法层本身随走查 #8 收紧过，不再与开关引入前逐字节相同）。
+    // 走查 记忆 B #7 之后的口径:向量层只当【重排器】—— 候选准入归词法层(含 ≤1 编辑距离的拼写容错),向量独有的候选要余弦 ≥ 0.25
+    // 且 ≥ 0.6×向量第一名才进。修前向量一路无精度下限(余弦噪声 0.12–0.20 与真命中 0.10–0.29 重叠),16 条混合库上 12 句无关问句有 10 句
+    // 被塞进无关条目,默认开的证据(Recall@3 +5pp)只量了召回没量误报。+5pp 里唯一的那一条(拼写漂移 canry→canary)现在由词法层的编辑距离拿下,
+    // 所以 memory-recall-quality 里融合与词法同为 19/20;向量层在这批夹具上不再多拿召回,它的价值是并列时重排与偶发的高分补漏。
+    // 是否继续默认开交给用户裁决(这里只给诚实的数字;关掉也不会丢掉任何召回)。
     runtimeMemoryVectorRecallV1: true,
     // 以下四条是记忆容量的真正治理旋钮（2026-09-04 用户：「记忆数量上限才 24…拓展到尽可能大」）。
     // 原本全是模块常量，现在可配且默认大幅抬高。成本实话：核心胶囊走【易变层】，不进前缀缓存，
@@ -363,6 +368,9 @@ function defaultConfig() {
     // (subagentMaxConcurrent 1..8, subagentMaxPerTurn 0..32) — most real workflows were hitting these.
     subagentMaxConcurrent: 8,
     subagentMaxPerTurn: 32,
+    // 后台代理(orchestrate_agents{background:true})跑完时主回合已经结束 → 工作台自己起一个回合把交付信封送给模型
+    // (10 scheduleAgentWake)。false = 旧行为:信封等用户下一句话时才随回合开头送达。
+    agentAutoWake: true,
     // 52x: 子 agent 优先端点+模型。spawn_agent/orchestrate 的 openai 节点默认用此 provider+model(可跨 provider);
     //   模型仍可经 spawn_agent.model 参数选同端点下别的模型(如 Pro 版),或 omit 继承默认。未配置 -> fallback 主 provider + provider.subagentModel。
     subagentPreferredProvider: '',
@@ -474,7 +482,9 @@ function defaultConfig() {
     agentWorkflowMaxNodes: 48,
     // Long-running model nodes receive one bounded "wrap up now" instruction after this duration. Separate
     // workflow heartbeats keep the parent turn informed while the node works. 0 disables automatic wrap-up.
-    agentNodeWrapUpMs: 480000,
+    // 出厂 30 分钟(修前 8 分钟:到点催收尾、再 2 分钟墙钟一到就杀,单个子代理实际只有 10 分钟)。催收尾之后节点只在
+    // 「宽限期内没有任何进展」或「总时长达到硬上限(= 本值的 2 倍)」时才被中止 —— 见 09 workflowControlTimer 的头注。
+    agentNodeWrapUpMs: 1800000,
     // 团队模式 v2 (A2): 共享任务池审批策略。manual=UI 运行卡逐条批准(默认);auto-capped=自动批准直到 poolAutoCap
     // 用尽后转 manual;off=不注册 propose_task 工具。物化仍受 agentWorkflowMaxNodes(上限 64)复检(见 materializePoolItem)。
     agentTaskPoolPolicy: 'manual',
@@ -879,7 +889,7 @@ function normalizeConfig(raw, opts = {}) {
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
   const aw = Number(config.agentNodeWrapUpMs);
-  config.agentNodeWrapUpMs = Number.isFinite(aw) ? (aw <= 0 ? 0 : Math.min(7200000, Math.max(60000, aw))) : 480000;
+  config.agentNodeWrapUpMs = Number.isFinite(aw) ? (aw <= 0 ? 0 : Math.min(7200000, Math.max(60000, aw))) : 1800000;
   // 第27f波:autonomyPauseOnTimeout 布尔(默认 false=安全默认);autonomyPauseTtlMs clamp [5min, 6h] 默认 45min。
   config.autonomyPauseOnTimeout = config.autonomyPauseOnTimeout === true;
   const apt = Number(config.autonomyPauseTtlMs);
@@ -1307,6 +1317,11 @@ function normalizeConfig(raw, opts = {}) {
   // Sub-agent limits: concurrency is configurable but bounded; total 0 disables the feature.
   // v1.4.4: fallback defaults raised to the top of each range (8 / 32) — see defaultConfig() note.
   {
+    // 后台代理完成自动唤醒:只有显式 false 才关(缺省 / 非布尔一律按开)。
+    const aw = config.agentAutoWake !== false;
+    if (aw !== config.agentAutoWake) { config.agentAutoWake = aw; changed = true; }
+  }
+  {
     const sc = Number(config.subagentMaxConcurrent);
     const clamped = Number.isFinite(sc) ? Math.min(8, Math.max(1, Math.round(sc))) : 8;
     if (clamped !== config.subagentMaxConcurrent) { config.subagentMaxConcurrent = clamped; changed = true; }
@@ -1631,6 +1646,8 @@ function noteSessionsDirOwnWrite(file) {
 //      重试 8 次(15→155ms 退避)——saveAgentRun 实战验证过的参数,推广到所有 JSON 落盘;
 //   ③ 最终失败必 unlink tmp:唯一名没有"下次覆写自愈"路径,不清会无界累积孤儿;
 //   ④ value 传字符串视为已序列化(saveSession 需要同步快照语义:序列化与索引快照同一 tick)。
+//   ⑤ opts.mode(安全走查 S11):新建临时文件时的权限位(POSIX 生效,Windows 忽略)。rename 之后目标就是这个权限,
+//      所以密钥文件(config.json / runtime.json)传 0o600,只有属主可读写;不传保持原样(进程 umask,通常 0644)。
 async function atomicWriteJson(finalPath, value, opts = {}) {
   // typeof 守卫:本函数体会被 autonomy-durability 单独抽取执行(那里没有这个钩子)。
   const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
@@ -1640,7 +1657,7 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-    try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
+    try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
     catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
@@ -1863,10 +1880,15 @@ async function writeConfigAtomic(data) {
     // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
     // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
     try {
-      const current = JSON.parse(await fsp.readFile(paths.config, 'utf8'));
-      if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
+      const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
+      if (current && typeof current === 'object' && !Array.isArray(current)) {
+        await fsp.copyFile(paths.config, `${paths.config}.prev`);
+        // 安全走查 S11:.prev 是 readConfig 的第一恢复源,里面是真 apiKey,不能脱敏;只收紧权限。copyFile 带的是【旧】config.json 的权限位
+        // (升级前落的盘是 0644),所以复制完显式再收一次;Windows 上 chmod 只动只读位,无害。
+        await fsp.chmod(`${paths.config}.prev`, 0o600).catch(() => {});
+      }
     } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
-    return atomicWriteJson(paths.config, data);
+    return atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
   });
   configWriteChain = thisWrite;
   try { await thisWrite; }
@@ -1973,8 +1995,14 @@ async function readConfig() {
     raw = safeJsonParse(text, null);
     if (raw === null && String(text).trim()) {
       // 文件在但不是合法 JSON（截断/被外部写坏）：不覆盖它；能从 .prev 恢复就恢复，否则降级。
+      // (UTF-8 BOM 已由 safeJsonParse 剥掉,记事本另存的合法 JSON 不会走到这里。)
       const prev = await readConfigPrev();
-      if (prev) { raw = prev; recoveredFrom = 'prev'; }
+      if (prev) {
+        raw = prev; recoveredFrom = 'prev';
+        // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
+        await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
+        await fsp.chmod(`${paths.config}.corrupt`, 0o600).catch(() => {});   // S11:坏文件的留底里同样可能有真 key
+      }
       else return degrade('EJSON');
     }
   }
@@ -2074,44 +2102,105 @@ function mutateConfig(mutator) {
 //   applyConfigPatch(rawBody) -> Promise<next>(06k 加载时填入;契约见 06k 里那个函数的头注)
 const ConfigPatchHooks = {};
 
+// 读-改-写用户自己的 JSON 配置(~/.claude/settings.json、$KIMI_CODE_HOME/mcp.json)前的「读」。修前把【任何】读失败 /
+// 解析失败都当成空对象继续合并、再原子写回 —— 用户手写的文件多一个尾逗号、被别的程序占着(EBUSY/EPERM)、被编辑器
+// 存成带 BOM,整份内容就被工作台的那几个键覆盖掉(丢数据)。现在只有三种情形允许往下走:
+//   · 文件不存在(ENOENT/ENOTDIR)—— 真的是「空」,合并后新建;
+//   · 全空白(0 字节 / 只有换行)—— 没有任何用户内容可丢;
+//   · 解析成功且根是普通对象(UTF-8 BOM 先剥掉:Windows 记事本存的 JSON 常带 BOM)。
+// 其余(非法 JSON、根不是对象、EBUSY / EPERM / EACCES 等读错误)一律返回 { ok:false, reason },调用方记一条事件、
+// 本次同步整个跳过(不写),把文件原样留给用户。
+async function readUserJsonObjectForMerge(file) {
+  let raw;
+  try { raw = await fsp.readFile(file, 'utf8'); }
+  catch (error) {
+    const code = error && error.code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { ok: true, value: {}, existed: false };
+    return { ok: false, reason: `read-failed:${code || (error && error.message) || 'unknown'}` };
+  }
+  const text = raw.replace(/^\uFEFF/, '');
+  if (!text.trim()) return { ok: true, value: {}, existed: true };
+  let parsed;
+  try { parsed = JSON.parse(text); }
+  catch (error) { return { ok: false, reason: `invalid-json:${(error && error.message) || 'parse error'}` }; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, reason: 'root-not-object' };
+  return { ok: true, value: parsed, existed: true };
+}
+
 // v1.4.3: Sync workbench settings to ~/.claude/settings.json so the Claude CLI's own config stays
 // aligned with what the user selected in the Ruyi UI. This is a MERGE: existing keys are preserved.
 // Covers: permissionMode, model, thinkingBudget, appendSystemPrompt.
+// 读不动 / 不合法的 settings.json 不碰(整次跳过),见上面的 readUserJsonObjectForMerge。
 async function syncClaudeCliSettings(config) {
   try {
     const claudeDir = path.join(os.homedir(), '.claude');
     const settingsPath = path.join(claudeDir, 'settings.json');
-    let settings = {};
-    try {
-      settings = JSON.parse(await fsp.readFile(settingsPath, 'utf8'));
-      if (!settings || typeof settings !== 'object') settings = {};
-    } catch { /* file doesn't exist or invalid JSON */ }
+    const read = await readUserJsonObjectForMerge(settingsPath);
+    if (!read.ok) {
+      // 用户的 settings.json 读不动 / 不合法:不碰它(写回会把用户内容整份覆盖掉)。CLI 回合另有 --permission-mode 等命令行参数兜底。
+      logEvent({ kind: 'claude_settings_sync_skipped', file: settingsPath, reason: read.reason });
+      return;
+    }
+    const settings = read.value;
 
     // 1. Permission mode —— 只在用户【选过】档位时同步(显式键)。2026-10 出厂档改成智能自动后,修前全新安装一启动就把
     // 用户自己的 ~/.claude/settings.json 写成 defaultMode:auto,单独用 claude 的人被悄悄放宽、没经过任何确认。
     // 出厂值不代表用户的意思,不碰它;存量用户经 to:14 迁移钉成显式 default,照旧同步。
     const explicitMode = Array.isArray(config.configExplicitKeysV1) && config.configExplicitKeysV1.includes('permissionMode');
+    // 安全走查 S9:如意档位是 bypass(全自动)时【不】把 permissions.defaultMode 写成 bypassPermissions。如意自己的 Claude 回合每回合都带
+    // --permission-mode(05),这个全局键只会波及【脱离如意的独立 claude 会话】—— 它们被无声放宽成免问,直到用户手动改回。
+    // 其余档位的同步行为不变(照旧写)。权属 / 撤回:与下面的 model / MAX_THINKING_TOKENS 同一套 sidecar 纪律 —— sidecar 记「上次我们写进去的值」
+    // (defaultMode)与「写之前用户自己的值」(defaultModePrior,null = 当时没有这个键);切到 bypass 时,若 settings 里的值仍等于我们上次写的,
+    // 就撤回成 prior(没有 prior 就删掉这个键);不等于(用户后来自己改过)或 sidecar 没记(老版本写的,分不出是谁写的)一律原样不碰。
+    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
+    let prevSyncedModel = null;
+    let prevSyncedThinking = null;
+    let prevSyncedDefaultMode = null;
+    let prevDefaultModePrior = null;
+    try {
+      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
+      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
+      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
+      if (sc && typeof sc.defaultMode === 'string') { prevSyncedDefaultMode = sc.defaultMode; prevDefaultModePrior = typeof sc.defaultModePrior === 'string' ? sc.defaultModePrior : null; }
+    } catch { /* no sidecar yet */ }
+    const permsNow = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions)) ? settings.permissions : null;
+    const currentDefaultMode = permsNow && typeof permsNow.defaultMode === 'string' ? permsNow.defaultMode : null;
+    const ownsDefaultMode = prevSyncedDefaultMode !== null && currentDefaultMode === prevSyncedDefaultMode;
+    let nextDefaultMode = null;        // 本次同步后 settings.permissions.defaultMode 里【由我们写的】那个值(null = 我们不拥有它)
+    let nextDefaultModePrior = null;
     if (explicitMode) {
       const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-      settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+      if (cliMode === 'bypassPermissions') {
+        if (ownsDefaultMode) {
+          const rest = { ...permsNow };
+          // prior 本身是 bypassPermissions(老版本留下的,或用户原先自己设的)也不在 bypass 档下写回去 —— 写回就等于又放宽了独立 claude 会话。
+          if (prevDefaultModePrior !== null && prevDefaultModePrior !== 'bypassPermissions') rest.defaultMode = prevDefaultModePrior; else delete rest.defaultMode;
+          if (Object.keys(rest).length) settings.permissions = rest; else delete settings.permissions;
+        }
+      } else {
+        nextDefaultModePrior = ownsDefaultMode ? prevDefaultModePrior : currentDefaultMode;
+        nextDefaultMode = cliMode;
+        settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+      }
+    } else if (ownsDefaultMode) {
+      nextDefaultMode = prevSyncedDefaultMode; nextDefaultModePrior = prevDefaultModePrior;   // 用户没选过档位:不碰,只把已有的权属记录带下去
     }
     // 2. Model. 第36波(v1.7): 只删【自己写过的】model —— settings.json 是用户自己的配置,工作台未设模型时
     // 无条件 delete 会把用户手写的 settings.model 一并抹掉(越权接管,与本函数 "MERGE: existing keys are
     // preserved" 的契约直接冲突)。权属用工作台侧 sidecar(dataRoot, 非用户 ~/.claude)追踪:记住上次同步写入的
     // 值,仅当 settings.model 仍等于该值时才删除(证明是我们写的);否则原样保留。sidecar 缺失(老版本首次升级)
     // 时宁可留一次陈旧值也不误删。
-    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
-    let prevSyncedModel = null;
-    try {
-      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
-      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
-    } catch { /* no sidecar yet */ }
     if (config.model && typeof config.model === 'string') settings.model = config.model;
     else if (prevSyncedModel && settings.model === prevSyncedModel) delete settings.model;
-    // 3. Thinking budget -> env.MAX_THINKING_TOKENS
+    // 3. Thinking budget -> env.MAX_THINKING_TOKENS。与上面的 model 同一条权属纪律:工作台没设预算时,只删【自己写过的】
+    // 那个值(仍等于 sidecar 记的上次同步值才删);用户自己在 settings.json 里手写的 MAX_THINKING_TOKENS 原样保留。
+    // 修前无条件 delete,会把用户手写的值一并抹掉。sidecar 缺这个键(老版本升级)时宁可留一次陈旧值也不误删。
     if (config.thinkingBudget) {
-      settings.env = { ...(settings.env || {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
-    } else { if (settings.env) delete settings.env.MAX_THINKING_TOKENS; }
+      settings.env = { ...(settings.env && typeof settings.env === 'object' ? settings.env : {}), MAX_THINKING_TOKENS: String(config.thinkingBudget) };
+    } else if (prevSyncedThinking !== null && settings.env && typeof settings.env === 'object'
+      && String(settings.env.MAX_THINKING_TOKENS) === prevSyncedThinking) {
+      delete settings.env.MAX_THINKING_TOKENS;
+    }
     // 4. Append-system-prompt: intentionally NOT written to settings.json (E2). The official Claude Code
     // settings schema has no top-level `appendSystemPrompt` key, so writing it was a dead config at best and
     // a double-injection risk at worst (it is already, reliably, passed as the --append-system-prompt spawn
@@ -2124,21 +2213,37 @@ async function syncClaudeCliSettings(config) {
     // 第36波: 记录本次同步的 model 权属(见上方 "2. Model");null 表示本工作台当前无 model 可声明。
     await atomicWriteJson(sidecarPath, JSON.stringify({
       model: (config.model && typeof config.model === 'string') ? config.model : null,
+      maxThinkingTokens: config.thinkingBudget ? String(config.thinkingBudget) : null,   // 同上,见 "3. Thinking budget"
+      defaultMode: nextDefaultMode,                                                       // 安全走查 S9:见 "1. Permission mode"
+      defaultModePrior: nextDefaultMode !== null ? nextDefaultModePrior : null,
     })).catch(() => {});
   } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
 }
 
 // v1.4.3: Write workbench-managed agent roles to ~/.claude/agents/*.md so they are available
 // when running `claude` directly (not just via the workbench's --agents flag).
+//
+// 所有权:~/.claude/agents 是用户自己的目录(reviewer.md / planner.md 这类同名子代理文件很常见)。修前启动时无条件整文件覆盖、
+// 无备份。现在只覆盖【自己写的】文件 —— 写出的文件在 frontmatter 之后第一行带标记注释(HTML 注释:不进 frontmatter,
+// 不影响 Claude Code 对 frontmatter 的解析;只多一行进子代理提示词),目标已存在时:
+//   · 带标记 → 自家文件,照常更新(内容相同就不写);
+//   · 无标记但内容与「老版本(无标记)会为当前角色生成的内容」逐字相同 → 老版本写的、用户没动过,认作自家,升级成带标记的;
+//   · 其余(用户自己的同名文件 / 老版本写的但用户或后来的角色配置改过 / 读不动)→ 保守跳过,记一条审计事件。
+//     想接管某个角色:删掉标记行即可,之后不再被覆盖。
+const RUYI_AGENT_FILE_MARKER = '<!-- ruyi-managed: 由如意工作台同步生成,会被后续同步覆盖;删掉本行即改由你自己维护 -->';
+const RUYI_AGENT_FILE_MARKER_RE = /^---\n[\s\S]*?\n---\n\s*<!-- ruyi-managed\b/;
 async function syncAgentRolesToClaude(cwd, config) {
   try {
     const claudeDir = path.join(os.homedir(), '.claude');
     const agentsDir = path.join(claudeDir, 'agents');
     await fsp.mkdir(agentsDir, { recursive: true }).catch(() => {});
     const roles = await getAgentRoleLibrary(cwd, config);
+    const skipped = [];
     for (const role of roles) {
       if (role.nativeClaude) continue;
-      const cliMode = claudePermissionMode(role.permissionMode);
+      // 安全走查 S3:项目来源的角色(仓库作者写的)不把自己声明的权限档写进用户全局 ~/.claude/agents —— 那是跨项目、用户自己的目录,
+      // 一句 permissionMode:bypassPermissions 写进去就让所有独立的 claude 会话里同名子代理都免问。该角色的档位留给起跑时按线程档夹。
+      const cliMode = agentRoleIsUntrusted(role) ? undefined : claudePermissionMode(role.permissionMode);
       var fm = ['---'];
       fm.push('description: ' + JSON.stringify(role.description || role.label));
       if (cliMode) fm.push('permissionMode: ' + cliMode);
@@ -2146,10 +2251,22 @@ async function syncAgentRolesToClaude(cwd, config) {
       if (role.claudeTools && role.claudeTools.length) fm.push('tools: ' + JSON.stringify(role.claudeTools));
       fm.push('---');
       var body = role.prompt || role.description || role.label;
-      var md = fm.join('\n') + '\n\n' + body + '\n';
+      const legacyMd = fm.join('\n') + '\n\n' + body + '\n';   // 老版本(无标记)的写法
+      var md = fm.join('\n') + '\n\n' + RUYI_AGENT_FILE_MARKER + '\n\n' + body + '\n';
       var file = path.join(agentsDir, role.id + '.md');
+      let existing = null;
+      try { existing = await fsp.readFile(file, 'utf8'); }
+      catch (error) {
+        if (!(error && (error.code === 'ENOENT' || error.code === 'ENOTDIR'))) { skipped.push({ id: role.id, reason: `read-failed:${(error && error.code) || 'unknown'}` }); continue; }
+      }
+      if (existing !== null) {
+        const text = existing.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+        if (!RUYI_AGENT_FILE_MARKER_RE.test(text) && text !== legacyMd) { skipped.push({ id: role.id, reason: 'user-file' }); continue; }
+        if (text === md) continue;   // 已是最新,不重写
+      }
       await atomicWriteJson(file, md);   // 25.1 收编(md 字符串直接透传)
     }
+    if (skipped.length) logEvent({ kind: 'claude_agent_sync_skipped', dir: agentsDir, skipped });
   } catch { /* non-fatal */ }
 }
 
@@ -2227,9 +2344,15 @@ async function syncMcpServersToKimiNow(config, kimiDir) {
     await ensureDirs();
     const target = path.join(kimiDir, 'mcp.json');
     const sidecar = path.join(paths.data, 'kimi-mcp-sync.json');
-    let current = {};
-    try { current = safeJsonParse(await fsp.readFile(target, 'utf8'), {}) || {}; } catch { current = {}; }
-    if (!current.mcpServers || typeof current.mcpServers !== 'object') current.mcpServers = {};
+    // 用户自己的 mcp.json:读不动 / 不是合法 JSON 对象就整次同步跳过(不写 mcp.json,也不写所有权旁账 —— 旁账记的是
+    // 「写进去了什么」,没写就不能记)。修前当成空对象继续合并再写回,会把用户的其它条目整份覆盖掉。见 readUserJsonObjectForMerge。
+    const read = await readUserJsonObjectForMerge(target);
+    if (!read.ok) {
+      logEvent({ kind: 'kimi_mcp_sync_skipped', file: target, reason: read.reason });
+      return;
+    }
+    const current = read.value;
+    if (!current.mcpServers || typeof current.mcpServers !== 'object' || Array.isArray(current.mcpServers)) current.mcpServers = {};
     let ownership = { managedIds: [], previous: {} };
     try { ownership = { ...ownership, ...(safeJsonParse(await fsp.readFile(sidecar, 'utf8'), {}) || {}) }; } catch { /* first sync */ }
     if (!Array.isArray(ownership.managedIds)) ownership.managedIds = [];
@@ -2622,13 +2745,24 @@ function probeAgentCliLauncher(command) {
     return !ok.error && ok.status === 0;
   } catch { return false; }
 }
-async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面逐字相同
-  if (!command) return false;
+// 探测结果三态('ok' | 'missing' | 'slow')。spawnProbeAsync 带 timeout 选项:到点 Node 杀掉子进程,close 事件给
+// status=null 且【没有 error】—— 与「启动器根本起不来」(spawn 的 'error':ENOENT/EACCES…)、「--version 退出码非 0」
+// (装坏了/不是 CLI)都区分得开。慢(CLI 冷启动、杀软扫描、网络盘)不等于不存在,回合入口不能因此报「未检测到 CLI」。
+function agentCliProbeVerdict(result) {
+  if (result && result.error) return result.error.code === 'ETIMEDOUT' ? 'slow' : 'missing';
+  if (result && result.status === 0) return 'ok';
+  if (result && result.status === null) return 'slow';
+  return 'missing';
+}
+async function probeAgentCliLauncherVerdictAsync(command) {
+  if (!command) return 'missing';
   try {
     const s = agentCliProbeSpawn(command);
-    const ok = await spawnProbeAsync(s.command, s.args, s.opts);
-    return !ok.error && ok.status === 0;
-  } catch { return false; }
+    return agentCliProbeVerdict(await spawnProbeAsync(s.command, s.args, s.opts));
+  } catch { return 'missing'; }
+}
+async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面同步版逐字相同(只有 'ok' 为真)
+  return (await probeAgentCliLauncherVerdictAsync(command)) === 'ok';
 }
 function agentCliInstallCandidates(type) {
   if (!isAgentCliType(type)) return [];
@@ -2719,7 +2853,26 @@ async function agentCliLauncherOk(command) {
   }
   return probeAgentCliLauncherRemembered(command);
 }
-function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); _agentCliLauncherOk.clear(); }
+// 回合入口(05 runClaudeTurn / 05b ensureKimiServer)问「选中的 CLI 启动器能不能用」。修前直接 spawnSync「<cli> --version」
+// (最长 4 s):每个回合都把整个事件循环钉住一次,超时还被当成「未检测到 CLI」把用户的输入挡在门外。现在:
+//   · 异步探(不钉事件循环);
+//   · 只有判定「缺失」(起不来 / 退出码非 0)才拒绝回合,超时算「在,只是慢」放行 —— 真起不来,后面的 spawn 自己会报;
+//   · 「在」(含慢)的结果按 60 s 记忆(与路径探测同一个记忆期与作废口);【缺失不记】,用户刚装好 CLI 要立刻就能用。
+const _agentCliLauncherPresent = new Map();   // command -> 记下「在」的时刻
+async function agentCliLauncherUsable(command) {
+  if (!command) return false;
+  const at = _agentCliLauncherPresent.get(command);
+  if (at !== undefined && Date.now() - at < CLAUDEPATH_CACHE_MS) return true;
+  const generation = _cliProbeGeneration;
+  const verdict = await probeAgentCliLauncherVerdictAsync(command);
+  if (verdict === 'missing') { _agentCliLauncherPresent.delete(command); return false; }
+  if (generation === _cliProbeGeneration) {
+    if (_agentCliLauncherPresent.size > 32) _agentCliLauncherPresent.clear();
+    _agentCliLauncherPresent.set(command, Date.now());
+  }
+  return true;
+}
+function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCliPathProbe = new Map(); _agentCliLauncherOk.clear(); _agentCliLauncherPresent.clear(); }
 
 // Claude Code normally writes UTF-8, but its Windows launcher can forward a local
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8
@@ -3466,6 +3619,26 @@ async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
   return removed;
 }
 
+// 走查 W1·F10:script_run 把脚本明文落在 <generated>/scripts/,正常路径执行完立刻删(12 script_run 的 finally);进程被强杀 / 杀毒占着删不掉时
+// 会留下孤儿 —— 里面可能有模型嵌进去的密钥。这里按龄兜底:启动时扫一次(13 起服务处调),超过 SCRIPT_FILE_MAX_AGE_MS 没动过的删。
+// 脚本最长跑 30 分钟(timeoutMs 上限 1800000),一天的余量足够不碰在跑的。只删 scripts/ 下的普通文件,失败静默(旁路清理)。
+// screenshot-*.png 不在此列:聊天里的工具图片卡片经 /api/file/preview 按路径回读它们,清掉会让历史对话里的截图变成裂图。
+const SCRIPT_FILE_MAX_AGE_MS = 24 * 3600 * 1000;
+async function sweepStaleScriptFiles(nowMs = Date.now()) {
+  const dir = path.join(paths.generated, 'scripts');
+  let names = [];
+  try { names = await fsp.readdir(dir); } catch { return 0; }
+  let removed = 0;
+  for (const name of names) {
+    const file = path.join(dir, name);
+    try {
+      const st = await fsp.lstat(file);
+      if (st.isFile() && nowMs - st.mtimeMs > SCRIPT_FILE_MAX_AGE_MS) { await fsp.unlink(file); removed += 1; }
+    } catch { /* 并发删除 / 一时被锁:下个进程再扫 */ }
+  }
+  return removed;
+}
+
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
 // opts.desktopOverride:这条线程的会话级 desktopTools(05 Claude 引擎按会话头传;子代理节点不传 = 跟随全局),只影响直挂 ACC
@@ -3593,6 +3766,10 @@ function contentTypeFor(file) {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.ico': 'image/x-icon',
     '.svg': 'image/svg+xml',
   }[ext] || 'application/octet-stream';
 }
@@ -3619,7 +3796,9 @@ async function serveStatic(urlPath, req) {
       // 注入兼容。浏览器导航信号任一命中即判浏览器:Sec-Fetch-Dest / Origin / Mozilla UA。
       const h = (req && req.headers) || {};
       const browserNav = Boolean(h['sec-fetch-dest']) || Boolean(h.origin) || /mozilla/i.test(String(h['user-agent'] || ''));
-      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (RUNTIME.token || ''));
+      // 安全走查 S13:非本机对端(--allow-remote 绑了非回环地址)任何情况下都不下发 token,哪怕它没带浏览器信号。
+      const remotePeer = !requestIsLoopback(req);
+      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (remotePeer ? '' : (RUNTIME.token || '')));
       return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }, body: html };
     }
     const body = await fsp.readFile(full);
@@ -3643,6 +3822,30 @@ function hostAllowed(req) {
   const host = String(req.headers.host || '').toLowerCase();
   const p = RUNTIME.port;
   return host === `127.0.0.1:${p}` || host === `localhost:${p}` || host === `[::1]:${p}`;
+}
+// 安全走查 S13:Host 头是客户端自己写的,挡不住「绑了非回环地址 + 远端把 Host 写成 127.0.0.1:PORT」。
+// 所以再加一层看【TCP 对端地址】(req.socket.remoteAddress,内核给的,改不了):127.0.0.0/8、::1、::ffff:127.x 才算本机。
+// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 resolveBindHost);即使放行,非本机对端也拿不到 token
+// (/api/bootstrap 与页面里的 token 注入都拒),其余接口一律要带头 token。没有 socket 的测试替身按本机算;
+// 有 socket 却读不出对端地址(连接已断)按非本机算,偏安全。
+function isLoopbackAddress(addr) {
+  const a = String(addr == null ? '' : addr).trim().toLowerCase();
+  if (!a) return false;
+  if (a === '::1' || a === '[::1]' || a === 'localhost') return true;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(a);
+  const v4 = mapped ? mapped[1] : a;
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v4);
+  return Boolean(m) && Number(m[1]) === 127 && [m[2], m[3], m[4]].every(n => Number(n) <= 255);
+}
+function requestIsLoopback(req) {
+  if (!req || !req.socket) return true;
+  return isLoopbackAddress(req.socket.remoteAddress);
+}
+// 绑定地址是不是回环:只认字面的 127.0.0.0/8、::1、localhost。0.0.0.0 / :: / 局域网 IP / 任意主机名都算非回环。
+function isLoopbackBindHost(host) {
+  const h = String(host == null ? '' : host).trim().toLowerCase();
+  if (h === 'localhost') return true;
+  return isLoopbackAddress(h.replace(/^\[|\]$/g, ''));
 }
 function originOk(req) {
   // Host allowlist FIRST — this is the DNS-rebinding gate and applies even when no Origin is present.
@@ -3670,10 +3873,17 @@ function tokenOk(req) {
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
   const browser = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
+  // 安全走查 S13:非本机对端(只可能出现在显式 --allow-remote 绑了非回环地址时)——bootstrap 一律拒(不给它 token),
+  // 其余 open / origin / token-browser 级路由也一律要头 token(它们对本机放行的前提是「对端在本机」,对远端不成立)。
+  const remote = !requestIsLoopback(req);
   for (const r of ROUTE_AUTH) {
     if (r.m !== '*' && r.m !== m) continue;
     const match = r.prefix ? pathname.startsWith(r.p) : pathname === r.p;
     if (!match) continue;
+    if (remote && r.auth !== 'body-token') {
+      if (pathname === '/api/bootstrap') return 'remote client not allowed';
+      return tokenOk(req) ? null : 'missing or invalid workbench token';
+    }
     switch (r.auth) {
       case 'open': return null;
       case 'origin': return originOk(req) ? null : 'cross-origin request rejected';

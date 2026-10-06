@@ -57,6 +57,19 @@ def main() -> int:
     if server.VERSION != "1.9.1":
         failures.append(f"VERSION expected 1.9.1, got {server.VERSION}")
 
+    # 1b) the package's own __version__ and pyproject.toml say the same thing (__version__ once lagged at 1.8.3)
+    import re
+    import ai_computer_control
+    if ai_computer_control.__version__ != server.VERSION:
+        failures.append(f"__version__ {ai_computer_control.__version__!r} != server.VERSION {server.VERSION!r}")
+    try:
+        with open(os.path.join(_ROOT, "pyproject.toml"), encoding="utf-8") as fh:
+            pyproject_version = (re.search(r'(?m)^version = "([^"]+)"', fh.read()) or [None, None])[1]
+    except OSError:
+        pyproject_version = None  # standalone copy without pyproject: nothing to compare
+    if pyproject_version is not None and pyproject_version != server.VERSION:
+        failures.append(f"pyproject version {pyproject_version!r} != server.VERSION {server.VERSION!r}")
+
     # 2) exact count (v1.5 was 89; +4 v1.6 Office tools = 93; v1.7 upgrades existing, no new = 93;
     #    v1.8 adds 4 read/image tools = 97; v1.8.1 adds browser tab list/switch = 99;
     #    v1.8.2 adds browser_backend_status = 100; v1.8.3 fixes existing, no new = 100;

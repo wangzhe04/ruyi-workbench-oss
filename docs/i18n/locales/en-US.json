@@ -27,6 +27,27 @@
   "audit.loading": "Loading…",
   "audit.source.desktop": "Desktop",
   "audit.source.workbench": "Workbench",
+  "audit.sourceFilterLabel": "Filter by source",
+  "audit.summaryWithBits": "{{base}} ({{bits}})",
+  "audit.kind.turn_start": "Turn started",
+  "audit.kind.turn_end": "Turn ended",
+  "audit.kind.turn_kill": "Turn aborted",
+  "audit.kind.server_start": "Server started",
+  "audit.kind.mcp_bridge_start_failed": "MCP bridge failed to start",
+  "audit.kind.provider_compact": "Context summary compaction",
+  "audit.kind.auto_compact": "Context auto-compacted",
+  "audit.kind.autonomy_grant_issued": "Grant issued",
+  "audit.kind.autonomy_grant_consume": "Grant used",
+  "audit.kind.autonomy_grant_revoked": "Grant revoked",
+  "audit.kind.autonomy_grant_expired": "Grant expired",
+  "audit.bit.provider": "provider",
+  "audit.bit.ok": "succeeded",
+  "audit.bit.notOk": "not successful",
+  "audit.bit.aborted": "aborted",
+  "audit.bit.remaining.one": "{{count}} use left",
+  "audit.bit.remaining.other": "{{count}} uses left",
+  "audit.bit.grants.one": "{{count}} grant",
+  "audit.bit.grants.other": "{{count}} grants",
   "audit.title": "Audit timeline",
   "brand.name": "Ruyi Workbench",
   "capability.available": "Available",
@@ -85,6 +106,7 @@
   "changes.op.create": "Created",
   "changes.op.delete": "Deleted",
   "changes.op.modify": "Modified",
+  "changes.op.unknown": "Changed",
   "changes.openCurrentFile": "Open current file in a local app",
   "changes.openExternalDiff": "Native diff",
   "changes.openFileView": "Open file to view",
@@ -100,14 +122,16 @@
   "changes.revert.partialDone": "Partly reverted",
   "changes.revert.failed": "Could not revert: {{reason}}",
   "changes.revert.reason.tooLarge": "the file was too large to keep a copy of its earlier content",
-  "changes.revert.partial": "Reverted {{reverted}} file(s); {{failed}} could not be reverted: {{reason}}",
+  "changes.revert.partial.one": "Reverted {{reverted}} file; {{failed}} could not be reverted: {{reason}}",
+  "changes.revert.partial.other": "Reverted {{reverted}} files; {{failed}} could not be reverted: {{reason}}",
   "changes.revertTitle": "Revert to previous state",
   "changes.revertTurn": "Revert entire turn",
   "changes.revertTurn.confirm": "Revert this turn? Files changed in this turn go back to how they were, files it created are deleted, and files it deleted come back. This can't be redone.",
   "changes.revertTurn.confirmTitle": "Revert everything in this turn",
   "changes.reverted": "Reverted: {{label}}",
   "changes.reverting": "Reverting…",
-  "changes.roundCount": "{{n}} items",
+  "changes.roundCount.one": "{{count}} item",
+  "changes.roundCount.other": "{{count}} items",
   "changes.roundTitle": "Turn {{n}}",
   "changes.sizeCreate": "New",
   "changes.sizeCreateSized": "New {{size}}",
@@ -122,6 +146,7 @@
   "changes.tool.chart_image": "Chart",
   "changes.tool.copy_file": "Copy",
   "changes.tool.delete_file": "Delete",
+  "changes.tool.edit_file": "Edit",
   "changes.tool.excel_beautify": "Beautify Excel",
   "changes.tool.excel_chart": "Excel chart",
   "changes.tool.file_copy": "Copy",
@@ -129,11 +154,14 @@
   "changes.tool.file_edit": "Edit",
   "changes.tool.file_move": "Move",
   "changes.tool.file_write": "Write",
+  "changes.tool.get_clipboard_image": "Read clipboard image",
   "changes.tool.http_download": "Download",
   "changes.tool.image_resize": "Resize image",
   "changes.tool.move_file": "Move",
   "changes.tool.turn_baseline": "Turn baseline",
+  "changes.tool.window_screenshot": "Window screenshot",
   "changes.tool.write_document": "Generate Word",
+  "changes.tool.write_docx": "Generate Word",
   "changes.tool.write_excel": "Generate Excel",
   "changes.tool.write_file": "Write",
   "changes.tool.write_pdf": "Export PDF",
@@ -141,10 +169,13 @@
   "changes.turnLabel": "entire turn",
   "changes.viewDiff": "View changes",
   "chat.attachRemoveAria": "Remove attachment",
+  "chat.attachCancelAria": "Cancel upload of {{name}}",
+  "chat.attachmentUploading": "Uploading…",
   "chat.codeCopied": "Code copied",
   "chat.copyCode": "Copy",
   "chat.diffExpand": "Expand all ({{total}} lines)",
   "chat.editResend": "Edit & resend",
+  "chat.editResendKeepDraft": "The composer already has an unsent draft — send or clear it first, then edit & resend",
   "chat.expandAll": "Expand all",
   "chat.loadEarlier": "Load {{count}} earlier messages ({{remaining}} remaining)",
   "chat.placeholder": "Say what you want done",
@@ -159,9 +190,11 @@
   "chat.resume.prompt": "Please continue the previous unfinished task.",
   "chat.resume.title": "Your previous task is unfinished",
   "chat.retry": "Retry",
+  "chat.retryWaitTurn": "A turn is still running in this thread — wait for it to finish (or stop it) before retrying",
   "chat.rewind": "Rewind",
   "chat.rewindBtn": "⏪ Rewind to here",
-  "chat.rewindConfirm": "Go back before this message? The {{turns}} turns after will be deleted.",
+  "chat.rewindConfirm.one": "Go back before this message? The {{turns}} turn after will be deleted.",
+  "chat.rewindConfirm.other": "Go back before this message? The {{turns}} turns after will be deleted.",
   "chat.rewindFileCheck": " Also revert file changes from these turns ({{fileCount}} files)",
   "chat.rewindModalTitle": "Rewind conversation",
   "chat.rewindToast": "Rewound, deleted {{removed}} messages",
@@ -171,6 +204,9 @@
   "chat.saveMemoryBtn": "Save as memory",
   "chat.send": "Send",
   "chat.steer": "Steer",
+  "chat.agentWake.one": "{{n}} background agent run finished — the Workbench woke this conversation so the model can pick up the result",
+  "chat.agentWake.other": "{{n}} background agent runs finished — the Workbench woke this conversation so the model can pick up the results",
+  "chat.turnBusyElsewhere": "This thread is busy with a turn started elsewhere (usually a background agent result being handled), so your message was not sent and is back in the box. Send it again when the thread is idle, or now as a steer.",
   "chat.steerCancel": "Cancel",
   "chat.steerCancelAria": "Cancel this steer",
   "chat.steerClearAll": "Clear all",
@@ -182,6 +218,10 @@
   "chat.background.failed": "Background task failed; details delivered to its conversation",
   "chat.background.timed_out": "Background task timed out; details delivered to its conversation",
   "chat.background.cancelled": "Background task cancelled",
+  "chat.background.partial": "Background task partly completed; details delivered to its conversation",
+  "chat.background.stopped": "Background task stopped",
+  "chat.background.interrupted": "Background task was interrupted; details delivered to its conversation",
+  "chat.background.finished": "Background task finished; details delivered to its conversation",
   "chat.steerDelivery.queue": "Add instructions (keep current work)",
   "chat.steerDelivery.interrupt": "Apply now (interrupt current tool)",
   "chat.steerInjectedBadge": "✓ Injected",
@@ -199,7 +239,8 @@
   "chat.toolImage.openInSidebar": "Preview in sidebar",
   "chat.toolWaiting": "(Awaiting result)",
   "chat.turnStoppedNote": "Stopped",
-  "chat.usageTurns": "{{n}} turns",
+  "chat.usageTurns.one": "{{count}} turn",
+  "chat.usageTurns.other": "{{count}} turns",
   "chat.waitCurrentTurn": "Wait for the current turn to finish first",
   "common.add": "Add",
   "common.apply": "Apply",
@@ -299,8 +340,10 @@
   "error.networkDown.next": "Try again when online, or use a task that can be completed offline",
   "error.permissionDenied": "Permission was denied for this operation",
   "error.permissionDenied.next": "Allow it in the prompt, or adjust the mode in Safety and permissions",
+  "error.providerError": "The model provider returned an error",
+  "error.providerError.next": "Usually a temporary server fault or a rejected request: retry shortly. If it keeps happening, check the error details, or open Settings → Models & Services → Model providers and check the model name and URL",
   "error.providerMisconfigured": "The model endpoint is not configured or unavailable",
-  "error.providerMisconfigured.next": "Open Settings → Model providers and check the URL and API key",
+  "error.providerMisconfigured.next": "Open Settings → Models & Services → Model providers and check the URL and API key",
   "error.toolFailed": "Tool execution failed",
   "error.toolLoop": "Repeated tool calls were detected, so this turn was stopped",
   "file.open": "Open",
@@ -316,6 +359,9 @@
   "file.reveal": "Show in File Explorer",
   "file.tree.empty": "(Empty folder)",
   "file.tree.loading": "Loading…",
+  "file.tree.notFound": "the folder was moved or deleted",
+  "file.tree.notAllowed": "access to this location is not allowed",
+  "file.tree.truncated": "(Showing the first {{count}} items; more are not shown)",
   "file.tree.mention.title": "@ mention: insert the relative path into the message box",
   "file.tree.readFailed": "Could not read folder: {{reason}}",
   "file.tree.rootUnset": "(No workspace folder selected)",
@@ -384,6 +430,7 @@
   "help.anchor.localModels": "8. Local models (Ollama / LM Studio)",
   "help.anchor.power": "6. Skills, memories, usage, and workflows",
   "help.anchor.settings": "5. Settings",
+  "help.answerQuestion": "Submit the answer on a question card",
   "help.commandPalette": "Command palette",
   "help.doc.langLabel": "Manual language",
   "help.doc.lang.en-US": "English",
@@ -420,6 +467,7 @@
   "help.open.unknownTarget": "That location cannot be opened.",
   "help.sendMessage": "Send message",
   "help.stopOrClose": "Stop the current turn / close dialog",
+  "help.switchLens": "Switch view (Steward / Workbench)",
   "help.tabHelp": "How does this page work?",
   "help.thisHelp": "This help",
   "help.title": "Keyboard shortcuts",
@@ -427,9 +475,10 @@
   "mcp.missing.title": "Missing MCP manifest",
   "memory.check.disabled": "Memory=disabled for this thread",
   "memory.check.done": "Memory=checked {{candidates}} candidates, matched {{matches}} (project {{project}} / global {{global}})",
+  "memory.check.fill": "; default rules added: {{fill}}",
   "memory.check.unavailable": "Memory=preflight unavailable (safely degraded for this turn)",
   "memory.createNew": "＋ Write a new memory",
-  "memory.defaultPolicyHint": "Core summaries load every turn; other project and global memories participate in lightweight relevance retrieval, adding at most 3 matches per turn.",
+  "memory.defaultPolicyHint": "Core summaries load every turn; other project and global memories participate in lightweight relevance retrieval, adding at most {{count}} matches per turn.",
   "memory.deleteConfirm": "Delete memory \"{{name}}\"? This cannot be undone.",
   "memory.disableForSession": "Disable for this thread",
   "memory.draftFromSession": "✎ Draft from current thread",
@@ -569,7 +618,7 @@
   "modelMenu.modelCount.other": "{{count}} models",
   "modelMenu.modelDeleted": "Removed custom model {{model}}",
   "modelMenu.modelRemoved": "Removed {{model}} from the model list",
-  "modelMenu.noModelsHint": "(Test the connection in Settings → Providers first)",
+  "modelMenu.noModelsHint": "(Test the connection in Settings → Models & Services → Model providers first)",
   "modelMenu.refreshFailed": "Could not refresh model list: {{error}}",
   "modelMenu.refreshModels": "Refresh model list",
   "modelMenu.refreshSuccessBuiltin": "Model list refreshed (built-in list; provider returned none)",
@@ -653,11 +702,11 @@
   "onboarding.wizard.provider.localDown.readManual": "Read this manual section",
   "onboarding.wizard.provider.localNeedModel": "Press Test connection first so Ruyi can list the models on this computer, then pick one and save.",
   "onboarding.wizard.provider.baseUrl": "Base URL",
-  "onboarding.wizard.provider.hint": "One key is all you need. The preset brings its own base URL and default model.",
+  "onboarding.wizard.provider.hint": "Enter the key first. Confirm the base URL and model name under Advanced: a preset fills them in, but Custom needs both typed by hand.",
   "onboarding.wizard.provider.keyPrivacy": "The key is sent to the local service only, and the interface never shows it again.",
   "onboarding.wizard.provider.localHint": "A local service usually needs no key, so leave it empty. Confirm that the address below is your local service.",
   "onboarding.wizard.provider.model": "Model",
-  "onboarding.wizard.provider.modelPlaceholder": "Leave empty to use the preset default",
+  "onboarding.wizard.provider.modelPlaceholder": "Model name (a preset fills this in for you)",
   "onboarding.wizard.provider.noBaseUrl": "You need to fill in the address",
   "onboarding.wizard.provider.noPresets": "The preset list is unavailable. Fill in the address and model under Advanced.",
   "onboarding.wizard.provider.saveAndNext": "Save and continue",
@@ -674,16 +723,16 @@
   "onboarding.wizard.reopen": "Reopen the setup guide",
   "onboarding.wizard.reopenHint": "Forgot how to configure something? You can walk through the guide again at any time.",
   "onboarding.wizard.safety.acceptEdits.description": "File edits happen directly; running commands still asks first. File changes can be rolled back.",
-  "onboarding.wizard.safety.acceptEdits.title": "Do not ask for file edits",
+  "onboarding.wizard.safety.acceptEdits.title": "Edit files without asking",
   "onboarding.wizard.safety.auto.description": "Low-risk work runs and reports back; deleting data, installing software, pushing and sending anything outside still stop and ask you.",
   "onboarding.wizard.safety.auto.title": "Smart auto (new-install default)",
   "onboarding.wizard.safety.autoConfirm.title": "Use \"Smart auto\"?",
-  "onboarding.wizard.safety.autoConfirm.body": "With it, AI edits files and runs commands on its own while you are away, without asking step by step. You can switch back any time under Settings → Permissions & safety.",
+  "onboarding.wizard.safety.autoConfirm.body": "With it, AI edits files and runs commands on its own while you are away, without asking step by step. You can switch back any time under Settings → General → Permissions & safety.",
   "onboarding.wizard.safety.autoConfirm.ok": "Yes, use Smart auto",
   "onboarding.wizard.safety.autoConfirm.cancel": "Not now",
   "onboarding.wizard.safety.default.description": "Asks before every change. Safest, and the most clicking.",
-  "onboarding.wizard.safety.default.title": "Ask me every time",
-  "onboarding.wizard.safety.hint": "This decides whether the AI asks before it acts. New installs start in Smart auto; pick Ask me every time if you want it to ask before each step. You can change it later.",
+  "onboarding.wizard.safety.default.title": "Ask me every step",
+  "onboarding.wizard.safety.hint": "This decides whether the AI asks before it acts. New installs start in Smart auto; pick Ask me every step if you want it to ask before each step. You can change it later.",
   "onboarding.wizard.safety.plan.description": "Writes a plan without touching anything. Good for seeing what it intends to do.",
   "onboarding.wizard.safety.plan.title": "Plan only",
   "onboarding.wizard.safety.saved": "Switched to: {{name}}",
@@ -691,8 +740,8 @@
   "onboarding.wizard.saveFailed": "Could not save: {{reason}}",
   "onboarding.wizard.settingsLabel": "Setup guide",
   "onboarding.wizard.skip": "Exit setup",
-  "onboarding.wizard.skipTitle": "Finish setup another time; you can reopen it any time from Settings › Other",
-  "onboarding.wizard.skipped": "Guide skipped. Reopen it any time from Settings and then Basics.",
+  "onboarding.wizard.skipTitle": "Finish setup another time; you can reopen it any time from Settings → General → General or the Help menu",
+  "onboarding.wizard.skipped": "Guide skipped. Reopen it any time from Settings → General → General or the Help menu.",
   "onboarding.wizard.start": "Start the guide",
   "onboarding.wizard.startHint": "Six steps, a few minutes, and you are ready to work. You can leave at any point.",
   "onboarding.wizard.step.done": "Done",
@@ -782,7 +831,7 @@
   "permission.mode": "Permission mode",
   "permission.mode.acceptEdits.description": "File edits run automatically; sensitive actions such as commands still require approval.",
   "permission.mode.acceptEdits.option": "Accept edits",
-  "permission.mode.acceptEdits.short": "Auto-apply minor edits",
+  "permission.mode.acceptEdits.short": "Edit files without asking",
   "permission.mode.auto.activated": "Switched to Smart auto mode",
   "permission.mode.auto.confirm": "Switch to “Smart auto” mode? AI will assess risk and run low-risk actions automatically. Continue?",
   "permission.mode.auto.description": "AI assesses risk; low-risk actions run automatically while high-risk actions still ask.",
@@ -796,12 +845,12 @@
   "permission.mode.chipTitle": "Security / permissions: {{mode}} (click to configure)",
   "permission.mode.default.description": "Ask for your approval before every action; safest option.",
   "permission.mode.default.option": "Ask every time",
-  "permission.mode.default.short": "Ask every time",
-  "permission.mode.footer": "File changes have checkpoints; review and revert them in Audit.",
+  "permission.mode.default.short": "Ask me every step",
+  "permission.mode.footer": "File changes have checkpoints; review and revert them in Activity.",
   "permission.mode.initialChipTitle": "Security / permissions (click to configure)",
   "permission.mode.plan.description": "AI presents a complete plan for approval before it runs.",
   "permission.mode.plan.option": "Plan mode",
-  "permission.mode.plan.short": "Plan before acting",
+  "permission.mode.plan.short": "Plan only",
   "permission.mode.title": "Security / permission mode",
   "permission.network": "Network",
   "permission.notRevertible": "⚠ This action cannot be reverted automatically. Review before continuing.",
@@ -850,6 +899,7 @@
   "plan.result.approved": "✓ Plan approved",
   "plan.result.approvedWithNote": "✓ Plan approved with feedback",
   "plan.result.expandHint": " (select to expand the original plan)",
+  "plan.result.expired": "Plan expired (the turn has ended)",
   "plan.result.rejected": "✕ Plan was declined",
   "plan.kimiSnapshot.heading": "Kimi plan snapshot (read-only)",
   "plan.kimiSnapshot.path": "Source: {{path}}",
@@ -927,14 +977,17 @@
   "provider.toggleApiKeyVisibility": "Show/hide API key",
   "provider.vision": "Vision support (can analyze images/screenshots)",
   "session.bulkCleanup": "Clean up history",
-  "session.bulkCleanup.action": "Clean up {{count}} threads",
-  "session.bulkCleanup.description": "This will delete {{count}} unpinned historical threads.",
+  "session.bulkCleanup.action.one": "Clean up {{count}} thread",
+  "session.bulkCleanup.action.other": "Clean up {{count}} threads",
+  "session.bulkCleanup.description.one": "This will delete {{count}} unpinned historical thread.",
+  "session.bulkCleanup.description.other": "This will delete {{count}} unpinned historical threads.",
   "session.bulkCleanup.empty": "There are no historical threads to clean up",
   "session.bulkCleanup.failed": "Could not clean up history: {{reason}}",
   "session.bulkCleanup.note": "Your current thread, pinned threads, and running threads will be kept. This cannot be undone.",
   "session.bulkCleanup.purgeAssociated": "Also delete associated rollback checkpoints and Agent workflow records",
   "session.bulkCleanup.purgeHint": "Workspace files are never deleted. Clear this option to delete only the primary thread records.",
-  "session.bulkCleanup.success": "Cleaned up {{count}} historical threads",
+  "session.bulkCleanup.success.one": "Cleaned up {{count}} historical thread",
+  "session.bulkCleanup.success.other": "Cleaned up {{count}} historical threads",
   "session.bulkCleanup.title": "Bulk history cleanup",
   "session.delete": "Delete",
   "session.delete.confirm": "Delete this thread?",
@@ -967,6 +1020,8 @@
   "settings.advanced.subagentConcurrency.hint": "How many subagents can run simultaneously in a stage. Range: 1–8; default and upper limit: 8.",
   "settings.advanced.subagentPerTurn": "Subagents per turn",
   "settings.advanced.subagentPerTurn.hint": "Maximum agent nodes one turn may start through orchestrate_agents. Set 0 to disable agents.",
+  "settings.advanced.agentAutoWake": "Wake the conversation when background agents finish",
+  "settings.advanced.agentAutoWake.hint": "When the model hands work to background agents and ends its turn, the Workbench starts a new turn once they finish so the model can continue with the results. Off: results are delivered with your next message.",
   "settings.advanced.subagentPreferredModel": "Subagent preferred model",
   "settings.advanced.subagentPreferredModel.automatic": "Automatic (role / tier / main model)",
   "settings.advanced.subagentPreferredModel.hint": "Default model id for subagents; empty = fall back to role / tier / main model.",
@@ -986,7 +1041,7 @@
   "settings.advanced.workflowMaxNodes": "Maximum Agent workflow nodes",
   "settings.advanced.workflowMaxNodes.hint": "Maximum nodes in one persistent DAG workflow run (graph editor/templates). Range: 1–64; default: 48. This is separate from the per-turn subagent budget.",
   "settings.advanced.agentNodeWrapUp": "Auto wrap-up per node (minutes)",
-  "settings.advanced.agentNodeWrapUp.hint": "After one model node runs this long, the orchestrator asks it to stop expanding and summarize now. If it still does not finish during the grace period, only that node is stopped. Set to 0 to disable.",
+  "settings.advanced.agentNodeWrapUp.hint": "After one model node runs this long (default 30 minutes), the orchestrator asks it to stop expanding and summarize now; this step never stops it. Afterwards only two things stop that node (siblings are unaffected): no progress at all during the grace period, or a total runtime reaching the hard cap (about twice this value, default 60 minutes). A node that is still producing output is not stopped. Set to 0 to disable.",
   "settings.agentRoles.add": "+ Custom role",
   "settings.agentRoles.hint": "The same roles work with OpenAI-compatible APIs and Claude CLI. Claude uses native --agents, and project .claude/agents are discovered automatically.",
   "settings.agentRoles.save": "Save roles",
@@ -1008,7 +1063,7 @@
   "settings.asr.addProtocol": "Interface type",
   "settings.asr.addPlaceholder": "e.g. qwen3-asr-flash, whisper-1",
   "settings.asr.addButton": "Add and enable",
-  "settings.asr.addNeedFields": "Choose a provider, then pick a model from the list (if the speech model is missing, add it to that provider's model list first)",
+  "settings.asr.addNeedFields": "Choose a provider, then enter a model name (pick one from the suggestions, or type one that is not listed)",
   "settings.asr.addRealtime": "Models with \"realtime\" in the name are live-streaming models and do not work for voice input. Enter a non-realtime model, for example qwen3-asr-flash.",
   "settings.asr.added": "Speech recognition enabled: {{model}}",
   "settings.asr.noProvider": "Add a provider above first, then come back here to add a speech recognition model.",
@@ -1060,9 +1115,12 @@
   "settings.asrLexicon.help": "Words you say often that keep getting misrecognized (names, project names, jargon). One per line; optionally list how it tends to be misheard, e.g. \"Ruyi = 如艺, 如一\".",
   "settings.asrLexicon.placeholder": "Kubernetes = 酷伯奈提斯\nRuyi = 如艺, 如一\nZhang Wei",
   "settings.asrLexicon.save": "Save vocabulary",
-  "settings.asrLexicon.count": "{{count}} term(s)",
-  "settings.asrLexicon.saved": "Vocabulary saved ({{count}} term(s))",
-  "settings.asrLexicon.savedSkipped": "Vocabulary saved ({{count}} term(s)); skipped {{skipped}} unreadable line(s)",
+  "settings.asrLexicon.count.one": "{{count}} term",
+  "settings.asrLexicon.count.other": "{{count}} terms",
+  "settings.asrLexicon.saved.one": "Vocabulary saved ({{count}} term)",
+  "settings.asrLexicon.saved.other": "Vocabulary saved ({{count}} terms)",
+  "settings.asrLexicon.savedSkipped.one": "Vocabulary saved ({{count}} term); unreadable lines skipped: {{skipped}}",
+  "settings.asrLexicon.savedSkipped.other": "Vocabulary saved ({{count}} terms); unreadable lines skipped: {{skipped}}",
   "settings.asrLexicon.base": "Also use the built-in list ({{count}} common tech, office, AI and game-engine terms; hinted only when a sentence looks like a mishearing of one)",
   "settings.asrLexicon.baseOn": "Built-in list enabled",
   "settings.asrLexicon.baseOff": "Built-in list disabled",
@@ -1076,7 +1134,8 @@
   "settings.asrLexicon.learn": "Learn from my edits: words you fix by hand after dictating (names, project names, jargon) are added to this vocabulary automatically, and English proper nouns you type are collected too. You get a short notice whenever a new word is learned. Delete a learned word and it won't be learned again",
   "settings.asrLexicon.learnOn": "Learning from your edits is on",
   "settings.asrLexicon.learnOff": "Learning from your edits is off (learned words are kept)",
-  "settings.asrLexicon.countLearned": "{{count}} term(s) ({{learned}} learned from edits, {{typed}} from typing; {{pending}} still gathering evidence)",
+  "settings.asrLexicon.countLearned.one": "{{count}} term ({{learned}} learned from edits, {{typed}} from typing; {{pending}} still gathering evidence)",
+  "settings.asrLexicon.countLearned.other": "{{count}} terms ({{learned}} learned from edits, {{typed}} from typing; {{pending}} still gathering evidence)",
   "settings.toolbox.kind.asrStream": "Local live speech recognition",
   "settings.apiKey": "API key",
   "settings.apiKeyPlaceholder": "Leave blank to keep the saved key unchanged",
@@ -1199,7 +1258,7 @@
   "settings.limits.parallelTitle": "Concurrency",
   "settings.limits.workflowTitle": "Workflows & timeouts",
   "settings.limits.turnIdle": "Treat a turn as stuck after this many idle minutes",
-  "settings.limits.turnIdleHint": "If a turn produces no events for this long, it is treated as stuck and ended. 1–60 minutes (default 10).",
+  "settings.limits.turnIdleHint": "If a turn produces no events for this long (streamed output, tool heartbeats and sub-agent progress all count), it is treated as stuck and ended; sub-agent nodes and workflows use the same idle limit. 1–60 minutes (default 10).",
   "settings.models.tab": "Model assignment",
   "settings.models.title": "Which model does what",
   "settings.models.hint": "Each row covers one job and saves as soon as you pick. \"Follow\" means the row does not pick its own. Endpoints, keys and model lists live on the Providers tab.",
@@ -1234,7 +1293,8 @@
   "migration.import.title": "Import from Claude Code / Codex / Kimi",
   "migration.import.instructions": "Global instruction files → core memory",
   "migration.import.noInstructions": "No global instruction files from other tools were found (~/.claude/CLAUDE.md, ~/.codex/AGENTS.md, ~/.kimi-code/AGENTS.md, ~/.gemini/GEMINI.md).",
-  "migration.import.entries": "{{count}} memories ({{core}} in core)",
+  "migration.import.entries.one": "{{count}} memory ({{core}} in core)",
+  "migration.import.entries.other": "{{count}} memories ({{core}} in core)",
   "migration.import.userModified": "You edited the imported entries; source updates will not overwrite them",
   "migration.import.mcp": "MCP servers ({{used}} of {{limit}} used)",
   "migration.import.noMcp": "No MCP configuration was found in other tools.",
@@ -1249,13 +1309,16 @@
   "migration.skill.conflictCopy": "Ruyi’s skill with this name was copied from {{source}}; it will not be overwritten",
   "migration.skill.copyEditedHint": "The copy in Ruyi was edited; copying again replaces your edits with the source (you will be asked first)",
   "migration.skill.sourceUpdatedHint": "The source has changed; you can copy it again",
-  "migration.skill.tooLargeHint": "Too large to copy ({{size}}, {{files}} files; limit 20 MB / 500 files)",
+  "migration.skill.tooLargeHint.one": "Too large to copy ({{size}}, {{files}} file; limit 20 MB / 500 files)",
+  "migration.skill.tooLargeHint.other": "Too large to copy ({{size}}, {{files}} files; limit 20 MB / 500 files)",
   "migration.skill.shadowed": "On a name clash the {{source}} one is used",
-  "migration.skill.links": "{{count}} symbolic links will not be copied",
+  "migration.skill.links.one": "{{count}} symbolic link will not be copied",
+  "migration.skill.links.other": "{{count}} symbolic links will not be copied",
   "migration.skill.overwriteTitle": "Replace copies you edited?",
   "migration.skill.overwriteBody": "The copies of these skills in Ruyi were edited. Copying again replaces your edits with the source; “Undo this copy” brings them back.",
   "migration.skill.overwriteOk": "Replace",
-  "migration.skill.toastCopied": "Copied {{count}} skills to Ruyi",
+  "migration.skill.toastCopied.one": "Copied {{count}} skill to Ruyi",
+  "migration.skill.toastCopied.other": "Copied {{count}} skills to Ruyi",
   "migration.skill.toastNone": "No skills were copied",
   "migration.skill.resultCopied": "Copied {{count}}: {{names}}",
   "migration.skill.resultSkipped": "{{name}} not copied: {{reason}}",
@@ -1304,7 +1367,8 @@
   "migration.old.version": "Ruyi {{version}}",
   "migration.old.lastLaunched": "last launched {{time}}",
   "migration.old.neverLaunched": "no launch on record",
-  "migration.old.refs": "{{count}} references",
+  "migration.old.refs.one": "{{count}} reference",
+  "migration.old.refs.other": "{{count}} references",
   "migration.refs.title": "Settings still pointing at an older version ({{count}})",
   "migration.refs.none": "No settings point at an older version.",
   "migration.ref.rewrite": "change {{field}} to {{to}}",
@@ -1315,11 +1379,14 @@
   "migration.recycle.body": "Ruyi {{version}} ({{root}}) will be moved to the system Recycle Bin, from which it can be restored. Your data (threads, memory, settings) is not inside the package and is not affected.",
   "migration.toast.saved": "Saved",
   "migration.toast.imported": "Imported",
-  "migration.toast.importedCount": "Imported {{count}} items",
+  "migration.toast.importedCount.one": "Imported {{count}} item",
+  "migration.toast.importedCount.other": "Imported {{count}} items",
   "migration.toast.removed": "Removed; it will not be imported automatically again",
   "migration.toast.nothing": "Nothing to do",
-  "migration.toast.applied": "Pointed {{count}} items at this version; the original files were backed up",
-  "migration.toast.undone": "Undone ({{count}} values restored)",
+  "migration.toast.applied.one": "Pointed {{count}} item at this version; the original files were backed up",
+  "migration.toast.applied.other": "Pointed {{count}} items at this version; the original files were backed up",
+  "migration.toast.undone.one": "Undone ({{count}} value restored)",
+  "migration.toast.undone.other": "Undone ({{count}} values restored)",
   "migration.toast.recycled": "Ruyi {{version}} was moved to the Recycle Bin",
   "migration.error.confirm_mismatch": "The confirmation did not match; nothing was done.",
   "migration.error.root_required": "The package path is missing.",
@@ -1335,11 +1402,16 @@
   "migration.error.nothing_to_apply": "The selected items are gone. Refresh and try again.",
   "migration.error.no_migration_to_undo": "There is no migration to undo.",
   "migration.error.already_undone": "This migration was already undone.",
+  "migration.error.undo_incomplete": "The undo did not fully complete: some files could not be restored (they may be in use or locked). Files already restored will not be touched again; fix the cause and click Undo again to continue.",
   "migration.card.title": "Found things you can migrate",
-  "migration.card.instructions": "{{count}} instruction files",
-  "migration.card.mcp": "{{count}} MCP servers",
-  "migration.card.skills": "{{count}} skills",
-  "migration.card.packages": "{{count}} older packages",
+  "migration.card.instructions.one": "{{count}} instruction file",
+  "migration.card.instructions.other": "{{count}} instruction files",
+  "migration.card.mcp.one": "{{count}} MCP server",
+  "migration.card.mcp.other": "{{count}} MCP servers",
+  "migration.card.skills.one": "{{count}} skill",
+  "migration.card.skills.other": "{{count}} skills",
+  "migration.card.packages.one": "{{count}} older package",
+  "migration.card.packages.other": "{{count}} older packages",
   "migration.card.sep": ", ",
   "migration.card.generic": "Other AI tools or older Ruyi versions on this computer have settings you can bring over.",
   "migration.card.go": "Review and migrate",
@@ -1363,7 +1435,7 @@
   "settings.outputStyle.concise": "Concise (answer first)",
   "settings.outputStyle.detailed": "Detailed (default)",
   "settings.partialStreaming": "Live streaming (--include-partial-messages)",
-  "settings.permissionBridge": "Bridge permission prompts (--permission-prompt-tool; requires a non-bypass permission mode)",
+  "settings.permissionBridge": "Bridge permission prompts (--permission-prompt-tool; requires a mode other than Fully automatic)",
   "settings.permissions": "Safety and permissions",
   "settings.preset": "Preset",
   "settings.pricing.hint": "If the endpoint above is a third-party Coding Plan, these prices are only for cost estimates when the backend supports them. By default, plan usage shows token consumption only; subscription billing is not pay-as-you-go spending, so do not treat it as actual cost.",
@@ -1631,10 +1703,13 @@
   "status.currentProvider": "Current provider",
   "status.processState": "{{engine}} process state: {{state}}",
   "stepBar.progress": "Completed {{done}}/{{total}}",
-  "storage.cleanDone": "Cleanup done: freed {{bytes}}({{n}} items)",
+  "storage.cleanDone.one": "Cleanup done: freed {{bytes}} ({{count}} item)",
+  "storage.cleanDone.other": "Cleanup done: freed {{bytes}} ({{count}} items)",
   "storage.cleanNothing": "Nothing to clean",
-  "storage.fileCount": "{{n}} files",
-  "storage.lastSweepNote": "Last cleanup: {{when}} · freed {{bytes}}({{n}} items)",
+  "storage.fileCount.one": "{{count}} file",
+  "storage.fileCount.other": "{{count}} files",
+  "storage.lastSweepNote.one": "Last cleanup: {{when}} · freed {{bytes}} ({{count}} item)",
+  "storage.lastSweepNote.other": "Last cleanup: {{when}} · freed {{bytes}} ({{count}} items)",
   "storage.loadFailed": "Storage stats load failed: {{err}}",
   "storage.loading": "Tallying storage usage…",
   "storage.store.agentRuns": "Workflow runs",
@@ -1651,7 +1726,8 @@
   "storage.store.usage": "Usage ledger",
   "storage.store.webcache": "Web cache",
   "storage.totalLabel": "Data directory total",
-  "storage.transcriptNote": "Engine transcripts (Claude CLI-managed): {{bytes}} / {{n}} files -- auto-cleanup only covers transcripts this workbench spawned, with no live thread refs, past retention",
+  "storage.transcriptNote.one": "Engine transcripts (Claude CLI-managed): {{bytes}} / {{count}} file -- auto-cleanup only covers transcripts this workbench spawned, with no live thread refs, past retention",
+  "storage.transcriptNote.other": "Engine transcripts (Claude CLI-managed): {{bytes}} / {{count}} files -- auto-cleanup only covers transcripts this workbench spawned, with no live thread refs, past retention",
   "storage.unavailable": "Storage stats unavailable",
   "thinkingEffort.default": "Default (inherit CLI configuration)",
   "thinkingEffort.high": "High",
@@ -1660,8 +1736,10 @@
   "thinkingEffort.medium": "Medium",
   "thinkingEffort.xhigh": "Extra high",
   "toast.answerFail": "Failed to send answer: {{p1}}",
+  "toast.answerNotDelivered": "The answer was not delivered — this question may have ended",
   "toast.cleanFail": "Cleanup failed: {{err}}",
   "toast.compactDone": "Context compacted: {{p1}} → ~{{p2}} (est.)",
+  "toast.compactL1Done": "Context compacted: older tool output folded (originals recoverable, no summary call) {{p1}} → ~{{p2}} (est.)",
   "toast.compactEmpty": "Nothing to compact yet",
   "toast.compactFail": "Compaction failed: {{p1}}",
   "toast.compactRequested": "Context compaction requested (/compact)",
@@ -1681,8 +1759,10 @@
   "toast.fileTooLarge": "{{p1}} is too large (>90MB)",
   "toast.externalDiffFailed": "Could not open in a local app: {{err}}",
   "toast.externalDiffFallback": "{{app}} does not support command-line diff; the file was opened and the diff remains available in Ruyi.",
-  "toast.externalDiffOpened": "Opened {{count}} diff(s) in {{app}}",
-  "toast.externalDiffPartial": "{{count}} additional file(s) could not be opened",
+  "toast.externalDiffOpened.one": "Opened {{count}} diff in {{app}}",
+  "toast.externalDiffOpened.other": "Opened {{count}} diffs in {{app}}",
+  "toast.externalDiffPartial.one": "{{count}} additional file could not be opened",
+  "toast.externalDiffPartial.other": "{{count}} additional files could not be opened",
   "toast.grantAuto": "Auto-approved by grant: {{tool}} ({{remaining}} left)",
   "toast.homeCwdWarn": "⚠ Working directory is your home folder — pick a project folder for this task",
   "toast.importFail": "Import failed: {{err}}",
@@ -1690,7 +1770,7 @@
   "toast.locateFolderFail": "Could not locate folder: {{p1}}",
   "toast.memoryDeleted": "Memory deleted",
   "toast.memoryFieldsRequired": "Name and content are required",
-  "toast.memoryMax8": "At most 12 memories can be enabled",
+  "toast.memoryMax8": "At most {{count}} memories can be enabled",
   "toast.memoryPruned": "Pruned stale memory: {{p1}}",
   "toast.memorySaved": "Memory saved",
   "toast.memorySetFail": "Failed to set memory: {{err}}",
@@ -1729,6 +1809,7 @@
   "toast.uiModeExpert": "Switched to expert UI",
   "toast.uiModeSimple": "Switched to simple UI",
   "toast.uploadFail": "Upload failed: {{p1}}",
+  "toast.uploadInProgress": "Attachments are still uploading — wait for them to finish before sending",
   "toast.wfActionSubmitted": "Workflow action submitted",
   "toast.wfCondInvalid": "Invalid run-condition format",
   "toast.wfDepAdded": "Dependency edge added",
@@ -2030,6 +2111,8 @@
   "workflow.run.heartbeat": "Still running · {{done}}/{{total}} · {{seconds}}s · active: {{active}}",
   "workflow.run.wrapUpRequested": "Node {{nodeId}} has run long and was asked to wrap up now",
   "workflow.run.wrapUpForced": "Node {{nodeId}} missed the wrap-up deadline; only that node was stopped",
+  "workflow.run.wrapUpForcedCap": "Node {{nodeId}} reached its total-runtime hard cap (about twice the auto wrap-up time); only that node was stopped. Raise \"Auto wrap-up per node\" in Settings to allow more",
+  "workflow.run.wrapUpForcedQuiet": "Node {{nodeId}} ran past the auto wrap-up time and made no progress during the grace period; only that node was stopped. Raise \"Auto wrap-up per node\" in Settings to allow more",
   "workflow.run.ended": "{{status}} · {{succeeded}} succeeded / {{failed}} failed",
   "workflow.run.endedDefault": "Ended",
   "workflow.run.loop": "{{nodeId}} loop {{iteration}}/{{maxIterations}} · no progress {{count}}",
@@ -2375,6 +2458,7 @@
   "status.failed": "✗ Failed",
   "ctx.auto": "Auto",
   "ctx.customLimit": "Custom limit (Enter to apply)",
+  "ctx.meter.aria": "Context usage (open to view, set the limit or compact now)",
   "ctx.compact.label": "Compaction model",
   "ctx.compact.defaultProvider": "Default (current Provider model)",
   "ctx.compact.defaultKimi": "Default (Kimi native compaction)",
@@ -2405,6 +2489,7 @@
   "chat.subagent.generating": "Generating · {{chars}} chars",
   "chat.subagent.retrying": "Retrying {{attempt}}/{{max}} · {{reason}}",
   "chat.subagent.dependsOn": " · depends on {{deps}}",
+  "chat.subagent.roleClamped": " · limited by thread permissions",
   "chat.subagent.backgroundHandedOff": "Running in background · handed off to Claude CLI",
   "chat.subagent.done": "✓ Done",
   "chat.subagent.resultChars": "{{chars}}-char result",
@@ -2455,6 +2540,7 @@
   "role.permReadOnly": "Read-only plan",
   "role.permSmart": "Smart auto",
   "role.permSkip": "Skip permissions",
+  "role.clampedBadge": " (project role, effective under the thread's permissions: {{tier}} / {{mode}})",
   "role.noIsolation": "No isolation",
   "chat.roleUser": "You",
   "chat.thinkingProcessCount": "Reasoning · {{count}} chars",
@@ -2523,7 +2609,8 @@
   "settings.mcp.import": "📁 Import MCP from folder",
   "settings.mcp.loading": "Loading connectors…",
   "settings.mcp.probing": "Retesting all connectors (may take a few seconds)…",
-  "settings.mcp.count": "{{p1}} connector(s)",
+  "settings.mcp.count.one": "{{p1}} connector",
+  "settings.mcp.count.other": "{{p1}} connectors",
   "settings.mcp.empty": "No connectors yet. Use \"Import from folder\" above to add one.",
   "settings.mcp.source.desktop": "Built-in desktop",
   "settings.mcp.source.config": "User config",
@@ -2575,10 +2662,18 @@
   "settings.mcp.compat": "Transport compatibility",
   "settings.mcp.capabilities": "Capabilities",
   "settings.mcp.limitations": "Limitations",
+  "settings.mcp.compat.stdio.capabilities": "initialize, tools/list, tools/call, notifications/cancelled",
+  "settings.mcp.compat.stdio.limitations": "No server-pushed tools/list_changed (re-run tools/list to detect tool-list changes)",
+  "settings.mcp.compat.http.capabilities": "initialize, tools/list, tools/call, stateful connections, tools/list_changed push",
+  "settings.mcp.compat.http.limitations": "Needs a reachable URL; secret references are expanded only at connect time (never written to disk in plain text)",
+  "settings.mcp.compat.sse.capabilities": "initialize, tools/list, tools/call, tools/list_changed push",
+  "settings.mcp.compat.sse.limitations": "Legacy transport; prefer streamable-HTTP for new connectors",
+  "settings.mcp.desktopControl.label": "Desktop control (ai-computer-control)",
   "settings.update.current": "Current state",
   "settings.update.notApplied": "No overlay applied",
   "settings.update.noBackups": "No backups",
-  "settings.update.backupsCount": "{{p1}} backup(s)",
+  "settings.update.backupsCount.one": "{{p1}} backup",
+  "settings.update.backupsCount.other": "{{p1}} backups",
   "settings.update.selectZip": "Select overlay update package (zip)",
   "settings.update.browse": "Browse zip",
   "settings.update.selectZip.hint": "Precheck (path/integrity/version/idempotency) before applying. CLI rescue: Manage-Overlay.cmd apply.",
@@ -2630,7 +2725,7 @@
   ,"provider.pricing.outputShort": "Output price"
   ,"usage.cachedInputTokens": "{{count}} cache-hit"
 
-  ,"provider.capabilities": "Protocol & capabilities"
+  ,"provider.capabilities": "Capabilities & options"
   ,"provider.serverWebSearch": "Server-side search (DeepSeek Responses only)"
   ,"provider.serverWebSearch.hint": "When enabled, web_search runs on the DeepSeek server (saves a round-trip); when off or unsupported, falls back to the built-in local search (builtin/searxng/bing…). Only available with apiStyle=responses."
 
@@ -2767,6 +2862,7 @@
   ,"stewardShell.settings.onlyTitle": "Showing only “{{name}}”"
   ,"stewardShell.settings.showAll": "Show all steward settings"
   ,"stewardShell.compose.placeholder": "Say something to Ruyi"
+  ,"stewardShell.compose.attachNeedsSteward": "Attachments can only go to Ruyi, not straight to a thread. Switch the target back to Ruyi, or remove the attachments first."
   ,"stewardShell.compose.needModel": "Connect a model first so the steward can reply"
   ,"stewardShell.compose.placeholderChange": "Tell me what to change"
   ,"stewardShell.compose.targetLabel": "Hand to"
@@ -2807,6 +2903,13 @@
   ,"stewardShell.drawer.workspace": "Workspace: {{name}}"
   ,"stewardShell.drawer.queueHead": "What it is waiting for"
   ,"stewardShell.drawer.queueUnknown": "Queued, not its turn yet"
+  ,"stewardShell.wait.needsYou": "Waiting on you ({{n}} pending)"
+  ,"stewardShell.wait.lock": "Waiting for the folder lock: held by “{{who}}”"
+  ,"stewardShell.wait.lockUnknown": "Waiting for the folder lock: held by another thread"
+  ,"stewardShell.wait.budgetCost": "Waiting on budget: all threads spent {{spent}} today, the limit is {{limit}}"
+  ,"stewardShell.wait.budgetTurns": "Waiting on budget: all threads started {{spent}} turns this hour, the limit is {{limit}}"
+  ,"stewardShell.wait.slotAhead": "Waiting for a slot: {{n}} ahead of it"
+  ,"stewardShell.wait.slotNext": "Waiting for a slot: it is next"
   ,"stewardShell.drawer.jumpQueue": "Jump the queue"
   ,"stewardShell.drawer.maxParallel": "Parallel limit"
   ,"stewardShell.drawer.maxParallelMissing": "The parallel limit lives in the task rail header"
@@ -2880,6 +2983,7 @@
   ,"stewardShell.drawer.rewindConfirm": "Rewinding takes this thread back to before its first message and undoes the files it changed since. Go ahead?"
   ,"stewardShell.drawer.rewindDone": "Rewound the whole thread."
   ,"stewardShell.drawer.rewindNoTarget": "This thread has no turn to rewind yet."
+  ,"stewardShell.drawer.threadSwitchedCancelled": "You switched threads while confirming, so this was cancelled and nothing was changed."
   ,"stewardShell.drawer.noPausableRun": "This thread has no orchestration run to pause."
   ,"stewardShell.drawer.sent": "Sent to it."
   ,"stewardShell.drawer.steered": "Slipped it in mid-turn."
@@ -2911,8 +3015,14 @@
   ,"stewardShell.chips.noMatch": "No model matches that."
   ,"stewardShell.chips.usedToday": "today"
   ,"stewardShell.chips.usedDaysAgo": "{{days}} days ago"
+  ,"stewardShell.chips.usedDaysAgo.one": "{{days}} day ago"
+  ,"stewardShell.chips.usedDaysAgo.other": "{{days}} days ago"
   ,"stewardShell.chips.usageLine": "Last used · {{when}} · {{turns}} turns"
+  ,"stewardShell.chips.usageLine.one": "Last used · {{when}} · {{turns}} turn"
+  ,"stewardShell.chips.usageLine.other": "Last used · {{when}} · {{turns}} turns"
   ,"stewardShell.chips.usageTurns": "{{turns}} turns"
+  ,"stewardShell.chips.usageTurns.one": "{{turns}} turn"
+  ,"stewardShell.chips.usageTurns.other": "{{turns}} turns"
   ,"stewardShell.permission.default.label": "Ask me every step"
   ,"stewardShell.permission.default.hint": "Editing files and running commands ask you first (reading never asks); Ruyi only proposes and waits for your click."
   ,"stewardShell.permission.acceptEdits.label": "Edit files without asking"
@@ -3014,11 +3124,11 @@
   ,"settings.steward.group.index": "Task index"
   ,"settings.steward.group.indexHint": "Which threads the rail can show. An old thread that is not in flight, has not moved today, and is not watched only shows up if it is among this many most-recent ones."
   ,"settings.steward.threadIndexRecent": "How many recent threads the rail keeps"
-  ,"settings.steward.threadIndexRecentHint": "Between 10 and 200. Smaller keeps the rail clean, larger keeps it complete; threads outside the window are still searchable (Ctrl+K)."
+  ,"settings.steward.threadIndexRecentHint": "Between 10 and 200. Smaller keeps the rail clean, larger keeps it complete; threads outside the window are still searchable (use the rail search box)."
   ,"settings.steward.quietSnoozeMinutes": "Snooze a quiet card for how long (minutes)"
   ,"settings.steward.quietSnoozeMinutesHint": "Between 1 and 1440 minutes. Snooze schedules a real reminder at this interval, and it comes back to you when it is due."
   ,"settings.steward.group.schedule": "Scheduled tasks"
-  ,"settings.steward.group.scheduleHint": "Things that open a thread on their own when the time comes. Read-only here."
+  ,"settings.steward.group.scheduleHint": "Things that open a thread on their own when the time comes. You can create them right here, or just ask the steward."
   ,"settings.steward.schedule.refresh": "Refresh"
   ,"settings.steward.schedule.empty": "No scheduled tasks yet."
   ,"settings.steward.schedule.next": "Next {{when}}"
@@ -3275,6 +3385,7 @@
   ,"rail.collapse": "Collapse"
   ,"rail.liveTool": "{{tool}} · output {{elapsed}} ago"
   ,"rail.liveRunning": "Running…"
+  ,"rail.liveToolAgo": "{{tool}} · output {{ago}}"
   ,"rail.justNow": "just now"
   ,"rail.origin.steward": "Started by Ruyi"
   ,"rail.origin.user": "Started by you"
@@ -3305,6 +3416,8 @@
   ,"quietCard.snooze.title": "Later: {{title}}"
   ,"quietCard.snooze.text": "From the \"Later\" you tapped {{minutes}} minutes ago: {{ask}}"
   ,"quietCard.snooze.failed": "Could not schedule \"Later\" — keeping this card"
+  ,"quietCard.answerGone": "This no longer needs your answer (it may have been answered elsewhere or the thread has ended), so the card was dismissed."
+  ,"quietCard.answerFailed": "Could not submit the answer: {{reason}}"
   ,"quietCard.fallbackTitle": "A thread"
   ,"quietCard.deferred": "Left for you, {{minutes}} min left: {{ask}}"
   ,"quietCard.deferredNoDeadline": "Left for you: {{ask}}"
@@ -3323,8 +3436,8 @@
   ,"composer.voice.error.notConfigured": "Speech recognition is not set up yet. The input box is unchanged"
   ,"composer.voice.error.tooLarge": "This recording is too long to transcribe. The input box is unchanged"
   ,"composer.voice.error.upstream": "The speech-to-text service returned an error, most likely a wrong model name or a provider outage; the input box is unchanged"
-  ,"composer.voice.error.protocol": "This provider does not accept the current speech interface type. Go to Settings → Providers → Speech recognition, add the model again and choose the other interface type; the input box is unchanged"
-  ,"composer.voice.error.auth": "The speech-to-text provider rejected the API key, or this account has no access to the speech model. Check the key under Settings → Providers; the input box is unchanged"
+  ,"composer.voice.error.protocol": "This provider does not accept the current speech interface type. Go to Settings → Models & Services → Speech recognition, add the model again and choose the other interface type; the input box is unchanged"
+  ,"composer.voice.error.auth": "The speech-to-text provider rejected the API key, or this account has no access to the speech model. Check the key under Settings → Models & Services → Model providers; the input box is unchanged"
   ,"composer.voice.error.failed": "Transcription did not succeed. Try again later; the input box is unchanged"
   ,"composer.voice.error.empty": "No words were recognized. The input box is unchanged"
   ,"composer.voice.hintStream": "Voice input: click to start, text appears as you speak, each finished sentence is corrected automatically; click again to finish, Esc to cancel. Nothing is sent automatically"
@@ -3337,8 +3450,8 @@
   ,"composer.voice.warming.ready": "Speech recognition is ready, go ahead and speak"
   ,"composer.voice.warming.readyIdle": "Speech recognition is ready, click the microphone to start"
   ,"composer.voice.warming.failed": "The more accurate local model could not be loaded; using live recognition this time, so finished sentences may not be corrected"
-  ,"composer.voice.learned": "Learned: {{heard}} → {{term}}{{more}} (manage it in Settings → Speech recognition → Voice vocabulary)"
-  ,"composer.voice.learnedTerm": "Learned: {{term}}{{more}} (manage it in Settings → Speech recognition → Voice vocabulary)"
+  ,"composer.voice.learned": "Learned: {{heard}} → {{term}}{{more}} (manage it in Settings → Models & Services → Speech recognition → Voice vocabulary)"
+  ,"composer.voice.learnedTerm": "Learned: {{term}}{{more}} (manage it in Settings → Models & Services → Speech recognition → Voice vocabulary)"
   ,"composer.voice.learnedMore": " (+{{count}} more)"
   ,"promptQueue.dock.title": "Questions and permissions waiting for you"
   ,"promptQueue.dock.label": "Waiting for you"
@@ -3425,7 +3538,7 @@
   ,"usage.range.month": "This month"
   ,"usage.range.all": "All"
   ,"usage.rangeAria": "Date range"
-  ,"usage.tabHint.pre": "Summarized by currency across engines, providers, and threads. Cost is a usage-based"
+  ,"usage.tabHint.pre": "Summarized by currency across engines, providers, and threads. Cost is a usage-based "
   ,"usage.tabHint.strong": "equivalent estimate"
   ,"usage.tabHint.post": " (not an actual charge); cost only appears once a provider has a configured unit price, and subscription-billed usage shows tokens only."
   ,"layout.rightResizeHandle.title": "Drag to resize the right panel · double-click to cycle widths"
@@ -3683,11 +3796,11 @@
   ,"provider.anthropicAuth.xApiKey": "x-api-key header"
   ,"provider.anthropicAuth.bearer": "Bearer token"
   ,"provider.anthropicAuth.hint": "How the key is sent. Automatic: the official host gets x-api-key only, other hosts get both. Switch manually only if a gateway rejects the key."
-  ,"provider.anthropicThinking": "Thinking mode"
-  ,"provider.anthropicThinking.auto": "Automatic (by model)"
-  ,"provider.anthropicThinking.adaptive": "Always adaptive"
-  ,"provider.anthropicThinking.off": "Think as little as possible"
-  ,"provider.anthropicThinking.hint": "Automatic: newer Claude models get adaptive thinking on their own. Change it only to force thinking on or off for a non-Claude model behind a gateway."
+  ,"provider.anthropicThinking": "Thinking"
+  ,"provider.anthropicThinking.auto": "Model default (on for newer Claude models)"
+  ,"provider.anthropicThinking.adaptive": "On"
+  ,"provider.anthropicThinking.off": "Off (think as little as possible)"
+  ,"provider.anthropicThinking.hint": "Models behind a gateway (DeepSeek, Kimi, GLM and others) think only when this is On; newer Claude models think either way. The reasoning effort under \"Capabilities & options\" applies only when this is not Off."
   ,"provider.anthropicFallbacks": "Re-route automatically when a request is refused"
   ,"provider.anthropicFallbacks.hint": "Only applies to some newer models on the official Anthropic host (api.anthropic.com): when a model refuses, the server retries with another model. Untick to keep the model fixed."
   ,"role.color": "Color"
@@ -3749,4 +3862,52 @@
   ,"settings.steward.auto.continueUnfinished": "Keep an unfinished thread going on its own"
   ,"settings.steward.auto.continueUnfinishedHint": "When a thread ends a turn but its plan still has open steps, or the \"previous task is unfinished\" banner is showing, the steward presses Continue for you. A thread is continued only a few times in a row and stops when the plan makes no progress; every continuation is logged in the action log."
   ,"settings.steward.tool.continueStopped": "Unfinished, no more auto-continue"
+  ,"role.discardTitle": "Discard unsaved role changes?"
+  ,"role.discardBody": "This page has role edits that are not saved yet. Continuing discards them and loads the saved roles instead."
+  ,"role.discardOk": "Discard changes"
+  ,"provider.baseUrlInvalid": "The base URL of provider \"{{name}}\" is not valid: {{reason}}. Fix it and save again."
+  ,"onboarding.wizard.provider.cloudNeedModel": "No model name yet: enter the model to use under Advanced (Custom has no default model), or press Test connection and pick one from the returned list."
+  ,"settings.positiveIntegerOnly": "Enter a positive whole number, or leave it empty for no setting"
+  ,"memory.defaultPolicyHintNoRelated": "Core summaries load every turn; “Related memories per turn” is set to 0 in Settings, so other memories are not attached automatically."
+  ,"memory.proposal.scopeAria": "Memory scope"
+  ,"memory.proposal.scopeAdjusted": "AI suggested {{requested}} · changed to {{final}} by the conservative default (use the scope menu above to change it back)"
+  ,"memory.proposal.scopeRestored": "AI suggested {{requested}} · using {{requested}} as you chose"
+  ,"memory.proposal.scopeMove": "{{from}} → {{to}}"
+  ,"memory.proposal.moveNote": "Applying this moves the memory from “{{from}}” to “{{to}}”. Relation edges to other memories cannot cross scopes and will be removed."
+  ,"memory.proposal.moved": "Moved this memory to “{{scope}}”"
+  ,"memory.proposal.movedDropped.one": "Moved this memory to “{{scope}}”; {{count}} relation edge cannot cross scopes and was removed"
+  ,"memory.proposal.movedDropped.other": "Moved this memory to “{{scope}}”; {{count}} relation edges cannot cross scopes and were removed"
+  ,"memory.proposal.coreOn": "Will join core (injected every turn)"
+  ,"memory.proposal.coreOff": "Not added to core"
+  ,"memory.proposal.batchBodyCount": " ({{count}} chars)"
+  ,"memory.edit.scopeMoveHint": "Changing the scope moves this memory to the new scope (saved there, then removed from the old one). Relation edges to other memories cannot cross scopes and will be removed."
+  ,"error.api.memoryProposalStale": "“{{name}}” was edited after this revision was suggested. To avoid overwriting your changes the card was not applied. Dismiss it and, if you still want a change, ask the AI to suggest it again from the latest content."
+  ,"error.api.memoryMoveConflict": "The target scope already has a memory with the same id ({{id}}); nothing was moved."
+  ,"migration.import.sensitiveSkipped.one": "{{count}} section that looks like it holds a password or key was skipped"
+  ,"migration.import.sensitiveSkipped.other": "{{count}} sections that look like they hold passwords or keys were skipped"
+  ,"provider.anthropic.more": "Connection details (rarely needed)"
+  ,"provider.apiStyle.urlHint.chat": "OpenAI-compatible: enter the base URL up to /v1 (for example https://api.example.com/v1); Ruyi adds the endpoint path itself."
+  ,"provider.apiStyle.urlHint.responses": "Responses API: enter the provider's root address (for example https://api.example.com); Ruyi adds /responses itself."
+  ,"provider.apiStyle.urlHint.anthropic": "Anthropic: use https://api.anthropic.com for Anthropic itself; for a compatible gateway enter the address up to /anthropic (for example https://api.deepseek.com/anthropic), without /v1/messages. Many gateways do not list their models, so type the model name under \"Model\" below."
+  ,"provider.baseUrlPlaceholder.chat": "https://api.example.com/v1"
+  ,"provider.baseUrlPlaceholder.responses": "https://api.example.com"
+  ,"provider.baseUrlPlaceholder.anthropic": "https://api.anthropic.com or https://…/anthropic"
+  ,"provider.apiStyle.autoSwitched": "Switched to the {{name}} protocol based on the address (change it back above if that is wrong)"
+  ,"provider.baseUrlSuffixStripped": "Removed the endpoint path from the end of the address (Ruyi adds it itself)"
+  ,"provider.testSuccessNoList": "✓ Connected (sent a test message to \"{{model}}\"; this endpoint does not list its models, so enter model names by hand)"
+  ,"provider.testError.unauthorized": "The API key is invalid or has no access: check the key and your remaining quota ({{detail}})"
+  ,"provider.testError.notFound": "The endpoint address may be wrong ({{detail}})."
+  ,"provider.testError.modelRejected": "The model name may be wrong: make sure \"Model\" holds one of this provider's model names ({{detail}})"
+  ,"provider.testError.unreachable": "Cannot reach the endpoint: check the network and the base URL, and that an internal endpoint is reachable ({{detail}})"
+  ,"provider.testError.needsModel": "This endpoint does not list its models: enter one of this provider's model names under \"Model\" first, then test again."
+  ,"provider.testError.failed": "Connection failed ({{detail}})"
+  ,"chat.subagent.note.init": "Initializing sub-agent…"
+  ,"chat.subagent.note.streaming": "Model is streaming a reply"
+  ,"chat.subagent.note.generating": "Generating · {{chars}} chars"
+  ,"chat.subagent.note.kimiRunning": "Kimi sub-agent running"
+  ,"chat.subagent.note.kimiRunningFor": "Kimi sub-agent running · {{secs}}s"
+  ,"chat.subagent.note.kimiPaused": "Kimi sub-agent paused: {{reason}}"
+  ,"chat.subagent.note.kimiPausedWaiting": "Kimi sub-agent paused: waiting to continue"
+  ,"stewardShell.askYou.permission": "Waiting for your approval: {{what}}"
+  ,"stewardShell.askYou.permissionTarget": "{{verb}} “{{name}}”"
 }

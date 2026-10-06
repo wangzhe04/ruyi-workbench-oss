@@ -161,6 +161,12 @@
 .memory-proposal-body { margin-top: 4px; font-size: var(--fs-sm); color: var(--muted); }
 .memory-proposal-body > summary { cursor: pointer; width: max-content; }
 .memory-proposal-body-text { margin-top: 4px; padding: 6px 8px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--muted) 8%, transparent); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
+/* 记忆候选卡:作用域下拉(单条卡与批量每一条)、「AI 建议全局 · 已改为项目」说明、批量每条的「加入核心」开关。 */
+.memory-proposal-scope { max-width: 100%; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink-2); font: inherit; font-size: var(--fs-xs); }
+.memory-proposal-scope-note { margin-top: 3px; color: var(--warn); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; }
+.memory-proposal-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.memory-proposal-core { padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.memory-proposal-core[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); }
 
 /* v0.9-S5 (真流程 plan mode): the in-flow plan approval card. Assistant-bubble variant tinted with --accent
    so it reads as a decision point, not ordinary chat. Greys out once decided. */
@@ -195,7 +201,11 @@
 .subagent-head::-webkit-details-marker { display: none; }
 .subagent-head .sa-icon { flex: none; }
 .subagent-head .sa-title { font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.subagent-head .sa-status { margin-left: auto; flex: none; font-size: var(--fs-sm); color: var(--muted); }
+/* 第三波 M1：状态句原先 flex:none，而标题有 overflow:hidden 能缩到 0 —— 390 下状态（250–313px）把标题挤成 0 宽、自己被屏幕边缘切掉。
+   状态可以省略，标题优先；再窄就整行折到第二行。 */
+.subagent-head { flex-wrap: wrap; }
+.subagent-head .sa-title { flex: 1 1 8em; min-width: 6em; }
+.subagent-head .sa-status { margin-left: auto; flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); color: var(--muted); }
 .subagent-head .sa-status.ok { color: var(--accent); }
 .subagent-head .sa-status.err { color: var(--danger-fg); }
 .subagent-head .sa-status.running { color: var(--warn-fg); }

@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 'use strict';
 /*
- * build-overlay.js [version] — assemble the incremental overlay package under dist/overlay/.
+ * build-overlay.js <version> — assemble the incremental overlay package under dist/overlay/.
  * Produces dist/overlay/{Manage-Overlay.cmd,Manage-Overlay.ps1,APPLY-OVERLAY.md,payload/...}
  * then you zip dist/overlay -> workbench-overlay-<version>.zip.
+ * <version> is REQUIRED: it names this overlay build and is what the applicator's idempotency check compares
+ * (same version already applied => refused without -Force). A baked-in default made every package carry the
+ * same version, so a second overlay on the same host would be refused as "already applied".
  */
 const fs = require('fs');
 const path = require('path');
 const cp = require('child_process');
 
 const root = path.resolve(__dirname, '..');
-const version = process.argv[2] || '0.3.0';
+const version = process.argv[2] || ''; // 必填,main() 里校验;被 require 时(静态锁)不校验、零副作用
 // EC-A: 真实宿主版本(package.json),作为 overlay manifest 的 minHostVersion(apply 前兼容预检用)。
 const pkgVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const outRoot = path.join(root, 'dist', 'overlay');
@@ -91,6 +94,7 @@ const PAYLOAD_FILES = [
   'app/public/js/prompt-queue.js', // 135:interaction-prompts.js 静态 import 它,漏发即提问/权限弹窗全挂
   'app/public/js/presence-viewing.js', // 2026-10:interaction-prompts.js 静态 import 它(用户正看着的提问/权限,管家不插手),漏发即弹窗全挂
   'app/public/js/background-tray.js', // 135c:app.js 静态 import 它,漏发即整页白屏
+  'app/public/js/attachment-tray.js', // W1-chat F13:app.js 静态 import 它(附件托盘/上传中占位),漏发即整页白屏
   'app/public/js/tool-runtime.js',
   'app/public/js/workspace-preferences.js',
   // 第56波:任务单五态派生纯函数(Pretender P0;PoC 与将来新壳层共用,须随离线包发布)
@@ -278,6 +282,13 @@ function copy(src, dst) {
 }
 
 function main() {
+  // First statement on purpose: a missing version must fail before anything is checked, deleted or assembled.
+  if (!version.trim()) {
+    console.error('Usage: node tools/build-overlay.js <version>');
+    console.error('  <version> is required (for example 3.0.0-preview.3.1). It is what the applicator\'s idempotency check');
+    console.error('  compares, so give every overlay package its own version.');
+    process.exit(1);
+  }
   cp.execFileSync(process.execPath, [path.join(root, 'app', 'build.js'), '--check'], { stdio: 'inherit' });
 
   fs.rmSync(outRoot, { recursive: true, force: true });

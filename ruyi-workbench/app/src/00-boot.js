@@ -332,9 +332,11 @@ function safeDecodeURIComponent(segment) {
   try { return decodeURIComponent(String(segment == null ? '' : segment)); } catch { return null; }
 }
 
+// 开头的 UTF-8 BOM(U+FEFF)先剥掉再解析:Windows 记事本/PowerShell 5.1 另存的 JSON 常带 BOM,JSON.parse 对它抛 SyntaxError,
+// 修前 config.json、各类用户手改的清单被当成「损坏」(config 还会因此回滚到 .prev 覆盖用户的编辑)。只处理字符串入参。
 function safeJsonParse(raw, fallback = null) {
   try {
-    return JSON.parse(raw);
+    return JSON.parse((typeof raw === 'string' && raw.charCodeAt(0) === 0xFEFF) ? raw.slice(1) : raw);
   } catch {
     return fallback;
   }
@@ -428,6 +430,26 @@ function createConsoleLineDecoder() {
     end: take,
     get pendingBytes() { return pending.length; },
   };
+}
+
+// 走查 W1·F4:【文本文件】字节 → 文本(附件 textPreview、/api/file/preview 用)。修前一律按 UTF-8 解:GBK 的 .txt/.csv(中文 Windows
+// 上最常见的「另存为」结果)、带 BOM 的 UTF-16LE(PowerShell Out-File 的默认输出)满屏 U+FFFD,而且附件预览还会原样进
+// 喂给模型的 <attached_files>。判据与 11b FileTextIo.sniffEncoding / decodeBuffer(…, 'auto') 同口径:BOM(UTF-8 / UTF-16LE / UTF-16BE)优先 →
+// 严格 UTF-8 → 严格 GB18030 → 都不是就宽松 UTF-8(坏字节显示 U+FFFD)。UTF-8 BOM 留在文本里(同修前与 file_read),UTF-16 的 BOM 剥掉。
+// 本函数住在 00-boot 而不直接用 FileTextIo:11b 是工具层,03/04(基础层)引用它会新增一条反向层级的依赖边(module-dependency-graph
+// 静态锁拒绝);改判据要两边同改,unit/text-file-decode.test.js 在一张字节样本网格上逐格比对两者的输出。
+// complete=false:buf 只是文件的前缀(被截断在 N 字节处),尾部切在多字节字符中间不算非法、也不留半个字符的 U+FFFD;
+// 修前截断预览是 toString('utf8'),切开的尾字符会多一个 U+FFFD。
+function decodeTextFileBytes(buf, complete = true) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  const stream = complete === false;
+  const td = (label, fatal) => new TextDecoder(label, { fatal, ignoreBOM: true });
+  if (b.length >= 3 && b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) return td('utf-8', false).decode(b, { stream });
+  if (b.length >= 2 && b[0] === 0xff && b[1] === 0xfe) return td('utf-16le', false).decode(b.subarray(2), { stream });
+  if (b.length >= 2 && b[0] === 0xfe && b[1] === 0xff) return td('utf-16be', false).decode(b.subarray(2), { stream });
+  try { return td('utf-8', true).decode(b, { stream }); } catch { /* 不是合法 UTF-8 */ }
+  try { return td('gb18030', true).decode(b, { stream }); } catch { /* 也不是 GBK,或这个 Node 没带 GB18030 的 ICU */ }
+  return td('utf-8', false).decode(b, { stream });
 }
 
 function createNdjsonLineFeeder(onLine) {
@@ -643,9 +665,12 @@ function normalizePricing(raw) {
 function cachedInputTokensFromUsage(usage) {
   if (!usage || typeof usage !== 'object') return 0;
   const details = usage.prompt_tokens_details || usage.input_tokens_details || {};
+  // DeepSeek 原生口径是顶层 prompt_cache_hit_tokens(与 prompt_cache_miss_tokens 成对,prompt_tokens 含两者)。
+  // 它不带 prompt_tokens_details,修前缓存命中恒按 0 记 —— 用量账与回合成本把命中的输入全按未命中价算。
   const raw = details.cached_tokens != null ? details.cached_tokens
     : details.cache_read_input_tokens != null ? details.cache_read_input_tokens
-      : usage.cache_read_input_tokens != null ? usage.cache_read_input_tokens : usage.cached_tokens;
+      : usage.cache_read_input_tokens != null ? usage.cache_read_input_tokens
+        : usage.cached_tokens != null ? usage.cached_tokens : usage.prompt_cache_hit_tokens;
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
@@ -1300,6 +1325,13 @@ const EventStreamHooks = {};
 // 迁移中心的实现住在 13u-migration-center.js(零入边);13b 的路由经这张表迟绑定调进去(13b → 00-boot 是
 // 既有后向边),与 EventStreamHooks 同款。未填充时路由回 503,不会误走别的分支。
 const MigrationHooks = {};
+
+// 子代理的记忆核心胶囊(走查 #15)的延迟绑定口。08-agent-runs 要在子代理系统提示里放用户的核心偏好,但直接引 06d 的
+// resolveMemoryPreflight / buildMemoryConflictMap 会给 08 添一条【环内】新边(06d 已在那个强连通分量里,依赖图的环债上限不许涨)。
+// 所以 08 只读 `SubAgentMemoryHooks.coreSnapshot`(08 → 00-boot 是既有后向边),由 09-workflow 加载时 Object.assign 填实现
+// (09 本来就依赖 06d)。未填充时调用方当「没有胶囊」处理,子任务照跑。契约:coreSnapshot({ parentSession, workingDir, task, config })
+// → Promise<{ entries: 已激活核心条目[], conflicts: Map|null }>,绝不抛(调用方也 try 包着)。
+const SubAgentMemoryHooks = {};
 
 // 其它 Agent CLI 的用户级目录。一律在【调用时】按 os.homedir() 与各家的覆盖变量解析(不缓存):测试把
 // USERPROFILE/HOME 指到临时家,这里立刻跟着走 —— 这就是「测试绝不碰真机家目录」的那一道闸。

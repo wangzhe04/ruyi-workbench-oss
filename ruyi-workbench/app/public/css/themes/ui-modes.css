@@ -43,7 +43,7 @@
    主画像不识命令行 `/`,技能按钮是唯一可发现的入口。(≤560px 折叠进 ＋ 的响应式规则另属别处,不受影响。) */
 /* Tool card: show the verb, hide the raw name; reveal the collapsible 详情 summary. */
 :root[data-ui-mode="simple"] .tool-card .tc-name { display: none; }
-:root[data-ui-mode="simple"] .tool-card .tc-verb { display: inline; }
+:root[data-ui-mode="simple"] .tool-card .tc-verb { display: inline; flex: none; white-space: nowrap; }   /* 第三波 M2：不许被路径挤成「写／入／文／件」一字一行 */
 :root[data-ui-mode="simple"] .tool-card .tc-detail > summary.tc-detail-sum {
   display: block; cursor: pointer; list-style: none; font-size: var(--fs-xs); color: var(--muted);
   margin: 2px 0 4px; user-select: none;

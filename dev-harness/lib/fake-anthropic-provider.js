@@ -2,6 +2,9 @@
 // 进程内的 Anthropic Messages 假端点(58 号方案批 2)—— 与 lib/fake-openai-provider.js 同一个模具,只是线协议换成 Messages:
 //   POST …/v1/messages  → handler(流式写 `event: <type>\ndata: <json>\n\n`,非流式把事件聚合成一份 message JSON)
 //   GET  …/v1/models    → { data:[{ id, display_name, max_input_tokens, max_tokens, type:'model' }], has_more:false }
+//                         (startFakeAnthropic({ models: null }) → 404,模拟不提供模型清单的兼容网关;
+//                          startFakeAnthropic({ modelsRaw: { status: 200, type: 'text/html', body: '<html>…' } }) → 原样回这一份,
+//                          模拟 /models 被 SPA 兜底页 / 空体顶掉、回 200 却不是 JSON 的网关)
 // 零依赖(只用内建 http),listen(0) 由系统分端口。
 //
 // 用法:
@@ -89,7 +92,7 @@ function aggregate(events) {
 
 async function startFakeAnthropic(opts = {}) {
   const handler = typeof opts.handler === 'function' ? opts.handler : () => messageEvents({ text: 'ok' });
-  const models = opts.models || [{ id: 'claude-opus-5-5', display_name: 'Claude Opus 5.5', max_input_tokens: 1000000, max_tokens: 128000 }];
+  const models = opts.models === null ? null : (opts.models || [{ id: 'claude-opus-5-5', display_name: 'Claude Opus 5.5', max_input_tokens: 1000000, max_tokens: 128000 }]);
   const requests = [];
   const modelRequests = [];
   const errors = [];
@@ -122,6 +125,9 @@ async function startFakeAnthropic(opts = {}) {
     const url = req.url || '';
     if (req.method === 'GET' && /\/v1\/models(?:\?|$)/.test(url)) {
       modelRequests.push({ url, headers: req.headers });
+      // models:null = 不提供模型清单的兼容网关(如 DeepSeek 的 /anthropic):回 404。
+      if (opts.modelsRaw) { res.writeHead(opts.modelsRaw.status || 200, { 'content-type': opts.modelsRaw.type || 'text/plain' }); res.end(String(opts.modelsRaw.body == null ? '' : opts.modelsRaw.body)); return; }
+      if (models === null) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: { message: 'Not Found', type: 'not_found' } })); return; }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ data: models.map(m => ({ type: 'model', created_at: '2026-01-01T00:00:00Z', ...m })), has_more: false, first_id: models[0] && models[0].id, last_id: models[models.length - 1] && models[models.length - 1].id }));
       return;

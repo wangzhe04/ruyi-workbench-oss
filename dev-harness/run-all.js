@@ -117,6 +117,10 @@ const PARALLEL_EXCLUSIVE = new Set([
   // 录到一半按 Esc 之后等 2 s 确认「没有转写请求」、把 performance.now 拨快等下一拍自动结束，外加 390px
   // 反复改视口量 getBoundingClientRect。与别的 Edge 抢 CPU 时录音时长与观察窗都会被挤歪，同上进独占桶。
   'composer-voice.browser.e2e.js',
+  // 2026-10 子代理时限:agent-node-limits 用 env 缝把「收尾 / 宽限 / 硬上限 / 节点空闲」缩成 1 s / 2.5 s / 10 s / 3 s,
+  // 断言的恰是各层时限在哪一刻动手(持续有进展的节点跑过 3.5 s 不被中止、一直吐字的在 10 s 硬上限处被中止、没动静的在 2.5 s 宽限后被中止)。
+  // 与别的 Edge/服务抢 CPU 时,节点两次事件之间的间隔会被挤过 2.5 s 的宽限、把「持续有进展」误判成「没动静」,所以进独占桶。
+  'agent-node-limits.e2e.js',
   // 125 治抖（43 号文 §3）：以上 16 件全是真浏览器件，逐件按事故补进来的 —— 于是这张名单
   // 漏掉了**两件自己算 P95 的墙钟性能门**，而它们恰恰是 2026-09-15 那轮全量里唯二上榜的：
   //   · mission-index-scale：`(e) 详情冷P95≤800ms` 红在 1101 ms；同一台机器空闲单跑三次
@@ -214,6 +218,10 @@ const TIMEOUT_OVERRIDES = {
   // 切视角七个来回、开合六张浮层各量三点命中、两档密度各悬停一次、再切一次模型跑一个真回合，
   // 外加两张截图。24 核机器上实测单跑 ~120 s（独占桶里）。豁免到 300 s，与同族两件同一档。
   'walkthrough-round1.browser.e2e.js': 300000,
+  // 3.0 收口走查第三波:界面修复件。H1–H6 逐项在出问题的宽度 × 中英两种语言上量(线程头 11 档宽 × 2 语言、
+  // 设置页签 3 档 × 2 语言、抽屉 Tab 序、定时任务表单……)再加 M 组的真回合,单跑实测 128 s,已越过默认 120 s
+  // (本机 4 路全量里撞墙 TIMEOUT,断言全 PASS)。豁免到 300 s,与同族走查件同一档。
+  'frontend-wave3.browser.e2e.js': 300000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

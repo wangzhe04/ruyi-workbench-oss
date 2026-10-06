@@ -122,8 +122,8 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       reseedTailMaxTokens: 16000,
       minimumSections: 4,
       statusSectionIndex: 3,
-      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n偏好与决定只保留【最后一次】那个版本:用户在对话里推翻、否决或改口的旧偏好不得写进【已确认的决定】;确有必要提到时必须写明它已被推翻,不许与现行偏好并列成两条都有效的约束。\n只输出摘要本身。',
-      promptEn: 'Compress the conversation above into a structured summary. Output exactly these five sections (write "None" for a section with nothing in it):\n## Goal\nThe user\'s core objective and hard constraints.\n## Decisions\nSettled facts, chosen approaches, stated preferences.\n## Open\nTodos, work in progress, unresolved questions.\n## Current Status\nHand-off state, listed as: Done / In progress / Blocked / Next step. Write "None" if there is nothing.\n## Files\nFiles and paths touched, code points, key data and conclusions.\nFidelity requirement (driven by the measured 45e baseline): key nouns must be kept VERBATIM -- code names, numbers and magnitudes, dates, people, file paths, version strings, explicit prohibitions and constraints. Never generalize or drop them; when in doubt keep more, not less. Use bullets per section; do not write one flowing paragraph.\nPreferences and decisions: keep only the LAST version. A preference the user overrode, vetoed or changed their mind about during the conversation must not appear under Decisions; when it has to be mentioned at all, say it was overridden, and never list it next to the current one as if both still held.\nKeep only structured facts and what a hand-off needs; do not spell out reasoning. Keep each mapped section short; keep cross-chunk facts when reducing; avoid unrelated expansion.\nOutput the summary only.',
+      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论;关键工具调用各自得到了什么(抓过的网页/接口、命令与脚本输出、子代理交付 —— 结论与来源都写上,这类结果事后重跑未必复现)\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n偏好与决定只保留【最后一次】那个版本:用户在对话里推翻、否决或改口的旧偏好不得写进【已确认的决定】;确有必要提到时必须写明它已被推翻,不许与现行偏好并列成两条都有效的约束。\n只输出摘要本身。',
+      promptEn: 'Compress the conversation above into a structured summary. Output exactly these five sections (write "None" for a section with nothing in it):\n## Goal\nThe user\'s core objective and hard constraints.\n## Decisions\nSettled facts, chosen approaches, stated preferences.\n## Open\nTodos, work in progress, unresolved questions.\n## Current Status\nHand-off state, listed as: Done / In progress / Blocked / Next step. Write "None" if there is nothing.\n## Files\nFiles and paths touched, code points, key data and conclusions; what each key tool call established (pages/APIs fetched, command and script output, sub-agent deliveries: the finding and its source, since such results may not be reproducible later).\nFidelity requirement (driven by the measured 45e baseline): key nouns must be kept VERBATIM -- code names, numbers and magnitudes, dates, people, file paths, version strings, explicit prohibitions and constraints. Never generalize or drop them; when in doubt keep more, not less. Use bullets per section; do not write one flowing paragraph.\nPreferences and decisions: keep only the LAST version. A preference the user overrode, vetoed or changed their mind about during the conversation must not appear under Decisions; when it has to be mentioned at all, say it was overridden, and never list it next to the current one as if both still held.\nKeep only structured facts and what a hand-off needs; do not spell out reasoning. Keep each mapped section short; keep cross-chunk facts when reducing; avoid unrelated expansion.\nOutput the summary only.',
       sections: [
         ['【目标】', '## Goal', 'Goal:'],
         ['【已确认的决定】', '## Decisions', 'Decisions:'],
@@ -777,6 +777,13 @@ function compactObservationValue(value, key, depth) {
   return String(value);
 }
 
+// 缩减视图的两种形状(见下面 reduceObservationContent):文本结果是 `[Ruyi observation reduced …]` 头,JSON 结果是带
+// `_ruyiObservation:{reduced:true,…}` 的对象(数组结果包成 {items, _ruyiObservation})。
+function isReducedObservationView(content) {
+  const text = String(content || '');
+  return text.startsWith('[Ruyi observation reduced') || text.includes('"_ruyiObservation":{"reduced":true');
+}
+
 function reduceObservationContent(toolName, content, rawRef, opts) {
   const recallEnabled = !!(opts && opts.recallEnabled);
   // 105a: 仅当 observation_recall 工具生效时在缩减视图里提示回读入口;默认关时文案逐字节不变。
@@ -826,9 +833,15 @@ function buildObservationRecallPrompt(history, config) {
   const seen = new Set();
   const refPattern = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/g;
   for (const message of history) {
-    if (!message || message.role !== 'tool' || typeof message.content !== 'string') continue;
-    const content = message.content;
-    if (!content.includes('[Ruyi observation reduced') && !content.includes('"_ruyiObservation"')) continue;
+    if (!message || typeof message.content !== 'string') continue;
+    let content = message.content;
+    if (message.role === 'user') {
+      // L2 之后缩减视图都被摘要掉了:压缩摘要那条 user 消息末尾的机器索引(buildCompactionToolIndex)里的 rawRef
+      // 是唯一还在的回捞锚点。只认索引那几行,用户自己的话里出现的形似字符串不算。
+      const at = content.indexOf(COMPACTION_TOOL_INDEX_HEADER);
+      if (at < 0) continue;
+      content = content.slice(at).split('\n').filter(line => line.startsWith('- ')).join('\n');
+    } else if (message.role !== 'tool' || (!content.includes('[Ruyi observation reduced') && !content.includes('"_ruyiObservation"'))) continue;
     for (const match of content.matchAll(refPattern)) {
       const ref = match[0];
       if (!seen.has(ref)) { seen.add(ref); refs.push(ref); }
@@ -1086,6 +1099,10 @@ function evaporateHistory(history, opts) {
     const m = history[i];
     if (!m || m.role !== 'tool' || typeof m.content !== 'string') continue;
     if (m.content.startsWith(EVAPORATED_PREFIX)) continue; // already evaporated → skip (idempotent, cache-safe)
+    // 已经是缩减视图的同样跳过(2026-10):修前每越一次线 L1 都把上次的缩减视图再缩一遍 —— JSON 视图还能再省几百字,于是
+    // 换上一个新 rawRef,指向「本次快照里的那份缩减视图」而不是原件(回捞要连跳两次才见原文,8 次/回合的配额白耗),
+    // 同时又改写一条旧消息、把服务商的前缀缓存再作废一次。缩减视图里的 rawRef 已经指向原件,留着它就是最好的结果。
+    if (useReducer && isReducedObservationView(m.content)) continue;
     const toolName = toolNames ? (toolNames.get(String(m.tool_call_id || '')) || '') : '';
     const protectedReason = useReducer ? protectedObservation(toolName, m) : '';
     if (protectedReason) continue;
@@ -2333,6 +2350,7 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
       };
       fresh.claudeSessionId = null;
       delete fresh.claudeSessionModel;
+      delete fresh.claudeSessionRequestedModel;
       delete fresh.claudeSessionCwd;
       delete fresh.claudeSessionRouteKey;
       fresh.injectedIndexHash = null;
@@ -2510,6 +2528,8 @@ function recentFileReads(history, budgetTokens) {
 //     越积越长(新摘要本来就覆盖了旧摘要)—— 只取出其中原始任务那一段;
 //   · 带图片的首问:content 是 parts 数组,String() 出来是「[object Object],[object Object]」—— 拍平成文字、图片记一笔。
 const COMPACTION_TASK_PREFIX = '原始任务(保持聚焦):\n';
+// 手动压缩(runProviderCompact 的 L2)塌成 [摘要, 收到] 时首条 user 的开头。
+const MANUAL_COMPACTION_SUMMARY_HEADER = '(以下是此前对话的压缩摘要)\n';
 function compactionTaskText(message) {
   const content = message && message.content;
   let text = typeof content === 'string' ? content
@@ -2524,9 +2544,138 @@ function compactionTaskText(message) {
     const body = text.slice(COMPACTION_TASK_PREFIX.length);
     const cut = body.indexOf('\n\n【压缩摘要');
     text = cut >= 0 ? body.slice(0, cut) : body;
+  } else if (text.startsWith(MANUAL_COMPACTION_SUMMARY_HEADER)) {
+    // 手动 L2 之后没有单独的原始任务:取旧摘要的【目标】一节代替。修前整条(旧摘要 + 旧工具索引)被当成任务原文钉一遍,
+    // 下一次自动 L2 的重播种里索引出现两份(多约 4K 字)。没有【目标】节就取索引之前的正文、截到 1200 字。
+    const body = text.slice(MANUAL_COMPACTION_SUMMARY_HEADER.length);
+    const goal = /【目标】[^\n]*(?:\n(?!【)[^\n]*)*/.exec(body);
+    text = goal ? goal[0].trim() : body.split('\n\n' + COMPACTION_TOOL_INDEX_HEADER)[0].slice(0, 1200);
   }
   return text;
 }
+// ── 压缩摘要后附的「已执行工具调用」机器索引 ──────────────────────────────────────────────────────────────
+// 2026-10(用户转来的本机 agent 评估):L2 摘要是五节自然语言,写不写工具清单由摘要模型定;被摘要掉的那段历史里「调过什么、
+// 得到过什么」在模型可见面上就没有任何记录了,而快照里的原件也因为没有 rawRef 够不着(105a 的恢复索引只认历史里还在的缩减
+// 视图,L2 之后为空)。网页、接口、一次性命令、子代理交付这类结果事后重跑复现不了 —— 「既没写进摘要、又够不着」正是那个洞。
+// 这里在摘要后面确定性地附一张有界索引:被摘要掉那段里的每次工具调用(名字 + 关键参数 + 结果大小/失败),能回捞的带 rawRef
+// (observation_recall 取回当时的原文)。不调模型、不改摘要内容;名额不够时先让出「可重跑的」(读本地文件之类),一次性的留到最后。
+// 上一次压缩留下的索引行原样并进来(更早的在前),反复压缩也不丢锚点。
+// rawRef 只在观察回捞开着、且快照是带内容哈希的那种(reducer 开时才写)时给:
+//   · 内容里已经带 rawRef(本轮或更早的 L1 缩减视图、111e 去重指针)→ 沿用它,它指向当时的原件;
+//   · 否则内容自快照以来没动过(reducer 开时 L1 要么缩成带 rawRef 的视图、要么原样不动)→ 按本次快照算 rawRef。
+const COMPACTION_TOOL_INDEX_HEADER = '【已执行的工具调用(机器生成的索引,结论以上文摘要为准)】';
+const COMPACTION_TOOL_INDEX_MAX_ENTRIES = 30;
+const COMPACTION_TOOL_INDEX_MAX_CHARS = 4000;
+const COMPACTION_TOOL_INDEX_SKIP = new Set(['todo_write', 'scratchpad_write', 'tool_search', 'tool_load', 'list_tools', 'observation_recall', 'checkpoint_list']);
+// 事后重跑复现不了的那一类:联网、命令/脚本、子代理、桌面/浏览器操作;桥接的外部 MCP 工具(名字带 __)一律算。
+const COMPACTION_TOOL_INDEX_ONESHOT = /__|^(web_fetch|web_search|http_request|http_download|powershell_run|script_run|shell_start|shell_poll|shell_send|orchestrate_agents|agent_result|wait_agents)$|^(desktop|browser)_/;
+const COMPACTION_RAWREF_PATTERN = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
+// keepTail:路径类参数掐中间、留尾巴 —— 文件名在尾部,Windows 的临时目录/工作区前缀一长,从尾部截就只剩盘符和用户目录。
+function compactionIndexText(value, max, keepTail = false) {
+  const flat = String(value == null ? '' : value).replace(/\s+/g, ' ').replace(/</g, '＜').replace(/>/g, '＞').trim();
+  if (flat.length <= max) return flat;
+  if (!keepTail) return flat.slice(0, max) + '…';
+  const head = Math.min(12, Math.floor(max / 4));
+  return flat.slice(0, head) + '…' + flat.slice(flat.length - (max - head - 1));
+}
+const COMPACTION_PATH_ARG_KEYS = new Set(['path', 'paths', 'dest', 'from', 'to', 'cwd', 'file', 'filePath', 'dir']);
+function compactionToolArgsDigest(rawArgs) {
+  let args = null;
+  try { args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs; } catch { args = null; }
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return compactionIndexText(rawArgs, 80);
+  const preferred = ['path', 'url', 'query', 'command', 'task', 'name', 'pattern', 'paths', 'runId', 'nodeId', 'workflowId', 'dest', 'from', 'to', 'code'];
+  const keys = [...preferred.filter(k => Object.prototype.hasOwnProperty.call(args, k)), ...Object.keys(args).filter(k => !preferred.includes(k))];
+  const parts = [];
+  for (const key of keys) {
+    const v = args[key];
+    if (v == null || v === '' || typeof v === 'boolean') continue;
+    const text = Array.isArray(v) ? v.slice(0, 3).map(x => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(',') : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+    parts.push(key + '=' + compactionIndexText(text, 60, COMPACTION_PATH_ARG_KEYS.has(key)));
+    if (parts.length >= 2) break;
+  }
+  return parts.join(' ');
+}
+// history:要摘要的那段所在的历史(L1 之后、重播种之前);upto:被摘要掉的部分是 history[0..upto)。
+// 返回 '' = 没有可列的调用。opts.scratchpadHint:主会话(有草稿本)时多一句「要原样留着的写进草稿本」。
+function buildCompactionToolIndex(history, opts = {}) {
+  const list = Array.isArray(history) ? history : [];
+  const upto = Math.max(0, Math.min(list.length, Number.isFinite(Number(opts.upto)) ? Number(opts.upto) : list.length));
+  const config = opts.config || {};
+  const refPrefix = String(opts.rawRefPrefix || '');
+  const canRecall = observationRecallEnabled(config) && /^history:\d+:[a-f0-9]{16}$/.test(refPrefix);
+  // 结果按「assistant 之后紧跟的那串 tool 消息」就近配对:有的服务商每次迭代都从 call_1 起编,全局按 id 取第一条会把后面的
+  // 调用都配到第一次的结果上(算出同一个 rawRef 再被下面的去重丢掉)—— 而被丢的恰是要保护的一次性调用。
+  // 紧跟的那串里找不到(中间夹了插话之类)再往后找,到下一次复用同一 id 的 assistant 为止。
+  const resultIndexFor = (assistantAt, id) => {
+    let j = assistantAt + 1;
+    for (; j < upto && list[j] && list[j].role === 'tool'; j++) if (String(list[j].tool_call_id || '') === id) return j;
+    for (; j < upto; j++) {
+      const m = list[j];
+      if (!m) continue;
+      if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.some(c => String((c && c.id) || '') === id)) return null;
+      if (m.role === 'tool' && String(m.tool_call_id || '') === id) return j;
+    }
+    return null;
+  };
+  // 上一次压缩留下的索引行(在摘要那条 user 消息里),更早的在前。
+  const entries = [];
+  const seenRefs = new Set();
+  for (let i = 0; i < upto; i++) {
+    const m = list[i];
+    if (!m || m.role !== 'user' || typeof m.content !== 'string' || !m.content.includes(COMPACTION_TOOL_INDEX_HEADER)) continue;
+    const lines = m.content.slice(m.content.indexOf(COMPACTION_TOOL_INDEX_HEADER) + COMPACTION_TOOL_INDEX_HEADER.length).split('\n');
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      if (!line.startsWith('- ')) break;
+      const ref = (line.match(COMPACTION_RAWREF_PATTERN) || [])[0] || '';
+      if (ref && seenRefs.has(ref)) continue;
+      if (ref) seenRefs.add(ref);
+      entries.push({ line, oneShot: true, ref });
+    }
+  }
+  for (let i = 0; i < upto; i++) {
+    const m = list[i];
+    if (!m || m.role !== 'assistant' || !Array.isArray(m.tool_calls)) continue;
+    for (const call of m.tool_calls) {
+      const name = String((call && call.function && call.function.name) || '');
+      if (!name || COMPACTION_TOOL_INDEX_SKIP.has(name)) continue;
+      const callId = String((call && call.id) || '');
+      const at = callId ? resultIndexFor(i, callId) : null;
+      const result = at == null ? null : list[at];
+      const content = result && typeof result.content === 'string' ? result.content : '';
+      const reducedChars = (content.match(/originalChars["=:\s]*(\d+)/) || [])[1];   // 缩减视图(文本头或 _ruyiObservation 对象)记着原件大小
+      const size = reducedChars ? Number(reducedChars) : content.length;
+      const failed = /"ok"\s*:\s*false/.test(content.slice(0, 400));
+      let ref = '';
+      if (canRecall && content) {
+        ref = (content.match(COMPACTION_RAWREF_PATTERN) || [])[0] || '';
+        if (!ref && !content.startsWith(EVAPORATED_PREFIX)) ref = `${refPrefix}:${at}:${crypto.createHash('sha256').update(content).digest('hex').slice(0, 16)}`;
+      }
+      if (ref && seenRefs.has(ref)) continue;
+      if (ref) seenRefs.add(ref);
+      const digest = compactionToolArgsDigest(call && call.function && call.function.arguments);
+      const outcome = result == null ? '无结果' : (failed ? '失败' : `${size} 字`);
+      const line = `- ${compactionIndexText(name, 60)}${digest ? ' ' + digest : ''} → ${outcome}${ref ? ' · rawRef=' + ref : ''}`;
+      entries.push({ line, oneShot: COMPACTION_TOOL_INDEX_ONESHOT.test(name), ref });
+    }
+  }
+  if (!entries.length) return '';
+  // 名额:条数与字数都有上限。超了先丢最早的「可重跑」条目,没有了再丢最早的。
+  const total = () => entries.reduce((n, e) => n + e.line.length + 1, 0);
+  while (entries.length > COMPACTION_TOOL_INDEX_MAX_ENTRIES || (entries.length > 1 && total() > COMPACTION_TOOL_INDEX_MAX_CHARS)) {
+    const drop = entries.findIndex(e => !e.oneShot);
+    entries.splice(drop >= 0 ? drop : 0, 1);
+  }
+  const anyRef = entries.some(e => e.ref);
+  const footer = [
+    anyRef
+      ? '需要某条的确切原文时,调用 observation_recall({rawRef}) 取回当时的原始输出(只读);没有 rawRef 的已不可回捞,要用确切内容就重新读取 / 重新调用(网页、接口、命令的结果可能已经变了)。'
+      : '这些调用的原文已不可回捞;要用确切内容就重新读取 / 重新调用(网页、接口、命令的结果可能已经变了)。',
+    opts.scratchpadHint ? '之后还要原样用到的数字、链接、ID、rawRef,可以用 scratchpad_write 记下 —— 草稿本跨压缩保留。' : '',
+  ].filter(Boolean).join('\n');
+  return COMPACTION_TOOL_INDEX_HEADER + '\n' + entries.map(e => e.line).join('\n') + '\n' + footer;
+}
+
 const CompactionPlan = (() => {
   const defaults = CONTEXT_GOVERNANCE_RULES.compactionPlan;
   function create(options = {}) {
@@ -2563,7 +2712,8 @@ const CompactionPlan = (() => {
       recentFiles: reseedReattachFilesEnabled(options.config) ? recentFileReads(history, budget) : [],
     });
   }
-  function reseed(plan, summary) {
+  // extras.toolIndex:buildCompactionToolIndex 的结果('' / 缺省 = 不附,重播种逐字节同修前)。
+  function reseed(plan, summary, extras) {
     const forced = plan && plan.trigger === 'forced_400';
     const subagent = plan && plan.scope === 'subagent';
     const heading = forced ? '【压缩摘要｜因上下文超限重播种】' : '【压缩摘要】';
@@ -2589,8 +2739,9 @@ const CompactionPlan = (() => {
       ? '\n\n【最近读过的文件(节选,供接续参考;需要全文请重新读)】\n'
         + files.map(f => '--- ' + f.path + ' ---\n' + f.head).join('\n\n')
       : '';
+    const indexBlock = extras && extras.toolIndex ? '\n\n' + String(extras.toolIndex) : '';
     return [
-      { role: 'user', content: COMPACTION_TASK_PREFIX + compactionTaskText(plan && plan.task) + '\n\n' + heading + '\n' + String(summary || '') + fileBlock },
+      { role: 'user', content: COMPACTION_TASK_PREFIX + compactionTaskText(plan && plan.task) + '\n\n' + heading + '\n' + String(summary || '') + fileBlock + indexBlock },
       { role: 'assistant', content: acknowledgement },
       ...bridged,
     ];
@@ -2635,7 +2786,7 @@ const CompactionPlan = (() => {
 const compactionSummaryFailures = new Map();
 const COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS = 10 * 60 * 1000;
 async function runAutoCompaction(ctx) {
-  const { history, scope, provider, model, sys, tools, config, budget, window, watermark, snapshot, onEvent, eventFields = {}, logFields = {}, onLevel1, summaryAuxCtx, promptOverride, planOpts = {}, signal } = ctx;
+  const { history, scope, provider, model, sys, tools, config, budget, window, watermark, snapshot, onEvent, eventFields = {}, logFields = {}, onLevel1, summaryAuxCtx, promptOverride, planOpts = {}, signal, scratchpadHint } = ctx;
   // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
   // 实测数据里估算值贴着预算线抖动时,曾出现连续 26 次「蒸发 1 条:106K→106K」的每迭代无效循环
   // (每次快照写盘 + 全量存盘 + 追加标记,token 却没降)。水位与预算取大者,窗口放大后不阻碍再压。
@@ -2744,7 +2895,9 @@ async function runAutoCompaction(ctx) {
     return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before, watermark: before, summaryFailed: true };
   }
   compactionSummaryFailures.delete(summaryKey);
-  const reseeded = CompactionPlan.reseed(plan, sc.summary);
+  // 被摘要掉那段里的工具调用索引(见 buildCompactionToolIndex)。管家会话的摘要是另一套口径(promptOverride),不附。
+  const toolIndex = promptOverride ? '' : buildCompactionToolIndex(history, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
+  const reseeded = CompactionPlan.reseed(plan, sc.summary, { toolIndex });
   // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
   // 既有的 repairProviderHistoryPairing 当安全网 —— **它应当一条都修不到**(e2e 就是这么断言的);
   // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
@@ -2770,7 +2923,7 @@ async function runAutoCompaction(ctx) {
 // 返回 { level: 0|1|2, evaporated, reseeded?, sc? }:2 = 摘要重播种成功(调用方装回历史、记账、重试,重试成功才落窗口学习);
 // 1 = 只有 L1 蒸发有斩获(调用方重试最后一次,并跳过下一迭代的自动压缩 —— 几秒前 L2 刚失败过);0 = 零成果(不许虚报压缩)。
 async function runForcedOverflowCompaction(ctx) {
-  const { history, scope, provider, model, config, snapshot, onEvent, eventFields = {}, logFields = {}, summaryAuxCtx, beforeTokens, error, signal } = ctx;
+  const { history, scope, provider, model, config, snapshot, onEvent, eventFields = {}, logFields = {}, summaryAuxCtx, beforeTokens, error, signal, scratchpadHint } = ctx;
   logEvent({ kind: 'auto_compact', mode: 'forced_400', ...logFields, beforeTokens, error: String(error || '').slice(0, 200) });
   if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
     try {
@@ -2798,7 +2951,8 @@ async function runForcedOverflowCompaction(ctx) {
   }
   if (sc && sc.ok) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
-    return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary), sc };
+    const toolIndex = buildCompactionToolIndex(history, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
+    return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary, { toolIndex }), sc };
   }
   if (evaporated <= 0) onEvent({ type: 'compact', mode: 'forced_400', phase: 'failed', trigger: 'forced_400', ...eventFields, error: String((sc && sc.error) || 'nothing to compact') });
   return { level: evaporated > 0 ? 1 : 0, evaporated };
@@ -2843,11 +2997,42 @@ async function maybeCompactSubHistory(opts) {
 }
 
 // §5.2 (v0.7b) / v0.8-S5: server-side manual context compaction for a native (OpenAI-compatible) provider
-// session. Now uses the SHARED summary kernel (providerSummaryCall) so the manual 🗜 endpoint and the
-// auto-compact level-2 are the same code path. Collapses providerHistory to [summary-user, ack-assistant]
-// and appends a system note. On any failure the history is left untouched. Returns { ok, ... }; never
-// throws. Guarded by same-origin (mutating) upstream; NOT in needsToken.
-async function runProviderCompact(sessionId) {
+// session (上下文条「立即压缩」/ provider 会话的 /compact)。Guarded by same-origin (mutating) upstream; NOT in needsToken.
+// 2026-10(用户报「手动触发似乎直接触发 L2」+ 本机 agent 的回捞评估):修前一步到 L2 —— 整份历史交给摘要模型、塌成
+// [摘要, 收到],不写快照,被摘要掉的工具原文从此够不着(rawRef 一个都没有),L1 能免费省下的那部分也白付一次摘要调用。
+// 现在与自动压缩同一套顺序:
+//   0. 先写历史快照(观察缩减开着时带内容哈希,rawRef 才能校验)—— 后路,不改任何默认行为;
+//   1. L1 蒸发 / 缩减旧工具结果(免费、不丢细节:原件经 rawRef 可用 observation_recall 取回)。mode 不是 'summary' 且
+//      L1 已经把估算压到低水位以下(预算 × compactionPlan.l1SufficientRatio,与自动压缩同一个比例)→ 到此为止,不调摘要;
+//   2. 不够、L1 无事可做、或调用方明确要 mode:'summary' → L2 摘要。仍塌成 [摘要, 收到](手动压缩的既有语义,不留尾巴),
+//      摘要后附被摘要掉那段的工具调用索引(buildCompactionToolIndex,能回捞的带 rawRef)。
+// 全程在历史的副本上做;任何失败都不动会话。返回 { ok, level: 1|2, ... };never throws。
+// 正在手动压缩的会话:后台代理唤醒在这期间不起回合(见 runAgentWake),压缩收尾时补排一次。
+// POST /api/provider/compact 走这层登记;压缩本体(及其落盘纪律)仍是 runProviderCompact。
+const providerCompactInFlight = new Set();
+// 手动压缩没有「这一回合」的系统提示与工具表(回合里它们随 runOpenAiTurn 现算),但判「L1 够不够」要和自动压缩同一条线 —— 那条线是按
+// 【系统提示 + 工具表 + 历史】整体估的。这里按会话落盘的冻结工具名(session.toolSchemaNames,没有就是内置工具全集)+ 稳定系统提示重建一份近似:
+// 少算的只有易变层(项目记忆 / 技能索引)与桥接 MCP 工具,偏小的方向;重建失败回落空(= 退回只看历史,不比修前更糟)。
+function manualCompactPromptShape(session, provider, model, config) {
+  try {
+    const cwd = String((session && session.cwd) || (config && config.defaultWorkspace) || '');   // 只进系统提示文字,不必规整(省一条 10→03 的回环边)
+    const own = buildOpenAiTools(config, null, { skillsEnabled: false, desktopOverride: sessionDesktopToolsOf(session), ...(session && session.kind === 'steward' ? { stewardSession: true } : { scratchpadEnabled: true }) });
+    const frozen = session && Array.isArray(session.toolSchemaNames) && session.toolSchemaNames.length ? new Set(session.toolSchemaNames) : null;
+    const tools = frozen ? own.filter(t => t && t.function && frozen.has(t.function.name)) : own;
+    return { sys: String(buildStableSystemPrompt(provider, model, cwd, tools, false, config) || ''), tools };
+  } catch { return { sys: '', tools: [] }; }
+}
+async function runProviderCompactTracked(sessionId, opts = {}) {
+  const sid = safeSessionId(String(sessionId || ''));
+  if (!sid) return runProviderCompact(sessionId, opts);
+  providerCompactInFlight.add(sid);
+  try { return await runProviderCompact(sid, opts); }
+  finally {
+    providerCompactInFlight.delete(sid);
+    scheduleAgentWake(sid, 'after_compact');
+  }
+}
+async function runProviderCompact(sessionId, opts = {}) {
   const storedConfig = await readConfig();
   let session;
   try { session = await loadSession(String(sessionId || '')); }
@@ -2860,51 +3045,98 @@ async function runProviderCompact(sessionId) {
   const summaryProvider = compactTarget.provider || provider;
   const history = Array.isArray(session.providerHistory) ? session.providerHistory : [];
   if (!history.length) return { ok: false, error: 'no provider history to compact' };
+  const mode = opts && opts.mode === 'summary' ? 'summary' : 'auto';
   // 128b:摘要要调数秒的模型。算之前记下撤回代数,落盘带 expectGen —— 期间撤回过就不写(撤回之前的历史算出来的
   // 摘要绝不写回撤回之后的会话);期间有回合追加过历史(长度变了)也不写,否则那几条会被这份摘要整段盖掉。
   const baseGen = Number(session.rewindGen) || 0;
   const baseLength = history.length;
+  // L1 原地改消息的 content:在浅拷贝的副本上做,落盘时整份换上(失败 / 放弃时会话一个字节不动)。
+  const work = history.map(m => (m && typeof m === 'object' ? { ...m } : m));
+  const rawRefPrefix = sessionObjectIsStale(session) ? ''
+    : await writeHistorySnapshot(session.id, session.turnSeq, work, config.runtimeObservationReducerV1 === true).catch(() => '');
+  const model = String(provider.model || '');
+  const budgetPlan = CompactionPlan.create({ scope: 'main', trigger: 'manual', history: work, provider, model, config, conversationWindow: true });
+  const beforeTokens = estimateHistoryTokens(work);
+  const evaporated = evaporateHistory(work, {
+    config, rawRefPrefix,
+    boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budgetPlan.budget : 0,
+    dedupeReads: historyReadDedupEnabled(config),
+  });
+  const afterL1 = estimateHistoryTokens(work);   // 回给界面 / 标记的数字仍是历史本身(与修前同口径)
+  // 「L1 够了」的线与自动压缩(runAutoCompaction)逐字同一条公式:线 = max(预算×比例, 开销 + (预算−开销)×比例),被比的是
+  // 【系统提示 + 工具表 + 历史】的校准估算(开销 = 系统提示 + 工具表)。修前只拿历史对 预算×比例:窗口小 / 工具表大时历史还远没到线,
+  // 加上固定开销早已超预算,手动压缩却报「够了」、下一次发送自动压缩立刻又上 L2。
+  const ratioRaw = Number(CONTEXT_GOVERNANCE_RULES.compactionPlan.l1SufficientRatio);
+  const ratio = ratioRaw > 0 && ratioRaw <= 1 ? ratioRaw : 0.75;
+  const promptShape = manualCompactPromptShape(session, provider, model, config);
+  const sysMsg = { role: 'system', content: promptShape.sys };
+  const l1Total = calibratedEstimate(provider, model, [sysMsg, ...work], promptShape.tools);
+  const overhead = calibratedEstimate(provider, model, [sysMsg], promptShape.tools);
+  const sufficient = Math.max(Math.floor(budgetPlan.budget * ratio), Math.floor(overhead + Math.max(0, budgetPlan.budget - overhead) * ratio));
+  // L1 的前提是「免费、不丢细节」:被折叠的原件要能经 observation_recall 取回。快照没写成 / 回捞没开(reducer 或 recall 关着)时 L1 是有损的
+  // 蒸发,不能当「已压缩、原文可回捞」收尾(界面的 L1 提示就是这么说的)—— 退到 L2 摘要。
+  const recoverable = Boolean(rawRefPrefix) && observationRecallEnabled(config);
+  const contextUsage = afterTokens => ({
+    usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
+    contextEngine: 'openai', contextProviderId: provider.id, contextModel: model, source: 'provider-compact',
+  });
+  const persist = async (apply) => {
+    let written;
+    try {
+      written = await mutateSession(session.id, fresh => {
+        if (!Array.isArray(fresh.providerHistory) || fresh.providerHistory.length !== baseLength) return { abort: 'history_changed' };
+        apply(fresh);
+        return undefined;
+      }, { writer: 'provider_compact', expectGen: baseGen });
+    } catch (error) {
+      if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code };
+      throw error;
+    }
+    if (!written.session) return { ok: false, error: 'session not found' };
+    if (!written.ok) {
+      logEvent({ kind: 'provider_compact', sessionId: session.id, ok: false, error: 'history_changed', baseLength });
+      return { ok: false, error: 'session.history_changed_during_compact' };
+    }
+    return { ok: true, session: written.session };
+  };
 
-  const sc = await providerSummaryCall(summaryProvider, history, { model: compactTarget.model, config });
+  if (mode !== 'summary' && evaporated > 0 && recoverable && l1Total <= sufficient) {
+    const saved = await persist(fresh => {
+      fresh.providerHistory = work;
+      const marker = upsertCompactMarker(fresh, { kind: 'provider-manual', label: '已压缩上下文', evaporated, saved: beforeTokens - afterL1, beforeTokens, afterTokens: afterL1 });
+      if (marker) marker.usage = contextUsage(afterL1);
+      fresh.autoCompactWatermark = afterL1; // 手动压缩后同样进入滞回期
+    });
+    if (!saved.ok) return saved;
+    logEvent({ kind: 'provider_compact', sessionId: session.id, level: 1, evaporated, beforeTokens, afterTokens: afterL1 });
+    return { ok: true, level: 1, evaporated, beforeTokens, afterTokens: afterL1, recoverable };
+  }
+
+  const sc = await providerSummaryCall(summaryProvider, work, { model: compactTarget.model, config });
   if (!sc.ok) {
     logEvent({ kind: 'provider_compact', sessionId: session.id, ok: false, provider: summaryProvider.id, model: compactTarget.model, error: sc.error });
     return { ok: false, error: sc.error };
   }
   const summary = sc.summary;
   recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账(钱已经花了,照记)
+  const toolIndex = buildCompactionToolIndex(work, { upto: work.length, rawRefPrefix, config, scratchpadHint: session.kind !== 'steward' });
 
-  const beforeTokens = estimateHistoryTokens(history);
   let afterTokens = 0;
-  let written;
-  try {
-    written = await mutateSession(session.id, fresh => {
-      if (!Array.isArray(fresh.providerHistory) || fresh.providerHistory.length !== baseLength) return { abort: 'history_changed' };
-      fresh.providerHistory = [
-        { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + summary },
-        { role: 'assistant', content: '收到，已基于摘要继续。' },
-      ];
-      afterTokens = estimateHistoryTokens(fresh.providerHistory);
-      const marker = upsertCompactMarker(fresh, { kind: 'provider-manual', label: '已压缩上下文', reseeded: true, beforeTokens, afterTokens });
-      if (marker) marker.usage = {
-        usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
-        contextEngine: 'openai', contextProviderId: provider.id, contextModel: String(provider.model || ''), source: 'provider-compact',
-      };
-      fresh.autoCompactWatermark = afterTokens; // 手动压缩后同样进入滞回期
-      fresh.providerHistoryCursor = fresh.messages.length;
-      return undefined;
-    }, { writer: 'provider_compact', expectGen: baseGen });
-  } catch (error) {
-    if (error && error.code === 'session.rewound_during_write') return { ok: false, error: error.code };
-    throw error;
-  }
-  if (!written.session) return { ok: false, error: 'session not found' };
-  if (!written.ok) {
-    logEvent({ kind: 'provider_compact', sessionId: session.id, ok: false, error: 'history_changed', baseLength });
-    return { ok: false, error: 'session.history_changed_during_compact' };
-  }
-  maybeWriteSessionNotes(written.session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用;128b:只在压缩真落盘之后写
-  logEvent({ kind: 'provider_compact', sessionId: session.id, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens });
-  return { ok: true, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, beforeTokens, afterTokens };
+  const saved = await persist(fresh => {
+    fresh.providerHistory = [
+      { role: 'user', content: MANUAL_COMPACTION_SUMMARY_HEADER + summary + (toolIndex ? '\n\n' + toolIndex : '') },
+      { role: 'assistant', content: '收到，已基于摘要继续。' },
+    ];
+    afterTokens = estimateHistoryTokens(fresh.providerHistory);
+    const marker = upsertCompactMarker(fresh, { kind: 'provider-manual', label: '已压缩上下文', evaporated, reseeded: true, beforeTokens, afterTokens });
+    if (marker) marker.usage = contextUsage(afterTokens);
+    fresh.autoCompactWatermark = afterTokens; // 手动压缩后同样进入滞回期
+    fresh.providerHistoryCursor = fresh.messages.length;
+  });
+  if (!saved.ok) return saved;
+  maybeWriteSessionNotes(saved.session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用;128b:只在压缩真落盘之后写
+  logEvent({ kind: 'provider_compact', sessionId: session.id, level: 2, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, evaporated, toolIndexChars: toolIndex.length, beforeTokens, afterTokens });
+  return { ok: true, level: 2, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, evaporated, beforeTokens, afterTokens };
 }
 
 // v0.8-S5 AUTO-COMPACTION driver (§7.7). Called at each provider-turn iteration boundary, BEFORE the next
@@ -2945,6 +3177,8 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       planOpts: { conversationWindow: true, ...(stewardBudget > 0 ? { budgetOverride: stewardBudget } : {}) },
       // 回合的停止信号:Stop 当场取消在飞的 L2 摘要调用(见 runAutoCompaction)。
       ...(signal ? { signal } : {}),
+      // 草稿本只发给普通会话的主回合(C2):摘要后的工具索引多一句「要原样留着的写进草稿本」。
+      scratchpadHint: !(session && session.kind === 'steward'),
     });
     if (r.level === 2) {
       recordCompactUsage(session, r.summaryProvider, r.sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
@@ -3023,7 +3257,11 @@ async function runSessionTurn(input) {
   // until-done 续跑、Provider 与 Claude，避免 UI 显示一档而后端实际按另一档执行。
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
-  const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  const loadedSession = body.sessionId ? await loadSession(body.sessionId) : null;
+  // 系统自己起的唤醒回合绝不顺手新建会话:HTTP 的「合法 id 但装载不到 → 新建」是给用户的兜底(损坏会话被隔离后继续聊),
+  // 对唤醒不成立 —— 线程在 runAgentWake 校验之后被删(或装载瞬时失败)时,新建只会冒出一条只有唤醒通知的孤儿会话。
+  if (!loadedSession && source === AGENT_WAKE_SOURCE) throw Object.assign(new Error('session not found'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  const session = loadedSession || await createSession({ title: body.title, cwd: body.cwd });
   // 回合开头的计划条指纹:收尾时随成败账一起落(stewardLastTurn.todosStartSig),管家据此分辨「这一回合推进过的计划」
   // 与「早就搁下的旧计划」(见 02 sessionTodosSignature)。
   const todosStartSig = sessionTodosSignature(session.todos);
@@ -3058,9 +3296,14 @@ async function runSessionTurn(input) {
   // 刚开跑的用户回合 superseded 掉(用户那句话丢了)。turnSettlers 条目覆盖整个 runSessionTurn(含
   // until-done 驱动器两回合之间的空档),正是「这条线程此刻有一个回合归别人」的完整区间。
   // 检查与下面 turnSettlers.set 之间没有 await,两个并发调用不会都判成空闲。
+  // 同源也算忙的发起面(EXCLUSIVE_TURN_SOURCES,定义在本文件 AGENT_WAKE_SOURCE 旁):'http' 同一扇窗里再发一句 = 顶替(上面
+  // 那条既有语义),'steward' 同理保持原样;而定时调度器('scheduler')与后台代理唤醒('agent_wake')是【系统自己】起的回合,
+  // 不是某个人在同一扇窗口里改口。两条定时任务同刻指向同一条既有线程时,修前后一个把前一个当「同源」顶掉
+  // (09/05 的 supersede):前一个的消息丢了,它的记账却还是 succeeded。现在后来者拿 409,13s 按 target_busy 记 skipped
+  // (不计连败),唤醒侧(runAgentWake)则把账退回去等那一回合收尾时补唤醒。
   const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
-  if (busySettler && busySource && busySource !== source) {
+  if (busySettler && busySource && (busySource !== source || EXCLUSIVE_TURN_SOURCES.has(source))) {
     throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
       code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
     });
@@ -3103,6 +3346,10 @@ async function runSessionTurn(input) {
   // 随回合起手那一次 saveSession 落盘(09 runOpenAiTurn 推入用户消息之后、第一次调模型之前),所以这一回合里任何一条权限待决
   // 出现时,盘上与活回合里读到的都已经是清过的。插话(/api/steer)不清:它进的是正在跑的那一回合。
   if (source === 'http' && session.stewardTaint) delete session.stewardTaint;
+  // 后台代理唤醒的连续计数(见 scheduleAgentWake):不是唤醒自己起的回合(用户亲发、管家派、定时任务)都清零 —— 上限防的是
+  // 「起后台代理 → 被唤醒 → 再起」这一个闭环,修前只认 'http',纯管家 / 定时驱动的线程唤醒满 6 次后进程内再也不唤醒。
+  // 同一个起手点也清「用户叫停过」表:用户重新说话了(或系统起了别的回合),此后后台代理收尾才可以再唤醒这条线程。
+  if (source !== AGENT_WAKE_SOURCE) { agentWakeChain.delete(session.id); agentWakeSuppressed.delete(session.id); }
   const attachments = body.attachments || [];
 
   let finished = false;
@@ -3256,11 +3503,12 @@ async function runSessionTurn(input) {
       if (driverAuto) driverAutoSessions.add(session.id);
       try {
         const turnAgentTeam = !driverAuto && body.agentTeam === true && Number(config.subagentMaxPerTurn) > 0;
-        // 116f: messageMeta 透传给 Provider 引擎(唯一使用者:管家收件箱回合的 {origin:'inbox'})。
-        // driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。CLI 引擎路径不接这个
-        // 参数 —— 116f 只支持 OpenAI 兼容 provider,管家解析到 CLI 引擎时在 13h 就返回 unsupported_engine。
-        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: driverAuto ? null : (body.messageMeta || null) });
-        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam });
+        // 116f: messageMeta 透传给引擎(管家收件箱回合的 {origin:'inbox'}、管家递话 {origin:'steward'}、后台代理唤醒
+        // {origin:'agent_wake'})。driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。管家【会话】解析到
+        // CLI 引擎时在 13h 就返回 unsupported_engine;CLI 引擎的普通线程(管家递话、唤醒)照样把出身标落在用户消息上。
+        const turnMessageMeta = driverAuto ? null : (body.messageMeta || null);
+        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta });
+        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
@@ -3323,7 +3571,22 @@ async function runSessionTurn(input) {
       }
     } catch { outcomePatch = null; }
     if (outcomePatch) turnOutcomePending.add(outcomeId);
-    if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合(没有更新的回合接手)
+    if (turnStillOwned) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    // 后台代理唤醒(见 scheduleAgentWake):收尾时账本里还有没送达的后台代理信封(落在本回合最后一次模型调用之后)→ 补唤醒。
+    // 用户停止 / 被新回合顶掉 / 断线时按设置杀掉回合(lastResult.aborted)的那次收尾不补:用户刚叫停,信封留到下一回合开头送达。
+    // 只是关了页面 / 刷新(killOnDisconnect 缺省关,回合在服务端照常跑完)要补 —— 用户离开正是这个功能要管的情形。
+    // 用户叫停的那次收尾不但不补,还要记下「叫停过」:后台代理与回合 abort 脱钩,几秒后跑完时信封落账那一路(onAgentEnvelopePersisted)
+    // 同样不该把线程叫醒。被新回合顶掉(superseded)的不记 —— 新回合起手时刚清过表,这一记会反过来拦住新回合的收尾。
+    if (session.kind !== 'steward') {
+      const superseded = !!(lastResult && lastResult.superseded);
+      const cancelled = turnStopped || !!(lastResult && lastResult.aborted);
+      // 「Stop 后立刻重发」:新回合起手时(已清表)本回合还在收尾 —— 线程已经归新回合,这里再记一笔会拦住用户刚说完那句话的回合。
+      if (cancelled && !superseded) { if (turnStillOwned) agentWakeSuppressed.add(session.id); }
+      else if (!cancelled && !superseded && typeof EventStreamHooks.pendingAgentWakeJobs === 'function') {
+        try { if (EventStreamHooks.pendingAgentWakeJobs(session).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
+      }
+    }
     if (outcomePatch) {
       // 不 await:成败账是旁路,回合的收尾(brief 补写、返回值)不该排在一次会话头写盘后面;读侧在
       // turnOutcomePending 挂着期间按「账在路上」处理(04),落盘或失败后摘掉。
@@ -3358,6 +3621,148 @@ async function runSessionTurn(input) {
     source,
     error: turnError || undefined,
   };
+}
+
+// ── 后台代理完成 → 唤醒主会话 ────────────────────────────────────────────────────────────────────
+// 用户 2026-10-05 报:模型用 orchestrate_agents{background:true} 起了子代理、自己的回合先结束了,子代理跑完之后主会话
+// 一动不动 —— 信封只在「下一迭代边界 / 下一回合开头」注入,而下一回合要等用户再说一句。现在:信封落账(11
+// persistBackgroundJob)时线程空闲,就由工作台自己起一个回合(source 'agent_wake',走 runSessionTurn,与管家派回合
+// 同一条路:界面照旧经 thread.live 看到它在跑,用户此刻打字会变成插话);线程正忙则由那一回合的迭代边界收件,它收尾
+// 时还有漏收的(信封落在最后一次模型调用之后)再补唤醒。
+// 边界:
+//   · 只认【模型自己】以 background:true 起的 run(run.launchedByModel → 账本行 wakeParent:true,11 notifyAgentRunEnvelope 写)。
+//     面板 / HTTP 的 async 启动同样 background:true,但是用户点的、没有模型在等 —— 信封照常进账本随下一回合送达,不替模型起回合;
+//   · 被叫停的 run(stopped / cancelled)不唤醒 —— 信封照旧在下一回合开头送达;
+//   · 用户叫停之后不唤醒(agentWakeSuppressed):回合被用户停止 / 断线被杀 / 被新回合顶掉的那一次收尾不补唤醒;而且后台代理与回合 abort
+//     脱钩(ctrl:null),叫停之后它们照样会跑完 —— 所以信封落账时也要看这张「叫停过」表,否则线程会在用户 Stop 之后自己又开工。
+//     撤回(rewind)同理:线程已被改写,别替一段被撤回的对话把模型叫醒。表在下一个【不是唤醒起的】回合起手清掉(用户重新说话了);
+//     被拦下的信封一份都不丢 —— 仍在账本里,随用户下一句话的回合开头送达(与关掉 agentAutoWake 时同一条路);
+//   · 每份信封只唤醒一次(进程内记账,按 job id + 完成时刻:续跑 / 重试的同一个 run 再交一份信封会再唤醒);
+//     连续唤醒最多 AGENT_WAKE_CHAIN_MAX 次,防模型「起后台代理 → 被唤醒 → 再起」无限循环,任何不是唤醒起的回合都清零;
+//   · 进程重启:信封落了账、唤醒还没起成就重启的,启动时补排(scheduleAgentWakesAtBoot);重启打断的后台 run 由 08 补一份
+//     interrupted 信封,但不唤醒(重启不是代理「做完了」,留到用户下一句话时送达);
+//   · 手动压缩进行中不唤醒(摘要要算几秒,期间起回合会让那份摘要作废),压缩结束再排一次;
+//   · 管家会话不唤醒(它有自己的运行器);会话已删不唤醒;
+//   · 唤醒回合不是用户的意思表示:source 不是 'http',所以不改「上次用的引擎」、不清 stewardTaint(见 runSessionTurn)。
+const AGENT_WAKE_SOURCE = 'agent_wake';
+// 系统自己起的回合:同一条线程上已经有一个同源回合在跑时,后来者不顶替、而是被挡回去(见 runSessionTurn 的忙判定)。
+const EXCLUSIVE_TURN_SOURCES = new Set(['scheduler', AGENT_WAKE_SOURCE]);
+const AGENT_WAKE_DEBOUNCE_MS = 1500;   // 同一批并行代理前后脚收尾时合成一次唤醒
+const AGENT_WAKE_CHAIN_MAX = 6;
+const agentWakeTimers = new Map();     // sessionId -> 防抖定时器
+const agentWakeAttempted = new Map();  // sessionId -> Set(账本 job id):已经为它唤醒过的信封
+const agentWakeChain = new Map();      // sessionId -> 自上一条用户消息以来的连续唤醒次数
+const agentWakeSuppressed = new Set(); // sessionId:用户叫停 / 撤回过,在下一个非唤醒回合起手之前不再自动唤醒
+// 被叫停的 run(stopped = 有人按了停止,cancelled 同义)不唤醒:用户刚表示过不要了。
+// 进程重启打断的(interrupted)也不唤醒:不是代理做完了,信封留到用户下一句话时送达。
+function agentWakeSkipsStatus(status) { return status === 'stopped' || status === 'cancelled' || status === 'canceled' || status === 'interrupted'; }
+// 记账键带完成时刻:同一个 run 续跑 / 重试后再交一份信封(09 launchPersistedAgentRun 先撤掉「已送达」),job id 不变,
+// 只按 id 记的话第二份永远判成「唤醒过了」。
+function agentWakeJobKey(job) { return String(job && job.id || '') + '@' + String(job && job.completedAt || ''); }
+function scheduleAgentWake(sessionId, reason) {
+  const sid = safeSessionId(sessionId);
+  if (!sid || sid === STEWARD_SESSION_ID) return false;
+  if (agentWakeTimers.has(sid)) return true;
+  const timer = setTimeout(() => {
+    agentWakeTimers.delete(sid);
+    runAgentWake(sid, reason).catch(error => logEvent({ kind: 'agent_wake_error', sessionId: sid, error: String((error && error.message) || error).slice(0, 400) }));
+  }, AGENT_WAKE_DEBOUNCE_MS);
+  if (typeof timer.unref === 'function') timer.unref();
+  agentWakeTimers.set(sid, timer);
+  return true;
+}
+function agentWakeMessage(jobs) {
+  const lines = jobs.slice(0, 8).map(job => `- 「${String(job.name || job.runId || '').replace(/\s+/g, ' ').slice(0, 80)}」(run ${job.runId},${job.status})`);
+  if (jobs.length > 8) lines.push(`- 另有 ${jobs.length - 8} 个`);
+  // 只有账本行确是模型自己起的(wakeParent)才说「你先前用 orchestrate_agents 启动的」;别的(防御:判据在 pendingAgentWakeJobs 已滤过)不替模型认账。
+  const byModel = jobs.every(job => job && job.wakeParent === true);
+  return [
+    byModel
+      ? `[后台代理已完成 · 自动唤醒] 你先前用 orchestrate_agents{background:true} 启动的 ${jobs.length} 个后台代理已结束:`
+      : `[后台代理已完成 · 自动唤醒] ${jobs.length} 个后台代理 / 工作流运行已结束:`,
+    ...lines,
+    '它们的交付信封随本条送达。请据此继续原来的任务;如果已经没有要做的,就向用户简要汇报结果。这是工作台的系统通知,不是用户的新指令。',
+  ].join('\n');
+}
+async function runAgentWake(sessionId, reason) {
+  // 线程正忙:那一回合的迭代边界会收件,收尾时 runSessionTurn 的 finally 再排一次。
+  if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
+  // 手动压缩算摘要期间不起回合(回合会追加历史,那份摘要落盘时被长度守卫作废);runProviderCompact 收尾时再排一次。
+  if (providerCompactInFlight.has(sessionId)) return { ok: false, skipped: 'compacting' };
+  // 用户刚叫停 / 撤回过:不替他把线程叫醒。信封留在账本里,他下一句话的回合开头照常送达(见上面头注)。
+  if (agentWakeSuppressed.has(sessionId)) return { ok: false, skipped: 'user_stopped' };
+  if (typeof EventStreamHooks.pendingAgentWakeJobs !== 'function') return { ok: false, skipped: 'unsupported' };
+  // 设置里关掉了(agentAutoWake:false):信封照旧等用户下一句话时随回合开头送达。
+  const wakeConfig = await readConfig().catch(() => null);
+  if (wakeConfig && wakeConfig.agentAutoWake === false) return { ok: false, skipped: 'disabled' };
+  const session = await loadSession(sessionId).catch(() => null);
+  if (!session || session.kind === 'steward') return { ok: false, skipped: 'no_session' };
+  const attempted = agentWakeAttempted.get(sessionId) || new Set();
+  const pending = EventStreamHooks.pendingAgentWakeJobs(session)
+    .filter(job => !attempted.has(agentWakeJobKey(job)) && !agentWakeSkipsStatus(String(job.status || '')));
+  if (!pending.length) return { ok: false, skipped: 'nothing_pending' };
+  const chain = agentWakeChain.get(sessionId) || 0;
+  if (chain >= AGENT_WAKE_CHAIN_MAX) {
+    logEvent({ kind: 'agent_wake_capped', sessionId, chain, runIds: pending.map(job => String(job.runId || '')) });
+    return { ok: false, skipped: 'chain_capped' };
+  }
+  // 装载会话期间用户可能刚发了一句 / 按了停止:再判一次。下面到 runSessionTurn 登记 turnSettlers 之间 runSessionTurn 自己还有 await
+  // (装载配置与会话),那一段由它的忙判定(409,见 catch)与「系统来源装载不到会话就不新建」兜住。
+  if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
+  if (agentWakeSuppressed.has(sessionId)) return { ok: false, skipped: 'user_stopped' };
+  for (const job of pending) attempted.add(agentWakeJobKey(job));
+  agentWakeAttempted.set(sessionId, attempted);
+  agentWakeChain.set(sessionId, chain + 1);
+  const runIds = pending.map(job => String(job.runId || '')).filter(Boolean);
+  logEvent({ kind: 'agent_wake', sessionId, reason: String(reason || ''), chain: chain + 1, runIds });
+  const turn = runSessionTurn({
+    sessionId, message: agentWakeMessage(pending), source: AGENT_WAKE_SOURCE,
+    messageMeta: { origin: AGENT_WAKE_SOURCE, runIds },
+    requestMeta: { tool: AGENT_WAKE_SOURCE, runIds },
+    onEvent: () => {},
+  });
+  turn.catch(error => {
+    // 线程在 runAgentWake 校验之后被删:没有东西可唤醒,安静跳过(runSessionTurn 对系统来源不新建会话)。
+    if (error && error.code === 'SESSION_NOT_FOUND') { logEvent({ kind: 'agent_wake_skipped', sessionId, reason: 'session_gone' }); return; }
+    // 起回合那一刻撞上别处起的回合(409):那一回合会收件,退回记账,让它收尾时还能补唤醒。
+    if (error && error.code === 'SESSION_TURN_BUSY_ELSEWHERE') {
+      for (const job of pending) attempted.delete(agentWakeJobKey(job));
+      // 只退回【我们自己】加的那一格:撞上的若是用户回合,它起手时已经把计数清零(agentWakeChain.delete),这里再写回旧值
+      // 等于吃掉用户刚做的清零(「连续唤醒上限」在用户说过话之后提前触顶)。计数不再是 chain+1 = 已被别人动过,不碰。
+      if (agentWakeChain.get(sessionId) === chain + 1) agentWakeChain.set(sessionId, chain);
+    }
+    logEvent({ kind: 'agent_wake_error', sessionId, code: String((error && error.code) || ''), error: String((error && error.message) || error).slice(0, 400) });
+  });
+  return { ok: true, runIds, turn };
+}
+EventStreamHooks.onAgentEnvelopePersisted = job => {
+  if (!job || agentWakeSkipsStatus(String(job.status || ''))) return;
+  scheduleAgentWake(job.sessionId, 'envelope');
+};
+// 撤回(02 rewindSession,存盘成功之后调):线程已被改写到更早的一句话 —— 记「叫停过」:此后到用户下一句话之前不自动唤醒。
+// 仍在跑的后台代理(与回合 abort 脱钩)跑完不该把一段被撤回的对话叫醒;它们的信封留在账本里,下一回合开头照常送达(与 Stop 同一条路)。
+// (被撤回回合里【模型自己起的】仍在跑的后台 run 由 02 cancelModelRunsOfDiscardedTurns 就地停掉 —— 停 run 的零件都在 02 / 08,不让 10 多一条回环边。)
+EventStreamHooks.onSessionRewound = ({ sessionId } = {}) => {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return false;
+  agentWakeSuppressed.add(sid);
+  return true;
+};
+// 启动时补排:信封已落账、唤醒还没起成(防抖窗口内重启、崩溃)的会话。只看最近 AGENT_WAKE_BOOT_WINDOW_MS 内完成的 ——
+// 更早的要么早已唤醒过(唤醒回合开头就登记已读),要么当时开关关着 / 唤醒到了上限,重启不该把几天前的线程一起叫醒。
+// 是否已读、开关、上限仍由 runAgentWake 按会话判。
+// 异步 + 按 mtime 预筛(11 recentBackgroundAgentJobSessions):账本文件最大可到 MB 级,修前启动期同步全量读完才 listen。
+// 调用方(13 startServerInner)不 await —— 启动不等它;函数自己兜住一切异常,绝不产生未处理的拒绝。
+const AGENT_WAKE_BOOT_WINDOW_MS = 6 * 3600 * 1000;
+async function scheduleAgentWakesAtBoot() {
+  if (typeof EventStreamHooks.recentBackgroundAgentJobSessions !== 'function') return 0;
+  try {
+    const sessionIds = await EventStreamHooks.recentBackgroundAgentJobSessions(Date.now() - AGENT_WAKE_BOOT_WINDOW_MS);
+    let scheduled = 0;
+    for (const sid of Array.isArray(sessionIds) ? sessionIds : []) if (scheduleAgentWake(sid, 'boot')) scheduled++;
+    if (scheduled) logEvent({ kind: 'agent_wake_boot', sessions: scheduled });
+    return scheduled;
+  } catch { return 0; }
 }
 
 // HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。

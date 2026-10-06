@@ -60,7 +60,7 @@ function toolRequirementsMet(toolName, caps, toolRequiresEnabled, config) {
 // Seeded now so the v0.9 error-humanization UI has real data to render. `result` events attach `errorClass`
 // when determinable (additive field). Exported for the UI + tests.
 const ERROR_CLASSES = {
-  provider_misconfigured: { zh: '模型端点未配置或不可用', next: '到 设置→Providers 检查地址与密钥' },
+  provider_misconfigured: { zh: '模型端点未配置或不可用', next: '到 设置 → 模型与服务 → 模型服务商 检查地址与密钥' },
   network_down: { zh: '网络不可用（当前离线）', next: '联网后重试；或改用离线可完成的任务' },
   permission_denied: { zh: '此操作被权限拒绝', next: '在弹窗中允许，或在 设置→权限 调整模式' },
   tool_error: { zh: '工具执行出错', next: '查看工具返回的错误详情，调整参数后重试' },
@@ -100,7 +100,10 @@ const ERROR_CLASSES = {
   cli_missing: { zh: '找不到可用的 CLI', next: '到 设置 检查 CLI 路径' },
   launch_error: { zh: '这一回合根本没起来', next: '重发一次;仍然不行就看工作台日志' },
   // hunt2:主回合 429 已自动退避重试过几次仍被限流(09 runOpenAiTurn)。修前归 tool_error,把人引去查工具。
-  rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置→Providers 检查额度或换备用端点' },
+  rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置 → 模型与服务 → 模型服务商 检查额度或换备用端点' },
+  // 服务商自己报的错(HTTP 5xx / 其它 4xx、流内错误帧、Responses failed、Anthropic 拒答)。修前这些全落成 tool_error「工具执行出错」,
+  // 把人引去查工具;它不是工具的错,也不一定是配置的错(404 / 401 / 403 另有 provider_misconfigured),多半是服务端暂时故障或请求被拒。
+  provider_error: { zh: '模型服务商返回了错误', next: '多为服务端暂时故障或请求被拒:稍后重试;反复出现就看错误详情,或到 设置 → 模型与服务 → 模型服务商 检查模型名与地址' },
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
@@ -151,16 +154,21 @@ const NETWORK_ANCHORS = ['https://www.baidu.com', 'https://cn.bing.com'];
 //       exactly, without diluting it with anchors or the provider.
 //   (2) DEFAULT (no probe URL) — union of [active provider baseUrl (如有)] + 固定国内可达锚点 (baidu/cn.bing),
 //       so a single flaky target can't fake a 60s global offline reading (the T2 goal).
+//       provider baseUrl 是本机 / 局域网地址(回环、RFC1918、链路本地、*.local、单标签主机名)时【不当锚点】:它能应答只说明
+//       本机/内网通,真断网时照样应答 —— 修前能力矩阵写「在线」、web_search / web_fetch 照常提供、提示词告诉模型「当前在线」。
+//       纯内网部署要声明在线状态,用 capabilityProbeUrl(上面 (1))。
 // Deduped, empties dropped. Exported so an e2e can drive it deterministically.
 // TEST HOOK: env WCW_TEST_NO_NET_ANCHORS=1 suppresses the fixed live anchors in the DEFAULT mode so an
 // offline-simulation e2e is not rescued by a real baidu/cn.bing on the test box. Zero production effect.
+// TEST HOOK: env WCW_TEST_LOCAL_PROVIDER_ANCHOR=1 让本机/局域网 provider 照旧当锚点 —— 离线跑的 e2e 靠本机假 provider 充当
+// 「网络在线」(假 provider 就在 127.0.0.1)。默认关,生产零影响;验证新判据的件把它清掉。
 function networkAnchors(config) {
   config = config || {};
   const cp = String(config.capabilityProbeUrl || '').trim();
   if (cp) return [cp]; // explicit override → sole target
   const list = [];
   const provider = activeOpenAiProvider(config);
-  if (provider && provider.baseUrl) list.push(providerBaseWithV1(provider.baseUrl));
+  if (provider && provider.baseUrl && !(providerBaseIsLocalOrLan(provider.baseUrl) && process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR !== '1')) list.push(providerBaseWithV1(provider.baseUrl));
   if (process.env.WCW_TEST_NO_NET_ANCHORS !== '1') { for (const a of NETWORK_ANCHORS) list.push(a); }
   return [...new Set(list.filter(Boolean))];
 }
@@ -1094,7 +1102,8 @@ async function draftPlaybookFromSession(sessionId) {
   try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, noModelCall: true, error: 'session not found' }; }
   if (!session) return { ok: false, noModelCall: true, error: 'session not found' };
   const msgs = Array.isArray(session.messages) ? session.messages : [];
-  const lastUser = [...msgs].reverse().find(m => m && m.role === 'user' && String(m.content || '').trim());
+  // 后台代理唤醒通知(meta.origin:'agent_wake')是工作台替模型起回合的系统通知,不是用户的诉求 —— 起草 playbook 要取用户真正说的那句。
+  const lastUser = [...msgs].reverse().find(m => m && m.role === 'user' && !(m.meta && m.meta.origin === 'agent_wake') && String(m.content || '').trim());
   const lastUserText = lastUser ? String(lastUser.content || '').trim() : '';
   if (!lastUserText) return { ok: false, noModelCall: true, error: '本会话没有可参考的用户消息' };
   // 取最近一条 assistant 的 turn_summary(哪些文件被改/命令数),给起草更多上下文。
@@ -1172,6 +1181,11 @@ async function providerRawCompletion(provider, history) {
   }
   const decoded = wire.decodeCompletion(r.parsed);
   const content = decoded.text.trim();
+  // 200 回体里装着失败(chat 顶层 {error}、Responses status:'failed'、Anthropic type:'error' / stop_reason:'refusal'):
+  // 修前只剩一句「空补全」,真因(额度用尽 / 拒答 / 服务端报错)看不到。与 10 摘要调用的口径一致,带出 failedDetail。
+  if (decoded.failed || (!content && decoded.failedDetail)) {
+    return { ok: false, error: `provider returned a failed completion${decoded.failedDetail ? ': ' + redact(String(decoded.failedDetail).slice(0, 300)) : ''}` };
+  }
   if (!content) return { ok: false, error: 'provider returned an empty completion' };
   // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
   return { ok: true, content, usage: decoded.usage, model };
@@ -1850,7 +1864,9 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
 // 只有主回合调用方传它;子代理(08-agent-runs)不与用户对话,不传 -> 天然无 playbook 索引。
 // 145-W3: 末尾再加可选参数 envContext = { session }(不动任何既有位置参数)。传了会话头才认得出「管家代开」;
 // 不传时引擎说明的其余几句照常(权限档/提问弹窗)。
-function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext) {
+// #9: 末尾再加可选参数 options。options.memoryTurnTail===true 时本层只含【稳定的核心胶囊】,不含随每条消息变化的检索回执与相关记忆索引 ——
+// 调用方(09 runOpenAiTurn)用 buildMemoryTurnSection 另造那一半,投到末条 user 尾部;这一层前插首条 user,必须跨回合逐字节稳定才吃得到前缀缓存。
+function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext, options) {
   const lines = [];
   // [能力层]
   const netStr = caps && caps.network
@@ -1941,12 +1957,13 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     if (pbSec) lines.push(pbSec);
   }
   // [记忆层]
-  if (memoryCheck) {
+  const memoryTurnTail = !!(options && options.memoryTurnTail === true);
+  if (memoryCheck && !memoryTurnTail) {
     const checkSec = buildMemoryCheckPrompt(memoryCheck, config);
     if (checkSec) lines.push(checkSec);
   }
   if (Array.isArray(memoryEntries) && memoryEntries.length) {
-    const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config, memoryConflicts);
+    const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config, memoryConflicts, memoryTurnTail ? { part: 'core' } : undefined);
     if (memSec) lines.push(memSec);
   }
   // [工作台记忆核心能力] — 内置工具是唯一入口；写入永远经过候选卡片与用户确认。

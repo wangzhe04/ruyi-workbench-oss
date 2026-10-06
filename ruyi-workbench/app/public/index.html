@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
     <!-- 47c(S3):CSP 起步。前端只连本源(/api 由后端代理外部),故 connect-src 'self' 阻断 token/数据外泄;
-         script-src 排除外域(阻外部脚本注入),保留 'unsafe-inline' 兼容首屏主题预绘内联脚本(后续可改 hash 收紧);
-         object-src 'none' 禁插件;img/font 允许 data: (favicon data-URI、base64 图)。 -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+         script-src 排除外域(阻外部脚本注入);object-src 'none' 禁插件;img/font 允许 data: (favicon data-URI、base64 图)。
+         安全走查 S12:script-src 不再带 'unsafe-inline' —— 唯一的内联脚本是下面 head 里那一段首屏预绘(主题/界面模式/视角,
+         必须跑在任何模块加载之前,没法外置成 import),改用 CSP 哈希放行它:'sha256-…' 是那段内联脚本正文(浏览器按
+         换行归一后的 UTF-8 字节)的 SHA-256。【改动那段内联脚本的任何字符,都要同步重算这个哈希】,否则浏览器会拒跑预绘、
+         首帧闪错主题;静态锁 inline-script-csp-hash.static.e2e.js 会在不一致时变红,并给出新值。
+         style-src 仍保留 'unsafe-inline'(界面里大量 style= 属性与动态 style,不属本次收紧范围)。 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-cEZAaMEoutk22UQJv1fdgsnXprYXVfAvyBZqNZBTt7I='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="wcw-token" content="__WCW_TOKEN__" />
     <title data-i18n="app.title">如意工作台</title>
     <!-- v0.8-S8 favicon:内联如意 tile 主标(藏蓝墨底 + 固定深色版青花/鎏金 #6b8ff2/#f2c14e)。data-URI,无外链。 -->
@@ -271,7 +275,7 @@
             <div id="threadStewardBand" class="th-steward" hidden>
               <span id="threadStewardAvatar" class="th-steward-avatar" aria-hidden="true"></span>
               <span id="threadStewardText" class="th-steward-text"></span>
-              <label class="th-steward-toggle">
+              <label class="th-steward-toggle" data-i18n-attr="title:threadHead.watch">
                 <input type="checkbox" id="threadStewardWatch" />
                 <span data-i18n="threadHead.watch">交给管家盯</span>
               </label>
@@ -293,13 +297,14 @@
                  createQuickSwitchChips({compact:false}) 挂进来 —— 与焦点栏、左栏看板密度同一份工厂。 -->
             <div id="threadChips" class="steward-chips" aria-label="线程配置"
                  data-i18n-attr="aria-label:threadHead.chips"></div>
-            <div id="contextMeter" class="ctx-meter" title="上下文用量（点击查看/设置）" aria-haspopup="dialog">
+            <div id="contextMeter" class="ctx-meter" title="上下文用量（点击查看/设置）" aria-haspopup="dialog" role="button" tabindex="0"
+                 aria-label="上下文用量" aria-describedby="contextMeterText" data-i18n-attr="aria-label:ctx.meter.aria">
               <svg class="ctx-batt" viewBox="0 0 26 13" width="26" height="13" aria-hidden="true">
                 <rect class="batt-body" x="0.6" y="1.6" width="21.8" height="9.8" rx="2.2" fill="none" stroke-width="1"/>
                 <rect class="batt-cap" x="23" y="4.4" width="2.4" height="4.2" rx="1"/>
                 <rect class="batt-fill" x="2" y="3.1" width="17.8" height="6.8" rx="1"/>
               </svg>
-              <span class="ctx-text"></span>
+              <span class="ctx-text" id="contextMeterText"></span>
             </div>
             <!-- 连接态（§13.7 登记⑦）：setStatus() 全仓唯一的落点，从顶栏那个 sr-only 的
                  #statusLine 搬到这里 —— 线程头第二行右端一颗点 ＋ 一句话，是【真看得见】的位置。
@@ -590,7 +595,7 @@
             <button id="auditRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
           </div>
           <div class="audit-filters">
-            <select id="auditSourceFilter" class="mini-select">
+            <select id="auditSourceFilter" class="mini-select" aria-label="按来源过滤" data-i18n-attr="aria-label:audit.sourceFilterLabel">
               <option value="" data-i18n="audit.allSources">全部来源</option>
               <option value="workbench" data-i18n="audit.source.workbench">工作台</option>
               <option value="desktop" data-i18n="audit.source.desktop">桌面</option>
@@ -1011,7 +1016,7 @@
               <select id="cfgShellMode">
                 <!-- 121-K1（34 号文 §2.7）：一台两视，选项顺序与 SHELL_MODES 同序（默认在前）；管家开关关时由 steward-shell.js 置 disabled 并显示下面那句提示。 -->
                 <option value="steward" data-i18n="shell.settingSteward">管家（默认）</option>
-                <option value="classic" data-i18n="shell.settingClassic">经典</option>
+                <option value="classic" data-i18n="shell.settingClassic">工作台</option>
               </select>
               <p class="field-help muted" data-i18n="shell.settingHint">切换只改变本机界面，不迁移或改写任务与线程数据；可随时切回。</p>
               <p class="field-help muted" id="stewardShellModeHint" data-i18n="stewardShell.settingDisabledHint" hidden>要用管家壳，先在设置里打开管家。</p>
@@ -1202,6 +1207,10 @@
                   <p class="field-help muted" data-i18n="settings.advanced.subagentPerTurn.hint">单次对话回合内经 orchestrate_agents 累计启动的代理节点数上限；设为 0 可关闭代理。</p>
                 </div>
               </div>
+              <div class="field-row">
+                <label class="check"><input type="checkbox" id="cfgAgentAutoWake" /> <span data-i18n="settings.advanced.agentAutoWake">后台代理跑完后自动唤醒对话</span></label>
+                <p class="field-help muted" data-i18n="settings.advanced.agentAutoWake.hint">模型把任务交给后台代理后先结束了回合，代理跑完时由工作台自动起一个回合把结果交给模型继续处理；关掉则等你下一句话时再送达。</p>
+              </div>
             </section>
             <section class="settings-section settings-expert-only" id="settingsSecWorkflow" aria-labelledby="settingsSecWorkflowHeading">
               <h4 id="settingsSecWorkflowHeading" class="settings-subhead" data-i18n="settings.limits.workflowTitle">工作流与时限</h4>
@@ -1213,15 +1222,15 @@
                 </div>
                 <div class="field-block">
                   <label for="cfgAgentNodeWrapUpMinutes" data-i18n="settings.advanced.agentNodeWrapUp">节点自动收尾（分钟）</label>
-                  <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="8" />
-                  <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">单个模型节点运行超过该时长后，编排器会要求它停止扩展并立即总结；宽限期后仍未结束则只中止该节点。设为 0 可关闭。</p>
+                  <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="30" />
+                  <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">单个模型节点运行超过该时长（默认 30 分钟）后，编排器会要求它停止扩展并立即总结，这一步不会中止它。此后只有两种情况才会中止该节点（兄弟节点不受影响）：宽限期内完全没有进展，或总时长达到硬上限（约为该值的 2 倍，默认 60 分钟）；仍在持续产出的节点不会被中止。设为 0 可关闭。</p>
                 </div>
               </div>
               <!-- turnIdleTimeoutMs 此前没有界面：服务端钳 [1, 60] 分钟、出厂 10 分钟（01-config normalizeConfig）。 -->
               <div class="field-block">
                 <label for="cfgTurnIdleMinutes" data-i18n="settings.limits.turnIdle">一个回合多久没动静算卡住（分钟）</label>
                 <input id="cfgTurnIdleMinutes" type="number" min="1" max="60" step="1" placeholder="10" />
-                <p class="field-help muted" data-i18n="settings.limits.turnIdleHint">回合里连续这么久收不到任何事件，就判定它卡住并结束这一回合。范围 1–60 分钟（默认 10）。</p>
+                <p class="field-help muted" data-i18n="settings.limits.turnIdleHint">回合里连续这么久收不到任何事件（流式输出、工具心跳、子代理进度都算动静），就判定它卡住并结束这一回合；子代理节点与工作流同样按这个时长判空闲。范围 1–60 分钟（默认 10）。</p>
               </div>
             </section>
           </div>
@@ -1442,8 +1451,8 @@
                     <select id="cfgStewardSchedulePermission">
                       <option value="" data-i18n="settings.steward.schedule.permission.global">跟随全局设置</option>
                       <option value="default" data-i18n="permission.mode.default.short">每步都问</option>
-                      <option value="plan" data-i18n="permission.mode.plan.short">先计划再动手</option>
-                      <option value="acceptEdits" data-i18n="permission.mode.acceptEdits.short">小改动自动做</option>
+                      <option value="acceptEdits" data-i18n="permission.mode.acceptEdits.short">改文件不问</option>
+                      <option value="plan" data-i18n="permission.mode.plan.short">只做计划</option>
                       <option value="auto" data-i18n="permission.mode.auto.short">智能自动</option>
                     </select>
                   </div>
@@ -1799,7 +1808,7 @@
                 </div>
                 <div class="field-block">
                   <label for="cfgDesktopMcpCwd" data-i18n="settings.workingDirectory">工作目录 cwd（留空 = 自动）</label>
-                  <input id="cfgDesktopMcpCwd" type="text" placeholder="C:\\Users\\...\\ai-computer-control" />
+                  <input id="cfgDesktopMcpCwd" type="text" placeholder="C:\Users\...\ai-computer-control" />
                 </div>
               </div>
             </section>
@@ -2086,6 +2095,8 @@
             <tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td data-i18n="help.newLine">换行</td></tr>
             <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td data-i18n="help.commandPalette">命令面板</td></tr>
             <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td data-i18n="session.new">新线程</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>`</kbd></td><td data-i18n="help.switchLens">切换视角（管家 / 工作台）</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td data-i18n="help.answerQuestion">提交问题卡的回答</td></tr>
             <tr><td><kbd>Esc</kbd></td><td data-i18n="help.stopOrClose">停止当前回合 / 关闭弹窗</td></tr>
             <tr><td><kbd>?</kbd></td><td data-i18n="help.thisHelp">本帮助</td></tr>
           </table>

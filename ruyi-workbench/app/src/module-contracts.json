@@ -30,6 +30,7 @@
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "StringDecoder",
+        "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
         "URL",
         "USAGE_CACHE_CHECK_BYTES",
@@ -66,6 +67,7 @@
         "dataRootMemoKey",
         "decodeConsoleSegment",
         "decodeConsoleText",
+        "decodeTextFileBytes",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -218,6 +220,7 @@
       "file": "01c-runtime-flags.js",
       "layer": "foundation",
       "provides": [
+        "MEMORY_FIXED_SELECTION_HARD_MAX",
         "appendOnlyToolSchemasEnabled",
         "budgetGuardDecision",
         "budgetGuardEnabled",
@@ -264,11 +267,14 @@
         "CMD_EXE_LINE_LIMIT",
         "CMD_LINE_QUOTE_MARGIN",
         "CMD_LINE_SAFE_BUDGET",
+        "CMD_TEXT_VALUE_FLAGS",
         "DIRECT_SPAWN_LINE_BUDGET",
         "batchSafeSpawn",
         "cmdLineBudgetFor",
         "cmdLineBudgetSeam",
         "isBatchLauncher",
+        "neutralizeCmdMetaChars",
+        "neutralizeCmdTextArgs",
         "quoteWinArg",
         "spawnCmdLineLength"
       ],
@@ -278,12 +284,20 @@
       "file": "01e-permission-modes.js",
       "layer": "foundation",
       "provides": [
+        "AGENT_ROLE_MODE_RANK",
+        "AGENT_ROLE_MODE_TIER_CEILING",
         "AGENT_ROLE_PERMISSION_MODES",
+        "AGENT_ROLE_TIER_ORDER",
+        "AGENT_ROLE_UNTRUSTED_SOURCES",
         "BUILTIN_AGENT_ROLES",
         "CLAUDE_PERMISSION_MODE_MAP",
         "PERMISSION_MODES",
         "PERMISSION_MODES_REQUIRING_CONFIRM",
         "PERMISSION_MODE_ALIASES",
+        "agentRoleIsUntrusted",
+        "agentRoleParentMode",
+        "annotateAgentRoleEffective",
+        "clampAgentRoleToParent",
         "mergeAgentRole",
         "normalizeAgentRole",
         "permissionModeFrom",
@@ -345,6 +359,9 @@
         "DurableJsonStore",
         "RESERVED_SESSION_FILE_IDS",
         "RUNTIME",
+        "RUYI_AGENT_FILE_MARKER",
+        "RUYI_AGENT_FILE_MARKER_RE",
+        "SCRIPT_FILE_MAX_AGE_MS",
         "SESSION_MCP_CONFIG_MAX_AGE_MS",
         "STEWARD_MANAGED_WORKSPACES_CAP",
         "STEWARD_WORKSPACE_LEGACY_NOTE",
@@ -354,6 +371,7 @@
         "WORKSPACE_NOTE_MAX",
         "WORKSPACE_TABLE_CAP",
         "_agentCliLauncherOk",
+        "_agentCliLauncherPresent",
         "_agentCliPathProbe",
         "_claudePathProbe",
         "_cliProbeGeneration",
@@ -362,7 +380,9 @@
         "addExternalMcpServersToMap",
         "agentCliInstallCandidates",
         "agentCliLauncherOk",
+        "agentCliLauncherUsable",
         "agentCliProbeSpawn",
+        "agentCliProbeVerdict",
         "agentCliProbeable",
         "agentMcpImportSources",
         "applyConfigMigrations",
@@ -443,6 +463,8 @@
         "isAskUserTool",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
+        "isLoopbackAddress",
+        "isLoopbackBindHost",
         "kimiMcpManagedIds",
         "kimiMcpSyncChains",
         "lastGoodConfig",
@@ -462,6 +484,7 @@
         "probeAgentCliLauncher",
         "probeAgentCliLauncherAsync",
         "probeAgentCliLauncherRemembered",
+        "probeAgentCliLauncherVerdictAsync",
         "probeDesktopPython",
         "probeDesktopPythonAsync",
         "readBody",
@@ -471,8 +494,10 @@
         "readDesktopPythonDiskEntry",
         "readFileTail",
         "readJsonBody",
+        "readUserJsonObjectForMerge",
         "refreshInBackground",
         "rememberClaudeLauncher",
+        "requestIsLoopback",
         "resolveClaudeLauncher",
         "resolveClaudeLauncherAsync",
         "resolveKimiNpmEntry",
@@ -489,6 +514,7 @@
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
+        "sweepStaleScriptFiles",
         "sweepStaleSessionMcpConfigs",
         "syncAgentCliMcpManifests",
         "syncAgentRolesToClaude",
@@ -718,6 +744,13 @@
         {
           "provider": "01d-win-cmdline.js",
           "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "agentRoleIsUntrusted",
           "kinds": [
             "call"
           ]
@@ -1059,6 +1092,7 @@
         "bulkDeleteUnpinnedSessions",
         "bumpMissionChangeSeq",
         "bumpSessionDiskWriteSeq",
+        "cancelModelRunsOfDiscardedTurns",
         "canonicalTodoStatus",
         "captureGitWorkspaceBaseline",
         "captureTreeWorkspaceBaseline",
@@ -1074,6 +1108,7 @@
         "demoteSessionBodyRecord",
         "detectDanglingTurn",
         "dirSize",
+        "dropInterventionSessionState",
         "dropSessionBodyState",
         "evaluateMissionCheck",
         "evictSessionBodyStateOverflow",
@@ -1088,6 +1123,7 @@
         "inflightSessionIndex",
         "interventionAppendCounts",
         "interventionFilePath",
+        "interventionJournalWorthCompacting",
         "interventionRecordCache",
         "interventionTransitionLocks",
         "interventionWriteChains",
@@ -1189,7 +1225,9 @@
         "normalizeTodoItems",
         "normalizeTodoWriteArgs",
         "noteMissionMembership",
+        "noteSessionIndexBadHead",
         "overlayUnflushedSessionIndex",
+        "parseSessionHeadForIndex",
         "patchMissionContainer",
         "pendingSessionIndex",
         "planSessionBodyAppend",
@@ -1243,13 +1281,16 @@
         "sessionBodyText",
         "sessionBriefOf",
         "sessionDeleteTombstones",
+        "sessionDiskIdsExpectedInIndex",
         "sessionDiskWriteSeq",
         "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
         "sessionFirstUserExcerpt",
+        "sessionHeadStampOf",
         "sessionIndexChain",
         "sessionIndexFileStamp",
         "sessionIndexFlushTimer",
+        "sessionIndexKnownBadHeads",
         "sessionIndexLatestWrite",
         "sessionIndexMemo",
         "sessionIndexPath",
@@ -1506,6 +1547,13 @@
         {
           "provider": "01-config.js",
           "symbol": "sessionWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "MEMORY_FIXED_SELECTION_HARD_MAX",
           "kinds": [
             "read"
           ]
@@ -1852,7 +1900,11 @@
         "READDIR_TIMEOUT",
         "REALPATH_LINK_DEPTH_MAX",
         "REVEAL_OPEN_SAFE_EXTS",
+        "SENSITIVE_HARDLINK_FILES",
         "STAT_TIMEOUT",
+        "UNC_DENIED_ERROR",
+        "USER_HOME_PERSISTENCE_DIRS",
+        "USER_HOME_PERSISTENCE_FILES",
         "WORKSPACE_CANDIDATE_CAP",
         "WORKSPACE_CHILDREN_CAP",
         "WORKSPACE_DIR_TIMEOUT_MS",
@@ -1861,9 +1913,11 @@
         "WRITE_PATH_ARGS",
         "WRITE_PROTECTED_DATA_DIRS",
         "WRITE_PROTECTED_DATA_FILES",
+        "WriteBoundaryHooks",
         "_dataRootReal",
         "_defaultBrowserExecutable",
         "_gitCliProbe",
+        "_homeRealCache",
         "auditBridgedWriteCoverage",
         "bridgedOfficeScriptGate",
         "bridgedReadPathGate",
@@ -1877,6 +1931,7 @@
         "codeEditorLabel",
         "cwdWarning",
         "defaultBrowserExecutable",
+        "deviceNamespaceIsLocalVolume",
         "ensureDataRootReal",
         "executableFromAssociationCommand",
         "existsExecutable",
@@ -1885,11 +1940,14 @@
         "guardFileToolPath",
         "guardWorkspaceExecute",
         "guardWorkspacePath",
+        "homeRealpathSync",
         "installedCodeEditorCandidates",
         "isAutoLoadedLaunchConfigPath",
         "isBrowserDocumentTarget",
         "isOsCriticalPath",
         "isSensitiveDataPath",
+        "isSensitiveHardlinkAlias",
+        "isSensitiveHardlinkStat",
         "isWriteProtectedDataPath",
         "journalBridgedWrite",
         "launchCodeEditor",
@@ -1907,19 +1965,34 @@
         "providerIsLocal",
         "readFilePreview",
         "readdirTimed",
+        "realUncWorkspaceRoots",
         "realpathForContainment",
+        "remoteUncDenial",
+        "remoteUncDenialResolved",
         "resolveContainmentPath",
         "resolveExecCwd",
         "resolvePreferredCodeEditor",
         "resolveWorkspace",
+        "sensitiveFileIdentities",
         "statTimed",
         "stripWin32VerbatimPrefix",
+        "uncHostAndPath",
+        "uncIsLocalHost",
+        "userHomePersistenceHit",
+        "userHomePersistenceTargets",
         "wideWriteModeEnabled",
         "windowsFileAssociationExecutable",
         "windowsRegistryString",
         "workspaceWriteRoots"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "cp",
@@ -1944,6 +2017,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -2234,6 +2314,7 @@
         "logStreamDay",
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
+        "mcpBridgeError",
         "mcpChildExitResult",
         "mcpClientFailures",
         "mcpClientFingerprints",
@@ -2312,6 +2393,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -2749,6 +2837,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "killChildTree",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
             "call"
@@ -2781,15 +2876,20 @@
       "file": "04h-provider-http.js",
       "layer": "foundation",
       "provides": [
+        "PROVIDER_LAN_HOST_SUFFIXES",
         "abortableDelay",
         "providerApiBase",
+        "providerBaseIsLocalOrLan",
         "providerBaseWithV1",
         "providerCallIsTransient",
         "providerCompletionUrl",
         "providerPostJsonOnce",
         "providerRequestHeaders",
         "providerResponsesBase",
+        "providerRetryAfterMs",
+        "providerScrubSecrets",
         "providerSseAsCompletion",
+        "providerThrownErrorText",
         "withTransientRetry"
       ],
       "requires": []
@@ -2809,15 +2909,26 @@
         "ANTHROPIC_STREAM_ERROR_STATUS",
         "ANTHROPIC_STREAM_MAX_TOKENS",
         "ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE",
+        "ANTHROPIC_THINKING_BUDGET_MAX",
+        "ANTHROPIC_THINKING_BUDGET_MIN",
+        "ANTHROPIC_THINKING_EFFORT_BUDGET",
         "ANTHROPIC_THINKING_MODES",
+        "anthropicApiBase",
         "anthropicAssistantBlocks",
+        "anthropicBaseUrl",
+        "anthropicClassicThinking",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicLearnedCapKey",
+        "anthropicLearnedMaxTokens",
+        "anthropicMaxTokensCapFromError",
+        "anthropicMaxTokensFor",
         "anthropicMergeUsage",
         "anthropicMessagesFromHistory",
         "anthropicMessagesUrl",
         "anthropicModelTakesAdaptiveThinking",
         "anthropicModelTraits",
+        "anthropicModelsUrl",
         "anthropicNonEmpty",
         "anthropicOfficialFeatures",
         "anthropicOfficialHost",
@@ -2877,6 +2988,8 @@
         "normalizeProviderApiStyle",
         "providerReasoningEffort",
         "providerServerSearchCard",
+        "providerWireContentFiltered",
+        "providerWireContextExceeded",
         "providerWireDecoded",
         "providerWireFailureDetail",
         "providerWireIncomplete",
@@ -2888,7 +3001,9 @@
         "providerWireStreamErrorText",
         "providerWireToolCallsFromSlots",
         "reasoningContentField",
+        "responsesFailedText",
         "responsesHistoryWithCompleteToolPairs",
+        "responsesIncompleteFinishReason",
         "responsesInstructions",
         "responsesOutputText",
         "setTemperature",
@@ -2926,7 +3041,21 @@
         },
         {
           "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicApiBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
           "symbol": "anthropicMessagesUrl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicModelsUrl",
           "kinds": [
             "read"
           ]
@@ -3259,6 +3388,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "agentCliLauncherUsable",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "buildUserEnvelope",
           "kinds": [
             "call"
@@ -3302,13 +3438,6 @@
         {
           "provider": "01-config.js",
           "symbol": "prepareAgentCliSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "probeAgentCliLauncher",
           "kinds": [
             "call"
           ]
@@ -4185,6 +4314,7 @@
         "kimiContextWindow",
         "kimiHttp",
         "kimiSessionStatus",
+        "kimiStatusFingerprint",
         "kimiUsageFromStatus",
         "kimiWireFile",
         "kimiWireLoopEvent",
@@ -4361,6 +4491,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "agentCliLauncherUsable",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
@@ -4369,13 +4506,6 @@
         {
           "provider": "01-config.js",
           "symbol": "prepareAgentCliSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "probeAgentCliLauncher",
           "kinds": [
             "call"
           ]
@@ -5349,6 +5479,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerBaseIsLocalOrLan",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
@@ -5523,7 +5660,11 @@
       "provides": [
         "STEWARD_ANSWER_BASIS",
         "STEWARD_ASKS_YOU_CHARS",
+        "STEWARD_AUTO_ASK_CWD_KEY_RE",
+        "STEWARD_AUTO_ASK_DATAROOT_PATTERNS",
+        "STEWARD_AUTO_ASK_EGRESS_PATTERNS",
         "STEWARD_AUTO_ASK_INDIRECT_PATTERNS",
+        "STEWARD_AUTO_ASK_PROSE_TOOLS",
         "STEWARD_BRIEF_CLOSE",
         "STEWARD_BRIEF_LIMITS",
         "STEWARD_BRIEF_OPEN",
@@ -5613,7 +5754,11 @@
         "stewardAsksYou",
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
+        "stewardAutoAskEgressText",
         "stewardAutoAskIndirect",
+        "stewardAutoAskReason",
+        "stewardAutoAskScanIncomplete",
+        "stewardAutoAskSensitiveKind",
         "stewardChatCapableProvider",
         "stewardClipSay",
         "stewardConfigHelpFor",
@@ -5641,6 +5786,7 @@
         "stewardPermissionLabel",
         "stewardPermissionPlain",
         "stewardPermissionRank",
+        "stewardPermissionTarget",
         "stewardPlaybookMissingInputs",
         "stewardPrerouteContainsPhrase",
         "stewardPrerouteDeicticHit",
@@ -5691,34 +5837,44 @@
         "AGENT_INSTRUCTION_IMPORT_SCHEMA",
         "AGENT_INSTRUCTION_MAX_BYTES",
         "AGENT_INSTRUCTION_NATIVE_CLI",
+        "AGENT_INSTRUCTION_SCAN_VERSION",
         "CORE_MEMORY_CHAR_CAP",
         "CORE_MEMORY_MAX",
         "CORE_MEMORY_SUMMARY_CAP",
         "MEMORY_EXCLUSION_MAX",
         "MEMORY_FUSION_SCOPE_BONUS",
         "MEMORY_FUSION_TYPE_BONUS",
+        "MEMORY_GLOBAL_PROGRAMMING_RE",
+        "MEMORY_GLOBAL_SCOPE_RE",
         "MEMORY_HEAD_CACHE",
         "MEMORY_HEAD_CACHE_MAX",
         "MEMORY_INDEX_CAP",
         "MEMORY_MAX",
         "MEMORY_METADATA_READ_CAP",
+        "MEMORY_PERSONAL_PREFERENCE_RE",
+        "MEMORY_PROJECT_ONLY_RE",
         "MEMORY_PROPOSAL_BATCH_MAX",
         "MEMORY_PROPOSAL_HISTORY_MAX",
         "MEMORY_PROPOSAL_MIN_JUDGE_GAP",
         "MEMORY_PROPOSAL_MIN_TURN_GAP",
         "MEMORY_PROPOSAL_STATE_MAX_BYTES",
+        "MEMORY_QUERY_CJK_PARTICLES",
         "MEMORY_QUERY_STOP",
         "MEMORY_RELATION_CAP",
         "MEMORY_RELATION_TYPES",
         "MEMORY_RELEVANCE_MAX",
         "MEMORY_RULE_TOUCH_MS",
+        "MEMORY_SEARCH_TERMS_MAX",
         "MEMORY_TYPES",
         "MEMORY_USAGE_TOUCH_MS",
+        "MEMORY_VECTOR_ONLY_MIN_SCORE",
+        "MEMORY_VECTOR_ONLY_REL_SCORE",
         "accMemoryImportMarker",
         "accMemoryImportStore",
         "agentInstructionChain",
         "agentInstructionImportFile",
         "agentInstructionImportStore",
+        "agentInstructionLooksSensitive",
         "agentInstructionMemoryId",
         "agentInstructionSourceKeyOf",
         "agentInstructionSources",
@@ -5729,7 +5885,9 @@
         "buildMemoryCheckPrompt",
         "buildMemoryConflictMap",
         "buildMemoryPromptSection",
+        "buildMemoryTurnSection",
         "cleanMemoryDate",
+        "clipRecentMemoryDraftContext",
         "commitSingleMemoryProposal",
         "commitToolMemoryProposal",
         "commitToolMemoryProposalUnlocked",
@@ -5751,11 +5909,18 @@
         "listMemoryRelations",
         "listWorkbenchMemories",
         "loadMemoryRegistry",
+        "memoryAutoGlobalAllowed",
         "memoryCoreLine",
         "memoryCoreScore",
         "memoryDraftFromObject",
+        "memoryEditWithin",
         "memoryExclusionSet",
+        "memoryFailureResponse",
         "memoryGlobalDir",
+        "memoryGlobalScopeAllowed",
+        "memoryHayWords",
+        "memoryHaystackFuzzyHasTerm",
+        "memoryHaystackHasTerm",
         "memoryIsExpired",
         "memoryProjectDir",
         "memoryProposalBatchInput",
@@ -5772,16 +5937,22 @@
         "memoryProposeAlreadyPendingResult",
         "memoryRecallCorpus",
         "memoryRecallCorpusCache",
+        "memoryRecallLimit",
+        "memoryRecentUserTexts",
         "memoryRelationsFile",
         "memoryRetrievalKey",
         "memoryRetrievalText",
         "memoryReviewDue",
         "memorySearchTerms",
+        "memorySupersededMarks",
+        "memorySupersededTag",
         "memoryUsageFile",
         "memoryUsageKey",
         "memoryUsageWriteChain",
+        "memoryValidSupersededBy",
         "migrateLegacyAccMemory",
         "migrateMemory",
+        "moveMemoryScope",
         "mutateMemoryUsageState",
         "normalizeMemoryProposalCandidate",
         "parseMemoryDraft",
@@ -5796,11 +5967,15 @@
         "proposeMemoryRevision",
         "proposeWorkbenchMemory",
         "rankMemoriesForRecall",
+        "rankMemoriesForRecallDetailed",
         "rankMemoriesFused",
+        "rankMemoriesFusedDetailed",
         "rankRelevantMemories",
+        "rankRelevantMemoriesDetailed",
         "rankRelevantMemoriesScored",
         "readAgentInstructionSource",
         "readAgentInstructionState",
+        "readConfirmedSupersedeEdges",
         "readMemoryDir",
         "readMemoryItem",
         "readMemoryProposalState",
@@ -5810,6 +5985,7 @@
         "recordMemoryProposalUsage",
         "removeAgentInstructionEntries",
         "renderAgentInstructionMemory",
+        "replayPendingMemoryProposal",
         "resolveCoreMemoryState",
         "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
@@ -5832,6 +6008,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
           "kinds": [
             "call"
           ]
@@ -5869,6 +6052,13 @@
           "symbol": "fsp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -6330,6 +6520,7 @@
         "bridgedDesktopLeaseMode",
         "canonicalResourcePath",
         "drainResourceWaiters",
+        "groupHoldsLease",
         "inferToolResources",
         "normalizeAgentResource",
         "normalizeAgentResources",
@@ -6620,6 +6811,7 @@
         "MAIL_PER_SENDER_MAX",
         "MAIL_QUEUE_MAX",
         "MAIL_TEXT_MAX",
+        "MEMORY_WRITE_TOOL_NAMES",
         "NATIVE_COMMAND_TOOL_NAMES",
         "NATIVE_DESKTOP_TOOL_NAMES",
         "NATIVE_TOOL_PACKS",
@@ -6643,6 +6835,9 @@
         "TOOL_SCHEMA_NAMES_MAX",
         "TOOL_SEARCH_EMPTY_NOTE",
         "TOOL_SEARCH_FULL_ARGS_TOP",
+        "WEB_PAYLOAD_LIMITS",
+        "WEB_PAYLOAD_QUERY_TOOLS",
+        "WEB_PAYLOAD_URL_TOOLS",
         "_nativeToolSchemaByName",
         "accPolicyHiddenToolNames",
         "actionTargetMeta",
@@ -6699,8 +6894,10 @@
         "openAiStreamOnce",
         "packDescriptionsFor",
         "parseSimpleYamlValue",
+        "probeProviderCompletion",
         "projectActionModelView",
         "projectAgentRoleFile",
+        "projectCwdDirectoryFailure",
         "rankToolCatalog",
         "readClaudeProjectAgentRoles",
         "readProjectAgentRoles",
@@ -6727,10 +6924,21 @@
         "toolSchemaFreezeBySessionMap",
         "toolSchemaFreezeFor",
         "toolSchemaSearchText",
+        "webLooksEncoded",
+        "webPayloadReason",
+        "webSafeDecode",
+        "webUrlPayloadReason",
         "withShadowedBridgeHints",
         "withToolArgSkeletons"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
@@ -6916,9 +7124,23 @@
         },
         {
           "provider": "01e-permission-modes.js",
+          "symbol": "annotateAgentRoleEffective",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
           "symbol": "BUILTIN_AGENT_ROLES",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "clampAgentRoleToParent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -7085,6 +7307,27 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerRetryAfterMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerScrubSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerThrownErrorText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -7135,6 +7378,20 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardAutoAskIndirect",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskScanIncomplete",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskSensitiveKind",
           "kinds": [
             "call"
           ]
@@ -7357,6 +7614,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -7413,6 +7677,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SubAgentMemoryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -7463,6 +7734,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "estimateBucketsEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "clampAgentRoleToParent",
           "kinds": [
             "call"
           ]
@@ -7776,6 +8054,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskReason",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -7861,6 +8146,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "MEMORY_WRITE_TOOL_NAMES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "nativeToolGate",
           "kinds": [
             "call"
@@ -7911,6 +8203,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolPackForName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "webPayloadReason",
           "kinds": [
             "call"
           ]
@@ -8145,6 +8444,9 @@
         "PROXY_UNWRAP_AGENT_TARGETS",
         "PROXY_UNWRAP_TARGETS",
         "RETIER_SKIP_TARGETS",
+        "WAIT_AGENTS_DEFAULT_MS",
+        "WAIT_AGENTS_MAX_MS",
+        "agentNodeTimeLimits",
         "appendDisplayMessagesToProviderHistory",
         "canonicalToolInvokeCall",
         "commonPrefixChars",
@@ -8153,8 +8455,10 @@
         "launchPersistedAgentRun",
         "layoutShadowPrevBySessionMap",
         "legacySpawnToOrchestrateArgs",
+        "nodeWrapUpAction",
         "planDiscoveryToolBatchAllowed",
         "planParallelReadIsland",
+        "resolveWaitAgentsMs",
         "retierToolInvokeCall",
         "runAgentWorkflow",
         "runOpenAiTurn",
@@ -8163,6 +8467,7 @@
         "toolSchemaNamesSentBySession",
         "unmarkAgentEnvelopeDelivered",
         "unwrapProxiedControlCall",
+        "waitAgentsMaxMs",
         "waitForAgentRunResults"
       ],
       "requires": [
@@ -8248,6 +8553,13 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SubAgentMemoryHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -8358,6 +8670,20 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "volatileTailLayoutEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "agentRoleIsUntrusted",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "clampAgentRoleToParent",
           "kinds": [
             "call"
           ]
@@ -8791,6 +9117,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerThrownErrorText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -8806,6 +9139,20 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "providerServerSearchCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireContentFiltered",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireContextExceeded",
           "kinds": [
             "call"
           ]
@@ -8890,6 +9237,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "neutralizeAuthoredText",
           "kinds": [
             "call"
           ]
@@ -8981,6 +9335,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "buildMemoryPromptSection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryTurnSection",
           "kinds": [
             "call"
           ]
@@ -9338,6 +9699,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolDisabledResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "webPayloadReason",
           "kinds": [
             "call"
           ]
@@ -9881,11 +10249,22 @@
       "file": "10-context-governance.js",
       "layer": "orchestration",
       "provides": [
+        "AGENT_WAKE_BOOT_WINDOW_MS",
+        "AGENT_WAKE_CHAIN_MAX",
+        "AGENT_WAKE_DEBOUNCE_MS",
+        "AGENT_WAKE_SOURCE",
+        "COMPACTION_PATH_ARG_KEYS",
+        "COMPACTION_RAWREF_PATTERN",
         "COMPACTION_REFETCH_LIMITS",
         "COMPACTION_REFETCH_REFUSED",
         "COMPACTION_REFETCH_TOOLS",
         "COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS",
         "COMPACTION_TASK_PREFIX",
+        "COMPACTION_TOOL_INDEX_HEADER",
+        "COMPACTION_TOOL_INDEX_MAX_CHARS",
+        "COMPACTION_TOOL_INDEX_MAX_ENTRIES",
+        "COMPACTION_TOOL_INDEX_ONESHOT",
+        "COMPACTION_TOOL_INDEX_SKIP",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
         "CONTEXT_CALIBRATION_MAX",
@@ -9899,9 +10278,11 @@
         "CompactionPlan",
         "ECON_AUX_FLAG_CACHE",
         "ESTIMATION_RULES",
+        "EXCLUSIVE_TURN_SOURCES",
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
+        "MANUAL_COMPACTION_SUMMARY_HEADER",
         "MODEL_CONTEXT_TABLE",
         "OBSERVATION_ARRAY_SAMPLE",
         "OBSERVATION_CRITICAL_KEYS",
@@ -9942,12 +10323,20 @@
         "_calibKey",
         "agentConversationContextMeta",
         "agentNodeContextWindow",
+        "agentWakeAttempted",
+        "agentWakeChain",
+        "agentWakeJobKey",
+        "agentWakeMessage",
+        "agentWakeSkipsStatus",
+        "agentWakeSuppressed",
+        "agentWakeTimers",
         "aggregateSummaryCalls",
         "anySummarySignal",
         "appendPromptToLastUserMessage",
         "applySummaryCallPolicy",
         "applySummaryEntityCheck",
         "boundToolResultForDisplay",
+        "buildCompactionToolIndex",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
         "buildSessionScratchpadInjectPrompt",
@@ -9961,10 +10350,12 @@
         "collectToolResultLeaves",
         "compactHistoryFromSession",
         "compactObservationValue",
+        "compactionIndexText",
         "compactionRefetchRefusal",
         "compactionRefetchWarning",
         "compactionSummaryFailures",
         "compactionTaskText",
+        "compactionToolArgsDigest",
         "configuredConversationWindow",
         "contextCalibrationStore",
         "contextWindowFromTable",
@@ -9987,10 +10378,12 @@
         "historyStartsWithCompactionSummary",
         "historyUnitStarts",
         "isContextOverflowError",
+        "isReducedObservationView",
         "lastAssistantTextOf",
         "lastSessionContextTokens",
         "learnedWindowCap",
         "loadContextCalibration",
+        "manualCompactPromptShape",
         "mapSummaryWithLimit",
         "markSummaryCallPolicyUnsupported",
         "maybeAutoCompact",
@@ -10007,6 +10400,7 @@
         "persistContextCalibration",
         "pickSummaryFailure",
         "protectedObservation",
+        "providerCompactInFlight",
         "providerContextWindow",
         "providerConversationContextWindow",
         "providerSummaryCall",
@@ -10022,10 +10416,14 @@
         "resolveContextWindow",
         "resolveSummaryCallPolicy",
         "runAgentExternalCompact",
+        "runAgentWake",
         "runAutoCompaction",
         "runForcedOverflowCompaction",
         "runProviderCompact",
+        "runProviderCompactTracked",
         "runSessionTurn",
+        "scheduleAgentWake",
+        "scheduleAgentWakesAtBoot",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -10092,6 +10490,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
           "kinds": [
             "read"
           ]
@@ -10440,6 +10845,13 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02e-session-engine-route.js",
           "symbol": "configForSessionEngineRoute",
           "kinds": [
@@ -10465,6 +10877,13 @@
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -10560,6 +10979,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "buildStableSystemPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "maybeWriteThreadBrief",
           "kinds": [
             "call"
@@ -10624,6 +11050,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "buildOpenAiTools",
           "kinds": [
             "call"
           ]
@@ -10711,6 +11144,7 @@
       "file": "11-native-tools.js",
       "layer": "tools",
       "provides": [
+        "BACKGROUND_LEDGER_SCAN_CONCURRENCY",
         "BINARY_READ_DB",
         "BINARY_READ_OFFICE",
         "BINARY_READ_SUFFIXES",
@@ -10718,6 +11152,7 @@
         "BROWSE_IGNORE_DIRS",
         "DEFAULT_IGNORE_DIRS",
         "DOTNET_PROJECT_RE",
+        "GIT_COMMIT_TIMEOUT_DEFAULT_MS",
         "GIT_DIFF_MAX_BUFFER",
         "GIT_DIFF_MAX_CHARS",
         "GIT_DIFF_STAT_MAX_CHARS",
@@ -10725,6 +11160,7 @@
         "GIT_REF_RE",
         "GIT_SAFE_FLAGS",
         "GIT_STATUS_MAX_LINES",
+        "GIT_TIMEOUT_MAX_MS",
         "GIT_UNTRACKED_LIST_MAX",
         "HARD_IGNORE_DIRS",
         "PATH_MATCH_WORKER_SRC",
@@ -11027,6 +11463,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "_dataRootReal",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "ensureDataRootReal",
           "kinds": [
             "call"
@@ -11055,6 +11498,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveHardlinkAlias",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "pathWithinRoot",
           "kinds": [
             "call"
@@ -11063,6 +11513,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "realpathForContainment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "sensitiveFileIdentities",
           "kinds": [
             "call"
           ]
@@ -11153,6 +11610,7 @@
         "EXEC_CACHE_WHITELIST",
         "FILE_EDIT_ENCODING_HINT_NOT_ROUNDTRIP",
         "FILE_EDIT_ENCODING_HINT_UNDECODABLE",
+        "FILE_EDIT_MAX_BYTES",
         "FILE_EDIT_PS_ENCODING_TIP",
         "FILE_READ_CHAR_DEFAULT",
         "FILE_READ_CHAR_MAX",
@@ -11659,6 +12117,20 @@
           ]
         },
         {
+          "provider": "03-bridge-guard.js",
+          "symbol": "WriteBoundaryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "bridgedServerUnavailableMessage",
           "kinds": [
@@ -12025,6 +12497,13 @@
         },
         {
           "provider": "11-native-tools.js",
+          "symbol": "powershellMissingOr",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
           "symbol": "probeRgAsync",
           "kinds": [
             "call"
@@ -12100,6 +12579,7 @@
         "freeStalePort",
         "getProxyModelsCache",
         "handleApi",
+        "healthLooksLikeWorkbench",
         "helpDocTitle",
         "helpDocsDir",
         "installIntegration",
@@ -12114,11 +12594,14 @@
         "openPathTargetDir",
         "parseArgs",
         "pidsOnPort",
+        "portHolderTakeoverVerdict",
         "probeHealth",
         "processCommandLine",
         "processImage",
         "proxyModelsCacheMemo",
+        "readOwnRuntimeRecord",
         "resetOrphanedMissionDrivers",
+        "resolveBindHost",
         "resolveNodeModel",
         "sendMcp",
         "sendMcpNotification",
@@ -12514,6 +12997,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "isLoopbackBindHost",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "mcpConfigFilePath",
           "kinds": [
             "call"
@@ -12543,6 +13033,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "requestIsLoopback",
           "kinds": [
             "call"
           ]
@@ -12585,6 +13082,13 @@
         {
           "provider": "01-config.js",
           "symbol": "serveStatic",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sweepStaleScriptFiles",
           "kinds": [
             "call"
           ]
@@ -12654,7 +13158,21 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "memoryRelevanceMax",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "annotateAgentRoleEffective",
           "kinds": [
             "call"
           ]
@@ -12815,13 +13333,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "saveSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "workspaceBaselineIsCodePath",
           "kinds": [
             "call"
@@ -12899,6 +13410,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveHardlinkAlias",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "launchCodeEditor",
           "kinds": [
             "call"
@@ -12942,6 +13460,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "readFilePreview",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "remoteUncDenialResolved",
           "kinds": [
             "call"
           ]
@@ -13031,6 +13556,20 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerScrubSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "normalizeProviderApiStyle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -13110,6 +13649,20 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "kimiSessionStatus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiStatusFingerprint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiUsageFromStatus",
           "kinds": [
             "call"
           ]
@@ -13298,6 +13851,13 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "memoryFailureResponse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "migrateLegacyAccMemory",
           "kinds": [
             "call"
@@ -13306,6 +13866,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "migrateMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "moveMemoryScope",
           "kinds": [
             "call"
           ]
@@ -13334,6 +13901,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "readMemoryItem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "replayPendingMemoryProposal",
           "kinds": [
             "call"
           ]
@@ -13459,7 +14033,21 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "probeProviderCompletion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "projectAgentRoleFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "projectCwdDirectoryFailure",
           "kinds": [
             "call"
           ]
@@ -13585,6 +14173,13 @@
         },
         {
           "provider": "09-workflow.js",
+          "symbol": "resolveWaitAgentsMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
           "symbol": "runAgentWorkflow",
           "kinds": [
             "call"
@@ -13655,7 +14250,14 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "runProviderCompact",
+          "symbol": "runProviderCompactTracked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "scheduleAgentWakesAtBoot",
           "kinds": [
             "call"
           ]
@@ -14428,6 +15030,8 @@
       "provides": [
         "BACKGROUND_RUN_DONE",
         "MISSION_FAILURE_PARAM_KEYS",
+        "NDJSON_EDGE_EXTEND_CHUNK",
+        "NDJSON_EDGE_EXTEND_MAX",
         "SESSION_SEARCH_ASSISTANT_CHARS",
         "SESSION_SEARCH_HEAD_BYTES",
         "SESSION_SEARCH_INDEX_FILE",
@@ -14451,6 +15055,7 @@
         "handleInterventionApiRoutes",
         "handleMissionsApiRoutes",
         "handleSessionApiRoutes",
+        "importedSessionCwdAllowed",
         "interventionCommandFailure",
         "interventionDecisionFingerprint",
         "lastMissionRunProgress",
@@ -14471,6 +15076,7 @@
         "readNdjsonEdges",
         "readSessionSearchIndex",
         "refreshSessionSearchIndex",
+        "refreshSessionSearchIndexNow",
         "searchSessionsByContent",
         "sessionBackgroundRunRows",
         "sessionEnvelopeEtag",
@@ -14482,6 +15088,7 @@
         "sessionSearchHayOf",
         "sessionSearchIndexCache",
         "sessionSearchIndexPath",
+        "sessionSearchRefreshChains",
         "sessionSearchRowIsNoise",
         "sessionSearchSnippet"
       ],
@@ -14558,6 +15165,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
             "read"
@@ -14568,6 +15182,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -15007,6 +15628,20 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "pathWithinRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "resolveContainmentPath",
           "kinds": [
             "call"
           ]
@@ -15688,6 +16323,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "interventionFilePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "interventionJournalWorthCompacting",
           "kinds": [
             "call"
           ]
@@ -17213,6 +17855,7 @@
         "stewardEyesSettle",
         "stewardEyesTake",
         "stewardFileLooksBinary",
+        "stewardFoldWs",
         "stewardImplAuditTail",
         "stewardImplConfigGet",
         "stewardImplConfigSet",
@@ -17239,10 +17882,13 @@
         "stewardImplWebSearch",
         "stewardIsSecretFilePath",
         "stewardNoteDecideAttempt",
+        "stewardQuoteInSource",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceCwd",
-        "stewardSourceIsUserMessage"
+        "stewardSourceIsUserMessage",
+        "stewardSourceUserTexts",
+        "stewardTextGroundedInQuote"
       ],
       "requires": [
         {
@@ -17520,6 +18166,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskSensitiveKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardConfigHelpFor",
           "kinds": [
             "call"
@@ -17675,6 +18328,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "webPayloadReason",
           "kinds": [
             "call"
           ]
@@ -20935,6 +21595,7 @@
         "schedulerTasksPath",
         "schedulerTick",
         "schedulerTickMs",
+        "schedulerTurnTimeoutMs",
         "startScheduler",
         "stopScheduler"
       ],
@@ -21116,6 +21777,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionRank",
           "kinds": [
             "call"
@@ -21211,6 +21879,7 @@
         "schedulerPrepareThread",
         "schedulerToolFind",
         "schedulerToolGate",
+        "schedulerToolLoad",
         "schedulerToolRow",
         "schedulerToolSetEnabled",
         "stewardImplScheduleCreate",
@@ -21556,7 +22225,7 @@
         "migrationSkillTree",
         "migrationStamp",
         "migrationTomlReplace",
-        "migrationTomlSection",
+        "migrationTomlSections",
         "migrationTreeHash",
         "migrationUndo",
         "migrationUndoSkillCopy"
@@ -21761,6 +22430,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "_parseTomlMcpServers",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "_tomlKeyPath",
           "kinds": [
             "call"
           ]
@@ -22072,6 +22748,13 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sweepStaleScriptFiles",
           "kinds": [
             "read"
           ]

@@ -7,7 +7,7 @@
 // 由组合根注入，避免反向依赖 app.js。
 import { $, el, toast } from './util.js';
 import { api, apiErrText as fallbackApiErrText } from './net.js';
-import { getLocale, t } from './i18n.js';
+import { getLocale, hasTranslation, t, tCount } from './i18n.js';
 
 export function createSettingsOperationsDomain({
   apiErrText = fallbackApiErrText,
@@ -42,7 +42,7 @@ export function createSettingsOperationsDomain({
       if (status.current) {
         current.textContent = `v${status.current.version}  ·  ${new Date(status.current.appliedAt).toLocaleString(getLocale())}`;
         hint.textContent = status.backups && status.backups.length
-          ? t('settings.update.backupsCount', { p1: status.backups.length })
+          ? tCount('settings.update.backupsCount', status.backups.length, { p1: status.backups.length })
           : t('settings.update.noBackups');
       } else {
         current.textContent = t('settings.update.notApplied');
@@ -73,7 +73,7 @@ export function createSettingsOperationsDomain({
       });
       if (!result || result.cancelled) return;
       if (!result.ok) {
-        toast(result.error || t('settings.update.pickFailed'), 'err');
+        toast(apiErrText(result.error) || t('settings.update.pickFailed'), 'err');   // 走查 W1-3：error 是 {code,params,message} 信封，直接插值印 [object Object]
         return;
       }
       overlayZipPath = result.path;
@@ -156,7 +156,7 @@ export function createSettingsOperationsDomain({
         renderOverlayResult('err', t('settings.update.precheckFailed') + ': ' + (result.errors || []).join('; '));
         if (applyButton) { applyButton.disabled = false; applyButton.textContent = t('settings.update.apply'); }
       } else {
-        const error = result.error || (result.verify && result.verify.mismatches && result.verify.mismatches.length
+        const error = apiErrText(result.error) || (result.verify && result.verify.mismatches && result.verify.mismatches.length
           ? result.verify.mismatches.join('; ')
           : t('settings.update.applyFailed'));
         renderOverlayResult('err', t('settings.update.applyFailed') + ': ' + String(error), true);
@@ -179,8 +179,9 @@ export function createSettingsOperationsDomain({
         toast(t('settings.update.rolledBackShort'), 'ok');
         refreshOverlayStatus();
       } else {
-        if (hint) hint.textContent = result.error || t('settings.update.rollbackFailed');
-        toast(result.error || t('settings.update.rollbackFailed'), 'err');
+        const reason = apiErrText(result.error) || t('settings.update.rollbackFailed');
+        if (hint) hint.textContent = reason;
+        toast(reason, 'err');
       }
     } catch (error) {
       if (hint) hint.textContent = apiErrText(error);
@@ -228,7 +229,7 @@ export function createSettingsOperationsDomain({
       mcpConnectorCache = Array.isArray(result.connectors) ? result.connectors : [];
       renderMcpCompat(result.compat);
       renderMcpConnList();
-      if (hint) hint.textContent = t('settings.mcp.count', { p1: mcpConnectorCache.length });
+      if (hint) hint.textContent = tCount('settings.mcp.count', mcpConnectorCache.length, { p1: mcpConnectorCache.length });
     } catch (error) {
       if (seq !== mcpOpsSeq) return;
       if (hint) hint.textContent = apiErrText(error);
@@ -240,14 +241,20 @@ export function createSettingsOperationsDomain({
   function renderMcpCompat(compat) {
     const box = $('mcpCompatBox'); if (!box) return;
     box.textContent = '';
-    const entries = compat && typeof compat === 'object' ? Object.values(compat) : [];
-    for (const capability of entries) {
+    // compat 以 stdio|http|sse 为键;能力/局限的文案服务端写的是中文(MCP_COMPAT_MATRIX),英文界面不能照搬 ——
+    // 按键查本地化条目 settings.mcp.compat.<k>.capabilities / .limitations,查不到(新增的 transport)才回落服务端给的数组。
+    const entries = compat && typeof compat === 'object' ? Object.entries(compat) : [];
+    for (const [transportKey, capability] of entries) {
+      const capKey = `settings.mcp.compat.${transportKey}.capabilities`;
+      const limKey = `settings.mcp.compat.${transportKey}.limitations`;
+      const capText = hasTranslation(capKey) ? t(capKey) : (Array.isArray(capability.capabilities) ? capability.capabilities.join(', ') : '');
+      const limText = hasTranslation(limKey) ? t(limKey) : (Array.isArray(capability.limitations) ? capability.limitations.join('; ') : '');
       const item = el('div', 'mcp-compat-item');
       const head = el('div'); head.append(el('code', '', String(capability.transport || '')));
       item.append(
         head,
-        el('div', 'mcp-compat-line', t('settings.mcp.capabilities') + ': ' + (Array.isArray(capability.capabilities) ? capability.capabilities.join(', ') : '')),
-        el('div', 'mcp-compat-line', t('settings.mcp.limitations') + ': ' + (Array.isArray(capability.limitations) ? capability.limitations.join('; ') : '')),
+        el('div', 'mcp-compat-line', t('settings.mcp.capabilities') + ': ' + capText),
+        el('div', 'mcp-compat-line', t('settings.mcp.limitations') + ': ' + limText),
       );
       box.append(item);
     }
@@ -270,7 +277,8 @@ export function createSettingsOperationsDomain({
     const badgeClass = item.source === 'desktop' ? 'mcp-badge-desktop' : item.source === 'drop-in' ? 'mcp-badge-dropin' : 'mcp-badge-config';
     title.append(
       el('span', ('mcp-lamp ' + mcpHealthLampClass(item)).trim()),
-      el('strong', '', String(item.label || item.id || '')),
+      // 内置桌面控制的 label 是服务端中文('桌面控制 (ai-computer-control)'):按 id 走本地化键。
+      el('strong', '', item.id === 'ai-computer-control' ? t('settings.mcp.desktopControl.label') : String(item.label || item.id || '')),
       el('span', 'mcp-badge ' + badgeClass, t(MCP_SOURCE_KEYS[item.source] || 'settings.mcp.source.config')),
       el('code', 'mcp-transport', String(item.transport || 'stdio')),
       el('span', 'muted', item.enabled === false ? t('settings.mcp.status.disabled') : t('settings.mcp.status.enabled')),

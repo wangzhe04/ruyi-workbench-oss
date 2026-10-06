@@ -58,11 +58,20 @@ const RESIDUE = ['TODO', '待补'];                             // editorial res
   const USER_KW = ['如意', '工作文件夹', '每步都问', '撤销', '任务卡'];
   const ADMIN_KW = ['overlay', 'SSRF', '掩码', '审计', 'e2e'];
   for (const kw of USER_KW) ok(userText.includes(kw), '(b) USER-GUIDE contains keyword: ' + kw);
-  for (const kw of ['Task desk layout', 'not a data migration', 'Return to classic layout']) {
-    ok(userEnText.includes(kw), '(b) USER-GUIDE_EN contains task-desk recovery contract: ' + kw);
+  // 第二波走查(文档准确性):「交办台 / 新任务台预览 / 经典布局」已在第 121 波整层退役(docs/README.md),手册改写为「一台两视」
+  // (管家 / 工作台两个视角)。原先钉着退役文案的三条(任务台布局 / 不是数据迁移 / 返回经典布局)换成现行契约的同一类关键词:
+  // 两个视角的名字与切换处、「启动默认视角」那一项设置、换视角不迁移数据的承诺。
+  for (const kw of ['One workbench, two views', 'Steward | Workbench', 'Default view on launch', 'Both views read the']) {
+    ok(userEnText.includes(kw), '(b) USER-GUIDE_EN contains one-workbench-two-views contract: ' + kw);
   }
-  for (const kw of ['任务台布局', '不是数据迁移', '返回经典布局']) {
-    ok(userText.includes(kw), '(b) USER-GUIDE_CN contains task-desk recovery contract: ' + kw);
+  for (const kw of ['一台两视', '管家｜工作台', '启动默认视角', '不迁移、不删除任何东西']) {
+    ok(userText.includes(kw), '(b) USER-GUIDE_CN contains one-workbench-two-views contract: ' + kw);
+  }
+  for (const kw of ['任务台布局', '新任务台预览', '交办台']) {
+    ok(!userText.includes(kw), '(b) USER-GUIDE_CN no longer describes the retired task desk: ' + kw);
+  }
+  for (const kw of ['Task desk layout', 'New task desk preview', 'Dispatch desk']) {
+    ok(!userEnText.includes(kw), '(b) USER-GUIDE_EN no longer describes the retired task desk: ' + kw);
   }
   for (const kw of ADMIN_KW) ok(adminText.includes(kw), '(b) ADMIN-GUIDE contains keyword: ' + kw);
 

@@ -408,17 +408,29 @@ function renderSection(doc, section, t) {
   return node;
 }
 
-// 把目录里每一段挂进对应页签（已挂过的跳过 —— fillSettings 会反复调用）。返回新挂上的段数。
-export function mountSettingsCatalog({ doc = document, t, onSave }) {
+// 把目录里每一段挂进对应页签（已挂过且语言没变的跳过 —— fillSettings 会反复调用）。返回新挂上/重画的段数。
+// 走查 W1-2：段落的标题、说明、下拉项文案都是挂载那一刻用 t() 焊死的；开机先按 navigator.language 画、读到 config.locale 才 setLocale，
+// 之后（以及设置里切语言）这 ~20 段就停在旧语言。每段记一个 dataset.lang，语言变了就整段重画（折叠段的展开态带过去）。
+export function mountSettingsCatalog({ doc = document, t, onSave, lang }) {
+  const langNow = String(lang !== undefined ? lang : (doc.documentElement && doc.documentElement.lang) || '');
   let mounted = 0;
   for (const section of SETTINGS_CATALOG) {
-    if (doc.getElementById(section.id)) continue;
+    const existing = doc.getElementById(section.id);
+    if (existing && existing.dataset.lang === langNow) continue;
     const panel = doc.getElementById(`stab-${section.tab}`);
     if (!panel) continue;
     const node = renderSection(doc, section, t);
-    const anchor = section.before ? doc.getElementById(section.before) : null;
-    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(node, anchor);
-    else panel.appendChild(node);
+    node.dataset.lang = langNow;
+    if (existing) {
+      const oldFold = existing.querySelector && existing.querySelector('details.setcat-fold');
+      const fold = node.querySelector && node.querySelector('details.setcat-fold');
+      if (oldFold && fold) fold.open = oldFold.open;
+      existing.replaceWith(node);
+    } else {
+      const anchor = section.before ? doc.getElementById(section.before) : null;
+      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(node, anchor);
+      else panel.appendChild(node);
+    }
     for (const field of section.fields) wireField(doc, field, onSave);
     mounted += 1;
   }

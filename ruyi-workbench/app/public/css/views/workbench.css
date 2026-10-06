@@ -120,7 +120,12 @@
 .wb-usage:empty { display: none; }
 .wb-usage::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .045; background: var(--brand-qh);
   -webkit-mask: var(--ruyi-cloud) 0 62%/54px 32px repeat-x; mask: var(--ruyi-cloud) 0 62%/54px 32px repeat-x; }
-.wb-usage-run { position: relative; display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--ink-2); font-weight: 600; min-width: 0; }
+.wb-usage-run { position: relative; display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--ink-2); font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; }
+/* 第三波 M7：run 编号（等宽、~20 字符）原先不收缩，英文 1280（中栏 620px）下压在「72 tok／Tokens」上；中栏更窄时「工作流／成本」被逐字竖排。
+   编号让位给指标：自己省略、标签恒一行。 */
+.wb-usage-run .wb-rc-id { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wb-usage-metrics, .wb-usage-link { flex: none; }
+.wb-um, .wb-um-lbl { white-space: nowrap; }
 .wb-usage-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); animation: wb-blink 1.8s var(--ease-out) infinite; }
 .wb-usage-metrics { position: relative; display: flex; align-items: center; gap: var(--sp-4); }

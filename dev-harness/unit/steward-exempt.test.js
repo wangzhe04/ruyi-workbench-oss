@@ -285,8 +285,12 @@ for (const [group, commands] of Object.entries(HIT)) {
   const wrongFloor = ORDINARY.filter(cmd => { const h = hitsOf(cmd); return !(h.hits.length === 1 && h.hits[0].category === 'delete_data' && h.hits[0].floor === false); });
   ok(wrongFloor.length === 0, `⑦ ② ${ORDINARY.length} 条普通删除（含目标在别的命令段里）-> floor:false` + (wrongFloor.length ? ' → 不符: ' + wrongFloor.map(c => c + '=' + brief(hitsOf(c).hits)).join(' | ') : ''));
   // 灾难性目标表只加底线标记、不改变什么算豁免：删除动词没命中基础判据时，目标再吓人也不凭空多出一条命中。
-  ok(hitsOf('rd /s /q C:\\').hits.length === 0 && reasonOf('Bash', { command: 'rd /s /q C:\\' }) === null,
-    '⑦ ② 灾难性目标表不新增命中（rd 不在基础判据里 -> 仍然零命中，与 stewardExemptReason 一致）');
+  // 第二波安全走查 S2:原样例是 `rd /s /q C:\`(当时 rd 不在基础判据里,是个已知缺口);rd /s 现在已补进删数据判据,
+  // 这条断言的【语义】(目标表只加底线标记、不凭空多出命中)换成一个基础判据仍不认的删除写法(rd 不带 /s:不递归)来钉,原样例改成下一条新断言。
+  ok(hitsOf('rd C:\\').hits.length === 0 && reasonOf('Bash', { command: 'rd C:\\' }) === null,
+    '⑦ ② 灾难性目标表不新增命中（rd 不带 /s 不在基础判据里 -> 仍然零命中，与 stewardExemptReason 一致）');
+  ok((() => { const h = hitsOf('rd /s /q C:\\'); return h.hits.length === 1 && h.hits[0].category === 'delete_data' && h.hits[0].floor === true; })(),
+    '⑦ ② S2 新增:rd /s /q C:\\ 现在是 删数据 + 灾难性目标 floor:true(修前零命中,直接放行)');
 
   // 底线清单：工具名全部命中、format/diskpart/mkfs、改系统整组、sendmail/mailx/mail -s。
   const FLOOR = [...HIT['修改系统设置 / 注册表 / 关机'], 'format D:', 'diskpart /s script.txt', 'mkfs.ext4 /dev/sdb1',

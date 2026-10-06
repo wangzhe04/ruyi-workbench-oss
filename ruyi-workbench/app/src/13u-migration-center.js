@@ -633,29 +633,43 @@ function migrationGetField(server, field) {
   if (m[1] === 'args') return Array.isArray(server.args) ? server.args[Number(m[2])] : undefined;
   return server.env && typeof server.env === 'object' ? server.env[m[2]] : undefined;
 }
-// TOML 的 [mcp_servers.<id>] 段在全文里的 [start, end) 字符区间(找不到回 null)。
-function migrationTomlSection(text, serverId) {
-  const lines = text.split('\n');
+// 一个服务器 mcp_servers.<id> 在 TOML 全文里占的全部 [start, end) 字符区间:[mcp_servers.<id>] 本段,加上它的子表
+// ([mcp_servers.<id>.env] / .http_headers / .tools.x …)。区间 = 表头的下一行起,到下一个表头(任何 [ 开头的行)之前。
+// 同一服务器的几段在 TOML 里可以不相邻,所以回的是区间数组(找不到回 [])。
+// 修前只认精确的 [mcp_servers.<id>]:Codex 常把 env 写成 [mcp_servers.<id>.env] 子表,解析侧(_parseTomlMcpServers)把子表里的
+// 老包路径算进了 env.<KEY> 的改写项,这里却搜不到子表 → 那一项改写不了(单独一项时整体 nothing-applied,与别的字段同批时被静默漏掉)。
+// 表头的键路径按 TOML 规则拆(带引号的段、点号都处理),与解析侧同一个 _tomlKeyPath。
+function migrationTomlSections(text, serverId) {
+  const ranges = [];
   let pos = 0, start = -1;
-  for (const line of lines) {
-    const m = line.match(/^\s*\[\s*mcp_servers\.([^\]\s]+)\s*\]\s*$/);
-    if (start >= 0 && /^\s*\[/.test(line)) return { start, end: pos };
-    if (m && m[1].replace(/^["']|["']$/g, '') === serverId) start = pos + line.length + 1;
+  for (const line of text.split('\n')) {
+    if (/^\s*\[/.test(line)) {
+      if (start >= 0) { ranges.push({ start, end: pos }); start = -1; }
+      const m = /^\s*\[(?!\[)\s*([^\]]+?)\s*\]\s*(?:#.*)?$/.exec(line.replace(/\r$/, ''));
+      if (m) {
+        const keyPath = _tomlKeyPath(m[1]);
+        if (keyPath[0] === 'mcp_servers' && keyPath[1] === serverId) start = pos + line.length + 1;
+      }
+    }
     pos += line.length + 1;
   }
-  return start >= 0 ? { start, end: text.length } : null;
+  if (start >= 0) ranges.push({ start, end: text.length });
+  return ranges;
 }
-// 在 TOML 段内把带引号的旧值换成新值(保留原引号样式)。返回 { text, count }。
+// 在 TOML 服务器区间(本段 + 子表)内把带引号的旧值换成新值(保留原引号样式)。返回 { text, count }。
 function migrationTomlReplace(text, serverId, from, to) {
-  const sec = migrationTomlSection(text, serverId);
-  if (!sec) return { text, count: 0 };
-  let body = text.slice(sec.start, sec.end);
+  const ranges = migrationTomlSections(text, serverId);
+  if (!ranges.length) return { text, count: 0 };
   let count = 0;
-  for (const q of ['"', "'"]) {
-    const needle = q + from + q;
-    while (body.includes(needle)) { body = body.replace(needle, q + to + q); count++; }
+  for (const sec of ranges.slice().reverse()) {   // 从后往前改:前面区间的偏移不受影响
+    let body = text.slice(sec.start, sec.end);
+    for (const q of ['"', "'"]) {
+      const needle = q + from + q;
+      while (body.includes(needle)) { body = body.replace(needle, () => q + to + q); count++; }
+    }
+    text = text.slice(0, sec.start) + body + text.slice(sec.end);
   }
-  return { text: text.slice(0, sec.start) + body + text.slice(sec.end), count };
+  return { text, count };
 }
 
 async function migrationBackup(file, ts) {
@@ -798,8 +812,11 @@ async function migrationUndo(body) {
     if (!log) return { ok: false, error: 'no-migration-to-undo', status: 404 };
     if (log.undoneAt) return { ok: false, error: 'already-undone', status: 409 };
     let restored = 0, skipped = 0;
+    const failed = [];   // 读写抛错、这一轮没能改回的文件(与「值已被用户改过、按设计留着」的 skipped 不是一回事)
     const skills = [];
     for (const f of log.files || []) {
+      if (f.undoneAt) continue;   // 上一轮(部分失败的撤销)已经改回的文件:重试时不再动,免得重复处理
+      const mark = { restored, skipped };   // 这个文件中途抛错时把计数退回来(没落盘的不算「已还原」;重试时会重新数)
       try {
         if (f.kind === 'skill-copy') {
           const r = await migrationUndoSkillCopy(f);
@@ -829,7 +846,8 @@ async function migrationUndo(body) {
           void generateMcpConfig().catch(() => {});
         } else if (f.kind === 'json') {
           let text = '';
-          try { text = await fsp.readFile(f.file, 'utf8'); } catch { text = ''; }
+          // 只有 ENOENT(文件被删了,被删条目要放回去)才当空;EBUSY / EPERM 等读错误当成空再写回会把现有内容整份覆盖 —— 抛出去记成失败、可重试。
+          try { text = await fsp.readFile(f.file, 'utf8'); } catch (e) { if (!(e && e.code === 'ENOENT')) throw e; text = ''; }
           const obj = text ? JSON.parse(text) : {};
           for (const item of f.items || []) {
             let container = migrationGetAt(obj, item.container);
@@ -850,22 +868,47 @@ async function migrationUndo(body) {
           }
           await atomicWriteJson(f.file, JSON.stringify(obj, null, 2) + (text.endsWith('\n') ? '\n' : ''));
         } else if (f.kind === 'toml') {
-          let text = await fsp.readFile(f.file, 'utf8');
-          for (const item of f.items || []) {
-            for (const c of item.changes || []) {
-              const r = migrationTomlReplace(text, item.serverId, c.to, c.from);
-              if (r.count) { text = r.text; restored++; } else skipped++;
+          let text = null;
+          try { text = await fsp.readFile(f.file, 'utf8'); } catch (e) { if (!(e && e.code === 'ENOENT')) throw e; }
+          if (text === null) {
+            for (const item of f.items || []) skipped += (item.changes || []).length;   // 文件已被删掉:无处可还原,算「留着」不算失败
+          } else {
+            for (const item of f.items || []) {
+              for (const c of item.changes || []) {
+                const r = migrationTomlReplace(text, item.serverId, c.to, c.from);
+                if (r.count) { text = r.text; restored++; } else skipped++;
+              }
             }
+            await atomicWriteJson(f.file, text);
           }
-          await atomicWriteJson(f.file, text);
         }
-      } catch { skipped++; }
+        f.undoneAt = nowIso();
+      } catch (e) {
+        restored = mark.restored; skipped = mark.skipped;
+        failed.push({ file: tildePath(f.file || ''), error: (e && e.message) || String(e) });
+      }
     }
+    const logFile = path.join(migrationDir(), log.id + '.json');
+    // 累计账:部分失败后重试,restored / skipped 接着前几轮算(最终写进 undoResult)。
+    const prior = log.undoProgress && typeof log.undoProgress === 'object' ? log.undoProgress : {};
+    const total = { restored: restored + (Number(prior.restored) || 0), skipped: skipped + (Number(prior.skipped) || 0) };
+    const allSkills = [...(Array.isArray(prior.skills) ? prior.skills : []), ...skills];   // 技能副本的逐项结局也跨轮累计(前端据 kept 提示哪些被留下)
+    if (allSkills.length) total.skills = allSkills;
+    if (failed.length) {
+      // 修前:单个文件失败只 skipped++,照样写 undoneAt —— 剩下没改回的部分从此再也撤不了(重试得 409 already-undone)。
+      // 现在:有失败就【不】置 undoneAt,已改回的文件各自带 undoneAt 落盘,这条迁移仍是「可撤销的最近一次」,
+      // 处理掉原因(文件被占用/权限)后再点一次撤销,只重做没完成的文件。
+      log.undoProgress = total;
+      await atomicWriteJson(logFile, log);
+      logEvent({ kind: 'migration_undo_partial', id: log.id, restored, skipped, failed: failed.length });
+      return { ok: false, error: 'undo-incomplete', status: 500, id: log.id, restored, skipped, failed, ...(skills.length ? { skills } : {}) };
+    }
+    delete log.undoProgress;
     log.undoneAt = nowIso();
-    log.undoResult = { restored, skipped, ...(skills.length ? { skills } : {}) };
-    await atomicWriteJson(path.join(migrationDir(), log.id + '.json'), log);
+    log.undoResult = { restored: total.restored, skipped: total.skipped, ...(allSkills.length ? { skills: allSkills } : {}) };
+    await atomicWriteJson(logFile, log);
     logEvent({ kind: 'migration_undo', id: log.id, restored, skipped });
-    return { ok: true, id: log.id, restored, skipped, ...(skills.length ? { skills } : {}) };
+    return { ok: true, id: log.id, restored, skipped, ...(allSkills.length ? { skills: allSkills } : {}) };
   });
 }
 

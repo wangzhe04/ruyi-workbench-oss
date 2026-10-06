@@ -543,6 +543,11 @@ async function markInterruptedAgentRuns() {
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
+      // 模型以 background:true 起的 run 被重启打断、又不会自动续跑:补一份 interrupted 信封进后台任务账本 —— 修前模型对用户说过
+      // 「代理在后台跑」,之后再没有任何人告诉它这些代理已经没了。信封在用户下一句话时随回合开头送达(interrupted 不唤醒,见 10)。
+      if (run.background === true && !(bootConfig && bootConfig.autonomyAutoResume === true) && EventStreamHooks.notifyAgentRunEnvelope) {
+        try { EventStreamHooks.notifyAgentRunEnvelope(run.sessionId, run, buildAgentRunEnvelope(run)); } catch { /* 旁路,boot 防炸 */ }
+      }
   });
   // 71b: 存量对账 —— 71b 前落盘的 paused run 可能有 proposed 池提案但无 Intervention 记录(当时池未接入旁路)。
   // boot 补登记(append-only,幂等:已有记录的 id 跳过),否则 missionPendingCounts 统一从 Intervention 读池未决后
@@ -582,7 +587,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   const stopInitBeat = () => { if (initBeat) { clearInterval(initBeat); initBeat = null; } };
   const startInitBeat = () => {
     if (initBeat) return;
-    initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
+    initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中', noteCode: 'init' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
     if (initBeat && initBeat.unref) initBeat.unref();
   };
   // 工具心跳的句柄与停止函数提前到这里声明(启动函数仍在下面、紧挨它用到的流式节流):外壳的 finally 可能在
@@ -602,7 +607,12 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     stopInitBeat(); return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };   // 修前心跳不停:每秒一次、一直重写 run 快照
   }
   const requestedTier = toolTier || (role && role.toolTier);
-  const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  const tier0 = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  // 安全走查 S3:项目来源的角色(.ruyi/agents.json 等)把有效权限档 / 工具级夹到不高于父回合档位(只能收紧);builtin / global 来源逐字不变。
+  // 这里按「起跑那一刻」的父档夹工具级(决定 offer 哪些工具);逐次工具调用的权限判定下面按【此刻】的父档再夹一次(父线程中途改档要生效)。
+  const roleGuard = clampAgentRoleToParent(role, tier0, permModeOverride === 'plan' ? 'plan' : (permModeOverride || config.permissionMode || 'default'));
+  const tier = roleGuard.toolTier;
+  if (roleGuard.clamped) { try { logEvent({ kind: 'agent_role_clamped', engine: 'openai', roleId: role && role.id || '', source: role && role.source || '', clamped: roleGuard.clamped }); } catch { /* 遥测不阻断 */ } }
   // 117m-A1(同 09 的 gateWithLiveMode,判据一字不差):子回合跑在父会话的档下,父线程中途改档要对
   // 【这个】子回合生效。只有在本子回合期间【被改过】才接管;没改过返回 '' → 下面的 effMode 逐字节
   // 走原来的优先级。角色自带的档(roleMode)与工作流下发的 permModeOverride 都排在它前面 —— 那两个
@@ -635,7 +645,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   // 117z-E2 提交①(§11.21.3):子代理没有「这一条线程」的会话头 —— 它跑在父回合的执行链里,自己
   // 不是一条会话。desktopOverride 显式传 null = 跟随全局 allowDesktopTools = 修前逐字行为。写成
   // 显式的 null 而不是省略,是为了让「子代理这一面【没有】会话级桌面覆盖」这件事在源码里可读可查。
-  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noAgentTools: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true, desktopOverride: null });
+  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noAgentTools: true, noMemoryWriteTools: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true, desktopOverride: null });
   // 第22波(开放子代理工具面): 桥接(外部/桌面 MCP)工具按 BRIDGED_TOOL_TIERS 分级参与所有层级——原先 read/edit
   // 一刀切不挂桥接面,read 级研究/审查类子代理连 ACC 的只读族(截图/OCR/查找/检查)都拿不到。现按 bridgedToolTier
   // (含 config.bridgedToolTiers 用户覆盖)过滤:read 只带桥接 read 级,edit 加 edit 级,exec 全量(行为不变)。
@@ -674,7 +684,18 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   const workingDir = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
   const projectMemory = await readProjectMemory(workingDir).catch(() => null);
   // Reuse the four-layer prompt for the capability/project/provider layers, then prepend the sub-agent identity.
-  const baseSys = buildProviderSystemPrompt(provider, subModel, workingDir, tools, caps, config, projectMemory);
+  // #15:核心胶囊(用户的「中文回复 / 提交规范」这类每轮都该遵守的偏好)修前到不了子代理 —— 工作流节点(09)会注入,这里不传 memoryEntries。
+  // 只带【核心】:相关召回是按主线那句话排的,子任务是另一件事;relevance 压到 0 也顺带让 preflight 不给没注入的条目记 use。
+  // 走 parentSession:会话级排除 / 固定选择 / 「关闭记忆」同样管着子代理。失败只是没有胶囊,绝不阻断子任务。
+  let subMemoryCore = [], subMemoryConflicts = null;
+  if (typeof SubAgentMemoryHooks.coreSnapshot === 'function') {
+    try {
+      const snap = await SubAgentMemoryHooks.coreSnapshot({ parentSession, workingDir, task: String(task || ''), config });
+      subMemoryCore = (snap && Array.isArray(snap.entries)) ? snap.entries : [];
+      subMemoryConflicts = (snap && snap.conflicts) || null;
+    } catch { subMemoryCore = []; subMemoryConflicts = null; }
+  }
+  const baseSys = buildProviderSystemPrompt(provider, subModel, workingDir, tools, caps, config, projectMemory, false, undefined, subMemoryCore, undefined, subMemoryConflicts);
   const rolePrompt = role && role.prompt ? `角色：${role.label || role.id}\n${role.prompt}\n\n` : '';
   const sys = appendResponseLanguagePolicy(
     '你是子任务执行体。目标:完成被交办的具体任务后,用简洁文本输出最终结论(不要反问,不要请求进一步指示)。\n\n' + rolePrompt + baseSys,
@@ -701,7 +722,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     return b;
   };
 
-  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, permissionMode: role && role.permissionMode || 'inherit', mcpServers: role && role.mcpServers || [], engine: 'openai' });
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: role && role.mcpServers || [], engine: 'openai' });
   // The sub-loop shares the parent's AbortController (ctrl) so a Stop on the parent turn also arrests the
   // sub-turn. rawSeq is local (its raw_line frames carry subagentId so the debug pane can attribute them).
   const rawSeqRef = { n: 0 };
@@ -715,7 +736,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     const now = Date.now();
     if (now - lastStreamActivityEventAt < streamActivityEventMs) return;
     lastStreamActivityEventAt = now;
-    onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中' });
+    onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中', noteCode: 'streaming' });
   };
   // A3: 工具执行心跳 —— 子代理 await 长工具(>watchdog idle 上限的 powershell_run/script_run 等)期间,
   // 除 tool_use/tool_result 外不发任何事件,会被节点级/工作流级看门狗误判卡死而 abort。
@@ -831,13 +852,14 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // openAiStreamOnce lets those propagate to the catch below).
       // 架构还债批 2·A:骨架与瞬时判据走 04h(withTransientRetry + providerCallIsTransient,与 07 的 CLI 子代理同一份骨架)。
       // 口径原样:每次发出前查中止;工具被拒 → 去掉工具立即再打一次(不计数、不睡);瞬时失败至多重试 3 次,
-      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断);其余结果原样交给下面的分类。
+      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断),服务商回了 Retry-After(07 带出 retryAfterMs,封顶 30 s)就至少睡这么久
+      // —— 与主回合(09)同口径;修前限流窗口还没过就把 3 次重试用光,子代理整个失败。其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
       const sent = await withTransientRetry({
         maxRetries: 3,
         isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         signal: ctrl && ctrl.signal,
-        backoffMs: n => Math.min(2000, 250 * n),
+        backoffMs: (n, c) => Math.max(Math.min(2000, 250 * n), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
         attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire }),
         classify: c => {
           if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
@@ -1019,6 +1041,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             try { resultObj = (typeof sendToAgent === 'function') ? await sendToAgent(args) : { ok: false, error: 'Agent 邮箱在当前上下文不可用' }; }
             catch (e) { resultObj = { ok: false, error: (e && e.message) || String(e) }; }
             if (resultObj && resultObj.ok) onEvent({ type: 'subagent_mail_out', subagentId, target: String(args && (args.targetNodeKey != null ? args.targetNodeKey : args.target) || ''), text: String(args && (args.message != null ? args.message : args.text) || '') });
+          } else if (MEMORY_WRITE_TOOL_NAMES.has(tc.name)) {
+            // #15 double-guard:记忆写工具不 offer 给子代理(候选槽是父会话唯一的一个);模型凭记忆硬调也拒,口径同禁嵌套那一支。
+            resultObj = { ok: false, error: '子代理不能提议或修订工作台记忆(候选槽属于主线程);请把值得长期记住的结论写进最终报告,由主线程决定是否提议' };
           } else if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
             // 禁嵌套 double-guard: even though the agent tools are not offered here, refuse them defensively
             // (spawn_agent 仍列在这里:旧模型可能凭记忆调它,拒绝口径要一致)。
@@ -1051,8 +1076,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             // resolves to a refusal result so the sub-turn keeps moving rather than hanging.
             // v0.9 F4: gate on the effective per-turn mode (permModeOverride) — the parent passes 'default'
             // ONLY when the plan was approved this turn, else the parent's own config.permissionMode.
-            const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || liveParentPermissionMode() || config.permissionMode);
+            // 安全走查 S3:角色自带档(项目来源的先夹到不高于父档)排在 permModeOverride / 父线程实时档前面的优先级逐字不变 —— 只是项目角色那一档不再能比父档宽。
+            const parentModeNow = permModeOverride || liveParentPermissionMode() || config.permissionMode;
+            const roleMode = clampAgentRoleToParent(role, tier, parentModeNow).permissionMode;
+            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || parentModeNow);
             const gate = nativeToolGate(effMode, ntier, tc.name, args);
             // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的工具在分发点拒绝(原生工具由下面的 toolCall 按 ctx 判,
             // 会话覆盖取 parentSession —— 这里取同一个,两边同口径)。
@@ -1060,7 +1087,16 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             if (bridgedPolicyOff) {
               resultObj = toolDisabledResult(tc.name, bridgedPolicyOff);
             } else if (gate !== 'allow') {
-              resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
+              // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串)在除 bypass 外的档位要用户确认,子代理没有交互通道 —— 拒绝并说清缘由,别说成「无权执行 read 级工具」。
+              const webWhy = webPayloadReason(tc.name, args);
+              resultObj = webWhy
+                ? { ok: false, error: `这个联网请求的网址 / 查询看起来带了大段数据(${webWhy}),需要用户确认,子代理无法征求确认,已拒绝;请缩短后重试,或让主线程发起` }
+                : (effMode === 'auto' && ntier === 'exec'
+                  // 智能自动档对 exec 只在命中高风险判据(网络外发 / 递归删除 / 推送发布 / 改系统 / 读数据根密钥 / 拼接编码求值)时问人,子代理无法征求确认。
+                  // 第三波(复核 #9):说清【这一条】具体命中了哪一类(06i stewardAutoAskReason:删数据 / 推送远端 / 会访问外部网络 / 会读数据目录密钥 / 拼接编码 / 命令过长未能完整检查),
+                  // 模型才知道换哪种写法;认不出具体类别时仍回整张清单。
+                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(${stewardAutoAskReason(tc.name, args) || '网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的'}),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
+                  : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` });
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
               if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };

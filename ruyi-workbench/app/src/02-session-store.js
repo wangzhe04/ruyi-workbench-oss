@@ -161,8 +161,16 @@ const interventionAppendCounts = new Map(); // 75c: cheap cadence trigger for bo
 // happened last lifecycle), settle writes what it has and readInterventions' merge-fold still preserves
 // the register row's fields from disk. The cache is a VIEW of the journal (journal stays authoritative
 // on disk); it is empty on boot and re-populated as interventions register in this lifecycle.
+// 缓存条目只活到这条 Intervention 结算(settleIntervention / transitionInterventionState 落终态时摘掉)或会话被删
+// (dropInterventionSessionState)—— 修前从不删,每条介入留一份完整记录(含 input)在内存里,长跑进程只增不减。
 const interventionRecordCache = new Map();
 function ivCacheKey(sid, ivId) { return String(sid) + '\x00' + String(ivId); }
+// 会话被删:摘掉它名下的介入缓存与压实节拍计数(deleteSession 调)。
+function dropInterventionSessionState(sid) {
+  const prefix = String(sid) + '\x00';
+  for (const key of interventionRecordCache.keys()) if (key.startsWith(prefix)) interventionRecordCache.delete(key);
+  interventionAppendCounts.delete(String(sid));
+}
 // 75a-2b (S3): per-session in-memory high-water mark of mission.changeSeq -- the max value written to disk
 // within this process lifecycle. Lets saveSession preserve disk-side bumps from intervention transitions
 // via max(in-memory, highWater) WITHOUT re-reading the head (prevents the turn's in-memory session object
@@ -459,8 +467,12 @@ function settleIntervention(sessionId, ivId, status, extra) {
   const sid = String(sessionId || ''), id = String(ivId || '');
   const cached = interventionRecordCache.get(ivCacheKey(sid, id)); // 75a: complete-state merge (preserve type/requestedAt/toolName/...)
   const prevVer = (cached && Number.isFinite(Number(cached.interventionVersion))) ? Number(cached.interventionVersion) : 0;
+  // 这条旧路径(权限/提问/计划的超时、清理、经典端点)仍写【完整状态行】:interventions-persist 的 (f) 钉着「settle 保留 type /
+  // requestedAt」,直读日志末行的旧读者也靠它。写放大的治理只落在 transitionInterventionState(CAS 路径的 applying/terminal 增量行)。
   const rec = { ...(cached || {}), id, sessionId: sid, status, decidedAt: nowIso(), decidedBy: '', interventionVersion: prevVer + 1, ...(extra || {}) };
-  interventionRecordCache.set(ivCacheKey(sid, id), rec);
+  // 结算都是终态:缓存条目用完即摘(修前从不删,每条介入留一份完整记录在内存里);重复结算的竞态照旧是多追一行、读时后写胜。
+  if (INTERVENTION_TERMINAL.has(status)) interventionRecordCache.delete(ivCacheKey(sid, id));
+  else interventionRecordCache.set(ivCacheKey(sid, id), rec);
   appendIntervention(sessionId, rec).then(() => bumpMissionChangeSeq(sid, {
     type: 'intervention_resolved',
     cursor: { interventionId: id, interventionVersion: rec.interventionVersion },
@@ -529,6 +541,14 @@ async function readInterventions(sessionId) {
   return (await readInterventionsWithMeta(sessionId)).interventions;
 }
 
+// 压实判据(compactInterventionJournal 与 13e 索引重建共用):日志 ≥ 64 KB、行数 > 256,且行数超过存活条数的 1.5 倍。
+// 修前是「行数 > 存活条数 × 3」—— 每条介入走完 register → applying → terminal 恰好 3 行,等号不过,永远压不动
+// (2000 条已决介入的日志只增不减)。1.5 倍 = 冗余行超过存活行的一半,压完后日志要再长出一截才会再压,摊还 O(1)。
+// meta 要有 bytes / rowCount / interventions(foldInterventionJournalText 与 readInterventionsWithMeta 的返回都满足)。
+function interventionJournalWorthCompacting(meta) {
+  const rowsAfter = Array.isArray(meta && meta.interventions) ? meta.interventions.length : 0;
+  return Number(meta && meta.bytes) >= 65536 && Number(meta && meta.rowCount) > Math.max(256, rowsAfter * 1.5);
+}
 // 75c: NDJSON compaction is an atomic, reconstructible cache-neutral rewrite. One complete latest-state row per
 // intervention preserves terminal responses and explicit interventionVersion; corrupt authority is NEVER
 // compacted (that would hide damage behind a clean-looking file). Interrupted rewrites leave the old journal.
@@ -542,7 +562,7 @@ async function compactInterventionJournal(sessionId, opts = {}) {
     const folded = foldInterventionJournalText(txt);
     if (folded.degraded) return { ok: false, compacted: false, degraded: true, corruptLines: folded.corruptLines };
     const rowsAfter = folded.interventions.length;
-    const worthwhile = folded.bytes >= 65536 && folded.rowCount > Math.max(256, rowsAfter * 3);
+    const worthwhile = interventionJournalWorthCompacting(folded);
     if (!opts.force && !worthwhile) return { ok: true, compacted: false, rowsBefore: folded.rowCount, rowsAfter, bytesBefore: folded.bytes, bytesAfter: folded.bytes };
     const payload = folded.interventions.map(rec => JSON.stringify(rec)).join('\n') + (rowsAfter ? '\n' : '');
     await atomicWriteJson(file, payload);
@@ -662,10 +682,20 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     }
     // 3. 落 applying(pending -> applying)。authoritative:await 落盘后再推进。
     if (crashAt === 'before_applying') throw new Error('__cas_crash:before_applying');
-    const applyingRec = {
-      ...cur,
+    // 落盘只写增量行(迁移改了的字段),不再整份重抄 cur —— 修前 register/applying/terminal 三行各带一份完整 input,
+    // 写放大 3 倍。读侧 foldInterventionJournalText 是后写覆盖的合并折叠,input / questions / planSummary 这类大字段由 register 行带着;
+    // 行首只多带几枚【短标量身份】(type / requestedAt / toolName / tier):直读日志末行的读者(interventions-persist (f)
+    // 「settle 保留 type / requestedAt」)与人眼排查都认「每行自己说得清是谁」,而它们加起来不过几十字节。
+    const identity = {
+      ...(cur.type ? { type: cur.type } : {}),
+      ...(cur.requestedAt ? { requestedAt: cur.requestedAt } : {}),
+      ...(cur.toolName ? { toolName: cur.toolName } : {}),
+      ...(cur.tier ? { tier: cur.tier } : {}),
+    };
+    const applyingRow = {
       id,
       sessionId: sid,
+      ...identity,
       status: 'applying',
       decidedAt: '',
       decidedBy: '',
@@ -674,9 +704,10 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
       ...(opts.idempotencyKey ? { idempotencyKey: String(opts.idempotencyKey) } : {}),
       ...(opts.decisionFingerprint ? { decisionFingerprint: String(opts.decisionFingerprint) } : {}),
     };
+    const applyingRec = { ...cur, ...applyingRow };   // 完整视图只在内存里用(缓存、audit/afterTerminal 回调)
     // 「执行中」没落盘就不执行:否则重启时账上仍是 pending,会把已经执行过的动作报成「因重启取消」。
     // 缓存不动(仍是 pending),用户可以再点一次。
-    if (await appendIntervention(sid, applyingRec) !== true) {
+    if (await appendIntervention(sid, applyingRow) !== true) {
       logEvent({ kind: 'intervention_persist_failed', sessionId: sid, interventionId: id, phase: 'applying' });
       return { ok: false, reason: 'persist_failed', status: curStatus, interventionVersion: curVer };
     }
@@ -701,22 +732,26 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     const response = typeof opts.buildResponse === 'function'
       ? opts.buildResponse(result, { status: resolvedStatus, interventionVersion: curVer + 2 })
       : undefined;
-    const termRec = {
-      ...cur,
-      ...applyingRec,
+    // 终态行同样只写增量。重放身份(idempotencyKey / decisionFingerprint)在终态行上再带一份:它们很小,而直读日志末行的读者
+    // (steward-exempt-no-swap 读 allowed 行上的指纹)认的就是终态行本身;其余字段(type / toolName / input …)由 register 行带着。
+    const termRow = {
       id,
       sessionId: sid,
+      ...identity,
       status: resolvedStatus,
       decidedAt: nowIso(),
       decidedBy: String(opts.decidedBy || 'user'),
       interventionVersion: curVer + 2,
       source: String(opts.source || 'contract'),
+      ...(opts.idempotencyKey ? { idempotencyKey: String(opts.idempotencyKey) } : {}),
+      ...(opts.decisionFingerprint ? { decisionFingerprint: String(opts.decisionFingerprint) } : {}),
       ...(dynamicExtra || {}),
       ...(response && typeof response === 'object' ? { decisionResponse: response } : {}),
     };
+    const termRec = { ...applyingRec, ...termRow };   // 完整视图给 audit / afterTerminal / 事件载荷用
     // 动作已经执行,终态没落盘也收不回:记一笔;盘上停在 applying,重启时如实标 indeterminate(见头注)。
-    if (await appendIntervention(sid, termRec) !== true) logEvent({ kind: 'intervention_persist_failed', sessionId: sid, interventionId: id, phase: 'terminal' });
-    interventionRecordCache.set(ivCacheKey(sid, id), termRec);
+    if (await appendIntervention(sid, termRow) !== true) logEvent({ kind: 'intervention_persist_failed', sessionId: sid, interventionId: id, phase: 'terminal' });
+    interventionRecordCache.delete(ivCacheKey(sid, id));   // 终态:缓存条目不再有用(见 interventionRecordCache 头注)
     bumpMissionChangeSeq(sid, {
       type: 'intervention_resolved',
       cursor: { interventionId: id, interventionVersion: termRec.interventionVersion },
@@ -1367,6 +1402,49 @@ function flushSessionIndexSync() {
   } catch { /* best-effort; boot invalidation rebuilds from truth regardless */ }
 }
 
+// 「已知坏头」:盘上有 <id>.json,但它读出来不是合法会话(JSON 截断/写坏、不是对象、里面的 id 与文件名对不上)。
+// 这种文件永远进不了重建的索引,而快路径比的是「索引 id 集 == 磁盘 id 集」—— 修前一个坏头就让每次 listSessions
+// 都判漂移、全量扫盘重建(2000 条会话 ≈ 240–380 ms,侧栏每次刷新都付一遍),而且永不自愈。
+// 现在全量扫描时把【确定性判坏】的 id 连同当时的文件戳记在这里,快路径比对时把它们从磁盘 id 集里扣掉。
+// 只记确定性的坏(语法错 / 形状错 / id 不符);读文件本身失败(EBUSY/EPERM/被杀毒锁)不记 —— 那是这一次没读到,
+// 文件可能是好的,记了会让一条好会话从侧栏消失。文件戳变了(用户把备份拷回去、别的进程重写)就作废、重新扫一遍。
+// 只在内存里(进程重启后第一次全量扫描会把它记回来);条目只会因「文件没了 / 索引收下了它 / 文件戳变了」而摘掉。
+const sessionIndexKnownBadHeads = new Map();   // id -> 文件戳(size|mtimeMs|ctimeMs)
+function sessionHeadStampOf(st) { return `${st.size}|${st.mtimeMs}|${st.ctimeMs}`; }
+// 判一份会话头文本:好的返回 meta 源对象,坏的(确定性)返回 null。与全量扫描、记坏头共用同一判据。
+function parseSessionHeadForIndex(raw, id) {
+  let item;
+  try { item = JSON.parse(raw); } catch { return null; }
+  // A valid JSON cache or a damaged/misnamed head is not a session. Keep its file untouched,
+  // but never publish an entry whose id cannot be opened at this filename.
+  if (!item || !safeSessionId(item.id) || item.id !== id) return null;
+  return item;
+}
+// 全量扫描读到一个坏头:先取文件戳、再读一遍重新判(取戳在读之前 → 戳只会比内容老,之后文件再变戳就对不上,保守地重扫)。
+async function noteSessionIndexBadHead(id) {
+  try {
+    const file = path.join(paths.sessions, id + '.json');
+    const st = await fsp.stat(file);
+    const raw = await fsp.readFile(file, 'utf8');
+    if (parseSessionHeadForIndex(raw, id)) return;   // 取戳与重读之间被换成了好文件:不记
+    sessionIndexKnownBadHeads.set(id, sessionHeadStampOf(st));
+  } catch { /* 读不到(瞬时锁/刚被删):不记,下一次扫描再判 */ }
+}
+// 快路径用:返回「应当与索引 id 集对得上」的磁盘 id 集 = 磁盘 id 集扣掉仍然有效的已知坏头。
+async function sessionDiskIdsExpectedInIndex(diskIds, indexIds) {
+  if (!sessionIndexKnownBadHeads.size) return diskIds;
+  const out = new Set(diskIds);
+  for (const [id, stamp] of [...sessionIndexKnownBadHeads]) {
+    // 文件没了 / 索引已经收下它(被重新存成了好会话):不再是「坏头」。
+    if (!diskIds.has(id) || indexIds.has(id)) { sessionIndexKnownBadHeads.delete(id); continue; }
+    let same = false;
+    try { same = sessionHeadStampOf(await fsp.stat(path.join(paths.sessions, id + '.json'))) === stamp; } catch { same = false; }
+    if (same) out.delete(id);
+    else sessionIndexKnownBadHeads.delete(id);   // 文件变了:不再信旧结论,留在比对里 → 判漂移 → 重新扫一遍
+  }
+  return out;
+}
+
 // List sessions for the sidebar (7 meta fields each). FAST PATH: a valid index whose id-set matches the
 // session files on disk exactly. FALLBACK: scan every real session file (source of truth) and rebuild the index.
 async function listSessions() {
@@ -1400,7 +1478,8 @@ async function listSessions() {
   }
   if (map) {
     const indexIds = new Set(map.keys());
-    if (indexIds.size === diskIds.size && [...diskIds].every(id => indexIds.has(id))) {
+    const expectedIds = await sessionDiskIdsExpectedInIndex(diskIds, indexIds);   // 扣掉已知坏头,否则它让快路径永远对不上
+    if (indexIds.size === expectedIds.size && [...expectedIds].every(id => indexIds.has(id))) {
       // 116f: 管家会话【只】在返回值里被滤掉,索引本身仍然收录它 —— 否则上面这个「索引 id 集 == 磁盘
       // id 集」的漂移判据永远不成立,每次 listSessions 都会退化成全量扫盘重建。
       return sortSessionMetas([...map.values()].map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // trust cache+in-flight+pending: id-set matches disk exactly
@@ -1411,20 +1490,22 @@ async function listSessions() {
   sessionIndexRebuildsActive += 1;
   const sessions = [];
   let rebuilt = sessions;
+  const badSeen = new Set();   // 这一趟确定性判坏的 id(扫完用它换掉已知坏头表里对应的条目)
   try {
     for (const file of files) {
-      try {
-        const raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8');
-        const item = JSON.parse(raw);
-        // A valid JSON cache or a damaged/misnamed head is not a session. Keep its file untouched,
-        // but never publish an entry whose id cannot be opened at this filename.
-        if (!item || !safeSessionId(item.id) || item.id !== file.slice(0, -5)) continue;
-        sessions.push(sessionMeta(item));
-        if (sessionIndexRebuildScanHook) await sessionIndexRebuildScanHook(String(item && item.id || ''));
-      } catch {
-        // Ignore corrupt session files.
-      }
+      const fileId = file.slice(0, -5);
+      let raw;
+      try { raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8'); }
+      catch { continue; }   // 读不到(瞬时锁/刚被删):跳过,不记坏头(见 sessionIndexKnownBadHeads 头注)
+      const item = parseSessionHeadForIndex(raw, fileId);
+      let meta = null;
+      if (item) { try { meta = sessionMeta(item); } catch { meta = null; } }
+      if (!meta) { badSeen.add(fileId); await noteSessionIndexBadHead(fileId); continue; }   // Ignore corrupt session files (记下,别让它拖死快路径)
+      sessions.push(meta);
+      if (sessionIndexRebuildScanHook) { try { await sessionIndexRebuildScanHook(String(item.id || '')); } catch { /* 测试钩子的异常不影响重建 */ } }
     }
+    // 这一趟判好的、或盘上已没有的 id 不该留在已知坏头表里(坏头被修好 / 被删)。
+    for (const id of [...sessionIndexKnownBadHeads.keys()]) if (!badSeen.has(id)) sessionIndexKnownBadHeads.delete(id);
     await withSessionIndexLock(() => {
       const byId = new Map(sessions.map(meta => [String(meta && meta.id), meta]));
       for (const [id, write] of sessionIndexLatestWrite) {
@@ -1825,6 +1906,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   sessionEngineRouteOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
+  dropInterventionSessionState(id);          // 介入记录缓存 + 压实节拍计数:会话没了,内存里的这两份也不留
   if (purgeAssociated) {
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -1991,7 +2073,8 @@ function normalizeSession(raw) {
     }
     if (JSON.stringify(cleaned) !== JSON.stringify(session.skills)) { session.skills = cleaned; changed = true; }
   }
-  // 工作台记忆:memoriesExplicit=true 时 session.memories 是固定选择(上限 12)；false 时项目+全局均进入
+  // 工作台记忆:memoriesExplicit=true 时 session.memories 是固定选择(上限由 memoryFixedSelectionMaxV1 配置,见 01c;
+  // 此处是落盘清洗,取钳位上界 MEMORY_FIXED_SELECTION_HARD_MAX,具体按配置的截断在保存路由与注入侧做)；false 时项目+全局均进入
   // 默认相关性检索，session.memoryExclusions 保存当前会话在默认模式下明确排除的条目。
   {
     const cleaned = [];
@@ -2008,7 +2091,7 @@ function normalizeSession(raw) {
       const entry = { id, scope };
       if (scope === 'project') { const pk = String((raw && raw.projectKey) || '').trim(); if (/^[a-f0-9]{16}$/.test(pk)) entry.projectKey = pk; }
       cleaned.push(entry);
-      if (cleaned.length >= 12) break;
+      if (cleaned.length >= MEMORY_FIXED_SELECTION_HARD_MAX) break;
     }
     if (JSON.stringify(cleaned) !== JSON.stringify(session.memories)) { session.memories = cleaned; changed = true; }
     if (typeof session.memoriesExplicit !== 'boolean') { session.memoriesExplicit = false; changed = true; }
@@ -2626,6 +2709,32 @@ async function stopMissionAgentRuns(sessionId) {
   }
   await Promise.all(saves);
   return count;
+}
+
+// 撤回(rewindSession)用:被丢弃回合里【模型自己起的】、仍在跑的后台 run 一并停掉 —— 起它的那句话对模型已经没发生过,跑完的信封只会让
+// 下一回合凭空多出一份通知(并且唤醒会把改写过的线程叫醒)。停法与托盘 / mission 里停一件同一个(stopRequested + abort + 记干预 + 追事件),
+// 并打 cancelledByRewind:09 deliverAgentRunEnvelope 据此不再给它投信封。用户在面板里自己起的 run 不动(不是被撤回的那句话起的);
+// 起它的回合没被撤回的 run 也不动(照常跑完,信封随用户下一句话送达)。返回停掉的件数。同步,零 await。
+function cancelModelRunsOfDiscardedTurns(sessionId, discardedTurnSeqs) {
+  const discarded = discardedTurnSeqs instanceof Set ? discardedTurnSeqs : new Set(Array.isArray(discardedTurnSeqs) ? discardedTurnSeqs : []);
+  let cancelled = 0;
+  for (const live of activeAgentRuns.values()) {
+    if (!live || !live.run || live.run.sessionId !== sessionId || live.closing || live.stopRequested) continue;
+    if (live.run.launchedByModel !== true || !discarded.has(Number(live.run.turnSeq))) continue;
+    try {
+      live.run.cancelledByRewind = true;
+      live.stopRequested = true;
+      live.paused = false;
+      try { if (live.ctrl) live.ctrl.abort(); } catch { /* best-effort */ }
+      for (const wake of (Array.isArray(live.resumeWaiters) ? live.resumeWaiters.splice(0) : [])) { try { wake(); } catch { /* best-effort */ } }
+      bumpRunIntervention(live.run, 'rewind_stop');
+      appendAgentRunEvent(live.run, { type: 'run_stop_requested', data: { reason: 'rewind' } });
+      saveAgentRun(live.run).catch(() => {});
+      cancelled++;
+    } catch { /* 停不掉也不挡撤回 */ }
+  }
+  if (cancelled) logEvent({ kind: 'rewind_cancel_agent_runs', sessionId, cancelled });
+  return cancelled;
 }
 
 function missionControlFailure(reason, status = 409, message = '') {
@@ -3813,11 +3922,15 @@ function isUntitledSessionTitle(title) {
 }
 
 const IMPORTED_MESSAGE_ROLE_MAX = 32;
+// 安全走查 S10:导入来的消息是外来文本(可能是别人分享的会话文件、含伪造的「用户已授权…」对话),每条打来源标记
+// meta.imported:true,让这条线程里的内容始终能被认出是导入的。meta【整个替换】而不是合并:文件自带的 meta
+// (比如伪造 origin:'agent_wake' / 'inbox' 去走界面里那几条特殊渲染)一律丢掉。
 function sanitizeImportedSessionMessages(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.filter(m => m && typeof m === 'object' && !Array.isArray(m)
     && typeof m.role === 'string' && m.role.trim() && m.role.length <= IMPORTED_MESSAGE_ROLE_MAX
-    && (m.content == null || typeof m.content === 'string' || Array.isArray(m.content)));
+    && (m.content == null || typeof m.content === 'string' || Array.isArray(m.content)))
+    .map(m => ({ ...m, meta: { imported: true } }));
 }
 
 async function createSession({ title, cwd, origin, engineRoute }) {
@@ -4959,6 +5072,10 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
     }
     throw error;
   }
+  // 撤回已落盘:停掉被撤回回合里模型起的仍在跑的后台 run,并让后台代理唤醒(10 onSessionRewound)记「叫停过」—— 别把改写过的线程自动叫醒,
+  // 信封留在账本里随用户下一句话送达。旁路,失败不影响撤回本身。
+  try { cancelModelRunsOfDiscardedTurns(sessionId, discarded); } catch { /* 旁路 */ }
+  if (EventStreamHooks.onSessionRewound) { try { EventStreamHooks.onSessionRewound({ sessionId, discardedTurnSeqs: discarded }); } catch { /* 旁路 */ } }
   // C4:rewind【不】给模型记「用户撤销了文件」的待告知(rollbackFiles 撤的恰恰是被丢弃回合的改动)。理由:截断之后 providerHistory
   // 清空、下一回合从幸存的展示消息重新播种,被丢弃的回合对模型而言根本没发生过;它们碰过的文件又被恢复到了修改前 —— 模型看到的
   // 对话与磁盘是自洽的,再告知「第 N 回合的修改已被撤销」反而是在讲一个它看不到的回合。反过来,截断前已经在待告知里的记录

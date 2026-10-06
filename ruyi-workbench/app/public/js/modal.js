@@ -34,7 +34,8 @@ export function buildModal({ title = '', body = null, foot = null, onCancel = nu
     done = true;
     if (cancelled && onCancel) { try { onCancel(); } catch { /* ignore */ } }
     backdrop.remove();
-    if (trigger && typeof trigger.focus === 'function') { try { trigger.focus(); } catch { /* ignore */ } }
+    const back = focusReturnTarget(trigger);
+    if (back) { try { back.focus(); } catch { /* ignore */ } }
   };
   backdrop.__cancel = () => finish(true);
   backdrop.__close = () => finish(false);
@@ -54,6 +55,22 @@ export function buildModal({ title = '', body = null, foot = null, onCancel = nu
   // §4.9: focus the first interactive element inside the modal (input/button), falling back to ✕.
   setTimeout(() => { (focusFirstInteractive(modal) || x)?.focus?.(); }, 0);
   return { backdrop, foot: footWrap, close: () => finish(false), cancel: () => finish(true) };
+}
+
+// 关闭时焦点还给谁。打开者(trigger)可能已经不在了:不连通,或者看不见 —— 比如从齿轮菜单里的「帮助」项点开手册/日志面板,
+// 弹层一出来那张菜单就收起,那一项跟着藏起来;往 display:none 的节点 focus() 是空操作,焦点掉到 body,键盘用户得从页首重新 Tab。
+// 看不见时退到「拥有那张菜单的按钮」(菜单上 aria-controls 指回它的那枚,齿轮菜单即 #appGearBtn);认不出菜单(游离节点、
+// 没有菜单祖先)就退到 #appGearBtn。trigger 为空或就是 body 时没有「回哪儿」可言,保持原样(返回 null)。
+// 与 navigation-controls.js 里静态模态用的 modalReturnTarget 同一口径;help-viewer.js 是零 import 的壳无关工厂,那边抄一份。
+export function focusReturnTarget(trigger, doc = globalThis.document) {
+  if (!trigger || typeof trigger.focus !== 'function' || !doc || trigger === doc.body) return null;
+  const visible = node => node.isConnected !== false && (typeof node.getClientRects !== 'function' || node.getClientRects().length > 0);
+  if (visible(trigger)) return trigger;
+  const menu = typeof trigger.closest === 'function' ? trigger.closest('[role="menu"]') : null;
+  const owner = menu && menu.id && typeof doc.querySelector === 'function' ? doc.querySelector(`[aria-controls="${menu.id}"]`) : null;
+  if (owner && visible(owner)) return owner;
+  const gear = typeof doc.getElementById === 'function' ? doc.getElementById('appGearBtn') : null;
+  return gear && visible(gear) ? gear : null;
 }
 
 // §4.9 helper: find the first focusable control inside a container (visible input/select/textarea/

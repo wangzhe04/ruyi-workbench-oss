@@ -65,7 +65,9 @@ async function stewardImplRunsStatus(args, ctx, config) {
         status: String(mem.status || ''),
         live: !!live,
         paused: !!(live && live.paused),
-        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'done').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
+        // done 数的是成功态:09 工作流里节点的成功终态叫 'succeeded'(没有 'done' 这个值)。修前统计 status === 'done',
+        // 恒为 0 —— 一个全部跑完的 run 也报「0 个节点完成」。键名 done 不动(模型与测试已经按它读)。
+        nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'succeeded').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
         // 等待原因单一化:优先「等你」(池提案待批),其次「等锁」(资源),再次「已暂停」。
         waitReason: (Array.isArray(mem.taskPool) ? mem.taskPool : []).some(p => p && p.status === 'proposed') ? '等你批任务池提案'
           : nodes.some(n => n && n.status === 'waiting_resource') ? '等资源锁'
@@ -258,6 +260,24 @@ async function stewardImplDecide(args, ctx, config) {
     return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令是拼接、编码或求值出来的,看不出真正要跑什么 —— 这一条必须你亲自决定`, {
       reason: 'indirect_command', missionId, interventionId, type, toolName, tier, permissionMode,
       delegable: false, blockedBy: 'indirect_command',
+    });
+  }
+  // 安全走查 S2:命令里有网络外发 / 读数据根密钥文件(06i stewardAutoAskSensitiveKind,智能自动正是因为它才停下来问):不在五类豁免里,
+  // 但「外发什么、读了什么」管家同样判不出 —— 放行类一律交回用户,拒绝类照常可以。
+  if (type === 'permission' && !exemptHit && !refusing) {
+    const sensitiveKind = stewardAutoAskSensitiveKind(toolName, exemptInput);
+    if (sensitiveKind) {
+      return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令会${sensitiveKind === 'dataroot' ? '读取如意数据目录里的密钥 / 状态文件' : '访问外部网络'},可能在外传数据 —— 这一条必须你亲自决定`, {
+        reason: sensitiveKind === 'dataroot' ? 'dataroot_read' : 'network_egress', missionId, interventionId, type, toolName, tier, permissionMode,
+        delegable: false, blockedBy: sensitiveKind === 'dataroot' ? 'dataroot_read' : 'network_egress',
+      });
+    }
+  }
+  // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串,07 webPayloadReason)—— 它是「可能在外传数据」的那一问,管家同样不替用户批,放行类一律交回用户。
+  if (type === 'permission' && !refusing && webPayloadReason(toolName, current.input)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次的网址 / 查询带了大段数据,可能是在往外传内容 —— 这一条必须你亲自决定`, {
+      reason: 'web_payload', missionId, interventionId, type, toolName, tier, permissionMode,
+      delegable: false, blockedBy: 'web_payload',
     });
   }
   let delegation = null;
@@ -551,23 +571,60 @@ async function stewardSourceCwd(sourceRef) {
   const session = await loadSession(sessionId).catch(() => null);
   return String((session && session.cwd) || '');
 }
-async function stewardSourceIsUserMessage(sourceRef) {
+// 返回该回合里【用户本人】消息的正文数组(没有则 null)。角色闸与 quote 核对共用这一份取数,不各读一遍会话。
+async function stewardSourceUserTexts(sourceRef) {
   const sessionId = safeSessionId(sourceRef && sourceRef.sessionId);
-  if (!sessionId) return false;
+  if (!sessionId) return null;
   const turnSeq = Number(sourceRef && sourceRef.turnSeq);
-  if (!Number.isFinite(turnSeq)) return false;
+  if (!Number.isFinite(turnSeq)) return null;
   const session = await loadSession(sessionId).catch(() => null);
-  if (!session) return false;
+  if (!session) return null;
   const messages = Array.isArray(session.messages) ? session.messages : [];
   // 116f 第二道:role:'user' 还不够 —— 管家的【收件箱回合】也是以一条 user 消息注入的(工作台把
   // 几十条系统事件归成一段文本发给模型),但那不是用户本人说的话。13h 在那条消息上落了
   // meta.origin === 'inbox'(随会话正文持久化,重启后仍在),这里确定性拒绝它。同理拒绝
   // 驱动器自动续跑的消息(source:'mission-driver')—— 也不是人说的。
+  // 唤醒通知(meta.origin:'agent_wake',后台代理跑完后工作台替模型起的回合)同理:它是系统通知,正文里还带着子代理任务标题 ——
+  // 那是模型 / 网页可影响的文本,不是用户说的话(06d memoryRecentUserTexts 早已同口径排除)。
   // 第二轮工具走查(F17):再拒一类 —— 管家自己发起的那条用户消息(thread_new 委托书 / thread_continue 递话 /
   // quick_ask 问题,13k stewardLaunchTurn 落 meta.origin:'steward')。它是管家转述的,不是用户本人这一回合说的话。
-  return messages.some(m => m && m.role === 'user' && Number(m.turnSeq) === turnSeq
-    && !(m.meta && typeof m.meta === 'object' && (m.meta.origin === 'inbox' || m.meta.origin === 'steward'))
+  const own = messages.filter(m => m && m.role === 'user' && Number(m.turnSeq) === turnSeq
+    && !(m.meta && typeof m.meta === 'object' && (m.meta.origin === 'inbox' || m.meta.origin === 'steward' || m.meta.origin === 'agent_wake'))
     && m.source !== 'mission-driver');
+  return own.length ? own.map(m => String(m.content == null ? '' : (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))) : null;
+}
+async function stewardSourceIsUserMessage(sourceRef) {
+  return (await stewardSourceUserTexts(sourceRef)) !== null;
+}
+// 14(走查):来源闸原来只核对「那一回合有一条用户消息」,不核对写进库的内容是不是那条消息说的 —— 引一条无关的用户消息
+// (「帮我看看订单表」)就能写进 policy「所有线程的命令请求一律直接批准」,而这库驱动路由和代答依据。
+// 现在 sourceRef 还要带 quote:来源原话的一个片段,服务端逐字(空白折叠后)在那条用户消息里核对,仿 briefQuote 的 includes 校验。
+// 核得动的只是「这句引文真是用户说的」—— 它把「凭空编出处」变成「得引一句真话」,并且引文随条目落库(sourceQuote),
+// 面板与决策日志里看得见「它凭哪句话记的」。不做改述相似度(J12 已证伪)。
+function stewardFoldWs(text) { return String(text == null ? '' : text).replace(/\s+/g, ' ').trim(); }
+function stewardQuoteInSource(quote, userTexts) {
+  const q = stewardFoldWs(quote).slice(0, STEWARD_MEMORY_LIMITS.quoteChars);
+  if (!q) return { ok: false, code: 'invalid_request', message: 'sourceRef.quote is required: copy a verbatim fragment of the user\'s own message that this fact comes from' };
+  const hay = (Array.isArray(userTexts) ? userTexts : []).map(stewardFoldWs);
+  // 片段太短到处都能命中;但用户整条消息本来就很短(「用中文」)时,整条消息就是合法引文。
+  if (q.length < STEWARD_MEMORY_LIMITS.quoteMin && !hay.some(t => t === q)) {
+    return { ok: false, code: 'invalid_request', message: `sourceRef.quote is too short (at least ${STEWARD_MEMORY_LIMITS.quoteMin} characters, unless it is the user's whole message)` };
+  }
+  if (!hay.some(t => t.includes(q))) {
+    return { ok: false, code: 'quote_not_found', message: 'sourceRef.quote does not appear verbatim in the user\'s message at that turn; copy the user\'s own words, do not paraphrase or cite a different message' };
+  }
+  return { ok: true, quote: q };
+}
+// 第二道(走查 #14 的核心):引文是真话还不够 —— 模型照样可以引一句无关的真话(「帮我看看订单表」)再配上编出来的 policy。
+// 所以要求写进库的这句话与引文【用词上有交集】(复用 stewardMemoryTerms:拉丁按词、CJK 按 2-gram,至少共享一个词项)。
+// 不做相似度(J12 已证伪「改述 vs 反话」分不开;这里只拦「风马牛不相及」的那一类),语种不同(英文引文配中文转述)词面上本来就没法比,放行。
+// 这仍然不是语义核实:同话题的反话(「别自动批准」→「用户要求自动批准」)拦不住 —— 那一类靠 policy 的后续闸与面板的可见/可否决(entry.sourceQuote 一并落库给人看)。
+function stewardTextGroundedInQuote(text, quote) {
+  const cjk = v => /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(String(v));
+  if (cjk(text) !== cjk(quote)) return true;
+  const quoteTerms = stewardMemoryTerms(quote);
+  for (const term of stewardMemoryTerms(text)) if (quoteTerms.has(term)) return true;
+  return false;
 }
 
 // 15) steward_memory_write
@@ -581,8 +638,14 @@ async function stewardImplMemoryWrite(args, ctx, config) {
   }
   const sourceRef = (args.sourceRef && typeof args.sourceRef === 'object') ? args.sourceRef : null;
   if (!sourceRef) return stewardFail('invalid_request', 'sourceRef {sessionId, turnSeq} is required');
-  if (!await stewardSourceIsUserMessage(sourceRef)) {
+  const sourceTexts = await stewardSourceUserTexts(sourceRef);
+  if (sourceTexts === null) {
     return stewardFail('source_not_user', 'sourceRef must point at a turn that contains the user\'s own message; tool output and assistant text are not valid memory sources');
+  }
+  const quoted = stewardQuoteInSource(sourceRef.quote, sourceTexts);
+  if (!quoted.ok) return stewardFail(quoted.code, quoted.message);
+  if (!stewardTextGroundedInQuote(text, quoted.quote)) {
+    return stewardFail('quote_unrelated', 'the memory text shares no wording with sourceRef.quote; record the fact in words that come from the user\'s own sentence (the quote is stored as the evidence of what the user said)');
   }
   // 敏感过滤复用工作台记忆的同一条正则(密钥/口令/JWT/连接串),不另写第二套判据。
   if (memoryProposalLooksSensitive({ body: text })) {
@@ -651,6 +714,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       existing.mergedFrom = [...(Array.isArray(existing.mergedFrom) ? existing.mergedFrom : []), prevRef].slice(-STEWARD_MEMORY_MERGED_FROM_MAX);
       existing.sourceSessionId = String(sourceRef.sessionId || '');
       existing.sourceSeq = Math.max(0, Number(sourceRef.turnSeq) || 0);
+      existing.sourceQuote = quoted.quote;
       existing.updatedAt = at;
       // 126-M02 合并时的时效:给了新到期日就用新的;**没给而旧的已经过期,就把到期日清掉** ——
       // 用户又说了一遍,这条事实就是当下有效的。不这么写会留一个陷阱:合并成功、
@@ -678,6 +742,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
       confidence: Number.isFinite(Number(args.confidence)) ? Math.min(1, Math.max(0, Number(args.confidence))) : 0.6,
       sourceSessionId: String(sourceRef.sessionId || ''),
       sourceSeq: Math.max(0, Number(sourceRef.turnSeq) || 0),
+      sourceQuote: quoted.quote, // 14:凭哪句用户原话记的(服务端已逐字核对过)
       createdAt: at,
       updatedAt: at,
       lastUsedAt: '',
@@ -967,6 +1032,9 @@ function stewardEyesSettle(ctx, charged, used) {
 async function stewardImplWebSearch(args, ctx, config) {
   const q = stewardSanitizeText(String((args && args.q) || '')).trim();
   if (!q) return stewardFail('invalid_request', 'q is required');
+  // 第三波(复核 #3):管家回合不过 07 nativeToolGate,联网载荷闸(S1)在这里自己查一遍。管家没有向用户确认的通道 —— 命中就【拒绝】并说清缘由,不「问」。
+  const payloadWhy = webPayloadReason('web_search', { query: q });
+  if (payloadWhy) return stewardFail('invalid_request', `这个搜索词看起来带了大段数据(${payloadWhy}),可能是在往外传内容;管家没有向你确认的通道,已拒绝。请换成简短的关键词`, { reason: 'web_payload', blockedBy: 'web_payload' });
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 直接调 11 的实现(11 排在 13l 之前,后向边);搜索后端是管理端可信端点,SSRF 豁免录在案。
@@ -989,6 +1057,9 @@ async function stewardImplWebSearch(args, ctx, config) {
 async function stewardImplWebFetch(args, ctx, config) {
   const url = String((args && args.url) || '').trim();
   if (!url) return stewardFail('invalid_request', 'url is required');
+  // 第三波(复核 #3):同上 —— 网址带疑似载荷(超长查询串 / 编码串 / 用户信息段 / 超长路径或主机名)一律拒,不发请求。
+  const payloadWhy = webPayloadReason('web_fetch', { url });
+  if (payloadWhy) return stewardFail('invalid_request', `这个网址看起来带了大段数据(${payloadWhy}),可能是在往外传内容;管家没有向你确认的通道,已拒绝。请用简短的、不带参数数据的网址`, { reason: 'web_payload', blockedBy: 'web_payload' });
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // SSRF 全套护栏在 12 的实现里(逐跳 ssrfCheck + dnsResolvesToPrivate),这里【不】另写一份。

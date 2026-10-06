@@ -246,11 +246,14 @@ async function readMemoryItem(id, scope, cwd) {
     core: fmBool(fm.core, false),
     coreSummary: (fm.coresummary || fm.description || '').slice(0, CORE_MEMORY_SUMMARY_CAP),
     importance: fm.importance === 'important' ? 'important' : 'normal',
-    reviewAfter: cleanMemoryDate(fm.reviewafter), expiresAt: cleanMemoryDate(fm.expiresat), file } };
+    reviewAfter: cleanMemoryDate(fm.reviewafter), expiresAt: cleanMemoryDate(fm.expiresat),
+    // 来源字段也回传:元数据快捷操作(核心/重要)与修订落盘都是「读原条目 → saveMemory」,不带它们 frontmatter 里的来源会被抹掉。
+    sourceSessionId: fm.sourcesessionid || '', sourceRunId: fm.sourcerunid || '', file } };
 }
 
 // 保存一条记忆(原子写 tmp+rename)。id 缺省合成;scope=global|project;正文 + frontmatter。返回 {ok, memory}。
-async function saveMemory(mem, cwd) {
+// opts.createdAt:换作用域(moveMemoryScope)时沿用原条目的创建时间 —— 只对「目标位置还没有文件」的新写生效,覆盖已有文件仍以盘上的为准。
+async function saveMemory(mem, cwd, opts = {}) {
   const m = (mem && typeof mem === 'object') ? mem : {};
   let id = String(m.id || '').trim();
   if (!id) id = makeId('mem'); // 117q-B2(P2-15):统一走 00-boot 的 makeId,不再手写 randomBytes
@@ -269,12 +272,24 @@ async function saveMemory(mem, cwd) {
   const dest = path.join(dir, id + '.md');
   let createdAt = nowIso();
   let prevFm = {};
-  try { const prev = await fsp.readFile(dest, 'utf8'); prevFm = parseFrontmatter(prev); if (prevFm.createdat) createdAt = prevFm.createdat; } catch { /* 新建 */ }
+  let hadPrev = false;
+  try { const prev = await fsp.readFile(dest, 'utf8'); prevFm = parseFrontmatter(prev); hadPrev = true; if (prevFm.createdat) createdAt = prevFm.createdat; } catch { /* 新建 */ }
+  if (!hadPrev && opts && opts.createdAt) createdAt = cleanMemoryDate(opts.createdAt) || createdAt;
   const updatedAt = nowIso();
   const has = key => Object.prototype.hasOwnProperty.call(m, key);
   const core = has('core') ? fmBool(m.core) : fmBool(prevFm.core, false);
   const importance = (has('importance') ? m.importance : prevFm.importance) === 'important' ? 'important' : 'normal';
-  const coreSummary = fmVal(has('coreSummary') ? m.coreSummary : (prevFm.coresummary || description)).slice(0, CORE_MEMORY_SUMMARY_CAP);
+  let coreSummary = fmVal(has('coreSummary') ? m.coreSummary : (prevFm.coresummary || description)).slice(0, CORE_MEMORY_SUMMARY_CAP);
+  // 核心胶囊每轮注入的是 coreSummary 而不是 description。修前改了 description,coreSummary 还停在旧文字(旧摘要一直在注入)。
+  // 现在:旧摘要从没单独写过(为空,或与旧 description 相同 = 只是跟随值),而 description 变了,摘要就跟着新 description;
+  // 调用方这次带来的摘要若只是把旧值原样送回(编辑弹窗预填的就是旧摘要)也算「没动」。用户真改过的摘要(与旧 description 不同)一字不碰。
+  if (hadPrev) {
+    const prevDescription = fmVal(prevFm.description);
+    const prevSummary = fmVal(prevFm.coresummary);
+    const followsDescription = !prevSummary || prevSummary === prevDescription;
+    const untouched = !has('coreSummary') || !coreSummary || coreSummary === prevSummary || coreSummary === prevDescription;
+    if (followsDescription && untouched && description !== prevDescription) coreSummary = description.slice(0, CORE_MEMORY_SUMMARY_CAP);
+  }
   const reviewAfter = cleanMemoryDate(has('reviewAfter') ? m.reviewAfter : prevFm.reviewafter);
   const expiresAt = cleanMemoryDate(has('expiresAt') ? m.expiresAt : prevFm.expiresat);
   const fmLines = ['---', 'name: ' + name, 'description: ' + description, 'type: ' + type, 'createdAt: ' + createdAt,
@@ -299,9 +314,63 @@ async function deleteMemory(id, scope, cwd) {
   const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
   const file = path.join(dir, safe + '.md');
   try { await fsp.access(file); } catch { return { ok: false, error: 'memory not found' }; }
-  await fsp.unlink(file).catch(() => {});
+  // 修前 .catch(() => {}) 把 unlink 失败吞掉、照样回 ok:true —— Windows 上文件被占用(EBUSY)/只读(EPERM)/无权限(EACCES)时,
+  // 前端提示「已删除」,列表一刷新条目又回来了,用量旁账却已被清掉。现在:只有 ENOENT(access 之后被别处删掉了,目标已达成)当成功;
+  // 其余失败如实回 ok:false(不动用量状态,记忆还在),前端 deleteMemoryRow 已按 !ok / 非 2xx 弹「删除失败」。
+  try { await fsp.unlink(file); }
+  catch (error) {
+    if (!(error && error.code === 'ENOENT')) {
+      const code = (error && error.code) || 'UNKNOWN';
+      return { ok: false, unlinkFailed: true, error: `记忆文件删除失败(${code}):文件可能正被其它程序占用或没有删除权限,请关闭占用它的程序后重试` };
+    }
+  }
   await mutateMemoryUsageState(entries => { const key = scope === 'global' ? 'global:' + safe : 'project:' + projectKeyForCwd(cwd) + ':' + safe; if (!entries[key]) return false; delete entries[key]; });
   return { ok: true, deleted: safe, scope };
+}
+
+// 域函数失败回执带 errorCode 时,路由走 apiFailure(稳定码 + 参数,前端按码本地化);没带的照旧 json(r, status)(逐字节不变)。
+function memoryFailureResponse(r, status) {
+  return r && r.errorCode ? apiFailure(r.errorCode, r.errorParams || {}, r.error || '', status) : json(r, status);
+}
+
+// 把一条记忆换到另一个作用域(项目 → 全局「提升」/ 全局 → 当前项目「下放」)。
+// mem = 要写进目标作用域的完整内容(含 id、scope=目标作用域);fromScope = 它现在所在的作用域。
+// 顺序:先写目标、写成功才删原件;原件删不掉就把刚写的那份撤回 —— 不会留下两处各一份。
+// 同 id 在目标作用域已存在 → 拒绝(conflict),不覆盖。
+// 能迁的:用量旁账(useCount/lastUsedAt 换键);不能迁的:关系边 —— 关系只许同作用域内建(见 proposeMemoryRelation 的隔离红线),
+// 一端挪走边就成了跨作用域,只能从原作用域的 _relations.json 摘掉,条数放在 moved.relationsDropped 里,调用方要如实告诉用户。
+async function moveMemoryScope(mem, fromScope, cwd) {
+  const m = mem && typeof mem === 'object' ? mem : {};
+  const id = String(m.id || '');
+  const toScope = m.scope === 'global' ? 'global' : 'project';
+  const from = fromScope === 'global' ? 'global' : 'project';
+  if (!SKILL_ID_RE.test(id)) return { ok: false, error: 'invalid memory id' };
+  if (from === toScope) return { ok: false, error: '原作用域与目标作用域相同,无需移动' };
+  const src = await readMemoryItem(id, from, cwd);
+  if (!src.ok) return { ok: false, error: '要移动的记忆已不存在' };
+  const dup = await readMemoryItem(id, toScope, cwd);
+  if (dup.ok) {
+    return { ok: false, conflict: true, errorCode: 'memory.move_conflict', errorParams: { id, scope: toScope },
+      error: `目标作用域(${toScope === 'global' ? '全局' : '当前项目'})里已经有同 id 的记忆(${id}),未移动` };
+  }
+  const oldKey = memoryUsageKey({ scope: from, id }, cwd), newKey = memoryUsageKey({ scope: toScope, id }, cwd);
+  const prevUsage = (await readMemoryUsageState()).entries[oldKey] || null;   // deleteMemory 会清掉旧键,先取走
+  const saved = await saveMemory({ ...m, id, scope: toScope }, cwd, { createdAt: src.memory.createdAt });
+  if (!saved.ok) return saved;
+  const removed = await deleteMemory(id, from, cwd);
+  if (!removed.ok) {
+    await deleteMemory(id, toScope, cwd).catch(() => {});   // 撤回刚写的那份,保持「只在原处」
+    return { ok: false, error: removed.error || '原记忆删除失败,已撤回移动' };
+  }
+  if (prevUsage) await mutateMemoryUsageState(entries => { if (entries[newKey]) return false; entries[newKey] = prevUsage; });
+  let relationsDropped = 0;
+  try {
+    const rels = await readMemoryRelations(from, cwd);
+    const kept = rels.filter(r => r.from !== id && r.to !== id);
+    relationsDropped = rels.length - kept.length;
+    if (relationsDropped) await writeMemoryRelations(from, cwd, kept);
+  } catch { /* 关系文件读写失败不阻断移动;残留的边会在维护建议里作为孤边列出 */ }
+  return { ok: true, memory: saved.memory, moved: { from, to: toScope, relationsDropped, usageMoved: !!prevUsage } };
 }
 
 // ACC 曾自带一套直接写 memory.json 的跨会话记忆。工作台记忆成为唯一入口后，在首次启动时把
@@ -402,6 +471,7 @@ const AGENT_INSTRUCTION_IMPORT_SCHEMA = 1;
 const AGENT_INSTRUCTION_MAX_BYTES = 200 * 1024;
 const AGENT_INSTRUCTION_CORE_PARTS = 12;
 const AGENT_INSTRUCTION_CHUNK_CHARS = 480;
+const AGENT_INSTRUCTION_SCAN_VERSION = 1; // 记录里带这个章 = 导入时已过敏感扫描(没有的是扫描上线前的旧记录,见 sync 的补扫)
 const AGENT_INSTRUCTION_NATIVE_CLI = Object.freeze({ 'claude-md': 'claude', 'kimi-agents': 'kimi' });
 let agentInstructionChain = Promise.resolve();
 
@@ -472,8 +542,13 @@ async function readAgentInstructionSource(src) {
 
 // 全文 → 块。先按 #/##/### 标题切段(代码围栏里的 # 不算),相邻的小段合并到 ≤480 字(压平后),
 // 超长段再按空行切段落,段落还超长就按字数硬切。每块带所属标题,摘要里给续段补上下文。
-function splitAgentInstructionText(text) {
+// sensitive(heading, body) 非空时做敏感剔除【在合并/硬切之前、按原文单元】做:小段整段查(命中整段不进任何块,不连累被合并在一起的
+// 干净小段);超长段逐段落查,段落整段查(一个「key=value」横跨硬切接缝时,整段落是连续的,照样命中);段落之间的「key:\n\nvalue」
+// 单段查不出来,所以超长段另查一遍整段,命中而没有哪个段落命中就整段剔。剔掉的单元数记在返回数组的 skippedSensitive 上。
+function splitAgentInstructionText(text, sensitive) {
   const CHUNK = AGENT_INSTRUCTION_CHUNK_CHARS;
+  const sens = typeof sensitive === 'function' ? sensitive : null;
+  let skippedSensitive = 0;
   const flat = s => String(s || '').replace(/\s+/g, ' ').trim();
   const sections = [];
   let cur = { heading: '', lines: [] };
@@ -494,15 +569,21 @@ function splitAgentInstructionText(text) {
     const f = flat(body);
     if (!f) continue;
     if (f.length <= CHUNK) {
+      if (sens && sens(sec.heading, body)) { skippedSensitive++; continue; }
       if (acc && acc.flat.length + 1 + f.length <= CHUNK) { acc.body += '\n\n' + body; acc.flat += ' ' + f; }
       else { flush(); acc = { heading: sec.heading, body, flat: f }; }
       continue;
     }
     flush();
+    const paras = body.split(/\n\s*\n/);
+    const paraHits = sens ? paras.map(para => sens(sec.heading, para)) : [];
+    if (sens && !paraHits.some(Boolean) && sens(sec.heading, body)) { skippedSensitive++; continue; }
     let p = null;
-    for (const para of body.split(/\n\s*\n/)) {
+    for (let pi = 0; pi < paras.length; pi++) {
+      const para = paras[pi];
       const pf = flat(para);
       if (!pf) continue;
+      if (paraHits[pi]) { skippedSensitive++; continue; }
       if (pf.length > CHUNK) {
         if (p) { chunks.push(p); p = null; }
         const raw = para.trim();
@@ -518,16 +599,25 @@ function splitAgentInstructionText(text) {
     if (p) chunks.push(p);
   }
   flush();
+  chunks.skippedSensitive = skippedSensitive;
   return chunks;
 }
 
+// 敏感扫描(与其余写入路径同一道闸 memoryProposalLooksSensitive):指令文件里常有人顺手写下的口令/密钥/连接串,
+// 核心记忆每轮都会随提示词发往第三方模型服务商,所以导入前必须过。命中的原文单元不导入(切分时按小段/段落剔,见 splitAgentInstructionText)。
+function agentInstructionLooksSensitive(heading, body) {
+  return memoryProposalLooksSensitive({ name: heading, description: '', body });
+}
+
 // 一个来源 → 待写条目清单(纯函数:不落盘)。最多 12 条 core,余下合一条 core:false。
+// 命中敏感扫描的单元被剔除、不进条目清单;剔了几处记在返回数组的 skippedSensitive 上(给迁移中心如实标出)。
 function planAgentInstructionEntries(src, read, displayPath) {
-  const chunks = splitAgentInstructionText(read.text);
+  const chunks = splitAgentInstructionText(read.text, agentInstructionLooksSensitive);
   const coreChunks = chunks.slice(0, AGENT_INSTRUCTION_CORE_PARTS);
   const rest = chunks.slice(AGENT_INSTRUCTION_CORE_PARTS);
   const total = coreChunks.length + (rest.length ? 1 : 0);
   const out = [];
+  out.skippedSensitive = chunks.skippedSensitive || 0;
   coreChunks.forEach((c, i) => {
     const n = i + 1;
     let summary = (c.heading && !c.flat.startsWith('#') ? '〔' + c.heading + '〕' : '') + c.flat;
@@ -577,7 +667,7 @@ async function writeAgentInstructionEntries(src, read, displayPath) {
     await atomicWriteJson(path.join(memoryGlobalDir(), entry.id + '.md'), content);
     entries.push({ id: entry.id, hash: sha256Hex(content).slice(0, 32), core: entry.core });
   }
-  return { importedAt, entries };
+  return { importedAt, entries, skippedSensitive: plan.skippedSensitive || 0 };
 }
 
 // 我们写下的条目现在怎样:missing(被删了几条)/ modified(被改了几条)。
@@ -610,7 +700,7 @@ async function syncAgentInstructionImportsUnlocked(opts) {
   let dirty = false;
   const out = [];
   for (const src of agentInstructionSources()) {
-    const record = state.sources[src.key] || null;
+    let record = state.sources[src.key] || null;
     const read = await readAgentInstructionSource(src);
     const file = read ? read.file : src.files[src.files.length - 1];
     const displayPath = tildePath(file);
@@ -641,13 +731,20 @@ async function syncAgentInstructionImportsUnlocked(opts) {
       }
       const userModified = inspect.modified > 0;
       const sourceChanged = Boolean(read && read.hash !== record.sourceHash);
-      if (sourceChanged && !userModified && auto) {
+      // 敏感扫描上线之前导入的记录没有 scanVersion:源文件没变也要补扫一次 —— 里面若有口令/密钥,旧条目早已在每轮发给服务商了,
+      // 没改过(userModified=false)就按「来源更新」同款流程清掉重导(重导时那几块被剔除);扫干净了就盖个章,以后不再重算。
+      let needsRescan = false;
+      if (read && record.scanVersion !== AGENT_INSTRUCTION_SCAN_VERSION) {
+        needsRescan = planAgentInstructionEntries(src, read, displayPath).skippedSensitive > 0;
+        if (!needsRescan) { record = { ...record, scanVersion: AGENT_INSTRUCTION_SCAN_VERSION }; state.sources[src.key] = record; dirty = true; }
+      }
+      if ((sourceChanged || needsRescan) && !userModified && auto) {
         await removeAgentInstructionEntries(src.key, record);
         const written = await writeAgentInstructionEntries(src, read, displayPath);
-        state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false };
+        state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false, skippedSensitive: written.skippedSensitive, scanVersion: AGENT_INSTRUCTION_SCAN_VERSION };
         dirty = true;
-        logEvent({ kind: 'agent_instructions_import', source: src.key, entries: written.entries.length, reason: 'source-updated' });
-        out.push({ ...row, status: 'imported', entries: written.entries.length, coreEntries: written.entries.filter(e => e.core).length, importedAt: written.importedAt });
+        logEvent({ kind: 'agent_instructions_import', source: src.key, entries: written.entries.length, reason: sourceChanged ? 'source-updated' : 'sensitive-rescan', skippedSensitive: written.skippedSensitive });
+        out.push({ ...row, status: 'imported', entries: written.entries.length, coreEntries: written.entries.filter(e => e.core).length, importedAt: written.importedAt, sensitiveSkipped: written.skippedSensitive });
         continue;
       }
       if (Boolean(record.sourceChanged) !== sourceChanged || Boolean(record.userModified) !== userModified) {
@@ -655,17 +752,18 @@ async function syncAgentInstructionImportsUnlocked(opts) {
         dirty = true;
       }
       out.push({ ...row, status: sourceChanged ? 'source-updated' : 'imported', entries: record.entries.length,
-        coreEntries: record.entries.filter(e => e && e.core).length, importedAt: record.importedAt || '', userModified, sourceChanged, sourceMissing: !read });
+        coreEntries: record.entries.filter(e => e && e.core).length, importedAt: record.importedAt || '', userModified, sourceChanged, sourceMissing: !read,
+        sensitiveSkipped: Math.max(0, Math.floor(Number(record.skippedSensitive) || 0)) });
       continue;
     }
     if (!read) { out.push(row); continue; }
-    if ((!auto || src.autoImport === false) && !forced) { out.push({ ...row, status: 'importable' }); continue; }
+    if ((!auto || src.autoImport === false) && !forced) { out.push({ ...row, status: 'importable', sensitiveSkipped: planAgentInstructionEntries(src, read, displayPath).skippedSensitive }); continue; }
     await removeAgentInstructionEntries(src.key, record);
     const written = await writeAgentInstructionEntries(src, read, displayPath);
-    state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false };
+    state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false, skippedSensitive: written.skippedSensitive, scanVersion: AGENT_INSTRUCTION_SCAN_VERSION };
     dirty = true;
-    logEvent({ kind: 'agent_instructions_import', source: src.key, entries: written.entries.length, reason: forced ? 'explicit' : 'auto' });
-    out.push({ ...row, status: 'imported', entries: written.entries.length, coreEntries: written.entries.filter(e => e.core).length, importedAt: written.importedAt });
+    logEvent({ kind: 'agent_instructions_import', source: src.key, entries: written.entries.length, reason: forced ? 'explicit' : 'auto', skippedSensitive: written.skippedSensitive });
+    out.push({ ...row, status: 'imported', entries: written.entries.length, coreEntries: written.entries.filter(e => e.core).length, importedAt: written.importedAt, sensitiveSkipped: written.skippedSensitive });
   }
   if (dirty) await writeAgentInstructionState(state);
   return { ok: true, sources: out };
@@ -732,15 +830,15 @@ async function proposeWorkbenchMemory(args, ctx) {
   const a = args && typeof args === 'object' ? args : {};
   const batchInput = memoryProposalBatchInput(a);
   if (batchInput.error) return { ok: false, error: batchInput.error, ...(batchInput.maxItems ? { maxItems: batchInput.maxItems } : {}) };
-  const lastUser = [...(Array.isArray(session.messages) ? session.messages : [])].reverse().find(m => m && m.role === 'user' && !m.steered);
-  const userText = String(lastUser && lastUser.content || '');
+  // 作用域闸看最近几条(非插话)用户消息,不只最后一条:用户上一轮说「以后所有项目…」、这一轮只回「好,记下来吧」是常态。
+  const userText = memoryRecentUserTexts(session, 3);
   if (!batchInput.list) {
     // 单条形式(含 items 只有一条):与修前同一套校验、同一份回执、同一张卡。
     const one = normalizeMemoryProposalCandidate(batchInput.single || a, userText);
     if (!one.ok) return { ok: false, error: one.error };
     const registry = await loadMemoryRegistry(cwd).catch(() => []);
     const dup = findMemoryProposalDuplicate(one.proposal, registry, state);
-    if (dup) return { ok: false, ...memoryProposalDuplicateFailure(dup) };
+    if (dup) return { ok: false, ...memoryProposalDuplicateFailure(dup, one.proposal) };
     return commitSingleMemoryProposal(sid, turnSeq, cwd, one, []);
   }
   // 批量:逐条同一套校验(必填/长度/敏感/与已有记忆或本会话评审过的重复),再查同一次调用里的两条是否其实是一条。
@@ -753,7 +851,7 @@ async function proposeWorkbenchMemory(args, ctx) {
     const one = normalizeMemoryProposalCandidate(raw, userText);
     if (!one.ok) { rejected.push({ index, error: one.error }); return; }
     const dup = findMemoryProposalDuplicate(one.proposal, registry, state);
-    if (dup) { rejected.push({ index, ...memoryProposalDuplicateFailure(dup) }); return; }
+    if (dup) { rejected.push({ index, ...memoryProposalDuplicateFailure(dup, one.proposal) }); return; }
     const twin = findMemoryProposalDuplicate(one.proposal, accepted.map(x => x.proposal), { history: [] });
     if (twin) {
       const at = accepted.find(x => x.proposal === twin.existing);
@@ -775,25 +873,94 @@ async function proposeWorkbenchMemory(args, ctx) {
     ...(rejected.length ? { rejected } : {}), ...(scopeAdjustedItems.length ? { scopeAdjustedItems } : {}),
     note: `${items.length} 条候选已合成一张卡提交；用户在回合后的卡片上逐条确认，确认的才写入工作台记忆，其余丢弃。`
       + (rejected.length ? `另有 ${rejected.length} 条没有提交(见 rejected 的 index 与原因)。` : '')
-      + (scopeAdjustedItems.length ? '（部分条目的 scope 已从 global 改成 project：用户这一轮没有说要跨项目生效。）' : '') };
+      + (scopeAdjustedItems.length ? '（部分条目的 scope 已从 global 改成 project：用户最近几条消息里没有说要跨项目/全局生效；卡片上这些条目会标出「AI 建议全局」，用户可一键改回。）' : '') };
 }
 
-// 单条候选的校验与归一(单条形式与批量的每一条同一套判据,措辞与修前逐字一致)。
+// 作用域闸:模型要 global,但用户最近几条消息里没有任何「跨项目/全局」的话,就按保守原则落成 project
+// (global 记忆会进每个工作区的每一轮,误提升的代价比误降级大)。降级【不再是静默的】:proposal 里带 requestedScope(模型要的)
+// 与 scopeAdjusted(是否被改),卡片据此写「AI 建议:全局 · 已按保守原则改为项目」,并且用户在卡上一键就能改回全局。
+// 关键词必须覆盖人说「全局」的各种说法 —— 修前只认「所有项目/跨项目/任何项目/个人偏好」四五个词,「全局偏好」「所有会话」「每个项目」
+// 「globally」「everywhere」都落成 project。第二条路:type 是 preference 且用户在讲「我喜欢/我习惯/I prefer…」(个人口味天然跨项目),
+// 除非同一句话把范围限在「这个项目」。
+const MEMORY_GLOBAL_SCOPE_RE = new RegExp([
+  '全局',
+  '所有(?:的)?(?:会话|对话|线程|工作区|项目|仓库|目录)',
+  '(?:每个|各个|每一个|任何|任意)(?:项目|工作区|仓库)',
+  '跨(?:项目|工作区|会话|仓库)',
+  '(?:不管|无论|不论).{0,6}(?:项目|工作区|仓库|目录)',
+  '个人(?:偏好|习惯)',
+  '\\bglobal(?:ly)?\\b', '\\beverywhere\\b',
+  '\\ball (?:of )?(?:my |the |your )?(?:projects|workspaces|sessions|conversations|threads|repos|repositories)\\b',
+  '\\bevery (?:project|workspace|session|conversation|thread|repo|repository)\\b',
+  '\\bany (?:project|workspace|repo|repository)\\b',
+  '\\bacross (?:all |every |my |the )?(?:projects|workspaces|sessions|conversations|repos|repositories)\\b',
+  '\\bcross-(?:project|workspace)\\b',
+  '\\bpersonal (?:preference|habit)s?\\b',
+  '\\b(?:regardless of|no matter (?:which|what)) (?:the )?(?:project|workspace|repo)',
+].join('|'), 'i');
+// 「全局」「global」在编码讨论里首先是术语(全局变量 / global state / 全局搜索替换),不是在说「这条记忆全局生效」。判「用户有没有说全局」之前
+// 先把这些编程用语从文本里去掉:用户说「不要用全局变量」就不能让模型把一条只管本模块的约定提成 global(卡上还默认选中「全局」、没有「AI 建议全局」说明)。
+// 去掉之后文本里还剩的「全局」(全局偏好 / 全局生效 / globally)与其它跨项目说法照旧算。只收明确的编程名词搭配,「全局设置 / 全局配置」这类范围语义不收。
+const MEMORY_GLOBAL_PROGRAMMING_RE = new RegExp([
+  '全局(?:变量|搜索|替换|查找|状态|对象|命名空间|作用域|锁|异常|样式|函数|常量|单例|声明|引用|符号)',
+  '\\bglobals\\b',
+  '\\bglobal[ -](?:variables?|vars?|state|search|find|replace|namespace|scope|lock|exception|handler|objects?|singleton|constants?|declarations?|statements?|keyword|functions?|references?|styles?)\\b',
+  '\\bglobal\\s*(?:语句|声明|关键字|关键词)',
+].join('|'), 'gi');
+const MEMORY_PERSONAL_PREFERENCE_RE = /(?:我(?:更|比较|一直|总是|还是)?(?:喜欢|偏好|习惯|希望|倾向|想要|爱用|讨厌|不喜欢)|\bI (?:prefer|like|love|hate|dislike|usually|always|want)\b|\bmy (?:preference|habit|style)\b)/i;
+const MEMORY_PROJECT_ONLY_RE = /(?:这个项目|本项目|当前项目|该项目|这个仓库|本仓库|当前仓库|这个工作区|当前工作区|\bthis (?:project|repo|repository|workspace|codebase)\b|\bin the current (?:project|repo)\b)/i;
+
+// 最近 limit 条(新→旧)非插话、非后台唤醒的用户消息原文。
+function memoryRecentUserTexts(session, limit = 3) {
+  const msgs = Array.isArray(session && session.messages) ? session.messages : [];
+  const out = [];
+  for (let i = msgs.length - 1; i >= 0 && out.length < limit; i--) {
+    const m = msgs[i];
+    if (!m || m.role !== 'user' || m.steered) continue;
+    if (m.meta && m.meta.origin === 'agent_wake') continue;   // 工作台替模型起回合的系统通知,不是用户的话
+    const text = String(m.content || '').slice(0, 4000);
+    if (text.trim()) out.push(text);
+  }
+  return out;
+}
+// userTexts:字符串或字符串数组。任何一条命中即放行。
+function memoryGlobalScopeAllowed(type, userTexts) {
+  const list = Array.isArray(userTexts) ? userTexts : [String(userTexts == null ? '' : userTexts)];
+  return list.some(text => {
+    const t = String(text || '');
+    if (MEMORY_GLOBAL_SCOPE_RE.test(t.replace(MEMORY_GLOBAL_PROGRAMMING_RE, ' '))) return true;
+    return type === 'preference' && MEMORY_PERSONAL_PREFERENCE_RE.test(t) && !MEMORY_PROJECT_ONLY_RE.test(t);
+  });
+}
+// 自动审稿路径(回合结束后同一 provider 起草候选)的作用域闸:与工具路径同一道 memoryGlobalScopeAllowed,另要求本轮有「长期」信号 ——
+// durablePreference(以后 / 默认 / 一律 / prefer…)或 explicit(「记住」「remember this」:用户明说要记,本身就是长期信号)。
+// 修前只认 durablePreference,用户说「记住:所有项目的提交信息都用中文」(工具路径放行 global)自动路径却降成 project。
+function memoryAutoGlobalAllowed(gate, type, userTexts) {
+  return Boolean(gate && (gate.durablePreference || gate.explicit)) && memoryGlobalScopeAllowed(type, userTexts);
+}
+
+// 单条候选的校验与归一(单条形式与批量的每一条同一套判据,措辞与修前逐字一致)。userText:字符串或最近几条用户消息数组。
 function normalizeMemoryProposalCandidate(raw, userText) {
   const parsed = parseMemoryDraft(raw || {});
   if (!parsed) return { ok: false, error: 'name and body are required' };
   if (!parsed.description || parsed.body.length > 4000 || !fmVal(raw && raw.reason)) return { ok: false, error: 'description/reason are required and body must be at most 4000 characters' };
-  const proposal = { ...parsed, scope: raw && raw.scope === 'global' ? 'global' : 'project', reason: fmVal(raw && raw.reason).slice(0, 240) };
+  const requestedScope = raw && raw.scope === 'global' ? 'global' : 'project';
+  const proposal = { ...parsed, scope: requestedScope, requestedScope, scopeAdjusted: false, reason: fmVal(raw && raw.reason).slice(0, 240) };
   let scopeAdjusted = false;
-  if (proposal.scope === 'global' && !/(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(userText)) { proposal.scope = 'project'; scopeAdjusted = true; }
+  if (requestedScope === 'global' && !memoryGlobalScopeAllowed(proposal.type, userText)) { proposal.scope = 'project'; proposal.scopeAdjusted = true; scopeAdjusted = true; }
   if (memoryProposalLooksSensitive(proposal)) return { ok: false, error: 'candidate looks sensitive and was not proposed' };
   return { ok: true, proposal, scopeAdjusted };
 }
 
 // 重复判定 → 回给模型的失败字段(不含 ok)。点名已有记忆的 id,让模型改走 workbench_memory_revise。
-function memoryProposalDuplicateFailure(dup) {
+// 想提 global、已有的是 project 里的同一条:不是「重复」而是「可提升」—— 回 promotable:true,并点名 revise 的 newScope 写法。
+function memoryProposalDuplicateFailure(dup, proposal) {
   if (dup && dup.existing && dup.existing.id) {
     const ex = dup.existing;
+    if (ex.scope === 'project' && proposal && proposal.scope === 'global') {
+      return { duplicate: true, promotable: true, existingId: ex.id, existingScope: ex.scope, existingName: ex.name,
+        error: `a similar memory already exists in project scope: id=${ex.id} ("${String(ex.name || '').slice(0, 80)}"). To make it global call workbench_memory_revise {id:"${ex.id}", scope:"project", newScope:"global", reason}; do not propose a new one.` };
+    }
     return { duplicate: true, existingId: ex.id, existingScope: ex.scope, existingName: ex.name,
       error: `same or very similar memory already exists: id=${ex.id} (${ex.scope}, "${String(ex.name || '').slice(0, 80)}"). To change it call workbench_memory_revise {id:"${ex.id}", scope:"${ex.scope}", ...}; do not propose a new one.` };
   }
@@ -833,7 +1000,7 @@ async function commitSingleMemoryProposal(sid, turnSeq, cwd, one, rejected) {
   if (committed.alreadyPending) return memoryProposeAlreadyPendingResult({ id: committed.proposalId, proposal: committed.proposal, source: committed.source });
   const extra = rejected && rejected.length ? { rejected } : {};
   return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, proposal: committed.proposal, ...extra, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。'
-    + (one.scopeAdjusted ? '（scope 已从 global 改成 project：用户这一轮没有说要跨项目生效。）' : '')
+    + (one.scopeAdjusted ? '（scope 已从 global 改成 project：用户最近几条消息里没有说要跨项目/全局生效；卡片上会标出「AI 建议全局」，用户可一键改回。）' : '')
     + (extra.rejected ? `items 里另有 ${extra.rejected.length} 条没有提交(见 rejected 的 index 与原因)。` : ''), ...(one.scopeAdjusted ? { scopeAdjusted: 'global->project' } : {}) };
 }
 
@@ -926,8 +1093,9 @@ async function proposeMemoryRelationTool(args, ctx) {
   return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, proposal: committed.proposal, note: '关系候选已提交；只有用户在回合后的卡片中确认后才会写入关系边。' };
 }
 
-// workbench_memory_revise：主回合模型提议修改一条已确认记忆(name/description/type/body)。
-// 只写候选单槽(kind:'memory_revise'),用户确认后 saveMemory 覆盖(保留原 id/createdAt)。
+// workbench_memory_revise：主回合模型提议修改一条已确认记忆(name/description/type/body,以及 newScope 换作用域)。
+// 只写候选单槽(kind:'memory_revise'),用户确认后 saveMemory 覆盖(保留原 id/createdAt);带 newScope 时改走 moveMemoryScope
+// (写进新作用域、删旧的)。proposal 记下提议时记忆的 updatedAt(baseUpdatedAt):确认时发现记忆已被改过就拒绝,不拿旧建议盖掉用户后来的手改。
 async function proposeMemoryRevision(args, ctx) {
   const { sid, session, cwd } = await resolveWorkbenchMemoryToolContext(ctx);
   if (!sid || !session) return { ok: false, error: 'workbench_memory_revise requires a live workbench session' };
@@ -960,17 +1128,21 @@ async function proposeMemoryRevision(args, ctx) {
   const description = fmVal(rawDescription).slice(0, 400);
   const type = MEMORY_TYPES.has(args && args.type) ? args.type : target.memory.type;
   const body = rawBody;
-  const hasChange = !!(name || description || body || (args && args.type && args.type !== target.memory.type));
-  if (!hasChange) return { ok: false, error: '至少提供一个建议修改字段(name/description/type/body)' };
+  // newScope:换作用域(project → global 提升 / global → project 下放)。与现在的作用域相同就当没给。
+  const newScopeArg = (args && (args.newScope === 'global' || args.newScope === 'project')) ? args.newScope : '';
+  const newScope = newScopeArg && newScopeArg !== targetScope ? newScopeArg : '';
+  const hasChange = !!(name || description || body || newScope || (args && args.type && args.type !== target.memory.type));
+  if (!hasChange) return { ok: false, error: '至少提供一个建议修改字段(name/description/type/body/newScope)' };
   if (body.length > 4000) return { ok: false, error: 'body 不能超过 4000 字符' };
   const reason = fmVal(rawReason).slice(0, 240);
   if (!reason) return { ok: false, error: 'reason 是必填(说明为什么建议修改)' };
-  const proposal = { kind: 'memory_revise', targetId, targetScope, name: name || target.memory.name, description: description || target.memory.description, type, body: body || target.memory.body, reason };
-  const committed = await commitToolMemoryProposal(sid, turnSeq, cwd, proposal, 'revise:' + targetId, '修改记忆 ' + target.memory.name);
+  const proposal = { kind: 'memory_revise', targetId, targetScope, ...(newScope ? { newScope } : {}), name: name || target.memory.name, description: description || target.memory.description, type, body: body || target.memory.body, reason,
+    baseUpdatedAt: String(target.memory.updatedAt || '') };
+  const committed = await commitToolMemoryProposal(sid, turnSeq, cwd, proposal, 'revise:' + targetId, (newScope ? (newScope === 'global' ? '提升为全局 ' : '改为项目记忆 ') : '修改记忆 ') + target.memory.name);
   if (committed.alreadyPending) {
     return { ok: true, proposalId: committed.proposalId, proposal: committed.proposal, pendingUserConfirmation: true, alreadyPending: true, source: 'tool', note: '本回合已有记忆维护候选；保持先到候选，不重复生成或覆盖。' };
   }
-  return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, proposal: committed.proposal, note: '修改建议已提交；用户确认后才会覆盖原记忆。' };
+  return { ok: true, proposalId: committed.proposalId, pendingUserConfirmation: true, proposal: committed.proposal, note: newScope ? `修改建议已提交；用户确认后才会把这条记忆从 ${targetScope} 移到 ${newScope}（它与其它记忆之间的关系边无法跨作用域保留，会一并移除）。` : '修改建议已提交；用户确认后才会覆盖原记忆。' };
 }
 
 // workbench_memory_relation_revoke：主回合模型提议撤销一条关系边。只写候选单槽(kind:'relation_revoke'),
@@ -1032,6 +1204,17 @@ async function migrateMemory(id, fromKey, targetCwd) {
   return { ok: true, id: safe, scope: 'project' };
 }
 
+// 起草上下文超长时留【最新】的:修前 slice(0, 4000) 留的是最旧的,最近一轮(往往正是要沉淀的那条结论)反而被截没了。
+// 从尾部取 max 个字,再丢掉开头被切断的那半行(没有角色标签的残句只会误导起草)。
+function clipRecentMemoryDraftContext(text, max) {
+  const s = String(text || '');
+  if (s.length <= max) return s;
+  const tail = s.slice(-max);
+  if (s[s.length - max - 1] === '\n') return tail;   // 刚好切在行首,不用丢
+  const cut = tail.indexOf('\n');
+  return cut >= 0 && cut < tail.length - 1 ? tail.slice(cut + 1) : tail;
+}
+
 // draftMemoryFromSession(sessionId): 镜像 draftPlaybookFromSession —— 仅 provider 引擎,取会话近况让模型起草
 // {name, description, type, body};providerRawCompletion + aux 台账 note:'memory-draft'。解析容错仿 parsePlaybookDraft。
 async function draftMemoryFromSession(sessionId) {
@@ -1042,7 +1225,7 @@ async function draftMemoryFromSession(sessionId) {
   try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, error: 'session not found' }; }
   if (!session) return { ok: false, error: 'session not found' };
   const msgs = Array.isArray(session.messages) ? session.messages : [];
-  const recent = msgs.slice(-8).map(m => {
+  const recent = msgs.filter(m => !(m && m.meta && m.meta.origin === 'agent_wake')).slice(-8).map(m => {   // 后台代理唤醒通知不是用户的话
     const role = m && m.role === 'assistant' ? 'AI' : (m && m.role === 'user' ? '用户' : '');
     if (!role) return '';
     return role + ': ' + String((m && m.content) || '').replace(/\s+/g, ' ').trim().slice(0, 800);
@@ -1059,7 +1242,7 @@ async function draftMemoryFromSession(sessionId) {
     '3. 只输出 JSON,不要任何解释、不要 markdown 代码围栏。',
     '',
     '这次会话近况:',
-    recent.slice(0, 4000),
+    clipRecentMemoryDraftContext(recent, 4000),
   ].join('\n');
   for (let attempt = 0; attempt < 2; attempt++) {
     const userMsg = attempt === 0 ? instruction : (instruction + '\n\n上一次输出不是合法 JSON。请只输出一个合法的 JSON 对象,不要任何多余字符。');
@@ -1119,6 +1302,8 @@ function memoryProposalPrefilter(session) {
     if (messages[i] && messages[i].role === 'user' && !messages[i].steered) { user = messages[i]; break; }
   }
   if (!user) return { eligible: false, reason: 'no_user' };
+  // 这一回合是后台代理唤醒起的:「用户消息」是工作台的系统通知,不是用户说的话 —— 没有可提炼的用户诉求。
+  if (user.meta && user.meta.origin === 'agent_wake') return { eligible: false, reason: 'agent_wake_turn' };
   const userText = String(user.content || '').replace(/\s+/g, ' ').trim();
   const assistantText = String(assistant.content || '').replace(/\s+/g, ' ').trim();
   const turnSeq = Math.max(0, Math.floor(Number(assistant.turnSeq != null ? assistant.turnSeq : session && session.turnSeq) || 0));
@@ -1184,7 +1369,10 @@ function memoryProposalSemanticKey(proposal) {
 
 function memoryProposalLooksSensitive(proposal) {
   const text = [proposal && proposal.name, proposal && proposal.description, proposal && proposal.body].filter(Boolean).join('\n');
-  return /-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|密码|密钥|authorization)\s*[:=]\s*[^\s*]{6,}|\b(?:sk|ghp|github_pat|xox[baprs])-[-A-Za-z0-9_]{12,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b|(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql):\/\/[^\s:@/]+:[^\s@/]+@/i.test(text);
+  // 「关键词 + 冒号/等号 + ≥6 个非空白字符」。JS 的 \b 只认 ASCII 单词字符:修前把 密码|密钥 放进 \b(?:…) 里,CJK 关键词两侧都是
+  // 非单词字符,\b 永远不成立 → 中文「数据库密码: xxx」一条都拦不住;冒号也只认半角。现在 ASCII 关键词保留 \b,CJK 关键词不带 \b,
+  // 分隔符同时认全角「：」「＝」(中文输入法下几乎都是全角)。
+  return /-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|authorization)|密码|密钥)\s*[:：=＝]\s*[^\s*]{6,}|\b(?:sk|ghp|github_pat|xox[baprs])-[-A-Za-z0-9_]{12,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b|(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql):\/\/[^\s:@/]+:[^\s@/]+@/i.test(text);
 }
 
 // 找出让候选算「重复」的那一条:{ existing: <注册表条目> }(已有记忆)或 { reviewed: true }(本会话评审过的候选),没有则 null。
@@ -1324,8 +1512,12 @@ async function proposeMemoryFromSessionUnlocked(sessionId) {
     await writeMemoryProposalState(session.id, state).catch(() => {});
     return { ok: true, proposal: null, reason: !proposal ? 'model_declined' : (!grounded ? 'ungrounded' : (memoryProposalLooksSensitive(proposal) ? 'sensitive' : 'duplicate')) };
   }
-  const globalAllowed = gate.durablePreference && /(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(gate.userText);
-  if (proposal.scope === 'global' && !globalAllowed) proposal.scope = 'project';
+  // 与 workbench_memory_propose 同一道作用域闸(同一份关键词、最近几条用户消息),另要求本轮有「长期偏好」信号;
+  // 被改的记进 proposal,卡片上和模型工具那条路一样标出「AI 建议全局」。
+  proposal.requestedScope = proposal.scope;
+  proposal.scopeAdjusted = false;
+  const globalAllowed = memoryAutoGlobalAllowed(gate, proposal.type, [gate.userText, ...memoryRecentUserTexts(session, 3)]);
+  if (proposal.scope === 'global' && !globalAllowed) { proposal.scope = 'project'; proposal.scopeAdjusted = true; }
   const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: session.id, sourceTurnSeq: gate.turnSeq };
   state.lastShownTurn = gate.turnSeq;
@@ -1342,6 +1534,25 @@ async function proposeMemoryFromSession(sessionId) {
   memoryProposalInFlight.set(sid, work);
   try { return await work; }
   finally { if (memoryProposalInFlight.get(sid) === work) memoryProposalInFlight.delete(sid); }
+}
+
+// 只读回放:线程打开 / 页面刷新后,前端用它把「服务端仍待确认」的候选卡画回来(修前卡片只在回合刚结束那一刻画一次,
+// 刷新、切线程、回合被中断之后就没了,候选却一直 pending 到下一回合被顶掉)。与 proposeMemoryFromSession 的区别:
+// 不跑自动审稿(零辅助调用、零 token)、不写任何状态、不看回合序号 —— 只要还是这个项目的 pending 就原样给回去。
+async function replayPendingMemoryProposal(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return { ok: true, proposal: null, reason: 'invalid_session' };
+  if (activeChildren.has(sid)) return { ok: true, proposal: null, reason: 'turn_active' };
+  let session;
+  try { session = await loadSession(sid); } catch { session = null; }
+  if (!session) return { ok: true, proposal: null, reason: 'session_unavailable' };
+  const state = await readMemoryProposalState(sid);
+  const cur = state.current;
+  if (!cur || cur.status !== 'pending' || !cur.proposal || typeof cur.proposal !== 'object') return { ok: true, proposal: null, reason: 'none_pending' };
+  const config = await readConfig();
+  const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
+  if (cur.projectKey && cur.projectKey !== projectKeyForCwd(cwd)) return { ok: true, proposal: null, reason: 'project_changed' };
+  return { ok: true, proposal: cur.proposal, proposalId: cur.id, replayed: true, reason: 'pending_replay' };
 }
 
 async function decideMemoryProposal(sessionId, proposalId, decision) {
@@ -1374,7 +1585,9 @@ async function decideMemoryProposal(sessionId, proposalId, decision) {
 // 同一个写入口),其余记成 dismissed,整张卡 settle,每条的结论各记一行历史。仍然只有用户点了才写 —— 本函数只由
 // /api/memory/proposal/apply(UI)调用,模型够不着。某条写失败:已存的那几条记成 saved、失败的留 pending、整张卡
 // 不 settle,回 ok:false —— 用户再点一次只重试还没存上的,不会把存过的再存一遍。
-async function applyMemoryBatchProposal(sid, proposalId, cwd, accept) {
+// overrides:{ "<下标>": { scope?:'global'|'project', core?:boolean } } —— 用户在卡上对某一条改了作用域 / 取消了「加入核心」。
+// 只认这两个字段、只对勾上的条目生效;没给的条目按提议原值(scope 取 proposal 上的最终 scope;core 沿用弹窗默认:偏好/惯例进核心)。
+async function applyMemoryBatchProposal(sid, proposalId, cwd, accept, overrides) {
   const state = await readMemoryProposalState(sid);
   if (!state.current || state.current.id !== proposalId || state.current.status !== 'pending') return { ok: false, error: 'proposal not found' };
   if (state.current.projectKey && state.current.projectKey !== projectKeyForCwd(cwd)) return { ok: false, conflict: true, error: '候选来源项目已变化，请回到原项目后再操作' };
@@ -1382,15 +1595,19 @@ async function applyMemoryBatchProposal(sid, proposalId, cwd, accept) {
   const p = state.current.proposal;
   const items = Array.isArray(p.items) ? p.items : [];
   const picked = new Set(accept.map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < items.length));
+  const ov = overrides && typeof overrides === 'object' && !Array.isArray(overrides) ? overrides : {};
   const failed = [];
   for (let index = 0; index < items.length; index++) {
     const item = items[index];
     if (!item || item.status !== 'pending' || !picked.has(index)) continue;
     // 与单条卡「查看并保存」弹窗的默认值一致:偏好/惯例默认进核心(弹窗里那个勾默认勾上),其余不进;用户事后可在工具箱改。
+    // 卡上每条都有作用域下拉与「加入核心」勾选(overrides),用户改了就以用户为准。
+    const o = ov[index] && typeof ov[index] === 'object' ? ov[index] : {};
+    const scope = o.scope === 'global' || o.scope === 'project' ? o.scope : (item.scope === 'global' ? 'global' : 'project');
+    const core = typeof o.core === 'boolean' ? o.core : (item.type === 'preference' || item.type === 'convention');
     const r = await saveMemory({ name: item.name, description: item.description, type: item.type, body: item.body,
-      scope: item.scope === 'global' ? 'global' : 'project', core: item.type === 'preference' || item.type === 'convention',
-      sourceSessionId: p.sourceSessionId || sid }, cwd);
-    if (r && r.ok) { item.status = 'saved'; item.memoryId = r.memory.id; item.memoryScope = r.memory.scope; item.decidedAt = nowIso(); }
+      scope, core, sourceSessionId: p.sourceSessionId || sid }, cwd);
+    if (r && r.ok) { item.status = 'saved'; item.memoryId = r.memory.id; item.memoryScope = r.memory.scope; item.savedCore = core; item.decidedAt = nowIso(); }
     else failed.push({ index, name: item.name, error: (r && r.error) || 'save failed' });
   }
   // 回执里的 saved 是这张卡【到目前为止】存上的全部(含上一次部分成功的),按 proposal.items 的下标。
@@ -1424,14 +1641,31 @@ async function applyMemoryRelationProposal(sessionId, proposalId, cwd, opts = {}
   const p = state.current.proposal || {};
   const kind = p.kind || 'memory';
   if (kind === 'memory_batch') {
-    return runKeyedChain(memoryProposalStateChains, sid, () => applyMemoryBatchProposal(sid, String(proposalId), cwd, opts && opts.accept));
+    return runKeyedChain(memoryProposalStateChains, sid, () => applyMemoryBatchProposal(sid, String(proposalId), cwd, opts && opts.accept, opts && opts.overrides));
   }
   if (kind !== 'memory_revise' && kind !== 'relation_propose' && kind !== 'relation_revoke') return { ok: false, error: '该候选不是记忆维护提议，请用编辑弹窗保存' };
   let applied;
   if (kind === 'memory_revise') {
-    const target = await readMemoryItem(String(p.targetId || ''), p.targetScope === 'global' ? 'global' : 'project', cwd);
+    const fromScope = p.targetScope === 'global' ? 'global' : 'project';
+    const toScope = p.newScope === 'global' || p.newScope === 'project' ? p.newScope : fromScope;
+    const target = await readMemoryItem(String(p.targetId || ''), fromScope, cwd);
     if (!target.ok) return { ok: false, error: '目标记忆已不存在' };
-    applied = await saveMemory({ id: p.targetId, scope: p.targetScope === 'global' ? 'global' : 'project', name: p.name, description: p.description, type: p.type, body: p.body }, cwd);
+    // 版本校验:建议是对着提议那一刻的内容写的;之后用户手改过(updatedAt 变了)就不应用,否则旧建议会静默盖掉新的手改。
+    if (p.baseUpdatedAt && String(target.memory.updatedAt || '') !== String(p.baseUpdatedAt)) {
+      return { ok: false, conflict: true, errorCode: 'memory.proposal_stale', errorParams: { name: target.memory.name },
+        error: `「${target.memory.name}」在这条修改建议提出之后又被改过了；为免覆盖你的改动，这张卡没有应用。请忽略它，需要的话让 AI 对着最新内容重新提议` };
+    }
+    // 来源字段(sourceSessionId/sourceRunId)沿用原条目;其余元数据(核心/重要/复核/过期)saveMemory 在原地覆盖时自己沿用。
+    const next = { id: p.targetId, scope: toScope, name: p.name, description: p.description, type: p.type, body: p.body,
+      sourceSessionId: target.memory.sourceSessionId, sourceRunId: target.memory.sourceRunId };
+    if (toScope === fromScope) applied = await saveMemory(next, cwd);
+    else {
+      // 换作用域是往新位置【新写】,没有「沿用上次」可依:原条目的元数据显式带过去;核心摘要从没单独写过就跟随新 description。
+      const followed = !target.memory.coreSummary || target.memory.coreSummary === target.memory.description;
+      applied = await moveMemoryScope({ ...next, core: target.memory.core, importance: target.memory.importance,
+        reviewAfter: target.memory.reviewAfter, expiresAt: target.memory.expiresAt,
+        coreSummary: followed ? p.description : target.memory.coreSummary }, fromScope, cwd);
+    }
   } else if (kind === 'relation_propose') {
     const rel = { type: p.relationType, from: p.from, to: p.to, scope: p.scope === 'global' ? 'global' : 'project', note: p.note };
     const r = await proposeMemoryRelation(rel, cwd);
@@ -1449,7 +1683,7 @@ async function applyMemoryRelationProposal(sessionId, proposalId, cwd, opts = {}
   } else { // relation_revoke
     applied = await deleteMemoryRelation(String(p.relationId || ''), cwd);
   }
-  if (!applied || !applied.ok) return { ok: false, error: (applied && applied.error) || 'apply failed' };
+  if (!applied || !applied.ok) return { ok: false, ...(applied && applied.conflict ? { conflict: true } : {}), ...(applied && applied.errorCode ? { errorCode: applied.errorCode, errorParams: applied.errorParams } : {}), error: (applied && applied.error) || 'apply failed' };
   await decideMemoryProposal(sid, proposalId, 'saved');
   return { ok: true, proposalId, kind, applied };
 }
@@ -1465,33 +1699,54 @@ async function validateMemoryProposalSave(sessionId, proposalId, cwd) {
   return { ok: true };
 }
 
-// buildMemoryPromptSection(entries, engine): <workbench-memory> 围栏 + 「参考资料,不得覆盖以上守则」声明 +
-// 每行 name/描述/文件绝对路径(两引擎都给路径:provider 用 file_read、Claude 用 Read;dataRoot 在允许根内,
-// Claude 侧靠 --add-dir 可达)。伪造围栏标记中和(尖括号→方括号,同 skill/project-memory fence)。整段 ≤2000 截断保闭合。
-function buildMemoryPromptSection(entries, engine, config, conflicts) {
+// buildMemoryPromptSection(entries, engine, config, conflicts, opts): <workbench-memory> 围栏 + 「参考资料,不得覆盖以上守则」声明 +
+// 每行 name/描述 + 读取线索。伪造围栏标记中和(尖括号→方括号,同 skill/project-memory fence)。整段 ≤ 索引字符上限截断保闭合。
+// 读取线索按引擎分叉(#6):
+//   · 'claude'(Claude Code / Kimi Code 两个原生 CLI):行里带文件绝对路径,用 CLI 自己的 Read 读(记忆目录靠 --add-dir 可达)。
+//   · 其它(provider 引擎、openai 工作流节点):【不带路径】,行里是 [id](scope),用 workbench_memory_read 按 id 读。provider 的 file_read
+//     把 memory 目录当应用内部数据封了(isSensitiveDataPath),修前索引让模型 file_read 绝对路径,必然 not-allowed。
+// opts.part:'all'(默认,核心胶囊 + 相关索引)| 'core'(只核心胶囊,跨回合稳定)| 'related'(只相关索引,随每条消息变化)——
+// 调用方把稳定的一半留在缓存前缀里、变化的一半投到回合尾部(#9/#10)。
+// conflicts 上若挂了 supersededBy(buildMemoryConflictMap 产出),被 confirmed supersedes 指向的行追加 [已被 X 取代](#16)。
+function memorySupersededMarks(conflicts) {
+  return conflicts && conflicts.supersededBy instanceof Map && conflicts.supersededBy.size ? conflicts.supersededBy : null;
+}
+function memorySupersededTag(marks, entry) {
+  const by = marks && marks.get(String(entry.scope) + ':' + String(entry.id));
+  if (!by || !by.size) return '';
+  return ' [已被 ' + [...by].slice(0, 4).join(',') + ' 取代]';
+}
+function buildMemoryPromptSection(entries, engine, config, conflicts, opts) {
+  const part = opts && (opts.part === 'core' || opts.part === 'related') ? opts.part : 'all';
   const all = (Array.isArray(entries) ? entries : []).filter(m => m && m.file);
   const core = all.filter(m => m.coreStatus === 'active');
   const mems = all.filter(m => m.coreStatus !== 'active');
-  const coreSection = buildCoreMemoryPromptSection(core, config);
-  if (!mems.length) return coreSection;
+  const marks = memorySupersededMarks(conflicts);
+  const coreSection = part === 'related' ? '' : buildCoreMemoryPromptSection(core, config, marks);
+  if (part === 'core' || !mems.length) return coreSection;
   const fence = t => neutralizeFenceTag(t, 'workbench-memory'); // P2-8: 单一事实源见 00-boot.js
-  const tool = engine === 'claude' ? 'Read' : 'file_read';
-  const header = getPromptPack(config && config.locale).memoryHeader(tool);
+  const byId = engine !== 'claude';
+  const pack = getPromptPack(config && config.locale);
+  let header = pack.memoryHeader(byId ? 'workbench_memory_read' : 'Read', byId);
   // R4: conflicts=Map<memoryId,Set<conflictId>>(仅 confirmed contradicts,由 buildMemoryConflictMap 产出)。
   // 处于冲突的记忆追加 [冲突:见 id] 标记,两条都注入,不由模型静默择一(设计稿 §4 红线)。undefined -> 无标记,向后兼容。
   const conflictMap = (conflicts && typeof conflicts.has === 'function') ? conflicts : null;
   const body = [];
+  let anySuperseded = false;
   for (const m of mems) {
     const desc = fence(String(m.description || '').replace(/\s+/g, ' ').trim().slice(0, 160));
     const name = fence(String(m.name || m.id));
-    let line = '- ' + name + ' [' + m.id + '](' + m.file + '):' + desc;
+    let line = '- ' + name + ' [' + m.id + '](' + (byId ? m.scope : m.file) + '):' + desc;
     if (conflictMap && conflictMap.has(m.id)) {
       const peers = [...conflictMap.get(m.id)].slice(0, 4).join(',');
       line += ' [冲突:见 ' + peers + ']';
     }
+    const tag = memorySupersededTag(marks, m);
+    if (tag) { line += tag; anySuperseded = true; }
     body.push(line);
   }
-  const OPEN = '\n<workbench-memory>\n', CLOSE = '\n</workbench-memory>', TRUNC = '\n' + getPromptPack(config && config.locale).memoryTruncated;
+  if (anySuperseded) header += ' ' + pack.memorySupersededNote;
+  const OPEN = '\n<workbench-memory>\n', CLOSE = '\n</workbench-memory>', TRUNC = '\n' + pack.memoryTruncated;
   let text = body.join('\n');
   const budget = memoryIndexCharCap(config) - header.length - OPEN.length - CLOSE.length;
   if (text.length > budget) text = text.slice(0, Math.max(0, budget - TRUNC.length)) + TRUNC;
@@ -1499,10 +1754,19 @@ function buildMemoryPromptSection(entries, engine, config, conflicts) {
   return [coreSection, relatedSection].filter(Boolean).join('\n');
 }
 
-function memoryCoreLine(entry) {
+// 每回合随 query 变化的那一半:检索回执 + 相关记忆索引(不含核心胶囊)。provider 引擎投到末条 user 尾部、Claude/Kimi 拼进回合信封,
+// 稳定的核心胶囊与指南留在缓存前缀 / 去重载荷里(#9/#10:修前这一半跟着前缀走,召回一变整段前缀缓存/去重载荷全断)。
+function buildMemoryTurnSection(entries, engine, config, conflicts, status) {
+  return [
+    buildMemoryCheckPrompt(status, config),
+    buildMemoryPromptSection(entries, engine, config, conflicts, { part: 'related' }),
+  ].filter(Boolean).join('\n');
+}
+
+function memoryCoreLine(entry, marks) {
   const clean = value => neutralizeFenceTag(String(value || ''), 'workbench-memory-core').replace(/\s+/g, ' ').trim(); // P2-8: 单一事实源见 00-boot.js
   const summary = clean(entry.coreSummary || entry.description).slice(0, CORE_MEMORY_SUMMARY_CAP);
-  return `- [${entry.scope}/${entry.type}] ${clean(entry.name || entry.id)} [${entry.id}]: ${summary}`;
+  return `- [${entry.scope}/${entry.type}] ${clean(entry.name || entry.id)} [${entry.id}]: ${summary}${marks ? memorySupersededTag(marks, entry) : ''}`;
 }
 
 // 受保护 LRU：只决定哪些 core=true 条目进入本轮基础胶囊，绝不删除或改写原记忆。重要标记提供近似
@@ -1561,12 +1825,13 @@ async function resolveCoreMemoryState(cwd, registry, config = null) {
 }
 
 // 核心胶囊是每轮直接加载的基础记忆摘要，不要求模型先调用 read；需要细节、证据或核对旧事实时仍按 id 读全文。
-function buildCoreMemoryPromptSection(entries, config) {
+function buildCoreMemoryPromptSection(entries, config, marks) {
   const items = (Array.isArray(entries) ? entries : []).filter(entry => entry && entry.id).slice(0, coreMemoryMaxItems(config));
   if (!items.length) return '';
-  const lines = items.map(memoryCoreLine);
+  const lines = items.map(entry => memoryCoreLine(entry, marks));
   const pack = getPromptPack(config && config.locale);
-  return pack.memoryCoreHeader({ used: lines.join('\n').length, limit: coreMemoryCharBudget(config), count: items.length })
+  const note = marks && items.some(entry => memorySupersededTag(marks, entry)) ? ' ' + pack.memorySupersededNote : '';
+  return pack.memoryCoreHeader({ used: lines.join('\n').length, limit: coreMemoryCharBudget(config), count: items.length }) + note
     + '\n<workbench-memory-core>\n' + lines.join('\n') + '\n</workbench-memory-core>';
 }
 
@@ -1583,6 +1848,7 @@ function buildMemoryCheckPrompt(status, config) {
     checked: status.checked === true,
     candidates: safe(status.candidateCount),
     matches: safe(status.matchCount),
+    ruleFill: safe(status.ruleFillCount),
     projectMatches: safe(status.projectMatches),
     globalMatches: safe(status.globalMatches),
     excluded: safe(status.excludedCount),
@@ -1715,16 +1981,58 @@ async function deleteMemoryRelation(id, cwd) {
 
 // buildMemoryConflictMap(cwd) -> Map<memoryId, Set<conflictId>>。仅 confirmed contradicts;pending 不计入(威胁 6)。
 // 两端记忆都进入 map(双向),供 buildMemoryPromptSection 标记。global 与 project 分别读后合并。
+//
+// #16:同一张 map 上再挂一个不可枚举的 supersededBy(Map<'scope:id', Set<取代者 id>>),只含 confirmed supersedes、且取代者仍存在且未过期的边。
+// 挂在这张 map 上而不是另开返回值,是因为 05 / 06 / 09 三个调用点都已经把它一路传进 buildMemoryPromptSection,不必逐个改签名;
+// 手写的普通 Map(夹具/旧测试)没有这个属性,读的一侧按「无标记」处理。
 async function buildMemoryConflictMap(cwd) {
   const map = new Map();
   const add = (a, b) => { if (!map.has(a)) map.set(a, new Set()); map.get(a).add(b); };
+  const supersedeEdges = [];
   for (const scope of ['project', 'global']) {
     const all = await readMemoryRelations(scope, cwd);
     for (const r of all) {
-      if (r.confirmed === true && r.type === 'contradicts') { add(r.from, r.to); add(r.to, r.from); }
+      if (r.confirmed !== true) continue;
+      if (r.type === 'contradicts') { add(r.from, r.to); add(r.to, r.from); }
+      else if (r.type === 'supersedes' && r.from !== r.to) supersedeEdges.push({ scope, from: r.from, to: r.to });
     }
   }
+  let supersededBy = new Map();
+  if (supersedeEdges.length) {
+    // 取代者必须真的还在(删了的记忆不能让旧版本「被一条不存在的记忆取代」):只在确有 supersedes 边时才读目录头。
+    const byKey = new Map();
+    for (const scope of new Set(supersedeEdges.map(e => e.scope))) {
+      const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
+      for (const [id, entry] of await readMemoryDir(dir, scope).catch(() => new Map())) byKey.set(scope + ':' + id, { ...entry, scope, id });
+    }
+    supersededBy = memoryValidSupersededBy(supersedeEdges, byKey);
+  }
+  Object.defineProperty(map, 'supersededBy', { value: supersededBy, enumerable: false });
   return map;
+}
+
+// 只取 confirmed 的 supersedes 边(pending 不计,同冲突图的纪律)。关系按 scope 隔离,所以 key 带 scope。
+async function readConfirmedSupersedeEdges(cwd) {
+  const out = [];
+  for (const scope of ['project', 'global']) {
+    for (const r of await readMemoryRelations(scope, cwd)) {
+      if (r.confirmed === true && r.type === 'supersedes' && r.from !== r.to) out.push({ scope, from: r.from, to: r.to });
+    }
+  }
+  return out;
+}
+// 边 → Map<'scope:被取代者', Set<取代者 id>>;byKey 是 'scope:id' → 注册表条目。取代者不存在 / 已过期 / 被取代者不存在的边丢弃。
+function memoryValidSupersededBy(edges, byKey) {
+  const out = new Map();
+  for (const edge of (Array.isArray(edges) ? edges : [])) {
+    const from = byKey.get(edge.scope + ':' + edge.from);
+    const to = byKey.get(edge.scope + ':' + edge.to);
+    if (!from || !to || memoryIsExpired(from)) continue;
+    const key = edge.scope + ':' + edge.to;
+    if (!out.has(key)) out.set(key, new Set());
+    out.get(key).add(edge.from);
+  }
+  return out;
 }
 
 // extractMemoryRelationProposals(structuredResult, run) -> 纯函数:从 gate 节点结构化输出提取记忆关系提议。
@@ -1835,7 +2143,8 @@ async function analyzeMemoryMaintenance(cwd, scope, opts = {}) {
     } else continue;
     expirySuggestions.push({
       id: 'suggestion-' + crypto.createHash('sha256').update(sc + '\0' + id + '\0' + reason + '\0' + replacements.join('\0')).digest('hex').slice(0, 12),
-      memoryId: id, name: memory.name, reason, priority, action: 'review', ageDays,
+      // suggestedAction:被取代的旧版本建议「停用」(到期/下线由用户在记忆库里点,这里绝不自动改);孤立旧条目只建议复核。
+      memoryId: id, name: memory.name, reason, priority, action: 'review', suggestedAction: reason === 'superseded' ? 'disable' : 'review', ageDays,
       replacementMemoryIds: replacements, relationIds, autoApplied: false,
     });
   }
@@ -1850,40 +2159,136 @@ async function analyzeMemoryMaintenance(cwd, scope, opts = {}) {
 
 // 默认检索的轻量词项抽取：ASCII 单词 + 中文二元组。这里只扫描 registry 的 name/description/id，
 // 不读取正文，故每轮成本与文件大小无关；正文仍由模型在确认相关后按需读取。
+// 停用词只剔「几乎每句话都有、对记忆检索零区分度」的虚词。英文这一半必须够全:词项是拿去在 id/name/description 上做子串匹配的,
+// to / in / it / you 这类短词是几乎所有英文条目(甚至 "tool"、"within"、"city")的子串,留着它们等于任何英文提问都能「命中」。
 const MEMORY_QUERY_STOP = new Set([
+  // 英文:冠词/连词/介词/代词/助动词/疑问词/高频副词与口语动词
   'the', 'and', 'for', 'with', 'this', 'that', 'from', 'into', 'please', 'help', 'look', 'check', 'today',
+  'a', 'an', 'or', 'but', 'nor', 'so', 'if', 'then', 'than', 'as', 'at', 'by', 'of', 'on', 'in', 'to', 'up', 'out', 'off', 'over',
+  'is', 'are', 'was', 'were', 'be', 'been', 'being', 'am', 'do', 'does', 'did', 'done', 'doing', 'has', 'have', 'had', 'having',
+  'it', 'its', 'he', 'she', 'we', 'us', 'our', 'ours', 'you', 'your', 'yours', 'they', 'them', 'their', 'theirs', 'me', 'my', 'mine', 'him', 'her', 'his', 'hers',
+  'can', 'could', 'would', 'should', 'will', 'shall', 'may', 'might', 'must', 'cannot',
+  'how', 'what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'why', 'not', 'no', 'yes', 'any', 'all', 'some', 'each', 'every', 'both', 'more', 'most', 'much', 'many', 'few', 'other', 'another', 'such', 'same',
+  'about', 'after', 'before', 'again', 'also', 'just', 'only', 'very', 'too', 'here', 'there', 'now', 'still', 'even', 'ever', 'once', 'because', 'while', 'between', 'through', 'under', 'against', 'without', 'within',
+  'get', 'got', 'gets', 'let', 'lets', 'use', 'used', 'using', 'make', 'made', 'want', 'wants', 'need', 'needs', 'try', 'tried', 'see', 'show', 'tell', 'give', 'take', 'put', 'say', 'said', 'know', 'like', 'new', 'one', 'two',
+  'thing', 'things', 'something', 'anything', 'really', 'maybe', 'okay', 'thanks', 'thank', 'hello', 'hi',
+  // 词首前缀匹配后 "work" 会命中 worktree / workflow / workspace 这类条目(「how does closures work」召回 worktree 清理)—— 泛动词,不当检索词
+  'work', 'works', 'working', 'worked',
+  // 中文(二元组口径:词项是拿去在 name/description 上做子串匹配的,「什么 / 怎么 / 说明 / 文件 / 代码 / 问题」这类
+  // 几乎每句提问和每条描述里都有的词,单靠一个就能把无关条目拉进候选 —— 走查实测「提交代码时的说明文字怎么写」把「订单表字段说明」
+  // 召回、还排在真正的提交规范前面。这里只收「对检索几乎零区分度」的虚词/泛指名词/口语动词;领域词(部署/日志/编码/超时…)不收)
   '用户', '帮我', '看下', '看看', '这个', '那个', '今天', '现在', '可以', '直接', '继续', '推进', '一下', '相关',
+  '什么', '怎么', '怎样', '如何', '为何', '是否', '能否', '可否', '多少', '几个', '有没', '没有', '是不', '不是', '还是', '或者', '以及', '并且', '而且', '因为', '所以', '但是', '如果', '然后', '就是', '这样', '那样', '这里', '那里',
+  '我们', '你们', '他们', '它们', '自己', '已经', '一个', '一些', '有些', '这些', '那些', '这种', '那种', '这段', '那段', '这次', '上次', '下次', '一样', '的话', '之后', '之前', '目前', '当前', '以下', '以上', '下面', '上面', '其他', '其它',
+  '说明', '文件', '代码', '问题', '内容', '东西', '方面', '情况', '时候', '事情', '部分', '地方', '方法', '办法', '结果', '需要', '应该', '必须', '可能', '比较', '非常', '特别', '一般', '通常', '还有', '另外', '关于', '对于',
+  '请问', '麻烦', '帮忙', '告诉', '查看', '检查', '处理', '进行', '使用', '完成', '开始', '结束', '好的', '谢谢', '感谢', '知道', '了解', '觉得', '感觉', '希望', '想要', '想让', '能不', '会不',
 ]);
+// 中文里几乎不出现在实义词内部的语气/结构助词:含它们的二元组(「时的」「的说」「怎么样」里的「么样」)是跨词边界的碎片,不当词项。
+const MEMORY_QUERY_CJK_PARTICLES = /[的吗呢吧啊呀么]/;
+// 词项总预算 96,但 ASCII 与 CJK 各自先保底 48 个:修前 ASCII 词全收完才轮到中文二元组、最后整体 slice(0,96),
+// 「日志(上百个 ASCII 词)+ 中文提问」的中文词被整段截掉,召回只剩日志里的英文碎片。一边没用满,余额让给另一边(纯中文/纯英文仍是 96)。
+const MEMORY_SEARCH_TERMS_MAX = 96;
 function memorySearchTerms(text) {
   const src = String(text || '').normalize('NFKC').toLowerCase();
-  const out = new Set();
+  const ascii = new Set();
+  const cjk = new Set();
   for (const m of src.matchAll(/[a-z0-9][a-z0-9_.-]{1,63}/g)) {
     const term = m[0].replace(/^[_.-]+|[_.-]+$/g, '');
-    if (term.length >= 2 && !MEMORY_QUERY_STOP.has(term)) out.add(term);
+    if (term.length >= 2 && !MEMORY_QUERY_STOP.has(term)) ascii.add(term);
     // snake_case / kebab-case id 既保留全词也拆分，确保任务里的模块名能命中记忆 id 的稳定片段。
-    for (const part of term.split(/[_.-]+/)) if (part.length >= 2 && !MEMORY_QUERY_STOP.has(part)) out.add(part);
+    for (const part of term.split(/[_.-]+/)) if (part.length >= 2 && !MEMORY_QUERY_STOP.has(part)) ascii.add(part);
   }
   for (const m of src.matchAll(/[\u3400-\u9fff]{2,32}/g)) {
     const run = m[0];
-    if (run.length <= 6 && !MEMORY_QUERY_STOP.has(run)) out.add(run);
+    if (run.length <= 6 && !MEMORY_QUERY_STOP.has(run)) cjk.add(run);
     for (let i = 0; i < run.length - 1; i++) {
       const pair = run.slice(i, i + 2);
-      if (!MEMORY_QUERY_STOP.has(pair)) out.add(pair);
+      if (!MEMORY_QUERY_STOP.has(pair) && !MEMORY_QUERY_CJK_PARTICLES.test(pair)) cjk.add(pair);
     }
   }
-  return [...out].slice(0, 96);
+  const half = MEMORY_SEARCH_TERMS_MAX / 2;
+  const a = [...ascii];
+  const c = [...cjk];
+  const takeA = Math.min(a.length, half + Math.max(0, half - c.length));
+  const takeC = Math.min(c.length, MEMORY_SEARCH_TERMS_MAX - takeA);
+  return [...a.slice(0, takeA), ...c.slice(0, takeC)];
+}
+// 词项在条目头部文本(id/name/description 拼成、已 NFKC+小写)里算不算命中:
+//   · CJK 二元组:子串匹配(中文没有词边界,二元组本来就是子串口径)。
+//   · 带 _ . - 的 ASCII 复合词(deploy-canary、server.js):整串子串匹配(够具体,误命中面小)。
+//   · 纯字母数字的 ASCII 词:【整词或词首前缀】。修前 ≥3 字符一律子串,"api" ⊂ "rapid"、"log" ⊂ "catalog"、"pre" ⊂ "prefer"
+//     这类词中子串让任何英文条目都可能被误命中;词首前缀仍保住「deploy → deployment」「log → logs」这种真实变形。
+//   · 2 字符的 ASCII 词(ui / ci / db / go…):只认整词("ai" ⊂ "main"、"id" ⊂ "valid")。
+// words 是 hay 的字母数字词表(调用方每条目算一次,省得每个词项重复切)。
+function memoryHayWords(hay) { return String(hay || '').split(/[^a-z0-9]+/).filter(Boolean); }
+function memoryHaystackHasTerm(hay, term, words) {
+  if (term.charCodeAt(0) > 127) return hay.includes(term);
+  if (/[_.-]/.test(term)) return hay.includes(term);
+  const list = words || memoryHayWords(hay);
+  if (term.length < 3) return list.includes(term);
+  for (const word of list) if (word.startsWith(term)) return true;
+  return false;
+}
+// 拼写漂移(canry ↔ canary、powrshell ↔ powershell):≥5 字符的 ASCII 词与条目词表里某个词编辑距离 ≤1(≥9 字符放到 ≤2)。
+// 这是词法准入的一部分而不是向量的活:余弦分在「拼写漂移的真命中」(0.12 左右)与「无关噪声」(0.12–0.20)之间没有可划的线,
+// 靠向量把它拉回来就只能放开无关条目;编辑距离是确定的、可解释的、断网照用。
+function memoryEditWithin(a, b, maxDist) {
+  if (a === b) return true;
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > maxDist) return false;
+  let prev = new Array(lb + 1), cur = new Array(lb + 1), prev2 = null, prevRowMin = 0;
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    cur[0] = i;
+    let rowMin = cur[0];
+    for (let j = 1; j <= lb; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      // 相邻换位(powerhsell)算 1 次
+      if (prev2 && i > 1 && j > 1 && a.charCodeAt(i - 1) === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === b.charCodeAt(j - 1)) v = Math.min(v, prev2[j - 2] + 1);
+      cur[j] = v;
+      if (v < rowMin) rowMin = v;
+    }
+    // 换位会从两行之前回填,所以连续两行都超界才能判死。
+    if (rowMin > maxDist && prevRowMin > maxDist) return false;
+    prevRowMin = rowMin;
+    const reuse = prev2 || new Array(lb + 1);
+    prev2 = prev; prev = cur; cur = reuse;
+  }
+  return prev[lb] <= maxDist;
+}
+function memoryHaystackFuzzyHasTerm(words, term) {
+  if (term.length < 5 || term.charCodeAt(0) > 127 || /[_.-]/.test(term)) return false;
+  const maxDist = term.length >= 9 ? 2 : 1;
+  for (const word of words) if (word.length >= 4 && memoryEditWithin(term, word, maxDist)) return true;
+  return false;
+}
+
+// 召回条数的唯一口径:undefined / null / 非数字 → 默认;0 就是 0(「每轮不补相关条目」是设置页允许的合法值,
+// 修前 `Number(limit) || DEFAULT` 把 0 当成假值、实测等于 8)。
+function memoryRecallLimit(limit) {
+  if (limit == null || limit === '') return MEMORY_RELEVANCE_MAX;
+  const n = Number(limit);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : MEMORY_RELEVANCE_MAX;
 }
 
 // 113a: 词法层的打分与排序从 rankRelevantMemories 里提出来，融合层要拿完整名次表而不只是 Top-N。
-// 评分公式、候选准入规则与三级排序比较子逐字不变 —— 这是一次行为中性提炼，不是重写。
+// 准入:name/description/id 上至少有一个词项命中(词项口径见 memoryHaystackHasTerm / memoryHaystackFuzzyHasTerm;hay 不含 type,
+// 否则 "on" ⊂ "lesson"、"explain the lesson" 把所有 lesson 都拉进来)。拼写漂移的命中按半权计分。
+// preference/convention 零命中也进候选(shared=0,调用方当「默认规则补位」处理,不算匹配)。
 function rankRelevantMemoriesScored(registry, query) {
   const queryTerms = memorySearchTerms(query);
   const ranked = [];
   for (const entry of (Array.isArray(registry) ? registry : [])) {
     if (!entry || !entry.id) continue;
-    const hay = [entry.id, entry.name, entry.description, entry.type].filter(Boolean).join(' ').normalize('NFKC').toLowerCase();
+    const hay = [entry.id, entry.name, entry.description].filter(Boolean).join(' ').normalize('NFKC').toLowerCase();
+    const words = memoryHayWords(hay);
     let shared = 0;
-    for (const term of queryTerms) if (hay.includes(term)) shared += Math.min(12, Math.max(2, term.length));
+    for (const term of queryTerms) {
+      const weight = Math.min(12, Math.max(2, term.length));
+      if (memoryHaystackHasTerm(hay, term, words)) shared += weight;
+      else if (memoryHaystackFuzzyHasTerm(words, term)) shared += Math.max(1, Math.floor(weight / 2));
+    }
     // preference/convention 是默认应遵守的稳定规则，即使用户没复述关键词也参与候选；lesson/reference 必须命中。
     if (!shared && entry.type !== 'convention' && entry.type !== 'preference') continue;
     const score = shared * 10 + (entry.scope === 'project' ? 4 : 0) + ((entry.type === 'convention' || entry.type === 'preference') ? 2 : 0);
@@ -1895,9 +2300,18 @@ function rankRelevantMemoriesScored(registry, query) {
   return ranked;
 }
 
+// Detailed 版:除了 entries 还回「哪些是默认规则补位(零命中的 preference/convention)」——
+// check 行的「额外匹配 N 条」只数真命中,补位另报(修前补位也算进 matches,零命中的提问也报「匹配 1 条」)。
+function rankRelevantMemoriesDetailed(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+  const cap = memoryRecallLimit(limit);
+  const fillKeys = new Set();
+  if (!cap) return { entries: [], fillKeys };
+  const rows = rankRelevantMemoriesScored(registry, query).slice(0, cap);
+  for (const row of rows) if (!(row.shared > 0)) fillKeys.add(memoryRetrievalKey(row.entry));
+  return { entries: rows.map(x => x.entry), fillKeys };
+}
 function rankRelevantMemories(registry, query, limit = MEMORY_RELEVANCE_MAX) {
-  const ranked = rankRelevantMemoriesScored(registry, query);
-  return ranked.slice(0, Math.max(0, Number(limit) || MEMORY_RELEVANCE_MAX)).map(x => x.entry);
+  return rankRelevantMemoriesDetailed(registry, query, limit).entries;
 }
 
 // ── 113a: 词法 × 向量的 RRF 融合召回（默认关）───────────────────────────────
@@ -1928,9 +2342,20 @@ function memoryRecallCorpus(documents) {
   return memoryRecallCorpusCache(documents);
 }
 
-function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+// 向量层只当【重排器】,不当准入:候选集 = 词法命中(含编辑距离 ≤1 的拼写漂移)∪「向量独有但高分」的条目。
+// 为什么:稀疏哈希向量在完全不相干的文本间也有 0.12–0.20 的余弦噪声,而真命中可以低到 0.10 —— 走查实测 16 条混合库上 12 个无关问句有 10 个
+// 被向量层召回无关条目(「今天天气怎么样」→ git push 教训、「帮我翻译这段英文」→ 内部 wiki/镜像源),且没有任何阈值能同时留住低分真命中、
+// 挡住噪声。所以真命中的准入交给词法(含拼写容错),向量只在两件事上出力:① 给词法命中项重排;② 偶尔补上词法完全没沾边、但相似度又确实高的条目。
+// 向量独有候选的门槛:余弦 ≥ 0.25 且 ≥ 0.6 × 本次向量第一名。实测(2026-10,30 句无关问句):16 条混合库上噪声第一名余弦 p90 0.18 / 最大 0.20,
+// 50 条夹具库上 p90 0.19 / 最大 0.22 —— 0.25 在噪声上限之上留了约 0.03 的余量(memory-recall-quality.e2e 的 D8 / unit/memory-recall-precision 的 [P]/[V] 钉着结果)。
+const MEMORY_VECTOR_ONLY_MIN_SCORE = 0.25;
+const MEMORY_VECTOR_ONLY_REL_SCORE = 0.6;
+
+function rankMemoriesFusedDetailed(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+  const cap = memoryRecallLimit(limit);
+  const fillKeys = new Set();
   const entries = (Array.isArray(registry) ? registry : []).filter(entry => entry && entry.id);
-  if (!entries.length) return [];
+  if (!entries.length || !cap) return { entries: [], fillKeys };
   const byKey = new Map(entries.map(entry => [memoryRetrievalKey(entry), entry]));
 
   // 词法名次表里只放真正命中的条目。convention/preference 即使零命中也会进候选
@@ -1942,13 +2367,27 @@ function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
   const lexicalFallback = lexicalScored.filter(row => !(row.shared > 0)).map(row => memoryRetrievalKey(row.entry));
   // 性能批 C1:语料走缓存(文档没变不重新分词;结果与 buildRetrievalCorpus 逐位相同)
   const corpus = memoryRecallCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
-  const vectorRanking = rankRetrievalCorpus(corpus, query).map(row => row.id);
+  const vectorRows = rankRetrievalCorpus(corpus, query);
+  const vectorTop = vectorRows.length ? vectorRows[0].score : 0;
+  const lexicalSet = new Set(lexicalRanking);
+  const vectorRanking = vectorRows
+    .filter(row => lexicalSet.has(row.id) || (row.score >= MEMORY_VECTOR_ONLY_MIN_SCORE && row.score >= MEMORY_VECTOR_ONLY_REL_SCORE * vectorTop))
+    .map(row => row.id);
 
-  // 两层都没命中（空 query / 全不相干）就原样走词法层结果，不自己造候选。
-  if (!lexicalRanking.length && !vectorRanking.length) {
-    return rankRelevantMemories(entries, query, limit);
-  }
-  const fused = reciprocalRankFusion([lexicalRanking, vectorRanking]);
+  const takeFallback = out => {
+    const taken = new Set(out.map(memoryRetrievalKey));
+    for (const key of lexicalFallback) {
+      if (out.length >= cap) break;
+      if (taken.has(key)) continue;
+      const entry = byKey.get(key);
+      if (entry) { out.push(entry); taken.add(key); fillKeys.add(key); }
+    }
+    return out;
+  };
+  // 两层都没命中（空 query / 全不相干）就只剩零命中的规则类补位，不自己造候选。
+  if (!lexicalRanking.length && !vectorRanking.length) return { entries: takeFallback([]), fillKeys };
+  // 向量那一路只多 0.1% 权重:只在两路名次对称(词法并列、各领先一名)的【恰好平局】上让向量裁决,代替按 createdAt 抛硬币;差一个名次的差距(≈0.4%)翻不过来。
+  const fused = reciprocalRankFusion([lexicalRanking, vectorRanking], { weights: [1, 1.001] });
 
   const ranked = [];
   for (const [key, base] of fused) {
@@ -1962,25 +2401,21 @@ function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
   ranked.sort((a, b) => b.score - a.score
     || String(b.entry.createdAt || '').localeCompare(String(a.entry.createdAt || ''))
     || String(a.entry.id).localeCompare(String(b.entry.id)));
-  const cap = Math.max(0, Number(limit) || MEMORY_RELEVANCE_MAX);
   const out = ranked.slice(0, cap).map(x => x.entry);
   // 补位：零命中的 convention/preference 按词法层原序填到上限为止。
-  if (out.length < cap) {
-    const taken = new Set(out.map(memoryRetrievalKey));
-    for (const key of lexicalFallback) {
-      if (out.length >= cap) break;
-      if (taken.has(key)) continue;
-      const entry = byKey.get(key);
-      if (entry) { out.push(entry); taken.add(key); }
-    }
-  }
-  return out;
+  return { entries: takeFallback(out), fillKeys };
+}
+function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
+  return rankMemoriesFusedDetailed(registry, query, limit).entries;
 }
 
 // 召回的唯一入口：开关关时与今天逐字节相同（直接转 rankRelevantMemories）。
+function rankMemoriesForRecallDetailed(registry, query, limit, config) {
+  if (!memoryVectorRecallEnabled(config)) return rankRelevantMemoriesDetailed(registry, query, limit);
+  return rankMemoriesFusedDetailed(registry, query, limit);
+}
 function rankMemoriesForRecall(registry, query, limit, config) {
-  if (!memoryVectorRecallEnabled(config)) return rankRelevantMemories(registry, query, limit);
-  return rankMemoriesFused(registry, query, limit);
+  return rankMemoriesForRecallDetailed(registry, query, limit, config).entries;
 }
 
 function memoryExclusionSet(session, cwd) {
@@ -2073,10 +2508,29 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
   // hunt2-mcp:相关记忆在【去掉已激活核心之后】的候选里排 Top-N。修前先在含核心的全集里取 Top-N、再滤核心,
   // 核心条目恰好最相关时名额全被它们占掉,related 变成空,而明明还有匹配的非核心记忆。
   const nonCore = eligible.filter(e => !coreKeys.has(e.scope + ':' + e.id));
-  const ranked = explicit
-    ? nonCore // 固定选择不走排序，向量开关对它本来就不适用
-    : rankMemoriesForRecall(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
-  const entries = ranked;
+  let entries, fillKeys = new Set();
+  if (explicit) entries = nonCore; // 固定选择不走排序，向量开关对它本来就不适用
+  else {
+    const recalled = rankMemoriesForRecallDetailed(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
+    entries = recalled.entries; fillKeys = recalled.fillKeys;
+    // #16 supersedes 的运行时效果:被 confirmed supersedes 指向的条目 —— 取代者已在本轮注入(核心或相关)就不再重复注入旧版本;
+    // 取代者没进本轮则旧版本排到末尾(降权)并在索引行上标「[已被 X 取代]」。固定选择(explicit)是用户的明确选择,只标注、不增删。
+    if (entries.length) {
+      const supersededBy = memoryValidSupersededBy(await readConfirmedSupersedeEdges(cwd).catch(() => []), byKey);
+      if (supersededBy.size) {
+        const present = new Set([...coreEntries, ...entries].map(memoryRetrievalKey));
+        const kept = [], demoted = [];
+        for (const e of entries) {
+          const by = supersededBy.get(memoryRetrievalKey(e));
+          if (!by) { kept.push(e); continue; }
+          // 互相取代(环)时不能两条都丢:取代者只有「仍在本轮名单里」才算数,按序判定。
+          if ([...by].some(id => present.has(e.scope + ':' + id) && id !== e.id)) present.delete(memoryRetrievalKey(e));
+          else demoted.push(e);
+        }
+        entries = kept.concat(demoted);
+      }
+    }
+  }
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
     touchMemoryUsage(coreEntries.filter(e => e.type === 'preference' || e.type === 'convention'), cwd, 'core-rule'),
@@ -2085,9 +2539,12 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
     entries, coreEntries,
     status: {
       mode: explicit ? 'fixed' : 'default', enabled: true, checked: true,
-      candidateCount: eligible.length, matchCount: entries.length,
-      projectMatches: entries.filter(e => e.scope === 'project').length,
-      globalMatches: entries.filter(e => e.scope === 'global').length,
+      // matchCount 只数真命中;零命中的 preference/convention 默认规则补位另报(ruleFillCount),
+      // 修前补位也算「额外匹配」,一句无关的话也报「匹配 1 条」。
+      candidateCount: eligible.length, matchCount: entries.filter(e => !fillKeys.has(memoryRetrievalKey(e))).length,
+      ruleFillCount: entries.filter(e => fillKeys.has(memoryRetrievalKey(e))).length,
+      projectMatches: entries.filter(e => e.scope === 'project' && !fillKeys.has(memoryRetrievalKey(e))).length,
+      globalMatches: entries.filter(e => e.scope === 'global' && !fillKeys.has(memoryRetrievalKey(e))).length,
       excludedCount: exclusions.size,
       coreActiveCount: coreEntries.length,
     },

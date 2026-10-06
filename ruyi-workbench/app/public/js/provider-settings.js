@@ -6,7 +6,7 @@ import { bindModelSelect, providerModels, agentModels, publishProviderModels, pu
 import { fillProviderSelect } from './model-catalog.js';   // W6：「模型分配」每一行服务商下拉的唯一选项构建器
 
 import { api, apiErrorInfo } from './net.js';   // 107-S2：掩码闸的拒绝要按【码】分支，不按中文（否则又是一句「请求失败。」）
-import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast, chatProviders, presetDisplayLabel } from './util.js';
+import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast, chatProviders, presetDisplayLabel, stripWrappingQuotes, looksAbsolutePath } from './util.js';
 import { canonicalJson, rebaseProvidersDraft } from './util.js';   // W6：服务商草稿的三方合并（修「草稿过期会回滚」）
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118b: 体检项 id -> 人话(label/hint/next/severity)的唯一映射表,以及「怎么办」的落点定义。
@@ -15,11 +15,12 @@ import { describeHealthItem, healthSummaryText, HEALTH_ACTIONS, HEALTH_ALIAS_IDS
 import { openSharedHelpDoc } from './help-viewer.js';
 // 118e: 本机零配置预设(Ollama / LM Studio)的三条纯判定 -- 免 Key、探测失败的人话、手册小节锚点。
 // 事实源在 onboarding-wizard.js(零 import 的纯函数层),设置页与向导共用同一口径,不各写一份。
-import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONBOARDING_MANUAL_DOC_ID } from './onboarding-wizard.js';
+import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONBOARDING_MANUAL_DOC_ID, validateBaseUrlShape } from './onboarding-wizard.js';
 // 每个 Agent CLI 的知识（品牌名、路径键、思考强度档位、头像字母……）只问这一张登记表（ENGINEERING-SPEC §11.1）。
 import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 // 服务商线协议(provider.apiStyle)只问这一张表(58 号方案批 1;键集合与服务端 04i PROVIDER_WIRE_PROTOCOLS 相同)。
 import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta, PROVIDER_REASONING_EFFORT_CHOICES, ANTHROPIC_AUTH_CHOICES, ANTHROPIC_THINKING_CHOICES } from './provider-api-styles.js';
+import { stripProviderEndpointSuffix, inferProviderApiStyleFromUrl, isAnthropicOfficialUrl, stepAutoProviderStyle } from './provider-api-styles.js';
 // 2026-10 设置补全：修前没有任何控件的约 70 个 config 键，由这一张目录统一渲染、回填、即存。
 import { mountSettingsCatalog, fillSettingsCatalog, catalogPatch } from './settings-catalog.js';
 
@@ -34,7 +35,9 @@ export function providerDraftFromPreset(preset, existingIds = []) {
   let n = 2;
   while (taken.has(id)) { id = `${preset.id}-${n++}`; }
   return {
-    id, label: preset.label || id, type: 'openai-compat',
+    // 第三波 M4：显示名按界面语言取（presetDisplayLabel 查 provider.preset.<id>.label，查不到才退回服务端那句中文），
+    // 否则英文界面里新建的「自定义」卡名字是「自定义 (OpenAI 兼容 / 内网自建)」并随之落盘。
+    id, label: presetDisplayLabel('provider', preset) || preset.label || id, type: 'openai-compat',
     baseUrl: preset.baseUrl || '', apiKey: '',
     model: preset.defaultModel || (preset.models && preset.models[0] && preset.models[0].id) || '',
     models: (preset.models || []).map(m => ({ id: m.id, label: m.label || m.id })),
@@ -46,6 +49,37 @@ export function providerDraftFromPreset(preset, existingIds = []) {
     // 透传进草稿,否则从 UI 添加的 DeepSeek 会静默退化为本地搜索保底(后端 sanitize 兜底默认 false)。
     ...(preset.serverWebSearch ? { serverWebSearch: true } : {}),
   };
+}
+
+// 2026-10(用户报「Anthropic API 接入有问题、太复杂」):向导与设置页共用的「按地址收拾草稿」—— 剥掉粘进来的端点后缀
+// (…/v1/messages、…/chat/completions、…/responses),草稿没写协议(缺省 chat)而地址明显是另一种协议时补上(如
+// https://api.deepseek.com/anthropic → anthropic)。只在草稿上改,返回同一个对象。
+export function normalizeProviderDraftEndpoint(draft) {
+  if (!draft || typeof draft !== 'object') return draft;
+  const raw = String(draft.baseUrl || '');
+  const inferred = inferProviderApiStyleFromUrl(raw);
+  if (!draft.apiStyle && inferred && inferred !== PROVIDER_API_STYLE_DEFAULT) draft.apiStyle = inferred;
+  draft.baseUrl = stripProviderEndpointSuffix(raw);
+  return draft;
+}
+
+// 2026-10:服务端按稳定 code 报「测试连接」的失败(密钥 / 地址 / 模型 / 连不上 / 缺模型名),这里取本地化文案;地址不对时再按协议
+// 补一句 Base URL 的写法。没有 code 的老形状照旧取服务端那句。
+const PROVIDER_TEST_ERROR_KEYS = Object.freeze({
+  'provider.test_unauthorized': 'unauthorized', 'provider.test_not_found': 'notFound', 'provider.test_model_rejected': 'modelRejected',
+  'provider.test_unreachable': 'unreachable', 'provider.test_needs_model': 'needsModel', 'provider.test_failed': 'failed',
+});
+// 住在模块顶层并导出:设置页(下面工厂里的 paintProviderTestFailure)与向导(session-experience.js 注入)「测试连接」的失败文案同一张表、同一个函数,不各写一份。
+export function providerTestErrorText(payload) {
+  const coded = payload && PROVIDER_TEST_ERROR_KEYS[payload.code];
+  if (coded) {
+    const line = t('provider.testError.' + coded, { detail: String(payload.detail || '') });
+    return coded === 'notFound' ? line + ' ' + t('provider.apiStyle.urlHint.' + normalizeProviderApiStyle(payload.apiStyle)) : line;
+  }
+  const raw = payload && payload.error;
+  if (typeof raw === 'string' && raw) return raw;
+  if (raw && typeof raw === 'object' && raw.message) return String(raw.message);
+  return t('provider.testFailure');
 }
 
 export function createProviderSettingsDomain({
@@ -465,7 +499,7 @@ async function refreshModels(announce, context = {}) {
     const fresh = r && Array.isArray(r.models) ? r.models : [];
     // ok:false 只说明【探测那一步】没成（典型：Kimi Code CLI 没检测到），载荷里的 models 仍是这个端点
     // 自己的离线兜底清单 —— 有货就照样折回列表，只有「既没成也没货」才算刷新失败。
-    if (r && r.ok === false && !fresh.length) throw new Error(r.error || t('modelMenu.refreshUnchanged'));
+    if (r && r.ok === false && !fresh.length) throw new Error(apiErrText(r.error) || t('modelMenu.refreshUnchanged'));
     if (fresh.length) {
       if (r.engine === 'openai' && r.provider) {
         // Fold the live list into the ROUTED provider's models so the chip popover reflects it.
@@ -793,6 +827,7 @@ function fillSettings() {
   { const el0 = $('cfgOpenaiMaxToolIterations'); if (el0) el0.value = Number.isFinite(Number(c.openaiMaxToolIterations)) && c.openaiMaxToolIterations ? c.openaiMaxToolIterations : 100; }
   { const el0 = $('cfgSubagentMaxConcurrent'); if (el0) el0.value = Math.max(1, Math.min(8, Number(c.subagentMaxConcurrent) || 8)); }
   { const el0 = $('cfgSubagentMaxPerTurn'); if (el0) el0.value = Math.max(0, Math.min(32, Number.isFinite(Number(c.subagentMaxPerTurn)) ? Number(c.subagentMaxPerTurn) : 32)); }
+  { const el0 = $('cfgAgentAutoWake'); if (el0) el0.checked = c.agentAutoWake !== false; }
   populateSubagentPreferenceSelects(c.subagentPreferredProvider, c.subagentPreferredModel);
   { const el0 = $('cfgAgentWorkflowMaxNodes'); if (el0) el0.value = Math.max(1, Math.min(64, Number(c.agentWorkflowMaxNodes) || 48)); }
   { const el0 = $('cfgAgentNodeWrapUpMinutes'); if (el0) el0.value = Math.max(0, Math.min(120, Math.round((Number(c.agentNodeWrapUpMs) || 0) / 60000))); }
@@ -958,8 +993,19 @@ function buildAsrAddRow() {
   const providerSelect = el('select', 'asr-add-provider');
   providerSelect.setAttribute('aria-label', t('settings.asr.addProvider'));
   for (const p of providers) { const o = el('option'); o.value = p.id; o.textContent = p.label || p.id; providerSelect.appendChild(o); }
-  const modelInput = el('select', 'asr-add-model');
-  const fillAsrModels = () => bindModelSelect(modelInput, { provider: () => (state.config.providers || []).find(p => p.id === providerSelect.value), value: '', emptyLabel: () => t('settings.asr.addModel') });
+  // 走查 W1-11：这里原是只能选的 <select>，服务商的模型清单为空（语音模型常常不在 /models 里）时既没法选也没法输，
+  // 而文案（settings.asr.none）说的是「填模型名」。改成文本框 + datalist：清单里有的当候选，没有的直接手填。
+  const modelInput = el('input', 'asr-add-model');
+  modelInput.type = 'text';
+  modelInput.setAttribute('list', 'asrAddModelList');
+  modelInput.autocomplete = 'off';
+  modelInput.spellcheck = false;
+  modelInput.placeholder = t('settings.asr.addPlaceholder');
+  const modelList = el('datalist'); modelList.id = 'asrAddModelList';
+  const fillAsrModels = () => {
+    const owner = (state.config.providers || []).find(p => p.id === providerSelect.value);
+    modelList.replaceChildren(...providerModels(owner).map(m => { const o = el('option'); o.value = m.id; if (m.label && m.label !== m.id) o.label = m.label; return o; }));
+  };
   fillAsrModels();
   modelInput.setAttribute('aria-label', t('settings.asr.addModel'));
   // 接口类型：跟着所选服务商预选；用户亲手改过之后换服务商才重新预选。
@@ -969,7 +1015,7 @@ function buildAsrAddRow() {
     const o = el('option'); o.value = val; o.textContent = t(key); protocolSelect.appendChild(o);
   }
   const syncProtocol = () => { protocolSelect.value = asrProtocolGuess(providers.find(p => p.id === providerSelect.value)); };
-  providerSelect.onchange = () => { syncProtocol(); fillAsrModels(); };
+  providerSelect.onchange = () => { syncProtocol(); modelInput.value = ''; fillAsrModels(); };
   syncProtocol();
   const add = el('button', 'asr-add-btn', t('settings.asr.addButton'));
   add.type = 'button';
@@ -988,7 +1034,7 @@ function buildAsrAddRow() {
     renderAsrSettings();
   };
   const row = el('div', 'asr-add-row');
-  row.append(providerSelect, modelInput, protocolSelect, add);
+  row.append(providerSelect, modelInput, modelList, protocolSelect, add);
   wrap.appendChild(row);
   return wrap;
 }
@@ -1279,8 +1325,8 @@ function buildAsrLexiconBlock() {
     if (last) {
       const learned = Number(last.learned) || 0, typed = Number(last.typed) || 0, pending = Number(last.pending) || 0;
       count.textContent = learned || typed || pending
-        ? t('settings.asrLexicon.countLearned', { count: Number(last.count) || 0, learned, typed, pending })
-        : t('settings.asrLexicon.count', { count: Number(last.count) || 0 });
+        ? tCount('settings.asrLexicon.countLearned', Number(last.count) || 0, { learned, typed, pending })
+        : tCount('settings.asrLexicon.count', Number(last.count) || 0);
       baseText.textContent = t('settings.asrLexicon.base', { count: Number(last.base && last.base.count) || 0 });
     }
   };
@@ -1303,7 +1349,7 @@ function buildAsrLexiconBlock() {
     try {
       const r = await api('/api/audio/lexicon', { method: 'POST', body: JSON.stringify({ text: area.value }) });
       paint(r);
-      toast(r.skipped ? t('settings.asrLexicon.savedSkipped', { count: r.count, skipped: r.skipped }) : t('settings.asrLexicon.saved', { count: r.count }), 'ok');
+      toast(r.skipped ? tCount('settings.asrLexicon.savedSkipped', r.count, { skipped: r.skipped }) : tCount('settings.asrLexicon.saved', r.count), 'ok');
     } catch (e) {
       toast(t(asrLexiconErrorKey(e), apiErrorInfo(e).params || {}), 'err');
     } finally { save.disabled = false; }
@@ -1527,6 +1573,18 @@ function renderWorkspacePerms() {
 }
 // W6：工作区清单的每一个动作（勾选、挪位、删、加）改完就存。修前它们只改内存里的 state.config.workspaces、等页脚「保存」，
 // 期间顶部工作区选择器若也改了清单，页脚一存就把它盖回去（同键两路写）。补丁构造原样搬自修前的页脚保存。
+// 走查 W1-6：设置页的「默认工作文件夹」手填口原来不校验绝对路径（顶栏那条有 looksAbsolutePath ＋ workspace.pathAbsoluteRequired）：
+// 敲个 abc 就存成相对路径的工作区。同一判据：不通过 → toast，输入框回填落盘值，这一格按落盘值走（同一次补丁里别的改动照存）。
+// 单拎成一个函数而不是塞进 workspacePatch：后者被 unit/frontend-failure-paths 单独切出来在最小上下文里跑，它只该管「构造补丁」。
+function sanitizePrimaryWorkspaceInput() {
+  const node = $('workspaceInput');
+  if (!node) return;
+  const value = stripWrappingQuotes(node.value);
+  if (value && !looksAbsolutePath(value)) {
+    toast(t('workspace.pathAbsoluteRequired'), 'err');
+    node.value = String((state.config && state.config.defaultWorkspace) || '');
+  } else if (value !== node.value) node.value = value;
+}
 function workspacePatch() {
   // v2.7: sync the primary workspace input into the workspace list (the input edits the highest-priority path).
   const primaryPath = $('workspaceInput') ? $('workspaceInput').value.trim() : '';
@@ -1545,6 +1603,7 @@ function workspacePatch() {
   };
 }
 async function saveWorkspaces() {
+  sanitizePrimaryWorkspaceInput();
   const saved = await saveConfigPartial(workspacePatch());
   renderWorkspacePerms();
   try { renderWorkspacePicker(); } catch (error) { console.warn('[settings] renderWorkspacePicker failed', error); }
@@ -1564,6 +1623,9 @@ async function addWorkspace() {
     try { const r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); if (r && r.ok && r.path) dir = r.path; } catch { /* ignore */ }
   }
   if (!dir) { toast(t('settings.workspacePerm.pathRequired'), 'err'); return; }
+  // 走查 W1-6：手填的路径与顶栏同一判据（原生选择器给的一定是绝对路径，不受影响）；不通过就 toast，输入框原样留着让用户改。
+  dir = stripWrappingQuotes(dir);
+  if (!looksAbsolutePath(dir)) { toast(t('workspace.pathAbsoluteRequired'), 'err'); if (input) input.focus(); return; }
   if (!Array.isArray(state.config.workspaces)) state.config.workspaces = [];
   if (!state.config.workspaces.some(w => String(w.path).toLowerCase() === dir.toLowerCase())) {
     state.config.workspaces.push({ path: dir, read: true, write: true, execute: true });
@@ -1584,6 +1646,16 @@ const clampedInt = (id, fallback, min, max) => {
   return Number.isFinite(n) && String(node ? node.value : '').trim() !== '' ? Math.max(min, Math.min(max, n)) : fallback;
 };
 const refreshAfterSave = () => refreshStatus();
+// 走查 W1：最大轮次 / 思考预算是纯文本框，填 abc 会原样落盘并变成 `--max-turns abc` 传给 CLI。留空 = 不限/自适应；
+// 其余必须是正整数 —— 不是就不写盘，toast 说明并把框回填成落盘值。
+function digitsOrEmptyPatch(id, key) {
+  const node = $(id);
+  const raw = node ? node.value.trim() : '';
+  if (raw === '' || /^[1-9]\d{0,8}$/.test(raw)) return { [key]: raw };
+  toast(t('settings.positiveIntegerOnly'), 'err');
+  if (node) node.value = String((state.config && state.config[key]) || '');
+  return null;
+}
 function claudeEndpointPatch() {
   // 地址、密钥、鉴权方式一起写：服务端的掩码闸按「密钥会去的地址变没变」判（107-S2），拆开写会误判。
   return {
@@ -1597,7 +1669,7 @@ const INSTANT_SETTINGS = Object.freeze([
   { ids: ['cfgLocale'], patch: async () => ({ locale: await setLocale($('cfgLocale').value || 'auto') }), after: () => fillSettings() },
   { ids: ['cfgUiMode'], patch: () => ({ uiMode: $('cfgUiMode').value === 'simple' ? 'simple' : 'pro' }), after: patch => applyUiMode(patch.uiMode) },   // v0.9-S1 (C1)
   { ids: ['cfgOutputStyle'], patch: () => ({ outputStyle: $('cfgOutputStyle').value === 'concise' ? 'concise' : 'detailed' }) },
-  { ids: ['workspaceInput', 'cfgAllowOutsideWorkspace'], patch: () => workspacePatch(), after: () => { renderWorkspacePerms(); renderWorkspacePicker(); } },
+  { ids: ['workspaceInput', 'cfgAllowOutsideWorkspace'], patch: () => { sanitizePrimaryWorkspaceInput(); return workspacePatch(); }, after: () => { renderWorkspacePerms(); renderWorkspacePicker(); } },
   { ids: ['cfgKillDisc'], patch: () => ({ killOnDisconnect: $('cfgKillDisc').checked }) },
   { ids: ['cfgKillPort'], patch: () => ({ killPortOnStart: $('cfgKillPort').checked }) },
   // ── 权限与安全（全局默认权限的写口在 steward-settings.js：切「全自动」要就地二次确认）──
@@ -1614,14 +1686,19 @@ const INSTANT_SETTINGS = Object.freeze([
       const n = Number(v);
       return { monthly: Number.isFinite(n) ? Math.max(0, n) : 0, currency: cur ? cur.value : 'CNY' };
     })(),
-  }) },
+  }), after: () => {
+    // 走查 W1-15：预算存了，但用量面板还拿着改前拉的那份缓存（预算进度条用的就是旧预算）。通知它作废缓存、
+    // 面板正显示着就当场重拉（usage-dashboard.js 听这个事件；两个模块不互相 import）。
+    try { document.dispatchEvent(new CustomEvent('ruyi:usage-budget-changed')); } catch { /* 无 document（单测）时不派 */ }
+  } },
   // v1.6.3: 普通任务基础预算夹到 1..200；后端负责长任务与按进展续额。
   { ids: ['cfgOpenaiMaxToolIterations'], patch: () => ({ openaiMaxToolIterations: clampedInt('cfgOpenaiMaxToolIterations', 100, 1, 200) }) },
-  { ids: ['cfgMaxTurns'], patch: () => ({ maxTurns: $('cfgMaxTurns').value.trim() }) },
+  { ids: ['cfgMaxTurns'], patch: () => digitsOrEmptyPatch('cfgMaxTurns', 'maxTurns') },
   { ids: ['cfgSubagentMaxConcurrent'], patch: () => ({ subagentMaxConcurrent: clampedInt('cfgSubagentMaxConcurrent', 8, 1, 8) }) },
   { ids: ['cfgSubagentMaxPerTurn'], patch: () => ({ subagentMaxPerTurn: clampedInt('cfgSubagentMaxPerTurn', 32, 0, 32) }) },
+  { ids: ['cfgAgentAutoWake'], patch: () => ({ agentAutoWake: $('cfgAgentAutoWake').checked }) },
   { ids: ['cfgAgentWorkflowMaxNodes'], patch: () => ({ agentWorkflowMaxNodes: clampedInt('cfgAgentWorkflowMaxNodes', 48, 1, 64) }) },
-  { ids: ['cfgAgentNodeWrapUpMinutes'], patch: () => ({ agentNodeWrapUpMs: clampedInt('cfgAgentNodeWrapUpMinutes', 8, 0, 120) * 60000 }) },
+  { ids: ['cfgAgentNodeWrapUpMinutes'], patch: () => ({ agentNodeWrapUpMs: clampedInt('cfgAgentNodeWrapUpMinutes', 30, 0, 120) * 60000 }) },
   { ids: ['cfgTurnIdleMinutes'], patch: () => ({ turnIdleTimeoutMs: clampedInt('cfgTurnIdleMinutes', 10, 1, 60) * 60000 }) },
   // ── 模型分配（主模型、压缩、子代理、句尾改错各有自己的行内写口；这里只剩「新线程默认引擎」）──
   // 123-N2:新线程默认引擎。后端 normalizeConfig 再钳一次白名单(非法值回落 'last')。
@@ -1633,7 +1710,7 @@ const INSTANT_SETTINGS = Object.freeze([
   { ids: ['cfgBeta'], patch: () => ({ betaInterleavedThinking: $('cfgBeta').checked }) },
   { ids: ['cfgResume'], patch: () => ({ autoResumeClaudeSessions: $('cfgResume').checked }) },
   { ids: ['cfgThinkingEffort'], patch: () => ({ claudeThinkingEffort: $('cfgThinkingEffort').value }) },
-  { ids: ['cfgThinkBudget'], patch: () => ({ thinkingBudget: $('cfgThinkBudget').value.trim() }) },
+  { ids: ['cfgThinkBudget'], patch: () => digitsOrEmptyPatch('cfgThinkBudget', 'thinkingBudget') },
   { ids: ['cfgExtraArgs'], patch: () => ({ extraClaudeArgs: lineList('cfgExtraArgs') }) },
   { ids: ['cfgEngineMode'], patch: () => ({ engineMode: $('cfgEngineMode').value }) },
   { ids: ['cfgModelsApiBase', 'cfgModelsApiKey', 'cfgClaudeAuthMode'], patch: () => claudeEndpointPatch(), after: () => refreshModels() },
@@ -1730,6 +1807,20 @@ async function saveSettings() {
         syncProvidersDraft(latest);
       }
     } catch { /* 取不到最新值就按手上这份存：服务端仍有缩水备份与掩码闸兜底 */ }
+  }
+  // 走查 W1-8：服务商卡没有必填校验 —— 空 Base URL 也能「已保存」，还会进主模型下拉；之后第一条消息才报一句生硬的英文。
+  // 与欢迎向导同一个判据（validateBaseUrlShape）：点名第一张不合格的卡、把焦点放到它的地址框，整次保存中止（不写盘）。
+  // toolbox- 服务商归自动发现所有（地址由组件登记决定），不查。
+  if (state.providersDraftSeeded === true && Array.isArray(state.providersDraft)) {
+    const badIdx = state.providersDraft.findIndex(item => item && !isToolboxProvider(item) && !validateBaseUrlShape(item.baseUrl).ok);
+    if (badIdx >= 0) {
+      const bad = state.providersDraft[badIdx];
+      toast(t('provider.baseUrlInvalid', { name: bad.label || bad.id, reason: t('onboarding.wizard.validate.' + validateBaseUrlShape(bad.baseUrl).code) }), 'err');
+      const card = $('providersList') && $('providersList').children[badIdx];
+      const field = card && card.querySelector('[data-prov-field="baseUrl"]');
+      if (field) { try { field.scrollIntoView({ block: 'center' }); field.focus(); } catch { /* 无焦点宿主 */ } }
+      return false;
+    }
   }
   const patch = {
     // 2026-09-06 事故后的守门：草稿没被 config 播种过（页面加载时设置弹窗开着、或 fillSettings 半途
@@ -1851,13 +1942,16 @@ function providerCard(p, idx) {
   effortSel.value = PROVIDER_REASONING_EFFORT_CHOICES.includes(p.reasoningEffort) ? p.reasoningEffort : '';
   effortSel.onchange = () => { p.reasoningEffort = effortSel.value; };
   effortLbl.append(effortSel, el('p', 'field-help muted prov-cap-hint', t('provider.reasoningEffort.hint')));
-  const syncEffortEnabled = () => { effortSel.disabled = !rc.checked; effortLbl.classList.toggle('is-disabled', !rc.checked); };
+  // 思考强度只在思考开着时发:通用协议看「推理链」;Anthropic 协议看「思考」选择(不是「关」就可选)。
+  let syncEffortEnabled = () => { effortSel.disabled = !rc.checked; effortLbl.classList.toggle('is-disabled', !rc.checked); };
   rc.onchange = () => { p.reasoning = rc.checked; syncEffortEnabled(); };
   syncEffortEnabled();
   // v1.7: protocol 选择,选项由协议登记表生成(provider-api-styles.js;chat 缺省)。存 p.apiStyle;
   // 后端 sanitizeProvider 经 normalizeProviderApiStyle 归一。
+  // 2026-10:协议决定 Base URL 怎么填、要哪些设置 —— 从折叠的「能力」组里搬到 Base URL 正下方,常驻可见;填地址时按地址自动识别
+  // (用户手动选过就不再自动改),旁边一行按协议说清 Base URL 的写法。
   const styleLbl = el('label', 'check prov-style'); styleLbl.appendChild(document.createTextNode(' ' + t('provider.apiStyle') + ' '));
-  const sc = el('select'); sc.className = 'prov-style-select';
+  const sc = el('select'); sc.className = 'prov-style-select'; sc.title = t('provider.apiStyle.hint');
   for (const style of Object.values(PROVIDER_API_STYLES)) {
     const o = el('option'); o.value = style.id; o.textContent = t(style.labelKey); sc.appendChild(o);
   }
@@ -1876,16 +1970,21 @@ function providerCard(p, idx) {
     else ssc.checked = !!p.serverWebSearch;
   };
   // 缺省协议不落字段(存量 config 零漂移);切到不支持服务端搜索的协议时连同 serverWebSearch 一起删(显式用户操作)。
-  sc.onchange = () => {
+  let styleTouched = false;   // 用户亲手选过协议:之后填地址不再自动改
+  let autoStyle = null;       // { from, to }:协议是被地址自动切过去的(见 stepAutoProviderStyle);推断落空时据此切回。手动选过之后恒为 null
+  let autoSws;                // 第一次自动切走那一刻的 p.serverWebSearch(applyStyle 切到不支持服务端搜索的协议会删它;切回时还回去)
+  const applyStyle = value => {
+    sc.value = normalizeProviderApiStyle(value);
     if (sc.value !== PROVIDER_API_STYLE_DEFAULT) p.apiStyle = sc.value; else delete p.apiStyle;
     if (!providerApiStyleMeta(sc.value).serverWebSearch) delete p.serverWebSearch;
     syncServerSearchVisibility();
     syncAnthropicVisibility();
   };
+  sc.onchange = () => { styleTouched = true; autoStyle = null; autoSws = undefined; applyStyle(sc.value); };
   styleLbl.appendChild(sc);
-  // 对抗轮(P2-2):协议选择下的帮助文字(解释 Responses API 适用场景 + 其它服务商无 /v1/responses 的警告),
-  // 由双 locale 的 provider.apiStyle.hint 提供;此前该键定义了但 UI 从不渲染(死键)。
-  const styleHint = el('p', 'field-help muted prov-style-hint'); styleHint.textContent = t('provider.apiStyle.hint');
+  // 按协议说清 Base URL 怎么填(provider.apiStyle.hint 那段总说明挂在下拉的 title 上)。
+  const styleHint = el('p', 'field-help muted prov-style-hint');
+  const urlNote = el('p', 'field-help prov-url-note'); urlNote.hidden = true;   // 「已按地址切到 X 协议」「已去掉端点后缀」
   styleLbl.appendChild(styleHint);
   // v1.0-S3 (B2): per-provider vision 开关（能力矩阵/视觉回路读 provider.vision）。同 reasoning 开关的模式。
   const visionLbl = el('label', 'check prov-reason'); const vc = el('input'); vc.type = 'checkbox'; vc.checked = !!p.vision; vc.onchange = () => { p.vision = vc.checked; };
@@ -1927,8 +2026,9 @@ function providerCard(p, idx) {
 
   // 2026-10 补字段：Anthropic 协议专属三项（认证方式 / 思考方式 / 拒答自动改派）。是否显示只问协议登记表的 anthropicOptions 能力位。
   // 与「服务端搜索」同口径：切协议只改显隐，不删已存的值。空 = 缺省、不落字段（存量 config 零漂移）。
+  // 2026-10 简化:这一组搬到主区(Base URL 下面),只露一个「思考」;认证方式与拒答改派收进「连接细节」(一般不用改),
+  // 拒答改派只在官方地址上显示(别处它不生效)。Anthropic 协议下通用的「推理链」开关隐藏 —— 思考只认这一个选择,不再两处打架。
   const anthropicBox = el('div', 'prov-cap-grid prov-anthropic-opts');
-  anthropicBox.append(el('div', 'prov-cap-subhead', t('provider.anthropic.title')));
   const choiceField = (cls, captionKey, hintKey, choices, labelKeyOf, field) => {
     const lbl = el('label', 'prov-cap-field ' + cls); lbl.append(el('span', 'prov-cap-caption', t(captionKey)));
     const sel = el('select');
@@ -1938,24 +2038,78 @@ function providerCard(p, idx) {
     lbl.append(sel, el('p', 'field-help muted prov-cap-hint', t(hintKey)));
     return lbl;
   };
-  anthropicBox.append(
-    choiceField('prov-anthropic-auth', 'provider.anthropicAuth', 'provider.anthropicAuth.hint', ANTHROPIC_AUTH_CHOICES,
-      v => ({ '': 'provider.anthropicAuth.auto', 'x-api-key': 'provider.anthropicAuth.xApiKey', bearer: 'provider.anthropicAuth.bearer' })[v], 'anthropicAuth'),
-    choiceField('prov-anthropic-thinking', 'provider.anthropicThinking', 'provider.anthropicThinking.hint', ANTHROPIC_THINKING_CHOICES,
-      v => ({ '': 'provider.anthropicThinking.auto', adaptive: 'provider.anthropicThinking.adaptive', off: 'provider.anthropicThinking.off' })[v], 'anthropicThinking'));
+  const thinkingField = choiceField('prov-anthropic-thinking', 'provider.anthropicThinking', 'provider.anthropicThinking.hint', ANTHROPIC_THINKING_CHOICES,
+    v => ({ '': 'provider.anthropicThinking.auto', adaptive: 'provider.anthropicThinking.adaptive', off: 'provider.anthropicThinking.off' })[v], 'anthropicThinking');
+  const thinkingSel = thinkingField.querySelector('select');
+  thinkingSel.addEventListener('change', () => syncEffortEnabled());
+  const more = el('details', 'prov-anthropic-more'); more.append(el('summary', '', t('provider.anthropic.more')));
+  more.append(choiceField('prov-anthropic-auth', 'provider.anthropicAuth', 'provider.anthropicAuth.hint', ANTHROPIC_AUTH_CHOICES,
+    v => ({ '': 'provider.anthropicAuth.auto', 'x-api-key': 'provider.anthropicAuth.xApiKey', bearer: 'provider.anthropicAuth.bearer' })[v], 'anthropicAuth'));
   const fbLbl = el('label', 'check prov-cap-field prov-anthropic-fallbacks');
   const fbc = el('input'); fbc.type = 'checkbox'; fbc.checked = p.anthropicFallbacks !== 'off';
   fbc.onchange = () => { if (fbc.checked) delete p.anthropicFallbacks; else p.anthropicFallbacks = 'off'; };
   fbLbl.append(fbc, document.createTextNode(' ' + t('provider.anthropicFallbacks')), el('p', 'field-help muted prov-cap-hint', t('provider.anthropicFallbacks.hint')));
-  anthropicBox.append(fbLbl);
-  const syncAnthropicVisibility = () => { anthropicBox.style.display = providerApiStyleMeta(sc.value).anthropicOptions ? '' : 'none'; };
+  more.append(fbLbl);
+  anthropicBox.append(thinkingField, more);
+  const isAnthropic = () => providerApiStyleMeta(sc.value).anthropicOptions;
+  syncEffortEnabled = () => {
+    const on = isAnthropic() ? thinkingSel.value !== 'off' : rc.checked;
+    effortSel.disabled = !on; effortLbl.classList.toggle('is-disabled', !on);
+  };
+  const syncAnthropicVisibility = () => {
+    const anth = isAnthropic();
+    anthropicBox.style.display = anth ? '' : 'none';
+    fbLbl.style.display = isAnthropicOfficialUrl(p.baseUrl) ? '' : 'none';
+    // Anthropic 协议:思考只认上面那一个选择;语音转写(协议 / 地址)是 OpenAI 形端点的能力,Anthropic 端点没有。
+    reason.style.display = anth ? 'none' : '';
+    asrLbl.style.display = anth ? 'none' : '';
+    audioLbl.style.display = anth ? 'none' : '';
+    styleHint.textContent = t('provider.apiStyle.urlHint.' + normalizeProviderApiStyle(sc.value));
+    bi.placeholder = t('provider.baseUrlPlaceholder.' + normalizeProviderApiStyle(sc.value));
+    syncEffortEnabled();
+  };
 
-  cap.append(reason, effortLbl, visionLbl, styleLbl, serverSearchLbl, asrLbl, extraGrid, anthropicBox);
-  syncServerSearchVisibility();
-  syncAnthropicVisibility();
+  cap.append(reason, effortLbl, visionLbl, serverSearchLbl, asrLbl, extraGrid);
 
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));
-  const bi = el('input'); bi.type = 'text'; bi.value = p.baseUrl || ''; bi.placeholder = 'https://api.deepseek.com'; bi.oninput = () => { p.baseUrl = bi.value.trim(); }; b2.append(bi);
+  const bi = el('input'); bi.type = 'text'; bi.dataset.provField = 'baseUrl'; bi.value = p.baseUrl || '';
+  const showUrlNote = text => { urlNote.textContent = text; urlNote.hidden = !text; };
+  // 按地址认协议(输入时逐键跑、失焦时在剥后缀之前最后跑一次):用户没手动选过协议,地址明显是另一种协议(…/anthropic、api.anthropic.com、
+  // …/v1/messages、…/chat/completions、…/responses)就切过去并记下是自动切的;之后地址不再指向它(逐键敲 …/anthropic-proxy/v1 敲过了 /anthropic、
+  // 或改粘了别的地址)就切回切换前的协议。状态机见 provider-api-styles.js 的 stepAutoProviderStyle。返回是否动了协议(动了 applyStyle 已同步过显隐)。
+  const autoStyleFromUrl = url => {
+    const step = stepAutoProviderStyle({ style: normalizeProviderApiStyle(sc.value), touched: styleTouched, auto: autoStyle }, url);
+    autoStyle = step.auto;
+    if (!step.action) return false;
+    if (step.action === 'switched' && autoSws === undefined) autoSws = p.serverWebSearch === undefined ? null : p.serverWebSearch;
+    if (step.action === 'reverted') {
+      if (autoSws !== undefined && autoSws !== null && providerApiStyleMeta(step.style).serverWebSearch) p.serverWebSearch = autoSws;
+      autoSws = undefined;
+    }
+    applyStyle(step.style);
+    showUrlNote(step.action === 'switched' ? t('provider.apiStyle.autoSwitched', { name: t(providerApiStyleMeta(step.style).labelKey) }) : '');
+    return true;
+  };
+  bi.oninput = () => {
+    p.baseUrl = bi.value.trim();
+    if (!autoStyleFromUrl(p.baseUrl)) syncAnthropicVisibility();
+  };
+  // 失焦:先按【粘进来的原文】做最后一次协议推断(完整端点 …/v1/messages 本身就是证据),再剥掉端点后缀(服务端会自己补),免得拼成 …/v1/messages/v1/messages。
+  bi.onchange = () => {
+    const raw = bi.value.trim();
+    p.baseUrl = raw;
+    autoStyleFromUrl(raw);
+    const stripped = stripProviderEndpointSuffix(bi.value);
+    if (stripped !== raw) {
+      bi.value = stripped; p.baseUrl = stripped;
+      // 证据随后缀一起剥掉了:剥完的地址不再说明协议时,这次自动切换就定下来 —— 之后接着编辑不再因为「推断落空」把它切回去。
+      if (autoStyle && !inferProviderApiStyleFromUrl(stripped)) autoStyle = null;
+      showUrlNote(t('provider.baseUrlSuffixStripped')); syncAnthropicVisibility();
+    }
+  };
+  b2.append(bi, styleLbl, urlNote);
+  syncServerSearchVisibility();
+  syncAnthropicVisibility();
 
   const grid = el('div', 'field-grid');
   const kb = el('div', 'field-block'); kb.append(el('label', '', t('provider.apiKey')));
@@ -1976,6 +2130,7 @@ function providerCard(p, idx) {
   bindModelSelect(mi, { provider: () => p, value: p.model || '', emptyLabel: () => t('settings.mainEngine.defaultModel'), onRefresh: () => {
     modChip.textContent = tCount('provider.modelCount', providerModels(p).length);
     if (document.activeElement !== modelListI) modelListI.value = providerModels(p).map(m => m.id).join('\n');
+    if (!listDirty) listBaseline = providerModels(p).map(m => m.id);
   } });
   mi.onchange = () => { p.model = mi.value; };
   mb.append(mi); grid.append(kb, mb);
@@ -1985,7 +2140,12 @@ function providerCard(p, idx) {
   const modelListB = el('div', 'field-block'); modelListB.append(el('label', '', t('provider.manualModels')));
   const modelListI = el('textarea'); modelListI.rows = 3; modelListI.placeholder = t('provider.manualModelsPlaceholder');
   modelListI.value = providerModels(p).map(m => m.id).join('\n');
-  modelListI.oninput = () => {
+  // 走查 W1-1：逐字输入时 oninput 每一下都跑「补默认模型」与「算 removed → hiddenModels」，于是敲第一个字母就把 p.model 永久
+  // 设成 'd'，每敲一下又把上一个半截名字当成「被移除」写进隐藏名单。现在 oninput 只重建 p.models 并刷新下拉（半截内容无副作用）；
+  // 「补默认模型」与「已移除 → hiddenModels」搬到 change（失焦/提交）里，removed 对照的是【聚焦时】记下的清单，不是敲到一半的。
+  let listBaseline = providerModels(p).map(m => m.id);
+  let listDirty = false;
+  const parseManualList = () => {
     const seen = new Set();
     const models = [];
     for (const line of modelListI.value.split('\n')) {
@@ -1994,19 +2154,30 @@ function providerCard(p, idx) {
       seen.add(id);
       models.push({ id, label: id });
     }
-    const removed = providerModels(p).map(m => m.id).filter(id => !seen.has(id));
-    p.hiddenModels = [...new Set([...(p.hiddenModels || []), ...removed])];
+    return { seen, models };
+  };
+  modelListI.addEventListener('focus', () => { if (!listDirty) listBaseline = providerModels(p).map(m => m.id); });
+  modelListI.oninput = () => {
+    listDirty = true;
+    const { seen, models } = parseManualList();
     p.models = keepModelCaps(models, p.models);   // 2026-09-20：改这份名字清单不该顺手把「可语音识别」的标记抹掉
     p.models = p.models.filter(m => seen.has(String((m && m.id) || '')));   // 但用户亲手删掉的那一行就是删了（keepModelCaps 会把带标记的补回来，这条路不要）
-    // 手动清单里重新打出来的那一行 = 用户又想要它了 → 从「已移除」名单里放出来。线程头那枚「×」写的
-    // 就是 providers[].hiddenModels，而菜单里没有反方向的「恢复」按钮 —— 这条是唯一的回头路。
-    if (Array.isArray(p.hiddenModels) && p.hiddenModels.length) {
-      p.hiddenModels = p.hiddenModels.filter(v => !seen.has(String(v || '').trim()));
-      if (!p.hiddenModels.length) delete p.hiddenModels;
-    }
-    if (!p.model && models.length) p.model = models[0].id;
     refreshModelSelects();
     mi.value = p.model || '';
+  };
+  modelListI.onchange = () => {
+    const { seen, models } = parseManualList();
+    const removed = listBaseline.filter(id => !seen.has(id));
+    p.hiddenModels = [...new Set([...(p.hiddenModels || []), ...removed])];
+    // 手动清单里重新打出来的那一行 = 用户又想要它了 → 从「已移除」名单里放出来。线程头那枚「×」写的
+    // 就是 providers[].hiddenModels，而菜单里没有反方向的「恢复」按钮 —— 这条是唯一的回头路。
+    p.hiddenModels = p.hiddenModels.filter(v => !seen.has(String(v || '').trim()));
+    if (!p.hiddenModels.length) delete p.hiddenModels;
+    if (!p.model && models.length) p.model = models[0].id;
+    listDirty = false;
+    refreshModelSelects();
+    mi.value = p.model || '';
+    listBaseline = providerModels(p).map(m => m.id);
   };
   modelListB.append(modelListI, el('p', 'field-help muted', t('provider.manualModelsHint')));
 
@@ -2128,7 +2299,8 @@ function providerCard(p, idx) {
   adv.append(sb, tb, eb, hb);
 
   const status = el('div', 'prov-status muted'); status.id = `provStatus_${idx}`;
-  card.append(head, cap, b2, grid, modelListB, cwB, priceB, adv, status);
+  // 第三波 M6：测试结果紧跟卡头（「测试连接」钮就在卡头）。原先在卡片最底，卡高 ~900px 时结果在视口外，像「点了没反应」。
+  card.append(head, status, b2, anthropicBox, grid, modelListB, cap, cwB, priceB, adv);
   return card;
 }
 // v1.0.2 (G5b): 「当前生效」小字。仅当此 provider 是当前激活引擎时,从 /api/status.contextWindowResolved 取
@@ -2152,12 +2324,6 @@ function contextResolvedHint(p) {
 //     MCP 导入路径上修掉的是同一条信封坑)。先按 message/字符串两种形状取词。
 //  ② 本机预设(Ollama / LM Studio)连不上时,「连不上端点(fetch failed)」对小白毫无意义:真实含义只有一个 --
 //     本机没在跑那个服务。换成人话,并在旁边给一个【应用内】手册按钮(不给命令行、不给下载链接)。
-function providerTestErrorText(payload) {
-  const raw = payload && payload.error;
-  if (typeof raw === 'string' && raw) return raw;
-  if (raw && typeof raw === 'object' && raw.message) return String(raw.message);
-  return t('provider.testFailure');
-}
 function paintProviderTestFailure(status, provider, payload) {
   status.classList.remove('good');
   status.classList.add('bad');
@@ -2173,18 +2339,27 @@ function paintProviderTestFailure(status, provider, payload) {
 async function testProvider(idx, btn) {
   const p = state.providersDraft[idx]; if (!p) return;
   const status = $(`provStatus_${idx}`);
-  const requested = { ...p };
+  // 走查 W1-8：空地址不发请求（服务端会回一句生硬的英文 no base URL）—— 当场用本地化人话说清。
+  if (!String(p.baseUrl || '').trim()) {
+    if (status) { status.textContent = '✗ ' + t('onboarding.wizard.validate.urlEmpty'); status.classList.remove('good'); status.classList.add('bad'); }
+    return;
+  }
+  const snapshot = { baseUrl: p.baseUrl, apiKey: p.apiKey };
+  const requested = normalizeProviderDraftEndpoint({ ...p });   // 粘进来的完整端点照样能测(与保存口径一致)
   if (btn) { btn.disabled = true; btn.textContent = t('provider.testing'); }
   try {
     const r = await api('/api/provider/test', { method: 'POST', body: JSON.stringify({ provider: requested }) });
-    if (p.baseUrl !== requested.baseUrl || p.apiKey !== requested.apiKey) return;
+    if (p.baseUrl !== snapshot.baseUrl || p.apiKey !== snapshot.apiKey) return;
     if (r && r.ok) {
       if (Array.isArray(r.models) && r.models.length) {
         publishProviderModels(p, r.models, [...(state.config.providers || []), ...(state.providersDraft || [])]);
         onEngineConfigChanged();
       }
-      if (status) { status.textContent = tCount('provider.testSuccess', r.models ? r.models.length : 0); status.classList.remove('bad'); status.classList.add('good'); }
+      // 走查 W1-7：renderProviders 整张重画，旧的状态节点连同刚写的绿字一起被擦掉 —— 重画之后在新节点上写。
       renderProviders();
+      const fresh = $(`provStatus_${idx}`);
+      const okText = r.modelsUnavailable ? t('provider.testSuccessNoList', { model: String(r.model || '') }) : tCount('provider.testSuccess', r.models ? r.models.length : 0);
+      if (fresh) { fresh.textContent = okText; fresh.classList.remove('bad'); fresh.classList.add('good'); }
     } else if (status) { paintProviderTestFailure(status, p, r); }
   } catch (e) { if (status) { status.textContent = `✗ ${apiErrText(e)}`; status.classList.add('bad'); } }
   finally { if (btn) { btn.disabled = false; btn.textContent = t('provider.testConnection'); } }
@@ -2207,7 +2382,7 @@ async function importMcpFromFolder(btn) {
   let pf;
   try { pf = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
   catch (e) { toast(t("toast.error", { p1: apiErrText(e) }), 'err'); if (btn) btn.disabled = false; return; }
-  if (!pf || !pf.ok) { toast(t('toast.pickerOpenFail', { err: (pf && pf.error) || t('common.unknownError') }), 'err'); if (btn) btn.disabled = false; return; }
+  if (!pf || !pf.ok) { toast(t('toast.pickerOpenFail', { err: apiErrText(pf && pf.error) || t('common.unknownError') }), 'err'); if (btn) btn.disabled = false; return; }
   if (pf.cancelled || !pf.path) { if (btn) btn.disabled = false; return; } // user backed out
   try {
     const r = await api('/api/mcp/import-folder', { method: 'POST', body: JSON.stringify({ path: pf.path }) });
@@ -2438,7 +2613,9 @@ function importSession() {
     try {
       const data = JSON.parse(await file.text());
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + t('session.imported'), cwd: data.cwd || '', messages }) });
+      // 安全走查 S10:文件里的 cwd 不可信(别人分享来的会话文件写个 '/' 就把文件工具的写根放大到整盘),一律丢弃,
+      // 导入的会话落在【当前默认工作区】里 —— 与「新会话」同一个来源(session-experience.js newSession)。messages 在服务端打 meta.imported 标记。
+      const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + t('session.imported'), cwd: (state.config && state.config.defaultWorkspace) || '', messages }) });
       await refreshSessions(); await openSession(res.session.id); toast(t("toast.sessionImported"), 'ok');
     } catch (e) { toast(t('toast.importFail', { err: apiErrText(e) }), 'err'); }
   };
@@ -2452,6 +2629,15 @@ function addTemplateFromPrompt() {
   const list = getTemplates(); list.push({ name, text }); saveTemplates(list); toast(t("toast.templateSaved"), 'ok');
 }
 function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; autoGrow(ta); ta.focus(); }
+
+  // 走查 W1-2：设置目录的 ~20 段只在首次挂载时按当时的语言画（开机先按 navigator.language、读到 config.locale 才 setLocale），
+  // 之后切语言它们不跟。i18n.js setLocale 末尾派 i18n:change → 已挂载过就重画一遍（mountSettingsCatalog 按 dataset.lang 判，
+  // 语言没变的段原样跳过）；还没挂的（设置从没打开过）不管，首次 fillSettings 自然按当时的语言画。
+  try {
+    globalThis.addEventListener('i18n:change', () => {
+      if (typeof document !== 'undefined' && document.querySelector('.setcat-section') && state.config) refreshSettingsCatalog();
+    });
+  } catch { /* 无 window（单测）时不挂 */ }
 
 /* ---------------- skill library panel (v1 技能体系) ---------------- */
 // 「技能库」三分组:技能支持本会话启用 + 全局常驻;命令点选后插入命令正文作为可编辑任务模板(只有 ~/.claude/commands

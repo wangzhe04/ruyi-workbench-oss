@@ -256,6 +256,15 @@ function usageTrendSvg(days, max) {
     if (usageState.data) renderUsage(usageState.data);
   }
 
+  // 走查 W1-15：月度预算在设置里改了 → 用量面板缓存里的预算（进度条）是旧的。作废缓存；面板此刻看得见就当场重拉，
+  // 否则下次打开页签时 openUsageDashboard 见 loaded=false 会重拉。
+  function invalidateUsageCache() {
+    usageState.loaded = false;
+    const host = $('usagePanel');
+    if (host && host.isConnected && host.getClientRects().length > 0) void loadUsage(true);   // 有客户端矩形 = 此刻看得见（display:none 的右栏没有）
+  }
+  try { globalThis.document && globalThis.document.addEventListener('ruyi:usage-budget-changed', invalidateUsageCache); } catch { /* 无 document（单测）时不挂 */ }
+
   function bindUsageDashboard() {
     const refresh = $('usageRefreshBtn');
     if (refresh) refresh.onclick = () => loadUsage(true);

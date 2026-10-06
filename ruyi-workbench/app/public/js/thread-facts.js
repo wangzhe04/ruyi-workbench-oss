@@ -234,6 +234,70 @@ export function threadLastTurnFailed(row) {
   return Boolean(last && (last.ok === false || last.aborted === true));
 }
 
+// W2-F5：「在等什么」那一句的本地化。服务端 06i waitReasonFor 的 label 是【中文整句】（给 agent 工具与日志读），
+// 前端直接印它，英文界面就出现「等你(1 条待决)」「等锁：…」。这里按 wait.reason ＋ 结构化字段
+// （pending／blockedBy／axis·spent·limit／ahead，服务端只加了字段、label 一个字没动）取本地化键；
+// 结构化字段缺（老服务端、手造行）或 reason 不认识 → 退回 label，宁可印中文也不编一句。
+// 纯函数、零 DOM：translate 由调用方递进来（看板／抽屉各自的 t），本文件仍然不 import 任何东西。
+export function stewardWaitText(wait, translate) {
+  if (!wait || typeof wait !== 'object') return '';
+  const label = String(wait.label || '');
+  if (typeof translate !== 'function') return label;
+  const reason = String(wait.reason || '');
+  const num = value => (value === null || value === undefined || value === '' ? NaN : Number(value));
+  if (reason === 'needs_you') {
+    const n = num(wait.pending);
+    return Number.isFinite(n) && n > 0 ? translate('stewardShell.wait.needsYou', { n }) : label;
+  }
+  if (reason === 'lock') {
+    const blocker = wait.blockedBy && typeof wait.blockedBy === 'object' ? wait.blockedBy : null;
+    if (!blocker) return label || translate('stewardShell.wait.lockUnknown');   // 没有结构化的 blockedBy → 老形状／手造行
+    const who = String(blocker.title || '').trim();
+    return who ? translate('stewardShell.wait.lock', { who }) : translate('stewardShell.wait.lockUnknown');
+  }
+  if (reason === 'budget') {
+    const axis = String(wait.axis || '');
+    if (!axis) return label;   // 没有结构化字段 → 老服务端
+    const show = value => { const n = num(value); return Number.isFinite(n) ? n : '?'; };
+    return translate(axis === 'cost_per_day' ? 'stewardShell.wait.budgetCost' : 'stewardShell.wait.budgetTurns',
+      { spent: show(wait.spent), limit: show(wait.limit) });
+  }
+  if (reason === 'slot') {
+    const ahead = num(wait.ahead);
+    if (!Number.isFinite(ahead)) return label || translate('stewardShell.wait.slotNext');   // 没有结构化的 ahead → 老形状／手造行
+    return ahead > 0 ? translate('stewardShell.wait.slotAhead', { n: ahead }) : translate('stewardShell.wait.slotNext');
+  }
+  return label;
+}
+
+// 第三波 M4：线程行上「它在等你」那一句（asksYou.text）在服务端 06i 是中文整句「等你放行:写入文件「report.md」」，英文界面照印。
+// 权限一支服务端另带了结构化的 toolName ＋ target（文件名），这里按界面语言重拼；认不出的工具、字段缺（老服务端／手造行）退回服务端原句。
+// 其余几类（question／plan／pool）的原话来自模型或用户，不在此列。纯函数，translate 由调用方递进来。
+const ASK_PERMISSION_VERB_KEYS = Object.freeze({
+  file_write: 'tools.verb.file_write', file_edit: 'tools.verb.file_edit', file_delete: 'tools.verb.file_delete',
+  file_move: 'tools.verb.file_move', file_copy: 'tools.verb.file_copy', http_download: 'tools.verb.http_download',
+  powershell_run: 'tools.verb.exec_command', script_run: 'tools.verb.exec_command',
+});
+export function stewardAskText(asks, translate) {
+  const text = String((asks && asks.text) || '');
+  if (!asks || typeof translate !== 'function' || String(asks.kind || '') !== 'permission') return text;
+  const verbKey = ASK_PERMISSION_VERB_KEYS[String(asks.toolName || '')];
+  if (!verbKey) return text;
+  const verb = translate(verbKey);
+  const name = String(asks.target || '').trim();
+  return translate('stewardShell.askYou.permission', { what: name ? translate('stewardShell.askYou.permissionTarget', { verb, name }) : verb });
+}
+
+// W2-F5 顺手：等锁时占用者在 wait.blockedBy 里，服务端给的是 { sessionId, title } 对象（06i），而看板与抽屉两处原来
+// 都 String(wait.blockedBy) —— 对象变成 "[object Object]"，「停掉占用者」按下去停的是一个不存在的线程。
+// 这里收成一处：对象取 sessionId，老形状（直接是 id 字符串）照旧认。取不到回空串。
+export function stewardWaitBlockerId(wait) {
+  const blocker = wait && typeof wait === 'object' ? wait.blockedBy : null;
+  if (!blocker) return '';
+  if (typeof blocker === 'object') return String(blocker.sessionId || '').trim();
+  return String(blocker).trim();
+}
+
 // 走查 U2：用户自己新开、还一句话没说的空线程。五态判据（mission-state.js）把「立了单、还没有任何执行
 // 痕迹」叫 dispatching（交办中／左栏「排队」）—— 那说的是管家交办下去、等着开跑的活；用户自己开的空线程
 // 没人交办、也没在排队（修前右栏还给它挂「在排队，还没轮到它」＋插队／并发上限），它在等的是用户开口。

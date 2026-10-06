@@ -79,6 +79,15 @@ export function isQuietTime(date, settings) {
   return start < end ? now >= start && now < end : now >= start || now < end;
 }
 
+// 走查 S-15：「此刻要不要因为免打扰而压住提示」的唯一判据。免打扰时段属于「本机通知」这一组偏好（设置页「需要你时提醒我」
+// 下面那一块），而那一组默认 enabled:false、时段却默认 22:00–08:00 —— 修前安静卡直接问 isQuietTime，没动过设置的用户夜里
+// 什么提示都收不到，而且他根本不知道有这么个时段。所以：只有用户【开启了本机通知】，他调的免打扰时段才生效；
+// 没开就不压（界面内的安静卡照出）。isQuietTime 本身仍是纯时间判断，不看 enabled（单测钉着）。
+export function isQuietSuppressed(date, settings) {
+  const normalized = normalizeNotifySettings(settings);
+  return normalized.enabled === true && isQuietTime(date, normalized);
+}
+
 function uniqueIds(values) {
   return [...new Set((Array.isArray(values) ? values : []).map(value => String(value || '')).filter(Boolean))];
 }
@@ -192,5 +201,10 @@ export function bindNotifySettings({
   const end = byId('cfgNotifyQuietEnd');
   if (end) end.onchange = event => save({ quietEnd: event.target.value });
   syncControls();
+  // 走查 W1-2：「提醒」那一行状态文案是 syncControls 那一刻用 t() 焊死的；开机先按系统语言画、读到 config.locale 才切语言，
+  // 运行时切语言也一样 —— 听 i18n.js setLocale 末尾派的那发全局 i18n:change，把状态行按新语言重算一遍（不动开关与时段的值）。
+  try {
+    if (typeof globalThis.addEventListener === 'function') globalThis.addEventListener('i18n:change', syncControls);
+  } catch { /* 无 window（单测）时不挂 */ }
   return settings;
 }

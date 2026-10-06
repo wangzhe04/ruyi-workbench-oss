@@ -4,24 +4,30 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 
 ## Components
 
-> Version baseline: `configSchema` **12** · session `schemaVersion` **1** · the tree is **2.8.0**
-> (the version triangle — `package.json`, `VERSION` in `00-boot.js`, `facts.workbenchVersion` — was bumped to 2.8.0 together by wave 107's R1 cut; **not yet tagged, not yet released**;
-> `CONFIG_SCHEMA` **went 11 → 12 in wave 107's T1 cut** — the three 126-111b/111d/111e compaction switches now
-> default on, and configs at `schema < 12` get a one-shot migration that turns an explicit `false` on disk into
-> `true`. It is needed because `normalizeConfig` is `{ ...defaultConfig(), ...raw }` and `readConfig` writes the
-> whole merged config back, so flipping a default alone reaches no install that ever wrote `config.json`)
-> · source modules **53** · native tools
-> **97** · ACC **108** (v1.9.1).
+> Version baseline: `CONFIG_SCHEMA` **14** · session `SESSION_SCHEMA` **1** · the tree is **3.0.0-preview.3**
+> (the version triangle — `package.json`, `VERSION` in `00-boot.js`, `facts.workbenchVersion` — agrees).
+> **Every count in this document defers to the repository-root `facts.json` and the generated artifacts under
+> `docs/architecture/`; the numbers in parentheses are readings taken when this was written, not a second source of
+> truth.** `CONFIG_SCHEMA` has gone up three times recently: **12** (2.8.0 — the three 126-111b/111d/111e
+> compaction switches default on, and configs at `schema < 12` get a one-shot migration that turns an explicit
+> `false` on disk into `true`; needed because `normalizeConfig` is `{ ...defaultConfig(), ...raw }` and `readConfig`
+> writes the whole merged config back, so flipping a default alone reaches no install that ever wrote
+> `config.json`), **13** (config is persisted sparsely — only keys you changed are written, the explicit-key set is
+> kept in `configExplicitKeysV1`, and migrations go by explicit keys; `killOnDisconnect` now defaults to false) and
+> **14** (the factory permission level becomes "Smart auto" for fresh installs only; a config already on disk that
+> never stored a level is pinned back to `default`).
 >
-> **Four structural changes since v2.5.0**: (1) the source went from 17 modules to **53**, with the number-13 HTTP
-> router family alone accounting for 20 files; (2) native tools went **52 → 97** on the `TOOL_HANDLERS` axis, whose
-> single source of truth is the repository-root `facts.json`; (3) four new route families were added — steward,
-> scheduler, an SSE event stream, and speech transcription — bringing route decision points to **137** and
-> `ROUTE_AUTH` declarations to **125** (generated into `docs/architecture/route-inventory.{json,md}`); (4) the
-> frontend became **one workbench, two lenses** — a Workbench lens and a Steward lens over the same workbench,
-> switched by a segmented control in the top bar, sharing one thread rail and reading the same data. The retired
-> dispatch desk is gone. The v2.5.0 set (WinForms + WebView2 native shell, the six task-facing toolbox entries,
-> long-tool interjection, background sub-agent DAGs) still holds.
+> **Four structural changes since v2.5.0**: (1) the source went from 17 modules to **70** (the authoritative list is
+> `app/src/manifest.json`), with the number-13 HTTP router and steward family alone accounting for 21 files;
+> (2) native tools went **52 → 112** on the `TOOL_HANDLERS` axis, whose single source of truth is `nativeTools` in
+> the repository-root `facts.json` (70 usable in threads plus 42 steward-only `steward_*` tools); (3) new route
+> families were added — steward, scheduler, an SSE event stream, speech transcription and the migration center —
+> bringing route decision points to **154** and `ROUTE_AUTH` declarations to **140** (generated into
+> `docs/architecture/route-inventory.{json,md}`); (4) the frontend became **one workbench, two lenses** — a
+> Workbench lens and a Steward lens over the same workbench, switched by a segmented control in the top bar,
+> sharing one thread rail and reading the same data. The retired dispatch desk is gone. The v2.5.0 set (WinForms +
+> WebView2 native shell, the task-facing right-hand toolbox, long-tool interjection, background sub-agent DAGs)
+> still holds. ACC is **108** tools (v1.9.1).
 >
 > **This is a baseline document**: it describes the tree as it is today. Per-release user-visible change belongs in
 > the repository `CHANGELOG.md`; wave-level design and evidence live in `docs/optimization-plan/`.
@@ -33,7 +39,7 @@ audit records, MCP bridging, workflow scheduling, skills, memories, and usage le
 
 ## Engines
 
-The provider engine communicates with OpenAI-compatible HTTP and streaming endpoints. The optional Claude CLI
+The provider engine communicates with OpenAI-compatible HTTP and streaming endpoints (Chat Completions, the Responses API or Anthropic Messages, chosen per provider). Ruyi ships **no vendor presets**: `PROVIDER_PRESETS` holds only local Ollama (`127.0.0.1:11434/v1`), local LM Studio (`127.0.0.1:1234/v1`, both keyless) and one "custom (OpenAI-compatible / self-hosted)" entry (an Anthropic-compatible gateway uses it too; the protocol drop-down under the Base URL is inferred from the address — `api.anthropic.com`, a path ending in `/anthropic[/vN]` or `/messages` means Anthropic Messages, `/chat/completions` means Chat, `/responses` means Responses — and stops following the address once picked by hand); everything else is a hand-entered base URL and key. Manual context compaction (`POST /api/provider/compact`, `runProviderCompact`) runs in the same order as automatic compaction: snapshot first, then fold old tool results (the originals stay recoverable through `observation_recall`); if that is enough it stops at that level, and only if not does it summarise, appending an index of the tool calls already made. The optional Claude CLI
 engine runs a user-supplied local executable and injects the generated workbench MCP configuration. Both engines
 share the same session, local tools, permission policy, checkpoint journal, audit model, skills, and memories.
 
@@ -90,24 +96,24 @@ The workbench's stdio MCP server exposes local Windows capabilities to Claude CL
 added through a drop-in manifest and bridged into the provider tool loop. Permission tiers, path guards, checkpoint
 coverage, and audit logging continue to apply at the workbench boundary.
 
-The current native tool count is **97** on the `TOOL_HANDLERS` axis, and the single source of truth for that number
+The current native tool count is **112** on the `TOOL_HANDLERS` axis, and the single source of truth for that number
 is `nativeTools` in the repository-root `facts.json` (generated by `dev-harness/facts-generate.js` and recomputed
-by `facts.static.e2e.js`); any other number in the documentation is drift. The 97 break down as **63** general
-native tools, **33** `steward_*` tools visible only inside a steward conversation (a normal thread and a sub-agent
-never see them), and **1** speech transcription tool, `audio_transcribe`. That last one is exec tier because it
+by `facts.static.e2e.js`); any other number in the documentation is drift. The 112 break down as **70** native
+tools usable in threads (including the speech transcription tool, `audio_transcribe`) and **42** `steward_*` tools
+visible only inside a steward conversation (a normal thread and a sub-agent never see them). `audio_transcribe` is exec tier because it
 sends a user file off the machine: it shares `file_read`'s path gate, then an extension allowlist, then the 25 MB
 gate, and its result is flagged `untrusted: true`. Every failure mode — unconfigured, out of bounds, over the
 limit, upstream error — is normalized into `ok: false` rather than thrown.
 
 ## Modular build
 
-The product is a single-file `app/server.js`; source lives in `app/src/` (**53 modules**; the authoritative list is
+The product is a single-file `app/server.js`; source lives in `app/src/` (**70 modules**; the authoritative list is
 `app/src/manifest.json`) joined in dependency order by `app/build.js`. Edit modules under `src/` and rebuild the
 product with `node app/build.js` (`node app/build.js --check` reports staleness).
 
 **The module number prefix is the dependency layer.** `module-dependency-policy.json` declares the permitted edges
-and `dev-harness/module-dependency-graph.js --check` pins them: currently **53 modules / 420 edges / 1 SCC**,
-generated into `docs/architecture/module-dependency-graph.{json,md}`.
+and `dev-harness/module-dependency-graph.js --check` pins them: currently **70 modules / about 540 module edges / 1 SCC** (a reading
+taken when this was written; the generated artifacts are authoritative), generated into `docs/architecture/module-dependency-graph.{json,md}`.
 
 - **00–02** boot and persistence: `00-boot` (constants, `CONFIG_SCHEMA`, `SESSION_SCHEMA`, port budget),
   `01-config` (defaults and `normalizeConfig`), `01b-route-auth` (the deny-by-default `ROUTE_AUTH` table),
@@ -120,9 +126,13 @@ generated into `docs/architecture/module-dependency-graph.{json,md}`.
   kinds).
 - **03–04** gates and peripherals: `03-bridge-guard` (attachment prompts, the exec gate and effective working
   directory), `04-permission-runtime` (permissions, the `REDACT_PATTERNS` table, the MCP connector write path),
-  `04-desktop-shell`, `04-visual-pipeline`.
+  `04-desktop-shell`, `04-visual-pipeline`, `04f-toolbox-services` (starting, probing and reclaiming ruyi-toolbox
+  service components), `04h-provider-http` (the HTTP primitives for OpenAI-compatible providers),
+  `04i-provider-wire` with `04i-provider-anthropic` (the provider wire-protocol table `PROVIDER_WIRE_PROTOCOLS` and
+  the Anthropic Messages codec) and `04j-hanzi-pinyin` / `04j-voice-lexicon` / `04j-voice-learn` (the voice
+  vocabulary's pronunciation table, kernel and word learning).
 - **05** engine A and the CLI bridge: `05-claude-engine` (Claude CLI turns, `maskSecrets` / `unmaskSecrets`, the
-  transcription outbound body), `05b-kimi-bridge` with `05c` / `05d`.
+  transcription outbound body), `05b-kimi-bridge` with `05c-kimi-search-policy` / `05d-kimi-prompt-parts`.
 - **06** engine B and per-domain pure functions: `06-provider-engine` (native tool loop, capability matrix,
   `ERROR_CLASSES`, playbooks and service classification), `06b-prompt-registry`, `06c`–`06h` (agent hooks, memory,
   missions, commissions, resource leases, retrieval indexes), `06i-steward-core` (steward pure functions: tiers,
@@ -131,11 +141,14 @@ generated into `docs/architecture/module-dependency-graph.{json,md}`.
   conflicts, toolbox- provider ownership, providers-shrink backup, CLI / agent-role / MCP sync; shared by
   `POST /api/config` and the steward's `steward_config_set` through `ConfigPatchHooks`).
 - **07–12** turns and tools: `07-autonomy` (tool tiers and permission gates), `08-agent-runs`, `09-workflow` with
-  `09b` / `09d`, `10-context-governance` (two-level automatic compaction and the wave-111 switch decision points),
-  `11-native-tools`, `12-tool-dispatch` (the `TOOL_HANDLERS` registry).
-- **the 13 family (20 files)** HTTP and the steward runner: `13-http-router` is the single request entry point and
-  dispatcher, delegating by domain to `13b` (API domain routes, including `POST /api/audio/transcribe`), `13c`
-  (overlay), `13d` (core domain), `13e`, `13f` (native tool schemas); the steward side runs from `13g` to `13t`,
+  `09b-replan-ledger` / `09d-token-estimation`, `10-context-governance` (two-level automatic and manual compaction,
+  `runAgentWake` which wakes the main conversation when background agents finish, and the wave-111 switch decision
+  points), `11-native-tools` with `11b-file-text-io`, `12-tool-dispatch` (the `TOOL_HANDLERS` registry).
+- **the 13 family (21 files)** HTTP and the steward runner: `13-http-router` is the single request entry point and
+  dispatcher (including port binding and what happens when the port is taken), delegating by domain to `13b` (API
+  domain routes, including `POST /api/audio/transcribe`), `13c` (overlay), `13d` (core domain), `13e` (the
+  rebuildable Mission / Intervention index; the file name keeps its old label), `13f` (native tool schemas) and
+  `13u` (the migration center); the steward side runs from `13g` to `13t`,
   and `13r-event-stream` is the SSE stream. **This family is where "the same rule judged in two places" is most
   likely to grow**; the counting locks in `dev-harness/steward-tools.static.e2e.js` and `tool-dispatch.e2e.js`
   list every place a new steward action must be registered.
@@ -156,6 +169,17 @@ records and summarize tokens, currency-specific estimates, plan-included traffic
 
 Subagent dispatch is governed by `config.subagentPreferredProvider` / `config.subagentPreferredModel` (cross-provider;
 52x) and the `PROMPT_EN` constant (52a).
+
+When the model starts agents with `background:true` and the thread is idle as their delivery envelope is recorded, the
+workbench starts a turn itself (`runAgentWake`, source `agent_wake`, 1.5 s debounce so one parallel batch wakes once)
+and hands the results to the model. Each envelope (keyed by job id plus completion time, so a resumed or retried run that delivers a new envelope wakes
+once more) wakes the conversation once; at most 6 wake-ups happen in a row, and any turn that is not itself a wake-up
+(the user's message, a steward-dispatched turn, a scheduled task) resets the count; only runs the model itself started wake the conversation (`run.launchedByModel`, written to the ledger row as `wakeParent:true`; a panel / HTTP `async` launch is also `background:true` but never wakes); once the user has pressed Stop or rewound the thread, nothing wakes it until their next message
+(`agentWakeSuppressed`; a rewind also stops the still-running model-launched runs of the discarded turns and drops their envelopes; held-back envelopes stay in the ledger and arrive with the next message); the steward conversation and
+stopped, cancelled or restart-interrupted runs are never woken; no turn is started while a manual compaction is
+running (it is retried afterwards); and at boot, sessions whose envelope was recorded within the last 6 hours without
+the wake-up having started are scheduled again (`scheduleAgentWakesAtBoot`). With `config.agentAutoWake:false` (Settings → Usage & limits → Concurrency) the envelope is delivered
+with the user's next message instead.
 
 ## Data root
 

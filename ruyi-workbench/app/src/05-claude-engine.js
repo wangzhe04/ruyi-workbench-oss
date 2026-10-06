@@ -67,7 +67,8 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
       // --permission-mode is the forward-compatible, officially documented way to set the session mode.
       // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
-      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
+      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag —— 安全走查 S9:bypass 档除外,
+      // 它【不】写 bypassPermissions 进用户全局(会波及脱离如意的独立 claude 会话),只靠这里每回合的命令行参数。
       // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
       const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
       if (cliPermMode) args.push('--permission-mode', cliPermMode);
@@ -212,7 +213,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
 function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[normalizeAgentCliType(type)]; }
 
 async function runClaudeTurn({
-  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
+  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam, messageMeta,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
 }) {
   const turnStartedAt = Date.now();
@@ -250,8 +251,14 @@ async function runClaudeTurn({
   // for a doomed CLI spawn: (1) cwd changed, so Claude will search a different projects/<cwd> bucket;
   // (2) model/vendor route changed, so the old native branch is no longer a safe continuation target.
   if (!_resumeRecoveryAttempt && config.autoResumeClaudeSessions && session.claudeSessionId) {
-    const boundModel = typeof session.claudeSessionModel === 'string'
-      ? session.claudeSessionModel : lastSuccessfulClaudeModel(session.messages);
+    // 续接闸比的是「绑定那一刻【请求】的模型」(claudeSessionRequestedModel),不是 CLI 回报的实际模型。Kimi 在
+    // config.model 为空(用「默认模型」)时,05b 会把 claudeSessionModel 改写成 Kimi 报回的实际模型(状态面板/上下文窗口要用),
+    // 拿它和空的 currentClaudeModel 比永远不等 → 每回合判「模型变了」、把原生会话重置。没有这个字段(绑定于修前的老会话 /
+    // Claude 引擎老数据)才退回 claudeSessionModel 与最近成功回合的模型。
+    const boundModel = typeof session.claudeSessionRequestedModel === 'string'
+      ? session.claudeSessionRequestedModel
+      : (typeof session.claudeSessionModel === 'string'
+        ? session.claudeSessionModel : lastSuccessfulClaudeModel(session.messages));
     const boundCwd = typeof session.claudeSessionCwd === 'string' && session.claudeSessionCwd
       ? session.claudeSessionCwd
       : await engineTranscriptCwd(session.claudeSessionId).catch(() => '');
@@ -261,6 +268,7 @@ async function runClaudeTurn({
     if (resumeResetReason) {
       session.claudeSessionId = null;
       delete session.claudeSessionModel;
+      delete session.claudeSessionRequestedModel;
       delete session.claudeSessionCwd;
       delete session.claudeSessionRouteKey;
       session.injectedIndexHash = null;
@@ -308,6 +316,8 @@ async function runClaudeTurn({
       traceId: activeTraceId,
       createdAt: nowIso(),
       ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
+      // 「这条用户消息从哪来」(同 09 runOpenAiTurn 的 messageMeta):管家递话 origin:'steward'、后台代理唤醒 origin:'agent_wake'。
+      ...(messageMeta && typeof messageMeta === 'object' ? { meta: messageMeta } : {}),
     });
     // 122-§2.4:起跑这一存做落盘前合并(同 09 起跑那一存的头注)—— claude/kimi 两路都从这里起跑。
     await saveSession(session, { mergeMissionFromDisk: true });
@@ -317,7 +327,9 @@ async function runClaudeTurn({
     });
   }
 
-  if (!fakeClaude && (!claude || !probeAgentCliLauncher(claude))) {
+  // 回合入口的 CLI 在位判据走异步 + 记忆的 agentCliLauncherUsable(01):修前同步 spawnSync「--version」每回合钉住事件循环最长 4 s,
+  // 且超时被当成「未检测到」。现在只有真的缺失(起不来 / 退出码非 0)才走下面的引导卡;WCW_FAKE_CLAUDE 测试缝照旧整段绕过。
+  if (!fakeClaude && (!claude || !(await agentCliLauncherUsable(claude)))) {
     // v1.0.2-S6: engine=claude 且 CLI 探测失败 —— 错误文本改中文人话, 并给错误事件附加 code:'cli-missing'
     // (只增字段, 前端按 code 渲染引导卡)。首荐直接配 API 引擎(对小白更简单), 次选指定 CLI 路径。
     const fallback = [
@@ -362,7 +374,9 @@ async function runClaudeTurn({
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
     { cliType: agentCliType }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
   ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
-  const memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
+  // 本条消息的记忆检索结果:回执,稍后(记忆段)再把相关记忆索引接在它后面 —— 都随每条消息变化,所以走每回合信封(turnMemoryEnvelope),
+  // 不进按 hash 去重的稳定索引(#10)。用 let 并沿用这个名字,是因为 kimi-prompt-parts 把下面那段信封装配抽出来单独执行,只认这个变量。
+  let memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
   // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。
   // (就是原来跟在 append 块后面的 --resume / --add-dir / extraClaudeArgs,内容不变,仅提前收集、最后统一 push。)
   const tailArgs = [];
@@ -417,6 +431,10 @@ async function runClaudeTurn({
   // 剩余段按 用户append>账本>语言政策 的顺序自然降级。
   let appendSys = '';
   const indexSecs = []; // P2: 稳定索引段收集器(stdin 注入,不进命令行)
+  // 去重 hash 用的「稳定版」:某段的内容会随进程内缓存的冷热变化(Playbook 的可用性标注取自能力缓存 —— 冷时一律不标、热了才标),
+  // 这里记下它的冷热无关版本;算 hash 时换上它,免得缓存变热的那一回合把整块 <workbench-context> 重发一遍(Windows CI 上开机探测慢,
+  // 第一回合常是冷的)。发出去的仍是带标注的那一版。
+  const indexHashOverrides = new Map();
   // 145-W3:引擎运行环境说明(<ruyi-environment>,06 buildEngineEnvBrief 单一事实源)。排在用户 append 之后、
   // 四层协议之前 —— 仍在无条件前缀里(降级一律从尾部切),用户 append 仍是最前段(cmdline-guard B4/C1)。
   // 只随能力集合变(fingerprint 同则逐字节同),不打破 Claude 的系统提示前缀。rg 用进程级缓存的异步探测
@@ -499,7 +517,10 @@ async function runClaudeTurn({
         .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '',
           ...(capsForPlaybooks ? evalPlaybookAvailability(pb, capsForPlaybooks) : { available: true, unavailableReason: '' }) }));
       const pbSec = buildPlaybookIndexSection(playbookEntries, config);
-      if (pbSec) indexSecs.push(pbSec);
+      if (pbSec) {
+        indexSecs.push(pbSec);
+        indexHashOverrides.set(pbSec, buildPlaybookIndexSection(playbookEntries.map(e => ({ ...e, available: true, unavailableReason: '' })), config));
+      }
     } catch { /* Playbook 索引注入绝不可阻断回合 */ }
     // v2 跨会话记忆: 已启用记忆的紧凑索引。第35波 P2 起与技能索引同走 stdin 一次性注入(原文,不中和);
     // P3-2 的 fits-or-drop 契约由段内构建自带截断(MEMORY_INDEX_CAP)替代,不再有命令行预算丢弃面。
@@ -510,8 +531,13 @@ async function runClaudeTurn({
       // R4-S1:真实主回合必须把 confirmed contradicts 传进索引构建；此前只有纯函数 e2e 显式传 map，
       // 线上 Claude 注入漏传，导致关系已确认但提示里看不到冲突标记。
       const memoryConflicts = memEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
-      const memSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts);
+      // #10:稳定索引(经 hash 去重、resume 时不重发)里只放跨回合稳定的核心胶囊;随每条消息变化的相关记忆索引改拼进每回合信封
+      // (下面 turnMemoryEnvelope,与检索回执同处)。修前相关索引也在 indexSecs 里:召回一变 hash 就变,整块 <workbench-context>
+      // (playbook 索引、记忆指南…≈5KB)带着新的相关列表全量重发进 transcript,旧回合的列表还不标过期。
+      const memSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts, { part: 'core' });
       if (memSec) indexSecs.push(memSec);
+      const relatedSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts, { part: 'related' });
+      if (relatedSec) memoryTurnCheck = memoryTurnCheck ? memoryTurnCheck + '\n' + relatedSec : relatedSec;
     } catch { /* 记忆注入绝不可阻断回合 */ }
     // 第26波b(两引擎对称): 任务账本 digest 并入 append —— 与 Provider 侧 buildMissionPromptSection 同源,
     // 让 Claude 引擎在长任务里同样知道整体目标与进度。fits-or-drop(同记忆契约,免破坏闭合围栏);% ! 全角中和;
@@ -555,7 +581,8 @@ async function runClaudeTurn({
   let indexPayloadHash = '';
   const resumeActive = Boolean(config.autoResumeClaudeSessions && session.claudeSessionId);
   if (indexPayload && !slashCommand) {
-    indexPayloadHash = crypto.createHash('sha1').update(indexPayload, 'utf8').digest('hex').slice(0, 12);
+    const hashPayload = indexSecs.filter(Boolean).map(sec => (indexHashOverrides.has(sec) ? indexHashOverrides.get(sec) : sec)).join('\n');
+    indexPayloadHash = crypto.createHash('sha1').update(hashPayload, 'utf8').digest('hex').slice(0, 12);
     if (!resumeActive || session.injectedIndexHash !== indexPayloadHash) {
       indexInjection = [
         '<workbench-context>',
@@ -569,6 +596,7 @@ async function runClaudeTurn({
     }
   }
   const currentUserEnvelope = `<current_user_message>\n${basePrompt}\n</current_user_message>`;
+  // 回执 + 相关记忆索引(memoryTurnCheck)都是「本条消息」的检索结果,放在 current_user_message 前面、与它同一个信封;斜杠命令回合不拼(命令必须占首 token)。
   const turnMemoryEnvelope = !slashCommand && memoryTurnCheck ? memoryTurnCheck + '\n\n' + currentUserEnvelope : currentUserEnvelope;
   // 代理模式 v2:Claude/Kimi 没有 providerHistory 可在迭代边界注入 —— 后台代理的交付信封在下一回合开头拼进 prompt,
   // 同一张已读表(11 drainAgentEnvelopesText),只投递一次;斜杠命令回合不拼。
@@ -844,6 +872,7 @@ async function runClaudeTurn({
     if (!sid) return;
     session.claudeSessionId = sid;
     session.claudeSessionModel = currentClaudeModel;
+    session.claudeSessionRequestedModel = currentClaudeModel;   // 续接闸的比较对象(见上方「Proactive compatibility gate」)
     session.claudeSessionCwd = workingDir;
     session.claudeSessionRouteKey = currentResumeRouteKey;
   };
@@ -1067,6 +1096,7 @@ async function runClaudeTurn({
   if (resumeTranscriptMissing && !_resumeRecoveryAttempt) {
     session.claudeSessionId = null;
     delete session.claudeSessionModel;
+    delete session.claudeSessionRequestedModel;
     delete session.claudeSessionCwd;
     delete session.claudeSessionRouteKey;
     session.injectedIndexHash = null;
@@ -2153,7 +2183,7 @@ async function providerFixCompletion(provider, model, messages) {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
   const headers = wire.requestHeaders(provider, { model });
-  const build = plain => wire.encodeQuick({ model, messages, plain });
+  const build = plain => wire.encodeQuick({ model, messages, plain, provider });
   const once = async bodyObj => {
     // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
     const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });

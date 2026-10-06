@@ -1,4 +1,5 @@
 ﻿require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离，防 fake-mcp 夹具经 claude mcp add-json／Kimi 同步漏进真机 ~/.claude.json 与 ~/.kimi-code/mcp.json（见 lib 头注）
+process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR = '1'; // 2026-10:本机假 provider 充当「网络在线」(06 networkAnchors 的测试后门,默认关;生产里本机/内网 provider 不再当联网锚点,见 unit/network-anchors.test.js)
 // E2E for v0.8-S6 能力矩阵 + 分层提示词框架（含身份钉死）+ 错误类播种 + FAKE_REJECT_TOOLS.
 //
 // Ports 8984-8985 (live server) + 8998 (dead probe port). Uses fake-openai (FAKE_CAPTURE_DIR to inspect the injected `system` message, and

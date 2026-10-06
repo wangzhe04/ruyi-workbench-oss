@@ -1,21 +1,65 @@
-// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;纯搬家,零行为变更)。
+// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;搬家时零行为变更,其后 quoteWinArg 补了 CRT 层反斜杠转义)。
 // Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
 // (CVE-2024-27980). The intranet `claude` is almost always claude.cmd, so route batch launchers
 // through cmd.exe with verbatim, manually-quoted args (the cross-spawn-proven pattern).
 function isBatchLauncher(command) {
   return process.platform === 'win32' && /\.(cmd|bat)$/i.test(String(command || ''));
 }
+// 一个实参要过【两层】解析,两层都得对(只顾一层是历史上的两类事故):
+//   ① cmd.exe(/d /s /c "整行" 与 .cmd 垫片里的 %*):只认 `"` 切换引号态 —— 引号态里 ^ & | < > ( ) 都是字面量。
+//      所以每个 `"` 必须成对地出现(写成 `""`,一进一出,引号态不被带歪),元字符才始终被护在引号里。
+//   ② 目标进程的 C 运行时(Node/Python/MSVCRT 2008+ 同规则):按 `2N 个反斜杠 + "` → N 个反斜杠并翻转引号态、
+//      `2N+1 个反斜杠 + "` → N 个反斜杠 + 字面 `"`;引号态内的 `""` → 一个字面 `"`;其余反斜杠原样。
+// 只做 `"`→`""` 过得了 ① 却过不了 ②:参数里本来就有「反斜杠 + 引号」(JSON.stringify 的 `\"`,--agents 里角色 prompt
+// 带双引号时必现)时,`\""` 在 ② 眼里是「转义引号 + 一个落单引号」—— 落单的那个把引号态关掉,后面的空格把参数劈开;
+// 含空格且以 `\` 结尾的路径(`C:\My Docs\`)同理,收尾的 `\"` 被当成转义引号吞掉。修法按 ② 的规则补反斜杠:
+// 每个 `"` 前面那一串反斜杠、以及结尾引号前面那一串反斜杠都加倍;`"` 仍写成 `""`(① 不变)。
+// %、! 在 cmd 里即使在引号内也会展开,这里没有通用的转义,保持原状(只在判据里触发加引号)。
+// 动态文本实参里的 % ! 由下面的 neutralizeCmdTextArgs 在 batchSafeSpawn 里先换成全角(安全走查 W5)。
 function quoteWinArg(a) {
   a = String(a);
   if (a === '') return '""';
   if (!/[\s"^&|<>()%!]/.test(a)) return a;
-  return '"' + a.replace(/"/g, '""') + '"';
+  let out = '"', backslashes = 0;   // 逐字符一遍过(反斜杠串先攒着,看到后一个字符再定怎么写),不用回溯正则
+  for (const ch of a) {
+    if (ch === '\\') { backslashes++; continue; }
+    out += ch === '"' ? '\\'.repeat(backslashes * 2) + '""' : '\\'.repeat(backslashes) + ch;
+    backslashes = 0;
+  }
+  return out + '\\'.repeat(backslashes * 2) + '"';
+}
+// 安全走查 W5:%、! 在 cmd.exe 里【即使在双引号内】也会展开(%VAR%、%CMDCMDLINE%、延迟展开的 !VAR!),quoteWinArg 无从转义。
+// 展开结果里可以带出一个裸 `"`,把引号态翻掉,后面的 & | 就成了命令分隔符 —— 即 `%CMDCMDLINE:~-1%&calc&` 一类的注入。
+// 经 .cmd 垫片起 CLI 时,命令行上那些【给模型看的动态文本】(项目角色的 prompt / description 经 --agents JSON、用户 append 与
+// 技能/记忆/账本摘要经 --append-system-prompt、角色的工具清单与模型名)里的 % 与 ! 换成全角 ％ ！:它们只是提示/名字文本,换字无害,
+// 换完 cmd 眼里就没有可展开的字符了。路径类实参(--add-dir / --mcp-config / --resume …)必须保真,不在此列。
+// 只处理「值紧跟在这些旗标后面」的形态(`--flag value` 与 `--flag=value`);其余实参原样不动。纯函数,返回新数组。
+const CMD_TEXT_VALUE_FLAGS = new Set([
+  '--append-system-prompt', '--system-prompt', '--agents', '--prompt',
+  '--allowed-tools', '--allowedTools', '--disallowed-tools', '--disallowedTools', '--tools', '--model', '--effort',
+]);
+function neutralizeCmdMetaChars(value) {
+  return String(value).replace(/%/g, '％').replace(/!/g, '！');
+}
+function neutralizeCmdTextArgs(args) {
+  const out = Array.isArray(args) ? args.slice() : [];
+  for (let i = 0; i < out.length; i++) {
+    const a = out[i];
+    if (typeof a !== 'string') continue;
+    if (CMD_TEXT_VALUE_FLAGS.has(a)) {
+      if (i + 1 < out.length && typeof out[i + 1] === 'string') { out[i + 1] = neutralizeCmdMetaChars(out[i + 1]); i += 1; }
+      continue;
+    }
+    const eq = a.indexOf('=');
+    if (eq > 2 && a.startsWith('--') && CMD_TEXT_VALUE_FLAGS.has(a.slice(0, eq))) out[i] = a.slice(0, eq + 1) + neutralizeCmdMetaChars(a.slice(eq + 1));
+  }
+  return out;
 }
 // Returns { command, args, opts } ready for cp.spawn/spawnSync — transparently wrapping .cmd/.bat.
 function batchSafeSpawn(command, args) {
   if (!isBatchLauncher(command)) return { command, args, opts: {} };
   const comspec = process.env.ComSpec || 'cmd.exe';
-  const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"'; // outer quotes stripped by /s
+  const line = '"' + [command, ...neutralizeCmdTextArgs(args)].map(quoteWinArg).join(' ') + '"'; // outer quotes stripped by /s
   return { command: comspec, args: ['/d', '/s', '/c', line], opts: { windowsVerbatimArguments: true } };
 }
 
@@ -47,7 +91,7 @@ function cmdLineBudgetFor(command) {
 function spawnCmdLineLength(command, args) {
   if (isBatchLauncher(command) || cmdLineBudgetSeam()) {
     const comspec = process.env.ComSpec || 'cmd.exe';
-    const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"';
+    const line = '"' + [command, ...neutralizeCmdTextArgs(args)].map(quoteWinArg).join(' ') + '"';
     return `${comspec} /d /s /c ${line}`.length;
   }
   // 直启粗估(Node 自行 quoting): 只用于 32K 量级的宽松判断,无需精确。
