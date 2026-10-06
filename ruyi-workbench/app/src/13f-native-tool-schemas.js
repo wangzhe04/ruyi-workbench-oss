@@ -1341,7 +1341,7 @@ const MCP_TOOLS = [
   // 完成信封经后台任务账本恰好投递一次。子代理自身拿不到这三个工具(禁嵌套:07 buildOpenAiTools noAgentTools)。
   {
     name: 'orchestrate_agents',
-    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent: top-level {task, role?, toolTier?, model?, resources?} runs as a one-node run; (2) inline `nodes` for a one-off DAG; (3) `workflowId` of a saved/built-in template (ids are in the system prompt) plus `context`, a short description of THIS run's subject (template node tasks are generic placeholders). Prefer (3) for complex multi-step tasks matching a template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work: the call returns {runId, status:'running'} at once, the run outlives this turn, and its delivery envelope is injected exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you need the result before continuing. The result is a bounded envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; agent_result({runId, nodeId?}) returns a node's full text. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the grace period. Supports JSON Schema outputs, Reviewer/Verifier gates, voting/dedupe, cross-review, loop progress keys, tool-evidence requirements and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes built to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
+    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent: top-level {task, role?, toolTier?, model?, resources?} runs as a one-node run; (2) inline `nodes` for a one-off DAG; (3) `workflowId` of a saved/built-in template (ids are in the system prompt) plus `context`, a short description of THIS run's subject (template node tasks are generic placeholders). Prefer (3) for complex multi-step tasks matching a template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work: the call returns {runId, status:'running'} at once, the run outlives this turn, and its delivery envelope is injected exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you need the result before continuing. The result is a bounded envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; agent_result({runId, nodeId?}) returns a node's full text. The runtime emits workflow heartbeats during quiet windows, asks a node still running after 30 min to wrap up, and stops only that node if it then makes no progress or passes 60 min in total (a node that keeps producing is not cut off). Supports JSON Schema outputs, gates, voting/dedupe, cross-review, loops, tool-evidence requirements and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes built to consume failed inputs; every dependency of a vote node must output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -1365,7 +1365,7 @@ const MCP_TOOLS = [
               gate: {
                 type: 'object', description: 'quality gate; reviewer/verifier roles get one automatically',
                 properties: {
-                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe', 'coverage', 'propagate'], description: 'vote/dedupe/coverage/propagate are deterministic aggregator nodes and do not execute task' },
+                  mode: { type: 'string', enum: ['review', 'verify', 'vote', 'cross_review', 'dedupe', 'coverage', 'propagate'], description: 'vote/dedupe/coverage/propagate are deterministic aggregators (task not executed)' },
                   threshold: { type: 'number', description: 'vote pass ratio, 0..1' },
                   minApprovals: { type: 'number' },
                   minConfidence: { type: 'number', description: 'minimum aggregate vote confidence, 0..1' },
@@ -1374,7 +1374,7 @@ const MCP_TOOLS = [
                   propagateKey: { type: 'string', description: 'item record key used to inherit assignments among equal-key items' },
                   allowPartialCoverage: { type: 'boolean', description: 'allow coverage nodes or model gates with uncovered items to succeed with a warning' },
                   allowPartial: { type: 'boolean', description: 'allow propagate nodes with unpropagated items to succeed' },
-                  requireEvidence: { type: 'boolean', description: 'high-stakes gate (audit/research): when true, structuredResult.findings claims with missing/invalid/cross-workspace evidenceRefs are marked unverified and any unverified claim rejects the node (gate_unverified). Default false: only marked, not blocking.' },
+                  requireEvidence: { type: 'boolean', description: 'high-stakes gate (audit/research): when true, findings claims with missing/invalid/cross-workspace evidenceRefs are marked unverified and any unverified claim rejects the node (gate_unverified). Default false: marked only.' },
                 },
               },
               failurePolicy: { type: 'string', enum: ['block', 'continue', 'retry'], description: 'block downstream (default), continue in degraded mode, or retry automatically' },
@@ -1397,7 +1397,7 @@ const MCP_TOOLS = [
         maxIters: { type: 'number', description: 'single-agent shorthand: iteration budget (default 100).' },
         model: { type: 'string', description: 'single-agent shorthand: optional explicit model id; omit to use the configured sub-agent preference.' },
         resources: { type: 'array', items: { type: 'string' }, description: 'single-agent shorthand: resources held for the whole task (desktop, browser:default, file:..., workspace:...; read: prefix for shared access).' },
-        background: { type: 'boolean', description: 'true = return {runId, status:"running"} immediately and keep working; the run survives the end of this turn and its envelope is delivered once on completion (or via wait_agents). false/default = block until the run finishes and return the envelope.' },
+        background: { type: 'boolean', description: 'true = return {runId, status:"running"} at once; the run outlives this turn and its envelope is delivered once on completion (or via wait_agents). Default false = block until done.' },
         providerId: { type: 'string', description: 'optional explicit OpenAI-compatible provider override. Omit by default so runtime routing can validate the configured sub-agent preference and safely fall back to the current conversation route.' },
         workflowId: { type: 'string', description: 'saved/built-in workflow id to launch instead of sending nodes' },
         context: { type: 'string', description: "this run's actual subject/task, prepended to every node's task — required in practice when workflowId is used, since template node tasks are generic placeholders" },
@@ -1407,12 +1407,12 @@ const MCP_TOOLS = [
   // 代理模式 v2:收件与取全文。两面共享(provider 直跑 / MCP 子进程回环 /api/agent-workflow/wait|result)。
   {
     name: 'wait_agents',
-    description: 'Collect delivery envelopes from background agent runs. Omit runIds to wait for every background run launched in the current chat turn, or pass launch-receipt runIds (including from an earlier turn). Waits at most timeoutMs and returns the current bounded envelope (status may still be running). A terminal envelope returned here will not be re-injected later.',
+    description: 'Collect delivery envelopes from background agent runs. Omit runIds to wait for every background run launched in the current chat turn, or pass launch-receipt runIds (including from an earlier turn). Waits at most timeoutMs (default 120000, max 300000; returns as soon as every run settles). timedOut:true means only the wait window ended: the run is still going, not failed; do other work or wait again. A terminal envelope returned here will not be re-injected later.',
     inputSchema: {
       type: 'object',
       properties: {
         runIds: { type: 'array', items: { type: 'string' }, description: 'Optional runIds from background launch receipts (up to 16).' },
-        timeoutMs: { type: 'number', description: 'Maximum wait in milliseconds, 0..60000 (default 30000).' },
+        timeoutMs: { type: 'number', description: 'Max wait ms, 0..300000 (default 120000).' },
       },
     },
   },

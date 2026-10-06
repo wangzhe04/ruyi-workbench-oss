@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3566,
-    "requiredSymbols": 3161,
+    "providedSymbols": 3572,
+    "requiredSymbols": 3162,
     "edges": 537,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -8395,6 +8395,9 @@
         "PROXY_UNWRAP_AGENT_TARGETS",
         "PROXY_UNWRAP_TARGETS",
         "RETIER_SKIP_TARGETS",
+        "WAIT_AGENTS_DEFAULT_MS",
+        "WAIT_AGENTS_MAX_MS",
+        "agentNodeTimeLimits",
         "appendDisplayMessagesToProviderHistory",
         "canonicalToolInvokeCall",
         "commonPrefixChars",
@@ -8403,8 +8406,10 @@
         "launchPersistedAgentRun",
         "layoutShadowPrevBySessionMap",
         "legacySpawnToOrchestrateArgs",
+        "nodeWrapUpAction",
         "planDiscoveryToolBatchAllowed",
         "planParallelReadIsland",
+        "resolveWaitAgentsMs",
         "retierToolInvokeCall",
         "runAgentWorkflow",
         "runOpenAiTurn",
@@ -8413,6 +8418,7 @@
         "toolSchemaNamesSentBySession",
         "unmarkAgentEnvelopeDelivered",
         "unwrapProxiedControlCall",
+        "waitAgentsMaxMs",
         "waitForAgentRunResults"
       ],
       "requires": [
@@ -13999,6 +14005,13 @@
         {
           "provider": "09-workflow.js",
           "symbol": "deliverAgentRunEnvelope",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "resolveWaitAgentsMs",
           "kinds": [
             "call"
           ]
@@ -29930,6 +29943,7 @@
       "symbols": [
         "AGENT_RUN_TERMINAL",
         "deliverAgentRunEnvelope",
+        "resolveWaitAgentsMs",
         "runAgentWorkflow",
         "settleWaitEnvelopes",
         "waitForAgentRunResults"

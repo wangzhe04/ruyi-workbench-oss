@@ -182,7 +182,7 @@ async function agentWorkflowLoopbackRoute(req, res, kind) {
     await mutateSession(sessionId, fresh => { for (const id of runIds) EventStreamHooks.markAgentEnvelopeDelivered(fresh, id); }, { writer: 'agent_envelope_delivered' }).catch(() => {});
   };
   if (kind === 'wait') {
-    const out = await waitForAgentRunResults(sessionId, body.runIds, body.timeoutMs == null ? 30000 : body.timeoutMs, null);
+    const out = await waitForAgentRunResults(sessionId, body.runIds, resolveWaitAgentsMs(body.timeoutMs), null, () => { if (liveReg) liveReg.lastEventAt = Date.now(); });   // 等待窗内 Claude/Kimi 父回合的看门狗不算空闲(MCP 子进程里的 wait_agents 期间 CLI 没有任何输出)
     // 与 provider 回合同一套结算(settleWaitEnvelopes):通知先到 → 短回执;wait 先到 → 登记已读。
     if (liveReg && liveReg.session) settleWaitEnvelopes(liveReg.session, out);
     else {

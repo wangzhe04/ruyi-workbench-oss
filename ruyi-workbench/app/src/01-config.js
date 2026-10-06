@@ -482,7 +482,9 @@ function defaultConfig() {
     agentWorkflowMaxNodes: 48,
     // Long-running model nodes receive one bounded "wrap up now" instruction after this duration. Separate
     // workflow heartbeats keep the parent turn informed while the node works. 0 disables automatic wrap-up.
-    agentNodeWrapUpMs: 480000,
+    // 出厂 30 分钟(修前 8 分钟:到点催收尾、再 2 分钟墙钟一到就杀,单个子代理实际只有 10 分钟)。催收尾之后节点只在
+    // 「宽限期内没有任何进展」或「总时长达到硬上限(= 本值的 2 倍)」时才被中止 —— 见 09 workflowControlTimer 的头注。
+    agentNodeWrapUpMs: 1800000,
     // 团队模式 v2 (A2): 共享任务池审批策略。manual=UI 运行卡逐条批准(默认);auto-capped=自动批准直到 poolAutoCap
     // 用尽后转 manual;off=不注册 propose_task 工具。物化仍受 agentWorkflowMaxNodes(上限 64)复检(见 materializePoolItem)。
     agentTaskPoolPolicy: 'manual',
@@ -887,7 +889,7 @@ function normalizeConfig(raw, opts = {}) {
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
   const aw = Number(config.agentNodeWrapUpMs);
-  config.agentNodeWrapUpMs = Number.isFinite(aw) ? (aw <= 0 ? 0 : Math.min(7200000, Math.max(60000, aw))) : 480000;
+  config.agentNodeWrapUpMs = Number.isFinite(aw) ? (aw <= 0 ? 0 : Math.min(7200000, Math.max(60000, aw))) : 1800000;
   // 第27f波:autonomyPauseOnTimeout 布尔(默认 false=安全默认);autonomyPauseTtlMs clamp [5min, 6h] 默认 45min。
   config.autonomyPauseOnTimeout = config.autonomyPauseOnTimeout === true;
   const apt = Number(config.autonomyPauseTtlMs);

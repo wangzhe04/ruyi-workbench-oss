@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-06T01:27:34.858Z",
+  "generatedAt": "2026-10-06T05:27:21.522Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -31,7 +31,7 @@
       "token",
       "token-browser"
     ],
-    "uncoveredPoints": 6,
+    "uncoveredPoints": 5,
     "problems": 0,
     "warnings": 0
   },
@@ -2005,6 +2005,7 @@
       "auth": "body-token",
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
+        "dev-harness\\agent-node-limits.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\agent-resource-wait-stop.e2e.js",
@@ -2053,7 +2054,9 @@
       "methodOverride": false,
       "domain": "core-inline",
       "auth": "body-token",
-      "coveredBy": []
+      "coveredBy": [
+        "dev-harness\\agent-node-limits.e2e.js"
+      ]
     },
     {
       "kind": "exact",
@@ -2534,6 +2537,7 @@
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-walkthrough.static.e2e.js",
         "dev-harness\\subagent-retry-after.e2e.js",
+        "dev-harness\\subagent-thinking-continuity.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -3208,6 +3212,7 @@
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-node-limits.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-parent-heartbeat.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
@@ -3391,6 +3396,8 @@
         "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\subagent-retry-after.e2e.js",
+        "dev-harness\\subagent-thinking-continuity.browser.e2e.js",
+        "dev-harness\\subagent-thinking-continuity.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
@@ -3464,6 +3471,7 @@
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-node-limits.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-parent-heartbeat.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
@@ -3647,6 +3655,8 @@
         "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\subagent-retry-after.e2e.js",
+        "dev-harness\\subagent-thinking-continuity.browser.e2e.js",
+        "dev-harness\\subagent-thinking-continuity.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
@@ -3828,6 +3838,8 @@
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
+        "dev-harness\\subagent-thinking-continuity.browser.e2e.js",
+        "dev-harness\\subagent-thinking-continuity.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
@@ -4465,6 +4477,7 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-node-limits.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\agent-resource-wait-stop.e2e.js",

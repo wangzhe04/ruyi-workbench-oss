@@ -676,7 +676,7 @@ function handleAgentWorkflowEvent(evt, live) {
   } else if (evt.state === 'node_wrapup_requested') {
     host.status.textContent = t('workflow.run.wrapUpRequested', { nodeId: evt.nodeId || '' });
   } else if (evt.state === 'node_wrapup_forced') {
-    host.status.textContent = t('workflow.run.wrapUpForced', { nodeId: evt.nodeId || '' });
+    host.status.textContent = t(evt.reason === 'hard_cap' ? 'workflow.run.wrapUpForcedCap' : (evt.reason === 'quiet' ? 'workflow.run.wrapUpForcedQuiet' : 'workflow.run.wrapUpForced'), { nodeId: evt.nodeId || '' });   // 说清是哪一种时限(总时长硬上限 / 收尾后没进展);老事件没有 reason 走原文案
   } else if (evt.state === 'node_retry') {
     host.status.textContent = t('workflow.run.retry', { nodeId: evt.nodeId || '', attempt: evt.attempt || 0, maxRetries: evt.maxRetries || 0 });
   } else if (evt.state === 'node_loop') {

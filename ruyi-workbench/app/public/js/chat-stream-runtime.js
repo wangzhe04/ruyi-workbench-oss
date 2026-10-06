@@ -36,9 +36,10 @@ const THINKING_NARRATIVE_BOUNDARY_TYPES = new Set([
 // by default. Keep this aligned with the events that insert a new narrative item below.
 export function isThinkingNarrativeBoundary(evt) { // 批 3·D:导出只为 thinking-boundary.static 直测(不再 vm 切源码)
   const type = String(evt?.type || '');
-  if (!type) return false;
-  if (type === 'subagent') return evt.state === 'start';
-  if (type === 'agent_workflow') return evt.state === 'start' || evt.state === 'running';
+  // 子代理自己的 tool_use / compact(带 subagentId)只进它自己的卡片,不是父回合叙事里的新一步;后台 run 晚到的节点 / 工作流起头同理(它们的卡片挂在思考块下面,不把父回合还没写完的思考切成几块)。
+  if (!type || (evt.subagentId && (type === 'tool_use' || type === 'compact'))) return false;
+  if (type === 'subagent') return evt.state === 'start' && evt.background !== true;
+  if (type === 'agent_workflow') return (evt.state === 'start' || evt.state === 'running') && evt.background !== true;
   return THINKING_NARRATIVE_BOUNDARY_TYPES.has(type);
 }
 
@@ -1315,7 +1316,7 @@ export function createChatStreamRuntime(deps = {}) {
         // v0.9-S6 (子代理): a delegated sub-turn started/ended. `start` opens a nested collapsed card that will
         // hold the sub-turn's own tool_use/tool_result (routed here by subagentId). `end` stamps the head with
         // ✓/✗ + a short conclusion summary. See handleSubagentEvent.
-        if (evt.state === 'start') { live.thinkingActive = false; sealLiveTextSegment(live); }
+        if (evt.state === 'start' && !(evt.background === true && live.thinkingActive)) { live.thinkingActive = false; sealLiveTextSegment(live); } // 后台节点晚到(父回合还在写思考)就不收口思考块
         handleSubagentEvent(evt, live, streamSessionId);
         maybeScrollToBottom(); // EC-D 56: 子代理卡入列也走粘性跟随
         break;
@@ -1331,12 +1332,12 @@ export function createChatStreamRuntime(deps = {}) {
         handleSubagentEvent(evt, live, streamSessionId);
         break;
       case 'agent_workflow':
-        if (evt.state === 'start' || evt.state === 'running') { live.thinkingActive = false; sealLiveTextSegment(live); }
+        if ((evt.state === 'start' || evt.state === 'running') && !(evt.background === true && live.thinkingActive)) { live.thinkingActive = false; sealLiveTextSegment(live); }
         handleAgentWorkflowEvent(evt, live);
         maybeScrollToBottom(); // EC-D 56: 工作流卡入列也走粘性跟随
         break;
       case 'tool_use': {
-        live.thinkingActive = false;
+        if (!evt.subagentId) live.thinkingActive = false; // 子代理的 tool_use 不收口父回合的思考块(见 isThinkingNarrativeBoundary)
         const card = toolCard({ name: evt.name, input: evt.input });
         // start the clock; tool_result computes the elapsed seconds。重放时用这条事件最初到达的时刻起算:
         // t0 往回拨「到达至今」那么久(仍在跑的工具秒表接着真实已用时走),wallStart 供重放里的 tool_result 取差。

@@ -51,5 +51,36 @@ assert.equal(boundary({ type: 'subagent', state: 'end' }), false, 'subagent stat
 assert.equal(boundary({ type: 'agent_workflow', state: 'running' }), true, 'workflow start/running starts a new narrative phase');
 assert.equal(boundary({ type: 'unknown_future_telemetry' }), false, 'unknown telemetry is safe by default');
 
+// 子代理事件不切碎父回合的思考块(用户:「召出子 agent 后,思维链被切得很碎」)。
+// 父回合在后台代理跑着的时候照样在写思考,子代理自己的 tool_use / compact(带 subagentId)只进它自己的卡片,
+// 后台 run 里晚到的节点 / 工作流起头也只是挂一张卡,都不是父回合叙事里的新一步。
+assert.equal(boundary({ type: 'tool_use', id: 'sub-read', name: 'file_read', subagentId: 'sub_1' }), false, 'a sub-agent tool_use never closes the parent thinking panel');
+assert.equal(boundary({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId: 'sub_1' }), false, 'a sub-agent compaction never closes the parent thinking panel');
+assert.equal(boundary({ type: 'compact', mode: 'auto', phase: 'completed' }), true, 'the parent own compaction stays a boundary');
+assert.equal(boundary({ type: 'subagent', state: 'start', background: true }), false, 'a late-starting background node does not split the parent thinking');
+assert.equal(boundary({ type: 'agent_workflow', state: 'start', background: true }), false, 'a background workflow start does not split the parent thinking');
+assert.equal(boundary({ type: 'agent_workflow', state: 'running', background: true }), false, 'a background workflow running update does not split the parent thinking');
+assert.equal(boundary({ type: 'subagent', state: 'start', background: false }), true, 'a foreground sub-agent card is still a real chronological boundary');
+
+assert.equal(countThinkingPanels([
+  { type: 'thinking_delta', text: 'a' },
+  { type: 'subagent_progress', subagentId: 'sub_1', note: 'streaming' },
+  { type: 'tool_use', id: 's1', name: 'file_read', subagentId: 'sub_1', background: true },
+  { type: 'thinking_delta', text: 'b' },
+  { type: 'tool_result', id: 's1', subagentId: 'sub_1', background: true },
+  { type: 'subagent', id: 'sub_2', state: 'start', background: true },
+  { type: 'thinking_delta', text: 'c' },
+  { type: 'compact', subagentId: 'sub_1', phase: 'completed' },
+  { type: 'thinking_delta', text: 'd' },
+]), 1, 'background sub-agent events interleaved with parent reasoning keep ONE thinking panel');
+
+assert.equal(countThinkingPanels([
+  { type: 'thinking_delta', text: 'a' },
+  { type: 'tool_use', id: 's1', name: 'file_read', subagentId: 'sub_1' },
+  { type: 'thinking_delta', text: 'b' },
+  { type: 'tool_use', id: 'parent-read', name: 'file_read' },
+  { type: 'thinking_delta', text: 'c' },
+]), 2, 'the parent own tool_use still splits, whatever the sub-agents do in between');
+
 console.log('THINKING BOUNDARY STATIC E2E: ALL PASS');
 })().catch(err => { console.error(err && err.stack || err); console.log('THINKING BOUNDARY STATIC E2E: FAIL (1)'); process.exit(1); });

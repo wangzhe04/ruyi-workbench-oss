@@ -1685,7 +1685,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['subagentMaxPerTurn', '一回合最多派几个子代理', 'Max sub-agents per turn'],
   ['agentAutoWake', '后台代理跑完后自动唤醒对话', 'Wake the conversation when background agents finish'],
   ['agentWorkflowMaxNodes', '工作流最多多少个节点', 'Max workflow nodes'],
-  ['agentNodeWrapUpMs', '节点收尾宽限,毫秒', 'Node wrap-up grace, ms'],
+  ['agentNodeWrapUpMs', '节点自动收尾时限,毫秒(默认 30 分钟;到点只催收尾、不中止,之后无进展或达硬上限(约 2 倍)才中止;0 = 关)', 'Node auto wrap-up time, ms (default 30 min; only nudges at this mark, then stops the node on no progress or at the hard cap (about 2x); 0 = off)'],
   ['agentTaskPoolPolicy', '任务池策略:manual / auto', 'Task pool policy: manual / auto'],
   ['agentTaskPoolAutoCap', '自动任务池上限', 'Auto task pool cap'],
   ['agentAutoModelTiering', '按节点自动分档模型', 'Automatic model tiering per node'],

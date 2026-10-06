@@ -1218,15 +1218,15 @@
                 </div>
                 <div class="field-block">
                   <label for="cfgAgentNodeWrapUpMinutes" data-i18n="settings.advanced.agentNodeWrapUp">节点自动收尾（分钟）</label>
-                  <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="8" />
-                  <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">单个模型节点运行超过该时长后，编排器会要求它停止扩展并立即总结；宽限期后仍未结束则只中止该节点。设为 0 可关闭。</p>
+                  <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="30" />
+                  <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">单个模型节点运行超过该时长（默认 30 分钟）后，编排器会要求它停止扩展并立即总结，这一步不会中止它。此后只有两种情况才会中止该节点（兄弟节点不受影响）：宽限期内完全没有进展，或总时长达到硬上限（约为该值的 2 倍，默认 60 分钟）；仍在持续产出的节点不会被中止。设为 0 可关闭。</p>
                 </div>
               </div>
               <!-- turnIdleTimeoutMs 此前没有界面：服务端钳 [1, 60] 分钟、出厂 10 分钟（01-config normalizeConfig）。 -->
               <div class="field-block">
                 <label for="cfgTurnIdleMinutes" data-i18n="settings.limits.turnIdle">一个回合多久没动静算卡住（分钟）</label>
                 <input id="cfgTurnIdleMinutes" type="number" min="1" max="60" step="1" placeholder="10" />
-                <p class="field-help muted" data-i18n="settings.limits.turnIdleHint">回合里连续这么久收不到任何事件，就判定它卡住并结束这一回合。范围 1–60 分钟（默认 10）。</p>
+                <p class="field-help muted" data-i18n="settings.limits.turnIdleHint">回合里连续这么久收不到任何事件（流式输出、工具心跳、子代理进度都算动静），就判定它卡住并结束这一回合；子代理节点与工作流同样按这个时长判空闲。范围 1–60 分钟（默认 10）。</p>
               </div>
             </section>
           </div>
