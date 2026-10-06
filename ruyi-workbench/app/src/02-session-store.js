@@ -3896,11 +3896,15 @@ function isUntitledSessionTitle(title) {
 }
 
 const IMPORTED_MESSAGE_ROLE_MAX = 32;
+// 安全走查 S10:导入来的消息是外来文本(可能是别人分享的会话文件、含伪造的「用户已授权…」对话),每条打来源标记
+// meta.imported:true,让这条线程里的内容始终能被认出是导入的。meta【整个替换】而不是合并:文件自带的 meta
+// (比如伪造 origin:'agent_wake' / 'inbox' 去走界面里那几条特殊渲染)一律丢掉。
 function sanitizeImportedSessionMessages(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.filter(m => m && typeof m === 'object' && !Array.isArray(m)
     && typeof m.role === 'string' && m.role.trim() && m.role.length <= IMPORTED_MESSAGE_ROLE_MAX
-    && (m.content == null || typeof m.content === 'string' || Array.isArray(m.content)));
+    && (m.content == null || typeof m.content === 'string' || Array.isArray(m.content)))
+    .map(m => ({ ...m, meta: { imported: true } }));
 }
 
 async function createSession({ title, cwd, origin, engineRoute }) {

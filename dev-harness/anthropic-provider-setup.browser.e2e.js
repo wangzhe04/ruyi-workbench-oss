@@ -112,7 +112,7 @@ const { ok } = t;
       const d = window.state.providersDraft[idx];
       d.baseUrl = ${JSON.stringify(gwUrl)}; d.apiKey = 'sk-gw'; d.model = 'gw-model'; d.models = [{ id: 'gw-model', label: 'gw-model' }];
       cards[idx].querySelector('.prov-head .file-label').click();
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 300; i++) {   // 30 秒:并行四个浏览器件时试探往返可能要好几秒
         await new Promise(r => setTimeout(r, 100));
         const st = document.getElementById('provStatus_' + idx);
         if (st && /[✓✗]/.test(st.textContent)) return { text: st.textContent, good: st.classList.contains('good') };

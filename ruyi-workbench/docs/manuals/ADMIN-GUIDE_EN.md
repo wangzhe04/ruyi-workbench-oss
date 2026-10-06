@@ -101,54 +101,9 @@ After applying, open `http://127.0.0.1:<port>/health`: it should return `{"ok":t
 The data root defaults to .ruyi-workbench under the user profile (called .win-claude-workbench before 3.0; the
 first 3.0 start moves it and leaves a directory junction at the old path). Resolution order in `dataRoot()`:
 
-```
-RUYI_HOME  →  WIN_CLAUDE_WORKBENCH_HOME (old name, read only)  →  ~/.ruyi-workbench (default)
-```
+The default HTTP port is 8765 (`--port <n>` → `PORT` → 8765). Ruyi binds `127.0.0.1` only; `--host` with any non-loopback address is refused at startup unless you also pass `--allow-remote` explicitly (and even then non-local peers never receive the page token — see `SECURITY.md`). Ruyi is not a multi-user or public web service.
 
-Set RUYI_HOME to move it. The move on first start happens only for `serve` with no data-root variable set; when the
-old directory holds a running instance, or cannot be moved (in use, permissions), that start keeps using the old
-directory, logs a `data_root_migration` line, and tries again next time. The data root contains configuration
-(`config.json`), chats (`sessions/*.json`, written atomically through a `.tmp` and a rename; an unreadable file is
-renamed `.corrupt` rather than deleted), uploads, generated files (including the generated `.mcp.json`), logs,
-`checkpoints/<sessionId>/*` (file-checkpoint journal and pre-compaction history snapshots), `playbooks/*.json`,
-`webcache/<sha256(url)>.json` (cached page text for web search), skills, memories, workflow state, and usage
-ledgers. Treat it as private local application data. Example:
-
-```powershell
-$env:RUYI_HOME = "D:\workbench-data"
-```
-
-### Port and takeover
-
-The default HTTP port is 8765 (`DEFAULT_PORT`). The order is `--port <n>`, then the `PORT` environment variable,
-then 8765. Ruyi binds `127.0.0.1` only; it is not a multi-user or public web service.
-
-**When the port is taken** (`listenWithFallback`, on `EADDRINUSE`) the rule in one sentence is: **a Ruyi instance
-that answers `/health` on that port is taken over; anything else holding it makes Ruyi move on to the next port.**
-
-- If `killPortOnStart=false` (config) or `WCW_KILL_PORT=0` (environment; `false` / `off` / `no` also count), Ruyi
-  **does not take over** and simply moves on: it tries port+1 … port+9 in order and uses the first one that
-  listens.
-- Otherwise it inspects the holder (`freeStalePort`). If `/health` on that port answers like Ruyi (`app` is the
-  product name, or the body carries `overlayId`; an older build's `/health` has no `app`, so `version` must come together
-  with `launchMode` and `uptimeSec` — `version` alone does not count), the holder is judged a Ruyi instance and Ruyi **ends
-  it, together with its descendant processes, and retries on the original port** (waiting up to about 4 seconds).
-  If `/health` does not look like Ruyi, Ruyi still checks whether the holder is the PID recorded in `runtime.json`,
-  whether its image name is `Ruyi` / `WinClaudeWorkbench`, or whether it is `node.exe` with a command line pointing
-  at this application's `server.js`. If none of these holds, Ruyi **leaves it alone** and moves on to the next port.
-- **The test is only "does it look like Ruyi"**: it does not ask whether the instance is stale, has a turn running,
-  or uses the same data root. A user who starts two copies from different folders (common during an upgrade) will
-  find that the later one ends the earlier one, along with the turn it was running. To run two side by side, give
-  the second one a free port with `--port`, or set `killPortOnStart=false` so that it moves on instead of taking
-  over.
-- The **actual port** is what `runtime.json`, the console URL and `--open` use, and the top banner in the UI says
-  "now using 8766 (8765 was taken)". Only when port+1 … port+9 are all unavailable does the start fail, with the
-  reason recorded in `last-start-error.json` and shown in the UI on the next successful start.
-
-### Windows 10/11 requirements
-
-Windows 10 / 11 (or Windows Server); Node ≥ 20 (a packaged exe carries its runtime); no internet and no
-`npm install`. Desktop control, OCR and visual matching need the Python desktop MCP in addition (section 2).
+When the port is taken, Ruyi only takes over **its own data directory's stale instance**: the process holding the port must be the pid recorded in *this data directory's* `runtime.json` (cross-checked against overlayId / image name). A Ruyi instance from another install or another data directory — which may be running a turn — and any other program are never touched. In every other case Ruyi moves on to the first free port in original+1 … original+9; the actual port is written to `runtime.json` and the console URL, and the top bar in the UI says which port is in use. Only when all nine are unavailable does startup fail (leaving `last-start-error.json` for the next start to surface). `killPortOnStart=false` / `WCW_KILL_PORT=0` disables takeover entirely, even of its own stale instance.
 
 ## 2. Engine integration
 
@@ -600,7 +555,7 @@ timeline when escalating an issue; do not paste unmasked keys or chat content in
 
 | Symptom | What to do |
 |---|---|
-| **Port taken** | On the default 8765, a Ruyi instance answering `/health` is taken over (the old one is ended and Ruyi retries on the same port); anything else holding the port is not touched, and Ruyi moves on to the next port (port+1 … port+9; the top banner names the actual port). With takeover disabled (`killPortOnStart=false` / `WCW_KILL_PORT=0`) a taken port always means moving on. Only when every candidate is taken does the start fail; use `--port <n>` or end the holder by hand. |
+| **Port taken** | On the default 8765, only a stale instance registered by **this data directory** (the pid in its `runtime.json`) is ended and retried on the same port, and only while `killPortOnStart` is not disabled; other Ruyi instances (another install or data directory) and other programs are left alone, and Ruyi moves on to the next free port (port+1 … port+9; the top banner names the actual port, `runtime.json` records it). Only when every candidate is taken does the start fail; to pin a port use `--port <n>` and end the holder by hand first. |
 | **Engine 401** | Claude CLI: check `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` and `ANTHROPIC_BASE_URL` (or the model-endpoint base and key in Settings). Provider: check the apiKey. A **401 does not trigger endpoint failover** (the attribution is kept), so a backup endpoint will not help; fix the key first. |
 | **Stream drops / failover notice** | A `failover` event means the primary endpoint was unavailable before the first byte and a backup was used (connection failure or 502/503/504). If the backup is down too the turn finally errors. A break after the SSE body has started never switches endpoints (replay protection); resend the turn. |
 | **Search backend unreachable** | Check `searchBackend.type` and its baseUrl (required for searxng/custom) and apiKey (required for bing/brave and tavily, optional for bocha). The search backend is a **trusted endpoint, outside SSRF checks**, but must still be reachable. Offline, `web_fetch` falls back to the local webcache (`fromCache: true`). |

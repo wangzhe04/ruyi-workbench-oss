@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
     <!-- 47c(S3):CSP 起步。前端只连本源(/api 由后端代理外部),故 connect-src 'self' 阻断 token/数据外泄;
-         script-src 排除外域(阻外部脚本注入),保留 'unsafe-inline' 兼容首屏主题预绘内联脚本(后续可改 hash 收紧);
-         object-src 'none' 禁插件;img/font 允许 data: (favicon data-URI、base64 图)。 -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+         script-src 排除外域(阻外部脚本注入);object-src 'none' 禁插件;img/font 允许 data: (favicon data-URI、base64 图)。
+         安全走查 S12:script-src 不再带 'unsafe-inline' —— 唯一的内联脚本是下面 head 里那一段首屏预绘(主题/界面模式/视角,
+         必须跑在任何模块加载之前,没法外置成 import),改用 CSP 哈希放行它:'sha256-…' 是那段内联脚本正文(浏览器按
+         换行归一后的 UTF-8 字节)的 SHA-256。【改动那段内联脚本的任何字符,都要同步重算这个哈希】,否则浏览器会拒跑预绘、
+         首帧闪错主题;静态锁 inline-script-csp-hash.static.e2e.js 会在不一致时变红,并给出新值。
+         style-src 仍保留 'unsafe-inline'(界面里大量 style= 属性与动态 style,不属本次收紧范围)。 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-cEZAaMEoutk22UQJv1fdgsnXprYXVfAvyBZqNZBTt7I='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="wcw-token" content="__WCW_TOKEN__" />
     <title data-i18n="app.title">如意工作台</title>
     <!-- v0.8-S8 favicon:内联如意 tile 主标(藏蓝墨底 + 固定深色版青花/鎏金 #6b8ff2/#f2c14e)。data-URI,无外链。 -->

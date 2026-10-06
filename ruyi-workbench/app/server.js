@@ -1913,6 +1913,7 @@ function isBatchLauncher(command) {
 // 含空格且以 `\` 结尾的路径(`C:\My Docs\`)同理,收尾的 `\"` 被当成转义引号吞掉。修法按 ② 的规则补反斜杠:
 // 每个 `"` 前面那一串反斜杠、以及结尾引号前面那一串反斜杠都加倍;`"` 仍写成 `""`(① 不变)。
 // %、! 在 cmd 里即使在引号内也会展开,这里没有通用的转义,保持原状(只在判据里触发加引号)。
+// 动态文本实参里的 % ! 由下面的 neutralizeCmdTextArgs 在 batchSafeSpawn 里先换成全角(安全走查 W5)。
 function quoteWinArg(a) {
   a = String(a);
   if (a === '') return '""';
@@ -1925,11 +1926,38 @@ function quoteWinArg(a) {
   }
   return out + '\\'.repeat(backslashes * 2) + '"';
 }
+// 安全走查 W5:%、! 在 cmd.exe 里【即使在双引号内】也会展开(%VAR%、%CMDCMDLINE%、延迟展开的 !VAR!),quoteWinArg 无从转义。
+// 展开结果里可以带出一个裸 `"`,把引号态翻掉,后面的 & | 就成了命令分隔符 —— 即 `%CMDCMDLINE:~-1%&calc&` 一类的注入。
+// 经 .cmd 垫片起 CLI 时,命令行上那些【给模型看的动态文本】(项目角色的 prompt / description 经 --agents JSON、用户 append 与
+// 技能/记忆/账本摘要经 --append-system-prompt、角色的工具清单与模型名)里的 % 与 ! 换成全角 ％ ！:它们只是提示/名字文本,换字无害,
+// 换完 cmd 眼里就没有可展开的字符了。路径类实参(--add-dir / --mcp-config / --resume …)必须保真,不在此列。
+// 只处理「值紧跟在这些旗标后面」的形态(`--flag value` 与 `--flag=value`);其余实参原样不动。纯函数,返回新数组。
+const CMD_TEXT_VALUE_FLAGS = new Set([
+  '--append-system-prompt', '--system-prompt', '--agents', '--prompt',
+  '--allowed-tools', '--allowedTools', '--disallowed-tools', '--disallowedTools', '--tools', '--model', '--effort',
+]);
+function neutralizeCmdMetaChars(value) {
+  return String(value).replace(/%/g, '％').replace(/!/g, '！');
+}
+function neutralizeCmdTextArgs(args) {
+  const out = Array.isArray(args) ? args.slice() : [];
+  for (let i = 0; i < out.length; i++) {
+    const a = out[i];
+    if (typeof a !== 'string') continue;
+    if (CMD_TEXT_VALUE_FLAGS.has(a)) {
+      if (i + 1 < out.length && typeof out[i + 1] === 'string') { out[i + 1] = neutralizeCmdMetaChars(out[i + 1]); i += 1; }
+      continue;
+    }
+    const eq = a.indexOf('=');
+    if (eq > 2 && a.startsWith('--') && CMD_TEXT_VALUE_FLAGS.has(a.slice(0, eq))) out[i] = a.slice(0, eq + 1) + neutralizeCmdMetaChars(a.slice(eq + 1));
+  }
+  return out;
+}
 // Returns { command, args, opts } ready for cp.spawn/spawnSync — transparently wrapping .cmd/.bat.
 function batchSafeSpawn(command, args) {
   if (!isBatchLauncher(command)) return { command, args, opts: {} };
   const comspec = process.env.ComSpec || 'cmd.exe';
-  const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"'; // outer quotes stripped by /s
+  const line = '"' + [command, ...neutralizeCmdTextArgs(args)].map(quoteWinArg).join(' ') + '"'; // outer quotes stripped by /s
   return { command: comspec, args: ['/d', '/s', '/c', line], opts: { windowsVerbatimArguments: true } };
 }
 
@@ -1961,7 +1989,7 @@ function cmdLineBudgetFor(command) {
 function spawnCmdLineLength(command, args) {
   if (isBatchLauncher(command) || cmdLineBudgetSeam()) {
     const comspec = process.env.ComSpec || 'cmd.exe';
-    const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"';
+    const line = '"' + [command, ...neutralizeCmdTextArgs(args)].map(quoteWinArg).join(' ') + '"';
     return `${comspec} /d /s /c ${line}`.length;
   }
   // 直启粗估(Node 自行 quoting): 只用于 32K 量级的宽松判断,无需精确。
@@ -3780,6 +3808,8 @@ function noteSessionsDirOwnWrite(file) {
 //      重试 8 次(15→155ms 退避)——saveAgentRun 实战验证过的参数,推广到所有 JSON 落盘;
 //   ③ 最终失败必 unlink tmp:唯一名没有"下次覆写自愈"路径,不清会无界累积孤儿;
 //   ④ value 传字符串视为已序列化(saveSession 需要同步快照语义:序列化与索引快照同一 tick)。
+//   ⑤ opts.mode(安全走查 S11):新建临时文件时的权限位(POSIX 生效,Windows 忽略)。rename 之后目标就是这个权限,
+//      所以密钥文件(config.json / runtime.json)传 0o600,只有属主可读写;不传保持原样(进程 umask,通常 0644)。
 async function atomicWriteJson(finalPath, value, opts = {}) {
   // typeof 守卫:本函数体会被 autonomy-durability 单独抽取执行(那里没有这个钩子)。
   const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
@@ -3789,7 +3819,7 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-    try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
+    try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
     catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
@@ -4013,9 +4043,14 @@ async function writeConfigAtomic(data) {
     // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
     try {
       const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
-      if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
+      if (current && typeof current === 'object' && !Array.isArray(current)) {
+        await fsp.copyFile(paths.config, `${paths.config}.prev`);
+        // 安全走查 S11:.prev 是 readConfig 的第一恢复源,里面是真 apiKey,不能脱敏;只收紧权限。copyFile 带的是【旧】config.json 的权限位
+        // (升级前落的盘是 0644),所以复制完显式再收一次;Windows 上 chmod 只动只读位,无害。
+        await fsp.chmod(`${paths.config}.prev`, 0o600).catch(() => {});
+      }
     } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
-    return atomicWriteJson(paths.config, data);
+    return atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
   });
   configWriteChain = thisWrite;
   try { await thisWrite; }
@@ -4128,6 +4163,7 @@ async function readConfig() {
         raw = prev; recoveredFrom = 'prev';
         // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
         await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
+        await fsp.chmod(`${paths.config}.corrupt`, 0o600).catch(() => {});   // S11:坏文件的留底里同样可能有真 key
       }
       else return degrade('EJSON');
     }
@@ -5862,6 +5898,10 @@ function contentTypeFor(file) {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.ico': 'image/x-icon',
     '.svg': 'image/svg+xml',
   }[ext] || 'application/octet-stream';
 }
@@ -5888,7 +5928,9 @@ async function serveStatic(urlPath, req) {
       // 注入兼容。浏览器导航信号任一命中即判浏览器:Sec-Fetch-Dest / Origin / Mozilla UA。
       const h = (req && req.headers) || {};
       const browserNav = Boolean(h['sec-fetch-dest']) || Boolean(h.origin) || /mozilla/i.test(String(h['user-agent'] || ''));
-      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (RUNTIME.token || ''));
+      // 安全走查 S13:非本机对端(--allow-remote 绑了非回环地址)任何情况下都不下发 token,哪怕它没带浏览器信号。
+      const remotePeer = !requestIsLoopback(req);
+      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (remotePeer ? '' : (RUNTIME.token || '')));
       return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }, body: html };
     }
     const body = await fsp.readFile(full);
@@ -5912,6 +5954,30 @@ function hostAllowed(req) {
   const host = String(req.headers.host || '').toLowerCase();
   const p = RUNTIME.port;
   return host === `127.0.0.1:${p}` || host === `localhost:${p}` || host === `[::1]:${p}`;
+}
+// 安全走查 S13:Host 头是客户端自己写的,挡不住「绑了非回环地址 + 远端把 Host 写成 127.0.0.1:PORT」。
+// 所以再加一层看【TCP 对端地址】(req.socket.remoteAddress,内核给的,改不了):127.0.0.0/8、::1、::ffff:127.x 才算本机。
+// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 assertBindHostAllowed);即使放行,非本机对端也拿不到 token
+// (/api/bootstrap 与页面里的 token 注入都拒),其余接口一律要带头 token。没有 socket 的测试替身按本机算;
+// 有 socket 却读不出对端地址(连接已断)按非本机算,偏安全。
+function isLoopbackAddress(addr) {
+  const a = String(addr == null ? '' : addr).trim().toLowerCase();
+  if (!a) return false;
+  if (a === '::1' || a === '[::1]' || a === 'localhost') return true;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(a);
+  const v4 = mapped ? mapped[1] : a;
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v4);
+  return Boolean(m) && Number(m[1]) === 127 && [m[2], m[3], m[4]].every(n => Number(n) <= 255);
+}
+function requestIsLoopback(req) {
+  if (!req || !req.socket) return true;
+  return isLoopbackAddress(req.socket.remoteAddress);
+}
+// 绑定地址是不是回环:只认字面的 127.0.0.0/8、::1、localhost。0.0.0.0 / :: / 局域网 IP / 任意主机名都算非回环。
+function isLoopbackBindHost(host) {
+  const h = String(host == null ? '' : host).trim().toLowerCase();
+  if (h === 'localhost') return true;
+  return isLoopbackAddress(h.replace(/^\[|\]$/g, ''));
 }
 function originOk(req) {
   // Host allowlist FIRST — this is the DNS-rebinding gate and applies even when no Origin is present.
@@ -5939,10 +6005,17 @@ function tokenOk(req) {
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
   const browser = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
+  // 安全走查 S13:非本机对端(只可能出现在显式 --allow-remote 绑了非回环地址时)——bootstrap 一律拒(不给它 token),
+  // 其余 open / origin / token-browser 级路由也一律要头 token(它们对本机放行的前提是「对端在本机」,对远端不成立)。
+  const remote = !requestIsLoopback(req);
   for (const r of ROUTE_AUTH) {
     if (r.m !== '*' && r.m !== m) continue;
     const match = r.prefix ? pathname.startsWith(r.p) : pathname === r.p;
     if (!match) continue;
+    if (remote && r.auth !== 'body-token') {
+      if (pathname === '/api/bootstrap') return 'remote client not allowed';
+      return tokenOk(req) ? null : 'missing or invalid workbench token';
+    }
     switch (r.auth) {
       case 'open': return null;
       case 'origin': return originOk(req) ? null : 'cross-origin request rejected';
@@ -10495,11 +10568,15 @@ function isUntitledSessionTitle(title) {
 }
 
 const IMPORTED_MESSAGE_ROLE_MAX = 32;
+// 安全走查 S10:导入来的消息是外来文本(可能是别人分享的会话文件、含伪造的「用户已授权…」对话),每条打来源标记
+// meta.imported:true,让这条线程里的内容始终能被认出是导入的。meta【整个替换】而不是合并:文件自带的 meta
+// (比如伪造 origin:'agent_wake' / 'inbox' 去走界面里那几条特殊渲染)一律丢掉。
 function sanitizeImportedSessionMessages(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.filter(m => m && typeof m === 'object' && !Array.isArray(m)
     && typeof m.role === 'string' && m.role.trim() && m.role.length <= IMPORTED_MESSAGE_ROLE_MAX
-    && (m.content == null || typeof m.content === 'string' || Array.isArray(m.content)));
+    && (m.content == null || typeof m.content === 'string' || Array.isArray(m.content)))
+    .map(m => ({ ...m, meta: { imported: true } }));
 }
 
 async function createSession({ title, cwd, origin, engineRoute }) {
@@ -36416,7 +36493,11 @@ async function applyConfigPatch(rawBody) {
       if (lost.length) {
         const stamp = new Date().toISOString().replace(/[:.]/g, '-');
         const backupName = `config.json.bak-providers-${stamp}`;
-        try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
+        try {
+          const backupPath = path.join(path.dirname(paths.config), backupName);
+          await fsp.copyFile(paths.config, backupPath);
+          await fsp.chmod(backupPath, 0o600).catch(() => {});   // 安全走查 S11:备份里是真 apiKey,只给属主读写
+        } catch { /* 备份失败不阻塞写入 */ }
         logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
       }
     }
@@ -60617,7 +60698,8 @@ async function handleApi(req, res, pathname) {
   const authErr = authorizeRoute(req, req.method, pathname);
   if (authErr) {
     const code = authErr === 'missing or invalid workbench token' ? 'auth.token_invalid'
-      : authErr === 'cross-origin request rejected' ? 'auth.origin_rejected' : 'auth.denied';
+      : authErr === 'cross-origin request rejected' ? 'auth.origin_rejected'
+        : authErr === 'remote client not allowed' ? 'auth.remote_denied' : 'auth.denied';
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
@@ -60625,6 +60707,8 @@ async function handleApi(req, res, pathname) {
     // 47c(S1):浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。auth=open -> 顶层 host 门已挡 rebinding
     // (Host=攻击域 -> 403),信任面与旧 GET / 明文下发完全等同;非浏览器(curl/node)亦同旧规可得。
     // 不查 Origin:'open' 级本就允许 loopback 非浏览器,浏览器同源(Host=loopback)也放行,跨站 rebinding 已被 host 门拦。
+    // 安全走查 S13(纵深):authorizeRoute 已对非本机对端拒掉这条路由;这里再核一次对端地址,别让以后改鉴权表的人把它放开。
+    if (!requestIsLoopback(req)) return send(res, apiFailure('auth.remote_denied', {}, 'remote client not allowed', 403));
     return send(res, json({ ok: true, token: RUNTIME.token || '' }));
   }
   if (req.method === 'GET' && pathname === '/api/status') {
@@ -62209,46 +62293,66 @@ function healthLooksLikeWorkbench(health) {
   return typeof health.version === 'string' && !!health.version
     && typeof health.launchMode === 'string' && Number.isFinite(health.uptimeSec);
 }
-// Kill the port's holder(s) ONLY when confirmed to be a stale workbench: /health responds like one,
-// OR the PID matches our own runtime.json, OR the image is node/Ruyi/WinClaudeWorkbench. An unrelated
-// service is left alone (returns {ok:false, blocked}) so we never clobber someone else's app.
-async function freeStalePort(port, host) {
-  const pids = await pidsOnPort(port);
-  if (!pids.length) return { ok: true, killed: [] }; // maybe TIME_WAIT with no live listener — retry handles it
-  const health = await probeHealth(port, host);
-  const isWorkbench = healthLooksLikeWorkbench(health);
-  let ourPid = null;
+// 端口被占时,只在「占着它的正是【本数据目录】登记的那个实例」时才接管(结束它再原端口重来);除此之外一律不动、顺延到下一个端口。
+// 安全走查(端口接管):修前对「任何像如意的占用者」都动手 —— /health 像工作台、或镜像名是 Ruyi / node + server.js,就杀。
+// 两份不同安装目录(或不同数据目录)的如意先后启动,后者会把前者连同它正在跑的回合一起结束。现在的唯一凭据是
+// 本数据目录 runtime.json 里记的 pid:那是本数据目录上一次启动写下的「我是谁」,pid 对上才说明它是自己的陈旧实例。
+// 别的数据目录的实例、别的安装里的如意、别人的服务,pid 都对不上 → blocked,调用方顺延端口。
+// 纯函数(不碰进程、不碰盘),单测直调:入参是已取好的证据,返回 { ours:boolean, why?, reason? }。
+//   · pid 必须等于 runtime.json 的 pid;runtime.json 记了端口的话,必须就是这个端口(登记的实例本不在这个端口上 = 号被别人撞了);
+//   · /health 在应答且带 overlayId、runtime.json 也记了 overlayId 时必须一致(pid 被回收给另一个如意进程时 overlayId 不同);
+//   · 取得到镜像名时必须像工作台:Ruyi / WinClaudeWorkbench 直接认,node 须命令行里有 server.js(取不到命令行不加否决),其余一律不认。
+function portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandLine }) {
+  if (!runtime || !Number.isInteger(runtime.pid) || runtime.pid <= 0 || runtime.pid !== pid) return { ours: false, reason: 'not-recorded-pid' };
+  if (Number.isInteger(runtime.port) && runtime.port !== port) return { ours: false, reason: 'recorded-on-other-port' };
+  if (healthLooksLikeWorkbench(health) && typeof health.overlayId === 'string' && health.overlayId
+    && typeof runtime.overlayId === 'string' && runtime.overlayId && health.overlayId !== runtime.overlayId) {
+    return { ours: false, reason: 'overlay-mismatch' };
+  }
+  let why = null;
+  const img = String(image || '');
+  if (!img) why = 'runtime.json';
+  else if (/Ruyi|WinClaudeWorkbench/i.test(img)) why = 'runtime.json+image:' + img; // v1.0-S9 exe 改名 Ruyi.exe;双名兼容(旧构建/存量进程仍可能名 WinClaudeWorkbench)
+  else if (/^node(\.exe)?$/i.test(img)) {
+    // 第36波(v1.7)起 node.exe 镜像名【不是】充分证据:登记 pid 只是前提,这里再核命令行,防「pid 被回收给一个无关的 node 服务」。
+    const evidence = String(commandLine || '').toLowerCase();
+    if (evidence && !/server\.js/.test(evidence)) return { ours: false, reason: 'node-not-workbench' };
+    if (evidence) why = 'image:node+cmdline';
+    else why = 'runtime.json';
+  }
+  else return { ours: false, reason: 'foreign-image' };
+  return { ours: true, why };
+}
+async function readOwnRuntimeRecord() {
   try {
     const rt = safeJsonParse(await fsp.readFile(path.join(paths.data, 'runtime.json'), 'utf8'), null);
-    if (rt && Number.isInteger(rt.pid)) ourPid = rt.pid;
-  } catch { /* no prior runtime.json */ }
-  const killed = [];
+    return rt && typeof rt === 'object' && !Array.isArray(rt) ? rt : null;
+  } catch { return null; /* 没有上一次的 runtime.json:没有可接管的自己人 */ }
+}
+// 返回 { ok:true, killed:[…] } 或 { ok:false, blocked:{ pid, image, reason, workbench } }(blocked = 占用者不是自己人,没动它)。
+// deps 只给单测换桩(netstat / tasklist / CIM / taskkill 在 Linux 上都不存在)。
+async function freeStalePort(port, host, deps = {}) {
+  const d = { pidsOnPort, probeHealth, processImage, processCommandLine, killPid, readOwnRuntimeRecord, ...deps };
+  const pids = await d.pidsOnPort(port);
+  if (!pids.length) return { ok: true, killed: [] }; // maybe TIME_WAIT with no live listener — retry handles it
+  const health = await d.probeHealth(port, host);
+  const runtime = await d.readOwnRuntimeRecord();
+  // 两遍走:先给每个占用者下判决,有一个不是自己人就整体放弃、谁也不杀(不会杀了自己人的一半、再因为别人占着而失败);都是自己人才动手。
+  const verdicts = [];
   for (const pid of pids) {
     if (pid === process.pid) continue; // never kill self
-    let why = null;
-    if (isWorkbench) why = 'health';
-    else if (pid === ourPid) why = 'runtime.json';
-    else {
-      const img = await processImage(pid);
-      if (/Ruyi|WinClaudeWorkbench/i.test(img)) why = 'image:' + img; // v1.0-S9 exe 改名 Ruyi.exe;双名兼容(旧构建/存量进程仍可能名 WinClaudeWorkbench)
-      else if (/^node(\.exe)?$/i.test(img)) {
-        // 第36波(v1.7): node.exe 镜像名【不是】充分的处死证据 —— 占着同一端口的可能是任何人的 node 服务,旧
-        // image:node 分支直接 taskkill,与本函数头注 "never clobber someone else's app" 的契约矛盾。补命令行
-        // 取证:命令行指向【本应用的 server.js 全路径】(源码/overlay 形态),或 server.js 与 Ruyi/WinClaudeWorkbench
-        // 命名的发行目录同现(打包 runtime\node 形态 —— Start-Workbench.cmd 以相对路径 "app\server.js" 启动,
-        // 靠 ExecutablePath 里的发行目录名佐证)。证据不足一律 blocked(安全方向),报错请用户手动处理。
-        const evidence = await processCommandLine(pid);
-        const ourServer = path.join(__dirname, 'server.js').toLowerCase();
-        const isOurs = evidence.includes(ourServer)
-          || (/server\.js/.test(evidence) && /ruyi|winclaudeworkbench/.test(evidence));
-        if (isOurs) why = 'image:node+cmdline';
-        else return { ok: false, blocked: { pid, image: img || '(unknown)' } };
-      }
-      else return { ok: false, blocked: { pid, image: img || '(unknown)' } };
-    }
-    await killPid(pid);
+    const image = await d.processImage(pid);
+    // 只有「登记的就是它」且镜像是 node 时才花那一发 CIM(8s 上限)取命令行。
+    const commandLine = runtime && pid === runtime.pid && /^node(\.exe)?$/i.test(String(image || '')) ? await d.processCommandLine(pid) : '';
+    const verdict = portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandLine });
+    if (!verdict.ours) return { ok: false, blocked: { pid, image: image || '(unknown)', reason: verdict.reason, workbench: healthLooksLikeWorkbench(health) } };
+    verdicts.push({ pid, why: verdict.why });
+  }
+  const killed = [];
+  for (const { pid, why } of verdicts) {
+    await d.killPid(pid);
     killed.push({ pid, why });
-    console.log(`[port] :${port} held by stale workbench — killed PID ${pid} (${why})`);
+    console.log(`[port] :${port} held by this data dir's stale instance — killed PID ${pid} (${why})`);
   }
   return { ok: true, killed };
 }
@@ -62302,8 +62406,11 @@ async function listenWithFallback(server, port, host, config) {
     console.log(`[port] :${port} in use -- checking whether it's a stale workbench...`);
     const res = await freeStalePort(port, host);
     if (!res.ok) {
-      return await listenOnNextFreePort(server, port, host,
-        `端口 ${port} 被其它程序占用(PID ${res.blocked.pid} / ${res.blocked.image}),没有去误杀它。`);
+      // 占用者不是「本数据目录登记的那个实例」:可能是另一份如意(别的安装目录 / 别的数据目录,正在跑自己的回合),也可能是别的程序。
+      // 两种都不动它,顺延到下一个端口。
+      return await listenOnNextFreePort(server, port, host, res.blocked.workbench
+        ? `端口 ${port} 被另一份如意实例占用(PID ${res.blocked.pid},不是本数据目录登记的实例),没有去结束它。`
+        : `端口 ${port} 被其它程序占用(PID ${res.blocked.pid} / ${res.blocked.image}),没有去误杀它。`);
     }
     for (let i = 0; i < 25; i++) {
       await sleep(160);
@@ -62322,8 +62429,11 @@ async function listenWithFallback(server, port, host, config) {
 // 这层薄包装把三类致命失败落成 <data>/last-start-error.json(人话 + 下一步),
 // 下一次成功启动由 startServerInner 读出来交给前端顶部条;console 输出与退出码一字未改。
 async function startServer(opts) {
+  // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
+  // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
+  const bindHost = resolveBindHost(opts);
   try {
-    return await startServerInner(opts);
+    return await startServerInner(opts, bindHost);
   } catch (error) {
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
     const message = String((error && error.message) || error || '').slice(0, 800)
@@ -62365,7 +62475,24 @@ async function resetOrphanedMissionDrivers() {
   return reset;
 }
 
-async function startServerInner(opts) {
+// 安全走查 S13:--host 能绑非回环地址(0.0.0.0 / 局域网 IP / 主机名),而 Host 头是对端自己写的,
+// 页面 token 的下发又只看 Host 头 —— 绑出去等于把接口令牌送给局域网上任何人。所以非回环绑定必须【显式再加】
+// --allow-remote,否则启动即拒绝并说明原因;放行之后也只是「允许监听」:非本机对端拿不到 token(见 01 的 requestIsLoopback)。
+// 返回实际要绑的地址;纯函数(不碰盘、不碰全局),单测直调。
+function resolveBindHost(opts) {
+  const raw = opts && opts.host;
+  const host = typeof raw === 'string' && raw.trim() ? raw.trim() : '127.0.0.1';
+  if (isLoopbackBindHost(host)) return host;
+  const flag = opts && opts['allow-remote'];
+  const allowed = flag === true || (typeof flag === 'string' && !/^(0|false|off|no)$/i.test(flag.trim()));
+  if (allowed) return host;
+  const error = new Error(`拒绝绑定非回环地址 ${host}:如意只应监听本机(127.0.0.1),页面与接口令牌的保护都以「对端在本机」为前提。`
+    + ' 确需让别的机器访问,请显式追加 --allow-remote(并自行用防火墙/反向代理限制来源;非本机对端拿不到页面 token,须自带头 token)。'
+    + ` / Refusing to bind non-loopback address ${host}: Ruyi is a local single-user tool. Pass --allow-remote explicitly if you really need it.`);
+  throw error;
+}
+
+async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   try {
     await ensureDirs();
   } catch (error) {
@@ -62438,7 +62565,8 @@ async function startServerInner(opts) {
   void storageSweep(config.storagePolicy).catch(() => {});
   void sweepStaleScriptFiles().catch(() => {});   // 走查 W1·F10:script_run 遗留的脚本明文(强杀 / 杀毒占着没删成的)按龄清掉
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
-  const host = opts.host || '127.0.0.1';
+  const host = bindHost;
+  if (!isLoopbackBindHost(host)) console.log(`[warn] --allow-remote:正在监听非回环地址 ${host}。非本机对端拿不到页面 token(须自带头 token);请用防火墙限制来源。`);
   const server = http.createServer(async (req, res) => {
     const reqT0 = Date.now(); // 第40波:请求耗时插桩(res finish 时入账,/health 不计 —— 高频探针会淹没真分布)
     res.on('finish', () => { try { const u0 = new URL(req.url, 'http://x'); if (u0.pathname !== '/health') recordRequestMetric(req.method, u0.pathname, Date.now() - reqT0); } catch { /* 观测不阻断 */ } });
@@ -62448,6 +62576,9 @@ async function startServerInner(opts) {
     // 先 setHeader 再让各路由的 writeHead 合并:路由自己写了同名头则以路由为准。
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+    // 安全走查 S6:禁止浏览器按内容嗅探 MIME(把 text/plain 的回包当 HTML/脚本执行)。静态资源的 content-type 由
+    // contentTypeFor 给全(html/css/js/json/图片),/api 一律 application/json,SSE 是 text/event-stream,不会被它误伤。
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     try {
       // 第33波:顶层 host 门(DNS-rebinding 防御覆盖全 GET 面 + 静态 /,治第29波 backlog #0)。hostAllowed 之前
       // 只在 originOk(mutating 块)内调用,GET 与 serveStatic 跳过 -> index.html 的 token 可被 rebinding 页读走。
@@ -62485,7 +62616,8 @@ async function startServerInner(opts) {
   const runtimeToken = crypto.randomBytes(16).toString('hex');
   RUNTIME.port = port; RUNTIME.host = host; RUNTIME.token = runtimeToken;
   await atomicWriteJson(path.join(paths.data, 'runtime.json'),
-    { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() }).catch(() => {});
+    { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() },
+    { mode: 0o600 }).catch(() => {});   // 安全走查 S11:里面是接口令牌,只给属主读写(POSIX;Windows 靠用户目录 ACL)
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);
   console.log(`Data: ${paths.data}`);
@@ -64708,6 +64840,28 @@ function sessionEnvelopeLiveParts(id) {
   return { live, liveTail, liveTurn, relay };
 }
 
+// 安全走查 S10:导入会话 JSON(POST /api/sessions 带 messages)时,文件里写的 cwd 不能原样当工作区 —— 一份被分享来的会话文件
+// 写个 cwd:'/' 就把本会话的文件工具写根放大到整盘。前端 importSession 已不再上送文件里的 cwd;这里是服务端的第二道:
+// 导入形态(body.messages 非空)若显式带了 cwd,必须落在【已配置的工作区】(默认工作区 + workspaces[] 各条)之一内部或就是它,
+// 否则 400(不回显路径)。比对走真实路径(符号链接 / junction 逃不出去)。普通「新建会话」(不带 messages)不受影响:
+// 它的 cwd 来自用户在界面里选的文件夹(最近用过的、拖进来的),并不要求事先登记成工作区。
+async function importedSessionCwdAllowed(cwd, config) {
+  const raw = typeof cwd === 'string' ? cwd.trim() : '';
+  if (!raw) return true;
+  const target = await resolveContainmentPath(raw);
+  if (!target || target.unresolvable) return false;
+  const rootsRaw = [config && config.defaultWorkspace ? config.defaultWorkspace : os.homedir()];
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) {
+    if (w && typeof w === 'object' && typeof w.path === 'string' && w.path.trim()) rootsRaw.push(w.path.trim());
+  }
+  for (const rootRaw of rootsRaw) {
+    if (typeof rootRaw !== 'string' || !rootRaw.trim()) continue;
+    const root = await resolveContainmentPath(rootRaw);
+    if (root && !root.unresolvable && pathWithinRoot(target.path, root.path)) return true;
+  }
+  return false;
+}
+
 async function handleSessionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/sessions') {
     return send(res, json({ ok: true, sessions: await listSessions() }));
@@ -64729,6 +64883,10 @@ async function handleSessionApiRoutes(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);
+    if (body && Array.isArray(body.messages) && body.messages.length && typeof body.cwd === 'string' && body.cwd.trim()
+      && !(await importedSessionCwdAllowed(body.cwd, await readConfig()))) {
+      return send(res, apiFailure('session.import_cwd_not_allowed', {}, 'imported session cwd must be a configured workspace (or a subfolder of one)', 400));
+    }
     // 121-K3(§4.1「来源三值」):这条路由就是【用户自己按下「新会话」】那一下,来源恒为 'user'。
     // 显式钉死而不是把 body 整份透传:createSession 现在认 origin 参数,透传等于让任意调用方
     // 把自己的普通会话刷成「管家开的」—— 那正是 02 把 origin 挡在 PATCH 白名单外要防的同一件事,

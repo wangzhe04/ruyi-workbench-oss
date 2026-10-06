@@ -22,7 +22,10 @@ const SERVER = process.env.RUYI_TEST_SERVER_JS
   ? path.resolve(process.env.RUYI_TEST_SERVER_JS)
   : path.resolve(__dirname, '..', '..', 'ruyi-workbench', 'app', 'server.js');
 
-function loadServerInternals(names) {
+// opts.withEval:再给一个 __eval(code) —— 在 server.js 的模块作用域里直接 eval,供单测把【模块级】依赖(netstat / tasklist /
+// 杀进程这类 Linux 上没有的外部命令封装)换成桩:`__eval('pidsOnPort = async () => [4242]')`。同一份测试代码因此既能跑新码
+// 也能跑 RUYI_TEST_SERVER_JS 指到的修前基线,反向验证才是同一把尺子。默认不给,不扩大别的测试的接触面。
+function loadServerInternals(names, opts = {}) {
   if (!Array.isArray(names) || !names.length || !names.every(n => /^[A-Za-z_$][\w$]*$/.test(n))) {
     throw new Error('loadServerInternals: names must be a non-empty array of identifiers');
   }
@@ -30,7 +33,9 @@ function loadServerInternals(names) {
   const mod = new Module(SERVER, module);
   mod.filename = SERVER;
   mod.paths = Module._nodeModulePaths(path.dirname(SERVER));
-  mod._compile(`${src}\n;module.exports.__internals = { ${names.join(', ')} };\n`, SERVER);
+  const evalHook = opts && opts.withEval ? '\n;module.exports.__eval = code => eval(code);' : '';
+  mod._compile(`${src}\n;module.exports.__internals = { ${names.join(', ')} };${evalHook}\n`, SERVER);
+  if (evalHook) mod.exports.__internals.__eval = mod.exports.__eval;
   return mod.exports.__internals;
 }
 

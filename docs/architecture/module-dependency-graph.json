@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3577,
-    "requiredSymbols": 3165,
+    "providedSymbols": 3587,
+    "requiredSymbols": 3170,
     "edges": 538,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -287,11 +287,14 @@
         "CMD_EXE_LINE_LIMIT",
         "CMD_LINE_QUOTE_MARGIN",
         "CMD_LINE_SAFE_BUDGET",
+        "CMD_TEXT_VALUE_FLAGS",
         "DIRECT_SPAWN_LINE_BUDGET",
         "batchSafeSpawn",
         "cmdLineBudgetFor",
         "cmdLineBudgetSeam",
         "isBatchLauncher",
+        "neutralizeCmdMetaChars",
+        "neutralizeCmdTextArgs",
         "quoteWinArg",
         "spawnCmdLineLength"
       ],
@@ -478,6 +481,8 @@
         "isAskUserTool",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
+        "isLoopbackAddress",
+        "isLoopbackBindHost",
         "kimiMcpManagedIds",
         "kimiMcpSyncChains",
         "lastGoodConfig",
@@ -510,6 +515,7 @@
         "readUserJsonObjectForMerge",
         "refreshInBackground",
         "rememberClaudeLauncher",
+        "requestIsLoopback",
         "resolveClaudeLauncher",
         "resolveClaudeLauncherAsync",
         "resolveKimiNpmEntry",
@@ -12510,11 +12516,14 @@
         "openPathTargetDir",
         "parseArgs",
         "pidsOnPort",
+        "portHolderTakeoverVerdict",
         "probeHealth",
         "processCommandLine",
         "processImage",
         "proxyModelsCacheMemo",
+        "readOwnRuntimeRecord",
         "resetOrphanedMissionDrivers",
+        "resolveBindHost",
         "resolveNodeModel",
         "sendMcp",
         "sendMcpNotification",
@@ -12910,6 +12919,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "isLoopbackBindHost",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "mcpConfigFilePath",
           "kinds": [
             "call"
@@ -12939,6 +12955,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "requestIsLoopback",
           "kinds": [
             "call"
           ]
@@ -14925,6 +14948,7 @@
         "handleInterventionApiRoutes",
         "handleMissionsApiRoutes",
         "handleSessionApiRoutes",
+        "importedSessionCwdAllowed",
         "interventionCommandFailure",
         "interventionDecisionFingerprint",
         "lastMissionRunProgress",
@@ -15030,6 +15054,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -15490,6 +15521,20 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "pathWithinRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "resolveContainmentPath",
           "kinds": [
             "call"
           ]
@@ -29693,11 +29738,13 @@
         "externalServerJs",
         "generateMcpConfig",
         "hostAllowed",
+        "isLoopbackBindHost",
         "mcpConfigFilePath",
         "mutateConfig",
         "prepareAgentCliSpawn",
         "readConfig",
         "readJsonBody",
+        "requestIsLoopback",
         "safeSessionId",
         "selectedAgentCli",
         "send",
@@ -30250,6 +30297,7 @@
         "json",
         "makeId",
         "nowIso",
+        "os",
         "path",
         "paths",
         "runKeyedChain",
@@ -30362,7 +30410,9 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "bridgedReadPathGate",
-        "normalizeCwd"
+        "normalizeCwd",
+        "pathWithinRoot",
+        "resolveContainmentPath"
       ],
       "direction": "backward"
     },
