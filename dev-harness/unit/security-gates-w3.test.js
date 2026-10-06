@@ -201,8 +201,10 @@ describe('#6 · 遍历结果保持调用方的路径写法(符号链接工作区
       out.push(dump(r));
     }
     const text = out.join('\n');
-    assert.ok(text.includes(link), '前提:结果里带着绝对路径(不是空结果):' + text.slice(0, 300));
-    assert.ok(!text.includes(real), '结果里不应出现 realpath 拼法(含信封里回显的 root):' + text.slice(0, 400));
+    // text 是 JSON:Windows 路径里的 \ 在里面成了 \\(Windows CI a8c064a 红在这一条前提上)—— 按 JSON 转义后的拼法比。
+    const inJson = p => JSON.stringify(String(p)).slice(1, -1);
+    assert.ok(text.includes(inJson(link)), '前提:结果里带着绝对路径(不是空结果):' + text.slice(0, 300));
+    assert.ok(!text.includes(inJson(real)), '结果里不应出现 realpath 拼法(含信封里回显的 root):' + text.slice(0, 400));
   });
   it('turn-undo T1:数据根「经链接拼法」是工作区的子目录时,file_list(absolute) 回的那一项与前端按词法比的 status.dataRoot 对得上,能被藏起来', async (t) => {
     if (!linked) return t.skip('no links');
