@@ -96,7 +96,8 @@ function Test-VersionCompat($min, $current) {
   return ([string]$min).Trim() -eq ([string]$current).Trim()
 }
 
-# 已应用标记(.overlay-applied.json;rollback 会清)。
+# 已应用标记(.overlay-applied.json):记的是【当前部署着的】覆盖包。apply 把上一份标记存进备份,rollback 原样放回;
+# 备份里没有(此前没套过覆盖包 / 旧备份)就清掉,免得它还指着刚回滚掉的版本、把同版本重套当成「已应用」拒掉。
 function Get-AppliedMarker($t) {
   $p = Join-Path $t '.overlay-applied.json'
   if (Test-Path $p) { try { return Get-Content -Raw $p | ConvertFrom-Json } catch {} }
@@ -245,6 +246,40 @@ function Invoke-Precheck($t) {
   }
 }
 
+# 把 payload 文件写到目标。运行中的 RuyiDesktop.exe / 已加载的 WebView2Loader.dll 不能被覆盖(共享冲突),但 NTFS 允许
+# 把正在用的映像【改名】:失败且目标是 .exe/.dll 时,先把旧文件改名挪开(<name>.old-<时间戳>),再把新文件放回原名;
+# 桌面壳下次启动才会载入新文件。仍写不进去就把原错误抛出去(行为同修前:这次 apply 记为 failed,可回滚)。
+# 返回 $true = 走了「改名挪开」(调用方据此提示重启桌面壳)。
+function Copy-OverlayFile($src, $dst, $stamp) {
+  try {
+    Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction Stop
+    return $false
+  } catch {
+    $original = $_
+    if (($dst -match '\.(exe|dll)$') -and (Test-Path -LiteralPath $dst -PathType Leaf)) {
+      $aside = "$dst.old-$stamp"
+      try {
+        Move-Item -LiteralPath $dst -Destination $aside -Force -ErrorAction Stop
+        Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction Stop
+        return $true
+      } catch {
+        if ((Test-Path -LiteralPath $aside -PathType Leaf) -and -not (Test-Path -LiteralPath $dst -PathType Leaf)) {
+          try { Move-Item -LiteralPath $aside -Destination $dst -Force -ErrorAction Stop } catch {}
+        }
+      }
+    }
+    throw $original
+  }
+}
+
+# 清掉以往 apply 留下的 *.old-* 旁路文件(那时还被占用,现在多半已释放);仍被占用的留着,下次再清。
+function Remove-OverlayAsideFiles($t) {
+  foreach ($name in @('RuyiDesktop.exe', 'WebView2Loader.dll')) {
+    Get-ChildItem -LiteralPath $t -Filter "$name.old-*" -File -ErrorAction SilentlyContinue |
+      ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop } catch {} }
+  }
+}
+
 function Do-Apply($t) {
   Assert-Deployment $t
   # EC-B:apply 前先跑 precheck 全检(路径逃逸/完整性/版本/幂等);失败即拒,绝不写入。
@@ -283,13 +318,19 @@ function Do-Apply($t) {
       ConvertTo-Json -InputObject @($added) | Set-Content -LiteralPath (Join-Path $backup '.overlay-added.json') -Encoding UTF8
       $curMani = Join-Path $t 'update-manifest.json'
       if (Test-Path $curMani) { Copy-Item $curMani (Join-Path $backup 'update-manifest.json') -Force }
+      # 上一份「已应用」标记一并备份:rollback 的通用还原会把它放回原处(见 Get-AppliedMarker 上方的说明)。
+      $curMarker = Join-Path $t '.overlay-applied.json'
+      if (Test-Path -LiteralPath $curMarker) { Copy-Item -LiteralPath $curMarker -Destination (Join-Path $backup '.overlay-applied.json') -Force }
       Info "Backed up existing files -> $backup"
-      # 2) Copy payload over the target.
+      # 2) Copy payload over the target. A running desktop shell holds RuyiDesktop.exe / WebView2Loader.dll open:
+      #    those are moved aside and replaced (Copy-OverlayFile), and take effect when the shell is restarted.
+      Remove-OverlayAsideFiles $t
+      $replacedInUse = @()
       foreach ($f in $m.files) {
         $src = Join-Path $script:payload $f.path
         $dst = Join-Path $t $f.path
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
-        Copy-Item -LiteralPath $src -Destination $dst -Force
+        if (Copy-OverlayFile $src $dst $ts) { $replacedInUse += [string]$f.path }
       }
       Copy-Item $script:manifestPath (Join-Path $t 'update-manifest.json') -Force
       # 3) Marker + prune old backups (keep newest 5).
@@ -303,8 +344,9 @@ function Do-Apply($t) {
       $applyOk = [bool]$vr.ok
       $resultLabel = if ($applyOk) { 'ok' } else { 'verify_failed' }
       Write-Audit $t @{ action='apply'; version=$m.version; result=$resultLabel; fileCount=$m.fileCount; backup=$backup; error=$(if ($applyOk) { '' } else { ($vr.mismatches -join ', ') }) }
-      $applyResult = [ordered]@{ ok = $applyOk; version = $m.version; backup = $backup; fileCount = $m.fileCount; restartNeeded = $true; verify = $vr }
+      $applyResult = [ordered]@{ ok = $applyOk; version = $m.version; backup = $backup; fileCount = $m.fileCount; restartNeeded = $true; replacedInUse = @($replacedInUse); verify = $vr }
       if (-not $Json) {
+        if ($replacedInUse.Count) { Info "In use while applying, replaced by renaming the running file aside (new version loads when the desktop shell restarts): $($replacedInUse -join ', ')" }
         if ($applyOk) { Info "DONE. Restart with Start-Workbench.cmd, then check /health and the 体检 (Doctor) tab." }
         else { Warn "VERIFY FAILED after apply: $($vr.mismatches.Count) mismatch(es). Backup at $backup. Consider rollback." }
       }
@@ -355,7 +397,7 @@ function Do-Rollback($t) {
           if ($rel -eq '.overlay-added.json') { return }   # 128g: bookkeeping, not a deployed file
           $dst = Join-Path $t $rel
           New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
-          Copy-Item -LiteralPath $_.FullName -Destination $dst -Force
+          $null = Copy-OverlayFile $_.FullName $dst (Get-Date -Format 'yyyyMMdd-HHmmss')
           # 对抗审查 BUG-1:$restored++ 是表达式,会向 pipeline 吐旧值(0,1,2...)破坏 -Json 单对象输出。
           # 改赋值式(无 pipeline 输出)。
           $restored = $restored + 1
@@ -380,6 +422,10 @@ function Do-Rollback($t) {
         }
         if (-not (Test-Path (Join-Path $latest.FullName 'update-manifest.json'))) {
           Remove-Item -LiteralPath (Join-Path $t 'update-manifest.json') -Force -ErrorAction SilentlyContinue
+        }
+        # 标记:备份里有上一份就已被上面的通用还原放回原处;没有(此前没套过覆盖包,或这份备份早于该记账)就清掉。
+        # 修前只在「备份里没有旧 manifest」时才清,第二个覆盖包的回滚会留下指向已回滚版本的标记,同版本重套被幂等预检拒。
+        if (-not (Test-Path -LiteralPath (Join-Path $latest.FullName '.overlay-applied.json'))) {
           Remove-Item -LiteralPath (Join-Path $t '.overlay-applied.json') -Force -ErrorAction SilentlyContinue
         }
         Write-Audit $t @{ action='rollback'; version=$latest.Name; result='ok'; fileCount=$restored; backup=$latest.FullName; error='' }
