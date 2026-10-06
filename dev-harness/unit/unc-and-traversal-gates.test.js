@@ -27,12 +27,23 @@ const dataRootDir = path.join(home, '.ruyi-workbench');
 const ws = path.join(home, 'ws');
 fs.mkdirSync(dataRootDir, { recursive: true });
 fs.mkdirSync(ws, { recursive: true });
-if (NO_RG) {   // 只留 node 自己的目录:系统 PATH 里的 rg 看不到,file_search 退到 JS 扫描
+if (NO_RG) {   // PATH 里摘掉放着 rg 的目录:系统 PATH 里的 rg 看不到,file_search 退到 JS 扫描
+  // Windows CI 修(607e4a7 红):Windows 的 process.env 不分大小写 —— 修前先设 PATH 再 delete Path,等于把 PATH 整个删了,
+  // 子进程里 PowerShell 等系统程序全找不到;也不再整个换掉 PATH,只摘掉含 rg 的目录。node 恰好与 rg 同目录时才给它单开一个 bin。
+  // (Windows 上工作台优先用随仓的 app/vendor-bin/rg.exe,那里子进程仍走 rg;JS 扫描路径由 Linux 跑满。)
+  const rgName = process.platform === 'win32' ? 'rg.exe' : 'rg';
+  const keep = String(process.env.PATH || process.env.Path || '').split(path.delimiter)
+    .filter(d => d && !fs.existsSync(path.join(d, rgName)));
   const bin = path.join(root, 'bin');
   fs.mkdirSync(bin);
-  fs.symlinkSync(process.execPath, path.join(bin, path.basename(process.execPath)));
-  process.env.PATH = bin;
+  const nodeDir = path.dirname(process.execPath);
+  if (fs.existsSync(path.join(nodeDir, rgName))) {
+    const dest = path.join(bin, path.basename(process.execPath));
+    try { fs.symlinkSync(process.execPath, dest); } catch { fs.copyFileSync(process.execPath, dest); }
+  } else if (!keep.includes(nodeDir)) keep.unshift(nodeDir);
   delete process.env.Path;
+  delete process.env.PATH;
+  process.env.PATH = [bin, ...keep].join(path.delimiter);
   delete process.env.RUYI_RG_PATH;
 }
 process.env.HOME = home;
@@ -319,7 +330,10 @@ if (!NO_RG) {
       const env = { ...process.env, W2_NO_RG: '1' };
       delete env.NODE_TEST_CONTEXT;
       const r = cp.spawnSync(process.execPath, ['--test', __filename], { env, encoding: 'utf8', timeout: 240000 });
-      assert.equal(r.status, 0, (r.stdout || '').split('\n').filter(l => /not ok|# (fail|pass)/.test(l)).join('\n') + (r.stderr || '').slice(0, 500));
+      // Node 23+ 的默认报告器是 spec(✖ / ℹ),不再是 TAP 的 not ok —— 两种都收,再附 stdout 尾巴,红了能直接看出是哪条。
+      const out = String(r.stdout || '');
+      const failed = out.split('\n').filter(l => /not ok|✖|# (fail|pass)|ℹ (fail|pass)/.test(l)).join('\n');
+      assert.equal(r.status, 0, 'child exit ' + r.status + (r.error ? ' (' + r.error.message + ')' : '') + '\n' + failed + '\n--- stdout tail ---\n' + out.slice(-1500) + (r.stderr || '').slice(0, 500));
     });
   });
 }
