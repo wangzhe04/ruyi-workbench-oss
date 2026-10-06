@@ -52,6 +52,8 @@ Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 
 **precheck 四类写入前拒绝**（第53波 EC-B）：① 路径逃逸（manifest 条目含 `..`/盘符/绝对路径，防 zip-slip 越界写）② 完整性（payload 每文件 sha256 == manifest，防篡改/缺文件包）③ 版本兼容（包 `minHostVersion` > 宿主 `package.json` version 则拒）④ 幂等（同版本已 apply 且无 `-Force` -> precheck 警告，apply 升格拒）。`-Json` 输出单 JSON 对象供 API 消费。
 
+**桌面壳在运行时套用**：`RuyiDesktop.exe` / `WebView2Loader.dll` 被占用、不能直接覆盖，这两类文件改为先把旧映像改名挪开（`<名>.old-<时间戳>`，NTFS 允许改名运行中的映像）再放新文件，**重启桌面壳后才载入新版**；回执里的 `replacedInUse` 列出这样处理的文件，以往留下的 `.old-*` 在下一次 apply 时清掉。`rollback` 时 `.overlay-applied.json` 标记同步回到套用前（备份里存着上一份就放回原处，没有就清掉），所以回滚掉的版本可以再套，不会被幂等预检当成「已应用」。打覆盖包用 `node tools/build-overlay.js <version>`，`<version>` 必填，每包用不同的 version。
+
 **应用内更新（第53波 EC-B）**：设置 -> 「更新中心」页签(专家模式可见)编排后端四条 token 级路由(`POST /api/overlay/precheck|apply|rollback` + `GET /api/overlay/status`),不复制第二套 PS1 实现。流程:选 zip(`/api/pick-file` 原生文件选择器) -> 预检预览(新增/覆盖/未变/移除 + 宿主/最低版本兼容) -> 确认 apply -> restartNeeded 提示 -> 失败恢复卡(一键回滚) + 审计尾 + 回滚按钮。CLI 保留为救援路径。
 
 > 套用后验证：浏览器打开 `http://127.0.0.1:<端口>/health` 应返回 `{"ok":true,...}`；「体检」页签的 `overlay-integrity` 应为 `verified`。
@@ -280,7 +282,7 @@ foreach ($v in $vars) {
 | `subagentModel` | 子代理专用模型（空 = 同主 model） |
 | `temperature` / `extraHeaders` | 采样温度 / 额外请求头 |
 
-**不内置任何厂商预设**：「模型服务商」页的起点模板只有本机 Ollama（`http://127.0.0.1:11434/v1`）、本机 LM Studio（`http://127.0.0.1:1234/v1`，两者免密钥）和「自定义」；云端 API、one-api 网关、内网 vLLM / Xinference 等一律手填 Base URL 与密钥。已经配好的服务商不受影响。
+**不内置任何厂商预设**：「模型服务商」页的起点模板只有本机 Ollama（`http://127.0.0.1:11434/v1`）、本机 LM Studio（`http://127.0.0.1:1234/v1`，两者免密钥）和两条「自定义」——「自定义 (OpenAI 兼容 / 内网自建)」与「自定义 (Anthropic 协议 / 兼容网关)」；云端 API、one-api 网关、内网 vLLM / Xinference 等一律手填 Base URL 与密钥。协议下拉（`apiStyle`）就在 Base URL 正下方，按填的地址自动识别，认错了可手动改。「测试连接」读端点的模型清单；端点没有模型清单时，改用填好的模型发一次最小补全。已经配好的服务商不受影响。
 
 **extraBaseUrls 备用端点故障转移语义（v1.0-S6）**——这是接入多端点时必须理解的一条：
 

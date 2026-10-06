@@ -216,8 +216,13 @@ MCP / Add-on components / Skills & templates / Migration center) and **System** 
 Advanced / Update Center). The "?" on each page opens the matching section of this guide.
 
 Configure either a local Agent CLI path (Claude Code or Kimi Code, under Models & Services → Agent CLI) or an
-OpenAI-compatible provider (Models & Services → Model providers: press "+ Add Provider", pick a local-model
-preset or "custom", enter the base URL and key the service gave you, and press "Save providers"); one configured
+OpenAI-compatible provider (Models & Services → Model providers: press "+ Add Provider" and pick a starting point from the
+drop-down beside it: a local model (Ollama / LM Studio), or a "custom" entry — one for OpenAI-compatible or
+self-hosted services, one for endpoints that speak the Anthropic protocol or a compatible gateway — then enter the base
+URL and key the service gave you. The protocol drop-down sits right under the Base URL and follows the address
+automatically (Chat Completions, Responses API or Anthropic Messages); override it by hand if it guesses wrong.
+"Test connection" reads the endpoint's model list; when the endpoint offers none, it sends one minimal completion with
+the model you filled in instead. Finally press "Save providers"); one configured
 engine is enough to start. Ruyi ships **no vendor presets**. Once configured, choose it from the engine chip in a
 thread's header, or decide who uses which model under Models & Services → Model assignment. Provider keys are
 stored locally and masked in UI responses.

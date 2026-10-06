@@ -25,7 +25,8 @@ budget before creating a release archive.
 When Claude CLI is not on PATH, add its location with the ClaudePath argument. Start the UI with
 Start-Workbench.cmd. Both variants preflight their required files. If Full desktop-control setup fails, the base
 Workbench continues to start and the detailed reason is retained in
-`%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log`.
+`%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log`, and the launcher window stays up for 15 seconds after the workbench
+starts (any key closes it sooner) to say that it started without desktop control and where the log is.
 
 A Full release must include CPython 3.12, the exact `winsdk==1.0.0b10`
 `cp312-win_amd64` wheel, and an embedded runtime that imports

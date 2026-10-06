@@ -78,6 +78,15 @@ catches tampered or incomplete packages); ③ version compatibility (see above);
 already applied and no `-Force`: precheck warns and apply is escalated to a refusal). `-Json` prints one JSON object
 for API consumers.
 
+**Applying while the desktop shell is running.** `RuyiDesktop.exe` and `WebView2Loader.dll` are in use and cannot be
+overwritten, so for these two the old image is renamed out of the way first (`<name>.old-<timestamp>`; NTFS allows
+renaming a running image) and the new file is put in its place; **the new version loads only after the desktop shell is
+restarted**. The receipt's `replacedInUse` lists the files handled this way, and leftover `.old-*` files are removed at
+the next apply. On `rollback` the `.overlay-applied.json` marker goes back to what it was before the apply (the previous
+one is put back from the backup, or the marker is cleared if there was none), so a rolled-back version can be applied
+again without the idempotence precheck calling it "already applied". Build an overlay with
+`node tools/build-overlay.js <version>`; `<version>` is required, and every package needs a different one.
+
 **In-app update.** **Settings → System → Update Center** (visible in pro mode) drives four token-level routes
 (`POST /api/overlay/precheck|apply|rollback` and `GET /api/overlay/status`) and does not carry a second PowerShell
 implementation: pick a zip (native file picker) → preview (added / overwritten / unchanged / removed, host and
@@ -253,8 +262,12 @@ If you use the pure `setx` path, check these when something looks wrong:
 a base budget of 1..200, with long turns starting at 200 and allowed to extend to a hard cap of 300 while they make
 progress). Add a provider with an ID, display label, base URL, API key, and model. Ruyi ships **no vendor presets**:
 the starting templates under Settings → Models & Services → Model providers are local Ollama
-(`http://127.0.0.1:11434/v1`), local LM Studio (`http://127.0.0.1:1234/v1`; neither needs a key) and "custom";
-anything else (a cloud API, a one-api gateway, an on-prem vLLM or Xinference) is a hand-entered base URL and key.
+(`http://127.0.0.1:11434/v1`), local LM Studio (`http://127.0.0.1:1234/v1`; neither needs a key) and two "custom" entries,
+one for OpenAI-compatible or self-hosted services and one for the Anthropic protocol or a compatible gateway; anything
+else (a cloud API, a one-api gateway, an on-prem vLLM or Xinference) is a hand-entered base URL and key. The protocol
+drop-down (`apiStyle`) sits right under the Base URL and follows the address automatically; override it by hand if it
+guesses wrong. "Test connection" reads the endpoint's model list, and when the endpoint offers none it sends one
+minimal completion with the model you filled in.
 Test the connection in Settings before production use. API keys remain on the local machine and are masked in
 ordinary API responses.
 

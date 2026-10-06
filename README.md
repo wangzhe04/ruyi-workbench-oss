@@ -173,7 +173,7 @@
 
 ### 1. 引擎与模型
 
-- **OpenAI 兼容端点（原生引擎）**：直连 HTTP + SSE 流式，带完整的原生工具循环。协议可选 Chat Completions、Responses API（服务端工具循环）或 Anthropic Messages（Anthropic 官方与国产 / 内网的 Anthropic 兼容网关，思考块带签名在工具循环里原样回传）；主回合、子代理、摘要、Playbook 起草全链路跟随所选协议。**不内置任何厂商预设**：填服务商给的 Base URL 和密钥即可（云端 API、one-api 网关、内网 vLLM 都行），本机 Ollama / LM Studio 免密钥。可以同时配多个服务商，每个服务商有自己的模型清单、单价、缓存命中价与请求头。
+- **OpenAI 兼容端点（原生引擎）**：直连 HTTP + SSE 流式，带完整的原生工具循环。协议可选 Chat Completions、Responses API（服务端工具循环）或 Anthropic Messages（Anthropic 官方与国产 / 内网的 Anthropic 兼容网关，思考块带签名在工具循环里原样回传）；主回合、子代理、摘要、Playbook 起草全链路跟随所选协议。**不内置任何厂商预设**（起点只有本机 Ollama / LM Studio 与两个「自定义」：OpenAI 兼容、Anthropic 协议 / 兼容网关；协议下拉按地址自动识别）：填服务商给的 Base URL 和密钥即可（云端 API、one-api 网关、内网 vLLM 都行），本机 Ollama / LM Studio 免密钥。可以同时配多个服务商，每个服务商有自己的模型清单、单价、缓存命中价与请求头。
 - **Agent CLI**：可选 **Claude Code** 或 **Kimi Code**。Claude Code 支持实时流式、交互式插话、权限桥接、原生 Agent 与按回合的 MCP 配置，也可以接第三方 Anthropic 兼容端点（Coding Plan）；Kimi Code 经官方 ACP 协议驱动（见下文兼容边界）。两者都会拿到一段「如意运行环境说明」：能用哪些如意工具、界面怎么显示、权限怎么走。
 - **模型分配**：设置里的「模型分配」一张表管完谁用哪个模型：对话主模型、新线程默认引擎（上次用的 / 跟随全局）、管家、强 / 快两档、子代理、上下文压缩、语音改错。选中即保存，「跟随」表示不单独指定。
 - **跨引擎续接**：同一线程从某个端点切到 Claude Code（或反过来），历史自动嫁接，不断上下文。线程头上切换只影响这一条线程。

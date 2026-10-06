@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File .\resources\scripts\install-workbench.p
 Start-Workbench.cmd
 ```
 
-启动器会先检查 Full/Slim 的关键文件。Full 的桌面控制组件准备失败时，基础工作台仍会继续启动，并在控制台和 `%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log` 中保留具体原因。
+启动器会先检查 Full/Slim 的关键文件。Full 的桌面控制组件准备失败时，基础工作台仍会继续启动，并在控制台和 `%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log` 中保留具体原因；启动器窗口会在工作台起来之后再停留 15 秒（按任意键可提前关闭），提示「没有桌面控制」和日志位置。
 
 Full 包的发布契约要求内置 CPython 3.12、固定的 `winsdk==1.0.0b10`
 `cp312-win_amd64` wheel，以及能够实际导入 `winsdk.windows.media.ocr` 的 embedded runtime。
