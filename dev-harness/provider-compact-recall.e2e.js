@@ -9,6 +9,9 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //     两次 file_read 都在索引里且带 rawRef。
 //  M3 下一回合:最新 user 消息旁的恢复索引(105a)不再为空(含摘要索引里的 rawRef);模型凭它调 observation_recall,
 //     取回的原文里有 NEEDLE —— 摘要没写的确切值仍能捞回来。
+//  M4 摘要过之后立刻再点「压缩」:不调摘要(level:0),历史一字不动 —— 修前把 [摘要, 收到] 又摘一遍,转半天、前后一样大;
+//  M5 摘要后只聊了一句再压:新增太少,同样 level:0;
+//  M6 明确 mode:'summary' 照旧重摘要(强制的路还在)。
 const { killOwnTree } = require('./lib/kill-own-tree');
 const fs = require('fs');
 const os = require('os');
@@ -140,12 +143,32 @@ function streamChat(body) {
     ok(indexLines.some(l => l.includes('big1.txt')), 'M2 index lines name the call arguments (path)');
     ok(/observation_recall/.test(head.slice(indexAt)) && /scratchpad_write/.test(head.slice(indexAt)), 'M2 index footer tells the model how to recall and to pin facts in the scratchpad');
 
+    // ── M4 / M5 摘要过之后再点「压缩」:新增太少就不调摘要(2026-10 用户报「压完再压,转半天、结果没压」——
+    //    修前把 [摘要, 收到] 又交给摘要模型摘一遍,前后一样大)──
+    const s4 = summaryRequests;
+    const r4 = await request('POST', '/api/provider/compact', { sessionId: sid });
+    ok(r4 && r4.ok === true && r4.level === 0 && r4.nothingToCompact === true, `M4 compacting again right after a summary is a no-op (got ${JSON.stringify(r4)})`);
+    ok(summaryRequests === s4, 'M4 no summary request was sent');
+    ok(JSON.stringify(await loadHistory()) === JSON.stringify(h2), 'M4 the history is untouched');
+    ok(r4 && r4.beforeTokens === r4.afterTokens && Number.isFinite(r4.freshTokens), 'M4 the reply carries the numbers the toast shows (fresh / before = after)');
+    const ev5 = await streamChat({ sessionId: sid, message: 'CMD_CHAT 随便再聊一句', cwd: WS });
+    ok(ev5.some(e => e.type === 'result' && e.ok === true), 'M5 one more chat turn ok');
+    const r5 = await request('POST', '/api/provider/compact', { sessionId: sid });
+    ok(r5 && r5.ok === true && r5.level === 0 && summaryRequests === s4, `M5 a short chat after the summary still is not worth a summary call (got level=${r5 && r5.level})`);
+    const h5 = await loadHistory();
+    ok(h5.length === 4 && textOf(h5[0]) === textOf(h2[0]), 'M5 the summary and the new turn are kept as they are');
+
     // ── M3 下一回合:恢复索引不空,模型捞回原文 ──
     const ev3 = await streamChat({ sessionId: sid, message: 'CMD_RECALL 刚才第一个文件里的关键值是多少?', cwd: WS });
     ok(ev3.some(e => e.type === 'result' && e.ok === true), 'M3 recall turn ok');
     ok(RAWREF.test(recallRef), 'M3 the recovery index next to the newest user message lists a rawRef after L2');
     const recallResult = fake.requests.map(r => (r.messages || []).find(m => m.role === 'tool' && m.tool_call_id === 'call_recall')).filter(Boolean).pop();
     ok(!!recallResult && textOf(recallResult).includes(NEEDLE), 'M3 observation_recall returned the original output with the needle');
+
+    // ── M6 明确要重摘要(mode:'summary')不受上面那道门管 ──
+    const s6 = summaryRequests;
+    const r6 = await request('POST', '/api/provider/compact', { sessionId: sid, mode: 'summary' });
+    ok(r6 && r6.ok === true && r6.level === 2 && summaryRequests > s6, `M6 mode:summary still re-summarizes on request (got level=${r6 && r6.level})`);
   } catch (e) {
     t.fail('fatal: ' + (e && e.stack || e));
   } finally {

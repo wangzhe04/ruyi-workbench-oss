@@ -678,7 +678,7 @@ export function createChatStreamRuntime(deps = {}) {
         if (state.currentSession?.id === sid) { state.currentSession = s.session; renderCurrentSession(); }
       }
       await refreshSessions();
-      toast(t(r.level === 1 ? "toast.compactL1Done" : "toast.compactDone", { p1: fmtTokens(r.beforeTokens || 0), p2: fmtTokens(r.afterTokens || 0) }), 'ok'); // level 1 = 服务商手动压缩只做了免费的 L1(没调摘要)
+      toast(r.level === 0 ? t("toast.compactNothingSince", { p1: fmtTokens(r.freshTokens || 0), p2: fmtTokens(r.beforeTokens || 0) }) : t(r.level === 1 ? "toast.compactL1Done" : "toast.compactDone", { p1: fmtTokens(r.beforeTokens || 0), p2: fmtTokens(r.afterTokens || 0) }), r.level === 0 ? '' : 'ok'); // level 1 = 只做了免费的 L1(没调摘要);level 0 = 已摘要过、之后新增太少,没压也没调模型
     } catch (e) { toast(t("toast.compactFail", { p1: apiErrText(e) }), 'err'); }
     finally { endCompactIndicator(); }
   }

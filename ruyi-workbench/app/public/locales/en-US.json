@@ -1741,6 +1741,7 @@
   "toast.compactDone": "Context compacted: {{p1}} → ~{{p2}} (est.)",
   "toast.compactL1Done": "Context compacted: older tool output folded (originals recoverable, no summary call) {{p1}} → ~{{p2}} (est.)",
   "toast.compactEmpty": "Nothing to compact yet",
+  "toast.compactNothingSince": "Nothing worth compacting yet: only about {{p1}} added since the last compaction (context is about {{p2}}, est.). Compacting after a longer stretch pays off more.",
   "toast.compactFail": "Compaction failed: {{p1}}",
   "toast.compactRequested": "Context compaction requested (/compact)",
   "toast.compactTimeout": "Compaction timed out and was rolled back. You can retry.",
