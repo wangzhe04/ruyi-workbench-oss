@@ -418,8 +418,7 @@ The gate `nativeToolGate(mode, tier)` is:
 
 The UI names are the ones on the top-bar shield and the thread header's permission chip: Ask me every step / Edit
 files without asking / Plan only / Smart auto / Fully automatic. The scheduled-task form's "How far it may go on its
-own" drop-down still uses older short names ("Auto-apply minor edits" = Edit files without asking, "Plan before
-acting" = Plan only).
+own" drop-down uses the same names.
 
 `git_commit` is deliberately **exec** (it triggers arbitrary code in `.git/hooks` and is never downgraded). Plan-mode
 approval is a **per-turn closure flag** and never changes the global `config.permissionMode` (so one approval cannot

@@ -1016,7 +1016,7 @@
               <select id="cfgShellMode">
                 <!-- 121-K1（34 号文 §2.7）：一台两视，选项顺序与 SHELL_MODES 同序（默认在前）；管家开关关时由 steward-shell.js 置 disabled 并显示下面那句提示。 -->
                 <option value="steward" data-i18n="shell.settingSteward">管家（默认）</option>
-                <option value="classic" data-i18n="shell.settingClassic">经典</option>
+                <option value="classic" data-i18n="shell.settingClassic">工作台</option>
               </select>
               <p class="field-help muted" data-i18n="shell.settingHint">切换只改变本机界面，不迁移或改写任务与线程数据；可随时切回。</p>
               <p class="field-help muted" id="stewardShellModeHint" data-i18n="stewardShell.settingDisabledHint" hidden>要用管家壳，先在设置里打开管家。</p>
@@ -1451,8 +1451,8 @@
                     <select id="cfgStewardSchedulePermission">
                       <option value="" data-i18n="settings.steward.schedule.permission.global">跟随全局设置</option>
                       <option value="default" data-i18n="permission.mode.default.short">每步都问</option>
-                      <option value="plan" data-i18n="permission.mode.plan.short">先计划再动手</option>
-                      <option value="acceptEdits" data-i18n="permission.mode.acceptEdits.short">小改动自动做</option>
+                      <option value="plan" data-i18n="permission.mode.plan.short">只做计划</option>
+                      <option value="acceptEdits" data-i18n="permission.mode.acceptEdits.short">改文件不问</option>
                       <option value="auto" data-i18n="permission.mode.auto.short">智能自动</option>
                     </select>
                   </div>

@@ -29514,8 +29514,8 @@ const PROMPT_ZH = {
     permissionRefusal: '用户拒绝某个操作就是他的决定，不要换工具或换写法绕过去。',
     permissionModes: {
       default: { label: '每步都问', meaning: '有副作用的操作都会先弹窗征得用户同意' },
-      acceptEdits: { label: '小改动自动做', meaning: '文件编辑自动放行，运行命令等敏感操作仍会弹窗询问' },
-      plan: { label: '先出计划', meaning: '先调查并给出完整计划，用户批准后才动手' },
+      acceptEdits: { label: '改文件不问', meaning: '文件编辑自动放行，运行命令等敏感操作仍会弹窗询问' },
+      plan: { label: '只做计划', meaning: '先调查并给出完整计划，用户批准后才动手' },
       auto: { label: '智能自动', meaning: '低风险操作自动执行，高风险操作仍会弹窗询问' },
       bypass: { label: '全自动', meaning: '操作不再逐个询问；删除、对外发送、改系统设置这类后果大的事仍要先和用户确认' },
     },
