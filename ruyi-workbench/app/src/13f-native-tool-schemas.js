@@ -3,7 +3,7 @@ const MCP_TOOLS = [
   ...adaptiveMetaToolSchemas(true),
   {
     name: 'workbench_memory_list',
-    description: 'List/search confirmed Workbench Memory metadata for the current project and global scope. Use when the user asks what is remembered or the injected memory preflight/index is insufficient. This does not read full bodies.',
+    description: 'List/search confirmed Workbench Memory metadata (current project + global), no bodies. Use when the user asks what is remembered or the injected index is insufficient.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -15,7 +15,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_read',
-    description: 'Read one confirmed Workbench Memory entry by id. Read only entries relevant to the current request and verify stale facts against the workspace before relying on them.',
+    description: 'Read one confirmed Workbench Memory entry by id. Read only relevant entries; verify stale facts against the workspace before relying on them.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: {
@@ -29,23 +29,23 @@ const MCP_TOOLS = [
     // C3:一次可带 items[≤3](一张卡、用户逐条确认)。顶层不再写 required —— 批量形式不带顶层字段;单条形式六个字段
     // 照旧都要,由描述说明、处理器逐字段校验(措辞与修前一致)。items 的元素不重抄六个属性的 schema(每回合常驻,
     // 字符预算见 unit/tool-schema-budget),靠描述指回上面那六个。
-    description: 'Propose durable memories for user review, saved only after the user confirms the post-turn card. Use when the user explicitly asks to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson not in repository files. Never include secrets, transient status, guesses, or ordinary task output. One candidate: all six fields. 2-3 independent ones: items.',
+    description: 'Propose durable memories; saved only after the user confirms the post-turn card. Use when asked to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson not in repo files. Never secrets, transient status, guesses, or ordinary task output. One candidate: all six fields; 2-3 independent ones: items.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
         name: { type: 'string', maxLength: 120, description: 'short title' },
         description: { type: 'string', maxLength: 400, description: 'When this memory is useful.' },
         type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'habit | project rule | pitfall | pointer, in enum order' },
-        scope: { type: 'string', enum: ['project', 'global'], description: 'Use global only for an explicitly cross-project personal preference.' },
-        body: { type: 'string', maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
-        reason: { type: 'string', maxLength: 240, description: 'Why this will remain useful across future sessions.' },
+        scope: { type: 'string', enum: ['project', 'global'], description: 'project by default; global only if the user said it applies to all projects/sessions (or it is a personal preference), else stored as project. The user can switch it on the card.' },
+        body: { type: 'string', maxLength: 4000, description: 'Concise Markdown: conclusion, when it applies, concrete practice.' },
+        reason: { type: 'string', maxLength: 240, description: 'Why it stays useful across sessions.' },
         items: { type: 'array', maxItems: 3, items: { type: 'object' }, description: 'Batch: 2-3 objects with the six fields above' },
       },
     },
   },
   {
     name: 'workbench_memory_relation_propose',
-    description: 'Propose a relation edge between two existing confirmed Workbench Memory entries (supports/contradicts/supersedes/derived_from). It never saves directly: the user must confirm the card after the turn. from/to must be memory ids that already exist in the same scope.',
+    description: 'Propose a relation edge between two existing confirmed Workbench Memory entries (supports/contradicts/supersedes/derived_from). It never saves directly: the user must confirm the card after the turn.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['type', 'from', 'to'],
       properties: {
@@ -60,12 +60,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_revise',
-    description: 'Propose a revision to an existing confirmed Workbench Memory entry (name/description/type/body). It never saves directly: the user must confirm the card after the turn. Provide the suggested replacement values; unchanged fields may be omitted.',
+    description: 'Propose a revision to an existing confirmed Workbench Memory entry (name/description/type/body, or newScope to move it). It never saves directly: the user must confirm the card after the turn. Unchanged fields may be omitted.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id', 'reason'],
       properties: {
         id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'Memory id to revise.' },
         scope: { type: 'string', enum: ['project', 'global'], description: 'Scope of the target memory.' },
+        newScope: { type: 'string', enum: ['project', 'global'], description: 'Move it here (project to global = promote). Needs the user saying it applies to all projects.' },
         name: { type: 'string', minLength: 1, maxLength: 120, description: 'Suggested replacement name (omit to keep).' },
         description: { type: 'string', minLength: 1, maxLength: 400, description: 'Suggested replacement description (omit to keep).' },
         type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'Suggested replacement type (omit to keep).' },
@@ -76,7 +77,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_relation_revoke',
-    description: 'Propose revoking (deleting) an existing memory relation edge. It never deletes directly: the user must confirm the card after the turn. Use relationId from listMemoryRelations or a prior confirmed relation.',
+    description: 'Propose revoking (deleting) an existing memory relation edge. It never deletes directly: the user must confirm the card after the turn.',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['relationId'],
       properties: {

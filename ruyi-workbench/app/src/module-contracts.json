@@ -5724,17 +5724,21 @@
         "AGENT_INSTRUCTION_IMPORT_SCHEMA",
         "AGENT_INSTRUCTION_MAX_BYTES",
         "AGENT_INSTRUCTION_NATIVE_CLI",
+        "AGENT_INSTRUCTION_SCAN_VERSION",
         "CORE_MEMORY_CHAR_CAP",
         "CORE_MEMORY_MAX",
         "CORE_MEMORY_SUMMARY_CAP",
         "MEMORY_EXCLUSION_MAX",
         "MEMORY_FUSION_SCOPE_BONUS",
         "MEMORY_FUSION_TYPE_BONUS",
+        "MEMORY_GLOBAL_SCOPE_RE",
         "MEMORY_HEAD_CACHE",
         "MEMORY_HEAD_CACHE_MAX",
         "MEMORY_INDEX_CAP",
         "MEMORY_MAX",
         "MEMORY_METADATA_READ_CAP",
+        "MEMORY_PERSONAL_PREFERENCE_RE",
+        "MEMORY_PROJECT_ONLY_RE",
         "MEMORY_PROPOSAL_BATCH_MAX",
         "MEMORY_PROPOSAL_HISTORY_MAX",
         "MEMORY_PROPOSAL_MIN_JUDGE_GAP",
@@ -5753,6 +5757,7 @@
         "agentInstructionChain",
         "agentInstructionImportFile",
         "agentInstructionImportStore",
+        "agentInstructionLooksSensitive",
         "agentInstructionMemoryId",
         "agentInstructionSourceKeyOf",
         "agentInstructionSources",
@@ -5764,6 +5769,7 @@
         "buildMemoryConflictMap",
         "buildMemoryPromptSection",
         "cleanMemoryDate",
+        "clipRecentMemoryDraftContext",
         "commitSingleMemoryProposal",
         "commitToolMemoryProposal",
         "commitToolMemoryProposalUnlocked",
@@ -5789,7 +5795,9 @@
         "memoryCoreScore",
         "memoryDraftFromObject",
         "memoryExclusionSet",
+        "memoryFailureResponse",
         "memoryGlobalDir",
+        "memoryGlobalScopeAllowed",
         "memoryHaystackHasTerm",
         "memoryIsExpired",
         "memoryProjectDir",
@@ -5807,6 +5815,7 @@
         "memoryProposeAlreadyPendingResult",
         "memoryRecallCorpus",
         "memoryRecallCorpusCache",
+        "memoryRecentUserTexts",
         "memoryRelationsFile",
         "memoryRetrievalKey",
         "memoryRetrievalText",
@@ -5817,6 +5826,7 @@
         "memoryUsageWriteChain",
         "migrateLegacyAccMemory",
         "migrateMemory",
+        "moveMemoryScope",
         "mutateMemoryUsageState",
         "normalizeMemoryProposalCandidate",
         "parseMemoryDraft",
@@ -5845,6 +5855,7 @@
         "recordMemoryProposalUsage",
         "removeAgentInstructionEntries",
         "renderAgentInstructionMemory",
+        "replayPendingMemoryProposal",
         "resolveCoreMemoryState",
         "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
@@ -5867,6 +5878,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
           "kinds": [
             "call"
           ]
@@ -5904,6 +5922,13 @@
           "symbol": "fsp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -12757,6 +12782,13 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "memoryRelevanceMax",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
@@ -13401,6 +13433,13 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "memoryFailureResponse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "migrateLegacyAccMemory",
           "kinds": [
             "call"
@@ -13409,6 +13448,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "migrateMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "moveMemoryScope",
           "kinds": [
             "call"
           ]
@@ -13437,6 +13483,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "readMemoryItem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "replayPendingMemoryProposal",
           "kinds": [
             "call"
           ]
