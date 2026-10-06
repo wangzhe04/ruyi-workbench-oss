@@ -1318,7 +1318,9 @@ function stewardTrimSayAtSentence(value, ceiling) {
 // ── 管家记忆层(§4)。kind 白名单与容量硬上限;词项 Jaccard 用于同义去重(113a 向量化落地前的口径)。
 const STEWARD_MEMORY_KINDS = Object.freeze(['profile', 'preference', 'habit', 'focus', 'policy']);
 
-const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50 });
+// quoteMin/quoteChars:steward_memory_write 的 sourceRef.quote(来源原话片段)的下限与上限 —— 下限防「的 / 是」这种到处能命中的碎片,
+// 但用户整条消息本身比下限还短时,整条消息就是合法的引文(见 13l stewardQuoteInSource)。
+const STEWARD_MEMORY_LIMITS = Object.freeze({ textChars: 300, maxEntries: 200, dedupeJaccard: 0.8, searchLimit: 50, quoteMin: 6, quoteChars: 200 });
 // 129b:三张只读清单(技能 / 端点与模型 / playbook)的行数与描述预算。一个数管三处 —— 它们是
 // 同一类东西(「有哪些可选」的目录),没有理由各有各的上限。40 行按今天的真实规模定:技能四源
 // 合起来几十条、端点个位数、playbook 十几条,够列全;真超了模型可以带 q 再问一次。

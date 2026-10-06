@@ -332,9 +332,11 @@ function safeDecodeURIComponent(segment) {
   try { return decodeURIComponent(String(segment == null ? '' : segment)); } catch { return null; }
 }
 
+// 开头的 UTF-8 BOM(U+FEFF)先剥掉再解析:Windows 记事本/PowerShell 5.1 另存的 JSON 常带 BOM,JSON.parse 对它抛 SyntaxError,
+// 修前 config.json、各类用户手改的清单被当成「损坏」(config 还会因此回滚到 .prev 覆盖用户的编辑)。只处理字符串入参。
 function safeJsonParse(raw, fallback = null) {
   try {
-    return JSON.parse(raw);
+    return JSON.parse((typeof raw === 'string' && raw.charCodeAt(0) === 0xFEFF) ? raw.slice(1) : raw);
   } catch {
     return fallback;
   }
@@ -1323,6 +1325,13 @@ const EventStreamHooks = {};
 // 迁移中心的实现住在 13u-migration-center.js(零入边);13b 的路由经这张表迟绑定调进去(13b → 00-boot 是
 // 既有后向边),与 EventStreamHooks 同款。未填充时路由回 503,不会误走别的分支。
 const MigrationHooks = {};
+
+// 子代理的记忆核心胶囊(走查 #15)的延迟绑定口。08-agent-runs 要在子代理系统提示里放用户的核心偏好,但直接引 06d 的
+// resolveMemoryPreflight / buildMemoryConflictMap 会给 08 添一条【环内】新边(06d 已在那个强连通分量里,依赖图的环债上限不许涨)。
+// 所以 08 只读 `SubAgentMemoryHooks.coreSnapshot`(08 → 00-boot 是既有后向边),由 09-workflow 加载时 Object.assign 填实现
+// (09 本来就依赖 06d)。未填充时调用方当「没有胶囊」处理,子任务照跑。契约:coreSnapshot({ parentSession, workingDir, task, config })
+// → Promise<{ entries: 已激活核心条目[], conflicts: Map|null }>,绝不抛(调用方也 try 包着)。
+const SubAgentMemoryHooks = {};
 
 // 其它 Agent CLI 的用户级目录。一律在【调用时】按 os.homedir() 与各家的覆盖变量解析(不缓存):测试把
 // USERPROFILE/HOME 指到临时家,这里立刻跟着走 —— 这就是「测试绝不碰真机家目录」的那一道闸。

@@ -856,7 +856,7 @@ export function createChatStreamRuntime(deps = {}) {
       live = turnState.live; main = turnState.main;
       turnEndedBadly = true;
       if (err.name === 'AbortError') { appendMsgNote(main, live, t('status.stopped')); toast(t("toast.turnStopped")); }
-      else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
+      else if (/"session\.turn_busy_elsewhere"/.test(String(err && err.message || ''))) { /* 线程正被别处起的回合占着(后台代理唤醒 / 管家 / 定时任务)而本页的插话快照还没跟上:服务端 409、这句没发出 —— 放回输入框,不吞 */ appendMsgNote(main, live, t('chat.turnBusyElsewhere')); const box = $('promptInput'); if (box && !box.value.trim()) { box.value = message; autoGrow(box); updateSendBtn(); } toast(t('chat.turnBusyElsewhere')); } else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
       finalizeLive(live);
       // 失败/中止路径没有成功路径的回合末重取 —— 单独拉一次,把乐观行的操作条重绑到持久化真身。
       // 也把重取回来的会话装回 state(与成功路径同口径,不重画):中止/断流时服务端已经落了半截回答,修前 state 里没有它,

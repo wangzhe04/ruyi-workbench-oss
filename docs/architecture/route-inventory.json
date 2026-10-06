@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-05T18:16:22.951Z",
+  "generatedAt": "2026-10-06T01:08:33.977Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -974,6 +974,7 @@
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-tools.e2e.js",
         "dev-harness\\steward-tools.static.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js",
         "dev-harness\\ui-misc-wave1.browser.e2e.js",
@@ -1279,6 +1280,7 @@
         "dev-harness\\config-mutate-mcp-parity.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
@@ -1299,6 +1301,7 @@
         "dev-harness\\config-mutate-mcp-parity.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
@@ -1318,6 +1321,7 @@
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\ui-bugfix.static.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
@@ -1338,6 +1342,7 @@
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\ui-bugfix.static.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
@@ -1356,7 +1361,8 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
-        "dev-harness\\auth-deny-default.e2e.js"
+        "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js"
       ]
     },
     {
@@ -1458,7 +1464,9 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
+        "dev-harness\\unit\\session-memory-cap.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -1480,6 +1488,8 @@
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-recall-injection.e2e.js",
+        "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -1623,6 +1633,8 @@
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-recall-injection.e2e.js",
+        "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -1816,7 +1828,8 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
-        "dev-harness\\kimi-agent-cli.e2e.js"
+        "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js"
       ]
     },
     {
@@ -1997,6 +2010,7 @@
         "dev-harness\\batch-output-discipline.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\judge-json-repair.e2e.js",
+        "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
@@ -2423,6 +2437,7 @@
         "dev-harness\\mcp-config.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-recall-injection.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-tools.e2e.js",
         "dev-harness\\migration-center.e2e.js",
@@ -2501,6 +2516,7 @@
         "dev-harness\\steward-side-collapse.browser.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-walkthrough.static.e2e.js",
+        "dev-harness\\subagent-retry-after.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -3260,6 +3276,7 @@
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
@@ -3352,7 +3369,9 @@
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\subagent-compaction-parity.e2e.js",
+        "dev-harness\\subagent-retry-after.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
@@ -3402,7 +3421,8 @@
       "coveredBy": [
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\session-search.e2e.js",
-        "dev-harness\\steward-runner.e2e.js"
+        "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js"
       ]
     },
     {
@@ -3511,6 +3531,7 @@
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
@@ -3603,7 +3624,9 @@
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\subagent-compaction-parity.e2e.js",
+        "dev-harness\\subagent-retry-after.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
@@ -3784,6 +3807,7 @@
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
+        "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
@@ -4439,6 +4463,7 @@
         "dev-harness\\i18n.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
+        "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
         "dev-harness\\monitor-incremental.e2e.js",

@@ -359,6 +359,8 @@ function stewardNormalizeMemoryEntry(raw) {
     confidence: Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : 0.6,
     sourceSessionId: String(raw.sourceSessionId || ''),
     sourceSeq: Math.max(0, Number(raw.sourceSeq) || 0),
+    // 走查 #14:凭哪句用户原话记的(steward_memory_write 的 sourceRef.quote,服务端已逐字核对过)。老条目没有 -> 空串,存量零迁移。
+    sourceQuote: String(raw.sourceQuote || '').slice(0, STEWARD_MEMORY_LIMITS.quoteChars),
     createdAt: String(raw.createdAt || ''),
     updatedAt: String(raw.updatedAt || ''),
     lastUsedAt: String(raw.lastUsedAt || ''),

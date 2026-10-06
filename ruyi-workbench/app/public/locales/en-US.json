@@ -203,6 +203,7 @@
   "chat.send": "Send",
   "chat.steer": "Steer",
   "chat.agentWake": "{{n}} background agent run(s) finished — the Workbench woke this conversation so the model can pick up the results",
+  "chat.turnBusyElsewhere": "This thread is busy with a turn started elsewhere (usually a background agent result being handled), so your message was not sent and is back in the box. Send it again when the thread is idle, or now as a steer.",
   "chat.steerCancel": "Cancel",
   "chat.steerCancelAria": "Cancel this steer",
   "chat.steerClearAll": "Clear all",

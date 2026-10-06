@@ -543,6 +543,11 @@ async function markInterruptedAgentRuns() {
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
+      // 模型以 background:true 起的 run 被重启打断、又不会自动续跑:补一份 interrupted 信封进后台任务账本 —— 修前模型对用户说过
+      // 「代理在后台跑」,之后再没有任何人告诉它这些代理已经没了。信封在用户下一句话时随回合开头送达(interrupted 不唤醒,见 10)。
+      if (run.background === true && !(bootConfig && bootConfig.autonomyAutoResume === true) && EventStreamHooks.notifyAgentRunEnvelope) {
+        try { EventStreamHooks.notifyAgentRunEnvelope(run.sessionId, run, buildAgentRunEnvelope(run)); } catch { /* 旁路,boot 防炸 */ }
+      }
   });
   // 71b: 存量对账 —— 71b 前落盘的 paused run 可能有 proposed 池提案但无 Intervention 记录(当时池未接入旁路)。
   // boot 补登记(append-only,幂等:已有记录的 id 跳过),否则 missionPendingCounts 统一从 Intervention 读池未决后
@@ -635,7 +640,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   // 117z-E2 提交①(§11.21.3):子代理没有「这一条线程」的会话头 —— 它跑在父回合的执行链里,自己
   // 不是一条会话。desktopOverride 显式传 null = 跟随全局 allowDesktopTools = 修前逐字行为。写成
   // 显式的 null 而不是省略,是为了让「子代理这一面【没有】会话级桌面覆盖」这件事在源码里可读可查。
-  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noAgentTools: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true, desktopOverride: null });
+  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noAgentTools: true, noMemoryWriteTools: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true, desktopOverride: null });
   // 第22波(开放子代理工具面): 桥接(外部/桌面 MCP)工具按 BRIDGED_TOOL_TIERS 分级参与所有层级——原先 read/edit
   // 一刀切不挂桥接面,read 级研究/审查类子代理连 ACC 的只读族(截图/OCR/查找/检查)都拿不到。现按 bridgedToolTier
   // (含 config.bridgedToolTiers 用户覆盖)过滤:read 只带桥接 read 级,edit 加 edit 级,exec 全量(行为不变)。
@@ -674,7 +679,18 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   const workingDir = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
   const projectMemory = await readProjectMemory(workingDir).catch(() => null);
   // Reuse the four-layer prompt for the capability/project/provider layers, then prepend the sub-agent identity.
-  const baseSys = buildProviderSystemPrompt(provider, subModel, workingDir, tools, caps, config, projectMemory);
+  // #15:核心胶囊(用户的「中文回复 / 提交规范」这类每轮都该遵守的偏好)修前到不了子代理 —— 工作流节点(09)会注入,这里不传 memoryEntries。
+  // 只带【核心】:相关召回是按主线那句话排的,子任务是另一件事;relevance 压到 0 也顺带让 preflight 不给没注入的条目记 use。
+  // 走 parentSession:会话级排除 / 固定选择 / 「关闭记忆」同样管着子代理。失败只是没有胶囊,绝不阻断子任务。
+  let subMemoryCore = [], subMemoryConflicts = null;
+  if (typeof SubAgentMemoryHooks.coreSnapshot === 'function') {
+    try {
+      const snap = await SubAgentMemoryHooks.coreSnapshot({ parentSession, workingDir, task: String(task || ''), config });
+      subMemoryCore = (snap && Array.isArray(snap.entries)) ? snap.entries : [];
+      subMemoryConflicts = (snap && snap.conflicts) || null;
+    } catch { subMemoryCore = []; subMemoryConflicts = null; }
+  }
+  const baseSys = buildProviderSystemPrompt(provider, subModel, workingDir, tools, caps, config, projectMemory, false, undefined, subMemoryCore, undefined, subMemoryConflicts);
   const rolePrompt = role && role.prompt ? `角色：${role.label || role.id}\n${role.prompt}\n\n` : '';
   const sys = appendResponseLanguagePolicy(
     '你是子任务执行体。目标:完成被交办的具体任务后,用简洁文本输出最终结论(不要反问,不要请求进一步指示)。\n\n' + rolePrompt + baseSys,
@@ -831,13 +847,14 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // openAiStreamOnce lets those propagate to the catch below).
       // 架构还债批 2·A:骨架与瞬时判据走 04h(withTransientRetry + providerCallIsTransient,与 07 的 CLI 子代理同一份骨架)。
       // 口径原样:每次发出前查中止;工具被拒 → 去掉工具立即再打一次(不计数、不睡);瞬时失败至多重试 3 次,
-      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断);其余结果原样交给下面的分类。
+      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断),服务商回了 Retry-After(07 带出 retryAfterMs,封顶 30 s)就至少睡这么久
+      // —— 与主回合(09)同口径;修前限流窗口还没过就把 3 次重试用光,子代理整个失败。其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
       const sent = await withTransientRetry({
         maxRetries: 3,
         isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         signal: ctrl && ctrl.signal,
-        backoffMs: n => Math.min(2000, 250 * n),
+        backoffMs: (n, c) => Math.max(Math.min(2000, 250 * n), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
         attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire }),
         classify: c => {
           if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
@@ -1019,6 +1036,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             try { resultObj = (typeof sendToAgent === 'function') ? await sendToAgent(args) : { ok: false, error: 'Agent 邮箱在当前上下文不可用' }; }
             catch (e) { resultObj = { ok: false, error: (e && e.message) || String(e) }; }
             if (resultObj && resultObj.ok) onEvent({ type: 'subagent_mail_out', subagentId, target: String(args && (args.targetNodeKey != null ? args.targetNodeKey : args.target) || ''), text: String(args && (args.message != null ? args.message : args.text) || '') });
+          } else if (MEMORY_WRITE_TOOL_NAMES.has(tc.name)) {
+            // #15 double-guard:记忆写工具不 offer 给子代理(候选槽是父会话唯一的一个);模型凭记忆硬调也拒,口径同禁嵌套那一支。
+            resultObj = { ok: false, error: '子代理不能提议或修订工作台记忆(候选槽属于主线程);请把值得长期记住的结论写进最终报告,由主线程决定是否提议' };
           } else if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
             // 禁嵌套 double-guard: even though the agent tools are not offered here, refuse them defensively
             // (spawn_agent 仍列在这里:旧模型可能凭记忆调它,拒绝口径要一致)。
