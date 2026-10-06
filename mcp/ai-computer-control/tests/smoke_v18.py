@@ -28,6 +28,9 @@ sys.path.insert(0, _SRC)
 _DATA = os.path.join(tempfile.gettempdir(), "acc_smoke_v18_data")
 os.makedirs(_DATA, exist_ok=True)
 os.environ["WCW_DATA_DIR"] = _DATA
+# Off Windows there is no %SystemRoot%: the "writing into SystemRoot is refused" checks would otherwise resolve
+# "C:\Windows/x" against the cwd, find it unprotected and leave a `C:\Windows/` directory in the repo.
+os.environ.setdefault("SystemRoot", os.path.join(_DATA, "FakeWindows"))
 
 import ai_computer_control.server as server  # noqa: E402
 

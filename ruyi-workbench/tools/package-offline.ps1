@@ -357,8 +357,28 @@ $node = Get-Command node.exe -ErrorAction SilentlyContinue
 if (-not $node) {
   throw "Node.js was not found on the packaging machine. Refusing to create a package without runtime\node\node.exe."
 }
+# runtime\node\node.exe is the runtime of the whole package, so check what is about to be copied. Node 20+ is what
+# package.json engines asks for, and the file must be a real Node binary: Volta / nvm-windows / fnm leave tiny launcher
+# shims on PATH that only work next to their manager's own files, so a copy would not start on the target machine.
+# `process.execPath` names the binary that actually runs (the real node.exe behind a shim), so prefer it.
+$nodeSource = $node.Source
+$nodeRealPath = (@(& $nodeSource -p "process.execPath" 2>$null) | Select-Object -First 1)
+if ($LASTEXITCODE -ne 0) { throw "Could not run '$nodeSource' to read its version. Fix the Node.js install on the packaging machine." }
+if ($nodeRealPath -and (Test-Path -LiteralPath ([string]$nodeRealPath).Trim() -PathType Leaf)) { $nodeSource = ([string]$nodeRealPath).Trim() }
+$nodeVersionText = (@(& $nodeSource -p "process.version" 2>$null) | Select-Object -First 1)
+if ($LASTEXITCODE -ne 0 -or ([string]$nodeVersionText).Trim() -notmatch '^v(\d+)\.') {
+  throw "Could not read the version of '$nodeSource' (got '$nodeVersionText')."
+}
+if ([int]$Matches[1] -lt 20) {
+  throw "node.exe on the packaging machine is $(([string]$nodeVersionText).Trim()); Ruyi needs Node 20 or newer (package.json engines). Refusing to bundle it as runtime\node\node.exe."
+}
+$nodeBytes = (Get-Item -LiteralPath $nodeSource).Length
+if ($nodeBytes -lt 20MB) {
+  throw "'$nodeSource' is only $([math]::Round($nodeBytes / 1MB, 1)) MB: that is a version-manager shim, not a Node runtime. Put a real node.exe first on PATH (or run the packager from a shell where it is)."
+}
 New-Item -ItemType Directory -Force -Path (Join-Path $stage "runtime\node") | Out-Null
-Copy-Item $node.Source (Join-Path $stage "runtime\node\node.exe")
+Copy-Item $nodeSource (Join-Path $stage "runtime\node\node.exe")
+Write-Host "Bundled Node runtime: $(([string]$nodeVersionText).Trim()) from $nodeSource"
 
 $accPreflight = ""
 $accBootstrap = ""
@@ -387,6 +407,7 @@ set "PATH=%ACC_ROOT%\python_embed;%PATH%"
 echo [Ruyi] Ensuring AI Computer Control is installed and registered...
 "%ACC_ROOT%\python_embed\python.exe" -u -B -X utf8 "%ACC_ROOT%\install.py" --ensure
 if errorlevel 1 (
+  set "RUYI_ACC_FAILED=1"
   echo.
   echo [Ruyi] Desktop-control setup failed. The base Workbench will still start.
   echo [Ruyi] Review the specific error and recovery hint above, then run this launcher again.
@@ -421,24 +442,42 @@ $accPreflight
 $accBootstrap
 if exist "%RUYI_ROOT%RuyiDesktop.exe" if exist "%RUYI_ROOT%WebView2Loader.dll" (
   start "" "%RUYI_ROOT%RuyiDesktop.exe"
+  call :acc_notice
   exit /b 0
 )
 REM 118c: no black console window on the node fallback path any more. PowerShell starts node.exe
 REM hidden and detached, then this launcher exits immediately, so the transient cmd window closes
 REM at once instead of staying open for the whole session (and no pause on failure).
 REM Paths travel through environment variables, never inline quoting, so a folder name with spaces,
-REM single quotes or ampersands cannot break the command line.
+REM single quotes or ampersands cannot break the command line. -ArgumentList is ONE string with the server
+REM path already wrapped in quotes: Windows PowerShell 5.1 joins an array form with plain spaces and does not
+REM quote elements that contain spaces, which split C:\Program Files\... into two arguments for node.
 REM Startup failures are not printed here: the server writes a plain-language last-start-error.json
 REM into its data folder and the next successful launch shows it in the in-app notice bar.
 set "RUYI_NODE=%RUYI_ROOT%runtime\node\node.exe"
 set "RUYI_SERVER=%RUYI_ROOT%app\server.js"
-powershell -NoLogo -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath `$env:RUYI_NODE -ArgumentList @(`$env:RUYI_SERVER,'serve','--open') -WindowStyle Hidden"
-if not errorlevel 1 exit /b 0
+powershell -NoLogo -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath `$env:RUYI_NODE -ArgumentList ('{0}{1}{0} serve --open' -f ([char]34),`$env:RUYI_SERVER) -WindowStyle Hidden"
+if not errorlevel 1 (
+  call :acc_notice
+  exit /b 0
+)
 
 REM PowerShell unavailable (removed, or blocked by policy): start node directly so the workbench still
 REM runs. This degraded path keeps one console window, which is better than not starting at all.
 "%RUYI_NODE%" "%RUYI_SERVER%" serve --open
 exit /b %ERRORLEVEL%
+
+:acc_notice
+REM Only reached after the workbench or desktop shell was started. When the Full launcher's desktop-control setup
+REM failed, this launcher window used to close at once and the message above was never readable. Keep it up for
+REM a few seconds (any key skips the wait) and say where the details are. A no-op when setup succeeded or on Slim.
+if not defined RUYI_ACC_FAILED exit /b 0
+echo.
+echo [Ruyi] The workbench is starting WITHOUT desktop control.
+echo [Ruyi] Details: %LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log
+echo [Ruyi] This window closes in 15 seconds; press any key to close it now.
+timeout /t 15
+exit /b 0
 
 :package_incomplete
 echo.

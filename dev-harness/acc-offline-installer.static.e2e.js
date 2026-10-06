@@ -114,5 +114,21 @@ ok(/__RUYI_ACC_FULL__/.test(configRuntime) && /installed-full-runtime/.test(conf
    /offline-embedded-runtime/.test(configRuntime) && /capability === 'full'/.test(configRuntime),
   'desktop MCP autodetection prefers bundled then installed WinSDK-capable runtimes over core-only system Python');
 
+// 走查第二波 #20:Full 启动器在 ACC 准备失败时,提示曾经根本看不到 —— 失败分支只 echo,随后立刻 start 桌面壳并 exit /b 0,
+// 双击起的 cmd 窗口一闪而过。现在失败只记一个标志,等工作台/桌面壳【已经启动】后再把提示留在屏幕上几秒并给出日志路径
+// (先启动再等:用户此时关窗不会连工作台都起不来)。必须保持「ACC 失败不挡基础工作台」:失败分支里仍无 exit /b 1。
+ok(/set "RUYI_ACC_FAILED=1"/.test(packager) && !/set "RUYI_ACC_FAILED=1"[\s\S]{0,400}exit \/b 1/.test(packager),
+  'ACC setup failure is only remembered (RUYI_ACC_FAILED); it still never blocks the base Workbench');
+ok(/start "" "%RUYI_ROOT%RuyiDesktop\.exe"\r?\n\s*call :acc_notice\r?\n\s*exit \/b 0/.test(packager) &&
+   /Start-Process[^\n]+\r?\nif not errorlevel 1 \(\r?\n\s*call :acc_notice\r?\n\s*exit \/b 0\r?\n\)/.test(packager),
+  'the failure notice runs AFTER the desktop shell / hidden node was started, on both start paths');
+ok(/:acc_notice[\s\S]{0,500}if not defined RUYI_ACC_FAILED exit \/b 0[\s\S]{0,400}%LOCALAPPDATA%\\Ruyi\\logs\\acc-install-latest\.log[\s\S]{0,200}timeout \/t \d+/.test(packager),
+  'the notice names acc-install-latest.log and keeps the window up (timeout, any key skips); a no-op when setup succeeded');
+// #22:被拷成 runtime\node\node.exe 的 node 要先验:Node >= 20(package.json engines),且不是 Volta/nvm/fnm 的小壳。
+ok(/process\.execPath/.test(packager) && /process\.version/.test(packager) && /\$Matches\[1\] -lt 20/.test(packager) && /-lt 20MB/.test(packager) &&
+   /Copy-Item \$nodeSource \(Join-Path \$stage "runtime\\node\\node\.exe"\)/.test(packager),
+  'packager validates the node.exe it bundles (version >= 20, real binary rather than a version-manager shim) before copying it');
+ok(/"node": ">=20"/.test(read('ruyi-workbench/package.json')), 'package.json engines still says node >=20 (the version floor the packager enforces)');
+
 console.log('\nACC OFFLINE INSTALLER CONTRACT: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
 process.exit(failures ? 1 : 0);
