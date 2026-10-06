@@ -27307,7 +27307,7 @@ function toolRequirementsMet(toolName, caps, toolRequiresEnabled, config) {
 // Seeded now so the v0.9 error-humanization UI has real data to render. `result` events attach `errorClass`
 // when determinable (additive field). Exported for the UI + tests.
 const ERROR_CLASSES = {
-  provider_misconfigured: { zh: '模型端点未配置或不可用', next: '到 设置→Providers 检查地址与密钥' },
+  provider_misconfigured: { zh: '模型端点未配置或不可用', next: '到 设置 → 模型与服务 → 模型服务商 检查地址与密钥' },
   network_down: { zh: '网络不可用（当前离线）', next: '联网后重试；或改用离线可完成的任务' },
   permission_denied: { zh: '此操作被权限拒绝', next: '在弹窗中允许，或在 设置→权限 调整模式' },
   tool_error: { zh: '工具执行出错', next: '查看工具返回的错误详情，调整参数后重试' },
@@ -27347,10 +27347,10 @@ const ERROR_CLASSES = {
   cli_missing: { zh: '找不到可用的 CLI', next: '到 设置 检查 CLI 路径' },
   launch_error: { zh: '这一回合根本没起来', next: '重发一次;仍然不行就看工作台日志' },
   // hunt2:主回合 429 已自动退避重试过几次仍被限流(09 runOpenAiTurn)。修前归 tool_error,把人引去查工具。
-  rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置→Providers 检查额度或换备用端点' },
+  rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置 → 模型与服务 → 模型服务商 检查额度或换备用端点' },
   // 服务商自己报的错(HTTP 5xx / 其它 4xx、流内错误帧、Responses failed、Anthropic 拒答)。修前这些全落成 tool_error「工具执行出错」,
   // 把人引去查工具;它不是工具的错,也不一定是配置的错(404 / 401 / 403 另有 provider_misconfigured),多半是服务端暂时故障或请求被拒。
-  provider_error: { zh: '模型服务商返回了错误', next: '多为服务端暂时故障或请求被拒:稍后重试;反复出现就看错误详情,或到 设置→Providers 检查模型名与地址' },
+  provider_error: { zh: '模型服务商返回了错误', next: '多为服务端暂时故障或请求被拒:稍后重试;反复出现就看错误详情,或到 设置 → 模型与服务 → 模型服务商 检查模型名与地址' },
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
@@ -44360,7 +44360,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // 走查 W1-9：中文界面里这句曾是整句英文。跟 emptyReplyNotice 同一口径按 config.locale 选语言；`why` 仍是英文机器诊断（给钩子的 error 字段）。
     const providerName = provider.label || provider.id;
     const msg = getPromptPack(config && config.locale) === PROMPT_EN
-      ? `Cannot start a ${providerName} turn: ${why}. Open Settings → Providers to fix it.`
+      ? `Cannot start a ${providerName} turn: ${why}. Open Settings → Models & Services → Model providers to fix it.`
       : `无法发起「${providerName}」这一轮对话：${!chatUrl ? '服务商的接口地址没填' : (!model ? '还没有选定模型' : '当前运行环境不支持 fetch')}。请到「设置 → 服务商」补全后再试。`;
     session.messages.push({ role: 'assistant', content: msg, segments: [{ id: 'segment-1', type: 'text', text: msg }], createdAt: nowIso(), source: 'fallback' });
     session.providerHistoryCursor = session.messages.length;
