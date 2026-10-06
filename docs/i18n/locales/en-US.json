@@ -300,6 +300,8 @@
   "error.networkDown.next": "Try again when online, or use a task that can be completed offline",
   "error.permissionDenied": "Permission was denied for this operation",
   "error.permissionDenied.next": "Allow it in the prompt, or adjust the mode in Safety and permissions",
+  "error.providerError": "The model provider returned an error",
+  "error.providerError.next": "Usually a temporary server fault or a rejected request: retry shortly. If it keeps happening, check the error details, or open Settings → Model providers and check the model name and URL",
   "error.providerMisconfigured": "The model endpoint is not configured or unavailable",
   "error.providerMisconfigured.next": "Open Settings → Model providers and check the URL and API key",
   "error.toolFailed": "Tool execution failed",

@@ -643,9 +643,12 @@ function normalizePricing(raw) {
 function cachedInputTokensFromUsage(usage) {
   if (!usage || typeof usage !== 'object') return 0;
   const details = usage.prompt_tokens_details || usage.input_tokens_details || {};
+  // DeepSeek 原生口径是顶层 prompt_cache_hit_tokens(与 prompt_cache_miss_tokens 成对,prompt_tokens 含两者)。
+  // 它不带 prompt_tokens_details,修前缓存命中恒按 0 记 —— 用量账与回合成本把命中的输入全按未命中价算。
   const raw = details.cached_tokens != null ? details.cached_tokens
     : details.cache_read_input_tokens != null ? details.cache_read_input_tokens
-      : usage.cache_read_input_tokens != null ? usage.cache_read_input_tokens : usage.cached_tokens;
+      : usage.cache_read_input_tokens != null ? usage.cache_read_input_tokens
+        : usage.cached_tokens != null ? usage.cached_tokens : usage.prompt_cache_hit_tokens;
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
@@ -17246,10 +17249,68 @@ async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback
 // transportError)、网关不可用 502/503/504(failoverStatus)、限流 429。流式已开始后的错误 openAiStreamOnce 直接抛出,
 // 根本到不了这里 —— 防重放是结构性的,不靠这个判据。
 // 529 是 Anthropic 的「服务过载」(58 号批 2;流内 overloaded_error 在还没吐内容时也报成 HTTP 529),对别的协议无害。
+// 状态码只认【开头】的 `HTTP <nnn>`:openAiStreamOnce / 04i 解码器报的 httpError 恒以它起头;流内错误(已吐过内容)写成
+// 'Provider stream error: …' / 'Anthropic stream error: …',错误正文里完全可能引用别处的 "HTTP 429" —— 不锚定就把这种
+// 「已显示内容的流内失败」误判成瞬时失败重放一遍。
 function providerCallIsTransient(call) {
   const he0 = String((call && call.httpError) || '');
-  const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
+  const status0 = Number((/^\s*HTTP (\d{3})\b/.exec(he0) || [])[1]);
   return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429 || status0 === 529));
+}
+// 服务商 Retry-After(429/503 常带):`retry-after-ms`(OpenAI 系,毫秒)优先,其次 `retry-after`(整数/小数秒,或 HTTP 日期)。
+// 封顶 maxMs(缺省 30 s):退避睡眠要可被停止截断、且不能让一回合被一个离谱的头挂住。认不出 / 非正 → 0(调用方回落自己的退避)。
+// getHeader(name) 是 res.headers.get 的形状(调用方包一层,本函数不碰 Response)。
+function providerRetryAfterMs(getHeader, nowMs, maxMs) {
+  const cap = Number.isFinite(Number(maxMs)) && Number(maxMs) > 0 ? Number(maxMs) : 30000;
+  const read = name => { try { return String(getHeader(name) == null ? '' : getHeader(name)).trim(); } catch { return ''; } };
+  const ms = read('retry-after-ms');
+  if (/^\d+(?:\.\d+)?$/.test(ms) && Number(ms) > 0) return Math.min(cap, Math.round(Number(ms)));
+  const ra = read('retry-after');
+  if (!ra) return 0;
+  if (/^\d+(?:\.\d+)?$/.test(ra)) { const n = Number(ra) * 1000; return n > 0 ? Math.min(cap, Math.round(n)) : 0; }
+  const at = Date.parse(ra);
+  if (!Number.isFinite(at)) return 0;
+  const wait = at - (Number.isFinite(Number(nowMs)) ? Number(nowMs) : Date.now());
+  return wait > 0 ? Math.min(cap, Math.round(wait)) : 0;
+}
+// 抛出的错误的人话文本:message 之外带上 cause 里的真因。undici 在响应流中途断线时对 reader.read() 抛 TypeError('terminated'),
+// 真正的原因(SocketError 'other side closed' / UND_ERR_SOCKET / ECONNRESET)只挂在 e.cause —— 只取 e.message 用户看到的就是
+// 一个孤零零的 "terminated",errorClass 也认不出是掉线。message 里已经包含 cause 文字的不重复追加。
+function providerThrownErrorText(e) {
+  const msg = e && e.message ? String(e.message) : String(e == null ? '' : e);
+  const cause = e && typeof e === 'object' ? e.cause : null;
+  if (!cause) return msg;
+  const causeMsg = typeof cause === 'string' ? cause : (cause && cause.message ? String(cause.message) : '');
+  const causeCode = cause && typeof cause === 'object' && cause.code ? String(cause.code) : '';
+  const extra = [causeCode, causeMsg].filter(part => part && !msg.includes(part)).join(' ');
+  return extra ? `${msg} (${extra})` : msg;
+}
+// 服务商地址是不是本机 / 局域网:回环、RFC1918、链路本地、CGNAT、*.local 等内网后缀、单标签主机名(`ollama`、`nas`)。
+// 这类端点能应答只说明「本机/内网通」,证明不了公网可达 —— 联网探测不能拿它当锚点(06 networkAnchors)。解析不了 → false(按公网处理,保持原行为)。
+const PROVIDER_LAN_HOST_SUFFIXES = ['.localhost', '.local', '.lan', '.internal', '.localdomain', '.home.arpa'];
+function providerBaseIsLocalOrLan(baseUrl) {
+  // 手工取主机名,不用全局 URL:本模块零出边(URL 在 00-boot 里是个顶层符号,一引用就多一条 04h → 00-boot 的边、把本模块拖进依赖环)。
+  // 形状:[协议://][userinfo@]主机[:端口][/路径];主机可以是 [IPv6];没写协议的 `localhost:11434/v1` 也认。
+  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/?#]*@)?(\[[^\]]*\]|[^:/?#]*)/i.exec(String(baseUrl || '').trim());
+  const host = String(m ? m[1] : '').toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+  if (!host) return false;
+  if (host === 'localhost' || PROVIDER_LAN_HOST_SUFFIXES.some(suffix => host.endsWith(suffix))) return true;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number);
+    return a === 127 || a === 10 || a === 0 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127);
+  }
+  if (host.includes(':')) {
+    if (host === '::1' || host === '::') return true;
+    if (/^f[cd][0-9a-f]{0,2}:/.test(host) || /^fe[89ab][0-9a-f]?:/.test(host)) return true;   // fc00::/7 唯一本地、fe80::/10 链路本地
+    // IPv4 映射地址:WHATWG URL 会把 ::ffff:127.0.0.1 规范成十六进制的 ::ffff:7f00:1,两种写法都认。
+    const dotted = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(host);
+    if (dotted) return providerBaseIsLocalOrLan('http://' + dotted[1]);
+    const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host);
+    if (hex) { const hi = parseInt(hex[1], 16), lo = parseInt(hex[2], 16); return providerBaseIsLocalOrLan(`http://${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`); }
+    return false;
+  }
+  return !host.includes('.');   // 单标签主机名:只有本机 / 内网 DNS 或 hosts 解析得了
 }
 // 可被中止截断的退避睡眠。与修前两份手写逐字同形:signal 已经 aborted 时监听器永不触发,睡满整段
 // (两处调用方都在睡前/睡后自己查中止,这个细节不能在这里「顺手修好」,否则事件时序会变)。
@@ -17264,7 +17325,7 @@ function abortableDelay(ms, signal) {
 //              超了就按终局交回;
 //   'again' —— 立即、不计数、不睡地重来一次(08 的「工具被拒 → 去掉工具再打一次」,由 classify 自己保证只给一次);
 //   其他   —— 终局,原样交回。
-// retries 从 0 计;backoffMs 收到的是本次重试的序号(1 起),所以 08 的 min(2000, 250·n) 与 07 的 min(2000, 300·attempt)
+// retries 从 0 计;backoffMs 收到的是本次重试的序号(1 起;第二个实参是触发重试的那次结果),所以 08 的 min(2000, 250·n) 与 07 的 min(2000, 300·attempt)
 // 都能原样表达。classify 收到 { retries }(本次 attempt 之前已用掉的重试数),07 据此还原它的 attempt 序号。
 // 不吞异常:attempt 抛出(流式中途失败)原样上抛,不重试。
 async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, signal, isAborted, onRetry, delay }) {
@@ -17278,7 +17339,9 @@ async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, si
     if (verdict !== 'retry' || retries >= maxRetries) return { aborted: false, result, retries };
     retries += 1;
     if (typeof onRetry === 'function') onRetry(result, retries);
-    await pause(backoffMs(retries), signal);
+    // backoffMs 的第二个参数是触发这次重试的结果:服务商回了 Retry-After(result.retryAfterMs)时,调用方据此取 max(自己的退避, 它)。
+    // 只收序号的老调用方(08 / 07 CLI 子代理)忽略多出来的实参,行为不变。
+    await pause(backoffMs(retries, result), signal);
   }
 }
 
@@ -17610,7 +17673,9 @@ function anthropicFinishReason(stopReason) {
   switch (String(stopReason || '')) {
     case 'end_turn': case 'stop_sequence': case 'pause_turn': return 'stop';
     case 'tool_use': return 'tool_calls';
-    case 'max_tokens': case 'model_context_window_exceeded': return 'length';
+    case 'max_tokens': return 'length';
+    // 上下文窗口满了不是「输出上限」:归一成 context_exceeded,09 给「先压缩 / 新开线程」的提示,而不是「发继续」(那只会让窗口更满)。
+    case 'model_context_window_exceeded': return 'context_exceeded';
     case 'refusal': return 'refusal';
     default: return stopReason ? String(stopReason) : null;
   }
@@ -17652,6 +17717,8 @@ function decodeAnthropicCompletion(j, opts) {
   const errorDetail = isError && j.error ? String(j.error.message || j.error.type || 'provider error') : '';
   const refusal = stop === 'refusal';
   const providerBlocks = anthropicProviderBlocks(blocks, j && j.model, opts && opts.requestModel);
+  // 失败回体的 httpError 文本(与流式解码器同形:还没吐内容且认得出状态码 → 'HTTP <status>: …'):07 非流式分支据此报 httpError。
+  const failureText = isError ? anthropicStreamErrorText(j.error || {}, false, opts && opts.scrub, 'Anthropic error') : (refusal ? anthropicRefusalDetail(j.stop_details) : '');
   return {
     text: outText, reasoning, toolCalls,
     finishReason: isError ? 'error' : anthropicFinishReason(stop),
@@ -17659,6 +17726,7 @@ function decodeAnthropicCompletion(j, opts) {
     incompleteReason: String(stop || 'output limit'),
     failed: isError || refusal,
     failedDetail: isError ? errorDetail : (refusal ? anthropicRefusalDetail(j.stop_details) : ''),
+    failureText,
     usage: normalizeAnthropicUsage(j && j.usage) || null,
     responseId: (j && typeof j.id === 'string' && j.id) || '',
     ...(providerBlocks ? { providerBlocks } : {}),
@@ -17667,12 +17735,12 @@ function decodeAnthropicCompletion(j, opts) {
 // 流中的 error 事件:还没吐出任何内容时按 HTTP 状态口径报(overloaded → 529、限流 → 429、api_error → 500,
 // 04h providerCallIsTransient 据此走瞬时重试);已经吐过内容就不带状态码 —— 重试会让界面上的内容重放一遍。
 const ANTHROPIC_STREAM_ERROR_STATUS = { overloaded_error: 529, rate_limit_error: 429, api_error: 500, request_too_large: 413 };
-function anthropicStreamErrorText(err, emitted, scrub) {
+function anthropicStreamErrorText(err, emitted, scrub, label) {
   const kind = String((err && err.type) || 'error');
   const msg = String((err && err.message) || '');
   const detail = kind + (msg ? ': ' + (typeof scrub === 'function' ? scrub(msg.slice(0, 400)) : msg.slice(0, 400)) : '');
   const status = ANTHROPIC_STREAM_ERROR_STATUS[kind];
-  return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Anthropic stream error: ' + detail;
+  return !emitted && status ? 'HTTP ' + status + ': ' + detail : (label || 'Anthropic stream error') + ': ' + detail;
 }
 // 用量合并:后到的只覆盖有限数字。message_delta.usage 里 input_tokens / cache_* 可以是 null(SDK 类型就是可空),
 // 直接展开会把 message_start 的真实计数抹成 0,上下文校准与用量台账跟着错。
@@ -17831,7 +17899,9 @@ function anthropicRetryBodyOn400(body, errText) {
 //   outputTokensField          输出上限字段名
 //   encodeQuick({ model, messages, plain })        句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
 //   decodeCompletion(payload, { requestModel })    非流式回体 → { text, reasoning, toolCalls, finishReason, incomplete, incompleteReason,
-//                              failed, failedDetail, usage, responseId[, providerBlocks] }(text 未 trim)
+//                              failed, failedDetail, failureText, usage, responseId[, providerBlocks] }(text 未 trim)
+//                              failureText:回体本身装着失败(chat 200 + 顶层 error、Responses status:'failed'、Anthropic type:'error' / refusal)时
+//                              与流式解码器同形的 httpError 文本(还没吐内容且认得出状态码 → 'HTTP <status>: …'),否则 '' —— 07 非流式分支据此报 httpError
 //   createStreamDecoder({ onEvent, markUsage, requestModel })    流式事件解码器:feed(evt) → 这一帧是否终止流;
 //                              finish() → { text, reasoning, finishReason, toolCalls, [httpError,] providerResponseId[, providerBlocks] }
 //   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
@@ -18005,6 +18075,19 @@ function providerWireIncomplete(payload, statusIncomplete) {
 function providerWireOutputLimited(finishReason) {
   return /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(String(finishReason || '').toLowerCase());
 }
+// 另两种「回答没说完」的原因,各自要不同的人话,不能和输出上限混成「达到输出上限,发继续」(那对它们是错的建议):
+//   · content_filter:服务商的内容安全策略拦下了回答(chat 的 finish_reason 原样透传;Responses 的 incomplete_details.reason 同名,解码器归一成它);
+//   · context_exceeded:上下文窗口满了(Anthropic 的 stop_reason:model_context_window_exceeded,解码器归一成它)—— 发「继续」只会让窗口更满。
+function providerWireContentFiltered(finishReason) {
+  return String(finishReason || '').toLowerCase() === 'content_filter';
+}
+function providerWireContextExceeded(finishReason) {
+  return String(finishReason || '').toLowerCase() === 'context_exceeded';
+}
+// Responses 的 incomplete 原因 → finishReason:内容安全拦截单列,其余(max_output_tokens、缺省)仍是 length。
+function responsesIncompleteFinishReason(reason) {
+  return /content[_-]?filter/i.test(String(reason || '')) ? 'content_filter' : 'length';
+}
 function providerWireFailureDetail(payload) {
   const e = payload && payload.error;
   if (typeof e === 'string') return e;
@@ -18020,21 +18103,22 @@ const OPENAI_STREAM_ERROR_STATUS = Object.freeze({
   server_error: 500, internal_error: 500, service_unavailable: 503, overloaded: 503,
   context_length_exceeded: 400, invalid_request_error: 400,
 });
-function providerWireStreamErrorText(err, emitted) {
+function providerWireStreamErrorText(err, emitted, label) {
   const e = err && typeof err === 'object' ? err : { message: err == null ? '' : String(err) };
   const numeric = [e.status, e.code, e.status_code].map(Number).find(n => Number.isInteger(n) && n >= 400 && n <= 599);
   const status = numeric || OPENAI_STREAM_ERROR_STATUS[String(e.code || '')] || OPENAI_STREAM_ERROR_STATUS[String(e.type || '')] || 0;
   const kind = String(e.code || e.type || 'error');
   const msg = String(e.message || '');
   const detail = kind + (msg ? ': ' + ProviderWireHooks.redact(msg.slice(0, 400)) : '');
-  return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Provider stream error: ' + detail;
+  return !emitted && status ? 'HTTP ' + status + ': ' + detail : (label || 'Provider stream error') + ': ' + detail;
 }
 // 两种协议共用的回体外壳字段。
 function providerWireDecoded(payload, core) {
   return {
     ...core,
-    failed: String(payload && payload.status || '').toLowerCase() === 'failed',
-    failedDetail: providerWireFailureDetail(payload),
+    failed: String(payload && payload.status || '').toLowerCase() === 'failed' || Boolean(core && core.failureText),
+    failedDetail: providerWireFailureDetail(payload) || (core && core.failureText ? String(core.failureText) : ''),
+    failureText: (core && core.failureText) || '',
     incompleteReason: String(payload && payload.incomplete_details && payload.incomplete_details.reason
       || (payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason) || 'output limit'),
     usage: (payload && payload.usage) || null,
@@ -18058,7 +18142,13 @@ function decodeChatCompletion(j) {
   const toolCalls = Array.isArray(msg && msg.tool_calls)
     ? msg.tool_calls.map(tc => ({ id: tc.id || ProviderWireHooks.makeId('call'), name: tc.function && tc.function.name, rawArgs: (tc.function && tc.function.arguments) || '{}' })).filter(t => t.name)
     : [];
-  return providerWireDecoded(j, { text: chatCompletionText(msg), reasoning, toolCalls, finishReason: ch && ch.finish_reason, incomplete: providerWireIncomplete(j, false) });
+  const outText = chatCompletionText(msg);   // 局部量不叫 text(见头注:裸 text 会凭空造出 04i → 00-boot 的边)
+  // 200 回体里装着错误:顶层 {error}(网关额度用尽 / 上游出错常这样回,没有 choices)、choices[0].error、finish_reason:'error'(OpenRouter 等)。
+  // 与流式解码器同一口径:没有任何正文 / 工具调用时,或 finish_reason 明说 error 时才算失败(有 choices 且有内容的回体里夹一个 error 字段不算)。
+  const finishErr = String(ch && ch.finish_reason || '').toLowerCase() === 'error';
+  const errObj = (j && j.error) || (ch && ch.error) || (finishErr ? { type: 'error', message: 'finish_reason=error' } : null);
+  const failureText = errObj && ((!outText.trim() && !toolCalls.length) || finishErr) ? providerWireStreamErrorText(errObj, false, 'Provider error') : '';
+  return providerWireDecoded(j, { text: outText, reasoning, toolCalls, finishReason: failureText ? 'error' : (ch && ch.finish_reason), incomplete: providerWireIncomplete(j, false), failureText });
 }
 // chat 流式:choices[0].delta 的 content / reasoning_content(或 reasoning)/ tool_calls 分片;终止靠分帧层的 [DONE]。
 function createChatStreamDecoder({ onEvent, markUsage }) {
@@ -18167,6 +18257,14 @@ function responsesOutputText(payload) {
 }
 // v1.7 (Responses API): a non-streamed response body is a `response` object with an `output` item list
 // (message / function_call / reasoning…), NOT chat's {choices:[{message}]}.
+// response.failed(流式事件 / 非流式回体共用):无 error 详情也置错误;文本过 redact() 防恶意服务商在 error 里回显密钥;
+// 错误含 context / length / token 语义时带 HTTP 400 前缀,让 45b 强压重试能识别(对抗轮 P1-3 / P2-1 / P2-3)。
+function responsesFailedText(resp) {
+  const err = resp && (resp.error || resp.last_error);
+  const em = (err && (err.message || err.code)) || (err && typeof err === 'object' ? JSON.stringify(err) : String(err || ''));
+  const said = 'Responses failed' + (em ? ': ' + ProviderWireHooks.redact(String(em).slice(0, 400)) : ' (no error detail)');
+  return /context|length|token/i.test(said) ? 'HTTP 400: ' + said : said;
+}
 function decodeResponsesCompletion(j) {
   const out = Array.isArray(j && j.output) ? j.output : [];
   let reasoning = '';
@@ -18182,10 +18280,12 @@ function decodeResponsesCompletion(j) {
     }
   }
   const status = j && j.status;
+  const failureText = String(status || '').toLowerCase() === 'failed' ? responsesFailedText(j) : '';
   return providerWireDecoded(j, {
     text: responsesOutputText(j), reasoning, toolCalls: toolCalls.filter(t => t.name),
-    finishReason: status === 'incomplete' ? 'length' : (status === 'failed' ? 'error' : 'stop'),
+    finishReason: status === 'incomplete' ? responsesIncompleteFinishReason(j.incomplete_details && j.incomplete_details.reason) : (status === 'failed' ? 'error' : 'stop'),
     incomplete: providerWireIncomplete(j, String(status || '').toLowerCase() === 'incomplete'),
+    failureText,
   });
 }
 // ── OpenAI Responses API stream (DeepSeek /v1/responses) ────────────────────────────────────────
@@ -18307,9 +18407,9 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         finishReason = 'stop';
         return true;
       }
-      if (t === 'response.incomplete') { // truncated (e.g. max_output_tokens)
+      if (t === 'response.incomplete') { // truncated (e.g. max_output_tokens;incomplete_details.reason 为 content_filter 时单列)
         if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
-        finishReason = 'length';
+        finishReason = responsesIncompleteFinishReason(evt.response && evt.response.incomplete_details && evt.response.incomplete_details.reason);
         return true;
       }
       // 流内 error 事件({type:'error', code, message}):终止流并走 httpError(修前被当作未知事件忽略,半截回答被当作成功)。
@@ -18320,15 +18420,8 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
       }
       if (t === 'response.failed') {
         if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
-        // Terminal failure — surface the error detail to the caller's existing httpError path.
-        // 对抗轮(P1-3/P2-1/P2-3):
-        //  • 无 error 详情也置错误(否则 finishReason 无人消费 → 静默空转,见 P2-1);
-        //  • 文本过 redact() 防恶意服务商在 error 里回显密钥(P2-3);
-        //  • 错误含 context/length 语义时置 contextOverflow,让 45b 强压重试能识别(P1-3)。
-        const err = evt.response && (evt.response.error || evt.response.last_error);
-        const em = (err && (err.message || err.code)) || (err && typeof err === 'object' ? JSON.stringify(err) : String(err || ''));
-        responsesFailedError = 'Responses failed' + (em ? ': ' + ProviderWireHooks.redact(String(em).slice(0, 400)) : ' (no error detail)');
-        if (/context|length|token/i.test(responsesFailedError)) responsesFailedError = 'HTTP 400: ' + responsesFailedError;
+        // Terminal failure — surface the error detail to the caller's existing httpError path(文本规则见 responsesFailedText)。
+        responsesFailedError = responsesFailedText(evt.response);
         finishReason = 'error';
         return true;
       }
@@ -18440,7 +18533,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     applyTools: applyAnthropicTools,
     outputTokensField: 'max_tokens',
     encodeQuick: encodeAnthropicQuick,
-    decodeCompletion: (payload, opts) => decodeAnthropicCompletion(payload, { requestModel: opts && opts.requestModel, newId: ProviderWireHooks.makeId }),
+    decodeCompletion: (payload, opts) => decodeAnthropicCompletion(payload, { requestModel: opts && opts.requestModel, newId: ProviderWireHooks.makeId, scrub: ProviderWireHooks.redact }),
     createStreamDecoder: opts => createAnthropicStreamDecoder({ ...opts, newId: ProviderWireHooks.makeId, scrub: ProviderWireHooks.redact }),
     normalizeUsage: normalizeAnthropicUsage,
     // thinking 的文字照旧进 reasoning_content(界面、摘要都认它);带签名的内容块原样进 providerBlocks,供同一段工具循环里回放。
@@ -26481,6 +26574,9 @@ const ERROR_CLASSES = {
   launch_error: { zh: '这一回合根本没起来', next: '重发一次;仍然不行就看工作台日志' },
   // hunt2:主回合 429 已自动退避重试过几次仍被限流(09 runOpenAiTurn)。修前归 tool_error,把人引去查工具。
   rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置→Providers 检查额度或换备用端点' },
+  // 服务商自己报的错(HTTP 5xx / 其它 4xx、流内错误帧、Responses failed、Anthropic 拒答)。修前这些全落成 tool_error「工具执行出错」,
+  // 把人引去查工具;它不是工具的错,也不一定是配置的错(404 / 401 / 403 另有 provider_misconfigured),多半是服务端暂时故障或请求被拒。
+  provider_error: { zh: '模型服务商返回了错误', next: '多为服务端暂时故障或请求被拒:稍后重试;反复出现就看错误详情,或到 设置→Providers 检查模型名与地址' },
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
@@ -26531,16 +26627,21 @@ const NETWORK_ANCHORS = ['https://www.baidu.com', 'https://cn.bing.com'];
 //       exactly, without diluting it with anchors or the provider.
 //   (2) DEFAULT (no probe URL) — union of [active provider baseUrl (如有)] + 固定国内可达锚点 (baidu/cn.bing),
 //       so a single flaky target can't fake a 60s global offline reading (the T2 goal).
+//       provider baseUrl 是本机 / 局域网地址(回环、RFC1918、链路本地、*.local、单标签主机名)时【不当锚点】:它能应答只说明
+//       本机/内网通,真断网时照样应答 —— 修前能力矩阵写「在线」、web_search / web_fetch 照常提供、提示词告诉模型「当前在线」。
+//       纯内网部署要声明在线状态,用 capabilityProbeUrl(上面 (1))。
 // Deduped, empties dropped. Exported so an e2e can drive it deterministically.
 // TEST HOOK: env WCW_TEST_NO_NET_ANCHORS=1 suppresses the fixed live anchors in the DEFAULT mode so an
 // offline-simulation e2e is not rescued by a real baidu/cn.bing on the test box. Zero production effect.
+// TEST HOOK: env WCW_TEST_LOCAL_PROVIDER_ANCHOR=1 让本机/局域网 provider 照旧当锚点 —— 离线跑的 e2e 靠本机假 provider 充当
+// 「网络在线」(假 provider 就在 127.0.0.1)。默认关,生产零影响;验证新判据的件把它清掉。
 function networkAnchors(config) {
   config = config || {};
   const cp = String(config.capabilityProbeUrl || '').trim();
   if (cp) return [cp]; // explicit override → sole target
   const list = [];
   const provider = activeOpenAiProvider(config);
-  if (provider && provider.baseUrl) list.push(providerBaseWithV1(provider.baseUrl));
+  if (provider && provider.baseUrl && !(providerBaseIsLocalOrLan(provider.baseUrl) && process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR !== '1')) list.push(providerBaseWithV1(provider.baseUrl));
   if (process.env.WCW_TEST_NO_NET_ANCHORS !== '1') { for (const a of NETWORK_ANCHORS) list.push(a); }
   return [...new Set(list.filter(Boolean))];
 }
@@ -27552,6 +27653,11 @@ async function providerRawCompletion(provider, history) {
   }
   const decoded = wire.decodeCompletion(r.parsed);
   const content = decoded.text.trim();
+  // 200 回体里装着失败(chat 顶层 {error}、Responses status:'failed'、Anthropic type:'error' / stop_reason:'refusal'):
+  // 修前只剩一句「空补全」,真因(额度用尽 / 拒答 / 服务端报错)看不到。与 10 摘要调用的口径一致,带出 failedDetail。
+  if (decoded.failed || (!content && decoded.failedDetail)) {
+    return { ok: false, error: `provider returned a failed completion${decoded.failedDetail ? ': ' + redact(String(decoded.failedDetail).slice(0, 300)) : ''}` };
+  }
   if (!content) return { ok: false, error: 'provider returned an empty completion' };
   // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
   return { ok: true, content, usage: decoded.usage, model };
@@ -28951,7 +29057,7 @@ const PROMPT_ZH = {
   },
 
   // [plan 模式指令] - 09-workflow.js:941 permissionMode==='plan'
-  planMode: '当前为计划模式。提交计划前可调用只读工具调查代码、配置、测试和现状，也可向用户澄清关键问题；不得调用修改、执行或委派类工具。调查充分后输出唯一一份可直接执行且无未决选项的最终计划：以 `PLAN:` 开头，用 markdown 简洁列出目标与范围、相关文件/组件、选定方案与关键契约、风险/兼容性、验证方式。若仍有会实质改变方案的问题，先提问，不要提交半成品计划。提交最终计划后停止；工作台负责请求批准，不要再单独询问计划是否可行。',
+  planMode: '当前为计划模式。提交计划前可调用只读工具调查代码、配置、测试和现状，也可向用户澄清关键问题；不得调用修改、执行或委派类工具，也不要调用 todo_write（任务清单等计划获批后再建；计划阶段含它的整批调用会被拒绝，同批的只读调查也不会执行——前面「多步操作先 todo_write」的守则在计划阶段暂不适用）。调查充分后输出唯一一份可直接执行且无未决选项的最终计划：以 `PLAN:` 开头，用 markdown 简洁列出目标与范围、相关文件/组件、选定方案与关键契约、风险/兼容性、验证方式。若仍有会实质改变方案的问题，先提问，不要提交半成品计划。提交最终计划后停止；工作台负责请求批准，不要再单独询问计划是否可行。',
   planApproved: ({ note }) => `<workbench-plan-approved>\nprevious_mode: plan\ncurrent_mode: execution\nplan_status: approved\nexecution_authorized: true\n用户已批准上述计划。现在立即按计划开始执行，不要再次只输出计划或继续等待批准。${note ? `\n用户补充意见：${note}` : ''}\n</workbench-plan-approved>`,
   // 61-A3:provider 引擎每条 user 消息落历史时带的本地时间(参数由 00-boot localTurnTimeParts 给;weekday 0 = 周日)。
   turnTime: ({ stamp, weekday, offset }) => `[本条消息发送于 ${stamp} 周${'日一二三四五六'.charAt(weekday)}(本地时间 ${offset})]`,
@@ -29238,7 +29344,7 @@ const PROMPT_EN = {
     visitNotes: 'Compress the steward conversation above into a handover note with exactly three sections, each a list of short sentences: (1) decisions already made (what, on which thread, on what grounds); (2) words already relayed (to whom, the gist of the original); (3) still-open items (waiting on whom, next step). No pleasantries, no speculation; write "none" for an empty section.',
   },
 
-  planMode: 'Currently in plan mode. Before submitting the plan, you may use read-only tools to inspect code, configuration, tests, and current state, and may ask the user a material clarifying question; do not call modifying, execution, or delegation tools. Once the investigation is sufficient, output one final plan that is directly executable and has no unresolved options: start with `PLAN:` and concisely cover the goal and scope, relevant files/components, selected approach and key contracts, risk/compatibility, and verification. If a question would materially change the approach, ask it before submitting an incomplete plan. Stop after the final plan; the workbench requests approval, so do not separately ask whether the plan is acceptable.',
+  planMode: 'Currently in plan mode. Before submitting the plan, you may use read-only tools to inspect code, configuration, tests, and current state, and may ask the user a material clarifying question; do not call modifying, execution, or delegation tools, and do not call todo_write either (create the task list after the plan is approved; during planning a batch containing it is refused as a whole, and the read-only calls in the same batch are not run - the "todo_write first for multi-step work" rule does not apply while planning). Once the investigation is sufficient, output one final plan that is directly executable and has no unresolved options: start with `PLAN:` and concisely cover the goal and scope, relevant files/components, selected approach and key contracts, risk/compatibility, and verification. If a question would materially change the approach, ask it before submitting an incomplete plan. Stop after the final plan; the workbench requests approval, so do not separately ask whether the plan is acceptable.',
   planApproved: ({ note }) => `<workbench-plan-approved>\nprevious_mode: plan\ncurrent_mode: execution\nplan_status: approved\nexecution_authorized: true\nThe user approved the plan above. Start executing it now; do not output only another plan or keep waiting for approval.${note ? `\nAdditional user instruction: ${note}` : ''}\n</workbench-plan-approved>`,
   turnTime: ({ stamp, weekday, offset }) => `[Message sent ${stamp} ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][weekday] || ''} (local time, ${offset})]`,
   revertNotice: ({ turns }) => {
@@ -37290,7 +37396,12 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     // endpoint. This is still a pre-first-byte failure (we только read the error body, not an SSE stream).
     // Auth/request/rate-limit statuses (401/403/400/404/422/429) carry NO failoverStatus → caller won't switch.
     const failoverStatus = (res && FAILOVER_HTTP_STATUSES.has(res.status)) ? res.status : undefined;
-    return { httpError: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 500)) : ''}`, toolsRejected: /tool|function/i.test(d), failoverStatus, text: '', reasoning: '', toolCalls: [] };
+    // 「工具被拒」只在 400 / 422(请求体校验类)时才有意义:修前对【所有】非 ok 状态都按 /tool|function/ 打标,
+    // 一发 500 的正文里带 "function dispatcher" 就让 09 整回合去掉工具重打、回合还报 ok:true。
+    const toolsRejectedStatus = Boolean(res && (res.status === 400 || res.status === 422));
+    // Retry-After(429 / 503 常带;秒或 HTTP 日期,封顶 30 s):带出给调用方的退避取 max(自己的退避, 它)。没有 / 认不出不带这个键。
+    const retryAfterMs = res && res.headers && typeof res.headers.get === 'function' ? providerRetryAfterMs(name => res.headers.get(name), Date.now()) : 0;
+    return { httpError: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 500)) : ''}`, toolsRejected: toolsRejectedStatus && /tool|function/i.test(d), failoverStatus, ...(retryAfterMs > 0 ? { retryAfterMs } : {}), text: '', reasoning: '', toolCalls: [] };
   }
   // Non-streaming fallback: single JSON body. The protocol decoder normalizes it to the same
   // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
@@ -37301,11 +37412,16 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   if (!res.body || typeof res.body.getReader !== 'function' || jsonBody) {
     const j = await res.json().catch(() => null);
     const d = wire.decodeCompletion(j, { requestModel: body.model });
+    // 回体本身装着失败(200 + 顶层 error、Responses status:'failed'、Anthropic type:'error' / refusal):与流式分支一致地报 httpError。
+    // 修前这里把 failed / failedDetail 全丢了,落成「空回复」,真因(额度用尽 / 拒答 / 服务端报错)用户看不到。用量照记(失败那一发也花了钱)。
+    if (d.usage) markUsage(d.usage);
+    if (d.failureText) {
+      return { text: d.text, reasoning: d.reasoning, finishReason: 'error', toolCalls: [], httpError: redact(String(d.failureText).slice(0, 500)), providerResponseId: d.responseId };
+    }
     // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
     // chain used to be invisible in the UI).
     if (d.reasoning) onEvent({ type: 'thinking_delta', text: d.reasoning });
     if (d.text) onEvent({ type: 'assistant_delta', text: d.text });
-    if (d.usage) markUsage(d.usage);
     return { text: d.text, reasoning: d.reasoning, toolCalls: d.toolCalls, finishReason: d.finishReason, providerResponseId: d.responseId, ...(d.providerBlocks ? { providerBlocks: d.providerBlocks } : {}) };
   }
   const reader = res.body.getReader();
@@ -37350,7 +37466,15 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     return false;
   };
   while (!done) {
-    const r = await reader.read();
+    let r;
+    try { r = await reader.read(); }
+    catch (e) {
+      // 流中途断线:undici 抛的是 TypeError('terminated'),真因(other side closed / UND_ERR_SOCKET / ECONNRESET)只挂在 e.cause。
+      // 把它并进 message(原错误对象照旧上抛,name / cause / 栈都在):回合的 errorMsg 与 errorClass 才看得出这是掉线。
+      // 中止(用户 Stop / 看门狗)原样上抛,09 靠 e.name === 'AbortError' 认它。
+      if (e && e.name !== 'AbortError' && e.cause) { try { e.message = providerThrownErrorText(e); } catch { /* 只读 message:保持原样 */ } }
+      throw e;
+    }
     if (r.done) break;
     touch();
     buf += decoder.decode(r.value, { stream: true });
@@ -42556,7 +42680,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 存量配置零变化。
   const wire = providerWireProtocol(provider);
   const apiStyle = wire.id;
-  const base = wire.endpointBase(provider.baseUrl); // 显示用 base 见 meta 事件
+  // 显示用 base 见 meta 事件:剥 basic-auth userinfo —— baseUrl 写成 https://user:pass@host 时,明文凭据会随 meta 的 command 进界面头部与回放
+  // (failover 候选的 base 早就剥了;chatUrl 仍保留原样以完成认证)。
+  const base = stripUrlUserinfo(wire.endpointBase(provider.baseUrl));
   const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
@@ -42794,7 +42920,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
   let volatileExtras = ''; // 52c(51d C2): 920-945 附加提示移 user 侧(与 turnVolatile 合并),sys 纯稳定(prefix-cache 完整命中)
   if (agentRoleMap.size && initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
-    volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
+    // 角色的 description 来自项目目录(.claude/agents/*.md、.ruyi/agents.json 随仓库走)—— 外来文本,与 08 buildOrchestrateHint 对工作流模板
+    // 同口径:压成单行、中和尖括号、截到 80 字再进易变层,不让一份角色文件用换行 / 伪造标签冒充一段指令。内置角色的说明都在 25 字内,不受影响。
+    const roleHintText = v => neutralizeAuthoredText(String(v || '').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim()).slice(0, 80);
+    volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${roleHintText(r.description || r.label)})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
   }
   // v1.4.4: list saved/built-in workflow templates so orchestrate_agents' workflowId can actually be used
   // — the model has no other way to discover which ids exist. Only relevant when the tool is offered.
@@ -42974,6 +43103,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }, 5000);
 
   let assistantText = '';
+  // 本回合【最后一个有文字】的迭代的正文:session.summary 取它(answerShape 要求最终答复首段就是结论)。修前取整段正文的前 160 字,
+  // 多迭代回合拿到的是第一轮的开场白(「我先看一下文件」),不是结论。
+  let lastIterationText = '';
+  // 各迭代的文字之间补一个空行再拼:修前直接首尾相接,「我先看一下文件。」+「结论:…」粘成一句。前后任一侧为空不补;
+  // 两侧已有的换行算数(别在 '\n\n[…提示]' 之后再多补)。
+  const iterationTextGap = (prev, next) => {
+    if (!String(prev).trim() || !String(next).trim()) return '';
+    const have = /\n*$/.exec(String(prev))[0].length + /^\n*/.exec(String(next))[0].length;
+    return '\n'.repeat(Math.max(0, 2 - have));
+  };
+  // 一个无工具的迭代(最终回答后的自检 / 插话续跑)之后还要再转一圈:上一段文字与下一轮文字之间在【事件流】里也隔一个空行 ——
+  // 两段之间没有工具卡,叙事账本里它们是同一个文本段,不补就在界面与落盘 segments 里粘在一起。
+  const separateNextIterationText = () => {
+    const gap = iterationTextGap(assistantText, 'x');
+    if (!gap) return;
+    assistantText += gap; onEvent({ type: 'assistant_delta', text: gap });
+  };
   let thinkingText = '';
   let usageObj = null;
   // v1.8: server-side tool items (web_search_call) to echo verbatim into the NEXT request's `input`.
@@ -42982,6 +43128,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const serverToolItems = [];
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
+  // 本回合与会话历史里【已经用过】的 tool_call id。有的服务商每次迭代都从 call_1 起编(甚至同一批里重复):同 id 的第二次 tool_use
+  // 在叙事账本里不建段(02c 以 id 为键),tool_result 回写第一张卡;Anthropic 还要求 tool_use id 唯一,重复会 400。
+  // 新到的调用 id 撞了就规范成唯一(id + '_' + 迭代序号):下游 —— providerHistory 的 assistant.tool_calls[].id、role:'tool' 的
+  // tool_call_id、界面事件、回合账、并行预执行表 —— 全部读同一个改过的 tc.id,配对不会断。
+  const usedToolCallIds = new Set();
+  for (const m of session.providerHistory) {
+    if (m && m.role === 'assistant' && Array.isArray(m.tool_calls)) for (const tc of m.tool_calls) if (tc && tc.id != null) usedToolCallIds.add(String(tc.id));
+  }
+  const claimUniqueToolCallIds = (calls, iterNo) => {
+    for (const tc of (Array.isArray(calls) ? calls : [])) {
+      if (!tc || tc.serverSide) continue;   // 服务端工具项(web_search_call)原样回传给服务商,id 不动
+      const id = String(tc.id == null ? '' : tc.id);
+      if (id && !usedToolCallIds.has(id)) { usedToolCallIds.add(id); continue; }
+      let next = `${id || 'call'}_${iterNo}`;
+      for (let n = 2; usedToolCallIds.has(next); n++) next = `${id || 'call'}_${iterNo}_${n}`;
+      tc.id = next; usedToolCallIds.add(next);
+    }
+  };
   const toolHookStartedAt = new Map();  // observational hooks only; never changes dispatch/permission semantics
   // 21-E0/E1: 三层调用账本 shadow(默认开、带采样与每回合事件上限)。只追加脱敏观测事件,不改
   // prompt/调度/history;任何异常都不影响工具分发。modelCallId 每 iter 生成,贯穿 started/completed
@@ -43683,13 +43847,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         maxRetries: 3,
         signal: ctrl && ctrl.signal,
         isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
-        backoffMs: n => Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)),
+        // 服务商回了 Retry-After(07 openAiStreamOnce 带出 retryAfterMs,已封顶 30 s)就至少等这么久:修前固定 0.5/1/2 s 共约 3.5 s,
+        // 限流窗口还没过就把 3 次重试用光,整回合失败。
+        backoffMs: (n, c) => Math.max(Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
         attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
         classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
           touch();
-          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)})`;
+          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)}${c && c.retryAfterMs > 0 ? `,服务商要求等待 ${Math.round(Math.min(30000, c.retryAfterMs) / 1000)} 秒` : ''})`;
           onEvent({ type: 'stderr', text: `[provider] ${what},稍后重试(${n}/3)` });
           logEvent({ kind: 'model_call_retry', sessionId: session.id, provider: provider.id, attempt: n, reason: c && c.transportError ? 'transport' : String(c && c.httpError || '').slice(0, 8) });
         },
@@ -43786,9 +43952,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
       if (call.text) {
-        assistantText += call.text;
+        assistantText += iterationTextGap(assistantText, call.text) + call.text;
+        if (call.text.trim()) lastIterationText = call.text;
         reg.questionContext = assistantText;
       }
+      claimUniqueToolCallIds(call.toolCalls, iter);   // 先于计划相位 / 本地批 / 历史写入:后面所有读 tc.id 的地方看到的都是唯一 id
       activeProviderBatchId = call.toolCalls && call.toolCalls.length ? turnSegments.createBatchId('openai') : '';
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
       if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -43889,11 +44057,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall)   // 写歪的代理壳先还原(见该函数头注)
           .map(tc => retierToolInvokeCall(tc, toolLoading.catalog, bridgedRoute, config));                      // 61-B2:代理档低报只升不降地改道
         const outputLimited = providerWireOutputLimited(call.finishReason);
+        const contextLimited = providerWireContextExceeded(call.finishReason);   // 上下文窗口满了而被截断:同样不执行,但建议不同
         const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
           ok: false, argsInvalid: true,
           error: outputLimited
             ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小(分几次写入)后重试'
-            : '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试',
+            : (contextLimited
+              ? '工具调用参数被截断(上下文窗口已满),该调用未执行;请先压缩上下文或新开线程后重试'
+              : '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试'),
         });
         // 21-E0: 一次模型响应 = 一个 assistant batch(serverToolCalls 不参与本地工具批,只占 batch 总宽度)。
         if (econThisIter && localToolCalls.length) {
@@ -44453,8 +44624,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // No tool calls → final answer for this turn.
       if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
       // 回答命中输出上限被截断:修前与完整回答无从区分。给用户一句看得见的提示(只进显示正文,不进 providerHistory)。
+      // 另两种「没说完」各有各的原因与建议,不能混进「输出上限 → 发继续」:内容安全策略拦截(换个说法)、上下文窗口满了(先压缩 / 新开线程;
+      // 此时发「继续」只会让窗口更满)。修前 Responses 的 content_filter 与 Anthropic 的窗口超限都被归一成 length,chat 的 content_filter
+      // 空回答则落成「空回复」,用户被告知的是错的原因。
+      const answerContentFiltered = providerWireContentFiltered(call.finishReason);
+      const answerContextExceeded = providerWireContextExceeded(call.finishReason);
       if (providerWireOutputLimited(call.finishReason)) {
         const note = '\n\n[回复达到模型输出上限,可能不完整;可发送「继续」让它接着写]';
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+      } else if (answerContextExceeded) {
+        const note = '\n\n[上下文窗口已满,回复被截断;请先压缩上下文(或新开线程)再继续,直接发「继续」只会让窗口更满]';
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+      } else if (answerContentFiltered) {
+        const note = '\n\n[回复被服务商的内容安全策略拦截,可能不完整或为空;可以换个说法,或换个模型再试]';
         assistantText += note; onEvent({ type: 'assistant_delta', text: note });
       }
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
@@ -44471,17 +44653,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const selfCheckPrompt = '【产物自检】请对照原任务的每一项显式要求，逐项核对你已生成的产物：(1) 是否覆盖所有要求项（清单/字段/类别/行）？(2) 数值与格式是否自洽（CSV 列与摘要一致、金额归位正确、大小写不同的文件名未误判重复）？若发现漏项或不一致，用最小步骤补全；若全部满足，简短确认完成即可。不要重复已完成的步骤。';
           session.providerHistory.push({ role: 'user', content: selfCheckPrompt });
           onEvent({ type: 'self_check', state: 'invoked', turnSeq: session.turnSeq });
+          separateNextIterationText();
           continue;
         }
       }
       // 最终回答流式期间到达的插话:/api/steer 已回 ok(接受了),这里若直接 break,队列随回合结束被丢掉、
       // 模型永远看不到。回合还在跑就再转一圈:循环顶端 drainSteerQueue 注入插话,模型接着回应(同 Kimi 的 follow-up)。
       // 历史此刻是完整的(最终回答已入历史,没有未配对的工具调用),在边界注入是配对安全的。
-      if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) continue;
+      if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) { separateNextIterationText(); continue; }
       // 空回复(正常结束、没有文字也没有工具调用):修前回合就这么静悄悄地结束,界面上只剩一个空气泡,用户分不清是
       // 还在跑、出错了还是模型真的什么都没说。给一句看得见的提示 —— 同上面「输出上限」那句,只进显示正文、不进
       // providerHistory(历史里不塞一条伪造的 assistant,下一回合的请求照旧合法)。命中输出上限的那种已经有自己的提示。
-      if (!String(call.text || '').trim() && !providerWireOutputLimited(call.finishReason)) {
+      if (!String(call.text || '').trim() && !providerWireOutputLimited(call.finishReason) && !answerContextExceeded && !answerContentFiltered) {
         const note = emptyReplyNotice(config && config.locale, Boolean(assistantText.trim()));
         assistantText += note; onEvent({ type: 'assistant_delta', text: note });
         try { logEvent({ kind: 'provider_empty_reply', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, iter, finishReason: call.finishReason || '', hadReasoning: Boolean(call.reasoning) }); } catch { /* telemetry must never break a turn */ }
@@ -44490,7 +44673,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
   } catch (e) {
     if (e && (e.name === 'AbortError' || reg.state !== 'running')) { aborted = true; ok = false; }
-    else { ok = false; errorMsg = (e && e.message) ? e.message : String(e); }
+    // errorMsg 带上 cause 的真因:流中途断线 undici 只抛 TypeError('terminated'),原因挂在 e.cause(04h providerThrownErrorText),
+    // 不并进来用户看到的只是 "terminated",下面的 errorClass 也认不出这是掉线。
+    else { ok = false; errorMsg = providerThrownErrorText(e); }
   }
   clearInterval(watchdog);
 
@@ -44532,9 +44717,44 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       onEvent({ type: 'usage', ...usageObj });
     }
   }
-  if (!ok && !aborted && errorMsg && !assistantText.trim()) {
-    assistantText = `[${provider.label || provider.id} 请求失败] ${redact(errorMsg)}`;
-    onEvent({ type: 'assistant_delta', text: assistantText });
+  // v0.8-S6: best-effort errorClass (§C6 seed, additive). idle-timeout abort → idle_timeout; a transport-
+  // level failure (fetch/DNS/ECONN/timeout in errorMsg) → network_down; any other HTTP error → provider_error / tool_error.
+  // A clean or user-initiated stop carries no errorClass. The枚举 table is ERROR_CLASSES (exported).
+  // (分类先于落盘助手消息算:失败段要带着它写进 segments。)
+  let errorClass;
+  if (planRejected) errorClass = 'plan_rejected'; // v0.9-S5: user rejected the plan (no tool ran; normal completion)
+  else if (loopAborted) errorClass = 'tool_loop'; // v0.8-S7: repeated-call guard (distinct from idle/network/tool_error)
+  else if (idleAborted) errorClass = 'idle_timeout';
+  else if (!ok && errorMsg) {
+    // 审计 P2: 认证/授权失败(密钥错/无权限,首跑最高频故障)先归 provider_misconfigured —— 否则落到 tool_error
+    // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
+    // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
+    // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
+    // 限流在重试用尽后仍是限流,不是「工具执行出错」:单独归 rate_limited(人话「稍等再发」,而不是让用户去查工具)。
+    if (/^HTTP 429\b/.test(errorMsg)) errorClass = 'rate_limited';
+    else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
+    // 掉线:除了 fetch / DNS / 超时,还认流中途被掐断的写法 —— undici 的 'terminated'(真因在 cause:other side closed / UND_ERR_SOCKET)、
+    // ECONNRESET、「流在没有终止信号时关闭」(07 openAiStreamOnce 的截断流判据)。修前这些全落成 tool_error「工具执行出错」。
+    // (裸词 terminated 只认开头:'HTTP 500: process terminated' 这类服务端报文不是掉线。)
+    else if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|ECONNRESET|UND_ERR_|fetch failed|network|socket|timed out|timeout|other side closed|stream ended unexpectedly/i.test(errorMsg) || /^terminated\b/i.test(errorMsg)) errorClass = 'network_down';
+    // 服务商自己报的错(HTTP 4xx/5xx、流内错误帧、Responses failed、Anthropic 拒答)不是「工具执行出错」:404 多半是地址 / 模型名配错,
+    // 归 provider_misconfigured(「检查地址与密钥」);其余归 provider_error(「服务商返回了错误」)。
+    else if (/^HTTP 404\b/.test(errorMsg)) errorClass = 'provider_misconfigured';
+    else if (/^(?:HTTP \d{3}\b|Provider (?:stream )?error\b|Anthropic (?:stream )?error\b|Anthropic refusal\b|Responses failed\b)/.test(errorMsg)) errorClass = 'provider_error';
+    else errorClass = 'tool_error';
+  }
+  // 失败文案【总是】进落盘助手消息:修前只在「本回合没有任何正文」时才写 —— 多迭代回合中途失败(前面已有文字 / 工具卡)时,落盘消息
+  // 没有任何失败痕迹,刷新后像正常结束;空闲看门狗中止同理(它没有 errorMsg,更是什么都不留)。用户自己点的停止不算失败。
+  // 有正文时前面空一行;同一段文字再作为一个 error 段写进 segments(带 errorClass),经典壳静态重绘时按现成的 msg-error 样式画出来
+  // (live 仍是这句话作为正文 + 回合结束的错误卡,所以实时那一发绕开叙事账本,免得静态重绘时同一句话出两遍)。
+  let failureNote = '';
+  if (idleAborted) failureNote = `[${provider.label || provider.id} 空闲超时] 本回合超过 ${Math.round(idleLimitMs / 1000)} 秒没有任何进展,已自动中止;可以重新发送`;
+  else if (!ok && !aborted && errorMsg) failureNote = `[${provider.label || provider.id} 请求失败] ${redact(stripUrlUserinfo(errorMsg))}`;
+  if (failureNote) {
+    const failureText = iterationTextGap(assistantText, failureNote) + failureNote;
+    assistantText += failureText;
+    downstreamEvent({ type: 'assistant_delta', text: failureText, traceId: activeTraceId });
+    turnSegments.consume({ type: 'result', ok: false, error: failureNote, errorClass: errorClass || '' });
   }
 
   if (activeChildren.get(session.id) === reg) {
@@ -44592,7 +44812,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
-  session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
+  // 摘要取【最后一个有文字的迭代】的开头(= 最终答复的首段,answerShape 要求它是结论),不取整段正文的前 160 字:多迭代回合里整段正文
+  // 以第一轮的开场白起头(「我先看一下文件」)。回合没有任何迭代文字(整回合只有失败 / 提示)时才回落整段正文。
+  session.summary = (String(lastIterationText || finalText).replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
   // P2-3: a mid-turn POST /api/session/skills wrote the new enable set to DISK (and updated reg.session in place);
   // re-read it before the final save so the turn's stale in-memory copy can't clobber a mid-turn skill toggle.
   // P2-3(记忆): 同款回读 session.memories + memoriesExplicit —— 免得回合边缘窗口用户「全部停用」被陈旧内存副本回滚,
@@ -44629,23 +44851,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
-  // v0.8-S6: best-effort errorClass (§C6 seed, additive). idle-timeout abort → idle_timeout; a transport-
-  // level failure (fetch/DNS/ECONN/timeout in errorMsg) → network_down; any other HTTP error → tool_error.
-  // A clean or user-initiated stop carries no errorClass. The枚举 table is ERROR_CLASSES (exported).
-  let errorClass;
-  if (planRejected) errorClass = 'plan_rejected'; // v0.9-S5: user rejected the plan (no tool ran; normal completion)
-  else if (loopAborted) errorClass = 'tool_loop'; // v0.8-S7: repeated-call guard (distinct from idle/network/tool_error)
-  else if (idleAborted) errorClass = 'idle_timeout';
-  else if (!ok && errorMsg) {
-    // 审计 P2: 认证/授权失败(密钥错/无权限,首跑最高频故障)先归 provider_misconfigured —— 否则落到 tool_error
-    // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
-    // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
-    // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
-    // 限流在重试用尽后仍是限流,不是「工具执行出错」:单独归 rate_limited(人话「稍等再发」,而不是让用户去查工具)。
-    if (/^HTTP 429\b/.test(errorMsg)) errorClass = 'rate_limited';
-    else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
-    else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
-  }
   if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: errorClass || (!ok && !wasStopped) ? 'failure' : 'progress',
     cursor: { turnSeq: session.turnSeq, engine: 'openai' },
