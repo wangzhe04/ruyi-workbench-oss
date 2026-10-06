@@ -266,11 +266,14 @@
         "CMD_EXE_LINE_LIMIT",
         "CMD_LINE_QUOTE_MARGIN",
         "CMD_LINE_SAFE_BUDGET",
+        "CMD_TEXT_VALUE_FLAGS",
         "DIRECT_SPAWN_LINE_BUDGET",
         "batchSafeSpawn",
         "cmdLineBudgetFor",
         "cmdLineBudgetSeam",
         "isBatchLauncher",
+        "neutralizeCmdMetaChars",
+        "neutralizeCmdTextArgs",
         "quoteWinArg",
         "spawnCmdLineLength"
       ],
@@ -451,6 +454,8 @@
         "isAskUserTool",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
+        "isLoopbackAddress",
+        "isLoopbackBindHost",
         "kimiMcpManagedIds",
         "kimiMcpSyncChains",
         "lastGoodConfig",
@@ -483,6 +488,7 @@
         "readUserJsonObjectForMerge",
         "refreshInBackground",
         "rememberClaudeLauncher",
+        "requestIsLoopback",
         "resolveClaudeLauncher",
         "resolveClaudeLauncherAsync",
         "resolveKimiNpmEntry",
@@ -12305,11 +12311,14 @@
         "openPathTargetDir",
         "parseArgs",
         "pidsOnPort",
+        "portHolderTakeoverVerdict",
         "probeHealth",
         "processCommandLine",
         "processImage",
         "proxyModelsCacheMemo",
+        "readOwnRuntimeRecord",
         "resetOrphanedMissionDrivers",
+        "resolveBindHost",
         "resolveNodeModel",
         "sendMcp",
         "sendMcpNotification",
@@ -12705,6 +12714,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "isLoopbackBindHost",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "mcpConfigFilePath",
           "kinds": [
             "call"
@@ -12734,6 +12750,13 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "requestIsLoopback",
           "kinds": [
             "call"
           ]
@@ -14672,6 +14695,7 @@
         "handleInterventionApiRoutes",
         "handleMissionsApiRoutes",
         "handleSessionApiRoutes",
+        "importedSessionCwdAllowed",
         "interventionCommandFailure",
         "interventionDecisionFingerprint",
         "lastMissionRunProgress",
@@ -14777,6 +14801,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -15237,6 +15268,20 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "pathWithinRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "resolveContainmentPath",
           "kinds": [
             "call"
           ]

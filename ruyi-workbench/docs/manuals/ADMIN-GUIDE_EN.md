@@ -23,7 +23,9 @@ The data root defaults to .ruyi-workbench under the user profile (called .win-cl
 first 3.0 start moves it and leaves a directory junction at the old path). Set RUYI_HOME to move it. It contains configuration, chats, uploads, checkpoints, audit logs, generated MCP configuration, skills,
 memories, workflow state, and usage ledgers. Treat it as private local application data.
 
-The default HTTP port is 8765. Use a loopback address only; Ruyi is not a multi-user or public web service.
+The default HTTP port is 8765 (`--port <n>` → `PORT` → 8765). Ruyi binds `127.0.0.1` only; `--host` with any non-loopback address is refused at startup unless you also pass `--allow-remote` explicitly (and even then non-local peers never receive the page token — see `SECURITY.md`). Ruyi is not a multi-user or public web service.
+
+When the port is taken, Ruyi only takes over **its own data directory's stale instance**: the process holding the port must be the pid recorded in *this data directory's* `runtime.json` (cross-checked against overlayId / image name). A Ruyi instance from another install or another data directory — which may be running a turn — and any other program are never touched. In every other case Ruyi moves on to the first free port in original+1 … original+9; the actual port is written to `runtime.json` and the console URL, and the top bar in the UI says which port is in use. Only when all nine are unavailable does startup fail (leaving `last-start-error.json` for the next start to surface). `killPortOnStart=false` / `WCW_KILL_PORT=0` disables takeover entirely, even of its own stale instance.
 
 ## 2. Engine integration
 

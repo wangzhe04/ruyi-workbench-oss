@@ -2519,7 +2519,9 @@ function importSession() {
     try {
       const data = JSON.parse(await file.text());
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + t('session.imported'), cwd: data.cwd || '', messages }) });
+      // 安全走查 S10:文件里的 cwd 不可信(别人分享来的会话文件写个 '/' 就把文件工具的写根放大到整盘),一律丢弃,
+      // 导入的会话落在【当前默认工作区】里 —— 与「新会话」同一个来源(session-experience.js newSession)。messages 在服务端打 meta.imported 标记。
+      const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + t('session.imported'), cwd: (state.config && state.config.defaultWorkspace) || '', messages }) });
       await refreshSessions(); await openSession(res.session.id); toast(t("toast.sessionImported"), 'ok');
     } catch (e) { toast(t('toast.importFail', { err: apiErrText(e) }), 'err'); }
   };
