@@ -69,7 +69,7 @@ async function makeUserTurn(text) {
   session.messages = [{ role: 'user', content: text, turnSeq: 1, createdAt: new Date().toISOString() }];
   session.turnSeq = 1;
   await srv.saveSession(session);
-  return { sessionId: session.id, turnSeq: 1 };
+  return { sessionId: session.id, turnSeq: 1, quote: text }; // 走查 #14:sourceRef 须带来源原话片段(整条消息就是合法引文)
 }
 
 // 直接落一份库(比逐条调工具快,且能精确摆出「已过期」「八条以上」这类形状)。
@@ -323,7 +323,7 @@ let vetoedId = '';
   session.turnSeq = 1;
   await srv.saveSession(session);
   const w = await call('steward_memory_write', {
-    kind: 'preference', text: '用户偏好报告用中文书写', sourceRef: { sessionId: session.id, turnSeq: 1 }, supersedesVetoed: vetoedId,
+    kind: 'preference', text: '用户偏好报告用中文书写', sourceRef: { sessionId: session.id, turnSeq: 1, quote: '用户偏好报告用中文书写' }, supersedesVetoed: vetoedId,
   });
   ok(w && w.ok === false && w.error === 'source_not_user',
     'C6 复活通道【不】放松来源闸:必须是用户本人这一回合说的话');

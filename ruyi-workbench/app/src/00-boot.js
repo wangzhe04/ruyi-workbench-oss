@@ -1326,6 +1326,13 @@ const EventStreamHooks = {};
 // 既有后向边),与 EventStreamHooks 同款。未填充时路由回 503,不会误走别的分支。
 const MigrationHooks = {};
 
+// 子代理的记忆核心胶囊(走查 #15)的延迟绑定口。08-agent-runs 要在子代理系统提示里放用户的核心偏好,但直接引 06d 的
+// resolveMemoryPreflight / buildMemoryConflictMap 会给 08 添一条【环内】新边(06d 已在那个强连通分量里,依赖图的环债上限不许涨)。
+// 所以 08 只读 `SubAgentMemoryHooks.coreSnapshot`(08 → 00-boot 是既有后向边),由 09-workflow 加载时 Object.assign 填实现
+// (09 本来就依赖 06d)。未填充时调用方当「没有胶囊」处理,子任务照跑。契约:coreSnapshot({ parentSession, workingDir, task, config })
+// → Promise<{ entries: 已激活核心条目[], conflicts: Map|null }>,绝不抛(调用方也 try 包着)。
+const SubAgentMemoryHooks = {};
+
 // 其它 Agent CLI 的用户级目录。一律在【调用时】按 os.homedir() 与各家的覆盖变量解析(不缓存):测试把
 // USERPROFILE/HOME 指到临时家,这里立刻跟着走 —— 这就是「测试绝不碰真机家目录」的那一道闸。
 //   Claude Code:~/.claude 与 ~/.claude.json;Codex:$CODEX_HOME,缺省 ~/.codex;

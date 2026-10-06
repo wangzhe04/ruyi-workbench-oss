@@ -1,5 +1,15 @@
 // 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch/rollbackReplanPatch)抽至 09b-replan-ledger.js。
 
+// 子代理核心胶囊的实现(口住 00-boot 的 SubAgentMemoryHooks,理由见那里)。只取【核心】:relevance 压到 0,相关召回是按主线那句话排的,
+// 子任务是另一件事,顺带也让 preflight 不给没注入的条目记 use。走 parentSession:会话级排除 / 固定选择 / 关闭记忆同样管着子代理。
+Object.assign(SubAgentMemoryHooks, {
+  async coreSnapshot({ parentSession, workingDir, task, config }) {
+    const preflight = await resolveMemoryPreflight(parentSession, workingDir, String(task || ''), undefined, { ...config, memoryRelevanceMaxV1: 0 }, {});
+    const entries = Array.isArray(preflight.coreEntries) ? preflight.coreEntries : [];
+    return { entries, conflicts: entries.length ? await buildMemoryConflictMap(workingDir).catch(() => null) : null };
+  },
+});
+
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, onRegistered }) {
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
@@ -710,7 +720,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeMemoryConflicts = nodeMemoryEntries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
       const memoryInstruction = [
         buildMemoryCheckPrompt(nodeMemory.status, config),
-        buildMemoryPromptSection(nodeMemoryEntries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts),
+        // #15:openai 节点走 runSubAgentCore,它现在把【核心胶囊】放进子代理系统提示 —— 这里只补相关索引,免得胶囊在同一次请求里出现两遍;
+        // claude 节点不经 runSubAgentCore(自己 spawn CLI),仍整段(核心 + 相关)进任务正文。
+        // 读取线索按引擎分叉(#6):openai 节点是 [id](scope) + workbench_memory_read,claude 节点仍是绝对路径 + Read。
+        buildMemoryPromptSection(nodeMemoryEntries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts, node.engine === 'claude' ? undefined : { part: 'related' }),
       ].filter(Boolean).join('\n');
       const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + evidenceInstruction + (memoryInstruction ? '\n\n' + memoryInstruction : '') + schemaInstruction;
       let agentSession = parentSession;
@@ -1746,13 +1759,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     try { stewardPrompt = await StewardHooks.buildSystemPrompt(session, config, { tools: initialTools }); } catch { stewardPrompt = null; }
   }
   if (stewardPrompt && typeof stewardPrompt.stable === 'string' && stewardPrompt.stable) sys = stewardPrompt.stable;
-  const turnVolatile = (stewardPrompt && typeof stewardPrompt.volatile === 'string')
+  // #9: 随每条消息变化的那一半记忆(检索回执 + 相关索引)不再前插首条 user —— 召回一变,首条 user 就变,provider 的前缀缓存从 messages[1]
+  // 起整段作废(实测两回合 matches="1"→"2"、related 列表一变,其后全部历史按未缓存计)。它改投末条 user 尾部(buildBody 里,与 recall/notes 同位);
+  // 前插的这一层只留跨回合稳定的核心胶囊 + 指南。管家回合整段换了提示词(不用工作台记忆),不拆。
+  const stewardVolatile = !!(stewardPrompt && typeof stewardPrompt.volatile === 'string');
+  const memoryTurnTail = stewardVolatile ? '' : buildMemoryTurnSection(enabledMemoryEntries, 'openai', config, enabledMemoryConflicts, memoryPreflight.status);
+  const turnVolatile = stewardVolatile
     ? stewardPrompt.volatile
-    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }) + (volatileExtras ? '\n\n' + volatileExtras : '');
+    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }, { memoryTurnTail: true }) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
   const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+  // 记忆回合尾部也要计预算(它最多一整个索引上限,默认 6000 字符,可配到 10 万)。上下文治理一律用 budgetPromptFull。
+  const budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
   // 105d-A: session notes 回注 —— 每回合至多一次 IO,结果存局部变量供 buildBody 闭包使用。
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
@@ -1851,6 +1871,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
       }
     }
+    if (memoryTurnTail) appendPromptToLastUserMessage(msgs, memoryTurnTail); // #9: 每回合变化的记忆回执 + 相关索引,贴末条 user,非持久
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
     if (scratchpadPrompt) appendPromptToLastUserMessage(msgs, scratchpadPrompt); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
@@ -2519,11 +2540,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
-      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) {
+      else if (await maybeAutoCompact(session, provider, budgetPromptFull, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) {
         touch();
         await refreshScratchpadPrompt('compaction'); // C2:历史刚被改写、缓存本就断了 —— 顺手换上本回合写入后的草稿本
       }
-      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
+      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
       estStreamBase = estBeforeCall; estStreamText = '';
@@ -2697,7 +2718,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
             // 与 estBeforeCall 同一口径(含系统提示与工具定义),否则「压前→压后」把工具 schema 那一截也算成了省下来的
-            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current());
+            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
@@ -2713,7 +2734,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
           if (forced.level === 1) {
-            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current());
+            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
@@ -3486,7 +3507,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // approximate context occupancy. Flagged estimated:true so the client renders it as approximate; calls:0
     // records that no real usage frame arrived. This branch only runs when NO real usage frame was seen, so
     // it never clobbers a provider-reported figure.
-    const estTotal = estimateHistoryTokens(session.providerHistory, budgetPrompt);
+    const estTotal = estimateHistoryTokens(session.providerHistory, budgetPromptFull);
     if (estTotal > 0) {
       const lastMsg = session.providerHistory[session.providerHistory.length - 1];
       const estOut = (lastMsg && lastMsg.role === 'assistant') ? Math.round(estimateContentTokens(lastMsg.content)) : 0;
