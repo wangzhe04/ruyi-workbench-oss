@@ -185,6 +185,26 @@ describe('F4 autoGrow 的宽度观察', () => {
       assert.equal(measured, before + 1);
     } finally { delete global.ResizeObserver; }
   });
+  it('浏览器里(有 requestAnimationFrame)重量放到下一帧,不在观察者回调里同步改高(免得报 ResizeObserver loop)', async () => {
+    const observers = []; const frames = [];
+    global.ResizeObserver = class { constructor(cb) { this.cb = cb; observers.push(this); } observe() {} };
+    global.requestAnimationFrame = fn => { frames.push(fn); return frames.length; };
+    try {
+      const { autoGrow } = await load('util.js');
+      let measured = 0;
+      const ta = { clientWidth: 300, style: {}, get scrollHeight() { measured += 1; return 60; } };
+      autoGrow(ta);
+      const before = measured;
+      ta.clientWidth = 600; observers[0].cb();
+      assert.equal(measured, before, '回调里不同步量');
+      assert.equal(frames.length, 1, '排了一帧');
+      frames.shift()();
+      assert.equal(measured, before + 1, '下一帧量一次');
+      ta.clientWidth = 400; observers[0].cb(); ta.clientWidth = 500;   // 排帧之后宽度又变了
+      frames.shift()();
+      assert.equal(measured, before + 1, '那一帧宽度已不是排帧时的宽度:不量(新宽度由观察者再排)');
+    } finally { delete global.ResizeObserver; delete global.requestAnimationFrame; }
+  });
   it('没有 ResizeObserver（单测桩子、旧环境）：行为与修前逐字相同，不抛', async () => {
     const { autoGrow } = await load('util.js');
     const ta = { style: {}, scrollHeight: 500 };

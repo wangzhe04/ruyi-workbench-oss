@@ -220,12 +220,17 @@ function watchGrowWidth(ta) {
   if (!ta || typeof ta.clientWidth !== 'number') return;
   ta.__ruyiGrowWidth = ta.clientWidth;
   if (ta.__ruyiGrowWatch || typeof ResizeObserver !== 'function') return;
+  const remeasure = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 260) + 'px'; };
   const observer = new ResizeObserver(() => {
     const width = ta.clientWidth;
     if (width === ta.__ruyiGrowWidth) return;
     ta.__ruyiGrowWidth = width;
     if (!width) return;
-    ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 260) + 'px';
+    // 改高放到下一帧:在 ResizeObserver 回调里同步改高,同一帧又冒一次尺寸通知,浏览器会报页面级错误
+    // 「ResizeObserver loop completed with undelivered notifications」(Windows CI 1c29e73 composer-voice-stream F1)。
+    // 下一帧宽度又变了就不量 —— 观察者会为新宽度再排一次。没有 requestAnimationFrame(Node 单测桩)时照旧同步量。
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => { if (ta.clientWidth === width) remeasure(); });
+    else remeasure();
   });
   try { observer.observe(ta); ta.__ruyiGrowWatch = observer; } catch { /* 观察不了就算了：回到修前行为 */ }
 }
