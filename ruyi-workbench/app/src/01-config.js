@@ -1646,6 +1646,8 @@ function noteSessionsDirOwnWrite(file) {
 //      重试 8 次(15→155ms 退避)——saveAgentRun 实战验证过的参数,推广到所有 JSON 落盘;
 //   ③ 最终失败必 unlink tmp:唯一名没有"下次覆写自愈"路径,不清会无界累积孤儿;
 //   ④ value 传字符串视为已序列化(saveSession 需要同步快照语义:序列化与索引快照同一 tick)。
+//   ⑤ opts.mode(安全走查 S11):新建临时文件时的权限位(POSIX 生效,Windows 忽略)。rename 之后目标就是这个权限,
+//      所以密钥文件(config.json / runtime.json)传 0o600,只有属主可读写;不传保持原样(进程 umask,通常 0644)。
 async function atomicWriteJson(finalPath, value, opts = {}) {
   // typeof 守卫:本函数体会被 autonomy-durability 单独抽取执行(那里没有这个钩子)。
   const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
@@ -1655,7 +1657,7 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-    try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
+    try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
     catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
@@ -1879,9 +1881,14 @@ async function writeConfigAtomic(data) {
     // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
     try {
       const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
-      if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
+      if (current && typeof current === 'object' && !Array.isArray(current)) {
+        await fsp.copyFile(paths.config, `${paths.config}.prev`);
+        // 安全走查 S11:.prev 是 readConfig 的第一恢复源,里面是真 apiKey,不能脱敏;只收紧权限。copyFile 带的是【旧】config.json 的权限位
+        // (升级前落的盘是 0644),所以复制完显式再收一次;Windows 上 chmod 只动只读位,无害。
+        await fsp.chmod(`${paths.config}.prev`, 0o600).catch(() => {});
+      }
     } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
-    return atomicWriteJson(paths.config, data);
+    return atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
   });
   configWriteChain = thisWrite;
   try { await thisWrite; }
@@ -1994,6 +2001,7 @@ async function readConfig() {
         raw = prev; recoveredFrom = 'prev';
         // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
         await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
+        await fsp.chmod(`${paths.config}.corrupt`, 0o600).catch(() => {});   // S11:坏文件的留底里同样可能有真 key
       }
       else return degrade('EJSON');
     }
@@ -2139,23 +2147,49 @@ async function syncClaudeCliSettings(config) {
     // 用户自己的 ~/.claude/settings.json 写成 defaultMode:auto,单独用 claude 的人被悄悄放宽、没经过任何确认。
     // 出厂值不代表用户的意思,不碰它;存量用户经 to:14 迁移钉成显式 default,照旧同步。
     const explicitMode = Array.isArray(config.configExplicitKeysV1) && config.configExplicitKeysV1.includes('permissionMode');
+    // 安全走查 S9:如意档位是 bypass(全自动)时【不】把 permissions.defaultMode 写成 bypassPermissions。如意自己的 Claude 回合每回合都带
+    // --permission-mode(05),这个全局键只会波及【脱离如意的独立 claude 会话】—— 它们被无声放宽成免问,直到用户手动改回。
+    // 其余档位的同步行为不变(照旧写)。权属 / 撤回:与下面的 model / MAX_THINKING_TOKENS 同一套 sidecar 纪律 —— sidecar 记「上次我们写进去的值」
+    // (defaultMode)与「写之前用户自己的值」(defaultModePrior,null = 当时没有这个键);切到 bypass 时,若 settings 里的值仍等于我们上次写的,
+    // 就撤回成 prior(没有 prior 就删掉这个键);不等于(用户后来自己改过)或 sidecar 没记(老版本写的,分不出是谁写的)一律原样不碰。
+    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
+    let prevSyncedModel = null;
+    let prevSyncedThinking = null;
+    let prevSyncedDefaultMode = null;
+    let prevDefaultModePrior = null;
+    try {
+      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
+      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
+      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
+      if (sc && typeof sc.defaultMode === 'string') { prevSyncedDefaultMode = sc.defaultMode; prevDefaultModePrior = typeof sc.defaultModePrior === 'string' ? sc.defaultModePrior : null; }
+    } catch { /* no sidecar yet */ }
+    const permsNow = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions)) ? settings.permissions : null;
+    const currentDefaultMode = permsNow && typeof permsNow.defaultMode === 'string' ? permsNow.defaultMode : null;
+    const ownsDefaultMode = prevSyncedDefaultMode !== null && currentDefaultMode === prevSyncedDefaultMode;
+    let nextDefaultMode = null;        // 本次同步后 settings.permissions.defaultMode 里【由我们写的】那个值(null = 我们不拥有它)
+    let nextDefaultModePrior = null;
     if (explicitMode) {
       const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-      settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+      if (cliMode === 'bypassPermissions') {
+        if (ownsDefaultMode) {
+          const rest = { ...permsNow };
+          // prior 本身是 bypassPermissions(老版本留下的,或用户原先自己设的)也不在 bypass 档下写回去 —— 写回就等于又放宽了独立 claude 会话。
+          if (prevDefaultModePrior !== null && prevDefaultModePrior !== 'bypassPermissions') rest.defaultMode = prevDefaultModePrior; else delete rest.defaultMode;
+          if (Object.keys(rest).length) settings.permissions = rest; else delete settings.permissions;
+        }
+      } else {
+        nextDefaultModePrior = ownsDefaultMode ? prevDefaultModePrior : currentDefaultMode;
+        nextDefaultMode = cliMode;
+        settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+      }
+    } else if (ownsDefaultMode) {
+      nextDefaultMode = prevSyncedDefaultMode; nextDefaultModePrior = prevDefaultModePrior;   // 用户没选过档位:不碰,只把已有的权属记录带下去
     }
     // 2. Model. 第36波(v1.7): 只删【自己写过的】model —— settings.json 是用户自己的配置,工作台未设模型时
     // 无条件 delete 会把用户手写的 settings.model 一并抹掉(越权接管,与本函数 "MERGE: existing keys are
     // preserved" 的契约直接冲突)。权属用工作台侧 sidecar(dataRoot, 非用户 ~/.claude)追踪:记住上次同步写入的
     // 值,仅当 settings.model 仍等于该值时才删除(证明是我们写的);否则原样保留。sidecar 缺失(老版本首次升级)
     // 时宁可留一次陈旧值也不误删。
-    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
-    let prevSyncedModel = null;
-    let prevSyncedThinking = null;
-    try {
-      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
-      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
-      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
-    } catch { /* no sidecar yet */ }
     if (config.model && typeof config.model === 'string') settings.model = config.model;
     else if (prevSyncedModel && settings.model === prevSyncedModel) delete settings.model;
     // 3. Thinking budget -> env.MAX_THINKING_TOKENS。与上面的 model 同一条权属纪律:工作台没设预算时,只删【自己写过的】
@@ -2180,6 +2214,8 @@ async function syncClaudeCliSettings(config) {
     await atomicWriteJson(sidecarPath, JSON.stringify({
       model: (config.model && typeof config.model === 'string') ? config.model : null,
       maxThinkingTokens: config.thinkingBudget ? String(config.thinkingBudget) : null,   // 同上,见 "3. Thinking budget"
+      defaultMode: nextDefaultMode,                                                       // 安全走查 S9:见 "1. Permission mode"
+      defaultModePrior: nextDefaultMode !== null ? nextDefaultModePrior : null,
     })).catch(() => {});
   } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
 }
@@ -2205,7 +2241,9 @@ async function syncAgentRolesToClaude(cwd, config) {
     const skipped = [];
     for (const role of roles) {
       if (role.nativeClaude) continue;
-      const cliMode = claudePermissionMode(role.permissionMode);
+      // 安全走查 S3:项目来源的角色(仓库作者写的)不把自己声明的权限档写进用户全局 ~/.claude/agents —— 那是跨项目、用户自己的目录,
+      // 一句 permissionMode:bypassPermissions 写进去就让所有独立的 claude 会话里同名子代理都免问。该角色的档位留给起跑时按线程档夹。
+      const cliMode = agentRoleIsUntrusted(role) ? undefined : claudePermissionMode(role.permissionMode);
       var fm = ['---'];
       fm.push('description: ' + JSON.stringify(role.description || role.label));
       if (cliMode) fm.push('permissionMode: ' + cliMode);
@@ -3728,6 +3766,10 @@ function contentTypeFor(file) {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.ico': 'image/x-icon',
     '.svg': 'image/svg+xml',
   }[ext] || 'application/octet-stream';
 }
@@ -3754,7 +3796,9 @@ async function serveStatic(urlPath, req) {
       // 注入兼容。浏览器导航信号任一命中即判浏览器:Sec-Fetch-Dest / Origin / Mozilla UA。
       const h = (req && req.headers) || {};
       const browserNav = Boolean(h['sec-fetch-dest']) || Boolean(h.origin) || /mozilla/i.test(String(h['user-agent'] || ''));
-      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (RUNTIME.token || ''));
+      // 安全走查 S13:非本机对端(--allow-remote 绑了非回环地址)任何情况下都不下发 token,哪怕它没带浏览器信号。
+      const remotePeer = !requestIsLoopback(req);
+      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (remotePeer ? '' : (RUNTIME.token || '')));
       return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }, body: html };
     }
     const body = await fsp.readFile(full);
@@ -3778,6 +3822,30 @@ function hostAllowed(req) {
   const host = String(req.headers.host || '').toLowerCase();
   const p = RUNTIME.port;
   return host === `127.0.0.1:${p}` || host === `localhost:${p}` || host === `[::1]:${p}`;
+}
+// 安全走查 S13:Host 头是客户端自己写的,挡不住「绑了非回环地址 + 远端把 Host 写成 127.0.0.1:PORT」。
+// 所以再加一层看【TCP 对端地址】(req.socket.remoteAddress,内核给的,改不了):127.0.0.0/8、::1、::ffff:127.x 才算本机。
+// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 assertBindHostAllowed);即使放行,非本机对端也拿不到 token
+// (/api/bootstrap 与页面里的 token 注入都拒),其余接口一律要带头 token。没有 socket 的测试替身按本机算;
+// 有 socket 却读不出对端地址(连接已断)按非本机算,偏安全。
+function isLoopbackAddress(addr) {
+  const a = String(addr == null ? '' : addr).trim().toLowerCase();
+  if (!a) return false;
+  if (a === '::1' || a === '[::1]' || a === 'localhost') return true;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(a);
+  const v4 = mapped ? mapped[1] : a;
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v4);
+  return Boolean(m) && Number(m[1]) === 127 && [m[2], m[3], m[4]].every(n => Number(n) <= 255);
+}
+function requestIsLoopback(req) {
+  if (!req || !req.socket) return true;
+  return isLoopbackAddress(req.socket.remoteAddress);
+}
+// 绑定地址是不是回环:只认字面的 127.0.0.0/8、::1、localhost。0.0.0.0 / :: / 局域网 IP / 任意主机名都算非回环。
+function isLoopbackBindHost(host) {
+  const h = String(host == null ? '' : host).trim().toLowerCase();
+  if (h === 'localhost') return true;
+  return isLoopbackAddress(h.replace(/^\[|\]$/g, ''));
 }
 function originOk(req) {
   // Host allowlist FIRST — this is the DNS-rebinding gate and applies even when no Origin is present.
@@ -3805,10 +3873,17 @@ function tokenOk(req) {
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
   const browser = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
+  // 安全走查 S13:非本机对端(只可能出现在显式 --allow-remote 绑了非回环地址时)——bootstrap 一律拒(不给它 token),
+  // 其余 open / origin / token-browser 级路由也一律要头 token(它们对本机放行的前提是「对端在本机」,对远端不成立)。
+  const remote = !requestIsLoopback(req);
   for (const r of ROUTE_AUTH) {
     if (r.m !== '*' && r.m !== m) continue;
     const match = r.prefix ? pathname.startsWith(r.p) : pathname === r.p;
     if (!match) continue;
+    if (remote && r.auth !== 'body-token') {
+      if (pathname === '/api/bootstrap') return 'remote client not allowed';
+      return tokenOk(req) ? null : 'missing or invalid workbench token';
+    }
     switch (r.auth) {
       case 'open': return null;
       case 'origin': return originOk(req) ? null : 'cross-origin request rejected';

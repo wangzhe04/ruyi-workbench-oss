@@ -26,7 +26,7 @@
 | 音频提示 | 3 | beep / notify_attention / play_sound |
 | 桌面扩展 | 7 | 像素取色、剪贴板图像读写、显示器枚举、DPI、等待窗口/空闲 |
 | UI Automation (可选) | 3 | ui_inspect / ui_find / ui_invoke（无 uiautomation 时优雅降级） |
-| OCR (可选) | 4 | ocr_image / ocr_screen / ocr_click / ocr_find_text（无 winsdk 时降级） |
+| OCR (可选) | 5 | ocr_image / ocr_screen / ocr_click / ocr_find_text / ocr_available_languages（无 winsdk 时降级） |
 | 视觉匹配 (可选) | 4 | find_template / find_all_templates / wait_for_image / vision_click（无 cv2 时降级） |
 | 观察与验证 | 2 | observe（一次拿截图+窗口+UIA+OCR）/ act_and_verify（操作后测量屏幕变化） |
 | 宏录制 (可选) | 3 | record_start / record_stop / macro_list（无 pynput 时录制降级） |

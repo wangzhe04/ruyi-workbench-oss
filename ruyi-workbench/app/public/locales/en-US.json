@@ -2477,6 +2477,7 @@
   "chat.subagent.generating": "Generating · {{chars}} chars",
   "chat.subagent.retrying": "Retrying {{attempt}}/{{max}} · {{reason}}",
   "chat.subagent.dependsOn": " · depends on {{deps}}",
+  "chat.subagent.roleClamped": " · limited by thread permissions",
   "chat.subagent.backgroundHandedOff": "Running in background · handed off to Claude CLI",
   "chat.subagent.done": "✓ Done",
   "chat.subagent.resultChars": "{{chars}}-char result",
@@ -2527,6 +2528,7 @@
   "role.permReadOnly": "Read-only plan",
   "role.permSmart": "Smart auto",
   "role.permSkip": "Skip permissions",
+  "role.clampedBadge": " (project role, effective under the thread's permissions: {{tier}} / {{mode}})",
   "role.noIsolation": "No isolation",
   "chat.roleUser": "You",
   "chat.thinkingProcessCount": "Reasoning · {{count}} chars",
@@ -2709,7 +2711,7 @@
   ,"provider.pricing.outputShort": "Output price"
   ,"usage.cachedInputTokens": "{{count}} cache-hit"
 
-  ,"provider.capabilities": "Protocol & capabilities"
+  ,"provider.capabilities": "Capabilities & options"
   ,"provider.serverWebSearch": "Server-side search (DeepSeek Responses only)"
   ,"provider.serverWebSearch.hint": "When enabled, web_search runs on the DeepSeek server (saves a round-trip); when off or unsupported, falls back to the built-in local search (builtin/searxng/bing…). Only available with apiStyle=responses."
 
@@ -3773,11 +3775,11 @@
   ,"provider.anthropicAuth.xApiKey": "x-api-key header"
   ,"provider.anthropicAuth.bearer": "Bearer token"
   ,"provider.anthropicAuth.hint": "How the key is sent. Automatic: the official host gets x-api-key only, other hosts get both. Switch manually only if a gateway rejects the key."
-  ,"provider.anthropicThinking": "Thinking mode"
-  ,"provider.anthropicThinking.auto": "Automatic (by model)"
-  ,"provider.anthropicThinking.adaptive": "Always adaptive"
-  ,"provider.anthropicThinking.off": "Think as little as possible"
-  ,"provider.anthropicThinking.hint": "Automatic: newer Claude models get adaptive thinking on their own. Change it only to force thinking on or off for a non-Claude model behind a gateway."
+  ,"provider.anthropicThinking": "Thinking"
+  ,"provider.anthropicThinking.auto": "Model default (on for newer Claude models)"
+  ,"provider.anthropicThinking.adaptive": "On"
+  ,"provider.anthropicThinking.off": "Off (think as little as possible)"
+  ,"provider.anthropicThinking.hint": "Models behind a gateway (DeepSeek, Kimi, GLM and others) think only when this is On; newer Claude models think either way. The reasoning effort under \"Capabilities & options\" applies only when this is not Off."
   ,"provider.anthropicFallbacks": "Re-route automatically when a request is refused"
   ,"provider.anthropicFallbacks.hint": "Only applies to some newer models on the official Anthropic host (api.anthropic.com): when a model refuses, the server retries with another model. Untick to keep the model fixed."
   ,"role.color": "Color"
@@ -3862,4 +3864,20 @@
   ,"error.api.memoryMoveConflict": "The target scope already has a memory with the same id ({{id}}); nothing was moved."
   ,"migration.import.sensitiveSkipped.one": "{{count}} section that looks like it holds a password or key was skipped"
   ,"migration.import.sensitiveSkipped.other": "{{count}} sections that look like they hold passwords or keys were skipped"
+  ,"provider.anthropic.more": "Connection details (rarely needed)"
+  ,"provider.apiStyle.urlHint.chat": "OpenAI-compatible: enter the base URL up to /v1 (for example https://api.example.com/v1); Ruyi adds the endpoint path itself."
+  ,"provider.apiStyle.urlHint.responses": "Responses API: enter the provider's root address (for example https://api.example.com); Ruyi adds /responses itself."
+  ,"provider.apiStyle.urlHint.anthropic": "Anthropic: use https://api.anthropic.com for Anthropic itself; for a compatible gateway enter the address up to /anthropic (for example https://api.deepseek.com/anthropic), without /v1/messages. Many gateways do not list their models, so type the model name under \"Model\" below."
+  ,"provider.baseUrlPlaceholder.chat": "https://api.example.com/v1"
+  ,"provider.baseUrlPlaceholder.responses": "https://api.example.com"
+  ,"provider.baseUrlPlaceholder.anthropic": "https://api.anthropic.com or https://…/anthropic"
+  ,"provider.apiStyle.autoSwitched": "Switched to the {{name}} protocol based on the address (change it back above if that is wrong)"
+  ,"provider.baseUrlSuffixStripped": "Removed the endpoint path from the end of the address (Ruyi adds it itself)"
+  ,"provider.testSuccessNoList": "✓ Connected (sent a test message to \"{{model}}\"; this endpoint does not list its models, so enter model names by hand)"
+  ,"provider.testError.unauthorized": "The API key is invalid or has no access: check the key and your remaining quota ({{detail}})"
+  ,"provider.testError.notFound": "The endpoint address may be wrong ({{detail}})."
+  ,"provider.testError.modelRejected": "The model name may be wrong: make sure \"Model\" holds one of this provider's model names ({{detail}})"
+  ,"provider.testError.unreachable": "Cannot reach the endpoint: check the network and the base URL, and that an internal endpoint is reachable ({{detail}})"
+  ,"provider.testError.needsModel": "This endpoint does not list its models: enter one of this provider's model names under \"Model\" first, then test again."
+  ,"provider.testError.failed": "Connection failed ({{detail}})"
 }

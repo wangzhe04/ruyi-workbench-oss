@@ -651,9 +651,9 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   anthropic: Object.freeze({
     id: 'anthropic',
     serverWebSearch: false, // 批 3 映射 web_search_20260209
-    endpointBase: baseUrl => providerBaseWithV1(baseUrl),
+    endpointBase: anthropicApiBase,
     completionUrl: anthropicMessagesUrl,
-    modelsUrl: providerWireModelsUrl,
+    modelsUrl: anthropicModelsUrl,
     requestHeaders: anthropicRequestHeaders,
     encodeMessages: ({ model, messages, stream, instructions, provider, hasTools }) => encodeAnthropicMessages({
       model, stream, instructions, provider, hasTools,

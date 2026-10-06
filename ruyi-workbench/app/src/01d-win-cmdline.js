@@ -15,6 +15,7 @@ function isBatchLauncher(command) {
 // 含空格且以 `\` 结尾的路径(`C:\My Docs\`)同理,收尾的 `\"` 被当成转义引号吞掉。修法按 ② 的规则补反斜杠:
 // 每个 `"` 前面那一串反斜杠、以及结尾引号前面那一串反斜杠都加倍;`"` 仍写成 `""`(① 不变)。
 // %、! 在 cmd 里即使在引号内也会展开,这里没有通用的转义,保持原状(只在判据里触发加引号)。
+// 动态文本实参里的 % ! 由下面的 neutralizeCmdTextArgs 在 batchSafeSpawn 里先换成全角(安全走查 W5)。
 function quoteWinArg(a) {
   a = String(a);
   if (a === '') return '""';
@@ -27,11 +28,38 @@ function quoteWinArg(a) {
   }
   return out + '\\'.repeat(backslashes * 2) + '"';
 }
+// 安全走查 W5:%、! 在 cmd.exe 里【即使在双引号内】也会展开(%VAR%、%CMDCMDLINE%、延迟展开的 !VAR!),quoteWinArg 无从转义。
+// 展开结果里可以带出一个裸 `"`,把引号态翻掉,后面的 & | 就成了命令分隔符 —— 即 `%CMDCMDLINE:~-1%&calc&` 一类的注入。
+// 经 .cmd 垫片起 CLI 时,命令行上那些【给模型看的动态文本】(项目角色的 prompt / description 经 --agents JSON、用户 append 与
+// 技能/记忆/账本摘要经 --append-system-prompt、角色的工具清单与模型名)里的 % 与 ! 换成全角 ％ ！:它们只是提示/名字文本,换字无害,
+// 换完 cmd 眼里就没有可展开的字符了。路径类实参(--add-dir / --mcp-config / --resume …)必须保真,不在此列。
+// 只处理「值紧跟在这些旗标后面」的形态(`--flag value` 与 `--flag=value`);其余实参原样不动。纯函数,返回新数组。
+const CMD_TEXT_VALUE_FLAGS = new Set([
+  '--append-system-prompt', '--system-prompt', '--agents', '--prompt',
+  '--allowed-tools', '--allowedTools', '--disallowed-tools', '--disallowedTools', '--tools', '--model', '--effort',
+]);
+function neutralizeCmdMetaChars(value) {
+  return String(value).replace(/%/g, '％').replace(/!/g, '！');
+}
+function neutralizeCmdTextArgs(args) {
+  const out = Array.isArray(args) ? args.slice() : [];
+  for (let i = 0; i < out.length; i++) {
+    const a = out[i];
+    if (typeof a !== 'string') continue;
+    if (CMD_TEXT_VALUE_FLAGS.has(a)) {
+      if (i + 1 < out.length && typeof out[i + 1] === 'string') { out[i + 1] = neutralizeCmdMetaChars(out[i + 1]); i += 1; }
+      continue;
+    }
+    const eq = a.indexOf('=');
+    if (eq > 2 && a.startsWith('--') && CMD_TEXT_VALUE_FLAGS.has(a.slice(0, eq))) out[i] = a.slice(0, eq + 1) + neutralizeCmdMetaChars(a.slice(eq + 1));
+  }
+  return out;
+}
 // Returns { command, args, opts } ready for cp.spawn/spawnSync — transparently wrapping .cmd/.bat.
 function batchSafeSpawn(command, args) {
   if (!isBatchLauncher(command)) return { command, args, opts: {} };
   const comspec = process.env.ComSpec || 'cmd.exe';
-  const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"'; // outer quotes stripped by /s
+  const line = '"' + [command, ...neutralizeCmdTextArgs(args)].map(quoteWinArg).join(' ') + '"'; // outer quotes stripped by /s
   return { command: comspec, args: ['/d', '/s', '/c', line], opts: { windowsVerbatimArguments: true } };
 }
 
@@ -63,7 +91,7 @@ function cmdLineBudgetFor(command) {
 function spawnCmdLineLength(command, args) {
   if (isBatchLauncher(command) || cmdLineBudgetSeam()) {
     const comspec = process.env.ComSpec || 'cmd.exe';
-    const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"';
+    const line = '"' + [command, ...neutralizeCmdTextArgs(args)].map(quoteWinArg).join(' ') + '"';
     return `${comspec} /d /s /c ${line}`.length;
   }
   // 直启粗估(Node 自行 quoting): 只用于 32K 量级的宽松判断,无需精确。

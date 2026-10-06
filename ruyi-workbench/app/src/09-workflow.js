@@ -49,7 +49,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const baseOnEvent = onEvent;
     onEvent = evt => baseOnEvent(evt && typeof evt === 'object' && !evt.background ? { ...evt, background: true } : evt);
   }
-  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
+  // 安全走查 S3:项目来源的角色按这次运行的父档(permModeOverride > 线程档)带上有效档位标注;节点工具级用夹过的那个(卡片如实显示)。
+  // 项目来源的角色在这里换成「夹后」的 toolTier(声明值留在 declaredToolTier):下面节点的 toolTier / 选模型都读 role.toolTier,卡片与快照如实显示夹后的档位。
+  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config, { parentMode: permModeOverride || config.permissionMode }))
+    .map(role => [role.id, (agentRoleIsUntrusted(role) && role.effectiveToolTier && role.effectiveToolTier !== role.toolTier) ? { ...role, declaredToolTier: role.toolTier, toolTier: role.effectiveToolTier } : role]));
   let defaultRoute = {
     engine: parentEngine === 'claude' ? 'claude' : (provider ? 'openai' : 'claude'),
     provider: provider || null,
@@ -170,7 +173,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (roleId && !role) return { ok: false, error: `节点 ${id} 引用了不存在的角色: ${roleId}`, startedCount: 0 };
       ids.add(id);
       const resourceSpecs = normalizeAgentResources(raw.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace));
-      const explicitTier = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      // 模型显式给的档位对项目来源的角色同样不得高于父档(clamp 只对 untrusted 角色生效,其余原样)。
+      const explicitTier0 = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      const explicitTier = (explicitTier0 && role && agentRoleIsUntrusted(role)) ? clampAgentRoleToParent(role, explicitTier0, permModeOverride || config.permissionMode).toolTier : explicitTier0;
       const outputSchema = sanitizeAgentOutputSchema(raw.outputSchema);
       const gate = normalizeAgentGate(raw.gate, roleId);
       const failurePolicy = ['block', 'continue', 'retry'].includes(raw.failurePolicy) ? raw.failurePolicy : 'block';
@@ -3210,8 +3215,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // F5 (安全·自防御): re-check the native tier at the decision point — do NOT rely on normalizeConfig
           // having cleansed the rule table upstream. Only read/edit-tier native tools may be auto-allowed by a
           // persistent rule; an exec/desktop rule (however it got into the file) can never short-circuit here.
+          // 安全走查 S1:联网请求带疑似载荷时的这一问,不被「始终允许」规则短路 —— 否则用户对一次长网址点过「始终允许」,保护就对所有后续请求永久失效。
           if (gate === 'ask' && !bridge && config.toolAllowRules && config.toolAllowRules[tc.name] === 'allow'
-              && (nativeToolTier(tc.name) === 'read' || nativeToolTier(tc.name) === 'edit')) gate = 'allow';
+              && (nativeToolTier(tc.name) === 'read' || nativeToolTier(tc.name) === 'edit') && !webPayloadReason(tc.name, args)) gate = 'allow';
           // 第27波:自主性授权书消耗点(native 主 gate)。仅在 gate==='ask' 且 !bridge 时介入(子集律:只 ask→allow);
           // 命中 → 就地降 allow + 计数 + 事件。exec/edit/read 全档可授,但均受 grant 的路径 glob / cmdAllow / TTL / 次数约束,
           // 且真正执行仍过 guardFileToolPath/SSRF/journal。子代理有独立 gate(runSubAgentCore),【不】走此处 → 不消耗父授权(R-P1-1)。

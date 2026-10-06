@@ -154,7 +154,10 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
     // hunt2-P7 在写链里加了「只在当前 config 可解析时才刷新 .prev」的注释与判断,固定 600 字窗口够不着委托行 → 改按函数切。
     const wc = src.includes('let configWriteChain') ? require('./lib/source-slice').functionBlock(src, 'writeConfigAtomic') : '';
     ok(/atomicWriteJson\(finalPath, payload\)/.test(ss) && /sessionWriteChains/.test(ss), 'P2#8 saveSession 委托 atomicWriteJson + per-id 写链(对抗轮:防重试窗口旧覆新)');
-    ok(/atomicWriteJson\(paths\.config, data\)/.test(wc) && /configWriteChain/.test(wc), 'P2#8 writeConfigAtomic 委托 atomicWriteJson + 全局写链');
+    // 安全走查 S11 起委托调用多带一个 { mode: 0o600 }(密钥文件只给属主读写):委托这件事不变,判据放宽到「data 之后可以有选项」,
+    // 另钉 0600 确实传下去了。
+    ok(/atomicWriteJson\(paths\.config, data[,)]/.test(wc) && /configWriteChain/.test(wc), 'P2#8 writeConfigAtomic 委托 atomicWriteJson + 全局写链');
+    ok(/atomicWriteJson\(paths\.config, data, \{ mode: 0o600 \}\)/.test(wc), 'P2#8b writeConfigAtomic 写 config.json 用 0600(S11)');
     const awj = src.slice(src.indexOf('async function atomicWriteJson('), src.indexOf('async function atomicWriteJson(') + 1200);
     ok(/finalPath \+ '\.' \+ process\.pid \+ '\.' \+ crypto\.randomBytes/.test(awj), 'P2#8 atomicWriteJson 用 pid+随机 tmp 名(不变量中心化)');
     ok(/fsp\.unlink\(tmpPath\)/.test(awj), 'P2#8 atomicWriteJson 失败清 tmp(唯一名无覆写自愈路径)');

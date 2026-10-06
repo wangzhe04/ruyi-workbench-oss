@@ -2477,6 +2477,7 @@
   "chat.subagent.generating": "生成中 · {{chars}} 字",
   "chat.subagent.retrying": "重试中 {{attempt}}/{{max}} · {{reason}}",
   "chat.subagent.dependsOn": " · 依赖 {{deps}}",
+  "chat.subagent.roleClamped": " · 受线程权限限制",
   "chat.subagent.backgroundHandedOff": "后台执行中 · 已交给 Claude CLI",
   "chat.subagent.done": "✓ 完成",
   "chat.subagent.resultChars": "{{chars}} 字结论",
@@ -2527,6 +2528,7 @@
   "role.permReadOnly": "只读计划",
   "role.permSmart": "智能自动",
   "role.permSkip": "跳过权限",
+  "role.clampedBadge": "(项目角色,按线程权限实际生效:{{tier}} / {{mode}})",
   "role.noIsolation": "不隔离",
   "chat.roleUser": "你",
   "chat.thinkingProcessCount": "思考 · {{count}} 字",
@@ -2709,7 +2711,7 @@
   ,"provider.pricing.outputShort": "输出价"
   ,"usage.cachedInputTokens": "其中缓存命中 {{count}}"
 
-  ,"provider.capabilities": "协议与能力"
+  ,"provider.capabilities": "能力与选项"
   ,"provider.serverWebSearch": "服务端搜索 (仅 DeepSeek Responses)"
   ,"provider.serverWebSearch.hint": "开启后 web_search 由 DeepSeek 服务端执行(免一轮往返);关闭或端点不支持时回退内置本地搜索(builtin/searxng/bing…)。仅 apiStyle=responses 时可用。"
 
@@ -3773,11 +3775,11 @@
   ,"provider.anthropicAuth.xApiKey": "x-api-key 请求头"
   ,"provider.anthropicAuth.bearer": "Bearer 令牌"
   ,"provider.anthropicAuth.hint": "密钥怎么交给对方。自动：官方地址只发 x-api-key，其它地址两种都发。网关提示认证失败时再手动换。"
-  ,"provider.anthropicThinking": "思考方式"
-  ,"provider.anthropicThinking.auto": "自动（按模型判断）"
-  ,"provider.anthropicThinking.adaptive": "总是自适应思考"
-  ,"provider.anthropicThinking.off": "尽量少想"
-  ,"provider.anthropicThinking.hint": "自动：新一代 Claude 模型自动开启自适应思考。网关上的非 Claude 模型想强制开或关时才改。"
+  ,"provider.anthropicThinking": "思考"
+  ,"provider.anthropicThinking.auto": "按模型默认（新一代 Claude 自动开）"
+  ,"provider.anthropicThinking.adaptive": "开"
+  ,"provider.anthropicThinking.off": "关（尽量少想）"
+  ,"provider.anthropicThinking.hint": "网关上的模型（DeepSeek、Kimi、GLM 等）选「开」才会思考；新一代 Claude 不选也会思考。下面「能力与选项」里的思考强度只在这里不是「关」时生效。"
   ,"provider.anthropicFallbacks": "被拒答时自动改派"
   ,"provider.anthropicFallbacks.hint": "只对 Anthropic 官方地址（api.anthropic.com）上的部分新模型生效：模型拒绝回答时，由服务端自动换一个模型重试。不想换模型就取消勾选。"
   ,"role.color": "颜色"
@@ -3862,4 +3864,20 @@
   ,"error.api.memoryMoveConflict": "目标作用域里已经有同 id 的记忆（{{id}}），没有移动"
   ,"migration.import.sensitiveSkipped.one": "{{count}} 段疑似含口令或密钥，已跳过不导入"
   ,"migration.import.sensitiveSkipped.other": "{{count}} 段疑似含口令或密钥，已跳过不导入"
+  ,"provider.anthropic.more": "连接细节（一般不用改）"
+  ,"provider.apiStyle.urlHint.chat": "OpenAI 兼容：Base URL 填到 /v1 这一级（例如 https://api.example.com/v1），工作台自己补端点路径。"
+  ,"provider.apiStyle.urlHint.responses": "Responses API：Base URL 填服务商给的根地址（例如 https://api.example.com），工作台自己补 /responses。"
+  ,"provider.apiStyle.urlHint.anthropic": "Anthropic：官方填 https://api.anthropic.com；兼容网关填到 /anthropic 这一级（例如 https://api.deepseek.com/anthropic），不要带 /v1/messages。很多网关不提供模型清单，在下面「模型」里手动填上模型名即可。"
+  ,"provider.baseUrlPlaceholder.chat": "https://api.example.com/v1"
+  ,"provider.baseUrlPlaceholder.responses": "https://api.example.com"
+  ,"provider.baseUrlPlaceholder.anthropic": "https://api.anthropic.com 或 https://…/anthropic"
+  ,"provider.apiStyle.autoSwitched": "已按地址切到「{{name}}」协议（不对的话在上面改回）"
+  ,"provider.baseUrlSuffixStripped": "已去掉地址末尾的端点路径（工作台会自己补上）"
+  ,"provider.testSuccessNoList": "✓ 连接成功（用「{{model}}」发了一句试探；这个端点不提供模型清单，模型名请手动填写）"
+  ,"provider.testError.unauthorized": "密钥无效或无权限：请检查 API Key 是否正确、是否还有额度（{{detail}}）"
+  ,"provider.testError.notFound": "端点地址可能不对（{{detail}}）。"
+  ,"provider.testError.modelRejected": "模型名可能不对：请确认「模型」里填的是这家服务商的模型名（{{detail}}）"
+  ,"provider.testError.unreachable": "连不上端点：检查网络与 Base URL，内网端点确认可达（{{detail}}）"
+  ,"provider.testError.needsModel": "这个端点不提供模型清单：请先在「模型」里填上这家服务商的模型名，再测试连接。"
+  ,"provider.testError.failed": "连接失败（{{detail}}）"
 }

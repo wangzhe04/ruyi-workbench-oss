@@ -1675,7 +1675,8 @@ export function createChatStreamRuntime(deps = {}) {
       const sum = el('summary', 'subagent-head');
       const task = String(evt.task || '').replace(/\s+/g, ' ').trim();
       const taskShort = task.length > 40 ? task.slice(0, 40) + '…' : task;
-      const tierTag = evt.toolTier ? ` · ${evt.toolTier}` : '';
+      // 安全走查 S3:项目角色被线程权限夹过时,卡片显示的是夹后的档位(evt.toolTier 已是夹后值),并如实注明。
+      const tierTag = (evt.toolTier ? ` · ${evt.toolTier}` : '') + (evt.roleClamped ? t('chat.subagent.roleClamped') : '');
       const roleTag = (evt.roleLabel || evt.roleId) ? ` · ${evt.roleLabel || evt.roleId}` : '';
       const modelTag = evt.model ? ` · ${evt.model}` : '';
       const driverTag = evt.native && evt.engine === 'claude' ? t('chat.claudeNative') : '';
