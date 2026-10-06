@@ -1477,8 +1477,14 @@ function estimateToolSchemaTokens(tools) {
 // 没覆盖的(诚实):低于阈值的小额外传(一个 API key 约 50 字符、一个 32 位 token 能从阈值下面过去)—— 这条挡的是批量载荷,不是逐字符审计;
 // 要杜绝得对「本回合读过本地文件之后的新域名」做确认(产品形态变更,未做)。
 // 同一判据覆盖 http_request / http_download 的网址(读档以上的同类外联口:GET 带长查询串同样能外传),以及 CLI 引擎的 WebFetch / WebSearch。
-const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300 });
-const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download']);
+// 第三波(复核 #2 / #7):另加三条整体长度判据 —— pathChars(路径【解码后】总长)、hostChars(主机名总长)、urlChars(整条网址原长);
+// 查询串 / fragment 的 256 改按【解码后】计(中文搜索词一个字符编码成 9 个字符,30 个汉字就超了);用户信息段(`user:pass@`)一律问
+// (Node 会把它发成 Authorization 头 —— 无提示外传通道;web_fetch 没有任何理由带凭据)。阈值依据:真实网址路径解码后极少过 200,
+// 合法主机名几乎不超过 70(codespaces / vercel 预览域 ~60),整条网址过 1024 已超出多数服务端的 URL 上限。
+const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300, pathChars: 300, hostChars: 100, urlChars: 1024 });
+// 第三波(复核 #3):browser_open(原生与 ACC 的同名工具)= 把网址交给浏览器去 GET,ACC 的 fetch 同理;裸名匹配,mcp__server__ 前缀已被 webPayloadReason 剥掉。
+// (ACC 的 browser_navigate 只有 back / forward / reload,没有网址入参,不在此列;管家的 steward_web_fetch / steward_web_search 不走本闸,见 13l。)
+const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download', 'browser_open', 'fetch']);
 const WEB_PAYLOAD_QUERY_TOOLS = Object.freeze(['web_search', 'WebSearch']);
 // 「像编码出来的」:≥ encodedRunChars 的 hex 连续串;或 [A-Za-z0-9+/_=-] 连续串(base64 / base64url),且同时有字母和数字、连字符 / 下划线占比 ≤ 1/8
 // (长文章 slug 如 how-to-install-…-2026 连字符多、词与词之间有分隔,不算;真 base64url 里 - _ 的期望占比约 3%)。
@@ -1511,13 +1517,19 @@ function webUrlPayloadReason(url) {
   const qAt = noHash.indexOf('?');
   const query = qAt >= 0 ? noHash.slice(qAt + 1) : '';
   const head = qAt >= 0 ? noHash.slice(0, qAt) : noHash;
-  if (query.length + frag.length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
+  if (s.length > WEB_PAYLOAD_LIMITS.urlChars) return 'url_long';
+  if (webSafeDecode(query).length + webSafeDecode(frag).length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
   const afterScheme = head.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
   const slashAt = afterScheme.indexOf('/');
   const hostPort = slashAt >= 0 ? afterScheme.slice(0, slashAt) : afterScheme;
   const pathPart = slashAt >= 0 ? afterScheme.slice(slashAt) : '';
-  const host = hostPort.replace(/^[^@]*@/, '').replace(/:\d*$/, '');
+  // 用户信息段:带口令(`user:pass@`)或长到能装数据(> 32 字符)一律问;`http://user@intranet.corp:8080/…` 这种只有短用户名的内网写法不算(既有零误伤样本)。
+  const atAt = hostPort.lastIndexOf('@');
+  if (atAt >= 0) { const userinfo = hostPort.slice(0, atAt); if (userinfo.length > 32 || userinfo.includes(':')) return 'userinfo'; }
+  const host = (atAt >= 0 ? hostPort.slice(atAt + 1) : hostPort).replace(/:\d*$/, '');
+  if (host.length > WEB_PAYLOAD_LIMITS.hostChars) return 'host_long';
   if (host.split('.').some(label => label.length >= WEB_PAYLOAD_LIMITS.hostLabelChars)) return 'host_label_long';
+  if (webSafeDecode(pathPart).length > WEB_PAYLOAD_LIMITS.pathChars) return 'path_long';
   const values = [];
   for (const pair of query.split('&')) {
     if (!pair) continue;
@@ -1525,7 +1537,10 @@ function webUrlPayloadReason(url) {
     values.push(webSafeDecode(eq >= 0 ? pair.slice(eq + 1) : pair));
   }
   if (values.some(v => v.length > WEB_PAYLOAD_LIMITS.paramValueChars)) return 'param_long';
-  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)];
+  // 第三波(复核 #7):`#diff-<64 位 hex>`(GitHub 的 diff 锚点)与 `sha256-<64 位 hex>` / `sha256:<64 位 hex>`(镜像 / 包的摘要)恰好 64 位 hex,是日常网址里
+  // 仅有的几种「像编码」的正常写法;只摘掉【恰好 64 位】的这两种前缀形态再判(128 位 hex 之类仍命中),整体长度另有 pathChars / urlChars 兜着。
+  const withoutDigests = piece => piece.replace(/(?:sha256[-:]|diff-)[0-9a-fA-F]{64}(?![0-9a-fA-F])/gi, '');
+  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)].map(withoutDigests);
   if (pieces.some(webLooksEncoded)) return 'encoded_run';
   return '';
 }
@@ -1546,19 +1561,22 @@ function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
   // 安全走查 S1:联网请求看起来带了载荷 → 除 bypass 以外所有档位(含 plan、read 档)先确认;走既有的权限请求,不另造一套。
-  if (toolName && webPayloadReason(toolName, input)) return 'ask';
-  if (tier === 'read') return 'allow';
+  // 第三波(复核):载荷这一问只把本来的 allow 升成 ask,【不】把 block 放宽成 ask —— plan / dontAsk 档里本来就被挡的 exec / edit 工具(http_request / browser_open 等)带长网址仍是 block。
+  const payloadAsk = toolName && webPayloadReason(toolName, input) ? 'ask' : 'allow';
+  if (tier === 'read') return payloadAsk;
   if (mode === 'plan' || mode === 'dontAsk') return 'block';
   // v1.4.3: 'auto' mode — AI risk-classifier decides. In the native engine we approximate:
   // allow edit-tier (low-risk, reversible) and prompt for exec-tier.
-  if (mode === 'auto' && tier === 'edit') return 'allow';
-  if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
+  if (mode === 'auto' && tier === 'edit') return payloadAsk;
+  if (mode === 'acceptEdits' && tier === 'edit') return payloadAsk;
   if (mode === 'auto') {
     if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
     // 2026-10:命令是拼出来 / 编码出来 / 求值出来的(强信号,06i stewardAutoAskIndirect)也停下来问 ——
     // 字面量判据看不穿它真正要跑什么。管家对这一类不代批(13l),只能用户亲自按。
     // 安全走查 S2:网络外发与读数据根密钥文件(06i stewardAutoAskSensitiveKind)同样停下来问;命令类工具才扫,编排类的任务描述文字不扫。
-    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== '') ? 'ask' : 'allow';
+    // 第三波(复核 #4):摊平文本超出扫描窗口的(窗口之后没人看过)同样问 —— 见 06i stewardAutoAskScanIncomplete。
+    return (payloadAsk === 'ask' || stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== ''
+      || stewardAutoAskScanIncomplete(toolName, input)) ? 'ask' : 'allow';
   }
   return 'ask';
 }

@@ -6036,7 +6036,7 @@ function hostAllowed(req) {
 }
 // 安全走查 S13:Host 头是客户端自己写的,挡不住「绑了非回环地址 + 远端把 Host 写成 127.0.0.1:PORT」。
 // 所以再加一层看【TCP 对端地址】(req.socket.remoteAddress,内核给的,改不了):127.0.0.0/8、::1、::ffff:127.x 才算本机。
-// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 assertBindHostAllowed);即使放行,非本机对端也拿不到 token
+// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 resolveBindHost);即使放行,非本机对端也拿不到 token
 // (/api/bootstrap 与页面里的 token 注入都拒),其余接口一律要带头 token。没有 socket 的测试替身按本机算;
 // 有 socket 却读不出对端地址(连接已断)按非本机算,偏安全。
 function isLoopbackAddress(addr) {
@@ -12836,7 +12836,10 @@ async function sensitiveFileIdentities() {
   const ids = new Set();
   let root = '';
   try { root = dataRoot(); } catch { return ids; }
-  for (const name of SENSITIVE_HARDLINK_FILES) {
+  // 第三波(复核 #10):config.json 的备份族(.prev / .bak-* / .bak-providers-* / .corrupt)同样含真 key,硬链接别名一并比;名字族与 isSensitiveDataPath 同一条(/^config\.json(\.|$)/)。
+  let names = SENSITIVE_HARDLINK_FILES;
+  try { names = [...new Set([...SENSITIVE_HARDLINK_FILES, ...(await fsp.readdir(root)).filter(n => /^config\.json\./i.test(n))])]; } catch { /* 读不了目录:只比两份正本 */ }
+  for (const name of names) {
     try {
       const st = await fsp.stat(path.join(root, name), { bigint: true });
       if (st.isFile() && st.ino) ids.add(String(st.dev) + ':' + String(st.ino));
@@ -12914,7 +12917,7 @@ async function guardWorkspacePath(rawPath, session, config) {
   const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
   // 安全走查 W1:非本机 UNC 在任何 I/O(下面的 realpath 会去连对方主机)之前按「不在工作区」拒,除非它落在用户配置的 UNC 工作区里。
-  if (remoteUncDenial([String(rawPath), targetRaw, target], session, config)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
+  if (await remoteUncDenialResolved([String(rawPath), targetRaw, target], session, config)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   const resolved = await resolveContainmentPath(targetRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:链接读不出目标 / 链接层数超限 —— 不知道真实落点,不放行。
@@ -13051,8 +13054,11 @@ function userHomePersistenceHit(absPath) {
   return false;
 }
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
+// 第三波(安全走查复核 #1):再砍掉 NTFS 备用数据流后缀 —— `profile.ps1::$DATA` / `authorized_keys:stream` 与正名是同一个文件(`::$DATA` 就是默认数据流),
+// 目标还不存在时 realpath 不会替我们还原正名,于是以 `$` 收尾的正则与「整串相等」的家目录比对都会落空。Windows 文件名里除盘符外不可能出现 `:`,
+// 所以非盘符段(`C:` 这种单独的盘符段除外)从第一个 `:` 起整段丢掉;POSIX 上带冒号的怪文件名也只是被保守地并到前缀上,只会多拦不会漏。
 function normalizeAutoexecPath(absPath) {
-  return absPath.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
+  return absPath.split(/[\\/]/).map(s => (/^[a-z]:$/i.test(s) ? s : s.replace(/:.*$/, '')).replace(/[. ]+$/, '')).join('/').toLowerCase();
 }
 // v2.7.1 (opt#1 全自动宽写): 操作系统关键目录硬地板 -- bypass/auto 宽写模式下仍始终拒绝写入的 OS 系统路径。
 // 与 isSensitiveDataPath(应用自身数据) + AUTOEXEC_DENYLIST 互补,构成"系统级安全保护"三层地板的第三层:
@@ -13131,7 +13137,9 @@ function uncHostAndPath(p, forwardSlash) {
   const isSep = ch => ch === '\\' || (fwd && ch === '/');
   if (s.length < 3 || !isSep(s[0]) || !isSep(s[1])) return null;
   let rest = s.slice(2);
-  const ext = /^\?[\\/]UNC[\\/]+(.*)$/i.exec(rest);
+  // 第三波(复核 #5):`\\.\UNC\主机\共享` 与 `\\?\UNC\…` 是同一个东西(`UNC` 是 \GLOBAL?? 下指向 \Device\Mup 的符号链接,`\\.\` 与 `\\?\` 都映射到它),
+  // 再加 `\\?\Global\UNC\…`。其余设备命名空间写法(GLOBALROOT\Device\Mup\… 等)这里不当 UNC 解析,由 deviceNamespaceIsLocalVolume 一律按远端拒。
+  const ext = /^[?.][\\/]+(?:Global[\\/]+)?UNC[\\/]+(.*)$/i.exec(rest);
   if (ext) rest = ext[1];
   else if (/^[?.](?:[\\/]|$)/.test(rest) || isSep(rest[0])) return null;   // \\?\C:\ 与 \\.\device;三个及以上的分隔符不是 UNC
   const segs = [];
@@ -13142,7 +13150,10 @@ function uncHostAndPath(p, forwardSlash) {
   }
   if (!segs.length || !segs[0]) return null;
   const host = segs[0].toLowerCase().replace(/^\[|\]$/g, '');
-  return { host, norm: ('\\\\' + segs.join('\\')).toLowerCase() };
+  // 第三波(复核 #6):`\\wsl$\发行版` 与 `\\wsl.localhost\发行版` 是同一个 WSL 共享的两种拼法(Windows 11 的 realpath 可能把前者还原成后者)。
+  // host 原样保留(本机主机名判据不受影响),只在【比较用的 norm】里把两种拼法并成一个,工作区例外按 norm 比。
+  const normSegs = host === 'wsl$' ? ['wsl.localhost', ...segs.slice(1)] : segs;
+  return { host, norm: ('\\\\' + normSegs.join('\\')).toLowerCase() };
 }
 function uncIsLocalHost(host) {
   const h = String(host || '').toLowerCase();
@@ -13150,12 +13161,27 @@ function uncIsLocalHost(host) {
   try { me = (os.hostname ? os.hostname() : '').toLowerCase(); } catch { me = ''; }
   return h === 'localhost' || h === '127.0.0.1' || h === '::1' || (me !== '' && h === me);
 }
+// 第三波(复核 #5):设备命名空间前缀(`\\?\` / `\\.\` / NT 写法 `\??\`)后面接的东西,只有「盘符 `X:`」与「`Volume{GUID}`」(可带 `Global\`)是本地卷;
+// 其余一律按远端(`\\?\GLOBALROOT\Device\Mup\…`、`\\.\pipe\…`、UNC 别名以外的未知写法)—— 文件工具没有任何理由去碰这些。
+// 返回 null(不是设备命名空间写法)/ true(本地卷)/ false(其余)。UNC 别名写法由 uncHostAndPath 先认出主机,不走这里。
+function deviceNamespaceIsLocalVolume(p, forwardSlash) {
+  const s = String(p == null ? '' : p);
+  const fwd = forwardSlash === undefined ? process.platform === 'win32' : !!forwardSlash;
+  const isSep = ch => ch === '\\' || (fwd && ch === '/');
+  let rest = null;
+  if (s.length >= 4 && isSep(s[0]) && isSep(s[1]) && (s[2] === '?' || s[2] === '.') && isSep(s[3])) rest = s.slice(4);
+  else if (s.length >= 4 && s[0] === '\\' && s[1] === '?' && s[2] === '?' && s[3] === '\\') rest = s.slice(4);
+  if (rest === null) return null;
+  return /^(?:Global[\\/]+)?(?:[A-Za-z]:(?:[\\/]|$)|Volume\{[0-9a-fA-F-]+\}(?:[\\/]|$))/i.test(rest);
+}
 // 返回 '' = 不拦;否则是拒绝原因。candidates:要判的几种拼法(原串 / resolve 后 / realpath 后),任一是越界 UNC 即拒。
-function remoteUncDenial(candidates, session, config, forwardSlash) {
+// extraRoots:调用方已经 realpath 过的 UNC 工作区根(见 remoteUncDenialResolved)—— 例外同时认「字面拼法」与「realpath 拼法」。
+function remoteUncDenial(candidates, session, config, forwardSlash, extraRoots) {
   const hits = [];
   for (const c of candidates) {
     const u = uncHostAndPath(c, forwardSlash);
     if (u && !uncIsLocalHost(u.host)) hits.push(u);
+    else if (!u && deviceNamespaceIsLocalVolume(c, forwardSlash) === false) hits.push({ host: '(device-namespace)', norm: '\\\\?\\' + String(c).toLowerCase() });
   }
   if (!hits.length) return '';
   const roots = [];
@@ -13164,10 +13190,37 @@ function remoteUncDenial(candidates, session, config, forwardSlash) {
   if (config && typeof config.defaultWorkspace === 'string') push(config.defaultWorkspace);
   for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) push(w);
   for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) { if (w && typeof w === 'object') push(w.path); }
+  for (const r of (Array.isArray(extraRoots) ? extraRoots : [])) push(r);
   for (const u of hits) {
     if (!roots.some(r => u.norm === r || u.norm.startsWith(r + '\\'))) return u.host;
   }
   return '';
+}
+// 第三波(复核 #6):工作区根可能是「映射盘 Z:\」「\\wsl$\…」「DFS 名字空间」—— 它们的 realpath(GetFinalPathNameByHandle)是另一种拼法
+// (\\fileserver\dept\…、\\wsl.localhost\…、\\目标服务器\…)。纯词法的例外只认字面,于是工具回给模型的 realpath 拼法路径再喂回来就被当成「别人的共享」。
+// 所以【只在字面判据要拒的时候】才把配置里的工作区根逐个 realpath(用户自己配的根;每个最多等 3 秒,连不上就当没有),
+// 把其中仍是非本机 UNC 的拼法并进例外再判一次。热路径(绝大多数调用字面判据就放行)零额外 I/O。
+async function realUncWorkspaceRoots(session, config) {
+  const raw = [];
+  if (session && typeof session.cwd === 'string') raw.push(session.cwd);
+  if (config && typeof config.defaultWorkspace === 'string') raw.push(config.defaultWorkspace);
+  for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) raw.push(w);
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) { if (w && typeof w === 'object') raw.push(w.path); }
+  const out = [];
+  for (const r of [...new Set(raw.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()))].slice(0, 32)) {
+    let real = '';
+    try { real = await Promise.race([realpathForContainment(r), new Promise(resolve => setTimeout(() => resolve(''), 3000).unref())]); } catch { real = ''; }
+    const u = real ? uncHostAndPath(real) : null;
+    if (u && !uncIsLocalHost(u.host)) out.push(real);
+  }
+  return out;
+}
+async function remoteUncDenialResolved(candidates, session, config) {
+  const first = remoteUncDenial(candidates, session, config);
+  if (!first) return '';
+  let extra = [];
+  try { extra = await realUncWorkspaceRoots(session, config); } catch { extra = []; }
+  return extra.length ? remoteUncDenial(candidates, session, config, undefined, extra) : first;
 }
 const UNC_DENIED_ERROR = '不允许经文件工具访问网络共享(\\\\主机\\共享 形式的路径):这会把文件内容或本机登录凭据交给对方主机。要使用某个网络共享,请先在「设置 › 基础 › 工作区权限」把它添加为工作区';
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
@@ -13184,7 +13237,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
   // 安全走查 W1:非本机 UNC 在任何 I/O 之前拒(realpath 自己就会去连对方主机的 SMB),排在所有逃生舱与宽写之前。
-  if (remoteUncDenial([String(rawPath || ''), absRaw, abs], session, config)) {
+  if (await remoteUncDenialResolved([String(rawPath || ''), absRaw, abs], session, config)) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   }
@@ -13208,7 +13261,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
         const du = uncHostAndPath(await realpathForContainment(dm[1] + '\\'));
         mappedDrive = !!(du && !uncIsLocalHost(du.host));
       }
-      if (!mappedDrive && remoteUncDenial([real], session, config)) {
+      if (!mappedDrive && await remoteUncDenialResolved([real], session, config)) {
         logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
         return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
       }
@@ -31112,7 +31165,40 @@ function stewardAutoAskSensitiveKind(toolName, input) {
   const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
   if (!composed) return '';
   if (STEWARD_AUTO_ASK_DATAROOT_PATTERNS.some(pattern => pattern.test(composed))) return 'dataroot';
-  if (STEWARD_AUTO_ASK_EGRESS_PATTERNS.some(pattern => pattern.test(composed))) return 'egress';
+  // 第三波(复核 #8):网络外发那张表【不】看工作目录这一叶子 —— cwd 是 `D:\src\curl` / `axios` / `httpx` 的人,每条无害命令都不该因为目录名里有 curl 而停问。
+  // 命令本身写在别的叶子里照扫;读数据根那张表仍看 cwd(目录就在数据根里时,相对路径的 config.json 也要认)。
+  const egressText = stewardAutoAskEgressText(input);
+  if (egressText && STEWARD_AUTO_ASK_EGRESS_PATTERNS.some(pattern => pattern.test(egressText))) return 'egress';
+  return '';
+}
+const STEWARD_AUTO_ASK_CWD_KEY_RE = /^(?:cwd|workdir|working_?dir(?:ectory)?)$/i;
+function stewardAutoAskEgressText(input) {
+  const base = (input && typeof input === 'object' && !Array.isArray(input))
+    ? Object.fromEntries(Object.entries(input).filter(([key]) => !STEWARD_AUTO_ASK_CWD_KEY_RE.test(key)))
+    : input;
+  return stewardExemptInputText(base).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
+}
+// 第三波(复核 #4):上面所有判据(五类豁免 / 间接构造 / 外发 / 数据根)都只看摊平文本的前 STEWARD_EXEMPT_INPUT_CHARS 个字符。命令前面垫 4000 个空格,
+// 后面的 curl / git push / Remove-Item -Recurse 就没人看了 —— 窗口之后的内容【没被检查过】不等于【安全】。所以非编排类的命令工具,摊平文本超过窗口
+// (或嵌套过深 / 摊平时被截)就当「没扫全」,智能自动档停下来问。编排类(任务描述是散文,子代理每一步自己过闸)不受此限。
+function stewardAutoAskScanIncomplete(toolName, input) {
+  if (input == null) return false;
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (STEWARD_AUTO_ASK_PROSE_TOOLS.includes(bare)) return false;
+  const scanNote = { truncated: false };
+  const full = stewardExemptInputText(input, 0, scanNote);
+  return scanNote.truncated || full.length > STEWARD_EXEMPT_INPUT_CHARS;
+}
+// 智能自动停下来问的原因(给子代理的拒绝文案 / 日志用):命中哪一类就说哪一类;没有命中返回 ''。
+function stewardAutoAskReason(toolName, input) {
+  if (input == null && !toolName) return '';
+  const hit = stewardExemptReason(toolName, input);
+  if (hit) return hit.category && STEWARD_EXEMPT_CATEGORY_LABELS[hit.category] ? STEWARD_EXEMPT_CATEGORY_LABELS[hit.category] : '高风险工具';
+  if (stewardAutoAskIndirect(input)) return '命令是拼接 / 编码 / 求值出来的,看不出真正要跑什么';
+  const kind = stewardAutoAskSensitiveKind(toolName, input);
+  if (kind === 'dataroot') return '会读取如意数据目录里的密钥 / 状态文件';
+  if (kind === 'egress') return '会访问外部网络';
+  if (stewardAutoAskScanIncomplete(toolName, input)) return '命令文本过长,超出了安全检查的范围';
   return '';
 }
 // 107-S1 ③(46 号文 §5 ⑦b H2 实验 E1):**删数据类只在目标是相对路径时才可代批**。
@@ -38420,8 +38506,14 @@ function estimateToolSchemaTokens(tools) {
 // 没覆盖的(诚实):低于阈值的小额外传(一个 API key 约 50 字符、一个 32 位 token 能从阈值下面过去)—— 这条挡的是批量载荷,不是逐字符审计;
 // 要杜绝得对「本回合读过本地文件之后的新域名」做确认(产品形态变更,未做)。
 // 同一判据覆盖 http_request / http_download 的网址(读档以上的同类外联口:GET 带长查询串同样能外传),以及 CLI 引擎的 WebFetch / WebSearch。
-const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300 });
-const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download']);
+// 第三波(复核 #2 / #7):另加三条整体长度判据 —— pathChars(路径【解码后】总长)、hostChars(主机名总长)、urlChars(整条网址原长);
+// 查询串 / fragment 的 256 改按【解码后】计(中文搜索词一个字符编码成 9 个字符,30 个汉字就超了);用户信息段(`user:pass@`)一律问
+// (Node 会把它发成 Authorization 头 —— 无提示外传通道;web_fetch 没有任何理由带凭据)。阈值依据:真实网址路径解码后极少过 200,
+// 合法主机名几乎不超过 70(codespaces / vercel 预览域 ~60),整条网址过 1024 已超出多数服务端的 URL 上限。
+const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300, pathChars: 300, hostChars: 100, urlChars: 1024 });
+// 第三波(复核 #3):browser_open(原生与 ACC 的同名工具)= 把网址交给浏览器去 GET,ACC 的 fetch 同理;裸名匹配,mcp__server__ 前缀已被 webPayloadReason 剥掉。
+// (ACC 的 browser_navigate 只有 back / forward / reload,没有网址入参,不在此列;管家的 steward_web_fetch / steward_web_search 不走本闸,见 13l。)
+const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download', 'browser_open', 'fetch']);
 const WEB_PAYLOAD_QUERY_TOOLS = Object.freeze(['web_search', 'WebSearch']);
 // 「像编码出来的」:≥ encodedRunChars 的 hex 连续串;或 [A-Za-z0-9+/_=-] 连续串(base64 / base64url),且同时有字母和数字、连字符 / 下划线占比 ≤ 1/8
 // (长文章 slug 如 how-to-install-…-2026 连字符多、词与词之间有分隔,不算;真 base64url 里 - _ 的期望占比约 3%)。
@@ -38454,13 +38546,19 @@ function webUrlPayloadReason(url) {
   const qAt = noHash.indexOf('?');
   const query = qAt >= 0 ? noHash.slice(qAt + 1) : '';
   const head = qAt >= 0 ? noHash.slice(0, qAt) : noHash;
-  if (query.length + frag.length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
+  if (s.length > WEB_PAYLOAD_LIMITS.urlChars) return 'url_long';
+  if (webSafeDecode(query).length + webSafeDecode(frag).length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
   const afterScheme = head.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
   const slashAt = afterScheme.indexOf('/');
   const hostPort = slashAt >= 0 ? afterScheme.slice(0, slashAt) : afterScheme;
   const pathPart = slashAt >= 0 ? afterScheme.slice(slashAt) : '';
-  const host = hostPort.replace(/^[^@]*@/, '').replace(/:\d*$/, '');
+  // 用户信息段:带口令(`user:pass@`)或长到能装数据(> 32 字符)一律问;`http://user@intranet.corp:8080/…` 这种只有短用户名的内网写法不算(既有零误伤样本)。
+  const atAt = hostPort.lastIndexOf('@');
+  if (atAt >= 0) { const userinfo = hostPort.slice(0, atAt); if (userinfo.length > 32 || userinfo.includes(':')) return 'userinfo'; }
+  const host = (atAt >= 0 ? hostPort.slice(atAt + 1) : hostPort).replace(/:\d*$/, '');
+  if (host.length > WEB_PAYLOAD_LIMITS.hostChars) return 'host_long';
   if (host.split('.').some(label => label.length >= WEB_PAYLOAD_LIMITS.hostLabelChars)) return 'host_label_long';
+  if (webSafeDecode(pathPart).length > WEB_PAYLOAD_LIMITS.pathChars) return 'path_long';
   const values = [];
   for (const pair of query.split('&')) {
     if (!pair) continue;
@@ -38468,7 +38566,10 @@ function webUrlPayloadReason(url) {
     values.push(webSafeDecode(eq >= 0 ? pair.slice(eq + 1) : pair));
   }
   if (values.some(v => v.length > WEB_PAYLOAD_LIMITS.paramValueChars)) return 'param_long';
-  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)];
+  // 第三波(复核 #7):`#diff-<64 位 hex>`(GitHub 的 diff 锚点)与 `sha256-<64 位 hex>` / `sha256:<64 位 hex>`(镜像 / 包的摘要)恰好 64 位 hex,是日常网址里
+  // 仅有的几种「像编码」的正常写法;只摘掉【恰好 64 位】的这两种前缀形态再判(128 位 hex 之类仍命中),整体长度另有 pathChars / urlChars 兜着。
+  const withoutDigests = piece => piece.replace(/(?:sha256[-:]|diff-)[0-9a-fA-F]{64}(?![0-9a-fA-F])/gi, '');
+  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)].map(withoutDigests);
   if (pieces.some(webLooksEncoded)) return 'encoded_run';
   return '';
 }
@@ -38489,19 +38590,22 @@ function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
   // 安全走查 S1:联网请求看起来带了载荷 → 除 bypass 以外所有档位(含 plan、read 档)先确认;走既有的权限请求,不另造一套。
-  if (toolName && webPayloadReason(toolName, input)) return 'ask';
-  if (tier === 'read') return 'allow';
+  // 第三波(复核):载荷这一问只把本来的 allow 升成 ask,【不】把 block 放宽成 ask —— plan / dontAsk 档里本来就被挡的 exec / edit 工具(http_request / browser_open 等)带长网址仍是 block。
+  const payloadAsk = toolName && webPayloadReason(toolName, input) ? 'ask' : 'allow';
+  if (tier === 'read') return payloadAsk;
   if (mode === 'plan' || mode === 'dontAsk') return 'block';
   // v1.4.3: 'auto' mode — AI risk-classifier decides. In the native engine we approximate:
   // allow edit-tier (low-risk, reversible) and prompt for exec-tier.
-  if (mode === 'auto' && tier === 'edit') return 'allow';
-  if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
+  if (mode === 'auto' && tier === 'edit') return payloadAsk;
+  if (mode === 'acceptEdits' && tier === 'edit') return payloadAsk;
   if (mode === 'auto') {
     if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
     // 2026-10:命令是拼出来 / 编码出来 / 求值出来的(强信号,06i stewardAutoAskIndirect)也停下来问 ——
     // 字面量判据看不穿它真正要跑什么。管家对这一类不代批(13l),只能用户亲自按。
     // 安全走查 S2:网络外发与读数据根密钥文件(06i stewardAutoAskSensitiveKind)同样停下来问;命令类工具才扫,编排类的任务描述文字不扫。
-    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== '') ? 'ask' : 'allow';
+    // 第三波(复核 #4):摊平文本超出扫描窗口的(窗口之后没人看过)同样问 —— 见 06i stewardAutoAskScanIncomplete。
+    return (payloadAsk === 'ask' || stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== ''
+      || stewardAutoAskScanIncomplete(toolName, input)) ? 'ask' : 'allow';
   }
   return 'ask';
 }
@@ -40700,7 +40804,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                 ? { ok: false, error: `这个联网请求的网址 / 查询看起来带了大段数据(${webWhy}),需要用户确认,子代理无法征求确认,已拒绝;请缩短后重试,或让主线程发起` }
                 : (effMode === 'auto' && ntier === 'exec'
                   // 智能自动档对 exec 只在命中高风险判据(网络外发 / 递归删除 / 推送发布 / 改系统 / 读数据根密钥 / 拼接编码求值)时问人,子代理无法征求确认。
-                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
+                  // 第三波(复核 #9):说清【这一条】具体命中了哪一类(06i stewardAutoAskReason:删数据 / 推送远端 / 会访问外部网络 / 会读数据目录密钥 / 拼接编码 / 命令过长未能完整检查),
+                  // 模型才知道换哪种写法;认不出具体类别时仍回整张清单。
+                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(${stewardAutoAskReason(tc.name, args) || '网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的'}),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
                   : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` });
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
@@ -57800,6 +57906,7 @@ const FILE_TOOL_HANDLERS = {
         // 调用方在 pattern(正则或 glob)/ root 里显式点名的目录不剪(`^dist/`、root=…/build)。
         allowDirs: explicitAllowDirs(root, cls.kind === 'regex' ? explicitSegmentsOfRegex(args.pattern) : cls.kind === 'glob' ? explicitSegmentsOfGlob(args.pattern) : []),
       });
+      respellWalkPaths(walked, walkRoot, root);   // 第三波(复核 #6):回给模型的绝对路径保持调用方的写法(映射盘 / 别名不换成 UNC / 真身)
       // F12:信封只带相对路径(root 已在顶层);absolute:true 才补绝对 path。
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'file_list'); }
@@ -57836,6 +57943,7 @@ const FILE_TOOL_HANDLERS = {
           kept.push(m);
         }
         matches = kept;
+        respellWalkPaths(matches, walkRoot, root);   // 第三波(复核 #6):敏感名单与硬链接判据已按 realpath 判完,回给模型的 path 换回调用方的写法
       }
       const resp = { ok: true, root, matches };
       if (meta.engine) resp.engine = meta.engine;
@@ -57896,6 +58004,7 @@ const FILE_TOOL_HANDLERS = {
         emitDirs: false, accept: rel => globRe.test(rel), ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true,
         allowDirs: explicitAllowDirs(walkRoot, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
       });
+      respellWalkPaths(all, walkRoot, root);   // 第三波(复核 #6)
       const matched = all.filter(f => f.type === 'file').map(f => ({ path: f.path, relativePath: f.relativePath, mtime: f.mtimeMs || 0 }));
       matched.sort((a, b) => b.mtime - a.mtime);
       const truncated = matched.length > maxResults || all.truncated === true;
@@ -57920,6 +58029,7 @@ const FILE_TOOL_HANDLERS = {
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
       const walked = await walkFiles(walkRoot, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(walkRoot, []) });
+      respellWalkPaths(walked, walkRoot, root);   // 第三波(复核 #6)
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'project_snapshot') + ' (entries are listed breadth-first: every top-level entry comes before deeper ones)'; }
       if (walked.prunedDirs) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('project_snapshot'); }
@@ -58187,6 +58297,29 @@ async function nearestGitignore(root) {
 // 信封里回显的 root 仍是调用方给的写法(只换遍历用的那一份);守门没给 absPath(不该发生)时退回原 root。
 function guardedWalkRoot(root, g) {
   return (g && typeof g.absPath === 'string' && g.absPath) ? g.absPath : root;
+}
+// 第三波(复核 #6):遍历用的是 realpath 根,但回给模型的路径必须保持【调用方的写法】—— 映射盘 `Z:\proj` 的 realpath 是 `\\fileserver\dept\proj`,
+// 若把后者原样交给模型,它再拿去 file_read / file_edit 就会撞上 UNC 外联闸(那是用户自己配的工作区);符号链接 / 联接工作区同理(别名换成了真身)。
+// 遍历结果里凡是以 walkRoot 开头(且下一个字符是分隔符或到此为止)的字符串,把这段前缀换回 root;walkRoot 与 root 相同时什么都不做。
+// 就地改写并返回同一个对象(数组上挂的 engine / truncated 之类元数据不丢)。敏感名单 / 硬链接判据必须在改写【之前】按 realpath 判。
+function respellWalkPaths(value, walkRoot, root) {
+  const from = String(walkRoot == null ? '' : walkRoot).replace(/[\\/]+$/, '');
+  const to = String(root == null ? '' : root).replace(/[\\/]+$/, '');
+  if (!from || from === to || !value || typeof value !== 'object') return value;
+  const fix = str => (str === from || ((str[from.length] === '\\' || str[from.length] === '/') && str.startsWith(from))) ? to + str.slice(from.length) : str;
+  let budget = 200000;
+  const visit = (node, depth) => {
+    if (depth > 8) return;
+    const keys = Array.isArray(node) ? node.keys() : Object.keys(node);
+    for (const k of keys) {
+      if (--budget < 0) return;
+      const v = node[k];
+      if (typeof v === 'string') node[k] = fix(v);
+      else if (v && typeof v === 'object') visit(v, depth + 1);
+    }
+  };
+  visit(value, 0);
+  return value;
 }
 async function toolRootProblem(root) {
   let st = null;
@@ -58632,7 +58765,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return dependencyInventory(guardedWalkRoot(root, g));
+      return respellWalkPaths(await dependencyInventory(guardedWalkRoot(root, g)), guardedWalkRoot(root, g), root);
   } },
   code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58640,7 +58773,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codeReviewScan(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await codeReviewScan(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58648,7 +58781,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return frontendAudit(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await frontendAudit(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58656,7 +58789,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return claudeMdAudit(guardedWalkRoot(root, g));
+      return respellWalkPaths(await claudeMdAudit(guardedWalkRoot(root, g)), guardedWalkRoot(root, g), root);
   } },
   docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58664,7 +58797,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args);
+      return respellWalkPaths(await docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args), guardedWalkRoot(root, g), root);
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
@@ -58674,7 +58807,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codebaseSymbolSearch(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await codebaseSymbolSearch(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
       return debugHypothesis(args);
@@ -62603,7 +62736,7 @@ async function handleApi(req, res, pathname) {
     const config = await readConfig();
     const roots = fileAllowedRoots(session, config);
     // 安全走查 W1:非本机 UNC 在 realpath(会去连对方主机)之前拒,除非落在用户配置的 UNC 工作区里。
-    if (remoteUncDenial([rawPath, target], session, config)) return send(res, apiFailure('file.not_in_workspace', {}, 'path not in an allowed workspace', 403));
+    if (await remoteUncDenialResolved([rawPath, target], session, config)) return send(res, apiFailure('file.not_in_workspace', {}, 'path not in an allowed workspace', 403));
     // v0.9 F3: check the REALPATH (symlink-resolved) target, not the lexical path. A symlink living inside an
     // allowed root but pointing OUTSIDE it would otherwise pass the lexical containment check and leak an
     // arbitrary file. ENOENT/EPERM (missing/unresolvable) → fall back to `target` so readFilePreview surfaces a
@@ -63083,7 +63216,7 @@ function resolveBindHost(opts) {
   const allowed = flag === true || (typeof flag === 'string' && !/^(0|false|off|no)$/i.test(flag.trim()));
   if (allowed) return host;
   const error = new Error(`拒绝绑定非回环地址 ${host}:如意只应监听本机(127.0.0.1),页面与接口令牌的保护都以「对端在本机」为前提。`
-    + ' 确需让别的机器访问,请显式追加 --allow-remote(并自行用防火墙/反向代理限制来源;非本机对端拿不到页面 token,须自带头 token)。'
+    + ' 确需让别的机器访问,请显式追加 --allow-remote(并自行用防火墙限制来源;不要用同机反向代理转发 —— 经它进来的请求对端地址是 127.0.0.1,会被当成本机而拿到页面 token;非本机对端拿不到页面 token,须自带头 token)。'
     + ` / Refusing to bind non-loopback address ${host}: Ruyi is a local single-user tool. Pass --allow-remote explicitly if you really need it.`);
   throw error;
 }
@@ -63162,7 +63295,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   void sweepStaleScriptFiles().catch(() => {});   // 走查 W1·F10:script_run 遗留的脚本明文(强杀 / 杀毒占着没删成的)按龄清掉
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = bindHost;
-  if (!isLoopbackBindHost(host)) console.log(`[warn] --allow-remote:正在监听非回环地址 ${host}。非本机对端拿不到页面 token(须自带头 token);请用防火墙限制来源。`);
+  if (!isLoopbackBindHost(host)) console.log(`[warn] --allow-remote:正在监听非回环地址 ${host}。非本机对端拿不到页面 token(须自带头 token);请用防火墙限制来源,不要用同机反向代理转发(转发来的请求会被当成本机)。`);
   const server = http.createServer(async (req, res) => {
     const reqT0 = Date.now(); // 第40波:请求耗时插桩(res finish 时入账,/health 不计 —— 高频探针会淹没真分布)
     res.on('finish', () => { try { const u0 = new URL(req.url, 'http://x'); if (u0.pathname !== '/health') recordRequestMetric(req.method, u0.pathname, Date.now() - reqT0); } catch { /* 观测不阻断 */ } });
@@ -73191,6 +73324,9 @@ function stewardEyesSettle(ctx, charged, used) {
 async function stewardImplWebSearch(args, ctx, config) {
   const q = stewardSanitizeText(String((args && args.q) || '')).trim();
   if (!q) return stewardFail('invalid_request', 'q is required');
+  // 第三波(复核 #3):管家回合不过 07 nativeToolGate,联网载荷闸(S1)在这里自己查一遍。管家没有向用户确认的通道 —— 命中就【拒绝】并说清缘由,不「问」。
+  const payloadWhy = webPayloadReason('web_search', { query: q });
+  if (payloadWhy) return stewardFail('invalid_request', `这个搜索词看起来带了大段数据(${payloadWhy}),可能是在往外传内容;管家没有向你确认的通道,已拒绝。请换成简短的关键词`, { reason: 'web_payload', blockedBy: 'web_payload' });
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 直接调 11 的实现(11 排在 13l 之前,后向边);搜索后端是管理端可信端点,SSRF 豁免录在案。
@@ -73213,6 +73349,9 @@ async function stewardImplWebSearch(args, ctx, config) {
 async function stewardImplWebFetch(args, ctx, config) {
   const url = String((args && args.url) || '').trim();
   if (!url) return stewardFail('invalid_request', 'url is required');
+  // 第三波(复核 #3):同上 —— 网址带疑似载荷(超长查询串 / 编码串 / 用户信息段 / 超长路径或主机名)一律拒,不发请求。
+  const payloadWhy = webPayloadReason('web_fetch', { url });
+  if (payloadWhy) return stewardFail('invalid_request', `这个网址看起来带了大段数据(${payloadWhy}),可能是在往外传内容;管家没有向你确认的通道,已拒绝。请用简短的、不带参数数据的网址`, { reason: 'web_payload', blockedBy: 'web_payload' });
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // SSRF 全套护栏在 12 的实现里(逐跳 ssrfCheck + dnsResolvesToPrivate),这里【不】另写一份。

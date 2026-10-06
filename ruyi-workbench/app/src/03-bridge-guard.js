@@ -503,7 +503,10 @@ async function sensitiveFileIdentities() {
   const ids = new Set();
   let root = '';
   try { root = dataRoot(); } catch { return ids; }
-  for (const name of SENSITIVE_HARDLINK_FILES) {
+  // 第三波(复核 #10):config.json 的备份族(.prev / .bak-* / .bak-providers-* / .corrupt)同样含真 key,硬链接别名一并比;名字族与 isSensitiveDataPath 同一条(/^config\.json(\.|$)/)。
+  let names = SENSITIVE_HARDLINK_FILES;
+  try { names = [...new Set([...SENSITIVE_HARDLINK_FILES, ...(await fsp.readdir(root)).filter(n => /^config\.json\./i.test(n))])]; } catch { /* 读不了目录:只比两份正本 */ }
+  for (const name of names) {
     try {
       const st = await fsp.stat(path.join(root, name), { bigint: true });
       if (st.isFile() && st.ino) ids.add(String(st.dev) + ':' + String(st.ino));
@@ -581,7 +584,7 @@ async function guardWorkspacePath(rawPath, session, config) {
   const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
   // 安全走查 W1:非本机 UNC 在任何 I/O(下面的 realpath 会去连对方主机)之前按「不在工作区」拒,除非它落在用户配置的 UNC 工作区里。
-  if (remoteUncDenial([String(rawPath), targetRaw, target], session, config)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
+  if (await remoteUncDenialResolved([String(rawPath), targetRaw, target], session, config)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   const resolved = await resolveContainmentPath(targetRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:链接读不出目标 / 链接层数超限 —— 不知道真实落点,不放行。
@@ -718,8 +721,11 @@ function userHomePersistenceHit(absPath) {
   return false;
 }
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
+// 第三波(安全走查复核 #1):再砍掉 NTFS 备用数据流后缀 —— `profile.ps1::$DATA` / `authorized_keys:stream` 与正名是同一个文件(`::$DATA` 就是默认数据流),
+// 目标还不存在时 realpath 不会替我们还原正名,于是以 `$` 收尾的正则与「整串相等」的家目录比对都会落空。Windows 文件名里除盘符外不可能出现 `:`,
+// 所以非盘符段(`C:` 这种单独的盘符段除外)从第一个 `:` 起整段丢掉;POSIX 上带冒号的怪文件名也只是被保守地并到前缀上,只会多拦不会漏。
 function normalizeAutoexecPath(absPath) {
-  return absPath.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
+  return absPath.split(/[\\/]/).map(s => (/^[a-z]:$/i.test(s) ? s : s.replace(/:.*$/, '')).replace(/[. ]+$/, '')).join('/').toLowerCase();
 }
 // v2.7.1 (opt#1 全自动宽写): 操作系统关键目录硬地板 -- bypass/auto 宽写模式下仍始终拒绝写入的 OS 系统路径。
 // 与 isSensitiveDataPath(应用自身数据) + AUTOEXEC_DENYLIST 互补,构成"系统级安全保护"三层地板的第三层:
@@ -798,7 +804,9 @@ function uncHostAndPath(p, forwardSlash) {
   const isSep = ch => ch === '\\' || (fwd && ch === '/');
   if (s.length < 3 || !isSep(s[0]) || !isSep(s[1])) return null;
   let rest = s.slice(2);
-  const ext = /^\?[\\/]UNC[\\/]+(.*)$/i.exec(rest);
+  // 第三波(复核 #5):`\\.\UNC\主机\共享` 与 `\\?\UNC\…` 是同一个东西(`UNC` 是 \GLOBAL?? 下指向 \Device\Mup 的符号链接,`\\.\` 与 `\\?\` 都映射到它),
+  // 再加 `\\?\Global\UNC\…`。其余设备命名空间写法(GLOBALROOT\Device\Mup\… 等)这里不当 UNC 解析,由 deviceNamespaceIsLocalVolume 一律按远端拒。
+  const ext = /^[?.][\\/]+(?:Global[\\/]+)?UNC[\\/]+(.*)$/i.exec(rest);
   if (ext) rest = ext[1];
   else if (/^[?.](?:[\\/]|$)/.test(rest) || isSep(rest[0])) return null;   // \\?\C:\ 与 \\.\device;三个及以上的分隔符不是 UNC
   const segs = [];
@@ -809,7 +817,10 @@ function uncHostAndPath(p, forwardSlash) {
   }
   if (!segs.length || !segs[0]) return null;
   const host = segs[0].toLowerCase().replace(/^\[|\]$/g, '');
-  return { host, norm: ('\\\\' + segs.join('\\')).toLowerCase() };
+  // 第三波(复核 #6):`\\wsl$\发行版` 与 `\\wsl.localhost\发行版` 是同一个 WSL 共享的两种拼法(Windows 11 的 realpath 可能把前者还原成后者)。
+  // host 原样保留(本机主机名判据不受影响),只在【比较用的 norm】里把两种拼法并成一个,工作区例外按 norm 比。
+  const normSegs = host === 'wsl$' ? ['wsl.localhost', ...segs.slice(1)] : segs;
+  return { host, norm: ('\\\\' + normSegs.join('\\')).toLowerCase() };
 }
 function uncIsLocalHost(host) {
   const h = String(host || '').toLowerCase();
@@ -817,12 +828,27 @@ function uncIsLocalHost(host) {
   try { me = (os.hostname ? os.hostname() : '').toLowerCase(); } catch { me = ''; }
   return h === 'localhost' || h === '127.0.0.1' || h === '::1' || (me !== '' && h === me);
 }
+// 第三波(复核 #5):设备命名空间前缀(`\\?\` / `\\.\` / NT 写法 `\??\`)后面接的东西,只有「盘符 `X:`」与「`Volume{GUID}`」(可带 `Global\`)是本地卷;
+// 其余一律按远端(`\\?\GLOBALROOT\Device\Mup\…`、`\\.\pipe\…`、UNC 别名以外的未知写法)—— 文件工具没有任何理由去碰这些。
+// 返回 null(不是设备命名空间写法)/ true(本地卷)/ false(其余)。UNC 别名写法由 uncHostAndPath 先认出主机,不走这里。
+function deviceNamespaceIsLocalVolume(p, forwardSlash) {
+  const s = String(p == null ? '' : p);
+  const fwd = forwardSlash === undefined ? process.platform === 'win32' : !!forwardSlash;
+  const isSep = ch => ch === '\\' || (fwd && ch === '/');
+  let rest = null;
+  if (s.length >= 4 && isSep(s[0]) && isSep(s[1]) && (s[2] === '?' || s[2] === '.') && isSep(s[3])) rest = s.slice(4);
+  else if (s.length >= 4 && s[0] === '\\' && s[1] === '?' && s[2] === '?' && s[3] === '\\') rest = s.slice(4);
+  if (rest === null) return null;
+  return /^(?:Global[\\/]+)?(?:[A-Za-z]:(?:[\\/]|$)|Volume\{[0-9a-fA-F-]+\}(?:[\\/]|$))/i.test(rest);
+}
 // 返回 '' = 不拦;否则是拒绝原因。candidates:要判的几种拼法(原串 / resolve 后 / realpath 后),任一是越界 UNC 即拒。
-function remoteUncDenial(candidates, session, config, forwardSlash) {
+// extraRoots:调用方已经 realpath 过的 UNC 工作区根(见 remoteUncDenialResolved)—— 例外同时认「字面拼法」与「realpath 拼法」。
+function remoteUncDenial(candidates, session, config, forwardSlash, extraRoots) {
   const hits = [];
   for (const c of candidates) {
     const u = uncHostAndPath(c, forwardSlash);
     if (u && !uncIsLocalHost(u.host)) hits.push(u);
+    else if (!u && deviceNamespaceIsLocalVolume(c, forwardSlash) === false) hits.push({ host: '(device-namespace)', norm: '\\\\?\\' + String(c).toLowerCase() });
   }
   if (!hits.length) return '';
   const roots = [];
@@ -831,10 +857,37 @@ function remoteUncDenial(candidates, session, config, forwardSlash) {
   if (config && typeof config.defaultWorkspace === 'string') push(config.defaultWorkspace);
   for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) push(w);
   for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) { if (w && typeof w === 'object') push(w.path); }
+  for (const r of (Array.isArray(extraRoots) ? extraRoots : [])) push(r);
   for (const u of hits) {
     if (!roots.some(r => u.norm === r || u.norm.startsWith(r + '\\'))) return u.host;
   }
   return '';
+}
+// 第三波(复核 #6):工作区根可能是「映射盘 Z:\」「\\wsl$\…」「DFS 名字空间」—— 它们的 realpath(GetFinalPathNameByHandle)是另一种拼法
+// (\\fileserver\dept\…、\\wsl.localhost\…、\\目标服务器\…)。纯词法的例外只认字面,于是工具回给模型的 realpath 拼法路径再喂回来就被当成「别人的共享」。
+// 所以【只在字面判据要拒的时候】才把配置里的工作区根逐个 realpath(用户自己配的根;每个最多等 3 秒,连不上就当没有),
+// 把其中仍是非本机 UNC 的拼法并进例外再判一次。热路径(绝大多数调用字面判据就放行)零额外 I/O。
+async function realUncWorkspaceRoots(session, config) {
+  const raw = [];
+  if (session && typeof session.cwd === 'string') raw.push(session.cwd);
+  if (config && typeof config.defaultWorkspace === 'string') raw.push(config.defaultWorkspace);
+  for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) raw.push(w);
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) { if (w && typeof w === 'object') raw.push(w.path); }
+  const out = [];
+  for (const r of [...new Set(raw.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()))].slice(0, 32)) {
+    let real = '';
+    try { real = await Promise.race([realpathForContainment(r), new Promise(resolve => setTimeout(() => resolve(''), 3000).unref())]); } catch { real = ''; }
+    const u = real ? uncHostAndPath(real) : null;
+    if (u && !uncIsLocalHost(u.host)) out.push(real);
+  }
+  return out;
+}
+async function remoteUncDenialResolved(candidates, session, config) {
+  const first = remoteUncDenial(candidates, session, config);
+  if (!first) return '';
+  let extra = [];
+  try { extra = await realUncWorkspaceRoots(session, config); } catch { extra = []; }
+  return extra.length ? remoteUncDenial(candidates, session, config, undefined, extra) : first;
 }
 const UNC_DENIED_ERROR = '不允许经文件工具访问网络共享(\\\\主机\\共享 形式的路径):这会把文件内容或本机登录凭据交给对方主机。要使用某个网络共享,请先在「设置 › 基础 › 工作区权限」把它添加为工作区';
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
@@ -851,7 +904,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
   // 安全走查 W1:非本机 UNC 在任何 I/O 之前拒(realpath 自己就会去连对方主机的 SMB),排在所有逃生舱与宽写之前。
-  if (remoteUncDenial([String(rawPath || ''), absRaw, abs], session, config)) {
+  if (await remoteUncDenialResolved([String(rawPath || ''), absRaw, abs], session, config)) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   }
@@ -875,7 +928,7 @@ async function guardFileToolPath(rawPath, ctx, opts) {
         const du = uncHostAndPath(await realpathForContainment(dm[1] + '\\'));
         mappedDrive = !!(du && !uncIsLocalHost(du.host));
       }
-      if (!mappedDrive && remoteUncDenial([real], session, config)) {
+      if (!mappedDrive && await remoteUncDenialResolved([real], session, config)) {
         logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
         return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
       }

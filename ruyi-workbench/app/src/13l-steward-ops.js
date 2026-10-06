@@ -1030,6 +1030,9 @@ function stewardEyesSettle(ctx, charged, used) {
 async function stewardImplWebSearch(args, ctx, config) {
   const q = stewardSanitizeText(String((args && args.q) || '')).trim();
   if (!q) return stewardFail('invalid_request', 'q is required');
+  // 第三波(复核 #3):管家回合不过 07 nativeToolGate,联网载荷闸(S1)在这里自己查一遍。管家没有向用户确认的通道 —— 命中就【拒绝】并说清缘由,不「问」。
+  const payloadWhy = webPayloadReason('web_search', { query: q });
+  if (payloadWhy) return stewardFail('invalid_request', `这个搜索词看起来带了大段数据(${payloadWhy}),可能是在往外传内容;管家没有向你确认的通道,已拒绝。请换成简短的关键词`, { reason: 'web_payload', blockedBy: 'web_payload' });
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 直接调 11 的实现(11 排在 13l 之前,后向边);搜索后端是管理端可信端点,SSRF 豁免录在案。
@@ -1052,6 +1055,9 @@ async function stewardImplWebSearch(args, ctx, config) {
 async function stewardImplWebFetch(args, ctx, config) {
   const url = String((args && args.url) || '').trim();
   if (!url) return stewardFail('invalid_request', 'url is required');
+  // 第三波(复核 #3):同上 —— 网址带疑似载荷(超长查询串 / 编码串 / 用户信息段 / 超长路径或主机名)一律拒,不发请求。
+  const payloadWhy = webPayloadReason('web_fetch', { url });
+  if (payloadWhy) return stewardFail('invalid_request', `这个网址看起来带了大段数据(${payloadWhy}),可能是在往外传内容;管家没有向你确认的通道,已拒绝。请用简短的、不带参数数据的网址`, { reason: 'web_payload', blockedBy: 'web_payload' });
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // SSRF 全套护栏在 12 的实现里(逐跳 ssrfCheck + dnsResolvesToPrivate),这里【不】另写一份。

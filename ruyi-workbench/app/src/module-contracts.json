@@ -1930,6 +1930,7 @@
         "codeEditorLabel",
         "cwdWarning",
         "defaultBrowserExecutable",
+        "deviceNamespaceIsLocalVolume",
         "ensureDataRootReal",
         "executableFromAssociationCommand",
         "existsExecutable",
@@ -1963,8 +1964,10 @@
         "providerIsLocal",
         "readFilePreview",
         "readdirTimed",
+        "realUncWorkspaceRoots",
         "realpathForContainment",
         "remoteUncDenial",
+        "remoteUncDenialResolved",
         "resolveContainmentPath",
         "resolveExecCwd",
         "resolvePreferredCodeEditor",
@@ -5654,6 +5657,7 @@
       "provides": [
         "STEWARD_ANSWER_BASIS",
         "STEWARD_ASKS_YOU_CHARS",
+        "STEWARD_AUTO_ASK_CWD_KEY_RE",
         "STEWARD_AUTO_ASK_DATAROOT_PATTERNS",
         "STEWARD_AUTO_ASK_EGRESS_PATTERNS",
         "STEWARD_AUTO_ASK_INDIRECT_PATTERNS",
@@ -5747,7 +5751,10 @@
         "stewardAsksYou",
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
+        "stewardAutoAskEgressText",
         "stewardAutoAskIndirect",
+        "stewardAutoAskReason",
+        "stewardAutoAskScanIncomplete",
         "stewardAutoAskSensitiveKind",
         "stewardChatCapableProvider",
         "stewardClipSay",
@@ -7364,6 +7371,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskScanIncomplete",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardAutoAskSensitiveKind",
           "kinds": [
             "call"
@@ -8022,6 +8036,13 @@
         {
           "provider": "06g-resource-leases.js",
           "symbol": "releaseResourceLease",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskReason",
           "kinds": [
             "call"
           ]
@@ -13408,7 +13429,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "remoteUncDenial",
+          "symbol": "remoteUncDenialResolved",
           "kinds": [
             "call"
           ]
