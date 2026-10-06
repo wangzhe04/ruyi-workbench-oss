@@ -333,13 +333,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'http_download',
-    description: '从一个 http(s) 网址下载文件保存到工作区内的 dest（内网/回环地址会被 SSRF 防护拒绝）。dest 已存在时先存检查点，可撤销。默认单文件上限 100MB（maxBytes 可调），Content-Length 与实际字节都会卡上限，超限拒绝。返回 {path, bytes, contentType}。',
+    description: '从一个 http(s) 网址下载文件保存到工作区内的 dest（内网/回环地址会被 SSRF 防护拒绝）。dest 已存在时先存检查点，可撤销。单文件上限 100MB（maxBytes 只能调低），Content-Length 与实际字节都会卡上限，超限拒绝。返回 {path, bytes, contentType}。',
     inputSchema: {
       type: 'object',
       properties: {
         url: { type: 'string', description: '要下载的 http(s) 网址' },
         dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）；文件夹（或以 / 结尾）则存进其中' },
-        maxBytes: { type: 'number', description: '最大字节数，默认 100MB' },
+        maxBytes: { type: 'number', description: '最大字节数，默认且最多 100MB' },
         timeoutMs: { type: 'number', description: '总期限（毫秒），默认空闲30s/总30分钟' },
       },
       required: ['url', 'dest'],
@@ -516,14 +516,15 @@ const MCP_TOOLS = [
   },
   {
     name: 'git_commit',
-    description: 'Stage changes and create a git commit. Runs git hooks (exec tier). No configured Git identity -> guiding error (never a fake one).',
+    description: 'Stage + git commit. Runs git hooks (exec tier; 90s default timeout). No Git identity -> guiding error (never a fake one).',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'repo folder (default: conversation working folder; must exist)' },
-        message: { type: 'string', description: 'commit message; body may follow a blank line' },
-        addAll: { type: 'boolean', description: 'git add -A first (default false: only what is already staged)' },
+        cwd: { type: 'string', description: 'repo folder (default: working folder; must exist)' },
+        message: { type: 'string', description: 'message (body after a blank line)' },
+        addAll: { type: 'boolean', description: 'git add -A first (default false: staged only)' },
         paths: { type: 'array', items: { type: 'string' }, description: 'stage only these files (overrides addAll)' },
+        timeoutMs: { type: 'number', description: 'ms' },
       },
       required: ['message'],
     },

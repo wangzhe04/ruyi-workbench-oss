@@ -599,6 +599,11 @@ const AUTOEXEC_DENYLIST = [
   //   自动导入它);Kimi Code:.kimi/mcp.json 与 ~/.kimi-code/mcp.json;ruyi-toolbox 组件登记 ~/.ruyi-toolbox/components/。
   /(^|[\\/])\.claude[\\/]settings(?:\.local)?\.json$/i, /(^|[\\/])\.mcp\.json$/i, /(^|[\\/])\.claude\.json$/i,
   /(^|[\\/])\.kimi(?:-code)?[\\/]mcp\.json$/i, /(^|[\\/])\.ruyi-toolbox[\\/]components[\\/]/i,
+  // 走查 W1·F2:子模块 / 链接工作树的 git 目录不在 .git 的直接子项下,而在 .git/modules/<名字,名字里可以有斜杠>/ 与 .git/worktrees/<id>/ ——
+  // 它们各带一套 hooks/ 与 config(.worktree)。上面 .git/hooks/、.git/config 两条只认 .git 的直接子项,可写的 hook 或
+  // core.hooksPath 就从这里绕过去(子模块里一次 git commit 即触发)。按段匹配,嵌套子模块(modules/a/modules/b/)也在内。
+  /(^|[\\/])\.git[\\/]modules[\\/](?:[^\\/]+[\\/])*(?:hooks[\\/]|config(?:\.worktree)?$)/i,
+  /(^|[\\/])\.git[\\/]worktrees[\\/][^\\/]+[\\/](?:hooks[\\/]|config(?:\.worktree)?$)/i,
 ];
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
 function normalizeAutoexecPath(absPath) {
@@ -746,14 +751,21 @@ async function guardFileToolPath(rawPath, ctx, opts) {
 }
 // 走查 U5:要改文件的原生工具,在弹权限窗【之前】先过一遍写边界。修前先问「允许写入 report.md」,
 // 用户点了允许,工具才报越界 —— 卡片上「已允许」紧跟着「出错」。只查【写】的那几个参数(file_copy 的 from 是读);
-// 路径解析与各工具 handler 一致(path.resolve)。返回 null = 放行去问;否则是与 handler 同形的失败结果。
+// 路径解析与各工具 handler 一致:走 12 的 resolveFileToolPath(相对路径接在会话工作区下,`~` / %USERPROFILE% 先展开),
+// 不再裸 path.resolve(它把相对路径落到服务进程 cwd,默认档下 file_write {path:'a.txt'} 还没弹窗就被判「工作文件夹外面」;
+// 真正的 handler 却是按工作区解析的)。03 排在 12 之前,直接引用 12 会多出一条 03→12 的前向边(依赖图静态锁拒绝),
+// 所以走 *Hooks 延迟绑定(先例 PermissionWaitHooks):12 加载时把 resolveFileToolPath 挂到 WriteBoundaryHooks.resolvePath。
+// 路径里带 NUL 之类让解析器抛错:不在这里拦,交给 handler 回 bad_path 信封。
+// 返回 null = 放行去问;否则是与 handler 同形的失败结果。
+const WriteBoundaryHooks = {};
 const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'] });
 async function preflightWriteBoundary(toolName, args, ctx) {
   const keys = Object.prototype.hasOwnProperty.call(WRITE_PATH_ARGS, toolName) ? WRITE_PATH_ARGS[toolName] : null;
   if (!keys || !args || typeof args !== 'object') return null;
   for (const k of keys) {
     if (typeof args[k] !== 'string' || !args[k].trim()) continue;
-    const p = path.resolve(args[k]);
+    let p;
+    try { p = typeof WriteBoundaryHooks.resolvePath === 'function' ? await WriteBoundaryHooks.resolvePath(args[k], ctx) : path.resolve(args[k]); } catch { continue; }
     const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
     if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
   }
@@ -1095,7 +1107,7 @@ const PREVIEW_IMG_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpe
 // endpoint contract: {ok, kind:'text'|'image'|'image-toobig'|'html'|'binary', ...}. Never throws for a
 // well-formed missing file — returns {ok:false,error}. Kind selection is suffix-driven (kindForPath +
 // PREVIEW_TEXT_EXTS): html gets its own kind (front-end sandboxes it); img → dataURI (≤5MB, else too-big);
-// text-family → utf8 content (≤1MB, truncated flag); everything else → binary (front-end offers「打开」).
+// text-family → decoded text content (≤1MB, truncated flag; 走查 W1·F4: BOM / UTF-8 / GBK 按内容判,见 00-boot decodeTextFileBytes); everything else → binary (front-end offers「打开」).
 async function readFilePreview(absPath) {
   let st;
   try { st = await fsp.stat(absPath); } catch { return { ok: false, error: 'file not found' }; }
@@ -1113,19 +1125,19 @@ async function readFilePreview(absPath) {
   if (ext === 'html' || ext === 'htm') {
     if (st.size > PREVIEW_TEXT_MAX) {
       const fd = await fsp.open(absPath, 'r');
-      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'html', content: b.slice(0, bytesRead).toString('utf8'), truncated: true, size: st.size }; }
+      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'html', content: decodeTextFileBytes(b.subarray(0, bytesRead), false), truncated: true, size: st.size }; }
       finally { await fd.close(); }
     }
-    return { ok: true, kind: 'html', content: await fsp.readFile(absPath, 'utf8'), truncated: false, size: st.size };
+    return { ok: true, kind: 'html', content: decodeTextFileBytes(await fsp.readFile(absPath), true), truncated: false, size: st.size };
   }
   // Text family (md/csv/txt/json/js/py/…) → utf8 content, ≤1MB (truncated flag when larger).
   if (PREVIEW_TEXT_EXTS.has(ext)) {
     if (st.size > PREVIEW_TEXT_MAX) {
       const fd = await fsp.open(absPath, 'r');
-      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'text', content: b.slice(0, bytesRead).toString('utf8'), truncated: true, size: st.size }; }
+      try { const b = Buffer.alloc(PREVIEW_TEXT_MAX); const { bytesRead } = await fd.read(b, 0, PREVIEW_TEXT_MAX, 0); return { ok: true, kind: 'text', content: decodeTextFileBytes(b.subarray(0, bytesRead), false), truncated: true, size: st.size }; }
       finally { await fd.close(); }
     }
-    return { ok: true, kind: 'text', content: await fsp.readFile(absPath, 'utf8'), truncated: false, size: st.size };
+    return { ok: true, kind: 'text', content: decodeTextFileBytes(await fsp.readFile(absPath), true), truncated: false, size: st.size };
   }
   // xlsx/docx/pdf/other → binary; the front-end offers「用系统程序打开」(office_open). Station-side
   // preview of office formats is DEFERRED to v1.0 (zero-npm constraint: no xlsx/docx/pdf parsing lib).

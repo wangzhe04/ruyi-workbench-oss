@@ -137,8 +137,9 @@ function paletteActions() {
   const cliGroupLabel = String(currentEngineMeta().agentCliLabel || '') || engineLabel();
   const claudeModels = (state.status && state.status.models) || [{ id: '', label: t('palette.defaultModel') }];
   for (const m of claudeModels) {
+    // /api/status.models[0] 是 {id:'',label:'默认 (CLI 配置)'}(服务端中文):id 为空就是「默认」,名字走本地化键,别用服务端的 label。
     const isCur = curPid === '' && (m.id || '') === (curModel || '');
-    acts.push({ label: t('palette.engine', { engine: cliGroupLabel, model: m.label || m.id || t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
+    acts.push({ label: t('palette.engine', { engine: cliGroupLabel, model: m.id ? (m.label || m.id) : t('palette.defaultModel') }), hint: isCur ? t('palette.current') : 'engine', run: () => setEngineModel('', m.id || '') });
   }
   for (const p of chatProviders(state.config)) {   // 只做语音的服务商不进对话候选(state.js)
     for (const m of providerModels(p)) {
@@ -642,6 +643,10 @@ function openCapPopover(anchorOverride) {
   _capPoll = setInterval(() => fetchCapabilities(true), 60000);
   const handle = popover(anchor, () => {
     const wrap = el('div', 'cap-pop');
+    // 键盘:弹层打开后焦点交给它(tabindex=-1 只接程序聚焦),Esc 由 popover 原语关,关后焦点回锚点(齿轮钮)。
+    wrap.tabIndex = -1;
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-label', t('capability.networkAndEngine'));
     const caps = _caps || {};
     const netLabel = (caps.network && caps.network.online === true) ? t('capability.network.online')
       : (caps.network && caps.network.online === false) ? t('capability.network.offline') : t('capability.network.unknown');
@@ -670,7 +675,7 @@ function openCapPopover(anchorOverride) {
     const optStr = ['ocr', 'uia', 'cv2', 'playwright'].filter(k => opt[k]).join(', ') || t('capability.none');
     wrap.appendChild(item(t('capability.optionalModules'), optStr, opt.ocr || opt.uia ? 'ok' : 'muted'));
     return wrap;
-  });
+  }, { onOpen: node => { const pop = node.querySelector('.cap-pop'); if (pop) pop.focus(); } });
   // Stop the poll when the popover closes (popover() returns {node, close}; but close via outside-click
   // won't call our code — hook the badge: when the active popover's anchor is no longer ours, clear the
   // interval on the next tick). 32 号文 §4（M1-b）：原语搬走后 activePopover 不再住本文件，走 accessor。
@@ -730,7 +735,7 @@ function openComposerMorePopover() {
     compact.onclick = () => { close(); compactContext(); };
     wrap.appendChild(compact);
     return wrap;
-  }, { placement: 'bottom-start' });
+  }, { placement: 'bottom-start', onOpen: node => { const first = node.querySelector('.cm-item'); if (first) first.focus(); } });
 }
 
 /* ---------------- 齿轮菜单里「主题／界面」两项的文案 ---------------- */

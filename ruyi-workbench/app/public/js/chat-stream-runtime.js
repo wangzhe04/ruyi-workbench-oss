@@ -68,6 +68,10 @@ export function createChatStreamRuntime(deps = {}) {
     handleAgentWorkflowEvent,
     handlePermissionRequest,
     handlePlanEvent,
+    // 回合停止 / 失败收尾:把本回合壳里还没决定的计划卡标成已失效(tool-runtime.js);缺省空实现(vm 直跑的单测不注入)。
+    expirePendingPlanCards = () => 0,
+    // 事件流里看到 plan_decision(含超时自动拒绝、重放):把对应计划卡就地收起成已决(tool-runtime.js);缺省空实现。
+    resolvePlanIntervention = () => false,
     humanizeToolName,
     highlightIn,
     iconTextBtn,
@@ -87,6 +91,8 @@ export function createChatStreamRuntime(deps = {}) {
     refreshSessions,
     refreshToolPane = () => {},
     renderAttachments,
+    // F13:发送出去后释放托盘缩略图的 blob URL(组合根注入;缺省空实现)。
+    revokeAttachmentPreview = () => {},
     renderAutonomyBar,
     renderContextMeter,
     renderCurrentSession,
@@ -135,6 +141,9 @@ export function createChatStreamRuntime(deps = {}) {
   // stays alive, and their final persisted message appears when that session is opened again.
   const activeTurns = new Map(); // sessionId -> { abort, startedAt, eventLines, eventChars, live, main }
   let replayingStream = false;   // mountActiveTurn 重放事件期间为真:handleStreamLine 里的一次性副作用据此跳过
+  // 重放期间「正在重放的那一行事件【最初到达】的时刻」(rememberTurnLine 记的 eventTimes;0 = 没有)。
+  // 工具卡的耗时靠它算:重放是一口气回放的,performance.now() 的差恒为 ~0,修前切回来的已完成工具全显「· 0.0s」。
+  let replayEventAt = 0;
   function notifySessionStream(event) {
     try { emitSessionStream(event); } catch { /* Preview observer is best-effort and never owns execution */ }
   }
@@ -314,7 +323,9 @@ export function createChatStreamRuntime(deps = {}) {
     // 只有提到 "raw_line" 的行才值得整行解析去认它(大块 tool_result 行不再为这一问多 parse 一遍);
     // 其余行即使不是合法 JSON 也无妨 —— 重放时解析失败的行本就跳过。
     if (line.includes('"raw_line"')) { try { if (JSON.parse(line).type === 'raw_line') return; } catch { return; } }
-    turn.eventLines.push(line); turn.eventChars += line.length;
+    // eventTimes 与 eventLines 逐下标对齐(到达时刻,重放时给工具卡算真实耗时);老形状的 turn 没有它就按 0 补齐。
+    if (!Array.isArray(turn.eventTimes)) turn.eventTimes = new Array(turn.eventLines.length).fill(0);
+    turn.eventLines.push(line); turn.eventTimes.push(Date.now()); turn.eventChars += line.length;
     turn.eventHead = Number(turn.eventHead) || 0;
     while (turn.eventChars > ACTIVE_TURN_EVENT_CAP && turn.eventLines.length - turn.eventHead > 1) {
       turn.eventChars -= turn.eventLines[turn.eventHead++].length;
@@ -323,6 +334,7 @@ export function createChatStreamRuntime(deps = {}) {
     // compact only occasionally so a multi-megabyte stream never creates an input/scroll freeze.
     if (turn.eventHead > 2048 && turn.eventHead * 2 >= turn.eventLines.length) {
       turn.eventLines = turn.eventLines.slice(turn.eventHead);
+      turn.eventTimes = turn.eventTimes.slice(turn.eventHead);
       turn.eventHead = 0;
     }
   }
@@ -380,13 +392,14 @@ export function createChatStreamRuntime(deps = {}) {
         const line = turn.eventLines[index];
         let evt; try { evt = JSON.parse(line); } catch { continue; }
         if (evt.type === 'session') continue;
+        replayEventAt = Number(turn.eventTimes && turn.eventTimes[index]) || 0;
         if (evt.type === 'ask_user' && turn.answeredQuestions?.has(String(evt.questionId || evt.id || ''))) continue;
         if (evt.type === 'assistant_delta') { if (thinkingParts.length) flush(); textParts.push(evt.text || ''); continue; }
         if (evt.type === 'thinking_delta') { if (textParts.length) flush(); thinkingParts.push(evt.text || ''); continue; }
         flush(); handleStreamLine(line, turn.live, turn.main, sessionId);
       }
       flush();
-    } finally { replayingStream = false; }
+    } finally { replayingStream = false; replayEventAt = 0; }
   }
   // The proc-dot moved into the model chip (.mc-dot) in v0.7b. setProc now drives that dot's three
   // states (running/stopped/idle) + an engine-aware title, reusing the pulse animation via CSS.
@@ -657,7 +670,7 @@ export function createChatStreamRuntime(deps = {}) {
     try {
       const endpoint = isProviderMode() ? '/api/provider/compact' : '/api/agent/compact';
       const r = await api(endpoint, { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-      if (!r || !r.ok) { toast(t("toast.compactFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+      if (!r || !r.ok) { toast(t("toast.compactFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
       if (state.currentSession?.id === sid) {
         const s = await api(`/api/sessions/${sid}`);
         // await 期间可能已切走:再判一次,别用被压缩那条覆盖当前打开的会话。
@@ -669,6 +682,17 @@ export function createChatStreamRuntime(deps = {}) {
     finally { endCompactIndicator(); }
   }
 
+  // 「发送前置阶段」标志:从核对上下文窗口到会话就绪(必要时 newSession)这一串 await 期间为真。
+  // 修前空会话里对同一句连按两下 Enter:第一下的 newSession() 还在 await,输入框没清、发送没禁,第二下又走一遍
+  // —— 建出两个会话、把同一句话发两遍。前置阶段在飞时再进来的发送直接丢掉(话还在输入框里,第一下已经在发了)。
+  // 前置阶段【之后】到 activeTurns.set 之间没有 await,所以标志只管这一段;回合开始后再按 Enter 走插话那条路。
+  let sendPreflight = false;
+  // 鼠标点「发送」后焦点留在这枚按钮上,而 updateSendBtn 随后把同一枚按钮换成「停止」:接着按空格/回车就把回合停了。
+  // 清空输入框之后把焦点还给输入框(只在焦点确实停在发送钮上时才动)。
+  function releaseSendBtnFocus() {
+    const btn = $('sendBtn');
+    if (btn && document.activeElement === btn) { const input = $('promptInput'); if (input && typeof input.focus === 'function') input.focus(); }
+  }
   async function sendPrompt(overrideText, options = {}) {
     // v0.8-S7 steering (§4 A3) + 47a 双引擎:任何引擎回合流式中,composer 的发送都变为插话路由到 /api/steer。
     // provider 经队列在下一边界注入;Claude(interactive)经 stdin 即时注入;Claude print 模式由服务器返回
@@ -677,27 +701,34 @@ export function createChatStreamRuntime(deps = {}) {
     // 别处起的回合在跑)。修前管家起的回合在这里判成空闲,一路走到 09:1347 被 supersede 杀掉。
     const selectedId = state.currentSession?.id || '';
     if (selectedId && !options.skipSteer && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideText, options);
+    // F13:托盘里还有附件在上传 —— 这一条会漏掉它们、附件反而挂到下一条消息上。话留在框里,等上传完再发。
+    // (交办台经 options.attachments 显式给附件,不经托盘,不受这道门管。)
+    if (!Array.isArray(options.attachments) && Number(state.uploading) > 0) { toast(t('toast.uploadInProgress'), ''); return; }
     const message = (overrideText != null ? overrideText : $('promptInput').value).trim();
     const hasAttachments = Array.isArray(options.attachments) ? options.attachments.length > 0 : state.attachments.length > 0;
     if (!message && !hasAttachments) return;
     // 117s-G:排队中 / 等批准 —— 不发,给一句人话。放在空输入那道门之后:空输入本来就不该弹提示。
     const relayBlocked = relayBlockNote(selectedId);
     if (relayBlocked) { toast(relayBlocked, ''); return; }
-    // Migrate a browser-only manual window before the server decides whether this turn needs compacting.
-    // On failure preserve the draft/attachments and do not send with a different context limit.
-    try { await syncContextWindowManual(); }
-    catch (e) { toast(apiErrText(e), 'err'); return; }
-    // await 期间换了会话:这句话是对着原来那条会话打的,不能发进新打开的这条。不发、不清输入框,由用户决定。
-    if (selectedId && state.currentSession?.id !== selectedId) return;
-    // 117s-G:await 之后再判一次(同上,判据同一个)—— syncContextWindowManual 期间回合可能刚起来。
-    if (state.currentSession?.id && !options.skipSteer && sessionAcceptsSteer(state.currentSession.id)) return steerPrompt(overrideText, options);
-    if (!state.currentSession) await newSession();
+    if (sendPreflight) return;
+    sendPreflight = true;
+    try {
+      // Migrate a browser-only manual window before the server decides whether this turn needs compacting.
+      // On failure preserve the draft/attachments and do not send with a different context limit.
+      try { await syncContextWindowManual(); }
+      catch (e) { toast(apiErrText(e), 'err'); return; }
+      // await 期间换了会话:这句话是对着原来那条会话打的,不能发进新打开的这条。不发、不清输入框,由用户决定。
+      if (selectedId && state.currentSession?.id !== selectedId) return;
+      // 117s-G:await 之后再判一次(同上,判据同一个)—— syncContextWindowManual 期间回合可能刚起来。
+      if (state.currentSession?.id && !options.skipSteer && sessionAcceptsSteer(state.currentSession.id)) return steerPrompt(overrideText, options);
+      if (!state.currentSession) await newSession();
+    } finally { sendPreflight = false; }
 
     const turnSessionId = state.currentSession.id;
     // Slash-command/override turns (for example /compact) must neither consume nor inherit the visible toggle.
     const agentTeam = overrideText == null && agentTeamTurnEnabled && agentTeamAvailable();
     if (agentTeam) { agentTeamTurnEnabled = false; updateAgentTeamButton(); }
-    if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text: message } })); $('promptInput').value = ''; autoGrow($('promptInput')); } // 59 §6: composer-voice 学改字(COMPOSER_VOICE_SENT_EVENT)
+    if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text: message } })); $('promptInput').value = ''; autoGrow($('promptInput')); releaseSendBtnFocus(); } // 59 §6: composer-voice 学改字(COMPOSER_VOICE_SENT_EVENT)
     try { localStorage.removeItem('wcw.draft'); } catch { /* ignore */ }
 
     const box = $('messages');
@@ -706,7 +737,7 @@ export function createChatStreamRuntime(deps = {}) {
     // 第96波(P4):交办台(Pretender)经 options.attachments 显式注入附件 —— 不经经典托盘,
     // 也不清空/重绘经典托盘(预览壳下它根本未挂载)。
     const sentAttachments = Array.isArray(options.attachments) ? options.attachments.slice() : state.attachments;
-    if (!Array.isArray(options.attachments)) { state.attachments = []; renderAttachments(); }
+    if (!Array.isArray(options.attachments)) { for (const a of sentAttachments) revokeAttachmentPreview(a); state.attachments = []; renderAttachments(); }
     // 第69波:留住乐观 user 行的引用 —— 它是合成对象(无 turnSeq、不在 session.messages),其操作条里的
     // 「回溯到此处」必然 toast「无法定位该消息的回合」;回合拿到持久化真身后必须重绑(见下方 finally 前)。
     const optimisticUserRow = renderStaticMessage({ role: 'user', content: message, createdAt: new Date().toISOString(), attachments: sentAttachments });
@@ -752,6 +783,7 @@ export function createChatStreamRuntime(deps = {}) {
     notifySessionStream({ type: 'start', sessionId: turnSessionId, message, createdAt: new Date().toISOString() });
     syncStreamingUi();
     renderSessions();
+    let turnEndedBadly = false;   // 走了 catch(停止 / 断流 / 出错):服务端那头的计划等待已随回合作废,收尾时据此清计划态
     try {
       const res = await fetch('/api/chat/stream', {
         method: 'POST', headers: authHeaders(), signal: turnAbort.signal,
@@ -822,6 +854,7 @@ export function createChatStreamRuntime(deps = {}) {
       // 取 turnState 上的当前壳(与 finally/成功路径同源):切走再切回时 mountActiveTurn 已换了新壳,
       // 闭包里的 live/main 可能还指着那只已脱离文档的旧壳,「已停止」会画到看不见的地方。
       live = turnState.live; main = turnState.main;
+      turnEndedBadly = true;
       if (err.name === 'AbortError') { appendMsgNote(main, live, t('status.stopped')); toast(t("toast.turnStopped")); }
       else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
       finalizeLive(live);
@@ -856,7 +889,12 @@ export function createChatStreamRuntime(deps = {}) {
       // 刚结束的正是它；真有新回合（比如管家接着起一条），下一次 GET 会把它重新写回来。
       if (ownsTurn) {
         if (state.sessionRelay && state.sessionRelay.sessionId === turnSessionId) state.sessionRelay = null;
-        if (turnActivity && state.currentSession?.id === turnSessionId) { turnActivity.settle(); renderTurnActivityBar(); }
+        // 计划待批准时按「停止」/ 断流 / 出错:turn-activity 的 endTurn 故意保留 plan 待决(正常收尾停在「等你拍板」是有效状态),
+        // 可这几条路上服务端的等待已随回合作废 —— 状态条不能再停在「等你拍板」,本回合还亮着的计划卡也得标成已失效(禁用按钮)。
+        const endedInfo = turnActivity ? turnActivity.snapshot().ended : null;
+        const planInvalid = turnEndedBadly || Boolean(endedInfo && endedInfo.ok === false);
+        if (planInvalid) expirePendingPlanCards(turnState.main);
+        if (turnActivity && state.currentSession?.id === turnSessionId) { turnActivity.settle({ dropPlan: planInvalid }); renderTurnActivityBar(); }
         // 流内 'started' 起的压缩指示条随本回合收尾静默收掉(回合被停/断流时服务端的 completed 到不了)。
         if (compactState.active && compactState.stream === turnSessionId) endCompactIndicator();
         notifySessionStream({ type: 'settled', sessionId: turnSessionId });
@@ -979,7 +1017,7 @@ export function createChatStreamRuntime(deps = {}) {
         return sendPrompt(overrideText, { ...options, skipSteer: true });
       }
       if (!r || !r.ok) { toast(t("toast.steerFail", { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err'); return; }
-      if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text } })); $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」;59 §6 同上
+      if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text } })); $('promptInput').value = ''; releaseSendBtnFocus(); autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」;59 §6 同上;焦点离开发送钮,免得下一个空格/回车变成「停止」
       steeredSeen.push({ text, ts: Date.now() });
       if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
       renderSteeredMessage(text);
@@ -1300,7 +1338,10 @@ export function createChatStreamRuntime(deps = {}) {
       case 'tool_use': {
         live.thinkingActive = false;
         const card = toolCard({ name: evt.name, input: evt.input });
-        card.t0 = performance.now(); // start the clock; tool_result computes the elapsed seconds
+        // start the clock; tool_result computes the elapsed seconds。重放时用这条事件最初到达的时刻起算:
+        // t0 往回拨「到达至今」那么久(仍在跑的工具秒表接着真实已用时走),wallStart 供重放里的 tool_result 取差。
+        card.wallStart = replayingStream && replayEventAt ? replayEventAt : Date.now();
+        card.t0 = performance.now() - Math.max(0, Date.now() - card.wallStart);
         const updateDuration = () => {
           if (card.dur && card.t0 != null) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(0)}s`;
         };
@@ -1358,7 +1399,12 @@ export function createChatStreamRuntime(deps = {}) {
           // Status bar: running → ok/err.
           if (card.statusbar) { card.statusbar.classList.remove('running', 'ok', 'err'); card.statusbar.classList.add(evt.isError ? 'err' : 'ok'); }
           // Duration: performance.now() delta since tool_use, shown as "· 1.2s".
-          if (card.dur && card.t0 != null) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(1)}s`;
+          // 重放:用两条事件各自的到达时刻取差;没有时间戳(老形状)就不写,宁可空也不写一个恒为 0.0s 的假耗时。
+          if (card.dur && card.t0 != null) {
+            if (!replayingStream) card.dur.textContent = `· ${((performance.now() - card.t0) / 1000).toFixed(1)}s`;
+            else if (replayEventAt && card.wallStart) card.dur.textContent = `· ${(Math.max(0, replayEventAt - card.wallStart) / 1000).toFixed(1)}s`;
+            else card.dur.textContent = '';
+          }
           settleNarrativeTool(live, evt.id, evt.isError);
           compactNarrativeProcessRuns(live.narrative);
           // 工具完成收组/过程段压实会塌陷高度（用户报告的「新工具展开→成功后快速收起」抽动源）：
@@ -1565,6 +1611,8 @@ export function createChatStreamRuntime(deps = {}) {
       case 'plan_decision':
         // The interactive plan card settles synchronously after the decision POST. The stream event exists so
         // service-side replay can persist the same state without creating a second live card.
+        // 卡已决时这一句是空操作;卡还亮着(切会话再切回后重放、服务端超时自动拒绝、别处决定)就在这里收起成已决。
+        if (evt.planId) resolvePlanIntervention({ interventionId: evt.planId, action: evt.decision, feedback: evt.note });
         break;
       case 'failover':
         // v1.0-S6 (B4): the provider's primary endpoint failed pre-first-byte and the turn switched to a backup.

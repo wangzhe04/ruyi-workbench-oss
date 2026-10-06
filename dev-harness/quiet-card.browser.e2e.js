@@ -11,7 +11,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   B 候选答案按钮点下去 ＝ 那条线程的待决被回答（服务端事实：GET /api/interventions 里那条
 //     pending 消失）；
 //   C 「去看」＝ state.currentSession.id 换成它，且 data-shell-mode 仍是 classic（不切视角）；
-//   D 同线程同类 5 分钟内第二条 → 仍是一张卡（DOM 数 .quiet-card ＝ 1，只是计数与文案更新）；
+//   D 同线程同类 5 分钟内第二条 → 仍是一张卡（DOM 数 .quiet-card ＝ 1，只是计数与文案更新）；走查 S-10 起，真流程里「答完再问」
+//     先撤旧卡（线程不再等你），第三次待决是一张新卡（D0d/D1a/D2 照此改写；合并规则本身由 steward-shell-wave1 的实例级断言钉着）；
 //   E 静默时段（quietStart／quietEnd 覆盖此刻）→ 不出卡。
 //
 // 反向验证三处都已【本机独立跑一遍】（先破坏、看真红、再还原；不在本文件里自动做——会把生产文件
@@ -505,26 +506,34 @@ try {
     const row = ((result.json && result.json.missions) || []).find(item => item.sessionId === created.other);
     return Boolean(row) && row.activeTurn !== true;
   }, token)), 'D0c 「other」的第二轮也真正收尾');
+  // 走查 S-10：第二个待决在别处答掉、线程不再「等你」之后，那张 needs_you 安静卡就撤了（修前它一直挂着，点候选答案
+  // 还会用过期的 questionId 失败）。所以接下来第三次待决是一张【新卡】，不再与第二张合并成「2」——
+  // 「同线程同类 5 分钟合并成一张、计数加一」那条合并规则本身没变，仍由 steward-shell-wave1.browser.e2e.js 里的
+  // 实例级断言（同一线程、线程一直在等你时连来两帧 → 一张卡、计数 2）与 steward-deferred-notice 钉着；
+  // 本组的真流程里，「答完再问」天然走撤卡这一支。
+  ok(Boolean(await waitForEval(cdp, `(() => !document.querySelector('#quietCardHost .quiet-card[data-session-id="${created.other}"]') ? 1 : null)()`)),
+    'D0d 第二个待决在别处答掉之后，「other」那张安静卡撤了（线程不再等你就撤卡）');
   request(appPort, 'POST', '/api/chat/stream', { sessionId: created.other, message: 'ask about third', cwd: workOther }, token, 600000);
   await waitForHttp(appPort, 'GET', '/api/interventions?limit=100', result => {
     const pending = (result.json && result.json.pending) || [];
     return pending.some(item => item && item.sessionId === created.other && item.questionSummary && item.questionSummary.includes('third'));
   }, token);
   // 待决在服务端产生是【即时】的（registerIntervention 直接 emit thread.needs_you），但安静卡吃的
-  // 是 inbox.appended——那一帧要等 13i 收件箱 tick（5 s 下限）跑过一拍才会派。等的是【计数变 2】
+  // 是 inbox.appended——那一帧要等 13i 收件箱 tick（5 s 下限）跑过一拍才会派。等的是【新卡出现】
   // 这件事本身，不是猜一个够长的定长睡眠。
-  ok(Boolean(await waitForEval(cdp, `(() => {
-    const node = document.querySelector('#quietCardHost .quiet-card[data-session-id="${created.other}"] .quiet-card-count');
-    return node && node.textContent === '2' ? 1 : null;
-  })()`)), 'D1a 收件箱 tick 跑过一拍后，卡片计数徽标真的变成了 2');
+  ok(Boolean(await waitForEval(cdp, `(() => document.querySelector('#quietCardHost .quiet-card[data-session-id="${created.other}"]') ? 1 : null)()`)),
+    'D1a 收件箱 tick 跑过一拍后，第三次待决出了一张新卡');
   const merged = await snapCards();
   const otherCards = merged.cards.filter(c => c.sessionId === created.other);
-  ok(otherCards.length === 1, `D1 同线程同类 5 分钟内第二条仍是一张卡（DOM 数 .quiet-card[session=other] = ${otherCards.length}）`);
-  ok(otherCards[0] && otherCards[0].countBadge === '2', `D2 卡上的计数徽标更新为 2（实测「${otherCards[0] && otherCards[0].countBadge}」）`);
+  ok(otherCards.length === 1, `D1 同线程只有一张卡（DOM 数 .quiet-card[session=other] = ${otherCards.length}）`);
+  ok(otherCards[0] && !otherCards[0].countBadge, `D2 它是新卡、没有合并计数徽标（旧卡已在答完时撤掉；实测「${otherCards[0] && otherCards[0].countBadge}」）`);
 
   /* ═════════ E：静默时段 → 不出卡，只更新左栏 ═════════ */
+  // 走查 S-15：免打扰时段属于「本机通知」那组偏好 —— 只有用户【开启了本机通知】（enabled:true），他调的时段才压安静卡；
+  // 默认 enabled:false 而时段默认 22:00–08:00，不这样限定，没动过设置的人夜里就收不到卡。所以 E 组的前提是「开着通知 ＋
+  // 时段覆盖此刻」（断言 E1／E2 的语义不变）；「没开通知时时段不压卡」那一半在 steward-shell-wave1.browser.e2e.js 的 S-15 组钉。
   await cdp.evaluate(`(() => {
-    localStorage.setItem('wcw.notifyPolicy.v1', JSON.stringify({ version: 1, enabled: false, quietStart: '00:00', quietEnd: '23:59' }));
+    localStorage.setItem('wcw.notifyPolicy.v1', JSON.stringify({ version: 1, enabled: true, quietStart: '00:00', quietEnd: '23:59' }));
     return true;
   })()`);
   request(appPort, 'POST', '/api/chat/stream', { sessionId: created.quiet, message: 'ask about quiethours', cwd: workQuiet }, token, 600000);

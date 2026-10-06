@@ -88,12 +88,14 @@ export function toolResultRichParts(result) {
 // 用自己的 Marked 实例而不是 marked.use：不改全局的 marked（vendor 是全仓共享的那一份）。纯函数，入参是 marked
 // 库本身（浏览器里是全局 marked，单测里 require vendor 那一份），建不出来返回 null（调用方回落 marked.parse）。
 const TILDE_DEL = /^~~(?=[^\s~])([\s\S]*?[^\s~])~~(?=[^~]|$)/;
-export function createMarkdownParser(markedLib) {
+// breaks:单个换行是否画成 <br>。对话里默认 true(聊天口吻,一行一回车);手册这类按段落硬折行写的英文文档要 false,
+// 否则每个源码折行都被画成断行(help-viewer.js 经 renderMarkdownInto 的 {breaks:false} 取用)。
+export function createMarkdownParser(markedLib, { breaks = true } = {}) {
   if (!markedLib || typeof markedLib.Marked !== 'function') return null;
   try {
     return new markedLib.Marked({
       gfm: true,
-      breaks: true,
+      breaks,
       tokenizer: {
         del(src) {
           const cap = TILDE_DEL.exec(src);
@@ -149,6 +151,8 @@ export function createChatRenderPrimitives(deps = {}) {
     // 是因为若干单元测试用 vm 直接跑本文件的函数体,顶部 ESM import 会让它们编译失败。
     renderMermaidBlocks = () => Promise.resolve(0),
     renderResumeBanner,
+    // F9:「编辑重发」把原消息的附件放回托盘后重画托盘(组合根注入 app.js 的 renderAttachments;缺省空实现)。
+    renderAttachments = () => {},
     saveAsMemory,
     sendPrompt,
     state,
@@ -224,18 +228,26 @@ export function createChatRenderPrimitives(deps = {}) {
   }
   // 2026-10:只认 ~~双波浪~~ 的删除线(理由见模块级 createMarkdownParser 头注)。建一次、按需建。
   let mdParser;
-  function markdownParser() {
-    if (mdParser === undefined) mdParser = createMarkdownParser(typeof marked === 'undefined' ? null : marked);
-    return mdParser;
+  let mdParserNoBreaks;
+  function markdownParser(breaks = true) {
+    if (breaks) {
+      if (mdParser === undefined) mdParser = createMarkdownParser(typeof marked === 'undefined' ? null : marked);
+      return mdParser;
+    }
+    if (mdParserNoBreaks === undefined) mdParserNoBreaks = createMarkdownParser(typeof marked === 'undefined' ? null : marked, { breaks: false });
+    return mdParserNoBreaks;
   }
-  function renderMarkdown(text) {
+  // opts.breaks === false:单个换行不画成 <br>(手册用)。缓存键带上这一位 —— 同一段原文两种口径的输出不同,不能互相命中。
+  function renderMarkdown(text, opts) {
     const key = String(text || '');
+    const breaks = !(opts && opts.breaks === false);
+    const cacheKey = breaks ? key : '\u0000nobr\u0000' + key;
     const cacheable = key.length > 0 && key.length <= MD_CACHE_MAX_CHARS;
     if (cacheable) {
-      const hit = mdCache.get(key);
+      const hit = mdCache.get(cacheKey);
       if (hit !== undefined) {
         // Map 迭代序即插入序：命中后重插到末尾保持 LRU。
-        mdCache.delete(key); mdCache.set(key, hit);
+        mdCache.delete(cacheKey); mdCache.set(cacheKey, hit);
         return hit;
       }
     }
@@ -243,8 +255,8 @@ export function createChatRenderPrimitives(deps = {}) {
     try {
       if (typeof marked === 'undefined') out = `<div class="plain">${escapeHtml(key)}</div>`;
       else {
-        const parser = markdownParser();
-        const html = parser ? parser.parse(key) : marked.parse(key, { gfm: true, breaks: true });
+        const parser = markdownParser(breaks);
+        const html = parser ? parser.parse(key) : marked.parse(key, { gfm: true, breaks });
         const tpl = document.createElement('template');
         tpl.innerHTML = html;
         sanitizeNode(tpl.content);
@@ -253,17 +265,17 @@ export function createChatRenderPrimitives(deps = {}) {
       }
     } catch { out = `<div class="plain">${escapeHtml(key)}</div>`; }
     if (cacheable) {
-      mdCache.set(key, out);
+      mdCache.set(cacheKey, out);
       if (mdCache.size > MD_CACHE_MAX) mdCache.delete(mdCache.keys().next().value); // 淘汰最久未用
     }
     return out;
   }
-  function renderMarkdownInto(container, text) {
+  function renderMarkdownInto(container, text, opts) {
     if (!container) return container;
     // renderMarkdown has already parsed and sanitized the markup. Keeping the
     // trusted HTML assignment inside this shared renderer prevents consumers
     // from growing their own, less consistent Markdown/XSS paths.
-    container.innerHTML = renderMarkdown(text);
+    container.innerHTML = renderMarkdown(text, opts);
     return container;
   }
   function highlightCodeBlock(block) {
@@ -891,7 +903,7 @@ export function createChatRenderPrimitives(deps = {}) {
     const save = contextWindowSave.catch(() => {}).then(async () => {
       const overrides = { ...state.config?.contextWindowOverrides, [key]: value };
       const result = await api('/api/config', { method: 'POST', body: JSON.stringify({ contextWindowOverrides: overrides }) });
-      if (result?.ok === false) throw new Error(result.error || 'Unable to save context window');
+      if (result?.ok === false) throw new Error(apiErrText(result.error) || 'Unable to save context window');
       state.config.contextWindowOverrides = result?.config?.contextWindowOverrides || overrides;
       // Status/manual usage from before this edit must not reappear after selecting Auto.
       if (state.status) state.status.contextWindowResolved = null;
@@ -1095,10 +1107,37 @@ export function createChatRenderPrimitives(deps = {}) {
     copy.onclick = () => { navigator.clipboard?.writeText(msg.content || '').then(() => toast(t("toast.copied"), 'ok')); };
     bar.appendChild(copy);
     if (msg.role === 'user') {
+      // F9:这条消息发出去时带的附件。重试 / 编辑重发都要带上 —— 修前只重发文字,附件丢了。
+      // 去掉 previewUrl(托盘缩略图的 blob URL 只在原页面生命周期里有效,早被释放了)。
+      const sentAttachments = () => (Array.isArray(msg.attachments) ? msg.attachments : [])
+        .filter(a => a && (a.name || a.path))
+        .map(a => { const { previewUrl: _dead, ...rest } = a; return rest; });
       const edit = el('button', '', t('chat.editResend'));
-      edit.onclick = () => { $('promptInput').value = msg.content || ''; autoGrow($('promptInput')); $('promptInput').focus(); };
+      edit.onclick = () => {
+        const box = $('promptInput');
+        // 输入框里已经有一段没发出去的草稿:不覆盖它(修前一点就整段盖掉,草稿没了)。说一句,把光标留给用户自己决定。
+        if (String(box.value || '').trim()) { toast(t('chat.editResendKeepDraft'), ''); box.focus(); return; }
+        box.value = msg.content || ''; autoGrow(box);
+        const restored = sentAttachments();
+        if (restored.length) {
+          const key = a => String(a.id || a.path || a.name || '');
+          const have = new Set((state.attachments || []).map(key));
+          for (const a of restored) if (!have.has(key(a))) state.attachments.push(a);
+          renderAttachments();
+        }
+        // 触发 input:草稿存盘、「发送 / 插话 / 停止」按钮按新内容切态(直接改 value 不会发 input)。
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+        box.focus();
+      };
       const retry = el('button', '', t('chat.retry'));
-      retry.onclick = () => sendPrompt(msg.content || '');
+      retry.onclick = () => {
+        // 回合还在跑时 sendPrompt 会把这句话当【插话】递进去(它判的是「此刻有回合在跑」)—— 那不是「重试」。
+        const relay = state.sessionRelay;
+        const busy = state.streaming || Boolean(relay && state.currentSession && relay.sessionId === state.currentSession.id && relay.live === true);
+        if (busy) { toast(t('chat.retryWaitTurn'), ''); return; }
+        // 显式给 attachments(哪怕是空数组):不去动、也不会误带输入框托盘里别的附件。
+        sendPrompt(msg.content || '', { attachments: sentAttachments() });
+      };
       bar.append(edit, retry);
       // v0.8-S4b B2: 「⏪ 回溯到此处」— rewind the conversation to just before this message.
       const rewind = el('button', '', t('chat.rewindHere'));
@@ -1130,7 +1169,7 @@ export function createChatRenderPrimitives(deps = {}) {
     if (btn) { btn.disabled = true; btn.textContent = t('playbook.create.drafting'); }
     try {
       const r = await api('/api/playbooks/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-      if (!r || !r.ok || !r.draft) { toast(t('playbook.create.draftFailed', { reason: (r && r.error) || t('common.unknown') }), 'err'); return; }
+      if (!r || !r.ok || !r.draft) { toast(t('playbook.create.draftFailed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); return; }
       openPlaybookEditModal(r.draft);
     } catch (e) { toast(t('playbook.create.draftFailed', { reason: apiErrText(e) }), 'err'); }
     finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
@@ -1170,7 +1209,7 @@ export function createChatRenderPrimitives(deps = {}) {
       try {
         const r = await api('/api/playbooks', { method: 'POST', body: JSON.stringify({ playbook: pb }) });
         modal.close();
-        if (!r || !r.ok) { toast(t('playbook.create.saveFailed', { reason: (r && r.error) || t('common.unknown') }), 'err'); return; }
+        if (!r || !r.ok) { toast(t('playbook.create.saveFailed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); return; }
         toast(t('playbook.create.saved'), 'ok');
         refreshPlaybooks(); // reflect the new card in the empty state
       } catch (e) { modal.close(); toast(t('playbook.create.saveFailed', { reason: apiErrText(e) }), 'err'); }
@@ -1221,7 +1260,7 @@ export function createChatRenderPrimitives(deps = {}) {
     if (!sid || targetTurnSeq == null) { toast(t("toast.rewindNoTurn"), 'err'); return; }
     const { turns, fileCount } = rewindImpact(msg);
     const body = el('div');
-    body.append(el('p', '', t('chat.rewindConfirm', { turns })));
+    body.append(el('p', '', tCount('chat.rewindConfirm', turns, { turns })));   // 英文 1 turn / N turns
     const preview = el('div', 'rewind-preview'); preview.textContent = (msg.content || '').slice(0, 300);
     body.append(preview);
     let fileBox = null;
@@ -1242,7 +1281,7 @@ export function createChatRenderPrimitives(deps = {}) {
       try {
         const r = await api('/api/session/rewind', { method: 'POST', body: JSON.stringify({ sessionId: sid, targetTurnSeq, rollbackFiles: !!(fileBox && fileBox.checked) }) });
         modal.close();
-        if (!r || !r.ok) { toast(t("toast.rewindFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
+        if (!r || !r.ok) { toast(t("toast.rewindFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
         // Reload the truncated session and re-render; refill the composer with the removed user text.
         // v1.0-S7 (perf): reset the window cursor so the shrunken conversation re-windows from its new tail.
         // GET 期间切到了别的会话:别把回溯后的这条写回 state(会盖掉刚打开的那条)—— 取回来之后再判一次。

@@ -80,7 +80,9 @@ function pidAlive(pid) {
   const src = fs.readFileSync(SERVER, 'utf8');
   ok(/const BRIDGED_TOOL_TIMEOUTS = \{/.test(src) && /run_command: 650000/.test(src), 'E1 声明式按工具超时表在(run_command/launch_application 650s)');
   ok(src.includes("notifications/cancelled"), 'E2 tools/call 超时发 notifications/cancelled(MCP 标准取消)');
-  ok(/catch \(e\) \{[\s\S]{0,400}timed out[\s\S]{0,300}this\.kill\(\)/.test(src), 'E3 callTool catch 内超时即 kill 客户端进程树');
+  // 走查 W1·F7 起超时认【标记】err.mcpTimeout 而不是去匹配 e.message 里的 'timed out'(服务端自己回的「upstream API timed out」
+  // 不该被当成桥超时去杀进程树)—— 钉的事实不变:callTool 的 catch 里,超时那一支杀客户端进程树。
+  ok(/catch \(e\) \{[\s\S]{0,400}(?:timed out|mcpTimeout)[\s\S]{0,300}this\.kill\(\)/.test(src), 'E3 callTool catch 内超时即 kill 客户端进程树');
   ok(src.includes('WCW_BRIDGED_TIMEOUT_OVERRIDE'), 'E4 env 测试缝在(e2e 打秒级超时)');
   ok(src.includes('bridgedToolTimeoutMs(name)'), 'E5 callTool 缺省超时走声明式表(调用点免费获得)');
   ok(/function bridgedToolCallTimeoutMs\(name, args\)/.test(src)

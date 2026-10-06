@@ -840,7 +840,7 @@ async function handleApi(req, res, pathname) {
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     if (scope === 'project' && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));   // 对抗轮 P3: 与保存分支同款 root 校验
     const r = await deleteMemory(id, scope, cwd);
-    return send(res, json(r, r.ok ? 200 : 404));
+    return send(res, json(r, r.ok ? 200 : (r.unlinkFailed ? 500 : 404)));   // 文件还在、删不掉(占用/权限)是 500,不是「找不到」
   }
   if (req.method === 'POST' && pathname === '/api/stop') {
     const body = await readJsonBody(req);
@@ -1968,6 +1968,7 @@ async function startServerInner(opts) {
   if (config.importAgentInstructions !== false) await syncAgentInstructionImports({ auto: true }).catch(() => null);
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
+  void sweepStaleScriptFiles().catch(() => {});   // 走查 W1·F10:script_run 遗留的脚本明文(强杀 / 杀毒占着没删成的)按龄清掉
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {

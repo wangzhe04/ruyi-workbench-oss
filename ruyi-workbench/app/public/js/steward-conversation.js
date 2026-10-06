@@ -422,6 +422,31 @@ export function stewardThreadFacts(payload) {
   };
 }
 
+// 走查 S-12：loadDeliverable 的缓存修前存的是整份 GET /api/sessions/:id 信封（含全部 messages，一条长线程动辄几 MB），
+// 而且永不淘汰 —— 对话流里每出现一条新线程就多押一份。卡头只需要 stewardThreadFacts 读的那几样，交付卡只需要
+// stewardDeliverableFrom 挑出来的那一段文字，所以缓存里只留这两样：这里把信封瘦成「喂给 stewardThreadFacts 能得到同一份事实」
+// 的最小形状（displayTitle／relay.channel／resumable.live／session 上的 stewardLastTurn.ok、turnSeq、updatedAt、
+// engineRoute.model —— 模型缺席时的「最后一条助手消息的 model」回落在这里就地算掉，不留 messages）。
+// 纯函数、零 DOM。dev-harness/unit/steward-shell-wave1.test.js 钉「瘦身前后 stewardThreadFacts 的输出逐字相同」。
+export function stewardThreadEnvelopeLite(payload) {
+  const envelope = (payload && typeof payload === 'object') ? payload : {};
+  const session = (envelope.session && typeof envelope.session === 'object') ? envelope.session : {};
+  const relay = (envelope.relay && typeof envelope.relay === 'object') ? envelope.relay : null;
+  const lastTurn = (session.stewardLastTurn && typeof session.stewardLastTurn === 'object') ? session.stewardLastTurn : null;
+  const model = stewardThreadFacts(envelope).model;
+  return {
+    displayTitle: String(envelope.displayTitle || ''),
+    relay: relay ? { channel: String(relay.channel || '') } : null,
+    resumable: { live: Boolean(envelope.resumable && envelope.resumable.live === true) },
+    session: {
+      updatedAt: String(session.updatedAt || ''),
+      turnSeq: Number(session.turnSeq) > 0 ? Number(session.turnSeq) : 0,
+      ...(lastTurn ? { stewardLastTurn: { ok: lastTurn.ok } } : {}),
+      engineRoute: { model },
+    },
+  };
+}
+
 // 「最后动静」= 相对时间。**不自己写一套人话**：只算出 Intl.RelativeTimeFormat 要的
 // (value, unit) 两个数，人话交给平台按 documentElement.lang 去说（skills-memory.js:659 用
 // Intl.DateTimeFormat 是同一个先例）—— 于是零新增 i18n 键，也不去抄 thread-facts.js 的那一支
@@ -1261,16 +1286,24 @@ export function createStewardConversation({
   //     失败不进缓存，下次进壳还能再试；
   //   · **绝不把异常抛回对话流**：取不到就画一句兜底，永远不留一个空盒子。
   const deliverableCache = new Map();
+  // 走查 S-12：缓存只留瘦身后的事实（stewardThreadEnvelopeLite）＋ 交付原文，并按最近使用淘汰（Map 的插入序当 LRU），
+  // 上限 50 条 —— 修前存整份会话信封（含全部 messages）且永不淘汰。
+  const DELIVERABLE_CACHE_MAX = 50;
   function loadDeliverable(sessionId, turnSeq) {
     const key = String(sessionId) + '|' + String(turnSeq || 0);
-    if (deliverableCache.has(key)) return deliverableCache.get(key);
+    if (deliverableCache.has(key)) {
+      const hit = deliverableCache.get(key);
+      deliverableCache.delete(key); deliverableCache.set(key, hit);   // 命中＝挪到最新
+      return hit;
+    }
     // F1：卡头（线程名/五态/最后动静/模型）与交付原文来自【同一个信封】，所以这一处解出来的是
     // { envelope, deliverable } 两样 —— 两个消费方 await 的是同一个 promise，请求仍然只发一发。
     const task = (async () => {
       const payload = await api('/api/sessions/' + encodeURIComponent(sessionId));
       return { envelope: payload, deliverable: stewardDeliverableFrom(payload && payload.session, turnSeq) };
-    })();
+    })().then(got => ({ envelope: stewardThreadEnvelopeLite(got.envelope), deliverable: got.deliverable }));   // 整份信封到此为止，不进缓存
     deliverableCache.set(key, task);
+    while (deliverableCache.size > DELIVERABLE_CACHE_MAX) deliverableCache.delete(deliverableCache.keys().next().value);
     task.catch(() => { deliverableCache.delete(key); });   // 失败不留在缓存里（下次还能再试）
     return task;
   }
@@ -1412,6 +1445,11 @@ export function createStewardConversation({
     }
     markQueued(next.row, false);
     void runSend(next.message, next.opts, next.row);
+  }
+
+  // 走查 S-13：「这一句现在会不会被拒收」（回合在跑且排队已满）。输入区在清空输入框之前先问它，被拒就留着那句话。
+  function sendQueueFull() {
+    return streaming && sendQueue.length >= STEWARD_SEND_QUEUE_MAX;
   }
 
   async function sendToSteward(text, opts = {}) {
@@ -2332,6 +2370,7 @@ export function createStewardConversation({
     syncEngineGate,   // 走查 #1：config 每次刷新由 steward-shell 先调它，再调 ensureVisit
     resetConversation,
     sendToSteward,
+    sendQueueFull,   // 走查 S-13
     handOff,
     appendUser,
     appendSteward,

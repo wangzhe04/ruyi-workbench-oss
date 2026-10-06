@@ -7,7 +7,7 @@
 import { state } from './state.js';
 import { $, el, fileBasename, fmtBytes, toast } from './util.js';
 import { api, apiErrText as fallbackApiErrText } from './net.js';
-import { t } from './i18n.js';
+import { t, tCount, hasTranslation } from './i18n.js';
 
 export const ARTIFACT_KIND_ICON = {
   img: '🖼',
@@ -131,7 +131,8 @@ export function createArtifactChangesDomain({
 
   function changeToolLabel(entry) {
     const tool = String(entry && entry.tool || '').replace(/^.+?__/, '');
-    return tool ? (t('changes.tool.' + tool) || tool) : '';
+    // t() 对缺键回的是真值 `[key]`,`t(k) || tool` 永远走不到回落 —— 先问 hasTranslation,没有译文就显示工具原名。
+    return tool ? (hasTranslation('changes.tool.' + tool) ? t('changes.tool.' + tool) : tool) : '';
   }
 
   function changeSizeTransition(entry) {
@@ -222,7 +223,7 @@ export function createArtifactChangesDomain({
       const card = el('div', 'change-card');
       const head = el('div', 'change-card-head');
       head.append(el('span', 'change-round-title', t('changes.roundTitle', { n: turnSeq })));
-      head.append(el('span', 'change-round-count muted', t('changes.roundCount', { n: items.length })));
+      head.append(el('span', 'change-round-count muted', tCount('changes.roundCount', items.length)));
       const roundActions = el('span', 'change-round-actions');
       if (items.some(entry => !entry.skipped)) {
         const undoAll = el('button', 'mini change-undo-all', t('changes.revertTurn'));
@@ -242,7 +243,7 @@ export function createArtifactChangesDomain({
         const operation = ['create', 'modify', 'delete'].includes(entry.op) ? entry.op : 'unknown';
         const row = el('div', 'change-row' + (entry.skipped ? ' skipped' : ''));
         const rowHead = el('div', 'change-row-head');
-        rowHead.append(el('span', 'change-op ' + operation, t('changes.op.' + operation) || t('changes.op.modify')));
+        rowHead.append(el('span', 'change-op ' + operation, t(hasTranslation('changes.op.' + operation) ? 'changes.op.' + operation : 'changes.op.modify')));
         rowHead.append(el('span', 'change-icon', changeKindIcon(pathValue)));
         const name = el('span', 'change-name', fileBasename(pathValue));
         name.title = pathValue;
@@ -384,7 +385,7 @@ export function createArtifactChangesDomain({
     box.append(head);
     if (!diffData || diffData.ok === false) {
       box.append(el('div', 'cdiff-note muted', t('changes.diffUnavailable', {
-        err: (diffData && diffData.error) || t('common.unknown'),
+        err: apiErrText(diffData && diffData.error) || t('common.unknown'),
       })));
       return;
     }
@@ -463,9 +464,9 @@ export function createArtifactChangesDomain({
       if (!result || !result.ok || (result.failed || []).length) {
         if (button) {
           button.disabled = false;
-          button.textContent = t('changes.revertTitle');
+          button.textContent = t('changes.revert');   // 按钮文字是 changes.revert(「撤销」);changes.revertTitle 是 tooltip 长句,不能当按钮文字
         }
-        const reason = (result && result.error)
+        const reason = apiErrText(result && result.error)
           || (result && result.failed && result.failed[0] && result.failed[0].reason)
           || t('common.unknownError');
         toast(t('toast.rollbackFail', { p1: reason }), 'err');
@@ -476,7 +477,7 @@ export function createArtifactChangesDomain({
     } catch (error) {
       if (button) {
         button.disabled = false;
-        button.textContent = t('changes.revertTitle');
+        button.textContent = t('changes.revert');
       }
       toast(t('toast.rollbackFail', { p1: apiErrText(error) }), 'err');
     }

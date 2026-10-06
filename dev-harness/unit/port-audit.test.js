@@ -92,4 +92,11 @@ describe('portAudit', () => {
     const audit = portAuditFromDir(tmpDir);
     assert.equal(audit.count, 2); // only 8700, 9199
   });
+
+  // 2026-10:run-all 开跑前才审计,Linux 快通道与静态锁都不跑它 —— 新件撞号(steward-shell-wave1 的超时字面量 9000)
+  // 一路绿到 Windows CI 才在全量门口被拒跑。这里对真 dev-harness 目录跑同一个审计,让 unit 快通道就红。
+  it('the real dev-harness/*.e2e.js set has no cross-file collisions (same gate run-all applies before the suite)', () => {
+    const audit = portAuditFromDir(path.resolve(__dirname, '..'));
+    assert.deepEqual(audit.collisions, [], 'band 8700-9199 numeric literals must be unique per e2e file; write timeouts as e.g. 9 * 1000');
+  });
 });

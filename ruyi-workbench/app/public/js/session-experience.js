@@ -30,6 +30,17 @@ import { confirmDanger } from './confirm-panel.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
 
+// 走查 S-11：run 的终态有 succeeded／failed／timed_out／cancelled／partial／stopped／interrupted 七种，而文案键修前只有前四种 ——
+// 其余三种显示成「[chat.background.partial]」，还一律红色。颜色按「这对用户意味着什么」分：成功＝绿、部分完成＝黄（warn）、
+// 用户自己停的（stopped／cancelled）＝中性、失败／超时／中断＝红；表外的状态不编文案，回落一句通用的「已结束」。
+export const BACKGROUND_TOAST_OUTCOMES = Object.freeze({
+  succeeded: 'ok', partial: 'warn', stopped: '', cancelled: '', failed: 'err', timed_out: 'err', interrupted: 'err',
+});
+export function backgroundToastOutcome(status) {
+  const name = String(status || '');
+  if (!Object.prototype.hasOwnProperty.call(BACKGROUND_TOAST_OUTCOMES, name)) return { key: 'chat.background.finished', kind: '' };
+  return { key: 'chat.background.' + name, kind: BACKGROUND_TOAST_OUTCOMES[name] };
+}
 export function createSessionExperienceDomain({
   // 121-K2b（34 号文 §6.2）：组合根那【一条】事件流。工作台视角用它两件事：①「它正在跑」那张卡
   // 改吃 thread.live（3 s 轮询降为断连兜底）；②换会话时报一次新的在场信号（§4.3 —— 服务端只在
@@ -231,6 +242,12 @@ function bindRailSessionActions() {
   return true;
 }
 
+// 在场信号(§4.3)读 state.currentSession：凡是改了「当前会话」的动作（打开／新建／删当前）都要调它，服务端的在场门才不会拿旧线程判。
+// sync 自己幂等（key 没变就什么都不做）、重连去抖，所以多调无害。
+function syncEventStreamPresence() {
+  if (eventStream && typeof eventStream.sync === 'function') eventStream.sync();
+}
+
 // 后发先至:两次刷新并发时,晚回来的旧列表不许盖掉已经画上的新列表(只认最后一次发出的那一发)。
 let refreshSessionsSeq = 0;
 async function refreshSessions() {
@@ -280,7 +297,7 @@ async function openSession(id, opts = {}) {
   mountActiveTurn(id);
   syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
   syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
-  if (switchedSession && eventStream && typeof eventStream.sync === 'function') eventStream.sync(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
+  if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
   // The global status denominator describes the new-session default. Resolve this session's pinned route
   // after every switch so the context meter and model list do not lag behind until the next completed turn.
   api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
@@ -483,7 +500,7 @@ async function previewGrant() {
       else bits.push(t('permission.preview.commands', { commands: (r.grant.cmdAllow || []).join(' / ') }));
       if (r.dropped && r.dropped.length) bits.push(t('permission.preview.dropped', { count: r.dropped.length, reasons: r.dropped.map(d => d.reason).join(';') }));
       if (box) box.textContent = bits.join(';');
-    } else if (box) box.textContent = t('permission.preview.failed', { reason: r && r.error || t('common.unknown') });
+    } else if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(r && r.error) || t('common.unknown') });
   } catch (e) { if (box) box.textContent = t('permission.preview.failed', { reason: apiErrText(e) }); }
 }
 async function submitGrant(ev) {
@@ -500,7 +517,7 @@ async function submitGrant(ev) {
       toast(r.dropped && r.dropped.length ? t('permission.grantIssuedWithDrops', { count: r.dropped.length }) : t('permission.grantIssued'), 'ok');
       $('autonomyIssueForm').classList.add('hidden');
       await loadAutonomyGrants();
-    } else { toast(t('permission.grant.failed', { reason: r && r.error || t('common.unknown') }), 'err'); }
+    } else { toast(t('permission.grant.failed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); }
   } catch (e) { toast(t('permission.grant.failed', { reason: apiErrText(e) }), 'err'); }
 }
 
@@ -597,7 +614,7 @@ async function revealArtifact(fullPath, mode) {
   const sid = state.currentSession?.id || '';
   try {
     const r = await api('/api/file/reveal', { method: 'POST', body: JSON.stringify({ sessionId: sid, path: fullPath, mode }) });
-    if (!r || !r.ok) { toast((r && r.error) || t('file.open.unavailable'), 'err'); return; }
+    if (!r || !r.ok) { toast(apiErrText(r && r.error) || t('file.open.unavailable'), 'err'); return; }
     if (r.degradedTo && r.note) toast(r.note, '');
   } catch (e) {
     toast(t('file.open.failed', { reason: apiErrText(e) }), 'err');
@@ -716,7 +733,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
     const r = await api('/api/checkpoints/rollback', { method: 'POST', body: JSON.stringify(payload) });
     if (!r || !r.ok) {
       if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }
-      toast(t('changes.revert.failed', { reason: (r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
+      toast(t('changes.revert.failed', { reason: apiErrText(r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
       return;
     }
     // 代码走查 C6：撤回了一部分（比如改前内容太大没留底）时服务端仍回 ok:true ＋ failed[]。修前只看 ok，
@@ -801,6 +818,7 @@ async function newSession(options = {}) {
   state.currentSession = res.session;
   state.resumable = null; // fresh session never dangles
   try { localStorage.setItem('wcw.lastSession', res.session.id); } catch { /* ignore */ }
+  syncEventStreamPresence(); // 走查 S-04：新建也换了「坐在哪条线程」，在场信号要跟着重连（openSession 那一路有，这里补）
   await refreshSessions();
   updateEngineDependentUI();
   renderCurrentSession();
@@ -839,7 +857,7 @@ async function removeSession(id) {
   }
   removal.pending.delete(id);
   removal.done.add(id);
-  if (state.currentSession?.id === id) state.currentSession = null;
+  if (state.currentSession?.id === id) { state.currentSession = null; syncEventStreamPresence(); }   // 走查 S-04：当前会话没了，在场信号别停在已删的线程上
   await refreshSessions();
   renderCurrentSession();
   return true;
@@ -854,7 +872,7 @@ function openBulkCleanupModal() {
 
   const count = candidates.length;
   const body = el('div');
-  body.append(el('p', '', t('session.bulkCleanup.description', { count })));
+  body.append(el('p', '', tCount('session.bulkCleanup.description', count)));
   const note = el('p', 'muted', t('session.bulkCleanup.note'));
   body.append(note);
   const purgeLabel = el('label', 'check');
@@ -866,7 +884,7 @@ function openBulkCleanupModal() {
 
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', t('common.cancel'));
-  const go = el('button', 'danger', t('session.bulkCleanup.action', { count }));
+  const go = el('button', 'danger', tCount('session.bulkCleanup.action', count));
   foot.append(cancel, go);
   const modal = buildModal(t('session.bulkCleanup.title'), body, foot);
   cancel.onclick = () => modal.close();
@@ -877,14 +895,14 @@ function openBulkCleanupModal() {
         method: 'POST',
         body: JSON.stringify({ preserveSessionId: currentId, purgeAssociated: purgeBox.checked }),
       });
-      if (!r || !r.ok) throw new Error((r && r.error) || 'unknown error');
+      if (!r || !r.ok) throw new Error(apiErrText(r && r.error) || 'unknown error');
       modal.close();
       const removal = sessionRemoval();   // 128f-⑫：删掉的那些立刻不画（同 removeSession）
       for (const deletedId of (Array.isArray(r.deleted) ? r.deleted : [])) removal.done.add(String(deletedId));
       await refreshSessions();
-      toast(t('session.bulkCleanup.success', { count: r.deletedCount || 0 }), 'ok');
+      toast(tCount('session.bulkCleanup.success', r.deletedCount || 0), 'ok');
     } catch (e) {
-      go.disabled = false; go.textContent = t('session.bulkCleanup.action', { count });
+      go.disabled = false; go.textContent = tCount('session.bulkCleanup.action', count);
       toast(t('session.bulkCleanup.failed', { reason: apiErrText(e) }), 'err');
     }
   };
@@ -1005,7 +1023,8 @@ function bindLiveEventStream() {
   if (!eventStream || typeof eventStream.on !== 'function') return false;
   eventStream.on('background.completed', data => {
     if (!data || !data.sessionId) return;
-    toast(t('chat.background.' + data.status), data.status === 'succeeded' ? 'ok' : 'err');
+    const outcome = backgroundToastOutcome(data.status);
+    toast(t(outcome.key), outcome.kind);
     // Fetch only on completion push, never a polling timer. Do not replace a streaming message tree.
     void (async () => {
       const id = data.sessionId;
@@ -1633,7 +1652,7 @@ function openPlaybookModal(pb) {
         try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
         catch (e) { toast(t('skills.playbook.pickerError', { reason: apiErrText(e) }), 'err'); return; }
         if (r && r.ok && r.path) { ta.value = r.path; }
-        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: r.error || t('common.unknown') }), 'err');
+        else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: apiErrText(r.error) || t('common.unknown') }), 'err');
       };
       row.append(ta, pick);
       field.appendChild(row);
@@ -1667,8 +1686,10 @@ function openPlaybookModal(pb) {
       return;
     }
     const prompt = assemblePlaybookPrompt(pb, values);
-    modal.close();
+    // 走查 S-13：先判「这会儿能不能发」再关表单 —— 修前先 modal.close() 再判 streaming，当前回合还在跑时表单没了、
+    // 刚填好的几段话也跟着丢了。现在被拦下时表单原样留着，等回合收尾再点「开始」。
     if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return; }
+    modal.close();
     sendPrompt(prompt);
   };
 }

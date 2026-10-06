@@ -30,6 +30,7 @@
 .attachment-pill button:hover { color: var(--danger-fg); }
 .attachment-pill .attach-pill-thumb { width: 26px; height: 26px; flex: none; border-radius: 6px; object-fit: cover; }
 .attachment-pill:has(.attach-pill-thumb) { padding-left: 4px; }
+.attachment-pill.uploading { padding-right: 11px; opacity: .75; font-style: italic; }   /* F13:上传中占位,没有 × */
 /* 121-K8（34 号文 §2.10.2「输入框改胶囊」）：一行胶囊 —— 高 50、圆角 26、工具图标在内右、
    发送在最右。原来是「输入框在上、一排按钮在下」的两层方盒（圆角 10），两个视角的输入区
    因此长得不一样；现在两边同一个形状（管家侧见 css/views/steward-shell.css .steward-composer）。
