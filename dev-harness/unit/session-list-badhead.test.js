@@ -23,12 +23,12 @@ const sessionsDir = path.join(root, 'sessions');
 
 const realReadFile = fsp.readFile;
 let headReads = 0;
-let failFor = null;   // 要模拟瞬时锁的会话头路径
-const isHead = p => { const b = path.basename(String(p)); return /^sess_[A-Za-z0-9_-]+\.json$/.test(b) && path.dirname(String(p)) === sessionsDir; };
+let failFor = null;   // 要模拟瞬时锁的会话头文件名(<id>.json)
+const isHead = p => { const b = path.basename(String(p)); return /^sess_[A-Za-z0-9_-]+\.json$/.test(b) && /[\\/]sessions$/.test(path.dirname(String(p))); };   // 只认目录名,不比整串(Windows 临时目录可能有 8.3 短名/长名两种写法)
 fsp.readFile = function patched(p, ...rest) {
   if (isHead(p)) {
     headReads += 1;
-    if (failFor && String(p) === failFor) return Promise.reject(Object.assign(new Error('EBUSY: simulated lock'), { code: 'EBUSY' }));
+    if (failFor && path.basename(String(p)) === failFor) return Promise.reject(Object.assign(new Error('EBUSY: simulated lock'), { code: 'EBUSY' }));
   }
   return realReadFile.call(this, p, ...rest);
 };
@@ -98,7 +98,7 @@ test('[L3] id 与文件名对不上的头同样被记下,不拖垮快路径', as
 
 test('[L4] 瞬时锁(EBUSY)读失败不记坏头:好会话不会从列表消失,锁松开就回来', async () => {
   const locked = ids[3];
-  failFor = headPath(locked);
+  failFor = locked + '.json';
   await srv.invalidateSessionIndex();
   const during = await reads(listed);
   assert.ok(!during.out.includes(locked), '这一趟确实没读到它');
