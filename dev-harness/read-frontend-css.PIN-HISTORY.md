@@ -832,3 +832,8 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   `css/views/settings.css`:竖排设置导航允许长英文标签折行、导航列不出横向滚动条,≤640px 横排仍 nowrap。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9f22cb4:<css>` 重算 = c9f20392…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
+// 2026-10 3.0 收口走查第一波 · 聊天区续钉(前值 8c959d30…＝2026-10 3.0 收口走查第一波 · 杂项续钉):零新增、零删除层,改两层 ——
+//   `css/components/chat-composer.css`:附件胶囊的「上传中」占位(`.attachment-pill.uploading`:没有 × 钮,右内边距补齐、半透明斜体);
+//   `css/components/chat-primitives.css`:附件大图查看器的暗幕打开时接焦点(Esc / 焦点归还),暗幕本身不画焦点框。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show ce7210c:<css>` 重算 = 8c959d30…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。

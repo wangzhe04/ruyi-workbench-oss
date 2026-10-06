@@ -1361,6 +1361,7 @@ function stewardAsksYouForThread(input) {
       // 落盘时就有,不是这里现编的)。
       ...(pending.type === 'permission' ? {
         toolName: String(pending.toolName || ''),
+        target: stewardPermissionTarget(pending),   // 第三波 M4：前端按语言拼「等你放行：写入文件「x」」，不再印服务端中文整句
         tier: String(pending.tier || ''),
         revertible: pending.revertible === true,
       } : {}),
@@ -1390,11 +1391,15 @@ const STEWARD_PERMISSION_VERBS = Object.freeze({
   file_write: '写入文件', file_edit: '修改文件', file_delete: '删除文件', file_move: '移动文件', file_copy: '复制文件',
   powershell_run: '运行一条命令', script_run: '运行一段脚本', http_download: '下载文件',
 });
-function stewardPermissionPlain(iv) {
-  const tool = String((iv && iv.toolName) || '');
+// 第三波 M4：权限待决要对哪个文件动手（只取文件名）。独立出来，让 asksYou 也能带上结构化的 target，前端按界面语言拼句。
+function stewardPermissionTarget(iv) {
   const input = iv && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : {};
   const target = input.path || input.from || input.dest || '';
-  const name = target ? stewardSanitizeText(String(target).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '') : '';   // 不借 00-boot 的 path(会多一条循环边)
+  return target ? stewardSanitizeText(String(target).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '') : '';   // 不借 00-boot 的 path(会多一条循环边)
+}
+function stewardPermissionPlain(iv) {
+  const tool = String((iv && iv.toolName) || '');
+  const name = stewardPermissionTarget(iv);
   const verb = STEWARD_PERMISSION_VERBS[tool];
   if (verb) return name ? `${verb}「${name}」` : verb;
   return name ? `用「${stewardSanitizeText(tool || '?')}」处理「${name}」` : `使用工具「${stewardSanitizeText(tool || '?')}」`;

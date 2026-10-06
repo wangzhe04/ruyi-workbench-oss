@@ -270,6 +270,24 @@ export function stewardWaitText(wait, translate) {
   return label;
 }
 
+// 第三波 M4：线程行上「它在等你」那一句（asksYou.text）在服务端 06i 是中文整句「等你放行:写入文件「report.md」」，英文界面照印。
+// 权限一支服务端另带了结构化的 toolName ＋ target（文件名），这里按界面语言重拼；认不出的工具、字段缺（老服务端／手造行）退回服务端原句。
+// 其余几类（question／plan／pool）的原话来自模型或用户，不在此列。纯函数，translate 由调用方递进来。
+const ASK_PERMISSION_VERB_KEYS = Object.freeze({
+  file_write: 'tools.verb.file_write', file_edit: 'tools.verb.file_edit', file_delete: 'tools.verb.file_delete',
+  file_move: 'tools.verb.file_move', file_copy: 'tools.verb.file_copy', http_download: 'tools.verb.http_download',
+  powershell_run: 'tools.verb.exec_command', script_run: 'tools.verb.exec_command',
+});
+export function stewardAskText(asks, translate) {
+  const text = String((asks && asks.text) || '');
+  if (!asks || typeof translate !== 'function' || String(asks.kind || '') !== 'permission') return text;
+  const verbKey = ASK_PERMISSION_VERB_KEYS[String(asks.toolName || '')];
+  if (!verbKey) return text;
+  const verb = translate(verbKey);
+  const name = String(asks.target || '').trim();
+  return translate('stewardShell.askYou.permission', { what: name ? translate('stewardShell.askYou.permissionTarget', { verb, name }) : verb });
+}
+
 // W2-F5 顺手：等锁时占用者在 wait.blockedBy 里，服务端给的是 { sessionId, title } 对象（06i），而看板与抽屉两处原来
 // 都 String(wait.blockedBy) —— 对象变成 "[object Object]"，「停掉占用者」按下去停的是一个不存在的线程。
 // 这里收成一处：对象取 sessionId，老形状（直接是 id 字符串）照旧认。取不到回空串。

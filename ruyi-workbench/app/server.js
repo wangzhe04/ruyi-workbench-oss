@@ -24157,10 +24157,10 @@ function parseKimiWireAgentEvents(row, wireAgentId, state = {}) {
     startIfNeeded(agent, created);
     if (type === 'subagent.started') {
       agent.running = true; agent.lastProgressAt = Date.now();
-      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: 'Kimi 子代理运行中', engine: 'kimi', native: true, agentId: agent.nativeId });
+      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: 'Kimi 子代理运行中', noteCode: 'kimiRunning', engine: 'kimi', native: true, agentId: agent.nativeId });
     } else if (type === 'subagent.suspended') {
       agent.running = true;
-      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'waiting', note: `Kimi 子代理已暂停：${String(event.reason || '等待继续')}`, engine: 'kimi', native: true, agentId: agent.nativeId });
+      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'waiting', note: `Kimi 子代理已暂停：${String(event.reason || '等待继续')}`, noteCode: event.reason ? 'kimiPaused' : 'kimiPausedWaiting', reason: String(event.reason || ''), engine: 'kimi', native: true, agentId: agent.nativeId });
     } else if (!agent.settled) {
       agent.running = false; agent.settled = true;
       const ok = type === 'subagent.completed';
@@ -24265,7 +24265,7 @@ function watchKimiWire(nativeSessionId, onEvent, contextWindow, state = {}) {
       for (const agent of state.subagents instanceof Map ? state.subagents.values() : []) {
         if (agent.running && !agent.settled && now - agent.lastProgressAt >= 2000) {
           agent.lastProgressAt = now;
-          onEvent({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: `Kimi 子代理运行中 · ${Math.max(1, Math.round((now - agent.startedAt) / 1000))}s`, engine: 'kimi', native: true, agentId: agent.nativeId });
+          onEvent({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: `Kimi 子代理运行中 · ${Math.max(1, Math.round((now - agent.startedAt) / 1000))}s`, noteCode: 'kimiRunningFor', secs: Math.max(1, Math.round((now - agent.startedAt) / 1000)), engine: 'kimi', native: true, agentId: agent.nativeId });
         }
       }
     } catch { /* wire updates are best-effort */ } finally { reading = false; }
@@ -32093,6 +32093,7 @@ function stewardAsksYouForThread(input) {
       // 落盘时就有,不是这里现编的)。
       ...(pending.type === 'permission' ? {
         toolName: String(pending.toolName || ''),
+        target: stewardPermissionTarget(pending),   // 第三波 M4：前端按语言拼「等你放行：写入文件「x」」，不再印服务端中文整句
         tier: String(pending.tier || ''),
         revertible: pending.revertible === true,
       } : {}),
@@ -32122,11 +32123,15 @@ const STEWARD_PERMISSION_VERBS = Object.freeze({
   file_write: '写入文件', file_edit: '修改文件', file_delete: '删除文件', file_move: '移动文件', file_copy: '复制文件',
   powershell_run: '运行一条命令', script_run: '运行一段脚本', http_download: '下载文件',
 });
-function stewardPermissionPlain(iv) {
-  const tool = String((iv && iv.toolName) || '');
+// 第三波 M4：权限待决要对哪个文件动手（只取文件名）。独立出来，让 asksYou 也能带上结构化的 target，前端按界面语言拼句。
+function stewardPermissionTarget(iv) {
   const input = iv && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : {};
   const target = input.path || input.from || input.dest || '';
-  const name = target ? stewardSanitizeText(String(target).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '') : '';   // 不借 00-boot 的 path(会多一条循环边)
+  return target ? stewardSanitizeText(String(target).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '') : '';   // 不借 00-boot 的 path(会多一条循环边)
+}
+function stewardPermissionPlain(iv) {
+  const tool = String((iv && iv.toolName) || '');
+  const name = stewardPermissionTarget(iv);
   const verb = STEWARD_PERMISSION_VERBS[tool];
   if (verb) return name ? `${verb}「${name}」` : verb;
   return name ? `用「${stewardSanitizeText(tool || '?')}」处理「${name}」` : `使用工具「${stewardSanitizeText(tool || '?')}」`;
@@ -39667,7 +39672,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           // CLAUDE_PROGRESS_CHAR_STEP boundary so a long, tool-less generation shows live activity.
           if (assistantText.length - progressChars >= CLAUDE_PROGRESS_CHAR_STEP) {
             progressChars = assistantText.length;
-            onEvent({ type: 'subagent_progress', subagentId, chars: assistantText.length, note: `生成中 · ${assistantText.length} 字` });
+            onEvent({ type: 'subagent_progress', subagentId, chars: assistantText.length, note: `生成中 · ${assistantText.length} 字`, noteCode: 'generating' });   // 第三波 M4:note 是写日志的中文,noteCode 让前端按界面语言出字
           }
         }
         else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }
@@ -40386,7 +40391,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   const stopInitBeat = () => { if (initBeat) { clearInterval(initBeat); initBeat = null; } };
   const startInitBeat = () => {
     if (initBeat) return;
-    initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
+    initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中', noteCode: 'init' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
     if (initBeat && initBeat.unref) initBeat.unref();
   };
   // 工具心跳的句柄与停止函数提前到这里声明(启动函数仍在下面、紧挨它用到的流式节流):外壳的 finally 可能在
@@ -40535,7 +40540,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     const now = Date.now();
     if (now - lastStreamActivityEventAt < streamActivityEventMs) return;
     lastStreamActivityEventAt = now;
-    onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中' });
+    onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中', noteCode: 'streaming' });
   };
   // A3: 工具执行心跳 —— 子代理 await 长工具(>watchdog idle 上限的 powershell_run/script_run 等)期间,
   // 除 tool_use/tool_result 外不发任何事件,会被节点级/工作流级看门狗误判卡死而 abort。

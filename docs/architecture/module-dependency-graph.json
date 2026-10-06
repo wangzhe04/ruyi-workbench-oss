@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3641,
+    "providedSymbols": 3642,
     "requiredSymbols": 3196,
     "edges": 541,
     "forwardEdges": 67,
@@ -5862,6 +5862,7 @@
         "stewardPermissionLabel",
         "stewardPermissionPlain",
         "stewardPermissionRank",
+        "stewardPermissionTarget",
         "stewardPlaybookMissingInputs",
         "stewardPrerouteContainsPhrase",
         "stewardPrerouteDeicticHit",

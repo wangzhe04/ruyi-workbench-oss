@@ -166,7 +166,10 @@
    【不印】费用、线程总数、模型名（§2.2 末条）：整层没有一处金额或模型名的槽位。 */
 .app-topbar {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* 第三波 H2：右格至少给到它自己的 max-content。原来是 1fr，右侧那组（状态胶囊＋盾牌＋停机＋右栏＋齿轮，英文更宽）
+     放不下时 .tb-right 只往外溢、盖到中间的分段钮上（en 680–850px 空闲就叠；在跑出胶囊后 1180 起就叠）。
+     宽屏右格仍 ≥ max-content 的一半时分段钮照旧居中；放不下时是分段钮让位、不是互相覆盖。 */
+  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
   gap: 10px;
   padding: 0 12px;
@@ -384,15 +387,22 @@
      互不打架 —— 它们分别是「全局」与「这一栏自己」的入口）。 */
   .app-shell,
   .app-views > .steward-shell { grid-template-columns: minmax(0, 1fr) 0; }
+  /* 第三波 H4：关着的抽屉只靠 translateX(100%) 挪出屏外时，里面的按钮仍在 Tab 序里 —— 一按 Tab 焦点进屏外、浏览器把
+     .app-shell 横向滚走 392px（整个应用被推出左屏）；它的 box-shadow 还会把 40px 软影漏进视口右缘。
+     所以关态 visibility:hidden（出 Tab 序、出读屏树、不画影子），延迟到滑出动画收尾；开态立刻 visible。 */
   .app-shell .tool-pane,
   .steward-side:not([hidden]) {
     position: absolute; top: 0; right: 0; bottom: 0; width: min(392px, 92vw);
-    transform: translateX(100%); transition: transform var(--dur-slow) var(--ease-out);
-    z-index: 30; box-shadow: var(--elev-3); border-left: 1px solid var(--line);
+    transform: translateX(100%); visibility: hidden;
+    transition: transform var(--dur-slow) var(--ease-out), visibility 0s linear var(--dur-slow);
+    z-index: 30; box-shadow: none; border-left: 1px solid var(--line);
   }
   .app-frame.side-open .app-shell .tool-pane,
   .app-frame.side-open .steward-side:not([hidden]),
-  .app-shell.tools-open .tool-pane { transform: none; }
+  .app-shell.tools-open .tool-pane {
+    transform: none; visibility: visible; box-shadow: var(--elev-3);
+    transition: transform var(--dur-slow) var(--ease-out), visibility 0s;
+  }
   .app-side-toggle { display: inline-grid; }
 }
 /* W4b（用户 2026-09-25 走查⑧；W4 报告登记的既有问题）：390px 下顶栏的分段钮与右侧那组按钮重叠。
@@ -404,6 +414,19 @@
            （在跑／等你的数左栏组头与管家头部那一行各有一份）。 */
 @container frame (max-width: 640px) {
   .app-topbar { grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; }
+  /* 第三波 H2：这一档（≤640）分段钮 ＋ 胶囊 ＋ 盾牌 ＋ 停机 ＋ 右栏 ＋ 齿轮 放不进一行（500 宽中文也压住分段钮、把它挤出左缘），
+     胶囊提前到这一档收（在跑／等你的数左栏组头与管家头部各有一份）；≤480 那一条照旧（更窄时连盾牌字、分段钮字也收）。 */
+  .app-topbar .app-status-chip { display: none; }
+  /* 第三波 H2：英文盾牌字（"Ask me every step"）与分段钮（"Steward | Workbench"）合起来在 481–640 放不下，
+     分段钮被挤出左缘；这一档英文先让盾牌只留字形（可访问名仍在），中文本来就放得下。 */
+  :root:lang(en) .app-topbar .steward-shield-label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+}
+/* 第三波 H2：英文「N running · M waiting」胶囊比中文宽 ~50px，≤860 与分段钮／盾牌合起来放不下；在跑／等你的数
+   左栏组头与管家头部那一行各有一份，这一档先收胶囊（≤480 对所有语言本来就收）。 */
+@container frame (max-width: 860px) {
+  :root:lang(en) .app-topbar .app-status-chip { display: none; }
 }
 @container frame (max-width: 480px) {
   .lens-btn { padding-inline: 11px; }

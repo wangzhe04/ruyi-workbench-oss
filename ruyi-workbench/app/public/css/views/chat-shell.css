@@ -150,8 +150,15 @@
    引擎那一枚【整枚切掉半个字】——省略号是 chip 自己的事，容器不该动刀。 */
 .thread-head .th-row-config .steward-chips { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; }
 .thread-head .th-row-config .steward-chip-wrap { min-width: 0; }
-/* 上下文电量是一枚图标 ＋ 一个数，缩不了也不该缩。 */
-.thread-head .th-row-config .ctx-meter { flex: none; }
+/* 第三波 M8：chip 的值只能省略、不能收成 0 宽（英文 1280＋右栏开着、头宽 ~600 时「Engine」后面是空的，像数据缺失）。
+   只在头宽 ≥400 时垫底：更窄时一整排 chip 的「标签＋2em」已经比一行还宽（390 视口英文差 ~18px 会横向溢出），那一档仍让值自己缩到省略号。 */
+@container thhead (min-width: 400px) {
+  .thread-head .th-row-config .steward-chip-value { min-width: 2em; }
+}
+/* 上下文电量是一枚图标 ＋ 一个数，缩不了也不该缩。
+   第三波 M8：英文「Thread memory 1% used」~230px 且 flex:none，把 chip 挤到只剩标签；改成让它的那句字自己省略（电池图标恒在）。 */
+.thread-head .th-row-config .ctx-meter { flex: 0 1 auto; min-width: 0; }
+.thread-head .th-row-config .ctx-meter .ctx-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 3px 色条：只说「这是哪条线程」（F1 纪律：色 ≠ 态，状态由旁边那枚药丸说）。色号问的是同一张
    登记表（steward-conversation.js 的 stewardThreadHueFor），--thread-color 由 [data-thread-hue]
    那条全局规则算出来 —— 不在本层复制第二份色表。 */
@@ -257,7 +264,13 @@
   }
   .thread-head:not(:lang(en)) .th-steward .th-back-steward { width: auto; padding: 0 var(--sp-2); }
 }
-@container thhead (min-width: 360px) and (max-width: 459px) {
+/* 第三波 M8：英文标签独占一整行时要 ~290px（头像收掉后），原来 ≥360 才还原 —— 390 视口下头宽只有 306，于是整行只剩
+   「◉ ☐ ◉」三个图标、复选框没有任何可见文字，右边 2/3 是空的。门槛降到 280；<360 时去掉头像并允许药丸里换行。 */
+@container thhead (max-width: 359px) {
+  .thread-head:lang(en) .th-steward { flex-wrap: wrap; border-radius: var(--r-md); }
+  .thread-head:lang(en) .th-steward-avatar { display: none; }
+}
+@container thhead (min-width: 280px) and (max-width: 459px) {
   .thread-head:lang(en) .th-steward-toggle > span,
   .thread-head:lang(en) .th-steward .th-back-steward > span {
     position: static; width: auto; height: auto; margin: 0; clip-path: none; overflow: visible;

@@ -125,6 +125,12 @@ export function createAppFrame({
     host.classList.toggle('side-open', open);
     const button = byId('appSideToggleBtn');
     if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    // 第三波 H4：关着的抽屉是 visibility:hidden（出 Tab 序）。焦点还留在抽屉里时，收起后浏览器会把它丢回 body；
+    // 先还给「右栏」钮，键盘用户不掉线。
+    if (!open && button) {
+      const active = host.ownerDocument.activeElement;
+      if (active && active.closest && active.closest('.steward-side, .tool-pane')) button.focus();
+    }
     return open;
   }
   function isSideOpen() {

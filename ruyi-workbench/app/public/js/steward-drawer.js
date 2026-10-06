@@ -5,7 +5,7 @@ import './mission-state.js';
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
 import { apiErrorInfo } from './net.js';
-import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, stewardWaitText, threadIsBlank, threadShownTitle } from './thread-facts.js';
+import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, stewardAskText, stewardWaitText, threadIsBlank, threadShownTitle } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
@@ -168,7 +168,7 @@ export const STEWARD_ASKS_YOU_CHARS = 300;
 // 人话【不在这里编】：permission／plan／pool 那一句一律来自服务端 06i 的 stewardPendingOneLine
 // （经行上的 asksYou.text 送过来）；行还没到就先不摆那句话，绝不在前端另写一句。
 export const STEWARD_ASK_PENDING_KINDS = Object.freeze(['question', 'permission', 'plan', 'pool']);
-export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantText = '', live = false } = {}) {
+export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantText = '', live = false, translate = null } = {}) {
   if (pending && String(pending.type) === 'question') {
     const questions = (Array.isArray(pending.questions) ? pending.questions : [])
       .map(q => String((q && (q.question || q.title)) || '').trim()).filter(Boolean);
@@ -179,7 +179,7 @@ export function asksYouFrom({ pending = null, rowAsksYou = null, lastAssistantTe
     };
   }
   const row = (rowAsksYou && typeof rowAsksYou === 'object') ? rowAsksYou : null;
-  const rowText = String((row && row.text) || '').trim();
+  const rowText = (row ? stewardAskText(row, translate) : '').trim();   // 第三波 M4：translate 缺省时 stewardAskText 原样返回服务端原句（既有单测口径不变）
   const type = String((pending && pending.type) || '');
   if (type === 'permission' || type === 'plan' || type === 'pool') {
     return {
@@ -867,6 +867,7 @@ export function createStewardDrawer({
       rowAsksYou: missionRow && missionRow.asksYou,
       lastAssistantText: lastAssistantText(),
       live: isLive(),
+      translate: t,
     });
   }
 
@@ -1845,7 +1846,9 @@ export function createStewardDrawer({
       document_.addEventListener('steward:open-thread', event => { if (openGate()) openThread(event && event.detail && event.detail.sessionId); });
       document_.addEventListener('steward:focus-thread', event => { if (openGate()) openThread(event && event.detail && event.detail.sessionId); });
       document_.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && isOpen()) { event.stopPropagation(); closeDrawer({ focusComposer: true }); }
+        // 第三波 M3：弹窗（快捷键／权限／设置…）叠在抽屉上时，这一下 Esc 是给弹窗的 —— 先前无条件收抽屉并 stopPropagation，
+        // window 上关弹窗的那一处收不到，焦点还被抢回弹窗背后的输入框；要按第二下才关得掉弹窗。
+        if (event.key === 'Escape' && isOpen()) { if (document_.querySelector('.modal-backdrop:not(.hidden)')) return; event.stopPropagation(); closeDrawer({ focusComposer: true }); }
       });
       document_.addEventListener('visibilitychange', syncPolling);
     }

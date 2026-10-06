@@ -35,7 +35,9 @@ export function providerDraftFromPreset(preset, existingIds = []) {
   let n = 2;
   while (taken.has(id)) { id = `${preset.id}-${n++}`; }
   return {
-    id, label: preset.label || id, type: 'openai-compat',
+    // 第三波 M4：显示名按界面语言取（presetDisplayLabel 查 provider.preset.<id>.label，查不到才退回服务端那句中文），
+    // 否则英文界面里新建的「自定义」卡名字是「自定义 (OpenAI 兼容 / 内网自建)」并随之落盘。
+    id, label: presetDisplayLabel('provider', preset) || preset.label || id, type: 'openai-compat',
     baseUrl: preset.baseUrl || '', apiKey: '',
     model: preset.defaultModel || (preset.models && preset.models[0] && preset.models[0].id) || '',
     models: (preset.models || []).map(m => ({ id: m.id, label: m.label || m.id })),
@@ -2297,7 +2299,8 @@ function providerCard(p, idx) {
   adv.append(sb, tb, eb, hb);
 
   const status = el('div', 'prov-status muted'); status.id = `provStatus_${idx}`;
-  card.append(head, b2, anthropicBox, grid, modelListB, cap, cwB, priceB, adv, status);
+  // 第三波 M6：测试结果紧跟卡头（「测试连接」钮就在卡头）。原先在卡片最底，卡高 ~900px 时结果在视口外，像「点了没反应」。
+  card.append(head, status, b2, anthropicBox, grid, modelListB, cap, cwB, priceB, adv);
   return card;
 }
 // v1.0.2 (G5b): 「当前生效」小字。仅当此 provider 是当前激活引擎时,从 /api/status.contextWindowResolved 取

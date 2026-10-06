@@ -201,7 +201,11 @@
 .subagent-head::-webkit-details-marker { display: none; }
 .subagent-head .sa-icon { flex: none; }
 .subagent-head .sa-title { font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.subagent-head .sa-status { margin-left: auto; flex: none; font-size: var(--fs-sm); color: var(--muted); }
+/* 第三波 M1：状态句原先 flex:none，而标题有 overflow:hidden 能缩到 0 —— 390 下状态（250–313px）把标题挤成 0 宽、自己被屏幕边缘切掉。
+   状态可以省略，标题优先；再窄就整行折到第二行。 */
+.subagent-head { flex-wrap: wrap; }
+.subagent-head .sa-title { flex: 1 1 8em; min-width: 6em; }
+.subagent-head .sa-status { margin-left: auto; flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); color: var(--muted); }
 .subagent-head .sa-status.ok { color: var(--accent); }
 .subagent-head .sa-status.err { color: var(--danger-fg); }
 .subagent-head .sa-status.running { color: var(--warn-fg); }
