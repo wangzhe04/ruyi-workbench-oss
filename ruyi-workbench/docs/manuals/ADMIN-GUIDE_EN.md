@@ -121,7 +121,8 @@ that answers `/health` on that port is taken over; anything else holding it make
   **does not take over** and simply moves on: it tries port+1 … port+9 in order and uses the first one that
   listens.
 - Otherwise it inspects the holder (`freeStalePort`). If `/health` on that port answers like Ruyi (`app` is the
-  product name, or the body carries `overlayId` / `version`), the holder is judged a Ruyi instance and Ruyi **ends
+  product name, or the body carries `overlayId`; an older build's `/health` has no `app`, so `version` must come together
+  with `launchMode` and `uptimeSec` — `version` alone does not count), the holder is judged a Ruyi instance and Ruyi **ends
   it, together with its descendant processes, and retries on the original port** (waiting up to about 4 seconds).
   If `/health` does not look like Ruyi, Ruyi still checks whether the holder is the PID recorded in `runtime.json`,
   whether its image name is `Ruyi` / `WinClaudeWorkbench`, or whether it is `node.exe` with a command line pointing
@@ -722,6 +723,14 @@ missing from that release's notes; the 2.8.0 changelog records them with their r
 | `runtimeExecResultCacheV1` (+ `execResultCacheMaxEntriesV1`, factory 200) | `file_read` read-only results cached per session, re-authorized and re-stat'ed before a hit | Hit **+17–24pp**; tool-phase time about 311 ms → 112 ms (**about −64%**), 12/12 correct | `false`, or set the limit to 0 |
 | `runtimeMemoryVectorRecallV1` | Offline vector layer for memory recall, fused with the lexical layer by RRF | Synthetic gate Recall@3 90% → 95% (**+5pp, short of the originally preset +10pp auto-flip line; the user decided on 2026-09-04 to turn it on anyway**) | `false` (back to purely lexical ranking) |
 | `sessionSearchIndexV1` | The sidebar search can search chat bodies | Functional; the old substring filter remains as the fallback | `false` |
+
+A reading update for `runtimeMemoryVectorRecallV1` (3.0 preview walkthrough): the "Recall@3 90% → 95%" in the table is the
+reading from when it was introduced. Since the walkthrough the vector layer is only a **re-ranker** — admission of
+candidates belongs to the lexical layer (which now includes spelling tolerance up to one edit), and a candidate only the
+vector layer found needs cosine ≥ 0.25 and ≥ 0.6 × the top vector score to get in. The one case in the old +5pp (spelling
+drift) is now won by the lexical layer, and in `memory-recall-quality` the fused ranking and the purely lexical one both
+score 19/20. Turning it off just returns to purely lexical ranking and loses no recall; whether it stays on by default
+is for you to decide.
 
 Product features:
 

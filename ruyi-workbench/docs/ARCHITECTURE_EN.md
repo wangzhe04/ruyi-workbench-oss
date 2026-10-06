@@ -172,9 +172,12 @@ Subagent dispatch is governed by `config.subagentPreferredProvider` / `config.su
 
 When the model starts agents with `background:true` and the thread is idle as their delivery envelope is recorded, the
 workbench starts a turn itself (`runAgentWake`, source `agent_wake`, 1.5 s debounce so one parallel batch wakes once)
-and hands the results to the model. Each run wakes the conversation once; at most 6 wake-ups in a row follow the same
-user message (the user's next message resets the count); the steward conversation and stopped or cancelled runs are
-never woken. With `config.agentAutoWake:false` (Settings → Usage & limits → Concurrency) the envelope is delivered
+and hands the results to the model. Each envelope (keyed by job id plus completion time, so a resumed or retried run that delivers a new envelope wakes
+once more) wakes the conversation once; at most 6 wake-ups happen in a row, and any turn that is not itself a wake-up
+(the user's message, a steward-dispatched turn, a scheduled task) resets the count; the steward conversation and
+stopped, cancelled or restart-interrupted runs are never woken; no turn is started while a manual compaction is
+running (it is retried afterwards); and at boot, sessions whose envelope was recorded within the last 6 hours without
+the wake-up having started are scheduled again (`scheduleAgentWakesAtBoot`). With `config.agentAutoWake:false` (Settings → Usage & limits → Concurrency) the envelope is delivered
 with the user's next message instead.
 
 ## Data root

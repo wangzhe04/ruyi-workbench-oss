@@ -355,9 +355,9 @@ followed by an index of the tool calls already made, and the AI can fetch the or
 `observation_recall`, so the chat carries on.
 
 **The AI handed work to background agents and then went quiet.** By default, when background agents finish the
-workbench starts a turn by itself and hands the results to the AI, so you do not have to say anything (each agent wakes
-the conversation once; at most 6 wake-ups in a row follow the same message; stopped or cancelled agents and the steward
-conversation never wake it). If you turned off "Wake the conversation when background agents finish" under Settings →
+workbench starts a turn by itself and hands the results to the AI, so you do not have to say anything (each delivered result wakes
+the conversation once; at most 6 wake-ups happen in a row and your next message resets the count; stopped, cancelled or
+restart-interrupted agents and the steward conversation never wake it). If you turned off "Wake the conversation when background agents finish" under Settings →
 General → Usage & limits → Concurrency, the results arrive with your next message instead.
 
 ## 8. Local models (Ollama / LM Studio)
