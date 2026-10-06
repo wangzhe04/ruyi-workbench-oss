@@ -1598,11 +1598,12 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
+      const walkRoot = guardedWalkRoot(root, g);
       // F13:pattern 是正则;写成 glob(`*.js`)的按 glob 处理并说明,真正非法的给 bad_pattern + hint(修前是原始 SyntaxError)。
       const cls = classifyListPattern(args.pattern, root);
       if (cls.kind === 'invalid') return { ok: false, error: cls.error, code: 'bad_pattern', hint: cls.hint, root };
       const recursive = args.recursive !== false;
-      const walked = await walkFiles(root, {
+      const walked = await walkFiles(walkRoot, {
         recursive, maxFiles: args.maxFiles, maxDepth: args.maxDepth, ignoreCase: args.ignoreCase,
         pattern: cls.kind === 'regex' ? String(args.pattern) : '', accept: cls.kind === 'glob' ? cls.accept : null,
         // 递归列举:广度优先(先把浅层列全);非递归 = 目录浏览,只藏 node_modules/.git/.venv(build/dist 也要能点开看)。
@@ -1626,16 +1627,27 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
+      const walkRoot = guardedWalkRoot(root, g);
       // maxResults ≤0 / 非数字按没传(200)—— 修前 0 或负数让两个引擎都立刻停在 0 条并报 truncated。
       const maxResultsReq = Number(args.maxResults);
       const maxResults = args.maxResults != null && maxResultsReq >= 1 ? Math.floor(maxResultsReq) : 200;
-      let matches = await searchFileContent(root, String(args.pattern || ''), { ...args, maxResults });
+      let matches = await searchFileContent(walkRoot, String(args.pattern || ''), { ...args, maxResults });
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
       const regexTimedOut = !!(matches && matches.regexTimedOut);   // 审计 F:JS 正则撞了时间预算
       // 数组上挂的元数据(JSON.stringify 会丢),filter 之前先取出来。
       const meta = matches || {};
-      if (Array.isArray(matches)) matches = matches.filter(m => !isSensitiveDataPath(m && m.path));
+      if (Array.isArray(matches)) {
+        // 安全走查 S7:rg 路径不经 walkFiles,结果层再按 dev+ino 挡一道硬链接别名(只对命中的那几个文件 stat,不是对遍历的每个文件)。
+        const ids = await sensitiveFileIdentities();
+        const kept = [];
+        for (const m of matches) {
+          if (isSensitiveDataPath(m && m.path)) continue;
+          if (ids.size && m && m.path && await isSensitiveHardlinkAlias(m.path, ids)) continue;
+          kept.push(m);
+        }
+        matches = kept;
+      }
       const resp = { ok: true, root, matches };
       if (meta.engine) resp.engine = meta.engine;
       // 只有【上限之后确实还有命中】才报截断(修前命中数恰好等于 maxResults 也报 truncated:true,模型白白再搜一轮)。
@@ -1676,10 +1688,12 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
+      const walkRoot = guardedWalkRoot(root, g);   // 安全走查 S7:遍历用 realpath 根
       const rawPattern = String(args.pattern || '');
       if (!rawPattern) return { ok: false, code: 'invalid-arguments', error: 'pattern is required and must be non-empty', root, hint: '例如 "**/*.js" 或 "src/**/test_*.py"' };
       // 前导 ./ 与「落在 root 内的绝对路径 pattern」改写成相对 root 的写法;root 之外的绝对 pattern 配不到任何东西 —— 明说,别静默回空表。
-      const gp = normalizeGlobPatternForRoot(rawPattern, root);
+      let gp = normalizeGlobPatternForRoot(rawPattern, root);
+      if (gp.outside && walkRoot !== root) { const gpReal = normalizeGlobPatternForRoot(rawPattern, walkRoot); if (!gpReal.outside) gp = gpReal; }   // 绝对 pattern 按 realpath 根写的也认
       if (gp.outside) return { ok: true, root, files: [], truncated: false, patternNote: gp.note };
       const pattern = gp.pattern;
       if (!pattern) return { ok: false, code: 'invalid-arguments', error: 'pattern is empty after removing "./"', root, hint: '例如 "**/*.js" 或 "src/**/test_*.py"' };
@@ -1688,10 +1702,10 @@ const FILE_TOOL_HANDLERS = {
       // F2:glob 在遍历时过滤(accept),maxFiles 只数【命中】的文件 —— 修前先按遍历顺序取前 max(4×maxResults,4000)
       // 个条目(含目录、无关文件)再事后匹配,前面塞满 __pycache__/.github 时 `**/*.md` 一个都找不到。
       const scanCap = Math.max(maxResults * 4, 4000);
-      const all = await walkFiles(root, {
+      const all = await walkFiles(walkRoot, {
         recursive: true, maxFiles: scanCap, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 12,
         emitDirs: false, accept: rel => globRe.test(rel), ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true,
-        allowDirs: explicitAllowDirs(root, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
+        allowDirs: explicitAllowDirs(walkRoot, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
       });
       const matched = all.filter(f => f.type === 'file').map(f => ({ path: f.path, relativePath: f.relativePath, mtime: f.mtimeMs || 0 }));
       matched.sort((a, b) => b.mtime - a.mtime);
@@ -1713,9 +1727,10 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
+      const walkRoot = guardedWalkRoot(root, g);   // 安全走查 S7:遍历用 realpath 根
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
-      const walked = await walkFiles(root, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(root, []) });
+      const walked = await walkFiles(walkRoot, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(walkRoot, []) });
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'project_snapshot') + ' (entries are listed breadth-first: every top-level entry comes before deeper ones)'; }
       if (walked.prunedDirs) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('project_snapshot'); }
@@ -1976,6 +1991,14 @@ async function nearestGitignore(root) {
 }
 // 遍历/扫描类工具的 root 必须是一个已存在的目录:修前 root 写错(不存在、或是一个文件)时 file_list/glob/
 // file_search/project_snapshot/各类扫描一律回 ok:true + 空结果,模型把「路径写错了」读成「这里什么都没有」。
+// 安全走查 S7:遍历类工具(file_list / file_search / glob / project_snapshot / 各审计与符号检索)拿 guardFileToolPath 返回的【realpath】当遍历根。
+// 修前守门只校验了 root 参数的 realpath,遍历却按【词法】根走:工作区里一个指向数据根的符号链接 / 联接 linkdir 当 root 时,守门看到的
+// realpath 恰好等于允许根 dataRoot 本身(放行),而 walkFiles 的敏感子树剔除、rg 的 !glob、结果层过滤全是按 linkdir\config.json 这种词法路径比的,
+// 认不出它就是数据根里的 config.json —— 明文密钥与 token 被搜出来。换成 realpath 之后三处过滤看到的都是真实数据根路径。
+// 信封里回显的 root 仍是调用方给的写法(只换遍历用的那一份);守门没给 absPath(不该发生)时退回原 root。
+function guardedWalkRoot(root, g) {
+  return (g && typeof g.absPath === 'string' && g.absPath) ? g.absPath : root;
+}
 async function toolRootProblem(root) {
   let st = null;
   try { st = await fsp.stat(root); } catch { st = null; }
@@ -2420,7 +2443,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return dependencyInventory(root);
+      return dependencyInventory(guardedWalkRoot(root, g));
   } },
   code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2428,7 +2451,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codeReviewScan(root, args);
+      return codeReviewScan(guardedWalkRoot(root, g), args);
   } },
   frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2436,7 +2459,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return frontendAudit(root, args);
+      return frontendAudit(guardedWalkRoot(root, g), args);
   } },
   claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2444,7 +2467,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return claudeMdAudit(root);
+      return claudeMdAudit(guardedWalkRoot(root, g));
   } },
   docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2452,7 +2475,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return docsSearch(root, String(args.query || ''), args);
+      return docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args);
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
@@ -2462,7 +2485,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codebaseSymbolSearch(root, args);
+      return codebaseSymbolSearch(guardedWalkRoot(root, g), args);
   } },
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
       return debugHypothesis(args);

@@ -472,7 +472,12 @@ async function handleApi(req, res, pathname) {
     const nativeClaudeRoles = await readClaudeProjectAgentRoles(cwd);
     const claudeDefs = await buildClaudeAgentDefinitions(cwd, config);
     const mcpServers = [{ id: RUYI_MCP_SERVER_ID, label: 'Ruyi Workbench' }, ...resolveExternalMcpServers(config).map(s => ({ id: s.id, label: s.label || s.id }))];
-    return send(res, json({ ok: true, cwd, roles, builtinRoles, globalRoles, projectRoles, nativeClaudeRoles, mcpServers, drivers: { openai: { mode: 'workbench-native' }, claude: { mode: 'claude-native', flag: '--agents', synced: Object.keys(claudeDefs.definitions), omitted: claudeDefs.omitted } } }));
+    // 安全走查 S3:项目来源的角色带上【有效档位】标注(effectivePermissionMode / effectiveToolTier / roleClamped),按全局默认档夹;
+    // 角色自己声明的 permissionMode / toolTier 原样不动(设置页编辑器按它存回)。真正起跑时按那条线程的实际档再夹一次。
+    const parentModeForRoles = config.permissionMode;
+    const projectRolesView = projectRoles.map(r => annotateAgentRoleEffective(r, parentModeForRoles));
+    const nativeClaudeRolesView = nativeClaudeRoles.map(r => annotateAgentRoleEffective(r, parentModeForRoles));
+    return send(res, json({ ok: true, cwd, roles, builtinRoles, globalRoles, projectRoles: projectRolesView, nativeClaudeRoles: nativeClaudeRolesView, mcpServers, drivers: { openai: { mode: 'workbench-native' }, claude: { mode: 'claude-native', flag: '--agents', synced: Object.keys(claudeDefs.definitions), omitted: claudeDefs.omitted } } }));
   }
   if (req.method === 'POST' && pathname === '/api/agent-roles') {
     const body = await readJsonBody(req);
@@ -1491,6 +1496,8 @@ async function handleApi(req, res, pathname) {
     const session = sessionId ? await loadSession(sessionId) : null;
     const config = await readConfig();
     const roots = fileAllowedRoots(session, config);
+    // 安全走查 W1:非本机 UNC 在 realpath(会去连对方主机)之前拒,除非落在用户配置的 UNC 工作区里。
+    if (remoteUncDenial([rawPath, target], session, config)) return send(res, apiFailure('file.not_in_workspace', {}, 'path not in an allowed workspace', 403));
     // v0.9 F3: check the REALPATH (symlink-resolved) target, not the lexical path. A symlink living inside an
     // allowed root but pointing OUTSIDE it would otherwise pass the lexical containment check and leak an
     // arbitrary file. ENOENT/EPERM (missing/unresolvable) → fall back to `target` so readFilePreview surfaces a
@@ -1501,6 +1508,9 @@ async function handleApi(req, res, pathname) {
     await ensureDataRootReal();
     if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) {
       return send(res, json({ ok: false, error: '该路径属于应用内部数据(配置/会话/记忆等),已禁止预览' }, 403));
+    }
+    if (await isSensitiveHardlinkAlias(real)) {   // 安全走查 S7:config.json / runtime.json 的硬链接别名
+      return send(res, apiFailure('file.internal_data', {}, '该路径属于应用内部数据(配置/会话/记忆等),已禁止预览', 403));
     }
     const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
     if (!pathWithinAnyRoot(real, realRoots)) {

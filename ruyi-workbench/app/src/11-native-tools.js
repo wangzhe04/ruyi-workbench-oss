@@ -1105,6 +1105,9 @@ async function walkFiles(root, opts = {}) {
   // home/.ruyi-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
+  // 安全走查 S7:config.json / runtime.json 的硬链接别名(同 inode 不同名)按 dev+ino 挡在 emit 处 —— 那里本来就要 stat 文件,
+  // nlink>1 的才多一次 bigint stat 比对;遍历到却不入结果的文件不付这个成本。ids 每次遍历现取一次(两个 stat)。
+  const sensitiveIds = await sensitiveFileIdentities();
   // 指向遍历根之外的符号链接/联接不返回:guardFileToolPath 只判了 root,修前 ws/link.md -> /outside/secret.md 被当成
   // 普通文件列出来,docs_search / codebase_symbol_search / code_review_scan 接着就把区外文件的内容读出来了
   // (file_read 读同一个链接是 not-allowed)。只对链接条目多做一次 realpath,普通文件不受影响。
@@ -1119,6 +1122,7 @@ async function walkFiles(root, opts = {}) {
   const emit = async (full, rel, isDir) => {
     // 目录不需要 stat(size 恒记 0;信封里目录不带 size);文件要 size,glob 还要 mtime。
     const stat = isDir ? null : await fsp.stat(full).catch(() => null);
+    if (stat && sensitiveIds.size && stat.nlink > 1 && await isSensitiveHardlinkAlias(full, sensitiveIds)) return;
     const rec = { path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 };
     if (stat) rec.mtimeMs = Math.round(stat.mtimeMs);
     out.push(rec);
@@ -1583,9 +1587,11 @@ function ignoreGlobsForRg(opts, allowDirs) {
 function sensitiveGlobsForRg(base) {
   const globs = [];
   try {
-    const roots = [...new Set([dataRoot(), ...dataRootAliases()])];
+    // 安全走查 S7:名单与 03 的 isSensitiveDataPath 同一张表(SENSITIVE_DATA_NAMES);根要把【realpath 后的数据根】也算进来 ——
+    // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
+    const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs']) {
+      for (const n of SENSITIVE_DATA_NAMES) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
       }
@@ -4951,6 +4957,7 @@ async function zipCollectEntries(rootPaths, opts = {}) {
     if (isSensitiveDataPath(absPath)) { entries.skippedSensitive += 1; return; }
     const st = await fsp.lstat(absPath);
     if (st.isSymbolicLink()) { entries.skippedLinks += 1; return; } // 安全：符号链接不入包（避免打进包外内容）
+    if (st.isFile() && st.nlink > 1 && await isSensitiveHardlinkAlias(absPath)) { entries.skippedSensitive += 1; return; } // 安全走查 S7:config.json / runtime.json 的硬链接别名不入包
     if (st.isDirectory()) {
       entries.push({ name: zipName.replace(/\/?$/, '/'), data: Buffer.alloc(0), isDir: true });
       const kids = await fsp.readdir(absPath, { withFileTypes: true });

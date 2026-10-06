@@ -2198,7 +2198,9 @@ async function syncAgentRolesToClaude(cwd, config) {
     const skipped = [];
     for (const role of roles) {
       if (role.nativeClaude) continue;
-      const cliMode = claudePermissionMode(role.permissionMode);
+      // 安全走查 S3:项目来源的角色(仓库作者写的)不把自己声明的权限档写进用户全局 ~/.claude/agents —— 那是跨项目、用户自己的目录,
+      // 一句 permissionMode:bypassPermissions 写进去就让所有独立的 claude 会话里同名子代理都免问。该角色的档位留给起跑时按线程档夹。
+      const cliMode = agentRoleIsUntrusted(role) ? undefined : claudePermissionMode(role.permissionMode);
       var fm = ['---'];
       fm.push('description: ' + JSON.stringify(role.description || role.label));
       if (cliMode) fm.push('permissionMode: ' + cliMode);
