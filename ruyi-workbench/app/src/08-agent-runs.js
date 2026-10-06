@@ -543,6 +543,11 @@ async function markInterruptedAgentRuns() {
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
+      // 模型以 background:true 起的 run 被重启打断、又不会自动续跑:补一份 interrupted 信封进后台任务账本 —— 修前模型对用户说过
+      // 「代理在后台跑」,之后再没有任何人告诉它这些代理已经没了。信封在用户下一句话时随回合开头送达(interrupted 不唤醒,见 10)。
+      if (run.background === true && !(bootConfig && bootConfig.autonomyAutoResume === true) && EventStreamHooks.notifyAgentRunEnvelope) {
+        try { EventStreamHooks.notifyAgentRunEnvelope(run.sessionId, run, buildAgentRunEnvelope(run)); } catch { /* 旁路,boot 防炸 */ }
+      }
   });
   // 71b: 存量对账 —— 71b 前落盘的 paused run 可能有 proposed 池提案但无 Intervention 记录(当时池未接入旁路)。
   // boot 补登记(append-only,幂等:已有记录的 id 跳过),否则 missionPendingCounts 统一从 Intervention 读池未决后
@@ -831,13 +836,14 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // openAiStreamOnce lets those propagate to the catch below).
       // 架构还债批 2·A:骨架与瞬时判据走 04h(withTransientRetry + providerCallIsTransient,与 07 的 CLI 子代理同一份骨架)。
       // 口径原样:每次发出前查中止;工具被拒 → 去掉工具立即再打一次(不计数、不睡);瞬时失败至多重试 3 次,
-      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断);其余结果原样交给下面的分类。
+      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断),服务商回了 Retry-After(07 带出 retryAfterMs,封顶 30 s)就至少睡这么久
+      // —— 与主回合(09)同口径;修前限流窗口还没过就把 3 次重试用光,子代理整个失败。其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
       const sent = await withTransientRetry({
         maxRetries: 3,
         isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         signal: ctrl && ctrl.signal,
-        backoffMs: n => Math.min(2000, 250 * n),
+        backoffMs: (n, c) => Math.max(Math.min(2000, 250 * n), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
         attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire }),
         classify: c => {
           if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }

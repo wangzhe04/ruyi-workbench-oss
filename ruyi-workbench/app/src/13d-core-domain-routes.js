@@ -24,24 +24,60 @@ const SESSION_SEARCH_MIN_QUERY = 2;
 
 function sessionSearchIndexPath() { return path.join(paths.sessions, SESSION_SEARCH_INDEX_FILE); }
 
-// 只读文件的头尾两段,中间跳过。NDJSON 一行一条,所以头段丢尾巴、尾段丢头都只损失一条不完整的行。
+// 只读文件的头尾两段,中间跳过;两段都按【整行】交出去:
+//   · 文件 ≤ 头 + 尾:两段本来就盖满全文,整个读(头注「≤ 2MB 整个读」)。修前这种文件也切成两段,头段尾巴的半行 JSON 解析失败、
+//     尾段又无条件丢掉第一行 —— 恰好跨在 1MB 接缝上的那条消息两边都不要,搜它说过的话搜不到(而且与头注说的「整个读」不符);
+//   · 更大:头段停在半行里就继续往后读到行尾,尾段起点落在行中间就往前读到行首 —— 跨边界的那条消息补成完整一行。
+//     补读各有上限(NDJSON_EDGE_EXTEND_MAX):超过上限的单行(几 MB 的工具输出)才放弃,把那半行丢掉,不让它进解析。
+const NDJSON_EDGE_EXTEND_CHUNK = 64 * 1024;
+const NDJSON_EDGE_EXTEND_MAX = 2 * 1024 * 1024;
 async function readNdjsonEdges(file, headBytes, tailBytes) {
   let fh = null;
   try {
     const st = await fsp.stat(file);
     if (!st.isFile() || st.size === 0) return { head: '', tail: '' };
     fh = await fsp.open(file, 'r');
-    const headLen = Math.min(st.size, headBytes);
-    const headBuf = Buffer.allocUnsafe(headLen);
-    await fh.read(headBuf, 0, headLen, 0);
-    let tail = '';
-    if (st.size > headLen) {
-      const tailLen = Math.min(st.size - headLen, tailBytes);
-      const tailBuf = Buffer.allocUnsafe(tailLen);
-      await fh.read(tailBuf, 0, tailLen, st.size - tailLen);
-      tail = tailBuf.toString('utf8');
+    const size = st.size;
+    const readAt = async (pos, len) => {
+      const buf = Buffer.allocUnsafe(len);
+      const { bytesRead } = await fh.read(buf, 0, len, pos);
+      return bytesRead === len ? buf : buf.subarray(0, bytesRead);
+    };
+    if (size <= headBytes + tailBytes) return { head: (await readAt(0, size)).toString('utf8'), tail: '' };
+    // 头段:读满 headBytes,停在半行里就往后补到行尾。
+    let headBuf = await readAt(0, headBytes);
+    if (headBuf.length && headBuf[headBuf.length - 1] !== 0x0a) {
+      const extra = [];
+      let pos = headBytes, found = false;
+      while (pos < size && pos - headBytes < NDJSON_EDGE_EXTEND_MAX) {
+        const chunk = await readAt(pos, Math.min(NDJSON_EDGE_EXTEND_CHUNK, size - pos));
+        if (!chunk.length) break;
+        const nl = chunk.indexOf(0x0a);
+        if (nl >= 0) { extra.push(chunk.subarray(0, nl + 1)); found = true; break; }
+        extra.push(chunk); pos += chunk.length;
+      }
+      if (found) headBuf = Buffer.concat([headBuf, ...extra]);
+      else { const cut = headBuf.lastIndexOf(0x0a); headBuf = cut >= 0 ? headBuf.subarray(0, cut + 1) : Buffer.alloc(0); }   // 超限的巨型单行:丢掉这半行
     }
-    return { head: headBuf.toString('utf8'), tail };
+    // 尾段:起点前一个字节不是换行 = 起点在行中间,往前补到行首。
+    const tailStart = size - tailBytes;
+    let tailBuf = await readAt(tailStart, tailBytes);
+    const before = await readAt(tailStart - 1, 1);
+    if (before.length && before[0] !== 0x0a) {
+      const front = [];
+      let pos = tailStart, found = false;
+      while (pos > 0 && tailStart - pos < NDJSON_EDGE_EXTEND_MAX) {
+        const from = Math.max(0, pos - NDJSON_EDGE_EXTEND_CHUNK);
+        const chunk = await readAt(from, pos - from);
+        const nl = chunk.lastIndexOf(0x0a);
+        if (nl >= 0) { front.unshift(chunk.subarray(nl + 1)); found = true; break; }
+        front.unshift(chunk); pos = from;
+        if (pos === 0) { found = true; break; }   // 一直退到文件开头:第一行本来就从 0 开始
+      }
+      if (found) tailBuf = Buffer.concat([...front, tailBuf]);
+      else { const cut = tailBuf.indexOf(0x0a); tailBuf = cut >= 0 ? tailBuf.subarray(cut + 1) : Buffer.alloc(0); }   // 超限:丢掉起点那半行
+    }
+    return { head: headBuf.toString('utf8'), tail: tailBuf.toString('utf8') };
   } catch {
     return { head: '', tail: '' };
   } finally {
@@ -49,9 +85,8 @@ async function readNdjsonEdges(file, headBytes, tailBytes) {
   }
 }
 
-function parseNdjsonRows(text, { dropFirstPartial = false } = {}) {
+function parseNdjsonRows(text) {
   const lines = String(text || '').split('\n');
-  if (dropFirstPartial) lines.shift();
   const rows = [];
   for (const line of lines) {
     const trimmed = line.trim();
@@ -88,7 +123,7 @@ function sessionSearchRowIsNoise(row) {
 async function buildSessionSearchUnit(meta) {
   const body = sessionBodyPaths(meta.id);
   const { head, tail } = await readNdjsonEdges(body.messages, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
-  const rows = [...parseNdjsonRows(head), ...parseNdjsonRows(tail, { dropFirstPartial: true })].filter(row => !sessionSearchRowIsNoise(row));
+  const rows = [...parseNdjsonRows(head), ...parseNdjsonRows(tail)].filter(row => !sessionSearchRowIsNoise(row));   // 两段都是整行(见 readNdjsonEdges)
   // 116-5b:线程的名字与那句概括也进检索单元。它们是模型对「这条线程到底要干什么」的概括,
   // 常常用了用户原话里没打出来的词(原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」)——
   // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉。
@@ -129,7 +164,15 @@ async function readSessionSearchIndex() {
 }
 
 // 增量刷新:只为「新会话」或「updatedAt/messageCount 变了的会话」重抽单元;删掉的会话顺带清出去。
-async function refreshSessionSearchIndex(metas) {
+// 单飞:侧栏是边打字边搜,冷索引(首次/大批会话变化后)那一遍要把每个会话的正文头尾读一次、再整份写盘。修前每个并发请求
+// 各自读到同一份旧索引、各自把全部单元重抽一遍、各自整份写回(N 个请求 = N 倍读盘 + N 次互相覆盖的写)。
+// 现在按一条链串行(runKeyedChain):后到的请求等前一个建完,再拿它刚写好的索引做增量 —— 条目全都新鲜,不重抽、不重写。
+// 不是「后到的直接共用先到的结果」:各请求带的 metas 可能不同(中途新建的会话),共用会漏掉它们。
+const sessionSearchRefreshChains = new Map();
+function refreshSessionSearchIndex(metas) {
+  return runKeyedChain(sessionSearchRefreshChains, 'index', () => refreshSessionSearchIndexNow(metas));
+}
+async function refreshSessionSearchIndexNow(metas) {
   const existing = (await readSessionSearchIndex()) || { version: SESSION_SEARCH_INDEX_VERSION, entries: {} };
   const entries = {};
   let changed = false;

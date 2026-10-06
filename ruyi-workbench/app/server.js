@@ -332,9 +332,11 @@ function safeDecodeURIComponent(segment) {
   try { return decodeURIComponent(String(segment == null ? '' : segment)); } catch { return null; }
 }
 
+// 开头的 UTF-8 BOM(U+FEFF)先剥掉再解析:Windows 记事本/PowerShell 5.1 另存的 JSON 常带 BOM,JSON.parse 对它抛 SyntaxError,
+// 修前 config.json、各类用户手改的清单被当成「损坏」(config 还会因此回滚到 .prev 覆盖用户的编辑)。只处理字符串入参。
 function safeJsonParse(raw, fallback = null) {
   try {
-    return JSON.parse(raw);
+    return JSON.parse((typeof raw === 'string' && raw.charCodeAt(0) === 0xFEFF) ? raw.slice(1) : raw);
   } catch {
     return fallback;
   }
@@ -1880,7 +1882,10 @@ function memoryLimit(config, key, lo, hi, fallback) {
 function coreMemoryMaxItems(config) { return memoryLimit(config, 'coreMemoryMaxItemsV1', 0, 2000, 200); }
 function coreMemoryCharBudget(config) { return memoryLimit(config, 'coreMemoryCharBudgetV1', 0, 200000, 16000); }
 function memoryRelevanceMax(config) { return memoryLimit(config, 'memoryRelevanceMaxV1', 0, 64, 8); }
-function memoryFixedSelectionMax(config) { return memoryLimit(config, 'memoryFixedSelectionMaxV1', 1, 1024, 64); }
+// 固定选择上限的「钳位上界」:配置可调范围 [1, 1024],默认 64。会话落盘清洗(02 normalizeSession)取同一个上界,
+// 路由按 memoryFixedSelectionMax(config) 接受多少条、重载就保留多少条 —— 修前 normalizeSession 写死 12,保存成功后重载被截。
+const MEMORY_FIXED_SELECTION_HARD_MAX = 1024;
+function memoryFixedSelectionMax(config) { return memoryLimit(config, 'memoryFixedSelectionMaxV1', 1, MEMORY_FIXED_SELECTION_HARD_MAX, 64); }
 function memoryIndexCharCap(config) { return memoryLimit(config, 'memoryIndexCharCapV1', 500, 100000, 6000); }
 
 
@@ -3995,7 +4000,7 @@ async function writeConfigAtomic(data) {
     // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
     // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
     try {
-      const current = JSON.parse(await fsp.readFile(paths.config, 'utf8'));
+      const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
       if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
     } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
     return atomicWriteJson(paths.config, data);
@@ -4105,8 +4110,13 @@ async function readConfig() {
     raw = safeJsonParse(text, null);
     if (raw === null && String(text).trim()) {
       // 文件在但不是合法 JSON（截断/被外部写坏）：不覆盖它；能从 .prev 恢复就恢复，否则降级。
+      // (UTF-8 BOM 已由 safeJsonParse 剥掉,记事本另存的合法 JSON 不会走到这里。)
       const prev = await readConfigPrev();
-      if (prev) { raw = prev; recoveredFrom = 'prev'; }
+      if (prev) {
+        raw = prev; recoveredFrom = 'prev';
+        // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
+        await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
+      }
       else return degrade('EJSON');
     }
   }
@@ -6738,8 +6748,16 @@ const interventionAppendCounts = new Map(); // 75c: cheap cadence trigger for bo
 // happened last lifecycle), settle writes what it has and readInterventions' merge-fold still preserves
 // the register row's fields from disk. The cache is a VIEW of the journal (journal stays authoritative
 // on disk); it is empty on boot and re-populated as interventions register in this lifecycle.
+// 缓存条目只活到这条 Intervention 结算(settleIntervention / transitionInterventionState 落终态时摘掉)或会话被删
+// (dropInterventionSessionState)—— 修前从不删,每条介入留一份完整记录(含 input)在内存里,长跑进程只增不减。
 const interventionRecordCache = new Map();
 function ivCacheKey(sid, ivId) { return String(sid) + '\x00' + String(ivId); }
+// 会话被删:摘掉它名下的介入缓存与压实节拍计数(deleteSession 调)。
+function dropInterventionSessionState(sid) {
+  const prefix = String(sid) + '\x00';
+  for (const key of interventionRecordCache.keys()) if (key.startsWith(prefix)) interventionRecordCache.delete(key);
+  interventionAppendCounts.delete(String(sid));
+}
 // 75a-2b (S3): per-session in-memory high-water mark of mission.changeSeq -- the max value written to disk
 // within this process lifecycle. Lets saveSession preserve disk-side bumps from intervention transitions
 // via max(in-memory, highWater) WITHOUT re-reading the head (prevents the turn's in-memory session object
@@ -7036,8 +7054,12 @@ function settleIntervention(sessionId, ivId, status, extra) {
   const sid = String(sessionId || ''), id = String(ivId || '');
   const cached = interventionRecordCache.get(ivCacheKey(sid, id)); // 75a: complete-state merge (preserve type/requestedAt/toolName/...)
   const prevVer = (cached && Number.isFinite(Number(cached.interventionVersion))) ? Number(cached.interventionVersion) : 0;
+  // 这条旧路径(权限/提问/计划的超时、清理、经典端点)仍写【完整状态行】:interventions-persist 的 (f) 钉着「settle 保留 type /
+  // requestedAt」,直读日志末行的旧读者也靠它。写放大的治理只落在 transitionInterventionState(CAS 路径的 applying/terminal 增量行)。
   const rec = { ...(cached || {}), id, sessionId: sid, status, decidedAt: nowIso(), decidedBy: '', interventionVersion: prevVer + 1, ...(extra || {}) };
-  interventionRecordCache.set(ivCacheKey(sid, id), rec);
+  // 结算都是终态:缓存条目用完即摘(修前从不删,每条介入留一份完整记录在内存里);重复结算的竞态照旧是多追一行、读时后写胜。
+  if (INTERVENTION_TERMINAL.has(status)) interventionRecordCache.delete(ivCacheKey(sid, id));
+  else interventionRecordCache.set(ivCacheKey(sid, id), rec);
   appendIntervention(sessionId, rec).then(() => bumpMissionChangeSeq(sid, {
     type: 'intervention_resolved',
     cursor: { interventionId: id, interventionVersion: rec.interventionVersion },
@@ -7106,6 +7128,14 @@ async function readInterventions(sessionId) {
   return (await readInterventionsWithMeta(sessionId)).interventions;
 }
 
+// 压实判据(compactInterventionJournal 与 13e 索引重建共用):日志 ≥ 64 KB、行数 > 256,且行数超过存活条数的 1.5 倍。
+// 修前是「行数 > 存活条数 × 3」—— 每条介入走完 register → applying → terminal 恰好 3 行,等号不过,永远压不动
+// (2000 条已决介入的日志只增不减)。1.5 倍 = 冗余行超过存活行的一半,压完后日志要再长出一截才会再压,摊还 O(1)。
+// meta 要有 bytes / rowCount / interventions(foldInterventionJournalText 与 readInterventionsWithMeta 的返回都满足)。
+function interventionJournalWorthCompacting(meta) {
+  const rowsAfter = Array.isArray(meta && meta.interventions) ? meta.interventions.length : 0;
+  return Number(meta && meta.bytes) >= 65536 && Number(meta && meta.rowCount) > Math.max(256, rowsAfter * 1.5);
+}
 // 75c: NDJSON compaction is an atomic, reconstructible cache-neutral rewrite. One complete latest-state row per
 // intervention preserves terminal responses and explicit interventionVersion; corrupt authority is NEVER
 // compacted (that would hide damage behind a clean-looking file). Interrupted rewrites leave the old journal.
@@ -7119,7 +7149,7 @@ async function compactInterventionJournal(sessionId, opts = {}) {
     const folded = foldInterventionJournalText(txt);
     if (folded.degraded) return { ok: false, compacted: false, degraded: true, corruptLines: folded.corruptLines };
     const rowsAfter = folded.interventions.length;
-    const worthwhile = folded.bytes >= 65536 && folded.rowCount > Math.max(256, rowsAfter * 3);
+    const worthwhile = interventionJournalWorthCompacting(folded);
     if (!opts.force && !worthwhile) return { ok: true, compacted: false, rowsBefore: folded.rowCount, rowsAfter, bytesBefore: folded.bytes, bytesAfter: folded.bytes };
     const payload = folded.interventions.map(rec => JSON.stringify(rec)).join('\n') + (rowsAfter ? '\n' : '');
     await atomicWriteJson(file, payload);
@@ -7239,10 +7269,20 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     }
     // 3. 落 applying(pending -> applying)。authoritative:await 落盘后再推进。
     if (crashAt === 'before_applying') throw new Error('__cas_crash:before_applying');
-    const applyingRec = {
-      ...cur,
+    // 落盘只写增量行(迁移改了的字段),不再整份重抄 cur —— 修前 register/applying/terminal 三行各带一份完整 input,
+    // 写放大 3 倍。读侧 foldInterventionJournalText 是后写覆盖的合并折叠,input / questions / planSummary 这类大字段由 register 行带着;
+    // 行首只多带几枚【短标量身份】(type / requestedAt / toolName / tier):直读日志末行的读者(interventions-persist (f)
+    // 「settle 保留 type / requestedAt」)与人眼排查都认「每行自己说得清是谁」,而它们加起来不过几十字节。
+    const identity = {
+      ...(cur.type ? { type: cur.type } : {}),
+      ...(cur.requestedAt ? { requestedAt: cur.requestedAt } : {}),
+      ...(cur.toolName ? { toolName: cur.toolName } : {}),
+      ...(cur.tier ? { tier: cur.tier } : {}),
+    };
+    const applyingRow = {
       id,
       sessionId: sid,
+      ...identity,
       status: 'applying',
       decidedAt: '',
       decidedBy: '',
@@ -7251,9 +7291,10 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
       ...(opts.idempotencyKey ? { idempotencyKey: String(opts.idempotencyKey) } : {}),
       ...(opts.decisionFingerprint ? { decisionFingerprint: String(opts.decisionFingerprint) } : {}),
     };
+    const applyingRec = { ...cur, ...applyingRow };   // 完整视图只在内存里用(缓存、audit/afterTerminal 回调)
     // 「执行中」没落盘就不执行:否则重启时账上仍是 pending,会把已经执行过的动作报成「因重启取消」。
     // 缓存不动(仍是 pending),用户可以再点一次。
-    if (await appendIntervention(sid, applyingRec) !== true) {
+    if (await appendIntervention(sid, applyingRow) !== true) {
       logEvent({ kind: 'intervention_persist_failed', sessionId: sid, interventionId: id, phase: 'applying' });
       return { ok: false, reason: 'persist_failed', status: curStatus, interventionVersion: curVer };
     }
@@ -7278,22 +7319,26 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     const response = typeof opts.buildResponse === 'function'
       ? opts.buildResponse(result, { status: resolvedStatus, interventionVersion: curVer + 2 })
       : undefined;
-    const termRec = {
-      ...cur,
-      ...applyingRec,
+    // 终态行同样只写增量。重放身份(idempotencyKey / decisionFingerprint)在终态行上再带一份:它们很小,而直读日志末行的读者
+    // (steward-exempt-no-swap 读 allowed 行上的指纹)认的就是终态行本身;其余字段(type / toolName / input …)由 register 行带着。
+    const termRow = {
       id,
       sessionId: sid,
+      ...identity,
       status: resolvedStatus,
       decidedAt: nowIso(),
       decidedBy: String(opts.decidedBy || 'user'),
       interventionVersion: curVer + 2,
       source: String(opts.source || 'contract'),
+      ...(opts.idempotencyKey ? { idempotencyKey: String(opts.idempotencyKey) } : {}),
+      ...(opts.decisionFingerprint ? { decisionFingerprint: String(opts.decisionFingerprint) } : {}),
       ...(dynamicExtra || {}),
       ...(response && typeof response === 'object' ? { decisionResponse: response } : {}),
     };
+    const termRec = { ...applyingRec, ...termRow };   // 完整视图给 audit / afterTerminal / 事件载荷用
     // 动作已经执行,终态没落盘也收不回:记一笔;盘上停在 applying,重启时如实标 indeterminate(见头注)。
-    if (await appendIntervention(sid, termRec) !== true) logEvent({ kind: 'intervention_persist_failed', sessionId: sid, interventionId: id, phase: 'terminal' });
-    interventionRecordCache.set(ivCacheKey(sid, id), termRec);
+    if (await appendIntervention(sid, termRow) !== true) logEvent({ kind: 'intervention_persist_failed', sessionId: sid, interventionId: id, phase: 'terminal' });
+    interventionRecordCache.delete(ivCacheKey(sid, id));   // 终态:缓存条目不再有用(见 interventionRecordCache 头注)
     bumpMissionChangeSeq(sid, {
       type: 'intervention_resolved',
       cursor: { interventionId: id, interventionVersion: termRec.interventionVersion },
@@ -7944,6 +7989,49 @@ function flushSessionIndexSync() {
   } catch { /* best-effort; boot invalidation rebuilds from truth regardless */ }
 }
 
+// 「已知坏头」:盘上有 <id>.json,但它读出来不是合法会话(JSON 截断/写坏、不是对象、里面的 id 与文件名对不上)。
+// 这种文件永远进不了重建的索引,而快路径比的是「索引 id 集 == 磁盘 id 集」—— 修前一个坏头就让每次 listSessions
+// 都判漂移、全量扫盘重建(2000 条会话 ≈ 240–380 ms,侧栏每次刷新都付一遍),而且永不自愈。
+// 现在全量扫描时把【确定性判坏】的 id 连同当时的文件戳记在这里,快路径比对时把它们从磁盘 id 集里扣掉。
+// 只记确定性的坏(语法错 / 形状错 / id 不符);读文件本身失败(EBUSY/EPERM/被杀毒锁)不记 —— 那是这一次没读到,
+// 文件可能是好的,记了会让一条好会话从侧栏消失。文件戳变了(用户把备份拷回去、别的进程重写)就作废、重新扫一遍。
+// 只在内存里(进程重启后第一次全量扫描会把它记回来);条目只会因「文件没了 / 索引收下了它 / 文件戳变了」而摘掉。
+const sessionIndexKnownBadHeads = new Map();   // id -> 文件戳(size|mtimeMs|ctimeMs)
+function sessionHeadStampOf(st) { return `${st.size}|${st.mtimeMs}|${st.ctimeMs}`; }
+// 判一份会话头文本:好的返回 meta 源对象,坏的(确定性)返回 null。与全量扫描、记坏头共用同一判据。
+function parseSessionHeadForIndex(raw, id) {
+  let item;
+  try { item = JSON.parse(raw); } catch { return null; }
+  // A valid JSON cache or a damaged/misnamed head is not a session. Keep its file untouched,
+  // but never publish an entry whose id cannot be opened at this filename.
+  if (!item || !safeSessionId(item.id) || item.id !== id) return null;
+  return item;
+}
+// 全量扫描读到一个坏头:先取文件戳、再读一遍重新判(取戳在读之前 → 戳只会比内容老,之后文件再变戳就对不上,保守地重扫)。
+async function noteSessionIndexBadHead(id) {
+  try {
+    const file = path.join(paths.sessions, id + '.json');
+    const st = await fsp.stat(file);
+    const raw = await fsp.readFile(file, 'utf8');
+    if (parseSessionHeadForIndex(raw, id)) return;   // 取戳与重读之间被换成了好文件:不记
+    sessionIndexKnownBadHeads.set(id, sessionHeadStampOf(st));
+  } catch { /* 读不到(瞬时锁/刚被删):不记,下一次扫描再判 */ }
+}
+// 快路径用:返回「应当与索引 id 集对得上」的磁盘 id 集 = 磁盘 id 集扣掉仍然有效的已知坏头。
+async function sessionDiskIdsExpectedInIndex(diskIds, indexIds) {
+  if (!sessionIndexKnownBadHeads.size) return diskIds;
+  const out = new Set(diskIds);
+  for (const [id, stamp] of [...sessionIndexKnownBadHeads]) {
+    // 文件没了 / 索引已经收下它(被重新存成了好会话):不再是「坏头」。
+    if (!diskIds.has(id) || indexIds.has(id)) { sessionIndexKnownBadHeads.delete(id); continue; }
+    let same = false;
+    try { same = sessionHeadStampOf(await fsp.stat(path.join(paths.sessions, id + '.json'))) === stamp; } catch { same = false; }
+    if (same) out.delete(id);
+    else sessionIndexKnownBadHeads.delete(id);   // 文件变了:不再信旧结论,留在比对里 → 判漂移 → 重新扫一遍
+  }
+  return out;
+}
+
 // List sessions for the sidebar (7 meta fields each). FAST PATH: a valid index whose id-set matches the
 // session files on disk exactly. FALLBACK: scan every real session file (source of truth) and rebuild the index.
 async function listSessions() {
@@ -7977,7 +8065,8 @@ async function listSessions() {
   }
   if (map) {
     const indexIds = new Set(map.keys());
-    if (indexIds.size === diskIds.size && [...diskIds].every(id => indexIds.has(id))) {
+    const expectedIds = await sessionDiskIdsExpectedInIndex(diskIds, indexIds);   // 扣掉已知坏头,否则它让快路径永远对不上
+    if (indexIds.size === expectedIds.size && [...expectedIds].every(id => indexIds.has(id))) {
       // 116f: 管家会话【只】在返回值里被滤掉,索引本身仍然收录它 —— 否则上面这个「索引 id 集 == 磁盘
       // id 集」的漂移判据永远不成立,每次 listSessions 都会退化成全量扫盘重建。
       return sortSessionMetas([...map.values()].map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // trust cache+in-flight+pending: id-set matches disk exactly
@@ -7988,20 +8077,22 @@ async function listSessions() {
   sessionIndexRebuildsActive += 1;
   const sessions = [];
   let rebuilt = sessions;
+  const badSeen = new Set();   // 这一趟确定性判坏的 id(扫完用它换掉已知坏头表里对应的条目)
   try {
     for (const file of files) {
-      try {
-        const raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8');
-        const item = JSON.parse(raw);
-        // A valid JSON cache or a damaged/misnamed head is not a session. Keep its file untouched,
-        // but never publish an entry whose id cannot be opened at this filename.
-        if (!item || !safeSessionId(item.id) || item.id !== file.slice(0, -5)) continue;
-        sessions.push(sessionMeta(item));
-        if (sessionIndexRebuildScanHook) await sessionIndexRebuildScanHook(String(item && item.id || ''));
-      } catch {
-        // Ignore corrupt session files.
-      }
+      const fileId = file.slice(0, -5);
+      let raw;
+      try { raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8'); }
+      catch { continue; }   // 读不到(瞬时锁/刚被删):跳过,不记坏头(见 sessionIndexKnownBadHeads 头注)
+      const item = parseSessionHeadForIndex(raw, fileId);
+      let meta = null;
+      if (item) { try { meta = sessionMeta(item); } catch { meta = null; } }
+      if (!meta) { badSeen.add(fileId); await noteSessionIndexBadHead(fileId); continue; }   // Ignore corrupt session files (记下,别让它拖死快路径)
+      sessions.push(meta);
+      if (sessionIndexRebuildScanHook) { try { await sessionIndexRebuildScanHook(String(item.id || '')); } catch { /* 测试钩子的异常不影响重建 */ } }
     }
+    // 这一趟判好的、或盘上已没有的 id 不该留在已知坏头表里(坏头被修好 / 被删)。
+    for (const id of [...sessionIndexKnownBadHeads.keys()]) if (!badSeen.has(id)) sessionIndexKnownBadHeads.delete(id);
     await withSessionIndexLock(() => {
       const byId = new Map(sessions.map(meta => [String(meta && meta.id), meta]));
       for (const [id, write] of sessionIndexLatestWrite) {
@@ -8402,6 +8493,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   sessionEngineRouteOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
+  dropInterventionSessionState(id);          // 介入记录缓存 + 压实节拍计数:会话没了,内存里的这两份也不留
   if (purgeAssociated) {
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -8568,7 +8660,8 @@ function normalizeSession(raw) {
     }
     if (JSON.stringify(cleaned) !== JSON.stringify(session.skills)) { session.skills = cleaned; changed = true; }
   }
-  // 工作台记忆:memoriesExplicit=true 时 session.memories 是固定选择(上限 12)；false 时项目+全局均进入
+  // 工作台记忆:memoriesExplicit=true 时 session.memories 是固定选择(上限由 memoryFixedSelectionMaxV1 配置,见 01c;
+  // 此处是落盘清洗,取钳位上界 MEMORY_FIXED_SELECTION_HARD_MAX,具体按配置的截断在保存路由与注入侧做)；false 时项目+全局均进入
   // 默认相关性检索，session.memoryExclusions 保存当前会话在默认模式下明确排除的条目。
   {
     const cleaned = [];
@@ -8585,7 +8678,7 @@ function normalizeSession(raw) {
       const entry = { id, scope };
       if (scope === 'project') { const pk = String((raw && raw.projectKey) || '').trim(); if (/^[a-f0-9]{16}$/.test(pk)) entry.projectKey = pk; }
       cleaned.push(entry);
-      if (cleaned.length >= 12) break;
+      if (cleaned.length >= MEMORY_FIXED_SELECTION_HARD_MAX) break;
     }
     if (JSON.stringify(cleaned) !== JSON.stringify(session.memories)) { session.memories = cleaned; changed = true; }
     if (typeof session.memoriesExplicit !== 'boolean') { session.memoriesExplicit = false; changed = true; }
@@ -23128,6 +23221,19 @@ function applyKimiStatusToSession(session, status) {
     if (messages[i] && messages[i].role === 'assistant') { messages[i].usage = usage; break; }
   }
   return usage;
+}
+
+// 会话上「Kimi 上下文状态」的指纹(kimiContextStatus 去掉每次都变的 updatedAt + 最后一条 assistant 的 usage):
+// /api/kimi/status 只在指纹变了才落盘(见 13-http-router)。
+function kimiStatusFingerprint(session) {
+  const st = session && session.kimiContextStatus;
+  const { updatedAt: _ts, ...rest } = (st && typeof st === 'object') ? st : {};
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  let usage = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i] && messages[i].role === 'assistant') { usage = messages[i].usage || null; break; }
+  }
+  return JSON.stringify([st ? rest : null, usage]);
 }
 
 async function syncKimiSessionUsage(session, config, onEvent) {
@@ -37972,6 +38078,13 @@ async function getAgentRoleLibrary(cwd, config) {
   for (const role of claudeNative) if (!merged.has(role.id)) merged.set(role.id, role);
   return [...merged.values()].filter(Boolean);
 }
+// 项目级写入(.ruyi/agents.json、.ruyi/workflows.json)的 cwd 来自请求体:目录不存在或是个文件时,下面的 mkdir 会抛
+// ENOTDIR / EEXIST,路由兜底成 500,还把带宿主路径的 errno 原文回给前端。写前先 stat 一下:不是目录就回 400 人话
+// (不回显路径)。返回 null = 可写;否则是一份 apiFailure 响应,调用方直接 send。
+async function projectCwdDirectoryFailure(cwd) {
+  try { if ((await fsp.stat(path.resolve(String(cwd || '')))).isDirectory()) return null; } catch { /* 不存在:同样按「不是目录」答 */ }
+  return apiFailure('project.cwd_not_directory', {}, '工作文件夹不存在或不是目录,无法保存项目级配置', 400);
+}
 async function saveProjectAgentRoles(cwd, roles) {
   const file = projectAgentRoleFile(cwd), dir = path.dirname(file);
   await fsp.mkdir(dir, { recursive: true });
@@ -38949,6 +39062,11 @@ async function markInterruptedAgentRuns() {
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
+      // 模型以 background:true 起的 run 被重启打断、又不会自动续跑:补一份 interrupted 信封进后台任务账本 —— 修前模型对用户说过
+      // 「代理在后台跑」,之后再没有任何人告诉它这些代理已经没了。信封在用户下一句话时随回合开头送达(interrupted 不唤醒,见 10)。
+      if (run.background === true && !(bootConfig && bootConfig.autonomyAutoResume === true) && EventStreamHooks.notifyAgentRunEnvelope) {
+        try { EventStreamHooks.notifyAgentRunEnvelope(run.sessionId, run, buildAgentRunEnvelope(run)); } catch { /* 旁路,boot 防炸 */ }
+      }
   });
   // 71b: 存量对账 —— 71b 前落盘的 paused run 可能有 proposed 池提案但无 Intervention 记录(当时池未接入旁路)。
   // boot 补登记(append-only,幂等:已有记录的 id 跳过),否则 missionPendingCounts 统一从 Intervention 读池未决后
@@ -39237,13 +39355,14 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // openAiStreamOnce lets those propagate to the catch below).
       // 架构还债批 2·A:骨架与瞬时判据走 04h(withTransientRetry + providerCallIsTransient,与 07 的 CLI 子代理同一份骨架)。
       // 口径原样:每次发出前查中止;工具被拒 → 去掉工具立即再打一次(不计数、不睡);瞬时失败至多重试 3 次,
-      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断);其余结果原样交给下面的分类。
+      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断),服务商回了 Retry-After(07 带出 retryAfterMs,封顶 30 s)就至少睡这么久
+      // —— 与主回合(09)同口径;修前限流窗口还没过就把 3 次重试用光,子代理整个失败。其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
       const sent = await withTransientRetry({
         maxRetries: 3,
         isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         signal: ctrl && ctrl.signal,
-        backoffMs: n => Math.min(2000, 250 * n),
+        backoffMs: (n, c) => Math.max(Math.min(2000, 250 * n), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
         attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire }),
         classify: c => {
           if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
@@ -47695,6 +47814,8 @@ function recentFileReads(history, budgetTokens) {
 //     越积越长(新摘要本来就覆盖了旧摘要)—— 只取出其中原始任务那一段;
 //   · 带图片的首问:content 是 parts 数组,String() 出来是「[object Object],[object Object]」—— 拍平成文字、图片记一笔。
 const COMPACTION_TASK_PREFIX = '原始任务(保持聚焦):\n';
+// 手动压缩(runProviderCompact 的 L2)塌成 [摘要, 收到] 时首条 user 的开头。
+const MANUAL_COMPACTION_SUMMARY_HEADER = '(以下是此前对话的压缩摘要)\n';
 function compactionTaskText(message) {
   const content = message && message.content;
   let text = typeof content === 'string' ? content
@@ -47709,6 +47830,12 @@ function compactionTaskText(message) {
     const body = text.slice(COMPACTION_TASK_PREFIX.length);
     const cut = body.indexOf('\n\n【压缩摘要');
     text = cut >= 0 ? body.slice(0, cut) : body;
+  } else if (text.startsWith(MANUAL_COMPACTION_SUMMARY_HEADER)) {
+    // 手动 L2 之后没有单独的原始任务:取旧摘要的【目标】一节代替。修前整条(旧摘要 + 旧工具索引)被当成任务原文钉一遍,
+    // 下一次自动 L2 的重播种里索引出现两份(多约 4K 字)。没有【目标】节就取索引之前的正文、截到 1200 字。
+    const body = text.slice(MANUAL_COMPACTION_SUMMARY_HEADER.length);
+    const goal = /【目标】[^\n]*(?:\n(?!【)[^\n]*)*/.exec(body);
+    text = goal ? goal[0].trim() : body.split('\n\n' + COMPACTION_TOOL_INDEX_HEADER)[0].slice(0, 1200);
   }
   return text;
 }
@@ -47762,11 +47889,20 @@ function buildCompactionToolIndex(history, opts = {}) {
   const config = opts.config || {};
   const refPrefix = String(opts.rawRefPrefix || '');
   const canRecall = observationRecallEnabled(config) && /^history:\d+:[a-f0-9]{16}$/.test(refPrefix);
-  const resultAt = new Map();
-  for (let i = 0; i < upto; i++) {
-    const m = list[i];
-    if (m && m.role === 'tool' && m.tool_call_id && !resultAt.has(String(m.tool_call_id))) resultAt.set(String(m.tool_call_id), i);
-  }
+  // 结果按「assistant 之后紧跟的那串 tool 消息」就近配对:有的服务商每次迭代都从 call_1 起编,全局按 id 取第一条会把后面的
+  // 调用都配到第一次的结果上(算出同一个 rawRef 再被下面的去重丢掉)—— 而被丢的恰是要保护的一次性调用。
+  // 紧跟的那串里找不到(中间夹了插话之类)再往后找,到下一次复用同一 id 的 assistant 为止。
+  const resultIndexFor = (assistantAt, id) => {
+    let j = assistantAt + 1;
+    for (; j < upto && list[j] && list[j].role === 'tool'; j++) if (String(list[j].tool_call_id || '') === id) return j;
+    for (; j < upto; j++) {
+      const m = list[j];
+      if (!m) continue;
+      if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.some(c => String((c && c.id) || '') === id)) return null;
+      if (m.role === 'tool' && String(m.tool_call_id || '') === id) return j;
+    }
+    return null;
+  };
   // 上一次压缩留下的索引行(在摘要那条 user 消息里),更早的在前。
   const entries = [];
   const seenRefs = new Set();
@@ -47789,7 +47925,8 @@ function buildCompactionToolIndex(history, opts = {}) {
     for (const call of m.tool_calls) {
       const name = String((call && call.function && call.function.name) || '');
       if (!name || COMPACTION_TOOL_INDEX_SKIP.has(name)) continue;
-      const at = resultAt.get(String((call && call.id) || ''));
+      const callId = String((call && call.id) || '');
+      const at = callId ? resultIndexFor(i, callId) : null;
       const result = at == null ? null : list[at];
       const content = result && typeof result.content === 'string' ? result.content : '';
       const reducedChars = (content.match(/originalChars["=:\s]*(\d+)/) || [])[1];   // 缩减视图(文本头或 _ruyiObservation 对象)记着原件大小
@@ -48156,6 +48293,19 @@ async function maybeCompactSubHistory(opts) {
 //   2. 不够、L1 无事可做、或调用方明确要 mode:'summary' → L2 摘要。仍塌成 [摘要, 收到](手动压缩的既有语义,不留尾巴),
 //      摘要后附被摘要掉那段的工具调用索引(buildCompactionToolIndex,能回捞的带 rawRef)。
 // 全程在历史的副本上做;任何失败都不动会话。返回 { ok, level: 1|2, ... };never throws。
+// 正在手动压缩的会话:后台代理唤醒在这期间不起回合(见 runAgentWake),压缩收尾时补排一次。
+// POST /api/provider/compact 走这层登记;压缩本体(及其落盘纪律)仍是 runProviderCompact。
+const providerCompactInFlight = new Set();
+async function runProviderCompactTracked(sessionId, opts = {}) {
+  const sid = safeSessionId(String(sessionId || ''));
+  if (!sid) return runProviderCompact(sessionId, opts);
+  providerCompactInFlight.add(sid);
+  try { return await runProviderCompact(sid, opts); }
+  finally {
+    providerCompactInFlight.delete(sid);
+    scheduleAgentWake(sid, 'after_compact');
+  }
+}
 async function runProviderCompact(sessionId, opts = {}) {
   const storedConfig = await readConfig();
   let session;
@@ -48237,7 +48387,7 @@ async function runProviderCompact(sessionId, opts = {}) {
   let afterTokens = 0;
   const saved = await persist(fresh => {
     fresh.providerHistory = [
-      { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + summary + (toolIndex ? '\n\n' + toolIndex : '') },
+      { role: 'user', content: MANUAL_COMPACTION_SUMMARY_HEADER + summary + (toolIndex ? '\n\n' + toolIndex : '') },
       { role: 'assistant', content: '收到，已基于摘要继续。' },
     ];
     afterTokens = estimateHistoryTokens(fresh.providerHistory);
@@ -48455,8 +48605,9 @@ async function runSessionTurn(input) {
   // 随回合起手那一次 saveSession 落盘(09 runOpenAiTurn 推入用户消息之后、第一次调模型之前),所以这一回合里任何一条权限待决
   // 出现时,盘上与活回合里读到的都已经是清过的。插话(/api/steer)不清:它进的是正在跑的那一回合。
   if (source === 'http' && session.stewardTaint) delete session.stewardTaint;
-  // 后台代理唤醒的连续计数(见 scheduleAgentWake):用户亲发一句即清零。
-  if (source === 'http') agentWakeChain.delete(session.id);
+  // 后台代理唤醒的连续计数(见 scheduleAgentWake):不是唤醒自己起的回合(用户亲发、管家派、定时任务)都清零 —— 上限防的是
+  // 「起后台代理 → 被唤醒 → 再起」这一个闭环,修前只认 'http',纯管家 / 定时驱动的线程唤醒满 6 次后进程内再也不唤醒。
+  if (source !== AGENT_WAKE_SOURCE) agentWakeChain.delete(session.id);
   const attachments = body.attachments || [];
 
   let finished = false;
@@ -48680,8 +48831,9 @@ async function runSessionTurn(input) {
     if (outcomePatch) turnOutcomePending.add(outcomeId);
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     // 后台代理唤醒(见 scheduleAgentWake):收尾时账本里还有没送达的后台代理信封(落在本回合最后一次模型调用之后)→ 补唤醒。
-    // 用户停止 / 断线 / 被新回合顶掉的那次收尾不补:用户刚叫停,信封留到下一回合开头送达。
-    if (session.kind !== 'steward' && !turnStopped && !disconnectHandled && !(lastResult && (lastResult.superseded || lastResult.aborted))
+    // 用户停止 / 被新回合顶掉 / 断线时按设置杀掉回合(lastResult.aborted)的那次收尾不补:用户刚叫停,信封留到下一回合开头送达。
+    // 只是关了页面 / 刷新(killOnDisconnect 缺省关,回合在服务端照常跑完)要补 —— 用户离开正是这个功能要管的情形。
+    if (session.kind !== 'steward' && !turnStopped && !(lastResult && (lastResult.superseded || lastResult.aborted))
         && typeof EventStreamHooks.pendingAgentWakeJobs === 'function') {
       try { if (EventStreamHooks.pendingAgentWakeJobs(session).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
     }
@@ -48731,8 +48883,11 @@ async function runSessionTurn(input) {
 //   · 只认模型以 background:true 起的 run(账本行 background:true,11 notifyAgentRunEnvelope 写);
 //   · 被叫停的 run(stopped / cancelled)不唤醒 —— 信封照旧在下一回合开头送达;
 //   · 回合被用户停止 / 断线 / 被新回合顶掉的那一次收尾不补唤醒(用户刚叫停);
-//   · 每个 run 只唤醒一次(进程内记账);同一条用户消息之后最多连续唤醒 AGENT_WAKE_CHAIN_MAX 次,防模型「起后台代理
-//     → 被唤醒 → 再起」无限循环,用户亲发一句即清零;
+//   · 每份信封只唤醒一次(进程内记账,按 job id + 完成时刻:续跑 / 重试的同一个 run 再交一份信封会再唤醒);
+//     连续唤醒最多 AGENT_WAKE_CHAIN_MAX 次,防模型「起后台代理 → 被唤醒 → 再起」无限循环,任何不是唤醒起的回合都清零;
+//   · 进程重启:信封落了账、唤醒还没起成就重启的,启动时补排(scheduleAgentWakesAtBoot);重启打断的后台 run 由 08 补一份
+//     interrupted 信封,但不唤醒(重启不是代理「做完了」,留到用户下一句话时送达);
+//   · 手动压缩进行中不唤醒(摘要要算几秒,期间起回合会让那份摘要作废),压缩结束再排一次;
 //   · 管家会话不唤醒(它有自己的运行器);会话已删不唤醒;
 //   · 唤醒回合不是用户的意思表示:source 不是 'http',所以不改「上次用的引擎」、不清 stewardTaint(见 runSessionTurn)。
 const AGENT_WAKE_SOURCE = 'agent_wake';
@@ -48744,7 +48899,11 @@ const agentWakeTimers = new Map();     // sessionId -> 防抖定时器
 const agentWakeAttempted = new Map();  // sessionId -> Set(账本 job id):已经为它唤醒过的信封
 const agentWakeChain = new Map();      // sessionId -> 自上一条用户消息以来的连续唤醒次数
 // 被叫停的 run(stopped = 有人按了停止,cancelled 同义)不唤醒:用户刚表示过不要了。
-function agentWakeSkipsStatus(status) { return status === 'stopped' || status === 'cancelled' || status === 'canceled'; }
+// 进程重启打断的(interrupted)也不唤醒:不是代理做完了,信封留到用户下一句话时送达。
+function agentWakeSkipsStatus(status) { return status === 'stopped' || status === 'cancelled' || status === 'canceled' || status === 'interrupted'; }
+// 记账键带完成时刻:同一个 run 续跑 / 重试后再交一份信封(09 launchPersistedAgentRun 先撤掉「已送达」),job id 不变,
+// 只按 id 记的话第二份永远判成「唤醒过了」。
+function agentWakeJobKey(job) { return String(job && job.id || '') + '@' + String(job && job.completedAt || ''); }
 function scheduleAgentWake(sessionId, reason) {
   const sid = safeSessionId(sessionId);
   if (!sid || sid === STEWARD_SESSION_ID) return false;
@@ -48769,6 +48928,8 @@ function agentWakeMessage(jobs) {
 async function runAgentWake(sessionId, reason) {
   // 线程正忙:那一回合的迭代边界会收件,收尾时 runSessionTurn 的 finally 再排一次。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
+  // 手动压缩算摘要期间不起回合(回合会追加历史,那份摘要落盘时被长度守卫作废);runProviderCompact 收尾时再排一次。
+  if (providerCompactInFlight.has(sessionId)) return { ok: false, skipped: 'compacting' };
   if (typeof EventStreamHooks.pendingAgentWakeJobs !== 'function') return { ok: false, skipped: 'unsupported' };
   // 设置里关掉了(agentAutoWake:false):信封照旧等用户下一句话时随回合开头送达。
   const wakeConfig = await readConfig().catch(() => null);
@@ -48777,7 +48938,7 @@ async function runAgentWake(sessionId, reason) {
   if (!session || session.kind === 'steward') return { ok: false, skipped: 'no_session' };
   const attempted = agentWakeAttempted.get(sessionId) || new Set();
   const pending = EventStreamHooks.pendingAgentWakeJobs(session)
-    .filter(job => !attempted.has(job.id) && !agentWakeSkipsStatus(String(job.status || '')));
+    .filter(job => !attempted.has(agentWakeJobKey(job)) && !agentWakeSkipsStatus(String(job.status || '')));
   if (!pending.length) return { ok: false, skipped: 'nothing_pending' };
   const chain = agentWakeChain.get(sessionId) || 0;
   if (chain >= AGENT_WAKE_CHAIN_MAX) {
@@ -48786,7 +48947,7 @@ async function runAgentWake(sessionId, reason) {
   }
   // 装载会话期间用户可能刚发了一句:再判一次(下面到 runSessionTurn 登记 turnSettlers 之间没有 await)。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
-  for (const job of pending) attempted.add(job.id);
+  for (const job of pending) attempted.add(agentWakeJobKey(job));
   agentWakeAttempted.set(sessionId, attempted);
   agentWakeChain.set(sessionId, chain + 1);
   const runIds = pending.map(job => String(job.runId || '')).filter(Boolean);
@@ -48800,7 +48961,7 @@ async function runAgentWake(sessionId, reason) {
   turn.catch(error => {
     // 起回合那一刻撞上别处起的回合(409):那一回合会收件,退回记账,让它收尾时还能补唤醒。
     if (error && error.code === 'SESSION_TURN_BUSY_ELSEWHERE') {
-      for (const job of pending) attempted.delete(job.id);
+      for (const job of pending) attempted.delete(agentWakeJobKey(job));
       agentWakeChain.set(sessionId, chain);
     }
     logEvent({ kind: 'agent_wake_error', sessionId, code: String((error && error.code) || ''), error: String((error && error.message) || error).slice(0, 400) });
@@ -48811,6 +48972,19 @@ EventStreamHooks.onAgentEnvelopePersisted = job => {
   if (!job || agentWakeSkipsStatus(String(job.status || ''))) return;
   scheduleAgentWake(job.sessionId, 'envelope');
 };
+// 启动时补排:信封已落账、唤醒还没起成(防抖窗口内重启、崩溃)的会话。只看最近 AGENT_WAKE_BOOT_WINDOW_MS 内完成的 ——
+// 更早的要么早已唤醒过(唤醒回合开头就登记已读),要么当时开关关着 / 唤醒到了上限,重启不该把几天前的线程一起叫醒。
+// 是否已读、开关、上限仍由 runAgentWake 按会话判。
+const AGENT_WAKE_BOOT_WINDOW_MS = 6 * 3600 * 1000;
+function scheduleAgentWakesAtBoot() {
+  if (typeof EventStreamHooks.recentBackgroundAgentJobSessions !== 'function') return 0;
+  let sessionIds = [];
+  try { sessionIds = EventStreamHooks.recentBackgroundAgentJobSessions(Date.now() - AGENT_WAKE_BOOT_WINDOW_MS); } catch { return 0; }
+  let scheduled = 0;
+  for (const sid of sessionIds) if (scheduleAgentWake(sid, 'boot')) scheduled++;
+  if (scheduled) logEvent({ kind: 'agent_wake_boot', sessions: scheduled });
+  return scheduled;
+}
 
 // HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。
 async function streamChat(req, res) {
@@ -49067,6 +49241,20 @@ EventStreamHooks.pendingAgentWakeJobs = session => {
   if (!session || !session.id) return [];
   const seen = new Set(Array.isArray(session.backgroundJobSeen) ? session.backgroundJobSeen : []);
   return readBackgroundJobs(session.id).filter(job => job && job.kind === 'agent' && job.background === true && !seen.has(job.id));
+};
+// 启动时补排唤醒用(10 scheduleAgentWakesAtBoot):账本里有 sinceMs 之后完成的后台代理信封的会话 id。是否已读由 10 按会话判。
+EventStreamHooks.recentBackgroundAgentJobSessions = sinceMs => {
+  let files = [];
+  try { files = fs.readdirSync(path.join(paths.sessions, 'background-jobs')); } catch { return []; }
+  const out = [];
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+    const sid = file.slice(0, -'.json'.length);
+    if (!safeSessionId(sid)) continue;
+    const recent = readBackgroundJobs(sid).some(job => job && job.kind === 'agent' && job.background === true && Date.parse(job.completedAt || '') >= sinceMs);
+    if (recent) out.push(sid);
+  }
+  return out;
 };
 
 function shellIdValid(id) { return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,32}$/.test(id); }
@@ -50722,7 +50910,9 @@ const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersio
 // 自己的子孙);树杀不掉、管道仍不关(杀树命令失败 / 极端孤儿)时,5 秒后强行收尾,不让调用方永远挂着。
 function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
-    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number(timeoutMs || 15000)));
+    // 非数字(模型给 git_status 之类自造 timeoutMs:"30s")回落缺省:修前 NaN 一路传到 setTimeout,等于 1 ms 就把跑完的 git 杀掉、报「超过 0 秒」。
+    const askedMs = Number(timeoutMs);
+    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number.isFinite(askedMs) && askedMs > 0 ? askedMs : 15000));
     let child, timer = null, grace = null, timedOut = false, settled = false;
     const settle = r => {
       if (settled) return;
@@ -60127,6 +60317,8 @@ async function handleApi(req, res, pathname) {
     if (scope === 'project') {
       const cwdRaw = String(body && body.cwd || '');
       if (!cwdRaw || !path.isAbsolute(cwdRaw)) return send(res, json({ ok: false, error: 'project scope requires an absolute cwd' }, 400));
+      const cwdBad = await projectCwdDirectoryFailure(cwdRaw);   // 不存在/是文件:400 人话,不再 500 + ENOTDIR 原文
+      if (cwdBad) return send(res, cwdBad);
       const saved = await saveProjectAgentRoles(path.resolve(cwdRaw), roles);
       return send(res, json({ ok: true, scope, roles: saved, file: projectAgentRoleFile(cwdRaw) }));
     }
@@ -60143,6 +60335,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/agent-workflows') {
     const body = await readJsonBody(req); const scope = body && body.scope === 'project' ? 'project' : 'personal';
     const config = await readConfig(); const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
+    if (scope === 'project') { const cwdBad = await projectCwdDirectoryFailure(cwd); if (cwdBad) return send(res, cwdBad); }   // 同 /api/agent-roles(先于工作流本体校验:目录都不对就没必要往下)
     const draft = normalizeAgentWorkflow(body && body.workflow, { source: scope });
     const problem = draft ? agentWorkflowSaveProblem(draft, new Set((await getAgentRoleLibrary(cwd, config)).map(r => r.id))) : null;
     if (problem) return send(res, apiFailure(problem.code, problem.params, `无效工作流：${problem.message}`, 400));
@@ -60153,6 +60346,7 @@ async function handleApi(req, res, pathname) {
   if (pathname.startsWith('/api/agent-workflows/') && (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))) {
     const id = String(pathname.slice('/api/agent-workflows/'.length)).toLowerCase(); const body = req.method === 'POST' ? await readJsonBody(req) : {};
     const config = await readConfig(); const scope = body && body.scope === 'project' ? 'project' : 'personal'; const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
+    if (scope === 'project') { const cwdBad = await projectCwdDirectoryFailure(cwd); if (cwdBad) return send(res, cwdBad); }
     return send(res, json({ ok: await deleteAgentWorkflow(scope, cwd, id), id, scope }));
   }
   if (req.method === 'POST' && pathname === '/api/provider/test') {
@@ -60520,7 +60714,7 @@ async function handleApi(req, res, pathname) {
     if (!sessionId) return send(res, apiSessionIdInvalid());
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
     // mode:'summary' = 跳过「L1 够了就停」直接做摘要(缺省 'auto':先 L1,不够再摘要,见 runProviderCompact)。
-    return send(res, json(await runProviderCompact(sessionId, { mode: body.mode })));
+    return send(res, json(await runProviderCompactTracked(sessionId, { mode: body.mode })));
   }
   if (req.method === 'POST' && pathname === '/api/agent/compact') {
     const body = await readJsonBody(req);
@@ -60551,8 +60745,21 @@ async function handleApi(req, res, pathname) {
     if (!session) return send(res, apiSessionNotFound());
     const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
     if (!status.ok) return send(res, json(status, 400));
-    const usage = applyKimiStatusToSession(session, status);
-    await saveSession(session).catch(() => {});
+    // 「打开看一眼」只是读状态,不是这条会话的新活动:走 mutateSession(与活回合/其它改写者按 id 串行,撞撤回会重放)、
+    // keepUpdatedAt(不把会话顶到列表最上面),而且状态值与已存的一致就不写(前端每次切会话都会调这里)。
+    // 修前:无条件裸 saveSession 刷新 updatedAt、可能与活回合并发整份覆盖、失败被吞。
+    let usage = null;
+    try {
+      await mutateSession(sessionId, fresh => {
+        const before = kimiStatusFingerprint(fresh);
+        usage = applyKimiStatusToSession(fresh, status);
+        if (kimiStatusFingerprint(fresh) === before) return { abort: 'unchanged' };
+      }, { writer: 'kimi_status', saveOpts: { keepUpdatedAt: true } });
+    } catch (error) {
+      // 状态本身已读到,落盘只是缓存:失败不挡响应,但留一条日志而不是吞掉。
+      logEvent({ kind: 'kimi_status_persist_failed', sessionId, error: String((error && error.message) || error).slice(0, 200) });
+    }
+    if (!usage) usage = kimiUsageFromStatus(status);   // 会话期间被删/撤回等没跑到 apply:回读到的状态照样给前端
     return send(res, json({ ...status, usage }));
   }
   // EC-D Wave 65: question, permission, and plan routes live in 13d-core-domain-routes.js.
@@ -61381,12 +61588,26 @@ function probeHealth(port, host) {
   return new Promise(resolve => {
     const req = http.get({ host, port, path: '/health', timeout: 900 }, res => {
       let body = '';
+      res.setEncoding('utf8');   // app 字段是中文品牌名:按 Buffer 拼接遇到跨块的多字节字符会损坏
       res.on('data', c => { body += c; if (body.length > 65536) req.destroy(); });
       res.on('end', () => resolve(safeJsonParse(body, null)));
     });
     req.on('error', () => resolve(null));
     req.on('timeout', () => { req.destroy(); resolve(null); });
   });
+}
+// /health 的回包像不像工作台。修前判据是 `app === APP_NAME || overlayId || version`,而 /health 从不带 app,
+// 于是退化成「有 version 字段就算」—— 本机别的服务(任何回 {version:…} 的 /health)占了端口会被当成陈旧工作台杀掉。
+// 现在 /health 带 app: APP_NAME(见 startServerInner);识别口径:
+//   · app 等于本应用名;或有 overlayId(每个进程一个的重启证明,别的服务不会有);
+//   · 旧版工作台的 /health 没有 app:只认「version 同时带着工作台 /health 的另外两个特征字段(launchMode + uptimeSec)」,
+//     单有 version 不够。旧版若连这个形状都不满足,下面还有 runtime.json 的 pid / 镜像名 / 命令行三道证据兜底。
+function healthLooksLikeWorkbench(health) {
+  if (!health || typeof health !== 'object') return false;
+  if (health.app === APP_NAME) return true;
+  if (typeof health.overlayId === 'string' && health.overlayId) return true;
+  return typeof health.version === 'string' && !!health.version
+    && typeof health.launchMode === 'string' && Number.isFinite(health.uptimeSec);
 }
 // Kill the port's holder(s) ONLY when confirmed to be a stale workbench: /health responds like one,
 // OR the PID matches our own runtime.json, OR the image is node/Ruyi/WinClaudeWorkbench. An unrelated
@@ -61395,7 +61616,7 @@ async function freeStalePort(port, host) {
   const pids = await pidsOnPort(port);
   if (!pids.length) return { ok: true, killed: [] }; // maybe TIME_WAIT with no live listener — retry handles it
   const health = await probeHealth(port, host);
-  const isWorkbench = !!(health && (health.app === APP_NAME || health.overlayId || health.version));
+  const isWorkbench = healthLooksLikeWorkbench(health);
   let ourPid = null;
   try {
     const rt = safeJsonParse(await fsp.readFile(path.join(paths.data, 'runtime.json'), 'utf8'), null);
@@ -61566,6 +61787,7 @@ async function startServerInner(opts) {
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
+  scheduleAgentWakesAtBoot(); // 后台代理信封已落账、唤醒没起成就重启了 → 补排(10;同步,防抖到点时服务早已在监听)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
   // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
   // external-import discovery authoritative.
@@ -61620,6 +61842,12 @@ async function startServerInner(opts) {
   const server = http.createServer(async (req, res) => {
     const reqT0 = Date.now(); // 第40波:请求耗时插桩(res finish 时入账,/health 不计 —— 高频探针会淹没真分布)
     res.on('finish', () => { try { const u0 = new URL(req.url, 'http://x'); if (u0.pathname !== '/health') recordRequestMetric(req.method, u0.pathname, Date.now() - reqT0); } catch { /* 观测不阻断 */ } });
+    // 防嵌入(点击劫持):任何响应都不许被别的页面放进 iframe。工作台页面从不被框:桌面壳 WebView2 是顶层导航,
+    // 文件预览里的 HTML 产物是 sandbox + srcdoc(about:srcdoc,不受这两个头约束)。两个头都发:X-Frame-Options 给老内核,
+    // frame-ancestors 给现代内核(与 index.html 里 meta 的 CSP 是叠加关系,互不替代 —— meta 里的 frame-ancestors 本来就不生效)。
+    // 先 setHeader 再让各路由的 writeHead 合并:路由自己写了同名头则以路由为准。
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
     try {
       // 第33波:顶层 host 门(DNS-rebinding 防御覆盖全 GET 面 + 静态 /,治第29波 backlog #0)。hostAllowed 之前
       // 只在 originOk(mutating 块)内调用,GET 与 serveStatic 跳过 -> index.html 的 token 可被 rebinding 页读走。
@@ -61629,7 +61857,7 @@ async function startServerInner(opts) {
       // Liveness + restart proof: version alone can't prove a restart, so echo the per-process overlay id.
       if (u.pathname === '/health') {
         return send(res, { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'x-workbench-version': VERSION, 'x-overlay-id': OVERLAY_ID },
-          body: JSON.stringify({ ok: true, version: VERSION, overlayId: OVERLAY_ID, launchMode: LAUNCH_MODE, uptimeSec: Math.round(process.uptime()) }) });
+          body: JSON.stringify({ ok: true, app: APP_NAME, version: VERSION, overlayId: OVERLAY_ID, launchMode: LAUNCH_MODE, uptimeSec: Math.round(process.uptime()) }) });
       }
       if (u.pathname.startsWith('/api/')) return await handleApi(req, res, u.pathname);
       return send(res, await serveStatic(u.pathname, req));
@@ -63476,24 +63704,60 @@ const SESSION_SEARCH_MIN_QUERY = 2;
 
 function sessionSearchIndexPath() { return path.join(paths.sessions, SESSION_SEARCH_INDEX_FILE); }
 
-// 只读文件的头尾两段,中间跳过。NDJSON 一行一条,所以头段丢尾巴、尾段丢头都只损失一条不完整的行。
+// 只读文件的头尾两段,中间跳过;两段都按【整行】交出去:
+//   · 文件 ≤ 头 + 尾:两段本来就盖满全文,整个读(头注「≤ 2MB 整个读」)。修前这种文件也切成两段,头段尾巴的半行 JSON 解析失败、
+//     尾段又无条件丢掉第一行 —— 恰好跨在 1MB 接缝上的那条消息两边都不要,搜它说过的话搜不到(而且与头注说的「整个读」不符);
+//   · 更大:头段停在半行里就继续往后读到行尾,尾段起点落在行中间就往前读到行首 —— 跨边界的那条消息补成完整一行。
+//     补读各有上限(NDJSON_EDGE_EXTEND_MAX):超过上限的单行(几 MB 的工具输出)才放弃,把那半行丢掉,不让它进解析。
+const NDJSON_EDGE_EXTEND_CHUNK = 64 * 1024;
+const NDJSON_EDGE_EXTEND_MAX = 2 * 1024 * 1024;
 async function readNdjsonEdges(file, headBytes, tailBytes) {
   let fh = null;
   try {
     const st = await fsp.stat(file);
     if (!st.isFile() || st.size === 0) return { head: '', tail: '' };
     fh = await fsp.open(file, 'r');
-    const headLen = Math.min(st.size, headBytes);
-    const headBuf = Buffer.allocUnsafe(headLen);
-    await fh.read(headBuf, 0, headLen, 0);
-    let tail = '';
-    if (st.size > headLen) {
-      const tailLen = Math.min(st.size - headLen, tailBytes);
-      const tailBuf = Buffer.allocUnsafe(tailLen);
-      await fh.read(tailBuf, 0, tailLen, st.size - tailLen);
-      tail = tailBuf.toString('utf8');
+    const size = st.size;
+    const readAt = async (pos, len) => {
+      const buf = Buffer.allocUnsafe(len);
+      const { bytesRead } = await fh.read(buf, 0, len, pos);
+      return bytesRead === len ? buf : buf.subarray(0, bytesRead);
+    };
+    if (size <= headBytes + tailBytes) return { head: (await readAt(0, size)).toString('utf8'), tail: '' };
+    // 头段:读满 headBytes,停在半行里就往后补到行尾。
+    let headBuf = await readAt(0, headBytes);
+    if (headBuf.length && headBuf[headBuf.length - 1] !== 0x0a) {
+      const extra = [];
+      let pos = headBytes, found = false;
+      while (pos < size && pos - headBytes < NDJSON_EDGE_EXTEND_MAX) {
+        const chunk = await readAt(pos, Math.min(NDJSON_EDGE_EXTEND_CHUNK, size - pos));
+        if (!chunk.length) break;
+        const nl = chunk.indexOf(0x0a);
+        if (nl >= 0) { extra.push(chunk.subarray(0, nl + 1)); found = true; break; }
+        extra.push(chunk); pos += chunk.length;
+      }
+      if (found) headBuf = Buffer.concat([headBuf, ...extra]);
+      else { const cut = headBuf.lastIndexOf(0x0a); headBuf = cut >= 0 ? headBuf.subarray(0, cut + 1) : Buffer.alloc(0); }   // 超限的巨型单行:丢掉这半行
     }
-    return { head: headBuf.toString('utf8'), tail };
+    // 尾段:起点前一个字节不是换行 = 起点在行中间,往前补到行首。
+    const tailStart = size - tailBytes;
+    let tailBuf = await readAt(tailStart, tailBytes);
+    const before = await readAt(tailStart - 1, 1);
+    if (before.length && before[0] !== 0x0a) {
+      const front = [];
+      let pos = tailStart, found = false;
+      while (pos > 0 && tailStart - pos < NDJSON_EDGE_EXTEND_MAX) {
+        const from = Math.max(0, pos - NDJSON_EDGE_EXTEND_CHUNK);
+        const chunk = await readAt(from, pos - from);
+        const nl = chunk.lastIndexOf(0x0a);
+        if (nl >= 0) { front.unshift(chunk.subarray(nl + 1)); found = true; break; }
+        front.unshift(chunk); pos = from;
+        if (pos === 0) { found = true; break; }   // 一直退到文件开头:第一行本来就从 0 开始
+      }
+      if (found) tailBuf = Buffer.concat([...front, tailBuf]);
+      else { const cut = tailBuf.indexOf(0x0a); tailBuf = cut >= 0 ? tailBuf.subarray(cut + 1) : Buffer.alloc(0); }   // 超限:丢掉起点那半行
+    }
+    return { head: headBuf.toString('utf8'), tail: tailBuf.toString('utf8') };
   } catch {
     return { head: '', tail: '' };
   } finally {
@@ -63501,9 +63765,8 @@ async function readNdjsonEdges(file, headBytes, tailBytes) {
   }
 }
 
-function parseNdjsonRows(text, { dropFirstPartial = false } = {}) {
+function parseNdjsonRows(text) {
   const lines = String(text || '').split('\n');
-  if (dropFirstPartial) lines.shift();
   const rows = [];
   for (const line of lines) {
     const trimmed = line.trim();
@@ -63540,7 +63803,7 @@ function sessionSearchRowIsNoise(row) {
 async function buildSessionSearchUnit(meta) {
   const body = sessionBodyPaths(meta.id);
   const { head, tail } = await readNdjsonEdges(body.messages, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
-  const rows = [...parseNdjsonRows(head), ...parseNdjsonRows(tail, { dropFirstPartial: true })].filter(row => !sessionSearchRowIsNoise(row));
+  const rows = [...parseNdjsonRows(head), ...parseNdjsonRows(tail)].filter(row => !sessionSearchRowIsNoise(row));   // 两段都是整行(见 readNdjsonEdges)
   // 116-5b:线程的名字与那句概括也进检索单元。它们是模型对「这条线程到底要干什么」的概括,
   // 常常用了用户原话里没打出来的词(原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」)——
   // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉。
@@ -63581,7 +63844,15 @@ async function readSessionSearchIndex() {
 }
 
 // 增量刷新:只为「新会话」或「updatedAt/messageCount 变了的会话」重抽单元;删掉的会话顺带清出去。
-async function refreshSessionSearchIndex(metas) {
+// 单飞:侧栏是边打字边搜,冷索引(首次/大批会话变化后)那一遍要把每个会话的正文头尾读一次、再整份写盘。修前每个并发请求
+// 各自读到同一份旧索引、各自把全部单元重抽一遍、各自整份写回(N 个请求 = N 倍读盘 + N 次互相覆盖的写)。
+// 现在按一条链串行(runKeyedChain):后到的请求等前一个建完,再拿它刚写好的索引做增量 —— 条目全都新鲜,不重抽、不重写。
+// 不是「后到的直接共用先到的结果」:各请求带的 metas 可能不同(中途新建的会话),共用会漏掉它们。
+const sessionSearchRefreshChains = new Map();
+function refreshSessionSearchIndex(metas) {
+  return runKeyedChain(sessionSearchRefreshChains, 'index', () => refreshSessionSearchIndexNow(metas));
+}
+async function refreshSessionSearchIndexNow(metas) {
   const existing = (await readSessionSearchIndex()) || { version: SESSION_SEARCH_INDEX_VERSION, entries: {} };
   const entries = {};
   let changed = false;
@@ -66234,7 +66505,7 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentI
   let ivMeta = await readInterventionsWithMeta(sid);
   if ((!head || !head.id) && ivMeta.bytes === 0) return null;
   // External/legacy journals also get bounded maintenance on a rebuild. Never compact degraded authority.
-  if (!ivMeta.degraded && ivMeta.bytes >= 65536 && ivMeta.rowCount > Math.max(256, ivMeta.interventions.length * 3)) {
+  if (!ivMeta.degraded && interventionJournalWorthCompacting(ivMeta)) {   // 判据与 02 自己的周期压实同一个(修前这里也是 ×3,永不触发)
     await compactInterventionJournal(sid).catch(() => {});
     ivMeta = await readInterventionsWithMeta(sid);
     sourceStamp = await pretenderSessionSourceStamp(sid);

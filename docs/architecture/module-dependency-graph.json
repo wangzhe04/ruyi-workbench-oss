@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3513,
-    "requiredSymbols": 3143,
-    "edges": 536,
+    "providedSymbols": 3534,
+    "requiredSymbols": 3151,
+    "edges": 537,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -237,6 +237,7 @@
       "layer": "foundation",
       "note": "110-2b: 从 01-config.js 搬出运行时开关判定函数(纯搬家,零行为变更)",
       "provides": [
+        "MEMORY_FIXED_SELECTION_HARD_MAX",
         "appendOnlyToolSchemasEnabled",
         "budgetGuardDecision",
         "budgetGuardEnabled",
@@ -1120,6 +1121,7 @@
         "demoteSessionBodyRecord",
         "detectDanglingTurn",
         "dirSize",
+        "dropInterventionSessionState",
         "dropSessionBodyState",
         "evaluateMissionCheck",
         "evictSessionBodyStateOverflow",
@@ -1134,6 +1136,7 @@
         "inflightSessionIndex",
         "interventionAppendCounts",
         "interventionFilePath",
+        "interventionJournalWorthCompacting",
         "interventionRecordCache",
         "interventionTransitionLocks",
         "interventionWriteChains",
@@ -1235,7 +1238,9 @@
         "normalizeTodoItems",
         "normalizeTodoWriteArgs",
         "noteMissionMembership",
+        "noteSessionIndexBadHead",
         "overlayUnflushedSessionIndex",
+        "parseSessionHeadForIndex",
         "patchMissionContainer",
         "pendingSessionIndex",
         "planSessionBodyAppend",
@@ -1289,13 +1294,16 @@
         "sessionBodyText",
         "sessionBriefOf",
         "sessionDeleteTombstones",
+        "sessionDiskIdsExpectedInIndex",
         "sessionDiskWriteSeq",
         "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
         "sessionFirstUserExcerpt",
+        "sessionHeadStampOf",
         "sessionIndexChain",
         "sessionIndexFileStamp",
         "sessionIndexFlushTimer",
+        "sessionIndexKnownBadHeads",
         "sessionIndexLatestWrite",
         "sessionIndexMemo",
         "sessionIndexPath",
@@ -1552,6 +1560,13 @@
         {
           "provider": "01-config.js",
           "symbol": "sessionWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "MEMORY_FIXED_SELECTION_HARD_MAX",
           "kinds": [
             "read"
           ]
@@ -4288,6 +4303,7 @@
         "kimiContextWindow",
         "kimiHttp",
         "kimiSessionStatus",
+        "kimiStatusFingerprint",
         "kimiUsageFromStatus",
         "kimiWireFile",
         "kimiWireLoopEvent",
@@ -6842,6 +6858,7 @@
         "parseSimpleYamlValue",
         "projectActionModelView",
         "projectAgentRoleFile",
+        "projectCwdDirectoryFailure",
         "rankToolCatalog",
         "readClaudeProjectAgentRoles",
         "readProjectAgentRoles",
@@ -6872,6 +6889,13 @@
         "withToolArgSkeletons"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
@@ -7508,6 +7532,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
           "kinds": [
             "read"
           ]
@@ -10074,6 +10105,7 @@
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
+        "AGENT_WAKE_BOOT_WINDOW_MS",
         "AGENT_WAKE_CHAIN_MAX",
         "AGENT_WAKE_DEBOUNCE_MS",
         "AGENT_WAKE_SOURCE",
@@ -10106,6 +10138,7 @@
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
+        "MANUAL_COMPACTION_SUMMARY_HEADER",
         "MODEL_CONTEXT_TABLE",
         "OBSERVATION_ARRAY_SAMPLE",
         "OBSERVATION_CRITICAL_KEYS",
@@ -10148,6 +10181,7 @@
         "agentNodeContextWindow",
         "agentWakeAttempted",
         "agentWakeChain",
+        "agentWakeJobKey",
         "agentWakeMessage",
         "agentWakeSkipsStatus",
         "agentWakeTimers",
@@ -10220,6 +10254,7 @@
         "persistContextCalibration",
         "pickSummaryFailure",
         "protectedObservation",
+        "providerCompactInFlight",
         "providerContextWindow",
         "providerConversationContextWindow",
         "providerSummaryCall",
@@ -10239,8 +10274,10 @@
         "runAutoCompaction",
         "runForcedOverflowCompaction",
         "runProviderCompact",
+        "runProviderCompactTracked",
         "runSessionTurn",
         "scheduleAgentWake",
+        "scheduleAgentWakesAtBoot",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -12363,6 +12400,7 @@
         "freeStalePort",
         "getProxyModelsCache",
         "handleApi",
+        "healthLooksLikeWorkbench",
         "helpDocTitle",
         "helpDocsDir",
         "installIntegration",
@@ -13085,13 +13123,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "saveSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "workspaceBaselineIsCodePath",
           "kinds": [
             "call"
@@ -13380,6 +13411,20 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "kimiSessionStatus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiStatusFingerprint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiUsageFromStatus",
           "kinds": [
             "call"
           ]
@@ -13736,6 +13781,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "projectCwdDirectoryFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "readClaudeProjectAgentRoles",
           "kinds": [
             "call"
@@ -13925,7 +13977,14 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "runProviderCompact",
+          "symbol": "runProviderCompactTracked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "scheduleAgentWakesAtBoot",
           "kinds": [
             "call"
           ]
@@ -14704,6 +14763,8 @@
       "provides": [
         "BACKGROUND_RUN_DONE",
         "MISSION_FAILURE_PARAM_KEYS",
+        "NDJSON_EDGE_EXTEND_CHUNK",
+        "NDJSON_EDGE_EXTEND_MAX",
         "SESSION_SEARCH_ASSISTANT_CHARS",
         "SESSION_SEARCH_HEAD_BYTES",
         "SESSION_SEARCH_INDEX_FILE",
@@ -14747,6 +14808,7 @@
         "readNdjsonEdges",
         "readSessionSearchIndex",
         "refreshSessionSearchIndex",
+        "refreshSessionSearchIndexNow",
         "searchSessionsByContent",
         "sessionBackgroundRunRows",
         "sessionEnvelopeEtag",
@@ -14758,6 +14820,7 @@
         "sessionSearchHayOf",
         "sessionSearchIndexCache",
         "sessionSearchIndexPath",
+        "sessionSearchRefreshChains",
         "sessionSearchRowIsNoise",
         "sessionSearchSnippet"
       ],
@@ -14844,6 +14907,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -15966,6 +16036,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "interventionFilePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "interventionJournalWorthCompacting",
           "kinds": [
             "call"
           ]
@@ -26486,6 +26563,14 @@
     },
     {
       "from": "02-session-store.js",
+      "to": "01c-runtime-flags.js",
+      "symbols": [
+        "MEMORY_FIXED_SELECTION_HARD_MAX"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02-session-store.js",
       "to": "01e-permission-modes.js",
       "symbols": [
         "resolvePermissionMode"
@@ -27960,6 +28045,7 @@
       "symbols": [
         "TOOL_TIER_RANK",
         "URL",
+        "apiFailure",
         "appendUsageLedger",
         "claudeCostFields",
         "cp",
@@ -28146,6 +28232,7 @@
       "from": "08-agent-runs.js",
       "to": "00-boot.js",
       "symbols": [
+        "EventStreamHooks",
         "RUYI_EVENTS",
         "TOOL_TIER_RANK",
         "appendUsageLedger",
@@ -29528,7 +29615,6 @@
         "normalizeTodoItems",
         "readSessionRouteHead",
         "recordMissionCheckResult",
-        "saveSession",
         "workspaceBaselineIsCodePath",
         "workspaceBaselinePathKey"
       ],
@@ -29612,7 +29698,9 @@
       "to": "05b-kimi-bridge.js",
       "symbols": [
         "applyKimiStatusToSession",
-        "kimiSessionStatus"
+        "kimiSessionStatus",
+        "kimiStatusFingerprint",
+        "kimiUsageFromStatus"
       ],
       "direction": "backward"
     },
@@ -29698,6 +29786,7 @@
         "fetchOpenAiModels",
         "getAgentRoleLibrary",
         "projectAgentRoleFile",
+        "projectCwdDirectoryFailure",
         "readClaudeProjectAgentRoles",
         "readProjectAgentRoles",
         "saveProjectAgentRoles",
@@ -29746,7 +29835,8 @@
         "learnedWindowCap",
         "resolveContextWindow",
         "runAgentExternalCompact",
-        "runProviderCompact",
+        "runProviderCompactTracked",
+        "scheduleAgentWakesAtBoot",
         "streamChat",
         "truncateToolResult"
       ],
@@ -30000,6 +30090,7 @@
         "nowIso",
         "path",
         "paths",
+        "runKeyedChain",
         "safeDecodeURIComponent",
         "safeJsonParse",
         "text"
@@ -30282,6 +30373,7 @@
       "symbols": [
         "compactInterventionJournal",
         "interventionFilePath",
+        "interventionJournalWorthCompacting",
         "readInterventionsWithMeta",
         "sessionKind",
         "sessionMissionId"

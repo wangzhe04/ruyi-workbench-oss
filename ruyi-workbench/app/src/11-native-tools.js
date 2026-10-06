@@ -170,6 +170,20 @@ EventStreamHooks.pendingAgentWakeJobs = session => {
   const seen = new Set(Array.isArray(session.backgroundJobSeen) ? session.backgroundJobSeen : []);
   return readBackgroundJobs(session.id).filter(job => job && job.kind === 'agent' && job.background === true && !seen.has(job.id));
 };
+// 启动时补排唤醒用(10 scheduleAgentWakesAtBoot):账本里有 sinceMs 之后完成的后台代理信封的会话 id。是否已读由 10 按会话判。
+EventStreamHooks.recentBackgroundAgentJobSessions = sinceMs => {
+  let files = [];
+  try { files = fs.readdirSync(path.join(paths.sessions, 'background-jobs')); } catch { return []; }
+  const out = [];
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+    const sid = file.slice(0, -'.json'.length);
+    if (!safeSessionId(sid)) continue;
+    const recent = readBackgroundJobs(sid).some(job => job && job.kind === 'agent' && job.background === true && Date.parse(job.completedAt || '') >= sinceMs);
+    if (recent) out.push(sid);
+  }
+  return out;
+};
 
 function shellIdValid(id) { return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,32}$/.test(id); }
 function genShellId() { return 'sh_' + crypto.randomBytes(5).toString('hex'); }
@@ -1824,7 +1838,9 @@ const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersio
 // 自己的子孙);树杀不掉、管道仍不关(杀树命令失败 / 极端孤儿)时,5 秒后强行收尾,不让调用方永远挂着。
 function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
-    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number(timeoutMs || 15000)));
+    // 非数字(模型给 git_status 之类自造 timeoutMs:"30s")回落缺省:修前 NaN 一路传到 setTimeout,等于 1 ms 就把跑完的 git 杀掉、报「超过 0 秒」。
+    const askedMs = Number(timeoutMs);
+    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number.isFinite(askedMs) && askedMs > 0 ? askedMs : 15000));
     let child, timer = null, grace = null, timedOut = false, settled = false;
     const settle = r => {
       if (settled) return;
