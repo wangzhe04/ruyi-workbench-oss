@@ -30,7 +30,7 @@ fs.mkdirSync(ws, { recursive: true });
 if (NO_RG) {   // PATH 里摘掉放着 rg 的目录:系统 PATH 里的 rg 看不到,file_search 退到 JS 扫描
   // Windows CI 修(607e4a7 红):Windows 的 process.env 不分大小写 —— 修前先设 PATH 再 delete Path,等于把 PATH 整个删了,
   // 子进程里 PowerShell 等系统程序全找不到;也不再整个换掉 PATH,只摘掉含 rg 的目录。node 恰好与 rg 同目录时才给它单开一个 bin。
-  // (Windows 上工作台优先用随仓的 app/vendor-bin/rg.exe,那里子进程仍走 rg;JS 扫描路径由 Linux 跑满。)
+  // Windows 上工作台优先用随仓的 app/vendor-bin/rg.exe(与 PATH 无关),所以下面加载后还把 rg 探测缓存钉成「没有」。
   const rgName = process.platform === 'win32' ? 'rg.exe' : 'rg';
   const keep = String(process.env.PATH || process.env.Path || '').split(path.delimiter)
     .filter(d => d && !fs.existsSync(path.join(d, rgName)));
@@ -53,12 +53,14 @@ process.env.WIN_CLAUDE_WORKBENCH_HOME = dataRootDir;
 delete process.env.WCW_SESSION_ID;
 const { loadServerInternals } = require('../lib/server-internals');
 let I;
-try { I = loadServerInternals(['guardFileToolPath', 'toolCall', 'remoteUncDenial', 'uncHostAndPath', 'UNC_DENIED_ERROR']); }
+try { I = loadServerInternals(['guardFileToolPath', 'toolCall', 'remoteUncDenial', 'uncHostAndPath', 'UNC_DENIED_ERROR'], { withEval: NO_RG }); }
 catch (e) {
   if (!(e instanceof ReferenceError)) throw e;   // 反向验证:修前没有 UNC 闸符号 → 退回基础名单、UNC 单元断言自然红
-  I = loadServerInternals(['guardFileToolPath', 'toolCall']);
+  I = loadServerInternals(['guardFileToolPath', 'toolCall'], { withEval: NO_RG });
   I.remoteUncDenial = () => ''; I.uncHostAndPath = () => null; I.UNC_DENIED_ERROR = '<none>';
 }
+// 随仓 rg.exe 不走 PATH(Windows CI f2dfa62 红:子进程仍报 engine=rg):直接把模块级探测缓存设为 null = 「探过,没有 rg」。
+if (NO_RG) I.__eval('_rgProbe = null');
 
 after(() => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
