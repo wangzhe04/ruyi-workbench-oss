@@ -816,3 +816,13 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   颜色全走既有 token / color-mix,零新增动效;单条卡的规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-live.css>` 重算 = 18e23fa1…,与被替换的旧值
 // 逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 3.0 收口走查第一波续钉(前值 ecad3e8f…＝61 号文 C3 记忆批量卡续钉):零新增、零删除层,真浏览器走查的布局修复改八层 ——
+//   `css/views/steward-shell.css`:≤1180 容器查询里补一条与基础规则同选择器的「右栏不占列」(修前特异度输掉,1024 宽中栏 364px＋392px 死列);
+//   `css/views/chat-shell.css`:线程头管家条可收(flex 0 4 auto)、线程名基准 10em(英文下线程名被挤成 0);
+//   `css/components/chat-primitives.css` / `css/components/onboarding.css`:拖放区按钮 white-space:normal、向导说明 overflow-wrap:anywhere、
+//   向导当前步与手册语言钮文字改 --link;`css/views/settings.css`:设置导航当前项文字改 --link(暗色 accent 3.0:1);
+//   `css/views/steward-settings.css`:星期勾选 / 筛选标签里的 input/select 不吃 width:100%;`css/views/workspace.css`:审计时间线类型名可收;
+//   `css/views/chat-narrative.css`:markdown 表格单元格 min-width 4.5em;`css/base.css`:复选框 / 单选框 :focus-visible 实线焦点环;
+//   `css/layout.css`:齿轮菜单里的能力矩阵去掉胶囊边框底色。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9bbe566:<css>` 重算 = ecad3e8f…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。

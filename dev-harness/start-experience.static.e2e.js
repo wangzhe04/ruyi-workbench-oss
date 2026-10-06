@@ -197,6 +197,19 @@ ok(/powershell -NoLogo -NoProfile -WindowStyle Hidden -Command "Start-Process -F
   && !/echo \[Ruyi\] Workbench stopped with exit code/.test(packager),
   '④ package-offline.ps1 生成的启动器同步去黑窗(发布件才是用户真正双击的那个)');
 
+// 走查第二波 待核实 A:Windows PowerShell 5.1 对【数组形式】的 -ArgumentList 只用空格拼接、不给含空格的元素补引号,
+// 装在 `C:\Program Files\Ruyi` 这类目录时 server.js 路径被劈成两个参数、node 隐藏启动失败且无任何提示。
+// 上面「路径经环境变量传入」那条只管了 -FilePath 一侧;这里钉 -ArgumentList 一侧:单个已加引号的参数串(`{0}{1}{0}` 的 {0} 是 [char]34)。
+// 真跑验证见 launcher-spaced-path.e2e.js(Windows);这里钉文本,并钉两份启动器的回落行逐字一致。
+const NODE_ARGLIST = /-ArgumentList \('\{0\}\{1\}\{0\} serve --open' -f \(\[char\]34\),`?\$env:RUYI_SERVER\) -WindowStyle Hidden"/;
+ok(NODE_ARGLIST.test(cmdText) && !/-ArgumentList @\(/.test(cmdText),
+  '④ Start-Workbench.cmd 的 -ArgumentList 是单个已加引号的参数串(5.1 不给数组元素补引号,带空格目录会劈参数)');
+ok(NODE_ARGLIST.test(packager) && !/-ArgumentList @\(/.test(packager),
+  '④ 打包器生成的启动器同款(发布件才是用户真正双击的那个)');
+const fallbackLine = text => (text.match(/^powershell -NoLogo -NoProfile -WindowStyle Hidden -Command .*$/m) || [''])[0].replace(/`\$/g, '$').replace(/\r$/, '');
+ok(fallbackLine(cmdText) !== '' && fallbackLine(cmdText) === fallbackLine(packager),
+  '④ 两份启动器的 node 回落行逐字一致(去掉 here-string 的反引号转义后)');
+
 /* ═══════════════ ⑤ 118c:WebView2 失败人话化(C# 静态锁) ═══════════════ */
 
 const desktopSrc = read(WB, 'desktop', 'RuyiDesktop.cs');

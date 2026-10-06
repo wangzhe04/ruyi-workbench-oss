@@ -21,6 +21,7 @@ Chinese (CJK) hardening (v1.9.1):
 """
 
 import asyncio
+import contextvars
 import io
 import os
 import threading
@@ -382,15 +383,11 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
                           "width": width, "height": height,
                           "center": [left + width // 2, top + height // 2],
                           "line": line_no})
-    _WORDS_CAP = 500
-    words_total = len(words)
-    if words_total > _WORDS_CAP:
-        words = words[:_WORDS_CAP]
-    out = {"success": True, "text": result.text, "lines": [ln.text for ln in result.lines], "words": words}
-    if words_total > _WORDS_CAP:
-        out["truncated"] = True
-        out["words_total"] = words_total
-        out["hint"] = f"仅返回前 {_WORDS_CAP} 个词(共 {words_total} 个);缩小 region 或用 ocr_find_text 定位特定文本"
+    # The FULL word list goes back to the callers: ocr_click / ocr_find_text must match against every word on
+    # screen (a target past the 500th word used to read "not found"). Only the tool responses that hand the
+    # list to the model are capped, by _cap_words().
+    out = {"success": True, "text": result.text, "lines": [ln.text for ln in result.lines], "words": words,
+           "words_total": len(words)}
     if lang_used:
         out["lang_used"] = lang_used
     if fallback_from:
@@ -495,6 +492,30 @@ def _screenshot_png(region=None) -> bytes:
     return _png_bytes(img)
 
 
+# Words handed to the model per OCR tool response (ocr_screen / ocr_image). Matching tools search the full list:
+# ocr_click / ocr_find_text call ocr_screen through _screen_words_uncapped, which flips this switch for the call.
+_WORDS_CAP = 500
+_UNCAPPED = contextvars.ContextVar("acc_ocr_uncapped", default=False)
+
+
+def _cap_words(res: dict, cap: int | None = None) -> dict:
+    """Cut the word list of a successful OCR result to `cap` (default _WORDS_CAP) and say so; in place.
+
+    'text' and 'lines' stay complete. Adds truncated / words_total / hint only when words were dropped.
+    """
+    cap = _WORDS_CAP if cap is None else cap
+    words = res.get("words")
+    if res.get("success") and isinstance(words, list) and len(words) > cap:
+        total = len(words)
+        res["words"] = words[:cap]
+        res["truncated"] = True
+        res["words_total"] = total
+        res["hint"] = f"仅返回前 {cap} 个词(共 {total} 个);缩小 region 或用 ocr_find_text 定位特定文本"
+    else:
+        res.pop("words_total", None)
+    return res
+
+
 @mcp.tool()
 async def ocr_image(path: str, lang: str | None = None) -> dict:
     """Run OCR on an image file. Returns recognized text + per-word bounding boxes (image coords).
@@ -508,7 +529,7 @@ async def ocr_image(path: str, lang: str | None = None) -> dict:
         return _unavailable()
     if not os.path.exists(path):
         return {"error": f"file not found: {path}"}
-    return await _run_ocr_loader(lambda: _png_bytes_from_path(path), lang, "image read")
+    return _cap_words(await _run_ocr_loader(lambda: _png_bytes_from_path(path), lang, "image read"))
 
 
 def _offset_words(res: dict, ox: int, oy: int) -> None:
@@ -537,6 +558,21 @@ async def ocr_screen(region: str | None = None, lang: str | None = None) -> dict
         OCR'd area; 'truncated'/'words_total' when the word list was capped; 'blank': true for a completely black
         frame.
     """
+    res = await _ocr_screen_words(region, lang)
+    return res if _UNCAPPED.get() else _cap_words(res)
+
+
+async def _screen_words_uncapped(region: str | None, lang: str | None) -> dict:
+    """ocr_screen with the response cap off: every recognized word, for the tools that search by text."""
+    token = _UNCAPPED.set(True)
+    try:
+        return await ocr_screen(region=region, lang=lang)
+    finally:
+        _UNCAPPED.reset(token)
+
+
+async def _ocr_screen_words(region: str | None, lang: str | None) -> dict:
+    """The capture + recognize + origin/blank bookkeeping behind ocr_screen (full word list)."""
     if not _AVAILABLE:
         return _unavailable()
     bbox = None
@@ -840,7 +876,7 @@ async def ocr_click(text: str, region: str | None = None, lang: str | None = Non
     """
     if not _AVAILABLE:
         return _unavailable()
-    res = await ocr_screen(region=region, lang=lang)
+    res = await _screen_words_uncapped(region, lang)  # full word list: match everything on screen, not the first 500
     if not res.get("success"):
         return res
     # Keep the OCR engine's native reading order (result.lines -> line.words), which is already
@@ -907,7 +943,7 @@ async def ocr_find_text(text: str, region: str | None = None, click: bool = Fals
     """
     if not _AVAILABLE:
         return _unavailable()
-    res = await ocr_screen(region=region, lang=lang)
+    res = await _screen_words_uncapped(region, lang)  # full word list: match everything on screen, not the first 500
     if not res.get("success"):
         return res
     all_matches = _phrase_matches(res.get("words", []), text)

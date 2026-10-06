@@ -6,10 +6,14 @@ workbench has its own native web_fetch. This closes the gap for the standalone s
 Security: SSRF guard mirrors the workbench's native 11-native-tools.js pattern —
 scheme allowlist + DNS resolution + private/loopback/link-local/reserved IP rejection
 (incl. IPv4-mapped IPv6) + PER-HOP redirect re-validation (a redirect to 127.0.0.1 must
-not bypass the guard) + byte budget.
+not bypass the guard) + byte budget. Direct connections are additionally pinned: the socket is opened to an
+address validated at connect time (_pinned_connect), so a DNS answer that changes between the check and the
+connection (DNS rebinding) cannot reach the intranet. Requests that go through a configured proxy are resolved by
+the proxy and keep only the pre-check.
 """
 
 import codecs
+import http.client
 import ipaddress
 import re
 import socket
@@ -93,10 +97,102 @@ def _build_opener() -> urllib.request.OpenerDirector:
         _NoRedirect, urllib.request.HTTPSHandler(context=ssl.create_default_context()))
 
 
+def _connect_allowed(ip: str) -> bool:
+    """Connect-time gate for one resolved address: public/routable only (smoke tests swap this to allow a loopback server)."""
+    return _is_public_ip(ip)
+
+
+def _pinned_connect(host: str, port: int, timeout, source_address=None) -> socket.socket:
+    """Resolve `host` ONCE, refuse unless EVERY resolved address passes _connect_allowed, then connect to one of
+    those validated literals.
+
+    _check_url resolves too, but urllib would then resolve AGAIN when it connects, and a hostile DNS server can
+    answer the first lookup with a public address and the second with 127.0.0.1 / 169.254.169.254 (DNS
+    rebinding). Validating and connecting off the same lookup closes that window: nothing is ever dialed that was
+    not just checked. Raises OSError (urllib turns it into a URLError).
+    """
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as e:
+        raise OSError(f"DNS 解析失败: {e}") from e
+    ips = list(dict.fromkeys(info[4][0] for info in infos))
+    if not ips:
+        raise OSError("DNS 解析无结果。")
+    for ip in ips:
+        if not _connect_allowed(ip):
+            raise OSError(f"refused: 目标 {host} 在连接时解析到非公网地址 {ip}(SSRF 防护,防 DNS 重绑定/内网穿透)。")
+    last: OSError | None = None
+    for ip in ips:
+        try:
+            # An IP literal: create_connection does no DNS here, only the connect itself.
+            return socket.create_connection((ip, port), timeout, source_address)
+        except OSError as e:
+            last = e
+    raise last or OSError(f"无法连接 {host}")
+
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    def connect(self):  # noqa: D102 — dial the validated address; Host header / SNI keep the original name
+        self.sock = _pinned_connect(self.host, self.port, self.timeout, self.source_address)
+        try:
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError:
+            pass
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    def connect(self):  # noqa: D102 — TLS is verified against the ORIGINAL hostname (SNI + certificate)
+        sock = _pinned_connect(self.host, self.port, self.timeout, self.source_address)
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError:
+            pass
+        try:
+            self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+        except BaseException:
+            sock.close()
+            raise
+
+
+class _PinnedHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):  # noqa: D102
+        return self.do_open(_PinnedHTTPConnection, req)
+
+
+class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):  # noqa: D102
+        return self.do_open(_PinnedHTTPSConnection, req, context=self._context)
+
+
+def _build_pinned_opener() -> urllib.request.OpenerDirector:
+    """Opener for DIRECT connections: no redirects, TLS verified, and every connection goes through _pinned_connect.
+
+    Environment proxies are switched off here on purpose (a proxy does its own DNS, and dialing the proxy's own
+    address through the public-IP gate would refuse a local 127.0.0.1 proxy); _fetch_once only uses this opener
+    when no proxy applies to the URL.
+    """
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), _NoRedirect, _PinnedHTTPHandler(),
+        _PinnedHTTPSHandler(context=ssl.create_default_context()))
+
+
+def _proxy_in_effect(url: str) -> bool:
+    """True when urllib would send `url` through an environment/registry proxy (same test ProxyHandler applies)."""
+    try:
+        req = urllib.request.Request(url)
+        return req.type in urllib.request.getproxies() and not urllib.request.proxy_bypass(req.host)
+    except Exception:
+        return False
+
+
 def _fetch_once(url: str, timeout: float, max_bytes: int):
-    """One HTTP GET without following redirects. Returns (status, headers, body_bytes, error)."""
+    """One HTTP GET without following redirects. Returns (status, headers, body_bytes, error).
+
+    Direct connections are pinned to the address that was just validated (DNS-rebinding safe); a request that goes
+    through a configured proxy keeps the stock opener, and the proxy then resolves the name itself.
+    """
     req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "*/*"})
-    opener = _build_opener()
+    opener = _build_opener() if _proxy_in_effect(url) else _build_pinned_opener()
     try:
         with opener.open(req, timeout=timeout) as resp:
             body = resp.read(max_bytes + 1)

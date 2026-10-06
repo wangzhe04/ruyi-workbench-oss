@@ -125,5 +125,18 @@ ok(unregistered.length === 0, '③ 敏感目录(app/public 整棵、app/src、re
   ok(uncovered.length === 0, '③b 每个服务端 resources 读口都有载荷覆盖(文件已登记／目录在 ③ 扫描里)' + (uncovered.length ? '(没覆盖: ' + uncovered.join(', ') + ')' : ''));
 }
 
+// 走查第二波 #21:build-overlay 的 <version> 必填。修前默认 '0.3.0',不带参数时每个覆盖包的 version 都是 0.3.0,
+// 第二个包会被幂等预检当成「已应用」拒掉。校验必须在 main() 的第一句(缺版本号时一个文件都不能动),
+// 且被 require 时仍零副作用(上面的 require 能成功就是证据)。
+ok(!/process\.argv\[2\]\s*\|\|\s*'\d/.test(boSrc), '#21 build-overlay 不再有写死的默认版本号');
+{
+  const cp = require('child_process');
+  const r = cp.spawnSync(process.execPath, [path.join(ROOT, 'tools', 'build-overlay.js')], { encoding: 'utf8', timeout: 30000 });
+  ok(r.status === 1 && /Usage: node tools\/build-overlay\.js <version>/.test(r.stderr || ''),
+    `#21 不带版本号运行 -> 用法提示 + 退出码 1(实得 rc=${r.status})`);
+  ok(!fs.existsSync(path.join(ROOT, 'dist', 'overlay')) || fs.statSync(path.join(ROOT, 'dist', 'overlay')).mtimeMs < Date.now() - 20000,
+    '#21 缺版本号时没有动 dist/overlay(校验先于清理与装配)');
+}
+
 console.log('\nOVERLAY PAYLOAD LOCK STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

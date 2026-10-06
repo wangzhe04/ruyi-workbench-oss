@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3555,
-    "requiredSymbols": 3155,
+    "providedSymbols": 3566,
+    "requiredSymbols": 3161,
     "edges": 537,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -5834,17 +5834,21 @@
         "AGENT_INSTRUCTION_IMPORT_SCHEMA",
         "AGENT_INSTRUCTION_MAX_BYTES",
         "AGENT_INSTRUCTION_NATIVE_CLI",
+        "AGENT_INSTRUCTION_SCAN_VERSION",
         "CORE_MEMORY_CHAR_CAP",
         "CORE_MEMORY_MAX",
         "CORE_MEMORY_SUMMARY_CAP",
         "MEMORY_EXCLUSION_MAX",
         "MEMORY_FUSION_SCOPE_BONUS",
         "MEMORY_FUSION_TYPE_BONUS",
+        "MEMORY_GLOBAL_SCOPE_RE",
         "MEMORY_HEAD_CACHE",
         "MEMORY_HEAD_CACHE_MAX",
         "MEMORY_INDEX_CAP",
         "MEMORY_MAX",
         "MEMORY_METADATA_READ_CAP",
+        "MEMORY_PERSONAL_PREFERENCE_RE",
+        "MEMORY_PROJECT_ONLY_RE",
         "MEMORY_PROPOSAL_BATCH_MAX",
         "MEMORY_PROPOSAL_HISTORY_MAX",
         "MEMORY_PROPOSAL_MIN_JUDGE_GAP",
@@ -5866,6 +5870,7 @@
         "agentInstructionChain",
         "agentInstructionImportFile",
         "agentInstructionImportStore",
+        "agentInstructionLooksSensitive",
         "agentInstructionMemoryId",
         "agentInstructionSourceKeyOf",
         "agentInstructionSources",
@@ -5878,6 +5883,7 @@
         "buildMemoryPromptSection",
         "buildMemoryTurnSection",
         "cleanMemoryDate",
+        "clipRecentMemoryDraftContext",
         "commitSingleMemoryProposal",
         "commitToolMemoryProposal",
         "commitToolMemoryProposalUnlocked",
@@ -5904,7 +5910,9 @@
         "memoryDraftFromObject",
         "memoryEditWithin",
         "memoryExclusionSet",
+        "memoryFailureResponse",
         "memoryGlobalDir",
+        "memoryGlobalScopeAllowed",
         "memoryHayWords",
         "memoryHaystackFuzzyHasTerm",
         "memoryHaystackHasTerm",
@@ -5925,6 +5933,7 @@
         "memoryRecallCorpus",
         "memoryRecallCorpusCache",
         "memoryRecallLimit",
+        "memoryRecentUserTexts",
         "memoryRelationsFile",
         "memoryRetrievalKey",
         "memoryRetrievalText",
@@ -5938,6 +5947,7 @@
         "memoryValidSupersededBy",
         "migrateLegacyAccMemory",
         "migrateMemory",
+        "moveMemoryScope",
         "mutateMemoryUsageState",
         "normalizeMemoryProposalCandidate",
         "parseMemoryDraft",
@@ -5970,6 +5980,7 @@
         "recordMemoryProposalUsage",
         "removeAgentInstructionEntries",
         "renderAgentInstructionMemory",
+        "replayPendingMemoryProposal",
         "resolveCoreMemoryState",
         "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
@@ -5992,6 +6003,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
           "kinds": [
             "call"
           ]
@@ -6029,6 +6047,13 @@
           "symbol": "fsp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -13007,6 +13032,13 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "memoryRelevanceMax",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
@@ -13658,6 +13690,13 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "memoryFailureResponse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "migrateLegacyAccMemory",
           "kinds": [
             "call"
@@ -13666,6 +13705,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "migrateMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "moveMemoryScope",
           "kinds": [
             "call"
           ]
@@ -13694,6 +13740,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "readMemoryItem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "replayPendingMemoryProposal",
           "kinds": [
             "call"
           ]
@@ -27788,11 +27841,13 @@
       "symbols": [
         "SKILL_ID_RE",
         "agentCliHomes",
+        "apiFailure",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
         "computeProviderCost",
         "crypto",
         "fsp",
+        "json",
         "makeId",
         "neutralizeFenceTag",
         "nowIso",
@@ -29624,6 +29679,7 @@
         "coreMemoryCharBudget",
         "coreMemoryMaxItems",
         "memoryFixedSelectionMax",
+        "memoryRelevanceMax",
         "observationRecallEnabled"
       ],
       "direction": "backward"
@@ -29794,12 +29850,15 @@
         "listMemoryProjectGroups",
         "listMemoryRelations",
         "loadMemoryRegistry",
+        "memoryFailureResponse",
         "migrateLegacyAccMemory",
         "migrateMemory",
+        "moveMemoryScope",
         "projectKeyForCwd",
         "proposeMemoryFromSession",
         "proposeMemoryRelation",
         "readMemoryItem",
+        "replayPendingMemoryProposal",
         "resolveCoreMemoryState",
         "saveMemory",
         "syncAgentInstructionImports",
