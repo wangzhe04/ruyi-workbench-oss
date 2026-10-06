@@ -51,7 +51,7 @@ function persistBackgroundJob(job) {
   // The global SSE bus only carries metadata; tool output stays on the authenticated session route.
   RUYI_EVENTS.emit('background.completed', { sessionId: job.sessionId, jobId: job.id, status: job.status, persisted, kind: job.kind || 'shell', runId: job.runId || '' });
   // 后台代理的信封落账 → 线程此刻没有回合在跑就唤醒它(10 scheduleAgentWake;判据与防抖全在那边)。
-  if (persisted && job.kind === 'agent' && job.background === true && EventStreamHooks.onAgentEnvelopePersisted) {
+  if (persisted && job.kind === 'agent' && job.wakeParent === true && EventStreamHooks.onAgentEnvelopePersisted) {
     try { EventStreamHooks.onAgentEnvelopePersisted(job); } catch { /* 唤醒是旁路,绝不反噬落账 */ }
   }
   return persisted;
@@ -160,28 +160,45 @@ EventStreamHooks.notifyAgentRunEnvelope = (sessionId, run, envelope) => {
     id: EventStreamHooks.agentEnvelopeJobId(run.id), kind: 'agent', runId: String(run.id), shellId: String(run.id), name, sessionId,
     status: String(run.status || 'unknown'), exitCode: run.status === 'succeeded' ? 0 : 1,
     output: output.slice(0, 24000), truncated: output.length > 24000, completedAt: run.completedAt || nowIso(),
-    // 模型以 background:true 起的 run(含它的续跑/重试)才唤醒主会话;界面上同步跑完补投的那份不唤醒(没人在等它)。
-    ...(run.background === true ? { background: true } : {}),
+    // 只有【模型自己】以 background:true 起的 run(run.launchedByModel;含它的续跑/重试)才在账本行上打唤醒标 wakeParent:
+    // 面板 / HTTP 的 async 启动是用户点的(run.background 同样为 true,但没有模型在等它),界面上同步跑完补投的那份同理 ——
+    // 它们的信封照常进账本、随下一回合送达,不替模型起回合。
+    ...(run.launchedByModel === true ? { wakeParent: true } : {}),
   });
 };
-// 还没送达、可以唤醒主会话的后台代理信封(账本里 kind:'agent' 且 background、不在 seen 表里)。10 的唤醒判据只经这里读账本。
+// 还没送达、可以唤醒主会话的后台代理信封(账本里 kind:'agent' 且 wakeParent、不在 seen 表里)。10 的唤醒判据只经这里读账本。
 EventStreamHooks.pendingAgentWakeJobs = session => {
   if (!session || !session.id) return [];
   const seen = new Set(Array.isArray(session.backgroundJobSeen) ? session.backgroundJobSeen : []);
-  return readBackgroundJobs(session.id).filter(job => job && job.kind === 'agent' && job.background === true && !seen.has(job.id));
+  return readBackgroundJobs(session.id).filter(job => job && job.kind === 'agent' && job.wakeParent === true && !seen.has(job.id));
 };
-// 启动时补排唤醒用(10 scheduleAgentWakesAtBoot):账本里有 sinceMs 之后完成的后台代理信封的会话 id。是否已读由 10 按会话判。
-EventStreamHooks.recentBackgroundAgentJobSessions = sinceMs => {
+// 启动时补排唤醒用(10 scheduleAgentWakesAtBoot):账本里有 sinceMs 之后完成的、带唤醒标(wakeParent)的后台代理信封的会话 id。
+// 是否已读由 10 按会话判。异步 + 有界:账本文件单个可达 MB 级(100 行 × 24KB 信封),修前启动期同步全量读完才 listen;现在
+//   · 先 stat,mtime < sinceMs 的整文件跳过 —— 账本每次落账都整份重写,文件 mtime ≥ 其中任何一行的完成时刻,所以这一滤不会漏;
+//   · 只读 mtime 够新的,异步读,同时最多 BACKGROUND_LEDGER_SCAN_CONCURRENCY 个,让出事件循环。
+const BACKGROUND_LEDGER_SCAN_CONCURRENCY = 8;
+EventStreamHooks.recentBackgroundAgentJobSessions = async sinceMs => {
+  const dir = path.join(paths.sessions, 'background-jobs');
   let files = [];
-  try { files = fs.readdirSync(path.join(paths.sessions, 'background-jobs')); } catch { return []; }
+  try { files = await fsp.readdir(dir); } catch { return []; }
+  const candidates = files.filter(file => file.endsWith('.json') && safeSessionId(file.slice(0, -'.json'.length)));
   const out = [];
-  for (const file of files) {
-    if (!file.endsWith('.json')) continue;
-    const sid = file.slice(0, -'.json'.length);
-    if (!safeSessionId(sid)) continue;
-    const recent = readBackgroundJobs(sid).some(job => job && job.kind === 'agent' && job.background === true && Date.parse(job.completedAt || '') >= sinceMs);
-    if (recent) out.push(sid);
-  }
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const file = candidates[next++];
+      if (file === undefined) return;
+      try {
+        const full = path.join(dir, file);
+        const st = await fsp.stat(full);
+        if (!st.isFile() || st.mtimeMs < sinceMs) continue;
+        const rows = JSON.parse(await fsp.readFile(full, 'utf8'));
+        const recent = Array.isArray(rows) && rows.some(job => job && job.kind === 'agent' && job.wakeParent === true && Date.parse(job.completedAt || '') >= sinceMs);
+        if (recent) out.push(file.slice(0, -'.json'.length));
+      } catch { /* 读不出 / 损坏的账本:当没有,不挡启动 */ }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(BACKGROUND_LEDGER_SCAN_CONCURRENCY, candidates.length) }, worker));
   return out;
 };
 

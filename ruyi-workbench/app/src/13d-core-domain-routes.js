@@ -117,6 +117,7 @@ function sessionSearchRowIsNoise(row) {
   if (!row || typeof row !== 'object') return true;
   if (row.role !== 'user' && row.role !== 'assistant') return true;
   if (row.backgroundJobId || row.source === 'compact' || row.hidden === true) return true;
+  if (row.meta && row.meta.origin === 'agent_wake') return true;   // 后台代理唤醒通知:系统文字,不是这条会话「干过什么」的信号
   const text = typeof row.content === 'string' ? row.content.trimStart() : '';
   return /^(?:\[(?:代理完成通知|后台任务完成通知|后台任务|工具结果)|<system-reminder>)/.test(text);
 }

@@ -367,7 +367,7 @@ followed by an index of the tool calls already made, and the AI can fetch the or
 **The AI handed work to background agents and then went quiet.** By default, when background agents finish the
 workbench starts a turn by itself and hands the results to the AI, so you do not have to say anything (each delivered result wakes
 the conversation once; at most 6 wake-ups happen in a row and your next message resets the count; stopped, cancelled or
-restart-interrupted agents and the steward conversation never wake it). If you turned off "Wake the conversation when background agents finish" under Settings →
+restart-interrupted agents and the steward conversation never wake it; neither do runs you started yourself from the Agent workflows panel, nor anything after you pressed Stop or rewound the conversation - those results wait for your next message). If you turned off "Wake the conversation when background agents finish" under Settings →
 General → Usage & limits → Concurrency, the results arrive with your next message instead.
 
 ## 8. Local models (Ollama / LM Studio)

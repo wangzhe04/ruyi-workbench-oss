@@ -584,10 +584,12 @@ async function stewardSourceUserTexts(sourceRef) {
   // 几十条系统事件归成一段文本发给模型),但那不是用户本人说的话。13h 在那条消息上落了
   // meta.origin === 'inbox'(随会话正文持久化,重启后仍在),这里确定性拒绝它。同理拒绝
   // 驱动器自动续跑的消息(source:'mission-driver')—— 也不是人说的。
+  // 唤醒通知(meta.origin:'agent_wake',后台代理跑完后工作台替模型起的回合)同理:它是系统通知,正文里还带着子代理任务标题 ——
+  // 那是模型 / 网页可影响的文本,不是用户说的话(06d memoryRecentUserTexts 早已同口径排除)。
   // 第二轮工具走查(F17):再拒一类 —— 管家自己发起的那条用户消息(thread_new 委托书 / thread_continue 递话 /
   // quick_ask 问题,13k stewardLaunchTurn 落 meta.origin:'steward')。它是管家转述的,不是用户本人这一回合说的话。
   const own = messages.filter(m => m && m.role === 'user' && Number(m.turnSeq) === turnSeq
-    && !(m.meta && typeof m.meta === 'object' && (m.meta.origin === 'inbox' || m.meta.origin === 'steward'))
+    && !(m.meta && typeof m.meta === 'object' && (m.meta.origin === 'inbox' || m.meta.origin === 'steward' || m.meta.origin === 'agent_wake'))
     && m.source !== 'mission-driver');
   return own.length ? own.map(m => String(m.content == null ? '' : (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))) : null;
 }

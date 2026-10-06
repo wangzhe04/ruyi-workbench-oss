@@ -174,7 +174,8 @@ When the model starts agents with `background:true` and the thread is idle as th
 workbench starts a turn itself (`runAgentWake`, source `agent_wake`, 1.5 s debounce so one parallel batch wakes once)
 and hands the results to the model. Each envelope (keyed by job id plus completion time, so a resumed or retried run that delivers a new envelope wakes
 once more) wakes the conversation once; at most 6 wake-ups happen in a row, and any turn that is not itself a wake-up
-(the user's message, a steward-dispatched turn, a scheduled task) resets the count; the steward conversation and
+(the user's message, a steward-dispatched turn, a scheduled task) resets the count; only runs the model itself started wake the conversation (`run.launchedByModel`, written to the ledger row as `wakeParent:true`; a panel / HTTP `async` launch is also `background:true` but never wakes); once the user has pressed Stop or rewound the thread, nothing wakes it until their next message
+(`agentWakeSuppressed`; a rewind also stops the still-running model-launched runs of the discarded turns and drops their envelopes; held-back envelopes stay in the ledger and arrive with the next message); the steward conversation and
 stopped, cancelled or restart-interrupted runs are never woken; no turn is started while a manual compaction is
 running (it is retried afterwards); and at boot, sessions whose envelope was recorded within the last 6 hours without
 the wake-up having started are scheduled again (`scheduleAgentWakesAtBoot`). With `config.agentAutoWake:false` (Settings → Usage & limits → Concurrency) the envelope is delivered

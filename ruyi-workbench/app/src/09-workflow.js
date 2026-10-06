@@ -40,7 +40,7 @@ function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, fo
   return 'none';
 }
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, onRegistered }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered }) {
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
   // 段账本据此不把它们标 cancelled(回合结束不杀它),前端据此把它们画进自己的卡/后台任务条而不是父回合的活动条。
@@ -215,6 +215,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       kind: String(runKind || 'orchestrate_agents'), title: String(runTitle || ''),
       // 代理模式 v2:后台 run 与父回合 abort 解耦(调用方不传 ctrl),回合结束不杀;完成信封经后台任务账本投递一次。
       background: isBackgroundRun,
+      // 「是模型自己起的后台 run」:只有这种 run 跑完才会唤醒主会话(10 scheduleAgentWake)。与 background 分开记 ——
+      // 面板 / HTTP 的 async 启动(用户点的)同样是 background:true,但没有模型在等它,不该替模型起回合。
+      launchedByModel: launchedByModel === true,
       // 29b/29c: 首跑权限面存档(boot 自动恢复分级用 —— 恢复时 config.permissionMode 若比首跑更宽,自动续跑
       // 等于权限静默升级,必须降人工)+ 运营指标(interventions 干预计数 / failuresByClass 收尾聚合)。
       permissionModeAtLaunch: String(permModeOverride || config.permissionMode || ''), metrics: { interventions: {} }, replanPatches: [], replanBaseline: null, nodes };
@@ -1225,6 +1228,8 @@ function settleWaitEnvelopes(session, out) {
 }
 // 后台 run 收尾 → 一份信封进后台任务账本(下一迭代边界 / 下一回合开头注入一次;toast + 后台任务条随 background.completed 刷新)。
 async function deliverAgentRunEnvelope(sessionId, run) {
+  // 起它的那个回合已被用户撤回(10 onSessionRewound 停掉并打了标):对话里已经没有这件事了,信封只会让下一回合凭空多出一份「已停止」通知。
+  if (run && run.cancelledByRewind === true) return;
   try {
     const envelope = buildAgentRunEnvelope(run);
     if (EventStreamHooks.notifyAgentRunEnvelope) EventStreamHooks.notifyAgentRunEnvelope(sessionId, run, envelope);
@@ -2484,13 +2489,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 团队模式 v2: 回合内 orchestrate 一律关任务池(propose_task 不注册);持久化 launch 才走审批流。
       poolPolicy: 'off', runIdOverride: runId, background,
     };
-    const failedRun = error => ({ schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, kind: 'orchestrate_agents', background, status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error, nodes: [] });
+    const failedRun = error => ({ schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, kind: 'orchestrate_agents', background, launchedByModel: background, status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error, nodes: [] });
     if (background) {
       backgroundAgentRunIds.add(runId);
       subagentTotal += nodeCount;
       // 事件只在【本回合】仍是活回合时进父流(关掉的 SSE 不写);run 自己的 progressLog/事件日志与 GET /api/agent-runs 是权威实时面。
       const detachedOnEvent = evt => { if (activeChildren.get(session.id) === reg) onNestedEvent(evt); };
-      void runAgentWorkflow({ ...common, onEvent: detachedOnEvent, ctrl: null, onComplete: run => deliverAgentRunEnvelope(session.id, run) })
+      void runAgentWorkflow({ ...common, launchedByModel: true, onEvent: detachedOnEvent, ctrl: null, onComplete: run => deliverAgentRunEnvelope(session.id, run) })
         .then(async res => {
           // 启动期被拒(校验失败等)时 run 文件不存在 → 补一份失败 run 并投递失败信封,wait_agents 才不会 not_found。
           if (res && res.ok === false && !(Number(res.startedCount) > 0) && !activeAgentRuns.has(runId)) {

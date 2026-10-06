@@ -1230,6 +1230,9 @@ async function handleApi(req, res, pathname) {
     // 追加整份「Agent 工作流已结束」助手消息(那条会被 syncProviderHistoryFromDisplay 抄进模型上下文)。
     const completion = run => deliverAgentRunEnvelope(session.id, run);
     const background = body.async === true || body.background === true;
+    // 只有 Claude/Kimi 的 MCP 子进程回环(envelope:true)替模型发起的 background:true 才算「模型起的」:跑完才会唤醒主会话。
+    // 面板 / HTTP 的 async:true 是用户点的,信封照常进账本、随下一回合送达,但不替模型起回合。
+    const launchedByModel = body.envelope === true && body.background === true;
     if (background) {
       const runId = makeId('run');
       // 与 launchPersistedAgentRun 同款:等到登记进 activeAgentRuns(或登记前就退出)再回。修前发起即回 accepted ——
@@ -1237,9 +1240,9 @@ async function handleApi(req, res, pathname) {
       // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
       let markRegistered = null;
       const registered = new Promise(resolve => { markRegistered = resolve; });
-      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
+      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, launchedByModel, onRegistered: () => markRegistered() }).catch(async e => {
         activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
-        const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
+        const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, launchedByModel, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
         await completion(run).catch(() => {});
         return { ok: false, error: run.error, reported: true };
@@ -2036,7 +2039,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
-  scheduleAgentWakesAtBoot(); // 后台代理信封已落账、唤醒没起成就重启了 → 补排(10;同步,防抖到点时服务早已在监听)
+  void scheduleAgentWakesAtBoot(); // 后台代理信封已落账、唤醒没起成就重启了 → 补排(10;异步不 await,按 mtime 预筛账本,启动不等它;防抖到点时服务早已在监听)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
   // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
   // external-import discovery authoritative.
