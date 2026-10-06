@@ -592,10 +592,10 @@ function parseKimiWireAgentEvents(row, wireAgentId, state = {}) {
     startIfNeeded(agent, created);
     if (type === 'subagent.started') {
       agent.running = true; agent.lastProgressAt = Date.now();
-      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: 'Kimi 子代理运行中', engine: 'kimi', native: true, agentId: agent.nativeId });
+      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: 'Kimi 子代理运行中', noteCode: 'kimiRunning', engine: 'kimi', native: true, agentId: agent.nativeId });
     } else if (type === 'subagent.suspended') {
       agent.running = true;
-      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'waiting', note: `Kimi 子代理已暂停：${String(event.reason || '等待继续')}`, engine: 'kimi', native: true, agentId: agent.nativeId });
+      out.push({ type: 'subagent_progress', subagentId: agent.id, state: 'waiting', note: `Kimi 子代理已暂停：${String(event.reason || '等待继续')}`, noteCode: event.reason ? 'kimiPaused' : 'kimiPausedWaiting', reason: String(event.reason || ''), engine: 'kimi', native: true, agentId: agent.nativeId });
     } else if (!agent.settled) {
       agent.running = false; agent.settled = true;
       const ok = type === 'subagent.completed';
@@ -700,7 +700,7 @@ function watchKimiWire(nativeSessionId, onEvent, contextWindow, state = {}) {
       for (const agent of state.subagents instanceof Map ? state.subagents.values() : []) {
         if (agent.running && !agent.settled && now - agent.lastProgressAt >= 2000) {
           agent.lastProgressAt = now;
-          onEvent({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: `Kimi 子代理运行中 · ${Math.max(1, Math.round((now - agent.startedAt) / 1000))}s`, engine: 'kimi', native: true, agentId: agent.nativeId });
+          onEvent({ type: 'subagent_progress', subagentId: agent.id, state: 'running', note: `Kimi 子代理运行中 · ${Math.max(1, Math.round((now - agent.startedAt) / 1000))}s`, noteCode: 'kimiRunningFor', secs: Math.max(1, Math.round((now - agent.startedAt) / 1000)), engine: 'kimi', native: true, agentId: agent.nativeId });
         }
       }
     } catch { /* wire updates are best-effort */ } finally { reading = false; }

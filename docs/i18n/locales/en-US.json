@@ -723,7 +723,7 @@
   "onboarding.wizard.reopen": "Reopen the setup guide",
   "onboarding.wizard.reopenHint": "Forgot how to configure something? You can walk through the guide again at any time.",
   "onboarding.wizard.safety.acceptEdits.description": "File edits happen directly; running commands still asks first. File changes can be rolled back.",
-  "onboarding.wizard.safety.acceptEdits.title": "Do not ask for file edits",
+  "onboarding.wizard.safety.acceptEdits.title": "Edit files without asking",
   "onboarding.wizard.safety.auto.description": "Low-risk work runs and reports back; deleting data, installing software, pushing and sending anything outside still stop and ask you.",
   "onboarding.wizard.safety.auto.title": "Smart auto (new-install default)",
   "onboarding.wizard.safety.autoConfirm.title": "Use \"Smart auto\"?",
@@ -731,8 +731,8 @@
   "onboarding.wizard.safety.autoConfirm.ok": "Yes, use Smart auto",
   "onboarding.wizard.safety.autoConfirm.cancel": "Not now",
   "onboarding.wizard.safety.default.description": "Asks before every change. Safest, and the most clicking.",
-  "onboarding.wizard.safety.default.title": "Ask me every time",
-  "onboarding.wizard.safety.hint": "This decides whether the AI asks before it acts. New installs start in Smart auto; pick Ask me every time if you want it to ask before each step. You can change it later.",
+  "onboarding.wizard.safety.default.title": "Ask me every step",
+  "onboarding.wizard.safety.hint": "This decides whether the AI asks before it acts. New installs start in Smart auto; pick Ask me every step if you want it to ask before each step. You can change it later.",
   "onboarding.wizard.safety.plan.description": "Writes a plan without touching anything. Good for seeing what it intends to do.",
   "onboarding.wizard.safety.plan.title": "Plan only",
   "onboarding.wizard.safety.saved": "Switched to: {{name}}",
@@ -1435,7 +1435,7 @@
   "settings.outputStyle.concise": "Concise (answer first)",
   "settings.outputStyle.detailed": "Detailed (default)",
   "settings.partialStreaming": "Live streaming (--include-partial-messages)",
-  "settings.permissionBridge": "Bridge permission prompts (--permission-prompt-tool; requires a non-bypass permission mode)",
+  "settings.permissionBridge": "Bridge permission prompts (--permission-prompt-tool; requires a mode other than Fully automatic)",
   "settings.permissions": "Safety and permissions",
   "settings.preset": "Preset",
   "settings.pricing.hint": "If the endpoint above is a third-party Coding Plan, these prices are only for cost estimates when the backend supports them. By default, plan usage shows token consumption only; subscription billing is not pay-as-you-go spending, so do not treat it as actual cost.",
@@ -3901,4 +3901,13 @@
   ,"provider.testError.unreachable": "Cannot reach the endpoint: check the network and the base URL, and that an internal endpoint is reachable ({{detail}})"
   ,"provider.testError.needsModel": "This endpoint does not list its models: enter one of this provider's model names under \"Model\" first, then test again."
   ,"provider.testError.failed": "Connection failed ({{detail}})"
+  ,"chat.subagent.note.init": "Initializing sub-agent…"
+  ,"chat.subagent.note.streaming": "Model is streaming a reply"
+  ,"chat.subagent.note.generating": "Generating · {{chars}} chars"
+  ,"chat.subagent.note.kimiRunning": "Kimi sub-agent running"
+  ,"chat.subagent.note.kimiRunningFor": "Kimi sub-agent running · {{secs}}s"
+  ,"chat.subagent.note.kimiPaused": "Kimi sub-agent paused: {{reason}}"
+  ,"chat.subagent.note.kimiPausedWaiting": "Kimi sub-agent paused: waiting to continue"
+  ,"stewardShell.askYou.permission": "Waiting for your approval: {{what}}"
+  ,"stewardShell.askYou.permissionTarget": "{{verb}} “{{name}}”"
 }

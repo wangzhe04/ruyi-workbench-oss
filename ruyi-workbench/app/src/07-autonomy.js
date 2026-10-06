@@ -2532,7 +2532,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           // CLAUDE_PROGRESS_CHAR_STEP boundary so a long, tool-less generation shows live activity.
           if (assistantText.length - progressChars >= CLAUDE_PROGRESS_CHAR_STEP) {
             progressChars = assistantText.length;
-            onEvent({ type: 'subagent_progress', subagentId, chars: assistantText.length, note: `生成中 · ${assistantText.length} 字` });
+            onEvent({ type: 'subagent_progress', subagentId, chars: assistantText.length, note: `生成中 · ${assistantText.length} 字`, noteCode: 'generating' });   // 第三波 M4:note 是写日志的中文,noteCode 让前端按界面语言出字
           }
         }
         else if (ev.kind === 'tool_use') { toolCallCount += 1; onEvent({ type: 'tool_use', id: ev.id, name: ev.name, input: ev.input, subagentId }); }

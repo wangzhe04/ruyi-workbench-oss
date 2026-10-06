@@ -4,7 +4,7 @@ import './mission-state.js';
 import { apiRaw } from './net.js';
 // 注（走查 S-14）：elapsedLabel 自此本模块不再直接调用（左栏在跑行改说「3 分钟前」，不印 `2s` 缩写）；import 保留，
 // 因为 steward-board.static B3 逐字钉着「时长文案是 import 复用、不是复制」。
-import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, stewardWaitBlockerId, stewardWaitText, threadIsBlank, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
+import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, stewardAskText, stewardWaitBlockerId, stewardWaitText, threadIsBlank, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
 // 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
@@ -641,7 +641,7 @@ export function createStewardBoard({
     }
     if (state === 'needs_you') {
       const asks = (row && row.asksYou && typeof row.asksYou === 'object') ? row.asksYou : null;
-      const text = String((asks && asks.text) || '').trim();
+      const text = stewardAskText(asks, t).trim();   // 第三波 M4：权限一支按界面语言重拼（见 thread-facts.js）
       if (!text) return '';
       return text.length > RAIL_ASK_PREVIEW_CHARS ? `${text.slice(0, RAIL_ASK_PREVIEW_CHARS)}…` : text;
     }
@@ -1036,7 +1036,7 @@ export function createStewardBoard({
       pill.type = 'button';
       // 待决原话（06i 的 stewardPendingOneLine 出的那一句）挂 hover：pill 上只放「哪一类」，
       // 「具体是什么」在抽屉的问答卡里说全，行上不抢那句话的位置。
-      if (row.asksYou.text) pill.title = String(row.asksYou.text);
+      if (row.asksYou.text) pill.title = stewardAskText(row.asksYou, t);
       pill.dataset.asksYou = kind;
       pill.onclick = () => openRow(sessionId);
       head.appendChild(pill);

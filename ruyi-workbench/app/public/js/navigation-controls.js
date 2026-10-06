@@ -920,6 +920,13 @@ function switchSettingsTab(name, force) {
   openSettingsNavGroupFor(name);    // 123-S2：切到哪个页签就展开它所在的组（含 openModal 恢复上次页签）
   buildSettingsJumpList(`stab-${name}`); // 123-S2：长面板顶部重建段内锚点 chip 条（无候选段的面板自动跳过）
   document.querySelectorAll('#settingsTabs button[data-stab]').forEach(b => b.classList.toggle('active', b.dataset.stab === name)); // 118d: 排尾的「?」不是页签
+  { // 第三波 H6：≤640 页签条是横向滚动条（约 3000px 宽、只看得见三五枚），切页后把激活页签滚进视野正中；竖排侧栏时 scrollWidth==clientWidth，直接跳过
+    const strip = $('settingsTabs'); const cur = strip && strip.querySelector('button[data-stab].active');
+    if (strip && cur && strip.scrollWidth > strip.clientWidth + 1) {
+      const a = cur.getBoundingClientRect(); const b = strip.getBoundingClientRect();
+      strip.scrollLeft += (a.left + a.width / 2) - (b.left + b.width / 2);
+    }
+  }
   document.querySelectorAll('.settings-tab').forEach(s => s.classList.toggle('active', s.id === `stab-${name}`));
   if (name === 'agents') loadAgentRoles();
   if (name === 'doctor') {
@@ -1023,7 +1030,13 @@ function openToolPane() {
   if (isNarrow()) shell.classList.add('tools-open');
   else shell.classList.remove('tools-collapsed');
 }
-function closeToolDrawer() { document.querySelector('.app-shell').classList.remove('tools-open'); }
+function closeToolDrawer() {
+  document.querySelector('.app-shell').classList.remove('tools-open');
+  // 第三波 H4：关着的抽屉 visibility:hidden，焦点还在里面时还给把它打开的那枚钮。
+  const active = document.activeElement;
+  const opener = document.getElementById('toggleToolsBtn');
+  if (opener && active && active.closest && active.closest('.tool-pane')) opener.focus();
+}
 
 /* ---------------- v3 (§2.7 P2): 右栏三档宽(392/480/全屏)—— 拖拽手柄 + 双击循环 + localStorage 记忆 ---------------- */
 // 档位存 'wcw.rightWidth'(值 '392'|'480'|'full')。桌面栅格档专属;窄屏(≤1180)走既有抽屉,仅记偏好不改布局。

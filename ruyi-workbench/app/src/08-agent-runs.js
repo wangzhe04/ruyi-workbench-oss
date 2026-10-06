@@ -587,7 +587,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   const stopInitBeat = () => { if (initBeat) { clearInterval(initBeat); initBeat = null; } };
   const startInitBeat = () => {
     if (initBeat) return;
-    initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
+    initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中', noteCode: 'init' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
     if (initBeat && initBeat.unref) initBeat.unref();
   };
   // 工具心跳的句柄与停止函数提前到这里声明(启动函数仍在下面、紧挨它用到的流式节流):外壳的 finally 可能在
@@ -736,7 +736,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     const now = Date.now();
     if (now - lastStreamActivityEventAt < streamActivityEventMs) return;
     lastStreamActivityEventAt = now;
-    onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中' });
+    onEvent({ type: 'subagent_progress', subagentId, note: '模型流式响应中', noteCode: 'streaming' });
   };
   // A3: 工具执行心跳 —— 子代理 await 长工具(>watchdog idle 上限的 powershell_run/script_run 等)期间,
   // 除 tool_use/tool_result 外不发任何事件,会被节点级/工作流级看门狗误判卡死而 abort。

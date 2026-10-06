@@ -1435,7 +1435,7 @@
   "settings.outputStyle.concise": "简洁（直接给结果）",
   "settings.outputStyle.detailed": "详细（默认）",
   "settings.partialStreaming": "实时流式 (--include-partial-messages)",
-  "settings.permissionBridge": "权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）",
+  "settings.permissionBridge": "权限弹窗桥接（--permission-prompt-tool；需非「全自动」档）",
   "settings.permissions": "安全与权限",
   "settings.preset": "预设",
   "settings.pricing.hint": "若上方端点是第三方 Coding Plan，此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。",
@@ -3901,4 +3901,13 @@
   ,"provider.testError.unreachable": "连不上端点：检查网络与 Base URL，内网端点确认可达（{{detail}}）"
   ,"provider.testError.needsModel": "这个端点不提供模型清单：请先在「模型」里填上这家服务商的模型名，再测试连接。"
   ,"provider.testError.failed": "连接失败（{{detail}}）"
+  ,"chat.subagent.note.init": "子代理初始化中"
+  ,"chat.subagent.note.streaming": "模型流式响应中"
+  ,"chat.subagent.note.generating": "生成中 · {{chars}} 字"
+  ,"chat.subagent.note.kimiRunning": "Kimi 子代理运行中"
+  ,"chat.subagent.note.kimiRunningFor": "Kimi 子代理运行中 · {{secs}}s"
+  ,"chat.subagent.note.kimiPaused": "Kimi 子代理已暂停：{{reason}}"
+  ,"chat.subagent.note.kimiPausedWaiting": "Kimi 子代理已暂停：等待继续"
+  ,"stewardShell.askYou.permission": "等你放行:{{what}}"
+  ,"stewardShell.askYou.permissionTarget": "{{verb}}「{{name}}」"
 }

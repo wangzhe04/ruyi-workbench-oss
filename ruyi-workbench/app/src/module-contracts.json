@@ -5776,6 +5776,7 @@
         "stewardPermissionLabel",
         "stewardPermissionPlain",
         "stewardPermissionRank",
+        "stewardPermissionTarget",
         "stewardPlaybookMissingInputs",
         "stewardPrerouteContainsPhrase",
         "stewardPrerouteDeicticHit",

@@ -274,6 +274,12 @@
   border: 1px solid var(--gold-line);
   padding: 0 var(--sp-2);
   cursor: pointer;
+  /* 第三波 H3：它是 <button>，吃全局 min-height:var(--tap-min)(40px) 与 white-space:nowrap —— 英文「Waiting for your go-ahead」
+     于是独占一整行、40px 高像个大按钮。收成药丸高度，放不下就省略。 */
+  min-height: 22px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: background var(--dur-fast) var(--ease-out);
 }
 .steward-board-pill.is-asks-you:hover { background: var(--gold); color: var(--gold-ink); }
@@ -409,6 +415,10 @@
   flex: 0 1 auto;
   /* 收缩下限：留住几个字 —— 名字可以被截成「等华南…」，但不许被截成什么都不剩。 */
   min-width: 5em;
+  /* 第三波 H3：flex-wrap 的换行判据看的是 flex-basis(auto＝max-content)。标题（常取首条消息）一长，basis 就超出整行，
+     于是整个名字被推到第二行、色点独占第一行、时间掉到第三行。给名字一个「整行减色点与时间」的上限，basis 被它夹住，
+     名字留在色点旁边（超出省略），只有时间／药丸放不下才折到下一行。 */
+  max-width: calc(100% - 76px);
   min-height: 0;
   text-align: left;
   font: inherit;

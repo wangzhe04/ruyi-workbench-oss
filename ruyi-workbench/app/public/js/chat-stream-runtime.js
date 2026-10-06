@@ -1653,7 +1653,7 @@ export function createChatStreamRuntime(deps = {}) {
       // v1.4.6 (C): keyed by subagentId (not id); refresh the sub-card head with the streamed-text milestone
       // so a long tool-less Claude sub-turn shows "生成中 · N 字" instead of a silent stall until the ✓/✗.
       const host = live.subCards.get(evt.subagentId);
-      if (host && host.status) host.status.textContent = `${evt.note || t('chat.subagent.generating', { chars: Number(evt.chars) || 0 })}${host.roleTag || ''}${host.tierTag || ''}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+      if (host && host.status) host.status.textContent = `${(evt.noteCode && t('chat.subagent.note.' + evt.noteCode, { chars: Number(evt.chars) || 0, secs: Number(evt.secs) || 0, reason: String(evt.reason || '') })) || evt.note || t('chat.subagent.generating', { chars: Number(evt.chars) || 0 })}${host.roleTag || ''}${host.tierTag || ''}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
       return;
     }
     if (evt.type === 'subagent_no_progress' || evt.type === 'adaptive_tool_budget') {
