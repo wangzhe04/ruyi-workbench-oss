@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3534,
-    "requiredSymbols": 3147,
+    "providedSymbols": 3540,
+    "requiredSymbols": 3149,
     "edges": 536,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -7531,6 +7531,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -10119,6 +10126,7 @@
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
+        "AGENT_WAKE_BOOT_WINDOW_MS",
         "AGENT_WAKE_CHAIN_MAX",
         "AGENT_WAKE_DEBOUNCE_MS",
         "AGENT_WAKE_SOURCE",
@@ -10151,6 +10159,7 @@
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
+        "MANUAL_COMPACTION_SUMMARY_HEADER",
         "MODEL_CONTEXT_TABLE",
         "OBSERVATION_ARRAY_SAMPLE",
         "OBSERVATION_CRITICAL_KEYS",
@@ -10193,6 +10202,7 @@
         "agentNodeContextWindow",
         "agentWakeAttempted",
         "agentWakeChain",
+        "agentWakeJobKey",
         "agentWakeMessage",
         "agentWakeSkipsStatus",
         "agentWakeTimers",
@@ -10265,6 +10275,7 @@
         "persistContextCalibration",
         "pickSummaryFailure",
         "protectedObservation",
+        "providerCompactInFlight",
         "providerContextWindow",
         "providerConversationContextWindow",
         "providerSummaryCall",
@@ -10284,8 +10295,10 @@
         "runAutoCompaction",
         "runForcedOverflowCompaction",
         "runProviderCompact",
+        "runProviderCompactTracked",
         "runSessionTurn",
         "scheduleAgentWake",
+        "scheduleAgentWakesAtBoot",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -13970,7 +13983,14 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "runProviderCompact",
+          "symbol": "runProviderCompactTracked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "scheduleAgentWakesAtBoot",
           "kinds": [
             "call"
           ]
@@ -28195,6 +28215,7 @@
       "from": "08-agent-runs.js",
       "to": "00-boot.js",
       "symbols": [
+        "EventStreamHooks",
         "RUYI_EVENTS",
         "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
@@ -29799,7 +29820,8 @@
         "learnedWindowCap",
         "resolveContextWindow",
         "runAgentExternalCompact",
-        "runProviderCompact",
+        "runProviderCompactTracked",
+        "scheduleAgentWakesAtBoot",
         "streamChat",
         "truncateToolResult"
       ],

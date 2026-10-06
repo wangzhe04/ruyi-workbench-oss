@@ -7439,6 +7439,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -10019,6 +10026,7 @@
       "file": "10-context-governance.js",
       "layer": "orchestration",
       "provides": [
+        "AGENT_WAKE_BOOT_WINDOW_MS",
         "AGENT_WAKE_CHAIN_MAX",
         "AGENT_WAKE_DEBOUNCE_MS",
         "AGENT_WAKE_SOURCE",
@@ -10051,6 +10059,7 @@
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
+        "MANUAL_COMPACTION_SUMMARY_HEADER",
         "MODEL_CONTEXT_TABLE",
         "OBSERVATION_ARRAY_SAMPLE",
         "OBSERVATION_CRITICAL_KEYS",
@@ -10093,6 +10102,7 @@
         "agentNodeContextWindow",
         "agentWakeAttempted",
         "agentWakeChain",
+        "agentWakeJobKey",
         "agentWakeMessage",
         "agentWakeSkipsStatus",
         "agentWakeTimers",
@@ -10165,6 +10175,7 @@
         "persistContextCalibration",
         "pickSummaryFailure",
         "protectedObservation",
+        "providerCompactInFlight",
         "providerContextWindow",
         "providerConversationContextWindow",
         "providerSummaryCall",
@@ -10184,8 +10195,10 @@
         "runAutoCompaction",
         "runForcedOverflowCompaction",
         "runProviderCompact",
+        "runProviderCompactTracked",
         "runSessionTurn",
         "scheduleAgentWake",
+        "scheduleAgentWakesAtBoot",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -13860,7 +13873,14 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "runProviderCompact",
+          "symbol": "runProviderCompactTracked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "scheduleAgentWakesAtBoot",
           "kinds": [
             "call"
           ]

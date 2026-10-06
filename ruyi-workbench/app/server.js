@@ -39182,6 +39182,11 @@ async function markInterruptedAgentRuns() {
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
+      // 模型以 background:true 起的 run 被重启打断、又不会自动续跑:补一份 interrupted 信封进后台任务账本 —— 修前模型对用户说过
+      // 「代理在后台跑」,之后再没有任何人告诉它这些代理已经没了。信封在用户下一句话时随回合开头送达(interrupted 不唤醒,见 10)。
+      if (run.background === true && !(bootConfig && bootConfig.autonomyAutoResume === true) && EventStreamHooks.notifyAgentRunEnvelope) {
+        try { EventStreamHooks.notifyAgentRunEnvelope(run.sessionId, run, buildAgentRunEnvelope(run)); } catch { /* 旁路,boot 防炸 */ }
+      }
   });
   // 71b: 存量对账 —— 71b 前落盘的 paused run 可能有 proposed 池提案但无 Intervention 记录(当时池未接入旁路)。
   // boot 补登记(append-only,幂等:已有记录的 id 跳过),否则 missionPendingCounts 统一从 Intervention 读池未决后
@@ -47963,6 +47968,8 @@ function recentFileReads(history, budgetTokens) {
 //     越积越长(新摘要本来就覆盖了旧摘要)—— 只取出其中原始任务那一段;
 //   · 带图片的首问:content 是 parts 数组,String() 出来是「[object Object],[object Object]」—— 拍平成文字、图片记一笔。
 const COMPACTION_TASK_PREFIX = '原始任务(保持聚焦):\n';
+// 手动压缩(runProviderCompact 的 L2)塌成 [摘要, 收到] 时首条 user 的开头。
+const MANUAL_COMPACTION_SUMMARY_HEADER = '(以下是此前对话的压缩摘要)\n';
 function compactionTaskText(message) {
   const content = message && message.content;
   let text = typeof content === 'string' ? content
@@ -47977,6 +47984,12 @@ function compactionTaskText(message) {
     const body = text.slice(COMPACTION_TASK_PREFIX.length);
     const cut = body.indexOf('\n\n【压缩摘要');
     text = cut >= 0 ? body.slice(0, cut) : body;
+  } else if (text.startsWith(MANUAL_COMPACTION_SUMMARY_HEADER)) {
+    // 手动 L2 之后没有单独的原始任务:取旧摘要的【目标】一节代替。修前整条(旧摘要 + 旧工具索引)被当成任务原文钉一遍,
+    // 下一次自动 L2 的重播种里索引出现两份(多约 4K 字)。没有【目标】节就取索引之前的正文、截到 1200 字。
+    const body = text.slice(MANUAL_COMPACTION_SUMMARY_HEADER.length);
+    const goal = /【目标】[^\n]*(?:\n(?!【)[^\n]*)*/.exec(body);
+    text = goal ? goal[0].trim() : body.split('\n\n' + COMPACTION_TOOL_INDEX_HEADER)[0].slice(0, 1200);
   }
   return text;
 }
@@ -48030,11 +48043,20 @@ function buildCompactionToolIndex(history, opts = {}) {
   const config = opts.config || {};
   const refPrefix = String(opts.rawRefPrefix || '');
   const canRecall = observationRecallEnabled(config) && /^history:\d+:[a-f0-9]{16}$/.test(refPrefix);
-  const resultAt = new Map();
-  for (let i = 0; i < upto; i++) {
-    const m = list[i];
-    if (m && m.role === 'tool' && m.tool_call_id && !resultAt.has(String(m.tool_call_id))) resultAt.set(String(m.tool_call_id), i);
-  }
+  // 结果按「assistant 之后紧跟的那串 tool 消息」就近配对:有的服务商每次迭代都从 call_1 起编,全局按 id 取第一条会把后面的
+  // 调用都配到第一次的结果上(算出同一个 rawRef 再被下面的去重丢掉)—— 而被丢的恰是要保护的一次性调用。
+  // 紧跟的那串里找不到(中间夹了插话之类)再往后找,到下一次复用同一 id 的 assistant 为止。
+  const resultIndexFor = (assistantAt, id) => {
+    let j = assistantAt + 1;
+    for (; j < upto && list[j] && list[j].role === 'tool'; j++) if (String(list[j].tool_call_id || '') === id) return j;
+    for (; j < upto; j++) {
+      const m = list[j];
+      if (!m) continue;
+      if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.some(c => String((c && c.id) || '') === id)) return null;
+      if (m.role === 'tool' && String(m.tool_call_id || '') === id) return j;
+    }
+    return null;
+  };
   // 上一次压缩留下的索引行(在摘要那条 user 消息里),更早的在前。
   const entries = [];
   const seenRefs = new Set();
@@ -48057,7 +48079,8 @@ function buildCompactionToolIndex(history, opts = {}) {
     for (const call of m.tool_calls) {
       const name = String((call && call.function && call.function.name) || '');
       if (!name || COMPACTION_TOOL_INDEX_SKIP.has(name)) continue;
-      const at = resultAt.get(String((call && call.id) || ''));
+      const callId = String((call && call.id) || '');
+      const at = callId ? resultIndexFor(i, callId) : null;
       const result = at == null ? null : list[at];
       const content = result && typeof result.content === 'string' ? result.content : '';
       const reducedChars = (content.match(/originalChars["=:\s]*(\d+)/) || [])[1];   // 缩减视图(文本头或 _ruyiObservation 对象)记着原件大小
@@ -48424,6 +48447,19 @@ async function maybeCompactSubHistory(opts) {
 //   2. 不够、L1 无事可做、或调用方明确要 mode:'summary' → L2 摘要。仍塌成 [摘要, 收到](手动压缩的既有语义,不留尾巴),
 //      摘要后附被摘要掉那段的工具调用索引(buildCompactionToolIndex,能回捞的带 rawRef)。
 // 全程在历史的副本上做;任何失败都不动会话。返回 { ok, level: 1|2, ... };never throws。
+// 正在手动压缩的会话:后台代理唤醒在这期间不起回合(见 runAgentWake),压缩收尾时补排一次。
+// POST /api/provider/compact 走这层登记;压缩本体(及其落盘纪律)仍是 runProviderCompact。
+const providerCompactInFlight = new Set();
+async function runProviderCompactTracked(sessionId, opts = {}) {
+  const sid = safeSessionId(String(sessionId || ''));
+  if (!sid) return runProviderCompact(sessionId, opts);
+  providerCompactInFlight.add(sid);
+  try { return await runProviderCompact(sid, opts); }
+  finally {
+    providerCompactInFlight.delete(sid);
+    scheduleAgentWake(sid, 'after_compact');
+  }
+}
 async function runProviderCompact(sessionId, opts = {}) {
   const storedConfig = await readConfig();
   let session;
@@ -48505,7 +48541,7 @@ async function runProviderCompact(sessionId, opts = {}) {
   let afterTokens = 0;
   const saved = await persist(fresh => {
     fresh.providerHistory = [
-      { role: 'user', content: '(以下是此前对话的压缩摘要)\n' + summary + (toolIndex ? '\n\n' + toolIndex : '') },
+      { role: 'user', content: MANUAL_COMPACTION_SUMMARY_HEADER + summary + (toolIndex ? '\n\n' + toolIndex : '') },
       { role: 'assistant', content: '收到，已基于摘要继续。' },
     ];
     afterTokens = estimateHistoryTokens(fresh.providerHistory);
@@ -48723,8 +48759,9 @@ async function runSessionTurn(input) {
   // 随回合起手那一次 saveSession 落盘(09 runOpenAiTurn 推入用户消息之后、第一次调模型之前),所以这一回合里任何一条权限待决
   // 出现时,盘上与活回合里读到的都已经是清过的。插话(/api/steer)不清:它进的是正在跑的那一回合。
   if (source === 'http' && session.stewardTaint) delete session.stewardTaint;
-  // 后台代理唤醒的连续计数(见 scheduleAgentWake):用户亲发一句即清零。
-  if (source === 'http') agentWakeChain.delete(session.id);
+  // 后台代理唤醒的连续计数(见 scheduleAgentWake):不是唤醒自己起的回合(用户亲发、管家派、定时任务)都清零 —— 上限防的是
+  // 「起后台代理 → 被唤醒 → 再起」这一个闭环,修前只认 'http',纯管家 / 定时驱动的线程唤醒满 6 次后进程内再也不唤醒。
+  if (source !== AGENT_WAKE_SOURCE) agentWakeChain.delete(session.id);
   const attachments = body.attachments || [];
 
   let finished = false;
@@ -48948,8 +48985,9 @@ async function runSessionTurn(input) {
     if (outcomePatch) turnOutcomePending.add(outcomeId);
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     // 后台代理唤醒(见 scheduleAgentWake):收尾时账本里还有没送达的后台代理信封(落在本回合最后一次模型调用之后)→ 补唤醒。
-    // 用户停止 / 断线 / 被新回合顶掉的那次收尾不补:用户刚叫停,信封留到下一回合开头送达。
-    if (session.kind !== 'steward' && !turnStopped && !disconnectHandled && !(lastResult && (lastResult.superseded || lastResult.aborted))
+    // 用户停止 / 被新回合顶掉 / 断线时按设置杀掉回合(lastResult.aborted)的那次收尾不补:用户刚叫停,信封留到下一回合开头送达。
+    // 只是关了页面 / 刷新(killOnDisconnect 缺省关,回合在服务端照常跑完)要补 —— 用户离开正是这个功能要管的情形。
+    if (session.kind !== 'steward' && !turnStopped && !(lastResult && (lastResult.superseded || lastResult.aborted))
         && typeof EventStreamHooks.pendingAgentWakeJobs === 'function') {
       try { if (EventStreamHooks.pendingAgentWakeJobs(session).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
     }
@@ -48999,8 +49037,11 @@ async function runSessionTurn(input) {
 //   · 只认模型以 background:true 起的 run(账本行 background:true,11 notifyAgentRunEnvelope 写);
 //   · 被叫停的 run(stopped / cancelled)不唤醒 —— 信封照旧在下一回合开头送达;
 //   · 回合被用户停止 / 断线 / 被新回合顶掉的那一次收尾不补唤醒(用户刚叫停);
-//   · 每个 run 只唤醒一次(进程内记账);同一条用户消息之后最多连续唤醒 AGENT_WAKE_CHAIN_MAX 次,防模型「起后台代理
-//     → 被唤醒 → 再起」无限循环,用户亲发一句即清零;
+//   · 每份信封只唤醒一次(进程内记账,按 job id + 完成时刻:续跑 / 重试的同一个 run 再交一份信封会再唤醒);
+//     连续唤醒最多 AGENT_WAKE_CHAIN_MAX 次,防模型「起后台代理 → 被唤醒 → 再起」无限循环,任何不是唤醒起的回合都清零;
+//   · 进程重启:信封落了账、唤醒还没起成就重启的,启动时补排(scheduleAgentWakesAtBoot);重启打断的后台 run 由 08 补一份
+//     interrupted 信封,但不唤醒(重启不是代理「做完了」,留到用户下一句话时送达);
+//   · 手动压缩进行中不唤醒(摘要要算几秒,期间起回合会让那份摘要作废),压缩结束再排一次;
 //   · 管家会话不唤醒(它有自己的运行器);会话已删不唤醒;
 //   · 唤醒回合不是用户的意思表示:source 不是 'http',所以不改「上次用的引擎」、不清 stewardTaint(见 runSessionTurn)。
 const AGENT_WAKE_SOURCE = 'agent_wake';
@@ -49012,7 +49053,11 @@ const agentWakeTimers = new Map();     // sessionId -> 防抖定时器
 const agentWakeAttempted = new Map();  // sessionId -> Set(账本 job id):已经为它唤醒过的信封
 const agentWakeChain = new Map();      // sessionId -> 自上一条用户消息以来的连续唤醒次数
 // 被叫停的 run(stopped = 有人按了停止,cancelled 同义)不唤醒:用户刚表示过不要了。
-function agentWakeSkipsStatus(status) { return status === 'stopped' || status === 'cancelled' || status === 'canceled'; }
+// 进程重启打断的(interrupted)也不唤醒:不是代理做完了,信封留到用户下一句话时送达。
+function agentWakeSkipsStatus(status) { return status === 'stopped' || status === 'cancelled' || status === 'canceled' || status === 'interrupted'; }
+// 记账键带完成时刻:同一个 run 续跑 / 重试后再交一份信封(09 launchPersistedAgentRun 先撤掉「已送达」),job id 不变,
+// 只按 id 记的话第二份永远判成「唤醒过了」。
+function agentWakeJobKey(job) { return String(job && job.id || '') + '@' + String(job && job.completedAt || ''); }
 function scheduleAgentWake(sessionId, reason) {
   const sid = safeSessionId(sessionId);
   if (!sid || sid === STEWARD_SESSION_ID) return false;
@@ -49037,6 +49082,8 @@ function agentWakeMessage(jobs) {
 async function runAgentWake(sessionId, reason) {
   // 线程正忙:那一回合的迭代边界会收件,收尾时 runSessionTurn 的 finally 再排一次。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
+  // 手动压缩算摘要期间不起回合(回合会追加历史,那份摘要落盘时被长度守卫作废);runProviderCompact 收尾时再排一次。
+  if (providerCompactInFlight.has(sessionId)) return { ok: false, skipped: 'compacting' };
   if (typeof EventStreamHooks.pendingAgentWakeJobs !== 'function') return { ok: false, skipped: 'unsupported' };
   // 设置里关掉了(agentAutoWake:false):信封照旧等用户下一句话时随回合开头送达。
   const wakeConfig = await readConfig().catch(() => null);
@@ -49045,7 +49092,7 @@ async function runAgentWake(sessionId, reason) {
   if (!session || session.kind === 'steward') return { ok: false, skipped: 'no_session' };
   const attempted = agentWakeAttempted.get(sessionId) || new Set();
   const pending = EventStreamHooks.pendingAgentWakeJobs(session)
-    .filter(job => !attempted.has(job.id) && !agentWakeSkipsStatus(String(job.status || '')));
+    .filter(job => !attempted.has(agentWakeJobKey(job)) && !agentWakeSkipsStatus(String(job.status || '')));
   if (!pending.length) return { ok: false, skipped: 'nothing_pending' };
   const chain = agentWakeChain.get(sessionId) || 0;
   if (chain >= AGENT_WAKE_CHAIN_MAX) {
@@ -49054,7 +49101,7 @@ async function runAgentWake(sessionId, reason) {
   }
   // 装载会话期间用户可能刚发了一句:再判一次(下面到 runSessionTurn 登记 turnSettlers 之间没有 await)。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
-  for (const job of pending) attempted.add(job.id);
+  for (const job of pending) attempted.add(agentWakeJobKey(job));
   agentWakeAttempted.set(sessionId, attempted);
   agentWakeChain.set(sessionId, chain + 1);
   const runIds = pending.map(job => String(job.runId || '')).filter(Boolean);
@@ -49068,7 +49115,7 @@ async function runAgentWake(sessionId, reason) {
   turn.catch(error => {
     // 起回合那一刻撞上别处起的回合(409):那一回合会收件,退回记账,让它收尾时还能补唤醒。
     if (error && error.code === 'SESSION_TURN_BUSY_ELSEWHERE') {
-      for (const job of pending) attempted.delete(job.id);
+      for (const job of pending) attempted.delete(agentWakeJobKey(job));
       agentWakeChain.set(sessionId, chain);
     }
     logEvent({ kind: 'agent_wake_error', sessionId, code: String((error && error.code) || ''), error: String((error && error.message) || error).slice(0, 400) });
@@ -49079,6 +49126,19 @@ EventStreamHooks.onAgentEnvelopePersisted = job => {
   if (!job || agentWakeSkipsStatus(String(job.status || ''))) return;
   scheduleAgentWake(job.sessionId, 'envelope');
 };
+// 启动时补排:信封已落账、唤醒还没起成(防抖窗口内重启、崩溃)的会话。只看最近 AGENT_WAKE_BOOT_WINDOW_MS 内完成的 ——
+// 更早的要么早已唤醒过(唤醒回合开头就登记已读),要么当时开关关着 / 唤醒到了上限,重启不该把几天前的线程一起叫醒。
+// 是否已读、开关、上限仍由 runAgentWake 按会话判。
+const AGENT_WAKE_BOOT_WINDOW_MS = 6 * 3600 * 1000;
+function scheduleAgentWakesAtBoot() {
+  if (typeof EventStreamHooks.recentBackgroundAgentJobSessions !== 'function') return 0;
+  let sessionIds = [];
+  try { sessionIds = EventStreamHooks.recentBackgroundAgentJobSessions(Date.now() - AGENT_WAKE_BOOT_WINDOW_MS); } catch { return 0; }
+  let scheduled = 0;
+  for (const sid of sessionIds) if (scheduleAgentWake(sid, 'boot')) scheduled++;
+  if (scheduled) logEvent({ kind: 'agent_wake_boot', sessions: scheduled });
+  return scheduled;
+}
 
 // HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。
 async function streamChat(req, res) {
@@ -49335,6 +49395,20 @@ EventStreamHooks.pendingAgentWakeJobs = session => {
   if (!session || !session.id) return [];
   const seen = new Set(Array.isArray(session.backgroundJobSeen) ? session.backgroundJobSeen : []);
   return readBackgroundJobs(session.id).filter(job => job && job.kind === 'agent' && job.background === true && !seen.has(job.id));
+};
+// 启动时补排唤醒用(10 scheduleAgentWakesAtBoot):账本里有 sinceMs 之后完成的后台代理信封的会话 id。是否已读由 10 按会话判。
+EventStreamHooks.recentBackgroundAgentJobSessions = sinceMs => {
+  let files = [];
+  try { files = fs.readdirSync(path.join(paths.sessions, 'background-jobs')); } catch { return []; }
+  const out = [];
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+    const sid = file.slice(0, -'.json'.length);
+    if (!safeSessionId(sid)) continue;
+    const recent = readBackgroundJobs(sid).some(job => job && job.kind === 'agent' && job.background === true && Date.parse(job.completedAt || '') >= sinceMs);
+    if (recent) out.push(sid);
+  }
+  return out;
 };
 
 function shellIdValid(id) { return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,32}$/.test(id); }
@@ -50990,7 +51064,9 @@ const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersio
 // 自己的子孙);树杀不掉、管道仍不关(杀树命令失败 / 极端孤儿)时,5 秒后强行收尾,不让调用方永远挂着。
 function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
-    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number(timeoutMs || 15000)));
+    // 非数字(模型给 git_status 之类自造 timeoutMs:"30s")回落缺省:修前 NaN 一路传到 setTimeout,等于 1 ms 就把跑完的 git 杀掉、报「超过 0 秒」。
+    const askedMs = Number(timeoutMs);
+    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number.isFinite(askedMs) && askedMs > 0 ? askedMs : 15000));
     let child, timer = null, grace = null, timedOut = false, settled = false;
     const settle = r => {
       if (settled) return;
@@ -60789,7 +60865,7 @@ async function handleApi(req, res, pathname) {
     if (!sessionId) return send(res, apiSessionIdInvalid());
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
     // mode:'summary' = 跳过「L1 够了就停」直接做摘要(缺省 'auto':先 L1,不够再摘要,见 runProviderCompact)。
-    return send(res, json(await runProviderCompact(sessionId, { mode: body.mode })));
+    return send(res, json(await runProviderCompactTracked(sessionId, { mode: body.mode })));
   }
   if (req.method === 'POST' && pathname === '/api/agent/compact') {
     const body = await readJsonBody(req);
@@ -61835,6 +61911,7 @@ async function startServerInner(opts) {
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
+  scheduleAgentWakesAtBoot(); // 后台代理信封已落账、唤醒没起成就重启了 → 补排(10;同步,防抖到点时服务早已在监听)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
   // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
   // external-import discovery authoritative.
