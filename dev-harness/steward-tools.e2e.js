@@ -65,7 +65,7 @@ const MIN_ARGS = {
   steward_thread_permission: { sessionId: 'sess_nope', permissionMode: 'plan' },
   steward_decide: { missionId: 'sess_nope', interventionId: 'iv_nope', action: 'allow' },
   steward_run_action: { sessionId: 'sess_nope', runId: 'run_nope', action: 'pause' },
-  steward_memory_write: { kind: 'preference', text: 'x', sourceRef: { sessionId: 'sess_nope', turnSeq: 0 } },
+  steward_memory_write: { kind: 'preference', text: 'x', sourceRef: { sessionId: 'sess_nope', turnSeq: 0, quote: 'xxxxxx' } },
   steward_memory_veto: { id: 'nope' },
 };
 
@@ -475,13 +475,14 @@ try {
       await srv.saveSession(withUser);
     }
     const rows = fs.readFileSync(path.join(HOME, 'sessions', threadId + '.messages.ndjson'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
-    const userMsg = rows.find(m => m && m.role === 'user' && Number.isFinite(Number(m.turnSeq)) && !(m.meta && m.meta.origin === 'steward'));
+    // 走查 #14:来源要带与记忆文本有共同用词的 quote,所以认定的是上面补进去的那条(「我习惯用深色主题…」),而不是线程里更早的「再来一句」。
+    const userMsg = rows.find(m => m && m.role === 'user' && Number.isFinite(Number(m.turnSeq)) && !(m.meta && m.meta.origin === 'steward') && String(m.content).includes('我习惯用深色主题'));
     const asstMsg = rows.find(m => m && m.role === 'assistant' && Number.isFinite(Number(m.turnSeq)));
     ok(!!userMsg, 'I0 找到一条带 turnSeq 的用户消息作为合法来源');
 
     const badSource = await call('steward_memory_write', {
       kind: 'preference', text: '用户偏好深色主题',
-      sourceRef: { sessionId: threadId, turnSeq: 99999 },
+      sourceRef: { sessionId: threadId, turnSeq: 99999, quote: '我习惯用深色主题' }, // 走查 #14:sourceRef 现要求带 quote(角色闸先于 quote 闸)
     }, stewardCtx());
     ok(badSource && badSource.error === 'source_not_user', 'I1 来源回合里没有用户消息(工具输出/助手回合)-> source_not_user');
 
@@ -489,13 +490,13 @@ try {
       // 只用「api_key: <够长的值>」这一条判据触发敏感过滤;有意【不写】sk- 形状的假 token ——
       // repo-hygiene.e2e.js 会把仓库里任何 sk-[A-Za-z0-9]{20,} 判成真密钥泄漏(测试夹具也不例外)。
       kind: 'profile', text: 'api_key: REDACTEDPLACEHOLDERVALUE',
-      sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq },
+      sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq, quote: String(userMsg.content || '').slice(0, 200) },
     }, stewardCtx());
     ok(sensitive && sensitive.error === 'sensitive_rejected', 'I2 密钥样文本 -> sensitive_rejected(复用工作台记忆的敏感过滤)');
 
     const w1 = await call('steward_memory_write', {
       kind: 'preference', text: '用户偏好中文输出并且喜欢一页纸摘要',
-      sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq },
+      sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq, quote: String(userMsg.content || '').slice(0, 200) },
     }, stewardCtx());
     ok(w1 && w1.ok === true && w1.merged === false && w1.id && w1.undoRef && w1.undoRef.kind === 'memory',
       'I3 首次写入返回 {ok,id,merged:false,undoRef}');
@@ -504,7 +505,7 @@ try {
 
     const w2 = await call('steward_memory_write', {
       kind: 'preference', text: '用户偏好中文输出并且喜欢一页纸摘要（补充）',
-      sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq },
+      sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq, quote: String(userMsg.content || '').slice(0, 200) },
     }, stewardCtx());
     ok(w2 && w2.ok === true && w2.merged === true && w2.id === w1.id, 'I4 同义条目合并到既有条目而非新增(词项 Jaccard ≥0.8)');
 
@@ -520,11 +521,11 @@ try {
 
     const w3 = await call('steward_memory_write', {
       kind: 'preference', text: '用户偏好中文输出并且喜欢一页纸摘要',
-      sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq },
+      sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq, quote: String(userMsg.content || '').slice(0, 200) },
     }, stewardCtx());
     ok(w3 && w3.error === 'vetoed_duplicate', 'I8 被否决过的同义内容拒绝写回 -> vetoed_duplicate');
 
-    const badKind = await call('steward_memory_write', { kind: 'gossip', text: 'x', sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq } }, stewardCtx());
+    const badKind = await call('steward_memory_write', { kind: 'gossip', text: 'x', sourceRef: { sessionId: threadId, turnSeq: userMsg.turnSeq, quote: String(userMsg.content || '').slice(0, 200) } }, stewardCtx());
     ok(badKind && badKind.error === 'invalid_request', 'I9 kind 不在白名单 -> invalid_request');
     ok(!!asstMsg || true, 'I10 (info) 助手回合存在' + (asstMsg ? '' : '(本轮未落助手消息,不影响判定)'));
   }

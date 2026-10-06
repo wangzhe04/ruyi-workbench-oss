@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3505,
-    "requiredSymbols": 3136,
+    "providedSymbols": 3526,
+    "requiredSymbols": 3140,
     "edges": 536,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -42,6 +42,7 @@
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "StringDecoder",
+        "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
         "URL",
         "USAGE_CACHE_CHECK_BYTES",
@@ -5818,6 +5819,7 @@
         "MEMORY_PROPOSAL_MIN_JUDGE_GAP",
         "MEMORY_PROPOSAL_MIN_TURN_GAP",
         "MEMORY_PROPOSAL_STATE_MAX_BYTES",
+        "MEMORY_QUERY_CJK_PARTICLES",
         "MEMORY_QUERY_STOP",
         "MEMORY_RELATION_CAP",
         "MEMORY_RELATION_TYPES",
@@ -5826,6 +5828,8 @@
         "MEMORY_SEARCH_TERMS_MAX",
         "MEMORY_TYPES",
         "MEMORY_USAGE_TOUCH_MS",
+        "MEMORY_VECTOR_ONLY_MIN_SCORE",
+        "MEMORY_VECTOR_ONLY_REL_SCORE",
         "accMemoryImportMarker",
         "accMemoryImportStore",
         "agentInstructionChain",
@@ -5841,6 +5845,7 @@
         "buildMemoryCheckPrompt",
         "buildMemoryConflictMap",
         "buildMemoryPromptSection",
+        "buildMemoryTurnSection",
         "cleanMemoryDate",
         "commitSingleMemoryProposal",
         "commitToolMemoryProposal",
@@ -5866,8 +5871,11 @@
         "memoryCoreLine",
         "memoryCoreScore",
         "memoryDraftFromObject",
+        "memoryEditWithin",
         "memoryExclusionSet",
         "memoryGlobalDir",
+        "memoryHayWords",
+        "memoryHaystackFuzzyHasTerm",
         "memoryHaystackHasTerm",
         "memoryIsExpired",
         "memoryProjectDir",
@@ -5885,14 +5893,18 @@
         "memoryProposeAlreadyPendingResult",
         "memoryRecallCorpus",
         "memoryRecallCorpusCache",
+        "memoryRecallLimit",
         "memoryRelationsFile",
         "memoryRetrievalKey",
         "memoryRetrievalText",
         "memoryReviewDue",
         "memorySearchTerms",
+        "memorySupersededMarks",
+        "memorySupersededTag",
         "memoryUsageFile",
         "memoryUsageKey",
         "memoryUsageWriteChain",
+        "memoryValidSupersededBy",
         "migrateLegacyAccMemory",
         "migrateMemory",
         "mutateMemoryUsageState",
@@ -5909,11 +5921,15 @@
         "proposeMemoryRevision",
         "proposeWorkbenchMemory",
         "rankMemoriesForRecall",
+        "rankMemoriesForRecallDetailed",
         "rankMemoriesFused",
+        "rankMemoriesFusedDetailed",
         "rankRelevantMemories",
+        "rankRelevantMemoriesDetailed",
         "rankRelevantMemoriesScored",
         "readAgentInstructionSource",
         "readAgentInstructionState",
+        "readConfirmedSupersedeEdges",
         "readMemoryDir",
         "readMemoryItem",
         "readMemoryProposalState",
@@ -6746,6 +6762,7 @@
         "MAIL_PER_SENDER_MAX",
         "MAIL_QUEUE_MAX",
         "MAIL_TEXT_MAX",
+        "MEMORY_WRITE_TOOL_NAMES",
         "NATIVE_COMMAND_TOOL_NAMES",
         "NATIVE_DESKTOP_TOOL_NAMES",
         "NATIVE_TOOL_PACKS",
@@ -7541,6 +7558,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SubAgentMemoryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -7989,6 +8013,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "MEMORY_WRITE_TOOL_NAMES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "nativeToolGate",
           "kinds": [
             "call"
@@ -8382,6 +8413,13 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SubAgentMemoryHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -9115,6 +9153,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "buildMemoryPromptSection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "buildMemoryTurnSection",
           "kinds": [
             "call"
           ]
@@ -17442,6 +17487,7 @@
         "stewardEyesSettle",
         "stewardEyesTake",
         "stewardFileLooksBinary",
+        "stewardFoldWs",
         "stewardImplAuditTail",
         "stewardImplConfigGet",
         "stewardImplConfigSet",
@@ -17468,10 +17514,13 @@
         "stewardImplWebSearch",
         "stewardIsSecretFilePath",
         "stewardNoteDecideAttempt",
+        "stewardQuoteInSource",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceCwd",
-        "stewardSourceIsUserMessage"
+        "stewardSourceIsUserMessage",
+        "stewardSourceUserTexts",
+        "stewardTextGroundedInQuote"
       ],
       "requires": [
         {
@@ -28087,6 +28136,7 @@
       "to": "00-boot.js",
       "symbols": [
         "RUYI_EVENTS",
+        "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
@@ -28242,6 +28292,7 @@
       "to": "07-autonomy.js",
       "symbols": [
         "LOOP_GUARD_LIMITS",
+        "MEMORY_WRITE_TOOL_NAMES",
         "activeAgentRuns",
         "agentRunDir",
         "agentRunFile",
@@ -28323,6 +28374,7 @@
       "symbols": [
         "EventStreamHooks",
         "RUYI_EVENTS",
+        "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
@@ -28557,6 +28609,7 @@
         "buildMemoryCheckPrompt",
         "buildMemoryConflictMap",
         "buildMemoryPromptSection",
+        "buildMemoryTurnSection",
         "extractMemoryRelationProposals",
         "filterMemoryForNativeCli",
         "proposeMemoryRelation",
