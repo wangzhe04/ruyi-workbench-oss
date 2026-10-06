@@ -10,7 +10,7 @@
 //   · net.js    —— token 读取 + 带鉴权头的 api() 封装
 // index.html 的 <script src="/app.js"> 已加 type="module" 以启用 import(head 内预绘脚本不受影响)。
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
-import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow, paintSessionMeta } from './js/util.js';
+import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow, paintSessionMeta, bindKeyboardClick } from './js/util.js';
 import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken, setNetworkErrorMessage } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
@@ -31,6 +31,7 @@ import { createInteractionPromptsDomain } from './js/interaction-prompts.js';
 import { createToolRuntimeDomain } from './js/tool-runtime.js';
 import { createWorkspacePreferencesDomain } from './js/workspace-preferences.js';
 import { createChatRenderPrimitives } from './js/chat-render-primitives.js';
+import { createAttachmentTray } from './js/attachment-tray.js'; // 附件托盘:渲染 / 上传(上传中占位)/ 预览 URL 释放(F13)
 // Agent CLI 登记表（ENGINEERING-SPEC §11.1）：两个零 import 工厂（渲染原语／流运行时）经 deps.agentCliMeta 拿它。
 import { agentCliMeta } from './js/agent-cli-registry.js';
 import { renderMermaidBlocks } from './js/mermaid-runtime.js';
@@ -262,6 +263,7 @@ const {
   fillStewardSettings: () => stewardShellGuard?.fillStewardSettings(), // 117e：设置页「管家」页签随 config 回填
 });
 
+const { renderAttachments, revokeAttachmentPreview, uploadFiles } = createAttachmentTray({ apiErrText });
 const {
   buildStaticToolGroup,
   ctxTokensOf,
@@ -319,6 +321,7 @@ const {
   refreshSessions: (...args) => refreshSessions(...args),
   refreshToolPane: () => refreshToolPane(),   // 128f-⑫（审计 D）：回溯之后右栏页签重读
   renderCurrentSession: (...args) => renderCurrentSession(...args),
+  renderAttachments: () => renderAttachments(),   // F9:编辑重发把原附件放回托盘
   // 109a: mermaid 图表渲染(懒加载 vendor,缺文件时原样降级);每张图换上去时经 keepPinnedAcross 保持贴底。
   renderMermaidBlocks: (container, opts) => renderMermaidBlocks(container, { ...opts, withLayoutChange: keepPinnedAcross }),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
@@ -369,6 +372,8 @@ const {
   handleAgentWorkflowEvent: (...args) => handleAgentWorkflowEvent(...args),
   handlePermissionRequest: (...args) => handlePermissionRequest(...args),
   handlePlanEvent: (...args) => handlePlanEvent(...args),
+  expirePendingPlanCards: (...args) => expirePendingPlanCards(...args),   // 停止/失败收尾:本回合未决的计划卡标成已失效
+  resolvePlanIntervention: (...args) => resolveClassicPlanIntervention(...args),   // plan_decision 事件:卡还亮着就收起成已决
   humanizeToolName: name => humanizeToolName(name),
   highlightIn,
   iconTextBtn,
@@ -388,6 +393,7 @@ const {
   pushRawEvent: (...args) => pushRawEvent(...args),
   refreshSessions: (...args) => refreshSessions(...args),
   renderAttachments,
+  revokeAttachmentPreview,   // F13:发送出去后释放托盘缩略图的 blob URL
   renderAutonomyBar: (...args) => renderAutonomyBar(...args),
   renderContextMeter,
   renderCurrentSession: (...args) => renderCurrentSession(...args),
@@ -539,6 +545,7 @@ const {
 const {
   buildModal,
   decide,
+  decidePermission,
   decidePlan,
   focusFirstInteractive,
   handleAgentWorkflowEvent,
@@ -562,6 +569,7 @@ const {
 
 const {
   appendToolOutput,
+  expirePendingPlanCards,
   handlePlanEvent,
   newShellSession,
   pushRawEvent,
@@ -631,7 +639,7 @@ const {
   usageLine,
   wrapPreWithCopy,
   humanizeToolName: name => humanizeToolName(name),
-  decidePermission: (requestId, behavior) => { void decide(requestId, behavior); settlePrompt(requestId); },   // 走查 #5：卡上就地决定
+  decidePermission: (requestId, behavior) => decidePermission(requestId, behavior),   // 走查 #5：卡上就地决定;返回成败,失败不出队、卡上按钮恢复
 });
 
 window.addEventListener('i18n:change', event => {   // detail.changed:语言真的换了(开机第二发同语言不重画会话正文)
@@ -695,42 +703,6 @@ function attachmentImageUrl(att) {
   }
   return pending;
 }
-function renderAttachments() {
-  const tray = $('attachmentTray');
-  tray.innerHTML = '';
-  state.attachments.forEach((f, i) => {
-    const pill = el('span', 'attachment-pill');
-    if (f.previewUrl) {
-      const thumb = document.createElement('img');
-      thumb.className = 'attach-pill-thumb';
-      thumb.src = f.previewUrl;
-      thumb.alt = f.name || '';
-      pill.appendChild(thumb);
-    }
-    pill.append(el('span', '', `${f.name} · ${fmtBytes(f.size)}`));
-    const x = el('button', 'attach-x'); x.appendChild(icon('close', 12)); x.setAttribute('aria-label', t('chat.attachRemoveAria')); x.title = t('common.remove');
-    x.onclick = () => { state.attachments.splice(i, 1); renderAttachments(); };
-    pill.appendChild(x);
-    tray.appendChild(pill);
-  });
-}
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); });
-}
-async function uploadFiles(files) {
-  for (const file of files) {
-    if (file.size > 90 * 1048576) { toast(t("toast.fileTooLarge", { p1: file.name }), 'err'); continue; }
-    try {
-      const data = await fileToBase64(file);
-      const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
-      const record = res.file;
-      if (record && /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i.test(String(record.name || ''))) record.previewUrl = URL.createObjectURL(file);
-      state.attachments.push(record);
-    } catch (e) { toast(t("toast.uploadFail", { p1: apiErrText(e) }), 'err'); }
-  }
-  renderAttachments();
-}
-
 /* ---------------- v0.9-S3 (C3): folder-drag → set workspace ---------------- */
 // The browser never gives a dropped folder's absolute path (webkitGetAsEntry → name + child names only).
 // So we read the folder's name + first-level child names (≤50) as a FINGERPRINT and POST it to the server,
@@ -1029,6 +1001,7 @@ function startFromRail() {
 //     换到新会话后它自然为假（session-experience 的那处判据，不在这里抄第二份）；
 //   · 附件托盘／草稿／本轮变更这三样是【本页自己的状态】，没人替它们归零 —— 就是这里。
 function clearThreadStage() {
+  for (const record of state.attachments) revokeAttachmentPreview(record);
   state.attachments.length = 0;
   renderAttachments();
   const input = $('promptInput');
@@ -1071,7 +1044,7 @@ function bindEvents() {
     const box = $(steward ? 'stewardComposerInput' : 'promptInput');
     if (box) { try { box.scrollIntoView({ block: 'nearest' }); } catch { /* 老宿主没有它 */ } box.focus(); }
   }; }
-  { const cm = $('contextMeter'); if (cm) cm.onclick = openContextPopover; }
+  { const cm = $('contextMeter'); if (cm) { cm.onclick = openContextPopover; bindKeyboardClick(cm); } }   // role=button 的 div:补 Enter/空格
   // v0.8-S6 capability matrix。122-L1b：**不能直接把函数当 handler** —— onclick 会把 MouseEvent
   // 当第一个实参（openCapPopover 的 anchorOverride）递进去，popover 拿它调 getBoundingClientRect
   // 当场抛。原先 #capBadge 是 display:none 的状态载体、点不到，这条才一直没发作；现在它是齿轮
@@ -1127,17 +1100,24 @@ function bindEvents() {
   $('fileInput').addEventListener('change', e => { uploadFiles([...e.target.files]); e.target.value = ''; });
   ta.addEventListener('paste', e => {
     const imgs = [...(e.clipboardData?.items || [])].filter(i => i.type.startsWith('image/'));
-    if (imgs.length) { e.preventDefault(); uploadFiles(imgs.map(i => i.getAsFile()).filter(Boolean)); }
+    // 从 Excel / PPT / 网页复制时剪贴板里【同时】有文字和一张渲染出来的图:用户要的是文字。修前只要有图就整个拦下当附件、
+    // 文字丢了。有 text/plain 就不拦截(浏览器照常粘文字);只有没文字时才把图片当附件。
+    let hasText = false;
+    try { hasText = String(e.clipboardData?.getData('text/plain') || '').trim() !== ''; } catch { hasText = false; }
+    if (imgs.length && !hasText) { e.preventDefault(); uploadFiles(imgs.map(i => i.getAsFile()).filter(Boolean)); }
   });
 
   // full-window dropzone
   const shell = document.body;
   let dragDepth = 0;
-  shell.addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; $('dropHint').classList.remove('hidden'); });
-  shell.addEventListener('dragover', e => e.preventDefault());
-  shell.addEventListener('dragleave', e => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; $('dropHint').classList.add('hidden'); } });
+  // 只认「拖文件」:修前四个处理器一律 preventDefault 并弹「拖文件到这里」遮罩,往输入框里拖一段文字(选中文本、别的窗口的文字)
+  // 被拦掉、还盖上一层遮罩。dataTransfer.types 含 'Files' 才接管,否则原样放行给浏览器(textarea 自己收文字)。
+  const dragHasFiles = e => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes('Files');
+  shell.addEventListener('dragenter', e => { if (!dragHasFiles(e)) return; e.preventDefault(); dragDepth++; $('dropHint').classList.remove('hidden'); });
+  shell.addEventListener('dragover', e => { if (!dragHasFiles(e)) return; e.preventDefault(); });
+  shell.addEventListener('dragleave', e => { if (!dragHasFiles(e)) return; e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; $('dropHint').classList.add('hidden'); } });
   // v0.9-S3 (C3): drop splits into files (attachments) + folders (workspace fingerprint) — see handleDrop.
-  shell.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; $('dropHint').classList.add('hidden'); handleDrop(e); });
+  shell.addEventListener('drop', e => { if (!dragHasFiles(e)) return; e.preventDefault(); dragDepth = 0; $('dropHint').classList.add('hidden'); handleDrop(e); });
 
   // tool pane
   document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => { b.onclick = () => { noteToolTabOpened(b.dataset.tab); switchTab(b.dataset.tab); }; });
@@ -1182,6 +1162,10 @@ function bindEvents() {
   });
 
   // global shortcuts
+  const escBelongsToOtherField = target => {
+    if (!target || target === $('promptInput')) return false;
+    return /^(INPUT|TEXTAREA|SELECT)$/.test(String(target.tagName || '')) || Boolean(target.isContentEditable);
+  };
   window.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); newSession(); }
@@ -1190,12 +1174,16 @@ function bindEvents() {
       const open = [...document.querySelectorAll('.modal-backdrop:not(.hidden)')];
       // Dynamic modals resolve their held request via __cancel; static ones go through closeModal so
       // focus returns to the trigger (§4.9).
-      if (open.length) open.forEach(m => { if (m.__cancel) m.__cancel(); else if (m.id) closeModal(m.id); else m.classList.add('hidden'); });
+      // 一次 Esc 只关【最上面一层】:动态弹窗追加在 body 末尾,DOM 顺序即叠放顺序(help-viewer 为自己打过同类补丁)。
+      // 修前对每一个打开的 backdrop 都 cancel —— 设置页上叠一张「确认」,按一下 Esc 两层全关,设置页也没了。
+      if (open.length) { const top = open[open.length - 1]; if (top.__cancel) top.__cancel(); else if (top.id) closeModal(top.id); else top.classList.add('hidden'); }
       // v3 (§2.7 P2): 无模态时 Esc 先退出右栏全屏档,再关抽屉,再停止回合。
       else if (exitRightFullscreen()) { /* 已退出全屏 */ }
       // A5: with no modal open, Esc first closes the narrow-screen tool drawer, then stops a turn.
       else if (document.querySelector('.app-shell').classList.contains('tools-open')) closeToolDrawer();
-      else if (state.streaming) stopTurn();
+      // 焦点在别的输入框(左栏搜索、设置里的文本框……)里按 Esc 是「退出这个框」,不该顺手把正在跑的回合停掉;
+      // 只有焦点不在任何输入类控件、或就在对话输入框 #promptInput 上时才当停止。
+      else if (state.streaming && !escBelongsToOtherField(e.target)) stopTurn();
     }
     else if (e.key === '?' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) { openModal('helpModal'); }
   });

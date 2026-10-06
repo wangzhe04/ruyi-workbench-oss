@@ -35,7 +35,10 @@ const VisualPipeline = ((fspModule, pathModule) => {
         if (!st) throw new Error('missing');
         if (st.size > IMAGE_ATTACH_MAX) { parts[0].text += `\n[图片过大未发送:${a.name || path.basename(a.path)}]`; continue; }
         const buf = await fsp.readFile(target);
-        const uri = `data:${attachmentMime(target)};base64,${buf.toString('base64')}`;
+        // 字节魔数优先,扩展名兜底:文件名说 .png 字节却是 JPEG(截图工具/改名)时,Anthropic Messages 协议会因
+        // media_type 与字节不符直接 400(04i 的编码照单全收这里给的 mime)。与下方工具截图的 toImageDataUri 同一口径。
+        const b64 = buf.toString('base64');
+        const uri = `data:${sniffImageMime(b64) || attachmentMime(target)};base64,${b64}`;
         parts.push({ type: 'image_url', image_url: { url: uri } });
       } catch { parts[0].text += `\n[图片读取失败:${a.name || path.basename(a.path)}]`; }
     }
@@ -95,10 +98,21 @@ const VisualPipeline = ((fspModule, pathModule) => {
   }
   // 像图像载荷吗:data URI,或一长串 base64/base64url 字符(排除 `nginx:latest`、`C:\\x.png` 这类恰好叫 image 的普通字符串 ——
   // 非视觉路径会把命中的字段换成占位,误伤普通字段比漏掉一张图更糟)。
+  // 非 data: 分支光靠「≥12 字符且全是 base64 字符集」不够:`{image:'bitnami/postgresql'}` 这样的普通镜像名/标识符也满足,
+  // 被当成截图后会生成非法图片块(provider 400,还写进 providerHistory 反复 400)并抹掉原字段。现在两层:
+  //   ① 魔数确认(最强证据):解出的头字节是 PNG/JPEG/GIF/WEBP/BMP(sniffImageMime,与随后 toImageDataUri 认的是同一张表)→ 是图;
+  //   ② 魔数认不出时,排除「全小写标识符」形状(IDENT_SLUG_RE:容器镜像名 bitnami/postgresql、nginx-ingress-controller、my_module_v2
+  //      这一整类 —— 镜像名按规范必须全小写,恰是 `image` 字段最常见的非图撞名)。真 base64 载荷在 ≥12 个字符里一个大写字母都没有的
+  //      概率可忽略不计,所以不会误杀真图。
+  // 不把「②」收成「必须魔数」:既有断言(unit/tool-dispatch-hardening F3、vision-loop 的 fake-mcp 夹具)锁着「字节认不出时回落兄弟键声明的
+  // 类型 / png」—— 未知格式或占位串形态的载荷照旧当图(混合大小写的标识符仍有撞名可能,但那比误杀未知格式的真图更可接受)。
+  const IDENT_SLUG_RE = /^[a-z0-9]+(?:[/_-][a-z0-9]+)*$/;
   function looksLikeImagePayload(v) {
     if (typeof v !== 'string') return false;
     if (v.startsWith('data:')) return /^data:image\//i.test(v);
-    return v.length >= 12 && /^[A-Za-z0-9+/=_-]+$/.test(v.length > 512 ? v.slice(0, 512) : v);
+    const head = v.length > 512 ? v.slice(0, 512) : v;
+    if (v.length < 12 || !/^[A-Za-z0-9+/=_-]+$/.test(head)) return false;
+    return sniffImageMime(v) !== '' || !IDENT_SLUG_RE.test(head);
   }
   // 结果里所有图像字段的引用:{ value, mime(推断出的 data URI 之前的类型), width, height, replace(text) → 就地改克隆 }。
   function imageFieldRefs(resultObj) {

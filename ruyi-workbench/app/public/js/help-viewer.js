@@ -113,6 +113,20 @@ export function createHelpViewerDomain({
     try { return [...root.querySelectorAll(selector)]; } catch { return []; }
   }
 
+  // 关闭时焦点还给谁(与 modal.js 的 focusReturnTarget 同一口径;本模块零 import,所以抄一份)。
+  // 从齿轮菜单的「帮助」项打开手册时,触发它的菜单项随菜单收起而不可见(或已不在文档里),focus() 是空操作、焦点掉到 body:
+  // 看得见就还给它,否则退到拥有那张菜单的按钮(aria-controls 指回它的那枚,即齿轮钮),再不行退到 #appGearBtn。
+  function returnTarget(trigger) {
+    if (!trigger || typeof trigger.focus !== 'function' || !doc || trigger === doc.body) return trigger || null;
+    const visible = node => node.isConnected !== false && (typeof node.getClientRects !== 'function' || node.getClientRects().length > 0);
+    if (visible(trigger)) return trigger;
+    const menu = typeof trigger.closest === 'function' ? trigger.closest('[role="menu"]') : null;
+    const owner = menu && menu.id && typeof doc.querySelector === 'function' ? doc.querySelector(`[aria-controls="${menu.id}"]`) : null;
+    if (owner && visible(owner)) return owner;
+    const gear = typeof doc.getElementById === 'function' ? doc.getElementById('appGearBtn') : null;
+    return gear && visible(gear) ? gear : null;
+  }
+
   function buildFrame() {
     const backdrop = el('div', 'modal-backdrop dynamic help-viewer-backdrop');
     const trigger = doc && doc.activeElement;
@@ -124,7 +138,8 @@ export function createHelpViewerDomain({
       if (openBackdrop === backdrop) openBackdrop = null;
       try { detachEsc(); } catch { /* already detached */ }
       try { backdrop.remove(); } catch { /* already detached */ }
-      if (trigger && typeof trigger.focus === 'function') { try { trigger.focus(); } catch { /* ignore */ } }
+      const back = returnTarget(trigger);
+      if (back) { try { back.focus(); } catch { /* ignore */ } }
     };
     // 阅读器可以叠在向导之上。app.js 的全局 Esc 处理器挂在 window 冒泡相位(最后触发)并对【每一个】
     // 打开的 backdrop 调 __cancel : 直接沿用就会让 Esc 连带把底下的向导当「以后再说」关掉。
@@ -302,7 +317,8 @@ export function createHelpViewerDomain({
     frame.title.textContent = String(res.title || t('help.doc.title'));
     frame.article.replaceChildren();
     // 唯一的 markdown 落 DOM 入口:注入的 renderMarkdownInto 已做 marked 解析 + sanitizeNode 白名单消毒。
-    renderMarkdownInto(frame.article, String(res.markdown || ''));
+    // 手册源文件是按段落硬折行写的:breaks:false,单个换行不画成断行(对话里的默认口径是 true,这里不沿用)。
+    renderMarkdownInto(frame.article, String(res.markdown || ''), { breaks: false });
     try { highlightIn(frame.article); } catch { /* 高亮失败不影响正文可读 */ }
     tameDocLinks(frame, (nextId, nextLang) => { load(frame, nextId, nextLang, ''); });
     buildToc(frame, anchor);

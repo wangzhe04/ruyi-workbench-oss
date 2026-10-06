@@ -78,15 +78,51 @@ export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));
 }
 // 字节数人类可读。
+// 进位按【显示出来的那一位小数】判:1048575 B 是 1023.999 KB,toFixed(1) 会印成「1024.0 KB」——取整后够 1024 就升一档(→「1.0 MB」)。
 export function fmtBytes(n) {
   if (!Number.isFinite(n)) return '';
   if (n < 1024) return `${n} B`;
-  if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
-  const units = ['MB', 'GB', 'TB', 'PB'];
-  let value = n / 1048576;
+  const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+  let value = n / 1024;
   let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+  while (unit < units.length - 1 && Number(value.toFixed(1)) >= 1024) { value /= 1024; unit++; }
   return `${value.toFixed(1)} ${units[unit]}`;
+}
+// CSV 预览用的切分器(RFC 4180 的够用子集):带引号的字段里的逗号/换行不切,"" 是转义的引号;剥掉 UTF-8 BOM
+// (Excel 另存的 CSV 开头都有,不剥的话首个表头单元格带一个看不见的 ﻿);末尾的换行不产生空行。
+// 最多取 maxRows 行:多出来的只记 truncated:true、不再往后解析——「恰好 maxRows 行」不算截断。
+export function parseCsv(text, maxRows = Infinity) {
+  let source = String(text == null ? '' : text);
+  if (source.charCodeAt(0) === 0xFEFF) source = source.slice(1);
+  const rows = [];
+  let row = [];
+  let field = '';
+  let quoted = false;
+  let truncated = false;
+  // 收一行;返回 false 表示已超过 maxRows,调用方停手。
+  const endRow = () => {
+    row.push(field);
+    rows.push(row);
+    row = [];
+    field = '';
+    if (rows.length > maxRows) { rows.length = maxRows; truncated = true; return false; }
+    return true;
+  };
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
+    if (quoted) {
+      if (ch !== '"') field += ch;
+      else if (source[i + 1] === '"') { field += '"'; i += 1; }
+      else quoted = false;
+    } else if (ch === '"' && field === '') quoted = true;
+    else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && source[i + 1] === '\n') i += 1;
+      if (!endRow()) return { rows, truncated };
+    } else field += ch;
+  }
+  if (field !== '' || row.length) endRow();
+  return { rows, truncated };
 }
 // ISO 时间 → 当前语言的短格式。
 // 每种语言一个格式器(toLocaleString 带 options 每次都新建一个;打开长会话时每行都调)。输出与 toLocaleString 相同。
@@ -123,11 +159,31 @@ export function stewardShortTitle(title, max = STEWARD_TITLE_MAX) {
   return [...text].length > limit ? [...text].slice(0, limit).join('') + '…' : text;
 }
 
-// toast 通知(依赖同文件 el/$;宿主 #toastTray 在 index.html)。
+// toast 停留时长。普通提示 3.2 s;err 类常带一整句服务端原因(几十到上百字),3.2 s 读不完且 #toastTray 点不到(pointer-events:none,
+// 走查 U13:提示条不能挡下面的按钮,所以没有「悬停暂停」),按字数延长:3200 + 80 ms/字,夹在 [6 s, 15 s]。
+export function toastDurationMs(msg, kind = '') {
+  if (kind !== 'err') return 3200;
+  const length = String(msg == null ? '' : msg).length;
+  return Math.min(15000, Math.max(6000, 3200 + length * 80));
+}
+// toast 通知(依赖同文件 el/$;宿主 #toastTray 在 index.html)。kind 只认 ok / err / warn(见 tool-pane.css 的 .toast.*)。
 export function toast(msg, kind = '') {
   const t = el('div', `toast ${kind}`, msg);
   $('toastTray').appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 3200);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, toastDurationMs(msg, kind));
+}
+// 键盘等价(a11y):role="button" 的 div/span 没有原生按钮的 Enter/空格 → click,这里补上。
+// 只认事件目标就是本节点(行内嵌的真按钮、输入框冒泡上来的按键不算),空格 preventDefault 防页面跟着滚。
+// 触发走 node.click(),所以原有的 onclick/addEventListener('click') 一处不用改。
+export function bindKeyboardClick(node) {
+  if (!node || typeof node.addEventListener !== 'function') return node;
+  node.addEventListener('keydown', event => {
+    if (event.target !== node || event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+    event.preventDefault();
+    node.click();
+  });
+  return node;
 }
 // 连接状态行（121-K5，34 号文 §13.7 登记⑦）。
 // 121-K4 把 #statusLine 从侧栏底部搬进外框顶栏之后只剩一个 sr-only 的藏身处 —— 理由是「§2.2 末条

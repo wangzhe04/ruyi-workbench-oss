@@ -13,6 +13,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //     结束 → finish 的尾句也进来并被换掉;最终没有临时文字残留;不自动发送;aria-live 播报过「正在听」与「已填入」。
 //   C 只动没碰过的字:录音中用户把已定稿那一句改掉一个字 → 那一句不再被碰;后面的句子照样接上、照样被换(每句各管各的段)。
 //   D Esc 取消:临时文字撤掉、已定稿的字留着、服务端会话被 DELETE。
+//   D3 Esc 取消时回包还在途(假组件把回包拖 1.2 s):晚到的字不再落进输入框(走查 W1-chat F8)。
 //   E 回落:实时识别指向一个不会开会话的端点(fake-openai 没有 /stream/sessions)→ 说一句、这次走按停顿切段,转写照样回填。
 //   F 零未捕获异常。
 // 判定行:`COMPOSER VOICE STREAM BROWSER E2E: ALL PASS`。
@@ -27,9 +28,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 const FAKE_STREAM = `
 const http = require('http'), crypto = require('crypto');
 const port = Number(process.env.FAKE_STREAM_PORT || 0);
-const sessions = new Map(); let deleted = 0, lastChunks = 0, hold = false;
+const sessions = new Map(); let deleted = 0, lastChunks = 0, hold = false, delay = 0;
 http.createServer((req, res) => {
   const j = (code, body) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(body === undefined ? '' : JSON.stringify(body)); };
+  if (req.url.indexOf('/delay') === 0) { delay = Number(req.url.split('=')[1]) || 0; return j(200, { delay }); }   // 音频块的回包延迟 N ms:造「Esc 取消时回包还在途」
   if (req.url === '/hold') { hold = true; return j(200, { hold }); }   // 测试点「结束」前叫停收口：尾句只由 finish 给出
   if (req.url === '/health') return j(200, { ok: true, component: 'fake-stream-component', version: '0.0.1', loaded: true, sessions: sessions.size, deleted, chunks: lastChunks });
   const m = req.url.match(/^\\/v1\\/stream\\/sessions(?:\\/([0-9a-f]{32})(?:\\/(audio|finish))?)?$/);
@@ -39,7 +41,7 @@ http.createServer((req, res) => {
     if (req.method === 'POST' && !m[1]) { const id = crypto.randomBytes(16).toString('hex'); sessions.set(id, { bytes: 0, chunks: 0, finals: 0, lastEnd: 0 }); hold = false; return j(200, { id, sampleRate: 16000 }); }
     const s = sessions.get(m[1]); if (!s) return j(404, { error: { message: 'unknown', type: 'unknown_session' } });
     if (req.method === 'DELETE') { sessions.delete(m[1]); deleted += 1; res.writeHead(204); return res.end(); }
-    if (m[2] === 'audio') { s.bytes += body.length; s.chunks += 1; lastChunks = s.chunks; const finals = []; if (!hold && s.chunks % 3 === 0) { s.finals += 1; finals.push({ text: '句' + s.finals, startMs: s.lastEnd, endMs: Math.round(s.bytes / 32) }); s.lastEnd = Math.round(s.bytes / 32); } return j(200, { partial: 'p' + s.bytes, finals }); }
+    if (m[2] === 'audio') { s.bytes += body.length; s.chunks += 1; lastChunks = s.chunks; const finals = []; if (!hold && s.chunks % 3 === 0) { s.finals += 1; finals.push({ text: '句' + s.finals, startMs: s.lastEnd, endMs: Math.round(s.bytes / 32) }); s.lastEnd = Math.round(s.bytes / 32); } const out = { partial: 'p' + s.bytes, finals }; if (delay) { setTimeout(() => j(200, out), delay); return; } return j(200, out); }
     if (m[2] === 'finish') { sessions.delete(m[1]); return j(200, { finals: [{ text: '尾句', startMs: s.lastEnd, endMs: Math.round(s.bytes / 32) }] }); }
     j(404, { error: { message: 'no', type: 'not_found' } });
   });
@@ -224,6 +226,25 @@ http.createServer((req, res) => {
     const hAfter = await waitForHttp(streamPort, 'GET', '/health', r => r.json && r.json.deleted > hBefore.json.deleted, null, 50);
     ok(/^\[fake-asr\]/.test(dValue) && !/p\d+/.test(dValue), `D1 Esc:临时文字撤掉、已定稿的字留着(实得 ${JSON.stringify(dValue)})`);
     ok(Boolean(hAfter), `D2 服务端会话被 DELETE 掉(组件 deleted 计数 ${hBefore.json.deleted} → ${hAfter && hAfter.json.deleted})`);
+
+    /* ═════════ D3 Esc 取消时回包还在途:晚到的字不许再落进输入框(走查 W1-chat F8) ═════════ */
+    // 假组件把音频块的回包拖 1.2 s:点麦克风 → 等第一块发出(回包在途)→ Esc。修前晚到的 partial 'p…' / 句子仍被 streamApply 塞进输入框
+    // (还进学习账本);现在 streamSend 拿到回包、streamApply 开头都判 dead / discard。
+    await fx.evaluate(PREP('', 0));
+    const d3Audio = () => fx.evaluate(`window.__voiceProbe.stream.filter(x => /audio$/.test(x.url)).length`);
+    const d3Before = await d3Audio();   // 探针是累计的:以进 D3 时的块数为基线
+    await request(streamPort, 'GET', '/delay?ms=1200');
+    await clickMic();
+    await fx.waitForEval(WAIT_STATE('recording'));
+    await fx.waitForEval(`window.__voiceProbe.stream.filter(x => /audio$/.test(x.url)).length > ${d3Before} ? 1 : null`, 200);   // 本次的第一块音频已发出、回包还在路上(拖了 1.2 s)
+    await fx.cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await fx.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await fx.waitForEval(WAIT_STATE('idle'), 200);
+    const d3AtCancel = await fx.evaluate(VALUE);
+    await sleep(2200);   // 晚到的回包(与第二遍校正)都该已落地
+    const d3Late = await fx.evaluate(VALUE);
+    await request(streamPort, 'GET', '/delay?ms=0');
+    ok(d3Late === d3AtCancel && !/p\d+|句\d/.test(d3Late), `D3 Esc 之后在途回包不再往输入框落字(取消时 ${JSON.stringify(d3AtCancel)},2 秒后 ${JSON.stringify(d3Late)})`);
 
     /* ═════════ G 大模型改字(131b,52 号文 §5;用户拍板 2) ═════════ */
     // 假大模型 = 夹具自带的对话 provider(fx.providerPort);加一条服务商 'fix' 指向它,三个模型名对应三种回法(见 provider 脚本)。

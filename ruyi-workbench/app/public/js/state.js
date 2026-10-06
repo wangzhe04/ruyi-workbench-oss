@@ -14,6 +14,7 @@ export const state = {
   sessions: [],
   currentSession: null,
   attachments: [],
+  uploading: 0,           // F13: 在飞的附件上传数(app.js uploadFiles 维护;sendPrompt 据此拦发送,免得附件漏掉挂到下一条)
   streaming: false,
   rawEvents: [],          // {seq, line} for the debug panel
   paletteIndex: 0,

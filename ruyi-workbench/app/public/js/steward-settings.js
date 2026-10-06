@@ -1390,9 +1390,12 @@ export function createStewardSettingsDomain({
     openSettingsTab(STEWARD_SETTINGS_TAB);
     fillStewardSettings();
     const loads = [refreshRunState()];
-    if (!memoryLoaded) loads.push(loadMemory());
-    if (!decisionsLoaded) loads.push(loadDecisions());
-    if (!scheduleLoaded) loads.push(loadSchedule());
+    // 走查 S-07：修前三块都只在「首次打开」时拉，之后再从口袋进来看到的是第一次那份旧列表（口袋角标却写着「新」）。
+    // 现在【被点名的那一段】每次打开都重载；没点名的段仍只在没载过时才拉（不为没人看的列表发请求）。
+    const wanted = String(section || '');
+    if (wanted === 'memory' || !memoryLoaded) loads.push(loadMemory());
+    if (wanted === 'decisions' || !decisionsLoaded) loads.push(loadDecisions());
+    if (wanted === 'schedule' || !scheduleLoaded) loads.push(loadSchedule());
     const targetId = PANEL_SECTIONS[String(section || '')] || '';
     const target = targetId ? byId(targetId) : null;
     // 焦点跟到目标段落（preventScroll），openModal 随后那一拍看见焦点已在弹层里就不再抢回页首——

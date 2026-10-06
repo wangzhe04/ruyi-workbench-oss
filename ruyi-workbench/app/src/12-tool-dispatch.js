@@ -3166,7 +3166,8 @@ function parseFrontmatter(raw) {
         fm[mm[1].toLowerCase()] = foldFrontmatterBlock(block[1], cont);
         continue;
       }
-      fm[mm[1].toLowerCase()] = mm[2].replace(/^["']|["']$/g, '').trim();
+      // 只剥【成对】的外层引号:修前两端各剥一次,`description: 当用户说 "继续"` 读回 `当用户说 "继续`(尾引号是正文的一部分)。
+      fm[mm[1].toLowerCase()] = mm[2].trim().replace(/^(["'])(.*)\1$/, '$2').trim();
     }
   }
   return fm;

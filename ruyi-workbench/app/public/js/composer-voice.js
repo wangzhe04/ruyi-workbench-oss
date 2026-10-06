@@ -673,6 +673,8 @@ export function createComposerVoice({
     }
     let body = null;
     try { body = await res.json(); } catch { body = null; }
+    // 回包在途时用户按了 Esc 取消(streamCancel 置 dead / discard):这一包的字不能再落进输入框、更不能进学习账本。
+    if (s.dead || s.session.discard) return;
     if (body) streamApply(s, body);
   }
   // 流式路中途断了（组件崩了、服务端 5xx）：当场停录、说清原因；已经落进输入框的字留着。
@@ -723,6 +725,7 @@ export function createComposerVoice({
     if (tail) { try { box.setSelectionRange(tail.end, tail.end); } catch { /* 不支持选区 */ } }
   }
   function streamApply(s, body) {
+    if (s.dead || s.session.discard) return;   // 取消之后到的任何回包(含收尾句 finish 的)一律不落字、不 remember
     const fresh = [];
     for (const f of (Array.isArray(body.finals) ? body.finals : [])) {
       const text = String((f && f.text) || '').trim();

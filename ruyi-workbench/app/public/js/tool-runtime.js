@@ -27,9 +27,15 @@ function savePlanDecision(planId, decision, note) {
   try { localStorage.setItem(PLAN_DECISION_PREFIX + planId, JSON.stringify({ decision, note: note || '', ts: Date.now() })); }
   catch { /* ignore */ }
 }
-// 已在本次页面生命周期内渲染过的 planId 集合 —— F1c 去重守卫:同一个 planId 的 plan 事件重放不再叠卡;
-  // 但新的 planId(第二次计划)永不被挡(见 handlePlanEvent 入口)。
-  const renderedPlanIds = new Set();
+// F1c 去重守卫:同一个 planId 的 plan 事件重放不再叠卡;但新的 planId(第二次计划)永不被挡(见 handlePlanEvent 入口)。
+  // 判据查【活 DOM】而不是页面级 Set:计划等待批准时切会话再切回,mountActiveTurn 会按事件全量重放、重建实时壳,
+  // 旧壳已脱离文档 —— 修前页面级 renderedPlanIds 仍记着这个 planId,重放的 plan 事件直接 return,批准/修改意见/放弃
+  // 三枚按钮全没了,回合卡在等批准。只认「现在还在屏上」的那张卡;Kimi 只读快照卡不算(它与真批准卡可同 id)。
+  function livePlanCard(planId) {
+    if (!planId) return null;
+    return [...document.querySelectorAll('.plan-card[data-plan-id]')]
+      .find(node => node.dataset.planId === String(planId) && !node.classList.contains('kimi-plan-snapshot')) || null;
+  }
   const MARKDOWN_SYNC_MAX_CHARS = 48_000;
 
   function setPlanMarkdownBody(body, markdown) {
@@ -173,6 +179,18 @@ function buildPlanCard(planId, markdown) {
     res.className = `plan-card-result ${lab.cls}`;
   };
 
+  // 回合被停止 / 失败收尾:服务端那头的等待已随回合作废,这张还没决定的卡标成「已失效」—— 禁用按钮并收起,
+  // 免得按钮仍可点、点了只得一句「已过期」。已决的卡不会走到这里(见 expirePendingPlanCards)。
+  const setExpired = () => {
+    card.classList.add('decided', 'plan-expired');
+    card.classList.remove('plan-expanded');
+    [approve, amend, reject, noteSend].forEach(b => { b.disabled = true; });
+    noteWrap.style.display = 'none';
+    res.textContent = t('plan.result.expired') + t('plan.result.expandHint');
+    res.className = 'plan-card-result rej';
+  };
+  card.__expire = setExpired;
+
   return { card, head, approve, amend, reject, noteWrap, noteTa, noteSend, setDecided };
 }
 
@@ -187,9 +205,8 @@ function handlePlanEvent(evt, main, live) {
     return;
   }
   const planId = evt.planId || '';
-  // F1c 去重守卫:同一 planId 的重放不叠卡(新 planId —— 第二次计划 —— 不受影响,继续渲染)。
-  if (planId && renderedPlanIds.has(planId)) return;
-  if (planId) renderedPlanIds.add(planId);
+  // F1c 去重守卫:同一 planId 的重放不叠卡(新 planId —— 第二次计划 —— 不受影响,继续渲染)。查活 DOM,见 livePlanCard。
+  if (planId && livePlanCard(planId)) return;
 
   // 第54波: plan 本身通常已作为 assistant_delta 流过。若当前文本块与 markdown 相同，转成语义计划卡
   // 而不是重复显示；后续 assistant_delta 会在卡片后按需创建新的文本段。
@@ -207,6 +224,17 @@ function handlePlanEvent(evt, main, live) {
   };
   card.__resolveIntervention = finish;
 
+  const host = main || $('messages');
+  // 重放重建:这张计划若本机已有决定记录(F1d 持久化),直接画成已决收起态,不再亮按钮、也不再设「等批准」提示。
+  const prior = loadPlanDecision(planId);
+  if (prior && (prior.decision === 'approve' || prior.decision === 'reject')) {
+    decided = true;
+    setDecided(prior.decision, prior.note);
+    host.appendChild(card);
+    maybeScrollToBottom();
+    return;
+  }
+
   approve.onclick = async () => { const r = await decidePlan(planId, 'approve'); if (r && r.ok) finish('approve'); else if (r) toast(apiErrText(r.error) || t('plan.expired'), ''); };
   reject.onclick = async () => { const r = await decidePlan(planId, 'reject'); if (r && r.ok) finish('reject'); else if (r) toast(apiErrText(r.error) || t('plan.expired'), ''); };
   amend.onclick = () => { noteWrap.style.display = ''; noteTa.focus(); };
@@ -217,12 +245,26 @@ function handlePlanEvent(evt, main, live) {
     else if (r) toast(apiErrText(r.error) || t('plan.expired'), '');
   };
 
-  const host = main || $('messages');
   // F1b:计划卡插在已封存的旧 bubble 之后、新 bubble(若已建)之前。此刻新 bubble 尚未建(finish 才建),
   // 所以直接 append 即可落在旧文本块之后。
   host.appendChild(card);
   setComposerHint(t('plan.awaitingApproval'));
   maybeScrollToBottom();
+}
+
+// 停止 / 失败收尾时,把【这一回合壳里】还没决定的经典计划卡标成已失效(禁用按钮),并清掉「AI 在等你批准计划」提示。
+// root = 本回合的实时壳(缺省整页);已决的、Kimi 只读快照卡不动。返回标了几张。
+function expirePendingPlanCards(root) {
+  const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+  let count = 0;
+  for (const card of scope.querySelectorAll('.plan-card[data-plan-id]')) {
+    if (card.classList.contains('decided') || card.classList.contains('kimi-plan-snapshot')) continue;
+    if (typeof card.__expire !== 'function') continue;
+    card.__expire();
+    count += 1;
+  }
+  if (count) setComposerHint('');
+  return count;
 }
 
 function resolveClassicPlanIntervention({ interventionId, action, feedback } = {}) {
@@ -317,6 +359,7 @@ function updateShellPolling() { /* no user-facing shell panel */ }
     appendToolOutput,
     handlePlanEvent,
     newShellSession,
+    expirePendingPlanCards,
     pushRawEvent,
     renderRawEventSnapshot,
     resolveClassicPlanIntervention,

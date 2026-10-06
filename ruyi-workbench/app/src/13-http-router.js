@@ -844,7 +844,7 @@ async function handleApi(req, res, pathname) {
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     if (scope === 'project' && !pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));   // 对抗轮 P3: 与保存分支同款 root 校验
     const r = await deleteMemory(id, scope, cwd);
-    return send(res, json(r, r.ok ? 200 : 404));
+    return send(res, json(r, r.ok ? 200 : (r.unlinkFailed ? 500 : 404)));   // 文件还在、删不掉(占用/权限)是 500,不是「找不到」
   }
   if (req.method === 'POST' && pathname === '/api/stop') {
     const body = await readJsonBody(req);
