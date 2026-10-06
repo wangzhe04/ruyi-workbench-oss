@@ -32440,7 +32440,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['theme', '界面主题:dark / light / system', 'UI theme: dark / light / system'],
   ['uiMode', '界面模式:simple(简洁)/ pro(专家,露出高级设置)', 'UI mode: simple / pro (shows advanced settings)'],
   ['stewardProviderId', '管家自己用哪个端点;空 = 跟随对话主端点', 'Endpoint the steward itself uses; empty = follow the main endpoint'],
-  ['stewardModel', '管家自己用哪个模型;空 = 该端点缺省', 'Model the steward itself uses; empty = the endpoint default'],
+  ['stewardModel', '管家自己用哪个模型;空 = 用这家服务商的默认模型', 'Model the steward itself uses; empty = that provider\'s default model'],
   ['stewardPollMs', '管家多久看一眼收件箱,毫秒(5000–600000)', 'How often the steward checks its inbox, ms (5000–600000)'],
   ['stewardMaxTurnsPerHour', '管家每小时最多跑几个回合(1–200)', 'Max steward turns per hour (1–200)'],
   ['stewardMaxCostPerDay', '管家每天最多花多少钱(按端点货币)', 'Max steward spend per day (in the endpoint currency)'],
@@ -32472,7 +32472,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['agentCliType', 'CLI 引擎:claude / kimi', 'CLI engine: claude / kimi'],
   ['engineMode', '引擎模式:interactive / headless', 'Engine mode: interactive / headless'],
   ['activeProvider', '对话主端点:空或 claude-cli = CLI,否则 providers[].id', 'Main endpoint: empty or claude-cli = the CLI, else a providers[].id'],
-  ['model', '对话主模型名;空 = 端点缺省', 'Main model; empty = endpoint default'],
+  ['model', '对话主模型名;空 = 用默认模型', 'Main model; empty = the default model'],
   ['compactProviderId', '上下文压缩用哪个端点;空 = 跟随主端点', 'Endpoint used for context compaction; empty = main'],
   ['compactModel', '上下文压缩用哪个模型', 'Model used for context compaction'],
   ['modelsApiBase', '模型清单 API 地址(可留空)', 'Model list API base (may be empty)'],
@@ -32492,7 +32492,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['asrStreamModel', '实时识别用哪个模型', 'Model for live recognition'],
   ['asrFixMode', '句尾改错方式:auto / audio(只重听)/ llm(只改字)/ off', 'Sentence correction: auto / audio / llm / off'],
   ['asrFixProviderId', '改字用哪个大模型端点;空 = 跟随主端点', 'LLM endpoint for text fixing; empty = main'],
-  ['asrFixModel', '改字用哪个模型;空 = 端点缺省', 'Model for text fixing; empty = endpoint default'],
+  ['asrFixModel', '改字用哪个模型;空 = 用这家服务商的默认模型', 'Model for text fixing; empty = that provider\'s default model'],
   ['runtimeOptimizationShadowV1', '运行时优化的影子模式(只观察不生效)', 'Shadow mode for runtime optimizations (observe only)'],
   ['runtimeToolRetrievalV1', '按需检索工具定义(减少提示词体积)', 'Retrieve tool definitions on demand (smaller prompt)'],
   ['runtimeObservationReducerV1', '压缩工具观测结果', 'Reduce tool observation payloads'],
@@ -47610,6 +47610,16 @@ function historyStartsWithCompactionSummary(history) {
   return text.includes('【压缩摘要】') || text.includes('(以下是此前对话的压缩摘要)');
 }
 
+// 历史以压缩摘要开头时(手动 L2 塌成的 [摘要, 收到],或自动 L2 重播种的 [摘要, 收到, …尾巴]),返回摘要那一对之后的下标;
+// 不以摘要开头返回 0。手动压缩拿它量「上次压缩之后新增了多少」。
+function compactionSummaryPairEnd(history) {
+  if (!Array.isArray(history) || !history.length || !historyStartsWithCompactionSummary(history)) return 0;
+  const firstUser = history.findIndex(entry => entry && entry.role === 'user');
+  if (firstUser < 0) return 0;
+  const next = history[firstUser + 1];
+  return firstUser + (next && next.role === 'assistant' ? 2 : 1);
+}
+
 // 105d-A: 把非持久运行时提示贴到【最后一条】 user 消息(注入形态仿 105a recall prompt,
 // content 兼容 string/parts 数组)。只改传入的 msgs 请求副本;无 user 消息或形态不识 → false。
 function appendPromptToLastUserMessage(msgs, text) {
@@ -49226,6 +49236,15 @@ function recentFileReads(history, budgetTokens) {
 const COMPACTION_TASK_PREFIX = '原始任务(保持聚焦):\n';
 // 手动压缩(runProviderCompact 的 L2)塌成 [摘要, 收到] 时首条 user 的开头。
 const MANUAL_COMPACTION_SUMMARY_HEADER = '(以下是此前对话的压缩摘要)\n';
+// 手动压缩「值不值得再压」的门(2026-10 用户报:压完再点一次「压缩」,转半天、结果没变 —— 实测是把 [摘要, 收到] 又交给
+// 摘要模型摘一遍,前后一样大,白花一次模型调用):上次压缩之后新增的内容不到「预算 × 比例,夹在 [下限, 上限]」就不调摘要,
+// 当场说明。上限是给超长窗口留的:1M 窗口按比例是 4 万,新增两三万 token 每轮都要付钱,不能说「没什么可压」。
+// L1 只省下一点点(不到 max(下限, 压缩前 × 比例))也不算「压过了」,同样按这道门决定要不要走 L2。
+const MANUAL_COMPACT_MIN_FRESH_TOKENS = 1500;
+const MANUAL_COMPACT_MAX_FRESH_TOKENS = 8000;
+const MANUAL_COMPACT_MIN_FRESH_RATIO = 0.05;
+const MANUAL_COMPACT_MIN_L1_SAVED_TOKENS = 300;
+const MANUAL_COMPACT_MIN_L1_SAVED_RATIO = 0.02;
 function compactionTaskText(message) {
   const content = message && message.content;
   let text = typeof content === 'string' ? content
@@ -49702,7 +49721,9 @@ async function maybeCompactSubHistory(opts) {
 //      L1 已经把估算压到低水位以下(预算 × compactionPlan.l1SufficientRatio,与自动压缩同一个比例)→ 到此为止,不调摘要;
 //   2. 不够、L1 无事可做、或调用方明确要 mode:'summary' → L2 摘要。仍塌成 [摘要, 收到](手动压缩的既有语义,不留尾巴),
 //      摘要后附被摘要掉那段的工具调用索引(buildCompactionToolIndex,能回捞的带 rawRef)。
-// 全程在历史的副本上做;任何失败都不动会话。返回 { ok, level: 1|2, ... };never throws。
+//   但历史已经以压缩摘要开头、L1 没省下多少、且摘要之后新增的内容不到门槛(MANUAL_COMPACT_MIN_FRESH_*)时不调摘要
+//   → level:0,会话不动,界面说「刚压缩过,暂时没有值得再压的」(修前:摘要完再点,把摘要又摘一遍,转半天、前后一样大)。
+// 全程在历史的副本上做;任何失败都不动会话。返回 { ok, level: 0|1|2, ... };never throws。
 // 正在手动压缩的会话:后台代理唤醒在这期间不起回合(见 runAgentWake),压缩收尾时补排一次。
 // POST /api/provider/compact 走这层登记;压缩本体(及其落盘纪律)仍是 runProviderCompact。
 const providerCompactInFlight = new Set();
@@ -49796,7 +49817,10 @@ async function runProviderCompact(sessionId, opts = {}) {
     return { ok: true, session: written.session };
   };
 
-  if (mode !== 'summary' && evaporated > 0 && recoverable && l1Total <= sufficient) {
+  // L1 真省下了东西才算「做了事」;只折了一两条小输出(省下的不到门槛)按没做处理,下面再决定要不要摘要。
+  const l1Saved = beforeTokens - afterL1;
+  const l1Meaningful = evaporated > 0 && l1Saved >= Math.max(MANUAL_COMPACT_MIN_L1_SAVED_TOKENS, Math.floor(beforeTokens * MANUAL_COMPACT_MIN_L1_SAVED_RATIO));
+  if (mode !== 'summary' && l1Meaningful && recoverable && l1Total <= sufficient) {
     const saved = await persist(fresh => {
       fresh.providerHistory = work;
       const marker = upsertCompactMarker(fresh, { kind: 'provider-manual', label: '已压缩上下文', evaporated, saved: beforeTokens - afterL1, beforeTokens, afterTokens: afterL1 });
@@ -49806,6 +49830,19 @@ async function runProviderCompact(sessionId, opts = {}) {
     if (!saved.ok) return saved;
     logEvent({ kind: 'provider_compact', sessionId: session.id, level: 1, evaporated, beforeTokens, afterTokens: afterL1 });
     return { ok: true, level: 1, evaporated, beforeTokens, afterTokens: afterL1, recoverable };
+  }
+
+  // 走 L2 之前先看值不值得:上次压缩(摘要那一对)之后新增的内容太少 —— 刚摘要完又点一次、或摘要后只聊了几句 —— 再摘要一遍
+  // 只会把摘要又摘一遍,前后差不多大,还要白等一次模型调用。不调摘要、会话一个字节不动,回 level:0 让界面说清楚。
+  // 调用方明确要 mode:'summary' 时照旧摘要(接口留着「强制重摘要」这条路)。
+  const sinceSummary = compactionSummaryPairEnd(history);
+  const freshTokens = estimateHistoryTokens(work.slice(sinceSummary));
+  const minFresh = Math.min(MANUAL_COMPACT_MAX_FRESH_TOKENS, Math.max(MANUAL_COMPACT_MIN_FRESH_TOKENS, Math.floor(budgetPlan.budget * MANUAL_COMPACT_MIN_FRESH_RATIO)));
+  // 只管「已经摘要过」的历史:从没压缩过的会话,手动压缩照旧可以把它摘成 [摘要, 收到](L1 之后紧接着再点一次就是这条 ——
+  // 那一次是真压缩,不是空转)。
+  if (mode !== 'summary' && sinceSummary > 0 && !l1Meaningful && freshTokens < minFresh) {
+    logEvent({ kind: 'provider_compact', sessionId: session.id, level: 0, reason: 'nothing_since_summary', freshTokens, minFresh, beforeTokens });
+    return { ok: true, level: 0, nothingToCompact: true, freshTokens, beforeTokens, afterTokens: beforeTokens, evaporated: 0 };
   }
 
   const sc = await providerSummaryCall(summaryProvider, work, { model: compactTarget.model, config });

@@ -350,7 +350,7 @@ function fillMainEngineSelects() {
       provider,
       ...(pick.providerId ? {} : { models: () => agentModels(pick.cli, sameCli ? (state.status?.models || []) : []) }),
       value: pick.providerId ? provider()?.model || '' : (sameCli ? state.config.model || '' : ''),
-      emptyLabel: () => t(pick.providerId ? 'settings.models.providerDefault' : 'settings.mainEngine.defaultModel'),
+      emptyLabel: () => (pick.providerId ? t('settings.models.firstInList') : t('settings.mainEngine.defaultModel', { name: agentCliMeta(pick.cli).label })),   // 服务商留空＝清单第一个；命令行引擎留空＝它自带的默认
     });
   };
   fillModels();
@@ -2127,7 +2127,7 @@ function providerCard(p, idx) {
   if (keyOptional) kb.append(el('p', 'field-help muted prov-key-optional', t('provider.apiKeyOptionalHint')));
   const mb = el('div', 'field-block'); mb.append(el('label', '', t('provider.model')));
   const mi = el('select');
-  bindModelSelect(mi, { provider: () => p, value: p.model || '', emptyLabel: () => t('settings.mainEngine.defaultModel'), onRefresh: () => {
+  bindModelSelect(mi, { provider: () => p, value: p.model || '', emptyLabel: () => t('settings.models.firstInList'), onRefresh: () => {
     modChip.textContent = tCount('provider.modelCount', providerModels(p).length);
     if (document.activeElement !== modelListI) modelListI.value = providerModels(p).map(m => m.id).join('\n');
     if (!listDirty) listBaseline = providerModels(p).map(m => m.id);

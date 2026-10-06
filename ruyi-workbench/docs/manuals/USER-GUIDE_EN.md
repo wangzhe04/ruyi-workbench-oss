@@ -295,7 +295,7 @@ has eight groups from top to bottom:
 - **Action log**: the record of everything the steward did for you: what, on which thread, when, and whether it can be
   undone.
 
-The model the steward uses (blank follows the main endpoint, but the steward cannot run when the main endpoint is a
+The model the steward uses (blank follows the main model, but the steward cannot run when the main model runs on a
 command-line engine, and the page says which setting to change) is chosen under Settings → Models & Services →
 Model assignment; its hourly turn cap, daily spending cap and how many threads may run at once are under Settings →
 General → Usage & limits; and the default permission level for new threads is under Settings → General →
@@ -490,8 +490,8 @@ model with the file. A failed transcription never blocks the upload, and the ori
   for you**, and you press **Run now** when you are back. The whole run has its own cap (`timeoutMinutes`, also
   30 minutes by default) and is recorded as Failed if it runs over — two different clocks with the same default.
 - **Which model tier** (new in 2.8.0) — complex tasks · strong model / simple tasks · fast model / follow the
-  main endpoint. Which endpoint each tier uses is set higher up the same page under "Model for new threads"; a
-  tier left empty follows the main endpoint. **With this, you no longer change the global engine for one
+  main model. Which provider each tier uses is set higher up the same page under "Model for new threads"; a
+  tier left empty follows the main model. **With this, you no longer change the global engine for one
   scheduled task.**
 
 **What you will see.** Tasks are listed in that block, each row showing the next firing time, **Pause/Resume**,
