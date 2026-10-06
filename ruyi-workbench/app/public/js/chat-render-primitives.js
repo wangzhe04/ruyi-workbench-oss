@@ -108,6 +108,16 @@ export function createMarkdownParser(markedLib, { breaks = true } = {}) {
   } catch { return null; }
 }
 
+// 安全走查 S8:Markdown 白名单曾对所有元素原样保留 `class`,于是模型输出 / 工具结果 / 网页转写里的
+// `<div class="modal-backdrop">`、`.mermaid-lightbox`、`.attachment-viewer-backdrop` 会被渲染成应用自己的
+// position:fixed 全屏覆盖层 —— 可以伪造「会话过期,请重新登录」的弹窗、挡住权限卡。现在 class 只放行
+// 渲染管线真正会从 marked 输出里带出来的两族:围栏代码块的 `language-*`,以及高亮器的 `hljs` / `hljs-*`
+// (都只改配色,不定位、不盖层)。其余(含应用自己的所有布局/弹层类)一律剥掉。纯函数,可单测。
+const SAFE_MARKDOWN_CLASS_RE = /^(?:language-[A-Za-z0-9_+#.-]{1,40}|hljs(?:-[A-Za-z0-9_-]{1,40})?)$/;
+export function sanitizeMarkdownClassValue(value) {
+  return String(value == null ? '' : value).split(/\s+/).filter(token => SAFE_MARKDOWN_CLASS_RE.test(token)).join(' ');
+}
+
 export function createChatRenderPrimitives(deps = {}) {
   const {
     $,
@@ -195,7 +205,12 @@ export function createChatRenderPrimitives(deps = {}) {
             // allow pure relative/fragment refs (no scheme)
             if (!ok && /^[#/.?]/.test(v) && !/^[a-z][a-z0-9+.-]*:/i.test(v)) ok = true;
             if (!ok) { node.removeAttribute(attr.name); continue; }
-          } else if (name !== 'class' && name !== 'alt' && name !== 'title') {
+          } else if (name === 'class') {
+            // S8:只留 language-* / hljs*(见模块级 sanitizeMarkdownClassValue),其余剥掉,剥空了整条属性去掉。
+            const kept = sanitizeMarkdownClassValue(val);
+            if (kept) { if (kept !== val) node.setAttribute(attr.name, kept); }
+            else node.removeAttribute(attr.name);
+          } else if (name !== 'alt' && name !== 'title') {
             node.removeAttribute(attr.name);
           }
         }
@@ -796,10 +811,11 @@ export function createChatRenderPrimitives(deps = {}) {
     const inp = u.usage?.input_tokens, out = u.usage?.output_tokens;
     // E4: providers that never send a usage frame get a server-side estimate flagged estimated:true — prefix
     // it with 约 (approx.) so the number does not read as an exact provider-reported count.
-    if (inp != null || out != null) parts.push(`<b>${u.estimated ? t('common.about') : ''}↑${fmtTokens(inp ?? 0)} ↓${fmtTokens(out ?? 0)}</b>`);
+    // S12:本函数拼 innerHTML —— 凡不是自家常量的插值(翻译串、格式化数、来自 CLI 结果的 numTurns)一律过 escapeHtml。
+    if (inp != null || out != null) parts.push(`<b>${u.estimated ? escapeHtml(t('common.about')) : ''}↑${escapeHtml(fmtTokens(inp ?? 0))} ↓${escapeHtml(fmtTokens(out ?? 0))}</b>`);
     if (u.durationMs != null) parts.push(`<b>${(u.durationMs / 1000).toFixed(1)}s</b>`);
     if (u.costUsd != null) parts.push(`<b>$${Number(u.costUsd).toFixed(4)}</b>`);
-    if (u.numTurns != null) parts.push(tCount('chat.usageTurnCount', u.numTurns));
+    if (u.numTurns != null) parts.push(escapeHtml(tCount('chat.usageTurnCount', u.numTurns)));
     let html = parts.join(' · ');
     // Trailing muted engine name from the message meta, or the current engine when rendered live.
     const engName = engineVisual(meta || currentEngineMeta()).label;

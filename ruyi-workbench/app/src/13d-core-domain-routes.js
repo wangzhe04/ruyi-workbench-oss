@@ -428,6 +428,28 @@ function sessionEnvelopeLiveParts(id) {
   return { live, liveTail, liveTurn, relay };
 }
 
+// 安全走查 S10:导入会话 JSON(POST /api/sessions 带 messages)时,文件里写的 cwd 不能原样当工作区 —— 一份被分享来的会话文件
+// 写个 cwd:'/' 就把本会话的文件工具写根放大到整盘。前端 importSession 已不再上送文件里的 cwd;这里是服务端的第二道:
+// 导入形态(body.messages 非空)若显式带了 cwd,必须落在【已配置的工作区】(默认工作区 + workspaces[] 各条)之一内部或就是它,
+// 否则 400(不回显路径)。比对走真实路径(符号链接 / junction 逃不出去)。普通「新建会话」(不带 messages)不受影响:
+// 它的 cwd 来自用户在界面里选的文件夹(最近用过的、拖进来的),并不要求事先登记成工作区。
+async function importedSessionCwdAllowed(cwd, config) {
+  const raw = typeof cwd === 'string' ? cwd.trim() : '';
+  if (!raw) return true;
+  const target = await resolveContainmentPath(raw);
+  if (!target || target.unresolvable) return false;
+  const rootsRaw = [config && config.defaultWorkspace ? config.defaultWorkspace : os.homedir()];
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) {
+    if (w && typeof w === 'object' && typeof w.path === 'string' && w.path.trim()) rootsRaw.push(w.path.trim());
+  }
+  for (const rootRaw of rootsRaw) {
+    if (typeof rootRaw !== 'string' || !rootRaw.trim()) continue;
+    const root = await resolveContainmentPath(rootRaw);
+    if (root && !root.unresolvable && pathWithinRoot(target.path, root.path)) return true;
+  }
+  return false;
+}
+
 async function handleSessionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/sessions') {
     return send(res, json({ ok: true, sessions: await listSessions() }));
@@ -449,6 +471,10 @@ async function handleSessionApiRoutes(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);
+    if (body && Array.isArray(body.messages) && body.messages.length && typeof body.cwd === 'string' && body.cwd.trim()
+      && !(await importedSessionCwdAllowed(body.cwd, await readConfig()))) {
+      return send(res, apiFailure('session.import_cwd_not_allowed', {}, 'imported session cwd must be a configured workspace (or a subfolder of one)', 400));
+    }
     // 121-K3(§4.1「来源三值」):这条路由就是【用户自己按下「新会话」】那一下,来源恒为 'user'。
     // 显式钉死而不是把 body 整份透传:createSession 现在认 origin 参数,透传等于让任意调用方
     // 把自己的普通会话刷成「管家开的」—— 那正是 02 把 origin 挡在 PATCH 白名单外要防的同一件事,

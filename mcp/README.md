@@ -13,11 +13,11 @@ English: [MCP Connectors: Folder Drop-ins](README_EN.md)
 
 ## 内置桌面控制 MCP：`ai-computer-control/`
 
-本目录下的 `ai-computer-control/` 是**随发行包捆绑的内置桌面控制 MCP**（100 工具：截图、OCR、UIA 定位、鼠标键盘、窗口、浏览器、文件、Office/PDF 等）。它由工作台的**专用桌面探测**（`desktopMcp` 探测）直接识别并优先加载，**不需要、也不要**给它加 `ruyi-mcp.json` 清单——否则会与专用探测形成**双注册**（同一批工具被登记两次）。
+本目录下的 `ai-computer-control/` 是**随发行包捆绑的内置桌面控制 MCP**（108 个工具：截图、OCR、UIA 定位、鼠标键盘、窗口、浏览器、文件、Office/PDF 等；确切数字以仓库根 `facts.json` 的 `accTools` 为准）。它由工作台的**专用桌面探测**（`desktopMcp` 探测）直接识别并优先加载，**不需要、也不要**给它加 `ruyi-mcp.json` 清单——否则会与专用探测形成**双注册**（同一批工具被登记两次）。
 
 浏览器 URL 默认在用户浏览器的新标签页/窗口打开；工作台标签页不会被浏览器工具导航、复用或关闭。需要 DOM 自动化时，可在设置中改用 managed、custom 或 CDP 模式；`bundled` 才会显式使用隔离的 Chrome for Testing。
 
-专用探测会先验证候选 Python 能导入 ACC；发现缺依赖的嵌入运行时会跳过并回退到可用 Python。也会识别官方安装器默认写入的 `%LOCALAPPDATA%\ai-computer-control\venv\Scripts\python.exe`。发行包中的 `-IncludeAcc` 仅带源码和安装器；离线机器若没有可用 Python/依赖，仍需使用 ACC 的独立离线安装包。
+专用探测会先验证候选 Python 能导入 ACC；发现缺依赖的嵌入运行时会跳过并回退到可用 Python。也会识别官方安装器默认写入的 `%LOCALAPPDATA%\ai-computer-control\venv\Scripts\python.exe`。Full 发行包（打包参数 `-IncludeAcc`）内置经校验的嵌入式 CPython 3.12、仅含 wheel 的离线依赖缓存、Chromium 与 OCR 运行时，并把全部文件登记进 SHA-256 清单；这几样缺任何一项，打包脚本都拒绝出包。所以离线目标机**不需要自备 Python**，首次启动时校验并注册 ACC，之后走快速检查。Slim 发行包不含 ACC。只有直接从源码目录使用 ACC 时，才需要自备 Python 3.12 并 `pip install -e`，或使用 ACC 自己的离线安装包（`installer/build_offline_package.py` 生成）。
 
 也就是说：
 

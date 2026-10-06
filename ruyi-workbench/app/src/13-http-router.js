@@ -210,7 +210,8 @@ async function handleApi(req, res, pathname) {
   const authErr = authorizeRoute(req, req.method, pathname);
   if (authErr) {
     const code = authErr === 'missing or invalid workbench token' ? 'auth.token_invalid'
-      : authErr === 'cross-origin request rejected' ? 'auth.origin_rejected' : 'auth.denied';
+      : authErr === 'cross-origin request rejected' ? 'auth.origin_rejected'
+        : authErr === 'remote client not allowed' ? 'auth.remote_denied' : 'auth.denied';
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
@@ -218,6 +219,8 @@ async function handleApi(req, res, pathname) {
     // 47c(S1):浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。auth=open -> 顶层 host 门已挡 rebinding
     // (Host=攻击域 -> 403),信任面与旧 GET / 明文下发完全等同;非浏览器(curl/node)亦同旧规可得。
     // 不查 Origin:'open' 级本就允许 loopback 非浏览器,浏览器同源(Host=loopback)也放行,跨站 rebinding 已被 host 门拦。
+    // 安全走查 S13(纵深):authorizeRoute 已对非本机对端拒掉这条路由;这里再核一次对端地址,别让以后改鉴权表的人把它放开。
+    if (!requestIsLoopback(req)) return send(res, apiFailure('auth.remote_denied', {}, 'remote client not allowed', 403));
     return send(res, json({ ok: true, token: RUNTIME.token || '' }));
   }
   if (req.method === 'GET' && pathname === '/api/status') {
@@ -541,14 +544,33 @@ async function handleApi(req, res, pathname) {
     }
     const sp = sanitizeProvider(rawProvider);
     if (!sp) return send(res, json({ ok: false, error: 'invalid provider (need at least an id + baseUrl)' }));
-    // 审计 P2: 测试连接把 fetchOpenAiModels 的裸 'HTTP 401' 直接回吐给用户 —— 首跑最高频故障(密钥错/无权限)却无
-    // 中文人话、无下一步。这里把常见状态映射为可行动文案 + errorClass(前端据此渲染 ERROR_CLASSES 的 zh/next)。
-    const probe = await fetchOpenAiModels(sp, 6000);
+    // 先列模型清单(顺带回填下拉);端点不提供清单(404 / 405 / 501,或回了空表)时,用填好的模型发一次最小补全确认能通 ——
+    // 多数 Anthropic 兼容网关(如 https://api.deepseek.com/anthropic)没有 /v1/models,修前这一步直接判「端点地址可能不对」。
+    let probe = await fetchOpenAiModels(sp, 6000);
+    const modelsMissing = (!probe.ok && /\bHTTP (?:404|405|501)\b/.test(String(probe.error || ''))) || (probe.ok && !(probe.models || []).length);
+    const apiStyle = normalizeProviderApiStyle(sp.apiStyle);
+    if (modelsMissing) {
+      const model = String(sp.model || (sp.models && sp.models[0] && sp.models[0].id) || '').trim();
+      if (!model) {
+        return send(res, json({ ok: false, code: 'provider.test_needs_model', errorClass: 'provider_misconfigured', apiStyle, models: [],
+          error: '这个端点不提供模型清单:请先填写模型名再测试' }));
+      }
+      const reach = await probeProviderCompletion(sp, model, 15000);
+      if (reach.ok) return send(res, json({ ok: true, models: [], probe: 'completion', model, modelsUnavailable: true, apiStyle }));
+      probe = { ok: false, error: reach.error, models: [], probe: 'completion', model };
+    }
+    // 审计 P2: 测试连接把裸 'HTTP 401' 直接回吐给用户 —— 首跑最高频故障(密钥错/无权限)却无人话、无下一步。常见状态映射成
+    // 稳定 code(前端按 code 取本地化文案,并按协议给 Base URL 的写法提示)+ errorClass;error 仍是中文兜底句,detail 是原始报文。
     if (!probe.ok && probe.error) {
       const e = String(probe.error);
-      if (/\bHTTP 401\b|\bHTTP 403\b|unauthorized/i.test(e)) { probe.error = '密钥无效或无权限(' + e + '):请检查 API Key 是否正确、是否有额度/权限'; probe.errorClass = 'provider_misconfigured'; }
-      else if (/\bHTTP 404\b/i.test(e)) { probe.error = '端点地址可能不对(' + e + '):检查 Base URL 是否为 OpenAI 兼容的 /v1 地址'; probe.errorClass = 'provider_misconfigured'; }
-      else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) { probe.error = '连不上端点(' + e + '):检查网络与 Base URL,内网端点确认可达'; probe.errorClass = 'network_down'; }
+      const detail = redact(e).slice(0, 300);
+      if (/\bHTTP 40[13]\b|unauthorized|authentication/i.test(e)) Object.assign(probe, { code: 'provider.test_unauthorized', errorClass: 'provider_misconfigured', error: '密钥无效或无权限(' + detail + '):请检查 API Key 是否正确、是否有额度/权限' });
+      else if (/\bHTTP 404\b/i.test(e)) Object.assign(probe, { code: 'provider.test_not_found', errorClass: 'provider_misconfigured', error: '端点地址可能不对(' + detail + '):检查 Base URL' });
+      else if (probe.probe === 'completion' && /\bHTTP 4\d\d\b/.test(e) && /model/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
+      else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) Object.assign(probe, { code: 'provider.test_unreachable', errorClass: 'network_down', error: '连不上端点(' + detail + '):检查网络与 Base URL,内网端点确认可达' });
+      else Object.assign(probe, { code: 'provider.test_failed', error: detail });
+      probe.detail = detail;
+      probe.apiStyle = apiStyle;
     }
     return send(res, json(probe));
   }
@@ -1793,46 +1815,66 @@ function healthLooksLikeWorkbench(health) {
   return typeof health.version === 'string' && !!health.version
     && typeof health.launchMode === 'string' && Number.isFinite(health.uptimeSec);
 }
-// Kill the port's holder(s) ONLY when confirmed to be a stale workbench: /health responds like one,
-// OR the PID matches our own runtime.json, OR the image is node/Ruyi/WinClaudeWorkbench. An unrelated
-// service is left alone (returns {ok:false, blocked}) so we never clobber someone else's app.
-async function freeStalePort(port, host) {
-  const pids = await pidsOnPort(port);
-  if (!pids.length) return { ok: true, killed: [] }; // maybe TIME_WAIT with no live listener — retry handles it
-  const health = await probeHealth(port, host);
-  const isWorkbench = healthLooksLikeWorkbench(health);
-  let ourPid = null;
+// 端口被占时,只在「占着它的正是【本数据目录】登记的那个实例」时才接管(结束它再原端口重来);除此之外一律不动、顺延到下一个端口。
+// 安全走查(端口接管):修前对「任何像如意的占用者」都动手 —— /health 像工作台、或镜像名是 Ruyi / node + server.js,就杀。
+// 两份不同安装目录(或不同数据目录)的如意先后启动,后者会把前者连同它正在跑的回合一起结束。现在的唯一凭据是
+// 本数据目录 runtime.json 里记的 pid:那是本数据目录上一次启动写下的「我是谁」,pid 对上才说明它是自己的陈旧实例。
+// 别的数据目录的实例、别的安装里的如意、别人的服务,pid 都对不上 → blocked,调用方顺延端口。
+// 纯函数(不碰进程、不碰盘),单测直调:入参是已取好的证据,返回 { ours:boolean, why?, reason? }。
+//   · pid 必须等于 runtime.json 的 pid;runtime.json 记了端口的话,必须就是这个端口(登记的实例本不在这个端口上 = 号被别人撞了);
+//   · /health 在应答且带 overlayId、runtime.json 也记了 overlayId 时必须一致(pid 被回收给另一个如意进程时 overlayId 不同);
+//   · 取得到镜像名时必须像工作台:Ruyi / WinClaudeWorkbench 直接认,node 须命令行里有 server.js(取不到命令行不加否决),其余一律不认。
+function portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandLine }) {
+  if (!runtime || !Number.isInteger(runtime.pid) || runtime.pid <= 0 || runtime.pid !== pid) return { ours: false, reason: 'not-recorded-pid' };
+  if (Number.isInteger(runtime.port) && runtime.port !== port) return { ours: false, reason: 'recorded-on-other-port' };
+  if (healthLooksLikeWorkbench(health) && typeof health.overlayId === 'string' && health.overlayId
+    && typeof runtime.overlayId === 'string' && runtime.overlayId && health.overlayId !== runtime.overlayId) {
+    return { ours: false, reason: 'overlay-mismatch' };
+  }
+  let why = null;
+  const img = String(image || '');
+  if (!img) why = 'runtime.json';
+  else if (/Ruyi|WinClaudeWorkbench/i.test(img)) why = 'runtime.json+image:' + img; // v1.0-S9 exe 改名 Ruyi.exe;双名兼容(旧构建/存量进程仍可能名 WinClaudeWorkbench)
+  else if (/^node(\.exe)?$/i.test(img)) {
+    // 第36波(v1.7)起 node.exe 镜像名【不是】充分证据:登记 pid 只是前提,这里再核命令行,防「pid 被回收给一个无关的 node 服务」。
+    const evidence = String(commandLine || '').toLowerCase();
+    if (evidence && !/server\.js/.test(evidence)) return { ours: false, reason: 'node-not-workbench' };
+    if (evidence) why = 'image:node+cmdline';
+    else why = 'runtime.json';
+  }
+  else return { ours: false, reason: 'foreign-image' };
+  return { ours: true, why };
+}
+async function readOwnRuntimeRecord() {
   try {
     const rt = safeJsonParse(await fsp.readFile(path.join(paths.data, 'runtime.json'), 'utf8'), null);
-    if (rt && Number.isInteger(rt.pid)) ourPid = rt.pid;
-  } catch { /* no prior runtime.json */ }
-  const killed = [];
+    return rt && typeof rt === 'object' && !Array.isArray(rt) ? rt : null;
+  } catch { return null; /* 没有上一次的 runtime.json:没有可接管的自己人 */ }
+}
+// 返回 { ok:true, killed:[…] } 或 { ok:false, blocked:{ pid, image, reason, workbench } }(blocked = 占用者不是自己人,没动它)。
+// deps 只给单测换桩(netstat / tasklist / CIM / taskkill 在 Linux 上都不存在)。
+async function freeStalePort(port, host, deps = {}) {
+  const d = { pidsOnPort, probeHealth, processImage, processCommandLine, killPid, readOwnRuntimeRecord, ...deps };
+  const pids = await d.pidsOnPort(port);
+  if (!pids.length) return { ok: true, killed: [] }; // maybe TIME_WAIT with no live listener — retry handles it
+  const health = await d.probeHealth(port, host);
+  const runtime = await d.readOwnRuntimeRecord();
+  // 两遍走:先给每个占用者下判决,有一个不是自己人就整体放弃、谁也不杀(不会杀了自己人的一半、再因为别人占着而失败);都是自己人才动手。
+  const verdicts = [];
   for (const pid of pids) {
     if (pid === process.pid) continue; // never kill self
-    let why = null;
-    if (isWorkbench) why = 'health';
-    else if (pid === ourPid) why = 'runtime.json';
-    else {
-      const img = await processImage(pid);
-      if (/Ruyi|WinClaudeWorkbench/i.test(img)) why = 'image:' + img; // v1.0-S9 exe 改名 Ruyi.exe;双名兼容(旧构建/存量进程仍可能名 WinClaudeWorkbench)
-      else if (/^node(\.exe)?$/i.test(img)) {
-        // 第36波(v1.7): node.exe 镜像名【不是】充分的处死证据 —— 占着同一端口的可能是任何人的 node 服务,旧
-        // image:node 分支直接 taskkill,与本函数头注 "never clobber someone else's app" 的契约矛盾。补命令行
-        // 取证:命令行指向【本应用的 server.js 全路径】(源码/overlay 形态),或 server.js 与 Ruyi/WinClaudeWorkbench
-        // 命名的发行目录同现(打包 runtime\node 形态 —— Start-Workbench.cmd 以相对路径 "app\server.js" 启动,
-        // 靠 ExecutablePath 里的发行目录名佐证)。证据不足一律 blocked(安全方向),报错请用户手动处理。
-        const evidence = await processCommandLine(pid);
-        const ourServer = path.join(__dirname, 'server.js').toLowerCase();
-        const isOurs = evidence.includes(ourServer)
-          || (/server\.js/.test(evidence) && /ruyi|winclaudeworkbench/.test(evidence));
-        if (isOurs) why = 'image:node+cmdline';
-        else return { ok: false, blocked: { pid, image: img || '(unknown)' } };
-      }
-      else return { ok: false, blocked: { pid, image: img || '(unknown)' } };
-    }
-    await killPid(pid);
+    const image = await d.processImage(pid);
+    // 只有「登记的就是它」且镜像是 node 时才花那一发 CIM(8s 上限)取命令行。
+    const commandLine = runtime && pid === runtime.pid && /^node(\.exe)?$/i.test(String(image || '')) ? await d.processCommandLine(pid) : '';
+    const verdict = portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandLine });
+    if (!verdict.ours) return { ok: false, blocked: { pid, image: image || '(unknown)', reason: verdict.reason, workbench: healthLooksLikeWorkbench(health) } };
+    verdicts.push({ pid, why: verdict.why });
+  }
+  const killed = [];
+  for (const { pid, why } of verdicts) {
+    await d.killPid(pid);
     killed.push({ pid, why });
-    console.log(`[port] :${port} held by stale workbench — killed PID ${pid} (${why})`);
+    console.log(`[port] :${port} held by this data dir's stale instance — killed PID ${pid} (${why})`);
   }
   return { ok: true, killed };
 }
@@ -1886,8 +1928,11 @@ async function listenWithFallback(server, port, host, config) {
     console.log(`[port] :${port} in use -- checking whether it's a stale workbench...`);
     const res = await freeStalePort(port, host);
     if (!res.ok) {
-      return await listenOnNextFreePort(server, port, host,
-        `端口 ${port} 被其它程序占用(PID ${res.blocked.pid} / ${res.blocked.image}),没有去误杀它。`);
+      // 占用者不是「本数据目录登记的那个实例」:可能是另一份如意(别的安装目录 / 别的数据目录,正在跑自己的回合),也可能是别的程序。
+      // 两种都不动它,顺延到下一个端口。
+      return await listenOnNextFreePort(server, port, host, res.blocked.workbench
+        ? `端口 ${port} 被另一份如意实例占用(PID ${res.blocked.pid},不是本数据目录登记的实例),没有去结束它。`
+        : `端口 ${port} 被其它程序占用(PID ${res.blocked.pid} / ${res.blocked.image}),没有去误杀它。`);
     }
     for (let i = 0; i < 25; i++) {
       await sleep(160);
@@ -1906,8 +1951,11 @@ async function listenWithFallback(server, port, host, config) {
 // 这层薄包装把三类致命失败落成 <data>/last-start-error.json(人话 + 下一步),
 // 下一次成功启动由 startServerInner 读出来交给前端顶部条;console 输出与退出码一字未改。
 async function startServer(opts) {
+  // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
+  // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
+  const bindHost = resolveBindHost(opts);
   try {
-    return await startServerInner(opts);
+    return await startServerInner(opts, bindHost);
   } catch (error) {
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
     const message = String((error && error.message) || error || '').slice(0, 800)
@@ -1949,7 +1997,24 @@ async function resetOrphanedMissionDrivers() {
   return reset;
 }
 
-async function startServerInner(opts) {
+// 安全走查 S13:--host 能绑非回环地址(0.0.0.0 / 局域网 IP / 主机名),而 Host 头是对端自己写的,
+// 页面 token 的下发又只看 Host 头 —— 绑出去等于把接口令牌送给局域网上任何人。所以非回环绑定必须【显式再加】
+// --allow-remote,否则启动即拒绝并说明原因;放行之后也只是「允许监听」:非本机对端拿不到 token(见 01 的 requestIsLoopback)。
+// 返回实际要绑的地址;纯函数(不碰盘、不碰全局),单测直调。
+function resolveBindHost(opts) {
+  const raw = opts && opts.host;
+  const host = typeof raw === 'string' && raw.trim() ? raw.trim() : '127.0.0.1';
+  if (isLoopbackBindHost(host)) return host;
+  const flag = opts && opts['allow-remote'];
+  const allowed = flag === true || (typeof flag === 'string' && !/^(0|false|off|no)$/i.test(flag.trim()));
+  if (allowed) return host;
+  const error = new Error(`拒绝绑定非回环地址 ${host}:如意只应监听本机(127.0.0.1),页面与接口令牌的保护都以「对端在本机」为前提。`
+    + ' 确需让别的机器访问,请显式追加 --allow-remote(并自行用防火墙/反向代理限制来源;非本机对端拿不到页面 token,须自带头 token)。'
+    + ` / Refusing to bind non-loopback address ${host}: Ruyi is a local single-user tool. Pass --allow-remote explicitly if you really need it.`);
+  throw error;
+}
+
+async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   try {
     await ensureDirs();
   } catch (error) {
@@ -2022,7 +2087,8 @@ async function startServerInner(opts) {
   void storageSweep(config.storagePolicy).catch(() => {});
   void sweepStaleScriptFiles().catch(() => {});   // 走查 W1·F10:script_run 遗留的脚本明文(强杀 / 杀毒占着没删成的)按龄清掉
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
-  const host = opts.host || '127.0.0.1';
+  const host = bindHost;
+  if (!isLoopbackBindHost(host)) console.log(`[warn] --allow-remote:正在监听非回环地址 ${host}。非本机对端拿不到页面 token(须自带头 token);请用防火墙限制来源。`);
   const server = http.createServer(async (req, res) => {
     const reqT0 = Date.now(); // 第40波:请求耗时插桩(res finish 时入账,/health 不计 —— 高频探针会淹没真分布)
     res.on('finish', () => { try { const u0 = new URL(req.url, 'http://x'); if (u0.pathname !== '/health') recordRequestMetric(req.method, u0.pathname, Date.now() - reqT0); } catch { /* 观测不阻断 */ } });
@@ -2032,6 +2098,9 @@ async function startServerInner(opts) {
     // 先 setHeader 再让各路由的 writeHead 合并:路由自己写了同名头则以路由为准。
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+    // 安全走查 S6:禁止浏览器按内容嗅探 MIME(把 text/plain 的回包当 HTML/脚本执行)。静态资源的 content-type 由
+    // contentTypeFor 给全(html/css/js/json/图片),/api 一律 application/json,SSE 是 text/event-stream,不会被它误伤。
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     try {
       // 第33波:顶层 host 门(DNS-rebinding 防御覆盖全 GET 面 + 静态 /,治第29波 backlog #0)。hostAllowed 之前
       // 只在 originOk(mutating 块)内调用,GET 与 serveStatic 跳过 -> index.html 的 token 可被 rebinding 页读走。
@@ -2069,7 +2138,8 @@ async function startServerInner(opts) {
   const runtimeToken = crypto.randomBytes(16).toString('hex');
   RUNTIME.port = port; RUNTIME.host = host; RUNTIME.token = runtimeToken;
   await atomicWriteJson(path.join(paths.data, 'runtime.json'),
-    { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() }).catch(() => {});
+    { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() },
+    { mode: 0o600 }).catch(() => {});   // 安全走查 S11:里面是接口令牌,只给属主读写(POSIX;Windows 靠用户目录 ACL)
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);
   console.log(`Data: ${paths.data}`);

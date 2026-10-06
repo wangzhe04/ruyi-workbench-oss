@@ -431,6 +431,10 @@ async function runClaudeTurn({
   // 剩余段按 用户append>账本>语言政策 的顺序自然降级。
   let appendSys = '';
   const indexSecs = []; // P2: 稳定索引段收集器(stdin 注入,不进命令行)
+  // 去重 hash 用的「稳定版」:某段的内容会随进程内缓存的冷热变化(Playbook 的可用性标注取自能力缓存 —— 冷时一律不标、热了才标),
+  // 这里记下它的冷热无关版本;算 hash 时换上它,免得缓存变热的那一回合把整块 <workbench-context> 重发一遍(Windows CI 上开机探测慢,
+  // 第一回合常是冷的)。发出去的仍是带标注的那一版。
+  const indexHashOverrides = new Map();
   // 145-W3:引擎运行环境说明(<ruyi-environment>,06 buildEngineEnvBrief 单一事实源)。排在用户 append 之后、
   // 四层协议之前 —— 仍在无条件前缀里(降级一律从尾部切),用户 append 仍是最前段(cmdline-guard B4/C1)。
   // 只随能力集合变(fingerprint 同则逐字节同),不打破 Claude 的系统提示前缀。rg 用进程级缓存的异步探测
@@ -513,7 +517,10 @@ async function runClaudeTurn({
         .map(pb => ({ id: pb.id, title: pb.title || pb.id, description: pb.desc || '',
           ...(capsForPlaybooks ? evalPlaybookAvailability(pb, capsForPlaybooks) : { available: true, unavailableReason: '' }) }));
       const pbSec = buildPlaybookIndexSection(playbookEntries, config);
-      if (pbSec) indexSecs.push(pbSec);
+      if (pbSec) {
+        indexSecs.push(pbSec);
+        indexHashOverrides.set(pbSec, buildPlaybookIndexSection(playbookEntries.map(e => ({ ...e, available: true, unavailableReason: '' })), config));
+      }
     } catch { /* Playbook 索引注入绝不可阻断回合 */ }
     // v2 跨会话记忆: 已启用记忆的紧凑索引。第35波 P2 起与技能索引同走 stdin 一次性注入(原文,不中和);
     // P3-2 的 fits-or-drop 契约由段内构建自带截断(MEMORY_INDEX_CAP)替代,不再有命令行预算丢弃面。
@@ -574,7 +581,8 @@ async function runClaudeTurn({
   let indexPayloadHash = '';
   const resumeActive = Boolean(config.autoResumeClaudeSessions && session.claudeSessionId);
   if (indexPayload && !slashCommand) {
-    indexPayloadHash = crypto.createHash('sha1').update(indexPayload, 'utf8').digest('hex').slice(0, 12);
+    const hashPayload = indexSecs.filter(Boolean).map(sec => (indexHashOverrides.has(sec) ? indexHashOverrides.get(sec) : sec)).join('\n');
+    indexPayloadHash = crypto.createHash('sha1').update(hashPayload, 'utf8').digest('hex').slice(0, 12);
     if (!resumeActive || session.injectedIndexHash !== indexPayloadHash) {
       indexInjection = [
         '<workbench-context>',

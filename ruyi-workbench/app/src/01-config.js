@@ -1644,6 +1644,8 @@ function noteSessionsDirOwnWrite(file) {
 //      重试 8 次(15→155ms 退避)——saveAgentRun 实战验证过的参数,推广到所有 JSON 落盘;
 //   ③ 最终失败必 unlink tmp:唯一名没有"下次覆写自愈"路径,不清会无界累积孤儿;
 //   ④ value 传字符串视为已序列化(saveSession 需要同步快照语义:序列化与索引快照同一 tick)。
+//   ⑤ opts.mode(安全走查 S11):新建临时文件时的权限位(POSIX 生效,Windows 忽略)。rename 之后目标就是这个权限,
+//      所以密钥文件(config.json / runtime.json)传 0o600,只有属主可读写;不传保持原样(进程 umask,通常 0644)。
 async function atomicWriteJson(finalPath, value, opts = {}) {
   // typeof 守卫:本函数体会被 autonomy-durability 单独抽取执行(那里没有这个钩子)。
   const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
@@ -1653,7 +1655,7 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-    try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
+    try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
     catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
@@ -1877,9 +1879,14 @@ async function writeConfigAtomic(data) {
     // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
     try {
       const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
-      if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
+      if (current && typeof current === 'object' && !Array.isArray(current)) {
+        await fsp.copyFile(paths.config, `${paths.config}.prev`);
+        // 安全走查 S11:.prev 是 readConfig 的第一恢复源,里面是真 apiKey,不能脱敏;只收紧权限。copyFile 带的是【旧】config.json 的权限位
+        // (升级前落的盘是 0644),所以复制完显式再收一次;Windows 上 chmod 只动只读位,无害。
+        await fsp.chmod(`${paths.config}.prev`, 0o600).catch(() => {});
+      }
     } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
-    return atomicWriteJson(paths.config, data);
+    return atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
   });
   configWriteChain = thisWrite;
   try { await thisWrite; }
@@ -1992,6 +1999,7 @@ async function readConfig() {
         raw = prev; recoveredFrom = 'prev';
         // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
         await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
+        await fsp.chmod(`${paths.config}.corrupt`, 0o600).catch(() => {});   // S11:坏文件的留底里同样可能有真 key
       }
       else return degrade('EJSON');
     }
@@ -3756,6 +3764,10 @@ function contentTypeFor(file) {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.ico': 'image/x-icon',
     '.svg': 'image/svg+xml',
   }[ext] || 'application/octet-stream';
 }
@@ -3782,7 +3794,9 @@ async function serveStatic(urlPath, req) {
       // 注入兼容。浏览器导航信号任一命中即判浏览器:Sec-Fetch-Dest / Origin / Mozilla UA。
       const h = (req && req.headers) || {};
       const browserNav = Boolean(h['sec-fetch-dest']) || Boolean(h.origin) || /mozilla/i.test(String(h['user-agent'] || ''));
-      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (RUNTIME.token || ''));
+      // 安全走查 S13:非本机对端(--allow-remote 绑了非回环地址)任何情况下都不下发 token,哪怕它没带浏览器信号。
+      const remotePeer = !requestIsLoopback(req);
+      const html = (await fsp.readFile(full, 'utf8')).replace('__WCW_TOKEN__', browserNav ? '' : (remotePeer ? '' : (RUNTIME.token || '')));
       return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }, body: html };
     }
     const body = await fsp.readFile(full);
@@ -3806,6 +3820,30 @@ function hostAllowed(req) {
   const host = String(req.headers.host || '').toLowerCase();
   const p = RUNTIME.port;
   return host === `127.0.0.1:${p}` || host === `localhost:${p}` || host === `[::1]:${p}`;
+}
+// 安全走查 S13:Host 头是客户端自己写的,挡不住「绑了非回环地址 + 远端把 Host 写成 127.0.0.1:PORT」。
+// 所以再加一层看【TCP 对端地址】(req.socket.remoteAddress,内核给的,改不了):127.0.0.0/8、::1、::ffff:127.x 才算本机。
+// `--host` 绑非回环本来就要显式 `--allow-remote`(见 13 的 assertBindHostAllowed);即使放行,非本机对端也拿不到 token
+// (/api/bootstrap 与页面里的 token 注入都拒),其余接口一律要带头 token。没有 socket 的测试替身按本机算;
+// 有 socket 却读不出对端地址(连接已断)按非本机算,偏安全。
+function isLoopbackAddress(addr) {
+  const a = String(addr == null ? '' : addr).trim().toLowerCase();
+  if (!a) return false;
+  if (a === '::1' || a === '[::1]' || a === 'localhost') return true;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(a);
+  const v4 = mapped ? mapped[1] : a;
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v4);
+  return Boolean(m) && Number(m[1]) === 127 && [m[2], m[3], m[4]].every(n => Number(n) <= 255);
+}
+function requestIsLoopback(req) {
+  if (!req || !req.socket) return true;
+  return isLoopbackAddress(req.socket.remoteAddress);
+}
+// 绑定地址是不是回环:只认字面的 127.0.0.0/8、::1、localhost。0.0.0.0 / :: / 局域网 IP / 任意主机名都算非回环。
+function isLoopbackBindHost(host) {
+  const h = String(host == null ? '' : host).trim().toLowerCase();
+  if (h === 'localhost') return true;
+  return isLoopbackAddress(h.replace(/^\[|\]$/g, ''));
 }
 function originOk(req) {
   // Host allowlist FIRST — this is the DNS-rebinding gate and applies even when no Origin is present.
@@ -3833,10 +3871,17 @@ function tokenOk(req) {
 function authorizeRoute(req, method, pathname) {
   const m = method === 'HEAD' ? 'GET' : method;
   const browser = Boolean(req.headers.origin) || Boolean(req.headers['sec-fetch-site']) || Boolean(req.headers['sec-fetch-mode']);
+  // 安全走查 S13:非本机对端(只可能出现在显式 --allow-remote 绑了非回环地址时)——bootstrap 一律拒(不给它 token),
+  // 其余 open / origin / token-browser 级路由也一律要头 token(它们对本机放行的前提是「对端在本机」,对远端不成立)。
+  const remote = !requestIsLoopback(req);
   for (const r of ROUTE_AUTH) {
     if (r.m !== '*' && r.m !== m) continue;
     const match = r.prefix ? pathname.startsWith(r.p) : pathname === r.p;
     if (!match) continue;
+    if (remote && r.auth !== 'body-token') {
+      if (pathname === '/api/bootstrap') return 'remote client not allowed';
+      return tokenOk(req) ? null : 'missing or invalid workbench token';
+    }
     switch (r.auth) {
       case 'open': return null;
       case 'origin': return originOk(req) ? null : 'cross-origin request rejected';

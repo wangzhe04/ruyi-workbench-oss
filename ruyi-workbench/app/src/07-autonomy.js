@@ -53,6 +53,28 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
     return { ok: false, error: (e && e.name === 'AbortError') ? 'timeout' : ((e && e.message) || 'fetch failed'), models: [] };
   } finally { if (timer) clearTimeout(timer); }
 }
+// 「测试连接」的第二条路:端点不提供模型清单(多数 Anthropic 兼容网关的 /anthropic/v1/models 是 404,一些 OpenAI 兼容
+// 内网网关也没有 /models)时,用填好的模型发一次最小的非流式补全来确认地址、密钥与模型都对。用短补全的编码(400 token、
+// 尽量关思考),失败时回 'HTTP <status>: <正文开头>' 供调用方分类。Never throws.
+async function probeProviderCompletion(provider, model, timeoutMs = 15000) {
+  const wire = providerWireProtocol(provider);
+  const url = wire.completionUrl(provider && provider.baseUrl);
+  if (!url || typeof fetch !== 'function') return { ok: false, error: url ? 'fetch unavailable' : 'no base URL' };
+  const body = wire.encodeQuick({ model, messages: [{ role: 'user', content: 'ping' }], plain: true });
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  try {
+    const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
+    const raw = await res.text().catch(() => '');
+    if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + raw.replace(/\s+/g, ' ').slice(0, 300) : '') };
+    let payload = null; try { payload = JSON.parse(raw); } catch { payload = null; }
+    const decoded = payload ? wire.decodeCompletion(payload, { requestModel: model }) : null;
+    if (decoded && decoded.failed) return { ok: false, error: String(decoded.failureText || 'provider error').slice(0, 300) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e && e.name === 'AbortError') ? 'timeout' : ((e && e.message) || 'fetch failed') };
+  } finally { if (timer) clearTimeout(timer); }
+}
 // v0.6: expose the workbench's own tools to a native provider as OpenAI function-calling schema.
 // Same tools the MCP server exposes (minus the internal permission bridge), filtered by the
 // command/desktop toggles. The native agent loop executes them in-process via toolCall().

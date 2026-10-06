@@ -129,6 +129,7 @@ thinking-boundary 和 desktop-dpi 用的是 `assert`，不打 PASS 行。thinkin
 | `copy-terms.static` | 禁用词零命中 | 文案扫描 |
 | `cost-zero.static` | 管家视角、线程头不印金额 | 零出现 |
 | `css-typography-debt.static`、`ui-v3-p1/p2/p3a/p3b/wave1.static`、`ui-v4-glass.static`、`ui-bugfix.static`、`workflow-editor-v2.static` | CSS token、DOM 骨架、类名契约 | 样式和标记的形状。真实渲染另有 `*.browser.e2e.js` 与像素基线兜着 |
+| `inline-script-csp-hash.static` | index.html 的 CSP script-src 只有 'self' 与内联预绘脚本的 sha256(哈希与脚本正文逐字节对得上);页面与前端代码里没有依赖 unsafe-inline 的写法 | 断言的是 HTML 标记与前端源码的形状(有没有内联事件属性、有没有动态内联脚本);哈希本身在文件里现算现比,不存第二份常量。真浏览器里的零 CSP 违规与首帧预绘由 `surface-hardening-w2.browser.e2e` 验 |
 | `desktop-shell.static`、`desktop-dpi.static`(C# 部分) | C# 原生壳的恢复路径和缩放逻辑 | C# 在 Node 里跑不了，编译在 release-dryrun 里做 |
 | `process-safety.static` | 只杀自己的进程树，CDP socket 关闭后当场报错 | 禁止 `taskkill /T` 这类写法，属于调用点判据 |
 | `ndjson-line-feeder.static` | 子进程的 NDJSON 一律经过 `createNdjsonLineFeeder` | 调用点普查 |
