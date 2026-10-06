@@ -481,6 +481,8 @@ async function handleApi(req, res, pathname) {
     if (scope === 'project') {
       const cwdRaw = String(body && body.cwd || '');
       if (!cwdRaw || !path.isAbsolute(cwdRaw)) return send(res, json({ ok: false, error: 'project scope requires an absolute cwd' }, 400));
+      const cwdBad = await projectCwdDirectoryFailure(cwdRaw);   // 不存在/是文件:400 人话,不再 500 + ENOTDIR 原文
+      if (cwdBad) return send(res, cwdBad);
       const saved = await saveProjectAgentRoles(path.resolve(cwdRaw), roles);
       return send(res, json({ ok: true, scope, roles: saved, file: projectAgentRoleFile(cwdRaw) }));
     }
@@ -497,6 +499,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/agent-workflows') {
     const body = await readJsonBody(req); const scope = body && body.scope === 'project' ? 'project' : 'personal';
     const config = await readConfig(); const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
+    if (scope === 'project') { const cwdBad = await projectCwdDirectoryFailure(cwd); if (cwdBad) return send(res, cwdBad); }   // 同 /api/agent-roles(先于工作流本体校验:目录都不对就没必要往下)
     const draft = normalizeAgentWorkflow(body && body.workflow, { source: scope });
     const problem = draft ? agentWorkflowSaveProblem(draft, new Set((await getAgentRoleLibrary(cwd, config)).map(r => r.id))) : null;
     if (problem) return send(res, apiFailure(problem.code, problem.params, `无效工作流：${problem.message}`, 400));
@@ -507,6 +510,7 @@ async function handleApi(req, res, pathname) {
   if (pathname.startsWith('/api/agent-workflows/') && (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))) {
     const id = String(pathname.slice('/api/agent-workflows/'.length)).toLowerCase(); const body = req.method === 'POST' ? await readJsonBody(req) : {};
     const config = await readConfig(); const scope = body && body.scope === 'project' ? 'project' : 'personal'; const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
+    if (scope === 'project') { const cwdBad = await projectCwdDirectoryFailure(cwd); if (cwdBad) return send(res, cwdBad); }
     return send(res, json({ ok: await deleteAgentWorkflow(scope, cwd, id), id, scope }));
   }
   if (req.method === 'POST' && pathname === '/api/provider/test') {
@@ -915,8 +919,21 @@ async function handleApi(req, res, pathname) {
     if (!session) return send(res, apiSessionNotFound());
     const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
     if (!status.ok) return send(res, json(status, 400));
-    const usage = applyKimiStatusToSession(session, status);
-    await saveSession(session).catch(() => {});
+    // 「打开看一眼」只是读状态,不是这条会话的新活动:走 mutateSession(与活回合/其它改写者按 id 串行,撞撤回会重放)、
+    // keepUpdatedAt(不把会话顶到列表最上面),而且状态值与已存的一致就不写(前端每次切会话都会调这里)。
+    // 修前:无条件裸 saveSession 刷新 updatedAt、可能与活回合并发整份覆盖、失败被吞。
+    let usage = null;
+    try {
+      await mutateSession(sessionId, fresh => {
+        const before = kimiStatusFingerprint(fresh);
+        usage = applyKimiStatusToSession(fresh, status);
+        if (kimiStatusFingerprint(fresh) === before) return { abort: 'unchanged' };
+      }, { writer: 'kimi_status', saveOpts: { keepUpdatedAt: true } });
+    } catch (error) {
+      // 状态本身已读到,落盘只是缓存:失败不挡响应,但留一条日志而不是吞掉。
+      logEvent({ kind: 'kimi_status_persist_failed', sessionId, error: String((error && error.message) || error).slice(0, 200) });
+    }
+    if (!usage) usage = kimiUsageFromStatus(status);   // 会话期间被删/撤回等没跑到 apply:回读到的状态照样给前端
     return send(res, json({ ...status, usage }));
   }
   // EC-D Wave 65: question, permission, and plan routes live in 13d-core-domain-routes.js.
@@ -1745,12 +1762,26 @@ function probeHealth(port, host) {
   return new Promise(resolve => {
     const req = http.get({ host, port, path: '/health', timeout: 900 }, res => {
       let body = '';
+      res.setEncoding('utf8');   // app 字段是中文品牌名:按 Buffer 拼接遇到跨块的多字节字符会损坏
       res.on('data', c => { body += c; if (body.length > 65536) req.destroy(); });
       res.on('end', () => resolve(safeJsonParse(body, null)));
     });
     req.on('error', () => resolve(null));
     req.on('timeout', () => { req.destroy(); resolve(null); });
   });
+}
+// /health 的回包像不像工作台。修前判据是 `app === APP_NAME || overlayId || version`,而 /health 从不带 app,
+// 于是退化成「有 version 字段就算」—— 本机别的服务(任何回 {version:…} 的 /health)占了端口会被当成陈旧工作台杀掉。
+// 现在 /health 带 app: APP_NAME(见 startServerInner);识别口径:
+//   · app 等于本应用名;或有 overlayId(每个进程一个的重启证明,别的服务不会有);
+//   · 旧版工作台的 /health 没有 app:只认「version 同时带着工作台 /health 的另外两个特征字段(launchMode + uptimeSec)」,
+//     单有 version 不够。旧版若连这个形状都不满足,下面还有 runtime.json 的 pid / 镜像名 / 命令行三道证据兜底。
+function healthLooksLikeWorkbench(health) {
+  if (!health || typeof health !== 'object') return false;
+  if (health.app === APP_NAME) return true;
+  if (typeof health.overlayId === 'string' && health.overlayId) return true;
+  return typeof health.version === 'string' && !!health.version
+    && typeof health.launchMode === 'string' && Number.isFinite(health.uptimeSec);
 }
 // Kill the port's holder(s) ONLY when confirmed to be a stale workbench: /health responds like one,
 // OR the PID matches our own runtime.json, OR the image is node/Ruyi/WinClaudeWorkbench. An unrelated
@@ -1759,7 +1790,7 @@ async function freeStalePort(port, host) {
   const pids = await pidsOnPort(port);
   if (!pids.length) return { ok: true, killed: [] }; // maybe TIME_WAIT with no live listener — retry handles it
   const health = await probeHealth(port, host);
-  const isWorkbench = !!(health && (health.app === APP_NAME || health.overlayId || health.version));
+  const isWorkbench = healthLooksLikeWorkbench(health);
   let ourPid = null;
   try {
     const rt = safeJsonParse(await fsp.readFile(path.join(paths.data, 'runtime.json'), 'utf8'), null);
@@ -1985,6 +2016,12 @@ async function startServerInner(opts) {
   const server = http.createServer(async (req, res) => {
     const reqT0 = Date.now(); // 第40波:请求耗时插桩(res finish 时入账,/health 不计 —— 高频探针会淹没真分布)
     res.on('finish', () => { try { const u0 = new URL(req.url, 'http://x'); if (u0.pathname !== '/health') recordRequestMetric(req.method, u0.pathname, Date.now() - reqT0); } catch { /* 观测不阻断 */ } });
+    // 防嵌入(点击劫持):任何响应都不许被别的页面放进 iframe。工作台页面从不被框:桌面壳 WebView2 是顶层导航,
+    // 文件预览里的 HTML 产物是 sandbox + srcdoc(about:srcdoc,不受这两个头约束)。两个头都发:X-Frame-Options 给老内核,
+    // frame-ancestors 给现代内核(与 index.html 里 meta 的 CSP 是叠加关系,互不替代 —— meta 里的 frame-ancestors 本来就不生效)。
+    // 先 setHeader 再让各路由的 writeHead 合并:路由自己写了同名头则以路由为准。
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
     try {
       // 第33波:顶层 host 门(DNS-rebinding 防御覆盖全 GET 面 + 静态 /,治第29波 backlog #0)。hostAllowed 之前
       // 只在 originOk(mutating 块)内调用,GET 与 serveStatic 跳过 -> index.html 的 token 可被 rebinding 页读走。
@@ -1994,7 +2031,7 @@ async function startServerInner(opts) {
       // Liveness + restart proof: version alone can't prove a restart, so echo the per-process overlay id.
       if (u.pathname === '/health') {
         return send(res, { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'x-workbench-version': VERSION, 'x-overlay-id': OVERLAY_ID },
-          body: JSON.stringify({ ok: true, version: VERSION, overlayId: OVERLAY_ID, launchMode: LAUNCH_MODE, uptimeSec: Math.round(process.uptime()) }) });
+          body: JSON.stringify({ ok: true, app: APP_NAME, version: VERSION, overlayId: OVERLAY_ID, launchMode: LAUNCH_MODE, uptimeSec: Math.round(process.uptime()) }) });
       }
       if (u.pathname.startsWith('/api/')) return await handleApi(req, res, u.pathname);
       return send(res, await serveStatic(u.pathname, req));

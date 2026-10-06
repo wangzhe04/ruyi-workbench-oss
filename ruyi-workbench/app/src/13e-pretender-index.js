@@ -245,7 +245,7 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentI
   let ivMeta = await readInterventionsWithMeta(sid);
   if ((!head || !head.id) && ivMeta.bytes === 0) return null;
   // External/legacy journals also get bounded maintenance on a rebuild. Never compact degraded authority.
-  if (!ivMeta.degraded && ivMeta.bytes >= 65536 && ivMeta.rowCount > Math.max(256, ivMeta.interventions.length * 3)) {
+  if (!ivMeta.degraded && interventionJournalWorthCompacting(ivMeta)) {   // 判据与 02 自己的周期压实同一个(修前这里也是 ×3,永不触发)
     await compactInterventionJournal(sid).catch(() => {});
     ivMeta = await readInterventionsWithMeta(sid);
     sourceStamp = await pretenderSessionSourceStamp(sid);
