@@ -1225,7 +1225,7 @@ async function draftMemoryFromSession(sessionId) {
   try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, error: 'session not found' }; }
   if (!session) return { ok: false, error: 'session not found' };
   const msgs = Array.isArray(session.messages) ? session.messages : [];
-  const recent = msgs.slice(-8).map(m => {
+  const recent = msgs.filter(m => !(m && m.meta && m.meta.origin === 'agent_wake')).slice(-8).map(m => {   // 后台代理唤醒通知不是用户的话
     const role = m && m.role === 'assistant' ? 'AI' : (m && m.role === 'user' ? '用户' : '');
     if (!role) return '';
     return role + ': ' + String((m && m.content) || '').replace(/\s+/g, ' ').trim().slice(0, 800);
@@ -1302,6 +1302,8 @@ function memoryProposalPrefilter(session) {
     if (messages[i] && messages[i].role === 'user' && !messages[i].steered) { user = messages[i]; break; }
   }
   if (!user) return { eligible: false, reason: 'no_user' };
+  // 这一回合是后台代理唤醒起的:「用户消息」是工作台的系统通知,不是用户说的话 —— 没有可提炼的用户诉求。
+  if (user.meta && user.meta.origin === 'agent_wake') return { eligible: false, reason: 'agent_wake_turn' };
   const userText = String(user.content || '').replace(/\s+/g, ' ').trim();
   const assistantText = String(assistant.content || '').replace(/\s+/g, ' ').trim();
   const turnSeq = Math.max(0, Math.floor(Number(assistant.turnSeq != null ? assistant.turnSeq : session && session.turnSeq) || 0));

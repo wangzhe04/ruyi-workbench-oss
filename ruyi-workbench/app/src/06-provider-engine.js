@@ -1102,7 +1102,8 @@ async function draftPlaybookFromSession(sessionId) {
   try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, noModelCall: true, error: 'session not found' }; }
   if (!session) return { ok: false, noModelCall: true, error: 'session not found' };
   const msgs = Array.isArray(session.messages) ? session.messages : [];
-  const lastUser = [...msgs].reverse().find(m => m && m.role === 'user' && String(m.content || '').trim());
+  // 后台代理唤醒通知(meta.origin:'agent_wake')是工作台替模型起回合的系统通知,不是用户的诉求 —— 起草 playbook 要取用户真正说的那句。
+  const lastUser = [...msgs].reverse().find(m => m && m.role === 'user' && !(m.meta && m.meta.origin === 'agent_wake') && String(m.content || '').trim());
   const lastUserText = lastUser ? String(lastUser.content || '').trim() : '';
   if (!lastUserText) return { ok: false, noModelCall: true, error: '本会话没有可参考的用户消息' };
   // 取最近一条 assistant 的 turn_summary(哪些文件被改/命令数),给起草更多上下文。

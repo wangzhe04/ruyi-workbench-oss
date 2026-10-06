@@ -601,7 +601,8 @@ async function stewardImplThreadRead(args, ctx, config) {
     // 第二轮工具走查(F9):用户/助手正文也要先 redact 再中和 —— 用户在线程里随口贴的 sk-… / ghp_… 修前原样交给了
     // 管家模型(并进了那一轮的会话文件),而同一个函数对工具入参早就脱敏了。顺序照 stewardToolCallLine 的教训:
     // redact 在【之前】,后面按 maxChars 裁剪时不会把密钥切成半截让正则咬不到。
-    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'user', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
+    // 唤醒通知(meta.origin:'agent_wake')不是用户说的话:以 system 行给管家看,免得它把「后台代理已完成…」当成用户的诉求引用。
+    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: (m.meta && m.meta.origin === 'agent_wake') ? 'system' : 'user', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
     else if (m.role === 'assistant') {
       rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
       for (const call of (Array.isArray(m.toolCalls) ? m.toolCalls : [])) {

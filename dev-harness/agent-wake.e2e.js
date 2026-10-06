@@ -15,6 +15,13 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //  W6 唤醒链上限:每个唤醒回合又起一个后台代理 → 恰好唤醒 AGENT_WAKE_CHAIN_MAX(6)次后停下。
 //  W7 重启:(a) 信封已落账、唤醒没起成就重启 → 启动时补排唤醒;(b) 重启打断的后台 run → 补一份 interrupted 信封、
 //     不唤醒,用户下一句话的回合开头送达(修前模型再也不知道这些代理已经没了)。
+//  第三波复核(2026-10)补的几条 —— 都是「不该唤醒」或「唤醒不该越界」,信封一份不丢、随用户下一句话送达:
+//  W8  面板 / HTTP 的 async 启动(用户点的,run.background 同样为 true)→ 不唤醒;信封照常随下一句话送达。
+//  W9  用户 Stop 了起后台代理的回合:代理与回合 abort 脱钩、几秒后照常跑完 → 不唤醒;下一句话送达信封。
+//  W10 撤回到起后台代理的那个回合之前:模型起的仍在跑的 run 被停掉、信封不再投递、不唤醒、线程里不冒出东西。
+//  W11 撤回只撤掉后面的回合、起后台代理的那个回合还在:代理照常跑完,但不唤醒(撤回记了「叫停过」);信封下一句话送达。
+//  W12 会话被删:不唤醒、也不会新冒出一条空会话。
+//  W13 Stop 之后用户立刻重发:重发的回合起手清「叫停过」,之后代理跑完照常唤醒(不过度抑制)。
 const { killOwnTree } = require('./lib/kill-own-tree');
 const fs = require('fs');
 const os = require('os');
@@ -66,7 +73,7 @@ function handleChat(req) {
   const lastTool = [...messages].reverse().find(m => m && m.role === 'tool');
   const afterTool = messages.length && messages[messages.length - 1].role === 'tool';
   const human = tail;
-  if (afterTool && lastTool && (lastTool.tool_call_id === 'call_busy' || lastTool.tool_call_id === 'call_busy5')) {
+  if (afterTool && lastTool && ['call_busy', 'call_busy5', 'call_w9', 'call_w13'].includes(lastTool.tool_call_id)) {
     // W2:父的收尾回复拖 3s —— 子代理(0.8s)在这次模型调用进行中答完,信封赶不上迭代边界。
     return { frames: textFrames(['主线', '收尾。'], FRAME_ID), delayMs: 1500 };
   }
@@ -77,6 +84,11 @@ function handleChat(req) {
   if (human.includes('CMD_W4')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_LONG 分析', agentKey: 'long', toolTier: 'read', background: true }, 'call_w4', FRAME_ID);
   if (human.includes('CMD_W5')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_MID 断开', agentKey: 'mid5', toolTier: 'read', background: true }, 'call_busy5', FRAME_ID);
   if (human.includes('CMD_W6')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_FAST 起头', agentKey: 'first', toolTier: 'read', background: true }, 'call_w6', FRAME_ID);
+  if (human.includes('CMD_W9')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_SLOW 停回合', agentKey: 'w9', toolTier: 'read', background: true }, 'call_w9', FRAME_ID);
+  if (human.includes('CMD_X10')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_SLOW 将被撤回', agentKey: 'w10', toolTier: 'read', background: true }, 'call_w10', FRAME_ID);
+  if (human.includes('CMD_X11')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_SLOW 第一回合起的', agentKey: 'w11', toolTier: 'read', background: true }, 'call_w11', FRAME_ID);
+  if (human.includes('CMD_X12')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_SLOW 会话将被删', agentKey: 'w12', toolTier: 'read', background: true }, 'call_w12', FRAME_ID);
+  if (human.includes('CMD_X13')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_SLOW 停了又重发', agentKey: 'w13', toolTier: 'read', background: true }, 'call_w13', FRAME_ID);
   if (human.includes('CMD_W7')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_HANG 挂着', agentKey: 'hang', toolTier: 'read', background: true }, 'call_w7', FRAME_ID);
   return textFrames('普通回合完成。', FRAME_ID);
 }
@@ -117,6 +129,25 @@ function streamChatThenDrop(body) {
       res.on('error', () => { if (!dropped) resolve(events); });
     });
     req.on('error', e => { if (!dropped) reject(e); }); req.on('timeout', () => { req.destroy(); if (!dropped) reject(new Error('chat timeout')); }); req.write(raw); req.end();
+  });
+}
+
+// W9 / W13:读到第一份(父回合的)工具结果后 afterMs 毫秒按「停止」,读到流收尾为止;onStop 收 /api/stop 的应答。
+function streamChatStopAfterToolResult(body, afterMs, onStop, authHeaders) {
+  return new Promise((resolve, reject) => {
+    const raw = JSON.stringify(body); const events = []; let buf = ''; let stopped = false; let stopDone = Promise.resolve();
+    const req = http.request({ host: '127.0.0.1', port: WP, path: '/api/chat/stream', method: 'POST', timeout: 30000, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw) } }, res => {
+      res.on('data', c => {
+        buf += c; let i;
+        while ((i = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (line) try { events.push(JSON.parse(line)); } catch {} }
+        if (!stopped && events.some(e => e.type === 'tool_result' && !e.subagentId)) {
+          stopped = true;
+          stopDone = new Promise(done => setTimeout(() => { request('POST', '/api/stop', { sessionId: body.sessionId }, authHeaders).then(r => { onStop(r); done(); }, () => { onStop(null); done(); }); }, afterMs));
+        }
+      });
+      res.on('end', () => { stopDone.then(() => resolve(events)); });   // 流先收尾、/api/stop 的应答还在路上时,等它回来再交出去
+    });
+    req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('chat timeout')); }); req.write(raw); req.end();
   });
 }
 
@@ -237,7 +268,7 @@ function streamChatThenDrop(body) {
     fs.mkdirSync(path.join(HOME, 'sessions', 'background-jobs'), { recursive: true });
     fs.writeFileSync(path.join(HOME, 'sessions', 'background-jobs', s7 + '.json'), JSON.stringify([{
       id: 'agent:' + bootRun, kind: 'agent', runId: bootRun, shellId: bootRun, name: '重启前就做完了', sessionId: s7, status: 'succeeded', exitCode: 0,
-      output: JSON.stringify({ ok: true, runId: bootRun, status: 'succeeded', nodes: [] }), truncated: false, completedAt: new Date().toISOString(), background: true,
+      output: JSON.stringify({ ok: true, runId: bootRun, status: 'succeeded', nodes: [] }), truncated: false, completedAt: new Date().toISOString(), background: true, wakeParent: true,
     }]));
     WP = await getFreePort();
     wb = startWorkbench();
@@ -247,7 +278,8 @@ function streamChatThenDrop(body) {
     auth['x-wcw-token'] = (String(html2).match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1];
     const woke7 = await waitFor(async () => { const msgs = await loadMessages(s7); return wakeMessages(msgs).length ? msgs : null; }, 15000);
     ok(!!woke7, 'W7a an envelope left un-woken by the restart wakes the session at boot');
-    const wakeReq7 = parentRequests().filter(r => tailUserText(r.messages || []).includes(WAKE_MARK) && (r.messages || []).some(m => m.role === 'user' && textOf(m).includes(bootRun))).pop();
+    // 唤醒消息落盘(回合起手那一存)比模型请求早几毫秒:等请求真到了再取(修前这里直接取,靠的是碰巧不赶时间)。
+    const wakeReq7 = await waitFor(async () => parentRequests().filter(r => tailUserText(r.messages || []).includes(WAKE_MARK) && (r.messages || []).some(m => m.role === 'user' && textOf(m).includes(bootRun))).pop(), 5000);
     ok(!!wakeReq7, 'W7a the boot wake turn carries that run\'s envelope to the model');
     ok(await runStatus(s8, run8) === 'interrupted', 'W7b the hanging background run was marked interrupted at boot');
     await sleep(3000);
@@ -256,6 +288,98 @@ function streamChatThenDrop(body) {
     ok(next8.some(e => e.type === 'result' && e.ok === true), 'W7b the next user turn completes');
     const nextReq8 = parentRequests().filter(r => tailUserText(r.messages || []).includes('NEXT_W8')).pop();
     ok(!!nextReq8 && (nextReq8.messages || []).some(m => m.role === 'user' && textOf(m).includes('[代理完成通知 interrupted]') && textOf(m).includes(run8)), 'W7b the next user turn tells the model the background run was interrupted');
+
+    // ── 第三波复核补的几条(W8–W13)。W7 之后服务是重启过的,auth 已换成新 token。 ──
+    const noticeCount = (messages, runId) => (messages || []).filter(m => m && m.role === 'user' && textOf(m).includes('[代理完成通知') && textOf(m).includes(runId)).length;
+    const lastReqWithTail = marker => parentRequests().filter(r => tailUserText(r.messages || []).includes(marker)).pop();
+    const wakeReqsMentioning = runId => parentRequests().filter(r => tailUserText(r.messages || []).includes(WAKE_MARK) && JSON.stringify(r.messages || []).includes(runId));
+
+    // W8 面板 / HTTP 的 async 启动:run.background 为 true,但没有模型在等它 → 不唤醒,信封随下一句话送达。
+    const s9 = await newSession('wake ui async');
+    const launch9 = await request('POST', '/api/agent-workflow/launch', { token: auth['x-wcw-token'], sessionId: s9, nodes: [{ id: 'a', task: 'WAKE_FAST 面板里点的工作流' }], async: true });
+    const run9 = launch9 && launch9.runId;
+    ok(!!launch9 && launch9.ok === true && launch9.background === true && /^run_/.test(run9 || ''), 'W8 the panel / HTTP async launch is accepted as a background run');
+    ok(!!(await waitFor(async () => (await runStatus(s9, run9)) === 'succeeded', 15000)), 'W8 the panel-launched run finishes');
+    await sleep(3500);
+    ok(wakeMessages(await loadMessages(s9)).length === 0, 'W8 a UI-launched async run does not wake the thread (no model is waiting for it)');
+    ok(wakeReqsMentioning(run9).length === 0, 'W8 and no model request carried a wake notice for it');
+    const next9 = await streamChat({ sessionId: s9, message: 'NEXT_W8 面板那个工作流怎么样了', cwd: HOME });
+    ok(next9.some(e => e.type === 'result' && e.ok === true), 'W8 the next user turn completes');
+    const nextReq9 = lastReqWithTail('NEXT_W8');
+    ok(!!nextReq9 && noticeCount(nextReq9.messages, run9) === 1, 'W8 the envelope is still delivered with the next user message (exactly once)');
+
+    // W9 用户 Stop 了起后台代理的回合:代理与回合 abort 脱钩,照常跑完,但线程不会在 Stop 之后自己又开工。
+    const s10 = await newSession('wake after stop');
+    let stop10 = null;
+    const ev10 = await streamChatStopAfterToolResult({ sessionId: s10, message: 'CMD_W9 后台派一个慢任务然后我按停止', cwd: HOME }, 500, r => { stop10 = r; }, auth);
+    const run10 = runIdOf(ev10);
+    ok(/^run_/.test(run10 || ''), 'W9 background run started inside the turn');
+    ok(!!stop10 && stop10.stopped === true, 'W9 /api/stop stopped the live parent turn');
+    ok(ev10.some(e => e.type === 'result' && e.aborted === true), 'W9 the parent turn ended as stopped');
+    ok(!!(await waitFor(async () => (await runStatus(s10, run10)) === 'succeeded', 15000)), 'W9 the decoupled background run still finishes after the stop');
+    await sleep(4000);
+    ok(wakeMessages(await loadMessages(s10)).length === 0, 'W9 a run that finishes after the user pressed Stop does not wake the thread');
+    const next10 = await streamChat({ sessionId: s10, message: 'NEXT_W9 继续', cwd: HOME });
+    ok(next10.some(e => e.type === 'result' && e.ok === true), 'W9 the next user turn completes');
+    const nextReq10 = lastReqWithTail('NEXT_W9');
+    ok(!!nextReq10 && noticeCount(nextReq10.messages, run10) === 1, "W9 the envelope arrives with the user's next message (exactly once)");
+
+    // W10 撤回到起后台代理的回合之前:模型起的仍在跑的 run 被停掉、不唤醒、不投信封。
+    const s11 = await newSession('wake after rewind');
+    const ev11 = await streamChat({ sessionId: s11, message: 'CMD_X10 后台派一个慢任务然后我撤回', cwd: HOME });
+    const run11 = runIdOf(ev11);
+    ok(/^run_/.test(run11 || ''), 'W10 background run started in turn 1');
+    const rw11 = await request('POST', '/api/session/rewind', { sessionId: s11, targetTurnSeq: 1, rollbackFiles: false }, auth);
+    ok(!!rw11 && rw11.ok === true, 'W10 the thread is rewound to before the turn that launched the run');
+    const fin11 = await waitFor(async () => { const st = await runStatus(s11, run11); return st && st !== 'running' ? st : null; }, 15000);
+    ok(fin11 === 'stopped', `W10 the still-running model-launched run was cancelled by the rewind (got ${fin11})`);
+    await sleep(3500);
+    const msgs11 = await loadMessages(s11);
+    ok(wakeMessages(msgs11).length === 0 && msgs11.length === 0, `W10 nothing woke the rewound thread and nothing reappeared in it (messages=${msgs11.length})`);
+    ok(wakeReqsMentioning(run11).length === 0, 'W10 no model request carried a wake notice for the rewound run');
+    const next11 = await streamChat({ sessionId: s11, message: 'NEXT_W10 重新开始', cwd: HOME });
+    ok(next11.some(e => e.type === 'result' && e.ok === true), 'W10 the next user turn completes');
+    const nextReq11 = lastReqWithTail('NEXT_W10');
+    ok(!!nextReq11 && noticeCount(nextReq11.messages, run11) === 0, 'W10 the rewound run does not deliver an envelope into the new timeline');
+
+    // W11 撤回只撤掉后面的回合:起后台代理的第 1 回合还在 → 代理照常跑完,但不唤醒(撤回记了叫停);信封下一句话送达。
+    const s12 = await newSession('wake after partial rewind');
+    const ev12 = await streamChat({ sessionId: s12, message: 'CMD_X11 后台派一个慢任务', cwd: HOME });
+    const run12 = runIdOf(ev12);
+    const ev12b = await streamChat({ sessionId: s12, message: 'PLAIN_W11 第二回合,马上会被撤回', cwd: HOME });
+    ok(ev12b.some(e => e.type === 'result' && e.ok === true), 'W11 turn 2 completes');
+    const rw12 = await request('POST', '/api/session/rewind', { sessionId: s12, targetTurnSeq: 2, rollbackFiles: false }, auth);
+    ok(!!rw12 && rw12.ok === true, 'W11 only turn 2 is rewound (turn 1 launched the run and stays)');
+    ok(!!(await waitFor(async () => (await runStatus(s12, run12)) === 'succeeded', 15000)), 'W11 the run launched by the surviving turn is not cancelled and finishes');
+    await sleep(3500);
+    ok(wakeMessages(await loadMessages(s12)).length === 0, 'W11 but it does not wake the rewritten thread');
+    const next12 = await streamChat({ sessionId: s12, message: 'NEXT_W11 继续', cwd: HOME });
+    ok(next12.some(e => e.type === 'result' && e.ok === true), 'W11 the next user turn completes');
+    const nextReq12 = lastReqWithTail('NEXT_W11');
+    ok(!!nextReq12 && noticeCount(nextReq12.messages, run12) === 1, "W11 the envelope arrives with the user's next message (exactly once)");
+
+    // W12 会话被删:不唤醒,也不会新冒出一条会话。
+    const s13 = await newSession('wake after delete');
+    const ev13 = await streamChat({ sessionId: s13, message: 'CMD_X12 后台派一个慢任务然后我删会话', cwd: HOME });
+    const run13 = runIdOf(ev13);
+    ok(/^run_/.test(run13 || ''), 'W12 background run started');
+    const del13 = await request('DELETE', `/api/sessions/${encodeURIComponent(s13)}`, null, auth);
+    ok(!!del13 && del13.ok !== false, 'W12 the session is deleted while the run is in flight');
+    const idsAfterDelete = ((await request('GET', '/api/sessions', null, auth)).sessions || []).map(x => x.id).sort();
+    await sleep(5000);
+    const idsLater = ((await request('GET', '/api/sessions', null, auth)).sessions || []).map(x => x.id).sort();
+    ok(JSON.stringify(idsAfterDelete) === JSON.stringify(idsLater) && !idsLater.includes(s13), 'W12 no session appeared (or came back) after the run finished');
+    ok(wakeReqsMentioning(run13).length === 0, "W12 no model request carried a wake notice for the deleted thread's run");
+
+    // W13 Stop 之后用户立刻重发:重发的回合起手清掉「叫停过」,代理随后跑完 → 照常唤醒(抑制不过度)。
+    const s14 = await newSession('wake after stop and resend');
+    let stop14 = null;
+    await streamChatStopAfterToolResult({ sessionId: s14, message: 'CMD_X13 后台派一个慢任务然后停了再重发', cwd: HOME }, 300, r => { stop14 = r; }, auth);
+    ok(!!stop14 && stop14.stopped === true, `W13 the first turn was stopped (/api/stop -> ${JSON.stringify(stop14)})`);
+    const resend14 = await streamChat({ sessionId: s14, message: 'RESEND_W13 我重新说一句', cwd: HOME });
+    ok(resend14.some(e => e.type === 'result' && e.ok === true), 'W13 the resent turn completes');
+    const woke14 = await waitFor(async () => { const msgs = await loadMessages(s14); return wakeMessages(msgs).length && msgs.some(m => m.role === 'assistant' && String(m.content || '').includes('WAKE_REPLY')) ? msgs : null; }, 15000);
+    ok(!!woke14, 'W13 the run finishing after the user spoke again wakes the thread as usual');
   } catch (e) {
     t.fail('fatal: ' + (e && e.stack || e));
   } finally {

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-06T07:09:07.461Z",
+  "generatedAt": "2026-10-06T10:02:40.693Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1791,6 +1791,7 @@
       "coveredBy": [
         "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\frontend-wave2.browser.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
@@ -2026,6 +2027,7 @@
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-budget-finalizer.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
@@ -2913,6 +2915,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\action-feedback.static.e2e.js",
+        "dev-harness\\agent-wake.e2e.js",
         "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
