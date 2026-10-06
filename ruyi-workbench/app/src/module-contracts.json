@@ -1092,6 +1092,7 @@
         "bulkDeleteUnpinnedSessions",
         "bumpMissionChangeSeq",
         "bumpSessionDiskWriteSeq",
+        "cancelModelRunsOfDiscardedTurns",
         "canonicalTodoStatus",
         "captureGitWorkspaceBaseline",
         "captureTreeWorkspaceBaseline",
@@ -10327,6 +10328,7 @@
         "agentWakeJobKey",
         "agentWakeMessage",
         "agentWakeSkipsStatus",
+        "agentWakeSuppressed",
         "agentWakeTimers",
         "aggregateSummaryCalls",
         "anySummarySignal",
@@ -10381,6 +10383,7 @@
         "lastSessionContextTokens",
         "learnedWindowCap",
         "loadContextCalibration",
+        "manualCompactPromptShape",
         "mapSummaryWithLimit",
         "markSummaryCallPolicyUnsupported",
         "maybeAutoCompact",
@@ -10842,6 +10845,13 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02e-session-engine-route.js",
           "symbol": "configForSessionEngineRoute",
           "kinds": [
@@ -10969,6 +10979,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "buildStableSystemPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "maybeWriteThreadBrief",
           "kinds": [
             "call"
@@ -11033,6 +11050,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "buildOpenAiTools",
           "kinds": [
             "call"
           ]
@@ -11120,6 +11144,7 @@
       "file": "11-native-tools.js",
       "layer": "tools",
       "provides": [
+        "BACKGROUND_LEDGER_SCAN_CONCURRENCY",
         "BINARY_READ_DB",
         "BINARY_READ_OFFICE",
         "BINARY_READ_SUFFIXES",

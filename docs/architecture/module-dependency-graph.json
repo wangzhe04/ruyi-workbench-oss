@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3638,
-    "requiredSymbols": 3193,
-    "edges": 540,
+    "providedSymbols": 3642,
+    "requiredSymbols": 3196,
+    "edges": 541,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1128,6 +1128,7 @@
         "bulkDeleteUnpinnedSessions",
         "bumpMissionChangeSeq",
         "bumpSessionDiskWriteSeq",
+        "cancelModelRunsOfDiscardedTurns",
         "canonicalTodoStatus",
         "captureGitWorkspaceBaseline",
         "captureTreeWorkspaceBaseline",
@@ -10427,6 +10428,7 @@
         "agentWakeJobKey",
         "agentWakeMessage",
         "agentWakeSkipsStatus",
+        "agentWakeSuppressed",
         "agentWakeTimers",
         "aggregateSummaryCalls",
         "anySummarySignal",
@@ -10481,6 +10483,7 @@
         "lastSessionContextTokens",
         "learnedWindowCap",
         "loadContextCalibration",
+        "manualCompactPromptShape",
         "mapSummaryWithLimit",
         "markSummaryCallPolicyUnsupported",
         "maybeAutoCompact",
@@ -10942,6 +10945,13 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02e-session-engine-route.js",
           "symbol": "configForSessionEngineRoute",
           "kinds": [
@@ -11069,6 +11079,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "buildStableSystemPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "maybeWriteThreadBrief",
           "kinds": [
             "call"
@@ -11133,6 +11150,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "buildOpenAiTools",
           "kinds": [
             "call"
           ]
@@ -11222,6 +11246,7 @@
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
+        "BACKGROUND_LEDGER_SCAN_CONCURRENCY",
         "BINARY_READ_DB",
         "BINARY_READ_OFFICE",
         "BINARY_READ_SUFFIXES",
@@ -29446,6 +29471,14 @@
     },
     {
       "from": "10-context-governance.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "sessionDesktopToolsOf"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "10-context-governance.js",
       "to": "02e-session-engine-route.js",
       "symbols": [
         "configForSessionEngineRoute",
@@ -29501,6 +29534,7 @@
       "to": "06-provider-engine.js",
       "symbols": [
         "buildProviderSystemPrompt",
+        "buildStableSystemPrompt",
         "maybeWriteThreadBrief",
         "settleThreadBrief"
       ],
@@ -29539,6 +29573,7 @@
       "from": "10-context-governance.js",
       "to": "07-autonomy.js",
       "symbols": [
+        "buildOpenAiTools",
         "fetchOpenAiModels",
         "nativeToolTier"
       ],

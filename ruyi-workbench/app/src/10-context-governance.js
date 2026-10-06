@@ -3010,6 +3010,18 @@ async function maybeCompactSubHistory(opts) {
 // 正在手动压缩的会话:后台代理唤醒在这期间不起回合(见 runAgentWake),压缩收尾时补排一次。
 // POST /api/provider/compact 走这层登记;压缩本体(及其落盘纪律)仍是 runProviderCompact。
 const providerCompactInFlight = new Set();
+// 手动压缩没有「这一回合」的系统提示与工具表(回合里它们随 runOpenAiTurn 现算),但判「L1 够不够」要和自动压缩同一条线 —— 那条线是按
+// 【系统提示 + 工具表 + 历史】整体估的。这里按会话落盘的冻结工具名(session.toolSchemaNames,没有就是内置工具全集)+ 稳定系统提示重建一份近似:
+// 少算的只有易变层(项目记忆 / 技能索引)与桥接 MCP 工具,偏小的方向;重建失败回落空(= 退回只看历史,不比修前更糟)。
+function manualCompactPromptShape(session, provider, model, config) {
+  try {
+    const cwd = String((session && session.cwd) || (config && config.defaultWorkspace) || '');   // 只进系统提示文字,不必规整(省一条 10→03 的回环边)
+    const own = buildOpenAiTools(config, null, { skillsEnabled: false, desktopOverride: sessionDesktopToolsOf(session), ...(session && session.kind === 'steward' ? { stewardSession: true } : { scratchpadEnabled: true }) });
+    const frozen = session && Array.isArray(session.toolSchemaNames) && session.toolSchemaNames.length ? new Set(session.toolSchemaNames) : null;
+    const tools = frozen ? own.filter(t => t && t.function && frozen.has(t.function.name)) : own;
+    return { sys: String(buildStableSystemPrompt(provider, model, cwd, tools, false, config) || ''), tools };
+  } catch { return { sys: '', tools: [] }; }
+}
 async function runProviderCompactTracked(sessionId, opts = {}) {
   const sid = safeSessionId(String(sessionId || ''));
   if (!sid) return runProviderCompact(sessionId, opts);
@@ -3050,9 +3062,20 @@ async function runProviderCompact(sessionId, opts = {}) {
     boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budgetPlan.budget : 0,
     dedupeReads: historyReadDedupEnabled(config),
   });
-  const afterL1 = estimateHistoryTokens(work);
+  const afterL1 = estimateHistoryTokens(work);   // 回给界面 / 标记的数字仍是历史本身(与修前同口径)
+  // 「L1 够了」的线与自动压缩(runAutoCompaction)逐字同一条公式:线 = max(预算×比例, 开销 + (预算−开销)×比例),被比的是
+  // 【系统提示 + 工具表 + 历史】的校准估算(开销 = 系统提示 + 工具表)。修前只拿历史对 预算×比例:窗口小 / 工具表大时历史还远没到线,
+  // 加上固定开销早已超预算,手动压缩却报「够了」、下一次发送自动压缩立刻又上 L2。
   const ratioRaw = Number(CONTEXT_GOVERNANCE_RULES.compactionPlan.l1SufficientRatio);
-  const sufficient = Math.floor(budgetPlan.budget * (ratioRaw > 0 && ratioRaw <= 1 ? ratioRaw : 0.75));
+  const ratio = ratioRaw > 0 && ratioRaw <= 1 ? ratioRaw : 0.75;
+  const promptShape = manualCompactPromptShape(session, provider, model, config);
+  const sysMsg = { role: 'system', content: promptShape.sys };
+  const l1Total = calibratedEstimate(provider, model, [sysMsg, ...work], promptShape.tools);
+  const overhead = calibratedEstimate(provider, model, [sysMsg], promptShape.tools);
+  const sufficient = Math.max(Math.floor(budgetPlan.budget * ratio), Math.floor(overhead + Math.max(0, budgetPlan.budget - overhead) * ratio));
+  // L1 的前提是「免费、不丢细节」:被折叠的原件要能经 observation_recall 取回。快照没写成 / 回捞没开(reducer 或 recall 关着)时 L1 是有损的
+  // 蒸发,不能当「已压缩、原文可回捞」收尾(界面的 L1 提示就是这么说的)—— 退到 L2 摘要。
+  const recoverable = Boolean(rawRefPrefix) && observationRecallEnabled(config);
   const contextUsage = afterTokens => ({
     usage: {}, contextTokens: afterTokens, contextWindow: providerConversationContextWindow(config, provider, provider.model),
     contextEngine: 'openai', contextProviderId: provider.id, contextModel: model, source: 'provider-compact',
@@ -3077,7 +3100,7 @@ async function runProviderCompact(sessionId, opts = {}) {
     return { ok: true, session: written.session };
   };
 
-  if (mode !== 'summary' && evaporated > 0 && afterL1 <= sufficient) {
+  if (mode !== 'summary' && evaporated > 0 && recoverable && l1Total <= sufficient) {
     const saved = await persist(fresh => {
       fresh.providerHistory = work;
       const marker = upsertCompactMarker(fresh, { kind: 'provider-manual', label: '已压缩上下文', evaporated, saved: beforeTokens - afterL1, beforeTokens, afterTokens: afterL1 });
@@ -3086,7 +3109,7 @@ async function runProviderCompact(sessionId, opts = {}) {
     });
     if (!saved.ok) return saved;
     logEvent({ kind: 'provider_compact', sessionId: session.id, level: 1, evaporated, beforeTokens, afterTokens: afterL1 });
-    return { ok: true, level: 1, evaporated, beforeTokens, afterTokens: afterL1, recoverable: Boolean(rawRefPrefix) && observationRecallEnabled(config) };
+    return { ok: true, level: 1, evaporated, beforeTokens, afterTokens: afterL1, recoverable };
   }
 
   const sc = await providerSummaryCall(summaryProvider, work, { model: compactTarget.model, config });
@@ -3234,7 +3257,11 @@ async function runSessionTurn(input) {
   // until-done 续跑、Provider 与 Claude，避免 UI 显示一档而后端实际按另一档执行。
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
-  const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  const loadedSession = body.sessionId ? await loadSession(body.sessionId) : null;
+  // 系统自己起的唤醒回合绝不顺手新建会话:HTTP 的「合法 id 但装载不到 → 新建」是给用户的兜底(损坏会话被隔离后继续聊),
+  // 对唤醒不成立 —— 线程在 runAgentWake 校验之后被删(或装载瞬时失败)时,新建只会冒出一条只有唤醒通知的孤儿会话。
+  if (!loadedSession && source === AGENT_WAKE_SOURCE) throw Object.assign(new Error('session not found'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  const session = loadedSession || await createSession({ title: body.title, cwd: body.cwd });
   // 回合开头的计划条指纹:收尾时随成败账一起落(stewardLastTurn.todosStartSig),管家据此分辨「这一回合推进过的计划」
   // 与「早就搁下的旧计划」(见 02 sessionTodosSignature)。
   const todosStartSig = sessionTodosSignature(session.todos);
@@ -3321,7 +3348,8 @@ async function runSessionTurn(input) {
   if (source === 'http' && session.stewardTaint) delete session.stewardTaint;
   // 后台代理唤醒的连续计数(见 scheduleAgentWake):不是唤醒自己起的回合(用户亲发、管家派、定时任务)都清零 —— 上限防的是
   // 「起后台代理 → 被唤醒 → 再起」这一个闭环,修前只认 'http',纯管家 / 定时驱动的线程唤醒满 6 次后进程内再也不唤醒。
-  if (source !== AGENT_WAKE_SOURCE) agentWakeChain.delete(session.id);
+  // 同一个起手点也清「用户叫停过」表:用户重新说话了(或系统起了别的回合),此后后台代理收尾才可以再唤醒这条线程。
+  if (source !== AGENT_WAKE_SOURCE) { agentWakeChain.delete(session.id); agentWakeSuppressed.delete(session.id); }
   const attachments = body.attachments || [];
 
   let finished = false;
@@ -3543,13 +3571,21 @@ async function runSessionTurn(input) {
       }
     } catch { outcomePatch = null; }
     if (outcomePatch) turnOutcomePending.add(outcomeId);
-    if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合(没有更新的回合接手)
+    if (turnStillOwned) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     // 后台代理唤醒(见 scheduleAgentWake):收尾时账本里还有没送达的后台代理信封(落在本回合最后一次模型调用之后)→ 补唤醒。
     // 用户停止 / 被新回合顶掉 / 断线时按设置杀掉回合(lastResult.aborted)的那次收尾不补:用户刚叫停,信封留到下一回合开头送达。
     // 只是关了页面 / 刷新(killOnDisconnect 缺省关,回合在服务端照常跑完)要补 —— 用户离开正是这个功能要管的情形。
-    if (session.kind !== 'steward' && !turnStopped && !(lastResult && (lastResult.superseded || lastResult.aborted))
-        && typeof EventStreamHooks.pendingAgentWakeJobs === 'function') {
-      try { if (EventStreamHooks.pendingAgentWakeJobs(session).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
+    // 用户叫停的那次收尾不但不补,还要记下「叫停过」:后台代理与回合 abort 脱钩,几秒后跑完时信封落账那一路(onAgentEnvelopePersisted)
+    // 同样不该把线程叫醒。被新回合顶掉(superseded)的不记 —— 新回合起手时刚清过表,这一记会反过来拦住新回合的收尾。
+    if (session.kind !== 'steward') {
+      const superseded = !!(lastResult && lastResult.superseded);
+      const cancelled = turnStopped || !!(lastResult && lastResult.aborted);
+      // 「Stop 后立刻重发」:新回合起手时(已清表)本回合还在收尾 —— 线程已经归新回合,这里再记一笔会拦住用户刚说完那句话的回合。
+      if (cancelled && !superseded) { if (turnStillOwned) agentWakeSuppressed.add(session.id); }
+      else if (!cancelled && !superseded && typeof EventStreamHooks.pendingAgentWakeJobs === 'function') {
+        try { if (EventStreamHooks.pendingAgentWakeJobs(session).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
+      }
     }
     if (outcomePatch) {
       // 不 await:成败账是旁路,回合的收尾(brief 补写、返回值)不该排在一次会话头写盘后面;读侧在
@@ -3594,9 +3630,13 @@ async function runSessionTurn(input) {
 // 同一条路:界面照旧经 thread.live 看到它在跑,用户此刻打字会变成插话);线程正忙则由那一回合的迭代边界收件,它收尾
 // 时还有漏收的(信封落在最后一次模型调用之后)再补唤醒。
 // 边界:
-//   · 只认模型以 background:true 起的 run(账本行 background:true,11 notifyAgentRunEnvelope 写);
+//   · 只认【模型自己】以 background:true 起的 run(run.launchedByModel → 账本行 wakeParent:true,11 notifyAgentRunEnvelope 写)。
+//     面板 / HTTP 的 async 启动同样 background:true,但是用户点的、没有模型在等 —— 信封照常进账本随下一回合送达,不替模型起回合;
 //   · 被叫停的 run(stopped / cancelled)不唤醒 —— 信封照旧在下一回合开头送达;
-//   · 回合被用户停止 / 断线 / 被新回合顶掉的那一次收尾不补唤醒(用户刚叫停);
+//   · 用户叫停之后不唤醒(agentWakeSuppressed):回合被用户停止 / 断线被杀 / 被新回合顶掉的那一次收尾不补唤醒;而且后台代理与回合 abort
+//     脱钩(ctrl:null),叫停之后它们照样会跑完 —— 所以信封落账时也要看这张「叫停过」表,否则线程会在用户 Stop 之后自己又开工。
+//     撤回(rewind)同理:线程已被改写,别替一段被撤回的对话把模型叫醒。表在下一个【不是唤醒起的】回合起手清掉(用户重新说话了);
+//     被拦下的信封一份都不丢 —— 仍在账本里,随用户下一句话的回合开头送达(与关掉 agentAutoWake 时同一条路);
 //   · 每份信封只唤醒一次(进程内记账,按 job id + 完成时刻:续跑 / 重试的同一个 run 再交一份信封会再唤醒);
 //     连续唤醒最多 AGENT_WAKE_CHAIN_MAX 次,防模型「起后台代理 → 被唤醒 → 再起」无限循环,任何不是唤醒起的回合都清零;
 //   · 进程重启:信封落了账、唤醒还没起成就重启的,启动时补排(scheduleAgentWakesAtBoot);重启打断的后台 run 由 08 补一份
@@ -3612,6 +3652,7 @@ const AGENT_WAKE_CHAIN_MAX = 6;
 const agentWakeTimers = new Map();     // sessionId -> 防抖定时器
 const agentWakeAttempted = new Map();  // sessionId -> Set(账本 job id):已经为它唤醒过的信封
 const agentWakeChain = new Map();      // sessionId -> 自上一条用户消息以来的连续唤醒次数
+const agentWakeSuppressed = new Set(); // sessionId:用户叫停 / 撤回过,在下一个非唤醒回合起手之前不再自动唤醒
 // 被叫停的 run(stopped = 有人按了停止,cancelled 同义)不唤醒:用户刚表示过不要了。
 // 进程重启打断的(interrupted)也不唤醒:不是代理做完了,信封留到用户下一句话时送达。
 function agentWakeSkipsStatus(status) { return status === 'stopped' || status === 'cancelled' || status === 'canceled' || status === 'interrupted'; }
@@ -3633,8 +3674,12 @@ function scheduleAgentWake(sessionId, reason) {
 function agentWakeMessage(jobs) {
   const lines = jobs.slice(0, 8).map(job => `- 「${String(job.name || job.runId || '').replace(/\s+/g, ' ').slice(0, 80)}」(run ${job.runId},${job.status})`);
   if (jobs.length > 8) lines.push(`- 另有 ${jobs.length - 8} 个`);
+  // 只有账本行确是模型自己起的(wakeParent)才说「你先前用 orchestrate_agents 启动的」;别的(防御:判据在 pendingAgentWakeJobs 已滤过)不替模型认账。
+  const byModel = jobs.every(job => job && job.wakeParent === true);
   return [
-    `[后台代理已完成 · 自动唤醒] 你先前用 orchestrate_agents{background:true} 启动的 ${jobs.length} 个后台代理已结束:`,
+    byModel
+      ? `[后台代理已完成 · 自动唤醒] 你先前用 orchestrate_agents{background:true} 启动的 ${jobs.length} 个后台代理已结束:`
+      : `[后台代理已完成 · 自动唤醒] ${jobs.length} 个后台代理 / 工作流运行已结束:`,
     ...lines,
     '它们的交付信封随本条送达。请据此继续原来的任务;如果已经没有要做的,就向用户简要汇报结果。这是工作台的系统通知,不是用户的新指令。',
   ].join('\n');
@@ -3644,6 +3689,8 @@ async function runAgentWake(sessionId, reason) {
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
   // 手动压缩算摘要期间不起回合(回合会追加历史,那份摘要落盘时被长度守卫作废);runProviderCompact 收尾时再排一次。
   if (providerCompactInFlight.has(sessionId)) return { ok: false, skipped: 'compacting' };
+  // 用户刚叫停 / 撤回过:不替他把线程叫醒。信封留在账本里,他下一句话的回合开头照常送达(见上面头注)。
+  if (agentWakeSuppressed.has(sessionId)) return { ok: false, skipped: 'user_stopped' };
   if (typeof EventStreamHooks.pendingAgentWakeJobs !== 'function') return { ok: false, skipped: 'unsupported' };
   // 设置里关掉了(agentAutoWake:false):信封照旧等用户下一句话时随回合开头送达。
   const wakeConfig = await readConfig().catch(() => null);
@@ -3659,8 +3706,10 @@ async function runAgentWake(sessionId, reason) {
     logEvent({ kind: 'agent_wake_capped', sessionId, chain, runIds: pending.map(job => String(job.runId || '')) });
     return { ok: false, skipped: 'chain_capped' };
   }
-  // 装载会话期间用户可能刚发了一句:再判一次(下面到 runSessionTurn 登记 turnSettlers 之间没有 await)。
+  // 装载会话期间用户可能刚发了一句 / 按了停止:再判一次。下面到 runSessionTurn 登记 turnSettlers 之间 runSessionTurn 自己还有 await
+  // (装载配置与会话),那一段由它的忙判定(409,见 catch)与「系统来源装载不到会话就不新建」兜住。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
+  if (agentWakeSuppressed.has(sessionId)) return { ok: false, skipped: 'user_stopped' };
   for (const job of pending) attempted.add(agentWakeJobKey(job));
   agentWakeAttempted.set(sessionId, attempted);
   agentWakeChain.set(sessionId, chain + 1);
@@ -3673,10 +3722,14 @@ async function runAgentWake(sessionId, reason) {
     onEvent: () => {},
   });
   turn.catch(error => {
+    // 线程在 runAgentWake 校验之后被删:没有东西可唤醒,安静跳过(runSessionTurn 对系统来源不新建会话)。
+    if (error && error.code === 'SESSION_NOT_FOUND') { logEvent({ kind: 'agent_wake_skipped', sessionId, reason: 'session_gone' }); return; }
     // 起回合那一刻撞上别处起的回合(409):那一回合会收件,退回记账,让它收尾时还能补唤醒。
     if (error && error.code === 'SESSION_TURN_BUSY_ELSEWHERE') {
       for (const job of pending) attempted.delete(agentWakeJobKey(job));
-      agentWakeChain.set(sessionId, chain);
+      // 只退回【我们自己】加的那一格:撞上的若是用户回合,它起手时已经把计数清零(agentWakeChain.delete),这里再写回旧值
+      // 等于吃掉用户刚做的清零(「连续唤醒上限」在用户说过话之后提前触顶)。计数不再是 chain+1 = 已被别人动过,不碰。
+      if (agentWakeChain.get(sessionId) === chain + 1) agentWakeChain.set(sessionId, chain);
     }
     logEvent({ kind: 'agent_wake_error', sessionId, code: String((error && error.code) || ''), error: String((error && error.message) || error).slice(0, 400) });
   });
@@ -3686,18 +3739,30 @@ EventStreamHooks.onAgentEnvelopePersisted = job => {
   if (!job || agentWakeSkipsStatus(String(job.status || ''))) return;
   scheduleAgentWake(job.sessionId, 'envelope');
 };
+// 撤回(02 rewindSession,存盘成功之后调):线程已被改写到更早的一句话 —— 记「叫停过」:此后到用户下一句话之前不自动唤醒。
+// 仍在跑的后台代理(与回合 abort 脱钩)跑完不该把一段被撤回的对话叫醒;它们的信封留在账本里,下一回合开头照常送达(与 Stop 同一条路)。
+// (被撤回回合里【模型自己起的】仍在跑的后台 run 由 02 cancelModelRunsOfDiscardedTurns 就地停掉 —— 停 run 的零件都在 02 / 08,不让 10 多一条回环边。)
+EventStreamHooks.onSessionRewound = ({ sessionId } = {}) => {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return false;
+  agentWakeSuppressed.add(sid);
+  return true;
+};
 // 启动时补排:信封已落账、唤醒还没起成(防抖窗口内重启、崩溃)的会话。只看最近 AGENT_WAKE_BOOT_WINDOW_MS 内完成的 ——
 // 更早的要么早已唤醒过(唤醒回合开头就登记已读),要么当时开关关着 / 唤醒到了上限,重启不该把几天前的线程一起叫醒。
 // 是否已读、开关、上限仍由 runAgentWake 按会话判。
+// 异步 + 按 mtime 预筛(11 recentBackgroundAgentJobSessions):账本文件最大可到 MB 级,修前启动期同步全量读完才 listen。
+// 调用方(13 startServerInner)不 await —— 启动不等它;函数自己兜住一切异常,绝不产生未处理的拒绝。
 const AGENT_WAKE_BOOT_WINDOW_MS = 6 * 3600 * 1000;
-function scheduleAgentWakesAtBoot() {
+async function scheduleAgentWakesAtBoot() {
   if (typeof EventStreamHooks.recentBackgroundAgentJobSessions !== 'function') return 0;
-  let sessionIds = [];
-  try { sessionIds = EventStreamHooks.recentBackgroundAgentJobSessions(Date.now() - AGENT_WAKE_BOOT_WINDOW_MS); } catch { return 0; }
-  let scheduled = 0;
-  for (const sid of sessionIds) if (scheduleAgentWake(sid, 'boot')) scheduled++;
-  if (scheduled) logEvent({ kind: 'agent_wake_boot', sessions: scheduled });
-  return scheduled;
+  try {
+    const sessionIds = await EventStreamHooks.recentBackgroundAgentJobSessions(Date.now() - AGENT_WAKE_BOOT_WINDOW_MS);
+    let scheduled = 0;
+    for (const sid of Array.isArray(sessionIds) ? sessionIds : []) if (scheduleAgentWake(sid, 'boot')) scheduled++;
+    if (scheduled) logEvent({ kind: 'agent_wake_boot', sessions: scheduled });
+    return scheduled;
+  } catch { return 0; }
 }
 
 // HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。
