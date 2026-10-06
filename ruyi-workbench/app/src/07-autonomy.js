@@ -2451,7 +2451,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
 
   const workingDir = cwd || process.cwd();
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
-  const idleLimitMs = Math.min(Number(config.turnIdleTimeoutMs) || 600000, 600000);
+  // Claude CLI 节点的空闲上限跟用户设置走(turnIdleTimeoutMs,出厂 10 分钟,可调到 60 分钟)。修前这里还封了一道 10 分钟的顶
+  // (Math.min(…, 600000)),于是把「一个回合多久没动静算卡住」调大对 Claude 节点完全无效。env 缝 WCW_TURN_IDLE_MS 与 05 的主回合同名同义。
+  const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || Number(config.turnIdleTimeoutMs) || 600000);
 
   // v1.4.5: transient-error resilience parity with runSubAgentCore (OpenAI path) + streamWithFailover
   // (parent turn). The CLI is retried inline a bounded number of times when a failure is classified

@@ -60,10 +60,18 @@ function createTurnSegmentBuilder() {
   let lastEventType = '';
   const nextId = () => `segment-${++segmentSeq}`;
   const createBatchId = engine => `${String(engine || 'turn')}-batch-${++batchSeq}`;
+  // 后台 run 的子代理 / 工作流卡(background:true)是「环境卡」:run 与父回合解耦,节点什么时候起(并发上限放行、依赖满足)
+  // 不由父回合决定,它们常常在父回合还在写思考的当口到达。思考段不被它们切开 —— 否则同一段连续思考落盘成
+  // thinking | subagent | thinking,刷新后画成几块(实时壳里同一段是一块,见 chat-stream-runtime 的 isThinkingNarrativeBoundary)。
+  // 只对思考段生效:正文段仍按事件顺序被卡片隔开(那是用户读得到的位置信息)。
+  const isAmbientBackgroundCard = segment => !!segment && segment.background === true
+    && (segment.type === 'subagent' || segment.type === 'workflow');
   const appendText = (type, text) => {
     const value = String(text || '');
     if (!value) return;
-    const last = segments[segments.length - 1];
+    let tail = segments.length - 1;
+    if (type === 'thinking') while (tail >= 0 && isAmbientBackgroundCard(segments[tail])) tail -= 1;
+    const last = tail >= 0 ? segments[tail] : undefined;
     if (last && last.type === type) last.text += value;
     else segments.push({ id: nextId(), type, text: value });
     fallbackBatchId = '';

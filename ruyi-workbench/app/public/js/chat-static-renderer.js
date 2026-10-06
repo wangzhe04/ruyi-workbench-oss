@@ -68,6 +68,25 @@ export function createChatStaticRenderer(deps = {}) {
   function validTurnSegments(msg) {
     return normalizeTurnSegments(msg);
   }
+  // 老会话里,后台 run 的子代理段(provider 引擎没有原生记录,静态不画)夹在同一段思考中间落盘成
+  // thinking | subagent | thinking —— 画出来是两块紧挨着的思考。隔着「不画的子代理段」的思考并成一块
+  // (新落盘的会话由 02c 的账本本身保证不再切开)。只并文本、不动其它段,画得出来的卡片仍是切分点。
+  function mergeThinkingAcrossHiddenSubagents(segments, nativeAgents) {
+    const hidden = segment => segment.type === 'subagent' && !nativeAgents.has(String(segment.toolCallId || ''));
+    const out = [];
+    for (const segment of segments) {
+      if (segment.type === 'thinking') {
+        let k = out.length - 1;
+        while (k >= 0 && hidden(out[k])) k -= 1;
+        if (k >= 0 && k < out.length - 1 && out[k].type === 'thinking') {
+          out[k] = { ...out[k], text: String(out[k].text || '') + String(segment.text || '') };
+          continue;
+        }
+      }
+      out.push(segment);
+    }
+    return out;
+  }
   function narrativeToolAnchor(toolCallId, scope) {
     return turnToolAnchorId(toolCallId, scope);
   }
@@ -321,10 +340,11 @@ export function createChatStaticRenderer(deps = {}) {
     flush(block);
   }
   function renderStaticTurnNarrative(msg, host, idScope = '') {
-    const segments = validTurnSegments(msg);
-    if (!segments.length) return null;
+    const rawSegments = validTurnSegments(msg);
+    if (!rawSegments.length) return null;
     const tools = new Map((Array.isArray(msg.toolCalls) ? msg.toolCalls : []).filter(Boolean).map(tc => [String(tc.id || ''), tc]));
     const nativeAgents = new Map((Array.isArray(msg.nativeAgents) ? msg.nativeAgents : []).filter(Boolean).map(record => [String(record.toolUseId || ''), record]));
+    const segments = mergeThinkingAcrossHiddenSubagents(rawSegments, nativeAgents);
     const narrative = el('div', 'turn-narrative');
     const toolIndex = [];
     const renderedNative = new Set();

@@ -117,6 +117,37 @@ for (const key of ['chat.turnRecord', 'chat.jumpToTool', 'chat.processStage', 'c
 ok(fs.existsSync(path.join(ROOT, 'dev-harness/dom-screenshot.e2e.js'))
   && fs.existsSync(path.join(ROOT, 'dev-harness/visual-baselines/workbench-shell-v2.json')), 'N13 双主题像素回归门 v2 与基线已落地');
 
+// N14 后台 run 的卡片不切开思考段(召出子 agent 后思维链被切碎)。后台节点什么时候起不由父回合决定,常常正好落在父回合
+// 还在写思考的当口 —— 同一段连续思考不许因此落盘成 thinking | subagent | thinking。
+const ambient = createTurnSegmentBuilder();
+ambient.consume({ type: 'thinking_delta', text: 'A' });
+ambient.consume({ type: 'subagent', id: 's1', state: 'start', background: true });
+ambient.consume({ type: 'tool_use', id: 'sx', name: 'file_read', subagentId: 's1', background: true });
+ambient.consume({ type: 'thinking_delta', text: 'B' });
+ambient.consume({ type: 'agent_workflow', id: 'w1', state: 'start', background: true, nodeCount: 2 });
+ambient.consume({ type: 'thinking_delta', text: 'C' });
+const ambientSegments = ambient.snapshot();
+ok(ambientSegments.filter(segment => segment.type === 'thinking').length === 1
+  && ambientSegments.find(segment => segment.type === 'thinking').text === 'ABC', 'N14 后台节点 / 工作流卡落在思考中途:思考仍是一段(文本 ABC)');
+ok(ambientSegments.some(segment => segment.type === 'subagent' && segment.background === true)
+  && ambientSegments.some(segment => segment.type === 'workflow' && segment.background === true), 'N14b 后台卡本身照常记账(只是不再切开思考)');
+const foreground = createTurnSegmentBuilder();
+foreground.consume({ type: 'thinking_delta', text: 'A' });
+foreground.consume({ type: 'subagent', id: 's1', state: 'start' });
+foreground.consume({ type: 'thinking_delta', text: 'B' });
+ok(foreground.snapshot().map(segment => segment.type).join(',') === 'thinking,subagent,thinking', 'N14c 前台子代理卡仍是切分点(只有后台卡是环境卡)');
+const toolBetween = createTurnSegmentBuilder();
+toolBetween.consume({ type: 'thinking_delta', text: 'A' });
+toolBetween.consume({ type: 'subagent', id: 's1', state: 'start', background: true });
+toolBetween.consume({ type: 'tool_use', id: 't1', name: 'file_read' });
+toolBetween.consume({ type: 'thinking_delta', text: 'B' });
+ok(toolBetween.snapshot().map(segment => segment.type).join(',') === 'thinking,subagent,tool,thinking', 'N14d 父回合自己的工具仍把思考隔成两段');
+const textAround = createTurnSegmentBuilder();
+textAround.consume({ type: 'assistant_delta', text: '前' });
+textAround.consume({ type: 'subagent', id: 's1', state: 'start', background: true });
+textAround.consume({ type: 'assistant_delta', text: '后' });
+ok(textAround.snapshot().map(segment => segment.type).join(',') === 'text,subagent,text', 'N14e 正文段照旧被后台卡按事件顺序隔开(环境卡规则只对思考生效)');
+
 if (failed) {
   console.error(`\nTURN NARRATIVE STATIC E2E: ${failed} FAILED`);
   process.exit(1);
