@@ -1,8 +1,8 @@
 # 第三方声明 · Third-Party Notices
 
 如意 Ruyi(Ruyi Workbench)本体在 Apache-2.0 下发布(见根目录 `LICENSE`)。
-本文件逐项列出仓库随附或可选依赖的第三方组件及其许可义务。**所有列出的静态库均随仓库分发**;
-标注为「可选/不随仓库分发」的组件由用户自行安装。
+本文件逐项列出仓库随附、随发行包分发的第三方组件及其许可义务。**§1 的前端静态库与 §2 的 ripgrep 二进制都已提交在仓库里**,
+打包脚本会把它们随发行包一起带走;§3 的 ACC Python 依赖不进仓库,由 Full 发行包随附的离线 wheels 分发。
 
 > clean-room 说明:本项目不含 Anthropic 泄露源码、不分发官方 Claude CLI、不复制第三方插件源码。
 > 详见根目录 `README.md` 的 clean-room 声明段。
@@ -19,15 +19,15 @@
 | highlight.js | 11.9.0 | BSD-3-Clause | https://github.com/highlightjs/highlight.js | 代码高亮(`highlight.min.js`)。(c) 2006-2023 Ivan Sagalaev 及贡献者。 |
 | highlight.js 主题 · GitHub(light) | 随 highlight.js 11.x | BSD-3-Clause | https://github.com/highlightjs/highlight.js/tree/main/src/styles | 高亮亮色主题(`github.min.css`)。取自 GitHub 语法配色,Maintainer @Hirse。 |
 | highlight.js 主题 · GitHub Dark | 随 highlight.js 11.x | BSD-3-Clause | https://github.com/highlightjs/highlight.js/tree/main/src/styles | 高亮暗色主题(`github-dark.min.css`)。取自 GitHub 语法配色,Maintainer @Hirse。 |
-| mermaid | 11.x(文件由维护者自上游发布物放入 `vendor/`;未放入时功能降级) | MIT | https://github.com/mermaid-js/mermaid | 流程图/时序图等 Mermaid 渲染(`mermaid.min.js`,懒加载)。Copyright (c) 2014-2024 Knut Sveidqvist 及贡献者。 |
+| mermaid | 11.17.2 | MIT | https://github.com/mermaid-js/mermaid | 流程图/时序图等 Mermaid 渲染(`mermaid.min.js`,懒加载)。Copyright (c) 2014-2024 Knut Sveidqvist 及贡献者。 |
 
-> mermaid 说明(109a):`mermaid.min.js` 是**可选**前端静态库,由维护者从上游 MIT 发布物取得后放入
-> `ruyi-workbench/app/public/vendor/`。工作台对它做懒加载(首次遇到 ```mermaid 围栏才注入本源脚本),
-> 文件不存在时图表降级为普通代码块加一行提示,不联网、不报错。因此本仓库快照可能不包含该文件。
+> mermaid 说明(109a):`mermaid.min.js` 取自上游 MIT 发布物,**已提交在仓库里**
+> (`ruyi-workbench/app/public/vendor/mermaid.min.js`),Slim 与 Full 发行包都随 `app/` 整树带上它。工作台对它做懒加载
+> (首次遇到 ```mermaid 围栏才注入本源脚本);文件若被删掉,图表降级为普通代码块加一行提示,不联网、不报错。
 
 ### 许可全文摘要
 
-**MIT(marked、mermaid)**
+**MIT(marked、mermaid;ripgrep 的 MIT 全文见 §2)**
 
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of this
@@ -54,13 +54,42 @@ derived from this software without specific prior written permission. THE SOFTWA
 
 ---
 
-## 2. 可选二进制(不随仓库分发,用户自装)
+## 2. 随仓库与发行包分发的二进制
 
-| 组件 | 许可 | 上游 | 说明 |
-|---|---|---|---|
-| ripgrep(`vendor-bin/rg.exe`) | MIT 或 Unlicense(双许可) | https://github.com/BurntSushi/ripgrep | grep 快路径可选加速。**不进最小 overlay、不随本仓库分发**;用户自行放入 `ruyi-workbench/vendor-bin/rg.exe` 即被探测启用,缺失时自动降级为纯 JS 扫描。其 MIT/Unlicense 许可可再分发,若发行方选择随包附带需一并附上其许可。 |
+| 组件 | 版本 | 许可 | 上游 | 说明 |
+|---|---|---|---|---|
+| ripgrep(`ruyi-workbench/app/vendor-bin/rg.exe`) | 14.x(二进制内嵌的手册页日期为 2024-09-08,与上游 14.1.1 的发布日期相符;精确版本以该文件的 `rg --version` 为准) | MIT 或 Unlicense(双许可,发行方任选其一) | https://github.com/BurntSushi/ripgrep | 上游官方发布流程产出的 Windows 预编译二进制(文件内的构建路径指向上游 GitHub Actions)。Copyright (c) 2015 Andrew Gallant。用于 `file_search` 的快路径,并在服务启动时加进服务进程的 PATH 前部,让模型在终端里也能直接跑 `rg`。`app/` 整树随 Slim 与 Full 发行包一起带走,覆盖包也把它列为可选载荷(文件存在就一并打进去)。文件缺失时 `file_search` 静默退回纯 JS 扫描器,功能降级、不报错。 |
 
-> 便携 git 等 GPL 系二进制**有意不纳入** vendor-bin(GPLv2 再分发义务)。
+**MIT(ripgrep)**
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 Andrew Gallant
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+> `rg.exe` 是预编译的单文件,里面静态链接了若干 Rust 依赖(均为 MIT / Apache-2.0 / BSD / Unlicense 一类宽松许可);
+> 逐条清单以上游对应版本的 `Cargo.lock` 为准。上游的 Unlicense 文本见其仓库根目录的 `UNLICENSE`。
+>
+> 便携 git 等 GPL 系二进制**有意不纳入** `vendor-bin`(GPLv2 再分发义务)。
 
 ---
 

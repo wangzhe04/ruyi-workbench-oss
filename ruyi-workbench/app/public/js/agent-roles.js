@@ -133,7 +133,9 @@ function renderAgentRoleEditors() {
     const card = el('details', 'agent-role-edit-card'); card.open = agentRoleDraft.length <= 5; card.dataset.builtin = role.builtin ? '1' : '0';
     const head = el('summary', 'agent-role-edit-head');
     const dot = el('span', 'agent-role-dot'); dot.setAttribute('aria-hidden', 'true');
-    head.append(dot, document.createTextNode(`${role.label || role.id} · ${roleEnumLabel(ROLE_TOOL_TIER_KEYS, role.toolTier || 'read')} · ${roleEnumLabel(ROLE_PERMISSION_KEYS, role.permissionMode || 'inherit')}`));
+    // 安全走查 S3:项目来源的角色被线程权限夹过时(后端给 roleClamped / effective*),标题行如实注明实际生效的档位;声明值(下面的下拉)不动。
+    const clampNote = role.roleClamped ? t('role.clampedBadge', { tier: roleEnumLabel(ROLE_TOOL_TIER_KEYS, role.effectiveToolTier || role.toolTier || 'read'), mode: roleEnumLabel(ROLE_PERMISSION_KEYS, role.effectivePermissionMode || 'inherit') }) : '';
+    head.append(dot, document.createTextNode(`${role.label || role.id} · ${roleEnumLabel(ROLE_TOOL_TIER_KEYS, role.toolTier || 'read')} · ${roleEnumLabel(ROLE_PERMISSION_KEYS, role.permissionMode || 'inherit')}${clampNote}`));
     card.appendChild(head);
     const body = el('div', 'agent-role-edit-body');
     const idInput = roleInput('id', role.id); if (role.builtin) idInput.readOnly = true;

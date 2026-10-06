@@ -148,7 +148,8 @@ const userTextOf = m => (typeof m.content === 'string' ? m.content : (Array.isAr
     }
     ok(turns.every(x => x.text), 'C0b 四回合都抓到了 stdin');
     const injected = turns.map(x => x.meta.indexInjected);
-    ok(JSON.stringify(injected) === JSON.stringify([true, false, false, false]), `C1 稳定索引只在首轮发一次,换召回不重发(indexInjected=${JSON.stringify(injected)};修前每次召回一变整块就重发)`);
+    ok(JSON.stringify(injected) === JSON.stringify([true, false, false, false]), `C1 稳定索引只在首轮发一次,换召回不重发(indexInjected=${JSON.stringify(injected)};修前每次召回一变整块就重发;`
+      + `每回合 hash / 续接重置原因:${JSON.stringify(turns.map(x => [x.meta.indexHash || '', x.meta.resumeResetReason || '']))})`);
     const ctxBlock = (turns[0].text.match(/<workbench-context>[\s\S]*?<\/workbench-context>/) || [''])[0];
     ok(ctxBlock.includes('<workbench-memory-core>') && !ctxBlock.includes('<workbench-memory>') && !ctxBlock.includes('deploy-notes'), 'C2 首轮 <workbench-context> 里有核心胶囊、没有相关记忆索引');
     ok(turns.slice(1).every(x => !x.text.includes('<workbench-context>')), 'C2b 后续回合的信封里没有 <workbench-context>(去重生效)');

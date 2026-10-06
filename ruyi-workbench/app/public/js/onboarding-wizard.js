@@ -231,6 +231,8 @@ export function createOnboardingWizardDomain({
   getLocale = () => 'zh-CN',
   setLocale = async locale => locale,
   providerDraftFromPreset = null,
+  // 2026-10:按地址收拾草稿(剥端点后缀、地址明显是 Anthropic / Responses 时补协议)—— 与设置页同一实现,由 provider-settings.js 注入。
+  normalizeProviderDraftEndpoint = null,
   pickWorkspace = async () => {},
   // 走查 #8：原生选择器用不了（非 Windows、WinForms 起不来）时的兜底 —— 手填一个完整路径，设成默认工作文件夹。
   setWorkspacePath = async () => {},
@@ -765,6 +767,7 @@ export function createOnboardingWizardDomain({
         : (typeof providerDraftFromPreset === 'function' ? providerDraftFromPreset(preset, existing) : null);
       if (!draft) return null;
       draft.baseUrl = wiz.baseUrl;
+      if (typeof normalizeProviderDraftEndpoint === 'function') normalizeProviderDraftEndpoint(draft);
       if (!reuse || wiz.apiKey) draft.apiKey = wiz.apiKey;
       if (wiz.model) draft.model = wiz.model;
       if (wiz.models.length) {

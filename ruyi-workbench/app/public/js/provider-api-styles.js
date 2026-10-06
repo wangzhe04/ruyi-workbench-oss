@@ -41,3 +41,37 @@ export function normalizeProviderApiStyle(value) {
 export function providerApiStyleMeta(value) {
   return PROVIDER_API_STYLES[normalizeProviderApiStyle(value)];
 }
+
+// 用户往 Base URL 里粘的常是完整端点:剥掉端点后缀,只留到服务商要的 base(与服务端拼端点的口径一致:
+// anthropic = base 到 /anthropic 或主机这一级、服务端补 /v1/messages;chat = base 到 /vN、服务端补 /chat/completions;
+// responses = 原样 base + /responses)。认不出后缀就原样(只去掉首尾空白与末尾的 /)。
+const PROVIDER_ENDPOINT_SUFFIXES = [/(?:\/v\d+)?\/messages$/i, /\/chat\/completions$/i, /\/responses$/i];
+export function stripProviderEndpointSuffix(url) {
+  let s = String(url == null ? '' : url).trim().replace(/\/+$/, '');
+  for (const re of PROVIDER_ENDPOINT_SUFFIXES) {
+    if (re.test(s)) { s = s.replace(re, ''); break; }
+  }
+  return s;
+}
+
+// 从地址推断协议(只在明显时;认不出 → ''):Anthropic 官方主机、路径里有 /anthropic 段、或粘的是 …/messages 端点 → anthropic;
+// 粘的是 …/chat/completions → chat;…/responses → responses。设置页与向导据此在用户没手动选过协议时自动切换。
+export function inferProviderApiStyleFromUrl(url) {
+  const s = String(url == null ? '' : url).trim().replace(/\/+$/, '');
+  if (!s) return '';
+  const m = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?([^:/?#]+)[^/?#]*([^?#]*)/i.exec(s);
+  const host = m ? m[1].toLowerCase() : '';
+  const pathPart = m ? m[2] : s;
+  if (host === 'api.anthropic.com') return 'anthropic';
+  if (/\/messages$/i.test(pathPart)) return 'anthropic';
+  if (/(^|\/)anthropic(\/v\d+)?$/i.test(pathPart)) return 'anthropic';
+  if (/\/chat\/completions$/i.test(pathPart)) return 'chat';
+  if (/\/responses$/i.test(pathPart)) return 'responses';
+  return '';
+}
+
+// Anthropic 官方主机(只有它才认「拒答改派」等官方专属项;设置页据此显示那一个开关)。与服务端 anthropicOfficialHost 同一判据。
+export function isAnthropicOfficialUrl(url) {
+  const m = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?([^:/?#]+)/i.exec(String(url || '').trim());
+  return Boolean(m && m[1].toLowerCase() === 'api.anthropic.com');
+}

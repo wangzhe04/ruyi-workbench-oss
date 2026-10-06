@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-06T05:35:15.606Z",
+  "generatedAt": "2026-10-06T05:47:36.677Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -903,8 +903,10 @@
         "dev-harness\\onboarding.e2e.js",
         "dev-harness\\overlay-update-core.e2e.js",
         "dev-harness\\session-search.e2e.js",
+        "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
-        "dev-harness\\unit\\http-input-hardening.test.js"
+        "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\surface-hardening-w2.test.js"
       ]
     },
     {
@@ -976,6 +978,7 @@
         "dev-harness\\steward-tools.e2e.js",
         "dev-harness\\steward-tools.static.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
+        "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js",
         "dev-harness\\ui-misc-wave1.browser.e2e.js",
@@ -984,6 +987,7 @@
         "dev-harness\\unit\\desktop-mcp-warm.test.js",
         "dev-harness\\unit\\fixture-home-per-test.test.js",
         "dev-harness\\unit\\net-errors.test.js",
+        "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\voice-learn.e2e.js",
         "dev-harness\\voice-lexicon.e2e.js",
@@ -1248,11 +1252,13 @@
         "dev-harness\\steward-settings.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
+        "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\theme-default.browser.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js",
         "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
+        "dev-harness\\unit\\claude-settings-bypass-sync.test.js",
         "dev-harness\\unit\\context-compact-trigger.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\settings-catalog.test.js",
@@ -1282,7 +1288,8 @@
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
-        "dev-harness\\unit\\frontend-failure-paths.test.js"
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
+        "dev-harness\\unit\\project-role-clamp.test.js"
       ]
     },
     {
@@ -1303,7 +1310,8 @@
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
-        "dev-harness\\unit\\frontend-failure-paths.test.js"
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
+        "dev-harness\\unit\\project-role-clamp.test.js"
       ]
     },
     {
@@ -1379,6 +1387,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\anthropic-gateway-setup.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\config-providers-guard.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
@@ -2401,6 +2410,7 @@
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\anthropic-fake.e2e.js",
+        "dev-harness\\anthropic-gateway-setup.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\audit.e2e.js",
         "dev-harness\\autocompact.e2e.js",
@@ -2501,6 +2511,7 @@
         "dev-harness\\responses-websearch-fake.e2e.js",
         "dev-harness\\responses-websearch-inline.e2e.js",
         "dev-harness\\rewind.e2e.js",
+        "dev-harness\\security-gates-w2.e2e.js",
         "dev-harness\\self-check.e2e.js",
         "dev-harness\\semantic-loop-guard.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
@@ -2542,6 +2553,7 @@
         "dev-harness\\subagent-retry-after.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
+        "dev-harness\\surface-hardening-w2.browser.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
@@ -3235,6 +3247,7 @@
         "dev-harness\\agent-workflow-transient-repro.e2e.js",
         "dev-harness\\agent-workflow-ui-progress.e2e.js",
         "dev-harness\\anthropic-fake.e2e.js",
+        "dev-harness\\anthropic-gateway-setup.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\audit.e2e.js",
@@ -3348,6 +3361,7 @@
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
         "dev-harness\\scheduler.e2e.js",
+        "dev-harness\\security-gates-w2.e2e.js",
         "dev-harness\\semantic-loop-guard.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
@@ -3400,6 +3414,8 @@
         "dev-harness\\subagent-retry-after.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
+        "dev-harness\\surface-hardening-w2.browser.e2e.js",
+        "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
@@ -3419,6 +3435,7 @@
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
@@ -3492,6 +3509,7 @@
         "dev-harness\\agent-workflow-transient-repro.e2e.js",
         "dev-harness\\agent-workflow-ui-progress.e2e.js",
         "dev-harness\\anthropic-fake.e2e.js",
+        "dev-harness\\anthropic-gateway-setup.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\audit.e2e.js",
@@ -3605,6 +3623,7 @@
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
         "dev-harness\\scheduler.e2e.js",
+        "dev-harness\\security-gates-w2.e2e.js",
         "dev-harness\\semantic-loop-guard.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
@@ -3657,6 +3676,8 @@
         "dev-harness\\subagent-retry-after.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
+        "dev-harness\\surface-hardening-w2.browser.e2e.js",
+        "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
@@ -3676,6 +3697,7 @@
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
@@ -3837,6 +3859,7 @@
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
+        "dev-harness\\surface-hardening-w2.browser.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
@@ -4386,7 +4409,8 @@
       "coveredBy": [
         "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
-        "dev-harness\\claude-permission-bridge-mode.e2e.js"
+        "dev-harness\\claude-permission-bridge-mode.e2e.js",
+        "dev-harness\\unit\\surface-hardening-w2.test.js"
       ]
     },
     {
@@ -4412,6 +4436,7 @@
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\permission-plain.browser.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
+        "dev-harness\\security-gates-w2.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-exempt-no-swap.e2e.js",
@@ -5067,6 +5092,7 @@
         "dev-harness\\steward-presence-gate.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-viewing-gate.e2e.js",
+        "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\thread-switch-race.browser.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js"
       ]

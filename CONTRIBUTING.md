@@ -33,7 +33,7 @@ node dev-harness\repo-hygiene.e2e.js
 
 ACC 在 `mcp/ai-computer-control/`,是独立打包的 Python FastMCP。
 
-- **可编辑安装**:`pip install -e mcp/ai-computer-control`(Python 3.10+ 可跑;建议 3.13,与预置离线 wheels 对齐)。
+- **可编辑安装**:`pip install -e mcp/ai-computer-control`(用 **Python 3.12**:`pyproject.toml` 声明 `requires-python >=3.12`,CI 跑的就是 3.12,预置离线 wheels 也是 cp312)。
 - **冒烟**:`python -X utf8 mcp/ai-computer-control/tests/smoke_registry.py`(校验工具数与版本)、`smoke_stdio.py`(校验 stdio 协议)。
 - **新增「动文件」工具**(会创建/移动/删除/写入路径的工具)**必须**把其路径参数登记进 `BRIDGED_WRITE_PATH_ARGS` 快照表——工作台据此在动手前建检查点。`checkpoint-coverage.e2e.js` 会机制性把关:漏登记即测试变红。
 - 可选依赖缺失时,对应工具须优雅降级(给安装提示,不崩溃),其余工具照常。
@@ -62,4 +62,4 @@ Ruyi is an offline-first, air-gap-oriented local AI workbench. A few **hard cons
 
 Run the suite **serially** (fixed ports): `node dev-harness\<name>.e2e.js`; passing prints `... E2E: ALL PASS` and exits 0. Live tests need your own key/desktop/Python and are skipped by default. New tests should use `dev-harness/lib/harness.js` (`createRunner` → `ok`/`fail`/`done`) for PASS/FAIL lines and the verdict, and `dev-harness/lib/fake-openai-provider.js` (`startFakeProvider` + `textFrames`/`toolCallFrames`/`usageFrame`) instead of a hand-rolled fake provider.
 
-For ACC (`mcp/ai-computer-control/`): `pip install -e`, run `tests/smoke_*.py`; any new file-mutating tool **must** be registered in the `BRIDGED_WRITE_PATH_ARGS` snapshot table (`checkpoint-coverage.e2e.js` enforces this — a missing entry turns the test red). Add new MCPs the drop-in way via `mcp/` (see [`mcp/README.md`](./mcp/README.md)) — no workbench code changes needed. PRs: small, with verification evidence; Chinese or English both welcome.
+For ACC (`mcp/ai-computer-control/`): `pip install -e` on **Python 3.12** (`requires-python >=3.12`; CI and the bundled offline wheels are 3.12), run `tests/smoke_*.py`; any new file-mutating tool **must** be registered in the `BRIDGED_WRITE_PATH_ARGS` snapshot table (`checkpoint-coverage.e2e.js` enforces this — a missing entry turns the test red). Add new MCPs the drop-in way via `mcp/` (see [`mcp/README.md`](./mcp/README.md)) — no workbench code changes needed. PRs: small, with verification evidence; Chinese or English both welcome.

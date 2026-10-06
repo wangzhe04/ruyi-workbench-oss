@@ -102,7 +102,11 @@ async function applyConfigPatch(rawBody) {
       if (lost.length) {
         const stamp = new Date().toISOString().replace(/[:.]/g, '-');
         const backupName = `config.json.bak-providers-${stamp}`;
-        try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
+        try {
+          const backupPath = path.join(path.dirname(paths.config), backupName);
+          await fsp.copyFile(paths.config, backupPath);
+          await fsp.chmod(backupPath, 0o600).catch(() => {});   // 安全走查 S11:备份里是真 apiKey,只给属主读写
+        } catch { /* 备份失败不阻塞写入 */ }
         logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
       }
     }

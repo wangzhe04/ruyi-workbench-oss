@@ -20,6 +20,7 @@ import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONB
 import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 // 服务商线协议(provider.apiStyle)只问这一张表(58 号方案批 1;键集合与服务端 04i PROVIDER_WIRE_PROTOCOLS 相同)。
 import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta, PROVIDER_REASONING_EFFORT_CHOICES, ANTHROPIC_AUTH_CHOICES, ANTHROPIC_THINKING_CHOICES } from './provider-api-styles.js';
+import { stripProviderEndpointSuffix, inferProviderApiStyleFromUrl, isAnthropicOfficialUrl } from './provider-api-styles.js';
 // 2026-10 设置补全：修前没有任何控件的约 70 个 config 键，由这一张目录统一渲染、回填、即存。
 import { mountSettingsCatalog, fillSettingsCatalog, catalogPatch } from './settings-catalog.js';
 
@@ -46,6 +47,18 @@ export function providerDraftFromPreset(preset, existingIds = []) {
     // 透传进草稿,否则从 UI 添加的 DeepSeek 会静默退化为本地搜索保底(后端 sanitize 兜底默认 false)。
     ...(preset.serverWebSearch ? { serverWebSearch: true } : {}),
   };
+}
+
+// 2026-10(用户报「Anthropic API 接入有问题、太复杂」):向导与设置页共用的「按地址收拾草稿」—— 剥掉粘进来的端点后缀
+// (…/v1/messages、…/chat/completions、…/responses),草稿没写协议(缺省 chat)而地址明显是另一种协议时补上(如
+// https://api.deepseek.com/anthropic → anthropic)。只在草稿上改,返回同一个对象。
+export function normalizeProviderDraftEndpoint(draft) {
+  if (!draft || typeof draft !== 'object') return draft;
+  const raw = String(draft.baseUrl || '');
+  const inferred = inferProviderApiStyleFromUrl(raw);
+  if (!draft.apiStyle && inferred && inferred !== PROVIDER_API_STYLE_DEFAULT) draft.apiStyle = inferred;
+  draft.baseUrl = stripProviderEndpointSuffix(raw);
+  return draft;
 }
 
 export function createProviderSettingsDomain({
@@ -1908,13 +1921,16 @@ function providerCard(p, idx) {
   effortSel.value = PROVIDER_REASONING_EFFORT_CHOICES.includes(p.reasoningEffort) ? p.reasoningEffort : '';
   effortSel.onchange = () => { p.reasoningEffort = effortSel.value; };
   effortLbl.append(effortSel, el('p', 'field-help muted prov-cap-hint', t('provider.reasoningEffort.hint')));
-  const syncEffortEnabled = () => { effortSel.disabled = !rc.checked; effortLbl.classList.toggle('is-disabled', !rc.checked); };
+  // 思考强度只在思考开着时发:通用协议看「推理链」;Anthropic 协议看「思考」选择(不是「关」就可选)。
+  let syncEffortEnabled = () => { effortSel.disabled = !rc.checked; effortLbl.classList.toggle('is-disabled', !rc.checked); };
   rc.onchange = () => { p.reasoning = rc.checked; syncEffortEnabled(); };
   syncEffortEnabled();
   // v1.7: protocol 选择,选项由协议登记表生成(provider-api-styles.js;chat 缺省)。存 p.apiStyle;
   // 后端 sanitizeProvider 经 normalizeProviderApiStyle 归一。
+  // 2026-10:协议决定 Base URL 怎么填、要哪些设置 —— 从折叠的「能力」组里搬到 Base URL 正下方,常驻可见;填地址时按地址自动识别
+  // (用户手动选过就不再自动改),旁边一行按协议说清 Base URL 的写法。
   const styleLbl = el('label', 'check prov-style'); styleLbl.appendChild(document.createTextNode(' ' + t('provider.apiStyle') + ' '));
-  const sc = el('select'); sc.className = 'prov-style-select';
+  const sc = el('select'); sc.className = 'prov-style-select'; sc.title = t('provider.apiStyle.hint');
   for (const style of Object.values(PROVIDER_API_STYLES)) {
     const o = el('option'); o.value = style.id; o.textContent = t(style.labelKey); sc.appendChild(o);
   }
@@ -1933,16 +1949,19 @@ function providerCard(p, idx) {
     else ssc.checked = !!p.serverWebSearch;
   };
   // 缺省协议不落字段(存量 config 零漂移);切到不支持服务端搜索的协议时连同 serverWebSearch 一起删(显式用户操作)。
-  sc.onchange = () => {
+  let styleTouched = false;   // 用户亲手选过协议:之后填地址不再自动改
+  const applyStyle = value => {
+    sc.value = normalizeProviderApiStyle(value);
     if (sc.value !== PROVIDER_API_STYLE_DEFAULT) p.apiStyle = sc.value; else delete p.apiStyle;
     if (!providerApiStyleMeta(sc.value).serverWebSearch) delete p.serverWebSearch;
     syncServerSearchVisibility();
     syncAnthropicVisibility();
   };
+  sc.onchange = () => { styleTouched = true; applyStyle(sc.value); };
   styleLbl.appendChild(sc);
-  // 对抗轮(P2-2):协议选择下的帮助文字(解释 Responses API 适用场景 + 其它服务商无 /v1/responses 的警告),
-  // 由双 locale 的 provider.apiStyle.hint 提供;此前该键定义了但 UI 从不渲染(死键)。
-  const styleHint = el('p', 'field-help muted prov-style-hint'); styleHint.textContent = t('provider.apiStyle.hint');
+  // 按协议说清 Base URL 怎么填(provider.apiStyle.hint 那段总说明挂在下拉的 title 上)。
+  const styleHint = el('p', 'field-help muted prov-style-hint');
+  const urlNote = el('p', 'field-help prov-url-note'); urlNote.hidden = true;   // 「已按地址切到 X 协议」「已去掉端点后缀」
   styleLbl.appendChild(styleHint);
   // v1.0-S3 (B2): per-provider vision 开关（能力矩阵/视觉回路读 provider.vision）。同 reasoning 开关的模式。
   const visionLbl = el('label', 'check prov-reason'); const vc = el('input'); vc.type = 'checkbox'; vc.checked = !!p.vision; vc.onchange = () => { p.vision = vc.checked; };
@@ -1984,8 +2003,9 @@ function providerCard(p, idx) {
 
   // 2026-10 补字段：Anthropic 协议专属三项（认证方式 / 思考方式 / 拒答自动改派）。是否显示只问协议登记表的 anthropicOptions 能力位。
   // 与「服务端搜索」同口径：切协议只改显隐，不删已存的值。空 = 缺省、不落字段（存量 config 零漂移）。
+  // 2026-10 简化:这一组搬到主区(Base URL 下面),只露一个「思考」;认证方式与拒答改派收进「连接细节」(一般不用改),
+  // 拒答改派只在官方地址上显示(别处它不生效)。Anthropic 协议下通用的「推理链」开关隐藏 —— 思考只认这一个选择,不再两处打架。
   const anthropicBox = el('div', 'prov-cap-grid prov-anthropic-opts');
-  anthropicBox.append(el('div', 'prov-cap-subhead', t('provider.anthropic.title')));
   const choiceField = (cls, captionKey, hintKey, choices, labelKeyOf, field) => {
     const lbl = el('label', 'prov-cap-field ' + cls); lbl.append(el('span', 'prov-cap-caption', t(captionKey)));
     const sel = el('select');
@@ -1995,24 +2015,59 @@ function providerCard(p, idx) {
     lbl.append(sel, el('p', 'field-help muted prov-cap-hint', t(hintKey)));
     return lbl;
   };
-  anthropicBox.append(
-    choiceField('prov-anthropic-auth', 'provider.anthropicAuth', 'provider.anthropicAuth.hint', ANTHROPIC_AUTH_CHOICES,
-      v => ({ '': 'provider.anthropicAuth.auto', 'x-api-key': 'provider.anthropicAuth.xApiKey', bearer: 'provider.anthropicAuth.bearer' })[v], 'anthropicAuth'),
-    choiceField('prov-anthropic-thinking', 'provider.anthropicThinking', 'provider.anthropicThinking.hint', ANTHROPIC_THINKING_CHOICES,
-      v => ({ '': 'provider.anthropicThinking.auto', adaptive: 'provider.anthropicThinking.adaptive', off: 'provider.anthropicThinking.off' })[v], 'anthropicThinking'));
+  const thinkingField = choiceField('prov-anthropic-thinking', 'provider.anthropicThinking', 'provider.anthropicThinking.hint', ANTHROPIC_THINKING_CHOICES,
+    v => ({ '': 'provider.anthropicThinking.auto', adaptive: 'provider.anthropicThinking.adaptive', off: 'provider.anthropicThinking.off' })[v], 'anthropicThinking');
+  const thinkingSel = thinkingField.querySelector('select');
+  thinkingSel.addEventListener('change', () => syncEffortEnabled());
+  const more = el('details', 'prov-anthropic-more'); more.append(el('summary', '', t('provider.anthropic.more')));
+  more.append(choiceField('prov-anthropic-auth', 'provider.anthropicAuth', 'provider.anthropicAuth.hint', ANTHROPIC_AUTH_CHOICES,
+    v => ({ '': 'provider.anthropicAuth.auto', 'x-api-key': 'provider.anthropicAuth.xApiKey', bearer: 'provider.anthropicAuth.bearer' })[v], 'anthropicAuth'));
   const fbLbl = el('label', 'check prov-cap-field prov-anthropic-fallbacks');
   const fbc = el('input'); fbc.type = 'checkbox'; fbc.checked = p.anthropicFallbacks !== 'off';
   fbc.onchange = () => { if (fbc.checked) delete p.anthropicFallbacks; else p.anthropicFallbacks = 'off'; };
   fbLbl.append(fbc, document.createTextNode(' ' + t('provider.anthropicFallbacks')), el('p', 'field-help muted prov-cap-hint', t('provider.anthropicFallbacks.hint')));
-  anthropicBox.append(fbLbl);
-  const syncAnthropicVisibility = () => { anthropicBox.style.display = providerApiStyleMeta(sc.value).anthropicOptions ? '' : 'none'; };
+  more.append(fbLbl);
+  anthropicBox.append(thinkingField, more);
+  const isAnthropic = () => providerApiStyleMeta(sc.value).anthropicOptions;
+  syncEffortEnabled = () => {
+    const on = isAnthropic() ? thinkingSel.value !== 'off' : rc.checked;
+    effortSel.disabled = !on; effortLbl.classList.toggle('is-disabled', !on);
+  };
+  const syncAnthropicVisibility = () => {
+    const anth = isAnthropic();
+    anthropicBox.style.display = anth ? '' : 'none';
+    fbLbl.style.display = isAnthropicOfficialUrl(p.baseUrl) ? '' : 'none';
+    // Anthropic 协议:思考只认上面那一个选择;语音转写(协议 / 地址)是 OpenAI 形端点的能力,Anthropic 端点没有。
+    reason.style.display = anth ? 'none' : '';
+    asrLbl.style.display = anth ? 'none' : '';
+    audioLbl.style.display = anth ? 'none' : '';
+    styleHint.textContent = t('provider.apiStyle.urlHint.' + normalizeProviderApiStyle(sc.value));
+    bi.placeholder = t('provider.baseUrlPlaceholder.' + normalizeProviderApiStyle(sc.value));
+    syncEffortEnabled();
+  };
 
-  cap.append(reason, effortLbl, visionLbl, styleLbl, serverSearchLbl, asrLbl, extraGrid, anthropicBox);
-  syncServerSearchVisibility();
-  syncAnthropicVisibility();
+  cap.append(reason, effortLbl, visionLbl, serverSearchLbl, asrLbl, extraGrid);
 
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));
-  const bi = el('input'); bi.type = 'text'; bi.dataset.provField = 'baseUrl'; bi.value = p.baseUrl || ''; bi.placeholder = 'https://api.deepseek.com'; bi.oninput = () => { p.baseUrl = bi.value.trim(); }; b2.append(bi);
+  const bi = el('input'); bi.type = 'text'; bi.dataset.provField = 'baseUrl'; bi.value = p.baseUrl || '';
+  const showUrlNote = text => { urlNote.textContent = text; urlNote.hidden = !text; };
+  bi.oninput = () => {
+    p.baseUrl = bi.value.trim();
+    // 用户没手动选过协议:地址明显是另一种协议(…/anthropic、api.anthropic.com、…/v1/messages、…/chat/completions、…/responses)就切过去。
+    const inferred = inferProviderApiStyleFromUrl(p.baseUrl);
+    if (!styleTouched && inferred && inferred !== normalizeProviderApiStyle(sc.value)) {
+      applyStyle(inferred);
+      showUrlNote(t('provider.apiStyle.autoSwitched', { name: t(providerApiStyleMeta(inferred).labelKey) }));
+    } else syncAnthropicVisibility();
+  };
+  // 失焦:剥掉粘进来的完整端点后缀(服务端会自己补),免得拼成 …/v1/messages/v1/messages。
+  bi.onchange = () => {
+    const stripped = stripProviderEndpointSuffix(bi.value);
+    if (stripped !== bi.value.trim()) { bi.value = stripped; p.baseUrl = stripped; showUrlNote(t('provider.baseUrlSuffixStripped')); syncAnthropicVisibility(); }
+  };
+  b2.append(bi, styleLbl, urlNote);
+  syncServerSearchVisibility();
+  syncAnthropicVisibility();
 
   const grid = el('div', 'field-grid');
   const kb = el('div', 'field-block'); kb.append(el('label', '', t('provider.apiKey')));
@@ -2202,7 +2257,7 @@ function providerCard(p, idx) {
   adv.append(sb, tb, eb, hb);
 
   const status = el('div', 'prov-status muted'); status.id = `provStatus_${idx}`;
-  card.append(head, cap, b2, grid, modelListB, cwB, priceB, adv, status);
+  card.append(head, b2, anthropicBox, grid, modelListB, cap, cwB, priceB, adv, status);
   return card;
 }
 // v1.0.2 (G5b): 「当前生效」小字。仅当此 provider 是当前激活引擎时,从 /api/status.contextWindowResolved 取
@@ -2226,7 +2281,18 @@ function contextResolvedHint(p) {
 //     MCP 导入路径上修掉的是同一条信封坑)。先按 message/字符串两种形状取词。
 //  ② 本机预设(Ollama / LM Studio)连不上时,「连不上端点(fetch failed)」对小白毫无意义:真实含义只有一个 --
 //     本机没在跑那个服务。换成人话,并在旁边给一个【应用内】手册按钮(不给命令行、不给下载链接)。
+// 2026-10:服务端按稳定 code 报「测试连接」的失败(密钥 / 地址 / 模型 / 连不上 / 缺模型名),这里取本地化文案;地址不对时再按协议
+// 补一句 Base URL 的写法。没有 code 的老形状照旧取服务端那句。
+const PROVIDER_TEST_ERROR_KEYS = Object.freeze({
+  'provider.test_unauthorized': 'unauthorized', 'provider.test_not_found': 'notFound', 'provider.test_model_rejected': 'modelRejected',
+  'provider.test_unreachable': 'unreachable', 'provider.test_needs_model': 'needsModel', 'provider.test_failed': 'failed',
+});
 function providerTestErrorText(payload) {
+  const coded = payload && PROVIDER_TEST_ERROR_KEYS[payload.code];
+  if (coded) {
+    const line = t('provider.testError.' + coded, { detail: String(payload.detail || '') });
+    return coded === 'notFound' ? line + ' ' + t('provider.apiStyle.urlHint.' + normalizeProviderApiStyle(payload.apiStyle)) : line;
+  }
   const raw = payload && payload.error;
   if (typeof raw === 'string' && raw) return raw;
   if (raw && typeof raw === 'object' && raw.message) return String(raw.message);
@@ -2252,11 +2318,12 @@ async function testProvider(idx, btn) {
     if (status) { status.textContent = '✗ ' + t('onboarding.wizard.validate.urlEmpty'); status.classList.remove('good'); status.classList.add('bad'); }
     return;
   }
-  const requested = { ...p };
+  const snapshot = { baseUrl: p.baseUrl, apiKey: p.apiKey };
+  const requested = normalizeProviderDraftEndpoint({ ...p });   // 粘进来的完整端点照样能测(与保存口径一致)
   if (btn) { btn.disabled = true; btn.textContent = t('provider.testing'); }
   try {
     const r = await api('/api/provider/test', { method: 'POST', body: JSON.stringify({ provider: requested }) });
-    if (p.baseUrl !== requested.baseUrl || p.apiKey !== requested.apiKey) return;
+    if (p.baseUrl !== snapshot.baseUrl || p.apiKey !== snapshot.apiKey) return;
     if (r && r.ok) {
       if (Array.isArray(r.models) && r.models.length) {
         publishProviderModels(p, r.models, [...(state.config.providers || []), ...(state.providersDraft || [])]);
@@ -2265,7 +2332,8 @@ async function testProvider(idx, btn) {
       // 走查 W1-7：renderProviders 整张重画，旧的状态节点连同刚写的绿字一起被擦掉 —— 重画之后在新节点上写。
       renderProviders();
       const fresh = $(`provStatus_${idx}`);
-      if (fresh) { fresh.textContent = tCount('provider.testSuccess', r.models ? r.models.length : 0); fresh.classList.remove('bad'); fresh.classList.add('good'); }
+      const okText = r.modelsUnavailable ? t('provider.testSuccessNoList', { model: String(r.model || '') }) : tCount('provider.testSuccess', r.models ? r.models.length : 0);
+      if (fresh) { fresh.textContent = okText; fresh.classList.remove('bad'); fresh.classList.add('good'); }
     } else if (status) { paintProviderTestFailure(status, p, r); }
   } catch (e) { if (status) { status.textContent = `✗ ${apiErrText(e)}`; status.classList.add('bad'); } }
   finally { if (btn) { btn.disabled = false; btn.textContent = t('provider.testConnection'); } }
@@ -2519,7 +2587,9 @@ function importSession() {
     try {
       const data = JSON.parse(await file.text());
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + t('session.imported'), cwd: data.cwd || '', messages }) });
+      // 安全走查 S10:文件里的 cwd 不可信(别人分享来的会话文件写个 '/' 就把文件工具的写根放大到整盘),一律丢弃,
+      // 导入的会话落在【当前默认工作区】里 —— 与「新会话」同一个来源(session-experience.js newSession)。messages 在服务端打 meta.imported 标记。
+      const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: (data.title || file.name) + t('session.imported'), cwd: (state.config && state.config.defaultWorkspace) || '', messages }) });
       await refreshSessions(); await openSession(res.session.id); toast(t("toast.sessionImported"), 'ok');
     } catch (e) { toast(t('toast.importFail', { err: apiErrText(e) }), 'err'); }
   };

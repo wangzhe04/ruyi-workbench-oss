@@ -462,12 +462,21 @@ async function ensureDataRootReal() {
   if (!_dataRootReal) { const r = dataRoot(); _dataRootReal = await fsp.realpath(r).catch(() => r); }
   return _dataRootReal;
 }
+// 注意:isSensitiveDataPath 必须保持【自包含】(dev-harness/audit-w23.e2e.js 把整段函数体切出来、只喂 path / dataRoot / dataRootAliases / _dataRootReal /
+// pathWithinRoot 就地实跑),所以名单字面量留在函数里,不外提成模块常量。11 的 sensitiveGlobsForRg(rg 的 !glob 排除)有另一份同内容的名单 ——
+// 两份必须一致,unit/unc-and-traversal-gates.test.js 逐个名字比对(改一份忘了另一份会红)。
 function isSensitiveDataPath(p) {
   if (!p) return false;
   const root = dataRoot();
   // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
   // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
-  const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs'];
+  // 安全走查 S7:再补 steward/(管家收件箱 / 记忆 / 决策:用户的私人上下文)、missions/(事项容器)、scheduler/(定时任务载荷)、
+  // migrations/(迁移日志:含从别的 CLI 搬过来的配置片段)、engine-transcripts.json(各引擎回合转写索引)。逐个读过码:全是数据根下
+  // 工作台自己拥有的内部数据,没有任何文件工具的合法读取场景 —— 界面与管家工具走各自的 API,不经 guardFileToolPath。
+  // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
+  // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
+  const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
@@ -482,6 +491,37 @@ function isSensitiveDataPath(p) {
     }
   } catch { /* 非法路径按不敏感处理，由其它围栏兜底 */ }
   return false;
+}
+// 安全走查 S7(硬链接):isSensitiveDataPath 是按路径(词法 / realpath)比的,工作区里 `ln config.json hard.json` 造出的硬链接
+// 是同一个 inode 的另一个名字,路径上与数据根毫无关系 —— file_read / file_search / archive_zip 都会把里面的明文密钥读出来。
+// 所以对两份最要命的文件(config.json 明文 provider 密钥、runtime.json WCW token)再按 dev+ino 比一道:
+//   · 只有 nlink > 1 的文件才可能是它们的别名,所以调用方先看 nlink(遍历热路径上不为此给每个文件多 stat 一次);
+//   · ino 拿不到(0n / 缺失,个别网络盘 / 非 NTFS 文件系统)时不挡 —— 宁可漏一个极罕见的别名,也不误伤正常文件;
+//   · stat 用 bigint:Windows 的文件索引是 64 位,Number 会丢精度,两个不同文件可能撞成同一个值。
+const SENSITIVE_HARDLINK_FILES = Object.freeze(['config.json', 'runtime.json']);
+async function sensitiveFileIdentities() {
+  const ids = new Set();
+  let root = '';
+  try { root = dataRoot(); } catch { return ids; }
+  for (const name of SENSITIVE_HARDLINK_FILES) {
+    try {
+      const st = await fsp.stat(path.join(root, name), { bigint: true });
+      if (st.isFile() && st.ino) ids.add(String(st.dev) + ':' + String(st.ino));
+    } catch { /* 文件不存在:没有可比对的 */ }
+  }
+  return ids;
+}
+// st 是 bigint stat。ids 缺省时现取。
+async function isSensitiveHardlinkStat(st, ids) {
+  try {
+    if (!st || !st.isFile() || !(st.nlink > 1n) || !st.ino) return false;
+    const set = ids || await sensitiveFileIdentities();
+    return set.has(String(st.dev) + ':' + String(st.ino));
+  } catch { return false; }
+}
+async function isSensitiveHardlinkAlias(filePath, ids) {
+  try { return await isSensitiveHardlinkStat(await fsp.stat(filePath, { bigint: true }), ids); }
+  catch { return false; }
 }
 // 安全审计 #1/#8(数据根里会被【自动加载 / 执行 / 信任】的状态):dataRoot 是文件工具的写根,isSensitiveDataPath
 // 只挡了「读出来会泄密」的那一批。下面这批读是无害的(或本来就要能读:检查点内容、个人工作流模板),但【写】进去
@@ -540,6 +580,8 @@ async function guardWorkspacePath(rawPath, session, config) {
   const targetRaw = path.resolve(rawPath);
   const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
+  // 安全走查 W1:非本机 UNC 在任何 I/O(下面的 realpath 会去连对方主机)之前按「不在工作区」拒,除非它落在用户配置的 UNC 工作区里。
+  if (remoteUncDenial([String(rawPath), targetRaw, target], session, config)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   const resolved = await resolveContainmentPath(targetRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:链接读不出目标 / 链接层数超限 —— 不知道真实落点,不放行。
@@ -549,6 +591,7 @@ async function guardWorkspacePath(rawPath, session, config) {
   // (http_download 落盘自安全审计 #3 起改走 guardFileToolPath 写闸,见 11 guardDownloadDest。)
   await ensureDataRootReal();
   if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };
+  if (await isSensitiveHardlinkAlias(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };   // 安全走查 S7:硬链接别名
   const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (!pathWithinAnyRoot(real, realRoots)) return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内' };
   return { ok: true, absPath: real };
@@ -604,7 +647,76 @@ const AUTOEXEC_DENYLIST = [
   // core.hooksPath 就从这里绕过去(子模块里一次 git commit 即触发)。按段匹配,嵌套子模块(modules/a/modules/b/)也在内。
   /(^|[\\/])\.git[\\/]modules[\\/](?:[^\\/]+[\\/])*(?:hooks[\\/]|config(?:\.worktree)?$)/i,
   /(^|[\\/])\.git[\\/]worktrees[\\/][^\\/]+[\\/](?:hooks[\\/]|config(?:\.worktree)?$)/i,
+  // 安全走查 S4:用户级【自启动 / 登录即执行 / 全局信任配置】落点。auto / bypass 宽写 + 出厂「家目录就是工作区」时,一次 file_write
+  // 就能在这些位置留下下次登录 / 下次开终端 / 下次开 agent CLI 就替攻击者执行或改写提示词的东西。这里是【形状】判据(与路径在
+  // 不在家目录下无关,Windows 形:大小写不敏感、\ / 都认,调用方已按 abs 与 realpath 各判一遍);必须挂在用户家目录根下才算的那批
+  // (~/.bashrc、~/.gitconfig、~/.claude/CLAUDE.md、~/.codex/ 等)认的是真实家目录,见下面的 userHomePersistenceHit。
+  //   · Windows 启动文件夹:%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup 与 %ProgramData%\…\StartUp(登录即运行);
+  //   · PowerShell profile(WindowsPowerShell\ 与 PowerShell\ 下的 profile.ps1 / Microsoft.PowerShell_profile.ps1 等,每次开 PowerShell 都执行);
+  //   · .ssh\authorized_keys(2)/ config / rc / environment(后门登录、ProxyCommand 执行、登录时执行);
+  //   · XDG 自启动 .config/autostart/、用户级 systemd 单元 .config/systemd/user/、macOS LaunchAgents;
+  //   · 计划任务目录 Windows\System32\Tasks(经文件直写注册任务,绕过 schtasks 的审计)。
+  /(^|[\\/])start menu[\\/]programs[\\/]startup([\\/]|$)/i,
+  /(^|[\\/])(?:windowspowershell|powershell)[\\/](?:[^\\/]+[\\/])?(?:[a-z0-9.]+_)?profile\.ps1$/i,
+  /(^|[\\/])\.ssh[\\/](?:authorized_keys2?|config|rc|environment)$/i,
+  /(^|[\\/])\.config[\\/](?:autostart|systemd[\\/]user)([\\/]|$)/i,
+  /(^|[\\/])library[\\/]launchagents([\\/]|$)/i,
+  /(^|[\\/])windows[\\/]system32[\\/]tasks(?:_migrated)?([\\/]|$)/i,   // 只认 system32\Tasks(Ansible 的 roles/windows/tasks/ 之类工程目录不能误伤)
 ];
+// 安全走查 S4(续):必须落在【用户真实家目录】下才算的持久化落点 —— 这批文件名(.bashrc / .profile / AGENTS.md / .gitconfig …)在工作区里
+// 是普通工程文件(dotfiles 仓库、项目自己的 AGENTS.md),按「任何位置的同名路径」拦会误伤;只有挂在家目录根(或 ~/.claude/ 之类的
+// 固定子目录)下才是 shell / git / agent CLI 自己会读的那一份。家目录取 os.homedir() 与 USERPROFILE / HOME 三者(Windows 上可能不同),
+// 外加各自的 realpath(家目录是联接 / 重定向盘时 abs 与 real 拼法不同);agent CLI 的家目录取 agentCliHomes()(认 CODEX_HOME / KIMI_CODE_HOME)。
+// 返回 [{ p: 归一化(小写、/ 分隔、去尾点)路径, dir: 是否整棵子树 }]。每次现算(家目录随环境变量变,测试里会改),realpath 按输入缓存。
+const _homeRealCache = new Map();
+function homeRealpathSync(h) {
+  if (_homeRealCache.has(h)) return _homeRealCache.get(h);
+  let r = '';
+  try { r = fs.realpathSync(h); } catch { r = ''; }
+  if (_homeRealCache.size > 16) _homeRealCache.clear();
+  _homeRealCache.set(h, r);
+  return r;
+}
+const USER_HOME_PERSISTENCE_FILES = Object.freeze([
+  '.bashrc', '.bash_profile', '.bash_login', '.bash_logout', '.profile', '.zshrc', '.zshenv', '.zprofile', '.zlogin', '.zlogout',
+  '.gitconfig', '.config/git/config',
+  'AGENTS.md', 'CLAUDE.md',                     // 家目录根下的全局指令(Claude Code / Codex 会按祖先目录读到);项目里的同名文件不在此列
+  '.claude/CLAUDE.md',
+]);
+const USER_HOME_PERSISTENCE_DIRS = Object.freeze([
+  '.claude/agents', '.claude/commands', '.claude/skills',   // 子代理 / 斜杠命令 / 技能:启动即载入的提示词与权限声明
+  '.codex', '.kimi', '.kimi-code',                           // Codex / Kimi Code 的全局配置与指令(config.toml、AGENTS.md、mcp.json …)
+]);
+function userHomePersistenceTargets() {
+  const homes = new Set();
+  for (const h of [os.homedir(), process.env.USERPROFILE, process.env.HOME]) {
+    if (typeof h !== 'string' || !h.trim()) continue;
+    try { homes.add(path.resolve(h.trim())); } catch { /* skip */ }
+    const real = homeRealpathSync(h.trim());
+    if (real) homes.add(real);
+  }
+  const out = [];
+  const add = (p, dir) => { try { out.push({ p: normalizeAutoexecPath(path.resolve(p)), dir }); } catch { /* skip */ } };
+  for (const h of homes) {
+    for (const rel of USER_HOME_PERSISTENCE_FILES) add(path.join(h, ...rel.split('/')), false);
+    for (const rel of USER_HOME_PERSISTENCE_DIRS) add(path.join(h, ...rel.split('/')), true);
+  }
+  try {
+    const cli = agentCliHomes();
+    add(cli.codex, true); add(cli.kimi, true);   // CODEX_HOME / KIMI_CODE_HOME 改了位置:按真实路径拦
+    add(path.join(cli.claude, 'CLAUDE.md'), false);
+  } catch { /* 取不到:只剩上面的家目录相对表 */ }
+  return out;
+}
+function userHomePersistenceHit(absPath) {
+  if (!absPath) return false;
+  let n = '';
+  try { n = normalizeAutoexecPath(String(absPath)); } catch { return false; }
+  for (const t of userHomePersistenceTargets()) {
+    if (n === t.p || (t.dir && n.startsWith(t.p + '/'))) return true;
+  }
+  return false;
+}
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
 function normalizeAutoexecPath(absPath) {
   return absPath.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
@@ -672,6 +784,59 @@ function normalizeGuardPath(p) {
   }
   return s;
 }
+// 安全走查 W1(UNC 外联):`\\攻击者\share\x`(或 `//攻击者/share/x`)在 Windows 上被 realpath / readFile / writeFile 一碰就会去连那台主机的
+// SMB —— 既是绕过 web_fetch SSRF 闸的无提示外传通道(宽写档下 file_write 直接写出去),也会把本机用户的 NTLM 哈希递给对方。
+// 所以文件工具的读写闸对【非本机】UNC 路径一律拒绝,而且必须在任何 I/O(realpath 本身就会连网)【之前】判;唯一的例外是这条路径
+// 本身落在用户配置的某个工作区根之内(用户自己把网络共享配成了工作区 / 工作文件夹),纯词法判。读、写、本地模型、allowOutsideWorkspace、
+// 宽写档都一视同仁 —— 这道闸排在所有逃生舱之前。
+//   · 本机主机名(localhost / 127.0.0.1 / ::1 / 本机名)不算外联:`\\localhost\C$\…` 由 normalizeGuardPath 映回盘符后照旧过各道地板;
+//   · `\\?\C:\…`、`\\.\C:\…`(设备命名空间的本地盘)不是 UNC,不在此列;`\\?\UNC\主机\共享` 是。
+// 正斜杠起头的 `//主机/共享` 只在 Windows 上当 UNC 认(POSIX 上 `//usr/lib` 就是 /usr/lib)。
+function uncHostAndPath(p, forwardSlash) {
+  const s = String(p == null ? '' : p);
+  const fwd = forwardSlash === undefined ? process.platform === 'win32' : !!forwardSlash;
+  const isSep = ch => ch === '\\' || (fwd && ch === '/');
+  if (s.length < 3 || !isSep(s[0]) || !isSep(s[1])) return null;
+  let rest = s.slice(2);
+  const ext = /^\?[\\/]UNC[\\/]+(.*)$/i.exec(rest);
+  if (ext) rest = ext[1];
+  else if (/^[?.](?:[\\/]|$)/.test(rest) || isSep(rest[0])) return null;   // \\?\C:\ 与 \\.\device;三个及以上的分隔符不是 UNC
+  const segs = [];
+  for (const seg of rest.split(/[\\/]+/)) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') { if (segs.length > 2) segs.pop(); continue; }   // 不爬出 主机\共享 两段
+    segs.push(seg.replace(/[. ]+$/, ''));
+  }
+  if (!segs.length || !segs[0]) return null;
+  const host = segs[0].toLowerCase().replace(/^\[|\]$/g, '');
+  return { host, norm: ('\\\\' + segs.join('\\')).toLowerCase() };
+}
+function uncIsLocalHost(host) {
+  const h = String(host || '').toLowerCase();
+  let me = '';
+  try { me = (os.hostname ? os.hostname() : '').toLowerCase(); } catch { me = ''; }
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1' || (me !== '' && h === me);
+}
+// 返回 '' = 不拦;否则是拒绝原因。candidates:要判的几种拼法(原串 / resolve 后 / realpath 后),任一是越界 UNC 即拒。
+function remoteUncDenial(candidates, session, config, forwardSlash) {
+  const hits = [];
+  for (const c of candidates) {
+    const u = uncHostAndPath(c, forwardSlash);
+    if (u && !uncIsLocalHost(u.host)) hits.push(u);
+  }
+  if (!hits.length) return '';
+  const roots = [];
+  const push = r => { const u = typeof r === 'string' ? uncHostAndPath(r.trim(), forwardSlash) : null; if (u && !uncIsLocalHost(u.host)) roots.push(u.norm); };
+  if (session && typeof session.cwd === 'string') push(session.cwd);
+  if (config && typeof config.defaultWorkspace === 'string') push(config.defaultWorkspace);
+  for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) push(w);
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) { if (w && typeof w === 'object') push(w.path); }
+  for (const u of hits) {
+    if (!roots.some(r => u.norm === r || u.norm.startsWith(r + '\\'))) return u.host;
+  }
+  return '';
+}
+const UNC_DENIED_ERROR = '不允许经文件工具访问网络共享(\\\\主机\\共享 形式的路径):这会把文件内容或本机登录凭据交给对方主机。要使用某个网络共享,请先在「设置 › 基础 › 工作区权限」把它添加为工作区';
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
 // so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
 // 走查 U7:越界报错说人话、说清去哪儿改,不印配置键名(它也会原样出现在对话卡上)。
@@ -685,6 +850,11 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
+  // 安全走查 W1:非本机 UNC 在任何 I/O 之前拒(realpath 自己就会去连对方主机的 SMB),排在所有逃生舱与宽写之前。
+  if (remoteUncDenial([String(rawPath || ''), absRaw, abs], session, config)) {
+    logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
+    return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
+  }
   const resolved = await resolveContainmentPath(absRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:悬空链接已在 resolveContainmentPath 里解到真实落点(下面的包含判定与三层地板都按它判);
@@ -692,6 +862,24 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   if (resolved.unresolvable) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unresolvable-link', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: '该路径经过无法解析的符号链接/联接,已拒绝' };
+  }
+  // 链接解出来落在非本机 UNC(本地路径里的符号链接指向 \\攻击者\share):同样按越界 UNC 拒。
+  // 映射网络盘(Z:\ 本身就解到 \\服务器\共享)是用户自己挂的,realpath 把它还原成 UNC 不是「路径里的链接把请求带出去」—— 不拦;
+  // 判据:盘符根自己的 realpath 就是非本机 UNC。只在 real 真的是非本机 UNC 时才多这一次解析。
+  {
+    const realUnc = uncHostAndPath(real);
+    if (realUnc && !uncIsLocalHost(realUnc.host)) {
+      let mappedDrive = false;
+      const dm = /^([A-Za-z]:)[\\/]/.exec(abs);
+      if (dm) {
+        const du = uncHostAndPath(await realpathForContainment(dm[1] + '\\'));
+        mappedDrive = !!(du && !uncIsLocalHost(du.host));
+      }
+      if (!mappedDrive && remoteUncDenial([real], session, config)) {
+        logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
+        return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
+      }
+    }
   }
   // 审计 P1: 敏感控制面文件二次拒绝(见 isSensitiveDataPath)。放在 allowOutsideWorkspace 逃生舱【之前】——即便用户
   // 开了越界豁免,应用自身的 config/runtime/sessions/memory 等也绝不可经文件工具读写(密钥/会话/token 外传面)。
@@ -701,6 +889,15 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-sensitive', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问' };
   }
+  // 安全走查 S7:config.json / runtime.json 的【硬链接别名】(同一个 inode 的另一个名字,路径上看不出来)按 dev+ino 比一道。
+  // 目标存在才比;不存在(要新建的文件)/ 目录 / nlink=1 的普通文件一次 stat 就过。读写都拒(写进别名就是改写 config.json)。
+  try {
+    const stTarget = await fsp.stat(real, { bigint: true }).catch(() => null);
+    if (stTarget && await isSensitiveHardlinkStat(stTarget)) {
+      logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-sensitive-hardlink', pathLen: abs.length });
+      return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问' };
+    }
+  } catch { /* stat 失败:交给后面的闸 */ }
   // 第31波B(L1): autoexec 检查下沉到 guardFileToolPath —— 全模式覆盖(含 bypass/plan/default),不再依赖授权书层。
   // 仅 write 时检查(读 .git/hooks 不会触发自动执行);对 abs 与 real 双路径归一后匹配 denylist,命中即拒。
   if (write) {
@@ -714,7 +911,12 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     const normReal = normalizeAutoexecPath(real);
     if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal)) || isAutoLoadedLaunchConfigPath(abs) || isAutoLoadedLaunchConfigPath(real)) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-autoexec', pathLen: abs.length });
-      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置/agent CLI 与 MCP 启动配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
+      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置/agent CLI 与 MCP 启动配置/启动文件夹/PowerShell profile/.ssh 配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
+    }
+    // 安全走查 S4(续):挂在用户真实家目录下的 shell rc / .gitconfig / ~/.claude/CLAUDE.md / ~/.codex / ~/.kimi 等(见 userHomePersistenceHit)。
+    if (userHomePersistenceHit(abs) || userHomePersistenceHit(real)) {
+      logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-user-persistence', pathLen: abs.length });
+      return { ok: false, code: 'autoexec-denied', error: '该路径是用户级登录 / 全局配置(shell 启动脚本、.gitconfig、Claude / Codex / Kimi 的全局指令与配置等),改动会在之后每次开终端或开 agent CLI 时生效,已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
     }
     // v2.7.1 (opt#1): OS 关键目录硬地板 -- bypass/auto 宽写下也始终拒写(系统级安全保护第三层)。abs 与 real 双查。
     if (isOsCriticalPath(abs) || isOsCriticalPath(real)) {

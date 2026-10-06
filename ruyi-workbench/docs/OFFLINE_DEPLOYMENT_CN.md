@@ -3,7 +3,7 @@
 ## 目标机器要求
 
 - Windows 10/11 或 Windows Server。
-- 已有可用的内网 `claude` CLI，或稍后在 UI 设置 Claude CLI 路径。
+- 有一个可用的模型：OpenAI 兼容端点（内网 vLLM、本机 Ollama / LM Studio 等，装好后在界面里配置），或本机已装好的 Claude Code / Kimi Code 命令行（也可以装好后再在设置里指定 CLI 路径）。
 - 不要求公网。
 - 不要求 npm install；发布压缩包固定携带 Node 运行时，`Ruyi.exe` 为可选构建产物。
 
@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File .\resources\scripts\install-workbench.p
 Start-Workbench.cmd
 ```
 
-启动器会先检查 Full/Slim 的关键文件。Full 的桌面控制组件准备失败时，基础工作台仍会继续启动，并在控制台和 `%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log` 中保留具体原因。
+启动器会先检查 Full/Slim 的关键文件。Full 的桌面控制组件准备失败时，基础工作台仍会继续启动，并在控制台和 `%LOCALAPPDATA%\Ruyi\logs\acc-install-latest.log` 中保留具体原因；启动器窗口会在工作台起来之后再停留 15 秒（按任意键可提前关闭），提示「没有桌面控制」和日志位置。
 
 Full 包的发布契约要求内置 CPython 3.12、固定的 `winsdk==1.0.0b10`
 `cp312-win_amd64` wheel，以及能够实际导入 `winsdk.windows.media.ocr` 的 embedded runtime。
@@ -116,4 +116,4 @@ claude plugin install offline-toolkit@ruyi-offline --scope user
 - 本工具不内置 Anthropic 官方 Claude CLI，也不分发官方插件。
 - 无公网环境下，Web 搜索、OAuth、在线 marketplace 更新不可用。
 - 为避免授权和供应链风险，压缩包不会直接复制第三方公开插件源码；这里提供的是常见能力的本地复刻版和离线提示词。
-- 浏览器深度自动化目前是轻量交接：打开 URL、截图、键盘输入；复杂 DOM 自动化建议在内网预装 Playwright 后通过 `script_run` 调用。
+- 浏览器自动化默认是轻量交接：`system` 模式只把网址交给用户的默认浏览器（新标签页 / 窗口），之后靠桌面截图、UIA、OCR 与键盘操作。需要元素级 DOM 自动化时，在 设置 → 工具与集成 →「集成与 MCP」的浏览器目标里改用 `managed` / `custom` / `cdp`；Full 包随带 Playwright 的 wheel 与 Chromium（`bundled` 才会显式使用其中隔离的 Chrome for Testing）。Slim 包不含桌面控制组件，也就没有这些浏览器模式。

@@ -73,7 +73,10 @@ const html = read('ruyi-workbench/app/public/index.html');
 ok(!/<script[^>]*mermaid/i.test(html), 'C1 index.html 无静态 mermaid script 标签(只走懒注入)');
 const csp = (html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1] || '';
 const scriptSrc = ((csp.match(/script-src ([^;]+)/) || [])[1] || '').trim();
-ok(scriptSrc === "'self' 'unsafe-inline'", `C2 CSP script-src 未放宽(实际: ${scriptSrc || '(缺失)'})`);
+// 安全走查 S12(安全收紧,本条因此改判据):script-src 去掉了 'unsafe-inline',首屏预绘那段内联脚本改用 CSP 哈希放行(锁见
+// inline-script-csp-hash.static.e2e.js)。原断言钉的是「恰好等于 'self' 'unsafe-inline'」;「未放宽」的意图不变,现在是:
+// 只有 'self' 与 sha256 哈希,没有 unsafe-inline / unsafe-eval / 外域。
+ok(/^'self'( 'sha256-[A-Za-z0-9+/=]+')+$/.test(scriptSrc), `C2 CSP script-src 未放宽(只有 'self' 与内联预绘的 sha256 哈希;实际: ${scriptSrc || '(缺失)'})`);
 ok(/img-src [^;]*blob:/.test(csp), 'C3 CSP img-src 含 blob:(PNG 导出的 SVG->canvas 链路可用)');
 const notices = read('THIRD-PARTY-NOTICES.md');
 ok(/\|\s*mermaid\s*\|/.test(notices) && notices.includes('mermaid-js/mermaid') && /\|\s*MIT\s*\|/.test(notices),

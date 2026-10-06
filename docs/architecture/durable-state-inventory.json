@@ -113,7 +113,7 @@
       "pattern": "<data>/claude-settings-sync.json",
       "owner": "01-config.js",
       "anchor": "'claude-settings-sync.json'",
-      "schema": "object / implicit v1 ({model, maxThinkingTokens}: last values this workbench wrote into ~/.claude/settings.json; ownership = delete only what we wrote)",
+      "schema": "object / implicit v1 ({model, maxThinkingTokens, defaultMode, defaultModePrior}: last values this workbench wrote into ~/.claude/settings.json + the user-owned defaultMode before we first wrote it; ownership = delete or restore only what we wrote; bypass never writes defaultMode)",
       "writePrimitive": "atomicWriteJson",
       "corruption": "missing means conservative no-delete",
       "capacity": "one record",
