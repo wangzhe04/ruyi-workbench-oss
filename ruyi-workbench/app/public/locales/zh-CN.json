@@ -203,6 +203,7 @@
   "chat.send": "发送",
   "chat.steer": "插话",
   "chat.agentWake": "后台代理已完成（{{n}} 个），工作台已自动唤醒本对话，把结果交给模型继续处理",
+  "chat.turnBusyElsewhere": "这条线程此刻正被别处起的回合占着（多半是后台代理的结果正在处理），这句话没有发出，已放回输入框；等它结束再发，或现在按发送当作插话。",
   "chat.steerCancel": "撤回",
   "chat.steerCancelAria": "撤回此插话",
   "chat.steerClearAll": "清空队列",

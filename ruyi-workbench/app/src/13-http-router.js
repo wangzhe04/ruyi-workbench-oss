@@ -874,7 +874,7 @@ async function handleApi(req, res, pathname) {
     if (!sessionId) return send(res, apiSessionIdInvalid());
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
     // mode:'summary' = 跳过「L1 够了就停」直接做摘要(缺省 'auto':先 L1,不够再摘要,见 runProviderCompact)。
-    return send(res, json(await runProviderCompact(sessionId, { mode: body.mode })));
+    return send(res, json(await runProviderCompactTracked(sessionId, { mode: body.mode })));
   }
   if (req.method === 'POST' && pathname === '/api/agent/compact') {
     const body = await readJsonBody(req);
@@ -1920,6 +1920,7 @@ async function startServerInner(opts) {
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
+  scheduleAgentWakesAtBoot(); // 后台代理信封已落账、唤醒没起成就重启了 → 补排(10;同步,防抖到点时服务早已在监听)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
   // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
   // external-import discovery authoritative.

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3513 | 3143 | 536 | 67 | 0 | 1 |
+| 70 | 3519 | 3145 | 536 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -55,16 +55,16 @@
 | 37 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 38 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
 | 39 | `07-autonomy.js` | orchestration | 139 | 69 | 17 |
-| 40 | `08-agent-runs.js` | orchestration | 117 | 102 | 19 |
+| 40 | `08-agent-runs.js` | orchestration | 117 | 103 | 19 |
 | 41 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 42 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 43 | `09-workflow.js` | orchestration | 26 | 248 | 27 |
-| 44 | `10-context-governance.js` | orchestration | 199 | 94 | 17 |
+| 44 | `10-context-governance.js` | orchestration | 205 | 94 | 17 |
 | 45 | `11-native-tools.js` | tools | 130 | 39 | 5 |
 | 46 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 47 | `12-tool-dispatch.js` | tools | 71 | 121 | 18 |
 | 48 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 49 | `13-http-router.js` | transport | 65 | 240 | 28 |
+| 49 | `13-http-router.js` | transport | 65 | 241 | 28 |
 | 50 | `13b-api-domain-routes.js` | transport | 40 | 65 | 9 |
 | 51 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 52 | `13d-core-domain-routes.js` | transport | 58 | 141 | 17 |
@@ -261,7 +261,7 @@
 | `07-autonomy.js` | `09d-token-estimation.js` | forward | `estimateTextTokensMemo` |
 | `07-autonomy.js` | `10-context-governance.js` | forward | `CONTEXT_OVERFLOW_PATTERNS`, `cacheContextLength`, `extractContextLength`, `isContextOverflowError` |
 | `07-autonomy.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS`, `PROVIDER_SESSION_TOOL_SCHEMAS` |
-| `08-agent-runs.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
+| `08-agent-runs.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
 | `08-agent-runs.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readFileTail`, `safeSessionId` |
 | `08-agent-runs.js` | `01c-runtime-flags.js` | backward | `estimateBucketsEnabled` |
 | `08-agent-runs.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
@@ -371,7 +371,7 @@
 | `13-http-router.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `buildClaudeAgentDefinitions`, `fetchOpenAiModels`, `getAgentRoleLibrary`, `projectAgentRoleFile`, `readClaudeProjectAgentRoles`, `readProjectAgentRoles`, `saveProjectAgentRoles`, `toolPackForName` |
 | `13-http-router.js` | `08-agent-runs.js` | backward | `agentRunResultSlice`, `agentWorkflowSaveProblem`, `autoResumeInterruptedRuns`, `buildAgentRunEnvelope`, `deleteAgentWorkflow`, `getAgentWorkflows`, `markInterruptedAgentRuns`, `normalizeAgentWorkflow`, `resolveOrchestrateNodes`, `saveAgentRun`, `saveAgentWorkflow` |
 | `13-http-router.js` | `09-workflow.js` | backward | `AGENT_RUN_TERMINAL`, `deliverAgentRunEnvelope`, `runAgentWorkflow`, `settleWaitEnvelopes`, `waitForAgentRunResults` |
-| `13-http-router.js` | `10-context-governance.js` | backward | `agentConversationContextMeta`, `cachedContextLength`, `configuredConversationWindow`, `contextWindowFromTable`, `learnedWindowCap`, `resolveContextWindow`, `runAgentExternalCompact`, `runProviderCompact`, `streamChat`, `truncateToolResult` |
+| `13-http-router.js` | `10-context-governance.js` | backward | `agentConversationContextMeta`, `cachedContextLength`, `configuredConversationWindow`, `contextWindowFromTable`, `learnedWindowCap`, `resolveContextWindow`, `runAgentExternalCompact`, `runProviderCompactTracked`, `scheduleAgentWakesAtBoot`, `streamChat`, `truncateToolResult` |
 | `13-http-router.js` | `11-native-tools.js` | backward | `killAllShellSessions`, `probeRgAsync` |
 | `13-http-router.js` | `13b-api-domain-routes.js` | forward | `handleAudioApiRoutes`, `handleCheckpointApiRoutes`, `handleMcpApiRoutes`, `handleSteerApiRoute`, `maybeCompressImageAttachment`, `maybeOcrImageAttachment`, `maybeTranscribeAudioAttachment` |
 | `13-http-router.js` | `13c-overlay-routes.js` | forward | `handleOverlayApiRoutes` |
