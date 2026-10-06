@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-06T01:08:33.977Z",
+  "generatedAt": "2026-10-06T01:27:34.858Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1489,10 +1489,13 @@
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-recall-injection.e2e.js",
+        "dev-harness\\memory-scope-card.browser.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\memory-scope-fixes.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -1509,6 +1512,8 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\memory-scope-card.browser.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -1528,6 +1533,7 @@
         "dev-harness\\action-feedback.static.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
@@ -1564,6 +1570,7 @@
       "coveredBy": [
         "dev-harness\\action-feedback.static.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
@@ -1580,6 +1587,7 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -1612,7 +1620,9 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
-        "dev-harness\\unit\\http-input-hardening.test.js"
+        "dev-harness\\memory-scope.e2e.js",
+        "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\memory-scope-fixes.test.js"
       ]
     },
     {
@@ -1634,10 +1644,13 @@
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-recall-injection.e2e.js",
+        "dev-harness\\memory-scope-card.browser.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\memory-scope-fixes.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -1742,8 +1755,11 @@
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-scope-card.browser.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\memory-scope-fixes.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -2438,6 +2454,7 @@
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-recall-injection.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-tools.e2e.js",
         "dev-harness\\migration-center.e2e.js",
@@ -2602,6 +2619,7 @@
       "domain": "mcp/checkpoint-storage/steer",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\migration-center.browser.e2e.js",
         "dev-harness\\migration-center.e2e.js"
       ]
@@ -3276,6 +3294,7 @@
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
@@ -3531,6 +3550,7 @@
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",

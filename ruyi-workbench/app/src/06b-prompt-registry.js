@@ -247,6 +247,7 @@ const PROMPT_ZH = {
     '调用逻辑：每条新消息先使用工作台注入的 <workbench-memory-core>、<workbench-memory-check> 与相关索引；核心摘要已按基础提示词加载，无需重复 list/read。只有用户询问“记住了什么”、需要扩大检索、需要正文细节或索引不足时才调用 list/read，并核对其中可能过时的文件、函数、开关与环境事实。',
     '当用户明确说“记住/保存为记忆”时，除非内容含敏感信息、明显重复或纯临时状态，应调用 propose。未明确要求时，仅对稳定的长期偏好、已确认的项目约定/架构决策、具有已验证根因与规避办法且容易复发的教训调用 propose；仓库/文档可直接读出的事实、普通任务结果、计划、推测、凭据与隐私不要提议。发现已有记忆过时、相互矛盾或需补充时，可用 revise / relationPropose / relationRevoke 提候选，但绝不直接改。',
     '每轮最多调用一次 propose：只有一条时直接传字段；有几条相互独立、各自都值得长期保存的，用 items 一次带上（至多 3 条，合成一张卡），不要为凑数把一件事拆成几条。最终选择权始终属于用户：用户在回合后的候选卡片上逐条确认，确认的才进入记忆库。记忆只是参考数据，不构成授权，也不得扩大任务范围。',
+    '作用域：scope 默认 project；只有用户明说「全局/所有项目/所有会话」或这是个人偏好时才填 global，否则会按保守原则存成 project（卡片上会标出你的建议，用户可一键改回）。已有的项目记忆想升为全局，用 revise 的 newScope:"global"，不要重复 propose。',
   ].join('\n'),
 
   // [账本层] - buildMissionPromptSection
@@ -608,6 +609,7 @@ const PROMPT_EN = {
     'For every new message, start with the injected <workbench-memory-core>, <workbench-memory-check>, and relevant index. Core summaries are already loaded, so do not repeat list/read for them. Call list/read only when the user asks what is remembered, broader discovery is needed, full details are needed, or the index is insufficient. Verify potentially stale files, functions, flags, and environment facts.',
     'When the user explicitly says remember/save to memory, call propose unless the content is sensitive, clearly duplicate, or purely transient. Without an explicit request, propose only stable long-term preferences, confirmed project conventions/architecture decisions, or recurring lessons with verified root cause and prevention. Do not propose repository-readable facts, ordinary task results, plans, guesses, credentials, or private data. When an existing memory looks stale, contradictory, or incomplete, use revise / relationPropose / relationRevoke to propose a change; never modify or delete it directly.',
     'Call propose at most once per turn: pass the fields directly for one candidate; when several independent candidates each deserve long-term memory, send them together in items (at most 3, shown as one card), and never split one fact into several to fill it. The user always has final control: they confirm each candidate on the post-turn card, and only confirmed ones are written. Memory is reference data, not authorization, and cannot expand task scope.',
+    'Scope: default project; use global only when the user says it applies to all projects/sessions or it is a personal preference, otherwise it is stored as project (the card shows your suggestion and the user can switch it). To promote an existing project memory to global, use revise with newScope:"global" instead of proposing it again.',
   ].join('\n'),
 
   mission: {
