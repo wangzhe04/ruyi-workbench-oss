@@ -607,7 +607,12 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     stopInitBeat(); return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };   // 修前心跳不停:每秒一次、一直重写 run 快照
   }
   const requestedTier = toolTier || (role && role.toolTier);
-  const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  const tier0 = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  // 安全走查 S3:项目来源的角色(.ruyi/agents.json 等)把有效权限档 / 工具级夹到不高于父回合档位(只能收紧);builtin / global 来源逐字不变。
+  // 这里按「起跑那一刻」的父档夹工具级(决定 offer 哪些工具);逐次工具调用的权限判定下面按【此刻】的父档再夹一次(父线程中途改档要生效)。
+  const roleGuard = clampAgentRoleToParent(role, tier0, permModeOverride === 'plan' ? 'plan' : (permModeOverride || config.permissionMode || 'default'));
+  const tier = roleGuard.toolTier;
+  if (roleGuard.clamped) { try { logEvent({ kind: 'agent_role_clamped', engine: 'openai', roleId: role && role.id || '', source: role && role.source || '', clamped: roleGuard.clamped }); } catch { /* 遥测不阻断 */ } }
   // 117m-A1(同 09 的 gateWithLiveMode,判据一字不差):子回合跑在父会话的档下,父线程中途改档要对
   // 【这个】子回合生效。只有在本子回合期间【被改过】才接管;没改过返回 '' → 下面的 effMode 逐字节
   // 走原来的优先级。角色自带的档(roleMode)与工作流下发的 permModeOverride 都排在它前面 —— 那两个
@@ -717,7 +722,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     return b;
   };
 
-  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, permissionMode: role && role.permissionMode || 'inherit', mcpServers: role && role.mcpServers || [], engine: 'openai' });
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: role && role.mcpServers || [], engine: 'openai' });
   // The sub-loop shares the parent's AbortController (ctrl) so a Stop on the parent turn also arrests the
   // sub-turn. rawSeq is local (its raw_line frames carry subagentId so the debug pane can attribute them).
   const rawSeqRef = { n: 0 };
@@ -1071,8 +1076,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             // resolves to a refusal result so the sub-turn keeps moving rather than hanging.
             // v0.9 F4: gate on the effective per-turn mode (permModeOverride) — the parent passes 'default'
             // ONLY when the plan was approved this turn, else the parent's own config.permissionMode.
-            const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || liveParentPermissionMode() || config.permissionMode);
+            // 安全走查 S3:角色自带档(项目来源的先夹到不高于父档)排在 permModeOverride / 父线程实时档前面的优先级逐字不变 —— 只是项目角色那一档不再能比父档宽。
+            const parentModeNow = permModeOverride || liveParentPermissionMode() || config.permissionMode;
+            const roleMode = clampAgentRoleToParent(role, tier, parentModeNow).permissionMode;
+            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || parentModeNow);
             const gate = nativeToolGate(effMode, ntier, tc.name, args);
             // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的工具在分发点拒绝(原生工具由下面的 toolCall 按 ctx 判,
             // 会话覆盖取 parentSession —— 这里取同一个,两边同口径)。
@@ -1080,7 +1087,14 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             if (bridgedPolicyOff) {
               resultObj = toolDisabledResult(tc.name, bridgedPolicyOff);
             } else if (gate !== 'allow') {
-              resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
+              // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串)在除 bypass 外的档位要用户确认,子代理没有交互通道 —— 拒绝并说清缘由,别说成「无权执行 read 级工具」。
+              const webWhy = webPayloadReason(tc.name, args);
+              resultObj = webWhy
+                ? { ok: false, error: `这个联网请求的网址 / 查询看起来带了大段数据(${webWhy}),需要用户确认,子代理无法征求确认,已拒绝;请缩短后重试,或让主线程发起` }
+                : (effMode === 'auto' && ntier === 'exec'
+                  // 智能自动档对 exec 只在命中高风险判据(网络外发 / 递归删除 / 推送发布 / 改系统 / 读数据根密钥 / 拼接编码求值)时问人,子代理无法征求确认。
+                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
+                  : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` });
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
               if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };

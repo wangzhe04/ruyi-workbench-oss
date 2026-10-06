@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3587,
-    "requiredSymbols": 3170,
+    "providedSymbols": 3620,
+    "requiredSymbols": 3188,
     "edges": 538,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -306,12 +306,20 @@
       "layer": "foundation",
       "note": "架构还债批 3·B: 从 01-config.js 搬出权限档表/三层权限解析/内置 Agent 角色与归一(PERMISSION_MODES/AGENT_ROLE_PERMISSION_MODES/CLAUDE_PERMISSION_MODE_MAP/PERMISSION_MODE_ALIASES/PERMISSION_MODES_REQUIRING_CONFIRM/permissionModeFrom/resolvePermissionMode/BUILTIN_AGENT_ROLES/normalizeAgentRole/mergeAgentRole;纯函数零出边,不进任何环;纯搬家,零行为变更)",
       "provides": [
+        "AGENT_ROLE_MODE_RANK",
+        "AGENT_ROLE_MODE_TIER_CEILING",
         "AGENT_ROLE_PERMISSION_MODES",
+        "AGENT_ROLE_TIER_ORDER",
+        "AGENT_ROLE_UNTRUSTED_SOURCES",
         "BUILTIN_AGENT_ROLES",
         "CLAUDE_PERMISSION_MODE_MAP",
         "PERMISSION_MODES",
         "PERMISSION_MODES_REQUIRING_CONFIRM",
         "PERMISSION_MODE_ALIASES",
+        "agentRoleIsUntrusted",
+        "agentRoleParentMode",
+        "annotateAgentRoleEffective",
+        "clampAgentRoleToParent",
         "mergeAgentRole",
         "normalizeAgentRole",
         "permissionModeFrom",
@@ -762,6 +770,13 @@
         {
           "provider": "01d-win-cmdline.js",
           "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "agentRoleIsUntrusted",
           "kinds": [
             "call"
           ]
@@ -1922,7 +1937,11 @@
         "READDIR_TIMEOUT",
         "REALPATH_LINK_DEPTH_MAX",
         "REVEAL_OPEN_SAFE_EXTS",
+        "SENSITIVE_HARDLINK_FILES",
         "STAT_TIMEOUT",
+        "UNC_DENIED_ERROR",
+        "USER_HOME_PERSISTENCE_DIRS",
+        "USER_HOME_PERSISTENCE_FILES",
         "WORKSPACE_CANDIDATE_CAP",
         "WORKSPACE_CHILDREN_CAP",
         "WORKSPACE_DIR_TIMEOUT_MS",
@@ -1935,6 +1954,7 @@
         "_dataRootReal",
         "_defaultBrowserExecutable",
         "_gitCliProbe",
+        "_homeRealCache",
         "auditBridgedWriteCoverage",
         "bridgedOfficeScriptGate",
         "bridgedReadPathGate",
@@ -1956,11 +1976,14 @@
         "guardFileToolPath",
         "guardWorkspaceExecute",
         "guardWorkspacePath",
+        "homeRealpathSync",
         "installedCodeEditorCandidates",
         "isAutoLoadedLaunchConfigPath",
         "isBrowserDocumentTarget",
         "isOsCriticalPath",
         "isSensitiveDataPath",
+        "isSensitiveHardlinkAlias",
+        "isSensitiveHardlinkStat",
         "isWriteProtectedDataPath",
         "journalBridgedWrite",
         "launchCodeEditor",
@@ -1979,18 +2002,31 @@
         "readFilePreview",
         "readdirTimed",
         "realpathForContainment",
+        "remoteUncDenial",
         "resolveContainmentPath",
         "resolveExecCwd",
         "resolvePreferredCodeEditor",
         "resolveWorkspace",
+        "sensitiveFileIdentities",
         "statTimed",
         "stripWin32VerbatimPrefix",
+        "uncHostAndPath",
+        "uncIsLocalHost",
+        "userHomePersistenceHit",
+        "userHomePersistenceTargets",
         "wideWriteModeEnabled",
         "windowsFileAssociationExecutable",
         "windowsRegistryString",
         "workspaceWriteRoots"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "cp",
@@ -5694,7 +5730,10 @@
       "provides": [
         "STEWARD_ANSWER_BASIS",
         "STEWARD_ASKS_YOU_CHARS",
+        "STEWARD_AUTO_ASK_DATAROOT_PATTERNS",
+        "STEWARD_AUTO_ASK_EGRESS_PATTERNS",
         "STEWARD_AUTO_ASK_INDIRECT_PATTERNS",
+        "STEWARD_AUTO_ASK_PROSE_TOOLS",
         "STEWARD_BRIEF_CLOSE",
         "STEWARD_BRIEF_LIMITS",
         "STEWARD_BRIEF_OPEN",
@@ -5785,6 +5824,7 @@
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
         "stewardAutoAskIndirect",
+        "stewardAutoAskSensitiveKind",
         "stewardChatCapableProvider",
         "stewardClipSay",
         "stewardConfigHelpFor",
@@ -6872,6 +6912,9 @@
         "TOOL_SCHEMA_NAMES_MAX",
         "TOOL_SEARCH_EMPTY_NOTE",
         "TOOL_SEARCH_FULL_ARGS_TOP",
+        "WEB_PAYLOAD_LIMITS",
+        "WEB_PAYLOAD_QUERY_TOOLS",
+        "WEB_PAYLOAD_URL_TOOLS",
         "_nativeToolSchemaByName",
         "accPolicyHiddenToolNames",
         "actionTargetMeta",
@@ -6958,6 +7001,10 @@
         "toolSchemaFreezeBySessionMap",
         "toolSchemaFreezeFor",
         "toolSchemaSearchText",
+        "webLooksEncoded",
+        "webPayloadReason",
+        "webSafeDecode",
+        "webUrlPayloadReason",
         "withShadowedBridgeHints",
         "withToolArgSkeletons"
       ],
@@ -7154,9 +7201,23 @@
         },
         {
           "provider": "01e-permission-modes.js",
+          "symbol": "annotateAgentRoleEffective",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
           "symbol": "BUILTIN_AGENT_ROLES",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "clampAgentRoleToParent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -7387,6 +7448,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardAutoAskIndirect",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskSensitiveKind",
           "kinds": [
             "call"
           ]
@@ -7731,6 +7799,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "estimateBucketsEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "clampAgentRoleToParent",
           "kinds": [
             "call"
           ]
@@ -8191,6 +8266,13 @@
           ]
         },
         {
+          "provider": "07-autonomy.js",
+          "symbol": "webPayloadReason",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "09-workflow.js",
           "symbol": "launchPersistedAgentRun",
           "kinds": [
@@ -8646,6 +8728,20 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "volatileTailLayoutEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "agentRoleIsUntrusted",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "clampAgentRoleToParent",
           "kinds": [
             "call"
           ]
@@ -9661,6 +9757,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolDisabledResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "webPayloadReason",
           "kinds": [
             "call"
           ]
@@ -11398,6 +11501,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "_dataRootReal",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "ensureDataRootReal",
           "kinds": [
             "call"
@@ -11426,6 +11536,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveHardlinkAlias",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "pathWithinRoot",
           "kinds": [
             "call"
@@ -11434,6 +11551,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "realpathForContainment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "sensitiveFileIdentities",
           "kinds": [
             "call"
           ]
@@ -13094,6 +13218,13 @@
         },
         {
           "provider": "01e-permission-modes.js",
+          "symbol": "annotateAgentRoleEffective",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
           "symbol": "BUILTIN_AGENT_ROLES",
           "kinds": [
             "read"
@@ -13325,6 +13456,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveHardlinkAlias",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "launchCodeEditor",
           "kinds": [
             "call"
@@ -13368,6 +13506,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "readFilePreview",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "remoteUncDenial",
           "kinds": [
             "call"
           ]
@@ -18069,6 +18214,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskSensitiveKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardConfigHelpFor",
           "kinds": [
             "call"
@@ -18224,6 +18376,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "webPayloadReason",
           "kinds": [
             "call"
           ]
@@ -26614,6 +26773,7 @@
         "CLAUDE_PERMISSION_MODE_MAP",
         "PERMISSION_MODES",
         "PERMISSION_MODE_ALIASES",
+        "agentRoleIsUntrusted",
         "normalizeAgentRole"
       ],
       "direction": "backward"
@@ -26919,6 +27079,7 @@
       "to": "00-boot.js",
       "symbols": [
         "URL",
+        "agentCliHomes",
         "cp",
         "crypto",
         "dataRoot",
@@ -28290,6 +28451,8 @@
       "symbols": [
         "BUILTIN_AGENT_ROLES",
         "CLAUDE_PERMISSION_MODE_MAP",
+        "annotateAgentRoleEffective",
+        "clampAgentRoleToParent",
         "mergeAgentRole",
         "normalizeAgentRole"
       ],
@@ -28378,6 +28541,7 @@
       "symbols": [
         "isStewardToolName",
         "stewardAutoAskIndirect",
+        "stewardAutoAskSensitiveKind",
         "stewardToolPermanentlyExempt"
       ],
       "direction": "backward"
@@ -28465,6 +28629,7 @@
       "from": "08-agent-runs.js",
       "to": "01e-permission-modes.js",
       "symbols": [
+        "clampAgentRoleToParent",
         "resolvePermissionMode"
       ],
       "direction": "backward"
@@ -28599,7 +28764,8 @@
         "runClaudeSubAgentOnce",
         "toolDisabledByPolicy",
         "toolDisabledResult",
-        "toolPackForName"
+        "toolPackForName",
+        "webPayloadReason"
       ],
       "direction": "backward"
     },
@@ -28710,6 +28876,8 @@
       "from": "09-workflow.js",
       "to": "01e-permission-modes.js",
       "symbols": [
+        "agentRoleIsUntrusted",
+        "clampAgentRoleToParent",
         "resolvePermissionMode"
       ],
       "direction": "backward"
@@ -28980,7 +29148,8 @@
         "requestPlanApproval",
         "resumeInFlight",
         "toolDisabledByPolicy",
-        "toolDisabledResult"
+        "toolDisabledResult",
+        "webPayloadReason"
       ],
       "direction": "backward"
     },
@@ -29379,12 +29548,15 @@
       "from": "11-native-tools.js",
       "to": "03-bridge-guard.js",
       "symbols": [
+        "_dataRootReal",
         "ensureDataRootReal",
         "existsExecutable",
         "existsExecutableAsync",
         "isSensitiveDataPath",
+        "isSensitiveHardlinkAlias",
         "pathWithinRoot",
-        "realpathForContainment"
+        "realpathForContainment",
+        "sensitiveFileIdentities"
       ],
       "direction": "backward"
     },
@@ -29778,6 +29950,7 @@
       "symbols": [
         "BUILTIN_AGENT_ROLES",
         "PERMISSION_MODES",
+        "annotateAgentRoleEffective",
         "normalizeAgentRole",
         "resolvePermissionMode"
       ],
@@ -29838,12 +30011,14 @@
         "fileAllowedRoots",
         "guardWorkspacePath",
         "isSensitiveDataPath",
+        "isSensitiveHardlinkAlias",
         "launchCodeEditor",
         "materializeCheckpointEditorDiff",
         "normalizeCwd",
         "pathWithinAnyRoot",
         "pathWithinRoot",
         "readFilePreview",
+        "remoteUncDenial",
         "resolvePreferredCodeEditor",
         "resolveWorkspace"
       ],
@@ -31409,6 +31584,7 @@
         "STEWARD_NOTIFY_TEXT_CHARS",
         "STEWARD_SESSION_ID",
         "stewardAutoAskIndirect",
+        "stewardAutoAskSensitiveKind",
         "stewardConfigHelpFor",
         "stewardConfigTierFor",
         "stewardExemptDelegationVerdict",
@@ -31438,7 +31614,8 @@
       "to": "07-autonomy.js",
       "symbols": [
         "activeAgentRuns",
-        "agentRunFile"
+        "agentRunFile",
+        "webPayloadReason"
       ],
       "direction": "backward"
     },

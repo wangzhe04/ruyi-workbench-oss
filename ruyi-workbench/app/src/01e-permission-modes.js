@@ -86,6 +86,53 @@ function normalizeAgentRole(raw, opts = {}) {
   if (opts.builtin) role.builtin = true;
   return role;
 }
+// 安全走查 S3(项目自带角色不得压过线程档位):`<cwd>/.ruyi/agents.json`(source 'project')与 `<cwd>/.claude/agents/*.md`(source 'claude-project')
+// 是【仓库作者】写的、用户没逐条审过的内容 —— 打开一个别人给的仓库就会被 getAgentRoleLibrary 合进角色库,而且能同名覆盖内置的 worker / reviewer。
+// 修前角色自带的 permissionMode 优先级高于线程(父回合)档位:线程是「每步都问」,项目角色一句 permissionMode:'bypass' + toolTier:'exec',
+// 子代理的 exec 工具就不再被拒也不弹窗(实测端到端:子代理 POST 外部端口零 permission_request)。现在这类角色的【有效】权限档夹到不高于父回合档位
+// (只能收紧不能放宽:项目角色自己写 plan 仍然是 plan),toolTier 夹到不高于有效档位允许的那一级;builtin / global(用户自己在设置里存的)来源逐字不变。
+// 档位强度序:plan < default(= dontAsk:都只放 read)< acceptEdits < auto < bypass;each 档位允许的最高工具级:plan/default/dontAsk→read、acceptEdits→edit、auto/bypass→exec
+// (与 07 nativeToolGate 的放行面一致:read 恒放;acceptEdits 放 edit;auto 对 exec 按高风险判据问;bypass 全放)。
+const AGENT_ROLE_UNTRUSTED_SOURCES = Object.freeze(['project', 'claude-project']);
+const AGENT_ROLE_MODE_RANK = Object.freeze({ plan: 0, default: 1, dontAsk: 1, acceptEdits: 2, auto: 3, bypass: 4 });
+const AGENT_ROLE_MODE_TIER_CEILING = Object.freeze({ plan: 'read', default: 'read', dontAsk: 'read', acceptEdits: 'edit', auto: 'exec', bypass: 'exec' });
+const AGENT_ROLE_TIER_ORDER = Object.freeze({ read: 0, edit: 1, exec: 2 });
+function agentRoleIsUntrusted(role) {
+  return !!role && typeof role === 'object' && AGENT_ROLE_UNTRUSTED_SOURCES.includes(role.source);
+}
+function agentRoleParentMode(mode) {
+  const m = mode === 'bypassPermissions' ? 'bypass' : String(mode == null ? '' : mode);
+  return Object.prototype.hasOwnProperty.call(AGENT_ROLE_MODE_RANK, m) ? m : 'default';   // 判不出父档按最严的「每步都问」算(fail-closed)
+}
+// 返回 { permissionMode, toolTier, clamped }:
+//   permissionMode —— 角色的【有效】权限档;'' = 角色没声明(inherit),调用方沿用父回合那条优先级链;
+//   toolTier       —— 夹过的工具级(入参 tier 缺省取 role.toolTier);
+//   clamped        —— null,或 { permissionMode?: {from,to}, toolTier?: {from,to} }(只列真被改动的项)。
+// 非项目来源(builtin / global / 用户)原样返回,clamped 恒为 null。parentMode 是调用时父回合【此刻】的有效档。
+function clampAgentRoleToParent(role, tier, parentMode) {
+  const declaredMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? String(role.permissionMode) : '';
+  const declaredTier = (tier === 'read' || tier === 'edit' || tier === 'exec') ? tier : ((role && ['read', 'edit', 'exec'].includes(role.toolTier)) ? role.toolTier : 'read');
+  if (!agentRoleIsUntrusted(role)) return { permissionMode: declaredMode, toolTier: declaredTier, clamped: null };
+  const parent = agentRoleParentMode(parentMode);
+  const clamped = {};
+  let mode = declaredMode;
+  if (declaredMode) {
+    const rank = Object.prototype.hasOwnProperty.call(AGENT_ROLE_MODE_RANK, declaredMode) ? AGENT_ROLE_MODE_RANK[declaredMode] : AGENT_ROLE_MODE_RANK.bypass;   // 认不出的档按最宽算,于是被夹
+    if (rank > AGENT_ROLE_MODE_RANK[parent]) { mode = parent; clamped.permissionMode = { from: declaredMode, to: parent }; }
+  }
+  const effective = mode || parent;
+  const ceiling = AGENT_ROLE_MODE_TIER_CEILING[effective] || 'read';
+  let toolTier = declaredTier;
+  if (AGENT_ROLE_TIER_ORDER[declaredTier] > AGENT_ROLE_TIER_ORDER[ceiling]) { toolTier = ceiling; clamped.toolTier = { from: declaredTier, to: ceiling }; }
+  return { permissionMode: mode, toolTier, clamped: Object.keys(clamped).length ? clamped : null };
+}
+// 给角色列表 / 角色快照加【有效档位】标注(不改 permissionMode / toolTier 本身 —— 设置页编辑器把它们原样存回去,改了就把用户的声明吃掉):
+// effectivePermissionMode('inherit' = 沿用父档)、effectiveToolTier、roleClamped(null 或 clampAgentRoleToParent 的 clamped)。非项目来源不加。
+function annotateAgentRoleEffective(role, parentMode) {
+  if (!agentRoleIsUntrusted(role)) return role;
+  const c = clampAgentRoleToParent(role, role.toolTier, parentMode);
+  return { ...role, effectivePermissionMode: c.permissionMode || 'inherit', effectiveToolTier: c.toolTier, roleClamped: c.clamped };
+}
 function mergeAgentRole(base, override, source) {
   // 空颜色不覆盖底座的颜色:设置页以前存角色时不带 color,normalizeAgentRole 把缺失收成 '',落进 agentRoleOverrides 后
   // {...base, ...override} 就用 '' 把内置角色的颜色抹掉(工作流画布上的角色胶囊与左色条随之变灰)。老配置里已存的 color:'' 也靠这一条自愈。
