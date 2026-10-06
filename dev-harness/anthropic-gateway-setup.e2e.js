@@ -14,6 +14,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //  G5 一个真回合(思考:开 + 工具循环):首发 max_tokens 撞上限 → 按报文的上限重打一次就过;思考走经典形、不带 output_config;
 //     工具真跑了、最终回答落盘;思考块进 thinking 事件;
 //  G6 第二个回合:学到的上限直接用,不再吃 400。
+//  G7 测试连接(第三波复核):补全试探的 404 正文点名了模型(Anthropic 官方 / OpenAI / vLLM 对未知模型都回 404)→ provider.test_model_rejected,
+//     不再说「端点地址可能不对」;裸 404(地址错)仍是 provider.test_not_found;
+//  G8 /models 回 200 但不是 JSON(SPA 兜底页 / 空体)的网关:当作「没有清单」走补全试探,不报「Unexpected token '<'」;
+//  G9 网关把用户的 key / 自定义头的值原样回显进 400 正文:detail 与 error 里不出现明文(模式表认不出的 key 形态也要抹)。
 const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -34,6 +38,8 @@ const FILE_A = path.join(WORK, 'a.txt');
 fs.writeFileSync(FILE_A, 'marker GATEWAY-5521', 'utf8');
 const KEY = 'sk-gateway-test';
 const MODEL = 'ds-reasoner-gw';
+const ECHO_KEY = 'zk9.AbCdEfGh1234567890XyZ';       // 不是 sk- 形、前面也没有 key:/api_key= 标签:模式表抹不掉,只能按字面抹
+const ECHO_HEADER = 'tenantvalue-98765';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const t = createRunner('ANTHROPIC GATEWAY SETUP');
 const { ok } = t;
@@ -41,8 +47,10 @@ const { ok } = t;
 const rejects = [];
 const reject = (status, message, type = 'invalid_request_error') => { rejects.push(message); return { status, json: { error: { message, type } } }; };
 function handler(ctx) {
-  if (ctx.headers['x-api-key'] !== KEY) return reject(401, 'Authentication Fails, Your api key is invalid', 'authentication_error');
+  if (ctx.headers['x-api-key'] !== KEY && ctx.headers['x-api-key'] !== ECHO_KEY) return reject(401, 'Authentication Fails, Your api key is invalid', 'authentication_error');
   const b = ctx.body || {};
+  if (b.model === 'no-such-model') return { status: 404, json: { type: 'error', error: { type: 'not_found_error', message: 'model: no-such-model' } } };
+  if (b.model === 'echo-model') return reject(400, 'bad request for model echo-model, key=' + ctx.headers['x-api-key'] + ', tenant=' + ctx.headers['x-tenant']);
   if (Number(b.max_tokens) > 8192) return reject(400, 'Invalid max_tokens value, the valid range of max_tokens is [1, 8192]');
   if (b.thinking && !['enabled', 'disabled'].includes(b.thinking.type)) return reject(400, `thinking.type: unknown variant \`${b.thinking.type}\`, expected \`enabled\` or \`disabled\``);
   if (b.output_config !== undefined) return reject(400, 'output_config: Extra inputs are not permitted');
@@ -109,6 +117,29 @@ function streamChat(body) {
     ok(g3 && g3.ok === false && g3.code === 'provider.test_unauthorized' && g3.errorClass === 'provider_misconfigured', `G3 wrong key → unauthorized code (got ${JSON.stringify(g3 && { code: g3.code, cls: g3.errorClass })})`);
     const g4 = await test({ ...provider, id: 'draft4', baseUrl: base + '/v1/messages' });
     ok(g4 && g4.ok === true, `G4 a pasted full endpoint URL still works (got ${JSON.stringify(g4 && { ok: g4.ok, code: g4.code })})`);
+
+    // ── G7 补全试探的 404:点名模型 → 模型名问题;裸 404 → 地址问题 ──
+    const g7 = await test({ ...provider, id: 'draft7', model: 'no-such-model', models: [] });
+    ok(g7 && g7.ok === false && g7.code === 'provider.test_model_rejected' && g7.errorClass === 'provider_misconfigured',
+      `G7 404 + 正文点名模型 → model_rejected(got ${JSON.stringify(g7 && { code: g7.code, detail: g7.detail })})`);
+    const g7b = await test({ ...provider, id: 'draft7b', baseUrl: fake.url + '/anthropic/v2' });
+    ok(g7b && g7b.ok === false && g7b.code === 'provider.test_not_found', `G7b 裸 404(地址错)仍是 not_found(got ${JSON.stringify(g7b && { code: g7b.code })})`);
+
+    // ── G8 /models 回 200 非 JSON ──
+    for (const [label, raw] of [['html', { status: 200, type: 'text/html', body: '<html><body>SPA fallback</body></html>' }], ['empty', { status: 200, type: 'application/json', body: '' }]]) {
+      const spaGw = await startFakeAnthropic({ handler, modelsRaw: raw });
+      try {
+        const g8 = await test({ ...provider, id: 'draft8-' + label, baseUrl: spaGw.url + '/anthropic' });
+        ok(g8 && g8.ok === true && g8.modelsUnavailable === true && g8.probe === 'completion',
+          `G8 /models 回 200 ${label} → 当作没有清单,补全试探通了(got ${JSON.stringify(g8 && { ok: g8.ok, code: g8.code, detail: g8.detail, modelsUnavailable: g8.modelsUnavailable })})`);
+      } finally { await spaGw.close(); }
+    }
+
+    // ── G9 回显的 key / 头值不进 detail 与 error ──
+    const g9 = await test({ ...provider, id: 'draft9', apiKey: ECHO_KEY, model: 'echo-model', models: [], extraHeaders: { 'x-tenant': ECHO_HEADER } });
+    const g9Text = JSON.stringify(g9);
+    ok(g9 && g9.ok === false && !!g9.code, `G9 回显场景确实走到了失败分支(got ${JSON.stringify(g9 && { code: g9.code })})`);
+    ok(!g9Text.includes(ECHO_KEY) && !g9Text.includes(ECHO_HEADER), `G9 detail / error 里没有明文 key 与自定义头的值(got ${g9Text.slice(0, 300)})`);
 
     // ── 真回合 ──
     const created = await request('POST', '/api/sessions', { title: 'gateway', cwd: WORK }, auth);

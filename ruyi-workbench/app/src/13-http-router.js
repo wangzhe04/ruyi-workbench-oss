@@ -547,7 +547,7 @@ async function handleApi(req, res, pathname) {
     // 先列模型清单(顺带回填下拉);端点不提供清单(404 / 405 / 501,或回了空表)时,用填好的模型发一次最小补全确认能通 ——
     // 多数 Anthropic 兼容网关(如 https://api.deepseek.com/anthropic)没有 /v1/models,修前这一步直接判「端点地址可能不对」。
     let probe = await fetchOpenAiModels(sp, 6000);
-    const modelsMissing = (!probe.ok && /\bHTTP (?:404|405|501)\b/.test(String(probe.error || ''))) || (probe.ok && !(probe.models || []).length);
+    const modelsMissing = (!probe.ok && (probe.notAList === true || /\bHTTP (?:404|405|501)\b/.test(String(probe.error || '')))) || (probe.ok && !(probe.models || []).length);
     const apiStyle = normalizeProviderApiStyle(sp.apiStyle);
     if (modelsMissing) {
       const model = String(sp.model || (sp.models && sp.models[0] && sp.models[0].id) || '').trim();
@@ -563,8 +563,12 @@ async function handleApi(req, res, pathname) {
     // 稳定 code(前端按 code 取本地化文案,并按协议给 Base URL 的写法提示)+ errorClass;error 仍是中文兜底句,detail 是原始报文。
     if (!probe.ok && probe.error) {
       const e = String(probe.error);
-      const detail = redact(e).slice(0, 300);
+      // 先按字面抹掉本次请求带出去的 key / 自定义头的值(服务商常把它们回显在报文里,模式表认不全),再过模式表。
+      const detail = redact(providerScrubSecrets(e, sp)).slice(0, 300);
       if (/\bHTTP 40[13]\b|unauthorized|authentication/i.test(e)) Object.assign(probe, { code: 'provider.test_unauthorized', errorClass: 'provider_misconfigured', error: '密钥无效或无权限(' + detail + '):请检查 API Key 是否正确、是否有额度/权限' });
+      // 补全试探的 404 若正文点名了模型(Anthropic 官方 / OpenAI / vLLM 对未知模型都回 404)是「模型名」的问题,不是地址;
+      // 裸 404(地址 / 路径错)正文里没有独立的 model 一词。model 后面接 _ 的(model_not_found)照算,models / remodel 不算。
+      else if (probe.probe === 'completion' && /\bHTTP 404\b/.test(e) && /(?<![a-z])model(?![a-z])/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
       else if (/\bHTTP 404\b/i.test(e)) Object.assign(probe, { code: 'provider.test_not_found', errorClass: 'provider_misconfigured', error: '端点地址可能不对(' + detail + '):检查 Base URL' });
       else if (probe.probe === 'completion' && /\bHTTP 4\d\d\b/.test(e) && /model/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
       else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) Object.assign(probe, { code: 'provider.test_unreachable', errorClass: 'network_down', error: '连不上端点(' + detail + '):检查网络与 Base URL,内网端点确认可达' });
