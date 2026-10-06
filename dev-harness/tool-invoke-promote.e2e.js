@@ -1,4 +1,5 @@
 require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib 头注)
+process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR = '1'; // 2026-10:本机假 provider 充当「网络在线」(06 networkAnchors 的测试后门,默认关;生产里本机/内网 provider 不再当联网锚点,见 unit/network-anchors.test.js)
 (async () => {
 'use strict';
 // E2E(代理壳还原 + 原生目标自动装载 + 会话工具表跨重启):真服务进程 + 脚本化假 provider,走主回合工具循环(09 runOpenAiTurn)。

@@ -108,7 +108,7 @@ describe('startFakeProvider', () => {
       models: false,
       handler() {
         n += 1;
-        if (n === 1) return { status: 503, json: { error: { message: 'transient' } } };
+        if (n === 1) return { status: 503, json: { error: { message: 'transient' } }, headers: { 'retry-after': '2' } };
         if (n === 2) return 'plain';
         if (n === 3) return { frames: textFrames(['a', 'b']), delayMs: 5, done: false };
         throw new Error('boom');
@@ -118,6 +118,8 @@ describe('startFakeProvider', () => {
       const a = await request(fake.port, 'POST', '/v1/chat/completions', {});
       assert.equal(a.status, 503);
       assert.equal(JSON.parse(a.body).error.message, 'transient');
+      assert.equal(a.headers['retry-after'], '2', '{ status, json, headers } 追加响应头(429 / 503 的 Retry-After)');
+      assert.equal(a.headers['content-type'], 'application/json');
       const b = sseFrames((await request(fake.port, 'POST', '/v1/chat/completions', {})).body);
       assert.equal(b[0].choices[0].delta.content, 'plain');
       const c = sseFrames((await request(fake.port, 'POST', '/v1/chat/completions', {})).body);

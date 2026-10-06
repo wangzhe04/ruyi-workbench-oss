@@ -15,6 +15,12 @@
 //               连接失败结构化返回、TLS 失败、AbortError 原样抛、其它异常原样抛。
 // makeId 生成的随机 id(call_<16 hex>)打码成 call_<id>,其余逐字比对。
 //
+// 2026-10 走查修复(w1-provider)新增语料与【有意】改变的两条金样(重录说明):
+//   · nonstream.responses.failed:回体 status:'failed' 修前被当成功(正文 'part' 当回答显示、finishReason:'error' 无人认),现在报 httpError
+//     'Responses failed (no error detail)'、不再显示半截正文 —— 与流式 response.failed 同口径;
+//   · error.401.no-failover:状态 401、报文含 "tool" 字样,修前 toolsRejected:true(整回合去掉工具重打),现在只有 400 / 422 才判工具被拒 → false。
+//   新增:200 回体里装着 error(chat)、content_filter、Responses incomplete 的 content_filter、500 报文含 function、422 工具被拒、429 带 Retry-After、
+//   流中途断线(undici 的 TypeError('terminated') + cause)。
 // 金样:dev-harness/fixtures/provider-wire-stream.golden.json。只有在【有意】改变流式解码行为时才重录:
 //   RUYI_RECORD_GOLDEN=1 node --test dev-harness/unit/provider-wire-stream.test.js
 // 重录必须在 PR 里说明改了哪条语料的哪个字段、为什么。
@@ -293,6 +299,24 @@ const CASES = {
   'error.throw.tls': { body: CHAT_BODY, steps: [{ throw: { message: 'self-signed certificate in chain' } }] },
   'error.throw.abort': { body: CHAT_BODY, steps: [{ throw: { name: 'AbortError', message: 'aborted' } }] },
   'error.throw.other': { body: CHAT_BODY, steps: [{ throw: { message: 'weird failure' } }] },
+
+  // 2026-10 走查修复(w1-provider)新增语料(语义断言见下方 w1-provider 一条):
+  'nonstream.chat.error-envelope': { body: CHAT_BODY, steps: [{ jsonResponse: { error: { message: 'You exceeded your current quota', code: 'insufficient_quota', type: 'insufficient_quota' } } }] },
+  'nonstream.chat.error-envelope.string': { body: CHAT_BODY, steps: [{ jsonResponse: { error: 'upstream exploded ' + FAKE_KEY } }] },
+  'nonstream.chat.content-filter-empty': { body: CHAT_BODY, steps: [{ jsonResponse: { id: 'cf', choices: [{ index: 0, finish_reason: 'content_filter', message: { role: 'assistant', content: '' } }], usage: { prompt_tokens: 5, completion_tokens: 0 } } }] },
+  'nonstream.chat.error-key-with-content-is-success': { body: CHAT_BODY, steps: [{ jsonResponse: { error: null, choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: '正常' } }] } }] },
+  'nonstream.responses.failed.with-error': { body: RESP_BODY, steps: [{ json: { status: 'failed', error: { code: 'server_error', message: 'boom ' + FAKE_KEY } } }] },
+  'nonstream.responses.incomplete.content-filter': { body: RESP_BODY, steps: [{ json: { id: 'rs', status: 'incomplete', incomplete_details: { reason: 'content_filter' }, output: [] } }] },
+  'responses.incomplete.content-filter': { body: RESP_BODY, steps: [{ chunk: 64, sse: sse(
+    { type: 'response.incomplete', response: { status: 'incomplete', incomplete_details: { reason: 'content_filter' } } }) }] },
+  'error.500.body-mentions-function': { body: CHAT_BODY_TOOLS, steps: [{ status: 500, text: '{"error":{"message":"upstream error: Internal Server Error in function dispatcher"}}' }] },
+  'error.422.tools-rejected': { body: CHAT_BODY_TOOLS, steps: [{ status: 422, text: '{"detail":[{"msg":"tools: extra fields not permitted"}]}' }] },
+  'error.429.retry-after-seconds': { body: CHAT_BODY, steps: [{ status: 429, text: 'rate limited', headers: { 'retry-after': '7' } }] },
+  'error.429.retry-after-ms': { body: CHAT_BODY, steps: [{ status: 429, text: 'rate limited', headers: { 'retry-after-ms': '1500' } }] },
+  'error.503.retry-after-capped': { body: CHAT_BODY, steps: [{ status: 503, text: 'busy', headers: { 'retry-after': '600' } }] },
+  'error.429.retry-after-garbage': { body: CHAT_BODY, steps: [{ status: 429, text: 'rate limited', headers: { 'retry-after': 'soon' } }] },
+  'error.stream-read-terminated-with-cause': { body: CHAT_BODY, steps: [{ sse: sse({ choices: [{ delta: { content: '半截' } }] }), streamError: { message: 'terminated', causeMessage: 'other side closed', causeCode: 'UND_ERR_SOCKET' } }] },
+  'error.stream-read-abort-untouched': { body: CHAT_BODY, steps: [{ sse: sse({ choices: [{ delta: { content: '半截' } }] }), streamError: { name: 'AbortError', message: 'The operation was aborted', causeMessage: 'x' } }] },
 };
 
 const MAKE_ID = /\bcall_[0-9a-f]{16}\b/g;
@@ -321,8 +345,15 @@ async function runCase(spec) {
     }
     // 无视 stream:true、回一整份 application/json 的网关(回体是真 Response,带可读流)
     if (step.jsonResponse) return new Response(JSON.stringify(step.jsonResponse), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } });
+    // 流读到一半 reader.read() 以错误收尾(undici:TypeError('terminated'),真因挂在 cause)
+    if (step.streamError) {
+      const bytes = enc.encode(step.sse);
+      const failure = Object.assign(new TypeError(step.streamError.message), step.streamError.name ? { name: step.streamError.name } : {},
+        step.streamError.causeMessage ? { cause: Object.assign(new Error(step.streamError.causeMessage), step.streamError.causeCode ? { code: step.streamError.causeCode } : {}) } : {});
+      return new Response(new ReadableStream({ start(ctrl) { ctrl.enqueue(bytes); }, pull() { throw failure; } }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    }
     if (step.sse != null) return new Response(streamBody(step.sse, step.chunk || 64), { status: 200, headers: { 'content-type': 'text/event-stream' } });
-    return new Response(step.text, { status: step.status });
+    return new Response(step.text, { status: step.status, ...(step.headers ? { headers: step.headers } : {}) });
   };
   let result = null, thrown = null;
   try {
@@ -392,6 +423,66 @@ test('流内错误 / 截断 / 用量 / 工具槽 / JSON 回体 / 400 归因:行�
     assert.equal(r.result.toolsRejected, undefined);
     r = await run('error.400.invalid-request-no-stream-options-retry');
     assert.equal(r.fetches.length, 1, 'invalid_request_error 不再剥 stream_options 白打第二遍');
+  } finally { global.fetch = realFetch; }
+});
+
+// 2026-10 走查修复(w1-provider):新增语料的【语义】断言(金样之外再钉一遍意图)。
+test('w1-provider:200 回体里的失败 / content_filter / Retry-After / toolsRejected 只在 400·422 / 流中途断线带 cause', async () => {
+  const realFetch = global.fetch;
+  const run = async name => runCase(CASES[name]);
+  try {
+    // 4. 网关无视 stream:true 回 application/json:回体里的失败报 httpError(修前全落成「空回复」)
+    let r = await run('nonstream.chat.error-envelope');
+    assert.match(r.result.httpError, /^HTTP 429: insufficient_quota: You exceeded your current quota/, '额度用尽 → HTTP 429(与流内 error 帧同口径,走限流重试 / rate_limited)');
+    assert.equal(r.result.finishReason, 'error');
+    assert.deepEqual(r.events, [], '失败的回体不再把半截内容当成功显示');
+    r = await run('nonstream.chat.error-envelope.string');
+    assert.match(r.result.httpError, /^Provider error: error: upstream exploded/);
+    assert.doesNotMatch(r.result.httpError, /abcdefghijklmnop/, '失败文本经脱敏');
+    r = await run('nonstream.responses.failed.with-error');
+    assert.match(r.result.httpError, /^Responses failed: boom /);
+    assert.doesNotMatch(r.result.httpError, /abcdefghijklmnop/);
+    r = await run('nonstream.chat.error-key-with-content-is-success');
+    assert.equal(r.result.httpError, undefined, '有正文的回体里夹一个 error:null 不是失败');
+    assert.equal(r.result.text, '正常');
+    // 12. content_filter 单列,不再混成输出上限 / 空回复
+    r = await run('nonstream.chat.content-filter-empty');
+    assert.equal(r.result.finishReason, 'content_filter');
+    assert.equal(r.result.httpError, undefined);
+    r = await run('nonstream.responses.incomplete.content-filter');
+    assert.equal(r.result.finishReason, 'content_filter', 'Responses incomplete 的 content_filter 不再一律归 length');
+    r = await run('responses.incomplete.content-filter');
+    assert.equal(r.result.finishReason, 'content_filter');
+    r = await run('responses.incomplete');
+    assert.equal(r.result.finishReason, 'length', 'max_output_tokens 仍是 length');
+    // 3. toolsRejected 只在 400 / 422
+    r = await run('error.500.body-mentions-function');
+    assert.equal(r.result.toolsRejected, false, '500 的报文带 function 字样不再整回合去工具重打');
+    r = await run('error.422.tools-rejected');
+    assert.equal(r.result.toolsRejected, true);
+    r = await run('error.401.no-failover');
+    assert.equal(r.result.toolsRejected, false);
+    r = await run('error.400.tools-rejected');
+    assert.equal(r.result.toolsRejected, true, '400 仍判工具被拒');
+    // 13. Retry-After:秒 / 毫秒 / 封顶 30 s / 认不出不带这个键
+    r = await run('error.429.retry-after-seconds');
+    assert.equal(r.result.retryAfterMs, 7000);
+    r = await run('error.429.retry-after-ms');
+    assert.equal(r.result.retryAfterMs, 1500);
+    r = await run('error.503.retry-after-capped');
+    assert.equal(r.result.retryAfterMs, 30000);
+    assert.equal(r.result.failoverStatus, 503);
+    r = await run('error.429.retry-after-garbage');
+    assert.ok(!('retryAfterMs' in r.result));
+    r = await run('error.429');
+    assert.ok(!('retryAfterMs' in r.result), '没有 Retry-After 头的 429 不带该键(老金样逐字节不变)');
+    // 2. 流中途断线:message 并入 cause 的真因;中止原样上抛
+    r = await run('error.stream-read-terminated-with-cause');
+    assert.equal(r.thrown.message, 'terminated (UND_ERR_SOCKET other side closed)');
+    assert.equal(r.thrown.name, 'TypeError');
+    r = await run('error.stream-read-abort-untouched');
+    assert.equal(r.thrown.name, 'AbortError');
+    assert.equal(r.thrown.message, 'The operation was aborted', 'AbortError 的 message 不动');
   } finally { global.fetch = realFetch; }
 });
 

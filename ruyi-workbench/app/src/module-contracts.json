@@ -2815,15 +2815,19 @@
       "file": "04h-provider-http.js",
       "layer": "foundation",
       "provides": [
+        "PROVIDER_LAN_HOST_SUFFIXES",
         "abortableDelay",
         "providerApiBase",
+        "providerBaseIsLocalOrLan",
         "providerBaseWithV1",
         "providerCallIsTransient",
         "providerCompletionUrl",
         "providerPostJsonOnce",
         "providerRequestHeaders",
         "providerResponsesBase",
+        "providerRetryAfterMs",
         "providerSseAsCompletion",
+        "providerThrownErrorText",
         "withTransientRetry"
       ],
       "requires": []
@@ -2911,6 +2915,8 @@
         "normalizeProviderApiStyle",
         "providerReasoningEffort",
         "providerServerSearchCard",
+        "providerWireContentFiltered",
+        "providerWireContextExceeded",
         "providerWireDecoded",
         "providerWireFailureDetail",
         "providerWireIncomplete",
@@ -2922,7 +2928,9 @@
         "providerWireStreamErrorText",
         "providerWireToolCallsFromSlots",
         "reasoningContentField",
+        "responsesFailedText",
         "responsesHistoryWithCompleteToolPairs",
+        "responsesIncompleteFinishReason",
         "responsesInstructions",
         "responsesOutputText",
         "setTemperature",
@@ -5383,6 +5391,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerBaseIsLocalOrLan",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
@@ -7138,6 +7153,20 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerRetryAfterMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerThrownErrorText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -8865,6 +8894,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerThrownErrorText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -8880,6 +8916,20 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "providerServerSearchCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireContentFiltered",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireContextExceeded",
           "kinds": [
             "call"
           ]
@@ -8964,6 +9014,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "neutralizeAuthoredText",
           "kinds": [
             "call"
           ]

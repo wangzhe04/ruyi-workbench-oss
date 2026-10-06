@@ -663,9 +663,12 @@ function normalizePricing(raw) {
 function cachedInputTokensFromUsage(usage) {
   if (!usage || typeof usage !== 'object') return 0;
   const details = usage.prompt_tokens_details || usage.input_tokens_details || {};
+  // DeepSeek 原生口径是顶层 prompt_cache_hit_tokens(与 prompt_cache_miss_tokens 成对,prompt_tokens 含两者)。
+  // 它不带 prompt_tokens_details,修前缓存命中恒按 0 记 —— 用量账与回合成本把命中的输入全按未命中价算。
   const raw = details.cached_tokens != null ? details.cached_tokens
     : details.cache_read_input_tokens != null ? details.cache_read_input_tokens
-      : usage.cache_read_input_tokens != null ? usage.cache_read_input_tokens : usage.cached_tokens;
+      : usage.cache_read_input_tokens != null ? usage.cache_read_input_tokens
+        : usage.cached_tokens != null ? usage.cached_tokens : usage.prompt_cache_hit_tokens;
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }

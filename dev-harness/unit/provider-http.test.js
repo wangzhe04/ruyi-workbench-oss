@@ -193,6 +193,22 @@ test('[H5] providerRawCompletion 错误文本(脱敏、超时、抛错、空补�
   assert.deepEqual(r, { result: { ok: false, error: 'provider base URL is not set' }, calls: [] });
 });
 
+test('[H5b] 2026-10 走查(w1-provider):200 回体里装着失败 → 报真因,不再是「空补全」(chat 顶层 error、Responses failed、脱敏、截断)', async () => {
+  let r = await run([{ status: 200, body: JSON.stringify({ error: { message: 'You exceeded your current quota', code: 'insufficient_quota', type: 'insufficient_quota' } }) }], () => providerRawCompletion(P.A, RAW_HIST));
+  assert.deepEqual(r.result, { ok: false, error: 'provider returned a failed completion: You exceeded your current quota' });
+  r = await run([{ status: 200, body: JSON.stringify({ error: 'bad key ' + ['sk', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('-') }) }], () => providerRawCompletion(P.A, RAW_HIST));
+  assert.match(r.result.error, /^provider returned a failed completion: bad key /);
+  assert.doesNotMatch(r.result.error, /abcdefghijklmnop/, '失败详情经脱敏');
+  r = await run([{ status: 200, body: JSON.stringify({ status: 'failed', error: { code: 'server_error', message: 'boom' } }) }], () => providerRawCompletion(P.C, RAW_HIST));
+  assert.deepEqual(r.result, { ok: false, error: 'provider returned a failed completion: boom' });
+  r = await run([{ status: 200, body: JSON.stringify({ status: 'failed' }) }], () => providerRawCompletion(P.C, RAW_HIST));
+  assert.deepEqual(r.result, { ok: false, error: 'provider returned a failed completion: Responses failed (no error detail)' }, '没有详情时说明「没有错误详情」');
+  // 对照:有正文的回体里夹一个 error:null 仍然成功
+  r = await run([{ status: 200, body: JSON.stringify({ error: null, choices: [{ message: { content: 'fine' } }] }) }], () => providerRawCompletion(P.A, RAW_HIST));
+  assert.equal(r.result.ok, true);
+  assert.equal(r.result.content, 'fine');
+});
+
 process.on('exit', () => {
   global.fetch = realFetch;
   try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ }

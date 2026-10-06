@@ -1,5 +1,6 @@
 'use strict';
 require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib 头注)
+process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR = '1'; // 2026-10:本机假 provider 充当「网络在线」(06 networkAnchors 的测试后门,默认关;生产里本机/内网 provider 不再当联网锚点,见 unit/network-anchors.test.js)
 // ─────────────────────────────────────────────────────────────────────────────
 // responses-websearch-inline.e2e.js —— 服务端 web_search「同一发里跑完并作答」的形状(百炼 DashScope / OpenAI hosted web_search)
 //

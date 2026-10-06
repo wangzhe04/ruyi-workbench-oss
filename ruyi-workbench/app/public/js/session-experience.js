@@ -625,6 +625,7 @@ async function revealArtifact(fullPath, mode) {
 // for unknown classes from an older/newer server, so it is no longer the UI's sole error-language contract.
 const ERROR_CLASS_I18N = {
   provider_misconfigured: { title: 'error.providerMisconfigured', next: 'error.providerMisconfigured.next' },
+  provider_error: { title: 'error.providerError', next: 'error.providerError.next' },
   network_down: { title: 'error.networkDown', next: 'error.networkDown.next' },
   permission_denied: { title: 'error.permissionDenied', next: 'error.permissionDenied.next' },
   tool_error: { title: 'error.toolFailed' },
@@ -633,6 +634,7 @@ const ERROR_CLASS_I18N = {
 };
 const ERROR_CLASSES_LEGACY = {
   provider_misconfigured: { zh: () => t('error.providerMisconfigured'), next: () => t('error.providerMisconfigured.next') },
+  provider_error: { zh: () => t('error.providerError'), next: () => t('error.providerError.next') },
   network_down: { zh: () => t('error.networkDown'), next: () => t('error.networkDown.next') },
   permission_denied: { zh: () => t('error.permissionDenied'), next: () => t('error.permissionDenied.next') },
   tool_error: { zh: () => t('error.toolFailed'), next: () => t('error.toolFailed.next') },
