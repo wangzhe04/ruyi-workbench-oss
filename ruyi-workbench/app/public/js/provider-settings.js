@@ -1677,7 +1677,7 @@ const INSTANT_SETTINGS = Object.freeze([
   { ids: ['cfgSubagentMaxPerTurn'], patch: () => ({ subagentMaxPerTurn: clampedInt('cfgSubagentMaxPerTurn', 32, 0, 32) }) },
   { ids: ['cfgAgentAutoWake'], patch: () => ({ agentAutoWake: $('cfgAgentAutoWake').checked }) },
   { ids: ['cfgAgentWorkflowMaxNodes'], patch: () => ({ agentWorkflowMaxNodes: clampedInt('cfgAgentWorkflowMaxNodes', 48, 1, 64) }) },
-  { ids: ['cfgAgentNodeWrapUpMinutes'], patch: () => ({ agentNodeWrapUpMs: clampedInt('cfgAgentNodeWrapUpMinutes', 8, 0, 120) * 60000 }) },
+  { ids: ['cfgAgentNodeWrapUpMinutes'], patch: () => ({ agentNodeWrapUpMs: clampedInt('cfgAgentNodeWrapUpMinutes', 30, 0, 120) * 60000 }) },
   { ids: ['cfgTurnIdleMinutes'], patch: () => ({ turnIdleTimeoutMs: clampedInt('cfgTurnIdleMinutes', 10, 1, 60) * 60000 }) },
   // ── 模型分配（主模型、压缩、子代理、句尾改错各有自己的行内写口；这里只剩「新线程默认引擎」）──
   // 123-N2:新线程默认引擎。后端 normalizeConfig 再钳一次白名单(非法值回落 'last')。

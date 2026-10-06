@@ -10,6 +10,36 @@ Object.assign(SubAgentMemoryHooks, {
   },
 });
 
+// 节点时限(纯函数;unit/agent-time-limits 经 lib/server-internals 直调,不加 14-main 导出):
+//   wrapUpMs  自动收尾时限 —— config.agentNodeWrapUpMs,出厂 30 分钟,0 = 关闭自动收尾(也就没有下面的宽限与硬上限);
+//   graceMs   催收尾之后的宽限期 —— 出厂 = wrapUpMs/6,夹在 [2, 10] 分钟(30 分钟 → 5 分钟);
+//   hardCapMs 总时长硬上限 —— 出厂 = wrapUpMs × 2(30 分钟 → 60 分钟),且不低于 wrapUpMs + graceMs(所以设得很小时略高于 2 倍)。
+// env 缝(只读、缺省即生产;测试用来把分钟缩成秒):WCW_AGENT_NODE_WRAPUP_MS / _WRAPUP_GRACE_MS / _HARDCAP_MS。
+function agentNodeTimeLimits(config, env) {
+  const source = env || {};
+  const configured = Number(config && config.agentNodeWrapUpMs);
+  const wrapUpMs = source.WCW_AGENT_NODE_WRAPUP_MS != null
+    ? Math.max(0, Number(source.WCW_AGENT_NODE_WRAPUP_MS) || 0)
+    : (Number.isFinite(configured) ? Math.max(0, configured) : 1800000);
+  const graceMs = Math.max(250, Number(source.WCW_AGENT_NODE_WRAPUP_GRACE_MS)
+    || Math.max(120000, Math.min(600000, Math.floor((wrapUpMs || 1800000) / 6))));
+  const hardCapMs = Math.max(wrapUpMs + graceMs, Number(source.WCW_AGENT_NODE_HARDCAP_MS) || (wrapUpMs * 2));
+  return { wrapUpMs, graceMs, hardCapMs };
+}
+// 一个【正在跑】的节点这一拍该做什么(全部毫秒时间戳;requestedAt = 0 表示还没催过收尾):
+//   'nudge'    运行到自动收尾时限,注入一条「停止扩展、立即总结」的插话 —— 只是催,不杀;
+//   'hard_cap' 总时长到硬上限,不论是否还在产出都中止;
+//   'quiet'    催过之后,在宽限期内一点进展都没有(最近一次动静 / 催收尾的时刻起算)才中止 —— 还在持续产出的节点不会被它中止;
+//   'none'     什么都不做。
+// lastActivityAt 是节点的任何事件(流式字节 / 工具心跳 / 工具事件)刷新的那个时钟,与空闲看门狗同一个信号。
+function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, forced }, limits) {
+  if (!limits || !(limits.wrapUpMs > 0) || forced) return 'none';
+  if (!requestedAt) return now - modelStartedAt >= limits.wrapUpMs ? 'nudge' : 'none';
+  if (now - modelStartedAt >= limits.hardCapMs) return 'hard_cap';
+  if (now - Math.max(requestedAt, Number(lastActivityAt) || 0) >= limits.graceMs) return 'quiet';
+  return 'none';
+}
+
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, onRegistered }) {
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
@@ -91,7 +121,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // prompt-visible or verify claims after that attempt has been invalidated.
       purgeNodeEvidence(run, n.id);
       delete n.errorClass; // 29c: 失败类别随重跑清场(与 error 同生命周期),重跑成功不残留旧分类
-      delete n.modelStartedAt; delete n.wrapUpRequestedAt; delete n.wrapUpDeadlineAt; delete n.wrapUpForcedAt;
+      delete n.modelStartedAt; delete n.wrapUpRequestedAt; delete n.wrapUpDeadlineAt; delete n.wrapUpForcedAt; delete n.wrapUpForcedReason;
     }
     run.status = 'running'; run.completedAt = null; run.resumedAt = nowIso();
     run.concurrency = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || run.concurrency || 2));
@@ -294,12 +324,22 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // genuinely wedged DAG. The env seams keep the regression test fast.
   const heartbeatMs = Math.max(250, Number(process.env.WCW_AGENT_WORKFLOW_HEARTBEAT_MS)
     || Math.min(15000, Math.max(1000, Math.floor(idleLimitMs / 4))));
-  const configuredWrapUpMs = Number(config.agentNodeWrapUpMs);
-  const wrapUpMs = process.env.WCW_AGENT_NODE_WRAPUP_MS != null
-    ? Math.max(0, Number(process.env.WCW_AGENT_NODE_WRAPUP_MS) || 0)
-    : (Number.isFinite(configuredWrapUpMs) ? Math.max(0, configuredWrapUpMs) : 480000);
-  const wrapUpGraceMs = Math.max(250, Number(process.env.WCW_AGENT_NODE_WRAPUP_GRACE_MS)
-    || Math.max(60000, Math.min(120000, Math.floor((wrapUpMs || 480000) / 4))));
+  // 节点时限的三层(都只管【这一个节点】,run 里的兄弟节点不受牵连):
+  //   ① 空闲(nodeIdleLimitMs,见上):没有任何进展(流式字节 / 工具心跳 / 事件)就中止 —— 判「有没有动静」,不看墙钟;
+  //   ② 自动收尾(wrapUpMs,config.agentNodeWrapUpMs,出厂 30 分钟):模型运行到这个时长,【只】注入一条「停止扩展、立即总结」的插话,不杀;
+  //   ③ 收尾之后:节点在宽限期(wrapUpGraceMs)内【没有任何进展】才中止(它还在产出就让它写完);
+  //      总时长另有硬上限 hardCapMs(出厂 = 自动收尾时限的 2 倍 = 60 分钟),到点不论是否还在产出都中止 —— 兜住「一直在吐字、从不收尾」。
+  // 修前:到点注入后 2 分钟墙钟一到就杀(出厂 8+2 = 10 分钟的硬上限),正在持续产出的节点也被杀,结果只剩一半。
+  // env 缝(只读、缺省即生产):WCW_AGENT_NODE_WRAPUP_MS / _WRAPUP_GRACE_MS / _HARDCAP_MS。
+  const nodeLimits = agentNodeTimeLimits(config, process.env);
+  const { wrapUpMs, graceMs: wrapUpGraceMs, hardCapMs } = nodeLimits;
+  const minutesText = ms => String(Math.max(0.1, Math.round(ms / 6000) / 10)); // 一位小数的分钟
+  const secondsText = ms => String(Math.max(1, Math.round(ms / 1000)));
+  // 节点被「收尾」流程中止时给模型(envelope.node.error)与用户(运行卡/调试面板)的说明:说清是哪一种时限、怎么调。
+  const wrapUpStopMessage = node => (node.wrapUpForcedReason === 'hard_cap'
+    ? `节点超过自动收尾宽限期后仍在运行,总运行时长已达硬上限(${minutesText(hardCapMs)} 分钟,约为自动收尾时限 ${minutesText(wrapUpMs)} 分钟的 2 倍),已中止该节点,已产出的部分保留在结果里。可在「设置 → 工作流与时限 → 节点自动收尾(分钟)」调大(硬上限随之成倍增长;0 = 关闭自动收尾),或把任务拆小。`
+    : `节点运行已超过自动收尾时限(${minutesText(wrapUpMs)} 分钟),并在自动收尾宽限期(${secondsText(wrapUpGraceMs)} 秒)内没有任何进展,已中止该节点,已产出的部分保留在结果里。仍在产出的节点不会因此被中止;可在「设置 → 工作流与时限 → 节点自动收尾(分钟)」调大(0 = 关闭),或把任务拆小。`);
+  const nodeIdleStopMessage = () => `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展：没有流式输出、工具心跳或事件），已中止该节点。可在「设置 → 工作流与时限 → 一个回合多久没动静算卡住」调大。`;
   let lastWorkflowHeartbeatAt = 0;
   const workflowControlTimer = setInterval(() => {
     if (!activeAgentRuns.has(runId)) return;
@@ -363,7 +403,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       if (!node || node.status !== 'running' || !node.modelStartedAt) continue;
       const modelStarted = Date.parse(node.modelStartedAt);
       if (!Number.isFinite(modelStarted)) continue;
-      if (!node.wrapUpRequestedAt && now - modelStarted >= wrapUpMs) {
+      const wrapUpAction = nodeWrapUpAction({
+        now, modelStartedAt: modelStarted, requestedAt: node.wrapUpRequestedAt ? (Date.parse(node.wrapUpRequestedAt) || now) : 0,
+        lastActivityAt: Number(node.lastActivityAt) || 0, forced: !!node.wrapUpForcedAt,
+      }, nodeLimits);
+      if (wrapUpAction === 'nudge') {
         const instruction = '你已运行较长时间。现在停止扩展范围，不再启动新的工具或子任务；请基于已经取得的证据立即整理最终结论。若仍有未完成项，明确列出并标注，不要为了补齐它们继续长跑。';
         let q = runtime.autoSteerQueues.get(node.id);
         if (!q) { q = []; runtime.autoSteerQueues.set(node.id, q); }
@@ -378,16 +422,19 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         throttledSaveRun();
         continue;
       }
-      const deadline = Date.parse(node.wrapUpDeadlineAt || '');
-      if (node.wrapUpRequestedAt && !node.wrapUpForcedAt && Number.isFinite(deadline) && now >= deadline) {
+      if (wrapUpAction === 'hard_cap' || wrapUpAction === 'quiet') {
+        // 收尾之后只在两种情形下中止:① 硬上限(总时长到点,不论是否还在产出);② 宽限期内没有任何进展(从催收尾 / 最近一次动静起算)。
+        const overHardCap = wrapUpAction === 'hard_cap';
         node.wrapUpForcedAt = nowIso();
+        node.wrapUpForcedReason = overHardCap ? 'hard_cap' : 'quiet';
         const nodeCtrl = runtime.nodeControls.get(node.id);
         try { if (nodeCtrl && nodeCtrl.signal && !nodeCtrl.signal.aborted) nodeCtrl.abort('node_wrapup_timeout'); } catch {}
         runtime.lastActivityAt = now;
         node.lastActivityAt = now; // A3: wrapup 强制收尾也是该节点活跃(收尾后节点即将终态)
-        recordAgentNodeProgress(run, node, { type: 'subagent_wrapup_forced', graceMs: wrapUpGraceMs });
-        appendAgentRunEvent(run, { type: 'node_wrapup_forced', nodeId: node.id, data: { graceMs: wrapUpGraceMs } });
-        try { onEvent({ type: 'agent_workflow', state: 'node_wrapup_forced', id: runId, nodeId: node.id, graceMs: wrapUpGraceMs }); } catch {}
+        recordAgentNodeProgress(run, node, { type: 'subagent_wrapup_forced', graceMs: wrapUpGraceMs, reason: node.wrapUpForcedReason, hardCapMs });
+        appendAgentRunEvent(run, { type: 'node_wrapup_forced', nodeId: node.id, data: { graceMs: wrapUpGraceMs, reason: node.wrapUpForcedReason, hardCapMs, wrapUpMs, elapsedMs: now - modelStarted } });
+        try { onEvent({ type: 'agent_workflow', state: 'node_wrapup_forced', id: runId, nodeId: node.id, graceMs: wrapUpGraceMs, reason: node.wrapUpForcedReason, hardCapMs }); } catch {}
+        try { onEvent({ type: 'stderr', text: `[watchdog] node ${node.id} ${overHardCap ? `reached the hard cap (${Math.round(hardCapMs / 1000)}s)` : `made no progress for ${Math.round(wrapUpGraceMs / 1000)}s after the wrap-up request`} — aborting node` }); } catch { /* observer gone */ }
         throttledSaveRun();
       }
     }
@@ -516,7 +563,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // 不是「停止这个 run」(stopRequested)也不是看门狗(idleAborted)—— 那就是父回合被停 / 断线把它一起中止了。
       // 只有确有未成功的节点才算「被停止打断」:全部节点都已成功 / 跳过 / 被质量门驳回时,run 照常按 succeeded 收尾。
       if (!runtime.stopRequested && !idleAborted && nodes.some(n => n.status !== 'succeeded' && n.status !== 'skipped' && n.status !== 'rejected')) parentStopped = true;
-      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒无进展），已中止` : '父回合已停止'); node.errorClass = idleAborted && !runtime.stopRequested ? 'idle_timeout' : 'cancelled'; node.completedAt = nowIso(); }
+      for (const node of nodes) if (!terminal(node)) { node.status = 'cancelled'; node.error = runtime.stopRequested ? '工作流已停止' : (idleAborted ? `工作流空闲超时（>${Math.round(idleLimitMs / 1000)}秒没有任何节点有进展：无流式输出、工具心跳或事件），已中止。可在「设置 → 工作流与时限 → 一个回合多久没动静算卡住」调大。` : '父回合已停止'); node.errorClass = idleAborted && !runtime.stopRequested ? 'idle_timeout' : 'cancelled'; node.completedAt = nowIso(); }
       break;
     }
     // 第28e波(§28e):轮询 waiting 节点(【零 token】——纯 fs/net/process 探测,不起子代理)。满足→succeeded 放行下游;
@@ -835,9 +882,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           }
           node.status = sub.ok ? 'succeeded' : 'failed';
           node.result = String(sub.result || '').slice(0, 24000);
-          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? '节点未在自动收尾宽限期内结束，已中止该节点' : (node.idleAborted ? `节点空闲超时（>${Math.round(nodeIdleLimitMs / 1000)}秒无进展），已中止该节点` : (node.noProgressAborted ? `节点连续 ${node.noProgressCount} 次工具结果无新进展（语义死循环），已中止该节点` : (sub.error || '子代理失败')))).slice(0, 4000);
+          node.error = sub.ok ? '' : String(node.wrapUpForcedAt ? wrapUpStopMessage(node) : (node.idleAborted ? nodeIdleStopMessage() : (node.noProgressAborted ? `节点连续 ${node.noProgressCount} 次工具结果无新进展（语义死循环），已中止该节点` : (sub.error || '子代理失败')))).slice(0, 4000);
           if (sub.ok) delete node.errorClass;
           else if (node.idleAborted) node.errorClass = 'idle_timeout'; // A3: 节点级卡死归因(区别于 workflow 级 idleAborted / 常规失败)
+          else if (node.wrapUpForcedAt) node.errorClass = 'timeout'; // 自动收尾流程中止(宽限期内无进展 / 总时长硬上限):归「超时」,不落成泛泛的 subagent_failed
           else if (node.noProgressAborted) node.errorClass = 'semantic_stall'; // G2: 语义死循环归因(有事件但结果无进展)
           else node.errorClass = classifyNodeErrorText(node.error); // 29c(重试成功即清旧类)
           // 审计 P2: 透传 degraded —— Claude CLI 产出可用输出后异常退出的「降级成功」(runClaudeSubAgentOnce 返回
@@ -1012,7 +1060,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     for (const id of step.toDispatch) {
       const node = nodes.find(n => n.id === id); if (!node) continue;
       node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); delete node.toolEvidence;
-      delete node.modelStartedAt; delete node.wrapUpRequestedAt; delete node.wrapUpDeadlineAt; delete node.wrapUpForcedAt;
+      delete node.modelStartedAt; delete node.wrapUpRequestedAt; delete node.wrapUpDeadlineAt; delete node.wrapUpForcedAt; delete node.wrapUpForcedReason;
       runtime.autoSteerQueues.delete(node.id);
       startedCount += 1; dispatched += 1;
       appendAgentRunEvent(run, { type: 'node_start', nodeId: node.id, attemptId: node.attempts }); // 25.3
@@ -1091,20 +1139,32 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
 // 结果可在本回合或之后任一回合收取,不依赖内存 promise。读取优先活对象(磁盘快照在节点运行期间有意节流),
 // 并把每个 id 限定在本会话的 run 目录。返回的是【交付信封】(buildAgentRunEnvelope),不是整份 run。
 const AGENT_RUN_TERMINAL = new Set(['succeeded', 'failed', 'partial', 'stopped', 'interrupted', 'cancelled']);
-async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
+// wait_agents 的等待窗:默认 2 分钟、上限 5 分钟(修前 30 秒 / 60 秒:一个跑十分钟的后台代理要被轮询二十次,每次都是一整个模型调用)。
+// 到点只是「这一次不等了」—— run 本身不受影响(见下面 timedOut 的说明)。等待期间不算父回合空闲(见 waitForAgentRunResults 的 onWaiting)。
+// env 缝(只读、缺省即生产):WCW_WAIT_AGENTS_DEFAULT_MS / WCW_WAIT_AGENTS_MAX_MS。
+const WAIT_AGENTS_DEFAULT_MS = 120000;
+const WAIT_AGENTS_MAX_MS = 300000;
+function waitAgentsMaxMs() { return Math.max(1, Number(process.env.WCW_WAIT_AGENTS_MAX_MS) || WAIT_AGENTS_MAX_MS); }
+// 调用方传的 timeoutMs(缺省 / null = 用默认窗)→ 实际等待毫秒;非数字按 0(不等),超上限按上限。
+function resolveWaitAgentsMs(timeoutMs) {
+  const raw = timeoutMs == null ? Math.max(1, Number(process.env.WCW_WAIT_AGENTS_DEFAULT_MS) || WAIT_AGENTS_DEFAULT_MS) : timeoutMs;
+  return Math.min(waitAgentsMaxMs(), Math.max(0, Number(raw) || 0));
+}
+async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal, onWaiting) {
   const runIds = [...new Set((Array.isArray(rawRunIds) ? rawRunIds : [])
     .map(id => safeSessionId(String(id || ''))).filter(Boolean))].slice(0, 16);
-  if (!runIds.length) return { ok: false, error: '没有可等待的后台代理 runId', settled: true, timedOut: false, runs: [] };
-  const waitMs = Math.min(60000, Math.max(0, Number(timeoutMs) || 0));
+  const waitMs = Math.min(waitAgentsMaxMs(), Math.max(0, Number(timeoutMs) || 0));
+  if (!runIds.length) return { ok: false, error: '没有可等待的后台代理 runId', settled: true, timedOut: false, waitMs, runs: [] };
   const deadline = Date.now() + waitMs;
   const readOne = runId => readAgentRunRecord(sessionId, runId);
   let rows = [];
   for (;;) {
     rows = await Promise.all(runIds.map(readOne));
     // hunt3:不存在的 runId(读不到 = null)没有什么可等 —— 修前 `row && !row.live` 把它算成「未结算」,
-    // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(最长 60 秒)。只有【活的】 run 才值得等。
+    // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(现在最长 5 分钟)。只有【活的】 run 才值得等。
     const settled = rows.every(row => !row || !row.live);
     if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
+    if (typeof onWaiting === 'function') { try { onWaiting(); } catch { /* 心跳回调失败不影响等待 */ } }   // 等待中的父回合不是「空闲」:调用方借此刷新自己的看门狗时钟
     await new Promise(resolve => {
       let done = false;
       const finish = () => {
@@ -1135,9 +1195,12 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   // 部分不存在 → 保持 ok:true,另列 notFound。
   const notFound = runs.filter(run => run.status === 'not_found').map(run => run.runId);
   if (notFound.length && notFound.length === runs.length) {
-    return { ok: false, error: `没有找到这些后台代理 run:${notFound.join(', ')}(runId 打错,或不属于当前会话);它们不是「仍在运行」。runId 以 orchestrate_agents{background:true} 的返回为准,或省略 runIds 收取本会话的后台代理。`, settled, timedOut: false, notFound, runs };
+    return { ok: false, error: `没有找到这些后台代理 run:${notFound.join(', ')}(runId 打错,或不属于当前会话);它们不是「仍在运行」。runId 以 orchestrate_agents{background:true} 的返回为准,或省略 runIds 收取本会话的后台代理。`, settled, timedOut: false, waitMs, notFound, runs };
   }
-  return { ok: true, settled, timedOut: runs.some(run => run.live === true), ...(notFound.length ? { notFound } : {}), runs };
+  const timedOut = runs.some(run => run.live === true);
+  // 到点还有 run 在跑:说清这是【这一次等待窗】到了(不是代理超时、也没中止任何东西),以及怎么办。
+  const timeoutNote = timedOut ? `等待窗(${Math.round(waitMs / 1000)} 秒)已到,仍有代理在后台运行,没有被中止。可以先做别的工作,完成通知会自动送达;或再调 wait_agents(timeoutMs 最大 ${Math.round(waitAgentsMaxMs() / 1000)} 秒)继续等。` : '';
+  return { ok: true, settled, timedOut, waitMs, ...(timeoutNote ? { note: timeoutNote } : {}), ...(notFound.length ? { notFound } : {}), runs };
 }
 // wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
 //  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;
@@ -3098,7 +3161,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
             if (tc.name === 'wait_agents') {
               const requestedRunIds = Array.isArray(args.runIds) && args.runIds.length ? args.runIds : [...backgroundAgentRunIds];
-              resultObj = settleWaitEnvelopes(session, await waitForAgentRunResults(session.id, requestedRunIds, args.timeoutMs == null ? 30000 : args.timeoutMs, ctrl && ctrl.signal));
+              resultObj = settleWaitEnvelopes(session, await waitForAgentRunResults(session.id, requestedRunIds, resolveWaitAgentsMs(args.timeoutMs), ctrl && ctrl.signal, touch));
             } else if (tc.name === 'agent_result') {
               resultObj = await agentRunResultSlice({ sessionId: session.id, runId: args.runId, nodeId: args.nodeId, maxChars: args.maxChars, offset: args.offset });
               if (resultObj && resultObj.ok && resultObj.live !== true && AGENT_RUN_TERMINAL.has(String(resultObj.runStatus)) && EventStreamHooks.markAgentEnvelopeDelivered) EventStreamHooks.markAgentEnvelopeDelivered(session, resultObj.runId);
@@ -3557,7 +3620,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 有正文时前面空一行;同一段文字再作为一个 error 段写进 segments(带 errorClass),经典壳静态重绘时按现成的 msg-error 样式画出来
   // (live 仍是这句话作为正文 + 回合结束的错误卡,所以实时那一发绕开叙事账本,免得静态重绘时同一句话出两遍)。
   let failureNote = '';
-  if (idleAborted) failureNote = `[${provider.label || provider.id} 空闲超时] 本回合超过 ${Math.round(idleLimitMs / 1000)} 秒没有任何进展,已自动中止;可以重新发送`;
+  if (idleAborted) failureNote = `[${provider.label || provider.id} 空闲超时] 本回合超过 ${Math.round(idleLimitMs / 1000)} 秒没有任何进展(没有流式输出、工具心跳或子代理事件),已自动中止;可以重新发送。时长可在「设置 → 工作流与时限 → 一个回合多久没动静算卡住」调大`;
   else if (!ok && !aborted && errorMsg) failureNote = `[${provider.label || provider.id} 请求失败] ${redact(stripUrlUserinfo(errorMsg))}`;
   if (failureNote) {
     const failureText = iterationTextGap(assistantText, failureNote) + failureNote;
