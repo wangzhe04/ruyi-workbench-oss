@@ -262,12 +262,16 @@ If you use the pure `setx` path, check these when something looks wrong:
 a base budget of 1..200, with long turns starting at 200 and allowed to extend to a hard cap of 300 while they make
 progress). Add a provider with an ID, display label, base URL, API key, and model. Ruyi ships **no vendor presets**:
 the starting templates under Settings → Models & Services → Model providers are local Ollama
-(`http://127.0.0.1:11434/v1`), local LM Studio (`http://127.0.0.1:1234/v1`; neither needs a key) and two "custom" entries,
-one for OpenAI-compatible or self-hosted services and one for the Anthropic protocol or a compatible gateway; anything
-else (a cloud API, a one-api gateway, an on-prem vLLM or Xinference) is a hand-entered base URL and key. The protocol
-drop-down (`apiStyle`) sits right under the Base URL and follows the address automatically; override it by hand if it
-guesses wrong. "Test connection" reads the endpoint's model list, and when the endpoint offers none it sends one
-minimal completion with the model you filled in.
+(`http://127.0.0.1:11434/v1`), local LM Studio (`http://127.0.0.1:1234/v1`; neither needs a key) and one "custom (OpenAI-compatible / self-hosted)"
+entry (a standing rule since 2026-09-27, locked by `start-experience.static`; there is no second one); anything else (a
+cloud API, an Anthropic-compatible gateway, a one-api gateway, an on-prem vLLM or Xinference) goes through "custom" as a
+hand-entered base URL and key. The protocol drop-down (`apiStyle`) sits right under the Base URL and is **inferred from
+the address**: `api.anthropic.com`, a path ending in `/anthropic` (or `/anthropic/vN`), or one ending in `/messages` means
+Anthropic Messages; `/chat/completions` means Chat; `/responses` means Responses. Once the user picks a protocol by hand
+the address stops changing it, and when the address box loses focus a pasted `/v1/messages`, `/chat/completions` or
+`/responses` suffix is stripped. "Test connection" reads the endpoint's model list; when the endpoint has none (404 /
+405 / 501, or an empty list) it falls back to one minimal completion with the configured model, and asks for a model if
+none is set.
 Test the connection in Settings before production use. API keys remain on the local machine and are masked in
 ordinary API responses.
 

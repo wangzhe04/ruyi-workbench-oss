@@ -211,7 +211,7 @@
 如意支持两类 AI 引擎，配好任意一个就能用：
 
 - **Agent CLI**（设置 → 模型与服务 →「Agent CLI」）：如果你的电脑 / 内网已经装了 Claude Code 或 Kimi Code 命令行工具，在对应的「CLI 路径」里填它的路径即可（通常管理员已经配好）。
-- **模型服务商**（设置 → 模型与服务 →「模型服务商」）：任意 OpenAI 兼容端点——云端 API、内网自建的模型服务、本机 Ollama / LM Studio 都行。如意**不内置任何厂商预设**：点「+ 添加 Provider」（旁边的下拉里选起点：本机模型 Ollama / LM Studio，或「自定义 (OpenAI 兼容 / 内网自建)」，走 Anthropic 协议的端点选「自定义 (Anthropic 协议 / 兼容网关)」），填服务商给你的 Base URL 和密钥。**协议下拉就在 Base URL 正下方，会按你填的地址自动识别**（Chat Completions／Responses／Anthropic Messages），认错了可以手动改。点「测试连接」：端点有模型清单就读清单；没有模型清单时，会改用你填好的模型发一次最小补全来验证。最后点「保存服务商」。配好后在线程头的「引擎」chip 里切到它，或在 设置 → 模型与服务 →「模型分配」里指定谁用哪个模型。
+- **模型服务商**（设置 → 模型与服务 →「模型服务商」）：任意 OpenAI 兼容端点——云端 API、内网自建的模型服务、本机 Ollama / LM Studio 都行。如意**不内置任何厂商预设**：点「+ 添加 Provider」（旁边的下拉里选起点：本机 Ollama、本机 LM Studio，或「自定义 (OpenAI 兼容 / 内网自建)」）。云端 API 和 Anthropic 兼容网关都用「自定义」：填服务商给你的 Base URL 和密钥。**协议下拉就在 Base URL 正下方，会按你填的地址自动识别**：`api.anthropic.com`、以 `/anthropic`（或 `/anthropic/vN`）结尾、或以 `/messages` 结尾的地址是 Anthropic Messages；以 `/chat/completions` 结尾是 Chat Completions；以 `/responses` 结尾是 Responses API。你一旦手动选过协议，地址就不再改它；地址框失焦时，粘贴进来的 `/v1/messages`、`/chat/completions`、`/responses` 后缀会被去掉。例如接 Anthropic 兼容网关：加一张「自定义」，粘贴 `https://api.example.com/anthropic`，协议自己切到 Anthropic。点「测试连接」：端点有模型清单就读清单；端点没有模型清单（返回 404／405／501，或清单是空的）时，改用配好的模型发一次最小补全来验证，没配模型会请你先填一个。最后点「保存服务商」。配好后在线程头的「引擎」chip 里切到它，或在 设置 → 模型与服务 →「模型分配」里指定谁用哪个模型。
 
 > 密钥只保存在你本机，界面上显示时会打码（只露后 4 位），不会泄露。
 

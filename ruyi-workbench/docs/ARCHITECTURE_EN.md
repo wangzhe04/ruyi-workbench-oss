@@ -39,7 +39,7 @@ audit records, MCP bridging, workflow scheduling, skills, memories, and usage le
 
 ## Engines
 
-The provider engine communicates with OpenAI-compatible HTTP and streaming endpoints (Chat Completions, the Responses API or Anthropic Messages, chosen per provider). Ruyi ships **no vendor presets**: `PROVIDER_PRESETS` holds only local Ollama (`127.0.0.1:11434/v1`), local LM Studio (`127.0.0.1:1234/v1`, both keyless) and two "custom" entries (OpenAI-compatible or self-hosted, and Anthropic protocol or a compatible gateway; the protocol drop-down follows the address automatically); everything else is a hand-entered base URL and key. Manual context compaction (`POST /api/provider/compact`, `runProviderCompact`) runs in the same order as automatic compaction: snapshot first, then fold old tool results (the originals stay recoverable through `observation_recall`); if that is enough it stops at that level, and only if not does it summarise, appending an index of the tool calls already made. The optional Claude CLI
+The provider engine communicates with OpenAI-compatible HTTP and streaming endpoints (Chat Completions, the Responses API or Anthropic Messages, chosen per provider). Ruyi ships **no vendor presets**: `PROVIDER_PRESETS` holds only local Ollama (`127.0.0.1:11434/v1`), local LM Studio (`127.0.0.1:1234/v1`, both keyless) and one "custom (OpenAI-compatible / self-hosted)" entry (an Anthropic-compatible gateway uses it too; the protocol drop-down under the Base URL is inferred from the address — `api.anthropic.com`, a path ending in `/anthropic[/vN]` or `/messages` means Anthropic Messages, `/chat/completions` means Chat, `/responses` means Responses — and stops following the address once picked by hand); everything else is a hand-entered base URL and key. Manual context compaction (`POST /api/provider/compact`, `runProviderCompact`) runs in the same order as automatic compaction: snapshot first, then fold old tool results (the originals stay recoverable through `observation_recall`); if that is enough it stops at that level, and only if not does it summarise, appending an index of the tool calls already made. The optional Claude CLI
 engine runs a user-supplied local executable and injects the generated workbench MCP configuration. Both engines
 share the same session, local tools, permission policy, checkpoint journal, audit model, skills, and memories.
 
@@ -112,8 +112,8 @@ The product is a single-file `app/server.js`; source lives in `app/src/` (**70 m
 product with `node app/build.js` (`node app/build.js --check` reports staleness).
 
 **The module number prefix is the dependency layer.** `module-dependency-policy.json` declares the permitted edges
-and `dev-harness/module-dependency-graph.js --check` pins them: currently **70 modules / 536 edges / 1 SCC** (the generated
-artifacts are authoritative), generated into `docs/architecture/module-dependency-graph.{json,md}`.
+and `dev-harness/module-dependency-graph.js --check` pins them: currently **70 modules / about 540 module edges / 1 SCC** (a reading
+taken when this was written; the generated artifacts are authoritative), generated into `docs/architecture/module-dependency-graph.{json,md}`.
 
 - **00–02** boot and persistence: `00-boot` (constants, `CONFIG_SCHEMA`, `SESSION_SCHEMA`, port budget),
   `01-config` (defaults and `normalizeConfig`), `01b-route-auth` (the deny-by-default `ROUTE_AUTH` table),

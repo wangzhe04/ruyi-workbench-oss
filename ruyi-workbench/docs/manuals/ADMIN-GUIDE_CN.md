@@ -282,7 +282,7 @@ foreach ($v in $vars) {
 | `subagentModel` | 子代理专用模型（空 = 同主 model） |
 | `temperature` / `extraHeaders` | 采样温度 / 额外请求头 |
 
-**不内置任何厂商预设**：「模型服务商」页的起点模板只有本机 Ollama（`http://127.0.0.1:11434/v1`）、本机 LM Studio（`http://127.0.0.1:1234/v1`，两者免密钥）和两条「自定义」——「自定义 (OpenAI 兼容 / 内网自建)」与「自定义 (Anthropic 协议 / 兼容网关)」；云端 API、one-api 网关、内网 vLLM / Xinference 等一律手填 Base URL 与密钥。协议下拉（`apiStyle`）就在 Base URL 正下方，按填的地址自动识别，认错了可手动改。「测试连接」读端点的模型清单；端点没有模型清单时，改用填好的模型发一次最小补全。已经配好的服务商不受影响。
+**不内置任何厂商预设**：「模型服务商」页的起点模板只有本机 Ollama（`http://127.0.0.1:11434/v1`）、本机 LM Studio（`http://127.0.0.1:1234/v1`，两者免密钥）和一条「自定义 (OpenAI 兼容 / 内网自建)」（用户 2026-09-27 的规矩，`start-experience.static` 锁着，不会再加第二条）；云端 API、Anthropic 兼容网关、one-api 网关、内网 vLLM / Xinference 等一律走「自定义」手填 Base URL 与密钥。协议下拉（`apiStyle`）就在 Base URL 正下方，**按地址推断**：`api.anthropic.com`、以 `/anthropic`（或 `/anthropic/vN`）结尾、或以 `/messages` 结尾 → Anthropic Messages；以 `/chat/completions` 结尾 → Chat；以 `/responses` 结尾 → Responses。用户一旦手动选过协议，地址就不再改它；地址框失焦时粘贴进来的 `/v1/messages`、`/chat/completions`、`/responses` 后缀会被剥掉。「测试连接」读端点的模型清单；端点没有模型清单（404 / 405 / 501 或清单为空）时，改用配好的模型发一次最小补全，没配模型会请用户先填一个。已经配好的服务商不受影响。
 
 **extraBaseUrls 备用端点故障转移语义（v1.0-S6）**——这是接入多端点时必须理解的一条：
 

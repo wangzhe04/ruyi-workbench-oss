@@ -217,12 +217,16 @@ Advanced / Update Center). The "?" on each page opens the matching section of th
 
 Configure either a local Agent CLI path (Claude Code or Kimi Code, under Models & Services → Agent CLI) or an
 OpenAI-compatible provider (Models & Services → Model providers: press "+ Add Provider" and pick a starting point from the
-drop-down beside it: a local model (Ollama / LM Studio), or a "custom" entry — one for OpenAI-compatible or
-self-hosted services, one for endpoints that speak the Anthropic protocol or a compatible gateway — then enter the base
-URL and key the service gave you. The protocol drop-down sits right under the Base URL and follows the address
-automatically (Chat Completions, Responses API or Anthropic Messages); override it by hand if it guesses wrong.
-"Test connection" reads the endpoint's model list; when the endpoint offers none, it sends one minimal completion with
-the model you filled in instead. Finally press "Save providers"); one configured
+drop-down beside it: local Ollama, local LM Studio, or the one "custom" entry (OpenAI-compatible / self-hosted). A cloud
+API and an Anthropic-compatible gateway both use "custom": enter the base URL and key the service gave you. The
+protocol drop-down sits right under the Base URL and **follows the address automatically**: `api.anthropic.com`, an
+address whose path ends in `/anthropic` (or `/anthropic/vN`) or in `/messages` means Anthropic Messages; one ending in
+`/chat/completions` means Chat Completions; one ending in `/responses` means the Responses API. Once you pick a protocol
+by hand the address stops changing it, and when the address box loses focus a pasted `/v1/messages`,
+`/chat/completions` or `/responses` suffix is stripped. For an Anthropic-compatible gateway, for example, add a
+"custom" card and paste `https://api.example.com/anthropic`; the protocol switches by itself. "Test connection" reads the
+endpoint's model list; when the endpoint has none (404 / 405 / 501, or an empty list) it falls back to one minimal
+completion with the configured model, and asks you to fill in a model if none is set. Finally press "Save providers"); one configured
 engine is enough to start. Ruyi ships **no vendor presets**. Once configured, choose it from the engine chip in a
 thread's header, or decide who uses which model under Models & Services → Model assignment. Provider keys are
 stored locally and masked in UI responses.
