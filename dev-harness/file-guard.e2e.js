@@ -105,9 +105,10 @@ function post(port, p, payload, headers) {
   const gu = await S.guardFileToolPath(uncCfg, wide(), { write: true });
   ok(gu.ok === false && gu.code === 'not-allowed', 'S3 v2.7.1 adversarial [unc-sessions] app-data denied');
   fs.unlinkSync(osProbe);
-  // 远程 UNC 非回环主机: 不在盘符地板(非本地系统目录) -> 宽写放行属设计意图。
+  // 远程 UNC 非回环主机:修前「不在盘符地板 -> 宽写放行属设计意图」。3.0 收口安全走查 W1 起改为在任何 I/O 之前就拒(宽写档也拒,
+  // 除非落在用户登记的 UNC 工作区里)—— realpath / 读写一碰就去连对方 SMB,是无提示外传通道并泄露本机 NTLM 凭据。
   const gr = await S.guardFileToolPath('\\\\?\\UNC\\remote-host\\C$\\x\\y.txt', wide(), { write: true });
-  ok(gr.ok === true, 'S3 v2.7.1 adversarial [unc-remote] wide-write allowed (non-local share, by design)');
+  ok(gr.ok === false && gr.code === 'not-allowed' && /网络共享/.test(gr.error || ''), 'S3 [unc-remote] wide-write denied before any I/O (W1: a remote share is an exfiltration / NTLM channel)');
   // v2.7.1 对抗轮 G-01: 无前缀原生 UNC 管理共享(localhost/127.0.0.1/本机名)同样必须映射回盘符地板拦截。
   const nativeUncForms = [
     ['\\\\localhost\\C$\\Windows\\Temp\\' + path.basename(osProbe), 'unc-native-localhost'],
