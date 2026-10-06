@@ -341,18 +341,13 @@ function renderAskModal(item, ctx) {
     submit.disabled = true; submit.textContent = t('ask.sending');
     try {
       const r = await api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, answers, content }) });
-      if (!r?.ok || !r.delivered) {
-        // 服务端回了 200 却没送达:修前 throw new Error('answer was not delivered'),经 toast.answerFail 在中文界面
-        // 上屏成「回答发送失败：answer was not delivered」。这里直接给人话,弹窗留着、按钮恢复,可以再点。
-        toast(t('toast.answerNotDelivered'), 'err');
-        submit.disabled = false; submit.textContent = prevLabel;
-        syncState();
-        return;
-      }
+      if (!r?.ok || !r.delivered) throw new Error('answer was not delivered');
       markAnswered();
       ctx.done();   // 出队并关弹窗;队列里还有就轮到下一条
     } catch (e) {
-      toast(t("toast.answerFail", { p1: apiErrText(e) }), 'err');
+      // 服务端回了 200 却没送达(上面那行 throw):修前经 toast.answerFail 在中文界面上屏成「回答发送失败：answer was not delivered」,
+      // 这里给人话。两种失败都把弹窗留着、按钮恢复,可以再点。
+      toast(e?.message === 'answer was not delivered' ? t('toast.answerNotDelivered') : t("toast.answerFail", { p1: apiErrText(e) }), 'err');
       submit.disabled = false; submit.textContent = prevLabel;
       syncState();
     }

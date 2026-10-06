@@ -531,7 +531,12 @@ async function main() {
       await newThreadB();
       await setTextB('PLAN two');
       await clickB('#sendBtn');
-      await fx.waitForEval(`document.querySelectorAll('#messages .plan-card .plan-card-foot button').length === 3 ? 1 : null`, 300);
+      // 计划卡先画、状态条随后才翻成「等你拍板」(两处各听各的事件);Windows CI 负载下首跑读早了一拍(实得「正在思考」)。等两样都到再读。
+      await fx.waitForEval(`(() => {
+        const bar = document.getElementById('turnActivityBar');
+        const barText = bar && !bar.classList.contains('hidden') ? bar.textContent : '';
+        return document.querySelectorAll('#messages .plan-card .plan-card-foot button').length === 3 && /等你拍板/.test(barText) ? 1 : null;
+      })()`, 300);
       const pending = await planState();
       ok(/等你拍板/.test(pending.bar) && pending.hint.length > 0, `F10-1 前提:待批准时状态条「等你拍板」、输入框上有等批准提示(实得 ${JSON.stringify([pending.bar, pending.hint])})`);
       await clickB('#sendBtn');   // 输入框是空的 → 这一枚是「停止」

@@ -14548,17 +14548,17 @@ class McpStdioClient {
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
       if (e && e.mcpChildExit) return mcpChildExitResult(this, name, e.mcpChildExit);   // 审计 A14
-      if (e && e.mcpAborted) {
-        // A cooperative notification is not enough for an arbitrary local MCP server: terminate the
-        // process tree as the safety backstop so an interrupted write cannot continue as a zombie.
-        try { this.kill(); } catch { /* already dead */ }
-        return { ok: false, error: '工具已因用户插话中断；桥接进程树已终止，模型将立即处理新指令', steerInterrupted: true };
-      }
       if (e && e.mcpTimeout) {
         // 47b:超时即杀桥进程树 —— 旧行为是桥先超时、ACC 继续僵尸执行(用户"纠偏"后旧命令仍在后台写文件,
         // 比不能打断更危险)。cancelled 通知已在 _rpc 超时点发出;此处保证无论对端是否协作取消都不留活口。
         try { this.kill(); } catch { /* already dead */ }
         return { ok: false, error: `tool timed out after ${Math.round(limit / 1000)}s; 桥接进程树已终止(防僵尸执行),下次调用将自动重连` };
+      }
+      if (e && e.mcpAborted) {
+        // A cooperative notification is not enough for an arbitrary local MCP server: terminate the
+        // process tree as the safety backstop so an interrupted write cannot continue as a zombie.
+        try { this.kill(); } catch { /* already dead */ }
+        return { ok: false, error: '工具已因用户插话中断；桥接进程树已终止，模型将立即处理新指令', steerInterrupted: true };
       }
       return { ok: false, error: m };
     }

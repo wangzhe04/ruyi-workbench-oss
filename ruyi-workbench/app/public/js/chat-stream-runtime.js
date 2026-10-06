@@ -1017,7 +1017,7 @@ export function createChatStreamRuntime(deps = {}) {
         return sendPrompt(overrideText, { ...options, skipSteer: true });
       }
       if (!r || !r.ok) { toast(t("toast.steerFail", { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err'); return; }
-      if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text } })); $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); releaseSendBtnFocus(); } // 50-fix:清空后按钮回落「停止」;59 §6 同上;焦点离开发送钮,免得下一个空格/回车变成「停止」
+      if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text } })); $('promptInput').value = ''; releaseSendBtnFocus(); autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」;59 §6 同上;焦点离开发送钮,免得下一个空格/回车变成「停止」
       steeredSeen.push({ text, ts: Date.now() });
       if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
       renderSteeredMessage(text);
