@@ -139,6 +139,14 @@ function zipOverlayPkg(pkgDir, zipPath) {
   ok(serverSrc.includes("'POST', p: '/api/overlay/precheck'") && serverSrc.includes("'POST', p: '/api/overlay/apply'") && serverSrc.includes("'POST', p: '/api/overlay/rollback'") && serverSrc.includes("'GET', p: '/api/overlay/status'"), 'S8 四条 overlay 路由入 ROUTE_AUTH(token 级)');
   const manifestJson = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'src', 'manifest.json'), 'utf8'));
   ok(manifestJson.modules.some(m => m.file === '13c-overlay-routes.js'), 'S9 manifest 模块 18(13c-overlay-routes.js)注册');
+  // 走查第二波 #21 / B:回滚后的标记、运行中桌面壳的映像。行为由下面 D7/D8/F 段在真 PowerShell 上验;这里只钉住接线不被改回去。
+  ok(/\$curMarker = Join-Path \$t '\.overlay-applied\.json'/.test(ps1) && /Copy-Item -LiteralPath \$curMarker -Destination \(Join-Path \$backup '\.overlay-applied\.json'\)/.test(ps1),
+    'S10 apply 把上一份 .overlay-applied.json 存进备份');
+  ok(/if \(-not \(Test-Path -LiteralPath \(Join-Path \$latest\.FullName '\.overlay-applied\.json'\)\)\) \{\s*Remove-Item -LiteralPath \(Join-Path \$t '\.overlay-applied\.json'\)/.test(ps1),
+    'S11 rollback:备份里没有上一份标记就清掉(不再只看有没有旧 manifest)');
+  ok(/function Copy-OverlayFile/.test(ps1) && /Move-Item -LiteralPath \$dst -Destination \$aside/.test(ps1) && /\.old-\$stamp/.test(ps1)
+    && /Copy-OverlayFile \$src \$dst \$ts/.test(ps1) && /Copy-OverlayFile \$_\.FullName \$dst/.test(ps1),
+    'S12 apply 与 rollback 都经 Copy-OverlayFile 写文件(被占用的 .exe/.dll 改名挪开再放新文件)');
 
   // ── 临时部署(target;A/B 段 PS1 直测 + C 段 API 共用同一份) ──
   const DEPLOY = path.join(HOME, 'deploy');
@@ -385,6 +393,14 @@ function zipOverlayPkg(pkgDir, zipPath) {
     ok(!fs.existsSync(path.join(DEPLOY, 'app', 'public', 'marker2.txt')), 'D4 rollback 删掉 VALID2 新增的 marker2.txt');
     ok(fs.existsSync(path.join(DEPLOY, 'app', 'public', 'marker.txt')), 'D5 上一步就有的 marker.txt 留着(只删这一次新增的)');
     ok(rbApi && rbApi.removed === 1, `D6 rollback 回执带 removed=1(实测 ${rbApi && rbApi.removed})`);
+    // 走查第二波 #21:第二个覆盖包的回滚要把「已应用」标记放回上一份(9.9.9-test),而不是继续指着刚回滚掉的 9.9.10-test2;
+    // 修前只在「备份里没有旧 manifest」时才清标记,这里(有旧 manifest)会留着,之后同版本重套被幂等预检误拒。
+    const stRb = await get(WP, '/api/overlay/status', hdr);
+    ok(stRb && stRb.current && stRb.current.version === '9.9.9-test',
+      `D7 回滚后 status.current 回到上一份标记 9.9.9-test(实测 ${stRb && stRb.current && stRb.current.version})`);
+    const pcAgain = await post(WP, '/api/overlay/precheck', { zipPath: VALID2_ZIP }, hdr);
+    ok(pcAgain && pcAgain.ok === true && !(pcAgain.warnings || []).some(w => /already applied/.test(w)),
+      `D8 回滚掉的版本(VALID2)重套不再被当成「已应用」(warnings ${JSON.stringify(pcAgain && pcAgain.warnings)})`);
 
   } finally {
     kill(wb);
@@ -416,6 +432,57 @@ function zipOverlayPkg(pkgDir, zipPath) {
   ok(eau.json && eau.json.entries.some(e => e.action === 'apply' && e.result === 'ok'), 'E7 audit 含 apply ok(故障前状态)');
   ok(eau.json && eau.json.entries.some(e => e.action === 'rollback' && e.result === 'ok'), 'E8 audit 含 rollback ok(恢复操作)');
   ok(eau.json && eau.json.entries.filter(e => e.action === 'apply' || e.action === 'rollback').length >= 2, 'E9 audit 完整追溯故障->恢复链(>=2 条)');
+
+  // ── F 段: 运行中的桌面壳(走查第二波 B) ──
+  // 应用内更新中心跑在桌面壳里:RuyiDesktop.exe 正在运行(映像被占用),覆盖包载荷里恰好带着它。修前 Copy-Item -Force 在
+  // 共享冲突上抛错,这次 apply 记为 failed 并留下半套更新;修后改名挪开旧映像(NTFS 允许)再放新文件,下次启动壳才载入。
+  // 用 node.exe 的副本冒充运行中的 RuyiDesktop.exe(同样是被占用的可执行映像)。
+  console.log('── F 段: 套用时 RuyiDesktop.exe 正在运行(改名挪开,不失败) ──');
+  const DEPLOY_F = path.join(HOME, 'deploy-f');
+  fs.mkdirSync(path.join(DEPLOY_F, 'app', 'public'), { recursive: true });
+  fs.writeFileSync(path.join(DEPLOY_F, 'app', 'public', 'hello.txt'), 'ORIGINAL-F');
+  fs.writeFileSync(path.join(DEPLOY_F, 'package.json'), JSON.stringify({ version: '2.0.1' }));
+  const FAKE_SHELL = path.join(DEPLOY_F, 'RuyiDesktop.exe');
+  fs.copyFileSync(process.execPath, FAKE_SHELL);
+  const shellProc = cp.spawn(FAKE_SHELL, ['-e', 'setInterval(function () {}, 1000)'], { windowsHide: true, stdio: 'ignore' });
+  try {
+    await sleep(800);
+    ok(shellProc.exitCode === null && shellProc.pid > 0, 'F0 假「运行中的桌面壳」已起(映像被占用)');
+    const F_PKG = path.join(HOME, 'pkg-f');
+    buildOverlayPkg(F_PKG, {
+      version: '9.9.11-test3', minHostVersion: '2.0.1',
+      files: [
+        { path: 'app/public/hello.txt', content: 'F-NEW-DATA' },
+        { path: 'RuyiDesktop.exe', content: 'NEW-SHELL-BYTES' },
+      ],
+    });
+    const fa = runPs1('apply', F_PKG, DEPLOY_F);
+    ok(fa.json && fa.json.ok === true, `F1 apply 在 RuyiDesktop.exe 运行中也成功(实测 ${JSON.stringify(fa.json && (fa.json.error || fa.json.verify))})`);
+    ok(fa.json && Array.isArray(fa.json.replacedInUse) && fa.json.replacedInUse.includes('RuyiDesktop.exe'),
+      `F2 回执 replacedInUse 列出被改名挪开的 RuyiDesktop.exe(实测 ${JSON.stringify(fa.json && fa.json.replacedInUse)})`);
+    ok(fs.readFileSync(FAKE_SHELL, 'utf8') === 'NEW-SHELL-BYTES', 'F3 原路径上已是新文件(下次启动壳载入它)');
+    ok(fs.readFileSync(path.join(DEPLOY_F, 'app', 'public', 'hello.txt'), 'utf8') === 'F-NEW-DATA', 'F4 同一次 apply 的其余文件照常落地(没有半套更新)');
+    ok(fs.readdirSync(DEPLOY_F).some(n => /^RuyiDesktop\.exe\.old-/.test(n)), 'F5 旧映像被改名挪开(RuyiDesktop.exe.old-*),运行中的进程不受影响');
+    ok(shellProc.exitCode === null, 'F6 运行中的进程没被打断');
+    ok(fa.leak === '', 'F7 -Json 输出仍无管道泄漏');
+    const fr = runPs1('rollback', null, DEPLOY_F, ['-Force']);
+    ok(fr.json && fr.json.ok === true, `F8 壳仍在运行时 rollback 也成功(实测 ${JSON.stringify(fr.json && fr.json.error)})`);
+    ok(fs.readFileSync(path.join(DEPLOY_F, 'app', 'public', 'hello.txt'), 'utf8') === 'ORIGINAL-F', 'F9 rollback 恢复原数据');
+  } finally {
+    kill(shellProc);
+  }
+  await sleep(1500); // 进程退出后句柄释放有延迟;F11 要清掉的旁路文件此刻才解除占用
+  {
+    const F2_PKG = path.join(HOME, 'pkg-f2');
+    buildOverlayPkg(F2_PKG, {
+      version: '9.9.12-test4', minHostVersion: '2.0.1',
+      files: [{ path: 'app/public/hello.txt', content: 'F2-DATA' }],
+    });
+    const fb = runPs1('apply', F2_PKG, DEPLOY_F);
+    ok(fb.json && fb.json.ok === true, 'F10 壳退出后再 apply 成功');
+    ok(!fs.readdirSync(DEPLOY_F).some(n => /^RuyiDesktop\.exe\.old-/.test(n)),
+      `F11 壳退出后下一次 apply 清掉了以往的旁路文件(剩 ${JSON.stringify(fs.readdirSync(DEPLOY_F).filter(n => /\.old-/.test(n)))})`);
+  }
 
   // 收尾
   fs.rmSync(HOME, { recursive: true, force: true });

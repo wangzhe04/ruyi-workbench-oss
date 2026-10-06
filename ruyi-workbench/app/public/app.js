@@ -87,6 +87,7 @@ const API_ERROR_I18N = {
   'session.id_invalid': 'error.api.sessionInvalid',
   'session.id_required': 'error.api.sessionRequired',
   'session.not_found': 'error.api.sessionNotFound', 'agent_workflow.cycle': 'error.api.agentWorkflowCycle', 'agent_workflow.unknown_role': 'error.api.agentWorkflowUnknownRole',
+  'memory.proposal_stale': 'error.api.memoryProposalStale', 'memory.move_conflict': 'error.api.memoryMoveConflict',
   'checkpoint.not_found': 'error.api.checkpointNotFound',
   'checkpoint.reference_invalid': 'error.api.checkpointReferenceInvalid',
   'file.path_required': 'error.api.pathRequired',
@@ -196,7 +197,7 @@ const {
   playbookStatusText,
   renderSkillList,
   saveAsMemory,
-  settingsSkillsApi, suggestMemoryFromTurn,
+  settingsSkillsApi, suggestMemoryFromTurn, restoreMemoryProposalCard,
   updateSkillBadge,
 } = createSkillsMemoryDomain({
   apiErrText,
@@ -906,6 +907,7 @@ const {
   playbookInputLabel,
   playbookStatusText,
   refreshToolPane: () => refreshToolPane(),   // 128f-⑫（审计 D／E）：撤销之后、切回工作台重读之后右栏页签跟上
+  restoreMemoryProposalCard: (...args) => restoreMemoryProposalCard(...args),   // 打开线程后把服务端仍待确认的记忆候选卡画回来
 });
 
 // 121-K1（34 号文 §8.2）：视角模式控制器。applyShellMode 是全仓写 data-shell-mode 的唯一常规入口，

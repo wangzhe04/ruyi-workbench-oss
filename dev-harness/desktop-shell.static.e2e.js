@@ -2,6 +2,7 @@
 // Native desktop-shell regression locks: rounded restored windows and a parent-owned resize band.
 const fs = require('fs');
 const path = require('path');
+const { bracedBlock } = require('./lib/source-slice.js');
 const source = fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'desktop', 'RuyiDesktop.cs'), 'utf8');
 let fail = 0;
 const ok = (condition, label) => {
@@ -91,6 +92,46 @@ ok(/\/platform:x64/.test(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbe
   ok(/new notificationApi\(title, \{ body, tag: entry\.key \}\)/.test(quiet),
     'S-09 没有桌面壳（浏览器模式）仍回落到 Notification');
 }
+
+// 走查第二波 #23:无边框最大化(WM_GETMINMAXINFO)的 ptMaxPosition。它相对【所在显示器自己的左上角】(系统会加上 rcMonitor.left/top,
+// 所以副屏不用传绝对坐标),但工作区可能从显示器内部开始 —— 任务栏停靠在左 / 上时工作区原点是 (宽, 0) / (0, 高)。
+// 修前恒为 0,窗口被压在任务栏下面、右 / 下露一条缝。本机没有 C# 编译器,字段名靠这里与上面的结构体声明逐字对上。
+{
+  const body = bracedBlock(source, 'if (m.Msg == Native.WM_GETMINMAXINFO)');
+  ok(body.length > 300, '#23 切到了 WM_GETMINMAXINFO 处理块');
+  ok(/mmi\.ptMaxPosition\.x = mi\.rcWork\.left - mi\.rcMonitor\.left;/.test(body)
+    && /mmi\.ptMaxPosition\.y = mi\.rcWork\.top - mi\.rcMonitor\.top;/.test(body)
+    && !/ptMaxPosition\.[xy] = 0\b/.test(body),
+    '#23 ptMaxPosition = 工作区原点 - 显示器原点(任务栏在左 / 上时窗口不再压在任务栏下)');
+  ok(/mmi\.ptMaxSize\.x = mi\.rcWork\.right - mi\.rcWork\.left;/.test(body) && /mmi\.ptMaxSize\.y = mi\.rcWork\.bottom - mi\.rcWork\.top;/.test(body),
+    '#23 ptMaxSize 仍是工作区宽高(与上面的原点配套)');
+  const monitorInfo = bracedBlock(source, 'public struct MONITORINFO');
+  const minMax = bracedBlock(source, 'public struct MINMAXINFO');
+  ok(/public RECT rcMonitor;/.test(monitorInfo) && /public RECT rcWork;/.test(monitorInfo) && /public POINT ptMaxPosition;/.test(minMax)
+    && /public struct RECT \{ public int left, top, right, bottom; \}/.test(source) && /public struct POINT \{ public int x, y; \}/.test(source),
+    '#23 用到的 P/Invoke 结构体字段(rcMonitor / rcWork / ptMaxPosition / left,top / x,y)声明都在');
+}
+
+// 走查第二波 #24:服务先于地址就绪就失败时只弹一次。修前 OnServerExited 弹「后台服务已退出」,30 秒后 OnBootTimeout 又弹
+// 「30 秒内未就绪」并关窗(第一个模态框还开着时第二个嵌套弹出)。两处共用 bootFailureShown(UI 线程内读写),谁先弹谁置位。
+{
+  const timeout = bracedBlock(source, 'private void OnBootTimeout(object state)');
+  const exited = bracedBlock(source, 'public void OnServerExited(int code)');
+  ok(timeout.length > 200 && exited.length > 200, '#24 切到了 OnBootTimeout / OnServerExited');
+  ok(/private bool bootFailureShown;/.test(source), '#24 共享标志 bootFailureShown 声明在');
+  ok(/bootFailureShown\) return;\s*\r?\n\s*bootFailureShown = true;/.test(timeout) && (timeout.match(/MessageBox\.Show/g) || []).length === 1,
+    '#24 OnBootTimeout:已弹过就不再弹,弹之前置位,仍只有一处 MessageBox');
+  ok(/if \(!webViewReady && !bootFailureShown\)/.test(exited) && /bootFailureShown = true;[\s\S]*MessageBox\.Show/.test(exited)
+    && (exited.match(/MessageBox\.Show/g) || []).length === 1,
+    '#24 OnServerExited:同一个标志,置位在弹窗之前,仍只有一处 MessageBox');
+  ok(/MessageBox\.Show[\s\S]*?if \(string\.IsNullOrEmpty\(serverUrl\) && !IsDisposed\) Close\(\);/.test(exited),
+    '#24 服务在地址就绪前就退了:提示关掉后收窗(与启动超时同一出口;没有页面可显示)');
+}
+
+// 本机没有 C# 编译器,编译只在 release-dryrun(Windows,系统 csc.exe = C# 5)里发生 —— 这里钉住 C# 6+ 语法没有混进来。
+ok(!/\?\.[A-Za-z_]/.test(source.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '').replace(/"(?:[^"\\\n]|\\.)*"/g, '""'))
+  && !/\$"/.test(source) && !/\bnameof\(/.test(source),
+  'C# 5 语法:无 ?. 空条件、无 $"" 插值、无 nameof(系统 csc 不认)');
 
 console.log('\nDESKTOP SHELL STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

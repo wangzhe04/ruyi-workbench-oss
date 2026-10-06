@@ -202,7 +202,8 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
       const r = row('migration-row-instruction');
       r.dataset.key = x.key;
       const detail = x.displayPath + (x.entries ? ' · ' + tCount('migration.import.entries', x.entries, { core: x.coreEntries }) : '')
-        + (x.userModified ? ' · ' + t('migration.import.userModified') : '');
+        + (x.userModified ? ' · ' + t('migration.import.userModified') : '')
+        + (x.sensitiveSkipped ? ' · ' + tCount('migration.import.sensitiveSkipped', x.sensitiveSkipped) : '');
       r.append(rowText(x.label, detail), statusChip(x.status));
       const actions = el('div', 'migration-row-actions');
       if (x.status === 'importable' || x.status === 'dismissed' || x.status === 'source-updated') {

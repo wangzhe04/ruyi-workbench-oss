@@ -659,6 +659,7 @@ namespace RuyiDesktop
         private bool navigated;
         private NotifyIcon trayIcon;
         private readonly System.Threading.Timer bootTimer;
+        private bool bootFailureShown;  // 服务没起来时只弹一次:OnServerExited 与 OnBootTimeout 共用(只在 UI 线程读写)
 
         // COM 回调对象必须强引用存活（CCW 被 GC 会崩）。
         private EnvHandler envHandler;
@@ -967,7 +968,8 @@ namespace RuyiDesktop
             if (!string.IsNullOrEmpty(serverUrl)) return;
             BeginInvoke((Action)delegate
             {
-                if (!string.IsNullOrEmpty(serverUrl) || IsDisposed) return;
+                if (!string.IsNullOrEmpty(serverUrl) || IsDisposed || bootFailureShown) return;
+                bootFailureShown = true;
                 string tail = server.StderrTail.Trim();
                 string detail = tail.Length > 0 ? "\n\n服务输出：\n" + tail : "";
                 MessageBox.Show(this, "后台服务 30 秒内未就绪。" + detail, "如意工作台",
@@ -983,9 +985,17 @@ namespace RuyiDesktop
             {
                 if (IsDisposed) return;
                 titlePanel.SetStatus("服务已停止 (exit " + code + ")", false);
-                if (!webViewReady)
-                    MessageBox.Show(this, "后台服务已退出（exit " + code + "）。", "如意工作台",
+                if (!webViewReady && !bootFailureShown)
+                {
+                    // 服务先于地址就绪就退出了:这一条就是启动失败的提示。修前它弹完,30 秒后 OnBootTimeout 又弹一次
+                    // 「30 秒内未就绪」并关窗;现在两处共用 bootFailureShown,只弹一次,弹窗关掉后收窗(没有页面可显示)。
+                    bootFailureShown = true;
+                    string tail = string.IsNullOrEmpty(serverUrl) ? server.StderrTail.Trim() : "";
+                    string detail = tail.Length > 0 ? "\n\n服务输出：\n" + tail : "";
+                    MessageBox.Show(this, "后台服务已退出（exit " + code + "）。" + detail, "如意工作台",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (string.IsNullOrEmpty(serverUrl) && !IsDisposed) Close();
+                }
             });
         }
 
@@ -1363,8 +1373,12 @@ namespace RuyiDesktop
                 mi.cbSize = Marshal.SizeOf(typeof(Native.MONITORINFO));
                 if (Native.GetMonitorInfo(mon, ref mi))
                 {
-                    mmi.ptMaxPosition.x = 0; // system adds monitor work-area origin itself (secondary-screen fix)
-                    mmi.ptMaxPosition.y = 0;
+                    // ptMaxPosition is relative to the monitor's own top-left corner (the system adds rcMonitor.left/top, so a
+                    // secondary screen needs no absolute coordinates). The work area can start INSIDE the monitor when the
+                    // taskbar is docked left or top, and that offset is ours to pass: with 0 the window sits under the
+                    // taskbar and a gap shows on the right / bottom edge.
+                    mmi.ptMaxPosition.x = mi.rcWork.left - mi.rcMonitor.left;
+                    mmi.ptMaxPosition.y = mi.rcWork.top - mi.rcMonitor.top;
                     mmi.ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
                     mmi.ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
                     mmi.ptMinTrackSize.x = MinimumSize.Width;
