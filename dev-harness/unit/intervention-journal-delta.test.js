@@ -1,12 +1,12 @@
 'use strict';
 // 走查 W1 #6:介入日志(<id>.interventions.ndjson)的写放大与无界增长。真源码、临时 HOME、真读盘真写盘。
-// 修前:applying / terminal 行都 `...cur` 整份重抄(含 permission 的 input,可能很大)→ 每条介入 3 份完整 input;
+// 修前:CAS 路径(transitionInterventionState)的 applying / terminal 行都 `...cur` 整份重抄(含 permission 的 input,可能很大)→ 每条介入 3 份完整 input;
 // 压实判据 `rowCount > max(256, rowsAfter*3)` 对「恰好 3 行/条」永远不过;interventionRecordCache 只增不减。
 //   [D1] applying / terminal 行只写增量字段(不再带 input / toolName / requestedAt),读侧折叠后字段一个不少;
 //   [D2] 幂等重放照常:同 idempotencyKey 的重试回放落在终态行上的 decisionResponse(增量行也带得住);
 //   [D3] 每条介入恰好 3 行时,周期压实的判据真的会过(不用 force),压完事实与压前一致、行数 = 条数;
 //   [D4] 旧格式的整份重抄行与新格式增量行混在一份日志里,折叠结果一致(向后兼容);
-//   [D5] 重启终态化(markInterruptedInterventions)写的也是增量行(结构锁;折叠合并语义由 D4 钉);
+//   [D5] 反向锁:旧路径 settleIntervention / 重启终态化仍写完整状态行(interventions-persist (f) 钉着,别误伤);
 //   [D6] 缓存生命周期的结构锁:结算/落终态时摘缓存、删会话时清缓存。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -44,12 +44,16 @@ test('[D1] applying / terminal 行只写增量,读侧折叠后字段不丢', asy
   assert.ok(rows[0].input && rows[0].input.content.length === 20000, 'register 行带完整 input');
   for (const row of rows.slice(1)) {
     assert.equal(row.input, undefined, '增量行不再重抄 input');
-    assert.equal(row.toolName, undefined);
-    assert.equal(row.requestedAt, undefined);
-    assert.ok(JSON.stringify(row).length < 600, `增量行很小(实 ${JSON.stringify(row).length} 字节)`);
+    assert.equal(row.type, 'permission', '但行首带短标量身份:type / requestedAt / toolName / tier(直读末行的读者认它)');
+    assert.equal(row.requestedAt, rows[0].requestedAt);
+    assert.equal(row.toolName, 'file_write');
+    assert.equal(row.tier, 'edit');
+    assert.ok(JSON.stringify(row).length < 700, `增量行很小(实 ${JSON.stringify(row).length} 字节)`);
   }
   assert.equal(rows[1].status, 'applying');
   assert.equal(rows[2].status, 'allowed');
+  assert.equal(rows[2].idempotencyKey, 'k-d1', '终态行自带重放身份(直读末行的读者认它)');
+  assert.equal(rows[2].decisionFingerprint, 'fp-d1');
   const [iv] = await readInterventions(s.id);
   assert.equal(iv.status, 'allowed');
   assert.equal(iv.interventionVersion, 2);
@@ -131,14 +135,13 @@ test('[D4] 旧格式整份重抄行 + 新格式增量行混写,折叠结果一�
   assert.equal(iv.requestedAt, '2026-10-01T00:00:00.000Z');
 });
 
-test('[D5] 重启终态化(markInterruptedInterventions)写增量行(结构锁:不再 ...iv 整份重抄)', () => {
+test('[D5] 旧路径 settleIntervention / 重启终态化仍写完整状态行(interventions-persist (f) 钉着;写放大只治 CAS 路径)', () => {
   const src = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/02-session-store.js'), 'utf8');
-  const body = functionBlock(src, 'markInterruptedInterventions');
-  assert.ok(body.length > 500, '切到了');
-  assert.ok(!/\.\.\.iv\b/.test(body), 'cancelled_restart / indeterminate 行不再整份展开 iv(含 input)');
-  assert.match(body, /status: 'cancelled_restart'/);
-  assert.match(body, /status: 'indeterminate'/);
-  // 折叠语义:只带增量字段的终态化行并进 register 行后,type / input 仍在(与 [D4] 同一条读侧合并折叠)。
+  const settle = functionBlock(src, 'settleIntervention');
+  const mark = functionBlock(src, 'markInterruptedInterventions');
+  assert.ok(settle.length > 100 && mark.length > 500, '切到了');
+  assert.match(settle, /\.\.\.\(cached \|\| \{\}\)/, 'settle 经缓存合并写完整状态行(保留 type / requestedAt)');
+  assert.match(mark, /\.\.\.iv,/, '重启终态化写完整行(保留 type / requestedAt / toolName)');
 });
 
 test('[D6] 缓存生命周期(结构锁):结算与落终态摘缓存,删会话清缓存', () => {

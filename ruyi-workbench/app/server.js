@@ -7049,18 +7049,18 @@ function registerIntervention(sessionId, type, ivId, extra) {
 // 重复结算(竞态)会 append 多条,读时后写胜折叠取最后一条 -- 状态仍可区分,不致命。
 function settleIntervention(sessionId, ivId, status, extra) {
   const sid = String(sessionId || ''), id = String(ivId || '');
-  const cached = interventionRecordCache.get(ivCacheKey(sid, id)); // 75a: 缓存里是完整记录(type/requestedAt/toolName/...),只用来算版本号与事件载荷
+  const cached = interventionRecordCache.get(ivCacheKey(sid, id)); // 75a: complete-state merge (preserve type/requestedAt/toolName/...)
   const prevVer = (cached && Number.isFinite(Number(cached.interventionVersion))) ? Number(cached.interventionVersion) : 0;
-  // 落盘只写「这次变了的字段」,不再整份重抄 register 行(permission 的 input 可能很大:修前每次结算把它再写一遍)。
-  // 读侧 foldInterventionJournalText 本来就是后写覆盖的合并折叠,type/requestedAt/input 由 register 行带着;缓存未命中也一样。
-  const row = { id, sessionId: sid, status, decidedAt: nowIso(), decidedBy: '', interventionVersion: prevVer + 1, ...(extra || {}) };
-  // 结算都是终态:缓存条目不再有用,摘掉(重复结算的竞态也只是多追一行增量,读时后写胜)。
+  // 这条旧路径(权限/提问/计划的超时、清理、经典端点)仍写【完整状态行】:interventions-persist 的 (f) 钉着「settle 保留 type /
+  // requestedAt」,直读日志末行的旧读者也靠它。写放大的治理只落在 transitionInterventionState(CAS 路径的 applying/terminal 增量行)。
+  const rec = { ...(cached || {}), id, sessionId: sid, status, decidedAt: nowIso(), decidedBy: '', interventionVersion: prevVer + 1, ...(extra || {}) };
+  // 结算都是终态:缓存条目用完即摘(修前从不删,每条介入留一份完整记录在内存里);重复结算的竞态照旧是多追一行、读时后写胜。
   if (INTERVENTION_TERMINAL.has(status)) interventionRecordCache.delete(ivCacheKey(sid, id));
-  else interventionRecordCache.set(ivCacheKey(sid, id), { ...(cached || {}), ...row });
-  appendIntervention(sessionId, row).then(() => bumpMissionChangeSeq(sid, {
+  else interventionRecordCache.set(ivCacheKey(sid, id), rec);
+  appendIntervention(sessionId, rec).then(() => bumpMissionChangeSeq(sid, {
     type: 'intervention_resolved',
-    cursor: { interventionId: id, interventionVersion: row.interventionVersion },
-    detail: { status, interventionType: String((cached && cached.type) || row.type || '') },
+    cursor: { interventionId: id, interventionVersion: rec.interventionVersion },
+    detail: { status, interventionType: rec.type || '' },
   })).catch(() => {});
 }
 // 75c: journal fold returns facts plus integrity evidence. Invalid non-empty rows must not disappear behind a
@@ -7186,13 +7186,12 @@ async function markInterruptedInterventions() {
         const run = poolRuns.find(r => r && r.id === iv.runId);
         if (run && run.status === 'paused') continue; // 恢复后可决策,保留 pending
       }
-      // 只写增量行(读侧合并折叠会带上 register 行的 type/requestedAt/toolName/input,不再整份重抄)+ 版本号 +1。
-      appendIntervention(sessionId, { id: iv.id, sessionId, type: iv.type || '', status: 'cancelled_restart', decidedAt: stamp, decidedBy: 'restart', interventionVersion: (Number(iv.interventionVersion) || 0) + 1 });
+      appendIntervention(sessionId, { ...iv, id: iv.id, sessionId, type: iv.type || '', status: 'cancelled_restart', decidedAt: stamp, decidedBy: 'restart', interventionVersion: (Number(iv.interventionVersion) || 0) + 1 }); // 75a: complete row (preserve type/requestedAt/toolName) + version bump
     }
     // 75a-2 (SCHEMA §7 崩溃语义): applying = crash during a transition (写 applying 后/resolve 前|后/terminal 前).
     // 重启遇到 applying 不自动重放高风险动作 -- 对照执行审计后进入诚实终态 indeterminate(动作副作用是否发生未知)。
     for (const iv of applying) {
-      appendIntervention(sessionId, { id: iv.id, sessionId, type: iv.type || '', status: 'indeterminate', decidedAt: stamp, decidedBy: 'restart', interventionVersion: (Number(iv.interventionVersion) || 0) + 1 });
+      appendIntervention(sessionId, { ...iv, id: iv.id, sessionId, type: iv.type || '', status: 'indeterminate', decidedAt: stamp, decidedBy: 'restart', interventionVersion: (Number(iv.interventionVersion) || 0) + 1 });
     }
   }
 }
@@ -7268,10 +7267,19 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     // 3. 落 applying(pending -> applying)。authoritative:await 落盘后再推进。
     if (crashAt === 'before_applying') throw new Error('__cas_crash:before_applying');
     // 落盘只写增量行(迁移改了的字段),不再整份重抄 cur —— 修前 register/applying/terminal 三行各带一份完整 input,
-    // 写放大 3 倍。读侧 foldInterventionJournalText 是后写覆盖的合并折叠,type/requestedAt/toolName/input 由 register 行带着。
+    // 写放大 3 倍。读侧 foldInterventionJournalText 是后写覆盖的合并折叠,input / questions / planSummary 这类大字段由 register 行带着;
+    // 行首只多带几枚【短标量身份】(type / requestedAt / toolName / tier):直读日志末行的读者(interventions-persist (f)
+    // 「settle 保留 type / requestedAt」)与人眼排查都认「每行自己说得清是谁」,而它们加起来不过几十字节。
+    const identity = {
+      ...(cur.type ? { type: cur.type } : {}),
+      ...(cur.requestedAt ? { requestedAt: cur.requestedAt } : {}),
+      ...(cur.toolName ? { toolName: cur.toolName } : {}),
+      ...(cur.tier ? { tier: cur.tier } : {}),
+    };
     const applyingRow = {
       id,
       sessionId: sid,
+      ...identity,
       status: 'applying',
       decidedAt: '',
       decidedBy: '',
@@ -7308,15 +7316,19 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     const response = typeof opts.buildResponse === 'function'
       ? opts.buildResponse(result, { status: resolvedStatus, interventionVersion: curVer + 2 })
       : undefined;
-    // 终态行同样只写增量:applying 行已带 source / idempotencyKey / decisionFingerprint(折叠合并后仍在),这里补终态字段。
+    // 终态行同样只写增量。重放身份(idempotencyKey / decisionFingerprint)在终态行上再带一份:它们很小,而直读日志末行的读者
+    // (steward-exempt-no-swap 读 allowed 行上的指纹)认的就是终态行本身;其余字段(type / toolName / input …)由 register 行带着。
     const termRow = {
       id,
       sessionId: sid,
+      ...identity,
       status: resolvedStatus,
       decidedAt: nowIso(),
       decidedBy: String(opts.decidedBy || 'user'),
       interventionVersion: curVer + 2,
       source: String(opts.source || 'contract'),
+      ...(opts.idempotencyKey ? { idempotencyKey: String(opts.idempotencyKey) } : {}),
+      ...(opts.decisionFingerprint ? { decisionFingerprint: String(opts.decisionFingerprint) } : {}),
       ...(dynamicExtra || {}),
       ...(response && typeof response === 'object' ? { decisionResponse: response } : {}),
     };
