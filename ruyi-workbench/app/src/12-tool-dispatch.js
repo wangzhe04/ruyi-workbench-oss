@@ -1611,6 +1611,7 @@ const FILE_TOOL_HANDLERS = {
         // 调用方在 pattern(正则或 glob)/ root 里显式点名的目录不剪(`^dist/`、root=…/build)。
         allowDirs: explicitAllowDirs(root, cls.kind === 'regex' ? explicitSegmentsOfRegex(args.pattern) : cls.kind === 'glob' ? explicitSegmentsOfGlob(args.pattern) : []),
       });
+      respellWalkPaths(walked, walkRoot, root);   // 第三波(复核 #6):回给模型的绝对路径保持调用方的写法(映射盘 / 别名不换成 UNC / 真身)
       // F12:信封只带相对路径(root 已在顶层);absolute:true 才补绝对 path。
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'file_list'); }
@@ -1647,6 +1648,7 @@ const FILE_TOOL_HANDLERS = {
           kept.push(m);
         }
         matches = kept;
+        respellWalkPaths(matches, walkRoot, root);   // 第三波(复核 #6):敏感名单与硬链接判据已按 realpath 判完,回给模型的 path 换回调用方的写法
       }
       const resp = { ok: true, root, matches };
       if (meta.engine) resp.engine = meta.engine;
@@ -1707,6 +1709,7 @@ const FILE_TOOL_HANDLERS = {
         emitDirs: false, accept: rel => globRe.test(rel), ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true,
         allowDirs: explicitAllowDirs(walkRoot, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
       });
+      respellWalkPaths(all, walkRoot, root);   // 第三波(复核 #6)
       const matched = all.filter(f => f.type === 'file').map(f => ({ path: f.path, relativePath: f.relativePath, mtime: f.mtimeMs || 0 }));
       matched.sort((a, b) => b.mtime - a.mtime);
       const truncated = matched.length > maxResults || all.truncated === true;
@@ -1731,6 +1734,7 @@ const FILE_TOOL_HANDLERS = {
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
       const walked = await walkFiles(walkRoot, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(walkRoot, []) });
+      respellWalkPaths(walked, walkRoot, root);   // 第三波(复核 #6)
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'project_snapshot') + ' (entries are listed breadth-first: every top-level entry comes before deeper ones)'; }
       if (walked.prunedDirs) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('project_snapshot'); }
@@ -1998,6 +2002,29 @@ async function nearestGitignore(root) {
 // 信封里回显的 root 仍是调用方给的写法(只换遍历用的那一份);守门没给 absPath(不该发生)时退回原 root。
 function guardedWalkRoot(root, g) {
   return (g && typeof g.absPath === 'string' && g.absPath) ? g.absPath : root;
+}
+// 第三波(复核 #6):遍历用的是 realpath 根,但回给模型的路径必须保持【调用方的写法】—— 映射盘 `Z:\proj` 的 realpath 是 `\\fileserver\dept\proj`,
+// 若把后者原样交给模型,它再拿去 file_read / file_edit 就会撞上 UNC 外联闸(那是用户自己配的工作区);符号链接 / 联接工作区同理(别名换成了真身)。
+// 遍历结果里凡是以 walkRoot 开头(且下一个字符是分隔符或到此为止)的字符串,把这段前缀换回 root;walkRoot 与 root 相同时什么都不做。
+// 就地改写并返回同一个对象(数组上挂的 engine / truncated 之类元数据不丢)。敏感名单 / 硬链接判据必须在改写【之前】按 realpath 判。
+function respellWalkPaths(value, walkRoot, root) {
+  const from = String(walkRoot == null ? '' : walkRoot).replace(/[\\/]+$/, '');
+  const to = String(root == null ? '' : root).replace(/[\\/]+$/, '');
+  if (!from || from === to || !value || typeof value !== 'object') return value;
+  const fix = str => (str === from || ((str[from.length] === '\\' || str[from.length] === '/') && str.startsWith(from))) ? to + str.slice(from.length) : str;
+  let budget = 200000;
+  const visit = (node, depth) => {
+    if (depth > 8) return;
+    const keys = Array.isArray(node) ? node.keys() : Object.keys(node);
+    for (const k of keys) {
+      if (--budget < 0) return;
+      const v = node[k];
+      if (typeof v === 'string') node[k] = fix(v);
+      else if (v && typeof v === 'object') visit(v, depth + 1);
+    }
+  };
+  visit(value, 0);
+  return value;
 }
 async function toolRootProblem(root) {
   let st = null;
@@ -2443,7 +2470,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return dependencyInventory(guardedWalkRoot(root, g));
+      return respellWalkPaths(await dependencyInventory(guardedWalkRoot(root, g)), guardedWalkRoot(root, g), root);
   } },
   code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2451,7 +2478,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codeReviewScan(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await codeReviewScan(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2459,7 +2486,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return frontendAudit(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await frontendAudit(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2467,7 +2494,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return claudeMdAudit(guardedWalkRoot(root, g));
+      return respellWalkPaths(await claudeMdAudit(guardedWalkRoot(root, g)), guardedWalkRoot(root, g), root);
   } },
   docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2475,7 +2502,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args);
+      return respellWalkPaths(await docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args), guardedWalkRoot(root, g), root);
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
@@ -2485,7 +2512,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return codebaseSymbolSearch(guardedWalkRoot(root, g), args);
+      return respellWalkPaths(await codebaseSymbolSearch(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
   } },
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
       return debugHypothesis(args);

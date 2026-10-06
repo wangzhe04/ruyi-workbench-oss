@@ -150,8 +150,11 @@
    引擎那一枚【整枚切掉半个字】——省略号是 chip 自己的事，容器不该动刀。 */
 .thread-head .th-row-config .steward-chips { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; }
 .thread-head .th-row-config .steward-chip-wrap { min-width: 0; }
-/* 第三波 M8：chip 的值只能省略、不能收成 0 宽（英文 1280＋右栏开着、头宽 ~600 时「Engine」后面是空的，像数据缺失）。 */
-.thread-head .th-row-config .steward-chip-value { min-width: 3em; }
+/* 第三波 M8：chip 的值只能省略、不能收成 0 宽（英文 1280＋右栏开着、头宽 ~600 时「Engine」后面是空的，像数据缺失）。
+   只在头宽 ≥400 时垫底：更窄时一整排 chip 的「标签＋2em」已经比一行还宽（390 视口英文差 ~18px 会横向溢出），那一档仍让值自己缩到省略号。 */
+@container thhead (min-width: 400px) {
+  .thread-head .th-row-config .steward-chip-value { min-width: 2em; }
+}
 /* 上下文电量是一枚图标 ＋ 一个数，缩不了也不该缩。
    第三波 M8：英文「Thread memory 1% used」~230px 且 flex:none，把 chip 挤到只剩标签；改成让它的那句字自己省略（电池图标恒在）。 */
 .thread-head .th-row-config .ctx-meter { flex: 0 1 auto; min-width: 0; }

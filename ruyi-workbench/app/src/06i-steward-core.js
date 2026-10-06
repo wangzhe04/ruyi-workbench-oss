@@ -496,7 +496,40 @@ function stewardAutoAskSensitiveKind(toolName, input) {
   const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
   if (!composed) return '';
   if (STEWARD_AUTO_ASK_DATAROOT_PATTERNS.some(pattern => pattern.test(composed))) return 'dataroot';
-  if (STEWARD_AUTO_ASK_EGRESS_PATTERNS.some(pattern => pattern.test(composed))) return 'egress';
+  // 第三波(复核 #8):网络外发那张表【不】看工作目录这一叶子 —— cwd 是 `D:\src\curl` / `axios` / `httpx` 的人,每条无害命令都不该因为目录名里有 curl 而停问。
+  // 命令本身写在别的叶子里照扫;读数据根那张表仍看 cwd(目录就在数据根里时,相对路径的 config.json 也要认)。
+  const egressText = stewardAutoAskEgressText(input);
+  if (egressText && STEWARD_AUTO_ASK_EGRESS_PATTERNS.some(pattern => pattern.test(egressText))) return 'egress';
+  return '';
+}
+const STEWARD_AUTO_ASK_CWD_KEY_RE = /^(?:cwd|workdir|working_?dir(?:ectory)?)$/i;
+function stewardAutoAskEgressText(input) {
+  const base = (input && typeof input === 'object' && !Array.isArray(input))
+    ? Object.fromEntries(Object.entries(input).filter(([key]) => !STEWARD_AUTO_ASK_CWD_KEY_RE.test(key)))
+    : input;
+  return stewardExemptInputText(base).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
+}
+// 第三波(复核 #4):上面所有判据(五类豁免 / 间接构造 / 外发 / 数据根)都只看摊平文本的前 STEWARD_EXEMPT_INPUT_CHARS 个字符。命令前面垫 4000 个空格,
+// 后面的 curl / git push / Remove-Item -Recurse 就没人看了 —— 窗口之后的内容【没被检查过】不等于【安全】。所以非编排类的命令工具,摊平文本超过窗口
+// (或嵌套过深 / 摊平时被截)就当「没扫全」,智能自动档停下来问。编排类(任务描述是散文,子代理每一步自己过闸)不受此限。
+function stewardAutoAskScanIncomplete(toolName, input) {
+  if (input == null) return false;
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (STEWARD_AUTO_ASK_PROSE_TOOLS.includes(bare)) return false;
+  const scanNote = { truncated: false };
+  const full = stewardExemptInputText(input, 0, scanNote);
+  return scanNote.truncated || full.length > STEWARD_EXEMPT_INPUT_CHARS;
+}
+// 智能自动停下来问的原因(给子代理的拒绝文案 / 日志用):命中哪一类就说哪一类;没有命中返回 ''。
+function stewardAutoAskReason(toolName, input) {
+  if (input == null && !toolName) return '';
+  const hit = stewardExemptReason(toolName, input);
+  if (hit) return hit.category && STEWARD_EXEMPT_CATEGORY_LABELS[hit.category] ? STEWARD_EXEMPT_CATEGORY_LABELS[hit.category] : '高风险工具';
+  if (stewardAutoAskIndirect(input)) return '命令是拼接 / 编码 / 求值出来的,看不出真正要跑什么';
+  const kind = stewardAutoAskSensitiveKind(toolName, input);
+  if (kind === 'dataroot') return '会读取如意数据目录里的密钥 / 状态文件';
+  if (kind === 'egress') return '会访问外部网络';
+  if (stewardAutoAskScanIncomplete(toolName, input)) return '命令文本过长,超出了安全检查的范围';
   return '';
 }
 // 107-S1 ③(46 号文 §5 ⑦b H2 实验 E1):**删数据类只在目标是相对路径时才可代批**。

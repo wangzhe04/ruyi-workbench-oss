@@ -190,10 +190,13 @@ export function validateApiKeyShape(presetId, key) {
 // Front-of-the-line base URL shape check. Same intent: catch 「粘贴了控制台首页地址」 before the request.
 // 向导再存一次时该复用的已有服务商：同一预设谱系（id 为 presetId 或 presetId-N，providerDraftFromPreset
 // 就是这么起号的）且地址相同（忽略首尾空白、末尾斜杠与大小写）。没有就返回 null，照旧新建一条。
-export function reusableProviderFor(providers, presetId, baseUrl) {
+// normalizeUrl(可选):地址比较前先过的收拾函数。已存的服务商地址是保存时剥过端点后缀的(…/anthropic),用户重开向导再粘完整端点
+// (…/anthropic/v1/messages)直接比对比不上 —— 不复用、重复建 -2、还要求重填 key。向导把注入的 normalizeProviderDraftEndpoint 包成它传进来。
+export function reusableProviderFor(providers, presetId, baseUrl, normalizeUrl) {
   const id = String(presetId || '');
   if (!id) return null;
-  const norm = value => String(value || '').trim().replace(/\/+$/, '').toLowerCase();
+  const prep = typeof normalizeUrl === 'function' ? normalizeUrl : value => value;
+  const norm = value => String(prep(String(value || '').trim()) || '').trim().replace(/\/+$/, '').toLowerCase();
   const target = norm(baseUrl);
   const lineage = new RegExp('^' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(-\\d+)?$');
   return asArray(providers).find(p => p && lineage.test(String(p.id || '')) && norm(p.baseUrl) === target) || null;
@@ -233,6 +236,8 @@ export function createOnboardingWizardDomain({
   providerDraftFromPreset = null,
   // 2026-10:按地址收拾草稿(剥端点后缀、地址明显是 Anthropic / Responses 时补协议)—— 与设置页同一实现,由 provider-settings.js 注入。
   normalizeProviderDraftEndpoint = null,
+  // 「测试连接」失败文案:按服务端稳定 code(provider.test_*)取本地化句子,与设置页同一个函数(provider-settings.js 的 providerTestErrorText)。
+  providerTestErrorText = null,
   pickWorkspace = async () => {},
   // 走查 #8：原生选择器用不了（非 Windows、WinForms 起不来）时的兜底 —— 手填一个完整路径，设成默认工作文件夹。
   setWorkspacePath = async () => {},
@@ -757,11 +762,15 @@ export function createOnboardingWizardDomain({
     // fields the wizard collected. No second provider shape lives here.
     // 重开向导、对同一个端点再存一次时，就地更新已有那一条（沿用它的 id），不再追加 local-2、local-3……
     // 用户没重填密钥就原样回传掩码 —— 服务端 unmaskSecrets 按「同一 id、同一地址」还原真密钥，测试连接同理。
+    // 比较地址前的收拾:与保存时同一道(剥端点后缀),由注入的 normalizeProviderDraftEndpoint 给出,不在向导里另写一份。
+    function comparableUrl(url) {
+      return typeof normalizeProviderDraftEndpoint === 'function' ? String(normalizeProviderDraftEndpoint({ baseUrl: url }).baseUrl || '') : String(url || '');
+    }
     function buildDraft() {
       const preset = currentPreset();
       const providers = asArray(asObject(state.config).providers);
       const existing = providers.map(p => p && p.id).filter(Boolean);
-      const reuse = reusableProviderFor(providers, preset && preset.id, wiz.baseUrl);
+      const reuse = reusableProviderFor(providers, preset && preset.id, wiz.baseUrl, comparableUrl);
       const draft = reuse
         ? { ...reuse, models: asArray(reuse.models).map(m => ({ ...m })) }
         : (typeof providerDraftFromPreset === 'function' ? providerDraftFromPreset(preset, existing) : null);
@@ -782,7 +791,7 @@ export function createOnboardingWizardDomain({
       const url = validateBaseUrlShape(wiz.baseUrl);
       if (!url.ok) { setMessage(t('onboarding.wizard.validate.' + url.code), 'err'); return null; }
       // 同一端点已存过密钥（服务端回来的是掩码）且这次没重填：不逼用户再贴一遍，沿用已存的那把。
-      const saved = reusableProviderFor(asObject(state.config).providers, currentPreset() && currentPreset().id, wiz.baseUrl);
+      const saved = reusableProviderFor(asObject(state.config).providers, currentPreset() && currentPreset().id, wiz.baseUrl, comparableUrl);
       const keepsSavedKey = !String(wiz.apiKey || '').trim() && !!saved && String(saved.apiKey || '').startsWith('•');
       const key = keepsSavedKey ? { ok: true, code: '', warn: '' } : validateApiKeyShape(presetKey, wiz.apiKey);
       if (!key.ok) { setMessage(t('onboarding.wizard.validate.' + key.code), 'err'); return null; }
@@ -812,7 +821,9 @@ export function createOnboardingWizardDomain({
         render();
         // The server already returns a human sentence; errorClass adds the 「怎么办」 line from the same
         // catalog the error cards use, so the wizard never invents its own diagnosis.
-        const detail = errorMessageOf(result) || t('provider.testFailure');
+        // 带稳定 code(provider.test_*)的失败按 code 取本地化文案(与设置页同一个函数);修前这里只认服务端的中文兜底句,英文界面里照样弹中文。
+        const coded = typeof providerTestErrorText === 'function' && result && /^provider\.test_/.test(String(result.code || ''));
+        const detail = (coded ? providerTestErrorText(result) : errorMessageOf(result)) || t('provider.testFailure');
         const nextKey = result && result.errorClass === 'network_down' ? 'error.networkDown.next'
           : result && result.errorClass === 'provider_misconfigured' ? 'error.providerMisconfigured.next' : '';
         // 118e: for a LOCAL preset an unreachable endpoint has exactly one plain-language meaning -- the

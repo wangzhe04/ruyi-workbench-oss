@@ -70,6 +70,28 @@ export function inferProviderApiStyleFromUrl(url) {
   return '';
 }
 
+// 设置页 Base URL 输入框「边敲边认协议」的纯状态机(provider-settings.js 用它;纯函数,node 单测直接 import)。
+//   state = { style, touched, auto }:style = 卡片现在的协议;touched = 用户亲手选过协议(之后地址怎么变都不动);
+//         auto = null | { from, to } —— 当前协议是被【地址推断】自动切过去的,from 是切换前的协议、to 是现在这个。
+//   返回 { style, auto, action }:action = 'switched'(推断出一个与现在不同的协议,切过去)
+//         | 'reverted'(推断落空,或推断回到了 from,切回切换前的协议)| ''(什么都没动)。
+// 为什么要「切回」:逐键输入时 …/anthropic-proxy/v1 敲到 …/anthropic 那一刻地址恰好以 /anthropic 结尾,会先切到 Anthropic;
+// 之后继续敲推断落空了,若不切回,最终地址本不该认成 Anthropic 的卡就留在错的协议上。只有【自动切过去的】才会被切回:
+// 存量卡本来就是 anthropic(地址推断一致不记 auto)、用户手动选的(touched),地址怎么改都不会被动。
+export function stepAutoProviderStyle(state, url) {
+  const cur = normalizeProviderApiStyle(state && state.style);
+  if (state && state.touched) return { style: cur, auto: null, action: '' };
+  const auto = state && state.auto && typeof state.auto === 'object' ? { from: normalizeProviderApiStyle(state.auto.from), to: normalizeProviderApiStyle(state.auto.to) } : null;
+  const inferred = inferProviderApiStyleFromUrl(url);
+  if (inferred) {
+    if (inferred === cur) return { style: cur, auto, action: '' };
+    if (auto && inferred === auto.from) return { style: inferred, auto: null, action: 'reverted' };
+    return { style: inferred, auto: { from: auto ? auto.from : cur, to: inferred }, action: 'switched' };
+  }
+  if (auto) return { style: auto.from, auto: null, action: 'reverted' };
+  return { style: cur, auto: null, action: '' };
+}
+
 // Anthropic 官方主机(只有它才认「拒答改派」等官方专属项;设置页据此显示那一个开关)。与服务端 anthropicOfficialHost 同一判据。
 export function isAnthropicOfficialUrl(url) {
   const m = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?([^:/?#]+)/i.exec(String(url || '').trim());

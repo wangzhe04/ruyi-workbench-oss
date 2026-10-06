@@ -20,7 +20,7 @@ import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONB
 import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 // 服务商线协议(provider.apiStyle)只问这一张表(58 号方案批 1;键集合与服务端 04i PROVIDER_WIRE_PROTOCOLS 相同)。
 import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta, PROVIDER_REASONING_EFFORT_CHOICES, ANTHROPIC_AUTH_CHOICES, ANTHROPIC_THINKING_CHOICES } from './provider-api-styles.js';
-import { stripProviderEndpointSuffix, inferProviderApiStyleFromUrl, isAnthropicOfficialUrl } from './provider-api-styles.js';
+import { stripProviderEndpointSuffix, inferProviderApiStyleFromUrl, isAnthropicOfficialUrl, stepAutoProviderStyle } from './provider-api-styles.js';
 // 2026-10 设置补全：修前没有任何控件的约 70 个 config 键，由这一张目录统一渲染、回填、即存。
 import { mountSettingsCatalog, fillSettingsCatalog, catalogPatch } from './settings-catalog.js';
 
@@ -61,6 +61,25 @@ export function normalizeProviderDraftEndpoint(draft) {
   if (!draft.apiStyle && inferred && inferred !== PROVIDER_API_STYLE_DEFAULT) draft.apiStyle = inferred;
   draft.baseUrl = stripProviderEndpointSuffix(raw);
   return draft;
+}
+
+// 2026-10:服务端按稳定 code 报「测试连接」的失败(密钥 / 地址 / 模型 / 连不上 / 缺模型名),这里取本地化文案;地址不对时再按协议
+// 补一句 Base URL 的写法。没有 code 的老形状照旧取服务端那句。
+const PROVIDER_TEST_ERROR_KEYS = Object.freeze({
+  'provider.test_unauthorized': 'unauthorized', 'provider.test_not_found': 'notFound', 'provider.test_model_rejected': 'modelRejected',
+  'provider.test_unreachable': 'unreachable', 'provider.test_needs_model': 'needsModel', 'provider.test_failed': 'failed',
+});
+// 住在模块顶层并导出:设置页(下面工厂里的 paintProviderTestFailure)与向导(session-experience.js 注入)「测试连接」的失败文案同一张表、同一个函数,不各写一份。
+export function providerTestErrorText(payload) {
+  const coded = payload && PROVIDER_TEST_ERROR_KEYS[payload.code];
+  if (coded) {
+    const line = t('provider.testError.' + coded, { detail: String(payload.detail || '') });
+    return coded === 'notFound' ? line + ' ' + t('provider.apiStyle.urlHint.' + normalizeProviderApiStyle(payload.apiStyle)) : line;
+  }
+  const raw = payload && payload.error;
+  if (typeof raw === 'string' && raw) return raw;
+  if (raw && typeof raw === 'object' && raw.message) return String(raw.message);
+  return t('provider.testFailure');
 }
 
 export function createProviderSettingsDomain({
@@ -1952,6 +1971,8 @@ function providerCard(p, idx) {
   };
   // 缺省协议不落字段(存量 config 零漂移);切到不支持服务端搜索的协议时连同 serverWebSearch 一起删(显式用户操作)。
   let styleTouched = false;   // 用户亲手选过协议:之后填地址不再自动改
+  let autoStyle = null;       // { from, to }:协议是被地址自动切过去的(见 stepAutoProviderStyle);推断落空时据此切回。手动选过之后恒为 null
+  let autoSws;                // 第一次自动切走那一刻的 p.serverWebSearch(applyStyle 切到不支持服务端搜索的协议会删它;切回时还回去)
   const applyStyle = value => {
     sc.value = normalizeProviderApiStyle(value);
     if (sc.value !== PROVIDER_API_STYLE_DEFAULT) p.apiStyle = sc.value; else delete p.apiStyle;
@@ -1959,7 +1980,7 @@ function providerCard(p, idx) {
     syncServerSearchVisibility();
     syncAnthropicVisibility();
   };
-  sc.onchange = () => { styleTouched = true; applyStyle(sc.value); };
+  sc.onchange = () => { styleTouched = true; autoStyle = null; autoSws = undefined; applyStyle(sc.value); };
   styleLbl.appendChild(sc);
   // 按协议说清 Base URL 怎么填(provider.apiStyle.hint 那段总说明挂在下拉的 title 上)。
   const styleHint = el('p', 'field-help muted prov-style-hint');
@@ -2053,19 +2074,38 @@ function providerCard(p, idx) {
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));
   const bi = el('input'); bi.type = 'text'; bi.dataset.provField = 'baseUrl'; bi.value = p.baseUrl || '';
   const showUrlNote = text => { urlNote.textContent = text; urlNote.hidden = !text; };
+  // 按地址认协议(输入时逐键跑、失焦时在剥后缀之前最后跑一次):用户没手动选过协议,地址明显是另一种协议(…/anthropic、api.anthropic.com、
+  // …/v1/messages、…/chat/completions、…/responses)就切过去并记下是自动切的;之后地址不再指向它(逐键敲 …/anthropic-proxy/v1 敲过了 /anthropic、
+  // 或改粘了别的地址)就切回切换前的协议。状态机见 provider-api-styles.js 的 stepAutoProviderStyle。返回是否动了协议(动了 applyStyle 已同步过显隐)。
+  const autoStyleFromUrl = url => {
+    const step = stepAutoProviderStyle({ style: normalizeProviderApiStyle(sc.value), touched: styleTouched, auto: autoStyle }, url);
+    autoStyle = step.auto;
+    if (!step.action) return false;
+    if (step.action === 'switched' && autoSws === undefined) autoSws = p.serverWebSearch === undefined ? null : p.serverWebSearch;
+    if (step.action === 'reverted') {
+      if (autoSws !== undefined && autoSws !== null && providerApiStyleMeta(step.style).serverWebSearch) p.serverWebSearch = autoSws;
+      autoSws = undefined;
+    }
+    applyStyle(step.style);
+    showUrlNote(step.action === 'switched' ? t('provider.apiStyle.autoSwitched', { name: t(providerApiStyleMeta(step.style).labelKey) }) : '');
+    return true;
+  };
   bi.oninput = () => {
     p.baseUrl = bi.value.trim();
-    // 用户没手动选过协议:地址明显是另一种协议(…/anthropic、api.anthropic.com、…/v1/messages、…/chat/completions、…/responses)就切过去。
-    const inferred = inferProviderApiStyleFromUrl(p.baseUrl);
-    if (!styleTouched && inferred && inferred !== normalizeProviderApiStyle(sc.value)) {
-      applyStyle(inferred);
-      showUrlNote(t('provider.apiStyle.autoSwitched', { name: t(providerApiStyleMeta(inferred).labelKey) }));
-    } else syncAnthropicVisibility();
+    if (!autoStyleFromUrl(p.baseUrl)) syncAnthropicVisibility();
   };
-  // 失焦:剥掉粘进来的完整端点后缀(服务端会自己补),免得拼成 …/v1/messages/v1/messages。
+  // 失焦:先按【粘进来的原文】做最后一次协议推断(完整端点 …/v1/messages 本身就是证据),再剥掉端点后缀(服务端会自己补),免得拼成 …/v1/messages/v1/messages。
   bi.onchange = () => {
+    const raw = bi.value.trim();
+    p.baseUrl = raw;
+    autoStyleFromUrl(raw);
     const stripped = stripProviderEndpointSuffix(bi.value);
-    if (stripped !== bi.value.trim()) { bi.value = stripped; p.baseUrl = stripped; showUrlNote(t('provider.baseUrlSuffixStripped')); syncAnthropicVisibility(); }
+    if (stripped !== raw) {
+      bi.value = stripped; p.baseUrl = stripped;
+      // 证据随后缀一起剥掉了:剥完的地址不再说明协议时,这次自动切换就定下来 —— 之后接着编辑不再因为「推断落空」把它切回去。
+      if (autoStyle && !inferProviderApiStyleFromUrl(stripped)) autoStyle = null;
+      showUrlNote(t('provider.baseUrlSuffixStripped')); syncAnthropicVisibility();
+    }
   };
   b2.append(bi, styleLbl, urlNote);
   syncServerSearchVisibility();
@@ -2284,23 +2324,6 @@ function contextResolvedHint(p) {
 //     MCP 导入路径上修掉的是同一条信封坑)。先按 message/字符串两种形状取词。
 //  ② 本机预设(Ollama / LM Studio)连不上时,「连不上端点(fetch failed)」对小白毫无意义:真实含义只有一个 --
 //     本机没在跑那个服务。换成人话,并在旁边给一个【应用内】手册按钮(不给命令行、不给下载链接)。
-// 2026-10:服务端按稳定 code 报「测试连接」的失败(密钥 / 地址 / 模型 / 连不上 / 缺模型名),这里取本地化文案;地址不对时再按协议
-// 补一句 Base URL 的写法。没有 code 的老形状照旧取服务端那句。
-const PROVIDER_TEST_ERROR_KEYS = Object.freeze({
-  'provider.test_unauthorized': 'unauthorized', 'provider.test_not_found': 'notFound', 'provider.test_model_rejected': 'modelRejected',
-  'provider.test_unreachable': 'unreachable', 'provider.test_needs_model': 'needsModel', 'provider.test_failed': 'failed',
-});
-function providerTestErrorText(payload) {
-  const coded = payload && PROVIDER_TEST_ERROR_KEYS[payload.code];
-  if (coded) {
-    const line = t('provider.testError.' + coded, { detail: String(payload.detail || '') });
-    return coded === 'notFound' ? line + ' ' + t('provider.apiStyle.urlHint.' + normalizeProviderApiStyle(payload.apiStyle)) : line;
-  }
-  const raw = payload && payload.error;
-  if (typeof raw === 'string' && raw) return raw;
-  if (raw && typeof raw === 'object' && raw.message) return String(raw.message);
-  return t('provider.testFailure');
-}
 function paintProviderTestFailure(status, provider, payload) {
   status.classList.remove('good');
   status.classList.add('bad');
