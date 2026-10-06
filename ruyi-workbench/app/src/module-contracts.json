@@ -2862,15 +2862,25 @@
         "ANTHROPIC_STREAM_ERROR_STATUS",
         "ANTHROPIC_STREAM_MAX_TOKENS",
         "ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE",
+        "ANTHROPIC_THINKING_BUDGET_MAX",
+        "ANTHROPIC_THINKING_BUDGET_MIN",
+        "ANTHROPIC_THINKING_EFFORT_BUDGET",
         "ANTHROPIC_THINKING_MODES",
+        "anthropicApiBase",
         "anthropicAssistantBlocks",
+        "anthropicBaseUrl",
+        "anthropicClassicThinking",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicLearnedMaxTokens",
+        "anthropicMaxTokensCapFromError",
+        "anthropicMaxTokensFor",
         "anthropicMergeUsage",
         "anthropicMessagesFromHistory",
         "anthropicMessagesUrl",
         "anthropicModelTakesAdaptiveThinking",
         "anthropicModelTraits",
+        "anthropicModelsUrl",
         "anthropicNonEmpty",
         "anthropicOfficialFeatures",
         "anthropicOfficialHost",
@@ -2983,7 +2993,21 @@
         },
         {
           "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicApiBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
           "symbol": "anthropicMessagesUrl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicModelsUrl",
           "kinds": [
             "read"
           ]
@@ -6808,6 +6832,7 @@
         "openAiStreamOnce",
         "packDescriptionsFor",
         "parseSimpleYamlValue",
+        "probeProviderCompletion",
         "projectActionModelView",
         "projectAgentRoleFile",
         "projectCwdDirectoryFailure",
@@ -13299,6 +13324,13 @@
           ]
         },
         {
+          "provider": "04i-provider-wire.js",
+          "symbol": "normalizeProviderApiStyle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -13756,6 +13788,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "probeProviderCompletion",
           "kinds": [
             "call"
           ]

@@ -536,14 +536,33 @@ async function handleApi(req, res, pathname) {
     }
     const sp = sanitizeProvider(rawProvider);
     if (!sp) return send(res, json({ ok: false, error: 'invalid provider (need at least an id + baseUrl)' }));
-    // 审计 P2: 测试连接把 fetchOpenAiModels 的裸 'HTTP 401' 直接回吐给用户 —— 首跑最高频故障(密钥错/无权限)却无
-    // 中文人话、无下一步。这里把常见状态映射为可行动文案 + errorClass(前端据此渲染 ERROR_CLASSES 的 zh/next)。
-    const probe = await fetchOpenAiModels(sp, 6000);
+    // 先列模型清单(顺带回填下拉);端点不提供清单(404 / 405 / 501,或回了空表)时,用填好的模型发一次最小补全确认能通 ——
+    // 多数 Anthropic 兼容网关(如 https://api.deepseek.com/anthropic)没有 /v1/models,修前这一步直接判「端点地址可能不对」。
+    let probe = await fetchOpenAiModels(sp, 6000);
+    const modelsMissing = (!probe.ok && /\bHTTP (?:404|405|501)\b/.test(String(probe.error || ''))) || (probe.ok && !(probe.models || []).length);
+    const apiStyle = normalizeProviderApiStyle(sp.apiStyle);
+    if (modelsMissing) {
+      const model = String(sp.model || (sp.models && sp.models[0] && sp.models[0].id) || '').trim();
+      if (!model) {
+        return send(res, json({ ok: false, code: 'provider.test_needs_model', errorClass: 'provider_misconfigured', apiStyle, models: [],
+          error: '这个端点不提供模型清单:请先填写模型名再测试' }));
+      }
+      const reach = await probeProviderCompletion(sp, model, 15000);
+      if (reach.ok) return send(res, json({ ok: true, models: [], probe: 'completion', model, modelsUnavailable: true, apiStyle }));
+      probe = { ok: false, error: reach.error, models: [], probe: 'completion', model };
+    }
+    // 审计 P2: 测试连接把裸 'HTTP 401' 直接回吐给用户 —— 首跑最高频故障(密钥错/无权限)却无人话、无下一步。常见状态映射成
+    // 稳定 code(前端按 code 取本地化文案,并按协议给 Base URL 的写法提示)+ errorClass;error 仍是中文兜底句,detail 是原始报文。
     if (!probe.ok && probe.error) {
       const e = String(probe.error);
-      if (/\bHTTP 401\b|\bHTTP 403\b|unauthorized/i.test(e)) { probe.error = '密钥无效或无权限(' + e + '):请检查 API Key 是否正确、是否有额度/权限'; probe.errorClass = 'provider_misconfigured'; }
-      else if (/\bHTTP 404\b/i.test(e)) { probe.error = '端点地址可能不对(' + e + '):检查 Base URL 是否为 OpenAI 兼容的 /v1 地址'; probe.errorClass = 'provider_misconfigured'; }
-      else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) { probe.error = '连不上端点(' + e + '):检查网络与 Base URL,内网端点确认可达'; probe.errorClass = 'network_down'; }
+      const detail = redact(e).slice(0, 300);
+      if (/\bHTTP 40[13]\b|unauthorized|authentication/i.test(e)) Object.assign(probe, { code: 'provider.test_unauthorized', errorClass: 'provider_misconfigured', error: '密钥无效或无权限(' + detail + '):请检查 API Key 是否正确、是否有额度/权限' });
+      else if (/\bHTTP 404\b/i.test(e)) Object.assign(probe, { code: 'provider.test_not_found', errorClass: 'provider_misconfigured', error: '端点地址可能不对(' + detail + '):检查 Base URL' });
+      else if (probe.probe === 'completion' && /\bHTTP 4\d\d\b/.test(e) && /model/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
+      else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) Object.assign(probe, { code: 'provider.test_unreachable', errorClass: 'network_down', error: '连不上端点(' + detail + '):检查网络与 Base URL,内网端点确认可达' });
+      else Object.assign(probe, { code: 'provider.test_failed', error: detail });
+      probe.detail = detail;
+      probe.apiStyle = apiStyle;
     }
     return send(res, json(probe));
   }

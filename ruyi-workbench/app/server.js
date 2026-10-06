@@ -17674,6 +17674,13 @@ const ANTHROPIC_AUTH_MODES = new Set(['x-api-key', 'bearer']);
 const ANTHROPIC_THINKING_MODES = new Set(['adaptive', 'off']);
 // provider.anthropicFallbacks:'off' 关掉官方主机上的服务端拒答改派;缺省开(见 anthropicModelTraits.fallbacks)。
 const ANTHROPIC_FALLBACK_MODES = new Set(['off']);
+// 经典思考({type:'enabled', budget_tokens})的预算:API 要求 ≥1024 且小于 max_tokens;上限 16K,其余留给作答。
+const ANTHROPIC_THINKING_BUDGET_MIN = 1024;
+const ANTHROPIC_THINKING_BUDGET_MAX = 16000;
+const ANTHROPIC_THINKING_EFFORT_BUDGET = { low: 2048, medium: 6144, high: 12000, xhigh: 16000, max: 16000 };
+// 兼容网关按模型限制输出上限(DeepSeek:「Invalid max_tokens value, the valid range of max_tokens is [1, 8192]」)。第一次 400
+// 时从报文读出上限记在进程里(按模型名),之后同一模型的请求直接按它发 —— 修前每个回合都先吃一次 400。
+const anthropicLearnedMaxTokens = new Map();
 
 function normalizeAnthropicAuth(value) {
   return typeof value === 'string' && ANTHROPIC_AUTH_MODES.has(value) ? value : '';
@@ -17689,9 +17696,21 @@ function anthropicOfficialHost(baseUrl) {
   const m = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?([^:/?#]+)/i.exec(String(baseUrl || '').trim());
   return Boolean(m && m[1].toLowerCase() === 'api.anthropic.com');
 }
+// Base URL 只到 /anthropic(网关)或主机(官方)这一级;用户常把完整端点粘进来(…/v1/messages、…/messages)—— 剥掉端点后缀,
+// 修前拼成 …/v1/messages/v1/messages,404。
+function anthropicBaseUrl(baseUrl) {
+  return String(baseUrl || '').trim().replace(/\/+$/, '').replace(/(?:\/v\d+)?\/messages$/i, '');
+}
+function anthropicApiBase(baseUrl) {
+  return providerBaseWithV1(anthropicBaseUrl(baseUrl));
+}
 function anthropicMessagesUrl(baseUrl) {
-  const base = providerBaseWithV1(baseUrl);
+  const base = anthropicApiBase(baseUrl);
   return base ? base + '/messages' : '';
+}
+function anthropicModelsUrl(baseUrl) {
+  const base = anthropicApiBase(baseUrl);
+  return base ? base + '/models' : '';
 }
 // 按模型名认 Claude 家族的请求面差异(claude-api 技能 2026-09 的迁移指南;网关上的非 Claude 模型一律 false,走最保守的请求):
 //   adaptive        自适应思考:4.6 起的 opus / sonnet / fable / mythos(更早的与 haiku 走 budget_tokens,发 adaptive 会 400)
@@ -17744,11 +17763,21 @@ function anthropicRequestHeaders(provider, opts) {
 // 思考配置。display:'summarized' 让界面拿得到可读的推理摘要 —— Opus 5.5 / Sonnet 5.5 把工具调用之间的进度说明也放进思考块,
 // 缺省 display:'omitted' 时界面会在整个长回合里一声不吭。官方主机再带 block_binding:drop_block(前缀对不上的思考块由 API 丢掉,
 // 不回 400;配套 beta 头由 anthropicRequestHeaders 按同一判据带上)。
-function anthropicThinkingFor(provider, model) {
+// 经典思考:网关上的非 Claude 模型(DeepSeek / Kimi / GLM / MiniMax 的 Anthropic 兼容端点)与不认自适应思考的旧 Claude 要开思考,
+// 发的是 {type:'enabled', budget_tokens} —— 各家兼容网关都实现的那一种。adaptive 是官方新模型才认的类型,网关普遍回 400,
+// 再被 retryOn400 整个去掉思考:修前「思考:开」在网关上等于静默关。预算按本次 max_tokens 留出作答余量,放不下就不开。
+function anthropicClassicThinking(maxTokens, effort) {
+  const max = Number(maxTokens) || 0;
+  const wanted = ANTHROPIC_THINKING_EFFORT_BUDGET[String(effort || '')] || Math.floor(max / 2);
+  const budget = Math.min(ANTHROPIC_THINKING_BUDGET_MAX, wanted, max - 1024);
+  return budget >= ANTHROPIC_THINKING_BUDGET_MIN ? { type: 'enabled', budget_tokens: budget } : null;
+}
+function anthropicThinkingFor(provider, model, maxTokens) {
   const mode = normalizeAnthropicThinking(provider && provider.anthropicThinking);
   const traits = anthropicModelTraits(model);
   if (mode === 'off') return traits.betweenTools ? { type: 'between_tools' } : null;
   if (mode !== 'adaptive' && !traits.adaptive) return null;
+  if (!traits.adaptive) return anthropicClassicThinking(maxTokens == null ? ANTHROPIC_STREAM_MAX_TOKENS : maxTokens);
   const thinking = { type: 'adaptive', display: 'summarized' };
   if (anthropicOfficialFeatures(provider, model).thinkingBinding) thinking.block_binding = { prefix_mismatch_behavior: 'drop_block' };
   return thinking;
@@ -17886,6 +17915,19 @@ function anthropicMessagesFromHistory(history, model, hasTools) {
 // 基础请求体。messages 是 chat 形历史,首条 system;instructions 显式给了就用它当顶层 system。
 // foldSystem 在这里没有区别:后插的 system 规则总是以 <system-reminder> 留在对话里(Messages 没有多 system 通道,但丢掉不行)。
 // hasTools:这一发会不会带 tools(调用方随后 applyTools)。不是 true 时工具块改写成文字(见 anthropicAssistantBlocks),也不回放思考块。
+function anthropicMaxTokensFor(model, wanted) {
+  const cap = anthropicLearnedMaxTokens.get(String(model || ''));
+  return cap && cap < wanted ? cap : wanted;
+}
+// 从 400 报文里读出网关允许的 max_tokens 上限:「valid range … is [1, 8192]」/「max_tokens: 64000 > 32000」/「less than or equal to 8192」。
+function anthropicMaxTokensCapFromError(errText) {
+  const msg = String(errText || '');
+  const m = /\[\s*\d+\s*,\s*(\d{3,7})\s*\]/.exec(msg)
+    || /max_tokens[^0-9]{0,40}\d+\s*>\s*(\d{3,7})/i.exec(msg)
+    || /(?:less than or equal to|<=|at most|maximum(?: value)?(?: is| of)?)\s*(\d{3,7})/i.exec(msg);
+  const n = m ? Number(m[1]) : 0;
+  return n >= 256 ? n : 0;
+}
 function encodeAnthropicMessages({ model, messages, stream, instructions, provider, hasTools }) {
   const list = Array.isArray(messages) ? messages : [];
   const hasLead = Boolean(list[0] && (list[0].role === 'system' || list[0].role === 'developer'));
@@ -17893,10 +17935,11 @@ function encodeAnthropicMessages({ model, messages, stream, instructions, provid
   const system = typeof instructions === 'string' ? instructions : lead;
   const rest = hasLead ? list.slice(1) : list;
   const officialClaude = anthropicOfficialHost(provider && provider.baseUrl) && anthropicModelTraits(model).adaptive;
-  const body = { model, max_tokens: stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS };
+  const wantedMax = stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS;
+  const body = { model, max_tokens: anthropicMaxTokensFor(model, wantedMax) };
   if (system.trim()) body.system = system;
   body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true);
-  const thinking = anthropicThinkingFor(provider, model);
+  const thinking = anthropicThinkingFor(provider, model, body.max_tokens);
   if (thinking) body.thinking = thinking;
   // 官方 API 上的新模型:安全分类器误拒时由服务端按类别改派推荐模型(fallbacks:'default',beta 头见 anthropicRequestHeaders)。
   // 改派后的回复里 message.model 是接手的模型;回放判据认请求时的 model(providerBlocks.requestModel),接手模型读不了的思考块由 API 丢掉。
@@ -17909,6 +17952,14 @@ function applyAnthropicEffort(body, effort) {
   if (!e) return body;
   const mapped = (e === 'none' || e === 'minimal') ? 'low' : e;
   if (!ANTHROPIC_EFFORTS.has(mapped)) return body;
+  // 网关上的非 Claude 模型不认 output_config(官方新字段):强度只折算成经典思考的预算(开着思考时才有意义)。
+  if (!anthropicModelTraits(body && body.model).claude) {
+    if (body.thinking && body.thinking.type === 'enabled') {
+      const thinking = anthropicClassicThinking(body.max_tokens, mapped);
+      if (thinking) body.thinking = thinking;
+    }
+    return body;
+  }
   body.output_config = Object.assign({}, body.output_config, { effort: mapped });
   // between_tools 只接受 high 及以下;更高的档位要自适应思考(否则 400)。
   if (body.thinking && body.thinking.type === 'between_tools' && (mapped === 'xhigh' || mapped === 'max')) body.thinking = { type: 'adaptive', display: 'summarized' };
@@ -17946,7 +17997,7 @@ function encodeAnthropicQuick({ model, messages, plain }) {
   const user = list.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
   const body = { model, max_tokens: 400, messages: [{ role: 'user', content: [{ type: 'text', text: anthropicNonEmpty(user) }] }], stream: false };
   if (system.trim()) body.system = system;
-  if (!plain) body.output_config = { effort: 'low' };
+  if (!plain && anthropicModelTraits(model).claude) body.output_config = { effort: 'low' };   // 网关上的非 Claude 模型不认 output_config
   return body;
 }
 
@@ -18130,6 +18181,19 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
 function anthropicRetryBodyOn400(body, errText) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
+  // 网关的输出上限比我们发的小:按报文给的上限重打,并记住(同一模型之后直接按它发);经典思考的预算跟着收。
+  if (body.max_tokens != null && /max_tokens/i.test(msg)) {
+    const cap = anthropicMaxTokensCapFromError(msg);
+    if (cap && cap < Number(body.max_tokens)) {
+      anthropicLearnedMaxTokens.set(String(body.model || ''), cap);
+      const copy = { ...body, max_tokens: cap };
+      if (copy.thinking && copy.thinking.type === 'enabled') {
+        const thinking = anthropicClassicThinking(cap, '');
+        if (thinking) copy.thinking = thinking; else delete copy.thinking;
+      }
+      return copy;
+    }
+  }
   // 官方以外的端点不认 block_binding / between_tools:只去掉这一项,思考照开。
   // 只在「去掉之后请求体真的变了」时走这一支:签名不匹配的官方报文里也点名 block_binding(建议你设 prefix_mismatch_behavior),
   // 而请求体里并没有它 —— 这时原样重打只会再吃一次同一个 400,要落到下面的「去掉思考块」。
@@ -18810,9 +18874,9 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   anthropic: Object.freeze({
     id: 'anthropic',
     serverWebSearch: false, // 批 3 映射 web_search_20260209
-    endpointBase: baseUrl => providerBaseWithV1(baseUrl),
+    endpointBase: anthropicApiBase,
     completionUrl: anthropicMessagesUrl,
-    modelsUrl: providerWireModelsUrl,
+    modelsUrl: anthropicModelsUrl,
     requestHeaders: anthropicRequestHeaders,
     encodeMessages: ({ model, messages, stream, instructions, provider, hasTools }) => encodeAnthropicMessages({
       model, stream, instructions, provider, hasTools,
@@ -36460,6 +36524,28 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
     return { ok: true, models };
   } catch (e) {
     return { ok: false, error: (e && e.name === 'AbortError') ? 'timeout' : ((e && e.message) || 'fetch failed'), models: [] };
+  } finally { if (timer) clearTimeout(timer); }
+}
+// 「测试连接」的第二条路:端点不提供模型清单(多数 Anthropic 兼容网关的 /anthropic/v1/models 是 404,一些 OpenAI 兼容
+// 内网网关也没有 /models)时,用填好的模型发一次最小的非流式补全来确认地址、密钥与模型都对。用短补全的编码(400 token、
+// 尽量关思考),失败时回 'HTTP <status>: <正文开头>' 供调用方分类。Never throws.
+async function probeProviderCompletion(provider, model, timeoutMs = 15000) {
+  const wire = providerWireProtocol(provider);
+  const url = wire.completionUrl(provider && provider.baseUrl);
+  if (!url || typeof fetch !== 'function') return { ok: false, error: url ? 'fetch unavailable' : 'no base URL' };
+  const body = wire.encodeQuick({ model, messages: [{ role: 'user', content: 'ping' }], plain: true });
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  try {
+    const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
+    const raw = await res.text().catch(() => '');
+    if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + raw.replace(/\s+/g, ' ').slice(0, 300) : '') };
+    let payload = null; try { payload = JSON.parse(raw); } catch { payload = null; }
+    const decoded = payload ? wire.decodeCompletion(payload, { requestModel: model }) : null;
+    if (decoded && decoded.failed) return { ok: false, error: String(decoded.failureText || 'provider error').slice(0, 300) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e && e.name === 'AbortError') ? 'timeout' : ((e && e.message) || 'fetch failed') };
   } finally { if (timer) clearTimeout(timer); }
 }
 // v0.6: expose the workbench's own tools to a native provider as OpenAI function-calling schema.
@@ -60849,14 +60935,33 @@ async function handleApi(req, res, pathname) {
     }
     const sp = sanitizeProvider(rawProvider);
     if (!sp) return send(res, json({ ok: false, error: 'invalid provider (need at least an id + baseUrl)' }));
-    // 审计 P2: 测试连接把 fetchOpenAiModels 的裸 'HTTP 401' 直接回吐给用户 —— 首跑最高频故障(密钥错/无权限)却无
-    // 中文人话、无下一步。这里把常见状态映射为可行动文案 + errorClass(前端据此渲染 ERROR_CLASSES 的 zh/next)。
-    const probe = await fetchOpenAiModels(sp, 6000);
+    // 先列模型清单(顺带回填下拉);端点不提供清单(404 / 405 / 501,或回了空表)时,用填好的模型发一次最小补全确认能通 ——
+    // 多数 Anthropic 兼容网关(如 https://api.deepseek.com/anthropic)没有 /v1/models,修前这一步直接判「端点地址可能不对」。
+    let probe = await fetchOpenAiModels(sp, 6000);
+    const modelsMissing = (!probe.ok && /\bHTTP (?:404|405|501)\b/.test(String(probe.error || ''))) || (probe.ok && !(probe.models || []).length);
+    const apiStyle = normalizeProviderApiStyle(sp.apiStyle);
+    if (modelsMissing) {
+      const model = String(sp.model || (sp.models && sp.models[0] && sp.models[0].id) || '').trim();
+      if (!model) {
+        return send(res, json({ ok: false, code: 'provider.test_needs_model', errorClass: 'provider_misconfigured', apiStyle, models: [],
+          error: '这个端点不提供模型清单:请先填写模型名再测试' }));
+      }
+      const reach = await probeProviderCompletion(sp, model, 15000);
+      if (reach.ok) return send(res, json({ ok: true, models: [], probe: 'completion', model, modelsUnavailable: true, apiStyle }));
+      probe = { ok: false, error: reach.error, models: [], probe: 'completion', model };
+    }
+    // 审计 P2: 测试连接把裸 'HTTP 401' 直接回吐给用户 —— 首跑最高频故障(密钥错/无权限)却无人话、无下一步。常见状态映射成
+    // 稳定 code(前端按 code 取本地化文案,并按协议给 Base URL 的写法提示)+ errorClass;error 仍是中文兜底句,detail 是原始报文。
     if (!probe.ok && probe.error) {
       const e = String(probe.error);
-      if (/\bHTTP 401\b|\bHTTP 403\b|unauthorized/i.test(e)) { probe.error = '密钥无效或无权限(' + e + '):请检查 API Key 是否正确、是否有额度/权限'; probe.errorClass = 'provider_misconfigured'; }
-      else if (/\bHTTP 404\b/i.test(e)) { probe.error = '端点地址可能不对(' + e + '):检查 Base URL 是否为 OpenAI 兼容的 /v1 地址'; probe.errorClass = 'provider_misconfigured'; }
-      else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) { probe.error = '连不上端点(' + e + '):检查网络与 Base URL,内网端点确认可达'; probe.errorClass = 'network_down'; }
+      const detail = redact(e).slice(0, 300);
+      if (/\bHTTP 40[13]\b|unauthorized|authentication/i.test(e)) Object.assign(probe, { code: 'provider.test_unauthorized', errorClass: 'provider_misconfigured', error: '密钥无效或无权限(' + detail + '):请检查 API Key 是否正确、是否有额度/权限' });
+      else if (/\bHTTP 404\b/i.test(e)) Object.assign(probe, { code: 'provider.test_not_found', errorClass: 'provider_misconfigured', error: '端点地址可能不对(' + detail + '):检查 Base URL' });
+      else if (probe.probe === 'completion' && /\bHTTP 4\d\d\b/.test(e) && /model/i.test(e)) Object.assign(probe, { code: 'provider.test_model_rejected', errorClass: 'provider_misconfigured', error: '模型名可能不对(' + detail + ')' });
+      else if (/timeout|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN/i.test(e)) Object.assign(probe, { code: 'provider.test_unreachable', errorClass: 'network_down', error: '连不上端点(' + detail + '):检查网络与 Base URL,内网端点确认可达' });
+      else Object.assign(probe, { code: 'provider.test_failed', error: detail });
+      probe.detail = detail;
+      probe.apiStyle = apiStyle;
     }
     return send(res, json(probe));
   }

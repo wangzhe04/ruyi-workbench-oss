@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3566,
-    "requiredSymbols": 3161,
-    "edges": 537,
+    "providedSymbols": 3577,
+    "requiredSymbols": 3165,
+    "edges": 538,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2912,15 +2912,25 @@
         "ANTHROPIC_STREAM_ERROR_STATUS",
         "ANTHROPIC_STREAM_MAX_TOKENS",
         "ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE",
+        "ANTHROPIC_THINKING_BUDGET_MAX",
+        "ANTHROPIC_THINKING_BUDGET_MIN",
+        "ANTHROPIC_THINKING_EFFORT_BUDGET",
         "ANTHROPIC_THINKING_MODES",
+        "anthropicApiBase",
         "anthropicAssistantBlocks",
+        "anthropicBaseUrl",
+        "anthropicClassicThinking",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicLearnedMaxTokens",
+        "anthropicMaxTokensCapFromError",
+        "anthropicMaxTokensFor",
         "anthropicMergeUsage",
         "anthropicMessagesFromHistory",
         "anthropicMessagesUrl",
         "anthropicModelTakesAdaptiveThinking",
         "anthropicModelTraits",
+        "anthropicModelsUrl",
         "anthropicNonEmpty",
         "anthropicOfficialFeatures",
         "anthropicOfficialHost",
@@ -3035,7 +3045,21 @@
         },
         {
           "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicApiBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
           "symbol": "anthropicMessagesUrl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicModelsUrl",
           "kinds": [
             "read"
           ]
@@ -6898,6 +6922,7 @@
         "openAiStreamOnce",
         "packDescriptionsFor",
         "parseSimpleYamlValue",
+        "probeProviderCompletion",
         "projectActionModelView",
         "projectAgentRoleFile",
         "projectCwdDirectoryFailure",
@@ -13409,6 +13434,13 @@
           ]
         },
         {
+          "provider": "04i-provider-wire.js",
+          "symbol": "normalizeProviderApiStyle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -13866,6 +13898,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "probeProviderCompletion",
           "kinds": [
             "call"
           ]
@@ -27108,7 +27147,9 @@
       "from": "04i-provider-wire.js",
       "to": "04i-provider-anthropic.js",
       "symbols": [
+        "anthropicApiBase",
         "anthropicMessagesUrl",
+        "anthropicModelsUrl",
         "anthropicRequestHeaders",
         "anthropicRetryBodyOn400",
         "applyAnthropicEffort",
@@ -29787,6 +29828,14 @@
     },
     {
       "from": "13-http-router.js",
+      "to": "04i-provider-wire.js",
+      "symbols": [
+        "normalizeProviderApiStyle"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13-http-router.js",
       "to": "05-claude-engine.js",
       "symbols": [
         "CLAUDE_ENDPOINT_PRESETS",
@@ -29897,6 +29946,7 @@
         "buildClaudeAgentDefinitions",
         "fetchOpenAiModels",
         "getAgentRoleLibrary",
+        "probeProviderCompletion",
         "projectAgentRoleFile",
         "projectCwdDirectoryFailure",
         "readClaudeProjectAgentRoles",
