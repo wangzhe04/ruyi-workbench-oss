@@ -67,7 +67,8 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
       // --permission-mode is the forward-compatible, officially documented way to set the session mode.
       // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
-      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
+      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag —— 安全走查 S9:bypass 档除外,
+      // 它【不】写 bypassPermissions 进用户全局(会波及脱离如意的独立 claude 会话),只靠这里每回合的命令行参数。
       // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
       const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
       if (cliPermMode) args.push('--permission-mode', cliPermMode);

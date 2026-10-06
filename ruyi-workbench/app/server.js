@@ -4320,23 +4320,49 @@ async function syncClaudeCliSettings(config) {
     // 用户自己的 ~/.claude/settings.json 写成 defaultMode:auto,单独用 claude 的人被悄悄放宽、没经过任何确认。
     // 出厂值不代表用户的意思,不碰它;存量用户经 to:14 迁移钉成显式 default,照旧同步。
     const explicitMode = Array.isArray(config.configExplicitKeysV1) && config.configExplicitKeysV1.includes('permissionMode');
+    // 安全走查 S9:如意档位是 bypass(全自动)时【不】把 permissions.defaultMode 写成 bypassPermissions。如意自己的 Claude 回合每回合都带
+    // --permission-mode(05),这个全局键只会波及【脱离如意的独立 claude 会话】—— 它们被无声放宽成免问,直到用户手动改回。
+    // 其余档位的同步行为不变(照旧写)。权属 / 撤回:与下面的 model / MAX_THINKING_TOKENS 同一套 sidecar 纪律 —— sidecar 记「上次我们写进去的值」
+    // (defaultMode)与「写之前用户自己的值」(defaultModePrior,null = 当时没有这个键);切到 bypass 时,若 settings 里的值仍等于我们上次写的,
+    // 就撤回成 prior(没有 prior 就删掉这个键);不等于(用户后来自己改过)或 sidecar 没记(老版本写的,分不出是谁写的)一律原样不碰。
+    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
+    let prevSyncedModel = null;
+    let prevSyncedThinking = null;
+    let prevSyncedDefaultMode = null;
+    let prevDefaultModePrior = null;
+    try {
+      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
+      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
+      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
+      if (sc && typeof sc.defaultMode === 'string') { prevSyncedDefaultMode = sc.defaultMode; prevDefaultModePrior = typeof sc.defaultModePrior === 'string' ? sc.defaultModePrior : null; }
+    } catch { /* no sidecar yet */ }
+    const permsNow = (settings.permissions && typeof settings.permissions === 'object' && !Array.isArray(settings.permissions)) ? settings.permissions : null;
+    const currentDefaultMode = permsNow && typeof permsNow.defaultMode === 'string' ? permsNow.defaultMode : null;
+    const ownsDefaultMode = prevSyncedDefaultMode !== null && currentDefaultMode === prevSyncedDefaultMode;
+    let nextDefaultMode = null;        // 本次同步后 settings.permissions.defaultMode 里【由我们写的】那个值(null = 我们不拥有它)
+    let nextDefaultModePrior = null;
     if (explicitMode) {
       const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-      settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+      if (cliMode === 'bypassPermissions') {
+        if (ownsDefaultMode) {
+          const rest = { ...permsNow };
+          // prior 本身是 bypassPermissions(老版本留下的,或用户原先自己设的)也不在 bypass 档下写回去 —— 写回就等于又放宽了独立 claude 会话。
+          if (prevDefaultModePrior !== null && prevDefaultModePrior !== 'bypassPermissions') rest.defaultMode = prevDefaultModePrior; else delete rest.defaultMode;
+          if (Object.keys(rest).length) settings.permissions = rest; else delete settings.permissions;
+        }
+      } else {
+        nextDefaultModePrior = ownsDefaultMode ? prevDefaultModePrior : currentDefaultMode;
+        nextDefaultMode = cliMode;
+        settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+      }
+    } else if (ownsDefaultMode) {
+      nextDefaultMode = prevSyncedDefaultMode; nextDefaultModePrior = prevDefaultModePrior;   // 用户没选过档位:不碰,只把已有的权属记录带下去
     }
     // 2. Model. 第36波(v1.7): 只删【自己写过的】model —— settings.json 是用户自己的配置,工作台未设模型时
     // 无条件 delete 会把用户手写的 settings.model 一并抹掉(越权接管,与本函数 "MERGE: existing keys are
     // preserved" 的契约直接冲突)。权属用工作台侧 sidecar(dataRoot, 非用户 ~/.claude)追踪:记住上次同步写入的
     // 值,仅当 settings.model 仍等于该值时才删除(证明是我们写的);否则原样保留。sidecar 缺失(老版本首次升级)
     // 时宁可留一次陈旧值也不误删。
-    const sidecarPath = path.join(paths.data, 'claude-settings-sync.json');
-    let prevSyncedModel = null;
-    let prevSyncedThinking = null;
-    try {
-      const sc = safeJsonParse(await fsp.readFile(sidecarPath, 'utf8'), null);
-      if (sc && typeof sc.model === 'string') prevSyncedModel = sc.model;
-      if (sc && typeof sc.maxThinkingTokens === 'string') prevSyncedThinking = sc.maxThinkingTokens;
-    } catch { /* no sidecar yet */ }
     if (config.model && typeof config.model === 'string') settings.model = config.model;
     else if (prevSyncedModel && settings.model === prevSyncedModel) delete settings.model;
     // 3. Thinking budget -> env.MAX_THINKING_TOKENS。与上面的 model 同一条权属纪律:工作台没设预算时,只删【自己写过的】
@@ -4361,6 +4387,8 @@ async function syncClaudeCliSettings(config) {
     await atomicWriteJson(sidecarPath, JSON.stringify({
       model: (config.model && typeof config.model === 'string') ? config.model : null,
       maxThinkingTokens: config.thinkingBudget ? String(config.thinkingBudget) : null,   // 同上,见 "3. Thinking budget"
+      defaultMode: nextDefaultMode,                                                       // 安全走查 S9:见 "1. Permission mode"
+      defaultModePrior: nextDefaultMode !== null ? nextDefaultModePrior : null,
     })).catch(() => {});
   } catch { /* non-fatal: CLI flag --permission-mode is the primary mechanism */ }
 }
@@ -20945,7 +20973,8 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
       // --permission-mode is the forward-compatible, officially documented way to set the session mode.
       // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
-      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
+      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag —— 安全走查 S9:bypass 档除外,
+      // 它【不】写 bypassPermissions 进用户全局(会波及脱离如意的独立 claude 会话),只靠这里每回合的命令行参数。
       // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
       const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
       if (cliPermMode) args.push('--permission-mode', cliPermMode);
