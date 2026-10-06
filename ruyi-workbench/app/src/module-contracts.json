@@ -2814,15 +2814,19 @@
       "file": "04h-provider-http.js",
       "layer": "foundation",
       "provides": [
+        "PROVIDER_LAN_HOST_SUFFIXES",
         "abortableDelay",
         "providerApiBase",
+        "providerBaseIsLocalOrLan",
         "providerBaseWithV1",
         "providerCallIsTransient",
         "providerCompletionUrl",
         "providerPostJsonOnce",
         "providerRequestHeaders",
         "providerResponsesBase",
+        "providerRetryAfterMs",
         "providerSseAsCompletion",
+        "providerThrownErrorText",
         "withTransientRetry"
       ],
       "requires": []
@@ -2910,6 +2914,8 @@
         "normalizeProviderApiStyle",
         "providerReasoningEffort",
         "providerServerSearchCard",
+        "providerWireContentFiltered",
+        "providerWireContextExceeded",
         "providerWireDecoded",
         "providerWireFailureDetail",
         "providerWireIncomplete",
@@ -2921,7 +2927,9 @@
         "providerWireStreamErrorText",
         "providerWireToolCallsFromSlots",
         "reasoningContentField",
+        "responsesFailedText",
         "responsesHistoryWithCompleteToolPairs",
+        "responsesIncompleteFinishReason",
         "responsesInstructions",
         "responsesOutputText",
         "setTemperature",
@@ -5382,6 +5390,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerBaseIsLocalOrLan",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
@@ -7146,6 +7161,20 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerRetryAfterMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerThrownErrorText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -7412,6 +7441,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
           "kinds": [
             "read"
           ]
@@ -8852,6 +8888,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerThrownErrorText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -8867,6 +8910,20 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "providerServerSearchCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireContentFiltered",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireContextExceeded",
           "kinds": [
             "call"
           ]
@@ -8951,6 +9008,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "neutralizeAuthoredText",
           "kinds": [
             "call"
           ]
@@ -9942,6 +10006,7 @@
       "file": "10-context-governance.js",
       "layer": "orchestration",
       "provides": [
+        "AGENT_WAKE_BOOT_WINDOW_MS",
         "AGENT_WAKE_CHAIN_MAX",
         "AGENT_WAKE_DEBOUNCE_MS",
         "AGENT_WAKE_SOURCE",
@@ -9974,6 +10039,7 @@
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
+        "MANUAL_COMPACTION_SUMMARY_HEADER",
         "MODEL_CONTEXT_TABLE",
         "OBSERVATION_ARRAY_SAMPLE",
         "OBSERVATION_CRITICAL_KEYS",
@@ -10016,6 +10082,7 @@
         "agentNodeContextWindow",
         "agentWakeAttempted",
         "agentWakeChain",
+        "agentWakeJobKey",
         "agentWakeMessage",
         "agentWakeSkipsStatus",
         "agentWakeTimers",
@@ -10088,6 +10155,7 @@
         "persistContextCalibration",
         "pickSummaryFailure",
         "protectedObservation",
+        "providerCompactInFlight",
         "providerContextWindow",
         "providerConversationContextWindow",
         "providerSummaryCall",
@@ -10107,8 +10175,10 @@
         "runAutoCompaction",
         "runForcedOverflowCompaction",
         "runProviderCompact",
+        "runProviderCompactTracked",
         "runSessionTurn",
         "scheduleAgentWake",
+        "scheduleAgentWakesAtBoot",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -13811,7 +13881,14 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "runProviderCompact",
+          "symbol": "runProviderCompactTracked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "scheduleAgentWakesAtBoot",
           "kinds": [
             "call"
           ]

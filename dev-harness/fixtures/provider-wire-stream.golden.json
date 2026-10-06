@@ -1604,17 +1604,13 @@
   "result": {
    "text": "part",
    "reasoning": "",
-   "toolCalls": [],
    "finishReason": "error",
+   "toolCalls": [],
+   "httpError": "Responses failed (no error detail)",
    "providerResponseId": ""
   },
   "thrown": null,
-  "events": [
-   {
-    "type": "assistant_delta",
-    "text": "part"
-   }
-  ],
+  "events": [],
   "usages": [],
   "touchedAtLeastOnce": true,
   "fetches": [
@@ -2510,7 +2506,7 @@
  "error.401.no-failover": {
   "result": {
    "httpError": "HTTP 401: invalid api key for tool access",
-   "toolsRejected": true,
+   "toolsRejected": false,
    "text": "",
    "reasoning": "",
    "toolCalls": []
@@ -2657,6 +2653,403 @@
   "events": [],
   "usages": [],
   "touchedAtLeastOnce": false,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "nonstream.chat.error-envelope": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": "error",
+   "toolCalls": [],
+   "httpError": "HTTP 429: insufficient_quota: You exceeded your current quota",
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "nonstream.chat.error-envelope.string": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": "error",
+   "toolCalls": [],
+   "httpError": "Provider error: error: upstream exploded «redacted»",
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "nonstream.chat.content-filter-empty": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "toolCalls": [],
+   "finishReason": "content_filter",
+   "providerResponseId": "cf"
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [
+   {
+    "prompt_tokens": 5,
+    "completion_tokens": 0
+   }
+  ],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "nonstream.chat.error-key-with-content-is-success": {
+  "result": {
+   "text": "正常",
+   "reasoning": "",
+   "toolCalls": [],
+   "finishReason": "stop",
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "assistant_delta",
+    "text": "正常"
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "nonstream.responses.failed.with-error": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": "error",
+   "toolCalls": [],
+   "httpError": "Responses failed: boom «redacted»",
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "nonstream.responses.incomplete.content-filter": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "toolCalls": [],
+   "finishReason": "content_filter",
+   "providerResponseId": "rs"
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "responses.incomplete.content-filter": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": "content_filter",
+   "toolCalls": [],
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.incomplete\",\"response\":{\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"content_filter\"}}}",
+    "seq": 0
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.500.body-mentions-function": {
+  "result": {
+   "httpError": "HTTP 500: {\"error\":{\"message\":\"upstream error: Internal Server Error in function dispatcher\"}}",
+   "toolsRejected": false,
+   "text": "",
+   "reasoning": "",
+   "toolCalls": []
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true},\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"file_read\",\"parameters\":{\"type\":\"object\"}}}],\"tool_choice\":\"auto\"}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.422.tools-rejected": {
+  "result": {
+   "httpError": "HTTP 422: {\"detail\":[{\"msg\":\"tools: extra fields not permitted\"}]}",
+   "toolsRejected": true,
+   "text": "",
+   "reasoning": "",
+   "toolCalls": []
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true},\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"file_read\",\"parameters\":{\"type\":\"object\"}}}],\"tool_choice\":\"auto\"}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.429.retry-after-seconds": {
+  "result": {
+   "httpError": "HTTP 429: rate limited",
+   "toolsRejected": false,
+   "retryAfterMs": 7000,
+   "text": "",
+   "reasoning": "",
+   "toolCalls": []
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.429.retry-after-ms": {
+  "result": {
+   "httpError": "HTTP 429: rate limited",
+   "toolsRejected": false,
+   "retryAfterMs": 1500,
+   "text": "",
+   "reasoning": "",
+   "toolCalls": []
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.503.retry-after-capped": {
+  "result": {
+   "httpError": "HTTP 503: busy",
+   "toolsRejected": false,
+   "failoverStatus": 503,
+   "retryAfterMs": 30000,
+   "text": "",
+   "reasoning": "",
+   "toolCalls": []
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.429.retry-after-garbage": {
+  "result": {
+   "httpError": "HTTP 429: rate limited",
+   "toolsRejected": false,
+   "text": "",
+   "reasoning": "",
+   "toolCalls": []
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.stream-read-terminated-with-cause": {
+  "result": null,
+  "thrown": {
+   "name": "TypeError",
+   "message": "terminated (UND_ERR_SOCKET other side closed)"
+  },
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"content\":\"半截\"}}]}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "半截"
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.stream-read-abort-untouched": {
+  "result": null,
+  "thrown": {
+   "name": "AbortError",
+   "message": "The operation was aborted"
+  },
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"content\":\"半截\"}}]}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "半截"
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
   "fetches": [
    {
     "url": "http://127.0.0.1:1/v1/chat/completions",

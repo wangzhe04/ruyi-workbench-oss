@@ -101,6 +101,9 @@ const ERROR_CLASSES = {
   launch_error: { zh: '这一回合根本没起来', next: '重发一次;仍然不行就看工作台日志' },
   // hunt2:主回合 429 已自动退避重试过几次仍被限流(09 runOpenAiTurn)。修前归 tool_error,把人引去查工具。
   rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置→Providers 检查额度或换备用端点' },
+  // 服务商自己报的错(HTTP 5xx / 其它 4xx、流内错误帧、Responses failed、Anthropic 拒答)。修前这些全落成 tool_error「工具执行出错」,
+  // 把人引去查工具;它不是工具的错,也不一定是配置的错(404 / 401 / 403 另有 provider_misconfigured),多半是服务端暂时故障或请求被拒。
+  provider_error: { zh: '模型服务商返回了错误', next: '多为服务端暂时故障或请求被拒:稍后重试;反复出现就看错误详情,或到 设置→Providers 检查模型名与地址' },
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
@@ -151,16 +154,21 @@ const NETWORK_ANCHORS = ['https://www.baidu.com', 'https://cn.bing.com'];
 //       exactly, without diluting it with anchors or the provider.
 //   (2) DEFAULT (no probe URL) — union of [active provider baseUrl (如有)] + 固定国内可达锚点 (baidu/cn.bing),
 //       so a single flaky target can't fake a 60s global offline reading (the T2 goal).
+//       provider baseUrl 是本机 / 局域网地址(回环、RFC1918、链路本地、*.local、单标签主机名)时【不当锚点】:它能应答只说明
+//       本机/内网通,真断网时照样应答 —— 修前能力矩阵写「在线」、web_search / web_fetch 照常提供、提示词告诉模型「当前在线」。
+//       纯内网部署要声明在线状态,用 capabilityProbeUrl(上面 (1))。
 // Deduped, empties dropped. Exported so an e2e can drive it deterministically.
 // TEST HOOK: env WCW_TEST_NO_NET_ANCHORS=1 suppresses the fixed live anchors in the DEFAULT mode so an
 // offline-simulation e2e is not rescued by a real baidu/cn.bing on the test box. Zero production effect.
+// TEST HOOK: env WCW_TEST_LOCAL_PROVIDER_ANCHOR=1 让本机/局域网 provider 照旧当锚点 —— 离线跑的 e2e 靠本机假 provider 充当
+// 「网络在线」(假 provider 就在 127.0.0.1)。默认关,生产零影响;验证新判据的件把它清掉。
 function networkAnchors(config) {
   config = config || {};
   const cp = String(config.capabilityProbeUrl || '').trim();
   if (cp) return [cp]; // explicit override → sole target
   const list = [];
   const provider = activeOpenAiProvider(config);
-  if (provider && provider.baseUrl) list.push(providerBaseWithV1(provider.baseUrl));
+  if (provider && provider.baseUrl && !(providerBaseIsLocalOrLan(provider.baseUrl) && process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR !== '1')) list.push(providerBaseWithV1(provider.baseUrl));
   if (process.env.WCW_TEST_NO_NET_ANCHORS !== '1') { for (const a of NETWORK_ANCHORS) list.push(a); }
   return [...new Set(list.filter(Boolean))];
 }
@@ -1172,6 +1180,11 @@ async function providerRawCompletion(provider, history) {
   }
   const decoded = wire.decodeCompletion(r.parsed);
   const content = decoded.text.trim();
+  // 200 回体里装着失败(chat 顶层 {error}、Responses status:'failed'、Anthropic type:'error' / stop_reason:'refusal'):
+  // 修前只剩一句「空补全」,真因(额度用尽 / 拒答 / 服务端报错)看不到。与 10 摘要调用的口径一致,带出 failedDetail。
+  if (decoded.failed || (!content && decoded.failedDetail)) {
+    return { ok: false, error: `provider returned a failed completion${decoded.failedDetail ? ': ' + redact(String(decoded.failedDetail).slice(0, 300)) : ''}` };
+  }
   if (!content) return { ok: false, error: 'provider returned an empty completion' };
   // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
   return { ok: true, content, usage: decoded.usage, model };

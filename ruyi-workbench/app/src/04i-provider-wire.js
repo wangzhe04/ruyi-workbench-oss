@@ -31,7 +31,9 @@
 //   outputTokensField          输出上限字段名
 //   encodeQuick({ model, messages, plain })        句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
 //   decodeCompletion(payload, { requestModel })    非流式回体 → { text, reasoning, toolCalls, finishReason, incomplete, incompleteReason,
-//                              failed, failedDetail, usage, responseId[, providerBlocks] }(text 未 trim)
+//                              failed, failedDetail, failureText, usage, responseId[, providerBlocks] }(text 未 trim)
+//                              failureText:回体本身装着失败(chat 200 + 顶层 error、Responses status:'failed'、Anthropic type:'error' / refusal)时
+//                              与流式解码器同形的 httpError 文本(还没吐内容且认得出状态码 → 'HTTP <status>: …'),否则 '' —— 07 非流式分支据此报 httpError
 //   createStreamDecoder({ onEvent, markUsage, requestModel })    流式事件解码器:feed(evt) → 这一帧是否终止流;
 //                              finish() → { text, reasoning, finishReason, toolCalls, [httpError,] providerResponseId[, providerBlocks] }
 //   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
@@ -205,6 +207,19 @@ function providerWireIncomplete(payload, statusIncomplete) {
 function providerWireOutputLimited(finishReason) {
   return /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(String(finishReason || '').toLowerCase());
 }
+// 另两种「回答没说完」的原因,各自要不同的人话,不能和输出上限混成「达到输出上限,发继续」(那对它们是错的建议):
+//   · content_filter:服务商的内容安全策略拦下了回答(chat 的 finish_reason 原样透传;Responses 的 incomplete_details.reason 同名,解码器归一成它);
+//   · context_exceeded:上下文窗口满了(Anthropic 的 stop_reason:model_context_window_exceeded,解码器归一成它)—— 发「继续」只会让窗口更满。
+function providerWireContentFiltered(finishReason) {
+  return String(finishReason || '').toLowerCase() === 'content_filter';
+}
+function providerWireContextExceeded(finishReason) {
+  return String(finishReason || '').toLowerCase() === 'context_exceeded';
+}
+// Responses 的 incomplete 原因 → finishReason:内容安全拦截单列,其余(max_output_tokens、缺省)仍是 length。
+function responsesIncompleteFinishReason(reason) {
+  return /content[_-]?filter/i.test(String(reason || '')) ? 'content_filter' : 'length';
+}
 function providerWireFailureDetail(payload) {
   const e = payload && payload.error;
   if (typeof e === 'string') return e;
@@ -220,21 +235,22 @@ const OPENAI_STREAM_ERROR_STATUS = Object.freeze({
   server_error: 500, internal_error: 500, service_unavailable: 503, overloaded: 503,
   context_length_exceeded: 400, invalid_request_error: 400,
 });
-function providerWireStreamErrorText(err, emitted) {
+function providerWireStreamErrorText(err, emitted, label) {
   const e = err && typeof err === 'object' ? err : { message: err == null ? '' : String(err) };
   const numeric = [e.status, e.code, e.status_code].map(Number).find(n => Number.isInteger(n) && n >= 400 && n <= 599);
   const status = numeric || OPENAI_STREAM_ERROR_STATUS[String(e.code || '')] || OPENAI_STREAM_ERROR_STATUS[String(e.type || '')] || 0;
   const kind = String(e.code || e.type || 'error');
   const msg = String(e.message || '');
   const detail = kind + (msg ? ': ' + ProviderWireHooks.redact(msg.slice(0, 400)) : '');
-  return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Provider stream error: ' + detail;
+  return !emitted && status ? 'HTTP ' + status + ': ' + detail : (label || 'Provider stream error') + ': ' + detail;
 }
 // 两种协议共用的回体外壳字段。
 function providerWireDecoded(payload, core) {
   return {
     ...core,
-    failed: String(payload && payload.status || '').toLowerCase() === 'failed',
-    failedDetail: providerWireFailureDetail(payload),
+    failed: String(payload && payload.status || '').toLowerCase() === 'failed' || Boolean(core && core.failureText),
+    failedDetail: providerWireFailureDetail(payload) || (core && core.failureText ? String(core.failureText) : ''),
+    failureText: (core && core.failureText) || '',
     incompleteReason: String(payload && payload.incomplete_details && payload.incomplete_details.reason
       || (payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason) || 'output limit'),
     usage: (payload && payload.usage) || null,
@@ -258,7 +274,13 @@ function decodeChatCompletion(j) {
   const toolCalls = Array.isArray(msg && msg.tool_calls)
     ? msg.tool_calls.map(tc => ({ id: tc.id || ProviderWireHooks.makeId('call'), name: tc.function && tc.function.name, rawArgs: (tc.function && tc.function.arguments) || '{}' })).filter(t => t.name)
     : [];
-  return providerWireDecoded(j, { text: chatCompletionText(msg), reasoning, toolCalls, finishReason: ch && ch.finish_reason, incomplete: providerWireIncomplete(j, false) });
+  const outText = chatCompletionText(msg);   // 局部量不叫 text(见头注:裸 text 会凭空造出 04i → 00-boot 的边)
+  // 200 回体里装着错误:顶层 {error}(网关额度用尽 / 上游出错常这样回,没有 choices)、choices[0].error、finish_reason:'error'(OpenRouter 等)。
+  // 与流式解码器同一口径:没有任何正文 / 工具调用时,或 finish_reason 明说 error 时才算失败(有 choices 且有内容的回体里夹一个 error 字段不算)。
+  const finishErr = String(ch && ch.finish_reason || '').toLowerCase() === 'error';
+  const errObj = (j && j.error) || (ch && ch.error) || (finishErr ? { type: 'error', message: 'finish_reason=error' } : null);
+  const failureText = errObj && ((!outText.trim() && !toolCalls.length) || finishErr) ? providerWireStreamErrorText(errObj, false, 'Provider error') : '';
+  return providerWireDecoded(j, { text: outText, reasoning, toolCalls, finishReason: failureText ? 'error' : (ch && ch.finish_reason), incomplete: providerWireIncomplete(j, false), failureText });
 }
 // chat 流式:choices[0].delta 的 content / reasoning_content(或 reasoning)/ tool_calls 分片;终止靠分帧层的 [DONE]。
 function createChatStreamDecoder({ onEvent, markUsage }) {
@@ -367,6 +389,14 @@ function responsesOutputText(payload) {
 }
 // v1.7 (Responses API): a non-streamed response body is a `response` object with an `output` item list
 // (message / function_call / reasoning…), NOT chat's {choices:[{message}]}.
+// response.failed(流式事件 / 非流式回体共用):无 error 详情也置错误;文本过 redact() 防恶意服务商在 error 里回显密钥;
+// 错误含 context / length / token 语义时带 HTTP 400 前缀,让 45b 强压重试能识别(对抗轮 P1-3 / P2-1 / P2-3)。
+function responsesFailedText(resp) {
+  const err = resp && (resp.error || resp.last_error);
+  const em = (err && (err.message || err.code)) || (err && typeof err === 'object' ? JSON.stringify(err) : String(err || ''));
+  const said = 'Responses failed' + (em ? ': ' + ProviderWireHooks.redact(String(em).slice(0, 400)) : ' (no error detail)');
+  return /context|length|token/i.test(said) ? 'HTTP 400: ' + said : said;
+}
 function decodeResponsesCompletion(j) {
   const out = Array.isArray(j && j.output) ? j.output : [];
   let reasoning = '';
@@ -382,10 +412,12 @@ function decodeResponsesCompletion(j) {
     }
   }
   const status = j && j.status;
+  const failureText = String(status || '').toLowerCase() === 'failed' ? responsesFailedText(j) : '';
   return providerWireDecoded(j, {
     text: responsesOutputText(j), reasoning, toolCalls: toolCalls.filter(t => t.name),
-    finishReason: status === 'incomplete' ? 'length' : (status === 'failed' ? 'error' : 'stop'),
+    finishReason: status === 'incomplete' ? responsesIncompleteFinishReason(j.incomplete_details && j.incomplete_details.reason) : (status === 'failed' ? 'error' : 'stop'),
     incomplete: providerWireIncomplete(j, String(status || '').toLowerCase() === 'incomplete'),
+    failureText,
   });
 }
 // ── OpenAI Responses API stream (DeepSeek /v1/responses) ────────────────────────────────────────
@@ -507,9 +539,9 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         finishReason = 'stop';
         return true;
       }
-      if (t === 'response.incomplete') { // truncated (e.g. max_output_tokens)
+      if (t === 'response.incomplete') { // truncated (e.g. max_output_tokens;incomplete_details.reason 为 content_filter 时单列)
         if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
-        finishReason = 'length';
+        finishReason = responsesIncompleteFinishReason(evt.response && evt.response.incomplete_details && evt.response.incomplete_details.reason);
         return true;
       }
       // 流内 error 事件({type:'error', code, message}):终止流并走 httpError(修前被当作未知事件忽略,半截回答被当作成功)。
@@ -520,15 +552,8 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
       }
       if (t === 'response.failed') {
         if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
-        // Terminal failure — surface the error detail to the caller's existing httpError path.
-        // 对抗轮(P1-3/P2-1/P2-3):
-        //  • 无 error 详情也置错误(否则 finishReason 无人消费 → 静默空转,见 P2-1);
-        //  • 文本过 redact() 防恶意服务商在 error 里回显密钥(P2-3);
-        //  • 错误含 context/length 语义时置 contextOverflow,让 45b 强压重试能识别(P1-3)。
-        const err = evt.response && (evt.response.error || evt.response.last_error);
-        const em = (err && (err.message || err.code)) || (err && typeof err === 'object' ? JSON.stringify(err) : String(err || ''));
-        responsesFailedError = 'Responses failed' + (em ? ': ' + ProviderWireHooks.redact(String(em).slice(0, 400)) : ' (no error detail)');
-        if (/context|length|token/i.test(responsesFailedError)) responsesFailedError = 'HTTP 400: ' + responsesFailedError;
+        // Terminal failure — surface the error detail to the caller's existing httpError path(文本规则见 responsesFailedText)。
+        responsesFailedError = responsesFailedText(evt.response);
         finishReason = 'error';
         return true;
       }
@@ -640,7 +665,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     applyTools: applyAnthropicTools,
     outputTokensField: 'max_tokens',
     encodeQuick: encodeAnthropicQuick,
-    decodeCompletion: (payload, opts) => decodeAnthropicCompletion(payload, { requestModel: opts && opts.requestModel, newId: ProviderWireHooks.makeId }),
+    decodeCompletion: (payload, opts) => decodeAnthropicCompletion(payload, { requestModel: opts && opts.requestModel, newId: ProviderWireHooks.makeId, scrub: ProviderWireHooks.redact }),
     createStreamDecoder: opts => createAnthropicStreamDecoder({ ...opts, newId: ProviderWireHooks.makeId, scrub: ProviderWireHooks.redact }),
     normalizeUsage: normalizeAnthropicUsage,
     // thinking 的文字照旧进 reasoning_content(界面、摘要都认它);带签名的内容块原样进 providerBlocks,供同一段工具循环里回放。

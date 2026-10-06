@@ -1458,7 +1458,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 存量配置零变化。
   const wire = providerWireProtocol(provider);
   const apiStyle = wire.id;
-  const base = wire.endpointBase(provider.baseUrl); // 显示用 base 见 meta 事件
+  // 显示用 base 见 meta 事件:剥 basic-auth userinfo —— baseUrl 写成 https://user:pass@host 时,明文凭据会随 meta 的 command 进界面头部与回放
+  // (failover 候选的 base 早就剥了;chatUrl 仍保留原样以完成认证)。
+  const base = stripUrlUserinfo(wire.endpointBase(provider.baseUrl));
   const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
@@ -1700,7 +1702,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
   let volatileExtras = ''; // 52c(51d C2): 920-945 附加提示移 user 侧(与 turnVolatile 合并),sys 纯稳定(prefix-cache 完整命中)
   if (agentRoleMap.size && initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
-    volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
+    // 角色的 description 来自项目目录(.claude/agents/*.md、.ruyi/agents.json 随仓库走)—— 外来文本,与 08 buildOrchestrateHint 对工作流模板
+    // 同口径:压成单行、中和尖括号、截到 80 字再进易变层,不让一份角色文件用换行 / 伪造标签冒充一段指令。内置角色的说明都在 25 字内,不受影响。
+    const roleHintText = v => neutralizeAuthoredText(String(v || '').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim()).slice(0, 80);
+    volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${roleHintText(r.description || r.label)})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
   }
   // v1.4.4: list saved/built-in workflow templates so orchestrate_agents' workflowId can actually be used
   // — the model has no other way to discover which ids exist. Only relevant when the tool is offered.
@@ -1880,6 +1885,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }, 5000);
 
   let assistantText = '';
+  // 本回合【最后一个有文字】的迭代的正文:session.summary 取它(answerShape 要求最终答复首段就是结论)。修前取整段正文的前 160 字,
+  // 多迭代回合拿到的是第一轮的开场白(「我先看一下文件」),不是结论。
+  let lastIterationText = '';
+  // 各迭代的文字之间补一个空行再拼:修前直接首尾相接,「我先看一下文件。」+「结论:…」粘成一句。前后任一侧为空不补;
+  // 两侧已有的换行算数(别在 '\n\n[…提示]' 之后再多补)。
+  const iterationTextGap = (prev, next) => {
+    if (!String(prev).trim() || !String(next).trim()) return '';
+    const have = /\n*$/.exec(String(prev))[0].length + /^\n*/.exec(String(next))[0].length;
+    return '\n'.repeat(Math.max(0, 2 - have));
+  };
+  // 一个无工具的迭代(最终回答后的自检 / 插话续跑)之后还要再转一圈:上一段文字与下一轮文字之间在【事件流】里也隔一个空行 ——
+  // 两段之间没有工具卡,叙事账本里它们是同一个文本段,不补就在界面与落盘 segments 里粘在一起。
+  const separateNextIterationText = () => {
+    const gap = iterationTextGap(assistantText, 'x');
+    if (!gap) return;
+    assistantText += gap; onEvent({ type: 'assistant_delta', text: gap });
+  };
   let thinkingText = '';
   let usageObj = null;
   // v1.8: server-side tool items (web_search_call) to echo verbatim into the NEXT request's `input`.
@@ -1888,6 +1910,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const serverToolItems = [];
   let ok = true, errorMsg = '', aborted = false;
   const toolCalls = [];                 // for the display message (session.messages)
+  // 本回合与会话历史里【已经用过】的 tool_call id。有的服务商每次迭代都从 call_1 起编(甚至同一批里重复):同 id 的第二次 tool_use
+  // 在叙事账本里不建段(02c 以 id 为键),tool_result 回写第一张卡;Anthropic 还要求 tool_use id 唯一,重复会 400。
+  // 新到的调用 id 撞了就规范成唯一(id + '_' + 迭代序号):下游 —— providerHistory 的 assistant.tool_calls[].id、role:'tool' 的
+  // tool_call_id、界面事件、回合账、并行预执行表 —— 全部读同一个改过的 tc.id,配对不会断。
+  const usedToolCallIds = new Set();
+  for (const m of session.providerHistory) {
+    if (m && m.role === 'assistant' && Array.isArray(m.tool_calls)) for (const tc of m.tool_calls) if (tc && tc.id != null) usedToolCallIds.add(String(tc.id));
+  }
+  const claimUniqueToolCallIds = (calls, iterNo) => {
+    for (const tc of (Array.isArray(calls) ? calls : [])) {
+      if (!tc || tc.serverSide) continue;   // 服务端工具项(web_search_call)原样回传给服务商,id 不动
+      const id = String(tc.id == null ? '' : tc.id);
+      if (id && !usedToolCallIds.has(id)) { usedToolCallIds.add(id); continue; }
+      let next = `${id || 'call'}_${iterNo}`;
+      for (let n = 2; usedToolCallIds.has(next); n++) next = `${id || 'call'}_${iterNo}_${n}`;
+      tc.id = next; usedToolCallIds.add(next);
+    }
+  };
   const toolHookStartedAt = new Map();  // observational hooks only; never changes dispatch/permission semantics
   // 21-E0/E1: 三层调用账本 shadow(默认开、带采样与每回合事件上限)。只追加脱敏观测事件,不改
   // prompt/调度/history;任何异常都不影响工具分发。modelCallId 每 iter 生成,贯穿 started/completed
@@ -2589,13 +2629,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         maxRetries: 3,
         signal: ctrl && ctrl.signal,
         isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
-        backoffMs: n => Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)),
+        // 服务商回了 Retry-After(07 openAiStreamOnce 带出 retryAfterMs,已封顶 30 s)就至少等这么久:修前固定 0.5/1/2 s 共约 3.5 s,
+        // 限流窗口还没过就把 3 次重试用光,整回合失败。
+        backoffMs: (n, c) => Math.max(Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
         attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
         classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
           touch();
-          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)})`;
+          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)}${c && c.retryAfterMs > 0 ? `,服务商要求等待 ${Math.round(Math.min(30000, c.retryAfterMs) / 1000)} 秒` : ''})`;
           onEvent({ type: 'stderr', text: `[provider] ${what},稍后重试(${n}/3)` });
           logEvent({ kind: 'model_call_retry', sessionId: session.id, provider: provider.id, attempt: n, reason: c && c.transportError ? 'transport' : String(c && c.httpError || '').slice(0, 8) });
         },
@@ -2692,9 +2734,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, model, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.reasoning) thinkingText += call.reasoning;
       if (call.text) {
-        assistantText += call.text;
+        assistantText += iterationTextGap(assistantText, call.text) + call.text;
+        if (call.text.trim()) lastIterationText = call.text;
         reg.questionContext = assistantText;
       }
+      claimUniqueToolCallIds(call.toolCalls, iter);   // 先于计划相位 / 本地批 / 历史写入:后面所有读 tc.id 的地方看到的都是唯一 id
       activeProviderBatchId = call.toolCalls && call.toolCalls.length ? turnSegments.createBatchId('openai') : '';
       // Aborted while streaming → discard this (possibly partial) step, keep history valid.
       if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -2795,11 +2839,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall)   // 写歪的代理壳先还原(见该函数头注)
           .map(tc => retierToolInvokeCall(tc, toolLoading.catalog, bridgedRoute, config));                      // 61-B2:代理档低报只升不降地改道
         const outputLimited = providerWireOutputLimited(call.finishReason);
+        const contextLimited = providerWireContextExceeded(call.finishReason);   // 上下文窗口满了而被截断:同样不执行,但建议不同
         const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
           ok: false, argsInvalid: true,
           error: outputLimited
             ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小(分几次写入)后重试'
-            : '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试',
+            : (contextLimited
+              ? '工具调用参数被截断(上下文窗口已满),该调用未执行;请先压缩上下文或新开线程后重试'
+              : '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试'),
         });
         // 21-E0: 一次模型响应 = 一个 assistant batch(serverToolCalls 不参与本地工具批,只占 batch 总宽度)。
         if (econThisIter && localToolCalls.length) {
@@ -3359,8 +3406,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // No tool calls → final answer for this turn.
       if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
       // 回答命中输出上限被截断:修前与完整回答无从区分。给用户一句看得见的提示(只进显示正文,不进 providerHistory)。
+      // 另两种「没说完」各有各的原因与建议,不能混进「输出上限 → 发继续」:内容安全策略拦截(换个说法)、上下文窗口满了(先压缩 / 新开线程;
+      // 此时发「继续」只会让窗口更满)。修前 Responses 的 content_filter 与 Anthropic 的窗口超限都被归一成 length,chat 的 content_filter
+      // 空回答则落成「空回复」,用户被告知的是错的原因。
+      const answerContentFiltered = providerWireContentFiltered(call.finishReason);
+      const answerContextExceeded = providerWireContextExceeded(call.finishReason);
       if (providerWireOutputLimited(call.finishReason)) {
         const note = '\n\n[回复达到模型输出上限,可能不完整;可发送「继续」让它接着写]';
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+      } else if (answerContextExceeded) {
+        const note = '\n\n[上下文窗口已满,回复被截断;请先压缩上下文(或新开线程)再继续,直接发「继续」只会让窗口更满]';
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+      } else if (answerContentFiltered) {
+        const note = '\n\n[回复被服务商的内容安全策略拦截,可能不完整或为空;可以换个说法,或换个模型再试]';
         assistantText += note; onEvent({ type: 'assistant_delta', text: note });
       }
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
@@ -3377,17 +3435,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           const selfCheckPrompt = '【产物自检】请对照原任务的每一项显式要求，逐项核对你已生成的产物：(1) 是否覆盖所有要求项（清单/字段/类别/行）？(2) 数值与格式是否自洽（CSV 列与摘要一致、金额归位正确、大小写不同的文件名未误判重复）？若发现漏项或不一致，用最小步骤补全；若全部满足，简短确认完成即可。不要重复已完成的步骤。';
           session.providerHistory.push({ role: 'user', content: selfCheckPrompt });
           onEvent({ type: 'self_check', state: 'invoked', turnSeq: session.turnSeq });
+          separateNextIterationText();
           continue;
         }
       }
       // 最终回答流式期间到达的插话:/api/steer 已回 ok(接受了),这里若直接 break,队列随回合结束被丢掉、
       // 模型永远看不到。回合还在跑就再转一圈:循环顶端 drainSteerQueue 注入插话,模型接着回应(同 Kimi 的 follow-up)。
       // 历史此刻是完整的(最终回答已入历史,没有未配对的工具调用),在边界注入是配对安全的。
-      if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) continue;
+      if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) { separateNextIterationText(); continue; }
       // 空回复(正常结束、没有文字也没有工具调用):修前回合就这么静悄悄地结束,界面上只剩一个空气泡,用户分不清是
       // 还在跑、出错了还是模型真的什么都没说。给一句看得见的提示 —— 同上面「输出上限」那句,只进显示正文、不进
       // providerHistory(历史里不塞一条伪造的 assistant,下一回合的请求照旧合法)。命中输出上限的那种已经有自己的提示。
-      if (!String(call.text || '').trim() && !providerWireOutputLimited(call.finishReason)) {
+      if (!String(call.text || '').trim() && !providerWireOutputLimited(call.finishReason) && !answerContextExceeded && !answerContentFiltered) {
         const note = emptyReplyNotice(config && config.locale, Boolean(assistantText.trim()));
         assistantText += note; onEvent({ type: 'assistant_delta', text: note });
         try { logEvent({ kind: 'provider_empty_reply', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, iter, finishReason: call.finishReason || '', hadReasoning: Boolean(call.reasoning) }); } catch { /* telemetry must never break a turn */ }
@@ -3396,7 +3455,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
   } catch (e) {
     if (e && (e.name === 'AbortError' || reg.state !== 'running')) { aborted = true; ok = false; }
-    else { ok = false; errorMsg = (e && e.message) ? e.message : String(e); }
+    // errorMsg 带上 cause 的真因:流中途断线 undici 只抛 TypeError('terminated'),原因挂在 e.cause(04h providerThrownErrorText),
+    // 不并进来用户看到的只是 "terminated",下面的 errorClass 也认不出这是掉线。
+    else { ok = false; errorMsg = providerThrownErrorText(e); }
   }
   clearInterval(watchdog);
 
@@ -3438,9 +3499,44 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       onEvent({ type: 'usage', ...usageObj });
     }
   }
-  if (!ok && !aborted && errorMsg && !assistantText.trim()) {
-    assistantText = `[${provider.label || provider.id} 请求失败] ${redact(errorMsg)}`;
-    onEvent({ type: 'assistant_delta', text: assistantText });
+  // v0.8-S6: best-effort errorClass (§C6 seed, additive). idle-timeout abort → idle_timeout; a transport-
+  // level failure (fetch/DNS/ECONN/timeout in errorMsg) → network_down; any other HTTP error → provider_error / tool_error.
+  // A clean or user-initiated stop carries no errorClass. The枚举 table is ERROR_CLASSES (exported).
+  // (分类先于落盘助手消息算:失败段要带着它写进 segments。)
+  let errorClass;
+  if (planRejected) errorClass = 'plan_rejected'; // v0.9-S5: user rejected the plan (no tool ran; normal completion)
+  else if (loopAborted) errorClass = 'tool_loop'; // v0.8-S7: repeated-call guard (distinct from idle/network/tool_error)
+  else if (idleAborted) errorClass = 'idle_timeout';
+  else if (!ok && errorMsg) {
+    // 审计 P2: 认证/授权失败(密钥错/无权限,首跑最高频故障)先归 provider_misconfigured —— 否则落到 tool_error
+    // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
+    // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
+    // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
+    // 限流在重试用尽后仍是限流,不是「工具执行出错」:单独归 rate_limited(人话「稍等再发」,而不是让用户去查工具)。
+    if (/^HTTP 429\b/.test(errorMsg)) errorClass = 'rate_limited';
+    else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
+    // 掉线:除了 fetch / DNS / 超时,还认流中途被掐断的写法 —— undici 的 'terminated'(真因在 cause:other side closed / UND_ERR_SOCKET)、
+    // ECONNRESET、「流在没有终止信号时关闭」(07 openAiStreamOnce 的截断流判据)。修前这些全落成 tool_error「工具执行出错」。
+    // (裸词 terminated 只认开头:'HTTP 500: process terminated' 这类服务端报文不是掉线。)
+    else if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|ECONNRESET|UND_ERR_|fetch failed|network|socket|timed out|timeout|other side closed|stream ended unexpectedly/i.test(errorMsg) || /^terminated\b/i.test(errorMsg)) errorClass = 'network_down';
+    // 服务商自己报的错(HTTP 4xx/5xx、流内错误帧、Responses failed、Anthropic 拒答)不是「工具执行出错」:404 多半是地址 / 模型名配错,
+    // 归 provider_misconfigured(「检查地址与密钥」);其余归 provider_error(「服务商返回了错误」)。
+    else if (/^HTTP 404\b/.test(errorMsg)) errorClass = 'provider_misconfigured';
+    else if (/^(?:HTTP \d{3}\b|Provider (?:stream )?error\b|Anthropic (?:stream )?error\b|Anthropic refusal\b|Responses failed\b)/.test(errorMsg)) errorClass = 'provider_error';
+    else errorClass = 'tool_error';
+  }
+  // 失败文案【总是】进落盘助手消息:修前只在「本回合没有任何正文」时才写 —— 多迭代回合中途失败(前面已有文字 / 工具卡)时,落盘消息
+  // 没有任何失败痕迹,刷新后像正常结束;空闲看门狗中止同理(它没有 errorMsg,更是什么都不留)。用户自己点的停止不算失败。
+  // 有正文时前面空一行;同一段文字再作为一个 error 段写进 segments(带 errorClass),经典壳静态重绘时按现成的 msg-error 样式画出来
+  // (live 仍是这句话作为正文 + 回合结束的错误卡,所以实时那一发绕开叙事账本,免得静态重绘时同一句话出两遍)。
+  let failureNote = '';
+  if (idleAborted) failureNote = `[${provider.label || provider.id} 空闲超时] 本回合超过 ${Math.round(idleLimitMs / 1000)} 秒没有任何进展,已自动中止;可以重新发送`;
+  else if (!ok && !aborted && errorMsg) failureNote = `[${provider.label || provider.id} 请求失败] ${redact(stripUrlUserinfo(errorMsg))}`;
+  if (failureNote) {
+    const failureText = iterationTextGap(assistantText, failureNote) + failureNote;
+    assistantText += failureText;
+    downstreamEvent({ type: 'assistant_delta', text: failureText, traceId: activeTraceId });
+    turnSegments.consume({ type: 'result', ok: false, error: failureNote, errorClass: errorClass || '' });
   }
 
   if (activeChildren.get(session.id) === reg) {
@@ -3498,7 +3594,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (isUntitledSessionTitle(session.title)) { // 50-fix:中英占位集判定(同 05-claude-engine)
     session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   }
-  session.summary = (finalText.replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
+  // 摘要取【最后一个有文字的迭代】的开头(= 最终答复的首段,answerShape 要求它是结论),不取整段正文的前 160 字:多迭代回合里整段正文
+  // 以第一轮的开场白起头(「我先看一下文件」)。回合没有任何迭代文字(整回合只有失败 / 提示)时才回落整段正文。
+  session.summary = (String(lastIterationText || finalText).replace(/\s+/g, ' ').trim().slice(0, 160)) || session.summary || '';
   // P2-3: a mid-turn POST /api/session/skills wrote the new enable set to DISK (and updated reg.session in place);
   // re-read it before the final save so the turn's stale in-memory copy can't clobber a mid-turn skill toggle.
   // P2-3(记忆): 同款回读 session.memories + memoriesExplicit —— 免得回合边缘窗口用户「全部停用」被陈旧内存副本回滚,
@@ -3535,23 +3633,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
-  // v0.8-S6: best-effort errorClass (§C6 seed, additive). idle-timeout abort → idle_timeout; a transport-
-  // level failure (fetch/DNS/ECONN/timeout in errorMsg) → network_down; any other HTTP error → tool_error.
-  // A clean or user-initiated stop carries no errorClass. The枚举 table is ERROR_CLASSES (exported).
-  let errorClass;
-  if (planRejected) errorClass = 'plan_rejected'; // v0.9-S5: user rejected the plan (no tool ran; normal completion)
-  else if (loopAborted) errorClass = 'tool_loop'; // v0.8-S7: repeated-call guard (distinct from idle/network/tool_error)
-  else if (idleAborted) errorClass = 'idle_timeout';
-  else if (!ok && errorMsg) {
-    // 审计 P2: 认证/授权失败(密钥错/无权限,首跑最高频故障)先归 provider_misconfigured —— 否则落到 tool_error
-    // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
-    // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
-    // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
-    // 限流在重试用尽后仍是限流,不是「工具执行出错」:单独归 rate_limited(人话「稍等再发」,而不是让用户去查工具)。
-    if (/^HTTP 429\b/.test(errorMsg)) errorClass = 'rate_limited';
-    else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
-    else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
-  }
   if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: errorClass || (!ok && !wasStopped) ? 'failure' : 'progress',
     cursor: { turnSeq: session.turnSeq, engine: 'openai' },
