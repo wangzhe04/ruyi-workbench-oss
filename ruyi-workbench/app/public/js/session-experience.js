@@ -91,6 +91,8 @@ export function createSessionExperienceDomain({
   applyShellMode = () => 'classic',
   // 128f-⑫（审计 D／E）：右栏打开着的页签（变更、文件、审计…）重读一遍。组合根注入 navigation-controls 那一份。
   refreshToolPane = () => {},
+  // 打开线程后把服务端仍待确认的记忆候选卡画回来(js/skills-memory.js;只读回放)。缺席 = 不画,与修前一样。
+  restoreMemoryProposalCard = async () => {},
 } = {}) {
 // 118a: 本壳持有的向导实例。经典壳有原生文件夹选择器与设置页入口,直接注入;向导模块本身壳无关。
 // 118a-fix: 手册阅读器实例。向导完成页的「打开手册」落在这里:取 /api/help/doc 的 markdown,
@@ -295,6 +297,9 @@ async function openSession(id, opts = {}) {
   renderResumeBanner();
   syncStreamingUi();
   mountActiveTurn(id);
+  // 记忆候选卡不持久的补丁:刷新页面/切线程回来后,候选在服务端仍是 pending,卡片却只在回合刚结束时画过一次。
+  // 在跑的回合不回放(回合结束时 suggestMemoryFromTurn 会画);失败静默。
+  if (!activeTurns.has(id)) Promise.resolve(restoreMemoryProposalCard(id)).catch(() => {});
   syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
   syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
   if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)

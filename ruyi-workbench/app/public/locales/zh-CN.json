@@ -469,7 +469,7 @@
   "memory.check.done": "记忆=已检索 {{candidates}} 条候选，匹配 {{matches}} 条（项目 {{project}} / 全局 {{global}}）",
   "memory.check.unavailable": "记忆=预检暂不可用（本轮已安全降级）",
   "memory.createNew": "＋ 手写新建记忆",
-  "memory.defaultPolicyHint": "核心摘要每轮自动加载；其余项目与全局记忆参与轻量相关性检索，每轮最多补充 3 条结果。",
+  "memory.defaultPolicyHint": "核心摘要每轮自动加载；其余项目与全局记忆参与轻量相关性检索，每轮最多补充 {{count}} 条结果。",
   "memory.deleteConfirm": "删除记忆「{{name}}」？此操作不可撤销。",
   "memory.disableForSession": "本线程关闭记忆",
   "memory.draftFromSession": "✎ 从当前线程起草",
@@ -1755,7 +1755,7 @@
   "toast.locateFolderFail": "定位文件夹失败：{{p1}}",
   "toast.memoryDeleted": "已删除记忆",
   "toast.memoryFieldsRequired": "名称和正文不能为空",
-  "toast.memoryMax8": "最多同时启用 12 条记忆",
+  "toast.memoryMax8": "最多同时启用 {{count}} 条记忆",
   "toast.memoryPruned": "已移除失效记忆：{{p1}}",
   "toast.memorySaved": "已保存工作台记忆",
   "toast.memorySetFail": "设置记忆失败：{{err}}",
@@ -3840,4 +3840,21 @@
   ,"provider.baseUrlInvalid": "服务商「{{name}}」的接口地址不合格：{{reason}}。请改好后再保存。"
   ,"onboarding.wizard.provider.cloudNeedModel": "还没有模型名：请在「高级」里填写要用的模型名（「自定义」没有默认模型），或先点「测试连接」从返回的清单里选一个。"
   ,"settings.positiveIntegerOnly": "请填正整数，留空表示不设置"
+  ,"memory.defaultPolicyHintNoRelated": "核心摘要每轮自动加载；设置里「每回合带几条相关记忆」为 0，其余记忆不会自动附上。"
+  ,"memory.proposal.scopeAria": "记忆作用域"
+  ,"memory.proposal.scopeAdjusted": "AI 建议：{{requested}} · 已按保守原则改为{{final}}（可用上方的作用域下拉改回）"
+  ,"memory.proposal.scopeRestored": "AI 建议：{{requested}} · 已按你的选择使用{{requested}}"
+  ,"memory.proposal.scopeMove": "{{from}} → {{to}}"
+  ,"memory.proposal.moveNote": "确认后会把这条记忆从「{{from}}」移到「{{to}}」；它与其它记忆之间的关系边不能跨作用域保留，会一并移除。"
+  ,"memory.proposal.moved": "已把这条记忆移到「{{scope}}」"
+  ,"memory.proposal.movedDropped.one": "已把这条记忆移到「{{scope}}」；{{count}} 条关系边无法跨作用域保留，已移除"
+  ,"memory.proposal.movedDropped.other": "已把这条记忆移到「{{scope}}」；{{count}} 条关系边无法跨作用域保留，已移除"
+  ,"memory.proposal.coreOn": "将加入核心（每轮注入）"
+  ,"memory.proposal.coreOff": "不加入核心"
+  ,"memory.proposal.batchBodyCount": "（{{count}} 字）"
+  ,"memory.edit.scopeMoveHint": "改变范围会把这条记忆移到新的范围（另存并删除原来的）；它与其它记忆的关系边不能跨范围保留，会被移除。"
+  ,"error.api.memoryProposalStale": "「{{name}}」在这条修改建议提出之后又被改过了；为免覆盖你的改动，这张卡没有应用。请忽略它，需要的话让 AI 对着最新内容重新提议"
+  ,"error.api.memoryMoveConflict": "目标作用域里已经有同 id 的记忆（{{id}}），没有移动"
+  ,"migration.import.sensitiveSkipped.one": "{{count}} 段疑似含口令或密钥，已跳过不导入"
+  ,"migration.import.sensitiveSkipped.other": "{{count}} 段疑似含口令或密钥，已跳过不导入"
 }

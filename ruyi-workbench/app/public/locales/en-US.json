@@ -469,7 +469,7 @@
   "memory.check.done": "Memory=checked {{candidates}} candidates, matched {{matches}} (project {{project}} / global {{global}})",
   "memory.check.unavailable": "Memory=preflight unavailable (safely degraded for this turn)",
   "memory.createNew": "＋ Write a new memory",
-  "memory.defaultPolicyHint": "Core summaries load every turn; other project and global memories participate in lightweight relevance retrieval, adding at most 3 matches per turn.",
+  "memory.defaultPolicyHint": "Core summaries load every turn; other project and global memories participate in lightweight relevance retrieval, adding at most {{count}} matches per turn.",
   "memory.deleteConfirm": "Delete memory \"{{name}}\"? This cannot be undone.",
   "memory.disableForSession": "Disable for this thread",
   "memory.draftFromSession": "✎ Draft from current thread",
@@ -1755,7 +1755,7 @@
   "toast.locateFolderFail": "Could not locate folder: {{p1}}",
   "toast.memoryDeleted": "Memory deleted",
   "toast.memoryFieldsRequired": "Name and content are required",
-  "toast.memoryMax8": "At most 12 memories can be enabled",
+  "toast.memoryMax8": "At most {{count}} memories can be enabled",
   "toast.memoryPruned": "Pruned stale memory: {{p1}}",
   "toast.memorySaved": "Memory saved",
   "toast.memorySetFail": "Failed to set memory: {{err}}",
@@ -3840,4 +3840,21 @@
   ,"provider.baseUrlInvalid": "The base URL of provider \"{{name}}\" is not valid: {{reason}}. Fix it and save again."
   ,"onboarding.wizard.provider.cloudNeedModel": "No model name yet: enter the model to use under Advanced (Custom has no default model), or press Test connection and pick one from the returned list."
   ,"settings.positiveIntegerOnly": "Enter a positive whole number, or leave it empty for no setting"
+  ,"memory.defaultPolicyHintNoRelated": "Core summaries load every turn; “Related memories per turn” is set to 0 in Settings, so other memories are not attached automatically."
+  ,"memory.proposal.scopeAria": "Memory scope"
+  ,"memory.proposal.scopeAdjusted": "AI suggested {{requested}} · changed to {{final}} by the conservative default (use the scope menu above to change it back)"
+  ,"memory.proposal.scopeRestored": "AI suggested {{requested}} · using {{requested}} as you chose"
+  ,"memory.proposal.scopeMove": "{{from}} → {{to}}"
+  ,"memory.proposal.moveNote": "Applying this moves the memory from “{{from}}” to “{{to}}”. Relation edges to other memories cannot cross scopes and will be removed."
+  ,"memory.proposal.moved": "Moved this memory to “{{scope}}”"
+  ,"memory.proposal.movedDropped.one": "Moved this memory to “{{scope}}”; {{count}} relation edge cannot cross scopes and was removed"
+  ,"memory.proposal.movedDropped.other": "Moved this memory to “{{scope}}”; {{count}} relation edges cannot cross scopes and were removed"
+  ,"memory.proposal.coreOn": "Will join core (injected every turn)"
+  ,"memory.proposal.coreOff": "Not added to core"
+  ,"memory.proposal.batchBodyCount": " ({{count}} chars)"
+  ,"memory.edit.scopeMoveHint": "Changing the scope moves this memory to the new scope (saved there, then removed from the old one). Relation edges to other memories cannot cross scopes and will be removed."
+  ,"error.api.memoryProposalStale": "“{{name}}” was edited after this revision was suggested. To avoid overwriting your changes the card was not applied. Dismiss it and, if you still want a change, ask the AI to suggest it again from the latest content."
+  ,"error.api.memoryMoveConflict": "The target scope already has a memory with the same id ({{id}}); nothing was moved."
+  ,"migration.import.sensitiveSkipped.one": "{{count}} section that looks like it holds a password or key was skipped"
+  ,"migration.import.sensitiveSkipped.other": "{{count}} sections that look like they hold passwords or keys were skipped"
 }
