@@ -296,12 +296,12 @@ export function createArtifactChangesDomain({
       const app = first && first.editor || t('changes.localEditor');
       const count = result && Array.isArray(result.opened) ? result.opened.length : 1;
       if (first && first.mode === 'diff' && first.diffSupported !== false) {
-        toast(t('toast.externalDiffOpened', { app, count }));
+        toast(tCount('toast.externalDiffOpened', count, { app, count }));
       } else {
         toast(t('toast.externalDiffFallback', { app }));
       }
       if (result && Array.isArray(result.failed) && result.failed.length) {
-        toast(t('toast.externalDiffPartial', { count: result.failed.length }), 'err');
+        toast(tCount('toast.externalDiffPartial', result.failed.length), 'err');
       }
     } catch (error) {
       toast(t('toast.externalDiffFailed', { err: apiErrText(error) }), 'err');

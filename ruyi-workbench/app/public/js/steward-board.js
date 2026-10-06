@@ -4,7 +4,7 @@ import './mission-state.js';
 import { apiRaw } from './net.js';
 // 注（走查 S-14）：elapsedLabel 自此本模块不再直接调用（左栏在跑行改说「3 分钟前」，不印 `2s` 缩写）；import 保留，
 // 因为 steward-board.static B3 逐字钉着「时长文案是 import 复用、不是复制」。
-import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, threadIsBlank, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
+import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, stewardWaitBlockerId, stewardWaitText, threadIsBlank, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
 // 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
@@ -244,7 +244,7 @@ export function createStewardBoard({
   function failNote(error) {
     const code = stewardErrorCode(error);
     if (code === 'steward.queued') {
-      const label = stewardQueuedWaitLabel(error);
+      const label = stewardQueuedWaitLabel(error, t);   // W2-F5：递 t，等待原因按本地化键说
       note(label ? t('stewardShell.chat.errQueued', { wait: label }) : t('stewardShell.chat.errQueuedPlain'));
       return;
     }
@@ -1078,16 +1078,17 @@ export function createStewardBoard({
     // 117u-G2：没在等的时候【什么都不说】—— 修前这里回落成五态人话，B2 之后卡头那枚药丸已经把
     // 同一句话说过了，再印一遍就是病 3 那串等重灰字（空的时候由 :empty 收掉，不占位）。
     const wait = (row.wait && typeof row.wait === 'object') ? row.wait : null;
-    const waitLine = el('p', 'steward-board-wait', wait ? String(wait.label || '') : '');
+    // W2-F5：原样印 wait.label 在英文界面是服务端中文整句；改按 reason ＋ 结构化字段取本地化句（stewardWaitText，缺字段退回 label）。
+    const waitLine = el('p', 'steward-board-wait', wait ? stewardWaitText(wait, t) : '');
     if (wait && Number.isFinite(Number(wait.ahead)) && Number(wait.ahead) > 0) waitLine.dataset.ahead = String(wait.ahead);
     tail.appendChild(waitLine);
     if (options.facts) tail.appendChild(options.facts);
 
     const actions = el('div', 'steward-board-actions');
     // 116h 交付记录的登记项①在这里落地：等锁时占用者就在 wait.blockedBy 里，给一个「停掉占用者」。
-    if (wait && String(wait.reason) === 'lock' && wait.blockedBy) {
+    if (wait && String(wait.reason) === 'lock' && stewardWaitBlockerId(wait)) {
       actions.appendChild(boardButton('stewardShell.board.stopBlocker',
-        () => stopBlocker(String(wait.blockedBy)), { action: 'stop-blocker' }, 'stop'));
+        () => stopBlocker(stewardWaitBlockerId(wait)), { action: 'stop-blocker' }, 'stop'));
     }
     const lastRun = (row.lastRun && typeof row.lastRun === 'object') ? row.lastRun : null;
     // 二选一由 run-state.js 的判据说（与 2.0 的 run 卡同一份）：'pause' | 'resume' | 都不出。

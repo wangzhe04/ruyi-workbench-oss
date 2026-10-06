@@ -110,8 +110,24 @@ for (const [label, thread, ctx] of [
   ok(Object.keys(lock).sort().join(',') === 'blockedBy,label,reason', '④ lock 的键恰好是 {reason,label,blockedBy}');
   const slot = all[3];
   ok(Object.keys(slot).sort().join(',') === 'ahead,label,reason', '④ slot 的键恰好是 {reason,label,ahead}');
-  ok(Object.keys(all[0]).sort().join(',') === 'label,reason' && Object.keys(all[2]).sort().join(',') === 'label,reason',
-    '④ needs_you / budget 的键恰好是 {reason,label}(形状不随原因偷偷长键)');
+  // W2-F5(语义变更,逐条说明):原断言钉死「needs_you / budget 的键恰好是 {reason,label}」。前端要按 reason 本地化(英文界面不再印
+  // 服务端中文 label),needs_you 得带 pending、budget 得带 axis/spent/limit,否则前端只能去解析中文句子 —— 所以这两条的键集
+  // 各多了结构化字段(label 一个字没动,下面 ⑥ 逐字钉住)。「形状不随原因偷偷长键」的意图保留:键集仍是固定的、逐原因钉死。
+  ok(Object.keys(all[0]).sort().join(',') === 'label,pending,reason',
+    '④ needs_you 的键恰好是 {reason,label,pending}(W2-F5 新增 pending)');
+  ok(Object.keys(all[2]).sort().join(',') === 'axis,label,limit,reason,spent',
+    '④ budget 的键恰好是 {reason,label,axis,spent,limit}(W2-F5 新增三项)');
+}
+
+/* ═══════════ ④b W2-F5 结构化字段(label 逐字不变) ═══════════ */
+{
+  const needs = waitReasonFor({ pending: 3 }, {});
+  ok(needs.pending === 3 && needs.label === '等你(3 条待决)', '④b needs_you 带 pending:3,label 逐字不变');
+  const cost = waitReasonFor({ pending: 0 }, { budget: BUDGET_COST });
+  ok(cost.axis === BUDGET_COST.axis && cost.spent === BUDGET_COST.spent && cost.limit === BUDGET_COST.limit && cost.label.startsWith('等预算：'),
+    '④b budget(费用轴)带 axis/spent/limit,label 仍以「等预算：」开头');
+  const odd = waitReasonFor({ pending: 0 }, { budget: { axis: 'turns_per_hour', spent: 'x', limit: undefined } });
+  ok(odd.spent === null && odd.limit === null && odd.axis === 'turns_per_hour', '④b spent/limit 不是有限数时给 null(不给 NaN),label 里仍是 ?');
 }
 
 /* ═══════════ ⑤ 边界 ═══════════ */

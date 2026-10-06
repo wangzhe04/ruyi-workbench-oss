@@ -227,12 +227,9 @@ export function createAppFrame({
         toggleLens();
         return;
       }
-      // Ctrl+K：左栏搜索（§2.3）。搜索框就是 2.0 那一个（#sessionSearch），不是第二个控件。
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && String(event.key).toLowerCase() === 'k') {
-        const input = byId('sessionSearch');
-        if (input) { event.preventDefault(); input.focus(); input.select?.(); }
-        return;
-      }
+      // W2：这里原先还有一段 Ctrl+K →「聚焦左栏搜索」，是【死意图】：同一个键在 app.js 的全局快捷键里一直是命令面板
+      // （帮助弹窗与 keyboard-walkthrough 钉的也是面板会开），两处监听抢同一个键，后者 openPalette 把焦点收走，
+      // 搜索框从来没真拿到过焦点。键归命令面板一处；左栏搜索框是普通输入框，按 Tab 就到（面板里也能直接搜线程）。
       if (event.key === 'Escape' && isGearOpen()) {
         event.stopPropagation();
         const menu = byId('appGearMenu');

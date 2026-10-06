@@ -533,7 +533,7 @@ export function createChatStaticRenderer(deps = {}) {
       const { row, main } = messageShell('system', msg.createdAt, null);
       row.classList.add('agent-wake');
       const runs = Array.isArray(msg.meta.runIds) ? msg.meta.runIds.length : 0;
-      const note = el('div', 'bubble plain', t('chat.agentWake', { n: Math.max(1, runs) }));
+      const note = el('div', 'bubble plain', tCount('chat.agentWake', Math.max(1, runs), { n: Math.max(1, runs) }));
       note.title = String(msg.content || '');
       main.appendChild(note);
       if (messageKey) row.dataset.messageKey = messageKey;

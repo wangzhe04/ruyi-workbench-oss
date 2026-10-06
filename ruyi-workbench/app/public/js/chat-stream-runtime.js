@@ -1266,7 +1266,7 @@ export function createChatStreamRuntime(deps = {}) {
         const mc = evt.memoryCheck;
         const memoryLine = !mc ? '' : (!mc.enabled
           ? '\n' + t('memory.check.disabled')
-          : (!mc.checked ? '\n' + t('memory.check.unavailable') : '\n' + t('memory.check.done', { candidates: mc.candidateCount || 0, matches: mc.matchCount || 0, project: mc.projectMatches || 0, global: mc.globalMatches || 0 })));
+          : (!mc.checked ? '\n' + t('memory.check.unavailable') : '\n' + t('memory.check.done', { candidates: mc.candidateCount || 0, matches: mc.matchCount || 0, project: mc.projectMatches || 0, global: mc.globalMatches || 0 }) + (mc.ruleFillCount > 0 ? t('memory.check.fill', { fill: mc.ruleFillCount }) : '')));
         if (!replayingStream) appendToolOutput(`[${engTag}] ${evt.command} ${(evt.args || []).join(' ')}\ncwd=${evt.cwd}\n${t('chat.meta.modelPermission', { model: String(evt.model), permission: String(evt.permissionMode) })}${memoryLine}`);
         // v0.8-S0 cwd guardrail: warn once per turn when the working dir is the user's home/Desktop/
         // Documents/Downloads root (acting on everything the user owns is the highest-risk misfire).

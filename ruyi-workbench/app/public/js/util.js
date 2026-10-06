@@ -207,7 +207,28 @@ export function setStatusDetail(detail) {
 }
 
 // composer 文本域自适应高度(≤260px)。
-export function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 260) + 'px'; }
+export function autoGrow(ta) {
+  ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 260) + 'px';
+  watchGrowWidth(ta);
+}
+// W2-F4：高度是按【当时的宽度】量的。回合进行中输入框被工具键挤窄时，占位符/长句折成很多行，autoGrow 量到的是窄宽下的高度
+// （实测停在 144px）；发送后下拉收起、输入框变宽，但没人再量 —— 高度就卡在那，要等下一次 input。
+// 所以每个量过的输入框挂一只 ResizeObserver：每次量高度时记下「按多宽量的」，观察者发现宽度与那个记录不同才重量一次
+// （高度变化不触发，免得自己喂自己；记在量的那一刻而不是观察到的那一刻，量完立刻又变宽、观察者没来得及看见窄宽的情形也覆盖）。
+// 没有 ResizeObserver（单测桩子、旧环境）就什么都不做；元素不可见（宽 0）时不量，显示出来那一下宽度变了，照样会量。
+function watchGrowWidth(ta) {
+  if (!ta || typeof ta.clientWidth !== 'number') return;
+  ta.__ruyiGrowWidth = ta.clientWidth;
+  if (ta.__ruyiGrowWatch || typeof ResizeObserver !== 'function') return;
+  const observer = new ResizeObserver(() => {
+    const width = ta.clientWidth;
+    if (width === ta.__ruyiGrowWidth) return;
+    ta.__ruyiGrowWidth = width;
+    if (!width) return;
+    ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 260) + 'px';
+  });
+  try { observer.observe(ta); ta.__ruyiGrowWatch = observer; } catch { /* 观察不了就算了：回到修前行为 */ }
+}
 
 // 只做语音的服务商不进【对话】候选（用户 2026-09-21 拍板）。ruyi-toolbox 的本地语音识别组件会被自动接成一个服务商
 // （toolbox-<id>），它只有转写接口、没有对话接口：出现在引擎菜单／命令面板／压缩模型／子代理与管家的端点选择里，

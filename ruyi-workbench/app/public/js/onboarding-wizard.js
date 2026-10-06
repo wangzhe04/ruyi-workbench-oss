@@ -1098,8 +1098,10 @@ export function createOnboardingWizardDomain({
         const playbook = all.find(p => p && p.id === id);
         const card = el('button', 'onboard-wiz-card onboard-wiz-playbook');
         card.type = 'button';
-        card.append(el('div', 'onboard-wiz-card-title', (playbook && (playbook.title || playbook.name)) || t('onboarding.wizard.done.playbook.' + id)));
-        card.append(el('div', 'onboard-wiz-card-desc', (playbook && playbook.desc) || t('onboarding.wizard.done.playbookHint.' + id)));
+        // W2-F7b：卡面文字只认本地化键。修前优先取 state.playbooks 的 title/desc，那份是向导【打开前】按当时语言取回来的 ——
+        // 在第一步切到 English 之后第七步三张卡仍是中文。键（zh/en 各一份）本来就齐，playbook 对象只管点开（openPlaybook）。
+        card.append(el('div', 'onboard-wiz-card-title', t('onboarding.wizard.done.playbook.' + id)));
+        card.append(el('div', 'onboard-wiz-card-desc', t('onboarding.wizard.done.playbookHint.' + id)));
         card.onclick = () => {
           if (!playbook) { setMessage(t('onboarding.wizard.done.playbookMissing'), 'warn'); return; }
           frame.close();

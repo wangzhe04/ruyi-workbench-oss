@@ -119,7 +119,7 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
       return { after: settings.nextElementSibling === block, count: count.textContent, base: block.querySelector('.asr-lexicon-base input').checked,
         baseText: block.querySelector('.asr-lexicon-base span').textContent, text: block.querySelector('.asr-lexicon-text').value };
     })()`, 100);
-    ok(Boolean(lex) && lex.after && lex.count === ZH['settings.asrLexicon.count'].replace('{{count}}', '0') && lex.base === true && lex.text === '' && /\d{3}/.test(lex.baseText),
+    ok(Boolean(lex) && lex.after && lex.count === ZH['settings.asrLexicon.count.other'].replace('{{count}}', '0') && lex.base === true && lex.text === '' && /\d{3}/.test(lex.baseText),
       `V6a 语音词库一块挂在上面几栏之后:个人词空、计数 0、内置表开着并报条数(实测 ${JSON.stringify(lex)})`);
     await fx.evaluate(`(() => {
       const area = document.querySelector('#stab-voice .asr-lexicon-text');
@@ -128,7 +128,7 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
       document.querySelector('#stab-voice .asr-lexicon-save').click();
       return true;
     })()`);
-    const savedLex = await fx.waitForEval(`(() => { const c = document.querySelector('#stab-voice .asr-lexicon-count'); return c && c.textContent === ${JSON.stringify(ZH['settings.asrLexicon.count'].replace('{{count}}', '2'))} ? 1 : null; })()`, 100);
+    const savedLex = await fx.waitForEval(`(() => { const c = document.querySelector('#stab-voice .asr-lexicon-count'); return c && c.textContent === ${JSON.stringify(ZH['settings.asrLexicon.count.other'].replace('{{count}}', '2'))} ? 1 : null; })()`, 100);
     const d1 = lexDisk();
     ok(Boolean(savedLex) && d1 && Object.keys(d1.terms).join() === 'hb360,如意' && d1.terms['如意'].heard.join() === '如艺,如一',
       `V6b 点「保存词库」:盘上 voice-lexicon.json 两条、计数变 2、认不出的那行跳过(实测 ${JSON.stringify(d1 && d1.terms)})`);
