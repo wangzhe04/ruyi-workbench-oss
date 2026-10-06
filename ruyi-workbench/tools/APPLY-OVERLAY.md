@@ -69,14 +69,14 @@ apply 前先内联 precheck 全检,失败即拒、绝不写入(backup 目录都�
 
 1. **内联 precheck** 全检(失败即拒,绝不写入)
 2. **备份** 目标里将被覆盖的每个文件 -> `目标\.overlay-backups\<版本>-<时间戳>\`
-3. **覆盖** payload 文件复制到部署根
-4. **标记 + 审计** 写 `.overlay-applied.json` + 追加 `.overlay-audit.jsonl`(seq/ts/action/version/result/fileCount/backup/error)
+3. **覆盖** payload 文件复制到部署根。桌面壳正在运行时 `RuyiDesktop.exe` / `WebView2Loader.dll` 被占用、不能直接覆盖:这两类文件改为先把旧映像改名挪开(`<名>.old-<时间戳>`,NTFS 允许改名运行中的映像)再放新文件,**重启桌面壳后才载入新版**;回执里的 `replacedInUse` 列出这样处理的文件,以往留下的 `.old-*` 在下一次 apply 时清掉
+4. **标记 + 审计** 写 `.overlay-applied.json`(上一份标记先存进备份目录)+ 追加 `.overlay-audit.jsonl`(seq/ts/action/version/result/fileCount/backup/error)
 5. **post-apply verify** sha256 逐文件校验,结果决定顶层 `ok`/审计 `result`(`ok`/`verify_failed`,不再硬编码 ok)
 6. 只保留最近 5 份备份
 
 ## rollback(可恢复)
 
-`rollback` 恢复最近一次备份。CLI 默认拒(服务在跑别覆盖,先停进程);`-Force` 跳过(API 路径自动带,因 API 跑在服务内,文件覆写后 restart 加载恢复的旧文件)。本次 apply【新增】的文件(apply 时记在备份目录的 `.overlay-added.json`)会被删掉,回到套用前的样子(更早版本打出的备份没有这份清单,新增文件照旧留下)。
+`rollback` 恢复最近一次备份。CLI 默认拒(服务在跑别覆盖,先停进程);`-Force` 跳过(API 路径自动带,因 API 跑在服务内,文件覆写后 restart 加载恢复的旧文件)。本次 apply【新增】的文件(apply 时记在备份目录的 `.overlay-added.json`)会被删掉,回到套用前的样子(更早版本打出的备份没有这份清单,新增文件照旧留下)。`.overlay-applied.json` 标记同步回到套用前:备份里存着上一份就放回原处,没有(此前没套过覆盖包)就清掉 —— 所以回滚掉的版本可以再套,不会被幂等预检当成「已应用」。
 
 ## 故障恢复
 
@@ -92,7 +92,7 @@ apply 前先内联 precheck 全检,失败即拒、绝不写入(backup 目录都�
 
 - 产物新鲜:`build-overlay.js` 内部强制 `build --check`(产物==拼接 src),陈旧产物拒入包
 - sha256 完整:`gen-manifest.js` 逐文件算 sha256 写 manifest,apply 前 precheck 校验
-- 版本号:每包用不同 `version`(幂等预检);`minHostVersion` 自动从 `package.json` 注入
+- 版本号:`node tools/build-overlay.js <version>`,**`<version>` 必填**(不带参数直接报用法并退出,不再有默认值);每包用不同 `version`(幂等预检);`minHostVersion` 自动从 `package.json` 注入
 - 新增文件登记:`app/src/*` 经 `src/manifest.json` 自动纳入;非 src 新文件(如新 `public/js/*`、`resources/*`)必须手动加到 `build-overlay.js` 的 `PAYLOAD_FILES`,否则 overlay 不覆盖 -> 存量部署停在旧版;启动器与开发替身(`Start-Workbench.cmd`、`tools/fake-claude.js`、`tools/dev-serve.cmd`)不进载荷
 - PS1 UTF-8 BOM:含中文注释,PS5.1 在中文系统上读 no-BOM 会破坏解析
 

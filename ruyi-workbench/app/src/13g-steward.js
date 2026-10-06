@@ -326,6 +326,7 @@ async function stewardMemoryPanelEdit(body) {
     entry.confidence = 1;
     entry.sourceSessionId = 'user_panel';
     entry.sourceSeq = 0;
+    entry.sourceQuote = ''; // 用户在面板里亲手改的:出处就是用户本人,不再挂着改前那句引文
     entry.updatedAt = nowIso();
     stewardAppendDecision({ tool: 'steward_memory_panel_edit', args: { id, chars: text.length, kind: entry.kind }, targetSessionId: '', permissionMode: '', mayAct: 'user', undoRef: { kind: 'memory', id, prev: null }, basis: { memoryIds: [id] } });
     return { persist: true, result: { ok: true, entry: stewardMemoryPanelRow(entry, Date.now(), await readConfig().catch(() => ({}))) } };

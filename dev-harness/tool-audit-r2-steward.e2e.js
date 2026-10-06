@@ -250,7 +250,14 @@ try {
   ok(d3.error === 'quota_exceeded', `R11c 真调过模型之后名额照旧用掉(got ${d3.error})`);
 
   /* ═════════ R12 幂等 / expiresAt ═════════ */
-  const memSrc = { sessionId: good, turnSeq: 1 };
+  // 走查 #14:来源要带 quote(原话)且写进库的话要与它有共同用词 —— 为这组幂等/时效断言造一条真实的用户消息当来源,
+  // 三条记忆文本都出自这句话(不再借用「你好 成功」那条与它们毫无关系的线程)。
+  const memSess = await srv.createSession({ title: '记忆来源', cwd: WS });
+  const MEM_SAID = '我喜欢先看结论再看过程,这两周在赶一个新项目的交付';
+  memSess.messages = [{ role: 'user', content: MEM_SAID, turnSeq: 1, createdAt: new Date().toISOString() }];
+  memSess.turnSeq = 1;
+  await srv.saveSession(memSess);
+  const memSrc = { sessionId: memSess.id, turnSeq: 1, quote: MEM_SAID };
   const w = await S('steward_memory_write', { kind: 'preference', text: '用户喜欢先看结论再看过程', sourceRef: memSrc });
   ok(w.ok === true, `R12a 前提:真实用户消息作来源能写记忆(got ${w.error})`);
   const v1 = await S('steward_memory_veto', { id: w.id });
@@ -329,9 +336,9 @@ try {
     relayed = (full && full.messages || []).find(m => m.role === 'user') || null;
   }
   ok(relayed && relayed.meta && relayed.meta.origin === 'steward', `R17b 管家发起的用户消息落盘带 meta.origin:'steward'(got ${JSON.stringify(relayed && relayed.meta)})`);
-  const memViaSteward = await S('steward_memory_write', { kind: 'preference', text: '用户其实喜欢把所有事情都交给管家办理', sourceRef: { sessionId: viaSteward.sessionId, turnSeq: relayed ? relayed.turnSeq : 1 } });
+  const memViaSteward = await S('steward_memory_write', { kind: 'preference', text: '用户其实喜欢把所有事情都交给管家办理', sourceRef: { sessionId: viaSteward.sessionId, turnSeq: relayed ? relayed.turnSeq : 1, quote: '管家转述给线程的一句话' } });
   ok(memViaSteward.ok === false && memViaSteward.error === 'source_not_user', `R17c 以管家转述的消息为来源 → source_not_user(修前写得进去;got ${memViaSteward.error})`);
-  const memViaUser = await S('steward_memory_write', { kind: 'preference', text: '用户习惯用中文写总结报告', sourceRef: { sessionId: rd, turnSeq: 1 } });
+  const memViaUser = await S('steward_memory_write', { kind: 'preference', text: '用户常让助手先读文件', sourceRef: { sessionId: rd, turnSeq: 1, quote: 'READOK 请读文件' } });
   ok(memViaUser.ok === true, `R17d 用户本人在界面上发的消息仍能当来源(got ${memViaUser.error})`);
 
   /* ═════════ R15 / R16 schedule ═════════ */

@@ -37,6 +37,24 @@ def _route_clipboard(text: str, use_clipboard: bool | None) -> tuple[bool, str]:
     return False, "short_ascii"
 
 
+def _split_trailing_enter(text: str, reason: str) -> tuple[str, int]:
+    """(body, enters): a single-line text that ends in newline(s) means "type it, then press Enter".
+
+    A pasted trailing newline is dropped by a one-line field (search box, address bar), so the body is pasted
+    and Enter pressed instead. Applies to the two routes that paste single-line text: "long" and "non_ascii"
+    (ASCII "ls\\n" already gets this by being typed key by key). Multi-line text keeps its newlines verbatim
+    (pasted code ends in a newline on purpose), as do explicit use_clipboard=True calls. Kept pure for tests.
+    """
+    if reason not in ("long", "non_ascii"):
+        return text, 0
+    body = text.rstrip("\r\n")
+    if len(body) == len(text) or not body:
+        return text, 0
+    if "\n" in body or "\r" in body:
+        return text, 0
+    return body, text[len(body):].count("\n") or 1
+
+
 def _clipboard_seq() -> int | None:
     """Windows clipboard sequence number (changes on every clipboard write); None if unavailable."""
     try:
@@ -96,6 +114,7 @@ def type_text(text: str, interval: float = 0.02, use_clipboard: bool | None = No
         use_clipboard: None (default) = auto: clipboard paste for non-ASCII/CJK, multi-line or long (>200 chars)
             text (verbatim, no editor auto-indent), key-by-key only for short single-line ASCII. True = force
             paste. False = force key-by-key (cannot produce CJK; editors may auto-indent multi-line text).
+            A single-line text ending in "\\n" (e.g. "搜索词\\n") is pasted without it and Enter is pressed.
 
     Returns:
         dict with 'ok', 'length', and the 'method' used ('route' says why, 'restore' how the previous clipboard
@@ -107,12 +126,9 @@ def type_text(text: str, interval: float = 0.02, use_clipboard: bool | None = No
             return {"ok": False, "error": "text exceeds 20000 chars and use_clipboard=false would block for minutes; call with use_clipboard=true instead"}
         route_clipboard, reason = _route_clipboard(text, use_clipboard)
         if route_clipboard:
-            # A long single-line text ending in newline(s) meant "type it, then press Enter"; a pasted
-            # trailing newline would be dropped by a one-line field, so paste the body and press Enter.
-            body, enters = text, 0
-            if reason == "long":
-                body = text.rstrip("\r\n")
-                enters = text[len(body):].count("\n") or (1 if len(body) < len(text) else 0)
+            # A long or non-ASCII single-line text ending in newline(s) meant "type it, then press Enter"; a
+            # pasted trailing newline would be dropped by a one-line field, so paste the body and press Enter.
+            body, enters = _split_trailing_enter(text, reason)
             res = _type_via_clipboard(body)
             for _ in range(enters):
                 pyautogui.press("enter")

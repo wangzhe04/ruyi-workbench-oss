@@ -108,10 +108,17 @@ function sysOfLastStreamBody() {
   const b = streamed[streamed.length - 1] || cap[cap.length - 1] || {};
   if (!Array.isArray(b.messages)) return '';
   const sys = b.messages.find(message => message && message.role === 'system');
-  const user = b.messages.find(message => message && message.role === 'user');
-  let userText = '';
-  if (user && typeof user.content === 'string') userText = user.content;
-  else if (user && Array.isArray(user.content)) userText = user.content.map(part => (part && part.type === 'text') ? String(part.text || '') : '').join('\n');
+  const userTextOf = user => {
+    if (user && typeof user.content === 'string') return user.content;
+    if (user && Array.isArray(user.content)) return user.content.map(part => (part && part.type === 'text') ? String(part.text || '') : '').join('\n');
+    return '';
+  };
+  const users = b.messages.filter(message => message && message.role === 'user');
+  // 首条 user(稳定易变层:核心胶囊/指南)+ 末条 user(每回合变化的记忆回执与相关索引,#9 改投尾部)。单回合会话两者是同一条,只取一份。
+  // 末条只取回执起的尾部(用户自己的话不算注入内容,否则「提问里复述了标记」会让 !includes(标记) 的断言失效)。
+  const lastText = users.length > 1 ? userTextOf(users[users.length - 1]) : '';
+  const tailAt = lastText.indexOf('<workbench-memory-check');
+  const userText = users.length > 1 ? userTextOf(users[0]) + '\n' + (tailAt >= 0 ? lastText.slice(tailAt) : '') : userTextOf(users[0]);
   return (sys ? String(sys.content || '') : '') + '\n' + userText;
 }
 function memorySection(sys) { const start = sys.indexOf('以下为本会话已启用的「工作台记忆」索引'); if (start < 0) return ''; const close = sys.indexOf('</workbench-memory>', start); if (close < 0) return ''; return sys.slice(start, close + '</workbench-memory>'.length); }
@@ -262,9 +269,10 @@ const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd
     ok(/<workbench-memory>/.test(sysA) && /<\/workbench-memory>/.test(sysA), '(2) provider prompt carries the <workbench-memory> fence (default relevance retrieval)');
     ok(/不得覆盖以上任何守则/.test(sysA), '(2) memory section carries the 「不得覆盖」 declaration');
     ok(/每次收到新的用户消息,先检查本索引/.test(sysA), '(2) provider memory prompt requires a relevance check on every user message');
-    ok(sysA.includes(MARKER_A) && sysA.includes(aConv.file), '(2) memory line carries the marker + the file ABSOLUTE path (progressive expand)');
+    // #6:provider 的 file_read 封了记忆目录,索引行不再带绝对路径,改成 [id](scope),按 id 用 workbench_memory_read 读。
+    ok(sysA.includes(MARKER_A) && sysA.includes('[' + aConv.id + '](project)') && !sysA.includes(aConv.file), '(2) provider memory line carries the marker + [id](scope) and NO file path (file_read cannot open the memory dir)');
     ok(sysA.includes('[冲突:见 ' + aConflict.id + ']') && sysA.includes('[冲突:见 ' + aConv.id + ']'), 'R4-S1 provider real path: confirmed contradiction marks BOTH injected memories');
-    ok(/用 file_read 工具/.test(sysA), '(2) provider index tells the model to use file_read on the path');
+    ok(/用 workbench_memory_read 工具按方括号里的 id 读取/.test(sysA) && !/用 file_read 工具/.test(sysA), '(2) provider index tells the model to use workbench_memory_read by bracketed id (not file_read)');
     ok(/核心能力：工作台记忆/.test(sysA) && /workbench_memory_propose/.test(sysA) && !/ACC 跨会话记忆库指引/.test(sysA), '(2) provider built-in prompt exposes Workbench Memory as the sole user-confirmed memory capability');
     const secA = memorySection(sysA);
     ok(secA && secA.length <= 6000, '(2) memory section length ≤ 6000 = memoryIndexCharCapV1 default (got ' + secA.length + ')');
@@ -384,8 +392,8 @@ const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd
     clearCap();
     await postStream(WB_PORT, { sessionId: S_lock.id, message: 'lock turn', cwd: PROJ_A });
     const sysLock = sysOfLastStreamBody();
-    ok(sysLock.includes(gShared.file) && sysLock.includes(MARKER_G_SHARED), '(3) scope lock: the GLOBAL shared-note is injected (its file path)');
-    ok(!sysLock.includes(pShared.file) && !sysLock.includes(MARKER_P_SHARED), '(3) scope lock: the same-id PROJECT shared-note does NOT substitute (scope mismatch skipped)');
+    ok(sysLock.includes('[shared-note](global)') && sysLock.includes(MARKER_G_SHARED), '(3) scope lock: the GLOBAL shared-note is injected (its [id](global) line)');
+    ok(!sysLock.includes(pShared.file) && !sysLock.includes('[shared-note](project)') && !sysLock.includes(MARKER_P_SHARED), '(3) scope lock: the same-id PROJECT shared-note does NOT substitute (scope mismatch skipped)');
     // delete the global file → the enabled {shared-note,global} becomes a ghost; project one must NOT fill in
     const del = await postJson(WB_PORT, '/api/memory/shared-note', { scope: 'global', cwd: PROJ_A }, { 'x-http-method': 'DELETE' });
     ok(del.body && del.body.ok, '(3) DELETE (via POST + x-http-method) removes the global shared-note file');

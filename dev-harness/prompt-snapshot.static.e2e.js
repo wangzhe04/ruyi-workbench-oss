@@ -110,7 +110,10 @@ ok(full.length >= stable.length + volatile.length - 5, 'D7 包装=stable+volatil
 ok(src.includes("turnVolatile + '\\n\\n'") && !src.includes("turnVolatile + '\\\\n\\\\n'"), 'D8 volatile 前缀使用真实换行,不向模型发送字面量 \\\\n');
 ok(typeof srv.PROMPT_PACK_VERSION === 'string' && /^20\d\d-w\d+-\d+$/.test(srv.PROMPT_PACK_VERSION), 'D9 PROMPT_PACK_VERSION 语义化版本(52d, got ' + srv.PROMPT_PACK_VERSION + ')');
 ok(/const budgetPrompt = turnVolatile \? sys \+ '\\n\\n' \+ turnVolatile : sys;/.test(src), 'D9 上下文预算提示包含 stable+volatile');
-ok(/maybeAutoCompact\(session, provider, budgetPrompt,/.test(src) && /estimateHistoryTokens\(session\.providerHistory, budgetPrompt\)/.test(src), 'D10 自动压缩与 fallback 估算均使用完整预算提示');
+// 走查 #9:随每条消息变化的记忆回执 + 相关索引改投末条 user 尾部,不再在 turnVolatile 里;它们仍要计预算,所以上下文治理的几处调用
+// 改用 budgetPromptFull(= budgetPrompt + 记忆回合尾部)。D10 的意图(自动压缩与 fallback 估算都用「完整」预算提示)不变,只是完整的含义多了这一段。
+ok(/maybeAutoCompact\(session, provider, budgetPromptFull,/.test(src) && /estimateHistoryTokens\(session\.providerHistory, budgetPromptFull\)/.test(src), 'D10 自动压缩与 fallback 估算均使用完整预算提示(含记忆回合尾部)');
+ok(/const budgetPromptFull = memoryTurnTail \? budgetPrompt \+ '\\n\\n' \+ memoryTurnTail : budgetPrompt;/.test(src), 'D10b 完整预算提示 = stable + volatile + 记忆回合尾部');
 // 108a 运行时身份层:产品名/版本/启动模式进 stable(自我认知),且必须逐字节稳定、identityOnly 不注入。
 // 108a-fix2: stable 层渲染文字必须跨进程恒定:address(随机端口)与 instanceId(每进程随机 OVERLAY_ID)
 // 会让 budget-guard.e2e.js 两个独立栈的请求体逐字节比对失败(E4/E30),故两项与 installDir/dataDir

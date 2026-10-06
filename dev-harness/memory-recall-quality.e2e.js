@@ -251,5 +251,32 @@ const stable = new Set();
 for (let i = 0; i < 5; i++) stable.add(context.rankMemoriesFused(REGISTRY, '提交信息写法是什么', 3).map(e => e.id).join(','));
 ok(stable.size === 1, 'D7 同一输入多次调用结果稳定(无 Map 迭代序抖动)');
 
+// ── 走查 #7:负例精度(只加不改)──────────────────────────────────────────────────────────
+// 修前这道门只量召回(Recall@3),没量误报:稀疏哈希向量在不相干文本间也有 0.12–0.20 的余弦噪声,向量层开着时一批
+// 无关问句被塞进无关条目(走查实测 16 条混合库上 12 句里 10 句)。
+// 现在:词法准入 + 向量重排,向量独有候选要余弦 ≥ 0.25 且 ≥ 0.6×向量第一名才进。负例 = 与这 50 条毫无关系的问句,
+// 任何一条召回结果(规则类 convention/preference 的默认补位除外)都算误报。
+const NEG_QUERIES = [
+  '今天天气怎么样', '帮我写一首诗', '这段代码的时间复杂度是多少', 'explain how closures work in JavaScript', '帮我把这个函数重构一下',
+  '帮我翻译这段英文', '统计一下这个表格的平均值', 'can you turn it on', 'what is going on with this one', 'explain the lesson',
+  'hello', '你好', '谢谢', '继续', '讲个笑话', '推荐一本小说', 'what is the capital of France', 'how do I bake bread',
+  'tell me about quantum computing', '帮我写一封邮件给客户', '把这段话润色一下', '1+1等于几', 'summarize this paragraph for me',
+  'write a haiku about autumn', '北京明天会下雨吗', '怎么减肥', 'translate this to French', '这个问题怎么解决', '请检查一下这个文件有没有问题',
+  'recommend a movie for tonight',
+];
+const isRule = e => e.type === 'convention' || e.type === 'preference';
+const junkOf = rank => NEG_QUERIES.map(q => ({ q, junk: rank(q).filter(e => !isRule(e)) })).filter(r => r.junk.length);
+const junkLexical = junkOf(q => context.rankRelevantMemories(REGISTRY, q, 8));
+const junkFused = junkOf(q => context.rankMemoriesFused(REGISTRY, q, 8));
+console.log(`#   负例精度(${NEG_QUERIES.length} 句无关问句 × 50 条记忆):词法被污染 ${junkLexical.length} 句,融合被污染 ${junkFused.length} 句`);
+// 实测(2026-10,本库 50 条 × 30 句):修前向量开 27/30 句被污染(73 条无关项)、词法 5/30;现在两条路径都只剩 2/30(都是词面上真有交集的近似误报:
+// 「表格」≈ markdown 表格、「客户」⊂「客户端」,词法层的天花板,不是向量引入的)。这里把 2 当上限钉住(只减不增),并钉死「向量没有额外放进任何条目」。
+ok(junkFused.length <= 2, `D8 向量层开着时无关问句基本不召回无关条目(被污染 ${junkFused.length}/${NEG_QUERIES.length},上限 2${junkFused.length ? ':' + junkFused.map(r => r.q + '→' + r.junk.map(e => e.id)).join(' | ') : ''})`);
+ok(junkLexical.length <= 2, `D8b 纯词法路径同样(被污染 ${junkLexical.length}/${NEG_QUERIES.length},上限 2)`);
+ok(junkFused.every(r => junkLexical.some(l => l.q === r.q && r.junk.every(e => l.junk.some(x => x.id === e.id)))), 'D8c 向量层没有额外放进任何条目:融合的误报都已在词法准入的结果里(向量只重排、不独立准入噪声)');
+// 召回不退:拼写漂移那条由词法层的编辑距离准入(向量余弦在真命中 0.12 与噪声 0.12–0.20 之间没有可划的线),融合/词法两条路径都要召回。
+ok(context.rankRelevantMemories(REGISTRY, 'canry deployment', 3).map(e => e.id).includes('deploy-canary'), 'D9 拼写漂移 canry→canary 在纯词法路径也召回(编辑距离 ≤1 准入)');
+ok(fused.total >= 19 && lexical.total >= 19, `D10 Recall@3 不低于修前的融合水平 19/20(融合 ${fused.total}/20,词法 ${lexical.total}/20)`);
+
 console.log(`MEMORY RECALL QUALITY E2E: ${failed ? 'FAIL (' + failed + ')' : 'ALL PASS'}`);
 process.exit(failed ? 1 : 0);

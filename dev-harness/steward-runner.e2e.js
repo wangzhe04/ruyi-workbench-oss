@@ -451,13 +451,15 @@ try {
     ok(lastUser && lastUser.meta && lastUser.meta.origin === 'inbox', 'E2 收件箱事件以一条 origin:inbox 的 user 消息注入(元数据随正文落盘)');
     ok(lastUser && /收件箱/.test(String(lastUser.content)) && /不是用户说的话/.test(String(lastUser.content)), 'E3 消息文本自己就说清了「这不是用户说的话」');
     const write = await srv.toolCall('steward_memory_write', {
-      kind: 'preference', text: '用户喜欢一页纸摘要', sourceRef: { sessionId: 'steward', turnSeq: inboxTurnSeq },
+      kind: 'preference', text: '用户喜欢一页纸摘要', sourceRef: { sessionId: 'steward', turnSeq: inboxTurnSeq, quote: String(lastUser && lastUser.content || '').slice(0, 12) }, // 走查 #14:带 quote(角色闸仍先于 quote 闸)
     }, stewardCtx());
     ok(write && write.ok === false && write.error === 'source_not_user',
       `E4 拿 origin:inbox 的回合当记忆来源 -> source_not_user(got ${write && write.error})`);
     const userTurn = [...rows].reverse().find(m => m && m.role === 'user' && !(m.meta && m.meta.origin === 'inbox'));
+    const said = String(userTurn && userTurn.content || '').slice(0, 12);
     const write2 = await srv.toolCall('steward_memory_write', {
-      kind: 'preference', text: '用户喜欢一页纸摘要', sourceRef: { sessionId: 'steward', turnSeq: Number(userTurn && userTurn.turnSeq) || 0 },
+      // 走查 #14:写进库的话要与来源原话有共同用词 —— 这句话的措辞取自用户那一回合的原话
+      kind: 'preference', text: '用户说过「' + said + '」', sourceRef: { sessionId: 'steward', turnSeq: Number(userTurn && userTurn.turnSeq) || 0, quote: said },
     }, stewardCtx());
     ok(write2 && write2.ok === true, `E5 同一会话里用户【本人】那一回合仍是合法来源(got ${write2 && write2.error})`);
 

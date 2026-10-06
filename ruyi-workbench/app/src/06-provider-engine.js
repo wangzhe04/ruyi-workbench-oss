@@ -1863,7 +1863,9 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
 // 只有主回合调用方传它;子代理(08-agent-runs)不与用户对话,不传 -> 天然无 playbook 索引。
 // 145-W3: 末尾再加可选参数 envContext = { session }(不动任何既有位置参数)。传了会话头才认得出「管家代开」;
 // 不传时引擎说明的其余几句照常(权限档/提问弹窗)。
-function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext) {
+// #9: 末尾再加可选参数 options。options.memoryTurnTail===true 时本层只含【稳定的核心胶囊】,不含随每条消息变化的检索回执与相关记忆索引 ——
+// 调用方(09 runOpenAiTurn)用 buildMemoryTurnSection 另造那一半,投到末条 user 尾部;这一层前插首条 user,必须跨回合逐字节稳定才吃得到前缀缓存。
+function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext, options) {
   const lines = [];
   // [能力层]
   const netStr = caps && caps.network
@@ -1954,12 +1956,13 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     if (pbSec) lines.push(pbSec);
   }
   // [记忆层]
-  if (memoryCheck) {
+  const memoryTurnTail = !!(options && options.memoryTurnTail === true);
+  if (memoryCheck && !memoryTurnTail) {
     const checkSec = buildMemoryCheckPrompt(memoryCheck, config);
     if (checkSec) lines.push(checkSec);
   }
   if (Array.isArray(memoryEntries) && memoryEntries.length) {
-    const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config, memoryConflicts);
+    const memSec = buildMemoryPromptSection(memoryEntries, 'openai', config, memoryConflicts, memoryTurnTail ? { part: 'core' } : undefined);
     if (memSec) lines.push(memSec);
   }
   // [工作台记忆核心能力] — 内置工具是唯一入口；写入永远经过候选卡片与用户确认。

@@ -373,7 +373,9 @@ async function runClaudeTurn({
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
     { cliType: agentCliType }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
   ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
-  const memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
+  // 本条消息的记忆检索结果:回执,稍后(记忆段)再把相关记忆索引接在它后面 —— 都随每条消息变化,所以走每回合信封(turnMemoryEnvelope),
+  // 不进按 hash 去重的稳定索引(#10)。用 let 并沿用这个名字,是因为 kimi-prompt-parts 把下面那段信封装配抽出来单独执行,只认这个变量。
+  let memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
   // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。
   // (就是原来跟在 append 块后面的 --resume / --add-dir / extraClaudeArgs,内容不变,仅提前收集、最后统一 push。)
   const tailArgs = [];
@@ -521,8 +523,13 @@ async function runClaudeTurn({
       // R4-S1:真实主回合必须把 confirmed contradicts 传进索引构建；此前只有纯函数 e2e 显式传 map，
       // 线上 Claude 注入漏传，导致关系已确认但提示里看不到冲突标记。
       const memoryConflicts = memEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
-      const memSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts);
+      // #10:稳定索引(经 hash 去重、resume 时不重发)里只放跨回合稳定的核心胶囊;随每条消息变化的相关记忆索引改拼进每回合信封
+      // (下面 turnMemoryEnvelope,与检索回执同处)。修前相关索引也在 indexSecs 里:召回一变 hash 就变,整块 <workbench-context>
+      // (playbook 索引、记忆指南…≈5KB)带着新的相关列表全量重发进 transcript,旧回合的列表还不标过期。
+      const memSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts, { part: 'core' });
       if (memSec) indexSecs.push(memSec);
+      const relatedSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts, { part: 'related' });
+      if (relatedSec) memoryTurnCheck = memoryTurnCheck ? memoryTurnCheck + '\n' + relatedSec : relatedSec;
     } catch { /* 记忆注入绝不可阻断回合 */ }
     // 第26波b(两引擎对称): 任务账本 digest 并入 append —— 与 Provider 侧 buildMissionPromptSection 同源,
     // 让 Claude 引擎在长任务里同样知道整体目标与进度。fits-or-drop(同记忆契约,免破坏闭合围栏);% ! 全角中和;
@@ -580,6 +587,7 @@ async function runClaudeTurn({
     }
   }
   const currentUserEnvelope = `<current_user_message>\n${basePrompt}\n</current_user_message>`;
+  // 回执 + 相关记忆索引(memoryTurnCheck)都是「本条消息」的检索结果,放在 current_user_message 前面、与它同一个信封;斜杠命令回合不拼(命令必须占首 token)。
   const turnMemoryEnvelope = !slashCommand && memoryTurnCheck ? memoryTurnCheck + '\n\n' + currentUserEnvelope : currentUserEnvelope;
   // 代理模式 v2:Claude/Kimi 没有 providerHistory 可在迭代边界注入 —— 后台代理的交付信封在下一回合开头拼进 prompt,
   // 同一张已读表(11 drainAgentEnvelopesText),只投递一次;斜杠命令回合不拼。
