@@ -780,7 +780,7 @@ export function createStewardSettingsDomain({
         const c = config(), id = byId(providerId)?.value || c.activeProvider;
         return chatProviders(c).find(p => p.id === id) || null;
       },
-      value: value || '', emptyLabel: () => t('settings.steward.modelPlaceholder'),
+      value: value || '', emptyLabel: () => t(byId(providerId)?.value ? 'settings.models.providerDefault' : 'settings.models.followModel'),
     });
   }
 

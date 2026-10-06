@@ -753,16 +753,16 @@
   "onboarding.wizard.step.workspace": "文件夹",
   "onboarding.wizard.stepCounter": "第 {{current}} / {{total}} 步 · {{title}}",
   "onboarding.wizard.steward.title": "管家用哪个模型",
-  "onboarding.wizard.steward.hint": "如意在后台替你盯线程时用它。跟随主端点最省事；挑一个便宜的小模型更省钱。",
+  "onboarding.wizard.steward.hint": "如意在后台替你盯线程时用它。和对话用同一个模型最省事；挑一个便宜的小模型更省钱。",
   "onboarding.wizard.steward.contractHint": "但别挑得太弱：如意要调工具、还要按固定格式回话，快档小模型常常守不住——只回一句话、动作一个都不做，看着像办了其实没办。拿不准就选强的那一档。",
-  "onboarding.wizard.steward.follow": "跟随主端点",
+  "onboarding.wizard.steward.follow": "跟随对话主模型",
   "onboarding.wizard.steward.followHint": "不另外挑，用你刚配好的那一个。",
   "onboarding.wizard.steward.custom": "另挑一个",
   "onboarding.wizard.steward.customHint": "填一个模型名，通常是同一个服务商里更便宜的那一档。",
   "onboarding.wizard.steward.modelLabel": "模型名",
   "onboarding.wizard.steward.modelPlaceholder": "服务商给的模型名",
   "onboarding.wizard.steward.saved": "管家改用「{{model}}」。",
-  "onboarding.wizard.steward.savedFollow": "管家跟随主端点。",
+  "onboarding.wizard.steward.savedFollow": "管家跟随对话主模型。",
   "onboarding.wizard.title": "欢迎向导",
   "onboarding.wizard.validate.keyEmpty": "请先填 API Key",
   "onboarding.wizard.validate.keyMasked": "这是被遮盖的旧密钥，请粘贴真实密钥",
@@ -938,7 +938,7 @@
   "provider.displayNamePlaceholder": "显示名",
   "provider.empty": "未配置 Provider。下方选模板（自定义 / 本机 Ollama、LM Studio）添加，再填地址和密钥。",
   "provider.engineModel": "引擎与模型",
-  "provider.model": "模型",
+  "provider.model": "默认模型",
   "provider.manualModels": "手动模型 ID（每行一个）",
   "provider.manualModelsPlaceholder": "model-id-1\nmodel-id-2",
   "provider.manualModelsHint": "适用于端点无法列出模型的情况。测试连接发现的模型会追加，不会删除这里的条目。在模型菜单里移除过的模型，重新在这里填一行即可恢复。",
@@ -1022,11 +1022,11 @@
   "settings.advanced.subagentPerTurn.hint": "单次对话回合内经 orchestrate_agents 累计启动的代理节点数上限；设为 0 可关闭代理。",
   "settings.advanced.agentAutoWake": "后台代理跑完后自动唤醒对话",
   "settings.advanced.agentAutoWake.hint": "模型把任务交给后台代理后先结束了回合，代理跑完时由工作台自动起一个回合把结果交给模型继续处理；关掉则等你下一句话时再送达。",
-  "settings.advanced.subagentPreferredModel": "子代理优先模型",
-  "settings.advanced.subagentPreferredModel.automatic": "自动（角色 / 分级 / 主模型）",
+  "settings.advanced.subagentPreferredModel": "子代理用的模型",
+  "settings.advanced.subagentPreferredModel.automatic": "自动（按角色或主模型）",
   "settings.advanced.subagentPreferredModel.hint": "子代理默认模型 id；留空则按 角色 / 分级 / 主模型 兜底。",
-  "settings.advanced.subagentPreferredProvider": "子代理优先端点",
-  "settings.advanced.subagentPreferredProvider.followPrimary": "跟随当前主端点",
+  "settings.advanced.subagentPreferredProvider": "子代理用的服务商",
+  "settings.advanced.subagentPreferredProvider.followPrimary": "跟随对话主模型",
   "settings.advanced.subagentPreferredProvider.hint": "代理节点（orchestrate_agents / 工作流）的默认 Provider id（可跨端点）；留空则用当前主端点。复杂任务模型可经节点的 model 字段选同端点下别的模型（如 Pro 版）。",
   "settings.advanced.toolLoadingAuto": "智能按需（推荐）",
   "settings.advanced.toolLoadingFull": "全部常驻（兼容模式）",
@@ -1086,7 +1086,7 @@
   "settings.asrFix.followMain": "跟随对话主模型（{{name}}）",
   "settings.asrFix.noMain": "主模型不是 OpenAI 兼容端点，改字不可用",
   "settings.asrFix.gotoAssign": "选改字用的大模型…",
-  "settings.asrFix.defaultModel": "该服务商的缺省模型{{name}}",
+  "settings.asrFix.defaultModel": "这家服务商的默认模型{{name}}",
   "settings.asrFix.hint.both": "现在：每句说完先用 {{audio}} 重听，再让 {{llm}} 把两版合成一句。改字时会关闭模型思考，并把转写当数据处理（里面像指令的话不会被执行）。",
   "settings.asrFix.hint.audio": "现在：每句说完用 {{audio}} 重听一遍。",
   "settings.asrFix.hint.llm": "现在：每句说完让 {{llm}} 只看文字改错（约半秒一句，不要显卡）。",
@@ -1234,9 +1234,9 @@
   "settings.fold.engine": "对话主模型",
   "settings.mainEngine.provider": "主端点与主模型",
   "settings.mainEngine.cli": "Agent CLI（{{name}}，兼容用）",
-  "settings.mainEngine.defaultModel": "CLI 缺省模型",
-  "settings.mainEngine.hintLast": "这是全局缺省：新线程「跟随上次用的」找不到上次时、以及各处回落都取它；线程头上换的只影响那一条线程。管家开的线程只走 OpenAI 兼容端点，不会用 Agent CLI。",
-  "settings.mainEngine.hintGlobal": "这是全局缺省：新线程都先摆成它；线程头上换的只影响那一条线程。管家开的线程只走 OpenAI 兼容端点，不会用 Agent CLI。",
+  "settings.mainEngine.defaultModel": "{{name}} 自带的默认模型",
+  "settings.mainEngine.hintLast": "这是全局默认：新线程按「上次用的」来，还没有记录时就用它；别处没单独选模型的也用它。在线程顶部换的只影响那一条线程。管家开的线程只用模型服务商，不用 Agent CLI。",
+  "settings.mainEngine.hintGlobal": "这是全局默认：新线程都先用它；在线程顶部换的只影响那一条线程。管家开的线程只用模型服务商，不用 Agent CLI。",
   "settings.mainEngine.toast": "对话主模型已保存",
   "settings.security.tab": "权限与安全",
   "settings.security.hint": "如意动手之前要不要先问你、等你回话等多久。改了就生效；每条线程还可以在线程头上单独改。",
@@ -1265,14 +1265,15 @@
   "settings.models.row.main": "对话主模型",
   "settings.models.row.stewardHint": "管家自己想事情、回你话用它；给它换个便宜点的也行。",
   "settings.models.row.subagent": "子代理",
-  "settings.models.row.subagentHint": "拆出去的子任务（orchestrate_agents 派出的代理／工作流节点）默认用它；模型留空按角色、分级、主模型依次兜底。",
+  "settings.models.row.subagentHint": "模型把任务拆给子代理（包括工作流里的节点）时默认用它。模型选「自动」时，先看 Agent 角色里有没有指定，再看是否开了「按工作量自动选模型」，都没有就用主模型。",
   "settings.models.row.compact": "上下文压缩",
   "settings.models.row.compactHint": "对话太长时用它把前文压成摘要。跟随 = 用当前对话自己的引擎（命令行引擎走原生压缩）。电量表弹层里也能改。",
   "settings.models.row.compactProvider": "压缩用的服务商",
   "settings.models.row.asrFix": "语音输入 · 句尾改错",
   "settings.models.row.asrFixHint": "说完一句之后用它改错字；改不改、怎么改在「服务商」页的语音输入里选。",
   "settings.models.cliOption": "{{name}}（命令行引擎）",
-  "settings.models.providerDefault": "这家服务商的缺省模型",
+  "settings.models.providerDefault": "用这家服务商的默认模型",
+  "settings.models.firstInList": "不指定（用清单第一个）",
   "settings.models.followModel": "（跟随）",
   "settings.models.compactFollow": "跟随当前对话的引擎",
   "settings.general": "基础",
@@ -2461,7 +2462,7 @@
   "ctx.customLimit": "自定义上限（Enter 生效）",
   "ctx.meter.aria": "上下文用量（点击查看、设置上限或立即压缩）",
   "ctx.compact.label": "压缩模型",
-  "ctx.compact.defaultProvider": "默认（当前 Provider 模型）",
+  "ctx.compact.defaultProvider": "默认（当前对话用的模型）",
   "ctx.compact.defaultKimi": "默认（Kimi 原生压缩）",
   "ctx.compact.defaultClaude": "默认（Claude 原生 /compact）",
   "ctx.compact.windowNote": "压缩输入会按 {{window}} 窗口安全分段；上方上限仍表示当前对话模型。",
@@ -2854,8 +2855,8 @@
   ,"stewardShell.chat.errQueuedPlain": "那条线程还在排队，这句先没递进去；等它开跑后再说一次。"
   ,"stewardShell.chat.errConflict": "这条刚被别处改过，刷新一下再试。"
   ,"stewardShell.chat.errGeneric": "没做成：{{error}}"
-  ,"stewardShell.chat.engineNotListed": "管家端点「{{provider}}」不在 Provider 列表里，所以它现在一句话也跑不了。换一个，或者去设置里把它加回来。"
-  ,"stewardShell.chat.engineUnsupported": "管家现在只能走 OpenAI 兼容端点，而你的主端点是命令行引擎。给管家单独选一个端点，就能聊了。"
+  ,"stewardShell.chat.engineNotListed": "管家设的服务商「{{provider}}」已经不在服务商列表里了，所以它现在一句话也跑不了。换一家，或者去设置里把它加回来。"
+  ,"stewardShell.chat.engineUnsupported": "管家只能用 OpenAI 兼容的模型服务商，而你的对话主模型走的是命令行引擎。给管家单独选一家服务商，就能聊了。"
   ,"stewardShell.chat.useProvider": "改用「{{provider}}」"
   ,"stewardShell.chat.providerSwitched": "已改用「{{provider}}」"
   ,"stewardShell.chat.listSeparator": "、"
@@ -3091,10 +3092,9 @@
   ,"settings.steward.group.rhythm": "节奏与上下文"
   ,"settings.steward.group.rhythmHint": "管家多久看一次、记多长的对话。它用哪个模型在「模型分配」里选，花费与回合上限在「用量与限额」里。"
   ,"settings.steward.providerId": "管家用的服务商"
-  ,"settings.steward.providerFollow": "跟随主端点"
+  ,"settings.steward.providerFollow": "跟随对话主模型"
   ,"settings.steward.providerSaved": "保存的值：{{value}}"
   ,"settings.steward.model": "管家用的模型"
-  ,"settings.steward.modelPlaceholder": "留空 = 跟随主端点"
   ,"settings.steward.pollSeconds": "多久看一次收件箱（秒）"
   ,"settings.steward.visitIdle": "多久没动算一次新到访（分钟）"
   ,"settings.steward.maxTurnsPerHour": "管家每小时最多跑几个回合"
@@ -3121,7 +3121,7 @@
   ,"settings.steward.threadModels.strongModel": "复杂任务 · 强模型"
   ,"settings.steward.threadModels.fastProvider": "简单任务 · 快速模型服务商"
   ,"settings.steward.threadModels.fastModel": "简单任务 · 快速模型"
-  ,"settings.steward.threadModels.hint": "管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。"
+  ,"settings.steward.threadModels.hint": "管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。不单独选就跟随对话主模型。"
   ,"settings.steward.group.index": "任务索引"
   ,"settings.steward.group.indexHint": "左栏里能看见哪些线程。一条既不在途、今天也没动静、管家也不盯的旧线程，只有排在最近这么多条里才出现在左栏。"
   ,"settings.steward.threadIndexRecent": "左栏最近保留多少条线程"
@@ -3180,7 +3180,7 @@
   ,"settings.steward.schedule.target.new": "每次开一条新线程"
   ,"settings.steward.schedule.target.existing": "在一条已有线程里"
   ,"settings.steward.schedule.permission.global": "跟随全局设置"
-  ,"settings.steward.schedule.tier.global": "跟随全局主端点"
+  ,"settings.steward.schedule.tier.global": "跟随对话主模型"
   ,"settings.steward.schedule.tier.strong": "复杂任务 · 强模型"
   ,"settings.steward.schedule.tier.fast": "简单任务 · 快速模型"
   ,"settings.steward.schedule.form.title": "这件事叫什么"
@@ -3789,7 +3789,7 @@
   ,"provider.audioBaseUrl.placeholder": "留空 = 用上面的 Base URL"
   ,"provider.audioBaseUrl.hint": "语音识别的接口不在主地址上时才填，其余留空即可。"
   ,"provider.subagentModel": "子代理使用的模型"
-  ,"provider.subagentModel.follow": "跟随主模型"
+  ,"provider.subagentModel.follow": "同默认模型"
   ,"provider.subagentModel.hint": "这家服务商上，子代理（主助手派出去干活的小助手）用哪个模型。留空就和主模型一样；想省钱可以选个便宜的小模型。"
   ,"provider.anthropic.title": "Anthropic 协议专属设置"
   ,"provider.anthropicAuth": "认证方式"

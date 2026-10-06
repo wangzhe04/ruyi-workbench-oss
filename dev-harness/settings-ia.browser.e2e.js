@@ -5,7 +5,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 // 真起工作台 ＋ 无头 Edge，走一遍新结构，每一条都读服务端落盘值（GET /api/status），不信界面自己说的：
 //   S1 专家档：13 枚页签按新顺序排、逐枚点过去面板真的切过去且不空；「MCP 运维」已并进「集成与 MCP」（旧名改投新家）；
 //   S2 「模型分配」表每一行都能选、选中即存：主模型（服务商与命令行引擎两种）、新线程默认引擎、管家、强／快两档、
-//      子代理、上下文压缩、句尾改错；
+//      子代理、上下文压缩、句尾改错；「不单独选」那一项按实际落到哪个模型说人话，服务商卡片上的也一样（S2p–S2u）；
 //   S3 「权限与安全」：切「智能自动」在本页就地展开确认（确认前不落盘，确认后带 confirm:true 落盘），两条等待时限即存；
 //   S4 「用量与限额」：月度预算与回合看门狗即存；
 //   S5 缺陷①（草稿过期会回滚）：设置页第一次打开之后，别的写口（弹窗外的一次 POST /api/config —— 线程头「设为新任务
@@ -168,6 +168,38 @@ const SIMPLE_TABS = PRO_TABS;
     const assignRows = await ev(`[...document.querySelectorAll('#modelAssignList .model-assign-row')].map(r => r.dataset.assign)`);
     ok(JSON.stringify(assignRows) === JSON.stringify(['main', 'newThread', 'steward', 'strong', 'fast', 'subagent', 'compact', 'asrFix']),
       `S2o 表里八行、顺序固定（实见 ${JSON.stringify(assignRows)}）`);
+    // 用户 2026-10-06「缺省模型有点不太像人话」：模型下拉里「不单独选」那一项按它【实际落到哪个模型】说人话 ——
+    // 服务商留空＝它模型清单里的第一个；命令行引擎留空＝引擎自带的默认；分配行（管家、压缩…）选了服务商留空＝那家的默认模型
+    // （服务商卡片上的「默认模型」）；跟随时说跟随谁。修前一律「缺省模型」，服务商卡片上还写成「CLI 缺省模型」（那张卡根本不是 CLI）。
+    const firstOption = selector => `(() => { const s = document.querySelector(${JSON.stringify(selector)}); return s && s.options[0] && s.options[0].value === '' ? s.options[0].textContent : null; })()`;
+    const optionIs = async (selector, want) => {
+      const got = await fx.waitForEval(`(() => { const t = ${firstOption(selector)}; return t === ${JSON.stringify(want)} ? t : null; })()`, 40);
+      return got === want ? true : `实见 ${JSON.stringify(await ev(firstOption(selector)))}`;
+    };
+    const s2p = await optionIs('#cfgMainModel', '不指定（用清单第一个）');
+    ok(s2p === true, `S2p 主模型选的是服务商：留空那一项说「不指定（用清单第一个）」（${s2p}）`);
+    const s2q = (await pickSaved('#cfgMainProvider', '~cli:kimi', c => c.activeProvider === '' && c.agentCliType === 'kimi', "c => c.agentCliType === 'kimi'"))
+      && await optionIs('#cfgMainModel', 'Kimi Code 自带的默认模型');
+    ok(s2q === true && await pickSaved('#cfgMainProvider', 'qwen', c => c.activeProvider === 'qwen' && qwenModel(c) === 'qwen-turbo', "c => c.activeProvider === 'qwen'"),
+      `S2q 主模型选的是命令行引擎：留空那一项说「Kimi Code 自带的默认模型」，换回 Qwen 不丢它的模型（${s2q}）`);
+    const s2r = [await optionIs('#cfgStewardModel', '用这家服务商的默认模型'), await optionIs('#cfgCompactModel', '用这家服务商的默认模型')];
+    ok(s2r.every(r => r === true), `S2r 管家、压缩两行选了服务商：留空那一项说「用这家服务商的默认模型」（${JSON.stringify(s2r)}）`);
+    const s2s = (await pickSaved('#cfgStewardProviderId', '', c => c.stewardProviderId === '' && c.stewardModel === '', "c => c.stewardProviderId === ''"))
+      && await optionIs('#cfgStewardModel', '（跟随）');
+    ok(s2s === true && await pickSaved('#cfgStewardProviderId', 'qwen', c => c.stewardProviderId === 'qwen', "c => c.stewardProviderId === 'qwen'")
+      && await pickSaved('#cfgStewardModel', 'qwen-plus', c => c.stewardModel === 'qwen-plus', "c => c.stewardModel === 'qwen-plus'"),
+      `S2s 管家服务商选「跟随对话主模型」：模型留空那一项与同页别的行一样说「（跟随）」（${s2s}）`);
+    const jargon = await ev(`(document.getElementById('stab-models').textContent.match(/缺省|主端点|Provider/g) || [])`);
+    ok(jargon.length === 0, `S2t 模型分配页（含每枚下拉的全部选项与说明）不再出现「缺省」「主端点」「Provider」（实见 ${JSON.stringify(jargon)}）`);
+    await switchTab('providers');
+    const cardModelFirst = await fx.waitForEval(`(() => {
+      const blocks = [...document.querySelectorAll('#stab-providers .field-block')].filter(b => (b.querySelector(':scope > label') || {}).textContent === '默认模型');
+      const firsts = blocks.map(b => { const s = b.querySelector('select'); return s && s.options[0] ? s.options[0].textContent : null; });
+      return firsts.length >= 2 ? firsts : null;
+    })()`, 100);
+    ok(Array.isArray(cardModelFirst) && cardModelFirst.every(text => text === '不指定（用清单第一个）'),
+      `S2u 服务商卡片：模型那一格叫「默认模型」，留空那一项说「不指定（用清单第一个）」，不再写成「CLI 缺省模型」（实见 ${JSON.stringify(cardModelFirst)}）`);
+    await switchTab('models');
 
     /* ═════════ S3 权限与安全：就地确认 ＋ 两条等待时限 ═════════ */
     await switchTab('security');

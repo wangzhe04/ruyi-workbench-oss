@@ -753,16 +753,16 @@
   "onboarding.wizard.step.workspace": "Folder",
   "onboarding.wizard.stepCounter": "Step {{current}} of {{total}} - {{title}}",
   "onboarding.wizard.steward.title": "Which model runs the steward",
-  "onboarding.wizard.steward.hint": "Ruyi uses this while it watches your threads in the background. Following the main endpoint is simplest; a small cheap model costs less.",
+  "onboarding.wizard.steward.hint": "Ruyi uses this while it watches your threads in the background. Following the main model is simplest; a small cheap model costs less.",
   "onboarding.wizard.steward.contractHint": "Do not go too small, though: Ruyi has to call tools and answer in a fixed format, and fast lightweight models often fail to hold it — they reply with prose only and take no action at all, which reads as done but is not. When in doubt, pick the stronger tier.",
-  "onboarding.wizard.steward.follow": "Follow the main endpoint",
+  "onboarding.wizard.steward.follow": "Follow the main model",
   "onboarding.wizard.steward.followHint": "No separate pick — use the one you just set up.",
   "onboarding.wizard.steward.custom": "Pick another one",
   "onboarding.wizard.steward.customHint": "Enter a model name, usually the cheaper tier from the same provider.",
   "onboarding.wizard.steward.modelLabel": "Model name",
   "onboarding.wizard.steward.modelPlaceholder": "the model name your provider gives you",
   "onboarding.wizard.steward.saved": "The steward now uses \"{{model}}\".",
-  "onboarding.wizard.steward.savedFollow": "The steward follows the main endpoint.",
+  "onboarding.wizard.steward.savedFollow": "The steward follows the main model.",
   "onboarding.wizard.title": "Welcome guide",
   "onboarding.wizard.validate.keyEmpty": "Fill in the API key first",
   "onboarding.wizard.validate.keyMasked": "That is the masked stored key. Paste the real one.",
@@ -938,7 +938,7 @@
   "provider.displayNamePlaceholder": "Display name",
   "provider.empty": "No providers configured. Add one from a template below (Custom, or local Ollama / LM Studio), then enter its address and API key.",
   "provider.engineModel": "Engine and model",
-  "provider.model": "Model",
+  "provider.model": "Default model",
   "provider.manualModels": "Manual model IDs (one per line)",
   "provider.manualModelsPlaceholder": "model-id-1\nmodel-id-2",
   "provider.manualModelsHint": "Use this when the endpoint cannot list models. Connection tests add discovered models without deleting these entries. To restore a model you removed in the model menu, type its ID here again.",
@@ -1022,11 +1022,11 @@
   "settings.advanced.subagentPerTurn.hint": "Maximum agent nodes one turn may start through orchestrate_agents. Set 0 to disable agents.",
   "settings.advanced.agentAutoWake": "Wake the conversation when background agents finish",
   "settings.advanced.agentAutoWake.hint": "When the model hands work to background agents and ends its turn, the Workbench starts a new turn once they finish so the model can continue with the results. Off: results are delivered with your next message.",
-  "settings.advanced.subagentPreferredModel": "Subagent preferred model",
-  "settings.advanced.subagentPreferredModel.automatic": "Automatic (role / tier / main model)",
+  "settings.advanced.subagentPreferredModel": "Sub-agent model",
+  "settings.advanced.subagentPreferredModel.automatic": "Auto (role or main model)",
   "settings.advanced.subagentPreferredModel.hint": "Default model id for subagents; empty = fall back to role / tier / main model.",
-  "settings.advanced.subagentPreferredProvider": "Subagent preferred provider",
-  "settings.advanced.subagentPreferredProvider.followPrimary": "Follow the current main provider",
+  "settings.advanced.subagentPreferredProvider": "Sub-agent provider",
+  "settings.advanced.subagentPreferredProvider.followPrimary": "Follow the main model",
   "settings.advanced.subagentPreferredProvider.hint": "Default Provider id for agent nodes (orchestrate_agents / workflows, cross-provider); empty = main provider. For hard tasks the model may pick another model under the same provider (e.g. Pro) via the node model field.",
   "settings.advanced.toolLoadingAuto": "Adaptive (recommended)",
   "settings.advanced.toolLoadingFull": "Always load all (compatibility)",
@@ -1086,7 +1086,7 @@
   "settings.asrFix.followMain": "Follow the main model ({{name}})",
   "settings.asrFix.noMain": "main model is not an OpenAI-compatible endpoint, fixing unavailable",
   "settings.asrFix.gotoAssign": "Choose the fixing model…",
-  "settings.asrFix.defaultModel": "Provider's default model{{name}}",
+  "settings.asrFix.defaultModel": "This provider's default model{{name}}",
   "settings.asrFix.hint.both": "Now: each finished sentence is re-listened by {{audio}}, then {{llm}} merges the two versions. Model thinking is disabled and the transcript is treated as data (instruction-like speech is never executed).",
   "settings.asrFix.hint.audio": "Now: each finished sentence is re-listened by {{audio}}.",
   "settings.asrFix.hint.llm": "Now: each finished sentence is text-corrected by {{llm}} (about half a second, no GPU).",
@@ -1234,9 +1234,9 @@
   "settings.fold.engine": "Main model",
   "settings.mainEngine.provider": "Main endpoint and model",
   "settings.mainEngine.cli": "Agent CLI ({{name}}, compatibility)",
-  "settings.mainEngine.defaultModel": "CLI default model",
-  "settings.mainEngine.hintLast": "This is the global default: new threads that \"follow the last used\" fall back to it, as does everything else that needs a default; switching in a thread header only affects that thread. Threads opened by the steward always use an OpenAI-compatible endpoint, never an Agent CLI.",
-  "settings.mainEngine.hintGlobal": "This is the global default: every new thread starts on it; switching in a thread header only affects that thread. Threads opened by the steward always use an OpenAI-compatible endpoint, never an Agent CLI.",
+  "settings.mainEngine.defaultModel": "{{name}}'s own default model",
+  "settings.mainEngine.hintLast": "This is the global default: new threads start on whatever you used last, and on this when there is no record yet; anything that does not pick its own model uses it too. Switching at the top of a thread only affects that thread. Threads opened by the steward always use a model provider, never an Agent CLI.",
+  "settings.mainEngine.hintGlobal": "This is the global default: every new thread starts on it. Switching at the top of a thread only affects that thread. Threads opened by the steward always use a model provider, never an Agent CLI.",
   "settings.mainEngine.toast": "Main model saved",
   "settings.security.tab": "Permissions & safety",
   "settings.security.hint": "Whether Ruyi asks before acting, and how long it waits for your reply. Changes save instantly; each thread can still be changed from its header.",
@@ -1265,14 +1265,15 @@
   "settings.models.row.main": "Main model",
   "settings.models.row.stewardHint": "What the steward thinks and replies with. A cheaper model is fine.",
   "settings.models.row.subagent": "Sub-agents",
-  "settings.models.row.subagentHint": "Default for delegated sub-tasks (agents started by orchestrate_agents / workflow nodes). Leave the model empty to fall back to the role, the tier, then the main model.",
+  "settings.models.row.subagentHint": "Used by default when the model hands a task to a sub-agent (including workflow nodes). On \"Auto\", the Agent role's model is used if the role sets one, then automatic model choice by workload if that is turned on, and otherwise the main model.",
   "settings.models.row.compact": "Context compaction",
   "settings.models.row.compactHint": "Summarizes earlier turns when a conversation gets long. Follow = use the conversation's own engine (command-line engines use their native compaction). Also adjustable from the context meter popover.",
   "settings.models.row.compactProvider": "Compaction provider",
   "settings.models.row.asrFix": "Voice input · end-of-sentence fix",
   "settings.models.row.asrFixHint": "Fixes typos after each sentence you dictate. Whether and how to fix is chosen under voice input on the Providers tab.",
   "settings.models.cliOption": "{{name}} (command-line engine)",
-  "settings.models.providerDefault": "This provider's default model",
+  "settings.models.providerDefault": "Provider's default model",
+  "settings.models.firstInList": "Not set (first in list)",
   "settings.models.followModel": "(follow)",
   "settings.models.compactFollow": "Follow the conversation's engine",
   "settings.general": "General",
@@ -2461,7 +2462,7 @@
   "ctx.customLimit": "Custom limit (Enter to apply)",
   "ctx.meter.aria": "Context usage (open to view, set the limit or compact now)",
   "ctx.compact.label": "Compaction model",
-  "ctx.compact.defaultProvider": "Default (current Provider model)",
+  "ctx.compact.defaultProvider": "Default (the conversation's current model)",
   "ctx.compact.defaultKimi": "Default (Kimi native compaction)",
   "ctx.compact.defaultClaude": "Default (Claude native /compact)",
   "ctx.compact.windowNote": "Compaction input is safely segmented to the {{window}} window; the limit above still reflects the current conversation model.",
@@ -2854,8 +2855,8 @@
   ,"stewardShell.chat.errQueuedPlain": "That thread is still in the queue, so this line did not go through. Say it again once it starts running."
   ,"stewardShell.chat.errConflict": "This was just changed elsewhere; refresh and try again."
   ,"stewardShell.chat.errGeneric": "Didn't go through: {{error}}"
-  ,"stewardShell.chat.engineNotListed": "The steward endpoint \"{{provider}}\" is not in your provider list, so it cannot run a single turn. Switch to another one, or add it back in settings."
-  ,"stewardShell.chat.engineUnsupported": "The steward can only run on an OpenAI-compatible endpoint, and your main endpoint is a CLI engine. Pick an endpoint for the steward and it can talk."
+  ,"stewardShell.chat.engineNotListed": "The steward's provider \"{{provider}}\" is no longer in your provider list, so it cannot run a single turn. Pick another one, or add it back in settings."
+  ,"stewardShell.chat.engineUnsupported": "The steward can only use an OpenAI-compatible model provider, and your main model runs through a command-line engine. Pick a provider for the steward and it can talk."
   ,"stewardShell.chat.useProvider": "Use “{{provider}}”"
   ,"stewardShell.chat.providerSwitched": "Now using “{{provider}}”"
   ,"stewardShell.chat.listSeparator": ", "
@@ -3091,10 +3092,9 @@
   ,"settings.steward.group.rhythm": "Pace & context"
   ,"settings.steward.group.rhythmHint": "How often the steward looks, and how much conversation it keeps in mind. Its model is chosen under Model assignment; spending and turn caps live under Usage & limits."
   ,"settings.steward.providerId": "Provider for the steward"
-  ,"settings.steward.providerFollow": "Follow the main endpoint"
+  ,"settings.steward.providerFollow": "Follow the main model"
   ,"settings.steward.providerSaved": "Saved value: {{value}}"
   ,"settings.steward.model": "Model for the steward"
-  ,"settings.steward.modelPlaceholder": "Leave empty to follow the main endpoint"
   ,"settings.steward.pollSeconds": "How often to check the inbox (seconds)"
   ,"settings.steward.visitIdle": "Idle time that starts a new visit (minutes)"
   ,"settings.steward.maxTurnsPerHour": "Steward turns per hour"
@@ -3121,7 +3121,7 @@
   ,"settings.steward.threadModels.strongModel": "Complex tasks · strong model"
   ,"settings.steward.threadModels.fastProvider": "Simple tasks · fast model provider"
   ,"settings.steward.threadModels.fastModel": "Simple tasks · fast model"
-  ,"settings.steward.threadModels.hint": "The steward picks a tier itself by task complexity when it opens a new thread: multi-step reasoning, coding, and long writing use the strong model; quick lookups, one-line edits, and simple Q&A use the fast model. Quick-ask threads always use the fast model. Leave empty to follow the main endpoint."
+  ,"settings.steward.threadModels.hint": "The steward picks a tier itself by task complexity when it opens a new thread: multi-step reasoning, coding, and long writing use the strong model; quick lookups, one-line edits, and simple Q&A use the fast model. Quick-ask threads always use the fast model. If a tier is not set, it follows the main model."
   ,"settings.steward.group.index": "Task index"
   ,"settings.steward.group.indexHint": "Which threads the rail can show. An old thread that is not in flight, has not moved today, and is not watched only shows up if it is among this many most-recent ones."
   ,"settings.steward.threadIndexRecent": "How many recent threads the rail keeps"
@@ -3180,7 +3180,7 @@
   ,"settings.steward.schedule.target.new": "Start a new thread each time"
   ,"settings.steward.schedule.target.existing": "Inside an existing thread"
   ,"settings.steward.schedule.permission.global": "Follow the global setting"
-  ,"settings.steward.schedule.tier.global": "Follow the main endpoint"
+  ,"settings.steward.schedule.tier.global": "Follow the main model"
   ,"settings.steward.schedule.tier.strong": "Complex tasks · strong model"
   ,"settings.steward.schedule.tier.fast": "Simple tasks · fast model"
   ,"settings.steward.schedule.form.title": "What is this called"
@@ -3789,7 +3789,7 @@
   ,"provider.audioBaseUrl.placeholder": "Empty = use the Base URL above"
   ,"provider.audioBaseUrl.hint": "Fill this in only when speech recognition is served from a different address than the main one; otherwise leave it empty."
   ,"provider.subagentModel": "Model for sub-agents"
-  ,"provider.subagentModel.follow": "Same as the main model"
+  ,"provider.subagentModel.follow": "Same as the default model"
   ,"provider.subagentModel.hint": "Which model the sub-agents (helpers the main assistant sends off to work) use on this provider. Empty = same as the main model; pick a cheaper, smaller one to save cost."
   ,"provider.anthropic.title": "Anthropic protocol settings"
   ,"provider.anthropicAuth": "Authentication"

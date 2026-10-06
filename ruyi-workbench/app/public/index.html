@@ -1460,7 +1460,7 @@
                   <div class="field-block" id="cfgStewardScheduleTierBlock">
                     <label for="cfgStewardScheduleTier" data-i18n="settings.steward.schedule.form.tier">用哪一档模型</label>
                     <select id="cfgStewardScheduleTier">
-                      <option value="" data-i18n="settings.steward.schedule.tier.global">跟随全局主端点</option>
+                      <option value="" data-i18n="settings.steward.schedule.tier.global">跟随对话主模型</option>
                       <option value="strong" data-i18n="settings.steward.schedule.tier.strong">复杂任务 · 强模型</option>
                       <option value="fast" data-i18n="settings.steward.schedule.tier.fast">简单任务 · 快速模型</option>
                     </select>
@@ -1559,7 +1559,7 @@
                 <!-- 117l-A3（27 号文 §11.9）：管家新开线程按复杂度分强／快两档。W6：组 id 保留在这一组两行的外壳上。 -->
                 <div class="model-assign-group" id="cfgStewardGroupThreadModels" role="group" aria-labelledby="cfgStewardThreadModelsHeading">
                   <p id="cfgStewardThreadModelsHeading" class="model-assign-group-title" data-i18n="settings.steward.group.threadModels">新开线程用什么模型</p>
-                  <p class="field-help muted" data-i18n="settings.steward.threadModels.hint">管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。</p>
+                  <p class="field-help muted" data-i18n="settings.steward.threadModels.hint">管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。不单独选就跟随对话主模型。</p>
                   <div class="model-assign-row" data-assign="strong">
                     <div class="model-assign-label">
                       <label for="cfgStewardStrongProviderId" data-i18n="settings.steward.threadModels.strongModel">复杂任务 · 强模型</label>
@@ -1585,8 +1585,8 @@
                     <p class="field-help muted" data-i18n="settings.models.row.subagentHint">拆出去的子任务（orchestrate_agents 派出的代理／工作流节点）默认用它；模型留空按角色、分级、主模型依次兜底。</p>
                   </div>
                   <div class="model-assign-pick">
-                    <select id="cfgSubagentPreferredProvider" aria-label="子代理优先端点" data-i18n-attr="aria-label:settings.advanced.subagentPreferredProvider"></select>
-                    <select id="cfgSubagentPreferredModel" aria-label="子代理优先模型" data-i18n-attr="aria-label:settings.advanced.subagentPreferredModel"></select>
+                    <select id="cfgSubagentPreferredProvider" aria-label="子代理用的服务商" data-i18n-attr="aria-label:settings.advanced.subagentPreferredProvider"></select>
+                    <select id="cfgSubagentPreferredModel" aria-label="子代理用的模型" data-i18n-attr="aria-label:settings.advanced.subagentPreferredModel"></select>
                   </div>
                 </div>
                 <div class="model-assign-row" data-assign="compact">
