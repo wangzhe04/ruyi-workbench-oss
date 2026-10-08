@@ -219,6 +219,9 @@ describe('[F6] 审计行摘要本地化', () => {
     assert.equal(s(row('autonomy_grant_revoked', { tool: 'x' })), 'Grant revoked (x)');
     assert.equal(s(row('turn_kill', null)), 'Turn aborted');
     for (const [kind] of mapEntries) assert.ok(!CJK.test(s(row(kind, {}))), `${kind} 英文摘要不该有中文`);
+    assert.equal(s({ source: 'desktop', type: 'hotkey', summary: 'hotkey（失败）', detail: { tool: 'hotkey', ok: false } }), 'hotkey (failed)');
+    assert.equal(s({ source: 'desktop', type: 'hotkey', summary: 'hotkey', detail: { tool: 'hotkey', ok: true } }), 'hotkey');
+    assert.equal(s({ source: 'desktop', type: 'hotkey', summary: 'custom summary', detail: { ok: false, summary: 'custom summary' } }), 'custom summary');
   });
   it('中文界面:与服务端 auditSummaryFor 的拼法一致(全角括号)', async () => {
     await i18n.setLocale('zh-CN');
@@ -227,6 +230,7 @@ describe('[F6] 审计行摘要本地化', () => {
     assert.equal(s({ source: 'workbench', type: 'turn_end', summary: 'x', detail: { ok: false, aborted: true } }), '结束回合（未成功 · 已中止）');
     assert.equal(s({ source: 'workbench', type: 'autonomy_grant_consume', summary: 'x', detail: { tool: 't', remaining: 2 } }), '消耗授权（t · 剩 2 次）');
     assert.equal(s({ source: 'workbench', type: 'autonomy_grant_revoked', summary: 'x', detail: { count: 3 } }), '撤销授权（3 张）');
+    assert.equal(s({ source: 'desktop', type: 'hotkey', summary: 'hotkey（失败）', detail: { tool: 'hotkey', ok: false } }), 'hotkey（失败）');
   });
   it('未知 kind、桌面来源、缺 detail 回落服务端 summary,永不空白', async () => {
     await i18n.setLocale('en-US');

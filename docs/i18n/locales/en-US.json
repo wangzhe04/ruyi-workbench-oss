@@ -43,6 +43,7 @@
   "audit.bit.provider": "provider",
   "audit.bit.ok": "succeeded",
   "audit.bit.notOk": "not successful",
+  "audit.bit.failed": "failed",
   "audit.bit.aborted": "aborted",
   "audit.bit.remaining.one": "{{count}} use left",
   "audit.bit.remaining.other": "{{count}} uses left",

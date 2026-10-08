@@ -43,6 +43,7 @@
   "audit.bit.provider": "服务商",
   "audit.bit.ok": "成功",
   "audit.bit.notOk": "未成功",
+  "audit.bit.failed": "失败",
   "audit.bit.aborted": "已中止",
   "audit.bit.remaining.one": "剩 {{count}} 次",
   "audit.bit.remaining.other": "剩 {{count}} 次",

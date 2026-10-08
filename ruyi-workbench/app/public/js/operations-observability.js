@@ -33,13 +33,20 @@ export function formatObservabilityTime(timestamp) {
 
 // 审计行的一句话摘要。服务端(06-provider-engine.js 的 auditSummaryFor)写的是中文,英文界面不能照单全收:
 // 工作台来源的行,type 就是日志的 kind、detail 是同一条记录(已脱敏),有 audit.kind.<type> 就在前端按同一套取词重拼;
-// 没有对应键的 kind(新增的、桌面来源的)回落服务端给的 summary,保证时间线上永远有字。
+// 桌面来源的结构化成功/失败按当前语言重拼;自带摘要与未知 kind 回落服务端 summary。
 export function auditSummaryText(entry) {
   const type = String((entry && entry.type) || '');
   const key = 'audit.kind.' + type;
   const fallback = String((entry && entry.summary) || '');
-  if (!entry || entry.source === 'desktop' || !type || !hasTranslation(key)) return fallback;
+  if (!entry) return fallback;
   const detail = entry.detail && typeof entry.detail === 'object' ? entry.detail : {};
+  if (entry.source === 'desktop') {
+    if (!detail.summary && type && typeof detail.ok === 'boolean') {
+      return detail.ok ? type : t('audit.summaryWithBits', { base: type, bits: t('audit.bit.failed') });
+    }
+    return fallback;
+  }
+  if (!type || !hasTranslation(key)) return fallback;
   const bits = [];
   if (type === 'turn_start') {
     if (detail.engine) bits.push(detail.engine === 'openai' ? t('audit.bit.provider') : String(detail.engine));
