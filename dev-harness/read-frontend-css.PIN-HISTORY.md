@@ -837,3 +837,7 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   `css/components/chat-primitives.css`:附件大图查看器的暗幕打开时接焦点(Esc / 焦点归还),暗幕本身不画焦点框。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show ce7210c:<css>` 重算 = 8c959d30…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
+// 2026-10 3.0 收口走查 · 记忆作用域续钉(前值 33d8aa55…＝2026-10 3.0 收口走查第一波 · 聊天区续钉):零新增、零删除层,改一层 ——
+//   `css/states/chat-live.css`:记忆候选卡补作用域选择与说明(`.memory-proposal-scope` / `-scope-note`)、批量卡每条的选项行与「加入核心」开关(`.memory-proposal-opts` / `.memory-proposal-core` 及其 `[aria-pressed]` 态)。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 77751c2:<css>` 重算 = 33d8aa55…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。

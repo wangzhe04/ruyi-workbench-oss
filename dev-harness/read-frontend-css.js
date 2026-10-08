@@ -79,10 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 3.0 收口走查 · 记忆作用域续钉(前值 33d8aa55…＝2026-10 3.0 收口走查第一波 · 聊天区续钉):零新增、零删除层,改一层 ——
-//   `css/states/chat-live.css`:记忆候选卡补作用域选择与说明(`.memory-proposal-scope` / `-scope-note`)、批量卡每条的选项行与「加入核心」开关(`.memory-proposal-opts` / `.memory-proposal-core` 及其 `[aria-pressed]` 态)。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 77751c2:<css>` 重算 = 33d8aa55…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
 // 2026-10 3.0 收口走查第二波 · 前端续钉(前值 eb011087…＝2026-10 3.0 收口走查 · 记忆作用域续钉):零新增、零删除层,改四层 ——
 //   `css/views/chat-shell.css`:线程头钉回 flex-wrap:nowrap 并做 container: thhead / inline-size,按线程头自身宽度分档收起管家话与开关文字(中英各一套阈值,<460px 管家条独占一行);`.topbar-title` 最小宽 6em。
 //   `css/components/chat-composer.css`:回合进行中胶囊允许折行,输入框以 14em 为基、8em 为底,下拉定宽 8em。
@@ -101,7 +97,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `css/views/workbench.css`:配合线程头窄档的小调整。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 3d9067f:<css>` 重算 = 503807bf…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = 'ae8f54cb7e2f0b595b86999ea34feda1f3236cc61df5f1968352dc76b2b05a68';
+// 2026-10 3.0 收口 · 工作文件夹选择器续钉(前值 ae8f54cb…＝2026-10 3.0 收口走查第三波 · 界面续钉):零新增、零删除层,改一层 ——
+//   `css/views/workspace.css`:顶栏工作文件夹弹层重做 —— 「浏览文件夹」主按钮(两行:标题 + 说明,可折行)、常用 / 最近每行「图标 + 名字 + 完整路径」
+//   (`.wp-fav-main` / `-text` / `-nameline` / `-path`(rtl 左省略 + bdi)/ `-badge` / `-icon`)、行尾图标按钮悬停或 focus-within 显出、`.wp-recent-list`、
+//   就地错误行 `.wp-pop-err` 与输入框 `[aria-invalid]` 态;删去 `.wp-fav-rank`。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 620d76b:<css>` 重算 = ae8f54cb…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
