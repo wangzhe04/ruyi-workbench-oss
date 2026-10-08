@@ -46,6 +46,9 @@ before(async () => {
   fs.writeFileSync(path.join(root, 'config.json'), JSON.stringify({
     configSchema: 7, activeProvider: 'fake', engineMode: 'interactive', permissionMode: 'default',
     includeWorkbenchMcp: false, defaultWorkspace: root, recentWorkspaces: [], subagentMaxPerTurn: 0,
+    // This in-process fixture only exercises the fake provider; auto-detecting an installed desktop
+    // MCP leaves its stdio client alive after the assertions and prevents node:test from exiting.
+    desktopMcp: { enabled: false, autodetect: false },
     killOnDisconnect: false, locale: 'zh-CN',
     stewardEnabledV1: true, stewardPollMs: 5000, stewardReadBudgetChars: 4000, stewardMaxTurnsPerHour: 500,
     stewardMaxCostPerDay: 0, stewardGlobalMaxTurnsPerHour: 2000, stewardProviderId: 'fake', stewardModel: 'm',
