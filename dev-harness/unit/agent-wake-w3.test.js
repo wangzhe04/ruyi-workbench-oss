@@ -62,7 +62,7 @@ after(async () => {
   clearWakeTimers();
   I.killAllMcpClients();   // 回合起手会探测桥接 MCP:不收掉它们的子进程,测试进程退不出去
   if (fake) await fake.close();
-  fs.rmSync(home, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 describe('N1 wake notice text', () => {
