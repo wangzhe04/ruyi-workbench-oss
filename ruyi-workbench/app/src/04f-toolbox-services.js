@@ -16,7 +16,12 @@
 //   ⑥ 自动生成的服务商 id 一律 `toolbox-<id>`,这个前缀归自动发现所有:组件被停用／卸载,条目跟着撤。
 //      组件只是【这次没起来】不撤条目 —— 否则一次偶发失败就会把用户的语音识别选择永久清掉(⑤ 不会再选回来)。
 //   ⑦ 每次拉起／接管／失败／停止都记审计日志(组件 id、pid、端口、结果),不是悄悄的。
-const TOOLBOX_HEALTH_DEADLINE_MS = 20000;   // 约定 §2.2 第 4 条:健康轮询 ≤ 20 秒
+// 约定 §2.2 第 4 条:健康轮询 ≤ 20 秒。测试口 WCW_TEST_TOOLBOX_HEALTH_DEADLINE_MS 把窗口缩短(toolbox-discovery I3 的
+// 「起来了却永不答 /health」不必真等 20 秒);产品里恒为 20 s。
+const TOOLBOX_HEALTH_DEADLINE_MS = (() => {
+  const raw = Number(process.env.WCW_TEST_TOOLBOX_HEALTH_DEADLINE_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 20000;
+})();
 const TOOLBOX_HEALTH_POLL_MS = 400;
 const TOOLBOX_PROBE_TIMEOUT_MS = 1500;
 const TOOLBOX_STDERR_TAIL = 2000;
@@ -110,6 +115,7 @@ function startToolboxService(component) {
     }
     Object.assign(entry, { state: 'starting', port, owned: true, child, pid: child.pid || 0 });
     let spawnError = '';
+    let gaveUp = false;   // 健康窗口内没起来、这一趟由我们杀掉 —— 见下面「没起来」那段
     child.on('error', err => { spawnError = String(err && err.message || err).slice(0, 200); });
     if (child.stderr) {
       child.stderr.setEncoding('utf8');
@@ -117,6 +123,7 @@ function startToolboxService(component) {
     }
     child.on('exit', (code, signal) => {
       if (entry.child !== child) return;
+      if (gaveUp) { logEvent({ kind: 'toolbox_service', action: 'stop', id: component.id, pid: entry.pid, code, signal: signal || '' }); return; }
       const was = entry.state;
       entry.state = entry.stopping ? 'stopped' : (was === 'starting' ? 'failed' : 'exited');
       if (!entry.stopping) entry.error = 'exit ' + (code === null ? String(signal || '') : code);
@@ -135,7 +142,10 @@ function startToolboxService(component) {
       await new Promise(r => setTimeout(r, TOOLBOX_HEALTH_POLL_MS));
     }
     // 没起来:不重试到天荒地老。杀掉、记一笔、把 stderr 的尾巴留给设置页。
-    entry.stopping = true;
+    // 走查 2026-10-08:修前这里先置 entry.stopping=true 再杀 —— 被杀的子进程随后的 exit 回调按「正在停」把刚写下的 failed
+    // 改写成 stopped,失败冷却(只认 failed)随之失效:健康超时的组件此后每按一次麦克风 / 每次转写都重拉一遍、干等 20 秒,
+    // 设置页还显示「已停止」而不是「没起来」。现在用 gaveUp 标出「这一趟是我们放弃的」,exit 回调只记一笔、不动状态与 error。
+    gaveUp = true;
     toolboxKillTree(child);
     Object.assign(entry, { state: 'failed', error: spawnError || (child.exitCode !== null ? 'exit ' + child.exitCode : 'health-timeout') });
     logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, pid: entry.pid, reason: entry.error });

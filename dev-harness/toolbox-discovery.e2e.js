@@ -12,7 +12,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   F 停用／总开关:进程被停、服务商条目撤走;再启用又回来
 //   G 坏登记文件一律当没装:相对路径、id 与文件名不符、不认识的 schema、命令不存在
 //   H MCP 类:并进外部 MCP 清单,内部 id toolbox-<id>
-//   I 崩了就地再起:杀掉组件进程之后再转写,如意自己把它拉起来;I2 一直起不来 → 冷却期内不每次都重新拉起
+//   I 崩了就地再起:杀掉组件进程之后再转写,如意自己把它拉起来;I2 一直起不来 → 冷却期内不每次都重新拉起;
+//     I3 起来了却永不答 /health(健康超时)→ 状态如实是 failed、冷却照样生效
 //   J 如意退出,自己拉起的组件跟着没
 // 判定行:`TOOLBOX DISCOVERY E2E: ALL PASS`。
 const { killOwnTree } = require('./lib/kill-own-tree');
@@ -44,6 +45,7 @@ child.on('exit', code => setTimeout(() => process.exit(code == null ? 1 : code),
 const FAKE_SERVICE = `
 const http = require('http'), fs = require('fs'), path = require('path');
 if (fs.existsSync(path.join(__dirname, 'crash-on-start'))) { fs.appendFileSync(path.join(__dirname, 'crash-starts.log'), process.pid + '\\n'); process.exit(3); }   // I2:起不来的组件
+if (fs.existsSync(path.join(__dirname, 'hang-on-start'))) { fs.appendFileSync(path.join(__dirname, 'hang-starts.log'), process.pid + '\\n'); setInterval(() => {}, 60000); return; }   // I3:活着、但永不监听端口
 const port = Number(process.env.FAKE_ASR_PORT || 0);
 fs.writeFileSync(path.join(__dirname, 'env-' + process.pid + '.json'), JSON.stringify({ port, parent: process.env.RUYI_TOOLBOX_PARENT_PID || '', extra: process.env.FAKE_EXTRA || '', argv: process.argv.slice(2) }));
 let unloads = 0;
@@ -109,7 +111,8 @@ function writeConfig(extra) {
   }, extra || {}), null, 2));
 }
 function spawnWB() {
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, RUYI_HOME: HOME, RUYI_TOOLBOX_HOME: TOOLBOX_HOME }, windowsHide: true });
+  // WCW_TEST_TOOLBOX_HEALTH_DEADLINE_MS:I3 的健康超时不必真等 20 秒;8 秒仍远够正常组件(两层 node 冷启动)答上 /health。
+  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, RUYI_HOME: HOME, RUYI_TOOLBOX_HOME: TOOLBOX_HOME, WCW_TEST_TOOLBOX_HEALTH_DEADLINE_MS: '8000' }, windowsHide: true });
   wb.stdout.on('data', () => {}); wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   return wb;
 }
@@ -299,6 +302,23 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     ok(t3.status !== 200 && n1 === 1 && t3b.status !== 200 && n2 === 1,
       `I2 组件起不来:第一次转写拉起一次(失败),紧接着再转写不再重新拉起(起动次数 ${n1} → ${n2},转写 ${t3.status}/${t3b.status})`);
     fs.rmSync(path.join(FAKE_DIR, 'crash-on-start'), { force: true });
+    // I3(走查 2026-10-08):组件进程活着、健康窗口内却一直不答 /health(加载慢 / 模型坏)→ 如意杀掉它、记「没起来」。
+    // 修前杀之前先置 stopping,被杀子进程随后的 exit 回调把 failed 改写成 stopped → 失败冷却(只认 failed)失效,
+    // 之后每次转写都重拉一遍、干等整个健康窗口,设置页还显示「已停止」。
+    // 由对账起这一趟(带 toolbox 键的保存;对账照旧立刻起,冷却只管「转写前就地再起」那一路),I2 的冷却挡不住它。
+    fs.writeFileSync(path.join(FAKE_DIR, 'hang-on-start'), '1');
+    const hangPids = () => { try { return fs.readFileSync(path.join(FAKE_DIR, 'hang-starts.log'), 'utf8').split('\n').filter(Boolean).map(Number); } catch { return []; } };
+    await saveConfig({ toolbox: JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')).toolbox });
+    const hungUp = await waitFor(async () => (hangPids().length === 1 ? 1 : null), 10000);
+    const gaveUp = await waitFor(async () => { const c = component(await status(), 'fake-asr'); return c && c.state !== 'starting' && hangPids().every(p => !pidAlive(p)) ? c : null; }, 30000);
+    await sleep(1500);   // 被杀的启动器的 exit 回调已经到过(修前就是这一下把 failed 改成 stopped)
+    const cmpI3 = component(await status(), 'fake-asr');
+    ok(Boolean(hungUp) && Boolean(gaveUp) && Boolean(cmpI3) && cmpI3.state === 'failed' && cmpI3.error === 'health-timeout',
+      `I3a 健康超时被杀之后:状态如实是 failed(不是 stopped)、error=health-timeout(实得 ${JSON.stringify(cmpI3 && { state: cmpI3.state, error: cmpI3.error })})`);
+    const t3c = await transcribe();
+    ok(t3c.status !== 200 && hangPids().length === 1,
+      `I3b 紧接着再转写:失败冷却生效,不再重新拉起、不再干等健康窗口(拉起次数 ${hangPids().length},转写 ${t3c.status})`);
+    fs.rmSync(path.join(FAKE_DIR, 'hang-on-start'), { force: true });
 
     /* ── C 不替用户做主 ── */
     await saveConfig({ asrProviderId: '', asrModel: '' });
