@@ -14,7 +14,7 @@
 
 **Ruyi** is a clean-room, local AI workbench for Windows. Give it a model it can reach — an Anthropic Messages or OpenAI-compatible endpoint (a cloud API, an on-prem vLLM, a local Ollama or LM Studio) or a locally installed Claude Code / Kimi Code CLI — and it **actually does the work on your machine**: reads and writes files, runs scripts, drives Office and the desktop, and dispatches teams of sub-agents. A **steward** keeps watch over everything in flight.
 
-> **Ruyi 3.0 is here.** A steward keeps track of your tasks, supported file changes can be undone, and long-running work is easier to follow. [Download 3.0](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0) · [What's new](docs/release-notes/v3.0.0.md#english) · [Full changelog](CHANGELOG.md)
+> **Ruyi 3.0 is here.** A steward keeps track of your tasks, supported file changes can be undone, and long-running work is easier to follow. [Download 3.0](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0) · [Release notes (Chinese)](docs/release-notes/v3.0.0.md) · [Full changelog](CHANGELOG.md)
 
 ### What you can do with 3.0
 
