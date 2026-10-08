@@ -157,7 +157,9 @@ test('[B] git_status / git_diff 不执行仓库自带的 clean 过滤器(含子�
     fs.writeFileSync(path.join(repo, 'a.txt'), 'hello\n');
     git(repo, ['add', '-A']);
     git(repo, ['commit', '-q', '-m', 'x']);
-    fs.appendFileSync(path.join(repo, '.git', 'config'), `[filter "evil"]\n\tclean = ${filterCmd}\n\tsmudge = ${filterCmd}\n`);
+    // Let Git escape embedded quotes so executable paths containing spaces stay quoted for the shell.
+    git(repo, ['config', 'filter.evil.clean', filterCmd]);
+    git(repo, ['config', 'filter.evil.smudge', filterCmd]);
     // 对照:同一个仓库里裸 git status 确实会执行过滤器(证明夹具是真的)。
     touch(path.join(repo, 'a.txt'), 'jello\n', 5000);
     cp.spawnSync('git', ['status', '--porcelain'], { cwd: repo, env, windowsHide: true });
@@ -194,7 +196,7 @@ test('[B] git_status / git_diff 不执行仓库自带的 clean 过滤器(含子�
     git(sup, ['init', '-q']);
     git(sup, ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', sub, 'sm']);
     git(sup, ['commit', '-q', '-m', 'sup']);
-    fs.appendFileSync(path.join(sup, '.git', 'modules', 'sm', 'config'), `[filter "Evil2"]\n\tclean = ${filterCmd}\n`);
+    git(path.join(sup, 'sm'), ['config', 'filter.Evil2.clean', filterCmd]);
     touch(path.join(sup, 'sm', 's.txt'), 't\n', 20000);
     const st2 = await srv.toolCall('git_status', { cwd: sup }, inRepo);
     assert.equal(st2.ok, true, JSON.stringify(st2));

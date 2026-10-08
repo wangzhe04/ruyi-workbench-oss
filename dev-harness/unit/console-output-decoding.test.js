@@ -126,6 +126,7 @@ test('[E6] 前导的形状:同一行放在 $ProgressPreference 之前;无 BOM �
   const shell = functionBlock(readSrcFile('11-native-tools.js'), 'shellStart');
   assert.match(shell, /const script = PS_UTF8_OUTPUT_PREAMBLE \+ "\$ErrorActionPreference = 'Stop'\\n/, '后台命令:前导接在第一行同一行,不加换行');
   assert.match(shell, /launchArgs\.push\('-NoExit', '-Command', PS_UTF8_OUTPUT_PREAMBLE\)/, '交互式:-NoExit -Command 前导');
+  assert.match(shell, /launchArgs\.push\('-NonInteractive'\)/, '管道输入绕过 PSReadLine,交给 ConsoleHost 执行');
   assert.ok(!/-NoExit['"],\s*['"]-EncodedCommand/.test(shell), '交互式不能用 -EncodedCommand(会往 stderr 写 CLIXML 进度对象)');
 });
 

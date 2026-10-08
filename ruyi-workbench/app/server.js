@@ -51058,6 +51058,9 @@ async function shellStart(args, config, ctx = {}) {
     // 提示符与回显的格式与不带它时一致,启动时不多出任何输出)。注意不能用 -EncodedCommand:它会让 PowerShell 往 stderr
     // 写一份 CLIXML 进度对象(`#< CLIXML ...`),污染 shell_poll 的输出。前导是纯 ASCII、无需引号转义(spawn 不经 shell)。
     // 为什么要它:非中文代码页(en-US 的 437/1252)的机器上不设的话,Write-Output '中文' 在源头就是 `?`(见 00-boot 注释)。
+    // stdin is a pipe, so use ConsoleHost's line reader rather than PSReadLine's console input.
+    // With -NoExit -Command alone, PSReadLine can echo shell_send input without executing it.
+    launchArgs.push('-NonInteractive');
     launchArgs.push('-NoExit', '-Command', PS_UTF8_OUTPUT_PREAMBLE);
   } else {
     // A finite command has an actual completion/exit code; shell_poll.running now describes the job,
