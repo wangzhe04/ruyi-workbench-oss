@@ -2023,6 +2023,18 @@ function resolveBindHost(opts) {
   throw error;
 }
 
+// 走查 2026-10-08:关服收尾(下面 startServerInner 里的 cleanupMcp)修前只停 MCP / shell / toolbox,activeChildren 里在途的
+// Claude / Kimi CLI 回合子进程没人管 —— uncaughtException / SIGTERM 退出之后它们变孤儿,继续把当前回合跑完(改文件、花钱)
+// 却再没人收结果。现在逐个走既有的 stopSession(id, 'shutdown'):整棵树交给 killChildTree(发出去就算,不等它)、原生引擎在途的
+// fetch 一并 abort、挂起的权限 / 提问 / 计划一并清。全程同步、best-effort:'exit' 事件里只能做同步事,一项抛了不拦后面的。
+function stopAllActiveTurnsSync(reason = 'shutdown') {
+  let stopped = 0;
+  for (const id of [...activeChildren.keys()]) {
+    try { if (stopSession(id, reason)) stopped += 1; } catch { /* 收尾绝不抛 */ }
+  }
+  return stopped;
+}
+
 async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   try {
     await ensureDirs();
@@ -2205,7 +2217,8 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   // 同样经 StewardHooks 调用,不直接引用 13g(禁止前向边);开关关时该钩子从未起过 timer,调用是无操作。
   // 第123波 M1:关服收尾一并停掉调度器 tick(clearInterval + 代际自增,在途 tick 尽快退出)——
   // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
+  // 走查 2026-10-08:在途的 Agent CLI 回合子进程一并收掉(stopAllActiveTurnsSync,见其头注),修前它们在这条路上变孤儿。
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
