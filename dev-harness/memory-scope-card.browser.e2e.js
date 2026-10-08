@@ -276,6 +276,15 @@ const providerScript = async ctx => {
     await sleep(600);
     const e2 = await ewait(`(() => { const t = window.state && window.state.currentSession && window.state.currentSession.id ? ${chromeTexts} : []; return t.length ? t : null; })()`, 1500);
     ok(Array.isArray(e2) && e2.every(x => !cjk(x)) && e2.some(x => /AI suggested Global/.test(x)), `E2 刷新后画回来的卡同样是英文(got ${JSON.stringify(e2)})`);
+    // 语言切换会重新画消息行；候选仍待确认时，卡不能随旧行一起消失。
+    // 开机自动语言与配置语言先后到达，也会走同一条重绘路径。
+    const e2Proposal = await eev(`document.querySelector('#messages .memory-proposal-card')?.dataset.proposalId || ''`);
+    await eev(`import('/js/i18n.js').then(m => m.setLocale('zh-CN'))`);
+    const e2zh = await ewait(`(() => { const c = document.querySelector('#messages .memory-proposal-card'); return c && c.dataset.proposalId === ${JSON.stringify(e2Proposal)} && /AI 建议：全局/.test(c.textContent) ? c.dataset.proposalId : null; })()`, 200);
+    ok(Boolean(e2Proposal) && e2zh === e2Proposal, 'E2a 换成中文重画消息后，同一张待确认卡仍在并使用中文');
+    await eev(`import('/js/i18n.js').then(m => m.setLocale('en-US'))`);
+    const e2en = await ewait(`(() => { const c = document.querySelector('#messages .memory-proposal-card'); const text = ${chromeTexts}; return c && c.dataset.proposalId === ${JSON.stringify(e2Proposal)} && text.length && text.every(x => !/[一-鿿]/.test(x)) && text.some(x => /AI suggested Global/.test(x)) ? c.dataset.proposalId : null; })()`, 200);
+    ok(Boolean(e2Proposal) && e2en === e2Proposal, 'E2b 换回英文重画后，同一张卡仍在、界面文字全英文');
     await esend('write these three down [BATCH]');
     const e3 = await ewait(`(() => { const c = document.querySelector('#messages .memory-proposal-batch'); if (!c) return null; const t = ${chromeTexts}; return t.length ? t : null; })()`, 1200);
     ok(Array.isArray(e3) && e3.every(x => !cjk(x)) && e3.some(x => x === 'Will join core (injected every turn)') && e3.some(x => x === 'Not added to core') && e3.some(x => /^Body \(\d+ chars\)$/.test(x)),
