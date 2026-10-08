@@ -1565,6 +1565,17 @@ function webPayloadReason(toolName, input) {
   if (WEB_PAYLOAD_URL_TOOLS.includes(bare)) return webUrlPayloadReason(input.url);
   return '';
 }
+// 3.0 收口走查(第四波):http_request 指向回环 / 内网 / 链路本地(含 169.254.169.254 云元数据)时返回 'internal_target'。
+// http_request 是「调本机 / 内网 API」用的,不做 SSRF 拦截(那是 web_fetch / http_download 的事);修前它在智能自动档只要不像载荷就
+// 免确认,被网页注入的模型可以 GET 本机其它服务、元数据端点,乃至如意自己的会话接口(token-browser 对无 Origin 的回环请求免 token)。
+// 判据:先用 WHATWG URL 规范化主机(0x7f.1 / 2130706433 / 0177.0.0.1 / ::ffff:7f00:1 都还原成标准写法),再交 04h 的本机 / 局域网判据。
+function httpRequestInternalTargetReason(toolName, input) {
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (bare !== 'http_request' || !input || typeof input !== 'object' || Array.isArray(input)) return '';
+  let host = '';
+  try { host = new URL(String(input.url == null ? '' : input.url).trim()).host; } catch { return ''; }
+  return host && providerBaseIsLocalOrLan('http://' + host) ? 'internal_target' : '';
+}
 function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
@@ -1584,7 +1595,7 @@ function nativeToolGate(mode, tier, toolName, input) {
     // 安全走查 S2:网络外发与读数据根密钥文件(06i stewardAutoAskSensitiveKind)同样停下来问;命令类工具才扫,编排类的任务描述文字不扫。
     // 第三波(复核 #4):摊平文本超出扫描窗口的(窗口之后没人看过)同样问 —— 见 06i stewardAutoAskScanIncomplete。
     return (payloadAsk === 'ask' || stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== ''
-      || stewardAutoAskScanIncomplete(toolName, input)) ? 'ask' : 'allow';
+      || stewardAutoAskScanIncomplete(toolName, input) || httpRequestInternalTargetReason(toolName, input) !== '') ? 'ask' : 'allow';
   }
   return 'ask';
 }

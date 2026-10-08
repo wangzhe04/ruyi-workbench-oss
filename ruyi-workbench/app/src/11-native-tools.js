@@ -4790,7 +4790,9 @@ async function httpRequest(args = {}, opts = {}) {
   // timeoutMs 非法(负数 / NaN / 非数字)回落默认 20s:修前负数原样交给 Node,报「The value of "timeout" is out of range」
   // 还被归成 failClass:'timeout',模型会以为是对端慢。0 = 沿用既有语义(取默认)。
   const timeoutMs = (n => (Number.isFinite(n) && n > 0 ? n : 20000))(Number(args.timeoutMs));
-  const maxChars = Number(args.maxBodyChars != null ? args.maxBodyChars : 200000);
+  // 3.0 收口走查(第四波):maxBodyChars 钳到 (0, 5,000,000]、非法回落默认。修前 1e308 让下面的字节硬顶变成无穷大(实测 60MB 全进内存、
+  // RSS +321MB),NaN 则硬顶失效、一直缓冲到超时。内部调用方最大传 1,200,000,不受影响。
+  const maxChars = (n => (Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 5000000) : 200000))(Number(args.maxBodyChars != null ? args.maxBodyChars : 200000));
   const signal = (opts && opts.signal) || null;
   // v1.4.1 (audit #11):此前把整个响应体缓冲进内存再截断 —— 恶意/失控端点可无上限撑爆内存。加【字节硬顶】,
   // 超顶即返回已收的截断体并 destroy 连接停止下载。done 守护防双 resolve / 防 destroy 后的 error 事件误触。

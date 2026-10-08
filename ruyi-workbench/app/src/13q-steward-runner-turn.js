@@ -318,8 +318,12 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 与模型侧被 13g 拦下的行走同一条降级路径,变成一个按钮。
   // 116-3 P2-11:自理侧【真的动过】的目标带进 actions 侧,两边合起来数同一个 3 —— 不是各数各的。
   const selfServeTargets = selfServe.executed.filter(row => row && row.acted === true).map(row => row.sessionId);
+  // 3.0 收口走查(第四波):actions 是【这一回合】的动作,闸门与配额 / 污点按回合序号取键(13j stewardTaintKeyOf → providerTurnQuotaKey)。
+  // 修前传的是回合开始前 ensureStewardSession 装载的那份会话对象,turnSeq 还停在上一回合 —— 同一回合里读过网页打下的污点(键 t N)
+  // 在这里查成 t(N-1):查不到本回合的,反而可能查到上一回合的。按本回合的序号给一份浅拷贝(只用作 ctx,不落盘)。
+  const actionSession = (turn && Number(turn.turnSeq) > 0) ? { ...session, turnSeq: Number(turn.turnSeq) } : session;
   const actionRows = parsedReply.actions.length
-    ? await stewardExecuteActions(parsedReply.actions, session, config, trigger, selfServeTargets)
+    ? await stewardExecuteActions(parsedReply.actions, actionSession, config, trigger, selfServeTargets)
     : [];
   // 127 波 2-quater B2:回合里工具直调的代批补进回执(上面已取出)。顺序按事情发生的先后:自理(模型之前)→
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。

@@ -1006,7 +1006,12 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
   const head = await stewardReadTurnHead(sid);
   if (!head || !head.id) return null;
   const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
-  if (activeChildren.has(sid) || turnOutcomePending.has(sid)) {
+  // 3.0 收口走查(第四波):再加 turnSettlers(10 runSessionTurn 从起手到收尾整段登记)。activeChildren 挡不住两个窗口 ——
+  // 起手:turnSeq 已 +1 落盘、引擎还没登记进 activeChildren(中间隔着 captureWorkspaceTurnBaseline,大工作区好几秒);
+  // 收尾:activeChildren 已删、turnOutcomePending 还没加(中间是 reconcile / 存会话 / onTurnEnd 几次 await)。
+  // 修前已见过的线程落在这两个窗口里会被报一条「跑完了」并把基线推到 N,真正的结果(尤其是失败)再也报不出来。
+  // 首见那一支早有 inFlight 判据兜同一个窗口;这里对所有线程统一用 turnSettlers。
+  if (activeChildren.has(sid) || turnOutcomePending.has(sid) || turnSettlers.has(sid)) {
     // (turnOutcomePending:回合已收、成败账正在写 —— 同样等下一拍,见 04 的头注)
     // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
     // 117p(用户第七轮走查:「2.0 回合已经跑完了,管家没有收到体现也没收工」):首见就撞上活回合时,

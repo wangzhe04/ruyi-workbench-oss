@@ -4204,7 +4204,14 @@ async function readConfig() {
     if (prev) { raw = prev; recoveredFrom = 'prev'; }
   } else {
     raw = safeJsonParse(text, null);
-    if (raw === null && String(text).trim()) {
+    // 3.0 收口走查(第四波):0 字节 / 全空白的 config.json 同样先从 .prev 恢复。修前只有「文件不存在」与「非空但不是合法 JSON」
+    // 两支读 .prev,空文件被当成全新安装 —— 断电后 rename 已落盘而数据没落盘就是这个样子(全仓无 fsync);用户随后存一次设置写下
+    // 无服务商的新配置,再存一次 writeConfigAtomic 就把它拷进 .prev,含密钥的唯一好备份被覆盖,服务商与 key 永久丢失。
+    // 空文件里没有任何东西可留底,不另存 .corrupt;没有 .prev 时行为不变(下面 rawEmpty 那一支照旧判断是不是用过的安装)。
+    if (raw === null && !String(text).replace(/^﻿/, '').trim()) {
+      const prev = await readConfigPrev();
+      if (prev) { raw = prev; recoveredFrom = 'prev'; }
+    } else if (raw === null && String(text).trim()) {
       // 文件在但不是合法 JSON（截断/被外部写坏）：不覆盖它；能从 .prev 恢复就恢复，否则降级。
       // (UTF-8 BOM 已由 safeJsonParse 剥掉,记事本另存的合法 JSON 不会走到这里。)
       const prev = await readConfigPrev();
@@ -4463,6 +4470,13 @@ async function syncAgentRolesToClaude(cwd, config) {
       fm.push('---');
       var body = role.prompt || role.description || role.label;
       const legacyMd = fm.join('\n') + '\n\n' + body + '\n';   // 老版本(无标记)的写法
+      // 3.0 收口走查(第四波):preview.3 及更早【不分来源】都写 permissionMode(S3 之前,项目角色声明的 bypassPermissions 也写进全局目录)。
+      // S3 之后上面的 fm 对项目角色不再带这一行,于是那份老文件与 legacyMd 逐字对不上、被当成用户自己的文件跳过,免问档永远留在
+      // ~/.claude/agents 里(独立 claude 会话照样生效)。按老写法再拼一份:逐字相同就认作自家旧文件,覆盖成现在这份(不再带免问档)。
+      const legacyCliMode = claudePermissionMode(role.permissionMode);
+      const legacyUntrustedMd = (!cliMode && legacyCliMode)
+        ? [fm[0], fm[1], 'permissionMode: ' + legacyCliMode, ...fm.slice(2)].join('\n') + '\n\n' + body + '\n'
+        : null;
       var md = fm.join('\n') + '\n\n' + RUYI_AGENT_FILE_MARKER + '\n\n' + body + '\n';
       var file = path.join(agentsDir, role.id + '.md');
       let existing = null;
@@ -4472,7 +4486,7 @@ async function syncAgentRolesToClaude(cwd, config) {
       }
       if (existing !== null) {
         const text = existing.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
-        if (!RUYI_AGENT_FILE_MARKER_RE.test(text) && text !== legacyMd) { skipped.push({ id: role.id, reason: 'user-file' }); continue; }
+        if (!RUYI_AGENT_FILE_MARKER_RE.test(text) && text !== legacyMd && text !== legacyUntrustedMd) { skipped.push({ id: role.id, reason: 'user-file' }); continue; }
         if (text === md) continue;   // 已是最新,不重写
       }
       await atomicWriteJson(file, md);   // 25.1 收编(md 字符串直接透传)
@@ -6102,7 +6116,14 @@ function authorizeRoute(req, method, pathname) {
       case 'token-browser':
         if (browser) return tokenOk(req) ? null : 'missing or invalid workbench token';
         return originOk(req) ? null : 'cross-origin request rejected';
-      case 'body-token': return null;
+      // 3.0 收口走查(第四波):body-token 的 token 在请求体里,handler 要先把体读完(上限 128MB)才验得了 —— 修前这一档对所有请求放行,
+      // 任意网页 `fetch(…, {mode:'no-cors', body: 'a'.repeat(1e8)})`(简单请求,无预检)就能让工作台每请求缓冲约 100MB(实测 RSS
+      // 106→297MB),并发几发足以压垮进程。合法调用方(MCP 子进程 / Kimi 桥的 node 回环)不带 Origin / Sec-Fetch-*;
+      // 浏览器发来的只放同源,跨站在读体之前就拒。
+      case 'body-token': {
+        const secSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+        return (browser && (!originOk(req) || secSite === 'cross-site' || secSite === 'same-site')) ? 'cross-origin request rejected' : null;
+      }
       default: return 'unknown auth level';
     }
   }
@@ -12830,6 +12851,11 @@ async function ensureDataRootReal() {
 // 两份必须一致,unit/unc-and-traversal-gates.test.js 逐个名字比对(改一份忘了另一份会红)。
 function isSensitiveDataPath(p) {
   if (!p) return false;
+  // 3.0 收口走查(第四波):先按 Windows 语义把每段的 NTFS 流后缀(`config.json::$DATA` 就是 config.json 的默认数据流,
+  // `sessions::$INDEX_ALLOCATION\x` 就是 sessions\x)与尾随点 / 空格(`config.json.` → config.json)去掉再比。修前带后缀的串
+  // 词法上判成「不在 config.json 里」、文件名正则也不中 → 敏感闸被绕过(第三波只给 autoexec 闸加了同样的剥离)。盘符段(`C:`)保留;
+  // Windows 文件名除盘符外不可能有冒号,POSIX 上带冒号的怪名字只会被保守地并到前缀上,只会多拦不会漏。写在函数里(自包含,见上)。
+  p = String(p).split(/([\\/])/).map(seg => (/^[a-z]:$/i.test(seg) || seg === '/' || seg === '\\') ? seg : seg.replace(/:.*$/, '').replace(/([^. ])[. ]+$/, '$1')).join('');
   const root = dataRoot();
   // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
   // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
@@ -12907,6 +12933,8 @@ const WRITE_PROTECTED_DATA_FILES = Object.freeze(['install-registry.json', 'clau
 function isWriteProtectedDataPath(p) {
   if (!p) return false;
   if (isSensitiveDataPath(p)) return true;
+  // 同 isSensitiveDataPath 开头那一行:剥 NTFS 流后缀与尾随点 / 空格(`mcp.d::$INDEX_ALLOCATION\x.json`、`scheduler.\tasks.json`)。
+  p = String(p).split(/([\\/])/).map(seg => (/^[a-z]:$/i.test(seg) || seg === '/' || seg === '\\') ? seg : seg.replace(/:.*$/, '').replace(/([^. ])[. ]+$/, '$1')).join('');
   const bases = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) {
     for (const n of WRITE_PROTECTED_DATA_DIRS) if (pathWithinRoot(p, path.join(b, n))) return true;
@@ -32313,7 +32341,10 @@ function stewardSamePath(a, b) {
 // W7:「已登记」= 用户的常用工作区 ∪ 如意自己为任务开的文件夹(config.stewardManagedWorkspaces)。
 // 后者从这一刀起不再追加进 workspaces[](那张表就是界面上的常用工作区),但它们仍是工作台自己建、
 // 自己登记过的目录 —— 管家照样能读里面的交付(steward_file_read)、能把线程挪进去(thread_workspace)。
-function stewardWorkspaceRootFor(rawPath, config) {
+// opts.requireRead:只认【没关掉读权限】的那几行(设置里工作区的「读」开关 read:false)。steward_file_read 用 —— 3.0 收口走查(第四波):
+// 修前这里不看 read,管家能读用户明确关掉读权限的工作区里的任意文本文件。stewardManagedWorkspaces 没有 read 字段,照旧认。
+function stewardWorkspaceRootFor(rawPath, config, opts) {
+  const requireRead = Boolean(opts && opts.requireRead);
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
   // 先把 `.` / `..` 段词法消掉再比前缀:修前 `<ws>/../../etc/passwd` 以 `<ws>/` 开头就算「在工作区里」,
   // steward_file_read 读到了工作区外的文件、steward_thread_workspace 把线程目录设成了 /etc。
@@ -32336,6 +32367,7 @@ function stewardWorkspaceRootFor(rawPath, config) {
     ...(Array.isArray(config && config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : []),
   ];
   for (const row of rows) {
+    if (requireRead && row && row.read === false) continue;
     const root = String((row && row.path) || '');
     const key = norm(root);
     // 「在这个根里」= 恰好是它,或以它加一个分隔符开头。少了那个分隔符,`C:/work` 会把
@@ -38766,6 +38798,17 @@ function webPayloadReason(toolName, input) {
   if (WEB_PAYLOAD_URL_TOOLS.includes(bare)) return webUrlPayloadReason(input.url);
   return '';
 }
+// 3.0 收口走查(第四波):http_request 指向回环 / 内网 / 链路本地(含 169.254.169.254 云元数据)时返回 'internal_target'。
+// http_request 是「调本机 / 内网 API」用的,不做 SSRF 拦截(那是 web_fetch / http_download 的事);修前它在智能自动档只要不像载荷就
+// 免确认,被网页注入的模型可以 GET 本机其它服务、元数据端点,乃至如意自己的会话接口(token-browser 对无 Origin 的回环请求免 token)。
+// 判据:先用 WHATWG URL 规范化主机(0x7f.1 / 2130706433 / 0177.0.0.1 / ::ffff:7f00:1 都还原成标准写法),再交 04h 的本机 / 局域网判据。
+function httpRequestInternalTargetReason(toolName, input) {
+  const bare = String(toolName == null ? '' : toolName).replace(/^.*__/, '');
+  if (bare !== 'http_request' || !input || typeof input !== 'object' || Array.isArray(input)) return '';
+  let host = '';
+  try { host = new URL(String(input.url == null ? '' : input.url).trim()).host; } catch { return ''; }
+  return host && providerBaseIsLocalOrLan('http://' + host) ? 'internal_target' : '';
+}
 function nativeToolGate(mode, tier, toolName, input) {
   // v1.4.3: accept both 'bypass' (internal) and 'bypassPermissions' (CLI-native) as full-bypass
   if (mode === 'bypass' || mode === 'bypassPermissions') return 'allow';
@@ -38785,7 +38828,7 @@ function nativeToolGate(mode, tier, toolName, input) {
     // 安全走查 S2:网络外发与读数据根密钥文件(06i stewardAutoAskSensitiveKind)同样停下来问;命令类工具才扫,编排类的任务描述文字不扫。
     // 第三波(复核 #4):摊平文本超出扫描窗口的(窗口之后没人看过)同样问 —— 见 06i stewardAutoAskScanIncomplete。
     return (payloadAsk === 'ask' || stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input) || stewardAutoAskSensitiveKind(toolName, input) !== ''
-      || stewardAutoAskScanIncomplete(toolName, input)) ? 'ask' : 'allow';
+      || stewardAutoAskScanIncomplete(toolName, input) || httpRequestInternalTargetReason(toolName, input) !== '') ? 'ask' : 'allow';
   }
   return 'ask';
 }
@@ -55461,7 +55504,9 @@ async function httpRequest(args = {}, opts = {}) {
   // timeoutMs 非法(负数 / NaN / 非数字)回落默认 20s:修前负数原样交给 Node,报「The value of "timeout" is out of range」
   // 还被归成 failClass:'timeout',模型会以为是对端慢。0 = 沿用既有语义(取默认)。
   const timeoutMs = (n => (Number.isFinite(n) && n > 0 ? n : 20000))(Number(args.timeoutMs));
-  const maxChars = Number(args.maxBodyChars != null ? args.maxBodyChars : 200000);
+  // 3.0 收口走查(第四波):maxBodyChars 钳到 (0, 5,000,000]、非法回落默认。修前 1e308 让下面的字节硬顶变成无穷大(实测 60MB 全进内存、
+  // RSS +321MB),NaN 则硬顶失效、一直缓冲到超时。内部调用方最大传 1,200,000,不受影响。
+  const maxChars = (n => (Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 5000000) : 200000))(Number(args.maxBodyChars != null ? args.maxBodyChars : 200000));
   const signal = (opts && opts.signal) || null;
   // v1.4.1 (audit #11):此前把整个响应体缓冲进内存再截断 —— 恶意/失控端点可无上限撑爆内存。加【字节硬顶】,
   // 超顶即返回已收的截断体并 destroy 连接停止下载。done 守护防双 resolve / 防 destroy 后的 error 事件误触。
@@ -58896,6 +58941,7 @@ const DESKTOP_TOOL_HANDLERS = {
   office_open: { paths: null, guardNote: "第36波录在案:不加读闸(打开不回流模型;exec tier 权限门);v1.4.6-S2 无 shell spawn", handler: async (args, ctx) => {
       // path 为空时 path.resolve('') 是【服务进程的当前目录】—— 修前会把它在资源管理器里打开。
       if (!String(args.path == null ? '' : args.path).trim()) return { ok: false, code: 'invalid_args', error: 'path 不能为空', hint: '传入要打开的文档 / 图片 / 文件夹的完整路径' };
+      if (await openToolUncDenied(args.path, ctx)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
       const target = path.resolve(String(args.path || ''));
       // 只「打开」查看类文件(与 /api/file/reveal 同一张白名单 REVEAL_OPEN_SAFE_EXTS):修前 office_open 一个 .bat/.exe/.lnk
       // 就是交给关联程序【执行】—— allowCommandTools:false 时命令工具全关,这条路照样能跑脚本。其余扩展名只在资源管理器里
@@ -58933,6 +58979,12 @@ const NETWORK_TOOL_HANDLERS = {
       return webFetch(args, { signal: ctx && ctx.signal });   // 用户 Stop / 插话要能取消进行中的抓取
   } },
   http_request: { paths: null, guardNote: "纯网络调用,不触文件路径", handler: async (args, ctx) => {
+      // 3.0 收口走查(第四波):不许经这个工具调如意【自己】的本机接口 —— 那里有 /api/permission/decision、/api/tools/*、会话与记忆读接口,
+      // 模型经它就能自己批自己的权限、绕开文件闸读别的线程(token-browser 对无 Origin 的回环请求免 token)。与 04 剥掉桥接 MCP 的
+      // WCW_TOKEN 是同一条线。工作台内部的回环调用(agentToolLoopback 等)直接用 httpRequest,不经这个工具,不受影响。
+      if (httpRequestTargetsWorkbench(args && args.url)) {
+        return { ok: false, error: '不能用 http_request 调用如意自己的本机接口', failClass: 'blocked', hint: '要查看或操作如意自身的状态,请用对应的如意工具(例如 workbench_self_status),或请用户在界面上操作' };
+      }
       return httpRequest(args, { signal: ctx && ctx.signal });
   } },
   http_download: { paths: "write", guardNote: '', handler: async (args, ctx) => {
@@ -59024,6 +59076,7 @@ const NETWORK_TOOL_HANDLERS = {
       if (!target) return { ok: false, error: 'url is required', hint: '传一个 http(s) 网址或本地 .html 文件路径' };
       // 以 `-` 开头的值会被浏览器当成命令行开关(--renderer-cmd-prefix=… 这类),不是网址。
       if (target.startsWith('-')) return { ok: false, error: 'url 不能以 - 开头', target };
+      if (await openToolUncDenied(target, ctx)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR, target };
       // 网址 / 本地 HTML 之外只放行【文件夹】(资源管理器打开)。修前 calc.exe、.bat 之类的路径会落到系统关联打开 = 执行。
       if (!isBrowserDocumentTarget(target)) {
         const st = await fsp.stat(path.resolve(target)).catch(() => null);
@@ -59153,6 +59206,51 @@ const CODE_TOOL_HANDLERS = {
       return dataProfile(p, args);
   } },
 };
+
+// 3.0 收口走查(第四波):打开类工具(office_open / browser_open)同样在【任何 I/O 之前】拒非本机 UNC(\\主机\共享、file://主机/共享)。
+// 修前它们不经 guardFileToolPath:智能自动档里 exec 工具默认放行,被注入的模型 office_open「\\攻击者\s\a.pdf」→ explorer 去连对方的 SMB,
+// 本机用户的 NTLM 哈希就递出去了(非安全扩展名那一支的 fsp.stat 也会先连)。判据与文件工具同一份(03 remoteUncDenialResolved:
+// 本机主机名不算外联、用户配成工作区的共享照旧放行)。http(s) 网址不在此列。返回命中的主机名,'' = 不拦。
+async function openToolUncDenied(rawTarget, ctx) {
+  const raw = String(rawTarget == null ? '' : rawTarget).trim();
+  if (!raw || /^https?:\/\//i.test(raw)) return '';
+  const candidates = [raw];
+  if (/^file:/i.test(raw)) {
+    try {
+      const u = new URL(raw);
+      if (u.hostname) candidates.push('\\\\' + u.hostname + decodeURIComponent(u.pathname).replace(/\//g, '\\'));
+    } catch { /* 解析不了的 file: 网址交给后面的打开逻辑报错 */ }
+  } else {
+    candidates.push(path.resolve(raw));
+  }
+  let config = ctx && ctx.config ? ctx.config : null;
+  if (!config) { try { config = await readConfig(); } catch { config = {}; } }
+  return remoteUncDenialResolved(candidates, (ctx && ctx.session) || null, config);
+}
+
+// 3.0 收口走查(第四波):url 是否落在如意自己的 HTTP 服务上 —— 端口等于本进程(serve)或父进程(MCP 子进程经 WCW_PORT)的监听端口,
+// 且主机是回环 / 未指定地址 / 本机名 / 本机网卡地址(--host 0.0.0.0 时局域网地址同样进得来)。主机先经 WHATWG URL 规范化,
+// 0x7f.1、2130706433、[::ffff:127.0.0.1] 这些写法都还原成标准形。解析不了 → false(交给 httpRequest 自己报错)。
+function httpRequestTargetsWorkbench(rawUrl) {
+  let u;
+  try { u = new URL(String(rawUrl == null ? '' : rawUrl).trim()); } catch { return false; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const port = Number(u.port || (u.protocol === 'https:' ? 443 : 80));
+  const own = [Number(process.env.WCW_PORT) || 0, Number(RUNTIME && RUNTIME.port) || 0].filter(Boolean);
+  if (!own.includes(port)) return false;
+  const host = u.hostname.replace(/^\[|\]$/g, '').replace(/\.+$/, '').toLowerCase();
+  if (!host) return false;
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '::' || host === '0.0.0.0' || /^127\./.test(host)) return true;
+  const v4 = embeddedIpv4FromV6(host);
+  if (v4 && (/^127\./.test(v4) || v4 === '0.0.0.0')) return true;
+  try { if (host === String(os.hostname() || '').toLowerCase()) return true; } catch { /* 取不到主机名就不按名字认 */ }
+  try {
+    for (const list of Object.values(os.networkInterfaces() || {})) {
+      for (const a of (list || [])) if (String(a && a.address || '').toLowerCase() === host) return true;
+    }
+  } catch { /* 取不到网卡表就只认回环 */ }
+  return false;
+}
 
 // 代理模式 v2:四个代理工具在 provider 回合内由 runOpenAiTurn 特判(需要活闭包);这里只处理【无回合上下文】的
 // 两种来路 —— Claude/Kimi 的一次性 MCP 子进程(回环 serve 进程的 /api/agent-workflow/*)与直接的 /api/tools 调用(拒绝)。
@@ -69902,7 +70000,12 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
   const head = await stewardReadTurnHead(sid);
   if (!head || !head.id) return null;
   const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
-  if (activeChildren.has(sid) || turnOutcomePending.has(sid)) {
+  // 3.0 收口走查(第四波):再加 turnSettlers(10 runSessionTurn 从起手到收尾整段登记)。activeChildren 挡不住两个窗口 ——
+  // 起手:turnSeq 已 +1 落盘、引擎还没登记进 activeChildren(中间隔着 captureWorkspaceTurnBaseline,大工作区好几秒);
+  // 收尾:activeChildren 已删、turnOutcomePending 还没加(中间是 reconcile / 存会话 / onTurnEnd 几次 await)。
+  // 修前已见过的线程落在这两个窗口里会被报一条「跑完了」并把基线推到 N,真正的结果(尤其是失败)再也报不出来。
+  // 首见那一支早有 inFlight 判据兜同一个窗口;这里对所有线程统一用 turnSettlers。
+  if (activeChildren.has(sid) || turnOutcomePending.has(sid) || turnSettlers.has(sid)) {
     // (turnOutcomePending:回合已收、成败账正在写 —— 同样等下一拍,见 04 的头注)
     // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
     // 117p(用户第七轮走查:「2.0 回合已经跑完了,管家没有收到体现也没收工」):首见就撞上活回合时,
@@ -72871,6 +72974,15 @@ async function stewardImplDecide(args, ctx, config) {
       delegable: false, blockedBy: 'indirect_command',
     });
   }
+  // 3.0 收口走查(第四波):命令超出扫描窗口 / 嵌套过深(06i stewardAutoAskScanIncomplete —— 智能自动档正是因为它才停下来问)。
+  // 修前非豁免分支只认窗口里的文本:命令前垫 4000 个空格,窗口外的 git push / rm -rf / curl 在这里判成「五类都没命中」、豁免十道闸
+  // 整段不进、交给管家的摘录也是空的 —— 管家可以替你批一条它根本没看全的命令。窗口之后没人看过不等于安全:放行类一律交回用户,拒绝类照常可以。
+  if (type === 'permission' && !exemptHit && !refusing && stewardAutoAskScanIncomplete(toolName, exemptInput)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令太长或嵌套太深,我没能看全它真正要做什么 —— 这一条必须你亲自决定`, {
+      reason: 'scan_incomplete', missionId, interventionId, type, toolName, tier, permissionMode,
+      delegable: false, blockedBy: 'scan_incomplete',
+    });
+  }
   // 安全走查 S2:命令里有网络外发 / 读数据根密钥文件(06i stewardAutoAskSensitiveKind,智能自动正是因为它才停下来问):不在五类豁免里,
   // 但「外发什么、读了什么」管家同样判不出 —— 放行类一律交回用户,拒绝类照常可以。
   if (type === 'permission' && !exemptHit && !refusing) {
@@ -72881,6 +72993,14 @@ async function stewardImplDecide(args, ctx, config) {
         delegable: false, blockedBy: sensitiveKind === 'dataroot' ? 'dataroot_read' : 'network_egress',
       });
     }
+  }
+  // 3.0 收口走查(第四波):http_request 打回环 / 内网 / 元数据地址(07 httpRequestInternalTargetReason,智能自动正是因为它才停下来问)——
+  // 本机其它服务与如意自己的接口都在这一类里,管家同样不替用户批,放行类一律交回用户。
+  if (type === 'permission' && !refusing && httpRequestInternalTargetReason(toolName, current.input)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要访问本机或内网地址 —— 这一条必须你亲自决定`, {
+      reason: 'internal_target', missionId, interventionId, type, toolName, tier, permissionMode,
+      delegable: false, blockedBy: 'internal_target',
+    });
   }
   // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串,07 webPayloadReason)—— 它是「可能在外传数据」的那一问,管家同样不替用户批,放行类一律交回用户。
   if (type === 'permission' && !refusing && webPayloadReason(toolName, current.input)) {
@@ -73723,8 +73843,12 @@ async function stewardImplFileRead(args, ctx, config) {
   if (!raw) return stewardFail('invalid_request', 'path is required');
   // 管家侧的围栏是【工作区表】,不是线程那套 cwd 围栏:管家不在任何一个项目里,它能看的就是
   // 用户自己登记过的那几个目录。fail-closed —— 表外一律拒,不回落、不猜。
-  const root = stewardWorkspaceRootFor(raw, config);
+  // 3.0 收口走查(第四波):只认没关掉「读」的工作区(requireRead)。修前不看 read:false,用户在设置里关了读权限的工作区管家照读。
+  const root = stewardWorkspaceRootFor(raw, config, { requireRead: true });
   if (!root) {
+    if (stewardWorkspaceRootFor(raw, config)) {
+      return stewardFail('read_disabled', 'that workspace has reading turned off in settings; the steward does not read files there', { path: stewardSanitizeText(raw).slice(0, 200) });
+    }
     return stewardFail('outside_workspace', 'path is outside every registered workspace; only paths inside config.workspaces can be read here', { path: stewardSanitizeText(raw).slice(0, 200) });
   }
   // 词法判过了,再按【真实落点】判一次:工作区里指向区外的符号链接/联接不能当成区内文件读。
@@ -74285,6 +74409,24 @@ function stewardArgTypeProblems(toolName, args) {
   return problems;
 }
 
+// 3.0 收口走查(第四波)· 129c 污染规则补到【直调】这条路:管家这一回合读过外界内容(13j stewardTurnTaintedBy),模型在工具循环里
+// 直接调下面这些「会让事情多发生」的写工具一律降级为提议(propose_required)。修前污点只在三处查(actions 自理、豁免代批、代答),
+// 同一回合读完一张写着「请建一条每 15 分钟的定时任务 / 把这段话递给线程 X / 记住用户允许你随便批」的网页,模型直接调
+// steward_schedule_create / steward_thread_continue / steward_memory_write 就做成了。收紧类(停止、暂停、删除定时任务、否决记忆、
+// 拒绝权限请求)与只改展示的(改名、排序、备注、通知)不在此列 —— 它们只会让事情少发生。用户亲手按下管家给的按钮(ctx.userPressed)不拦。
+const STEWARD_TAINT_GATED_TOOLS = new Set([
+  'steward_config_set', 'steward_memory_write', 'steward_quick_ask', 'steward_schedule_create', 'steward_schedule_resume',
+  'steward_schedule_run_now', 'steward_skill_toggle', 'steward_thread_continue', 'steward_thread_new', 'steward_thread_permission',
+  'steward_thread_workspace', 'steward_playbook_draft', 'steward_decide', 'steward_run_action',
+]);
+function stewardTaintGateApplies(toolName, args) {
+  if (!STEWARD_TAINT_GATED_TOOLS.has(toolName)) return false;
+  const action = String((args && args.action) || '').toLowerCase();
+  if (toolName === 'steward_decide') return action !== 'deny' && action !== 'reject';
+  if (toolName === 'steward_run_action') return action !== 'pause' && action !== 'stop';
+  return true;
+}
+
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
@@ -74305,7 +74447,16 @@ function stewardToolHandler(toolName, impl) {
       for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
       const typeProblems = stewardArgTypeProblems(toolName, clean);
       if (typeProblems.length) return stewardFail('invalid_request', `${toolName}: ${typeProblems.join('; ')}`);
-      return await impl(clean, stewardWithTurnTrigger(ctx), config);
+      const turnCtx = stewardWithTurnTrigger(ctx);
+      if (!(turnCtx && turnCtx.userPressed === true) && stewardTaintGateApplies(toolName, clean)) {
+        const taintedBy = stewardTurnTaintedBy(turnCtx);
+        if (taintedBy.length) {
+          return stewardFail('propose_required', `我这一回合读过外部内容(${taintedBy.join('/')}),按规矩读过之后我只提议、不自己动手 —— ${toolName} 这一步请你确认`, {
+            reason: 'steward_turn_tainted', delegable: false, blockedBy: 'steward_turn_tainted', selfTaintBy: taintedBy, tool: toolName,
+          });
+        }
+      }
+      return await impl(clean, turnCtx, config);
     } catch (error) {
       const message = String((error && error.message) || error);
       logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
@@ -77378,8 +77529,12 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 与模型侧被 13g 拦下的行走同一条降级路径,变成一个按钮。
   // 116-3 P2-11:自理侧【真的动过】的目标带进 actions 侧,两边合起来数同一个 3 —— 不是各数各的。
   const selfServeTargets = selfServe.executed.filter(row => row && row.acted === true).map(row => row.sessionId);
+  // 3.0 收口走查(第四波):actions 是【这一回合】的动作,闸门与配额 / 污点按回合序号取键(13j stewardTaintKeyOf → providerTurnQuotaKey)。
+  // 修前传的是回合开始前 ensureStewardSession 装载的那份会话对象,turnSeq 还停在上一回合 —— 同一回合里读过网页打下的污点(键 t N)
+  // 在这里查成 t(N-1):查不到本回合的,反而可能查到上一回合的。按本回合的序号给一份浅拷贝(只用作 ctx,不落盘)。
+  const actionSession = (turn && Number(turn.turnSeq) > 0) ? { ...session, turnSeq: Number(turn.turnSeq) } : session;
   const actionRows = parsedReply.actions.length
-    ? await stewardExecuteActions(parsedReply.actions, session, config, trigger, selfServeTargets)
+    ? await stewardExecuteActions(parsedReply.actions, actionSession, config, trigger, selfServeTargets)
     : [];
   // 127 波 2-quater B2:回合里工具直调的代批补进回执(上面已取出)。顺序按事情发生的先后:自理(模型之前)→
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。

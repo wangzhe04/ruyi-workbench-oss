@@ -467,6 +467,11 @@ async function ensureDataRootReal() {
 // 两份必须一致,unit/unc-and-traversal-gates.test.js 逐个名字比对(改一份忘了另一份会红)。
 function isSensitiveDataPath(p) {
   if (!p) return false;
+  // 3.0 收口走查(第四波):先按 Windows 语义把每段的 NTFS 流后缀(`config.json::$DATA` 就是 config.json 的默认数据流,
+  // `sessions::$INDEX_ALLOCATION\x` 就是 sessions\x)与尾随点 / 空格(`config.json.` → config.json)去掉再比。修前带后缀的串
+  // 词法上判成「不在 config.json 里」、文件名正则也不中 → 敏感闸被绕过(第三波只给 autoexec 闸加了同样的剥离)。盘符段(`C:`)保留;
+  // Windows 文件名除盘符外不可能有冒号,POSIX 上带冒号的怪名字只会被保守地并到前缀上,只会多拦不会漏。写在函数里(自包含,见上)。
+  p = String(p).split(/([\\/])/).map(seg => (/^[a-z]:$/i.test(seg) || seg === '/' || seg === '\\') ? seg : seg.replace(/:.*$/, '').replace(/([^. ])[. ]+$/, '$1')).join('');
   const root = dataRoot();
   // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
   // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
@@ -544,6 +549,8 @@ const WRITE_PROTECTED_DATA_FILES = Object.freeze(['install-registry.json', 'clau
 function isWriteProtectedDataPath(p) {
   if (!p) return false;
   if (isSensitiveDataPath(p)) return true;
+  // 同 isSensitiveDataPath 开头那一行:剥 NTFS 流后缀与尾随点 / 空格(`mcp.d::$INDEX_ALLOCATION\x.json`、`scheduler.\tasks.json`)。
+  p = String(p).split(/([\\/])/).map(seg => (/^[a-z]:$/i.test(seg) || seg === '/' || seg === '\\') ? seg : seg.replace(/:.*$/, '').replace(/([^. ])[. ]+$/, '$1')).join('');
   const bases = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) {
     for (const n of WRITE_PROTECTED_DATA_DIRS) if (pathWithinRoot(p, path.join(b, n))) return true;

@@ -262,6 +262,15 @@ async function stewardImplDecide(args, ctx, config) {
       delegable: false, blockedBy: 'indirect_command',
     });
   }
+  // 3.0 收口走查(第四波):命令超出扫描窗口 / 嵌套过深(06i stewardAutoAskScanIncomplete —— 智能自动档正是因为它才停下来问)。
+  // 修前非豁免分支只认窗口里的文本:命令前垫 4000 个空格,窗口外的 git push / rm -rf / curl 在这里判成「五类都没命中」、豁免十道闸
+  // 整段不进、交给管家的摘录也是空的 —— 管家可以替你批一条它根本没看全的命令。窗口之后没人看过不等于安全:放行类一律交回用户,拒绝类照常可以。
+  if (type === 'permission' && !exemptHit && !refusing && stewardAutoAskScanIncomplete(toolName, exemptInput)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令太长或嵌套太深,我没能看全它真正要做什么 —— 这一条必须你亲自决定`, {
+      reason: 'scan_incomplete', missionId, interventionId, type, toolName, tier, permissionMode,
+      delegable: false, blockedBy: 'scan_incomplete',
+    });
+  }
   // 安全走查 S2:命令里有网络外发 / 读数据根密钥文件(06i stewardAutoAskSensitiveKind,智能自动正是因为它才停下来问):不在五类豁免里,
   // 但「外发什么、读了什么」管家同样判不出 —— 放行类一律交回用户,拒绝类照常可以。
   if (type === 'permission' && !exemptHit && !refusing) {
@@ -272,6 +281,14 @@ async function stewardImplDecide(args, ctx, config) {
         delegable: false, blockedBy: sensitiveKind === 'dataroot' ? 'dataroot_read' : 'network_egress',
       });
     }
+  }
+  // 3.0 收口走查(第四波):http_request 打回环 / 内网 / 元数据地址(07 httpRequestInternalTargetReason,智能自动正是因为它才停下来问)——
+  // 本机其它服务与如意自己的接口都在这一类里,管家同样不替用户批,放行类一律交回用户。
+  if (type === 'permission' && !refusing && httpRequestInternalTargetReason(toolName, current.input)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要访问本机或内网地址 —— 这一条必须你亲自决定`, {
+      reason: 'internal_target', missionId, interventionId, type, toolName, tier, permissionMode,
+      delegable: false, blockedBy: 'internal_target',
+    });
   }
   // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串,07 webPayloadReason)—— 它是「可能在外传数据」的那一问,管家同样不替用户批,放行类一律交回用户。
   if (type === 'permission' && !refusing && webPayloadReason(toolName, current.input)) {
@@ -1114,8 +1131,12 @@ async function stewardImplFileRead(args, ctx, config) {
   if (!raw) return stewardFail('invalid_request', 'path is required');
   // 管家侧的围栏是【工作区表】,不是线程那套 cwd 围栏:管家不在任何一个项目里,它能看的就是
   // 用户自己登记过的那几个目录。fail-closed —— 表外一律拒,不回落、不猜。
-  const root = stewardWorkspaceRootFor(raw, config);
+  // 3.0 收口走查(第四波):只认没关掉「读」的工作区(requireRead)。修前不看 read:false,用户在设置里关了读权限的工作区管家照读。
+  const root = stewardWorkspaceRootFor(raw, config, { requireRead: true });
   if (!root) {
+    if (stewardWorkspaceRootFor(raw, config)) {
+      return stewardFail('read_disabled', 'that workspace has reading turned off in settings; the steward does not read files there', { path: stewardSanitizeText(raw).slice(0, 200) });
+    }
     return stewardFail('outside_workspace', 'path is outside every registered workspace; only paths inside config.workspaces can be read here', { path: stewardSanitizeText(raw).slice(0, 200) });
   }
   // 词法判过了,再按【真实落点】判一次:工作区里指向区外的符号链接/联接不能当成区内文件读。

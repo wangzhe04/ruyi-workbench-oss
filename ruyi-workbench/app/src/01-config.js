@@ -1993,7 +1993,14 @@ async function readConfig() {
     if (prev) { raw = prev; recoveredFrom = 'prev'; }
   } else {
     raw = safeJsonParse(text, null);
-    if (raw === null && String(text).trim()) {
+    // 3.0 收口走查(第四波):0 字节 / 全空白的 config.json 同样先从 .prev 恢复。修前只有「文件不存在」与「非空但不是合法 JSON」
+    // 两支读 .prev,空文件被当成全新安装 —— 断电后 rename 已落盘而数据没落盘就是这个样子(全仓无 fsync);用户随后存一次设置写下
+    // 无服务商的新配置,再存一次 writeConfigAtomic 就把它拷进 .prev,含密钥的唯一好备份被覆盖,服务商与 key 永久丢失。
+    // 空文件里没有任何东西可留底,不另存 .corrupt;没有 .prev 时行为不变(下面 rawEmpty 那一支照旧判断是不是用过的安装)。
+    if (raw === null && !String(text).replace(/^﻿/, '').trim()) {
+      const prev = await readConfigPrev();
+      if (prev) { raw = prev; recoveredFrom = 'prev'; }
+    } else if (raw === null && String(text).trim()) {
       // 文件在但不是合法 JSON（截断/被外部写坏）：不覆盖它；能从 .prev 恢复就恢复，否则降级。
       // (UTF-8 BOM 已由 safeJsonParse 剥掉,记事本另存的合法 JSON 不会走到这里。)
       const prev = await readConfigPrev();
@@ -2252,6 +2259,13 @@ async function syncAgentRolesToClaude(cwd, config) {
       fm.push('---');
       var body = role.prompt || role.description || role.label;
       const legacyMd = fm.join('\n') + '\n\n' + body + '\n';   // 老版本(无标记)的写法
+      // 3.0 收口走查(第四波):preview.3 及更早【不分来源】都写 permissionMode(S3 之前,项目角色声明的 bypassPermissions 也写进全局目录)。
+      // S3 之后上面的 fm 对项目角色不再带这一行,于是那份老文件与 legacyMd 逐字对不上、被当成用户自己的文件跳过,免问档永远留在
+      // ~/.claude/agents 里(独立 claude 会话照样生效)。按老写法再拼一份:逐字相同就认作自家旧文件,覆盖成现在这份(不再带免问档)。
+      const legacyCliMode = claudePermissionMode(role.permissionMode);
+      const legacyUntrustedMd = (!cliMode && legacyCliMode)
+        ? [fm[0], fm[1], 'permissionMode: ' + legacyCliMode, ...fm.slice(2)].join('\n') + '\n\n' + body + '\n'
+        : null;
       var md = fm.join('\n') + '\n\n' + RUYI_AGENT_FILE_MARKER + '\n\n' + body + '\n';
       var file = path.join(agentsDir, role.id + '.md');
       let existing = null;
@@ -2261,7 +2275,7 @@ async function syncAgentRolesToClaude(cwd, config) {
       }
       if (existing !== null) {
         const text = existing.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
-        if (!RUYI_AGENT_FILE_MARKER_RE.test(text) && text !== legacyMd) { skipped.push({ id: role.id, reason: 'user-file' }); continue; }
+        if (!RUYI_AGENT_FILE_MARKER_RE.test(text) && text !== legacyMd && text !== legacyUntrustedMd) { skipped.push({ id: role.id, reason: 'user-file' }); continue; }
         if (text === md) continue;   // 已是最新,不重写
       }
       await atomicWriteJson(file, md);   // 25.1 收编(md 字符串直接透传)
@@ -3891,7 +3905,14 @@ function authorizeRoute(req, method, pathname) {
       case 'token-browser':
         if (browser) return tokenOk(req) ? null : 'missing or invalid workbench token';
         return originOk(req) ? null : 'cross-origin request rejected';
-      case 'body-token': return null;
+      // 3.0 收口走查(第四波):body-token 的 token 在请求体里,handler 要先把体读完(上限 128MB)才验得了 —— 修前这一档对所有请求放行,
+      // 任意网页 `fetch(…, {mode:'no-cors', body: 'a'.repeat(1e8)})`(简单请求,无预检)就能让工作台每请求缓冲约 100MB(实测 RSS
+      // 106→297MB),并发几发足以压垮进程。合法调用方(MCP 子进程 / Kimi 桥的 node 回环)不带 Origin / Sec-Fetch-*;
+      // 浏览器发来的只放同源,跨站在读体之前就拒。
+      case 'body-token': {
+        const secSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+        return (browser && (!originOk(req) || secSite === 'cross-site' || secSite === 'same-site')) ? 'cross-origin request rejected' : null;
+      }
       default: return 'unknown auth level';
     }
   }

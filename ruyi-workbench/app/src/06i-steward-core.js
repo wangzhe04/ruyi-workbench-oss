@@ -1494,7 +1494,10 @@ function stewardSamePath(a, b) {
 // W7:「已登记」= 用户的常用工作区 ∪ 如意自己为任务开的文件夹(config.stewardManagedWorkspaces)。
 // 后者从这一刀起不再追加进 workspaces[](那张表就是界面上的常用工作区),但它们仍是工作台自己建、
 // 自己登记过的目录 —— 管家照样能读里面的交付(steward_file_read)、能把线程挪进去(thread_workspace)。
-function stewardWorkspaceRootFor(rawPath, config) {
+// opts.requireRead:只认【没关掉读权限】的那几行(设置里工作区的「读」开关 read:false)。steward_file_read 用 —— 3.0 收口走查(第四波):
+// 修前这里不看 read,管家能读用户明确关掉读权限的工作区里的任意文本文件。stewardManagedWorkspaces 没有 read 字段,照旧认。
+function stewardWorkspaceRootFor(rawPath, config, opts) {
+  const requireRead = Boolean(opts && opts.requireRead);
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
   // 先把 `.` / `..` 段词法消掉再比前缀:修前 `<ws>/../../etc/passwd` 以 `<ws>/` 开头就算「在工作区里」,
   // steward_file_read 读到了工作区外的文件、steward_thread_workspace 把线程目录设成了 /etc。
@@ -1517,6 +1520,7 @@ function stewardWorkspaceRootFor(rawPath, config) {
     ...(Array.isArray(config && config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : []),
   ];
   for (const row of rows) {
+    if (requireRead && row && row.read === false) continue;
     const root = String((row && row.path) || '');
     const key = norm(root);
     // 「在这个根里」= 恰好是它,或以它加一个分隔符开头。少了那个分隔符,`C:/work` 会把
