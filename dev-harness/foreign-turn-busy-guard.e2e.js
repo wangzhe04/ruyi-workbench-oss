@@ -251,9 +251,16 @@ try {
     const liveEnv = await waitLive(sidB, true);
     ok(!!(liveEnv && liveEnv.json && liveEnv.json.relay && liveEnv.json.relay.channel === 'steer'),
       `B2 活回合在跑时 relay.channel === 'steer'(13h stewardRelayChannelFor 的原判,不是第二套判据;got ${JSON.stringify(liveEnv && liveEnv.json && liveEnv.json.relay)})`);
-    const after = await waitLive(sidB, false);
+    let after = await waitLive(sidB, false);
+    // 与 A11 的正文落盘窗口同源:activeChildren 先移除,turnSettlers 还要等待保存完成。
+    // 这段窗口 relay:'queued' 是保护收尾的正确状态,不能拿 live:false 代替完整收尾。
+    // 有界等待实际被测条件;永久残留 relay 仍会让 B3 失败。
+    for (let i = 0; i < 200 && after && after.json && after.json.relay !== undefined; i++) {
+      await sleep(50);
+      after = await envelope(sidB);
+    }
     ok(!!after && after.json.relay === undefined,
-      `B3 回合一结束 relay 键就不在了(got ${JSON.stringify(after && after.json.relay)})`);
+      `B3 回合收尾保存完成后 relay 键消失(got ${JSON.stringify(after && after.json.relay)})`);
   }
 
   /* ═════════ (C) 既有语义:同一个发起面连发两次,照旧 supersede ═════════ */
