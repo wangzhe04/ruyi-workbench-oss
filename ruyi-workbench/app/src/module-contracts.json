@@ -6879,6 +6879,7 @@
         "getAgentRoleLibrary",
         "gitExec",
         "hasInterruptingSteer",
+        "httpRequestInternalTargetReason",
         "legacyToolCatalogSearch",
         "listCompactTools",
         "looksLikePlan",
@@ -7301,6 +7302,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "runAutomaticInterventionDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseIsLocalOrLan",
           "kinds": [
             "call"
           ]
@@ -11808,6 +11816,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "agentCliLauncherOk",
           "kinds": [
@@ -12117,7 +12132,21 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "remoteUncDenialResolved",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "REVEAL_OPEN_SAFE_EXTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "UNC_DENIED_ERROR",
           "kinds": [
             "read"
           ]
@@ -12618,6 +12647,7 @@
         "startMcp",
         "startServer",
         "startServerInner",
+        "stopAllActiveTurnsSync",
         "tailLinesFromBuffer",
         "tierModelForNode",
         "writeStartError"
@@ -16649,6 +16679,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_EVENT_KINDS",
           "kinds": [
@@ -18172,6 +18209,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskScanIncomplete",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardAutoAskSensitiveKind",
           "kinds": [
             "call"
@@ -18334,6 +18378,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "httpRequestInternalTargetReason",
           "kinds": [
             "call"
           ]
@@ -18716,6 +18767,7 @@
       "layer": "transport",
       "provides": [
         "STEWARD_STRING_AS_ARRAY",
+        "STEWARD_TAINT_GATED_TOOLS",
         "handleStewardApiRoutes",
         "stewardArgTypeProblems",
         "stewardCtxIsSteward",
@@ -18727,6 +18779,7 @@
         "stewardMemoryPanelRow",
         "stewardPanelFailure",
         "stewardPanelGate",
+        "stewardTaintGateApplies",
         "stewardToolHandler",
         "stewardWithTurnTrigger"
       ],
@@ -18948,6 +19001,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardReadMemoryStore",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnTaintedBy",
           "kinds": [
             "call"
           ]
