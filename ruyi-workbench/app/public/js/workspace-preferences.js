@@ -5,6 +5,7 @@ import { state } from './state.js';
 import { api } from './net.js';
 import { $, el, toast, visibleFavoriteWorkspaces, stripWrappingQuotes, looksAbsolutePath } from './util.js';   // 两个纯判定住 util.js：顶栏粘贴路径与设置页「添加/默认工作文件夹」共用同一口径
 import { t } from './i18n.js';
+import { icon } from './icons.js';
 
 export function createWorkspacePreferencesDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -183,7 +184,9 @@ async function setWorkspace(dir, { alsoDefault = false } = {}) {
 async function pickWorkspaceNative({ alsoDefault = false } = {}) {
   toast(t('workspace.picker.opening'), '');
   let r;
-  try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
+  // 3.0 收口:对话框从【当前工作文件夹】打开(服务端只认本机盘符绝对路径,别的忽略),标题说清这一次在选什么。
+  const body = JSON.stringify({ title: t('workspace.chooseTitle'), initialDir: currentWorkspace() });
+  try { r = await api('/api/pick-folder', { method: 'POST', body }); }
   catch (e) { toast(t('workspace.picker.failed', { reason: apiErrText(e) }), 'err'); return { ok: false, error: apiErrText(e) }; }
   if (!r || !r.ok) {
     // 服务端把错误包成 {code, message} 信封：取人话那一句（修前 toast 里是「[object Object]」）。
@@ -201,10 +204,13 @@ async function pickWorkspaceNative({ alsoDefault = false } = {}) {
 // 无效路径后端会拒,toast 其错误。回车提交。
 // v1.0.2 返修(stripWrappingQuotes／looksAbsolutePath 现住 util.js):Windows「复制文件地址」会给路径包上双引号("C:\path"),部分终端复制还带单引号/全角引号——
 // 先剥掉成对的包裹引号再校验,否则用户按系统习惯复制的路径全被误拒。只剥【成对且在首尾】的引号,不动路径内部。
-async function submitPastedWorkspace(input, close) {
+// 3.0 收口:校验失败就地说(onError 写进弹层里输入框下面那一行),不再一闪而过的 toast —— 弹层开着,用户眼睛在输入框上。
+// 没传 onError 的老调用方照旧 toast。
+async function submitPastedWorkspace(input, close, onError) {
   const raw = stripWrappingQuotes(input.value);
-  if (!raw) { toast(t('workspace.pathRequired'), 'err'); input.focus(); return; }
-  if (!looksAbsolutePath(raw)) { toast(t('workspace.pathAbsoluteRequired'), 'err'); input.focus(); return; }
+  const fail = key => { if (typeof onError === 'function') onError(t(key)); else toast(t(key), 'err'); input.focus(); };
+  if (!raw) { fail('workspace.pathRequired'); return; }
+  if (!looksAbsolutePath(raw)) { fail('workspace.pathAbsoluteRequired'); return; }
   if (close) close();
   await setWorkspace(raw); // 现有链路带 cwd 护栏与人话警告;无效路径后端拒并 toast
 }
@@ -259,9 +265,41 @@ function promoteFavorite(dir) {
   const [x] = ws.splice(idx, 1); ws.unshift(x);
   persistWorkspaces(ws, x.path);
 }
-// popover 内的常用工作区列表。行点击=切换会话 cwd;↑↓/★ 就地调整优先级(不关闭 popover,实时刷新)。
-function renderFavoritesInto() {
+// 弹层里的一行文件夹:左边文件夹图标,中间「名字 + 完整路径」两行(路径过长时从【左边】省略,留住最有辨识度的末几级),
+// 整块是一枚按钮(键盘可达,回车 / 空格即切换);当前文件夹打「当前」标。行尾动作钮(只有常用工作区有)悬停或键盘聚焦时出现。
+// 3.0 收口(用户「选择路径的界面太古老」):修前一行只有一个名字,同名文件夹分不清,完整路径只在悬停提示里。
+function workspaceRow(p, { current = false, onPick, actions = [] } = {}) {
+  const row = el('div', 'wp-fav-item' + (current ? ' current' : ''));
+  const main = el('button', 'wp-fav-main'); main.type = 'button'; main.title = p;
+  const ic = icon('folder', 16); if (ic) { ic.classList.add('wp-fav-icon'); main.append(ic); }
+  const text = el('span', 'wp-fav-text');
+  const nameLine = el('span', 'wp-fav-nameline');
+  nameLine.append(el('span', 'wp-fav-name', workspaceShortName(p)));
+  if (current) nameLine.append(el('span', 'wp-fav-badge', t('workspace.currentBadge')));
+  const pathEl = el('span', 'wp-fav-path');
+  pathEl.append(el('bdi', '', p));   // 外层 direction:rtl 让省略号落在左边;bdi 保证路径本身按从左到右读
+  text.append(nameLine, pathEl);
+  main.append(text);
+  main.onclick = () => onPick(p);
+  if (current) main.setAttribute('aria-current', 'true');
+  row.append(main);
+  if (actions.length) {
+    const btns = el('span', 'wp-fav-btns');
+    for (const a of actions) {
+      const b = el('button', 'wp-fav-btn'); b.type = 'button'; b.title = a.title; b.setAttribute('aria-label', a.title + ' · ' + workspaceShortName(p));
+      const glyph = icon(a.icon, 14); if (glyph) b.append(glyph);
+      if (a.disabled) b.disabled = true;
+      b.onclick = e => { e.stopPropagation(); a.run(); };
+      btns.append(b);
+    }
+    row.append(btns);
+  }
+  return row;
+}
+// popover 内的常用工作区列表。行点击=切换会话 cwd 并收起弹层;上移 / 下移 / 设为默认就地调整优先级(不关弹层,实时刷新)。
+function renderFavoritesInto(close) {
   const list = el('div', 'wp-fav-list');
+  const pick = p => { if (close) close(); setWorkspace(p); };
   const refresh = () => {
     const ws = favoriteList();
     const cur = currentWorkspace();
@@ -269,28 +307,35 @@ function renderFavoritesInto() {
     if (!ws.length) { list.append(el('div', 'wp-fav-empty', t('workspace.favorites.empty'))); return; }
     ws.forEach((w, i) => {
       const p = String(w.path || ''); if (!p) return;
-      const row = el('div', 'wp-fav-item' + (folderKey(p) === folderKey(cur) ? ' current' : ''));
-      row.title = p;
-      const rank = el('span', 'wp-fav-rank', String(i + 1));
-      const name = el('span', 'wp-fav-name', workspaceShortName(p));
-      const btns = el('span', 'wp-fav-btns');
-      const mk = (glyph, title, fn) => {
-        const b = el('button', 'wp-fav-btn', glyph); b.type = 'button'; b.title = title;
-        b.onclick = e => { e.stopPropagation(); fn(); refresh(); };
-        return b;
-      };
-      btns.append(
-        mk('↑', t('workspace.favorites.up'), () => reorderFavorite(i, i - 1)),
-        mk('↓', t('workspace.favorites.down'), () => reorderFavorite(i, i + 1)),
-        mk('★', t('workspace.favorites.promote'), () => promoteFavorite(p)),
-      );
-      row.append(rank, name, btns);
-      row.onclick = () => setWorkspace(p);
-      list.append(row);
+      const after = fn => () => { fn(); refresh(); };
+      list.append(workspaceRow(p, {
+        current: folderKey(p) === folderKey(cur),
+        onPick: pick,
+        actions: [
+          { icon: 'up', title: t('workspace.favorites.up'), disabled: i === 0, run: after(() => reorderFavorite(i, i - 1)) },
+          { icon: 'down', title: t('workspace.favorites.down'), disabled: i === ws.length - 1, run: after(() => reorderFavorite(i, i + 1)) },
+          { icon: 'pin', title: t('workspace.favorites.promote'), disabled: i === 0, run: after(() => promoteFavorite(p)) },
+        ],
+      }));
     });
   };
   refresh();
   return list;
+}
+// 「最近用过」:config.recentWorkspaces 里不在常用工作区的那几条(最多 4 条)。选中后 setWorkspace 会顺手把它加进常用。
+function recentOnlyWorkspaces() {
+  const fav = new Set(allFavorites().map(w => folderKey(w.path)));
+  const recent = Array.isArray(state.config && state.config.recentWorkspaces) ? state.config.recentWorkspaces : [];
+  const seen = new Set();
+  const out = [];
+  for (const p of recent) {
+    const key = folderKey(p);
+    if (!p || fav.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    out.push(String(p));
+    if (out.length >= 4) break;
+  }
+  return out;
 }
 // 工具面板「文件」tab 的常用工作区快速切换条(chips)。点击切换会话 cwd + 刷新文件树;当前高亮。
 function renderWorkspaceFavChips() {
@@ -314,23 +359,39 @@ function pickWorkspace(anchor) {
   const btn = anchor && anchor.nodeType === 1 ? anchor : $('workspacePicker'); if (!btn) return;
   popover(btn, close => {
     const wrap = el('div', 'wp-pop');
-    // v2.7.2: 常用工作区(按优先级)— 快速切换 + ↑↓/★ 调整优先级。
-    const favTitle = el('div', 'wp-fav-title', t('workspace.favorites'));
-    favTitle.title = t('workspace.favorites.hint');
-    wrap.append(favTitle);
-    wrap.append(renderFavoritesInto());
-    const browse = el('button', 'wp-pop-browse', ''); browse.type = 'button';
-    iconTextBtn(browse, 'folder', t('workspace.browse'));
+    // 3.0 收口:从上到下 = 主力动作(浏览,系统文件夹窗口)→ 常用工作区 → 最近用过 → 粘贴路径兜底。
+    const browse = el('button', 'wp-pop-browse'); browse.type = 'button';
+    const browseIcon = icon('folder', 18); if (browseIcon) browse.append(browseIcon);
+    const browseText = el('span', 'wp-pop-browse-text');
+    browseText.append(el('span', 'wp-pop-browse-label', t('workspace.browse')), el('span', 'wp-pop-browse-hint', t('workspace.browseHint')));
+    browse.append(browseText);
     browse.onclick = () => { close(); pickWorkspaceNative(); };
     wrap.append(browse);
-    wrap.append(el('div', 'wp-pop-or', t('workspace.pastePath')));
+    // v2.7.2: 常用工作区(按优先级)— 快速切换 + 上移 / 下移 / 设为默认。
+    const favTitle = el('div', 'wp-fav-title', t('workspace.favorites'));
+    favTitle.title = t('workspace.favorites.hint');
+    wrap.append(favTitle, renderFavoritesInto(close));
+    const recent = recentOnlyWorkspaces();
+    if (recent.length) {
+      wrap.append(el('div', 'wp-fav-title', t('workspace.recent')));
+      const list = el('div', 'wp-fav-list wp-recent-list');
+      for (const p of recent) list.append(workspaceRow(p, { onPick: q => { close(); setWorkspace(q); } }));
+      wrap.append(list);
+    }
+    const pasteLabel = el('label', 'wp-pop-or', t('workspace.pastePath'));
     const row = el('div', 'wp-pop-row');
-    const input = el('input', 'wp-pop-input'); input.type = 'text'; input.placeholder = t('workspace.pathPlaceholder');
-    input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submitPastedWorkspace(input, close); } });
-    const go = el('button', 'wp-pop-go', t('common.confirm')); go.type = 'button';
-    go.onclick = () => submitPastedWorkspace(input, close);
+    const input = el('input', 'wp-pop-input'); input.type = 'text'; input.placeholder = t('workspace.pastePlaceholder');
+    input.id = 'wpPopPathInput'; pasteLabel.htmlFor = input.id;
+    input.spellcheck = false; input.autocomplete = 'off';
+    const err = el('div', 'wp-pop-err'); err.setAttribute('role', 'alert'); err.hidden = true;
+    // 弹层本身有 max-height(60vh)且可滚:常用 + 最近较多时错误行可能落在可视区外,出现时滚到看得见。
+    const showErr = msg => { err.textContent = msg; err.hidden = !msg; input.setAttribute('aria-invalid', msg ? 'true' : 'false'); if (msg && typeof err.scrollIntoView === 'function') err.scrollIntoView({ block: 'nearest' }); };
+    input.addEventListener('input', () => { if (!err.hidden) showErr(''); });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submitPastedWorkspace(input, close, showErr); } });
+    const go = el('button', 'wp-pop-go', t('workspace.switch')); go.type = 'button';
+    go.onclick = () => submitPastedWorkspace(input, close, showErr);
     row.append(input, go);
-    wrap.append(row);
+    wrap.append(pasteLabel, row, err);
     setTimeout(() => { browse.focus(); }, 0);
     return wrap;
   }, { placement: 'bottom-start' });

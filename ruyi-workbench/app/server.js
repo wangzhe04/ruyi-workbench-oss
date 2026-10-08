@@ -17456,42 +17456,129 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     }
   }
 
-  // v0.9-S3 (C3): pop the native Windows folder picker (System.Windows.Forms.FolderBrowserDialog). The
-  // dialog REQUIRES a Single-Threaded Apartment — `powershell -STA` (WinForms deadlocks/misbehaves under the
-  // default MTA). Returns { ok:true, path } on selection, { ok:true, cancelled:true } on cancel, or
-  // { ok:false, error, hint } when unavailable (non-Windows, or WinForms can't load). 120s timeout: the user
-  // is interacting with a modal dialog, so this must outlast a normal tool. STDOUT = the selected path (or
-  // empty on cancel); we echo a sentinel prefix to disambiguate cancel from an empty selection.
-  async function pickFolder() {
+  // v0.9-S3 (C3): pop the native Windows folder picker. The dialog REQUIRES a Single-Threaded Apartment —
+  // `powershell -STA` (COM / WinForms deadlock or misbehave under the default MTA). Returns { ok:true, path } on
+  // selection, { ok:true, cancelled:true } on cancel, or { ok:false, error, hint } when unavailable (non-Windows,
+  // or WinForms can't load). 120s timeout: the user is interacting with a modal dialog, so this must outlast a
+  // normal tool. STDOUT = "OK<TAB><path>" or "CANCEL" (the sentinel disambiguates cancel from an empty selection).
+  //
+  // 3.0 收口(用户:「选择路径的那个界面太古老了」):对话框本体换成 Vista 起的「通用项目对话框」(IFileOpenDialog +
+  // FOS_PICKFOLDERS)—— 与资源管理器同一套界面:地址栏可直接粘贴 / 输入路径、左侧快速访问与「此电脑」、搜索、最近位置,
+  // 并从【当前工作文件夹】打开(调用方经 opts.initialDir 传)。修前是 WinForms FolderBrowserDialog:Windows PowerShell 跑在
+  // .NET Framework 上,它仍是 SHBrowseForFolder 那棵 XP 时代的树 —— 不能粘贴路径、不能搜索,深目录要一层层点开。
+  // COM 接口由 Add-Type 现编(约 1 秒);Add-Type 用不了(受约束语言模式 / 组策略禁编译)或 COM 起不来时退回老对话框,
+  // 行为与修前一致,所以最坏情况只是「还是老样子」。
+  // 编码与注入:脚本纯 ASCII、整段走 -EncodedCommand(不经任何引号转义);标题与起始目录一律经环境变量传入(folderPickerEnv),
+  // 不拼进脚本文本。起始目录只认本机盘符绝对路径 —— UNC(\\主机\共享)不传:让对话框一打开就去连别人的 SMB 不是选择器该做的事。
+  // v1.0.2 返修:无 owner 的 ShowDialog() 常被压在浏览器窗口后面 —— 用户以为「点了没反应」。造一个隐形 TopMost owner form,
+  // 对话框随 owner 置顶到最前(新老两种对话框都挂在它上面)。
+  // v1.0.2 返修·致命修复:成功行用 'OK' + [char]9 拼 TAB(单引号字符串里的 `t 不转义,修前选好的路径被当「取消」丢掉)。
+  // 2026-10:前导 PS_UTF8_OUTPUT_PREAMBLE(纯 ASCII,见 00-boot)—— 非中文代码页(en-US)的机器上选到中文路径不被写成 `?`。
+  const FOLDER_PICKER_CS = [
+    'using System;',
+    'using System.Runtime.InteropServices;',
+    'public static class RuyiFolderPicker {',
+    '  [ComImport, Guid("DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7")] private class FileOpenDialogCoClass { }',
+    '  [ComImport, Guid("42f85136-db7e-439c-85f1-e4075d135fc8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+    '  private interface IFileDialog {',
+    '    [PreserveSig] int Show(IntPtr parent);',
+    '    void SetFileTypes(uint cFileTypes, IntPtr rgFilterSpec);',
+    '    void SetFileTypeIndex(uint iFileType);',
+    '    void GetFileTypeIndex(out uint piFileType);',
+    '    void Advise(IntPtr pfde, out uint pdwCookie);',
+    '    void Unadvise(uint dwCookie);',
+    '    void SetOptions(uint fos);',
+    '    void GetOptions(out uint pfos);',
+    '    void SetDefaultFolder(IShellItem psi);',
+    '    void SetFolder(IShellItem psi);',
+    '    void GetFolder(out IShellItem ppsi);',
+    '    void GetCurrentSelection(out IShellItem ppsi);',
+    '    void SetFileName([MarshalAs(UnmanagedType.LPWStr)] string pszName);',
+    '    void GetFileName([MarshalAs(UnmanagedType.LPWStr)] out string pszName);',
+    '    void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string pszTitle);',
+    '    void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string pszText);',
+    '    void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string pszLabel);',
+    '    void GetResult(out IShellItem ppsi);',
+    '  }',
+    '  [ComImport, Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+    '  private interface IShellItem {',
+    '    void BindToHandler(IntPtr pbc, [In] ref Guid bhid, [In] ref Guid riid, out IntPtr ppv);',
+    '    void GetParent(out IShellItem ppsi);',
+    '    void GetDisplayName(uint sigdnName, [MarshalAs(UnmanagedType.LPWStr)] out string ppszName);',
+    '  }',
+    '  [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]',
+    '  private static extern void SHCreateItemFromParsingName([MarshalAs(UnmanagedType.LPWStr)] string pszPath, IntPtr pbc, [In] ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out IShellItem ppv);',
+    '  // FOS_NOCHANGEDIR | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST',
+    '  private const uint FOS_FLAGS = 0x8 | 0x20 | 0x40 | 0x800;',
+    '  private const uint SIGDN_FILESYSPATH = 0x80058000;',
+    '  private const int HR_CANCELLED = unchecked((int)0x800704C7);',
+    '  public static string Pick(IntPtr owner, string title, string initialDir) {',
+    '    IFileDialog dlg = (IFileDialog)new FileOpenDialogCoClass();',
+    '    try {',
+    '      uint opts; dlg.GetOptions(out opts); dlg.SetOptions(opts | FOS_FLAGS);',
+    '      if (!String.IsNullOrEmpty(title)) dlg.SetTitle(title);',
+    '      if (!String.IsNullOrEmpty(initialDir)) {',
+    '        try { Guid iid = typeof(IShellItem).GUID; IShellItem start; SHCreateItemFromParsingName(initialDir, IntPtr.Zero, ref iid, out start); if (start != null) dlg.SetFolder(start); } catch { }',
+    '      }',
+    '      int hr = dlg.Show(owner);',
+    '      if (hr == HR_CANCELLED) return null;',
+    '      if (hr != 0) Marshal.ThrowExceptionForHR(hr);',
+    '      IShellItem item; dlg.GetResult(out item);',
+    '      string picked; item.GetDisplayName(SIGDN_FILESYSPATH, out picked);',
+    '      return picked;',
+    '    } finally { Marshal.ReleaseComObject(dlg); }',
+    '  }',
+    '}',
+  ].join('\n');
+  const FOLDER_PICKER_PS_SCRIPT = [
+    "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue'",
+    PS_UTF8_OUTPUT_PREAMBLE,
+    'Add-Type -AssemblyName System.Windows.Forms',
+    '$title = $env:RUYI_PICK_TITLE; $initial = $env:RUYI_PICK_INITIAL',
+    'if ($initial -and -not [System.IO.Directory]::Exists($initial)) { $initial = $null }',
+    '$f = New-Object System.Windows.Forms.Form',
+    "$f.TopMost = $true; $f.ShowInTaskbar = $false; $f.FormBorderStyle = 'None'; $f.Opacity = 0",
+    "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate()",
+    '$picked = $null; $modern = $false',
+    "try { Add-Type -TypeDefinition @'",
+    FOLDER_PICKER_CS,
+    "'@",
+    '  $modern = $true } catch { $modern = $false }',
+    'if ($modern) {',
+    '  try { $picked = [RuyiFolderPicker]::Pick($f.Handle, $title, $initial) } catch { $modern = $false }',
+    '}',
+    'if (-not $modern) {',
+    '  $d = New-Object System.Windows.Forms.FolderBrowserDialog',
+    '  if ($title) { $d.Description = $title }',
+    '  if ($initial) { $d.SelectedPath = $initial }',
+    "  if ($d.ShowDialog($f) -eq 'OK') { $picked = $d.SelectedPath }",
+    '}',
+    '$f.Close()',
+    "if ($picked) { Write-Output ('OK' + [char]9 + $picked) } else { Write-Output 'CANCEL' }",
+  ].join('\n');
+  // 标题 / 起始目录 → 环境变量(纯函数,单测直调)。控制字符剥掉、长度封顶;起始目录只认 `C:\…` / `C:/…` 形的本机盘符绝对路径。
+  function folderPickerEnv(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const clip = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, n);
+    const env = {};
+    const title = clip(o.title, 120);
+    if (title) env.RUYI_PICK_TITLE = title;
+    const dir = clip(o.initialDir, 1024);
+    if (/^[A-Za-z]:[\\/]/.test(dir)) env.RUYI_PICK_INITIAL = path.win32.normalize(dir);
+    return env;
+  }
+  async function pickFolder(opts) {
     if (process.platform !== 'win32') {
       return { ok: false, error: '原生文件夹选择器仅支持 Windows', hint: '请在文件夹输入框中直接粘贴完整路径' };
     }
-    // The script is passed to `-Command`; it Add-Types WinForms, shows the dialog, and prints either
-    // "OK\t<path>" or "CANCEL". A failure to load WinForms throws and is caught below.
-    // v1.0.2 返修:无 owner 的 ShowDialog() 常被压在浏览器窗口后面 —— 用户以为「点了没反应」(真机反馈
-    // 「工作区改不了」的一大来源)。造一个隐形 TopMost owner form,对话框随 owner 置顶到最前。纯 ASCII 脚本
-    // (v1.0.1 编码教训:-Command 里不放中文)。
-    // 2026-10:前导 PS_UTF8_OUTPUT_PREAMBLE(纯 ASCII,见 00-boot)—— 选到中文路径时,非中文代码页(en-US)的机器上
-    // Write-Output 会把它写成 `?`,path.resolve 出一个不存在的目录;设成 UTF-8 后由 runProcess 的按行解码正确接住。
-    const script = PS_UTF8_OUTPUT_PREAMBLE + "Add-Type -AssemblyName System.Windows.Forms; "
-      + "$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; $f.ShowInTaskbar = $false; "
-      + "$f.FormBorderStyle = 'None'; $f.Opacity = 0; "
-      + "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate(); "
-      + "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
-      // v1.0.2 返修·致命修复:原脚本写 ('OK`t' + …) —— PowerShell 单引号字符串里反引号【不】转义,输出的是
-      // 字面 OK`t 而非 TAB,下方 /^OK\t/ 正则永不匹配 → 用户选好的路径被当「取消」静默丢弃。原生选择器自
-      // v0.9-S3 上线起从未真正工作过(真弹窗无法进自动化 e2e,一直漏网;Node spawn 实测复现)。改用 [char]9
-      // 显式拼 TAB,协议两侧终于一致。
-      + "if ($d.ShowDialog($f) -eq 'OK') { Write-Output ('OK' + [char]9 + $d.SelectedPath) } else { Write-Output 'CANCEL' }; "
-      + "$f.Close()";
     let result;
     try {
-      // -STA is the load-bearing flag (COM/WinForms apartment). windowsHide would hide the dialog too, so
-      // runProcess must NOT hide the window here — runProcess sets windowsHide:true, but the modal dialog is
-      // owned by the STA message loop and still shows; the parent console stays hidden which is fine.
+      // -STA is the load-bearing flag (COM/WinForms apartment). runProcess sets windowsHide:true, which only hides
+      // the PowerShell console — the modal dialog is owned by the STA message loop and still shows.
       result = await runProcess('powershell.exe', [
-        '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-Command', script,
-      ], { cwd: os.homedir(), timeoutMs: 120000 });
+        '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA',
+        '-EncodedCommand', Buffer.from(FOLDER_PICKER_PS_SCRIPT, 'utf16le').toString('base64'),
+      ], { cwd: os.homedir(), timeoutMs: 120000, env: folderPickerEnv(opts) });
     } catch (e) {
       return { ok: false, error: '无法启动文件夹选择器: ' + (e && e.message || e), hint: '请在文件夹输入框中直接粘贴完整路径' };
     }
@@ -17539,7 +17626,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     if (m && m[1].trim()) return { ok: true, path: path.resolve(m[1].trim()) };
     return { ok: true, cancelled: true };
   }
-  return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, withQuietProgress, revealInExplorer, pickFolder, pickFile });
+  return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, withQuietProgress, revealInExplorer, pickFolder, pickFile, folderPickerEnv, FOLDER_PICKER_PS_SCRIPT });
 })(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked, decodeConsoleText);
 
 // ── 04f · ruyi-toolbox 服务类组件:拉起、探活、接成能力端点、回收 ─────────────────────────────────────────
@@ -61795,9 +61882,11 @@ async function handleApi(req, res, pathname) {
       return send(res, json({ ok: false, error: String(e && e.message || e), matches: [] }));
     }
   }
-  // POST /api/pick-folder — pop the native Windows folder picker (STA WinForms). Token-gated. 120s.
+  // POST /api/pick-folder {title?, initialDir?} — pop the native Windows folder picker (STA). Token-gated. 120s.
+  // initialDir:对话框从哪个文件夹打开(通常是当前工作文件夹);只认本机盘符绝对路径,其余忽略(见 DesktopShell.folderPickerEnv)。
   if (req.method === 'POST' && pathname === '/api/pick-folder') {
-    return send(res, json(await DesktopShell.pickFolder()));
+    const body = await readJsonBody(req);
+    return send(res, json(await DesktopShell.pickFolder({ title: body && body.title, initialDir: body && body.initialDir })));
   }
   // 体验走查 #7: POST /api/workspace/dedicated —— 默认工作文件夹是整个用户目录(读/写/执行全开)时,向导给一枚
   // 「用一个专用文件夹」:建(已有就复用)「文档\如意工作区」(没有「文档」就放在用户目录下)并回它的路径。

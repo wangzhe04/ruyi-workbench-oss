@@ -1620,7 +1620,8 @@ async function addWorkspace() {
   const input = $('workspaceAddInput');
   let dir = input ? String(input.value).trim() : '';
   if (!dir) {
-    try { const r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); if (r && r.ok && r.path) dir = r.path; } catch { /* ignore */ }
+    const pickBody = JSON.stringify({ title: t('workspace.chooseTitle'), initialDir: (state.config && state.config.defaultWorkspace) || '' });
+    try { const r = await api('/api/pick-folder', { method: 'POST', body: pickBody }); if (r && r.ok && r.path) dir = r.path; } catch { /* ignore */ }
   }
   if (!dir) { toast(t('settings.workspacePerm.pathRequired'), 'err'); return; }
   // 走查 W1-6：手填的路径与顶栏同一判据（原生选择器给的一定是绝对路径，不受影响）；不通过就 toast，输入框原样留着让用户改。

@@ -371,9 +371,11 @@ async function handleApi(req, res, pathname) {
       return send(res, json({ ok: false, error: String(e && e.message || e), matches: [] }));
     }
   }
-  // POST /api/pick-folder — pop the native Windows folder picker (STA WinForms). Token-gated. 120s.
+  // POST /api/pick-folder {title?, initialDir?} — pop the native Windows folder picker (STA). Token-gated. 120s.
+  // initialDir:对话框从哪个文件夹打开(通常是当前工作文件夹);只认本机盘符绝对路径,其余忽略(见 DesktopShell.folderPickerEnv)。
   if (req.method === 'POST' && pathname === '/api/pick-folder') {
-    return send(res, json(await DesktopShell.pickFolder()));
+    const body = await readJsonBody(req);
+    return send(res, json(await DesktopShell.pickFolder({ title: body && body.title, initialDir: body && body.initialDir })));
   }
   // 体验走查 #7: POST /api/workspace/dedicated —— 默认工作文件夹是整个用户目录(读/写/执行全开)时,向导给一枚
   // 「用一个专用文件夹」:建(已有就复用)「文档\如意工作区」(没有「文档」就放在用户目录下)并回它的路径。

@@ -1657,7 +1657,8 @@ function openPlaybookModal(pb) {
       const pick = el('button', 'file-label pb-pick', t('skills.playbook.pickFolder'));
       pick.onclick = async () => {
         let r;
-        try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
+        // 3.0 收口:框里已经有一个绝对路径就从它打开(服务端只认本机盘符绝对路径,别的忽略)。
+        try { r = await api('/api/pick-folder', { method: 'POST', body: JSON.stringify({ initialDir: String(ta.value || '').trim() }) }); }
         catch (e) { toast(t('skills.playbook.pickerError', { reason: apiErrText(e) }), 'err'); return; }
         if (r && r.ok && r.path) { ta.value = r.path; }
         else if (r && !r.ok) toast(t('skills.playbook.pickerUnavailable', { reason: apiErrText(r.error) || t('common.unknown') }), 'err');
