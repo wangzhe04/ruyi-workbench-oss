@@ -850,7 +850,7 @@ v2.7.0 in wave 107's P1 drill (a provider carrying all four fields, one downgrad
 ### 8.5 3.0 preview supplement: `CONFIG_SCHEMA` 12 → 14
 
 Sections 8.1–8.4 were written at 2.8.0 and remain accurate for 2.7.0 ↔ 2.8.0. The current tree is
-**3.0.0-preview.3** and `CONFIG_SCHEMA` is **14** (`app/src/00-boot.js`; the migration table is
+**3.0.0** and `CONFIG_SCHEMA` is **14** (`app/src/00-boot.js`; the migration table is
 `CONFIG_MIGRATIONS` in `app/src/01-config.js`). Upgrading from 2.8.0 works as in section 8.3: download the full
 package, extract it into a new folder, keep the old one as the way back; the data-root and MCP-server-id renames are
 described under "Data root" and "Brand and compatibility". Two more one-shot migrations arrive:

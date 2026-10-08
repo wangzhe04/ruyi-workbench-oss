@@ -300,9 +300,6 @@ async function openSession(id, opts = {}) {
   renderResumeBanner();
   syncStreamingUi();
   mountActiveTurn(id);
-  // 记忆候选卡不持久的补丁:刷新页面/切线程回来后,候选在服务端仍是 pending,卡片却只在回合刚结束时画过一次。
-  // 在跑的回合不回放(回合结束时 suggestMemoryFromTurn 会画);失败静默。
-  if (!activeTurns.has(id)) Promise.resolve(restoreMemoryProposalCard(id)).catch(() => {});
   syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
   syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
   if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
@@ -1339,6 +1336,12 @@ function renderCurrentSession() {
   highlightIn(box, { nearView: true });
   renderContextMeter(latestUsage(session));
   refreshKimiContextForSession(session);
+  // 不只在 openSession 回放：开机语言随后切换、外部回合收尾或离开视角后返回，都会重建消息行。
+  // 候选仍在服务端 pending 时，重画完也要把卡恢复；同一 proposalId 已在页面上时恢复器会去重。
+  // 自己或别处的回合仍在跑时不画，等最终正文落到这个渲染入口再恢复。
+  if (session.id && !activeTurns.has(session.id) && !state.streaming && !liveTurnVisible()) {
+    Promise.resolve(restoreMemoryProposalCard(session.id)).catch(() => {});
+  }
 }
 // v1.0-S7 (perf): compute the first-rendered-message index for the current window. Returns 0 (render all)
 // for a small session or once the user has expanded to the top. state.msgWindowStart is the persisted

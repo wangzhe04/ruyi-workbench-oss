@@ -23,7 +23,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL, pathToFileURL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '3.0.0-preview.3'; // Pretender 3.0 预览版 3（2026-10-05）：预览版 2 之上并入 PR #1–#43（走查、偿债、性能、权限五档、61 号文等）；正式 3.0.0 仍按 50 号文三组门（55 号文）
+const VERSION = '3.0.0'; // 如意 Ruyi 3.0 正式版（2026-10-08）
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');

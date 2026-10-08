@@ -242,14 +242,19 @@ if (-not $SkipExeBuild) {
   try {
     if (-not (Test-Path "node_modules\.bin\pkg.cmd")) {
       & npm.cmd install
+      if ($LASTEXITCODE -ne 0) { throw "Packaging dependencies failed to install (exit $LASTEXITCODE)." }
     }
     & npx.cmd pkg . --targets node24-win-x64 --output (Join-Path $dist "Ruyi.exe")
+    if ($LASTEXITCODE -ne 0) { throw "Ruyi.exe build failed (exit $LASTEXITCODE); refusing to package a previous executable." }
   } finally {
     Pop-Location
   }
 }
 
 $exe = Join-Path $dist "Ruyi.exe"
+if (-not $SkipExeBuild -and -not (Test-Path -LiteralPath $exe -PathType Leaf)) {
+  throw "Ruyi.exe build produced no executable."
+}
 if (-not $SkipExeBuild -and (Test-Path $exe)) {
   Copy-Item $exe (Join-Path $stage "Ruyi.exe")
 } else {
@@ -261,9 +266,9 @@ $desktopBuilder = Join-Path $root "desktop\build-desktop.ps1"
 if (Test-Path $desktopBuilder) {
   try {
     & powershell -ExecutionPolicy Bypass -File $desktopBuilder
-    if ($LASTEXITCODE -ne 0) { Write-Warning "Desktop shell build returned non-zero; packaging without it." }
+    if ($LASTEXITCODE -ne 0) { throw "Desktop shell build failed (exit $LASTEXITCODE)." }
   } catch {
-    Write-Warning "Desktop shell build failed: $_"
+    throw "Desktop shell build failed; refusing to package a previous executable: $_"
   }
 }
 foreach ($desktopFile in @("RuyiDesktop.exe", "WebView2Loader.dll")) {
