@@ -26,7 +26,7 @@ language. They are engineering records rather than normative user or deployment 
 
 | Concept | Status | Scope |
 |---|---|---|
-| ~~Pretender 3.0~~ | **⛔ 已退役（2026-09-11，第 121 波 K1）** | 交办台壳层已整层删除（8 个 js/preview-*.js、preview-shell.css、505 个 previewShell.* 键、16 件 pretender-*.e2e.js），视角收成「管家 / 工作台」两视，见 [`optimization-plan/34-wave-121-one-workbench-two-views.md`](optimization-plan/34-wave-121-one-workbench-two-views.md) §8。它的数据契约仍在用，已改名 [`MISSION-SCHEMA.md`](MISSION-SCHEMA.md)；规划与本机指标归档为 [`archive/PRETENDER-PLAN.md`](./archive/PRETENDER-PLAN.md) v4、[`archive/PRETENDER-METRICS.md`](./archive/PRETENDER-METRICS.md)，门评审见 [`archive/PRETENDER-GATE-REVIEW.md`](archive/PRETENDER-GATE-REVIEW.md) |
+| 旧「交办台」壳层方案（不是 Ruyi 3.0 产品线） | **已退役（2026-09-11，第 121 波 K1）** | 交办台壳层已整层删除（8 个 js/preview-*.js、preview-shell.css、505 个 previewShell.* 键、16 件 pretender-*.e2e.js），视角收成「管家 / 工作台」两视，见 [`optimization-plan/34-wave-121-one-workbench-two-views.md`](optimization-plan/34-wave-121-one-workbench-two-views.md) §8。它的数据契约仍在用，已改名 [`MISSION-SCHEMA.md`](MISSION-SCHEMA.md)；规划与本机指标归档为 [`archive/PRETENDER-PLAN.md`](./archive/PRETENDER-PLAN.md) v4、[`archive/PRETENDER-METRICS.md`](./archive/PRETENDER-METRICS.md)，门评审见 [`archive/PRETENDER-GATE-REVIEW.md`](archive/PRETENDER-GATE-REVIEW.md) |
 | [Traveler 4.0](TRAVELER-CONCEPT.md) | **Concept v0.1 / 概念稿 v0.1** | Portable Missions：Task Capsule、安全续办、跨设备/接手者移交、执行权与证据回程；不是范围、版本或发布时间承诺 |
 
 ## UI 设计稿生命周期(第50波 D3 标注)

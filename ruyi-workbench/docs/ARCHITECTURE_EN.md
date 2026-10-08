@@ -4,7 +4,7 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 
 ## Components
 
-> Version baseline: `CONFIG_SCHEMA` **14** · session `SESSION_SCHEMA` **1** · the tree is **3.0.0-preview.3**
+> Version baseline: `CONFIG_SCHEMA` **14** · session `SESSION_SCHEMA` **1** · the tree is **3.0.0**
 > (the version triangle — `package.json`, `VERSION` in `00-boot.js`, `facts.workbenchVersion` — agrees).
 > **Every count in this document defers to the repository-root `facts.json` and the generated artifacts under
 > `docs/architecture/`; the numbers in parentheses are readings taken when this was written, not a second source of

@@ -3,7 +3,12 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
-## 未发布 · Unreleased
+## 3.0.0 · 2026-10-08
+
+[如意 3.0：这一版有什么新变化 / Release highlights](docs/release-notes/v3.0.0.md)
+
+- 修复 PowerShell 会话输入、离线更新子进程的压缩模块加载，以及桌面审计失败提示的语言；离线打包在编译失败时立即停止，避免混入旧程序。
+- Fixed PowerShell session input, compression module loading during offline updates, and localized desktop failure summaries. Offline packaging now stops on a failed build instead of including an older executable.
 
 <!-- 预览版 3 之后:3.0 收口走查(多轮走查 → 修复 → 再走查)。逐条记录见 PR #45 与各修复提交。 -->
 

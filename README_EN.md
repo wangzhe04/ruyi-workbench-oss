@@ -4,7 +4,7 @@
 
 [简体中文](README.md) · **English**
 
-> **Turn "chatting with a model" into "having the model get the job done" — on your own Windows PC, offline if you like, with every step visible and every step reversible.**
+> **Turn "chatting with a model" into "having the model get the job done" — on your own Windows PC, with offline use through a local or intranet model.**
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
@@ -12,9 +12,18 @@
 [![Zero npm deps](https://img.shields.io/badge/npm%20runtime%20deps-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
-**Ruyi** is a clean-room, local AI workbench for Windows. Give it a model it can reach — any OpenAI-compatible endpoint (a cloud API, an on-prem vLLM, a local Ollama or LM Studio) or a locally installed Claude Code / Kimi Code CLI — and it **actually does the work on your machine**: reads and writes files, runs scripts, drives Office and the desktop, and dispatches teams of sub-agents. A **steward** keeps watch over everything in flight.
+**Ruyi** is a clean-room, local AI workbench for Windows. Give it a model it can reach — an Anthropic Messages or OpenAI-compatible endpoint (a cloud API, an on-prem vLLM, a local Ollama or LM Studio) or a locally installed Claude Code / Kimi Code CLI — and it **actually does the work on your machine**: reads and writes files, runs scripts, drives Office and the desktop, and dispatches teams of sub-agents. A **steward** keeps watch over everything in flight.
 
-> **Current release: 3.0 Preview `v3.0.0-preview.3`** (2026-10-05, GitHub pre-release). It adds 43 pull requests on top of Preview 2: five permission levels again with Smart auto as the default for new installs; a model that works more smoothly (knows the current time, keeps a scratchpad, sees checkpoints, finds tools with fewer detours); a voice vocabulary; the Anthropic Messages protocol; a full Mermaid audit; plus several review, debt and long-session performance rounds. The full Windows CI regression and offline-package smoke tests pass. The human sign-offs — an independent security red-team review, real screen-reader and human-factors walkthroughs — remain before 3.0 final (see [doc 55](docs/optimization-plan/55-release-3.0-preview.md)). The last full Release is `v2.6.2`; the 2.7.0 and 2.8.0 changes ship as part of this preview. Everything is in the [CHANGELOG](CHANGELOG.md).
+> **Ruyi 3.0 is here.** A steward keeps track of your tasks, supported file changes can be undone, and long-running work is easier to follow. [Download 3.0](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0) · [What's new](docs/release-notes/v3.0.0.md#english) · [Full changelog](CHANGELOG.md)
+
+### What you can do with 3.0
+
+- **Keep track of everything.** The steward shows what is running, what needs your decision and what is done, and brings you a reminder when needed.
+- **Delegate with room to undo.** Choose from five permission levels. Supported file changes have checkpoints; undo one change or rewind a conversation and its files.
+- **Bring in a team.** Let sub-agents research, write, review or compare options while you continue your own work.
+- **Keep long conversations useful.** Older tool output folds away, a scratchpad holds intermediate findings, and progress and failures stay visible.
+- **Use your preferred model.** Connect Anthropic, OpenAI-compatible services, local or intranet models, Claude Code or Kimi Code.
+- **Make everyday work easier.** Voice input, scheduled tasks, diagrams, conversation search and a migration center are included.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png" />
@@ -73,7 +82,7 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 |---|---|
 | **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 80k lines, concatenated from 70 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 67 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
 | **112 native tools · 108 ACC tools** | 70 tools available to threads (files, terminal, search, Git, web, Office hand-off, sub-agent orchestration) plus 42 steward-only tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **489 e2e cases** (482 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 225 unit suites and 25 ACC smoke groups, run on Windows CI for every change. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **489 e2e cases** (482 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 225 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -86,9 +95,9 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 ### Design principles
 
 - **Offline first**: it runs with or without internet; online abilities (search, fetching) degrade visibly when offline instead of pretending.
-- **Reversible**: every write has a checkpoint, and conversation and files roll back together; anything that cannot be undone says so when it asks for approval.
+- **Reversible**: supported file changes have checkpoints, and conversation and files roll back together; anything that cannot be undone says so when it asks for approval.
 - **Honest**: "done" is claimed only on a receipt, cost is estimated only from prices you entered and labelled as not an invoice, and failure reasons come from the workbench's own table rather than the model's imagination.
-- **You decide**: high-risk actions always ask first; once the steward has read external content it can only propose, not act.
+- **You decide**: you choose the permission level and make the important decisions; steward writes face extra restrictions after reading external content.
 - **Bilingual**: the interface, prompt packs, built-in skills and quick tasks all exist in Chinese and English and load with the interface language.
 
 ---
@@ -142,8 +151,8 @@ Letting the AI act only works if you can undo what it did:
 - **Audit timeline**: every turn, tool call and permission decision goes into an NDJSON audit log, filterable by source and type in the "Activity" tab; secrets are redacted before anything reaches the UI.
 - **Receipts only**: completion claims such as "scheduled / sent / created" are driven solely by handler receipts; without a receipt it says plainly "I started it but got no receipt".
 - **Autonomy grants**: when you want a stretch of uninterrupted work, issue a temporary grant from the local UI that is narrower than the current permission — file paths, command prefixes, network access, count and expiry can all be limited — and revoke it any time. There is no "all tools, whole workspace, unlimited" preset.
-- **Steward approvals have hard limits**: the steward approves on your behalf only in Smart auto, only for threads it looks after or that a scheduled task opened, and only when all ten gates pass. **Sending anything outside, paying, uninstalling, changing system settings or formatting a disk always needs your own click.**
-- **Local hardening**: the server listens on `127.0.0.1` only; the page credential is handed over by a handshake rather than embedded in HTML; a Host allowlist blocks DNS rebinding; network tools refuse private and loopback addresses (SSRF); keys, sessions and audit files in the data directory are denied to the file tools in both directions (including junction and short-name tricks); secrets in API responses are masked. See [SECURITY.md](./SECURITY.md) for the threat model.
+- **Steward approvals have hard limits**: only in Smart auto, only for threads it looks after, and only after every safety check passes. Payments, disk formatting, registry and firewall changes, shutdowns and reboots are outside its delegated approval scope. Uncertain cases come back to you.
+- **Local hardening**: the server listens on `127.0.0.1` by default; the page credential is handed over by a handshake rather than embedded in HTML; a Host allowlist blocks DNS rebinding; web fetching restricts private and loopback addresses; general HTTP access to internal networks is subject to permission checks; keys, sessions and audit files in the data directory are denied to the file tools in both directions (including junction and short-name tricks); secrets in API responses are masked. See [SECURITY.md](./SECURITY.md) for the threat model.
 
 ---
 
@@ -399,7 +408,9 @@ On the upstream O×P×S score Hermes leads with 79.6 and Ruyi follows with 75.7;
 
 ## Deployment: offline packages, intranets and running from source
 
-**Offline packages (recommended)**: build on a connected Windows machine, copy into the intranet, extract and run.
+**Offline packages (recommended)**: get Full or Slim from the [3.0 download page](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0), extract completely to a short path such as `C:\Ruyi`, then run `Start-Workbench.cmd` or `RuyiDesktop.exe`. Choose Full for desktop control and OCR, or Slim for a smaller download covering chat, files and scripts. Configure a model separately.
+
+To build your own package:
 
 | Command (inside `ruyi-workbench/`) | Result |
 |---|---|
@@ -408,7 +419,7 @@ On the upstream O×P×S score Hermes leads with 79.6 and Ruyi follows with 75.7;
 | `npm run package:offline:slim` | **Slim**: without desktop control |
 | `npm run build:desktop` | Build the `RuyiDesktop.exe` desktop shell |
 
-The output lands in `dist\` and contains a Node runner, `Start-Workbench.cmd` and `README-START-HERE.txt` to read before extracting. A Full package verifies and registers ACC on first launch and uses a fast check afterwards; the bundled Python is preferred, with no dependence on the target's Python or earlier installs. A package named Full must pass every gate — CPython 3.12, importable OCR projections, all files in the SHA-256 manifest — or the packager refuses to build it. A single-file `Ruyi.exe` is also possible. See [Offline Deployment](ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md) and the [Administrator Guide](ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md).
+The output lands in `dist\` and contains a Node runner, `Start-Workbench.cmd` and `README-START-HERE.txt` to read before extracting. A Full package verifies and registers ACC on first launch and uses a fast check afterwards; the bundled Python is preferred, with no dependence on the target's Python or earlier installs. A package named Full must pass every gate — CPython 3.12, importable OCR projections, every ACC runtime file covered by the SHA-256 manifest — or the packager refuses to build it. A single-file `Ruyi.exe` is also possible. See [Offline Deployment](ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md) and the [Administrator Guide](ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md).
 
 > The Full package contains deep Chromium and WinSDK folders: **extract the whole package to a short path** such as `C:\Ruyi`. If the extractor reports paths that are too long, do not choose "Skip" — ACC's integrity check would then reject the desktop-control component (the base workbench still starts and shows recovery steps).
 
@@ -431,7 +442,7 @@ node .\app\server.js serve --open        # binds 127.0.0.1 (`--host` with a non-
 
 ### Upgrading
 
-- **Major versions**: download the new full package, **extract it to a new folder**, close the old version and start from the new folder. The data directory lives outside the install folder and migrates automatically on first launch; keep the old folder as your way back. The migration center can also detect the old install and repoint your configurations to the new one.
+- **Major versions**: download the new full package, **extract it to a new folder**, close the old version and start from the new folder. The data directory lives outside the install folder and migrates automatically on first launch. Back it up before upgrading and keep the old installation; restore both the old installation and the pre-upgrade data backup if you need to roll back. The migration center can also detect the old install and repoint your configurations to the new one.
 - **Incremental overlay packages**: patch the same version only; the pre-check refuses packages for a different version. See [`ruyi-workbench/tools/APPLY-OVERLAY.md`](ruyi-workbench/tools/APPLY-OVERLAY.md).
 
 ### Data directory and configuration
@@ -561,9 +572,9 @@ The complete bilingual documentation index is [docs/README.md](docs/README.md).
 
 ## Security, privacy and clean-room
 
-- The server listens on `127.0.0.1` only; the page credential is handed over by a handshake, never embedded in HTML; a Host allowlist blocks DNS rebinding.
-- Every write goes through a checkpoint and can be rolled back; exec-tier actions can never be allowed persistently.
-- Network tools refuse private and loopback addresses; sensitive data-directory files are denied to the file tools in both directions; secrets are masked in API responses, the status endpoint and the workbench MCP's resources.
+- The server listens on `127.0.0.1` by default; the page credential is handed over by a handshake, never embedded in HTML; a Host allowlist blocks DNS rebinding.
+- Supported file changes have checkpoints and can be rolled back; exec-tier actions can never be allowed persistently.
+- Web fetching restricts private and loopback addresses; general HTTP access to internal networks is subject to permission checks; sensitive data-directory files are denied to the file tools in both directions; secrets are masked in API responses, the status endpoint and the workbench MCP's resources.
 - **Zero telemetry**: the only outbound traffic goes to the model endpoints and search backends you configure and the URLs you ask it to visit.
 - Ruyi is a **clean-room implementation**: no leaked Anthropic source, no redistribution of the official Claude Code (bring your own), no copied third-party plugin source. License obligations for the bundled frontend libraries (marked, highlight.js, mermaid and others) and the bundled ripgrep binary are listed in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
 

@@ -4,7 +4,7 @@
 
 **简体中文** · [English](README_EN.md)
 
-> **把「和模型聊天」变成「让模型替你把事办完」——在你自己的 Windows 电脑上，离线也能用，每一步都能看见、都能反悔。**
+> **把「和模型聊天」变成「让模型替你把事办完」——在你自己的 Windows 电脑上，接上本机或内网模型，离线也能用。**
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
@@ -12,9 +12,18 @@
 [![Zero npm deps](https://img.shields.io/badge/npm%20%E8%BF%90%E8%A1%8C%E6%97%B6%E4%BE%9D%E8%B5%96-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
-**如意（Ruyi）** 是一个 clean-room 实现的 Windows 本地 AI 工作台。给它一个能用的模型：任意 OpenAI 兼容端点（云端 API、内网 vLLM、本机 Ollama / LM Studio 都行），或者本机装好的 Claude Code / Kimi Code 命令行。它就能在你的电脑上**真正动手**：读写文件、跑脚本、操作 Office 和桌面、派一队子代理去调研；还有一位「管家」替你盯着所有在办的事。
+**如意（Ruyi）** 是一个 clean-room 实现的 Windows 本地 AI 工作台。给它一个能用的模型：Anthropic Messages 或 OpenAI 兼容端点（云端 API、内网 vLLM、本机 Ollama / LM Studio 都行），或者本机装好的 Claude Code / Kimi Code 命令行。它就能在你的电脑上**真正动手**：读写文件、跑脚本、操作 Office 和桌面、派一队子代理去调研；还有一位「管家」替你盯着所有在办的事。
 
-> **当前版本：3.0 预览版 `v3.0.0-preview.3`**（2026-10-05，GitHub pre-release）。在预览版 2 之上并入 43 个 PR：权限回到五档、新装默认智能自动，模型干活更顺手（知道当前时间、草稿本、检查点可见、找工具少绕路），语音词库，Anthropic Messages 协议，Mermaid 全面走查，以及多轮走查、偿债与长会话性能优化；Windows CI 全量回归与离线包冒烟已过。安全红队终审、真读屏与人因走查这几项人工终验留到正式 3.0 前（见 [55 号文](docs/optimization-plan/55-release-3.0-preview.md)）。上一个正式 Release 是 `v2.6.2`；2.7.0 / 2.8.0 的变化随本预览版一起发布，全部变更见 [CHANGELOG](CHANGELOG.md)。
+> **如意 Ruyi 3.0 正式发布。** 多了一位替你盯全局的管家，文件改动可以撤销，长任务的进度也更清楚。[下载 3.0](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0) · [看看这一版的新变化](docs/release-notes/v3.0.0.md) · [完整变更记录](CHANGELOG.md)
+
+### 3.0 能帮你什么
+
+- **事情多了，交给管家盯。** 哪些正在办、哪些等你决定、哪些已收工，一眼看清；需要你时再提醒。
+- **放手交办，也能撤回。** 五档权限按任务选择；支持的文件改动留有检查点，可以单条撤销，也能回退一轮对话和文件。
+- **一个人，也有一支班组。** 调研、写代码、审查、比较方案，让子代理分工做，你照常处理手上的事。
+- **聊得更久，少些重复。** 旧工具输出按需收起，中间结论有草稿本保存，进度和失败原因说清楚。
+- **用你习惯的模型。** 支持 Anthropic、OpenAI 兼容接口、本机和内网模型，以及 Claude Code / Kimi Code。
+- **日常小事更顺手。** 语音输入、定时任务、流程图、会话搜索和迁移中心都已就位。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png" />
@@ -73,7 +82,7 @@
 |---|---|
 | **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（约 8 万行，由 `app/src/` 的 70 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 67 个原生 ES 模块，无框架、无构建。内网安全审查要看的面最小。 |
 | **112 个原生工具 · 108 个 ACC 工具** | 线程里可用的文件、终端、搜索、Git、联网、Office 交接、子代理编排等 70 个，加上管家专用的 42 个；可选的桌面控制组件 ACC 再提供截图 / OCR / UIA / 键鼠 / 窗口 / 浏览器 / Office / PDF 等 108 个工具。 |
-| **8 套模板 · 10 种角色 · 489 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 489 项 e2e（默认回归 482 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 225 组 unit suite 与 25 组 ACC smoke，Windows CI 每次提交都跑。 |
+| **8 套模板 · 10 种角色 · 489 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 489 项 e2e（默认回归 482 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 225 组 unit suite 与 25 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
 
 > 原名 **Win Claude Workbench**，自 v0.8 起更名**如意 Ruyi**：项目名去掉 "Claude" 一是规避商标风险，二是旧提示词曾让 provider 模型自称「我是 Claude」。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 
@@ -86,9 +95,9 @@
 ### 设计原则
 
 - **离线优先**：有网没网都能正常运行；联网能力（检索、抓取）断网时会明确降级，不会假装做了。
-- **可撤销**：每个写操作都有检查点，对话和文件可以一起回退；做不到撤销的操作在确认时就说清楚。
+- **可撤销**：支持的文件改动留有检查点，对话和文件可以一起回退；做不到撤销的操作在确认时就说清楚。
 - **诚实**：完成与否只看回执，成本只按你给的单价估算并注明「非实际扣费」，失败原因取自工作台自己的分类表而不是模型现编。
-- **人来拍板**：高风险动作永远先问你；管家读过外部内容之后只能提议、不能自己动手。
+- **人来拍板**：由你选择权限档位、确认重要决定；管家读取外部内容后的写动作会受到额外限制。
 - **中英双语**：界面、提示词、内置技能与一键任务都有中英两套，按界面语言加载。
 
 ---
@@ -142,8 +151,8 @@
 - **审计时间线**：每个回合、每次工具调用、每次权限决定都记进 NDJSON 审计日志，右栏「记录」页可按来源和类型过滤；记录经密钥脱敏后才下发到界面。
 - **只认回执**：「已安排 / 已发送 / 已建立」这类完成时的话只由处理器回执驱动，拿不到回执就如实说「发起了，没拿到回执」。
 - **自主性授权书**：需要连续执行时，可以从本机界面签一张比当前权限更窄的临时授权（文件路径、命令前缀、联网许可、次数、有效期都能限定），随时撤销；不存在「全工具、全工作区、无限次」的宽泛授权。
-- **管家代批的边界**：管家只在「智能自动」档、只对它在看管的线程或定时任务开的线程、并且十道闸全部通过时，才替你批准命中永久豁免清单的动作；**对外发送、付款、卸载、改系统设置、格式化这类动作永远要你亲手按**。
-- **本机加固**：服务只监听 `127.0.0.1`；页面凭据经握手下发，不写在 HTML 里；Host 白名单防 DNS rebinding；联网工具拒绝私网与回环地址（SSRF）；数据目录里的密钥、会话、审计对文件工具双向拒绝（含 junction 与短名绕路）；API 响应里的密钥一律掩码。威胁模型见 [SECURITY.md](./SECURITY.md)。
+- **管家代批的边界**：只在「智能自动」档、对它看管的线程、并通过全部安全检查时，管家才会代批部分操作。付款、格式化磁盘、修改注册表与防火墙、关机重启等底线动作不在代批范围；不确定时交回给你。
+- **本机加固**：服务默认只监听 `127.0.0.1`；页面凭据经握手下发，不写在 HTML 里；Host 白名单防 DNS rebinding；网页抓取限制私网与回环地址；通用 HTTP 工具访问内网时受权限检查；数据目录里的密钥、会话、审计对文件工具双向拒绝（含 junction 与短名绕路）；API 响应里的密钥一律掩码。威胁模型见 [SECURITY.md](./SECURITY.md)。
 
 ---
 
@@ -399,7 +408,9 @@ Kimi Code 经官方 ACP（JSON-RPC / NDJSON）驱动：原生工具事件、如�
 
 ## 部署：离线包、内网与源码运行
 
-**离线包（推荐）**：在一台能联网的 Windows 机器上打包，拷进内网解压即用。
+**离线包（推荐）**：从 [3.0 下载页](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0) 获取 Full 或 Slim，完整解压到短路径（如 `C:\Ruyi`），再运行 `Start-Workbench.cmd` 或 `RuyiDesktop.exe`。需要桌面控制和 OCR 选 Full，只用聊天、文件和脚本等能力可选 Slim。模型需另行配置。
+
+也可以自行打包：
 
 | 命令（在 `ruyi-workbench/` 下） | 产物 |
 |---|---|
@@ -408,7 +419,7 @@ Kimi Code 经官方 ACP（JSON-RPC / NDJSON）驱动：原生工具事件、如�
 | `npm run package:offline:slim` | **Slim**：不含桌面控制 |
 | `npm run build:desktop` | 构建 `RuyiDesktop.exe` 桌面壳 |
 
-产物在 `dist\` 下，内含 Node 运行器、`Start-Workbench.cmd` 与解压前必读的 `README-START-HERE.txt`。Full 包在首次启动时校验并注册 ACC，之后启动走快速检查；包内 Python 优先使用，不依赖目标机的 Python 或历史安装。名字里带 Full 的包必须通过 CPython 3.12 + OCR 投影可导入 + 全部文件进 SHA-256 清单这几道检查，否则打包脚本拒绝生成。也可以打成单体 `Ruyi.exe`。完整说明见[离线部署](ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md)与[管理员手册](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md)。
+产物在 `dist\` 下，内含 Node 运行器、`Start-Workbench.cmd` 与解压前必读的 `README-START-HERE.txt`。Full 包在首次启动时校验并注册 ACC，之后启动走快速检查；包内 Python 优先使用，不依赖目标机的 Python 或历史安装。名字里带 Full 的包必须通过 CPython 3.12 + OCR 可导入 + ACC 载荷逐文件 SHA-256 校验这几道检查，否则打包脚本拒绝生成。也可以打成单体 `Ruyi.exe`。完整说明见[离线部署](ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md)与[管理员手册](ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md)。
 
 > Full 包含 Chromium 与 WinSDK 的深层目录，务必**完整解压到短路径**（如 `C:\Ruyi`）；如果解压器提示路径过长，不要选「跳过」，否则 ACC 的完整性校验会拒绝桌面控制组件（基础工作台仍会启动并给出恢复提示）。
 
@@ -431,7 +442,7 @@ node .\app\server.js serve --open        # 只监听 127.0.0.1（`--host` 绑非
 
 ### 升级
 
-- **大版本升级**：下载新版完整包，**解压到一个新目录**，关掉旧版后从新目录启动。数据目录不在安装目录里，首次启动会自动迁移；旧目录先留着，那就是回退的路。迁移中心也能认出老安装并帮你把各处配置改到新版。
+- **大版本升级**：下载新版完整包，**解压到一个新目录**，关掉旧版后从新目录启动。数据目录不在安装目录里，首次启动会自动迁移；升级前备份数据目录，并保留旧安装；回退时同时恢复升级前的数据备份。迁移中心也能认出老安装并帮你把各处配置改到新版。
 - **增量 overlay 升级包**：只给同一版本打补丁，预检会按版本拒绝不匹配的包。见 [`ruyi-workbench/tools/APPLY-OVERLAY.md`](ruyi-workbench/tools/APPLY-OVERLAY.md)。
 
 ### 数据目录与配置
@@ -561,9 +572,9 @@ node dev-harness/<改动相关>.e2e.js             # 单件：末行 ... E2E: AL
 
 ## 安全、隐私与 clean-room
 
-- 服务只监听 `127.0.0.1`；页面凭据经握手下发，不写在 HTML 里；Host 白名单防 DNS rebinding。
-- 所有写操作先进检查点，可逐条回滚；执行级操作永远不能被持久放行。
-- 联网工具拒绝私网与回环地址；数据目录里的敏感文件对文件工具双向拒绝；API 响应、状态接口和工作台 MCP 资源里的密钥一律掩码。
+- 服务默认只监听 `127.0.0.1`；页面凭据经握手下发，不写在 HTML 里；Host 白名单防 DNS rebinding。
+- 支持的文件改动会建立检查点，可逐条回滚；执行级操作永远不能被持久放行。
+- 网页抓取限制私网与回环地址，通用 HTTP 工具访问内网时受权限检查；数据目录里的敏感文件对文件工具双向拒绝；API 响应、状态接口和工作台 MCP 资源里的密钥一律掩码。
 - **零遥测**：唯一的出站流量是你配置的模型端点、搜索后端和你让它访问的网址。
 - 本项目是 **clean-room 独立实现**：不含 Anthropic 泄露源码，不分发官方 Claude Code（用户自备），不复制第三方插件源码。随包前端静态库（marked、highlight.js、mermaid 等）与随包的 ripgrep 二进制的许可义务见 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)。
 

@@ -18,6 +18,35 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
+const cp = require('child_process');
+
+test('离线打包在依赖、EXE 或桌面编译失败时拒绝旧产物', { skip: process.platform !== 'win32' }, () => {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-package-fail-'));
+  try {
+    for (const failure of ['dependencies', 'exe', 'desktop']) {
+      const wb = path.join(scratch, failure);
+      for (const d of ['tools', 'app', 'dist', 'desktop', 'bin', 'node_modules/.bin']) fs.mkdirSync(path.join(wb, d), { recursive: true });
+      fs.copyFileSync(path.resolve(__dirname, '../../ruyi-workbench/tools/package-offline.ps1'), path.join(wb, 'tools/package-offline.ps1'));
+      fs.writeFileSync(path.join(wb, 'app/build.js'), 'process.exit(0)');
+      fs.writeFileSync(path.join(wb, 'dist/Ruyi.exe'), 'OLD EXE MUST NOT SHIP');
+      fs.writeFileSync(path.join(wb, 'RuyiDesktop.exe'), 'OLD DESKTOP MUST NOT SHIP');
+      fs.writeFileSync(path.join(wb, 'desktop/build-desktop.ps1'), 'exit 19');
+      if (failure !== 'dependencies') fs.writeFileSync(path.join(wb, 'node_modules/.bin/pkg.cmd'), '@exit /b 0\r\n');
+      for (const name of ['npm', 'npx', 'powershell']) fs.writeFileSync(path.join(wb, 'bin', name + '.cmd'), '@exit /b 19\r\n');
+      const env = { ...process.env };
+      const pathKey = Object.keys(env).find(k => k.toLowerCase() === 'path') || 'PATH';
+      env[pathKey] = path.join(wb, 'bin') + path.delimiter + env[pathKey];
+      const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(wb, 'tools/package-offline.ps1'), '-Variant', 'failure-test'];
+      if (failure === 'desktop') args.push('-SkipExeBuild');
+      const result = cp.spawnSync(path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'), args, { cwd: wb, env, encoding: 'utf8', timeout: 30000, windowsHide: true });
+      assert.ifError(result.error);
+      assert.notEqual(result.status, 0, failure + ' must stop packaging');
+      assert.match(result.stdout + result.stderr, failure === 'dependencies' ? /dependencies failed/ : failure === 'exe' ? /Ruyi.exe build failed/ : /Desktop shell build failed/);
+      assert.equal(fs.existsSync(path.join(wb, 'dist/Ruyi-failure-test.zip')), false, failure + ' must not emit an archive');
+      assert.equal(fs.existsSync(path.join(wb, 'dist/Ruyi-failure-test/RuyiDesktop.exe')), false, 'old desktop must not be copied');
+    }
+  } finally { fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 4, retryDelay: 200 }); }
+});
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-audit-w4-'));
 const home = path.join(root, 'home');

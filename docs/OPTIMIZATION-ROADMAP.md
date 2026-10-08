@@ -3,6 +3,8 @@
 > 本文只保留**当前发布线、发布准入与后续计划**；已交付波次历史移入 [`archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md)（第46–86波）与 [`archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)（第1–45波）。
 > 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)；第 108–110 波（出门前提示词自我认知／制图与交互／结构精简）见本文「第 108–110 波」节，实施方案见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md)。`./archive/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
 
+> **2026-10-08 发布更新**：用户授权发布如意 Ruyi 3.0 正式版（`v3.0.0`）。本次范围与下载见 [3.0 发布说明](release-notes/v3.0.0.md)；下方日期较早的准入与预览版状态保留作历史记录，未完成的人工验证不因正式发版而记为已通过。
+
 ---
 
 ## 发布线、产品代号与内部波次（2026-07-24 起）
@@ -14,7 +16,7 @@
 | **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 … | 上一大版本线。`v2.7.0`（eac1424）、`v2.8.0`（aa5f924，2026-09-19）均已打标签并在远端；GitHub Release 最后一个是 `v2.6.2`，2.7.0／2.8.0 未单独发 Release，其内容随 `v3.0.0-preview.1` 一起发布（2026-09-24 核实） |
 | **Pretender** | `v3.0.0` | **如意 Ruyi Pretender 3.0** | **重新立项（2026-08-27）**：版本核心改为引擎侧 Agent SoC 微架构迭代（见「Pretender 3.0 重新立项」节与 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)）；原壳层线 P1✅ / P2✅ / P3 工程✅，P4 默认切换与发布保持搁置，不因重新立项自动恢复。**2026-09-24 用户要求发 3.0 预览版：源码版本 `3.0.0-preview.1`、标签 `v3.0.0-preview.1`（GitHub pre-release）**；正式 `v3.0.0` 仍按 50 号文三组门，预览版的读数与剩余人工终验见 [55 号文](optimization-plan/55-release-3.0-preview.md) |
 
-- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前技术基线为 `v2.6.2`）。离线包也继续用短文件名（如 `Ruyi-v2.6.2-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效；源码／tag 的版本号不替代发布物与发布状态核验。
+- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前技术基线为 `v3.0.0`）。离线包也继续用短文件名（如 `Ruyi-v2.6.2-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效；源码／tag 的版本号不替代发布物与发布状态核验。
 - `第N波`、`Nx` 等只表示内部工作切片；一个 Release 可以汇总多波，一个波也可只在后续补丁版发布。只有范围冻结、测试与打包门通过后，才决定是 `2.0.x` 补丁、`2.x` 功能版本或下一主版本。
 - 每个对外大版本以一个产品代号统摄体验目标；Pretender 3.0.0 正式发布批准前不把 Pretender 名/3.0 版本号混入用户界面、下载名或兼容承诺（22 号方案 §8 的品牌冻结纪律）。
 

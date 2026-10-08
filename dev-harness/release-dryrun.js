@@ -38,6 +38,8 @@ const NPM_RUN = process.platform === 'win32'
   // EC-A A3: 版本三角(package.json == 00-boot.js VERSION == facts.workbenchVersion == 产物)
   try {
     const pkgV = JSON.parse(fs.readFileSync(path.join(WB, 'package.json'), 'utf8'));
+    const lock = JSON.parse(fs.readFileSync(path.join(WB, 'package-lock.json'), 'utf8'));
+    ok(lock.version === pkgV.version && lock.packages[''].version === pkgV.version, 'A3 package-lock.json 两处版本与 package.json 一致');
     const boot = fs.readFileSync(path.join(WB, 'app', 'src', '00-boot.js'), 'utf8');
     const bootV = (boot.match(/const VERSION = '([^']+)'/) || [])[1];
     const facts = JSON.parse(fs.readFileSync(path.join(ROOT, 'facts.json'), 'utf8'));
