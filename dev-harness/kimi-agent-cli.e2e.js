@@ -459,10 +459,13 @@ async function verifyKimiPlanFilePathGuard() {
     && !server.kimiAcpSuccessfulEnterPlanMode({ nativeName: 'EnterPlanMode' }, { status: 'completed', error: { message: 'failed' } })
     && !server.kimiAcpSuccessfulEnterPlanMode({ nativeName: 'EnterPlanMode' }, { status: 'failed' })
     && !server.kimiAcpSuccessfulEnterPlanMode({ nativeName: 'later description' }, { status: 'completed' }), 'EnterPlanMode revocation requires the stable native name and completed non-error lifecycle');
-  const trustedNativeBash = process.platform === 'win32'
-    ? ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
-      'C:\\Program Files (x86)\\Git\\bin\\bash.exe', 'C:\\Program Files (x86)\\Git\\usr\\bin\\bash.exe'].find(fs.existsSync)
-    : '/bin/bash';
+  // 这里只检验路径信任、包装与批准匹配,不执行 Bash。使用工作区外的显式配置夹具,
+  // 不依赖验证机器恰好把 Git 安装在 Program Files(便携 Git 的机器也应能跑)。
+  const previousShellPath = process.env.KIMI_SHELL_PATH;
+  const wrapperBin = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-wrapper-'));
+  const trustedNativeBash = path.join(wrapperBin, process.platform === 'win32' ? 'bash.exe' : 'bash');
+  fs.writeFileSync(trustedNativeBash, '');
+  process.env.KIMI_SHELL_PATH = trustedNativeBash;
   const wrapperCwd = path.resolve(process.cwd());
   const nativeCommand = 'printf KIMI_PROBE_BASH_OK';
   const wrapperText = server.kimiAcpNativeBashWrapperTexts(nativeCommand, wrapperCwd)[0];
@@ -498,6 +501,9 @@ async function verifyKimiPlanFilePathGuard() {
     && server.kimiAcpNativeBashWrapperCandidate({
       command: trustedNativeBash || 'bash', args: ['-c', ''], cwd: wrapperCwd,
     }, { session: { cwd: wrapperCwd }, config: { defaultWorkspace: wrapperCwd } }) === null, 'native Bash wrapper rejects extra commands, different cwd, wrong tier, workspace pseudo-shell, and empty wrapper command');
+  if (previousShellPath === undefined) delete process.env.KIMI_SHELL_PATH;
+  else process.env.KIMI_SHELL_PATH = previousShellPath;
+  fs.rmSync(wrapperBin, { recursive: true, force: true });
   const planBuilder = server.createTurnSegmentBuilder();
   planBuilder.consume({ type: 'kimi_plan_snapshot', planId: 'snapshot-e2e', markdown: '# Plan', path: 'C:\\safe\\plan.md', status: 'active', source: 'kimi-acp' });
   planBuilder.consume({ type: 'kimi_plan_snapshot', planId: 'snapshot-e2e', status: 'removed', source: 'kimi-acp' });

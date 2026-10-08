@@ -55,6 +55,8 @@ async function withServer(configExtra, body) {
   fs.mkdirSync(path.join(HOME, 'sessions'), { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 4, version: '1.0.0', permissionMode: 'bypass', defaultWorkspace: WS, toolLoadingMode: 'auto', ...configExtra,
+    // 本件只测原生工具分发;本机 ACC 的 list_directory 不应占用未知工具反例的名字。
+    desktopMcp: { enabled: false, autodetect: false },
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'F' }] }],
     activeProvider: 'fake',
   }));

@@ -337,8 +337,10 @@ try {
       { sessionId: sid, message: '按收盘价算' },
       { session: head, sessionId: 'steward', config: null, trigger: 'user' },
     );
-    ok(r && r.ok === true && r.channel === 'answer',
-      `F1 用户就在跟前 -> 零依据照样直递(既有行为一字不动;got ${r && (r.error || r.channel)})`);
+    // E 段刚读过外部文件,直调沿用的是那一回合的 turnSeq。仅标 trigger:'user' 不会清掉
+    // 该回合的污点;下一条 F2 用真正的新用户回合验证原话直递仍然成立。
+    ok(r && r.ok === false && r.reason === 'steward_turn_tainted' && channelOf(sid) === 'answer',
+      `F1 同一受污染回合仅标用户触发仍须确认,提问保持待答(got ${r && (r.reason || r.error || r.channel)})`);
   }
   {
     // F2 才是 F 段真正管用的那一条。F1 手工往 ctx 里塞了 trigger:'user' —— 那正是本件文件头

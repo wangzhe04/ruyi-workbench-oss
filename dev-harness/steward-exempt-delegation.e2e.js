@@ -522,8 +522,8 @@ try {
     const on = await reqJson(D, 'POST', '/api/config', { stewardExemptDelegationV1: true });
     ok(on.status === 200, 'D45 用户在设置里重新打开');
   }
-  // 拍板 1 的真路径:写型 http_request(structured_write / 对外发送)停在待决上 → 代批落定,【不能】被它自己判成
-  // sticky:http_request;调用返回之后粘性位才是 http_request,紧跟着的 git push 按污染拦下。
+  // 第四波安全修复:写型 http_request 打本机接口必须用户亲自确认,管家不得代批。
+  // 这一次被拒的请求仍留下 http_request 污点,紧跟着的 git push 按污染拦下。
   // 本线程到此没有任何外部读取(D10–D45 只有 powershell_run),这一回合又是用户亲发的。
   {
     const push46 = path.join(D.HOME, 'push46.txt');
@@ -550,10 +550,10 @@ try {
     if (postRes && postRes.ok === true) delegatedCount++;
     ok(!!out[0] && out[0].pending.toolName === 'http_request' && out[0].pending.tier === 'exec' && first && first.headAtAsk && !('stewardTaint' in first.headAtAsk),
       `D46 前提:写型 http_request(POST)停在待决上,此刻会话头没有粘性污染位(实得 tool=${out[0] && out[0].pending.toolName} stewardTaint=${brief(first && first.headAtAsk && first.headAtAsk.stewardTaint)})`);
-    ok(!!postRes && postRes.ok === true && postRes.exemptDelegation && JSON.stringify(postRes.exemptDelegation.categories) === '["outbound_send"]',
-      `D47 拍板 1 真路径:写型 http_request 带理由 → 代批落定(「对外发送」类),没有被自己判成 sticky:http_request(实得 ok=${postRes && postRes.ok} blockedBy=${postRes && postRes.blockedBy} taintBy=${postRes && postRes.taintBy} categories=${brief(postRes && postRes.exemptDelegation && postRes.exemptDelegation.categories)})`);
-    ok(postSink.length === sinkBefore + 1 && postSink[postSink.length - 1].method === 'POST' && postSink[postSink.length - 1].body.includes('B2 巡检结果'),
-      `D48 代批之后那条 POST 真的发到了夹具接口(实得 ${brief(postSink.slice(sinkBefore))})`);
+    ok(!!postRes && postRes.ok === false && postRes.error === 'propose_required' && postRes.blockedBy === 'internal_target' && postRes.delegable === false,
+      `D47 写型 http_request 打本机接口带理由也不得代批(实得 ${brief(postRes)})`);
+    ok(postSink.length === sinkBefore,
+      `D48 被拒的 POST 没有发到夹具接口(实得 ${brief(postSink.slice(sinkBefore))})`);
     ok(!!second && second.headAtPush && second.headAtPush.stewardTaint && second.headAtPush.stewardTaint.by === 'http_request',
       `D49 调用返回之后会话头的粘性污染位 = http_request(实得 ${brief(second && second.headAtPush && second.headAtPush.stewardTaint)})`);
     ok(!!pushRes && pushRes.blockedBy === 'tainted' && /^(turn|sticky):http_request$/.test(String(pushRes.taintBy)) && !fs.existsSync(push46),
@@ -652,10 +652,19 @@ try {
       && !/代批/.test(String(reply.say || '')),
       `D91 确定性回执:steward_reply.actions 里恰一行「代批「删数据」 · 线程「B2 看管线程」」,模型的 say 没提(实得 ${brief(rows.map(r => r.label))} say=${reply && reply.say})`);
   }
+  // 本机 POST 现在必须用户确认,不占代批额度。补一条真实删除,仍把每小时第 6/7 次边界逐条钉住。
+  {
+    mkWorkDir(D, 'd10');
+    const { out } = await turn(T, '清理 d10', 'auto', [ps('Remove-Item .\\d10 -Recurse')], p => act(T, p.id, { riskNote: RISK_NOTE }));
+    const res = out[0] && out[0].r.json && out[0].r.json.result;
+    if (res && res.ok === true) delegatedCount++;
+    ok(!!res && res.ok === true && res.exemptDelegation && !fs.existsSync(path.join(D.WORK, 'd10')),
+      `D92 第 6 次真实代批仍可执行(实得 ${brief(res)})`);
+  }
   // ⑤ 本实例第 7 次代批 → hourly_cap
   {
-    // 第 6 次就是上面 D90 那一条(它落定了);这里再来一条就是本小时第 7 次。
-    ok(delegatedCount === 6, `D95 ⑤ 前提:本实例到此恰好代批过 6 次,第 6 次(D90)照常落定(实得 ${delegatedCount})`);
+    // 第 6 次就是上面 D92 那一条(它落定了);这里再来一条就是本小时第 7 次。
+    ok(delegatedCount === 6, `D95 ⑤ 前提:本实例到此恰好代批过 6 次,第 6 次(D92)照常落定(实得 ${delegatedCount})`);
     mkWorkDir(D, 'c7');
     const { out } = await turn(T, '再清一个', 'auto', [ps('Remove-Item .\\c7 -Recurse')], p => act(T, p.id, { riskNote: RISK_NOTE }));
     const seventh = out[0] && out[0].r.json && out[0].r.json.result;
