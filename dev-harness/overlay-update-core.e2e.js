@@ -113,7 +113,7 @@ function zipOverlayPkg(pkgDir, zipPath) {
   // 后续行注释漏剥(第55波 EC-C 收尾:本文件注释里的 8765 漏剥后与 fake-mcp-contract 撞车假阳性)。
   const qs = s => String(s).replaceAll("'", "''");
   const items = path.join(pkgDir, '*');
-  cp.execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+  cp.execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
     `Compress-Archive -Path '${qs(items)}' -DestinationPath '${qs(zipPath)}' -Force`], { encoding: 'utf8', timeout: 60000 });
   return zipPath;
 }

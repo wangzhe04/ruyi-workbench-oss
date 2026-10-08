@@ -30,7 +30,7 @@ async function extractOverlayZip(zipPath, destDir) {
     // -EncodedCommand(UTF-16LE Base64)而不是 -Command:无控制台起的 powershell.exe 解析 -Command 里的中文会在输入阶段
     // 就坏掉(04-desktop-shell runPowerShell 头注的实测),覆盖包放在中文路径下就解不出来。输出按行判 UTF-8 / GBK。
     const out = await new Promise((resolve, reject) => {
-      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { encoding: 'buffer', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(decodeConsoleText(stdout))));
+      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { encoding: 'buffer', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(decodeConsoleText(stdout))));
     });
     const trimmed = String(out || '').trim();
     if (trimmed.startsWith('ERR:')) return { ok: false, error: trimmed.slice(4) };
