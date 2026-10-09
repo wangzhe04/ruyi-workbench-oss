@@ -63,7 +63,7 @@ async function readSessionNotes(id) {
 // 几个闭包),读永远读盘 —— 删会话后不会有进程缓存把旧条目「复活」进下一次注入。同一会话的读-改-写由 runKeyedChain
 // 按会话 id 串行(store 自带的写链按实例,不跨实例,这里不依赖它)。
 const SESSION_SCRATCHPAD_SCHEMA = 1;
-const SESSION_SCRATCHPAD_LIMITS = Object.freeze({ maxEntries: 20, maxKeyChars: 40, maxTextChars: 500, maxTotalChars: 3000 });
+const SESSION_SCRATCHPAD_LIMITS = Object.freeze({ maxEntries: 32, maxKeyChars: 40, maxTextChars: 2000, maxTotalChars: 12000 });
 const sessionScratchpadChains = new Map();
 function sessionScratchpadPath(id) {
   return path.join(paths.sessions, `${assertSessionIdForPath(id)}.scratchpad.json`);

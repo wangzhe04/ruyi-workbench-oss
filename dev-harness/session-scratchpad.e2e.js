@@ -74,13 +74,13 @@ const SCRIPTS = {
     [sw('o12', { key: 'dup', text: '' })],
   ],
   LIMIT: [
-    [sw('l1', { key: 'big', text: 'x'.repeat(501) })],
+    [sw('l1', { key: 'big', text: 'x'.repeat(2001) })],
     [sw('l2', { key: LONG_KEY, text: 'y' })],
     [sw('l3', { key: 'notext' })],
-    ...Array.from({ length: 19 }, (_, i) => [sw('f' + (i + 1), { key: 'n' + (i + 1), text: 'x' })]),
-    [sw('l4', { key: 'n20', text: 'x' })],
-    ...[1, 2, 3, 4, 5].map(i => [sw('u' + i, { key: 'n' + i, text: 'y'.repeat(500) })]),
-    [sw('l5', { key: 'n6', text: 'y'.repeat(500) })],
+    ...Array.from({ length: 31 }, (_, i) => [sw('f' + (i + 1), { key: 'n' + (i + 1), text: 'x' })]),
+    [sw('l4', { key: 'n32', text: 'x' })],
+    ...[1, 2, 3, 4, 5].map(i => [sw('u' + i, { key: 'n' + i, text: 'y'.repeat(2000) })]),
+    [sw('l5', { key: 'n6', text: 'y'.repeat(2000) })],
   ],
   AFTER: [],
   // [C] 同 autocompact.e2e 的套路:窗口 56000 × 阈值 0.8 = 预算 44800;每次 limit:50000 的 file_read ≈ 14K 估算 token。
@@ -225,7 +225,7 @@ try {
   ok(r('o8').ok && r('o8').action === 'created' && r('o8').key === 'syn', `O8 字段同义词 {name, content} 认成 {key, text}(got ${JSON.stringify(r('o8')).slice(0, 200)})`);
   const o9 = r('o9');
   ok(o9.ok && o9.op === 'list' && Array.isArray(o9.entries) && o9.entries.map(e => e.key).join(',') === 'facts,proxied,dup,syn' && o9.entries.find(e => e.key === 'dup').text === 'second'
-    && o9.limits && o9.limits.maxNotes === 20 && o9.limits.maxCharsPerNote === 500 && o9.limits.maxTotalChars === 3000,
+    && o9.limits && o9.limits.maxNotes === 32 && o9.limits.maxCharsPerNote === 2000 && o9.limits.maxTotalChars === 12000,
   `O9 op:"list" 按写入顺序列出全部条目与限额(got ${JSON.stringify(o9).slice(0, 400)})`);
   ok(padKeys(sid).join(',') === 'facts', `O10 收尾删掉临时条目后盘上只剩 facts(got ${padKeys(sid).join(',')})`);
   const oReqs = reqsOf('OVER');
@@ -235,15 +235,15 @@ try {
   // ── [L] 限额 ──
   await stream({ message: 'SCN-LIMIT 压测限额', sessionId: sid });
   const l = id => resultOf('LIMIT', id) || {};
-  ok(l('l1').ok === false && l('l1').code === 'scratchpad-limit' && l('l1').limit === 'note' && /501/.test(l('l1').error) && /500/.test(l('l1').error), `L1 单条 501 字拒绝并说明上限(got ${JSON.stringify(l('l1')).slice(0, 240)})`);
+  ok(l('l1').ok === false && l('l1').code === 'scratchpad-limit' && l('l1').limit === 'note' && /2001/.test(l('l1').error) && /2000/.test(l('l1').error), `L1 单条 2001 字拒绝并说明上限(got ${JSON.stringify(l('l1')).slice(0, 240)})`);
   ok(l('l2').ok === false && l('l2').code === 'invalid-arguments' && /40/.test(l('l2').error), 'L2 key 超过 40 字拒绝');
   ok(l('l3').ok === false && l('l3').code === 'invalid-arguments' && /text is required/.test(l('l3').error), 'L3 缺 text 拒绝(不会被当成删除)');
-  ok(['f1', 'f10', 'f19'].every(id => l(id).ok === true && l(id).action === 'created') && l('f19').count === 20, 'L4 写到第 20 条都成功');
-  ok(l('l4').ok === false && l('l4').limit === 'notes' && /20/.test(l('l4').error) && l('l4').count === 20, `L5 第 21 条拒绝:条目数满(got ${JSON.stringify(l('l4')).slice(0, 240)})`);
-  ok(['u1', 'u2', 'u3', 'u4', 'u5'].every(id => l(id).ok === true && l(id).action === 'updated') && l('u5').totalChars === 2517, `L6 覆盖已有条目不占条目数,总长累计到 2517(got ${l('u5').totalChars})`);
-  ok(l('l5').ok === false && l('l5').limit === 'total' && /3016/.test(l('l5').error) && /3000/.test(l('l5').error) && l('l5').totalChars === 2517, `L7 总长将超 3000 拒绝并说明(got ${JSON.stringify(l('l5')).slice(0, 240)})`);
+  ok(['f1', 'f10', 'f31'].every(id => l(id).ok === true && l(id).action === 'created') && l('f31').count === 32, 'L4 写到第 32 条都成功');
+  ok(l('l4').ok === false && l('l4').limit === 'notes' && /32/.test(l('l4').error) && l('l4').count === 32, `L5 第 33 条拒绝:条目数满(got ${JSON.stringify(l('l4')).slice(0, 240)})`);
+  ok(['u1', 'u2', 'u3', 'u4', 'u5'].every(id => l(id).ok === true && l(id).action === 'updated') && l('u5').totalChars === 10029, `L6 覆盖已有条目不占条目数,总长累计到 10029(got ${l('u5').totalChars})`);
+  ok(l('l5').ok === false && l('l5').limit === 'total' && /12028/.test(l('l5').error) && /12000/.test(l('l5').error) && l('l5').totalChars === 10029, `L7 总长将超 12000 拒绝并说明(got ${JSON.stringify(l('l5')).slice(0, 240)})`);
   const padL = readPad(sid);
-  ok(padL && padL.entries.length === 20 && !padL.entries.some(e => e.key === 'n20' || e.key === 'big' || e.key === LONG_KEY || e.key === 'notext')
+  ok(padL && padL.entries.length === 32 && !padL.entries.some(e => e.key === 'n32' || e.key === 'big' || e.key === LONG_KEY || e.key === 'notext')
     && padL.entries.find(e => e.key === 'n6').text === 'x', 'L8 被拒的写一个字节都没落盘');
 
   // ── [H] 非持久 ──
@@ -262,7 +262,7 @@ try {
   await stream({ message: 'SCN-AFTER 重启后继续', sessionId: sid });
   const a0 = reqsOf('AFTER')[0];
   const aLast = lastUserText(a0);
-  ok(aLast.trimEnd().endsWith(FENCE_CLOSE) && /- n1: y{500}/.test(aLast) && /- facts: A=1/.test(aLast) && count(aLast, '\n- ') === 20, 'R1 重启后下一回合照样注入,20 条都在');
+  ok(aLast.trimEnd().endsWith(FENCE_CLOSE) && /- n1: y+…/.test(aLast) && /- facts: A=1/.test(aLast) && count(aLast, '\n- ') === 32, 'R1 重启后下一回合照样注入,32 条的 key 都在');
   const fence = aLast.slice(aLast.indexOf(FENCE_OPEN));
   ok(fence.length <= 5000, `R2 注入块有界(got ${fence.length} 字符)`);
 

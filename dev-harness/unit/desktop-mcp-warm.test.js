@@ -10,9 +10,9 @@
 // execFile,写进的正是同步那支要读的两张缓存,于是同步调用者一发 spawnSync 都不用付。
 //
 // 覆盖(前两条在【子进程】里跑:要证的正是「换一个进程也不用再探」与真实的事件循环占用):
-//   ① 差分对照:同一发慢探针,异步版最大计时器迟到 < SLOW_MS/3,同步版 ≥ SLOW_MS*0.6 ——
-//      两边都真跑满了 SLOW_MS。反向意义:若哪天异步版偷偷退回 spawnSync,这一条立刻红。
-//   ② 预热之后【另一个进程】的同步 pickPython 不再探(< SLOW_MS/3),答案一致,磁盘缓存恰一条。
+//   ① 差分对照:同一发慢探针,异步等待期间计时器能推进,同步等待期间不能推进。
+//      两边都真跑满了 SLOW_MS。不用最大漂移阈值:并行测试/宿主调度也会造成迟到。
+//   ② 预热之后【另一个进程】的同步 pickPython 不再探(探针调用日志不增长),答案一致,磁盘缓存恰一条。
 //   ③ 挑人规则与同步版同形:不存在的候选跳过(连探都不探)、core 之后遇到 full 要改选 full、
 //      options.probe 这个测试口在异步版里同样被 await。
 //   ④ ensureDesktopMcpWarm() 并发共用同一趟(promise 同一个对象),落定之后再叫是新的一趟。
@@ -37,7 +37,8 @@ function makeFixture() {
   // 装成一个 python:忽略 -X utf8 -c 那串参数,睡够 SLOW_MS 再以 1 退出(=「导入失败」)。
   // 探针只认 stdout 里的 __RUYI_ACC_* 与退出码,所以这就够真。
   const slow = path.join(dir, 'slow-python.js');
-  fs.writeFileSync(slow, `setTimeout(() => process.exit(1), ${SLOW_MS});\n`);
+  const probeLog = path.join(dir, 'probe-calls.log');
+  fs.writeFileSync(slow, `require('fs').appendFileSync(${JSON.stringify(probeLog)}, 'probe\\n'); setTimeout(() => process.exit(1), ${SLOW_MS});\n`);
   const child = path.join(dir, 'child.js');
   fs.writeFileSync(child, `
     const srv = require(${JSON.stringify(SERVER)});
@@ -49,10 +50,10 @@ function makeFixture() {
 
     // 事件循环占用计,每 TICK_MS 一跳:被同步 spawnSync 占住时这一跳打不出来,迟到量就是占用时长。
     function meter() {
-      let maxDrift = 0;
+      let maxDrift = 0, ticks = 0;
       let last = Date.now();
-      const timer = setInterval(() => { const now = Date.now(); maxDrift = Math.max(maxDrift, now - last - ${TICK_MS}); last = now; }, ${TICK_MS});
-      return { stop() { clearInterval(timer); return maxDrift; } };
+      const timer = setInterval(() => { ticks++; const now = Date.now(); maxDrift = Math.max(maxDrift, now - last - ${TICK_MS}); last = now; }, ${TICK_MS});
+      return { ticks() { return ticks; }, stop() { clearInterval(timer); return maxDrift; } };
     }
 
     (async () => {
@@ -60,13 +61,15 @@ function makeFixture() {
         const m = meter();
         await new Promise(r => setTimeout(r, ${TICK_MS} * 2));   // 先让它正常跳两下,基线归零
         const t0 = Date.now();
+        const ticksBefore = m.ticks();
         const value = mode === 'drift-async'
           ? await srv.pickPythonAsync(root, env, { candidates: [slowCandidate], noCache: true })
           : srv.pickPython(root, env, { candidates: [slowCandidate], noCache: true });
         const ms = Date.now() - t0;
+        const ticksDuringProbe = m.ticks() - ticksBefore;
         // 同步那支占住事件循环时,被挤掉的那一跳要等它放手才打得出来 —— 不给这个机会就永远量到 0。
         await new Promise(r => setTimeout(r, ${TICK_MS} * 3));
-        return out({ ms, maxDrift: m.stop(), value: value ? value.source : null });
+        return out({ ms, ticksDuringProbe, maxDrift: m.stop(), value: value ? value.source : null });
       }
       if (mode === 'warm-async') {
         const t0 = Date.now();
@@ -119,7 +122,7 @@ function makeFixture() {
       throw new Error('unknown mode ' + mode);
     })().catch(err => { process.stderr.write(String((err && err.stack) || err)); process.exit(3); });
   `);
-  return { dir, child, temp, home, cacheFile: path.join(temp, 'ruyi-desktop-python-probe.v1.json') };
+  return { dir, child, temp, home, probeLog, cacheFile: path.join(temp, 'ruyi-desktop-python-probe.v1.json') };
 }
 
 function runChild(fx, mode) {
@@ -139,10 +142,11 @@ test('desktop python probe has an async twin that keeps the event loop free', ()
     const asyncRun = runChild(fx, 'drift-async');
     assert.equal(asyncRun.value, null, '① 慢候选探不出 -> null(异步版判据与同步版一致)');
     assert.ok(asyncRun.ms >= SLOW_MS, `① 异步版真的等满了那发探针(实测 ${asyncRun.ms}ms >= ${SLOW_MS})`);
-    assert.ok(asyncRun.maxDrift < SLOW_MS / 3, `① 异步版不占事件循环(最大迟到 ${asyncRun.maxDrift}ms < ${Math.round(SLOW_MS / 3)})`);
+    assert.ok(asyncRun.ticksDuringProbe > 0, `① 等待异步探针期间事件循环仍推进: ${JSON.stringify(asyncRun)}`);
 
     const syncRun = runChild(fx, 'drift-sync');
     assert.equal(syncRun.value, null, '① 同步版同答案');
+    assert.equal(syncRun.ticksDuringProbe, 0, '① 对照:同步探针期间计时器无法推进');
     assert.ok(syncRun.maxDrift >= SLOW_MS * 0.6,
       `① 对照:同步版把事件循环钉住(最大迟到 ${syncRun.maxDrift}ms >= ${Math.round(SLOW_MS * 0.6)})——这一条证明上面那把尺子量得出差别`);
   } finally { fs.rmSync(fx.dir, { recursive: true, force: true }); }
@@ -161,9 +165,10 @@ test('async warm-up fills the caches the synchronous path reads (across processe
     assert.equal(ids.length, 1, '② 恰一条');
     assert.equal(parsed.entries[ids[0]].value, null, '② 否定条目 value:null');
 
+    const probesBefore = fs.readFileSync(fx.probeLog, 'utf8');
     const after = runChild(fx, 'sync-after-warm');
     assert.equal(after.value, null, '② 另一个进程的同步 pickPython 拿到同一个答案');
-    assert.ok(after.ms < SLOW_MS / 3, `② 而且一发探针都不用付(实测 ${after.ms}ms < ${Math.round(SLOW_MS / 3)})`);
+    assert.equal(fs.readFileSync(fx.probeLog, 'utf8'), probesBefore, '② 缓存命中没有再启动探针');
   } finally { fs.rmSync(fx.dir, { recursive: true, force: true }); }
 });
 

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 71 | 3654 | 3206 | 544 | 67 | 0 | 1 |
+| 72 | 3656 | 3209 | 547 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -63,29 +63,30 @@
 | 45 | `11-native-tools.js` | tools | 131 | 42 | 5 |
 | 46 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 47 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
-| 48 | `12-tool-dispatch.js` | tools | 71 | 125 | 19 |
-| 49 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 50 | `13-http-router.js` | transport | 70 | 257 | 31 |
-| 51 | `13b-api-domain-routes.js` | transport | 40 | 65 | 9 |
-| 52 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
-| 53 | `13d-core-domain-routes.js` | transport | 63 | 145 | 17 |
-| 54 | `13e-pretender-index.js` | transport | 57 | 37 | 8 |
-| 55 | `13i-steward-inbox.js` | transport | 83 | 28 | 8 |
-| 56 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
-| 57 | `13k-steward-threads.js` | transport | 52 | 116 | 16 |
-| 58 | `13l-steward-ops.js` | transport | 51 | 118 | 18 |
-| 59 | `13g-steward.js` | transport | 16 | 68 | 10 |
-| 60 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
-| 61 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
-| 62 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
-| 63 | `13p-steward-runner-actions.js` | transport | 35 | 60 | 11 |
-| 64 | `13q-steward-runner-turn.js` | transport | 37 | 76 | 19 |
-| 65 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
-| 66 | `13r-event-stream.js` | transport | 25 | 17 | 6 |
-| 67 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
-| 68 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
-| 69 | `13u-migration-center.js` | transport | 60 | 35 | 6 |
-| 70 | `14-main.js` | entrypoint | 1 | 587 | 47 |
+| 48 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
+| 49 | `12-tool-dispatch.js` | tools | 72 | 127 | 21 |
+| 50 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
+| 51 | `13-http-router.js` | transport | 70 | 257 | 31 |
+| 52 | `13b-api-domain-routes.js` | transport | 40 | 65 | 9 |
+| 53 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
+| 54 | `13d-core-domain-routes.js` | transport | 63 | 145 | 17 |
+| 55 | `13e-pretender-index.js` | transport | 57 | 37 | 8 |
+| 56 | `13i-steward-inbox.js` | transport | 83 | 28 | 8 |
+| 57 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
+| 58 | `13k-steward-threads.js` | transport | 52 | 116 | 16 |
+| 59 | `13l-steward-ops.js` | transport | 51 | 118 | 18 |
+| 60 | `13g-steward.js` | transport | 16 | 68 | 10 |
+| 61 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
+| 62 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
+| 63 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
+| 64 | `13p-steward-runner-actions.js` | transport | 35 | 60 | 11 |
+| 65 | `13q-steward-runner-turn.js` | transport | 37 | 76 | 19 |
+| 66 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
+| 67 | `13r-event-stream.js` | transport | 25 | 17 | 6 |
+| 68 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
+| 69 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
+| 70 | `13u-migration-center.js` | transport | 60 | 35 | 6 |
+| 71 | `14-main.js` | entrypoint | 1 | 588 | 48 |
 
 ## 模块边
 
@@ -347,6 +348,7 @@
 | `12-tool-dispatch.js` | `03-bridge-guard.js` | backward | `REVEAL_OPEN_SAFE_EXTS`, `UNC_DENIED_ERROR`, `WriteBoundaryHooks`, `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `buildBrowserOpenSpawn`, `buildOpenSpawn`, `buildRevealSpawn`, `guardFileToolPath`, `isBrowserDocumentTarget`, `journalBridgedWrite`, `normalizeCwd`, `pathWithinRoot`, `realpathForContainment`, `remoteUncDenialResolved` |
 | `12-tool-dispatch.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
 | `12-tool-dispatch.js` | `04-permission-runtime.js` | backward | `bridgedServerUnavailableMessage`, `configureMcpFromTool`, `getBridgedClient`, `logEvent`, `resolveBridge`, `resolveExternalMcpServers`, `safeMcpInventory` |
+| `12-tool-dispatch.js` | `04i-provider-wire.js` | backward | `providerWireProtocol` |
 | `12-tool-dispatch.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `resolveAsrProvider`, `transcribeAudioViaProvider`, `voiceLexiconAsrPromptFor` |
 | `12-tool-dispatch.js` | `06-provider-engine.js` | backward | `PLAYBOOK_REQUIRES`, `buildRuntimeIdentityFacts`, `evalPlaybookAvailability`, `getCapabilities`, `listPlaybooksWithAvailability`, `loadAllPlaybooks`, `markNetworkOnline`, `neutralizeAuthoredText`, `peekCapabilities` |
 | `12-tool-dispatch.js` | `06d-memory-domain.js` | backward | `listWorkbenchMemories`, `proposeMemoryRelationRevoke`, `proposeMemoryRelationTool`, `proposeMemoryRevision`, `proposeWorkbenchMemory`, `readWorkbenchMemory` |
@@ -357,6 +359,7 @@
 | `12-tool-dispatch.js` | `11-native-tools.js` | backward | `binaryReadHint`, `gitDiff`, `gitStatus`, `isBinaryReadPath`, `levenshtein`, `powershellMissingOr`, `probeRgAsync`, `readIfExists` |
 | `12-tool-dispatch.js` | `11b-file-text-io.js` | backward | `FileTextIo` |
 | `12-tool-dispatch.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
+| `12-tool-dispatch.js` | `11d-media-inspection.js` | backward | `MediaInspection` |
 | `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `EventStreamHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `URL`, `VERSION`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRootAliases`, `decodeConsoleText`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isPkg`, `json`, `makeId`, `nowIso`, `os`, `path`, `paths`, `readline`, `recordInstallLaunch`, `safeJsonParse`, `spawnDetachedChecked`, `text`, `zlib` |
 | `13-http-router.js` | `00b-ruyi-names.js` | backward | `LEGACY_RUYI_MCP_SERVER_IDS`, `RUYI_MCP_SERVER_ID` |
 | `13-http-router.js` | `01-config.js` | backward | `ConfigPatchHooks`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `contentTypeFor`, `decodeClaudeCliText`, `desktopMcpDetectionPending`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `ensureDesktopMcpWarm`, `externalServerJs`, `generateMcpConfig`, `hostAllowed`, `isLoopbackBindHost`, `mcpConfigFilePath`, `mutateConfig`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `requestIsLoopback`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `sweepStaleScriptFiles`, `syncAgentCliMcpManifests`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `tokenMatches`, `tokenOk` |
@@ -623,6 +626,7 @@
 | `14-main.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `classifyTextForEstimate`, `estimateHistoryTokens`, `estimateTextTokens`, `fmtTokensServer`, `setEstimateBucketsV1` |
 | `14-main.js` | `10-context-governance.js` | backward | `COMPACT_MARKER_MIN_SAVED_TOKENS`, `COMPACT_RESEED_TAIL_MAX_TOKENS`, `CompactionPlan`, `agentConversationContextMeta`, `agentNodeContextWindow`, `appendPromptToLastUserMessage`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `buildSummaryFactTableMessages`, `buildSummaryRefineMessages`, `calibratedEstimate`, `checkSummaryEntities`, `chunkHistoryByBudget`, `configuredConversationWindow`, `contextWindowFromTable`, `contextWindowOverrideKey`, `dedupeRepeatedReads`, `estimateFactor`, `evaporateBudgetBoundary`, `evaporateHistory`, `extractContextLength`, `extractSessionNotes`, `extractSummaryEntities`, `fileReadDedupKey`, `fitHistoryForSummary`, `historyStartsWithCompactionSummary`, `historyUnitStarts`, `isContextOverflowError`, `learnedWindowCap`, `mapSummaryWithLimit`, `maybeWriteSessionNotes`, `measureObservationReductionShadow`, `mergeSessionNotes`, `noteEstimateSample`, `noteWindowOvershoot`, `openCompactMarker`, `parseSessionNotesMarkdown`, `providerContextWindow`, `providerConversationContextWindow`, `providerSummaryCall`, `recentFileReads`, `recentTurnsBoundary`, `reduceObservationContent`, `rehydrateObservation`, `renderSessionNotesMarkdown`, `resolveCompactionProvider`, `resolveContextWindow`, `resolveSummaryCallPolicy`, `runSessionTurn`, `summaryMaxConcurrent`, `summaryPromptWithGuidance`, `summarySingleShotCap`, `summarySingleShotReserveTokens`, `upsertCompactMarker`, `validateStructuredSummary`, `writeHistorySnapshot` |
 | `14-main.js` | `11-native-tools.js` | backward | `peekRgProbe`, `probeRgAsync` |
+| `14-main.js` | `11d-media-inspection.js` | backward | `MediaInspection` |
 | `14-main.js` | `12-tool-dispatch.js` | backward | `toolArgsMissingRequired`, `withToolArgsGuide` |
 | `14-main.js` | `13-http-router.js` | backward | `doctor`, `installIntegration`, `parseArgs`, `startMcp`, `startServer` |
 | `14-main.js` | `13d-core-domain-routes.js` | backward | `buildMissionAggregateRows`, `missionAggregateStats` |

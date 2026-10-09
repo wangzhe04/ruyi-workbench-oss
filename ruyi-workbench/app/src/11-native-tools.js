@@ -650,7 +650,7 @@ function shellMcpChildGuard() {
   return {
     ok: false,
     error: 'shell 会话仅在原生 provider 引擎可用(工具运行于一次性 MCP 子进程,无法跨回合存活)',
-    hint: '一次性命令请用 powershell_run',
+    hint: '需要非阻塞长任务时请使用当前 CLI 引擎自己的后台命令工具,或切换到原生 provider 引擎使用 shell_start/shell_poll/shell_kill。短命令可用 powershell_run。',
   };
 }
 

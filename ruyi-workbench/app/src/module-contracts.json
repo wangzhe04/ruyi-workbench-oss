@@ -11621,6 +11621,14 @@
       ]
     },
     {
+      "file": "11d-media-inspection.js",
+      "layer": "tools",
+      "provides": [
+        "MediaInspection"
+      ],
+      "requires": []
+    },
+    {
       "file": "12-tool-dispatch.js",
       "layer": "tools",
       "provides": [
@@ -11666,6 +11674,7 @@
         "execResultCacheBySession",
         "expandFileToolPathVars",
         "fileMoveSameFileKind",
+        "fileToolBatch",
         "fileToolBeforeForCheckpoint",
         "fileToolDropPhantom",
         "fileToolFsFailure",
@@ -12223,6 +12232,13 @@
           ]
         },
         {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -12569,6 +12585,13 @@
         {
           "provider": "11c-file-visual-io.js",
           "symbol": "FileVisualIo",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11d-media-inspection.js",
+          "symbol": "MediaInspection",
           "kinds": [
             "read"
           ]
@@ -26337,6 +26360,13 @@
         {
           "provider": "11-native-tools.js",
           "symbol": "probeRgAsync",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11d-media-inspection.js",
+          "symbol": "MediaInspection",
           "kinds": [
             "read"
           ]

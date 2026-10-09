@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 71,
-    "providedSymbols": 3654,
-    "requiredSymbols": 3206,
-    "edges": 544,
+    "modules": 72,
+    "providedSymbols": 3656,
+    "requiredSymbols": 3209,
+    "edges": 547,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -11727,8 +11727,18 @@
       ]
     },
     {
-      "file": "12-tool-dispatch.js",
+      "file": "11d-media-inspection.js",
       "order": 48,
+      "layer": "tools",
+      "note": "Local dependency discovery, bounded audio measurement and parse-only syntax validation; built-ins only",
+      "provides": [
+        "MediaInspection"
+      ],
+      "requires": []
+    },
+    {
+      "file": "12-tool-dispatch.js",
+      "order": 49,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -11774,6 +11784,7 @@
         "execResultCacheBySession",
         "expandFileToolPathVars",
         "fileMoveSameFileKind",
+        "fileToolBatch",
         "fileToolBeforeForCheckpoint",
         "fileToolDropPhantom",
         "fileToolFsFailure",
@@ -12331,6 +12342,13 @@
           ]
         },
         {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -12680,12 +12698,19 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "11d-media-inspection.js",
+          "symbol": "MediaInspection",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 49,
+      "order": 50,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -12704,7 +12729,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 50,
+      "order": 51,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -14583,7 +14608,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 51,
+      "order": 52,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -15088,7 +15113,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 52,
+      "order": 53,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -15200,7 +15225,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 53,
+      "order": 54,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -16288,7 +16313,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 54,
+      "order": 55,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -16614,7 +16639,7 @@
     },
     {
       "file": "13i-steward-inbox.js",
-      "order": 55,
+      "order": 56,
       "layer": "transport",
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)",
       "provides": [
@@ -16903,7 +16928,7 @@
     },
     {
       "file": "13j-steward-tool-base.js",
-      "order": 56,
+      "order": 57,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)",
       "provides": [
@@ -17154,7 +17179,7 @@
     },
     {
       "file": "13k-steward-threads.js",
-      "order": 57,
+      "order": 58,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)",
       "provides": [
@@ -18028,7 +18053,7 @@
     },
     {
       "file": "13l-steward-ops.js",
-      "order": 58,
+      "order": 59,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
@@ -18915,7 +18940,7 @@
     },
     {
       "file": "13g-steward.js",
-      "order": 59,
+      "order": 60,
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
@@ -19422,7 +19447,7 @@
     },
     {
       "file": "13m-steward-runner-base.js",
-      "order": 60,
+      "order": 61,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
@@ -19593,7 +19618,7 @@
     },
     {
       "file": "13n-steward-arbiter.js",
-      "order": 61,
+      "order": 62,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
       "provides": [
@@ -19771,7 +19796,7 @@
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "order": 62,
+      "order": 63,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
@@ -20237,7 +20262,7 @@
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "order": 63,
+      "order": 64,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
       "provides": [
@@ -20702,7 +20727,7 @@
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "order": 64,
+      "order": 65,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
       "provides": [
@@ -21282,7 +21307,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 65,
+      "order": 66,
       "layer": "transport",
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
       "provides": [
@@ -21623,7 +21648,7 @@
     },
     {
       "file": "13r-event-stream.js",
-      "order": 66,
+      "order": 67,
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
@@ -21777,7 +21802,7 @@
     },
     {
       "file": "13s-scheduler.js",
-      "order": 67,
+      "order": 68,
       "layer": "transport",
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗",
       "provides": [
@@ -22098,7 +22123,7 @@
     },
     {
       "file": "13t-steward-schedule.js",
-      "order": 68,
+      "order": 69,
       "layer": "transport",
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环",
       "provides": [
@@ -22404,7 +22429,7 @@
     },
     {
       "file": "13u-migration-center.js",
-      "order": 69,
+      "order": 70,
       "layer": "transport",
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
@@ -22719,7 +22744,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 70,
+      "order": 71,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -26494,6 +26519,13 @@
           ]
         },
         {
+          "provider": "11d-media-inspection.js",
+          "symbol": "MediaInspection",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "12-tool-dispatch.js",
           "symbol": "toolArgsMissingRequired",
           "kinds": [
@@ -29927,6 +29959,14 @@
     },
     {
       "from": "12-tool-dispatch.js",
+      "to": "04i-provider-wire.js",
+      "symbols": [
+        "providerWireProtocol"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "12-tool-dispatch.js",
       "to": "05-claude-engine.js",
       "symbols": [
         "activeOpenAiProvider",
@@ -30042,6 +30082,14 @@
       "to": "11c-file-visual-io.js",
       "symbols": [
         "FileVisualIo"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "12-tool-dispatch.js",
+      "to": "11d-media-inspection.js",
+      "symbols": [
+        "MediaInspection"
       ],
       "direction": "backward"
     },
@@ -33719,6 +33767,14 @@
       "symbols": [
         "peekRgProbe",
         "probeRgAsync"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "11d-media-inspection.js",
+      "symbols": [
+        "MediaInspection"
       ],
       "direction": "backward"
     },

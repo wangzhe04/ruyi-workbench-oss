@@ -119,8 +119,11 @@ test('[E4] 整个漏写 name:错误里给正统形状示例与候选,不执行',
   assert.ok(!(w.didYouMean || []).includes('file_write'), JSON.stringify(w));
   assert.ok(!fs.existsSync(path.join(ws, 'b.txt')));
   const we = await toolCall('tool_invoke_edit', { arguments: { path: 'b.txt', content: 'x' } }, ctx());
-  assert.deepEqual(we.didYouMean, ['file_write'], JSON.stringify(we));
-  assert.equal(we.example.name, 'file_write', '候选唯一时示例直接填上');
+  assert.deepEqual(we.didYouMean, ['file_write', 'code_check'], JSON.stringify(we));
+  assert.equal(we.example.name, '<exact tool name from tool_search>', '候选源码也可只检查，不应替调用者选择写盘');
+  const unique = await toolCall('tool_invoke_edit', { arguments: { path: 'b.txt', content: 'x', createDirs: true } }, ctx());
+  assert.deepEqual(unique.didYouMean, ['file_write']);
+  assert.equal(unique.example.name, 'file_write', '候选唯一时示例直接填上');
   assert.ok(!fs.existsSync(path.join(ws, 'b.txt')), '只提示、不替它执行');
   // 什么参数都没给:仍是同一种可行动的错误
   const empty = await toolCall('tool_invoke_exec', {}, ctx());

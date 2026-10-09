@@ -108,8 +108,8 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
     },
     {
       name: 'tool_search',
-      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, short descriptions and argument outlines without injecting every schema.',
-      inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
+      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns names, packs, risk tiers and argument outlines.',
+      inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' }, view: { type: 'string', enum: ['list', 'matrix'], description: 'matrix adds modality and engine availability' } }, required: ['query'] },
     },
     {
       name: 'tool_load',
@@ -442,6 +442,7 @@ const NATIVE_TOOL_TIER = {
   desktop_screenshot: 'exec', http_request: 'exec',
   // 127-114c③(26 号文 §3):读本地音频后出网转写 —— 用户文件内容离开本进程,与「文件出网」同档 exec。
   audio_transcribe: 'exec',
+  audio_inspect: 'read', media_probe: 'read', code_check: 'read', acceptance_report: 'edit',
   orchestrate_agents: 'exec', // 代理模式 v2:委派子代理是最高特权的原生动作 → exec 档(旧 spawn_agent 已并入)
   spawn_agent: 'exec', // 137 集成:兼容口仍在注册表(旧模型调它 → MCP 子进程翻译成单节点 orchestrate),档位必须与 orchestrate_agents 同为 exec,不能因缺声明落到低档
   wait_agents: 'read',
@@ -579,6 +580,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   audio_transcribe: 'files_read', // 127-114c③:读本地音频文件转写,目录归 files_read(tier 仍是 exec)
+  audio_inspect: 'files_read', media_probe: 'files_read', code_check: 'files_read', acceptance_report: 'files_write',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
   // C4:检查点清单归 files_write 而不是 core / files_read —— 它回答的是「刚才那些写操作哪些能撤」,只有手里有写类工具时才有用,
   // 随写包一起装(写包本就按「修改/创建/删除…」意图装载,下面 classifyToolPacks 另补了撤销/回滚/检查点);放 core 会每回合常驻
@@ -635,7 +637,14 @@ function toolPackForName(name, bridgedRoute) {
 // bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
 // deterministic fields derived from name, description and JSON Schema parameters.
 const TOOL_RETRIEVAL_HINTS = Object.freeze({
-  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '读取文档', '读取PDF', 'read workspace file', 'read image'] },
+  file_read: { capabilities: ['workspace.file.read', 'image.view', 'document.read'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '看图', '视觉输入', '读取文档', '读取PDF', 'read workspace file', 'read image', 'view image', 'view image vision', 'vision'] },
+  audio_inspect: { capabilities: ['audio.inspect', 'audio.loudness', 'audio.waveform'], aliases: ['音频验收', '音频分析', '响度', '削波', 'audio inspect', 'audio levels', 'LUFS'] },
+  media_probe: { capabilities: ['media.dependencies.inspect'], aliases: ['依赖探测', '媒体工具链', 'ffmpeg', 'ffprobe', 'chrome', 'ffmpeg ffprobe chrome', 'media dependencies'] },
+  code_check: { capabilities: ['code.syntax.check'], aliases: ['语法检查', '代码体检', '写盘前语法检查', 'syntax check', 'validate code'] },
+  acceptance_report: { capabilities: ['verification.evidence.report'], aliases: ['验收回执', '证据卡', '验收清单', 'acceptance checklist', 'verification report'] },
+  shell_start: { capabilities: ['shell.background.start'], aliases: ['后台任务', '后台运行', '长任务', '后台渲染', 'background shell', 'background job', 'render video background'] },
+  shell_poll: { capabilities: ['shell.background.poll'], aliases: ['后台任务进度', '读取后台输出', 'poll background job'] },
+  shell_kill: { capabilities: ['shell.background.cancel'], aliases: ['取消后台任务', '停止渲染', 'cancel background job'] },
   file_list: { capabilities: ['workspace.file.list'], aliases: ['列出目录', '查看目录', 'list directory'] },
   file_search: { capabilities: ['workspace.text.search'], aliases: ['搜索文件内容', '全文检索', 'search files'] },
   glob: { capabilities: ['workspace.path.glob'], aliases: ['按模式找文件', '文件通配符', 'find files by pattern'] },
@@ -1048,8 +1057,18 @@ function withShadowedBridgeHints(result, catalog) {
 // 61-A4:零命中不再只回一张空表 —— 模型分不清「措辞没对上」和「真没有这类工具」,于是换着说法连搜(真机搜「撤销/回滚」)。
 const TOOL_SEARCH_EMPTY_NOTE = 'No dedicated tool matched. Try other capability words (Chinese or English) or browse with list_tools {pack}; if nothing fits, do it with the general tools you already have (e.g. powershell_run / script_run when available) or tell the user it is not supported.';
 function searchToolCatalog(catalog, args, config, opts) {
+  const q = normalizeToolSearchText(args && args.query || '');
+  if (q && Object.values(TOOL_RETRIEVAL_HINTS).some(h => (h.aliases || []).some(alias => normalizeToolSearchText(alias) === q))) opts = { ...(opts || {}), forceV1: true };
   // 先分区再给骨架:full 骨架的 3 个名额先给未遮蔽项(被遮蔽的桥接项已挪到后面)。
   const result = withToolArgSkeletons(withShadowedBridgeHints(rankToolCatalog(catalog, args, config, opts), catalog), catalog, opts);
+  if (result && Array.isArray(result.matches)) {
+    for (const match of result.matches) {
+      if (/^shell_(?:start|send|poll|kill|list)$/.test(match.name)) match.availability = 'Native provider turns only; CLI/MCP engines use their own background-command tools.';
+    }
+    if (args && args.view === 'matrix') result.capabilityMatrix = result.matches.map(m => ({ tool: m.name, pack: m.pack, tier: m.tier,
+      modality: m.name === 'file_read' ? 'text/image/document' : /^audio_/.test(m.name) ? 'audio' : /^shell_/.test(m.name) ? 'background process' : m.name === 'code_check' ? 'code' : m.name === 'acceptance_report' ? 'verification' : 'other',
+      ...(m.availability ? { availability: m.availability } : {}) }));
+  }
   if (result && Array.isArray(result.matches) && !result.matches.length && String(args && args.query || '').trim()) return { ...result, note: TOOL_SEARCH_EMPTY_NOTE };
   return result;
 }

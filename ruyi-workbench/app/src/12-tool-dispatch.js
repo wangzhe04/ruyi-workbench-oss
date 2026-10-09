@@ -706,7 +706,7 @@ const CORE_TOOL_HANDLERS = {
 // 事实源(§3.5「复用 workbench_self_status 装配并加管家段」——不新造第二个事实源)。逻辑逐行未变;
 // 唯一新增是「未知 section 回落 all」的既有行为对 'steward' 也成立(该段由 13g 自己追加,本函数不认识它)。
 async function buildWorkbenchSelfStatus(args, ctx) {
-      const SECTIONS = new Set(['identity', 'health', 'counts', 'config', 'all']);
+      const SECTIONS = new Set(['identity', 'health', 'counts', 'config', 'capabilities', 'all']);
       const section = SECTIONS.has(args && args.section) ? args.section : 'all';
       const identity = buildRuntimeIdentityFacts();
       const out = {
@@ -737,9 +737,10 @@ async function buildWorkbenchSelfStatus(args, ctx) {
           workflows: Array.isArray(workflows) ? workflows.length : BUILTIN_AGENT_WORKFLOWS.length,
         };
       }
-      if (section === 'all' || section === 'config') {
-        const p = activeOpenAiProvider(config);
+      if (section === 'all' || section === 'config' || section === 'capabilities') {
+        const p = (ctx && ctx.provider) || activeOpenAiProvider(config);
         const cli = selectedAgentCli(config);
+        const modalities = { vision: p ? p.vision === true : null, audio: false, asr: !resolveAsrProvider(config).failure };
         out.config = {
           engine: p ? 'openai' : cli.id,
           providerId: p ? p.id : '',
@@ -748,7 +749,23 @@ async function buildWorkbenchSelfStatus(args, ctx) {
           permissionMode: String(config.permissionMode || ''),
           outputStyle: String(config.outputStyle || ''),
           locale: String(config.locale || ''),
+          modalities,
+          providerCapabilities: { protocol: p ? providerWireProtocol(p).id : 'cli', visionConfigured: p ? p.vision === true : null, source: 'configuration', modelSupportProbed: false },
         };
+        out.capabilities = {
+          modalities,
+          matrix: [
+            { modality: 'image', tools: ['file_read'], input: 'as:image or auto', providerVisionEnabled: modalities.vision },
+            { modality: 'document', tools: ['file_read'], input: 'PDF/OOXML/ODF; embedded images and page windows' },
+            { modality: 'audio', tools: ['audio_inspect', 'audio_transcribe'], analysis: 'local FFmpeg measurements', listening: false, transcriptionConfigured: modalities.asr },
+            { modality: 'code', tools: ['code_check', 'file_edit', 'file_write'], input: 'validateSyntax:true checks candidate before writing' },
+            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!p && !RUNTIME.isMcpChild, engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
+            { modality: 'verification', tools: ['acceptance_report', 'media_probe', 'checkpoint_list'] },
+          ],
+          checkpointScope: 'Native journaled file operations only. Shell/script/ffmpeg/browser/application side effects are not checkpointed; recursive operations restore file contents, not empty-directory metadata.',
+          audioInputNote: 'This harness does not send raw audio to the chat model. ASR transcription and objective audio analysis do not constitute listening.',
+        };
+        if (section === 'capabilities') delete out.config;
       }
       return out;
 }
@@ -1097,7 +1114,120 @@ function fileMoveSameFileKind(from, to, fromSt, toSt, platform) {
   return sameStat && String(from).toLowerCase() === String(to).toLowerCase() ? 'case-only' : null;
 }
 
+// Preflight the complete explicit batch before any mutation. Each file then uses the existing
+// guarded, locked, journaled primitive. A batch is deliberately not advertised as a transaction.
+async function fileToolBatch(operation, args, ctx) {
+  const deleting = operation === 'file_delete';
+  const inputs = deleting ? (args.paths || [args.path]).map(p => ({ from: p })) : (args.items || [{ from: args.from, to: args.to }]);
+  const files = [], directories = [], roots = [], results = [];
+  let changedDirectories = 0, entries = 0;
+  const fail = (code, error) => { throw Object.assign(new Error(error), { code }); };
+  const inside = (a, b) => { const rel = path.relative(a, b); return !rel || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel)); };
+  const check = async (p, write) => { const g = await guardFileToolPath(p, ctx, { tool: operation, write }); if (!g.ok) fail(g.code, g.error); return g.absPath || p; };
+  const workspaceRaw = await fileToolWorkspaceDir(ctx);
+  const workspace = await fsp.realpath(workspaceRaw).catch(() => workspaceRaw);
+  async function visit(from, to, depth) {
+    if (++entries > 1000 || depth > 32) fail('batch_limit', 'Batch exceeds 1000 entries or depth 32; split it into smaller batches.');
+    const realFrom = await check(from, operation !== 'file_copy');
+    if (to) await check(to, true);
+    const st = await fsp.lstat(from);
+    if (st.isSymbolicLink()) fail('symlink_refused', 'Directory/batch operations do not follow symlinks: ' + from);
+    const dest = to ? await fsp.lstat(to).catch(e => { if (e.code !== 'ENOENT') throw e; return null; }) : null;
+    if (dest?.isSymbolicLink()) fail('symlink_refused', 'Destination is a symlink: ' + to);
+    if (st.isDirectory()) {
+      if (!args.recursive) fail('recursive_required', 'Directory operations require recursive:true.');
+      if (operation !== 'file_copy' && (inside(realFrom, workspace) || realFrom === path.parse(realFrom).root)) fail('protected_root', 'Refusing to delete/move the workspace root or its ancestors.');
+      if (dest && !dest.isDirectory()) fail('target_type_mismatch', 'Destination is not a directory: ' + to);
+      directories.push({ from, to });
+      for (const entry of await fsp.readdir(from)) await visit(path.join(from, entry), to && path.join(to, entry), depth + 1);
+    } else {
+      if (!st.isFile()) fail('unsupported_file', 'Only regular files/directories are supported.');
+      if (dest && (dest.isDirectory() || !args.overwrite)) fail('target_exists', 'Destination exists; use overwrite:true for files: ' + to);
+      files.push({ from, to });
+    }
+  }
+  try {
+    if (!inputs.length || inputs.length > 100) fail('invalid_batch', 'Provide 1..100 paths/items.');
+    for (const input of inputs) {
+      if (!input || !input.from || (!deleting && !input.to)) fail('invalid_batch', 'Every item requires a source and, for copy/move, a destination.');
+      const from = await resolveFileToolPath(input.from, ctx), to = deleting ? null : await resolveFileToolPath(input.to, ctx);
+      const realFrom = await check(from, operation !== 'file_copy'), realTo = to && await check(to, true);
+      const endpoints = [realFrom, realTo].filter(Boolean);
+      if (realTo && (inside(realFrom, realTo) || inside(realTo, realFrom))) fail('overlapping_paths', 'Source and destination must not overlap.');
+      if (roots.some(p => endpoints.some(q => inside(p, q) || inside(q, p)))) fail('overlapping_paths', 'Batch roots must not overlap.');
+      roots.push(...endpoints);
+      await visit(from, to, 0);
+    }
+    for (const dir of directories) if (dir.to) {
+      await check(dir.to, true);
+      if (!(await fsp.lstat(dir.to).catch(() => null))) { await fsp.mkdir(dir.to, { recursive: true }); changedDirectories++; }
+    }
+    for (const file of files) {
+      // Recheck type immediately before the guarded primitive; reject links introduced since preflight.
+      if ((await fsp.lstat(file.from)).isSymbolicLink() || (file.to && (await fsp.lstat(file.to).catch(() => null))?.isSymbolicLink())) fail('symlink_refused', 'A batch path changed into a symlink.');
+      const result = await FILE_TOOL_HANDLERS[operation].handler(deleting ? { path: file.from } : { from: file.from, to: file.to, overwrite: args.overwrite }, ctx);
+      results.push(result);
+      if (!result.ok) return { ok: false, code: 'batch_failed', partial: results.some(r => r.ok) || changedDirectories > 0, results, error: result.error };
+    }
+    if (operation !== 'file_copy') for (const dir of directories.slice().reverse()) {
+      await check(dir.from, true);
+      if ((await fsp.lstat(dir.from)).isSymbolicLink()) fail('symlink_refused', 'A source directory changed into a symlink.');
+      await fsp.rmdir(dir.from); changedDirectories++;
+    }
+    return { ok: true, operation, files: results.length, directories: directories.length, results,
+      checkpointWarn: results.some(r => !!r.checkpointWarn), checkpointScope: 'File contents only, subject to per-file snapshot limits. Empty directories and directory metadata are not restored.' };
+  } catch (error) { return { ok: false, code: error.code || 'batch_failed', error: error.message, partial: results.some(r => r.ok) || changedDirectories > 0, results }; }
+}
+
 const FILE_TOOL_HANDLERS = {
+  acceptance_report: { paths: 'both', guardNote: '', handler: async (args, ctx) => {
+    if (!args.path || !args.title || !Array.isArray(args.checks) || !args.checks.length || args.checks.length > 50) return { ok: false, code: 'invalid_report', error: 'Provide path, title and 1..50 checks.' };
+    const checks = [];
+    for (const [index, check] of args.checks.entries()) {
+      if (!check || !check.label || !['pass', 'fail', 'blocked', 'not_run'].includes(check.status)) return { ok: false, code: 'invalid_report', error: 'Each check needs label and status: pass/fail/blocked/not_run.' };
+      const evidence = [];
+      if (check.evidence != null && (!Array.isArray(check.evidence) || check.evidence.length > 8)) return { ok: false, code: 'invalid_report', error: 'At most 8 evidence files per check.' };
+      for (const item of check.evidence || []) {
+        if (typeof item !== 'string' || !item) return { ok: false, code: 'invalid_report', error: 'Evidence must be local file paths.' };
+        const p = await resolveFileToolPath(item, ctx);
+        const g = await guardFileToolPath(p, ctx, { tool: 'acceptance_report', write: false });
+        if (!g.ok) return { ok: false, code: g.code, error: g.error };
+        const st = await fsp.stat(p).catch(() => null);
+        if (!st?.isFile()) return { ok: false, code: 'evidence_missing', error: 'Evidence file missing: ' + p };
+        evidence.push({ path: p, bytes: st.size, modifiedAt: st.mtime.toISOString() });
+      }
+      checks.push({ id: index + 1, label: String(check.label).slice(0, 240), status: check.status, conclusion: String(check.conclusion || '').slice(0, 2000), evidence });
+    }
+    const counts = Object.fromEntries(['pass', 'fail', 'blocked', 'not_run'].map(s => [s, checks.filter(c => c.status === s).length]));
+    const report = { type: 'ruyi.acceptance-report', version: 1, title: String(args.title).slice(0, 240), createdAt: new Date().toISOString(),
+      overall: counts.fail ? 'fail' : counts.blocked || counts.not_run ? 'pending' : 'pass', counts, checks,
+      provenance: 'Statuses/conclusions are supplied by the caller, not independently verified. Evidence paths and file metadata were checked at report creation; files may later change.' };
+    const output = await toolCall('file_write', { path: args.path, content: JSON.stringify(report, null, 2) + '\n' }, ctx);
+    return output.ok ? { ...output, report } : output;
+  } },
+  media_probe: { paths: null, guardNote: 'Read-only executable/version discovery; no installation or browser launch', handler: async args => MediaInspection.dependencies(args.refresh === true) },
+  audio_inspect: { paths: 'read', guardNote: '', handler: async (args, ctx) => {
+    const p = await resolveFileToolPath(args.path, ctx);
+    const guard = await guardFileToolPath(p, ctx, { tool: 'audio_inspect', write: false });
+    if (!guard.ok) return { ok: false, code: guard.code, error: guard.error };
+    const st = await fsp.stat(guard.path || p).catch(() => null);
+    if (!st || !st.isFile()) return { ok: false, code: 'not_found', error: 'Audio source must be an existing local file.' };
+    return MediaInspection.inspectAudio(guard.absPath || p, args);
+  } },
+  code_check: { paths: 'read', guardNote: '', handler: async (args, ctx) => {
+    const p = await resolveFileToolPath(args.path, ctx);
+    const guard = await guardFileToolPath(p, ctx, { tool: 'code_check', write: false });
+    if (!guard.ok) return { ok: false, code: guard.code, error: guard.error };
+    let content = args.content;
+    if (content == null) {
+      const source = await toolCall('file_read', { path: p, limit: 50000 }, ctx);
+      if (!source.ok) return source;
+      if (source.truncated || typeof source.content !== 'string') return { ok: false, code: 'source_too_large', error: 'Supply the complete candidate content (maximum 1 MB) for a syntax check.' };
+      content = source.content;
+    }
+    if (Buffer.byteLength(String(content), 'utf8') > 1048576) return { ok: false, code: 'source_too_large', error: 'Syntax check input is limited to 1 MB.' };
+    return { path: p, ...await MediaInspection.checkSyntax(p, String(content)) };
+  } },
   file_read: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_read', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
@@ -1106,6 +1236,10 @@ const FILE_TOOL_HANDLERS = {
       let visualKind;
       try {
         visualKind = await FileVisualIo.kind(p);
+        if (args.as === 'image' && !visualKind) return { ok: false, code: 'not_image', error: 'This file is not an image or supported visual document.', path: p };
+        if (args.as === 'image') args = { ...args, includeImages: true };
+        if (args.as === 'text' && visualKind === 'image') return { ok: false, code: 'not_text', error: 'Image bytes cannot be read as text; use as:image.', path: p };
+        if (args.as === 'text') args = { ...args, includeImages: false };
         if (visualKind) {
           const result = visualKind === 'image' ? await FileVisualIo.image(p, args) : null;
           if (result) return result;
@@ -1266,6 +1400,11 @@ const FILE_TOOL_HANDLERS = {
           else if (!existed) targetLineEnding = detectTextLineEnding(String(args.content)) === 'crlf' ? 'crlf' : defaultTextLineEnding(p);
         }
         let content = targetLineEnding ? normalizeTextLineEndings(String(args.content), targetLineEnding) : String(args.content);
+        if (args.validateSyntax === true) {
+          if (legacyEncoding) return { ok: false, code: 'unsupported_syntax', error: 'Syntax validation requires text content, not a binary encoding.', written: false };
+          const validation = await MediaInspection.checkSyntax(p, content);
+          if (!validation.ok) return { ...validation, path: p, written: false };
+        }
         // hunt2 #10:保住 UTF-8 BOM。模型给的 content 从不带 BOM,整份覆写曾把原文件的 BOM 剥掉(file_edit 保得住);
         // 新建的 .ps1 也补上 BOM —— 否则 Windows PowerShell 5.1 按 ANSI 读,中文字面量变乱码。
         if (isUtf8Target && !content.startsWith('\ufeff')
@@ -1410,6 +1549,10 @@ const FILE_TOOL_HANDLERS = {
         const writeText = (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf')
           ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
         const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
+        if (args.validateSyntax === true) {
+          const validation = await MediaInspection.checkSyntax(p, updated);
+          if (!validation.ok) return { ...validation, path: p, written: false };
+        }
         // 2026-10 走查(R2):替换后与原文逐字符相同(oldText == newText,或换行规范化后等价)—— 不写盘、不记检查点
         // (修前照样原子重写 + 记一条空检查点,mtime 被扰动、撤回列表里多一条什么也没改的条目)。与 file_write 的幂等跳过同口径。
         if (updated === raw) {
@@ -1443,6 +1586,7 @@ const FILE_TOOL_HANDLERS = {
       });
   } },
   file_delete: { paths: "write", guardNote: '', handler: async (args, ctx) => {
+      if (args.recursive || args.paths) return fileToolBatch('file_delete', args, ctx);
       // v0.8-S4a (moved in from S1 — a not-undoable delete could not ship before the journal existed).
       // Checkpoint the file's bytes (op delete) BEFORE unlinking so a rollback can resurrect it. Refuse
       // directories (only files are journaled/deletable here).
@@ -1484,6 +1628,7 @@ const FILE_TOOL_HANDLERS = {
       });
   } },
   file_move: { paths: "both", guardNote: '', handler: async (args, ctx) => {
+      if (args.recursive || args.items) return fileToolBatch('file_move', args, ctx);
     // v1.1-W2 (T1) file_move(from, to, overwrite=false): 移动/重命名。检查点两条各自逆操作（见下注释）。
     // 逆操作语义表（把关人可据此审）：
     //   ① from 存 op:delete（before=from 原内容）→ 回滚 = 把内容写回 from。
@@ -1575,6 +1720,7 @@ const FILE_TOOL_HANDLERS = {
       });
   } },
   file_copy: { paths: "both", guardNote: '', handler: async (args, ctx) => {
+      if (args.recursive || args.items) return fileToolBatch('file_copy', args, ctx);
     // v1.1-W2 (T1) file_copy(from, to, overwrite=false)。逆操作：仅 to 一条。
     //   to 已存在 → op:modify（回滚=写回原 to）；不存在 → op:create（回滚=删 to）。from 不动，无需检查点。
       if (!args.from || !args.to) return { ok: false, error: 'from 与 to 都不能为空' };

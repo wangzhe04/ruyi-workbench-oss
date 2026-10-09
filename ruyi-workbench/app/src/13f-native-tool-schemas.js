@@ -2,6 +2,36 @@
 const MCP_TOOLS = [
   ...adaptiveMetaToolSchemas(true),
   {
+    name: 'media_probe',
+    description: 'Discover local ffmpeg, ffprobe, Chrome/Edge, Python and Node executables/versions, with actionable missing-dependency hints. Detects imageio-ffmpeg wheels too. No installs or browser launch.',
+    inputSchema: { type: 'object', properties: { refresh: { type: 'boolean' } } },
+  },
+  {
+    name: 'audio_inspect',
+    description: 'Measure local audio/video with FFmpeg: channel peaks, RMS envelope, momentary/short-term/integrated LUFS and near-clipping windows. Select each audio stream separately. Objective analysis is NOT listening; listeningPerformed:false. No upload/playback. Defaults to first 120s; use nextStartSeconds for continuation.',
+    inputSchema: { type: 'object', properties: {
+      path: { type: 'string' }, stream: { type: 'integer', minimum: 0, maximum: 63 },
+      startSeconds: { type: 'number', minimum: 0, maximum: 86400 }, durationSeconds: { type: 'number', minimum: 0.1, maximum: 1800 },
+      windowSeconds: { type: 'number', minimum: 0.1, maximum: 60, description: 'Curve bucket width; widened as needed to at most 601 buckets' },
+    }, required: ['path'] },
+  },
+  {
+    name: 'code_check',
+    description: 'Parse-only syntax check for local JS/MJS/CJS, Python or JSON (max 1MB). Optional content validates a candidate without writing. Never executes the source. file_write/file_edit validateSyntax:true checks before mutation.',
+    inputSchema: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path'] },
+  },
+  {
+    name: 'acceptance_report',
+    description: 'Save a checkpointed JSON acceptance receipt with 1..50 gates, evidence file paths, conclusions and pass/fail/blocked/not_run status. Returns counts and overall status. Caller supplies judgments; this tool checks evidence exists, not that conclusions are true. Use not_run for listening that did not occur.',
+    inputSchema: { type: 'object', properties: {
+      path: { type: 'string', description: 'Output JSON file path' }, title: { type: 'string' },
+      checks: { type: 'array', minItems: 1, maxItems: 50, items: { type: 'object', properties: {
+        label: { type: 'string' }, status: { type: 'string', enum: ['pass', 'fail', 'blocked', 'not_run'] },
+        conclusion: { type: 'string' }, evidence: { type: 'array', maxItems: 8, items: { type: 'string' } },
+      }, required: ['label', 'status'] } },
+    }, required: ['path', 'title', 'checks'] },
+  },
+  {
     name: 'workbench_memory_list',
     description: 'List/search confirmed Workbench Memory metadata (current project + global), no bodies. Use when the user asks what is remembered or the injected index is insufficient.',
     inputSchema: {
@@ -205,6 +235,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'absolute or workspace-relative' },
+        as: { type: 'string', enum: ['auto', 'text', 'image'], description: 'auto detects format; image sends pixels through configured vision; text excludes document images' },
         offset: { type: 'number', description: 'char offset (char mode)' },
         limit: { type: 'number', description: 'chars, default 40000, max 50000' },
         lineOffset: { type: 'number', description: '1-based start line (line mode)' },
@@ -229,6 +260,7 @@ const MCP_TOOLS = [
         path: { type: 'string', description: 'absolute or workspace-relative' },
         content: { type: 'string', description: 'full new content' },
         createDirs: { type: 'boolean', description: 'default true' },
+        validateSyntax: { type: 'boolean', description: 'Parse JS/Python/JSON before writing; invalid or unsupported input leaves the file unchanged' },
         encoding: { type: 'string', description: 'utf8|utf-16le|utf-16be|gbk; default: keep existing' },
         lineEnding: { type: 'string', enum: ['lf', 'crlf', 'preserve'], description: 'default: keep file style; preserve = as given' },
       },
@@ -258,23 +290,23 @@ const MCP_TOOLS = [
         oldText: { type: 'string', minLength: 1, description: 'exact text (multi-line ok)' },
         newText: { type: 'string', description: 'replacement ("" deletes oldText)' },
         replaceAll: { type: 'boolean', description: 'replace every occurrence' },
+        validateSyntax: { type: 'boolean', description: 'Parse complete JS/Python/JSON candidate before writing; no code execution' },
       },
       required: ['path', 'oldText', 'newText'],
     },
   },
   {
     name: 'file_delete',
-    description: 'Delete a local file (checkpointed, rollback-able; over 5MB it is deleted with checkpointWarn). Directories are refused.',
+    description: 'Delete path or a batch of paths. Directories require recursive:true. Preflight up to 1000 entries; no symlinks or workspace-root deletion. File contents are checkpointed up to 5MB each; empty directories/metadata are not. Reports partial progress on failure.',
     inputSchema: {
       type: 'object',
-      properties: { path: { type: 'string', description: 'absolute or workspace-relative' } },
-      required: ['path'],
+      properties: { path: { type: 'string' }, paths: { type: 'array', maxItems: 100, items: { type: 'string' } }, recursive: { type: 'boolean' } },
     },
   },
   {
     // C4(61 号文):只读。会话只取自调用上下文,不收 sessionId;模型没有回滚能力(撤销只在界面,由用户做)。
     name: 'checkpoint_list',
-    description: 'List this session\'s file-change checkpoints (undoable / already reverted). Read-only: only the user can undo, in the UI.',
+    description: 'List this session\'s native file-change checkpoints. Shell/scripts/ffmpeg/external apps and directory metadata are not covered. Only the user can undo in the UI.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -285,28 +317,32 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_move',
-    description: '移动或重命名一个文件（from→to）。已先存检查点，可一键撤销。默认不覆盖已存在的目标（overwrite=true 才覆盖）。仅支持单个文件，不支持文件夹；跨磁盘自动退化为复制+删除。',
+    description: 'Move/rename from to to, or batch items. Directories require recursive:true (1000-entry limit, no symlinks). No overwrite by default. File contents use checkpoints; directory metadata does not. Failure reports partial progress.',
     inputSchema: {
       type: 'object',
       properties: {
         from: { type: 'string', description: '源文件路径(绝对路径,或相对工作区)' },
         to: { type: 'string', description: '目标路径(绝对路径,或相对工作区;含新文件名即为重命名)' },
+        recursive: { type: 'boolean' },
+        items: { type: 'array', maxItems: 100, items: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } }, required: ['from', 'to'] } },
         overwrite: { type: 'boolean', description: '目标已存在时是否覆盖，默认 false' },
       },
-      required: ['from', 'to'],
+      // Single from/to or batch items; handler validates the selected form.
     },
   },
   {
     name: 'file_copy',
-    description: '复制一个文件（from→to）。目标已存在时会先存检查点，可一键撤销。默认不覆盖（overwrite=true 才覆盖）。仅支持单个文件，不支持文件夹。',
+    description: 'Copy from to to, or batch items. Directories require recursive:true (1000-entry limit, no symlinks). No overwrite by default. Target files use checkpoints; directory metadata does not. Failure reports partial progress.',
     inputSchema: {
       type: 'object',
       properties: {
         from: { type: 'string', description: '源文件路径(绝对路径,或相对工作区)' },
         to: { type: 'string', description: '目标路径(绝对路径,或相对工作区)' },
+        recursive: { type: 'boolean' },
+        items: { type: 'array', maxItems: 100, items: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } }, required: ['from', 'to'] } },
         overwrite: { type: 'boolean', description: '目标已存在时是否覆盖，默认 false' },
       },
-      required: ['from', 'to'],
+      // Single from/to or batch items; handler validates the selected form.
     },
   },
   {
@@ -772,7 +808,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'all'], default: 'all', description: 'identity=版本/位置/端口等恒定量;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);all=全部(默认)。' },
+        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'capabilities', 'all'], default: 'all', description: 'identity=版本/位置/端口等恒定量;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);capabilities=模态/服务商能力位/引擎限制/检查点范围;all=全部(默认)。' },
       },
     },
   },
@@ -1454,7 +1490,7 @@ const MCP_TOOLS = [
 const PROVIDER_SESSION_TOOL_SCHEMAS = [
   {
     name: 'scratchpad_write',
-    description: 'Your own notes for this conversation: write/overwrite one note by key (text "" deletes; op:"list" returns all). Notes are re-shown after the latest user message each turn and survive context compaction. For interim findings, confirmed facts, next steps; user preferences go to workbench_memory_propose. Max 20 notes, 500 chars each, 3000 total.',
+    description: 'Conversation notes by key: same key overwrites, text "" deletes, op:"list" reads full notes. Re-shown each turn after the latest user message; survive compaction. Long notes are previewed. For findings/plans; durable preferences: workbench_memory_propose. Limits: 32 notes, 2000 chars each, 12000 total.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {

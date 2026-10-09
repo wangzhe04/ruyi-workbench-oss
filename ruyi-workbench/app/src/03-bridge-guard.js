@@ -1020,14 +1020,22 @@ async function guardFileToolPath(rawPath, ctx, opts) {
 // 路径里带 NUL 之类让解析器抛错:不在这里拦,交给 handler 回 bad_path 信封。
 // 返回 null = 放行去问;否则是与 handler 同形的失败结果。
 const WriteBoundaryHooks = {};
-const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'] });
+const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'], acceptance_report: ['path'] });
 async function preflightWriteBoundary(toolName, args, ctx) {
   const keys = Object.prototype.hasOwnProperty.call(WRITE_PATH_ARGS, toolName) ? WRITE_PATH_ARGS[toolName] : null;
   if (!keys || !args || typeof args !== 'object') return null;
-  for (const k of keys) {
-    if (typeof args[k] !== 'string' || !args[k].trim()) continue;
+  const targets = keys.map(k => args[k]);
+  if (toolName === 'file_delete' && Array.isArray(args.paths)) targets.push(...args.paths);
+  if ((toolName === 'file_copy' || toolName === 'file_move') && Array.isArray(args.items)) {
+    for (const item of args.items) if (item && typeof item === 'object') {
+      if (toolName === 'file_move') targets.push(item.from);
+      targets.push(item.to);
+    }
+  }
+  for (const target of targets) {
+    if (typeof target !== 'string' || !target.trim()) continue;
     let p;
-    try { p = typeof WriteBoundaryHooks.resolvePath === 'function' ? await WriteBoundaryHooks.resolvePath(args[k], ctx) : path.resolve(args[k]); } catch { continue; }
+    try { p = typeof WriteBoundaryHooks.resolvePath === 'function' ? await WriteBoundaryHooks.resolvePath(target, ctx) : path.resolve(target); } catch { continue; }
     const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
     if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
   }

@@ -6843,7 +6843,7 @@ async function readSessionNotes(id) {
 // 几个闭包),读永远读盘 —— 删会话后不会有进程缓存把旧条目「复活」进下一次注入。同一会话的读-改-写由 runKeyedChain
 // 按会话 id 串行(store 自带的写链按实例,不跨实例,这里不依赖它)。
 const SESSION_SCRATCHPAD_SCHEMA = 1;
-const SESSION_SCRATCHPAD_LIMITS = Object.freeze({ maxEntries: 20, maxKeyChars: 40, maxTextChars: 500, maxTotalChars: 3000 });
+const SESSION_SCRATCHPAD_LIMITS = Object.freeze({ maxEntries: 32, maxKeyChars: 40, maxTextChars: 2000, maxTotalChars: 12000 });
 const sessionScratchpadChains = new Map();
 function sessionScratchpadPath(id) {
   return path.join(paths.sessions, `${assertSessionIdForPath(id)}.scratchpad.json`);
@@ -13404,14 +13404,22 @@ async function guardFileToolPath(rawPath, ctx, opts) {
 // 路径里带 NUL 之类让解析器抛错:不在这里拦,交给 handler 回 bad_path 信封。
 // 返回 null = 放行去问;否则是与 handler 同形的失败结果。
 const WriteBoundaryHooks = {};
-const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'] });
+const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'], acceptance_report: ['path'] });
 async function preflightWriteBoundary(toolName, args, ctx) {
   const keys = Object.prototype.hasOwnProperty.call(WRITE_PATH_ARGS, toolName) ? WRITE_PATH_ARGS[toolName] : null;
   if (!keys || !args || typeof args !== 'object') return null;
-  for (const k of keys) {
-    if (typeof args[k] !== 'string' || !args[k].trim()) continue;
+  const targets = keys.map(k => args[k]);
+  if (toolName === 'file_delete' && Array.isArray(args.paths)) targets.push(...args.paths);
+  if ((toolName === 'file_copy' || toolName === 'file_move') && Array.isArray(args.items)) {
+    for (const item of args.items) if (item && typeof item === 'object') {
+      if (toolName === 'file_move') targets.push(item.from);
+      targets.push(item.to);
+    }
+  }
+  for (const target of targets) {
+    if (typeof target !== 'string' || !target.trim()) continue;
     let p;
-    try { p = typeof WriteBoundaryHooks.resolvePath === 'function' ? await WriteBoundaryHooks.resolvePath(args[k], ctx) : path.resolve(args[k]); } catch { continue; }
+    try { p = typeof WriteBoundaryHooks.resolvePath === 'function' ? await WriteBoundaryHooks.resolvePath(target, ctx) : path.resolve(target); } catch { continue; }
     const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
     if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
   }
@@ -29779,7 +29787,7 @@ const PROMPT_ZH = {
     // 时机只有两个判据:答案会改变做法 + 现场查不到。可查的先查,可默认的先做并说明假设(公开提示词指南的共识)。
     questioning: '何时问用户：只在答案会改变做法、又无法用工具从现场查证时才问；能查到的先查（查两三步仍拿不到就说明现状再问），能合理默认的先做并说明所用假设。向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。',
     onDemand: '工具按需装载：当前只注入任务预判所需的原生工具与元工具，桥接工具（ACC 桌面/Office/MCP 等）的 schema 不自动注入。不知道有哪些能力时先调用 list_tools；知道目标时调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名后直接调用；只想调一次单个桥接工具时用 tool_invoke_read / tool_invoke_edit / tool_invoke_exec 代理（按 tool_search 返回的 tier 选择，不要用低层代理调高层目标）。不要用终端重造一个可按需装载的现成工具。',
-    priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销；用 checkpoint_list 查看哪些修改可撤销，撤销只能由用户在界面操作）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
+    priority: '工具选用优先级：现成工具优先，脚本兜底。看图用 file_read(as:image)，依赖用 media_probe。audio_inspect 的测量不等于试听；acceptance_report 留验收证据。代码用 file_edit 配合 validateSyntax:true。原生文件操作受权限和检查点保护；checkpoint_list 查看记录，仅用户可撤销。脚本/ffmpeg/外部程序副作用无检查点；file_delete(path,recursive:true) 清理指定目录，空目录及元数据不受保护。',
     contextBudget: '上下文节流守则：先搜索定位再分段读（单次 ≤600 行），禁止整文件线性通读；列表/搜索大结果先缩小范围再引用；大返回先截断/摘要；长任务交子代理并取结论，不把原始大数据灌进主线上下文。',
     // C2(61 号文):只在工具表里有 scratchpad_write 时注入(模型服务商普通会话主回合;06 buildStableSystemPrompt 按工具门控)。
     scratchpad: '会话草稿本：多步任务里得出的中间结论、已确认的事实、下一步计划，用 scratchpad_write 按 key 记下（同 key 覆盖，text 为空即删除）；草稿本每回合贴在最新一条用户消息之后，上下文压缩后仍然可见。它只属于本会话、不是给用户的答复；长期偏好与项目约定仍用 workbench_memory_propose 提候选。',
@@ -30164,7 +30172,7 @@ const PROMPT_EN = {
     asyncWork: 'Long-task concurrency: use orchestrate_agents({task, background:true}) for independent subtasks (top-level task for one agent, nodes for several) and continue with the runId immediately. On the native provider engine use shell_start({command,cwd,name,timeoutMs}) for finite background commands and continue useful work immediately. Background commands and agents push completion/failure receipts to their conversation; an agent run delivers its envelope (per-node summary + artifact paths) exactly once at the next model iteration or the start of the next turn, and if the conversation is idle by then the Workbench starts that turn itself, so completion discovery requires no polling and you may end your turn while agents run (say they are still running) instead of waiting idle; fetch full text on demand with agent_result({runId, nodeId?}). Use shell_poll only for incremental output, shell_kill for explicit cancellation. Started is not completed. Commands stop when the Workbench server exits; do not promise restart survival. Claude/Kimi use their actual available tools. Ordinary additions preserve active tools; only explicit interruption cancels them.',
     questioning: 'When to ask the user: only when the answer would change what you do and it cannot be verified with tools on the spot; look up what can be looked up (if two or three attempts still do not settle it, report what you found and ask), and where a reasonable default exists, proceed and state the assumption. When asking, prefer 2–5 concrete, mutually exclusive, directly clickable options. Put the recommended option first and suffix its label with “(Recommended)”, while keeping an Other input as a fallback. Use a text-only answer only when the answer genuinely cannot be enumerated; do not make the user type a choice that could have been offered.',
     onDemand: 'On-demand tool loading: only the native and meta tools the current task likely needs are injected; schemas of bridged tools (ACC desktop/Office/MCP) are not auto-injected. Call list_tools to discover capabilities; call tool_search to find a target, then tool_load its pack or exact tool name and call it directly; to invoke a single bridged tool once, use the tool_invoke_read / tool_invoke_edit / tool_invoke_exec proxy (choose by the tier returned by tool_search; never use a lower-tier proxy for a higher-tier target). Do not reinvent an on-demand-loadable tool via the terminal.',
-    priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable; checkpoint_list shows which edits can be undone, but only the user can undo them, in the UI). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
+    priority: 'Prefer existing tools; use scripts when they cannot meet the need. Images: file_read({as:"image"}); modality flags: self-status capabilities section; dependencies: media_probe. audio_inspect provides objective measurements, never proof of listening; acceptance_report records evidence gates. Edit code with file_edit and validateSyntax:true for JS/Python/JSON. Native file writes/moves/copies use permission guards and checkpoints; checkpoint_list shows undoable changes, and only the user can undo in the UI. Shell/ffmpeg/external-app effects are not checkpointed. file_delete({path,recursive:true}) cleans explicit output folders; empty directories and directory metadata are not restored.',
     contextBudget: 'Context throttling: locate via search first, then read in slices (≤600 lines per read); never linearly read whole files. Narrow large list/search results before quoting. Truncate/summarize big returns. Delegate long tasks to a sub-agent and consume its conclusion; do not pour raw big data into the main context.',
     scratchpad: 'Session scratchpad: in multi-step work, record interim conclusions, confirmed facts and next steps with scratchpad_write (one note per key; the same key overwrites, empty text deletes). The scratchpad is re-shown after the latest user message every turn and stays visible after context compaction. It belongs to this conversation only and is not a reply to the user; long-term preferences and project conventions still go through workbench_memory_propose.',
   },
@@ -37351,8 +37359,8 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
     },
     {
       name: 'tool_search',
-      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, short descriptions and argument outlines without injecting every schema.',
-      inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
+      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns names, packs, risk tiers and argument outlines.',
+      inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' }, view: { type: 'string', enum: ['list', 'matrix'], description: 'matrix adds modality and engine availability' } }, required: ['query'] },
     },
     {
       name: 'tool_load',
@@ -37685,6 +37693,7 @@ const NATIVE_TOOL_TIER = {
   desktop_screenshot: 'exec', http_request: 'exec',
   // 127-114c③(26 号文 §3):读本地音频后出网转写 —— 用户文件内容离开本进程,与「文件出网」同档 exec。
   audio_transcribe: 'exec',
+  audio_inspect: 'read', media_probe: 'read', code_check: 'read', acceptance_report: 'edit',
   orchestrate_agents: 'exec', // 代理模式 v2:委派子代理是最高特权的原生动作 → exec 档(旧 spawn_agent 已并入)
   spawn_agent: 'exec', // 137 集成:兼容口仍在注册表(旧模型调它 → MCP 子进程翻译成单节点 orchestrate),档位必须与 orchestrate_agents 同为 exec,不能因缺声明落到低档
   wait_agents: 'read',
@@ -37822,6 +37831,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   audio_transcribe: 'files_read', // 127-114c③:读本地音频文件转写,目录归 files_read(tier 仍是 exec)
+  audio_inspect: 'files_read', media_probe: 'files_read', code_check: 'files_read', acceptance_report: 'files_write',
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
   // C4:检查点清单归 files_write 而不是 core / files_read —— 它回答的是「刚才那些写操作哪些能撤」,只有手里有写类工具时才有用,
   // 随写包一起装(写包本就按「修改/创建/删除…」意图装载,下面 classifyToolPacks 另补了撤销/回滚/检查点);放 core 会每回合常驻
@@ -37878,7 +37888,14 @@ function toolPackForName(name, bridgedRoute) {
 // bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
 // deterministic fields derived from name, description and JSON Schema parameters.
 const TOOL_RETRIEVAL_HINTS = Object.freeze({
-  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '读取文档', '读取PDF', 'read workspace file', 'read image'] },
+  file_read: { capabilities: ['workspace.file.read', 'image.view', 'document.read'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '看图', '视觉输入', '读取文档', '读取PDF', 'read workspace file', 'read image', 'view image', 'view image vision', 'vision'] },
+  audio_inspect: { capabilities: ['audio.inspect', 'audio.loudness', 'audio.waveform'], aliases: ['音频验收', '音频分析', '响度', '削波', 'audio inspect', 'audio levels', 'LUFS'] },
+  media_probe: { capabilities: ['media.dependencies.inspect'], aliases: ['依赖探测', '媒体工具链', 'ffmpeg', 'ffprobe', 'chrome', 'ffmpeg ffprobe chrome', 'media dependencies'] },
+  code_check: { capabilities: ['code.syntax.check'], aliases: ['语法检查', '代码体检', '写盘前语法检查', 'syntax check', 'validate code'] },
+  acceptance_report: { capabilities: ['verification.evidence.report'], aliases: ['验收回执', '证据卡', '验收清单', 'acceptance checklist', 'verification report'] },
+  shell_start: { capabilities: ['shell.background.start'], aliases: ['后台任务', '后台运行', '长任务', '后台渲染', 'background shell', 'background job', 'render video background'] },
+  shell_poll: { capabilities: ['shell.background.poll'], aliases: ['后台任务进度', '读取后台输出', 'poll background job'] },
+  shell_kill: { capabilities: ['shell.background.cancel'], aliases: ['取消后台任务', '停止渲染', 'cancel background job'] },
   file_list: { capabilities: ['workspace.file.list'], aliases: ['列出目录', '查看目录', 'list directory'] },
   file_search: { capabilities: ['workspace.text.search'], aliases: ['搜索文件内容', '全文检索', 'search files'] },
   glob: { capabilities: ['workspace.path.glob'], aliases: ['按模式找文件', '文件通配符', 'find files by pattern'] },
@@ -38291,8 +38308,18 @@ function withShadowedBridgeHints(result, catalog) {
 // 61-A4:零命中不再只回一张空表 —— 模型分不清「措辞没对上」和「真没有这类工具」,于是换着说法连搜(真机搜「撤销/回滚」)。
 const TOOL_SEARCH_EMPTY_NOTE = 'No dedicated tool matched. Try other capability words (Chinese or English) or browse with list_tools {pack}; if nothing fits, do it with the general tools you already have (e.g. powershell_run / script_run when available) or tell the user it is not supported.';
 function searchToolCatalog(catalog, args, config, opts) {
+  const q = normalizeToolSearchText(args && args.query || '');
+  if (q && Object.values(TOOL_RETRIEVAL_HINTS).some(h => (h.aliases || []).some(alias => normalizeToolSearchText(alias) === q))) opts = { ...(opts || {}), forceV1: true };
   // 先分区再给骨架:full 骨架的 3 个名额先给未遮蔽项(被遮蔽的桥接项已挪到后面)。
   const result = withToolArgSkeletons(withShadowedBridgeHints(rankToolCatalog(catalog, args, config, opts), catalog), catalog, opts);
+  if (result && Array.isArray(result.matches)) {
+    for (const match of result.matches) {
+      if (/^shell_(?:start|send|poll|kill|list)$/.test(match.name)) match.availability = 'Native provider turns only; CLI/MCP engines use their own background-command tools.';
+    }
+    if (args && args.view === 'matrix') result.capabilityMatrix = result.matches.map(m => ({ tool: m.name, pack: m.pack, tier: m.tier,
+      modality: m.name === 'file_read' ? 'text/image/document' : /^audio_/.test(m.name) ? 'audio' : /^shell_/.test(m.name) ? 'background process' : m.name === 'code_check' ? 'code' : m.name === 'acceptance_report' ? 'verification' : 'other',
+      ...(m.availability ? { availability: m.availability } : {}) }));
+  }
   if (result && Array.isArray(result.matches) && !result.matches.length && String(args && args.query || '').trim()) return { ...result, note: TOOL_SEARCH_EMPTY_NOTE };
   return result;
 }
@@ -47748,8 +47775,14 @@ function buildSessionScratchpadInjectPrompt(entries) {
   const close = '\n</session-scratchpad>';
   const body = list.map(e => `- ${esc(e.key)}: ${esc(e.text).replace(/\n/g, '\n  ')}`).join('\n');
   const budget = Math.max(0, SESSION_SCRATCHPAD_INJECT_MAX_CHARS - open.length - close.length);
-  const marker = '\n[...scratchpad truncated...]';
-  return open + (body.length <= budget ? body : body.slice(0, Math.max(0, budget - marker.length)) + marker) + close;
+  if (body.length <= budget) return open + body + close;
+  const marker = '\n[Previews only; scratchpad_write({op:"list"}) returns complete notes.]';
+  const perNote = Math.max(0, Math.floor((budget - marker.length) / list.length) - 1);
+  const previews = list.map(e => {
+    const row = `- ${esc(e.key)}: ${esc(e.text).replace(/\n/g, '\n  ')}`;
+    return row.length <= perNote ? row : row.slice(0, Math.max(0, perNote - 1)) + '…';
+  }).join('\n');
+  return open + previews + marker + close;
 }
 
 // 105d-A 去重守门(纯函数,e2e 白盒共用): notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要
@@ -51386,7 +51419,7 @@ function shellMcpChildGuard() {
   return {
     ok: false,
     error: 'shell 会话仅在原生 provider 引擎可用(工具运行于一次性 MCP 子进程,无法跨回合存活)',
-    hint: '一次性命令请用 powershell_run',
+    hint: '需要非阻塞长任务时请使用当前 CLI 引擎自己的后台命令工具,或切换到原生 provider 引擎使用 shell_start/shell_poll/shell_kill。短命令可用 powershell_run。',
   };
 }
 
@@ -56772,6 +56805,203 @@ const FileVisualIo = (() => {
   return Object.freeze({ kind, image, document, linkedImages });
 })();
 
+// Local media diagnostics and parse-only source checks. No desktop or network I/O.
+const MediaInspection = (() => {
+  const io = require('fs/promises');
+  const nodePath = require('path');
+  const nodeOs = require('os');
+  const childProcess = require('child_process');
+  const cache = new Map();
+  const finite = value => Number.isFinite(Number(value)) ? Number(value) : null;
+  const bounded = (value, fallback, low, high) => value == null || !Number.isFinite(Number(value)) ? fallback : Math.max(low, Math.min(high, Number(value)));
+
+  function run(command, argv, options = {}) {
+    return new Promise(resolve => {
+      let stdout = '', stderr = '', finished = false, timedOut = false;
+      let child;
+      const done = (code, error) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        resolve({ ok: code === 0 && !timedOut, code, timedOut, stdout, stderr, ...(error ? { error: String(error.message || error) } : {}) });
+      };
+      const timer = setTimeout(() => { timedOut = true; if (child) child.kill(); }, options.timeoutMs || 5000);
+      try {
+        child = childProcess.spawn(command, argv, { windowsHide: true, shell: false, stdio: ['pipe', 'pipe', 'pipe'] });
+        child.stdout.on('data', b => { stdout = (stdout + b.toString()).slice(-262144); });
+        child.stderr.on('data', b => {
+          const fragment = b.toString();
+          stderr = (stderr + fragment).slice(-32768);
+          if (options.onStderr) options.onStderr(fragment);
+        });
+        child.once('error', error => done(null, error));
+        child.once('close', code => done(code));
+        child.stdin.on('error', () => {});
+        child.stdin.end(options.input || '');
+      } catch (error) { done(null, error); }
+    });
+  }
+
+  async function candidates(names) {
+    const found = [];
+    for (const name of names.filter(Boolean)) {
+      if (nodePath.isAbsolute(name)) { if ((await io.stat(name).catch(() => null))?.isFile()) found.push(name); continue; }
+      for (const dir of String(process.env.PATH || '').split(nodePath.delimiter).filter(Boolean)) {
+        for (const suffix of process.platform === 'win32' ? ['.exe', ''] : ['']) {
+          const candidate = nodePath.join(dir, name + suffix);
+          if ((await io.stat(candidate).catch(() => null))?.isFile()) found.push(candidate);
+        }
+      }
+    }
+    return [...new Set(found)];
+  }
+
+  async function locate(kind, refresh = false) {
+    const key = [kind, process.env.PATH, process.env.RUYI_BUNDLED_PYTHON, process.env.VIRTUAL_ENV, process.env.IMAGEIO_FFMPEG_EXE, process.env.FFMPEG_BINARY].join('|');
+    const previous = cache.get(key);
+    if (!refresh && previous && Date.now() - previous.at < 30000 && (!previous.value.path || await io.stat(previous.value.path).catch(() => null))) return previous.value;
+    let names = [];
+    if (kind === 'python') names = [process.env.RUYI_BUNDLED_PYTHON, process.env.VIRTUAL_ENV && nodePath.join(process.env.VIRTUAL_ENV, process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'), 'python3', 'python'];
+    if (kind === 'node') names = [!process.pkg && process.execPath, 'node'];
+    if (kind === 'ffmpeg') names = [process.env.IMAGEIO_FFMPEG_EXE, process.env.FFMPEG_BINARY, 'ffmpeg'];
+    if (kind === 'ffprobe') names = ['ffprobe'];
+    if (kind === 'chrome') names = ['chrome', 'chromium', 'chromium-browser', 'msedge',
+      ...[process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].filter(Boolean).flatMap(dir => [nodePath.join(dir, 'Google/Chrome/Application/chrome.exe'), nodePath.join(dir, 'Microsoft/Edge/Application/msedge.exe')]),
+      ...(process.platform === 'darwin' ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'] : [])];
+    let executablePaths = await candidates(names);
+    if (kind === 'ffmpeg' && !executablePaths.length) {
+      const python = await locate('python', refresh);
+      if (python.available) {
+        // Locate the wheel's bundled binary without asking imageio to download anything.
+        const result = await run(python.path, ['-I', '-c', 'import importlib.util,pathlib,json; s=importlib.util.find_spec("imageio_ffmpeg"); print(json.dumps([str(p) for p in (pathlib.Path(s.origin).parent/"binaries").glob("ffmpeg-*") if p.is_file()] if s else []))']);
+        try { executablePaths = await candidates(JSON.parse(result.stdout.trim())); } catch { /* absent wheel */ }
+      }
+    }
+    if (kind === 'ffprobe' && !executablePaths.length) {
+      const ffmpeg = await locate('ffmpeg', refresh);
+      if (ffmpeg.available) executablePaths = await candidates([nodePath.join(nodePath.dirname(ffmpeg.path), process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe')]);
+    }
+    let value = { available: false, path: null, version: null };
+    for (const candidate of executablePaths.slice(0, 8)) {
+      // Chrome --version can launch a visible browser on Windows; existence is reported honestly.
+      if (kind === 'chrome' && process.platform === 'win32') { value = { available: true, path: candidate, version: null, verification: 'file_exists' }; break; }
+      const r = await run(candidate, [kind === 'ffmpeg' || kind === 'ffprobe' ? '-version' : '--version']);
+      if (r.ok) { value = { available: true, path: candidate, version: (r.stdout || r.stderr).split(/\r?\n/)[0].slice(0, 180), verification: 'version_command' }; break; }
+    }
+    if (!value.available) value.hint = kind === 'ffprobe'
+      ? 'Install the full FFmpeg distribution and add its bin directory to PATH; imageio-ffmpeg commonly bundles ffmpeg only. audio_inspect can still analyze audio using ffmpeg.'
+      : kind === 'ffmpeg' ? 'Install FFmpeg and add its bin directory to PATH, or set IMAGEIO_FFMPEG_EXE to its executable. An installed imageio-ffmpeg wheel is also detected.'
+        : `Install ${kind === 'chrome' ? 'Chrome/Chromium/Edge' : kind} and make its executable available on PATH.`;
+    cache.set(key, { at: Date.now(), value });
+    return value;
+  }
+
+  async function dependencies(refresh) {
+    const result = {};
+    for (const kind of ['ffmpeg', 'ffprobe', 'chrome', 'python', 'node']) result[kind] = await locate(kind, refresh);
+    return { ok: true, dependencies: result, installsPerformed: false };
+  }
+
+  async function checkSyntax(file, content) {
+    if (Buffer.byteLength(content, "utf8") > 1024 * 1024) return { ok: false, code: "source_too_large", error: "Syntax checks accept at most 1MB of source.", executed: false };
+    const extension = nodePath.extname(file).toLowerCase();
+    if (extension === '.json') {
+      try { JSON.parse(content.replace(/^\uFEFF/, '')); return { ok: true, valid: true, language: 'json', executed: false }; }
+      catch (error) { return { ok: false, valid: false, code: 'syntax_error', language: 'json', error: error.message, executed: false }; }
+    }
+    const kind = extension === '.py' ? 'python' : /\.(?:js|mjs|cjs)$/.test(extension) ? 'node' : '';
+    if (!kind) return { ok: false, code: 'unsupported_syntax', error: 'Parse-only checks support .py, .js, .mjs, .cjs and .json.', executed: false };
+    const executable = await locate(kind);
+    if (!executable.available) return { ok: false, code: 'dependency_missing', dependency: kind, hint: executable.hint, executed: false };
+    let result;
+    if (kind === 'python') result = await run(executable.path, ['-I', '-c', 'import ast,sys; ast.parse(sys.stdin.buffer.read().decode("utf-8-sig"), filename=sys.argv[1])', file], { input: content, timeoutMs: 10000 });
+    else {
+      const directory = await io.mkdtemp(nodePath.join(nodeOs.tmpdir(), 'ruyi-syntax-'));
+      try {
+        const candidate = nodePath.join(directory, 'candidate' + extension);
+        await io.writeFile(candidate, content, 'utf8');
+        result = await run(executable.path, ['--check', candidate], { timeoutMs: 10000 });
+      } finally { await io.rm(directory, { recursive: true, force: true }); }
+    }
+    return { ok: result.ok, valid: result.ok, language: kind === 'node' ? 'javascript' : 'python', executed: false,
+      ...(result.ok ? {} : { code: result.timedOut ? 'syntax_check_timeout' : 'syntax_error', error: (result.stderr || result.error || result.stdout).slice(-6000) }) };
+  }
+
+  function audioCollector(start, interval, limit) {
+    let pending = '', frame = null;
+    const windows = new Map();
+    const channels = new Map();
+    let integratedLufs = null, loudnessRangeLu = null, measuredEnd = 0;
+    const commit = () => {
+      if (!frame) return;
+      const time = start + frame.time;
+      measuredEnd = Math.max(measuredEnd, frame.time + 0.1);
+      const index = Math.floor(frame.time / interval);
+      if (!windows.has(index) && windows.size < limit) windows.set(index, { startSeconds: start + index * interval, endSeconds: time + 0.1, peakDbfs: null, rmsDbfs: null, momentaryLufs: null, shortTermLufs: null });
+      const window = windows.get(index);
+      const maximum = (a, b) => a == null ? b : b == null ? a : Math.max(a, b);
+      for (const [key, raw] of Object.entries(frame.values)) {
+        const value = finite(raw);
+        if (key === 'r128.I') integratedLufs = value;
+        if (key === 'r128.LRA') loudnessRangeLu = value;
+        if (window) {
+          window.endSeconds = time + 0.1;
+          if (key === 'astats.Overall.Peak_level') window.peakDbfs = maximum(window.peakDbfs, value);
+          if (key === 'astats.Overall.RMS_level') window.rmsDbfs = maximum(window.rmsDbfs, value);
+          if (key === 'r128.M') window.momentaryLufs = value;
+          if (key === 'r128.S') window.shortTermLufs = value;
+        }
+        const match = /^astats\.(\d+)\.(Peak_level|RMS_level)$/.exec(key);
+        if (match) {
+          const channel = Number(match[1]);
+          if (!channels.has(channel)) channels.set(channel, { channel, peakDbfs: null, maxWindowRmsDbfs: null });
+          const row = channels.get(channel);
+          const field = match[2] === 'Peak_level' ? 'peakDbfs' : 'maxWindowRmsDbfs';
+          row[field] = maximum(row[field], value);
+        }
+      }
+    };
+    const line = fragment => {
+      const timestamp = /\bpts_time:([\d.e+-]+)/.exec(fragment);
+      if (timestamp) { commit(); frame = { time: Number(timestamp[1]), values: {} }; }
+      const match = /lavfi\.((?:r128|astats)\.[\w.]+)=([^\s]+)/.exec(fragment);
+      if (match && frame) frame.values[match[1]] = match[2];
+    };
+    return {
+      feed(fragment) { pending += fragment; const lines = pending.split(/\r?\n/); pending = lines.pop().slice(-8192); for (const entry of lines) line(entry); },
+      finish() {
+        line(pending); commit();
+        const curve = [...windows.values()];
+        return { measuredSeconds: measuredEnd, integratedLufs, loudnessRangeLu, channels: [...channels.values()], curve,
+          nearClipWindows: curve.filter(w => w.peakDbfs != null && w.peakDbfs >= -0.1).map(w => ({ startSeconds: w.startSeconds, endSeconds: w.endSeconds, peakDbfs: w.peakDbfs })) };
+      },
+    };
+  }
+
+  async function inspectAudio(file, args) {
+    if (!/\.(wav|mp3|m4a|mp4|aac|flac|ogg|opus|webm|mkv|aif|aiff|wma)$/i.test(file)) return { ok: false, code: 'unsupported_media', error: 'Use a local audio/video container; playlists and external media references are not accepted.' };
+    const ffmpeg = await locate('ffmpeg');
+    if (!ffmpeg.available) return { ok: false, code: 'dependency_missing', dependency: 'ffmpeg', hint: ffmpeg.hint };
+    const start = bounded(args.startSeconds, 0, 0, 86400);
+    const duration = bounded(args.durationSeconds, 120, 0.1, 1800);
+    const interval = Math.max(bounded(args.windowSeconds, 1, 0.1, 60), duration / 600);
+    const stream = Math.floor(bounded(args.stream, 0, 0, 63));
+    const collector = audioCollector(start, interval, 601);
+    const result = await run(ffmpeg.path, ['-nostdin', '-hide_banner', '-nostats', '-protocol_whitelist', 'file,pipe', '-format_whitelist', 'wav,mp3,mov,matroska,webm,ogg,flac,aac,aiff,asf', '-ss', String(start), '-i', file,
+      '-t', String(duration), '-map', `0:a:${stream}`, '-vn', '-sn', '-dn', '-af', 'ebur128=metadata=1:peak=true,astats=metadata=1:reset=1:measure_perchannel=Peak_level+RMS_level:measure_overall=Peak_level+RMS_level,ametadata=mode=print', '-f', 'null', '-'],
+    { timeoutMs: 60000, onStderr: fragment => collector.feed(fragment) });
+    if (!result.ok) return { ok: false, code: result.timedOut ? 'media_timeout' : 'audio_decode_failed', error: (result.error || result.stderr).slice(-4000), hint: 'Check the audio stream index and media format; try a shorter durationSeconds window.' };
+    const analysis = collector.finish();
+    if (!analysis.curve.length) return { ok: false, code: 'audio_measurement_missing', error: 'FFmpeg returned no audio measurement frames.' };
+    return { ok: true, path: file, stream, startSeconds: start, requestedSeconds: duration, windowSeconds: interval, ...analysis,
+      nextStartSeconds: analysis.measuredSeconds >= duration - 0.1 ? start + duration : null,
+      measurement: 'EBU R128 loudness; sample peak dBFS; per-window maximum RMS dBFS',
+      nearClipThresholdDbfs: -0.1, listeningPerformed: false,
+      note: 'Objective signal analysis, not listening. Near-clip windows flag sample peaks at or above -0.1 dBFS; they do not prove audible distortion. Use file_read on visual evidence and user playback for subjective review.' };
+  }
+  return { dependencies, locate, checkSyntax, inspectAudio, audioCollector };
+})();
+
 // 文件族只读工具默认根(修复:旧实现统一回退 process.cwd()=服务器启动目录,与系统 workspace
 // 概念脱节 —— MCP/API 调用不带 root 时永远列到 dist/Ruyi-full 这类产物目录)。
 // 回退链:显式 args.root > 回合注入 ctx.workingDir > 会话 cwd ctx.session.cwd > MCP 子进程会话(env WCW_SESSION_ID)> 配置 defaultWorkspace > 用户主目录(末位兜底)。
@@ -57480,7 +57710,7 @@ const CORE_TOOL_HANDLERS = {
 // 事实源(§3.5「复用 workbench_self_status 装配并加管家段」——不新造第二个事实源)。逻辑逐行未变;
 // 唯一新增是「未知 section 回落 all」的既有行为对 'steward' 也成立(该段由 13g 自己追加,本函数不认识它)。
 async function buildWorkbenchSelfStatus(args, ctx) {
-      const SECTIONS = new Set(['identity', 'health', 'counts', 'config', 'all']);
+      const SECTIONS = new Set(['identity', 'health', 'counts', 'config', 'capabilities', 'all']);
       const section = SECTIONS.has(args && args.section) ? args.section : 'all';
       const identity = buildRuntimeIdentityFacts();
       const out = {
@@ -57511,9 +57741,10 @@ async function buildWorkbenchSelfStatus(args, ctx) {
           workflows: Array.isArray(workflows) ? workflows.length : BUILTIN_AGENT_WORKFLOWS.length,
         };
       }
-      if (section === 'all' || section === 'config') {
-        const p = activeOpenAiProvider(config);
+      if (section === 'all' || section === 'config' || section === 'capabilities') {
+        const p = (ctx && ctx.provider) || activeOpenAiProvider(config);
         const cli = selectedAgentCli(config);
+        const modalities = { vision: p ? p.vision === true : null, audio: false, asr: !resolveAsrProvider(config).failure };
         out.config = {
           engine: p ? 'openai' : cli.id,
           providerId: p ? p.id : '',
@@ -57522,7 +57753,23 @@ async function buildWorkbenchSelfStatus(args, ctx) {
           permissionMode: String(config.permissionMode || ''),
           outputStyle: String(config.outputStyle || ''),
           locale: String(config.locale || ''),
+          modalities,
+          providerCapabilities: { protocol: p ? providerWireProtocol(p).id : 'cli', visionConfigured: p ? p.vision === true : null, source: 'configuration', modelSupportProbed: false },
         };
+        out.capabilities = {
+          modalities,
+          matrix: [
+            { modality: 'image', tools: ['file_read'], input: 'as:image or auto', providerVisionEnabled: modalities.vision },
+            { modality: 'document', tools: ['file_read'], input: 'PDF/OOXML/ODF; embedded images and page windows' },
+            { modality: 'audio', tools: ['audio_inspect', 'audio_transcribe'], analysis: 'local FFmpeg measurements', listening: false, transcriptionConfigured: modalities.asr },
+            { modality: 'code', tools: ['code_check', 'file_edit', 'file_write'], input: 'validateSyntax:true checks candidate before writing' },
+            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!p && !RUNTIME.isMcpChild, engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
+            { modality: 'verification', tools: ['acceptance_report', 'media_probe', 'checkpoint_list'] },
+          ],
+          checkpointScope: 'Native journaled file operations only. Shell/script/ffmpeg/browser/application side effects are not checkpointed; recursive operations restore file contents, not empty-directory metadata.',
+          audioInputNote: 'This harness does not send raw audio to the chat model. ASR transcription and objective audio analysis do not constitute listening.',
+        };
+        if (section === 'capabilities') delete out.config;
       }
       return out;
 }
@@ -57871,7 +58118,120 @@ function fileMoveSameFileKind(from, to, fromSt, toSt, platform) {
   return sameStat && String(from).toLowerCase() === String(to).toLowerCase() ? 'case-only' : null;
 }
 
+// Preflight the complete explicit batch before any mutation. Each file then uses the existing
+// guarded, locked, journaled primitive. A batch is deliberately not advertised as a transaction.
+async function fileToolBatch(operation, args, ctx) {
+  const deleting = operation === 'file_delete';
+  const inputs = deleting ? (args.paths || [args.path]).map(p => ({ from: p })) : (args.items || [{ from: args.from, to: args.to }]);
+  const files = [], directories = [], roots = [], results = [];
+  let changedDirectories = 0, entries = 0;
+  const fail = (code, error) => { throw Object.assign(new Error(error), { code }); };
+  const inside = (a, b) => { const rel = path.relative(a, b); return !rel || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel)); };
+  const check = async (p, write) => { const g = await guardFileToolPath(p, ctx, { tool: operation, write }); if (!g.ok) fail(g.code, g.error); return g.absPath || p; };
+  const workspaceRaw = await fileToolWorkspaceDir(ctx);
+  const workspace = await fsp.realpath(workspaceRaw).catch(() => workspaceRaw);
+  async function visit(from, to, depth) {
+    if (++entries > 1000 || depth > 32) fail('batch_limit', 'Batch exceeds 1000 entries or depth 32; split it into smaller batches.');
+    const realFrom = await check(from, operation !== 'file_copy');
+    if (to) await check(to, true);
+    const st = await fsp.lstat(from);
+    if (st.isSymbolicLink()) fail('symlink_refused', 'Directory/batch operations do not follow symlinks: ' + from);
+    const dest = to ? await fsp.lstat(to).catch(e => { if (e.code !== 'ENOENT') throw e; return null; }) : null;
+    if (dest?.isSymbolicLink()) fail('symlink_refused', 'Destination is a symlink: ' + to);
+    if (st.isDirectory()) {
+      if (!args.recursive) fail('recursive_required', 'Directory operations require recursive:true.');
+      if (operation !== 'file_copy' && (inside(realFrom, workspace) || realFrom === path.parse(realFrom).root)) fail('protected_root', 'Refusing to delete/move the workspace root or its ancestors.');
+      if (dest && !dest.isDirectory()) fail('target_type_mismatch', 'Destination is not a directory: ' + to);
+      directories.push({ from, to });
+      for (const entry of await fsp.readdir(from)) await visit(path.join(from, entry), to && path.join(to, entry), depth + 1);
+    } else {
+      if (!st.isFile()) fail('unsupported_file', 'Only regular files/directories are supported.');
+      if (dest && (dest.isDirectory() || !args.overwrite)) fail('target_exists', 'Destination exists; use overwrite:true for files: ' + to);
+      files.push({ from, to });
+    }
+  }
+  try {
+    if (!inputs.length || inputs.length > 100) fail('invalid_batch', 'Provide 1..100 paths/items.');
+    for (const input of inputs) {
+      if (!input || !input.from || (!deleting && !input.to)) fail('invalid_batch', 'Every item requires a source and, for copy/move, a destination.');
+      const from = await resolveFileToolPath(input.from, ctx), to = deleting ? null : await resolveFileToolPath(input.to, ctx);
+      const realFrom = await check(from, operation !== 'file_copy'), realTo = to && await check(to, true);
+      const endpoints = [realFrom, realTo].filter(Boolean);
+      if (realTo && (inside(realFrom, realTo) || inside(realTo, realFrom))) fail('overlapping_paths', 'Source and destination must not overlap.');
+      if (roots.some(p => endpoints.some(q => inside(p, q) || inside(q, p)))) fail('overlapping_paths', 'Batch roots must not overlap.');
+      roots.push(...endpoints);
+      await visit(from, to, 0);
+    }
+    for (const dir of directories) if (dir.to) {
+      await check(dir.to, true);
+      if (!(await fsp.lstat(dir.to).catch(() => null))) { await fsp.mkdir(dir.to, { recursive: true }); changedDirectories++; }
+    }
+    for (const file of files) {
+      // Recheck type immediately before the guarded primitive; reject links introduced since preflight.
+      if ((await fsp.lstat(file.from)).isSymbolicLink() || (file.to && (await fsp.lstat(file.to).catch(() => null))?.isSymbolicLink())) fail('symlink_refused', 'A batch path changed into a symlink.');
+      const result = await FILE_TOOL_HANDLERS[operation].handler(deleting ? { path: file.from } : { from: file.from, to: file.to, overwrite: args.overwrite }, ctx);
+      results.push(result);
+      if (!result.ok) return { ok: false, code: 'batch_failed', partial: results.some(r => r.ok) || changedDirectories > 0, results, error: result.error };
+    }
+    if (operation !== 'file_copy') for (const dir of directories.slice().reverse()) {
+      await check(dir.from, true);
+      if ((await fsp.lstat(dir.from)).isSymbolicLink()) fail('symlink_refused', 'A source directory changed into a symlink.');
+      await fsp.rmdir(dir.from); changedDirectories++;
+    }
+    return { ok: true, operation, files: results.length, directories: directories.length, results,
+      checkpointWarn: results.some(r => !!r.checkpointWarn), checkpointScope: 'File contents only, subject to per-file snapshot limits. Empty directories and directory metadata are not restored.' };
+  } catch (error) { return { ok: false, code: error.code || 'batch_failed', error: error.message, partial: results.some(r => r.ok) || changedDirectories > 0, results }; }
+}
+
 const FILE_TOOL_HANDLERS = {
+  acceptance_report: { paths: 'both', guardNote: '', handler: async (args, ctx) => {
+    if (!args.path || !args.title || !Array.isArray(args.checks) || !args.checks.length || args.checks.length > 50) return { ok: false, code: 'invalid_report', error: 'Provide path, title and 1..50 checks.' };
+    const checks = [];
+    for (const [index, check] of args.checks.entries()) {
+      if (!check || !check.label || !['pass', 'fail', 'blocked', 'not_run'].includes(check.status)) return { ok: false, code: 'invalid_report', error: 'Each check needs label and status: pass/fail/blocked/not_run.' };
+      const evidence = [];
+      if (check.evidence != null && (!Array.isArray(check.evidence) || check.evidence.length > 8)) return { ok: false, code: 'invalid_report', error: 'At most 8 evidence files per check.' };
+      for (const item of check.evidence || []) {
+        if (typeof item !== 'string' || !item) return { ok: false, code: 'invalid_report', error: 'Evidence must be local file paths.' };
+        const p = await resolveFileToolPath(item, ctx);
+        const g = await guardFileToolPath(p, ctx, { tool: 'acceptance_report', write: false });
+        if (!g.ok) return { ok: false, code: g.code, error: g.error };
+        const st = await fsp.stat(p).catch(() => null);
+        if (!st?.isFile()) return { ok: false, code: 'evidence_missing', error: 'Evidence file missing: ' + p };
+        evidence.push({ path: p, bytes: st.size, modifiedAt: st.mtime.toISOString() });
+      }
+      checks.push({ id: index + 1, label: String(check.label).slice(0, 240), status: check.status, conclusion: String(check.conclusion || '').slice(0, 2000), evidence });
+    }
+    const counts = Object.fromEntries(['pass', 'fail', 'blocked', 'not_run'].map(s => [s, checks.filter(c => c.status === s).length]));
+    const report = { type: 'ruyi.acceptance-report', version: 1, title: String(args.title).slice(0, 240), createdAt: new Date().toISOString(),
+      overall: counts.fail ? 'fail' : counts.blocked || counts.not_run ? 'pending' : 'pass', counts, checks,
+      provenance: 'Statuses/conclusions are supplied by the caller, not independently verified. Evidence paths and file metadata were checked at report creation; files may later change.' };
+    const output = await toolCall('file_write', { path: args.path, content: JSON.stringify(report, null, 2) + '\n' }, ctx);
+    return output.ok ? { ...output, report } : output;
+  } },
+  media_probe: { paths: null, guardNote: 'Read-only executable/version discovery; no installation or browser launch', handler: async args => MediaInspection.dependencies(args.refresh === true) },
+  audio_inspect: { paths: 'read', guardNote: '', handler: async (args, ctx) => {
+    const p = await resolveFileToolPath(args.path, ctx);
+    const guard = await guardFileToolPath(p, ctx, { tool: 'audio_inspect', write: false });
+    if (!guard.ok) return { ok: false, code: guard.code, error: guard.error };
+    const st = await fsp.stat(guard.path || p).catch(() => null);
+    if (!st || !st.isFile()) return { ok: false, code: 'not_found', error: 'Audio source must be an existing local file.' };
+    return MediaInspection.inspectAudio(guard.absPath || p, args);
+  } },
+  code_check: { paths: 'read', guardNote: '', handler: async (args, ctx) => {
+    const p = await resolveFileToolPath(args.path, ctx);
+    const guard = await guardFileToolPath(p, ctx, { tool: 'code_check', write: false });
+    if (!guard.ok) return { ok: false, code: guard.code, error: guard.error };
+    let content = args.content;
+    if (content == null) {
+      const source = await toolCall('file_read', { path: p, limit: 50000 }, ctx);
+      if (!source.ok) return source;
+      if (source.truncated || typeof source.content !== 'string') return { ok: false, code: 'source_too_large', error: 'Supply the complete candidate content (maximum 1 MB) for a syntax check.' };
+      content = source.content;
+    }
+    if (Buffer.byteLength(String(content), 'utf8') > 1048576) return { ok: false, code: 'source_too_large', error: 'Syntax check input is limited to 1 MB.' };
+    return { path: p, ...await MediaInspection.checkSyntax(p, String(content)) };
+  } },
   file_read: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_read', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
@@ -57880,6 +58240,10 @@ const FILE_TOOL_HANDLERS = {
       let visualKind;
       try {
         visualKind = await FileVisualIo.kind(p);
+        if (args.as === 'image' && !visualKind) return { ok: false, code: 'not_image', error: 'This file is not an image or supported visual document.', path: p };
+        if (args.as === 'image') args = { ...args, includeImages: true };
+        if (args.as === 'text' && visualKind === 'image') return { ok: false, code: 'not_text', error: 'Image bytes cannot be read as text; use as:image.', path: p };
+        if (args.as === 'text') args = { ...args, includeImages: false };
         if (visualKind) {
           const result = visualKind === 'image' ? await FileVisualIo.image(p, args) : null;
           if (result) return result;
@@ -58040,6 +58404,11 @@ const FILE_TOOL_HANDLERS = {
           else if (!existed) targetLineEnding = detectTextLineEnding(String(args.content)) === 'crlf' ? 'crlf' : defaultTextLineEnding(p);
         }
         let content = targetLineEnding ? normalizeTextLineEndings(String(args.content), targetLineEnding) : String(args.content);
+        if (args.validateSyntax === true) {
+          if (legacyEncoding) return { ok: false, code: 'unsupported_syntax', error: 'Syntax validation requires text content, not a binary encoding.', written: false };
+          const validation = await MediaInspection.checkSyntax(p, content);
+          if (!validation.ok) return { ...validation, path: p, written: false };
+        }
         // hunt2 #10:保住 UTF-8 BOM。模型给的 content 从不带 BOM,整份覆写曾把原文件的 BOM 剥掉(file_edit 保得住);
         // 新建的 .ps1 也补上 BOM —— 否则 Windows PowerShell 5.1 按 ANSI 读,中文字面量变乱码。
         if (isUtf8Target && !content.startsWith('\ufeff')
@@ -58184,6 +58553,10 @@ const FILE_TOOL_HANDLERS = {
         const writeText = (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf')
           ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
         const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
+        if (args.validateSyntax === true) {
+          const validation = await MediaInspection.checkSyntax(p, updated);
+          if (!validation.ok) return { ...validation, path: p, written: false };
+        }
         // 2026-10 走查(R2):替换后与原文逐字符相同(oldText == newText,或换行规范化后等价)—— 不写盘、不记检查点
         // (修前照样原子重写 + 记一条空检查点,mtime 被扰动、撤回列表里多一条什么也没改的条目)。与 file_write 的幂等跳过同口径。
         if (updated === raw) {
@@ -58217,6 +58590,7 @@ const FILE_TOOL_HANDLERS = {
       });
   } },
   file_delete: { paths: "write", guardNote: '', handler: async (args, ctx) => {
+      if (args.recursive || args.paths) return fileToolBatch('file_delete', args, ctx);
       // v0.8-S4a (moved in from S1 — a not-undoable delete could not ship before the journal existed).
       // Checkpoint the file's bytes (op delete) BEFORE unlinking so a rollback can resurrect it. Refuse
       // directories (only files are journaled/deletable here).
@@ -58258,6 +58632,7 @@ const FILE_TOOL_HANDLERS = {
       });
   } },
   file_move: { paths: "both", guardNote: '', handler: async (args, ctx) => {
+      if (args.recursive || args.items) return fileToolBatch('file_move', args, ctx);
     // v1.1-W2 (T1) file_move(from, to, overwrite=false): 移动/重命名。检查点两条各自逆操作（见下注释）。
     // 逆操作语义表（把关人可据此审）：
     //   ① from 存 op:delete（before=from 原内容）→ 回滚 = 把内容写回 from。
@@ -58349,6 +58724,7 @@ const FILE_TOOL_HANDLERS = {
       });
   } },
   file_copy: { paths: "both", guardNote: '', handler: async (args, ctx) => {
+      if (args.recursive || args.items) return fileToolBatch('file_copy', args, ctx);
     // v1.1-W2 (T1) file_copy(from, to, overwrite=false)。逆操作：仅 to 一条。
     //   to 已存在 → op:modify（回滚=写回原 to）；不存在 → op:create（回滚=删 to）。from 不动，无需检查点。
       if (!args.from || !args.to) return { ok: false, error: 'from 与 to 都不能为空' };
@@ -60304,6 +60680,36 @@ async function resolveEnabledSkillEntries(session, config, cwd, caps, onSourceMi
 const MCP_TOOLS = [
   ...adaptiveMetaToolSchemas(true),
   {
+    name: 'media_probe',
+    description: 'Discover local ffmpeg, ffprobe, Chrome/Edge, Python and Node executables/versions, with actionable missing-dependency hints. Detects imageio-ffmpeg wheels too. No installs or browser launch.',
+    inputSchema: { type: 'object', properties: { refresh: { type: 'boolean' } } },
+  },
+  {
+    name: 'audio_inspect',
+    description: 'Measure local audio/video with FFmpeg: channel peaks, RMS envelope, momentary/short-term/integrated LUFS and near-clipping windows. Select each audio stream separately. Objective analysis is NOT listening; listeningPerformed:false. No upload/playback. Defaults to first 120s; use nextStartSeconds for continuation.',
+    inputSchema: { type: 'object', properties: {
+      path: { type: 'string' }, stream: { type: 'integer', minimum: 0, maximum: 63 },
+      startSeconds: { type: 'number', minimum: 0, maximum: 86400 }, durationSeconds: { type: 'number', minimum: 0.1, maximum: 1800 },
+      windowSeconds: { type: 'number', minimum: 0.1, maximum: 60, description: 'Curve bucket width; widened as needed to at most 601 buckets' },
+    }, required: ['path'] },
+  },
+  {
+    name: 'code_check',
+    description: 'Parse-only syntax check for local JS/MJS/CJS, Python or JSON (max 1MB). Optional content validates a candidate without writing. Never executes the source. file_write/file_edit validateSyntax:true checks before mutation.',
+    inputSchema: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path'] },
+  },
+  {
+    name: 'acceptance_report',
+    description: 'Save a checkpointed JSON acceptance receipt with 1..50 gates, evidence file paths, conclusions and pass/fail/blocked/not_run status. Returns counts and overall status. Caller supplies judgments; this tool checks evidence exists, not that conclusions are true. Use not_run for listening that did not occur.',
+    inputSchema: { type: 'object', properties: {
+      path: { type: 'string', description: 'Output JSON file path' }, title: { type: 'string' },
+      checks: { type: 'array', minItems: 1, maxItems: 50, items: { type: 'object', properties: {
+        label: { type: 'string' }, status: { type: 'string', enum: ['pass', 'fail', 'blocked', 'not_run'] },
+        conclusion: { type: 'string' }, evidence: { type: 'array', maxItems: 8, items: { type: 'string' } },
+      }, required: ['label', 'status'] } },
+    }, required: ['path', 'title', 'checks'] },
+  },
+  {
     name: 'workbench_memory_list',
     description: 'List/search confirmed Workbench Memory metadata (current project + global), no bodies. Use when the user asks what is remembered or the injected index is insufficient.',
     inputSchema: {
@@ -60507,6 +60913,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'absolute or workspace-relative' },
+        as: { type: 'string', enum: ['auto', 'text', 'image'], description: 'auto detects format; image sends pixels through configured vision; text excludes document images' },
         offset: { type: 'number', description: 'char offset (char mode)' },
         limit: { type: 'number', description: 'chars, default 40000, max 50000' },
         lineOffset: { type: 'number', description: '1-based start line (line mode)' },
@@ -60531,6 +60938,7 @@ const MCP_TOOLS = [
         path: { type: 'string', description: 'absolute or workspace-relative' },
         content: { type: 'string', description: 'full new content' },
         createDirs: { type: 'boolean', description: 'default true' },
+        validateSyntax: { type: 'boolean', description: 'Parse JS/Python/JSON before writing; invalid or unsupported input leaves the file unchanged' },
         encoding: { type: 'string', description: 'utf8|utf-16le|utf-16be|gbk; default: keep existing' },
         lineEnding: { type: 'string', enum: ['lf', 'crlf', 'preserve'], description: 'default: keep file style; preserve = as given' },
       },
@@ -60560,23 +60968,23 @@ const MCP_TOOLS = [
         oldText: { type: 'string', minLength: 1, description: 'exact text (multi-line ok)' },
         newText: { type: 'string', description: 'replacement ("" deletes oldText)' },
         replaceAll: { type: 'boolean', description: 'replace every occurrence' },
+        validateSyntax: { type: 'boolean', description: 'Parse complete JS/Python/JSON candidate before writing; no code execution' },
       },
       required: ['path', 'oldText', 'newText'],
     },
   },
   {
     name: 'file_delete',
-    description: 'Delete a local file (checkpointed, rollback-able; over 5MB it is deleted with checkpointWarn). Directories are refused.',
+    description: 'Delete path or a batch of paths. Directories require recursive:true. Preflight up to 1000 entries; no symlinks or workspace-root deletion. File contents are checkpointed up to 5MB each; empty directories/metadata are not. Reports partial progress on failure.',
     inputSchema: {
       type: 'object',
-      properties: { path: { type: 'string', description: 'absolute or workspace-relative' } },
-      required: ['path'],
+      properties: { path: { type: 'string' }, paths: { type: 'array', maxItems: 100, items: { type: 'string' } }, recursive: { type: 'boolean' } },
     },
   },
   {
     // C4(61 号文):只读。会话只取自调用上下文,不收 sessionId;模型没有回滚能力(撤销只在界面,由用户做)。
     name: 'checkpoint_list',
-    description: 'List this session\'s file-change checkpoints (undoable / already reverted). Read-only: only the user can undo, in the UI.',
+    description: 'List this session\'s native file-change checkpoints. Shell/scripts/ffmpeg/external apps and directory metadata are not covered. Only the user can undo in the UI.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -60587,28 +60995,32 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_move',
-    description: '移动或重命名一个文件（from→to）。已先存检查点，可一键撤销。默认不覆盖已存在的目标（overwrite=true 才覆盖）。仅支持单个文件，不支持文件夹；跨磁盘自动退化为复制+删除。',
+    description: 'Move/rename from to to, or batch items. Directories require recursive:true (1000-entry limit, no symlinks). No overwrite by default. File contents use checkpoints; directory metadata does not. Failure reports partial progress.',
     inputSchema: {
       type: 'object',
       properties: {
         from: { type: 'string', description: '源文件路径(绝对路径,或相对工作区)' },
         to: { type: 'string', description: '目标路径(绝对路径,或相对工作区;含新文件名即为重命名)' },
+        recursive: { type: 'boolean' },
+        items: { type: 'array', maxItems: 100, items: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } }, required: ['from', 'to'] } },
         overwrite: { type: 'boolean', description: '目标已存在时是否覆盖，默认 false' },
       },
-      required: ['from', 'to'],
+      // Single from/to or batch items; handler validates the selected form.
     },
   },
   {
     name: 'file_copy',
-    description: '复制一个文件（from→to）。目标已存在时会先存检查点，可一键撤销。默认不覆盖（overwrite=true 才覆盖）。仅支持单个文件，不支持文件夹。',
+    description: 'Copy from to to, or batch items. Directories require recursive:true (1000-entry limit, no symlinks). No overwrite by default. Target files use checkpoints; directory metadata does not. Failure reports partial progress.',
     inputSchema: {
       type: 'object',
       properties: {
         from: { type: 'string', description: '源文件路径(绝对路径,或相对工作区)' },
         to: { type: 'string', description: '目标路径(绝对路径,或相对工作区)' },
+        recursive: { type: 'boolean' },
+        items: { type: 'array', maxItems: 100, items: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } }, required: ['from', 'to'] } },
         overwrite: { type: 'boolean', description: '目标已存在时是否覆盖，默认 false' },
       },
-      required: ['from', 'to'],
+      // Single from/to or batch items; handler validates the selected form.
     },
   },
   {
@@ -61074,7 +61486,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'all'], default: 'all', description: 'identity=版本/位置/端口等恒定量;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);all=全部(默认)。' },
+        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'capabilities', 'all'], default: 'all', description: 'identity=版本/位置/端口等恒定量;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);capabilities=模态/服务商能力位/引擎限制/检查点范围;all=全部(默认)。' },
       },
     },
   },
@@ -61756,7 +62168,7 @@ const MCP_TOOLS = [
 const PROVIDER_SESSION_TOOL_SCHEMAS = [
   {
     name: 'scratchpad_write',
-    description: 'Your own notes for this conversation: write/overwrite one note by key (text "" deletes; op:"list" returns all). Notes are re-shown after the latest user message each turn and survive context compaction. For interim findings, confirmed facts, next steps; user preferences go to workbench_memory_propose. Max 20 notes, 500 chars each, 3000 total.',
+    description: 'Conversation notes by key: same key overwrites, text "" deletes, op:"list" reads full notes. Re-shown each turn after the latest user message; survive compaction. Long notes are previewed. For findings/plans; durable preferences: workbench_memory_propose. Limits: 32 notes, 2000 chars each, 12000 total.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -82017,7 +82429,7 @@ if (require.main === module) {
 module.exports = {
   // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12;走查 W1·F10 的 sweepStaleScriptFiles)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调(sweepStaleScriptFiles:unit/script-run-cleanup.test.js)。
   // 2026-10 能力总闸补桥接面:toolDisabledByPolicy / accPolicyHiddenToolNames / dropPolicyDisabledBridgedTools / ACC_POLICY_TOOL_FAMILIES 同住这个键(unit/acc-capability-gates.test.js 直调)。
-  dispatchTestHooks: { sweepStaleScriptFiles, validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, toolDisabledByPolicy, accPolicyHiddenToolNames, dropPolicyDisabledBridgedTools, ACC_POLICY_TOOL_FAMILIES, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
+  dispatchTestHooks: { MediaInspection, sweepStaleScriptFiles, validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, toolDisabledByPolicy, accPolicyHiddenToolNames, dropPolicyDisabledBridgedTools, ACC_POLICY_TOOL_FAMILIES, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)

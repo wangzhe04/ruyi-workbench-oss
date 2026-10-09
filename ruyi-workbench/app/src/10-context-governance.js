@@ -900,8 +900,14 @@ function buildSessionScratchpadInjectPrompt(entries) {
   const close = '\n</session-scratchpad>';
   const body = list.map(e => `- ${esc(e.key)}: ${esc(e.text).replace(/\n/g, '\n  ')}`).join('\n');
   const budget = Math.max(0, SESSION_SCRATCHPAD_INJECT_MAX_CHARS - open.length - close.length);
-  const marker = '\n[...scratchpad truncated...]';
-  return open + (body.length <= budget ? body : body.slice(0, Math.max(0, budget - marker.length)) + marker) + close;
+  if (body.length <= budget) return open + body + close;
+  const marker = '\n[Previews only; scratchpad_write({op:"list"}) returns complete notes.]';
+  const perNote = Math.max(0, Math.floor((budget - marker.length) / list.length) - 1);
+  const previews = list.map(e => {
+    const row = `- ${esc(e.key)}: ${esc(e.text).replace(/\n/g, '\n  ')}`;
+    return row.length <= perNote ? row : row.slice(0, Math.max(0, perNote - 1)) + '…';
+  }).join('\n');
+  return open + previews + marker + close;
 }
 
 // 105d-A 去重守门(纯函数,e2e 白盒共用): notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要
