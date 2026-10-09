@@ -98,7 +98,7 @@ const schedulerRuntime = {
   started: false,
   loaded: false,
   timer: null,
-  generation: 0,        // stopScheduler 自增;在途 tick 发现代际变了就尽快退出
+  generation: 0,        // stopScheduler / 关闭总开关自增;在途 tick 发现代际变了就尽快退出
   ticking: false,       // tick 重入闸(防同一个定时器触发两次并发 tick,不再是「等全部到点任务跑完」的闸)
   tasks: [],
   fireSeq: 0,
@@ -888,10 +888,15 @@ function stopScheduler() {
 }
 // 启动时关着、之后被打开:听 01 writeConfig 派的 'config.written'(只带开关位)。关着的那段时间这里什么都不做 ——
 // 不起 interval、不建目录、不读盘(红线⑤原样成立);打开那一刻走的就是启动那一条 startScheduler(装载、恢复、
-// 有任务才起 interval、先跑一拍)。已经起过的调度器不归这里管:运行中关掉/再打开由 tick 每拍重读配置处理。
+// 有任务才起 interval、先跑一拍)。运行中关闭时同步作废在途 tick,避免它在 await readConfig 之后拿旧的
+// 开启快照继续派单;interval 留着,再打开仍由下一拍重读配置接着走。
 // 装在模块加载期,进程生命周期内不卸(同 13i / 13r 的订阅纪律);订阅者只排一个异步启动,不回流到写路径。
 RUYI_EVENTS.subscribe((name, payload) => {
   if (name !== 'config.written') return;
+  if (schedulerRuntime.started && payload && payload.schedulerEnabledV1 === false) {
+    schedulerRuntime.generation += 1;
+    return;
+  }
   if (!schedulerRuntime.awaitingEnable || schedulerRuntime.started) return;
   if (!(payload && payload.schedulerEnabledV1 === true)) return;
   void startScheduler({ schedulerEnabledV1: true }).catch(() => {});

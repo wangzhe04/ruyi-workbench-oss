@@ -242,13 +242,34 @@ test('[S7] 运行中关掉总开关:到点不派;再打开接着走', async () =
   const c = await api('POST', '/api/scheduler/tasks', { title: 'off', schedule: { kind: 'daily', at: '05:00' }, payload: { kind: 'reminder', text: 'o' } });
   const id = c.json.task.id;
   const dueMs = Date.parse(c.json.task.nextRunAt);
-  await srv.mutateConfig(cfg => { cfg.schedulerEnabledV1 = false; return cfg; });
+  // Hold one tick's enabled snapshot until disabling has completed. A normal
+  // timer-only test misses this race unless concurrent CI load delays the read.
+  await srv.mutateConfig(cfg => { cfg.schedulerEnabledV1 = true; });
+  const originalRead = fsp.readFile;
+  let capturedResolve;
+  const captured = new Promise(resolve => { capturedResolve = resolve; });
+  let releaseRead;
+  const readGate = new Promise(resolve => { releaseRead = resolve; });
+  fsp.readFile = async function (p, ...rest) {
+    const value = await originalRead.call(this, p, ...rest);
+    if (String(p) === path.join(root, 'config.json')) {
+      fsp.readFile = originalRead;
+      capturedResolve();
+      await readGate;
+    }
+    return value;
+  };
   try {
+    assert.ok(await Promise.race([captured.then(() => true), sleep(5000).then(() => false)]), 'tick 已读到开启时的配置');
+    await srv.mutateConfig(cfg => { cfg.schedulerEnabledV1 = false; });
     assert.equal((await readConfig()).schedulerEnabledV1, false, '前提:配置里已经关了');
     setClock(dueMs + 1000);
+    releaseRead();
     await sleep(500);                          // 40 ms 一拍,至少十来拍
     assert.equal(fires().filter(f => f.taskId === id).length, 0, '关着的时候一行 fires 都不写(修前 registered/dispatched/reconciled 照写)');
   } finally {
+    fsp.readFile = originalRead;
+    releaseRead();
     await srv.mutateConfig(cfg => { cfg.schedulerEnabledV1 = true; return cfg; });
   }
   assert.ok(await waitFor(() => fires().some(f => f.taskId === id && f.phase === 'reconciled'), 5000), '再打开之后不必重启,下一拍接着派');

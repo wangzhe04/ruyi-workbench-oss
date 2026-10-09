@@ -144,12 +144,15 @@ test('[F1] file_list pattern:灾难性回溯的模式约 2 s 内返回(不冻事
   const script = `
     const srv = require(${JSON.stringify(SERVER_JS)});
     (async () => {
+      // Supply the request's config as the agent loop does: CLI discovery and
+      // config migration are independent of the regex budget being tested.
+      const list = args => srv.toolCall('file_list', args, { config: ${JSON.stringify(CONFIG)}, workingDir: ${JSON.stringify(WORK)} });
       const t0 = Date.now();
-      const bad = await srv.toolCall('file_list', { root: ${JSON.stringify(dir)}, pattern: '(a+)+$' });
+      const bad = await list({ root: ${JSON.stringify(dir)}, pattern: '(a+)+$' });
       const badMs = Date.now() - t0;
-      const txt = await srv.toolCall('file_list', { root: ${JSON.stringify(dir)}, pattern: '\\\\.txt$' });
-      const grp = await srv.toolCall('file_list', { root: ${JSON.stringify(dir)}, pattern: '(sub|nope)[\\\\\\\\/].*\\\\.md$' });
-      const long = await srv.toolCall('file_list', { root: ${JSON.stringify(dir)}, pattern: 'x'.repeat(5000) }).catch(e => ({ ok: false, error: String(e && e.message || e) }));
+      const txt = await list({ root: ${JSON.stringify(dir)}, pattern: '\\\\.txt$' });
+      const grp = await list({ root: ${JSON.stringify(dir)}, pattern: '(sub|nope)[\\\\\\\\/].*\\\\.md$' });
+      const long = await list({ root: ${JSON.stringify(dir)}, pattern: 'x'.repeat(5000) }).catch(e => ({ ok: false, error: String(e && e.message || e) }));
       process.stdout.write(JSON.stringify({ badMs, bad, txt, grp, long }));
       process.exit(0);
     })().catch(e => { process.stdout.write(JSON.stringify({ fatal: String(e && e.stack || e) })); process.exit(1); });

@@ -20,6 +20,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const SUMMARY = '【目标】x\n【已确认的决定】无\n【未完成事项】无\n【当前执行状态】已完成:a;正在进行:b;阻塞:无;下一步:c\n【关键文件与上下文】无';
 let delayMs = 0;
+let responseGate = null;
+let requestStarted = null;
 let fake;
 const provider = () => ({ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model', contextWindow: 16000 });
 const small = [{ role: 'user', content: '目标:做一件事' }, { role: 'assistant', content: '好的,开始' }];
@@ -28,20 +30,42 @@ const big = Array.from({ length: 40 }, (_, i) => ({ role: i % 2 ? 'assistant' : 
 
 test('setup', async () => {
   fake = await startFakeProvider({
-    async handler() { if (delayMs) await sleep(delayMs); return [...textFrames(SUMMARY), usageFrame(10, 10)]; },
+    async handler() {
+      if (responseGate) { requestStarted(); await responseGate; }
+      else if (delayMs) await sleep(delayMs);
+      return [...textFrames(SUMMARY), usageFrame(10, 10)];
+    },
   });
 });
 
-test('[M1] 单发:在飞时 abort → 当场 aborted', async () => {
-  delayMs = 3000;
+async function abortInFlight(history, config) {
+  let releaseResponse;
+  responseGate = new Promise(resolve => { releaseResponse = resolve; });
+  const started = new Promise(resolve => { requestStarted = resolve; });
   const ctrl = new AbortController();
-  const t0 = Date.now();
-  setTimeout(() => ctrl.abort(), 200);
-  const r = await providerSummaryCall(provider(), small, { config: {}, signal: ctrl.signal });
-  const took = Date.now() - t0;
-  assert.equal(r.ok, false);
-  assert.equal(r.aborted, true, '停止取消的失败要标 aborted(调用方据此不进冷却):' + JSON.stringify(r));
-  assert.ok(took < 2000, `停止之后还等了 ${took} ms`);
+  const call = providerSummaryCall(provider(), history, { config, signal: ctrl.signal });
+  let requestTimer;
+  let abortTimer;
+  try {
+    // Start measuring once the provider has received the request. Cold config
+    // and CLI discovery must not count as cancellation latency.
+    assert.ok(await Promise.race([started.then(() => true), new Promise(resolve => { requestTimer = setTimeout(() => resolve(false), 10000); })]), '摘要请求已经在飞');
+    ctrl.abort();
+    const r = await Promise.race([call, new Promise((_, reject) => { abortTimer = setTimeout(() => reject(new Error('停止后仍在等服务商回包')), 2000); })]);
+    assert.equal(r.ok, false);
+    assert.equal(r.aborted, true, '停止取消的失败要标 aborted(调用方据此不进冷却):' + JSON.stringify(r));
+  } finally {
+    clearTimeout(requestTimer);
+    clearTimeout(abortTimer);
+    ctrl.abort();
+    releaseResponse();
+    responseGate = null;
+    await call;
+  }
+}
+
+test('[M1] 单发:在飞时 abort → 当场 aborted', async () => {
+  await abortInFlight(small, {});
 });
 
 test('[M2] 已停止:一次请求都不发', async () => {
@@ -54,15 +78,7 @@ test('[M2] 已停止:一次请求都不发', async () => {
 });
 
 test('[M3] map-reduce:abort 当场收住', async () => {
-  delayMs = 3000;
-  const ctrl = new AbortController();
-  const t0 = Date.now();
-  setTimeout(() => ctrl.abort(), 300);
-  const r = await providerSummaryCall(provider(), big, { config: { runtimeSummarySingleShotV1: false }, signal: ctrl.signal });
-  const took = Date.now() - t0;
-  assert.equal(r.ok, false);
-  assert.equal(r.aborted, true, JSON.stringify(r));
-  assert.ok(took < 2500, `停止之后还等了 ${took} ms`);
+  await abortInFlight(big, { runtimeSummarySingleShotV1: false });
 });
 
 test('[M4] 不传 signal:慢回也等到、正常成功', async () => {
