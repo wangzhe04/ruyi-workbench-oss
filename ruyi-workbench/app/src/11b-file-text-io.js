@@ -246,7 +246,7 @@ const FileTextIo = (() => {
       } else {
         sn = sniffEncoding(head, complete);
         if (!sn.bom && sn.hasNul && req.refuseNul) {
-          return { ok: false, code: 'binary', error: 'binary file (NUL bytes in the first 8KB)', hint: '这看起来是二进制文件(不是文本);如果其实是无 BOM 的 UTF-16 文本,请传 encoding:"utf-16le"(或 utf-16be)。其它二进制:压缩包用 archive_unzip,Office/PDF 用 read_document / pdf_read_pages(桌面控制 MCP),数据库用 script_run 查询' };
+          return { ok: false, code: 'binary', error: 'binary file (NUL bytes in the first 8KB)', hint: '这看起来是二进制文件(不是文本);如果其实是无 BOM 的 UTF-16 文本,请传 encoding:"utf-16le"(或 utf-16be)。图片/新版 Office/PDF 可用 file_read 原生读取,请确认扩展名;压缩包用 archive_unzip,数据库用 script_run 查询' };
         }
       }
       const decoder = makeDecoder(sn.encoding, false);

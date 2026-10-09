@@ -120,10 +120,11 @@ try {
   for (const [name, bytes] of [['x.docx', 'PK\x03\x04aaaa\0\0'], ['x.xlsx', 'PK\x03\x04bb\0'], ['x.jar', 'PK\x03\x04\0'], ['x.sqlite', 'SQLite format 3\0abc\0'], ['x.dat', 'abc\0def\n'], ['x.log', 'log\0line\n']]) {
     fs.writeFileSync(path.join(WS, name), Buffer.from(bytes, 'latin1'));
     const r = await call('file_read', { path: name });
-    ok(r.ok === false && r.code === 'binary', `R1 ${name} 拒绝并报 binary(got ${JSON.stringify(r).slice(0, 140)})`);
+    const expected = /\.(docx|xlsx)$/.test(name) ? ['document_invalid', 'reader_unavailable'] : ['binary'];
+    ok(r.ok === false && expected.includes(r.code), `R1 ${name} 损坏文档/二进制拒绝(got ${JSON.stringify(r).slice(0, 140)})`);
   }
   const rdoc = await call('file_read', { path: 'x.docx' });
-  ok(/read_document|archive_unzip/.test(String(rdoc.hint || '')), `R1b .docx 的 hint 指向该用的工具(got ${rdoc.hint})`);
+  ok(/archive_unzip|Python/.test(String(rdoc.hint || '')), `R1b 损坏文档/缺依赖的 hint 指向修复办法(got ${rdoc.hint})`);
   const rdb = await call('file_read', { path: 'x.sqlite' });
   ok(/script_run|sqlite/i.test(String(rdb.hint || '')), `R1c .sqlite 的 hint 指向查询办法(got ${rdb.hint})`);
   fs.writeFileSync(path.join(WS, 'u16.txt'), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('hi 你好\nabc\n', 'utf16le')]));

@@ -635,7 +635,7 @@ function toolPackForName(name, bridgedRoute) {
 // bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
 // deterministic fields derived from name, description and JSON Schema parameters.
 const TOOL_RETRIEVAL_HINTS = Object.freeze({
-  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', '读文件', 'read workspace file'] },
+  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '读取文档', '读取PDF', 'read workspace file', 'read image'] },
   file_list: { capabilities: ['workspace.file.list'], aliases: ['列出目录', '查看目录', 'list directory'] },
   file_search: { capabilities: ['workspace.text.search'], aliases: ['搜索文件内容', '全文检索', 'search files'] },
   glob: { capabilities: ['workspace.path.glob'], aliases: ['按模式找文件', '文件通配符', 'find files by pattern'] },
@@ -797,6 +797,7 @@ function classifyToolPacks(message, attachments) {
   const packs = new Set(['core']);
   const add = (...xs) => xs.forEach(x => packs.add(x));
   if (Array.isArray(attachments) && attachments.length) add('files_read');
+  if (/(图片|图像|照片|扫描件|看图|文档|image|photo|scan\b)/i.test(s)) add('files_read');
   if (/(文件|目录|路径|源码|代码|项目|repo|repository|file|folder|directory|source|workspace|read|读取|查看|搜索|查找|分析|审查)/i.test(s)) add('files_read');
   // 2026-10:泛化的动词(修改/编辑/更新/写入/创建/删除…)只带文件读写,不再顺带 code 包。code 包(git/依赖/审查/符号检索等
   // 12 个工具、约 2.3K token)本机 4 天 0 次使用,却被「file_edit」里的 edit、「更新」这类词带进来;而会话工具表只增不减,

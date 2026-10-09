@@ -2573,9 +2573,14 @@ async function startMcp() {
             const result = await toolCall(name, args);
             // S1 修复:MCP tools/call 路径(Claude 引擎)原样直出大结果会灌爆 CLI context。
             // 经 truncateToolResult 截断(file_read 走 head/tail,其余 60KB+标记),与 OpenAI 引擎 push 路径一致。
-            const text = truncateToolResult(name, JSON.stringify(result, null, 2));
+            const images = VisualPipeline.extractToolImages(result);
+            const modelResult = images.length ? VisualPipeline.stripToolImageFields(result, '[image attached in MCP content]') : result;
+            const text = truncateToolResult(name, JSON.stringify(modelResult, null, 2));
             return sendMcp(msg.id, {
-              content: [{ type: 'text', text }],
+              content: [{ type: 'text', text }, ...images.map(uri => {
+                const split = uri.indexOf(';base64,');
+                return { type: 'image', mimeType: uri.slice(5, split), data: uri.slice(split + 8) };
+              })],
               isError: result.ok === false,
             });
           } finally {

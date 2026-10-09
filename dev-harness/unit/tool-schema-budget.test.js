@@ -103,7 +103,9 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // 之后照旧只减不增。
   // 合并口径(C4 + C1 + C2 三项同在,2026-10-04 实测):闲聊 13274、改代码 31576、默认 offered 56386 → 预算 13300 / 31600 / 56400。
   // 再合并 master(PR #43 的工具描述订正,+21 字符)后实测:改代码 31597、默认 offered 56407 → offered 预算 56400 → 56500。
-  const BUDGET = { chitchat: 13300, codeEdit: 31600, fullAll: 46500, offeredDefault: 56500 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // Native file vision: five bounded image/PDF options, +512 chars. No new always-on tool.
+  // Measured codeEdit 32109 / offeredDefault 56918; only those budgets grow for this feature.
+  const BUDGET = { chitchat: 13300, codeEdit: 32200, fullAll: 46500, offeredDefault: 57000 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   const chit = chars(loaded('你好').current());
   const edit = chars(loaded('请修改 src/a.js 修复 bug').current());
   assert.ok(chit <= BUDGET.chitchat, `闲聊回合 ${chit} > ${BUDGET.chitchat}`);

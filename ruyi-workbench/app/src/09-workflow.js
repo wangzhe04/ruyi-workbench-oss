@@ -3415,14 +3415,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // (image/image_base64/screenshot.image), STRIP the heavy pixel field(s) out of the role:'tool'
           // message (占位 → keeps the tool JSON精简) and QUEUE a user image message to be flushed after the
           // batch (连续性铁律 — never wedged in the tool block). vision=false: the image fields stay in the
-          // tool result verbatim and are NOT turned into an image message (a text model can't see them; the
-          // 操控规程 for that path grounds on OCR/元素文本 instead). extractToolImages ignores non-image results.
+          // tool result as compact no-vision placeholders instead of base64 text. Native file/document images
+          // use this same channel. extractToolImages ignores non-image results.
           let toolResultForHistory = resultObj;
           if (visionOn) {
             const imgs = VisualPipeline.extractToolImages(resultObj);
             if (imgs.length) {
               toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj);
-              const note = `[以下是工具 ${tc.name} 的屏幕截图]`;
+              const note = `[以下是工具 ${tc.name} 返回的图像（来源与页码见工具结果）]`;
               pendingToolImages.push({ toolCallId: tc.id, note, parts: [{ type: 'text', text: note }, ...imgs.map(u => ({ type: 'image_url', image_url: { url: u } }))] });
             }
           } else if (VisualPipeline.extractToolImages(resultObj).length) {

@@ -846,11 +846,11 @@ const BINARY_READ_ZIPLIKE = new Set(['zip', 'jar', 'war', 'ear', 'apk', 'whl', '
 const BINARY_READ_DB = new Set(['sqlite', 'sqlite3', 'db', 'mdb', 'accdb']);
 function binaryReadHint(p) {
   const ext = path.extname(String(p || '')).replace(/^\./, '').toLowerCase();
-  if (BINARY_READ_OFFICE.has(ext)) return 'Office 文档不是纯文本:已启用桌面控制 MCP 时用 read_document / excel_read 读取;.docx/.xlsx/.pptx 本质是 zip,也可用 archive_unzip 解压后 file_read 里面的 xml;或用 script_run 写脚本解析';
-  if (ext === 'pdf') return 'PDF 不是纯文本:已启用桌面控制 MCP 时用 pdf_read_pages / read_document 读取;或用 script_run 写脚本提取文字';
+  if (BINARY_READ_OFFICE.has(ext)) return '新版 Office/ODF 可直接 file_read 读取文字与内嵌图片,不需要桌面控制;旧 .doc/.xls/.ppt 请先另存为 .docx/.xlsx/.pptx,或用 script_run 解析';
+  if (ext === 'pdf') return 'PDF 可直接 file_read {path,pageOffset,pageLimit} 读取文字与页面图像(需要 Python + pdfplumber),不需要桌面控制';
   if (BINARY_READ_ZIPLIKE.has(ext)) return '这是 zip 类压缩包:先用 archive_unzip {list:true} 看条目清单,再解压到工作区后读取需要的文件';
   if (BINARY_READ_DB.has(ext)) return '这是数据库文件,不是文本:没有原生读取工具,请用 script_run 写 python(sqlite3 模块)或命令行查询';
-  return '图片请作为附件走视觉通道(v0.9)或用 desktop_screenshot 相关工具;其它二进制文件不能用 file_read 读取';
+  return '图片可直接 file_read,视觉模型会收到图像;其它二进制文件不能按文本读取';
 }
 
 // v0.8-S1: ripgrep fast-path probe. Prefer an explicit override / vendored binary, then accept a

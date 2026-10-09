@@ -1,6 +1,6 @@
-const VisualPipeline = ((fspModule, pathModule) => {
-  const fsp = fspModule;
-  const path = pathModule;
+const VisualPipeline = (() => {
+  const nodeFsp = require('fs/promises');
+  const nodePath = require('path');
   // ── v0.9-S7 视觉回路 (§0.9-S7 / 总纲 §7.5) ────────────────────────────────────────────────────────────
   // Image-part plumbing for the provider (OpenAI-compat) engine. Two entry points feed the model images:
   //   (1) image ATTACHMENTS on a user turn (buildUserContentParts, runOpenAiTurn) — vision=true only;
@@ -30,17 +30,17 @@ const VisualPipeline = ((fspModule, pathModule) => {
       // 目标),大图不再直接降级占位;派生件缺失/不可读回退原图,仍超限才降级占位文本。mime 跟实际发送文件走。
       let target = String(a.sendPath || '') || a.path;
       try {
-        let st = await fsp.stat(target).catch(() => null);
-        if (!st && target !== a.path) { target = a.path; st = await fsp.stat(target); }
+        let st = await nodeFsp.stat(target).catch(() => null);
+        if (!st && target !== a.path) { target = a.path; st = await nodeFsp.stat(target); }
         if (!st) throw new Error('missing');
-        if (st.size > IMAGE_ATTACH_MAX) { parts[0].text += `\n[图片过大未发送:${a.name || path.basename(a.path)}]`; continue; }
-        const buf = await fsp.readFile(target);
+        if (st.size > IMAGE_ATTACH_MAX) { parts[0].text += `\n[图片过大未发送:${a.name || nodePath.basename(a.path)}]`; continue; }
+        const buf = await nodeFsp.readFile(target);
         // 字节魔数优先,扩展名兜底:文件名说 .png 字节却是 JPEG(截图工具/改名)时,Anthropic Messages 协议会因
         // media_type 与字节不符直接 400(04i 的编码照单全收这里给的 mime)。与下方工具截图的 toImageDataUri 同一口径。
         const b64 = buf.toString('base64');
         const uri = `data:${sniffImageMime(b64) || attachmentMime(target)};base64,${b64}`;
         parts.push({ type: 'image_url', image_url: { url: uri } });
-      } catch { parts[0].text += `\n[图片读取失败:${a.name || path.basename(a.path)}]`; }
+      } catch { parts[0].text += `\n[图片读取失败:${a.name || nodePath.basename(a.path)}]`; }
     }
     return parts;
   }
@@ -153,13 +153,13 @@ const VisualPipeline = ((fspModule, pathModule) => {
     if (!refs.length) return { ...resultObj };
     const clone = { ...resultObj };
     for (const r of refs) {
-      let text = '[截图见随后的图片消息]';
+      let replacement = typeof placeholder === 'string' && placeholder !== 'no-vision' ? placeholder : '[截图见随后的图片消息]';
       if (placeholder === 'no-vision' || typeof placeholder === 'function') {
         const mime = (toImageDataUri(r.value, ...r.hints).match(/^data:([^;]+);/) || [])[1] || 'image/png';
-        text = typeof placeholder === 'function' ? placeholder(r, mime)
+        replacement = typeof placeholder === 'function' ? placeholder(r, mime)
           : `[image omitted: ${Number(r.w) > 0 && Number(r.h) > 0 ? `${Number(r.w)}x${Number(r.h)} ` : ''}${mime.replace('image/', '')}, model has no vision]`;
       }
-      r.set(clone, text);
+      r.set(clone, replacement);
     }
     return clone;
   }
@@ -192,4 +192,4 @@ const VisualPipeline = ((fspModule, pathModule) => {
     return demoted;
   }
   return Object.freeze({ buildUserContentParts, hasImageAttachment, extractToolImages, stripToolImageFields, pruneOldImages, sniffImageMime, imageSizeFromBuffer });
-})(fsp, path);
+})();

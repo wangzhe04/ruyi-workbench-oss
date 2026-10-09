@@ -122,6 +122,15 @@ flowchart LR
 
 v0.8-S1 工具增强(纯加法,向后兼容):`file_read` 增行号模式(`lineOffset/lineLimit` → `cat -n` 风格 + `totalLines`,图片/二进制后缀拒读并提示视觉通道);`file_search` 增 `context`(0-5 上下文行)/`glob`(相对路径过滤)/`group`(按文件分组),检测到 `vendor-bin/rg.exe` 时走 `spawn rg --json`(NDJSON)快路径、失败静默回退 JS 扫描;`file_edit` 未命中时返回 `closest`(最相近 ±3 行窗口,自写 Levenshtein 粗排)。
 
+2026-10 原生文件视觉读取更新：`file_read` 现在直接支持 PNG/JPEG/GIF/WebP（按字节识别，改名图片同样可读），BMP/TIFF/ICO 经 Pillow 转换为 PNG；SVG 仍按 XML 文本读取。PDF 返回所选页文字与页面图像（含扫描件）；DOCX/DOCM/DOTX、PPTX/PPTM、XLSX/XLSM、ODT/ODS/ODP 返回文字与容器内嵌图片。文档解析用隔离的只读 Python 子进程，不启动桌面应用、不连接 computer use/MCP；Office/ODF 使用标准库，PDF 使用已有离线依赖 pdfplumber，格式转换使用 Pillow。缺运行时/依赖时返回 `reader_unavailable`，不自动安装。
+
+- 图片/文档默认 `includeImages:true`；文本文件默认不追踪图片链接。Markdown/HTML 显式传 `includeImages:true` 时读取当前文本窗口中的本地图片链接，每个目标重新检查原生路径权限，远程链接不请求。管家读取只支持文件本身和文档内嵌图片，不跟随文本图片链接。
+- PDF：`pageOffset` 从 1 开始，`pageLimit` 默认/最多 2；`nextPageOffset` 续页。`offset/nextOffset` 是当前页窗口内的文字偏移。Office 内嵌图片/文本链接：`imageOffset` 从 0 开始，`imageLimit` 默认/最多 2，`nextImageOffset` 续图；Office 文字独立用 `offset/nextOffset` 续读。内嵌媒体的来源字段是容器条目名，不代表它在文档中的版面位置。
+- 原生图片与单张嵌入图片最多 4MB，文档最多 50MB；ZIP 条目/累计 XML 预算 8MB/24MB，最多 10000 条目，拒绝 XML 实体声明，解析子进程 30 秒超时且支持取消。PDF 页面图像长边最多 1600 像素。单张图片失败保留 `imageWarnings` 与续读位置。
+- 主回合和子任务复用视觉历史通道：工具回复全部配对完成后追加图片消息，保留最近两张图片，base64 从 JSON 工具文字中移除。`provider.vision:true` 时 Chat/Responses/Anthropic 分别编码为 `image_url`/`input_image`/base64 image；非视觉模型只收文字/元数据与占位。原生 MCP 返回标准 `ImageContent` 块；`tool_invoke_read`、`steward_file_read` 与 `steward_thread_artifact_read` 共享原生读取实现。管家继续保留工作区、凭据文件与 `tainted` 限制。
+
+调用示例：`file_read {"path":"scan.png"}`、`file_read {"path":"report.pdf","pageOffset":3,"pageLimit":2}`、`file_read {"path":"report.docx","imageOffset":2}`、`file_read {"path":"notes.md","includeImages":true}`。远程图片可先 `http_download` 到工作区，再用 `file_read` 读取保存路径。
+
 v0.8-S2 持久 shell 会话族(**provider 引擎独占**,纯加法):`shell_start{cwd?,name?,shellId?}` spawn 常驻 `powershell -NoLogo -NoProfile`(cwd/变量/后台进程跨调用存活),`shell_send{shellId,input,timeoutMs?}` 写入并 best-effort 捕获稳定输出、`shell_poll{shellId,cursor?}` 按**绝对 cursor(UTF-16 code unit 计,非原始字节)** 增量尾随、`shell_kill`、`shell_list`。环形缓冲 200KB(裁头累加 `baseOffset`,cursor 落入已逐出区间返回 `truncated:true`);并发上限 `config.shellSessionMax`(默认 3,钳 1..8;**只数 running 活会话**,已退出会话不占名额、留在列表可继续 poll);30min 空闲自动回收;serve 进程退出统一 `killAllShellSessions`。tier:`shell_list`=read,其余=exec。**为何 provider-only**:见「引擎」节。
 
 v0.8-S3 任务清单(`todo_write`)与回合摘要(`turn_summary`,纯加法,双引擎):

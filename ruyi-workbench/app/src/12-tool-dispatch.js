@@ -1101,13 +1101,29 @@ const FILE_TOOL_HANDLERS = {
   file_read: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_read', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      // v0.8-S1: image/binary suffixes are refused — the model should route these to the vision channel.
+      // Native pixels/documents use the same provider image channel as MCP screenshots.
+      // Always guard the source before probing bytes or starting a read-only parser.
+      let visualKind;
+      try {
+        visualKind = await FileVisualIo.kind(p);
+        if (visualKind) {
+          const result = visualKind === 'image' ? await FileVisualIo.image(p, args) : null;
+          if (result) return result;
+          return await FileVisualIo.document(p, args, path.join(externalRoot(), 'resources', 'native-file-read.py'), ctx && ctx.signal);
+        }
+      } catch (e) {
+        if (e && e.code === 'ENOENT') return fileToolNotFound(p, args.path);
+        const f = fileToolFsFailure(e, p); if (f) return f;
+        return { ok: false, code: e.code || 'file_read_failed', error: e.message, path: p,
+          ...(e.code === 'file_too_large' ? { hint: 'Image input is limited to 4MB per image. Resize/compress a copy, then file_read the smaller image; no desktop tool is required.' } : {}) };
+      }
       if (isBinaryReadPath(p)) {
         return { ok: false, code: 'binary', error: 'binary or image file', path: p, hint: binaryReadHint(p) };
       }
       // 106 #2a: 权限守卫之后、读盘之前的缓存查找 —— 命中即返回(带 cacheHit 标记),未命中
       // 走原路径并在成功结果上存储。cctx 为 null(开关关/非白名单/无会话)时零额外开销。
-      const cctx = execCacheContext('file_read', args, ctx, p);
+      // Linked images have independent versions/permissions; never serve a parent-only cache hit.
+      const cctx = args.includeImages === true ? null : execCacheContext('file_read', args, ctx, p);
       if (cctx) {
         const hit = await execCacheLookup(cctx);
         if (hit) return hit;
@@ -1162,7 +1178,9 @@ const FILE_TOOL_HANDLERS = {
         throw e;
       }
       if (!w.ok) return { ok: false, code: w.code, error: w.error, path: p, hint: w.hint };
-      const encFields = { encoding: w.encoding, ...(w.bom ? { bom: true } : {}), ...(w.encodingDetected ? { encodingDetected: true } : {}),
+      const linked = await FileVisualIo.linkedImages(p, w.content || (w.lines || []).map(l => l.text).join('\n'), args,
+        target => guardFileToolPath(target, ctx, { tool: 'file_read', write: false }));
+      const encFields = { ...linked, encoding: w.encoding, ...(w.bom ? { bom: true } : {}), ...(w.encodingDetected ? { encodingDetected: true } : {}),
         ...(w.encodingWarning ? { encodingWarning: w.encodingWarning } : {}) };
       if (hasLineParams) {
         const width = String(w.lines.length ? w.lines[w.lines.length - 1].no : 0).length;

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3652 | 3204 | 541 | 67 | 0 | 1 |
+| 71 | 3654 | 3206 | 544 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -29,7 +29,7 @@
 | 11 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
 | 12 | `02-session-store.js` | foundation | 332 | 74 | 17 |
 | 13 | `03-bridge-guard.js` | foundation | 105 | 28 | 7 |
-| 14 | `04-visual-pipeline.js` | foundation | 1 | 3 | 1 |
+| 14 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
 | 15 | `04-permission-runtime.js` | foundation | 156 | 39 | 9 |
 | 16 | `04-desktop-shell.js` | foundation | 1 | 11 | 3 |
 | 17 | `04f-toolbox-services.js` | foundation | 26 | 14 | 3 |
@@ -55,36 +55,37 @@
 | 37 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 38 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
 | 39 | `07-autonomy.js` | orchestration | 150 | 76 | 17 |
-| 40 | `08-agent-runs.js` | orchestration | 117 | 108 | 20 |
+| 40 | `08-agent-runs.js` | orchestration | 117 | 109 | 21 |
 | 41 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 42 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 43 | `09-workflow.js` | orchestration | 32 | 253 | 27 |
 | 44 | `10-context-governance.js` | orchestration | 213 | 97 | 18 |
 | 45 | `11-native-tools.js` | tools | 131 | 42 | 5 |
 | 46 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
-| 47 | `12-tool-dispatch.js` | tools | 71 | 124 | 18 |
-| 48 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 49 | `13-http-router.js` | transport | 70 | 256 | 30 |
-| 50 | `13b-api-domain-routes.js` | transport | 40 | 65 | 9 |
-| 51 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
-| 52 | `13d-core-domain-routes.js` | transport | 63 | 145 | 17 |
-| 53 | `13e-pretender-index.js` | transport | 57 | 37 | 8 |
-| 54 | `13i-steward-inbox.js` | transport | 83 | 28 | 8 |
-| 55 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
-| 56 | `13k-steward-threads.js` | transport | 52 | 116 | 16 |
-| 57 | `13l-steward-ops.js` | transport | 50 | 118 | 18 |
-| 58 | `13g-steward.js` | transport | 16 | 68 | 10 |
-| 59 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
-| 60 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
-| 61 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
-| 62 | `13p-steward-runner-actions.js` | transport | 35 | 60 | 11 |
-| 63 | `13q-steward-runner-turn.js` | transport | 37 | 76 | 19 |
-| 64 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
-| 65 | `13r-event-stream.js` | transport | 25 | 17 | 6 |
-| 66 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
-| 67 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
-| 68 | `13u-migration-center.js` | transport | 60 | 35 | 6 |
-| 69 | `14-main.js` | entrypoint | 1 | 587 | 47 |
+| 47 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
+| 48 | `12-tool-dispatch.js` | tools | 71 | 125 | 19 |
+| 49 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
+| 50 | `13-http-router.js` | transport | 70 | 257 | 31 |
+| 51 | `13b-api-domain-routes.js` | transport | 40 | 65 | 9 |
+| 52 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
+| 53 | `13d-core-domain-routes.js` | transport | 63 | 145 | 17 |
+| 54 | `13e-pretender-index.js` | transport | 57 | 37 | 8 |
+| 55 | `13i-steward-inbox.js` | transport | 83 | 28 | 8 |
+| 56 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
+| 57 | `13k-steward-threads.js` | transport | 52 | 116 | 16 |
+| 58 | `13l-steward-ops.js` | transport | 51 | 118 | 18 |
+| 59 | `13g-steward.js` | transport | 16 | 68 | 10 |
+| 60 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
+| 61 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
+| 62 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
+| 63 | `13p-steward-runner-actions.js` | transport | 35 | 60 | 11 |
+| 64 | `13q-steward-runner-turn.js` | transport | 37 | 76 | 19 |
+| 65 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
+| 66 | `13r-event-stream.js` | transport | 25 | 17 | 6 |
+| 67 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
+| 68 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
+| 69 | `13u-migration-center.js` | transport | 60 | 35 | 6 |
+| 70 | `14-main.js` | entrypoint | 1 | 587 | 47 |
 
 ## 模块边
 
@@ -146,7 +147,6 @@
 | `04-permission-runtime.js` | `06d-memory-domain.js` | forward | `legacyAccMemoryMigrationComplete` |
 | `04-permission-runtime.js` | `13d-core-domain-routes.js` | forward | `decideIntervention` |
 | `04-permission-runtime.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS` |
-| `04-visual-pipeline.js` | `00-boot.js` | backward | `fsp`, `path`, `text` |
 | `04f-toolbox-services.js` | `00-boot.js` | backward | `cp`, `http`, `path`, `safeJsonParse`, `text` |
 | `04f-toolbox-services.js` | `01-config.js` | backward | `mutateConfig`, `readConfig` |
 | `04f-toolbox-services.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `enabledToolboxComponents`, `invalidateToolboxCache`, `killChildTree`, `logEvent`, `redact`, `scanToolboxComponents` |
@@ -270,6 +270,7 @@
 | `08-agent-runs.js` | `02d-session-overrides.js` | backward | `applySessionPermissionModeOverride`, `liveSessionPermissionMode`, `sessionDesktopToolsOf` |
 | `08-agent-runs.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `guardWorkspacePath`, `journalBridgedWrite`, `normalizeCwd` |
 | `08-agent-runs.js` | `04-permission-runtime.js` | backward | `bridgedServerUnavailableMessage`, `collectBridgedTools`, `getBridgedClient`, `logEvent`, `redact`, `resolveBridge` |
+| `08-agent-runs.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
 | `08-agent-runs.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCallIsTransient`, `withTransientRetry` |
 | `08-agent-runs.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerServerSearchCard`, `providerWireOutputLimited`, `providerWireProtocol` |
 | `08-agent-runs.js` | `05-claude-engine.js` | backward | `resolveProvider` |
@@ -336,6 +337,7 @@
 | `11-native-tools.js` | `04-permission-runtime.js` | backward | `activeChildren`, `killChildTree`, `logEvent`, `redact` |
 | `11-native-tools.js` | `06-provider-engine.js` | backward | `markNetworkOnline`, `networkAnchors`, `probeAny` |
 | `11b-file-text-io.js` | `00-boot.js` | backward | `cp`, `text` |
+| `11c-file-visual-io.js` | `00-boot.js` | backward | `cp`, `paths` |
 | `12-tool-dispatch.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `OVERLAY_ID`, `SKILL_ID_RE`, `TOOL_TIER_RANK`, `URL`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
 | `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `agentCliLauncherOk`, `commandForSelfMcp`, `defaultConfig`, `ensureDesktopMcpWarm`, `externalServerJs`, `readConfig`, `safeSessionId`, `selectedAgentCli`, `staticBase` |
 | `12-tool-dispatch.js` | `01c-runtime-flags.js` | backward | `execResultCacheEnabled`, `execResultCacheMaxEntries`, `observationRecallEnabled` |
@@ -354,6 +356,7 @@
 | `12-tool-dispatch.js` | `10-context-governance.js` | backward | `TOOL_RESULT_CAP`, `providerTurnQuotaKey`, `rehydrateObservation` |
 | `12-tool-dispatch.js` | `11-native-tools.js` | backward | `binaryReadHint`, `gitDiff`, `gitStatus`, `isBinaryReadPath`, `levenshtein`, `powershellMissingOr`, `probeRgAsync`, `readIfExists` |
 | `12-tool-dispatch.js` | `11b-file-text-io.js` | backward | `FileTextIo` |
+| `12-tool-dispatch.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
 | `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `EventStreamHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `URL`, `VERSION`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRootAliases`, `decodeConsoleText`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isPkg`, `json`, `makeId`, `nowIso`, `os`, `path`, `paths`, `readline`, `recordInstallLaunch`, `safeJsonParse`, `spawnDetachedChecked`, `text`, `zlib` |
 | `13-http-router.js` | `00b-ruyi-names.js` | backward | `LEGACY_RUYI_MCP_SERVER_IDS`, `RUYI_MCP_SERVER_ID` |
 | `13-http-router.js` | `01-config.js` | backward | `ConfigPatchHooks`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `contentTypeFor`, `decodeClaudeCliText`, `desktopMcpDetectionPending`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `ensureDesktopMcpWarm`, `externalServerJs`, `generateMcpConfig`, `hostAllowed`, `isLoopbackBindHost`, `mcpConfigFilePath`, `mutateConfig`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `requestIsLoopback`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `sweepStaleScriptFiles`, `syncAgentCliMcpManifests`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `tokenMatches`, `tokenOk` |
@@ -365,6 +368,7 @@
 | `13-http-router.js` | `03-bridge-guard.js` | backward | `PREVIEW_TEXT_EXTS`, `buildCodeEditorSpawn`, `buildRevealSpawn`, `ensureDataRootReal`, `existsExecutable`, `existsExecutableAsync`, `fileAllowedRoots`, `guardWorkspacePath`, `isSensitiveDataPath`, `isSensitiveHardlinkAlias`, `launchCodeEditor`, `materializeCheckpointEditorDiff`, `normalizeCwd`, `pathWithinAnyRoot`, `pathWithinRoot`, `readFilePreview`, `remoteUncDenialResolved`, `resolvePreferredCodeEditor`, `resolveWorkspace` |
 | `13-http-router.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
 | `13-http-router.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `activeChildren`, `killAllMcpClients`, `killOwnProcessTree`, `logEvent`, `makeAttachmentRecord`, `redact`, `resolveExternalMcpServers`, `stopSession` |
+| `13-http-router.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
 | `13-http-router.js` | `04h-provider-http.js` | backward | `providerScrubSecrets` |
 | `13-http-router.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle` |
 | `13-http-router.js` | `05-claude-engine.js` | backward | `CLAUDE_ENDPOINT_PRESETS`, `PROVIDER_PRESETS`, `activeOpenAiProvider`, `agentCliAdapter`, `maskProviders`, `maskedSecretConflictMessage`, `maskedSecretConflicts`, `resolveProvider`, `sanitizeProvider`, `unmaskProviders` |
@@ -634,7 +638,7 @@
 
 ## 强连通分量
 
-1. `00-boot.js` ↔ `01-config.js` ↔ `02-session-store.js` ↔ `03-bridge-guard.js` ↔ `04-desktop-shell.js` ↔ `04-permission-runtime.js` ↔ `04-visual-pipeline.js` ↔ `05-claude-engine.js` ↔ `05b-kimi-bridge.js` ↔ `05c-kimi-search-policy.js` ↔ `05d-kimi-prompt-parts.js` ↔ `06-provider-engine.js` ↔ `06b-prompt-registry.js` ↔ `06c-agent-loop-hooks.js` ↔ `06d-memory-domain.js` ↔ `06e-mission-domain.js` ↔ `06f-autonomy-grants.js` ↔ `06g-resource-leases.js` ↔ `07-autonomy.js` ↔ `08-agent-runs.js` ↔ `09-workflow.js` ↔ `09b-replan-ledger.js` ↔ `09d-token-estimation.js` ↔ `10-context-governance.js` ↔ `11-native-tools.js` ↔ `13-http-router.js` ↔ `13b-api-domain-routes.js` ↔ `13c-overlay-routes.js` ↔ `13d-core-domain-routes.js` ↔ `13e-pretender-index.js` ↔ `13f-native-tool-schemas.js` ↔ `13s-scheduler.js`
+1. `00-boot.js` ↔ `01-config.js` ↔ `02-session-store.js` ↔ `03-bridge-guard.js` ↔ `04-desktop-shell.js` ↔ `04-permission-runtime.js` ↔ `05-claude-engine.js` ↔ `05b-kimi-bridge.js` ↔ `05c-kimi-search-policy.js` ↔ `05d-kimi-prompt-parts.js` ↔ `06-provider-engine.js` ↔ `06b-prompt-registry.js` ↔ `06c-agent-loop-hooks.js` ↔ `06d-memory-domain.js` ↔ `06e-mission-domain.js` ↔ `06f-autonomy-grants.js` ↔ `06g-resource-leases.js` ↔ `07-autonomy.js` ↔ `08-agent-runs.js` ↔ `09-workflow.js` ↔ `09b-replan-ledger.js` ↔ `09d-token-estimation.js` ↔ `10-context-governance.js` ↔ `11-native-tools.js` ↔ `13-http-router.js` ↔ `13b-api-domain-routes.js` ↔ `13c-overlay-routes.js` ↔ `13d-core-domain-routes.js` ↔ `13e-pretender-index.js` ↔ `13f-native-tool-schemas.js` ↔ `13s-scheduler.js`
 
 ## 维护规则
 

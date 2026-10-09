@@ -968,6 +968,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         // 不能让本批还没答的 call_1 漏补配对。
         const subBatchHistStart = subHistory.length;
         const subOutputLimited = providerWireOutputLimited(call.finishReason);
+        const subToolImages = [];
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -1162,10 +1163,20 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           const isErr = !!(resultObj && resultObj.ok === false);
           // N3: 子代理的 tool_result 事件同样只发有界的展示副本(大图落附件);subHistory 那份仍按模型预算截断。
           onEvent({ type: 'tool_result', id: tc.id, content: await boundToolResultForDisplay(tc.name, resultObj, { sessionId: parentSession && parentSession.id }), isError: isErr, subagentId });
-          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+          const imgs = VisualPipeline.extractToolImages(resultObj);
+          const modelResult = imgs.length ? VisualPipeline.stripToolImageFields(resultObj, provider.vision === true ? undefined : 'no-vision') : resultObj;
+          if (imgs.length && provider.vision === true) {
+            subToolImages.push({ role: 'user', content: [{ type: 'text', text: `[工具 ${tc.name} 返回的图像，来源与页码见工具结果]` },
+              ...imgs.map(uri => ({ type: 'image_url', image_url: { url: uri } }))] });
+          }
+          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(modelResult)) });
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
         }
         if (!subOk) break;
+        if (!(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+          subHistory.push(...subToolImages);
+          if (subToolImages.length) VisualPipeline.pruneOldImages(subHistory);
+        }
         if (iter + 1 >= budget && budget < adaptiveBudgetLimit && shouldExtendToolIterationBudget({
           currentLimit: budget,
           hardLimit: adaptiveBudgetLimit,

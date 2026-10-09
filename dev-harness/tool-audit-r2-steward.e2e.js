@@ -222,15 +222,22 @@ try {
   ok(binRead.ok === false && binRead.error === 'binary_file', `R7d 含 NUL 的 bin.dat → binary_file(修前回乱码文本;got ${binRead.error})`);
   const plain = await S('steward_file_read', { path: path.join(WS, 'a.txt') });
   ok(plain.ok === true && /line1/.test(plain.content), 'R7e 普通文本照常读');
+  const imagePath = path.join(WS, 'native.png');
+  const imageData = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  fs.writeFileSync(imagePath, Buffer.from(imageData, 'base64'));
+  const picture = await S('steward_file_read', { path: imagePath });
+  ok(picture.ok && picture.tainted && picture.images && picture.images[0].data === imageData, 'R7e2 管家原生图片读取保留像素与 tainted');
   const art = await mk('产物线');
   const artFile = path.join(HOME, 'sessions', art + '.json');
   const artHead = JSON.parse(fs.readFileSync(artFile, 'utf8'));
-  artHead.mission = { result: { status: 'done', artifacts: [{ path: path.join(WS, 'bin.dat') }, { path: path.join(WS, 'a.txt') }] } };
+  artHead.mission = { result: { status: 'done', artifacts: [{ path: path.join(WS, 'bin.dat') }, { path: path.join(WS, 'a.txt') }, { path: imagePath }] } };
   fs.writeFileSync(artFile, JSON.stringify(artHead));
   const artBin = await S('steward_thread_artifact_read', { sessionId: art, path: path.join(WS, 'bin.dat') });
   ok(artBin.ok === false && artBin.error === 'binary_file', `R7f artifact_read 二进制同样拒(got ${artBin.error})`);
   const artTxt = await S('steward_thread_artifact_read', { sessionId: art, path: path.join(WS, 'a.txt') });
   ok(artTxt.ok === true, 'R7g artifact_read 文本照常');
+  const artImage = await S('steward_thread_artifact_read', { sessionId: art, path: imagePath });
+  ok(artImage.ok && artImage.tainted && artImage.images && artImage.images[0].data === imageData, 'R7g2 图片交付物原生读取保留像素');
 
   /* ═════════ R10 run_action runId ═════════ */
   const raTarget = await mk('班组目标');

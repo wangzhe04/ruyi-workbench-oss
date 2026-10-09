@@ -2190,29 +2190,7 @@
       "provides": [
         "VisualPipeline"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "fsp",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "path",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "04-permission-runtime.js",
@@ -7929,6 +7907,13 @@
           ]
         },
         {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
@@ -11613,6 +11598,29 @@
       ]
     },
     {
+      "file": "11c-file-visual-io.js",
+      "layer": "tools",
+      "provides": [
+        "FileVisualIo"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "cp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "12-tool-dispatch.js",
       "layer": "tools",
       "provides": [
@@ -12554,6 +12562,13 @@
         {
           "provider": "11b-file-text-io.js",
           "symbol": "FileTextIo",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11c-file-visual-io.js",
+          "symbol": "FileVisualIo",
           "kinds": [
             "read"
           ]
@@ -13587,6 +13602,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
           "kinds": [
             "read"
           ]
@@ -17897,7 +17919,8 @@
         "stewardExternalBlock",
         "stewardEyesSettle",
         "stewardEyesTake",
-        "stewardFileLooksBinary",
+        "stewardFileReadArgs",
+        "stewardFileVisualResult",
         "stewardFoldWs",
         "stewardImplAuditTail",
         "stewardImplConfigGet",

@@ -13872,9 +13872,9 @@ function buildAttachmentPrompt(attachments) {
   return lines.join('\n');
 }
 
-const VisualPipeline = ((fspModule, pathModule) => {
-  const fsp = fspModule;
-  const path = pathModule;
+const VisualPipeline = (() => {
+  const nodeFsp = require('fs/promises');
+  const nodePath = require('path');
   // ── v0.9-S7 视觉回路 (§0.9-S7 / 总纲 §7.5) ────────────────────────────────────────────────────────────
   // Image-part plumbing for the provider (OpenAI-compat) engine. Two entry points feed the model images:
   //   (1) image ATTACHMENTS on a user turn (buildUserContentParts, runOpenAiTurn) — vision=true only;
@@ -13904,17 +13904,17 @@ const VisualPipeline = ((fspModule, pathModule) => {
       // 目标),大图不再直接降级占位;派生件缺失/不可读回退原图,仍超限才降级占位文本。mime 跟实际发送文件走。
       let target = String(a.sendPath || '') || a.path;
       try {
-        let st = await fsp.stat(target).catch(() => null);
-        if (!st && target !== a.path) { target = a.path; st = await fsp.stat(target); }
+        let st = await nodeFsp.stat(target).catch(() => null);
+        if (!st && target !== a.path) { target = a.path; st = await nodeFsp.stat(target); }
         if (!st) throw new Error('missing');
-        if (st.size > IMAGE_ATTACH_MAX) { parts[0].text += `\n[图片过大未发送:${a.name || path.basename(a.path)}]`; continue; }
-        const buf = await fsp.readFile(target);
+        if (st.size > IMAGE_ATTACH_MAX) { parts[0].text += `\n[图片过大未发送:${a.name || nodePath.basename(a.path)}]`; continue; }
+        const buf = await nodeFsp.readFile(target);
         // 字节魔数优先,扩展名兜底:文件名说 .png 字节却是 JPEG(截图工具/改名)时,Anthropic Messages 协议会因
         // media_type 与字节不符直接 400(04i 的编码照单全收这里给的 mime)。与下方工具截图的 toImageDataUri 同一口径。
         const b64 = buf.toString('base64');
         const uri = `data:${sniffImageMime(b64) || attachmentMime(target)};base64,${b64}`;
         parts.push({ type: 'image_url', image_url: { url: uri } });
-      } catch { parts[0].text += `\n[图片读取失败:${a.name || path.basename(a.path)}]`; }
+      } catch { parts[0].text += `\n[图片读取失败:${a.name || nodePath.basename(a.path)}]`; }
     }
     return parts;
   }
@@ -14027,13 +14027,13 @@ const VisualPipeline = ((fspModule, pathModule) => {
     if (!refs.length) return { ...resultObj };
     const clone = { ...resultObj };
     for (const r of refs) {
-      let text = '[截图见随后的图片消息]';
+      let replacement = typeof placeholder === 'string' && placeholder !== 'no-vision' ? placeholder : '[截图见随后的图片消息]';
       if (placeholder === 'no-vision' || typeof placeholder === 'function') {
         const mime = (toImageDataUri(r.value, ...r.hints).match(/^data:([^;]+);/) || [])[1] || 'image/png';
-        text = typeof placeholder === 'function' ? placeholder(r, mime)
+        replacement = typeof placeholder === 'function' ? placeholder(r, mime)
           : `[image omitted: ${Number(r.w) > 0 && Number(r.h) > 0 ? `${Number(r.w)}x${Number(r.h)} ` : ''}${mime.replace('image/', '')}, model has no vision]`;
       }
-      r.set(clone, text);
+      r.set(clone, replacement);
     }
     return clone;
   }
@@ -14066,7 +14066,7 @@ const VisualPipeline = ((fspModule, pathModule) => {
     return demoted;
   }
   return Object.freeze({ buildUserContentParts, hasImageAttachment, extractToolImages, stripToolImageFields, pruneOldImages, sniffImageMime, imageSizeFromBuffer });
-})(fsp, path);
+})();
 
 // 117w-W1 提交②(27 号文 §11.19.2):Windows 文件系统非法字符的【唯一一份】替换表 —— 尖括号、
 // 冒号、双引号、两种斜杠、竖线、问号、星号、控制字符,一律换成下划线;中文与其它可见字符原样保留。
@@ -37878,7 +37878,7 @@ function toolPackForName(name, bridgedRoute) {
 // bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
 // deterministic fields derived from name, description and JSON Schema parameters.
 const TOOL_RETRIEVAL_HINTS = Object.freeze({
-  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', '读文件', 'read workspace file'] },
+  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '读取文档', '读取PDF', 'read workspace file', 'read image'] },
   file_list: { capabilities: ['workspace.file.list'], aliases: ['列出目录', '查看目录', 'list directory'] },
   file_search: { capabilities: ['workspace.text.search'], aliases: ['搜索文件内容', '全文检索', 'search files'] },
   glob: { capabilities: ['workspace.path.glob'], aliases: ['按模式找文件', '文件通配符', 'find files by pattern'] },
@@ -38040,6 +38040,7 @@ function classifyToolPacks(message, attachments) {
   const packs = new Set(['core']);
   const add = (...xs) => xs.forEach(x => packs.add(x));
   if (Array.isArray(attachments) && attachments.length) add('files_read');
+  if (/(图片|图像|照片|扫描件|看图|文档|image|photo|scan\b)/i.test(s)) add('files_read');
   if (/(文件|目录|路径|源码|代码|项目|repo|repository|file|folder|directory|source|workspace|read|读取|查看|搜索|查找|分析|审查)/i.test(s)) add('files_read');
   // 2026-10:泛化的动词(修改/编辑/更新/写入/创建/删除…)只带文件读写,不再顺带 code 包。code 包(git/依赖/审查/符号检索等
   // 12 个工具、约 2.3K token)本机 4 天 0 次使用,却被「file_edit」里的 edit、「更新」这类词带进来;而会话工具表只增不减,
@@ -40912,6 +40913,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         // 不能让本批还没答的 call_1 漏补配对。
         const subBatchHistStart = subHistory.length;
         const subOutputLimited = providerWireOutputLimited(call.finishReason);
+        const subToolImages = [];
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -41106,10 +41108,20 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           const isErr = !!(resultObj && resultObj.ok === false);
           // N3: 子代理的 tool_result 事件同样只发有界的展示副本(大图落附件);subHistory 那份仍按模型预算截断。
           onEvent({ type: 'tool_result', id: tc.id, content: await boundToolResultForDisplay(tc.name, resultObj, { sessionId: parentSession && parentSession.id }), isError: isErr, subagentId });
-          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+          const imgs = VisualPipeline.extractToolImages(resultObj);
+          const modelResult = imgs.length ? VisualPipeline.stripToolImageFields(resultObj, provider.vision === true ? undefined : 'no-vision') : resultObj;
+          if (imgs.length && provider.vision === true) {
+            subToolImages.push({ role: 'user', content: [{ type: 'text', text: `[工具 ${tc.name} 返回的图像，来源与页码见工具结果]` },
+              ...imgs.map(uri => ({ type: 'image_url', image_url: { url: uri } }))] });
+          }
+          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(modelResult)) });
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
         }
         if (!subOk) break;
+        if (!(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+          subHistory.push(...subToolImages);
+          if (subToolImages.length) VisualPipeline.pruneOldImages(subHistory);
+        }
         if (iter + 1 >= budget && budget < adaptiveBudgetLimit && shouldExtendToolIterationBudget({
           currentLimit: budget,
           hardLimit: adaptiveBudgetLimit,
@@ -46469,14 +46481,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // (image/image_base64/screenshot.image), STRIP the heavy pixel field(s) out of the role:'tool'
           // message (占位 → keeps the tool JSON精简) and QUEUE a user image message to be flushed after the
           // batch (连续性铁律 — never wedged in the tool block). vision=false: the image fields stay in the
-          // tool result verbatim and are NOT turned into an image message (a text model can't see them; the
-          // 操控规程 for that path grounds on OCR/元素文本 instead). extractToolImages ignores non-image results.
+          // tool result as compact no-vision placeholders instead of base64 text. Native file/document images
+          // use this same channel. extractToolImages ignores non-image results.
           let toolResultForHistory = resultObj;
           if (visionOn) {
             const imgs = VisualPipeline.extractToolImages(resultObj);
             if (imgs.length) {
               toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj);
-              const note = `[以下是工具 ${tc.name} 的屏幕截图]`;
+              const note = `[以下是工具 ${tc.name} 返回的图像（来源与页码见工具结果）]`;
               pendingToolImages.push({ toolCallId: tc.id, note, parts: [{ type: 'text', text: note }, ...imgs.map(u => ({ type: 'image_url', image_url: { url: u } }))] });
             }
           } else if (VisualPipeline.extractToolImages(resultObj).length) {
@@ -51570,11 +51582,11 @@ const BINARY_READ_ZIPLIKE = new Set(['zip', 'jar', 'war', 'ear', 'apk', 'whl', '
 const BINARY_READ_DB = new Set(['sqlite', 'sqlite3', 'db', 'mdb', 'accdb']);
 function binaryReadHint(p) {
   const ext = path.extname(String(p || '')).replace(/^\./, '').toLowerCase();
-  if (BINARY_READ_OFFICE.has(ext)) return 'Office 文档不是纯文本:已启用桌面控制 MCP 时用 read_document / excel_read 读取;.docx/.xlsx/.pptx 本质是 zip,也可用 archive_unzip 解压后 file_read 里面的 xml;或用 script_run 写脚本解析';
-  if (ext === 'pdf') return 'PDF 不是纯文本:已启用桌面控制 MCP 时用 pdf_read_pages / read_document 读取;或用 script_run 写脚本提取文字';
+  if (BINARY_READ_OFFICE.has(ext)) return '新版 Office/ODF 可直接 file_read 读取文字与内嵌图片,不需要桌面控制;旧 .doc/.xls/.ppt 请先另存为 .docx/.xlsx/.pptx,或用 script_run 解析';
+  if (ext === 'pdf') return 'PDF 可直接 file_read {path,pageOffset,pageLimit} 读取文字与页面图像(需要 Python + pdfplumber),不需要桌面控制';
   if (BINARY_READ_ZIPLIKE.has(ext)) return '这是 zip 类压缩包:先用 archive_unzip {list:true} 看条目清单,再解压到工作区后读取需要的文件';
   if (BINARY_READ_DB.has(ext)) return '这是数据库文件,不是文本:没有原生读取工具,请用 script_run 写 python(sqlite3 模块)或命令行查询';
-  return '图片请作为附件走视觉通道(v0.9)或用 desktop_screenshot 相关工具;其它二进制文件不能用 file_read 读取';
+  return '图片可直接 file_read,视觉模型会收到图像;其它二进制文件不能按文本读取';
 }
 
 // v0.8-S1: ripgrep fast-path probe. Prefer an explicit override / vendored binary, then accept a
@@ -56312,7 +56324,7 @@ const FileTextIo = (() => {
       } else {
         sn = sniffEncoding(head, complete);
         if (!sn.bom && sn.hasNul && req.refuseNul) {
-          return { ok: false, code: 'binary', error: 'binary file (NUL bytes in the first 8KB)', hint: '这看起来是二进制文件(不是文本);如果其实是无 BOM 的 UTF-16 文本,请传 encoding:"utf-16le"(或 utf-16be)。其它二进制:压缩包用 archive_unzip,Office/PDF 用 read_document / pdf_read_pages(桌面控制 MCP),数据库用 script_run 查询' };
+          return { ok: false, code: 'binary', error: 'binary file (NUL bytes in the first 8KB)', hint: '这看起来是二进制文件(不是文本);如果其实是无 BOM 的 UTF-16 文本,请传 encoding:"utf-16le"(或 utf-16be)。图片/新版 Office/PDF 可用 file_read 原生读取,请确认扩展名;压缩包用 archive_unzip,数据库用 script_run 查询' };
         }
       }
       const decoder = makeDecoder(sn.encoding, false);
@@ -56653,6 +56665,111 @@ const FileTextIo = (() => {
     readTextWindow, readHead, writeFileAtomic, fsErrorEnvelope,
     findWhitespaceMatch, describeWsKinds, locateMatches, closestWindow, showWs,
   });
+})();
+
+// 11c-file-visual-io.js - Bounded native image/document reads; no desktop or MCP dependency.
+const FileVisualIo = (() => {
+  const io = require('fs/promises');
+  const paths = require('path');
+  const cp = require('child_process');
+  const cryptoModule = require('crypto');
+  const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+  const MAX_FILE_BYTES = 50 * 1024 * 1024;
+  const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|tiff?)$/i;
+  const DOCUMENT_EXT = /\.(pdf|docx|docm|dotx|pptx|pptm|xlsx|xlsm|odt|ods|odp)$/i;
+  const clamp = (v, fallback, min, max) => Number.isFinite(Number(v)) && v != null
+    ? Math.max(min, Math.min(max, Math.floor(Number(v)))) : fallback;
+  function options(args) {
+    return {
+      offset: clamp(args.offset, 0, 0, 10000000), limit: clamp(args.limit, 40000, 2, 50000),
+      includeImages: args.includeImages !== false,
+      imageOffset: clamp(args.imageOffset, 0, 0, 100000), imageLimit: clamp(args.imageLimit, 2, 1, 2),
+      pageOffset: clamp(args.pageOffset, 1, 1, 100000), pageLimit: clamp(args.pageLimit, 2, 1, 2),
+    };
+  }
+  function mime(buf) {
+    if (buf.length >= 8 && buf.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'image/png';
+    if (buf.length >= 3 && buf[0] === 255 && buf[1] === 216 && buf[2] === 255) return 'image/jpeg';
+    if (/^GIF8[79]a$/.test(buf.subarray(0, 6).toString('ascii'))) return 'image/gif';
+    if (buf.subarray(0, 4).toString() === 'RIFF' && buf.subarray(8, 12).toString() === 'WEBP') return 'image/webp';
+    return '';
+  }
+  async function readBounded(p, cap) {
+    const fh = await io.open(p, 'r');
+    try {
+      const st = await fh.stat();
+      if (!st.isFile()) throw Object.assign(new Error('not a regular file'), { code: 'EISDIR' });
+      if (st.size > cap) throw Object.assign(new Error(`file exceeds ${cap} bytes`), { code: 'file_too_large' });
+      const buf = Buffer.alloc(Math.min(st.size + 1, cap + 1));
+      let n = 0;
+      while (n < buf.length) { const r = await fh.read(buf, n, buf.length - n, n); if (!r.bytesRead) break; n += r.bytesRead; }
+      if (n > cap) throw Object.assign(new Error(`file exceeds ${cap} bytes`), { code: 'file_too_large' });
+      return buf.subarray(0, n);
+    } finally { await fh.close(); }
+  }
+  // Probe bytes as well as suffixes: renamed images must never be decoded as text.
+  async function kind(p) {
+    if (DOCUMENT_EXT.test(p)) return 'document';
+    if (IMAGE_EXT.test(p)) return 'image';
+    const fh = await io.open(p, 'r');
+    try { const b = Buffer.alloc(16); const r = await fh.read(b, 0, b.length, 0); return mime(b.subarray(0, r.bytesRead)) ? 'image' : null; }
+    finally { await fh.close(); }
+  }
+  async function image(p, args) {
+    const buf = await readBounded(p, MAX_IMAGE_BYTES);
+    const media = mime(buf);
+    if (!media) return null; // BMP/TIFF/ICO need conversion before sending to providers.
+    const sha256 = cryptoModule.createHash('sha256').update(buf).digest('hex');
+    return { ok: true, path: p, mode: 'image', size: buf.length, mimeType: media, sha256,
+      content: `Image ${paths.basename(p)} (${buf.length} bytes, sha256 ${sha256}). Pixels are attached for vision models; no text/OCR was extracted.`,
+      ...(args.includeImages === false ? {} : { images: [{ name: paths.basename(p), mimeType: media, data: buf.toString('base64') }] }) };
+  }
+  async function document(p, args, helperPath, signal) {
+    const st = await io.stat(p);
+    if (!st.isFile()) throw Object.assign(new Error('not a regular file'), { code: 'EISDIR' });
+    if (st.size > MAX_FILE_BYTES) return { ok: false, code: 'file_too_large', error: 'Document exceeds 50MB; split it before reading.', path: p };
+    const candidates = [];
+    if (process.env.RUYI_BUNDLED_PYTHON) candidates.push([process.env.RUYI_BUNDLED_PYTHON, []]);
+    candidates.push(['python', []], process.platform === 'win32' ? ['py', ['-3']] : ['python3', []]);
+    for (const [exe, pre] of candidates) {
+      const res = await new Promise(resolve => {
+        cp.execFile(exe, [...pre, '-I', '-X', 'utf8', helperPath, p, JSON.stringify(options(args))],
+          { windowsHide: true, timeout: 30000, maxBuffer: 16 * 1024 * 1024, signal },
+          (err, stdout) => resolve({ err, stdout }));
+      });
+      if (res.err && (res.err.code === 'ENOENT' || res.err.code === 9009)) continue;
+      if (signal && signal.aborted) return { ok: false, code: 'aborted', error: 'File read cancelled', path: p };
+      if (res.err) return { ok: false, code: 'document_read_failed', error: 'Document reader failed or exceeded its time/output limit', path: p };
+      try { return { ...JSON.parse(res.stdout), path: p, size: st.size }; }
+      catch { return { ok: false, code: 'document_read_failed', error: 'Invalid document reader response', path: p }; }
+    }
+    return { ok: false, code: 'reader_unavailable', error: 'Native document reading needs Python', path: p,
+      hint: 'Use the bundled Python runtime or install Python. PDF requires pdfplumber; image conversion requires Pillow. No computer use/MCP connection is needed.' };
+  }
+  // Only explicitly requested Markdown/HTML images are followed. Every local link gets the caller's guard.
+  async function linkedImages(p, content, args, guard) {
+    if (args.includeImages !== true || !/\.(md|markdown|html?|xhtml)$/i.test(p)) return {};
+    const refs = [];
+    const re = /!\[[^\]\n]*\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+["'][^\n]*?["'])?\s*\)|<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
+    let m;
+    while ((m = re.exec(content)) && refs.length < 1000) refs.push(m[1] || m[2] || m[3]);
+    const unique = [...new Set(refs)], opt = options(args), images = [], imageWarnings = [];
+    const selected = unique.slice(opt.imageOffset, opt.imageOffset + opt.imageLimit);
+    for (const ref of selected) {
+      try {
+        if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|\\\\)/i.test(ref)) { imageWarnings.push({ source: ref.slice(0, 200), code: 'non_local_image', hint: 'Download remote images with http_download, then file_read the saved path.' }); continue; }
+        const target = paths.resolve(paths.dirname(p), decodeURIComponent(ref.replace(/[?#].*$/, '')));
+        const g = await guard(target);
+        if (!g.ok) { imageWarnings.push({ source: ref, code: g.code || 'not-allowed' }); continue; }
+        const r = await image(target, args);
+        if (r && r.images) images.push({ ...r.images[0], source: ref });
+        else imageWarnings.push({ source: ref, code: 'unsupported_image', hint: 'Read this image path directly to convert it.' });
+      } catch (e) { imageWarnings.push({ source: ref, code: e.code || 'image_read_failed' }); }
+    }
+    return { images, imageWarnings, totalImages: unique.length,
+      ...(opt.imageOffset + selected.length < unique.length ? { nextImageOffset: opt.imageOffset + selected.length } : {}) };
+  }
+  return Object.freeze({ kind, image, document, linkedImages });
 })();
 
 // 文件族只读工具默认根(修复:旧实现统一回退 process.cwd()=服务器启动目录,与系统 workspace
@@ -57758,13 +57875,29 @@ const FILE_TOOL_HANDLERS = {
   file_read: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_read', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      // v0.8-S1: image/binary suffixes are refused — the model should route these to the vision channel.
+      // Native pixels/documents use the same provider image channel as MCP screenshots.
+      // Always guard the source before probing bytes or starting a read-only parser.
+      let visualKind;
+      try {
+        visualKind = await FileVisualIo.kind(p);
+        if (visualKind) {
+          const result = visualKind === 'image' ? await FileVisualIo.image(p, args) : null;
+          if (result) return result;
+          return await FileVisualIo.document(p, args, path.join(externalRoot(), 'resources', 'native-file-read.py'), ctx && ctx.signal);
+        }
+      } catch (e) {
+        if (e && e.code === 'ENOENT') return fileToolNotFound(p, args.path);
+        const f = fileToolFsFailure(e, p); if (f) return f;
+        return { ok: false, code: e.code || 'file_read_failed', error: e.message, path: p,
+          ...(e.code === 'file_too_large' ? { hint: 'Image input is limited to 4MB per image. Resize/compress a copy, then file_read the smaller image; no desktop tool is required.' } : {}) };
+      }
       if (isBinaryReadPath(p)) {
         return { ok: false, code: 'binary', error: 'binary or image file', path: p, hint: binaryReadHint(p) };
       }
       // 106 #2a: 权限守卫之后、读盘之前的缓存查找 —— 命中即返回(带 cacheHit 标记),未命中
       // 走原路径并在成功结果上存储。cctx 为 null(开关关/非白名单/无会话)时零额外开销。
-      const cctx = execCacheContext('file_read', args, ctx, p);
+      // Linked images have independent versions/permissions; never serve a parent-only cache hit.
+      const cctx = args.includeImages === true ? null : execCacheContext('file_read', args, ctx, p);
       if (cctx) {
         const hit = await execCacheLookup(cctx);
         if (hit) return hit;
@@ -57819,7 +57952,9 @@ const FILE_TOOL_HANDLERS = {
         throw e;
       }
       if (!w.ok) return { ok: false, code: w.code, error: w.error, path: p, hint: w.hint };
-      const encFields = { encoding: w.encoding, ...(w.bom ? { bom: true } : {}), ...(w.encodingDetected ? { encodingDetected: true } : {}),
+      const linked = await FileVisualIo.linkedImages(p, w.content || (w.lines || []).map(l => l.text).join('\n'), args,
+        target => guardFileToolPath(target, ctx, { tool: 'file_read', write: false }));
+      const encFields = { ...linked, encoding: w.encoding, ...(w.bom ? { bom: true } : {}), ...(w.encodingDetected ? { encodingDetected: true } : {}),
         ...(w.encodingWarning ? { encodingWarning: w.encodingWarning } : {}) };
       if (hasLineParams) {
         const width = String(w.lines.length ? w.lines[w.lines.length - 1].no : 0).length;
@@ -60367,7 +60502,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_read',
-    description: 'Read a local text file (encoding auto-detected: UTF-8, UTF-16 BOM, GBK; reported in `encoding`). Char mode offset/limit, or line mode lineOffset/lineLimit (cat -n style). Output is capped (~40K chars): when `truncated` is true continue with offset=nextOffset or lineOffset=nextLine. Image/binary files are refused.',
+    description: 'Read local text, images, PDF or modern Office/ODF without computer use. Vision models receive pixels: PDF pages or embedded Office media. Documents need Python (PDF: pdfplumber). Text: auto UTF-8/UTF-16/GBK; char or line windows; continue with nextOffset/nextLine. Other binaries refused.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -60378,6 +60513,11 @@ const MCP_TOOLS = [
         lineLimit: { type: 'number', description: 'default 2000 lines' },
         encoding: { type: 'string', description: 'utf8|utf-16le|utf-16be|gbk|latin1; default auto' },
         annotate_non_ascii: { type: 'boolean', description: 'show non-ASCII as <U+XXXX>' },
+        includeImages: { type: 'boolean', description: 'Default true for images/docs; opt in for Markdown/HTML local links. No remote fetch.' },
+        imageOffset: { type: 'integer', minimum: 0, description: '0-based media/link index; nextImageOffset to continue' },
+        imageLimit: { type: 'integer', minimum: 1, maximum: 2, description: 'default/max 2 images' },
+        pageOffset: { type: 'integer', minimum: 1, description: 'PDF page, 1-based; nextPageOffset to continue' },
+        pageLimit: { type: 'integer', minimum: 1, maximum: 2, description: 'default/max 2 PDF pages; offset is within this window' },
       },
       required: ['path'],
     },
@@ -61346,13 +61486,17 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_file_read',
-    description: '读一个文件 —— **只限用户已登记的工作区之内**。何时用:用户说「看看我那个 xx 文件里写了啥」,而那个文件在某个工作区里。何时别用:① 工作区外的路径一律拒(outside_workspace),别换个写法再试;② 应用自己的配置/会话/记忆/日志读不到(另一道守卫);③ 凭据类文件一律拒(sensitive_path:.env / 私钥 id_rsa·*.pem·*.key / .git/config / .ssh 与 .aws 目录 / .npmrc 等,.env.example 这类模板放行),二进制文件拒(binary_file:前 8KB 含 NUL 字节)——别换个写法再试;④ 要改文件、要跑命令 —— 交给线程。**文件内容同样算外部内容:读过之后这一回合我只能提议**。返回 {ok,path,workspace,tainted:true,content}。',
+    description: '读一个文件 —— **只限用户已登记的工作区之内**。何时用:用户说「看看我那个 xx 文件里写了啥」,而那个文件在某个工作区里。何时别用:① 工作区外的路径一律拒(outside_workspace),别换个写法再试;② 应用自己的配置/会话/记忆/日志读不到(另一道守卫);③ 凭据类文件一律拒(sensitive_path:.env / 私钥 id_rsa·*.pem·*.key / .git/config / .ssh 与 .aws 目录 / .npmrc 等,.env.example 这类模板放行),图片/PDF/新版 Office 可原生读取并返回图片;其它二进制拒(binary_file);④ 要改文件、要跑命令 —— 交给线程。**文件内容同样算外部内容:读过之后这一回合我只能提议**。返回 {ok,path,workspace,tainted:true,content}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['path'],
       properties: {
         path: { type: 'string', description: '绝对路径,必须落在某个已登记工作区里。' },
         lineOffset: { type: 'integer', minimum: 1, description: '可选。从第几行开始(1 起)。' },
         lineLimit: { type: 'integer', minimum: 1, maximum: 600, description: '可选。读多少行,默认 200、最多 600。' },
+        offset: { type: 'integer', minimum: 0, description: '文档字符续读:nextOffset' },
+        imageOffset: { type: 'integer', minimum: 0, description: '内嵌图片续读:nextImageOffset' },
+        pageOffset: { type: 'integer', minimum: 1, description: 'PDF 页码(1 起):nextPageOffset' },
+        includeImages: { type: 'boolean', description: 'false 只读文字/元数据;默认发送文档图片' },
       },
     },
   },
@@ -61366,6 +61510,10 @@ const MCP_TOOLS = [
         path: { type: 'string', description: '要读的文件路径,必须在那条线程的交付清单里。' },
         lineOffset: { type: 'integer', minimum: 1, description: '可选。从第几行开始(1 起)。' },
         lineLimit: { type: 'integer', minimum: 1, maximum: 600, description: '可选。读多少行,默认 200、最多 600。' },
+        offset: { type: 'integer', minimum: 0, description: '文档字符续读:nextOffset' },
+        imageOffset: { type: 'integer', minimum: 0, description: '内嵌图片续读:nextImageOffset' },
+        pageOffset: { type: 'integer', minimum: 1, description: 'PDF 页码(1 起):nextPageOffset' },
+        includeImages: { type: 'boolean', description: 'false 只读文字/元数据;默认发送文档图片' },
       },
     },
   },
@@ -64195,9 +64343,14 @@ async function startMcp() {
             const result = await toolCall(name, args);
             // S1 修复:MCP tools/call 路径(Claude 引擎)原样直出大结果会灌爆 CLI context。
             // 经 truncateToolResult 截断(file_read 走 head/tail,其余 60KB+标记),与 OpenAI 引擎 push 路径一致。
-            const text = truncateToolResult(name, JSON.stringify(result, null, 2));
+            const images = VisualPipeline.extractToolImages(result);
+            const modelResult = images.length ? VisualPipeline.stripToolImageFields(result, '[image attached in MCP content]') : result;
+            const text = truncateToolResult(name, JSON.stringify(modelResult, null, 2));
             return sendMcp(msg.id, {
-              content: [{ type: 'text', text }],
+              content: [{ type: 'text', text }, ...images.map(uri => {
+                const split = uri.indexOf(';base64,');
+                return { type: 'image', mimeType: uri.slice(5, split), data: uri.slice(split + 8) };
+              })],
               isError: result.ok === false,
             });
           } finally {
@@ -73849,20 +74002,6 @@ function stewardIsSecretFilePath(rawPath) {
   if (/^id_(?:rsa|dsa|ecdsa|ed25519)\.pub$/.test(name) || STEWARD_ENV_TEMPLATE_RE.test(name)) return false;
   return STEWARD_SECRET_FILE_RE.test(name);
 }
-// 二进制判据:前 8KB 里出现 NUL 字节(与 13 的 diff 预览同一个口径)。12 的 file_read 只看扩展名,
-// bin.dat 这类无扩展名/冷门扩展名的二进制会被当文本回成乱码 —— 乱码进模型上下文既费 token 又没法读。
-// 读不到(不存在/没权限)时返回 false,把错误留给后面真正读文件的那一步报。
-async function stewardFileLooksBinary(realPath) {
-  let fh = null;
-  try {
-    fh = await fsp.open(realPath, 'r');
-    const buf = Buffer.alloc(8192);
-    const { bytesRead } = await fh.read(buf, 0, 8192, 0);
-    return buf.subarray(0, bytesRead).includes(0);
-  } catch { return false; }
-  finally { if (fh) { try { await fh.close(); } catch { /* best-effort */ } } }
-}
-
 // 29) steward_file_read —— **只在 config.workspaces 之内**。
 async function stewardImplFileRead(args, ctx, config) {
   const raw = String((args && args.path) || '').trim();
@@ -73885,25 +74024,22 @@ async function stewardImplFileRead(args, ctx, config) {
   if (stewardIsSecretFilePath(raw) || stewardIsSecretFilePath(realTarget)) {
     return stewardFail('sensitive_path', 'that looks like a credential file (.env / private key / .git/config / .ssh / token store); the steward does not read those', { path: stewardSanitizeText(raw).slice(0, 200) });
   }
-  if (await stewardFileLooksBinary(realTarget)) {
-    return stewardFail('binary_file', 'that file is binary (NUL bytes in its first 8KB); the steward only reads text files', { path: stewardSanitizeText(raw).slice(0, 200) });
-  }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 敏感路径(配置/会话/记忆/日志)、二进制与大小上限全走 12 那一道既有守卫 —— 这里只换围栏,
   // 不放松它。喂给它的 session 是【工作区根】那条 cwd,不是管家自己的。
   const out = await TOOL_HANDLERS.file_read.handler(
-    { path: raw, lineOffset: stewardClampInt(args && args.lineOffset, 1, 1000000, 1), lineLimit: stewardClampInt(args && args.lineLimit, 1, 600, 200) },
-    { config, session: { id: String((ctx.session && ctx.session.id) || 'steward'), cwd: root } })
+    { ...stewardFileReadArgs(args), path: raw },
+    { config, signal: ctx.signal, session: { id: String((ctx.session && ctx.session.id) || 'steward'), cwd: root } })
     .catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_file_read');
   if (!out || out.ok === false) {
     stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
-    return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
+    return stewardFail(out && out.code === 'binary' ? 'binary_file' : 'read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
   }
   const content = stewardExternalBlock('file', raw, out.content || out.text || '', STEWARD_EYES_CHARS);
   stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
-  return { ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true, content };
+  return { ...stewardFileVisualResult(out), ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true, content };
 }
 
 // 30) steward_thread_artifact_read —— 读一条线程【自己在交付里列出来的】那些文件。
@@ -73923,24 +74059,37 @@ async function stewardImplThreadArtifactRead(args, ctx, config) {
   }
   // 与 steward_file_read 同一道二进制判据(交付清单里的 .dat / 无扩展名文件同样会被当文本回成乱码)。
   const artifactAbs = path.isAbsolute(hit) ? hit : path.resolve(String(head.cwd || ''), hit);   // 清单里可能是相对线程 cwd 的写法
-  const artifactReal = await realpathForContainment(artifactAbs).catch(() => artifactAbs);
-  if (await stewardFileLooksBinary(artifactReal)) {
-    return stewardFail('binary_file', 'that delivered file is binary (NUL bytes in its first 8KB); the steward only reads text files', { path: stewardSanitizeText(hit).slice(0, 200) });
-  }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   const out = await TOOL_HANDLERS.file_read.handler(
-    { path: hit, lineOffset: stewardClampInt(args && args.lineOffset, 1, 1000000, 1), lineLimit: stewardClampInt(args && args.lineLimit, 1, 600, 200) },
-    { config, session: { id: sessionId, cwd: String(head.cwd || '') } })
+    { ...stewardFileReadArgs(args), path: artifactAbs },
+    { config, signal: ctx.signal, session: { id: sessionId, cwd: String(head.cwd || '') } })
     .catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_thread_artifact_read');
   if (!out || out.ok === false) {
     stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
-    return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
+    return stewardFail(out && out.code === 'binary' ? 'binary_file' : 'read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
   }
   const content = stewardExternalBlock('artifact', hit, out.content || out.text || '', STEWARD_EYES_CHARS);
   stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
-  return { ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true, content };
+  return { ...stewardFileVisualResult(out), ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true, content };
+}
+
+function stewardFileReadArgs(args) {
+  return { lineOffset: stewardClampInt(args && args.lineOffset, 1, 1000000, 1),
+    lineLimit: stewardClampInt(args && args.lineLimit, 1, 600, 200),
+    offset: stewardClampInt(args && args.offset, 0, 10000000, 0), limit: STEWARD_EYES_CHARS,
+    pageOffset: stewardClampInt(args && args.pageOffset, 1, 100000, 1),
+    imageOffset: stewardClampInt(args && args.imageOffset, 0, 100000, 0),
+    // No linked text images here: the steward's additional credential-file floor must apply to every read.
+    includeImages: args && args.includeImages === false ? false : undefined };
+}
+function stewardFileVisualResult(out) {
+  const result = {};
+  for (const key of ['mode', 'images', 'imageWarnings', 'totalImages', 'nextImageOffset', 'totalPages', 'pageOffset', 'nextPageOffset', 'truncated', 'nextOffset', 'totalChars', 'note']) {
+    if (out[key] !== undefined) result[key] = out[key];
+  }
+  return result;
 }
 
 // ════════════════════════════════════════════════════════════════════════════

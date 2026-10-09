@@ -1111,20 +1111,6 @@ function stewardIsSecretFilePath(rawPath) {
   if (/^id_(?:rsa|dsa|ecdsa|ed25519)\.pub$/.test(name) || STEWARD_ENV_TEMPLATE_RE.test(name)) return false;
   return STEWARD_SECRET_FILE_RE.test(name);
 }
-// 二进制判据:前 8KB 里出现 NUL 字节(与 13 的 diff 预览同一个口径)。12 的 file_read 只看扩展名,
-// bin.dat 这类无扩展名/冷门扩展名的二进制会被当文本回成乱码 —— 乱码进模型上下文既费 token 又没法读。
-// 读不到(不存在/没权限)时返回 false,把错误留给后面真正读文件的那一步报。
-async function stewardFileLooksBinary(realPath) {
-  let fh = null;
-  try {
-    fh = await fsp.open(realPath, 'r');
-    const buf = Buffer.alloc(8192);
-    const { bytesRead } = await fh.read(buf, 0, 8192, 0);
-    return buf.subarray(0, bytesRead).includes(0);
-  } catch { return false; }
-  finally { if (fh) { try { await fh.close(); } catch { /* best-effort */ } } }
-}
-
 // 29) steward_file_read —— **只在 config.workspaces 之内**。
 async function stewardImplFileRead(args, ctx, config) {
   const raw = String((args && args.path) || '').trim();
@@ -1147,25 +1133,22 @@ async function stewardImplFileRead(args, ctx, config) {
   if (stewardIsSecretFilePath(raw) || stewardIsSecretFilePath(realTarget)) {
     return stewardFail('sensitive_path', 'that looks like a credential file (.env / private key / .git/config / .ssh / token store); the steward does not read those', { path: stewardSanitizeText(raw).slice(0, 200) });
   }
-  if (await stewardFileLooksBinary(realTarget)) {
-    return stewardFail('binary_file', 'that file is binary (NUL bytes in its first 8KB); the steward only reads text files', { path: stewardSanitizeText(raw).slice(0, 200) });
-  }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 敏感路径(配置/会话/记忆/日志)、二进制与大小上限全走 12 那一道既有守卫 —— 这里只换围栏,
   // 不放松它。喂给它的 session 是【工作区根】那条 cwd,不是管家自己的。
   const out = await TOOL_HANDLERS.file_read.handler(
-    { path: raw, lineOffset: stewardClampInt(args && args.lineOffset, 1, 1000000, 1), lineLimit: stewardClampInt(args && args.lineLimit, 1, 600, 200) },
-    { config, session: { id: String((ctx.session && ctx.session.id) || 'steward'), cwd: root } })
+    { ...stewardFileReadArgs(args), path: raw },
+    { config, signal: ctx.signal, session: { id: String((ctx.session && ctx.session.id) || 'steward'), cwd: root } })
     .catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_file_read');
   if (!out || out.ok === false) {
     stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
-    return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
+    return stewardFail(out && out.code === 'binary' ? 'binary_file' : 'read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
   }
   const content = stewardExternalBlock('file', raw, out.content || out.text || '', STEWARD_EYES_CHARS);
   stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
-  return { ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true, content };
+  return { ...stewardFileVisualResult(out), ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true, content };
 }
 
 // 30) steward_thread_artifact_read —— 读一条线程【自己在交付里列出来的】那些文件。
@@ -1185,24 +1168,37 @@ async function stewardImplThreadArtifactRead(args, ctx, config) {
   }
   // 与 steward_file_read 同一道二进制判据(交付清单里的 .dat / 无扩展名文件同样会被当文本回成乱码)。
   const artifactAbs = path.isAbsolute(hit) ? hit : path.resolve(String(head.cwd || ''), hit);   // 清单里可能是相对线程 cwd 的写法
-  const artifactReal = await realpathForContainment(artifactAbs).catch(() => artifactAbs);
-  if (await stewardFileLooksBinary(artifactReal)) {
-    return stewardFail('binary_file', 'that delivered file is binary (NUL bytes in its first 8KB); the steward only reads text files', { path: stewardSanitizeText(hit).slice(0, 200) });
-  }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   const out = await TOOL_HANDLERS.file_read.handler(
-    { path: hit, lineOffset: stewardClampInt(args && args.lineOffset, 1, 1000000, 1), lineLimit: stewardClampInt(args && args.lineLimit, 1, 600, 200) },
-    { config, session: { id: sessionId, cwd: String(head.cwd || '') } })
+    { ...stewardFileReadArgs(args), path: artifactAbs },
+    { config, signal: ctx.signal, session: { id: sessionId, cwd: String(head.cwd || '') } })
     .catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_thread_artifact_read');
   if (!out || out.ok === false) {
     stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
-    return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
+    return stewardFail(out && out.code === 'binary' ? 'binary_file' : 'read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
   }
   const content = stewardExternalBlock('artifact', hit, out.content || out.text || '', STEWARD_EYES_CHARS);
   stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
-  return { ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true, content };
+  return { ...stewardFileVisualResult(out), ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true, content };
+}
+
+function stewardFileReadArgs(args) {
+  return { lineOffset: stewardClampInt(args && args.lineOffset, 1, 1000000, 1),
+    lineLimit: stewardClampInt(args && args.lineLimit, 1, 600, 200),
+    offset: stewardClampInt(args && args.offset, 0, 10000000, 0), limit: STEWARD_EYES_CHARS,
+    pageOffset: stewardClampInt(args && args.pageOffset, 1, 100000, 1),
+    imageOffset: stewardClampInt(args && args.imageOffset, 0, 100000, 0),
+    // No linked text images here: the steward's additional credential-file floor must apply to every read.
+    includeImages: args && args.includeImages === false ? false : undefined };
+}
+function stewardFileVisualResult(out) {
+  const result = {};
+  for (const key of ['mode', 'images', 'imageWarnings', 'totalImages', 'nextImageOffset', 'totalPages', 'pageOffset', 'nextPageOffset', 'truncated', 'nextOffset', 'totalChars', 'note']) {
+    if (out[key] !== undefined) result[key] = out[key];
+  }
+  return result;
 }
 
 // ════════════════════════════════════════════════════════════════════════════

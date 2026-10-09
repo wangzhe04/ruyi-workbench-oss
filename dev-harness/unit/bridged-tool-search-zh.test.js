@@ -101,7 +101,8 @@ test('[Z1] 中文说法排得出对应的桥接工具', () => {
   // 办公文档(中英混写不留空格也认得出英文词)
   assert.equal(top('excel 图表')[0], '@excel_chart');
   assert.equal(top('生成表格')[0], '@write_excel');
-  assert.equal(top('读取pdf')[0], '@pdf_read_pages');
+  assert.equal(top('读取pdf')[0], 'file_read'); // Native page renders no longer require a desktop bridge.
+  assert.equal(top('读取图片')[0], 'file_read');
   assert.equal(top('幻灯片')[0], '@write_pptx');
   assert.equal(top('生成 word 文档')[0], '@write_document');
   // 识别 / 控件 / 程序与进程
