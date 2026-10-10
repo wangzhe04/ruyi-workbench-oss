@@ -24,7 +24,7 @@ const config = { defaultWorkspace: ws, workspaces: [{ path: ws, read: true, writ
   includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [],
   toolLoadingMode: 'full', allowDesktopTools: false, stewardEnabledV1: true, stewardThreadBriefV1: false };
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify(config));
-const ctx = () => ({ config, workingDir: ws, session: { id: 'visiontest', cwd: ws } });
+const ctx = () => ({ config, workingDir: ws, session: { id: 'visiontest', cwd: ws }, signal: null });
 const read = args => srv.toolCall('file_read', args, ctx());
 const py = process.env.RUYI_BUNDLED_PYTHON || 'python';
 const available = cp.spawnSync(py, ['-I', '-c', 'import zipfile'], { windowsHide: true }).status === 0;

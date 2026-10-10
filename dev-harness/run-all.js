@@ -9,7 +9,7 @@
 //
 // 用法:
 //   node dev-harness/run-all.js                  # 全量串行
-//   node dev-harness/run-all.js --parallel 4     # 全量并行(4路)
+//   node dev-harness/run-all.js --parallel 4     # unit 与 E2E 都限制为 4 路并行
 //   node dev-harness/run-all.js --fast           # 仅快通道(.static 纯静态锁,秒级)
 //   node dev-harness/run-all.js foo.e2e.js       # 仅指定件(可多个,空格分隔)
 //
@@ -454,8 +454,11 @@ async function main() {
     if (fs.existsSync(unitDir) && fs.readdirSync(unitDir).some(f => f.endsWith('.test.js'))) {
       // 注意:传目录会被 Node 当作入口模块(MODULE_NOT_FOUND),--test 要吃 glob 串(正斜杠)。
       const unitGlob = (unitDir + '/*.test.js').replace(/\\/g, '/');
-      const u = cp.spawnSync(process.execPath, ['--test', unitGlob], { encoding: 'utf8', windowsHide: true });
-      const tail = String(u.stdout + u.stderr).split(/\r?\n/).filter(l => /^# (pass|fail|tests)/.test(l));
+      // Honor the explicit local resource budget in both stages. Otherwise node:test uses every
+      // CPU for the unit gate even when E2E was limited to four lanes; CI's default is unchanged.
+      const unitArgs = ['--test', ...(parallelIdx >= 0 ? ['--test-concurrency=' + PARALLEL] : []), unitGlob];
+      const u = cp.spawnSync(process.execPath, unitArgs, { encoding: 'utf8', windowsHide: true });
+      const tail = String(u.stdout + u.stderr).split(/\r?\n/).filter(l => /^(?:#|ℹ) (pass|fail|tests|skipped)\b/.test(l));
       if (u.status !== 0) {
         console.error('# unit 测试失败(node --test dev-harness/unit),拒跑 e2e:\n' + String(u.stdout + u.stderr).split(/\r?\n/).slice(-40).join('\n'));
         process.exit(2);

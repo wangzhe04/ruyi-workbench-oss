@@ -65,7 +65,7 @@ const FileVisualIo = (() => {
     for (const [exe, pre] of candidates) {
       const res = await new Promise(resolve => {
         cp.execFile(exe, [...pre, '-I', '-X', 'utf8', helperPath, p, JSON.stringify(options(args))],
-          { windowsHide: true, timeout: 30000, maxBuffer: 16 * 1024 * 1024, signal },
+          { windowsHide: true, timeout: 30000, maxBuffer: 16 * 1024 * 1024, ...(signal ? { signal } : {}) },
           (err, stdout) => resolve({ err, stdout }));
       });
       if (res.err && (res.err.code === 'ENOENT' || res.err.code === 9009)) continue;

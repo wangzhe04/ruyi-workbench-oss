@@ -94,6 +94,8 @@ test('image declaration and capability search surface native vision and provider
   assert.equal((await call('file_read', { path: 'image.png', as: 'text' })).code, 'not_text');
   const tools = srv.buildOpenAiTools(config, null, {});
   const catalog = srv.buildToolCatalog(tools);
+  const legacy = srv.searchToolCatalog(catalog, { query: 'read workspace file' }, { ...config, runtimeToolRetrievalV1: false, runtimeOptimizationShadowV1: true });
+  assert.equal(legacy.retrievalVersion, undefined, 'ordinary file queries retain the legacy provider result in shadow mode');
   for (const query of ['view image', 'vision', '看图']) {
     const result = srv.searchToolCatalog(catalog, { query, view: 'matrix' }, config);
     assert.equal(result.matches[0].name, 'file_read', JSON.stringify(result));

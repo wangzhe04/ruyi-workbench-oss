@@ -56,13 +56,19 @@ describe('能力探针:同步阻塞不再伪造离线', () => {
     busy(800);
     assert.strictEqual(await p, null);
   });
-  it('[S5] 能力缓存:未知只缓存几秒,不是 60 s', async () => {
+  it('[S5] 能力缓存:未知 TTL 从探测完成开始计时,几秒后重新探测', async t => {
+    const realNow = Date.now;
+    let elapsedDuringProbe = 0;
+    t.mock.method(Date, 'now', () => realNow() + elapsedDuringProbe);
     assert.ok(Number(srv.CAP_UNKNOWN_TTL_MS) > 0 && Number(srv.CAP_UNKNOWN_TTL_MS) <= 10000, `未知的缓存期(实 ${srv.CAP_UNKNOWN_TTL_MS})`);
     srv.invalidateCapabilityCache();
     // 用 capabilityProbeUrl 把探测目标钉成本地对端;探测中同步阻塞 → 这一次记未知
     const config = { capabilityProbeUrl: fastUrl, providers: [], externalMcpServers: [] };
     const p = srv.getCapabilities(config, true);
     busy(3600);
+    // Simulate slow executable/desktop probes after the network request starts. The cache must
+    // still have its full TTL when the result is published, independent of machine load.
+    elapsedDuringProbe = Number(srv.CAP_UNKNOWN_TTL_MS) * 2;
     const first = await p;
     assert.strictEqual(first.network.online, null, '阻塞中的那一次记未知');
     // 未知的缓存期内命中缓存;过期后重新探测拿到 true

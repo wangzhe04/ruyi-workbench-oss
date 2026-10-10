@@ -1058,7 +1058,13 @@ function withShadowedBridgeHints(result, catalog) {
 const TOOL_SEARCH_EMPTY_NOTE = 'No dedicated tool matched. Try other capability words (Chinese or English) or browse with list_tools {pack}; if nothing fits, do it with the general tools you already have (e.g. powershell_run / script_run when available) or tell the user it is not supported.';
 function searchToolCatalog(catalog, args, config, opts) {
   const q = normalizeToolSearchText(args && args.query || '');
-  if (q && Object.values(TOOL_RETRIEVAL_HINTS).some(h => (h.aliases || []).some(alias => normalizeToolSearchText(alias) === q))) opts = { ...(opts || {}), forceV1: true };
+  // New media/background entry points must remain discoverable when legacy retrieval is selected.
+  // Ordinary file/tool queries still honor runtimeToolRetrievalV1 (including shadow-only comparisons).
+  const mediaQuery = ['读取图片', '查看图像', '看图', '视觉输入', '读取文档', '读取PDF', 'read image', 'view image', 'view image vision', 'vision']
+    .some(alias => normalizeToolSearchText(alias) === q);
+  const workflowQuery = ['audio_inspect', 'media_probe', 'code_check', 'acceptance_report', 'shell_start', 'shell_poll', 'shell_kill']
+    .some(name => TOOL_RETRIEVAL_HINTS[name].aliases.some(alias => normalizeToolSearchText(alias) === q));
+  if (q && (mediaQuery || workflowQuery)) opts = { ...(opts || {}), forceV1: true };
   // 先分区再给骨架:full 骨架的 3 个名额先给未遮蔽项(被遮蔽的桥接项已挪到后面)。
   const result = withToolArgSkeletons(withShadowedBridgeHints(rankToolCatalog(catalog, args, config, opts), catalog), catalog, opts);
   if (result && Array.isArray(result.matches)) {

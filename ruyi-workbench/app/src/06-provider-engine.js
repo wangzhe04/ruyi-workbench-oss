@@ -280,7 +280,8 @@ async function getCapabilities(config, force) {
     engine,
   };
   // 有目标可探、却量出「未知」（探测撞上了同步阻塞）⇒ 只缓存几秒，下一次调用重新探；其余照旧 60 s。
-  _capCache = { at: now, value, ttl: (online === null && targets.length) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
+  // Start the TTL when the complete result is published; slow probes must not consume it.
+  _capCache = { at: Date.now(), value, ttl: (online === null && targets.length) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
   return value;
   })().finally(() => { _capInflight = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
   return _capInflight;

@@ -359,6 +359,8 @@ function renderAskModal(item, ctx) {
 // 「桌面操作：<去前缀名>」. shell_* → 终端操作. Unknown → the raw name.
 // 第50波(i18n 清零):值改 i18n 键(tools.verb.*),humanizeToolName 经 t() 取文案。
 const TOOL_VERB_MAP = {
+  audio_inspect: 'tools.verb.audio_inspect', media_probe: 'tools.verb.media_probe',
+  code_check: 'tools.verb.code_check', acceptance_report: 'tools.verb.acceptance_report',
   file_edit: 'tools.verb.file_edit', file_write: 'tools.verb.file_write', file_delete: 'tools.verb.file_delete',
   file_move: 'tools.verb.file_move', file_copy: 'tools.verb.file_copy', archive_zip: 'tools.verb.archive_zip', archive_unzip: 'tools.verb.archive_unzip', http_download: 'tools.verb.http_download',
   powershell_run: 'tools.verb.exec_command', script_run: 'tools.verb.exec_command',

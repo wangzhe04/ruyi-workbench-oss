@@ -195,6 +195,7 @@ const PAYLOAD_FILES = [
   'resources/scripts/install-workbench.ps1',
   'resources/kimi-acp-compat-register.mjs',
   'resources/kimi-acp-compat-loader.mjs',
+  'resources/native-file-read.py',
   // 107-P0(46 号文 §1.1 ③):内置 playbook 是【运行时】从 resources/playbooks/*.json 逐个读的
   // (06-provider-engine.js builtinPlaybooksDir → readPlaybooksFromDir,整目录 readdir)。修前这里一条都没登记,
   // 127-S01 改了 13 个模板(加 service)并新增 scheduled-digest.json —— 覆盖升级的老用户拿不到。

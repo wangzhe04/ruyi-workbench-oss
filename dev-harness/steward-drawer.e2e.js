@@ -842,6 +842,12 @@ try {
     result => result.json && result.json.session && result.json.session.engineRoute
       && String(result.json.session.engineRoute.providerId || '') === BULK_PROVIDER_ID, token)),
     'M1b 切过去之后 GET /api/sessions/A 的 engineRoute.providerId 就是它');
+  // The backend write can finish before the drawer receives its session refresh. Opening the
+  // model menu earlier freezes the old provider's candidates for the entire assertion group.
+  ok(Boolean(await waitForEval(cdp, `(() => {
+    const chip = document.querySelector('#stewardDrawerChips [data-chip="engine"]');
+    return chip && chip.textContent.includes(${JSON.stringify(BULK_PROVIDER_LABEL)}) ? 1 : null;
+  })()`)), 'M1bb 抽屉已显示新端点,再打开它的模型菜单');
 
   // 128f-⑤：用量改在【有意图】的那一刻去拉（指针进来／按下／焦点落上），开着的菜单不再因用量晚到而重画 ——
   // 所以这里照真人的路径：指针先进到 chip 上（pointerenter），等那一发 /api/usage/summary 回来，再点开。

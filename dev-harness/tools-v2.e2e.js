@@ -1,5 +1,5 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
-// E2E (v0.8-S1): tool suite v2 — file_read line mode, binary refusal, glob, grep v2 (context/group),
+// E2E (v0.8-S1): tool suite v2 — file_read line mode, native image input, glob, grep v2 (context/group),
 // grep backward-compat, file_edit `closest`; (v0.8-S2fix F2) file_search pattern normalization:
 // PCRE inline-flag prefix stripped, invalid regex → literal-text fallback + patternNote.
 // Offline; drives the native provider engine via the
@@ -24,10 +24,10 @@ function postStream(port, payload) {
     req.on('error', reject); req.write(data); req.end();
   });
 }
-function writeConfig(home, fakePort) {
+function writeConfig(home, fakePort, providerOptions = {}) {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
-    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false }],
+    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false, ...providerOptions }],
     activeProvider: 'fake',
   }, null, 2));
 }
@@ -71,19 +71,27 @@ function writeConfig(home, fakePort) {
       killPair(pair);
     }
 
-    // ---- (b) binary refusal: file_read a .png -> ok:false, hint mentions 视觉
+    // ---- (b) native pixels reach the provider; truncated images return a structured reader failure.
     {
       const home = path.join(HOME, 'b'); fs.rmSync(home, { recursive: true, force: true }); fs.mkdirSync(home, { recursive: true });
-      const png = path.join(home, 'pic.png'); fs.writeFileSync(png, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-      writeConfig(home, 8961);
-      const seq = JSON.stringify([{ name: 'file_read', args: { path: png } }]);
-      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq }, 8961, 8962, home);
+      const pixels = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const png = path.join(home, 'pic.png'); fs.writeFileSync(png, Buffer.from(pixels, 'base64'));
+      const broken = path.join(home, 'broken.png'); fs.writeFileSync(broken, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+      const capture = path.join(home, 'requests'); fs.mkdirSync(capture);
+      writeConfig(home, 8961, { vision: true });
+      const seq = JSON.stringify([{ name: 'file_read', args: { path: png, as: 'image' } }, { name: 'file_read', args: { path: broken } }]);
+      const pair = spawnPair({ FAKE_TOOL_SEQUENCE: seq, FAKE_CAPTURE_DIR: capture }, 8961, 8962, home);
       const h = await waitHealthy(8962); ok(!!h, '(b) workbench up');
       const events = await postStream(8962, { message: '读图', cwd: home });
-      const tr = events.find(e => e.type === 'tool_result');
-      const c = tr && tr.content;
-      ok(c && c.ok === false, '(b) png read refused (ok:false)');
-      ok(c && typeof c.hint === 'string' && c.hint.includes('视觉'), '(b) hint mentions 视觉 (got ' + (c && c.hint) + ')');
+      const results = events.filter(e => e.type === 'tool_result').map(e => e.content);
+      ok(results[0] && results[0].ok === true && results[0].mode === 'image', '(b) valid PNG is read natively');
+      const requests = fs.readdirSync(capture).filter(f => f.endsWith('.json')).map(f => JSON.parse(fs.readFileSync(path.join(capture, f), 'utf8')));
+      const imageUris = requests.flatMap(r => (r.messages || []).flatMap(m => Array.isArray(m.content) ? m.content : []))
+        .filter(p => p.type === 'image_url').map(p => typeof p.image_url === 'string' ? p.image_url : p.image_url.url);
+      ok(imageUris.includes('data:image/png;base64,' + pixels), '(b) original PNG pixels reach the provider image channel');
+      const invalid = results[1];
+      ok(invalid && invalid.ok === false && ['document_invalid', 'reader_unavailable', 'document_read_failed'].includes(invalid.code) && typeof invalid.error === 'string',
+        '(b) truncated PNG returns a structured reader failure (got ' + (invalid && invalid.code) + ')');
       killPair(pair);
     }
 

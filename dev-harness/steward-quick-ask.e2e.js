@@ -45,8 +45,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 const PROVIDER_PORT = await getFreePort();
 const ANSWER = '你那个仓库现在有三个分支：master、feature/steward、hotfix/eol。';
 let providerHits = 0;
+const receivedQuestions = new Set();
 // 117p (I) 段用的闸:默认打开(不改变 (A)~(H) 任何一段的时序),(I) 段临时关上它,逼真机那种
-// 「回合已起手、provider 还没回应」的窗口 —— provider 收到请求(providerHits 已 +1,严格晚于
+// 「回合已起手、provider 还没回应」的窗口 —— provider 收到目标线程的问题(严格晚于
 // 09-workflow.js 的 turnSeq 落盘与 activeChildren 登记)之后、写第一帧之前卡住。
 let gate = Promise.resolve();
 const providerServer = http.createServer(async (req, res) => {
@@ -59,6 +60,14 @@ const providerServer = http.createServer(async (req, res) => {
   }
   providerHits += 1;
   let body = null; try { body = JSON.parse(raw); } catch { body = null; }
+  if (req.method === 'POST' && Array.isArray(body && body.messages)) {
+    for (const message of body.messages) {
+      if (message && message.role === 'user') {
+        const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+        if (content) receivedQuestions.add(content);
+      }
+    }
+  }
   await gate;   // 默认 resolved 的闸;(I) 段临时换成未 resolve 的 promise
   if (body && body.stream === false) {
     res.writeHead(200, { 'content-type': 'application/json' });
@@ -335,19 +344,21 @@ try {
   {
     let releaseGate;
     gate = new Promise(r => { releaseGate = r; });
-    const beforeI = providerHits;
-    const created3 = await call('steward_quick_ask', { question: '第四源在活回合窗口要问的问题?', cwd: HOME }, stewardCtx(20));
+    const questionI = '第四源在活回合窗口要问的问题?';
+    const created3 = await call('steward_quick_ask', { question: questionI, cwd: HOME }, stewardCtx(20));
     ok(created3 && created3.ok === true, `I1 建线程成功(got ${created3 && (created3.error || 'ok')})`);
     const iId = created3.sessionId;
+    // Match this thread's unique question (including content blocks/context wrappers): other turns and health probes can
+    // increment providerHits while the new thread is still starting.
     // 稳妥信号:provider 真的收到了这次请求。09-workflow.js 里 turnSeq 落盘(1292 一带的
     // saveSession)与 activeChildren.set(1381)都严格早于实际发出的那次网络请求(2033) ——
     // provider 收到请求就意味着两者都已经成立,而此刻闸关着,回合卡在等响应,activeChildren
     // 里仍然登记着这条会话。
     for (let i = 0; i < 80; i++) {
-      if (providerHits > beforeI) break;
+      if ([...receivedQuestions].some(content => content.includes(questionI))) break;
       await sleep(50);
     }
-    ok(providerHits > beforeI, 'I2 回合真的起手了(provider 收到了这次请求;此刻闸关着,回合卡在等响应)');
+    ok([...receivedQuestions].some(content => content.includes(questionI)), 'I2 回合真的起手了(provider 收到了这条线程的问题;此刻闸关着,回合卡在等响应)');
     const headStarted = headOf(iId);
     ok(headStarted.turnSeq === 1, `I3 会话头上 turnSeq === 1(回合已起手;got ${headStarted.turnSeq})`);
     await srv.startStewardInbox(cfg);   // 轮询器此刻第一次看见这条线程 —— 回合还在跑

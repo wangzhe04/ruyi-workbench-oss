@@ -4,7 +4,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // 断言:
 //  a) 根 LICENSE 与 THIRD-PARTY-NOTICES.md 存在且非空;LICENSE 含 "Apache License"。
-//  b) 全仓扫描:无真密钥模式命中(白名单:dev-harness 自身 + docs 的示例/占位如 <API_KEY>);
+//  b) 可发布源码扫描:无真密钥模式命中(白名单:dev-harness 自身 + docs 的示例/占位如 <API_KEY>);
 //     活文档(DEV-README / 两 README / ARCHITECTURE_CN / 路线总纲)无该真实用户名(见 USERNAME 常量)。
 //  c) RUYI_HOME 生效:RUYI_HOME=临时目录 → /api/status.dataRoot === 该目录;
 //     只带旧 WIN_CLAUDE_WORKBENCH_HOME → 旧 env 生效(兼容);两者都带 → RUYI_HOME 优先。
@@ -101,7 +101,15 @@ function walk(dir, acc, skip) {
 
   // ============ (b) full-repo scan: no real secrets; active docs no real personal username ============
   const skip = new Set(['.git', 'node_modules', '.venv', 'dist', 'build', '__pycache__', '.pytest_cache']);
-  const files = walk(ROOT, [], skip);
+  // Scan files that can be published. A local checkout may contain ignored runtime/history trees
+  // with tens of thousands of files; walking them makes this source check exceed its time budget.
+  // Keep the standalone archive fallback when Git is unavailable.
+  let files;
+  try {
+    files = cp.execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+      { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 10000, maxBuffer: 8 * 1024 * 1024 })
+      .split('\0').filter(Boolean).map(file => path.join(ROOT, file));
+  } catch { files = walk(ROOT, [], skip); }
   // Only scan textual sources; skip this very file (it carries the regexes) and binary-ish vendor libs.
   const SELF = path.resolve(__filename);
   const textExt = /\.(js|py|md|json|ps1|cmd|html|css|txt|yml|yaml|toml|cfg)$/i;
@@ -113,7 +121,7 @@ function walk(dir, acc, skip) {
     if (f === SELF) continue;
     if (!textExt.test(f)) continue;
     let txt = '';
-    try { txt = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    try { if (!fs.lstatSync(f).isFile()) continue; txt = fs.readFileSync(f, 'utf8'); } catch { continue; }
     const lines = txt.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
       const ln = lines[i];
