@@ -254,8 +254,10 @@ const providerScript = async ctx => {
     await sleep(600);
     await ewait(`(() => document.documentElement.lang === 'en-US' && document.getElementById('promptInput') && document.getElementById('newSessionBtn') ? 1 : null)()`, 800);
     const esend = async message => {
-      await eev(`(() => { document.getElementById('newSessionBtn').click(); return true; })()`);
-      await ewait(`(window.state && window.state.currentSession && window.state.currentSession.id && !window.state.currentSession.messages.length) ? 1 : null`, 400);
+      const previousId = await eev(`(() => { const id = window.state.currentSession && window.state.currentSession.id; document.getElementById('newSessionBtn').click(); return id || ''; })()`);
+      // 新会话先更新 state，再异步刷新侧栏并清空消息 DOM；两者都就绪才发送。
+      const sid = await ewait(`(() => { const s = window.state && window.state.currentSession; return s && s.id && s.id !== ${JSON.stringify(previousId)} && !s.messages.length && document.querySelector('#messages .empty-state') && !document.querySelector('#messages .memory-proposal-card') ? s.id : null; })()`, 400);
+      if (!sid) throw new Error('English new session did not reach its empty state');
       await eev(`(() => { const input = document.getElementById('promptInput'); input.value = ${JSON.stringify(message)}; input.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('sendBtn').click(); return true; })()`);
     };
     // 卡上的「界面文字」:不含模型给的名称/说明/原因/正文
@@ -291,10 +293,15 @@ const providerScript = async ctx => {
       `E3 英文界面批量卡:「加入核心」开关、正文字数、作用域下拉都是英文(got ${JSON.stringify(e3)})`);
     // 过期的修订:提议之后记忆被改过 → 报错按稳定码本地化成英文
     await esend('please revise memory seed-stale [REVSTALE]');
-    await ewait(`(() => document.querySelector('#messages .memory-proposal-card .memory-proposal-kicker') ? 1 : null)()`, 1200);
-    await sleep(30);
+    // 只接受这次 seed-stale 的修订卡，旧批量卡也有 kicker，不能把它当作修订已到达。
+    const staleProposalId = await ewait(`(() => {
+      const c = document.querySelector('#messages .memory-proposal-card:not(.memory-proposal-batch)');
+      const apply = c && c.querySelector('.memory-proposal-actions button.primary');
+      return c && c.querySelector('.memory-proposal-kicker')?.textContent === 'Revise memory proposal' && c.querySelector('.memory-proposal-title')?.textContent === 'kq seed-stale' && apply && !apply.disabled ? c.dataset.proposalId : null;
+    })()`, 1200);
+    if (!staleProposalId) throw new Error('seed-stale revision card not ready: ' + JSON.stringify(await eev(`({ sessionId: window.state.currentSession && window.state.currentSession.id, cards: [...document.querySelectorAll('#messages .memory-proposal-card')].map(c => ({ id: c.dataset.proposalId, kicker: c.querySelector('.memory-proposal-kicker')?.textContent, title: c.querySelector('.memory-proposal-title')?.textContent, buttons: [...c.querySelectorAll('.memory-proposal-actions button')].map(b => ({ text: b.textContent, disabled: b.disabled })) })) })`)));
     await fx.request('POST', '/api/memory', { memory: { id: SEED.stale, scope: 'project', type: 'convention', name: 'kq seed-stale', description: 'my own later edit', body: 'seed stale body' }, cwd: fx.work });
-    await eev(`(() => { window.__toasts = []; const tray = document.getElementById('toastTray'); if (tray) new MutationObserver(list => { for (const m of list) for (const n of m.addedNodes) window.__toasts.push(String(n.textContent || '')); }).observe(tray, { childList: true }); document.querySelector('#messages .memory-proposal-card .memory-proposal-actions button.primary').click(); return true; })()`);
+    await eev(`(() => { window.__toasts = []; const tray = document.getElementById('toastTray'); if (tray) new MutationObserver(list => { for (const m of list) for (const n of m.addedNodes) window.__toasts.push(String(n.textContent || '')); }).observe(tray, { childList: true }); document.querySelector('#messages .memory-proposal-card[data-proposal-id="' + ${JSON.stringify(staleProposalId)} + '"] .memory-proposal-actions button.primary').click(); return true; })()`);
     const e4 = await ewait(`(() => (window.__toasts || []).find(x => /edited after this revision/.test(x)) || null)()`, 400);
     ok(typeof e4 === 'string' && !cjk(e4) && /kq seed-stale/.test(e4), `E4 过期修订的失败提示是英文(稳定码 memory.proposal_stale → error.api.memoryProposalStale)(got ${JSON.stringify(e4)})`);
     await eev(`(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true })); return true; })()`);
