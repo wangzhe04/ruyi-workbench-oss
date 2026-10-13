@@ -41,23 +41,26 @@ const { ok } = t;
     await sleep(300);
     ok(Boolean(await fx.waitForEval(`(window.state && window.state.config && Array.isArray(window.state.config.workspaces) && window.state.config.workspaces.length === 3) ? 1 : null`, 400)), 'P0 页面拿到了新配置');
     ok(Boolean(await fx.setLens('classic')), 'P0 工作台视角');
-    // 抓 /api/pick-folder 的请求体（非 Windows 上接口必然回 ok:false，我们只看前端交过去的东西）。
+    // 捕获原生选择器请求并模拟取消；本件验证前端请求契约，不启动系统模态对话框。
     await fx.evaluate(`(() => {
       window.__pickBodies = [];
       const orig = window.fetch;
       window.fetch = function (input, init) {
-        try { if (String(input).includes('/api/pick-folder')) window.__pickBodies.push(String((init && init.body) || '')); } catch { /* 旁路 */ }
+        if (String(input).includes('/api/pick-folder')) {
+          window.__pickBodies.push(String((init && init.body) || ''));
+          return Promise.resolve(new Response(JSON.stringify({ ok: true, cancelled: true }), { headers: { 'content-type': 'application/json' } }));
+        }
         return orig.apply(this, arguments);
       };
       return true;
     })()`);
     const open = async () => {
       await fx.evaluate(`(document.getElementById('workspacePicker').click(), true)`);
-      return fx.waitForEval(`document.querySelector('.popover .wp-pop') ? 1 : null`, 200);
+      // 等初始焦点完成，避免零延时 browse.focus 在输入路径后抢走焦点。
+      return fx.waitForEval(`(() => { const browse = document.querySelector('.popover .wp-pop-browse'); return browse && document.activeElement === browse ? 1 : null; })()`, 200);
     };
 
     ok(Boolean(await open()), 'P1 点顶栏工作文件夹 → 弹层出现');
-    await sleep(80);
     const shape = await fx.evaluate(`(() => {
       const pop = document.querySelector('.wp-pop');
       const first = pop.firstElementChild;
@@ -132,7 +135,8 @@ const { ok } = t;
       const cur = (window.state.currentSession && window.state.currentSession.cwd) || window.state.config.defaultWorkspace || '';
       return !open && cur === ${JSON.stringify(pasted)} ? { cur } : null;
     })()`, 300);
-    ok(Boolean(switched), `P7 合法路径回车 → 弹层收起、工作文件夹换成它（实测 ${JSON.stringify(switched)}）`);
+    const switchDiagnostic = switched || await fx.evaluate(`({ open: Boolean(document.querySelector('.popover .wp-pop')), active: document.activeElement && document.activeElement.className, cwd: window.state.currentSession && window.state.currentSession.cwd, defaultWorkspace: window.state.config.defaultWorkspace, pickBodies: window.__pickBodies })`);
+    ok(Boolean(switched), `P7 合法路径回车 → 弹层收起、工作文件夹换成它（实测 ${JSON.stringify(switchDiagnostic)}）`);
     ok(fx.exceptions.length === 0, `P8 全程无页面异常（实测 ${JSON.stringify(fx.exceptions.slice(0, 3))}）`);
   } catch (e) {
     t.fail('fatal: ' + (e && e.stack || e));
