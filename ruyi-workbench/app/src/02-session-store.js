@@ -1809,7 +1809,7 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
   return session;
 }
 
-// hunt2-P2:删除墓碑。id → 删除那一刻(ms)。stopSession 只是 abort,被停回合的收尾 saveSession(以及任何
+// hunt2-P2:删除墓碑。id → { at, purgeAssociated }。stopSession 只是 abort,被停回合的收尾 saveSession(以及任何
 // 手里还攥着旧会话对象的旁路写者)会在 unlink 之后把头与正文整份写回 —— 会话「复活」,列表里又出现、GET 200。
 // saveSession 在【写链内】查墓碑:createdAt 不晚于删除时刻的对象 = 删除之前就存在的那条会话的副本,整次写丢弃。
 // 用 createdAt 而不是「有墓碑就拒」:固定 id 的会话(管家 STEWARD_SESSION_ID)删掉后会以同一个 id 重建,
@@ -1818,16 +1818,21 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
 const SESSION_DELETE_TOMBSTONE_MAX = 5000;
 const SESSION_DELETE_SETTLE_TIMEOUT_MS = 8000;   // 与 rewindSession 等垂死回合 settle 的窗口同值
 const sessionDeleteTombstones = new Map();
-function markSessionDeleted(id) {
+function markSessionDeleted(id, purgeAssociated = false) {
+  const previous = sessionDeleteTombstones.get(id);
   sessionDeleteTombstones.delete(id);
-  sessionDeleteTombstones.set(id, Date.now());
+  sessionDeleteTombstones.set(id, { at: Date.now(), purgeAssociated: Boolean(purgeAssociated || (previous && previous.purgeAssociated)) });
   while (sessionDeleteTombstones.size > SESSION_DELETE_TOMBSTONE_MAX) sessionDeleteTombstones.delete(sessionDeleteTombstones.keys().next().value);
 }
 function sessionSaveIsTombstoned(session) {
-  const deletedAt = sessionDeleteTombstones.get(session && session.id);
-  if (deletedAt === undefined) return false;
+  const deleted = sessionDeleteTombstones.get(session && session.id);
+  if (!deleted) return false;
   const createdMs = Date.parse(String((session && session.createdAt) || ''));
-  return !Number.isFinite(createdMs) || createdMs <= deletedAt;
+  return !Number.isFinite(createdMs) || createdMs <= deleted.at;
+}
+function sessionAssociatedSaveIsTombstoned(id) {
+  const deleted = sessionDeleteTombstones.get(id);
+  return !!(deleted && deleted.purgeAssociated);
 }
 // Delete the persisted chat itself. `purgeAssociated` is deliberately opt-in: a normal single-chat
 // delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
@@ -1851,8 +1856,12 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   assertSessionIdForPath(id);
   // hunt2-P2:先立墓碑(同步,先于 stopSession 触发的任何收尾),再等垂死回合 settle 与已在跑的那一截写链
   // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
-  markSessionDeleted(id);
+  markSessionDeleted(id, purgeAssociated);
   stopSession(id, 'deleted');
+  // 后台班组不在 activeChildren 里。删除线程同样要停它们,否则它们仍会派发后续节点。
+  // 停止只请求 abort,不是等待收尾;清关联数据时还要等已在飞的快照/事件写完,迟到写由同一墓碑拒掉。
+  const deletedRunIds = new Set([...activeAgentRuns.values()].filter(live => live && live.run && live.run.sessionId === id).map(live => live.run.id));
+  await stopMissionAgentRuns(id);
   {
     const settler = turnSettlers.get(id);
     if (settler && settler.promise) {
@@ -1908,6 +1917,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
   dropInterventionSessionState(id);          // 介入记录缓存 + 压实节拍计数:会话没了,内存里的这两份也不留
   if (purgeAssociated) {
+    if (EventStreamHooks.flushSessionAgentRuns) await EventStreamHooks.flushSessionAgentRuns(id, deletedRunIds);
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
       fsp.rm(agentRunDir(id), { recursive: true, force: true }).catch(() => {}),

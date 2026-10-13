@@ -87,6 +87,7 @@ export function createChatStreamRuntime(deps = {}) {
     narrativeSemanticCard,
     narrativeToolAnchor,
     newSession,
+    sessionSelectionSeq = () => 0,
     openModal,
     pushRawEvent,
     refreshSessions,
@@ -694,6 +695,13 @@ export function createChatStreamRuntime(deps = {}) {
     const btn = $('sendBtn');
     if (btn && document.activeElement === btn) { const input = $('promptInput'); if (input && typeof input.focus === 'function') input.focus(); }
   }
+  function clearSentComposerDraft(value, text) {
+    const input = $('promptInput');
+    input.dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text } }));
+    if (input.value !== value) return; // 发送事件仍带原话，请求在飞时用户继续写的草稿仍留在框里。
+    input.value = ''; autoGrow(input); releaseSendBtnFocus();
+    try { localStorage.removeItem('wcw.draft'); } catch { /* ignore */ }
+  }
   async function sendPrompt(overrideText, options = {}) {
     // v0.8-S7 steering (§4 A3) + 47a 双引擎:任何引擎回合流式中,composer 的发送都变为插话路由到 /api/steer。
     // provider 经队列在下一边界注入;Claude(interactive)经 stdin 即时注入;Claude print 模式由服务器返回
@@ -701,11 +709,13 @@ export function createChatStreamRuntime(deps = {}) {
     // 117s-G:判据从 activeTurns(只有本页自己起的流)换成 sessionAcceptsSteer(本页的流 ∪ 服务端说
     // 别处起的回合在跑)。修前管家起的回合在这里判成空闲,一路走到 09:1347 被 supersede 杀掉。
     const selectedId = state.currentSession?.id || '';
+    const selectedSeq = sessionSelectionSeq();
     if (selectedId && !options.skipSteer && sessionAcceptsSteer(selectedId)) return steerPrompt(overrideText, options);
     // F13:托盘里还有附件在上传 —— 这一条会漏掉它们、附件反而挂到下一条消息上。话留在框里,等上传完再发。
     // (交办台经 options.attachments 显式给附件,不经托盘,不受这道门管。)
     if (!Array.isArray(options.attachments) && Number(state.uploading) > 0) { toast(t('toast.uploadInProgress'), ''); return; }
-    const message = (overrideText != null ? overrideText : $('promptInput').value).trim();
+    const composerDraft = overrideText == null ? $('promptInput').value : options.composerDraft;
+    const message = (overrideText != null ? overrideText : composerDraft).trim();
     const hasAttachments = Array.isArray(options.attachments) ? options.attachments.length > 0 : state.attachments.length > 0;
     if (!message && !hasAttachments) return;
     // 117s-G:排队中 / 等批准 —— 不发,给一句人话。放在空输入那道门之后:空输入本来就不该弹提示。
@@ -719,18 +729,20 @@ export function createChatStreamRuntime(deps = {}) {
       try { await syncContextWindowManual(); }
       catch (e) { toast(apiErrText(e), 'err'); return; }
       // await 期间换了会话:这句话是对着原来那条会话打的,不能发进新打开的这条。不发、不清输入框,由用户决定。
-      if (selectedId && state.currentSession?.id !== selectedId) return;
+      if (sessionSelectionSeq() !== selectedSeq || (state.currentSession?.id || '') !== selectedId) return;
       // 117s-G:await 之后再判一次(同上,判据同一个)—— syncContextWindowManual 期间回合可能刚起来。
-      if (state.currentSession?.id && !options.skipSteer && sessionAcceptsSteer(state.currentSession.id)) return steerPrompt(overrideText, options);
-      if (!state.currentSession) await newSession();
+      if (state.currentSession?.id && !options.skipSteer && sessionAcceptsSteer(state.currentSession.id)) return steerPrompt(message, { ...options, composerDraft });
+      if (!state.currentSession) {
+        const created = await newSession();
+        if (!created || state.currentSession?.id !== created.id) return;
+      }
     } finally { sendPreflight = false; }
 
     const turnSessionId = state.currentSession.id;
     // Slash-command/override turns (for example /compact) must neither consume nor inherit the visible toggle.
-    const agentTeam = overrideText == null && agentTeamTurnEnabled && agentTeamAvailable();
+    const agentTeam = composerDraft != null && agentTeamTurnEnabled && agentTeamAvailable();
     if (agentTeam) { agentTeamTurnEnabled = false; updateAgentTeamButton(); }
-    if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text: message } })); $('promptInput').value = ''; autoGrow($('promptInput')); releaseSendBtnFocus(); } // 59 §6: composer-voice 学改字(COMPOSER_VOICE_SENT_EVENT)
-    try { localStorage.removeItem('wcw.draft'); } catch { /* ignore */ }
+    if (composerDraft != null) clearSentComposerDraft(composerDraft, message);
 
     const box = $('messages');
     box.querySelector('.empty-state')?.remove();
@@ -969,12 +981,15 @@ export function createChatStreamRuntime(deps = {}) {
       try { text = decodeURIComponent(encodedText); } catch { return; }
     }
     if (!state.currentSession?.id) return;
+    const sessionId = state.currentSession.id;
+    const selectionSeq = sessionSelectionSeq();
+    const sameSelection = () => state.currentSession?.id === sessionId && sessionSelectionSeq() === selectionSeq;
     if (clearAll) {
       // 批量撤回:逐条调用 DELETE,忽略单条失败(可能已被模型消费)。跳过 Claude injected 项(不可撤回,DELETE 恒失败)。
       const items = [...steerPendingList];
       for (const p of items) {
         if (p.injected) continue; // v1.9.1: Claude injected 项不可撤回,跳过
-        try { await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId: state.currentSession.id, text: p.text }) }); } catch {}
+        try { await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId, text: p.text }) }); } catch {}
       }
       // v1.9.1: 只移除快照中的非 injected 项,不 length=0 --否则 await 期间并发新 steer 会被误清(对抗验证发现)。
       for (const p of items) {
@@ -983,28 +998,34 @@ export function createChatStreamRuntime(deps = {}) {
         if (i >= 0) steerPendingList.splice(i, 1);
       }
     } else {
+      const pending = steerPendingList.find(p => p.text === text && !p.injected);
       try {
-        const r = await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId: state.currentSession.id, text }) });
+        const r = await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId, text }) });
         if (r && r.ok) {
-          const idx = steerPendingList.findIndex(p => p.text === text && !p.injected); // v1.9.1: 不匹配 Claude injected 项(不可撤回)
+          const idx = steerPendingList.indexOf(pending);
           if (idx >= 0) steerPendingList.splice(idx, 1);
-        } else {
+        } else if (sameSelection()) {
           toast(t('toast.steerFail', { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err');
         }
-      } catch (e) { toast(t('toast.steerFail', { p1: apiErrText(e) }), 'err'); }
+      } catch (e) { if (sameSelection()) toast(t('toast.steerFail', { p1: apiErrText(e) }), 'err'); }
     }
-    renderSteerQueue();
+    if (sameSelection()) renderSteerQueue();
   };
 
   async function steerPrompt(overrideText, options = {}) {
-    const text = (overrideText != null ? overrideText : $('promptInput').value).trim();
+    const composerDraft = overrideText == null ? $('promptInput').value : options.composerDraft;
+    const text = (overrideText != null ? overrideText : composerDraft).trim();
     if (!text) return;
     if (!state.currentSession?.id) return;
+    const sessionId = state.currentSession.id;
+    const selectionSeq = sessionSelectionSeq();
+    const sameSelection = () => state.currentSession?.id === sessionId && sessionSelectionSeq() === selectionSeq;
     if (!activeTurnSteerCapability().ok) { showClaudeSteerSetup(); return; }
     try {
       const delivery = $('steerDeliveryMode');
       const mode = delivery && !delivery.hidden ? delivery.value : 'queue';
-      const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId: state.currentSession.id, text, mode }) });
+      const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId, text, mode }) });
+      if (!sameSelection()) return; // 包括 A→B→A；旧现场的回包不更新输入框、队列或触发重发。
       // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：
       // **服务端才是权威。** 它说这条线程此刻没有在途回合，就说明我们手上那份「可以插话」的信念
       // 已经过期（它唯一的来源是一次 GET 带回的 relay 快照）。这时把用户的话卡在框里、只弹一句
@@ -1012,13 +1033,12 @@ export function createChatStreamRuntime(deps = {}) {
       // 所以：作废那份信念，按普通回合重发一次。判据是【码】不是中文句子（38 号文 §7 ④ 的裁决）。
       // skipSteer 兜住极端情形下的来回弹跳：这一发只许走普通回合那条路，不许再回到插话。
       if (r && r.ok !== true && String((r.error && r.error.code) || '') === 'steer.no_live_turn') {
-        const sid = state.currentSession.id;
-        if (state.sessionRelay && state.sessionRelay.sessionId === sid) state.sessionRelay = null;
+        if (state.sessionRelay && state.sessionRelay.sessionId === sessionId) state.sessionRelay = null;
         updateSendBtn();
-        return sendPrompt(overrideText, { ...options, skipSteer: true });
+        return sendPrompt(text, { ...options, skipSteer: true, composerDraft });
       }
       if (!r || !r.ok) { toast(t("toast.steerFail", { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err'); return; }
-      if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text } })); $('promptInput').value = ''; releaseSendBtnFocus(); autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」;59 §6 同上;焦点离开发送钮,免得下一个空格/回车变成「停止」
+      if (composerDraft != null) { clearSentComposerDraft(composerDraft, text); updateSendBtn(); }
       steeredSeen.push({ text, ts: Date.now() });
       if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
       renderSteeredMessage(text);
@@ -1044,7 +1064,7 @@ export function createChatStreamRuntime(deps = {}) {
       } else {
         toast(t('toast.steerInjected'), 'ok');
       }
-    } catch (e) { toast(t("toast.steerFail", { p1: apiErrText(e) }), 'err'); }
+    } catch (e) { if (sameSelection()) toast(t("toast.steerFail", { p1: apiErrText(e) }), 'err'); }
   }
 
   // Render a user interjection row with a muted 「插话」 badge. Used by steerPrompt (optimistic) and by the

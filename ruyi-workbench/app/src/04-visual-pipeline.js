@@ -168,8 +168,10 @@ const VisualPipeline = (() => {
   // user message's content array — we NEVER delete a message, so the pairing铁律 (every tool_call_id answered)
   // is untouched. Idempotent: an already-demoted slot is a plain text part and no longer counts as an image.
   // Returns the number of images demoted this pass (0 = under the cap). Mirrors evaporateHistory's cache-safety
-  // note: this rewrites old content, so it runs ONLY right after a new image lands (never speculatively).
-  function pruneOldImages(history) {
+  // note: this rewrites old content, so it runs when new images land or their request confirms delivery.
+  // preserveFrom protects images that have not reached a model request yet. Once that request
+  // succeeds, call without the boundary to apply the normal retained-history budget.
+  function pruneOldImages(history, preserveFrom = Infinity) {
     if (!Array.isArray(history)) return 0;
     // Collect every (messageIndex, partIndex) that is currently an image_url part, oldest-first.
     const slots = [];
@@ -186,6 +188,7 @@ const VisualPipeline = (() => {
     let demoted = 0;
     for (let k = 0; k < demoteCount; k++) {
       const [mi, pi] = slots[k];
+      if (mi >= preserveFrom) break;
       history[mi].content[pi] = { type: 'text', text: `[截图已淘汰:${k + 1}]` };
       demoted++;
     }

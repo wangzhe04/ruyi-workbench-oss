@@ -587,14 +587,13 @@ try {
   //    **客户端因此不可能靠自己拿准这件事，服务端才是权威** —— 所以这一段钉的是【保证】：
   //    哪怕信念是错的，用户按下发送，这句话也必须真的发出去。
   //    代码层「回合末当场作废自己那份快照」另由 steering-claude 的 S35/S36 静态锁钉住。
-  await cdp.evaluate(`(() => {
+  const h8Stale = await cdp.evaluate(`(() => {
     window.state.sessionRelay = { sessionId: ${JSON.stringify(sessionId)}, channel: 'steer', wait: null };
     const ta = document.getElementById('promptInput');
     ta.value = ${JSON.stringify(H8_TEXT)};
     ta.dispatchEvent(new Event('input', { bubbles: true }));
-    return true;
+    return ${VIEW};
   })()`);
-  const h8Stale = await cdp.evaluate(VIEW);
   ok(Boolean(h8Stale) && h8Stale.relayChannel === 'steer' && h8Stale.sendLabel.includes(zh['chat.steer']),
     `H8e 前置成形：信念过期时按钮写的正是「${zh['chat.steer']}」（用户截图里那一枚；实测「${h8Stale && h8Stale.sendLabel}」）`);
 

@@ -1267,6 +1267,7 @@
         "scheduleSessionIndexUpdate",
         "scratchpadTotalChars",
         "serializeSessionBody",
+        "sessionAssociatedSaveIsTombstoned",
         "sessionBodyDanglingFromLines",
         "sessionBodyFileStamp",
         "sessionBodyLineCache",
@@ -7803,6 +7804,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionAssociatedSaveIsTombstoned",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "settleIntervention",
           "kinds": [
             "call"
@@ -8873,6 +8881,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveTurnFinalSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionSaveIsTombstoned",
           "kinds": [
             "call"
           ]
@@ -10147,13 +10162,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "historyStartsWithCompactionSummary",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
           "kinds": [
             "call"
@@ -10162,6 +10170,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "maybeAutoCompact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "maybeWriteSessionNotes",
           "kinds": [
             "call"
           ]
@@ -10423,6 +10438,7 @@
         "runSessionTurn",
         "scheduleAgentWake",
         "scheduleAgentWakesAtBoot",
+        "sessionNotesBodyEmpty",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -10438,6 +10454,7 @@
         "summaryPolicyTiers",
         "summaryPromptIsEnglish",
         "summaryPromptWithGuidance",
+        "summarySectionLocations",
         "summarySingleShotCap",
         "summarySingleShotReserveTokens",
         "summarySourceText",

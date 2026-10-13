@@ -3,8 +3,8 @@
 //
 //   [F1] 前后端上限同值:账最多几句 = 服务端一次最多几句;发出去的字上限 = 服务端上限
 //   [F2] composerSent 在输入框上派冒泡的 COMPOSER_VOICE_SENT_EVENT,detail.text = 发出去的字
-//   [F3] 三条发送路都派同一个事件、且在清空输入框之前派(结构性判据,读源码):工作台 sendPrompt / steerPrompt
-//        (chat-stream-runtime.js 锁死零 import,内联同值字面量)、管家输入行 submit(经 composerSent)
+//   [F3] 三条发送路都派同一个事件、且在清空输入框之前派:工作台 sendPrompt / steerPrompt 运行完整 runtime,
+//        管家输入行 submit 保留 composerSent 的结构性接线判据。
 //   [F4] 发送监听:配了语音识别才交;只认自己那个输入框;太长不交;交的是 { sentences, final };学会新词提示一句;
 //        服务端报错不打扰
 //   [F5] 提示文案:有错听样子 / 没有 / 不止一个
@@ -15,6 +15,7 @@ const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { functionBlock } = require('../lib/source-slice.js');
+const { fixture: composerFixture } = require('../lib/composer-race-fixture.js');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-voice-learn-front-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
@@ -45,15 +46,22 @@ test('[F2] composerSent 在输入框上派冒泡事件', async () => {
 
 test('[F3] 三条发送路派同一个事件,且在清空输入框之前', async () => {
   const cv = await load();
-  const runtime = fs.readFileSync(path.join(PUBLIC_JS, 'chat-stream-runtime.js'), 'utf8');
-  const literal = "new CustomEvent('" + cv.COMPOSER_VOICE_SENT_EVENT + "', { bubbles: true, detail: { text";
   for (const name of ['sendPrompt', 'steerPrompt']) {
-    const body = functionBlock(runtime, name);
-    assert.ok(body.length > 500, name + ' 切到了');
-    const fire = body.indexOf("$('promptInput').dispatchEvent(" + literal);
-    const clear = body.indexOf("$('promptInput').value = ''");
-    assert.ok(fire > 0 && clear > fire, name + ':先派事件、再清空输入框');
-    assert.ok(/if \(overrideText == null\) \{ \$\('promptInput'\)\.dispatchEvent\(/.test(body), name + ':只在发的是输入框里的字时派(斜杠命令、重试那种覆写文字不派)');
+    for (const override of [false, true]) {
+      const fx = composerFixture();
+      if (name === 'sendPrompt') fx.state.sessionRelay = null;
+      fx.nodes.promptInput.value = '输入框里的字';
+      const pending = fx.runtime.sendPrompt(override ? '/compact' : undefined);
+      if (name === 'steerPrompt') { fx.response.resolve({ ok: true }); await pending; }
+      else await new Promise(resolve => setImmediate(resolve));
+      if (override) {
+        assert.equal(fx.nodes.promptInput.events.length, 0, name + ':覆写文字不派事件');
+        assert.equal(fx.nodes.promptInput.value, '输入框里的字', name + ':覆写文字不清草稿');
+      } else {
+        assert.deepEqual(fx.nodes.promptInput.events, [{ type: cv.COMPOSER_VOICE_SENT_EVENT, text: '输入框里的字', before: '输入框里的字', bubbles: true }], name + ':先派同一事件、再清空输入框');
+        assert.equal(fx.nodes.promptInput.value, '');
+      }
+    }
   }
   const steward = fs.readFileSync(path.join(PUBLIC_JS, 'steward-composer.js'), 'utf8');
   assert.match(steward, /import \{ createComposerVoice, composerSent \} from '\.\/composer-voice\.js';/);

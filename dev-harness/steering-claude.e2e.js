@@ -24,6 +24,7 @@ const http = require('http');
 const cp = require('child_process');
 const { getFreePort } = require('./free-port.js');
 const { readFrontendSrc } = require('./read-frontend-src.js');
+const { fixture: composerFixture } = require('./lib/composer-race-fixture.js');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
@@ -141,7 +142,29 @@ async function getToken(port) {
   ok(app.includes("iconTextBtn(btn, 'send', t('chat.steer'))"), 'S13 插话态按钮文案走 chat.steer');
   ok(/ta\.addEventListener\('input'.*updateSendBtn\(\)/.test(app.replace(/\n/g, ' ')) || app.includes("} updateSendBtn(); }); // 50-fix"), 'S14 input 事件即时切换插话/停止');
   ok(zh.includes('"chat.steer"') && en.includes('"chat.steer"') && zh.includes('"chat.steerHint"') && en.includes('"chat.steerHint"'), 'S15 i18n 双语键同交(chat.steer/chat.steerHint)');
-  ok(app.includes("autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」"), 'S16 steerPrompt 清空输入后按钮回落停止');
+  // 跑完整 runtime 的实际插话成功路径；公共草稿 helper 的提取不改变按钮行为。
+  const composer = composerFixture();
+  composer.runtime.activeTurns.set('A', { engine: 'claude', claudeInteractive: true });
+  composer.state.streaming = true;
+  const sendingSteer = composer.send('发送的插话');
+  composer.response.resolve({ ok: true, injected: true });
+  await sendingSteer;
+  ok(composer.calls[0]?.url === '/api/steer' && composer.nodes.promptInput.value === ''
+    && composer.nodes.sendBtn.onclick === composer.runtime.stopTurn,
+  'S16 steerPrompt 清空输入后按钮回落停止');
+  const editedComposer = composerFixture();
+  editedComposer.runtime.activeTurns.set('A', { engine: 'claude', claudeInteractive: true });
+  editedComposer.state.streaming = true;
+  const editingSteer = editedComposer.send('已经递出的插话');
+  editedComposer.nodes.promptInput.value = '请求期间写的新草稿';
+  editedComposer.response.resolve({ ok: true, injected: true });
+  await editingSteer;
+  const keptDraft = editedComposer.nodes.promptInput.value === '请求期间写的新草稿'
+    && editedComposer.nodes.sendBtn.onclick !== editedComposer.runtime.stopTurn;
+  await editedComposer.nodes.sendBtn.onclick();
+  ok(keptDraft && editedComposer.calls[1]?.url === '/api/steer'
+    && editedComposer.calls[1].body.text === '请求期间写的新草稿',
+  'S16b 插话请求期间编辑的新草稿保留，按钮仍能把新草稿递为插话');
   // 50-fix(Steer 双消息):回声去重不限时(provider drain 可远超旧 15s 窗)
   ok(!app.includes('now - s.ts < 15000'), 'S17 steered 回声去重无 15s 窗(不限时文本队列)');
   ok(app.includes("steeredSeen.findIndex(s => s.text === evt.text)"), 'S18 文本逐条 splice 去重在');

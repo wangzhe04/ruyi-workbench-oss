@@ -3,6 +3,20 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
+## 未发布 / Unreleased
+
+- 压缩后的新摘要不再遮蔽会话笔记中仍有效的旧流程；只补回摘要缺少的内容，并统一摘要校验与笔记提取的标题识别。摘要提示明确要求保留用户教过的可复用操作方法，已完成一次不视为流程失效。
+- 切换会话后，迟到的新建、插话和撤回响应不再覆盖当前会话或清空新草稿；插话转普通发送时保留原消息的归属。
+- 删除会话会停止其后台代理；选择清理关联数据时，代理的迟到写入不会重新生成已删除的运行记录。
+- JavaScript 语法检查遵循文件所在项目的 CommonJS / ES Module 设置，避免误放行无效候选源码。
+- 同批读取的图片和本轮图片附件会先完整送达视觉模型，再按既有上限淘汰旧图。
+
+- Compaction summaries no longer hide retained procedures in session notes: only missing content is added back, and summary validation and note extraction recognise the same headings. Summary prompts explicitly request reusable methods taught by the user be retained after a task is completed.
+- Late chat creation, steering and cancellation responses no longer replace the selected chat or erase a newer draft. Steering fallback keeps the original message bound to its chat.
+- Deleting a chat stops its background agents. When associated data is purged, late agent writes cannot recreate deleted run records.
+- JavaScript syntax checks respect the source project's CommonJS / ES module setting instead of accepting invalid candidate code.
+- Images read in one tool batch and attachments in the current message reach the vision model before the existing history image limit is applied.
+
 ## 3.0.0 · 2026-10-08
 
 [如意 3.0：这一版有什么新变化 / Release highlights](docs/release-notes/v3.0.0.md)

@@ -815,16 +815,18 @@ function sessionDisplayTitle(s) {
 }
 async function newSession(options = {}) {
   const cwd = options.cwd != null ? String(options.cwd) : (state.config.defaultWorkspace || '');
-  ++sessionOpenSeq; sessionChoices += 1;   // 128f：新建也是一次「换会话」，在飞的 openSession 回来时不许把它盖掉（见 openSession 头注）
+  const seq = ++sessionOpenSeq; sessionChoices += 1;   // 新建与打开共用选择序号，迟到的创建也不能盖过后来的选择。
   // 50-fix(标题不生成):不再把本地化占位名(新会话/New chat)当标题传给后端 —— 后端回合结束的
   // 自动命名以 'New session' 占位判定,中文占位名永不匹配导致所有会话标题卡死。传空串,
   // 后端默认 'New session' → 首轮结束自动命名生效;展示侧经 sessionDisplayTitle 本地化占位。
   const res = await api('/api/sessions', { method: 'POST', body: JSON.stringify({ title: '', cwd }) });
+  if (seq !== sessionOpenSeq) return null;
   state.currentSession = res.session;
   state.resumable = null; // fresh session never dangles
   try { localStorage.setItem('wcw.lastSession', res.session.id); } catch { /* ignore */ }
   syncEventStreamPresence(); // 走查 S-04：新建也换了「坐在哪条线程」，在场信号要跟着重连（openSession 那一路有，这里补）
   await refreshSessions();
+  if (seq !== sessionOpenSeq) return null;
   updateEngineDependentUI();
   renderCurrentSession();
   renderResumeBanner();
@@ -1750,6 +1752,7 @@ function buildEmptyCTA() {
     isUntitledTitle,
     loadAutonomyGrants,
     newSession,
+    sessionSelectionSeq: () => sessionOpenSeq,
     onboardingStepsFor: onboardingWizard.onboardingStepsFor,
     openBulkCleanupModal,
     openOnboardingWizard,

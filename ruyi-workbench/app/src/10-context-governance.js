@@ -117,13 +117,13 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
         unknown: { reasoning: 'omit', outputField: 'omit' },
         defaultTiers: { map: [4096, 6144], refine: [6144, 8192], reduce: [6144, 8192], single: [6144, 8192], repair: [6144, 8192] },
         models: [{ match: 'deepseek-v4', reasoning: { mode: 'effort', supported: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], preferred: 'minimal' }, output: { responses: 'max_output_tokens', chat: 'max_tokens' } }],
-        promptGuidance: '输出只保留结构化事实与交接所需要点，不展开推理过程；map 每节尽量短，reduce 保留跨段事实，总体避免无关扩写。',
+        promptGuidance: '输出只保留结构化事实与交接所需要点，不展开推理过程；map 每节尽量短，reduce 保留跨段事实及仍有效的用户教学流程，步骤顺序不可概括成“任务已完成”，总体避免无关扩写。',
       },
       reseedTailMaxTokens: 16000,
       minimumSections: 4,
       statusSectionIndex: 3,
-      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论;关键工具调用各自得到了什么(抓过的网页/接口、命令与脚本输出、子代理交付 —— 结论与来源都写上,这类结果事后重跑未必复现)\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n偏好与决定只保留【最后一次】那个版本:用户在对话里推翻、否决或改口的旧偏好不得写进【已确认的决定】;确有必要提到时必须写明它已被推翻,不许与现行偏好并列成两条都有效的约束。\n只输出摘要本身。',
-      promptEn: 'Compress the conversation above into a structured summary. Output exactly these five sections (write "None" for a section with nothing in it):\n## Goal\nThe user\'s core objective and hard constraints.\n## Decisions\nSettled facts, chosen approaches, stated preferences.\n## Open\nTodos, work in progress, unresolved questions.\n## Current Status\nHand-off state, listed as: Done / In progress / Blocked / Next step. Write "None" if there is nothing.\n## Files\nFiles and paths touched, code points, key data and conclusions; what each key tool call established (pages/APIs fetched, command and script output, sub-agent deliveries: the finding and its source, since such results may not be reproducible later).\nFidelity requirement (driven by the measured 45e baseline): key nouns must be kept VERBATIM -- code names, numbers and magnitudes, dates, people, file paths, version strings, explicit prohibitions and constraints. Never generalize or drop them; when in doubt keep more, not less. Use bullets per section; do not write one flowing paragraph.\nPreferences and decisions: keep only the LAST version. A preference the user overrode, vetoed or changed their mind about during the conversation must not appear under Decisions; when it has to be mentioned at all, say it was overridden, and never list it next to the current one as if both still held.\nKeep only structured facts and what a hand-off needs; do not spell out reasoning. Keep each mapped section short; keep cross-chunk facts when reducing; avoid unrelated expansion.\nOutput the summary only.',
+      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好；用户教过且仍有效的可复用流程（适用任务、步骤顺序、关键参数、验证方法），完成一次任务不代表流程失效\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论;关键工具调用各自得到了什么(抓过的网页/接口、命令与脚本输出、子代理交付 —— 结论与来源都写上,这类结果事后重跑未必复现)\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n偏好与决定只保留【最后一次】那个版本:用户在对话里推翻、否决或改口的旧偏好不得写进【已确认的决定】;确有必要提到时必须写明它已被推翻,不许与现行偏好并列成两条都有效的约束。\n只输出摘要本身。',
+      promptEn: 'Compress the conversation above into a structured summary. Output exactly these five sections (write "None" for a section with nothing in it):\n## Goal\nThe user\'s core objective and hard constraints.\n## Decisions\nSettled facts, chosen approaches, stated preferences; still-applicable reusable procedures taught by the user (when to use them, ordered steps, key parameters and verification). Completing one task does not retire its procedure.\n## Open\nTodos, work in progress, unresolved questions.\n## Current Status\nHand-off state, listed as: Done / In progress / Blocked / Next step. Write "None" if there is nothing.\n## Files\nFiles and paths touched, code points, key data and conclusions; what each key tool call established (pages/APIs fetched, command and script output, sub-agent deliveries: the finding and its source, since such results may not be reproducible later).\nFidelity requirement (driven by the measured 45e baseline): key nouns must be kept VERBATIM -- code names, numbers and magnitudes, dates, people, file paths, version strings, explicit prohibitions and constraints. Never generalize or drop them; when in doubt keep more, not less. Use bullets per section; do not write one flowing paragraph.\nPreferences and decisions: keep only the LAST version. A preference the user overrode, vetoed or changed their mind about during the conversation must not appear under Decisions; when it has to be mentioned at all, say it was overridden, and never list it next to the current one as if both still held.\nKeep only structured facts and what a hand-off needs; do not spell out reasoning. Keep each mapped section short; keep cross-chunk facts when reducing; avoid unrelated expansion.\nOutput the summary only.',
       sections: [
         ['【目标】', '## Goal', 'Goal:'],
         ['【已确认的决定】', '## Decisions', 'Decisions:'],
@@ -165,7 +165,7 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       // 105h(4.3 第二项): <=4 块顺序 refine 的上限与修订 prompt,与 JSON 同构(additive)。
       refine: {
         maxChunks: 4,
-        prompt: '你是顺序摘要修订器。输入包含【当前累计摘要】和其后的【新增历史块】。请用新增历史更新累计摘要,严格保持【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】五节结构。新增历史中更晚的决定覆盖旧决定;已完成或被取消的事项必须从未完成事项中消失;不得把已推翻决定与最新决定并列为有效约束。路径、版本、日期、代号、数字和明确禁令必须逐字保留。只输出修订后的完整摘要。',
+        prompt: '你是顺序摘要修订器。输入包含【当前累计摘要】和其后的【新增历史块】。请用新增历史更新累计摘要,严格保持【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】五节结构。新增历史中更晚的决定覆盖旧决定;已完成或被取消的事项必须从未完成事项中消失;不得把已推翻决定与最新决定并列为有效约束。路径、版本、日期、代号、数字和明确禁令必须逐字保留。用户教过且仍有效的可复用流程保留在已确认的决定中，保留适用任务、步骤顺序、关键参数与验证方法；任务完成不等于流程废弃，更晚的用户修订覆盖旧流程。只输出修订后的完整摘要。',
       },
     },
     // 126-111a: L1 保护区的三个数(比例、下限、上限)与 context-governance-rules.json 的
@@ -861,14 +861,34 @@ function buildObservationRecallPrompt(history, config) {
 // 有界:【整个注入块】不超过上限；正文超出时保留头部 + 省略计数标记(常数内置,对齐 105a 风格),
 // 预算口径与 recall prompt 一致 —— 在 buildBody 内追加,不进 budgetPrompt。
 const SESSION_NOTES_INJECT_MAX_CHARS = 2000;
-function buildSessionNotesInjectPrompt(notesMarkdown, config) {
+function buildSessionNotesInjectPrompt(notesMarkdown, config, history) {
   if (!sessionNotesInjectEnabled(config) || typeof notesMarkdown !== 'string' || !notesMarkdown) return '';
   const sections = parseSessionNotesMarkdown(notesMarkdown);
   if (!sections) return '';
-  const allEmpty = [sections.decisions, sections.open, sections.files].every(s => !s || s === '无');
+  const summarized = historyStartsWithCompactionSummary(history);
+  if (summarized) {
+    // Merged notes can contain still-useful decisions absent from the latest summary.
+    // Supplement only that difference; old open items must never become pending again.
+    if (!sessionNotesMergeEnabled(config)) return '';
+    const first = history.find(entry => entry && entry.role === 'user');
+    const summary = typeof first.content === 'string' ? first.content
+      : first.content.map(part => part && typeof part.text === 'string' ? part.text : '').join('\n');
+    const current = extractSessionNotes(summary);
+    const missingLines = (body, existing) => {
+      const seen = new Set(String(existing || '').split('\n').map(line => line.trim()));
+      return String(body || '').split('\n').map(line => line.trim()).filter(line => !sessionNotesBodyEmpty(line) && !seen.has(line)).join('\n') || '无';
+    };
+    sections.decisions = missingLines(sections.decisions, current.decisions);
+    sections.files = missingLines(sections.files, current.files);
+    sections.open = '无';
+    notesMarkdown = renderSessionNotesMarkdown(sections);
+  }
+  const allEmpty = [sections.decisions, sections.open, sections.files].every(sessionNotesBodyEmpty);
   if (allEmpty) return '';
   const prefix = '[Ruyi session notes — runtime context, not user-authored]\n'
-    + 'The notes below are a deterministic extraction from the most recent compaction summary of this session (decisions / open items / key files). If they overlap or conflict with a summary already in the conversation, the newest summary wins.\n';
+    + (summarized
+      ? 'These retained historical decisions and context supplement details missing from the current summary. They may be superseded: the newest summary wins, and current user instructions take precedence. Reuse a taught procedure only while it remains applicable; do not restore completed or cancelled work.\n'
+      : 'The notes below are a deterministic extraction from compaction summaries of this session (decisions / open items / key files). If they overlap or conflict with a summary already in the conversation, the newest summary wins.\n');
   const bodyBudget = Math.max(0, SESSION_NOTES_INJECT_MAX_CHARS - prefix.length);
   if (notesMarkdown.length <= bodyBudget) return prefix + notesMarkdown;
   // 省略数本身的位数会改变可见正文长度，至多两轮即可收敛；末轮再防御性钳位总长。
@@ -910,8 +930,8 @@ function buildSessionScratchpadInjectPrompt(entries) {
   return open + previews + marker + close;
 }
 
-// 105d-A 去重守门(纯函数,e2e 白盒共用): notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要
-// 标记(【压缩摘要】 或 (以下是此前对话的压缩摘要))时跳过注入,避免重复计费。content 兼容 string/数组。
+// Detect the summary at the first user message (string or parts). Notes injection uses it to
+// suppress duplicates while retaining details contributed by earlier merged summaries.
 function historyStartsWithCompactionSummary(history) {
   const firstUser = Array.isArray(history) ? history.find(entry => entry && entry.role === 'user') : null;
   const text = !firstUser ? ''
@@ -1510,11 +1530,40 @@ function summaryPromptWithGuidance(config) {
   return base + '\n' + guidance;
 }
 
+// The validator and notes extraction share the same heading aliases and Markdown tolerance.
+function summarySectionLocations(summary) {
+  const text = String(summary || '');
+  const sections = CONTEXT_GOVERNANCE_RULES.summary.sections;
+  const normHead = value => String(value || '').toLowerCase()
+    .replace(/^[\s#*>\-]+/, '').replace(/[【】[\]]/g, '').replace(/[:：]\s*$/, '').trim();
+  const lines = [];
+  let offset = 0;
+  for (const line of text.split('\n')) { lines.push({ text: line, offset }); offset += line.length + 1; }
+  const found = [];
+  for (let index = 0; index < sections.length; index++) {
+    let location = null;
+    for (const alias of sections[index]) {
+      const pos = text.indexOf(alias);
+      if (pos >= 0 && (!location || pos < location.pos)) location = { index, pos, len: alias.length };
+      const heading = normHead(alias);
+      for (const line of lines) {
+        if (!heading || !normHead(line.text).startsWith(heading) || (location && line.offset > location.pos)) continue;
+        const at = line.text.toLowerCase().indexOf(heading);
+        if (at < 0) continue;
+        const end = at + heading.length;
+        const suffix = /^[\s*:：】\]\-—]*/.exec(line.text.slice(end))[0].length;
+        location = { index, pos: line.offset, len: end + suffix };
+      }
+    }
+    if (location) found.push(location);
+  }
+  return found.sort((a, b) => a.pos - b.pos);
+}
+
 function validateStructuredSummary(summary) {
   if (!summary || typeof summary !== 'string') return false;
   // 每节接受 中文标题 或 常见英文变体(英文模型可能按英文输出;SUMMARY_PROMPT 为中文硬编码,
   // 故英文变体用独立标题词,避免与正文内容误匹配)。
-  const sections = CONTEXT_GOVERNANCE_RULES.summary.sections;
   // 126-111d 标题容错:模型常把 `## Goal` 写成 `**Goal**`／`# Goal:`／`- Goal —`,含义一样但
   // `includes(别名)` 认不出来。归一之后按【行首】匹配:去掉行首的 #／*／>／-／空白与
   // 【】[],去掉行尾的冒号,大小写不敏感。
@@ -1522,17 +1571,12 @@ function validateStructuredSummary(summary) {
   // **这一半故意不挂开关**:它只会让本来就正确的摘要更容易通过,不会让错的通过 —— 判据锚在
   // 行首,正文里顺嘴提一句 "goal" 不算数(下面 D 组有一条专门反着验这件事)。挂开关反而会让
   // 「开关关时英文模型的合法摘要被判不合格」这个老毛病留着。
-  const normHead = s => String(s || '').toLowerCase()
-    .replace(/^[\s#*>\-]+/, '').replace(/[【】[\]]/g, '').replace(/[:：]\s*$/, '').trim();
-  const headLines = summary.split(/\r?\n/).map(normHead).filter(Boolean);
-  const hasSection = sec => sec.some(s => summary.includes(s))
-    || sec.some(s => { const n = normHead(s); return !!n && headLines.some(line => line.startsWith(n)); });
-  const found = sections.filter(hasSection).length;
+  const locations = summarySectionLocations(summary);
+  const found = locations.length;
   // 当前执行状态是交接摘要的关键部分，不能再用“任意三节”放行；否则模型
   // 漏掉状态节时，下一轮会失去“已完成/进行中/阻塞/下一步”的恢复依据。
   const stateLabels = CONTEXT_GOVERNANCE_RULES.summary.stateLabels;
-  const statusSection = sections[CONTEXT_GOVERNANCE_RULES.summary.statusSectionIndex];
-  const statePresent = hasSection(statusSection);   // 126-111d:状态节也走同一把归一,否则五节里四节认得、偏偏状态那节认不出
+  const statePresent = locations.some(location => location.index === CONTEXT_GOVERNANCE_RULES.summary.statusSectionIndex);
   const stateComplete = statePresent && stateLabels.every(labels => labels.some(label => summary.includes(label)));
   return found >= CONTEXT_GOVERNANCE_RULES.summary.minimumSections && stateComplete;  // 结构化摘要必须含五节中的至少四节,且状态节四项齐全
 }
@@ -1541,30 +1585,22 @@ function validateStructuredSummary(summary) {
 // 从既有五节结构化摘要【确定性切出】状态三节,整写到 sessions/<id>.session-notes.md 旁车副本。
 // 节索引锚定 context-governance-rules.json 的 summary.sections 顺序(1=已确认的决定,2=未完成事项,
 // 4=关键文件与上下文);0=目标、3=当前执行状态留在摘要叙事里,不进 notes(摘要保留叙事职责)。
-// 不新增 LLM 调用、不改摘要/prompt/reseed 字节形状;默认关闭,失败静默,绝不阻断回合。
+// No additional model calls; extraction and merging reuse the existing three-section sidecar.
 const SESSION_NOTES_SECTION_INDEXES = [1, 2, 4];
 const SESSION_NOTES_TITLES = ['已确认的决定', '未完成事项', '关键文件与上下文'];
+function sessionNotesBodyEmpty(body) {
+  return /^(?:无|none)?$/i.test(String(body || '').trim());
+}
 function extractSessionNotes(summary) {
-  const rules = CONTEXT_GOVERNANCE_RULES.summary;
   const text = String(summary || '');
-  // 定位每节标题:任一名命中,取最靠前的出现位置与对应别名长度。
-  const found = [];
-  for (let i = 0; i < rules.sections.length; i++) {
-    let pos = -1, len = 0;
-    for (const alias of rules.sections[i]) {
-      const p = text.indexOf(alias);
-      if (p >= 0 && (pos < 0 || p < pos)) { pos = p; len = alias.length; }
-    }
-    if (pos >= 0) found.push({ index: i, pos, len });
-  }
-  found.sort((a, b) => a.pos - b.pos);
+  const found = summarySectionLocations(text);
   const out = [];
   for (const idx of SESSION_NOTES_SECTION_INDEXES) {
     const f = found.find(x => x.index === idx);
     if (!f) { out.push('无'); continue; }              // 缺节降级为「无」,对齐摘要空节约定
     const next = found.find(x => x.pos > f.pos);
     const body = text.slice(f.pos + f.len, next ? next.pos : undefined).trim();
-    out.push(body || '无');
+    out.push(sessionNotesBodyEmpty(body) ? '无' : body);
   }
   return { decisions: out[0], open: out[1], files: out[2] };
 }
@@ -1595,7 +1631,7 @@ function parseSessionNotesMarkdown(markdown) {
   for (const f of found) {
     const next = found.find(x => x.pos > f.pos);
     const body = text.slice(f.pos + f.len, next ? next.pos : undefined).trim();
-    out[keys[f.index]] = body || '无'; // 空节对齐摘要空节约定
+    out[keys[f.index]] = sessionNotesBodyEmpty(body) ? '无' : body;
   }
   return { decisions: out.decisions || '无', open: out.open || '无', files: out.files || '无' };
 }
@@ -1614,7 +1650,7 @@ function mergeSessionNotes(prevMarkdown, nextNotes) {
   };
 }
 function mergeSessionNotesLines(nextBody, prevBody) {
-  const toLines = body => (String(body || '').trim() === '无' ? [] : String(body || '').split('\n').map(l => l.trim()).filter(Boolean));
+  const toLines = body => (sessionNotesBodyEmpty(body) ? [] : String(body || '').split('\n').map(l => l.trim()).filter(Boolean));
   const seen = new Set();
   const out = [];
   for (const line of [...toLines(nextBody), ...toLines(prevBody)]) {
@@ -1623,7 +1659,8 @@ function mergeSessionNotesLines(nextBody, prevBody) {
   }
   return out.join('\n'); // 空集交给 renderSessionNotesMarkdown 的「无」兜底,保证合并结果可再解析(回环)
 }
-// 挂钩入口:L2 摘要成功后 fire-and-forget。开关关闭 = 零文件读写;任何失败吞掉(纪律同 writeHistorySnapshot)。
+// L2 notes writes return their completion so the next model request can refresh its snapshot.
+// Disabled notes perform no I/O; failures remain best-effort and never block the turn with an error.
 function maybeWriteSessionNotes(session, summary, config) {
   try {
     if (!sessionNotesEnabled(config)) return;
@@ -1633,17 +1670,16 @@ function maybeWriteSessionNotes(session, summary, config) {
     if (sessionObjectIsStale(session)) { logEvent({ kind: 'session_notes_stale_skipped', sessionId: session.id }); return; }
     const nextNotes = extractSessionNotes(summary);
     const meta = { sessionId: session.id, updatedAt: new Date().toISOString(), turnSeq: session.turnSeq };
-    // 105d-B: 增量合并分支 —— read→merge→render→write,仍 fire-and-forget、整体 catch 绝不阻断回合。
+    // Merge and write share one completion promise; errors remain non-fatal.
     // 已知限制:read→merge→write 不在 per-session 写链内,依赖「同会话 L2 串行」这一既有事实。
     if (sessionNotesMergeEnabled(config)) {
-      Promise.resolve()
+      return Promise.resolve()
         .then(() => readSessionNotes(session.id))
         .then(prev => writeSessionNotes(session.id, renderSessionNotesMarkdown(mergeSessionNotes(prev, nextNotes), meta)))
         .catch(() => {});
-      return;
     }
     const md = renderSessionNotesMarkdown(nextNotes, meta);
-    writeSessionNotes(session.id, md).catch(() => {});
+    return writeSessionNotes(session.id, md).catch(() => {});
   } catch { /* session notes 是旁车副本,绝不阻断回合 */ }
 }
 
@@ -3177,7 +3213,7 @@ async function runProviderCompact(sessionId, opts = {}) {
     fresh.providerHistoryCursor = fresh.messages.length;
   });
   if (!saved.ok) return saved;
-  maybeWriteSessionNotes(saved.session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用;128b:只在压缩真落盘之后写
+  await maybeWriteSessionNotes(saved.session, summary, config); // Notes are ready before a following turn starts.
   logEvent({ kind: 'provider_compact', sessionId: session.id, level: 2, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, evaporated, toolIndexChars: toolIndex.length, beforeTokens, afterTokens });
   return { ok: true, level: 2, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, evaporated, beforeTokens, afterTokens };
 }
@@ -3225,7 +3261,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     });
     if (r.level === 2) {
       recordCompactUsage(session, r.summaryProvider, r.sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
-      maybeWriteSessionNotes(session, r.sc.summary, config); // 105b: 状态三节外置到 session-notes.md,显式关时零副作用
+      await maybeWriteSessionNotes(session, r.sc.summary, config);
       session.providerHistory = r.reseeded;
       upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: r.before2, afterTokens: r.after2 });
     }

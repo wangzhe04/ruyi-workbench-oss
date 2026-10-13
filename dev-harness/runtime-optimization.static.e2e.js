@@ -287,8 +287,24 @@ ok(/function summaryPromptWithGuidance\(config\)/.test(src), 'F3 取话口带 co
   // 标题容错那一半**故意不挂开关**(见实现处注释):判据锚在行首,只会让本来就正确的摘要更容易过。
   const lines = src.split(/\r?\n/).filter(line => /const normHead = /.test(line));
   ok(lines.length === 1, `F3 标题归一只有一处写法（实得 ${lines.length}）`);
-  ok(/headLines\.some\(line => line\.startsWith\(n\)\)/.test(src),
-    'F3 归一之后按【行首】匹配 —— 正文里顺嘴提一句不算数');
+  // Exercise the public validator rather than locking the shared heading helper's source shape.
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-static-summary-headings-'));
+  const previous = { RUYI_HOME: process.env.RUYI_HOME, WIN_CLAUDE_WORKBENCH_HOME: process.env.WIN_CLAUDE_WORKBENCH_HOME };
+  process.env.RUYI_HOME = home;
+  process.env.WIN_CLAUDE_WORKBENCH_HOME = home;
+  try {
+    const srv = require('../ruyi-workbench/app/server.js');
+    const valid = '## Goal\nDeliver the task.\n## Decisions\nUse the agreed method.\n## Open\nNone\n## Current Status\nDone: checked; In progress: none; Blocked: none; Next step: deliver.\n## Files\nNone';
+    ok(srv.validateStructuredSummary(valid) && srv.validateStructuredSummary(valid.replace(/## (\w[\w ]*)/g, '**$1**')),
+      'F3 标准与Markdown粗体标题确实通过实际摘要校验');
+    const prose = 'We discussed the goal and some decisions in the conversation.\nThere are open questions, the current status is unclear, and several files changed.\nDone, In progress, Blocked, Next step were mentioned in passing.';
+    ok(!srv.validateStructuredSummary(prose),
+      'F3 归一之后按【行首】匹配 —— 正文里顺嘴提一句不算数');
+  } finally {
+    for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+    fs.rmSync(home, { recursive: true, force: true });
+  }
 }
 
 console.log('\n── [F4] 126-111b · L2 尾部单元边界＋桥接 ──');
