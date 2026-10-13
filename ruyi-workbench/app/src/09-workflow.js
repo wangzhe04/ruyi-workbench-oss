@@ -41,6 +41,7 @@ function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, fo
 }
 
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered }) {
+  if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0 };
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
   // 段账本据此不把它们标 cancelled(回合结束不杀它),前端据此把它们画进自己的卡/后台任务条而不是父回合的活动条。
@@ -254,6 +255,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     return out;
   };
+  // 角色库/路由预检里的 await 期间线程可能被删除。复检与注册在同一同步段,删除必能看见并停止已注册的 run。
+  if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0, runId };
   activeAgentRuns.set(runId, runtime);
   // 已登记为运行中:launchPersistedAgentRun 等的就是这一刻(见那边的注释)。
   if (typeof onRegistered === 'function') { try { onRegistered(); } catch { /* 回调失败不影响运行 */ } }
@@ -1629,8 +1632,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const historyPrompt = fullPrompt + '\n\n' + packForTurn.turnTime(localTurnTimeParts(Date.now())) + (revertNotice ? '\n' + revertNotice : '');
   if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
     const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
+    const imageBatchStart = session.providerHistory.length;
     session.providerHistory.push({ role: 'user', content: parts });
-    VisualPipeline.pruneOldImages(session.providerHistory); // 保图≤2 (first image lands here; a no-op until >2 exist)
+    VisualPipeline.pruneOldImages(session.providerHistory, imageBatchStart);
   } else {
     session.providerHistory.push({ role: 'user', content: historyPrompt });
   }
@@ -1846,10 +1850,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
   // 记忆回合尾部也要计预算(它最多一整个索引上限,默认 6000 字符,可配到 10 万)。上下文治理一律用 budgetPromptFull。
   const budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
-  // 105d-A: session notes 回注 —— 每回合至多一次 IO,结果存局部变量供 buildBody 闭包使用。
+  // Session notes are read at turn start and refreshed after compaction writes finish.
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
-  const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
+  let sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
   // C2(61 号文):会话草稿本回注 —— 与 session notes 同一个通道、同一个断点:贴末条 user 尾部,只改本次请求体副本,
   // 不写 providerHistory(落盘历史里没有它),有界(10 buildSessionScratchpadInjectPrompt 硬顶),空草稿本零注入。
   // 缓存账:
@@ -1864,6 +1868,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const scratchpadOffered = !isStewardTurn && ownTools.some(t => t && t.function && t.function.name === 'scratchpad_write');
   let scratchpadPrompt = '';
   const refreshScratchpadPrompt = async phase => {
+    // Both sidecars must reflect this iteration's completed compaction before the next request.
+    if (phase === 'compaction' && sessionNotesInjectEnabled(config)) sessionNotesText = await readSessionNotes(session.id);
     if (!scratchpadOffered) return;
     const entries = await readSessionScratchpad(session.id);
     scratchpadPrompt = buildSessionScratchpadInjectPrompt(entries);
@@ -1895,11 +1901,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let sessionNotesTeleDone = false; // 遥测每回合最多一条(buildBody 在工具循环里会多次构建请求体)
   const appendSessionNotesPrompt = (msgs, history) => {
     if (!sessionNotesInjectEnabled(config)) return;
-    const notesPrompt = buildSessionNotesInjectPrompt(sessionNotesText, config);
-    // 去重守门:notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要时跳过注入,避免重复计费。
+    const notesPrompt = buildSessionNotesInjectPrompt(sessionNotesText, config, history);
+    // Merged notes contribute only details missing from the current summary.
     let skipped = '';
     if (!notesPrompt) skipped = sessionNotesText ? 'empty_or_unparsed' : 'no_notes';
-    else if (historyStartsWithCompactionSummary(history)) skipped = 'summary_in_history';
     if (!sessionNotesTeleDone) {
       sessionNotesTeleDone = true;
       try { logEvent({ kind: 'session_notes_inject', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, chars: skipped ? 0 : notesPrompt.length, skipped: skipped || undefined }); } catch { /* 遥测绝不阻断 */ }
@@ -2738,6 +2743,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       });
       if (sent.aborted) { aborted = true; ok = false; break; }
       const call = sent.result;
+      if (!call.httpError && !call.transportError) VisualPipeline.pruneOldImages(session.providerHistory);
       const llmMs = Date.now() - tLlm0;
       if (toolSchemaChanged && econOn) {
         try {
@@ -2790,6 +2796,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
+            await maybeWriteSessionNotes(session, forced.sc.summary, config);
             // 与 estBeforeCall 同一口径(含系统提示与工具定义),否则「压前→压后」把工具 schema 那一截也算成了省下来的
             const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
@@ -3461,14 +3468,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // (every role:'tool' reply pushed above), so appending user image messages here honors the连续性铁律
         // (assistant.tool_calls → all role:'tool' → user image[…]). Each becomes ONE user message with a text
         // note + image_url part(s); a `tool_image` event lets the UI show a thumbnail (加法, optional). After
-        // each injection, pruneOldImages enforces 保图≤2 (oldest image parts demote to text占位). Skipped when
+        // the batch is sent once, pruneOldImages enforces 保图≤2. Unsent images stay protected. Skipped when
         // aborted (a partial/broken batch must not gain a trailing user message that could dangle).
         if (!aborted && !steerAborted && pendingToolImages.length) {
+          const imageBatchStart = session.providerHistory.length;
           for (const pim of pendingToolImages) {
             session.providerHistory.push({ role: 'user', content: pim.parts });
             onEvent({ type: 'tool_image', toolCallId: pim.toolCallId, note: pim.note });
-            VisualPipeline.pruneOldImages(session.providerHistory); // 保图≤2 after every injection
           }
+          VisualPipeline.pruneOldImages(session.providerHistory, imageBatchStart);
         }
         if (aborted) break;
         if (loopAborted) break;       // v0.8-S7: repeated-call guard tripped → end the turn (self-contained note below)

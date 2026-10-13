@@ -65,6 +65,19 @@ test('126-111d · 摘要 prompt 双语与标题容错', () => {
       'B5 状态四项的英文词也都在 stateLabels 里登记过');
   }
   ok(srv.validateStructuredSummary(EN_SUMMARY) === true, 'B6 照英文 prompt 写出来的摘要,校验过得了');
+  for (const [name, transformed] of [
+    ['bold', EN_SUMMARY.replace(/## (\w[\w ]*)/g, '**$1**')],
+    ['colon', EN_SUMMARY.replace(/## (\w[\w ]*)/g, '# $1:')],
+    ['list', EN_SUMMARY.replace(/## (\w[\w ]*)/g, '- $1')],
+  ]) {
+    ok(srv.validateStructuredSummary(transformed) && JSON.stringify(srv.extractSessionNotes(transformed)) === JSON.stringify(srv.extractSessionNotes(EN_SUMMARY)),
+      `B7 ${name}:合法标题的三节笔记与标准标题提取一致`);
+  }
+  const emptyEnglish = EN_SUMMARY.replace('Keep every switch default-off.', 'None').replace('Three cuts left.', 'None').replace('src/10-context-governance.js', 'None');
+  ok(Object.values(srv.extractSessionNotes(emptyEnglish)).every(value => value === '无'), 'B8 English None remains an empty notes section');
+  ok(/用户教过.*可复用流程/.test(rules.summary.prompt) && /完成一次任务不代表流程失效/.test(rules.summary.prompt), 'B9 中文摘要保留仍有效的用户教学流程');
+  ok(/procedures taught by the user/.test(rules.summary.promptEn) && /Completing one task does not retire its procedure/.test(rules.summary.promptEn), 'B10 英文摘要保留仍有效的用户教学流程');
+  ok(/用户教学流程/.test(rules.summary.callPolicy.promptGuidance) && /可复用流程/.test(rules.summary.refine.prompt), 'B11 map/reduce/refine不把有效流程当已完成事项丢掉');
 
   // ── [C] 标题容错 ─────────────────────────────────────────────────────────────────
   ok(srv.validateStructuredSummary(EN_SUMMARY.replace(/## (\w[\w ]*)/g, '**$1**')) === true,

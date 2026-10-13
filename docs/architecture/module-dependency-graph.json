@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 72,
-    "providedSymbols": 3656,
-    "requiredSymbols": 3209,
+    "providedSymbols": 3659,
+    "requiredSymbols": 3211,
     "edges": 547,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -1303,6 +1303,7 @@
         "scheduleSessionIndexUpdate",
         "scratchpadTotalChars",
         "serializeSessionBody",
+        "sessionAssociatedSaveIsTombstoned",
         "sessionBodyDanglingFromLines",
         "sessionBodyFileStamp",
         "sessionBodyLineCache",
@@ -7895,6 +7896,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionAssociatedSaveIsTombstoned",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "settleIntervention",
           "kinds": [
             "call"
@@ -8971,6 +8979,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveTurnFinalSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionSaveIsTombstoned",
           "kinds": [
             "call"
           ]
@@ -10245,13 +10260,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "historyStartsWithCompactionSummary",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
           "kinds": [
             "call"
@@ -10260,6 +10268,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "maybeAutoCompact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "maybeWriteSessionNotes",
           "kinds": [
             "call"
           ]
@@ -10523,6 +10538,7 @@
         "runSessionTurn",
         "scheduleAgentWake",
         "scheduleAgentWakesAtBoot",
+        "sessionNotesBodyEmpty",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -10538,6 +10554,7 @@
         "summaryPolicyTiers",
         "summaryPromptIsEnglish",
         "summaryPromptWithGuidance",
+        "summarySectionLocations",
         "summarySingleShotCap",
         "summarySingleShotReserveTokens",
         "summarySourceText",
@@ -28841,6 +28858,7 @@
         "readInterventions",
         "readSessionHeadResilient",
         "registerIntervention",
+        "sessionAssociatedSaveIsTombstoned",
         "settleIntervention"
       ],
       "direction": "backward"
@@ -29123,6 +29141,7 @@
         "repairProviderHistoryToolArgs",
         "saveSession",
         "saveTurnFinalSession",
+        "sessionSaveIsTombstoned",
         "settleIntervention"
       ],
       "direction": "backward"
@@ -29451,9 +29470,9 @@
         "compactionRefetchWarning",
         "createCompactionRefetchGuard",
         "estimateFactor",
-        "historyStartsWithCompactionSummary",
         "isContextOverflowError",
         "maybeAutoCompact",
+        "maybeWriteSessionNotes",
         "noteEstimateSample",
         "noteWindowOvershoot",
         "providerContextWindow",

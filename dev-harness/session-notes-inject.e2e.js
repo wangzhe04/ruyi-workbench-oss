@@ -190,7 +190,7 @@ function presetNotes(EHOME, sid, markdown) {
     const B = await launchStack('b', { runtimeSessionNotesInjectV1: true });
     ok(B.healthy, 'E8 workbench B listening on :' + B.WB_PORT);
     try {
-      const ev1 = await postStream(B.WB_PORT, { message: '(以下是此前对话的压缩摘要)\n【已确认的决定】\n- 旧决定' });
+      const ev1 = await postStream(B.WB_PORT, { message: '(以下是此前对话的压缩摘要)\n【已确认的决定】\n- 用方案 B:路由懒加载\n【未完成事项】\n- 补 e2e 回归\n【关键文件与上下文】\n- app/src/01-config.js 开关定义' });
       const sid = (ev1.find(e => e.type === 'session') || {}).session?.id;
       ok(!!sid && !!(ev1.find(e => e.type === 'result') || {}).ok, 'E9 turn1 回合 ok(首条 user 带摘要标记)');
       presetNotes(B.EHOME, sid, NOTES_MD);
@@ -198,6 +198,24 @@ function presetNotes(EHOME, sid, markdown) {
       ok(!!(ev2.find(e => e.type === 'result') || {}).ok, 'E10 turn2 回合 ok');
       const cap2 = B.readCap(2);
       ok(!!cap2 && !lastUserText(cap2).includes('[Ruyi session notes'), 'E11 首条 user 含摘要标记 → 跳过注入(summary_in_history)');
+      // 2026-10: the duplicate gate must not hide distinct teaching retained by notes merging.
+      const procedure = '配表顺序：先按料号与仓库合并库存，再按交期排序分配，同日先处理已确认订单。';
+      const retained = srv.renderSessionNotesMarkdown({
+        decisions: '- 用方案 B:路由懒加载\n- ' + procedure,
+        open: '- 旧配表任务已完成，不应重新排入待办',
+        files: '- app/src/01-config.js 开关定义\n- 配表依据来自库存原表',
+      }, { sessionId: sid });
+      presetNotes(B.EHOME, sid, retained);
+      const ev3 = await postStream(B.WB_PORT, { sessionId: sid, message: '再配一份表，沿用上次教你的顺序' });
+      ok(!!(ev3.find(e => e.type === 'result') || {}).ok, 'E11a 重复同类任务回合成功');
+      const delta = lastUserText(B.readCap(3));
+      ok(delta.includes(procedure) && delta.includes('配表依据来自库存原表'), 'E11b 当前摘要遗漏的有效教学流程与上下文仍送达模型');
+      ok(!delta.includes('用方案 B') && !delta.includes('app/src/01-config.js'), 'E11c 当前摘要已有的决定与文件不重复注入');
+      ok(!delta.includes('旧配表任务已完成') && delta.includes('newest summary wins') && delta.includes('current user instructions take precedence'), 'E11d 不复活旧待办，当前摘要和用户新要求优先');
+      const mergedCfg = srv.normalizeConfig({}).config;
+      const largeDelta = srv.buildSessionNotesInjectPrompt(srv.renderSessionNotesMarkdown({ decisions: procedure.repeat(100), open: '无', files: '无' }, {}), mergedCfg,
+        [{ role: 'user', content: '(以下是此前对话的压缩摘要)\n【已确认的决定】\n无' }]);
+      ok(largeDelta.length <= 2000 && largeDelta.includes('chars omitted'), 'E11e 差量回注沿用既有2000字符预算');
     } catch (e) { console.log('ERROR ' + (e && e.stack || e)); failures++; }
     finally { await B.cleanup(); }
   }

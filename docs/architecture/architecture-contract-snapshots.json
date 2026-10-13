@@ -380,7 +380,7 @@
         "window": 10000
       }
     },
-    "promptSha256": "9ed04dcfba48e1550aeb063eafca0c394fbfca0732590c9b13a6276bbbd8ee9a",
+    "promptSha256": "86353cec02ed8fcc26a3a30c82fd21b97fbb4f9c82533bc065f7836b916dfca4",
     "requiredSections": [
       [
         "【目标】",
@@ -417,7 +417,7 @@
       "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
     },
     "ruleSchema": 1,
-    "rulesSha256": "106e4e4c3edcf91aade87e2dd41eb8d138ea32488bcd4ee42aa0de41525f4fc2"
+    "rulesSha256": "aa5bd2c9d25fc3ae037d36812aecd00d9194e83ce9b8326e8568f60ae89da506"
   },
   "permission": {
     "modes": [

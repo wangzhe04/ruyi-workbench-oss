@@ -52,7 +52,7 @@ async function loadAgentWorkflows() {
 }
 try { globalThis.addEventListener('i18n:change', () => renderWorkflowQuickSelect()); } catch { /* 无 window(单测)时不挂 */ }
 async function launchAgentWorkflow(workflow, context) {
-  if (!state.currentSession?.id) await newSession();
+  if (!state.currentSession?.id && !await newSession()) return;
   const wf = workflow || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value); if (!wf) return toast(t('workflow.selectRequired'), 'err');
   try {
     const body = { token: wcwToken(), sessionId: state.currentSession.id, nodes: wf.nodes, workflowId: wf.id, async: true };

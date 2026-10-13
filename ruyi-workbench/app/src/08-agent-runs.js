@@ -48,11 +48,16 @@ function appendAgentRunEvent(run, evt) {
     // 对抗轮修: id 畸形(手编/半写坏的 run JSON)时 safeSessionId→null 会字符串化成 "null.events.ndjson",
     // 多个坏 run 的事件合流互相交错 —— 归属不清的取证不如不记,直接丢弃。(无穿越面,纯归属完整性。)
     if (!safeSessionId(run.id) || !safeSessionId(run.sessionId)) return;
+    if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
     run.eventSeq = (Number(run.eventSeq) || 0) + 1;
     const rec = JSON.stringify({ seq: run.eventSeq, ts: nowIso(), runId: run.id, ...evt }) + '\n';
     const dir = agentRunDir(run.sessionId);
     const file = agentRunEventsFile(run.sessionId, run.id);
-    runKeyedChain(agentRunEventChains, run.id, () => fsp.mkdir(dir, { recursive: true }).then(() => fsp.appendFile(file, rec, 'utf8')));
+    runKeyedChain(agentRunEventChains, run.id, async () => {
+      if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
+      await fsp.mkdir(dir, { recursive: true });
+      await fsp.appendFile(file, rec, 'utf8');
+    });
   } catch { /* 取证辅助,不阻断执行 */ }
 }
 // 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
@@ -64,6 +69,16 @@ function flushAgentRunEvents(runId, maxWaitMs = 5000) {
   let timer = null;
   return Promise.race([chain.catch(() => {}), new Promise(resolve => { timer = setTimeout(resolve, maxWaitMs); })]).finally(() => clearTimeout(timer));
 }
+// 删除关联记录前排空这条线程已经开始的写入。通过既有生命周期钩子延迟绑定,会话层不引用后加载的写链。
+EventStreamHooks.flushSessionAgentRuns = async (sessionId, runIds) => {
+  const ids = new Set(runIds);
+  const files = await fsp.readdir(agentRunDir(sessionId)).catch(() => []);
+  for (const file of files) {
+    const match = /^(run_[a-f0-9]+)(?:\.json|\.events\.ndjson)$/.exec(file);
+    if (match) ids.add(match[1]);
+  }
+  await Promise.all([...ids].flatMap(id => [agentRunWriteChains.get(id), agentRunEventChains.get(id)]).filter(Boolean).map(chain => chain.catch(() => {})));
+};
 
 // ── 116-2b:班组运行的停滞/预算信号 → 两个新的 run 事件 type ──────────────────────────────
 // 背景(27 号文 §11.6「116b 登记的缺口」):subagent_no_progress / loop_recovery / 节点级工具迭代
@@ -217,6 +232,7 @@ const agentRunSaveFailures = new Map(); // runId -> consecutive snapshot-save fa
 
 const agentRunLastSavedStatus = new Map();   // 128f-⑫:runId -> 上一次落盘时的 status(见 saveAgentRun 里那一段)
 async function saveAgentRun(run) {
+  if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
   // Snapshot at submission time, not when an earlier queued write eventually completes. Without this,
   // a fast node can mutate from running to succeeded before the leading progress save serializes, so the
   // polling UI never observes its intermediate progress even though saveAgentRun was called in time.
@@ -225,6 +241,7 @@ async function saveAgentRun(run) {
   run.updatedAt = nowIso();
   const snapshot = JSON.stringify(run, null, 2);
   await runKeyedChain(agentRunWriteChains, run.id, async () => {
+    if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
     const dir = agentRunDir(run.sessionId);
     await fsp.mkdir(dir, { recursive: true });
     // 25.1: 写体收编 atomicWriteJson —— 旧手写版的 rename 重试参数(8 次,15→155ms;UI 每 ~2s 轮询读者持
@@ -793,6 +810,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     try {
       const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire });
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
+      if (!call.httpError) VisualPipeline.pruneOldImages(subHistory);
       if (!call.httpError && call.text && String(call.text).trim()) {
         resultText += call.text;
         subErr = '';
@@ -873,6 +891,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // throwing; the loop above already folded transportError into httpError for its own retry decision, and
       // the final call is folded again here so the classification below sees a uniform httpError.
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
+      if (!call.httpError) VisualPipeline.pruneOldImages(subHistory);
       if (call.httpError) {
         // 第32波: 首次传输/超时失败后,若已有检查点,自动恢复续跑(不重做已完成工具调用)
         if (savepoint && !checkpointRestored && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
@@ -1174,8 +1193,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         }
         if (!subOk) break;
         if (!(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+          const imageBatchStart = subHistory.length;
           subHistory.push(...subToolImages);
-          if (subToolImages.length) VisualPipeline.pruneOldImages(subHistory);
+          if (subToolImages.length) VisualPipeline.pruneOldImages(subHistory, imageBatchStart);
         }
         if (iter + 1 >= budget && budget < adaptiveBudgetLimit && shouldExtendToolIterationBudget({
           currentLimit: budget,

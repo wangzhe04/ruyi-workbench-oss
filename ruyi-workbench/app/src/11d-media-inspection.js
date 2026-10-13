@@ -111,7 +111,28 @@ const MediaInspection = (() => {
     else {
       const directory = await io.mkdtemp(nodePath.join(nodeOs.tmpdir(), 'ruyi-syntax-'));
       try {
-        const candidate = nodePath.join(directory, 'candidate' + extension);
+        // Node determines .js semantics from the nearest package.json, not the temp directory.
+        let candidateExtension = extension;
+        if (extension === '.js') {
+          // Dependency .js files default to CommonJS even when their package omits type.
+          if (nodePath.resolve(file).split(nodePath.sep).includes('node_modules')) candidateExtension = '.cjs';
+          let current = nodePath.dirname(nodePath.resolve(file));
+          while (nodePath.basename(current) !== 'node_modules') {
+            let packageText;
+            try { packageText = await io.readFile(nodePath.join(current, 'package.json'), 'utf8'); }
+            catch (error) { if (error.code !== 'ENOENT') throw error; }
+            if (packageText !== undefined) {
+              const packageType = JSON.parse(packageText.replace(/^\uFEFF/, '')).type;
+              if (packageType === 'module') candidateExtension = '.mjs';
+              else if (packageType === 'commonjs') candidateExtension = '.cjs';
+              break;
+            }
+            const parent = nodePath.dirname(current);
+            if (parent === current) break;
+            current = parent;
+          }
+        }
+        const candidate = nodePath.join(directory, 'candidate' + candidateExtension);
         await io.writeFile(candidate, content, 'utf8');
         result = await run(executable.path, ['--check', candidate], { timeoutMs: 10000 });
       } finally { await io.rm(directory, { recursive: true, force: true }); }

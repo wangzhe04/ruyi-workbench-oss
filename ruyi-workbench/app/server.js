@@ -8589,7 +8589,7 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
   return session;
 }
 
-// hunt2-P2:删除墓碑。id → 删除那一刻(ms)。stopSession 只是 abort,被停回合的收尾 saveSession(以及任何
+// hunt2-P2:删除墓碑。id → { at, purgeAssociated }。stopSession 只是 abort,被停回合的收尾 saveSession(以及任何
 // 手里还攥着旧会话对象的旁路写者)会在 unlink 之后把头与正文整份写回 —— 会话「复活」,列表里又出现、GET 200。
 // saveSession 在【写链内】查墓碑:createdAt 不晚于删除时刻的对象 = 删除之前就存在的那条会话的副本,整次写丢弃。
 // 用 createdAt 而不是「有墓碑就拒」:固定 id 的会话(管家 STEWARD_SESSION_ID)删掉后会以同一个 id 重建,
@@ -8598,16 +8598,21 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
 const SESSION_DELETE_TOMBSTONE_MAX = 5000;
 const SESSION_DELETE_SETTLE_TIMEOUT_MS = 8000;   // 与 rewindSession 等垂死回合 settle 的窗口同值
 const sessionDeleteTombstones = new Map();
-function markSessionDeleted(id) {
+function markSessionDeleted(id, purgeAssociated = false) {
+  const previous = sessionDeleteTombstones.get(id);
   sessionDeleteTombstones.delete(id);
-  sessionDeleteTombstones.set(id, Date.now());
+  sessionDeleteTombstones.set(id, { at: Date.now(), purgeAssociated: Boolean(purgeAssociated || (previous && previous.purgeAssociated)) });
   while (sessionDeleteTombstones.size > SESSION_DELETE_TOMBSTONE_MAX) sessionDeleteTombstones.delete(sessionDeleteTombstones.keys().next().value);
 }
 function sessionSaveIsTombstoned(session) {
-  const deletedAt = sessionDeleteTombstones.get(session && session.id);
-  if (deletedAt === undefined) return false;
+  const deleted = sessionDeleteTombstones.get(session && session.id);
+  if (!deleted) return false;
   const createdMs = Date.parse(String((session && session.createdAt) || ''));
-  return !Number.isFinite(createdMs) || createdMs <= deletedAt;
+  return !Number.isFinite(createdMs) || createdMs <= deleted.at;
+}
+function sessionAssociatedSaveIsTombstoned(id) {
+  const deleted = sessionDeleteTombstones.get(id);
+  return !!(deleted && deleted.purgeAssociated);
 }
 // Delete the persisted chat itself. `purgeAssociated` is deliberately opt-in: a normal single-chat
 // delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
@@ -8631,8 +8636,12 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   assertSessionIdForPath(id);
   // hunt2-P2:先立墓碑(同步,先于 stopSession 触发的任何收尾),再等垂死回合 settle 与已在跑的那一截写链
   // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
-  markSessionDeleted(id);
+  markSessionDeleted(id, purgeAssociated);
   stopSession(id, 'deleted');
+  // 后台班组不在 activeChildren 里。删除线程同样要停它们,否则它们仍会派发后续节点。
+  // 停止只请求 abort,不是等待收尾;清关联数据时还要等已在飞的快照/事件写完,迟到写由同一墓碑拒掉。
+  const deletedRunIds = new Set([...activeAgentRuns.values()].filter(live => live && live.run && live.run.sessionId === id).map(live => live.run.id));
+  await stopMissionAgentRuns(id);
   {
     const settler = turnSettlers.get(id);
     if (settler && settler.promise) {
@@ -8688,6 +8697,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
   dropInterventionSessionState(id);          // 介入记录缓存 + 压实节拍计数:会话没了,内存里的这两份也不留
   if (purgeAssociated) {
+    if (EventStreamHooks.flushSessionAgentRuns) await EventStreamHooks.flushSessionAgentRuns(id, deletedRunIds);
     await Promise.all([
       fsp.rm(journalDir(id), { recursive: true, force: true }).catch(() => {}),
       fsp.rm(agentRunDir(id), { recursive: true, force: true }).catch(() => {}),
@@ -14050,8 +14060,10 @@ const VisualPipeline = (() => {
   // user message's content array — we NEVER delete a message, so the pairing铁律 (every tool_call_id answered)
   // is untouched. Idempotent: an already-demoted slot is a plain text part and no longer counts as an image.
   // Returns the number of images demoted this pass (0 = under the cap). Mirrors evaporateHistory's cache-safety
-  // note: this rewrites old content, so it runs ONLY right after a new image lands (never speculatively).
-  function pruneOldImages(history) {
+  // note: this rewrites old content, so it runs when new images land or their request confirms delivery.
+  // preserveFrom protects images that have not reached a model request yet. Once that request
+  // succeeds, call without the boundary to apply the normal retained-history budget.
+  function pruneOldImages(history, preserveFrom = Infinity) {
     if (!Array.isArray(history)) return 0;
     // Collect every (messageIndex, partIndex) that is currently an image_url part, oldest-first.
     const slots = [];
@@ -14068,6 +14080,7 @@ const VisualPipeline = (() => {
     let demoted = 0;
     for (let k = 0; k < demoteCount; k++) {
       const [mi, pi] = slots[k];
+      if (mi >= preserveFrom) break;
       history[mi].content[pi] = { type: 'text', text: `[截图已淘汰:${k + 1}]` };
       demoted++;
     }
@@ -40027,11 +40040,16 @@ function appendAgentRunEvent(run, evt) {
     // 对抗轮修: id 畸形(手编/半写坏的 run JSON)时 safeSessionId→null 会字符串化成 "null.events.ndjson",
     // 多个坏 run 的事件合流互相交错 —— 归属不清的取证不如不记,直接丢弃。(无穿越面,纯归属完整性。)
     if (!safeSessionId(run.id) || !safeSessionId(run.sessionId)) return;
+    if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
     run.eventSeq = (Number(run.eventSeq) || 0) + 1;
     const rec = JSON.stringify({ seq: run.eventSeq, ts: nowIso(), runId: run.id, ...evt }) + '\n';
     const dir = agentRunDir(run.sessionId);
     const file = agentRunEventsFile(run.sessionId, run.id);
-    runKeyedChain(agentRunEventChains, run.id, () => fsp.mkdir(dir, { recursive: true }).then(() => fsp.appendFile(file, rec, 'utf8')));
+    runKeyedChain(agentRunEventChains, run.id, async () => {
+      if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
+      await fsp.mkdir(dir, { recursive: true });
+      await fsp.appendFile(file, rec, 'utf8');
+    });
   } catch { /* 取证辅助,不阻断执行 */ }
 }
 // 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
@@ -40043,6 +40061,16 @@ function flushAgentRunEvents(runId, maxWaitMs = 5000) {
   let timer = null;
   return Promise.race([chain.catch(() => {}), new Promise(resolve => { timer = setTimeout(resolve, maxWaitMs); })]).finally(() => clearTimeout(timer));
 }
+// 删除关联记录前排空这条线程已经开始的写入。通过既有生命周期钩子延迟绑定,会话层不引用后加载的写链。
+EventStreamHooks.flushSessionAgentRuns = async (sessionId, runIds) => {
+  const ids = new Set(runIds);
+  const files = await fsp.readdir(agentRunDir(sessionId)).catch(() => []);
+  for (const file of files) {
+    const match = /^(run_[a-f0-9]+)(?:\.json|\.events\.ndjson)$/.exec(file);
+    if (match) ids.add(match[1]);
+  }
+  await Promise.all([...ids].flatMap(id => [agentRunWriteChains.get(id), agentRunEventChains.get(id)]).filter(Boolean).map(chain => chain.catch(() => {})));
+};
 
 // ── 116-2b:班组运行的停滞/预算信号 → 两个新的 run 事件 type ──────────────────────────────
 // 背景(27 号文 §11.6「116b 登记的缺口」):subagent_no_progress / loop_recovery / 节点级工具迭代
@@ -40196,6 +40224,7 @@ const agentRunSaveFailures = new Map(); // runId -> consecutive snapshot-save fa
 
 const agentRunLastSavedStatus = new Map();   // 128f-⑫:runId -> 上一次落盘时的 status(见 saveAgentRun 里那一段)
 async function saveAgentRun(run) {
+  if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
   // Snapshot at submission time, not when an earlier queued write eventually completes. Without this,
   // a fast node can mutate from running to succeeded before the leading progress save serializes, so the
   // polling UI never observes its intermediate progress even though saveAgentRun was called in time.
@@ -40204,6 +40233,7 @@ async function saveAgentRun(run) {
   run.updatedAt = nowIso();
   const snapshot = JSON.stringify(run, null, 2);
   await runKeyedChain(agentRunWriteChains, run.id, async () => {
+    if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
     const dir = agentRunDir(run.sessionId);
     await fsp.mkdir(dir, { recursive: true });
     // 25.1: 写体收编 atomicWriteJson —— 旧手写版的 rename 重试参数(8 次,15→155ms;UI 每 ~2s 轮询读者持
@@ -40772,6 +40802,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     try {
       const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire });
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
+      if (!call.httpError) VisualPipeline.pruneOldImages(subHistory);
       if (!call.httpError && call.text && String(call.text).trim()) {
         resultText += call.text;
         subErr = '';
@@ -40852,6 +40883,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // throwing; the loop above already folded transportError into httpError for its own retry decision, and
       // the final call is folded again here so the classification below sees a uniform httpError.
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
+      if (!call.httpError) VisualPipeline.pruneOldImages(subHistory);
       if (call.httpError) {
         // 第32波: 首次传输/超时失败后,若已有检查点,自动恢复续跑(不重做已完成工具调用)
         if (savepoint && !checkpointRestored && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
@@ -41153,8 +41185,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         }
         if (!subOk) break;
         if (!(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+          const imageBatchStart = subHistory.length;
           subHistory.push(...subToolImages);
-          if (subToolImages.length) VisualPipeline.pruneOldImages(subHistory);
+          if (subToolImages.length) VisualPipeline.pruneOldImages(subHistory, imageBatchStart);
         }
         if (iter + 1 >= budget && budget < adaptiveBudgetLimit && shouldExtendToolIterationBudget({
           currentLimit: budget,
@@ -43141,6 +43174,7 @@ function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, fo
 }
 
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered }) {
+  if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0 };
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
   // 段账本据此不把它们标 cancelled(回合结束不杀它),前端据此把它们画进自己的卡/后台任务条而不是父回合的活动条。
@@ -43354,6 +43388,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     return out;
   };
+  // 角色库/路由预检里的 await 期间线程可能被删除。复检与注册在同一同步段,删除必能看见并停止已注册的 run。
+  if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0, runId };
   activeAgentRuns.set(runId, runtime);
   // 已登记为运行中:launchPersistedAgentRun 等的就是这一刻(见那边的注释)。
   if (typeof onRegistered === 'function') { try { onRegistered(); } catch { /* 回调失败不影响运行 */ } }
@@ -44729,8 +44765,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const historyPrompt = fullPrompt + '\n\n' + packForTurn.turnTime(localTurnTimeParts(Date.now())) + (revertNotice ? '\n' + revertNotice : '');
   if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
     const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
+    const imageBatchStart = session.providerHistory.length;
     session.providerHistory.push({ role: 'user', content: parts });
-    VisualPipeline.pruneOldImages(session.providerHistory); // 保图≤2 (first image lands here; a no-op until >2 exist)
+    VisualPipeline.pruneOldImages(session.providerHistory, imageBatchStart);
   } else {
     session.providerHistory.push({ role: 'user', content: historyPrompt });
   }
@@ -44946,10 +44983,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
   // 记忆回合尾部也要计预算(它最多一整个索引上限,默认 6000 字符,可配到 10 万)。上下文治理一律用 budgetPromptFull。
   const budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
-  // 105d-A: session notes 回注 —— 每回合至多一次 IO,结果存局部变量供 buildBody 闭包使用。
+  // Session notes are read at turn start and refreshed after compaction writes finish.
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
-  const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
+  let sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
   // C2(61 号文):会话草稿本回注 —— 与 session notes 同一个通道、同一个断点:贴末条 user 尾部,只改本次请求体副本,
   // 不写 providerHistory(落盘历史里没有它),有界(10 buildSessionScratchpadInjectPrompt 硬顶),空草稿本零注入。
   // 缓存账:
@@ -44964,6 +45001,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const scratchpadOffered = !isStewardTurn && ownTools.some(t => t && t.function && t.function.name === 'scratchpad_write');
   let scratchpadPrompt = '';
   const refreshScratchpadPrompt = async phase => {
+    // Both sidecars must reflect this iteration's completed compaction before the next request.
+    if (phase === 'compaction' && sessionNotesInjectEnabled(config)) sessionNotesText = await readSessionNotes(session.id);
     if (!scratchpadOffered) return;
     const entries = await readSessionScratchpad(session.id);
     scratchpadPrompt = buildSessionScratchpadInjectPrompt(entries);
@@ -44995,11 +45034,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let sessionNotesTeleDone = false; // 遥测每回合最多一条(buildBody 在工具循环里会多次构建请求体)
   const appendSessionNotesPrompt = (msgs, history) => {
     if (!sessionNotesInjectEnabled(config)) return;
-    const notesPrompt = buildSessionNotesInjectPrompt(sessionNotesText, config);
-    // 去重守门:notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要时跳过注入,避免重复计费。
+    const notesPrompt = buildSessionNotesInjectPrompt(sessionNotesText, config, history);
+    // Merged notes contribute only details missing from the current summary.
     let skipped = '';
     if (!notesPrompt) skipped = sessionNotesText ? 'empty_or_unparsed' : 'no_notes';
-    else if (historyStartsWithCompactionSummary(history)) skipped = 'summary_in_history';
     if (!sessionNotesTeleDone) {
       sessionNotesTeleDone = true;
       try { logEvent({ kind: 'session_notes_inject', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, chars: skipped ? 0 : notesPrompt.length, skipped: skipped || undefined }); } catch { /* 遥测绝不阻断 */ }
@@ -45838,6 +45876,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       });
       if (sent.aborted) { aborted = true; ok = false; break; }
       const call = sent.result;
+      if (!call.httpError && !call.transportError) VisualPipeline.pruneOldImages(session.providerHistory);
       const llmMs = Date.now() - tLlm0;
       if (toolSchemaChanged && econOn) {
         try {
@@ -45890,6 +45929,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
+            await maybeWriteSessionNotes(session, forced.sc.summary, config);
             // 与 estBeforeCall 同一口径(含系统提示与工具定义),否则「压前→压后」把工具 schema 那一截也算成了省下来的
             const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
@@ -46561,14 +46601,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // (every role:'tool' reply pushed above), so appending user image messages here honors the连续性铁律
         // (assistant.tool_calls → all role:'tool' → user image[…]). Each becomes ONE user message with a text
         // note + image_url part(s); a `tool_image` event lets the UI show a thumbnail (加法, optional). After
-        // each injection, pruneOldImages enforces 保图≤2 (oldest image parts demote to text占位). Skipped when
+        // the batch is sent once, pruneOldImages enforces 保图≤2. Unsent images stay protected. Skipped when
         // aborted (a partial/broken batch must not gain a trailing user message that could dangle).
         if (!aborted && !steerAborted && pendingToolImages.length) {
+          const imageBatchStart = session.providerHistory.length;
           for (const pim of pendingToolImages) {
             session.providerHistory.push({ role: 'user', content: pim.parts });
             onEvent({ type: 'tool_image', toolCallId: pim.toolCallId, note: pim.note });
-            VisualPipeline.pruneOldImages(session.providerHistory); // 保图≤2 after every injection
           }
+          VisualPipeline.pruneOldImages(session.providerHistory, imageBatchStart);
         }
         if (aborted) break;
         if (loopAborted) break;       // v0.8-S7: repeated-call guard tripped → end the turn (self-contained note below)
@@ -46999,13 +47040,13 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
         unknown: { reasoning: 'omit', outputField: 'omit' },
         defaultTiers: { map: [4096, 6144], refine: [6144, 8192], reduce: [6144, 8192], single: [6144, 8192], repair: [6144, 8192] },
         models: [{ match: 'deepseek-v4', reasoning: { mode: 'effort', supported: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], preferred: 'minimal' }, output: { responses: 'max_output_tokens', chat: 'max_tokens' } }],
-        promptGuidance: '输出只保留结构化事实与交接所需要点，不展开推理过程；map 每节尽量短，reduce 保留跨段事实，总体避免无关扩写。',
+        promptGuidance: '输出只保留结构化事实与交接所需要点，不展开推理过程；map 每节尽量短，reduce 保留跨段事实及仍有效的用户教学流程，步骤顺序不可概括成“任务已完成”，总体避免无关扩写。',
       },
       reseedTailMaxTokens: 16000,
       minimumSections: 4,
       statusSectionIndex: 3,
-      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论;关键工具调用各自得到了什么(抓过的网页/接口、命令与脚本输出、子代理交付 —— 结论与来源都写上,这类结果事后重跑未必复现)\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n偏好与决定只保留【最后一次】那个版本:用户在对话里推翻、否决或改口的旧偏好不得写进【已确认的决定】;确有必要提到时必须写明它已被推翻,不许与现行偏好并列成两条都有效的约束。\n只输出摘要本身。',
-      promptEn: 'Compress the conversation above into a structured summary. Output exactly these five sections (write "None" for a section with nothing in it):\n## Goal\nThe user\'s core objective and hard constraints.\n## Decisions\nSettled facts, chosen approaches, stated preferences.\n## Open\nTodos, work in progress, unresolved questions.\n## Current Status\nHand-off state, listed as: Done / In progress / Blocked / Next step. Write "None" if there is nothing.\n## Files\nFiles and paths touched, code points, key data and conclusions; what each key tool call established (pages/APIs fetched, command and script output, sub-agent deliveries: the finding and its source, since such results may not be reproducible later).\nFidelity requirement (driven by the measured 45e baseline): key nouns must be kept VERBATIM -- code names, numbers and magnitudes, dates, people, file paths, version strings, explicit prohibitions and constraints. Never generalize or drop them; when in doubt keep more, not less. Use bullets per section; do not write one flowing paragraph.\nPreferences and decisions: keep only the LAST version. A preference the user overrode, vetoed or changed their mind about during the conversation must not appear under Decisions; when it has to be mentioned at all, say it was overridden, and never list it next to the current one as if both still held.\nKeep only structured facts and what a hand-off needs; do not spell out reasoning. Keep each mapped section short; keep cross-chunk facts when reducing; avoid unrelated expansion.\nOutput the summary only.',
+      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好；用户教过且仍有效的可复用流程（适用任务、步骤顺序、关键参数、验证方法），完成一次任务不代表流程失效\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论;关键工具调用各自得到了什么(抓过的网页/接口、命令与脚本输出、子代理交付 —— 结论与来源都写上,这类结果事后重跑未必复现)\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n偏好与决定只保留【最后一次】那个版本:用户在对话里推翻、否决或改口的旧偏好不得写进【已确认的决定】;确有必要提到时必须写明它已被推翻,不许与现行偏好并列成两条都有效的约束。\n只输出摘要本身。',
+      promptEn: 'Compress the conversation above into a structured summary. Output exactly these five sections (write "None" for a section with nothing in it):\n## Goal\nThe user\'s core objective and hard constraints.\n## Decisions\nSettled facts, chosen approaches, stated preferences; still-applicable reusable procedures taught by the user (when to use them, ordered steps, key parameters and verification). Completing one task does not retire its procedure.\n## Open\nTodos, work in progress, unresolved questions.\n## Current Status\nHand-off state, listed as: Done / In progress / Blocked / Next step. Write "None" if there is nothing.\n## Files\nFiles and paths touched, code points, key data and conclusions; what each key tool call established (pages/APIs fetched, command and script output, sub-agent deliveries: the finding and its source, since such results may not be reproducible later).\nFidelity requirement (driven by the measured 45e baseline): key nouns must be kept VERBATIM -- code names, numbers and magnitudes, dates, people, file paths, version strings, explicit prohibitions and constraints. Never generalize or drop them; when in doubt keep more, not less. Use bullets per section; do not write one flowing paragraph.\nPreferences and decisions: keep only the LAST version. A preference the user overrode, vetoed or changed their mind about during the conversation must not appear under Decisions; when it has to be mentioned at all, say it was overridden, and never list it next to the current one as if both still held.\nKeep only structured facts and what a hand-off needs; do not spell out reasoning. Keep each mapped section short; keep cross-chunk facts when reducing; avoid unrelated expansion.\nOutput the summary only.',
       sections: [
         ['【目标】', '## Goal', 'Goal:'],
         ['【已确认的决定】', '## Decisions', 'Decisions:'],
@@ -47047,7 +47088,7 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       // 105h(4.3 第二项): <=4 块顺序 refine 的上限与修订 prompt,与 JSON 同构(additive)。
       refine: {
         maxChunks: 4,
-        prompt: '你是顺序摘要修订器。输入包含【当前累计摘要】和其后的【新增历史块】。请用新增历史更新累计摘要,严格保持【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】五节结构。新增历史中更晚的决定覆盖旧决定;已完成或被取消的事项必须从未完成事项中消失;不得把已推翻决定与最新决定并列为有效约束。路径、版本、日期、代号、数字和明确禁令必须逐字保留。只输出修订后的完整摘要。',
+        prompt: '你是顺序摘要修订器。输入包含【当前累计摘要】和其后的【新增历史块】。请用新增历史更新累计摘要,严格保持【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】五节结构。新增历史中更晚的决定覆盖旧决定;已完成或被取消的事项必须从未完成事项中消失;不得把已推翻决定与最新决定并列为有效约束。路径、版本、日期、代号、数字和明确禁令必须逐字保留。用户教过且仍有效的可复用流程保留在已确认的决定中，保留适用任务、步骤顺序、关键参数与验证方法；任务完成不等于流程废弃，更晚的用户修订覆盖旧流程。只输出修订后的完整摘要。',
       },
     },
     // 126-111a: L1 保护区的三个数(比例、下限、上限)与 context-governance-rules.json 的
@@ -47743,14 +47784,34 @@ function buildObservationRecallPrompt(history, config) {
 // 有界:【整个注入块】不超过上限；正文超出时保留头部 + 省略计数标记(常数内置,对齐 105a 风格),
 // 预算口径与 recall prompt 一致 —— 在 buildBody 内追加,不进 budgetPrompt。
 const SESSION_NOTES_INJECT_MAX_CHARS = 2000;
-function buildSessionNotesInjectPrompt(notesMarkdown, config) {
+function buildSessionNotesInjectPrompt(notesMarkdown, config, history) {
   if (!sessionNotesInjectEnabled(config) || typeof notesMarkdown !== 'string' || !notesMarkdown) return '';
   const sections = parseSessionNotesMarkdown(notesMarkdown);
   if (!sections) return '';
-  const allEmpty = [sections.decisions, sections.open, sections.files].every(s => !s || s === '无');
+  const summarized = historyStartsWithCompactionSummary(history);
+  if (summarized) {
+    // Merged notes can contain still-useful decisions absent from the latest summary.
+    // Supplement only that difference; old open items must never become pending again.
+    if (!sessionNotesMergeEnabled(config)) return '';
+    const first = history.find(entry => entry && entry.role === 'user');
+    const summary = typeof first.content === 'string' ? first.content
+      : first.content.map(part => part && typeof part.text === 'string' ? part.text : '').join('\n');
+    const current = extractSessionNotes(summary);
+    const missingLines = (body, existing) => {
+      const seen = new Set(String(existing || '').split('\n').map(line => line.trim()));
+      return String(body || '').split('\n').map(line => line.trim()).filter(line => !sessionNotesBodyEmpty(line) && !seen.has(line)).join('\n') || '无';
+    };
+    sections.decisions = missingLines(sections.decisions, current.decisions);
+    sections.files = missingLines(sections.files, current.files);
+    sections.open = '无';
+    notesMarkdown = renderSessionNotesMarkdown(sections);
+  }
+  const allEmpty = [sections.decisions, sections.open, sections.files].every(sessionNotesBodyEmpty);
   if (allEmpty) return '';
   const prefix = '[Ruyi session notes — runtime context, not user-authored]\n'
-    + 'The notes below are a deterministic extraction from the most recent compaction summary of this session (decisions / open items / key files). If they overlap or conflict with a summary already in the conversation, the newest summary wins.\n';
+    + (summarized
+      ? 'These retained historical decisions and context supplement details missing from the current summary. They may be superseded: the newest summary wins, and current user instructions take precedence. Reuse a taught procedure only while it remains applicable; do not restore completed or cancelled work.\n'
+      : 'The notes below are a deterministic extraction from compaction summaries of this session (decisions / open items / key files). If they overlap or conflict with a summary already in the conversation, the newest summary wins.\n');
   const bodyBudget = Math.max(0, SESSION_NOTES_INJECT_MAX_CHARS - prefix.length);
   if (notesMarkdown.length <= bodyBudget) return prefix + notesMarkdown;
   // 省略数本身的位数会改变可见正文长度，至多两轮即可收敛；末轮再防御性钳位总长。
@@ -47792,8 +47853,8 @@ function buildSessionScratchpadInjectPrompt(entries) {
   return open + previews + marker + close;
 }
 
-// 105d-A 去重守门(纯函数,e2e 白盒共用): notes 上游即最近一次压缩摘要;历史首条 user 已含该摘要
-// 标记(【压缩摘要】 或 (以下是此前对话的压缩摘要))时跳过注入,避免重复计费。content 兼容 string/数组。
+// Detect the summary at the first user message (string or parts). Notes injection uses it to
+// suppress duplicates while retaining details contributed by earlier merged summaries.
 function historyStartsWithCompactionSummary(history) {
   const firstUser = Array.isArray(history) ? history.find(entry => entry && entry.role === 'user') : null;
   const text = !firstUser ? ''
@@ -48392,11 +48453,40 @@ function summaryPromptWithGuidance(config) {
   return base + '\n' + guidance;
 }
 
+// The validator and notes extraction share the same heading aliases and Markdown tolerance.
+function summarySectionLocations(summary) {
+  const text = String(summary || '');
+  const sections = CONTEXT_GOVERNANCE_RULES.summary.sections;
+  const normHead = value => String(value || '').toLowerCase()
+    .replace(/^[\s#*>\-]+/, '').replace(/[【】[\]]/g, '').replace(/[:：]\s*$/, '').trim();
+  const lines = [];
+  let offset = 0;
+  for (const line of text.split('\n')) { lines.push({ text: line, offset }); offset += line.length + 1; }
+  const found = [];
+  for (let index = 0; index < sections.length; index++) {
+    let location = null;
+    for (const alias of sections[index]) {
+      const pos = text.indexOf(alias);
+      if (pos >= 0 && (!location || pos < location.pos)) location = { index, pos, len: alias.length };
+      const heading = normHead(alias);
+      for (const line of lines) {
+        if (!heading || !normHead(line.text).startsWith(heading) || (location && line.offset > location.pos)) continue;
+        const at = line.text.toLowerCase().indexOf(heading);
+        if (at < 0) continue;
+        const end = at + heading.length;
+        const suffix = /^[\s*:：】\]\-—]*/.exec(line.text.slice(end))[0].length;
+        location = { index, pos: line.offset, len: end + suffix };
+      }
+    }
+    if (location) found.push(location);
+  }
+  return found.sort((a, b) => a.pos - b.pos);
+}
+
 function validateStructuredSummary(summary) {
   if (!summary || typeof summary !== 'string') return false;
   // 每节接受 中文标题 或 常见英文变体(英文模型可能按英文输出;SUMMARY_PROMPT 为中文硬编码,
   // 故英文变体用独立标题词,避免与正文内容误匹配)。
-  const sections = CONTEXT_GOVERNANCE_RULES.summary.sections;
   // 126-111d 标题容错:模型常把 `## Goal` 写成 `**Goal**`／`# Goal:`／`- Goal —`,含义一样但
   // `includes(别名)` 认不出来。归一之后按【行首】匹配:去掉行首的 #／*／>／-／空白与
   // 【】[],去掉行尾的冒号,大小写不敏感。
@@ -48404,17 +48494,12 @@ function validateStructuredSummary(summary) {
   // **这一半故意不挂开关**:它只会让本来就正确的摘要更容易通过,不会让错的通过 —— 判据锚在
   // 行首,正文里顺嘴提一句 "goal" 不算数(下面 D 组有一条专门反着验这件事)。挂开关反而会让
   // 「开关关时英文模型的合法摘要被判不合格」这个老毛病留着。
-  const normHead = s => String(s || '').toLowerCase()
-    .replace(/^[\s#*>\-]+/, '').replace(/[【】[\]]/g, '').replace(/[:：]\s*$/, '').trim();
-  const headLines = summary.split(/\r?\n/).map(normHead).filter(Boolean);
-  const hasSection = sec => sec.some(s => summary.includes(s))
-    || sec.some(s => { const n = normHead(s); return !!n && headLines.some(line => line.startsWith(n)); });
-  const found = sections.filter(hasSection).length;
+  const locations = summarySectionLocations(summary);
+  const found = locations.length;
   // 当前执行状态是交接摘要的关键部分，不能再用“任意三节”放行；否则模型
   // 漏掉状态节时，下一轮会失去“已完成/进行中/阻塞/下一步”的恢复依据。
   const stateLabels = CONTEXT_GOVERNANCE_RULES.summary.stateLabels;
-  const statusSection = sections[CONTEXT_GOVERNANCE_RULES.summary.statusSectionIndex];
-  const statePresent = hasSection(statusSection);   // 126-111d:状态节也走同一把归一,否则五节里四节认得、偏偏状态那节认不出
+  const statePresent = locations.some(location => location.index === CONTEXT_GOVERNANCE_RULES.summary.statusSectionIndex);
   const stateComplete = statePresent && stateLabels.every(labels => labels.some(label => summary.includes(label)));
   return found >= CONTEXT_GOVERNANCE_RULES.summary.minimumSections && stateComplete;  // 结构化摘要必须含五节中的至少四节,且状态节四项齐全
 }
@@ -48423,30 +48508,22 @@ function validateStructuredSummary(summary) {
 // 从既有五节结构化摘要【确定性切出】状态三节,整写到 sessions/<id>.session-notes.md 旁车副本。
 // 节索引锚定 context-governance-rules.json 的 summary.sections 顺序(1=已确认的决定,2=未完成事项,
 // 4=关键文件与上下文);0=目标、3=当前执行状态留在摘要叙事里,不进 notes(摘要保留叙事职责)。
-// 不新增 LLM 调用、不改摘要/prompt/reseed 字节形状;默认关闭,失败静默,绝不阻断回合。
+// No additional model calls; extraction and merging reuse the existing three-section sidecar.
 const SESSION_NOTES_SECTION_INDEXES = [1, 2, 4];
 const SESSION_NOTES_TITLES = ['已确认的决定', '未完成事项', '关键文件与上下文'];
+function sessionNotesBodyEmpty(body) {
+  return /^(?:无|none)?$/i.test(String(body || '').trim());
+}
 function extractSessionNotes(summary) {
-  const rules = CONTEXT_GOVERNANCE_RULES.summary;
   const text = String(summary || '');
-  // 定位每节标题:任一名命中,取最靠前的出现位置与对应别名长度。
-  const found = [];
-  for (let i = 0; i < rules.sections.length; i++) {
-    let pos = -1, len = 0;
-    for (const alias of rules.sections[i]) {
-      const p = text.indexOf(alias);
-      if (p >= 0 && (pos < 0 || p < pos)) { pos = p; len = alias.length; }
-    }
-    if (pos >= 0) found.push({ index: i, pos, len });
-  }
-  found.sort((a, b) => a.pos - b.pos);
+  const found = summarySectionLocations(text);
   const out = [];
   for (const idx of SESSION_NOTES_SECTION_INDEXES) {
     const f = found.find(x => x.index === idx);
     if (!f) { out.push('无'); continue; }              // 缺节降级为「无」,对齐摘要空节约定
     const next = found.find(x => x.pos > f.pos);
     const body = text.slice(f.pos + f.len, next ? next.pos : undefined).trim();
-    out.push(body || '无');
+    out.push(sessionNotesBodyEmpty(body) ? '无' : body);
   }
   return { decisions: out[0], open: out[1], files: out[2] };
 }
@@ -48477,7 +48554,7 @@ function parseSessionNotesMarkdown(markdown) {
   for (const f of found) {
     const next = found.find(x => x.pos > f.pos);
     const body = text.slice(f.pos + f.len, next ? next.pos : undefined).trim();
-    out[keys[f.index]] = body || '无'; // 空节对齐摘要空节约定
+    out[keys[f.index]] = sessionNotesBodyEmpty(body) ? '无' : body;
   }
   return { decisions: out.decisions || '无', open: out.open || '无', files: out.files || '无' };
 }
@@ -48496,7 +48573,7 @@ function mergeSessionNotes(prevMarkdown, nextNotes) {
   };
 }
 function mergeSessionNotesLines(nextBody, prevBody) {
-  const toLines = body => (String(body || '').trim() === '无' ? [] : String(body || '').split('\n').map(l => l.trim()).filter(Boolean));
+  const toLines = body => (sessionNotesBodyEmpty(body) ? [] : String(body || '').split('\n').map(l => l.trim()).filter(Boolean));
   const seen = new Set();
   const out = [];
   for (const line of [...toLines(nextBody), ...toLines(prevBody)]) {
@@ -48505,7 +48582,8 @@ function mergeSessionNotesLines(nextBody, prevBody) {
   }
   return out.join('\n'); // 空集交给 renderSessionNotesMarkdown 的「无」兜底,保证合并结果可再解析(回环)
 }
-// 挂钩入口:L2 摘要成功后 fire-and-forget。开关关闭 = 零文件读写;任何失败吞掉(纪律同 writeHistorySnapshot)。
+// L2 notes writes return their completion so the next model request can refresh its snapshot.
+// Disabled notes perform no I/O; failures remain best-effort and never block the turn with an error.
 function maybeWriteSessionNotes(session, summary, config) {
   try {
     if (!sessionNotesEnabled(config)) return;
@@ -48515,17 +48593,16 @@ function maybeWriteSessionNotes(session, summary, config) {
     if (sessionObjectIsStale(session)) { logEvent({ kind: 'session_notes_stale_skipped', sessionId: session.id }); return; }
     const nextNotes = extractSessionNotes(summary);
     const meta = { sessionId: session.id, updatedAt: new Date().toISOString(), turnSeq: session.turnSeq };
-    // 105d-B: 增量合并分支 —— read→merge→render→write,仍 fire-and-forget、整体 catch 绝不阻断回合。
+    // Merge and write share one completion promise; errors remain non-fatal.
     // 已知限制:read→merge→write 不在 per-session 写链内,依赖「同会话 L2 串行」这一既有事实。
     if (sessionNotesMergeEnabled(config)) {
-      Promise.resolve()
+      return Promise.resolve()
         .then(() => readSessionNotes(session.id))
         .then(prev => writeSessionNotes(session.id, renderSessionNotesMarkdown(mergeSessionNotes(prev, nextNotes), meta)))
         .catch(() => {});
-      return;
     }
     const md = renderSessionNotesMarkdown(nextNotes, meta);
-    writeSessionNotes(session.id, md).catch(() => {});
+    return writeSessionNotes(session.id, md).catch(() => {});
   } catch { /* session notes 是旁车副本,绝不阻断回合 */ }
 }
 
@@ -50059,7 +50136,7 @@ async function runProviderCompact(sessionId, opts = {}) {
     fresh.providerHistoryCursor = fresh.messages.length;
   });
   if (!saved.ok) return saved;
-  maybeWriteSessionNotes(saved.session, summary, config); // 105b: 与自动 L2 同纪律,显式关时零副作用;128b:只在压缩真落盘之后写
+  await maybeWriteSessionNotes(saved.session, summary, config); // Notes are ready before a following turn starts.
   logEvent({ kind: 'provider_compact', sessionId: session.id, level: 2, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, evaporated, toolIndexChars: toolIndex.length, beforeTokens, afterTokens });
   return { ok: true, level: 2, provider: summaryProvider.id, model: compactTarget.model, summaryChars: summary.length, evaporated, beforeTokens, afterTokens };
 }
@@ -50107,7 +50184,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     });
     if (r.level === 2) {
       recordCompactUsage(session, r.summaryProvider, r.sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
-      maybeWriteSessionNotes(session, r.sc.summary, config); // 105b: 状态三节外置到 session-notes.md,显式关时零副作用
+      await maybeWriteSessionNotes(session, r.sc.summary, config);
       session.providerHistory = r.reseeded;
       upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: r.before2, afterTokens: r.after2 });
     }
@@ -56925,7 +57002,28 @@ const MediaInspection = (() => {
     else {
       const directory = await io.mkdtemp(nodePath.join(nodeOs.tmpdir(), 'ruyi-syntax-'));
       try {
-        const candidate = nodePath.join(directory, 'candidate' + extension);
+        // Node determines .js semantics from the nearest package.json, not the temp directory.
+        let candidateExtension = extension;
+        if (extension === '.js') {
+          // Dependency .js files default to CommonJS even when their package omits type.
+          if (nodePath.resolve(file).split(nodePath.sep).includes('node_modules')) candidateExtension = '.cjs';
+          let current = nodePath.dirname(nodePath.resolve(file));
+          while (nodePath.basename(current) !== 'node_modules') {
+            let packageText;
+            try { packageText = await io.readFile(nodePath.join(current, 'package.json'), 'utf8'); }
+            catch (error) { if (error.code !== 'ENOENT') throw error; }
+            if (packageText !== undefined) {
+              const packageType = JSON.parse(packageText.replace(/^\uFEFF/, '')).type;
+              if (packageType === 'module') candidateExtension = '.mjs';
+              else if (packageType === 'commonjs') candidateExtension = '.cjs';
+              break;
+            }
+            const parent = nodePath.dirname(current);
+            if (parent === current) break;
+            current = parent;
+          }
+        }
+        const candidate = nodePath.join(directory, 'candidate' + candidateExtension);
         await io.writeFile(candidate, content, 'utf8');
         result = await run(executable.path, ['--check', candidate], { timeoutMs: 10000 });
       } finally { await io.rm(directory, { recursive: true, force: true }); }
