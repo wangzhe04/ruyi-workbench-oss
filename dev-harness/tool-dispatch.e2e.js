@@ -42,7 +42,7 @@ for (const n of names) {
     if (!/guardFileToolPath\(|guardDownloadDest\(/.test(src)) l3Bad.push(n);
   }
 }
-ok(names.length === 118, `L1 注册表 118 个工具(跨线程只读 threads_search/thread_read:116→118;got ${names.length}; 61-C2 增 scratchpad_write:111→112;61-C1 增 playbook_list / playbook_read / skill_list 三个只读工具:108→111;第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{create,list,pause,resume,run_now,delete}:90→96;127-114c③ 增 audio_transcribe:96→97;129b 增三张只读清单 steward_{skills,providers,playbooks}:97→100;129d 增眼睛四件:100→104;129e 增 steward_thread_workspace:104→105;129f 增 steward_notify:105→106;137 代理模式 v2 增 agent_result:106→107(spawn_agent 留作兼容口仍在册);61 号文 C4 增只读 checkpoint_list:107→108)`);
+ok(names.length === 119, `L1 注册表 119 个工具(thread_title_update:118→119;跨线程只读 threads_search/thread_read:116→118;got ${names.length}; 61-C2 增 scratchpad_write:111→112;61-C1 增 playbook_list / playbook_read / skill_list 三个只读工具:108→111;第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{create,list,pause,resume,run_now,delete}:90→96;127-114c③ 增 audio_transcribe:96→97;129b 增三张只读清单 steward_{skills,providers,playbooks}:97→100;129d 增眼睛四件:100→104;129e 增 steward_thread_workspace:104→105;129f 增 steward_notify:105→106;137 代理模式 v2 增 agent_result:106→107(spawn_agent 留作兼容口仍在册);61 号文 C4 增只读 checkpoint_list:107→108)`);
 ok(['threads_search', 'thread_read'].every(name => names.includes(name) && TIER[name] === 'read' && REG[name].paths === null),
   'L1c 两个新增跨线程工具真实入册且只读,沿用无文件路径的声明');
 // 117m-A4 伴随断言(重钉一个数就补一条更强的):这个数必须与 facts.json 里现算的那一份【同源】,
@@ -56,8 +56,17 @@ ok(l3Bad.length === 0, 'L3 paths 非 null 条目 handler 内全部含 guard 调�
 // ── L4/L5: 表间一致性 ──
 const packNames = Object.keys(PACKS);
 const onlyReg = names.filter(n => !packNames.includes(n));
-const onlyPack = packNames.filter(n => !names.includes(n));
-ok(onlyReg.length === 0 && onlyPack.length === 0, 'L4 注册表键集 === NATIVE_TOOL_PACKS 键集' + ((onlyReg.length || onlyPack.length) ? ` → reg-only:${onlyReg} pack-only:${onlyPack}` : ''));
+const onlyPack = packNames.filter(n => !names.includes(n) && n !== 'send_to_agent'); // provider/node closure dispatch, not a global handler
+ok(onlyReg.length === 0 && onlyPack.length === 0, 'L4 注册表键集 === NATIVE_TOOL_PACKS 键集(仅send_to_agent为已注册闭包工具)' + ((onlyReg.length || onlyPack.length) ? ` → reg-only:${onlyReg} pack-only:${onlyPack}` : ''));
+ok(PACKS.send_to_agent === 'agents', 'L4b 定向协作消息归agents包');
+const mailConfig = { ...S.defaultConfig(), toolLoadingMode: 'auto' };
+const mainMailTools = S.buildOpenAiTools(mailConfig, null, { sendToAgentEnabled: true });
+const mainMailLoading = S.createToolLoadingState(mailConfig, '你好', null, mainMailTools, null, null);
+ok(!mainMailLoading.current().some(t => t.function.name === 'send_to_agent'), 'L4c 普通闲聊起手不自动装载消息schema');
+const loadedMail = mainMailLoading.load({ packs: ['agents'] });
+ok(loadedMail.loaded.includes('send_to_agent') && mainMailLoading.current().some(t => t.function.name === 'send_to_agent'), 'L4d 主回合tool_load agents取得send_to_agent');
+const peerMailTools = S.buildOpenAiTools(mailConfig, null, { noAgentTools: true, sendToAgentEnabled: true, tierFilter: 'read' });
+ok(peerMailTools.some(t => t.function.name === 'send_to_agent') && !peerMailTools.some(t => t.function.name === 'orchestrate_agents'), 'L4e 子节点仍可通信且不能嵌套编排');
 const noTier = names.filter(n => !Object.prototype.hasOwnProperty.call(TIER, n));
 ok(noTier.length === 0, 'L4 每个注册工具都有 NATIVE_TOOL_TIER 声明' + (noTier.length ? ' → ' + noTier.join(',') : ''));
 const tierOrphan = Object.keys(TIER).filter(n => !names.includes(n) && !['propose_task', 'send_to_agent'].includes(n));

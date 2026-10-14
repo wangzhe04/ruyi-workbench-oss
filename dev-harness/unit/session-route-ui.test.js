@@ -87,3 +87,63 @@ test('live remount, session route UI, and pre-turn context controls stay wired',
   assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(publicDir, 'locales', 'zh-CN.json'), 'utf8')));
   assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(publicDir, 'locales', 'en-US.json'), 'utf8')));
 });
+
+test('thread state updates the streaming title without replacing conversation messages', () => {
+  const source = fs.readFileSync(path.join(publicDir, 'js', 'session-experience.js'), 'utf8');
+  const start = source.indexOf('function bindLiveEventStream()');
+  const code = source.slice(start, source.indexOf('// 切回工作台', start));
+  let titleWrites = 0, titleText = '';
+  const node = { get textContent() { return titleText; }, set textContent(value) { titleText = value; titleWrites++; } };
+  const listeners = new Map(), messages = [{ role: 'assistant', content: 'live text' }];
+  const state = { streaming: true, currentSession: { id: 'sess_live', title: 'Untitled', messages } };
+  const ctx = { state, $: () => node, eventStream: { on: (name, fn) => listeners.set(name, fn), isConnected: () => true }, EVENT_STREAM_LIVE_EVENT: 'thread.live', EVENT_STREAM_ROW_EVENTS: ['thread.state'], syncLivePolling() {}, pushLiveTurn() {}, liveStreamConnected: false };
+  vm.runInNewContext(code + '\nbindLiveEventStream();', ctx);
+  listeners.get('thread.state')({ sessionId: 'sess_live', title: 'Generated title' });
+  assert.equal(node.textContent, 'Generated title');
+  assert.equal(state.currentSession.title, 'Generated title');
+  assert.equal(state.currentSession.messages, messages);
+  listeners.get('thread.state')({ sessionId: 'sess_live', title: 'Generated title' });
+  assert.equal(titleWrites, 1, 'unchanged title must not trigger the thread-head MutationObserver');
+  listeners.get('thread.state')({ sessionId: 'sess_other', title: 'Other title' });
+  assert.equal(node.textContent, 'Generated title');
+});
+
+function watchHeadFixture(api, refreshRows) {
+  const source = fs.readFileSync(path.join(publicDir, 'js', 'thread-head.js'), 'utf8');
+  const nodes = { threadStewardBand: { dataset: {}, querySelector: () => null }, threadStewardText: {}, threadStewardWatch: { dataset: {}, checked: true } };
+  const state = { currentSession: { id: 'sess_a' } }, rows = { sess_a: { watched: true }, sess_b: { watched: false } };
+  const ctx = { createQuickSwitchChips: () => ({ setSession() {} }), doc: () => ({}), byId: id => nodes[id] || null, rerenderAllQuickSwitchChips() {}, stewardBandKey: () => '', toast() {}, apiErrText: value => value };
+  const factory = vm.runInNewContext(source.slice(source.indexOf('export function createThreadHead')).replace('export ', '') + '\ncreateThreadHead', ctx);
+  const head = factory({ api, refreshRows, state, missionRowOf: id => rows[id] });
+  head.render();
+  return { head, state, rows, toggle: nodes.threadStewardWatch };
+}
+
+test('watch PATCH failure restores the authoritative checkbox after pending renders', async () => {
+  let release;
+  const request = new Promise(resolve => { release = resolve; });
+  const f = watchHeadFixture(() => request, async () => {});
+  f.toggle.checked = false; f.toggle.onchange(); f.head.render();
+  assert.equal(f.toggle.checked, false);
+  release({ ok: false, error: 'fixture failure' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.toggle.checked, true);
+});
+
+test('watch row refresh does not apply an earlier thread interaction after switching threads', async () => {
+  let release, reached;
+  const waiting = new Promise(resolve => { reached = resolve; });
+  const refresh = new Promise(resolve => { release = resolve; });
+  const f = watchHeadFixture(async () => ({ ok: true, session: { id: 'sess_a' } }), () => { reached(); return refresh; });
+  f.toggle.checked = false; f.toggle.onchange(); await waiting;
+  f.rows.sess_b.watched = true;
+  f.state.currentSession = { id: 'sess_b' }; f.head.render();
+  assert.equal(f.toggle.checked, true);
+  // A's refresh cannot set B's switch or replace its current session.
+  f.rows.sess_a.watched = false; release();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.state.currentSession.id, 'sess_b');
+  assert.equal(f.toggle.checked, true);
+  f.rows.sess_b.watched = false; f.head.render();
+  assert.equal(f.toggle.checked, false);
+});

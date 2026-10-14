@@ -144,6 +144,7 @@ async function eventStreamEmitThreadState(sessionId, opts = {}) {
     const missionId = String(sessionMissionId(head) || sid);
     const frame = {
       sessionId: sid,
+      title: sessionDisplayTitle(head),
       missionId: String(sessionMissionId(head) || ''),
       state: derived.state,
       updatedAt: String(head.updatedAt || ''),

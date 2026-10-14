@@ -2599,6 +2599,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     try {
       const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
       if (!run) throw new Error('invalid run');
+      if (EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
       return send(res, json({ ok: true, run }));
     } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
   }

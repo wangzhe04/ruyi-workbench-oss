@@ -31,10 +31,11 @@ const tools = Object.keys(srv.TOOL_HANDLERS || {}).sort();
   console.warn = () => {};                                  // 未加载语言包时 t() 每个新键告警一次,这里正是要它回落
   const { createInteractionPromptsDomain } = await import(pathToFileURL(path.join(APP, 'public', 'js', 'interaction-prompts.js')).href);
   const { humanizeToolName } = createInteractionPromptsDomain({});
-  const verbKey = name => (/^\[(tools\.verb\.[a-z0-9_.]+)\]$/.exec(String(humanizeToolName(name))) || [])[1] || '';
+  const verbKey = name => (/^\[(tools\.verb\.[a-z0-9_.]+|session\.rename)\]$/.exec(String(humanizeToolName(name))) || [])[1] || '';
 
   ok(tools.length >= 90, `③ 原生工具表扫得到(${tools.length} 个)`);
   ok(humanizeToolName('zz_not_a_native_tool') === 'zz_not_a_native_tool', '③ 没有人话的名字原样回落(① 判得出「没命中」)');
+  ok(verbKey('thread_title_update') === 'session.rename', '③ 自动标题更新复用已有重命名动词');
   ok(verbKey('') === 'tools.verb.unknown', '③ 空名落到 tools.verb.unknown');
 
   const keyOf = new Map(tools.map(name => [name, verbKey(name)]));

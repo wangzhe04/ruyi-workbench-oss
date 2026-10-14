@@ -19,8 +19,9 @@ after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const cfg = srv.defaultConfig();
 // scratchpadEnabled:与 09 主回合对普通会话传的一致(C2 会话草稿本常驻 core),量的是模型真实收到的那份工具表。
-const offered = srv.buildOpenAiTools(cfg, null, { skillsEnabled: true, scratchpadEnabled: true });
-const full = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, null, { skillsEnabled: true, scratchpadEnabled: true });
+const mainOpts = { skillsEnabled: true, scratchpadEnabled: true, sendToAgentEnabled: true };
+const offered = srv.buildOpenAiTools(cfg, null, mainOpts);
+const full = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, null, mainOpts);
 const byName = name => full.find(t => t.function.name === name);
 const loaded = msg => srv.createToolLoadingState(cfg, msg, null, offered, null, null);
 const chars = tools => JSON.stringify(tools).length;
@@ -108,7 +109,10 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // Media harness: four on-demand tools, declarative image/syntax/batch parameters.
   // Measured codeEdit 35819 / offeredDefault 60628; core stays within its existing budget.
   // Cross-thread history: two read-only tools in the existing memory pack (+1411 chars); idle/code packs stay unchanged.
-  const BUDGET = { chitchat: 13300, codeEdit: 35900, fullAll: 46500, offeredDefault: 62200 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // Goal evolution: thread_title_update is core (+309 chars); the main turn now offers send_to_agent
+  // in the on-demand agents pack (+622 chars). Measure the actual main-turn options above.
+  // Measured idle 13516 / code 36039 / offered 62894; only these intentional feature costs grow.
+  const BUDGET = { chitchat: 13550, codeEdit: 36100, fullAll: 46500, offeredDefault: 62900 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   const chit = chars(loaded('你好').current());
   const edit = chars(loaded('请修改 src/a.js 修复 bug').current());
   assert.ok(chit <= BUDGET.chitchat, `闲聊回合 ${chit} > ${BUDGET.chitchat}`);

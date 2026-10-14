@@ -45,6 +45,7 @@ const PROVIDER_PORT = await getFreePort();
 const TITLE = 'AMD 收盘分析';
 const GIST = '拉 AMD 最新行情与新闻,给博物影业格式的结论';
 let briefHits = 0, turnHits = 0, lastBriefModel = '';
+let turnDelay = 0, briefDelay = 0;
 let briefMode = 'json';          // json | garbage | oversize
 const providerServer = http.createServer(async (req, res) => {
   let raw = '';
@@ -59,6 +60,7 @@ const providerServer = http.createServer(async (req, res) => {
   // 起名字那一发的口令来自 06-provider-engine 的 buildThreadBriefMessages 系统层。
   if (text.includes('你给一条对话线程起名字') || text.includes('You name a conversation thread')) {
     briefHits += 1;
+    if (briefDelay) await sleep(briefDelay);
     lastBriefModel = String((body && body.model) || '');
     let content = '```json\n' + JSON.stringify({ title: TITLE, gist: GIST }) + '\n```';
     if (briefMode === 'garbage') content = '这不是 JSON,只是一段解释性的话。';
@@ -67,6 +69,7 @@ const providerServer = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content } }], usage: { prompt_tokens: 120, completion_tokens: 30 } }));
   }
   turnHits += 1;
+  if (turnDelay) await sleep(turnDelay);
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   const frame = o => res.write('data: ' + JSON.stringify(o) + '\n\n');
   frame({ choices: [{ index: 0, delta: { content: 'AMD 今天收在 168.2,量能放大。' } }] });
@@ -88,7 +91,8 @@ writeConfig();
 
 process.env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
 process.env.RUYI_HOME = HOME;
-const srv = require(SERVER);
+const { loadServerInternals } = require('./lib/server-internals');
+const srv = loadServerInternals(['createSession','getPretenderProjectionIndex','listSessions','loadSession','maybeWriteThreadBrief','parseThreadBrief','runSessionTurn','saveSession','sessionDisplayTitle','StewardHooks','updateSessionMeta','updateAutomaticThreadTitle','eventStreamEmitThreadState','eventStreamRing','readMissionSessionHead'], { withEval: true });
 
 const headOf = id => JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', id + '.json'), 'utf8'));
 const newSession = async () => { const s = await srv.createSession({ title: '', cwd: HOME }); await srv.saveSession(s); return s.id; };
@@ -110,6 +114,71 @@ const usageRows = () => {
 const RAW = '帮我分析一下AMD——按美股超威半导体，今天收盘怎么样，有什么新闻';
 
 try {
+  // A long first turn must display its computed title before transcript persistence settles.
+  turnDelay = 2000;
+  const liveId = await newSession();
+  let settled = false;
+  const liveTurn = srv.runSessionTurn({ sessionId: liveId, message: RAW, cwd: HOME, onEvent: () => {} }).then(() => { settled = true; });
+  await sleep(700);
+  const liveHead = await srv.loadSession(liveId);
+  const liveMeta = (await srv.listSessions()).find(row => row.id === liveId);
+  await srv.eventStreamEmitThreadState(liveId);
+  ok(srv.eventStreamRing.findLast(frame => frame.event === 'thread.state' && frame.data.sessionId === liveId)?.data.title === TITLE, 'M1b SSE frame exposes live generated title');
+  ok(!settled && srv.sessionDisplayTitle(liveHead) === TITLE && liveMeta?.brief?.title === TITLE, 'M1 generated title visible in head/list before first turn settles');
+  await srv.updateSessionMeta(liveId, { title: 'Live manual name' });
+  ok(srv.sessionDisplayTitle(await srv.loadSession(liveId)) === 'Live manual name', 'M2 manual rename immediately wins during streaming');
+  await liveTurn; await sleep(300);
+  ok(headOf(liveId).title === 'Live manual name' && headOf(liveId).threadBrief?.title === TITLE, 'M3 final save preserves manual title and generated brief');
+  ok((await srv.updateAutomaticThreadTitle({ sessionId: liveId, title: 'Should not win' })).updated === false, 'M4 agent cannot replace manual title');
+  // A delayed first naming reply cannot overwrite an explicit newer automatic title.
+  briefDelay = 900;
+  const dynamicId = await newSession();
+  const dynamicTurn = srv.runSessionTurn({ sessionId: dynamicId, message: RAW, cwd: HOME, onEvent: () => {} });
+  await sleep(300);
+  const updated = await srv.updateAutomaticThreadTitle({ sessionId: dynamicId, title: 'New catalog objective', gist: 'User explicitly replaced the objective.' });
+  ok(updated.updated && srv.sessionDisplayTitle(await srv.loadSession(dynamicId)) === 'New catalog objective', 'M5 explicit agent update is immediately visible');
+  await dynamicTurn; await sleep(300);
+  ok(headOf(dynamicId).threadBrief?.title === 'New catalog objective', 'M6 delayed initial naming and final save preserve newer automatic title');
+  const titleOnly = await srv.updateAutomaticThreadTitle({ sessionId: dynamicId, title: 'Replacement title only' });
+  ok(titleOnly.updated && (await srv.loadSession(dynamicId)).threadBrief.gist === '', 'M7 title-only objective change clears obsolete gist');
+  const staleId = await newSession();
+  const staleBrief = srv.maybeWriteThreadBrief({ sessionId: staleId, message: RAW, config: BASE_CONFIG, threadProvider: BASE_CONFIG.providers[0] });
+  await sleep(250);
+  await srv.saveSession(await srv.loadSession(staleId), { rewindBump: true });
+  await staleBrief;
+  const staleMeta = (await srv.listSessions()).find(row => row.id === staleId);
+  ok(!(await srv.readMissionSessionHead(staleId)).threadBrief && !staleMeta?.brief, 'M8 pre-rewind asynchronous title does not publish to head/list');
+  // Freeze exactly after loadSession has produced an old snapshot, before its caller resumes.
+  briefDelay = 0;
+  for (const entry of [{ label: 'dynamic', pauseAt: 1 }, { label: 'first naming', pauseAt: 2 }]) {
+    const raceId = await newSession();
+    globalThis.__titleRace = { id: raceId, pauseAt: entry.pauseAt, count: 0, held: false };
+    srv.__eval(`globalThis.__titleRace.original = loadSession; loadSession = async (...args) => {
+      const snapshot = await globalThis.__titleRace.original(...args);
+      const gate = globalThis.__titleRace;
+      if (args[0] === gate.id && ++gate.count === gate.pauseAt) {
+        gate.held = true; await new Promise(resolve => { gate.release = resolve; });
+      }
+      return snapshot;
+    };`);
+    try {
+      const pending = entry.label === 'dynamic'
+        ? srv.updateAutomaticThreadTitle({ sessionId: raceId, title: 'Obsolete automatic title' })
+        : srv.maybeWriteThreadBrief({ sessionId: raceId, message: RAW, config: BASE_CONFIG, threadProvider: BASE_CONFIG.providers[0] });
+      for (let i = 0; i < 100 && !globalThis.__titleRace.held; i++) await sleep(20);
+      ok(globalThis.__titleRace.held, `M9 ${entry.label} snapshot pause reached`);
+      await srv.updateSessionMeta(raceId, { title: 'Concurrent manual title' });
+      globalThis.__titleRace.release();
+      const result = await pending;
+      ok(entry.label === 'dynamic' ? result.updated === false : result === null, `M10 ${entry.label} refuses to replace new manual authority`);
+      ok(srv.sessionDisplayTitle(await srv.loadSession(raceId)) === 'Concurrent manual title', `M11 ${entry.label} retains manual title after resuming stale snapshot`);
+    } finally {
+      srv.__eval('loadSession = globalThis.__titleRace.original;');
+      delete globalThis.__titleRace;
+    }
+  }
+  briefDelay = 0; turnDelay = 0;
+
   /* ═════════ (A) 正常路径 ═════════ */
   console.log('── (A) 首轮之后自动起名字 ──');
   const idA = await newSession();

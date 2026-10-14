@@ -1173,6 +1173,20 @@ function sessionFirstUserExcerpt(o) {
 // 117s-A D2(§11.13 ⑤a):titleSource 多了一个字面量 'steward'(管家开线程时抄进来的那句话)。
 // 本函数【一行没改】—— 它本来就只在 'user' 那一档提前返回,'steward' 自然落在第二档之后,
 // 于是优先级如实是:人起的 > 生成的名字 > 管家给的那句(它就是 raw 本身)> 原话。
+// Titles share the live-turn metadata override path; transcript persistence still waits for settle.
+const sessionTitleOverrides = new Map();
+function applySessionTitleOverride(session) {
+  const live = session && sessionTitleOverrides.get(session.id);
+  if (!live) return session;
+  if (live.titleSource === 'user') { session.title = live.title; session.titleSource = 'user'; }
+  else {
+    const gen = Math.max(Number(session.rewindGen) || 0, sessionRewindGenHighWater.get(session.id) || 0);
+    if (gen !== live.rewindGen) sessionTitleOverrides.delete(session.id);
+    else if (session.titleSource !== 'user') session.threadBrief = live.threadBrief;
+  }
+  return session;
+}
+
 function sessionDisplayTitle(o) {
   const raw = String((o && o.title) || '');
   if (!o || o.titleSource === 'user') return raw;
@@ -1198,6 +1212,8 @@ function sessionRecentUserRequest(o) {
   return { text, ...(Number(recent.turnSeq) > 0 ? { turnSeq: Number(recent.turnSeq) } : {}), ...(recent.at || recent.createdAt ? { at: String(recent.at || recent.createdAt) } : {}) };
 }
 function sessionMeta(o, config) {
+  // Idle index entries are authoritative; pending/in-flight index batches already overlay their writes.
+  if (activeChildren.has(o.id) || turnSettlers.has(o.id) || sessionMetaDeferChains.has(o.id)) o = applySessionTitleOverride({ ...o });
   const cfg = (config && typeof config === 'object') ? config : null;
   const recentUserRequest = sessionRecentUserRequest(o);
   return {
@@ -1552,7 +1568,7 @@ function applySessionMetaPatch(session, patch) {
   // 在界面上改名)与 steward_thread_rename(管家替用户改名)。两者都是【有意起的名字】,应当压过
   // 116-5 自动生成的 threadBrief.title。会话头上本来分不出「标题是自动派生的原话」还是「人起的名字」
   // (两者都只是 session.title),不记这一笔的话「线程改名后不再被摘要覆盖」这条需求无法实现。
-  if (typeof patch.title === 'string') { session.title = patch.title.slice(0, 200); session.titleSource = 'user'; }
+  if (typeof patch.title === 'string') { session.title = patch.title.slice(0, 200); session.titleSource = 'user'; if (patch.titleSource !== 'steward') sessionTitleOverrides.set(id, { title: session.title, titleSource: 'user' }); }
   if (typeof patch.pinned === 'boolean') session.pinned = patch.pinned;
   if (Object.prototype.hasOwnProperty.call(patch, 'engineRoute')) {
     const route = normalizeSessionEngineRoute(patch.engineRoute);
@@ -1665,7 +1681,8 @@ function applySessionMetaPatch(session, patch) {
   // 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。严格归一成固定六字段,与
   // stewardQuick / stewardLastTurn 同纪律 —— 这条通道也接 PATCH /api/sessions/:id,不能让任意形状
   // 写进会话头。title/gist 在这里就夹到上限:显示层不必再截一次,存量数据也不会因为上限调整而变形。
-  if (patch.threadBrief && typeof patch.threadBrief === 'object' && !Array.isArray(patch.threadBrief)) {
+  if (patch.threadBrief && typeof patch.threadBrief === 'object' && !Array.isArray(patch.threadBrief)
+      && (patch.threadBriefRewindGen === undefined || (Number(session.rewindGen) || 0) === patch.threadBriefRewindGen)) {
     const b = patch.threadBrief;
     const stage = String(b.stage || '');
     session.threadBrief = {
@@ -1925,6 +1942,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   await removeSessionToolImages(id);
   dropSessionBodyState(id);
   bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
+  sessionTitleOverrides.delete(id);
   sessionEngineRouteOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
@@ -3549,6 +3567,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
   }
   // 116-2a: 内存权威副本盖到装载结果上 —— 用户刚切、但因活回合而延后落盘的那一档,对读者必须立刻生效。
   // 覆盖表没有本会话条目(= 绝大多数情况,含全部存量会话)时这一行是零操作,不置 changed、不触发回写。
+  applySessionTitleOverride(session);
   applySessionPermissionModeOverride(session);
   applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
   // 71b: 惰性清理残留 pending 叙事段(见 healStalePendingSegments 头注)。竞态防护:活回合(activeChildren)
@@ -3653,6 +3672,7 @@ async function saveSession(session, opts) {
   if (routeOverride) session.engineRoute = { ...routeOverride };
   // 116-2a: 权限档同款陈旧-save 守卫 —— 活回合手里那份副本没有用户刚切的档,它的收尾 save 会把会话头
   // 写回「没有该字段」的样子。在这里重新盖一次,谁后写都不会丢(见 sessionPermissionModeOverrides 头注)。
+  applySessionTitleOverride(session);
   applySessionPermissionModeOverride(session);
   applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
   const finalPath = sessionPath(id);
@@ -5499,7 +5519,7 @@ function mergeMissionAcceptance(targetRows, sourceRows) {
 async function readMissionSessionHead(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
-  try { return safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null); } catch { return null; }
+  try { return applySessionTitleOverride(safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null)); } catch { return null; }
 }
 
 // 归属变更落一条 Mission Change(收件箱能看见事项级动作)。无 mission 账本的会话由

@@ -1518,6 +1518,13 @@ const MCP_TOOLS = [
 // 限额数字与 02 SESSION_SCRATCHPAD_LIMITS 一致(session-scratchpad.e2e 钉着)。
 const PROVIDER_SESSION_TOOL_SCHEMAS = [
   {
+    name: 'thread_title_update',
+    description: '仅当真实用户明确替换当前主目标时更新本会话的自动标题，可补充 gist。进度追问、约束补充、代理消息不触发更新；手动标题受保护。标题24字符以内，gist80字符以内。',
+    inputSchema: { type: 'object', additionalProperties: false, properties: {
+      title: { type: 'string' }, gist: { type: 'string' },
+    }, required: ['title'] },
+  },
+  {
     name: 'scratchpad_write',
     description: 'Conversation notes by key: same key overwrites, text "" deletes, op:"list" reads full notes. Re-shown each turn after the latest user message; survive compaction. Long notes are previewed. For findings/plans; durable preferences: workbench_memory_propose. Limits: 32 notes, 2000 chars each, 12000 total.',
     inputSchema: {

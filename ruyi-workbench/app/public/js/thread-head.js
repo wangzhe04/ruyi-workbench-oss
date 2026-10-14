@@ -100,6 +100,7 @@ export function createThreadHead({
   // 值按回旧值（117g 踩过一次，判据原样搬过来）。
   let boundChipId = '';
   let watchBusy = false;
+  let watchPending = null; // Latest interaction until its authoritative row refresh completes.
 
   function currentSession() {
     return (state && state.currentSession) || null;
@@ -162,6 +163,8 @@ export function createThreadHead({
     const turningOn = next === true;
     const draft = turningOn ? takeComposerDraftNote() : { note: '', clear: () => {} };
     watchBusy = true;
+    const pending = { id, next: turningOn };
+    watchPending = pending;
     let response = null;
     let failure = null;
     try {
@@ -172,6 +175,7 @@ export function createThreadHead({
     } catch (error) { response = null; failure = error; }
     finally { watchBusy = false; }
     if (!response || response.ok !== true) {
+      if (watchPending === pending) watchPending = null;
       // 走查 S-05：写失败要出声（修前只静默把开关弹回去，用户不知道没盯成、也不知道为什么）。
       try { toast(t('stewardShell.chips.changeFailed', { error: apiErrText(failure || (response && response.error) || 'failed') }), 'err'); } catch { /* 回执写不出去不该挡住按行重画 */ }
       render();
@@ -183,6 +187,7 @@ export function createThreadHead({
     }
     // 开关翻面要在同一拍看得见：管家条画的是【索引行】上的 watched，所以写完让左栏重取一发。
     try { await refreshRows(); } catch { /* 取不到就等下一拍推送（thread.state）来刷 */ }
+    if (watchPending === pending) watchPending = null;
     render();
     return response.session || null;
   }
@@ -193,7 +198,7 @@ export function createThreadHead({
     const id = currentId();
     band.hidden = !id;
     if (!id) return '';
-    const watched = Boolean(row && row.watched === true);
+    const watched = watchPending && watchPending.id === id ? watchPending.next : Boolean(row && row.watched === true);
     const seated = Boolean(row && String(row.seatedBy || '') === 'user');
     const key = stewardBandKey(watched, seated);
     const avatarHost = byId('threadStewardAvatar');

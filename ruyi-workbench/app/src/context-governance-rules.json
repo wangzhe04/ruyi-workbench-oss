@@ -374,6 +374,7 @@
       "min": 8192,
       "max": 131072
     },
+    "taskEvidence": { "maxEntriesPerMap": 8, "maxQuoteChars": 240, "open": "<task-evidence>", "close": "</task-evidence>" },
     "maxConcurrent": {
       "default": 8,
       "min": 1,

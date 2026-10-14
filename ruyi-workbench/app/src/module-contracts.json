@@ -1081,6 +1081,7 @@
         "appendMissionChangeRecord",
         "applyMissionUpdate",
         "applySessionMetaPatch",
+        "applySessionTitleOverride",
         "archiveMissionContainer",
         "archiveMissionResult",
         "asResultObject",
@@ -1321,6 +1322,7 @@
         "sessionScratchpadChains",
         "sessionScratchpadPath",
         "sessionScratchpadStore",
+        "sessionTitleOverrides",
         "sessionTodosSignature",
         "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
@@ -5160,7 +5162,8 @@
         "threadBriefOnce",
         "threadBriefProvider",
         "threadBriefRateLimited",
-        "toolRequirementsMet"
+        "toolRequirementsMet",
+        "updateAutomaticThreadTitle"
       ],
       "requires": [
         {
@@ -5291,6 +5294,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -5382,7 +5392,28 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "SESSION_BRIEF_GIST_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_BRIEF_TITLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "SESSION_INDEX_FILE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTitleOverrides",
           "kinds": [
             "read"
           ]
@@ -10326,6 +10357,7 @@
         "SUMMARY_SINGLE_SHOT_CAP_RULE",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
         "SUMMARY_SINGLE_SHOT_RESERVE",
+        "SUMMARY_TASK_EVIDENCE_RULES",
         "TOOL_EXEC_CLASS_RE",
         "TOOL_IMAGE_B64_BODY_RE",
         "TOOL_IMAGE_B64_MIN",
@@ -10388,6 +10420,7 @@
         "extractContextLength",
         "extractSessionNotes",
         "extractSummaryEntities",
+        "extractSummaryTaskEvidence",
         "fileReadDedupKey",
         "findToolImageFields",
         "fitHistoryForSummary",
@@ -10410,6 +10443,7 @@
         "measureObservationReductionShadow",
         "mergeSessionNotes",
         "mergeSessionNotesLines",
+        "mergeSummaryTaskEvidence",
         "noteEstimateSample",
         "noteWindowOvershoot",
         "observationToolNames",
@@ -10450,6 +10484,7 @@
         "shrinkToolText",
         "singleSummaryCall",
         "streamChat",
+        "stripSummaryTaskEvidence",
         "summaryCallPolicyKey",
         "summaryCallPolicyMetadata",
         "summaryEffortFromRule",
@@ -10464,6 +10499,11 @@
         "summarySourceText",
         "summaryStopSignal",
         "summaryStoppedResult",
+        "summaryTaskEvidenceDirective",
+        "summaryTaskEvidenceMessage",
+        "summaryTaskEvidenceScope",
+        "summaryTaskSourceHistory",
+        "summaryTaskSourceRole",
         "summaryUnsupportedParameterFields",
         "toolImageMime",
         "toolResultCharCap",
@@ -11235,6 +11275,7 @@
         "isLowSurrogate",
         "killAllShellSessions",
         "levenshtein",
+        "markAgentMessageDelivered",
         "maybeGroup",
         "normalizeGlobPatternForRoot",
         "normalizeSearchPattern",
@@ -11589,6 +11630,27 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "probeAny",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "MAIL_TEXT_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "neutralizeInjectedPrefixes",
           "kinds": [
             "call"
           ]
@@ -12348,6 +12410,13 @@
           "symbol": "PLAYBOOK_REQUIRES",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "updateAutomaticThreadTitle",
+          "kinds": [
+            "call"
           ]
         },
         {
