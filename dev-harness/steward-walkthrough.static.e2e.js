@@ -123,10 +123,11 @@ const ok = (condition, label) => {
       'C2 move：搬的是同一个节点，不复制 SVG（presence 的 data-state/.pulse/.shake 因此原样生效）');
     ok(!/createElement\('svg'\)|cloneNode/.test(conversation),
       'C2b 对话流里零 SVG 复制、零 cloneNode（历史消息的小圆点由 CSS 画）');
-    // 四个销毁点：feed 整清、流失败移除那一行、熔断/引擎不支持移除那一行、首跑那一行随语言切换重画(走查 U14 引入,
+    // 五个销毁点：feed 整清、流失败移除那一行、熔断/引擎不支持移除那一行、首跑那一行随语言切换重画、重置时移除在途回复(走查 U14 引入,
     // 修前漏了 park —— 运行时切语言后头像跟着被删,locale-en-us U14d 钉行为)。少一个，头像就会被一起销毁。
     const parkSites = (conversation.match(/parkAvatar\(\);/g) || []).length;
-    ok(parkSites === 4, `C3 四个销毁点各 park 一次（实测 ${parkSites}）—— 漏一个头像就跟着那一行没了，之后 presence 再也画不出来`);
+    ok(parkSites === 5, `C3 五个销毁点各 park 一次（实测 ${parkSites}）—— 漏一个头像就跟着那一行没了，之后 presence 再也画不出来`);
+    ok(/parkAvatar\(\);\s*activeStreamRow\.parentNode\.removeChild\(activeStreamRow\)/.test(conversation), 'C3c 新对话移除在途回复之前先 park');
     ok(/parkAvatar\(\);[^\n]*\n\s*firstRunRow\.remove\(\);/.test(conversation), 'C3 首跑那一行随语言重画之前先 park');
     ok(/parkAvatar\(\);[^\n]*\n\s*while \(feed\.firstChild\) feed\.removeChild\(feed\.firstChild\);/.test(conversation),
       'C3b clearFeed 里 park 排在清空之前');

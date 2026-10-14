@@ -50,13 +50,16 @@ const ok = (value, label) => { console.log((value ? 'PASS ' : 'FAIL ') + label);
       let response = {ok:true,result:{ok:false,error:'invalid_request'}}, calls=0;
       const conversation = createStewardConversation({t,api:async()=>{calls++;return response;}});
       const actionRoot = el('div'); document.body.append(actionRoot);
-      const action = {kind:'tool',tool:'steward_schedule_create',args:{},label:'排13:00提醒',primary:true};
+      const action = {kind:'tool',tool:'steward_schedule_create',args:{title:'提醒',schedule:{kind:'once',date:'2099-01-01',at:'13:00'},payload:{kind:'reminder',text:'检查结果'}},label:'排13:00提醒',primary:true};
       const wait = () => new Promise(r=>setTimeout(r,0));
       try {
         conversation.renderActs(actionRoot,[action]);
         let btn=actionRoot.querySelector('button'); btn.click(); await wait();
         checks.invalidButtonDisabled=btn.disabled && actionRoot.textContent.includes('stewardShell.chat.errInvalidAct');
         btn.click(); await wait(); checks.invalidNotRetried=calls===1;
+        actionRoot.textContent=''; response={ok:true,result:{ok:false,error:'invalid_request',message:'目标时间已经过去，请重新选择时间。'}};
+        conversation.renderActs(actionRoot,[action]); btn=actionRoot.querySelector('button'); btn.click(); await wait();
+        checks.actualReasonShown=btn.disabled && actionRoot.textContent.includes(response.result.message) && !actionRoot.textContent.includes('stewardShell.chat.errInvalidAct');
         actionRoot.textContent=''; response={ok:true};
         conversation.renderActs(actionRoot,[action]); btn=actionRoot.querySelector('button'); btn.click(); await wait();
         checks.noFalseSuccess=btn.disabled && actionRoot.textContent.includes('stewardShell.chat.actUnconfirmed') && !actionRoot.querySelector('.steward-receipt');

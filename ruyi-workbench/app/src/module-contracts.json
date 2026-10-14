@@ -19935,6 +19935,13 @@
           ]
         },
         {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolSchema",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "08-agent-runs.js",
           "symbol": "parseStructuredAgentOutput",
           "kinds": [
@@ -20633,6 +20640,7 @@
         "stewardRelayChannelFor",
         "stewardRelayDeliver",
         "stewardRequeueFailedInboxBatch",
+        "stewardResetConversation",
         "stewardRunAct",
         "stewardRunClaimedTurn",
         "stewardScheduleInboxDrain",
@@ -20650,6 +20658,13 @@
           "symbol": "fsp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -20709,6 +20724,27 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "waitMissionTurnSettled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "writeSessionNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02e-session-engine-route.js",
           "symbol": "normalizeSessionEngineRoute",
           "kinds": [
@@ -20753,6 +20789,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "promptDeadlineIsReal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "stopSession",
           "kinds": [
             "call"
           ]
@@ -21501,6 +21544,13 @@
           "symbol": "stewardRelayDeliver",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardResetConversation",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -25571,6 +25621,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "nativeToolSchema",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "openAiStreamOnce",
           "kinds": [
             "read"
@@ -26679,6 +26736,13 @@
         {
           "provider": "13q-steward-runner-turn.js",
           "symbol": "stewardMergeDelegationReceipts",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardResetConversation",
           "kinds": [
             "read"
           ]

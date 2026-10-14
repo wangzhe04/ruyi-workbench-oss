@@ -318,7 +318,7 @@ const routes = [...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\
 // 账本立起来（GET 一次看账本空不空，空才 POST {action:'start'}）。它同样是**既有**路由 ——
 // 13-http-router.js:889 那一条，交办台退役前的派单输入框走的就是它；本刀零后端。
 // 133e 补一条 `/api/upload`：管家输入框「＋ → 添加文件」与工作台 uploadFiles 走同一条既有路由（13-http-router.js 的 POST /api/upload），零后端新面。
-const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/visit', '/api/stop', '/api/upload'];
+const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/reset', '/api/steward/visit', '/api/stop', '/api/upload'];
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `J1 只调 116 已有的路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
 ok(importNamesFrom(conversation, 'net.js').includes('authHeaders')
@@ -868,7 +868,7 @@ ok(/const got = await loadDeliverable\(source\.sessionId, source\.turnSeq\); fac
   && /return \{ envelope: payload, deliverable: stewardDeliverableFrom\(payload && payload\.session, turnSeq\) \}/.test(conversationCode),
   'Q7b 卡头与交付原文 await 的是【同一个】被缓存的 promise（loadDeliverable 一发信封解出两样），所以请求数一发没多');
 ok(JSON.stringify([...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\/[a-z/]+)'/g)].map(m => m[1]))].sort()) === JSON.stringify(ALLOWED),
-  'Q7c companion：本刀零新增后端面（路由白名单与 J1 逐字相同）');
+  'Q7c companion：后端面仅使用已登记对话路由与新对话 reset（路由白名单与 J1 逐字相同）');
 ok(JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
   'Q7d companion：卡头零新增 import（要的东西全在信封里，不去别的域借函数）——名单仍是 P10 那一份');
 

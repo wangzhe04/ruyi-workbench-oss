@@ -971,7 +971,7 @@ const MCP_TOOLS = [
           type: 'object', additionalProperties: false, required: ['userText'],
           description: '委托书。userText 必填且逐字保留;其余各段是你的补充,对用户可见、可改、可删,不得改写用户意图。',
           properties: {
-            userText: { type: 'string', description: '用户原话,逐字。' },
+            userText: { type: 'string', minLength: 1, description: '用户原话,逐字。' },
             goal: { type: 'string', description: '一句话目标。' },
             acceptance: { type: 'array', items: { type: 'string' }, description: '验收项(做到什么算完成)。' },
             context: { type: 'array', items: { type: 'string' }, description: '相关文件、目录或已知事实。' },
@@ -982,7 +982,7 @@ const MCP_TOOLS = [
               type: 'object', additionalProperties: false, required: ['id'],
               description: '可选。**按这个 playbook 办**:工作台会把它的正文(填好参数之后的)原样附在委托书最后,线程照着做。何时用:用户说「像上次那样再来一遍」「按那个流程走」,或者你在 steward_playbooks 里找到一个正对得上的。何时别用:① 别猜 id,先 steward_playbooks 看一眼;② 参数不齐【不要自己编】——会回 {ok:false,reason:"playbook_inputs_missing",missing:[{key,label,type}]},把缺的那几项去问用户;③ 那个 playbook 现在跑不了(缺联网/桌面等能力)会回 reason:"playbook_unavailable",把原因说给用户听,不要重试。',
               properties: {
-                id: { type: 'string', description: 'playbook id(取自 steward_playbooks 的 entries[].id)。' },
+                id: { type: 'string', minLength: 1, description: 'playbook id(取自 steward_playbooks 的 entries[].id)。' },
                 inputs: { type: 'object', description: '参数取值,形如 {"folder":"D:/报表","month":"9月"}。它声明过的每一项都要给,且不能是空串。', additionalProperties: { type: 'string' } },
               },
             },
@@ -998,8 +998,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'message'],
       properties: {
-        sessionId: { type: 'string', description: '目标线程 id(不能是管家自己的会话)。' },
-        message: { type: 'string', description: '要递过去的话,原话直递。' },
+        sessionId: { type: 'string', minLength: 1, description: '目标线程 id(不能是管家自己的会话)。' },
+        message: { type: 'string', minLength: 1, description: '要递过去的话,原话直递。' },
         answerBasis: {
           type: 'object', additionalProperties: false,
           description: '【只在代答时给】用户不在跟前、而目标线程正挂着一道给用户的提问时,这句话会被当成用户的答案答进去(通道 ①)。那种情况下必须说清答案的出处,否则一律转给用户。出处两种,给一种就够,都会被服务端核实:记忆条目 id(回库里查,必须仍有效)、委托书原文片段(逐字比对)。用户就在跟前时不用给 —— 那时递的是他的原话。',
@@ -1017,8 +1017,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'title'],
       properties: {
-        sessionId: { type: 'string', description: '线程 id。' },
-        title: { type: 'string', description: '新标题(≤80 字)。' },
+        sessionId: { type: 'string', minLength: 1, description: '线程 id。' },
+        title: { type: 'string', minLength: 1, description: '新标题(≤80 字)。' },
       },
     },
   },
@@ -1028,7 +1028,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
-        sessionId: { type: 'string', description: '线程 id(不能是管家自己的会话)。' },
+        sessionId: { type: 'string', minLength: 1, description: '线程 id(不能是管家自己的会话)。' },
         permissionMode: { type: 'string', enum: ['plan', 'default', 'acceptEdits', 'auto', 'bypass'], description: '目标权限档(可选)。收紧方向:auto/bypass(全自动) > acceptEdits(改文件不问) > default(每步都问) > plan(只做计划)。只接受比当前生效档更紧的值。' },
         capabilities: {
           type: 'object', additionalProperties: false,
@@ -1046,8 +1046,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'text'],
       properties: {
-        sessionId: { type: 'string', description: '目标线程 id(必须有在途回合;不能是管家自己的会话)。' },
-        text: { type: 'string', description: '要补充的一句话(≤600 字)。只补上下文,不要改写用户的意图。' },
+        sessionId: { type: 'string', minLength: 1, description: '目标线程 id(必须有在途回合;不能是管家自己的会话)。' },
+        text: { type: 'string', minLength: 1, description: '要补充的一句话(≤600 字)。只补上下文,不要改写用户的意图。' },
       },
     },
   },
@@ -1057,7 +1057,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
-        sessionId: { type: 'string', description: '要插队的线程 id(不能是管家自己的会话)。' },
+        sessionId: { type: 'string', minLength: 1, description: '要插队的线程 id(不能是管家自己的会话)。' },
       },
     },
   },
@@ -1067,8 +1067,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['missionId', 'interventionId', 'action'],
       properties: {
-        missionId: { type: 'string', description: '待决所属事项/线程 id(收件箱事件里的 missionId)。' },
-        interventionId: { type: 'string', description: '待决 id。' },
+        missionId: { type: 'string', minLength: 1, description: '待决所属事项/线程 id(收件箱事件里的 missionId)。' },
+        interventionId: { type: 'string', minLength: 1, description: '待决 id。' },
         action: { type: 'string', enum: ['allow', 'deny', 'answer', 'approve', 'reject'], description: 'permission 用 allow/deny;question 用 answer;plan/pool 用 approve/reject。' },
         payload: { type: 'object', description: '按类型的附加内容:question 需要 {answer:{answers:[...]}};plan 可带 {feedback};permission 不带附加内容 —— 你只能按线程原样放行或拒绝,payload 里的 updatedInput 与 scope 会被丢弃(回执里的 ignoredPayloadKeys 会列出来),要改命令就让线程自己重新发起。' },
         expectedVersion: { type: 'integer', minimum: 0, description: '可选。乐观并发版本;省略则读当前值。' },
@@ -1082,8 +1082,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'runId', 'action'],
       properties: {
-        sessionId: { type: 'string', description: '线程 id。' },
-        runId: { type: 'string', description: '班组运行 id(来自 steward_runs_status)。' },
+        sessionId: { type: 'string', minLength: 1, description: '线程 id。' },
+        runId: { type: 'string', minLength: 1, description: '班组运行 id(来自 steward_runs_status)。' },
         action: { type: 'string', enum: ['pause', 'resume', 'stop', 'retry_node', 'steer_node'], description: '要执行的动作。' },
         nodeId: { type: 'string', description: 'retry_node / steer_node 必填:目标节点 id。' },
         message: { type: 'string', description: 'steer_node 必填:插话内容(≤2000 字)。' },
@@ -1096,7 +1096,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
-        sessionId: { type: 'string', description: '要停的线程 id(不能是管家自己的会话)。' },
+        sessionId: { type: 'string', minLength: 1, description: '要停的线程 id(不能是管家自己的会话)。' },
         reason: { type: 'string', description: '可选。为什么停(≤200 字),只写进决策日志供用户回看。' },
       },
     },
@@ -1107,8 +1107,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'cwd'],
       properties: {
-        sessionId: { type: 'string', description: '要改的线程 id。' },
-        cwd: { type: 'string', description: '新的工作目录:填「已知工作区」清单里的名字或路径(清单就在你这一回合的上下文里)。' },
+        sessionId: { type: 'string', minLength: 1, description: '要改的线程 id。' },
+        cwd: { type: 'string', minLength: 1, description: '新的工作目录:填「已知工作区」清单里的名字或路径(清单就在你这一回合的上下文里)。' },
       },
     },
   },
@@ -1119,7 +1119,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false, required: ['kind', 'text', 'sourceRef'],
       properties: {
         kind: { type: 'string', enum: ['profile', 'preference', 'habit', 'focus', 'policy'], description: '记忆类别。' },
-        text: { type: 'string', description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
+        text: { type: 'string', minLength: 1, description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
         scope: { type: 'string', enum: ['global', 'project'], description: '可选,默认 global。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
         expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
@@ -1130,7 +1130,7 @@ const MCP_TOOLS = [
           properties: {
             sessionId: { type: 'string', description: '来源线程 id。' },
             turnSeq: { type: 'integer', minimum: 0, description: '来源回合号(用户消息所在回合)。' },
-            quote: { type: 'string', description: '那条用户消息里的【原话片段】,逐字照抄(≥6 字;消息本身更短就抄整条)。改述或引别的消息 → quote_not_found;text 与 quote 毫无共同用词 → quote_unrelated。' },
+            quote: { type: 'string', minLength: 1, description: '那条用户消息里的【原话片段】,逐字照抄(≥6 字;消息本身更短就抄整条)。改述或引别的消息 → quote_not_found;text 与 quote 毫无共同用词 → quote_unrelated。' },
           },
         },
       },
@@ -1141,7 +1141,7 @@ const MCP_TOOLS = [
     description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。已经是否决状态的再否决一次返回 {ok,id,state:"vetoed",unchanged:true},不写库、不记决策。返回 {ok,id,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '记忆条目 id。' } },
+      properties: { id: { type: 'string', minLength: 1, description: '记忆条目 id。' } },
     },
   },
   {
@@ -1286,7 +1286,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'skills'],
       properties: {
-        sessionId: { type: 'string', description: '目标线程 id。' },
+        sessionId: { type: 'string', minLength: 1, description: '目标线程 id。' },
         skills: { type: 'array', items: { type: 'string' }, description: '要启用的技能 id 全集(整份替换;传空数组 = 全关)。最多 8 个。' },
       },
     },
@@ -1312,7 +1312,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['title', 'schedule', 'payload'],
       properties: {
-        title: { type: 'string', description: '任务标题(用户听得懂的一句,最多 120 字)。' },
+        title: { type: 'string', minLength: 1, description: '任务标题(用户听得懂的一句,最多 120 字)。' },
         schedule: {
           type: 'object', description: '计划。kind 五选一:once 需 date(YYYY-MM-DD)+at(HH:MM);daily 需 at;weekly 需 at+days(0=周日…6=周六);monthly 需 at+dayOfMonth(1-31,31=每月最后一天);cron 需 expr(5 字段)。',
           properties: {
@@ -1356,7 +1356,7 @@ const MCP_TOOLS = [
     description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。已经是暂停状态再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
+      properties: { id: { type: 'string', minLength: 1, description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -1364,7 +1364,7 @@ const MCP_TOOLS = [
     description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。已经在运行的任务再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
+      properties: { id: { type: 'string', minLength: 1, description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -1372,7 +1372,7 @@ const MCP_TOOLS = [
     description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试;③ 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——立刻真跑一次(prompt 载荷会开线程调模型)与排新任务、删任务同一档,把它作为提议交给用户,不要重试。**暂停中的任务也能手动跑一次**(暂停只管到点自动触发),这时返回里带 wasPaused:true 与说明,且不会把它恢复。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
+      properties: { id: { type: 'string', minLength: 1, description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -1380,7 +1380,7 @@ const MCP_TOOLS = [
     description: '删掉一条定时任务的定义(历史执行回执不删——「它当初真的跑过」是既成事实)。何时用:用户明确说这件事不用再做了。何时别用:① 只是想暂时停用 -> steward_schedule_pause;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"},把它作为提议交给用户,不要重试;③ 删之前先确认是哪一条(id 拿错就删错了,而这一步没有撤销键)。返回 {ok,id,deleted,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
+      properties: { id: { type: 'string', minLength: 1, description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   // 代理模式 v2(2026-09-24):模型侧只有 orchestrate_agents 一个启动入口(旧 spawn_agent 已并入 —— 单代理写顶层

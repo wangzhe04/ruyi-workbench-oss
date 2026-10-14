@@ -162,7 +162,15 @@ ok(JSON.stringify(stopPrimitives) === JSON.stringify(['steward_thread_stop']),
 const ACT_PROBE_ARGS = {
   steward_schedule_create: { title: '静态锁探针', schedule: { kind: 'daily', at: '09:00' }, payload: { kind: 'reminder', text: '探针' } },
 };
-const actable = tool => !!srv.stewardNormalizeAct({ kind: 'tool', tool, args: ACT_PROBE_ARGS[tool] || {} });
+const schemaProbe = schema => {
+  if (schema.enum) return schema.enum[0];
+  if (schema.type === 'object') return Object.fromEntries((schema.required || []).map(key => [key, schemaProbe(schema.properties[key])]));
+  if (schema.type === 'array') return [schemaProbe(schema.items || {})];
+  if (schema.type === 'boolean') return false;
+  if (schema.type === 'integer' || schema.type === 'number') return 1;
+  return 'example';
+};
+const actable = tool => !!srv.stewardNormalizeAct({ kind: 'tool', tool, args: ACT_PROBE_ARGS[tool] || schemaProbe(srv.nativeToolSchema(tool)) });
 // 人话标签 = 不是兜底的「去做」、也没把内部 id 吐出来。
 const humanLabel = tool => { const label = String(srv.stewardActLabel(tool, {}) || ''); return !!label && label !== '去做' && !label.includes(tool); };
 ok(actable('steward_thread_stop'),

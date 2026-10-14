@@ -527,6 +527,8 @@ module.exports = {
   STEWARD_SESSION_ID,
   STEWARD_SESSION_TITLE,
   runStewardTurn,
+  stewardResetConversation,
+  nativeToolSchema,
   // 第117波117m-A1: 熔断判据本体 — exposed for e2e 直测(小时窗只节流 trigger!=='user' 的自主回合)。
   stewardCircuitCheck,
   stewardVisit,

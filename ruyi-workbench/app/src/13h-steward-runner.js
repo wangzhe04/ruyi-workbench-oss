@@ -221,6 +221,13 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
     return send(res, json(result));
   }
 
+  if (req.method === 'POST' && pathname === '/api/steward/reset') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const result = await stewardResetConversation();
+    if (!result.ok) return send(res, apiFailure(result.error, {}, result.message || result.error, 409));
+    return send(res, json(result));
+  }
+
   if (req.method === 'POST' && pathname === '/api/steward/visit') {
     if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
     const config = await readConfig();

@@ -1654,6 +1654,7 @@ const ROUTE_AUTH = [
   // 第116波116f(27号文§11.3): 管家回合与到访。visit 会归档并清空管家对话、message 直接起一个管家回合、
   // act 替用户执行一条按钮 —— 三条都是写面,内容敏感度同上,一律 token 级(不给 token-browser)。
   { m: 'POST', p: '/api/steward/visit', auth: 'token' },
+  { m: 'POST', p: '/api/steward/reset', auth: 'token' },
   { m: 'POST', p: '/api/steward/message', auth: 'token' },
   { m: 'POST', p: '/api/steward/act', auth: 'token' },
   // 第117波117l(27号文§11.9 D2): 递话通道的单口。抽屉「直接对这条线程说」与问答卡的自由回答都走它;
@@ -19447,9 +19448,19 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     completionUrl: baseUrl => providerCompletionUrl(baseUrl, false),
     modelsUrl: providerWireModelsUrl,
     requestHeaders: provider => providerRequestHeaders(provider),
-    encodeMessages: ({ model, messages, stream }) => (stream
-      ? { model, messages, stream, stream_options: { include_usage: true } }
-      : { model, messages, stream }),
+    encodeMessages: ({ model, messages, stream }) => {
+      // Signed Anthropic replay blocks belong to durable internal history only.
+      // Switching protocols must preserve chat/tool history without sending this
+      // private metadata to strict OpenAI-compatible servers.
+      const wireMessages = messages.map(message => {
+        if (!message || !Object.prototype.hasOwnProperty.call(message, 'providerBlocks')) return message;
+        const { providerBlocks, ...chatMessage } = message;
+        return chatMessage;
+      });
+      return stream
+        ? { model, messages: wireMessages, stream, stream_options: { include_usage: true } }
+        : { model, messages: wireMessages, stream };
+    },
     applyEffort: (body, effort) => { if (effort) body.reasoning_effort = effort; return body; },
     applyTemperature: setTemperature,
     applyTools: (body, tools) => { body.tools = tools; body.tool_choice = 'auto'; return body; },
@@ -29979,7 +29990,7 @@ const PROMPT_ZH = {
       '说到做到:say 里说「递了/开了/记了」的动作,要么是这一回合真调过、拿到回执的工具,要么就写在这条回复的 actions 里(工作台立刻执行,失败会变成提议);一个工具都没调,就只能说「我来办」并放进 acts 让用户按。例:用户说「把这句递给美股那条」→ {"say":"递过去了,它接上话我喊你","why":"用户点名递给「美股走势」线程","acts":[],"actions":[{"tool":"steward_thread_continue","args":{"sessionId":"那条线程的 id","message":"用户原话逐字"}}]}',
       // 129k:模型反复把【只读】工具提成按钮,按下去只能看到一句内部错误话。产出侧已经在 13o 把
       // 这种按钮直接丢掉(不画按不动的按钮),这一行是让模型一开始就别浪费那个名额。
-      '用户明确交代、参数齐全且权限允许的事直接办,按真实回执报告,不用重复确认;缺什么问什么;不能做的事不擅自改成提醒,权限不足就降级成提议。acts 是用户点的按钮(≤3 个,一个 primary),只放决定、必要授权或导航,不凑按钮;kind:"tool" 的按钮只能是会改变什么的动作(开/接着办/停/改名/换工作区/改权限、批准或拒绝待决、重试或续跑、记或否决记忆、改设置、开关技能、定时任务增删起停)。只读的查看类工具(清单、搜索、看线程、看用量)不能当按钮 —— 用户要的是答案,这一回合就把工具调了、把结果写进 say。要让用户去看某条线程用 kind:"open_thread"。',
+      '用户明确交代、参数齐全且权限允许的事直接办,按真实回执报告,不用重复确认;缺什么问什么;不能做的事不擅自改成提醒,权限不足就降级成提议。每个工具按钮必须带齐该工具 schema 的必填 args，不能只写标签或用空参数占位；参数缺失先问用户。acts 是用户点的按钮(≤3 个,一个 primary),只放决定、必要授权或导航,不凑按钮;kind:"tool" 的按钮只能是会改变什么的动作(开/接着办/停/改名/换工作区/改权限、批准或拒绝待决、重试或续跑、记或否决记忆、改设置、开关技能、定时任务增删起停)。只读的查看类工具(清单、搜索、看线程、看用量)不能当按钮 —— 用户要的是答案,这一回合就把工具调了、把结果写进 say。要让用户去看某条线程用 kind:"open_thread"。',
     ].join('\n'),
     // 117l(§11.9 D2/D5/D7):本波新增的三条纪律。**放在易变层而不是 stable**——英文稳定层现在是
     // 2453/2500 字符(§11.2 的硬预算,steward-runner.static ③ 机械看住),塞不下这三条;而它们是
@@ -30307,7 +30318,7 @@ const PROMPT_EN = {
       'Output contract: every reply is a single JSON object, no code fence, no text outside it. All four keys every time; empty string or empty array when there is nothing to put in them:',
       '{"say": one message for the user (<=600 chars, plain language), "why": one sentence of grounds (which event/thread/memory), "acts": [{"label": button text <=12 chars, "kind": "tool"|"open_thread"|"dismiss", "tool": a steward_* tool name, "args": {…}, "sessionId": thread id, "primary": true}], "actions": [{"tool": a steward_* tool name, "args": {…}}]}',
       'Words match deeds: whatever say reports as done is either a tool I called this turn (receipt in hand) or one listed in this reply\'s actions (run at once; a failure becomes a proposal). With no tool called I may only say "I will" and put it in acts. Example - user: "pass this to the US-equities thread" -> {"say":"Passed it on - I will call you when it answers","why":"user named the US-equities thread","acts":[],"actions":[{"tool":"steward_thread_continue","args":{"sessionId":"that thread id","message":"user\'s exact words"}}]}',
-      'Explicit, complete, permitted requests: do them and report the real receipt, no reconfirmation; ask for what is missing; never turn what I cannot do into an unsolicited reminder - short of permission, downgrade to a proposal. acts are buttons for the user (<=3, one primary): decisions, needed approvals or navigation only; a kind:"tool" button must change something (open / continue / stop / rename / move a thread or change its permission, decide a pending item, retry or resume, write or veto a memory, change a setting, toggle a skill, manage a schedule). Read-only lookups (listings, search, thread read, usage) are never a button - the user wants the answer: call the tool this turn and put the result in say. To point at a thread use kind:"open_thread".',
+      'Explicit, complete, permitted requests: do them and report the real receipt, no reconfirmation; ask for missing required args; never offer incomplete tool buttons; never turn what I cannot do into an unsolicited reminder - short of permission, downgrade to a proposal. acts are buttons for the user (<=3, one primary): decisions, needed approvals or navigation only; a kind:"tool" button must change something (open / continue / stop / rename / move a thread or change its permission, decide a pending item, retry or resume, write or veto a memory, change a setting, toggle a skill, manage a schedule). Read-only lookups (listings, search, thread read, usage) are never a button - the user wants the answer: call the tool this turn and put the result in say. To point at a thread use kind:"open_thread".',
     ].join('\n'),
     // 117l: same keys/params as PROMPT_ZH.steward.rules / .routeHintBlock (see the Chinese pack for why
     // these live in the volatile layer instead of `stable`).
@@ -61754,7 +61765,7 @@ const MCP_TOOLS = [
           type: 'object', additionalProperties: false, required: ['userText'],
           description: '委托书。userText 必填且逐字保留;其余各段是你的补充,对用户可见、可改、可删,不得改写用户意图。',
           properties: {
-            userText: { type: 'string', description: '用户原话,逐字。' },
+            userText: { type: 'string', minLength: 1, description: '用户原话,逐字。' },
             goal: { type: 'string', description: '一句话目标。' },
             acceptance: { type: 'array', items: { type: 'string' }, description: '验收项(做到什么算完成)。' },
             context: { type: 'array', items: { type: 'string' }, description: '相关文件、目录或已知事实。' },
@@ -61765,7 +61776,7 @@ const MCP_TOOLS = [
               type: 'object', additionalProperties: false, required: ['id'],
               description: '可选。**按这个 playbook 办**:工作台会把它的正文(填好参数之后的)原样附在委托书最后,线程照着做。何时用:用户说「像上次那样再来一遍」「按那个流程走」,或者你在 steward_playbooks 里找到一个正对得上的。何时别用:① 别猜 id,先 steward_playbooks 看一眼;② 参数不齐【不要自己编】——会回 {ok:false,reason:"playbook_inputs_missing",missing:[{key,label,type}]},把缺的那几项去问用户;③ 那个 playbook 现在跑不了(缺联网/桌面等能力)会回 reason:"playbook_unavailable",把原因说给用户听,不要重试。',
               properties: {
-                id: { type: 'string', description: 'playbook id(取自 steward_playbooks 的 entries[].id)。' },
+                id: { type: 'string', minLength: 1, description: 'playbook id(取自 steward_playbooks 的 entries[].id)。' },
                 inputs: { type: 'object', description: '参数取值,形如 {"folder":"D:/报表","month":"9月"}。它声明过的每一项都要给,且不能是空串。', additionalProperties: { type: 'string' } },
               },
             },
@@ -61781,8 +61792,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'message'],
       properties: {
-        sessionId: { type: 'string', description: '目标线程 id(不能是管家自己的会话)。' },
-        message: { type: 'string', description: '要递过去的话,原话直递。' },
+        sessionId: { type: 'string', minLength: 1, description: '目标线程 id(不能是管家自己的会话)。' },
+        message: { type: 'string', minLength: 1, description: '要递过去的话,原话直递。' },
         answerBasis: {
           type: 'object', additionalProperties: false,
           description: '【只在代答时给】用户不在跟前、而目标线程正挂着一道给用户的提问时,这句话会被当成用户的答案答进去(通道 ①)。那种情况下必须说清答案的出处,否则一律转给用户。出处两种,给一种就够,都会被服务端核实:记忆条目 id(回库里查,必须仍有效)、委托书原文片段(逐字比对)。用户就在跟前时不用给 —— 那时递的是他的原话。',
@@ -61800,8 +61811,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'title'],
       properties: {
-        sessionId: { type: 'string', description: '线程 id。' },
-        title: { type: 'string', description: '新标题(≤80 字)。' },
+        sessionId: { type: 'string', minLength: 1, description: '线程 id。' },
+        title: { type: 'string', minLength: 1, description: '新标题(≤80 字)。' },
       },
     },
   },
@@ -61811,7 +61822,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
-        sessionId: { type: 'string', description: '线程 id(不能是管家自己的会话)。' },
+        sessionId: { type: 'string', minLength: 1, description: '线程 id(不能是管家自己的会话)。' },
         permissionMode: { type: 'string', enum: ['plan', 'default', 'acceptEdits', 'auto', 'bypass'], description: '目标权限档(可选)。收紧方向:auto/bypass(全自动) > acceptEdits(改文件不问) > default(每步都问) > plan(只做计划)。只接受比当前生效档更紧的值。' },
         capabilities: {
           type: 'object', additionalProperties: false,
@@ -61829,8 +61840,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'text'],
       properties: {
-        sessionId: { type: 'string', description: '目标线程 id(必须有在途回合;不能是管家自己的会话)。' },
-        text: { type: 'string', description: '要补充的一句话(≤600 字)。只补上下文,不要改写用户的意图。' },
+        sessionId: { type: 'string', minLength: 1, description: '目标线程 id(必须有在途回合;不能是管家自己的会话)。' },
+        text: { type: 'string', minLength: 1, description: '要补充的一句话(≤600 字)。只补上下文,不要改写用户的意图。' },
       },
     },
   },
@@ -61840,7 +61851,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
-        sessionId: { type: 'string', description: '要插队的线程 id(不能是管家自己的会话)。' },
+        sessionId: { type: 'string', minLength: 1, description: '要插队的线程 id(不能是管家自己的会话)。' },
       },
     },
   },
@@ -61850,8 +61861,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['missionId', 'interventionId', 'action'],
       properties: {
-        missionId: { type: 'string', description: '待决所属事项/线程 id(收件箱事件里的 missionId)。' },
-        interventionId: { type: 'string', description: '待决 id。' },
+        missionId: { type: 'string', minLength: 1, description: '待决所属事项/线程 id(收件箱事件里的 missionId)。' },
+        interventionId: { type: 'string', minLength: 1, description: '待决 id。' },
         action: { type: 'string', enum: ['allow', 'deny', 'answer', 'approve', 'reject'], description: 'permission 用 allow/deny;question 用 answer;plan/pool 用 approve/reject。' },
         payload: { type: 'object', description: '按类型的附加内容:question 需要 {answer:{answers:[...]}};plan 可带 {feedback};permission 不带附加内容 —— 你只能按线程原样放行或拒绝,payload 里的 updatedInput 与 scope 会被丢弃(回执里的 ignoredPayloadKeys 会列出来),要改命令就让线程自己重新发起。' },
         expectedVersion: { type: 'integer', minimum: 0, description: '可选。乐观并发版本;省略则读当前值。' },
@@ -61865,8 +61876,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'runId', 'action'],
       properties: {
-        sessionId: { type: 'string', description: '线程 id。' },
-        runId: { type: 'string', description: '班组运行 id(来自 steward_runs_status)。' },
+        sessionId: { type: 'string', minLength: 1, description: '线程 id。' },
+        runId: { type: 'string', minLength: 1, description: '班组运行 id(来自 steward_runs_status)。' },
         action: { type: 'string', enum: ['pause', 'resume', 'stop', 'retry_node', 'steer_node'], description: '要执行的动作。' },
         nodeId: { type: 'string', description: 'retry_node / steer_node 必填:目标节点 id。' },
         message: { type: 'string', description: 'steer_node 必填:插话内容(≤2000 字)。' },
@@ -61879,7 +61890,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
-        sessionId: { type: 'string', description: '要停的线程 id(不能是管家自己的会话)。' },
+        sessionId: { type: 'string', minLength: 1, description: '要停的线程 id(不能是管家自己的会话)。' },
         reason: { type: 'string', description: '可选。为什么停(≤200 字),只写进决策日志供用户回看。' },
       },
     },
@@ -61890,8 +61901,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'cwd'],
       properties: {
-        sessionId: { type: 'string', description: '要改的线程 id。' },
-        cwd: { type: 'string', description: '新的工作目录:填「已知工作区」清单里的名字或路径(清单就在你这一回合的上下文里)。' },
+        sessionId: { type: 'string', minLength: 1, description: '要改的线程 id。' },
+        cwd: { type: 'string', minLength: 1, description: '新的工作目录:填「已知工作区」清单里的名字或路径(清单就在你这一回合的上下文里)。' },
       },
     },
   },
@@ -61902,7 +61913,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false, required: ['kind', 'text', 'sourceRef'],
       properties: {
         kind: { type: 'string', enum: ['profile', 'preference', 'habit', 'focus', 'policy'], description: '记忆类别。' },
-        text: { type: 'string', description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
+        text: { type: 'string', minLength: 1, description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
         scope: { type: 'string', enum: ['global', 'project'], description: '可选,默认 global。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
         expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
@@ -61913,7 +61924,7 @@ const MCP_TOOLS = [
           properties: {
             sessionId: { type: 'string', description: '来源线程 id。' },
             turnSeq: { type: 'integer', minimum: 0, description: '来源回合号(用户消息所在回合)。' },
-            quote: { type: 'string', description: '那条用户消息里的【原话片段】,逐字照抄(≥6 字;消息本身更短就抄整条)。改述或引别的消息 → quote_not_found;text 与 quote 毫无共同用词 → quote_unrelated。' },
+            quote: { type: 'string', minLength: 1, description: '那条用户消息里的【原话片段】,逐字照抄(≥6 字;消息本身更短就抄整条)。改述或引别的消息 → quote_not_found;text 与 quote 毫无共同用词 → quote_unrelated。' },
           },
         },
       },
@@ -61924,7 +61935,7 @@ const MCP_TOOLS = [
     description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。已经是否决状态的再否决一次返回 {ok,id,state:"vetoed",unchanged:true},不写库、不记决策。返回 {ok,id,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '记忆条目 id。' } },
+      properties: { id: { type: 'string', minLength: 1, description: '记忆条目 id。' } },
     },
   },
   {
@@ -62069,7 +62080,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId', 'skills'],
       properties: {
-        sessionId: { type: 'string', description: '目标线程 id。' },
+        sessionId: { type: 'string', minLength: 1, description: '目标线程 id。' },
         skills: { type: 'array', items: { type: 'string' }, description: '要启用的技能 id 全集(整份替换;传空数组 = 全关)。最多 8 个。' },
       },
     },
@@ -62095,7 +62106,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['title', 'schedule', 'payload'],
       properties: {
-        title: { type: 'string', description: '任务标题(用户听得懂的一句,最多 120 字)。' },
+        title: { type: 'string', minLength: 1, description: '任务标题(用户听得懂的一句,最多 120 字)。' },
         schedule: {
           type: 'object', description: '计划。kind 五选一:once 需 date(YYYY-MM-DD)+at(HH:MM);daily 需 at;weekly 需 at+days(0=周日…6=周六);monthly 需 at+dayOfMonth(1-31,31=每月最后一天);cron 需 expr(5 字段)。',
           properties: {
@@ -62139,7 +62150,7 @@ const MCP_TOOLS = [
     description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。已经是暂停状态再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
+      properties: { id: { type: 'string', minLength: 1, description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -62147,7 +62158,7 @@ const MCP_TOOLS = [
     description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。已经在运行的任务再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
+      properties: { id: { type: 'string', minLength: 1, description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -62155,7 +62166,7 @@ const MCP_TOOLS = [
     description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试;③ 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——立刻真跑一次(prompt 载荷会开线程调模型)与排新任务、删任务同一档,把它作为提议交给用户,不要重试。**暂停中的任务也能手动跑一次**(暂停只管到点自动触发),这时返回里带 wasPaused:true 与说明,且不会把它恢复。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
+      properties: { id: { type: 'string', minLength: 1, description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -62163,7 +62174,7 @@ const MCP_TOOLS = [
     description: '删掉一条定时任务的定义(历史执行回执不删——「它当初真的跑过」是既成事实)。何时用:用户明确说这件事不用再做了。何时别用:① 只是想暂时停用 -> steward_schedule_pause;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"},把它作为提议交给用户,不要重试;③ 删之前先确认是哪一条(id 拿错就删错了,而这一步没有撤销键)。返回 {ok,id,deleted,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
+      properties: { id: { type: 'string', minLength: 1, description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   // 代理模式 v2(2026-09-24):模型侧只有 orchestrate_agents 一个启动入口(旧 spawn_agent 已并入 —— 单代理写顶层
@@ -75553,6 +75564,7 @@ const STEWARD_TOOL_LABELS = Object.freeze({
 // 到访状态本身不落盘(进程重启 = 新到访,与 §11.1 第 7 项「一次到访 = 页面重开或静默 60 分钟」一致)。
 // ────────────────────────────────────────────────────────────────────────────
 const stewardRunnerRuntime = {
+  conversationGeneration: 0,
   // 123-M2:fireSeq 是【承诺三项】的第二个水位。为什么不能复用 inboxSeq:fires-v1.ndjson 有它
   // 自己的一条单调 seq(13s 的账本),与收件箱那条各走各的 —— 拿收件箱的行号去筛 fires 的行
   // 会漏掉/重复算「上次到访以来跳过或结果未知的那几次」。
@@ -76899,10 +76911,32 @@ function stewardNormalizeAct(raw) {
     logEvent({ kind: 'steward_act_undeliverable', tool: stewardSanitizeText(tool).slice(0, 64) });
     return null;
   }
+  // Buttons carry executable arguments, using the same schema as tool calls.
+  const args = (raw.args && typeof raw.args === 'object' && !Array.isArray(raw.args)) ? raw.args : {};
+  if (kind === 'tool') {
+    const schema = nativeToolSchema(tool);
+    if (schema) {
+      // Validate trimmed required text, preserving the actual user's words.
+      const checkView = (shape, value) => {
+        if (shape?.type === 'string' && shape.minLength > 0 && typeof value === 'string') return value.trim();
+        if (shape?.type !== 'object' || !value || typeof value !== 'object' || Array.isArray(value)) return value;
+        const view = { ...value };
+        for (const [key, field] of Object.entries(shape.properties || {})) {
+          if (view[key] !== undefined) view[key] = checkView(field, view[key]);
+        }
+        return view;
+      };
+      const problems = jsonSchemaObjectProblems(schema, checkView(schema, args), '');
+      if (problems.length) {
+        logEvent({ kind: 'steward_act_undeliverable', tool, reason: 'invalid_arguments', problems: problems.slice(0, 3) });
+        return null;
+      }
+    }
+  }
   // A label is not an executable reminder. Reuse the scheduler's actual
   // validation (including past one-shot times) before offering the button.
   if (kind === 'tool' && tool === 'steward_schedule_create') {
-    const args = raw.args || {};
+
     const checked = normalizeSchedulerTask({
       title: args.title, schedule: args.schedule, payload: args.payload,
       target: args.tier !== undefined ? { ...(args.target || {}), tier: args.tier } : args.target,
@@ -76919,15 +76953,15 @@ function stewardNormalizeAct(raw) {
   // 于是这一族:① 丢掉模型的标签,恒用服务端按 args 派生的说明(写清键与新值);
   //             ② 把整份清单随 act 带给前端(confirmItems,纯文本),前端 POST 之前弹确认面板逐条列出。
   // 其余 act 一个字节不变(仍然是模型标签优先)——「知道了」这种表态按钮没有二次确认的必要。
-  const confirmSpec = kind === 'tool' ? stewardActConfirmSpec(tool, raw.args) : null;
+  const confirmSpec = kind === 'tool' ? stewardActConfirmSpec(tool, args) : null;
   const label = confirmSpec
-    ? stewardActLabel(tool, raw.args)
+    ? stewardActLabel(tool, args)
     : (stewardSanitizeText(raw.label).slice(0, STEWARD_ACT_LABEL_MAX)
       || (kind === 'tool' ? stewardActLabel(tool, raw.args) : (kind === 'open_thread' ? '打开' : '知道了')));
   const act = { label, kind };
   if (kind === 'tool') {
     act.tool = tool;
-    act.args = (raw.args && typeof raw.args === 'object' && !Array.isArray(raw.args)) ? raw.args : {};
+    act.args = args;
     if (confirmSpec) act.confirmItems = stewardActConfirmLines(confirmSpec);
   }
   const sessionId = raw.sessionId ? safeSessionId(raw.sessionId) : '';
@@ -77939,6 +77973,7 @@ const stewardDecideNudged = new Set();
 // hunt2-steward ①:排队等槽位的用户回合(到达先后;只有排头能认领。见 runStewardTurn 的等待循环)。
 const stewardUserWaiters = [];
 async function runStewardTurn(input) {
+  const generation = stewardRunnerRuntime.conversationGeneration;
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
   const onEvent = typeof opts.onEvent === 'function' ? opts.onEvent : () => {};
@@ -77946,7 +77981,15 @@ async function runStewardTurn(input) {
   const config = await readConfig().catch(() => ({}));
   if (config.stewardEnabledV1 !== true) return stewardFail('steward.disabled', 'the workbench steward is disabled (stewardEnabledV1=false)');
 
+  if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') {
+    if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
   const circuit = await stewardCircuitCheck(config, trigger);
+  if (generation !== stewardRunnerRuntime.conversationGeneration) {
+    if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
   if (circuit) {
     if (trigger === 'inbox' && events.length) stewardRunnerRuntime.queue.push(...events);
     stewardRunnerRuntime.circuit = { ...circuit, at: nowIso() };
@@ -77965,6 +78008,10 @@ async function runStewardTurn(input) {
   let finishEntry = () => {};
   entry.promise = new Promise(resolve => { finishEntry = () => resolve(); });
 
+  if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') {
+    if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
   const inflight = stewardRunnerRuntime.inflight;
   if (trigger === 'inbox' && (inflight || stewardUserWaiters.length)) {
     // 有在途回合,或有用户的话正排着队(槽位刚空、它还没醒过来认领):收件箱批次回排,不插队。
@@ -77993,6 +78040,7 @@ async function runStewardTurn(input) {
     let waitedFor = inflight ? inflight.kind : 'user';
     try {
       for (;;) {
+        if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', '已开始新对话，排队消息已取消');
         const current = stewardRunnerRuntime.inflight;
         if (!current && stewardUserWaiters[0] === entry) break;
         const target = current || stewardUserWaiters[0];
@@ -78424,6 +78472,7 @@ function stewardHoldViewedEvents(batch) {
   return run;
 }
 function stewardScheduleInboxDrain() {
+  if (stewardRunnerRuntime.inflight?.kind === 'reset') return;
   if (stewardRunnerRuntime.stopped) return;
   if (!stewardRunnerRuntime.queue.length) return;
   // 116-4:去抖时长由【队列内容】决定,不由调用方决定 —— 五个调用点一行都不用改,新语义自动覆盖全部。
@@ -78482,19 +78531,75 @@ async function stewardTrimVisits() {
   }
 }
 
+// A reset occupies the existing runner slot. Older waiters observe the generation
+// change and cancel; inbox events remain queued for the next conversation.
+async function stewardResetConversation() {
+  const current = stewardRunnerRuntime.inflight;
+  if (current?.kind === 'reset') return current.promise;
+  stewardRunnerRuntime.conversationGeneration += 1;
+  const entry = { kind: 'reset', promise: null };
+  stewardRunnerRuntime.inflight = entry;
+  if (stewardRunnerRuntime.debounceTimer) {
+    clearTimeout(stewardRunnerRuntime.debounceTimer);
+    stewardRunnerRuntime.debounceTimer = null;
+    stewardRunnerRuntime.debounceMs = -1;
+  }
+  if (current) {
+    current.cancelled = 'reset';
+    if (current.kind === 'inbox') stewardRunnerRuntime.queue.push(...(current.events || []));
+    stewardAbortInflight(current);
+  }
+  entry.promise = (async () => {
+    try {
+      stopSession(STEWARD_SESSION_ID, 'reset');
+      if (current?.promise) {
+        let timer;
+        const settled = await Promise.race([
+          current.promise.then(() => true),
+          new Promise(resolve => { timer = setTimeout(() => resolve(false), 8000); }),
+        ]).finally(() => clearTimeout(timer));
+        if (!settled) {
+          // Keep the old turn in its slot until its own finally releases it.
+          stewardRunnerRuntime.inflight = current;
+          throw new Error('上一回合仍未停止，请稍后再开始新对话');
+        }
+      }
+      if (!await waitMissionTurnSettled(STEWARD_SESSION_ID)) throw new Error('上一回合仍未停止，请稍后再开始新对话');
+      const config = await readConfig();
+      const archive = await stewardArchiveConversation(config, stewardRunnerRuntime.visit.startedAt || nowIso(), { reset: true });
+      await writeSessionNotes(STEWARD_SESSION_ID, '');
+      stewardRunnerRuntime.lastReply = null;
+      stewardRunnerRuntime.noProgress = 0;
+      stewardRunnerRuntime.circuit = null;
+      _stewardReadBudget.delete(STEWARD_SESSION_ID);
+      stewardRunnerRuntime.visit.startedAt = nowIso();
+      stewardRunnerRuntime.visit.lastActivityAt = stewardRunnerRuntime.visit.startedAt;
+      logEvent({ kind: 'steward_conversation_reset', archived: archive.archived });
+      return { ok: true, archive, startedAt: stewardRunnerRuntime.visit.startedAt };
+    } catch (error) {
+      return stewardFail('steward.reset_failed', String(error?.message || error));
+    } finally {
+      if (stewardRunnerRuntime.inflight === entry) stewardRunnerRuntime.inflight = null;
+      stewardScheduleInboxDrain();
+    }
+  })();
+  return entry.promise;
+}
+
 // 按 stewardConversationRetention 归档管家会话历史。
 //   visit   : 整段归档后清空(默认,§8.1 原则 8「对话不是档案」);
 //   24h     : 只归档 24 小时前的消息,近 24 小时留在会话里;
 //   forever : 不归档不清空。
 // 返回 { archived, file, kept }。
-async function stewardArchiveConversation(config, startedAt) {
-  const retention = String((config && config.stewardConversationRetention) || 'visit');
+async function stewardArchiveConversation(config, startedAt, options = {}) {
+  const retention = options.reset === true ? 'visit' : String((config && config.stewardConversationRetention) || 'visit');
   if (retention === 'forever') return { archived: 0, file: '', kept: -1 };
   const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
   if (!session) return { archived: 0, file: '', kept: 0 };
+  if (options.generation !== undefined && options.generation !== stewardRunnerRuntime.conversationGeneration) throw new Error('conversation changed');
   const baseGen = Number(session.rewindGen) || 0;   // 128b:归档文件与截断必须基于同一份正文
   const messages = Array.isArray(session.messages) ? session.messages : [];
-  if (!messages.length) return { archived: 0, file: '', kept: 0 };
+  if (!messages.length && !options.reset) return { archived: 0, file: '', kept: 0 };
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   const keepFrom = retention === '24h'
     ? messages.findIndex(m => {
@@ -78504,9 +78609,9 @@ async function stewardArchiveConversation(config, startedAt) {
     : messages.length;
   const splitAt = keepFrom < 0 ? messages.length : keepFrom;
   const archived = messages.slice(0, splitAt);
-  if (!archived.length) return { archived: 0, file: '', kept: messages.length };
+  if (!archived.length && !options.reset) return { archived: 0, file: '', kept: messages.length };
   const at = nowIso();
-  const file = path.join(stewardVisitsDir(), stewardVisitFileName(startedAt || at));
+  const file = path.join(stewardVisitsDir(), options.reset ? stewardVisitFileName(at).replace('.json', '-' + makeId('reset') + '.json') : stewardVisitFileName(startedAt || at));
   await fsp.mkdir(stewardVisitsDir(), { recursive: true });
   await atomicWriteJson(file, {
     schema: STEWARD_VISIT_SCHEMA,
@@ -78515,6 +78620,7 @@ async function stewardArchiveConversation(config, startedAt) {
     archivedAt: at,
     retention,
     messages: archived,
+    ...(options.reset ? { sessionNotes: await readSessionNotes(STEWARD_SESSION_ID) } : {}),
   });
   // 正文按保留策略截断。providerHistory 与消息不是一一对应(工具轮次更多),整段清空是唯一
   // 安全的做法:留半截会让下一回合带着孤儿 tool_calls 去请求(strict provider 直接 400)。
@@ -78525,6 +78631,7 @@ async function stewardArchiveConversation(config, startedAt) {
   let truncated = false;
   try {
     const written = await mutateSession(STEWARD_SESSION_ID, fresh => {
+      if (options.generation !== undefined && options.generation !== stewardRunnerRuntime.conversationGeneration) return { abort: 'conversation_changed' };
       const now = Array.isArray(fresh.messages) ? fresh.messages : [];
       const samePrefix = now.length >= splitAt && archived.every((m, i) => now[i] && now[i].createdAt === m.createdAt && now[i].role === m.role);
       if (!samePrefix) return { abort: 'prefix_changed' };
@@ -78532,14 +78639,21 @@ async function stewardArchiveConversation(config, startedAt) {
       fresh.providerHistory = [];
       fresh.providerHistoryCursor = fresh.messages.length;
       fresh.autoCompactWatermark = 0;
+      if (options.reset) {
+        fresh.summary = '';
+        fresh.claudeSessionId = null;
+        fresh.attachments = [];
+        delete fresh.stewardTaint;
+      }
       kept = fresh.messages.length;
       return undefined;
-    }, { writer: 'steward_archive', expectGen: baseGen, saveOpts: { shrinkBody: true } });   // 有意截短:不让 saveSession 当旧副本补回
+    }, { writer: 'steward_archive', expectGen: baseGen, saveOpts: { shrinkBody: true, ...(options.reset ? { rewindBump: true, throwIfStale: true } : {}) } });   // 有意截短:不让 saveSession 当旧副本补回
     truncated = Boolean(written && written.ok);
   } catch { truncated = false; }
   if (!truncated) {
     await fsp.unlink(file).catch(() => {});
     logEvent({ kind: 'steward_archive_rolled_back', sessionId: STEWARD_SESSION_ID, archived: archived.length });
+    if (options.reset) throw new Error('conversation reset could not persist');
     return { archived: 0, file: '', kept: messages.length };
   }
   await stewardTrimVisits();
@@ -78641,9 +78755,11 @@ async function stewardPendingList() {
 }
 
 async function stewardVisit(opts) {
+  const generation = stewardRunnerRuntime.conversationGeneration;
   const options = (opts && typeof opts === 'object') ? opts : {};
   const config = await readConfig().catch(() => ({}));
   if (config.stewardEnabledV1 !== true) return stewardFail('steward.disabled', 'the workbench steward is disabled (stewardEnabledV1=false)');
+  if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') return stewardFail('steward.busy', '正在开始新对话');
   const idleMinutes = Math.max(1, Math.round(Number(config.stewardVisitIdleMinutes) || 60));
   const lastActivity = Date.parse(String(stewardRunnerRuntime.visit.lastActivityAt || ''));
   const idle = !Number.isFinite(lastActivity) || (Date.now() - lastActivity) > idleMinutes * 60 * 1000;
@@ -78680,8 +78796,9 @@ async function stewardVisit(opts) {
   // 「到访还没真正开始」,可以立刻重试),并把 archive.error 带进响应体供上层如实说人话。
   let visitOpened = newVisit;
   if (newVisit) {
-    archive = await stewardArchiveConversation(config, previousStartedAt || nowIso())
+    archive = await stewardArchiveConversation(config, previousStartedAt || nowIso(), { generation })
       .catch(error => ({ archived: 0, file: '', kept: -1, error: String((error && error.message) || error).slice(0, 300) }));
+    if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
     if (archive.error) {
       visitOpened = false;
       try { logEvent({ kind: 'steward_visit_archive_failed', error: archive.error }); } catch { /* 观测绝不反噬 */ }
@@ -78700,6 +78817,7 @@ async function stewardVisit(opts) {
     }
   }
   const digest = await stewardVisitDigest(sinceSeq, sinceFireSeq);
+  if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
   if (visitOpened) {
     stewardRunnerRuntime.visit.inboxSeq = digest.inboxSeq;   // 下次到访从这里往后归纳
     stewardRunnerRuntime.visit.fireSeq = digest.fireSeq;     // 123-M2:fires 那本账各走各的水位
@@ -79196,6 +79314,13 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
     // 116g 硬教训:域层的 {ok:false,error} 直接送进 json() 会被 normalizeApiErrorPayload 归一成
     // api.request_failed,稳定信封必须在【路由层】转成 apiFailure。
     if (result && result.ok === false) return send(res, apiFailure(result.error, {}, result.message || result.error, 400));
+    return send(res, json(result));
+  }
+
+  if (req.method === 'POST' && pathname === '/api/steward/reset') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const result = await stewardResetConversation();
+    if (!result.ok) return send(res, apiFailure(result.error, {}, result.message || result.error, 409));
     return send(res, json(result));
   }
 
@@ -83027,6 +83152,8 @@ module.exports = {
   STEWARD_SESSION_ID,
   STEWARD_SESSION_TITLE,
   runStewardTurn,
+  stewardResetConversation,
+  nativeToolSchema,
   // 第117波117m-A1: 熔断判据本体 — exposed for e2e 直测(小时窗只节流 trigger!=='user' 的自主回合)。
   stewardCircuitCheck,
   stewardVisit,

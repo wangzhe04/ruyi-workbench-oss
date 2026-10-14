@@ -226,7 +226,7 @@ ok(/function nudgeAvatar\(\) \{/.test(stewardShell)
   && /lastReply\.trigger === 'inbox'\) \{ nudgeAvatar\(\);/.test(stewardShell)
   && !/presenceInputs\.nudge|nudge:/.test(stewardShell),
   'C2f nudge 是显式的一次性口子，不写进 presenceInputs(derivePresence 是纯投影，不该有「播过没有」的记忆)');
-ok(/function pollStewardState\(\) \{\s*if \(typeof api !== 'function'\) return;\s*Promise\.resolve\(api\('\/api\/steward\/state'\)\)/.test(stewardShell),
+ok(/function pollStewardState\(\) \{\s*if \(typeof api !== 'function'\) return;\s*const generation = conversation\.conversationGeneration\(\);\s*Promise\.resolve\(api\('\/api\/steward\/state'\)\)/.test(stewardShell),
   'C3b 唯一的 api() 调用住在 pollStewardState 里，目标就是状态轮询端点');
 {
   // 剥掉注释再数调用点（头注里写着「pollStewardState()（全文件唯一那处请求调用点…）」）。

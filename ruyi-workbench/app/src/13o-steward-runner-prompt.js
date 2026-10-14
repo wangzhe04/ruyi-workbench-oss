@@ -585,10 +585,32 @@ function stewardNormalizeAct(raw) {
     logEvent({ kind: 'steward_act_undeliverable', tool: stewardSanitizeText(tool).slice(0, 64) });
     return null;
   }
+  // Buttons carry executable arguments, using the same schema as tool calls.
+  const args = (raw.args && typeof raw.args === 'object' && !Array.isArray(raw.args)) ? raw.args : {};
+  if (kind === 'tool') {
+    const schema = nativeToolSchema(tool);
+    if (schema) {
+      // Validate trimmed required text, preserving the actual user's words.
+      const checkView = (shape, value) => {
+        if (shape?.type === 'string' && shape.minLength > 0 && typeof value === 'string') return value.trim();
+        if (shape?.type !== 'object' || !value || typeof value !== 'object' || Array.isArray(value)) return value;
+        const view = { ...value };
+        for (const [key, field] of Object.entries(shape.properties || {})) {
+          if (view[key] !== undefined) view[key] = checkView(field, view[key]);
+        }
+        return view;
+      };
+      const problems = jsonSchemaObjectProblems(schema, checkView(schema, args), '');
+      if (problems.length) {
+        logEvent({ kind: 'steward_act_undeliverable', tool, reason: 'invalid_arguments', problems: problems.slice(0, 3) });
+        return null;
+      }
+    }
+  }
   // A label is not an executable reminder. Reuse the scheduler's actual
   // validation (including past one-shot times) before offering the button.
   if (kind === 'tool' && tool === 'steward_schedule_create') {
-    const args = raw.args || {};
+
     const checked = normalizeSchedulerTask({
       title: args.title, schedule: args.schedule, payload: args.payload,
       target: args.tier !== undefined ? { ...(args.target || {}), tier: args.tier } : args.target,
@@ -605,15 +627,15 @@ function stewardNormalizeAct(raw) {
   // 于是这一族:① 丢掉模型的标签,恒用服务端按 args 派生的说明(写清键与新值);
   //             ② 把整份清单随 act 带给前端(confirmItems,纯文本),前端 POST 之前弹确认面板逐条列出。
   // 其余 act 一个字节不变(仍然是模型标签优先)——「知道了」这种表态按钮没有二次确认的必要。
-  const confirmSpec = kind === 'tool' ? stewardActConfirmSpec(tool, raw.args) : null;
+  const confirmSpec = kind === 'tool' ? stewardActConfirmSpec(tool, args) : null;
   const label = confirmSpec
-    ? stewardActLabel(tool, raw.args)
+    ? stewardActLabel(tool, args)
     : (stewardSanitizeText(raw.label).slice(0, STEWARD_ACT_LABEL_MAX)
       || (kind === 'tool' ? stewardActLabel(tool, raw.args) : (kind === 'open_thread' ? '打开' : '知道了')));
   const act = { label, kind };
   if (kind === 'tool') {
     act.tool = tool;
-    act.args = (raw.args && typeof raw.args === 'object' && !Array.isArray(raw.args)) ? raw.args : {};
+    act.args = args;
     if (confirmSpec) act.confirmItems = stewardActConfirmLines(confirmSpec);
   }
   const sessionId = raw.sessionId ? safeSessionId(raw.sessionId) : '';

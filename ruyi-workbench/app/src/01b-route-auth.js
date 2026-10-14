@@ -173,6 +173,7 @@ const ROUTE_AUTH = [
   // 第116波116f(27号文§11.3): 管家回合与到访。visit 会归档并清空管家对话、message 直接起一个管家回合、
   // act 替用户执行一条按钮 —— 三条都是写面,内容敏感度同上,一律 token 级(不给 token-browser)。
   { m: 'POST', p: '/api/steward/visit', auth: 'token' },
+  { m: 'POST', p: '/api/steward/reset', auth: 'token' },
   { m: 'POST', p: '/api/steward/message', auth: 'token' },
   { m: 'POST', p: '/api/steward/act', auth: 'token' },
   // 第117波117l(27号文§11.9 D2): 递话通道的单口。抽屉「直接对这条线程说」与问答卡的自由回答都走它;

@@ -349,7 +349,7 @@ for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace', 'st
     `⑥ confirm 档键的值也过 redact（URL 里的 user:pass 没了）（实得 ${brief(embedded && embedded.confirmItems)}）`);
 
   // ④ 另外两支：技能开关恒进本族；线程权限只在放宽桌面那一支进，且标签一个字没动（guardrails Q2c 钉着它）。
-  const skillAct = stewardNormalizeAct({ kind: 'tool', tool: 'steward_skill_toggle', label: MODEL_LABEL, args: { sessionId: 'sess_a', skills: [{ id: 'web' }] } });
+  const skillAct = stewardNormalizeAct({ kind: 'tool', tool: 'steward_skill_toggle', label: MODEL_LABEL, args: { sessionId: 'sess_a', skills: ['web'] } });
   ok(skillAct && skillAct.label !== MODEL_LABEL && skillAct.label.startsWith('改技能:') && JSON.stringify(skillAct.confirmItems) === JSON.stringify(['skills = ["web"]']),
     `⑥ 改技能:模型标签被丢掉、清单列出技能（实得 ${brief(skillAct)}）`);
   const deskAct = stewardNormalizeAct({ kind: 'tool', tool: 'steward_thread_permission', label: MODEL_LABEL, args: { sessionId: 'sess_a', capabilities: { desktop: true } } });
@@ -361,16 +361,16 @@ for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace', 'st
 
   // ⑤ 其余 act 逐字节不变：模型标签仍然优先，零 confirmItems。
   const others = [
-    ['tool', { kind: 'tool', tool: 'steward_decide', label: '允许', args: { action: 'allow' } }, '允许'],
+    ['tool', { kind: 'tool', tool: 'steward_decide', label: '允许', args: { missionId: 'sess_a', interventionId: 'perm_a', action: 'allow' } }, '允许'],
     ['open_thread', { kind: 'open_thread', label: '打开「A」', sessionId: 'sess_abc' }, '打开「A」'],
     ['dismiss', { kind: 'dismiss', label: MODEL_LABEL }, MODEL_LABEL],
-    ['thread_new', { kind: 'tool', tool: 'steward_thread_new', label: '我去办', args: { text: 'x' } }, '我去办'],
+    ['thread_new', { kind: 'tool', tool: 'steward_thread_new', label: '我去办', args: { brief: { userText: 'x' } } }, '我去办'],
   ];
   const drifted = others.filter(([, raw, want]) => { const a = stewardNormalizeAct(raw); return !a || a.label !== want || ('confirmItems' in a); });
   ok(drifted.length === 0, `⑥ 其余 ${others.length} 种 act 的标签仍由模型说了算、零 confirmItems`
     + (drifted.length ? ' → 漂移: ' + drifted.map(([n, raw]) => n + '=' + brief(stewardNormalizeAct(raw))).join(' | ') : ''));
   // 模型自己在 args 外塞 confirmItems 不作数(与 userPressed 同一条纪律:归一化只从零重建)。
-  const forged = stewardNormalizeAct({ kind: 'tool', tool: 'steward_decide', label: '允许', args: { action: 'allow' }, confirmItems: ['随便'] });
+  const forged = stewardNormalizeAct({ kind: 'tool', tool: 'steward_decide', label: '允许', args: { missionId: 'sess_a', interventionId: 'perm_a', action: 'allow' }, confirmItems: ['随便'] });
   ok(forged && !('confirmItems' in forged), `⑥ 模型伪造的 confirmItems 进不来（实得 ${brief(forged)}）`);
   ok(stewardActLabel('steward_config_set', {}) === '改设置' && stewardActLabel('steward_config_set', { patch: {} }) === '改设置',
     '⑥ 没有 patch / 空 patch 时标签回落到既有总称「改设置」');
