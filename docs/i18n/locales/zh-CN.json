@@ -3507,7 +3507,7 @@
   ,"bgTray.stop.failed": "没能停下,它可能刚好已经结束了"
   ,"bgTray.rail.hint": "这条线程有 {{count}} 个后台任务在跑"
   ,"bgTray.stale": "连接中断，状态截至 {{time}}"
-  ,"stewardShell.chat.errInvalidAct": "这项操作的信息不完整或时间已失效，需要重新确认具体内容。"
+  ,"stewardShell.chat.errInvalidAct": "这项操作缺少有效参数，请重新说明具体内容。"
   ,"stewardShell.chat.errUnavailableAct": "这项操作当前无法执行，请直接告诉我你要处理什么。"
   ,"stewardShell.chat.actUnconfirmed": "没有收到执行回执，暂时不能确认是否成功。请先核实结果，避免重复执行。"
   ,"navigation.mainViewTabs": "中栏主视图"
@@ -3920,4 +3920,7 @@
   ,"chat.subagent.note.kimiPausedWaiting": "Kimi 子代理已暂停：等待继续"
   ,"stewardShell.askYou.permission": "等你放行:{{what}}"
   ,"stewardShell.askYou.permissionTarget": "{{verb}}「{{name}}」"
+,"stewardShell.chat.newConversation": "新对话"
+,"stewardShell.chat.newConversationDone": "已开始新对话，旧聊天已归档，对话上下文已清空。"
+,"stewardShell.chat.newConversationFailed": "新对话未能完成，请稍后重试。"
 }
