@@ -78,10 +78,18 @@ const toolNames = list => list.filter(a => a.kind === 'tool').map(a => a.tool);
   const inTable = [...block.matchAll(/^\s{2}(steward_[a-z_]+):/gm)].map(m => m[1]);
   ok(inTable.length >= 15, `⑤0 扫得到 act 表(实得 ${inTable.length} 个键;扫不到 = 本条静默失效)`);
   // Scheduling now validates executable arguments before showing a button.
+  const schemaValue = schema => {
+    if (schema.enum) return schema.enum[0];
+    if (schema.type === 'object') return Object.fromEntries((schema.required || []).map(key => [key, schemaValue(schema.properties[key])]));
+    if (schema.type === 'array') return [schemaValue(schema.items || {})];
+    if (schema.type === 'boolean') return false;
+    if (schema.type === 'integer' || schema.type === 'number') return 1;
+    return 'example';
+  };
   const validArgs = tool => tool === 'steward_schedule_create' ? {
     title: '检查结果', schedule: { kind: 'once', date: '2099-01-01', at: '13:00' },
     payload: { kind: 'reminder', text: '检查结果' },
-  } : {};
+  } : schemaValue(srv.nativeToolSchema(tool));
   const rejected = inTable.filter(tool => actsOf([{ label: 'x', kind: 'tool', tool, args: validArgs(tool) }]).length !== 1);
   ok(rejected.length === 0, `⑤ 表里的每一个工具都真的能变成按钮(变不成的:${JSON.stringify(rejected)})`);
 
@@ -92,6 +100,19 @@ const toolNames = list => list.filter(a => a.kind === 'tool').map(a => a.tool);
   ok(outside.length >= 10, `⑤2 表外确实有一批工具(实得 ${outside.length} 个;否则下一条无话可说)`);
   const leaked = outside.filter(tool => actsOf([{ label: 'x', kind: 'tool', tool, args: {} }]).length !== 0);
   ok(leaked.length === 0, `⑤3 表外的每一个工具都变不成按钮(漏出来的:${JSON.stringify(leaked)})`);
+}
+
+{
+  for (const args of [{}, { sessionId: 'sess_x' }, { sessionId: [], message: 'continue' }, { sessionId: 'sess_x', message: '' }, { sessionId: 'sess_x', message: '  \t ' }, { sessionId: ' ', message: 'continue' }]) {
+    ok(actsOf([{ kind: 'tool', tool: 'steward_thread_continue', args }]).length === 0, '⑥ missing or invalid required args never become a button');
+  }
+}
+
+{
+  ok(actsOf([{ kind: 'tool', tool: 'steward_thread_new', args: { brief: { userText: '  ' } } }]).length === 0, '⑦ nested blank required userText never becomes a button');
+  const words = '  用户原话\n';
+  const kept = actsOf([{ kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: 'sess_x', message: words } }]);
+  ok(kept[0]?.args.message === words, '⑧ validation preserves executable user words exactly');
 }
 
 console.log(fail === 0 ? 'STEWARD ACT BUTTONS UNIT: ALL PASS' : `STEWARD ACT BUTTONS UNIT: ${fail} FAIL`);

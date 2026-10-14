@@ -36,6 +36,7 @@ const stewardDecideNudged = new Set();
 // hunt2-steward ①:排队等槽位的用户回合(到达先后;只有排头能认领。见 runStewardTurn 的等待循环)。
 const stewardUserWaiters = [];
 async function runStewardTurn(input) {
+  const generation = stewardRunnerRuntime.conversationGeneration;
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
   const onEvent = typeof opts.onEvent === 'function' ? opts.onEvent : () => {};
@@ -43,7 +44,15 @@ async function runStewardTurn(input) {
   const config = await readConfig().catch(() => ({}));
   if (config.stewardEnabledV1 !== true) return stewardFail('steward.disabled', 'the workbench steward is disabled (stewardEnabledV1=false)');
 
+  if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') {
+    if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
   const circuit = await stewardCircuitCheck(config, trigger);
+  if (generation !== stewardRunnerRuntime.conversationGeneration) {
+    if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
   if (circuit) {
     if (trigger === 'inbox' && events.length) stewardRunnerRuntime.queue.push(...events);
     stewardRunnerRuntime.circuit = { ...circuit, at: nowIso() };
@@ -62,6 +71,10 @@ async function runStewardTurn(input) {
   let finishEntry = () => {};
   entry.promise = new Promise(resolve => { finishEntry = () => resolve(); });
 
+  if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') {
+    if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
   const inflight = stewardRunnerRuntime.inflight;
   if (trigger === 'inbox' && (inflight || stewardUserWaiters.length)) {
     // 有在途回合,或有用户的话正排着队(槽位刚空、它还没醒过来认领):收件箱批次回排,不插队。
@@ -90,6 +103,7 @@ async function runStewardTurn(input) {
     let waitedFor = inflight ? inflight.kind : 'user';
     try {
       for (;;) {
+        if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', '已开始新对话，排队消息已取消');
         const current = stewardRunnerRuntime.inflight;
         if (!current && stewardUserWaiters[0] === entry) break;
         const target = current || stewardUserWaiters[0];
@@ -521,6 +535,7 @@ function stewardHoldViewedEvents(batch) {
   return run;
 }
 function stewardScheduleInboxDrain() {
+  if (stewardRunnerRuntime.inflight?.kind === 'reset') return;
   if (stewardRunnerRuntime.stopped) return;
   if (!stewardRunnerRuntime.queue.length) return;
   // 116-4:去抖时长由【队列内容】决定,不由调用方决定 —— 五个调用点一行都不用改,新语义自动覆盖全部。
@@ -579,19 +594,75 @@ async function stewardTrimVisits() {
   }
 }
 
+// A reset occupies the existing runner slot. Older waiters observe the generation
+// change and cancel; inbox events remain queued for the next conversation.
+async function stewardResetConversation() {
+  const current = stewardRunnerRuntime.inflight;
+  if (current?.kind === 'reset') return current.promise;
+  stewardRunnerRuntime.conversationGeneration += 1;
+  const entry = { kind: 'reset', promise: null };
+  stewardRunnerRuntime.inflight = entry;
+  if (stewardRunnerRuntime.debounceTimer) {
+    clearTimeout(stewardRunnerRuntime.debounceTimer);
+    stewardRunnerRuntime.debounceTimer = null;
+    stewardRunnerRuntime.debounceMs = -1;
+  }
+  if (current) {
+    current.cancelled = 'reset';
+    if (current.kind === 'inbox') stewardRunnerRuntime.queue.push(...(current.events || []));
+    stewardAbortInflight(current);
+  }
+  entry.promise = (async () => {
+    try {
+      stopSession(STEWARD_SESSION_ID, 'reset');
+      if (current?.promise) {
+        let timer;
+        const settled = await Promise.race([
+          current.promise.then(() => true),
+          new Promise(resolve => { timer = setTimeout(() => resolve(false), 8000); }),
+        ]).finally(() => clearTimeout(timer));
+        if (!settled) {
+          // Keep the old turn in its slot until its own finally releases it.
+          stewardRunnerRuntime.inflight = current;
+          throw new Error('上一回合仍未停止，请稍后再开始新对话');
+        }
+      }
+      if (!await waitMissionTurnSettled(STEWARD_SESSION_ID)) throw new Error('上一回合仍未停止，请稍后再开始新对话');
+      const config = await readConfig();
+      const archive = await stewardArchiveConversation(config, stewardRunnerRuntime.visit.startedAt || nowIso(), { reset: true });
+      await writeSessionNotes(STEWARD_SESSION_ID, '');
+      stewardRunnerRuntime.lastReply = null;
+      stewardRunnerRuntime.noProgress = 0;
+      stewardRunnerRuntime.circuit = null;
+      _stewardReadBudget.delete(STEWARD_SESSION_ID);
+      stewardRunnerRuntime.visit.startedAt = nowIso();
+      stewardRunnerRuntime.visit.lastActivityAt = stewardRunnerRuntime.visit.startedAt;
+      logEvent({ kind: 'steward_conversation_reset', archived: archive.archived });
+      return { ok: true, archive, startedAt: stewardRunnerRuntime.visit.startedAt };
+    } catch (error) {
+      return stewardFail('steward.reset_failed', String(error?.message || error));
+    } finally {
+      if (stewardRunnerRuntime.inflight === entry) stewardRunnerRuntime.inflight = null;
+      stewardScheduleInboxDrain();
+    }
+  })();
+  return entry.promise;
+}
+
 // 按 stewardConversationRetention 归档管家会话历史。
 //   visit   : 整段归档后清空(默认,§8.1 原则 8「对话不是档案」);
 //   24h     : 只归档 24 小时前的消息,近 24 小时留在会话里;
 //   forever : 不归档不清空。
 // 返回 { archived, file, kept }。
-async function stewardArchiveConversation(config, startedAt) {
-  const retention = String((config && config.stewardConversationRetention) || 'visit');
+async function stewardArchiveConversation(config, startedAt, options = {}) {
+  const retention = options.reset === true ? 'visit' : String((config && config.stewardConversationRetention) || 'visit');
   if (retention === 'forever') return { archived: 0, file: '', kept: -1 };
   const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
   if (!session) return { archived: 0, file: '', kept: 0 };
+  if (options.generation !== undefined && options.generation !== stewardRunnerRuntime.conversationGeneration) throw new Error('conversation changed');
   const baseGen = Number(session.rewindGen) || 0;   // 128b:归档文件与截断必须基于同一份正文
   const messages = Array.isArray(session.messages) ? session.messages : [];
-  if (!messages.length) return { archived: 0, file: '', kept: 0 };
+  if (!messages.length && !options.reset) return { archived: 0, file: '', kept: 0 };
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   const keepFrom = retention === '24h'
     ? messages.findIndex(m => {
@@ -601,9 +672,9 @@ async function stewardArchiveConversation(config, startedAt) {
     : messages.length;
   const splitAt = keepFrom < 0 ? messages.length : keepFrom;
   const archived = messages.slice(0, splitAt);
-  if (!archived.length) return { archived: 0, file: '', kept: messages.length };
+  if (!archived.length && !options.reset) return { archived: 0, file: '', kept: messages.length };
   const at = nowIso();
-  const file = path.join(stewardVisitsDir(), stewardVisitFileName(startedAt || at));
+  const file = path.join(stewardVisitsDir(), options.reset ? stewardVisitFileName(at).replace('.json', '-' + makeId('reset') + '.json') : stewardVisitFileName(startedAt || at));
   await fsp.mkdir(stewardVisitsDir(), { recursive: true });
   await atomicWriteJson(file, {
     schema: STEWARD_VISIT_SCHEMA,
@@ -612,6 +683,7 @@ async function stewardArchiveConversation(config, startedAt) {
     archivedAt: at,
     retention,
     messages: archived,
+    ...(options.reset ? { sessionNotes: await readSessionNotes(STEWARD_SESSION_ID) } : {}),
   });
   // 正文按保留策略截断。providerHistory 与消息不是一一对应(工具轮次更多),整段清空是唯一
   // 安全的做法:留半截会让下一回合带着孤儿 tool_calls 去请求(strict provider 直接 400)。
@@ -622,6 +694,7 @@ async function stewardArchiveConversation(config, startedAt) {
   let truncated = false;
   try {
     const written = await mutateSession(STEWARD_SESSION_ID, fresh => {
+      if (options.generation !== undefined && options.generation !== stewardRunnerRuntime.conversationGeneration) return { abort: 'conversation_changed' };
       const now = Array.isArray(fresh.messages) ? fresh.messages : [];
       const samePrefix = now.length >= splitAt && archived.every((m, i) => now[i] && now[i].createdAt === m.createdAt && now[i].role === m.role);
       if (!samePrefix) return { abort: 'prefix_changed' };
@@ -629,14 +702,21 @@ async function stewardArchiveConversation(config, startedAt) {
       fresh.providerHistory = [];
       fresh.providerHistoryCursor = fresh.messages.length;
       fresh.autoCompactWatermark = 0;
+      if (options.reset) {
+        fresh.summary = '';
+        fresh.claudeSessionId = null;
+        fresh.attachments = [];
+        delete fresh.stewardTaint;
+      }
       kept = fresh.messages.length;
       return undefined;
-    }, { writer: 'steward_archive', expectGen: baseGen, saveOpts: { shrinkBody: true } });   // 有意截短:不让 saveSession 当旧副本补回
+    }, { writer: 'steward_archive', expectGen: baseGen, saveOpts: { shrinkBody: true, ...(options.reset ? { rewindBump: true, throwIfStale: true } : {}) } });   // 有意截短:不让 saveSession 当旧副本补回
     truncated = Boolean(written && written.ok);
   } catch { truncated = false; }
   if (!truncated) {
     await fsp.unlink(file).catch(() => {});
     logEvent({ kind: 'steward_archive_rolled_back', sessionId: STEWARD_SESSION_ID, archived: archived.length });
+    if (options.reset) throw new Error('conversation reset could not persist');
     return { archived: 0, file: '', kept: messages.length };
   }
   await stewardTrimVisits();
@@ -738,9 +818,11 @@ async function stewardPendingList() {
 }
 
 async function stewardVisit(opts) {
+  const generation = stewardRunnerRuntime.conversationGeneration;
   const options = (opts && typeof opts === 'object') ? opts : {};
   const config = await readConfig().catch(() => ({}));
   if (config.stewardEnabledV1 !== true) return stewardFail('steward.disabled', 'the workbench steward is disabled (stewardEnabledV1=false)');
+  if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') return stewardFail('steward.busy', '正在开始新对话');
   const idleMinutes = Math.max(1, Math.round(Number(config.stewardVisitIdleMinutes) || 60));
   const lastActivity = Date.parse(String(stewardRunnerRuntime.visit.lastActivityAt || ''));
   const idle = !Number.isFinite(lastActivity) || (Date.now() - lastActivity) > idleMinutes * 60 * 1000;
@@ -777,8 +859,9 @@ async function stewardVisit(opts) {
   // 「到访还没真正开始」,可以立刻重试),并把 archive.error 带进响应体供上层如实说人话。
   let visitOpened = newVisit;
   if (newVisit) {
-    archive = await stewardArchiveConversation(config, previousStartedAt || nowIso())
+    archive = await stewardArchiveConversation(config, previousStartedAt || nowIso(), { generation })
       .catch(error => ({ archived: 0, file: '', kept: -1, error: String((error && error.message) || error).slice(0, 300) }));
+    if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
     if (archive.error) {
       visitOpened = false;
       try { logEvent({ kind: 'steward_visit_archive_failed', error: archive.error }); } catch { /* 观测绝不反噬 */ }
@@ -797,6 +880,7 @@ async function stewardVisit(opts) {
     }
   }
   const digest = await stewardVisitDigest(sinceSeq, sinceFireSeq);
+  if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
   if (visitOpened) {
     stewardRunnerRuntime.visit.inboxSeq = digest.inboxSeq;   // 下次到访从这里往后归纳
     stewardRunnerRuntime.visit.fireSeq = digest.fireSeq;     // 123-M2:fires 那本账各走各的水位

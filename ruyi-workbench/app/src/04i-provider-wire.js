@@ -599,9 +599,19 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     completionUrl: baseUrl => providerCompletionUrl(baseUrl, false),
     modelsUrl: providerWireModelsUrl,
     requestHeaders: provider => providerRequestHeaders(provider),
-    encodeMessages: ({ model, messages, stream }) => (stream
-      ? { model, messages, stream, stream_options: { include_usage: true } }
-      : { model, messages, stream }),
+    encodeMessages: ({ model, messages, stream }) => {
+      // Signed Anthropic replay blocks belong to durable internal history only.
+      // Switching protocols must preserve chat/tool history without sending this
+      // private metadata to strict OpenAI-compatible servers.
+      const wireMessages = messages.map(message => {
+        if (!message || !Object.prototype.hasOwnProperty.call(message, 'providerBlocks')) return message;
+        const { providerBlocks, ...chatMessage } = message;
+        return chatMessage;
+      });
+      return stream
+        ? { model, messages: wireMessages, stream, stream_options: { include_usage: true } }
+        : { model, messages: wireMessages, stream };
+    },
     applyEffort: (body, effort) => { if (effort) body.reasoning_effort = effort; return body; },
     applyTemperature: setTemperature,
     applyTools: (body, tools) => { body.tools = tools; body.tool_choice = 'auto'; return body; },

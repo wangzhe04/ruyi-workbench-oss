@@ -299,7 +299,9 @@ export function createStewardShellDomain({
 
   function pollStewardState() {
     if (typeof api !== 'function') return;
+    const generation = conversation.conversationGeneration();
     Promise.resolve(api('/api/steward/state')).then(response => {
+      if (generation !== conversation.conversationGeneration() || conversation.resetInProgress()) return;
       if (!response || typeof response !== 'object') return;
       lastStateAt = Date.now();   // 117j W2-4：节拍水位。落在这里而不是函数头 —— C3b 逐字钉住了函数头那两行。
       const lastReply = (response.lastReply && typeof response.lastReply === 'object') ? response.lastReply : null;

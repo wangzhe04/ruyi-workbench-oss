@@ -995,7 +995,7 @@ export function createStewardConversation({
       if (result && result.ok === false) {
         // 117l-B2 ⑤：查表那一步搬进 stewardActErrorMessage（多一条 steward.queued 要插 wait.label），
         // 表外仍然落到 errGeneric 并把原始 error 原样带出去。
-        const message = stewardActErrorMessage(result.error, t)
+        const message = (stewardErrorCode(result.error) === 'invalid_request' ? stewardErrorText(result.message || result.error) : '') || stewardActErrorMessage(result.error, t)
           || t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) });
         showActProblem(actsRow, message);
         if (btn) {
@@ -1018,7 +1018,7 @@ export function createStewardConversation({
       const info = apiErrorInfo(error);
       const code = stewardErrorCode(info || error);
       const invalid = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(code);
-      showActProblem(actsRow, invalid ? stewardActErrorMessage(code, t) || t('stewardShell.chat.errUnavailableAct')
+      showActProblem(actsRow, invalid ? (code === 'invalid_request' ? stewardErrorText(info || error) : '') || stewardActErrorMessage(code, t) || t('stewardShell.chat.errUnavailableAct')
         : t('stewardShell.chat.actUnconfirmed'));
       if (btn) { if (isNavigationAct(act) && !invalid) btn.disabled = false; else { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); } }
     }
@@ -1415,6 +1415,10 @@ export function createStewardConversation({
   // 的时候用户再说一句，那句话【无声无息地消失】：不上屏、不排队、不报错，用户只看见自己敲的字被
   // 清空了。现在改成队列：第二句立刻上屏并标「排队中」，当前这条流收尾时按序发下一条。
   let streaming = false;
+  let conversationGeneration = 0;
+  let resetBusy = false;
+  let activeStreamController = null;
+  let activeStreamRow = null;
   const sendQueue = [];
 
   // 输入框旁那行小字（队列满时说「先等一等」）。它与抽屉的 note 落在两个不同的区域，但写法是
@@ -1459,7 +1463,7 @@ export function createStewardConversation({
 
   async function sendToSteward(text, opts = {}) {
     const message = String(text || '').trim();
-    if (!message) return null;
+    if (!message || resetBusy) return null;
     if (streaming) {
       if (sendQueue.length >= STEWARD_SEND_QUEUE_MAX) { composerNote(t('stewardShell.chat.queueFull')); return null; }
       const row = appendUser(message);
@@ -1472,11 +1476,15 @@ export function createStewardConversation({
   }
 
   async function runSend(message, opts, queuedRow) {
+    const generation = conversationGeneration;
+    const controller = new AbortController();
+    activeStreamController = controller;
     composerNote('');
     if (!queuedRow) appendAttachLine(appendUser(message), opts && opts.attachments);
     streaming = true;
     setPresence({ streaming: true, phase: 'thinking' });
     const row = appendTyping();
+    activeStreamRow = row;
     let sayNode = null;
     const tools = [];
     let reply = null;
@@ -1506,10 +1514,11 @@ export function createStewardConversation({
       // 133e：附件（/api/upload 的记录）随这句话一起走，服务端交给管家回合（与工作台 /api/chat/stream 的 attachments 同一条管线）。
       const atts = (opts && Array.isArray(opts.attachments) && opts.attachments.length) ? opts.attachments : null;
       const res = await fetch('/api/steward/message', {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ message, ...(hint ? { routeHint: hint } : {}), ...(atts ? { attachments: atts } : {}) }),
+        signal: controller.signal, method: 'POST', headers: authHeaders(), body: JSON.stringify({ message, ...(hint ? { routeHint: hint } : {}), ...(atts ? { attachments: atts } : {}) }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
       const takeLine = line => {
+        if (generation !== conversationGeneration) return;
         const trimmed = String(line || '').trim();
         if (!trimmed) return;
         let evt = null;
@@ -1524,10 +1533,12 @@ export function createStewardConversation({
       // 读流骨架唯一一份在 net.js（33 号文 §4）；尾行由它按「非空白才补发」的规矩交给 takeLine
       // —— 与原来那个 takeLine(buf) 等价（空白尾行本来就被 takeLine 自己丢掉）。
       await readNdjsonStream(res.body, takeLine);
+      if (generation !== conversationGeneration) return null;
       if (!reply) throw new Error('stream ended without steward_reply');
       finishReply(row, sayNode, reply, tools, message);
       return reply;
     } catch (error) {
+      if (generation !== conversationGeneration) return null;
       parkAvatar();   // W2-3 陷阱：这一行马上要被移除，头像若还在里面会一起没
       if (row && row.parentNode) { row.parentNode.removeChild(row); resealGroups(); }
       // 引擎不支持（409 的 JSON 信封在 error.message 里）：一句人话＋「改用某端点／去设置」，改完自动重发。
@@ -1551,6 +1562,9 @@ export function createStewardConversation({
       }
       return null;
     } finally {
+      if (generation !== conversationGeneration) return;
+      activeStreamController = null;
+      activeStreamRow = null;
       streaming = false;
       setPresence({ streaming: false, phase: 'idle' });
       // 117l D3：这一条收尾了才轮到排队的下一条（按序发；不 await —— finally 里等下一条跑完
@@ -2125,10 +2139,12 @@ export function createStewardConversation({
   // 【同一条】增量，但**只推水位不画**——本回合的话此刻就在屏上（finishReply 刚画完），再画一遍
   // 正是要治的那个病。失败一律沉默：对不齐水位最坏只是下一次增量多画一遍，而 ③ 那道防御还在。
   async function alignWatermark() {
+    const generation = conversationGeneration;
     const since = String(lastRenderedAt || visitStartedAt || '');
     if (!since) return;
     let payload = null;
     try { payload = await api('/api/sessions/steward?since=' + encodeURIComponent(since)); } catch { return; }
+    if (generation !== conversationGeneration || resetBusy) return 0;
     const messages = (payload && payload.session && Array.isArray(payload.session.messages)) ? payload.session.messages : [];
     for (const message of messages) {
       const stampAt = String((message && message.createdAt) || '');
@@ -2137,10 +2153,12 @@ export function createStewardConversation({
   }
 
   async function appendSince(sinceIso) {
+    const generation = conversationGeneration;
     const since = String(sinceIso || lastRenderedAt || visitStartedAt || '');
     if (!since) return 0;
     let payload = null;
     try { payload = await api('/api/sessions/steward?since=' + encodeURIComponent(since)); } catch { return 0; }
+    if (generation !== conversationGeneration || resetBusy) return 0;
     const messages = (payload && payload.session && Array.isArray(payload.session.messages)) ? payload.session.messages : [];
     if (!messages.length) return 0;
     const rendered = renderHistorySince(messages, since);
@@ -2157,12 +2175,14 @@ export function createStewardConversation({
   }
 
   async function enterVisit() {
+    const generation = conversationGeneration;
     if (visitBusy) return null;
     if (!(state && state.config && state.config.stewardEnabledV1 === true)) return null;
     if (!syncEngineGate()) { renderEngineGate(); return null; }
     visitBusy = true;
     try {
       const visit = await api('/api/steward/visit', { method: 'POST', body: JSON.stringify({}) });
+      if (generation !== conversationGeneration || resetBusy) return null;
       if (!visit || visit.ok !== true) return null;
       visitStartedAt = String((visit.visit && visit.visit.startedAt) || '');
       const pending = Array.isArray(visit.pending) ? visit.pending : [];
@@ -2174,6 +2194,7 @@ export function createStewardConversation({
       if (visit.newVisit !== true) {
         try { history = await api('/api/sessions/steward'); } catch { history = null; }
       }
+      if (generation !== conversationGeneration || resetBusy) return null;
       const messages = (history && history.session && Array.isArray(history.session.messages)) ? history.session.messages : [];
       clearFeed();
       lastRenderedAt = '';   // 117j W2-4：整屏重画,水位跟着归零——下面的 renderHistorySince 会把它重新推上去
@@ -2199,7 +2220,7 @@ export function createStewardConversation({
       }
       return null;   // 到访失败不该让管家壳白屏：状态区已有 117a 的兜底，下次进壳再试
     } finally {
-      visitBusy = false;
+      if (generation === conversationGeneration) visitBusy = false;
     }
   }
 
@@ -2253,7 +2274,47 @@ export function createStewardConversation({
     stopUndoCountdown();
   }
 
+  async function startNewConversation() {
+    if (resetBusy) return;
+    resetBusy = true;
+    conversationGeneration += 1;
+    activeStreamController?.abort();
+    activeStreamController = null;
+    if (activeStreamRow?.parentNode) { parkAvatar(); activeStreamRow.parentNode.removeChild(activeStreamRow); resealGroups(); }
+    activeStreamRow = null;
+    for (const queued of sendQueue) markQueued(queued.row, false);
+    sendQueue.length = 0;
+    streaming = false;
+    visitBusy = false;
+    stopUndoCountdown();
+    const control = byId('stewardNewConversation');
+    if (control) control.disabled = true;
+    const input = byId('stewardComposerInput');
+    const send = byId('stewardComposerSend');
+    if (input) input.disabled = true;
+    if (send) send.disabled = true;
+    setPresence({ streaming: false, phase: 'idle' });
+    try {
+      const result = await api('/api/steward/reset', { method: 'POST', body: '{}' });
+      if (!result?.ok) throw new Error(stewardErrorText(result));
+      clearFeed();
+      visitStartedAt = String(result.startedAt || '');
+      lastRenderedAt = visitStartedAt;
+      entered = true;
+      appendSteward(t('stewardShell.chat.newConversationDone'), '');
+      composerNote('');
+    } catch (error) {
+      composerNote(t('stewardShell.chat.newConversationFailed') + ' ' + stewardErrorText(error));
+    } finally {
+      resetBusy = false;
+      if (control) control.disabled = false;
+      syncEngineGate();
+      input?.focus();
+    }
+  }
+
   function bindStewardConversation() {
+    byId('stewardNewConversation')?.addEventListener('click', startNewConversation);
     const avatar = byId('stewardAvatar');
     if (avatar) {
       const menu = el('div', 'steward-menu');
@@ -2384,6 +2445,8 @@ export function createStewardConversation({
     // 117j W2-4：壳层的状态轮询发现 lastReply 变了且 trigger==='inbox' 时调它（对话流的写口只有
     // 本模块，壳层不碰 feed 的 DOM）。
     appendSince,
+    conversationGeneration: () => conversationGeneration,
+    resetInProgress: () => resetBusy,
     detailsEnabled: () => detailsOn,
     visitStartedAt: () => visitStartedAt,
   });
