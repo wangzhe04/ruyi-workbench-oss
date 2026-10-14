@@ -365,6 +365,7 @@ function buildOpenAiTools(config, caps, opts) {
 }
 // Risk tier per tool → drives permission gating in the native loop (read = auto-allow).
 const NATIVE_TOOL_TIER = {
+  threads_search: 'read', thread_read: 'read',
   permission_prompt: 'exec', // CLI 权限桥(由 --permission-prompt-tool 触达);原靠 unknown→exec 兜底,第41波显式化
   workbench_memory_list: 'read', workbench_memory_read: 'read', workbench_memory_propose: 'read',
   workbench_memory_relation_propose: 'read', workbench_memory_revise: 'read', workbench_memory_relation_revoke: 'read',
@@ -567,6 +568,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
 // file_read 不进:分包对文件类说法的召回本就高(文件/目录/路径/代码/项目/查看/搜索…),tool-loading e2e 也用它钉「按需注入」。
 const PROVIDER_STARTER_TOOLS = Object.freeze(['web_search', 'web_fetch', 'powershell_run']);
 const NATIVE_TOOL_PACKS = Object.freeze({
+  threads_search: 'memory', thread_read: 'memory',
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
   workbench_memory_list: 'core', workbench_memory_read: 'core', workbench_memory_propose: 'core',
   // N8: 三个记忆维护工具(关系边提议/修订/撤销边,合计 ≈3.1K 字符)很少用,不必每回合都带:归 memory 包,
@@ -675,6 +677,8 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   playbook_list: { capabilities: ['playbook.catalog.list'], aliases: ['列出预置流程', '有哪些流程模板', '查看 playbook 清单', 'list playbooks'] },
   playbook_read: { capabilities: ['playbook.steps.read'], aliases: ['读取预置流程步骤', '流程模板填参', '查看 playbook 步骤', 'read playbook steps'] },
   skill_list: { capabilities: ['skill.catalog.list'], aliases: ['列出可用技能', '有哪些技能', '查看技能清单', 'list installed skills'] },
+  threads_search: { capabilities: ['chat.history.search'], aliases: ['上次聊天记录', '查找其他聊天', '搜索线程', 'previous chat', 'chat history search'] },
+  thread_read: { capabilities: ['chat.history.read'], aliases: ['读取聊天记录', '回读旧历史', '另一个线程', 'read chat history'] },
   workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
   checkpoint_list: { capabilities: ['workspace.checkpoint.list'], aliases: ['查看检查点', '可撤销的修改', '哪些改动能撤销', '已撤销的修改', 'list checkpoints', 'what can be undone'] },
   observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
@@ -829,6 +833,7 @@ function classifyToolPacks(message, attachments) {
   if (/(mcp|连接器|工具配置|浏览器目标|browser target|connector|tool config)/i.test(s)) add('integrations');
   // 「偏好 / preference」不再单独装 memory 包:记下一条偏好用的是 core 里的 workbench_memory_propose,memory 包是关系边 /
   // 修订 / 撤销这几件维护工具;修前「这两家模型谁更强…偏好」这类话题词就把它带进来、跟着整个会话。
+  if (/(上次|接着|另一个线程|其他聊天|其它聊天|聊天记录|对话历史|previous chat|another thread|chat history|continue.*thread)/i.test(s)) add('memory');
   if (/(记住|记忆|以后别忘|修订记忆|更正记忆|过时|关系边|remember|memorize|memory|memories|recall|outdated|supersede|contradict)/i.test(s)) add('memory');
   if (/(思考|推理|分析|对比|决策|规划|方案|权衡|think|reason|analy|compare|decide|plan|strateg)/i.test(s)) add('thinking');
   return [...packs];

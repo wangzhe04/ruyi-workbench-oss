@@ -20,15 +20,15 @@ const plan = (task, extra = {}) => ({ scope: 'main', trigger: 'auto', task, kept
 
 test('[C1] 重复 L2 不嵌套旧摘要', () => {
   const first = srv.CompactionPlan.reseed(plan({ role: 'user', content: 'TASK0: build X' }), 'SUMMARY-1');
-  assert.match(first[0].content, /^原始任务\(保持聚焦\):\nTASK0: build X\n\n【压缩摘要】\nSUMMARY-1$/);
+  assert.match(first[0].content, /^最初请求\(仅作历史来源,是否仍有效以摘要目标为准\):\nTASK0: build X\n\n【压缩摘要】\nSUMMARY-1/);
   const second = srv.CompactionPlan.reseed(plan(first[0]), 'SUMMARY-2');
   const third = srv.CompactionPlan.reseed(plan(second[0]), 'SUMMARY-3');
   for (const [i, msg] of [second[0], third[0]].entries()) {
-    assert.equal((msg.content.match(/原始任务/g) || []).length, 1, `第 ${i + 2} 次:原始任务只出现一次`);
+    assert.equal((msg.content.match(/最初请求/g) || []).length, 1, `第 ${i + 2} 次:历史来源只出现一次`);
     assert.equal((msg.content.match(/【压缩摘要/g) || []).length, 1, `第 ${i + 2} 次:只有最新的一份摘要`);
     assert.ok(msg.content.includes('TASK0: build X'), '原始任务正文还在');
   }
-  assert.ok(third[0].content.endsWith('SUMMARY-3') && !third[0].content.includes('SUMMARY-1') && !third[0].content.includes('SUMMARY-2'));
+  assert.ok(third[0].content.includes('SUMMARY-3') && !third[0].content.includes('SUMMARY-1') && !third[0].content.includes('SUMMARY-2'));
   assert.ok(third[0].content.length <= first[0].content.length + 5, '长度不随压缩次数增长');
   // 强压的标题也认
   const forced = srv.CompactionPlan.reseed(plan({ role: 'user', content: 'T' }, { trigger: 'forced_400' }), 'S-F');

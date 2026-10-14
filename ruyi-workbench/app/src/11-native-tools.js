@@ -3829,7 +3829,7 @@ async function writeWebCache(entry) {
     await evictWebCacheOverCap();
   } catch { /* best-effort cache write; never fail the fetch on a cache error */ }
 }
-// 缓存条目现在存完整抽取文本(≤40 万字符,重定向后还有第二份),没有上限会无限长。这里是【硬兜底】:超过 WEB_CACHE_HARD_MAX_ENTRIES
+// 缓存条目现在存完整抽取文本(既有下载硬界内,重定向后还有第二份),没有上限会无限长。这里是【硬兜底】:超过 WEB_CACHE_HARD_MAX_ENTRIES
 // (WCW_WEBCACHE_HARD_MAX 可覆写,测试缝)条就按 mtime 删最旧的;用户配的 storagePolicy.webcacheMaxEntries(可更小)仍由 storageSweep 管。
 const WEB_CACHE_HARD_MAX_ENTRIES = 2000;
 async function evictWebCacheOverCap() {
@@ -4267,19 +4267,32 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
 
 // web_fetch tool body. SSRF-guarded fetch → charset decode → main-text extraction → cache write. On a fetch failure
 // (offline), falls back to the on-disk cache (fromCache:true) so an air-gapped session can still reuse a prior fetch.
-// NE-9:缓存存【完整】抽取文本(上限 WEB_CACHE_MAX_CHARS),maxChars / offset 只在返回值里切 —— 修前存的是 maxChars 切过的片段,
+// NE-9:缓存存【完整】抽取文本(下载的既有源字节硬界内),maxChars / offset 只在返回值里切 —— 修前存的是 maxChars 切过的片段,
 // 一次 maxChars:500 的调用会把整页缓存覆盖成 500 字,之后离线读到的还标 truncated:false。offset>0 的翻页请求在缓存足够新
 // (WEB_FETCH_PAGE_TTL_MS)时直接读缓存,不重抓、也不会因页面中途变化错位。
+// Same 52K serialized page budget as native file reads: leave 8K for wrappers and proxy notes.
+const READ_PAGE_JSON_BUDGET = 52000;
+function boundedReadPage(full, offset, maxChars, build) {
+  const text = String(full || '');
+  const start = Math.min(text.length, Math.max(0, Math.floor(Number(offset) || 0)));
+  const safeEnd = end => end > start && end < text.length && /[\uD800-\uDBFF]/.test(text[end - 1]) ? end - 1 : end;
+  let end = safeEnd(Math.min(text.length, start + maxChars));
+  let result = build(text.slice(start, end), end, start);
+  if (JSON.stringify(result).length <= READ_PAGE_JSON_BUDGET) return result;
+  let low = start, high = end;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    const candidateEnd = safeEnd(middle);
+    const candidate = build(text.slice(start, candidateEnd), candidateEnd, start);
+    if (JSON.stringify(candidate).length <= READ_PAGE_JSON_BUDGET) low = middle;
+    else high = middle - 1;
+  }
+  end = safeEnd(low);
+  return build(text.slice(start, end), end, start);
+}
 const WEB_FETCH_DEFAULT_CHARS = 20000;
 const WEB_FETCH_MAX_CHARS = 60000;            // 与工具结果 ~60K 的上限对齐:再大只会被截头
-const WEB_CACHE_MAX_CHARS = 400000;
 const WEB_FETCH_PAGE_TTL_MS = 10 * 60 * 1000;
-// 从完整文本切出 [offset, offset+maxChars) 一页;不在代理对(surrogate pair)中间切。
-function webFetchSlice(full, offset, maxChars) {
-  let end = Math.min(full.length, offset + maxChars);
-  if (end < full.length && end > offset) { const c = full.charCodeAt(end - 1); if (c >= 0xd800 && c <= 0xdbff) end -= 1; }
-  return { text: full.slice(offset, end), end };
-}
 // 只列出本页 text 里真出现了 [n] 标记的链接,总长有预算,避免把整页的链接表都塞进每一页。
 function webFetchPageLinks(pageText, links) {
   const out = [];
@@ -4305,25 +4318,32 @@ async function webFetch(args = {}, opts = {}) {
   // 一页 = 缓存条目的一个切片;live / cache 共用同一个出口,保证 truncated / nextOffset 的口径一致。
   const pageOf = (entry, extra) => {
     const full = String(entry.text || '');
-    const { text, end } = webFetchSlice(full, offset, maxChars);
-    const more = end < full.length;
-    const res = { ok: true, url: entry.url || url, title: entry.title || '', text, offset, totalChars: full.length,
-      truncated: more || entry.truncated === true, ts: entry.ts || null };
-    if (more) res.nextOffset = end;
-    if (entry.contentType) res.contentType = entry.contentType;
-    if (entry.charset) res.charset = entry.charset;
-    if (entry.warning) res.warning = entry.warning;
-    if (entry.note) res.note = entry.note;
-    if (entry.sourceTruncated) res.sourceTruncated = true;
-    const pl = webFetchPageLinks(text, entry.links);
-    if (pl.links.length) { res.links = pl.links; if (pl.linksTruncated) res.linksTruncated = true; }
-    if (offset > 0 && offset >= full.length) res.note = res.note || `offset 超出正文长度(${full.length} 字符)`;
-    return Object.assign(res, extra);
+    const oldPartialCache = entry.truncated === true;
+    return boundedReadPage(full, offset, maxChars, (text, end, start) => {
+      const more = end < full.length;
+      const res = { ok: true, url: entry.url || url, title: entry.title || '', text, offset: start, totalChars: full.length,
+        truncated: more || entry.sourceTruncated === true || oldPartialCache, ts: entry.ts || null, ...extra };
+      if (more) res.nextOffset = end;
+      for (const key of ['contentType', 'charset', 'warning', 'note']) if (entry[key]) res[key] = entry[key];
+      if (oldPartialCache) {
+        res.sourceTruncated = true;
+        res.note = '旧缓存只保存了部分正文;totalChars 是已保存量,不是整页总量。';
+        res.hint = '可用 nextOffset 读完已保存部分;末页无 nextOffset。需要全文时联网重新抓取,或 http_download 保存后 file_read 分段读;不要重复当前 offset。';
+      } else if (entry.sourceTruncated) {
+        res.sourceTruncated = true;
+        res.hint = '源响应超过下载读取上限,这里只保留已抓到的部分;totalChars 是已抓取文本长度,不是整页总量。需要其余内容时用 http_download 保存完整响应,再 file_read 分段读取;不要重复当前 offset。';
+      }
+      const pl = webFetchPageLinks(text, entry.links);
+      if (pl.links.length) res.links = pl.links;
+      if (pl.linksTruncated) res.linksTruncated = true;
+      if (offset > 0 && offset >= full.length) res.note = res.note || `offset 超出正文长度(${full.length} 字符)`;
+      return res;
+    });
   };
   if (offset > 0) {
     const hit = await readWebCache(url);
     const age = hit && hit.ts ? Date.parse(hit.ts) : NaN;
-    if (hit && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
+    if (hit && hit.truncated !== true && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
   }
   const got = await httpGetGuarded(url, { totalTimeoutMs: 30000, signal: (opts && opts.signal) || null });
   if (got.ok && got.body) {
@@ -4342,17 +4362,16 @@ async function webFetch(args = {}, opts = {}) {
     } else {
       text = dec.text.replace(/\r\n?/g, '\n').replace(/^﻿/, '');
     }
-    const cacheClipped = text.length > WEB_CACHE_MAX_CHARS;
-    const entry = { url: finalUrl, title, text: cacheClipped ? text.slice(0, WEB_CACHE_MAX_CHARS) : text, links, ts: nowIso(),
+    const entry = { url: finalUrl, title, text, links, ts: nowIso(),
       contentType: kind.type || null, charset: dec.charset, ...(dec.warning ? { warning: dec.warning } : {}), ...(note ? { note } : {}),
-      ...(got.truncated ? { sourceTruncated: true } : {}), ...(cacheClipped ? { truncated: true } : {}) };
+      ...(got.truncated ? { sourceTruncated: true } : {}) };
     await writeWebCache(entry);
     if (url !== finalUrl) await writeWebCache(Object.assign({}, entry, { url })); // 重定向后按请求网址也能命中(离线回退 / 翻页都按请求网址查)
     // v1.1-W1a (T2): a real successful fetch is fresh proof we are online — nudge the capability cache so a
     // stale/single-target offline reading gets corrected for free.
     markNetworkOnline();
     // 本次调用直接用完整文本切页(不受缓存上限影响),truncated 含「源体被 2MB 上限截断」。
-    return pageOf(Object.assign({}, entry, { text, truncated: got.truncated === true }), { fromCache: false, ...(got.viaProxy ? { viaProxy: true } : {}) });
+    return pageOf(entry, { fromCache: false, ...(got.viaProxy ? { viaProxy: true } : {}) });
   }
   // A guard-level block during a redirect hop → surface it as blocked, do NOT serve cache.
   if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
@@ -4841,6 +4860,9 @@ async function httpRequest(args = {}, opts = {}) {
         // 按 maxBodyChars 切掉的也算截断:修前只有字节硬上限才置 truncated,30 万字的响应切成 20 万字还报 truncated:false。
         out.truncated = truncated || text.length > maxChars;
         if (text.length > maxChars) out.totalChars = text.length;
+        if (out.truncated) out.hint = method === 'GET'
+          ? '原响应省略部分未保留;网页请用 web_fetch 的 nextOffset 分页,或 http_download 保存后 file_read 分段读。'
+          : '原响应省略部分未保留,重试不是续读;非幂等请求不要为补读自动重发。';
         if (dec.charset && dec.charset !== 'utf-8') out.charset = dec.charset;
         if (dec.warning) out.warning = dec.warning;
       }

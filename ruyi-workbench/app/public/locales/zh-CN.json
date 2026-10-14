@@ -1873,6 +1873,8 @@
   "tools.verb.archive_unzip": "解压缩",
   "tools.verb.archive_zip": "压缩打包",
   "tools.verb.audio_transcribe": "转写语音",
+  "tools.verb.threads_search": "搜索线程",
+  "tools.verb.thread_read": "读取聊天记录",
   "tools.verb.audio_inspect": "分析音频",
   "tools.verb.media_probe": "检查媒体依赖",
   "tools.verb.code_check": "检查代码语法",

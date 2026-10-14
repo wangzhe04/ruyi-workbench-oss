@@ -401,6 +401,14 @@ async function stewardMemoryPanelExport() {
 // 消费者(13-http-router 的路由链、13-http-router 的关服收尾、116c 的管家工具 handler)全程只看
 // StewardHooks.*,从不直接依赖 13g —— 这就是「不新增前向边」的落地方式。
 Object.assign(StewardHooks, {
+  relatedThreads: threadRelatedThreads,
+  relationsIndex: threadRelationsIndex,
+  threadHistorySearch: async (args, ctx) => stewardImplThreadsSearch({ includeClosed: true, ...args }, ctx || {}, await readConfig()),
+  threadHistoryRead: async (args, ctx) => {
+    const session = (ctx && ctx.session) || await loadSession(process.env.WCW_SESSION_ID || '').catch(() => null);
+    if (!session) return stewardFail('invalid_request', 'thread_read requires a calling session');
+    return stewardImplThreadRead(args, { ...ctx, session }, await readConfig());
+  },
   handleApiRoutes: handleStewardApiRoutes,
   stopInbox: stopStewardInbox,
   inboxRead: stewardInboxRead,

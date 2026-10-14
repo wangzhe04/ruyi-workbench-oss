@@ -1187,13 +1187,26 @@ function sessionDisplayTitle(o) {
 // 116-2a: 可选第二参 config —— 给了(且是对象)就额外带出派生的 effectivePermissionMode。索引条目
 // 【不】传(listSessions 建索引时保持精简;它那条 `.map(sessionMeta)` 还会把数组下标当第二参喂进来,
 // 故这里必须严格判 typeof === 'object',否则下标 1、2… 会被当成 config 而算出一个假的生效档)。
+function sessionRecentUserRequest(o) {
+  // Derive from surviving display messages, never from compaction's synthetic user messages.
+  const messages = o && Array.isArray(o.messages) ? o.messages : null;
+  const recent = messages ? messages.findLast(message => message && message.role === 'user' && !(message.meta && message.meta.origin === 'agent_wake')) : (o && o.recentUserRequest);
+  if (!recent) return null;
+  const content = recent.content == null ? recent.text : recent.content;
+  const text = (Array.isArray(content) ? content.map(part => typeof part === 'string' ? part : part && part.text || '').join('\n') : String(content || '')).replace(/\s+/g, ' ').trim().slice(0, 240);
+  if (!text) return null;
+  return { text, ...(Number(recent.turnSeq) > 0 ? { turnSeq: Number(recent.turnSeq) } : {}), ...(recent.at || recent.createdAt ? { at: String(recent.at || recent.createdAt) } : {}) };
+}
 function sessionMeta(o, config) {
   const cfg = (config && typeof config === 'object') ? config : null;
+  const recentUserRequest = sessionRecentUserRequest(o);
   return {
     id: o.id,
     missionId: sessionMissionId(o), // 75a: stable Mission identity (== sessionId in 3.0; read-only derive for legacy)
     title: o.title,
+    ...(safeSessionId(o.relatedSessionId) ? { relatedSessionId: safeSessionId(o.relatedSessionId) } : {}),
     summary: o.summary || '',
+    ...(recentUserRequest ? { recentUserRequest } : {}),
     cwd: o.cwd,
     pinned: Boolean(o.pinned),
     createdAt: o.createdAt,
@@ -3648,6 +3661,9 @@ async function saveSession(session, opts) {
   // 头 = 运行时对象剥掉两个大数组 + 存储标记 + 计数(计数供 listSessions 兜底扫描/sessionMeta 不读正文)。
   const buildHeadPayload = () => {
     const head = { ...session };
+    const recentUserRequest = sessionRecentUserRequest(session);
+    if (recentUserRequest) head.recentUserRequest = recentUserRequest;
+    else delete head.recentUserRequest;
     delete head.messages;
     delete head.providerHistory;
     head.storageVersion = SESSION_STORAGE_VERSION;

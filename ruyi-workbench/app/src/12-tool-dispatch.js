@@ -547,13 +547,11 @@ const CORE_TOOL_HANDLERS = {
       const raw = Number(args && args.maxChars);
       const maxChars = Number.isFinite(raw) ? Math.min(OBSERVATION_RECALL_MAX_CHARS.max, Math.max(OBSERVATION_RECALL_MAX_CHARS.min, Math.round(raw))) : OBSERVATION_RECALL_MAX_CHARS.dflt;
       const original = String(result.content || '');
-      if (original.length <= maxChars) {
-        return { ok: true, content: original, toolCallId: result.toolCallId, rawRef: result.rawRef, originalChars: original.length, truncated: false };
-      }
-      const head = Math.floor(maxChars * 0.65);
-      const tail = maxChars - head;
-      return { ok: true, toolCallId: result.toolCallId, rawRef: result.rawRef, originalChars: original.length, truncated: true,
-        content: original.slice(0, head) + `\n[...${original.length - head - tail} chars omitted from a ${original.length}-char observation; re-call with a larger maxChars (max ${OBSERVATION_RECALL_MAX_CHARS.max}) if needed...]\n` + original.slice(-tail) };
+      return boundedReadPage(original, args && args.offset, maxChars, (content, end, offset) => ({
+        ok: true, content, toolCallId: result.toolCallId, rawRef: result.rawRef,
+        originalChars: original.length, totalChars: original.length, offset, truncated: end < original.length,
+        ...(end < original.length ? { nextOffset: end } : {}),
+      }));
   } },
   checkpoint_list: { paths: null, guardNote: "C4: 只读当前会话的检查点索引与撤销记录(index.json + reverts.json),不触文件路径、不回滚;sessionId 取自 ctx/WCW_SESSION_ID 而非参数,拿不到别的会话的检查点", handler: async (args, ctx) => {
       // 授权:会话归属只取 ctx / 桥 env,绝不接受 args 传入(与 observation_recall 同一做法)。
@@ -778,6 +776,8 @@ async function buildWorkbenchSelfStatus(args, ctx) {
 // paths 全部为 null:管家工具面不接受也不解析任何文件路径 —— 它「动如意」,不「动世界」。
 const STEWARD_GUARD_NOTE = '116c: 管家工具只操作如意自身账面(线程/待决/班组/用量/审计/管家记忆),不接受也不触碰任何文件路径;实现在 13g,开关(stewardEnabledV1)与会话身份(kind==="steward")双重 fail-closed';
 const STEWARD_TOOL_HANDLERS = {
+  threads_search: { paths: null, guardNote: '只读已有会话索引与摘要;排除管家会话', handler: async (args, ctx) => StewardHooks.threadHistorySearch(args, ctx) },
+  thread_read: { paths: null, guardNote: '只读已有会话;脱敏、分页及回合预算;排除管家会话', handler: async (args, ctx) => StewardHooks.threadHistoryRead(args, ctx) },
   steward_self_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.selfStatus(args, ctx) },
   steward_threads_search: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadsSearch(args, ctx) },
   steward_thread_status: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.threadStatus(args, ctx) },
@@ -968,7 +968,7 @@ const FILE_EDIT_MAX_BYTES = 50 * 1024 * 1024;   // file_edit 整文件进内存�
 const FILE_READ_CHAR_DEFAULT = 40000;
 const FILE_READ_CHAR_MAX = 50000;
 const FILE_READ_LINE_DEFAULT = 2000;
-const FILE_READ_JSON_BUDGET = (typeof TOOL_RESULT_CAP === 'number' ? TOOL_RESULT_CAP : 60000) - 8000;
+const FILE_READ_JSON_BUDGET = READ_PAGE_JSON_BUDGET;
 // 检查点「改前内容」:超过日志上限的不读进内存(只给一个 skippedBytes 标记,journalRecord 会如实记成 skipped)。
 async function fileToolBeforeForCheckpoint(p, size) {
   if (size > JOURNAL_MAX_BEFORE_BYTES) return { skippedBytes: size };
@@ -1333,7 +1333,7 @@ const FILE_TOOL_HANDLERS = {
         return result;
       }
       const na = buildNonAsciiReport(w.content, { baseLine: w.lineBase });
-      const result = { ok: true, path: p, content: finalContent(w.content), size: w.size, ...(w.totalChars != null ? { totalChars: w.totalChars } : {}),
+      const result = { ok: true, path: p, content: finalContent(w.content), offset: start, size: w.size, ...(w.totalChars != null ? { totalChars: w.totalChars } : {}),
         truncated: w.truncated, ...(w.truncated ? { nextOffset: w.nextOffset } : {}),
         ...(w.truncated && w.totalChars != null ? { remainingChars: w.totalChars - w.nextOffset } : {}),
         ...(w.truncated ? { hint: `还有更多内容;继续读请用 offset=${w.nextOffset}(或用 lineOffset/lineLimit 行模式按行读)` } : {}),

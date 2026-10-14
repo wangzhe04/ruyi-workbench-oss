@@ -142,6 +142,7 @@ async function stewardThreadDigestRows(config) {
     return missionTitles.get(missionId);
   };
   const rows = [];
+  const relations = StewardHooks.relationsIndex(await listSessions());
   const now = Date.now();
   const slices = index && Array.isArray(index.sessions) ? index.sessions : [];
   const liveIds = new Set(slices.map(slice => slice && slice.sessionId));
@@ -185,6 +186,7 @@ async function stewardThreadDigestRows(config) {
     const seatedBy = stewardSeatedByUser(sid) ? 'user' : null;
     rows.push({
       sessionId: sid,
+      relatedHead: head,
       seatedBy,
       // 116-pre(§8.12/§11.3):递话预判的 index 行要 missionId——3.0 里等于 sessionId(见下方注释),
       // 加在这里而不是 digest 里,因为 buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,
@@ -210,6 +212,7 @@ async function stewardThreadDigestRows(config) {
         state: derived.state,
         action: activeChildren.has(sid) ? '回合进行中' : (lastRun ? `班组 ${lastRun.status || ''}` : ''),
         lastSay: head.summary || '',
+        recentUserRequest: sessionMeta(head).recentUserRequest || null,
         // 116h:人话取 waitReasonFor 的 label(pendingCount > 0 时逐字仍是「等你(N 条待决)」,
         // 与 116f 的原措辞一致;新增的是等锁/等预算/等并发位三种)。
         waitReason: wait ? wait.label : '',
@@ -221,6 +224,10 @@ async function stewardThreadDigestRows(config) {
   // 排序:等你 > 进行中 > 其余,同档按最近更新在前(总览被裁时先保住最该看的那几条)。
   const rank = state => (state === 'needs_you' ? 0 : state === 'running' ? 1 : state === 'dispatching' ? 2 : 3);
   rows.sort((a, b) => rank(a.state) - rank(b.state) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  rows.forEach((row, i) => {
+    if (i < STEWARD_DIGEST_LIMITS.maxThreads) row.relatedThreads = StewardHooks.relatedThreads(row.relatedHead, relations);
+    delete row.relatedHead;
+  });
   return rows;
 }
 
@@ -322,12 +329,24 @@ function stewardOverviewBlock(rows, pack) {
     // 117l D5:总览行的名字用【显示名】。修前这里是原话 title —— 用户机器上十几条还没起名的线程
     // 于是被管家一律叫成「New session」。**digest.title 本身不动**:preroute 的词法打分吃的就是它
     // (见 stewardPrerouteIndexRows 处的原注释),把索引里的原话换掉等于把用户当时打的词抹了。
-    const line = buildStewardDigestLine({ ...row.digest, title: row.displayTitle || row.digest.title });
+    const base = buildStewardDigestLine({ ...row.digest, title: row.displayTitle || row.digest.title });
+    const request = row.digest && row.digest.recentUserRequest;
+    const activity = request ? ' · ' + pack.steward.activityRequest + stewardSanitizeText(redact(request.text)).slice(0, 80) : '';
+    // Related IDs are executable read targets: admit whole entries or omit them, never slice one.
+    const clueBudget = Math.floor(STEWARD_DIGEST_LIMITS.lineChars / 2);
+    const relatedEntries = [];
+    for (const item of (row.relatedThreads || []).slice(0, 2)) {
+      const entry = `${item.sessionId}(${(item.reasons || [])[0] || ''})`;
+      const candidate = ` · related: ${[...relatedEntries, entry].join(',')}`;
+      if (activity.length + candidate.length <= clueBudget) relatedEntries.push(entry);
+    }
+    const clue = activity + (relatedEntries.length ? ` · related: ${relatedEntries.join(',')}` : '');
+    const line = base.slice(0, STEWARD_DIGEST_LIMITS.lineChars - clue.length) + clue;
     if (used + line.length + 1 > STEWARD_DIGEST_LIMITS.totalChars) { folded += 1; continue; }
     lines.push(line);
     used += line.length + 1;
   }
-  const out = [pack.steward.overviewHeader, ...lines];
+  const out = [pack.steward.overviewHeader, pack.steward.activityGuidance, ...lines];
   if (folded > 0) out.push(pack.steward.overviewFolded({ threads: folded }));
   out.push(pack.steward.overviewMore);
   return out.join('\n');
@@ -393,7 +412,7 @@ async function stewardKnownWorkspaceRows(config) {
     }
     const shown = [];
     for (const meta of row.threads.slice(0, STEWARD_KNOWN_WORKSPACE_LIMITS.threadsPerRow)) {
-      shown.push({ title: sessionDisplayTitle(meta) || meta.title || '', missionTitle: await missionTitleOf(meta.missionId, meta.id) });
+      shown.push({ title: sessionDisplayTitle(meta) || meta.title || '', missionTitle: await missionTitleOf(meta.missionId, meta.id), recentUserRequest: meta.recentUserRequest, summary: meta.summary || '' });
     }
     rows.push({ label: row.label, isDefault: row.isDefault, write: row.write, note: row.note, owned: row.owned, user: row.user, lastActive: row.lastActive, threads: shown });
   }
@@ -427,7 +446,7 @@ function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
     if (note) tags.push(note);
     const threads = (Array.isArray(row.threads) ? row.threads : [])
       .slice(0, limits.threadsPerRow)
-      .map(t => pack.steward.workspaceThread({ title: clip(t && t.title, limits.threadTitleChars), missionTitle: clip(t && t.missionTitle, limits.threadTitleChars) }))
+      .map(t => pack.steward.workspaceThread({ title: clip(t && t.title, limits.threadTitleChars), missionTitle: clip(t && t.missionTitle, limits.threadTitleChars) }) + (t && t.recentUserRequest ? ' ' + pack.steward.activityRequest + clip(redact(t.recentUserRequest.text), 48) : '') + (t && t.summary ? ' ' + pack.steward.activityReply + clip(t.summary, 36) : ''))
       .filter(Boolean);
     // 一行太长就先少带几条线程(话题砍整条,不砍半句);连一条都不带还超,才截名字之外的尾巴。
     let line = pack.steward.workspaceRow({ name, tags, threads });
