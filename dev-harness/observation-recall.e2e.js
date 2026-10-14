@@ -122,7 +122,10 @@ function writeCfg(flags) {
   const cfgOn = srv.normalizeConfig({ runtimeObservationReducerV1: true, runtimeObservationRecallV1: true }).config;
   const toolsOn = srv.buildOpenAiTools(cfgOn, null, {});
   const recallTool = toolsOn.find(t => t.function && t.function.name === 'observation_recall');
-  ok(recallTool && /before answering/.test(recallTool.function.description) && /never conclude/.test(recallTool.function.description), 'U15 双开时 offer observation_recall 且工具描述含调用条件');
+  const recallDescription = recallTool && recallTool.function.description || '';
+  ok(recallTool && /reduced view/.test(recallDescription) && /exact earlier values/.test(recallDescription)
+    && /before answering/.test(recallDescription) && /omission is not absence/.test(recallDescription),
+    'U15 双开时 offer observation_recall:精确旧值先回读缩减原文,省略不等于不存在');
   const recallPrompt = srv.buildObservationRecallPrompt([{ role: 'tool', content: withHint.content }], cfgOn);
   ok(recallPrompt.includes(refDummy) && recallPrompt.includes('before answering') && srv.buildObservationRecallPrompt([{ role: 'tool', content: withHint.content }], cfgOff) === '', 'U15b recovery index 双开时携带 rawRef、默认关闭时为空');
   // 目录门:adaptiveCatalogForMcp 同样按开关隐藏
