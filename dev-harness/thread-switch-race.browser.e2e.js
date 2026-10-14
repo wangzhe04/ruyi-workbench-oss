@@ -71,6 +71,7 @@ const TITLES = { B: '后发先至那一条', C: '后来点的那一条' };
       'T0b 左栏两条线程都在');
 
     // 扣包:按 URL 分四种 —— 会话 B 的 GET、事件流、左栏取行、开机那一发会话列表。hold 集合里的一律扣下,其余放行。
+    const watchWrites = [];
     const hold = { session: false, sessionC: false, stream: false, missions: false, list: false };
     const held = { session: [], sessionC: [], stream: [], missions: [], list: [] };
     const sessionUrl = `/api/sessions/${ids.B}`;
@@ -85,6 +86,7 @@ const TITLES = { B: '后发先至那一条', C: '后来点的那一条' };
       return '';
     };
     fx.cdp.on('Fetch.requestPaused', async p => {
+      if (String(p.request?.method) === 'PATCH' && String(p.request?.url).split('?')[0].endsWith(sessionUrl)) watchWrites.push(p.request.postData || '');
       const kind = kindOf(String((p.request && p.request.url) || ''), String((p.request && p.request.method) || 'GET'));
       try {
         if (kind && hold[kind]) held[kind].push(p.requestId);
@@ -148,6 +150,11 @@ const TITLES = { B: '后发先至那一条', C: '后来点的那一条' };
     ok(Boolean(await waitServer(ids.B, row => Boolean(row && row.watched === false))), 'W1b 第一下的 PATCH 落了（服务端 watched=false）');
     for (let i = 0; i < 100 && !held.missions.length; i++) await sleep(50);
     ok(held.missions.length > 0, 'W1c 写完之后那一发取行（带着 watched=false）被扣在半路 —— 修前「忙」一直占到它回来');
+    // A title mutation invokes the existing thread-head observer while rows are still old.
+    await fx.evaluate(`(() => { const title = document.getElementById('sessionTitle'); title.textContent = title.textContent; return true; })()`);
+    await fx.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    const beforeSecond = await fx.evaluate(`Boolean(document.getElementById('threadStewardWatch').checked)`);
+    ok(beforeSecond === false, 'W1c2 旧行被扣时标题observer重画不许回勾刚关掉的开关');
     hold.missions = false;   // 之后的取行照常放行；扣着的那几发留到后面再放
     ok(await toggle(), 'W1d 这时再点一下（再交给它盯）');
     const second = await waitServer(ids.B, row => Boolean(row && row.watched === true), 100);
@@ -157,6 +164,7 @@ const TITLES = { B: '后发先至那一条', C: '后来点的那一条' };
     })()`, 200);
     ok(Boolean(second) && Boolean(settled),
       `W1 第二下没被吞：服务端 watched 回到 true（${Boolean(second)}），开关与管家条跟着是「盯着、你坐着」（${Boolean(settled)}）`);
+    ok(watchWrites.length === 2 && JSON.parse(watchWrites[0]).stewardWatch === false && JSON.parse(watchWrites[1]).stewardWatch === true, 'W1d2 两次真实点击分别PATCH false/true');
     // 探针：从这一刻起记下管家条与开关的每一次变化，再放行那几发扣着的旧回包。
     await fx.evaluate(`(() => {
       window.__bandLog = [];
@@ -197,9 +205,12 @@ const TITLES = { B: '后发先至那一条', C: '后来点的那一条' };
     // 扣住事件流：换一次视角再换回来 = 两次重连，第二次被扣住（此后推送与在场回执都进不来）。
     hold.stream = true;
     await fx.setLens('steward');
-    await fx.setLens('classic');
+    // Presence reconnects are debounced: wait for the first actual request before changing lens again.
     for (let i = 0; i < 100 && !held.stream.length; i++) await sleep(50);
-    ok(held.stream.length > 0, 'W2b 事件流重连被扣住（推送与在场回执此刻都到不了）');
+    const firstReconnectCount = held.stream.length;
+    await fx.setLens('classic');
+    for (let i = 0; i < 100 && held.stream.length <= firstReconnectCount; i++) await sleep(50);
+    ok(firstReconnectCount > 0 && held.stream.length > firstReconnectCount, 'W2b 事件流重连被扣住（推送与在场回执此刻都到不了）');
     hold.missions = true;
     const missionsBefore = held.missions.length;
     await fx.evaluate('(window.__w2.length = 0, true)');   // 换视角那两下也会重画，记录从点击这一刻起算

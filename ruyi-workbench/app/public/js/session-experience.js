@@ -1061,7 +1061,7 @@ function bindLiveEventStream() {
       if (name === 'thread.state' && data && typeof data.title === 'string' && data.sessionId === state.currentSession?.id) {
         state.currentSession.title = data.title;
         const node = $('sessionTitle');
-        if (node) { node.textContent = data.title; node.title = data.title; }
+        if (node && node.textContent !== data.title) { node.textContent = data.title; node.title = data.title; }
         // Keep the streaming message tree intact; rail rows refresh through their existing subscriber.
       }
       void pushLiveTurn(data && data.sessionId);
