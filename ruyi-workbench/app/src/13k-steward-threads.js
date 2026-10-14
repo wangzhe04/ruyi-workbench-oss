@@ -166,15 +166,6 @@ async function stewardInheritableCwd(stewardInheritRaw) {
 //   { ok:false, fail } —— 给了但不合法的参数(表外 cwd、不存在的 relatedSessionId),不静默回落。
 async function stewardResolveThreadCwd(stewardResolveArgs, stewardResolveConfig, stewardResolveMissionId) {
   const args = (stewardResolveArgs && typeof stewardResolveArgs === 'object') ? stewardResolveArgs : {};
-  // ① 明确给了。
-  const cwdCheck = stewardValidateCwd(args.cwd, stewardResolveConfig);
-  if (!cwdCheck.ok) return cwdCheck;
-  if (cwdCheck.cwd !== undefined) {
-    // 如意自己开的那个文件夹被人删了:原地建回来(路径是工作台自己派生、自己登记的;13t 的定时任务同一做法)。
-    // 用户的工作区不替他建 —— 那是他的地盘,修前也不查。
-    if (cwdCheck.owned) await fsp.mkdir(cwdCheck.cwd, { recursive: true }).catch(() => {});
-    return { ok: true, cwd: cwdCheck.cwd, source: 'explicit' };
-  }
   const relatedRaw = args.relatedSessionId == null ? '' : String(args.relatedSessionId).trim();
   const relatedId = relatedRaw ? safeSessionId(relatedRaw) : '';
   if (relatedRaw && !relatedId) return { ok: false, fail: stewardFail('invalid_request', 'invalid relatedSessionId') };
@@ -185,16 +176,25 @@ async function stewardResolveThreadCwd(stewardResolveArgs, stewardResolveConfig,
       return { ok: false, fail: stewardFail('not_found', `relatedSessionId ${relatedId} 不是一条线程;不确定就省掉它,不要重试同一个值`, { reason: 'related_not_found' }) };
     }
   }
+  // ① 明确给了。
+  const cwdCheck = stewardValidateCwd(args.cwd, stewardResolveConfig);
+  if (!cwdCheck.ok) return cwdCheck;
+  if (cwdCheck.cwd !== undefined) {
+    // 如意自己开的那个文件夹被人删了:原地建回来(路径是工作台自己派生、自己登记的;13t 的定时任务同一做法)。
+    // 用户的工作区不替他建 —— 那是他的地盘,修前也不查。
+    if (cwdCheck.owned) await fsp.mkdir(cwdCheck.cwd, { recursive: true }).catch(() => {});
+    return { ok: true, cwd: cwdCheck.cwd, source: 'explicit', relatedSessionId: relatedId };
+  }
   // ② 事项容器记着的工作区。
   if (stewardResolveMissionId) {
     const container = await readMissionContainer(stewardResolveMissionId).catch(() => null);
     const fromMission = container ? await stewardInheritableCwd(container.cwd) : '';
-    if (fromMission) return { ok: true, cwd: fromMission, source: 'mission' };
+    if (fromMission) return { ok: true, cwd: fromMission, source: 'mission', relatedSessionId: relatedId };
   }
   // ③ 相关线程:点名的那一条优先,其次同事项里最近动过的那一条。
   if (relatedHead) {
     const fromRelated = await stewardInheritableCwd(relatedHead.cwd);
-    if (fromRelated) return { ok: true, cwd: fromRelated, source: 'related' };
+    if (fromRelated) return { ok: true, cwd: fromRelated, source: 'related', relatedSessionId: relatedId };
   }
   if (stewardResolveMissionId) {
     const metas = await listSessions().catch(() => []);
@@ -203,11 +203,11 @@ async function stewardResolveThreadCwd(stewardResolveArgs, stewardResolveConfig,
       .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
     for (const meta of siblings) {
       const fromSibling = await stewardInheritableCwd(meta.cwd);
-      if (fromSibling) return { ok: true, cwd: fromSibling, source: 'mission_thread' };
+      if (fromSibling) return { ok: true, cwd: fromSibling, source: 'mission_thread', relatedSessionId: relatedId };
     }
   }
   // ④ 都没有 → 新开(调用方派生)。
-  return { ok: true, cwd: undefined, source: 'new' };
+  return { ok: true, cwd: undefined, source: 'new', relatedSessionId: relatedId };
 }
 
 // W7:事项容器第一次有了工作区,就记下来(之后这个事项里新开的线程走选择顺序第 ② 步)。
@@ -346,7 +346,47 @@ async function stewardDeriveThreadCwd(stewardDeriveTitle, stewardDeriveSessionId
   return await stewardClaimDerivedWorkspace(root, stewardWorkspaceSlug(stewardDeriveTitle, stewardDeriveSessionId));
 }
 
+// One ephemeral metadata grouping per lookup/overview; no history scan or separate store.
+function threadRelationsIndex(metas) {
+  const index = { byId: new Map(), missions: new Map(), workspaces: new Map(), sources: new Map() };
+  const add = (map, key, meta) => { if (!key) return; if (!map.has(key)) map.set(key, []); map.get(key).push(meta); };
+  for (const meta of (Array.isArray(metas) ? metas : [])) {
+    if (!meta || sessionMetaIsSteward(meta)) continue;
+    index.byId.set(meta.id, meta);
+    add(index.missions, sessionMissionId(meta), meta);
+    add(index.workspaces, stewardFoldWorkspacePath(stewardCanonWorkspacePath(meta.cwd)), meta);
+    add(index.sources, meta.relatedSessionId, meta);
+  }
+  return index;
+}
+function threadRelatedThreads(head, metas) {
+  const index = metas && metas.byId instanceof Map ? metas : threadRelationsIndex(metas);
+  const missionId = sessionMissionId(head);
+  const cwd = stewardFoldWorkspacePath(stewardCanonWorkspacePath(head && head.cwd));
+  const candidates = new Map();
+  const add = (rows, reason) => { for (const meta of rows || []) {
+    if (meta.id === head.id) continue;
+    if (!candidates.has(meta.id)) candidates.set(meta.id, { meta, reasons: [] });
+    candidates.get(meta.id).reasons.push(reason);
+  } };
+  const source = index.byId.get(head.relatedSessionId);
+  add(source ? [source] : [], 'source');
+  add(index.sources.get(head.id), 'derived');
+  add(index.missions.get(missionId), 'same_mission');
+  add(index.workspaces.get(cwd), 'same_workspace');
+  return [...candidates.values()].sort((a, b) => {
+    const rank = row => row.reasons.some(reason => reason === 'source' || reason === 'derived') ? 0 : row.reasons.includes('same_mission') ? 1 : 2;
+    return rank(a) - rank(b) || String(b.meta.updatedAt || '').localeCompare(String(a.meta.updatedAt || ''));
+  }).slice(0, 4).map(({ meta, reasons }) => ({
+    sessionId: meta.id, title: stewardSanitizeText(redact(String(meta.title || ''))), updatedAt: String(meta.updatedAt || ''), reasons,
+  }));
+}
+
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
+function stewardRecentUserRequest(o) {
+  const request = sessionMeta(o).recentUserRequest;
+  return request ? { ...request, text: stewardSanitizeText(redact(request.text)) } : null;
+}
 async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
   const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
@@ -357,6 +397,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
   const metas = await listSessions().catch(() => []);
   const byId = new Map(metas.map(meta => [meta.id, meta]));
+  const relations = threadRelationsIndex(metas);
 
   let ranked = [];        // [{ id, score }]
   let indexed = 0;
@@ -373,7 +414,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     // 退化词法:只看标题与摘要(不读正文),命中即按更新时间排序 —— 索引关着时仍然能找到线程。
     const needle = q.toLowerCase();
     ranked = metas
-      .filter(meta => (String(meta.title || '') + ' ' + String(meta.summary || '')).toLowerCase().includes(needle))
+      .filter(meta => (String(meta.title || '') + ' ' + String(meta.summary || '') + ' ' + String(meta.recentUserRequest && meta.recentUserRequest.text || '')).toLowerCase().includes(needle))
       .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
       .map(meta => ({ id: meta.id, score: 0 }));
     if (!degraded) degraded = 'lexical_fallback';
@@ -417,8 +458,10 @@ async function stewardImplThreadsSearch(args, ctx, config) {
         : deriveStewardThreadState({ kind: 'mission' }));
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
     const wsName = stewardWorkspaceNameOf(meta.cwd || (head && head.cwd), config, knownForNames);
+    const recentUserRequest = stewardRecentUserRequest(head || meta);
     results.push({
       sessionId: row.id,
+      relatedThreads: threadRelatedThreads(head || meta, relations),
       missionId,
       // 116g:命中的线程属于哪个【事项】。未归类线程这里是空串(事项标题就是线程标题,不重复说)。
       missionTitle: await missionTitleOf(missionId),
@@ -429,6 +472,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       stateLabel: derived.label,
       // 诚实:总览与搜索结果里的「最后一句」用会话摘要(= 助手原话经既有收尾裁剪),不做模型改写。
       lastAssistantText: stewardClipSay(meta.summary || (head && head.summary) || ''),
+      ...(recentUserRequest ? { recentUserRequest } : {}),
       updatedAt: String(meta.updatedAt || (head && head.updatedAt) || ''),
       score: Number(row.score) || 0,
       // W7:它在哪个工作区里(已知工作区的名字;不在任何一个里给末段名)。只加字段,缺 cwd 时不出现。
@@ -494,6 +538,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     title: stewardSanitizeText(head.title || ''),
     // W7:它在哪个工作区里 —— { name, ruyiOwned }(name 是已知工作区清单里的那个名字,可以原样填回
     // steward_thread_new 的 cwd;ruyiOwned = 如意自己开的文件夹)。缺 cwd 时为 null。只加字段。
+    relatedThreads: threadRelatedThreads(head, await listSessions()),
     workspace: stewardWorkspaceNameOf(head.cwd, config),
     kind: stewardDisplayKind(head),
     state: derived.state,
@@ -532,6 +577,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     turnSeq: Math.max(0, Number(head.turnSeq) || 0),
     updatedAt: String(head.updatedAt || ''),
     lastAssistantText: stewardClipSay(session ? stewardLastAssistantText(session) : (head.summary || '')),
+    recentUserRequest: stewardRecentUserRequest(session || head),
   };
 }
 
@@ -572,13 +618,13 @@ async function stewardImplThreadRead(args, ctx, config) {
   const tail = stewardClampInt(args.tail, 1, STEWARD_READ_TAIL_MAX, STEWARD_READ_TAIL_DEFAULT);
   const maxChars = stewardClampInt(args.maxChars, STEWARD_READ_CHARS_MIN, STEWARD_READ_CHARS_MAX, STEWARD_READ_CHARS_DEFAULT);
   const budgetChars = stewardClampInt(config.stewardReadBudgetChars, 4000, 400000, 48000);
-  const stewardSessionId = String((ctx.session && ctx.session.id) || 'steward');
+  const stewardSessionId = String((ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || 'steward');
   const bucket = stewardReadBucket(stewardSessionId, stewardTurnKeyOf(ctx));
   if (bucket.calls >= STEWARD_READ_CALLS_PER_TURN) {
-    return stewardFail('quota_exceeded', `steward_thread_read quota exhausted for this turn (${STEWARD_READ_CALLS_PER_TURN} deep reads); answer from the overview instead of retrying`);
+    return stewardFail('quota_exceeded', `thread read quota exhausted for this turn (${STEWARD_READ_CALLS_PER_TURN} deep reads); answer with already-read information`);
   }
-  if (bucket.chars >= budgetChars) {
-    return stewardFail('budget_exceeded', `steward read budget exhausted for this visit (${budgetChars} chars, stewardReadBudgetChars); answer from the overview instead of retrying`);
+  if (budgetChars - bucket.chars <= STEWARD_READ_ROW_OVERHEAD + STEWARD_READ_CLIP_MARK.length) {
+    return stewardFail('budget_exceeded', `thread read budget exhausted for this turn (${budgetChars} chars); answer with already-read information`);
   }
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
@@ -591,13 +637,12 @@ async function stewardImplThreadRead(args, ctx, config) {
 
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const turnSeqs = [...new Set(messages.map(m => Number(m && m.turnSeq)).filter(Number.isFinite))].sort((a, b) => a - b);
-  const wanted = new Set(turnSeqs.slice(-tail));
+  const eligibleTurns = args.beforeTurnSeq == null ? turnSeqs : turnSeqs.filter(seq => seq < Number(args.beforeTurnSeq));
+  const wanted = new Set(eligibleTurns.slice(-tail));
   const rows = [];
   for (const m of messages) {
     if (!m) continue;
     const seq = Number(m.turnSeq);
-    if (Number.isFinite(seq) && !wanted.has(seq)) continue;
-    if (!Number.isFinite(seq) && turnSeqs.length) continue; // 无 turnSeq 的历史消息在有回合号时跳过
     // 第二轮工具走查(F9):用户/助手正文也要先 redact 再中和 —— 用户在线程里随口贴的 sk-… / ghp_… 修前原样交给了
     // 管家模型(并进了那一轮的会话文件),而同一个函数对工具入参早就脱敏了。顺序照 stewardToolCallLine 的教训:
     // redact 在【之前】,后面按 maxChars 裁剪时不会把密钥切成半截让正则咬不到。
@@ -611,36 +656,44 @@ async function stewardImplThreadRead(args, ctx, config) {
       }
     }
   }
-  // 超出 maxChars 时从【最早】的行开始丢(最近的对话最有用),并如实标 truncated。
-  let used = 0, cut = rows.length;
-  for (let i = rows.length - 1; i >= 0; i--) {
-    used += rows[i].text.length + STEWARD_READ_ROW_OVERHEAD;
-    if (used > maxChars) { cut = i + 1; break; }
-    cut = i;
+  // Cursor addresses the sanitized row and an exclusive character boundary. Appends do not move it.
+  // Rewind/edit may change rows: restart the read after editing the history.
+  let rowIndex = rows.length - 1, end = null;
+  if (args.cursor != null) {
+    const match = /^(\d+):(\d+)$/.exec(String(args.cursor));
+    if (!match) return stewardFail('invalid_request', 'invalid cursor');
+    rowIndex = Number(match[1]); end = Number(match[2]);
+    if (!rows[rowIndex] || end > rows[rowIndex].text.length) return stewardFail('invalid_request', 'cursor no longer matches history; restart the read');
+  } else {
+    while (rowIndex >= 0 && rows[rowIndex].turnSeq != null && !wanted.has(rows[rowIndex].turnSeq)) rowIndex--;
   }
-  let kept = rows.slice(cut);
-  // 117s-H3(27 号文 §11.13.3 ④,真 bug):上面那个循环第一步就可能 `used > maxChars` —— 最新的那一行
-  // 单独超预算时 cut = rows.length,kept 直接是【空数组】,管家读一条 13000 字的交付得到 `rows: []`,
-  // 于是它只能回一句「读不到」。整行丢在「行很多、每行不长」时是对的,在「就一行、那一行很长」时是错的:
-  // 用户要的东西全在那一行里。修法 —— 最新一行单独超预算时截【它的尾巴】(结论一般在末尾),
-  // 前面补一个 '…' 说明前文被截掉了,并如实标 clippedRows:1(与整行丢的 truncated 分开报,两件事)。
-  let clippedRows = 0;
-  if (!kept.length && rows.length) {
-    const newest = rows[rows.length - 1];
-    const room = Math.max(1, maxChars - STEWARD_READ_ROW_OVERHEAD);
-    kept = [{ ...newest, text: STEWARD_READ_CLIP_MARK + newest.text.slice(-room) }];
-    clippedRows = 1;
+  const pageTurns = new Set();
+  const kept = [];
+  let room = Math.min(maxChars, budgetChars - bucket.chars), clippedRows = 0;
+  while (rowIndex >= 0 && room > STEWARD_READ_ROW_OVERHEAD + STEWARD_READ_CLIP_MARK.length) {
+    const row = rows[rowIndex];
+    if (!pageTurns.has(row.turnSeq) && pageTurns.size >= tail) break;
+    pageTurns.add(row.turnSeq);
+    const boundary = end == null ? row.text.length : end;
+    const start = Math.max(0, boundary - (room - STEWARD_READ_ROW_OVERHEAD - STEWARD_READ_CLIP_MARK.length));
+    const clipped = start > 0;
+    const text = (clipped ? STEWARD_READ_CLIP_MARK : '') + row.text.slice(start, boundary);
+    kept.unshift({ ...row, text, rowIndex, startChar: start, endChar: boundary });
+    room -= text.length + STEWARD_READ_ROW_OVERHEAD;
+    if (clipped) { end = start; clippedRows++; break; }
+    rowIndex--; end = null;
   }
   const chars = kept.reduce((n, r) => n + r.text.length, 0);
   bucket.chars += chars;
+  const hasMore = rowIndex >= 0;
+  const nextCursor = hasMore ? `${rowIndex}:${end == null ? rows[rowIndex].text.length : end}` : null;
   return {
-    ok: true,
-    sessionId,
-    tail,
-    turnSeqs: [...wanted].sort((a, b) => a - b),
-    truncated: cut > 0,
-    clippedRows,
-    chars,
+    ok: true, sessionId, title: stewardSanitizeText(redact(String(head.title || ''))), tail,
+    turnSeqs: [...pageTurns].filter(seq => seq != null).sort((a, b) => a - b),
+    truncated: hasMore, clippedRows, chars, hasMore, nextCursor,
+    recentUserRequest: stewardRecentUserRequest(session),
+    activityGuidance: getPromptPack(config && config.locale).steward.activityGuidance,
+    relatedThreads: threadRelatedThreads(head, await listSessions()),
     quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars },
     rows: kept,
   };
@@ -846,6 +899,7 @@ async function stewardImplThreadNew(args, ctx, config) {
     if (derivedCwd) session.cwd = derivedCwd;
     else cwdSource = 'default';
   }
+  if (cwdPick.relatedSessionId) session.relatedSessionId = cwdPick.relatedSessionId;
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
   session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
   // 117z-E2 提交①(27 号文 §11.21.3):【出身】标 —— 这条线程是管家自己开的。
@@ -1520,6 +1574,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
     if (quickDerivedCwd) session.cwd = quickDerivedCwd;
     else quickCwdSource = 'default';
   }
+  if (quickCwdPick.relatedSessionId) session.relatedSessionId = quickCwdPick.relatedSessionId;
   session.kind = STEWARD_QUICK_KIND;
   // 116-5a:速查线程建出来时 title 是【问题原话的前 N 个字】,那不是「人给的名字」而恰恰是本波要
   // 替换掉的东西。createSession 会因为它非占位而标上 titleSource:'user',这里清掉 —— 否则这条线程

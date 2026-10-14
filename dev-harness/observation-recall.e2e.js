@@ -69,8 +69,8 @@ function writeCfg(flags) {
   ok(r1.ok === true && r1.content === BIG && r1.originalChars === BIG.length && r1.truncated === false && r1.toolCallId === 'c1',
     'U1 happy path 逐字节还原原文');
   const r2 = await srv.toolCall('observation_recall', { rawRef, maxChars: 1000 }, ctx);
-  ok(r2.ok === true && r2.truncated === true && r2.content.length < BIG.length && r2.content.includes('chars omitted'),
-    'U2 maxChars=1000 head/tail 截断并标注');
+  ok(r2.ok === true && r2.truncated === true && r2.content.length < BIG.length && r2.content === BIG.slice(0, 1000) && r2.nextOffset === 1000,
+    'U2 maxChars=1000 连续前缀页并带 nextOffset');
   const r3 = await srv.toolCall('observation_recall', { rawRef: 'not-a-ref' }, ctx);
   ok(r3.ok === false && r3.error === 'invalid_ref', 'U3 伪造 rawRef → invalid_ref');
   const tampered = rawRef.slice(0, -1) + (rawRef.endsWith('0') ? '1' : '0');
@@ -122,7 +122,10 @@ function writeCfg(flags) {
   const cfgOn = srv.normalizeConfig({ runtimeObservationReducerV1: true, runtimeObservationRecallV1: true }).config;
   const toolsOn = srv.buildOpenAiTools(cfgOn, null, {});
   const recallTool = toolsOn.find(t => t.function && t.function.name === 'observation_recall');
-  ok(recallTool && /before answering/.test(recallTool.function.description) && /never conclude/.test(recallTool.function.description), 'U15 双开时 offer observation_recall 且工具描述含调用条件');
+  const recallDescription = recallTool && recallTool.function.description || '';
+  ok(recallTool && /reduced view/.test(recallDescription) && /exact earlier values/.test(recallDescription)
+    && /before answering/.test(recallDescription) && /omission is not absence/.test(recallDescription),
+    'U15 双开时 offer observation_recall:精确旧值先回读缩减原文,省略不等于不存在');
   const recallPrompt = srv.buildObservationRecallPrompt([{ role: 'tool', content: withHint.content }], cfgOn);
   ok(recallPrompt.includes(refDummy) && recallPrompt.includes('before answering') && srv.buildObservationRecallPrompt([{ role: 'tool', content: withHint.content }], cfgOff) === '', 'U15b recovery index 双开时携带 rawRef、默认关闭时为空');
   // 目录门:adaptiveCatalogForMcp 同样按开关隐藏

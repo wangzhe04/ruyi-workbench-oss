@@ -1314,6 +1314,7 @@
         "sessionObjectIsStale",
         "sessionOmittedProviderHistory",
         "sessionProviderHistoryLength",
+        "sessionRecentUserRequest",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
@@ -10261,6 +10262,7 @@
         "AGENT_WAKE_CHAIN_MAX",
         "AGENT_WAKE_DEBOUNCE_MS",
         "AGENT_WAKE_SOURCE",
+        "COMPACTION_HISTORY_PREFIX",
         "COMPACTION_PATH_ARG_KEYS",
         "COMPACTION_RAWREF_PATTERN",
         "COMPACTION_REFETCH_LIMITS",
@@ -10303,6 +10305,7 @@
         "OBSERVATION_REDUCE_MIN",
         "OBSERVATION_TEXT_HEAD",
         "OBSERVATION_TEXT_TAIL",
+        "PAGED_READING_TOOL_NAMES",
         "READ_DEDUP_PREFIX",
         "SESSION_NOTES_INJECT_MAX_CHARS",
         "SESSION_NOTES_SECTION_INDEXES",
@@ -10392,6 +10395,7 @@
         "historyStartsWithCompactionSummary",
         "historyUnitStarts",
         "isContextOverflowError",
+        "isContinuableReadResult",
         "isReducedObservationView",
         "lastAssistantTextOf",
         "lastSessionContextTokens",
@@ -12526,13 +12530,6 @@
           "symbol": "rehydrateObservation",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "TOOL_RESULT_CAP",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -17110,6 +17107,7 @@
         "stewardMediatesPermissions",
         "stewardMissionExists",
         "stewardQuickClose",
+        "stewardRecentUserRequest",
         "stewardRecordLaunchOutcome",
         "stewardRecordMissionWorkspace",
         "stewardRelayAutoAllowed",
@@ -17123,7 +17121,9 @@
         "stewardUnattendedByModel",
         "stewardValidateCwd",
         "stewardWorkspaceNameOf",
-        "stewardWorkspaceSlug"
+        "stewardWorkspaceSlug",
+        "threadRelatedThreads",
+        "threadRelationsIndex"
       ],
       "requires": [
         {
@@ -17275,6 +17275,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionMetaIsSteward",
           "kinds": [
             "call"
@@ -17374,6 +17381,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "getPromptPack",
           "kinds": [
             "call"
           ]
@@ -18370,6 +18384,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardSanitizeBlock",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
           "kinds": [
             "call"
@@ -18911,6 +18932,13 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
@@ -19121,6 +19149,7 @@
           "provider": "13k-steward-threads.js",
           "symbol": "stewardImplThreadRead",
           "kinds": [
+            "call",
             "read"
           ]
         },
@@ -19135,6 +19164,7 @@
           "provider": "13k-steward-threads.js",
           "symbol": "stewardImplThreadsSearch",
           "kinds": [
+            "call",
             "read"
           ]
         },
@@ -19155,6 +19185,20 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardQuickClose",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "threadRelatedThreads",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "threadRelationsIndex",
           "kinds": [
             "read"
           ]
@@ -19755,6 +19799,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMeta",
           "kinds": [
             "call"
           ]

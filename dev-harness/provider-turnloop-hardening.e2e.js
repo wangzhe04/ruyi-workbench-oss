@@ -33,6 +33,9 @@ const t = createRunner('PROVIDER TURNLOOP HARDENING');
 const { ok } = t;
 
 const contentText = c => (typeof c === 'string' ? c : Array.isArray(c) ? c.map(p => (p && p.text) || '').join('') : '');
+// Same request-kind boundary as session-scratchpad.e2e: steward context can quote any scenario's
+// recent user request, but its own tool directory identifies it independently of prompt wording.
+const isStewardReq = req => (req.tools || []).some(tool => tool && tool.function && String(tool.function.name || '').startsWith('steward_'));
 // 场景标记取「最后一条带标记的用户消息」:同一会话跨回合时两条标记都在历史里;插话、计划批准、产物自检
 // 这些后插的用户消息不带标记,跳过。
 function scenarioOf(messages) {
@@ -48,6 +51,7 @@ const hits = {};
 const fake = await startFakeProvider({
   async handler(req) {
     const msgs = req.messages;
+    if (isStewardReq(req)) return textFrames(JSON.stringify({ say: '', why: '', acts: [], actions: [] }));
     // 非流式的是辅助调用(线程起名等),不计入场景
     if (!req.stream || msgs.some(m => m && m.role === 'system' && /起名字/.test(contentText(m.content)))) return textFrames('{"title":"t","gist":"g"}');
     const scn = scenarioOf(msgs);
@@ -134,7 +138,8 @@ function stream(payload, onEvent) {
 }
 async function waitFor(pred, ms, step = 50) { for (let i = 0; i < ms / step; i++) { if (pred()) return true; await sleep(step); } return pred(); }
 const sessionIdOf = evs => { const s = evs.find(e => e.type === 'session'); return s && s.session && s.session.id; };
-const scnRequests = scn => fake.requests.filter(r => r.stream && scenarioOf(r.messages) === scn);
+const isScenarioRequest = (req, scn) => req.stream && !isStewardReq(req) && scenarioOf(req.messages) === scn;
+const scnRequests = scn => fake.requests.filter(r => isScenarioRequest(r, scn));
 // 配对连续性:每个 assistant.tool_calls 后面紧跟且恰好是它那几个 id 的 role:'tool'。
 function pairingOk(messages) {
   for (let i = 0; i < messages.length; i++) {
@@ -206,6 +211,7 @@ try {
 
   // ── [C] 计划审批挂着时看门狗豁免 ──
   {
+    const requestStart = fake.requests.length;
     const evs = [];
     let planEv = null;
     const p = stream({ message: 'SCN-C 做两件事', permissionMode: 'plan' }, e => { evs.push(e); if (e.type === 'plan') planEv = e; });
@@ -217,7 +223,14 @@ try {
     await Promise.race([p, sleep(15000)]);
     const res = evs.find(e => e.type === 'result');
     ok(res && res.ok === true && !res.errorClass, `C4 批准后回合继续并正常结束(实得 ${JSON.stringify(res)})`);
-    ok(scnRequests('C').length === 2 && !evs.some(e => e.type === 'stderr' && /watchdog/.test(e.text || '')), 'C5 批准后模型被再调一次,全程没有 watchdog 中止');
+    const cRequests = scnRequests('C');
+    const watchdogEvents = evs.filter(e => e.type === 'stderr' && /watchdog/.test(e.text || ''));
+    if (cRequests.length !== 2 || watchdogEvents.length) {
+      console.log('DIAG C5 ' + JSON.stringify({ count: cRequests.length, watchdogEvents, requestsDuringC: fake.requests.slice(requestStart).map(r => ({ stream: r.stream, steward: isStewardReq(r), scenario: scenarioOf(r.messages), taggedUsers: r.messages.filter(m => m.role === 'user' && /SCN-[A-Z0-9]+/.test(contentText(m.content))).map(m => { const text = contentText(m.content), at = text.search(/SCN-[A-Z0-9]+/); return text.slice(Math.max(0, at - 100), at + 180); }) })) }));
+    }
+    ok(cRequests.length === 2 && !watchdogEvents.length, `C5 批准后模型被再调一次,全程没有 watchdog 中止(实得 ${cRequests.length} 次,watchdog=${watchdogEvents.length})`);
+    const quotedScenario = { stream: true, messages: [{ role: 'user', content: '近期诉求:SCN-C 做两件事' }], tools: [{ type: 'function', function: { name: 'steward_thread_read' } }] };
+    ok(!isScenarioRequest(quotedScenario, 'C') && isScenarioRequest({ ...quotedScenario, tools: [{ type: 'function', function: { name: 'file_read' } }] }, 'C'), 'C6 管家引用SCN不计入任务调用,普通及子代理工具目录仍可计数');
   }
 
   // ── [D] 一批工具中途停止 → 收尾补配对,下一回合没有误导的修复消息 ──

@@ -380,7 +380,7 @@
         "window": 10000
       }
     },
-    "promptSha256": "86353cec02ed8fcc26a3a30c82fd21b97fbb4f9c82533bc065f7836b916dfca4",
+    "promptSha256": "6ee4db6e1ecfae055df0c8a7b4b246f8028df7ce08eba701ab119b7f9778397e",
     "requiredSections": [
       [
         "【目标】",
@@ -412,12 +412,12 @@
       ]
     ],
     "reseedSha256": {
-      "forced400": "41c7d159eab1660491662b032672f7327337db550f36ec739d87f971846ec2e5",
-      "main": "e1241acb95b6c1f4e5cd313828ae5e92d2177a178c946c43d9596be9de8814d8",
+      "forced400": "93442888fea0f6ec60a8f0f93ad3697e8ca7e5a7b8b98b1f447ff572026f6581",
+      "main": "9207158d2eeec4ec9f7f9df07070053de4518247b1ee7b02a4d7bbeeb606ce47",
       "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
     },
     "ruleSchema": 1,
-    "rulesSha256": "aa5bd2c9d25fc3ae037d36812aecd00d9194e83ce9b8326e8568f60ae89da506"
+    "rulesSha256": "d98816aa674b30a0aae9b16112d91b3efa665442cf09ae4cd4a4e056e9ab8b43"
   },
   "permission": {
     "modes": [
@@ -427,13 +427,13 @@
       "auto",
       "bypass"
     ],
-    "nativeToolCount": 118,
+    "nativeToolCount": 120,
     "tierCounts": {
       "edit": 26,
       "exec": 24,
-      "read": 68
+      "read": 70
     },
-    "tierMapSha256": "fd39d1fbb85f0ba2cde3ce922536bf8082ed876ff4c70afb98525613dd9477cd"
+    "tierMapSha256": "588e2b838479f9e69f46d99a9aed9a19d1928b94eb687e96496afc6923483cce"
   },
   "persistence": {
     "durableJsonStoreApi": [

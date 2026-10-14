@@ -249,6 +249,44 @@ test('[C5] 缓存存完整文本;maxChars / offset 翻页;离线读缓存与翻�
   assert.equal(offSmall.nextOffset, 500);
 });
 
+test('[C5] 旧截断缓存联网优先重抓;离线仍可分页读完已保存部分', async () => {
+  let hits = 0;
+  const fresh = '完整网络正文'.repeat(300);
+  const server = http.createServer((req, res) => { hits++; res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }); res.end(fresh); });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const saved = '旧缓存的有用正文'.repeat(200);
+  try {
+    for (const sourceTruncated of [false, true]) {
+      const url = base + '/online-' + sourceTruncated;
+      await srv.writeWebCache({ url, text: saved, ts: new Date().toISOString(), truncated: true, ...(sourceTruncated ? { sourceTruncated: true } : {}) });
+      const page = await srv.webFetch({ url, offset: 500, maxChars: 500 });
+      assert.equal(page.fromCache, false, '旧truncated条目不直接冒充完整新鲜缓存');
+      assert.equal(page.text, fresh.slice(500, 1000));
+      assert.equal((await srv.readWebCache(url)).text, fresh);
+    }
+    assert.equal(hits, 2);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+  for (const sourceTruncated of [false, true]) {
+    const url = base + '/offline-' + sourceTruncated;
+    await srv.writeWebCache({ url, text: saved, ts: new Date().toISOString(), truncated: true, ...(sourceTruncated ? { sourceTruncated: true } : {}) });
+    assert.equal((await srv.readWebCache(url)).text, saved, '旧副本不丢弃');
+    let offset = 0, joined = '', last;
+    do {
+      last = await srv.webFetch({ url, offset, maxChars: 500 });
+      assert.equal(last.ok, true); assert.equal(last.fromCache, true);
+      assert.equal(last.sourceTruncated, true); assert.equal(last.totalChars, saved.length);
+      assert.match(last.note, /旧缓存.*部分正文/); assert.match(last.hint, /http_download.*file_read/);
+      joined += last.text;
+      if (last.nextOffset !== undefined) assert.equal(last.nextOffset, offset + last.text.length);
+      offset = last.nextOffset;
+    } while (offset !== undefined);
+    assert.equal(joined, saved, '离线可取回所有已保存正文');
+    assert.equal(last.truncated, true, '末页仍披露整页不完整');
+    assert.equal(last.nextOffset, undefined, '没有不可前进的末页游标');
+  }
+});
+
 test('[C5] 重定向后的页面也按请求网址缓存;maxChars 上限收在 60000', async () => {
   const body = '<html><body><main><p>' + 'x'.repeat(70000) + '</p></main></body></html>';
   const base = await serve((req, res) => {
@@ -257,8 +295,9 @@ test('[C5] 重定向后的页面也按请求网址缓存;maxChars 上限收在 6
   });
   const r = await srv.webFetch({ url: base + '/old', maxChars: 200000 });
   assert.equal(r.ok, true);
-  assert.equal(r.text.length, 60000, 'maxChars 收在 60000');
-  assert.equal(r.nextOffset, 60000);
+  assert.ok(r.text.length <= 60000 && r.text.length > 50000, 'maxChars 收在60000内,为JSON壳保留预算');
+  assert.equal(r.nextOffset, r.text.length, 'nextOffset紧接实际返回内容');
+  assert.ok(JSON.stringify(r).length <= 52000, '完整序列化页留8K给包装与代理元数据');
   assert.ok(await srv.readWebCache(base + '/old'), '按请求网址也有缓存');
   assert.ok(await srv.readWebCache(base + '/new'), '按最终网址有缓存');
 });

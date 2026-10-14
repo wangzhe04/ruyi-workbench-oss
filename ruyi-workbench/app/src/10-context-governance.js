@@ -122,8 +122,8 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       reseedTailMaxTokens: 16000,
       minimumSections: 4,
       statusSectionIndex: 3,
-      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户的核心目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好；用户教过且仍有效的可复用流程（适用任务、步骤顺序、关键参数、验证方法），完成一次任务不代表流程失效\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论;关键工具调用各自得到了什么(抓过的网页/接口、命令与脚本输出、子代理交付 —— 结论与来源都写上,这类结果事后重跑未必复现)\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n偏好与决定只保留【最后一次】那个版本:用户在对话里推翻、否决或改口的旧偏好不得写进【已确认的决定】;确有必要提到时必须写明它已被推翻,不许与现行偏好并列成两条都有效的约束。\n只输出摘要本身。',
-      promptEn: 'Compress the conversation above into a structured summary. Output exactly these five sections (write "None" for a section with nothing in it):\n## Goal\nThe user\'s core objective and hard constraints.\n## Decisions\nSettled facts, chosen approaches, stated preferences; still-applicable reusable procedures taught by the user (when to use them, ordered steps, key parameters and verification). Completing one task does not retire its procedure.\n## Open\nTodos, work in progress, unresolved questions.\n## Current Status\nHand-off state, listed as: Done / In progress / Blocked / Next step. Write "None" if there is nothing.\n## Files\nFiles and paths touched, code points, key data and conclusions; what each key tool call established (pages/APIs fetched, command and script output, sub-agent deliveries: the finding and its source, since such results may not be reproducible later).\nFidelity requirement (driven by the measured 45e baseline): key nouns must be kept VERBATIM -- code names, numbers and magnitudes, dates, people, file paths, version strings, explicit prohibitions and constraints. Never generalize or drop them; when in doubt keep more, not less. Use bullets per section; do not write one flowing paragraph.\nPreferences and decisions: keep only the LAST version. A preference the user overrode, vetoed or changed their mind about during the conversation must not appear under Decisions; when it has to be mentioned at all, say it was overridden, and never list it next to the current one as if both still held.\nKeep only structured facts and what a hand-off needs; do not spell out reasoning. Keep each mapped section short; keep cross-chunk facts when reducing; avoid unrelated expansion.\nOutput the summary only.',
+      prompt: '请把以上对话压缩为结构化摘要,严格按以下五节输出(某节无内容写「无」):\n【目标】用户当前阶段仍有效的目标与关键约束\n【已确认的决定】已拍板的事实、方案选择、用户偏好；用户教过且仍有效的可复用流程（适用任务、步骤顺序、关键参数、验证方法），完成一次任务不代表流程失效\n【未完成事项】待办、进行中的工作、悬而未决的问题\n【当前执行状态】按「已完成 / 正在进行 / 阻塞 / 下一步」列出当前交接状态；没有则写「无」\n【关键文件与上下文】涉及的文件/路径、代码要点、重要数据与结论;关键工具调用各自得到了什么(抓过的网页/接口、命令与脚本输出、子代理交付 —— 结论与来源都写上,这类结果事后重跑未必复现)\n保真要求(45e 实测基线驱动):关键名词必须【原样】保留 —— 代号/暗号、数字与量级、日期、人名、文件路径、版本号、明确的禁令与约束,一律不得泛化或省略;宁多勿漏,每节列要点,不要写成一段概括。\n偏好与决定只保留【最后一次】那个版本:用户在对话里推翻、否决或改口的旧偏好不得写进【已确认的决定】;确有必要提到时必须写明它已被推翻,不许与现行偏好并列成两条都有效的约束。\n目标演进:明确被取代、取消或完成的旧目标仅记为历史,不得列为当前目标或恢复执行。普通补充、约束更新和进度追问保留未完成主目标、仍适用约束与教学流程;不得只凭最新一句重置目标。\n只输出摘要本身。',
+      promptEn: 'Compress the conversation above into a structured summary. Output exactly these five sections (write "None" for a section with nothing in it):\n## Goal\nThe user\'s currently active objective and hard constraints.\n## Decisions\nSettled facts, chosen approaches, stated preferences; still-applicable reusable procedures taught by the user (when to use them, ordered steps, key parameters and verification). Completing one task does not retire its procedure.\n## Open\nTodos, work in progress, unresolved questions.\n## Current Status\nHand-off state, listed as: Done / In progress / Blocked / Next step. Write "None" if there is nothing.\n## Files\nFiles and paths touched, code points, key data and conclusions; what each key tool call established (pages/APIs fetched, command and script output, sub-agent deliveries: the finding and its source, since such results may not be reproducible later).\nFidelity requirement (driven by the measured 45e baseline): key nouns must be kept VERBATIM -- code names, numbers and magnitudes, dates, people, file paths, version strings, explicit prohibitions and constraints. Never generalize or drop them; when in doubt keep more, not less. Use bullets per section; do not write one flowing paragraph.\nPreferences and decisions: keep only the LAST version. A preference the user overrode, vetoed or changed their mind about during the conversation must not appear under Decisions; when it has to be mentioned at all, say it was overridden, and never list it next to the current one as if both still held.\nKeep only structured facts and what a hand-off needs; do not spell out reasoning. Keep each mapped section short; keep cross-chunk facts when reducing; avoid unrelated expansion.\nGoal evolution: superseded, cancelled or completed objectives are history only; never restore them as active work. Ordinary additions, constraint updates and progress questions preserve unfinished main objectives, applicable constraints and taught procedures; do not reset the goal from the latest sentence alone.\nOutput the summary only.',
       sections: [
         ['【目标】', '## Goal', 'Goal:'],
         ['【已确认的决定】', '## Decisions', 'Decisions:'],
@@ -152,7 +152,7 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
           backtick: "`([^`\\n]{2,80})`",
           cjkQuote: "「([^」\\n]{2,40})」",
         },
-        repairPrompt: '你是摘要修订器。下面给出一份对话摘要,以及确定性抽检发现它遗漏的【必须原样保留】事实清单。请在保持原有五节结构(【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】)不变的前提下,把清单中的每条事实原样织入对应小节;不得删除摘要中已有的其他事实,不得改写数字、路径、版本与代号的写法。只输出修订后的完整摘要。',
+        repairPrompt: '你是摘要修订器。下面给出一份对话摘要,以及确定性抽检发现它遗漏的【必须原样保留】事实清单。请在保持原有五节结构(【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】)不变的前提下,把清单中的每条事实原样织入对应小节;不得删除摘要中已有的其他事实,不得改写数字、路径、版本与代号的写法。遗漏事实清单不表示它们仍有效;已取代、取消、完成的目标或决定仅补入历史上下文,不得恢复为当前目标、有效约束或未完成工作。只输出修订后的完整摘要。',
       },
       // 105g(4.3 首项): map-reduce 全局事实表注入文案与条数上限,与 context-governance-rules.json
       // 的 summary.factTable 块逐字同构(additive)。
@@ -165,7 +165,7 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       // 105h(4.3 第二项): <=4 块顺序 refine 的上限与修订 prompt,与 JSON 同构(additive)。
       refine: {
         maxChunks: 4,
-        prompt: '你是顺序摘要修订器。输入包含【当前累计摘要】和其后的【新增历史块】。请用新增历史更新累计摘要,严格保持【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】五节结构。新增历史中更晚的决定覆盖旧决定;已完成或被取消的事项必须从未完成事项中消失;不得把已推翻决定与最新决定并列为有效约束。路径、版本、日期、代号、数字和明确禁令必须逐字保留。用户教过且仍有效的可复用流程保留在已确认的决定中，保留适用任务、步骤顺序、关键参数与验证方法；任务完成不等于流程废弃，更晚的用户修订覆盖旧流程。只输出修订后的完整摘要。',
+        prompt: '你是顺序摘要修订器。输入包含【当前累计摘要】和其后的【新增历史块】。请用新增历史更新累计摘要,严格保持【目标】/【已确认的决定】/【未完成事项】/【当前执行状态】/【关键文件与上下文】五节结构。新增历史中更晚的决定覆盖旧决定;已完成或被取消的事项必须从未完成事项中消失;不得把已推翻决定与最新决定并列为有效约束。路径、版本、日期、代号、数字和明确禁令必须逐字保留。用户教过且仍有效的可复用流程保留在已确认的决定中，保留适用任务、步骤顺序、关键参数与验证方法；任务完成不等于流程废弃，更晚的用户修订覆盖旧流程。目标按历史先后演进:当前目标保留未完工作、仍适用约束及流程;普通补充和进度追问不取消主目标。明确被取代、取消或完成的目标仅作为历史保留,不得重新激活。只输出修订后的完整摘要。',
       },
     },
     // 126-111a: L1 保护区的三个数(比例、下限、上限)与 context-governance-rules.json 的
@@ -395,7 +395,8 @@ function toolResultRecoveryHint(name) {
   const base = String(name || '').replace(/^.+?__/, '');
   if (base === 'file_read') return '省略的是文件中间段:用 file_read 的 offset(字符,可接 nextOffset)/limit 或 lineOffset/lineLimit 分段重读需要的区间';
   if (TOOL_EXEC_CLASS_RE.test(base)) return '输出中间段已省略(保留开头与结尾):请缩小命令输出(过滤/分页/只取末尾几行),或把输出重定向到文件后用 file_read 的 lineOffset/lineLimit 分段读取,不要原样重跑';
-  if (base === 'web_fetch' || base === 'http_request' || base === 'steward_web_fetch') return '响应正文中间段已省略:换更精确的 URL/参数,或先 http_download 存到文件再用 file_read 分段读取';
+  if (base === 'web_fetch' || base === 'steward_web_fetch') return '用返回的 nextOffset 作为 offset 续读;源响应未收全时,用 http_download 保存后再 file_read 分段读';
+  if (base === 'http_request') return '原响应省略部分未保留,不能把重试当续读。GET网页可用 web_fetch 分页,或 http_download 保存后 file_read;非幂等请求不要为补读自动重发';
   return '结果被截断:请用更精确的参数缩小范围重新获取(不要原样重试),需要全文时先把它写到文件再分段读取';
 }
 
@@ -588,13 +589,25 @@ function shrinkSerializedToolResult(name, s, cap) {
   try { out = JSON.stringify(shrunk); } catch { return null; }
   return out.length <= cap ? out : null;   // 收缩后仍超限(海量小键):让调用方走平切兜底
 }
+const PAGED_READING_TOOL_NAMES = new Set(['file_read', 'web_fetch', 'observation_recall', 'steward_web_fetch', 'steward_file_read', 'steward_thread_artifact_read', 'tool_invoke_read']);
+
+function isContinuableReadResult(serialized) {
+  try {
+    const result = JSON.parse(serialized);
+    return result && result.ok === true && Number.isFinite(result.offset)
+      && (Number.isFinite(result.totalChars) || Number.isFinite(result.nextOffset));
+  } catch { return false; }
+}
 // >>TOOL-RESULT-SHRINK END
 
 function truncateToolResult(name, jsonStr) {
-  const s = String(jsonStr == null ? '' : jsonStr);
+  let s = String(jsonStr == null ? '' : jsonStr);
+  const paged = PAGED_READING_TOOL_NAMES.has(name) && isContinuableReadResult(s);
+  // MCP serializes with indentation; compact the envelope before applying the page budget.
+  if (paged) s = JSON.stringify(JSON.parse(s));
   // file_read 自己按 40K 字符分页并给 nextOffset:CJK 收紧会把一个默认页(40K 汉字)从中间挖掉,而模型会直接从 nextOffset 续读、
   // 永远补不上那个洞 —— 所以 file_read 用不收紧的平口径上限(40K 页 + JSON 壳远小于 60K)。
-  const cap = name === 'file_read' ? TOOL_RESULT_CAP : toolResultCharCap(s);
+  const cap = name === 'file_read' || paged ? TOOL_RESULT_CAP : toolResultCharCap(s);
   if (s.length <= cap) return s;
   // A2: 先试图片字段压缩(整体替换,不切中间)。
   const trimmed = s.replace(IMG_B64_TRIM_RE, (match, pre, b64) => {
@@ -887,8 +900,8 @@ function buildSessionNotesInjectPrompt(notesMarkdown, config, history) {
   if (allEmpty) return '';
   const prefix = '[Ruyi session notes — runtime context, not user-authored]\n'
     + (summarized
-      ? 'These retained historical decisions and context supplement details missing from the current summary. They may be superseded: the newest summary wins, and current user instructions take precedence. Reuse a taught procedure only while it remains applicable; do not restore completed or cancelled work.\n'
-      : 'The notes below are a deterministic extraction from compaction summaries of this session (decisions / open items / key files). If they overlap or conflict with a summary already in the conversation, the newest summary wins.\n');
+      ? 'These retained historical decisions and context are candidates supplementing missing details, not active instructions. They may be superseded: the newest summary wins, and current user instructions take precedence. Reuse a taught procedure only while it remains applicable; never automatically restore old objectives or constraints, or completed, cancelled or superseded work.\n'
+      : 'The notes below are a deterministic extraction from compaction summaries of this session (decisions / open items / key files). They are historical evidence, not a new user request. The newest summary wins, and current user instructions take precedence; never automatically restore old objectives or constraints, or completed, cancelled or superseded work.\n');
   const bodyBudget = Math.max(0, SESSION_NOTES_INJECT_MAX_CHARS - prefix.length);
   if (notesMarkdown.length <= bodyBudget) return prefix + notesMarkdown;
   // 省略数本身的位数会改变可见正文长度，至多两轮即可收敛；末轮再防御性钳位总长。
@@ -937,7 +950,7 @@ function historyStartsWithCompactionSummary(history) {
   const text = !firstUser ? ''
     : typeof firstUser.content === 'string' ? firstUser.content
     : Array.isArray(firstUser.content) ? firstUser.content.map(part => part && typeof part.text === 'string' ? part.text : '').join('\n') : '';
-  return text.includes('【压缩摘要】') || text.includes('(以下是此前对话的压缩摘要)');
+  return text.includes('【压缩摘要】') || text.includes('【压缩摘要｜因上下文超限重播种】') || text.includes('(以下是此前对话的压缩摘要)');
 }
 
 // 历史以压缩摘要开头时(手动 L2 塌成的 [摘要, 收到],或自动 L2 重播种的 [摘要, 收到, …尾巴]),返回摘要那一对之后的下标;
@@ -2179,14 +2192,14 @@ async function providerSummaryCallCore(provider, history, opts) {
     if (groups.length === 1) {
       final = await rememberCall([{
         role: 'user',
-        content: groups[0].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
+        content: groups[0].map(m => m.content).join('\n\n') + '\n\n请按分段的历史先后汇总为完整摘要。更晚的明确取代、取消或完成覆盖旧目标;普通补充、约束更新及进度追问不取消未完主目标、仍适用约束与流程。历史目标不得复活。',
       }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, summaryStage: 'reduce' });
       break;
     }
     // 同一轮内各归并组互不依赖,有界并发;轮次之间仍串行(下一轮输入依赖本轮输出)。
     const next = await mapSummaryWithLimit(groups, summaryConcurrency, (gi) => rememberCall([{
       role: 'user',
-      content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
+      content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请按分段的历史先后汇总为完整摘要。更晚的明确取代、取消或完成覆盖旧目标;普通补充、约束更新及进度追问不取消未完主目标、仍适用约束与流程。历史目标不得复活。',
     }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1, summaryStage: 'reduce' }, failCtrl && failCtrl.signal), failCtrl);
     const firstGroupFail = pickSummaryFailure(next);
     if (firstGroupFail) return firstGroupFail;
@@ -2580,6 +2593,7 @@ function recentFileReads(history, budgetTokens) {
 //     越积越长(新摘要本来就覆盖了旧摘要)—— 只取出其中原始任务那一段;
 //   · 带图片的首问:content 是 parts 数组,String() 出来是「[object Object],[object Object]」—— 拍平成文字、图片记一笔。
 const COMPACTION_TASK_PREFIX = '原始任务(保持聚焦):\n';
+const COMPACTION_HISTORY_PREFIX = '最初请求(仅作历史来源,是否仍有效以摘要目标为准):\n';
 // 手动压缩(runProviderCompact 的 L2)塌成 [摘要, 收到] 时首条 user 的开头。
 const MANUAL_COMPACTION_SUMMARY_HEADER = '(以下是此前对话的压缩摘要)\n';
 // 手动压缩「值不值得再压」的门(2026-10 用户报:压完再点一次「压缩」,转半天、结果没变 —— 实测是把 [摘要, 收到] 又交给
@@ -2601,16 +2615,19 @@ function compactionTaskText(message) {
       return /image/i.test(String(part.type || '')) ? '[图片]' : '';
     }).filter(Boolean).join('\n')
     : String(content == null ? '' : content);
-  if (text.startsWith(COMPACTION_TASK_PREFIX)) {
-    const body = text.slice(COMPACTION_TASK_PREFIX.length);
+  if (text.startsWith(COMPACTION_TASK_PREFIX) || text.startsWith(COMPACTION_HISTORY_PREFIX)) {
+    const prefix = text.startsWith(COMPACTION_TASK_PREFIX) ? COMPACTION_TASK_PREFIX : COMPACTION_HISTORY_PREFIX;
+    const body = text.slice(prefix.length);
     const cut = body.indexOf('\n\n【压缩摘要');
     text = cut >= 0 ? body.slice(0, cut) : body;
   } else if (text.startsWith(MANUAL_COMPACTION_SUMMARY_HEADER)) {
     // 手动 L2 之后没有单独的原始任务:取旧摘要的【目标】一节代替。修前整条(旧摘要 + 旧工具索引)被当成任务原文钉一遍,
     // 下一次自动 L2 的重播种里索引出现两份(多约 4K 字)。没有【目标】节就取索引之前的正文、截到 1200 字。
     const body = text.slice(MANUAL_COMPACTION_SUMMARY_HEADER.length);
-    const goal = /【目标】[^\n]*(?:\n(?!【)[^\n]*)*/.exec(body);
-    text = goal ? goal[0].trim() : body.split('\n\n' + COMPACTION_TOOL_INDEX_HEADER)[0].slice(0, 1200);
+    const sections = summarySectionLocations(body);
+    const goal = sections.find(section => section.index === 0);
+    const end = goal && sections.find(section => section.pos > goal.pos);
+    text = goal ? body.slice(goal.pos, end ? end.pos : body.length).trim() : body.split('\n\n' + COMPACTION_TOOL_INDEX_HEADER)[0].slice(0, 1200);
   }
   return text;
 }
@@ -2802,7 +2819,7 @@ const CompactionPlan = (() => {
       : '';
     const indexBlock = extras && extras.toolIndex ? '\n\n' + String(extras.toolIndex) : '';
     return [
-      { role: 'user', content: COMPACTION_TASK_PREFIX + compactionTaskText(plan && plan.task) + '\n\n' + heading + '\n' + String(summary || '') + fileBlock + indexBlock },
+      { role: 'user', content: (subagent ? COMPACTION_TASK_PREFIX : COMPACTION_HISTORY_PREFIX) + compactionTaskText(plan && plan.task) + '\n\n' + heading + '\n' + String(summary || '') + (subagent ? '' : '\n\n接续依据:摘要中的【目标】/Goal是当前仍有效目标;结合其后保留的最近用户输入推进。补充或进度追问不取消未完目标、仍适用约束与流程;已取代、取消或完成的目标仅是历史,不得恢复。') + fileBlock + indexBlock },
       { role: 'assistant', content: acknowledgement },
       ...bridged,
     ];
