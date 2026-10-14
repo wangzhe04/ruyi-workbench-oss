@@ -1057,7 +1057,15 @@ function bindLiveEventStream() {
     syncLivePolling();   // 断连即回到 3 s 那一档；连上即停表（唯一的开关表入口仍然只有它）
   });
   for (const name of [EVENT_STREAM_LIVE_EVENT, ...EVENT_STREAM_ROW_EVENTS]) {
-    eventStream.on(name, data => { void pushLiveTurn(data && data.sessionId); });
+    eventStream.on(name, data => {
+      if (name === 'thread.state' && data && typeof data.title === 'string' && data.sessionId === state.currentSession?.id) {
+        state.currentSession.title = data.title;
+        const node = $('sessionTitle');
+        if (node) { node.textContent = data.title; node.title = data.title; }
+        // Keep the streaming message tree intact; rail rows refresh through their existing subscriber.
+      }
+      void pushLiveTurn(data && data.sessionId);
+    });
   }
   const docEl = globalThis.document && globalThis.document.documentElement;
   if (docEl && typeof globalThis.MutationObserver === 'function') {

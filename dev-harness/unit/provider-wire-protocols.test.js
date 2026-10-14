@@ -121,6 +121,13 @@ test('[M] 端点、模型清单、请求头', () => {
   for (const entry of [chat, responses]) assert.deepEqual(Object.entries(entry.requestHeaders(provider)), Object.entries(providerRequestHeaders(provider)));
 });
 
+test('[M] message provenance stays in history, outside Chat wire messages', () => {
+  const message = { role: 'user', content: 'Peer reference, not a user request.', meta: { origin: 'agent_message', sourceSessionId: 'source' } };
+  const encoded = PROVIDER_WIRE_PROTOCOLS.chat.encodeMessages({ model: 'm', messages: [message], stream: false });
+  assert.deepEqual(encoded.messages, [{ role: 'user', content: message.content }]);
+  assert.equal(message.meta.origin, 'agent_message', 'encoding must preserve provenance for later compaction');
+});
+
 test('[M] 请求体编码、推理强度、工具、输出上限、短补全', () => {
   const { chat, responses } = PROVIDER_WIRE_PROTOCOLS;
   const messages = [{ role: 'system', content: 'SYS' }, { role: 'user', content: 'q' }, { role: 'system', content: ' EXTRA ' }, { role: 'system', content: 'SYS' }];

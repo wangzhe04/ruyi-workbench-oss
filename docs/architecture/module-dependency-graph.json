@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 72,
-    "providedSymbols": 3667,
-    "requiredSymbols": 3226,
-    "edges": 550,
+    "providedSymbols": 3680,
+    "requiredSymbols": 3234,
+    "edges": 551,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1117,6 +1117,7 @@
         "appendMissionChangeRecord",
         "applyMissionUpdate",
         "applySessionMetaPatch",
+        "applySessionTitleOverride",
         "archiveMissionContainer",
         "archiveMissionResult",
         "asResultObject",
@@ -1357,6 +1358,7 @@
         "sessionScratchpadChains",
         "sessionScratchpadPath",
         "sessionScratchpadStore",
+        "sessionTitleOverrides",
         "sessionTodosSignature",
         "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
@@ -5228,7 +5230,8 @@
         "threadBriefOnce",
         "threadBriefProvider",
         "threadBriefRateLimited",
-        "toolRequirementsMet"
+        "toolRequirementsMet",
+        "updateAutomaticThreadTitle"
       ],
       "requires": [
         {
@@ -5359,6 +5362,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -5450,7 +5460,28 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "SESSION_BRIEF_GIST_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_BRIEF_TITLE_CHARS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "SESSION_INDEX_FILE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTitleOverrides",
           "kinds": [
             "read"
           ]
@@ -10426,6 +10457,7 @@
         "SUMMARY_SINGLE_SHOT_CAP_RULE",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
         "SUMMARY_SINGLE_SHOT_RESERVE",
+        "SUMMARY_TASK_EVIDENCE_RULES",
         "TOOL_EXEC_CLASS_RE",
         "TOOL_IMAGE_B64_BODY_RE",
         "TOOL_IMAGE_B64_MIN",
@@ -10488,6 +10520,7 @@
         "extractContextLength",
         "extractSessionNotes",
         "extractSummaryEntities",
+        "extractSummaryTaskEvidence",
         "fileReadDedupKey",
         "findToolImageFields",
         "fitHistoryForSummary",
@@ -10510,6 +10543,7 @@
         "measureObservationReductionShadow",
         "mergeSessionNotes",
         "mergeSessionNotesLines",
+        "mergeSummaryTaskEvidence",
         "noteEstimateSample",
         "noteWindowOvershoot",
         "observationToolNames",
@@ -10550,6 +10584,7 @@
         "shrinkToolText",
         "singleSummaryCall",
         "streamChat",
+        "stripSummaryTaskEvidence",
         "summaryCallPolicyKey",
         "summaryCallPolicyMetadata",
         "summaryEffortFromRule",
@@ -10564,6 +10599,11 @@
         "summarySourceText",
         "summaryStopSignal",
         "summaryStoppedResult",
+        "summaryTaskEvidenceDirective",
+        "summaryTaskEvidenceMessage",
+        "summaryTaskEvidenceScope",
+        "summaryTaskSourceHistory",
+        "summaryTaskSourceRole",
         "summaryUnsupportedParameterFields",
         "toolImageMime",
         "toolResultCharCap",
@@ -11337,6 +11377,7 @@
         "isLowSurrogate",
         "killAllShellSessions",
         "levenshtein",
+        "markAgentMessageDelivered",
         "maybeGroup",
         "normalizeGlobPatternForRoot",
         "normalizeSearchPattern",
@@ -11691,6 +11732,27 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "probeAny",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "MAIL_TEXT_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "neutralizeInjectedPrefixes",
           "kinds": [
             "call"
           ]
@@ -12458,6 +12520,13 @@
           "symbol": "PLAYBOOK_REQUIRES",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "updateAutomaticThreadTitle",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -28219,6 +28288,7 @@
         "APP_NAME",
         "DEFAULT_PORT",
         "OVERLAY_ID",
+        "RUYI_EVENTS",
         "VERSION",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
@@ -28281,8 +28351,11 @@
       "from": "06-provider-engine.js",
       "to": "02-session-store.js",
       "symbols": [
+        "SESSION_BRIEF_GIST_CHARS",
+        "SESSION_BRIEF_TITLE_CHARS",
         "SESSION_INDEX_FILE",
         "loadSession",
+        "sessionTitleOverrides",
         "updateSessionMeta"
       ],
       "direction": "backward"
@@ -29936,6 +30009,16 @@
       "direction": "backward"
     },
     {
+      "from": "11-native-tools.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "MAIL_TEXT_MAX",
+        "activeAgentRuns",
+        "neutralizeInjectedPrefixes"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "11b-file-text-io.js",
       "to": "00-boot.js",
       "symbols": [
@@ -30122,7 +30205,8 @@
         "loadAllPlaybooks",
         "markNetworkOnline",
         "neutralizeAuthoredText",
-        "peekCapabilities"
+        "peekCapabilities",
+        "updateAutomaticThreadTitle"
       ],
       "direction": "backward"
     },
@@ -34282,6 +34366,7 @@
     "11-native-tools.js->03-bridge-guard.js",
     "11-native-tools.js->04-permission-runtime.js",
     "11-native-tools.js->06-provider-engine.js",
+    "11-native-tools.js->07-autonomy.js",
     "13-http-router.js->00-boot.js",
     "13-http-router.js->01-config.js",
     "13-http-router.js->02-session-store.js",

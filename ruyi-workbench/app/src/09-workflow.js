@@ -505,20 +505,27 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const bySender = run.messages.filter(m => m.sender === senderId).length;
       if (bySender >= MAIL_PER_SENDER_MAX) return { ok: false, error: `你的发送已达上限(每节点每次运行 ${MAIL_PER_SENDER_MAX} 条)` };
       if (run.messages.length >= MAIL_GLOBAL_MAX) return { ok: false, error: `本次运行消息总数已达上限(${MAIL_GLOBAL_MAX} 条)` };
-      const elig = nodeDeliveryEligibility(run, target);
+      const elig = target === 'parent' ? { ok: true } : nodeDeliveryEligibility(run, target);
       if (elig.reason === 'not_found') return { ok: false, error: `目标节点不存在: ${target}` };
       // 团队模式 v2 (P3-5): run.messages 存完整正文(已按 MAIL_TEXT_MAX=2000 截断;全局 24×2KB 可忽略),UI/里程碑侧
       // 各自展示时再截断(里程碑截 50,见 recordAgentNodeProgress)。
       const entry = { id: makeId('msg').replace('_', '-'), sender: senderId, target, text, deliveredAt: null, dropped: false, createdAt: nowIso() };
       run.messages.push(entry);
-      if (!elig.ok) { entry.dropped = true; try { throttledSaveRun(); } catch {} return { ok: true, delivered: false, note: '目标已结束或无法接收消息(单发/确定性节点),消息将被丢弃。' }; }
+      if (target === 'parent') {
+        const queued = EventStreamHooks.notifyAgentMessage && EventStreamHooks.notifyAgentMessage({ sessionId: run.sessionId, sourceSessionId: run.sessionId, runId, nodeId: senderId, messageId: entry.id, text });
+        if (!queued) entry.dropped = true;
+        try { throttledSaveRun(); } catch {}
+        return { ok: !!queued, messageId: entry.id, status: queued ? 'queued' : 'undeliverable', delivered: false, note: queued ? '已入队，主会话下次模型调用前投递；空闲时不会自动唤醒。' : '主会话无法接收消息。' };
+      }
+      if (!elig.ok) { entry.dropped = true; try { throttledSaveRun(); } catch {} return { ok: true, messageId: entry.id, status: 'undeliverable', reason: elig.reason, delivered: false, note: '目标已结束或无法接收消息(单发/确定性节点),消息将被丢弃。' }; }
       let q = runtime.mailQueues.get(target); if (!q) { q = []; runtime.mailQueues.set(target, q); }
-      if (q.length >= MAIL_QUEUE_MAX) { entry.dropped = true; try { throttledSaveRun(); } catch {} return { ok: true, delivered: false, note: `目标邮箱已满(${MAIL_QUEUE_MAX} 条待投递),本条将被丢弃。` }; }
+      if (q.length >= MAIL_QUEUE_MAX) { entry.dropped = true; try { throttledSaveRun(); } catch {} return { ok: true, messageId: entry.id, status: 'undeliverable', reason: 'mailbox_full', delivered: false, note: `目标邮箱已满(${MAIL_QUEUE_MAX} 条待投递),本条将被丢弃。` }; }
       q.push({ sender: senderId, text, entry });
       try { throttledSaveRun(); } catch {}
-      return { ok: true, queued: q.length, note: '已入队,目标下一次调用前投递;若目标已结束/被跳过则丢弃。' };
+      return { ok: true, messageId: entry.id, status: 'queued', delivered: false, queued: q.length, note: '已入队,目标下一次调用前投递;若目标已结束/被跳过则丢弃。' };
     } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
   };
+  runtime.sendToAgent = args => sendToAgentImpl('parent', args);
   // 团队模式 v2 (P3-1): 节点到终态时(批内终态,或批外 blocked/skipped 转移)把其邮箱里未投递的消息标 dropped 并清队。
   // v2 不重投,只诚实标记。四处复用(批内终态、blocked、skipped、收尾兜底走各自内联),集中一处避免逻辑漂移。
   const dropNodeMail = nid => { try { const q = runtime.mailQueues.get(nid); if (!q || !q.length) return; for (const mm of q) { if (mm && mm.entry && !mm.entry.deliveredAt) mm.entry.dropped = true; } q.length = 0; } catch {} };
@@ -872,6 +879,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               getSteer: () => drainNodeSteers(node.id),
               // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
               getMail: () => { const q = runtime.mailQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
+              teamRoster: run.nodes.map(n => n.id),
               proposeTask: poolPolicy === 'off' ? undefined : (args => proposeTaskImpl(node.id, args)),
               sendToAgent: args => sendToAgentImpl(node.id, args),
               // 有 outputSchema 或 gate 需要模型输出结构化裁决（非 vote/dedupe，那两种是确定性短路，见上）时，
@@ -1164,12 +1172,14 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal, o
   const deadline = Date.now() + waitMs;
   const readOne = runId => readAgentRunRecord(sessionId, runId);
   let rows = [];
+  let messageReady = false;
   for (;;) {
     rows = await Promise.all(runIds.map(readOne));
     // hunt3:不存在的 runId(读不到 = null)没有什么可等 —— 修前 `row && !row.live` 把它算成「未结算」,
     // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(现在最长 5 分钟)。只有【活的】 run 才值得等。
     const settled = rows.every(row => !row || !row.live);
-    if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
+    messageReady = !!(EventStreamHooks.pendingAgentMessages && EventStreamHooks.pendingAgentMessages(sessionId));
+    if (settled || messageReady || Date.now() >= deadline || (signal && signal.aborted)) break;
     if (typeof onWaiting === 'function') { try { onWaiting(); } catch { /* 心跳回调失败不影响等待 */ } }   // 等待中的父回合不是「空闲」:调用方借此刷新自己的看门狗时钟
     await new Promise(resolve => {
       let done = false;
@@ -1203,10 +1213,10 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal, o
   if (notFound.length && notFound.length === runs.length) {
     return { ok: false, error: `没有找到这些后台代理 run:${notFound.join(', ')}(runId 打错,或不属于当前会话);它们不是「仍在运行」。runId 以 orchestrate_agents{background:true} 的返回为准,或省略 runIds 收取本会话的后台代理。`, settled, timedOut: false, waitMs, notFound, runs };
   }
-  const timedOut = runs.some(run => run.live === true);
+  const timedOut = !messageReady && runs.some(run => run.live === true);
   // 到点还有 run 在跑:说清这是【这一次等待窗】到了(不是代理超时、也没中止任何东西),以及怎么办。
   const timeoutNote = timedOut ? `等待窗(${Math.round(waitMs / 1000)} 秒)已到,仍有代理在后台运行,没有被中止。可以先做别的工作,完成通知会自动送达;或再调 wait_agents(timeoutMs 最大 ${Math.round(waitAgentsMaxMs() / 1000)} 秒)继续等。` : '';
-  return { ok: true, settled, timedOut, waitMs, ...(timeoutNote ? { note: timeoutNote } : {}), ...(notFound.length ? { notFound } : {}), runs };
+  return { ok: true, settled, timedOut, waitMs, ...(messageReady ? { messageReady: true, note: '收到代理参考消息，已结束本次等待；运行状态未改变，消息将在下次模型调用前投递。' } : timeoutNote ? { note: timeoutNote } : {}), ...(notFound.length ? { notFound } : {}), runs };
 }
 // wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
 //  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;
@@ -1316,7 +1326,7 @@ function appendDisplayMessagesToProviderHistory(session, start) {
     if (m.role === 'user') {
       // Historical images are represented by their attachment prompt only. Re-embedding pixels from every
       // earlier turn would make an engine switch unexpectedly huge and bypass the live image cap.
-      session.providerHistory.push({ role: 'user', content: m.content + buildAttachmentPrompt(m.attachments) });
+      session.providerHistory.push({ role: 'user', content: m.content + buildAttachmentPrompt(m.attachments), ...(m.meta ? { meta: m.meta } : {}) });
     } else if (m.role === 'assistant') {
       session.providerHistory.push({ role: 'assistant', content: m.content });
     }
@@ -1633,10 +1643,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
     const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
     const imageBatchStart = session.providerHistory.length;
-    session.providerHistory.push({ role: 'user', content: parts });
+    session.providerHistory.push({ role: 'user', content: parts, ...(messageMeta ? { meta: messageMeta } : {}) });
     VisualPipeline.pruneOldImages(session.providerHistory, imageBatchStart);
   } else {
-    session.providerHistory.push({ role: 'user', content: historyPrompt });
+    session.providerHistory.push({ role: 'user', content: historyPrompt, ...(messageMeta ? { meta: messageMeta } : {}) });
   }
   // 122-§2.4:起跑这一存也要落盘前合并 —— 用户「开线程后立刻派回合,再点开始任务」时,start 会落在
   // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
@@ -1737,7 +1747,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // allowDesktopTools = 修前逐字行为。管家会话自己永远走不到这条支路的「true」那一边:它的 kind
   // 是 'steward',上面那一支只给它 steward_* 工具面,桌面工具压根不在候选里。
   // C2(61 号文):会话草稿本 scratchpad_write 只发给普通会话的主回合(管家会话不传 scratchpadEnabled;子代理走 08,也不传)。
-  const ownTools = buildOpenAiTools(config, caps, { skillsEnabled: enabledSkillEntries.length > 0, desktopOverride: sessionDesktopToolsOf(session), ...(isStewardTurn ? { stewardSession: true } : { scratchpadEnabled: true }) });
+  const ownTools = buildOpenAiTools(config, caps, { skillsEnabled: enabledSkillEntries.length > 0, desktopOverride: sessionDesktopToolsOf(session), ...(isStewardTurn ? { stewardSession: true } : { scratchpadEnabled: true, sendToAgentEnabled: true }) });
   // v0.7d line 2: also expose external/desktop MCP tools (bridged via in-process MCP stdio clients).
   // Done ONCE per turn (not per iteration). route maps bridgedName -> {serverId,toolName}.
   let bridged = { tools: [], route: {} };
@@ -2467,6 +2477,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // config.subagentMaxPerTurn(旧 spawn_agent 的「每回合扇出预算」语义平移到 orchestrate;0 = 功能关 → 工具不 offer,
   // 此路径不可达)。并发仍由 run.concurrency(= subagentMaxConcurrent)在工作流运行时内约束。
   let subagentTotal = 0;
+  let crossSessionMailCount = 0;
   const subagentTurnCap = Math.max(0, Number(config.subagentMaxPerTurn) || 0);
   // Background runs survive the parent model's next iterations (and even the end of this chat turn)
   // because their source of truth is the persisted Agent workflow. This turn-local index only supplies the
@@ -3170,8 +3181,27 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // 不进下面的通用 gate/dispatch。orchestrate_agents 是唯一启动入口(旧 spawn_agent 翻译成单节点并附提示);
           // wait_agents 收后台信封;agent_result 按需取全文(有界)。被拒的调用同样发 tool_result(保持配对)。
           let resultObj; // declared here so the agent branch and the normal dispatch share it
-          if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
-            if (tc.name === 'wait_agents') {
+          if (tc.name === 'send_to_agent' || tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
+            if (tc.name === 'send_to_agent') {
+              if (args.targetSessionId != null) {
+                const targetId = safeSessionId(String(args.targetSessionId || '').trim());
+                const text = String(args.message || '').trim().slice(0, MAIL_TEXT_MAX);
+                const target = targetId ? await loadSession(targetId).catch(() => null) : null;
+                if (!target || target.id === session.id || target.kind === 'steward' || args.runId || args.targetNodeKey || !text || crossSessionMailCount >= MAIL_PER_SENDER_MAX) {
+                  resultObj = { ok: false, status: 'undeliverable', error: '目标会话不存在、不支持接收、与节点目标混用、消息为空或本回合发送已达上限。' };
+                } else {
+                  const messageId = makeId('msg').replace('_', '-');
+                  const queued = EventStreamHooks.notifyAgentMessage && EventStreamHooks.notifyAgentMessage({ sessionId: target.id, sourceSessionId: session.id, messageId, text });
+                  if (queued) crossSessionMailCount++;
+                  resultObj = { ok: !!queued, messageId, status: queued ? 'queued' : 'undeliverable', delivered: false, note: queued ? '已入队，目标下次模型调用前投递；不会自动唤醒目标或更改其任务。' : '消息未能入队。' };
+                }
+              } else {
+                const runtime = activeAgentRuns.get(String(args.runId || ''));
+                resultObj = runtime && runtime.run.sessionId === session.id && typeof runtime.sendToAgent === 'function'
+                  ? runtime.sendToAgent(args)
+                  : { ok: false, status: 'undeliverable', error: 'runId 不属于当前会话或运行已结束。' };
+              }
+            } else if (tc.name === 'wait_agents') {
               const requestedRunIds = Array.isArray(args.runIds) && args.runIds.length ? args.runIds : [...backgroundAgentRunIds];
               resultObj = settleWaitEnvelopes(session, await waitForAgentRunResults(session.id, requestedRunIds, resolveWaitAgentsMs(args.timeoutMs), ctrl && ctrl.signal, touch));
             } else if (tc.name === 'agent_result') {

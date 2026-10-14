@@ -417,7 +417,7 @@
       "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
     },
     "ruleSchema": 1,
-    "rulesSha256": "d98816aa674b30a0aae9b16112d91b3efa665442cf09ae4cd4a4e056e9ab8b43"
+    "rulesSha256": "8b6a9b517a64b7c38d863e9b6ac37fe14605f63ae4a9d7bf82995871ef792818"
   },
   "permission": {
     "modes": [
@@ -427,13 +427,13 @@
       "auto",
       "bypass"
     ],
-    "nativeToolCount": 120,
+    "nativeToolCount": 121,
     "tierCounts": {
       "edit": 26,
       "exec": 24,
-      "read": 70
+      "read": 71
     },
-    "tierMapSha256": "588e2b838479f9e69f46d99a9aed9a19d1928b94eb687e96496afc6923483cce"
+    "tierMapSha256": "da57468bcea1192bd4b97f1cb68ddf44e704ad48078ec06a9693860ed4add591"
   },
   "persistence": {
     "durableJsonStoreApi": [

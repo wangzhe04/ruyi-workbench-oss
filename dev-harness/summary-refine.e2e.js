@@ -60,7 +60,8 @@ function payloads(dir) {
     try {
       await sleep(400);
       const provider = { id: 'refine', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'k', model: 'refine-m', contextWindow: 8000 };
-      const history = historyNearTokens(11000, 6, true);
+      // Include the map source/evidence instructions in the 4K input budget while keeping 3 chunks.
+      const history = historyNearTokens(7000, 6, true);
       let result = await srv.providerSummaryCall(provider, history, { config: { runtimeSummarySingleShotV1: false, runtimeSummaryFactTableV1: false, runtimeSummaryRefineV1: false } });
       let rows = payloads(dir);
       ok(result.ok && result.mapReduce && !result.mapReduce.refine && rows.length >= 3, 'A1 开关关走现有 map-reduce');
@@ -103,7 +104,7 @@ function payloads(dir) {
     try {
       await sleep(400);
       const provider = { id: 'fallback', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'k', model: 'fallback-m', contextWindow: 8000 };
-      const result = await srv.providerSummaryCall(provider, historyNearTokens(11000, 6, false), { config: { runtimeSummarySingleShotV1: false, runtimeSummaryFactTableV1: false, runtimeSummaryRefineV1: true } });
+      const result = await srv.providerSummaryCall(provider, historyNearTokens(7000, 6, false), { config: { runtimeSummarySingleShotV1: false, runtimeSummaryFactTableV1: false, runtimeSummaryRefineV1: true } });
       const rows = payloads(dir);
       ok(result.ok && result.mapReduce && result.mapReduce.degradedFromRefine === true && result.mapReduce.refineFailure === 'request',
         'A5 refine 第 2 步空响应 → 整条降级现有 map-reduce');

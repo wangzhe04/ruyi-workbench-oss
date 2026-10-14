@@ -1320,10 +1320,32 @@ async function reassertThreadBrief(sessionId) {
     const brief = threadBriefDone.get(sid);
     if (!brief) return null;
     const head = await loadSession(sid).catch(() => null);
+    const live = sessionTitleOverrides.get(sid);
+    if (!head || head.titleSource === 'user' || (live && live.rewindGen !== undefined && (Number(head.rewindGen) || 0) !== live.rewindGen)) return null;
     if (head && head.threadBrief && String(head.threadBrief.title || '').trim()) return brief;  // 已经在盘上
     await updateSessionMeta(sid, { threadBrief: brief }).catch(() => null);
     return brief;
   } catch { return null; }
+}
+
+// The current main agent supplies a title only after an explicit change of objective; no extra model call.
+async function updateAutomaticThreadTitle(input) {
+  const o = input || {}, sid = safeSessionId(o.sessionId);
+  if (!sid) return { ok: false, error: 'session_required' };
+  const head = await loadSession(sid);
+  if (!head || head.kind === 'steward') return { ok: false, error: 'invalid_thread' };
+  if (head.titleSource === 'user') return { ok: true, updated: false, reason: 'user_title' };
+  if (typeof o.title !== 'string') return { ok: false, error: 'title_required' };
+  const parsed = parseThreadBrief(JSON.stringify({ title: o.title, gist: o.gist ?? '' }));
+  if (!parsed) return { ok: false, error: 'title_required' };
+  const brief = { schema: 1, title: parsed.title.slice(0, SESSION_BRIEF_TITLE_CHARS), gist: parsed.gist.slice(0, SESSION_BRIEF_GIST_CHARS), at: nowIso(), model: 'agent', stage: 'settled' };
+  const rewindGen = Number(head.rewindGen) || 0;
+  if (sessionTitleOverrides.get(sid)?.titleSource === 'user') return { ok: true, updated: false, reason: 'user_title' };
+  sessionTitleOverrides.set(sid, { threadBrief: brief, rewindGen });
+  threadBriefDone.set(sid, brief);
+  RUYI_EVENTS.emit('thread.state', { sessionId: sid });
+  await updateSessionMeta(sid, { threadBrief: brief, threadBriefRewindGen: rewindGen });
+  return { ok: true, updated: true, title: brief.title };
 }
 
 async function threadBriefOnce(o, sid) {
@@ -1376,8 +1398,15 @@ async function threadBriefOnce(o, sid) {
       if (parsed) {
         // 走 updateSessionMeta:首回合那次发起时回合还在跑,这条通道会延后到 settle 之后在
         // 【重新装载的副本】上重放,绝不会用陈旧正文盖掉回合刚写的消息(116-2a 的既有防护)。
-        const brief = { schema: 1, title: parsed.title, gist: parsed.gist, at: nowIso(), model: String((sc && sc.model) || provider.model || ''), stage };
-        await updateSessionMeta(sid, { threadBrief: brief }).catch(() => null);
+        const brief = { schema: 1, title: parsed.title.slice(0, SESSION_BRIEF_TITLE_CHARS), gist: parsed.gist.slice(0, SESSION_BRIEF_GIST_CHARS), at: nowIso(), model: String((sc && sc.model) || provider.model || ''), stage };
+        const current = await loadSession(sid).catch(() => null);
+        if (!current || current.titleSource === 'user' || (Number(current.rewindGen) || 0) !== (Number(head.rewindGen) || 0)
+            || String(current.threadBrief?.at || '') !== String(head.threadBrief?.at || '')) return null;
+        const live = sessionTitleOverrides.get(sid);
+        if (live?.titleSource === 'user' || live?.threadBrief) return null;
+        sessionTitleOverrides.set(sid, { threadBrief: brief, rewindGen: Number(head.rewindGen) || 0 });
+        RUYI_EVENTS.emit('thread.state', { sessionId: sid });
+        await updateSessionMeta(sid, { threadBrief: brief, threadBriefRewindGen: Number(head.rewindGen) || 0 }).catch(() => null);
         return brief;
       }
     }

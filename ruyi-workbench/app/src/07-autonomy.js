@@ -336,16 +336,18 @@ function buildOpenAiTools(config, caps, opts) {
       }, required: ['task'] },
     } });
   }
-  // 团队模式 v2 (B1): send_to_agent —— 单向异步节点间消息(元工具,provider 引擎,read tier)。offer 由
-  // opts.sendToAgentEnabled 门控(工作流子回合注册)。不阻塞、不等回执;目标下一次调用前投递,投不了则丢弃。
+  // send_to_agent：provider 主回合与工作流节点的定向参考消息(read tier)。opts.sendToAgentEnabled 控制 offer；
+  // 节点邮箱与父/跨会话账本复用现有投递路径，返回真实排队/无法投递回执，下一模型边界收件，不自动唤醒。
   if (opts && opts.sendToAgentEnabled) {
     out.push({ type: 'function', function: {
       name: 'send_to_agent',
-      description: '给同一次运行中的另一个节点发一条单向消息(异步、不阻塞、不等回执)。消息会在目标节点下一次模型调用前作为一条提示注入;若目标已结束/被跳过/是单发节点则被丢弃。用于把你发现的关键事实及时同步给并行的其他节点。',
+      description: '定向发送代理参考消息，不改变目标任务或用户授权。子节点可给同次运行节点或 parent 发消息；主会话给节点时填写 runId，也可用 targetSessionId 给明确的其他会话发消息。异步入队，在目标下次模型调用前投递，目标已结束或不支持收件则无法投递。不会自动唤醒空闲会话。',
       parameters: { type: 'object', properties: {
-        targetNodeKey: { type: 'string', description: '目标节点的 id(必填)。' },
+        targetNodeKey: { type: 'string', description: '目标节点 id；子节点可填 parent 给主会话。' },
+        runId: { type: 'string', description: '主会话给节点发送时必填：当前会话中仍运行的工作流 runId。子节点无需填写。' },
+        targetSessionId: { type: 'string', description: '仅主会话可用：其他普通会话的明确 id。与 runId/targetNodeKey 二选一。消息不会自动唤醒目标。' },
         message: { type: 'string', description: '要发送的消息内容(必填,最长约 2000 字符)。' },
-      }, required: ['targetNodeKey', 'message'] },
+      }, required: ['message'] },
     } });
   }
   if ((!opts || !opts.noAdaptiveMeta) && config && config.toolLoadingMode === 'auto') {
@@ -372,7 +374,7 @@ const NATIVE_TOOL_TIER = {
   observation_recall: 'read', // 105a: 只读当前会话快照,授权来自 ctx 会话归属 → auto-allow
   checkpoint_list: 'read', // C4: 只读当前会话的检查点索引与撤销记录(会话取自 ctx,不触文件路径、不回滚;撤销只能由用户在界面做)→ auto-allow
   list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
-  propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
+  propose_task: 'read', send_to_agent: 'read', // 本地协作元工具：提案/消息入队及账本记账，不改变外部文件或用户授权。
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
   file_read: 'read', file_list: 'read', file_search: 'read', glob: 'read', project_snapshot: 'read', git_status: 'read',
   git_diff: 'read', git_log: 'read', // v1.0-S4: read-only git inspection → auto-allow
@@ -384,6 +386,7 @@ const NATIVE_TOOL_TIER = {
   // C2(61 号文):会话草稿本与 todo_write 同类 —— 只写工作台自有的会话旁车(sessions/<id>.scratchpad.json),不碰用户文件、
   // 不执行任何东西,会话只取回合 ctx(12 handler) → read 档 auto-allow。计划阶段也放行(见 09 PLAN_DISCOVERY_BLOCKED_TOOLS 头注)。
   scratchpad_write: 'read',
+  thread_title_update: 'read',
   workbench_self_status: 'read', // 108c: 只读自状态(版本/位置/端口/健康/计数/设置掩码),不触文件路径 → auto-allow
   // 116c(27 号文 §3.5 tier 分档):管家工具族。观察族 read(只读如意自身账面,零副作用);线程族 edit
   // (建线程/递话/改名,全部返回 undoRef 可撤销);决策族 exec(替用户答复待决、控制班组运行,最高危)。
@@ -579,6 +582,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   // 有它,要么中途 tool_load 一次,提供方前缀缓存整段失效(起手工具表头注的实测:97%→3%)。常驻的代价是 schema 约 710 字符
   // (≈200 token),每发基本命中缓存。core 同时决定 Claude CLI 的 MCP 工具清单,但它不在 MCP_TOOLS 里(13f 头注),CLI 那边不受影响。
   scratchpad_write: 'core',
+  thread_title_update: 'core',
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   audio_transcribe: 'files_read', // 127-114c③:读本地音频文件转写,目录归 files_read(tier 仍是 exec)
@@ -593,7 +597,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
-  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', skill_read: 'skills',
+  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', send_to_agent: 'agents', skill_read: 'skills',
   playbook_list: 'skills', playbook_read: 'skills', skill_list: 'skills', // 61 号文 C1:不进 PROVIDER_STARTER_TOOLS(起手工具影响前缀缓存),说到 Playbook/技能时 classifyToolPacks 带出
   mcp_list: 'integrations', mcp_configure: 'integrations',
   // 116c: 管家工具族全部归 steward 包 —— 普通会话的 classifyToolPacks 永远不会路由到这个包

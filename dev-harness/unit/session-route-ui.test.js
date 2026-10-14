@@ -87,3 +87,19 @@ test('live remount, session route UI, and pre-turn context controls stay wired',
   assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(publicDir, 'locales', 'zh-CN.json'), 'utf8')));
   assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(publicDir, 'locales', 'en-US.json'), 'utf8')));
 });
+
+test('thread state updates the streaming title without replacing conversation messages', () => {
+  const source = fs.readFileSync(path.join(publicDir, 'js', 'session-experience.js'), 'utf8');
+  const start = source.indexOf('function bindLiveEventStream()');
+  const code = source.slice(start, source.indexOf('// 切回工作台', start));
+  const listeners = new Map(), node = {}, messages = [{ role: 'assistant', content: 'live text' }];
+  const state = { streaming: true, currentSession: { id: 'sess_live', title: 'Untitled', messages } };
+  const ctx = { state, $: () => node, eventStream: { on: (name, fn) => listeners.set(name, fn), isConnected: () => true }, EVENT_STREAM_LIVE_EVENT: 'thread.live', EVENT_STREAM_ROW_EVENTS: ['thread.state'], syncLivePolling() {}, pushLiveTurn() {}, liveStreamConnected: false };
+  vm.runInNewContext(code + '\nbindLiveEventStream();', ctx);
+  listeners.get('thread.state')({ sessionId: 'sess_live', title: 'Generated title' });
+  assert.equal(node.textContent, 'Generated title');
+  assert.equal(state.currentSession.title, 'Generated title');
+  assert.equal(state.currentSession.messages, messages);
+  listeners.get('thread.state')({ sessionId: 'sess_other', title: 'Other title' });
+  assert.equal(node.textContent, 'Generated title');
+});

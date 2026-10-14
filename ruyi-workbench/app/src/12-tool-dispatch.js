@@ -563,6 +563,10 @@ const CORE_TOOL_HANDLERS = {
   scratchpad_write: { paths: null, guardNote: "C2: 只读写本会话旁车 sessions/<id>.scratchpad.json(工作台自有,DurableJsonStore,路径由受校验的会话 id 拼出);会话只取主回合 ctx(mainTurn),不接受参数传 id;子代理/MCP 子进程/HTTP 直调/管家会话 fail-closed", handler: async (args, ctx) => {
       return scratchpadWriteTool(args, ctx);
   } },
+  thread_title_update: { paths: null, guardNote: '仅当前普通provider主回合的自动标题；sessionId由ctx绑定，子代理与CLI不可调用', handler: async (args, ctx) => {
+    if (!ctx || ctx.mainTurn !== true || !ctx.session || ctx.session.kind === 'steward') return { ok: false, error: 'thread_title_update 仅在普通会话主回合可用。' };
+    return updateAutomaticThreadTitle({ sessionId: ctx.session.id, title: args.title, gist: args.gist });
+  } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 被能力总闸关掉的桥接工具不进目录

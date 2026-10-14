@@ -600,12 +600,12 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     modelsUrl: providerWireModelsUrl,
     requestHeaders: provider => providerRequestHeaders(provider),
     encodeMessages: ({ model, messages, stream }) => {
-      // Signed Anthropic replay blocks belong to durable internal history only.
+      // Signed replay blocks and message provenance belong to internal history only.
       // Switching protocols must preserve chat/tool history without sending this
       // private metadata to strict OpenAI-compatible servers.
       const wireMessages = messages.map(message => {
-        if (!message || !Object.prototype.hasOwnProperty.call(message, 'providerBlocks')) return message;
-        const { providerBlocks, ...chatMessage } = message;
+        if (!message || (!Object.prototype.hasOwnProperty.call(message, 'providerBlocks') && !Object.prototype.hasOwnProperty.call(message, 'meta'))) return message;
+        const { providerBlocks, meta, ...chatMessage } = message;
         return chatMessage;
       });
       return stream
