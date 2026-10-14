@@ -995,7 +995,7 @@ export function createStewardConversation({
       if (result && result.ok === false) {
         // 117l-B2 ⑤：查表那一步搬进 stewardActErrorMessage（多一条 steward.queued 要插 wait.label），
         // 表外仍然落到 errGeneric 并把原始 error 原样带出去。
-        const message = (stewardErrorCode(result.error) === 'invalid_request' ? stewardErrorText(result.message || result.error) : '') || stewardActErrorMessage(result.error, t)
+        const message = (stewardErrorCode(result.error) === 'invalid_request' ? stewardErrorText(result.message) : '') || stewardActErrorMessage(result.error, t)
           || t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) });
         showActProblem(actsRow, message);
         if (btn) {

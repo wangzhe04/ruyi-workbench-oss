@@ -42,5 +42,5 @@ let fx, oldStarted = false;
     run.ok(Boolean(await fx.waitForEval(`document.getElementById('stewardFeed').textContent.includes('FRESH_REPLY')`)), 'new conversation receives a fresh reply');
     run.ok(fx.exceptions.length === 0, 'browser has no uncaught exceptions');
   } catch (error) { run.fail(error.stack || error); }
-  finally { await fx?.close(); run.done(); }
+  finally { if (fx) await fx.close(); run.done(); }
 })();

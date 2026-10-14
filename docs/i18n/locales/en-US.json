@@ -3921,6 +3921,6 @@
   ,"stewardShell.askYou.permission": "Waiting for your approval: {{what}}"
   ,"stewardShell.askYou.permissionTarget": "{{verb}} “{{name}}”"
 ,"stewardShell.chat.newConversation": "New conversation"
-,"stewardShell.chat.newConversationDone": "Started a new conversation. Previous chat was archived and conversation context cleared."
+,"stewardShell.chat.newConversationDone": "Started a new conversation. Previous conversation was archived and conversation context cleared."
 ,"stewardShell.chat.newConversationFailed": "Could not finish starting a new conversation. Please try again shortly."
 }
