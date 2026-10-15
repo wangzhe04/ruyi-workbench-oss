@@ -1,11 +1,21 @@
 /* Tool pane, modals, overlays, toasts, and responsive shell rules. */
 /* ============================ tool pane ============================ */
 .tool-pane-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; margin: 2px 2px 14px; }
-.tool-pane-head > div { display: flex; align-items: baseline; gap: 9px; }
+.tool-pane-head > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 9px; min-width: 0; }
 .tool-pane-kicker { color: var(--accent); font-size: var(--fs-xs); font-weight: 750; }
 .tool-pane-head h2 { margin: 0; color: var(--ink); font-size: var(--fs-lg); letter-spacing: -.015em; }
 .tool-pane-head p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.45; }
-.tool-pane-close { display: none; width: 28px; height: 28px; padding: 0; border-color: transparent; border-radius: 8px; background: transparent; color: var(--muted); font-size: var(--fs-lg); line-height: 1; }
+.tool-pane-close { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-color: transparent; border-radius: 8px; background: transparent; color: var(--muted); font-size: var(--fs-lg); line-height: 1; }
+.tool-pane-close:hover { background: var(--panel-3); color: var(--ink); }
+/* Keep the existing tool categories reachable while reading long file/result lists. */
+.tool-pane > .tool-tabs { position: sticky; top: 0; z-index: 3; flex: none; background: var(--panel-2); }
+.tool-pane > .tool-section { flex: none; }
+.tool-pane .pane-section-head > div { min-width: 0; }
+.tool-pane .debug-head { align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.tool-pane .debug-head > label { margin: 0; color: var(--ink); font-size: var(--fs-base); font-weight: 600; }
+.tool-pane :is(.pane-section-head, .debug-head) button { min-height: 32px; margin-bottom: 0; flex-shrink: 0; }
+.tool-pane .tool-tabs button { white-space: normal; line-height: 1.35; overflow-wrap: anywhere; }
+.tool-pane .tool-tab-mark { flex: none; }
 /* 121-K7（34 号文 §13.13 K8 登记②）：七枚页签在 392px 右栏里【三列 = 三行】，占掉右栏顶上
    一大截。§2.6「七页签不动」是前提，所以改的是布局不是枚数：四列 → ceil(7/4) = 两行。
    四列在 392px 里放得下的算术（1920 基准档）：栏内容宽 392 − 左右各 14 内边距 = 364；
@@ -402,6 +412,9 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
   /* Keep the pane displayed (override the base .tools-collapsed display:none) but slide it off-canvas;
      .tools-open slides it in. */
   .app-shell.tools-collapsed .tool-pane { display: flex; }
+  /* The drawer lives inside the area beside the rail; viewport width would clip its left edge.
+     It must also sit above its own backdrop (44), so visible controls can actually be clicked. */
+  .app-shell .tool-pane { grid-column: 1 / -1; max-width: 100%; z-index: 45; }
   .tool-pane-close { display: grid; place-items: center; }
   /* Backdrop: only present while the drawer is open on narrow screens. Clicking it closes the drawer
      (JS wires the click). Pure-CSS element keeps this cheap — no JS node bookkeeping. */

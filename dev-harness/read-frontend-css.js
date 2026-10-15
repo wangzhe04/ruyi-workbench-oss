@@ -79,31 +79,19 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 3.0 收口走查第二波 · 前端续钉(前值 eb011087…＝2026-10 3.0 收口走查 · 记忆作用域续钉):零新增、零删除层,改四层 ——
-//   `css/views/chat-shell.css`:线程头钉回 flex-wrap:nowrap 并做 container: thhead / inline-size,按线程头自身宽度分档收起管家话与开关文字(中英各一套阈值,<460px 管家条独占一行);`.topbar-title` 最小宽 6em。
-//   `css/components/chat-composer.css`:回合进行中胶囊允许折行,输入框以 14em 为基、8em 为底,下拉定宽 8em。
-//   `css/views/settings.css`:`.settings-nav-label` 允许折行。
-//   `css/views/steward-board.css`:左栏行「⋯」出流定位,悬停时右端时间 visibility:hidden 不再改行高;hover:none 仍流内常显。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show a77a57e:<css>` 重算 = eb011087…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-// 2026-10 3.0 收口走查第三波 · 界面续钉(前值 503807bf…＝2026-10 3.0 收口走查第二波 · 前端续钉):零新增、零删除层,改八层 ——
-//   `css/layout.css`:顶栏改三列(1fr / auto / max-content),窄档收状态胶囊;抽屉关着时 visibility:hidden(不进 Tab 序、不漏阴影)。
-//   `css/views/steward-settings.css`:权限档菜单限宽、选项可换行,≤640 改顶栏下方全宽;定时任务表单与星期块的 [hidden] 补 display:none。
-//   `css/views/steward-board.css`:左栏行标题限宽,「等你放行」胶囊限高省略。
-//   `css/views/settings.css`:窄屏页签自适应宽度,不再互相叠印。
-//   `css/states/chat-live.css`:子代理卡头允许换行、标题保底 6em。
-//   `css/themes/ui-modes.css`:简洁模式工具卡动词不换行。
-//   `css/views/chat-shell.css`:上下文电量条可收缩;线程头 chip 值在线程头 ≥400 宽时保底 2em,英文窄档标签可换行。
-//   `css/views/workbench.css`:配合线程头窄档的小调整。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 3d9067f:<css>` 重算 = 503807bf…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
 // 2026-10 3.0 收口 · 工作文件夹选择器续钉(前值 ae8f54cb…＝2026-10 3.0 收口走查第三波 · 界面续钉):零新增、零删除层,改一层 ——
 //   `css/views/workspace.css`:顶栏工作文件夹弹层重做 —— 「浏览文件夹」主按钮(两行:标题 + 说明,可折行)、常用 / 最近每行「图标 + 名字 + 完整路径」
 //   (`.wp-fav-main` / `-text` / `-nameline` / `-path`(rtl 左省略 + bdi)/ `-badge` / `-icon`)、行尾图标按钮悬停或 focus-within 显出、`.wp-recent-list`、
 //   就地错误行 `.wp-pop-err` 与输入框 `[aria-invalid]` 态;删去 `.wp-fav-rank`。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 620d76b:<css>` 重算 = ae8f54cb…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193';
+// 2026-10 班组体验走查续钉（前值 76316e75…）：workbench.css 新增概览、角色优先、容器响应式详情及窄屏用量布局；tool-pane.css 保持分类可见、统一标题与按钮间距、显示关闭入口；workbench.css 补历史选择与抽屉网格定位；workspace.css 将审计摘要独立成行。
+// 算法自证：readLayerPayload 读取 git show HEAD 各层得 76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193，与旧锁一致。
+// 反向验证：仅在读文件时注入错误的 .wb-node opacity，D51 与 F3 均变红；磁盘样式未修改。
+// 2026-10 AI 工作精简续钉（前值 29a7e758…）：workspace.css 新增模板与运行详情折叠入口样式，当前进度可换行，运行列表使用工具箱的单一滚动区域。
+// 算法自证：readLayerPayload 读本轮改动前的 CSS 快照重算 = 29a7e758ddf3d119394c7f9f740c3d3dd9701e42ddb6e0aa7b3a667b952125da，与旧锁逐字相同。
+// 反向验证：内存注入错误样式后 D51/F3 均失败；实际 CSS 文件未改坏。
+const LEGACY_STYLES_SHA256 = 'e8b7880080aa4fe5ee0b7d97bfe60457039ef070649e76fba83055af3b56a67c';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

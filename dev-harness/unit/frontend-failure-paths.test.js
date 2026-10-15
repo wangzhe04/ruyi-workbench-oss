@@ -829,11 +829,14 @@ test('⑫ public/ 里没有不带语言参数的 toLocale*String()：时间与�
 // ── ③ 工作流监控「调整方向」回填 ────────────────────────────────────────────────────────────────
 // 发送失败的回填写在输入框的 submit 闭包里（组件只在画布抽屉里现建，没有导出口），按结构判：
 // 回填的是这一轮取出来的文本 t2，不是 i18n 函数 t（修前上屏的是 t 的函数源码）。
+// 班组走查：草稿现在按成员保存，真实跨成员迟到失败由 crew-experience.browser.e2e.js 验证。
 test('③ steer 发送失败回填的是用户敲的那句话', () => {
   const src = readJs('workbench.js');
   const submit = bracedBlock(src, 'const submit = async () =>');
   assert.ok(submit.length > 80, '切到了 submit 闭包');
   assert.match(submit, /const t2 = \(input\.value \|\| ''\)\.trim\(\)/);
-  assert.match(submit, /inp\.value = t2;/);
+  assert.match(submit, /wbSteerDrafts\.set\(draftKey, newer \? `\$\{t2\} \$\{newer\}` : t2\)/);
+  assert.match(submit, /inp\.dataset\.draftKey === draftKey/);
+  assert.match(submit, /inp\.value = wbSteerDrafts\.get\(draftKey\)/);
   assert.doesNotMatch(submit, /inp\.value = t;/);
 });

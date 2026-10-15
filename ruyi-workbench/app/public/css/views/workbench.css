@@ -12,7 +12,7 @@
 .chat-pane[data-main-view="canvas"] > #jumpLatest,
 .chat-pane[data-main-view="canvas"] > .composer { display: none; }
 .chat-pane[data-main-view="chat"] > .wb-view { display: none; }
-.wb-view { flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; background: var(--canvas-bg); overflow: hidden; }
+.wb-view { flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; background: var(--canvas-bg); overflow: hidden; container: crew / inline-size; }
 
 /* — 中栏主 Tab(对话 | 工作台):活动指示 = 笔锋渐隐下划线;有活动 run 亮点标。 — */
 .wb-mainview-tabs { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; padding: var(--sp-2) var(--sp-4) 0;
@@ -33,6 +33,7 @@
 .wb-runbar { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--line); background: var(--panel); overflow-x: auto; }
 .wb-runbar:empty { display: none; }
+.wb-run-select { flex: 1; min-width: 0; max-width: 640px; min-height: 36px; padding: 6px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--panel); color: var(--ink); font: inherit; font-size: var(--fs-sm); text-overflow: ellipsis; }
 /* 121-K8（§2.10.2）：组头去英文风字距，12px 加粗次级墨色。 */
 .wb-rb-label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 600;
   color: var(--ink-2); margin-right: 4px; white-space: nowrap; flex: none; }
@@ -50,16 +51,31 @@
 .wb-rc-id { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); font-weight: 400; }
 .wb-rc-st { font-size: var(--fs-xs); color: var(--muted); }
 .wb-chip.active .wb-rc-st { color: var(--accent); }
+.wb-chip .wb-rc-id { display: none; }
+.wb-rc-name { max-width: 18em; overflow: hidden; text-overflow: ellipsis; }
+.wb-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.wb-overview { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 16px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; }
+.wb-overview:empty { display: none; }
+.wb-overview-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: min(100%, 240px); }
+.wb-overview-title { font-size: var(--fs-md); color: var(--ink); overflow-wrap: anywhere; }
+.wb-overview-status, .wb-overview-count { color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; }
+.wb-overview-progress { width: 100%; height: 4px; appearance: none; border: none; border-radius: var(--r-pill); overflow: hidden; background: var(--panel-3); }
+.wb-overview-progress::-webkit-progress-bar { background: var(--panel-3); }
+.wb-overview-progress::-webkit-progress-value { background: var(--ok); }
+.wb-overview-progress::-moz-progress-bar { background: var(--ok); }
+.wb-overview-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 100%; }
+.wb-member-select { min-width: 0; max-width: 220px; min-height: 36px; padding: 6px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--panel); color: var(--ink); font: inherit; font-size: var(--fs-sm); }
+.wb-overview .wb-attention { color: var(--warn-fg); background: var(--warn-bg); border-color: var(--warn); }
 .wb-rc-gold { color: var(--gold); font-size: var(--fs-xs); line-height: 1; }
 .wb-rc-pool { margin-left: 2px; padding: 1px 7px; border-radius: var(--r-pill); background: var(--warn-bg);
   color: var(--warn-fg); font-size: var(--fs-xs); font-weight: 700; border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
 
 /* — 画布:--canvas-bg 深度台阶 + 点网格 + 云纹角饰;<1180 横向可滚,≤760 触摸平移。 — */
-.wb-canvas-wrap { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto;
+.wb-canvas-wrap { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; padding-bottom: 56px;
   background: radial-gradient(circle at 24px 24px, color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px), var(--canvas-bg);
   background-size: 28px 28px, auto; }
-.wb-canvas-wrap::after { content: ""; position: absolute; right: -34px; bottom: -26px; width: 300px; height: 175px;
-  pointer-events: none; z-index: 0; background: var(--brand-qh); opacity: .05;
+.wb-canvas-wrap::after { content: ""; position: absolute; right: 0; bottom: 0; width: min(300px, 100%); height: 175px;
+  pointer-events: none; z-index: 0; background: var(--brand-qh); opacity: .025;
   -webkit-mask: var(--ruyi-cloud) center/contain no-repeat; mask: var(--ruyi-cloud) center/contain no-repeat; }
 .wb-canvas { position: relative; margin: 12px auto; }
 
@@ -163,7 +179,7 @@
 .wb-main:has(#wbSide:empty) { grid-template-columns: minmax(0, 1fr); }
 
 /* — 缩放容器:节点 + SVG 同容器整体 CSS transform:scale(§5.4),transform-origin 左上,坐标系不变。 — */
-.wb-canvas-inner { position: relative; transform-origin: 0 0; }
+.wb-canvas-inner { position: relative; transform-origin: 0 0; overflow: clip; }
 
 /* — 泳道层淡标签:落在层行上缘空隙,veil 底 + 发丝缘,避开节点(节点行居中排布,标签在行上方空隙带)。 — */
 /* 121-K8（§2.10.2）：层标签是区块标题的一种，同样去字距。 */
@@ -198,7 +214,7 @@
 .wb-sec.open .wb-sec-caret { transform: rotate(90deg); }
 .wb-sec-title { flex: 1; }
 .wb-sec-count { margin-left: auto; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: 700;
-  background: var(--accent-soft); color: var(--accent); }
+  background: var(--accent-soft); color: var(--accent); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wb-sec-count.warn { background: var(--warn-bg); color: var(--warn-fg); }
 .wb-sec-body { padding: 0 16px 16px; display: none; }
 .wb-sec.open .wb-sec-body { display: block; }
@@ -206,7 +222,7 @@
 /* — 段1 选中节点详情 — */
 .wb-det-empty { font-size: var(--fs-sm); color: var(--muted); line-height: 1.6; padding: 6px 0; }
 .wb-det-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-.wb-det-title { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
+.wb-det-title { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
 .wb-det-model { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted);
   background: var(--code-bg); padding: 2px 7px; border-radius: var(--r-sm); border: 1px solid var(--line); }
 .wb-det-row { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--ink-2); margin: 7px 0; }
@@ -314,32 +330,40 @@
 
 /* — 响应式(§6#10):<1180 右板收为抽屉(画布占满,点节点滑出)+ 缩放胶囊回右下满宽;≤760 抽屉近全宽浮层,
      画布只读缩放平移(P3a touch-action),chips 横滑,用量条紧凑。 — */
-@media (max-width: 1180px) {
-  .wb-canvas { margin: 12px; }
+@container crew (max-width: 820px) {
+  .wb-canvas { margin: 12px auto; }
   /* 主区回单列:画布占满;右板离开网格,变右侧滑出抽屉。 */
   .wb-main { grid-template-columns: minmax(0, 1fr); }
   .wb-main:has(#wbSide:empty) { grid-template-columns: minmax(0, 1fr); }
   .wb-cvtools { right: 16px; }
-  .wb-side { position: fixed; top: 0; right: 0; height: 100%; width: min(360px, 92vw); z-index: 45;
+  .wb-side { position: absolute; grid-column: 1 / -1; top: 0; right: 0; height: 100%; width: min(372px, 94%); z-index: 45; visibility: hidden;
     transform: translateX(100%); transition: transform var(--dur-base) var(--ease-out);
     box-shadow: var(--elev-3); border-left: 1px solid var(--line); }
-  .wb-side-open .wb-side { transform: none; }
+  .wb-side-open .wb-side { transform: none; visibility: visible; }
   .wb-side-close { display: flex; align-items: center; justify-content: center; gap: 6px; flex: none;
     margin: 10px 12px 0; padding: 7px 12px; align-self: flex-end; border: 1px solid var(--line-2);
     border-radius: var(--r-pill); background: var(--panel); color: var(--ink-2); cursor: pointer; font-size: var(--fs-sm); }
   .wb-side-close:hover { background: var(--panel-3); color: var(--ink); }
   /* backdrop 仅抽屉打开时可见,点击关闭(JS wire)。 */
-  .wb-side-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .4); z-index: 44; }
+  .wb-side-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .4); z-index: 44; }
   .wb-side-open .wb-side-backdrop { display: block; }
 }
-@media (max-width: 760px) {
+@container crew (max-width: 540px) {
   .wb-canvas-wrap { touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }
   .wb-mainview-tabs { padding: var(--sp-1) var(--sp-3) 0; }
   .wb-usage { gap: var(--sp-3); padding: 8px 12px; }
   .wb-usage-metrics { gap: var(--sp-3); }
   .wb-um b { font-size: var(--fs-lg); }
   /* ≤760:右板抽屉近全宽浮层(节点详情/审批/邮箱收进此浮层);操作触达更大。 */
-  .wb-side { width: min(100%, 92vw); }
+  .wb-side { width: min(100%, 372px); }
+  .wb-overview { padding: 12px; }
+  .wb-overview-info, .wb-overview-actions { flex: 1 1 100%; }
+  .wb-member-select { flex: 1; max-width: 100%; width: 120px; }
+  .wb-usage { flex-wrap: wrap; gap: 8px 12px; }
+  .wb-usage-run { display: none; }
+  .wb-usage-link { padding: 6px 8px; }
+  .wb-usage-metrics { flex: 1; justify-content: space-between; }
+  .wb-empty { padding: 20px; overflow: auto; }
 }
 
 /* ---- 第55波 EC-C (55c): MCP 运维页签 -- 连接器清单 / 健康灯 / 来源徽章 ---- */

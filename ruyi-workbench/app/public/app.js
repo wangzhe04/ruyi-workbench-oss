@@ -1125,7 +1125,7 @@ function bindEvents() {
 
   // tool pane
   document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => { b.onclick = () => { noteToolTabOpened(b.dataset.tab); switchTab(b.dataset.tab); }; });
-  { const closePane = $('closeToolPaneBtn'); if (closePane) closePane.onclick = closeToolDrawer; }
+  { const closePane = $('closeToolPaneBtn'); if (closePane) closePane.onclick = () => { if (appFrame.isSideOpen()) appFrame.setSideOpen(false); closeToolDrawer(); }; }
   bindWorkbench(); // 第60波:主视图 Tab 与窄屏右板 backdrop 由 Workbench 域自持
   bindFileBrowser(); // 第59波:文件树刷新按钮由领域模块自持
   bindArtifactChanges(); // 第59波:产物与变更中心按钮接线由领域模块自持
