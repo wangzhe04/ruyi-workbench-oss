@@ -341,13 +341,15 @@ function buildOpenAiTools(config, caps, opts) {
   if (opts && opts.sendToAgentEnabled) {
     out.push({ type: 'function', function: {
       name: 'send_to_agent',
-      description: '定向发送代理参考消息，不改变目标任务或用户授权。子节点可给同次运行节点或 parent 发消息；主会话给节点时填写 runId，也可用 targetSessionId 给明确的其他会话发消息。异步入队，在目标下次模型调用前投递，目标已结束或不支持收件则无法投递。不会自动唤醒空闲会话。',
+      description: '参考消息不改变任务或授权。下次模型调用前投递，不唤醒会话；终态或不支持收件则无法投递。',
       parameters: { type: 'object', properties: {
-        targetNodeKey: { type: 'string', description: '目标节点 id；子节点可填 parent 给主会话。' },
-        runId: { type: 'string', description: '主会话给节点发送时必填：当前会话中仍运行的工作流 runId。子节点无需填写。' },
-        targetSessionId: { type: 'string', description: '仅主会话可用：其他普通会话的明确 id。与 runId/targetNodeKey 二选一。消息不会自动唤醒目标。' },
-        message: { type: 'string', description: '要发送的消息内容(必填,最长约 2000 字符)。' },
-      }, required: ['message'] },
+        action: { type: 'string', enum: ['send', 'status'], description: '默认send；status查本人回执，delivered仅指注入上下文。' },
+        messageId: { type: 'string', description: 'status必填：消息回执ID。' },
+        targetNodeKey: { type: 'string', description: '同run节点ID；子节点可填parent。' },
+        runId: { type: 'string', description: '主会话操作节点必填；status可查终态run；子节点自动绑定。' },
+        targetSessionId: { type: 'string', description: '主会话可选其他会话ID；与runId/targetNodeKey互斥。' },
+        message: { type: 'string', description: 'send必填，最多2000字符。' },
+      } },
     } });
   }
   if ((!opts || !opts.noAdaptiveMeta) && config && config.toolLoadingMode === 'auto') {

@@ -13,7 +13,7 @@ const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-parent-mail-'));
 const wbDir = path.resolve(__dirname, '..', 'ruyi-workbench');
 const pause = ms => new Promise(r => setTimeout(r, ms));
 const bodies = [];
-let targetSid, runId, waitStarted, releaseChild, finishChild;
+let crossMessageId, runMessageId, targetSid, runId, waitStarted, releaseChild, finishChild;
 const waiting = new Promise(r => { waitStarted = r; });
 const release = new Promise(r => { releaseChild = r; });
 const finish = new Promise(r => { finishChild = r; });
@@ -28,7 +28,7 @@ async function handle(req) {
   const messages = req.messages || [];
   const sys = messages.find(m => m.role === 'system');
   const text = JSON.stringify(messages);
-  const current = [...messages].reverse().find(m => m.role === 'user' && /TEAM_MAIL|CROSS_MAIL|DEAD_RUN|OTHER_RUN|TARGET_NEXT|TARGET_AGAIN|TITLE_CHANGE/.test(String(m.content)));
+  const current = [...messages].reverse().find(m => m.role === 'user' && /TEAM_MAIL|CROSS_MAIL|DEAD_RUN|OTHER_RUN|TARGET_NEXT|TARGET_AGAIN|TITLE_CHANGE|RECEIPT_/.test(String(m.content)));
   const requestText = String(current && current.content || '');
   if (text.includes('你给一条对话线程起名字') || text.includes('You name a conversation thread')) return textFrames(JSON.stringify({ title: '自动标题', gist: '当前任务' }), frame);
   if (text.includes('DIRECT_NODE_MAIL')) return textFrames('direct child done', frame);
@@ -57,6 +57,16 @@ async function handle(req) {
     if (!result(messages, 'send_to_agent')) return toolCallFrames('send_to_agent', { runId, targetNodeKey: 'worker', message: 'PARENT_REPLY' }, 'parent_reply', frame);
     releaseChild();
     return textFrames('parent completed', frame);
+  }
+  if (requestText.includes('RECEIPT_')) {
+    const tag = requestText.match(/RECEIPT_[A-Z]+/)[0];
+    const id = 'status_' + tag;
+    if (!messages.some(m => m.tool_call_id === id)) {
+      const args = tag === 'RECEIPT_RUN' ? { action: 'status', runId, messageId: runMessageId }
+        : { action: 'status', targetSessionId: tag === 'RECEIPT_BAD' ? '../invalid' : targetSid, messageId: crossMessageId };
+      return toolCallFrames('send_to_agent', args, id, frame);
+    }
+    return textFrames('receipt checked', frame);
   }
   if (requestText.includes('CROSS_MAIL') && !messages.some(m => m.tool_call_id === 'cross_send')) return toolCallFrames('send_to_agent', { targetSessionId: targetSid, message: 'CROSS_FACT', sourceSessionId: 'forged' }, 'cross_send', frame);
   if (requestText.includes('DEAD_RUN') && !messages.some(m => m.tool_call_id === 'dead_send')) return toolCallFrames('send_to_agent', { runId, targetNodeKey: 'worker', message: 'old task resume' }, 'dead_send', frame);
@@ -104,6 +114,11 @@ async function main() {
     ok(parentMailBodies.length > 0 && JSON.stringify(parentMailBodies).includes(`run ${runId}，节点 worker`), 'parent mail binds actual run and node source');
     const cross = await chat(parent, 'CROSS_MAIL');
     ok(cross.some(e => e.type === 'tool_result' && e.id === 'cross_send' && e.content.status === 'queued' && e.content.delivered === false), 'idle cross-thread send returns queued receipt');
+    crossMessageId = cross.find(e => e.type === 'tool_result' && e.id === 'cross_send').content.messageId;
+    const queuedStatus = await chat(parent, 'RECEIPT_QUEUED');
+    ok(queuedStatus.some(e => e.type === 'tool_result' && e.id === 'status_RECEIPT_QUEUED' && e.content.status === 'queued'), 'main tool status queries queued cross-session receipt');
+    const badStatus = await chat(parent, 'RECEIPT_BAD');
+    ok(badStatus.some(e => e.type === 'tool_result' && e.id === 'status_RECEIPT_BAD' && e.content.status === 'not_found') && badStatus.some(e => e.type === 'result' && e.ok), 'invalid cross-session status target does not fail parent turn');
     await pause(1800);
     const idleLedger = JSON.parse(fs.readFileSync(path.join(home, 'sessions', 'background-jobs', targetSid + '.json'), 'utf8'));
     ok(idleLedger.find(j => j.kind === 'agent_message').status === 'queued' && !bodies.some(b => b.messages.some(m => m.role === 'user' && String(m.content).includes('代理参考消息') && String(m.content).includes('CROSS_FACT'))), 'idle peer target is not automatically awakened even when agent auto-wake is enabled');
@@ -118,6 +133,8 @@ async function main() {
     ok(messages.filter(m => m.backgroundJobId && String(m.content).includes('CROSS_FACT')).length === 1, 'peer UI receipt is appended exactly once');
     const ledger = JSON.parse(fs.readFileSync(path.join(home, 'sessions', 'background-jobs', targetSid + '.json'), 'utf8'));
     ok(ledger.find(j => j.kind === 'agent_message').status === 'delivered', 'ledger records actual boundary delivery');
+    const deliveredStatus = await chat(parent, 'RECEIPT_DELIVERED');
+    ok(deliveredStatus.some(e => e.type === 'tool_result' && e.id === 'status_RECEIPT_DELIVERED' && e.content.status === 'delivered'), 'main tool status queries cross-session local delivery after target turn');
     const providerRows = fs.readFileSync(path.join(home, 'sessions', targetSid + '.provider.ndjson'), 'utf8').trim().split('\n').map(JSON.parse);
     const peerRows = providerRows.filter(m => m.meta && m.meta.origin === 'agent_message');
     ok(peerRows.length === 1 && peerRows[0].meta.sourceSessionId === parent && peerRows[0].content.includes('CROSS_FACT'), 'persisted provider history injects peer exactly once with bound metadata');
@@ -126,6 +143,9 @@ async function main() {
     for (let i = 0; i < 100; i++) { const record = await (await fetch(base + `/api/agent-runs/${runId}?sessionId=${parent}`, { headers: { 'x-wcw-token': token } })).json(); if (record.run && record.run.status === 'succeeded') break; await pause(50); }
     const completed = await (await fetch(base + `/api/agent-runs/${runId}?sessionId=${parent}`, { headers: { 'x-wcw-token': token } })).json();
     ok(completed.run.messages.some(m => m.target === 'parent' && m.deliveredAt && !m.dropped), 'parent-bound run message records actual delivery without a drop');
+    runMessageId = completed.run.messages.find(m => m.sender === 'parent' && m.target === 'worker').id;
+    const runStatus = await chat(parent, 'RECEIPT_RUN');
+    ok(runStatus.some(e => e.type === 'tool_result' && e.id === 'status_RECEIPT_RUN' && e.content.status === 'delivered'), 'main tool status queries own receipt after run has completed');
     // Capture the real node history at the existing compaction boundary. Small histories need not run L2.
     process.env.RUYI_HOME = home;
     process.env.WIN_CLAUDE_WORKBENCH_HOME = home;

@@ -111,7 +111,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     for (const n of nodes) if (reset.has(n.id)) {
       if (n.isolation && n.isolation.path) await cleanupAgentWorktree(n.isolation);
-      n.status = 'queued'; n.result = ''; n.structuredResult = null; n.schemaErrors = []; n.error = ''; n.startedAt = null; n.completedAt = null; n.loopIteration = 0; n.noProgressCount = 0; n.progressFingerprint = ''; n.progressLog = [];
+      delete n.mailboxClosedReason; n.status = 'queued'; n.result = ''; n.structuredResult = null; n.schemaErrors = []; n.error = ''; n.startedAt = null; n.completedAt = null; n.loopIteration = 0; n.noProgressCount = 0; n.progressFingerprint = ''; n.progressLog = [];
       n.waitingForResources = [];
       // 对抗轮 P3(第28波):重跑清场须一并清 §28 新字段 —— 否则 degradedRetried 残留使重跑不再享有降级重试(与全新跑发散);
       // 陈旧 degraded/warning/summary 会让重跑后被 skip 的依赖在下游标题误标「· 降级」并外泄旧摘要。
@@ -495,6 +495,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   };
   const sendToAgentImpl = (senderId, args) => {
     try {
+      if (args && args.action != null && !['send', 'status'].includes(args.action)) return { ok: false, error: 'unknown mail action' };
+      if (args && args.action === 'status') return ownAgentMessageReceipt(run, senderId, args.messageId);
       if (runtime.closing) return { ok: false, error: '工作流正在收尾,无法再发送消息' };
       if (!Array.isArray(run.messages)) run.messages = [];
       const target = String(args && (args.targetNodeKey != null ? args.targetNodeKey : args.target) || '').trim().slice(0, 64);
@@ -513,13 +515,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       run.messages.push(entry);
       if (target === 'parent') {
         const queued = EventStreamHooks.notifyAgentMessage && EventStreamHooks.notifyAgentMessage({ sessionId: run.sessionId, sourceSessionId: run.sessionId, runId, nodeId: senderId, messageId: entry.id, text });
-        if (!queued) entry.dropped = true;
+        if (!queued) { entry.dropped = true; entry.dropReason = 'parent_unavailable'; entry.droppedAt = nowIso(); }
         try { throttledSaveRun(); } catch {}
         return { ok: !!queued, messageId: entry.id, status: queued ? 'queued' : 'undeliverable', delivered: false, note: queued ? '已入队，主会话下次模型调用前投递；空闲时不会自动唤醒。' : '主会话无法接收消息。' };
       }
-      if (!elig.ok) { entry.dropped = true; try { throttledSaveRun(); } catch {} return { ok: true, messageId: entry.id, status: 'undeliverable', reason: elig.reason, delivered: false, note: '目标已结束或无法接收消息(单发/确定性节点),消息将被丢弃。' }; }
+      if (!elig.ok) { entry.dropped = true; entry.dropReason = elig.reason; entry.droppedAt = nowIso(); try { throttledSaveRun(); } catch {} return { ok: true, messageId: entry.id, status: 'undeliverable', reason: elig.reason, delivered: false, note: '目标已结束或无法接收消息(单发/确定性节点),消息将被丢弃。' }; }
       let q = runtime.mailQueues.get(target); if (!q) { q = []; runtime.mailQueues.set(target, q); }
-      if (q.length >= MAIL_QUEUE_MAX) { entry.dropped = true; try { throttledSaveRun(); } catch {} return { ok: true, messageId: entry.id, status: 'undeliverable', reason: 'mailbox_full', delivered: false, note: `目标邮箱已满(${MAIL_QUEUE_MAX} 条待投递),本条将被丢弃。` }; }
+      if (q.length >= MAIL_QUEUE_MAX) { entry.dropped = true; entry.dropReason = 'mailbox_full'; entry.droppedAt = nowIso(); try { throttledSaveRun(); } catch {} return { ok: true, messageId: entry.id, status: 'undeliverable', reason: 'mailbox_full', delivered: false, note: `目标邮箱已满(${MAIL_QUEUE_MAX} 条待投递),本条将被丢弃。` }; }
       q.push({ sender: senderId, text, entry });
       try { throttledSaveRun(); } catch {}
       return { ok: true, messageId: entry.id, status: 'queued', delivered: false, queued: q.length, note: '已入队,目标下一次调用前投递;若目标已结束/被跳过则丢弃。' };
@@ -528,7 +530,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   runtime.sendToAgent = args => sendToAgentImpl('parent', args);
   // 团队模式 v2 (P3-1): 节点到终态时(批内终态,或批外 blocked/skipped 转移)把其邮箱里未投递的消息标 dropped 并清队。
   // v2 不重投,只诚实标记。四处复用(批内终态、blocked、skipped、收尾兜底走各自内联),集中一处避免逻辑漂移。
-  const dropNodeMail = nid => { try { const q = runtime.mailQueues.get(nid); if (!q || !q.length) return; for (const mm of q) { if (mm && mm.entry && !mm.entry.deliveredAt) mm.entry.dropped = true; } q.length = 0; } catch {} };
+  const dropNodeMail = (nid, reason) => { try { const q = runtime.mailQueues.get(nid); if (!q || !q.length) return; for (const mm of q) { if (mm && mm.entry && !mm.entry.deliveredAt) { mm.entry.dropped = true; mm.entry.dropReason = reason || 'node_terminal'; mm.entry.droppedAt = nowIso(); } } q.length = 0; } catch {} };
 
   // ============================================================================
   // 第26波(AUTONOMY-PLAN §1 缺口2):连续就绪队列 —— 旧调度是「批次屏障」:ready.slice(0,concurrency) +
@@ -878,6 +880,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               onBudgetTripped: info => recordRunBudgetTrippedEvent(run, { ...info, nodeId: node.id }),
               getSteer: () => drainNodeSteers(node.id),
               // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
+              closeInbox: reason => { if (!node.mailboxClosedReason) node.mailboxClosedReason = reason; dropNodeMail(node.id, node.mailboxClosedReason); },
               getMail: () => { const q = runtime.mailQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
               teamRoster: run.nodes.map(n => n.id),
               proposeTask: poolPolicy === 'off' ? undefined : (args => proposeTaskImpl(node.id, args)),
@@ -1006,7 +1009,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         } else if (pol === 'retry' && !node.degradedRetried) {
           // The degraded attempt was already indexed above; invalidate it before re-queueing.
           purgeNodeEvidence(run, node.id);
-          node.degradedRetried = true; node.degraded = false; node.warning = ''; node.status = 'queued'; node.completedAt = null;
+          node.degradedRetried = true; node.degraded = false; node.warning = ''; delete node.mailboxClosedReason; node.status = 'queued'; node.completedAt = null;
           if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
           if (node.isolation) node.isolation = null;
           onEvent({ type: 'agent_workflow', state: 'node_degraded_retry', id: runId, nodeId: node.id });
@@ -1029,7 +1032,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           // A new loop iteration supersedes the previous attempt's tool evidence for this node.
           // Dependants cannot run while it is queued, so clearing now closes the stale-ID window.
           purgeNodeEvidence(run, node.id);
-          node.status = 'queued'; node.completedAt = null;
+          delete node.mailboxClosedReason; node.status = 'queued'; node.completedAt = null;
           onEvent({ type: 'agent_workflow', state: 'node_loop', id: runId, nodeId: node.id, iteration: node.loopIteration + 1, maxIterations: node.loop.maxIterations, noProgressCount: node.noProgressCount });
         } else node.loopStopReason = 'max_iterations';
       }
@@ -1038,10 +1041,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         purgeNodeEvidence(run, node.id);
         node.retryErrors = [...(Array.isArray(node.retryErrors) ? node.retryErrors : []), node.error].slice(-5);
         if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
-        node.isolation = null; node.status = 'queued'; node.completedAt = null;
+        node.isolation = null; delete node.mailboxClosedReason; node.status = 'queued'; node.completedAt = null;
         // 团队模式 v2 (P3-2/设计 B1): 本 attempt 内已投递给本节点的消息随作废的 subHistory 一起失效,回标 dropped(v2 不
         // 重投)。以本 attempt 起始时刻(node.startedAt,dispatch 时置)为界,ISO 串同格式可字典序比较。异常降级为不回标。
-        try { const as = String(node.startedAt || ''); for (const m of (Array.isArray(run.messages) ? run.messages : [])) { if (m && m.target === node.id && m.deliveredAt && !m.dropped && String(m.deliveredAt) >= as) m.dropped = true; } } catch {}
+        try { const as = String(node.startedAt || ''); for (const m of (Array.isArray(run.messages) ? run.messages : [])) { if (m && m.target === node.id && m.deliveredAt && !m.dropped && String(m.deliveredAt) >= as) { m.dropped = true; m.dropReason = 'attempt_invalidated'; m.droppedAt = nowIso(); } } } catch {}
         onEvent({ type: 'agent_workflow', state: 'node_retry', id: runId, nodeId: node.id, attempt: node.attempts, maxRetries: node.maxRetries });
       } else if (node.status !== 'queued') {
         node.completedAt = nowIso();
@@ -1073,7 +1076,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     let dispatched = 0;
     for (const id of step.toDispatch) {
       const node = nodes.find(n => n.id === id); if (!node) continue;
-      node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); delete node.toolEvidence;
+      delete node.mailboxClosedReason; node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); delete node.toolEvidence;
       delete node.modelStartedAt; delete node.wrapUpRequestedAt; delete node.wrapUpDeadlineAt; delete node.wrapUpForcedAt; delete node.wrapUpForcedReason;
       runtime.autoSteerQueues.delete(node.id);
       startedCount += 1; dispatched += 1;
@@ -1114,7 +1117,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   runtime.closing = true;
   for (const p of (Array.isArray(run.taskPool) ? run.taskPool : [])) if (p && p.status === 'proposed') { p.status = 'expired'; p.decidedBy = p.decidedBy || 'auto'; p.decidedAt = nowIso(); settleIntervention(run.sessionId, p.id, 'expired', { decidedBy: p.decidedBy || 'auto', note: 'run finalized' }); }
   // 收尾时把所有还未投递的邮件标 dropped(目标从未 drain,如被 skip/block 的节点)——诚实标记。
-  try { for (const [, q] of runtime.mailQueues) for (const m of q) { if (m && m.entry && !m.entry.deliveredAt && !m.entry.dropped) m.entry.dropped = true; } } catch {}
+  try { for (const [, q] of runtime.mailQueues) for (const m of q) { if (m && m.entry && !m.entry.deliveredAt && !m.entry.dropped) { m.entry.dropped = true; m.entry.dropReason = 'workflow_closed'; m.entry.droppedAt = nowIso(); } } } catch {}
   // 团队模式 v2 (A3/A5.4): 物化的任务池帮手节点缺省 failurePolicy:'continue'——它失败是"接受的降级"(帮手没帮上),
   // 不该把本来成功的 run 拉成 partial(设计 A3 明示)。故把 fromPool && continue 的非成功节点排除出失败统计。范围仅限
   // 池节点,不改动普通节点的 continue 语义(避免回归)。下游不阻塞早由 failureContinues 处理,此处只影响 run 总态判定。
@@ -1230,6 +1233,7 @@ function settleWaitEnvelopes(session, out) {
     if (EventStreamHooks.isAgentEnvelopeDelivered && EventStreamHooks.isAgentEnvelopeDelivered(session, env.runId)) {
       return {
         ok: env.ok, kind: 'agent_envelope_receipt', runId: env.runId, status: env.status, delivered: 'already',
+        ...(env.messageReceipts ? { messageReceipts: env.messageReceipts } : {}),
         nodes: (Array.isArray(env.nodes) ? env.nodes : []).map(n => ({ nodeId: n.nodeId, status: n.status })),
         note: '该 run 的交付信封本会话已送达过(上方的代理完成通知,或此前的 wait_agents / agent_result),此处不重复;需全文用 agent_result({runId, nodeId?})。',
       };
@@ -3183,7 +3187,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           let resultObj; // declared here so the agent branch and the normal dispatch share it
           if (tc.name === 'send_to_agent' || tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
             if (tc.name === 'send_to_agent') {
-              if (args.targetSessionId != null) {
+              if (args.action != null && !['send', 'status'].includes(args.action)) { resultObj = { ok: false, error: 'unknown mail action' }; }
+              else if (args.action === 'status') {
+                if (args.targetSessionId != null) {
+                  resultObj = EventStreamHooks.agentMessageStatus ? EventStreamHooks.agentMessageStatus(session.id, args.targetSessionId, args.messageId) : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
+                } else {
+                  const record = await readAgentRunRecord(session.id, args.runId);
+                  resultObj = record ? ownAgentMessageReceipt(record.run, 'parent', args.messageId) : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
+                }
+              } else if (args.targetSessionId != null) {
                 const targetId = safeSessionId(String(args.targetSessionId || '').trim());
                 const text = String(args.message || '').trim().slice(0, MAIL_TEXT_MAX);
                 const target = targetId ? await loadSession(targetId).catch(() => null) : null;

@@ -591,10 +591,13 @@ async function markInterruptedAgentRuns() {
 async function runSubAgentCore(opts) {
   const lifecycle = { stopBeats: null };
   try { return await runSubAgentCoreBody(opts, lifecycle); }
-  finally { if (typeof lifecycle.stopBeats === 'function') lifecycle.stopBeats(); }
+  finally {
+    if (typeof opts.closeInbox === 'function') opts.closeInbox(opts.ctrl && opts.ctrl.signal.aborted ? 'aborted' : 'node_finished');
+    if (typeof lifecycle.stopBeats === 'function') lifecycle.stopBeats();
+  }
 }
 
-async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, teamRoster, onBudgetTripped, runId }, lifecycle) {
+async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, closeInbox, teamRoster, onBudgetTripped, runId }, lifecycle) {
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -824,20 +827,11 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       useTools = hadTools;
     }
   };
-  try {
-    let iter = 0;
-    for (; iter < budget; iter++) {
-      // `iters` is user-visible node telemetry, so count the provider call we are
-      // about to make even when this iteration exits via `break` without tools.
-      iters = iter + 1;
-      if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
-      // v1 定向插话: consume any steers queued for THIS node at the iteration boundary (before buildBody), so
-      // each lands as a user message in the request we are about to send — same semantics as the父回合's
-      // drainSteerQueue draining at the tool-loop boundary. The finalizer (runFinalizerWithoutTools) does NOT
-      // drain, matching the parent turn's "no drain mid-batch" rule. A steer arriving right as an iteration cap
-      // hits may be lost (v1 has no delivery receipt) — acceptable.
+  const drainInbox = () => {
+    let count = 0;
       {
         const steers = (typeof getSteer === 'function') ? getSteer() : [];
+        count += steers.length;
         for (const t of steers) {
           subHistory.push({ role: 'user', content: '[编排者插话] ' + t + (steerReminder || '') });
           onEvent({ type: 'subagent_steered', subagentId, text: t });
@@ -847,6 +841,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // schema/gate 节点复用 steerReminder;deliveredAt 直接写回共享的 run.messages 条目(m.entry),onEvent 触发落盘。
       {
         const mails = (typeof getMail === 'function') ? getMail() : [];
+        count += mails.length;
         for (const m of mails) {
           if (!m) continue;
           // 团队模式 v2 (P2-2): 发件前缀 [节点 <sender> 消息] 由服务器按发送节点 id 绑定(可信);m.text 是不可信正文,
@@ -857,6 +852,16 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           onEvent({ type: 'subagent_mail_in', subagentId, sender: m.sender, text: m.text });
         }
       }
+    return count;
+  };
+  try {
+    let iter = 0;
+    for (; iter < budget; iter++) {
+      // `iters` is user-visible node telemetry, so count the provider call we are
+      // about to make even when this iteration exits via `break` without tools.
+      iters = iter + 1;
+      if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
+      drainInbox();
       // 第28波(§28a):迭代边界两级自动压缩(与主回合共用 10 runAutoCompaction)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:强压只靠 L1 的重试之后,下一迭代不再白跑一次 L2
@@ -1223,10 +1228,17 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       }
       // No tool calls → final conclusion for the sub-turn.
       if (call.text) subHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
+      // Drain and seal synchronously: no sender can enqueue between the empty check and closure.
+      if (iter + 1 < budget && !(ctrl && ctrl.signal && ctrl.signal.aborted) && drainInbox()) {
+        resultText = ''; // The next conclusion replaces this provisional answer (including strict JSON).
+        continue;
+      }
+      if (typeof closeInbox === 'function') closeInbox(iter + 1 >= budget ? 'iteration_budget' : 'completed');
       break;
     }
     // 预算耗尽(循环正常退出,非 break 跳出)
     if (iter >= budget && subOk) {
+      if (typeof closeInbox === 'function') closeInbox('iteration_budget');
       // 116-2b:把"这个节点的工具迭代预算用光了"报给调用方(工作流节点跑者据此落 run_budget_tripped)。
       // 用回调而不是新 SSE 事件、也不改返回值形状 —— 前者要动 112b 的双向登记表,后者会改 spawn_agent
       // 的工具结果 JSON;回调对两者都零影响,且 08 拿不到 run 对象(它是 09 的东西),本就该由 09 落事件。
@@ -1239,6 +1251,8 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
     }
   } catch (e) {
     subOk = false; subErr = (e && e.message) ? e.message : String(e);
+  } finally {
+    if (typeof closeInbox === 'function') closeInbox(ctrl && ctrl.signal && ctrl.signal.aborted ? 'aborted' : subOk ? 'completed' : 'provider_error');
   }
   const finalText = resultText.trim();
   const ok = subOk && !!finalText;
@@ -2425,6 +2439,19 @@ function agentEnvelopeArtifacts(node) {
   if (node && node.isolation && node.isolation.path) push(node.isolation.path);
   return out.slice(0, 20);
 }
+// Delivered means injected into local context, not provider acceptance or agent action.
+function agentMessageReceipt(message) {
+  const status = message.dropped ? 'undeliverable' : message.deliveredAt ? 'delivered' : 'queued';
+  return { messageId: message.id, sender: message.sender, target: message.target, status,
+    delivered: status === 'delivered', createdAt: message.createdAt,
+    ...(message.deliveredAt ? { deliveredAt: message.deliveredAt } : {}),
+    ...(message.dropped ? { reason: message.dropReason || 'target_unavailable', ...(message.droppedAt ? { droppedAt: message.droppedAt } : {}) } : {}) };
+}
+function ownAgentMessageReceipt(run, sender, messageId) {
+  if (EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
+  const message = (run.messages || []).find(m => m.id === String(messageId || '') && m.sender === sender);
+  return message ? { ok: true, ...agentMessageReceipt(message) } : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
+}
 function buildAgentRunEnvelope(run, opts = {}) {
   const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
   const perNodeCap = Math.max(200, Math.min(AGENT_ENVELOPE_NODE_SUMMARY_MAX, nodes.length ? Math.floor(AGENT_ENVELOPE_TOTAL_SUMMARY_MAX / nodes.length) : AGENT_ENVELOPE_NODE_SUMMARY_MAX));
@@ -2464,6 +2491,8 @@ function buildAgentRunEnvelope(run, opts = {}) {
     nodes: rows, usage,
     more: '完整产出用 agent_result({runId' + (nodes.length > 1 ? ', nodeId' : '') + '}) 取',
   };
+  const receipts = (run && run.messages || []).filter(m => m.dropped || !m.deliveredAt).slice(-24).map(agentMessageReceipt);
+  if (receipts.length) env.messageReceipts = receipts;
   if (run && run.background) env.background = true;
   if (run && run.error) env.error = String(run.error).slice(0, AGENT_ENVELOPE_ERROR_MAX);
   if (opts.note) env.note = String(opts.note);
@@ -2474,7 +2503,11 @@ async function readAgentRunRecord(sessionId, runId) {
   const rid = safeSessionId(String(runId || ''));
   if (!rid) return null;
   const live = activeAgentRuns.get(rid);
-  if (live && live.run) return live.run.sessionId === sessionId ? { run: live.run, live: true } : null;
+  if (live && live.run) {
+    if (live.run.sessionId !== sessionId) return null;
+    if (EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(live.run);
+    return { run: live.run, live: true };
+  }
   try {
     const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, rid), 'utf8'), null);
     if (run && run.sessionId === sessionId && EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
@@ -2566,6 +2599,7 @@ function nodeDeliveryEligibility(run, nodeId, opts = {}) {
   if ((node.engine || 'openai') === 'claude' && opts.allowClaude !== true) return { ok: false, reason: 'claude_engine', node };
   if (node.gate && ['vote', 'dedupe', 'coverage', 'propagate'].includes(node.gate.mode)) return { ok: false, reason: 'deterministic_gate', node };
   if (!['running', 'queued', 'waiting_resource'].includes(node.status)) return { ok: false, reason: 'terminal', node };
+  if (node.mailboxClosedReason) return { ok: false, reason: node.mailboxClosedReason, node };
   return { ok: true, reason: 'ok', node };
 }
 // 团队模式 v2 (A3): 把一条 approved/auto 的任务池提案物化成一个普通运行时节点,append 进 run.nodes。走 normalize

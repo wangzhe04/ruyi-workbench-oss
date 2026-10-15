@@ -141,6 +141,13 @@ EventStreamHooks.notifyAgentMessage = ({ sessionId, sourceSessionId, runId, node
   return persistBackgroundJob({ id: 'agent-message:' + messageId, kind: 'agent_message', sessionId, sourceSessionId,
     runId: runId || '', nodeId: nodeId || '', status: 'queued', output: neutralizeInjectedPrefixes(String(text || '')).slice(0, MAIL_TEXT_MAX), completedAt: nowIso() });
 };
+EventStreamHooks.agentMessageStatus = (sourceSessionId, targetSessionId, messageId) => {
+  const target = safeSessionId(String(targetSessionId || '').trim());
+  if (!target) return { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
+  const row = readBackgroundJobs(target).find(job => job.kind === 'agent_message' && job.id === 'agent-message:' + String(messageId || '') && job.sourceSessionId === sourceSessionId && !job.runId);
+  return row ? { ok: true, messageId, status: row.deliveredAt ? 'delivered' : 'queued', delivered: !!row.deliveredAt,
+    ...(row.deliveredAt ? { deliveredAt: row.deliveredAt } : {}) } : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
+};
 EventStreamHooks.pendingAgentMessages = sessionId => readBackgroundJobs(sessionId).some(job => job.kind === 'agent_message' && job.status === 'queued');
 EventStreamHooks.projectAgentMessageReceipts = run => {
   const pending = run && Array.isArray(run.messages) ? run.messages.filter(m => m.target === 'parent' && !m.deliveredAt && !m.dropped) : [];
