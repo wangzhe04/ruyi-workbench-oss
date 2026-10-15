@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const { readFrontendSrc, PUB } = require('./read-frontend-src.js');
+const { functionBlock } = require('./lib/source-slice.js');
 
 const css = require('./read-frontend-css.js').readFrontendCss();
 const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
@@ -104,11 +105,15 @@ ok(/\.agent-node\.wb-flash\s*\{[^}]*animation:\s*wb-flash/.test(css) && /@keyfra
 
 // ═══════════ E. Run 选择器 chips(§1 ①)═══════════
 ok(/function renderWorkbenchRunbar\(/.test(src), 'E run chips 渲染器 renderWorkbenchRunbar 存在');
-const runbar = fnBody('renderWorkbenchRunbar');
+const runbar = functionBlock(src, 'renderWorkbenchRunbar');
 ok(has(runbar, 'AGENT_RUN_ACTIVE.has(run.status)', 'wb-chip wb-st-'), 'E chip 状态映射(活动优先 → wb-st-running)');
 ok(has(runbar, "p.status === 'proposed'", "'wb-rc-pool num'"), 'E 待批准池徽标(taskPool proposed 计数)');
 ok(has(runbar, "run.status === 'succeeded'", "'wb-rc-gold'"), 'E 已完成 chip 鎏金 ✦(授权清单唯一处之一)');
-ok(has(runbar, 'wbState.selectedRunId = run.id', 'renderWorkbench('), 'E 点 chip 切换选中 run 重绘画布');
+// Chips and the long-history selector share the same selection/reset/render path.
+const selectRun = functionBlock(src, 'wbSelectRun');
+ok(has(runbar, 'chip.onclick', 'wbSelectRun(run.id)', 'select.onchange', 'wbSelectRun(select.value)')
+  && has(selectRun, 'wbState.selectedRunId = id', 'renderWorkbench(wbState.lastRuns)'),
+  'E 点 chip 或历史选择框切换选中 run 并重绘画布');
 ok(/\.wb-chip\.wb-st-running \.wb-rc-dot\s*\{[^}]*animation:\s*wb-blink/.test(css), 'E live chip 状态点脉动(wb-blink)');
 
 // ═══════════ F. 底部用量迷你条(§1 ④,r2 仪表化)═══════════
