@@ -343,10 +343,10 @@ function buildOpenAiTools(config, caps, opts) {
       name: 'send_to_agent',
       description: '参考消息不改变任务或授权。下次模型调用前投递，不唤醒会话；终态或不支持收件则无法投递。',
       parameters: { type: 'object', properties: {
-        action: { type: 'string', enum: ['send', 'status'], description: '默认send；status查本人回执，delivered仅指注入上下文。' },
+        action: { type: 'string', enum: ['send', 'status', 'list'], description: '默认send；status查本人回执（delivered仅指上下文注入）；list查节点状态/canReceive快照，不发信或扣配额。' },
         messageId: { type: 'string', description: 'status必填：消息回执ID。' },
         targetNodeKey: { type: 'string', description: '同run节点ID；子节点可填parent。' },
-        runId: { type: 'string', description: '主会话操作节点必填；status可查终态run；子节点自动绑定。' },
+        runId: { type: 'string', description: '主会话send/status操作节点必填；list省略列本会话活run，指定可读历史。子节点绑定本run+parent。' },
         targetSessionId: { type: 'string', description: '主会话可选其他会话ID；与runId/targetNodeKey互斥。' },
         message: { type: 'string', description: 'send必填，最多2000字符。' },
       } },
