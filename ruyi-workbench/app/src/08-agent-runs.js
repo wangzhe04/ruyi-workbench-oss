@@ -2502,9 +2502,11 @@ function buildAgentRunEnvelope(run, opts = {}) {
   };
   if (Number(run && run.costUsd) > 0) usage.costUsd = Number(run.costUsd);
   const status = String(run && run.status || 'unknown');
+  const capabilities = agentRunCapabilities(run);
+  delete capabilities.nodes; // Per-node live tools belong to action:list, not the bounded delivery envelope.
   const env = {
     ok: status === 'succeeded', kind: 'agent_envelope', runId: String(run && run.id || ''), status,
-    nodes: rows, usage, capabilities: agentRunCapabilities(run),
+    nodes: rows, usage, capabilities,
     ...(run.followup ? { followup: run.followup } : {}),
     more: '完整产出用 agent_result({runId' + (nodes.length > 1 ? ', nodeId' : '') + '}) 取',
   };
