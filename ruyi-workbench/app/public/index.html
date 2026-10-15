@@ -467,6 +467,7 @@
              渲染(XSS 安全);数据复用 /api/agent-runs 2s 轮询。 -->
         <section id="workbenchView" class="wb-view" aria-label="班组画布" data-i18n-attr="aria-label:navigation.crewCanvas">
           <div id="wbRunbar" class="wb-runbar" role="tablist" aria-label="运行选择" data-i18n-attr="aria-label:navigation.runSelector"></div>
+          <div id="wbOverview" class="wb-overview"></div>
           <div class="wb-main">
             <div id="wbCanvasWrap" class="wb-canvas-wrap"></div>
             <div id="wbSideBackdrop" class="wb-side-backdrop" hidden></div>
@@ -579,8 +580,11 @@
             <button type="button" id="usageMiniLink" class="link-mini" data-i18n="usage.title">用量</button>
             <button type="button" id="auditMiniLink" class="link-mini" data-i18n="audit.miniLinkLabel">审计</button>
           </div>
-          <div class="workflow-quick-run"><select id="workflowQuickSelect" aria-label="工作流模板" data-i18n-attr="aria-label:workflow.templateSelector"></select><button id="workflowQuickRunBtn" class="mini" data-i18n="workflow.runTemplate">运行模板</button></div>
-          <p class="changes-hint muted" data-i18n="workflow.tabDescription">从模板运行，或图形化创建 DAG；支持条件、循环、质量门和失败策略。</p>
+          <details class="workflow-launch">
+            <summary data-i18n="workflow.monitor.template">从模板启动工作流</summary>
+            <div class="workflow-quick-run"><select id="workflowQuickSelect" aria-label="工作流模板" data-i18n-attr="aria-label:workflow.templateSelector"></select><button id="workflowQuickRunBtn" class="mini" data-i18n="workflow.runTemplate">运行模板</button></div>
+            <p class="changes-hint muted" data-i18n="workflow.tabDescription">从模板运行，或图形化创建 DAG；支持条件、循环、质量门和失败策略。</p>
+          </details>
           <div id="agentRunsList" class="agent-runs-list"></div>
         </section>
 

@@ -118,13 +118,13 @@ ok(/\.wb-layer-tag\s*\{[^}]*var\(--panel-veil\)/.test(css), 'H CSS 层标 veil �
 
 // ═══════════ I. 响应式右板抽屉(§6#10)═══════════
 ok(/function wbOpenSide\(/.test(src) && has(fnBody('wbOpenSide'), "'wb-side-open'"), 'I 抽屉开合 wbOpenSide 切 .wb-side-open');
-ok(/function wbIsNarrow\(/.test(src) && has(fnBody('wbIsNarrow'), 'max-width: 1180px'), 'I 窄屏判定 wbIsNarrow(matchMedia 1180)');
+ok(/function wbIsNarrow\(/.test(src) && has(fnBody('wbIsNarrow'), "$('workbenchView')", 'clientWidth', '<= 820'), 'I 窄屏按班组自身宽度判断，与容器查询一致（真实布局见 crew-experience.browser）');
 ok(has(fnBody('wbFocusRunNode'), 'if (wbIsNarrow()) wbOpenSide(true)'), 'I 窄屏点节点自动滑出抽屉');
 ok(/wbBd\.onclick = \(\) => wbOpenSide\(false\)/.test(src) || has(src, 'wbSideBackdrop', 'wbOpenSide(false)'), 'I backdrop 点击关抽屉(bindEvents wire)');
-ok(/@media \(max-width: 1180px\)[\s\S]*?\.wb-side\s*\{[\s\S]*?transform:\s*translateX\(100%\)/.test(css), 'I CSS <1180 右板变右滑抽屉(translateX 100%)');
+ok(/@container crew \(max-width: 820px\)[\s\S]*?\.wb-side\s*\{[\s\S]*?transform:\s*translateX\(100%\)/.test(css), 'I CSS 班组 ≤820 右板变右滑抽屉(translateX 100%)');
 ok(/\.wb-side-open \.wb-side\s*\{[^}]*transform:\s*none/.test(css), 'I CSS .wb-side-open 抽屉滑入');
-ok(/@media \(max-width: 1180px\)[\s\S]*?\.wb-side-open \.wb-side-backdrop\s*\{[^}]*display:\s*block/.test(css), 'I CSS 抽屉打开时 backdrop 可见');
-ok(/@media \(max-width: 760px\)[\s\S]*?\.wb-side\s*\{[^}]*width:\s*min\(100%/.test(css), 'I CSS ≤760 右板近全宽浮层');
+ok(/@container crew \(max-width: 820px\)[\s\S]*?\.wb-side-open \.wb-side-backdrop\s*\{[^}]*display:\s*block/.test(css), 'I CSS 抽屉打开时 backdrop 可见');
+ok(/@container crew \(max-width: 540px\)[\s\S]*?\.wb-side\s*\{[^}]*width:\s*min\(100%/.test(css), 'I CSS 班组 ≤540 右板近全宽浮层');
 
 // ═══════════ J. XSS 纪律 + 零硬编码色 + 零裸 px 字号(P3b 追加)═══════════
 for (const [fn, body] of [['wbNodeDetailBody', det], ['wbPoolBody', pool], ['wbMailBody', mail], ['wbSection', fnBody('wbSection')], ['wbSteerBox', steerBox]])

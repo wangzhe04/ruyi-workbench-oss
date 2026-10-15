@@ -968,6 +968,9 @@ function noteToolTabOpened(tab) { if (tab) toolTabsOpened.add(tab); }
 function switchTab(tab) {
   // Old saved developer-tab ids are normalized to the safe workspace default.
   if (DEV_TABS.has(tab) && document.documentElement.getAttribute('data-ui-mode') === 'simple') tab = 'files';
+  const pane = $('toolPane');
+  const previous = pane?.querySelector('.tool-tabs button.active')?.dataset.tab;
+  if (pane && previous !== tab) pane.scrollTop = 0;
   // Scope to the tool pane's tab bar: the settings modal now also uses .tool-tabs (with data-stab),
   // so an unscoped selector would wrongly clear the active settings tab. Match by data-tab only.
   document.querySelectorAll('.tool-pane .tool-tabs button').forEach(b => {
@@ -1031,7 +1034,13 @@ function openToolPane() {
   else shell.classList.remove('tools-collapsed');
 }
 function closeToolDrawer() {
-  document.querySelector('.app-shell').classList.remove('tools-open');
+  const shell = document.querySelector('.app-shell');
+  shell.classList.remove('tools-open');
+  if (!isNarrow()) {
+    exitRightFullscreen();
+    shell.classList.add('tools-collapsed');
+    try { localStorage.setItem('wcw.toolsCollapsed', '1'); } catch { /* ignore */ }
+  }
   // 第三波 H4：关着的抽屉 visibility:hidden，焦点还在里面时还给把它打开的那枚钮。
   const active = document.activeElement;
   const opener = document.getElementById('toggleToolsBtn');

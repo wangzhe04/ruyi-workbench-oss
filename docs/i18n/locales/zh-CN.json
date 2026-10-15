@@ -2131,6 +2131,12 @@
   "workflow.run.title": "Agent 工作流 · {{count}} 个节点",
   "workflow.run.background": "后台运行 · 并行 {{count}} · 本回合不等待",
   "workflow.runTemplate": "运行模板",
+  "workflow.runbar.selectHistory": "选择运行记录（共 {{count}} 次）",
+  "workflow.runbar.historyCount": "共 {{count}} 次",
+  "workflow.monitor.details": "成员与运行详情（{{count}}）",
+  "workflow.monitor.viewIssues": "查看异常（{{count}}）",
+  "workflow.monitor.approval": "待你确认",
+  "workflow.monitor.template": "从模板启动工作流",
   "workflow.runbar.pendingApproval": "待批准 {{n}}",
   "workflow.section.mail": "邮箱消息流",
   "workflow.section.pendingCount": "待批准 {{count}}",
@@ -3925,4 +3931,8 @@
 ,"stewardShell.chat.newConversation": "新对话"
 ,"stewardShell.chat.newConversationDone": "已开始新对话，旧聊天已归档，对话上下文已清空。"
 ,"stewardShell.chat.newConversationFailed": "新对话未能完成，请稍后重试。"
+  ,"workflow.overview.completed": "已完成 {{done}} / {{total}} 位成员"
+  ,"workflow.overview.selectMember": "定位成员…"
+  ,"workflow.overview.issues": "{{count}} 项异常"
+  ,"workflow.overview.details": "详情与消息"
 }

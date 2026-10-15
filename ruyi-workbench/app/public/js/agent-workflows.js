@@ -492,15 +492,27 @@ function renderAgentRuns(runs) {
   const openRuns = new Set([...host.querySelectorAll('.agent-run-card[open]')].map(x => x.dataset.runId).filter(Boolean));
   const knownNodes = new Set([...host.querySelectorAll('.agent-node')].map(x => `${x.dataset.runId}:${x.dataset.nodeId}`).filter(Boolean));
   const openNodes = new Set([...host.querySelectorAll('.agent-node[open]')].map(x => `${x.dataset.runId}:${x.dataset.nodeId}`).filter(Boolean));
+  const openDetails = new Set([...host.querySelectorAll('.agent-run-details[open]')].map(x => x.dataset.runId));
   host.textContent = '';
   if (!runs.length) { host.appendChild(el('div', 'muted', t('workflow.empty'))); return; }
   for (const run of runs) {
-    const card = el('details', `agent-run-card ar-${run.status || 'unknown'}`); card.dataset.runId = run.id; card.open = knownRuns.has(run.id) ? openRuns.has(run.id) : (AGENT_RUN_ACTIVE.has(run.status) || run.status === 'interrupted');
     const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+    const pool = Array.isArray(run.taskPool) ? run.taskPool : [];
+    const proposedItems = pool.filter(p => p && p.status === 'proposed');
+    const issues = nodes.filter(n => ['failed', 'rejected', 'blocked', 'degraded', 'interrupted'].includes(nodeDisplayStatus(n)));
+    const card = el('details', `agent-run-card ar-${run.status || 'unknown'}`); card.dataset.runId = run.id;
+    card.open = knownRuns.has(run.id) ? openRuns.has(run.id) : (AGENT_RUN_ACTIVE.has(run.status) || run.status === 'interrupted' || proposedItems.length > 0 || issues.length > 0);
+    const detail = el('details', 'agent-run-details'); detail.dataset.runId = run.id; detail.open = openDetails.has(run.id);
+    detail.appendChild(el('summary', '', t('workflow.monitor.details', { count: nodes.length })));
+    const revealNode = node => {
+      const rowEl = node && card.querySelector(`.agent-node[data-node-id="${CSS.escape(node.id)}"]`);
+      if (rowEl) { card.open = true; detail.open = true; rowEl.open = true; rowEl.querySelector('summary')?.focus({ preventScroll: true }); rowEl.scrollIntoView({ block: 'nearest' }); }
+    };
     const done = nodes.filter(n => n.status === 'succeeded' || n.status === 'skipped').length;
     // ── 聚合头（§2.7）：状态 chip + 已运行时长 + 节点 done/total +（若有）累计 token/成本 ──
     const sum = el('summary', 'agent-run-head');
-    sum.appendChild(el('span', 'ar-title', `🕸️ ${run.id}`));
+    const title = el('span', 'ar-title', run.title || workflowTemplateLabel(agentWorkflowLibrary.find(w => w.id === run.workflowId) || { id: run.workflowId || run.id }).title || run.id);
+    title.title = run.id; sum.appendChild(title);
     const agg = el('div', 'ar-agg');
     agg.appendChild(el('span', `ar-agg-chip st-${run.status || 'unknown'}`, agentRunStatusLabel(run.status)));
     // 29b: 恢复分级徽章 —— 只在等人/等续跑的档位(interrupted/paused)显示,终态与运行中不挂。
@@ -508,17 +520,19 @@ function renderAgentRuns(runs) {
     else if (run.status === 'interrupted' && run.resumeTier === 'auto_resumable') agg.appendChild(el('span', 'ar-agg-chip st-queued', t('workflow.resumeAutomatic')));
     agg.appendChild(el('span', 'ar-agg-nodes', t('workflow.nodes', { done, total: nodes.length })));
     const timeText = runTimeText(run); if (timeText) agg.appendChild(el('span', 'ar-agg-time', timeText));
-    const cost = runCostLabel(run); if (cost) agg.appendChild(el('span', 'ar-agg-cost', cost));
+    const cost = runCostLabel(run); if (cost) detail.appendChild(el('div', 'ar-agg-cost', cost));
+    if (proposedItems.length) agg.appendChild(el('span', 'pool-badge', t('workflow.pool.pending', { count: proposedItems.length })));
+    if (issues.length) agg.appendChild(el('span', 'ar-agg-chip st-failed', t('workflow.overview.issues', { count: issues.length })));
     sum.appendChild(agg);
     // v3 (§2.9 P2):当前活动行提升到聚合头 —— 收起态也能看到「现在谁在干嘛」。取运行中节点 progressLog 末条。
     if (run.live) {
-      const runningNode = nodes.find(n => n.status === 'running');
+      const runningNode = nodes.find(n => n.status === 'running') || nodes.find(n => n.status === 'waiting_resource');
       const rlog = runningNode && Array.isArray(runningNode.progressLog) ? runningNode.progressLog : [];
       const rlast = rlog.length ? rlog[rlog.length - 1] : null;
-      if (runningNode && rlast && rlast.text) {
+      if (runningNode) {
         const live = el('div', 'ar-agg-live');
         live.appendChild(el('span', 'ar-agg-live-dot'));
-        live.appendChild(el('span', 'ar-agg-live-text num', t('workflow.agg.liveLine', { id: String(runningNode.id), text: rlast.text })));
+        live.appendChild(el('span', 'ar-agg-live-text num', t('workflow.agg.liveLine', { id: runningNode.roleLabel || runningNode.roleId || String(runningNode.id), text: rlast && rlast.text || agentRunStatusLabel(runningNode.status) })));
         sum.appendChild(live);
       }
     }
@@ -535,7 +549,7 @@ function renderAgentRuns(runs) {
       const view = el('button', 'mini', t('workflow.view')); view.setAttribute('aria-label', t('workflow.viewStalled'));
       view.onclick = () => {
         const target = waitingBlocked[0] || nodes.find(n => n.status !== 'succeeded' && n.status !== 'skipped');
-        if (target) { const rowEl = card.querySelector(`.agent-node[data-node-id="${CSS.escape(target.id)}"]`); if (rowEl) { rowEl.open = true; rowEl.scrollIntoView({ block: 'nearest' }); } }
+        revealNode(target);
       };
       stallActions.appendChild(view);
       if (runIsLive(run)) { const stop = el('button', 'mini danger', t(WORKFLOW_KEYS.stop)); stop.setAttribute('aria-label', t(WORKFLOW_KEYS.stop)); stop.onclick = () => agentRunAction(run.id, 'stop'); stallActions.appendChild(stop); }
@@ -557,21 +571,23 @@ function renderAgentRuns(runs) {
       const resume = el('button', 'mini primary', t(WORKFLOW_KEYS.resumeIncomplete)); resume.setAttribute('aria-label', t(WORKFLOW_KEYS.resumeIncompleteAria)); resume.onclick = () => agentRunAction(run.id, 'resume'); controls.appendChild(resume);
     }
     if (!runIsLive(run)) { const del = el('button', 'mini', t('workflow.deleteRecord')); del.setAttribute('aria-label', t('workflow.deleteRecordAria')); del.onclick = () => deleteAgentRun(run.id); controls.appendChild(del); }
+    if (issues.length) {
+      const view = el('button', 'mini', t('workflow.monitor.viewIssues', { count: issues.length }));
+      view.classList.add('agent-run-issues'); view.onclick = () => revealNode(issues[0]); controls.appendChild(view);
+    }
     card.appendChild(controls);
-    if (run.summary) card.appendChild(el('pre', 'agent-run-summary', run.summary));
-    // ── 团队模式 v2 (A4) 共享任务池分区：simple 模式仅当有 proposed 时浮出「待批准的新任务 N」徽标+审批卡；pro 模式
-    //    常驻全状态列表。审批卡三行人话（谁提议/做什么≤60字/预计消耗）+「同意添加 / 不用了」→ POST pool_approve/reject。
+    if (run.summary) detail.appendChild(el('pre', 'agent-run-summary', run.summary));
+    // 待批准任务直接可见；已处理任务随成员与运行详情折叠，保留原有审批动作。
     //    waiting_pool（宽限窗）显示剩余秒数。所有文本走 el()/textContent（XSS 安全，绝不 innerHTML）。 ──
-    const pool = Array.isArray(run.taskPool) ? run.taskPool : [];
-    const proposedItems = pool.filter(p => p && p.status === 'proposed');
     const simpleMode = document.documentElement.getAttribute('data-ui-mode') === 'simple';
-    if (pool.length && (proposedItems.length || !simpleMode)) {
+    for (const listItems of [proposedItems, pool.filter(p => p && p.status !== 'proposed')]) {
+      if (!listItems.length) continue;
+      const pending = listItems === proposedItems;
       const section = el('div', 'pool-section');
       const ptitle = el('div', 'pool-title');
-      ptitle.appendChild(el('span', 'pool-title-text', t('workflow.pool.title')));
-      if (proposedItems.length) ptitle.appendChild(el('span', 'pool-badge', t('workflow.pool.pending', { count: proposedItems.length })));
+      ptitle.appendChild(el('span', 'pool-title-text', t(pending ? 'workflow.monitor.approval' : 'workflow.pool.title')));
       section.appendChild(ptitle);
-      if (run.status === 'waiting_pool' && run.live) {
+      if (pending && run.status === 'waiting_pool' && run.live) {
         // v3 (§2.9 P2):宽限窗倒计时改细进度条(发丝倒计时)替代纯秒数文字。
         const graceView = poolGraceView(run);
         const grace = el('div', 'pool-grace');
@@ -581,7 +597,6 @@ function renderAgentRuns(runs) {
         grace.appendChild(el('span', 'pool-grace-label num', graceView.label));
         section.appendChild(grace);
       }
-      const listItems = simpleMode ? proposedItems : pool;
       for (const item of listItems) {
         const pcard = el('div', `pool-card ps-${item.status || 'proposed'}`);
         const whoNode = (run.nodes || []).find(n => n.id === item.proposedBy);
@@ -605,13 +620,13 @@ function renderAgentRuns(runs) {
         }
         section.appendChild(pcard);
       }
-      card.appendChild(section);
+      (pending ? card : detail).appendChild(section);
     }
     const graph = el('div', 'agent-run-graph');
     for (const node of nodes) {
       const disp = nodeDisplayStatus(node);
       const row = el('details', `agent-node wf-node an-${disp}`); row.dataset.runId = run.id; row.dataset.nodeId = node.id;
-      const nodeKey = `${run.id}:${node.id}`; row.open = knownNodes.has(nodeKey) ? openNodes.has(nodeKey) : ['running', 'waiting_resource', 'failed', 'rejected', 'blocked'].includes(disp);
+      const nodeKey = `${run.id}:${node.id}`; row.open = knownNodes.has(nodeKey) && openNodes.has(nodeKey);
       // ── 节点卡头（§2.3）：状态徽标 + 标题(id·角色) + 引擎徽标 + 状态文案 ──
       const head = el('summary', 'agent-node-head wf-node-head');
       head.appendChild(el('span', `wf-status-badge st-${disp}`, agentStatusIcon(disp)));
@@ -722,7 +737,7 @@ function renderAgentRuns(runs) {
       }
       row.appendChild(body); graph.appendChild(row);
     }
-    card.appendChild(graph); host.appendChild(card);
+    detail.appendChild(graph); card.appendChild(detail); host.appendChild(card);
   }
 }
 // 随时间走的三处读数：建卡与「数据没变、只刷读数」两条路共用这一份，文案与算法只此一处。

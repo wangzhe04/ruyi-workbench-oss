@@ -84,11 +84,15 @@ try { window.layoutWorkbenchDAG = layoutWorkbenchDAG; } catch { /* ignore */ }
 // posCache 按 run 记忆布局(拓扑签名不变则复用坐标 → 状态/进度变化时节点不抖动)。
 // v3 P3b 追加交互态:zoom(画布缩放挡位)/panelOpen(右板三段折叠记忆,轮询重绘不丢)/sideOpen(窄屏抽屉开合)。
 const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, persistedRuns: [], lastRuns: [], posCache: {}, zoom: 1, panelOpen: { detail: true, pool: true, mail: true }, detailExpand: { task: false, result: false }, sideOpen: false };
+const wbSteerDrafts = new Map();
+const wbSteerPending = new Set();
+const wbDraftKey = (runId, nodeId) => JSON.stringify([state.currentSession && state.currentSession.id, runId, nodeId]);
+let wbSideReturnFocus = null;
 try { window.wbState = wbState; } catch { /* ignore */ } // preview/调试可及(同 window.state 兼容层)
 // Claude CLI's native Agent calls are not workbench-managed workflow runs, but the parent stream exposes
-// an honest parent→child relationship and lifecycle. Keep a small read-only in-memory projection so they
+// an honest parent→child relationship and lifecycle. Keep a read-only in-memory projection so they
 // are visible in the DAG without pretending that Ruyi controls their internal nodes or dependencies.
-const nativeClaudeDagRuns = new Map(); // sessionId -> run[] (latest first, max 8)
+const nativeClaudeDagRuns = new Map(); // sessionId -> run[] (latest first; history must remain reachable)
 function wbNativeClaudeSessionRuns(sessionId) {
   if (!sessionId) return [];
   if (!nativeClaudeDagRuns.has(sessionId)) nativeClaudeDagRuns.set(sessionId, []);
@@ -157,7 +161,7 @@ function wbNativeClaudeHydratedRuns(session) {
       nodes,
     });
   }
-  return runs.reverse().slice(0, 8);
+  return runs.reverse();
 }
 function wbNativeClaudeMergedRuns(persisted) {
   const sid = state.currentSession && state.currentSession.id;
@@ -207,7 +211,6 @@ function wbNativeClaudeEnsureRun(sessionId) {
   };
   turn.nativeDagRunId = runId;
   runs.unshift(run);
-  if (runs.length > 8) runs.splice(8);
   return run;
 }
 function wbNativeClaudeRefresh() {
@@ -285,8 +288,8 @@ function wbNativeClaudeFinalize(sessionId, resultEvt) {
 }
 // v3 P3b 缩放挡位(§5.4:0.75/1/1.25;画布只读，整容器 CSS transform:scale，坐标系不变，无指针耦合)。
 const WB_ZOOM_GEARS = [0.75, 1, 1.25];
-// 窄屏(<1180)右板走抽屉:点节点/手动开合从右滑出;≤760 全宽浮层。matchMedia 判定，SSR/无 window 时防御回退。
-function wbIsNarrow() { try { return window.matchMedia('(max-width: 1180px)').matches; } catch { return false; } }
+// Match the crew container query, not the outer browser window (the rails also consume width).
+function wbIsNarrow() { return ($('workbenchView')?.clientWidth || 0) <= 820; }
 const WB_SVGNS = 'http://www.w3.org/2000/svg';
 function wbSvg(tag, attrs) { const e = document.createElementNS(WB_SVGNS, tag); if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 // run 友好名:runs 目前不持久化 title(见 server.js run 对象),回退占位 + 由 id chip 承载唯一标识。
@@ -338,6 +341,7 @@ function switchMainView(v) {
     if (!wbState.selectedRunId) wbState.selectedRunId = wbPickDefaultRun(wbState.lastRuns);
     renderWorkbench(wbState.lastRuns, true);   // 显式切视图强制重绘(签名跳过仅作用于轮询路径)
   } else {
+    wbOpenSide(false);
     const turn = state.currentSession && getActiveTurn(state.currentSession.id);
     if (turn && turn.live) scheduleRender(turn.live);
   }
@@ -379,34 +383,113 @@ function renderWorkbench(runs, force) {
   wbState.renderSig = sig;
   renderWorkbenchRunbar(arr, wbState.selectedRunId);
   if (!run) { renderWorkbenchEmpty(); return; }
+  renderWorkbenchOverview(run);
   renderWorkbenchCanvas(run);
   renderWorkbenchSide(run);
   renderWorkbenchUsage(run);
 }
 // 当前选中 run(供缩放/适应视图重绘时取数)。
 function wbCurrentRun() { return (Array.isArray(wbState.lastRuns) ? wbState.lastRuns : []).find(r => r.id === wbState.selectedRunId) || null; }
+function wbSelectRun(id) {
+  if (wbState.selectedRunId !== id) {
+    wbState.selectedRunId = id; wbState.selectedNodeId = null;
+    wbState.detailExpand = { task: false, result: false };
+    wbState.zoom = 1; wbOpenSide(false);
+    const wrap = $('wbCanvasWrap'); if (wrap) { wrap.scrollLeft = 0; wrap.scrollTop = 0; }
+  }
+  renderWorkbench(wbState.lastRuns);
+}
 // ① Run 选择器 chips。状态点(live 脉动)+ id + 状态词 +(完成 ✦)+ 待批准池徽标;点击切画布。
 function renderWorkbenchRunbar(runs, selectedRunId) {
   const bar = $('wbRunbar'); if (!bar) return;
+  const fk = wbCaptureFocus(bar), scroll = bar.scrollLeft;
   bar.textContent = '';
   if (!runs.length) return;
   const label = el('span', 'wb-rb-label'); label.appendChild(el('span', 'wb-rb-cloud')); label.appendChild(document.createTextNode(t('common.run')));
   bar.appendChild(label);
+  if (runs.length > 5) {
+    const select = el('select', 'wb-run-select');
+    select.dataset.fk = 'run:select';
+    select.setAttribute('aria-label', t('workflow.runbar.selectHistory', { count: runs.length }));
+    for (const [index, run] of runs.entries()) {
+      const date = new Date(run.createdAt);
+      const stamp = Number.isFinite(date.getTime()) ? date.toLocaleString(getLocale(), { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+      const option = el('option', '', `${runs.length - index} · ${wbRunName(run)} · ${agentRunStatusLabel(run.status)}${stamp ? ' · ' + stamp : ''}`);
+      option.value = run.id; option.selected = run.id === selectedRunId;
+      select.appendChild(option);
+    }
+    select.onchange = () => { wbSelectRun(select.value); wbRestoreFocus(bar, 'run:select'); };
+    bar.append(select, el('span', 'wb-rb-label', t('workflow.runbar.historyCount', { count: runs.length })));
+    wbRestoreFocus(bar, fk);
+    return;
+  }
   for (const run of runs) {
     const st = AGENT_RUN_ACTIVE.has(run.status) ? 'running' : (run.status === 'succeeded' ? 'succeeded' : ((run.status === 'failed' || run.status === 'rejected') ? 'failed' : 'other'));
     const on = run.id === selectedRunId;
     const chip = el('button', `wb-chip wb-st-${st}${on ? ' active' : ''}`);
+    chip.dataset.fk = `run:${run.id}`; chip.tabIndex = on ? 0 : -1;
+    chip.title = `${wbRunName(run)} · ${run.id}`;
     chip.setAttribute('role', 'tab'); chip.setAttribute('aria-selected', on ? 'true' : 'false');
     chip.appendChild(el('span', 'wb-rc-dot'));
-    chip.appendChild(document.createTextNode(wbRunName(run) + ' '));
+    chip.appendChild(el('span', 'wb-rc-name', wbRunName(run)));
     chip.appendChild(el('span', 'wb-rc-id', run.id));
     if (run.status === 'succeeded') chip.appendChild(el('span', 'wb-rc-gold', '✦'));
     chip.appendChild(el('span', 'wb-rc-st', agentRunStatusLabel(run.status)));
     const proposed = Array.isArray(run.taskPool) ? run.taskPool.filter(p => p && p.status === 'proposed') : [];
     if (proposed.length) chip.appendChild(el('span', 'wb-rc-pool num', t('workflow.runbar.pendingApproval', { n: proposed.length })));
-    chip.onclick = () => { wbState.selectedRunId = run.id; wbState.selectedNodeId = null; renderWorkbench(wbState.lastRuns); };
+    chip.onclick = () => {
+      wbSelectRun(run.id);
+      wbRestoreFocus(bar, `run:${run.id}`);
+    };
+    chip.onkeydown = e => {
+      const at = runs.indexOf(run);
+      const next = e.key === 'Home' ? 0 : e.key === 'End' ? runs.length - 1 : e.key === 'ArrowRight' ? (at + 1) % runs.length : e.key === 'ArrowLeft' ? (at + runs.length - 1) % runs.length : -1;
+      if (next < 0) return;
+      e.preventDefault(); bar.querySelectorAll('[role="tab"]')[next].click();
+    };
     bar.appendChild(chip);
   }
+  bar.scrollLeft = scroll; wbRestoreFocus(bar, fk);
+}
+// One overview for the selected run; counts are derived from the same nodes as the graph.
+function renderWorkbenchOverview(run) {
+  const host = $('wbOverview'); if (!host) return;
+  const fk = wbCaptureFocus(host); host.textContent = '';
+  const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+  const done = nodes.filter(n => n.status === 'succeeded').length;
+  const issues = nodes.filter(n => ['failed', 'rejected', 'blocked', 'degraded', 'interrupted'].includes(nodeDisplayStatus(n)));
+  const pending = (Array.isArray(run.taskPool) ? run.taskPool : []).filter(p => p && p.status === 'proposed').length;
+  const info = el('div', 'wb-overview-info');
+  info.appendChild(el('strong', 'wb-overview-title', wbRunName(run)));
+  info.appendChild(el('span', 'wb-overview-status', agentRunStatusLabel(run.status)));
+  info.appendChild(el('span', 'wb-overview-count', t('workflow.overview.completed', { done, total: nodes.length })));
+  const progress = el('progress', 'wb-overview-progress'); progress.max = nodes.length || 1; progress.value = done;
+  progress.setAttribute('aria-label', t('workflow.overview.completed', { done, total: nodes.length }));
+  info.appendChild(progress); host.appendChild(info);
+  const actions = el('div', 'wb-overview-actions');
+  const picker = el('select', 'wb-member-select'); picker.dataset.fk = 'overview:member';
+  picker.setAttribute('aria-label', t('workflow.overview.selectMember'));
+  const placeholder = el('option', '', t('workflow.overview.selectMember')); placeholder.value = ''; picker.appendChild(placeholder);
+  for (const node of nodes) {
+    const option = el('option', '', `${node.roleLabel || node.roleId || node.id} · ${agentRunStatusLabel(nodeDisplayStatus(node))}`);
+    option.value = node.id; picker.appendChild(option);
+  }
+  picker.value = wbState.selectedNodeId || '';
+  picker.onchange = () => { if (picker.value) wbFocusRunNode(run.id, picker.value); };
+  actions.appendChild(picker);
+  if (issues.length) {
+    const issue = el('button', 'wb-btn wb-attention', t('workflow.overview.issues', { count: issues.length }));
+    issue.dataset.fk = 'overview:issues'; issue.onclick = () => wbFocusRunNode(run.id, issues[0].id); actions.appendChild(issue);
+  }
+  const details = el('button', `wb-btn${pending ? ' wb-attention' : ''}`, pending ? t('workflow.runbar.pendingApproval', { n: pending }) : t('workflow.overview.details'));
+  details.dataset.fk = 'overview:details'; details.setAttribute('aria-controls', 'wbSide');
+  details.onclick = () => {
+    const section = pending ? 'pool' : 'detail'; wbState.panelOpen[section] = true;
+    renderWorkbenchSide(run); wbOpenSide(true);
+    const heading = document.querySelector(`#wbSide [data-sec="${section}"] .wb-sec-hd`);
+    heading?.focus(); heading?.scrollIntoView({ block: 'nearest' });
+  };
+  actions.appendChild(details); host.appendChild(actions); wbRestoreFocus(host, fk);
 }
 // 边着色分类(按源节点显示状态)。
 function wbEdgeKind(srcDisp) {
@@ -469,12 +552,11 @@ function wbBuildLayerTags(nodes, pos) {
 function wbBuildZoomCapsule() {
   const z = wbState.zoom || 1;
   const cap = el('div', 'wb-cvtools'); cap.setAttribute('role', 'group'); cap.setAttribute('aria-label', t('workflow.canvas.zoom'));
-  const idx = WB_ZOOM_GEARS.indexOf(z);
   const minus = el('button', 'wb-cv-btn', '−'); minus.title = t('workflow.canvas.zoomOut'); minus.setAttribute('aria-label', t('workflow.canvas.zoomOut')); minus.dataset.fk = 'zoom:minus';
-  minus.disabled = idx <= 0; minus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.max(0, (idx < 0 ? 1 : idx) - 1)]);
+  minus.disabled = z <= WB_ZOOM_GEARS[0]; minus.onclick = () => wbSetZoom([...WB_ZOOM_GEARS].reverse().find(g => g < z) || WB_ZOOM_GEARS[0]);
   const read = el('span', 'wb-cv-zoom num', `${Math.round(z * 100)}%`);
   const plus = el('button', 'wb-cv-btn', '＋'); plus.title = t('workflow.canvas.zoomIn'); plus.setAttribute('aria-label', t('workflow.canvas.zoomIn')); plus.dataset.fk = 'zoom:plus';
-  plus.disabled = idx >= WB_ZOOM_GEARS.length - 1; plus.onclick = () => wbSetZoom(WB_ZOOM_GEARS[Math.min(WB_ZOOM_GEARS.length - 1, (idx < 0 ? 1 : idx) + 1)]);
+  plus.disabled = z >= WB_ZOOM_GEARS[WB_ZOOM_GEARS.length - 1]; plus.onclick = () => wbSetZoom(WB_ZOOM_GEARS.find(g => g > z) || WB_ZOOM_GEARS[WB_ZOOM_GEARS.length - 1]);
   const fit = el('button', 'wb-cv-btn wb-cv-fit', '⤢'); fit.title = t('workflow.canvas.fitView'); fit.setAttribute('aria-label', t('workflow.canvas.fitView')); fit.dataset.fk = 'zoom:fit';
   fit.onclick = () => wbFitView();
   cap.append(minus, read, plus, fit);
@@ -486,17 +568,20 @@ function wbSetZoom(z) {
   wbState.zoom = snap;
   const run = wbCurrentRun(); if (run) renderWorkbenchCanvas(run);
 }
-// 适应视图:按画布包围盒挑能容下宽度的最大挡位，重绘后水平居中滚动(纵向 DAG 顶对齐)。
+// Fit both dimensions, including space for the floating tools. Large graphs may go below the manual gears.
 function wbFitView() {
   const wrap = $('wbCanvasWrap'); const run = wbCurrentRun(); if (!wrap || !run) return;
   const nodes = Array.isArray(run.nodes) ? run.nodes : [];
   const pos = wbLayoutFor(run);
-  let maxRight = 0; for (const n of nodes) { const p = pos[n.id]; if (p) maxRight = Math.max(maxRight, p.x + WB_NODE_W); }
+  let maxRight = 0, maxBottom = 0;
+  for (const n of nodes) { const p = pos[n.id]; if (p) { maxRight = Math.max(maxRight, p.x + WB_NODE_W); maxBottom = Math.max(maxBottom, p.y + WB_NODE_H); } }
   const W = Math.max(WB_NODE_W + WB_PAD * 2, maxRight + WB_PAD);
+  const H = Math.max(WB_NODE_H + WB_PAD * 2, maxBottom + WB_PAD);
   const avail = Math.max(0, wrap.clientWidth - 24);
-  const ratio = avail / W;
+  const ratio = Math.min(avail / W, Math.max(1, wrap.clientHeight - 80) / H);
   let gear = WB_ZOOM_GEARS[0];
   for (const g of WB_ZOOM_GEARS) if (g <= ratio) gear = g;     // 能容下的最大挡；都容不下则最小挡 0.75
+  gear = Math.max(0.05, Math.min(1, gear, ratio));
   wbState.zoom = gear;
   renderWorkbenchCanvas(run);
   wrap.scrollLeft = Math.max(0, (W * gear - wrap.clientWidth) / 2);   // 水平居中
@@ -539,21 +624,22 @@ function wbBuildNode(run, node, p) {
   card.dataset.runId = run.id; card.dataset.nodeId = node.id; card.dataset.fk = `n:${node.id}`;
   card.style.left = `${p.x}px`; card.style.top = `${p.y}px`;
   card.setAttribute('role', 'button'); card.tabIndex = 0;
+  card.setAttribute('aria-pressed', node.id === wbState.selectedNodeId ? 'true' : 'false');
+  card.title = `${node.roleLabel || node.roleId || node.id} · ${agentRunStatusLabel(disp)}\n${node.task || node.id}`;
   card.setAttribute('aria-label', t('workflow.node.ariaLabel', { id: String(node.id), status: agentRunStatusLabel(disp) }));
   // 头:状态徽标 + 标题(id·角色) + 引擎徽标
   const hd = el('div', 'wb-node-hd');
   hd.appendChild(el('span', 'wb-badge', agentStatusIcon(disp)));
   const title = el('span', 'wb-node-title');
-  const idb = el('b'); idb.textContent = node.id; title.appendChild(idb);
-  if (node.roleLabel || node.roleId) title.appendChild(el('span', 'role', ` · ${node.roleLabel || node.roleId}`));
+  const idb = el('b'); idb.textContent = node.roleLabel || node.roleId || node.id; title.appendChild(idb);
   hd.appendChild(title);
   const eng = agentEngineBadge(node.engine); if (eng) { eng.classList.add('wb-eng-inline'); hd.appendChild(eng); }
   card.appendChild(hd);
-  // 模型名(muted;无则省)
-  if (node.model) card.appendChild(el('div', 'wb-node-model', node.model));
   // 活动行:progressLog 末条(运行/等待态显,succeeded/skipped 不显)
   const plog = Array.isArray(node.progressLog) ? node.progressLog : [];
   const last = plog.length ? plog[plog.length - 1] : null;
+  // Keep the compact card to three lines; the inspector always exposes the full model.
+  if (node.model && !(last && last.text && node.status !== 'succeeded' && node.status !== 'skipped')) card.appendChild(el('div', 'wb-node-model', node.model));
   const activeState = node.status === 'running' || node.status === 'waiting_resource';
   if (last && last.text && node.status !== 'succeeded' && node.status !== 'skipped') {
     const act = el('div', `wb-node-act${(disp === 'rejected' || disp === 'waiting_resource' || disp === 'failed') ? ' warn' : ''}`);
@@ -575,7 +661,7 @@ function wbBuildNode(run, node, p) {
     const bar = el('div', 'wb-bar'); const i = el('i'); i.style.width = `${Math.max(0, Math.min(100, Math.round((budgetCur / budgetMax) * 100)))}%`; bar.appendChild(i); foot.appendChild(bar);
     foot.appendChild(el('span', 'wb-foot-label num', `${budgetLabel} ${budgetCur}/${budgetMax}`));
   } else {
-    const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? t('workflow.node.dependsOn', { deps: node.dependsOn.join(', ') }) : agentRunStatusLabel(disp);
+    const deps = agentRunStatusLabel(disp) + (Array.isArray(node.dependsOn) && node.dependsOn.length ? ' · ' + t('workflow.node.dependsOn', { deps: node.dependsOn.join(', ') }) : '');
     foot.appendChild(el('span', 'wb-foot-label', deps));
   }
   card.appendChild(foot);
@@ -602,19 +688,28 @@ function wbFocusRunNode(runId, nodeId) {
   if (wbState.selectedNodeId !== nodeId) wbState.detailExpand = { task: false, result: false };   // 对抗轮 P3: 重复点同一节点不重置展开态
   wbState.selectedNodeId = nodeId;
   wbState.panelOpen.detail = true;
-  document.querySelectorAll('#wbCanvasWrap .wb-node.selected').forEach(n => n.classList.remove('selected'));
+  document.querySelectorAll('#wbCanvasWrap .wb-node.selected').forEach(n => { n.classList.remove('selected'); n.setAttribute('aria-pressed', 'false'); });
   const card = document.querySelector(`#wbCanvasWrap .wb-node[data-node-id="${CSS.escape(nodeId)}"]`);
-  if (card) card.classList.add('selected');
+  if (card) { card.classList.add('selected'); card.setAttribute('aria-pressed', 'true'); card.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  const picker = document.querySelector('.wb-member-select'); if (picker) picker.value = nodeId;
   const run = wbCurrentRun();
   if (run) renderWorkbenchSide(run);
   if (wbIsNarrow()) wbOpenSide(true);
-  const sec = document.querySelector('#wbSide .wb-sec[data-sec="detail"]');
-  if (sec) sec.scrollIntoView({ block: 'nearest' });
+  // Scroll only the inspector; scrollIntoView can move clipped ancestors and hide its heading/close button.
+  const side = $('wbSide'); if (side) side.scrollTop = 0;
 }
 // 窄屏右板抽屉开合:切 .wb-view 上的状态类 + backdrop 显隐(≥1180 常驻，此开关无副作用)。
 function wbOpenSide(open) {
+  if (open && !wbState.sideOpen) wbSideReturnFocus = document.activeElement;
   wbState.sideOpen = !!open;
   const view = $('workbenchView'); if (view) view.classList.toggle('wb-side-open', !!open);
+  const backdrop = $('wbSideBackdrop'); if (backdrop) backdrop.hidden = !open;
+  if (open && wbIsNarrow()) $('wbSide')?.querySelector('.wb-side-close')?.focus({ preventScroll: true });
+  if (!open && wbSideReturnFocus) {
+    if (wbSideReturnFocus.isConnected) wbSideReturnFocus.focus({ preventScroll: true });
+    else document.querySelector('#wbOverview [data-fk="overview:details"]')?.focus({ preventScroll: true });
+    wbSideReturnFocus = null;
+  }
 }
 // ④ 底部用量迷你条:本 run 累计 tokens/成本/时长(大数字仪表)。字段缺失显「—」(防御,后端并行落地中)。
 function wbRunMetrics(run) {
@@ -647,6 +742,7 @@ function renderWorkbenchUsage(run) {
 }
 // ⑤ 空态:无 run → 画布区居中引导卡(云纹水印 + 「去对话交办任务」/「从模板运行」);同时清空 chips/用量条/右板。
 function renderWorkbenchEmpty() {
+  const overview = $('wbOverview'); if (overview) overview.textContent = '';
   const runbar = $('wbRunbar'); if (runbar) runbar.textContent = '';
   const usage = $('wbUsage'); if (usage) usage.textContent = '';
   const side = $('wbSide'); if (side) side.textContent = '';   // 右板清空 → .wb-main :has(:empty) 收单列，无空右条
@@ -681,7 +777,7 @@ function renderWorkbenchSide(run) {
   const host = $('wbSide'); if (!host) return;
   // 保留插话框焦点 + 文本 + 光标(2s 轮询重绘不打断打字)。
   const ae = document.activeElement;
-  const keepSteer = ae && ae.id === 'wbSteerInput';
+  const keepSteer = ae && ae.id === 'wbSteerInput' && ae.dataset.draftKey === wbDraftKey(run.id, wbState.selectedNodeId);
   const steerVal = keepSteer ? ae.value : null;
   const caret = keepSteer ? ae.selectionStart : null;
   const fk = wbCaptureFocus(host);                                        // 对抗轮 P2: 审批/重试/关闭钮焦点跨重建保留
@@ -820,17 +916,34 @@ function wbSteerBox(run, node) {
   wrap.appendChild(el('div', 'wb-steer-label', elig.ok ? (deferred ? t('workflow.steerBox.deferredLabel') : t('workflow.steerBox.liveLabel')) : t('workflow.steerBox.disabledLabel')));
   const boxrow = el('div', 'wb-steer-box');
   const input = el('input', 'wb-steer-input'); input.id = 'wbSteerInput'; input.type = 'text';
+  const draftKey = wbDraftKey(run.id, node.id);
+  input.dataset.draftKey = draftKey;
+  input.value = wbSteerDrafts.get(draftKey) || '';
+  input.setAttribute('aria-label', t('workflow.steerBox.placeholder', { node: node.roleLabel || node.id }));
+  input.addEventListener('input', () => { if (input.value) wbSteerDrafts.set(draftKey, input.value); else wbSteerDrafts.delete(draftKey); });
   input.placeholder = elig.ok ? t('workflow.steerBox.placeholder', { node: node.id }) : elig.msg;
   const send = el('button', 'wb-btn primary', t('chat.send')); send.dataset.fk = 'steer:send';
   if (!elig.ok) { input.disabled = true; send.disabled = true; input.title = elig.msg; }
   else {
-    // 对抗轮 P2: 先清空防连击重复发送;失败(409/断网)回填并聚焦——聚焦令 keepSteer 在下一轮重建中保住文本。
+    // Keep in-flight ownership across rerenders. Failed text returns only to this member's draft,
+    // without stealing focus or overwriting anything typed while the request was pending.
     const submit = async () => {
-      const t2 = (input.value || '').trim(); if (!t2) return;
-      input.value = '';
-      const ok = await steerAgentNode(run.id, node.id, node.status, t2, node.engine);
-      if (ok === false) { const inp = $('wbSteerInput'); if (inp && !inp.disabled) { inp.value = t2; inp.focus(); } else toast(t('workflow.steerBox.unsent', { text: t2.slice(0, 80) }), 'err'); }
+      const t2 = (input.value || '').trim(); if (!t2 || wbSteerPending.has(draftKey)) return;
+      input.value = ''; wbSteerDrafts.delete(draftKey); wbSteerPending.add(draftKey); send.disabled = true;
+      let ok = false;
+      try { ok = await steerAgentNode(run.id, node.id, node.status, t2, node.engine); } catch { ok = false; }
+      finally { wbSteerPending.delete(draftKey); }
+      if (ok === false) {
+        const newer = wbSteerDrafts.get(draftKey);
+        wbSteerDrafts.set(draftKey, newer ? `${t2} ${newer}` : t2);
+        const inp = $('wbSteerInput');
+        if (inp && inp.dataset.draftKey === draftKey && !inp.disabled) { inp.value = wbSteerDrafts.get(draftKey); }
+        else toast(t('workflow.steerBox.unsent', { text: t2.slice(0, 80) }), 'err');
+      }
+      const current = $('wbSteerInput');
+      if (current && current.dataset.draftKey === draftKey && !current.disabled) current.parentElement.querySelector('button').disabled = false;
     };
+    send.disabled = wbSteerPending.has(draftKey);
     send.onclick = submit;
     // 对抗轮 P2: isComposing 守卫——中文输入法选字回车不再把半截拼音直接发出去(与主 composer 同款守卫)。
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submit(); } });
@@ -909,6 +1022,16 @@ function wbMailBody(run) {
     });
     const backdrop = $('wbSideBackdrop');
     if (backdrop) backdrop.onclick = () => wbOpenSide(false);
+    $('workbenchView')?.addEventListener('keydown', e => {
+      if (!wbState.sideOpen || !wbIsNarrow()) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); wbOpenSide(false); }
+      if (e.key === 'Tab') {
+        const items = [...$('wbSide').querySelectorAll('button:not(:disabled), input:not(:disabled), select, summary, [tabindex="0"]')].filter(n => n.getClientRects().length);
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    });
   }
 
   return Object.freeze({

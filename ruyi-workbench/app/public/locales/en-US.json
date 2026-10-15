@@ -2131,6 +2131,12 @@
   "workflow.run.title": "Agent workflow · {{count}} nodes",
   "workflow.run.background": "Running in background · {{count}} in parallel · this turn continues",
   "workflow.runTemplate": "Run template",
+  "workflow.runbar.selectHistory": "Select run history ({{count}} runs)",
+  "workflow.runbar.historyCount": "{{count}} runs",
+  "workflow.monitor.details": "Members and run details ({{count}})",
+  "workflow.monitor.viewIssues": "View issues ({{count}})",
+  "workflow.monitor.approval": "Needs your approval",
+  "workflow.monitor.template": "Start a workflow from a template",
   "workflow.runbar.pendingApproval": "Pending {{n}}",
   "workflow.section.mail": "Mailbox messages",
   "workflow.section.pendingCount": "{{count}} pending",
@@ -3925,4 +3931,8 @@
 ,"stewardShell.chat.newConversation": "New conversation"
 ,"stewardShell.chat.newConversationDone": "Started a new conversation. Previous conversation was archived and conversation context cleared."
 ,"stewardShell.chat.newConversationFailed": "Could not finish starting a new conversation. Please try again shortly."
+  ,"workflow.overview.completed": "{{done}} / {{total}} members completed"
+  ,"workflow.overview.selectMember": "Find a member…"
+  ,"workflow.overview.issues": "{{count}} issues"
+  ,"workflow.overview.details": "Details & messages"
 }

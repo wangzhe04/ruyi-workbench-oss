@@ -128,6 +128,14 @@
 .changes-hint { font-size: var(--fs-sm); line-height: 1.5; margin: 4px 0 8px; }
 .changes-list { display: flex; flex-direction: column; gap: 8px; }
 .agent-runs-list { display: flex; flex-direction: column; gap: 8px; max-height: 65vh; overflow: auto; }
+#tab-agent-runs .agent-runs-list { max-height: none; overflow: visible; }
+.workflow-launch { margin-bottom: 12px; }
+.workflow-launch > summary, .agent-run-details > summary { padding: 9px 8px; cursor: pointer; color: var(--ink-2); font-size: var(--fs-sm); }
+.agent-run-details { border-top: 1px solid var(--line); margin-top: 8px; }
+.agent-run-details > .ar-agg-cost { padding: 0 8px 8px; }
+.agent-run-head .ar-title { flex-basis: 100%; }
+.agent-run-head .ar-agg-live-text { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.agent-run-issues { color: var(--warn-fg); background: var(--warn-bg); border-color: var(--warn); }
 .workflow-quick-run { display: flex; gap: 7px; margin: 8px 0; }
 .workflow-quick-run select { min-width: 0; flex: 1; }
 .workflow-editor { width: min(1080px, calc(100vw - 80px)); }
@@ -427,7 +435,12 @@ button.ghost-danger:hover { background: var(--danger-veil); border-color: transp
 .audit-note { padding: 6px 10px; font-size: var(--fs-xs); color: var(--muted); background: var(--panel-2); border-bottom: 1px solid var(--line); }
 .audit-row { border-bottom: 1px solid var(--line); }
 .audit-row:last-child { border-bottom: 0; }
-.audit-head { display: flex; align-items: center; gap: 7px; padding: 6px 9px; cursor: pointer; }
+.audit-head { display: grid; grid-template-columns: minmax(0, 1fr) auto 12px; align-items: center; gap: 5px 8px; padding: 10px 12px; cursor: pointer; }
+.audit-head .audit-time { grid-area: 1 / 1; overflow-wrap: anywhere; }
+.audit-head .audit-badge { grid-area: 1 / 2; }
+.audit-head .audit-summary { grid-area: 2 / 1 / 3 / 3; white-space: normal; overflow-wrap: anywhere; }
+.audit-head .audit-type { grid-area: 3 / 1 / 4 / 3; color: var(--muted); }
+.audit-head .audit-caret { grid-area: 1 / 3 / 4 / 4; }
 .audit-head:hover { background: var(--panel-2); }
 .audit-time { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); }
 .audit-badge { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 999px;
