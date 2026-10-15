@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 72,
-    "providedSymbols": 3682,
-    "requiredSymbols": 3235,
+    "providedSymbols": 3686,
+    "requiredSymbols": 3241,
     "edges": 551,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -7603,6 +7603,8 @@
         "accumulateRunUsage",
         "agentEnvelopeArtifacts",
         "agentMessageReceipt",
+        "agentPoolExpansionEligibility",
+        "agentRunCapabilities",
         "agentRunDigestCache",
         "agentRunDigestRow",
         "agentRunDigestShadow",
@@ -7613,6 +7615,7 @@
         "agentRunLastSavedStatus",
         "agentRunPermissionMode",
         "agentRunResultSlice",
+        "agentRunRoster",
         "agentRunSaveFailures",
         "agentWorkflowSaveProblem",
         "agentWorkflowStatusText",
@@ -7676,6 +7679,7 @@
         "recordRunStalledEvent",
         "repairJson",
         "resolveAgentTeamRoute",
+        "resolveOrchestrateFollowup",
         "resolveOrchestrateNodes",
         "runSubAgent",
         "runSubAgentCore",
@@ -7784,6 +7788,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "samePathKey",
           "kinds": [
             "call"
           ]
@@ -8269,6 +8280,13 @@
           "symbol": "loopWarnOnly",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "MAIL_QUEUE_MAX",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -9859,7 +9877,21 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentRunCapabilities",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "agentRunResultSlice",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunRoster",
           "kinds": [
             "call"
           ]
@@ -10042,6 +10074,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "orchestrateArgsProblem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "orchestrateModelNotes",
           "kinds": [
             "call"
@@ -10113,6 +10152,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "resolveAgentTeamRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "resolveOrchestrateFollowup",
           "kinds": [
             "call"
           ]
@@ -29009,6 +29055,7 @@
         "paths",
         "runKeyedChain",
         "safeJsonParse",
+        "samePathKey",
         "text",
         "zlib"
       ],
@@ -29170,6 +29217,7 @@
       "to": "07-autonomy.js",
       "symbols": [
         "LOOP_GUARD_LIMITS",
+        "MAIL_QUEUE_MAX",
         "MEMORY_WRITE_TOOL_NAMES",
         "activeAgentRuns",
         "agentRunDir",
@@ -29584,7 +29632,9 @@
       "to": "08-agent-runs.js",
       "symbols": [
         "accumulateRunUsage",
+        "agentRunCapabilities",
         "agentRunResultSlice",
+        "agentRunRoster",
         "agentRunSaveFailures",
         "aggregateAgentVote",
         "aggregateCoverage",
@@ -29610,6 +29660,7 @@
         "normalizeWaitSpec",
         "normalizeWorkflowCondition",
         "normalizeWorkflowLoop",
+        "orchestrateArgsProblem",
         "orchestrateModelNotes",
         "ownAgentMessageReceipt",
         "parseStructuredAgentOutput",
@@ -29621,6 +29672,7 @@
         "recordRunBudgetTrippedEvent",
         "recordRunStalledEvent",
         "resolveAgentTeamRoute",
+        "resolveOrchestrateFollowup",
         "resolveOrchestrateNodes",
         "runSubAgent",
         "sanitizeAgentOutputSchema",

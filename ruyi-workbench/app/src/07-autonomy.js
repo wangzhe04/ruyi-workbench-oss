@@ -341,14 +341,14 @@ function buildOpenAiTools(config, caps, opts) {
   if (opts && opts.sendToAgentEnabled) {
     out.push({ type: 'function', function: {
       name: 'send_to_agent',
-      description: '定向发送代理参考消息，不改变目标任务或用户授权。子节点可给同次运行节点或 parent 发消息；主会话给节点时填写 runId，也可用 targetSessionId 给明确的其他会话发消息。异步入队，在目标下次模型调用前投递，目标已结束或不支持收件则无法投递。不会自动唤醒空闲会话。',
+      description: '参考消息不改变任务或授权。下次模型调用前投递，不唤醒会话；终态或不支持收件则无法投递。',
       parameters: { type: 'object', properties: {
-        action: { type: 'string', enum: ['send', 'status'], description: '默认 send；status 查询本人发送消息的本地投递回执，不发送新消息。delivered 仅表示注入本地上下文。' },
-        messageId: { type: 'string', description: 'status 时必填：发送回执中的 messageId。' },
-        targetNodeKey: { type: 'string', description: '目标节点 id；子节点可填 parent 给主会话。' },
-        runId: { type: 'string', description: '主会话发送节点消息或查询回执时必填：当前会话的工作流 runId；status 可查询已结束的 run。子节点无需填写。' },
-        targetSessionId: { type: 'string', description: '仅主会话可用：其他普通会话的明确 id。与 runId/targetNodeKey 二选一。消息不会自动唤醒目标。' },
-        message: { type: 'string', description: 'send 时必填的消息内容(最长约 2000 字符)；status 无需填写。' },
+        action: { type: 'string', enum: ['send', 'status', 'list'], description: '默认send；status查本人回执（delivered仅指上下文注入）；list查节点状态/canReceive快照，不发信或扣配额。' },
+        messageId: { type: 'string', description: 'status必填：消息回执ID。' },
+        targetNodeKey: { type: 'string', description: '同run节点ID；子节点可填parent。' },
+        runId: { type: 'string', description: '主会话send/status操作节点必填；list省略列本会话活run，指定可读历史。子节点绑定本run+parent。' },
+        targetSessionId: { type: 'string', description: '主会话可选其他会话ID；与runId/targetNodeKey互斥。' },
+        message: { type: 'string', description: 'send必填，最多2000字符。' },
       } },
     } });
   }

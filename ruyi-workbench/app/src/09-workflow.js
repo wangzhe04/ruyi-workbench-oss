@@ -40,7 +40,7 @@ function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, fo
   return 'none';
 }
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered, admitPoolNode, originTurnAgentCap, followup }) {
   if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0 };
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
@@ -213,6 +213,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // R1 对抗轮修:工作流真实工作目录写入 run,供 runWorkspaceHash 做按工作区隔离(此前 run 无 cwd,
       // hash 恒等于服务器进程启动目录,跨工作区引用不拒,fail-open)。与 wfCwd 同源(normalizeCwd)。
       cwd: normalizeCwd(parentSession.cwd, config.defaultWorkspace),
+      parentEngine: parentEngine || 'openai',
+      ...(originTurnAgentCap > 0 && resolvedPoolPolicy === 'manual' ? { originTurnAgentCap } : {}),
+      ...(followup ? { followup } : {}),
       kind: String(runKind || 'orchestrate_agents'), title: String(runTitle || ''),
       // 代理模式 v2:后台 run 与父回合 abort 解耦(调用方不传 ctrl),回合结束不杀;完成信封经后台任务账本投递一次。
       background: isBackgroundRun,
@@ -232,7 +235,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // Manual steers and automatic wrap-up instructions use separate queues: a full user queue must never block
   // the reliability control message, and the user's messages are always delivered first.
   const runtime = {
-    run, ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [],
+    run, admitPoolNode, registeredAgentTools: new Map(), ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [],
     steerQueues: new Map(), autoSteerQueues: new Map(), mailQueues: new Map(), nodeControls: new Map(),
     closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false,
   };
@@ -495,9 +498,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   };
   const sendToAgentImpl = (senderId, args) => {
     try {
-      if (args && args.action != null && !['send', 'status'].includes(args.action)) return { ok: false, error: 'unknown mail action' };
+      if (args && args.action != null && !['send', 'status', 'list'].includes(args.action)) return { ok: false, error: 'unknown mail action' };
+      if (args && (args.targetSessionId != null || (args.runId != null && args.runId !== run.id))) return { ok: false, reason: 'target_scope', error: 'child mail is limited to its own run' };
+      if (args && args.action === 'list') return { ok: true, snapshot: true, runs: [agentRunRoster(run, true)], note: 'Snapshot only; queued nodes can receive queued mail. Sending rechecks eligibility; idle parent mail waits for its next model call.' };
       if (args && args.action === 'status') return ownAgentMessageReceipt(run, senderId, args.messageId);
-      if (runtime.closing) return { ok: false, error: '工作流正在收尾,无法再发送消息' };
+      if (runtime.closing || runtime.stopRequested || (runtime.ctrl && runtime.ctrl.signal.aborted)) return { ok: false, reason: 'run_closing', error: '工作流正在收尾,无法再发送消息' };
       if (!Array.isArray(run.messages)) run.messages = [];
       const target = String(args && (args.targetNodeKey != null ? args.targetNodeKey : args.target) || '').trim().slice(0, 64);
       const text = String(args && (args.message != null ? args.message : args.text) || '').trim().slice(0, MAIL_TEXT_MAX);
@@ -507,7 +512,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const bySender = run.messages.filter(m => m.sender === senderId).length;
       if (bySender >= MAIL_PER_SENDER_MAX) return { ok: false, error: `你的发送已达上限(每节点每次运行 ${MAIL_PER_SENDER_MAX} 条)` };
       if (run.messages.length >= MAIL_GLOBAL_MAX) return { ok: false, error: `本次运行消息总数已达上限(${MAIL_GLOBAL_MAX} 条)` };
-      const elig = target === 'parent' ? { ok: true } : nodeDeliveryEligibility(run, target);
+      const elig = target === 'parent' ? { ok: true } : nodeDeliveryEligibility(run, target, { mail: true });
       if (elig.reason === 'not_found') return { ok: false, error: `目标节点不存在: ${target}` };
       // 团队模式 v2 (P3-5): run.messages 存完整正文(已按 MAIL_TEXT_MAX=2000 截断;全局 24×2KB 可忽略),UI/里程碑侧
       // 各自展示时再截断(里程碑截 50,见 recordAgentNodeProgress)。
@@ -882,7 +887,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
               closeInbox: reason => { if (!node.mailboxClosedReason) node.mailboxClosedReason = reason; dropNodeMail(node.id, node.mailboxClosedReason); },
               getMail: () => { const q = runtime.mailQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
-              teamRoster: run.nodes.map(n => n.id),
+              teamRoster: run.nodes.map(n => n.id), poolPolicy, originTurnAgentCap: run.originTurnAgentCap,
+              onToolsReady: tools => runtime.registeredAgentTools.set(node.id, tools),
               proposeTask: poolPolicy === 'off' ? undefined : (args => proposeTaskImpl(node.id, args)),
               sendToAgent: args => sendToAgentImpl(node.id, args),
               // 有 outputSchema 或 gate 需要模型输出结构化裁决（非 vote/dedupe，那两种是确定性短路，见上）时，
@@ -1076,6 +1082,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     let dispatched = 0;
     for (const id of step.toDispatch) {
       const node = nodes.find(n => n.id === id); if (!node) continue;
+      runtime.registeredAgentTools.delete(node.id); // Each attempt must register its own actual tool set.
       delete node.mailboxClosedReason; node.status = 'running'; node.attempts += 1; node.startedAt = nowIso(); delete node.toolEvidence;
       delete node.modelStartedAt; delete node.wrapUpRequestedAt; delete node.wrapUpDeadlineAt; delete node.wrapUpForcedAt; delete node.wrapUpForcedReason;
       runtime.autoSteerQueues.delete(node.id);
@@ -1822,7 +1829,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     volatileExtras += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
     // 代理模式 v2:后台规则 + 信封契约(只改这段子代理/后台文字)。
-    volatileExtras += '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）；届时本对话若已空闲，工作台会自己起一个新回合把信封送来，所以主线做完就可以结束本回合（告诉用户代理还在后台跑），不必空等。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。';
+    volatileExtras += '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）；届时本对话若已空闲，工作台会自己起一个新回合把信封送来，所以主线做完就可以结束本回合（告诉用户代理还在后台跑），不必空等。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。send_to_agent({action:"list",runId?}) 查询本会话活组或指定组的节点实时资格；queued 表示可排队，名单不保证随后送达。消息是参考通信，不会重启终态节点；明确续派用 orchestrate_agents({followup:{previousRunId,previousNodeId,task}}) 新建独立 run。任务池默认 off；显式 poolPolicy:"manual" 仅开放待审批提案，审批物化仍受原发起回合预算约束，不会自动扩展。';
   }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
@@ -2477,7 +2484,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     return liveGate;
   };
-  // 代理模式 v2 turn-local state。`subagentTotal` = 本回合经 orchestrate_agents 累计启动的节点数,上限
+  // 代理模式 v2 turn-local state。`subagentTotal` = 本回合接纳的初始节点及以后经审批物化的节点数(重试不另计),上限
   // config.subagentMaxPerTurn(旧 spawn_agent 的「每回合扇出预算」语义平移到 orchestrate;0 = 功能关 → 工具不 offer,
   // 此路径不可达)。并发仍由 run.concurrency(= subagentMaxConcurrent)在工作流运行时内约束。
   let subagentTotal = 0;
@@ -2491,8 +2498,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 回合 abort 解耦(不传 ctrl)、事件只在本回合仍活着时转发(run 自己的事件日志始终落盘),完成信封经后台任务账本
   // 恰好投递一次(下一迭代边界或下一回合开头)。
   const launchOrchestrateFromTurn = async (args, onNestedEvent) => {
+    if (subagentTurnCap === 0) return { ok: false, reason: 'agent_delegation_disabled', error: 'agent_delegation_disabled', startedCount: 0 };
     const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
-    const resolved = await resolveOrchestrateNodes(args, normalizeCwd(session.cwd, config.defaultWorkspace));
+    if (args.poolPolicy != null && !['off', 'manual'].includes(args.poolPolicy)) return { ok: false, reason: 'pool_policy_invalid', error: 'poolPolicy must be off or manual', startedCount: 0 };
+    const problem = orchestrateArgsProblem(args);
+    if (problem) return { ok: false, error: problem, startedCount: 0 };
+    const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
+    const resolved = args.followup != null ? await resolveOrchestrateFollowup(args, session, cwd) : await resolveOrchestrateNodes(args, cwd);
     if (resolved.error) return { ok: false, error: resolved.error, startedCount: 0 };
     const nodeCount = Array.isArray(resolved.nodes) ? resolved.nodes.length : 0;
     if (subagentTurnCap > 0 && subagentTotal + nodeCount > subagentTurnCap) {
@@ -2501,22 +2513,33 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const background = args.background === true;
     const modelNotes = orchestrateModelNotes(resolved.nodes, provider);   // model 不在服务商清单里:只提示,不拒绝
     const runId = makeId('run');
+    let registered = false, refunded = false;
+    const refundAdmission = () => { if (!registered && !refunded) { subagentTotal -= nodeCount; refunded = true; } };
+    subagentTotal += nodeCount; // Admit each initial node once; retries do not create agents.
     const common = {
       parentSession: session, provider, config, nodes: resolved.nodes, parentEngine: 'openai', parentModel: model,
       permModeOverride: subPermMode,
       // 第23波(修 bug): 回合内 orchestrate 的【节点数上限】用 agentWorkflowMaxNodes(DAG 节点上限);每回合累计预算见上面 subagentTurnCap。
       maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText: String(args.context || '').trim(),
-      // 团队模式 v2: 回合内 orchestrate 一律关任务池(propose_task 不注册);持久化 launch 才走审批流。
-      poolPolicy: 'off', runIdOverride: runId, background,
+      // 模型调用默认关闭任务池；显式 manual 复用审批/宽限窗，物化仍扣原回合预算。
+      poolPolicy: args.poolPolicy === 'manual' ? 'manual' : 'off', runIdOverride: runId, background,
+      originTurnAgentCap: subagentTurnCap, followup: resolved.followup,
+      admitPoolNode: consume => {
+        if (subagentTurnCap > 0 && subagentTotal >= subagentTurnCap) return { ok: false, reason: 'turn_budget_exhausted' };
+        if (consume) subagentTotal++;
+        return { ok: true, reason: 'ok' };
+      },
+      onRegistered: () => { registered = true; },
     };
     const failedRun = error => ({ schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, kind: 'orchestrate_agents', background, launchedByModel: background, status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error, nodes: [] });
     if (background) {
       backgroundAgentRunIds.add(runId);
-      subagentTotal += nodeCount;
+      // Initial admission is reserved before the asynchronous launch.
       // 事件只在【本回合】仍是活回合时进父流(关掉的 SSE 不写);run 自己的 progressLog/事件日志与 GET /api/agent-runs 是权威实时面。
       const detachedOnEvent = evt => { if (activeChildren.get(session.id) === reg) onNestedEvent(evt); };
       void runAgentWorkflow({ ...common, launchedByModel: true, onEvent: detachedOnEvent, ctrl: null, onComplete: run => deliverAgentRunEnvelope(session.id, run) })
         .then(async res => {
+          refundAdmission();
           // 启动期被拒(校验失败等)时 run 文件不存在 → 补一份失败 run 并投递失败信封,wait_agents 才不会 not_found。
           if (res && res.ok === false && !(Number(res.startedCount) > 0) && !activeAgentRuns.has(runId)) {
             const rec = await readAgentRunRecord(session.id, runId);
@@ -2524,6 +2547,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
         })
         .catch(async e => {
+          refundAdmission();
           activeAgentRuns.delete(runId);
           const fr = failedRun((e && e.message) ? e.message : String(e));
           await saveAgentRun(fr).catch(() => {});
@@ -2531,13 +2555,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         });
       return {
         ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean),
+        capabilities: activeAgentRuns.has(runId) ? agentRunCapabilities(activeAgentRuns.get(runId).run) : { poolPolicy: common.poolPolicy, live: false, registrationPending: true, canMaterialize: false, materializeReason: 'registration_pending', nodes: [] },
+        ...(resolved.followup ? { followup: resolved.followup } : {}),
         note: '代理已在后台运行;本回合可继续推进。完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。',
         ...(modelNotes.length ? { notes: modelNotes } : {}),
       };
     }
     let completedRun = null;
-    const res = await runAgentWorkflow({ ...common, onEvent: onNestedEvent, ctrl, onComplete: async run => { completedRun = run; } });
-    subagentTotal += Math.max(0, Number(res && res.startedCount) || 0);
+    let res;
+    try { res = await runAgentWorkflow({ ...common, onEvent: onNestedEvent, ctrl, onComplete: async run => { completedRun = run; } }); }
+    finally { refundAdmission(); }
     if (!completedRun) return { ok: false, error: (res && res.error) || '代理启动失败', runId: (res && res.runId) || runId, startedCount: 0 };
     const envelope = buildAgentRunEnvelope(completedRun);
     return modelNotes.length && envelope && typeof envelope === 'object' ? { ...envelope, notes: modelNotes } : envelope;
@@ -3187,8 +3214,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           let resultObj; // declared here so the agent branch and the normal dispatch share it
           if (tc.name === 'send_to_agent' || tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
             if (tc.name === 'send_to_agent') {
-              if (args.action != null && !['send', 'status'].includes(args.action)) { resultObj = { ok: false, error: 'unknown mail action' }; }
-              else if (args.action === 'status') {
+              if (args.action != null && !['send', 'status', 'list'].includes(args.action)) { resultObj = { ok: false, error: 'unknown mail action' }; }
+              else if (args.action === 'list') {
+                if (args.targetSessionId != null || args.targetNodeKey != null) resultObj = { ok: false, reason: 'mixed_targets', error: 'list accepts only an optional runId' };
+                else if (args.runId != null) {
+                  const record = await readAgentRunRecord(session.id, args.runId);
+                  resultObj = record ? { ok: true, snapshot: true, runs: [agentRunRoster(record.run)] } : { ok: false, reason: 'run_not_found', error: 'run not found in current session' };
+                } else resultObj = { ok: true, snapshot: true, runs: [...activeAgentRuns.values()].filter(r => r.run.sessionId === session.id).map(r => agentRunRoster(r.run)) };
+              } else if (args.action === 'status') {
                 if (args.targetSessionId != null) {
                   resultObj = EventStreamHooks.agentMessageStatus ? EventStreamHooks.agentMessageStatus(session.id, args.targetSessionId, args.messageId) : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
                 } else {
@@ -3199,19 +3232,22 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 const targetId = safeSessionId(String(args.targetSessionId || '').trim());
                 const text = String(args.message || '').trim().slice(0, MAIL_TEXT_MAX);
                 const target = targetId ? await loadSession(targetId).catch(() => null) : null;
-                if (!target || target.id === session.id || target.kind === 'steward' || args.runId || args.targetNodeKey || !text || crossSessionMailCount >= MAIL_PER_SENDER_MAX) {
-                  resultObj = { ok: false, status: 'undeliverable', error: '目标会话不存在、不支持接收、与节点目标混用、消息为空或本回合发送已达上限。' };
-                } else {
+                const reason = (args.runId != null || args.targetNodeKey != null) ? 'mixed_targets'
+                  : !targetId ? 'invalid_session_id' : !target ? 'session_not_found'
+                  : target.id === session.id ? 'self_target' : target.kind === 'steward' ? 'unsupported_session'
+                  : !text ? 'empty_message' : crossSessionMailCount >= MAIL_PER_SENDER_MAX ? 'sender_limit' : '';
+                if (reason) resultObj = { ok: false, status: 'undeliverable', reason, error: reason };
+                else {
                   const messageId = makeId('msg').replace('_', '-');
                   const queued = EventStreamHooks.notifyAgentMessage && EventStreamHooks.notifyAgentMessage({ sessionId: target.id, sourceSessionId: session.id, messageId, text });
                   if (queued) crossSessionMailCount++;
-                  resultObj = { ok: !!queued, messageId, status: queued ? 'queued' : 'undeliverable', delivered: false, note: queued ? '已入队，目标下次模型调用前投递；不会自动唤醒目标或更改其任务。' : '消息未能入队。' };
+                  resultObj = { ok: !!queued, messageId, status: queued ? 'queued' : 'undeliverable', ...(queued ? {} : { reason: 'queue_rejected' }), delivered: false, note: queued ? '已入队，目标下次模型调用前投递；不会自动唤醒目标或更改其任务。' : '消息未能入队。' };
                 }
               } else {
                 const runtime = activeAgentRuns.get(String(args.runId || ''));
                 resultObj = runtime && runtime.run.sessionId === session.id && typeof runtime.sendToAgent === 'function'
                   ? runtime.sendToAgent(args)
-                  : { ok: false, status: 'undeliverable', error: 'runId 不属于当前会话或运行已结束。' };
+                  : { ok: false, status: 'undeliverable', reason: 'run_unavailable', error: 'runId 不属于当前会话或运行已结束。' };
               }
             } else if (tc.name === 'wait_agents') {
               const requestedRunIds = Array.isArray(args.runIds) && args.runIds.length ? args.runIds : [...backgroundAgentRunIds];

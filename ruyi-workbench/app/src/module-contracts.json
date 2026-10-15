@@ -7511,6 +7511,8 @@
         "accumulateRunUsage",
         "agentEnvelopeArtifacts",
         "agentMessageReceipt",
+        "agentPoolExpansionEligibility",
+        "agentRunCapabilities",
         "agentRunDigestCache",
         "agentRunDigestRow",
         "agentRunDigestShadow",
@@ -7521,6 +7523,7 @@
         "agentRunLastSavedStatus",
         "agentRunPermissionMode",
         "agentRunResultSlice",
+        "agentRunRoster",
         "agentRunSaveFailures",
         "agentWorkflowSaveProblem",
         "agentWorkflowStatusText",
@@ -7584,6 +7587,7 @@
         "recordRunStalledEvent",
         "repairJson",
         "resolveAgentTeamRoute",
+        "resolveOrchestrateFollowup",
         "resolveOrchestrateNodes",
         "runSubAgent",
         "runSubAgentCore",
@@ -7692,6 +7696,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "samePathKey",
           "kinds": [
             "call"
           ]
@@ -8177,6 +8188,13 @@
           "symbol": "loopWarnOnly",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "MAIL_QUEUE_MAX",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -9761,7 +9779,21 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentRunCapabilities",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "agentRunResultSlice",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunRoster",
           "kinds": [
             "call"
           ]
@@ -9944,6 +9976,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "orchestrateArgsProblem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "orchestrateModelNotes",
           "kinds": [
             "call"
@@ -10015,6 +10054,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "resolveAgentTeamRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "resolveOrchestrateFollowup",
           "kinds": [
             "call"
           ]

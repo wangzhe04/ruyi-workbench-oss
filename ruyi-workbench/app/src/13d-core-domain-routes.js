@@ -1779,8 +1779,8 @@ async function decideIntervention(command = {}) {
         roleLibrary = new Map((await getAgentRoleLibrary(cwd, config)).map(role => [role.id, role]));
       } catch { /* preserve the existing empty-role-library fallback */ }
       const dryRun = { ...live.run, nodes: Array.isArray(live.run.nodes) ? [...live.run.nodes] : [] };
-      const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config });
-      if (!dry.ok) return { ok: false, reason: 'pool_materialize_rejected', runId, message: dry.error || 'pool item cannot be materialized' };
+      const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config, dryRun: true });
+      if (!dry.ok) return { ok: false, reason: dry.reason || 'pool_materialize_rejected', runId, message: dry.error || 'pool item cannot be materialized' };
     }
     poolContext = { runId, live, item, config, cwd, roleLibrary };
     return { ok: true };
@@ -1845,7 +1845,7 @@ async function decideIntervention(command = {}) {
         return { ok: true, poolId: interventionId };
       }
       const mat = materializePoolItem(live.run, item, { roleLibrary, cwd, config });
-      if (!mat.ok) return { ok: false, reason: 'pool_materialize_failed', message: mat.error || '' };
+      if (!mat.ok) return { ok: false, reason: mat.reason || 'pool_materialize_failed', message: mat.error || '' };
       item.status = 'materialized'; item.decidedBy = String(command.decidedBy || 'user'); item.decidedAt = nowIso(); item.resultNodeId = mat.node.id;
       bumpRunIntervention(live.run, 'pool_approve');
       appendAgentRunEvent(live.run, { type: 'run_pool', data: { action: 'materialized', poolId: interventionId, by: String(command.decidedBy || 'user'), nodeId: mat.node.id } });
