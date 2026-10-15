@@ -343,11 +343,13 @@ function buildOpenAiTools(config, caps, opts) {
       name: 'send_to_agent',
       description: '定向发送代理参考消息，不改变目标任务或用户授权。子节点可给同次运行节点或 parent 发消息；主会话给节点时填写 runId，也可用 targetSessionId 给明确的其他会话发消息。异步入队，在目标下次模型调用前投递，目标已结束或不支持收件则无法投递。不会自动唤醒空闲会话。',
       parameters: { type: 'object', properties: {
+        action: { type: 'string', enum: ['send', 'status'], description: '默认 send；status 查询本人发送消息的本地投递回执，不发送新消息。delivered 仅表示注入本地上下文。' },
+        messageId: { type: 'string', description: 'status 时必填：发送回执中的 messageId。' },
         targetNodeKey: { type: 'string', description: '目标节点 id；子节点可填 parent 给主会话。' },
-        runId: { type: 'string', description: '主会话给节点发送时必填：当前会话中仍运行的工作流 runId。子节点无需填写。' },
+        runId: { type: 'string', description: '主会话发送节点消息或查询回执时必填：当前会话的工作流 runId；status 可查询已结束的 run。子节点无需填写。' },
         targetSessionId: { type: 'string', description: '仅主会话可用：其他普通会话的明确 id。与 runId/targetNodeKey 二选一。消息不会自动唤醒目标。' },
-        message: { type: 'string', description: '要发送的消息内容(必填,最长约 2000 字符)。' },
-      }, required: ['message'] },
+        message: { type: 'string', description: 'send 时必填的消息内容(最长约 2000 字符)；status 无需填写。' },
+      } },
     } });
   }
   if ((!opts || !opts.noAdaptiveMeta) && config && config.toolLoadingMode === 'auto') {

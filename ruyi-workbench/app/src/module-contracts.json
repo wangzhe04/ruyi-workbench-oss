@@ -7510,6 +7510,7 @@
         "QUALITY_GATE_OUTPUT_SCHEMA",
         "accumulateRunUsage",
         "agentEnvelopeArtifacts",
+        "agentMessageReceipt",
         "agentRunDigestCache",
         "agentRunDigestRow",
         "agentRunDigestShadow",
@@ -7567,6 +7568,7 @@
         "normalizeWorkflowLoop",
         "orchestrateArgsProblem",
         "orchestrateModelNotes",
+        "ownAgentMessageReceipt",
         "parseEventWindow",
         "parseStructuredAgentOutput",
         "poolChainDepth",
@@ -9943,6 +9945,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "orchestrateModelNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "ownAgentMessageReceipt",
           "kinds": [
             "call"
           ]

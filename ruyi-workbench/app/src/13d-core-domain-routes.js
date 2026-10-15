@@ -2444,6 +2444,7 @@ async function agentRunActionCommand(input) {
     if (elig.reason === 'not_found') return { status: 404, body: { ok: false, error: '节点不存在' } };
     if (elig.reason === 'deterministic_gate') return { status: 409, body: { ok: false, error: '确定性质量门节点不经过模型，无法插话' } };
     if (elig.reason === 'terminal') return { status: 409, body: { ok: false, error: '节点已结束，无法插话' } };
+    if (!elig.ok) return { status: 409, body: { ok: false, error: { code: 'agent_run.mailbox_closed', params: { reason: elig.reason }, message: '节点正在收尾，无法插话' } } };
     const text = String(o.text || '').trim().slice(0, 2000);
     if (!text) return { status: 400, body: { ok: false, error: '插话内容不能为空' } };
     if (!live.steerQueues) live.steerQueues = new Map();

@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 72,
-    "providedSymbols": 3680,
-    "requiredSymbols": 3234,
+    "providedSymbols": 3682,
+    "requiredSymbols": 3235,
     "edges": 551,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -7602,6 +7602,7 @@
         "QUALITY_GATE_OUTPUT_SCHEMA",
         "accumulateRunUsage",
         "agentEnvelopeArtifacts",
+        "agentMessageReceipt",
         "agentRunDigestCache",
         "agentRunDigestRow",
         "agentRunDigestShadow",
@@ -7659,6 +7660,7 @@
         "normalizeWorkflowLoop",
         "orchestrateArgsProblem",
         "orchestrateModelNotes",
+        "ownAgentMessageReceipt",
         "parseEventWindow",
         "parseStructuredAgentOutput",
         "poolChainDepth",
@@ -10041,6 +10043,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "orchestrateModelNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "ownAgentMessageReceipt",
           "kinds": [
             "call"
           ]
@@ -29602,6 +29611,7 @@
         "normalizeWorkflowCondition",
         "normalizeWorkflowLoop",
         "orchestrateModelNotes",
+        "ownAgentMessageReceipt",
         "parseStructuredAgentOutput",
         "poolChainDepth",
         "propagateAssignments",
