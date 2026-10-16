@@ -5,12 +5,16 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 班组监看区简化为运行概览与成员选择，共用当前运行的选择状态；工具箱导航和窄窗口布局同步调整。
+- 子代理协作支持查询可接收消息的运行与节点，并对同会话、同工作目录的已结束模型节点明确续派；续派创建新运行，重新检查当前权限，旧结果仅作为有界参考。[协作边界](docs/agent-coordination.md)。
 - 压缩后的新摘要不再遮蔽会话笔记中仍有效的旧流程；只补回摘要缺少的内容，并统一摘要校验与笔记提取的标题识别。摘要提示明确要求保留用户教过的可复用操作方法，已完成一次不视为流程失效。
 - 切换会话后，迟到的新建、插话和撤回响应不再覆盖当前会话或清空新草稿；插话转普通发送时保留原消息的归属。
 - 删除会话会停止其后台代理；选择清理关联数据时，代理的迟到写入不会重新生成已删除的运行记录。
 - JavaScript 语法检查遵循文件所在项目的 CommonJS / ES Module 设置，避免误放行无效候选源码。
 - 同批读取的图片和本轮图片附件会先完整送达视觉模型，再按既有上限淘汰旧图。
 
+- Crew monitoring now uses a compact run overview and member selection with shared run selection state; toolbox navigation and narrow-window layouts are updated alongside it.
+- Agent coordination can list runs and nodes eligible to receive messages and explicitly assign follow-up work to finished model nodes in the same session and working directory. Follow-ups create new runs, recheck current permissions, and use bounded references to earlier results. [Coordination contract](docs/agent-coordination.md).
 - Compaction summaries no longer hide retained procedures in session notes: only missing content is added back, and summary validation and note extraction recognise the same headings. Summary prompts explicitly request reusable methods taught by the user be retained after a task is completed.
 - Late chat creation, steering and cancellation responses no longer replace the selected chat or erase a newer draft. Steering fallback keeps the original message bound to its chat.
 - Deleting a chat stops its background agents. When associated data is purged, late agent writes cannot recreate deleted run records.

@@ -1,5 +1,10 @@
 # 24 · 第 108–110 波实施方案（提示词自我认知／制图与交互／结构精简）
 
+<!-- document-status:start -->
+> **阅读口径（2026-10-16）：历史设计与实施记录。** 各切片交付记录保留；原执行顺序与发布版本属于当时计划，不是当前待办。
+> 当前 3.x 排期与发布门以 [62 号管家迭代方案](62-steward-3x-iterations.md) 为准，4.0 暂缓。下文保留历史原话、决定、默认值和测量；行号以对应历史基线为准，不把旧排期或未完成项自动转成新决定。
+<!-- document-status:end -->
+
 > **状态（2026-09-03）**：由 [`../OPTIMIZATION-ROADMAP.md`](../OPTIMIZATION-ROADMAP.md)「第 108–110 波」立项段（2026-09-02）派生的实施依据。本文只回答「怎么做、改哪里、怎么过门、怎么回退」；范围边界与执行序（108 → 109 → 110 → 107 批准点）以路线图为准，不在本文扩围。
 > **摸底方法**：2026-09-03 对主树 HEAD `b80e36b` 逐行复核（`build --check` 新鲜；`prompt-snapshot.static` / `meta-guard` / `software-engineering-prompt.static` 三件当前全绿）。路线图立项段的行号与缺口清单全部核实成立，仅三处修正，见各波「摸底修正」表。
 > **关联**：[23 号 架构偿还与上下文演进序列](23-architecture-repayment-sequence.md)（生成器链、零行为纪律、106 #1 前缀缓存 G1–G6 差距）、[22 号 Agent SoC](22-agent-soc-microarchitecture.md)（红线与发布门、Release Brief 四项）、`CONTRIBUTING.md` 五条红线。

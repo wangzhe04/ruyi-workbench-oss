@@ -4,7 +4,7 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 
 ## Components
 
-> Version baseline: `CONFIG_SCHEMA` **14** · session `SESSION_SCHEMA` **1** · the tree is **3.0.0**
+> Checked: 2026-10-16. Version baseline: `CONFIG_SCHEMA` **14** · session `SESSION_SCHEMA` **1** · the tree is **3.0.0**
 > (the version triangle — `package.json`, `VERSION` in `00-boot.js`, `facts.workbenchVersion` — agrees).
 > **Every count in this document defers to the repository-root `facts.json` and the generated artifacts under
 > `docs/architecture/`; the numbers in parentheses are readings taken when this was written, not a second source of
@@ -17,31 +17,28 @@ This is the English companion to [架构说明](ARCHITECTURE_CN.md).
 > **14** (the factory permission level becomes "Smart auto" for fresh installs only; a config already on disk that
 > never stored a level is pinned back to `default`).
 >
-> **Four structural changes since v2.5.0**: (1) the source went from 17 modules to **70** (the authoritative list is
+> **Four structural changes since v2.5.0**: (1) the source went from 17 modules to **72** (the authoritative list is
 > `app/src/manifest.json`), with the number-13 HTTP router and steward family alone accounting for 21 files;
-> (2) native tools went **52 → 112** on the `TOOL_HANDLERS` axis, whose single source of truth is `nativeTools` in
-> the repository-root `facts.json` (70 usable in threads plus 42 steward-only `steward_*` tools); (3) new route
+> (2) native tools went **52 → 119** on the `TOOL_HANDLERS` axis, whose single source of truth is `nativeTools` in
+> the repository-root `facts.json` (77 non-steward registrations, gated by engine, permission and capabilities, plus 42 steward-only `steward_*` tools); (3) new route
 > families were added — steward, scheduler, an SSE event stream, speech transcription and the migration center —
-> bringing route decision points to **154** and `ROUTE_AUTH` declarations to **140** (generated into
+> bringing route decision points to **155** and `ROUTE_AUTH` declarations to **141** (generated into
 > `docs/architecture/route-inventory.{json,md}`); (4) the frontend became **one workbench, two lenses** — a
 > Workbench lens and a Steward lens over the same workbench, switched by a segmented control in the top bar,
 > sharing one thread rail and reading the same data. The retired dispatch desk is gone. The v2.5.0 set (WinForms +
 > WebView2 native shell, the task-facing right-hand toolbox, long-tool interjection, background sub-agent DAGs)
 > still holds. ACC is **108** tools (v1.9.1).
 >
-> **This is a baseline document**: it describes the tree as it is today. Per-release user-visible change belongs in
-> the repository `CHANGELOG.md`; wave-level design and evidence live in `docs/optimization-plan/`.
+> **This combines a current baseline with implementation history**: counts and entry points were checked on the date above. Version- and wave-labelled passages retain their original scope; current tools and permissions are defined by the source registries and generated inventories. Per-release changes belong in `CHANGELOG.md`. The [Steward 3.x plan](../../docs/optimization-plan/62-steward-3x-iterations.md) describes pending work, not delivered capabilities.
 
 Ruyi has a framework-less browser frontend and a Node.js local server. The browser handles chats, workspace
 selection, settings, permission cards, file and audit views, workflow monitoring, and language resources. The
-server owns configuration, session persistence, provider and Claude CLI engines, tool execution, checkpoints,
+server owns configuration, session persistence, provider and Agent CLI engines (Claude Code / Kimi Code), tool execution, checkpoints,
 audit records, MCP bridging, workflow scheduling, skills, memories, and usage ledgers.
 
 ## Engines
 
-The provider engine communicates with OpenAI-compatible HTTP and streaming endpoints (Chat Completions, the Responses API or Anthropic Messages, chosen per provider). Ruyi ships **no vendor presets**: `PROVIDER_PRESETS` holds only local Ollama (`127.0.0.1:11434/v1`), local LM Studio (`127.0.0.1:1234/v1`, both keyless) and one "custom (OpenAI-compatible / self-hosted)" entry (an Anthropic-compatible gateway uses it too; the protocol drop-down under the Base URL is inferred from the address — `api.anthropic.com`, a path ending in `/anthropic[/vN]` or `/messages` means Anthropic Messages, `/chat/completions` means Chat, `/responses` means Responses — and stops following the address once picked by hand); everything else is a hand-entered base URL and key. Manual context compaction (`POST /api/provider/compact`, `runProviderCompact`) runs in the same order as automatic compaction: snapshot first, then fold old tool results (the originals stay recoverable through `observation_recall`); if that is enough it stops at that level, and only if not does it summarise, appending an index of the tool calls already made. The optional Claude CLI
-engine runs a user-supplied local executable and injects the generated workbench MCP configuration. Both engines
-share the same session, local tools, permission policy, checkpoint journal, audit model, skills, and memories.
+The provider engine communicates with HTTP and streaming endpoints (Chat Completions, the Responses API or Anthropic Messages, chosen per provider). Ruyi ships **no vendor presets**: `PROVIDER_PRESETS` holds only local Ollama (`127.0.0.1:11434/v1`), local LM Studio (`127.0.0.1:1234/v1`, both keyless) and one "custom (OpenAI-compatible / self-hosted)" entry (an Anthropic-compatible gateway uses it too; the protocol drop-down under the Base URL is inferred from the address — `api.anthropic.com`, a path ending in `/anthropic[/vN]` or `/messages` means Anthropic Messages, `/chat/completions` means Chat, `/responses` means Responses — and stops following the address once picked by hand); everything else is a hand-entered base URL and key. Manual context compaction (`POST /api/provider/compact`, `runProviderCompact`) runs in the same order as automatic compaction: snapshot first, then fold old tool results (the originals stay recoverable through `observation_recall`); if that is enough it stops at that level, and only if not does it summarise, appending an index of the tool calls already made. The optional Agent CLI engine runs a user-supplied Claude Code or Kimi Code executable and connects the workbench MCP bridge. Provider and CLI paths share session storage, local tools, checkpoints, audit, skills and memories; CLI-native tools and permissions also depend on the selected CLI adapter.
 
 Both engines also share the Wave 54 ordered-turn protocol. `createTurnSegmentBuilder()` persists text, thinking,
 tool, subagent, plan, question, permission, workflow, Mission, and error events as `message.segments`; tool segments
@@ -77,7 +74,7 @@ The route families added since v2.6 are not re-listed route by route here; the a
 | `/api/steward/*` (about 20 routes) | **token** | Steward: start/stop, status, inbox, visit digest, relaying messages, the `act` buttons, the arbiter and queue jumping, the memory panel, the decision log |
 | `/api/scheduler/tasks*` | **token** | Scheduled-task CRUD, `/:id/runs`, `/:id/run-now` |
 | `GET /api/events/stream` | **token-browser** | One SSE stream replacing the former 5 s / 15 s polls |
-| `POST /api/audio/transcribe` | **token** | Speech transcription; the only new outbound surface in this release (25 MB gate, 120 s timeout, to `audioBaseUrl \|\| baseUrl` in whichever dialect `providers[].asrProtocol` selects: OpenAI-shaped multipart to `/audio/transcriptions` by default, or `/chat/completions` with an `input_audio` data URI) |
+| `POST /api/audio/transcribe` | **token** | Speech transcription; an outbound provider request (25 MB gate, 120 s timeout, to `audioBaseUrl \|\| baseUrl` in whichever dialect `providers[].asrProtocol` selects: OpenAI-shaped multipart to `/audio/transcriptions` by default, or `/chat/completions` with an `input_audio` data URI) |
 | `/api/missions`, `/api/missions/:id` | read **token-browser**, write **token** | Read-only projection of mission containers and acceptance items; the four provenance states are computed, not persisted |
 | `POST /api/playbooks/service-match` | **token-browser** | Natural language to one of six services, returning `{service, playbooks, state, guidance, guidanceDropped}` with at most one guidance line |
 | `GET /api/help/doc` | **token** | In-app manual reader (whitelisted doc id and language; the request string never reaches `path.join`) |
@@ -96,10 +93,10 @@ The workbench's stdio MCP server exposes local Windows capabilities to Claude CL
 added through a drop-in manifest and bridged into the provider tool loop. Permission tiers, path guards, checkpoint
 coverage, and audit logging continue to apply at the workbench boundary.
 
-The current native tool count is **112** on the `TOOL_HANDLERS` axis, and the single source of truth for that number
+The current native tool count is **119** on the `TOOL_HANDLERS` axis, and the single source of truth for that number
 is `nativeTools` in the repository-root `facts.json` (generated by `dev-harness/facts-generate.js` and recomputed
-by `facts.static.e2e.js`); any other number in the documentation is drift. The 112 break down as **70** native
-tools usable in threads (including the speech transcription tool, `audio_transcribe`) and **42** `steward_*` tools
+by `facts.static.e2e.js`); any other number in the documentation is drift. The 119 break down as **77** non-steward native registrations
+(including `audio_transcribe`; actual visibility is gated by engine, permission and capabilities) and **42** `steward_*` tools
 visible only inside a steward conversation (a normal thread and a sub-agent never see them). `audio_transcribe` is exec tier because it
 sends a user file off the machine: it shares `file_read`'s path gate, then an extension allowlist, then the 25 MB
 gate, and its result is flagged `untrusted: true`. Every failure mode — unconfigured, out of bounds, over the
@@ -107,12 +104,12 @@ limit, upstream error — is normalized into `ok: false` rather than thrown.
 
 ## Modular build
 
-The product is a single-file `app/server.js`; source lives in `app/src/` (**70 modules**; the authoritative list is
+The product is a single-file `app/server.js`; source lives in `app/src/` (**72 modules**; the authoritative list is
 `app/src/manifest.json`) joined in dependency order by `app/build.js`. Edit modules under `src/` and rebuild the
 product with `node app/build.js` (`node app/build.js --check` reports staleness).
 
 **The module number prefix is the dependency layer.** `module-dependency-policy.json` declares the permitted edges
-and `dev-harness/module-dependency-graph.js --check` pins them: currently **70 modules / about 540 module edges / 1 SCC** (a reading
+and `dev-harness/module-dependency-graph.js --check` pins them: currently **72 modules / 551 module edges / 1 nontrivial SCC (31 modules)** (a reading
 taken when this was written; the generated artifacts are authoritative), generated into `docs/architecture/module-dependency-graph.{json,md}`.
 
 - **00–02** boot and persistence: `00-boot` (constants, `CONFIG_SCHEMA`, `SESSION_SCHEMA`, port budget),
@@ -143,7 +140,7 @@ taken when this was written; the generated artifacts are authoritative), generat
 - **07–12** turns and tools: `07-autonomy` (tool tiers and permission gates), `08-agent-runs`, `09-workflow` with
   `09b-replan-ledger` / `09d-token-estimation`, `10-context-governance` (two-level automatic and manual compaction,
   `runAgentWake` which wakes the main conversation when background agents finish, and the wave-111 switch decision
-  points), `11-native-tools` with `11b-file-text-io`, `12-tool-dispatch` (the `TOOL_HANDLERS` registry).
+  points), `11-native-tools` with `11b-file-text-io`, `11c-file-visual-io` and `11d-media-inspection`, `12-tool-dispatch` (the `TOOL_HANDLERS` registry).
 - **the 13 family (21 files)** HTTP and the steward runner: `13-http-router` is the single request entry point and
   dispatcher (including port binding and what happens when the port is taken), delegating by domain to `13b` (API
   domain routes, including `POST /api/audio/transcribe`), `13c` (overlay), `13d` (core domain), `13e` (the
@@ -159,7 +156,7 @@ taken when this was written; the generated artifacts are authoritative), generat
 Agent workflows persist DAG state, dependency edges, budgets, retries, resource leases, quality gates, optional Git
 worktree isolation, task-pool proposals, mailbox messages, and directed steering queues. Steering works on both
 engines: the Claude engine injects user interjections via stdin immediately in interactive mode (print mode refuses; refused while a question is pending); the provider engine queues (cap 3) and drains at iteration boundaries;
-the provider engine queues and drains at iteration boundaries; workflow Claude nodes use deferred interjection; the
+workflow Claude nodes use deferred interjection; the
 composer send button is three-state (send/interject/stop). The browser monitors runs
 incrementally and can pause, resume, stop, retry, or approve proposed work.
 
@@ -183,11 +180,13 @@ with the user's next message instead.
 
 ## Data root
 
+**Known integrity limit (2026-10-16):** run only one `serve` instance per data root. A different port does not isolate persisted state: a second startup can cancel the first instance’s pending interventions and overwrite its runtime handshake. An exclusive data-root lease is pending in the [Steward 3.x plan](../../docs/optimization-plan/62-steward-3x-iterations.md). Normal `mcp` children of the active server are a separate supported path.
+
 The data root contains config.json, runtime metadata, sessions, uploads, logs, generated files, checkpoints,
 playbooks, skills, web cache, agent runs, workflows, worktrees, usage ledgers, and memory. Sensitive paths are not
 exposed through ordinary file tools. Configure RUYI_HOME when an installation requires a different location.
 
-Two directories are new in this release:
+Steward and scheduler persistence use these directories:
 
 - `steward/` — the steward's own persistence. `memory-v1.json` is what the steward remembers about the user, with
   `expiresAt` and `scope` per entry; `decisions-v1.ndjson` is the action log, each line carrying what it went on

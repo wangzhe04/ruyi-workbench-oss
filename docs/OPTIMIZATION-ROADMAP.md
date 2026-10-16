@@ -1,232 +1,44 @@
-# 如意 Ruyi 优化路线图（当前版）
+# 如意发布与迭代路线
 
-> 本文只保留**当前发布线、发布准入与后续计划**；已交付波次历史移入 [`archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md)（第46–86波）与 [`archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md`](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)（第1–45波）。
-> 当前排期以本文「后续计划」为准；新引擎版 Pretender 3.0 的范围、证据与发布门见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)，第 103–107 波的结构前置、上下文演进与出门序列见 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)；第 108–110 波（出门前提示词自我认知／制图与交互／结构精简）见本文「第 108–110 波」节，实施方案见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md)。`./archive/PRETENDER-PLAN.md` v4 保留为旧壳层线依据，不再统管新引擎线。
+更新：2026-10-16。当前研发主线是 **3.x 管家体验和功能扩展**；详细范围、优先级、依赖和验收见 [62 号方案](optimization-plan/62-steward-3x-iterations.md)。4.0 暂不确定方向或排期。
 
-> **2026-10-08 发布更新**：用户授权发布如意 Ruyi 3.0 正式版（`v3.0.0`）。本次范围与下载见 [3.0 发布说明](release-notes/v3.0.0.md)；下方日期较早的准入与预览版状态保留作历史记录，未完成的人工验证不因正式发版而记为已通过。
+## 发布状态
 
----
-
-## 发布线、产品代号与内部波次（2026-07-24 起）
-
-对外发布与内部交付分开管理：**版本号告诉用户可安装、可回退、可比较的产品版本；波次只服务于研发拆解、验证和路线图追踪。**两者不再一一映射。
-
-| 对外产品线 | 技术版本与 Git tag | 面向用户的写法 | 状态 |
-|---|---|---|---|
-| **Escapade** | `v2.x.y` | **如意 Ruyi Escapade 2.0**；修订版写作 Escapade 2.0.1、2.1 … | 上一大版本线。`v2.7.0`（eac1424）、`v2.8.0`（aa5f924，2026-09-19）均已打标签并在远端；GitHub Release 最后一个是 `v2.6.2`，2.7.0／2.8.0 未单独发 Release，其内容随 `v3.0.0-preview.1` 一起发布（2026-09-24 核实） |
-| **Pretender** | `v3.0.0` | **如意 Ruyi Pretender 3.0** | **重新立项（2026-08-27）**：版本核心改为引擎侧 Agent SoC 微架构迭代（见「Pretender 3.0 重新立项」节与 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)）；原壳层线 P1✅ / P2✅ / P3 工程✅，P4 默认切换与发布保持搁置，不因重新立项自动恢复。**2026-09-24 用户要求发 3.0 预览版：源码版本 `3.0.0-preview.1`、标签 `v3.0.0-preview.1`（GitHub pre-release）**；正式 `v3.0.0` 仍按 50 号文三组门，预览版的读数与剩余人工终验见 [55 号文](optimization-plan/55-release-3.0-preview.md) |
-
-- Release 标题使用产品名与主次版本，不加冗余的 `V`；技术 tag 保持短、稳定且可供脚本解析（当前技术基线为 `v3.0.0`）。离线包也继续用短文件名（如 `Ruyi-v2.6.2-full.zip`），避免 Full 包在 Windows Explorer 的路径预算中失效；源码／tag 的版本号不替代发布物与发布状态核验。
-- `第N波`、`Nx` 等只表示内部工作切片；一个 Release 可以汇总多波，一个波也可只在后续补丁版发布。只有范围冻结、测试与打包门通过后，才决定是 `2.0.x` 补丁、`2.x` 功能版本或下一主版本。
-- 每个对外大版本以一个产品代号统摄体验目标；Pretender 3.0.0 正式发布批准前不把 Pretender 名/3.0 版本号混入用户界面、下载名或兼容承诺（22 号方案 §8 的品牌冻结纪律）。
-
----
-
-## 当前状态（2026-09-18）
-
-| 线 | 状态 | 依据 |
+| 状态 | 依据 | 如何理解 |
 |---|---|---|
-| **Escapade 发布线** | **（2026-09-24 更新：2.8.0 已于 2026-09-19 打标签；当前发布线是 3.0 预览版，见上方 Pretender 行与 55 号文。本行以下为 2.8.0 冻结期的历史记述。）** 2.8.0 候选，范围冻结中。已归档的最后一个发布条目是 `v2.7.0`（2026-09-13，一台两视）；2.7.0 之后第 123–127 波的用户可见变化已写进 `CHANGELOG.md` 的「未发布」节（2.8.0 候选，**发布日期留白，由 107 波 R1／R2 填**）。**版本三角已由 R1 统一到 `2.8.0`**（尚未打标签、尚未发布）；`CONFIG_SCHEMA` **11 → 12**（T1：三个压缩开关翻默认开，须一次性迁移——光翻默认对存量安装无效，见 46 号文 §5 T1）。**本地最新标签是 `v2.6.2`，`v2.7.0` 从未打标签**（R2 那一刀补打；推标签即公开，是用户的决定）。**2026-09-18 用户拍板：2.8.0 不叫 3.0**（见下方 Pretender 行） | `ruyi-workbench/package.json`、`git tag`、`CHANGELOG.md`、[`optimization-plan/46-wave-107-release-approval.md`](optimization-plan/46-wave-107-release-approval.md) |
-| **2.7.0 之后已交付的波次** | **123**（定时任务与承诺：调度器、五种计划、错过与崩溃的如实恢复）、**124**（交办与交付贯通：验收四态来源、委托书与原件、回执才算数）、**125**（说得准与失败恢复：喊停就是喊停、失败说得出原因、缓存要标注）、**126**（A 道管家记忆的时效与作用域；B 道压缩策略 v2 五开关，**五个全部默认关**）、**127**（A 道服务目录与四态服务状态；B 道语音：ASR 配置、转写端点、附件转写、`audio_transcribe`、两视角麦克风）—— **五波全部收波** | 37／40／42／44／45 号文各自的收波节 |
-| **第 107 波 · 发布批准点** | **推进中**。已出门：**S0／S0b**（安全修三处＋MCP 服务器密钥掩码）、**⓪ F5**（flaky 第五批，含墙钟窗口机械锁）、**① G1**（版本与构建门读数）、**② P0**（覆盖包补 playbook／内置技能／内置命令，154 → 203 条）、**③ E1**（111 五开关真模型配对读数：111d／111e／111b 建议默认开，111a 主指标方向反、111c 量不干净，**只报不翻**）、**F6**（`scheduler-ui.browser` 两处真产品竞态按机制治掉）、**④ D1**（文档与迁移：本轮）。在排：**⑤ D2** Release Brief 一页纸 → **⑥ R1** 版本号 bump＋整条生成器链 → **⑦ Q1** 冻结树全量回归＋G3 视觉/无障碍＋G5 探针表＋只读安全终审 → **⑧ P1** 打包演练（slim／full、SHA256SUMS、覆盖升级与回滚、降级配置演练）→ **⑨ R2** 打 `v2.8.0` 标签、推送、发布（**用户动作**） | 46 号文 §2 出门序、§5 各刀交付记录 |
-| **回归基线** | `--fast` **73/73**。全量 `run-all.js --parallel 4` 最近一次干净读数：**356 pass / 0 fail / 356 ran（7 skipped 为既有 live probe）/ 2 flaky，真回归 0**（F6 那一刀，2026-09-18）。107 退出门要求的「全量真回归 0」已由 F6 兑现（在那之前唯一的阻碍是 `scheduler-ui.browser`，已按机制查清并修在产品侧）。**Q1 那一刀要在冻结树上重跑一轮** | 46 号文 §5 各刀的「全量回归」段 |
-| **Pretender 3.0 交付线（🔁 重新立项：核心改向引擎侧）** | P1 Data & Contract Ready ✅；P2 Preview Ready ✅；P3 工程切片 81–85 全部收口 ✅，**正式外部受试者人因验证未执行**；P4 第86波硬化切片已交付，第87–91波用于交办台/任务单 UX 打磨并随 2.4.1 发布；**2026-08-10 拍板先跑 3.0 前 UX 迭代线再收口，第99波走查与第100波三段式重构已交付**；**同日用户决定跳过第101波（正式人因验证）、产品首页保留 v2.5.0，不切 3.0.0 默认壳、不做 3.0 正名 → 3.0 收口线整体搁置（第102波随 101 跳过而暂缓）**；**2026-08-27 重新立项：版本核心改为引擎侧 Agent SoC 微架构迭代（[`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) 与本文「Pretender 3.0 重新立项」节），原壳层 P1–P3 成果已随 Escapade 2.x 交付，P4 默认切换保持搁置**。**2026-09-18 用户拍板 3.0 正名的时点**：2.8.0 不正名；**3.0 在以下三组全部完成后正式发布**——① 偿债波（默认值冻在盘上的结构性缺陷、存盘层陈旧快照守卫通用化、G3 三个测试缺口）；② 128+ 全部既定项（H01、H02→H03、X01–X03、E02、114d／114e、22 号文引擎候选池）；③ 本文 :86 的 P4 收尾硬门（安全红队终审、性能终验、双主题／双语／无障碍终审、离线升级与数据迁移恢复演练）。**「完成」口径**：H02／H03 与引擎候选池按设计是证据触发，「完成」＝走完各自证据门并有结论（做了，或证据不支持而明文关闭），不是全部落地。**到 3.0 批准时须重议**：:81 那条「跳过正式人因验证」的决定。原话与出处见 46 号文 §3 | `./archive/PRETENDER-PLAN.md` v4、`./archive/PRETENDER-METRICS.md`、第99/100波记录 `docs/archive/optimization-plan/08-task-sheet-ux-audit.md` |
-| **第 103–107 波架构／上下文前序列** | **推进中**：第 103、104 波与第 105 波总门已交付。105a–105g 均经各自采用门默认开启并保留显式回退；32K×20–28K 真实总门再次确认 105f 单发优先有净收益（实体 88.9%、跨块 87.5%、5 次调用），≤4 块 refine 无净收益保持默认关，>4 块 user 大纲因 8 块至少 9 次串行调用／真实基线超 8 分钟而撤掉，overlap 不实施。105g 保留默认开启；超长 history-24 事实表甜点门将默认上限从 16 提到 64（82.8% 实体保留，6 次调用，成本/延迟仍在可接受增量内）。**106 已开工**：#13a／13a-t 预算保护基础层＋长命令时间预算已交付（默认关闭，A 类合成门 44 项全绿）；#1 G1 保持默认关、G2 经 DeepSeek v4-pro Responses 真实 A/B 门后默认开启；#2a 在 4×2MB 多文件真实重复读取门中确认工具阶段耗时约降 64%，已默认开启并保留显式回退。**#3 已收口**：design-and-decide option 扇出真实配对门实测批量臂 −33% 调用／−25% 费用但深度变薄、墙钟 +10%，裁决条件性正收益、模板不翻默认。106 波至此全部收口。**105a–105g 与 106 #1 G2／#2a 这几项在 2.7.0 里就已经默认开着，但 2.7.0 的 CHANGELOG 漏写，2026-09-18 已在 2.8.0 候选条目里补记（含 105g「单项 +56.2pp、同轮总门混合」这条如实读数）。** **执行序的最终落点**：107 发布批准点排在第 127 波之后（43 号文 §2），现状见上面「第 107 波 · 发布批准点」一行 | [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md)、[`optimization-plan/46-wave-107-release-approval.md`](optimization-plan/46-wave-107-release-approval.md)、`CHANGELOG.md` |
-| **Traveler 4.0** | 概念稿 v0.1（非承诺） | `docs/TRAVELER-CONCEPT.md` |
+| 已发布基线 | [3.0.0 发布说明](release-notes/v3.0.0.md)，2026-10-08 | 表示该发布物的范围，不代表之后的源码变化已经打包 |
+| 已合入未发布 | [CHANGELOG 的 Unreleased](../CHANGELOG.md#未发布--unreleased) 和 Git 提交 | 当前源码仍使用 3.0.0 版本；下一版本号在范围冻结时确定 |
+| 当前方案 | [3.x 管家迭代](optimization-plan/62-steward-3x-iterations.md) | 六轮候选实施顺序，尚未执行，不是已上线清单 |
+| 远期概念 | [Traveler 原始概念](TRAVELER-CONCEPT.md) | 历史探索，未纳入当前排期，也不再预设为 4.0 主线 |
 
----
+## 当前优先级
 
-## 发布准入（现行）
-
-### Escapade 通用发布准入
-
-每个候选版本至少通过以下门槛：
-
-- **版本与构建**：版本三角（`package.json` / `00-boot.js` / `facts.json`）、构建新鲜度、源码 manifest 映射和生成物差异检查。
-- **行为回归**：相关单元、E2E、DOM/IA、提示词快照与 A/B、权限和恢复路径回归；KNOWN_FAILURE 不得被静默扩张。
-- **视觉与无障碍**：涉及 UI 的版本必须完成双主题、支持的界面模式、键盘和焦点验收。
-- **离线交付**：Full/Slim 包完整性、checksum、全新目录启动、覆盖升级和回滚演练。
-- **外部探针**：真实 provider、Claude CLI、远程 MCP/connector 明确标注通过、失败或未配置；skip 不能伪装为通过。
-- **文档与迁移**：CHANGELOG、用户/管理员手册、兼容说明、数据迁移与恢复步骤和实现同步。
-
-建议在每次范围冻结时给出一页 Release Brief，只回答四个问题：解决谁的什么问题、明确不做什么、怎样证明完成、失败后怎样恢复。
-
-
----
-
-## 后续计划（第99波起）
-
-> 第87–91波已用于交办台/任务单 UX 打磨并随 2.4.1 发布；第95–98波（再开一回合、悬停快速操作、Layout 精简、交办台附件、历史轮次验收报告、真实调度波次、执行模式显式选择等）随 Escapade 2.5.0（2026-08-09）发布；3.0.0 默认切换未做，因正式外部受试者人因验证尚未执行（用户 2026-08-03 决定暂缓）。
-> **2026-08-10 编号纠正**：本文件同日早些时候曾把 UX 迭代线误编为第92–95波，与代码中已交付的第95–98波冲突（波次是唯一序号），已顺延为第99–102波。
-
-### 3.0 前 UX 迭代线（2026-08-10 拍板立项：先优化交办台 UX，再收口）
-
-> 立项理由（用户 2026-08-10）：交办台流程 UI/UX 需进一步优化后才收口，重点为**任务单信息架构**与**进度/状态反馈**（允许大幅优化乃至重构）。顺序必须先优化、再做人因验证、最后默认切换——**在优化前的 UX 上做人因验证等于浪费验证**（P3 出门闸要求在最终形态上达标）。三波串行，每波出门再进下一波。
-
-**第99波 · 交办台 UX 走查与诊断（诊断波，零交互变更）**
-- 四旅程逐步走查：立单下发 / 推进续办 / 待决决策 / 收工归档，记录每步点击数、犹豫点、断头路；与经典模式做同任务效率对比（完成时长、点击数）
-- 启发式评审（Nielsen 十则）+ 双主题 / 390px / 键盘焦点 / 输入不中断场景的视觉与交互走查
-- 用户日常 dogfood 不爽点随时收录（主渠道，不等正式访谈）
-- **`preview-shell.js` 架构摸底**：该文件已 192KB / 5000+ 行，承载立单、任务单、档案、决策抽屉全部逻辑；评估按域拆分方案（只出方案与风险清单，本波不动手）
-- 产出与出门：UX 问题清单（每条含复现路径、P0/P1/P2 分级、建议修法、验收标准），冻结为第100波范围；本波不改变任何交互
-- **走查已交付（2026-08-10）**：[`archive/optimization-plan/08-task-sheet-ux-audit.md`](archive/optimization-plan/08-task-sheet-ux-audit.md)——代码级事实走查，任务单 IA（A1–A7）+ 进度/状态反馈（B1–B7）共 14 条分级清单、preview-shell.js 拆分方案、第100波方案 A（渐进）/方案 B（三段式重构）分叉；**方案 B 已拍板（2026-08-10，用户选定，见第100波）**
-
-**第100波 · 交办台任务单三段式重构（✅ 2026-08-10 已交付）**
-- 拍板范围（`archive/optimization-plan/08-task-sheet-ux-audit.md` §6 方案 B）：任务单重排为「**现状头**（五态+速报 v2+可展开进度清单）/ **结果与行动**（收工·停工·待决前置 + 控制台收敛为头部内联行，页脚去经典 primary）/ **过程**（默认折叠，现场镜头=纪要+班组合一 + 原始记录+台账）」；A1–A7、B1–B7 全量覆盖，P2 记档可顺移
-- 实施次序（硬约束）：① `preview-shell.js` 按域拆分**先行**（纯搬家、零视觉变化，独立 commit）→ ② B1 速报 v2 + B2 可解释进度（与结构无关的 P0，可单独发布）→ ③ 三段式重构主体（先出视觉稿，走 v4-glass token 体系）
-- 每项改动过既有门：双主题截图回归、390px、a11y、输入不中断回归、经典零回归闸、五态首屏结构快照断言
-- 出门：清单逐项销号 + 全量回归绿；随 Escapade 修订版发布，走既有发布门
-- **交付记录**：先以独立 commit 完成 `preview-shell.js` 五域拆分，再落地现状头 / 结果与行动 / 可折叠过程、现场+班组合镜、速报 v2 与可解释验收项；浅色主题经 dogfood 复核改为与现有青花体系一致的清透白，移除大面积灰/米色与禁用态灰块。A1–A7、B1–B7 销号及自动化证据见 `archive/optimization-plan/08-task-sheet-ux-audit.md` §8。
-
-**第101波 · 正式人因验证 + 收口准备（⏭️ 2026-08-10 用户决定跳过，3.0 收口就此搁置）**
-- 原计划：按 `./archive/PRETENDER-PLAN.md` §3 规程执行**外部受试者**人因验证（在优化后形态上）：打开任务到正确复述「离开后发生了什么」≤10s；可回滚/部分恢复/不可逆判断正确率 ≥90%；北极星四指标全测；验证发现分级（阻断项当场修复复测、非阻断项入 post-3.0 清单）；收口准备（Release Brief / 发布物正名预案 / 回滚预案）；出门 = **P3 Product Ready 正式宣告**
-- **决定记录（2026-08-10，用户）**：跳过正式外部受试者人因验证；**产品首页保留 Escapade v2.5.0 版本号，不切 3.0.0 默认壳、不做 3.0 正名**。影响：P3 Product Ready 不正式宣告，第102波默认切换前置（101 出门）消失，3.0 收口线整体搁置。第100波三段式重构成果已随 Escapade 2.x 交付，不浪费，只是不对外唤作 3.0。本波保留为可回头记录，不删除；若未来重新立项 3.0，需从本决定重新评估。
-
-**第102波 · Pretender P4 第二切片 — 3.0.0 默认切换与发布（⏸️ 暂缓，随 101 跳过而搁置）**
-
-按 `./archive/PRETENDER-PLAN.md` v4 P4 原计划：新壳层默认开（经典可切）、版本三角 bump `3.0.0`（`00-boot.js` / `package.json` / `facts.json`）、CHANGELOG / USER-GUIDE / 发布物正名（解除 §2.2 品牌冻结）、发布门同 2.2/2.3 三门（范围冻结 / 测试 / 打包）。
-前置条件（原）：**第101波出门**（人因验证达标）；以及 **P4 硬化终审剩余项**（安全红队终审、性能终验、双主题/双语/a11y 终审、离线升级、数据迁移与恢复演练，第86波只交付了工程硬化切片）。
-**搁置状态（2026-08-10；2026-08-27 衔接澄清）**：因第101波跳过、产品首页保留 v2.5.0，本波暂缓执行。新引擎线重新立项不自动恢复本波；是否恢复默认切壳须另行拍板并重新评估人因与切换前置。
-
-### post-3.0 退出线（不计入 3.0 交付工期）
-
-**作废（2026-09-05，用户拍板）**：管家壳（3.0）与经典壳（2.0）**长期并存**——管家壳是任务层，经典壳作为「2.0 视窗」按会话打开并可整体切换，两壳读同一份数据；不再设双壳退出时钟，下文仅存档（见 [`optimization-plan/27-waves-115-117-steward.md`](optimization-plan/27-waves-115-117-steward.md) §5 117a／117g）。
-
-~~**2026-08-27 触发点修订**~~：以首次默认启用新壳的公开 Release 为起点，其后第 1 个公开 Release 保留经典；最迟第 2 个公开 Release 且不晚于该起点后 6 个月进入强制退出评审（22 号方案 §8 对旧 v4 C2 的显式衔接）。仅发布引擎版 3.0 不启动双壳退出时钟。门绿退出；仍有 P0/P1 红项则恢复经典默认或阻断下一公开 Release 并成文整改，不得按日历强删安全退路。
-
-### Pretender 3.0 重新立项 · Agent SoC 微架构收敛线（2026-08-27 拍板）
-
-> **决定记录（2026-08-27，用户）**：重新立项 Pretender 3.0，版本核心改为引擎侧迭代；本轮评审进一步明确「先取得足够证据，不统一等待长期真实用户数据」。原壳层 P1–P3 工程成果保留，正式外部人因验证仍未执行；P4 默认切壳、发布正名保持搁置，是否恢复另行拍板。品牌冻结与通用安全／恢复／升级门继续有效。
-
-**目标与边界**：让每个验收成功的任务更便宜、更快、更可控。保留 15 项候选方向 + 4 项排除，但不要求全部落地；SoC 仅为分析比喻，不宣称同类最优、天然语义等价或数量级收益。#2 拆为执行结果缓存／观察去重，#13 拆为预算保护／自适应降级，#14 拆为资源隔离／模型策略，分别验证。
-
-**证据三类**：A＝确定性测试＋本地真实工具基准；B＝固定任务集上的真实模型／后端对照；C＝收益边界模拟＋限定工作流验证。真实模型测试不等于真实用户数据；长期使用数据主要用于扩围与总体收益评估，不是所有候选的入场门。
-
-**首批六项范围（待实施／验证，逐项独立，不同时启用）**：
-
-1. **第 0 步计量校准**：先修 E0/E1 抽样明细被当总量的口径，分清 turn/task、HTTP attempt、费用来源与缺失覆盖；再做热点统计。用已知合成账目与固定夹具验收，无需长期日志或新后台服务。**✅ 核心 2026-08-27 已交付**（econ_call_totals 不抽样总量 + econ_summary_call 摘要归属 + 报表 schema 2 对账三分断；合成 32 断言与离线真链路 e2e 全绿，见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) §4.2）
-2. **#1 Prompt Cache 纪律验证**：固定多轮请求＋真实 provider 的冷／热缓存与费用回执；布局变更加任务质量对照。**✅ provider 层 2026-08-27 已验证**（deepseek-v4-flash 两次独立复现：热重发命中 96%、逐字节前缀匹配（改一词归零）、追加式布局第 4 轮守住 97% 命中、易变前置每轮全 miss，四轮费用估算差 ~9×；缓存块 64 token。证据 `benchmark-results/prompt-cache-22-1/`；Ruyi 自身布局收敛与跨子 Agent 共享前缀未闭合）
-3. **#6 已有只读 worker pool 增量验证**：复用 21-E2，与当前 legacy 而非仅与串行比较；构造 >8 批、争用／故障／取消，用实际本地工具测量。**⏸️ 2026-08-27 热点基线后降级为数据触发**（真实负载 wideReadBatchesOver8=0、readOnlyBatchShare≈1%，无增量验证对象；重启条件 = 报表出现显著纯读宽批／混合只读岛）
-4. **#2a 受限结果缓存**：资源版本与权限明确的白名单，验证失效和零命中开销；不捆绑观察压缩。
-5. **#13a 预算保护基础层（2026-08-27 提前至 #2a 之前）**：预警、在途／收尾预留、停止新增调用与暂停；暂不自动换模型或激进摘要。随批附工具级切片候选 **13a-t 长命令预算策略**（热点基线实证：powershell_run 占工具墙钟 87.6%，7 条 >60s 命令吃掉该工具约八成时间，最差单条 28 分钟失败且 stdout 达 2.51MB——时间与输出治理是当前最大杠杆）。
-6. **#3 或 #9 的一个限定场景试验**：批量输出或宏融合，固定真实模型任务集验证质量、总成本和失败重试。
-
-**热点基线（2026-08-27）**：基于校准后口径对本机 dogfood 日志（07-27→08-27，18 会话／83 回合）完成第一份真实负载画像——单调用输入 token p50 62K（86% 已走缓存价）、工具墙钟约七成集中在串行 shell 长命令、元工具链与参数历史确认不是成本中心。完整数字、口径边界与排序影响见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md) §4.3「热点基线记录」。
-
-**配套与后排**：#12 锁审计前移为缓存／并行安全配套；#14a 有实际竞争负载再安排。#2b 先补可用的按需回载，#7 预取排其后；#4/#10 按固定任务集另行验证；#11/#13b 的模型降档必须与 #15 升级／暂停闭环一起验收；#5 模板提议走 R2 人工发布纪律，#8 投机先验证受控 DAG 的收益边界。暂缓不等于统一等待几个月用户数据。
-
-**红线与发布门**：只读不自动等于可缓存／可安全投机；命中与预执行都要验证权限和资源状态。独立开关、默认关或有界 shadow、先单轴后组合；overall 退化目标 ≤1pp，固定任务集配对重复并报告置信区间，证据不足不宣告非劣；权限／配对／checkpoint／审计零回归。总费用包括失败、重试、摘要、升级和后台工作。发布前以 Release Brief 冻结必交项、目标任务族、收益阈值、默认启用范围与回退；全部默认关闭不冒称用户收益。20-T1/C1 的现有阻断不自动解除。
-
-详细架构、逐项验收与执行序见 [`optimization-plan/22-agent-soc-microarchitecture.md`](optimization-plan/22-agent-soc-microarchitecture.md)。
-
-### 第 103–107 波 · 架构偿还、上下文演进与 Pretender 出门序列（2026-08-30 纳入）
-
-> 原《第 103 波 · 架构偿还波（提案 v0.7）》经当前主树复核裁决为 **revise-major**：方向成立，但“command core 尚未落码”“17 模块”“227 E2E／6 unit”“7 处都重造原子写”等基线已过期。现状是 75b 单一 `decideIntervention()`、第 103／104 波均已交付，manifest 有 30 个拼接模块、目录重算为 243 E2E／14 unit（`facts.json` 由目录重算交叉校验），持久化面以 39 项机器清册管理。实施以 [`optimization-plan/23-architecture-repayment-sequence.md`](optimization-plan/23-architecture-repayment-sequence.md) 为准，不以原提案直接施工。
-
-| 波次 | 冻结范围 | 出门与解锁 |
+| 顺序 | 目标 | 建议版本归属 |
 |---|---|---|
-| **103 · 架构基座偿还（已交付 2026-08-31）** | 103a 路由 descriptor／旧新决策快照；103b 模块依赖图、`provides/requires` 与 `AgentLoopHooks` 隔离试点；103c 39 项持久化清册、durable JSON 原语与 context calibration 迁移 | 零用户可见行为；路由／鉴权可校验、无新增隐式依赖、每个私役迁移或豁免成文；已解锁 104 高触碰结构工作 |
-| **104 · 内聚与上下文结构（已交付 2026-08-31）** | 视觉管线出 04、桌面 shell 出 10、07 职责拆分；压缩职责簇 + `CompactionPlan`；规则外置；契约快照与依赖图更新 | 零行为；主路径／forced-400／子代理与提示词快照等价；为上下文实验提供单一落点，已解锁 105 |
-| **105 · 上下文行为实验** | `observation_recall`、session notes、实体校验、估算分桶、单发优先与 map-reduce 跨块保真 | 逐项受控取证；105a–105g 已通过各自门并默认开启（均可显式 false 回退），其余保持默认关／canary；为 #7 建立生产消费者，不通过不启用 |
-| **106 · Agent SoC 证据收敛（推进中）** | #13a／13a-t 已交付默认关（回合 token 预算保护＋长命令时间轴软硬终态＋字节轴 shadow 计数，44 项合成门全绿）；#1 Ruyi 布局核查＋探针 S5 已交付（tools 计入缓存前缀、位置敏感，两轮复现），G1 在 16 轮×约 5.2K 字符历史真实门中仍保持默认关（cached-input 再降 11.2pp、墙钟升 22%），G2 经 DeepSeek v4-pro Responses 真实 A/B 门后默认开启（schema 冻结只追加＋layout_shadow 计量，26 项合成门全绿）；#2a 受限执行结果缓存已在大文件真实门后默认开启（白名单仅 file_read，mtime+size 版本失效＋命中重新验权＋cacheHit 诚实标记，34 项合成门全绿；4×2MB 文件、12 次读取、8 次命中，工具阶段约 311ms→112ms，但端到端墙钟仅约 1.5% 改善）；**#3 批量输出纪律限定场景已收口**（design-and-decide option 扇出逐项 vs 批量真实配对门，批量臂 −33.3% 调用／−24.7% 费用／+10.3% 墙钟、槽位深度变薄，裁决条件性正收益、模板保持逐项并行现状不翻默认，17 项离线机制门全绿）；#9 不再单做（22 号文 #3/#9 为二选一）；#7 仅在回载与耗时证据成立后进入 | 沿用 22 号单轴、非劣、权限／配对／恢复零回归门；不以完成数量冒充收益 |
-| **107 · 出门准备与批准点** | Escapade 六类发布门 + 22 号 Release Brief；冻结默认启用、适用范围、回退和版本归属；**执行序几经后移，最终排在第 127 波之后（43 号文 §2）并已开工，派单稿与交付记录见 [`optimization-plan/46-wave-107-release-approval.md`](optimization-plan/46-wave-107-release-approval.md)；冻结范围须覆盖 108–110 与 111–127 各波交付的默认启用项** | 形成 Pretender 3.0 发布批准材料；不自动恢复旧壳 P4／人因／默认切壳 |
+| 第一轮 | 数据目录单写者、故障与状态新鲜度、真实动作回执 | 3.0.x 修复线 |
+| 第二轮 | 统一轻量答疑与派单边界，减少多余分流和追问 | 3.1；明确的契约修正可先发补丁 |
+| 第三轮 | 同名任务消歧、附件续办、失败重试、搜索范围说明 | 3.1 |
+| 第四轮 | 管家原文、文件、验收与继续修改贯通 | 3.1 收口 |
+| 第五轮 | 按事项处理待决，说明设置的作用域与生效时机 | 3.2 |
+| 第六轮 | 有界多步骤交办、认可做法复用、定时模板 | 后续 3.x 候选，逐项验证后决定 |
 
-**顺序纪律**：103 为 104 与后续高触碰结构改动的前置；104 为 105 的前置。105 不自动批准 106 的任何优化。#13a 若因已证实热点申请提前，只能在 103 出门后成文重排，不能静默并行占号。103／104 可随 Escapade 补丁或后续版本交付；105／106 若改变默认行为或 UI，版本级别由实际变更决定，不在规划阶段预写 `2.6.x` 或 `2.7`。
+先完成可靠性和高频旅程，再扩大服务类型。既有线程、事项、班组、权限、通知、记忆和调度机制继续复用。跨设备交接、完整编辑器、全局架构重写均不作为当前前置。
 
-**独立 ASR 候选**：音频转文字与本地 Qwen3-ASR 是功能线，不占 103–107、也不是 Pretender 前置；若另行立项，只依赖 103a 的路由 descriptor，并复用 providers + `caps:['asr']`、独立 ASR 选择键、token 级转写端点和本地按需拉起边界。详见 23 号方案 §7。
+## 发布规则
 
-### 第 108–110 波 · 出门前提示词自我认知、制图能力与结构精简（2026-09-02 立项）
+对外版本和内部迭代分开管理。补丁版本优先修缺陷；次版本承接通过验收的用户功能。版本号、源码合入、标签和可下载发布物是不同状态，文档分别记录。
 
-> 立项理由（用户 2026-09-02）：Pretender 出门检测（107）之前还需三个优化波次：① 系统提示词详细排查与优化——agent 不知道 Ruyi 自身的很多功能（如 Playbook/skill）、不太能自己改 Ruyi 设置、不知道当前运行位置与版本号（一台机子可能装多个版本）；② 原生工具/ACC 增强——制图能力与 Mermaid 流程图等，提升日常交互体验与实用性；③ 系统结构化重构——拆分巨大文件、立 SPEC 规范、精简代码。编号按立项顺序取 108–110；**107 发布批准点保留编号、执行序排在这三波之后**。三波串行，每波独立取证过门再进下一波；不改变默认行为的切片不设开关、无回退面，改变默认行为的切片沿用独立开关＋显式 false 回退纪律。**实施方案（切片、落点、过门、回退与拆分 SOP）见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md)（2026-09-03 主树复核后立）。**
+每次冻结范围时列明用户变化、默认值变化、数据兼容性、已知限制和回退方法。相关行为测试必须随实现更新；源码变更经过构建新鲜度和生成清册校验。候选版本运行 Windows 回归，分别记录首次失败、重跑通过的 flaky、跳过项和未覆盖的人工验证。
 
-**第 108 波 · 系统提示词「自我认知」排查与优化**
+发布包还需验证全新安装、升级副本、离线启动和核心管家旅程；实际 Slim/Full 包内容、版本和校验和应相符。历史通过记录不替代当前冻结树与当前安装包的验证。更改默认主动策略或语义分流时，按 62 号方案补固定场景评估；纯展示修复不因此等待无关长期实验。
 
-- 摸底结论（2026-09-02 主树核实）：主会话提示词 = stable 层（`buildStableSystemPrompt`，`06-provider-engine.js:1343-1369`，实测约 1300 字符）+ volatile 层（`buildVolatileParts` `:1372-1477` + `09-workflow.js:1560-1589` volatileExtras，实测约 4000 字符），文本统一外置 `06b-prompt-registry.js`（`PROMPT_PACK_VERSION` 锁版本），每回合动态重组装。子代理提示词同源但不含 skills/memory/mission（`08-agent-runs.js:510-517`）。
-- 已确认缺口：**不含版本号**（权威值 `00-boot.js:26` VERSION，仅进 config/日志/`/api/health`）、**不含安装/运行位置与 overlay 标识**（`OVERLAY_ID`/`LAUNCH_MODE`，多版本共存机台上 agent 无法自答「我是谁、我在哪」）、**playbook/command 类条目被明确过滤不进提示词**（`06-provider-engine.js:1489-1491`）、无完整工具清单文本（只有数量与不可用名单）。已有：mcp_configure 改设置指引、workflow 模板清单、技能索引、工作台记忆指引。
-- 范围：① Ruyi 自功能全量清单排查（版本/位置/overlay/playbook/skill/记忆/设置/模板/数据目录），逐项裁决「进提示词／进工具／不进」；② 注入层归属裁决——稳定信息进 stable 层保 prefix cache（105f/#1 缓存纪律：易变前置每轮全 miss），易变信息进 volatile；③ 子代理提示词是否同步补齐，逐项裁决；④ 长度预算重新分配（stable<1500、总长闸 800–12000，`prompt-snapshot.static.e2e.js`）。
-- 过门：prompt-snapshot／meta-guard／software-engineering-prompt 三个 static e2e + prompt-benchmark 6 seed 配对 A/B（改前改后各一次，通过率不得退化）+ build --check；新增注入须先计量对 prefix cache 命中率的影响（#1 纪律）。
-- **交付记录（2026-09-03，工作树、待提交）**：108-0 门修复（HEAD 3 件静态锁漂移）→ 108a stable 层运行时身份块（产品名／版本／启动模式／服务地址／实例标识；D3 阈值 1500→1800）→ 108b `<playbook-index>`（≤12 条／600 字符）＋设置边界双语指引（两引擎对称）→ 108c `workbench_self_status` 只读工具（63 个原生工具）→ 108a-fix（用户发现 `capabilities.e2e.js` 身份泄漏守卫被真实路径触发，stable 层去路径、路径走工具、D11b 镜像守卫）→ 108d `PROMPT_PACK_VERSION` 2026-w108-1、benchmark 种子分层化 → 108-fix2（全量回归暴露 budget-guard 跨进程逐字节比对与 steering-claude 插话时序两处回归，stable 身份块收窄为进程不变量、Claude 路径改用不探测的 `peekCapabilities()`）→ **出门：全量 `run-all.js --parallel 4` 256/256 全过（2026-09-03）**。全部门与逐切片证据见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md) §1.3「交付记录」。
+发布说明记录事实，方案记录范围，执行日志记录证据。未经执行的规划、未闭合的验收和未确认的外部测试不记为已通过。
 
-**第 109 波 · 制图与日常交互能力（ACC/原生工具）**
+## 历史与研究入口
 
-- 摸底结论：制图现状 = ACC `chart_image`（bar/line/pie/scatter → PNG，`office_chart.py:72-130`）+ `excel_chart`（嵌 xlsx，无 scatter）；**Mermaid/流程图渲染是全链路空白**——前端 marked 管线无 mermaid.js（`chat-render-primitives.js:114`），ACC Python 侧 0 命中，docs 无 gap 记录，agent 只能输出 mermaid 源码文本。
-- 范围候选（逐项独立取证）：① Mermaid 渲染链路选型与落地（前端 vendor 渲染 vs ACC 侧出图），须过纯离线红线（CONTRIBUTING 五条；mermaid-cli/puppeteer 类重依赖原则上排除）；② chart_image/Office 出图能力补强；③ 日常交互体验项（沿用第 99 波 dogfood 不爽点收录主渠道）。
-- 新增 ACC 工具的机械同步面（缺一即红）：`smoke_registry.py` 工具总数断言、`smoke_toolsets.py`、`smoke_descriptions.py` 规范审计、`BRIDGED_WRITE_PATH_ARGS` 快照表（`02-session-store.js:3103-3128`，写族工具发布检查项）、`dev-harness/fake-mcp.js` 双侧＋`fake-mcp-contract.e2e.js` 静态锁、`capabilities.e2e.js`。
-- 过门：第 49 波新工具入库全部门 + 上述同步面 + 离线回归。
-- **交付记录（2026-09-03，工作树、待提交）**：109a Mermaid 渲染链路（前端 vendor 懒加载＋严格安全模式＋缺失降级；`mermaid-render.static` 57 条；**vendor 文件由用户从 npm `mermaid@11.x` 发布物放入 `app/public/vendor/`，未放入时按设计降级**）→ 109b 工具结果图片内联缩略图（复用 `/api/file/preview`，零后端）→ 109c ACC `chart_image` 加 hbar/stacked_bar/area、`excel_chart` 加 scatter（工具数 108／版本 1.9.1 不变，新增 `smoke_v192`）。快通道 48/48；`--parallel 4` 全量两败均为并行偶发（串行单跑全过），串行全量作为确定性出门证据。切片证据与 dogfood 收录位见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md) §2。
+- [优化方案目录](optimization-plan/README.md)：当前方案、候选研究和历史记录分区。
+- [3.0 发布前路线与历史决策](archive/OPTIMIZATION-ROADMAP-HISTORY-3.0.md)：原路线图完整保留；包括早期大版本命名、默认壳层取舍、发布准入和未完成验证。
+- [第 46 至 86 波历史](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md)与[第 1 至 45 波历史](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md)。
+- [发布说明目录](release-notes/)与[文档总入口](README.md)。
 
-**第 110 波 · 结构化重构与代码精简（先规范、后拆分）**
-
-- 摸底结论：app/src 30 模块 37,075 行，>2000 行 5 件（09-workflow 3370、02-session-store 3176、05b-kimi-bridge 2752、13-http-router 2603、01-config 2423）；前端 preview-shell.js 3557 行（第 100 波保守搬家后仍是前端第一大）、preview-shell.css 1982 行；dev-harness 55,080 行（约为 app/src 的 1.5 倍）。**无独立 SPEC/编码规范文档**，本波为新建。结构债存量（23 号文 §0 裁决）：101 个 `pathname===` 判定点未 descriptor 化、30 模块共享拼接顶层作用域（1 个 SCC、1481 个 provides 符号）、65 条前向边被 policy 冻结但未消除、04/07/10 内聚错位部分未偿还。
-- 两阶段硬序：① **SPEC 先行**——新建编码/结构规范（模块职责、文件规模上限、注释与命名、测试断言纪律），须尊重 CONTRIBUTING 五条红线（纯离线、server.js 零 npm 运行时依赖、e2e 断言只加不改）与 23 号文既有裁决（如不得一次性强推全树 IIFE）；② **按 SPEC 逐文件拆分**——每文件独立 commit、纯搬家零行为变更（第 100 波先例），每步过生成器链（module-graph／route-inventory／facts／architecture-contract-snapshots／manifest-ranges `--write` + 对应 static e2e 独立重算）+ build --check + 全量 e2e。
-- 明确不做：不改任何运行时行为、不设开关；dev-harness 测试瘦身须先破例评审「断言只加不改」红线，单列决策不夹带；realhist-fixtures 环境缺口（23 号文已记录）不夹带修复。
-- 风险标注：拆分波及 46 件 static e2e 的 grep 锁与 facts 门面数字，工作量主要在校验链同步而非搬家本身。
-- **交付记录（2026-09-03，已分批提交）**：SPEC `docs/ENGINEERING-SPEC.md`（`0c4831e` 起，含搬家端点重归属双向特例与自由标识符扫描前置）；纯搬家六刀——110-1 `13→13f`（`b689a37`，755 行）、110-2a `01→01b`（`4437abf`）、110-2b `01→01c`（`feb078c`）、110-3b `02→02c`（`e762a82`）、110-4a `09→09b`（`a91448f`）、110-4b `09→09d`（`bb2b48e`）；harness 两件——2-pre 层级正则（`30dab47`）、h1 扫描器箭头形参（`e67f8fa`）。模块 30→36、前向边 65→67（均为拆分登记）、SCC 1；`09-workflow` 3375→3075、`02-session-store` 3176→2943、`01-config` 2423→2175、`13-http-router` 2603→1861。每刀逐字节等价＋`server.js` 差分只多注释行＋生成器链＋快通道＋全量回归；出门串行全量 258/258。**取消**交办台前端两刀（随 27 号管家立项）；**待办**：110-r1 巨型函数行为中性闭包提炼、110-h2 扫描器普通形参与嵌套声明、110-3c′ 02 内部 helper 前置搬家、110-4c 可选两小块、05b 延后。逐刀证据与裁决见 [`optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md) §3.3。
-
-### 第 111–113 波 · 压缩策略 v2／过程可见性／记忆与会话搜索向量化（112a–c✅、113a/b✅ 已交付 2026-09-04；**111 于 2026-09-15 并入 126 波**）
-
-> **排期修订（2026-09-15）**：111a–111e 五个切片（全部独立开关、默认关、显式 false 回退）并入 **126 波** 的引擎道，与记忆时效那一道**文件零重叠、可真并行**；111 不再单独成波（它对用户零可见变化，独立成版没有用户价值）。设计仍以 25 号文 §1 为准；依据见 [`optimization-plan/43-merge-114-111-107-into-product-line.md`](optimization-plan/43-merge-114-111-107-into-product-line.md)。
-
-
-> 立项理由（用户 2026-09-03）：① 压缩策略可进一步优化（外部只读分析指出尾部保留只在 user 边界切、L1 边界按 assistant 计数、重播种后不重附文件、摘要 prompt 中文硬编码、历史内重复读取不去重）；② 交办台／经典壳交互仍是黑盒，用户要随时知道模型在干什么、干到哪、在等什么；③ 长期记忆与会话搜索应支持向量化匹配。三条已完成主树只读核查（分析论断 8 条成立、2 条部分成立；服务端已发的约十种进度事件被两壳静默丢弃；记忆为词法 Top-3、会话搜索不查正文、全仓无 embedding）。实施方案、切片、开关与门见 [`optimization-plan/25-waves-111-113-compaction-visibility-memory.md`](optimization-plan/25-waves-111-113-compaction-visibility-memory.md)。**执行序已拍板（见下方 115–117 节）。**
->
-> **交付记录（2026-09-04）**：**112a–112c 已出门**——摸底修正：服务端一个回合下发 **54 种**事件，两壳静默丢弃的是 **20 种**（原文写“约十种”）；新增 `turn-activity.js` 状态机与两壳统一活动状态条，以及 `progress-events.static.e2e.js` 机械对账门（新增事件不登记即红）。**113a–113b 已出门**——记忆离线向量层（`06h-retrieval-index.js`）与 RRF 融合，Recall@3 90%→**95%（+5pp）**，未达 +10pp 翻默认门槛故**开关保持默认关**；会话内容搜索（`GET /api/sessions/search`）默认开，补上这条路径**此前一件都没有**的 e2e。113c（provider embedding，与 114a ASR 共用 `caps` 字段）与 113d（维护面）未做；112d／112f 按 25 号 §2.5 并入 117d。逐项交付记录见 25 号文 §2.4 与 §3.5。
-
-### 第 114 波 · 语音识别 ASR（2026-09-03 候选立项；**2026-09-15 按用户指示并入 127 波**）
-
-> **排期修订（2026-09-15）**：114a–114c（配置与 `caps`／转写端点／三入口）并入 **127 波** 的语音道，114d（本地 shim）与 114e（桌面壳麦克风权限）按其自身「可选、不打包」标注后置到 128+。设计与切片仍以 26 号文为准，只改落点与出门序；依据见 [`optimization-plan/43-merge-114-111-107-into-product-line.md`](optimization-plan/43-merge-114-111-107-into-product-line.md)。
-
-
-> 立项理由（用户 2026-09-03）：语音识别纳入规划。沿用 23 号 §7 冻结边界（`caps:['asr']`、`asrProviderId/asrModel` 独立选择、token 级 `POST /api/audio/transcribe`、附件／原生工具／composer 三入口、本地 Qwen3-ASR shim 只绑 127.0.0.1 且不打包、转写文本不可信标注、`kind:'aux', note:'asr'` 记账、不做流式／分离／权重分发）。主树摸底：全仓无音频代码，附件走 JSON+base64，multipart 与本地 HTTP 子进程管理需新写，WebView2 壳未挂麦克风权限处理器。切片 114a 配置与 `caps` 字段（`CONFIG_SCHEMA` 12）→ 114b 转写端点与零依赖 multipart 客户端 → 114c 三入口（composer 录音回填／音频附件转写围栏／`audio_transcribe` 工具）→ 114d 本地 shim 与助手进程管理器 → 114e 桌面壳权限；威胁模型与 Release Brief 骨架见 [`optimization-plan/26-wave-114-asr.md`](optimization-plan/26-wave-114-asr.md)。功能线，不是 Pretender 前置；建议排在 110 之后（触碰 13/12/04 三个待拆分模块）。
-
-### 第 115–117 波 · 工作台管家 Steward（Pretender 3.0 壳层线重新立项，2026-09-03）
-
-> 决定记录（用户 2026-09-03）：对交办台／经典壳的进度可见性修补「治标不治本」，壳层线重新立项为**工作台管家**——默认界面只有一个对话框与一个 2D 状态动效 avatar；管家管理会话线程与任务，与用户对话后判断最关联的线程或新开线程（用户确认后打开），线程停止／到节点／待决／班组出问题时管家先收到并按三档自治（只提议／有界自动／全自动）推进；管家模型单独配置；管家有独立记忆层（自主保存关于用户的信息与偏好并活用）；交互以简洁对话为主，默认不展示思维链与工具调用。**交办台停止独立演进，由管家壳继任；经典壳保留为专家模式；原 P4 默认切换决定不自动恢复。** 摸底：服务端可进程内发起回合、`decideIntervention()` 可直接接 `source:'steward'`、无事件总线故收件箱走三条 seq 日志轮询、模型选型照抄 `subagentPreferred*`、授权书签发只认 UI token（有界档采「管家提议→用户一键签发」）。分期 115 概念与纸面原型 → 116 引擎侧（默认关：配置／收件箱／工具集／记忆层／三档自治与熔断／回合运行器／**116g 事项跨会话升格**／**116h 线程间仲裁**）→ 117 壳层（壳模式／avatar／对话区／线程抽屉／**多线程看板与注意力预算**／设置／dogfood 门）。**2026-09-03 追加拍板**：① 事项（mission）现在就从「会话内账本」升格为跨会话容器，事项级状态由子线程五态确定性聚合，复用 `mission-state.js` 不另起状态机；② 线程并发默认 **5**、设置可调，同一工作文件夹写操作互斥排队（扩展既有资源租约），等待中的线程必须给出单一可解释原因；③ 计划卡在有界／全自动档**不再逐次确认、直接开跑**，管家新建线程**继承用户当时的档位**（可降不可升）；④ 配套确立**永久豁免清单**——以用户身份对外发送、支付交易、删除工作文件夹外数据、装卸软件与改系统设置这类不可回滚的外溢动作，以及**管家自我扩权**（调宽线程权限、签发授权书、关审计或停机开关）**任何档位都不自动执行**；git push 默认须确认、可按仓库放行。管家侧「编排是组词不是画图」，计划卡／模板归纳／线程接力另立**第 120 波候选**（27 号 §10）。详见 [`optimization-plan/27-waves-115-117-steward.md`](optimization-plan/27-waves-115-117-steward.md)；112 收缩为事件管线与状态机前置。**执行序已拍板（2026-09-03，2026-09-04 补入 118／119）：110✅ → 118（新手引导）→ 112a–c → 113a/b → 115 → 116 →（119 定时任务，可与 117 并行）→ 117 → 114 → 111 → 107**；并行回归偶发治理为 107 前置项；管家工具面与会话工具集分离（管家「动如意」、线程「动世界」，27 号 §3.5）；110 剩余刀数按收益取舍：取消交办台前端两刀，优先 09-workflow 与 10-context-governance 的自足块，05b 延后。
->
-> **第 115 波已交付（2026-09-05）**：可交互原型 `docs/mockups/steward-shell.html` 经用户三轮走查定稿。**追加拍板**：① 管家壳与经典壳**长期并存**（上文 post-3.0 退出线作废；经典壳作为「2.0 视窗」按会话打开）；② 撤销线程级自治三档，合一为线程单一「权限」四档（每步都问／改文件不问／只做计划／全自动），管家替用户答复的范围由线程权限决定，管家主动行为改为设置页勾选清单；③ 管家对话只保留本次打开期间，下次打开只汇报；④ avatar 固定顶部；⑤ 交给线程改为「输入即预判」递话（27 号文 §8.12）；⑥ 抽屉先给「它刚说／你可以说」；⑦ 每条线程权限／模型／引擎在看板、抽屉、2.0 视窗就地快切。27 号文 §3.3／§5／§8 已按此修订；下一入口 116。
-> **第 116 波已交付（2026-09-05 → 09-06，引擎侧，默认关）**：前半 116a/b/c/f/pre 与后半 116-2a/2b/g/h/2e 共 12 个 commit，串行全量 280 pass／6 fail（既有名单）／4 flaky；`steward_*` 工具 17→26、原生工具 63→89、前向边 67 全程不变；Release Brief 与逐片验收记录见 [27 号文 §11.6](optimization-plan/27-waves-115-117-steward.md)。117 壳层随后已交付（117a–117i）。**2026-09-06 夜停点**：用户两轮走查＋五个只读对抗审查后，116-3（后端对抗修复）两批已入库、第三批待收尾；**2026-09-07：116-3 三批收口；116-4 已交付**（第四源 `sessionTurns`＋速查闭环＋唤醒链诚实字段＋`GET /api/sessions/steward?since=`；复现时挖出并修掉 P0「`buildMissionCard` 对无 mission 容器的会话抛错 → 整份投影 reject → `/api/missions`、`/api/interventions` 一起 500、收件箱三源全停」；全量 `--parallel 4` 298/6/9，6 条失败逐条单跑全 PASS）。**116-5 全部交付**：设计页 §11.8 三条拍板已定；**116-5a 引擎侧**（`session.threadBrief` + `titleSource` + `sessionDisplayTitle` 显示优先级 + aux 记账 + 新件 `thread-brief.e2e.js`）与 **116-5b 消费面**（六个读模型带出算好的 `displayTitle`／`brief`，看板／抽屉／「现在这一件」／递送候选／经典壳侧栏与两处搜索结果全部改显示它；设置页开关放「模型与预算」段并写明经典壳也用它；新静态锁 `thread-brief.static.e2e.js` 钉住「显示名判据只有一处」）均已入库。**117j 前端走查修复也已交付**（三批：用户第二轮走查五条 W2-1～W2-5、其余 P1、P2/P3 与经典壳回归两条；零后端改动。W2-2 的根因是 `.steward-target-picker` 那条 `display:flex` 压过了 UA 表的 `[hidden]{display:none}`，候选列表因此「关不掉」；W2-3 头像跟着话走推翻了 2026-09-05「固定顶部」的拍板）。**管家线 115→116→117 到此收口**，仅 copy-P2-1 与 classic-5 两条明确挂起。→ 116-5（**新需求：每开一个线程自动调一次 LLM 生成 ≤24 字标题＋一句概括写进会话头 `meta.brief`，搜索结果、抽屉、看板、递送候选全部改显示它**）→ 117j（前端走查修复：管家开的线程自动展示、候选列表可收起、头像跟着话走、抽屉 5 秒刷新、收件箱回复实时进对话流）。派单稿全文见 [27 号文 §11.7](optimization-plan/27-waves-115-117-steward.md)。
-> **第 117 波已交付（2026-09-06，管家壳，默认仍是经典布局）**：117a 壳模式三态并存 → 117b avatar 七态 → 117c 对话区与递话 → 117d 线程抽屉（含撤回锚点与 rewind 竞态修复）→ 117e 设置（含 116g 待决门真 bug 修复、决策日志只读路由）→ 117g 2.0 视窗＋117h 看板与「现在这一件」，共 11 个实现 commit；app.js 1277/1280、前向边 67 全程不变、路由 127 判定点；逐片验收记录与 Release Brief 见 [27 号文 §11.6](optimization-plan/27-waves-115-117-steward.md)。117f dogfood（用户连续使用两周）留给用户，默认壳切换不自动恢复。
-
-### 第 118 波 · 新手配置与引导（2026-09-03 立项，Pretender 门前）
-
-> 立项理由（用户 2026-09-03）：现状对新手尤其电脑小白太不友好。摸底：首跑引导卡、14 个 Playbook 任务卡、人话的测试连接错误、292 行新手手册都已存在，但应用内零帮助入口、两壳引导不一致且不可重开、体检与启动错误全是技术话、桌面控制可用性无提示、预设全要手填、node 回落路径露黑窗。方案：118a 壳无关欢迎向导（预设只填 Key、前置校验、测试连接、人话安全档、可重开）→ 118b 人话体检与 desktop-control 健康项 → 118d 应用内帮助路由与菜单 → 118c 启动错误落文件并弹窗、隐藏黑窗、端口自动改用 → 118e Ollama／LM Studio 零配置预设 → 118f 小白走查与离线包实测。详见 [`optimization-plan/28-wave-118-onboarding.md`](optimization-plan/28-wave-118-onboarding.md)。**已按此执行并出门（2026-09-04）**：118a 壳无关欢迎向导（`8a0330f`，含 118a-fix 应用内手册阅读器）→ 118b 人话体检、`desktop-control` 健康项与 `doctor --human`（`3bcfdbc`）→ 118d 帮助菜单与真动作入口 ＋ 118g copy-path 同族点治理（`718f1ae`）→ 118e 本地零配置预设 ＋ 118c 启动体验（`f32c2cb`）→ 118f 走查与出门。**串行全量 265/1/1**，唯一失败 `interventions-snapshot` 为第 109 波即存在的既有 flaky（单跑三次全过）。四刀实施中另修六处既有缺陷：`navigation-controls.js` 调用未注入的 `fillSettings` 导致每次程序化开设置抛异常并吞掉后续语句、手册相对链接把用户带出应用、`help.doc_missing` 判定恒假印 `[object Object]`、MCP 导入错误同因、`testProvider` 失败分支同因、向导弹层玻璃档透字。**未覆盖**：离线包解压双击实测（需现场构建含 ACC 的发行件，并入下次打包演练）、WebView2 降级弹窗运行验证（本机走不到该路）。
-
-### 第 119 波 · 定时任务与触发器 Cron（2026-09-03 立项）
-
-> 立项理由（用户 2026-09-03）：希望能对管家说「明天给 xxx 发条消息」，由管家建好会话与定时任务，到点自动生成会话并执行。设计：进程内调度器（30s tick、分钟级精度、无任务零开销）＋ 结构化计划模型（一次性／每天／每周／每月／高级 cron，自写零依赖解析与 `nextFireAt` 纯函数）＋ 四类载荷（提醒／消息回合／playbook／编排）＋ 触发历史 append-only 供管家收件箱订阅；错过的触发按 grace 窗口只补一次（照抄 `autoResumeInterruptedRuns` 分级恢复），崩溃后按 `inFlightRunId` 判定不重复；**无人值守遇 `ask` 一律挂起为待决而非自动放行**，只有任务级持久授权（工具白名单＋路径 glob＋次数＋有效期，永不含 bypass）内的动作才自动执行；**对外发送类任务默认只出草稿由人触发**，绝不在用户不知情时以其身份发送。开机自启为可选、显式、可撤销。切片 119a 数据模型与纯函数 → 119b 调度器 → 119c 权限与任务级授权 → 119d API 与管家工具 → 119e UI → 119f 开机自启（可选）。详见 [`optimization-plan/29-wave-119-scheduler.md`](optimization-plan/29-wave-119-scheduler.md)；建议排在 116 之后、可与 117 并行。
-
-### 第 117q 批 · 重复造轮子普查与收编（2026-09-08 立项，用户拍板并入 117 波）
-
-> 立项理由（用户 2026-09-08）：「感觉当前项目很多地方都重复造轮子，你派波 sonnet 去查查」→「把这些 audit 都落成文档，放进路线规划里，放到 117 波里一块处理」。五路只读审查（后端域层／引擎与 provider 层／dev-harness／前端渲染与状态／持久化与读模型）产出 30 条清单，主会话逐条复核后分四批。**最大收获不是少写几行代码，是三条只有用普查方式才能发现的真缺陷**：① 三条子进程 NDJSON 主干道逐块 `chunk.toString('utf8')`，中文被管道切两半就变 `�`——而 `00-boot.js` 早就 import 了 `StringDecoder`、`05b:1567` 自己也在别处正确用了它；② 两张 autoexec 黑名单双向漂移，自治授权书层挡不住 `.github/workflows/`、`.gitlab-ci.yml`、`Jenkinsfile`（工具层挡得住），一张无人值守 edit 授权书可以静默改 CI 配置；③ 任务五态人话共四份（两套 locale key ＋ 服务端硬编码中文 ＋ 一份死代码），`quick_ask` 已经判出「速问 / Quick Ask」与「速查 / Lookup」两种结果。另有 10 个真浏览器 e2e 漏调 `stopRuyiTestBrowsers`（手工单跑攒断头 Edge，正是历史上「workbench up 超时」假红的病因）、管家看板裸 fetch 缺 token 失效重放（后端重启后空转到用户手动刷新）、「压缩」整片文案漏 `t()`（英文界面被硬编码中文覆盖的可复现回归）。**明确否决**：184 处 HTTP 助手统一（同名不同义）、管家三件套轮询生命周期合并（三份静态锁按函数体逐字正则钉着）、`DurableJsonStore` 迁移（同步读契约，硬套等于把 I/O 变成阻塞）。派单顺序与并发约束、每条的落点与撞锁清单见 [`optimization-plan/30-dedup-audit-wave-117.md`](optimization-plan/30-dedup-audit-wave-117.md)。
-
-### 已交付／候选编排方法论线 · MicroAgent 论文借鉴（不占第 103 波编号）
-
-`docs/optimization-plan/07-microagent-lessons.md`（2026-08-10 立）：MicroAgent 论文 × Ruyi 逐项对照（主会话核实），产出 M1–M6——编排上下文分级注入（P0）、确定性节点扩展 + vote 门防误杀、verify 节点输入覆盖率职责、HB360 单轴消融纪律、模板方法论工具、O3 证据回溯升级。与 06（HB360 成本收敛）互为姊妹篇，分 A–D 四个**候选批次**。相关成果实际以独立提交交付，没有形成“第 103 波”实施记录；为保持波次唯一，本线不再占用第 103 波编号，未完成项继续按候选立项。
-
-**候选 A 波（✅ 已交付）**：M3（verify 输入覆盖率）+ M4（单轴消融纪律）。
-- **M3 已交付（`9696483`）**：`QUALITY_GATE_OUTPUT_SCHEMA` 加可选 coverage 字段（不破坏存量 verify）+ 质量门 prompt 引导逐项核验 + 后端 unhandled 收紧（`gate_uncovered`）；e2e（quality-gates + quality-workflow + prompt-snapshot）+ build --check 全绿。实施文档 [`archive/optimization-plan/09-m3-coverage-gate.md`](archive/optimization-plan/09-m3-coverage-gate.md)。
-- **M4（流程项，不涉代码）**：实施文档已落 [`archive/optimization-plan/10-m4-ablation.md`](archive/optimization-plan/10-m4-ablation.md)——06 各优化项按「波次打包」上开关无法单轴归因，改为「每项独立开关 + 单轴回测 + 全量累进」，归因轴对齐工作流/工具/上下文三轴，含消融记账模板。**已交付（`bcd8fa7`）**：消融记账模板 + 三轴归因（工作流/工具/上下文）已成文。
-
-**候选 B 波（✅ 已交付）**：M1（编排上下文分级注入，**唯一 P0**）+ M6（O3 证据回溯）。
-- **M1 实施文档已落** [`archive/optimization-plan/11-m1-context-tiering.md`](archive/optimization-plan/11-m1-context-tiering.md)：把 `09-workflow.js:647` 单一 `contextText`（所有节点同一份）升级为「全局层 + per-node 覆盖」--节点对象（L173）加 `context` 字段、contextPrefix（L647）追加节点层、节点 schema（L1883）补描述；节点无 context 时行为逐字节不变（存量模板零迁移）。**已交付（`0b3100d`，含节点级 context 注入 + 对抗加固 + e2e）**。
-- **M6**：O3 自检升级为证据回溯，并入 06-O3，已随 R1 Evidence Graph 完成（R1 即 M6 的工程化落点）。
-
-**候选 D 波（07 §5 · ✅ 两工具已交付 2026-08-13）**：M5 高频模板方法论工具已落地两个——① `codebase_symbol_search`（codebase-audit 符号定义/引用检索）② `debug_hypothesis`（debug-root-cause 假设/实验/证伪状态机）。均过第 49 波新工具入库全部门（契约 + fake 回归 + description 审计 + tool-dispatch 行为锁 + facts 门面数字），见 [`archive/optimization-plan/17-m5-methodology-tools.md`](archive/optimization-plan/17-m5-methodology-tools.md) 与 [`archive/optimization-plan/18-m5-debug-recorder.md`](archive/optimization-plan/18-m5-debug-recorder.md)。data-insights 候选及 M4 消融收益验证待后续逐个启动。
-
-**后续候选 C–F · Agent 架构研究补充（2026-08-10 纳入；不代表自动实现）**：在 MicroAgent M1–M6 之上，新增五段受控闭环：R1 claim-level Evidence Graph（P0，M6 的工程化落点）→ R2 从已验收轨迹归纳、人工发布的 Workflow Candidate Factory（P1）→ R3 基于 M4/HB360 的离线 Champion–Challenger Lab（P1）→ R4 Local Memory Graph（P2）与 R5 Replan Patch Ledger（P2）。所有能力都止于候选/提案，禁止自动发布模板、篡改记忆、扩大权限或在线学习。详细的架构、分期、验收和暂缓项见 [`optimization-plan/12-agent-architecture-research-roadmap.md`](optimization-plan/12-agent-architecture-research-roadmap.md)。
-
-- **候选 C（✅ 已交付）**：M2 确定性结构节点 + R1 Evidence Graph；先将“断言/结论 → 工具结果/文件片段/来源/人工确认”变成可校验关系。**R1 设计文档已落** [`archive/optimization-plan/13-r1-evidence-graph.md`](archive/optimization-plan/13-r1-evidence-graph.md)（P0，证据契约 + 引用校验 + 脱敏 + 威胁建模 + fake e2e，M6 工程化落点）；**M2 设计文档已落** [`archive/optimization-plan/14-m2-deterministic-nodes.md`](archive/optimization-plan/14-m2-deterministic-nodes.md)：vote 防误杀（abstainThreshold 低置信弃权，默认 0 存量零迁移）+ coverage/propagate 确定性节点（机器版 coverage 是 M3 校验源 + R1 evidence 数据源）。**阶段 C 全完成（R1 `935ad73` + M2 `caf7e57` + C1/C2/C3 均已交付）**。
-- **候选 D（⏸️ 暂缓）**：R2 Workflow Candidate Factory；只使用充分验收、脱敏且证据完整的轨迹，候选经隔离回放和用户确认后才可成为项目模板。
-- **候选 E（⏸️ 暂缓）**：R3 Champion–Challenger Lab；不做线上 MCTS，先对受限变体在固定基准和 holdout 上做可重放的单轴/全量对比。
-- **候选 F（✅ 已收口）**：R4 Local Memory Graph 已完成 S1/S2/S3（关系存储 + 冲突检索 + gate 自动提议 + confirmed 图确定性聚类 + review-only 过期建议 + 孤儿边提示，`8effffc`/`0b69856`/`3b8bdf7`）；R5 Replan Patch Ledger 已完整实现（触发→提案→review 生成 changes→审批→apply/rollback 端到端闭环，`111723c`/`6922e48`/`26e1186`/`40d0113`/`292cf29`）。R2/R3 暂缓。
-- **明确暂缓**：基于相关性校准的高阶 vote，及任何在线 RL/自动训练；前者需 R1/R3 产生的 holdout 可靠性数据，后者最多作为独立、脱敏、离线的远期导出能力。
-
-**运行时优化性价比候选线（2026-08-15，shadow 已启用、非纯收益）**：完成 AgentRx、AgentDiet、工具检索、上下文治理、模型/预算路由、DAG 调度、推测执行、语义事务、Windows 感知与 KV cache 等方向的去重和成本收益评审。`runtimeOptimizationShadowV1` 默认开启，只旁路计算/脱敏记录，不改变工具结果、上下文、权限、retry 或记忆。基础 60/20/30 合成门虽通过，但后续 283 条检索、89 条 observation、59 条失败分类与 1,000 指纹探针的对抗审计给出 `mixed_benefit_with_identified_costs_and_blockers`：T1 正例收益显著且无样本内退化，但攻击/无关 query 有误召回和大 catalog 线性成本；C1 发现纯文本错误漏保护、超宽结构化结果非法 JSON、重复压缩非幂等三个 High，**主动启用阻断**；F1 对部分写操作 transport ambiguity 分类不足，但仍 fail-safe、只保留 telemetry。Recovery Brief/自动恢复未准入；完整 AgentRx/AgentDiet、学习型路由/调度及新运行时服务继续暂缓。详细证据与修复前置门见 [`optimization-plan/20-runtime-optimization-cost-benefit.md`](optimization-plan/20-runtime-optimization-cost-benefit.md) §0.4。
-
-**工具调用经济性校准与收敛线（2026-08-27 状态同步）**：E0 三层账本、E1 报表、E2a worker pool／E2c 重放、E3 参数双视图与 E5 元工具链已有实现；主动优化开关仍关闭，E2b/E4 延后，HB360 历史对账 blocked/deferred。E0/E1 抽样明细被当总量的口径缺陷已随 22-S0 修复（不抽样总量事件 + 摘要调用归属 + 报表以真实总量为事实源），基线自此可信；后续与 22 号线共用计量、缓存和并行实验；可用构造夹具／固定真实模型任务验证限定范围，不等待长期流量，也不冒称历史对账已通过。旧 HB360 的 `1,739` 合成轮次不等于模型调用，`10.1–10.4/任务` 等数字保留为历史样本口径，不直接外推当前版本。已有 read 重放相对 serial 的 p95 -26% 是既有并行能力，legacy == pool，不是新 pool 增量收益。原 21 号线量化目标保留为候选门，须基于校准后的当前对照和适用任务范围冻结。20-T1/C1 仍按各自原有数据与安全门管理。详见 [`optimization-plan/21-tool-call-economics-convergence.md`](optimization-plan/21-tool-call-economics-convergence.md)。
-
-### Traveler 4.0（概念稿）
-
-`docs/TRAVELER-CONCEPT.md` v0.1 已立（可迁移的任务旅程 / Portable Missions），非范围、版本或发布时间承诺；其实施不得抢占或稀释 Pretender 3.0 收口。
-
----
+历史文档中的“当前”“下一波”“待做”只描述各自日期的状态。新实现需先核对今天的代码和测试；用户后来修正的方向以当前方案为准，不恢复已退役界面或重新立项已经实现的能力。

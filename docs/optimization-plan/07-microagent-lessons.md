@@ -1,5 +1,10 @@
 # 07 · MicroAgent 论文对照与编排方法论升级规划
 
+<!-- document-status:start -->
+> **阅读口径（2026-10-16）：候选研究／部分实施依据。** 已有方法论工具和独立批次交付；未完成候选仍需单独验证，不重新认领已交付能力。
+> 当前 3.x 排期与发布门以 [62 号管家迭代方案](62-steward-3x-iterations.md) 为准，4.0 暂缓。下文保留历史原话、决定、默认值和测量；行号以对应历史基线为准，不把旧排期或未完成项自动转成新决定。
+<!-- document-status:end -->
+
 > 基线：论文《MicroAgent: Context-Augmented Multi-Agent Framework for Automatic Microservice Decomposition》（arXiv:2606.29742v1，CUHK + 中山大学，2026-06）× Ruyi 现状对照（2026-08-10，主会话亲自工具核查，未用子代理报告）。
 > 行号对应核查时的 `app/src/*.js` 当前版本，改动后会漂移，请以就近搜索为准。
 > 性质：只读对照分析 + 候选优化项，未改动任何现有代码；定位为 06（HB360 成本收敛）的姊妹篇——06 治「单 agent 烧 token」，本文治「编排层的方法论沉淀」。

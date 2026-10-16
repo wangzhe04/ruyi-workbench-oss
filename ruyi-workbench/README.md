@@ -7,7 +7,7 @@
 
 | 路径 | 内容 |
 |---|---|
-| `app/src/` | 后端源码：70 个有序模块，顺序记在 `app/src/manifest.json` |
+| `app/src/` | 后端源码：72 个有序模块（2026-10-16 核对），顺序记在 `app/src/manifest.json` |
 | `app/server.js` | 后端运行产物：`node app/build.js` 把 `app/src/` 拼接成这一个文件，**零 npm 运行时依赖**；改代码只改 `app/src/`，再重建 |
 | `app/public/` | 前端：`index.html`、`app.js` 组合根、`js/` 下的原生 ES 模块、分层 CSS、`locales/` 中英语言包；无框架、无构建 |
 | `desktop/` | WinForms + WebView2 桌面壳 `RuyiDesktop.exe` 的源码与构建脚本 |
@@ -20,15 +20,17 @@
 ## 运行
 
 ```powershell
-node .\app\server.js serve --open     # 只监听 127.0.0.1（`--host` 绑非回环地址须显式加 `--allow-remote`），默认端口 8765，被占自动顺延（只接管本数据目录自己的陈旧实例，别的实例不动）
+node .\app\server.js serve --open     # 只监听 127.0.0.1（`--host` 绑非回环地址须显式加 `--allow-remote`），默认端口 8765，被占时按监听流程顺延；同数据目录多实例限制见下文
 node .\app\server.js doctor           # 体检：引擎、依赖、端口、数据目录
 node .\app\server.js mcp-config       # 输出工作台 MCP 配置
 node .\app\server.js install          # 把工作台 MCP 注册进本机 Claude Code
 node .\app\server.js mcp              # 以 stdio MCP server 方式运行
 ```
 
-需要 Windows 10/11 与 Node.js ≥ 20，不需要 `npm install`（`package.json` 里的 devDependencies 只给打包单体 exe 用）。
-数据目录默认 `~/.ruyi-workbench`（3.0 之前叫 `~/.win-claude-workbench`，首次启动自动迁移），可用 `RUYI_HOME` 覆盖。
+需要 Windows 10/11 与 Node.js ≥ 20（开发与 CI 使用 Node.js 24，单体 exe 构建目标为 Node.js 24），不需要 `npm install`（`package.json` 里的 devDependencies 只给打包单体 exe 用）。
+数据目录默认 `~/.ruyi-workbench`（3.0 之前叫 `~/.win-claude-workbench`，满足迁移条件时首次启动迁移），可用 `RUYI_HOME` 覆盖。
+
+**当前运行边界（2026-10-16）：同一数据目录只运行一个服务实例。** 端口顺延不等于数据隔离；同目录、不同端口的第二个实例仍可能把第一个实例的待决标为重启取消，并覆盖握手文件。独占租约尚未实现；多实例测试必须给每个实例独立的 `RUYI_HOME`。
 
 ## 打包
 
@@ -48,13 +50,14 @@ npm run build:desktop            # 构建 RuyiDesktop.exe 桌面壳
 - 管理员手册（部署、引擎、安全边界、计费、回归）：[中文](docs/manuals/ADMIN-GUIDE_CN.md) · [English](docs/manuals/ADMIN-GUIDE_EN.md)
 - 架构说明：[中文](docs/ARCHITECTURE_CN.md) · [English](docs/ARCHITECTURE_EN.md)
 - 离线部署：[中文](docs/OFFLINE_DEPLOYMENT_CN.md) · [English](docs/OFFLINE_DEPLOYMENT_EN.md)
-- 源码审阅（clean-room 依据）：[中文](docs/SOURCE_REVIEW_CN.md) · [English](docs/SOURCE_REVIEW_EN.md)
+- 早期外部材料阅读记录（历史）：[中文](docs/SOURCE_REVIEW_CN.md) · [English](docs/SOURCE_REVIEW_EN.md)
 - 技能与一键任务目录：[中文](docs/SKILLS-CATALOG_CN.md)
 - 工作流模型规范：[中文](docs/MODEL-WORKFLOW-SPEC_CN.md) · [English](docs/MODEL-WORKFLOW-SPEC_EN.md)
+- 后续管家 3.x 迭代（方案，不代表已交付）：[62 号计划](../docs/optimization-plan/62-steward-3x-iterations.md)
 
 ## 品牌与兼容标识
 
 本项目原名 **Win Claude Workbench**，v0.8 起更名 **如意 Ruyi**，目录与可执行文件已改名（`ruyi-workbench/`、`Ruyi.exe`，启动脚本仍识别旧的 `WinClaudeWorkbench.exe`）。
-3.0 起旧标识统一改为如意命名：数据目录 `~/.ruyi-workbench`（旧目录自动迁移，原处留目录联接）、MCP server id `ruyi`（工具名 `mcp__ruyi__*`，旧登记由 `install` 清理）、离线插件市场 `ruyi-offline`；环境变量只写 `RUYI_HOME`，旧的 `WIN_CLAUDE_WORKBENCH_HOME` 仍可读。
+3.0 起旧标识统一改为如意命名：数据目录 `~/.ruyi-workbench`（满足迁移条件时迁移旧目录，成功后原处留目录联接）、MCP server id `ruyi`（工具名 `mcp__ruyi__*`，旧登记由 `install` 清理）、离线插件市场 `ruyi-offline`；环境变量只写 `RUYI_HOME`，旧的 `WIN_CLAUDE_WORKBENCH_HOME` 仍可读。
 
 本项目是 clean-room 独立实现：不含 Anthropic 泄露源码，不分发官方 Claude Code，不复制第三方插件源码；随包前端静态库的许可见 [`../THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md)，本体按 [Apache-2.0](../LICENSE) 发布。

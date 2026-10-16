@@ -2,7 +2,7 @@
 
 > 面向部署者 / IT / 内网运维。本手册讲清楚如意工作台的**部署形态、引擎接入、安全边界、验收回归与排障**。用户视角的操作说明另见同目录 [`USER-GUIDE_CN.md`](USER-GUIDE_CN.md)。
 >
-> 术语与硬约束：如意工作台是 **clean-room 独立实现**、**server.js 零 npm 运行时依赖**、**默认全离线零遥测**、**overlay 增量套用**、支持 **Windows 10/11**。产品名对外为「如意 Ruyi」。v1.0-S9 发布工程已将目录名改为 `ruyi-workbench`、可执行文件名改为 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）；**3.0 起 MCP server id 为 `ruyi`、默认数据目录为 `~/.ruyi-workbench`、环境变量为 `RUYI_HOME`**（旧的 `win-claude-workbench` / `~/.win-claude-workbench` / `WIN_CLAUDE_WORKBENCH_HOME` 自动迁移或仍可读，详见文末「品牌与兼容」）。
+> 术语与硬约束：如意工作台是 **clean-room 独立实现**、**server.js 零 npm 运行时依赖**、**离线优先、零遥测**、**overlay 增量套用**、支持 **Windows 10/11**。产品名对外为「如意 Ruyi」。v1.0-S9 发布工程已将目录名改为 `ruyi-workbench`、可执行文件名改为 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）；**3.0 起 MCP server id 为 `ruyi`、默认数据目录为 `~/.ruyi-workbench`、环境变量为 `RUYI_HOME`**（旧的 `win-claude-workbench` / `~/.win-claude-workbench` / `WIN_CLAUDE_WORKBENCH_HOME` 自动迁移或仍可读，详见文末「品牌与兼容」）。
 
 ---
 
@@ -13,7 +13,7 @@
 核心是一个零 npm 运行时依赖的 Node 服务 `app/server.js`（只用 Node 内置模块）。启动方式：
 
 ```powershell
-node app\server.js serve --open        # 源码方式（推荐，改动免重编即生效）
+node app\server.js serve --open        # 源码方式（改 app/src 后先运行 node app\build.js）
 .\Ruyi.exe serve --open   # 打包 exe 方式
 Start-Workbench.cmd                      # 便捷启动脚本（内部走上面之一）
 ```
@@ -50,7 +50,7 @@ Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 
 套用流程（`Do-Apply`，第53波 EC-B 加固）：**先内联 precheck 全检**（失败即拒、绝不写入，backup 目录都不建）-> **先备份**目标里将被覆盖的每个文件到 `目标\.overlay-backups\<版本>-<时间戳>\` → 复制 payload 覆盖 → 写 `.overlay-applied.json` 标记 + 追加 `.overlay-audit.jsonl` 审计条目 -> **post-apply 用 sha256 逐文件校验**，verify 结果决定顶层 `ok`/审计 `result`（`ok`/`verify_failed`，不再硬编码 ok）-> 只保留最近 5 份备份。`rollback` 恢复最近一次备份（服务运行时默认**拒绝**回滚，先停进程；`-Force` 跳过端口拒--API 路径自动带，因 API 跑在服务内，文件覆写后 restart 加载恢复的旧文件；本次套用新增的文件会一并删掉 —— 套用时记在备份目录的 `.overlay-added.json` 里；2026-09-19 之前打出的备份没有这份清单，新增文件照旧留下）。套用前若探测到 8765 / 8799 端口有工作台在跑，会告警提示先关闭，否则新 `server.js` 不生效。
 
-**precheck 四类写入前拒绝**（第53波 EC-B）：① 路径逃逸（manifest 条目含 `..`/盘符/绝对路径，防 zip-slip 越界写）② 完整性（payload 每文件 sha256 == manifest，防篡改/缺文件包）③ 版本兼容（包 `minHostVersion` > 宿主 `package.json` version 则拒）④ 幂等（同版本已 apply 且无 `-Force` -> precheck 警告，apply 升格拒）。`-Json` 输出单 JSON 对象供 API 消费。
+**precheck 四类写入前拒绝**（第53波 EC-B）：① 路径逃逸（manifest 条目含 `..`/盘符/绝对路径，防 zip-slip 越界写）② 完整性（payload 每文件 sha256 == manifest，防篡改/缺文件包）③ 版本兼容（包 `minHostVersion` 必须与宿主 `package.json` version 相同，读不到版本也拒绝）④ 幂等（同版本已 apply 且无 `-Force` -> precheck 警告，apply 升格拒）。`-Json` 输出单 JSON 对象供 API 消费。
 
 **桌面壳在运行时套用**：`RuyiDesktop.exe` / `WebView2Loader.dll` 被占用、不能直接覆盖，这两类文件改为先把旧映像改名挪开（`<名>.old-<时间戳>`，NTFS 允许改名运行中的映像）再放新文件，**重启桌面壳后才载入新版**；回执里的 `replacedInUse` 列出这样处理的文件，以往留下的 `.old-*` 在下一次 apply 时清掉。`rollback` 时 `.overlay-applied.json` 标记同步回到套用前（备份里存着上一份就放回原处，没有就清掉），所以回滚掉的版本可以再套，不会被幂等预检当成「已应用」。打覆盖包用 `node tools/build-overlay.js <version>`，`<version>` 必填，每包用不同的 version。
 
@@ -412,7 +412,7 @@ v2.0 起 token 不再明文嵌入 HTML：浏览器在页面加载后经 `POST /a
 
 ### 3.7 零遥测 / 全离线 / clean-room
 
-无任何遥测 / 分析 / 埋点出站调用；全部日志本地化到数据目录。唯一的可选出站探测是能力矩阵的一次 HEAD（对 `config.capabilityProbeUrl` 或 provider baseUrl，用于判在线 / 离线，非遥测；默认 `capabilityProbeUrl` 为空）。clean-room：不含 Anthropic 泄露源码、不分发官方 Claude CLI、不复制第三方插件源码；本体 Apache-2.0，前端静态库许可见根 `THIRD-PARTY-NOTICES.md`。
+无产品遥测 / 分析 / 埋点出站调用；全部日志本地化到数据目录。离线使用需配本机模型，或在断开公网时仍可达的内网模型。模型请求、搜索及其他联网工具会按配置和任务访问对应服务；内置搜索默认可用，不需要密钥，可在设置中关闭。能力矩阵还可发送一次 HEAD（对 `config.capabilityProbeUrl` 或 provider baseUrl，用于判在线 / 离线，非遥测；默认 `capabilityProbeUrl` 为空）。clean-room：不含 Anthropic 泄露源码、不分发官方 Claude CLI、不复制第三方插件源码；本体 Apache-2.0，前端静态库许可见根 `THIRD-PARTY-NOTICES.md`。
 
 ### 3.8 Skills / 记忆 / 编排的不可信输入边界（v1.5）
 
@@ -446,7 +446,7 @@ v1.5 新增的技能、工作台记忆、节点间消息都可能来自**不可�
 
 ## 4. 专家模式与诊断
 
-右侧工作区在精简和专家模式下都保持 7 个页签：文件、产物、改动、记忆、工作流、用量、记录（审计时间线）。终端、桌面、MCP、搜索和读文件仍是完整的模型工具能力，但不再提供绕开对话上下文的手动运行器；它们由模型按 read/edit/exec 权限、检查点与审计策略调用。
+右侧工作区在精简和专家模式下都保持 7 个页签：文件、产物、改动、记忆、工作流、用量、记录（审计时间线）。「工作流」提供运行摘要、待审批与成员详情，中栏「班组」提供协作画布。终端、桌面、MCP、搜索和读文件仍是完整的模型工具能力，但不再提供绕开对话上下文的手动运行器；它们由模型按 read/edit/exec 权限、检查点与审计策略调用。ruyi-toolbox 的发现开关和组件启停在「设置 → 工具与集成 → 扩展组件」。
 
 专家运维入口集中在「设置」：
 
@@ -508,7 +508,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 ---
 
-## 7. 默认启用清单、升级与回滚（2.8.0 基线，3.0 预览版补充见 §7.6）
+## 7. 默认启用清单、升级与回滚（2.8.0 历史基线，3.0 迁移补充见 §7.6）
 
 > **归类口径**：**有实测读数、且出厂默认开 → 已交付**；**出厂默认关 → 实验**（§7.3 是第 126 波那一族的合并表：同一张表里三个已翻默认开、两个仍默认关，逐行写明）。「默认关」的含义是显式 `false` 或缺省时**与上一版逐字节等价**；**已翻默认开的那三个，只有显式 `false` 才是上一版的行为，「缺省」不再是**。证据只来自假端点（fake provider／假时钟）的条目打 ⚠。
 > **改法**：全部是数据目录 `config.json` 的**顶层键**，写 `false` 即关；改完重启服务（少数开关下一回合即生效）。这一节只列 2.8.0 要点名的那些，不是 `01-config.js` 默认值区的全表。
@@ -596,14 +596,14 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 - **顶层新键本身不会被删**：2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，不认识的顶层键原样留着。所以 `asrProviderId`／`asrModel`／`stewardExemptDelegationV1`／`schedulerEnabledV1`／`newThreadEngine` 这些键降级后只是**没人读**，升回来照旧生效。**会被抹掉的只有 §7.5 开头那两类**：`providers[]` 里的**嵌套**字段（`models[].caps`／`audioBaseUrl`／`asrProtocol`／`hiddenModels`，被 `sanitizeProvider` 重建掉）与管家记忆里的 `expiresAt`／`scope`。三个压缩开关的键也属于「留在盘上、没人读」这一类（2.7.0 没有这三项）。
 - **降级再升级，会把你在 2.8.0 里关掉的压缩开关重新打开一次**：2.7.0 写盘时把 `configSchema` 改回 11，回到 2.8.0 时那道 `< 12` 的一次性迁移会再跑一遍（第 107 波 P1 实测）。要保持关着，升回来之后再写一次 `false`。
 
-### 7.6 3.0 预览版补充：`CONFIG_SCHEMA` 12 → 14
+### 7.6 3.0 迁移补充：`CONFIG_SCHEMA` 12 → 14
 
 上面各节按 2.8.0 写成，对 2.7.0 ↔ 2.8.0 仍然准确。当前树是 **3.0.0**，`CONFIG_SCHEMA` 已到 **14**（`app/src/00-boot.js`；迁移表是 `app/src/01-config.js` 的 `CONFIG_MIGRATIONS`）。从 2.8.0 升上来，怎么升同 §7.4：下载完整包、解压到新目录、旧目录留着当回退路径；数据目录与 MCP server id 的改名见 §1.4 与文末「品牌与兼容」。多出来的两道一次性迁移：
 
 - **13（稀疏落盘）**：配置只落「改过的键」，显式键集合记在 `configExplicitKeysV1`，没碰过的设置跟随产品当前默认。同时 `killOnDisconnect` 缺省翻成 `false`（刷新／关窗不再结束回合）；老文件里写着的 `true` 若不在显式键里，按「当年的默认」处理。
 - **14（出厂权限档）**：出厂权限档由「每步都问」翻成**智能自动**，**只给全新安装**。盘上已有配置、却没存过 `permissionMode` 的，迁移钉回 `default`，不会被悄悄放开；盘上本来就写着档的原样保留。「切到」智能自动与全自动仍要二次确认。
 
-3.0 预览版的其余默认值变化（例如后台代理跑完自动唤醒主会话的 `agentAutoWake`，出厂开）见根目录 `CHANGELOG.md`。本章的回滚演练只覆盖 2.8.0 ↔ 2.7.0；3.0 预览版回退到 2.8.0 没有做过同样的实测，回退前请按 §7.5 的办法把数据目录整份备份。
+3.0 的其余默认值变化（例如后台代理跑完自动唤醒主会话的 `agentAutoWake`，出厂开）见根目录 `CHANGELOG.md`。本章记录的回滚演练只覆盖 2.8.0 ↔ 2.7.0，不能因 3.0 正式发布而视为 3.0 → 2.8.0 也已实测通过；回退前请按 §7.5 的办法把数据目录整份备份。
 
 ---
 

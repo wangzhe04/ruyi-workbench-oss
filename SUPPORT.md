@@ -7,7 +7,7 @@
 请使用本仓库的 GitHub Issues。提交前先搜索已有问题；如果是使用问题，请在标题前加 `[Question]`，并说明：
 
 - Ruyi 版本、Windows 版本和 Node.js 版本；
-- 使用的引擎类型（OpenAI 兼容端点或 Claude CLI，不要提供密钥）；
+- 使用的引擎类型（provider 的 Chat Completions／Responses／Anthropic Messages 协议，或 Claude Code／Kimi Code CLI，不要提供密钥）；
 - 可安全公开的复现步骤、预期结果与实际结果；
 - 已脱敏的错误信息、日志片段或截图。
 
@@ -30,7 +30,7 @@
 Use this repository's GitHub Issues. Search existing issues first; for a usage question, prefix the title with `[Question]` and include:
 
 - the Ruyi, Windows, and Node.js versions;
-- the engine type (OpenAI-compatible endpoint or Claude CLI—never the key itself);
+- the engine type (provider protocol: Chat Completions, Responses or Anthropic Messages; or Claude Code / Kimi Code CLI—never the key itself);
 - safely shareable reproduction steps, expected behavior, and actual behavior; and
 - sanitized errors, log excerpts, or screenshots.
 

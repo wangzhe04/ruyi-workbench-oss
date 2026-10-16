@@ -1,5 +1,7 @@
 # 套用 ai-computer-control 增量更新（v1.8.3，桌面控制 MCP）
 
+> **版本范围**：本文保留 v1.8.3 更新记录；当前源码版本见 `../pyproject.toml`，并不限定为 v1.8.3。操作前核对更新包自带说明和运行时布局；当前 Full 包还要求离线 OCR 依赖完整，下文旧版本“无需新依赖”的描述不替代这一要求。工作台整体升级另见[overlay 说明](../../../ruyi-workbench/tools/APPLY-OVERLAY.md)。
+
 > 面向内网机操作者/AI。**代码更新无需联网、无需重装**——直接热覆盖已安装运行时的 .py。
 > v1.8.3 起 `update.bat` 自动探测两种安装布局：新包的 `runtime\python`（优先）与旧包的 `venv\`（兜底）。
 

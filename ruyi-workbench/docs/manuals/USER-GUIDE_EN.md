@@ -2,7 +2,7 @@
 
 > This guide is for everyday users who do not need to write code. It explains how to delegate work such as
 > combining spreadsheets, renaming files, extracting text from scans, and drafting a weekly report while keeping
-> every action understandable and reversible. The UI is authoritative if a label differs from this guide.
+> execution records visible and supported file changes reversible through checkpoints. The UI is authoritative if a label differs from this guide.
 
 See also: [Chinese edition](USER-GUIDE_CN.md) · [administrator guide](ADMIN-GUIDE_EN.md).
 
@@ -16,13 +16,13 @@ the page does not open, open the local address supplied by the administrator; th
 
 ### Complete first-run setup
 
-The first-run card asks you to:
+A new install opens in the **steward view**. Choose **Start the guide** in the welcome content, or use the model-setup prompt when no model is ready. The wizard follows **Language → Engine → Provider → Steward model → Workspace → Safety → Done**; complete the steps needed for your engine.
 
-1. Choose or drop a folder. This becomes the workspace. Ruyi can read and write inside it, not arbitrary files
-   elsewhere on your computer.
-2. Check engine readiness. A green status means a configured Claude CLI or OpenAI-compatible provider is ready.
-   Use Settings or contact an administrator when no engine is available.
-3. Try a task card. Cards turn a common task into a clear prompt with a few fields to fill in.
+1. **Connect a model.** Local Ollama and LM Studio need no key. A cloud or on-prem provider needs its address, model name and the appropriate credentials; test the connection after entering them. An installed Claude Code or Kimi Code can be selected as an Agent CLI instead.
+2. **Choose a workspace and permission mode.** Select the materials for this task and decide which actions should ask you first. The workspace is not an operating-system sandbox; see section 2.
+3. **Send a task.** Finishing returns to the steward view, where you can describe the work directly. The workbench view also offers task cards in an empty conversation.
+
+You can skip setup and reopen it from the **top-bar gear menu → Help → Reopen the setup guide**. Skipping does not mean the model is ready.
 
 A new install starts in Smart auto: low-risk work runs without asking, while deleting data, installing software, pushing and
 sending outbound stop for you (recognized by rules over the command text — common phrasings are covered, but it is not a
@@ -44,8 +44,7 @@ the local files and actions involved.
 
 ### Workspace
 
-The workspace is Ruyi's activity boundary. File reads, writes, and searches are scoped to the selected folder.
-Choose it carefully: selecting the correct workspace defines where the AI may operate.
+The workspace identifies the materials and output location for a task. File-tool access also depends on permissions and settings: Ask me every step and Edit files without asking normally enforce configured workspace roots; Smart auto, Fully automatic and the outside-workspace setting allow broader access. Scripts, commands and desktop control are not isolated to that folder. **Choosing a folder does not create a sandbox**; check the permission mode and keep your own backups for important material.
 
 ### Thread
 
@@ -97,15 +96,13 @@ until delivery is confirmed, so a temporary network failure can be retried witho
 
 ### Checkpoints, audit, and rollback
 
-Before writing, editing, or deleting a file, Ruyi records a checkpoint. The Activity tab in the right pane records
-tool and permission events. You can roll back an individual change or a whole turn, returning files to their prior contents. Batch
-renames are previewed as an old-name to new-name table because they are not automatically reversible.
+Ruyi separates recovery points, execution records and rollback controls. **Automatic recovery requires a supported operation and the necessary saved checkpoint.**
 
-Together these are the three layers behind "everything the AI changes, you can see and undo": a **checkpoint** keeps
-the original of a file automatically before it is written, edited or deleted; the **audit** timeline (the Activity tab)
-records everything the AI did; and **rollback** puts files back as they were, one step or a whole turn. So the line at
-the bottom of the permission prompt, "File changes have checkpoints; review and revert them in Activity.", is meant
-literally.
+- **Checkpoints** save originals before supported file writes, edits and deletes. A size limit or another failure can prevent an original from being stored; rollback reports this.
+- **Activity** records tool and permission events for inspection.
+- **Changes** rolls back recoverable edits individually or by turn, reporting successful and unsuccessful restores separately.
+
+Renames, outbound messages, payments and arbitrary script side effects cannot all be undone. An audit entry shows what happened; it does not guarantee a recovery point.
 
 ## 3. Common tasks
 
@@ -136,8 +133,7 @@ to remember Git commands, but you should review the proposed change summary befo
 
 ### Search the web
 
-Web search is optional and must be configured by an administrator. Without it, Ruyi remains fully usable for local
-work and reports that online search is unavailable. Cached material can still be available while offline.
+Ruyi includes **built-in search with no API key required**; searches still need a working network. The Web search settings page lets you choose another service or disable search. Existing cached material may remain available offline; when no usable cache exists, Ruyi reports the failure.
 
 ## 4. Tour of the interface
 
@@ -197,7 +193,7 @@ The seven tabs on the right:
   place to collect the result of a job.
 - **Changes**: reversible file edits grouped by turn; undo one at a time or roll back a whole turn.
 - **Memory**: workbench memory (section 6).
-- **Workflows**: the monitoring canvas for multi-agent orchestrations.
+- **Workflows**: run summaries, pending approvals and issues. Expand details for member tasks, logs and handled items, or launch a template. The **Crew** tab in the middle shows the collaboration canvas.
 - **Usage**: token consumption and cost for the current turn.
 - **Activity**: a filterable timeline of everything the AI did; click a row for the full record.
 
@@ -206,6 +202,8 @@ status and configuration, while low-level terminal, desktop, MCP, search, and re
 governed by permissions rather than manual runners. Connector management lives in Settings → Tools &
 integrations → Integrations and MCP; diagnostics, storage, metrics, and raw logs live in Settings → System →
 Diagnostics.
+
+The right tool panel can be closed and reopened; its category tabs remain at the top while long content scrolls. Optional ruyi-toolbox components are managed separately under **Settings → Tools & integrations → Add-on components**.
 
 ### Composer
 
@@ -238,8 +236,7 @@ engine is enough to start. Ruyi ships **no vendor presets**. Once configured, ch
 thread's header, or decide who uses which model under Models & Services → Model assignment. Provider keys are
 stored locally and masked in UI responses.
 
-The Web Search page (Settings → Tools & integrations) configures SearXNG, Bing, Brave, Tavily, Bocha, or a custom
-endpoint. It is optional.
+The Web search page (Settings → Tools & integrations) defaults to built-in search without a key. You can choose SearXNG, Bing, Brave, Tavily, Bocha, or a custom endpoint and enter the address or key it requires. Disabling search leaves local file tools available; it does not disable a configured remote model or other network tools.
 
 On the General page (Settings → General → General), choose Simple or Pro UI, detailed or concise response style,
 language (Follow system, Simplified Chinese, or English), and the **Default view on launch**: whether the next start
@@ -343,9 +340,7 @@ budget warning. Provider settings support default input, cache-hit, and output r
 within the same provider. Blank model fields inherit provider defaults, and a blank cache-hit rate conservatively
 uses the normal input rate. The Usage page also reports cache-hit tokens.
 
-In a multi-agent workflow, open a running node to send a directed instruction that is delivered before its next
-model call. A proposed task card tells you who proposed a new node, what it does, and its estimated budget; you
-choose Add task or No thanks.
+In a multi-agent workflow, the middle **Crew** tab shows members and dependencies, while **Workflows** in the right panel shows run summaries. Select a member for details or use the run selector to inspect earlier runs. Open a running member to send a directed instruction; the interface states when it can be delivered. A proposed task card identifies the proposed work and its budget; choose Add task or No thanks.
 
 ## 7. FAQ
 
@@ -361,8 +356,7 @@ unattended scheduled-task prompt is rejected after 30 minutes (configurable).
 Activity tab to see what Ruyi did; each answer also carries a turn-changes card. Operations without a usable
 before-snapshot are explicitly marked as not automatically reversible and are never counted as undone.
 
-**Does Ruyi work offline?** Local files, scripts, desktop control, Office work, PDF export, and OCR are local.
-Only online search needs a configured network service.
+**Does Ruyi work offline?** Yes, with an available model: a local model or a reachable intranet model can work without public internet, while a model endpoint that needs public internet cannot answer. File tools, scripts, desktop control, Office work, PDF export and OCR can run locally; individual tasks that access remote services still need a network. Web search reports offline failures, and existing cached material may remain available.
 
 **The conversation is long.** Open the context meter in the thread header and use Compact now. Manual compaction runs in
 the same order as automatic compaction: it saves a snapshot, then folds old tool results (free, and the originals stay

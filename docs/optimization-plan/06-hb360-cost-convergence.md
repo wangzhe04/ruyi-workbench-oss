@@ -1,5 +1,10 @@
 # 06 · HB360 成本与收敛优化规划
 
+<!-- document-status:start -->
+> **阅读口径（2026-10-16）：候选研究／部分实施依据。** 历史基准与部分实现依据；旧费用、模型、样本与收益结论仅适用于原测试条件。
+> 当前 3.x 排期与发布门以 [62 号管家迭代方案](62-steward-3x-iterations.md) 为准，4.0 暂缓。下文保留历史原话、决定、默认值和测量；行号以对应历史基线为准，不把旧排期或未完成项自动转成新决定。
+<!-- document-status:end -->
+
 > 基线：harness-bench-360 对比测试（2026-08-08），106 任务 × 4 Harness（OpenClaw / Hermes / Ruyi / Codex），底层模型 deepseek-v4-flash。
 > 本文档由 HB360 实测数据 + 双向代码核查（benchmark 侧 `Harnessbench-compare` + Ruyi 侧 `ruyi-workbench/app/src`）汇总而成。
 > 行号对应分析时的 `app/src/*.js` 当前版本，改动后会漂移，请以就近搜索为准。
@@ -214,7 +219,7 @@ const initialTools = toolLoading.current();         // current() 按包过滤，
 
 每波落地后用 HB360 固定子集回测（20 弱 + 10 强 + 10 中），对比 cost/outcome/combined 三指标，不退步再进下一波。
 
-### 5.1 单轴消融纪律（M4，2026-08-10 并入，见 [`10-m4-ablation.md`](10-m4-ablation.md)）
+### 5.1 单轴消融纪律（M4，2026-08-10 并入，见 [`10-m4-ablation.md`](../archive/optimization-plan/10-m4-ablation.md)）
 
 上表按「波次打包」上开关（如第 1 波 O1+O5），同一波内多项同上时无法归因收益。**M4 强制单轴消融**：
 

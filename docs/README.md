@@ -1,65 +1,63 @@
-# Documentation / 文档
+# 如意文档导航
 
-Ruyi keeps user-facing and operational documentation in Chinese and English. The Chinese editions remain the
-reference for China-specific deployment examples; the English editions carry the same product, safety, and
-operational commitments.
+现行产品基线为 3.0.0，当前研发重点是 3.x 管家体验与功能扩展。阅读顺序按使用目的划分；历史审计、旧方案和测试读数均保留其原始日期，不能作为当前版本已通过的证明。
 
-| Audience | English | 中文 |
+Ruyi ships Chinese and English user and deployment guides. Historical design and audit records remain in their original language. Current planning focuses on Steward improvements in the 3.x series; 4.0 is not scheduled.
+
+## 使用与部署
+
+| 用途 | 中文 | English |
 |---|---|---|
-| Product overview and quick start | [Repository README](../README_EN.md) | [仓库 README](../README.md) |
-| Everyday users | [User Guide](../ruyi-workbench/docs/manuals/USER-GUIDE_EN.md) | [用户手册](../ruyi-workbench/docs/manuals/USER-GUIDE_CN.md) |
-| Administrators | [Administrator Guide](../ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md) | [管理员手册](../ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md) |
-| Offline deployment | [Offline Deployment](../ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md) | [离线部署说明](../ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md) |
-| Architecture | [Architecture](../ruyi-workbench/docs/ARCHITECTURE_EN.md) | [架构说明](../ruyi-workbench/docs/ARCHITECTURE_CN.md) |
-| Clean-room source review | [Source Review](../ruyi-workbench/docs/SOURCE_REVIEW_EN.md) | [源码审阅结论](../ruyi-workbench/docs/SOURCE_REVIEW_CN.md) |
-| Security policy | [Security Policy](../SECURITY.md) | [安全策略](../SECURITY.md) |
-| Contributor guide | [Contributing](../CONTRIBUTING.md#english-summary) | [贡献指南](../CONTRIBUTING.md) |
-| UI localization contract | [Localization Guide](i18n/README_EN.md) | [多语言兼容方案](i18n/README.md) |
-| Built-in skills and quick tasks | — | [技能与一键任务目录](../ruyi-workbench/docs/SKILLS-CATALOG_CN.md) |
-| MCP connector drop-ins | [MCP Connectors](../mcp/README_EN.md) | [MCP 连接器](../mcp/README.md) |
-| Release lines and future roadmap | [Release & optimization roadmap](OPTIMIZATION-ROADMAP.md) | [发布线与优化路线图](OPTIMIZATION-ROADMAP.md) |
+| 产品与快速上手 | [项目介绍](../README.md) | [Product overview](../README_EN.md) |
+| 日常使用 | [用户手册](../ruyi-workbench/docs/manuals/USER-GUIDE_CN.md) | [User Guide](../ruyi-workbench/docs/manuals/USER-GUIDE_EN.md) |
+| 管理与配置 | [管理员手册](../ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md) | [Administrator Guide](../ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md) |
+| 离线部署 | [部署说明](../ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md) | [Offline Deployment](../ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md) |
+| 更新发布包 | [增量升级说明](../ruyi-workbench/tools/APPLY-OVERLAY.md) | 同一文档含操作说明 |
+| 问题与安全报告 | [支持渠道](../SUPPORT.md) · [安全策略](../SECURITY.md) | [Support](../SUPPORT.md) · [Security](../SECURITY.md) |
 
-Historical roadmaps, acceptance notes, design explorations, and generated mockups are retained in their original
-language. They are engineering records rather than normative user or deployment guides.
+## 当前规划与版本
 
-## Future product concepts / 未来产品概念
+| 入口 | 状态与用途 |
+|---|---|
+| [发布与迭代路线](OPTIMIZATION-ROADMAP.md) | 当前发布基线、未发布内容和下一步范围 |
+| [3.x 管家六轮迭代方案](optimization-plan/62-steward-3x-iterations.md) | 待实施；优先级、工作包、依赖、验收和暂缓项 |
+| [优化方案目录](optimization-plan/README.md) | 当前方案、候选研究、历史设计分别列出 |
+| [CHANGELOG](../CHANGELOG.md) | 面向用户的发布与未发布变化 |
+| [3.0 正式版](release-notes/v3.0.0.md) | 2026-10-08 发布范围；[预览一](release-notes/v3.0.0-preview.1.md)、[预览二](release-notes/v3.0.0-preview.2.md)、[预览三](release-notes/v3.0.0-preview.3.md)保留原发布口径 |
+| [Traveler 概念](TRAVELER-CONCEPT.md) | 历史探索，4.0 暂缓定案；不属于当前承诺 |
 
-| Concept | Status | Scope |
-|---|---|---|
-| 旧「交办台」壳层方案（不是 Ruyi 3.0 产品线） | **已退役（2026-09-11，第 121 波 K1）** | 交办台壳层已整层删除（8 个 js/preview-*.js、preview-shell.css、505 个 previewShell.* 键、16 件 pretender-*.e2e.js），视角收成「管家 / 工作台」两视，见 [`optimization-plan/34-wave-121-one-workbench-two-views.md`](optimization-plan/34-wave-121-one-workbench-two-views.md) §8。它的数据契约仍在用，已改名 [`MISSION-SCHEMA.md`](MISSION-SCHEMA.md)；规划与本机指标归档为 [`archive/PRETENDER-PLAN.md`](./archive/PRETENDER-PLAN.md) v4、[`archive/PRETENDER-METRICS.md`](./archive/PRETENDER-METRICS.md)，门评审见 [`archive/PRETENDER-GATE-REVIEW.md`](archive/PRETENDER-GATE-REVIEW.md) |
-| [Traveler 4.0](TRAVELER-CONCEPT.md) | **Concept v0.1 / 概念稿 v0.1** | Portable Missions：Task Capsule、安全续办、跨设备/接手者移交、执行权与证据回程；不是范围、版本或发布时间承诺 |
+## 开发与扩展
 
-## UI 设计稿生命周期(第50波 D3 标注)
+| 用途 | 入口 |
+|---|---|
+| 开发约定 | [贡献指南](../CONTRIBUTING.md) · [代理工作说明](../CLAUDE.md) · [工程规范](ENGINEERING-SPEC.md) |
+| 架构 | [中文](../ruyi-workbench/docs/ARCHITECTURE_CN.md) · [English](../ruyi-workbench/docs/ARCHITECTURE_EN.md) |
+| 应用目录与运行 | [工作台本体](../ruyi-workbench/README.md) |
+| 任务与干预数据契约 | [Mission Schema](MISSION-SCHEMA.md)，保留版本及后续兼容约定 |
+| 工作流模型规范 | [中文](../ruyi-workbench/docs/MODEL-WORKFLOW-SPEC_CN.md) · [English](../ruyi-workbench/docs/MODEL-WORKFLOW-SPEC_EN.md) |
+| 子代理协作与媒体工具 | [协作协议](agent-coordination.md) · [媒体任务验收](media-harness.md) |
+| MCP 扩展 | [中文](../mcp/README.md) · [English](../mcp/README_EN.md) · [桌面控制 ACC](../mcp/ai-computer-control/README.md) |
+| 技能与一键任务 | [技能目录](../ruyi-workbench/docs/SKILLS-CATALOG_CN.md)；随包技能正文属于运行时资源，按功能变更维护 |
+| 测试 | [离线 harness](../dev-harness/README.md) · [提示词评测](../dev-harness/prompt-benchmark/README.md) · [语音评测](../dev-harness/bench-voice/README.md) |
+| 多语言 | [中文约定](i18n/README.md) · [English](i18n/README_EN.md) · [字符串目录](i18n/STRING-CATALOG.md) |
+| 视觉语言 | [V4 设计基线](UI-DESIGN-V4.md)，现行交互形态以产品和浏览器测试为准 |
+| 文档维护 | [文档分类与维护规则](DOCUMENTATION-GUIDE.md) |
 
-| 设计稿 | 状态 | 说明 |
-|---|---|---|
-| [UI-DESIGN-V4.md](UI-DESIGN-V4.md) | **定稿(现行基线)** | 现代毛玻璃质感；token 值与 `css/tokens.css`、`css/themes/color-schemes.css` 一致，`styles.css` 为兼容清单；mockup: `mockups/v4-glass-*.html` |
-| [UI-VNEXT-CONCEPT.md](UI-VNEXT-CONCEPT.md) | **概念稿（Pretender 3.0 依据，3.0 已搁置）** | 「交办台」概念稿；已按 `./archive/PRETENDER-PLAN.md` v4 立项推进（P1–P3 完成，P4 3.0.0 默认切换暂缓；2026-08-10 用户决定跳过人因验证、3.0 收口线整体搁置，第87–91波成果已随 2.4.1/2.5.0 交付）；2026-09-03 壳层线由管家壳继任，双壳退出时钟 2026-09-05 作废 |
-| [optimization-plan/27-waves-115-117-steward.md](optimization-plan/27-waves-115-117-steward.md) §8 | **定稿（管家壳 3.0，2026-09-05）；第 117 波已实现（2026-09-06，默认仍是经典布局，见 §11.6）** | 管家壳 UX/UI 详细设计：话＋一行按钮、递话「输入即预判」、线程单一权限四档、事项/线程抽屉「它刚说／你可以说」、2.0 视窗与两壳长期并存；mockup: `mockups/steward-shell.html`（可交互，零依赖） |
+## 架构清册
 
-## 归档区(`archive/`)
+以下清册应与源码一起维护。机器生成文件不手改数字或内容：
 
-以下文档已竣工/已落地/已交付，移入 [`archive/`](archive/) 作为工程溯源档案。roadmap/ARCHITECTURE 仍按波次引用。`optimization-plan/` 子目录索引已收窄：已交付的 01/02/03/08–19 号方案已归档至 [`archive/optimization-plan/`](archive/optimization-plan/)，当前活跃方案仅 04/05/06/07/12（活跃索引见 [`optimization-plan/README.md`](optimization-plan/README.md)，归档明细见 [`archive/optimization-plan/README.md`](archive/optimization-plan/README.md)）。
+| 清册 | 维护方式 |
+|---|---|
+| [路由](architecture/route-inventory.md) | node dev-harness/route-inventory.js |
+| [模块依赖](architecture/module-dependency-graph.md) | node dev-harness/module-dependency-graph.js --write |
+| [架构契约快照](architecture/architecture-contract-snapshots.md) | 生成命令见该文页首 |
+| [持久化状态](architecture/durable-state-inventory.md) | 随存储生命周期改动登记，对应静态门核对 |
+| [源码文本锁](architecture/source-text-locks.md) | 随测试锁分类维护 |
+| [产品数字](../facts.json) | node dev-harness/facts-generate.js |
 
-| 文档 | 对应波次 | 状态 |
-|---|---|---|
-| [OPTIMIZATION-ROADMAP-HISTORY-46-86.md](archive/OPTIMIZATION-ROADMAP-HISTORY-46-86.md) | 第46–86波 | 已归档（V2.0 封版、Escapade 2.x 交付详情、EC-A..EC-E 候选桶计划、第56波立项门计划与逐波交付记录） |
-| [OPTIMIZATION-ROADMAP-HISTORY-V1-2.md](archive/OPTIMIZATION-ROADMAP-HISTORY-V1-2.md) | 第1–45波 | 已归档（早期审计、v1.x 与 V2.0 立项/交付） |
-| [AUTONOMY-PLAN.md](archive/AUTONOMY-PLAN.md) | 第25-26波 | 已落地(耐久基座 + 调度监督) |
-| [TEAM-MODE-V2-DESIGN.md](archive/TEAM-MODE-V2-DESIGN.md) | 第8/9波后 | 已落地(团队模式 v2) |
-| [WAVE31-ACCEPTANCE.md](archive/WAVE31-ACCEPTANCE.md) | 第31波 | 已交付(§5 工程7/7 + 产品4/4 达标) |
-| [WAVE31-SHELL-SANDBOX-DESIGN.md](archive/WAVE31-SHELL-SANDBOX-DESIGN.md) | 第31波 | 已交付(shell 沙箱 edit guard) |
-| [WAVE33-AUTH-DESIGN.md](archive/WAVE33-AUTH-DESIGN.md) | 第33波 | 已交付(声明式 auth deny-by-default + DNS-rebind 防护) |
-| [STATIC-LOCK-AUDIT.md](archive/STATIC-LOCK-AUDIT.md) | 第43波 | 决策报告(构建期模块化 go/no-go,已执行 GO) |
-| [UI-DESIGN-V3.md](archive/UI-DESIGN-V3.md) | — | 已竣工(V3 设计稿) |
-| [UI-DESIGN-P3-WORKBENCH.md](archive/UI-DESIGN-P3-WORKBENCH.md) | — | 已竣工(P3 工作台) |
-| [UI-DESIGN-R2-NOTES.md](archive/UI-DESIGN-R2-NOTES.md) | — | 已竣工(R2 视觉跃升) |
-| [UI-ORCHESTRATION-REDESIGN.md](archive/UI-ORCHESTRATION-REDESIGN.md) | — | 已竣工(编排 redesign) |
-| `archive/mockups-v1/p2-refinements.html` | — | 旧版 mockup(R2 版在 `mockups/`) |
-| `archive/mockups-v1/p3-workbench.html` | — | 旧版 mockup(R2 版在 `mockups/`) |
-| [AGENT-HARNESS-AUDIT.md](archive/AGENT-HARNESS-AUDIT.md) | — | 已归档(2026-07-31 差距审计) |
-| [UI-ESCAPADE-TURN-NARRATIVE.md](archive/UI-ESCAPADE-TURN-NARRATIVE.md) | 第54波 | 已落地(回合叙事化) |
-| [PRETENDER-GATE-REVIEW.md](archive/PRETENDER-GATE-REVIEW.md) | 第56波 | 已归档(立项门评审) |
-| [PRETENDER-PLAN.md](archive/PRETENDER-PLAN.md) | 第74–91波 | 已归档(121-K1 交办台退役；数据契约另见 MISSION-SCHEMA.md) |
-| [PRETENDER-METRICS.md](archive/PRETENDER-METRICS.md) | 第79–86波 | 已归档(交办台本机系统测量) |
-| [optimization-plan 已交付 14 份](archive/optimization-plan/README.md) | — | 已归档(01/02/03/08–19 已交付方案；见 archive/optimization-plan/README.md) |
+## 历史记录
+
+[归档目录](archive/README.md)收录旧路线、退役界面和历次决策。[旧交办台概念](UI-VNEXT-CONCEPT.md)已经由管家与工作台两视角替代，其数据契约仍有沿用；不能将旧壳层的搁置误读为 3.0 产品尚未发布。
+
+[2026-09-23 审计](RELEASE-3.0-AUDIT-2026-09-23.md)、[2026-10-08 审计](RELEASE-3.0-AUDIT-2026-10-08.md)、[源码阅读记录](../ruyi-workbench/docs/SOURCE_REVIEW_CN.md)和[视觉审阅记录](../VISUAL-REVIEW.md)均是带基线的历史证据。已修复与尚未验证的项目按原文及后续提交核对，不按文档存在与否判定完成。

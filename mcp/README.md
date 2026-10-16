@@ -4,7 +4,7 @@ English: [MCP Connectors: Folder Drop-ins](README_EN.md)
 
 把一个 MCP 服务器做成「一个文件夹 + 一份清单」，放进本目录（或用户数据目录 `<数据目录>/mcp/`），
 如意 Ruyi 工作台启动时会自动扫描、清洗并把它合并进外部 MCP 列表——**无需改配置、无需重启导入向导**。
-删掉该文件夹即等于卸载（drop-in 的存在性完全由文件夹本身表达，从不写回配置文件）。
+删掉该文件夹即等于卸载（drop-in 的存在性完全由文件夹本身表达，从不写回配置文件）。通过界面导入的连接器配置会持久化；文件夹 drop-in 只在运行时合并，两者不要混淆。
 
 扫描位置（两处，各自最多合并 10 个，合计上限 10）：
 
@@ -13,7 +13,7 @@ English: [MCP Connectors: Folder Drop-ins](README_EN.md)
 
 ## 内置桌面控制 MCP：`ai-computer-control/`
 
-本目录下的 `ai-computer-control/` 是**随发行包捆绑的内置桌面控制 MCP**（108 个工具：截图、OCR、UIA 定位、鼠标键盘、窗口、浏览器、文件、Office/PDF 等；确切数字以仓库根 `facts.json` 的 `accTools` 为准）。它由工作台的**专用桌面探测**（`desktopMcp` 探测）直接识别并优先加载，**不需要、也不要**给它加 `ruyi-mcp.json` 清单——否则会与专用探测形成**双注册**（同一批工具被登记两次）。
+本目录下的 `ai-computer-control/` 是**随 Full 发行包捆绑的内置桌面控制 MCP**（108 个工具：截图、OCR、UIA 定位、鼠标键盘、窗口、浏览器、文件、Office/PDF 等；确切数字以仓库根 `facts.json` 的 `accTools` 为准）。它由工作台的**专用桌面探测**（`desktopMcp` 探测）直接识别并优先加载，**不需要、也不要**给它加 `ruyi-mcp.json` 清单——否则会与专用探测形成**双注册**（同一批工具被登记两次）。
 
 浏览器 URL 默认在用户浏览器的新标签页/窗口打开；工作台标签页不会被浏览器工具导航、复用或关闭。需要 DOM 自动化时，可在设置中改用 managed、custom 或 CDP 模式；`bundled` 才会显式使用隔离的 Chrome for Testing。
 

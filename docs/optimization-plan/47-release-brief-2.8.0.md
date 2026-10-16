@@ -1,5 +1,10 @@
 # 47 · Release Brief · 如意 Ruyi Escapade **2.8.0**（范围冻结）
 
+<!-- document-status:start -->
+> **阅读口径（2026-10-16）：历史设计与实施记录。** 仅冻结当时 2.8.0 范围；未完成项、人工验证与批准点保留，不自动继承为当前发布结论。
+> 当前 3.x 排期与发布门以 [62 号管家迭代方案](62-steward-3x-iterations.md) 为准，4.0 暂缓。下文保留历史原话、决定、默认值和测量；行号以对应历史基线为准，不把旧排期或未完成项自动转成新决定。
+<!-- document-status:end -->
+
 > **这是什么**：[22 号文 §8](22-agent-soc-microarchitecture.md) 要求的「一页 Release Brief」，冻结 2.8.0 的范围。
 > 口径：22 号文 §8 的四项 ＋ [路线图 :47](../OPTIMIZATION-ROADMAP.md) 的四问。
 >
