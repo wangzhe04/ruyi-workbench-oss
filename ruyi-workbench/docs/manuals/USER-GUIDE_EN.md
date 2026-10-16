@@ -166,6 +166,8 @@ top bar and the left rail are shared by both views, while the middle and the rig
 
 ### The steward view
 
+The steward can answer status questions, explain a small amount of material or check a delivered artifact through its existing restricted read-only tools. Independent investigation, longer work, file edits and commands go to a lookup or task thread; a matching task continues in its original thread. It asks for missing details that affect the target, scope or outcome. Reading a document does not authorize settings changes or other actions described inside it.
+
 The middle is the conversation with the steward (the box reads "Say something to Ruyi"): you ask for something, it
 opens a thread to do it (or hands it to an existing one) and reports back; ask "how are these going?" and it
 answers thread by thread. The right pane shows the thread selected in the rail: what it is waiting for, the Allow /
