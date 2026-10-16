@@ -125,7 +125,7 @@ $env:RUYI_HOME = "D:\workbench-data"
 
 The default HTTP port is 8765 (`--port <n>` → `PORT` → 8765). Ruyi binds `127.0.0.1` only; `--host` with any non-loopback address is refused at startup unless you also pass `--allow-remote` explicitly (and even then non-local peers never receive the page token — see `SECURITY.md`). Ruyi is not a multi-user or public web service.
 
-When the port is taken, Ruyi only takes over **its own data directory's stale instance**: the process holding the port must be the pid recorded in *this data directory's* `runtime.json` (cross-checked against overlayId / image name). A Ruyi instance from another install or another data directory — which may be running a turn — and any other program are never touched. In every other case Ruyi moves on to the first free port in original+1 … original+9; the actual port is written to `runtime.json` and the console URL, and the top bar in the UI says which port is in use. Only when all nine are unavailable does startup fail (leaving `last-start-error.json` for the next start to surface). `killPortOnStart=false` / `WCW_KILL_PORT=0` disables takeover entirely, even of its own stale instance.
+Each data directory permits one service. Ownership is acquired before startup recovery or migration; a second service is refused even on a different port, preserving the first service's pending tasks and handshake. Use the existing window or stop the existing service first. Ruyi no longer ends any process to take its port. For a different data directory, it tries original+1 … original+9 and records the actual port in `runtime.json`, the console URL and the UI banner. Only when all candidates are occupied does startup fail. `killPortOnStart` and `WCW_KILL_PORT` remain legacy configuration fields and no longer enable takeover.
 
 ### Windows 10/11 requirements
 
@@ -230,7 +230,7 @@ If you use the pure `setx` path, check these when something looks wrong:
 | `CLAUDE_CLI_PATH` | medium | `detectClaudePath()` checks it **first**; a wrong path overrides auto-detection |
 | `ANTHROPIC_BASE` | medium | Old base-URL variable that model discovery falls back to (below `ANTHROPIC_BASE_URL`) |
 | `RUYI_HOME` / `WIN_CLAUDE_WORKBENCH_HOME` | medium | Moves the data root, so the existing `config.json` and MCP configuration are not found |
-| `WCW_KILL_PORT=0` | low | Disables port takeover: a taken 8765 is not freed, Ruyi moves to the next port |
+| `WCW_KILL_PORT=0` | low | Legacy compatibility field; occupied ports always fall back without ending their owners, and a second service on the same data directory is refused |
 | `WCW_FAKE_CLAUDE` | low | Test only, points at a fake CLI script (**never set in production**) |
 | `MAX_THINKING_TOKENS` | low | Caps thinking tokens (the workbench overrides it with `config.thinkingBudget`) |
 
@@ -581,7 +581,7 @@ timeline when escalating an issue; do not paste unmasked keys or chat content in
 
 | Symptom | What to do |
 |---|---|
-| **Port taken** | On the default 8765, only a stale instance registered by **this data directory** (the pid in its `runtime.json`) is ended and retried on the same port, and only while `killPortOnStart` is not disabled; other Ruyi instances (another install or data directory) and other programs are left alone, and Ruyi moves on to the next free port (port+1 … port+9; the top banner names the actual port, `runtime.json` records it). Only when every candidate is taken does the start fail; to pin a port use `--port <n>` and end the holder by hand first. |
+| **Port taken** | A second service sharing a data directory is refused. With a different directory, Ruyi leaves the existing process running and tries port+1 … port+9; the banner and `runtime.json` record the actual port. To pin a port, use `--port <n>` and stop its current owner first. |
 | **Engine 401** | Claude CLI: check `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` and `ANTHROPIC_BASE_URL` (or the model-endpoint base and key in Settings). Provider: check the apiKey. A **401 does not trigger endpoint failover** (the attribution is kept), so a backup endpoint will not help; fix the key first. |
 | **Stream drops / failover notice** | A `failover` event means the primary endpoint was unavailable before the first byte and a backup was used (connection failure or 502/503/504). If the backup is down too the turn finally errors. A break after the SSE body has started never switches endpoints (replay protection); resend the turn. |
 | **Search backend unreachable** | Check `searchBackend.type` and its baseUrl (required for searxng/custom) and apiKey (required for bing/brave and tavily, optional for bocha). The search backend is a **trusted endpoint, outside SSRF checks**, but must still be reachable. Offline, `web_fetch` falls back to the local webcache (`fromCache: true`). |

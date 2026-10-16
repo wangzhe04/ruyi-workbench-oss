@@ -144,7 +144,8 @@ function isDirectServeInvocation() {
   if (require.main !== module) return false;
   return !process.argv.slice(2).some(a => ['mcp', 'install', 'doctor', 'mcp-config'].includes(String(a)));
 }
-const DATA_ROOT_MIGRATION = isDirectServeInvocation() ? migrateLegacyDataRoot() : null;
+// Migration writes are deferred until startServer owns both source and destination.
+let DATA_ROOT_MIGRATION = null;
 
 
 function externalRoot() {
@@ -2209,6 +2210,107 @@ function isAgentCliType(value) {
 function normalizeAgentCliType(value, fallback = AGENT_CLI_DEFAULT_TYPE) {
   return isAgentCliType(value) ? value : fallback;
 }
+
+// Serve ownership is an OS-held IPC handle, not a heartbeat file or an expiring lease.
+// Only serve acquires it; legitimate MCP children continue to share the data directory.
+const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModule) => {
+  async function canonicalRoot(root) {
+    let cursor = pathModule.resolve(root);
+    const missing = [];
+    for (;;) {
+      try {
+        const real = await fsModule.promises.realpath(cursor);
+        const joined = pathModule.join(real, ...missing);
+        return process.platform === 'win32' ? joined.toLowerCase() : joined;
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        const parent = pathModule.dirname(cursor);
+        if (parent === cursor) throw error;
+        missing.unshift(pathModule.basename(cursor));
+        cursor = parent;
+      }
+    }
+  }
+  function endpointFor(canonical, platform = process.platform, nodeVersion = process.versions.node) {
+    const digest = cryptoModule.createHash('sha256').update(canonical).digest('hex');
+    if (platform === 'win32') return '\\\\.\\pipe\\ruyi-serve-' + digest;
+    const [major, minor] = nodeVersion.split('.').map(Number);
+    if (platform === 'linux' && (major > 20 || (major === 20 && minor >= 8))) return '\0ruyi-serve-' + digest;
+    // Portable fallback, also for Linux 20.0–20.7: normal close unlinks our socket.
+    // A crash can leave a socket file. Never unlink an unknown owner's endpoint automatically.
+    return pathModule.join(osModule.tmpdir(), 'ruyi-serve-' + digest.slice(0, 32) + '.sock');
+  }
+  function ownershipError(code, message) {
+    return Object.assign(new Error(message), { code, ruyiStartErrorKind: 'data-dir-owned' });
+  }
+  async function bind(canonical) {
+    const endpoint = endpointFor(canonical);
+    const server = netModule.createServer(socket => { socket.on('error', () => {}); socket.destroy(); });
+    try {
+      await new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(endpoint, () => { server.removeListener('error', reject); resolve(); });
+      });
+    } catch (error) {
+      try { server.close(); } catch { /* unbound */ }
+      if (error.code === 'EADDRINUSE' || error.code === 'EACCES') {
+        const residual = endpoint.endsWith('.sock') ? ` 如确认没有实例运行，请核实并清理残留 socket：${endpoint}。` : '';
+        throw ownershipError('DATA_ROOT_IN_USE', `这个数据目录已有如意服务持有独占权，未启动第二个实例：${canonical}。请使用已打开的如意，或先退出它。 / Data directory already in use.${residual}`);
+      }
+      throw error;
+    }
+    let released = false;
+    return {
+      canonical, endpoint,
+      release() {
+        if (released) return Promise.resolve();
+        released = true; // A delayed/repeated old release can only close this captured handle.
+        return new Promise(resolve => { server.close(() => resolve()); });
+      },
+    };
+  }
+  async function checkLegacyRuntime(root) {
+    let runtimeText;
+    try { runtimeText = await fsModule.promises.readFile(pathModule.join(root, 'runtime.json'), 'utf8'); }
+    catch (error) {
+      if (error.code === 'ENOENT') return;
+      throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '无法读取旧服务身份记录；为保护任务，本次没有执行启动恢复。 / Cannot verify the previous data directory owner.');
+    }
+    let record;
+    try { record = JSON.parse(runtimeText); } catch { /* unknown owner: do not guess */ }
+    if (!record || !Number.isInteger(record.pid) || record.pid <= 0) {
+      throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '无法确认数据目录中旧服务的身份；为保护任务，本次没有执行启动恢复。请先确认旧服务已退出并检查 runtime.json。 / Previous data directory owner is unknown.');
+    }
+    if (record.pid === process.pid) return;
+    try { process.kill(record.pid, 0); }
+    catch (error) { if (error.code === 'ESRCH') return; } // EPERM and all other uncertainty fail closed.
+    throw ownershipError('DATA_ROOT_IN_USE', `数据目录登记的旧如意进程仍存活或无法确认（PID ${record.pid}），本次没有接管或结束它。 / Previous service may still be running.`);
+  }
+  async function acquire(roots) {
+    const canonical = [...new Set(await Promise.all(roots.map(canonicalRoot)))].sort();
+    const handles = [];
+    try {
+      for (const root of canonical) handles.push(await bind(root));
+      // Old releases have no IPC gate. A live or uncertain PID blocks startup even when its
+      // number was reused by an unrelated process: false refusal is safer than destructive recovery.
+      for (const root of canonical) await checkLegacyRuntime(root);
+    } catch (error) {
+      await Promise.all(handles.map(handle => handle.release()));
+      throw error;
+    }
+    let released = false;
+    return Object.freeze({
+      roots: Object.freeze(canonical),
+      portable: handles.some(handle => handle.endpoint.endsWith('.sock')),
+      release() {
+        if (released) return Promise.resolve();
+        released = true;
+        return Promise.all(handles.map(handle => handle.release())).then(() => undefined);
+      },
+    });
+  }
+  return Object.freeze({ acquire, canonicalRoot, endpointFor });
+})(require('net'), require('fs'), require('path'), require('os'), require('crypto'));
 
 // 浏览器目标的合法模式(normalizeConfig 清洗与 mcp_configure set-browser 的入口校验共用一份,别再各抄一个数组)。
 const BROWSER_AUTOMATION_MODES = ['system', 'managed', 'custom', 'cdp', 'bundled'];
@@ -64749,30 +64851,10 @@ async function listenWithFallback(server, port, host, config) {
   try { await attempt(); return port; }
   catch (e) {
     if (e.code !== 'EADDRINUSE') throw e;
-    const envDisabled = /^(0|false|off|no)$/i.test(String(process.env.WCW_KILL_PORT || ''));
-    if (envDisabled || config.killPortOnStart === false) {
-      return await listenOnNextFreePort(server, port, host,
-        `端口 ${port} 已被占用,且已禁用自动接管(killPortOnStart=false / WCW_KILL_PORT=0)。`);
-    }
-    console.log(`[port] :${port} in use -- checking whether it's a stale workbench...`);
-    const res = await freeStalePort(port, host);
-    if (!res.ok) {
-      // 占用者不是「本数据目录登记的那个实例」:可能是另一份如意(别的安装目录 / 别的数据目录,正在跑自己的回合),也可能是别的程序。
-      // 两种都不动它,顺延到下一个端口。
-      return await listenOnNextFreePort(server, port, host, res.blocked.workbench
-        ? `端口 ${port} 被另一份如意实例占用(PID ${res.blocked.pid},不是本数据目录登记的实例),没有去结束它。`
-        : `端口 ${port} 被其它程序占用(PID ${res.blocked.pid} / ${res.blocked.image}),没有去误杀它。`);
-    }
-    for (let i = 0; i < 25; i++) {
-      await sleep(160);
-      try {
-        await attempt();
-        if (res.killed.length) console.log(`[port] reclaimed :${port} (freed ${res.killed.length} stale process(es)).`);
-        return port;
-      } catch (e2) { if (e2.code !== 'EADDRINUSE') throw e2; }
-    }
+    // 62: ownership is decided before recovery by the data-directory IPC gate.
+    // A listening process is never made "stale" by a runtime.json record; do not kill it.
     return await listenOnNextFreePort(server, port, host,
-      `端口 ${port} 在结束 ${res.killed.length} 个陈旧进程后仍然无法监听。`);
+      `端口 ${port} 已被占用，没有结束占用它的进程。`);
   }
 }
 
@@ -64783,13 +64865,39 @@ async function startServer(opts) {
   // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
   // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
   const bindHost = resolveBindHost(opts);
+  // Acquire before any recovery, imports, index invalidation, or startup error writes.
+  // Only the real pending legacy migration also owns its destination; mkdir(next) here
+  // would disable migration, so canonicalRoot resolves absent leaves via their real ancestor.
+  const roots = [paths.data];
+  const defaults = defaultDataRoots();
+  const old = lstatOrNull(defaults.legacy);
+  const migrate = isDirectServeInvocation() && !process.env.RUYI_HOME && !process.env.WIN_CLAUDE_WORKBENCH_HOME
+    && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
+  if (migrate) roots.push(defaults.legacy, defaults.next);
+  const ownership = await ServerOwnership.acquire(roots); // Refusal must not touch the owner's files.
   try {
-    return await startServerInner(opts, bindHost);
+    if (isDirectServeInvocation()) {
+      DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
+      if (DATA_ROOT_MIGRATION.moved) {
+        // All module-level DurableJsonStore files use callbacks; no store has read yet.
+        // Keep the same paths object for every consumer, even if the legacy junction failed.
+        const from = paths.data;
+        const to = DATA_ROOT_MIGRATION.to;
+        for (const key of Object.keys(paths)) paths[key] = path.join(to, path.relative(from, paths[key]));
+      }
+    }
+    const result = await startServerInner(opts, bindHost);
+    // Kernel-only endpoints are held through every exit-time flush and released by the OS.
+    // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.
+    if (ownership.portable) process.once('exit', () => { void ownership.release(); });
+    return result;
   } catch (error) {
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
     const message = String((error && error.message) || error || '').slice(0, 800)
       || '如意启动时出错了,没能开起来。';
     await writeStartError(kind, message);
+    // Boot may already have started asynchronous writers. Keep ownership until process exit,
+    // including a programmatic caller's failed boot; same-process restart is not supported.
     throw error;
   }
 }

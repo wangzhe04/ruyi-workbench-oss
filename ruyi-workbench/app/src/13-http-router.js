@@ -1929,30 +1929,10 @@ async function listenWithFallback(server, port, host, config) {
   try { await attempt(); return port; }
   catch (e) {
     if (e.code !== 'EADDRINUSE') throw e;
-    const envDisabled = /^(0|false|off|no)$/i.test(String(process.env.WCW_KILL_PORT || ''));
-    if (envDisabled || config.killPortOnStart === false) {
-      return await listenOnNextFreePort(server, port, host,
-        `端口 ${port} 已被占用,且已禁用自动接管(killPortOnStart=false / WCW_KILL_PORT=0)。`);
-    }
-    console.log(`[port] :${port} in use -- checking whether it's a stale workbench...`);
-    const res = await freeStalePort(port, host);
-    if (!res.ok) {
-      // 占用者不是「本数据目录登记的那个实例」:可能是另一份如意(别的安装目录 / 别的数据目录,正在跑自己的回合),也可能是别的程序。
-      // 两种都不动它,顺延到下一个端口。
-      return await listenOnNextFreePort(server, port, host, res.blocked.workbench
-        ? `端口 ${port} 被另一份如意实例占用(PID ${res.blocked.pid},不是本数据目录登记的实例),没有去结束它。`
-        : `端口 ${port} 被其它程序占用(PID ${res.blocked.pid} / ${res.blocked.image}),没有去误杀它。`);
-    }
-    for (let i = 0; i < 25; i++) {
-      await sleep(160);
-      try {
-        await attempt();
-        if (res.killed.length) console.log(`[port] reclaimed :${port} (freed ${res.killed.length} stale process(es)).`);
-        return port;
-      } catch (e2) { if (e2.code !== 'EADDRINUSE') throw e2; }
-    }
+    // 62: ownership is decided before recovery by the data-directory IPC gate.
+    // A listening process is never made "stale" by a runtime.json record; do not kill it.
     return await listenOnNextFreePort(server, port, host,
-      `端口 ${port} 在结束 ${res.killed.length} 个陈旧进程后仍然无法监听。`);
+      `端口 ${port} 已被占用，没有结束占用它的进程。`);
   }
 }
 
@@ -1963,13 +1943,39 @@ async function startServer(opts) {
   // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
   // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
   const bindHost = resolveBindHost(opts);
+  // Acquire before any recovery, imports, index invalidation, or startup error writes.
+  // Only the real pending legacy migration also owns its destination; mkdir(next) here
+  // would disable migration, so canonicalRoot resolves absent leaves via their real ancestor.
+  const roots = [paths.data];
+  const defaults = defaultDataRoots();
+  const old = lstatOrNull(defaults.legacy);
+  const migrate = isDirectServeInvocation() && !process.env.RUYI_HOME && !process.env.WIN_CLAUDE_WORKBENCH_HOME
+    && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
+  if (migrate) roots.push(defaults.legacy, defaults.next);
+  const ownership = await ServerOwnership.acquire(roots); // Refusal must not touch the owner's files.
   try {
-    return await startServerInner(opts, bindHost);
+    if (isDirectServeInvocation()) {
+      DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
+      if (DATA_ROOT_MIGRATION.moved) {
+        // All module-level DurableJsonStore files use callbacks; no store has read yet.
+        // Keep the same paths object for every consumer, even if the legacy junction failed.
+        const from = paths.data;
+        const to = DATA_ROOT_MIGRATION.to;
+        for (const key of Object.keys(paths)) paths[key] = path.join(to, path.relative(from, paths[key]));
+      }
+    }
+    const result = await startServerInner(opts, bindHost);
+    // Kernel-only endpoints are held through every exit-time flush and released by the OS.
+    // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.
+    if (ownership.portable) process.once('exit', () => { void ownership.release(); });
+    return result;
   } catch (error) {
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
     const message = String((error && error.message) || error || '').slice(0, 800)
       || '如意启动时出错了,没能开起来。';
     await writeStartError(kind, message);
+    // Boot may already have started asynchronous writers. Keep ownership until process exit,
+    // including a programmatic caller's failed boot; same-process restart is not supported.
     throw error;
   }
 }

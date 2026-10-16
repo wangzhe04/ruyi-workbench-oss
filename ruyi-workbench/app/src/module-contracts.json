@@ -333,6 +333,14 @@
       ]
     },
     {
+      "file": "01g-server-ownership.js",
+      "layer": "foundation",
+      "provides": [
+        "ServerOwnership"
+      ],
+      "requires": []
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
@@ -12915,6 +12923,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "defaultDataRoots",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "ensureDirs",
           "kinds": [
             "call"
@@ -12971,6 +12986,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "isDirectServeInvocation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "isPkg",
           "kinds": [
             "call"
@@ -12985,7 +13007,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "lstatOrNull",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "migrateLegacyDataRoot",
           "kinds": [
             "call"
           ]
@@ -13420,6 +13456,13 @@
         {
           "provider": "01f-agent-cli-types.js",
           "symbol": "AGENT_CLI_TYPES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
           "kinds": [
             "read"
           ]

@@ -80,9 +80,9 @@ $env:RUYI_HOME = "D:\workbench-data"
 
 **端口被占时**（`listenWithFallback`，`EADDRINUSE`）：
 
-- **只接管「本数据目录自己的陈旧实例」**：占着端口的进程，其 pid 正是**本数据目录** `runtime.json` 记的那个（并核对 overlayId / 镜像名，防 pid 被回收给别的进程）时，才结束它并在同一端口重试（最多重试若干次）。**别的数据目录、别的安装目录里的如意实例，以及别人的服务，一律不动**——它们可能正在跑回合；报出占用 PID / 进程名只用于说明，不会去结束它。
+- **同一数据目录只开一个服务**：启动恢复与迁移之前取得数据目录独占权；已有实例运行时明确拒绝第二次启动，即使换端口也不会取消原任务的待决或覆盖握手。可继续使用原窗口，或先正常退出原服务。
 - **其余一律顺延**：自动改用「原端口 +1 … +9」里第一个能监听的端口；实际端口写进 `runtime.json` 与控制台 URL，界面顶部条会说明「已改用 X（原 Y 被占用）」。九个都不行才报错，并留下 `last-start-error.json` 供下次启动在界面里提示。
-- 若 `killPortOnStart=false`（配置）或 `WCW_KILL_PORT=0`（环境变量）→ **连本数据目录的陈旧实例也不接管**，同样直接顺延到下一个端口。
+- **不再自动结束任何占口进程**。`killPortOnStart` 和 `WCW_KILL_PORT` 保留旧配置兼容，但不再开启自动接管；不同数据目录的服务遇到端口占用时同样顺延。
 - 要固定端口：用 `--port <n>`，并先自己关掉占用者；固定端口被占时如意仍会顺延，而不是硬抢。
 
 ### 1.6 Win10/11 要求
@@ -245,7 +245,7 @@ node app\server.js doctor          # 应显示: claudeWorks: true
 
 | 环境变量 | 影响 |
 |---|---|
-| `WCW_KILL_PORT=0` | 禁止端口自动接管（连本数据目录自己的陈旧实例也不结束），8765 被占时直接顺延到下一个空闲端口 |
+| `WCW_KILL_PORT=0` | 旧兼容项；现在始终不自动结束占口进程，端口占用时顺延；同数据目录的重复服务直接拒绝 |
 | `WCW_FAKE_CLAUDE` | 测试用，指向假 CLI 脚本（生产环境**绝不应设**） |
 | `MAX_THINKING_TOKENS` | 限制思考 token 数（workbench 会用 `config.thinkingBudget` 覆盖它） |
 
@@ -498,7 +498,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 | 症状 | 处理 |
 |---|---|
-| **端口占用** | 默认 8765 被占：只有占用者正是**本数据目录**登记的陈旧实例（`runtime.json` 的 pid）且 `killPortOnStart` 未禁用时，才会结束它并在原端口重来；别的如意实例（别的安装 / 别的数据目录）和别的程序都不动，如意自动顺延到下一个空闲端口（界面顶部条会说明改用了哪个，`runtime.json` 记实际端口）。要固定端口：`--port <n>` 并先手动结束占用者。 |
+| **端口占用** | 同一数据目录已有服务时拒绝重复启动；不同数据目录遇到占口时，保持原进程运行并顺延到下一个空闲端口。界面顶部条和 `runtime.json` 记录实际端口。要固定端口：`--port <n>` 并先正常退出占用者。 |
 | **引擎 401** | Claude CLI：检查 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` 与 `ANTHROPIC_BASE_URL`（或设置里的模型接口 Base / 密钥）。Provider：检查 apiKey 是否有效。注意 **401 不触发端点故障转移**（归因保留），换备用端点无益，应先修密钥。 |
 | **流断线 / failover 提示** | 前端收到 `failover` 事件即说明主端点预首字节不可用、已切备用（连接失败或 502/503/504）。若备用也不通会最终报错。SSE 正文已开始后的中断不会切端点（防重放），需重发本轮。 |
 | **搜索后端不通** | 检查 `searchBackend.type` 与对应的 baseUrl（searxng/custom 必填）/ apiKey（bing/brave 必填，tavily 必填、bocha 可选）。搜索后端是**受信端点不过 SSRF**，但仍需网络可达。断网时 web_fetch 会回落本地 webcache（`fromCache:true`）。 |
