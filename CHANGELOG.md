@@ -5,6 +5,12 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 同一数据目录的第二个服务实例会在恢复任务前被拒绝，避免取消仍在办理的待决或覆盖活实例信息。端口占用时保留原进程并顺延端口；默认旧数据迁移也受同一所有权保护。
+- 对齐管家的中英提示与工具说明：少量受限只读即可回答的问题可以当轮处理，需要独立调查或执行的工作仍交办给线程。权限与外部材料污染检查保持生效。
+
+- Reject a second service using the same data directory before recovery can alter active decisions or runtime identity. Occupied ports fall back without terminating their owner; default legacy-data migration uses the same ownership protection.
+- Align Chinese and English steward prompts with existing tools: small, restricted reads can answer directly, while independent investigation and execution are delegated to threads. Existing permissions and untrusted-content checks remain in force.
+
 ## 3.0.1 · 2026-10-16
 
 [本版更新与下载 / Release notes](docs/release-notes/v3.0.1.md)
