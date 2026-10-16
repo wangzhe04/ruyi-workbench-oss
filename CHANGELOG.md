@@ -5,6 +5,12 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 班组与工具箱统一显示写盘失败、空闲中止和资源阻塞；读取失败时保留并标明旧快照，缺失或畸形响应不再伪装成空列表或成功刷新。
+- 管家停止回执区分请求受理、无事可停、拒绝与结果未确认；同一目标的在途点击合并，丢失回包后不自动重发，实时与历史工具回执使用同一判据。
+
+- Crew and Workflows share persistence, idle-abort and resource-wait notices. Failed reads retain a visibly stale snapshot; missing or malformed responses no longer masquerade as empty results or successful refreshes.
+- Steward stop receipts distinguish accepted requests, no-ops, rejections and unconfirmed results. Concurrent clicks for one target share a request, lost responses do not trigger automatic resends, and live and replayed tool receipts use the same rules.
+
 - 同一数据目录的第二个服务实例会在恢复任务前被拒绝，避免取消仍在办理的待决或覆盖活实例信息。端口占用时保留原进程并顺延端口；默认旧数据迁移也受同一所有权保护。
 - 对齐管家的中英提示与工具说明：少量受限只读即可回答的问题可以当轮处理，需要独立调查或执行的工作仍交办给线程。权限与外部材料污染检查保持生效。
 

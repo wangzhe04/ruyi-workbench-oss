@@ -344,6 +344,10 @@ uses the normal input rate. The Usage page also reports cache-hit tokens.
 
 In a multi-agent workflow, the middle **Crew** tab shows members and dependencies, while **Workflows** in the right panel shows run summaries. Select a member for details or use the run selector to inspect earlier runs. Open a running member to send a directed instruction; the interface states when it can be delivered. A proposed task card identifies the proposed work and its budget; choose Add task or No thanks.
 
+Crew and Workflows distinguish run faults from failed reads. Persistence failures, idle aborts and resource waits can appear together. If a refresh fails, the last result stays visible with a warning; unavailable details are not presented as an empty crew. A successful refresh clears the read warning. An older snapshot does not establish that the task is now complete.
+
+Steward stop controls distinguish an accepted request, nothing running, a rejection and an unconfirmed result. Check the task state when the result is unconfirmed; the interface does not automatically resend the request. Feedback beside a button refers to the latest stop request and does not establish that a later turn has also stopped.
+
 ## 7. FAQ
 
 **No engine is ready.** Configure an Agent CLI path or add a model provider in Settings (section 5); the connection status in the thread header turns green once one works.
