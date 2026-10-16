@@ -3945,4 +3945,10 @@
   ,"workflow.overview.selectMember": "定位成员…"
   ,"workflow.overview.issues": "{{count}} 项异常"
   ,"workflow.overview.details": "详情与消息"
+  ,"stewardShell.stop.pending": "正在发送停止请求…"
+  ,"stewardShell.stop.receipt": "最近一次停止请求：{{result}}"
+  ,"stewardShell.stop.accepted": "已发出停止请求"
+  ,"stewardShell.stop.noop": "当前没有正在运行的任务"
+  ,"stewardShell.stop.unknown": "未确认停止结果，请核对状态"
+  ,"stewardShell.stop.failed": "停止请求被拒绝：{{error}}"
 }

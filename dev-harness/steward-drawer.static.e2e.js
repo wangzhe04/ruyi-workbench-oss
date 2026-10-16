@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { constBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -39,6 +40,9 @@ const drawerCode = stripComments(drawer);
 const chipsCode = stripComments(chips);
 const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
 const count = (source, pattern) => (source.match(pattern) || []).length;
+// Named imports may grow as shared contracts are added; membership, not the final name/order, is the invariant.
+const drawerConversationNames = [...drawer.matchAll(/import \{([^}]+)\} from '\.\/steward-conversation\.js';/g)]
+  .flatMap(match => match[1].split(',').map(name => name.trim()));
 
 let fail = 0;
 const ok = (condition, label) => {
@@ -338,7 +342,7 @@ ok(/const code = stewardErrorCode\(info\);/.test(failNoteBody)
   && /stewardQueuedWaitLabel\(info(?:, t)?\)/.test(failNoteBody)   // W2-F5：可带第二个参数 t（本地化等待原因）
   && /stewardErrorText\(info\)/.test(failNoteBody)
   && !/String\(\(info && info\.message\)/.test(failNoteBody)
-  && /stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel \} from '\.\/steward-conversation\.js';/.test(drawer),
+  && ['stewardErrorCode', 'stewardErrorText', 'stewardQueuedWaitLabel'].every(name => drawerConversationNames.includes(name)),
   'F4d 抽屉 failNote 与看板同判据：稳定码 / wait.label / 人话文本三处都只经 steward-conversation.js（零本地弱化解包）');
 ok(/const relayed = await api\('\/api\/steward\/relay', \{ method: 'POST', body: JSON\.stringify\(\{ sessionId, message \}\) \}\);/.test(drawer)
   && !/api\('\/api\/steer'/.test(drawerCode) && !/\/api\/chat\/stream/.test(drawerCode),
@@ -682,9 +686,14 @@ ok(typeof conversationMod.stewardThreadHueFor === 'function'
 // 本身；钉字面量的代价就是这种：合法复用把名单加长一个，锁当场红，整条 e2e 闸卡死。
 // 现在改成钉三件事实：① 三个名字都还是从这个模块 import 的（一个都没被本地重写）；
 // ② 色号在本文件只问一次；③ 本文件零本地登记表、零 stewardThreadHue()、零颜色字面量。
-ok(/import \{[^}]*\bstewardThreadHueFor\b[^}]*\bstewardThreadStateKey\b[^}]*\bstewardAgoLabel\b[^}]*\} from '\.\/steward-conversation\.js';/.test(drawer)
+// Only the two page-local stop-request maps are exempted. Any additional map still fails this hue-registry lock.
+const drawerHueCode = ['stewardStopRequests', 'stewardStopReceipts'].reduce((source, name) => {
+  const declaration = constBlock(source, name);
+  return declaration === 'const ' + name + ' = new Map();' ? source.replace(declaration, '') : source;
+}, drawerCode);
+ok(['stewardThreadHueFor', 'stewardThreadStateKey', 'stewardAgoLabel'].every(name => drawerConversationNames.includes(name))
   && count(drawerCode, /stewardThreadHueFor\(/g) === 1
-  && !/new Map\(\)|stewardThreadHue\(|hsl\(|rgb\(/.test(drawerCode),
+  && !/new Map\(\)|stewardThreadHue\(|hsl\(|rgb\(/.test(drawerHueCode),
   `M2 抽屉的色号【只问一次、不自己算】：一处 stewardThreadHueFor(（实测 ${count(drawerCode, /stewardThreadHueFor\(/g)}），零本地登记表、零 stewardThreadHue()、零颜色字面量`);
 ok(/headNode\.dataset\.threadHue = String\(stewardThreadHueFor\(sessionId, missionRow && missionRow\.missionId\)\);/.test(drawerCode)
   && /else headNode\.removeAttribute\('data-thread-hue'\);/.test(drawerCode),

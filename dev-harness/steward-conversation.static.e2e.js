@@ -987,7 +987,7 @@ ok(/undoBtn\.classList\.add\('steward-act-switch'\);/.test(conversationCode)
 ok(/function settleRow\(actsRow, text, glyph\) \{/.test(conversationCode)
   && /const mark = glyph \? icon\(glyph, 12\) : null;/.test(conversationCode)
   && /settleRow\(actsRow, filesReverted > 0 \? t\('stewardShell\.chat\.undone'\) : t\('stewardShell\.chat\.undoneFilesKept'\), 'done'\);/.test(conversationCode)
-  && /settleRow\(actsRow, receiptFor\(act\)\);/.test(conversationCode)
+  && /settleRow\(actsRow, stopReceipt \? stewardStopReceiptText\(stopReceipt, t\) : receiptFor\(act\)\);/.test(conversationCode)
   && /settleRow\(actsRow, t\('stewardShell\.chat\.providerSwitched', \{ provider: candidate\.id \}\)\);/.test(conversationCode),
   'Y8 第三态「✓ 已撤回」：字形是 settleRow 的【可选】第三参，只有撤回这一处传 —— 另两处回执（dismiss／换 Provider）仍是两个参数，一个字没动');
 {
@@ -1041,7 +1041,7 @@ ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversati
     && /act\.kind === 'open_thread'/.test(navRule) && !/label/.test(navRule)
     && /if \(isNavigationAct\(act\)\) \{/.test(runActRule)
     && settleInRunAct === 1
-    && /\} else \{\s*settleRow\(actsRow, receiptFor\(act\)\);\s*\}/.test(runActRule),
+    && /\} else \{\s*settleRow\(actsRow, stopReceipt \? stewardStopReceiptText\(stopReceipt, t\) : receiptFor\(act\)\);\s*\}/.test(runActRule),
     `Z1 ② 导航 ≠ 表态：「点完要不要落回执」按 act.kind 判（不看按钮上的字），runAct 里唯一那处 settleRow`
     + `（实测 ${settleInRunAct} 处）落在【非导航】那一支 —— open_thread 点完按钮行原样留着，从 2.0 回来还能再点`);
   const navBranch = runActRule.slice(runActRule.indexOf('if (isNavigationAct(act))'));

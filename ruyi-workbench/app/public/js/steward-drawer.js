@@ -1,6 +1,7 @@
 'use strict';
 
 import './mission-state.js';
+import { getLocale } from './i18n.js';
 // 117l D2：抽屉不再直调 fetch（原来那一处是 POST /api/chat/stream，已被 /api/steward/relay 取代），
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
@@ -30,7 +31,7 @@ import { missionStateIcon, icon } from './icons.js';
 // 33 号文 §4「抽屉 failNote 对齐看板」：错误信封的三处判据（稳定码 / wait.label / 人话文本）同样
 // 只留 conversation 那一份，抽屉不再自写弱化版 —— 同一条理由，同一行加三个名字。
 import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel, stewardDeliverableText,
-  stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel } from './steward-conversation.js';
+  stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardStopReceiptOf, stewardStopReceiptText } from './steward-conversation.js';
 // 32 号文 §4（M2-b）：暂停／继续的判据（含 pausableRunOf）搬到叶子 js/run-state.js，2.0 的 run 卡
 // 与 3.0 的看板行同一份。本文件原来那一处 export function pausableRunOf 就地改成 re-export ——
 // 看板/抽屉的既有 import 面（`{ stewardThreadRunAction, stewardThreadStop }` + pausableRunOf）
@@ -289,12 +290,79 @@ export async function stewardThreadRunAction({ api, sessionId, runId, action }) 
 }
 // 停任何回合（含仲裁器队列里还没轮到的那一条：116h 的 cancelQueuedTurn 就挂在这条路由上）。
 // 117h 的「停掉占用者」用的也是它 —— 等锁那一行点一下，停的就是 blockedBy 指的那条线程。
+const stewardStopRequests = new Map();
+const stewardStopReceipts = new Map();
+const stewardStopControls = new WeakMap();
+
+// Page-local feedback survives read-only row refreshes. It never changes task/run state or replays a write.
+export function stewardStopControl(button, sessionId, translate, feedbackHost = null) {
+  if (!button) return;
+  button.dataset.stewardStopSession = String(sessionId || '');
+  const receipt = stewardStopReceipts.get(String(sessionId || ''));
+  button.disabled = Boolean(receipt && receipt.outcome === 'pending');
+  const control = stewardStopControls.get(button);
+  let feedback = control && control.feedback;
+  if (!feedback || !feedback.hasAttribute('data-stop-receipt')) {
+    feedback = button.ownerDocument.createElement('span');
+    feedback.className = 'steward-receipt';
+    feedback.setAttribute('data-stop-receipt', '');
+    feedback.setAttribute('role', 'status');
+    if (feedbackHost) feedbackHost.appendChild(feedback);
+    else button.after(feedback);
+  }
+  stewardStopControls.set(button, { translate, feedback });
+  feedback.dataset.stopOutcome = receipt ? receipt.outcome : '';
+  feedback.textContent = receipt ? translate('stewardShell.stop.receipt', { result: stewardStopReceiptText(receipt, translate) }) : '';
+  feedback.title = receipt ? new Date(receipt.requestedAt).toLocaleString(getLocale()) : '';
+  feedback.hidden = !receipt;
+}
+
+function stewardPublishStopReceipt(sessionId, receipt) {
+  const previous = stewardStopReceipts.get(sessionId);
+  receipt = { ...receipt, requestedAt: receipt.outcome === 'pending' ? Date.now() : (previous && previous.requestedAt) || Date.now() };
+  stewardStopReceipts.delete(sessionId);
+  stewardStopReceipts.set(sessionId, receipt);
+  // Bound page-local history; an in-flight target is never evicted.
+  for (const id of stewardStopReceipts.keys()) {
+    if (stewardStopReceipts.size <= 128) break;
+    if (!stewardStopRequests.has(id)) stewardStopReceipts.delete(id);
+  }
+  stewardPaintStopControls(sessionId);
+}
+
+function stewardPaintStopControls(sessionId = '') {
+  const document_ = doc();
+  if (!document_) return;
+  for (const button of document_.querySelectorAll('[data-steward-stop-session]')) {
+    if (sessionId && button.dataset.stewardStopSession !== sessionId) continue;
+    const control = stewardStopControls.get(button);
+    if (control) stewardStopControl(button, button.dataset.stewardStopSession, control.translate);
+  }
+}
+if (typeof globalThis.addEventListener === 'function') globalThis.addEventListener('i18n:change', () => stewardPaintStopControls());
+
 export async function stewardThreadStop({ api, sessionId }) {
-  if (typeof api !== 'function' || !sessionId) return { ok: false, error: 'not_found' };
-  try {
-    const stopped = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId }) });
-    return (stopped && stopped.ok === false) ? { ok: false, error: stopped.error || 'stop_failed' } : { ok: true };
-  } catch (error) { return { ok: false, error }; }
+  if (typeof api !== 'function' || !sessionId) return { ok: false, outcome: 'failed', error: 'not_found' };
+  const id = String(sessionId);
+  if (stewardStopRequests.has(id)) return stewardStopRequests.get(id);
+  const request = Promise.resolve().then(async () => {
+    let receipt;
+    try {
+      const response = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: id }) });
+      receipt = stewardStopReceiptOf(response);
+    } catch (error) {
+      // Only an explicit HTTP rejection proves failure. A disconnected/invalid response may follow a real stop.
+      receipt = Number(error && error.status) >= 400 && Number(error && error.status) < 500
+        ? { ok: false, outcome: 'failed', error: apiErrorInfo(error) || error }
+        : { ok: false, outcome: 'unknown' };
+    }
+    stewardStopRequests.delete(id);
+    stewardPublishStopReceipt(id, receipt);
+    return receipt;
+  });
+  stewardStopRequests.set(id, request);
+  stewardPublishStopReceipt(id, { ok: false, outcome: 'pending' });
+  return request;
 }
 
 // 33 号文 §4「costText／acceptanceText／threadStateOf 三对收一处」：这三条判据此前看板与抽屉各一份、
@@ -1278,6 +1346,7 @@ export function createStewardDrawer({
       const queued = Boolean(sections && sections.queued);
       const activeTurn = Boolean(missionRow && missionRow.activeTurn === true);
       stop.hidden = !(isLive() || activeTurn || queued);
+      stewardStopControl(stop, sessionId, t);
     }
   }
 
@@ -1482,12 +1551,14 @@ export function createStewardDrawer({
   }
 
   async function stopThread() {
+    const targetId = sessionId;
     const stopped = await stewardThreadStop({ api, sessionId });
-    if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return; }
+    if (targetId !== sessionId) return;   // A late reply belongs to the original thread.
+    note(stewardStopReceiptText(stopped, t));
     await refreshOnce();
     // 128f-⑫（审计 F）：停掉的若是一条还在排队的，左栏头上的「排队 N」要当场少一 —— 那个数读仲裁面，而排队中的回合
     // 被停一帧线程推送都没有（它根本没起跑）。页内广播给左栏（steward-board 订了它，只重读仲裁面这一发）。
-    if (drawerEventStream && typeof drawerEventStream.publishLocal === 'function') drawerEventStream.publishLocal('steward.arbiter.changed', {});
+    if (stopped.outcome === 'accepted' && drawerEventStream && typeof drawerEventStream.publishLocal === 'function') drawerEventStream.publishLocal('steward.arbiter.changed', {});
   }
 
   // ── 刷新与轮询 ──────────────────────────────────────────────────────────────

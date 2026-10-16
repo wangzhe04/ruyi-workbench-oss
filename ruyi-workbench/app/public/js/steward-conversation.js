@@ -489,6 +489,28 @@ export function stewardAgoLabel(iso, lang) {
 // 判据只看 `result`，`say` 里那句话一个字都不看（38 号文 §7 ④ 的裁决：下一档不是关键词表，
 // 而是让「我做了什么」结构化到 actions 里再判）。第三态是本刀补出来的那一格，见下面调用点的头注。
 export const STEWARD_RECEIPT_STATES = Object.freeze(['done', 'failed', 'no_receipt']);
+
+// A stop acknowledgement confirms that cancellation was requested, not that the process exited.
+// Both direct controls and live/history tool receipts use this exact contract.
+export function stewardStopReceiptOf(response) {
+  if (response && response.ok === false && stewardErrorCode(response.error) === 'not_running') return { ok: true, outcome: 'noop' };
+  if (response && response.ok === false) return { ok: false, outcome: 'failed', error: response.error || 'stop_failed' };
+  if (response && response.ok === true) {
+    if (response.stopped === true || response.queuedStopped === true) return { ok: true, outcome: 'accepted' };
+    if (response.stopped === false && (response.queuedStopped === undefined || response.queuedStopped === false)) {
+      return { ok: true, outcome: 'noop' };
+    }
+  }
+  return { ok: false, outcome: 'unknown' };
+}
+
+export function stewardStopReceiptText(receipt, translate) {
+  const outcome = receipt && receipt.outcome;
+  if (outcome === 'failed') return translate('stewardShell.stop.failed', { error: stewardErrorText(receipt.error) || 'failed' });
+  const keys = { accepted: 'stewardShell.stop.accepted', noop: 'stewardShell.stop.noop',
+    pending: 'stewardShell.stop.pending', unknown: 'stewardShell.stop.unknown' };
+  return translate(keys[outcome] || keys.unknown);
+}
 export function stewardActionReceiptState(result) {
   if (result && result.ok === true) return 'done';
   if (result && result.ok === false) return 'failed';
@@ -985,6 +1007,12 @@ export function createStewardConversation({
     try {
       const response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
       const result = response && response.result;
+      const stopReceipt = act.tool === 'steward_thread_stop' ? stewardStopReceiptOf(result) : null;
+      if (stopReceipt && stopReceipt.outcome === 'unknown') {
+        showActProblem(actsRow, stewardStopReceiptText(stopReceipt, t));
+        if (btn) { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); }
+        return;
+      }
       if (!response || response.ok !== true || (act.kind === 'tool' && (!result || typeof result.ok !== 'boolean'))) {
         showActProblem(actsRow, t('stewardShell.chat.actUnconfirmed'));
         // A lost receipt may follow a successful write: do not invite duplicates.
@@ -992,7 +1020,7 @@ export function createStewardConversation({
         if (btn) { if (isNavigationAct(act)) btn.disabled = false; else { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); } }
         return;
       }
-      if (result && result.ok === false) {
+      if (result && result.ok === false && (!stopReceipt || stopReceipt.outcome !== 'noop')) {
         // 117l-B2 ⑤：查表那一步搬进 stewardActErrorMessage（多一条 steward.queued 要插 wait.label），
         // 表外仍然落到 errGeneric 并把原始 error 原样带出去。
         const message = (stewardErrorCode(result.error) === 'invalid_request' ? stewardErrorText(result.message) : '') || stewardActErrorMessage(result.error, t)
@@ -1011,7 +1039,7 @@ export function createStewardConversation({
         if (btn) btn.disabled = false;
         if (act.sessionId) openThread(act.sessionId);
       } else {
-        settleRow(actsRow, receiptFor(act));
+        settleRow(actsRow, stopReceipt ? stewardStopReceiptText(stopReceipt, t) : receiptFor(act));
       }
       if (typeof onSettled === 'function') onSettled(act, response);
     } catch (error) {
@@ -1714,15 +1742,18 @@ export function createStewardConversation({
     const out = [];
     for (const row of (Array.isArray(actions) ? actions : [])) {
       if (!row || !row.tool) continue;
-      const state = stewardActionReceiptState(row.result);
-      out.push({ state, text: receiptText(row, state) });
+      const stopReceipt = row.tool === 'steward_thread_stop' ? stewardStopReceiptOf(row.result) : null;
+      const state = stopReceipt ? (stopReceipt.ok ? 'done' : (stopReceipt.outcome === 'failed' ? 'failed' : 'no_receipt'))
+        : stewardActionReceiptState(row.result);
+      out.push({ state, text: receiptText(row, state), ...(stopReceipt ? { stopOutcome: stopReceipt.outcome } : {}) });
     }
     return out;
   }
   function receiptText(row, state) {
     const result = row.result;
     // 三态各自的那半句。failed 那一档仍然把后端的错误人话原样带出来（诚实优先，不归一成一句）。
-    const stateText = state === 'done' ? t('stewardShell.chat.actionDone')
+    const stateText = row.tool === 'steward_thread_stop' ? stewardStopReceiptText(stewardStopReceiptOf(result), t)
+      : state === 'done' ? t('stewardShell.chat.actionDone')
       : state === 'failed' ? stewardActErrorMessage(result && result.error, t) || stewardErrorText(result && result.error)
         : t('stewardShell.chat.actionNoReceipt');
     return t('stewardShell.chat.actionLine', {
@@ -1748,6 +1779,7 @@ export function createStewardConversation({
       const line = el('p', 'steward-receipt', receipt.text);
       line.dataset.receipt = 'action';
       line.dataset.receiptState = receipt.state;
+      if (receipt.stopOutcome) line.dataset.stopOutcome = receipt.stopOutcome;
       row.appendChild(line);
     }
     return receipts.length;

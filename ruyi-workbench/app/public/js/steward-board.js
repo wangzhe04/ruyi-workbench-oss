@@ -15,6 +15,8 @@ import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, write
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
 import { icon, missionStateIcon } from './icons.js';
 import { stewardThreadRunAction, stewardThreadStop } from './steward-drawer.js';
+import { stewardStopControl } from './steward-drawer.js';
+import { stewardStopReceiptText } from './steward-conversation.js';
 // 32 号文 §4（M2-b）：暂停／继续的判据（runCanPause/runCanResume + 批量名单 + 文案键）搬进叶子
 // js/run-state.js —— 2.0 顶栏的 run 卡、本看板的行键与「全部暂停」、抽屉底部三处同一份。
 import { runControlAction, runIsLive, runTextKeys, pausableRunsOf, hasPausableRun } from './run-state.js';
@@ -1087,8 +1089,10 @@ export function createStewardBoard({
     const actions = el('div', 'steward-board-actions');
     // 116h 交付记录的登记项①在这里落地：等锁时占用者就在 wait.blockedBy 里，给一个「停掉占用者」。
     if (wait && String(wait.reason) === 'lock' && stewardWaitBlockerId(wait)) {
-      actions.appendChild(boardButton('stewardShell.board.stopBlocker',
-        () => stopBlocker(stewardWaitBlockerId(wait)), { action: 'stop-blocker' }, 'stop'));
+      const blockerStop = boardButton('stewardShell.board.stopBlocker',
+        () => stopBlocker(stewardWaitBlockerId(wait)), { action: 'stop-blocker' }, 'stop');
+      actions.appendChild(blockerStop);
+      stewardStopControl(blockerStop, stewardWaitBlockerId(wait), t, tail);
     }
     const lastRun = (row.lastRun && typeof row.lastRun === 'object') ? row.lastRun : null;
     // 二选一由 run-state.js 的判据说（与 2.0 的 run 卡同一份）：'pause' | 'resume' | 都不出。
@@ -1103,7 +1107,9 @@ export function createStewardBoard({
     }
     actions.appendChild(boardButton('stewardShell.board.prioritize', () => prioritize(sessionId), { action: 'prioritize' }, 'up'));
     // 「停止」这一枚停的是【这条线程】，所以是实心方块；管家本人的停机在头部，那一枚是电源符。
-    actions.appendChild(boardButton('stewardShell.board.stop', () => stopThread(sessionId), { action: 'stop' }, 'stop'));
+    const threadStop = boardButton('stewardShell.board.stop', () => stopThread(sessionId), { action: 'stop' }, 'stop');
+    actions.appendChild(threadStop);
+    stewardStopControl(threadStop, sessionId, t, tail);
     // 2026-09-24（用户：「有按钮的话默认直接打开工作台里的对应线程」）：菜单里的「打开」＝在工作台
     // 打开这条线程（两视角同义，见 openInWorkbenchRow）。修前它与「在工作台打开」并排：一枚只换右栏
     // 焦点、一枚才真的去工作台，「打开」按下去像没反应。右栏预览由【点行本身】承担，不再占一枚按钮。
@@ -1490,11 +1496,10 @@ export function createStewardBoard({
 
   async function stopThread(sessionId) {
     const stopped = await stewardThreadStop({ api, sessionId });
-    if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return false; }
-    note(t('stewardShell.board.stopped'));
+    note(stewardStopReceiptText(stopped, t));
     await refreshBoard();
     refreshDrawerIfFocused(sessionId);
-    return true;
+    return stopped.ok;
   }
 
   // 116h 登记项①：停在「等你」的线程仍持着 cwd 写锁，会挡住同目录所有线程。看到就能一键停掉它。
@@ -1505,11 +1510,10 @@ export function createStewardBoard({
     // 跟语言、焦点归壳管（原生框三样都不跟）。同步变异步：没得到允许就不动手。
     if (!await confirmDanger({ name: 'stopBlocker', bodyParams: { title } })) return false;
     const stopped = await stewardThreadStop({ api, sessionId: blockedBy });
-    if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return false; }
-    note(t('stewardShell.board.stopBlockerDone', { title }));
+    note(stewardStopReceiptText(stopped, t));
     await refreshBoard();
     refreshDrawerIfFocused(blockedBy, currentFocusId());   // 被挡的那一条（通常就是焦点）写着「被谁挡着」
-    return true;
+    return stopped.ok;
   }
 
   async function prioritize(sessionId) {

@@ -3945,4 +3945,10 @@
   ,"workflow.overview.selectMember": "Find a member…"
   ,"workflow.overview.issues": "{{count}} issues"
   ,"workflow.overview.details": "Details & messages"
+  ,"stewardShell.stop.pending": "Sending stop request…"
+  ,"stewardShell.stop.receipt": "Last stop request: {{result}}"
+  ,"stewardShell.stop.accepted": "Stop request sent"
+  ,"stewardShell.stop.noop": "No task is currently running"
+  ,"stewardShell.stop.unknown": "Stop result unconfirmed. Check the task status."
+  ,"stewardShell.stop.failed": "Stop request rejected: {{error}}"
 }
