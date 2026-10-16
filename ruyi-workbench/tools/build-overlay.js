@@ -83,6 +83,7 @@ const PAYLOAD_FILES = [
   // 32 号文 §4（M2-b）：暂停／继续的判据与文案键（2.0 的 run 卡 + 3.0 的看板行／抽屉共用）——
   // 两壳都在 import，同样漏登记即白屏。
   'app/public/js/run-state.js',
+  'app/public/js/run-health.js',
   // 32 号文 §4（M2-a）：模态原语（2.0 动态模态 + 3.0 危险操作确认共用）搬成的叶子模块。
   'app/public/js/modal.js',
   // 33 号文 §4（M3-a）：3.0 管家壳危险操作确认的统一件与文案键登记表（建在 modal.js 之上；

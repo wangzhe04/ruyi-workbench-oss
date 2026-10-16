@@ -761,6 +761,88 @@ test('⑥ 运行监控轮询：页签还挂着 active 但列表不在屏上（�
   }
 });
 
+test('运行读取质量：失败和畸形成功保留快照与待审批；有效空列表才能清空', async () => {
+  const { state } = await load('state.js');
+  const { t } = await load('i18n.js');
+  state.currentSession = { id: 'quality_top' }; state.config = { monitorIncremental: false };
+  const host = document.mount('div', 'agentRunsList');
+  const run = { id: 'quality_run', status: 'running', live: true, nodes: [], taskPool: [{ id: 'pending', status: 'proposed', task: 'Keep pending' }] };
+  apiHandler = () => ({ ok: true, runs: [run] });
+  const wf = await workflowsDomain(); await wf.loadAgentRuns(true);
+  apiHandler = () => httpError(503, { error: 'offline' }); await wf.loadAgentRuns(true);
+  assert.ok(host.querySelector('.agent-run-card'), 'failure retains the known run');
+  assert.ok(host.textContent.includes('Keep pending'), 'pending facts remain visible');
+  assert.ok(host.textContent.includes(t('workflow.health.listStale')));
+  apiHandler = () => ({ ok: true, runs: null }); await wf.loadAgentRuns(true);
+  assert.ok(host.querySelector('.agent-run-card'), 'malformed 200 is not an authoritative empty list');
+  assert.ok(host.textContent.includes(t('workflow.health.listStale')));
+  for (const malformed of [{ id: run.id, nodes: [] }, { ...run, nodes: [null] }, { ...run, nodes: [{ id: '', status: 'running' }] }, { ...run, live: 'true' }]) {
+    apiHandler = () => ({ ok: true, runs: [malformed] }); await wf.loadAgentRuns(true);
+    assert.ok(host.querySelector('.pool-section'), 'malformed run does not remove known pending decisions');
+    assert.ok(host.textContent.includes(t('workflow.health.listStale')));
+  }
+  apiHandler = () => ({ ok: true, runs: [] }); await wf.loadAgentRuns(true);
+  assert.equal(host.querySelector('.agent-run-card'), null);
+  assert.equal(host.textContent, t('workflow.empty'));
+  host.remove();
+});
+
+test('运行详情与事件失败：首次保留digest身份，错误事件不能污染旧节点，恢复才撤读取质量', async () => {
+  const { state } = await load('state.js'); const { t } = await load('i18n.js');
+  state.currentSession = { id: 'quality_detail' }; state.config = {};
+  const host = document.mount('div', 'agentRunsList');
+  const run = { id: 'detail_run', status: 'running', live: true, eventSeq: 1, nodes: [{ id: 'n', status: 'running', progressLog: [{ text: 'Known progress' }] }] };
+  let detailFails = true, seq = 1;
+  apiHandler = url => {
+    if (url.includes('view=digest')) return { ok: true, runs: [{ id: run.id, status: 'running', live: true, eventSeq: seq }] };
+    if (url.includes('/events?')) return { ok: false, events: [{ seq: 2, type: 'node_progress', nodeId: 'n', data: { text: 'POISON' } }] };
+    if (detailFails) return httpError(503, { error: 'offline' });
+    return { ok: true, run };
+  };
+  const wf = await workflowsDomain(); await wf.loadAgentRuns();
+  assert.ok(host.textContent.includes(t('workflow.health.detailUnavailable', { id: run.id })));
+  assert.ok(!host.textContent.includes(t('workflow.empty')), 'unread details are not no workflows');
+  detailFails = false; await wf.loadAgentRuns();
+  assert.ok(host.textContent.includes('Known progress'));
+  assert.equal(host.querySelector('.workflow-read-health'), null);
+  const priorHandler = apiHandler;
+  for (const patch of [{ live: 'true' }, { paused: 'false' }, { persistenceDegraded: 1 }, { eventSeq: -1 }]) {
+    apiHandler = url => url.includes('view=digest') ? { ok: true, runs: [{ id: run.id, status: 'running', live: true, eventSeq: 1, ...patch }] } : priorHandler(url);
+    await wf.loadAgentRuns();
+    assert.ok(host.textContent.includes(t('workflow.health.listStale')));
+    assert.ok(host.querySelector('.agent-run-controls button').textContent.includes(t('workflow.pause')), 'bad digest cannot turn a live run into a recovered/deletable run');
+  }
+  apiHandler = priorHandler;
+  detailFails = true; seq = 2; await wf.loadAgentRuns();
+  assert.ok(host.textContent.includes('Known progress'));
+  assert.ok(!host.textContent.includes('POISON'), 'ok:false event payload is never applied');
+  assert.ok(host.textContent.includes(t('workflow.health.detailStale', { id: run.id })));
+  detailFails = false; await wf.loadAgentRuns();
+  assert.equal(host.querySelector('.workflow-read-health'), null);
+  host.remove();
+});
+
+test('运行读取：同会话旧响应和换会话迟到失败都不能污染当前质量或缓存', async () => {
+  const { state } = await load('state.js');
+  const host = document.mount('div', 'agentRunsList'); state.config = { monitorIncremental: false };
+  const wf = await workflowsDomain(); const old = deferred();
+  state.currentSession = { id: 'quality_old' }; apiHandler = () => old.promise;
+  const pending = wf.loadAgentRuns(true);
+  assert.equal(host.textContent, (await load('i18n.js')).t('workflow.health.loading'), 'unresolved first read is not empty');
+  state.currentSession = { id: 'quality_new' };
+  apiHandler = () => ({ ok: true, runs: [{ id: 'new_run', status: 'succeeded', nodes: [] }] });
+  await wf.loadAgentRuns(true);
+  old.resolve(httpError(503, { error: 'late' })); await pending;
+  assert.equal(host.querySelector('.agent-run-card').dataset.runId, 'new_run');
+  assert.equal(host.querySelector('.workflow-read-health'), null);
+  const same = deferred(); apiHandler = () => same.promise; const earlier = wf.loadAgentRuns(true);
+  apiHandler = () => ({ ok: true, runs: [] }); await wf.loadAgentRuns(true);
+  same.resolve({ ok: true, runs: [{ id: 'old_same_session', status: 'running', nodes: [] }] }); await earlier;
+  assert.equal(host.querySelector('.agent-run-card'), null, 'older success cannot restore a deleted run');
+  assert.equal(host.querySelector('.workflow-read-health'), null);
+  host.remove();
+});
+
 // ── ⑨ 设置 → 工作区：删掉唯一一行 ─────────────────────────────────────────────────────────────
 // 删除按钮的处理器是 renderWorkspacePerms 里的一行内联接线（splice → syncPrimaryInput → 存 workspacePatch()），
 // 工厂不导出它；这里把那两个真函数原样切出来，在同一个上下文里按那一行的顺序跑。

@@ -393,3 +393,14 @@
 .mcp-compat-item { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--panel-2); }
 .mcp-compat-item code { color: var(--ink); }
 .mcp-compat-line { margin-top: 2px; }
+
+/* Shared by the toolbox and crew: read quality is separate from run faults. */
+.workflow-read-health, .workflow-run-health { flex: 1 1 100%; min-width: 0; max-width: 100%; padding: 9px 12px; border: 1px solid var(--warn); border-radius: var(--r-sm); color: var(--warn-fg); background: var(--warn-bg); font-size: var(--fs-xs); line-height: 1.55; overflow-wrap: anywhere; }
+.workflow-read-health { margin-bottom: 8px; border-style: dashed; }
+.workflow-run-health { margin: 8px 0; }
+.wb-overview .workflow-run-health, .wb-overview .workflow-read-health { margin: 0; order: 3; }
+.workflow-health-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.workflow-health-line + .workflow-health-line, .workflow-read-line + .workflow-read-line { margin-top: 6px; }
+.workflow-health-line > span { flex: 1 1 220px; }
+.workflow-health-line button { flex: none; min-height: 28px; }
+.workflow-health-time { display: block; color: var(--muted); font-size: var(--fs-xs); }

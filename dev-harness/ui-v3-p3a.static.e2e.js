@@ -147,8 +147,13 @@ ok(/setInterval\(agentRunsTick, 2000\)/.test(src) && /loadAgentRuns\(\)/.test(fn
   'H 复用现有 2s 轮询(setInterval → agentRunsTick → loadAgentRuns 2000,协议未改)');
 // 第29波(§29a):喂画布点从 loadAgentRuns 内联挪进 deliverAgentRuns(全量/增量两条路共用的投递尾段)——
 // 契约语义不变:画布仍复用同一份轮询数据、零新增请求;loadAgentRuns 两条路径都必须经 deliverAgentRuns 投递。
-ok(/wbOnRuns\(runs\)/.test(fnBody('deliverAgentRuns', 1200)), 'H 投递尾段 deliverAgentRuns 喂画布 wbOnRuns(不新增请求)');
-ok((fnBody('loadAgentRuns', 8000).match(/await deliverAgentRuns\(sid, runs\)/g) || []).length >= 2, 'H loadAgentRuns 全量/增量两路都经 deliverAgentRuns 投递');
+const deliveryBody = functionBlock(src, 'deliverAgentRuns');
+const loadRunsBody = functionBlock(src, 'loadAgentRuns');
+ok(has(deliveryBody, 'renderAgentRuns(runs, quality)', 'wbOnRuns(runs, quality)')
+  && !/\b(?:api|fetch|setInterval)\(/.test(functionBlock(src, 'wbOnRuns')),
+  'H 投递尾段将同一快照与读取质量喂工具箱及画布，画布入口不新增请求或轮询');
+ok(has(loadRunsBody, 'const publish = async runs => {', 'await deliverAgentRuns(sid, runs, quality)', 'await publish(r.runs)', 'await publish(runs)'),
+  'H loadAgentRuns 全量与增量成功均走同一 publish→deliverAgentRuns 投递');
 ok(/function agentRunsPollWanted\(/.test(src) && has(fnBody('agentRunsPollWanted'), 'isWorkbenchCanvasView()'), 'H 轮询期望态通过窄接口并入画布视图(监控页签 ∪ 画布)');
 ok(has(fnBody('wbOnRuns'), 'wbState.lastRuns', "wbState.view === 'canvas'", 'renderWorkbench('), 'H wbOnRuns 缓存 runs + 画布态重绘 + 刷新亮点标');
 // XSS:各构建器不用 innerHTML(el()/textContent + createElementNS)。

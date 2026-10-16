@@ -76,7 +76,9 @@ ok(/const agentRunsCache = \{ sid: '', runs: new Map\(\) \};/.test(app), 'S(前�
 ok(/async function loadAgentRuns\(force\)/.test(app) && /state\.config\.monitorIncremental !== false/.test(app), 'S(前端) 总开关回落(config.monitorIncremental=false → 旧全量)');
 ok(/function applyAgentRunEvent\(run, evt\)/.test(app), 'S(前端) 事件轻应用(progress/start),其余走单 run 快照');
 ok((app.match(/loadAgentRuns\(true\)/g) || []).length >= 5, 'S(前端) 动作后 force 全量 ≥5 处(审批/操作/插话/删除/启动)');
-ok(/const mySeq = \+\+agentRunsSeq;/.test(app) && /if \(mySeq !== agentRunsSeq\) return;/.test(app), 'S(前端) agentRunsSeq 乱序防护保留');
+ok(/const mySeq = \+\+agentRunsSeq;/.test(app)
+  && /const current = \(\) => mySeq === agentRunsSeq && state\.currentSession\?\.id === sid;/.test(app)
+  && /if \(!current\(\)\) return;/.test(app), 'S(前端) agentRunsSeq 与会话双重乱序防护保留（数据与读取质量共门）');
 ok(/c\.stuckTicks = \(c\.stuckTicks \|\| 0\) \+ 1;/.test(app) && /if \(c\.stuckTicks >= 3\) needFull = true;/.test(app), 'S(前端) 事件僵局自愈(连续 3 tick 空拉 → 全量)');
 // ── 对抗轮修复静态锁 ──
 ok(/ar\.onclick = \(\) => loadAgentRuns\(true\)/.test(app), 'S(前端) 对抗轮 P2(#14): 刷新按钮显式 force 全量(不再把 MouseEvent 当 force)');

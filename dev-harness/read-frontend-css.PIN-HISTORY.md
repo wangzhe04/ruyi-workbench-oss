@@ -861,3 +861,10 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   `css/views/workbench.css`:配合线程头窄档的小调整。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 3d9067f:<css>` 重算 = 503807bf…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
+
+// 2026-10 3.0 收口 · 工作文件夹选择器续钉(前值 ae8f54cb…＝2026-10 3.0 收口走查第三波 · 界面续钉):零新增、零删除层,改一层 ——
+//   `css/views/workspace.css`:顶栏工作文件夹弹层重做 —— 「浏览文件夹」主按钮(两行:标题 + 说明,可折行)、常用 / 最近每行「图标 + 名字 + 完整路径」
+//   (`.wp-fav-main` / `-text` / `-nameline` / `-path`(rtl 左省略 + bdi)/ `-badge` / `-icon`)、行尾图标按钮悬停或 focus-within 显出、`.wp-recent-list`、
+//   就地错误行 `.wp-pop-err` 与输入框 `[aria-invalid]` 态;删去 `.wp-fav-rank`。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 620d76b:<css>` 重算 = ae8f54cb…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
