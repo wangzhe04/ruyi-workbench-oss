@@ -1,0 +1,1526 @@
+{
+  "schemaVersion": 1,
+  "benchmark": "SWE-bench Pro V2 HARD-51",
+  "runDate": "2026-10-15",
+  "publicationDate": "2026-10-16",
+  "resultType": "First-party local single-run result; not an official leaderboard submission",
+  "model": "deepseek-flash",
+  "servedModelVersion": "DeepSeek-V4.1-Flash",
+  "harness": {
+    "name": "Ruyi",
+    "version": "3.0.0",
+    "serverSha256": "a80a4e1b6a6d6a13eb292f28135a1eb9f0fb2c676b7674cbf5dc1a297e3a5779"
+  },
+  "dataset": {
+    "repository": "https://github.com/scaleapi/SWE-bench_Pro-os",
+    "verifierCommit": "66f92766bba642462d4bbe5479e83f91f9211862",
+    "hard51IdsSha256": "6e35e84708a26443e1746ae928940555a3188654c90f3a2eb691f4f699482bd1"
+  },
+  "protocol": {
+    "modelRunsPerTask": 1,
+    "agentTimeLimitMinutes": 50,
+    "verifierTimeLimitMinutes": 50,
+    "cpusPerContainer": 1,
+    "memoryMiBPerContainer": 4096,
+    "taskContainerNetwork": "none",
+    "verifierNetwork": "public",
+    "maxParallelTasks": 3,
+    "initialParallelTasks": 2,
+    "parallelismChangedAtUtc": "2026-10-15T09:00:42.987236+00:00",
+    "grading": "Unmodified pinned official verifier applied to each model patch in a pristine task image",
+    "hiddenFeedbackModelRetries": 0,
+    "referenceSolutionsProvided": false,
+    "runtime": "Ruyi on Windows host; repository operations through MCP docker exec, not official Harbor execution"
+  },
+  "totals": {
+    "tasksExpected": 51,
+    "tasksFinished": 51,
+    "tasksPassed": 44,
+    "tasksGraded": 51,
+    "passRateAll51": 0.8627450980392157,
+    "agentSecondsSum": 51451,
+    "gradingSecondsSum": 5404,
+    "executionSecondsSum": 57040,
+    "wallSecondsFirstModelToLastResult": 22827,
+    "requiredTestsPassed": 3833,
+    "requiredTestsTotal": 3852,
+    "billableTokenEstimate": {
+      "cachedInput": 211562240,
+      "uncachedInput": 10534753,
+      "output": 5352235
+    },
+    "estimatedCostCny": "42.15462508",
+    "estimatedCostCnyBreakdown": {
+      "cachedInput": "4.87812608",
+      "uncachedInput": "12.079523",
+      "output": "25.196976"
+    },
+    "estimatedCostCnyPerSolved": "0.9580596609090909090909090909",
+    "estimatedCostCnyPerAttempt": "0.8265612760784313725490196078",
+    "inputCacheHitRate": 0.9525668814435502,
+    "incompleteCostTaskKeys": []
+  },
+  "accounting": {
+    "currency": "CNY",
+    "basis": "Provider usage and official request-start-time tariffs, including Ruyi auxiliary calls; list-price estimate, not an invoice",
+    "taskIndex33Exception": "Real Ruyi turn usage plus auxiliary-call ledger; entire model run in peak tariff band",
+    "rawEvidencePublication": "Full trajectories, patches and provider receipts retained locally; this public export contains sanitized numerical summaries and patch hashes",
+    "priceSource": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+    "perMillionTokensCny": {
+      "peak": {
+        "cacheHit": ".04",
+        "cacheMiss": "2",
+        "output": "8"
+      },
+      "offPeak": {
+        "cacheHit": ".02",
+        "cacheMiss": "1",
+        "output": "4"
+      }
+    },
+    "peakWindowsAsiaShanghai": "Monday-Friday excluding Chinese statutory holidays, 09:00-12:00 and14:00-18:00",
+    "timeBands": {
+      "peak": {
+        "tokens": {
+          "cachedInput": 32344064,
+          "uncachedInput": 1544770,
+          "output": 947009
+        },
+        "costCny": {
+          "cachedInput": "1.29376256",
+          "uncachedInput": "3.089540",
+          "output": "7.576072"
+        }
+      },
+      "offPeak": {
+        "tokens": {
+          "cachedInput": 179218176,
+          "uncachedInput": 8989983,
+          "output": 4405226
+        },
+        "costCny": {
+          "cachedInput": "3.58436352",
+          "uncachedInput": "8.989983",
+          "output": "17.620904"
+        }
+      }
+    },
+    "excludes": [
+      "Codex used to orchestrate the evaluation",
+      "infrastructure",
+      "electricity",
+      "network"
+    ]
+  },
+  "audit": {
+    "patchesSha256Verified": 51,
+    "officialVerifierFilesSha256Verified": 255,
+    "allVerdictsMatchOriginalReward": true,
+    "allCostSumsAgree": true,
+    "allUsageAccountingComplete": true,
+    "hostArtifactCallsAudited": 85,
+    "hostToolScope": "Successful host file/report operations were validation artifacts in isolated scratch directories; failed native repository-path requests made no repository changes; repository work used sandbox MCP",
+    "unresolvedHostToolCalls": 0
+  },
+  "perRepository": {
+    "NodeBB/NodeBB": {
+      "total": 1,
+      "passed": 1
+    },
+    "ansible/ansible": {
+      "total": 8,
+      "passed": 7
+    },
+    "element-hq/element-web": {
+      "total": 4,
+      "passed": 4
+    },
+    "flipt-io/flipt": {
+      "total": 7,
+      "passed": 7
+    },
+    "future-architect/vuls": {
+      "total": 4,
+      "passed": 4
+    },
+    "gravitational/teleport": {
+      "total": 6,
+      "passed": 6
+    },
+    "internetarchive/openlibrary": {
+      "total": 8,
+      "passed": 4
+    },
+    "navidrome/navidrome": {
+      "total": 3,
+      "passed": 3
+    },
+    "protonmail/webclients": {
+      "total": 5,
+      "passed": 4
+    },
+    "qutebrowser/qutebrowser": {
+      "total": 4,
+      "passed": 3
+    },
+    "tutao/tutanota": {
+      "total": 1,
+      "passed": 1
+    }
+  },
+  "tasks": [
+    {
+      "taskIndex": 1,
+      "instanceId": "instance_NodeBB__NodeBB-8168c6c40707478f71b8af60300830fe554c778c-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e",
+      "repository": "NodeBB/NodeBB",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T09:35:34.418Z",
+      "finishedAtUtc": "2026-10-15T09:45:20.028Z",
+      "agentSeconds": 553,
+      "gradingSeconds": 28,
+      "executionSeconds": 586,
+      "requiredTestsPassed": 311,
+      "requiredTestsTotal": 311,
+      "failedRequiredTests": [],
+      "patchSha256": "54e752aec6ae177340c285bc61faf705c20459e447e731be86975a80a6415fbe",
+      "baseCommit": "ab5e2a416324ec56cea44b79067ba798f8394de1",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:267632c93bae96eb120292b36e68227a41f2b6edd8e8ff5d7a3bdd7ef4af3b6b"
+      ],
+      "tokens": {
+        "cachedInput": 6132096,
+        "uncachedInput": 252710,
+        "output": 91886
+      },
+      "estimatedCostCny": "1.48579184",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 2,
+      "instanceId": "instance_ansible__ansible-40ade1f84b8bb10a63576b0ac320c13f57c87d34-v6382ea168a93d80a64aab1fbd8c4f02dc5ada5bf",
+      "repository": "ansible/ansible",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T09:36:19.971Z",
+      "finishedAtUtc": "2026-10-15T09:59:48.579Z",
+      "agentSeconds": 1361,
+      "gradingSeconds": 43,
+      "executionSeconds": 1409,
+      "requiredTestsPassed": 48,
+      "requiredTestsTotal": 48,
+      "failedRequiredTests": [],
+      "patchSha256": "1ad702425359fc3395a5fb890daa2ed66d214a6b9623ae0ff71468108bf6d09b",
+      "baseCommit": "9ab63986ad528a6ad5bf4c59fe104d5106d6ef9b",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:74ef826866ce57312db8311f14ec0c2ce2d03570028b5951653607f0ed72fb79"
+      ],
+      "tokens": {
+        "cachedInput": 4564352,
+        "uncachedInput": 389876,
+        "output": 277646
+      },
+      "estimatedCostCny": "3.18349408",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 3,
+      "instanceId": "instance_ansible__ansible-b748edea457a4576847a10275678127895d2f02f-v1055803c3a812189a1133297f7f5468579283f86",
+      "repository": "ansible/ansible",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T09:46:06.633Z",
+      "finishedAtUtc": "2026-10-15T10:03:59.787Z",
+      "agentSeconds": 1024,
+      "gradingSeconds": 44,
+      "executionSeconds": 1073,
+      "requiredTestsPassed": 46,
+      "requiredTestsTotal": 46,
+      "failedRequiredTests": [],
+      "patchSha256": "a610f492ddc6189803856f8970c16ac6a98c331f62edc34f23c7cd97043ee7a3",
+      "baseCommit": "08da8f49b83adec1427abb350d734e6c0569410e",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:f543293f942bf3593e4674dd8f720df8ecf2884ec4833e501225953267da98b3"
+      ],
+      "tokens": {
+        "cachedInput": 3290624,
+        "uncachedInput": 254510,
+        "output": 182582
+      },
+      "estimatedCostCny": "1.72986372",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 4,
+      "instanceId": "instance_ansible__ansible-c1f2df47538b884a43320f53e787197793b105e8-v906c969b551b346ef54a2c0b41e04f632b7b73c2",
+      "repository": "ansible/ansible",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T09:55:18.760Z",
+      "finishedAtUtc": "2026-10-15T10:07:21.444Z",
+      "agentSeconds": 563,
+      "gradingSeconds": 155,
+      "executionSeconds": 723,
+      "requiredTestsPassed": 6,
+      "requiredTestsTotal": 6,
+      "failedRequiredTests": [],
+      "patchSha256": "f752caa64f8c249b1adae6dcd38958f29b5c763bf2be98f2db68796854891a19",
+      "baseCommit": "57596edcca0ef3bc4d0d90a55d33ac433b407abb",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:a5aca5b8129b78dd72d652f77b5b83a1d07c49882e65471ba7d2fff739a99e9f"
+      ],
+      "tokens": {
+        "cachedInput": 2646272,
+        "uncachedInput": 133829,
+        "output": 105517
+      },
+      "estimatedCostCny": "0.90462916",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 5,
+      "instanceId": "instance_ansible__ansible-d33bedc48fdd933b5abd65a77c081876298e2f07-v0f01c69f1e2528b935359cfe578530722bca2c59",
+      "repository": "ansible/ansible",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:00:33.469Z",
+      "finishedAtUtc": "2026-10-15T10:22:52.935Z",
+      "agentSeconds": 1287,
+      "gradingSeconds": 48,
+      "executionSeconds": 1339,
+      "requiredTestsPassed": 107,
+      "requiredTestsTotal": 107,
+      "failedRequiredTests": [],
+      "patchSha256": "b72c57df9d093ff042182b862da0f9f7ac17f93b9f79719dae5340f7aa2e7f71",
+      "baseCommit": "dcc5dac1846be3bf6e948a2950b93477b9193076",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:4cf51f69dad7c8cb966fa2af791058ba72e3b4124461d7418239bda01b5a6a9f"
+      ],
+      "tokens": {
+        "cachedInput": 6248064,
+        "uncachedInput": 163072,
+        "output": 104112
+      },
+      "estimatedCostCny": "0.70448128",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 6,
+      "instanceId": "instance_ansible__ansible-d62496fe416623e88b90139dc7917080cb04ce70-v0f01c69f1e2528b935359cfe578530722bca2c59",
+      "repository": "ansible/ansible",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:04:32.472Z",
+      "finishedAtUtc": "2026-10-15T10:15:29.255Z",
+      "agentSeconds": 611,
+      "gradingSeconds": 42,
+      "executionSeconds": 657,
+      "requiredTestsPassed": 114,
+      "requiredTestsTotal": 114,
+      "failedRequiredTests": [],
+      "patchSha256": "e4d6f252ece753bffacadcd96bb153a90c60157d42b60a3781b7a19f0322a38d",
+      "baseCommit": "df29852f3a48160e1a60635692c202531dd8b14a",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:5886dc437c80fa58b347bf930c7e044b4bc9813b183ab01761b801907d82dfc0"
+      ],
+      "tokens": {
+        "cachedInput": 4292352,
+        "uncachedInput": 272783,
+        "output": 77338
+      },
+      "estimatedCostCny": "0.66798204",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 7,
+      "instanceId": "instance_ansible__ansible-d72025be751c894673ba85caa063d835a0ad3a8c-v390e508d27db7a51eece36bb6d9698b63a5b638a",
+      "repository": "ansible/ansible",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:08:23.265Z",
+      "finishedAtUtc": "2026-10-15T10:29:20.722Z",
+      "agentSeconds": 1002,
+      "gradingSeconds": 250,
+      "executionSeconds": 1257,
+      "requiredTestsPassed": 5,
+      "requiredTestsTotal": 5,
+      "failedRequiredTests": [],
+      "patchSha256": "dc3ff857517eba02626ab1407c68a87f8e6d52b3290cab9df955040a198bd9e8",
+      "baseCommit": "ea164fdde79a3e624c28f90c74f57f06360d2333",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:422becdc2bbc8f7b6d5ff1cc7b83fcebeb66591c2f3dd92e68ba12fde979fc73"
+      ],
+      "tokens": {
+        "cachedInput": 4464256,
+        "uncachedInput": 308949,
+        "output": 195598
+      },
+      "estimatedCostCny": "1.18062612",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 8,
+      "instanceId": "instance_ansible__ansible-de5858f48dc9e1ce9117034e0d7e76806f420ca8-v1055803c3a812189a1133297f7f5468579283f86",
+      "repository": "ansible/ansible",
+      "status": "fail",
+      "startedAtUtc": "2026-10-15T10:16:09.324Z",
+      "finishedAtUtc": "2026-10-15T10:33:55.085Z",
+      "agentSeconds": 1018,
+      "gradingSeconds": 43,
+      "executionSeconds": 1066,
+      "requiredTestsPassed": 49,
+      "requiredTestsTotal": 58,
+      "failedRequiredTests": [
+        "test/units/galaxy/test_api.py::test_cache_invalid_cache_content[value]",
+        "test/units/galaxy/test_api.py::test_missing_cache_dir",
+        "test/units/galaxy/test_api.py::test_clear_cache",
+        "test/units/galaxy/test_api.py::test_world_writable_cache",
+        "test/units/galaxy/test_api.py::test_cache_invalid_cache_content[]",
+        "test/units/galaxy/test_api.py::test_cache_invalid_cache_content[[]]",
+        "test/units/galaxy/test_api.py::test_cache_invalid_cache_content[{\"de\"",
+        "test/units/galaxy/test_api.py::test_clear_cache_with_no_cache",
+        "test/units/galaxy/test_api.py::test_cache_invalid_cache_content[{\"version\":"
+      ],
+      "patchSha256": "b60a2278b5bd109fe7198df519e8a4bd84654ae1f8bb5e7b589207f1e0914682",
+      "baseCommit": "a1730af91f94552e8aaff4bedfb8dcae00bd284d",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:31ebe11c8cb1c5e3f74b15e0345fce7f9adc7eb406209131828f8b49bf4b7f61"
+      ],
+      "tokens": {
+        "cachedInput": 3767552,
+        "uncachedInput": 160560,
+        "output": 88217
+      },
+      "estimatedCostCny": "0.58877904",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 9,
+      "instanceId": "instance_ansible__ansible-e9e6001263f51103e96e58ad382660df0f3d0e39-v30a923fb5c164d6cd18280c02422f75e611e8fb2",
+      "repository": "ansible/ansible",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:23:37.070Z",
+      "finishedAtUtc": "2026-10-15T10:27:52.376Z",
+      "agentSeconds": 200,
+      "gradingSeconds": 51,
+      "executionSeconds": 255,
+      "requiredTestsPassed": 28,
+      "requiredTestsTotal": 28,
+      "failedRequiredTests": [],
+      "patchSha256": "f452d7e2f4ae603ed3f9fd81a5f743396d20b28068b50dd9a45fe2d1606fb21c",
+      "baseCommit": "bddb9a7490b5e9475d0d01a8d906332e81789cde",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:2a3df24ea4ac85f3f01c2c23a1d3382cf1116765abcb37119d0148ef52129fa0"
+      ],
+      "tokens": {
+        "cachedInput": 1753472,
+        "uncachedInput": 102508,
+        "output": 32134
+      },
+      "estimatedCostCny": "0.26611344",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 10,
+      "instanceId": "instance_element-hq__element-web-5dfde12c1c1c0b6e48f17e3405468593e39d9492-vnan",
+      "repository": "element-hq/element-web",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T08:44:15.368Z",
+      "finishedAtUtc": "2026-10-15T09:05:35.925Z",
+      "agentSeconds": 1226,
+      "gradingSeconds": 50,
+      "executionSeconds": 1281,
+      "requiredTestsPassed": 61,
+      "requiredTestsTotal": 61,
+      "failedRequiredTests": [],
+      "patchSha256": "8db32e808f340ffc434875f0b812c3efde7c0316c89a879c8b19724bde1a8395",
+      "baseCommit": "f97cef80aed8ee6011543f08bee8b1745a33a7db",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:7f953d05e1c799e9d4443db13402d5c408ecc59579e33404a7f3960ac5abefb1"
+      ],
+      "tokens": {
+        "cachedInput": 4997248,
+        "uncachedInput": 197726,
+        "output": 72268
+      },
+      "estimatedCostCny": "1.17348592",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 11,
+      "instanceId": "instance_element-hq__element-web-66d0b318bc6fee0d17b54c1781d6ab5d5d323135-vnan",
+      "repository": "element-hq/element-web",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:29:29.289Z",
+      "finishedAtUtc": "2026-10-15T10:52:06.644Z",
+      "agentSeconds": 1317,
+      "gradingSeconds": 36,
+      "executionSeconds": 1357,
+      "requiredTestsPassed": 63,
+      "requiredTestsTotal": 63,
+      "failedRequiredTests": [],
+      "patchSha256": "6adbd63ba4daf2999922d7586a7d912cb5caf26712b9acd2884cb7bc51b85c86",
+      "baseCommit": "04bc8fb71c4a1ee1eb1f0c4a1de1641d353e9f2c",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:d00b6d7d6ecd96aa73bf62ef1a1c4a17b4973e2aea335118d7492ff0f5ba9a24"
+      ],
+      "tokens": {
+        "cachedInput": 2119424,
+        "uncachedInput": 173206,
+        "output": 89991
+      },
+      "estimatedCostCny": "0.57555848",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 12,
+      "instanceId": "instance_element-hq__element-web-772df3021201d9c73835a626df8dcb6334ad9a3e-vnan",
+      "repository": "element-hq/element-web",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:30:43.396Z",
+      "finishedAtUtc": "2026-10-15T10:56:13.967Z",
+      "agentSeconds": 1477,
+      "gradingSeconds": 49,
+      "executionSeconds": 1531,
+      "requiredTestsPassed": 82,
+      "requiredTestsTotal": 82,
+      "failedRequiredTests": [],
+      "patchSha256": "d072d7509cfc45048493a64fdbfad469e7604d84f8d30b230fffb5af8605b1ef",
+      "baseCommit": "7a33818bd7ec89c21054691afcb6db2fb2631e14",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:807fb8ab2e02372cc9b597e5b7432f35afcca267fc267a1fec95f16eaabaa5b2"
+      ],
+      "tokens": {
+        "cachedInput": 3188352,
+        "uncachedInput": 152498,
+        "output": 65310
+      },
+      "estimatedCostCny": "0.47750504",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 13,
+      "instanceId": "instance_element-hq__element-web-ecfd1736e5dd9808e87911fc264e6c816653e1a9-vnan",
+      "repository": "element-hq/element-web",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:35:15.444Z",
+      "finishedAtUtc": "2026-10-15T10:48:48.271Z",
+      "agentSeconds": 774,
+      "gradingSeconds": 35,
+      "executionSeconds": 813,
+      "requiredTestsPassed": 26,
+      "requiredTestsTotal": 26,
+      "failedRequiredTests": [],
+      "patchSha256": "f0283bed89aaac13a8ca0d98194f509195c381a26102a6af5f2c14b56c7141a2",
+      "baseCommit": "f34c1609c3c42f095b59bc068620f342894f94ed",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:b05662eed301c0c6fa444dd54e7038b1f75c439ea57e620519661c5f778aa86c"
+      ],
+      "tokens": {
+        "cachedInput": 2194944,
+        "uncachedInput": 169384,
+        "output": 95178
+      },
+      "estimatedCostCny": "0.59399488",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 14,
+      "instanceId": "instance_flipt-io__flipt-2ca5dfb3513e4e786d2b037075617cccc286d5c3",
+      "repository": "flipt-io/flipt",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T09:34:27.975Z",
+      "finishedAtUtc": "2026-10-15T09:54:28.808Z",
+      "agentSeconds": 933,
+      "gradingSeconds": 263,
+      "executionSeconds": 1201,
+      "requiredTestsPassed": 2,
+      "requiredTestsTotal": 2,
+      "failedRequiredTests": [],
+      "patchSha256": "7586dd3aff609ee7d9390874c2f17a0e927dfb196033f526d9ee9ff732c29a52",
+      "baseCommit": "168f61194a4cd0f515a589511183bb1bd4f87507",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:7faec9a8ccea58ff60e9c4d75c5b51e0f1ab9edab361069b92d02e4ac2dff616"
+      ],
+      "tokens": {
+        "cachedInput": 3255936,
+        "uncachedInput": 150935,
+        "output": 81782
+      },
+      "estimatedCostCny": "1.08636344",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 15,
+      "instanceId": "instance_flipt-io__flipt-3d5a345f94c2adc8a0eaa102c189c08ad4c0f8e8",
+      "repository": "flipt-io/flipt",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:50:44.399Z",
+      "finishedAtUtc": "2026-10-15T11:18:00.311Z",
+      "agentSeconds": 1216,
+      "gradingSeconds": 415,
+      "executionSeconds": 1636,
+      "requiredTestsPassed": 5,
+      "requiredTestsTotal": 5,
+      "failedRequiredTests": [],
+      "patchSha256": "01a53dea83154252c7358ae45c8fb66878930bbcf45c70b932a9aff3760a1311",
+      "baseCommit": "91cc1b9fc38280a53a36e1e9543d87d7306144b2",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:83c676dc11544ab213f9c59a3322e33b4d0113af8aa6043c1c2b29c6aeca55ba"
+      ],
+      "tokens": {
+        "cachedInput": 4647552,
+        "uncachedInput": 217448,
+        "output": 106544
+      },
+      "estimatedCostCny": "0.73657504",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 16,
+      "instanceId": "instance_flipt-io__flipt-524f277313606f8cd29b299617d6565c01642e15",
+      "repository": "flipt-io/flipt",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:53:53.514Z",
+      "finishedAtUtc": "2026-10-15T11:14:16.388Z",
+      "agentSeconds": 1033,
+      "gradingSeconds": 185,
+      "executionSeconds": 1223,
+      "requiredTestsPassed": 3,
+      "requiredTestsTotal": 3,
+      "failedRequiredTests": [],
+      "patchSha256": "86647866ed017653f76c6ca54143cca0cc9d4342abd0238dc70d1182ebd8bad6",
+      "baseCommit": "190b3cdc8e354d1b4d1d2811cb8a29f62cab8488",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:3e22d74aee90feeb81e56bf39af968f91aed67da27dc192fa52486efac3c59be"
+      ],
+      "tokens": {
+        "cachedInput": 6931200,
+        "uncachedInput": 266170,
+        "output": 83311
+      },
+      "estimatedCostCny": "0.73803800",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 17,
+      "instanceId": "instance_flipt-io__flipt-c1728053367c753688f114ec26e703c8fdeda125",
+      "repository": "flipt-io/flipt",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T10:58:14.450Z",
+      "finishedAtUtc": "2026-10-15T11:08:09.609Z",
+      "agentSeconds": 539,
+      "gradingSeconds": 51,
+      "executionSeconds": 595,
+      "requiredTestsPassed": 2,
+      "requiredTestsTotal": 2,
+      "failedRequiredTests": [],
+      "patchSha256": "19144996a85d6053914c5dc5701e5238a3bc03c0cf5392521732b7e9d5b98816",
+      "baseCommit": "775da4fe5fcbc163ab01fd9a809fdbddd9a87ebd",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:000203ab948b2b1ec3f09e0fa2abb1f07b574d5e4196e7563dd2bc586d918032"
+      ],
+      "tokens": {
+        "cachedInput": 2498560,
+        "uncachedInput": 117547,
+        "output": 62137
+      },
+      "estimatedCostCny": "0.41606620",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 18,
+      "instanceId": "instance_flipt-io__flipt-c188284ff0c094a4ee281afebebd849555ebee59",
+      "repository": "flipt-io/flipt",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T11:10:17.384Z",
+      "finishedAtUtc": "2026-10-15T11:39:31.101Z",
+      "agentSeconds": 1280,
+      "gradingSeconds": 470,
+      "executionSeconds": 1754,
+      "requiredTestsPassed": 6,
+      "requiredTestsTotal": 6,
+      "failedRequiredTests": [],
+      "patchSha256": "ee6d240ce0e83af03dbd770eb9f0a7d1308ac445d988c57a2416969750f83fb1",
+      "baseCommit": "47499077ce785f0eee0e3940ef6c074e29a664fc",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:8e2458836acf6d14616949c3573584a86449c29eb4a0bb09fab9a9b5ec8b53e9"
+      ],
+      "tokens": {
+        "cachedInput": 4832000,
+        "uncachedInput": 211083,
+        "output": 103131
+      },
+      "estimatedCostCny": "0.72024700",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 19,
+      "instanceId": "instance_flipt-io__flipt-cd18e54a0371fa222304742c6312e9ac37ea86c1",
+      "repository": "flipt-io/flipt",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T11:15:56.284Z",
+      "finishedAtUtc": "2026-10-15T11:35:41.741Z",
+      "agentSeconds": 1075,
+      "gradingSeconds": 107,
+      "executionSeconds": 1185,
+      "requiredTestsPassed": 15,
+      "requiredTestsTotal": 15,
+      "failedRequiredTests": [],
+      "patchSha256": "b300ca986b4ae9abd9ee77829e54f3ff6ce42231b6e22c7d58230798c66c6a4b",
+      "baseCommit": "9e469bf851c6519616c2b220f946138b71fab047",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:58487e5228163329485953a68e912a8e07ce196858b1343320516b2d0b5de5b0"
+      ],
+      "tokens": {
+        "cachedInput": 5284736,
+        "uncachedInput": 271528,
+        "output": 141432
+      },
+      "estimatedCostCny": "0.94295072",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 20,
+      "instanceId": "instance_flipt-io__flipt-e2bd19dafa7166c96b082fb2a59eb54b4be0d778",
+      "repository": "flipt-io/flipt",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T11:19:46.826Z",
+      "finishedAtUtc": "2026-10-15T11:32:52.266Z",
+      "agentSeconds": 667,
+      "gradingSeconds": 113,
+      "executionSeconds": 785,
+      "requiredTestsPassed": 10,
+      "requiredTestsTotal": 10,
+      "failedRequiredTests": [],
+      "patchSha256": "ad06621a9a2f484865d09ba5230f4e0e558148f540a4c061ba0ed37b7f1d4532",
+      "baseCommit": "0eaf98f050d86247bfe9bd7e41178865cb585060",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:0d69bb686032bf1a248e5e4ccafb53e905bb6424bd38a7c1a0c6d37bb261b404"
+      ],
+      "tokens": {
+        "cachedInput": 2207616,
+        "uncachedInput": 51338,
+        "output": 33850
+      },
+      "estimatedCostCny": "0.23089032",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 21,
+      "instanceId": "instance_future-architect__vuls-5af1a227339e46c7abf3f2815e4c636a0c01098e",
+      "repository": "future-architect/vuls",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T08:54:24.720Z",
+      "finishedAtUtc": "2026-10-15T09:24:26.922Z",
+      "agentSeconds": 1274,
+      "gradingSeconds": 523,
+      "executionSeconds": 1802,
+      "requiredTestsPassed": 11,
+      "requiredTestsTotal": 11,
+      "failedRequiredTests": [],
+      "patchSha256": "c40fc9c3ceadee0fa91ed82c594418f7ecfec8bf1bf04a4af48e3b01b4ab028e",
+      "baseCommit": "053306944695e6616f320393f865f667e984481d",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:ce030de85a57473a9b52d493fd023ab90871959e7129b4281edb1b2e5038d078"
+      ],
+      "tokens": {
+        "cachedInput": 1570176,
+        "uncachedInput": 116436,
+        "output": 46501
+      },
+      "estimatedCostCny": "0.66768704",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 22,
+      "instanceId": "instance_future-architect__vuls-ca3f6b1dbf2cd24d1537bfda43e788443ce03a0c",
+      "repository": "future-architect/vuls",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T11:34:05.893Z",
+      "finishedAtUtc": "2026-10-15T11:57:47.870Z",
+      "agentSeconds": 1188,
+      "gradingSeconds": 231,
+      "executionSeconds": 1422,
+      "requiredTestsPassed": 80,
+      "requiredTestsTotal": 80,
+      "failedRequiredTests": [],
+      "patchSha256": "d60340f64844e1d9a773874fd055075ff405e42fb4bf72df34099c0ef3ca1533",
+      "baseCommit": "f1c78e42a22aaefe3aa816c0ebd47a845850b856",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:78589d52b083b76adf455a17b9580771c9d268d5ac8e2877f6df7c7f418c3ba4"
+      ],
+      "tokens": {
+        "cachedInput": 4110976,
+        "uncachedInput": 282172,
+        "output": 152136
+      },
+      "estimatedCostCny": "0.97293552",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 23,
+      "instanceId": "instance_future-architect__vuls-e1fab805afcfc92a2a615371d0ec1e667503c254-v264a82e2f4818e30f5a25e4da53b27ba119f62b5",
+      "repository": "future-architect/vuls",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T11:37:34.132Z",
+      "finishedAtUtc": "2026-10-15T12:12:04.871Z",
+      "agentSeconds": 1931,
+      "gradingSeconds": 136,
+      "executionSeconds": 2071,
+      "requiredTestsPassed": 4,
+      "requiredTestsTotal": 4,
+      "failedRequiredTests": [],
+      "patchSha256": "90ccf6f722571fa0db02501a40ac2aaef209f7d2a22dd35d5c7d7df21bb51725",
+      "baseCommit": "5af1a227339e46c7abf3f2815e4c636a0c01098e",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:13ccab4cac7106571fd71c80d622d32004c8c7d347e3339ce2015e18f25658e0"
+      ],
+      "tokens": {
+        "cachedInput": 5449344,
+        "uncachedInput": 369556,
+        "output": 243421
+      },
+      "estimatedCostCny": "1.45222688",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 24,
+      "instanceId": "instance_future-architect__vuls-ef2be3d6ea4c0a13674aaab08b182eca4e2b9a17-v264a82e2f4818e30f5a25e4da53b27ba119f62b5",
+      "repository": "future-architect/vuls",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T11:41:09.269Z",
+      "finishedAtUtc": "2026-10-15T12:05:58.997Z",
+      "agentSeconds": 1441,
+      "gradingSeconds": 45,
+      "executionSeconds": 1490,
+      "requiredTestsPassed": 6,
+      "requiredTestsTotal": 6,
+      "failedRequiredTests": [],
+      "patchSha256": "e2331943dddabf208d13a9b543051607fdb80169b79803de48cc27f37cf4ebbc",
+      "baseCommit": "827f2cb8d86509c4455b2df2fe79b9d59533d3b0",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:1aee15022a4e086e0d7929ed1046bddb922b4382f9f0a39645fd01d821ae2287"
+      ],
+      "tokens": {
+        "cachedInput": 5335808,
+        "uncachedInput": 271785,
+        "output": 94506
+      },
+      "estimatedCostCny": "0.75652516",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 25,
+      "instanceId": "instance_gravitational__teleport-1316e6728a3ee2fc124e2ea0cc6a02044c87a144-v626ec2a48416b10a88641359a169d99e935ff037",
+      "repository": "gravitational/teleport",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T09:03:17.167Z",
+      "finishedAtUtc": "2026-10-15T09:27:54.051Z",
+      "agentSeconds": 1422,
+      "gradingSeconds": 50,
+      "executionSeconds": 1477,
+      "requiredTestsPassed": 5,
+      "requiredTestsTotal": 5,
+      "failedRequiredTests": [],
+      "patchSha256": "17f8e058af610e02cdf0069cfa7a18b4829ef55d432b5150292d1818ad7f7ebd",
+      "baseCommit": "2f51af0e04d6022b1d6475c5637980f64b113658",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:632578dca791946b2c223c944706656007d8c930eab510dd50d7553c827c48ff"
+      ],
+      "tokens": {
+        "cachedInput": 4805248,
+        "uncachedInput": 173600,
+        "output": 88245
+      },
+      "estimatedCostCny": "1.24536992",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 26,
+      "instanceId": "instance_gravitational__teleport-2b15263e49da5625922581569834eec4838a9257-vee9b09fb20c43af7e520f57e9239bbcf46b7113d",
+      "repository": "gravitational/teleport",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T12:01:05.935Z",
+      "finishedAtUtc": "2026-10-15T12:49:26.906Z",
+      "agentSeconds": 2326,
+      "gradingSeconds": 570,
+      "executionSeconds": 2901,
+      "requiredTestsPassed": 14,
+      "requiredTestsTotal": 14,
+      "failedRequiredTests": [],
+      "patchSha256": "a3b33f406a73cca6fb7008e37c4c43df95bd9bebe5ceb81d6bffe97b0de2e554",
+      "baseCommit": "189d41a956ebf5b90b6cf5829d60be46c1df992e",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:79cc62083ee6186c30fe3cd455b993344b92da3bbda87c792abee5bf130f57c4"
+      ],
+      "tokens": {
+        "cachedInput": 3119104,
+        "uncachedInput": 137916,
+        "output": 49362
+      },
+      "estimatedCostCny": "0.39774608",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 27,
+      "instanceId": "instance_gravitational__teleport-65438e6e44b6ce51458d09b7bb028a2797cfb0ea-vce94f93ad1030e3136852817f2423c1b3ac37bc4",
+      "repository": "gravitational/teleport",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T12:08:48.532Z",
+      "finishedAtUtc": "2026-10-15T12:30:55.792Z",
+      "agentSeconds": 1265,
+      "gradingSeconds": 59,
+      "executionSeconds": 1327,
+      "requiredTestsPassed": 2,
+      "requiredTestsTotal": 2,
+      "failedRequiredTests": [],
+      "patchSha256": "b08d5e4873f3172d403edc820e414cd48eb3b161eba08288d686413f3fc3bfd5",
+      "baseCommit": "39cd6e2e750c7700de1e158af9cabc478b2a5110",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:635b51862982f689649d792ee5ac3d6b7b546830e21b68d8693a6029ddb96b41"
+      ],
+      "tokens": {
+        "cachedInput": 2682752,
+        "uncachedInput": 134510,
+        "output": 41192
+      },
+      "estimatedCostCny": "0.35293304",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 28,
+      "instanceId": "instance_gravitational__teleport-7744f72c6eb631791434b648ba41083b5f6d2278-vce94f93ad1030e3136852817f2423c1b3ac37bc4",
+      "repository": "gravitational/teleport",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T12:14:56.099Z",
+      "finishedAtUtc": "2026-10-15T12:25:35.671Z",
+      "agentSeconds": 610,
+      "gradingSeconds": 26,
+      "executionSeconds": 640,
+      "requiredTestsPassed": 1,
+      "requiredTestsTotal": 1,
+      "failedRequiredTests": [],
+      "patchSha256": "2b52fa38a09adf89b04b53a06ccd52ee42d2449bb42527bdd0dfc9caf64211d7",
+      "baseCommit": "44b89c75c07c34c4026beaeab494fef1ad67e5e5",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:83645a1c5565267675a19af0916ba1eed14131c315d92cedb05abea398a03527"
+      ],
+      "tokens": {
+        "cachedInput": 2174720,
+        "uncachedInput": 133210,
+        "output": 104476
+      },
+      "estimatedCostCny": "0.59460840",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 29,
+      "instanceId": "instance_gravitational__teleport-eda668c30d9d3b56d9c69197b120b01013611186",
+      "repository": "gravitational/teleport",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T12:28:28.828Z",
+      "finishedAtUtc": "2026-10-15T12:45:52.326Z",
+      "agentSeconds": 920,
+      "gradingSeconds": 121,
+      "executionSeconds": 1043,
+      "requiredTestsPassed": 28,
+      "requiredTestsTotal": 28,
+      "failedRequiredTests": [],
+      "patchSha256": "e596b23b59241d8ddc4f4a70d412278e98dbd0b1340609564904f7fc0fa4aad1",
+      "baseCommit": "4f6f52f86d65f506d1884a9f56bcd919a8744734",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:80f5acc1379b45b272a75d70dd78e80e5fbe2edcee0496ccf7913eaeabdda839"
+      ],
+      "tokens": {
+        "cachedInput": 2449920,
+        "uncachedInput": 159003,
+        "output": 80927
+      },
+      "estimatedCostCny": "0.53170940",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 30,
+      "instanceId": "instance_gravitational__teleport-f432a71a13e698b6e1c4672a2e9e9c1f32d35c12",
+      "repository": "gravitational/teleport",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T12:33:06.193Z",
+      "finishedAtUtc": "2026-10-15T12:42:42.011Z",
+      "agentSeconds": 522,
+      "gradingSeconds": 51,
+      "executionSeconds": 576,
+      "requiredTestsPassed": 2,
+      "requiredTestsTotal": 2,
+      "failedRequiredTests": [],
+      "patchSha256": "00eb2adf159e296836f297f41ef9f52fcaa3143a1e7f5d08ce8b32ebf6aeb913",
+      "baseCommit": "a4a6a3e42d90918341224dd7f2ba45856b1b6c70",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:5c89297876b6164c38e30194e0055a222ec4df9ddeeb5b206370c31cce77f841"
+      ],
+      "tokens": {
+        "cachedInput": 1102464,
+        "uncachedInput": 47650,
+        "output": 36669
+      },
+      "estimatedCostCny": "0.21637528",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 31,
+      "instanceId": "instance_internetarchive__openlibrary-0dc5b20fa186f9714f8a838178597e69f549d026-v2d9a6c849c60ed19fd0858ce9e40b7cc8e097e59",
+      "repository": "internetarchive/openlibrary",
+      "status": "fail",
+      "startedAtUtc": "2026-10-15T12:43:45.194Z",
+      "finishedAtUtc": "2026-10-15T13:08:59.175Z",
+      "agentSeconds": 1507,
+      "gradingSeconds": 4,
+      "executionSeconds": 1514,
+      "requiredTestsPassed": 59,
+      "requiredTestsTotal": 61,
+      "failedRequiredTests": [
+        "openlibrary/catalog/marc/tests/test_parse.py::TestParseMARCXML::test_xml[onquietcomedyint00brid]",
+        "openlibrary/catalog/marc/tests/test_parse.py::TestParseMARCBinary::test_binary[onquietcomedyint00brid_meta.mrc]"
+      ],
+      "patchSha256": "bafd36c71e5c3b444b71cf578d675c2dfe02e26f6c0eebe9ddc5efb7ee6f2eaf",
+      "baseCommit": "bd9d2a04efbbaec1575faa02a02eea995badf7f0",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:e577f3213ab319585b714b4a534141576bcd4d2991a93bcbd862ae464e81804a"
+      ],
+      "tokens": {
+        "cachedInput": 6700800,
+        "uncachedInput": 369247,
+        "output": 272943
+      },
+      "estimatedCostCny": "1.59503500",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 32,
+      "instanceId": "instance_internetarchive__openlibrary-322d7a46cdc965bfabbf9500e98fde098c9d95b2-v13642507b4fc1f8d234172bf8129942da2c2ca26",
+      "repository": "internetarchive/openlibrary",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T12:47:22.412Z",
+      "finishedAtUtc": "2026-10-15T13:03:26.708Z",
+      "agentSeconds": 948,
+      "gradingSeconds": 15,
+      "executionSeconds": 964,
+      "requiredTestsPassed": 11,
+      "requiredTestsTotal": 11,
+      "failedRequiredTests": [],
+      "patchSha256": "c652fc2130f3971f83d04d40dedd315dea754c461a8b18f8394f2e6c6bf342f8",
+      "baseCommit": "0d5acead6fdfb5e41a1d29a076a6e89ad1a39027",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:bc38d36c23ecc5f3a2d6db194dabcc1fb67146105629d0385ed1a9a3d67e6939"
+      ],
+      "tokens": {
+        "cachedInput": 5265920,
+        "uncachedInput": 282226,
+        "output": 178336
+      },
+      "estimatedCostCny": "1.10088840",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 33,
+      "instanceId": "instance_internetarchive__openlibrary-53d376b148897466bb86d5accb51912bbbe9a8ed-v08d8e8889ec945ab821fb156c04c7d2e2810debb",
+      "repository": "internetarchive/openlibrary",
+      "status": "fail",
+      "startedAtUtc": "2026-10-15T08:41:40.252Z",
+      "finishedAtUtc": "2026-10-15T08:52:43.209Z",
+      "agentSeconds": 652,
+      "gradingSeconds": 7,
+      "executionSeconds": 663,
+      "requiredTestsPassed": 7,
+      "requiredTestsTotal": 8,
+      "failedRequiredTests": [
+        "openlibrary/catalog/add_book/tests/test_load_book.py::TestImportAuthor::test_last_match_on_surname_and_dates"
+      ],
+      "patchSha256": "026c8cb8bf0fba51f1be45f15d88274e27a291b340bf600f2938f8c26c5acf38",
+      "baseCommit": "0d13e6b4bf80bced6c0946b969b9a1b6963f6bce",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:c4f917e70ee7ef568f248a25783b7629eec4fe05c5d092d42c8d1e380efb7c5b"
+      ],
+      "tokens": {
+        "cachedInput": 3528960,
+        "uncachedInput": 118672,
+        "output": 98580
+      },
+      "estimatedCostCny": "1.1671424",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 34,
+      "instanceId": "instance_internetarchive__openlibrary-630221ab686c64e75a2ce253c893c033e4814b2e-v93c53c13d5f9b383ebb411ee7750b49dcd1a34c6",
+      "repository": "internetarchive/openlibrary",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T12:50:45.122Z",
+      "finishedAtUtc": "2026-10-15T13:01:09.972Z",
+      "agentSeconds": 618,
+      "gradingSeconds": 4,
+      "executionSeconds": 625,
+      "requiredTestsPassed": 9,
+      "requiredTestsTotal": 9,
+      "failedRequiredTests": [],
+      "patchSha256": "1dac284ea71a6be32cbff7e3dccb2712f860cdbc2798450a60e479713c53a030",
+      "baseCommit": "247986f00311d9ee34009b0bb02d0d3bd7497ebd",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:212ef6274d32aff8b5aa5118165a820ecab4dee13230560fba6957c38b5d6be0"
+      ],
+      "tokens": {
+        "cachedInput": 5765504,
+        "uncachedInput": 229135,
+        "output": 105048
+      },
+      "estimatedCostCny": "0.76463708",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 35,
+      "instanceId": "instance_internetarchive__openlibrary-6e889f4a733c9f8ce9a9bd2ec6a934413adcedb9-ve8c8d62a2b60610a3c4631f5f23ed866bada9818",
+      "repository": "internetarchive/openlibrary",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T13:01:55.865Z",
+      "finishedAtUtc": "2026-10-15T13:06:03.018Z",
+      "agentSeconds": 241,
+      "gradingSeconds": 3,
+      "executionSeconds": 247,
+      "requiredTestsPassed": 17,
+      "requiredTestsTotal": 17,
+      "failedRequiredTests": [],
+      "patchSha256": "492a04fdafa19ec2df7eec5875aff50ef59a2e1798776c5aff78de2e6a09b158",
+      "baseCommit": "9a9204b43f9ab94601e8664340eb1dd0fca33517",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:e250a1bb35b380c4f4af3e841d7ddb11b234b5c697977ff5a906c41b6e01ee23"
+      ],
+      "tokens": {
+        "cachedInput": 1984384,
+        "uncachedInput": 43759,
+        "output": 34188
+      },
+      "estimatedCostCny": "0.22019868",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 36,
+      "instanceId": "instance_internetarchive__openlibrary-7cbfb812ef0e1f9716e2d6e85d538a96fcb79d13-vfa6ff903cb27f336e17654595dd900fa943dcd91",
+      "repository": "internetarchive/openlibrary",
+      "status": "fail",
+      "startedAtUtc": "2026-10-15T13:04:33.199Z",
+      "finishedAtUtc": "2026-10-15T13:08:51.496Z",
+      "agentSeconds": 253,
+      "gradingSeconds": 3,
+      "executionSeconds": 258,
+      "requiredTestsPassed": 4,
+      "requiredTestsTotal": 8,
+      "failedRequiredTests": [
+        "openlibrary/tests/core/test_observations_persistence.py::test_persist_observations_syncs_patron_values",
+        "openlibrary/tests/core/test_observations_persistence.py::test_persist_observations_does_not_duplicate_existing_values",
+        "openlibrary/tests/core/test_observations_persistence.py::test_persist_observations_is_scoped_to_the_work",
+        "openlibrary/tests/core/test_observations_persistence.py::test_persist_observations_is_scoped_to_the_patron"
+      ],
+      "patchSha256": "a7bdb3b712166138bc686b49499a20f8c5eb7038cf9461e476a1657dea7baa7c",
+      "baseCommit": "20e8fee0e879ca47c0a1259fec0a5ab1e292aa1f",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:8f510e7ba129a3a9b06a0e0aeecade57261246e0664caa07ac76ffd5efac40f6"
+      ],
+      "tokens": {
+        "cachedInput": 2108928,
+        "uncachedInput": 51833,
+        "output": 40239
+      },
+      "estimatedCostCny": "0.25496756",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 37,
+      "instanceId": "instance_internetarchive__openlibrary-a48fd6ba9482c527602bc081491d9e8ae6e8226c-vfa6ff903cb27f336e17654595dd900fa943dcd91",
+      "repository": "internetarchive/openlibrary",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T13:07:05.064Z",
+      "finishedAtUtc": "2026-10-15T13:14:57.018Z",
+      "agentSeconds": 466,
+      "gradingSeconds": 4,
+      "executionSeconds": 472,
+      "requiredTestsPassed": 4,
+      "requiredTestsTotal": 4,
+      "failedRequiredTests": [],
+      "patchSha256": "411898adf081bf3eac0afe5d6b6ca6a6e04c66d571755ae4e24310a0363180cc",
+      "baseCommit": "5e9872c8e19487fbeac11873549275184ce9b817",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:0b94ba783c6b2431a9db74374a4b7efeb8bcc60c6792e3fff70a0d374dacd0ad"
+      ],
+      "tokens": {
+        "cachedInput": 5068160,
+        "uncachedInput": 197587,
+        "output": 85139
+      },
+      "estimatedCostCny": "0.63950620",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 38,
+      "instanceId": "instance_internetarchive__openlibrary-b67138b316b1e9c11df8a4a8391fe5cc8e75ff9f-ve8c8d62a2b60610a3c4631f5f23ed866bada9818",
+      "repository": "internetarchive/openlibrary",
+      "status": "fail",
+      "startedAtUtc": "2026-10-15T13:09:36.452Z",
+      "finishedAtUtc": "2026-10-15T13:26:46.545Z",
+      "agentSeconds": 1024,
+      "gradingSeconds": 4,
+      "executionSeconds": 1030,
+      "requiredTestsPassed": 63,
+      "requiredTestsTotal": 64,
+      "failedRequiredTests": [
+        "openlibrary/catalog/marc/tests/test_parse.py::TestParseMARCBinary::test_binary[880_table_of_contents.mrc]"
+      ],
+      "patchSha256": "f673c4d74d94b08d6daa659e6cf823e5857a0a544d13d4897de55705b19b466f",
+      "baseCommit": "d8518f64d954113c9363335eb25201befa2de6f2",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:db698fbb2f50522f181849bd38245f448f3feb287b5d6ebabcf527bf3da901d2"
+      ],
+      "tokens": {
+        "cachedInput": 5009792,
+        "uncachedInput": 412326,
+        "output": 209459
+      },
+      "estimatedCostCny": "1.35035784",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 39,
+      "instanceId": "instance_navidrome__navidrome-69e0a266f48bae24a11312e9efbe495a337e4c84",
+      "repository": "navidrome/navidrome",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T13:11:05.462Z",
+      "finishedAtUtc": "2026-10-15T13:20:43.178Z",
+      "agentSeconds": 541,
+      "gradingSeconds": 34,
+      "executionSeconds": 578,
+      "requiredTestsPassed": 1,
+      "requiredTestsTotal": 1,
+      "failedRequiredTests": [],
+      "patchSha256": "c98de6aa44bfebe6d6903a4ea0530ac7b79f183c1f227c5e63c5a532e4f099d6",
+      "baseCommit": "8f0d002922272432f5f6fed869c02480147cea6e",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:dbc99fae60462c154dad4d1bfa8d27bfc08e50ddd8a6a6fe156d089498c3ead5"
+      ],
+      "tokens": {
+        "cachedInput": 2859648,
+        "uncachedInput": 51905,
+        "output": 49415
+      },
+      "estimatedCostCny": "0.30675796",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 40,
+      "instanceId": "instance_navidrome__navidrome-874b17b8f614056df0ef021b5d4f977341084185",
+      "repository": "navidrome/navidrome",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T13:16:21.083Z",
+      "finishedAtUtc": "2026-10-15T13:29:40.507Z",
+      "agentSeconds": 758,
+      "gradingSeconds": 38,
+      "executionSeconds": 799,
+      "requiredTestsPassed": 1,
+      "requiredTestsTotal": 1,
+      "failedRequiredTests": [],
+      "patchSha256": "d664005f76434f3b01de78d47fab87c27dff0e0dea2d955e18af17c57a219690",
+      "baseCommit": "5808b9fb718eaec4d0e72f02bebb811ca7bc8ca0",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:3f506b30838750b681489f4e7a476379ebe4d9d4acc67b9bbb0299c6531841dc"
+      ],
+      "tokens": {
+        "cachedInput": 5474304,
+        "uncachedInput": 215284,
+        "output": 78119
+      },
+      "estimatedCostCny": "0.63724608",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 41,
+      "instanceId": "instance_navidrome__navidrome-bf2bcb12799b21069f137749e0c331f761d1f693",
+      "repository": "navidrome/navidrome",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T13:22:05.831Z",
+      "finishedAtUtc": "2026-10-15T13:35:15.075Z",
+      "agentSeconds": 734,
+      "gradingSeconds": 52,
+      "executionSeconds": 789,
+      "requiredTestsPassed": 3,
+      "requiredTestsTotal": 3,
+      "failedRequiredTests": [],
+      "patchSha256": "ddfd3afcf808ec6b426b4e2e0f6ed6603c0e02c03d7b6b043c48f5674e3d770f",
+      "baseCommit": "ac4ceab14342bbcb42a6d57bba99e5f933023839",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:bd1f52e0267398ec26f33e99dcec4c262f9aba6ba841aab3c723941fc8f36b2b"
+      ],
+      "tokens": {
+        "cachedInput": 3778304,
+        "uncachedInput": 194495,
+        "output": 63920
+      },
+      "estimatedCostCny": "0.52574108",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 42,
+      "instanceId": "instance_protonmail__webclients-08bb09914d0d37b0cd6376d4cab5b77728a43e7b",
+      "repository": "protonmail/webclients",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T13:30:56.285Z",
+      "finishedAtUtc": "2026-10-15T14:03:19.742Z",
+      "agentSeconds": 1827,
+      "gradingSeconds": 114,
+      "executionSeconds": 1943,
+      "requiredTestsPassed": 12,
+      "requiredTestsTotal": 12,
+      "failedRequiredTests": [],
+      "patchSha256": "9ef4203071ba0a0f8167dca71113c245eab69fbc79dd4de931d1aca58461eb51",
+      "baseCommit": "cc7976723b05683d80720fc9a352445e5dbb4c85",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:3bfddf53621093a8fd5e7742f8d4d080b1aeabbfb415c22d625f0c6a87464ba9"
+      ],
+      "tokens": {
+        "cachedInput": 3847936,
+        "uncachedInput": 182077,
+        "output": 111562
+      },
+      "estimatedCostCny": "0.70528372",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 43,
+      "instanceId": "instance_protonmail__webclients-5f0745dd6993bb1430a951c62a49807c6635cd77",
+      "repository": "protonmail/webclients",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T13:35:14.948Z",
+      "finishedAtUtc": "2026-10-15T13:56:29.041Z",
+      "agentSeconds": 1122,
+      "gradingSeconds": 149,
+      "executionSeconds": 1274,
+      "requiredTestsPassed": 3,
+      "requiredTestsTotal": 3,
+      "failedRequiredTests": [],
+      "patchSha256": "9e57ab306ff4aa72f19318f895ce68c6be4fd711384b577ddc555025cf660fe2",
+      "baseCommit": "12381540293c55229fd3d0d15bd9a14f98385aea",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:ca4e551334e84cd67d942aa9d74e801c0f1f2be387e9a77c7a73a68e17056526"
+      ],
+      "tokens": {
+        "cachedInput": 5768064,
+        "uncachedInput": 201586,
+        "output": 92577
+      },
+      "estimatedCostCny": "0.68725528",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 44,
+      "instanceId": "instance_protonmail__webclients-715dbd4e6999499cd2a576a532d8214f75189116",
+      "repository": "protonmail/webclients",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T13:38:49.063Z",
+      "finishedAtUtc": "2026-10-15T14:07:20.696Z",
+      "agentSeconds": 1436,
+      "gradingSeconds": 273,
+      "executionSeconds": 1712,
+      "requiredTestsPassed": 4,
+      "requiredTestsTotal": 4,
+      "failedRequiredTests": [],
+      "patchSha256": "cb6c4eca67372aa92762be0e836d14328888ce24459536b5a174bdecb3020161",
+      "baseCommit": "aba05b2f451b2f8765207846b11dc67190cb9930",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:48c8f7c7552cbd2ab7d734d7ab8e4961ba105db00e4cc0de51a2a04c783f08d0"
+      ],
+      "tokens": {
+        "cachedInput": 5898240,
+        "uncachedInput": 404769,
+        "output": 130519
+      },
+      "estimatedCostCny": "1.04480980",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 45,
+      "instanceId": "instance_protonmail__webclients-c5a2089ca2bfe9aa1d85a664b8ad87ef843a1c9c",
+      "repository": "protonmail/webclients",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T14:00:16.330Z",
+      "finishedAtUtc": "2026-10-15T14:31:30.412Z",
+      "agentSeconds": 1726,
+      "gradingSeconds": 145,
+      "executionSeconds": 1874,
+      "requiredTestsPassed": 13,
+      "requiredTestsTotal": 13,
+      "failedRequiredTests": [],
+      "patchSha256": "073f36bc03c2f30c6a8c14981822d2c5b9f43448f6e31d9632d96c7199adae53",
+      "baseCommit": "83c2b47478a5224db61c6557ad326c2bbda18645",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:1f7a7757d6bc1eb0264e50ad5c3385016fa77e0d92cf8d827a180e86ab7fae03"
+      ],
+      "tokens": {
+        "cachedInput": 4589568,
+        "uncachedInput": 302390,
+        "output": 157853
+      },
+      "estimatedCostCny": "1.02559336",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 46,
+      "instanceId": "instance_protonmail__webclients-e65cc5f33719e02e1c378146fb981d27bc24bdf4",
+      "repository": "protonmail/webclients",
+      "status": "fail",
+      "startedAtUtc": "2026-10-15T14:06:49.836Z",
+      "finishedAtUtc": "2026-10-15T14:45:38.365Z",
+      "agentSeconds": 2219,
+      "gradingSeconds": 107,
+      "executionSeconds": 2329,
+      "requiredTestsPassed": 2,
+      "requiredTestsTotal": 3,
+      "failedRequiredTests": [
+        "src/app/containers/mailbox/tests/Mailbox.retries.test.tsx | should wait for all API actions to be finished before loading elements"
+      ],
+      "patchSha256": "dd3f11763b5418aaa185ad7ed2ae8b404c5c6aee698365a7216a95c4fee3439d",
+      "baseCommit": "bd293dcc05b75ecca4a648edd7ae237ec48c1454",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:61c22479df649f471ab2ed603deffaf7c290c96ff0b1fe725a62f588d7f4dc9d"
+      ],
+      "tokens": {
+        "cachedInput": 6116096,
+        "uncachedInput": 330180,
+        "output": 174348
+      },
+      "estimatedCostCny": "1.14989392",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 47,
+      "instanceId": "instance_qutebrowser__qutebrowser-3e21c8214a998cb1058defd15aabb24617a76402-v5fc38aaf22415ab0b70567368332beee7955b367",
+      "repository": "qutebrowser/qutebrowser",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T14:08:18.815Z",
+      "finishedAtUtc": "2026-10-15T14:18:21.441Z",
+      "agentSeconds": 589,
+      "gradingSeconds": 11,
+      "executionSeconds": 603,
+      "requiredTestsPassed": 1869,
+      "requiredTestsTotal": 1869,
+      "failedRequiredTests": [],
+      "patchSha256": "d060a20f5fdb2025c858b9035a7d00290c813467cf38635d1df3f21b574a4d72",
+      "baseCommit": "fce306d5f184f185b660f35ec2808b6745d57520",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:9222ac9b8a480eff3f234f8e46361e81d78385da4aa3e03f8b796cf013324eba"
+      ],
+      "tokens": {
+        "cachedInput": 2150784,
+        "uncachedInput": 157789,
+        "output": 84625
+      },
+      "estimatedCostCny": "0.53930468",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 48,
+      "instanceId": "instance_qutebrowser__qutebrowser-c09e1439f145c66ee3af574386e277dd2388d094-v2ef375ac784985212b1805e1d0431dc8f1b3c171",
+      "repository": "qutebrowser/qutebrowser",
+      "status": "fail",
+      "startedAtUtc": "2026-10-15T14:19:01.588Z",
+      "finishedAtUtc": "2026-10-15T14:27:04.553Z",
+      "agentSeconds": 461,
+      "gradingSeconds": 20,
+      "executionSeconds": 483,
+      "requiredTestsPassed": 104,
+      "requiredTestsTotal": 105,
+      "failedRequiredTests": [
+        "tests/unit/misc/test_guiprocess.py::test_cleanup"
+      ],
+      "patchSha256": "8568efd25672f5452b0235bc4e4b61fd222f31e2a1ca753230899cd8d96ea9c8",
+      "baseCommit": "ea60bcfc2ae1e018559031a4c8a26b29caec1c59",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:f2d98fc1a5c7fdb7a90fb16001e8b79a5a9ff86b0290bbcfbfd9c274b40c6ddb"
+      ],
+      "tokens": {
+        "cachedInput": 3378048,
+        "uncachedInput": 57183,
+        "output": 50277
+      },
+      "estimatedCostCny": "0.32585196",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 49,
+      "instanceId": "instance_qutebrowser__qutebrowser-deeb15d6f009b3ca0c3bd503a7cef07462bd16b4-v363c8a7e5ccdf6968fc7ab84a2053ac78036691d",
+      "repository": "qutebrowser/qutebrowser",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T14:27:36.488Z",
+      "finishedAtUtc": "2026-10-15T14:38:28.597Z",
+      "agentSeconds": 633,
+      "gradingSeconds": 17,
+      "executionSeconds": 652,
+      "requiredTestsPassed": 452,
+      "requiredTestsTotal": 452,
+      "failedRequiredTests": [],
+      "patchSha256": "1b584cf198e5e94aa316418d824ef15ec1baaf6648aca5a87053b50f4ba8a5cb",
+      "baseCommit": "3ae5cc96aecb12008345f45bd7d06dbc52e48fa7",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:ec0ac49e675ad869af892e7fcc6c863d61b4461decf08321a4c16147b1a84311"
+      ],
+      "tokens": {
+        "cachedInput": 3260800,
+        "uncachedInput": 140172,
+        "output": 89802
+      },
+      "estimatedCostCny": "0.56459600",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 50,
+      "instanceId": "instance_qutebrowser__qutebrowser-e70f5b03187bdd40e8bf70f5f3ead840f52d1f42-v02ad04386d5238fe2d1a1be450df257370de4b6a",
+      "repository": "qutebrowser/qutebrowser",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T14:32:23.952Z",
+      "finishedAtUtc": "2026-10-15T14:39:22.041Z",
+      "agentSeconds": 399,
+      "gradingSeconds": 16,
+      "executionSeconds": 418,
+      "requiredTestsPassed": 43,
+      "requiredTestsTotal": 43,
+      "failedRequiredTests": [],
+      "patchSha256": "8301cb44235cb1baaed3b817b5836642420a77b7aa7cefed38cd7ba0fe4143f4",
+      "baseCommit": "d7d1293569cd71200758068cabc54e1e2596d606",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:0997a6321343fcdc4d6d7d7484cce85b9a989ea4650e05172b6ce0ed552de636"
+      ],
+      "tokens": {
+        "cachedInput": 4259200,
+        "uncachedInput": 149547,
+        "output": 44985
+      },
+      "estimatedCostCny": "0.41467100",
+      "usageAccountingComplete": true
+    },
+    {
+      "taskIndex": 51,
+      "instanceId": "instance_tutao__tutanota-f373ac3808deefce8183dad8d16729839cc330c1-v2939aa9f4356f0dc9f523ee5ce19d09e08ab979b",
+      "repository": "tutao/tutanota",
+      "status": "pass",
+      "startedAtUtc": "2026-10-15T14:39:49.134Z",
+      "finishedAtUtc": "2026-10-15T15:02:07.581Z",
+      "agentSeconds": 1242,
+      "gradingSeconds": 94,
+      "executionSeconds": 1338,
+      "requiredTestsPassed": 10,
+      "requiredTestsTotal": 10,
+      "failedRequiredTests": [],
+      "patchSha256": "09b50dce0a623f78eeed2b8218ef53f29fcf323e99f7baccbdc8d4f2d033de26",
+      "baseCommit": "a834bd49d148888778075a3a48d3b92d832c4eed",
+      "imageRepoDigests": [
+        "ghcr.io/scaleapi/swe-bench_pro-v2@sha256:e7b8d6619890971c47d9b9eac31a8ac3c0d3218f3eba3590b5b1be33d00bbbe3"
+      ],
+      "tokens": {
+        "cachedInput": 12631680,
+        "uncachedInput": 599093,
+        "output": 172902
+      },
+      "estimatedCostCny": "1.54333460",
+      "usageAccountingComplete": true
+    }
+  ],
+  "displayModel": "DeepSeek V4.1 Flash"
+}

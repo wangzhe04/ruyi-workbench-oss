@@ -1,0 +1,101 @@
+{
+  "source": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2?tab=hard",
+  "checkedAt": "2026-10-16",
+  "tasks": 51,
+  "metric": "Resolve rate (%)",
+  "rows": [
+    {
+      "model": "Claude Opus 5",
+      "harness": "Claude Code",
+      "reasoningEffort": "xhigh",
+      "passRatePercent": 98
+    },
+    {
+      "model": "Claude Fable 5.1",
+      "harness": "Claude Code",
+      "reasoningEffort": "high",
+      "passRatePercent": 92.2
+    },
+    {
+      "model": "Gemini 4 Argon",
+      "harness": "mini-swe-agent",
+      "reasoningEffort": "high",
+      "passRatePercent": 92.16
+    },
+    {
+      "model": "GPT-6 Astra",
+      "harness": "Codex",
+      "reasoningEffort": "high",
+      "passRatePercent": 90.2
+    },
+    {
+      "model": "Muse Wonder 1.0",
+      "harness": "mini-swe-agent",
+      "reasoningEffort": "xhigh",
+      "passRatePercent": 90.2
+    },
+    {
+      "model": "Kimi K3",
+      "harness": "mini-swe-agent",
+      "reasoningEffort": "max",
+      "passRatePercent": 88.2
+    },
+    {
+      "model": "Claude Sonnet 5",
+      "harness": "Claude Code",
+      "reasoningEffort": "xhigh",
+      "passRatePercent": 88.2
+    },
+    {
+      "model": "GPT-5.6 Terra",
+      "harness": "Codex",
+      "reasoningEffort": "xhigh",
+      "passRatePercent": 86.3
+    },
+    {
+      "model": "GLM-5.3",
+      "harness": "mini-swe-agent",
+      "reasoningEffort": "max",
+      "passRatePercent": 84.3
+    },
+    {
+      "model": "GPT-5.6 Sol",
+      "harness": "Codex",
+      "reasoningEffort": "xhigh",
+      "passRatePercent": 82.4
+    },
+    {
+      "model": "Claude Sonnet 5.5",
+      "harness": "mini-swe-agent",
+      "reasoningEffort": "xhigh",
+      "passRatePercent": 70.59
+    },
+    {
+      "model": "Gemini 3.8 Flash",
+      "harness": "mini-swe-agent",
+      "reasoningEffort": "high",
+      "passRatePercent": 58.8
+    },
+    {
+      "model": "Inkling",
+      "harness": "mini-swe-agent",
+      "reasoningEffort": "xhigh",
+      "passRatePercent": 56.9
+    },
+    {
+      "model": "Claude Haiku 5.5",
+      "harness": "mini-swe-agent",
+      "reasoningEffort": "high",
+      "passRatePercent": 52.94
+    },
+    {
+      "model": "Claude Haiku 4.5",
+      "harness": "Claude Code",
+      "reasoningEffort": "xhigh",
+      "passRatePercent": 25.5
+    }
+  ],
+  "note": "Live HARD tab rechecked near completion, all15 scores unchanged. No comparable per-run cost/time published. Compare model+harness pairs and disclose local protocol differences; rounded board scores do not establish an exact rank for a local run.",
+  "checkedAtUtc": "2026-10-16T01:44:28.449194+00:00",
+  "recheckedAgainstLiveHardTab": true
+}

@@ -14,6 +14,7 @@ operational commitments.
 | Clean-room source review | [Source Review](../ruyi-workbench/docs/SOURCE_REVIEW_EN.md) | [源码审阅结论](../ruyi-workbench/docs/SOURCE_REVIEW_CN.md) |
 | Security policy | [Security Policy](../SECURITY.md) | [安全策略](../SECURITY.md) |
 | Contributor guide | [Contributing](../CONTRIBUTING.md#english-summary) | [贡献指南](../CONTRIBUTING.md) |
+| HARD-51 evaluation and model–harness comparisons | [Report and task data](benchmarks/hard51-2026-10-15/README_EN.md) | [实测报告与逐题数据](benchmarks/hard51-2026-10-15/README.md) |
 | UI localization contract | [Localization Guide](i18n/README_EN.md) | [多语言兼容方案](i18n/README.md) |
 | Built-in skills and quick tasks | — | [技能与一键任务目录](../ruyi-workbench/docs/SKILLS-CATALOG_CN.md) |
 | MCP connector drop-ins | [MCP Connectors](../mcp/README_EN.md) | [MCP 连接器](../mcp/README.md) |

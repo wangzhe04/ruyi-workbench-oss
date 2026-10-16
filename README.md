@@ -14,7 +14,9 @@
 
 **如意（Ruyi）** 是一个 clean-room 实现的 Windows 本地 AI 工作台。给它一个能用的模型：Anthropic Messages 或 OpenAI 兼容端点（云端 API、内网 vLLM、本机 Ollama / LM Studio 都行），或者本机装好的 Claude Code / Kimi Code 命令行。它就能在你的电脑上**真正动手**：读写文件、跑脚本、操作 Office 和桌面、派一队子代理去调研；还有一位「管家」替你盯着所有在办的事。
 
-> **如意 Ruyi 3.0 正式发布。** 多了一位替你盯全局的管家，文件改动可以撤销，长任务的进度也更清楚。[下载 3.0](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0) · [看看这一版的新变化](docs/release-notes/v3.0.0.md) · [完整变更记录](CHANGELOG.md)
+> **如意 Ruyi 3.0.1。** 班组协作、跨会话接续和多媒体检查更顺手，修复管家会话与压缩后的任务连续性。[下载 3.0.1](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.1) · [本版更新](docs/release-notes/v3.0.1.md) · [完整变更记录](CHANGELOG.md)
+
+> **工程实测：如意 + DeepSeek V4.1 Flash，在 SWE-bench Pro V2 HARD-51（51 题困难子集）通过 44/51（86.27%），整套模型 API 费用估算 ¥42.15。** 与官方 Astra + Codex 的 90.20% 相差 3.93 个百分点，与 Sonnet 5 + Claude Code 的 88.20% 相差 1.93 个百分点。[查看对比、协议与 51 题数据](docs/benchmarks/hard51-2026-10-15/README.md)。这是如意 3.0.0 运行构建的本地单次结果，3.0.1 随附发布。
 
 ### 3.0 能帮你什么
 
@@ -384,6 +386,22 @@ Kimi Code 经官方 ACP（JSON-RPC / NDJSON）驱动：原生工具事件、如�
 
 ## 与同类软件的对比
 
+### SWE-bench Pro V2 HARD-51：实惠模型，也能完成复杂工程任务
+
+2026-10-15，用如意真实运行 `DeepSeek V4.1 Flash`，51 题全部独立作答并用官方 verifier 在全新容器判分：**44 题通过，86.27%，约 ¥42.15**。实际历时 **6 小时 20 分**，最多三题并行。以下是同一 HARD-51 题集的选定对照，官方成绩核对日期为 2026-10-16：
+
+| 模型 | Harness | 推理配置 | 通过率 | 整套 API 费用估算 |
+|---|---|---|---:|---:|
+| **DeepSeek V4.1 Flash** | **如意 Ruyi** | 本机 provider 配置 | **86.27%（44/51）** | **¥42.15** |
+| GPT-6 Astra | Codex | high | 90.20% | 未公布同口径费用 |
+| Sonnet 5 | Claude Code | xhigh | 88.20% | 未公布同口径费用 |
+| GPT-5.6 Terra | Codex | xhigh | 86.30% | 未公布同口径费用 |
+| Sonnet 5.5 | mini-swe-agent | xhigh | 70.59% | 未公布同口径费用 |
+
+**如意的 harness 价值体现在可交付的结果：约 ¥42 的模型 API 支出，取得接近旗舰模型与主流编程 harness 组合的完成率。** 本次是不同模型与框架的组合对照，不是固定模型的 harness 消融实验，不能据此把分差单独归因于 harness。官方 Sonnet 5.5 的框架是 **mini-swe-agent**；Claude Code 对照项是 **Sonnet 5**。
+
+费用包含辅助调用及缓存命中/未命中/输出，按实际时段标价估算，非实付账单；未使用参考答案、未向模型反馈隐藏测试后重跑。本地运行不是官方榜单提交。[详细报告与费用拆分](docs/benchmarks/hard51-2026-10-15/README.md) · [逐题 JSON](docs/benchmarks/hard51-2026-10-15/results.json) · [官方 HARD 榜单](https://labs.scale.com/leaderboard/swe_bench_pro_public_v2?tab=hard)
+
 | 维度 | 云端对话应用 | 编程 CLI Agent | 云端自动化 Agent | **如意** |
 |---|---|---|---|---|
 | 运行位置 | 厂商服务器 | 本机终端 | 厂商沙箱 | **本机，数据不出门** |
@@ -415,7 +433,7 @@ Kimi Code 经官方 ACP（JSON-RPC / NDJSON）驱动：原生工具事件、如�
 
 ## 部署：离线包、内网与源码运行
 
-**离线包（推荐）**：从 [3.0 下载页](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0) 获取 Full 或 Slim，完整解压到短路径（如 `C:\Ruyi`），再运行 `Start-Workbench.cmd` 或 `RuyiDesktop.exe`。需要桌面控制和 OCR 选 Full，只用聊天、文件和脚本等能力可选 Slim。模型需另行配置。
+**离线包（推荐）**：从 [3.0.1 下载页](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.1) 获取 Full 或 Slim，完整解压到短路径（如 `C:\Ruyi`），再运行 `Start-Workbench.cmd` 或 `RuyiDesktop.exe`。需要桌面控制和 OCR 选 Full，只用聊天、文件和脚本等能力可选 Slim。模型需另行配置。
 
 也可以自行打包：
 
