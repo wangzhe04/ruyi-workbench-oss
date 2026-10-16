@@ -7,6 +7,7 @@
 - [62 · 管家 3.x 分轮迭代](62-steward-3x-iterations.md)：当前范围、优先级、固定验收旅程与发布门。
 - [63 · 首批启动所有权与轻量读取契约](63-steward-startup-read-contracts.md)：3.0.1 基线上的实施设计及独立验收记录。
 - [64 · 运行快照可信度与停止回执](64-steward-health-stop-receipts.md)：第二批故障显示、读取失败与停止结果的设计及验收。
+- [65 · 执行身份与管家全局故障提示](65-steward-execution-identity-global-health.md)：第三批停止及撤回身份、全局故障投影、服务重启重取与验收记录。
 - [全局路线图](../OPTIMIZATION-ROADMAP.md)：产品状态与当前方向导航。
 - [文档总索引](../README.md)：开发、使用、发布和历史材料入口。
 

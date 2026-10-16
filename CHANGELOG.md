@@ -5,6 +5,12 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 停止和管家撤回绑定页面看到的那次执行，覆盖排队、启动及连续子回合；旧按钮遇到新执行或服务重启会拒绝。受保护的管家撤回在核验、停止与回退期间阻止新执行插入，空闲确认也检查期间是否启动过新任务。
+- 管家任务列表与详情补齐写盘失败、空闲中止和资源阻塞提示；任务、待决和验收读取失败时保留旧内容并说明状态。服务重启后自动清除旧条件缓存、重取权威数据，迟到响应不覆盖新结果。
+
+- Stop actions and Steward rewinds bind to the execution shown when the action was created, including queued and starting turns. Stale actions are rejected after a new execution or server restart; guarded Steward rewinds prevent a new turn from entering during rollback and detect intervening turns even when the thread is idle again.
+- Steward lists and details now show persistence, idle-abort and resource-wait faults. Failed task, decision and acceptance reads retain their previous contents with a notice. Server restarts invalidate conditional caches and trigger fresh reads, with late responses prevented from replacing newer results.
+
 - 班组与工具箱统一显示写盘失败、空闲中止和资源阻塞；读取失败时保留并标明旧快照，缺失或畸形响应不再伪装成空列表或成功刷新。
 - 管家停止回执区分请求受理、无事可停、拒绝与结果未确认；同一目标的在途点击合并，丢失回包后不自动重发，实时与历史工具回执使用同一判据。
 

@@ -348,6 +348,10 @@ Crew and Workflows distinguish run faults from failed reads. Persistence failure
 
 Steward stop controls distinguish an accepted request, nothing running, a rejection and an unconfirmed result. Check the task state when the result is unconfirmed; the interface does not automatically resend the request. Feedback beside a button refers to the latest stop request and does not establish that a later turn has also stopped.
 
+Stop actions and Steward rewinds bind to the execution you saw. If another turn starts during confirmation, or the server restarts, the old action is rejected; check the task again before acting. Rewinding a whole task checks for intervening executions even if the task was idle when confirmation opened. A Steward rewind first stops an active task and waits for it to settle; a timeout prevents rollback. Older undo records without reliable execution identity no longer offer an undo that could affect a newer task. Per-message rewind in Workbench retains its existing behavior.
+
+Steward lists and details show persistence failures, idle aborts and resource waits. Failed task, decision or acceptance reads retain the previous content with a warning instead of showing an empty or completed task. A server restart triggers fresh reads automatically; a restored connection alone does not establish that the content has refreshed successfully.
+
 ## 7. FAQ
 
 **No engine is ready.** Configure an Agent CLI path or add a model provider in Settings (section 5); the connection status in the thread header turns green once one works.
