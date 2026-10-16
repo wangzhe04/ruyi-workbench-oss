@@ -426,7 +426,7 @@ function sessionEnvelopeLiveParts(id) {
   const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
     ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
     : null;
-  return { live, liveTail, liveTurn, relay };
+  return { live, liveTail, liveTurn, relay, execution: sessionExecutionSnapshot(id), executionObservation: sessionExecutionObservation(id) };
 }
 
 // 安全走查 S10:导入会话 JSON(POST /api/sessions 带 messages)时,文件里写的 cwd 不能原样当工作区 —— 一份被分享来的会话文件
@@ -574,12 +574,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
         const liveParts = sessionEnvelopeLiveParts(id);
         const head = liveParts.live ? await readSessionHeadResilient(id) : null;
         if (head && typeof head === 'object') {
-          const { liveTail, liveTurn, relay } = liveParts;
+          const { liveTail, liveTurn, relay, execution, executionObservation } = liveParts;
           const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
           const count = (n, list) => (Number.isInteger(n) ? n : (Array.isArray(list) ? list.length : 0));
           const historyLength = count(head.providerHistoryCount, head.providerHistory);
           return send(res, json({
-            ok: true, view: 'live',
+            ok: true, view: 'live', execution, executionObservation,
             session: { id, updatedAt: String(head.updatedAt || ''), turnSeq, messageCount: count(head.messageCount, head.messages), providerHistoryCount: historyLength },
             resumable: { dangling: false, kind: null, turnSeq, historyLength, live: true },
             ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}),
@@ -594,7 +594,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
         const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw, deltaKey);
         if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
       }
-      const notFound = () => send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
+      const notFound = () => send(res, id === STEWARD_SESSION_ID ? json({ ok: true, execution: sessionExecutionSnapshot(id), executionObservation: sessionExecutionObservation(id), session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // perf(增量取):带 fromIndex/prefixStamp 的请求先用「不读 provider 正文」的装载视图(02 SESSION_LOAD_OMIT_PROVIDER:
       // 前提拿不准它自己就是一次完整装载)。前缀戳对不上 = 要回全量,全量体里有 providerHistory,于是换一份完整装载再往下走。
       let session = await loadSession(id, 0, 0, deltaKey ? SESSION_LOAD_OMIT_PROVIDER : null);
@@ -613,7 +613,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
       // 横幅,故 live 会话直接返回不悬挂。
       const liveParts = sessionEnvelopeLiveParts(id);
-      const { live, liveTail, liveTurn, relay } = liveParts;
+      const { live, liveTail, liveTurn, relay, execution, executionObservation } = liveParts;
       // 200 体的标签:盘上戳是装载前取的(见上),内存活态是这一刻取的;没有戳(读不到头/正文)就不发 ETag,照旧无条件全量。
       const envelopeHeaders = envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw, deltaKey), 'cache-control': 'no-store' } : {};
       // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 steward-drawer.js 的
@@ -638,7 +638,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const at = Date.parse(String((m && m.createdAt) || ''));
           return Number.isFinite(at) && at > sinceMs;
         });
-        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
+        return send(res, json({ ok: true, execution, executionObservation, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
       }
       // 增量取:前缀戳对得上才回尾巴。信封与全量同形(同一组键、同一份 resumable/displayTitle/活态),只有三处不同 ——
       // session.messages 只是 messages[N..];session 上不带 providerHistory(前端从不读它,全量里照旧有);信封上多
@@ -649,7 +649,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
         if (delta) {
           const { providerHistory: _providerHistory, ...sessionHead } = session;
           return send(res, json({
-            ok: true, session: { ...sessionHead, messages: delta.tail }, resumable, displayTitle: sessionDisplayTitle(session),
+            ok: true, execution, executionObservation, session: { ...sessionHead, messages: delta.tail }, resumable, displayTitle: sessionDisplayTitle(session),
             messagesFrom: delta.from, messageCount: delta.count, messagesStamp: delta.stamp,
             ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}),
           }, 200, envelopeHeaders));
@@ -658,7 +658,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, 200, envelopeHeaders));
+      return send(res, json({ ok: true, execution, executionObservation, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, 200, envelopeHeaders));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -834,6 +834,7 @@ function missionRunDigest(r, includeLive = true, includeGraph = false) {
     nodeCount: Array.isArray(src.nodes) ? src.nodes.length : 0,
     poolPending: ((src.taskPool) || []).filter(p => p && p.status === 'proposed').length,
     live: !!live, paused: !!(live && live.paused), resumeTier: src.resumeTier || '',
+    health: agentRunHealth(src, !!live),
     totalTokens: Number(src.totalTokens) || 0, costUsd: Number(src.costUsd) || 0,
   };
   if (includeGraph) Object.assign(digest, missionRunGraph(src, live));
@@ -894,6 +895,7 @@ async function buildMissionCard(head, runs, opts = {}) {
       ? { seq: Math.max(0, Number(head.stewardLastTurn.seq) || 0), ok: head.stewardLastTurn.ok !== false, aborted: head.stewardLastTurn.aborted === true }
       : null,
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
+    ...(opts.persistent ? {} : { execution: sessionExecutionSnapshot(head.id) }),
     ...(opts.persistent ? {} : { queued: stewardThreadTurnQueued(head.id) }), // hunt3:排队中的回合,同上只活在叠加层
     mission: {
       goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
@@ -911,7 +913,21 @@ async function buildMissionCard(head, runs, opts = {}) {
     pending: await missionPendingCounts(head.id, runs, opts.interventions),
     runCount: (runs || []).length,
     lastRun: runs && runs.length ? missionRunDigest(runs[runs.length - 1], !opts.persistent) : null,
+    // Latest persisted run plus every live run: a healthy newer run cannot hide an older live fault.
+    healthRuns: missionHealthRuns(head.id, runs, !opts.persistent),
   };
+}
+
+function missionHealthRuns(sessionId, runs, includeLive = true) {
+  const latest = (Array.isArray(runs) ? runs : []).filter(run => run && run.id)
+    .slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || String(b.id).localeCompare(String(a.id)))[0];
+  const byId = new Map();
+  if (latest) byId.set(latest.id, missionRunDigest(latest, includeLive));
+  if (includeLive) for (const runtime of activeAgentRuns.values()) {
+    const run = runtime && runtime.run;
+    if (run && run.sessionId === sessionId) byId.set(run.id, missionRunDigest(run, true));
+  }
+  return [...byId.values()];
 }
 
 // ── 第 116 波 116g(27 号文 §3.1 / §8.10):事项级聚合读模型 ─────────────────────

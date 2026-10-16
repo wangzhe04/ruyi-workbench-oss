@@ -9,6 +9,7 @@
 // 判定行:`ACTION FEEDBACK STATIC E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
+const { functionBlock } = require('./lib/source-slice');
 
 const PUB = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'public');
 const read = rel => fs.readFileSync(path.join(PUB, rel), 'utf8');
@@ -92,8 +93,10 @@ const app = read('app.js');
 ok((app.match(/refreshToolPane: \(\) => refreshToolPane\(\),   \/\/ 128f-⑫/g) || []).length === 2, 'D7 组合根把 refreshToolPane 注入给撤销与回溯两处');
 // F2 焦点栏里「停止」→ 左栏头上的仲裁数(排队 N)重读:排队中的回合被停一帧线程推送都没有
 {
-  const body = enclosingBody(drawer, 'const stopped = await stewardThreadStop({ api, sessionId });', FN);
+  const body = functionBlock(drawer, 'stopThread');
   ok(/^async function stopThread\(\)/.test(body) && after(body, 'await refreshOnce();', "publishLocal('steward.arbiter.changed'")
+    && body.includes('await stewardThreadStop({ api, sessionId: targetId, expectedExecution })')
+    && body.includes("stopped.outcome === 'accepted'")
     && /drawerEventStream = stream;/.test(drawer)
     && /stream\.on\('steward\.arbiter\.changed', \(\) => \{ void loadArbiter\(\)\.then\(\(\) => \{ renderArbiterFacts\(\); \}\); \}\);/.test(board),
     'F2 焦点栏停掉一条之后页内广播 steward.arbiter.changed,左栏只重读仲裁面这一发');

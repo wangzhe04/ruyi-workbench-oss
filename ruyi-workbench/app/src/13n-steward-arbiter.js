@@ -257,9 +257,11 @@ function stewardArbiterSetWait(entry, wait) {
 
 // 放行:登记并发位、记一笔回合时刻,返回带 release 的凭据。release 幂等,回合的 finally 无条件调它。
 function stewardArbiterGrant(entry) {
+  if (entry.cancelled || (entry.signal && entry.signal.aborted)) return { granted: false, reason: 'stopped' };
+  if (entry.executionOwner && turnSettlers.get(entry.sessionId) === entry.executionOwner) entry.executionOwner.phase = 'starting';
   const token = `slot_${++stewardArbiter.seq}`;
   const startedAt = Date.now();
-  stewardArbiter.running.set(token, { token, sessionId: entry.sessionId, title: entry.title, cwdKey: entry.cwdKey, startedAt });
+  stewardArbiter.running.set(token, { token, sessionId: entry.sessionId, title: entry.title, cwdKey: entry.cwdKey, startedAt, execution: entry.execution || null });
   stewardArbiter.turns.push(startedAt);
   // 只有【真的等过】的条目才发 acquired/released:没等过的回合在事件流里凭空多两帧,对用户是噪音,
   // 对既有壳是白白多一次重渲染。等过的条目必须发 —— 状态条要靠它把「等待资源」那一行清掉。
@@ -284,7 +286,7 @@ function stewardArbiterGrant(entry) {
 // 而不是 running(不占并发位、不挡别人),以及只在真的与同 cwd 的活跃写者撞上时才发一条事件。
 function stewardArbiterGrantPending(info) {
   const token = `pend_${++stewardArbiter.seq}`;
-  const row = { token, sessionId: info.sessionId, title: info.title, cwdKey: info.cwdKey, startedAt: Date.now() };
+  const row = { token, sessionId: info.sessionId, title: info.title, cwdKey: info.cwdKey, startedAt: Date.now(), execution: info.execution || null };
   stewardArbiter.pendingRuns.set(token, row);
   const rivals = [];
   for (const run of stewardArbiter.running.values()) {
@@ -330,12 +332,12 @@ function stewardArbiterCancel(entry, reason) {
 }
 
 // /api/stop 的接线:被停的会话若还在排队,把它出队(既有 stopSession 只认活回合,排队中的回合它看不见)。
-function stewardCancelQueuedTurn(sessionId) {
+function stewardCancelQueuedTurn(sessionId, driverRunId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return false;
   let hit = false;
   for (const entry of [...stewardArbiter.queue]) {
-    if (entry.sessionId !== sid) continue;
+    if (entry.sessionId !== sid || (driverRunId && (!entry.execution || entry.execution.driverRunId !== driverRunId))) continue;
     if (stewardArbiterCancel(entry, 'stopped')) hit = true;
   }
   return hit;
@@ -493,22 +495,27 @@ async function stewardAcquireTurnSlot(input) {
   const opts = (input && typeof input === 'object') ? input : {};
   const passthrough = { granted: true, release: () => {} };
   const config = opts.config || await readConfig().catch(() => null);
+  if (opts.signal && opts.signal.aborted) return { granted: false, reason: 'stopped' };
   if (!config || config.stewardEnabledV1 !== true) return passthrough;
   const sessionId = safeSessionId(opts.sessionId);
   if (!sessionId || sessionId === STEWARD_SESSION_ID) return passthrough;   // 管家不是线程,不占并发位
   // ① 等你 -> 直接放行。116-3 P2-15:放行照旧(它不该等),但把 cwd 登记进 pendingRuns 让两个写者
   // 彼此可见;真撞上同 cwd 的活跃写者时给这一路的事件流发一条 agent_resource(state:'acquired' —— 它
   // 没在等,只是同时在写),112c 状态条与看板据此能显示「同一个文件夹还有别的写者」。
-  if (await stewardArbiterHasPending(sessionId)) {
+  const hasPending = await stewardArbiterHasPending(sessionId);
+  if (opts.signal && opts.signal.aborted) return { granted: false, reason: 'stopped' };
+  assertSessionExecutionOwner(sessionId, opts.executionOwner);
+  const execution = opts.executionOwner ? { serverInstanceId: OVERLAY_ID, driverRunId: opts.executionOwner.driverRunId } : null;
+  if (hasPending) {
     return stewardArbiterGrantPending({
       sessionId,
       title: stewardSanitizeText(opts.title || ''),
       cwdKey: stewardArbiterCwdKey(opts.cwd),
-      onEvent: typeof opts.onEvent === 'function' ? opts.onEvent : null,
+      onEvent: typeof opts.onEvent === 'function' ? opts.onEvent : null, execution,
     });
   }
   const entry = {
-    sessionId,
+    sessionId, execution, executionOwner: opts.executionOwner || null,
     title: stewardSanitizeText(opts.title || ''),
     cwdKey: stewardArbiterCwdKey(opts.cwd),
     enqueuedAt: Date.now(),
@@ -525,6 +532,7 @@ async function stewardAcquireTurnSlot(input) {
     signal: opts.signal || null,
   };
   if (entry.signal && entry.signal.aborted) return { granted: false, reason: 'aborted' };
+  if (opts.executionOwner) opts.executionOwner.phase = 'queued';
   // 队列硬顶:排队是为了让用户看得懂,不是背压手段。堆到 500 条说明别处已经出问题了,放行比挂死诚实。
   // 116-3 P1-12:但逃生舱只对【预算与并发位】开 —— 同 cwd 写互斥是数据完整性问题,不是排队体验问题,
   // 而队列打满最常见的成因恰恰是「同一个繁忙目录上的自理重试循环」,这时候放行等于让两条线程一起改
@@ -611,18 +619,18 @@ async function stewardArbiterState(config) {
     enabled: cfg.stewardEnabledV1 === true,
     maxParallel: stewardArbiterMaxParallel(cfg),
     running: [...stewardArbiter.running.values()].map(run => ({
-      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt,
+      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt, execution: run.execution || null,
     })),
     // 116-3 P2-15:待决豁免的写者。【不】并进 running —— 它不占并发位、不挡别人(116h 的刻意设计),
     // 但看板与状态条要看得见「同一个文件夹这会儿还有谁在写」。只加字段,不改既有形状。
     pendingWriters: [...stewardArbiter.pendingRuns.values()].map(run => ({
-      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt,
+      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt, execution: run.execution || null,
     })),
     queue: stewardArbiter.queue.filter(entry => !entry.cancelled).map(entry => ({
       sessionId: entry.sessionId,
       title: entry.title,
       cwdKey: entry.cwdKey,
-      enqueuedAt: entry.enqueuedAt,
+      enqueuedAt: entry.enqueuedAt, execution: entry.execution || null,
       priorityBump: entry.priorityBump === true,
       wait: waitReasonFor({ pending: 0 }, entry.wait),
     })),

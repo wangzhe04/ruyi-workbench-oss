@@ -2,6 +2,8 @@
 
 import './mission-state.js';
 import { apiRaw } from './net.js';
+import { getLocale } from './i18n.js';
+import { runFaults, validProjectedRunHealth, validExecutionSnapshot, appendResourceReadHealth } from './run-health.js';
 // 注（走查 S-14）：elapsedLabel 自此本模块不再直接调用（左栏在跑行改说「3 分钟前」，不印 `2s` 缩写）；import 保留，
 // 因为 steward-board.static B3 逐字钉着「时长文案是 import 复用、不是复制」。
 import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, stewardAskText, stewardWaitBlockerId, stewardWaitText, threadIsBlank, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
@@ -57,7 +59,7 @@ import { confirmDanger } from './confirm-panel.js';
 import { popover, closePopover, popoverAnchor } from './popover.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍）。名字不在本文件
 // 里各写一遍 —— 事件名 `thread.needs_you` 里那个词不是五态，不该进 B5／M6／N3 那本「五态字面量」账。
-import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
+import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT, EVENT_STREAM_INSTANCE_EVENT } from './event-stream.js';
 
 // 第117波 117h → 第121波 K4：一行状态 → 【左栏任务索引】 → 管家视角的右栏
 // （34 号文 §2.2／§2.3／§2.6；原 27 号文 §8.2 L1／§8.10 的看板浮层已退役）。
@@ -219,6 +221,19 @@ export function createStewardBoard({
   let rows = [];                  // GET /api/missions 的线程行（卡片形状 + 116g/117h-0 的追加字段）
   let arbiter = null;               // GET /api/steward/arbiter 的只读状态
   let missionsEtag = '';            // 带 If-None-Match 走，没变就连解析都省了
+  let boardReadGeneration = 0;
+  let arbiterReadSeq = 0;
+  const boardReadQuality = { missions: { state: 'loading', lastSuccessAt: 0 }, arbiter: { state: 'loading', lastSuccessAt: 0 } };
+  function renderBoardReadHealth() {
+    const rail = byId('railList'); if (!rail || !rail.parentNode) return;
+    let host = byId('stewardBoardReadHealth');
+    if (!host) { host = el('div', 'steward-read-health'); host.id = 'stewardBoardReadHealth'; rail.parentNode.insertBefore(host, rail); }
+    clear(host);
+    appendResourceReadHealth(host, boardReadQuality, { el, t, locale: getLocale() });
+    host.hidden = !host.childNodes.length;
+    host.dataset.projectionRevision = boardReadQuality.missions.projectionRevision || '';
+    host.dataset.builtAt = boardReadQuality.missions.builtAt || '';
+  }
   let pinnedId = '';                // 用户显式选过的线程（steward:open-thread / focus-thread / 看板行）
   // 117r-D2（用户第八轮走查①）：这一钉还没被【行】核实过。派进来一个焦点／打开事件时置位，
   // 焦点事件那一刷跑完就清（verifyPinnedRow 的 finally）—— 见 currentFocusId 的头注。
@@ -339,19 +354,30 @@ export function createStewardBoard({
     return run;
   }
   async function loadMissionsOnce(seq) {
+    const generation = boardReadGeneration;
     try {
       // 117q-B3a(P1-6):裸 fetch 换 apiRaw——304/etag 判断逻辑一个字不动，唯一变化是拿到 403 +
       // auth.token_invalid(后台进程重启后旧 token 失效)时会像其余 45+ 处 api() 调用点一样自愈：
       // 换新 token 重放一次，而不是直接放弃、空转到用户手动刷新页面。
       const headers = missionsEtag ? { 'if-none-match': missionsEtag } : {};
       const response = await fetchMissionRows('?limit=200', { headers });
+      if (generation !== boardReadGeneration) return false;
       if (seq !== missionsLoadSeq) return missionsLoadLatest;   // 128f：已经有更晚发出的一发 —— 这一份不许写回，等它落地
-      if (response.status === 304) return false;          // 没变：不重画，chip 菜单也就不会被打断
-      if (!response.ok) return false;
+      if (response.status === 304) {
+        if (!missionsEtag || !boardReadQuality.missions.lastSuccessAt) throw new Error('unverified mission cache');
+        boardReadQuality.missions = { ...boardReadQuality.missions, state: 'ok', lastSuccessAt: Date.now() };
+        return false;
+      }
+      if (!response.ok) throw new Error('mission list unavailable');
       const payload = await response.json();
+      if (generation !== boardReadGeneration) return false;
       if (seq !== missionsLoadSeq) return missionsLoadLatest;
+      if (payload?.ok !== true || !Array.isArray(payload.missions) || !payload.missions.every(row => row && typeof row.sessionId === 'string' && row.sessionId
+        && (!Object.hasOwn(row, 'execution') || validExecutionSnapshot(row.execution))
+        && (row.healthRuns === undefined || (Array.isArray(row.healthRuns) && row.healthRuns.every(run => run && typeof run.id === 'string' && run.id && typeof run.status === 'string' && typeof run.live === 'boolean' && validProjectedRunHealth(run.health)))))) throw new Error('invalid mission list');
       missionsEtag = response.headers.get('etag') || '';
-      rows = Array.isArray(payload && payload.missions) ? payload.missions : [];
+      rows = payload.missions;
+      boardReadQuality.missions = { state: 'ok', lastSuccessAt: Date.now(), projectionRevision: typeof payload.projectionRevision === 'string' ? payload.projectionRevision : '', builtAt: typeof payload.index?.builtAt === 'string' ? payload.index.builtAt : '' };
       const removal = removalOf();
       if (removal && removal.done.size) {
         const present = new Set(rows.map(row => String((row && row.sessionId) || '')));
@@ -370,14 +396,22 @@ export function createStewardBoard({
         });
       }
       return true;
-    } catch { return false; }
+    } catch {
+      if (generation === boardReadGeneration && seq === missionsLoadSeq) boardReadQuality.missions = { ...boardReadQuality.missions, state: 'failed' };
+      return false;
+    } finally { renderBoardReadHealth(); }
   }
 
   async function loadArbiter() {
+    const seq = ++arbiterReadSeq, generation = boardReadGeneration;
     try {
       const response = await api('/api/steward/arbiter');
-      arbiter = (response && response.ok === true) ? response : null;
-    } catch { arbiter = null; }   // 开关关时后端给 409：仲裁面整块留空，不编数字
+      if (generation !== boardReadGeneration || seq !== arbiterReadSeq) return arbiter;
+      if (response?.ok !== true || !Array.isArray(response.running) || !Array.isArray(response.queue)) throw new Error('invalid arbiter snapshot');
+      arbiter = response;
+      boardReadQuality.arbiter = { state: 'ok', lastSuccessAt: Date.now() };
+    } catch { if (generation === boardReadGeneration && seq === arbiterReadSeq) boardReadQuality.arbiter = { ...boardReadQuality.arbiter, state: 'failed' }; }
+    finally { renderBoardReadHealth(); }
     return arbiter;
   }
 
@@ -1048,6 +1082,14 @@ export function createStewardBoard({
     // 真有人在问你时不印这枚：那枚「它在问你／它等你放行」说的是同一件事的更具体版本，两枚并排
     // 就是把一句话印两遍（§11.15.2 病 3 的同一个模具）。判据仍然只有 asksYou 那一个，零新增字面量。
     if (!asksPill) head.appendChild(statePill(threadState));
+    const faults = (Array.isArray(row.healthRuns) ? row.healthRuns : [row.lastRun]).flatMap(run => runFaults(run));
+    if (faults.length) {
+      const health = el('button', 'steward-health-badge', t('stewardShell.health.count', { count: faults.length }));
+      health.type = 'button'; health.dataset.action = 'health';
+      health.title = faults.map(fault => t('workflow.health.' + fault.kind, { count: fault.count })).join('\n');
+      health.setAttribute('aria-label', health.title); health.onclick = () => openRow(sessionId);
+      head.appendChild(health);
+    }
     // B4：标题右侧只留「最后动静」—— 钱与验收线搬去了卡尾，不再与线程名争重心。
     // W4b：只印相对时间本身（「刚刚」「3 分钟前」，与焦点卡同一句），整话「最后动静：…」退到悬停。
     const ago = railAgoLabel(row.updatedAt);
@@ -1089,10 +1131,12 @@ export function createStewardBoard({
     const actions = el('div', 'steward-board-actions');
     // 116h 交付记录的登记项①在这里落地：等锁时占用者就在 wait.blockedBy 里，给一个「停掉占用者」。
     if (wait && String(wait.reason) === 'lock' && stewardWaitBlockerId(wait)) {
+      const blockerId = stewardWaitBlockerId(wait);
+      const blockerExecution = (rows.find(item => String(item.sessionId) === blockerId) || {}).execution;
       const blockerStop = boardButton('stewardShell.board.stopBlocker',
-        () => stopBlocker(stewardWaitBlockerId(wait)), { action: 'stop-blocker' }, 'stop');
+        () => stopBlocker(blockerId, blockerExecution), { action: 'stop-blocker' }, 'stop');
       actions.appendChild(blockerStop);
-      stewardStopControl(blockerStop, stewardWaitBlockerId(wait), t, tail);
+      stewardStopControl(blockerStop, blockerId, t, tail, blockerExecution);
     }
     const lastRun = (row.lastRun && typeof row.lastRun === 'object') ? row.lastRun : null;
     // 二选一由 run-state.js 的判据说（与 2.0 的 run 卡同一份）：'pause' | 'resume' | 都不出。
@@ -1107,9 +1151,9 @@ export function createStewardBoard({
     }
     actions.appendChild(boardButton('stewardShell.board.prioritize', () => prioritize(sessionId), { action: 'prioritize' }, 'up'));
     // 「停止」这一枚停的是【这条线程】，所以是实心方块；管家本人的停机在头部，那一枚是电源符。
-    const threadStop = boardButton('stewardShell.board.stop', () => stopThread(sessionId), { action: 'stop' }, 'stop');
+    const threadStop = boardButton('stewardShell.board.stop', () => stopThread(sessionId, row.execution), { action: 'stop' }, 'stop');
     actions.appendChild(threadStop);
-    stewardStopControl(threadStop, sessionId, t, tail);
+    stewardStopControl(threadStop, sessionId, t, tail, row.execution);
     // 2026-09-24（用户：「有按钮的话默认直接打开工作台里的对应线程」）：菜单里的「打开」＝在工作台
     // 打开这条线程（两视角同义，见 openInWorkbenchRow）。修前它与「在工作台打开」并排：一枚只换右栏
     // 焦点、一枚才真的去工作台，「打开」按下去像没反应。右栏预览由【点行本身】承担，不再占一枚按钮。
@@ -1413,6 +1457,7 @@ export function createStewardBoard({
     return true;
   }
   function renderRail() {
+    renderBoardReadHealth();
     renderStatusLine();
     renderArbiterFacts();
     syncRailPlus();
@@ -1434,6 +1479,7 @@ export function createStewardBoard({
       railUnits = new Map();
       railSections = new Map();
       railUnitBySession.clear();
+      if (boardReadQuality.missions.state !== 'ok') return 0;
       // 117l-B2 ②（用户第五轮走查 2）：空态是「一句话 ＋ 一个出口」。搜索没命中时说的是另一句
       // （既有键 session.noMatch），不把「还没有任务」这句假话印给一个正在搜索的人。
       const empty = el('div', 'steward-board-empty');
@@ -1494,23 +1540,25 @@ export function createStewardBoard({
     return true;
   }
 
-  async function stopThread(sessionId) {
-    const stopped = await stewardThreadStop({ api, sessionId });
-    note(stewardStopReceiptText(stopped, t));
+  async function stopThread(sessionId, expectedExecution) {
+    const stopped = await stewardThreadStop({ api, sessionId, expectedExecution });
+    const current = rows.find(row => String(row.sessionId) === sessionId);
+    if (stopped.latestRequest !== false && current && (current.execution === null || (current.execution?.serverInstanceId === expectedExecution?.serverInstanceId && current.execution?.driverRunId === expectedExecution?.driverRunId))) note(stewardStopReceiptText(stopped, t));
     await refreshBoard();
     refreshDrawerIfFocused(sessionId);
     return stopped.ok;
   }
 
   // 116h 登记项①：停在「等你」的线程仍持着 cwd 写锁，会挡住同目录所有线程。看到就能一键停掉它。
-  async function stopBlocker(blockedBy) {
+  async function stopBlocker(blockedBy, expectedExecution) {
     const blocker = rows.find(row => String(row.sessionId) === blockedBy) || null;
     const title = blocker ? String(blocker.title || blockedBy) : blockedBy;
     // 33 号文 §4（M3-a）：原生 confirm 退役 —— 停掉别人正在跑的回合是不可逆动作，确认件必须跟主题、
     // 跟语言、焦点归壳管（原生框三样都不跟）。同步变异步：没得到允许就不动手。
     if (!await confirmDanger({ name: 'stopBlocker', bodyParams: { title } })) return false;
-    const stopped = await stewardThreadStop({ api, sessionId: blockedBy });
-    note(stewardStopReceiptText(stopped, t));
+    const stopped = await stewardThreadStop({ api, sessionId: blockedBy, expectedExecution });
+    const current = rows.find(row => String(row.sessionId) === blockedBy);
+    if (stopped.latestRequest !== false && current && (current.execution === null || (current.execution?.serverInstanceId === expectedExecution?.serverInstanceId && current.execution?.driverRunId === expectedExecution?.driverRunId))) note(stewardStopReceiptText(stopped, t));
     await refreshBoard();
     refreshDrawerIfFocused(blockedBy, currentFocusId());   // 被挡的那一条（通常就是焦点）写着「被谁挡着」
     return stopped.ok;
@@ -1994,16 +2042,19 @@ export function createStewardBoard({
   // 合并不用计时器（本模块零 setTimeout，F2 钉着）：在飞时只记一个「还要再来一趟」的位，
   // 与 13r 的 eventStreamEmitThreadState 同一条「串行 + 合并」纪律。
   let streamConnected = false;
+  let serverRefreshPending = false;
   let pushBusy = false;
   let pushAgain = false;
   async function pushRefreshRows() {
-    if (pushBusy) { pushAgain = true; return false; }
-    pushBusy = true;
+    const generation = boardReadGeneration;
+    if (pushBusy === generation) { pushAgain = true; return false; }
+    pushBusy = generation;
     // refreshRows 只刷行；紧跟一口 syncNow 是必需的 —— 焦点那一条（右栅「现在这一件」）由 focusThreadFor
     // 按行算，不跑它的话新起的那条线程永远不会成为焦点，§6.3 的指标 d（焦点栏当前动作行）
     // 就无从发生。轮询那一路（refreshBoard）本来就每一拍都跑 syncNow，这里只是把同一步补齐；
     // 仲裁面（/api/steward/arbiter）故意不跟 —— 推送不该换来第二发请求。
-    try { await refreshRows(); syncNow(); } finally { pushBusy = false; }
+    try { await refreshRows(); if (generation === boardReadGeneration) syncNow(); } finally { if (pushBusy === generation) pushBusy = false; }
+    if (generation !== boardReadGeneration) return false;
     if (pushAgain) { pushAgain = false; return pushRefreshRows(); }
     return true;
   }
@@ -2064,6 +2115,12 @@ export function createStewardBoard({
     if (!stream || typeof stream.on !== 'function') return false;
     streamConnected = typeof stream.isConnected === 'function' ? stream.isConnected() === true : false;
     stream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
+    stream.on(EVENT_STREAM_INSTANCE_EVENT, () => {
+      boardReadGeneration += 1; missionsLoadSeq += 1; arbiterReadSeq += 1; missionsEtag = '';
+      serverRefreshPending = true;
+      for (const key of Object.keys(boardReadQuality)) boardReadQuality[key] = { ...boardReadQuality[key], state: 'restarting' };
+      renderBoardReadHealth();
+    });
     // 128f-⑫（审计 F）：仲裁面那几个数（并发上限、在跑／排队）只在整份 refreshBoard 时重读 —— 推送那一路故意不跟
     // （见 pushRefreshRows 头注：推送不换第二发请求）。可「设置里改了并发上限」「焦点栏里停掉一条」这两个用户动作之后，
     // 左栏头上的数要等兜底那一拍（推送连着时 30 s）才对。这两处做完各发一帧【页内】广播，这里只重读仲裁面这一发。
@@ -2079,7 +2136,10 @@ export function createStewardBoard({
     // 在那之前取回来的行（比如刚打开这条线程就按了「交给管家盯」）说的是「没人坐着」，而工作台视角没有兜底节拍、
     // 在场变了服务端也不推 —— 那一句就一直错下去。presence.ack 是服务端「我已经记下你坐在哪」的回执：
     // 收到就补一发 ETag 化的行（在场进了 ETag，没变就是 304）。只管本页自己的在场；别的窗口换座不在此列。
-    stream.on('presence.ack', () => { void pushRefreshRows(); });
+    stream.on('presence.ack', () => {
+      if (serverRefreshPending) { serverRefreshPending = false; void loadArbiter().then(() => renderArbiterFacts()); }
+      void pushRefreshRows();
+    });
     return true;
   }
 
@@ -2168,7 +2228,7 @@ export function createStewardBoard({
     if (drawer && typeof drawer.setMissionRows === 'function') {
       // 33 号文 §4：抽屉的事项行不再由它自己拉 —— 行是本模块取回来的，读快照与「刷一趟」都从这里
       // 出去（与上面 setOnClosed 同一条迟绑定纪律，不动被静态锁钉住的构造行）。
-      drawer.setMissionRows({ rows: () => rows, refresh: refreshRows });
+      drawer.setMissionRows({ rows: () => rows, refresh: refreshRows, readQuality: () => ({ ...boardReadQuality.missions }) });
     }
 
     const document_ = doc();

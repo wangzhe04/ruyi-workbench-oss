@@ -1121,11 +1121,12 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_stop',
-    description: '把一条线程【这一回合】停下来——和抽屉底部那个「停止」按钮同一条路(掐掉在跑的回合,顺带把还在排队的那次出队,并撤销这条线程的全部授权书)。停止是收紧类动作:任何权限档都可以做,连「每步都问」的线程也不例外,因为它只会让事情少发生。何时用:用户说「暂停/停一下/别跑了这条线程」,或你看到一条线程正在跑偏、在烧钱、在做用户没要它做的事。何时别用:**要停的是 Agent 班组(有 runId)时用 steward_run_action{action:"stop"}**,那是节点级的;要改它接下来做什么用 steward_thread_continue;要收紧权限用 steward_thread_permission。线程当前没有在跑时返回 {ok:false,error:"not_running",message:"这条线程现在没有在跑,不用停"} —— 这不是失败也不是参数错,【不要重试、不要换工具再试一次】,就照直说给用户听。返回 {ok,sessionId,stopped,queuedStopped,undoRef};undoRef 是 {kind:"none"}:停下的回合不能原样续上,要接着做请用 steward_thread_continue。',
+    description: '先用 steward_thread_status 读取 execution，再将同一份身份作为 expectedExecution 提交；不要点击时改取新的身份。缺身份或身份变化会拒绝，须重新核对，不自动重试。把一条线程【这一回合】停下来——和抽屉底部那个「停止」按钮同一条路(掐掉在跑的回合,仅把同一 execution 还在排队的那次出队,并撤销这条线程的全部授权书)。停止是收紧类动作:任何权限档都可以做,连「每步都问」的线程也不例外,因为它只会让事情少发生。何时用:用户说「暂停/停一下/别跑了这条线程」,或你看到一条线程正在跑偏、在烧钱、在做用户没要它做的事。何时别用:**要停的是 Agent 班组(有 runId)时用 steward_run_action{action:"stop"}**,那是节点级的;要改它接下来做什么用 steward_thread_continue;要收紧权限用 steward_thread_permission。线程当前没有在跑时返回 {ok:false,error:"not_running",message:"这条线程现在没有在跑,不用停"} —— 这不是失败也不是参数错,【不要重试、不要换工具再试一次】,就照直说给用户听。返回 {ok,sessionId,stopped,queuedStopped,undoRef};undoRef 是 {kind:"none"}:停下的回合不能原样续上,要接着做请用 steward_thread_continue。',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['sessionId'],
+      type: 'object', additionalProperties: false, required: ['sessionId', 'expectedExecution'],
       properties: {
         sessionId: { type: 'string', minLength: 1, description: '要停的线程 id(不能是管家自己的会话)。' },
+        expectedExecution: { type: ['object', 'null'], additionalProperties: false, required: ['serverInstanceId', 'driverRunId'], properties: { serverInstanceId: { type: 'string', minLength: 1 }, driverRunId: { type: 'string', minLength: 1 }, phase: { type: 'string', enum: ['starting', 'queued', 'running', 'stopping'] } }, description: 'thread_status 返回的 execution 身份，可原样回传；服务端明确空闲时可传 null。phase 不参与身份。' },
         reason: { type: 'string', description: '可选。为什么停(≤200 字),只写进决策日志供用户回看。' },
       },
     },

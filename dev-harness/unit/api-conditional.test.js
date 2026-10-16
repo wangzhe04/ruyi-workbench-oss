@@ -124,4 +124,23 @@ describe('api.conditional(path)', () => {
     assert.strictEqual(inm(calls[1]), undefined);
     assert.strictEqual(inm(calls[2]), undefined);
   });
+
+  it('[N6] reset invalidates in-flight old 200 and 304 cache writes', async () => {
+    for (const status of [200, 304]) {
+      net.resetConditionalApiCache();
+      globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, value: 'old' }), { headers: { etag: 'OLD' } });
+      await net.api.conditional('/same-session');
+      let release, started;
+      const ready = new Promise(resolve => { started = resolve; });
+      globalThis.fetch = async () => { started(); return new Promise(resolve => { release = resolve; }); };
+      const old = net.api.conditional('/same-session'); await ready;
+      net.resetConditionalApiCache();
+      let newHeader;
+      globalThis.fetch = async (_url, options) => { newHeader = options.headers['if-none-match']; return new Response(JSON.stringify({ ok: true, value: 'new' }), { headers: { etag: 'NEW' } }); };
+      await net.api.conditional('/same-session'); assert.equal(newHeader, undefined, 'new process starts without the old conditional header');
+      release(new Response(status === 304 ? null : JSON.stringify({ ok: true, value: 'late-old' }), { status, headers: { etag: 'OLD' } })); await old;
+      globalThis.fetch = async (_url, options) => { assert.equal(options.headers['if-none-match'], 'NEW'); return new Response(null, { status: 304 }); };
+      assert.equal((await net.api.conditional('/same-session')).value, 'new', 'old response cannot repopulate the cleared cache');
+    }
+  });
 });

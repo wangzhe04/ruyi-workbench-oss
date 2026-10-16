@@ -432,7 +432,8 @@ const queueOf = (frames, sid) => { for (const f of frames) { const hit = f.queue
       await sleep(150);
       const pb = stream(WP, { sessionId: b, message: '会被停掉', cwd: cwds.b }, hdr);
       await sleep(200);
-      const stopped = await req(WP, 'POST', '/api/stop', { sessionId: b }, hdr);
+      const stopView = (await req(WP, 'GET', `/api/sessions/${b}`, null, hdr)).body;
+      const stopped = await req(WP, 'POST', '/api/stop', { sessionId: b, expectedExecution: stopView.execution }, hdr);
       ok(stopped.status === 200 && stopped.body.ok === true && stopped.body.stopped === true, '⑩ /api/stop 对排队中的回合返回 stopped:true');
       const rb = await pb;
       ok(rb.events.some(e => e.type === 'process' && e.state === 'stopped'), '⑩ 被停的排队回合走的是 process/stopped(不是 error 信封)');

@@ -20,6 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { functionBlock } = require('./lib/source-slice');
 const { readLayerPayload, LEGACY_STYLES_SHA256 } = require('./read-frontend-css.js');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -148,12 +149,21 @@ ok(/!session\.messages\?\.length && !liveForSession && !liveTurnVisible\(\)/.tes
   'D9 一条落盘消息都没有但回合在跑时不落空态(否则空态把气泡整个吞掉)');
 
 /* ─── E 零新请求 ───────────────────────────────────────────────────────────── */
-ok(/captureLiveTurn\(id, res\);/.test(experience),
-  'E1 活文本跟着 openSession 那一发既有 GET /api/sessions/:id 回来');
+const openSessionBody = functionBlock(experience, 'openSession');
+ok(openSessionBody.includes('const res = await api(`/api/sessions/${encodeURIComponent(id)}`);')
+  && openSessionBody.includes('captureLiveTurn(id, res, executionRead);')
+  && openSessionBody.includes('executionRead !== sessionExecutionReadSeq'),
+  'E1 活文本跟着 openSession 同一发既有 GET 回来，读取代数阻止旧进程信封盖新事实');
 ok(/liveTurnTail = res && res\.liveTail && typeof res\.liveTail === 'object' \? res\.liveTail : null;/.test(experience),
   'E2 只读信封上那个键,没有第二个数据源');
-ok(/api\('\/api\/stop', \{ method: 'POST', body: JSON\.stringify\(\{ sessionId: sid \}\) \}\)/.test(read(path.join(PUBLIC, 'js', 'chat-stream-runtime.js'))),
-  'E3 「停止」走既有 /api/stop,不新开面');
+const stopTurnBody = functionBlock(read(path.join(PUBLIC, 'js', 'chat-stream-runtime.js')), 'stopTurn');
+ok(stopTurnBody.includes("api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: sid, expectedExecution }) })")
+  && count(stopTurnBody, /\bapi\(/g) === 1,
+  'E3 「停止」在既有 /api/stop 携带捕获的执行身份，不增请求或端点');
+ok(stopTurnBody.includes('if (!ownsReceipt()) return;')
+  && stopTurnBody.indexOf('if (!ownsReceipt()) return;') < stopTurnBody.indexOf("setProc('stopped')")
+  && stopTurnBody.includes('receipt?.ok === true && (receipt.stopped === true || receipt.queuedStopped === true)'),
+  'E3b 仅当前执行的成功停止回执能显示已停止，迟到回执不改新执行 UI');
 // 128f-⑫ 重钉 2 → 3：第三处是 reloadCurrentSessionAfterAway —— 管家视角里动过当前这条线程（推送来了、中栏不在屏上），
 // 切回工作台那一刻整份重读一次（审计 E：修前要换一次会话才看得见）。它只在「离开期间来过这条线程的推送」时走一次，
 // 不是第二条轮询；反向：去掉那一笔标记（pushLiveTurn 里 currentChangedWhileAway = true）→ action-feedback R7 红。

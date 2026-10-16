@@ -1515,7 +1515,8 @@ function emptyReplyNotice(locale, afterText) {
     : '[模型这次返回了空回复(没有文字,也没有调用工具);可以重发一次,或换个说法、换个模型再试]';
 }
 
-async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta }) {
+async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta, executionOwner }) {
+  assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 回合入口刷新分桶镜像(同步估算热路径用)
   const turnSegments = createTurnSegmentBuilder();
@@ -1620,7 +1621,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   session.turnSeq = plannedTurnSeq;
   // 回合中途的存盘都带回合代数闸(02 saveSession 的 dropIfTurnSuperseded):本回合若已被同会话更新的回合顶替
   // (卡在不理会中止的工具里、新回合先跑完),这份旧对象的存盘静默丢掉,不把新回合的消息与历史盖回去。
-  const turnSaveOpts = { dropIfTurnSuperseded: true, writer: 'openai-turn' };
+  const turnSaveOpts = { dropIfTurnSuperseded: true, writer: 'openai-turn', executionOwner };
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
   // 116f: messageMeta 是可选的「这条用户消息从哪来」元数据(目前唯一来源:管家收件箱回合的
@@ -1662,7 +1663,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 122-§2.4:起跑这一存也要落盘前合并 —— 用户「开线程后立刻派回合,再点开始任务」时,start 会落在
   // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
   // 合并也无从恢复(磁盘上已经没有那本账)。合并在写链内做,与路由那一存的先后两个方向都不丢。
-  await saveSession(session, { mergeMissionFromDisk: true });
+  assertSessionExecutionOwner(session.id, executionOwner);
+  await saveSession(session, { mergeMissionFromDisk: true, executionOwner });
   if (revertNoticeSeqs.length) await journalRevertNoticesAck(session.id, revertNoticeSeqs).catch(() => {});
 
   await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
@@ -1679,7 +1681,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       : `无法发起「${providerName}」这一轮对话：${!chatUrl ? '服务商的接口地址没填' : (!model ? '还没有选定模型' : '当前运行环境不支持 fetch')}。请到「设置 → 服务商」补全后再试。`;
     session.messages.push({ role: 'assistant', content: msg, segments: [{ id: 'segment-1', type: 'text', text: msg }], createdAt: nowIso(), source: 'fallback' });
     session.providerHistoryCursor = session.messages.length;
-    await saveSession(session);
+    await saveSession(session, { executionOwner });
     onEvent({ type: 'assistant_delta', text: msg });
     await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
@@ -1701,6 +1703,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     workspaceTurnBaseline = await captureWorkspaceTurnBaseline(workingDir).catch(() => null);
   }
 
+  assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -1739,8 +1742,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
   installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
-  activeChildren.set(session.id, reg);
-  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
+  registerSessionExecutionChild(session.id, reg, executionOwner);
+  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
+  // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
 
   // v0.8-S6: the capability matrix drives BOTH the tool filter (TOOL_REQUIRES) and the prompt能力层. Compute
   // it once per turn (60s-cached internally). collectBridgedTools inside getCapabilities warms the same
@@ -3795,7 +3799,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // 回合代数闸:本回合已被同会话更新的回合顶替(见 02 saveTurnFinalSession)时收尾存被丢弃,也不派 thread.done、
   // 不记任务进度 —— 过期回合不能把自己当成「最新一回合」宣布。用量账照记(token 确实花了)。
-  const turnSuperseded = !(await saveTurnFinalSession(session, 'openai-turn-final'));
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'openai-turn-final', { executionOwner }));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
   if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).

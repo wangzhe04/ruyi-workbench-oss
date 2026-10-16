@@ -21,6 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -37,6 +38,7 @@ const ok = (condition, label) => {
   const conversation = read('js/steward-conversation.js');
   const composer = read('js/steward-composer.js');
   const drawer = read('js/steward-drawer.js');
+  const drawerOpenBody = functionBlock(drawer, 'openThread');
   const board = read('js/steward-board.js');
   const shell = read('js/steward-shell.js');
   const convCss = read('css/views/steward-conversation.css');
@@ -527,9 +529,11 @@ const ok = (condition, label) => {
     // 的函数体逐字钉死，多这一步就红；companion（H5d）钉住「focus 必须在闸之后」——
     // 闸落之前还没读到待决，那时候抢焦点等于赌它在问你。
     ok(/let loading = false;/.test(drawer) && /loading = true;/.test(drawer)
-      && /if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer),
+      && /if \(sessionId === id && drawerReadGeneration === openGeneration\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawerOpenBody),
       'H5 抽屉有「读取中」闸：数据到之前不画占位事实');
-    ok(drawer.indexOf('loading = false; renderAll(); if (wantFocus) focusAsk();') > drawer.indexOf('try { await refreshOnce(); }'),
+    const drawerRefreshAt = drawerOpenBody.indexOf('try { await refreshOnce(); }');
+    const drawerReadyFocusAt = drawerOpenBody.indexOf('loading = false; renderAll(); if (wantFocus) focusAsk();');
+    ok(drawerRefreshAt >= 0 && drawerReadyFocusAt > drawerRefreshAt,
       'H5d companion：焦点交给问答框发生在 refreshOnce 之后、闸落下的那一帧（不是开抽屉那一帧）');
     ok(/titleNode\.textContent = name \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : sessionId\);/.test(drawer)
       && /quote\.textContent = said \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : t\('stewardShell\.drawer\.lastSayEmpty'\)\);/.test(drawer),
@@ -579,8 +583,9 @@ const ok = (condition, label) => {
       && html.includes('id="stewardDrawerAskInput"')
       && /\.steward-drawer-ask\[hidden\] \{ display: none; \}/.test(read('css/views/steward-drawer.css')),
       'I3 ① 问答卡排在线程头之后，骨架在 index.html，显隐配了 [hidden] 守卫');
-    ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer),
-      'I3b 打开线程、数据到齐之后焦点落进问答框（这就是「打开线程回答」按下去该发生的事）');
+    ok(/if \(sessionId === id && drawerReadGeneration === openGeneration\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawerOpenBody)
+      && drawerOpenBody.includes('const openGeneration = drawerReadGeneration;'),
+      'I3b 打开线程、同代际数据到齐才聚焦问答框；旧进程/旧打开请求不得抢当前输入焦点');
 
     // I4 ①⑥ 递话单口：抽屉不再自己在 /api/steer 与 /api/chat/stream 之间猜通道。
     ok(/api\('\/api\/steward\/relay'/.test(drawer)

@@ -3613,7 +3613,8 @@ async function runSessionTurn(input) {
         logEvent({ kind: 'disconnect_stop_skipped', sessionId: session.id, reason: 'superseded' });
         return;
       }
-      stopSession(session.id, 'disconnected');
+      if (ownSettleEntry) requestSessionExecutionStop(session.id, sessionExecutionSnapshot(session.id), 'disconnected');
+      else stopSession(session.id, 'disconnected');
     }).catch(() => {});
   };
   if (typeof body.onStart === 'function') body.onStart({ session, config });
@@ -3689,13 +3690,29 @@ async function runSessionTurn(input) {
     onEvent(evt);
   };
   // 第27波:本次回合 = 一个「run」。登记活动 runId,scope:'run' 授权绑定它(含首回合内经 UI 签发的 bindNextRun 补绑)。
+  if (typeof SessionExecutionHooks.admissionBlocked === 'function' && SessionExecutionHooks.admissionBlocked(session.id)) {
+    throw Object.assign(new Error('Session rewind is in progress'), { code: 'SESSION_EXECUTION_LOCKED', status: 409 });
+  }
+  const previousOwner = turnSettlers.get(session.id);
+  if (previousOwner && typeof previousOwner.cancel === 'function') previousOwner.cancel('superseded');
   const driverRunId = makeId('drun');
   bindDriverRun(session.id, driverRunId);
+  const executionAbort = new AbortController();
   // 第69波:登记 settle 信号 —— rewind 截断前等它( dying turn 的收尾 saveSession 落盘先于 driver finally,
   // 由此保证 rewind 的截断写在最后,不被收尾 save 整份盖回)。
   let settleResolve = null;
-  const settleEntry = { promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null };
-  turnSettlers.set(session.id, settleEntry);
+  const settleEntry = {
+    promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null,
+    driverRunId, phase: 'starting', cancelRequested: false,
+    cancel(reason = 'stopped') {
+      if (executionAbort.signal.aborted) return;
+      this.cancelRequested = true; this.phase = 'stopping'; turnStopped = true;
+      executionAbort.abort();
+      const child = activeChildren.get(session.id);
+      if (child && child.executionOwner === this) stopSession(session.id, reason);
+    },
+  };
+  recordSessionExecutionOwner(session.id, settleEntry);
   ownSettleEntry = settleEntry;
   let turnError = '';
   // 116h(27 号文 §3.1 116h 行):线程间仲裁的凭据。开关关 / 管家会话时下面那个分支根本不进,
@@ -3716,16 +3733,16 @@ async function runSessionTurn(input) {
     const knownDelta = knownMessages ? sessionMessagesDelta(session.messages, knownMessages.count, knownMessages.stamp) : null;
     if (knownDelta) {
       const { providerHistory: _providerHistory, ...sessionHead } = session;
-      emit({ type: 'session', session: { ...sessionHead, messages: knownDelta.tail }, messagesFrom: knownDelta.from, messageCount: knownDelta.count, messagesStamp: knownDelta.stamp });
+      emit({ type: 'session', execution: sessionExecutionSnapshot(session.id), session: { ...sessionHead, messages: knownDelta.tail }, messagesFrom: knownDelta.from, messageCount: knownDelta.count, messagesStamp: knownDelta.stamp });
     } else {
-      emit(source === 'http' ? { type: 'session', session, messagesStamp: sessionMessagesStamp(session.messages) } : { type: 'session', session });
+      emit(source === 'http' ? { type: 'session', session, execution: sessionExecutionSnapshot(session.id), messagesStamp: sessionMessagesStamp(session.messages) } : { type: 'session', session, execution: sessionExecutionSnapshot(session.id) });
     }
     // 116h:回合级并发位与同工作文件夹写互斥。位置在 session 事件【之后】(调用方先拿到 sessionId,
     // 排队期间的 agent_resource 事件才有归属)、引擎分派【之前】(等的是「能不能开始跑」)。
     // 判据读【原始】 session.kind:管家会话自己不是线程,不受并发上限约束(与 09/10 既有分叉同口径)。
     if (config.stewardEnabledV1 === true && session.kind !== 'steward' && typeof StewardHooks.acquireTurnSlot === 'function') {
       stewardSlot = await StewardHooks.acquireTurnSlot({
-        sessionId: session.id, title: session.title, cwd: body.cwd || session.cwd, config, signal, onEvent: emit,
+        sessionId: session.id, title: session.title, cwd: body.cwd || session.cwd, config, signal: executionAbort.signal, executionOwner: settleEntry, onEvent: emit,
       });
       // 排队中被 /api/stop 或断线取消:这不是错误,是「没跑成」。抛一个带 code 的哨兵,由下面的 catch
       // 翻成一条 process/stopped(而不是 error 事件)—— 返回值里 stopped:true、ok:true,与被停的回合同形。
@@ -3733,6 +3750,7 @@ async function runSessionTurn(input) {
         throw Object.assign(new Error('回合在排队时被取消'), { code: 'STEWARD_TURN_CANCELLED' });
       }
     }
+    assertSessionExecutionOwner(session.id, settleEntry);
     const provider = activeOpenAiProvider(config);
     const pinnedRoute = inferSessionEngineRoute(routeSource);
     if (pinnedRoute?.engine === 'openai' && !provider) {
@@ -3740,6 +3758,7 @@ async function runSessionTurn(input) {
     }
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
+      assertSessionExecutionOwner(session.id, settleEntry);
       lastTurnTokens = 0;
       const atts = driverAuto ? [] : attachments;
       // 第27f波:标记本会话处于无人值守回合(供 CLI 桥的权限超时→存档暂停判定;provider 路径用闭包 driverAuto)。serial 回合,进出平衡。
@@ -3750,8 +3769,8 @@ async function runSessionTurn(input) {
         // {origin:'agent_wake'})。driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。管家【会话】解析到
         // CLI 引擎时在 13h 就返回 unsupported_engine;CLI 引擎的普通线程(管家递话、唤醒)照样把出身标落在用户消息上。
         const turnMessageMeta = driverAuto ? null : (body.messageMeta || null);
-        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta });
-        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta });
+        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
@@ -3771,7 +3790,7 @@ async function runSessionTurn(input) {
     // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
     // 不能只靠客户端断连(否则脚本/代理调 /api/stop 后驱动器仍relaunch 到预算耗尽)。
     if (session.mission && session.mission.autoMode === 'until-done') {
-      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped, ownsSession: () => turnSettlers.get(session.id) === settleEntry });
+      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped && !settleEntry.cancelRequested, ownsSession: () => turnSettlers.get(session.id) === settleEntry });
     }
   } catch (err) {
     // 116h:排队中被取消 -> 与「被 /api/stop 停掉」同一条语义(process/stopped),不是错误信封。

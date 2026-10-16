@@ -301,7 +301,14 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
     const sessionId = safeSessionId(body.sessionId); // F4
     if (!sessionId) return send(res, apiSessionIdInvalid());
     if (body.targetTurnSeq === undefined || body.targetTurnSeq === null) return send(res, apiFailure('request.field_required', { field: 'targetTurnSeq' }, 'targetTurnSeq is required', 400));
-    return send(res, json(await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles)));
+    const guarded = body.guardExecution === true || Object.prototype.hasOwnProperty.call(body, 'expectedExecution') || Object.prototype.hasOwnProperty.call(body, 'expectedIdleState');
+    const result = await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles,
+      guarded ? { guardExecution: true, expectedExecution: body.expectedExecution, expectedIdleState: body.expectedIdleState } : {});
+    if (guarded && result && result.ok === false && ['execution_identity_required', 'execution_identity_unavailable',
+      'execution_changed', 'rewind_in_progress', 'rewind_settle_timeout'].includes(result.error)) {
+      return send(res, apiFailure(result.error, {}, result.error, 409));
+    }
+    return send(res, json(result));
   }
   return false;
 }

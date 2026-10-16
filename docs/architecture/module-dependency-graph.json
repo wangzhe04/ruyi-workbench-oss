@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 73,
-    "providedSymbols": 3687,
-    "requiredSymbols": 3246,
+    "providedSymbols": 3705,
+    "requiredSymbols": 3271,
     "edges": 552,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -41,6 +41,7 @@
         "RUYI_VENDOR_BIN_ON_PATH",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
+        "SessionExecutionHooks",
         "StringDecoder",
         "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
@@ -1306,6 +1307,7 @@
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
         "rewindSession",
+        "rewindSessionContents",
         "safeMissionId",
         "sanitizeImportedSessionMessages",
         "sanitizeSessionScratchpad",
@@ -1347,6 +1349,7 @@
         "sessionIndexRetireSeq",
         "sessionIndexWriteSeq",
         "sessionKind",
+        "sessionLegacyRewinds",
         "sessionLineHash",
         "sessionMessageStampLine",
         "sessionMessagesDelta",
@@ -1362,6 +1365,7 @@
         "sessionOmittedProviderHistory",
         "sessionProviderHistoryLength",
         "sessionRecentUserRequest",
+        "sessionRewindAdmissions",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
@@ -1499,6 +1503,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "SESSION_SCHEMA",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -2300,6 +2311,7 @@
         "_toolboxSkipLogged",
         "activeChildren",
         "appendLiveTail",
+        "assertSessionExecutionOwner",
         "bridgedCatalogCache",
         "bridgedCatalogInflight",
         "bridgedServerSpawnEnv",
@@ -2386,8 +2398,11 @@
         "promptDeadlineIsReal",
         "promptWaitMs",
         "reconcileMcpEntryFingerprint",
+        "recordSessionExecutionOwner",
         "redact",
+        "registerSessionExecutionChild",
         "registerUserQuestion",
+        "requestSessionExecutionStop",
         "requestUserQuestion",
         "resolveBridge",
         "resolveExternalMcpServers",
@@ -2401,6 +2416,12 @@
         "scanMcpDropIns",
         "scanMcpSources",
         "scanToolboxComponents",
+        "sessionExecutionCheck",
+        "sessionExecutionCheckRewind",
+        "sessionExecutionEvictionGeneration",
+        "sessionExecutionObservation",
+        "sessionExecutionSnapshot",
+        "sessionLastExecutions",
         "splitMcpArgsString",
         "stopSession",
         "subscribeActiveChildEvents",
@@ -2496,6 +2517,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
             "read"
@@ -2513,6 +2541,13 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -3713,6 +3748,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "buildClaudeRecoveryHistory",
           "kinds": [
             "call"
@@ -3840,6 +3882,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "registerSessionExecutionChild",
           "kinds": [
             "call"
           ]
@@ -4757,6 +4806,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "clearPendingPermissions",
           "kinds": [
             "call"
@@ -4807,6 +4863,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "registerSessionExecutionChild",
           "kinds": [
             "call"
           ]
@@ -7622,6 +7685,9 @@
         "agentRunDigestWriteSeq",
         "agentRunEventChains",
         "agentRunEventsFile",
+        "agentRunHealth",
+        "agentRunHealthChanged",
+        "agentRunLastHealth",
         "agentRunLastSavedStatus",
         "agentRunPermissionMode",
         "agentRunResultSlice",
@@ -9159,6 +9225,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "bridgedServerUnavailableMessage",
           "kinds": [
             "call"
@@ -9244,6 +9317,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "registerSessionExecutionChild",
           "kinds": [
             "call"
           ]
@@ -10770,6 +10850,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -11113,6 +11200,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "driverAutoSessions",
           "kinds": [
             "read"
@@ -11127,7 +11221,28 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "recordSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "requestSessionExecutionStop",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
           "kinds": [
             "call"
           ]
@@ -13907,6 +14022,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "requestSessionExecutionStop",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "resolveExternalMcpServers",
           "kinds": [
             "call"
@@ -15448,6 +15570,7 @@
         "missionCardStatus",
         "missionContainerFailure",
         "missionContainerHttpStatus",
+        "missionHealthRuns",
         "missionPendingCounts",
         "missionRunDigest",
         "missionRunGraph",
@@ -16116,6 +16239,20 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionObservation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "turnSettlers",
           "kinds": [
             "read"
@@ -16341,6 +16478,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "agentRunEventsFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunHealth",
           "kinds": [
             "call"
           ]
@@ -16749,6 +16893,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "stewardAsksYouForThread",
           "kinds": [
@@ -16793,6 +16944,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunDir",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunHealth",
           "kinds": [
             "call"
           ]
@@ -17671,6 +17829,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "sanitizeFsSegmentName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
           "kinds": [
             "call"
           ]
@@ -19919,6 +20084,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
             "read"
@@ -19982,9 +20154,23 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -21622,6 +21808,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
@@ -21658,14 +21851,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "stopSession",
+          "symbol": "requestSessionExecutionStop",
           "kinds": [
             "call"
           ]
@@ -21829,7 +22015,6 @@
           "provider": "13n-steward-arbiter.js",
           "symbol": "stewardCancelQueuedTurn",
           "kinds": [
-            "call",
             "read"
           ]
         },
@@ -21985,6 +22170,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -27375,6 +27567,7 @@
         "RUYI_EVENTS",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
+        "SessionExecutionHooks",
         "crypto",
         "ensureDirs",
         "fs",
@@ -27689,6 +27882,8 @@
       "from": "04-permission-runtime.js",
       "to": "00-boot.js",
       "symbols": [
+        "OVERLAY_ID",
+        "SessionExecutionHooks",
         "URL",
         "VERSION",
         "cp",
@@ -28010,6 +28205,7 @@
         "ToolboxHooks",
         "activeChildren",
         "appendLiveTail",
+        "assertSessionExecutionOwner",
         "buildClaudeRecoveryHistory",
         "claudeProviderTailSince",
         "claudeResumeRouteKey",
@@ -28029,6 +28225,7 @@
         "parseKimiStreamJsonEvent",
         "permissionWaitMs",
         "redact",
+        "registerSessionExecutionChild",
         "registerUserQuestion",
         "safeUrlForDisplay",
         "sameClaudeResumeCwd",
@@ -28264,6 +28461,7 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
+        "assertSessionExecutionOwner",
         "clearPendingPermissions",
         "clearPendingPlans",
         "clearPendingQuestions",
@@ -28272,6 +28470,7 @@
         "logEvent",
         "permissionWaitMs",
         "redact",
+        "registerSessionExecutionChild",
         "requestUserQuestion",
         "runAutomaticInterventionDecision",
         "stopSession"
@@ -29482,6 +29681,7 @@
       "symbols": [
         "activeChildren",
         "appendLiveTail",
+        "assertSessionExecutionOwner",
         "bridgedServerUnavailableMessage",
         "clearPendingPermissions",
         "clearPendingPlans",
@@ -29495,6 +29695,7 @@
         "logEvent",
         "permissionWaitMs",
         "redact",
+        "registerSessionExecutionChild",
         "requestUserQuestion",
         "resolveBridge",
         "stopSession"
@@ -29820,6 +30021,7 @@
       "to": "00-boot.js",
       "symbols": [
         "EventStreamHooks",
+        "SessionExecutionHooks",
         "URL",
         "apiSessionIdInvalid",
         "appendUsageLedger",
@@ -29929,9 +30131,13 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
+        "assertSessionExecutionOwner",
         "driverAutoSessions",
         "logEvent",
+        "recordSessionExecutionOwner",
         "redact",
+        "requestSessionExecutionStop",
+        "sessionExecutionSnapshot",
         "stopSession",
         "turnOutcomePending",
         "turnSettlers"
@@ -30635,6 +30841,7 @@
         "logEvent",
         "makeAttachmentRecord",
         "redact",
+        "requestSessionExecutionStop",
         "resolveExternalMcpServers",
         "stopSession"
       ],
@@ -31216,6 +31423,8 @@
         "redact",
         "requestUserQuestion",
         "runAutomaticInterventionDecision",
+        "sessionExecutionObservation",
+        "sessionExecutionSnapshot",
         "turnSettlers"
       ],
       "direction": "backward"
@@ -31284,6 +31493,7 @@
         "agentRunDigestRow",
         "agentRunDigestWriteSeq",
         "agentRunEventsFile",
+        "agentRunHealth",
         "appendAgentRunEvent",
         "bumpRunIntervention",
         "computeWaveSeq",
@@ -31380,7 +31590,8 @@
       "from": "13e-pretender-index.js",
       "to": "04-permission-runtime.js",
       "symbols": [
-        "activeChildren"
+        "activeChildren",
+        "sessionExecutionSnapshot"
       ],
       "direction": "backward"
     },
@@ -31409,6 +31620,7 @@
       "from": "13e-pretender-index.js",
       "to": "08-agent-runs.js",
       "symbols": [
+        "agentRunHealth",
         "listAgentRuns"
       ],
       "direction": "backward"
@@ -31582,6 +31794,7 @@
       "from": "13h-steward-runner.js",
       "to": "00-boot.js",
       "symbols": [
+        "SessionExecutionHooks",
         "apiFailure",
         "json",
         "nowIso"
@@ -31604,8 +31817,7 @@
       "from": "13h-steward-runner.js",
       "to": "04-permission-runtime.js",
       "symbols": [
-        "activeChildren",
-        "stopSession"
+        "requestSessionExecutionStop"
       ],
       "direction": "backward"
     },
@@ -31967,7 +32179,8 @@
         "activeChildren",
         "logEvent",
         "redact",
-        "sanitizeFsSegmentName"
+        "sanitizeFsSegmentName",
+        "sessionExecutionSnapshot"
       ],
       "direction": "backward"
     },
@@ -32430,6 +32643,7 @@
       "from": "13n-steward-arbiter.js",
       "to": "00-boot.js",
       "symbols": [
+        "OVERLAY_ID",
         "RUYI_EVENTS",
         "crypto",
         "forEachUsageRow",
@@ -32463,7 +32677,9 @@
       "from": "13n-steward-arbiter.js",
       "to": "04-permission-runtime.js",
       "symbols": [
-        "logEvent"
+        "assertSessionExecutionOwner",
+        "logEvent",
+        "turnSettlers"
       ],
       "direction": "backward"
     },
@@ -33018,6 +33234,7 @@
       "to": "00-boot.js",
       "symbols": [
         "EventStreamHooks",
+        "OVERLAY_ID",
         "RUYI_EVENTS",
         "URL",
         "apiFailure",

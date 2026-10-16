@@ -230,6 +230,30 @@ const AGENT_RUN_PERSIST_DEGRADED_AFTER = 3;
 const AGENT_RUN_PERSIST_PAUSE_AFTER = 8;
 const agentRunSaveFailures = new Map(); // runId -> consecutive snapshot-save failures
 
+// Small read-model facts, independent of workflow status. Never carry node text or blocker bodies.
+function agentRunHealth(run, live = false) {
+  const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
+  const idle = nodes.find(node => node && node.idleAborted === true);
+  const blocked = live ? nodes.filter(node => node && node.status === 'waiting_resource' && Array.isArray(node.resourceBlockers) && node.resourceBlockers.length) : [];
+  return {
+    persistenceDegraded: !!(run && run.persistenceDegraded === true),
+    idleAborted: !!(run && run.idleAborted === true) || !!idle,
+    idleNodeId: String(idle && idle.id || ''),
+    resourceBlockedCount: blocked.length,
+    resourceBlockedNodeId: String(blocked[0] && blocked[0].id || ''),
+  };
+}
+const agentRunLastHealth = new Map();
+function agentRunHealthChanged(run) {
+  const health = agentRunHealth(run, activeAgentRuns.has(run.id));
+  const signature = JSON.stringify(health);
+  const previous = agentRunLastHealth.get(run.id);
+  if (previous === signature) return false;
+  if (agentRunLastHealth.size >= 1024 && !agentRunLastHealth.has(run.id)) agentRunLastHealth.clear();
+  agentRunLastHealth.set(run.id, signature);
+  return previous !== undefined || health.persistenceDegraded || health.idleAborted || health.resourceBlockedCount > 0;
+}
+
 const agentRunLastSavedStatus = new Map();   // 128f-⑫:runId -> 上一次落盘时的 status(见 saveAgentRun 里那一段)
 async function saveAgentRun(run) {
   if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
@@ -259,10 +283,10 @@ async function saveAgentRun(run) {
       // 都是落盘这一份摘要,而它不经过会话头(13r「会话头落盘即碰一下」那一路盖不到)。节点每一步也会存一次,
       // 那些不换状态的存一帧都不派。暂停是「先回 pausing、跑循环下一拍才真停」,所以派在这里而不是控制路由上。
       const savedStatus = String(run.status || '');
-      if (agentRunLastSavedStatus.get(run.id) !== savedStatus) {
+      if (agentRunHealthChanged(run) || agentRunLastSavedStatus.get(run.id) !== savedStatus) {
         if (agentRunLastSavedStatus.size >= 1024 && !agentRunLastSavedStatus.has(run.id)) agentRunLastSavedStatus.clear();
         agentRunLastSavedStatus.set(run.id, savedStatus);
-        RUYI_EVENTS.emit('thread.state', { sessionId: run.sessionId });
+        try { RUYI_EVENTS.emit('thread.state', { sessionId: run.sessionId }); } catch { /* Observers cannot turn a saved snapshot into a save failure. */ }
       }
       if (agentRunSaveFailures.get(run.id)) agentRunSaveFailures.delete(run.id);
       if (wasDegraded) appendAgentRunEvent(run, { type: 'persistence_recovered' });
@@ -280,6 +304,8 @@ async function saveAgentRun(run) {
           appendAgentRunEvent(run, { type: 'run_paused', data: { reason: 'persistence_degraded', consecutiveFailures: n } });
         }
       }
+      // A failed snapshot cannot update the index, but its live failure must still wake global readers.
+      if (agentRunHealthChanged(run)) { try { RUYI_EVENTS.emit('thread.state', { sessionId: run.sessionId }); } catch { /* Keep the original persistence error. */ } }
       throw e;
     }
   });

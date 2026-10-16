@@ -3783,6 +3783,15 @@ async function saveSession(session, opts) {
     });
   };
   const thisWrite = prevWrite.catch(() => {}).then(async () => {
+    // Compare the caller's captured owner inside the write chain: two admitted drivers can have
+    // prepared the same turnSeq. Cancellation alone does not reject the current driver's stopped
+    // final save; only replacement/removal of that owner makes this snapshot obsolete.
+    if (opts && opts.executionOwner !== undefined && (typeof SessionExecutionHooks.owns !== 'function'
+        || !SessionExecutionHooks.owns(id, opts.executionOwner))) {
+      logEvent({ kind: 'session_superseded_execution_save_dropped', sessionId: id,
+        turnSeq: Number(session.turnSeq) || 0, writer: String(opts.writer || '') });
+      return { dropped: true, supersededTurn: true, executionSuperseded: true };
+    }
     // hunt2-P2:删除墓碑闸。同撤回代数闸,必须在【链内】看:删除可能发生在这次 save 入链之后、执行之前
     // (被停回合的收尾存正是这么排的)。删除之前就存在的会话对象一律不许再落盘(见 sessionDeleteTombstones 头注)。
     if (sessionSaveIsTombstoned(session)) {
@@ -3885,9 +3894,9 @@ async function saveSession(session, opts) {
 // 这里用 saveSession 的 throwIfTurnSuperseded:盘上的 turnSeq 比这份对象大就不写。返回 true = 已落盘;
 // false = 本回合已被更新的回合顶替,收尾存被丢弃 —— 调用方据此不再派 thread.done / 任务进度(否则把一个
 // 过期回合当成「最新一回合结束」广播出去)。一次普通的停止(没有更新的回合)turnSeq 相等,照常落盘。
-async function saveTurnFinalSession(session, writer) {
+async function saveTurnFinalSession(session, writer, options = {}) {
   try {
-    await saveSession(session, { throwIfTurnSuperseded: true, writer: String(writer || 'turn-final') });
+    await saveSession(session, { ...options, throwIfTurnSuperseded: true, writer: String(writer || 'turn-final') });
     return true;
   } catch (e) {
     if (e && e.code === 'SESSION_TURN_SUPERSEDED') return false;
@@ -4988,7 +4997,64 @@ async function journalRevertLogPrune(sessionId, fromTurnSeq) {
 // Returns {ok, removedTurns, lastUserText, filesReverted:[], filesFailed:[]} (or {ok:false,error} when a
 // turn is live or the target can't be located; 107-F7b: error 'rewind_superseded' when a newer rewind of the
 // same session landed first and this one's truncation was dropped by the rewind-generation gate).
-async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
+// A guarded rewind owns admission until stopping, settlement, file rollback and persistence all finish.
+// This is process-local coordination, never a durable session field or a reusable authorization.
+const sessionRewindAdmissions = new Set();
+const sessionLegacyRewinds = new Map();
+SessionExecutionHooks.admissionBlocked = sessionId => sessionRewindAdmissions.has(sessionId);
+
+async function rewindSession(sessionId, targetTurnSeq, rollbackFiles, options = {}) {
+  if (sessionRewindAdmissions.has(sessionId)) return { ok: false, error: 'rewind_in_progress' };
+  if (options.guardExecution !== true) {
+    sessionLegacyRewinds.set(sessionId, (sessionLegacyRewinds.get(sessionId) || 0) + 1);
+    try { return await rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles); }
+    finally {
+      const remaining = sessionLegacyRewinds.get(sessionId) - 1;
+      if (remaining) sessionLegacyRewinds.set(sessionId, remaining); else sessionLegacyRewinds.delete(sessionId);
+    }
+  }
+  if (sessionLegacyRewinds.has(sessionId)) return { ok: false, error: 'rewind_in_progress' };
+  sessionRewindAdmissions.add(sessionId);
+  try {
+    // Missing is not an observation of idle. Old hand-off buttons cannot acquire a new target.
+    if (options.expectedExecution === undefined) return { ok: false, error: 'execution_identity_required' };
+    if (typeof SessionExecutionHooks.checkRewind !== 'function' || typeof SessionExecutionHooks.stop !== 'function') return { ok: false, error: 'execution_identity_unavailable' };
+    const checked = SessionExecutionHooks.checkRewind(sessionId, options.expectedExecution);
+    if (!checked || checked.ok !== true) return checked || { ok: false, error: 'execution_identity_unavailable' };
+    if (options.expectedExecution === null) {
+      const expected = options.expectedIdleState;
+      const observation = expected && expected.executionObservation;
+      if (!expected || !Number.isSafeInteger(expected.turnSeq) || expected.turnSeq < 0
+          || !Number.isSafeInteger(expected.rewindGen) || expected.rewindGen < 0
+          || !observation || typeof observation.serverInstanceId !== 'string' || !observation.serverInstanceId
+          || !(observation.lastDriverRunId === null || (typeof observation.lastDriverRunId === 'string' && observation.lastDriverRunId))
+          || !Number.isSafeInteger(observation.evictionGeneration) || observation.evictionGeneration < 0) {
+        return { ok: false, error: 'execution_identity_required' };
+      }
+      if (typeof SessionExecutionHooks.observation !== 'function') return { ok: false, error: 'execution_identity_unavailable' };
+      // A null -> B admitted -> null transition is not the same idle observation, even if B never
+      // wrote a turn. The eviction generation also prevents a lost tombstone looking like virgin idle.
+      const current = SessionExecutionHooks.observation(sessionId);
+      if (!current || current.serverInstanceId !== observation.serverInstanceId
+          || current.lastDriverRunId !== observation.lastDriverRunId || current.evictionGeneration !== observation.evictionGeneration) {
+        return { ok: false, error: 'execution_changed' };
+      }
+      const idleSession = await loadSession(sessionId);
+      if (!idleSession || (Number(idleSession.turnSeq) || 0) !== expected.turnSeq
+          || (Number(idleSession.rewindGen) || 0) !== expected.rewindGen) return { ok: false, error: 'execution_changed' };
+    }
+    if (checked.execution !== null) {
+      const stopped = SessionExecutionHooks.stop(sessionId, options.expectedExecution, 'rewind');
+      if (!stopped || stopped.ok !== true) return stopped || { ok: false, error: 'execution_identity_unavailable' };
+    }
+    if (activeChildren.has(sessionId)) return { ok: false, error: 'execution_changed' };
+    return await rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles, { guarded: true });
+  } finally {
+    sessionRewindAdmissions.delete(sessionId);
+  }
+}
+
+async function rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles, options = {}) {
   // 117d 波实测竞态(既有缺陷,本波暴露):回合收尾的【原子头文件换名】窗口里磁盘读会短暂看不到头
   // 文件(loadSession 的 ENOENT 分支回 null),而撤回的调用序是「先 /api/stop 再 rewind」—— stop 已经
   // 把 activeChildren 删了,dying turn 的收尾 save 才刚开始写。于是首读回 null,rewind 直接吐
@@ -4998,6 +5064,9 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   // 活回合注册表持有同一权威 session,顺带兜住「stop 还没跑」的那一瞬(与 1628 行
   // missionControlCommand 同一处置)。复现:117c 递话后立刻点撤回,约五成命中。
   const registered = activeChildren.get(sessionId);
+  // Legacy callers retain their API, but an automatic stop still targets the execution observed
+  // before the first asynchronous read, rather than whichever execution happens to be current later.
+  const observedExecution = typeof SessionExecutionHooks.snapshot === 'function' ? SessionExecutionHooks.snapshot(sessionId) : undefined;
   let session = await loadSession(sessionId) || (registered && registered.session) || null;
   // 第69波:回合进行中不再拒绝,改为【自动停回合 + 等 settle 再截断】(supersede 语义,与 09-workflow
   // 新回合 stopSession('superseded') 对齐)。原拒绝路径(activeChildren.has → '回合进行中,请先停止')
@@ -5014,14 +5083,21 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   // settle 的同一刻还有别的写者起跑(13k stewardRecordLaunchOutcome → updateSessionMeta 是读改写;首回合
   // 还有 settleThreadBrief 的补写),它们在 settle 之后才 load,load 落在撤回那一存之前、save 落在之后 ——
   // 等 settle 管不到回合之外的人。代数闸不看是谁写:撤回之前读出来的副本,谁拿着都写不回去。
-  if (activeChildren.has(sessionId)) {
-    stopSession(sessionId, 'rewind');
+  if (!options.guarded && (activeChildren.has(sessionId) || observedExecution)) {
+    const stopped = typeof SessionExecutionHooks.stop === 'function'
+      ? SessionExecutionHooks.stop(sessionId, observedExecution, 'rewind') : null;
+    if (!stopped || stopped.ok !== true) return stopped || { ok: false, error: 'execution_identity_unavailable' };
+    if (activeChildren.has(sessionId)) return { ok: false, error: 'execution_changed' };
     logEvent({ kind: 'rewind_autostop', sessionId, targetTurnSeq: Number(targetTurnSeq) || null });
   }
   const settler = turnSettlers.get(sessionId);
   if (settler && settler.promise) {
-    const settled = await Promise.race([settler.promise.then(() => true), new Promise(r => setTimeout(() => r(false), 8000))]);
-    if (!settled) logEvent({ kind: 'rewind_settle_timeout', sessionId });
+    let settleTimer;
+    const settled = await Promise.race([settler.promise.then(() => true), new Promise(r => { settleTimer = setTimeout(() => r(false), 8000); })]).finally(() => clearTimeout(settleTimer));
+    if (!settled) {
+      logEvent({ kind: 'rewind_settle_timeout', sessionId });
+      if (options.guarded) return { ok: false, error: 'rewind_settle_timeout' };
+    }
   }
   const live = await loadSession(sessionId); // settle 后重读: dying turn 的收尾(含 aborted assistant)已落盘
   if (live) session = live;

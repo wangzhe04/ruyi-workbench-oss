@@ -170,7 +170,7 @@ try {
     await sleep(800);
     const sid = sessionIdOf(evs);
     const stopAt = Date.now();
-    const st = await request(main.port, 'POST', '/api/stop', { sessionId: sid }, main.H);
+    const st = await request(main.port, 'POST', '/api/stop', { sessionId: sid, expectedExecution: evs.find(event => event.type === 'session')?.execution }, main.H);
     ok(st.json && st.json.ok === true, 'A1 /api/stop 被接受');
     await Promise.race([p, sleep(20000)]);
     const latency = resultAt ? resultAt - stopAt : Infinity;
@@ -285,7 +285,7 @@ try {
     await sleep(400);
     const sid = sessionIdOf(evs);
     const stopAt = Date.now();
-    await request(small.port, 'POST', '/api/stop', { sessionId: sid }, small.H);
+    await request(small.port, 'POST', '/api/stop', { sessionId: sid, expectedExecution: evs.find(event => event.type === 'session')?.execution }, small.H);
     await Promise.race([p, sleep(20000)]);
     const latency = resultAt ? resultAt - stopAt : Infinity;
     // 墙钟上界豁免：判的是「停止当场取消在飞的摘要调用」；修后实得约 80 ms，界 3000 ms；失败形态是等满摘要慢回的 8 s。

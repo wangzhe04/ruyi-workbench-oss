@@ -34,6 +34,7 @@ const src10 = read('10-context-governance.js');
 const src12 = read('12-tool-dispatch.js');
 const src13 = read('13-http-router.js');
 const src13d = read('13d-core-domain-routes.js');
+const src13s = read('13s-scheduler.js'); // scheduler timeout still consumes the internal queue-cancellation hook
 const src13g = read('13g-steward.js');
 // 117 波 T1(32 号文 §2.1):13g 的工具实现与共享原语拆到了三个新文件(纯搬家)。它们与 13g 同属
 // 「13g 族」,同样是 13h 的【消费者】—— 下面 ② 的零前向边判据与 unused 判据都必须覆盖它们,
@@ -175,9 +176,9 @@ const src01b = read('01b-route-auth.js');
   // 117 波 T1:relayDeliver / applyThreadTier 的消费者随线程族工具搬进了 13k-steward-threads.js,
   // 故消费面同样扩到整个 13g 族(13g/13j/13k/13l)。判据一字未变:每个键都必须真的有人用。
   // 架构还债批 2 B2:arbiterRefresh 的消费点 applyConfigPatch 随纯搬家从 13 去了 06k,消费面跟着落点扩一个文件(判据不变)。
-  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13j + src13k + src13l + src13i + src06k;
+  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13j + src13k + src13l + src13i + src06k + src13s;
   const unused = hookKeys.filter(k => !new RegExp('StewardHooks\\.' + k + '\\b').test(consumedText));
-  ok(unused.length === 0, '② 每个钩子键都被 09/10/12/13/13d/13g 族之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
+  ok(unused.length === 0, '② 每个钩子键都被 09/10/12/13/13d/13g/13s 族之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
   ok(filled.length >= hookKeys.length, '② 键集抽取自 Object.assign 块(样本自洽)');
   // 06i 的契约注释必须把这些键写下来(注释不是装饰品:steward-tools.static 用它对账填充完整性)。
   const contract = src06i.slice(src06i.indexOf('// 预留键名契约'), src06i.indexOf('const StewardHooks = {};'));

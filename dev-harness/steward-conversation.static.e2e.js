@@ -7,7 +7,7 @@
 //   B 按钮行契约 ≤3（常量 + 渲染处的 slice 锚）与主动作唯一（全文件恰好一处 .is-primary）；
 //   C 禁词表（速问／不立单／已切到档位／Pretender／3.0）零出现；
 //   D 预判去抖 + 序号丢弃；
-//   E 撤回窄窗 10 秒 + 「先 stop 再 rewind」的顺序锚；
+//   E 撤回窄窗 10 秒 + 单次 guarded rewind 的身份与锚点；
 //   F 两个 CustomEvent 事件名是导出常量；
 //   G i18n 三组键中英对称；
 //   H 新样式层三处登记 + 零硬编码色 + reduced-motion + 390px；
@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -205,13 +206,16 @@ ok(/if \(hintDismissed\) return;/.test(composerCode)
 ok((composerCode.match(/(?<!let )hintDismissed = false;/g) || []).length >= 3,
   'D10d hintDismissed 至少三处复位（runPreroute 空查询分支／resetComposer／submit 的 finally）——用户重打一句新的话，预判要正常回来');
 
-// ─── E 撤回：10 秒窄窗 + 先 stop 再 rewind ───────────────────────────────────────
+// ─── E 撤回：10 秒窄窗 + 单次受保护请求 ───────────────────────────────────────────
 ok(mod.STEWARD_UNDO_WINDOW_MS === 10000 && /export const STEWARD_UNDO_WINDOW_MS = 10000;/.test(conversation),
   'E1 撤回窄窗是 10 秒的导出常量');
-const stopAt = conversation.indexOf("api('/api/stop'");
-const rewindAt = conversation.indexOf("api('/api/session/rewind'");
-ok(stopAt > 0 && rewindAt > stopAt,
-  'E2 撤回的顺序是「先 stop 再 rewind」（还在跑的回合不停下来就回退，回退完它还会往回写）');
+const undoCode = functionBlock(conversation, 'undoHandOff');
+const rewindAt = undoCode.indexOf("api('/api/session/rewind'");
+ok(undoCode.length > 500 && rewindAt > 0 && !undoCode.includes("api('/api/stop'")
+  && undoCode.split("api('/api/session/rewind'").length === 2
+  && undoCode.includes('guardExecution: true, expectedExecution: undoRef.execution')
+  && undoCode.includes("hasOwnProperty.call(undoRef, 'execution')"),
+  'E2 撤回只发一次guarded rewind，携原execution；旧身份缺失不猜目标，不另发stop');
 // 117d 第 0 步重钉（语义收紧，不是放宽）：后端补出了显式字段 undoRef.rewindTargetTurnSeq
 // （= 被递那一回合的 seq，与 09-workflow 的 plannedTurnSeq 同口径）。2026-10 工具走查再收紧：只认这个显式锚点，
 // 删掉「undoRef.turnSeq + 1」回落 —— 答提问那一支交回的 undoRef 两样都没有，回落成 0 + 1 = 把整条线程删光。
@@ -221,10 +225,10 @@ ok(/targetTurnSeq: target, rollbackFiles: true/.test(conversation)
   && /undoRef\.kind === 'none'/.test(conversation)
   && !/before \+ 1/.test(conversation),
   'E3 rewind 的锚点只取 undoRef.rewindTargetTurnSeq（无回落），并请求文件回退');
-ok(conversation.indexOf('if (!target) return false;') > 0 && conversation.indexOf('if (!target) return false;') < stopAt
+ok(undoCode.indexOf('if (!target) return false;') > 0 && undoCode.indexOf('if (!target) return false;') < rewindAt
   && /if \(!handOffRewindTarget\(undoRef\)\)/.test(conversation),
   'E3b 没有回退锚点：不出撤回按钮，撤回也不先 stop');
-ok(/if \(!rewound \|\| rewound\.ok === false\) \{/.test(conversation),
+ok(/if \(!rewound \|\| rewound\.ok !== true\) \{/.test(undoCode),
   'E3a 回退没成真就不说「已撤回」（诚实优先；按钮行留着可重试）');
 ok(/filesReverted > 0 \? t\('stewardShell\.chat\.undone'\) : t\('stewardShell\.chat\.undoneFilesKept'\)/.test(conversation),
   'E4 rewind 没回文件时如实标注（诚实优先，不假装全撤了）');
@@ -318,7 +322,7 @@ const routes = [...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\
 // 账本立起来（GET 一次看账本空不空，空才 POST {action:'start'}）。它同样是**既有**路由 ——
 // 13-http-router.js:889 那一条，交办台退役前的派单输入框走的就是它；本刀零后端。
 // 133e 补一条 `/api/upload`：管家输入框「＋ → 添加文件」与工作台 uploadFiles 走同一条既有路由（13-http-router.js 的 POST /api/upload），零后端新面。
-const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/reset', '/api/steward/visit', '/api/stop', '/api/upload'];
+const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/reset', '/api/steward/visit', '/api/upload'];
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `J1 只调 116 已有的路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
 ok(importNamesFrom(conversation, 'net.js').includes('authHeaders')

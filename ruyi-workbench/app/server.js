@@ -27,6 +27,8 @@ const VERSION = '3.0.1'; // 如意 Ruyi 3.0.1 修复更新（2026-10-16）
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
+// Runtime execution admission/cancellation hooks; early declaration also serves session rewind.
+const SessionExecutionHooks = {};
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // 127-114b(26 号文 §3/45 号文 §2 ②): ASR 转写入站专用上限 25 MB —— 早于上面的 128 MB 总闸判定
@@ -10666,6 +10668,15 @@ async function saveSession(session, opts) {
     });
   };
   const thisWrite = prevWrite.catch(() => {}).then(async () => {
+    // Compare the caller's captured owner inside the write chain: two admitted drivers can have
+    // prepared the same turnSeq. Cancellation alone does not reject the current driver's stopped
+    // final save; only replacement/removal of that owner makes this snapshot obsolete.
+    if (opts && opts.executionOwner !== undefined && (typeof SessionExecutionHooks.owns !== 'function'
+        || !SessionExecutionHooks.owns(id, opts.executionOwner))) {
+      logEvent({ kind: 'session_superseded_execution_save_dropped', sessionId: id,
+        turnSeq: Number(session.turnSeq) || 0, writer: String(opts.writer || '') });
+      return { dropped: true, supersededTurn: true, executionSuperseded: true };
+    }
     // hunt2-P2:删除墓碑闸。同撤回代数闸,必须在【链内】看:删除可能发生在这次 save 入链之后、执行之前
     // (被停回合的收尾存正是这么排的)。删除之前就存在的会话对象一律不许再落盘(见 sessionDeleteTombstones 头注)。
     if (sessionSaveIsTombstoned(session)) {
@@ -10768,9 +10779,9 @@ async function saveSession(session, opts) {
 // 这里用 saveSession 的 throwIfTurnSuperseded:盘上的 turnSeq 比这份对象大就不写。返回 true = 已落盘;
 // false = 本回合已被更新的回合顶替,收尾存被丢弃 —— 调用方据此不再派 thread.done / 任务进度(否则把一个
 // 过期回合当成「最新一回合结束」广播出去)。一次普通的停止(没有更新的回合)turnSeq 相等,照常落盘。
-async function saveTurnFinalSession(session, writer) {
+async function saveTurnFinalSession(session, writer, options = {}) {
   try {
-    await saveSession(session, { throwIfTurnSuperseded: true, writer: String(writer || 'turn-final') });
+    await saveSession(session, { ...options, throwIfTurnSuperseded: true, writer: String(writer || 'turn-final') });
     return true;
   } catch (e) {
     if (e && e.code === 'SESSION_TURN_SUPERSEDED') return false;
@@ -11871,7 +11882,64 @@ async function journalRevertLogPrune(sessionId, fromTurnSeq) {
 // Returns {ok, removedTurns, lastUserText, filesReverted:[], filesFailed:[]} (or {ok:false,error} when a
 // turn is live or the target can't be located; 107-F7b: error 'rewind_superseded' when a newer rewind of the
 // same session landed first and this one's truncation was dropped by the rewind-generation gate).
-async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
+// A guarded rewind owns admission until stopping, settlement, file rollback and persistence all finish.
+// This is process-local coordination, never a durable session field or a reusable authorization.
+const sessionRewindAdmissions = new Set();
+const sessionLegacyRewinds = new Map();
+SessionExecutionHooks.admissionBlocked = sessionId => sessionRewindAdmissions.has(sessionId);
+
+async function rewindSession(sessionId, targetTurnSeq, rollbackFiles, options = {}) {
+  if (sessionRewindAdmissions.has(sessionId)) return { ok: false, error: 'rewind_in_progress' };
+  if (options.guardExecution !== true) {
+    sessionLegacyRewinds.set(sessionId, (sessionLegacyRewinds.get(sessionId) || 0) + 1);
+    try { return await rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles); }
+    finally {
+      const remaining = sessionLegacyRewinds.get(sessionId) - 1;
+      if (remaining) sessionLegacyRewinds.set(sessionId, remaining); else sessionLegacyRewinds.delete(sessionId);
+    }
+  }
+  if (sessionLegacyRewinds.has(sessionId)) return { ok: false, error: 'rewind_in_progress' };
+  sessionRewindAdmissions.add(sessionId);
+  try {
+    // Missing is not an observation of idle. Old hand-off buttons cannot acquire a new target.
+    if (options.expectedExecution === undefined) return { ok: false, error: 'execution_identity_required' };
+    if (typeof SessionExecutionHooks.checkRewind !== 'function' || typeof SessionExecutionHooks.stop !== 'function') return { ok: false, error: 'execution_identity_unavailable' };
+    const checked = SessionExecutionHooks.checkRewind(sessionId, options.expectedExecution);
+    if (!checked || checked.ok !== true) return checked || { ok: false, error: 'execution_identity_unavailable' };
+    if (options.expectedExecution === null) {
+      const expected = options.expectedIdleState;
+      const observation = expected && expected.executionObservation;
+      if (!expected || !Number.isSafeInteger(expected.turnSeq) || expected.turnSeq < 0
+          || !Number.isSafeInteger(expected.rewindGen) || expected.rewindGen < 0
+          || !observation || typeof observation.serverInstanceId !== 'string' || !observation.serverInstanceId
+          || !(observation.lastDriverRunId === null || (typeof observation.lastDriverRunId === 'string' && observation.lastDriverRunId))
+          || !Number.isSafeInteger(observation.evictionGeneration) || observation.evictionGeneration < 0) {
+        return { ok: false, error: 'execution_identity_required' };
+      }
+      if (typeof SessionExecutionHooks.observation !== 'function') return { ok: false, error: 'execution_identity_unavailable' };
+      // A null -> B admitted -> null transition is not the same idle observation, even if B never
+      // wrote a turn. The eviction generation also prevents a lost tombstone looking like virgin idle.
+      const current = SessionExecutionHooks.observation(sessionId);
+      if (!current || current.serverInstanceId !== observation.serverInstanceId
+          || current.lastDriverRunId !== observation.lastDriverRunId || current.evictionGeneration !== observation.evictionGeneration) {
+        return { ok: false, error: 'execution_changed' };
+      }
+      const idleSession = await loadSession(sessionId);
+      if (!idleSession || (Number(idleSession.turnSeq) || 0) !== expected.turnSeq
+          || (Number(idleSession.rewindGen) || 0) !== expected.rewindGen) return { ok: false, error: 'execution_changed' };
+    }
+    if (checked.execution !== null) {
+      const stopped = SessionExecutionHooks.stop(sessionId, options.expectedExecution, 'rewind');
+      if (!stopped || stopped.ok !== true) return stopped || { ok: false, error: 'execution_identity_unavailable' };
+    }
+    if (activeChildren.has(sessionId)) return { ok: false, error: 'execution_changed' };
+    return await rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles, { guarded: true });
+  } finally {
+    sessionRewindAdmissions.delete(sessionId);
+  }
+}
+
+async function rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles, options = {}) {
   // 117d 波实测竞态(既有缺陷,本波暴露):回合收尾的【原子头文件换名】窗口里磁盘读会短暂看不到头
   // 文件(loadSession 的 ENOENT 分支回 null),而撤回的调用序是「先 /api/stop 再 rewind」—— stop 已经
   // 把 activeChildren 删了,dying turn 的收尾 save 才刚开始写。于是首读回 null,rewind 直接吐
@@ -11881,6 +11949,9 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   // 活回合注册表持有同一权威 session,顺带兜住「stop 还没跑」的那一瞬(与 1628 行
   // missionControlCommand 同一处置)。复现:117c 递话后立刻点撤回,约五成命中。
   const registered = activeChildren.get(sessionId);
+  // Legacy callers retain their API, but an automatic stop still targets the execution observed
+  // before the first asynchronous read, rather than whichever execution happens to be current later.
+  const observedExecution = typeof SessionExecutionHooks.snapshot === 'function' ? SessionExecutionHooks.snapshot(sessionId) : undefined;
   let session = await loadSession(sessionId) || (registered && registered.session) || null;
   // 第69波:回合进行中不再拒绝,改为【自动停回合 + 等 settle 再截断】(supersede 语义,与 09-workflow
   // 新回合 stopSession('superseded') 对齐)。原拒绝路径(activeChildren.has → '回合进行中,请先停止')
@@ -11897,14 +11968,21 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   // settle 的同一刻还有别的写者起跑(13k stewardRecordLaunchOutcome → updateSessionMeta 是读改写;首回合
   // 还有 settleThreadBrief 的补写),它们在 settle 之后才 load,load 落在撤回那一存之前、save 落在之后 ——
   // 等 settle 管不到回合之外的人。代数闸不看是谁写:撤回之前读出来的副本,谁拿着都写不回去。
-  if (activeChildren.has(sessionId)) {
-    stopSession(sessionId, 'rewind');
+  if (!options.guarded && (activeChildren.has(sessionId) || observedExecution)) {
+    const stopped = typeof SessionExecutionHooks.stop === 'function'
+      ? SessionExecutionHooks.stop(sessionId, observedExecution, 'rewind') : null;
+    if (!stopped || stopped.ok !== true) return stopped || { ok: false, error: 'execution_identity_unavailable' };
+    if (activeChildren.has(sessionId)) return { ok: false, error: 'execution_changed' };
     logEvent({ kind: 'rewind_autostop', sessionId, targetTurnSeq: Number(targetTurnSeq) || null });
   }
   const settler = turnSettlers.get(sessionId);
   if (settler && settler.promise) {
-    const settled = await Promise.race([settler.promise.then(() => true), new Promise(r => setTimeout(() => r(false), 8000))]);
-    if (!settled) logEvent({ kind: 'rewind_settle_timeout', sessionId });
+    let settleTimer;
+    const settled = await Promise.race([settler.promise.then(() => true), new Promise(r => { settleTimer = setTimeout(() => r(false), 8000); })]).finally(() => clearTimeout(settleTimer));
+    if (!settled) {
+      logEvent({ kind: 'rewind_settle_timeout', sessionId });
+      if (options.guarded) return { ok: false, error: 'rewind_settle_timeout' };
+    }
   }
   const live = await loadSession(sessionId); // settle 后重读: dying turn 的收尾(含 aborted assistant)已落盘
   if (live) session = live;
@@ -14479,6 +14557,86 @@ function installActiveChildEventFanout(reg) {
 // 若只看 activeChildren 就会在这个窗口截断落盘,然后被 dying turn 的收尾 save 整份盖回(丢失写:
 // 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
 const turnSettlers = new Map();
+// A logical driver owns all of its queued/child turns. Never infer ownership from the current child.
+// Bounded evidence for completed-then-undo. A newer admitted driver replaces the old identity.
+const sessionLastExecutions = new Map();
+let sessionExecutionEvictionGeneration = 0;
+function recordSessionExecutionOwner(sessionId, owner) {
+  turnSettlers.set(sessionId, owner);
+  sessionLastExecutions.delete(sessionId);
+  sessionLastExecutions.set(sessionId, owner.driverRunId);
+  while (sessionLastExecutions.size > 2048) {
+    sessionLastExecutions.delete(sessionLastExecutions.keys().next().value);
+    sessionExecutionEvictionGeneration += 1;
+  }
+}
+function sessionExecutionObservation(sessionId) {
+  return { serverInstanceId: OVERLAY_ID, lastDriverRunId: sessionLastExecutions.get(sessionId) || null, evictionGeneration: sessionExecutionEvictionGeneration };
+}
+function sessionExecutionSnapshot(sessionId) {
+  const owner = turnSettlers.get(sessionId);
+  if (!owner || !owner.driverRunId) return null;
+  return { serverInstanceId: OVERLAY_ID, driverRunId: owner.driverRunId, phase: owner.cancelRequested ? 'stopping' : owner.phase || 'starting' };
+}
+function sessionExecutionCheck(sessionId, expectedExecution) {
+  const execution = sessionExecutionSnapshot(sessionId);
+  const owner = turnSettlers.get(sessionId) || null;
+  if (expectedExecution === undefined && execution) return { ok: false, error: 'execution_identity_required', execution };
+  if (expectedExecution == null && !execution) return { ok: true, owner, execution };
+  if (!execution || !expectedExecution || typeof expectedExecution !== 'object'
+      || expectedExecution.serverInstanceId !== execution.serverInstanceId || expectedExecution.driverRunId !== execution.driverRunId) {
+    return { ok: false, error: 'execution_changed', execution };
+  }
+  return { ok: true, owner, execution };
+}
+function sessionExecutionCheckRewind(sessionId, expectedExecution) {
+  if (!sessionExecutionSnapshot(sessionId) && expectedExecution && typeof expectedExecution === 'object'
+      && expectedExecution.serverInstanceId === OVERLAY_ID && typeof expectedExecution.driverRunId === 'string'
+      && sessionLastExecutions.get(sessionId) === expectedExecution.driverRunId) {
+    return { ok: true, owner: null, execution: null };
+  }
+  return sessionExecutionCheck(sessionId, expectedExecution);
+}
+function assertSessionExecutionOwner(sessionId, owner) {
+  if (owner && (owner.cancelRequested || turnSettlers.get(sessionId) !== owner)) {
+    throw Object.assign(new Error('Execution stopped or superseded'), { code: 'STEWARD_TURN_CANCELLED' });
+  }
+}
+function registerSessionExecutionChild(sessionId, reg, owner) {
+  assertSessionExecutionOwner(sessionId, owner);
+  reg.executionOwner = owner || null;
+  activeChildren.set(sessionId, reg);
+  // Event listeners may synchronously request cancellation when registration is announced.
+  if (owner) owner.phase = 'running';
+  assertSessionExecutionOwner(sessionId, owner);
+}
+function requestSessionExecutionStop(sessionId, expectedExecution, reason = 'stopped') {
+  const checked = sessionExecutionCheck(sessionId, expectedExecution);
+  if (!checked.ok) return checked;
+  const owner = checked.owner;
+  if (!owner || !owner.driverRunId) return { ok: true, stopped: false, queuedStopped: false, execution: null };
+  const explicitStop = reason !== 'disconnected';
+  const alreadyRequested = explicitStop ? owner.explicitStopRequested === true : owner.cancelRequested === true;
+  if (explicitStop) owner.explicitStopRequested = true;
+  // Mark first to close launch gates, then capture queue cancellation before AbortSignal listeners remove it.
+  owner.cancelRequested = true; owner.phase = 'stopping';
+  const queuedStopped = typeof SessionExecutionHooks.cancelQueuedTurn === 'function'
+    && SessionExecutionHooks.cancelQueuedTurn(sessionId, owner.driverRunId) === true;
+  owner.cancel(reason);
+  const reg = activeChildren.get(sessionId);
+  if (reg && reg.executionOwner === owner) stopSession(sessionId, reason);
+  if (explicitStop && !owner.explicitStopGrantsRevoked && typeof SessionExecutionHooks.revokeGrants === 'function') {
+    SessionExecutionHooks.revokeGrants(sessionId);
+    owner.explicitStopGrantsRevoked = true;
+  }
+  return { ok: true, stopped: true, queuedStopped, execution: sessionExecutionSnapshot(sessionId), alreadyRequested };
+}
+SessionExecutionHooks.owns = (sessionId, owner) => Boolean(owner && turnSettlers.get(sessionId) === owner);
+SessionExecutionHooks.observation = sessionExecutionObservation;
+SessionExecutionHooks.snapshot = sessionExecutionSnapshot;
+SessionExecutionHooks.checkRewind = sessionExecutionCheckRewind;
+SessionExecutionHooks.check = sessionExecutionCheck;
+SessionExecutionHooks.stop = requestSessionExecutionStop;
 // 「回合成败账」正在落盘的会话(10 runSessionTurn 收尾)。turnSettlers 在回合 saveSession 之后就删了,而成败账
 // (会话头 stewardLastTurn)是紧跟着再写的 —— 这中间的几毫秒里收件箱第四源读到头会看见「回合跑完、没有成败账」
 // 并按「账缺席 = done」报,于是一个失败回合被报成收工(2026-10 真机:network_down 失败回合被管家说成「已收工」)。
@@ -21681,9 +21839,10 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
 function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[normalizeAgentCliType(type)]; }
 
 async function runClaudeTurn({
-  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam, messageMeta,
+  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam, messageMeta, executionOwner,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
 }) {
+  assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
@@ -21788,7 +21947,8 @@ async function runClaudeTurn({
       ...(messageMeta && typeof messageMeta === 'object' ? { meta: messageMeta } : {}),
     });
     // 122-§2.4:起跑这一存做落盘前合并(同 09 起跑那一存的头注)—— claude/kimi 两路都从这里起跑。
-    await saveSession(session, { mergeMissionFromDisk: true });
+    assertSessionExecutionOwner(session.id, executionOwner);
+    await saveSession(session, { mergeMissionFromDisk: true, executionOwner });
     await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
       engine: 'claude', model: currentClaudeModel || 'default', cwd: workingDir,
@@ -21808,7 +21968,7 @@ async function runClaudeTurn({
       `工作目录:${workingDir}`,
     ].join('\n');
     session.messages.push({ role: 'assistant', content: fallback, segments: [{ id: 'segment-1', type: 'text', text: fallback }], traceId: activeTraceId, createdAt: nowIso(), source: 'fallback' });
-    await saveSession(session);
+    await saveSession(session, { executionOwner });
     onEvent({ type: 'assistant_delta', text: fallback });
     await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
@@ -21831,6 +21991,7 @@ async function runClaudeTurn({
 
   // Serialize per session: if a turn for this session is already live, kill it first so we never
   // orphan a child (unkillable pid) or last-write-wins clobber the session file with a concurrent turn.
+  assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
   const interactive = adapter.interactive(config);
@@ -22084,6 +22245,7 @@ async function runClaudeTurn({
       if (tailArgs[i] === '--add-dir') additionalDirectories.push(tailArgs[++i]);
     }
     return adapter.runPreparedTurn({
+      executionOwner,
       session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
       additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
@@ -22179,6 +22341,7 @@ async function runClaudeTurn({
   // 环境说明、beforeSpawn、hooks……),同会话的两个回合可以都在那时看到「空闲」,各起一个子进程,后登记的
   // 把先登记的从表里挤掉 —— Stop 只杀得到一个,另一个成了孤儿。这里在「最后一个 await 之后、spawn 之前」
   // 再判一次(从这行到 activeChildren.set 全是同步代码,中间没有让出点),保证同会话同一时刻只有一个子进程。
+  assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
@@ -22191,8 +22354,9 @@ async function runClaudeTurn({
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
   installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
-  activeChildren.set(session.id, reg);
-  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
+  registerSessionExecutionChild(session.id, reg, executionOwner);
+  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
+  // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
   const stopSideChannelWatch = adapter.watchSideChannel(session, reg.onEvent);
 
@@ -22568,11 +22732,11 @@ async function runClaudeTurn({
     delete session.claudeSessionCwd;
     delete session.claudeSessionRouteKey;
     session.injectedIndexHash = null;
-    await saveSession(session);
+    await saveSession(session, { executionOwner });
     logEvent({ kind: 'claude_resume_retry', sessionId: session.id, reason: 'transcript-missing' });
     downstreamEvent({ type: 'resume_recovery', reason: 'transcript-missing', automatic: true, traceId: activeTraceId });
     return runClaudeTurn({
-      session, message, attachments, cwd, onEvent: downstreamEvent, config, driverAuto, agentTeam,
+      session, message, attachments, cwd, onEvent: downstreamEvent, config, driverAuto, agentTeam, executionOwner,
       _resumeRecoveryAttempt: true, _recoveryHistoryOverride: recoveryHistory, _traceId: activeTraceId,
       _workspaceBaseline: workspaceTurnBaseline,
     });
@@ -22653,7 +22817,7 @@ async function runClaudeTurn({
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
   // 回合代数闸(与 09 同一个 02 saveTurnFinalSession):被更新的回合顶替过的收尾存丢弃,不派 thread.done / 任务进度。
-  const turnSuperseded = !(await saveTurnFinalSession(session, 'claude-turn-final'));
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'claude-turn-final', { executionOwner }));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
   if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板:本回合记账(计价优先级与无结果帧的估算兜底见适配器 recordTurnUsage)。
@@ -26177,11 +26341,12 @@ function prepareKimiAcpSpawn(command) {
 
 async function runKimiAcpTurnPrepared(context) {
   const {
-    session, message, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
+    session, message, onEvent, config, executionOwner, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
     additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
     currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
     resumeResetReason, promptTaskContext, agentRecoverySummary, attachments, kimiNativeSlashCommand,
   } = context;
+  assertSessionExecutionOwner(session.id, executionOwner);
   let workspaceTurnBaseline = context.workspaceTurnBaseline;
   const env = {
     ...process.env,
@@ -26376,6 +26541,7 @@ async function runKimiAcpTurnPrepared(context) {
     // hunt2-engines#1:与 05 runClaudeTurn 同一处复查 —— 05 开头那次 supersede 检查到这里隔着多个 await
     // (MCP 同步、基线捕获、hooks),同会话并发的两个回合会各起一个 ACP 子进程。从这行到 activeChildren.set
     // 全是同步代码,在这里判一次就不会有两个子进程同时在册。
+    assertSessionExecutionOwner(session.id, executionOwner);
     if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     reg = {
@@ -26390,11 +26556,12 @@ async function runKimiAcpTurnPrepared(context) {
       kimiAcpWire: { subagents: new Map(), childTools: new Map() },
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
-    activeChildren.set(session.id, reg);
+    registerSessionExecutionChild(session.id, reg, executionOwner);
     // 121-K3(34 号文 §13.4 登记项①):Kimi ACP 这一路在 K2a 漏了起跑/收尾两帧。形状照 05/09 逐字
     // 一样(同一个事件名、同一个载荷键),位置也一样 —— 紧跟 activeChildren.set,此刻这条线程对
     // 任何读 activeChildren 的判据来说都已经是「在跑」了,派晚一行就会出现「订阅者算出来还是停着」。
-    RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // §6.3 指标 a
+    RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
+    // §6.3 指标 a
     onEvent({ type: 'process', state: 'running', pid: child.pid, interactive: true, protocol: 'acp' });
     child.stderr.on('data', chunk => {
       const text = decodeClaudeCliText(chunk, stderrDecodeStream);
@@ -26563,7 +26730,7 @@ async function runKimiAcpTurnPrepared(context) {
       model: kimiAcpActivatedActualConfigValue(activated, 'model'),
       thinking: kimiAcpActivatedActualConfigValue(activated, 'thinking'),
     };
-    await saveSession(session);
+    await saveSession(session, { executionOwner });
     const applyOption = async (configId, value) => {
       if (value == null || value === '') return;
       const strictMode = configId === 'mode';
@@ -26690,7 +26857,7 @@ async function runKimiAcpTurnPrepared(context) {
             attachments: [], nativeSlash: false,
           });
         }
-        await saveSession(session);
+        await saveSession(session, { executionOwner });
       } else reg.acceptingSteer = false;
     }
   } catch (error) {
@@ -26714,9 +26881,11 @@ async function runKimiAcpTurnPrepared(context) {
     await updateQueue.catch(() => {});
     if (watchdog) clearInterval(watchdog);
     stopKimiWireWatch();
-    clearPendingPermissions(session.id, 'turn ended');
-    clearPendingQuestions(session.id, 'turn ended');
-    clearPendingPlans(session.id, 'turn ended');
+    if (reg && activeChildren.get(session.id) === reg) {
+      clearPendingPermissions(session.id, 'turn ended');
+      clearPendingQuestions(session.id, 'turn ended');
+      clearPendingPlans(session.id, 'turn ended');
+    }
     if (rpc) rpc.cancelReverseRequests(new Error('Kimi ACP turn ended'));
     if (reg && reg.kimiAcpCleanupPromise) await reg.kimiAcpCleanupPromise;
     if (reg) await cleanupKimiAcpTerminals(reg);
@@ -26724,6 +26893,7 @@ async function runKimiAcpTurnPrepared(context) {
     if (activeChildren.get(session.id) === reg) activeChildren.delete(session.id);
   }
 
+  if (state.error && state.error.code === 'STEWARD_TURN_CANCELLED') throw state.error;
   const wasStopped = Boolean(reg && reg.state !== 'running');
   // ACP 0.37+ emits authoritative used/size after every turn. Only fall back to wire/Server API when an
   // older adapter omitted that update; otherwise starting a separate Web bridge adds latency and can read a
@@ -26777,7 +26947,7 @@ async function runKimiAcpTurnPrepared(context) {
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* ignore */ }
   }
   // 回合代数闸(与 09 同一个 02 saveTurnFinalSession):被更新的回合顶替过的收尾存丢弃,不派 thread.done / 任务进度。
-  const turnSuperseded = !(await saveTurnFinalSession(session, 'kimi-turn-final'));
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'kimi-turn-final', { executionOwner }));
   // 121-K3(§13.4 登记项①的另一半):收尾帧。与 05/09 同位置(紧跟本回合最后一次 saveSession ——
   // summary 这一刻已经是本回合的话)、同载荷。收尾形状与那两路不同(Kimi 这一路没有 result 早退,
   // 整段 finally 之后才走到这里),但【派帧的时机语义】一致:回合真的结束了才派。
@@ -40417,6 +40587,30 @@ const AGENT_RUN_PERSIST_DEGRADED_AFTER = 3;
 const AGENT_RUN_PERSIST_PAUSE_AFTER = 8;
 const agentRunSaveFailures = new Map(); // runId -> consecutive snapshot-save failures
 
+// Small read-model facts, independent of workflow status. Never carry node text or blocker bodies.
+function agentRunHealth(run, live = false) {
+  const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
+  const idle = nodes.find(node => node && node.idleAborted === true);
+  const blocked = live ? nodes.filter(node => node && node.status === 'waiting_resource' && Array.isArray(node.resourceBlockers) && node.resourceBlockers.length) : [];
+  return {
+    persistenceDegraded: !!(run && run.persistenceDegraded === true),
+    idleAborted: !!(run && run.idleAborted === true) || !!idle,
+    idleNodeId: String(idle && idle.id || ''),
+    resourceBlockedCount: blocked.length,
+    resourceBlockedNodeId: String(blocked[0] && blocked[0].id || ''),
+  };
+}
+const agentRunLastHealth = new Map();
+function agentRunHealthChanged(run) {
+  const health = agentRunHealth(run, activeAgentRuns.has(run.id));
+  const signature = JSON.stringify(health);
+  const previous = agentRunLastHealth.get(run.id);
+  if (previous === signature) return false;
+  if (agentRunLastHealth.size >= 1024 && !agentRunLastHealth.has(run.id)) agentRunLastHealth.clear();
+  agentRunLastHealth.set(run.id, signature);
+  return previous !== undefined || health.persistenceDegraded || health.idleAborted || health.resourceBlockedCount > 0;
+}
+
 const agentRunLastSavedStatus = new Map();   // 128f-⑫:runId -> 上一次落盘时的 status(见 saveAgentRun 里那一段)
 async function saveAgentRun(run) {
   if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
@@ -40446,10 +40640,10 @@ async function saveAgentRun(run) {
       // 都是落盘这一份摘要,而它不经过会话头(13r「会话头落盘即碰一下」那一路盖不到)。节点每一步也会存一次,
       // 那些不换状态的存一帧都不派。暂停是「先回 pausing、跑循环下一拍才真停」,所以派在这里而不是控制路由上。
       const savedStatus = String(run.status || '');
-      if (agentRunLastSavedStatus.get(run.id) !== savedStatus) {
+      if (agentRunHealthChanged(run) || agentRunLastSavedStatus.get(run.id) !== savedStatus) {
         if (agentRunLastSavedStatus.size >= 1024 && !agentRunLastSavedStatus.has(run.id)) agentRunLastSavedStatus.clear();
         agentRunLastSavedStatus.set(run.id, savedStatus);
-        RUYI_EVENTS.emit('thread.state', { sessionId: run.sessionId });
+        try { RUYI_EVENTS.emit('thread.state', { sessionId: run.sessionId }); } catch { /* Observers cannot turn a saved snapshot into a save failure. */ }
       }
       if (agentRunSaveFailures.get(run.id)) agentRunSaveFailures.delete(run.id);
       if (wasDegraded) appendAgentRunEvent(run, { type: 'persistence_recovered' });
@@ -40467,6 +40661,8 @@ async function saveAgentRun(run) {
           appendAgentRunEvent(run, { type: 'run_paused', data: { reason: 'persistence_degraded', consecutiveFailures: n } });
         }
       }
+      // A failed snapshot cannot update the index, but its live failure must still wake global readers.
+      if (agentRunHealthChanged(run)) { try { RUYI_EVENTS.emit('thread.state', { sessionId: run.sessionId }); } catch { /* Keep the original persistence error. */ } }
       throw e;
     }
   });
@@ -44939,7 +45135,8 @@ function emptyReplyNotice(locale, afterText) {
     : '[模型这次返回了空回复(没有文字,也没有调用工具);可以重发一次,或换个说法、换个模型再试]';
 }
 
-async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta }) {
+async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta, executionOwner }) {
+  assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 回合入口刷新分桶镜像(同步估算热路径用)
   const turnSegments = createTurnSegmentBuilder();
@@ -45044,7 +45241,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   session.turnSeq = plannedTurnSeq;
   // 回合中途的存盘都带回合代数闸(02 saveSession 的 dropIfTurnSuperseded):本回合若已被同会话更新的回合顶替
   // (卡在不理会中止的工具里、新回合先跑完),这份旧对象的存盘静默丢掉,不把新回合的消息与历史盖回去。
-  const turnSaveOpts = { dropIfTurnSuperseded: true, writer: 'openai-turn' };
+  const turnSaveOpts = { dropIfTurnSuperseded: true, writer: 'openai-turn', executionOwner };
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
   // 116f: messageMeta 是可选的「这条用户消息从哪来」元数据(目前唯一来源:管家收件箱回合的
@@ -45086,7 +45283,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 122-§2.4:起跑这一存也要落盘前合并 —— 用户「开线程后立刻派回合,再点开始任务」时,start 会落在
   // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
   // 合并也无从恢复(磁盘上已经没有那本账)。合并在写链内做,与路由那一存的先后两个方向都不丢。
-  await saveSession(session, { mergeMissionFromDisk: true });
+  assertSessionExecutionOwner(session.id, executionOwner);
+  await saveSession(session, { mergeMissionFromDisk: true, executionOwner });
   if (revertNoticeSeqs.length) await journalRevertNoticesAck(session.id, revertNoticeSeqs).catch(() => {});
 
   await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
@@ -45103,7 +45301,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       : `无法发起「${providerName}」这一轮对话：${!chatUrl ? '服务商的接口地址没填' : (!model ? '还没有选定模型' : '当前运行环境不支持 fetch')}。请到「设置 → 服务商」补全后再试。`;
     session.messages.push({ role: 'assistant', content: msg, segments: [{ id: 'segment-1', type: 'text', text: msg }], createdAt: nowIso(), source: 'fallback' });
     session.providerHistoryCursor = session.messages.length;
-    await saveSession(session);
+    await saveSession(session, { executionOwner });
     onEvent({ type: 'assistant_delta', text: msg });
     await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
@@ -45125,6 +45323,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     workspaceTurnBaseline = await captureWorkspaceTurnBaseline(workingDir).catch(() => null);
   }
 
+  assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
@@ -45163,8 +45362,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
   installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
-  activeChildren.set(session.id, reg);
-  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
+  registerSessionExecutionChild(session.id, reg, executionOwner);
+  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
+  // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
 
   // v0.8-S6: the capability matrix drives BOTH the tool filter (TOOL_REQUIRES) and the prompt能力层. Compute
   // it once per turn (60s-cached internally). collectBridgedTools inside getCapabilities warms the same
@@ -47219,7 +47419,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // 回合代数闸:本回合已被同会话更新的回合顶替(见 02 saveTurnFinalSession)时收尾存被丢弃,也不派 thread.done、
   // 不记任务进度 —— 过期回合不能把自己当成「最新一回合」宣布。用量账照记(token 确实花了)。
-  const turnSuperseded = !(await saveTurnFinalSession(session, 'openai-turn-final'));
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'openai-turn-final', { executionOwner }));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
   if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
@@ -50905,7 +51105,8 @@ async function runSessionTurn(input) {
         logEvent({ kind: 'disconnect_stop_skipped', sessionId: session.id, reason: 'superseded' });
         return;
       }
-      stopSession(session.id, 'disconnected');
+      if (ownSettleEntry) requestSessionExecutionStop(session.id, sessionExecutionSnapshot(session.id), 'disconnected');
+      else stopSession(session.id, 'disconnected');
     }).catch(() => {});
   };
   if (typeof body.onStart === 'function') body.onStart({ session, config });
@@ -50981,13 +51182,29 @@ async function runSessionTurn(input) {
     onEvent(evt);
   };
   // 第27波:本次回合 = 一个「run」。登记活动 runId,scope:'run' 授权绑定它(含首回合内经 UI 签发的 bindNextRun 补绑)。
+  if (typeof SessionExecutionHooks.admissionBlocked === 'function' && SessionExecutionHooks.admissionBlocked(session.id)) {
+    throw Object.assign(new Error('Session rewind is in progress'), { code: 'SESSION_EXECUTION_LOCKED', status: 409 });
+  }
+  const previousOwner = turnSettlers.get(session.id);
+  if (previousOwner && typeof previousOwner.cancel === 'function') previousOwner.cancel('superseded');
   const driverRunId = makeId('drun');
   bindDriverRun(session.id, driverRunId);
+  const executionAbort = new AbortController();
   // 第69波:登记 settle 信号 —— rewind 截断前等它( dying turn 的收尾 saveSession 落盘先于 driver finally,
   // 由此保证 rewind 的截断写在最后,不被收尾 save 整份盖回)。
   let settleResolve = null;
-  const settleEntry = { promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null };
-  turnSettlers.set(session.id, settleEntry);
+  const settleEntry = {
+    promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null,
+    driverRunId, phase: 'starting', cancelRequested: false,
+    cancel(reason = 'stopped') {
+      if (executionAbort.signal.aborted) return;
+      this.cancelRequested = true; this.phase = 'stopping'; turnStopped = true;
+      executionAbort.abort();
+      const child = activeChildren.get(session.id);
+      if (child && child.executionOwner === this) stopSession(session.id, reason);
+    },
+  };
+  recordSessionExecutionOwner(session.id, settleEntry);
   ownSettleEntry = settleEntry;
   let turnError = '';
   // 116h(27 号文 §3.1 116h 行):线程间仲裁的凭据。开关关 / 管家会话时下面那个分支根本不进,
@@ -51008,16 +51225,16 @@ async function runSessionTurn(input) {
     const knownDelta = knownMessages ? sessionMessagesDelta(session.messages, knownMessages.count, knownMessages.stamp) : null;
     if (knownDelta) {
       const { providerHistory: _providerHistory, ...sessionHead } = session;
-      emit({ type: 'session', session: { ...sessionHead, messages: knownDelta.tail }, messagesFrom: knownDelta.from, messageCount: knownDelta.count, messagesStamp: knownDelta.stamp });
+      emit({ type: 'session', execution: sessionExecutionSnapshot(session.id), session: { ...sessionHead, messages: knownDelta.tail }, messagesFrom: knownDelta.from, messageCount: knownDelta.count, messagesStamp: knownDelta.stamp });
     } else {
-      emit(source === 'http' ? { type: 'session', session, messagesStamp: sessionMessagesStamp(session.messages) } : { type: 'session', session });
+      emit(source === 'http' ? { type: 'session', session, execution: sessionExecutionSnapshot(session.id), messagesStamp: sessionMessagesStamp(session.messages) } : { type: 'session', session, execution: sessionExecutionSnapshot(session.id) });
     }
     // 116h:回合级并发位与同工作文件夹写互斥。位置在 session 事件【之后】(调用方先拿到 sessionId,
     // 排队期间的 agent_resource 事件才有归属)、引擎分派【之前】(等的是「能不能开始跑」)。
     // 判据读【原始】 session.kind:管家会话自己不是线程,不受并发上限约束(与 09/10 既有分叉同口径)。
     if (config.stewardEnabledV1 === true && session.kind !== 'steward' && typeof StewardHooks.acquireTurnSlot === 'function') {
       stewardSlot = await StewardHooks.acquireTurnSlot({
-        sessionId: session.id, title: session.title, cwd: body.cwd || session.cwd, config, signal, onEvent: emit,
+        sessionId: session.id, title: session.title, cwd: body.cwd || session.cwd, config, signal: executionAbort.signal, executionOwner: settleEntry, onEvent: emit,
       });
       // 排队中被 /api/stop 或断线取消:这不是错误,是「没跑成」。抛一个带 code 的哨兵,由下面的 catch
       // 翻成一条 process/stopped(而不是 error 事件)—— 返回值里 stopped:true、ok:true,与被停的回合同形。
@@ -51025,6 +51242,7 @@ async function runSessionTurn(input) {
         throw Object.assign(new Error('回合在排队时被取消'), { code: 'STEWARD_TURN_CANCELLED' });
       }
     }
+    assertSessionExecutionOwner(session.id, settleEntry);
     const provider = activeOpenAiProvider(config);
     const pinnedRoute = inferSessionEngineRoute(routeSource);
     if (pinnedRoute?.engine === 'openai' && !provider) {
@@ -51032,6 +51250,7 @@ async function runSessionTurn(input) {
     }
     // 单回合执行器(首回合=用户消息带附件;账本续跑回合=driverAuto、无附件)。两引擎同签名。
     const runTurn = async (msg, driverAuto) => {
+      assertSessionExecutionOwner(session.id, settleEntry);
       lastTurnTokens = 0;
       const atts = driverAuto ? [] : attachments;
       // 第27f波:标记本会话处于无人值守回合(供 CLI 桥的权限超时→存档暂停判定;provider 路径用闭包 driverAuto)。serial 回合,进出平衡。
@@ -51042,8 +51261,8 @@ async function runSessionTurn(input) {
         // {origin:'agent_wake'})。driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。管家【会话】解析到
         // CLI 引擎时在 13h 就返回 unsupported_engine;CLI 引擎的普通线程(管家递话、唤醒)照样把出身标落在用户消息上。
         const turnMessageMeta = driverAuto ? null : (body.messageMeta || null);
-        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta });
-        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta });
+        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
@@ -51063,7 +51282,7 @@ async function runSessionTurn(input) {
     // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
     // 不能只靠客户端断连(否则脚本/代理调 /api/stop 后驱动器仍relaunch 到预算耗尽)。
     if (session.mission && session.mission.autoMode === 'until-done') {
-      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped, ownsSession: () => turnSettlers.get(session.id) === settleEntry });
+      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped && !settleEntry.cancelRequested, ownsSession: () => turnSettlers.get(session.id) === settleEntry });
     }
   } catch (err) {
     // 116h:排队中被取消 -> 与「被 /api/stop 停掉」同一条语义(process/stopped),不是错误信封。
@@ -62501,11 +62720,12 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_stop',
-    description: '把一条线程【这一回合】停下来——和抽屉底部那个「停止」按钮同一条路(掐掉在跑的回合,顺带把还在排队的那次出队,并撤销这条线程的全部授权书)。停止是收紧类动作:任何权限档都可以做,连「每步都问」的线程也不例外,因为它只会让事情少发生。何时用:用户说「暂停/停一下/别跑了这条线程」,或你看到一条线程正在跑偏、在烧钱、在做用户没要它做的事。何时别用:**要停的是 Agent 班组(有 runId)时用 steward_run_action{action:"stop"}**,那是节点级的;要改它接下来做什么用 steward_thread_continue;要收紧权限用 steward_thread_permission。线程当前没有在跑时返回 {ok:false,error:"not_running",message:"这条线程现在没有在跑,不用停"} —— 这不是失败也不是参数错,【不要重试、不要换工具再试一次】,就照直说给用户听。返回 {ok,sessionId,stopped,queuedStopped,undoRef};undoRef 是 {kind:"none"}:停下的回合不能原样续上,要接着做请用 steward_thread_continue。',
+    description: '先用 steward_thread_status 读取 execution，再将同一份身份作为 expectedExecution 提交；不要点击时改取新的身份。缺身份或身份变化会拒绝，须重新核对，不自动重试。把一条线程【这一回合】停下来——和抽屉底部那个「停止」按钮同一条路(掐掉在跑的回合,仅把同一 execution 还在排队的那次出队,并撤销这条线程的全部授权书)。停止是收紧类动作:任何权限档都可以做,连「每步都问」的线程也不例外,因为它只会让事情少发生。何时用:用户说「暂停/停一下/别跑了这条线程」,或你看到一条线程正在跑偏、在烧钱、在做用户没要它做的事。何时别用:**要停的是 Agent 班组(有 runId)时用 steward_run_action{action:"stop"}**,那是节点级的;要改它接下来做什么用 steward_thread_continue;要收紧权限用 steward_thread_permission。线程当前没有在跑时返回 {ok:false,error:"not_running",message:"这条线程现在没有在跑,不用停"} —— 这不是失败也不是参数错,【不要重试、不要换工具再试一次】,就照直说给用户听。返回 {ok,sessionId,stopped,queuedStopped,undoRef};undoRef 是 {kind:"none"}:停下的回合不能原样续上,要接着做请用 steward_thread_continue。',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['sessionId'],
+      type: 'object', additionalProperties: false, required: ['sessionId', 'expectedExecution'],
       properties: {
         sessionId: { type: 'string', minLength: 1, description: '要停的线程 id(不能是管家自己的会话)。' },
+        expectedExecution: { type: ['object', 'null'], additionalProperties: false, required: ['serverInstanceId', 'driverRunId'], properties: { serverInstanceId: { type: 'string', minLength: 1 }, driverRunId: { type: 'string', minLength: 1 }, phase: { type: 'string', enum: ['starting', 'queued', 'running', 'stopping'] } }, description: 'thread_status 返回的 execution 身份，可原样回传；服务端明确空闲时可传 null。phase 不参与身份。' },
         reason: { type: 'string', description: '可选。为什么停(≤200 字),只写进决策日志供用户回看。' },
       },
     },
@@ -63814,26 +64034,20 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/stop') {
     const body = await readJsonBody(req);
     const sid = safeSessionId(body.sessionId);
-    const stopped = stopSession(String(body.sessionId || ''), 'stopped');
-    // 第27波:显式停止 = 用户介入夺回控制 → 撤销该会话【全部】授权书(含 scope:'session')。断连触发的 stopSession 不
-    // 走此处,仅由 streamChat finally 蒸发 scope:'run'(保留 session 授权供重连续用)—— intent-aware 精确撤销。
-    if (sid) { try { revokeAllGrants(sid, 'ui-stop'); } catch { /* best-effort */ } }
-    // 116h(27 号文 §3.1 116h 行):被停的会话可能还【在排队】—— stopSession 只认活回合(activeChildren),
-    // 排队中的回合它看不见。经 06i 的延迟绑定问一下仲裁器(开关关时该键的实现直接返回 false)。
-    let queuedStopped = false;
-    if (sid && typeof StewardHooks.cancelQueuedTurn === 'function') {
-      try { queuedStopped = StewardHooks.cancelQueuedTurn(sid) === true; } catch { queuedStopped = false; }
-    }
+    if (!sid) return send(res, apiSessionIdInvalid());
+    const receipt = requestSessionExecutionStop(sid, body.expectedExecution, 'stopped');
+    if (!receipt.ok) return send(res, apiFailure(receipt.error, {}, receipt.error, 409));
+    const { stopped, queuedStopped, alreadyRequested } = receipt;
     // 121-K5(34 号文 §4.4 末条;33 号文 §0 记的那条不对称):管家按的停止进决策日志,用户手按的不进 ——
     // 于是「行动流水」上看得见模型停了哪条线程,看不见人停了哪条。这里补上,形状与 13h 的
     // steward_thread_stop 同款(tool:'user_stop'、mayAct:'user'、basis.origin:'ui_stop')。
     // 与 cancelQueuedTurn 同一条迟绑定纪律(13h 拼在本文件之后,直引它的符号是前向边);
     // **只在真停下了什么之后才记**——什么都没停时那不是一次行动,不该在流水上占一行。
     // await 它是为了让 e2e 能在响应回来之后立刻读到那一行(实现自己也是 fire-and-forget,不会抛)。
-    if ((stopped || queuedStopped) && sid && typeof StewardHooks.appendUserStop === 'function') {
+    if (!alreadyRequested && (stopped || queuedStopped) && sid && typeof StewardHooks.appendUserStop === 'function') {
       try { await StewardHooks.appendUserStop(sid, { stopped, queuedStopped }); } catch { /* 记账失败绝不影响停止本身 */ }
     }
-    return send(res, json({ ok: true, stopped: stopped || queuedStopped }));
+    return send(res, json({ ok: true, stopped, queuedStopped, execution: receipt.execution }));
   }
   if (req.method === 'POST' && pathname === '/api/provider/compact') {
     // §5.2: native-provider context compaction. Same-origin protected (mutating) like /api/stop and
@@ -66020,7 +66234,14 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
     const sessionId = safeSessionId(body.sessionId); // F4
     if (!sessionId) return send(res, apiSessionIdInvalid());
     if (body.targetTurnSeq === undefined || body.targetTurnSeq === null) return send(res, apiFailure('request.field_required', { field: 'targetTurnSeq' }, 'targetTurnSeq is required', 400));
-    return send(res, json(await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles)));
+    const guarded = body.guardExecution === true || Object.prototype.hasOwnProperty.call(body, 'expectedExecution') || Object.prototype.hasOwnProperty.call(body, 'expectedIdleState');
+    const result = await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles,
+      guarded ? { guardExecution: true, expectedExecution: body.expectedExecution, expectedIdleState: body.expectedIdleState } : {});
+    if (guarded && result && result.ok === false && ['execution_identity_required', 'execution_identity_unavailable',
+      'execution_changed', 'rewind_in_progress', 'rewind_settle_timeout'].includes(result.error)) {
+      return send(res, apiFailure(result.error, {}, result.error, 409));
+    }
+    return send(res, json(result));
   }
   return false;
 }
@@ -67315,7 +67536,7 @@ function sessionEnvelopeLiveParts(id) {
   const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
     ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
     : null;
-  return { live, liveTail, liveTurn, relay };
+  return { live, liveTail, liveTurn, relay, execution: sessionExecutionSnapshot(id), executionObservation: sessionExecutionObservation(id) };
 }
 
 // 安全走查 S10:导入会话 JSON(POST /api/sessions 带 messages)时,文件里写的 cwd 不能原样当工作区 —— 一份被分享来的会话文件
@@ -67463,12 +67684,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
         const liveParts = sessionEnvelopeLiveParts(id);
         const head = liveParts.live ? await readSessionHeadResilient(id) : null;
         if (head && typeof head === 'object') {
-          const { liveTail, liveTurn, relay } = liveParts;
+          const { liveTail, liveTurn, relay, execution, executionObservation } = liveParts;
           const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
           const count = (n, list) => (Number.isInteger(n) ? n : (Array.isArray(list) ? list.length : 0));
           const historyLength = count(head.providerHistoryCount, head.providerHistory);
           return send(res, json({
-            ok: true, view: 'live',
+            ok: true, view: 'live', execution, executionObservation,
             session: { id, updatedAt: String(head.updatedAt || ''), turnSeq, messageCount: count(head.messageCount, head.messages), providerHistoryCount: historyLength },
             resumable: { dangling: false, kind: null, turnSeq, historyLength, live: true },
             ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}),
@@ -67483,7 +67704,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
         const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw, deltaKey);
         if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
       }
-      const notFound = () => send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
+      const notFound = () => send(res, id === STEWARD_SESSION_ID ? json({ ok: true, execution: sessionExecutionSnapshot(id), executionObservation: sessionExecutionObservation(id), session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // perf(增量取):带 fromIndex/prefixStamp 的请求先用「不读 provider 正文」的装载视图(02 SESSION_LOAD_OMIT_PROVIDER:
       // 前提拿不准它自己就是一次完整装载)。前缀戳对不上 = 要回全量,全量体里有 providerHistory,于是换一份完整装载再往下走。
       let session = await loadSession(id, 0, 0, deltaKey ? SESSION_LOAD_OMIT_PROVIDER : null);
@@ -67502,7 +67723,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
       // 横幅,故 live 会话直接返回不悬挂。
       const liveParts = sessionEnvelopeLiveParts(id);
-      const { live, liveTail, liveTurn, relay } = liveParts;
+      const { live, liveTail, liveTurn, relay, execution, executionObservation } = liveParts;
       // 200 体的标签:盘上戳是装载前取的(见上),内存活态是这一刻取的;没有戳(读不到头/正文)就不发 ETag,照旧无条件全量。
       const envelopeHeaders = envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw, deltaKey), 'cache-control': 'no-store' } : {};
       // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 steward-drawer.js 的
@@ -67527,7 +67748,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const at = Date.parse(String((m && m.createdAt) || ''));
           return Number.isFinite(at) && at > sinceMs;
         });
-        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
+        return send(res, json({ ok: true, execution, executionObservation, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
       }
       // 增量取:前缀戳对得上才回尾巴。信封与全量同形(同一组键、同一份 resumable/displayTitle/活态),只有三处不同 ——
       // session.messages 只是 messages[N..];session 上不带 providerHistory(前端从不读它,全量里照旧有);信封上多
@@ -67538,7 +67759,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
         if (delta) {
           const { providerHistory: _providerHistory, ...sessionHead } = session;
           return send(res, json({
-            ok: true, session: { ...sessionHead, messages: delta.tail }, resumable, displayTitle: sessionDisplayTitle(session),
+            ok: true, execution, executionObservation, session: { ...sessionHead, messages: delta.tail }, resumable, displayTitle: sessionDisplayTitle(session),
             messagesFrom: delta.from, messageCount: delta.count, messagesStamp: delta.stamp,
             ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}),
           }, 200, envelopeHeaders));
@@ -67547,7 +67768,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, 200, envelopeHeaders));
+      return send(res, json({ ok: true, execution, executionObservation, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, 200, envelopeHeaders));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -67723,6 +67944,7 @@ function missionRunDigest(r, includeLive = true, includeGraph = false) {
     nodeCount: Array.isArray(src.nodes) ? src.nodes.length : 0,
     poolPending: ((src.taskPool) || []).filter(p => p && p.status === 'proposed').length,
     live: !!live, paused: !!(live && live.paused), resumeTier: src.resumeTier || '',
+    health: agentRunHealth(src, !!live),
     totalTokens: Number(src.totalTokens) || 0, costUsd: Number(src.costUsd) || 0,
   };
   if (includeGraph) Object.assign(digest, missionRunGraph(src, live));
@@ -67783,6 +68005,7 @@ async function buildMissionCard(head, runs, opts = {}) {
       ? { seq: Math.max(0, Number(head.stewardLastTurn.seq) || 0), ok: head.stewardLastTurn.ok !== false, aborted: head.stewardLastTurn.aborted === true }
       : null,
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
+    ...(opts.persistent ? {} : { execution: sessionExecutionSnapshot(head.id) }),
     ...(opts.persistent ? {} : { queued: stewardThreadTurnQueued(head.id) }), // hunt3:排队中的回合,同上只活在叠加层
     mission: {
       goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
@@ -67800,7 +68023,21 @@ async function buildMissionCard(head, runs, opts = {}) {
     pending: await missionPendingCounts(head.id, runs, opts.interventions),
     runCount: (runs || []).length,
     lastRun: runs && runs.length ? missionRunDigest(runs[runs.length - 1], !opts.persistent) : null,
+    // Latest persisted run plus every live run: a healthy newer run cannot hide an older live fault.
+    healthRuns: missionHealthRuns(head.id, runs, !opts.persistent),
   };
+}
+
+function missionHealthRuns(sessionId, runs, includeLive = true) {
+  const latest = (Array.isArray(runs) ? runs : []).filter(run => run && run.id)
+    .slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || String(b.id).localeCompare(String(a.id)))[0];
+  const byId = new Map();
+  if (latest) byId.set(latest.id, missionRunDigest(latest, includeLive));
+  if (includeLive) for (const runtime of activeAgentRuns.values()) {
+    const run = runtime && runtime.run;
+    if (run && run.sessionId === sessionId) byId.set(run.id, missionRunDigest(run, true));
+  }
+  return [...byId.values()];
 }
 
 // ── 第 116 波 116g(27 号文 §3.1 / §8.10):事项级聚合读模型 ─────────────────────
@@ -69518,7 +69755,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
 // 性能批 P3:6 -> 7。finalize 里切片的排序从 localeCompare 换成码位序:id 带大写 / 下划线 / 连字符时两种次序不同,
 // 而 missionsRevision 是按行序算的哈希 —— 不升号,盘上旧索引的修订号会与同一份事实新算出来的对不上。代价同前:升级后
 // 首次读全量重建一次。
-const PRETENDER_INDEX_SCHEMA = 7;
+// 62: card health summaries are new persistent projection facts; old source stamps must rebuild them.
+const PRETENDER_INDEX_SCHEMA = 8;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -70221,6 +70459,8 @@ function pretenderEtag(kind, revision, page) {
 function pretenderLiveOverlayRevision(sessionId = '') {
   const sid = String(sessionId || '');
   const rows = [];
+  const sessionIds = sid ? [sid] : (pretenderIndexRuntime.value && Array.isArray(pretenderIndexRuntime.value.sessions) ? pretenderIndexRuntime.value.sessions : []).map(row => row.sessionId);
+  for (const id of sessionIds) rows.push(['execution', id, sessionExecutionSnapshot(id), stewardThreadTurnQueued(id)]);
   // 121-K3:活回合这一行带上 liveTail 摘要的三个值。修前它只有 ['turn', id] —— 一个回合从起跑到
   // 收工整段时间里 ETag 一动不动,而卡片上的「正在调什么」每几百毫秒就变一次,兜底轮询于是永远
   // 拿 304、永远画着第一帧。overlayMissionCard 往卡片里放了什么,这里就得跟着算什么。
@@ -70244,7 +70484,7 @@ function pretenderLiveOverlayRevision(sessionId = '') {
   for (const runtime of activeAgentRuns.values()) {
     const run = runtime && runtime.run;
     if (!run || (sid && run.sessionId !== sid)) continue;
-    rows.push(['run', run.sessionId, run.id, run.status, Number(run.eventSeq) || 0, run.updatedAt || '', Boolean(runtime.paused)]);
+    rows.push(['run', run.sessionId, run.id, run.status, Number(run.eventSeq) || 0, run.updatedAt || '', Boolean(runtime.paused), agentRunHealth(run, true)]);
   }
   rows.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   return pretenderHash(rows);
@@ -70318,10 +70558,15 @@ function overlayMissionCard(slice, overlayAt) {
     liveTail,
     seatedBy,
     activeTurn,
+    execution: sessionExecutionSnapshot(slice.sessionId),
     queued,
     asksYou,
     runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),
     lastRun: latestLive ? missionRunDigest(latestLive, true) : card.lastRun,
+    healthRuns: [...new Map([
+      ...(Array.isArray(card.healthRuns) ? card.healthRuns : []).map(run => [run.id, run]),
+      ...liveRuns.map(run => [run.id, missionRunDigest(run, true)]),
+    ]).values()],
     freshness: {
       persistentRevision: slice.cardRevision || slice.missionRevision,
       indexedAt: slice.indexedAt,
@@ -72867,6 +73112,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     stateLabel: derived.label,
     stateSources: derived.sources,
     activeTurn: activeChildren.has(sessionId),
+    execution: sessionExecutionSnapshot(sessionId),
     currentAction: lastRun ? stewardSanitizeText(`班组运行 ${lastRun.id || ''} · ${lastRun.status || ''}`) : (activeChildren.has(sessionId) ? '回合进行中' : ''),
     lastStep: lastRun ? stewardSanitizeText(`${lastRun.nodeCount || 0} 个节点 · eventSeq ${lastRun.eventSeq || 0}`) : '',
     pending: interventions,
@@ -73064,14 +73310,25 @@ const stewardLaunchingTurns = new Set();
 function stewardLaunchTurn(input, tool) {
   const launchSid = String(input.sessionId || '');
   if (launchSid) stewardLaunchingTurns.add(launchSid);
+  let registered;
+  const registration = new Promise(resolve => { registered = resolve; });
   // 第二轮工具走查(F17):给管家发起的那条【用户消息】盖上出身标 meta.origin:'steward'(随会话正文落盘,与收件箱回合的
   // origin:'inbox' 同一个机制)。修前 thread_new 的委托书、thread_continue 的递话、quick_ask 的问题落在线程里都是一条
   // 没有任何标记的 role:'user' 消息,于是 steward_memory_write 的来源校验(13l stewardSourceIsUserMessage)分不出
   // 「用户本人说的」和「管家自己转发过去的」—— 管家能把自己写的委托书引成「用户说过」记进记忆。
   // 只覆盖 Provider 引擎的线程(09 runOpenAiTurn 才接 messageMeta;CLI 引擎的回合不接,与收件箱标同一个边界)。
   // input 里调用方自己给的 messageMeta 优先(目前没有)。
-  const promise = runSessionTurn({ messageMeta: { origin: 'steward', tool: String(tool || '') }, ...input, onEvent: () => {} });
-  promise.finally(() => { if (launchSid) stewardLaunchingTurns.delete(launchSid); }).catch(() => {});
+  const promise = runSessionTurn({ messageMeta: { origin: 'steward', tool: String(tool || '') }, ...input, onEvent: event => {
+    // Capture the identity and anchor emitted by THIS driver, never a later current-session lookup.
+    if (event && event.type === 'session' && event.session && event.session.id === launchSid) {
+      const execution = event.execution;
+      registered(execution && typeof execution === 'object' ? {
+        execution: { ...execution }, rewindTargetTurnSeq: (Number(event.session.turnSeq) || 0) + 1,
+      } : null);
+    }
+  } });
+  promise.registration = registration;
+  promise.finally(() => { registered(null); if (launchSid) stewardLaunchingTurns.delete(launchSid); }).catch(() => {});
   promise.then(result => {
     logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
     void stewardRecordLaunchOutcome(input.sessionId, result);
@@ -73261,7 +73518,7 @@ async function stewardImplThreadNew(args, ctx, config) {
   // 回落到默认工作区的那一次不记 —— 那不是谁选的,是派生失败的兜底。
   if (requestedMissionId && cwdSource !== 'default') await stewardRecordMissionWorkspace(requestedMissionId, session.cwd);
 
-  stewardLaunchTurn({
+  const launched = stewardLaunchTurn({
     sessionId: session.id,
     message: composed.text,
     cwd: session.cwd,
@@ -73272,7 +73529,8 @@ async function stewardImplThreadNew(args, ctx, config) {
   // 117d 第 0 步:回退锚点。undoRef.sessionId 是「删掉这条线程」的把手,但整单回退要的是
   // 【被递那一回合将拥有的 seq】—— 与 09-workflow 的 plannedTurnSeq 同口径(session.turnSeq + 1);
   // 新建会话 turnSeq 恒为 0,故委托书是第 1 回合。rewindSession 按这个 seq 定位首条用户消息。
-  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
+  const registration = await launched.registration;
+  const undoRef = registration ? { kind: 'thread_new', sessionId: session.id, ...registration } : { kind: 'none', sessionId: session.id };
   stewardAppendDecision({
     tool: 'steward_thread_new',
     args: {
@@ -73548,7 +73806,7 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 第一条用户消息」定位,即 plannedTurnSeq = 递话前 turnSeq + 1(与 09-workflow 同口径)。117d 第 0 步
   // 补出显式字段 rewindTargetTurnSeq;turnSeq 语义保持「递话前」不变(既有消费者逐字节不受影响)。
   const beforeTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
-  const undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, rewindTargetTurnSeq: beforeTurnSeq + 1 };
+  let undoRef = { kind: 'none', sessionId };
   const basis = stewardBasisOf(args);
   // 129g:代答闸的回调。只在通道真的落到 'answer' 时被 13q 叫到;gate.used 是【核实过】的依据,
   // 放行后原样进决策账本 —— 账本记的是「服务端核住了什么」,不是「模型说它有什么」。
@@ -73558,8 +73816,10 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const delivered = await StewardHooks.relayDeliver({
     sessionId, message, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
     answerGuard: decided => { gate.decided = decided; return stewardAnswerGate(gate); },
-    launch: () => {
-      stewardLaunchTurn({ sessionId, message, source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
+    launch: async () => {
+      const launched = stewardLaunchTurn({ sessionId, message, source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
+      const registration = await launched.registration;
+      if (registration) undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, ...registration };
       return { undoRef };
     },
   });
@@ -73922,7 +74182,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
   const quickTier = StewardHooks.applyThreadTier(session, 'fast', config);
   await saveSession(session);
 
-  stewardLaunchTurn({
+  const launched = stewardLaunchTurn({
     sessionId: session.id,
     message: question,
     cwd: session.cwd,
@@ -73934,7 +74194,8 @@ async function stewardImplQuickAsk(args, ctx, config) {
   // rewindSession 按「要删的那一回合的第一条用户消息」定位(09 的 plannedTurnSeq = turnSeq + 1),
   // 按 `turnSeq` 字面传会得 target turn not found。新建会话的 turnSeq 恒为 0,这里仍按字段读,
   // 与上面那两处逐字同形(将来 createSession 若带出非零 seq 也不会错)。
-  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
+  const registration = await launched.registration;
+  const undoRef = registration ? { kind: 'thread_new', sessionId: session.id, ...registration } : { kind: 'none', sessionId: session.id };
   stewardAppendDecision({
     tool: 'steward_quick_ask',
     args: { chars: question.length, tier: quickTier.tier, cwdSource: quickCwdSource },
@@ -76640,9 +76901,11 @@ function stewardArbiterSetWait(entry, wait) {
 
 // 放行:登记并发位、记一笔回合时刻,返回带 release 的凭据。release 幂等,回合的 finally 无条件调它。
 function stewardArbiterGrant(entry) {
+  if (entry.cancelled || (entry.signal && entry.signal.aborted)) return { granted: false, reason: 'stopped' };
+  if (entry.executionOwner && turnSettlers.get(entry.sessionId) === entry.executionOwner) entry.executionOwner.phase = 'starting';
   const token = `slot_${++stewardArbiter.seq}`;
   const startedAt = Date.now();
-  stewardArbiter.running.set(token, { token, sessionId: entry.sessionId, title: entry.title, cwdKey: entry.cwdKey, startedAt });
+  stewardArbiter.running.set(token, { token, sessionId: entry.sessionId, title: entry.title, cwdKey: entry.cwdKey, startedAt, execution: entry.execution || null });
   stewardArbiter.turns.push(startedAt);
   // 只有【真的等过】的条目才发 acquired/released:没等过的回合在事件流里凭空多两帧,对用户是噪音,
   // 对既有壳是白白多一次重渲染。等过的条目必须发 —— 状态条要靠它把「等待资源」那一行清掉。
@@ -76667,7 +76930,7 @@ function stewardArbiterGrant(entry) {
 // 而不是 running(不占并发位、不挡别人),以及只在真的与同 cwd 的活跃写者撞上时才发一条事件。
 function stewardArbiterGrantPending(info) {
   const token = `pend_${++stewardArbiter.seq}`;
-  const row = { token, sessionId: info.sessionId, title: info.title, cwdKey: info.cwdKey, startedAt: Date.now() };
+  const row = { token, sessionId: info.sessionId, title: info.title, cwdKey: info.cwdKey, startedAt: Date.now(), execution: info.execution || null };
   stewardArbiter.pendingRuns.set(token, row);
   const rivals = [];
   for (const run of stewardArbiter.running.values()) {
@@ -76713,12 +76976,12 @@ function stewardArbiterCancel(entry, reason) {
 }
 
 // /api/stop 的接线:被停的会话若还在排队,把它出队(既有 stopSession 只认活回合,排队中的回合它看不见)。
-function stewardCancelQueuedTurn(sessionId) {
+function stewardCancelQueuedTurn(sessionId, driverRunId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return false;
   let hit = false;
   for (const entry of [...stewardArbiter.queue]) {
-    if (entry.sessionId !== sid) continue;
+    if (entry.sessionId !== sid || (driverRunId && (!entry.execution || entry.execution.driverRunId !== driverRunId))) continue;
     if (stewardArbiterCancel(entry, 'stopped')) hit = true;
   }
   return hit;
@@ -76876,22 +77139,27 @@ async function stewardAcquireTurnSlot(input) {
   const opts = (input && typeof input === 'object') ? input : {};
   const passthrough = { granted: true, release: () => {} };
   const config = opts.config || await readConfig().catch(() => null);
+  if (opts.signal && opts.signal.aborted) return { granted: false, reason: 'stopped' };
   if (!config || config.stewardEnabledV1 !== true) return passthrough;
   const sessionId = safeSessionId(opts.sessionId);
   if (!sessionId || sessionId === STEWARD_SESSION_ID) return passthrough;   // 管家不是线程,不占并发位
   // ① 等你 -> 直接放行。116-3 P2-15:放行照旧(它不该等),但把 cwd 登记进 pendingRuns 让两个写者
   // 彼此可见;真撞上同 cwd 的活跃写者时给这一路的事件流发一条 agent_resource(state:'acquired' —— 它
   // 没在等,只是同时在写),112c 状态条与看板据此能显示「同一个文件夹还有别的写者」。
-  if (await stewardArbiterHasPending(sessionId)) {
+  const hasPending = await stewardArbiterHasPending(sessionId);
+  if (opts.signal && opts.signal.aborted) return { granted: false, reason: 'stopped' };
+  assertSessionExecutionOwner(sessionId, opts.executionOwner);
+  const execution = opts.executionOwner ? { serverInstanceId: OVERLAY_ID, driverRunId: opts.executionOwner.driverRunId } : null;
+  if (hasPending) {
     return stewardArbiterGrantPending({
       sessionId,
       title: stewardSanitizeText(opts.title || ''),
       cwdKey: stewardArbiterCwdKey(opts.cwd),
-      onEvent: typeof opts.onEvent === 'function' ? opts.onEvent : null,
+      onEvent: typeof opts.onEvent === 'function' ? opts.onEvent : null, execution,
     });
   }
   const entry = {
-    sessionId,
+    sessionId, execution, executionOwner: opts.executionOwner || null,
     title: stewardSanitizeText(opts.title || ''),
     cwdKey: stewardArbiterCwdKey(opts.cwd),
     enqueuedAt: Date.now(),
@@ -76908,6 +77176,7 @@ async function stewardAcquireTurnSlot(input) {
     signal: opts.signal || null,
   };
   if (entry.signal && entry.signal.aborted) return { granted: false, reason: 'aborted' };
+  if (opts.executionOwner) opts.executionOwner.phase = 'queued';
   // 队列硬顶:排队是为了让用户看得懂,不是背压手段。堆到 500 条说明别处已经出问题了,放行比挂死诚实。
   // 116-3 P1-12:但逃生舱只对【预算与并发位】开 —— 同 cwd 写互斥是数据完整性问题,不是排队体验问题,
   // 而队列打满最常见的成因恰恰是「同一个繁忙目录上的自理重试循环」,这时候放行等于让两条线程一起改
@@ -76994,18 +77263,18 @@ async function stewardArbiterState(config) {
     enabled: cfg.stewardEnabledV1 === true,
     maxParallel: stewardArbiterMaxParallel(cfg),
     running: [...stewardArbiter.running.values()].map(run => ({
-      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt,
+      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt, execution: run.execution || null,
     })),
     // 116-3 P2-15:待决豁免的写者。【不】并进 running —— 它不占并发位、不挡别人(116h 的刻意设计),
     // 但看板与状态条要看得见「同一个文件夹这会儿还有谁在写」。只加字段,不改既有形状。
     pendingWriters: [...stewardArbiter.pendingRuns.values()].map(run => ({
-      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt,
+      sessionId: run.sessionId, title: run.title, cwdKey: run.cwdKey, startedAt: run.startedAt, execution: run.execution || null,
     })),
     queue: stewardArbiter.queue.filter(entry => !entry.cancelled).map(entry => ({
       sessionId: entry.sessionId,
       title: entry.title,
       cwdKey: entry.cwdKey,
-      enqueuedAt: entry.enqueuedAt,
+      enqueuedAt: entry.enqueuedAt, execution: entry.execution || null,
       priorityBump: entry.priorityBump === true,
       wait: waitReasonFor({ pending: 0 }, entry.wait),
     })),
@@ -79936,16 +80205,15 @@ async function stewardImplThreadStop(args, ctx, config) {
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot stop its own turn');
   const reason = stewardSanitizeText(args.reason).trim().slice(0, STEWARD_STOP_REASON_MAX);
 
-  const stopped = activeChildren.has(sessionId) ? stopSession(sessionId, 'steward-stop') === true : false;
-  let queuedStopped = false;
-  try { queuedStopped = stewardCancelQueuedTurn(sessionId) === true; } catch { queuedStopped = false; }
+  const receipt = requestSessionExecutionStop(sessionId, args.expectedExecution, 'steward-stop');
+  if (!receipt.ok) return stewardFail(receipt.error, receipt.error + ': read thread_status before stopping', { sessionId });
+  const { stopped, queuedStopped, alreadyRequested } = receipt;
   if (!stopped && !queuedStopped) return stewardFail('not_running', '这条线程现在没有在跑,不用停', { sessionId });
-  try { revokeAllGrants(sessionId, 'steward-stop'); } catch { /* best-effort,与 /api/stop 同款 */ }
 
   // 停下的回合【不能】原样续上(它的半截输出已经落进会话正文;要撤销那一整回合是 rewind,另一件事)。
   // undoRef 诚实标 none,并把用户真正该走的那条路写进 note。
   const undoRef = { kind: 'none', note: '停下的回合不能原样续上;要继续用「接着办」' };
-  stewardAppendDecision({
+  if (!alreadyRequested) stewardAppendDecision({
     tool: 'steward_thread_stop',
     args: { stopped, queuedStopped, ...(reason ? { reason } : {}) },
     targetSessionId: sessionId,
@@ -80279,6 +80547,9 @@ function stewardSanitizeAttachments(raw) {
   }
   return out;
 }
+
+SessionExecutionHooks.cancelQueuedTurn = stewardCancelQueuedTurn;
+SessionExecutionHooks.revokeGrants = sessionId => revokeAllGrants(sessionId, 'explicit-stop');
 
 // ============================================================================
 // 第 121 波 K2a(34 号文 §6.1「一条推送:GET /api/events/stream(SSE)」):事件流。
@@ -80665,7 +80936,7 @@ async function handleEventStreamApiRoutes(req, res, pathname) {
     for (const frame of eventStreamRing) if (frame.id > lastSeen) eventStreamWriteFrame(client, frame);
   }
   // 连接私有帧:回显在场参数。不带 id(见 eventStreamRing 头注)。
-  eventStreamWriteFrame(client, { id: 0, event: 'presence.ack', data: { lens: client.lens, sessionId: client.sessionId, viewing: client.viewing, at: client.at } });
+  eventStreamWriteFrame(client, { id: 0, event: 'presence.ack', data: { lens: client.lens, sessionId: client.sessionId, viewing: client.viewing, at: client.at, serverInstanceId: OVERLAY_ID } });
 
   client.heartbeat = setInterval(() => {
     if (res.writableEnded) return;

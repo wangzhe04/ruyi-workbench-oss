@@ -761,6 +761,36 @@ test('⑥ 运行监控轮询：页签还挂着 active 但列表不在屏上（�
   }
 });
 
+test('运行监控换进程：可见面立即全量重取，旧增量不能盖新快照，隐藏面下次仍强制全量', async () => {
+  const { state } = await load('state.js');
+  const { t } = await load('i18n.js');
+  state.currentSession = { id: 'epoch_monitor' }; state.config = { monitorIncremental: true };
+  const pane = document.mount('div', 'epochPane', 'tool-pane');
+  const tabs = document.createElement('div'); tabs.className = 'tool-tabs'; pane.appendChild(tabs);
+  const tab = document.createElement('button'); tab.dataset.tab = 'agent-runs'; tab.className = 'active'; tabs.appendChild(tab);
+  const host = document.mount('div', 'agentRunsList');
+  host.rects = [{ width: 300, height: 200 }];
+  const wf = await workflowsDomain(); const handlers = new Map();
+  wf.setAgentRunsEventStream({ on: (name, fn) => handlers.set(name, fn) });
+  const run = { id: 'epoch_run', status: 'running', live: true, eventSeq: 1, nodes: [{ id: 'n', status: 'running', task: 'OLD_FACT' }] };
+  apiHandler = () => ({ ok: true, runs: [run] }); await wf.loadAgentRuns(true);
+  const old = deferred(), fresh = deferred(); const calls = [];
+  apiHandler = url => { calls.push(url); return url.includes('view=digest') ? old.promise : fresh.promise; };
+  const pending = wf.loadAgentRuns(); await flush();
+  handlers.get('server.instance')({ serverInstanceId: 'B', previousServerInstanceId: 'A' }); await flush();
+  assert.equal(calls.length, 2); assert.ok(calls[0].includes('view=digest')); assert.ok(!calls[1].includes('view=digest'), 'epoch bypasses digest and requests authoritative full runs');
+  assert.ok(host.textContent.includes(t('workflow.health.restarting')));
+  fresh.resolve({ ok: true, runs: [{ ...run, nodes: [{ id: 'n', status: 'running', task: 'NEW_FACT' }] }] }); await flush(10);
+  assert.ok(host.textContent.includes('NEW_FACT')); assert.equal(host.querySelector('.workflow-read-health'), null);
+  old.resolve({ ok: true, runs: [] }); await pending;
+  assert.ok(host.textContent.includes('NEW_FACT'), 'late pre-epoch empty digest cannot delete the authoritative run');
+  host.rects = []; const before = calls.length;
+  handlers.get('server.instance')({ serverInstanceId: 'C', previousServerInstanceId: 'B' }); await flush();
+  assert.equal(calls.length, before, 'active tab in a hidden pane adds no poller or immediate request');
+  await wf.loadAgentRuns(); assert.ok(!calls.at(-1).includes('view=digest'), 'next ordinary read remains forced full');
+  pane.remove(); host.remove();
+});
+
 test('运行读取质量：失败和畸形成功保留快照与待审批；有效空列表才能清空', async () => {
   const { state } = await load('state.js');
   const { t } = await load('i18n.js');

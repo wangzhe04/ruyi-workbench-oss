@@ -383,7 +383,7 @@ async function handleEventStreamApiRoutes(req, res, pathname) {
     for (const frame of eventStreamRing) if (frame.id > lastSeen) eventStreamWriteFrame(client, frame);
   }
   // 连接私有帧:回显在场参数。不带 id(见 eventStreamRing 头注)。
-  eventStreamWriteFrame(client, { id: 0, event: 'presence.ack', data: { lens: client.lens, sessionId: client.sessionId, viewing: client.viewing, at: client.at } });
+  eventStreamWriteFrame(client, { id: 0, event: 'presence.ack', data: { lens: client.lens, sessionId: client.sessionId, viewing: client.viewing, at: client.at, serverInstanceId: OVERLAY_ID } });
 
   client.heartbeat = setInterval(() => {
     if (res.writableEnded) return;

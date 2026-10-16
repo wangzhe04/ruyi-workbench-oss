@@ -442,6 +442,7 @@ const {
   loadAgentWorkflows,
   openWorkflowEditor,
   restoreMainView,
+  setAgentRunsEventStream,
   updateAgentRunsPolling,
   wbNativeClaudeFinalize,
   wbNativeClaudeOnSubagent,
@@ -825,6 +826,7 @@ const eventStream = createEventStream({
   lensProvider: () => (document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 'steward' : 'classic'),
   sessionIdProvider: () => String((state.currentSession && state.currentSession.id) || ''),
 });
+setAgentRunsEventStream(eventStream);
 bindPromptQueueEvents(eventStream); // 135:有线程在等你的推送一到,「等你处理」队列立刻对账
 // 135c:当前线程的后台任务条(输入框上沿)＋别的线程在左栏的「⟳N」标记。「去班组看」切到班组画布。
 const backgroundTray = createBackgroundTray({

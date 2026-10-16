@@ -124,16 +124,15 @@ async function stewardImplThreadStop(args, ctx, config) {
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot stop its own turn');
   const reason = stewardSanitizeText(args.reason).trim().slice(0, STEWARD_STOP_REASON_MAX);
 
-  const stopped = activeChildren.has(sessionId) ? stopSession(sessionId, 'steward-stop') === true : false;
-  let queuedStopped = false;
-  try { queuedStopped = stewardCancelQueuedTurn(sessionId) === true; } catch { queuedStopped = false; }
+  const receipt = requestSessionExecutionStop(sessionId, args.expectedExecution, 'steward-stop');
+  if (!receipt.ok) return stewardFail(receipt.error, receipt.error + ': read thread_status before stopping', { sessionId });
+  const { stopped, queuedStopped, alreadyRequested } = receipt;
   if (!stopped && !queuedStopped) return stewardFail('not_running', '这条线程现在没有在跑,不用停', { sessionId });
-  try { revokeAllGrants(sessionId, 'steward-stop'); } catch { /* best-effort,与 /api/stop 同款 */ }
 
   // 停下的回合【不能】原样续上(它的半截输出已经落进会话正文;要撤销那一整回合是 rewind,另一件事)。
   // undoRef 诚实标 none,并把用户真正该走的那条路写进 note。
   const undoRef = { kind: 'none', note: '停下的回合不能原样续上;要继续用「接着办」' };
-  stewardAppendDecision({
+  if (!alreadyRequested) stewardAppendDecision({
     tool: 'steward_thread_stop',
     args: { stopped, queuedStopped, ...(reason ? { reason } : {}) },
     targetSessionId: sessionId,
@@ -467,3 +466,6 @@ function stewardSanitizeAttachments(raw) {
   }
   return out;
 }
+
+SessionExecutionHooks.cancelQueuedTurn = stewardCancelQueuedTurn;
+SessionExecutionHooks.revokeGrants = sessionId => revokeAllGrants(sessionId, 'explicit-stop');

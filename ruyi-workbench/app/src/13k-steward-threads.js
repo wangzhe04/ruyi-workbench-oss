@@ -545,6 +545,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     stateLabel: derived.label,
     stateSources: derived.sources,
     activeTurn: activeChildren.has(sessionId),
+    execution: sessionExecutionSnapshot(sessionId),
     currentAction: lastRun ? stewardSanitizeText(`班组运行 ${lastRun.id || ''} · ${lastRun.status || ''}`) : (activeChildren.has(sessionId) ? '回合进行中' : ''),
     lastStep: lastRun ? stewardSanitizeText(`${lastRun.nodeCount || 0} 个节点 · eventSeq ${lastRun.eventSeq || 0}`) : '',
     pending: interventions,
@@ -742,14 +743,25 @@ const stewardLaunchingTurns = new Set();
 function stewardLaunchTurn(input, tool) {
   const launchSid = String(input.sessionId || '');
   if (launchSid) stewardLaunchingTurns.add(launchSid);
+  let registered;
+  const registration = new Promise(resolve => { registered = resolve; });
   // 第二轮工具走查(F17):给管家发起的那条【用户消息】盖上出身标 meta.origin:'steward'(随会话正文落盘,与收件箱回合的
   // origin:'inbox' 同一个机制)。修前 thread_new 的委托书、thread_continue 的递话、quick_ask 的问题落在线程里都是一条
   // 没有任何标记的 role:'user' 消息,于是 steward_memory_write 的来源校验(13l stewardSourceIsUserMessage)分不出
   // 「用户本人说的」和「管家自己转发过去的」—— 管家能把自己写的委托书引成「用户说过」记进记忆。
   // 只覆盖 Provider 引擎的线程(09 runOpenAiTurn 才接 messageMeta;CLI 引擎的回合不接,与收件箱标同一个边界)。
   // input 里调用方自己给的 messageMeta 优先(目前没有)。
-  const promise = runSessionTurn({ messageMeta: { origin: 'steward', tool: String(tool || '') }, ...input, onEvent: () => {} });
-  promise.finally(() => { if (launchSid) stewardLaunchingTurns.delete(launchSid); }).catch(() => {});
+  const promise = runSessionTurn({ messageMeta: { origin: 'steward', tool: String(tool || '') }, ...input, onEvent: event => {
+    // Capture the identity and anchor emitted by THIS driver, never a later current-session lookup.
+    if (event && event.type === 'session' && event.session && event.session.id === launchSid) {
+      const execution = event.execution;
+      registered(execution && typeof execution === 'object' ? {
+        execution: { ...execution }, rewindTargetTurnSeq: (Number(event.session.turnSeq) || 0) + 1,
+      } : null);
+    }
+  } });
+  promise.registration = registration;
+  promise.finally(() => { registered(null); if (launchSid) stewardLaunchingTurns.delete(launchSid); }).catch(() => {});
   promise.then(result => {
     logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
     void stewardRecordLaunchOutcome(input.sessionId, result);
@@ -939,7 +951,7 @@ async function stewardImplThreadNew(args, ctx, config) {
   // 回落到默认工作区的那一次不记 —— 那不是谁选的,是派生失败的兜底。
   if (requestedMissionId && cwdSource !== 'default') await stewardRecordMissionWorkspace(requestedMissionId, session.cwd);
 
-  stewardLaunchTurn({
+  const launched = stewardLaunchTurn({
     sessionId: session.id,
     message: composed.text,
     cwd: session.cwd,
@@ -950,7 +962,8 @@ async function stewardImplThreadNew(args, ctx, config) {
   // 117d 第 0 步:回退锚点。undoRef.sessionId 是「删掉这条线程」的把手,但整单回退要的是
   // 【被递那一回合将拥有的 seq】—— 与 09-workflow 的 plannedTurnSeq 同口径(session.turnSeq + 1);
   // 新建会话 turnSeq 恒为 0,故委托书是第 1 回合。rewindSession 按这个 seq 定位首条用户消息。
-  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
+  const registration = await launched.registration;
+  const undoRef = registration ? { kind: 'thread_new', sessionId: session.id, ...registration } : { kind: 'none', sessionId: session.id };
   stewardAppendDecision({
     tool: 'steward_thread_new',
     args: {
@@ -1226,7 +1239,7 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 第一条用户消息」定位,即 plannedTurnSeq = 递话前 turnSeq + 1(与 09-workflow 同口径)。117d 第 0 步
   // 补出显式字段 rewindTargetTurnSeq;turnSeq 语义保持「递话前」不变(既有消费者逐字节不受影响)。
   const beforeTurnSeq = Math.max(0, Number(head.turnSeq) || 0);
-  const undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, rewindTargetTurnSeq: beforeTurnSeq + 1 };
+  let undoRef = { kind: 'none', sessionId };
   const basis = stewardBasisOf(args);
   // 129g:代答闸的回调。只在通道真的落到 'answer' 时被 13q 叫到;gate.used 是【核实过】的依据,
   // 放行后原样进决策账本 —— 账本记的是「服务端核住了什么」,不是「模型说它有什么」。
@@ -1236,8 +1249,10 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const delivered = await StewardHooks.relayDeliver({
     sessionId, message, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
     answerGuard: decided => { gate.decided = decided; return stewardAnswerGate(gate); },
-    launch: () => {
-      stewardLaunchTurn({ sessionId, message, source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
+    launch: async () => {
+      const launched = stewardLaunchTurn({ sessionId, message, source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
+      const registration = await launched.registration;
+      if (registration) undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, ...registration };
       return { undoRef };
     },
   });
@@ -1600,7 +1615,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
   const quickTier = StewardHooks.applyThreadTier(session, 'fast', config);
   await saveSession(session);
 
-  stewardLaunchTurn({
+  const launched = stewardLaunchTurn({
     sessionId: session.id,
     message: question,
     cwd: session.cwd,
@@ -1612,7 +1627,8 @@ async function stewardImplQuickAsk(args, ctx, config) {
   // rewindSession 按「要删的那一回合的第一条用户消息」定位(09 的 plannedTurnSeq = turnSeq + 1),
   // 按 `turnSeq` 字面传会得 target turn not found。新建会话的 turnSeq 恒为 0,这里仍按字段读,
   // 与上面那两处逐字同形(将来 createSession 若带出非零 seq 也不会错)。
-  const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
+  const registration = await launched.registration;
+  const undoRef = registration ? { kind: 'thread_new', sessionId: session.id, ...registration } : { kind: 'none', sessionId: session.id };
   stewardAppendDecision({
     tool: 'steward_quick_ask',
     args: { chars: question.length, tier: quickTier.tier, cwdSource: quickCwdSource },

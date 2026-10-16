@@ -35,8 +35,9 @@ const { ok } = runner;
         const hold = last.match(/HOLD_(?:LOST|OTHER|QUEUED|TOOL)/)?.[0];
         const sys = ctx.messages.filter(m => m.role === 'system').map(m => String(m.content || '')).join('\n');
         if (/我是如意|I am Ruyi/.test(sys)) {
+          const expectedExecution = actionTarget ? (await fx.request('GET', '/api/sessions/' + actionTarget)).json.execution : null;
           ctx.text(JSON.stringify({ say: '已处理停止请求。', why: '', acts: [], actions: last.includes('STOP_ACTION')
-            ? [{ tool: 'steward_thread_stop', args: { sessionId: actionTarget } }] : [] }));
+            ? [{ tool: 'steward_thread_stop', args: { sessionId: actionTarget, expectedExecution } }] : [] }));
         } else if (hold) {
           started.add(hold);
           ctx.text(hold + ' running');
@@ -94,7 +95,9 @@ const { ok } = runner;
 
     await launch('lost', 'HOLD_LOST');
     await launch('other', 'HOLD_OTHER');
-    await fx.request('POST', '/api/steward/relay', { sessionId: ids.queued, message: 'HOLD_QUEUED' });
+    const queuedLaunch = await fx.request('POST', '/api/steward/relay', { sessionId: ids.queued, message: 'HOLD_QUEUED' });
+    const queuedExecution = queuedLaunch.json?.undoRef?.execution;
+    if (!queuedExecution?.driverRunId) throw new Error('queued relay did not expose its admitted identity');
     let queued = false;
     for (let i = 0; i < 200; i++) {
       const a = await fx.request('GET', '/api/steward/arbiter');
@@ -102,8 +105,11 @@ const { ok } = runner;
       await sleep(40);
     }
     ok(queued && !started.has('HOLD_QUEUED'), 'S3 target is truly waiting on the same workspace lock');
+    ok(Boolean(await fx.waitForEval(`document.querySelector(${JSON.stringify(row(ids.queued) + ' [data-action="stop"]')})?.dataset.stewardStopTarget.includes(${JSON.stringify(queuedExecution.driverRunId)})`)), 'S3b actual queued stop button has received the admitted execution identity');
     await clickStop(ids.queued);
     ok(Boolean(await fx.waitForEval(feedback(ids.queued, 'accepted'))), 'S4 queued turn receives a stop-request acknowledgement');
+    const afterQueueStop = await fx.request('GET', '/api/steward/arbiter');
+    ok(afterQueueStop?.status === 200 && Array.isArray(afterQueueStop.json?.queue) && !afterQueueStop.json.queue.some(q => q.sessionId === ids.queued), 'S4b actual queued execution was cancelled, not merely acknowledged by UI');
     ok(!started.has('HOLD_QUEUED'), 'S5 cancelled queue entry never invokes the provider');
 
     await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: ${JSON.stringify(ids.lost)} } }))`);
@@ -145,7 +151,8 @@ const { ok } = runner;
           await fx.evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);
           for (const [name, outcome] of [['lost', 'unknown'], ['idle', 'noop']]) {
             await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: ${JSON.stringify(ids[name])} } }))`);
-            await fx.waitForEval(`document.getElementById('stewardDrawerStopBtn').dataset.stewardStopSession === ${JSON.stringify(ids[name])}`);
+            const receiptReady = await fx.waitForEval(`document.getElementById('stewardDrawerStopBtn').dataset.stewardStopSession === ${JSON.stringify(ids[name])} && document.querySelector('#stewardDrawerStopBtn + [data-stop-receipt]')?.dataset.stopOutcome === ${JSON.stringify(outcome)}`);
+            if (!receiptReady) throw new Error(`drawer receipt did not load for ${width}/${locale}/${theme}/${outcome}`);
             await fx.evaluate(`document.getElementById('stewardDrawerSendBtn').focus(); document.getElementById('stewardDrawerFoot').scrollIntoView({block:'end'})`);
             const bounds = await fx.evaluate(`(() => {
               const drawer = document.getElementById('stewardDrawer'), foot = document.getElementById('stewardDrawerFoot');

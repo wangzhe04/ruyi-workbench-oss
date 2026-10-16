@@ -6,6 +6,7 @@ import { api, wcwToken } from './net.js';
 import { $, el, fmtTokens, toast, stewardShortTitle, workflowTemplateLabel } from './util.js';   // 33 号文 §4：业务名的截短走 util.js 的唯一口径（码点安全，不再 slice 切半代理对）
 import { getLocale, hasTranslation, t } from './i18n.js';
 import { createWorkbenchDomain } from './workbench.js';
+import { EVENT_STREAM_INSTANCE_EVENT } from './event-stream.js';
 // 32 号文 §4（M2-b）：pause/resume 的判据与文案键搬进叶子 js/run-state.js —— 2.0 这张 run 卡与
 // 3.0 管家壳的看板行／抽屉底部同一份（修前四处各写一遍 `live && !paused` 之类的判据）。
 import { runControlAction, runIsLive, runTextKeys } from './run-state.js';
@@ -777,6 +778,19 @@ function refreshAgentRunClocks(host, runs) {
   }
 }
 let agentRunsSeq = 0;   // 对抗轮 P3: 轮询响应序号——慢包乱序落地时丢弃过期响应,防"审批已生效"被在途旧包闪回旧状态
+let agentRunsRequireFull = false;
+function setAgentRunsEventStream(stream) {
+  if (!stream || typeof stream.on !== 'function') return;
+  stream.on(EVENT_STREAM_INSTANCE_EVENT, () => {
+    agentRunsSeq += 1; agentRunsRequireFull = true;
+    agentRunsQuality = { ...agentRunsQuality, state: 'restarting' };
+    if (agentRunsCache.sid === state.currentSession?.id) {
+      const runs = [...agentRunsCache.runs.values()].map(row => row.run);
+      renderAgentRuns(runs, agentRunsQuality); wbOnRuns(runs, agentRunsQuality);
+    }
+    if (agentRunsPollWanted() && agentRunsOnScreen()) void loadAgentRuns(true);
+  });
+}
 // ── 第29波(§29a 增量监控)────────────────────────────────────────────────────────────────────────
 // per-run 客户端缓存:每 tick 只拉 digest(run 级标量,~百字节/run),eventSeq 前进才去拉增量事件;完整快照仅在
 // 【未知 run / settle 类事件 / live run 低频兜底 / 事件僵局自愈 / 手动 force】时按 run 单拉 —— 历史终态 run 不再
@@ -842,7 +856,7 @@ async function loadAgentRuns(force) {
     renderAgentRuns([], agentRunsQuality); wbOnRuns([], agentRunsQuality);
   }
   if (!sid) { renderAgentRuns([]); wbOnRuns([], agentRunsQuality); return; }
-  const incremental = force !== true && !!(state.config && state.config.monitorIncremental !== false);
+  const incremental = force !== true && !agentRunsRequireFull && !!(state.config && state.config.monitorIncremental !== false);
   const cache = new Map([...agentRunsCache.runs].map(([id, row]) => [id, { ...row, run: JSON.parse(JSON.stringify(row.run)) }]));
   const quality = { ...agentRunsQuality, perRun: { ...agentRunsQuality.perRun } };
   const publish = async runs => {
@@ -857,6 +871,7 @@ async function loadAgentRuns(force) {
       if (!current()) return;
       if (!validRunList(r, true)) throw new Error('invalid agent run list');
       cache.clear(); quality.perRun = {};
+      agentRunsRequireFull = false;
       for (const run of r.runs) {
         cache.set(run.id, { run, lastSeq: Number(run.eventSeq) || 0, lastFullAt: Date.now(), stuckTicks: 0 });
         quality.perRun[run.id] = { state: 'ok', lastSuccessAt: Date.now() };
@@ -970,6 +985,7 @@ document.addEventListener('visibilitychange', syncAgentRunsPolling);
     loadAgentWorkflows,
     openWorkflowEditor,
     restoreMainView,
+    setAgentRunsEventStream,
     updateAgentRunsPolling,
     wbNativeClaudeFinalize,
     wbNativeClaudeOnSubagent,

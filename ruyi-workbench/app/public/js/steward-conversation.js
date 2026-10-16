@@ -506,7 +506,8 @@ export function stewardStopReceiptOf(response) {
 
 export function stewardStopReceiptText(receipt, translate) {
   const outcome = receipt && receipt.outcome;
-  if (outcome === 'failed') return translate('stewardShell.stop.failed', { error: stewardErrorText(receipt.error) || 'failed' });
+  if (outcome === 'failed') return stewardActErrorMessage(receipt.error, translate)
+    || translate('stewardShell.stop.failed', { error: stewardErrorText(receipt.error) || 'failed' });
   const keys = { accepted: 'stewardShell.stop.accepted', noop: 'stewardShell.stop.noop',
     pending: 'stewardShell.stop.pending', unknown: 'stewardShell.stop.unknown' };
   return translate(keys[outcome] || keys.unknown);
@@ -532,6 +533,11 @@ const STEWARD_ACT_ERROR_KEYS = Object.freeze({
   // （前者等它停，后者等它开跑）。表外落到 errGeneric 时用户看到的是后端那句原文，能懂但不成体系。
   'steward.queued': 'stewardShell.chat.errQueued',
   version_conflict: 'stewardShell.chat.errConflict',
+  execution_identity_required: 'stewardShell.chat.errConflict',
+  execution_identity_unavailable: 'stewardShell.chat.errConflict',
+  execution_changed: 'stewardShell.chat.errConflict',
+  session_execution_locked: 'stewardShell.chat.errConflict',
+  rewind_in_progress: 'stewardShell.chat.errConflict',
 });
 
 // 117e 第 0 步（117d 登记项 ②）：后端的失败信封有两种形状 —— 域层的裸串 `error:'not_found'`，
@@ -945,12 +951,19 @@ export function createStewardConversation({
   }
 
   // ── 一行按钮（≤3，主动作唯一）──────────────────────────────────────────────
+  function captureStopAct(act) {
+    if (!act || act.tool !== 'steward_thread_stop') return act;
+    const args = { ...(act.args || {}) };
+    if (args.expectedExecution && typeof args.expectedExecution === 'object') args.expectedExecution = { ...args.expectedExecution };
+    return { ...act, args };
+  }
   function renderActs(row, acts, onSettled) {
     const list = (Array.isArray(acts) ? acts : []).slice(0, STEWARD_ACTS_MAX);
     if (!row || !list.length) return null;
     const actsRow = el('div', 'steward-acts');
     let primaryTaken = false;
-    for (const act of list) {
+    for (const original of list) {
+      const act = captureStopAct(original);
       const label = String((act && act.label) || t('stewardShell.acts.open'));
       const btn = button('steward-act', label, () => runAct(act, actsRow, btn, onSettled));
       // 主动作只有一个（后端已归一过 primary；这里再守一道，防手工构造的 acts 出现第二个金色按钮）。
@@ -985,6 +998,7 @@ export function createStewardConversation({
 
   async function runAct(act, actsRow, btn, onSettled) {
     if (!act || typeof act !== 'object') return;
+    act = captureStopAct(act); // Freeze the observed target before the asynchronous confirmation.
     if (act.kind === 'dismiss' && isChangeAct(act)) { focusComposerForChange(); return; }
     // 122-L1b（36 号文 §2.13）：STEWARD_ONBOARDING_ACT 是【纯前端】的一枚 —— 后端 13h stewardRunAct
     // 只认 open_thread／dismiss／tool 三种 kind，把它发过去只会换回一条 unknown_act。所以在这里就地
@@ -1907,26 +1921,30 @@ export function createStewardConversation({
     return Number.isFinite(explicit) && explicit > 0 ? explicit : 0;
   }
 
-  // 撤回 = 先 stop 再 rewind（顺序不能反：还在跑的回合不停下来就回退，回退完它还会接着往回写）。
+  // One guarded request owns stop, settlement and rewind, so a new execution cannot enter between them.
   async function undoHandOff({ sessionId, undoRef, actsRow }) {
     const sid = String(sessionId || '');
     let filesReverted = 0;
     const target = handOffRewindTarget(undoRef);
     if (!target) return false;   // 没有锚点:连 stop 都不发(不能停掉用户自己那一回合)
+    if (!Object.prototype.hasOwnProperty.call(undoRef, 'execution')) {
+      showActProblem(actsRow, stewardActErrorMessage('execution_identity_required', t));
+      return false;
+    }
     try {
-      await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
       const rewound = await api('/api/session/rewind', {
         method: 'POST',
-        body: JSON.stringify({ sessionId: sid, targetTurnSeq: target, rollbackFiles: true }),
+        body: JSON.stringify({ sessionId: sid, targetTurnSeq: target, rollbackFiles: true, guardExecution: true, expectedExecution: undoRef.execution }),
       });
       // 回退没成真就不许说「已撤回」（§8.1 原则 2 诚实优先）：按钮行留着，用户可以再点一次。
-      if (!rewound || rewound.ok === false) {
-        showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText((rewound && rewound.error) || 'rewind_failed') }));
+      if (!rewound || rewound.ok !== true) {
+        showActProblem(actsRow, stewardActErrorMessage(rewound && rewound.error, t)
+          || t('stewardShell.chat.errGeneric', { error: stewardErrorText((rewound && rewound.error) || 'rewind_failed') }));
         return false;
       }
       filesReverted = Array.isArray(rewound.filesReverted) ? rewound.filesReverted.length : 0;
     } catch (error) {
-      showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
+      showActProblem(actsRow, stewardActErrorMessage(error, t) || t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
       return false;
     }
     // 引擎没有检查点时 rewind 只回消息不回文件——如实标注，不假装全撤了（§8.1 原则 2「诚实优先」）。

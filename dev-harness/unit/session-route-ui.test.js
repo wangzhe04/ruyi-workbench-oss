@@ -96,7 +96,7 @@ test('thread state updates the streaming title without replacing conversation me
   const node = { get textContent() { return titleText; }, set textContent(value) { titleText = value; titleWrites++; } };
   const listeners = new Map(), messages = [{ role: 'assistant', content: 'live text' }];
   const state = { streaming: true, currentSession: { id: 'sess_live', title: 'Untitled', messages } };
-  const ctx = { state, $: () => node, eventStream: { on: (name, fn) => listeners.set(name, fn), isConnected: () => true }, EVENT_STREAM_LIVE_EVENT: 'thread.live', EVENT_STREAM_ROW_EVENTS: ['thread.state'], syncLivePolling() {}, pushLiveTurn() {}, liveStreamConnected: false };
+  const ctx = { state, $: () => node, eventStream: { on: (name, fn) => listeners.set(name, fn), isConnected: () => true }, EVENT_STREAM_INSTANCE_EVENT: 'server.instance', sessionExecutionReadSeq: 0, sessionExecutionNeedsRefresh: false, EVENT_STREAM_LIVE_EVENT: 'thread.live', EVENT_STREAM_ROW_EVENTS: ['thread.state'], syncLivePolling() {}, pushLiveTurn() {}, liveStreamConnected: false };
   vm.runInNewContext(code + '\nbindLiveEventStream();', ctx);
   listeners.get('thread.state')({ sessionId: 'sess_live', title: 'Generated title' });
   assert.equal(node.textContent, 'Generated title');

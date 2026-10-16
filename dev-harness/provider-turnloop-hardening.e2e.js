@@ -239,7 +239,7 @@ try {
     const p = stream({ message: 'SCN-D 问我' }, e => evs.push(e));
     ok(await waitFor(() => evs.some(e => /question|ask_user/.test(e.type || '')), 15000), 'D1 request_user_input 挂起提问');
     const sid = sessionIdOf(evs);
-    const st = await request('POST', '/api/stop', { sessionId: sid }, H);
+    const st = await request('POST', '/api/stop', { sessionId: sid, expectedExecution: evs.find(event => event.type === 'session')?.execution }, H);
     ok(st.status === 200, 'D2 停止被接受');
     await p;
     await stream({ message: 'SCN-D2 下一条', sessionId: sid });

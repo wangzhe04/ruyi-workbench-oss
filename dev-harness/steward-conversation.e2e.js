@@ -9,7 +9,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ② 对如意说一句 → 先出「···」占位 → 流式文字 → steward_reply 的 say 与 ≤3 个按钮；
 //   ③ 点 dismiss 按钮 → 整行按钮换成灰字回执；
 //   ④ 输入含线程标题的话 → chip 变「→ 周报-W36」→ Enter 直接递 → 「递给了『周报-W36』。」回执与
-//      「撤回 N」倒计时 → 点撤回 → 先 POST /api/stop 再 POST /api/session/rewind（顺序由 fetch 探针
+//      「撤回 N」倒计时 → 点撤回 → 单次 guarded POST /api/session/rewind（原执行身份和锚点由 fetch 探针
 //      记录）→ 灰字「已撤回…」＋管家追问「那递给谁？」；
 //   ⑤ 与任何线程都不相关的陈述句 → chip 变「→ 如意 · 另起一件」；
 //   ⑥ 切回经典壳后无残留定时器（管家状态轮询与撤回倒计时都被清掉）。
@@ -430,19 +430,31 @@ try {
       window.__ruyiLiveIntervals = () => [...live.values()];
       window.__ruyiFetchLog = [];
       window.__ruyiStewardBodies = [];
+      window.__ruyiRewindBodies = [];
+      window.__ruyiHandOffUndoRefs = [];
       const nativeFetch = window.fetch;
       window.fetch = function (input, init) {
+        let route = '';
         try {
           const url = typeof input === 'string' ? input : (input && input.url) || '';
-          const route = String(url).replace(/^https?:\\/\\/[^/]+/, '').split('?')[0];
+          route = String(url).replace(/^https?:\\/\\/[^/]+/, '').split('?')[0];
           window.__ruyiFetchLog.push(route);
           // 117l：管家域的请求体也留一份 —— routeHint 是否真的进了 POST /api/steward/message，
           // 只有请求体说了算（URL 相同，差别全在 body 里）。
           if (route.indexOf('/api/steward/') === 0) {
             window.__ruyiStewardBodies.push({ route, body: String((init && init.body) || '') });
           }
+          if (route === '/api/session/rewind') window.__ruyiRewindBodies.push(JSON.parse(init.body));
         } catch { /* probe must never break the app */ }
-        return nativeFetch.call(window, input, init);
+        const pending = nativeFetch.call(window, input, init);
+        if (route !== '/api/steward/act') return pending;
+        return pending.then(async response => {
+          try {
+            const body = await response.clone().json();
+            if (body.result?.undoRef?.execution) window.__ruyiHandOffUndoRefs.push(body.result.undoRef);
+          } catch { /* preserve the real response */ }
+          return response;
+        });
       };
     })();`,
   });
@@ -724,10 +736,16 @@ try {
   ok(Boolean(picker) && picker.options >= 1,
     `G2a 撤回后就地打开候选列表（「那递给谁？」问完能立刻挑；实测 ${picker ? picker.options : 0} 项）`);
   await cdp.evaluate("document.getElementById('stewardComposerInput').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); true");
-  const stopAt = undone ? undone.fetches.lastIndexOf('/api/stop') : -1;
-  const rewindAt = undone ? undone.fetches.lastIndexOf('/api/session/rewind') : -1;
-  ok(stopAt >= 0 && rewindAt > stopAt,
-    `G3 撤回的顺序是先 POST /api/stop 再 POST /api/session/rewind（实测 stop@${stopAt} rewind@${rewindAt}）`);
+  const undoEvidence = await cdp.evaluate(`({ bodies: window.__ruyiRewindBodies.slice(), ref: window.__ruyiHandOffUndoRefs.at(-1) })`);
+  const undoFetches = undone ? undone.fetches.slice(beforeHand) : [];
+  const undoBody = undoEvidence.bodies.at(-1);
+  ok(undoFetches.filter(url => url === '/api/session/rewind').length === 1 && !undoFetches.includes('/api/stop')
+    && undoBody?.guardExecution === true && undoBody.sessionId === threadId
+    && Boolean(undoEvidence.ref?.execution?.driverRunId && undoEvidence.ref.execution.serverInstanceId)
+    && Number.isInteger(undoEvidence.ref?.rewindTargetTurnSeq) && undoEvidence.ref.rewindTargetTurnSeq > 0
+    && undoBody.targetTurnSeq === undoEvidence.ref?.rewindTargetTurnSeq
+    && JSON.stringify(undoBody.expectedExecution) === JSON.stringify(undoEvidence.ref?.execution),
+    `G3 撤回只发一次guarded rewind，携原执行身份和锚点，不另发stop（实测 ${JSON.stringify(undoBody)}）`);
   const rewound = await request(appPort, 'GET', `/api/sessions/${threadId}`, null, token);
   const threadMessages = rewound && rewound.json && rewound.json.session && Array.isArray(rewound.json.session.messages)
     ? rewound.json.session.messages.length : -1;
@@ -1728,14 +1746,15 @@ try {
     const mod = await import('/js/steward-conversation.js');
     window.__ruyiUndoFrom = document.querySelectorAll('#stewardFeed .steward-msg').length;
     window.__ruyiUndoCalls = [];
+    window.__ruyiUndoBodies = [];
     const dict = ${JSON.stringify(UNDO_DICT)};
     const conv = mod.createStewardConversation({
-      api: async url => {
+      api: async (url, options) => {
         const path_ = String(url);
         window.__ruyiUndoCalls.push(path_);
-        if (path_ === '/api/steward/act') return { result: { ok: true, undoRef: { turnSeq: 0, rewindTargetTurnSeq: 1 } } };
-        if (path_ === '/api/stop') return { ok: true };
-        if (path_ === '/api/session/rewind') return { ok: true, filesReverted: ['docs/a.md'] };
+        if (path_ === '/api/steward/act') return { result: { ok: true, undoRef: { turnSeq: 0, rewindTargetTurnSeq: 1,
+          execution: { serverInstanceId: 'synthetic-instance', driverRunId: 'synthetic-driver', phase: 'starting' } } } };
+        if (path_ === '/api/session/rewind') { window.__ruyiUndoBodies.push(JSON.parse(options.body)); return { ok: true, filesReverted: ['docs/a.md'] }; }
         return { ok: true };
       },
       // 真中文目录（本段判定的是用户【看见】的那几个字），插值不走正则：模板串里写 \\{ 太容易被吃掉。
@@ -1813,9 +1832,12 @@ try {
     && undoSettled.acts === 0 && undoSettled.receiptIcons === 1,
     `Z7 第三态：整行按钮退成一句安静的「✓ ${zh['stewardShell.chat.undone']}」——按钮一个不剩，对勾一枚（实测「${undoSettled && undoSettled.receipt}」/ 剩余按钮 ${undoSettled && undoSettled.acts} / 图标 ${undoSettled && undoSettled.receiptIcons}）`);
   const undoCalls = await cdp.evaluate('(window.__ruyiUndoCalls || []).slice()');
-  ok(Array.isArray(undoCalls) && undoCalls.lastIndexOf('/api/stop') >= 0
-    && undoCalls.lastIndexOf('/api/session/rewind') > undoCalls.lastIndexOf('/api/stop'),
-    `Z7b companion：换一条走的仍是「先 stop 再 rewind」那条老路（实测 ${JSON.stringify(undoCalls)}）`);
+  const undoBodies = await cdp.evaluate('window.__ruyiUndoBodies.slice()');
+  ok(Array.isArray(undoCalls) && !undoCalls.includes('/api/stop') && undoBodies.length === 1
+    && undoCalls.filter(url => url === '/api/session/rewind').length === 1 && undoBodies[0].guardExecution === true
+    && undoBodies[0].targetTurnSeq === 1 && undoBodies[0].sessionId === threadId
+    && JSON.stringify(undoBodies[0].expectedExecution) === JSON.stringify({ serverInstanceId: 'synthetic-instance', driverRunId: 'synthetic-driver', phase: 'starting' }),
+    `Z7b companion：换一条只发一次guarded rewind，保留原执行身份和锚点（实测 ${JSON.stringify(undoBodies)}）`);
 
   // ─── AA 117v-V1（27 号文 §11.16.2 V1 行；用户第十轮走查②③⑨）─────────────────────────────
   // ② 「打开线程」点完【不】落回执、按钮行原样留着，可以反复点（导航 ≠ 表态）；

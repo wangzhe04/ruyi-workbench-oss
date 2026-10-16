@@ -3,6 +3,14 @@
 // Presentation facts only: neither read failures nor run faults change business state.
 export function runFaults(run, nodeStatus = node => node.status) {
   if (!run) return [];
+  if (validProjectedRunHealth(run.health)) {
+    const health = run.health;
+    const faults = [];
+    if (health.persistenceDegraded) faults.push({ kind: 'persistence' });
+    if (health.idleAborted) faults.push({ kind: 'idle', nodeId: health.idleNodeId || undefined });
+    if (run.live === true && health.resourceBlockedCount > 0) faults.push({ kind: 'resource', count: health.resourceBlockedCount, nodeId: health.resourceBlockedNodeId || undefined });
+    return faults;
+  }
   const nodes = Array.isArray(run.nodes) ? run.nodes : [];
   const faults = [];
   if (run.persistenceDegraded === true) faults.push({ kind: 'persistence' });
@@ -11,6 +19,26 @@ export function runFaults(run, nodeStatus = node => node.status) {
   const blocked = run.live === true ? nodes.filter(node => node && nodeStatus(node) === 'waiting_resource' && Array.isArray(node.resourceBlockers) && node.resourceBlockers.length) : [];
   if (blocked.length) faults.push({ kind: 'resource', count: blocked.length, nodeId: blocked[0].id });
   return faults;
+}
+
+export function validProjectedRunHealth(health) {
+  return !!health && typeof health.persistenceDegraded === 'boolean' && typeof health.idleAborted === 'boolean'
+    && typeof health.idleNodeId === 'string' && typeof health.resourceBlockedNodeId === 'string'
+    && Number.isSafeInteger(health.resourceBlockedCount) && health.resourceBlockedCount >= 0;
+}
+
+// undefined means not observed. Only an explicit null is authoritative idle.
+export function validExecutionSnapshot(value) {
+  return value === null || (!!value && typeof value === 'object' && !Array.isArray(value)
+    && typeof value.serverInstanceId === 'string' && !!value.serverInstanceId.trim()
+    && typeof value.driverRunId === 'string' && !!value.driverRunId.trim());
+}
+
+export function validExecutionObservation(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+    && typeof value.serverInstanceId === 'string' && !!value.serverInstanceId.trim()
+    && (value.lastDriverRunId === null || (typeof value.lastDriverRunId === 'string' && !!value.lastDriverRunId.trim()))
+    && Number.isSafeInteger(value.evictionGeneration) && value.evictionGeneration >= 0;
 }
 
 export function readQualitySignature(quality) {
@@ -24,7 +52,7 @@ export function hasReadFailure(quality) {
 }
 
 export function hasReadNotice(quality) {
-  return quality?.state === 'loading' || hasReadFailure(quality);
+  return quality?.state === 'loading' || quality?.state === 'restarting' || hasReadFailure(quality);
 }
 
 const identified = row => row && typeof row === 'object' && typeof row.id === 'string' && !!row.id.trim() && typeof row.status === 'string' && !!row.status.trim();
@@ -60,9 +88,24 @@ export function appendReadHealth(host, quality, { el, t, locale }) {
     box.appendChild(line);
   };
   if (quality.state === 'loading') append('workflow.health.loading', quality);
+  if (quality.state === 'restarting') append('workflow.health.restarting', quality);
   if (quality.state === 'failed') append(quality.lastSuccessAt ? 'workflow.health.listStale' : 'workflow.health.listUnavailable', quality);
   for (const [id, row] of Object.entries(quality.perRun || {})) {
     if (row.state !== 'ok') append(row.state === 'unavailable' ? 'workflow.health.detailUnavailable' : 'workflow.health.detailStale', row, row.digest?.title || id);
+  }
+  host.appendChild(box);
+}
+
+export function appendResourceReadHealth(host, resources, { el, t, locale }) {
+  const pending = Object.entries(resources || {}).filter(([, row]) => row.state !== 'ok');
+  if (!pending.length) return;
+  const box = el('div', 'workflow-read-health'); box.setAttribute('role', 'status');
+  for (const [source, row] of pending) {
+    const key = row.state === 'loading' ? 'loading' : row.state === 'restarting' ? 'restarting' : row.lastSuccessAt ? 'stale' : 'unavailable';
+    const line = el('div', 'workflow-read-line');
+    line.appendChild(el('span', '', t('stewardShell.health.read.' + key, { source: t('stewardShell.health.source.' + source) })));
+    if (row.lastSuccessAt) line.appendChild(el('span', 'workflow-health-time', t('workflow.health.lastRead', { time: new Date(row.lastSuccessAt).toLocaleString(locale) })));
+    box.appendChild(line);
   }
   host.appendChild(box);
 }

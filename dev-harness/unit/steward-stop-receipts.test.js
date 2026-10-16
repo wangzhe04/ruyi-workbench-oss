@@ -51,3 +51,53 @@ test('explicit 4xx rejection keeps its reason; 5xx and malformed successful resp
   assert.equal((await stop({ api: async () => { throw Object.assign(new Error('server failed'), { status: 500 }); }, sessionId: 'server-error' })).outcome, 'unknown');
   assert.equal((await stop({ api: async () => ({ ok: true }), sessionId: 'empty-receipt' })).outcome, 'unknown');
 });
+
+test('same session A and B have independent in-flight writes; late A does not repaint B or a new epoch', async () => {
+  const { stewardThreadStop: stop, stewardStopControl: control } = await drawer;
+  const a = { serverInstanceId: 'p-one', driverRunId: 'A' };
+  const b = { serverInstanceId: 'p-one', driverRunId: 'B' };
+  const restarted = { serverInstanceId: 'p-two', driverRunId: 'B' };
+  const buttons = [];
+  const document = { querySelectorAll: () => buttons, createElement: () => ({ dataset: {}, setAttribute(name) { this[name] = ''; }, hasAttribute(name) { return name in this; } }) };
+  globalThis.document = document;
+  const button = () => { const item = { dataset: {}, ownerDocument: document, after(feedback) { this.feedback = feedback; } }; buttons.push(item); return item; };
+  const active = button();
+  const t = key => key;
+  control(active, 'same-id', t, null, a);
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const calls = [];
+  const api = async (_url, request) => {
+    const body = JSON.parse(request.body); calls.push(body.expectedExecution);
+    if (body.expectedExecution.driverRunId === 'A') { await gate; throw new TypeError('lost'); }
+    return { ok: true, stopped: true };
+  };
+  const pa = stop({ api, sessionId: 'same-id', expectedExecution: a });
+  await Promise.resolve();
+  assert.equal(active.disabled, true);
+  control(active, 'same-id', t, null, b);
+  assert.equal(active.disabled, false, 'A pending cannot disable new B');
+  await stop({ api, sessionId: 'same-id', expectedExecution: b });
+  assert.equal(active.feedback.dataset.stopOutcome, 'accepted');
+  control(active, 'same-id', t, null, restarted);
+  assert.equal(active.feedback.hidden, true, 'new epoch does not inherit B receipt');
+  release(); await pa;
+  assert.equal(active.feedback.hidden, true, 'late A cannot overwrite current epoch');
+  assert.deepEqual(calls, [a, b]);
+  delete globalThis.document;
+});
+
+test('after epoch switch, late old stop results cannot repopulate history or paint new idle controls', () => {
+  const fs = require('node:fs'); const path = require('node:path'); const vm = require('node:vm');
+  const { functionBlock } = require('../lib/source-slice');
+  const source = fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/public/js/steward-drawer.js'), 'utf8');
+  let paints = 0;
+  const c = vm.createContext({ stewardStopServerInstanceId: 'new-process', stewardStopReceipts: new Map(),
+    stewardStopRequests: new Map(), stewardStopRequestSequence: 0, stewardPaintStopControls() { paints++; } });
+  vm.runInContext(functionBlock(source, 'stewardPublishStopReceipt'), c);
+  const result = c.stewardPublishStopReceipt(JSON.stringify(['same-id', 'old-process', 'A', 'known']), { ok: false, outcome: 'unknown' });
+  assert.equal(result.latestRequest, false);
+  assert.equal(c.stewardStopReceipts.size, 0);
+  assert.equal(c.stewardStopRequestSequence, 0);
+  assert.equal(paints, 0);
+});

@@ -675,7 +675,10 @@ try {
   /* ═════════ F 四面同色 ＋ G 里程碑接线 ═════════ */
   // 先把那两条挂着的回合停掉：并发位只有 1（C3 要的那个 1），**管家自己那一回合也要排队** ——
   // 不停就等于让 F/G 两组在队尾干等（第一版实测：F1 空、G1 零条里程碑）。
-  for (const id of [runId, queueId]) await request(appPort, 'POST', '/api/stop', { sessionId: id }, token);
+  for (const id of [runId, queueId]) {
+    const stopView = await request(appPort, 'GET', `/api/sessions/${id}`, null, token);
+    await request(appPort, 'POST', '/api/stop', { sessionId: id, expectedExecution: stopView.json.execution }, token);
+  }
   await waitForHttp(appPort, 'GET', '/api/steward/arbiter', result => {
     const running = (result.json && Array.isArray(result.json.running)) ? result.json.running : [];
     const queued = (result.json && Array.isArray(result.json.queue)) ? result.json.queue : [];

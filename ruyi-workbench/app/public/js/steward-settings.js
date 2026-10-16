@@ -1,5 +1,6 @@
 'use strict';
 import { bindModelSelect, fillProviderSelect } from './model-catalog.js';
+import { validExecutionSnapshot } from './run-health.js';
 
 import { toast } from './util.js';
 import {
@@ -637,10 +638,11 @@ export function createStewardSettingsDomain({
   // 「撤销」只在 undoRef 带得动锚点时才给（§3.5：写工具返回 undoRef；没有锚点的一律给「详情」）。
   function undoTarget(row) {
     const undoRef = (row && row.undoRef) || null;
-    if (!undoRef || typeof undoRef !== 'object') return null;
+    if (!undoRef || typeof undoRef !== 'object' || undoRef.kind === 'none'
+        || !undoRef.execution || !validExecutionSnapshot(undoRef.execution)) return null;
     const seq = Number(undoRef.rewindTargetTurnSeq);
     const sessionId = String(undoRef.sessionId || '');
-    return Number.isFinite(seq) && seq > 0 && sessionId ? { sessionId, seq } : null;
+    return Number.isFinite(seq) && seq > 0 && sessionId ? { sessionId, seq, execution: { ...undoRef.execution } } : null;
   }
 
   async function undoDecision(row) {
@@ -648,7 +650,8 @@ export function createStewardSettingsDomain({
     if (!target) return null;
     const response = await call('/api/session/rewind', {
       method: 'POST',
-      body: JSON.stringify({ sessionId: target.sessionId, targetTurnSeq: target.seq, rollbackFiles: true }),
+      body: JSON.stringify({ sessionId: target.sessionId, targetTurnSeq: target.seq, rollbackFiles: true,
+        guardExecution: true, expectedExecution: target.execution }),
     });
     if (!response) return null;
     // 回退没成真就不说「已撤销」（§8.1 原则 2 诚实优先）。

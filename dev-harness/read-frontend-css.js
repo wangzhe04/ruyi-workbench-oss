@@ -88,7 +88,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 2026-10 62号运行故障与读取质量续钉（前值 e8b78800…）：仅workbench.css增加两视图共享紧凑故障/读取质量横幅，复用主题token和折行，不改布局骨架。
 // 算法自证：readLayerPayload读取git show HEAD各层得e8b7880080aa4fe5ee0b7d97bfe60457039ef070649e76fba83055af3b56a67c，与旧锁一致。
 // 反向验证：内存注入错误CSS后D51与F3失败，磁盘样式未修改。
-const LEGACY_STYLES_SHA256 = '3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc';
+// 65: shared Steward read/fault notices use existing theme tokens and compact wrapping.
+// Prior HEAD layer payload self-check: 3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc; in-memory corrupt-layer probes must fail D51/F3.
+const LEGACY_STYLES_SHA256 = 'ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
