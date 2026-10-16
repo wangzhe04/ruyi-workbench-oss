@@ -5,6 +5,20 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+## 3.0.1 · 2026-10-16
+
+[本版更新与下载 / Release notes](docs/release-notes/v3.0.1.md)
+
+- 改善班组监控与工具箱导航；支持发现活跃代理、明确续派已完成节点和收尾投递回执，协作信封保持有界。
+- 压缩和跨会话阅读保留任务目标、约束、证据与可复用流程，减少上下文丢失后的重复工作。
+- 修复管家协议切换、新建会话和停用定时任务后的迟到触发；扩展原生图像、文档视觉读取和多媒体检查。
+- 公开如意 + DeepSeek V4.1 Flash 的 SWE-bench Pro V2 HARD-51（51 题困难子集）实测：44/51（86.27%），模型 API 费用估算 ¥42.15；附完整逐题摘要、协议与官方组合对照。评测构建为如意 3.0.0，不是 3.0.1 重新跑分。
+
+- Clearer crew monitoring and toolbox navigation, live-agent discovery, explicit follow-up runs and final-message receipts with bounded coordination context.
+- Preserve goals, constraints, evidence and reusable procedures through compaction and cross-chat reading.
+- Fix steward protocol switching, new conversations and disabled scheduler ticks; extend native image/document vision reads and media inspection.
+- Publish the Ruyi + DeepSeek V4.1 Flash SWE-bench Pro V2 HARD-51 result: 44/51 (86.27%), estimated API charges CNY 42.15, with all task summaries and official model–harness comparisons. The run used a Ruyi 3.0.0 build; it is not a 3.0.1 re-run.
+
 - 压缩后的新摘要不再遮蔽会话笔记中仍有效的旧流程；只补回摘要缺少的内容，并统一摘要校验与笔记提取的标题识别。摘要提示明确要求保留用户教过的可复用操作方法，已完成一次不视为流程失效。
 - 切换会话后，迟到的新建、插话和撤回响应不再覆盖当前会话或清空新草稿；插话转普通发送时保留原消息的归属。
 - 删除会话会停止其后台代理；选择清理关联数据时，代理的迟到写入不会重新生成已删除的运行记录。

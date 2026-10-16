@@ -14,7 +14,9 @@
 
 **Ruyi** is a clean-room, local AI workbench for Windows. Give it a model it can reach — an Anthropic Messages or OpenAI-compatible endpoint (a cloud API, an on-prem vLLM, a local Ollama or LM Studio) or a locally installed Claude Code / Kimi Code CLI — and it **actually does the work on your machine**: reads and writes files, runs scripts, drives Office and the desktop, and dispatches teams of sub-agents. A **steward** keeps watch over everything in flight.
 
-> **Ruyi 3.0 is here.** A steward keeps track of your tasks, supported file changes can be undone, and long-running work is easier to follow. [Download 3.0](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0) · [Release notes (Chinese)](docs/release-notes/v3.0.0.md) · [Full changelog](CHANGELOG.md)
+> **Ruyi 3.0.1.** Clearer crew coordination, cross-chat continuation and media inspection, with fixes for steward conversations and task continuity after compaction. [Download 3.0.1](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.1) · [Release notes](docs/release-notes/v3.0.1.md) · [Full changelog](CHANGELOG.md)
+
+> **Engineering result: Ruyi + DeepSeek V4.1 Flash resolves 44/51 SWE-bench Pro V2 HARD-51 tasks (86.27%) for an estimated CNY 42.15 in model API charges.** That is 3.93 percentage points behind the official Astra + Codex result and 1.93 behind Sonnet 5 + Claude Code. [Comparison, protocol and all 51 task summaries](docs/benchmarks/hard51-2026-10-15/README_EN.md). This local single run used a Ruyi 3.0.0 runtime build; the results ship with 3.0.1.
 
 ### What you can do with 3.0
 
@@ -382,6 +384,22 @@ The Full offline package includes a verified CPython 3.12 runtime, wheel-only de
 
 ## How Ruyi compares
 
+### SWE-bench Pro V2 HARD-51: complex engineering with an affordable model
+
+On 2026-10-15, Ruyi ran `DeepSeek V4.1 Flash` independently on all 51 tasks and graded every patch with the official verifier in a pristine container: **44 resolved, 86.27%, estimated API charges CNY 42.15**. Wall time was **6h 20m**, with up to three concurrent tasks. Selected official comparisons on the same HARD-51 task set, checked 2026-10-16:
+
+| Model | Harness | Reasoning configuration | Resolve rate | Estimated total API cost |
+|---|---|---|---:|---:|
+| **DeepSeek V4.1 Flash** | **Ruyi** | Local provider configuration | **86.27% (44/51)** | **CNY 42.15** |
+| GPT-6 Astra | Codex | high | 90.20% | Not published on a comparable basis |
+| Sonnet 5 | Claude Code | xhigh | 88.20% | Not published on a comparable basis |
+| GPT-5.6 Terra | Codex | xhigh | 86.30% | Not published on a comparable basis |
+| Sonnet 5.5 | mini-swe-agent | xhigh | 70.59% | Not published on a comparable basis |
+
+**Ruyi's harness delivers a useful engineering result: about CNY 42 in API charges for a completion rate close to flagship model and coding-harness combinations.** These are different model–harness combinations, not a fixed-model harness ablation, so their score differences cannot isolate the harness's causal contribution. The official Sonnet 5.5 entry uses **mini-swe-agent**; the Claude Code comparison uses **Sonnet 5**.
+
+Cost includes auxiliary calls and cached input, uncached input and output at request-time list prices; it is not an invoice. No reference solutions or model retries after hidden-test feedback were used. This local run is not an official leaderboard submission. [Report and cost breakdown](docs/benchmarks/hard51-2026-10-15/README_EN.md) · [Per-task JSON](docs/benchmarks/hard51-2026-10-15/results.json) · [Official HARD leaderboard](https://labs.scale.com/leaderboard/swe_bench_pro_public_v2?tab=hard)
+
 | | Cloud chat apps | Coding CLI agents | Cloud automation agents | **Ruyi** |
 |---|---|---|---|---|
 | Where it runs | Vendor servers | Local terminal | Vendor sandbox | **Your machine; data stays home** |
@@ -413,7 +431,7 @@ On the upstream O×P×S score Hermes leads with 79.6 and Ruyi follows with 75.7;
 
 ## Deployment: offline packages, intranets and running from source
 
-**Offline packages (recommended)**: get Full or Slim from the [3.0 download page](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.0), extract completely to a short path such as `C:\Ruyi`, then run `Start-Workbench.cmd` or `RuyiDesktop.exe`. Choose Full for desktop control and OCR, or Slim for a smaller download covering chat, files and scripts. Configure a model separately.
+**Offline packages (recommended)**: get Full or Slim from the [3.0.1 download page](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.1), extract completely to a short path such as `C:\Ruyi`, then run `Start-Workbench.cmd` or `RuyiDesktop.exe`. Choose Full for desktop control and OCR, or Slim for a smaller download covering chat, files and scripts. Configure a model separately.
 
 To build your own package:
 
