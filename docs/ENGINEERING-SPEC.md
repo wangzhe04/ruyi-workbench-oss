@@ -1,5 +1,7 @@
 # 工程规范 · 后端/前端模块结构与提交纪律（ENGINEERING SPEC）
 
+> 阅读口径：结构与提交约定继续使用；下文规模表和“拆分顺序”保留起草时基线。当前模块、路由和跨模块关系分别核对[模块依赖清册](architecture/module-dependency-graph.md)与[路由清册](architecture/route-inventory.md)，实施优先级见[当前路线](OPTIMIZATION-ROADMAP.md)。
+
 > 状态（2026-09-03）：第 110 波「结构化重构与代码精简」阶段①「SPEC 先行」交付物，来源为
 > [`docs/optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md) §3.2 大纲。
 > 本文只回答「怎么切、切到哪、什么算过门」，不新增或修改任何运行时行为。

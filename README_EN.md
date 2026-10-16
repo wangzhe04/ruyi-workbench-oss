@@ -18,6 +18,8 @@
 
 > **Engineering result: Ruyi + DeepSeek V4.1 Flash resolves 44/51 SWE-bench Pro V2 HARD-51 tasks (86.27%) for an estimated CNY 42.15 in model API charges.** That is 3.93 percentage points behind the official Astra + Codex result and 1.93 behind Sonnet 5 + Claude Code. [Comparison, protocol and all 51 task summaries](docs/benchmarks/hard51-2026-10-15/README_EN.md). This local single run used a Ruyi 3.0.0 runtime build; the results ship with 3.0.1.
 
+The feature descriptions and development counts below track the current source and may include merged changes that are not yet released. Each package's release notes define what it ships.
+
 ### What you can do with 3.0
 
 - **Keep track of everything.** The steward shows what is running, what needs your decision and what is done, and brings you a reminder when needed.
@@ -56,12 +58,12 @@
 
 1. **Extract the whole ZIP first** — do not run anything from the ZIP preview. A short path such as `C:\Ruyi` is recommended; if the extractor complains about long paths, do not choose "Skip".
 2. **Double-click `Start-Workbench.cmd`.** The package ships its own Node runtime, so there is nothing to install. With the desktop shell `RuyiDesktop.exe` present it opens in its own window; otherwise it opens in your browser.
-3. **Follow the welcome wizard**: language → connect a model → pick a workspace folder → pick a safety level (→ pick the steward's model). About five minutes, with plain-language guidance and on-the-spot checks at every step.
+3. **Follow the welcome wizard**: language → engine → model provider → steward model → workspace → safety → done. Complete the steps needed for your chosen engine; enter the provider address and model name before testing the connection.
    - **Local models**: install Ollama or LM Studio, pull a model, and choose it in the wizard — no key needed.
    - **Cloud or on-prem endpoints**: enter the Base URL and API key your provider gave you and press "Test connection".
    - **CLI engines**: if Claude Code or Kimi Code is installed, the wizard detects it.
 
-You can skip the wizard and reopen it any time from **Help** in the lower-left corner, which also holds the manual, the health check and the logs — no digging through folders.
+You can skip the wizard and reopen it from the top-bar gear menu → **Help → Reopen the setup guide**. Help also contains the manuals and logs; diagnostics are available from **Health · usage** at the bottom of the left rail or **Settings → System → Diagnostics**.
 
 ### What to say first
 
@@ -82,7 +84,7 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 
 | | |
 |---|---|
-| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 80k lines, concatenated from 70 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 67 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
+| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 72 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 67 framework-free ES modules with no build step. |
 | **119 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
 | **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **502 e2e cases** (495 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 230 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
 
@@ -200,7 +202,7 @@ Kimi Code is driven through its official ACP (JSON-RPC / NDJSON). Native tool ev
 
 ### 2. Native tools
 
-All tools are implemented with Node built-ins (zero dependencies). 70 are available to threads and 42 are steward-only. Tool descriptions load on demand by task; when the model lacks a capability it searches the tool catalog and loads more, so simple questions no longer carry the whole tool set (an "all resident" mode remains in Settings). Independent calls with fixed arguments are batched into one model response; calls that depend on earlier results wait for the next stage.
+All tools are implemented with Node built-ins (zero dependencies), with separate tools for threads and the steward. The total in [facts.json](facts.json) counts registered dispatch handlers. Tool descriptions load on demand by task; when the model lacks a capability it searches the tool catalog and loads more, so simple questions no longer carry the whole tool set (an "all resident" mode remains in Settings). Independent calls with fixed arguments are batched into one model response; calls that depend on earlier results wait for the next stage.
 
 | Category | Tools |
 |---|---|
@@ -361,7 +363,7 @@ The Full offline package includes a verified CPython 3.12 runtime, wheel-only de
 ### 14. Extensions: MCP connectors and ruyi-toolbox
 
 - **Drop-in connectors**: put any stdio MCP server in a folder under the package's `mcp/` or the data directory's `mcp/`, add a `ruyi-mcp.json` (`{id, command, args…}`), and restart — it registers itself; delete the folder to uninstall. Its tools are bridged to both engines through the same tiered approvals (`bridgedToolTiers` sets tiers for bridged tools). See [mcp/README_EN.md](mcp/README_EN.md).
-- **ruyi-toolbox**: the [optional component repository](https://github.com/wangzhe04/ruyi-toolbox) for things that need heavy installs and that not everyone needs (such as local speech recognition). Installed components register in `~/.ruyi-toolbox/components/`; at start-up Ruyi scans it, starts services and wires them in as endpoints, and adds MCP servers to the connector list. The first hook-up is announced, and "Integrations & MCP" in Settings shows what is connected and lets you disable each one or turn discovery off. Commands come only from the registration files on disk, never through a shell; every launch is audited, and Ruyi reaps the processes it started when it exits.
+- **ruyi-toolbox**: the [optional component repository](https://github.com/wangzhe04/ruyi-toolbox) for things that need heavy installs and that not everyone needs (such as local speech recognition). Installed components register in `~/.ruyi-toolbox/components/`; at start-up Ruyi scans it, starts services and wires them in as endpoints, and adds MCP servers to the connector list. The first hook-up is announced. **Settings → Tools & integrations → Add-on components** lets you disable individual components or turn discovery off; MCP connectors remain under **Integrations and MCP**. Commands come only from the registration files on disk, never through a shell; every launch is audited, and Ruyi reaps the processes it started when it exits.
 
 ---
 
@@ -530,7 +532,7 @@ Windows 10/11 is the first-class target; release packages and desktop control ar
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            Backend source: 70 ordered modules (edit here, then run build.js)
+│   ├── app/src/            Backend source: 72 ordered modules (edit here, then run build.js)
 │   ├── app/server.js       Backend runtime artifact (concatenated by app/build.js; zero npm runtime deps)
 │   ├── app/public/         Frontend: index.html + 67 native ES modules + layered CSS + zh/en locales
 │   ├── desktop/            WinForms + WebView2 desktop shell
@@ -588,6 +590,7 @@ Architecture and engineering: [Architecture](ruyi-workbench/docs/ARCHITECTURE_EN
 | Clean-room rationale | [Source Review](ruyi-workbench/docs/SOURCE_REVIEW_EN.md) | [源码审阅结论](ruyi-workbench/docs/SOURCE_REVIEW_CN.md) |
 | UI localization contract | [Localization Guide](docs/i18n/README_EN.md) | [多语言兼容方案](docs/i18n/README.md) |
 | Release lines and roadmap | [Optimization roadmap](docs/OPTIMIZATION-ROADMAP.md) | [优化路线图](docs/OPTIMIZATION-ROADMAP.md) |
+| Proposed 3.x steward iterations (not implemented) | [Iteration plan (Chinese)](docs/optimization-plan/62-steward-3x-iterations.md) | [分轮方案](docs/optimization-plan/62-steward-3x-iterations.md) |
 
 The complete bilingual documentation index is [docs/README.md](docs/README.md).
 

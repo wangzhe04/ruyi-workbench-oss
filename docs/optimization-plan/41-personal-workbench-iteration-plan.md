@@ -1,5 +1,10 @@
 # 如意个人综合工作台：产品与架构迭代方案
 
+<!-- document-status:start -->
+> **阅读口径（2026-10-16）：候选研究／部分实施依据。** 2026-09-12 的代码核查快照与候选库；16 条 J 旅程可复用，附录 C15 等“尚未实现”结论须结合后续交付重新核查。
+> 当前 3.x 排期与发布门以 [62 号管家迭代方案](62-steward-3x-iterations.md) 为准，4.0 暂缓。下文保留历史原话、决定、默认值和测量；行号以对应历史基线为准，不把旧排期或未完成项自动转成新决定。
+<!-- document-status:end -->
+
 版本：代码核查修订稿 v1.1 · 2026-09-12
 
 适用定位：个人综合工作台，覆盖研究、资料、开发、日常事务。
@@ -801,29 +806,29 @@ SharedResource（未实现的限定试点扩展）：
 
 以下均为本地仓库来源。行号用于本轮定位，未来派单前应按实际 HEAD 重新核对。未访问私人运行数据或生产密钥。
 
-- [贡献边界：离线、依赖与 Windows 支持](../../CONTRIBUTING.md:5)
-- [工程模块与契约规范](../ENGINEERING-SPEC.md:1)
-- [当前总体路线图](../OPTIMIZATION-ROADMAP.md:1)
-- [22：SoC 类比边界与收益证据](./22-agent-soc-microarchitecture.md:17)
-- [23：架构偿还与上下文序列](./23-architecture-repayment-sequence.md:1)
-- [25：压缩、过程可见性、检索](./25-waves-111-113-compaction-visibility-memory.md:1)
-- [27：管家规划与交付](./27-waves-115-117-steward.md:1)
-- [28：新手引导与离线/小白走查](./28-wave-118-onboarding.md:1)
-- [29：定时任务与触发器](./29-wave-119-scheduler.md:31)
-- [31：管家放权七轴](./31-steward-empowerment.md:1)
-- [34：一台两视的产品原则](./34-wave-121-one-workbench-two-views.md:101)
-- [34：最新 K6a 交付与后续边界](./34-wave-121-one-workbench-two-views.md:507)
-- [默认开关与管家配置](../../ruyi-workbench/app/src/01-config.js:295)
-- [管家线程的委托与模型选择](../../ruyi-workbench/app/src/13k-steward-threads.js:630)
-- [管家记忆的用户来源检查](../../ruyi-workbench/app/src/13l-steward-ops.js:339)
-- [管家提示词装配](../../ruyi-workbench/app/src/13o-steward-runner-prompt.js:294)
-- [会话路由更新](../../ruyi-workbench/app/src/02-session-store.js:1034)
-- [请求布局与历史副本](../../ruyi-workbench/app/src/09-workflow.js:1544)
-- [历史观察缩减](../../ruyi-workbench/app/src/10-context-governance.js:595)
-- [原文回读的会话隔离](../../ruyi-workbench/app/src/12-tool-dispatch.js:175)
-- [受限工具读取缓存](../../ruyi-workbench/app/src/12-tool-dispatch.js:425)
-- [内存事件广播与重放边界](../../ruyi-workbench/app/src/13r-event-stream.js:1)
-- [安静卡的实际呈现与过滤](../../ruyi-workbench/app/public/js/quiet-card.js:7)
+- [贡献边界：离线、依赖与 Windows 支持](../../CONTRIBUTING.md#L5)
+- [工程模块与契约规范](../ENGINEERING-SPEC.md#L1)
+- [当前总体路线图](../OPTIMIZATION-ROADMAP.md#L1)
+- [22：SoC 类比边界与收益证据](./22-agent-soc-microarchitecture.md#L17)
+- [23：架构偿还与上下文序列](./23-architecture-repayment-sequence.md#L1)
+- [25：压缩、过程可见性、检索](./25-waves-111-113-compaction-visibility-memory.md#L1)
+- [27：管家规划与交付](./27-waves-115-117-steward.md#L1)
+- [28：新手引导与离线/小白走查](./28-wave-118-onboarding.md#L1)
+- [29：定时任务与触发器](./29-wave-119-scheduler.md#L31)
+- [31：管家放权七轴](./31-steward-empowerment.md#L1)
+- [34：一台两视的产品原则](./34-wave-121-one-workbench-two-views.md#L101)
+- [34：最新 K6a 交付与后续边界](./34-wave-121-one-workbench-two-views.md#L507)
+- [默认开关与管家配置](../../ruyi-workbench/app/src/01-config.js#L295)
+- [管家线程的委托与模型选择](../../ruyi-workbench/app/src/13k-steward-threads.js#L630)
+- [管家记忆的用户来源检查](../../ruyi-workbench/app/src/13l-steward-ops.js#L339)
+- [管家提示词装配](../../ruyi-workbench/app/src/13o-steward-runner-prompt.js#L294)
+- [会话路由更新](../../ruyi-workbench/app/src/02-session-store.js#L1034)
+- [请求布局与历史副本](../../ruyi-workbench/app/src/09-workflow.js#L1544)
+- [历史观察缩减](../../ruyi-workbench/app/src/10-context-governance.js#L595)
+- [原文回读的会话隔离](../../ruyi-workbench/app/src/12-tool-dispatch.js#L175)
+- [受限工具读取缓存](../../ruyi-workbench/app/src/12-tool-dispatch.js#L425)
+- [内存事件广播与重放边界](../../ruyi-workbench/app/src/13r-event-stream.js#L1)
+- [安静卡的实际呈现与过滤](../../ruyi-workbench/app/public/js/quiet-card.js#L7)
 
 ## 附录 B：评审时优先回答的五个问题
 
@@ -839,136 +844,136 @@ SharedResource（未实现的限定试点扩展）：
 
 ### C01 · 单线程 Mission 的目标、约束、检查与验收
 
-- [normalizeMission / applyMissionUpdate](../../ruyi-workbench/app/src/02-session-store.js:1493)：goal、milestones、constraints、check、evidence、changeSeq、result/resultHistory 已持久化；增量更新按里程碑 ID 合并。
-- [runMissionDriver](../../ruyi-workbench/app/src/06e-mission-domain.js:40)：生产驱动器调用 evaluateMissionCheck，成功后更新里程碑；不是只有字段定义。
+- [normalizeMission / applyMissionUpdate](../../ruyi-workbench/app/src/02-session-store.js#L1493)：goal、milestones、constraints、check、evidence、changeSeq、result/resultHistory 已持久化；增量更新按里程碑 ID 合并。
+- [runMissionDriver](../../ruyi-workbench/app/src/06e-mission-domain.js#L40)：生产驱动器调用 evaluateMissionCheck，成功后更新里程碑；不是只有字段定义。
 - [已有任务驱动测试](../../dev-harness/mission-driver.e2e.js)：保留其现成检查路径。
 - 边界：可信输入才能设置机器检查；模型可自报 status/evidence。milestone done 不能统一解释为机器验证通过。
 
 ### C02 · 多线程任务容器、管家委托与输入预判
 
-- [normalizeMissionContainer](../../ruyi-workbench/app/src/02-session-store.js:3680)：container goal、acceptance、cwd、sessionIds 已存在。
-- [管家线程委托](../../ruyi-workbench/app/src/13k-steward-threads.js:630)：brief 保存 userText、supplement、memoryIds 等；随后选择模型、保存、启动。
-- [prerouteText](../../ruyi-workbench/app/src/06i-steward-core.js:1064)：已有候选评分及预判，不应另写路由器。
+- [normalizeMissionContainer](../../ruyi-workbench/app/src/02-session-store.js#L3680)：container goal、acceptance、cwd、sessionIds 已存在。
+- [管家线程委托](../../ruyi-workbench/app/src/13k-steward-threads.js#L630)：brief 保存 userText、supplement、memoryIds 等；随后选择模型、保存、启动。
+- [prerouteText](../../ruyi-workbench/app/src/06i-steward-core.js#L1064)：已有候选评分及预判，不应另写路由器。
 - [输入预判测试](../../dev-harness/steward-preroute.e2e.js)、[任务容器测试](../../dev-harness/mission-threads.e2e.js)。
 - 边界：容器验收、线程里程碑、brief 是三个对象；管家创建的线程可能没有完整 mission 账本，接通它们才是 T01 增量。
 
 ### C03 · 控制核心与追加要求
 
-- [missionControlCommand](../../ruyi-workbench/app/src/02-session-store.js:1858)：pause/continue/stop/retry/takeover/rollback/next_turn；停止前更新活回合，追加新要求会建新的 pending 验收并归档旧结果。
-- [followupAcceptanceCriterion](../../ruyi-workbench/app/src/02-session-store.js:1840)：已有研究/开发/通用任务的追加验收模板。
-- [结果回归测试](../../dev-harness/mission-result.e2e.js:228) 已检查结果归档、当前轮结果重建与追加验收等路径；插话和回退还有现成独立测试。
+- [missionControlCommand](../../ruyi-workbench/app/src/02-session-store.js#L1858)：pause/continue/stop/retry/takeover/rollback/next_turn；停止前更新活回合，追加新要求会建新的 pending 验收并归档旧结果。
+- [followupAcceptanceCriterion](../../ruyi-workbench/app/src/02-session-store.js#L1840)：已有研究/开发/通用任务的追加验收模板。
+- [结果回归测试](../../dev-harness/mission-result.e2e.js#L228) 已检查结果归档、当前轮结果重建与追加验收等路径；插话和回退还有现成独立测试。
 - 边界：这些保护不能直接推导出所有跨线程未来承诺也具有同一意图版本协议；但它们已经覆盖大量 v1.0 所列“新控制能力”。
 
 ### C04 · 交付结果、未完成项与历史轮次
 
-- [buildMissionResult](../../ruyi-workbench/app/src/02-session-store.js:1638)：正文快照、验收计数、unfinished、artifacts、回合/token 用量、检查点和不可逆项已有；用量字段不等于货币费用。
-- [archiveMissionResult / finalizeMissionAfterTurn](../../ruyi-workbench/app/src/02-session-store.js:1689)：最近十份历史；旧章清理；模型先标完成再输出正文时，收尾重建结果，防沿用前一轮原文。
+- [buildMissionResult](../../ruyi-workbench/app/src/02-session-store.js#L1638)：正文快照、验收计数、unfinished、artifacts、回合/token 用量、检查点和不可逆项已有；用量字段不等于货币费用。
+- [archiveMissionResult / finalizeMissionAfterTurn](../../ruyi-workbench/app/src/02-session-store.js#L1689)：最近十份历史；旧章清理；模型先标完成再输出正文时，收尾重建结果，防沿用前一轮原文。
 - [现有结果测试](../../dev-harness/mission-result.e2e.js)。
 - 边界：只对有 mission 账本的结果成立；正文快照最多 16,000 个 JavaScript 字符串单元，artifacts 最多 50 项。不等于每条普通管家线程自动生成同样的记录，也不等于有永久可寻址的完整交付版本库。
 
 ### C05 · 管家回合原件与展示
 
-- [按回合取正文与文件](../../ruyi-workbench/app/src/13j-steward-tool-base.js:118)：stewardTurnAssistantText / stewardTurnFiles。
-- [交付原件进入收件箱提示](../../ruyi-workbench/app/src/13p-steward-runner-actions.js:422)：带 turnSeq、正文长度/截断信息，明确是线程原件。
+- [按回合取正文与文件](../../ruyi-workbench/app/src/13j-steward-tool-base.js#L118)：stewardTurnAssistantText / stewardTurnFiles。
+- [交付原件进入收件箱提示](../../ruyi-workbench/app/src/13p-steward-runner-actions.js#L422)：带 turnSeq、正文长度/截断信息，明确是线程原件。
 - [原件显示消费者](../../ruyi-workbench/app/public/js/steward-conversation.js)：已提交版本存在 stewardDeliverableFrom、loadDeliverable(sessionId, turnSeq)、fillDeliverable、全文动作；本轮以 `git show HEAD:...` 复核，不认领在途新增。
 - [已有交付测试](../../dev-harness/steward-deliverable.e2e.js)。
 - 边界：全文打开已实现；所有 artifacts 的可用性/版本、普通回合与完整验收结果衔接需另外核查，不能把二者混为一项全新交付系统。
 
 ### C06 · 证据图、引用校验与研究核验
 
-- [indexNodeEvidence](../../ruyi-workbench/app/src/08-agent-runs.js:1916)：eventId 含 run/node/attempt/step，记录 digest/ref/workspace/ts，幂等入索引。
-- [verifyNodeClaims](../../ruyi-workbench/app/src/08-agent-runs.js:1979)：检查引用存在、唯一性、数量、工作区和依赖闭包可见性，派生 verified/unverified。
-- [生产节点收尾索引/校验](../../ruyi-workbench/app/src/09-workflow.js:845)、[内置研究核验节点](../../ruyi-workbench/app/src/08-agent-runs.js:1468)；不是测试专用工具。
+- [indexNodeEvidence](../../ruyi-workbench/app/src/08-agent-runs.js#L1916)：eventId 含 run/node/attempt/step，记录 digest/ref/workspace/ts，幂等入索引。
+- [verifyNodeClaims](../../ruyi-workbench/app/src/08-agent-runs.js#L1979)：检查引用存在、唯一性、数量、工作区和依赖闭包可见性，派生 verified/unverified。
+- [生产节点收尾索引/校验](../../ruyi-workbench/app/src/09-workflow.js#L845)、[内置研究核验节点](../../ruyi-workbench/app/src/08-agent-runs.js#L1468)；不是测试专用工具。
 - [证据基准测试](../../dev-harness/evidence-claims-m4-benchmark.e2e.js)、[确定性证据测试](../../dev-harness/c2-deterministic-evidence.e2e.js)。
 - 边界：引用校验不证明正文语义支持，索引 ts 不等于外部资料的有效日期；普通管家答复的时效/来源消费仍是增量。
 
 ### C07 · 能力矩阵与模板目录
 
-- [TOOL_REQUIRES 与能力判定](../../ruyi-workbench/app/src/06-provider-engine.js:4)、[getCapabilities](../../ruyi-workbench/app/src/06-provider-engine.js:199)。
-- [playbook 规范与读取](../../ruyi-workbench/app/src/06-provider-engine.js:788)、[evalPlaybookAvailability](../../ruyi-workbench/app/src/06-provider-engine.js:866)：已有 available/unavailableReason 及公共 listing。
+- [TOOL_REQUIRES 与能力判定](../../ruyi-workbench/app/src/06-provider-engine.js#L4)、[getCapabilities](../../ruyi-workbench/app/src/06-provider-engine.js#L199)。
+- [playbook 规范与读取](../../ruyi-workbench/app/src/06-provider-engine.js#L788)、[evalPlaybookAvailability](../../ruyi-workbench/app/src/06-provider-engine.js#L866)：已有 available/unavailableReason 及公共 listing。
 - 内置资源已含 compare-documents、folder-inventory、archive-by-content、weekly-report、meeting-minutes、PDF/表格等 15 项；例：[资料对比模板](../../ruyi-workbench/resources/playbooks/compare-documents.json)。开发/研究还有 08 中的 DAG 模板。
 - [能力测试](../../dev-harness/capabilities.e2e.js)。
 - 边界：未知网络状态和未知依赖具有既有放行语义；能力可用也不保证某服务实际成功。增量是服务映射、缺项和未知态的诚实呈现，不是重新探测一切。
 
 ### C08 · 首次引导
 
-- [已有向导](../../ruyi-workbench/app/public/js/onboarding-wizard.js:186)：六步、配置与完成状态、跳过/重新打开、完成页内置模板入口。
+- [已有向导](../../ruyi-workbench/app/public/js/onboarding-wizard.js#L186)：六步、配置与完成状态、跳过/重新打开、完成页内置模板入口。
 - [完整引导测试](../../dev-harness/onboarding.e2e.js)、[静态约束](../../dev-harness/onboarding.static.e2e.js)。
 - 边界：K7 管家模型那一步和新增服务的实际能力引导可以追加；不能再估算一套首用向导。
 
 ### C09 · 两视角现场与事件恢复
 
-- [滚动位置保存/恢复](../../ruyi-workbench/app/public/js/app-frame.js:120)、[视角切换与焦点](../../ruyi-workbench/app/public/js/shell-mode.js:130)。
-- [配置到达后的显式偏好判断](../../ruyi-workbench/app/public/js/steward-shell.js:382)：已检查 stored classic 偏好，故“必然覆盖用户视角”不能仅凭历史登记认定。
+- [滚动位置保存/恢复](../../ruyi-workbench/app/public/js/app-frame.js#L120)、[视角切换与焦点](../../ruyi-workbench/app/public/js/shell-mode.js#L130)。
+- [配置到达后的显式偏好判断](../../ruyi-workbench/app/public/js/steward-shell.js#L382)：已检查 stored classic 偏好，故“必然覆盖用户视角”不能仅凭历史登记认定。
 - [已有事件客户端](../../ruyi-workbench/app/public/js/event-stream.js)、[事件重连浏览器测试](../../dev-harness/event-stream-client.browser.e2e.js)、[pageshow 测试](../../dev-harness/event-stream-pageshow.browser.e2e.js)。
 - 边界：上述是已有保护，慢启动/短时多次切换/200% 字体是否仍有问题需要实测；本轮没有实际复现缺陷。
 
 ### C10 · 安静卡与提醒策略
 
-- [notify-policy](../../ruyi-workbench/app/public/js/notify-policy.js:16)：enabled、quietStart/quietEnd、持久设置及迁移、待决集合基线/去重已有。
-- [quiet-card](../../ruyi-workbench/app/public/js/quiet-card.js:7)：非当前线程、普通 done 过滤、五分钟同类合并、polite、不抢焦点、创建时系统通知。
-- [关闭动作](../../ruyi-workbench/app/public/js/quiet-card.js:161) 仅 removeCard；“稍后”尚非持久 snooze。
+- [notify-policy](../../ruyi-workbench/app/public/js/notify-policy.js#L16)：enabled、quietStart/quietEnd、持久设置及迁移、待决集合基线/去重已有。
+- [quiet-card](../../ruyi-workbench/app/public/js/quiet-card.js#L7)：非当前线程、普通 done 过滤、五分钟同类合并、polite、不抢焦点、创建时系统通知。
+- [关闭动作](../../ruyi-workbench/app/public/js/quiet-card.js#L161) 仅 removeCard；“稍后”尚非持久 snooze。
 - [安静卡浏览器测试](../../dev-harness/quiet-card.browser.e2e.js)、[通知策略单测](../../dev-harness/unit/notify-policy.test.js)。
 - 边界：安静卡是事件适配，不能要求直接套用为快照设计的 reconcileNotifications；持久重新提醒是新语义，不是简单“统一”两个模块。
 
 ### C11 · 回来摘要与持久事件收集
 
-- [stewardVisitDigest / PendingList / Visit](../../ruyi-workbench/app/src/13q-steward-runner-turn.js:336)：按 inbox 游标计数，返回摘要、待决和焦点；归档失败不推进到访状态。
-- [收件箱源与游标恢复](../../ruyi-workbench/app/src/13i-steward-inbox.js:727) 已读持久账本/会话回合；SSE 只负责即时显示。
+- [stewardVisitDigest / PendingList / Visit](../../ruyi-workbench/app/src/13q-steward-runner-turn.js#L336)：按 inbox 游标计数，返回摘要、待决和焦点；归档失败不推进到访状态。
+- [收件箱源与游标恢复](../../ruyi-workbench/app/src/13i-steward-inbox.js#L727) 已读持久账本/会话回合；SSE 只负责即时显示。
 - [管家运行测试](../../dev-harness/steward-runner.e2e.js)、[收件箱完整性测试](../../dev-harness/steward-inbox-integrity.e2e.js)。
 - 边界：到访状态本身有进程内部分，不代表完整跨重启服务承诺；C04 只补新承诺接入，不重建回来摘要。
 
 ### C12 · 失败分类、有限重试和执行轨迹
 
-- [classifyRuntimeToolFailure](../../ruyi-workbench/app/src/07-autonomy.js:632)：含 side_effect_unknown、transient_read、permission_denied、edit_conflict、invalid_arguments、verification_failed 等。
-- [真实调用点](../../ruyi-workbench/app/src/09-workflow.js:1722)：在工具结果处理时分类，供遥测使用；allowedRepair 不是动作授权。
-- [节点错误分类](../../ruyi-workbench/app/src/08-agent-runs.js:180)、[管家自理限次和准入](../../ruyi-workbench/app/src/13p-steward-runner-actions.js:164)、[断点步骤轨迹](../../ruyi-workbench/app/src/09b-replan-ledger.js:1)。
+- [classifyRuntimeToolFailure](../../ruyi-workbench/app/src/07-autonomy.js#L632)：含 side_effect_unknown、transient_read、permission_denied、edit_conflict、invalid_arguments、verification_failed 等。
+- [真实调用点](../../ruyi-workbench/app/src/09-workflow.js#L1722)：在工具结果处理时分类，供遥测使用；allowedRepair 不是动作授权。
+- [节点错误分类](../../ruyi-workbench/app/src/08-agent-runs.js#L180)、[管家自理限次和准入](../../ruyi-workbench/app/src/13p-steward-runner-actions.js#L164)、[断点步骤轨迹](../../ruyi-workbench/app/src/09b-replan-ledger.js#L1)。
 - [管家护栏测试](../../dev-harness/steward-guardrails.e2e.js)、[重规划测试](../../dev-harness/agent-workflow-replan.e2e.js)。
 - 边界：遥测分类与管家按事件类自理并非已经完全接通。E01 是补消费者与验证；新自动修复必须经过现有权威门。
 
 ### C13 · 一般记忆的作用域、时效与维护
 
-- [范围与日期定义](../../ruyi-workbench/app/src/06d-memory-domain.js:30)、[条目元数据](../../ruyi-workbench/app/src/06d-memory-domain.js:163)：project/global、来源、reviewAfter/expiresAt。
-- [修订提议](../../ruyi-workbench/app/src/06d-memory-domain.js:506)、[召回排除过期条目](../../ruyi-workbench/app/src/06d-memory-domain.js:1539)。
-- [过期仍可查看但不注入的测试](../../dev-harness/workbench-memory-core.e2e.js:73)、[记忆维护测试](../../dev-harness/memory-maintenance-tools.e2e.js:55)。
+- [范围与日期定义](../../ruyi-workbench/app/src/06d-memory-domain.js#L30)、[条目元数据](../../ruyi-workbench/app/src/06d-memory-domain.js#L163)：project/global、来源、reviewAfter/expiresAt。
+- [修订提议](../../ruyi-workbench/app/src/06d-memory-domain.js#L506)、[召回排除过期条目](../../ruyi-workbench/app/src/06d-memory-domain.js#L1539)。
+- [过期仍可查看但不注入的测试](../../dev-harness/workbench-memory-core.e2e.js#L73)、[记忆维护测试](../../dev-harness/memory-maintenance-tools.e2e.js#L55)。
 - 边界：reviewAfter 表示应复核，不等于 expiresAt；不能将两者统一改成过期。一般记忆已支持这些，不能把管家库缺字段描述为全项目缺失。
 
 ### C14 · 管家个人记忆
 
-- [写入/来源/去重/否决](../../ruyi-workbench/app/src/13l-steward-ops.js:340)：active/vetoed、同义拒写、来源回合、合并历史。
-- [搜索与注入](../../ruyi-workbench/app/src/13l-steward-ops.js:425)、[prompt 消费同一搜索](../../ruyi-workbench/app/src/13o-steward-runner-prompt.js:33)：默认不注入 vetoed。
-- [面板编辑乐观版本](../../ruyi-workbench/app/src/13g-steward.js:243) 与恢复、清理、导出已有；[既有测试](../../dev-harness/steward-memory.e2e.js)。
+- [写入/来源/去重/否决](../../ruyi-workbench/app/src/13l-steward-ops.js#L340)：active/vetoed、同义拒写、来源回合、合并历史。
+- [搜索与注入](../../ruyi-workbench/app/src/13l-steward-ops.js#L425)、[prompt 消费同一搜索](../../ruyi-workbench/app/src/13o-steward-runner-prompt.js#L33)：默认不注入 vetoed。
+- [面板编辑乐观版本](../../ruyi-workbench/app/src/13g-steward.js#L243) 与恢复、清理、导出已有；[既有测试](../../dev-harness/steward-memory.e2e.js)。
 - 边界：当前规范化/写入条目未含 scope/expiresAt。来源检查只证明指定回合包含用户话；同义拒写采用词项相似度，不保证识别任意语义改写。M01/M02 针对这些精确边界扩展。
 
 ### C15 · 119、七轴与未实现能力的负向核查
 
 - 已在生产 `app/src` 和前端 `.js` 搜索 `schedulerEnabledV1`、`/api/scheduler/tasks`、`steward_schedule_*`、`nextFireAt`；未找到定时服务实现。
-- 时间意图预判已有：[stewardPrerouteIsSchedule](../../ruyi-workbench/app/src/06i-steward-core.js:941)。DAG scheduler 也已有，但两者都不提供定时运行闭环。
-- 对照 [119 的接口/触发模型](./29-wave-119-scheduler.md:31) 与当前 [管家线程动作](../../ruyi-workbench/app/src/13k-steward-threads.js:1)：未找到对应定时 CRUD/触发执行、任意线程 after 接力或依据式代答/白名单代批消费者。
+- 时间意图预判已有：[stewardPrerouteIsSchedule](../../ruyi-workbench/app/src/06i-steward-core.js#L941)。DAG scheduler 也已有，但两者都不提供定时运行闭环。
+- 对照 [119 的接口/触发模型](./29-wave-119-scheduler.md#L31) 与当前 [管家线程动作](../../ruyi-workbench/app/src/13k-steward-threads.js#L1)：未找到对应定时 CRUD/触发执行、任意线程 after 接力或依据式代答/白名单代批消费者。
 - 未找到 31 候选 `steward_web_search`、`steward_notify`、`steward_playbook_run`、`stewardApprovalWhitelist`、tainted 回合门的生产实现；现有本地通知不因此被否认，它走 C10 的 UI 通路。
 - 边界：这是该基线限定范围的核查结果。实施前先复查 HEAD，不能忽略别的 agent 后续新增。
 
 ### C16 · DAG 与子代理协作已有数据面
 
-- [deriveNodeOutputs / buildUpstreamContext](../../ruyi-workbench/app/src/08-agent-runs.js:1806)、[前序结果进入生产节点任务](../../ruyi-workbench/app/src/09-workflow.js:678)。
-- [证据消费者的依赖闭包](../../ruyi-workbench/app/src/08-agent-runs.js:1850) 限定可见范围；子代理执行和邮箱也已有。
+- [deriveNodeOutputs / buildUpstreamContext](../../ruyi-workbench/app/src/08-agent-runs.js#L1806)、[前序结果进入生产节点任务](../../ruyi-workbench/app/src/09-workflow.js#L678)。
+- [证据消费者的依赖闭包](../../ruyi-workbench/app/src/08-agent-runs.js#L1850) 限定可见范围；子代理执行和邮箱也已有。
 - [子代理测试](../../dev-harness/subagent.e2e.js)、[DAG 重规划测试](../../dev-harness/agent-workflow-replan.e2e.js)。
 - 边界：现有 DAG run 内的节点关系，不等于多个独立 session 的任意版本化接力；H01 只扩后者。
 
 ### C17 · 文件版本、资源租约和共享 L3
 
-- [资源租约](../../ruyi-workbench/app/src/06g-resource-leases.js:1)：有路径/资源冲突判定与占用协调。
-- [读取缓存](../../ruyi-workbench/app/src/12-tool-dispatch.js:425)：按会话隔离，mtimeMs+size 重验，并在权限检查后命中。
-- [file_modify 文本匹配](../../ruyi-workbench/app/src/12-tool-dispatch.js:631)：已有 oldText 匹配防错，不是完全没有编辑冲突检测。
+- [资源租约](../../ruyi-workbench/app/src/06g-resource-leases.js#L1)：有路径/资源冲突判定与占用协调。
+- [读取缓存](../../ruyi-workbench/app/src/12-tool-dispatch.js#L425)：按会话隔离，mtimeMs+size 重验，并在权限检查后命中。
+- [file_modify 文本匹配](../../ruyi-workbench/app/src/12-tool-dispatch.js#L631)：已有 oldText 匹配防错，不是完全没有编辑冲突检测。
 - 生产工具中未找到 expectedVersion/expectedHash 类读取版本绑定条件提交，亦未找到通用读取者登记/失效广播闭环。
 - 边界：记忆面板已有 C14 的版本冲突检查，不应扩大表述为“项目没有版本检查”。这里缺的是受管文件读→写一致性协议；外部写者的竞态仍须限定保证。
 
 ### C18 · 模型与上下文实验
 
-- [会话 engineRoute 更新](../../ruyi-workbench/app/src/02-session-store.js:1034)、[管家 strong/fast 放置](../../ruyi-workbench/app/src/13q-steward-runner-turn.js:456)。
-- [现有两布局 shadow](../../ruyi-workbench/app/src/09-workflow.js:2165)：stablePrefixCharsSent/Alt；未见 firstChangedSegment 生产字段。
-- [管家规则装入 volatile](../../ruyi-workbench/app/src/13o-steward-runner-prompt.js:294)、[当前请求布局](../../ruyi-workbench/app/src/09-workflow.js:1544)：尚未按管家会话独立选择候选布局。
-- [既有压缩/快照/回读](../../ruyi-workbench/app/src/10-context-governance.js:595)、[既有配置开关](../../ruyi-workbench/app/src/01-config.js:170)。
+- [会话 engineRoute 更新](../../ruyi-workbench/app/src/02-session-store.js#L1034)、[管家 strong/fast 放置](../../ruyi-workbench/app/src/13q-steward-runner-turn.js#L456)。
+- [现有两布局 shadow](../../ruyi-workbench/app/src/09-workflow.js#L2165)：stablePrefixCharsSent/Alt；未见 firstChangedSegment 生产字段。
+- [管家规则装入 volatile](../../ruyi-workbench/app/src/13o-steward-runner-prompt.js#L294)、[当前请求布局](../../ruyi-workbench/app/src/09-workflow.js#L1544)：尚未按管家会话独立选择候选布局。
+- [既有压缩/快照/回读](../../ruyi-workbench/app/src/10-context-governance.js#L595)、[既有配置开关](../../ruyi-workbench/app/src/01-config.js#L170)。
 - 边界：自动升档策略、管家专用布局与 rules 位置实验仍需实现/验证；已有 105 机制、106 布局测量和 111 原队列不重做。
 
 ### 本轮裁决后的实施入口

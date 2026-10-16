@@ -5,7 +5,7 @@ security boundaries, verification, and troubleshooting. Audience: deployers, IT 
 user-facing instructions are in [USER-GUIDE_EN.md](USER-GUIDE_EN.md).
 
 Hard constraints: Ruyi is a **clean-room implementation**, **`server.js` has zero npm runtime dependencies**, it is
-**fully offline with zero telemetry by default**, it is updated **incrementally through overlays** within a version,
+**offline-first with zero telemetry**, it is updated **incrementally through overlays** within a version,
 and it targets **Windows 10/11**. The product name is "Ruyi". Since 3.0 the MCP server id is `ruyi`, the default data
 root is `~/.ruyi-workbench` and the environment variable is `RUYI_HOME` (the old `win-claude-workbench` /
 `~/.win-claude-workbench` / `WIN_CLAUDE_WORKBENCH_HOME` are migrated automatically or still read; see "Brand and
@@ -19,7 +19,7 @@ Ruyi is a local Windows application. The workbench server is a single Node.js pr
 dependencies (Node built-ins only), requiring Node ≥ 20.
 
 ```powershell
-node app\server.js serve --open        # from source (recommended; edits take effect without a rebuild of the exe)
+node app\server.js serve --open        # from source (run node app\build.js after editing app/src)
 .\Ruyi.exe serve --open                # packaged exe
 Start-Workbench.cmd                    # convenience launcher (runs one of the above)
 ```
@@ -498,9 +498,7 @@ gate: any journal failure is swallowed and **never blocks the tool**. `GET /api/
 `POST /api/session/rewind` rewinds the conversation. Each session keeps its latest 20 turns, with a lazy global
 200 MB GC.
 
-There is no telemetry, analytics or beacon of any kind; every log stays in the data root. The only optional outbound
-probe is one HEAD from the capability matrix (to `config.capabilityProbeUrl` or the provider `baseUrl`, to decide
-online or offline; it is not telemetry, and `capabilityProbeUrl` is empty by default). Clean-room: no leaked
+There is no product telemetry, analytics or beacon; every log stays in the data root. Offline use requires a local model, or an intranet model that remains reachable without public internet. Model requests, search and other network tools contact services according to the configuration and task. Built-in search is enabled without a key and can be disabled in settings. The capability matrix may also send a HEAD request to `config.capabilityProbeUrl` or the provider `baseUrl` to check connectivity; this is not telemetry, and `capabilityProbeUrl` is empty by default. Clean-room: no leaked
 Anthropic source, no bundled official Claude CLI, no copied third-party plugin source; the product is Apache-2.0, and
 the front-end static libraries are covered in the root `THIRD-PARTY-NOTICES.md`.
 
@@ -530,9 +528,9 @@ Skills, workbench memories and inter-node messages can come from **untrusted sou
 ## 4. Pro mode and diagnostics
 
 The right-hand workspace keeps seven tabs in both simple and pro mode: Files, Artifacts, Changes, Memory, Workflows,
-Usage, and Activity (the audit timeline). Terminal, desktop, MCP, search, and file-read capabilities remain available
+Usage, and Activity (the audit timeline). Workflows presents run summaries, approvals and member details; the middle Crew tab presents the collaboration canvas. Terminal, desktop, MCP, search, and file-read capabilities remain available
 to the model through the normal read/edit/exec permission, checkpoint, and audit paths; they are no longer exposed
-as context-free manual runners.
+as context-free manual runners. ruyi-toolbox discovery and component switches are under **Settings → Tools & integrations → Add-on components**.
 
 Connector operations remain under **Settings → Tools & integrations → Integrations and MCP**, where connector
 sources, health, tool counts and failure reasons are shown and user connectors can be managed (a configuration
@@ -696,7 +694,7 @@ today; only the test harness does.
   can still POST such an act directly. That route is covered by the route auth table and the UI token, but a
   server-side second credential for the confirm tier is not part of this release.
 
-## 8. Defaults, upgrade, and rollback (2.8.0 baseline; the 3.0 preview supplement is section 8.5)
+## 8. Defaults, upgrade, and rollback (historical 2.8.0 baseline; 3.0 migrations are in section 8.5)
 
 > **Classification**: measured readings plus factory-on means **shipped**; factory-off means **experimental**.
 > "Off by default" means an explicit `false`, or an absence that is byte-for-byte equivalent to the previous
@@ -847,7 +845,7 @@ v2.7.0 in wave 107's P1 drill (a provider carrying all four fields, one downgrad
   writes `configSchema` back as 11, so the one-time `< 12` migration runs again when you return to 2.8.0 (measured
   in wave 107's P1 drill). To keep one off, write `false` again after upgrading back.
 
-### 8.5 3.0 preview supplement: `CONFIG_SCHEMA` 12 → 14
+### 8.5 3.0 migration supplement: `CONFIG_SCHEMA` 12 → 14
 
 Sections 8.1–8.4 were written at 2.8.0 and remain accurate for 2.7.0 ↔ 2.8.0. The current tree is
 **3.0.0** and `CONFIG_SCHEMA` is **14** (`app/src/00-boot.js`; the migration table is
@@ -864,9 +862,9 @@ described under "Data root" and "Brand and compatibility". Two more one-shot mig
   migration, so nobody is quietly loosened; a level already written on disk is kept as is. Switching to Smart auto
   or Fully automatic still asks for a second confirmation.
 
-Other 3.0 preview default changes (for example `agentAutoWake`, which wakes the main conversation when background
-agents finish, on from the factory) are in the root `CHANGELOG.md`. The rollback drill in this section covers only
-2.8.0 ↔ 2.7.0; rolling a 3.0 preview back to 2.8.0 has not been measured the same way, so back up the whole data
+Other 3.0 default changes (for example `agentAutoWake`, which wakes the main conversation when background
+agents finish, on from the factory) are in the root `CHANGELOG.md`. The recorded rollback drill covers only
+2.8.0 ↔ 2.7.0; the 3.0 release does not establish that a 3.0 → 2.8.0 downgrade passed the same drill. Back up the whole data
 root first as in section 8.4.
 
 ## Brand and compatibility

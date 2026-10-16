@@ -1,14 +1,14 @@
 # Model Workflow Specification
 
-> Added in Wave 51 (04 Phase D). For users and contributors: how the workbench structures a model turn — plan → execute → check → loop-guard → budget → compact — and what each budget tier means. The spec is also marketing material: an auditable way of working. Bilingual: see `MODEL-WORKFLOW-SPEC_CN.md`.
+> Added in Wave 51 (04 Phase D). For users and contributors: how the workbench structures a model turn — plan → execute → check → loop-guard → budget → compact — and what each budget tier means. Checked against the implementation on 2026-10-16; historical test figures retain their original scope. Bilingual: see `MODEL-WORKFLOW-SPEC_CN.md`.
 
 ## 1. Principle
 
-The workbench imposes structural constraints on every model turn so each step is observable, replayable, and reversible. Six stages: **plan → execute → check → loop-guard → budget → compact**. This spec describes the provider engine (OpenAI-compatible path). The Claude CLI engine is a thin wrapper that delegates to the CLI black box; differences are in the engine capability matrix.
+The workbench structures model turns and records their progress and results. Checkpoints cover registered file operations, not arbitrary side effects. Six stages: **plan → execute → check → loop-guard → budget → compact**. This spec primarily describes the provider engine (Chat Completions, Responses API and Anthropic Messages). The Claude Code / Kimi Code Agent CLI paths also depend on each CLI and its adapter; the runtime capability matrix defines the differences.
 
 ## 2. Plan (plan mode)
 
-- **PLAN: prefix**: if the first assistant message of a turn starts with `PLAN:`, the turn pauses for user approval.
+- **PLAN: prefix**: in plan mode only, after any read-only investigation, a reply beginning with `PLAN:` and containing no tool calls pauses for user approval. The same text in an ordinary turn does not trigger plan approval.
 - **Approval closure**: the approval flag lives in the turn's closure and is **never** written to `config.permissionMode` — one approval never grants permanent permission; it expires when the turn ends.
 - **Re-submit after reject**: the model may re-submit `PLAN:` after rejection (guards the consumed-planPhase regression).
 - **steer vs plan**: semantics of steering while a plan is pending (revise the brief vs lift the plan) are in the Steer doc (plan 02).
@@ -16,13 +16,13 @@ The workbench imposes structural constraints on every model turn so each step is
 ## 3. Execute
 
 ### 3.1 Tool-protocol guard rails
-Read before write (read a file before editing it); minimal, precise changes; `found:false` / no-match is normal semantics, not an error; list a plan with `todo_write` before multi-step work; finish with a concise change summary.
+Read before write (read a file before editing it); minimal, precise changes; `found:false` / no-match is normal semantics, not an error; list a plan with `todo_write` before multi-step execution (before plan approval, investigation remains read-only); finish with a concise change summary.
 
 ### 3.2 On-demand loading
 `tool_search` discovers a capability → `tool_load` loads the returned pack or exact tool name → call the concrete tool. Do not reinvent an on-demand-loadable tool via the terminal.
 
 ### 3.3 Tool-selection priority
-Built-in and desktop/document tools first (protected by permission prompts + one-click undo); terminal scripts as fallback (not auto-undoable, error-prone ad-hoc).
+Prefer built-in and desktop/document tools, subject to the effective permission mode and tool-level checks. Covered file operations can be rolled back through checkpoints. Terminal scripts are a fallback; arbitrary side effects are not automatically reversible.
 
 ### 3.4 Sub-agent orchestration
 - `orchestrate_agents` is the single entry point: submit the whole dependency graph (`nodes`, dependencies via `dependsOn`), or reuse a template with `workflowId` (built-in templates require a `context` naming this run's subject or they will not start; when `nodes` is also given, `nodes` wins and the template is ignored); a single agent uses the top-level shorthand `{task, role?, toolTier?, background?}`. The runtime parallelizes ready nodes (cap `subagentMaxConcurrent` per stage), awaits dependencies, injects prior conclusions into later nodes, and persists progress. The old `spawn_agent` was folded in; a model that still calls it is translated into a single node.
@@ -38,7 +38,7 @@ A node may declare `outputSchema` (structural validation) + `gate` (pass conditi
 Eight built-in templates (`BUILTIN_AGENT_WORKFLOWS` in `08-agent-runs.js`): debate-and-judge, implement-review-fix-test, deep-research, design-and-decide, codebase-audit, debug-root-cause, doc-from-scratch, data-insights. Their node tasks are generic and carry no subject; the subject comes from the launch `context`. Ten built-in roles (`BUILTIN_AGENT_ROLES` in `01e-permission-modes.js`): explorer, worker, coder, reviewer, verifier, planner, researcher, critic, synthesizer, analyst; the role prompt goes into the system prompt on both engines (on the Claude engine via `--append-system-prompt`, moved into the first message when the command line is too long). Personal and project templates (`.ruyi/workflows.json`) with the same id override in the order project > personal > built-in; saving rejects dependency cycles and unknown roles.
 
 ### 4.2 Turn-level output contract (planned)
-Long tasks end with a "completion statement: what was done / what wasn't / how it was verified." Prompt convention first, mechanical checking later (04 Phase D planned item, not yet implemented).
+A unified mechanical completion-statement check for all ordinary turns remains planned. Existing DAG quality gates, delivery envelopes and specific Steward action receipts have their own checks; these do not imply universal turn coverage. See the [Steward 3.x plan](../../docs/optimization-plan/62-steward-3x-iterations.md) for the proposed scope and dependencies.
 
 ## 5. Loop protection (dual detection)
 
@@ -68,7 +68,7 @@ The signature detector runs first; if it already warned, the semantic detector s
 | Tier | Cap | Meaning |
 |---|---|---|
 | standard | 100 | default, most tasks |
-| long | 200 | long task (`isLongToolTask` keyword heuristic: a first turn heavy in exec/read auto-promotes) |
+| long | 200 | long-task initial budget (`isLongToolTask` uses task text and driverAuto/mission context; Agent team also receives this initial tier) |
 | standardHard | 300 | hard limit (`hardLimit`) for standard turns, cannot be exceeded |
 | hard | 1000 | hard limit for long-task or agent-team turns |
 | extension | 50 | dynamic extension increment (`shouldExtendToolIterationBudget`: appended on progress, capped at the turn's `hardLimit`) |
@@ -76,13 +76,13 @@ The signature detector runs first; if it already warned, the semantic detector s
 ### 6.2 Sub-agent budget
 `subagentMaxConcurrent` (parallel-within-a-stage cap), `subagentMaxPerTurn` (per-turn total cap, 0=disabled, tool kept out of the schema).
 
-### 6.3 Budget-parity unification (04 Phase D planned item)
-Align the user clamp with hardLimit; upgrade `isLongToolTask` to "re-judge from first-turn tool-usage pattern" (reduce opening-turn misdetection). Planned, not yet implemented.
+### 6.3 Current configuration boundary and follow-up
+`resolveToolIterationBudget` clamps the configured initial value to 1–200; long tasks and Agent team start at least at 200. Progress can extend the budget in increments of 50, up to the separate hard limit of 300 for standard turns or 1000 for long turns. The initial setting is therefore not the total hard limit. Reclassifying from actual first-turn tool usage remains planned and is not implemented.
 
 ## 7. Compaction
 
-`context-compact-v2`: when over-window, history is compacted with ≥80% fact retention (9/10 tests). Compaction events are visible in the UI (🗜 family). A summary call never fails by over-windowing itself (budgeted + dynamically truncated); an over-window 400 does not end the turn (e2e stage B: turn ok).
+`context-compact-v2` uses budgeting and dynamic truncation to compact history; compaction events are visible in the UI (🗜 family). Successful recovery can continue the turn, but summarization or context recovery can still fail and follows the corresponding error path. Wave 51 recorded ≥80% fact retention in 9/10 fixed test cases and a successful over-window recovery in e2e stage B. Those historical fixture results are not guarantees for every model or task.
 
 ## 8. Checkpoints and undo
 
-Write-family tools enter the snapshot table (`BRIDGED_WRITE_PATH_ARGS`): create/modify/delete/move/copy, all operation shapes. A whole-turn rewind zeros the workspace. This is the backstop for the "interrupt + rewind" combo — non-cancellable tools (e.g. an already-completed file write) rely on checkpoints/rewind, and the copy makes the "interrupt + rewind" combination explicit (differentiator: operation-level undo).
+Registered file-path arguments enter the snapshot table (`BRIDGED_WRITE_PATH_ARGS`), covering create/modify/delete/move/copy operations with valid session context and snapshot-capable paths. Rewind attempts restoration in reverse journal order and reports failures; it does not reset the whole workspace. Shell scripts, sent messages, browser or desktop actions and other unregistered side effects are not automatically reversed. Interrupting stops future execution; completed actions retain their actual reversibility limits.

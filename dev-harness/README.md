@@ -1,14 +1,20 @@
 # dev-harness —— 如意 Ruyi 后端契约验证脚手架
 
-本轮为工作台(`ruyi-workbench`)与桌面控制(`ai-computer-control`)写的**离线 e2e** 与假件(fake)。
+本目录维护工作台(`ruyi-workbench`)与桌面控制(`ai-computer-control`)的**离线 e2e** 与假件(fake)。
 纯 Node、零 npm;路径已改为 `__dirname` 相对解析(dev-harness 与两子项目同级),**无需手改 WB 路径**。
+
+当前总数以根目录 [facts.json](../facts.json) 为准，测试范围和维护约定见 [CONTRIBUTING.md](../CONTRIBUTING.md)。下方逐件说明保留历次引入背景和当时参数；当前执行入口、端口分桶和跳过项以 `run-all.js` 及对应测试源码为准。
 
 ## 怎么跑
 
 ```powershell
 # 单件
 node dev-harness\openai-engine.e2e.js
-# 每件自成一体:spawn fake-openai/fake-mcp + workbench,断言,taskkill 清理,exit 0=全绿。
+# 每件自成一体:spawn 自己的假服务与工作台，断言后用 killOwnTree 清理自己的进程树。
+# 静态快通道（先运行单测）
+node dev-harness\run-all.js --fast --parallel 4
+# 全量回归由 runner 分桶；不要自行并发运行固定端口单件
+node dev-harness\run-all.js --parallel 4
 ```
 
 ### 在 Linux / 云端容器里跑(非主战场,但可用)
