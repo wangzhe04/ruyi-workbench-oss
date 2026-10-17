@@ -3546,6 +3546,7 @@
   ,"stewardShell.chat.handOffAbsent": "Checked: the earlier attempt never arrived, so you can send it again."
   ,"stewardShell.chat.handOffCheckUnknown": "The earlier attempt cannot be checked right now. Sending again will not execute the same hand-off twice, but confirm the result later."
   ,"stewardShell.chat.handOffRetried": "Sent again"
+  ,"stewardShell.chat.handOffRetryUnconfirmed": "Still unconfirmed: no receipt yet. Check again when you can."
   ,"navigation.mainViewTabs": "Main view tabs"
   ,"mission.stop.title": "Stop automatic progress"
   ,"autonomy.title": "Autonomy grants"

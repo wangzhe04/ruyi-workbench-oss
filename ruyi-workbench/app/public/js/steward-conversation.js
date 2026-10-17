@@ -1879,6 +1879,8 @@ export function createStewardConversation({
 
   async function deliverHandOff(attempt, options = {}) {
     const sid = attempt.sessionId;
+    // 有 pending 行要写的时候，失败文案写进那一行；否则才写进当前 feed（避免切线程写错视图）。
+    const reportFailure = text => { if (typeof options.report === 'function') options.report(text); else appendSteward(text, ''); };
     let response = null;
     try {
       response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({
@@ -1889,7 +1891,7 @@ export function createStewardConversation({
       // 5xx / 没有状态码的网络异常才可能已经执行 —— 那才需要「未确认 + 核对」。
       const status = Number(error && error.status);
       if (Number.isInteger(status) && status >= 400 && status < 500) {
-        appendSteward(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }), '');
+        reportFailure(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
         return null;
       }
       if (options.silentPending) return { sessionId: sid, pending: true, row: null, actsRow: null };
@@ -1898,7 +1900,7 @@ export function createStewardConversation({
     const result = response && response.result;
     if (result && result.ok === false) {
       const key = stewardActErrorKey(result.error);
-      appendSteward(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) }), '');
+      reportFailure(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) }));
       return null;
     }
     // 重放只说明「上一次已经执行过」：不再追加第二条回执行，也不重挂第二枚撤回按钮。
@@ -1974,9 +1976,10 @@ export function createStewardConversation({
       if (retryBtn.disabled) return;
       checkBtn.disabled = true; retryBtn.disabled = true;
       // 原话已经上屏一次，重发不再 appendUser；服务端按 attemptId 重放时也不会执行第二次。
-      const outcome = await deliverHandOff(attempt, { silentPending: true });
-      if (outcome && outcome.pending) { checkBtn.disabled = false; retryBtn.disabled = false; return; }
-      if (!outcome) { checkBtn.disabled = false; retryBtn.disabled = false; return; }   // 明确失败：错误已经印出来
+      // 重发失败的文案写回这一行（不写当前 feed），并明确说「仍未确认」。
+      const outcome = await deliverHandOff(attempt, { silentPending: true, report: text => say(text) });
+      if (outcome && outcome.pending) { say(t('stewardShell.chat.handOffRetryUnconfirmed')); checkBtn.disabled = false; retryBtn.disabled = false; return; }
+      if (!outcome) { checkBtn.disabled = false; retryBtn.disabled = false; return; }   // 明确失败：错误已经印在这一行上
       say('');
       settleRow(actsRow, t('stewardShell.chat.handOffRetried'), 'done');
     });

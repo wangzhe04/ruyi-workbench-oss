@@ -3546,6 +3546,7 @@
   ,"stewardShell.chat.handOffAbsent": "核对结果：上一次没有递到，可以重发。"
   ,"stewardShell.chat.handOffCheckUnknown": "现在无法核对上一次是否已递到。重发不会重复执行同一次递送，但请稍后再确认结果。"
   ,"stewardShell.chat.handOffRetried": "已重新递送"
+  ,"stewardShell.chat.handOffRetryUnconfirmed": "重发仍未确认：还没拿到回执，可以再核对一次。"
   ,"navigation.mainViewTabs": "中栏主视图"
   ,"mission.stop.title": "停止自动推进"
   ,"autonomy.title": "自主性授权书"
