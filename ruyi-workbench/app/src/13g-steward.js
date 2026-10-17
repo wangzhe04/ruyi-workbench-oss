@@ -251,6 +251,7 @@ const STEWARD_TAINT_GATED_TOOLS = new Set([
   'steward_thread_workspace', 'steward_playbook_draft', 'steward_decide', 'steward_run_action',
 ]);
 function stewardTaintGateApplies(toolName, args) {
+  if (toolName === 'steward_bot_setup') return args?.op === 'prepare';
   if (!STEWARD_TAINT_GATED_TOOLS.has(toolName)) return false;
   const action = String((args && args.action) || '').toLowerCase();
   if (toolName === 'steward_decide') return action !== 'deny' && action !== 'reject';
@@ -259,6 +260,7 @@ function stewardTaintGateApplies(toolName, args) {
 }
 
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
+async function stewardImplBotSetup(args, ctx) { return ExternalBotHooks.stewardSetup(args, ctx); }
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
     let config = null;
@@ -477,6 +479,7 @@ Object.assign(StewardHooks, {
   // 116-2e:设置族两个 + 内容管理三个(工具数 84 -> 89),外加两个基础设施键(收件箱行增强与速查收工,
   // 消费者分别是 13i 的轮询器与 13h 的回合收尾 —— 它们都只看 StewardHooks,不认识 13g)。
   configGet: stewardToolHandler('steward_config_get', stewardImplConfigGet),
+  botSetup: stewardToolHandler('steward_bot_setup', stewardImplBotSetup),
   configSet: stewardToolHandler('steward_config_set', stewardImplConfigSet),
   playbookDraft: stewardToolHandler('steward_playbook_draft', stewardImplPlaybookDraft),
   skillToggle: stewardToolHandler('steward_skill_toggle', stewardImplSkillToggle),

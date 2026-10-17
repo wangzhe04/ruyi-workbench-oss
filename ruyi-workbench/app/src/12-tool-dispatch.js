@@ -819,6 +819,7 @@ const STEWARD_TOOL_HANDLERS = {
   // 116-2e:设置族两个 + 内容管理三个。与上面 21 个同一纪律 —— 只写一行 StewardHooks.<键>(args, ctx),
   // handler 体里零 require、零 13g 内部符号(steward-tools.static ② 的机器判据)。
   steward_config_get: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.configGet(args, ctx) },
+  steward_bot_setup: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.botSetup(args, ctx) },
   steward_config_set: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.configSet(args, ctx) },
   steward_playbook_draft: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.playbookDraft(args, ctx) },
   steward_skill_toggle: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.skillToggle(args, ctx) },

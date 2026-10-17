@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-17T04:00:00.512Z",
+  "generatedAt": "2026-10-17T04:39:22.101Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -18,10 +18,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 147,
-    "decisionPoints": 161,
+    "routeAuthEntries": 150,
+    "decisionPoints": 164,
     "byKind": {
-      "exact": 138,
+      "exact": 141,
       "prefix": 11,
       "regex": 12
     },
@@ -47,6 +47,24 @@
     {
       "m": "POST",
       "p": "/api/external-bots/connections",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/external-bots/setup",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/setup",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/credentials",
       "auth": "token",
       "prefix": false
     },
@@ -5172,6 +5190,7 @@
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-pageshow.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\steward-answer.e2e.js",
@@ -5237,6 +5256,7 @@
       "coveredBy": [
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",
@@ -5464,6 +5484,7 @@
       "auth": "external-callback",
       "coveredBy": [
         "dev-harness\\external-bot-gateway.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
         "dev-harness\\external-bots.e2e.js"
       ]
     },
@@ -5481,9 +5502,61 @@
       "auth": "external-callback",
       "coveredBy": [
         "dev-harness\\external-bot-gateway.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
         "dev-harness\\external-bots-control.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\external-bots.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/setup",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/setup",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/credentials",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\unit\\external-bot-setup-ui.test.js"
       ]
     },
     {
@@ -5500,6 +5573,8 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\external-bot-gateway.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
         "dev-harness\\external-bots-control.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\external-bots.e2e.js"
@@ -5519,6 +5594,8 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\external-bot-gateway.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
         "dev-harness\\external-bots-control.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\external-bots.e2e.js"
@@ -5537,6 +5614,8 @@
       "domain": "external-bots",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
         "dev-harness\\external-bots-control.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\external-bots.e2e.js"

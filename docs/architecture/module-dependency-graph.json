@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 76,
-    "providedSymbols": 3756,
-    "requiredSymbols": 3301,
-    "edges": 561,
+    "modules": 77,
+    "providedSymbols": 3774,
+    "requiredSymbols": 3310,
+    "edges": 564,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -19340,6 +19340,7 @@
         "stewardCtxIsSteward",
         "stewardExternalContexts",
         "stewardExternalOwnerDirected",
+        "stewardImplBotSetup",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
         "stewardMemoryPanelExport",
@@ -21608,6 +21609,13 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTS_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_BLOCKING_DEBOUNCE_MS",
           "kinds": [
             "read"
@@ -23326,18 +23334,77 @@
       ]
     },
     {
-      "file": "13w-external-bots.js",
+      "file": "13y-external-bot-credentials.js",
       "order": 74,
+      "layer": "transport",
+      "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS",
+      "provides": [
+        "ExternalBotCredentials"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13w-external-bots.js",
+      "order": 75,
       "layer": "transport",
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker",
       "provides": [
         "EXTERNAL_BOT_CONNECTION_KEYS",
         "EXTERNAL_BOT_LIMITS",
+        "EXTERNAL_BOT_SETUP_KEYS",
+        "EXTERNAL_BOT_SETUP_PATHS",
         "externalBotAcceptCallback",
         "externalBotActiveActors",
         "externalBotActors",
+        "externalBotCapturePairing",
         "externalBotChains",
         "externalBotConfigured",
+        "externalBotConnectionFingerprint",
+        "externalBotCredentialSnapshot",
+        "externalBotCurrentPairing",
         "externalBotDecodeJson",
         "externalBotDeliveries",
         "externalBotDrain",
@@ -23350,6 +23417,7 @@
         "externalBotNormalizeConnection",
         "externalBotOutcome",
         "externalBotOwnerMatches",
+        "externalBotPairings",
         "externalBotPublicConnection",
         "externalBotPublicItem",
         "externalBotRate",
@@ -23359,13 +23427,22 @@
         "externalBotRecoveryDone",
         "externalBotReplyText",
         "externalBotResultUncertain",
+        "externalBotSafeCredentialError",
+        "externalBotSaveCredentials",
         "externalBotSecrets",
+        "externalBotSetupHttpOperation",
+        "externalBotSetupOperation",
+        "externalBotSetupReceipt",
+        "externalBotSetupSnapshot",
+        "externalBotSetupToken",
+        "externalBotStewardSetup",
         "externalBotStore",
         "externalBotString",
         "externalBotUnsettled",
         "externalBotUpdateConnection",
         "externalBotValidControlState",
         "externalBotValidItem",
+        "externalBotValidSetupReceipt",
         "externalBotValidState",
         "externalBotValidateActor",
         "externalBotWakeWorker",
@@ -23477,6 +23554,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "originOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "send",
           "kinds": [
             "call"
@@ -23509,12 +23593,19 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13y-external-bot-credentials.js",
+          "symbol": "ExternalBotCredentials",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
     {
       "file": "14-main.js",
-      "order": 75,
+      "order": 76,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -33485,6 +33576,7 @@
       "to": "13m-steward-runner-base.js",
       "symbols": [
         "STEWARD_ACTION_HOOKS",
+        "STEWARD_ACTS_MAX",
         "STEWARD_BLOCKING_DEBOUNCE_MS",
         "STEWARD_DEBOUNCE_MS",
         "STEWARD_DIGEST_KIND_TEXT",
@@ -33921,6 +34013,7 @@
       "to": "01-config.js",
       "symbols": [
         "DurableJsonStore",
+        "originOk",
         "send",
         "tokenOk"
       ],
@@ -33951,11 +34044,39 @@
       "direction": "backward"
     },
     {
+      "from": "13w-external-bots.js",
+      "to": "13y-external-bot-credentials.js",
+      "symbols": [
+        "ExternalBotCredentials"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "13x-external-channel-delivery.js",
       "to": "00-boot.js",
       "symbols": [
         "path",
         "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13y-external-bot-credentials.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "crypto",
+        "fsp",
+        "path",
+        "paths",
+        "runKeyedChain"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13y-external-bot-credentials.js",
+      "to": "01-config.js",
+      "symbols": [
+        "DurableJsonStore"
       ],
       "direction": "backward"
     },

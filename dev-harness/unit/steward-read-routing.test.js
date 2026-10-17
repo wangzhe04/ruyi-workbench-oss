@@ -39,7 +39,7 @@ test('轻量读取契约不放开污染、写执行、原话和权限边界', ()
 
 test('发给管家的schema与稳定提示同口径,受限读取schema保持原形', () => {
   const tools = new Map(srv.buildOpenAiTools(srv.defaultConfig(), null, { stewardSession: true }).map(t => [t.function.name, t.function]));
-  assert.equal(tools.size, 42, '不新增工具');
+  assert.equal(tools.size, 43, '67 adds the single bounded local bot setup tool');
   for (const name of ['steward_web_search', 'steward_web_fetch', 'steward_file_read', 'steward_thread_artifact_read']) {
     assert.match(tools.get(name).description, /本回合/);
     assert.match(tools.get(name).description, /外部内容/);
@@ -53,3 +53,5 @@ test('发给管家的schema与稳定提示同口径,受限读取schema保持原�
   assert.doesNotMatch(tools.get('steward_quick_ask').description, /要读文件、要联网、要跑命令才能答的问题/);
   assert.match(tools.get('steward_thread_new').description, /少量受限只读就能完整回答的问题/);
 });
+
+test('bot setup discipline is bilingual, local and keeps secrets out of model tools',()=>{for(const locale of ['zh-CN','en-US']){const prompt=srv.getPromptPack(locale).steward.stable;assert.match(prompt,/steward_bot_setup inspect/);assert.match(prompt,/prepare/);assert.match(prompt,/密钥|never chat secrets/);assert.match(prompt,/真实收发|confirmed traffic/);}assert.equal(srv.PROMPT_PACK_VERSION,'2026-w138-2','only steward text changed; ordinary prompt pack retains its version');});

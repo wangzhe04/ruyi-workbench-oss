@@ -1463,6 +1463,7 @@ export function createStewardSettingsDomain({
     bindStewardSettings,
     fillStewardSettings,
     openPanel,
+    openExternalBotSetup: id => { openPanel('externalBots'); return externalBots.openSetup(id); },
     refreshRunState,
     setStopped,
     renderShield,

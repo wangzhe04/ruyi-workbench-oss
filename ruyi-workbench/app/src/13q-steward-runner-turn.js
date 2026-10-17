@@ -220,7 +220,7 @@ async function stewardDelegationToolCalls(turnSeq, includeActions = false) {
   for (const m of messages) {
     if (!m || m.role !== 'assistant' || Number(m.turnSeq) !== want || !Array.isArray(m.toolCalls)) continue;
     for (const call of m.toolCalls) {
-      if (call && ((includeActions && STEWARD_ACTION_HOOKS[call.name]) ||
+      if (call && ((includeActions && (STEWARD_ACTION_HOOKS[call.name] || call.name === 'steward_bot_setup')) ||
         (call.name === 'steward_decide' && call.result && call.result.ok === true && call.result.exemptDelegation))) out.push(call);
     }
   }
@@ -373,6 +373,14 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // must invalidate duplicate buttons just like the structured actions do.
   const directReceipts = turnToolCalls.map(call => ({ tool: call.name, args: call.input || {}, result: call.result }));
   const acts = stewardDowngradeActions(executed, parsedReply.acts, directReceipts);
+  if (trigger === 'user') {
+    const prepared = turnToolCalls.find(call => call.name === 'steward_bot_setup' && call.input?.op === 'prepare'
+      && call.result?.ok === true && call.result.prepared === true && /^[a-z][a-z0-9_-]{0,63}$/.test(call.result.connectionId));
+    if (prepared) {
+      if (acts.length >= STEWARD_ACTS_MAX) acts.pop();
+      acts.push({ kind: 'external_bot_setup', connectionId: prepared.result.connectionId, label: '继续配置机器人' });
+    }
+  }
   // 117l D5:say/why 在【这里】过一遍人话化 —— 于是 steward_reply 帧、落盘的 meta、/api/steward/state
   // 的 lastReply 三处拿到的是【同一份】文字(修前 ※ 里满是 sess_/question_)。acts/actions 不动。
   const say = await stewardHumanizeSay(parsedReply.say);

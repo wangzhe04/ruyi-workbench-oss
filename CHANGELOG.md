@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 管家可根据用户提供的 QQ／飞书应用资料检查缺项并准备机器人连接。新增专用凭据录入与短时配对引导，自动识别本人账号和聊天，最终在本机确认开启远程控制。Windows 使用当前用户 DPAPI 保存机器人密钥；原有环境变量方式保留，非 Windows 不降级为明文保存。配对与本机配置就绪不等于真实平台收发已验证。
+- The Steward can inspect supplied QQ/Feishu app information and prepare a disabled bot connection. Dedicated credential entry and short-lived pairing identify the owner's account and conversation before local authorization enables remote control. Windows stores bot credentials with current-user DPAPI; environment references remain supported, with no plaintext fallback on other platforms. Pairing and local readiness do not imply verified live platform delivery.
+
 - 新增 QQ 官方机器人与飞书应用机器人远程控制入口：本机显式授权本人账号与会话后，远程指令进入同一个管家，沿现有权限交办、查询、续办和停止，并将本次答复返回原会话。连接默认关闭，也可选仅收件；持久化区分受理、执行与发送结果，重投不重复办理，未知执行或发送不自动重放。真实平台账户、HTTPS 与权限配置仍需部署联调。
 - Add remote control through official QQ and Feishu app bots. After explicit local authorization of an owner account and conversation, remote instructions enter the same Steward for delegation, queries, continuation and stopping under existing permissions; replies return to the original conversation. Connections start disabled and can instead be inbox-only. Durable receipt, execution and delivery states prevent duplicate execution on redelivery; uncertain outcomes are not automatically replayed. Actual platform accounts, HTTPS and permissions still require deployment checks.
 

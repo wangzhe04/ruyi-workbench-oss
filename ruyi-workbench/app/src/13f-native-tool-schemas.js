@@ -1292,6 +1292,21 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'steward_bot_setup',
+    description: '检查或准备 QQ/飞书机器人接入。inspect 只读：分别报告本机配置、凭据是否存在和真实收发证据，不代表已联通。prepare 仅可信本机用户回合可调用：根据完整应用身份创建或复用 disabled inbox 连接，不启用、不改 owner、不自动发送。QQ 需要 appId；飞书需要 appId、tenantId、机器人 botUserId(open_id)，缺少就先向用户索取获取这些非秘密标识，绝不猜测。任何 secret/token/key 或 enabled/owner/确认字段都不能传入；密钥仅在本机专用安全输入框填，随后本机配对并确认启用。不要让用户把密钥发进聊天，不要读取环境变量或凭据文件。真实 prepare 成功会由服务端给出配置导航按钮，不要自己编造完成或联通状态。',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['op'],
+      properties: {
+        op: { type: 'string', enum: ['inspect', 'prepare'] },
+        connectionId: { type: 'string', description: '可选。inspect指定连接，prepare仅复用该完整身份的disabled inbox连接；新建不用提供。' },
+        platform: { type: 'string', enum: ['qq', 'feishu'] },
+        appId: { type: 'string' }, tenantId: { type: 'string' },
+        botUserId: { type: 'string', description: '飞书机器人open_id，不能用user_id或union_id。' },
+        label: { type: 'string', maxLength: 120 },
+      },
+    },
+  },
+  {
     name: 'steward_config_set',
     description: '改如意的设置。绝大多数运行参数都能改(一百多个键),三级分级由 steward_config_get 的 tiers 逐键给出:free 级(界面语言/主题/风格、管家自己的节流与预算、各种等待时长、显示与启停整洁度)直接生效;confirm 级(主端点与模型、子代理与语音端点、MCP 连接器与浏览器目标、新线程默认权限、管家总开关与自理清单、引擎与上下文旋钮、并发上限、模型清单、调度器与安静卡、管家注意力面、用量预算)返回 propose_required——界面会把它变成一个按钮,用户按下才写;forbidden 级(任何密钥/token、数据目录与工作区围栏、命令与桌面工具放行、提示词注入面、代批开关、簿记)整份拒绝 steward.forbidden,一个键都不写。改之前先 steward_config_get 看当前值与 help(每个键一句「是什么、单位、范围」)。何时用:用户明确说了要改某个设置。何时别用:① 不要为了绕开某条限制去改设置(放宽权限是永久豁免的第 2 条,做不到也别试);② propose_required 与 steward.forbidden 都【不要重试】,把话说给用户听;③ 值被 sanitize 判非法会回 invalid_request 并列出键名,换合法值再来。整份原子:任一键不合格就零写入。返回 {ok,applied,tiers,undoRef}。',
     inputSchema: {

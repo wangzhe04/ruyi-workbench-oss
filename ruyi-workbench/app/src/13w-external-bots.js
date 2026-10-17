@@ -7,6 +7,9 @@ const externalBotActiveActors = new Map();
 const externalBotUnsettled = new Map();
 const externalBotDeliveries = new Map();
 const externalBotChains = new Map();
+const externalBotPairings = new Map(); // At most one five-minute window per existing connection; never persisted.
+const EXTERNAL_BOT_SETUP_KEYS = Object.freeze(['op', 'connectionId', 'platform', 'appId', 'tenantId', 'botUserId', 'label']);
+const EXTERNAL_BOT_SETUP_PATHS = Object.freeze(['/api/external-bots/setup', '/api/external-bots/credentials']);
 let externalBotInflight = 0;
 let externalBotRate = { at: 0, count: 0 };
 let externalBotWorkerBusy = false;
@@ -50,23 +53,166 @@ function externalBotNormalizeConnection(raw, id) {
     || !out.allowedSenderIds.includes(out.ownerSenderId) || !out.allowedConversationIds.includes(out.ownerConversationId))) throw externalBotError('external_channel.owner_invalid');
   return out;
 }
-function externalBotSecrets(connection) {
-  const out = {};
-  for (const [reference, name] of [['verificationTokenEnv', 'verificationToken'], ['encryptKeyEnv', 'encryptKey'], ['botSecretEnv', 'botSecret'], ['appSecretEnv', 'appSecret']]) {
-    const key = connection[reference];
-    // Only names explicitly declared on this connection and in this reserved namespace are resolved.
-    const value = externalBotEnvReference(key) && key ? process.env[key] : '';
-    out[name] = typeof value === 'string' && value.length <= 8192 ? value : '';
-  }
-  return out;
+async function externalBotCredentialSnapshot(connection) {
+  return ExternalBotCredentials.snapshot(connection);
 }
-function externalBotConfigured(connection, secrets = externalBotSecrets(connection)) {
+async function externalBotSecrets(connection) { return (await externalBotCredentialSnapshot(connection)).values; }
+function externalBotConfigured(connection, secrets) {
   const ingress = connection.platform === 'qq' ? Boolean(connection.appId && secrets.botSecret)
     : Boolean(connection.appId && connection.tenantId && connection.botUserId && secrets.verificationToken && secrets.encryptKey);
   return ingress && (connection.mode !== 'control' || connection.platform === 'qq' || Boolean(secrets.appSecret));
 }
-function externalBotPublicConnection(connection) {
-  return { ...connection, configured: externalBotConfigured(connection), callbackPath: '/api/external-bots/callback/' + connection.platform + '?connectionId=' + encodeURIComponent(connection.id) };
+async function externalBotPublicConnection(connection) {
+  const out = { ...connection, configured: false, callbackPath: '/api/external-bots/callback/' + connection.platform + '?connectionId=' + encodeURIComponent(connection.id) };
+  try { out.configured = externalBotConfigured(connection, await externalBotSecrets(connection)); }
+  catch (error) { out.credentialError = externalBotSafeCredentialError(error); }
+  return out;
+}
+function externalBotSafeCredentialError(error) {
+  return /^external_credentials\.[a-z_]+$/.test(error?.code) ? error.code : 'external_credentials.unavailable';
+}
+function externalBotConnectionFingerprint(connection) {
+  return crypto.createHash('sha256').update(JSON.stringify(connection)).digest('hex');
+}
+function externalBotSetupReceipt(connectionId, message) {
+  const textHash = crypto.createHash('sha256').update(message.text).digest('hex');
+  return { connectionId, tenantId: message.tenantId, conversationId: message.conversationId, messageId: message.messageId,
+    senderId: message.senderId, conversationType: message.conversationType, textHash,
+    sourceKey: JSON.stringify([connectionId, message.tenantId, message.conversationId, message.messageId]),
+    contentHash: crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, textHash])).digest('hex') };
+}
+function externalBotValidSetupReceipt(receipt) {
+  return receipt && !Array.isArray(receipt) && !Object.keys(receipt).some(key => !['connectionId', 'tenantId', 'conversationId', 'messageId', 'senderId', 'conversationType', 'textHash', 'sourceKey', 'contentHash'].includes(key))
+    && ['connectionId', 'tenantId', 'conversationId', 'messageId', 'senderId'].every(key => externalBotIdentity(receipt[key]))
+    && ['direct', 'group'].includes(receipt.conversationType) && /^[a-f0-9]{64}$/.test(receipt.textHash)
+    && receipt.sourceKey === JSON.stringify([receipt.connectionId, receipt.tenantId, receipt.conversationId, receipt.messageId])
+    && receipt.contentHash === crypto.createHash('sha256').update(JSON.stringify([receipt.senderId, receipt.conversationType, receipt.textHash])).digest('hex');
+}
+async function externalBotCurrentPairing(connection, credentials) {
+  const pairing = externalBotPairings.get(connection.id);
+  if (!pairing) return null;
+  const current = credentials || await externalBotCredentialSnapshot(connection);
+  if (connection.enabled || current.credentialError || pairing.expiresAt <= Date.now() || pairing.fingerprint !== externalBotConnectionFingerprint(connection)
+    || pairing.credentialRevision !== current.credentialRevision) {
+    externalBotPairings.delete(connection.id); return null;
+  }
+  return pairing;
+}
+function externalBotSetupToken(connection, credentials, pairing) {
+  return crypto.createHash('sha256').update(JSON.stringify([OVERLAY_ID, externalBotConnectionFingerprint(connection),
+    credentials.credentialRevision, pairing?.pairingId || null, pairing?.candidate || null])).digest('hex');
+}
+async function externalBotSetupSnapshot(connection) {
+  let credentials;
+  try { credentials = await externalBotCredentialSnapshot(connection); }
+  catch (error) {
+    let inspected;
+    try { inspected = await ExternalBotCredentials.inspect(connection); } catch { inspected = { credentialRevision: 'unavailable', fields: {} }; }
+    credentials = { ...inspected, values: {}, credentialError: externalBotSafeCredentialError(error) };
+  }
+  const pairing = await externalBotCurrentPairing(connection, credentials);
+  const inbound = connection.platform === 'qq' ? ['botSecret'] : ['verificationToken', 'encryptKey'];
+  const required = connection.platform === 'qq' ? inbound : [...inbound, 'appSecret'];
+  const missing = required.filter(slot => credentials.fields[slot]?.ready !== true);
+  return { ok: true, connection: { ...connection,
+    configured: externalBotConfigured(connection, credentials.values),
+    callbackPath: '/api/external-bots/callback/' + connection.platform + '?connectionId=' + encodeURIComponent(connection.id) },
+    readiness: { ingressReady: !credentials.credentialError && inbound.every(slot => credentials.fields[slot]?.ready === true), replyReady: !credentials.credentialError && missing.length === 0,
+      missing, credentialSources: credentials.fields, ...(credentials.credentialError ? { errorCode: credentials.credentialError } : {}) },
+    pairing: pairing ? { state: pairing.candidate ? 'candidate' : 'waiting', pairingId: pairing.pairingId,
+      ...(pairing.candidate ? {} : { code: pairing.code }), expiresAt: new Date(pairing.expiresAt).toISOString(), candidate: pairing.candidate } : null,
+    expectedSetupToken: externalBotSetupToken(connection, credentials, pairing) };
+}
+async function externalBotSetupOperation(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)
+    || Object.keys(body).some(key => !['op', 'connectionId', 'expectedSetupToken', 'controlConfirmed'].includes(key))) throw externalBotError('external_channel.request_invalid');
+  const state = await externalBotReadState();
+  const connection = state.connections.find(row => row.id === body.connectionId);
+  if (!connection) throw externalBotError('external_channel.connection_not_found', 404);
+  const credentials = await externalBotCredentialSnapshot(connection);
+  const pairing = await externalBotCurrentPairing(connection, credentials);
+  if (typeof body.expectedSetupToken !== 'string' || body.expectedSetupToken !== externalBotSetupToken(connection, credentials, pairing)) throw externalBotError('external_channel.setup_conflict', 409);
+  if (connection.enabled) throw externalBotError('external_channel.setup_requires_disabled', 409);
+  if (body.op === 'pair_cancel') externalBotPairings.delete(connection.id);
+  else if (body.op === 'pair_start') {
+    if (!externalBotConfigured({ ...connection, mode: 'inbox' }, credentials.values)) throw externalBotError('external_channel.connection_incomplete', 409);
+    externalBotPairings.set(connection.id, { pairingId: crypto.randomBytes(16).toString('hex'),
+      code: 'RUYI-' + crypto.randomBytes(16).toString('base64url'), expiresAt: Date.now() + 5 * 60 * 1000,
+      fingerprint: externalBotConnectionFingerprint(connection), credentialRevision: credentials.credentialRevision, candidate: null });
+  } else if (body.op === 'activate') {
+    if (body.controlConfirmed !== true) throw externalBotError('external_channel.control_confirmation_required', 409);
+    if (!pairing?.candidate) throw externalBotError('external_channel.pairing_required', 409);
+    if (!pairing.proof || !(state.setupReceipts || []).some(row => row.sourceKey === pairing.proof.sourceKey && row.contentHash === pairing.proof.contentHash)) throw externalBotError('external_channel.pairing_required', 409);
+    if (!externalBotConfigured({ ...connection, mode: 'control' }, credentials.values)) throw externalBotError('external_channel.connection_incomplete', 409);
+    const { senderId, conversationId, conversationType } = pairing.candidate;
+    const { controlRevision, ...fields } = connection;
+    await externalBotUpdateConnection({ op: 'upsert', controlConfirmed: true, connection: { ...fields, enabled: true, mode: 'control',
+      ownerSenderId: senderId, ownerConversationId: conversationId, ownerConversationType: conversationType,
+      allowedSenderIds: [senderId], allowedConversationIds: [conversationId] } }, pairing.proof);
+    externalBotPairings.delete(connection.id);
+    const updated = (await externalBotReadState()).connections.find(row => row.id === connection.id);
+    return externalBotSetupSnapshot(updated);
+  } else throw externalBotError('external_channel.request_invalid');
+  return externalBotSetupSnapshot(connection);
+}
+function externalBotCapturePairing(connection, pairing, message, ack) {
+  if (message.tenantId !== connection.tenantId) throw externalBotError('external_channel.source_forbidden', 403);
+  // A verified event proves only who sent this exact one-time code. It never grants authority itself.
+  if (!pairing.candidate && message.text === pairing.code) {
+    pairing.candidate = { senderId: message.senderId, conversationId: message.conversationId, conversationType: message.conversationType, receivedAt: nowIso() };
+    pairing.proof = externalBotSetupReceipt(connection.id, message);
+  }
+  return ack;
+}
+async function externalBotSaveCredentials(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)
+    || Object.keys(body).some(key => !['connectionId', 'expectedSetupToken', 'credentials'].includes(key))) throw externalBotError('external_channel.request_invalid');
+  const state = await externalBotReadState(); const connection = state.connections.find(row => row.id === body.connectionId);
+  if (!connection) throw externalBotError('external_channel.connection_not_found', 404);
+  const patch = body.credentials;
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch) || Object.keys(patch).some(key => !['set', 'remove', 'replaceAll'].includes(key))) throw externalBotError('external_channel.request_invalid');
+  const credentials = patch.replaceAll === true ? { ...await ExternalBotCredentials.inspect(connection), values: {} } : await externalBotCredentialSnapshot(connection);
+  const pairing = await externalBotCurrentPairing(connection, credentials);
+  if (body.expectedSetupToken !== externalBotSetupToken(connection, credentials, pairing)) throw externalBotError('external_channel.setup_conflict', 409);
+  if (connection.enabled) throw externalBotError('external_channel.setup_requires_disabled', 409);
+  await ExternalBotCredentials.save(connection, { ...patch, expectedRevision: credentials.credentialRevision });
+  externalBotPairings.delete(connection.id);
+  return externalBotSetupSnapshot(connection);
+}
+async function externalBotStewardSetup(args, ctx) {
+  if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(key => !EXTERNAL_BOT_SETUP_KEYS.includes(key))) return { ok: false, error: 'invalid_request' };
+  if (!['inspect', 'prepare'].includes(args.op)) return { ok: false, error: 'invalid_request' };
+  if (args.op === 'prepare' && ctx?.trigger !== 'user') return { ok: false, error: 'steward.forbidden', reason: 'local_user_required' };
+  return runKeyedChain(externalBotChains, 'state', async () => {
+    const state = await externalBotReadState();
+    if (args.op === 'inspect') {
+      const selected = state.connections.filter(row => !args.connectionId || row.id === args.connectionId);
+      const connections = [];
+      for (const connection of selected) {
+        const snapshot = await externalBotSetupSnapshot(connection);
+        connections.push({ connection: snapshot.connection, readiness: snapshot.readiness,
+          localConfiguration: connection.enabled ? 'enabled' : 'disabled', pairingCandidate: snapshot.pairing?.state === 'candidate', controlBound: connection.enabled && connection.mode === 'control' && Boolean(connection.ownerSenderId && connection.ownerConversationId),
+          evidence: { receivedMessages: state.items.filter(item => item.connectionId === connection.id).length,
+            confirmedReplies: state.items.filter(item => item.connectionId === connection.id && item.delivery?.status === 'sent').length } });
+      }
+      return { ok: true, connections, requiredIdentity: { qq: ['appId'], feishu: ['appId', 'tenantId', 'botUserId'] },
+        guidance: { appId: '应用管理后台的应用 ID', tenantId: '飞书应用所属租户 tenant_key', botUserId: '飞书机器人 open_id，不能用 user_id 或 union_id',
+          secrets: '密钥仅在本机机器人配置面板填写，不要发进聊天；已保存不代表公网回调或平台回复已经验证' } };
+    }
+    if (!['qq', 'feishu'].includes(args.platform)) return { ok: false, error: 'invalid_request', missing: ['platform'] };
+    const required = args.platform === 'qq' ? ['appId'] : ['appId', 'tenantId', 'botUserId'];
+    const missing = required.filter(key => !externalBotIdentity(args[key]));
+    if (missing.length) return { ok: false, error: 'invalid_request', missing, guidance: '从应用后台获取这些标识；飞书 botUserId 必须为机器人 open_id，不能猜测。' };
+    const identity = row => row.platform === args.platform && row.appId === args.appId && row.tenantId === (args.tenantId || args.appId) && row.botUserId === (args.botUserId || '');
+    const existing = args.connectionId ? state.connections.find(row => row.id === args.connectionId) : state.connections.find(identity);
+    if (existing && (!identity(existing) || existing.enabled || existing.mode !== 'inbox' || existing.ownerSenderId || existing.ownerConversationId)) return { ok: false, error: 'external_channel.setup_existing_conflict' };
+    if (args.connectionId && !existing) return { ok: false, error: 'external_channel.connection_not_found' };
+    if (existing) return { ok: true, prepared: true, reused: true, connectionId: existing.id, disabled: true };
+    const id = 'bot_' + crypto.randomBytes(16).toString('hex');
+    await externalBotUpdateConnection({ op: 'upsert', connection: { id, platform: args.platform, appId: args.appId,
+      tenantId: args.tenantId, botUserId: args.botUserId, label: args.label || '', enabled: false, mode: 'inbox' } });
+    return { ok: true, prepared: true, reused: false, connectionId: id, disabled: true };
+  });
 }
 function externalBotPublicItem(item) {
   const out = {};
@@ -103,12 +249,12 @@ function externalBotValidControlState(item) {
     && externalBotString(delivery.messageId, 128, true) && externalBotString(delivery.errorCode, 128, true) && date(delivery.updatedAt)
     && (delivery.status !== 'sent' || Boolean(delivery.messageId)));
 }
-function externalBotOwnerMatches(connection, item) {
+async function externalBotOwnerMatches(connection, item) {
   return Boolean(connection && connection.enabled && connection.mode === 'control' && item.control
     && connection.id === item.connectionId && connection.controlRevision === item.control.controlRevision
     && connection.platform === item.platform && connection.appId === item.control.appId && connection.tenantId === item.tenantId
     && connection.ownerSenderId === item.senderId && connection.ownerConversationId === item.conversationId && connection.ownerConversationType === item.conversationType
-    && connection.allowedSenderIds.includes(item.senderId) && connection.allowedConversationIds.includes(item.conversationId) && externalBotConfigured(connection));
+    && connection.allowedSenderIds.includes(item.senderId) && connection.allowedConversationIds.includes(item.conversationId) && externalBotConfigured(connection, await externalBotSecrets(connection)));
 }
 async function externalBotValidateActor(actor) {
   const proof = actor && typeof actor === 'object' ? externalBotActors.get(actor) : null;
@@ -117,7 +263,7 @@ async function externalBotValidateActor(actor) {
     const state = await externalBotReadState(); const item = state.items.find(row => row.id === proof.itemId);
     const connection = state.connections.find(row => row.id === proof.connectionId);
     if (!item || item.execution?.status !== 'running' || item.execution.serverInstanceId !== OVERLAY_ID || proof.controlRevision !== item.control?.controlRevision
-      || !externalBotOwnerMatches(connection, item)) throw externalBotError('external_channel.control_revoked', 403);
+      || !(await externalBotOwnerMatches(connection, item))) throw externalBotError('external_channel.control_revoked', 403);
     return { ...item.control, itemId: item.id };
   });
 }
@@ -171,14 +317,14 @@ async function externalBotNextJob() {
     const item = state.items.find(row => row.delivery?.status === 'pending') || state.items.find(row => row.execution?.status === 'queued');
     if (!item) return null;
     const connection = state.connections.find(row => row.id === item.connectionId);
-    if (!externalBotOwnerMatches(connection, item)) {
+    if (!(await externalBotOwnerMatches(connection, item))) {
       if (item.execution?.status === 'queued') item.execution = { ...item.execution, status: 'failed', finishedAt: nowIso(), errorCode: 'external_channel.control_revoked', replyText: '' };
       if (item.delivery?.status === 'pending') item.delivery = { ...item.delivery, status: 'failed', updatedAt: nowIso(), errorCode: 'external_channel.control_revoked' };
       await externalBotWriteState(state); return { kind: 'skip' };
     }
     if (item.delivery?.status === 'pending') {
       item.delivery = { ...item.delivery, status: 'sending', updatedAt: nowIso() }; await externalBotWriteState(state);
-      return { kind: 'send', item: JSON.parse(JSON.stringify(item)), connection: { ...connection, ...externalBotSecrets(connection) } };
+      return { kind: 'send', item: JSON.parse(JSON.stringify(item)), connection: { ...connection, ...await externalBotSecrets(connection) } };
     }
     item.execution = { ...item.execution, status: 'running', serverInstanceId: OVERLAY_ID, startedAt: nowIso() }; await externalBotWriteState(state);
     const actor = Object.freeze({}); const proof = { itemId: item.id, connectionId: item.connectionId, controlRevision: item.control.controlRevision, controller: new AbortController() };
@@ -223,7 +369,7 @@ async function externalBotDrain() {
             externalBotDeliveries.set(job.item.id, { connectionId: job.item.connectionId, controlRevision: job.item.control.controlRevision, controller });
             const allowed = await runKeyedChain(externalBotChains, 'state', async () => {
               const state = await externalBotReadState(); const item = state.items.find(row => row.id === job.item.id);
-              return item && externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item);
+              return item && await externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item);
             });
             result = !allowed || controller.signal.aborted ? { status: 'failed', errorCode: 'external_channel.control_revoked' }
               : await ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText, { attemptId: job.item.delivery.attemptId, signal: controller.signal });
@@ -240,7 +386,9 @@ async function externalBotDrain() {
 }
 function externalBotWakeWorker() { if (!externalBotWorkerStopped) void externalBotDrain(); }
 function externalBotValidState(state) {
-  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds'].includes(key)) || state.schema !== 1 || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
+  if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
+    || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
+  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts'].includes(key)) || state.schema !== 1 || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
     || !Array.isArray(state.items) || state.items.length > EXTERNAL_BOT_LIMITS.items
     || !Array.isArray(state.retiredConnectionIds) || state.retiredConnectionIds.length > EXTERNAL_BOT_LIMITS.retiredIds
     || state.retiredConnectionIds.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(id))
@@ -249,9 +397,10 @@ function externalBotValidState(state) {
     for (const connection of state.connections) {
       const { controlRevision, ...fields } = connection;
       if (!Number.isSafeInteger(controlRevision) || controlRevision < 1 || JSON.stringify(externalBotNormalizeConnection(fields, fields.id)) !== JSON.stringify(fields)) return false;
+      // Credentials may now live in the separate encrypted vault. This synchronous schema validates
+      // metadata only; every admission still resolves and verifies the current credentials strictly.
       if (connection.enabled && (!connection.allowedSenderIds.length || !connection.allowedConversationIds.length
-        || (connection.platform === 'qq' ? !connection.botSecretEnv : !connection.verificationTokenEnv || !connection.encryptKeyEnv || !connection.tenantId || !connection.botUserId)
-        || (connection.mode === 'control' && connection.platform === 'feishu' && !connection.appSecretEnv))) return false;
+        || (connection.platform === 'feishu' && (!connection.tenantId || !connection.botUserId)))) return false;
     }
   } catch { return false; }
   return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(externalBotValidItem)
@@ -297,13 +446,13 @@ function externalBotDecodeJson(raw) {
     return value;
   } catch { throw externalBotError('external_channel.body_invalid'); }
 }
-async function externalBotUpdateConnection(body) {
+async function externalBotUpdateConnection(body, setupReceipt) {
   const state = await externalBotReadState();
   if (body.op === 'upsert') {
     const id = body.connection?.id;
     if (typeof id !== 'string' || !id) throw externalBotError('external_channel.connection_invalid');
     const connection = externalBotNormalizeConnection(body.connection, id);
-    if (connection.enabled && (!externalBotConfigured(connection) || !connection.allowedSenderIds.length || !connection.allowedConversationIds.length)) throw externalBotError('external_channel.connection_incomplete');
+    if (connection.enabled && (!externalBotConfigured(connection, await externalBotSecrets(connection)) || !connection.allowedSenderIds.length || !connection.allowedConversationIds.length)) throw externalBotError('external_channel.connection_incomplete');
     const index = state.connections.findIndex(row => row.id === id);
     const previous = index >= 0 ? state.connections[index] : null;
     if (connection.mode === 'control' && (!previous || previous.mode !== 'control' || (!previous.enabled && connection.enabled)
@@ -327,7 +476,18 @@ async function externalBotUpdateConnection(body) {
       state.connections.splice(index, 1); // Inbox and retired identity evidence remain permanent until a future explicit management policy.
     }
   } else throw externalBotError('external_channel.request_invalid');
+  if (setupReceipt) {
+    if (!externalBotValidSetupReceipt(setupReceipt) || setupReceipt.connectionId !== body.connection?.id) throw externalBotError('external_channel.pairing_required', 409);
+    const receipts = state.setupReceipts || [];
+    const existing = receipts.find(row => row.sourceKey === setupReceipt.sourceKey);
+    if (existing && existing.contentHash !== setupReceipt.contentHash) throw externalBotError('external_channel.message_conflict', 409);
+    if (!existing) {
+      if (receipts.length >= 4096) throw externalBotError('external_channel.setup_receipts_full', 409);
+      state.setupReceipts = receipts.concat(setupReceipt);
+    }
+  }
   await externalBotWriteState(state);
+  externalBotPairings.delete(body.id || body.connection?.id);
   // Cancellation affects only the outbound request still in flight; tasks already started are not
   // rolled back. Token-phase aborts can prevent a message POST, while post-phase ambiguity stays unknown.
   for (const delivery of externalBotDeliveries.values()) {
@@ -338,14 +498,16 @@ async function externalBotUpdateConnection(body) {
     const current = state.connections.find(row => row.id === actor.connectionId);
     if (!current || !current.enabled || current.controlRevision !== actor.controlRevision) actor.controller.abort();
   }
-  return { ok: true, connections: state.connections.map(externalBotPublicConnection) };
+  return { ok: true, connections: await Promise.all(state.connections.map(externalBotPublicConnection)) };
 }
 async function externalBotAcceptCallback(platform, connectionId, headers, rawBody) {
   const state = await externalBotReadState();
   const connection = state.connections.find(row => row.id === connectionId && row.platform === platform);
-  if (!connection || !connection.enabled) throw externalBotError('external_channel.connection_unavailable', 404);
-  const secrets = externalBotSecrets(connection);
-  if (!externalBotConfigured(connection, secrets)) throw externalBotError('external_channel.connection_unavailable', 503);
+  const credentials = connection && (connection.enabled || externalBotPairings.has(connection.id)) ? await externalBotCredentialSnapshot(connection) : null;
+  const pairing = connection ? await externalBotCurrentPairing(connection, credentials) : null;
+  if (!connection || (!connection.enabled && !pairing)) throw externalBotError('external_channel.connection_unavailable', 404);
+  const secrets = credentials.values;
+  if (!externalBotConfigured({ ...connection, mode: 'inbox' }, secrets)) throw externalBotError('external_channel.connection_unavailable', 503);
   externalBotDecodeJson(rawBody); // Fatal UTF-8 and root-shape checks do not alter the exact bytes the protocol verifies.
   let verified;
   try { verified = ExternalChannelProtocols.verifyAndNormalize(platform, { ...connection, ...secrets }, headers, rawBody); }
@@ -359,6 +521,23 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
     || !['direct', 'group'].includes(message.conversationType) || typeof message.text !== 'string' || !message.text.trim()
     || message.text.length > EXTERNAL_BOT_LIMITS.textChars || Buffer.byteLength(message.text, 'utf8') > EXTERNAL_BOT_LIMITS.textBytes
     || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(message.text)) throw externalBotError('external_channel.message_invalid');
+  const setupReceipt = externalBotSetupReceipt(connection.id, message);
+  const priorSetup = (state.setupReceipts || []).find(row => row.sourceKey === setupReceipt.sourceKey);
+  if (priorSetup) {
+    if (priorSetup.contentHash !== setupReceipt.contentHash) throw externalBotError('external_channel.message_conflict', 409);
+    if (pairing) return externalBotCapturePairing(connection, pairing, message, ack);
+    return ack;
+  }
+  if (pairing) {
+    if ((state.setupReceipts || []).length >= 4096) throw externalBotError('external_channel.setup_receipts_full', 409);
+    if (message.tenantId !== connection.tenantId) throw externalBotError('external_channel.source_forbidden', 403);
+    // Every verified message ACKed as setup-only stays setup-only after activation, cancellation
+    // and process restarts. Persist before fixing the in-memory candidate or acknowledging receipt.
+    state.setupReceipts = (state.setupReceipts || []).concat(setupReceipt);
+    await externalBotWriteState(state);
+    return externalBotCapturePairing(connection, pairing, message, ack);
+  }
+  if (!connection.enabled) throw externalBotError('external_channel.connection_unavailable', 404);
   if (message.tenantId !== connection.tenantId || !connection.allowedSenderIds.includes(message.senderId) || !connection.allowedConversationIds.includes(message.conversationId)) throw externalBotError('external_channel.source_forbidden', 403);
   const sourceKey = JSON.stringify([connection.id, message.tenantId, message.conversationId, message.messageId]);
   const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, message.text])).digest('hex');
@@ -378,8 +557,16 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   await externalBotWriteState(state);
   return ack;
 }
+async function externalBotSetupHttpOperation(req, res, operation) {
+  if (new URL(req.url, 'http://localhost').search) throw externalBotError('external_channel.request_invalid');
+  const body = externalBotDecodeJson(await externalBotReadBody(req));
+  const result = await runKeyedChain(externalBotChains, 'state', () => operation(body));
+  externalBotWakeWorker();
+  if (!res.destroyed && !res.writableEnded) send(res, json(result));
+  return true;
+}
 async function handleExternalBotApiRoutes(req, res, pathname) {
-  const adminPaths = ['/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read'];
+  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read'];
   let callbackPlatform = '';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/qq') callbackPlatform = 'qq';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/feishu') callbackPlatform = 'feishu';
@@ -401,9 +588,21 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
       if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
     }
     if (!tokenOk(req)) throw externalBotError('auth.token_invalid', 403);
+    if (EXTERNAL_BOT_SETUP_PATHS.includes(pathname) && !originOk(req)) throw externalBotError('auth.origin_rejected', 403);
+    if (req.method === 'GET' && pathname === '/api/external-bots/setup') {
+      if ([...url.searchParams.keys()].some(key => key !== 'connectionId') || url.searchParams.getAll('connectionId').length !== 1) throw externalBotError('external_channel.request_invalid');
+      const result = await runKeyedChain(externalBotChains, 'state', async () => {
+        const state = await externalBotReadState(); const connection = state.connections.find(row => row.id === url.searchParams.get('connectionId'));
+        if (!connection) throw externalBotError('external_channel.connection_not_found', 404);
+        return externalBotSetupSnapshot(connection);
+      });
+      send(res, json(result)); return true;
+    }
+    if (req.method === 'POST' && pathname === '/api/external-bots/setup') return await externalBotSetupHttpOperation(req, res, externalBotSetupOperation);
+    if (req.method === 'POST' && pathname === '/api/external-bots/credentials') return await externalBotSetupHttpOperation(req, res, externalBotSaveCredentials);
     if (req.method === 'GET' && pathname === '/api/external-bots/connections') {
       const state = await runKeyedChain(externalBotChains, 'state', externalBotReadState);
-      send(res, json({ ok: true, connections: state.connections.map(externalBotPublicConnection) })); return true;
+      send(res, json({ ok: true, connections: await Promise.all(state.connections.map(externalBotPublicConnection)) })); return true;
     }
     if (req.method === 'POST' && pathname === '/api/external-bots/connections') {
       const body = externalBotDecodeJson(await externalBotReadBody(req));
@@ -436,7 +635,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
     }
     throw externalBotError('external_channel.request_invalid', 405);
   } catch (error) {
-    const code = typeof error?.apiCode === 'string' && /^(external_channel\.|auth\.)[a-z_]+$/.test(error.apiCode) ? error.apiCode : 'external_channel.storage_unavailable';
+    const code = typeof error?.apiCode === 'string' && /^(external_channel\.|external_credentials\.|auth\.)[a-z_]+$/.test(error.apiCode) ? error.apiCode : 'external_channel.storage_unavailable';
     res.setHeader('connection', 'close');
     if (!req.complete) res.once('finish', () => req.destroy());
     send(res, apiFailure(code, {}, code, error?.statusCode || 503)); return true;
@@ -447,7 +646,8 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
 Object.assign(ExternalBotHooks, {
   handleApiRoutes: handleExternalBotApiRoutes,
   validateActor: externalBotValidateActor,
+  stewardSetup: externalBotStewardSetup,
   actorSignal: actor => externalBotActors.get(actor)?.controller.signal || null,
   start: () => { externalBotWorkerStopped = false; externalBotWakeWorker(); },
-  stop: () => { externalBotWorkerStopped = true; for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
+  stop: () => { externalBotWorkerStopped = true; externalBotPairings.clear(); for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
 });

@@ -19,6 +19,7 @@
 // 判定行:`COPY PATH GUARD STATIC E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
+const { functionBlock } = require('./lib/source-slice.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -146,6 +147,7 @@ ok(jsHits.length === 0, `① public/**/*.js 的代码行零「自己去打开」
 
 // 剪贴板写入白名单 : 每条写明「复制的是内容,不是路径」。
 const ALLOWED_CLIPBOARD = Object.freeze({
+  'external-bot-setup.js': '67:仅复制平台必须配置的相对HTTP回调地址和五分钟配对挑战值；不是本机文件路径、命令或凭据。平台后台与本人机器人消息是该接入流程的必要外部验证，不能由本机设置冒充完成。',
   'chat-render-primitives.js': '复制代码块 / 复制整条消息:复制的是回答内容',
   'mermaid-runtime.js': '复制图源:复制的是图的源码',
   'provider-settings.js': '118g 后是「复制 JSON(排错用)」次要动作:复制的是模板内容,主动作已改为一键应用',
@@ -158,6 +160,18 @@ const clipboardFiles = fs.readdirSync(jsDir)
 const clipboardUnexpected = clipboardFiles.filter(n => !ALLOWED_CLIPBOARD[n]);
 ok(clipboardUnexpected.length === 0,
   `② 剪贴板写入只在白名单 ${Object.keys(ALLOWED_CLIPBOARD).length} 处(${clipboardFiles.join(', ')})` + (clipboardUnexpected.length ? ' -- 未登记: ' + clipboardUnexpected.join(', ') : ''));
+// This narrow exception cannot expand into copying passwords, files, commands or arbitrary form values.
+const botSetupSrc = read(PUBLIC, 'js', 'external-bot-setup.js');
+const botSetupCopy = functionBlock(botSetupSrc, 'copy');
+const botCopyArgs = [...botSetupSrc.matchAll(/\bcopy\(([^)]*)\)/g)].map(match => match[1].trim());
+ok(botSetupCopy.length > 0 && JSON.stringify(botCopyArgs) === JSON.stringify(['value', 'connection.callbackPath', 'pairing.code'])
+  && (botSetupSrc.match(/clipboard\??\.writeText\(/g) || []).length === 1
+  && /clipboard\??\.writeText\(value\)/.test(botSetupCopy)
+  && !/(passwords|credentials|\.value|body|localStorage|sessionStorage|filePath|absolutePath)/i.test(botSetupCopy),
+  '② 机器人复制例外严格限于服务端回调地址与配对挑战；秘密、文件路径、命令和表单内容无剪贴板出口');
+const botSetupSnapshot = functionBlock(read(WB, 'app', 'src', '13w-external-bots.js'), 'externalBotSetupSnapshot');
+ok(botSetupSnapshot.includes("callbackPath: '/api/external-bots/callback/' + connection.platform + '?connectionId=' + encodeURIComponent(connection.id)"),
+  '② 机器人回调复制来源固定为平台协议相对HTTP地址，不能替换成本机文件路径');
 ok(!/clipboard/i.test(wizardSrc) && !/clipboard/i.test(viewerSrc),
   '② 向导与手册阅读器仍然零剪贴板(118a-fix 的红线不回潮)');
 

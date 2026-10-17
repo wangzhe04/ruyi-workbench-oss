@@ -3,6 +3,7 @@ import { doc, byId, el, clear, button } from './steward-chips.js';
 import { apiErrorInfo } from './net.js';
 import { EVENT_STREAM_INSTANCE_EVENT } from './event-stream.js';
 import { confirmDanger } from './confirm-panel.js';
+import { createExternalBotSetup } from './external-bot-setup.js';
 
 const ENV_NAME = /^RUYI_BOT_[A-Z0-9_]+$/;
 const FIELDS = ['id', 'platform', 'label', 'appId', 'tenantId', 'botUserId', 'verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'mode', 'ownerSenderId', 'ownerConversationId', 'ownerConversationType', 'appSecretEnv'];
@@ -39,6 +40,7 @@ function visiblePanel() {
 }
 
 export function createExternalBotsPanel({ api, t = key => key, isVisible = visiblePanel } = {}) {
+  const setup = createExternalBotSetup({ api, t, isVisible, onChanged: () => { void loadConnections(); } });
   let active = false, generation = 0, bound = false, importer = null;
   let connectionSeq = 0, inboxSeq = 0, filter = '', writeOwner = null, nextBefore = '', total = 0;
   let connections = [], items = [];
@@ -99,7 +101,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       copy.appendChild(el('p', '', t(row.mode === 'control' ? 'externalBots.controlMode' : 'externalBots.inboxMode')));
       if (row.mode === 'control') copy.appendChild(el('p', 'muted', [row.ownerSenderId, row.ownerConversationId, t(row.ownerConversationType === 'group' ? 'externalBots.group' : 'externalBots.direct')].join(' · ')));
       const actions = el('div', 'external-bots-actions');
-      actions.append(control('externalBots.edit', 'edit', () => edit(row)),
+      actions.append(control('botSetup.open', 'setup', () => setup.open(row.id)), control('externalBots.edit', 'edit', () => edit(row)),
         control(row.enabled ? 'externalBots.disable' : 'externalBots.enable', 'toggle', () => mutate(row.enabled ? { op: 'disable', id: row.id }
           : { op: 'upsert', connection: { ...connectionPayload(row), enabled: true } })),
         control('externalBots.delete', 'delete', () => removeConnection(row)));
@@ -280,6 +282,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     return mutate({ op: 'upsert', connection });
   }
   function invalidate(reason = 'failed') {
+    setup.close();
     generation++; connectionSeq++; inboxSeq++; writeOwner = null; nextBefore = '';
     quality.connections = reason; quality.inbox = reason;
     if (active && isVisible()) { renderConnections(); renderInbox(); }
@@ -305,10 +308,10 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       const observer = new MutationObserver(syncVisibility);
       for (const id of ['settingsModal', 'stab-steward']) { const node = byId(id); if (node) observer.observe(node, { attributes: true, attributeFilter: ['class', 'hidden', 'data-only'] }); }
     }
-    try { globalThis.addEventListener('i18n:change', () => { if (active && isVisible()) { renderConnections(); renderInbox(); } }); } catch { /* optional host */ }
+    try { globalThis.addEventListener('i18n:change', () => { if (active && isVisible()) { renderConnections(); renderInbox(); setup.repaint(); } }); } catch { /* optional host */ }
     syncVisibility(); return true;
   }
-  return Object.freeze({ bind, syncVisibility, loadConnections, loadInbox,
+  return Object.freeze({ bind, syncVisibility, loadConnections, loadInbox, openSetup: id => { syncVisibility(); return setup.open(id); },
     setDraftImporter: handler => { importer = typeof handler === 'function' ? handler : null; },
     setEventStream: stream => {
       if (!stream || typeof stream.on !== 'function') return;

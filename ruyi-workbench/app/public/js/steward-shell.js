@@ -441,6 +441,7 @@ export function createStewardShellDomain({
     // 117e：头像菜单的「设置／记忆／行动流水」三项（117c 那里只有「细节」）。菜单只负责调用，
     // 页签切换、滚动与取数全在 steward-settings.js 里。
     openStewardPanel: section => settings.openPanel(section),
+    openExternalBotSetup: id => settings.openExternalBotSetup(id),
     // 117 走查（用户 2026-09-06）：主端点是命令行引擎时，对话区的「改用『某端点』」按钮经这里写
     // stewardProviderId（走设置域同一个 saveConfigPartial，对话区不碰 /api/config）。
     setStewardProvider: id => saveConfigPartial({ stewardProviderId: id }),

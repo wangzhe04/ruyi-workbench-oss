@@ -621,6 +621,7 @@ export function createStewardConversation({
   // 117e：头像菜单的「设置／记忆／行动流水」三项。本模块只负责【调用】——切页签、滚动、取数
   // 全在 steward-settings.js 里（对话区不认识设置页的任何 id，也不多一条 /api 路由）。
   openStewardPanel = null,
+  openExternalBotSetup = null,
   // 121-K4（§2.2／§2.4）：头像菜单末项「整体切到 2.0」退役 —— 视角切换只在外框顶栏的分段钮
   // 一处（§2.4 原话「不再有『整体切到 2.0』『经典模式』两个钮」）。注入随之撤掉。
   // 117s-H2：交付卡上的「看全文」——与焦点栏标题旁那一枚走【同一个】入口：
@@ -964,7 +965,7 @@ export function createStewardConversation({
     let primaryTaken = false;
     for (const original of list) {
       const act = captureStopAct(original);
-      const label = String((act && act.label) || t('stewardShell.acts.open'));
+      const label = act?.kind === 'external_bot_setup' ? t('botSetup.open') : String((act && act.label) || t('stewardShell.acts.open'));
       const btn = button('steward-act', label, () => runAct(act, actsRow, btn, onSettled));
       // 主动作只有一个（后端已归一过 primary；这里再守一道，防手工构造的 acts 出现第二个金色按钮）。
       if (act && act.primary === true && !primaryTaken) { btn.classList.add(STEWARD_PRIMARY_CLASS); primaryTaken = true; }
@@ -989,16 +990,21 @@ export function createStewardConversation({
   // 117v-V1 ②（用户第十轮走查②「在会话中点开这些线程后，那个按钮就失效了，但是从 2.0 返回又会
   // 出现」）：**导航不是表态**。「知道了」这类表态是一次性的 —— 点完落成灰字回执，再点一次没有
   // 意义；而「打开线程」没有任何副作用，从 2.0 视窗回来还要再点同一枚按钮，它本来就该反复点。
-  // 判据钉在 kind 上而不是按钮文字上：后端 13h stewardRunAct 只认三种 kind，其中 dismiss 记一行
-  // 日志、tool 真去执行工具，**只有 open_thread 是「只回 sessionId，切换由 UI 完成」的纯导航**
-  // （那一段的头注原话）。所以这里只有它一条，不是一张会长的表。
+  // Navigation remains repeatable. external_bot_setup is a server-derived link to the local guide;
+  // its handler never submits an act, credentials or remote-control authorization.
   function isNavigationAct(act) {
-    return Boolean(act) && act.kind === 'open_thread';
+    return Boolean(act) && (act.kind === 'open_thread' || act.kind === 'external_bot_setup');
   }
 
   async function runAct(act, actsRow, btn, onSettled) {
     if (!act || typeof act !== 'object') return;
     act = captureStopAct(act); // Freeze the observed target before the asynchronous confirmation.
+    // Server-derived navigation only: opening the guide never authorizes or executes a bot.
+    if (act.kind === 'external_bot_setup') {
+      if (typeof act.connectionId === 'string' && act.connectionId && typeof openExternalBotSetup === 'function') openExternalBotSetup(act.connectionId);
+      else showActProblem(actsRow, t('botSetup.unavailable'));
+      return;
+    }
     if (act.kind === 'dismiss' && isChangeAct(act)) { focusComposerForChange(); return; }
     // 122-L1b（36 号文 §2.13）：STEWARD_ONBOARDING_ACT 是【纯前端】的一枚 —— 后端 13h stewardRunAct
     // 只认 open_thread／dismiss／tool 三种 kind，把它发过去只会换回一条 unknown_act。所以在这里就地

@@ -419,3 +419,14 @@
 .external-bots [hidden] { display:none !important; }
 .steward-remote-source { display:block; font-size:var(--fs-xs); margin-top:var(--sp-1); overflow-wrap:anywhere; }
 .external-bots { scroll-margin-top:calc(var(--sp-6) * 4); } .external-bots > p:empty { display:none; }
+
+/* Bot setup stays within the existing compact settings surface. */
+.external-bot-setup { scroll-margin-top: calc(var(--sp-6) * 4); min-width: 0; margin-block: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.external-bot-setup-step { min-width: 0; padding-block: var(--sp-3); border-top: 1px solid var(--line); }
+.external-bot-setup-step h5 { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); }
+.external-bot-setup-step p, .external-bot-setup-status, .external-bot-setup-identity { font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.external-bot-setup-step > .btn { margin: var(--sp-1) var(--sp-2) var(--sp-1) 0; }
+.external-bot-setup-step small { font-size: var(--fs-xs); line-height: 1.5; }
+.external-bot-setup-notice { padding: var(--sp-2); background: var(--panel-2); border-left: 2px solid var(--accent); overflow-wrap: anywhere; }
+.external-bot-pair-code { display: block; margin-block: var(--sp-2); font-size: var(--fs-lg); font-weight: 700; letter-spacing: .08em; overflow-wrap: anywhere; user-select: all; }
+.external-bot-setup .external-bots-fields input { min-width: 0; width: 100%; }

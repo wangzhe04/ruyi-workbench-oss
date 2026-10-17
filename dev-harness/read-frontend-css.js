@@ -92,7 +92,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // Prior HEAD layer payload self-check: 3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc; in-memory corrupt-layer probes must fail D51/F3.
 // 66: compact external bot connection/inbox styles use existing typography and theme tokens.
 // Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.
-const LEGACY_STYLES_SHA256 = 'e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa';
+// 67: compact bot setup uses existing settings tokens, with explicit credential, pairing and authorization steps.
+// Prior HEAD payload self-check: e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa; corrupt-layer probes must fail D51/F3.
+const LEGACY_STYLES_SHA256 = '0256a4eaa3dfd4cce8fca6187b15516dfdb03f1cbfbbe3e1a08d99d4041e4097';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

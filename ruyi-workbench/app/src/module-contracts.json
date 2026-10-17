@@ -19206,6 +19206,7 @@
         "stewardCtxIsSteward",
         "stewardExternalContexts",
         "stewardExternalOwnerDirected",
+        "stewardImplBotSetup",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
         "stewardMemoryPanelExport",
@@ -21464,6 +21465,13 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTS_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_BLOCKING_DEBOUNCE_MS",
           "kinds": [
             "read"
@@ -23168,16 +23176,73 @@
       ]
     },
     {
+      "file": "13y-external-bot-credentials.js",
+      "layer": "transport",
+      "provides": [
+        "ExternalBotCredentials"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "13w-external-bots.js",
       "layer": "transport",
       "provides": [
         "EXTERNAL_BOT_CONNECTION_KEYS",
         "EXTERNAL_BOT_LIMITS",
+        "EXTERNAL_BOT_SETUP_KEYS",
+        "EXTERNAL_BOT_SETUP_PATHS",
         "externalBotAcceptCallback",
         "externalBotActiveActors",
         "externalBotActors",
+        "externalBotCapturePairing",
         "externalBotChains",
         "externalBotConfigured",
+        "externalBotConnectionFingerprint",
+        "externalBotCredentialSnapshot",
+        "externalBotCurrentPairing",
         "externalBotDecodeJson",
         "externalBotDeliveries",
         "externalBotDrain",
@@ -23190,6 +23255,7 @@
         "externalBotNormalizeConnection",
         "externalBotOutcome",
         "externalBotOwnerMatches",
+        "externalBotPairings",
         "externalBotPublicConnection",
         "externalBotPublicItem",
         "externalBotRate",
@@ -23199,13 +23265,22 @@
         "externalBotRecoveryDone",
         "externalBotReplyText",
         "externalBotResultUncertain",
+        "externalBotSafeCredentialError",
+        "externalBotSaveCredentials",
         "externalBotSecrets",
+        "externalBotSetupHttpOperation",
+        "externalBotSetupOperation",
+        "externalBotSetupReceipt",
+        "externalBotSetupSnapshot",
+        "externalBotSetupToken",
+        "externalBotStewardSetup",
         "externalBotStore",
         "externalBotString",
         "externalBotUnsettled",
         "externalBotUpdateConnection",
         "externalBotValidControlState",
         "externalBotValidItem",
+        "externalBotValidSetupReceipt",
         "externalBotValidState",
         "externalBotValidateActor",
         "externalBotWakeWorker",
@@ -23317,6 +23392,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "originOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "send",
           "kinds": [
             "call"
@@ -23346,6 +23428,13 @@
         {
           "provider": "13x-external-channel-delivery.js",
           "symbol": "ExternalChannelDelivery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13y-external-bot-credentials.js",
+          "symbol": "ExternalBotCredentials",
           "kinds": [
             "read"
           ]

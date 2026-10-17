@@ -10,10 +10,11 @@ const src = file => fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/a
 const plain = value => JSON.parse(JSON.stringify(value));
 function fixture() {
   let disk, writeFailure = false, writeGate = null, writes = 0, verified = 0, runs = 0, sends = 0, modelGate = null, modelError = null, sendGate = null, sendResult = { status: 'sent', messageId: 'platform_reply' };
-  const envReads = [];
+  const envReads = []; const localCredentials = new Map(); let credentialRevision = 0, clockOffset = 0;
+  class FixtureDate extends Date { static now() { return Date.now() + clockOffset; } }
   const missing = () => Object.assign(new Error('missing'), { code: 'ENOENT' });
   const read = () => { if (disk === undefined) throw missing(); return disk; };
-  const context = vm.createContext({ Buffer, TextDecoder, URL, AbortController, setTimeout, clearTimeout, crypto, path,
+  const context = vm.createContext({ Buffer, TextDecoder, URL, AbortController, Date: FixtureDate, setTimeout, clearTimeout, crypto, path,
     fs: { readFileSync: read }, fsp: { readFile: async () => read(), stat: async () => ({ size: Buffer.byteLength(read()) }), mkdir: async () => {} },
     process: { env: new Proxy({ RUYI_BOT_QQ: 'TEST_ONLY_FAKE_KEY' }, { get(object, key) { envReads.push(key); assert.match(key, /^RUYI_BOT_/); return object[key]; } }) },
     paths: { data: '/isolated' }, OVERLAY_ID: 'epoch_' + crypto.randomBytes(6).toString('hex'), ExternalBotHooks: {}, nowIso: () => new Date().toISOString(), makeId: prefix => prefix + '_' + crypto.randomBytes(8).toString('hex'),
@@ -22,16 +23,31 @@ function fixture() {
     runStewardTurn: async input => { await context.ExternalBotHooks.validateActor(input.externalActor); assert.equal(input.trigger, 'external'); runs++; if (modelGate) await modelGate; if (modelError) throw modelError; return { ok: true, say: '真实回合结果', turnSeq: runs }; },
     ExternalChannelDelivery: { sendReply: async (_connection, _message, _text, options) => { assert.ok(options.attemptId); sends++; if (sendGate) await Promise.race([sendGate, new Promise(resolve => options.signal.addEventListener('abort', resolve, { once: true }))]); return options.signal.aborted ? { status: 'failed', errorCode: 'external_delivery.aborted' } : sendResult; } },
   });
+  context.ExternalBotCredentials = {
+    async snapshot(connection) {
+      const values = {}, fields = {}, saved = localCredentials.get(connection.id) || {};
+      for (const slot of connection.platform === 'qq' ? ['botSecret'] : ['verificationToken', 'encryptKey', 'appSecret']) {
+        const ref = connection[slot + 'Env']; const value = ref ? context.process.env[ref] || '' : saved[slot] || '';
+        values[slot] = value; fields[slot] = { source: ref ? 'env' : value ? 'local' : 'none', present: !!value, ready: !!value, errorCode: '' };
+      }
+      return { values, fields, credentialRevision: crypto.createHash('sha256').update(JSON.stringify([credentialRevision, values])).digest('hex') };
+    },
+    async inspect(connection) { const {values,...rest}=await this.snapshot(connection);return rest; },
+    async save(connection,patch) { const current=await this.snapshot(connection);assert.equal(patch.expectedRevision,current.credentialRevision);const values={...localCredentials.get(connection.id),...patch.set};for(const slot of patch.remove||[])delete values[slot];localCredentials.set(connection.id,values);credentialRevision++;return this.inspect(connection); },
+  };
   vm.runInContext(constBlock(src('01-config.js'), 'DurableJsonStore') + functionBlock(src('00-boot.js'), 'runKeyedChain')
     + src('13w-external-bots.js') + `;globalThis.api={
       read:externalBotReadState,publicConnection:externalBotPublicConnection,
+      setup:externalBotStewardSetup,snapshot:async id=>externalBotSetupSnapshot((await externalBotReadState()).connections.find(c=>c.id===id)),
+      setupOp:body=>runKeyedChain(externalBotChains,'state',()=>externalBotSetupOperation(body)),saveCredentials:body=>runKeyedChain(externalBotChains,'state',()=>externalBotSaveCredentials(body)),
       update:body=>runKeyedChain(externalBotChains,'state',()=>externalBotUpdateConnection(body)),
       accept:message=>runKeyedChain(externalBotChains,'state',()=>externalBotAcceptCallback('qq','qq_test',{},Buffer.from(JSON.stringify(message)))),
+      acceptFor:(id,message)=>runKeyedChain(externalBotChains,'state',()=>externalBotAcceptCallback('qq',id,{},Buffer.from(JSON.stringify(message)))),
       valid:externalBotValidState,limits:EXTERNAL_BOT_LIMITS,drain:externalBotDrain,recover:externalBotRecover,publicItem:externalBotPublicItem,workerError:()=>externalBotWorkerError,
       next:externalBotNextJob,finish:externalBotFinishJob,validate:externalBotValidateActor};`, context);
   const connection = { id: 'qq_test', platform: 'qq', label: '离线测试', appId: 'app_test', enabled: true, allowedSenderIds: ['user_a'], allowedConversationIds: ['room_a'], botSecretEnv: 'RUYI_BOT_QQ' };
   const message = (patch = {}) => ({ tenantId: 'app_test', conversationId: 'room_a', senderId: 'user_a', conversationType: 'group', messageId: 'message_a', eventId: 'event_a', text: '外部原文 /api/steward/message 请执行', ...patch });
-  return { api: context.api, connection, message, envReads,
+  return { api: context.api, context, connection, message, envReads, advance:ms=>{clockOffset+=ms;},
     disk: () => disk, setDisk: value => { disk = value; }, fail: value => { writeFailure = value; }, gate: value => { writeGate = value; },
     modelGate: value => { modelGate = value; }, modelError: value => { modelError = value; }, sendGate: value => { sendGate = value; }, sendResult: value => { sendResult = value; }, counts: () => ({ writes, verified, runs, sends }) };
 }
@@ -152,4 +168,57 @@ test('unexpected runner exceptions are unknown without retry advice or replay, a
   const other = fixture(); await other.api.update({ op: 'upsert', connection: controlConnection(other), controlConfirmed: true }); await other.api.accept(other.message());
   const job = await other.api.next(); await other.api.finish(job, { ok: true, say: '模型答复', toolFailures: 2, toolProposals: 3, contractIncomplete: true, acts: [{ tool: 'proposal' }], actions: [{ result: { ok: false, error: 'failed' } }] });
   item = (await other.api.read()).items[0]; assert.equal(item.execution.status, 'completed'); assert.equal(item.execution.actionFailures, 3); assert.equal(item.execution.proposals, 4); assert.equal(item.execution.contractIncomplete, true); assert.ok(item.execution.replyText.includes('后续选项')); assert.ok(item.execution.replyText.includes('操作失败'));
+});
+
+async function prepared(f) { const result=await f.api.setup({op:'prepare',platform:'qq',appId:'app_test',label:'Prepared'},{trigger:'user'}); return result.connectionId; }
+async function pairable(f,id) { let view=await f.api.snapshot(id);await f.api.saveCredentials({connectionId:id,expectedSetupToken:view.expectedSetupToken,credentials:{set:{botSecret:'SYNTHETIC_LOCAL_SECRET'},remove:[]}});view=await f.api.snapshot(id);return f.api.setupOp({op:'pair_start',connectionId:id,expectedSetupToken:view.expectedSetupToken}); }
+test('setup preparation accepts only a local user, complete non-secret identity, and reuses exact disabled identity without modifying it',async()=>{
+ const f=fixture();for(const trigger of ['external','inbox','visit',''])assert.equal((await f.api.setup({op:'prepare',platform:'qq',appId:'app_test'},{trigger})).error,'steward.forbidden');
+ for(const key of ['secret','enabled','ownerSenderId','controlConfirmed','trigger'])assert.equal((await f.api.setup({op:'prepare',platform:'qq',appId:'app_test',[key]:'NEVER_ECHO_THIS'},{trigger:'user'})).error,'invalid_request');
+ const missing=await f.api.setup({op:'prepare',platform:'feishu',appId:'f_app'},{trigger:'user'});assert.deepEqual(plain(missing.missing),['tenantId','botUserId']);assert.equal(f.disk(),undefined);
+ const id=await prepared(f),before=f.disk();const same=await f.api.setup({op:'prepare',platform:'qq',appId:'app_test',label:'other'},{trigger:'user'});assert.equal(same.connectionId,id);assert.equal(f.disk(),before);
+ const row=(await f.api.read()).connections[0];assert.equal(row.enabled,false);assert.equal(row.mode,'inbox');assert.equal(row.ownerSenderId,'');
+ await f.api.update({op:'upsert',connection:{...f.connection,id}});const unchanged=f.disk();assert.equal((await f.api.setup({op:'prepare',platform:'qq',appId:'app_test'},{trigger:'user'})).error,'external_channel.setup_existing_conflict');assert.equal(f.disk(),unchanged);
+});
+test('pairing authenticates only exact text, fixes the first candidate, and captures no inbox/model/delivery side effect',async()=>{
+ const f=fixture(),id=await prepared(f),waiting=await pairable(f,id);assert.match(waiting.pairing.code,/^RUYI-[A-Za-z0-9_-]{22}$/);
+ await f.api.acceptFor(id,f.message({messageId:'setup_ignored',text:'wrong '+waiting.pairing.code}));assert.equal((await f.api.snapshot(id)).pairing.candidate,null);
+ await Promise.all([f.api.acceptFor(id,f.message({text:waiting.pairing.code})),f.api.acceptFor(id,f.message({senderId:'other',conversationId:'other_room',text:waiting.pairing.code}))]);
+ const view=await f.api.snapshot(id);assert.equal(view.pairing.candidate.senderId,'user_a');assert.equal(view.pairing.code,undefined);assert.equal((await f.api.read()).items.length,0);assert.equal(f.counts().runs,0);assert.equal(f.counts().sends,0);
+ const diagnostic=await f.api.setup({op:'inspect',connectionId:id},{});assert.ok(!JSON.stringify(diagnostic).includes(waiting.pairing.code));assert.ok(!JSON.stringify(diagnostic).includes('SYNTHETIC_LOCAL_SECRET'));assert.equal(diagnostic.connections[0].evidence.receivedMessages,0);
+ await assert.rejects(f.api.setupOp({op:'activate',connectionId:id,expectedSetupToken:waiting.expectedSetupToken,controlConfirmed:true}),{code:'external_channel.setup_conflict'});
+ await assert.rejects(f.api.setupOp({op:'activate',connectionId:id,expectedSetupToken:view.expectedSetupToken}),{code:'external_channel.control_confirmation_required'});
+ const active=await f.api.setupOp({op:'activate',connectionId:id,expectedSetupToken:view.expectedSetupToken,controlConfirmed:true});assert.equal(active.connection.enabled,true);assert.equal(active.connection.mode,'control');assert.deepEqual(plain(active.connection.allowedSenderIds),['user_a']);assert.deepEqual(plain(active.connection.allowedConversationIds),['room_a']);assert.equal(active.connection.ownerConversationType,'group');assert.equal(active.pairing,null);await f.api.acceptFor(id,f.message({text:waiting.pairing.code,eventId:'redelivery'}));await f.api.acceptFor(id,f.message({messageId:'setup_ignored',text:'wrong '+waiting.pairing.code,eventId:'redelivery_ignored'}));await f.api.drain();assert.equal((await f.api.read()).items.length,0);assert.equal(f.counts().runs,0);assert.ok(!f.disk().includes(waiting.pairing.code));
+ await assert.rejects(f.api.setupOp({op:'activate',connectionId:id,expectedSetupToken:view.expectedSetupToken,controlConfirmed:true}),{code:'external_channel.setup_conflict'});
+});
+test('pairing expires and restarts fail old confirmations without durable pairing authority',async()=>{
+ const f=fixture(),id=await prepared(f),waiting=await pairable(f,id);await f.api.acceptFor(id,f.message({text:waiting.pairing.code}));const candidate=await f.api.snapshot(id);f.advance(300001);assert.equal((await f.api.snapshot(id)).pairing,null);
+ await assert.rejects(f.api.setupOp({op:'activate',connectionId:id,expectedSetupToken:candidate.expectedSetupToken,controlConfirmed:true}),{code:'external_channel.setup_conflict'});
+ const restarted=fixture();restarted.setDisk(f.disk());assert.equal((await restarted.api.snapshot(id)).pairing,null);await assert.rejects(restarted.api.setupOp({op:'pair_start',connectionId:id,expectedSetupToken:candidate.expectedSetupToken}),{code:'external_channel.setup_conflict'});
+ assert.ok(!f.disk().includes(waiting.pairing.code));assert.equal((await restarted.api.read()).connections[0].enabled,false);
+});
+test('configuration and credential changes revoke pairing and every old setup snapshot, including non-authority label changes',async()=>{
+ const f=fixture(),id=await prepared(f);let waiting=await pairable(f,id);const row=(await f.api.read()).connections[0],{controlRevision,...fields}=plain(row);await f.api.update({op:'upsert',connection:{...fields,label:'changed'}});assert.equal((await f.api.snapshot(id)).pairing,null);await assert.rejects(f.api.setupOp({op:'pair_start',connectionId:id,expectedSetupToken:waiting.expectedSetupToken}),{code:'external_channel.setup_conflict'});
+ waiting=await pairable(f,id);await f.api.saveCredentials({connectionId:id,expectedSetupToken:waiting.expectedSetupToken,credentials:{set:{botSecret:'REPLACED_LOCAL_SECRET'},remove:[]}});assert.equal((await f.api.snapshot(id)).pairing,null);await assert.rejects(f.api.setupOp({op:'pair_start',connectionId:id,expectedSetupToken:waiting.expectedSetupToken}),{code:'external_channel.setup_conflict'});
+});
+test('activation waits for the authoritative atomic write and a failed write grants no control',async()=>{
+ const f=fixture(),id=await prepared(f),waiting=await pairable(f,id);await f.api.acceptFor(id,f.message({text:waiting.pairing.code}));const view=await f.api.snapshot(id);f.fail(true);await assert.rejects(f.api.setupOp({op:'activate',connectionId:id,expectedSetupToken:view.expectedSetupToken,controlConfirmed:true}),{code:'external_channel.storage_unavailable'});assert.equal((await f.api.read()).connections[0].enabled,false);assert.equal((await f.api.snapshot(id)).pairing.state,'candidate');
+ f.fail(false);await f.api.setupOp({op:'activate',connectionId:id,expectedSetupToken:view.expectedSetupToken,controlConfirmed:true});assert.equal((await f.api.read()).connections[0].enabled,true);
+});
+test('legacy disabled incomplete identities and one credential fault do not turn a committed mutation or the whole list into a false failure',async()=>{
+ const f=fixture();const snapshot=f.context.ExternalBotCredentials.snapshot;f.context.ExternalBotCredentials.snapshot=async c=>{if(c.platform==='feishu')throw Object.assign(new Error('safe-code-only'),{code:'external_credentials.identity_invalid'});return snapshot(c);};
+ const result=await f.api.update({op:'upsert',connection:{id:'legacy',platform:'feishu',appId:'f_legacy',enabled:false}});assert.equal(result.ok,true);assert.equal(result.connections[0].configured,false);assert.equal(result.connections[0].credentialError,'external_credentials.identity_invalid');
+ await f.api.update({op:'upsert',connection:f.connection});const view=await f.api.snapshot('legacy');assert.equal(view.readiness.ingressReady,false);assert.equal(view.readiness.errorCode,'external_credentials.identity_invalid');assert.equal((await f.api.update({op:'disable',id:'legacy'})).connections.length,2);assert.equal((await f.api.update({op:'delete',id:'legacy'})).connections.length,1);
+});
+test('setup-only evidence commits before candidate/ACK and a failed write cannot create even a temporary identity proof',async()=>{
+ const f=fixture(),id=await prepared(f),waiting=await pairable(f,id);f.fail(true);
+ await assert.rejects(f.api.acceptFor(id,f.message({text:waiting.pairing.code})),{code:'external_channel.storage_unavailable'});
+ assert.equal((await f.api.snapshot(id)).pairing.candidate,null);assert.equal((await f.api.read()).setupReceipts,undefined);
+ f.fail(false);await f.api.acceptFor(id,f.message({text:waiting.pairing.code}));assert.equal((await f.api.snapshot(id)).pairing.state,'candidate');assert.equal((await f.api.read()).setupReceipts.length,1);
+});
+test('setup-only receipt capacity rejects new messages without evicting old dedupe, and corrupt receipt integrity fails the whole ledger closed',async()=>{
+ const f=fixture(),id=await prepared(f),waiting=await pairable(f,id);await f.api.acceptFor(id,f.message({messageId:'ignored',text:'not the pairing code'}));
+ const state=plain(await f.api.read()),first=state.setupReceipts[0];state.setupReceipts=Array.from({length:4096},(_,index)=>({...first,messageId:'setup_'+index,sourceKey:JSON.stringify([id,first.tenantId,first.conversationId,'setup_'+index])}));f.setDisk(JSON.stringify(state));
+ await assert.rejects(f.api.acceptFor(id,f.message({text:waiting.pairing.code})),{code:'external_channel.setup_receipts_full'});assert.equal((await f.api.snapshot(id)).pairing.candidate,null);assert.equal((await f.api.read()).setupReceipts.length,4096);
+ state.setupReceipts[0].senderId='tampered';f.setDisk(JSON.stringify(state));await assert.rejects(f.api.read(),{code:'external_channel.storage_unavailable'});
 });

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 76 | 3756 | 3301 | 561 | 67 | 0 | 1 |
+| 77 | 3774 | 3310 | 564 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -76,12 +76,12 @@
 | 58 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
 | 59 | `13k-steward-threads.js` | transport | 56 | 120 | 17 |
 | 60 | `13l-steward-ops.js` | transport | 51 | 119 | 18 |
-| 61 | `13g-steward.js` | transport | 19 | 72 | 11 |
+| 61 | `13g-steward.js` | transport | 20 | 72 | 11 |
 | 62 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
 | 63 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
 | 64 | `13o-steward-runner-prompt.js` | transport | 22 | 64 | 16 |
 | 65 | `13p-steward-runner-actions.js` | transport | 35 | 62 | 12 |
-| 66 | `13q-steward-runner-turn.js` | transport | 38 | 82 | 20 |
+| 66 | `13q-steward-runner-turn.js` | transport | 38 | 83 | 20 |
 | 67 | `13h-steward-runner.js` | transport | 7 | 47 | 12 |
 | 68 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
 | 69 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
@@ -89,8 +89,9 @@
 | 71 | `13u-migration-center.js` | transport | 60 | 35 | 6 |
 | 72 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
 | 73 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
-| 74 | `13w-external-bots.js` | transport | 44 | 19 | 5 |
-| 75 | `14-main.js` | entrypoint | 1 | 590 | 48 |
+| 74 | `13y-external-bot-credentials.js` | transport | 1 | 6 | 2 |
+| 75 | `13w-external-bots.js` | transport | 60 | 21 | 6 |
+| 76 | `14-main.js` | entrypoint | 1 | 590 | 48 |
 
 ## 模块边
 
@@ -567,7 +568,7 @@
 | `13q-steward-runner-turn.js` | `13j-steward-tool-base.js` | backward | `_stewardReadBudget`, `stewardFail`, `stewardReadSessionHead` |
 | `13q-steward-runner-turn.js` | `13k-steward-threads.js` | backward | `stewardErrorDetail`, `stewardLaunchingTurns`, `stewardMediatesPermissions` |
 | `13q-steward-runner-turn.js` | `13l-steward-ops.js` | backward | `stewardDecideAttempted` |
-| `13q-steward-runner-turn.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_BLOCKING_DEBOUNCE_MS`, `STEWARD_DEBOUNCE_MS`, `STEWARD_DIGEST_KIND_TEXT`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_PENDING_LIST_MAX`, `STEWARD_PREEMPT_WAIT_MS`, `STEWARD_QUICK_DEBOUNCE_MS`, `STEWARD_USER_QUEUE_WAIT_MS`, `STEWARD_VIEW_HELD_MAX`, `STEWARD_VIEW_RECHECK_MS`, `STEWARD_VISITS_DIR`, `STEWARD_VISITS_KEEP`, `STEWARD_VISIT_DIGEST_MAX`, `STEWARD_VISIT_SCHEMA`, `ensureStewardSession`, `stewardAbortInflight`, `stewardRunnerRuntime` |
+| `13q-steward-runner-turn.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_BLOCKING_DEBOUNCE_MS`, `STEWARD_DEBOUNCE_MS`, `STEWARD_DIGEST_KIND_TEXT`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_PENDING_LIST_MAX`, `STEWARD_PREEMPT_WAIT_MS`, `STEWARD_QUICK_DEBOUNCE_MS`, `STEWARD_USER_QUEUE_WAIT_MS`, `STEWARD_VIEW_HELD_MAX`, `STEWARD_VIEW_RECHECK_MS`, `STEWARD_VISITS_DIR`, `STEWARD_VISITS_KEEP`, `STEWARD_VISIT_DIGEST_MAX`, `STEWARD_VISIT_SCHEMA`, `ensureStewardSession`, `stewardAbortInflight`, `stewardRunnerRuntime` |
 | `13q-steward-runner-turn.js` | `13n-steward-arbiter.js` | backward | `stewardArbiterWait` |
 | `13q-steward-runner-turn.js` | `13o-steward-runner-prompt.js` | backward | `stewardParseReply`, `stewardThreadDigestRows` |
 | `13q-steward-runner-turn.js` | `13p-steward-runner-actions.js` | backward | `stewardCircuitCheck`, `stewardDowngradeActions`, `stewardExecuteActions`, `stewardHumanizeSay`, `stewardInboxMessage`, `stewardLastAssistantContent`, `stewardLastAssistantFinalSegment`, `stewardNormalizeRouteHint`, `stewardSelfServeInbox`, `stewardStampReply`, `stewardTriggerStamp` |
@@ -604,11 +605,14 @@
 | `13u-migration-center.js` | `06d-memory-domain.js` | backward | `syncAgentInstructionImports` |
 | `13v-external-channel-protocols.js` | `00-boot.js` | backward | `crypto`, `json`, `text` |
 | `13w-external-bots.js` | `00-boot.js` | backward | `ExternalBotHooks`, `OVERLAY_ID`, `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `text` |
-| `13w-external-bots.js` | `01-config.js` | backward | `DurableJsonStore`, `send`, `tokenOk` |
+| `13w-external-bots.js` | `01-config.js` | backward | `DurableJsonStore`, `originOk`, `send`, `tokenOk` |
 | `13w-external-bots.js` | `13q-steward-runner-turn.js` | backward | `runStewardTurn` |
 | `13w-external-bots.js` | `13v-external-channel-protocols.js` | backward | `ExternalChannelProtocols` |
 | `13w-external-bots.js` | `13x-external-channel-delivery.js` | backward | `ExternalChannelDelivery` |
+| `13w-external-bots.js` | `13y-external-bot-credentials.js` | backward | `ExternalBotCredentials` |
 | `13x-external-channel-delivery.js` | `00-boot.js` | backward | `path`, `text` |
+| `13y-external-bot-credentials.js` | `00-boot.js` | backward | `crypto`, `fsp`, `path`, `paths`, `runKeyedChain` |
+| `13y-external-bot-credentials.js` | `01-config.js` | backward | `DurableJsonStore` |
 | `14-main.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `EventStreamHooks`, `RUYI_EVENTS`, `apiSessionIdInvalid`, `apiSessionNotFound`, `appendUsageLedger`, `buildUsageSummary`, `createNdjsonLineFeeder`, `flushUsageLedgerSync`, `forEachUsageRow`, `hashArgs`, `neutralizeFenceTag`, `readUsageRows`, `runKeyedChain`, `spawnDetachedChecked`, `usageLedgerCacheStats` |
 | `14-main.js` | `01-config.js` | backward | `CONFIG_MIGRATIONS`, `DurableJsonStore`, `autoImportClaudeCodeMcp`, `buildClaudeCliEnv`, `decodeClaudeCliText`, `defaultConfig`, `desktopMcpFromInstalledRoot`, `desktopPythonCandidates`, `detectDesktopMcp`, `detectDesktopMcpAsync`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `generateSessionMcpConfig`, `mutateConfig`, `normalizeConfig`, `pickPython`, `pickPythonAsync`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `readConfig`, `readFileTail`, `resolveClaudeLauncher`, `sweepStaleScriptFiles`, `syncAgentCliMcpManifests`, `syncMcpServersToKimi` |
 | `14-main.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |

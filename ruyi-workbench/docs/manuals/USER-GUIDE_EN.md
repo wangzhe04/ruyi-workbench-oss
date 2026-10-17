@@ -265,7 +265,11 @@ shell uses a tray balloon.
 
 ### The Steward tab
 
-**External bots and remote control:** configure an official QQ bot or a Feishu app bot here, with explicit sender and conversation allowlists. New connections start disabled. An administrator supplies credentials through process environment variables; enter variable names in the form, never the secret values. A Feishu custom group webhook is a different integration.
+**External bots and remote control:** ask the Steward to connect a QQ or Feishu bot and provide its app details. The Steward checks missing information, prepares a disabled connection and offers a setup entry. QQ requires the AppID; Feishu requires the App ID and, in this iteration, the tenant key and bot open_id. A Feishu custom group webhook is a different integration.
+
+Use the dedicated password fields for credentials instead of ordinary chat. On Windows, the current user's system protection stores them across restarts. Start pairing, configure the callback in the platform console as instructed, and send the pairing code to the bot. Ruyi identifies your sender and conversation automatically; review the identity and shared-context scope, then authorize remote control locally. Group replies are visible to members. Pairing, actual task execution and accepted platform replies are separate facts. App creation, platform permissions and an HTTPS entrance still require the indicated external setup steps.
+
+Advanced users can retain manual sender/conversation allowlists and `RUYI_BOT_` environment references. Enter names, never secret values, in environment-reference fields. Other platforms continue to use environment references in this iteration; there is no unprotected plaintext credential fallback.
 
 Choose **Remote control**, bind your account, conversation and direct/group type, and confirm locally. You can then delegate, continue, query progress/results and stop specified tasks from QQ or Feishu, with the current reply returned to the same conversation. This is the same Steward as on your computer: it shares context and existing task permissions without raising the permission level. In a group, only the bound account mentioning the bot can control it; other members can see replies. Required confirmations and failures remain explicit.
 

@@ -84,9 +84,9 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 
 | | |
 |---|---|
-| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 76 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 69 framework-free ES modules with no build step. |
-| **119 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **515 e2e cases** (508 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 246 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
+| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 77 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 70 framework-free ES modules with no build step. |
+| **120 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **518 e2e cases** (511 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 249 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -165,7 +165,7 @@ Letting the AI act only works if you can undo what it did:
 | Capability | Summary | More |
 |---|---|---|
 | **Engines: any model endpoint** | OpenAI-compatible endpoints (Chat Completions or Responses API) and Anthropic Messages endpoints (Anthropic itself or a compatible gateway), with no bundled vendor presets; local Ollama / LM Studio need no key; Claude Code or Kimi Code as Agent CLIs; switch engines mid-thread and keep the context | [§1](#1-engines-and-models) |
-| **Native tool loop** | **119 native built-in tools** with read / edit / exec approval tiers, on-demand tool loading, batching of independent calls and staging of dependent ones | [§2](#2-native-tools) |
+| **Native tool loop** | **120 native built-in tools** with read / edit / exec approval tiers, on-demand tool loading, batching of independent calls and staging of dependent ones | [§2](#2-native-tools) |
 | **Structured questions** | Single choice, multiple choice, free text, "choices + other"; the card closes only once the answer reached the model | [§1](#1-engines-and-models) |
 | **Multi-agent orchestration** | 8 templates, 10 roles, 5 quality gates, conditions and loops, resource leases, worktree isolation, a graphical editor and live canvas; team mode; background sub-agents | [§3](#3-multi-agent-orchestration) |
 | **The steward** | Five thread states, a "waiting for you" queue, quiet cards, persona and voice, memory with expiry and scope, over a hundred changeable settings, propose-only after reading external content | [§4](#4-the-steward) |
@@ -532,9 +532,9 @@ Windows 10/11 is the first-class target; release packages and desktop control ar
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            Backend source: 76 ordered modules (edit here, then run build.js)
+│   ├── app/src/            Backend source: 77 ordered modules (edit here, then run build.js)
 │   ├── app/server.js       Backend runtime artifact (concatenated by app/build.js; zero npm runtime deps)
-│   ├── app/public/         Frontend: index.html + 69 native ES modules + layered CSS + zh/en locales
+│   ├── app/public/         Frontend: index.html + 70 native ES modules + layered CSS + zh/en locales
 │   ├── desktop/            WinForms + WebView2 desktop shell
 │   ├── resources/          Built-in Playbooks, the offline plugin marketplace, scripts
 │   ├── config/             Configuration examples and factory defaults

@@ -582,6 +582,8 @@ function stewardActLabel(tool, args) {
 
 function stewardNormalizeAct(raw) {
   if (!raw || typeof raw !== 'object') return null;
+  // Setup navigation comes only from a successful production prepare receipt, never model JSON.
+  if (raw.kind === 'external_bot_setup') return null;
   const tool = String(raw.tool || '');
   const kindRaw = String(raw.kind || '');
   const kind = (kindRaw === 'tool' || kindRaw === 'open_thread' || kindRaw === 'dismiss')
