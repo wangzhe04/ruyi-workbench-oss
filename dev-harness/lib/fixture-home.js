@@ -48,15 +48,24 @@ function isFakeHome(homePath) {
 // 每次 runner 进程一个(整轮跑共用),mkdtemp 保证唯一,跑完由 OS 的 %TEMP% 回收。
 let cachedFixtureHome = '';
 function fixtureHomeDir() {
-  if (!cachedFixtureHome) cachedFixtureHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-e2e-home-'));
+  if (!cachedFixtureHome) cachedFixtureHome = ensureHomeAppData(fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-e2e-home-')));
   return cachedFixtureHome;
 }
 
 // 122 波 §2.7:先跑的件往(整轮共用的)临时家写 .claude.json,后跑的件又把它导入 —— 8 路全量下
 // websearch 红的真根。修法:每一件自己一份 mkdtemp,不跨件共用。
 // 用一个新目录、跑完由调用方(run-all)自行 rmSync 回收。
+// Chrome/Edge 无头要 %USERPROFILE%\AppData\{Local,Roaming} 真实存在:实测 Chrome 155 在目录缺失时
+// 进程活着却永不绑定 --remote-debugging-port,/json/list 一直 ECONNREFUSED,件就红在「CDP target
+// unavailable」而这些字说不出原因。fakeAppDataDirs 是【整机一份】的独立变量,补不上临时家这一份,
+// 所以临时家自己建两个空目录(内容仍隔离)。
+function ensureHomeAppData(home) {
+  fs.mkdirSync(path.join(home, 'AppData', 'Local'), { recursive: true });
+  fs.mkdirSync(path.join(home, 'AppData', 'Roaming'), { recursive: true });
+  return home;
+}
 function fixtureHomeDirPerTest() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-e2e-home-'));
+  return ensureHomeAppData(fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-e2e-home-')));
 }
 
 // 123-M3(37 号文 §3.7):USERPROFILE/HOME 换了临时家,但 Windows 上 LOCALAPPDATA/APPDATA
