@@ -45,6 +45,9 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
   let connectionSeq = 0, inboxSeq = 0, filter = '', writeOwner = null, nextBefore = '', total = 0;
   let connections = [], items = [];
   let worker = { running: false, errorCode: '' };
+  let discovering = false;
+  const DISCOVER = { form: 'cfgStewardBotDiscoverForm', appId: 'cfgStewardBotDiscoverAppId', secret: 'cfgStewardBotDiscoverSecret',
+    label: 'cfgStewardBotDiscoverLabel', note: 'cfgStewardBotDiscoverNote', run: 'cfgStewardBotDiscoverRun' };
   const quality = { connections: 'unread', inbox: 'unread' };
   const errorDetail = { connections: '', inbox: '' };
   const current = (mine, seq, kind) => active && isVisible() && mine === generation && seq === (kind === 'connections' ? connectionSeq : inboxSeq);
@@ -60,15 +63,21 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       'external_channel.storage_unavailable': 'storageUnavailable', 'external_channel.inbox_full': 'capacityFull',
       'external_channel.connections_full': 'capacityFull', 'external_channel.retired_ids_full': 'capacityFull',
       'external_channel.control_revoked': 'controlRevoked', 'external_channel.owner_invalid': 'ownerRequired',
-      'external_channel.control_confirmation_required': 'controlConfirmationRequired' };
+      'external_channel.control_confirmation_required': 'controlConfirmationRequired',
+      'external_discovery.credentials_rejected': 'discoverRejected', 'external_discovery.unsupported_platform': 'discoverUnsupportedPlatform',
+      'external_discovery.credentials_missing': 'discoverCredentialsMissing', 'external_discovery.identity_missing': 'discoverIdentityMissing',
+      'external_discovery.busy': 'discoverBusy', 'external_discovery.invalid_input': 'discoverInvalid',
+      'external_credentials.unsupported': 'discoverUnsupported' };
     const code = String(info?.code || '');
     const delivery = code.startsWith('external_delivery.');
-    const key = keys[code] || (code.endsWith('.rate_limited') ? 'rateLimited'
+    const discovery = code.startsWith('external_discovery.');
+    const key = keys[code] || (code.endsWith('.rate_limited') ? (discovery ? 'discoverBusy' : 'rateLimited')
+      : discovery ? 'discoverUnavailable'
       : delivery && code.startsWith('external_delivery.token_') ? 'replyAuth'
       : delivery && ['external_delivery.invalid_config', 'external_delivery.identity_mismatch'].includes(code) ? 'replyConfig'
       : delivery && code.endsWith('.rejected') ? 'replyRejected'
       : delivery ? 'delivery.unknown' : 'requestFailed');
-    return t('externalBots.' + key) + (/^external_(channel|delivery)\.[a-z_]{1,80}$/.test(code) ? ' (' + code + ')' : '');
+    return t('externalBots.' + key) + (/^external_(channel|delivery|discovery|credentials)\.[a-z_]{1,80}$/.test(code) ? ' (' + code + ')' : '');
   }
   function readStatus(kind) {
     const node = byId(kind === 'connections' ? 'cfgStewardBotConnectionsStatus' : 'cfgStewardBotInboxStatus');
@@ -105,6 +114,8 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
         control(row.enabled ? 'externalBots.disable' : 'externalBots.enable', 'toggle', () => mutate(row.enabled ? { op: 'disable', id: row.id }
           : { op: 'upsert', connection: { ...connectionPayload(row), enabled: true } })),
         control('externalBots.delete', 'delete', () => removeConnection(row)));
+      // Feishu identity can be re-probed with the stored app secret; this never writes configuration.
+      if (row.platform === 'feishu') actions.append(control('externalBots.verifyIdentity', 'verify', () => verifyIdentity(row)));
       for (const action of actions.children) action.disabled ||= quality.connections !== 'ok';
       node.append(copy, actions); host.appendChild(node);
     }
@@ -152,6 +163,71 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       }
       details.appendChild(actions); node.appendChild(details); host.appendChild(node);
     }
+  }
+  function discoverNote(text, tone = '') {
+    const node = byId(DISCOVER.note);
+    if (node) { node.textContent = text; node.dataset.tone = tone; }
+  }
+  function panelNote(key, params = {}, tone = '') {
+    const node = byId('cfgStewardExternalBotNote');
+    if (node) { node.textContent = t(key, params); node.dataset.tone = tone; }
+  }
+  function closeDiscover() {
+    const form = byId(DISCOVER.form); if (form) form.hidden = true;
+    const secret = byId(DISCOVER.secret); if (secret) secret.value = '';
+    const run = byId(DISCOVER.run); if (run) run.disabled = false;
+    discovering = false;
+  }
+  function openDiscover() {
+    if (!active || !isVisible() || writeOwner) return false;
+    const form = byId(DISCOVER.form); if (!form) return false;
+    form.hidden = false; discoverNote(t('externalBots.discoverHint'));
+    const appId = byId(DISCOVER.appId); if (appId) appId.focus();
+    return true;
+  }
+  async function runDiscover(event) {
+    event?.preventDefault();
+    if (discovering || writeOwner || !active || !isVisible()) return false;
+    const appId = String(byId(DISCOVER.appId)?.value || '').trim();
+    const appSecret = String(byId(DISCOVER.secret)?.value || '');
+    const label = String(byId(DISCOVER.label)?.value || '').trim();
+    // Clear the DOM value before the request leaves: the secret must not survive in the page.
+    const secretNode = byId(DISCOVER.secret); if (secretNode) secretNode.value = '';
+    if (!appId || !appSecret) { discoverNote(t('externalBots.discoverInvalid'), 'err'); return false; }
+    const mine = generation; discovering = true;
+    const run = byId(DISCOVER.run); if (run) run.disabled = true;
+    discoverNote(t('externalBots.discoverRunning'));
+    try {
+      const body = await api('/api/external-bots/discover', { method: 'POST', body: JSON.stringify({ op: 'probe', appId, appSecret, label, create: true }) });
+      if (mine !== generation || !active || !isVisible()) return false;
+      if (body?.ok !== true) throw body || new Error('write_unconfirmed');
+      const created = ['created', 'reused', 'existing'].includes(body.created) ? body.created : 'created';
+      const params = { tenant: String(body.discovery?.tenantId || ''), bot: String(body.discovery?.botUserId || '') };
+      discoverNote(t('externalBots.discover' + created[0].toUpperCase() + created.slice(1), params), created === 'existing' ? 'warn' : '');
+      await loadConnections();
+      if (created !== 'existing' && typeof body.connectionId === 'string' && body.connectionId) setup.open(body.connectionId);
+      return true;
+    } catch (error) {
+      if (mine === generation && active && isVisible()) discoverNote(t('externalBots.discoverFailed') + ' ' + errorText(error), 'err');
+      return false;
+    } finally { discovering = false; const node = byId(DISCOVER.run); if (node) node.disabled = false; }
+  }
+  // Read-only re-probe with the stored app secret: reports agreement, never rewrites the connection identity.
+  async function verifyIdentity(row) {
+    if (discovering || writeOwner || !active || !isVisible()) return false;
+    discovering = true; panelNote('externalBots.verifying');
+    try {
+      const body = await api('/api/external-bots/discover', { method: 'POST', body: JSON.stringify({ op: 'verify', connectionId: row.id }) });
+      if (!active || !isVisible()) return false;
+      if (body?.ok !== true) throw body || new Error('write_unconfirmed');
+      const match = body.matches?.tenantId === true && body.matches?.botUserId === true;
+      const params = { tenant: String(body.discovery?.tenantId || ''), bot: String(body.discovery?.botUserId || '') };
+      panelNote(match ? 'externalBots.verifyMatch' : 'externalBots.verifyMismatch', params, match ? '' : 'err');
+      return match;
+    } catch (error) {
+      if (active && isVisible()) panelNote('externalBots.discoverFailed', {}, 'err');
+      return false;
+    } finally { discovering = false; }
   }
   async function loadConnections() {
     if (!active || !isVisible()) return false;
@@ -282,7 +358,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     return mutate({ op: 'upsert', connection });
   }
   function invalidate(reason = 'failed') {
-    setup.close();
+    setup.close(); closeDiscover();
     generation++; connectionSeq++; inboxSeq++; writeOwner = null; nextBefore = '';
     quality.connections = reason; quality.inbox = reason;
     if (active && isVisible()) { renderConnections(); renderInbox(); }
@@ -300,6 +376,8 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     on('cfgStewardBotConnectionsRefresh', 'click', loadConnections); on('cfgStewardBotInboxRefresh', 'click', loadInbox);
     on('cfgStewardBotInboxMore', 'click', () => loadInbox(true));
     on('cfgStewardBotNew', 'click', () => edit()); on('cfgStewardBotForm', 'submit', save);
+    on('cfgStewardBotDiscoverOpen', 'click', openDiscover); on('cfgStewardBotDiscoverForm', 'submit', runDiscover);
+    on('cfgStewardBotDiscoverCancel', 'click', closeDiscover);
     on('cfgStewardBotPlatform', 'change', () => platformFields());
     on('cfgStewardBotMode', 'change', () => modeFields());
     on('cfgStewardBotCancel', 'click', () => { const form = byId('cfgStewardBotForm'); if (form) form.hidden = true; });
@@ -319,6 +397,6 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       stream.on(EVENT_STREAM_INSTANCE_EVENT, () => { restarting = true; invalidate('restarting'); });
       stream.on('presence.ack', () => { if (restarting) { restarting = false; if (active && isVisible()) { void loadConnections(); void loadInbox(); } } });
     },
-    snapshot: () => ({ connections: connections.slice(), items: items.slice(), quality: { ...quality }, worker: { ...worker }, generation, writing: Boolean(writeOwner), nextBefore, total }),
+    snapshot: () => ({ connections: connections.slice(), items: items.slice(), quality: { ...quality }, worker: { ...worker }, generation, writing: Boolean(writeOwner), discovering, nextBefore, total }),
   });
 }

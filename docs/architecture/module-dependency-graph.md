@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 77 | 3774 | 3310 | 564 | 67 | 0 | 1 |
+| 78 | 3781 | 3311 | 565 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -90,8 +90,9 @@
 | 72 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
 | 73 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
 | 74 | `13y-external-bot-credentials.js` | transport | 1 | 6 | 2 |
-| 75 | `13w-external-bots.js` | transport | 60 | 21 | 6 |
-| 76 | `14-main.js` | entrypoint | 1 | 590 | 48 |
+| 75 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
+| 76 | `13w-external-bots.js` | transport | 66 | 22 | 7 |
+| 77 | `14-main.js` | entrypoint | 1 | 590 | 48 |
 
 ## 模块边
 
@@ -610,6 +611,7 @@
 | `13w-external-bots.js` | `13v-external-channel-protocols.js` | backward | `ExternalChannelProtocols` |
 | `13w-external-bots.js` | `13x-external-channel-delivery.js` | backward | `ExternalChannelDelivery` |
 | `13w-external-bots.js` | `13y-external-bot-credentials.js` | backward | `ExternalBotCredentials` |
+| `13w-external-bots.js` | `13z-external-bot-discovery.js` | backward | `ExternalBotDiscovery` |
 | `13x-external-channel-delivery.js` | `00-boot.js` | backward | `path`, `text` |
 | `13y-external-bot-credentials.js` | `00-boot.js` | backward | `crypto`, `fsp`, `path`, `paths`, `runKeyedChain` |
 | `13y-external-bot-credentials.js` | `01-config.js` | backward | `DurableJsonStore` |

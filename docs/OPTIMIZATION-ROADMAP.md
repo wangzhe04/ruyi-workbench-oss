@@ -13,7 +13,7 @@
 
 ## 当前优先级
 
-[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md) 已完成源码与隔离验收：从对话准备应用资料、专用密钥输入到一次性配对，减少环境变量和平台身份的手工配置。接下来推进飞书身份自动发现与 66 号真实平台部署联调，尚未发布。
+[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md) 与 [飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 均已完成源码与隔离验收：对话准备应用资料、专用密钥输入、一次性配对，以及用 App ID 与应用密钥自动取得租户 key 与机器人 open_id。接下来推进 66 号真实平台部署联调（含核对自动发现的官方响应形状），尚未发布。
 
 | 顺序 | 目标 | 建议版本归属 |
 |---|---|---|

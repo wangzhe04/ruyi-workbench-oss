@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 77,
-    "providedSymbols": 3774,
-    "requiredSymbols": 3310,
-    "edges": 564,
+    "modules": 78,
+    "providedSymbols": 3781,
+    "requiredSymbols": 3311,
+    "edges": 565,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -23387,12 +23387,23 @@
       ]
     },
     {
-      "file": "13w-external-bots.js",
+      "file": "13z-external-bot-discovery.js",
       "order": 75,
+      "layer": "transport",
+      "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted",
+      "provides": [
+        "ExternalBotDiscovery"
+      ],
+      "requires": []
+    },
+    {
+      "file": "13w-external-bots.js",
+      "order": 76,
       "layer": "transport",
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker",
       "provides": [
         "EXTERNAL_BOT_CONNECTION_KEYS",
+        "EXTERNAL_BOT_DISCOVERY_LIMITS",
         "EXTERNAL_BOT_LIMITS",
         "EXTERNAL_BOT_SETUP_KEYS",
         "EXTERNAL_BOT_SETUP_PATHS",
@@ -23407,6 +23418,11 @@
         "externalBotCurrentPairing",
         "externalBotDecodeJson",
         "externalBotDeliveries",
+        "externalBotDiscoverOperation",
+        "externalBotDiscoveryBusy",
+        "externalBotDiscoveryFailure",
+        "externalBotDiscoveryProbe",
+        "externalBotDiscoveryRate",
         "externalBotDrain",
         "externalBotEnvReference",
         "externalBotError",
@@ -23600,12 +23616,19 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13z-external-bot-discovery.js",
+          "symbol": "ExternalBotDiscovery",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
     {
       "file": "14-main.js",
-      "order": 76,
+      "order": 77,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -34048,6 +34071,14 @@
       "to": "13y-external-bot-credentials.js",
       "symbols": [
         "ExternalBotCredentials"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "13z-external-bot-discovery.js",
+      "symbols": [
+        "ExternalBotDiscovery"
       ],
       "direction": "backward"
     },

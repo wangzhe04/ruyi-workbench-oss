@@ -23227,10 +23227,19 @@
       ]
     },
     {
+      "file": "13z-external-bot-discovery.js",
+      "layer": "transport",
+      "provides": [
+        "ExternalBotDiscovery"
+      ],
+      "requires": []
+    },
+    {
       "file": "13w-external-bots.js",
       "layer": "transport",
       "provides": [
         "EXTERNAL_BOT_CONNECTION_KEYS",
+        "EXTERNAL_BOT_DISCOVERY_LIMITS",
         "EXTERNAL_BOT_LIMITS",
         "EXTERNAL_BOT_SETUP_KEYS",
         "EXTERNAL_BOT_SETUP_PATHS",
@@ -23245,6 +23254,11 @@
         "externalBotCurrentPairing",
         "externalBotDecodeJson",
         "externalBotDeliveries",
+        "externalBotDiscoverOperation",
+        "externalBotDiscoveryBusy",
+        "externalBotDiscoveryFailure",
+        "externalBotDiscoveryProbe",
+        "externalBotDiscoveryRate",
         "externalBotDrain",
         "externalBotEnvReference",
         "externalBotError",
@@ -23435,6 +23449,13 @@
         {
           "provider": "13y-external-bot-credentials.js",
           "symbol": "ExternalBotCredentials",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13z-external-bot-discovery.js",
+          "symbol": "ExternalBotDiscovery",
           "kinds": [
             "read"
           ]

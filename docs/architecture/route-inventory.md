@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 164(精确 141 / 前缀 11 / 正则 12),ROUTE_AUTH 150 条,生成于 2026-10-17T04:39:22.101Z。
+> 判定点 165(精确 142 / 前缀 11 / 正则 12),ROUTE_AUTH 151 条,生成于 2026-10-17T10:39:53.761Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -104,17 +104,18 @@
 |---|---|---|---|---|---|
 | GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js · `handleEventStreamApiRoutes` | action-feedback.browser.e2e.js, background-completion.e2e.js, boot-failure-kind.browser.e2e.js 等 20 件 |
 
-## external-bots(9)
+## external-bots(10)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
 | POST | `/api/external-bots/callback/qq` | exact | external-callback self | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-gateway.e2e.js, external-bot-setup.e2e.js, external-bots.e2e.js |
 | POST | `/api/external-bots/callback/feishu` | exact | external-callback self | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-gateway.e2e.js, external-bot-setup.browser.e2e.js, external-bots-control.e2e.js 等 5 件 |
-| GET | `/api/external-bots/setup` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-setup.browser.e2e.js, external-bot-setup.e2e.js |
-| POST | `/api/external-bots/setup` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-setup.browser.e2e.js, external-bot-setup.e2e.js |
+| GET | `/api/external-bots/setup` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-discovery.e2e.js, external-bot-setup.browser.e2e.js, external-bot-setup.e2e.js 等 4 件 |
+| POST | `/api/external-bots/setup` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-discovery.e2e.js, external-bot-setup.browser.e2e.js, external-bot-setup.e2e.js 等 4 件 |
 | POST | `/api/external-bots/credentials` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-setup.e2e.js, external-bot-setup-ui.test.js |
-| GET | `/api/external-bots/connections` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-gateway.e2e.js, external-bot-setup.browser.e2e.js, external-bot-setup.e2e.js 等 6 件 |
-| POST | `/api/external-bots/connections` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-gateway.e2e.js, external-bot-setup.browser.e2e.js, external-bot-setup.e2e.js 等 6 件 |
+| POST | `/api/external-bots/discover` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-discovery.e2e.js, external-bots-ui.test.js |
+| GET | `/api/external-bots/connections` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-discovery.e2e.js, external-bot-gateway.e2e.js, external-bot-setup.browser.e2e.js 等 7 件 |
+| POST | `/api/external-bots/connections` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-discovery.e2e.js, external-bot-gateway.e2e.js, external-bot-setup.browser.e2e.js 等 7 件 |
 | GET | `/api/external-bots/inbox` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-setup.browser.e2e.js, external-bot-setup.e2e.js, external-bots-control.e2e.js 等 5 件 |
 | POST | `/api/external-bots/inbox/read` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bots.e2e.js |
 

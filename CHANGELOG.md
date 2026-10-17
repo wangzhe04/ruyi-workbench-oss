@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 只有飞书应用 ID 与应用密钥也能接上机器人：在“外部机器人”面板用“用应用信息自动发现”，本机向飞书固定官方接口探测一次，自动取得租户 key 与机器人 open_id 并准备一条关闭的连接，应用密钥存进本机凭据。已有连接可“核验身份”复核租户与机器人，不会改动身份。探测失败不保存任何凭据，也不开启连接或授予控制权。
+- With only a Feishu App ID and App Secret you can prepare a bot: the External bots panel offers "Discover from app credentials", which probes the fixed official Feishu endpoints once, reads the tenant key and bot open_id, prepares a disabled connection and stores the app secret locally. Existing connections can re-check tenant and bot identity without changing it. A failed probe stores nothing and never enables control.
+
 - 管家可根据用户提供的 QQ／飞书应用资料检查缺项并准备机器人连接。新增专用凭据录入与短时配对引导，自动识别本人账号和聊天，最终在本机确认开启远程控制。Windows 使用当前用户 DPAPI 保存机器人密钥；原有环境变量方式保留，非 Windows 不降级为明文保存。配对与本机配置就绪不等于真实平台收发已验证。
 - The Steward can inspect supplied QQ/Feishu app information and prepare a disabled bot connection. Dedicated credential entry and short-lived pairing identify the owner's account and conversation before local authorization enables remote control. Windows stores bot credentials with current-user DPAPI; environment references remain supported, with no plaintext fallback on other platforms. Pairing and local readiness do not imply verified live platform delivery.
 

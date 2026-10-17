@@ -5,6 +5,7 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/external-bots/setup', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/setup', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/credentials', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/discover', auth: 'token' },
   { m: 'GET', p: '/api/external-bots/inbox', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/inbox/read', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/callback/qq', auth: 'external-callback' },

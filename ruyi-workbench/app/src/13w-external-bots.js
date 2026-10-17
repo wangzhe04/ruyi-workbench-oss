@@ -9,7 +9,11 @@ const externalBotDeliveries = new Map();
 const externalBotChains = new Map();
 const externalBotPairings = new Map(); // At most one five-minute window per existing connection; never persisted.
 const EXTERNAL_BOT_SETUP_KEYS = Object.freeze(['op', 'connectionId', 'platform', 'appId', 'tenantId', 'botUserId', 'label']);
-const EXTERNAL_BOT_SETUP_PATHS = Object.freeze(['/api/external-bots/setup', '/api/external-bots/credentials']);
+const EXTERNAL_BOT_SETUP_PATHS = Object.freeze(['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/discover']);
+// A discovery probe performs outbound requests with an owner-supplied app secret: one flight, bounded rate.
+const EXTERNAL_BOT_DISCOVERY_LIMITS = Object.freeze({ perMinute: 10 });
+let externalBotDiscoveryBusy = false;
+let externalBotDiscoveryRate = { at: 0, count: 0 };
 let externalBotInflight = 0;
 let externalBotRate = { at: 0, count: 0 };
 let externalBotWorkerBusy = false;
@@ -197,6 +201,7 @@ async function externalBotStewardSetup(args, ctx) {
       }
       return { ok: true, connections, requiredIdentity: { qq: ['appId'], feishu: ['appId', 'tenantId', 'botUserId'] },
         guidance: { appId: '应用管理后台的应用 ID', tenantId: '飞书应用所属租户 tenant_key', botUserId: '飞书机器人 open_id，不能用 user_id 或 union_id',
+          discovery: '飞书缺 tenant key 或机器人 open_id 时，请用户在本机「外部机器人」面板用「用应用信息自动发现」：填入应用 ID 与应用密钥，由本机固定官方接口探测。不要向用户索要密钥，也不要推测这两个标识',
           secrets: '密钥仅在本机机器人配置面板填写，不要发进聊天；已保存不代表公网回调或平台回复已经验证' } };
     }
     if (!['qq', 'feishu'].includes(args.platform)) return { ok: false, error: 'invalid_request', missing: ['platform'] };
@@ -212,6 +217,80 @@ async function externalBotStewardSetup(args, ctx) {
     await externalBotUpdateConnection({ op: 'upsert', connection: { id, platform: args.platform, appId: args.appId,
       tenantId: args.tenantId, botUserId: args.botUserId, label: args.label || '', enabled: false, mode: 'inbox' } });
     return { ok: true, prepared: true, reused: false, connectionId: id, disabled: true };
+  });
+}
+function externalBotDiscoveryFailure(errorCode) {
+  const status = { 'external_discovery.invalid_input': 400, 'external_discovery.credentials_rejected': 400,
+    'external_discovery.unsupported_platform': 400, 'external_discovery.credentials_missing': 409,
+    'external_discovery.identity_missing': 409, 'external_discovery.rate_limited': 429, 'external_discovery.busy': 429 }[errorCode];
+  return externalBotError(errorCode, status || 502);
+}
+// One probe in flight; the secret is passed through and then only the discovered identity is returned.
+async function externalBotDiscoveryProbe(appId, appSecret) {
+  const at = Date.now();
+  if (at - externalBotDiscoveryRate.at >= 60000) externalBotDiscoveryRate = { at, count: 0 };
+  if (externalBotDiscoveryBusy) throw externalBotError('external_discovery.busy', 429);
+  if (externalBotDiscoveryRate.count >= EXTERNAL_BOT_DISCOVERY_LIMITS.perMinute) throw externalBotError('external_discovery.rate_limited', 429);
+  externalBotDiscoveryBusy = true; externalBotDiscoveryRate.count += 1;
+  let result;
+  try { result = await ExternalBotDiscovery.probe({ appId, appSecret }); }
+  finally { externalBotDiscoveryBusy = false; }
+  if (!result.ok) throw externalBotDiscoveryFailure(result.errorCode);
+  return result.identity;
+}
+async function externalBotDiscoverOperation(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || typeof body.op !== 'string') throw externalBotError('external_channel.request_invalid');
+  if (body.op === 'verify') {
+    if (Object.keys(body).some(key => !['op', 'connectionId'].includes(key)) || typeof body.connectionId !== 'string') throw externalBotError('external_channel.request_invalid');
+    // Reading the stored secret is bounded to this call; verification never writes state or credentials.
+    const target = await runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState();
+      const connection = state.connections.find(row => row.id === body.connectionId);
+      if (!connection) throw externalBotError('external_channel.connection_not_found', 404);
+      if (connection.platform !== 'feishu') throw externalBotError('external_discovery.unsupported_platform', 400);
+      const credentials = await externalBotCredentialSnapshot(connection);
+      if (!credentials.values.appSecret) throw externalBotError('external_discovery.credentials_missing', 409);
+      return { connectionId: connection.id, appId: connection.appId, tenantId: connection.tenantId, botUserId: connection.botUserId, appSecret: credentials.values.appSecret };
+    });
+    const discovered = await externalBotDiscoveryProbe(target.appId, target.appSecret);
+    return { ok: true, connectionId: target.connectionId, discovery: discovered,
+      matches: { tenantId: discovered.tenantId === target.tenantId, botUserId: discovered.botUserId === target.botUserId } };
+  }
+  if (body.op !== 'probe' || Object.keys(body).some(key => !['op', 'appId', 'appSecret', 'label', 'create'].includes(key))
+    || typeof body.appId !== 'string' || typeof body.appSecret !== 'string'
+    || (body.label !== undefined && typeof body.label !== 'string') || (body.create !== undefined && typeof body.create !== 'boolean')) throw externalBotError('external_channel.request_invalid');
+  const label = body.label || '';
+  if (!externalBotString(label, 120, true)) throw externalBotError('external_channel.request_invalid');
+  const create = body.create === true;
+  // Other platforms have no DPAPI vault: probing is still allowed, persisting a secret is not.
+  if (create && process.platform !== 'win32') throw externalBotError('external_credentials.unsupported', 501);
+  const appId = body.appId.trim();
+  const discovery = await externalBotDiscoveryProbe(appId, body.appSecret);
+  if (!create) return { ok: true, created: 'none', connectionId: '', discovery };
+  // The probe already finished; only the identity existence check and the secret write share the state chain.
+  return runKeyedChain(externalBotChains, 'state', async () => {
+    const state = await externalBotReadState();
+    const identity = row => row.platform === 'feishu' && row.appId === appId && row.tenantId === discovery.tenantId && row.botUserId === discovery.botUserId;
+    const existing = state.connections.find(identity);
+    // A live control connection is left untouched; discovery never rewrites an enabled or owner-bound entry.
+    if (existing && existing.enabled) return { ok: true, created: 'existing', connectionId: existing.id, discovery };
+    let connection = existing && !existing.ownerSenderId && !existing.ownerConversationId ? existing : null;
+    let created = 'reused';
+    if (!connection) {
+      const id = 'bot_' + crypto.randomBytes(16).toString('hex');
+      await externalBotUpdateConnection({ op: 'upsert', connection: { id, platform: 'feishu', appId,
+        tenantId: discovery.tenantId, botUserId: discovery.botUserId, label, enabled: false, mode: 'inbox' } });
+      connection = (await externalBotReadState()).connections.find(row => row.id === id);
+      created = 'created';
+    }
+    // The secret is stored only after the immutable identity exists; an environment reference stays authoritative.
+    const credentials = await externalBotCredentialSnapshot(connection);
+    if (credentials.fields.appSecret?.source !== 'env') {
+      await ExternalBotCredentials.save(connection, { set: { appSecret: body.appSecret }, remove: [], expectedRevision: credentials.credentialRevision });
+      externalBotPairings.delete(connection.id);
+    }
+    const snapshot = await externalBotSetupSnapshot(connection);
+    return { ok: true, created, connectionId: connection.id, discovery, connection: snapshot.connection, readiness: snapshot.readiness };
   });
 }
 function externalBotPublicItem(item) {
@@ -566,7 +645,7 @@ async function externalBotSetupHttpOperation(req, res, operation) {
   return true;
 }
 async function handleExternalBotApiRoutes(req, res, pathname) {
-  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read'];
+  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/discover', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read'];
   let callbackPlatform = '';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/qq') callbackPlatform = 'qq';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/feishu') callbackPlatform = 'feishu';
@@ -600,6 +679,13 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
     }
     if (req.method === 'POST' && pathname === '/api/external-bots/setup') return await externalBotSetupHttpOperation(req, res, externalBotSetupOperation);
     if (req.method === 'POST' && pathname === '/api/external-bots/credentials') return await externalBotSetupHttpOperation(req, res, externalBotSaveCredentials);
+    if (req.method === 'POST' && pathname === '/api/external-bots/discover') {
+      if (url.search) throw externalBotError('external_channel.request_invalid');
+      // Discovery owns its own chaining: the probe runs outside the state lock, the optional write inside it.
+      const body = externalBotDecodeJson(await externalBotReadBody(req));
+      const result = await externalBotDiscoverOperation(body);
+      if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
+    }
     if (req.method === 'GET' && pathname === '/api/external-bots/connections') {
       const state = await runKeyedChain(externalBotChains, 'state', externalBotReadState);
       send(res, json({ ok: true, connections: await Promise.all(state.connections.map(externalBotPublicConnection)) })); return true;
@@ -635,7 +721,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
     }
     throw externalBotError('external_channel.request_invalid', 405);
   } catch (error) {
-    const code = typeof error?.apiCode === 'string' && /^(external_channel\.|external_credentials\.|auth\.)[a-z_]+$/.test(error.apiCode) ? error.apiCode : 'external_channel.storage_unavailable';
+    const code = typeof error?.apiCode === 'string' && /^(external_channel\.|external_credentials\.|external_discovery\.|auth\.)[a-z_]+$/.test(error.apiCode) ? error.apiCode : 'external_channel.storage_unavailable';
     res.setHeader('connection', 'close');
     if (!req.complete) res.once('finish', () => req.destroy());
     send(res, apiFailure(code, {}, code, error?.statusCode || 503)); return true;
