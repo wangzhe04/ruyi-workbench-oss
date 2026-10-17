@@ -223,7 +223,7 @@ ok(apiCallSites === 1 && !/\bfetch\(/.test(stewardShell),
 ok((stewardShell.match(/setTimeout\(/g) || []).length === 0,
   'C2e 全文件零 setTimeout(117l-B2 的头像动效靠 animationend 摘类，没有引入第二种计时)');
 ok(/function nudgeAvatar\(\) \{/.test(stewardShell)
-  && /lastReply\.trigger === 'inbox'\) \{ nudgeAvatar\(\);/.test(stewardShell)
+  && /lastReply\.trigger === 'external' \|\| \(!firstSeen && lastReply\.trigger === 'inbox'\)\)\) \{ nudgeAvatar\(\); void conversation\.appendSince\(''\);/.test(stewardShell)
   && !/presenceInputs\.nudge|nudge:/.test(stewardShell),
   'C2f nudge 是显式的一次性口子，不写进 presenceInputs(derivePresence 是纯投影，不该有「播过没有」的记忆)');
 ok(/function pollStewardState\(\) \{\s*if \(typeof api !== 'function'\) return;\s*const generation = conversation\.conversationGeneration\(\);\s*Promise\.resolve\(api\('\/api\/steward\/state'\)\)/.test(stewardShell),

@@ -265,6 +265,14 @@ shell uses a tray balloon.
 
 ### The Steward tab
 
+**External bots and remote control:** configure an official QQ bot or a Feishu app bot here, with explicit sender and conversation allowlists. New connections start disabled. An administrator supplies credentials through process environment variables; enter variable names in the form, never the secret values. A Feishu custom group webhook is a different integration.
+
+Choose **Remote control**, bind your account, conversation and direct/group type, and confirm locally. You can then delegate, continue, query progress/results and stop specified tasks from QQ or Feishu, with the current reply returned to the same conversation. This is the same Steward as on your computer: it shares context and existing task permissions without raising the permission level. In a group, only the bound account mentioning the bot can control it; other members can see replies. Required confirmations and failures remain explicit.
+
+Choose **Inbox only** to receive material without automatic execution or replies. Review its source, add it to a draft, then send manually. Existing drafts, attachments and selected targets are protected. Read state, execution outcome and delivery outcome are separate: an uncertain reply does not mean the task failed, so do not blindly repeat the work. Failed refreshes retain previous contents with a notice.
+
+An administrator must configure the platform application, sending permission and HTTPS callback entry point. Local readiness does not prove platform connectivity. See the administrator guide for credentials and allowlists. Proactive progress subscriptions, complete remote decision handling and attachments are later stages; for now, send another message to query progress or results.
+
 **Settings → Steward.** The steward is a conversational view (section 4): you say one sentence and it dispatches the
 work to threads and reports back. **It is on from the factory** (a new install lands in the steward view). The page
 has eight groups from top to bottom:

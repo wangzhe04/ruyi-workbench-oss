@@ -2318,10 +2318,11 @@ function prerouteText(q, index, memory, opts) {
 //           relayChannel(sessionId) -> { channel, wait?, questionId?, pendingId? }(同步只读,零文件读)
 //             (117s-G:通道判定本身也上命名空间 —— 13d 的 GET /api/sessions/:id 要把 channel 投影成
 //              信封上的 relay 键,经典壳据此决定「发送 / 插话 / 先别发」。递话判据全仓仍只有这一份)
-//           currentTurnTrigger() -> 'user' | 'inbox' | ''(同步只读,零文件读)
+//           currentTurnTrigger() -> 'user' | 'inbox' | 'external' | ''(同步只读,零文件读)
 //             (129g:此刻正在跑的那个管家回合是谁触发的。消费者是 13g 的 stewardToolHandler ——
 //              09-workflow 造的工具循环 ctx 里【没有】trigger,不补的话所有按 trigger 分档的闸
 //              在「模型直接调工具」这条调用面上整个失灵。13g -> 13h 是前向边,故走这里)
+//           currentTurnContext() -> { trigger, externalActor? } | null (同步只读；actor仅进程内不透明能力，不持久化)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
 //           preroute(q,config?,extra?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           extra.focus = 用户此刻看着的那条线程,128h-J03,可缺;

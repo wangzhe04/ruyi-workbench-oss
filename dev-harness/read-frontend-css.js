@@ -90,7 +90,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 反向验证：内存注入错误CSS后D51与F3失败，磁盘样式未修改。
 // 65: shared Steward read/fault notices use existing theme tokens and compact wrapping.
 // Prior HEAD layer payload self-check: 3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc; in-memory corrupt-layer probes must fail D51/F3.
-const LEGACY_STYLES_SHA256 = 'ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d';
+// 66: compact external bot connection/inbox styles use existing typography and theme tokens.
+// Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.
+const LEGACY_STYLES_SHA256 = 'e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

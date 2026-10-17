@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 73,
-    "providedSymbols": 3705,
-    "requiredSymbols": 3271,
-    "edges": 552,
+    "modules": 76,
+    "providedSymbols": 3756,
+    "requiredSymbols": 3301,
+    "edges": 561,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -26,6 +26,7 @@
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "EventStreamHooks",
+        "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
         "INSTALL_REGISTRY_SCHEMA",
         "LEGACY_API_ERROR_CODES",
@@ -13182,6 +13183,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "externalRoot",
           "kinds": [
             "call"
@@ -17574,6 +17582,7 @@
         "stewardToolCallVerdict",
         "stewardTriggerOf",
         "stewardUnattendedByModel",
+        "stewardUserDirected",
         "stewardValidateCwd",
         "stewardWorkspaceNameOf",
         "stewardWorkspaceSlug",
@@ -17598,6 +17607,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
           "kinds": [
             "read"
           ]
@@ -19296,7 +19312,7 @@
         },
         {
           "provider": "13k-steward-threads.js",
-          "symbol": "stewardTriggerOf",
+          "symbol": "stewardUserDirected",
           "kinds": [
             "call"
           ]
@@ -19320,7 +19336,10 @@
         "STEWARD_TAINT_GATED_TOOLS",
         "handleStewardApiRoutes",
         "stewardArgTypeProblems",
+        "stewardAuthorizeExternalContext",
         "stewardCtxIsSteward",
+        "stewardExternalContexts",
+        "stewardExternalOwnerDirected",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
         "stewardMemoryPanelExport",
@@ -19339,6 +19358,13 @@
           "symbol": "apiFailure",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -20944,6 +20970,20 @@
           ]
         },
         {
+          "provider": "13g-steward.js",
+          "symbol": "stewardAuthorizeExternalContext",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardExternalOwnerDirected",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardAppendDecision",
           "kinds": [
@@ -21450,6 +21490,13 @@
         {
           "provider": "13e-pretender-index.js",
           "symbol": "getPretenderProjectionIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardAuthorizeExternalContext",
           "kinds": [
             "call"
           ]
@@ -23222,8 +23269,252 @@
       ]
     },
     {
-      "file": "14-main.js",
+      "file": "13v-external-channel-protocols.js",
       "order": 72,
+      "layer": "transport",
+      "note": "External QQ/Feishu signed protocol normalization; pure built-in crypto helpers",
+      "provides": [
+        "ExternalChannelProtocols"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13x-external-channel-delivery.js",
+      "order": 73,
+      "layer": "transport",
+      "note": "Single bounded official QQ/Feishu reply delivery, explicit sent/failed/unknown outcomes",
+      "provides": [
+        "ExternalChannelDelivery"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13w-external-bots.js",
+      "order": 74,
+      "layer": "transport",
+      "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker",
+      "provides": [
+        "EXTERNAL_BOT_CONNECTION_KEYS",
+        "EXTERNAL_BOT_LIMITS",
+        "externalBotAcceptCallback",
+        "externalBotActiveActors",
+        "externalBotActors",
+        "externalBotChains",
+        "externalBotConfigured",
+        "externalBotDecodeJson",
+        "externalBotDeliveries",
+        "externalBotDrain",
+        "externalBotEnvReference",
+        "externalBotError",
+        "externalBotFinishJob",
+        "externalBotIdentity",
+        "externalBotInflight",
+        "externalBotNextJob",
+        "externalBotNormalizeConnection",
+        "externalBotOutcome",
+        "externalBotOwnerMatches",
+        "externalBotPublicConnection",
+        "externalBotPublicItem",
+        "externalBotRate",
+        "externalBotReadBody",
+        "externalBotReadState",
+        "externalBotRecover",
+        "externalBotRecoveryDone",
+        "externalBotReplyText",
+        "externalBotResultUncertain",
+        "externalBotSecrets",
+        "externalBotStore",
+        "externalBotString",
+        "externalBotUnsettled",
+        "externalBotUpdateConnection",
+        "externalBotValidControlState",
+        "externalBotValidItem",
+        "externalBotValidState",
+        "externalBotValidateActor",
+        "externalBotWakeWorker",
+        "externalBotWorkerAgain",
+        "externalBotWorkerBusy",
+        "externalBotWorkerError",
+        "externalBotWorkerStopped",
+        "externalBotWriteState",
+        "handleExternalBotApiRoutes"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "runStewardTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13v-external-channel-protocols.js",
+          "symbol": "ExternalChannelProtocols",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13x-external-channel-delivery.js",
+          "symbol": "ExternalChannelDelivery",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "14-main.js",
+      "order": 75,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -30632,6 +30923,7 @@
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "EventStreamHooks",
+        "ExternalBotHooks",
         "OVERLAY_ID",
         "SKILL_ID_RE",
         "URL",
@@ -31646,6 +31938,7 @@
       "from": "13g-steward.js",
       "to": "00-boot.js",
       "symbols": [
+        "ExternalBotHooks",
         "URL",
         "apiFailure",
         "json",
@@ -32096,6 +32389,7 @@
       "to": "00-boot.js",
       "symbols": [
         "EventStreamHooks",
+        "ExternalBotHooks",
         "dataRoot",
         "dataRootAliases",
         "fsp",
@@ -32569,7 +32863,7 @@
         "stewardLiveTurnPermissionMode",
         "stewardSeatedByUser",
         "stewardSeatedFail",
-        "stewardTriggerOf",
+        "stewardUserDirected",
         "stewardWorkspaceNameOf"
       ],
       "direction": "backward"
@@ -32952,6 +33246,15 @@
     },
     {
       "from": "13p-steward-runner-actions.js",
+      "to": "13g-steward.js",
+      "symbols": [
+        "stewardAuthorizeExternalContext",
+        "stewardExternalOwnerDirected"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
       "to": "13j-steward-tool-base.js",
       "symbols": [
         "stewardAppendDecision",
@@ -33125,6 +33428,14 @@
       "to": "13e-pretender-index.js",
       "symbols": [
         "getPretenderProjectionIndex"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13g-steward.js",
+      "symbols": [
+        "stewardAuthorizeExternalContext"
       ],
       "direction": "backward"
     },
@@ -33572,6 +33883,79 @@
       "to": "06d-memory-domain.js",
       "symbols": [
         "syncAgentInstructionImports"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13v-external-channel-protocols.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "crypto",
+        "json",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "ExternalBotHooks",
+        "OVERLAY_ID",
+        "URL",
+        "apiFailure",
+        "crypto",
+        "fsp",
+        "json",
+        "makeId",
+        "nowIso",
+        "path",
+        "paths",
+        "runKeyedChain",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "01-config.js",
+      "symbols": [
+        "DurableJsonStore",
+        "send",
+        "tokenOk"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "13q-steward-runner-turn.js",
+      "symbols": [
+        "runStewardTurn"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "13v-external-channel-protocols.js",
+      "symbols": [
+        "ExternalChannelProtocols"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "13x-external-channel-delivery.js",
+      "symbols": [
+        "ExternalChannelDelivery"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13x-external-channel-delivery.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "path",
+        "text"
       ],
       "direction": "backward"
     },

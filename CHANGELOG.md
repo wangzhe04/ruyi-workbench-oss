@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 新增 QQ 官方机器人与飞书应用机器人远程控制入口：本机显式授权本人账号与会话后，远程指令进入同一个管家，沿现有权限交办、查询、续办和停止，并将本次答复返回原会话。连接默认关闭，也可选仅收件；持久化区分受理、执行与发送结果，重投不重复办理，未知执行或发送不自动重放。真实平台账户、HTTPS 与权限配置仍需部署联调。
+- Add remote control through official QQ and Feishu app bots. After explicit local authorization of an owner account and conversation, remote instructions enter the same Steward for delegation, queries, continuation and stopping under existing permissions; replies return to the original conversation. Connections start disabled and can instead be inbox-only. Durable receipt, execution and delivery states prevent duplicate execution on redelivery; uncertain outcomes are not automatically replayed. Actual platform accounts, HTTPS and permissions still require deployment checks.
+
 - 停止和管家撤回绑定页面看到的那次执行，覆盖排队、启动及连续子回合；旧按钮遇到新执行或服务重启会拒绝。受保护的管家撤回在核验、停止与回退期间阻止新执行插入，空闲确认也检查期间是否启动过新任务。
 - 管家任务列表与详情补齐写盘失败、空闲中止和资源阻塞提示；任务、待决和验收读取失败时保留旧内容并说明状态。服务重启后自动清除旧条件缓存、重取权威数据，迟到响应不覆盖新结果。
 

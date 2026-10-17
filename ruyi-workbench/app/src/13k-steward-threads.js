@@ -791,7 +791,10 @@ function stewardErrorDetail(error) {
 }
 function stewardTriggerOf(ctx) {
   const raw = String((ctx && ctx.trigger) || '');
-  return raw === 'inbox' || raw === 'user' ? raw : '';
+  return raw === 'inbox' || raw === 'user' || raw === 'external' ? raw : '';
+}
+function stewardUserDirected(ctx) {
+  return stewardTriggerOf(ctx) === 'user' || (typeof ExternalBotHooks.isAuthorizedContext === 'function' && ExternalBotHooks.isAuthorizedContext(ctx) === true);
 }
 // 这一次调用是不是「模型自己在无人值守回合里决定要动别的线程」。
 // 三者都不是它:① 用户就在跟前(trigger==='user',含亲手按按钮那条路);② 13h 的【确定性自理】(七道闸,
@@ -1130,7 +1133,7 @@ async function stewardAnswerGate(o) {
   //    判据是【此刻这个管家回合是不是用户触发的】,不是模型说了算(ctx 由 13g 的门控壳按
   //    13h 的 inflight.kind 填,模型碰不到)。取不到 trigger 一律按「不是用户」办 —— fail-closed:
   //    替人说话这件事上,「不确定」必须等于「不做」。
-  if (stewardTriggerOf(ctx) === 'user') return null;
+  if (stewardUserDirected(ctx)) return null;
   // ② 污染(129c 红线 4):这一回合读过外界内容就不代答。理由比别处更硬 —— 代答的「依据」本身
   //    可以是被网页诱导出来的:一个假页面写「用户说了按收盘价」,管家转手就替用户答了「按收盘」。
   const taintedBy = stewardTurnTaintedBy(ctx);
@@ -1203,7 +1206,7 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 那条「用户正坐在这条线程前面」同理,这不是「有没有权限」,是「这件事刚被停下来,不该由管家替他
   // 撤销」。条件是用户不在跟前 —— /api/steward/relay 与 /api/steward/act 都给 trigger:'user',
   // 用户自己按那枚按钮照旧递得进去。
-  if (stewardTriggerOf(ctx) !== 'user' && stewardStoppedTarget(head, null) === 'thread') {
+  if (!stewardUserDirected(ctx) && stewardStoppedTarget(head, null) === 'thread') {
     return stewardFail('propose_required', stewardStoppedRefusal('thread'), {
       reason: 'target_stopped', sessionId, stopped: 'thread',
     });

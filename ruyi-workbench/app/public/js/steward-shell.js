@@ -315,7 +315,7 @@ export function createStewardShellDomain({
       });
       // 117e：头部常驻停机键与设置页的运行态读同一份真值，不各自再发一条请求。
       settings.setStopped(response.stopped === true);
-      // 117j W2-4：收件箱唤醒管家跑完的那一回合要实时进对话流。只认 trigger==='inbox' ——
+      // Inbox and remote-owner turns load persisted messages by watermark; local submissions paint themselves.
       // 用户自己发的那一条是 sendToSteward 当场画的，再追加一次就重了；首次轮询也跳过（那一条
       // 属于进壳之前，enterVisit 已经画过）。
       const at = String((lastReply && lastReply.at) || '');
@@ -325,7 +325,7 @@ export function createStewardShellDomain({
         // 117l-B2 ①：nudge 与 appendSince 同一道判据、同一分支 —— 有「线程回来了」这件事的
         // 那一刻才播，且必须在追加之前发（头像随即被 moveAvatarTo 搬到新那一行，先播后搬，
         // 光环跟着头像走）。用户自己发的那条回复走的是 sendToSteward，压根不进这个分支。
-        if (!firstSeen && isStewardMode() && lastReply.trigger === 'inbox') { nudgeAvatar(); void conversation.appendSince(''); }
+        if (isStewardMode() && (lastReply.trigger === 'external' || (!firstSeen && lastReply.trigger === 'inbox'))) { nudgeAvatar(); void conversation.appendSince(''); }
       }
     }).catch(() => { lastStateAt = Date.now(); /* 状态面不因单次轮询失败整条消失，下一轮再试（失败也推水位，否则每一拍都重试） */ });
   }
@@ -472,6 +472,7 @@ export function createStewardShellDomain({
   // 123-M2（37 号文 §3.6）：定时任务展开的最近几次里，点产出线程在【如意内】打开它（不给路径）。
   // 迟绑定 setter —— 上面那一行构造被 steward-settings.static 逐字钉着。
   settings.setOpenThread(sessionId => { void openSession(sessionId); });
+  settings.setExternalDraftImporter(item => composer.importExternalReference(item));
   // 121-K5：工作台视角的线程头（§2.5）。它接替 117g 的「2.0 视窗返回带」：不发取数请求，只读
   // state 与左栏已经取回来的那一行（迟绑定句柄 —— board 在它之后才构造），控件是同一份 chips 工厂。
   let boardHandle = null;

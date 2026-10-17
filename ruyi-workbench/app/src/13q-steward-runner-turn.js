@@ -38,7 +38,12 @@ const stewardUserWaiters = [];
 async function runStewardTurn(input) {
   const generation = stewardRunnerRuntime.conversationGeneration;
   const opts = (input && typeof input === 'object') ? input : {};
-  const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
+  const trigger = opts.trigger === 'external' ? 'external' : opts.trigger === 'inbox' ? 'inbox' : 'user';
+  let externalSource = null;
+  if (trigger === 'external') {
+    try { externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: opts.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+  }
   const onEvent = typeof opts.onEvent === 'function' ? opts.onEvent : () => {};
   const events = Array.isArray(opts.events) ? opts.events : [];
   const config = await readConfig().catch(() => ({}));
@@ -67,13 +72,19 @@ async function runStewardTurn(input) {
   // 微任务里一起冲出去,各自开一个回合。占位 promise 在本函数真正返回时才 resolve —— 于是
   // 等在后面的那一句话不仅等到回合跑完,还等到 stewardStampReply 把结构化结果盖完章。
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
-  const entry = { kind: trigger, controller, cancelled: '', events, promise: null, routeHint: await stewardNormalizeRouteHint(opts.routeHint) };
+  const entry = { kind: trigger, controller, cancelled: '', events, promise: null, routeHint: await stewardNormalizeRouteHint(opts.routeHint),
+    ...(trigger === 'external' ? { externalActor: opts.externalActor, externalSource } : {}) };
   let finishEntry = () => {};
   entry.promise = new Promise(resolve => { finishEntry = () => resolve(); });
 
   if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') {
     if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
     return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
+  if (trigger === 'external') {
+    try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+    if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
   }
   const inflight = stewardRunnerRuntime.inflight;
   if (trigger === 'inbox' && (inflight || stewardUserWaiters.length)) {
@@ -104,7 +115,13 @@ async function runStewardTurn(input) {
     try {
       for (;;) {
         if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', '已开始新对话，排队消息已取消');
+        if (trigger === 'external') {
+          try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+          catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+          if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
+        }
         const current = stewardRunnerRuntime.inflight;
+        // Authorization awaited disk IO. Read the slot and FIFO after it, then claim without another await.
         if (!current && stewardUserWaiters[0] === entry) break;
         const target = current || stewardUserWaiters[0];
         waitedFor = target.kind;
@@ -228,6 +245,10 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     : { executed: [], notes: [] };
   const message = trigger === 'inbox' ? await stewardInboxMessage(events, config, selfServe.notes) : String(opts.message == null ? '' : opts.message);
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
+  if (trigger === 'external') {
+    try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+  }
 
   if (!stewardRunnerRuntime.visit.startedAt) stewardRunnerRuntime.visit.startedAt = nowIso();
   stewardRunnerRuntime.visit.lastActivityAt = nowIso();
@@ -245,8 +266,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
         engineRoute: ensured.route,
         // 收件箱回合的这条 user 消息【不是用户本人说的话】:origin 随会话正文落盘,
         // steward_memory_write 的来源校验据此确定性拒绝它(13g stewardSourceIsUserMessage)。
-        messageMeta: trigger === 'inbox' ? { origin: 'inbox', inboxSeqs: events.map(e => Number(e && e.inboxSeq) || 0).slice(0, STEWARD_INBOX_EVENTS_PER_TURN) } : null,
-        requestMeta: { steward: true, trigger },
+        messageMeta: trigger === 'inbox' ? { origin: 'inbox', inboxSeqs: events.map(e => Number(e && e.inboxSeq) || 0).slice(0, STEWARD_INBOX_EVENTS_PER_TURN) }
+          : trigger === 'external' ? { origin: 'external-owner', externalSource: entry.externalSource } : null,
+        requestMeta: { steward: true, trigger, ...(trigger === 'external' ? { external: entry.externalSource } : {}) },
         onEvent,
         signal: controller ? controller.signal : null,
       });
@@ -261,6 +283,10 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 回合被抢占 / 失败时,已经落定的代批照样是真的发生了,回执不能跟着回合一起丢。取不到回合号(回合整个抛出)
   // 就是空表。没有代批时三条出口的信封与修前逐字节相同。
   const turnToolCalls = await stewardDelegationToolCalls(turn && turn.turnSeq, true);
+  const externalToolFacts = trigger === 'external' ? {
+    toolFailures: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error !== 'propose_required').length),
+    toolProposals: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error === 'propose_required').length),
+  } : {};
   const delegationCalls = turnToolCalls.filter(call => call.name === 'steward_decide' && call.result?.ok === true && call.result.exemptDelegation);
   const delegationTitles = new Map();
   for (const call of delegationCalls) {
@@ -288,7 +314,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
     if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'turn_failed');
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
-    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
+    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, ...externalToolFacts, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
   const finalText = await stewardLastAssistantContent();
   // 123-N1 ①(34 号文;用户 2026-09-13 真机走查「同一段对话出现两遍」):回执带上【本回合落盘的
@@ -337,7 +363,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 在这里查成 t(N-1):查不到本回合的,反而可能查到上一回合的。按本回合的序号给一份浅拷贝(只用作 ctx,不落盘)。
   const actionSession = (turn && Number(turn.turnSeq) > 0) ? { ...session, turnSeq: Number(turn.turnSeq) } : session;
   const actionRows = parsedReply.actions.length
-    ? await stewardExecuteActions(parsedReply.actions, actionSession, config, trigger, selfServeTargets)
+    ? await stewardExecuteActions(parsedReply.actions, actionSession, config, trigger, selfServeTargets, entry.externalActor)
     : [];
   // 127 波 2-quater B2:回合里工具直调的代批补进回执(上面已取出)。顺序按事情发生的先后:自理(模型之前)→
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。
@@ -353,6 +379,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   const why = await stewardHumanizeSay(parsedReply.why);
   const reply = {
     trigger,
+    ...externalToolFacts,
     say,
     why,
     acts,

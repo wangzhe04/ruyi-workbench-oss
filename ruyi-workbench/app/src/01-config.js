@@ -1764,7 +1764,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
         throw storeError('EDURABLE_SHAPE', id + ': root must be an object');
       }
       const actualSchema = raw[schemaKey];
-      if (schemaVersion !== null && actualSchema !== undefined && actualSchema !== schemaVersion) {
+      if (schemaVersion !== null && actualSchema !== schemaVersion && (options.strictRead === true || actualSchema !== undefined)) {
         throw storeError('EDURABLE_SCHEMA', id + ': unsupported ' + schemaKey + ' ' + String(actualSchema));
       }
       let value = cloneJson(raw);
@@ -1800,6 +1800,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
+        if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
         value = recover(error);
       }
@@ -1827,6 +1828,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
       } catch (error) {
+        if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
         value = recover(error);
       }
@@ -3894,6 +3896,12 @@ function authorizeRoute(req, method, pathname) {
     if (r.m !== '*' && r.m !== m) continue;
     const match = r.prefix ? pathname.startsWith(r.p) : pathname === r.p;
     if (!match) continue;
+    // Only the two exact callback routes opt into platform verification in their handler. They never
+    // authenticate administration, and the HTTP host allowlist remains in force before this gate.
+    if (r.auth === 'external-callback') {
+      return m === 'POST' && !r.prefix && (pathname === '/api/external-bots/callback/qq' || pathname === '/api/external-bots/callback/feishu')
+        ? null : 'route not authorized';
+    }
     if (remote && r.auth !== 'body-token') {
       if (pathname === '/api/bootstrap') return 'remote client not allowed';
       return tokenOk(req) ? null : 'missing or invalid workbench token';

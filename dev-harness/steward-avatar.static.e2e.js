@@ -160,7 +160,7 @@ ok(/\.steward-avatar\.is-nudged \.sa-body \{ animation: none !important; \}/.tes
   && !/\.is-nudged::after/.test(reducedBlock),
   'E6 reduced-motion 下 .is-nudged 只做光环不做位移（光环留着，animationend 才回得来）');
 // 触发点唯一性：nudge 只在壳层轮询判定 trigger==='inbox' 的那一分支里发一次。
-ok(/lastReply\.trigger === 'inbox'\) \{ nudgeAvatar\(\);/.test(stewardShell)
+ok(/lastReply\.trigger === 'external' \|\| \(!firstSeen && lastReply\.trigger === 'inbox'\)\)\) \{ nudgeAvatar\(\);/.test(stewardShell)
   && (stewardShell.match(/nudgeAvatar\(\)/g) || []).length === 2,
   'E7 nudgeAvatar 只有「定义 1 ＋ 调用 1」两处，调用点就在 trigger===\'inbox\' 那一分支');
 ok(/function nudgeAvatar\(\) \{[\s\S]{0,420}addEventListener\('animationend'[\s\S]{0,120}\{ once: true \}\)/.test(stewardShell)

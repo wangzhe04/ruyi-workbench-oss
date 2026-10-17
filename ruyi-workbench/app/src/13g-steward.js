@@ -183,9 +183,30 @@ function stewardCtxIsSteward(ctx) {
 function stewardWithTurnTrigger(ctx) {
   const base = (ctx && typeof ctx === 'object') ? ctx : {};
   if (base.trigger) return base;
+  const context = typeof StewardHooks.currentTurnContext === 'function' ? StewardHooks.currentTurnContext() : null;
+  if (context && context.trigger === 'external') return { ...base, trigger: 'external', externalActor: context.externalActor };
   const kind = typeof StewardHooks.currentTurnTrigger === 'function' ? StewardHooks.currentTurnTrigger() : '';
   // 取不到就保持既有的空串语义(进程内直调、夹具直调):这一口只补真的知道的那一部分。
   return (kind === 'user' || kind === 'inbox') ? { ...base, trigger: kind } : base;
+}
+
+// Opaque capabilities are issued only after authenticated bot ingress has persisted its claim.
+// This check never trusts model arguments, HTTP JSON, or a persisted source label as authority.
+const stewardExternalContexts = new WeakSet();
+function stewardExternalOwnerDirected(ctx) {
+  return Boolean(ctx && ctx.trigger === 'external' && stewardExternalContexts.has(ctx));
+}
+ExternalBotHooks.isAuthorizedContext = stewardExternalOwnerDirected;
+async function stewardAuthorizeExternalContext(ctx) {
+  if (!ctx || ctx.trigger !== 'external') return ctx;
+  if (typeof ExternalBotHooks.validateActor !== 'function') throw Object.assign(new Error('external owner authorization is unavailable'), { code: 'external_channel.control_revoked' });
+  let source;
+  try { source = await ExternalBotHooks.validateActor(ctx.externalActor); }
+  catch { throw Object.assign(new Error('external owner authorization was revoked'), { code: 'external_channel.control_revoked' }); }
+  if (!source) throw Object.assign(new Error('external owner authorization was revoked'), { code: 'external_channel.control_revoked' });
+  const authorized = { ...ctx, externalOwner: true, externalSource: source };
+  stewardExternalContexts.add(authorized);
+  return authorized;
 }
 
 // 第二轮工具走查(F8):管家工具族整体被 12 的 validateNativeToolArgs 豁免(「自带逐字段校验与专属错误码」),
@@ -257,7 +278,7 @@ function stewardToolHandler(toolName, impl) {
       for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
       const typeProblems = stewardArgTypeProblems(toolName, clean);
       if (typeProblems.length) return stewardFail('invalid_request', `${toolName}: ${typeProblems.join('; ')}`);
-      const turnCtx = stewardWithTurnTrigger(ctx);
+      const turnCtx = await stewardAuthorizeExternalContext(stewardWithTurnTrigger(ctx));
       if (!(turnCtx && turnCtx.userPressed === true) && stewardTaintGateApplies(toolName, clean)) {
         const taintedBy = stewardTurnTaintedBy(turnCtx);
         if (taintedBy.length) {
@@ -268,6 +289,7 @@ function stewardToolHandler(toolName, impl) {
       }
       return await impl(clean, turnCtx, config);
     } catch (error) {
+      if (error && error.code === 'external_channel.control_revoked') return stewardFail(error.code, 'external owner authorization was revoked');
       const message = String((error && error.message) || error);
       logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
       return stewardFail('steward.failed', `${toolName} failed: ${message}`);

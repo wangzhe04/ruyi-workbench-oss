@@ -533,7 +533,7 @@ async function stewardImplRunAction(args, ctx, config) {
   // 条件是【用户不在跟前】:POST /api/steward/act 与 /api/steward/relay 都给 trigger:'user',于是
   // 「降级成按钮、用户自己按」那条路照旧走得通;没有 trigger 的调用面(工具循环里模型直接调、
   // 进程内直调)按 fail-closed 一并拦下 —— 那些面上做决定的仍然是模型,不是人。
-  if (STEWARD_RUN_ADVANCING.includes(action) && stewardTriggerOf(ctx) !== 'user') {
+  if (STEWARD_RUN_ADVANCING.includes(action) && !stewardUserDirected(ctx)) {
     const stoppedWhich = stewardStoppedTarget(head, await stewardReadRunSnapshot(sessionId, runId));
     if (stoppedWhich) {
       return stewardFail('propose_required', stewardStoppedRefusal(stoppedWhich), {

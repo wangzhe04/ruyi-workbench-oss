@@ -52,6 +52,7 @@ const ROUTER_FILES = [
   // 第 123 波 M1（37 号文 §3.3）：定时任务六条 /api/scheduler/tasks（13s 拼接顺序在 13 之后，
   // 经 handleApi 里一行 `await handleSchedulerApiRoutes(...)` 直调委派，同 13b/13c/13d）。
   '13s-scheduler.js',
+  '13w-external-bots.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 
@@ -86,6 +87,7 @@ const DOMAIN_BY_HANDLER = [
   ['handleInterventionApiRoutes', 'intervention'],
   ['handleAgentRunApiRoutes', 'agent-run'],
   ['handleStewardApiRoutes', 'steward'],
+  ['handleExternalBotApiRoutes', 'external-bots'],
   ['handleStewardRunnerApiRoutes', 'steward'],
   ['handleEventStreamApiRoutes', 'event-stream'],
   ['handleSchedulerApiRoutes', 'scheduler'],

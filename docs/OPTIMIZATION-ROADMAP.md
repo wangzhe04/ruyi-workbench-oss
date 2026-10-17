@@ -1,6 +1,6 @@
 # 如意发布与迭代路线
 
-更新：2026-10-16。当前研发主线是 **3.x 管家体验和功能扩展**；详细范围、优先级、依赖和验收见 [62 号方案](optimization-plan/62-steward-3x-iterations.md)。4.0 暂不确定方向或排期。
+更新：2026-10-17。当前研发主线是 **3.x 管家体验和功能扩展**；详细范围、优先级、依赖和验收见 [62 号方案](optimization-plan/62-steward-3x-iterations.md)。外部机器人接入新增为 [66 号专项](optimization-plan/66-external-bots-and-steward-channels.md)，首批包含本人账号远程控制真实管家与原会话回复，后续扩展主动进度和远程待决。4.0 暂不确定方向或排期。
 
 ## 发布状态
 
@@ -8,7 +8,7 @@
 |---|---|---|
 | 已发布基线 | [3.0.1 发布说明](release-notes/v3.0.1.md)，2026-10-16 | 表示该发布物的范围，不代表之后的源码变化已经打包 |
 | 已合入未发布 | [CHANGELOG 的 Unreleased](../CHANGELOG.md#未发布--unreleased) 和 Git 提交 | 当前源码使用 3.0.1 版本；下一版本号在范围冻结时确定 |
-| 当前方案 | [3.x 管家迭代](optimization-plan/62-steward-3x-iterations.md) | 六轮候选实施顺序，尚未执行，不是已上线清单 |
+| 当前方案 | [3.x 管家迭代](optimization-plan/62-steward-3x-iterations.md) | 分批实施；63–65 号已有验收，66 号为新增接入专项，不是全部已上线清单 |
 | 远期概念 | [Traveler 原始概念](TRAVELER-CONCEPT.md) | 历史探索，未纳入当前排期，也不再预设为 4.0 主线 |
 
 ## 当前优先级

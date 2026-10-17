@@ -2108,6 +2108,11 @@ export function createStewardConversation({
           continue;
         }
         const userRow = appendUser(String(message.content || ''));
+        const externalSource = message.meta?.origin === 'external-owner' ? message.meta.externalSource : null;
+        if (userRow && externalSource) userRow.appendChild(el('small', 'steward-remote-source muted', t('externalBots.remoteSource', {
+          platform: t(externalSource.platform === 'qq' ? 'externalBots.qq' : 'externalBots.feishu'),
+          sender: String(externalSource.senderId || ''), conversation: String(externalSource.conversationId || ''),
+        })));
         if (userRow && stampAt) userRow.dataset.createdAt = stampAt;   // 123-N1 ③：给这一行盖上身份
         rendered += 1;
         continue;

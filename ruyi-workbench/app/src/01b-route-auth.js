@@ -1,5 +1,11 @@
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
+  { m: 'GET', p: '/api/external-bots/connections', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/connections', auth: 'token' },
+  { m: 'GET', p: '/api/external-bots/inbox', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/inbox/read', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/callback/qq', auth: 'external-callback' },
+  { m: 'POST', p: '/api/external-bots/callback/feishu', auth: 'external-callback' },
   // open: 低敏读(host 门已过,无 token 需求)
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },

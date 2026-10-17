@@ -133,6 +133,7 @@ const PAYLOAD_FILES = [
   // 117d:线程抽屉与三处复用的快切 chip(steward-shell.js 静态 import 它们,缺任一都会整条挂掉)。
   'app/public/js/steward-drawer.js',
   'app/public/js/steward-settings.js',   // 117e
+  'app/public/js/external-bots.js',      // external owner connection management and durable receipts
   'app/public/js/steward-chips.js',
   // 117h/121-K5:工作台线程头与左栏(steward-shell.js 静态 import 它们)。
   'app/public/js/thread-head.js',
@@ -263,6 +264,7 @@ const PAYLOAD_FILES = [
   'resources/plugins/ruyi-offline/offline-toolkit/commands/summarize-changes.md',
   'resources/plugins/ruyi-offline/offline-toolkit/commands/test-changes.md',
   'resources/plugins/ruyi-offline/offline-toolkit/commands/workbench-doctor.md',
+  'tools/external-bot-gateway.js', // precise callback-only gateway; explicit deployment remains optional
   // 128g:tools/fake-claude.js(测试替身)与 tools/dev-serve.cmd(开发起服)不再随覆盖包发 —— 它们不属于部署面。
 ];
 // 109a: 可选载荷: 存在才随包发布,缺失不是错误。

@@ -1,6 +1,7 @@
 'use strict';
 import { bindModelSelect, fillProviderSelect } from './model-catalog.js';
 import { validExecutionSnapshot } from './run-health.js';
+import { createExternalBotsPanel } from './external-bots.js';
 
 import { toast } from './util.js';
 import {
@@ -97,6 +98,7 @@ export function createStewardSettingsDomain({
   presence = null,
 } = {}) {
   const config = () => (state && state.config) || {};
+  const externalBots = createExternalBotsPanel({ api, t });
 
   let bound = false;
   let seeding = false;          // fillStewardSettings 期间抑制 change 回写（否则每次刷新都在存）
@@ -1209,6 +1211,7 @@ export function createStewardSettingsDomain({
   function bindStewardSettings() {
     if (bound || !doc()) return false;
     bound = true;
+    externalBots.bind();
 
     onChange('cfgStewardEnabled', event => toggleEnabled(event.target.checked === true));
     const shellBtn = byId('cfgStewardShellBtn');
@@ -1361,6 +1364,7 @@ export function createStewardSettingsDomain({
   // 切到「管家」页签，需要时把目标区块滚进视野，并按需拉一次面板数据。
   // section 名就是下面这张表，**不在别处再列一遍**（口袋那一份表里写的是同样这几个字符串）。
   const PANEL_SECTIONS = Object.freeze({
+    externalBots: 'cfgStewardGroupExternalBots',
     schedule: 'cfgStewardGroupSchedule',
     memory: 'cfgStewardGroupMemory',
     decisions: 'cfgStewardGroupDecisions',
@@ -1468,6 +1472,7 @@ export function createStewardSettingsDomain({
     // 走 setter 而不是构造参数——构造那一行被 steward-settings.static 逐字钉着（新依赖一律迟绑定，
     // 与 drawer.setClassicWindow / setMissionRows 同一条纪律）。
     setOpenThread: handler => { openThreadHandler = typeof handler === 'function' ? handler : null; },
+    setExternalDraftImporter: handler => externalBots.setDraftImporter(handler),
     // 40 号文 P0③：定时任务块订阅 schedule.changed（13r 那条帧只转发 taskId/phase/outcome 与 id，
     // 正文不进这条线）。口袋（rail-pocket）与焦点栏「接下来」（steward-drawer）早就订了，这一块没订
     // ——于是「管家自己建了一条」「到点跑完了」这两件事，在设置页要手动按刷新才看得见，而用户刚在
@@ -1476,6 +1481,7 @@ export function createStewardSettingsDomain({
     setEventStream: stream => {
       if (!stream || typeof stream.on !== 'function') return false;
       settingsEventStream = stream;   // 128f-⑫：清空记忆之后页内广播用
+      externalBots.setEventStream(stream);
       try { stream.on('schedule.changed', () => { if (scheduleLoaded) void loadSchedule(); }); }
       catch { return false; }   // 推送是旁路：订不上也不能影响这一页能用
       return true;

@@ -57,6 +57,15 @@ export function stewardTargetKey(kind) {
   return STEWARD_TARGET_KEYS[String(kind || '')] || 'stewardShell.compose.targetSteward';
 }
 
+export function externalBotReferenceText(item, translate) {
+  const t = typeof translate === 'function' ? translate : key => key;
+  const source = [t(item.platform === 'qq' ? 'externalBots.qq' : 'externalBots.feishu'), item.connectionLabel || item.connectionId].filter(Boolean).join(' / ');
+  const lines = [t('externalBots.referenceSource', { source }),
+    t('externalBots.referenceIdentity', { sender: item.senderId || '', conversation: item.conversationId || '' }),
+    t('externalBots.referenceMessage', { id: item.messageId || item.eventId || item.id || '' }), '', item.text];
+  return t('externalBots.referenceIntro') + '\n\n' + lines.join('\n').replace(/\r\n?/g, '\n').split('\n').map(line => '> ' + line).join('\n');
+}
+
 export function createStewardComposer({
   api = async () => null,
   state = null,
@@ -365,6 +374,7 @@ export function createStewardComposer({
 
   // ── 133e 附件托盘：与工作台 uploadFiles 同一条路（dataURL → /api/upload），记录形状同 04 makeAttachmentRecord ──
   const attachments = [];
+  let pendingUploads = 0;
   const STEWARD_ATTACH_MAX_BYTES = 90 * 1048576;
   const STEWARD_ATTACH_MAX = 12;
   function fileToDataUrl(file) {
@@ -386,17 +396,38 @@ export function createStewardComposer({
   }
   function note(text) { const n = byId('stewardComposerNote'); if (n) n.textContent = String(text || ''); }
   async function addFiles(files) {
-    for (const file of files) {
-      if (attachments.length >= STEWARD_ATTACH_MAX) { note(t('stewardShell.compose.attachMax', { n: STEWARD_ATTACH_MAX })); break; }
-      if (file.size > STEWARD_ATTACH_MAX_BYTES) { note(t('toast.fileTooLarge', { p1: file.name })); continue; }
-      try {
-        const data = await fileToDataUrl(file);
-        const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
-        if (res && res.file) { attachments.push(res.file); note(''); }
-      } catch (e) { note(t('toast.uploadFail', { p1: String((e && e.message) || e) })); }
-    }
-    renderTray();
-    const input = byId('stewardComposerInput'); if (input) input.focus();
+    pendingUploads += 1;
+    try {
+      for (const file of files) {
+        if (attachments.length >= STEWARD_ATTACH_MAX) { note(t('stewardShell.compose.attachMax', { n: STEWARD_ATTACH_MAX })); break; }
+        if (file.size > STEWARD_ATTACH_MAX_BYTES) { note(t('toast.fileTooLarge', { p1: file.name })); continue; }
+        try {
+          const data = await fileToDataUrl(file);
+          const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
+          if (res && res.file) { attachments.push(res.file); note(''); }
+        } catch (e) { note(t('toast.uploadFail', { p1: String((e && e.message) || e) })); }
+      }
+      renderTray();
+      const input = byId('stewardComposerInput'); if (input) input.focus();
+    } finally { pendingUploads -= 1; }
+  }
+
+  // An explicit local draft action only. Never dispatch input, submit, handOff or sendToSteward.
+  function importExternalReference(item) {
+    const input = byId('stewardComposerInput');
+    if (!input || !isStewardMode()) return { ok: false, reason: 'unavailable' };
+    if (String(input.value || '').length || attachments.length || pendingUploads || picked || routeKind === 'missionNew'
+        || ['starting', 'warming', 'recording', 'transcribing'].includes(voice.phase())) return { ok: false, reason: 'draftBusy' };
+    if (!item || !['qq', 'feishu'].includes(item.platform) || typeof item.text !== 'string' || !item.text.trim()) return { ok: false, reason: 'invalid' };
+    cancelPreroute(); prerouteSeq += 1;
+    closePicker();
+    picked = null; routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = true;
+    input.value = externalBotReferenceText(item, t);
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight || 100, 240) + 'px';
+    input.focus({ preventScroll: true });
+    renderChip(); note(t('externalBots.draftAdded'));
+    return { ok: true };
   }
 
   // U14/U16 走查：chip／picker／「+」／发送键这几处的 aria-label／title 都是 buildComposer()
@@ -571,6 +602,7 @@ export function createStewardComposer({
   const composerApi = Object.freeze({
     bindStewardComposer,
     resetComposer,
+    importExternalReference,
     submit,
     // 117c：撤回／换一条之后由对话流回调，把候选列表就地打开 ——「那递给谁？」问完就得让用户
     // 能立刻挑，而不是让他自己再去点 chip（§8.12 第 3 条「改递时同样先回退再递」）。

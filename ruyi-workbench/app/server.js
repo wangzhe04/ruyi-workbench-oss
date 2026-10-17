@@ -29,6 +29,7 @@ const VERSION = '3.0.1'; // 如意 Ruyi 3.0.1 修复更新（2026-10-16）
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 // Runtime execution admission/cancellation hooks; early declaration also serves session rewind.
 const SessionExecutionHooks = {};
+const ExternalBotHooks = {};
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // 127-114b(26 号文 §3/45 号文 §2 ②): ASR 转写入站专用上限 25 MB —— 早于上面的 128 MB 总闸判定
@@ -1484,6 +1485,12 @@ function canonicalRuyiMcpServerId(id) {
 
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
+  { m: 'GET', p: '/api/external-bots/connections', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/connections', auth: 'token' },
+  { m: 'GET', p: '/api/external-bots/inbox', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/inbox/read', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/callback/qq', auth: 'external-callback' },
+  { m: 'POST', p: '/api/external-bots/callback/feishu', auth: 'external-callback' },
   // open: 低敏读(host 门已过,无 token 需求)
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },
@@ -4080,7 +4087,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
         throw storeError('EDURABLE_SHAPE', id + ': root must be an object');
       }
       const actualSchema = raw[schemaKey];
-      if (schemaVersion !== null && actualSchema !== undefined && actualSchema !== schemaVersion) {
+      if (schemaVersion !== null && actualSchema !== schemaVersion && (options.strictRead === true || actualSchema !== undefined)) {
         throw storeError('EDURABLE_SCHEMA', id + ': unsupported ' + schemaKey + ' ' + String(actualSchema));
       }
       let value = cloneJson(raw);
@@ -4116,6 +4123,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
+        if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
         value = recover(error);
       }
@@ -4143,6 +4151,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
       } catch (error) {
+        if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
         value = recover(error);
       }
@@ -6210,6 +6219,12 @@ function authorizeRoute(req, method, pathname) {
     if (r.m !== '*' && r.m !== m) continue;
     const match = r.prefix ? pathname.startsWith(r.p) : pathname === r.p;
     if (!match) continue;
+    // Only the two exact callback routes opt into platform verification in their handler. They never
+    // authenticate administration, and the HTTP host allowlist remains in force before this gate.
+    if (r.auth === 'external-callback') {
+      return m === 'POST' && !r.prefix && (pathname === '/api/external-bots/callback/qq' || pathname === '/api/external-bots/callback/feishu')
+        ? null : 'route not authorized';
+    }
     if (remote && r.auth !== 'body-token') {
       if (pathname === '/api/bootstrap') return 'remote client not allowed';
       return tokenOk(req) ? null : 'missing or invalid workbench token';
@@ -33551,10 +33566,11 @@ function prerouteText(q, index, memory, opts) {
 //           relayChannel(sessionId) -> { channel, wait?, questionId?, pendingId? }(同步只读,零文件读)
 //             (117s-G:通道判定本身也上命名空间 —— 13d 的 GET /api/sessions/:id 要把 channel 投影成
 //              信封上的 relay 键,经典壳据此决定「发送 / 插话 / 先别发」。递话判据全仓仍只有这一份)
-//           currentTurnTrigger() -> 'user' | 'inbox' | ''(同步只读,零文件读)
+//           currentTurnTrigger() -> 'user' | 'inbox' | 'external' | ''(同步只读,零文件读)
 //             (129g:此刻正在跑的那个管家回合是谁触发的。消费者是 13g 的 stewardToolHandler ——
 //              09-workflow 造的工具循环 ctx 里【没有】trigger,不补的话所有按 trigger 分档的闸
 //              在「模型直接调工具」这条调用面上整个失灵。13g -> 13h 是前向边,故走这里)
+//           currentTurnContext() -> { trigger, externalActor? } | null (同步只读；actor仅进程内不透明能力，不持久化)
 //   116-pre(由 13h-steward-runner.js 填充,GET /api/steward/preroute 与 117 壳层都经这个键调):
 //           preroute(q,config?,extra?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           extra.focus = 用户此刻看着的那条线程,128h-J03,可缺;
@@ -63357,6 +63373,11 @@ async function handleApi(req, res, pathname) {
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
+  if (typeof ExternalBotHooks.handleApiRoutes === 'function') {
+    const handled = await ExternalBotHooks.handleApiRoutes(req, res, pathname);
+    if (handled || res.writableEnded || res.destroyed) return;
+  }
+
   if (req.method === 'POST' && pathname === '/api/bootstrap') {
     // 47c(S1):浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。auth=open -> 顶层 host 门已挡 rebinding
     // (Host=攻击域 -> 403),信任面与旧 GET / 明文下发完全等同;非浏览器(curl/node)亦同旧规可得。
@@ -65308,6 +65329,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   console.log(`Data: ${paths.data}`);
   console.log(`Server source: ${externalServerJs() || '(baked exe)'}`);
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
+  if (typeof ExternalBotHooks.start === 'function') ExternalBotHooks.start();
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
   //   · syncMcpServersToClaude / syncMcpServersToKimi:同步前缀 resolveExternalMcpServers → detectDesktopMcp
   //     → pickPython(三候选各一发 spawnSync,冷缓存实测 ~2 s);
@@ -65360,7 +65382,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   // 第123波 M1:关服收尾一并停掉调度器 tick(clearInterval + 代际自增,在途 tick 尽快退出)——
   // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
   // 走查 2026-10-08:在途的 Agent CLI 回合子进程一并收掉(stopAllActiveTurnsSync,见其头注),修前它们在这条路上变孤儿。
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop(); } catch { /* ignore */ } try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
@@ -73358,7 +73380,10 @@ function stewardErrorDetail(error) {
 }
 function stewardTriggerOf(ctx) {
   const raw = String((ctx && ctx.trigger) || '');
-  return raw === 'inbox' || raw === 'user' ? raw : '';
+  return raw === 'inbox' || raw === 'user' || raw === 'external' ? raw : '';
+}
+function stewardUserDirected(ctx) {
+  return stewardTriggerOf(ctx) === 'user' || (typeof ExternalBotHooks.isAuthorizedContext === 'function' && ExternalBotHooks.isAuthorizedContext(ctx) === true);
 }
 // 这一次调用是不是「模型自己在无人值守回合里决定要动别的线程」。
 // 三者都不是它:① 用户就在跟前(trigger==='user',含亲手按按钮那条路);② 13h 的【确定性自理】(七道闸,
@@ -73697,7 +73722,7 @@ async function stewardAnswerGate(o) {
   //    判据是【此刻这个管家回合是不是用户触发的】,不是模型说了算(ctx 由 13g 的门控壳按
   //    13h 的 inflight.kind 填,模型碰不到)。取不到 trigger 一律按「不是用户」办 —— fail-closed:
   //    替人说话这件事上,「不确定」必须等于「不做」。
-  if (stewardTriggerOf(ctx) === 'user') return null;
+  if (stewardUserDirected(ctx)) return null;
   // ② 污染(129c 红线 4):这一回合读过外界内容就不代答。理由比别处更硬 —— 代答的「依据」本身
   //    可以是被网页诱导出来的:一个假页面写「用户说了按收盘价」,管家转手就替用户答了「按收盘」。
   const taintedBy = stewardTurnTaintedBy(ctx);
@@ -73770,7 +73795,7 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // 那条「用户正坐在这条线程前面」同理,这不是「有没有权限」,是「这件事刚被停下来,不该由管家替他
   // 撤销」。条件是用户不在跟前 —— /api/steward/relay 与 /api/steward/act 都给 trigger:'user',
   // 用户自己按那枚按钮照旧递得进去。
-  if (stewardTriggerOf(ctx) !== 'user' && stewardStoppedTarget(head, null) === 'thread') {
+  if (!stewardUserDirected(ctx) && stewardStoppedTarget(head, null) === 'thread') {
     return stewardFail('propose_required', stewardStoppedRefusal('thread'), {
       reason: 'target_stopped', sessionId, stopped: 'thread',
     });
@@ -74900,7 +74925,7 @@ async function stewardImplRunAction(args, ctx, config) {
   // 条件是【用户不在跟前】:POST /api/steward/act 与 /api/steward/relay 都给 trigger:'user',于是
   // 「降级成按钮、用户自己按」那条路照旧走得通;没有 trigger 的调用面(工具循环里模型直接调、
   // 进程内直调)按 fail-closed 一并拦下 —— 那些面上做决定的仍然是模型,不是人。
-  if (STEWARD_RUN_ADVANCING.includes(action) && stewardTriggerOf(ctx) !== 'user') {
+  if (STEWARD_RUN_ADVANCING.includes(action) && !stewardUserDirected(ctx)) {
     const stoppedWhich = stewardStoppedTarget(head, await stewardReadRunSnapshot(sessionId, runId));
     if (stoppedWhich) {
       return stewardFail('propose_required', stewardStoppedRefusal(stoppedWhich), {
@@ -76026,9 +76051,30 @@ function stewardCtxIsSteward(ctx) {
 function stewardWithTurnTrigger(ctx) {
   const base = (ctx && typeof ctx === 'object') ? ctx : {};
   if (base.trigger) return base;
+  const context = typeof StewardHooks.currentTurnContext === 'function' ? StewardHooks.currentTurnContext() : null;
+  if (context && context.trigger === 'external') return { ...base, trigger: 'external', externalActor: context.externalActor };
   const kind = typeof StewardHooks.currentTurnTrigger === 'function' ? StewardHooks.currentTurnTrigger() : '';
   // 取不到就保持既有的空串语义(进程内直调、夹具直调):这一口只补真的知道的那一部分。
   return (kind === 'user' || kind === 'inbox') ? { ...base, trigger: kind } : base;
+}
+
+// Opaque capabilities are issued only after authenticated bot ingress has persisted its claim.
+// This check never trusts model arguments, HTTP JSON, or a persisted source label as authority.
+const stewardExternalContexts = new WeakSet();
+function stewardExternalOwnerDirected(ctx) {
+  return Boolean(ctx && ctx.trigger === 'external' && stewardExternalContexts.has(ctx));
+}
+ExternalBotHooks.isAuthorizedContext = stewardExternalOwnerDirected;
+async function stewardAuthorizeExternalContext(ctx) {
+  if (!ctx || ctx.trigger !== 'external') return ctx;
+  if (typeof ExternalBotHooks.validateActor !== 'function') throw Object.assign(new Error('external owner authorization is unavailable'), { code: 'external_channel.control_revoked' });
+  let source;
+  try { source = await ExternalBotHooks.validateActor(ctx.externalActor); }
+  catch { throw Object.assign(new Error('external owner authorization was revoked'), { code: 'external_channel.control_revoked' }); }
+  if (!source) throw Object.assign(new Error('external owner authorization was revoked'), { code: 'external_channel.control_revoked' });
+  const authorized = { ...ctx, externalOwner: true, externalSource: source };
+  stewardExternalContexts.add(authorized);
+  return authorized;
 }
 
 // 第二轮工具走查(F8):管家工具族整体被 12 的 validateNativeToolArgs 豁免(「自带逐字段校验与专属错误码」),
@@ -76100,7 +76146,7 @@ function stewardToolHandler(toolName, impl) {
       for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
       const typeProblems = stewardArgTypeProblems(toolName, clean);
       if (typeProblems.length) return stewardFail('invalid_request', `${toolName}: ${typeProblems.join('; ')}`);
-      const turnCtx = stewardWithTurnTrigger(ctx);
+      const turnCtx = await stewardAuthorizeExternalContext(stewardWithTurnTrigger(ctx));
       if (!(turnCtx && turnCtx.userPressed === true) && stewardTaintGateApplies(toolName, clean)) {
         const taintedBy = stewardTurnTaintedBy(turnCtx);
         if (taintedBy.length) {
@@ -76111,6 +76157,7 @@ function stewardToolHandler(toolName, impl) {
       }
       return await impl(clean, turnCtx, config);
     } catch (error) {
+      if (error && error.code === 'external_channel.control_revoked') return stewardFail(error.code, 'external owner authorization was revoked');
       const message = String((error && error.message) || error);
       logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
       return stewardFail('steward.failed', `${toolName} failed: ${message}`);
@@ -78080,7 +78127,7 @@ async function stewardSelfServeAllows(tool, args, config, trigger, ctx) {
   if (taintedBy.length) {
     return { allowed: false, reason: `我这一回合读过外部内容(${taintedBy.join('/')}),按规矩读过之后我只提议、不自己动手` };
   }
-  if (trigger === 'user') return { allowed: true };
+  if (trigger === 'user' || (trigger === 'external' && stewardExternalOwnerDirected(ctx))) return { allowed: true };
   if (tool === 'steward_memory_write' || tool === 'steward_memory_veto') return { allowed: true }; // 管家记忆自由(§3.5)
   if (tool === 'steward_thread_continue') {
     // 129g:目标此刻挂着一道给用户的提问时,这不是「递话」,是【代答】—— 归 answer 那一格管,
@@ -78131,7 +78178,7 @@ async function stewardSelfServeAllows(tool, args, config, trigger, ctx) {
 // STEWARD_SELF_SERVE_PER_TURN_MAX(3,只管确定性自理)与 STEWARD_ACTIONS_MAX(5,只管模型声明的
 // actions)彼此独立、不去重 sessionId,于是一个回合合规地触达 3+5=8 条不同线程 —— 与 §11.3 写的
 // 「≤3 个自理目标」对不上。priorTargets 把自理侧【真的动过】的目标带进来,两边合起来数。
-async function stewardExecuteActions(actions, session, config, trigger, priorTargets) {
+async function stewardExecuteActions(actions, session, config, trigger, priorTargets, externalActor) {
   const out = [];
   const touched = new Set((Array.isArray(priorTargets) ? priorTargets : []).filter(Boolean));
   for (const action of actions) {
@@ -78160,7 +78207,10 @@ async function stewardExecuteActions(actions, session, config, trigger, priorTar
         { reason: 'per_turn_target_max', sessionId: target }) });
       continue;
     }
-    const gate = await stewardSelfServeAllows(tool, args, config, trigger, { session, sessionId: session.id, config, trigger });
+    let actionCtx;
+    try { actionCtx = await stewardAuthorizeExternalContext({ session, sessionId: session.id, config, trigger, ...(trigger === 'external' ? { externalActor } : {}) }); }
+    catch { out.push({ tool, label, args, result: stewardFail('external_channel.control_revoked', 'external owner authorization was revoked') }); continue; }
+    const gate = await stewardSelfServeAllows(tool, args, config, trigger, actionCtx);
     if (!gate.allowed) {
       out.push({ tool, label, args, result: stewardFail('propose_required', gate.reason, { reason: 'self_serve_off' }) });
       continue;
@@ -78170,7 +78220,7 @@ async function stewardExecuteActions(actions, session, config, trigger, priorTar
     try {
       // 116-3 P0-2:trigger 进 ctx —— 13g 的线程族三工具据它区分「用户就在跟前」(直递)与
       // 「无人值守的收件箱回合」(要过自理清单 + 目标线程权限两道闸)。本文件不复制那套判据。
-      result = await StewardHooks[hookKey](args, { session, sessionId: session.id, config, trigger });
+      result = await StewardHooks[hookKey](args, actionCtx);
     } catch (error) {
       result = stewardFail('steward.failed', String((error && error.message) || error));
     }
@@ -78838,6 +78888,7 @@ async function stewardInboxMessage(events, config, selfServeNotes) {
 // 壳层的状态轮询(public/js/steward-shell.js:277 `lastReply.trigger === 'inbox'`)靠它决定要不要
 // 把新回复追进对话流,改了它就是一个静默的功能回归。两处是两个消费者,不必也不该同形。
 async function stewardTriggerStamp(trigger, events) {
+  if (trigger === 'external') return { kind: 'external' };
   if (trigger !== 'inbox') return { kind: 'user' };
   const rows = (Array.isArray(events) ? events : []).filter(r => r && safeSessionId(r.sessionId));
   const sessionIds = [...new Set(rows.map(r => safeSessionId(r.sessionId)))];
@@ -78960,7 +79011,12 @@ const stewardUserWaiters = [];
 async function runStewardTurn(input) {
   const generation = stewardRunnerRuntime.conversationGeneration;
   const opts = (input && typeof input === 'object') ? input : {};
-  const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
+  const trigger = opts.trigger === 'external' ? 'external' : opts.trigger === 'inbox' ? 'inbox' : 'user';
+  let externalSource = null;
+  if (trigger === 'external') {
+    try { externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: opts.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+  }
   const onEvent = typeof opts.onEvent === 'function' ? opts.onEvent : () => {};
   const events = Array.isArray(opts.events) ? opts.events : [];
   const config = await readConfig().catch(() => ({}));
@@ -78989,13 +79045,19 @@ async function runStewardTurn(input) {
   // 微任务里一起冲出去,各自开一个回合。占位 promise 在本函数真正返回时才 resolve —— 于是
   // 等在后面的那一句话不仅等到回合跑完,还等到 stewardStampReply 把结构化结果盖完章。
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
-  const entry = { kind: trigger, controller, cancelled: '', events, promise: null, routeHint: await stewardNormalizeRouteHint(opts.routeHint) };
+  const entry = { kind: trigger, controller, cancelled: '', events, promise: null, routeHint: await stewardNormalizeRouteHint(opts.routeHint),
+    ...(trigger === 'external' ? { externalActor: opts.externalActor, externalSource } : {}) };
   let finishEntry = () => {};
   entry.promise = new Promise(resolve => { finishEntry = () => resolve(); });
 
   if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') {
     if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
     return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
+  if (trigger === 'external') {
+    try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+    if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
   }
   const inflight = stewardRunnerRuntime.inflight;
   if (trigger === 'inbox' && (inflight || stewardUserWaiters.length)) {
@@ -79026,7 +79088,13 @@ async function runStewardTurn(input) {
     try {
       for (;;) {
         if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', '已开始新对话，排队消息已取消');
+        if (trigger === 'external') {
+          try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+          catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+          if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
+        }
         const current = stewardRunnerRuntime.inflight;
+        // Authorization awaited disk IO. Read the slot and FIFO after it, then claim without another await.
         if (!current && stewardUserWaiters[0] === entry) break;
         const target = current || stewardUserWaiters[0];
         waitedFor = target.kind;
@@ -79150,6 +79218,10 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     : { executed: [], notes: [] };
   const message = trigger === 'inbox' ? await stewardInboxMessage(events, config, selfServe.notes) : String(opts.message == null ? '' : opts.message);
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
+  if (trigger === 'external') {
+    try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+  }
 
   if (!stewardRunnerRuntime.visit.startedAt) stewardRunnerRuntime.visit.startedAt = nowIso();
   stewardRunnerRuntime.visit.lastActivityAt = nowIso();
@@ -79167,8 +79239,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
         engineRoute: ensured.route,
         // 收件箱回合的这条 user 消息【不是用户本人说的话】:origin 随会话正文落盘,
         // steward_memory_write 的来源校验据此确定性拒绝它(13g stewardSourceIsUserMessage)。
-        messageMeta: trigger === 'inbox' ? { origin: 'inbox', inboxSeqs: events.map(e => Number(e && e.inboxSeq) || 0).slice(0, STEWARD_INBOX_EVENTS_PER_TURN) } : null,
-        requestMeta: { steward: true, trigger },
+        messageMeta: trigger === 'inbox' ? { origin: 'inbox', inboxSeqs: events.map(e => Number(e && e.inboxSeq) || 0).slice(0, STEWARD_INBOX_EVENTS_PER_TURN) }
+          : trigger === 'external' ? { origin: 'external-owner', externalSource: entry.externalSource } : null,
+        requestMeta: { steward: true, trigger, ...(trigger === 'external' ? { external: entry.externalSource } : {}) },
         onEvent,
         signal: controller ? controller.signal : null,
       });
@@ -79183,6 +79256,10 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 回合被抢占 / 失败时,已经落定的代批照样是真的发生了,回执不能跟着回合一起丢。取不到回合号(回合整个抛出)
   // 就是空表。没有代批时三条出口的信封与修前逐字节相同。
   const turnToolCalls = await stewardDelegationToolCalls(turn && turn.turnSeq, true);
+  const externalToolFacts = trigger === 'external' ? {
+    toolFailures: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error !== 'propose_required').length),
+    toolProposals: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error === 'propose_required').length),
+  } : {};
   const delegationCalls = turnToolCalls.filter(call => call.name === 'steward_decide' && call.result?.ok === true && call.result.exemptDelegation);
   const delegationTitles = new Map();
   for (const call of delegationCalls) {
@@ -79210,7 +79287,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
     if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'turn_failed');
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
-    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
+    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, ...externalToolFacts, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
   const finalText = await stewardLastAssistantContent();
   // 123-N1 ①(34 号文;用户 2026-09-13 真机走查「同一段对话出现两遍」):回执带上【本回合落盘的
@@ -79259,7 +79336,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 在这里查成 t(N-1):查不到本回合的,反而可能查到上一回合的。按本回合的序号给一份浅拷贝(只用作 ctx,不落盘)。
   const actionSession = (turn && Number(turn.turnSeq) > 0) ? { ...session, turnSeq: Number(turn.turnSeq) } : session;
   const actionRows = parsedReply.actions.length
-    ? await stewardExecuteActions(parsedReply.actions, actionSession, config, trigger, selfServeTargets)
+    ? await stewardExecuteActions(parsedReply.actions, actionSession, config, trigger, selfServeTargets, entry.externalActor)
     : [];
   // 127 波 2-quater B2:回合里工具直调的代批补进回执(上面已取出)。顺序按事情发生的先后:自理(模型之前)→
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。
@@ -79275,6 +79352,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   const why = await stewardHumanizeSay(parsedReply.why);
   const reply = {
     trigger,
+    ...externalToolFacts,
     say,
     why,
     acts,
@@ -80528,6 +80606,10 @@ Object.assign(StewardHooks, {
   // 补法放在 13g 的 stewardToolHandler 一处(42 个工具的唯一咽喉),它经本口取真值;
   // inflight 在回合本体开跑【前】同步认领、收尾时清空,所以工具循环期间它就是当前回合的那一个。
   currentTurnTrigger: () => (stewardRunnerRuntime.inflight ? String(stewardRunnerRuntime.inflight.kind || '') : ''),
+  currentTurnContext: () => {
+    const entry = stewardRunnerRuntime.inflight;
+    return entry ? { trigger: String(entry.kind || ''), ...(entry.kind === 'external' ? { externalActor: entry.externalActor } : {}) } : null;
+  },
   // 117l D7:同理住 13h —— 它要 02 的 normalizeSessionEngineRoute 与 04 的 logEvent,06i 够不着那两个。
   applyThreadTier: stewardApplyThreadTier,
 });
@@ -83609,6 +83691,807 @@ Object.assign(MigrationHooks, {
   undo: migrationUndo,
   recycle: migrationRecycle,
   copySkills: migrationCopySkills,
+});
+
+// Original protocol implementation from the platform wire specifications, using Node crypto only.
+// QQ: https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/interface-framework/sign.html
+//     https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/interface-framework/event-emit.html
+// Feishu: https://open.feishu.cn/document/server-docs/im-v1/message/events/receive
+//         https://open.feishu.cn/document/server-docs/event-subscription-guide/event-subscription-configure-/encrypt-key-encryption-configuration-case
+// No network, environment lookup, persistence, or admission decisions live in this module.
+const ExternalChannelProtocols = (() => {
+  const WINDOW_MS = 300000;
+  const ID_MAX = 128;
+  const fail = (code, statusCode = 400) => { throw Object.assign(new Error(code), { code: `external_channel.${code}`, statusCode }); };
+  const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const identity = value => typeof value === 'string' && value.length > 0 && value.length <= ID_MAX && /^[\x21-\x7e]+$/.test(value);
+  const secret = value => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value, 'utf8') <= 4096;
+  const exactKeys = (value, names) => object(value) && Object.keys(value).every(key => names.includes(key));
+  function json(bytes) {
+    try {
+      const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+      if (!object(value)) fail('schema_invalid');
+      return value;
+    } catch { return fail('invalid_body'); }
+  }
+  function headerMap(input) {
+    if (!object(input)) fail('schema_invalid');
+    const result = Object.create(null);
+    const pairs = typeof input.entries === 'function' ? [...input.entries()] : Object.entries(input);
+    for (const [key, value] of pairs) {
+      const name = key.toLowerCase();
+      if (Object.hasOwn(result, name) || typeof value !== 'string') fail('schema_invalid');
+      result[name] = value;
+    }
+    return result;
+  }
+  function seconds(value, nowMs) {
+    if (typeof value !== 'string' || !/^[0-9]{1,12}$/.test(value)) fail('timestamp_invalid', 401);
+    const ms = Number(value) * 1000;
+    if (!Number.isSafeInteger(ms) || Math.abs(nowMs - ms) > WINDOW_MS) fail('timestamp_out_of_window', 401);
+    return ms;
+  }
+  function sameSecret(actual, expected) {
+    if (typeof actual !== 'string') return false;
+    const a = crypto.createHash('sha256').update(actual, 'utf8').digest();
+    const b = crypto.createHash('sha256').update(expected, 'utf8').digest();
+    return crypto.timingSafeEqual(a, b);
+  }
+  function hex(value, bytes) {
+    if (typeof value !== 'string' || value.length !== bytes * 2 || !/^[a-fA-F0-9]+$/.test(value)) fail('signature_invalid', 401);
+    return Buffer.from(value, 'hex');
+  }
+  function feishuSignature(headers, raw, key, nowMs, optional) {
+    const fields = ['x-lark-request-timestamp', 'x-lark-request-nonce', 'x-lark-signature'];
+    if (optional && fields.every(name => !Object.hasOwn(headers, name))) return;
+    if (fields.some(name => !Object.hasOwn(headers, name))) fail('signature_missing', 401);
+    seconds(headers[fields[0]], nowMs);
+    const nonce = headers[fields[1]];
+    if (!nonce.length || nonce.length > 512 || /[\r\n\0]/.test(nonce)) fail('signature_invalid', 401);
+    const actual = hex(headers[fields[2]], 32);
+    const digest = crypto.createHash('sha256').update(headers[fields[0]], 'utf8').update(nonce, 'utf8').update(key, 'utf8').update(raw).digest();
+    if (!crypto.timingSafeEqual(actual, digest)) fail('signature_invalid', 401);
+  }
+  function decryptFeishu(encrypted, key) {
+    if (typeof encrypted !== 'string' || encrypted.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encrypted)) fail('decrypt_failed', 401);
+    const wire = Buffer.from(encrypted, 'base64');
+    if (wire.length < 32 || (wire.length - 16) % 16 !== 0 || wire.toString('base64') !== encrypted) fail('decrypt_failed', 401);
+    try {
+      const decipher = crypto.createDecipheriv('aes-256-cbc', crypto.createHash('sha256').update(key, 'utf8').digest(), wire.subarray(0, 16));
+      return Buffer.concat([decipher.update(wire.subarray(16)), decipher.final()]);
+    } catch { return fail('decrypt_failed', 401); }
+  }
+  function millisIso(value) {
+    if (typeof value !== 'string' || !/^[0-9]{1,16}$/.test(value)) fail('schema_invalid');
+    const ms = Number(value);
+    if (!Number.isSafeInteger(ms) || !Number.isFinite(new Date(ms).getTime())) fail('schema_invalid');
+    return new Date(ms).toISOString();
+  }
+  function iso(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) fail('schema_invalid');
+    return new Date(value).toISOString();
+  }
+  function textValue(value) {
+    if (typeof value !== 'string' || value.length > 8192 || Buffer.byteLength(value, 'utf8') > 32768
+        || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value) || Buffer.from(value, 'utf8').toString('utf8') !== value) fail('schema_invalid');
+    return value.trim();
+  }
+  function feishuChallenge(payload, token) {
+    if (payload.type !== 'url_verification' || !exactKeys(payload, ['type', 'token', 'challenge'])) fail('schema_invalid');
+    if (!sameSecret(payload.token, token)) fail('token_invalid', 401);
+    if (typeof payload.challenge !== 'string' || !payload.challenge.length || Buffer.byteLength(payload.challenge, 'utf8') > 512 || /[\0\r\n]/.test(payload.challenge)) fail('schema_invalid');
+    return { kind: 'challenge', body: { challenge: payload.challenge } };
+  }
+  function unsignedFeishuBootstrap(encrypted, connection) {
+    try {
+      return feishuChallenge(json(decryptFeishu(encrypted, connection.encryptKey)), connection.verificationToken);
+    } catch { return fail('bootstrap_invalid', 401); }
+  }
+  function feishu(connection, headers, raw, nowMs) {
+    if (!identity(connection.appId) || !identity(connection.tenantId) || !identity(connection.botUserId)
+        || !secret(connection.encryptKey) || !secret(connection.verificationToken)) fail('invalid_config', 503);
+    const outer = json(raw);
+    const encrypted = Object.hasOwn(outer, 'encrypt');
+    let payload;
+    // Encrypted bootstrap is a narrowly separate path: no event is ever admitted from it.
+    // Present signature headers, including partial sets, must always validate before decryption.
+    if (encrypted) {
+      if (!exactKeys(outer, ['encrypt'])) fail('schema_invalid');
+      feishuSignature(headers, raw, connection.encryptKey, nowMs, true);
+      if (['x-lark-request-timestamp', 'x-lark-request-nonce', 'x-lark-signature'].every(name => !Object.hasOwn(headers, name))) {
+        return unsignedFeishuBootstrap(outer.encrypt, connection);
+      }
+      payload = json(decryptFeishu(outer.encrypt, connection.encryptKey));
+    } else payload = outer;
+    if (payload.type === 'url_verification') {
+      if (!encrypted) fail('schema_invalid');
+      return feishuChallenge(payload, connection.verificationToken);
+    }
+    feishuSignature(headers, raw, connection.encryptKey, nowMs, false);
+    if (payload.schema !== '2.0' || !object(payload.header)) fail('schema_invalid');
+    const h = payload.header;
+    if (!sameSecret(h.token, connection.verificationToken)) fail('token_invalid', 401);
+    if (h.app_id !== connection.appId || h.tenant_key !== connection.tenantId) fail('identity_mismatch', 403);
+    if (!identity(h.event_id) || typeof h.event_type !== 'string') fail('schema_invalid');
+    if (h.event_type !== 'im.message.receive_v1') return { kind: 'ignored', reason: 'unsupported_event' };
+    if (!object(payload.event) || !object(payload.event.sender) || !object(payload.event.message)) fail('schema_invalid');
+    const sender = payload.event.sender, message = payload.event.message;
+    // The signed header is authoritative; an absent optional sender tenant never supplies a new tenant.
+    if (sender.tenant_key !== undefined && sender.tenant_key !== connection.tenantId) fail('identity_mismatch', 403);
+    if (sender.sender_type !== 'user') return { kind: 'ignored', reason: 'non_human_sender' };
+    if (!object(sender.sender_id) || !identity(sender.sender_id.open_id) || !identity(message.message_id) || !identity(message.chat_id)) fail('schema_invalid');
+    if (sender.sender_id.open_id === connection.botUserId) return { kind: 'ignored', reason: 'non_human_sender' };
+    if (!['p2p', 'group'].includes(message.chat_type)) fail('schema_invalid');
+    if (message.message_type !== 'text') return { kind: 'ignored', reason: 'unsupported_message_type' };
+    if (typeof message.content !== 'string') fail('schema_invalid');
+    let content;
+    try { content = JSON.parse(message.content); } catch { return fail('schema_invalid'); }
+    if (!exactKeys(content, ['text']) || typeof content.text !== 'string') fail('schema_invalid');
+    if (message.mentions !== undefined && !Array.isArray(message.mentions)) fail('schema_invalid');
+    const mentions = message.mentions || [];
+    if (mentions.some(mention => !object(mention) || !object(mention.id))) fail('schema_invalid');
+    const ownMentions = mentions.filter(mention => mention.id.open_id === connection.botUserId);
+    if (message.chat_type === 'group' && ownMentions.length === 0) return { kind: 'ignored', reason: 'not_mentioned' };
+    let text = content.text;
+    for (const mention of ownMentions) {
+      if (typeof mention.key !== 'string' || !mention.key.length || mention.key.length > 128) fail('schema_invalid');
+      text = text.split(mention.key).join('');
+    }
+    text = textValue(text);
+    if (!text) return { kind: 'ignored', reason: 'empty_text' };
+    return { kind: 'message', message: { messageId: message.message_id, eventId: h.event_id, tenantId: h.tenant_key,
+      conversationId: message.chat_id, senderId: sender.sender_id.open_id, conversationType: message.chat_type === 'p2p' ? 'direct' : 'group',
+      text, sentAt: millisIso(message.create_time) } };
+  }
+  function qqPrivateKey(value) {
+    const bytes = Buffer.from(value, 'utf8');
+    const seed = Buffer.alloc(32);
+    for (let i = 0; i < seed.length; i++) seed[i] = bytes[i % bytes.length];
+    return crypto.createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), seed]), format: 'der', type: 'pkcs8' });
+  }
+  function qqSignature(headers, raw, privateKey, nowMs, optional) {
+    const signature = headers['x-signature-ed25519'], timestamp = headers['x-signature-timestamp'];
+    if (optional && signature === undefined && timestamp === undefined) return;
+    if (signature === undefined || timestamp === undefined) fail('signature_missing', 401);
+    seconds(timestamp, nowMs);
+    if (!crypto.verify(null, Buffer.concat([Buffer.from(timestamp, 'utf8'), raw]), crypto.createPublicKey(privateKey), hex(signature, 64))) fail('signature_invalid', 401);
+  }
+  function qq(connection, headers, raw, nowMs) {
+    if (!identity(connection.appId) || !secret(connection.botSecret) || (connection.tenantId !== undefined && connection.tenantId !== '' && !identity(connection.tenantId))) fail('invalid_config', 503);
+    if (headers['x-bot-appid'] !== connection.appId) fail('identity_mismatch', 403);
+    const payload = json(raw), key = qqPrivateKey(connection.botSecret);
+    if (payload.op === 13) {
+      qqSignature(headers, raw, key, nowMs, true);
+      if (!exactKeys(payload, ['op', 'd']) || !exactKeys(payload.d, ['plain_token', 'event_ts'])) fail('schema_invalid');
+      const token = payload.d.plain_token, timestamp = payload.d.event_ts;
+      // A bootstrap signing oracle must not sign arbitrary JSON callback bodies. Official tokens are opaque alphanumeric strings.
+      if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(token)) fail('schema_invalid');
+      seconds(timestamp, nowMs);
+      return { kind: 'challenge', body: { plain_token: token,
+        signature: crypto.sign(null, Buffer.from(timestamp + token, 'utf8'), key).toString('hex') } };
+    }
+    qqSignature(headers, raw, key, nowMs, false);
+    if (payload.op !== 0 || typeof payload.t !== 'string' || !object(payload.d)) fail('schema_invalid');
+    if (!['C2C_MESSAGE_CREATE', 'GROUP_AT_MESSAGE_CREATE'].includes(payload.t)) return { kind: 'ignored', reason: 'unsupported_event' };
+    if (!identity(payload.id)) fail('schema_invalid');
+    const message = payload.d, group = payload.t === 'GROUP_AT_MESSAGE_CREATE';
+    if (!object(message.author) || !identity(message.id)) fail('schema_invalid');
+    const senderId = group ? message.author.member_openid : message.author.user_openid;
+    if (!identity(senderId) || (group && !identity(message.group_openid))) fail('schema_invalid');
+    if (message.author.bot === true || (connection.botUserId && senderId === connection.botUserId)) return { kind: 'ignored', reason: 'non_human_sender' };
+    if (message.author.bot !== undefined && typeof message.author.bot !== 'boolean') fail('schema_invalid');
+    if (message.message_type !== undefined && message.message_type !== 0) return { kind: 'ignored', reason: 'unsupported_message_type' };
+    for (const field of ['attachments', 'embeds', 'ark', 'markdown', 'file_info', 'image', 'video', 'audio', 'media']) {
+      if (message[field] !== undefined && message[field] !== null && !(Array.isArray(message[field]) && message[field].length === 0)) return { kind: 'ignored', reason: 'unsupported_message_type' };
+    }
+    if (typeof message.content !== 'string') fail('schema_invalid');
+    let text = message.content;
+    if (connection.botUserId) text = text.split(`<@${connection.botUserId}>`).join('').split(`<@!${connection.botUserId}>`).join('');
+    text = textValue(text);
+    if (!text) return { kind: 'ignored', reason: 'empty_text' };
+    return { kind: 'message', message: { messageId: message.id, eventId: payload.id, tenantId: connection.tenantId || connection.appId,
+      conversationId: group ? message.group_openid : senderId, senderId, conversationType: group ? 'group' : 'direct', text, sentAt: iso(message.timestamp) } };
+  }
+  function verifyAndNormalize(platform, connection, headers, rawBody, nowMs = Date.now()) {
+    if (!object(connection)) fail('invalid_config', 503);
+    if (!Buffer.isBuffer(rawBody) || !rawBody.length || rawBody.length > 65536) fail('invalid_body');
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) fail('timestamp_invalid', 401);
+    const normalized = headerMap(headers);
+    if (platform === 'feishu') return feishu(connection, normalized, rawBody, nowMs);
+    if (platform === 'qq') return qq(connection, normalized, rawBody, nowMs);
+    return fail('platform_unsupported');
+  }
+  return Object.freeze({ verifyAndNormalize });
+})();
+
+// Original, single-message official API adapter. Durable sending/unknown recovery belongs to the caller.
+const ExternalChannelDelivery = (() => {
+  const transport = require('node:https');
+  const id = value => typeof value === 'string' && /^[\x21-\x7e]{1,128}$/.test(value);
+  const object = value => value && typeof value === 'object' && !Array.isArray(value);
+  const secret = value => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 4096;
+  const failure = (status, errorCode, extra = {}) => ({ status, messageId: '', errorCode: 'external_delivery.' + errorCode, ...extra });
+  function boundedText(text) {
+    const suffix = '\n完整答复请在如意查看或继续追问';
+    if (text.length <= 1800 && Buffer.byteLength(text) <= 6000) return { text, truncated: false };
+    let result = '', bytes = Buffer.byteLength(suffix);
+    // Iterate Unicode scalar values; never leave half an emoji or an invalid UTF8 sequence.
+    for (const scalar of text) {
+      const length = Buffer.byteLength(scalar);
+      if (result.length + scalar.length + suffix.length > 1800 || bytes + length > 6000) break;
+      result += scalar; bytes += length;
+    }
+    return { text: result + suffix, truncated: true };
+  }
+  function retryAfter(value) {
+    if (typeof value !== 'string' || !/^[0-9]{1,6}$/.test(value)) return undefined;
+    return Math.min(86400000, Number(value) * 1000);
+  }
+  // Exactly one request, no redirect/auth retry/proxy/baseUrl option. Bodies and errors never escape into logs.
+  function post(hostname, path, body, authorization, options) {
+    return new Promise(resolve => {
+      let done = false, request, response;
+      const finish = result => {
+        if (done) return;
+        done = true; clearTimeout(timer);
+        if (options.signal) options.signal.removeEventListener('abort', abort);
+        resolve(result);
+      };
+      const abort = () => { finish({ failure: 'aborted' }); if (request) request.destroy(); if (response) response.destroy(); };
+      const timer = setTimeout(() => { finish({ failure: 'timeout' }); if (request) request.destroy(); if (response) response.destroy(); }, options.timeoutMs);
+      timer.unref();
+      if (options.signal && options.signal.aborted) { abort(); return; }
+      if (options.signal) options.signal.addEventListener('abort', abort, { once: true });
+      const bytes = Buffer.from(JSON.stringify(body));
+      const headers = { 'content-type': 'application/json; charset=utf-8', 'content-length': String(bytes.length) };
+      if (authorization) headers.authorization = authorization;
+      try {
+        request = transport.request({ protocol: 'https:', hostname, port: 443, path, method: 'POST', headers,
+          agent: false, rejectUnauthorized: true, maxHeaderSize: 8192 }, incoming => {
+          if (done) { incoming.destroy(); return; }
+          response = incoming;
+          const chunks = []; let size = 0;
+          response.on('data', chunk => {
+            size += chunk.length;
+            if (size > 65536) { finish({ failure: 'invalid_response' }); response.destroy(); return; }
+            chunks.push(chunk);
+          });
+          response.on('end', () => {
+            let payload;
+            try { payload = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))); } catch {}
+            finish({ statusCode: response.statusCode, payload, retryAfterMs: retryAfter(response.headers['retry-after']) });
+          });
+          response.on('error', () => finish({ failure: 'network' }));
+          response.on('aborted', () => finish({ failure: 'network' }));
+        });
+        request.on('error', () => finish({ failure: 'network' }));
+        request.end(bytes);
+      } catch { finish({ failure: 'network' }); if (request) request.destroy(); }
+    });
+  }
+  function classify(result, tokenPhase) {
+    const status = tokenPhase ? 'failed' : 'unknown';
+    if (result.failure) return failure(status, (tokenPhase ? 'token_' : '') + result.failure);
+    if (result.statusCode === 429) return failure('failed', 'rate_limited', { retryAfterMs: result.retryAfterMs });
+    if (result.statusCode >= 400 && result.statusCode < 500) return failure('failed', tokenPhase ? 'token_rejected' : 'rejected');
+    if (!(result.statusCode >= 200 && result.statusCode < 300)) return failure(status, tokenPhase ? 'token_unavailable' : 'unconfirmed');
+    return null;
+  }
+  async function sendReply(connection, originalMessage, text, options = {}) {
+    if (!object(connection) || !object(originalMessage) || !object(options)) return failure('failed', 'invalid_input');
+    const platform = connection.platform;
+    if (!['qq', 'feishu'].includes(platform) || !id(connection.appId) || typeof options.attemptId !== 'string'
+      || !/^[A-Za-z0-9_-]{1,50}$/.test(options.attemptId)) return failure('failed', 'invalid_config');
+    if (!id(originalMessage.messageId) || !id(originalMessage.conversationId) || !id(originalMessage.senderId)
+      || !['direct', 'group'].includes(originalMessage.conversationType)) return failure('failed', 'invalid_message');
+    const tenantId = connection.tenantId || (platform === 'qq' ? connection.appId : undefined);
+    if (!id(tenantId) || tenantId !== originalMessage.tenantId) return failure('failed', 'identity_mismatch');
+    if (platform === 'qq' && originalMessage.conversationType === 'direct' && originalMessage.conversationId !== originalMessage.senderId) return failure('failed', 'identity_mismatch');
+    if (typeof text !== 'string' || !text.trim() || text.length > 1048576
+      || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text) || Buffer.from(text).toString('utf8') !== text) return failure('failed', 'text_invalid');
+    const bounded = boundedText(text); text = bounded.text;
+    const credential = platform === 'qq' ? connection.botSecret : connection.appSecret;
+    if (!secret(credential)) return failure('failed', 'invalid_config');
+    const timeoutMs = options.timeoutMs === undefined ? 10000 : options.timeoutMs;
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 5000 || timeoutMs > 60000
+      || (options.signal && (typeof options.signal.addEventListener !== 'function' || typeof options.signal.removeEventListener !== 'function'))) return failure('failed', 'invalid_input');
+    if (options.signal && options.signal.aborted) return failure('failed', 'aborted');
+    // Copy all routing/credential evidence before the token await; callers cannot retarget this request in flight.
+    const appId = connection.appId, messageId = originalMessage.messageId, conversationId = originalMessage.conversationId;
+    const group = originalMessage.conversationType === 'group';
+    const uuid = options.attemptId;
+    const deadline = Date.now() + timeoutMs;
+    const requestOptions = { timeoutMs, signal: options.signal };
+    const hostname = platform === 'qq' ? 'api.bot.qq.com' : 'open.feishu.cn';
+    const tokenResult = await post(hostname,
+      platform === 'qq' ? '/app/getAppAccessToken' : '/open-apis/auth/v3/tenant_access_token/internal',
+      platform === 'qq' ? { appId, clientSecret: credential } : { app_id: appId, app_secret: credential }, null, requestOptions);
+    const tokenFailure = classify(tokenResult, true);
+    if (tokenFailure) return tokenFailure;
+    const payload = tokenResult.payload;
+    if (!object(payload) || (platform === 'feishu' && payload.code !== 0)) return failure('failed', 'token_rejected');
+    const token = platform === 'qq' ? payload.access_token : payload.tenant_access_token;
+    if (typeof token !== 'string' || !/^[\x21-\x7e]{1,4096}$/.test(token)) return failure('failed', 'token_invalid');
+    // Cancellation before dispatch is a known failure, even though token retrieval already happened.
+    if (requestOptions.signal && requestOptions.signal.aborted) return failure('failed', 'aborted');
+    requestOptions.timeoutMs = deadline - Date.now();
+    if (requestOptions.timeoutMs <= 0) return failure('failed', 'timeout');
+    const result = await post(hostname, platform === 'qq'
+      ? '/v2/' + (group ? 'groups/' : 'users/') + encodeURIComponent(conversationId) + '/messages'
+      : '/open-apis/im/v1/messages/' + encodeURIComponent(messageId) + '/reply',
+    platform === 'qq' ? { msg_type: 0, content: text, msg_id: messageId, msg_seq: 1 }
+      : { msg_type: 'text', content: JSON.stringify({ text }), uuid },
+    (platform === 'qq' ? 'QQBot ' : 'Bearer ') + token, requestOptions);
+    const sendFailure = classify(result, false);
+    if (sendFailure) return sendFailure;
+    if (!object(result.payload)) return failure('unknown', 'invalid_response');
+    if (platform === 'feishu' && result.payload.code !== 0) {
+      // A missing/ill-typed code is not an explicit platform rejection.
+      return Number.isInteger(result.payload.code) ? failure('failed', 'rejected') : failure('unknown', 'invalid_response');
+    }
+    if (platform === 'qq' && result.payload.code !== undefined) {
+      if (!Number.isInteger(result.payload.code)) return failure('unknown', 'invalid_response');
+      if (result.payload.code !== 0) return failure('failed', 'rejected');
+    }
+    const sentId = platform === 'qq' ? result.payload.id : object(result.payload.data) && result.payload.data.message_id;
+    if (!id(sentId)) return failure('unknown', 'invalid_response');
+    return { status: 'sent', messageId: sentId, errorCode: '', truncated: bounded.truncated };
+  }
+  return Object.freeze({ sendReply });
+})();
+
+// External ingress defaults to an independent inbox. Explicit local owner bindings may additionally
+// run the existing Steward and deliver one bounded reply; queued/running/sending facts are durable.
+const EXTERNAL_BOT_LIMITS = Object.freeze({ connections: 16, retiredIds: 4096, items: 1000, textChars: 8192, textBytes: 32768, bodyBytes: 65536, stateBytes: 40 * 1024 * 1024, readTimeoutMs: 5000, inflightCallbacks: 8, callbacksPerMinute: 120 });
+const EXTERNAL_BOT_CONNECTION_KEYS = Object.freeze(['id', 'platform', 'label', 'enabled', 'appId', 'tenantId', 'botUserId', 'allowedSenderIds', 'allowedConversationIds', 'verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'appSecretEnv', 'mode', 'ownerSenderId', 'ownerConversationId', 'ownerConversationType']);
+const externalBotActors = new WeakMap();
+const externalBotActiveActors = new Map();
+const externalBotUnsettled = new Map();
+const externalBotDeliveries = new Map();
+const externalBotChains = new Map();
+let externalBotInflight = 0;
+let externalBotRate = { at: 0, count: 0 };
+let externalBotWorkerBusy = false;
+let externalBotWorkerAgain = false;
+let externalBotWorkerStopped = false;
+let externalBotRecoveryDone = false;
+let externalBotWorkerError = '';
+function externalBotError(code, statusCode = 400) {
+  return Object.assign(new Error(code), { code, apiCode: code, statusCode });
+}
+function externalBotString(value, max = 128, empty = false) {
+  return typeof value === 'string' && value.length <= max && (empty || value.trim().length > 0) && !/[\u0000-\u001f\u007f]/.test(value);
+}
+function externalBotEnvReference(value) {
+  return value === '' || (typeof value === 'string' && /^RUYI_BOT_[A-Z0-9_]{1,100}$/.test(value));
+}
+function externalBotIdentity(value) { return typeof value === 'string' && /^[\x21-\x7e]{1,128}$/.test(value); }
+function externalBotNormalizeConnection(raw, id) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || Object.keys(raw).some(key => !EXTERNAL_BOT_CONNECTION_KEYS.includes(key))) throw externalBotError('external_channel.connection_invalid');
+  if (!['qq', 'feishu'].includes(raw.platform) || !externalBotIdentity(raw.appId)) throw externalBotError('external_channel.connection_invalid');
+  if (raw.tenantId !== undefined && typeof raw.tenantId !== 'string') throw externalBotError('external_channel.connection_invalid');
+  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(id)) throw externalBotError('external_channel.connection_invalid');
+  if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') throw externalBotError('external_channel.connection_invalid');
+  const out = { id, platform: raw.platform, label: raw.label ?? '', enabled: raw.enabled === true, appId: raw.appId,
+    tenantId: raw.tenantId || (raw.platform === 'qq' ? raw.appId : ''), botUserId: raw.botUserId ?? '',
+    allowedSenderIds: raw.allowedSenderIds ?? [], allowedConversationIds: raw.allowedConversationIds ?? [],
+    verificationTokenEnv: raw.verificationTokenEnv ?? '', encryptKeyEnv: raw.encryptKeyEnv ?? '', botSecretEnv: raw.botSecretEnv ?? '',
+    appSecretEnv: raw.appSecretEnv ?? '', mode: raw.mode ?? 'inbox', ownerSenderId: raw.ownerSenderId ?? '',
+    ownerConversationId: raw.ownerConversationId ?? '', ownerConversationType: raw.ownerConversationType ?? 'direct' };
+  if (!externalBotString(out.label, 120, true) || !externalBotString(out.tenantId, 128, true) || !externalBotString(out.botUserId, 128, true)) throw externalBotError('external_channel.connection_invalid');
+  if ((out.tenantId && !externalBotIdentity(out.tenantId)) || (out.botUserId && !externalBotIdentity(out.botUserId))) throw externalBotError('external_channel.connection_invalid');
+  for (const key of ['allowedSenderIds', 'allowedConversationIds']) {
+    if (!Array.isArray(out[key]) || out[key].length > 100 || out[key].some(value => !externalBotIdentity(value))) throw externalBotError('external_channel.connection_invalid');
+    out[key] = [...new Set(out[key])];
+  }
+  for (const key of ['verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'appSecretEnv']) if (!externalBotEnvReference(out[key])) throw externalBotError('external_channel.env_reference_invalid');
+  if ((out.platform === 'qq' && (out.verificationTokenEnv || out.encryptKeyEnv || out.appSecretEnv)) || (out.platform === 'feishu' && out.botSecretEnv)) throw externalBotError('external_channel.connection_invalid');
+  if (!['inbox', 'control'].includes(out.mode) || !['direct', 'group'].includes(out.ownerConversationType)
+    || (out.ownerSenderId && !externalBotIdentity(out.ownerSenderId)) || (out.ownerConversationId && !externalBotIdentity(out.ownerConversationId))) throw externalBotError('external_channel.connection_invalid');
+  if (out.mode === 'control' && (!out.ownerSenderId || !out.ownerConversationId || !['direct', 'group'].includes(raw.ownerConversationType)
+    || !out.allowedSenderIds.includes(out.ownerSenderId) || !out.allowedConversationIds.includes(out.ownerConversationId))) throw externalBotError('external_channel.owner_invalid');
+  return out;
+}
+function externalBotSecrets(connection) {
+  const out = {};
+  for (const [reference, name] of [['verificationTokenEnv', 'verificationToken'], ['encryptKeyEnv', 'encryptKey'], ['botSecretEnv', 'botSecret'], ['appSecretEnv', 'appSecret']]) {
+    const key = connection[reference];
+    // Only names explicitly declared on this connection and in this reserved namespace are resolved.
+    const value = externalBotEnvReference(key) && key ? process.env[key] : '';
+    out[name] = typeof value === 'string' && value.length <= 8192 ? value : '';
+  }
+  return out;
+}
+function externalBotConfigured(connection, secrets = externalBotSecrets(connection)) {
+  const ingress = connection.platform === 'qq' ? Boolean(connection.appId && secrets.botSecret)
+    : Boolean(connection.appId && connection.tenantId && connection.botUserId && secrets.verificationToken && secrets.encryptKey);
+  return ingress && (connection.mode !== 'control' || connection.platform === 'qq' || Boolean(secrets.appSecret));
+}
+function externalBotPublicConnection(connection) {
+  return { ...connection, configured: externalBotConfigured(connection), callbackPath: '/api/external-bots/callback/' + connection.platform + '?connectionId=' + encodeURIComponent(connection.id) };
+}
+function externalBotPublicItem(item) {
+  const out = {};
+  for (const key of ['id', 'connectionId', 'platform', 'connectionLabel', 'tenantId', 'conversationId', 'senderId', 'conversationType', 'text', 'messageId', 'eventId', 'receivedAt', 'readAt', 'control', 'execution', 'delivery']) out[key] = item[key];
+  const unsettled = externalBotUnsettled.get(item.id);
+  if (unsettled?.kind === 'run' && out.execution?.status === 'running') out.execution = { ...out.execution, status: 'unknown', errorCode: 'external_channel.execution_unknown', finishedAt: unsettled.at };
+  if (unsettled?.kind === 'send' && out.delivery?.status === 'sending') out.delivery = { ...out.delivery, status: 'unknown', errorCode: 'external_channel.delivery_unknown', updatedAt: unsettled.at };
+  return out;
+}
+function externalBotValidItem(item) {
+  return item && typeof item === 'object' && !Array.isArray(item) && externalBotString(item.id) && externalBotString(item.connectionId)
+    && ['qq', 'feishu'].includes(item.platform) && externalBotString(item.connectionLabel, 120, true)
+    && ['tenantId', 'conversationId', 'senderId', 'messageId', 'eventId'].every(key => externalBotIdentity(item[key]))
+    && ['direct', 'group'].includes(item.conversationType) && typeof item.text === 'string' && item.text.trim().length > 0
+    && item.text.length <= EXTERNAL_BOT_LIMITS.textChars && Buffer.byteLength(item.text, 'utf8') <= EXTERNAL_BOT_LIMITS.textBytes && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(item.text)
+    && item.sourceKey === JSON.stringify([item.connectionId, item.tenantId, item.conversationId, item.messageId])
+    && item.contentHash === crypto.createHash('sha256').update(JSON.stringify([item.senderId, item.conversationType, item.text])).digest('hex')
+    && typeof item.receivedAt === 'string' && Number.isFinite(Date.parse(item.receivedAt))
+    && typeof item.readAt === 'string' && (!item.readAt || Number.isFinite(Date.parse(item.readAt))) && externalBotValidControlState(item);
+}
+function externalBotValidControlState(item) {
+  if (item.control === null) return item.execution === null && item.delivery === null;
+  const control = item.control, execution = item.execution, delivery = item.delivery;
+  const date = value => typeof value === 'string' && (!value || Number.isFinite(Date.parse(value)));
+  if (!control || typeof control !== 'object' || Array.isArray(control) || !Number.isSafeInteger(control.controlRevision) || control.controlRevision < 1
+    || !externalBotIdentity(control.appId) || !['connectionId', 'platform', 'tenantId', 'senderId', 'conversationId', 'conversationType'].every(key => control[key] === item[key])) return false;
+  if (!execution || typeof execution !== 'object' || Array.isArray(execution) || !['queued', 'running', 'completed', 'failed', 'unknown'].includes(execution.status)
+    || !externalBotString(execution.serverInstanceId, 128, true) || !date(execution.startedAt) || !date(execution.finishedAt)
+    || !externalBotString(execution.errorCode, 128, true) || typeof execution.replyText !== 'string' || execution.replyText.length > 3000
+    || !Number.isSafeInteger(execution.turnSeq) || execution.turnSeq < 0 || typeof execution.contractIncomplete !== 'boolean'
+    || ![execution.actionFailures, execution.proposals].every(value => Number.isSafeInteger(value) && value >= 0 && value <= 100)) return false;
+  return delivery === null || (delivery && typeof delivery === 'object' && !Array.isArray(delivery)
+    && ['pending', 'sending', 'sent', 'failed', 'unknown'].includes(delivery.status) && typeof delivery.attemptId === 'string' && /^[a-zA-Z0-9_-]{1,50}$/.test(delivery.attemptId)
+    && externalBotString(delivery.messageId, 128, true) && externalBotString(delivery.errorCode, 128, true) && date(delivery.updatedAt)
+    && (delivery.status !== 'sent' || Boolean(delivery.messageId)));
+}
+function externalBotOwnerMatches(connection, item) {
+  return Boolean(connection && connection.enabled && connection.mode === 'control' && item.control
+    && connection.id === item.connectionId && connection.controlRevision === item.control.controlRevision
+    && connection.platform === item.platform && connection.appId === item.control.appId && connection.tenantId === item.tenantId
+    && connection.ownerSenderId === item.senderId && connection.ownerConversationId === item.conversationId && connection.ownerConversationType === item.conversationType
+    && connection.allowedSenderIds.includes(item.senderId) && connection.allowedConversationIds.includes(item.conversationId) && externalBotConfigured(connection));
+}
+async function externalBotValidateActor(actor) {
+  const proof = actor && typeof actor === 'object' ? externalBotActors.get(actor) : null;
+  if (!proof || proof.controller.signal.aborted || externalBotWorkerStopped) throw externalBotError('external_channel.control_revoked', 403);
+  return runKeyedChain(externalBotChains, 'state', async () => {
+    const state = await externalBotReadState(); const item = state.items.find(row => row.id === proof.itemId);
+    const connection = state.connections.find(row => row.id === proof.connectionId);
+    if (!item || item.execution?.status !== 'running' || item.execution.serverInstanceId !== OVERLAY_ID || proof.controlRevision !== item.control?.controlRevision
+      || !externalBotOwnerMatches(connection, item)) throw externalBotError('external_channel.control_revoked', 403);
+    return { ...item.control, itemId: item.id };
+  });
+}
+function externalBotReplyText(result) {
+  let text = externalBotResultUncertain(result) ? '本次处理未完整结束，结果无法确认；请查询现有任务，确认已发生的操作后再决定下一步。不要重复下达同一指令。'
+    : result?.error === 'external_channel.control_revoked' ? '远程控制授权已撤销，未开始的操作已停止；此前已开始的任务或操作不会自动回滚。'
+      : typeof result?.say === 'string' ? result.say.trim() : '';
+  if (!text) text = result?.ok === true ? '本次指令处理已结束，请查询任务确认实际进展。' : '本次处理未完成，请查询现有任务，确认已经发生的操作后再决定下一步。';
+  const outcome = externalBotOutcome(result);
+  const facts = [];
+  if (outcome.contractIncomplete) facts.push('答复未形成完整执行契约，请在如意核对。');
+  if (outcome.proposals) facts.push(`有 ${outcome.proposals} 项后续选项，请在如意查看。`);
+  if (outcome.actionFailures) facts.push(`有 ${outcome.actionFailures} 项操作失败，请在如意查看详情。`);
+  if (facts.length) text = facts.join('\n') + '\n' + text;
+  const tail = '\n（答复已截短，完整内容请在如意查看或继续追问。）';
+  if (text.length <= 1700 && Buffer.byteLength(text, 'utf8') <= 5500) return text;
+  let out = '';
+  for (const point of text) { if ((out + point + tail).length > 1700 || Buffer.byteLength(out + point + tail, 'utf8') > 5500) break; out += point; }
+  return out + tail;
+}
+function externalBotResultUncertain(result) {
+  return result?.executionUnknown === true || (result?.ok === false && ['steward.turn_failed', 'steward.cancelled'].includes(typeof result.error === 'string' ? result.error : result.error?.code));
+}
+function externalBotOutcome(result) {
+  const count = value => Number.isSafeInteger(value) && value >= 0 ? Math.min(100, value) : 0;
+  return {
+    actionFailures: Math.min(100, count(result?.toolFailures) + (Array.isArray(result?.actions) ? result.actions : []).filter(row => row?.result?.ok === false && row.result.error !== 'propose_required').length),
+    proposals: Math.min(100, count(result?.toolProposals) + (Array.isArray(result?.acts) ? result.acts.length : 0)), contractIncomplete: result?.contractIncomplete === true,
+  };
+}
+async function externalBotRecover() {
+  if (externalBotRecoveryDone) return;
+  await runKeyedChain(externalBotChains, 'state', async () => {
+    const state = await externalBotReadState(); let changed = false;
+    for (const item of state.items) {
+      if (item.execution?.status === 'running') {
+        item.execution = { ...item.execution, status: 'unknown', errorCode: 'external_channel.execution_unknown', finishedAt: nowIso() }; changed = true;
+      }
+      if (item.delivery?.status === 'sending') {
+        item.delivery = { ...item.delivery, status: 'unknown', errorCode: 'external_channel.delivery_unknown', updatedAt: nowIso() }; changed = true;
+      }
+    }
+    if (changed) await externalBotWriteState(state);
+    externalBotUnsettled.clear();
+    externalBotRecoveryDone = true;
+  });
+}
+async function externalBotNextJob() {
+  return runKeyedChain(externalBotChains, 'state', async () => {
+    const state = await externalBotReadState();
+    const item = state.items.find(row => row.delivery?.status === 'pending') || state.items.find(row => row.execution?.status === 'queued');
+    if (!item) return null;
+    const connection = state.connections.find(row => row.id === item.connectionId);
+    if (!externalBotOwnerMatches(connection, item)) {
+      if (item.execution?.status === 'queued') item.execution = { ...item.execution, status: 'failed', finishedAt: nowIso(), errorCode: 'external_channel.control_revoked', replyText: '' };
+      if (item.delivery?.status === 'pending') item.delivery = { ...item.delivery, status: 'failed', updatedAt: nowIso(), errorCode: 'external_channel.control_revoked' };
+      await externalBotWriteState(state); return { kind: 'skip' };
+    }
+    if (item.delivery?.status === 'pending') {
+      item.delivery = { ...item.delivery, status: 'sending', updatedAt: nowIso() }; await externalBotWriteState(state);
+      return { kind: 'send', item: JSON.parse(JSON.stringify(item)), connection: { ...connection, ...externalBotSecrets(connection) } };
+    }
+    item.execution = { ...item.execution, status: 'running', serverInstanceId: OVERLAY_ID, startedAt: nowIso() }; await externalBotWriteState(state);
+    const actor = Object.freeze({}); const proof = { itemId: item.id, connectionId: item.connectionId, controlRevision: item.control.controlRevision, controller: new AbortController() };
+    externalBotActors.set(actor, proof); externalBotActiveActors.set(item.id, proof);
+    return { kind: 'run', item: JSON.parse(JSON.stringify(item)), actor };
+  });
+}
+async function externalBotFinishJob(job, result) {
+  return runKeyedChain(externalBotChains, 'state', async () => {
+    const state = await externalBotReadState(); const item = state.items.find(row => row.id === job.item.id);
+    if (!item) throw externalBotError('external_channel.storage_unavailable', 503);
+    if (job.kind === 'run') {
+      if (item.execution?.status !== 'running' || item.execution.serverInstanceId !== OVERLAY_ID) throw externalBotError('external_channel.execution_unknown', 409);
+      item.execution = { ...item.execution, status: externalBotResultUncertain(result) ? 'unknown' : result?.ok === true ? 'completed' : 'failed', finishedAt: nowIso(),
+        errorCode: externalBotResultUncertain(result) ? 'external_channel.execution_unknown' : result?.ok === true ? '' : result?.error === 'external_channel.control_revoked' ? result.error : 'external_channel.execution_failed',
+        replyText: externalBotReplyText(result), turnSeq: Math.max(0, Number.isSafeInteger(result?.turnSeq) ? result.turnSeq : 0), ...externalBotOutcome(result) };
+      item.delivery = { status: 'pending', attemptId: makeId('reply'), messageId: '', errorCode: '', updatedAt: nowIso() };
+    } else {
+      if (item.delivery?.status !== 'sending' || item.delivery.attemptId !== job.item.delivery.attemptId) throw externalBotError('external_channel.delivery_unknown', 409);
+      const sent = result?.status === 'sent' && externalBotIdentity(result.messageId);
+      item.delivery = { ...item.delivery, status: sent ? 'sent' : result?.status === 'failed' ? 'failed' : 'unknown',
+        messageId: sent ? result.messageId : '', errorCode: sent ? '' : (typeof result?.errorCode === 'string' && /^external_(channel|delivery)\.[a-z_]{1,80}$/.test(result.errorCode) ? result.errorCode : 'external_channel.delivery_unknown'), updatedAt: nowIso() };
+    }
+    await externalBotWriteState(state);
+  });
+}
+async function externalBotDrain() {
+  if (externalBotWorkerStopped) return;
+  if (externalBotWorkerBusy) { externalBotWorkerAgain = true; return; }
+  externalBotWorkerBusy = true;
+  try {
+    await externalBotRecover();
+    do {
+      externalBotWorkerAgain = false;
+      while (!externalBotWorkerStopped) {
+        const job = await externalBotNextJob(); if (!job) break; if (job.kind === 'skip') continue;
+        let result;
+        try {
+          if (job.kind === 'run') result = await runStewardTurn({ trigger: 'external', externalActor: job.actor, message: job.item.text });
+          else {
+            const controller = new AbortController();
+            externalBotDeliveries.set(job.item.id, { connectionId: job.item.connectionId, controlRevision: job.item.control.controlRevision, controller });
+            const allowed = await runKeyedChain(externalBotChains, 'state', async () => {
+              const state = await externalBotReadState(); const item = state.items.find(row => row.id === job.item.id);
+              return item && externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item);
+            });
+            result = !allowed || controller.signal.aborted ? { status: 'failed', errorCode: 'external_channel.control_revoked' }
+              : await ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText, { attemptId: job.item.delivery.attemptId, signal: controller.signal });
+          }
+        } catch (error) { result = job.kind === 'run' ? (error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }) : { status: 'unknown', errorCode: 'external_channel.delivery_unknown' }; }
+        finally { if (job.actor) { externalBotActors.delete(job.actor); externalBotActiveActors.delete(job.item.id); } externalBotDeliveries.delete(job.item.id); }
+        try { await externalBotFinishJob(job, result); }
+        catch (error) { externalBotUnsettled.set(job.item.id, { kind: job.kind, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
+      }
+    } while (externalBotWorkerAgain && !externalBotWorkerStopped);
+    externalBotWorkerError = '';
+  } catch { externalBotWorkerError = 'external_channel.storage_unavailable'; }
+  finally { externalBotWorkerBusy = false; }
+}
+function externalBotWakeWorker() { if (!externalBotWorkerStopped) void externalBotDrain(); }
+function externalBotValidState(state) {
+  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds'].includes(key)) || state.schema !== 1 || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
+    || !Array.isArray(state.items) || state.items.length > EXTERNAL_BOT_LIMITS.items
+    || !Array.isArray(state.retiredConnectionIds) || state.retiredConnectionIds.length > EXTERNAL_BOT_LIMITS.retiredIds
+    || state.retiredConnectionIds.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(id))
+    || new Set(state.retiredConnectionIds).size !== state.retiredConnectionIds.length) return false;
+  try {
+    for (const connection of state.connections) {
+      const { controlRevision, ...fields } = connection;
+      if (!Number.isSafeInteger(controlRevision) || controlRevision < 1 || JSON.stringify(externalBotNormalizeConnection(fields, fields.id)) !== JSON.stringify(fields)) return false;
+      if (connection.enabled && (!connection.allowedSenderIds.length || !connection.allowedConversationIds.length
+        || (connection.platform === 'qq' ? !connection.botSecretEnv : !connection.verificationTokenEnv || !connection.encryptKeyEnv || !connection.tenantId || !connection.botUserId)
+        || (connection.mode === 'control' && connection.platform === 'feishu' && !connection.appSecretEnv))) return false;
+    }
+  } catch { return false; }
+  return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(externalBotValidItem)
+    && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
+    && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length;
+}
+const externalBotStore = DurableJsonStore.create({
+  id: 'external-bots', file: () => path.join(paths.data, 'external-bots', 'state-v1.json'), schemaVersion: 1,
+  defaultValue: () => ({ schema: 1, connections: [], items: [], retiredConnectionIds: [] }), cache: false, quarantine: false, strictRead: true,
+  validate: externalBotValidState,
+});
+async function externalBotReadState() {
+  try {
+    const stat = await fsp.stat(externalBotStore.filePath()).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+    if (stat && stat.size > EXTERNAL_BOT_LIMITS.stateBytes) throw new Error('oversized state');
+    return await externalBotStore.read();
+  } catch { throw externalBotError('external_channel.storage_unavailable', 503); }
+}
+async function externalBotWriteState(state) {
+  if (Buffer.byteLength(JSON.stringify(state), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes) throw externalBotError('external_channel.inbox_full', 503);
+  try { await externalBotStore.write(state); }
+  catch { externalBotStore.invalidate(); throw externalBotError('external_channel.storage_unavailable', 503); }
+}
+async function externalBotReadBody(req) {
+  const declared = Number(req.headers['content-length']);
+  if (Number.isFinite(declared) && declared > EXTERNAL_BOT_LIMITS.bodyBytes) throw externalBotError('external_channel.body_too_large', 413);
+  return new Promise((resolve, reject) => {
+    const chunks = []; let bytes = 0;
+    const cleanup = () => { clearTimeout(timer); req.removeListener('data', onData); req.removeListener('end', onEnd); req.removeListener('error', onError); req.removeListener('aborted', onAbort); };
+    const fail = error => { cleanup(); req.once('error', () => {}); req.pause(); reject(error); };
+    const onData = chunk => { bytes += chunk.length; if (bytes > EXTERNAL_BOT_LIMITS.bodyBytes) fail(externalBotError('external_channel.body_too_large', 413)); else chunks.push(chunk); };
+    const onEnd = () => { cleanup(); resolve(Buffer.concat(chunks)); };
+    const onError = () => fail(externalBotError('external_channel.body_invalid'));
+    const onAbort = () => fail(externalBotError('external_channel.body_invalid'));
+    const timer = setTimeout(() => fail(externalBotError('external_channel.read_timeout', 408)), EXTERNAL_BOT_LIMITS.readTimeoutMs);
+    req.on('data', onData); req.once('end', onEnd); req.once('error', onError); req.once('aborted', onAbort);
+  });
+}
+function externalBotDecodeJson(raw) {
+  try {
+    const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('object required');
+    return value;
+  } catch { throw externalBotError('external_channel.body_invalid'); }
+}
+async function externalBotUpdateConnection(body) {
+  const state = await externalBotReadState();
+  if (body.op === 'upsert') {
+    const id = body.connection?.id;
+    if (typeof id !== 'string' || !id) throw externalBotError('external_channel.connection_invalid');
+    const connection = externalBotNormalizeConnection(body.connection, id);
+    if (connection.enabled && (!externalBotConfigured(connection) || !connection.allowedSenderIds.length || !connection.allowedConversationIds.length)) throw externalBotError('external_channel.connection_incomplete');
+    const index = state.connections.findIndex(row => row.id === id);
+    const previous = index >= 0 ? state.connections[index] : null;
+    if (connection.mode === 'control' && (!previous || previous.mode !== 'control' || (!previous.enabled && connection.enabled)
+      || ['ownerSenderId', 'ownerConversationId', 'ownerConversationType'].some(key => previous[key] !== connection[key])) && body.controlConfirmed !== true) throw externalBotError('external_channel.control_confirmation_required', 409);
+    if (state.retiredConnectionIds.includes(id)) throw externalBotError('external_channel.connection_retired', 409);
+    if (index >= 0 && ['platform', 'appId', 'tenantId', 'botUserId'].some(key => state.connections[index][key] !== connection[key])) throw externalBotError('external_channel.identity_immutable', 409);
+    if (index < 0 && state.retiredConnectionIds.length >= EXTERNAL_BOT_LIMITS.retiredIds) throw externalBotError('external_channel.retired_ids_full', 409);
+    if (index < 0 && state.connections.length >= EXTERNAL_BOT_LIMITS.connections) throw externalBotError('external_channel.connections_full', 409);
+    const authorityKeys = ['enabled', 'mode', 'ownerSenderId', 'ownerConversationId', 'ownerConversationType', 'allowedSenderIds', 'allowedConversationIds', 'verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'appSecretEnv'];
+    const changed = !previous || authorityKeys.some(key => JSON.stringify(previous[key]) !== JSON.stringify(connection[key]));
+    connection.controlRevision = previous ? previous.controlRevision + (changed ? 1 : 0) : 1;
+    if (!Number.isSafeInteger(connection.controlRevision)) throw externalBotError('external_channel.request_invalid');
+    if (index < 0) state.connections.push(connection); else state.connections[index] = connection;
+  } else if (['disable', 'delete'].includes(body.op) && typeof body.id === 'string') {
+    const index = state.connections.findIndex(row => row.id === body.id);
+    if (index < 0) throw externalBotError('external_channel.connection_not_found', 404);
+    if (body.op === 'disable') { if (state.connections[index].enabled) state.connections[index].controlRevision += 1; state.connections[index].enabled = false; }
+    else {
+      if (state.retiredConnectionIds.length >= EXTERNAL_BOT_LIMITS.retiredIds) throw externalBotError('external_channel.retired_ids_full', 409);
+      state.retiredConnectionIds.push(body.id);
+      state.connections.splice(index, 1); // Inbox and retired identity evidence remain permanent until a future explicit management policy.
+    }
+  } else throw externalBotError('external_channel.request_invalid');
+  await externalBotWriteState(state);
+  // Cancellation affects only the outbound request still in flight; tasks already started are not
+  // rolled back. Token-phase aborts can prevent a message POST, while post-phase ambiguity stays unknown.
+  for (const delivery of externalBotDeliveries.values()) {
+    const current = state.connections.find(row => row.id === delivery.connectionId);
+    if (!current || !current.enabled || current.controlRevision !== delivery.controlRevision) delivery.controller.abort();
+  }
+  for (const actor of externalBotActiveActors.values()) {
+    const current = state.connections.find(row => row.id === actor.connectionId);
+    if (!current || !current.enabled || current.controlRevision !== actor.controlRevision) actor.controller.abort();
+  }
+  return { ok: true, connections: state.connections.map(externalBotPublicConnection) };
+}
+async function externalBotAcceptCallback(platform, connectionId, headers, rawBody) {
+  const state = await externalBotReadState();
+  const connection = state.connections.find(row => row.id === connectionId && row.platform === platform);
+  if (!connection || !connection.enabled) throw externalBotError('external_channel.connection_unavailable', 404);
+  const secrets = externalBotSecrets(connection);
+  if (!externalBotConfigured(connection, secrets)) throw externalBotError('external_channel.connection_unavailable', 503);
+  externalBotDecodeJson(rawBody); // Fatal UTF-8 and root-shape checks do not alter the exact bytes the protocol verifies.
+  let verified;
+  try { verified = ExternalChannelProtocols.verifyAndNormalize(platform, { ...connection, ...secrets }, headers, rawBody); }
+  catch (error) { throw externalBotError(String(error?.code || 'external_channel.protocol_invalid'), [400, 401, 403, 413].includes(error?.statusCode) ? error.statusCode : 400); }
+  if (verified?.kind === 'challenge') return verified.body;
+  const ack = platform === 'qq' ? { op: 12 } : {};
+  if (verified?.kind === 'ignored') return ack;
+  if (verified?.kind !== 'message') throw externalBotError('external_channel.protocol_invalid');
+  const message = verified.message;
+  if (!message || !['tenantId', 'conversationId', 'senderId', 'messageId', 'eventId'].every(key => externalBotIdentity(message[key]))
+    || !['direct', 'group'].includes(message.conversationType) || typeof message.text !== 'string' || !message.text.trim()
+    || message.text.length > EXTERNAL_BOT_LIMITS.textChars || Buffer.byteLength(message.text, 'utf8') > EXTERNAL_BOT_LIMITS.textBytes
+    || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(message.text)) throw externalBotError('external_channel.message_invalid');
+  if (message.tenantId !== connection.tenantId || !connection.allowedSenderIds.includes(message.senderId) || !connection.allowedConversationIds.includes(message.conversationId)) throw externalBotError('external_channel.source_forbidden', 403);
+  const sourceKey = JSON.stringify([connection.id, message.tenantId, message.conversationId, message.messageId]);
+  const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, message.text])).digest('hex');
+  const existing = state.items.find(item => item.sourceKey === sourceKey);
+  if (existing) {
+    if (existing.contentHash !== contentHash) throw externalBotError('external_channel.message_conflict', 409);
+    return ack;
+  }
+  if (state.items.length >= EXTERNAL_BOT_LIMITS.items) throw externalBotError('external_channel.inbox_full', 503);
+  const control = connection.mode === 'control' && connection.ownerSenderId === message.senderId && connection.ownerConversationId === message.conversationId && connection.ownerConversationType === message.conversationType
+    ? { connectionId: connection.id, controlRevision: connection.controlRevision, platform, appId: connection.appId, tenantId: message.tenantId, senderId: message.senderId, conversationId: message.conversationId, conversationType: message.conversationType } : null;
+  state.items.push({ id: makeId('botmsg'), connectionId: connection.id, platform, connectionLabel: connection.label,
+    tenantId: message.tenantId, conversationId: message.conversationId, senderId: message.senderId,
+    conversationType: message.conversationType, text: message.text, messageId: message.messageId, eventId: message.eventId,
+    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control,
+    execution: control ? { status: 'queued', serverInstanceId: '', startedAt: '', finishedAt: '', errorCode: '', replyText: '', turnSeq: 0, actionFailures: 0, proposals: 0, contractIncomplete: false } : null, delivery: null });
+  await externalBotWriteState(state);
+  return ack;
+}
+async function handleExternalBotApiRoutes(req, res, pathname) {
+  const adminPaths = ['/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read'];
+  let callbackPlatform = '';
+  if (req.method === 'POST' && pathname === '/api/external-bots/callback/qq') callbackPlatform = 'qq';
+  if (req.method === 'POST' && pathname === '/api/external-bots/callback/feishu') callbackPlatform = 'feishu';
+  if (!adminPaths.includes(pathname) && !callbackPlatform) return false;
+  let admitted = false;
+  try {
+    const url = new URL(req.url, 'http://localhost');
+    if (callbackPlatform) {
+      if (req.method !== 'POST') throw externalBotError('external_channel.request_invalid', 405);
+      const id = url.searchParams.get('connectionId');
+      if ([...url.searchParams.keys()].length !== 1 || url.searchParams.getAll('connectionId').length !== 1 || !id || !/^[a-z][a-z0-9_-]{0,63}$/.test(id)) throw externalBotError('external_channel.connection_unavailable', 404);
+      const at = Date.now();
+      if (at - externalBotRate.at >= 60000) externalBotRate = { at, count: 0 };
+      if (externalBotInflight >= EXTERNAL_BOT_LIMITS.inflightCallbacks || externalBotRate.count >= EXTERNAL_BOT_LIMITS.callbacksPerMinute) throw externalBotError('external_channel.rate_limited', 429);
+      externalBotInflight += 1; externalBotRate.count += 1; admitted = true;
+      const raw = await externalBotReadBody(req);
+      const result = await runKeyedChain(externalBotChains, 'state', () => externalBotAcceptCallback(callbackPlatform, id, req.headers, raw));
+      externalBotWakeWorker(); // Durable acceptance owns this wakeup even if the peer already lost the ACK.
+      if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
+    }
+    if (!tokenOk(req)) throw externalBotError('auth.token_invalid', 403);
+    if (req.method === 'GET' && pathname === '/api/external-bots/connections') {
+      const state = await runKeyedChain(externalBotChains, 'state', externalBotReadState);
+      send(res, json({ ok: true, connections: state.connections.map(externalBotPublicConnection) })); return true;
+    }
+    if (req.method === 'POST' && pathname === '/api/external-bots/connections') {
+      const body = externalBotDecodeJson(await externalBotReadBody(req));
+      const result = await runKeyedChain(externalBotChains, 'state', () => externalBotUpdateConnection(body));
+      externalBotWakeWorker();
+      if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
+    }
+    if (req.method === 'GET' && pathname === '/api/external-bots/inbox') {
+      const state = await runKeyedChain(externalBotChains, 'state', externalBotReadState);
+      const limitRaw = url.searchParams.get('limit'); const limit = limitRaw === null ? 50 : Number(limitRaw);
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw externalBotError('external_channel.request_invalid');
+      const filter = url.searchParams.get('connectionId'); const before = url.searchParams.get('before');
+      const all = state.items.slice().reverse().filter(item => !filter || item.connectionId === filter);
+      const start = before ? all.findIndex(item => item.id === before) + 1 : 0;
+      if (before && start === 0) throw externalBotError('external_channel.cursor_invalid');
+      const items = all.slice(start, start + limit);
+      send(res, json({ ok: true, items: items.map(externalBotPublicItem), total: all.length,
+        nextBefore: start + limit < all.length ? items.at(-1)?.id || '' : '', capacity: EXTERNAL_BOT_LIMITS.items, full: state.items.length >= EXTERNAL_BOT_LIMITS.items,
+        worker: { running: externalBotWorkerBusy, errorCode: externalBotWorkerError } })); return true;
+    }
+    if (req.method === 'POST' && pathname === '/api/external-bots/inbox/read') {
+      const body = externalBotDecodeJson(await externalBotReadBody(req));
+      const result = await runKeyedChain(externalBotChains, 'state', async () => {
+        const state = await externalBotReadState(); const item = state.items.find(row => row.id === body.id);
+        if (!item) throw externalBotError('external_channel.item_not_found', 404);
+        if (!item.readAt) { item.readAt = nowIso(); await externalBotWriteState(state); }
+        return { ok: true, item: externalBotPublicItem(item) };
+      });
+      send(res, json(result)); return true;
+    }
+    throw externalBotError('external_channel.request_invalid', 405);
+  } catch (error) {
+    const code = typeof error?.apiCode === 'string' && /^(external_channel\.|auth\.)[a-z_]+$/.test(error.apiCode) ? error.apiCode : 'external_channel.storage_unavailable';
+    res.setHeader('connection', 'close');
+    if (!req.complete) res.once('finish', () => req.destroy());
+    send(res, apiFailure(code, {}, code, error?.statusCode || 503)); return true;
+  } finally {
+    if (admitted) externalBotInflight -= 1;
+  }
+}
+Object.assign(ExternalBotHooks, {
+  handleApiRoutes: handleExternalBotApiRoutes,
+  validateActor: externalBotValidateActor,
+  actorSignal: actor => externalBotActors.get(actor)?.controller.signal || null,
+  start: () => { externalBotWorkerStopped = false; externalBotWakeWorker(); },
+  stop: () => { externalBotWorkerStopped = true; for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
 });
 
 async function main() {

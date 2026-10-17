@@ -77,6 +77,9 @@ ok(/Desktop-control setup failed[\s\S]+base Workbench will still start/.test(pac
 ok(/runtime\\node\\node\.exe/.test(packager) && /Refusing to create a package without/.test(packager),
   'packager and launcher require the bundled Node runtime for deterministic Slim and Full startup');
 ok(/README-START-HERE\.txt/.test(packager), 'both packages include visible extract-before-running instructions');
+ok(/Copy-Item -LiteralPath \(Join-Path \$root "tools\\external-bot-gateway\.js"\) -Destination \(Join-Path \$stage "tools\\external-bot-gateway\.js"\) -Force/.test(packager),
+  'every offline variant includes only the standalone callback gateway at its documented tools path');
+ok(!/Copy-Item[^\r\n]+\$root "tools"[^\r\n]+-Recurse/.test(packager), 'offline packages do not include the developer tools directory recursively');
 ok(/Copy-LongTree/.test(packager) && /robocopy\.exe/.test(packager) && /tar\.exe/.test(packager), 'full-package assembly handles Chromium paths beyond legacy MAX_PATH');
 ok(/@archiveRoots/.test(packager) && /Explorer-incompatible/.test(packager) && /ZipFile\]::OpenRead/.test(packager), 'offline ZIP avoids Explorer-invisible dot entries and verifies every archive before release');
 ok(/explorerDefaultPathBudget\s*=\s*200/.test(packager) && /projectedExplorerPath/.test(packager) && /Use a shorter -Variant/.test(packager), 'packager rejects release names that make deep ACC paths unsafe for Windows Explorer');
