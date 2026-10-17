@@ -439,8 +439,16 @@ try {
           const url = typeof input === 'string' ? input : (input && input.url) || '';
           route = String(url).replace(/^https?:\\/\\/[^/]+/, '').split('?')[0];
           window.__ruyiFetchLog.push(route);
+        } catch { /* probe must never break the app */ }
+        // 62 号第三轮 P1：两个故障注入点 —— 请求根本没发出去(fail-request)，以及发出去但响应丢了
+        // (drop-response)。后者正是「服务端其实已经执行、客户端只知道失败」的那一类，用来验证回执核对。
+        window.__ruyiActFault = window.__ruyiActFault || '';
+        const fault = route === '/api/steward/act' ? window.__ruyiActFault : '';
+        if (fault) window.__ruyiActFault = '';
+        if (fault === 'fail-request') return Promise.reject(new TypeError('synthetic network failure'));
+        try {
           // 117l：管家域的请求体也留一份 —— routeHint 是否真的进了 POST /api/steward/message，
-          // 只有请求体说了算（URL 相同，差别全在 body 里）。
+          // 只有请求体说了算（URL 相同，差别全在 body 里）。只记【真的发出去】的请求。
           if (route.indexOf('/api/steward/') === 0) {
             window.__ruyiStewardBodies.push({ route, body: String((init && init.body) || '') });
           }
@@ -448,6 +456,7 @@ try {
         } catch { /* probe must never break the app */ }
         const pending = nativeFetch.call(window, input, init);
         if (route !== '/api/steward/act') return pending;
+        if (fault === 'drop-response') return pending.then(() => { throw new TypeError('synthetic lost response'); }, () => { throw new TypeError('synthetic lost response'); });
         return pending.then(async response => {
           try {
             const body = await response.clone().json();
@@ -2413,6 +2422,76 @@ try {
   ok(dupRows.length === 2, `P5 两条同名线程都在候选里（实得 ${dupRows.length} 行）`);
   ok(new Set(dupRows).size === 2, 'P6 同名两行的显示标签不同，用户能分辨');
   ok(dupRows.length === 2 && dupRows.every(text => text.indexOf(THREAD_TITLE) === 0), 'P7 区分后缀追加在原标题之后，不吞掉原话');
+
+  // ─── ③c 失败与迟到响应保护（62 号第三轮 P1）：先核对回执，再决定重发 ──────────────────
+  const actCount = () => cdp.evaluate(`(window.__ruyiStewardBodies || []).filter(row => row.route === '/api/steward/act' && (() => {
+    try { return JSON.parse(row.body).checkAttempt !== true; } catch { return true; }
+  })()).length`);
+  const feedHas = text => cdp.evaluate(`(document.getElementById('stewardFeed') || {}).textContent.indexOf(${JSON.stringify(text)}) >= 0`);
+  const clickAct = async label => cdp.evaluate(`(() => {
+    const node = [...document.querySelectorAll('#stewardFeed .steward-act')].filter(n => (n.textContent || '').trim() === ${JSON.stringify(label)}).pop();
+    if (!node) return false;
+    node.click();
+    return true;
+  })()`);
+  const handOffTo = async text => {
+    await cdp.evaluate(`(() => {
+      const input = document.getElementById('stewardComposerInput');
+      input.focus();
+      input.value = ${JSON.stringify(text)};
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+    await waitForEval(cdp, `(() => (${FEED}).chip.indexOf(${JSON.stringify(THREAD_TITLE)}) >= 0 || null)()`);
+    await cdp.evaluate(`document.getElementById('stewardTarget').click(), true`);
+    await sleep(120);
+    await cdp.evaluate(`(() => {
+      const option = [...document.querySelectorAll('#stewardTargetPicker .steward-target-option')].find(node => node.textContent.indexOf(${JSON.stringify(THREAD_TITLE)}) >= 0);
+      if (option) option.click();
+      return Boolean(option);
+    })()`);
+    await cdp.evaluate(`(() => {
+      const input = document.getElementById('stewardComposerInput');
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      return true;
+    })()`);
+  };
+  const unknownPrefix = String(zh['stewardShell.chat.handOffUnknown']).split('{{')[0];
+
+  // A. 请求到了服务端、响应丢了 —— 界面只能「未确认」；核对回执才知道其实已经递到。
+  const actStartA = await actCount();
+  await cdp.evaluate("window.__ruyiActFault = 'drop-response'; true");
+  await handOffTo(THREAD_TITLE + ' 落款改今天');
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.some(text => text.indexOf(${JSON.stringify(unknownPrefix)}) >= 0) ? 1 : null)()`, 300)),
+    'P8 响应丢失时只说「未确认」，原话留在提示里');
+  ok((await actCount()) === actStartA + 1, 'P9 这一次其实已经到达服务端');
+  ok(await clickAct(zh['stewardShell.chat.handOffCheck']), 'P10 未确认的提示上给出「核对是否已递到」');
+  ok(await waitForEval(cdp, `(document.getElementById('stewardFeed').textContent.indexOf(${JSON.stringify(zh['stewardShell.chat.handOffLanded'])}) >= 0) ? 1 : null`, 200),
+    'P11 核对读到回执：上一次已经递到');
+  ok((await actCount()) === actStartA + 1, 'P12 核对之后没有第二次执行');
+
+  // B. 请求根本没发出去 —— 核对说没递到；重发才真正执行，且不会造出第二条用户消息。
+  const actStartB = await actCount();
+  await cdp.evaluate("window.__ruyiActFault = 'fail-request'; true");
+  await handOffTo(THREAD_TITLE + ' 附录加封面');
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.filter(text => text.indexOf(${JSON.stringify(unknownPrefix)}) >= 0).length >= 2 ? 1 : null)()`, 300)),
+    'P13 请求没发出去时同样只说「未确认」');
+  ok((await actCount()) === actStartB, 'P14 这一次确实没有到达服务端');
+  ok(await clickAct(zh['stewardShell.chat.handOffCheck']), 'P15 失败的提示上同样给出核对按钮');
+  ok(await waitForEval(cdp, `(document.getElementById('stewardFeed').textContent.indexOf(${JSON.stringify(zh['stewardShell.chat.handOffAbsent'])}) >= 0) ? 1 : null`, 200),
+    'P16 核对说没有递到');
+  ok(await clickAct(zh['stewardShell.chat.handOffRetry']), 'P17 给出「重发这一次」');
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.some(text => text.indexOf(${JSON.stringify(String(zh['stewardShell.chat.handedOff']).split('{{')[0])}) >= 0) ? 1 : null)()`, 300)),
+    'P18 重发之后才真正执行并给出递送回执');
+  ok((await actCount()) === actStartB + 1, 'P19 重发只执行一次');
+  const retried = await cdp.evaluate(`(() => {
+    const rows = (window.__ruyiStewardBodies || []).filter(row => row.route === '/api/steward/act');
+    const last = rows[rows.length - 1];
+    try { return String(JSON.parse(last.body).act.args.sessionId || ''); } catch { return ''; }
+  })()`);
+  const retriedView = retried ? (await request(appPort, 'GET', '/api/sessions/' + encodeURIComponent(retried), null, token)).json : null;
+  const retriedUsers = (((retriedView || {}).session || {}).messages || []).filter(row => row && row.role === 'user');
+  ok(retriedUsers.filter(row => String(row.content || '').indexOf('附录加封面') >= 0).length === 1, 'P20 重发没有造出重复的用户消息');
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。

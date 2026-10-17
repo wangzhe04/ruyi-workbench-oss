@@ -1158,7 +1158,40 @@ async function stewardRelayDeliver(input) {
 // acts 落定:用户点了一个按钮。tool 走 13g 的同一实现(同一门控、同一决策日志),
 // dismiss 只记一行日志,open_thread 只回 sessionId(切换由 UI 完成)。
 // ────────────────────────────────────────────────────────────────────────────
-async function stewardRunAct(act, config) {
+// 62 号第三轮 P1（失败与迟到响应保护）：递话超时后重发前要先核对上一次的回执。前端为「这一次递话」
+// 生成一个 attemptId，同一个 attemptId 只执行一次；`check` 是只读回执查询，永远不会再次执行。
+// 账本只在内存、有界、十分钟过期：进程重启后旧 attemptId 不再等于「已执行」——界面本来就只说「未确认」。
+const STEWARD_ACT_ATTEMPT_LIMITS = Object.freeze({ entries: 256, ttlMs: 10 * 60 * 1000 });
+const stewardActAttempts = new Map();   // attemptId -> { at, result }
+function stewardActAttemptId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : '';
+}
+function stewardActAttemptPrune(now) {
+  for (const [id, row] of stewardActAttempts) if (now - row.at > STEWARD_ACT_ATTEMPT_LIMITS.ttlMs) stewardActAttempts.delete(id);
+  while (stewardActAttempts.size > STEWARD_ACT_ATTEMPT_LIMITS.entries) stewardActAttempts.delete(stewardActAttempts.keys().next().value);
+}
+async function stewardRunAct(act, config, attempt) {
+  const attemptId = stewardActAttemptId(attempt && attempt.attemptId);
+  const check = Boolean(attempt && attempt.check === true);
+  // 回执查询必须带合法 attemptId：否则它会被当成一次真实执行（那正是「核对」绝不能做的事）。
+  if (check && !attemptId) return stewardFail('invalid_request', 'checkAttempt needs a valid attemptId');
+  const now = Date.now();
+  if (attemptId) {
+    stewardActAttemptPrune(now);
+    const prior = stewardActAttempts.get(attemptId);
+    // 只读回执：告诉前端「这一次到底执行过没有」，绝不触发第二次执行。
+    if (check) return { ok: true, kind: 'attempt_check', applied: Boolean(prior), ...(prior ? { executedAt: new Date(prior.at).toISOString() } : {}) };
+    if (prior) return { ...prior.result, replayed: true, executedAt: new Date(prior.at).toISOString() };
+  }
+  const result = await stewardRunActOnce(act, config);
+  // 只记「真的执行过」的结果：失败/非法 act 不占 attemptId，用户仍可改了再试。
+  if (attemptId && result && result.ok === true) {
+    stewardActAttempts.set(attemptId, { at: now, result });
+    stewardActAttemptPrune(now);
+  }
+  return result;
+}
+async function stewardRunActOnce(act, config) {
   const raw = (act && typeof act === 'object') ? act : {};
   const kind = String(raw.kind || (raw.tool ? 'tool' : ''));
   if (kind === 'dismiss') {

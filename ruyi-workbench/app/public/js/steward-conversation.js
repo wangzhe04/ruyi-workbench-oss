@@ -1859,18 +1859,34 @@ export function createStewardConversation({
     }, 1000);
   }
 
+  // 62 号第三轮 P1：一次递话 = 一个 attemptId。网络失败/超时不再只是一句「失败」——原话、目标与
+  // 这一次的 attemptId 都留在提示行上；「核对」只读服务端回执，「重发」带同一个 attemptId，服务端据此
+  // 只执行一次（13q stewardRunAct），所以就算上一次其实已经落地也不会重复执行。
+  function handOffAttemptId() {
+    const cryptoApi = globalThis.crypto;
+    if (cryptoApi && typeof cryptoApi.randomUUID === 'function') return cryptoApi.randomUUID().replace(/-/g, '');
+    return String(Date.now()) + Math.random().toString(36).slice(2, 10);
+  }
+
   async function handOff({ sessionId, title, message, reason, hits }) {
     const sid = String(sessionId || '');
     const text = String(message || '').trim();
     if (!sid || !text) return null;
     appendUser(text);
-    const act = { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: text } };
+    const attempt = { attemptId: handOffAttemptId(), sessionId: sid, title, text, reason, hits };
+    return deliverHandOff(attempt);
+  }
+
+  async function deliverHandOff(attempt) {
+    const sid = attempt.sessionId;
     let response = null;
     try {
-      response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
-    } catch (error) {
-      appendSteward(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }), '');
-      return null;
+      response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({
+        act: { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: attempt.text } },
+        attemptId: attempt.attemptId }) });
+    } catch {
+      // 结果未知（网络/超时）绝不直接说失败：上一次可能已经执行了。原话留在这条提示上。
+      return renderHandOffPending(attempt);
     }
     const result = response && response.result;
     if (result && result.ok === false) {
@@ -1878,6 +1894,9 @@ export function createStewardConversation({
       appendSteward(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) }), '');
       return null;
     }
+    const title = attempt.title;
+    const hits = attempt.hits;
+    const reason = attempt.reason;
     const label = stewardShortTitle(title || sid);
     const others = (Array.isArray(hits) ? hits : []).filter(hit => hit && hit.sessionId !== sid)
       // 116-5b:与输入区候选列表同一份数据、同一个显示名(hit.displayTitle,服务端算好)。
@@ -1916,6 +1935,41 @@ export function createStewardConversation({
       if (switchMark) undoBtn.insertBefore(switchMark, undoBtn.firstChild);
     });
     return { sessionId: sid, undoRef, row, actsRow };
+  }
+
+  // 未确认的递送：一行提示 + 两枚按钮。核对只读回执；重发带同一个 attemptId（服务端只执行一次）。
+  function renderHandOffPending(attempt) {
+    const row = appendSteward(t('stewardShell.chat.handOffUnknown', { title: stewardShortTitle(attempt.title || attempt.sessionId) }), '');
+    const actsRow = el('div', 'steward-acts');
+    const checkBtn = button('steward-act', t('stewardShell.chat.handOffCheck'), async () => {
+      if (checkBtn.disabled) return;
+      checkBtn.disabled = true; retryBtn.disabled = true;
+      let response = null;
+      try {
+        response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ checkAttempt: true, attemptId: attempt.attemptId }) });
+      } catch { response = null; }
+      if (response && response.ok === true && response.applied === true) {
+        settleRow(actsRow, t('stewardShell.chat.handOffLanded'), 'done');
+        return;
+      }
+      if (response && response.ok === true && response.applied === false) {
+        appendSteward(t('stewardShell.chat.handOffAbsent'), '');
+      } else {
+        appendSteward(t('stewardShell.chat.handOffCheckUnknown'), '');
+      }
+      checkBtn.disabled = false; retryBtn.disabled = false;
+    });
+    const retryBtn = button('steward-act', t('stewardShell.chat.handOffRetry'), async () => {
+      if (retryBtn.disabled) return;
+      checkBtn.disabled = true; retryBtn.disabled = true;
+      // 原话已经上屏一次，重发不再 appendUser；服务端按 attemptId 重放时也不会执行第二次。
+      const outcome = await deliverHandOff(attempt);
+      if (outcome && outcome.pending) { checkBtn.disabled = false; retryBtn.disabled = false; return; }
+      settleRow(actsRow, t('stewardShell.chat.handOffRetried'), 'done');
+    });
+    actsRow.append(checkBtn, retryBtn);
+    if (row) row.appendChild(actsRow);
+    return { sessionId: attempt.sessionId, undoRef: null, row, actsRow, pending: true };
   }
 
   // 撤回锚点：只认后端 117d 第 0 步补出的 undoRef.rewindTargetTurnSeq（= 被递那一回合将拥有的 seq，与 09-workflow

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 78 | 3781 | 3311 | 565 | 67 | 0 | 1 |
+| 78 | 3786 | 3311 | 565 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -81,7 +81,7 @@
 | 63 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
 | 64 | `13o-steward-runner-prompt.js` | transport | 22 | 64 | 16 |
 | 65 | `13p-steward-runner-actions.js` | transport | 35 | 62 | 12 |
-| 66 | `13q-steward-runner-turn.js` | transport | 38 | 83 | 20 |
+| 66 | `13q-steward-runner-turn.js` | transport | 43 | 83 | 20 |
 | 67 | `13h-steward-runner.js` | transport | 7 | 47 | 12 |
 | 68 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
 | 69 | `13s-scheduler.js` | transport | 52 | 37 | 9 |

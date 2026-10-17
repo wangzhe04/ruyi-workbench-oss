@@ -13,7 +13,7 @@
 
 ## 当前优先级
 
-[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已开工：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 已完成。接下来继续第三轮其余 P1（附件续办、失败重试、搜索边界）与 66 号真实平台部署联调，尚未发布。
+[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。接下来继续第三轮其余 P1（附件续办、搜索边界）与 66 号真实平台部署联调，尚未发布。
 
 | 顺序 | 目标 | 建议版本归属 |
 |---|---|---|

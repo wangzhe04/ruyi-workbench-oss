@@ -246,7 +246,8 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
       return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
     }
     const body = await readJsonBody(req).catch(() => ({}));
-    const result = await stewardRunAct(body && body.act, config);
+    // 62 号第三轮 P1：同一次递话重试带同一个 attemptId；checkAttempt 只读回执，不触发执行。
+    const result = await stewardRunAct(body && body.act, config, { attemptId: body && body.attemptId, check: Boolean(body && body.checkAttempt === true) });
     if (result && result.ok === false) return send(res, apiFailure(result.error, {}, result.message || result.error, 400));
     return send(res, json(result));
   }

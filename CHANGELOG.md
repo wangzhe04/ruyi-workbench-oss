@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 递话失败或超时时不再只说「没做成」：如实显示「结果未确认」并保留原话，可先核对回执再决定是否重发；同一次递送带同一个 attemptId，服务端只执行一次，重发不会把同一件事交办两遍。
+- When a hand-off fails or times out, the reply is no longer just "failed": it says the outcome is unconfirmed, keeps the text, and lets you check the receipt before resending. One hand-off carries one attemptId and executes once on the server, so resending cannot duplicate the task.
+
 - 递话候选不再把同名任务折成一行：两条同名线程都能选，重名行带时间（或 `sessionId` 尾段）区分；焦点线程仍排第一。手选后 chip 与递话目标沿用原话标题。
 - Same-named tasks are no longer collapsed into one picker row: both threads stay selectable and duplicate titles carry a distinguishing time (or session-id tail); the focused thread still ranks first. The chip and hand-off still use the original title.
 
