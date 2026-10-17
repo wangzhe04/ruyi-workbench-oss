@@ -28,6 +28,7 @@ import { icon } from './icons.js';
 // 抽屉页签、灰字回执、2.0 的工具卡/工作流节点卡早就走这条口径，chip 是唯一漏掉的一处。
 // 33 号文 §4：那份实现的落点从 steward-conversation.js 搬到 util.js（无状态格式化叶子），函数体逐字未改。
 import { stewardShortTitle } from './util.js';
+import { fmtTime } from './util.js';
 import { autoGrow, fmtBytes } from './util.js';   // 133e：输入框随内容长高（与工作台 #promptInput 同一个 autoGrow）；附件 pill 的体积
 // 127-⑦（45 号文 §2-quinquies）：输入行里发送键前那枚麦克风。录音计时器、转写与回填全住 composer-voice.js ——
 // 本文件「恰好一处 setTimeout、零 setInterval」的纪律（I3/I4）因此一个字不用动。
@@ -55,6 +56,35 @@ const STEWARD_TARGET_KEYS = Object.freeze({
 
 export function stewardTargetKey(kind) {
   return STEWARD_TARGET_KEYS[String(kind || '')] || 'stewardShell.compose.targetSteward';
+}
+
+// 候选行（纯函数，导出给单测直调）：sessionId 是身份，标题只在重名时才带区分后缀。
+// hits 是预判命中（displayTitle 优先），remembered 是本次页面见过的线程回忆池；同 sessionId 只留先出现的。
+export function stewardCandidateRows(hits, remembered, limit = STEWARD_PICKER_MAX) {
+  const rows = [];
+  const seen = new Set();
+  const take = row => {
+    const sessionId = String((row && row.sessionId) || '');
+    if (!sessionId || seen.has(sessionId) || rows.length >= limit) return;
+    seen.add(sessionId);
+    const title = String(row.title || '').trim();
+    rows.push({ sessionId, title: title || sessionId, updatedAt: String(row.updatedAt || '') });
+  };
+  for (const hit of (Array.isArray(hits) ? hits : [])) take({ sessionId: hit && hit.sessionId,
+    title: String((hit && (hit.displayTitle || hit.title)) || ''), updatedAt: String((hit && hit.updatedAt) || '') });
+  for (const row of (Array.isArray(remembered) ? remembered : [])) take(row);
+  const counts = new Map();
+  for (const row of rows) counts.set(row.title, (counts.get(row.title) || 0) + 1);
+  const labelled = rows.map(row => {
+    if (counts.get(row.title) < 2) return { ...row, label: row.title };
+    // 同名的两条必须看得出区别：本地化时间优先，缺时间退到 sessionId 尾段（可复述、稳定）。
+    const when = row.updatedAt ? fmtTime(row.updatedAt) : '';
+    return { ...row, label: row.title + ' · ' + (when || row.sessionId.slice(-6)) };
+  });
+  // 时间只到分钟：同一分钟建的两条同名线程会撞成同一个标签 —— 再撞一次就补 sessionId 尾段，保证唯一。
+  const labelCounts = new Map();
+  for (const row of labelled) labelCounts.set(row.label, (labelCounts.get(row.label) || 0) + 1);
+  return labelled.map(row => labelCounts.get(row.label) > 1 ? { ...row, label: row.label + ' · ' + row.sessionId.slice(-6) } : row);
 }
 
 export function externalBotReferenceText(item, translate) {
@@ -113,8 +143,8 @@ export function createStewardComposer({
       const index = recent.findIndex(row => row.sessionId === hit.sessionId);
       if (index >= 0) recent.splice(index, 1);
       // 116-5b:候选列表显示的是服务端算好的 displayTitle(06i stewardPrerouteHit;判据在 02 的
-      // sessionDisplayTitle)。缺席时逐字等于 title,老载荷零变化。
-      recent.unshift({ sessionId: String(hit.sessionId), title: String(hit.displayTitle || hit.title || hit.sessionId) });
+      // sessionDisplayTitle)。缺席时逐字等于 title,老载荷零变化。updatedAt 只用于同名消歧后缀。
+      recent.unshift({ sessionId: String(hit.sessionId), title: String(hit.displayTitle || hit.title || hit.sessionId), updatedAt: String(hit.updatedAt || '') });
     }
     while (recent.length > STEWARD_RECENT_MAX) recent.pop();
   }
@@ -219,27 +249,12 @@ export function createStewardComposer({
   }
 
   // ── 候选列表（点 chip／输入 @／Tab 循环共用同一份候选）────────────────────────
-  // 117j W2-2：按 sessionId 去重（原有）之外再【按标题去重】—— 同一件事开过好几条线程时，
-  // 候选列表里会出现三四行一模一样的字，用户没法选。同标题只留最先出现的那一条：预判命中排在
-  // 回忆池前面，而预判本身已按「近期更新」加过权，所以留下的就是最近那一条。
+  // 117j W2-2 曾按标题去重（「同一件事开过好几条线程，三四行一模一样的字」）。62 号第三轮 E04 推翻了
+  // 这条判据：同名但不同 session 是两件事，折成一行等于用户没法选。现在只按 sessionId 保留身份，
+  // 重名的行追加一个区分后缀（本地化时间；缺时间用 sessionId 尾段）—— 后缀只进列表显示，
+  // picked 里存的仍是原话标题，chip 与 handOff 的既有口径不变。
   function candidates() {
-    const out = [];
-    const seen = new Set();
-    const titles = new Set();
-    const take = row => {
-      if (!row || !row.sessionId || seen.has(row.sessionId)) return;
-      const title = String(row.title || '').trim();
-      if (title && titles.has(title)) { seen.add(row.sessionId); return; }
-      seen.add(row.sessionId);
-      if (title) titles.add(title);
-      out.push({ sessionId: String(row.sessionId), title: title || String(row.sessionId) });
-    };
-    for (const hit of routeHits) {
-      if (!hit || !hit.sessionId) continue;
-      take({ sessionId: hit.sessionId, title: String(hit.displayTitle || hit.title || hit.sessionId) });
-    }
-    for (const row of recent) take(row);
-    return out.slice(0, STEWARD_PICKER_MAX);
+    return stewardCandidateRows(routeHits, recent, STEWARD_PICKER_MAX);
   }
 
   // 117j UX-F3：候选列表也进 Esc 栈。输入框那条 keydown 保留（焦点在里面时的近路），
@@ -270,7 +285,8 @@ export function createStewardComposer({
     const rows = candidates();
     const options = [{ sessionId: '', title: t('stewardShell.compose.targetSteward') }, ...rows];
     for (const row of options) {
-      const option = el('button', 'steward-target-option', row.title);
+      // 列表显示 label（重名带区分后缀），选中的仍是原话 title —— 后缀不进入 picked/handOff。
+      const option = el('button', 'steward-target-option', row.label || row.title);
       option.type = 'button';
       option.setAttribute('role', 'option');
       option.setAttribute('aria-selected', String(Boolean(picked && picked.sessionId === row.sessionId)));

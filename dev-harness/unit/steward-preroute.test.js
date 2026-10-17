@@ -144,6 +144,24 @@ function row(sessionId, over) {
   ok(r.hits[0].sessionId === 's_x' && r.hits[1].sessionId === 's_y', '⑦ 同分排序按 sessionId 升序,结果确定');
 }
 
+/* ═══════════════════════ ⑦b 同名任务都要能选（62 号 E04） ═══════════════════════ */
+{
+  const idx = [
+    row('s_dup_a', { title: '周报-W36', displayTitle: '周报-W36', updatedAt: RECENT }),
+    row('s_dup_b', { title: '周报-W36', displayTitle: '周报-W36', updatedAt: OLD }),
+  ];
+  const r = prerouteText('周报-W36 接着做', idx, [], opts);
+  ok(r.hits.length === 2, '⑦b 两条同名线程都进候选（不再被折叠成一条）');
+  ok(r.hits.map(hit => hit.sessionId).sort().join() === 's_dup_a,s_dup_b', '⑦b 候选按 sessionId 保留各自身份');
+  ok(r.hits.every(hit => hit.displayTitle === '周报-W36'), '⑦b 同名线程的显示名仍是原话');
+  ok(r.hits.every(hit => Boolean(hit.updatedAt)), '⑦b 命中带 updatedAt（前端据此显示可分辨后缀）');
+  const focus = prerouteText('周报-W36 接着做', idx, [], { ...opts, focusSessionId: 's_dup_b' });
+  ok(focus.kind === 'thread' && focus.hits[0].sessionId === 's_dup_b' && focus.hits[0].reason.includes('当前焦点'), '⑦b 焦点线程仍排第一（理由标注当前焦点）');
+  ok(focus.hits.length === 2 && focus.hits.some(hit => hit.sessionId === 's_dup_a'), '⑦b 焦点裁决不再折叠同名兄弟');
+  const other = prerouteText('周报-W36 接着做', idx.concat([row('s_other', { title: '支付网关重构', updatedAt: RECENT })]), [], opts);
+  ok(other.hits.length === 2 && !other.hits.some(hit => hit.sessionId === 's_other'), '⑦b 只扩同名兄弟，不把无关线程塞进候选');
+}
+
 /* ═══════════════════════ ⑧ 全不命中陈述句 -> new ═══════════════════════ */
 {
   const idx = [row('s1', { title: '支付网关重构', updatedAt: OLD })];

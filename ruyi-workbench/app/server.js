@@ -33431,6 +33431,9 @@ function stewardPrerouteHit(candidate) {
     // **打分不用它**:上面的 titleHits 仍然只吃原话 title —— 摘要出来的名字是压过的,拿它去做词法
     // 匹配会把用户当时打的那些词(「超威半导体」)从索引里抹掉,递送反而变笨。
     displayTitle: stewardSanitizeText((candidate.row && candidate.row.displayTitle) || (candidate.row && candidate.row.title) || ''),
+    // 62 号第三轮 E04:候选列表按 sessionId 保留身份,两条同名线程要靠时间区分 —— 只把这个事实
+    // 带给前端,不参与打分(updatedAt 既不进 titleHits 也不改变命中理由)。
+    updatedAt: String((candidate.row && candidate.row.updatedAt) || ''),
     score: Math.round(candidate.score * 100) / 100,
     reason: stewardPrerouteReason(candidate),
   };
@@ -33479,14 +33482,31 @@ function prerouteText(q, index, memory, opts) {
   if (!top.length || top[0].score < minScore) {
     return { kind: stewardPrerouteIsQuestion(trimmed) ? 'question' : 'new', hits: [] };
   }
+  // 62 号第三轮 E04：同名任务都要能选。焦点/并列裁决只返回一条命中，而同名的另一条线程
+  // （displayTitle 相同）恰恰是用户要分辨的那一条 —— 把它一并带上，仍受 maxHits 限制。
+  // 只扩同名兄弟，不改变 kind 判据、不改分数、不把无关线程塞进候选。
+  const hitTitleOf = candidate => String(candidate.row.displayTitle || candidate.row.title || '');
+  const withSameTitle = list => {
+    const out = list.slice();
+    const titles = new Set(out.map(hitTitleOf).filter(Boolean));
+    if (!titles.size) return out;
+    const seen = new Set(out.map(candidate => String(candidate.row.sessionId)));
+    for (const candidate of candidates) {
+      if (out.length >= defaults.maxHits) break;
+      if (seen.has(candidate.row.sessionId) || !titles.has(hitTitleOf(candidate))) continue;
+      seen.add(candidate.row.sessionId); out.push(candidate);
+    }
+    return out;
+  };
   if (top.length >= 2 && top[1].score >= top[0].score * unsureRatio) {
     // 128h-J03 ⑤b:并列的两名里有一条就是焦点 -> 焦点来裁;焦点不在并列里不越权。
     const tied = [top[0], top[1]];
     const byFocus = focusId ? tied.find(c => String(c.row.sessionId) === focusId) : null;
-    if (byFocus) return { kind: 'thread', hits: [stewardPrerouteHit({ ...byFocus, focusTieBreak: true })] };
-    return { kind: 'unsure', hits: [stewardPrerouteHit(top[0]), stewardPrerouteHit(top[1])] };
+    if (byFocus) return { kind: 'thread', hits: withSameTitle([byFocus, ...tied.filter(c => c !== byFocus)])
+      .map((candidate, index) => stewardPrerouteHit(index === 0 ? { ...candidate, focusTieBreak: true } : candidate)) };
+    return { kind: 'unsure', hits: withSameTitle(tied).map(candidate => stewardPrerouteHit(candidate)) };
   }
-  return { kind: 'thread', hits: [stewardPrerouteHit(top[0])] };
+  return { kind: 'thread', hits: withSameTitle([top[0]]).map(candidate => stewardPrerouteHit(candidate)) };
 }
 
 // 延迟绑定命名空间(先例:06c-agent-loop-hooks.js 的 AgentLoopHooks)。本切片(116a)只声明空对象与

@@ -2383,6 +2383,37 @@ try {
       `S1-7 open_thread 那一枚行为一个字没变：零面板、按下去直接发（实测 ${JSON.stringify(opened2 && { open: opened2.open, calls: opened2.calls })}）`);
   }
 
+  // ─── ③b 第三轮 P1（62 号 E04）：同名任务在候选里保留两条身份，并带可分辨的后缀 ─────
+  const dup = await request(appPort, 'POST', '/api/sessions', { title: THREAD_TITLE }, token);
+  const dupId = dup && dup.json && dup.json.session && dup.json.session.id;
+  ok(Boolean(dupId) && dupId !== threadId, 'P4 另建一条同名线程（同名、不同 session）');
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = ${JSON.stringify(THREAD_TITLE + ' 接着做')};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  let dupRows = [];
+  for (let attempt = 0; attempt < 20 && dupRows.length < 2; attempt += 1) {
+    await sleep(150);
+    // 每轮都重开一次：候选在打开时快照，先开的那一下可能还没拿到最新的预判响应。
+    await cdp.evaluate(`(() => {
+      const picker = document.getElementById('stewardTargetPicker');
+      const chip = document.getElementById('stewardTarget');
+      if (picker && !picker.hidden) chip.click();
+      return true;
+    })()`);
+    await sleep(80);
+    await cdp.evaluate(`document.getElementById('stewardTarget').click(), true`);
+    await sleep(120);
+    const labels = await cdp.evaluate(`(() => [...document.querySelectorAll('#stewardTargetPicker .steward-target-option')].map(node => (node.textContent || '').trim()))()`);
+    dupRows = (labels || []).filter(text => text.indexOf(THREAD_TITLE) >= 0);
+  }
+  ok(dupRows.length === 2, `P5 两条同名线程都在候选里（实得 ${dupRows.length} 行）`);
+  ok(new Set(dupRows).size === 2, 'P6 同名两行的显示标签不同，用户能分辨');
+  ok(dupRows.length === 2 && dupRows.every(text => text.indexOf(THREAD_TITLE) === 0), 'P7 区分后缀追加在原标题之后，不吞掉原话');
+
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。
   await cdp.evaluate("document.querySelector('#lensSeg [data-lens=\"classic\"]').click(); true");

@@ -110,8 +110,11 @@ const ok = (condition, label) => {
       && !/doc\(\)\.addEventListener\('click'/.test(composer)
       && !/if \(!open \|\| open\.hidden\) return;/.test(composer),
       'B2 点列表外任意处收起（M2 起归 popover 原语的 mousedown ＋ shell 那处捕获阶段 click；composer 不再留第二路）');
-    ok(/const titles = new Set\(\);/.test(composer) && /if \(title && titles\.has\(title\)\) \{ seen\.add\(row\.sessionId\); return; \}/.test(composer),
-      'B3 候选按标题去重（同一件事开过好几条线程时，列表里不会出现三四行一样的字）');
+    // 62 号第三轮 E04（2026-10-17）：117j W2-2 的「按标题去重」被推翻 —— 同名但不同 session 是两件事，
+    // 折成一行等于用户没法选。候选改成按 sessionId 保留身份，重名行追加可分辨后缀（时间／sessionId 尾段）。
+    ok(/export function stewardCandidateRows/.test(composer) && !/const titles = new Set\(\);/.test(composer)
+      && /counts\.get\(row\.title\) < 2/.test(composer) && /row\.title \+ ' · ' \+/.test(composer),
+      'B3 候选按 sessionId 保留身份（62 号 E04：同名不再折叠，重名行带可分辨后缀）');
     ok(/if \(event\.key === 'Escape'\) \{ closePicker\(\); return; \}/.test(composer),
       'B4 Esc 收起');
     ok(/cancelPreroute\(\);\s*closePicker\(\);/.test(composer), 'B5 发送前先收起');

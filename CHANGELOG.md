@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 递话候选不再把同名任务折成一行：两条同名线程都能选，重名行带时间（或 `sessionId` 尾段）区分；焦点线程仍排第一。手选后 chip 与递话目标沿用原话标题。
+- Same-named tasks are no longer collapsed into one picker row: both threads stay selectable and duplicate titles carry a distinguishing time (or session-id tail); the focused thread still ranks first. The chip and hand-off still use the original title.
+
 - 只有飞书应用 ID 与应用密钥也能接上机器人：在“外部机器人”面板用“用应用信息自动发现”，本机向飞书固定官方接口探测一次，自动取得租户 key 与机器人 open_id 并准备一条关闭的连接，应用密钥存进本机凭据。已有连接可“核验身份”复核租户与机器人，不会改动身份。探测失败不保存任何凭据，也不开启连接或授予控制权。
 - With only a Feishu App ID and App Secret you can prepare a bot: the External bots panel offers "Discover from app credentials", which probes the fixed official Feishu endpoints once, reads the tenant key and bot open_id, prepares a disabled connection and stores the app secret locally. Existing connections can re-check tenant and bot identity without changing it. A failed probe stores nothing and never enables control.
 
