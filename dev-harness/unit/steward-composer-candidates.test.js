@@ -31,7 +31,7 @@ test('one session seen twice collapses; the prediction hit wins over the memory 
   assert.equal(rows[1].label, '乙', 'unique titles keep the plain label');
 });
 
-test('a title collision without a timestamp still disambiguates by session tail', async () => {
+test('a label collision without a timestamp still disambiguates by session tail', async () => {
   const { stewardCandidateRows } = await import(moduleHref);
   const rows = stewardCandidateRows([
     { sessionId: 'sess-aaa111', title: '月度复盘' },
@@ -39,6 +39,19 @@ test('a title collision without a timestamp still disambiguates by session tail'
   ], [], 8);
   assert.equal(rows[0].label, '月度复盘 · aaa111');
   assert.equal(rows[1].label, '月度复盘 · bbb222');
+});
+
+test('identical tails or malformed timestamps still yield distinct, literal labels', async () => {
+  const { stewardCandidateRows } = await import(moduleHref);
+  const rows = stewardCandidateRows([
+    { sessionId: 'aaaaaa-111111', title: '同名' },
+    { sessionId: 'bbbbbb-111111', title: '同名' },
+    { sessionId: 'sess-badtime', title: '同名', updatedAt: 'not-a-date' },
+  ], [], 8);
+  assert.equal(rows.length, 3);
+  assert.equal(new Set(rows.map(row => row.label)).size, 3, 'every row keeps a unique label');
+  assert.ok(rows.every(row => !row.label.includes('Invalid Date')));
+  assert.ok(rows[0].label !== rows[1].label, 'identical tails fall back to the full session id');
 });
 
 test('rows are bounded, ids are required and a missing title falls back to the session id', async () => {

@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 78,
-    "providedSymbols": 3786,
+    "providedSymbols": 3787,
     "requiredSymbols": 3311,
     "edges": 565,
     "forwardEdges": 67,
@@ -21213,6 +21213,7 @@
         "stewardActAttemptId",
         "stewardActAttemptPrune",
         "stewardActAttempts",
+        "stewardActInflight",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
         "stewardDecideNudged",

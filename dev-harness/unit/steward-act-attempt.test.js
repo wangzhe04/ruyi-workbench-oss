@@ -71,6 +71,27 @@ test('failed acts do not burn the attempt id', async () => {
   assert.equal(good.replayed, undefined, 'the retry after a rejection really runs');
 });
 
+test('concurrent requests with the same attemptId share one execution', async () => {
+  const [first, second] = await Promise.all([
+    stewardRunAct(act('sess-f'), {}, { attemptId: 'attempt-00000005' }),
+    stewardRunAct(act('sess-f'), {}, { attemptId: 'attempt-00000005' }),
+  ]);
+  assert.equal(first.ok, true);
+  assert.equal(first.replayed, undefined, 'the owner runs the act');
+  assert.equal(second.replayed, true, 'the concurrent duplicate is a replay, not a second execution');
+  const check = await stewardRunAct(null, {}, { attemptId: 'attempt-00000005', check: true });
+  assert.equal(check.applied, true);
+});
+
+test('a replay returns the stored result unchanged apart from the replay marker', async () => {
+  const first = await stewardRunAct(act('sess-g'), {}, { attemptId: 'attempt-00000006' });
+  const replay = await stewardRunAct(act('sess-g'), {}, { attemptId: 'attempt-00000006' });
+  const { replayed, executedAt, ...rest } = replay;
+  assert.equal(replayed, true);
+  assert.match(executedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.deepEqual(rest, first);
+});
+
 test('an unusable attemptId on a plain act degrades to a normal execution', async () => {
   const result = await stewardRunAct(act('sess-e'), {}, { attemptId: 'bad id' });
   assert.equal(result.ok, true);

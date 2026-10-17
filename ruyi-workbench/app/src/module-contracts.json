@@ -21069,6 +21069,7 @@
         "stewardActAttemptId",
         "stewardActAttemptPrune",
         "stewardActAttempts",
+        "stewardActInflight",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
         "stewardDecideNudged",

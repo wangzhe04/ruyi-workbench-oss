@@ -1163,6 +1163,7 @@ async function stewardRelayDeliver(input) {
 // 账本只在内存、有界、十分钟过期：进程重启后旧 attemptId 不再等于「已执行」——界面本来就只说「未确认」。
 const STEWARD_ACT_ATTEMPT_LIMITS = Object.freeze({ entries: 256, ttlMs: 10 * 60 * 1000 });
 const stewardActAttempts = new Map();   // attemptId -> { at, result }
+const stewardActInflight = new Map();   // attemptId -> Promise<result>：并发同 id 共用一次执行
 function stewardActAttemptId(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : '';
 }
@@ -1182,14 +1183,24 @@ async function stewardRunAct(act, config, attempt) {
     // 只读回执：告诉前端「这一次到底执行过没有」，绝不触发第二次执行。
     if (check) return { ok: true, kind: 'attempt_check', applied: Boolean(prior), ...(prior ? { executedAt: new Date(prior.at).toISOString() } : {}) };
     if (prior) return { ...prior.result, replayed: true, executedAt: new Date(prior.at).toISOString() };
+    // 先查后写之间隔着真实 I/O：同一 attemptId 的并发请求必须共用同一次执行，不能各自跑一遍。
+    const inflight = stewardActInflight.get(attemptId);
+    if (inflight) return { ...await inflight, replayed: true };
   }
-  const result = await stewardRunActOnce(act, config);
-  // 只记「真的执行过」的结果：失败/非法 act 不占 attemptId，用户仍可改了再试。
-  if (attemptId && result && result.ok === true) {
-    stewardActAttempts.set(attemptId, { at: now, result });
-    stewardActAttemptPrune(now);
-  }
-  return result;
+  const run = stewardRunActOnce(act, config);
+  if (!attemptId) return run;
+  // 执行前先占用 attemptId，并发的那一份 await 同一条链；只有真的执行成功才落账，失败不占 id。
+  const shared = run.then(result => {
+    if (result && result.ok === true) {
+      stewardActAttempts.set(attemptId, { at: Date.now(), result });
+      stewardActAttemptPrune(Date.now());
+    }
+    return result;
+  }).finally(() => {
+    if (stewardActInflight.get(attemptId) === shared) stewardActInflight.delete(attemptId);
+  });
+  stewardActInflight.set(attemptId, shared);
+  return shared;
 }
 async function stewardRunActOnce(act, config) {
   const raw = (act && typeof act === 'object') ? act : {};

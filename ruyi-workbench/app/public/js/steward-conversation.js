@@ -1877,15 +1877,22 @@ export function createStewardConversation({
     return deliverHandOff(attempt);
   }
 
-  async function deliverHandOff(attempt) {
+  async function deliverHandOff(attempt, options = {}) {
     const sid = attempt.sessionId;
     let response = null;
     try {
       response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({
         act: { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: attempt.text } },
         attemptId: attempt.attemptId }) });
-    } catch {
-      // 结果未知（网络/超时）绝不直接说失败：上一次可能已经执行了。原话留在这条提示上。
+    } catch (error) {
+      // HTTP 给了明确回应时不是「未知」：4xx 是服务端明确拒绝（这一发没有执行），照旧显示真实错误；
+      // 5xx / 没有状态码的网络异常才可能已经执行 —— 那才需要「未确认 + 核对」。
+      const status = Number(error && error.status);
+      if (Number.isInteger(status) && status >= 400 && status < 500) {
+        appendSteward(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }), '');
+        return null;
+      }
+      if (options.silentPending) return { sessionId: sid, pending: true, row: null, actsRow: null };
       return renderHandOffPending(attempt);
     }
     const result = response && response.result;
@@ -1894,6 +1901,8 @@ export function createStewardConversation({
       appendSteward(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) }), '');
       return null;
     }
+    // 重放只说明「上一次已经执行过」：不再追加第二条回执行，也不重挂第二枚撤回按钮。
+    if (result && result.replayed === true) return { sessionId: sid, replayed: true, row: null, actsRow: null };
     const title = attempt.title;
     const hits = attempt.hits;
     const reason = attempt.reason;
@@ -1938,8 +1947,12 @@ export function createStewardConversation({
   }
 
   // 未确认的递送：一行提示 + 两枚按钮。核对只读回执；重发带同一个 attemptId（服务端只执行一次）。
+  // 所有结果都写回【这一行自己的】备注节点，不 append 到当前 feed —— 核对期间切换线程不会写错视图。
   function renderHandOffPending(attempt) {
     const row = appendSteward(t('stewardShell.chat.handOffUnknown', { title: stewardShortTitle(attempt.title || attempt.sessionId) }), '');
+    const note = el('p', 'muted');
+    if (row) row.appendChild(note);
+    const say = text => { if (note) note.textContent = text; };
     const actsRow = el('div', 'steward-acts');
     const checkBtn = button('steward-act', t('stewardShell.chat.handOffCheck'), async () => {
       if (checkBtn.disabled) return;
@@ -1949,22 +1962,22 @@ export function createStewardConversation({
         response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ checkAttempt: true, attemptId: attempt.attemptId }) });
       } catch { response = null; }
       if (response && response.ok === true && response.applied === true) {
+        say('');
         settleRow(actsRow, t('stewardShell.chat.handOffLanded'), 'done');
         return;
       }
-      if (response && response.ok === true && response.applied === false) {
-        appendSteward(t('stewardShell.chat.handOffAbsent'), '');
-      } else {
-        appendSteward(t('stewardShell.chat.handOffCheckUnknown'), '');
-      }
+      if (response && response.ok === true && response.applied === false) say(t('stewardShell.chat.handOffAbsent'));
+      else say(t('stewardShell.chat.handOffCheckUnknown'));
       checkBtn.disabled = false; retryBtn.disabled = false;
     });
     const retryBtn = button('steward-act', t('stewardShell.chat.handOffRetry'), async () => {
       if (retryBtn.disabled) return;
       checkBtn.disabled = true; retryBtn.disabled = true;
       // 原话已经上屏一次，重发不再 appendUser；服务端按 attemptId 重放时也不会执行第二次。
-      const outcome = await deliverHandOff(attempt);
+      const outcome = await deliverHandOff(attempt, { silentPending: true });
       if (outcome && outcome.pending) { checkBtn.disabled = false; retryBtn.disabled = false; return; }
+      if (!outcome) { checkBtn.disabled = false; retryBtn.disabled = false; return; }   // 明确失败：错误已经印出来
+      say('');
       settleRow(actsRow, t('stewardShell.chat.handOffRetried'), 'done');
     });
     actsRow.append(checkBtn, retryBtn);

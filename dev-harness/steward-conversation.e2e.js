@@ -446,6 +446,7 @@ try {
         const fault = route === '/api/steward/act' ? window.__ruyiActFault : '';
         if (fault) window.__ruyiActFault = '';
         if (fault === 'fail-request') return Promise.reject(new TypeError('synthetic network failure'));
+        if (fault === 'reject-409') return Promise.resolve(new Response(JSON.stringify({ ok: false, error: { code: 'steward.disabled' } }), { status: 409, headers: { 'content-type': 'application/json' } }));
         try {
           // 117l：管家域的请求体也留一份 —— routeHint 是否真的进了 POST /api/steward/message，
           // 只有请求体说了算（URL 相同，差别全在 body 里）。只记【真的发出去】的请求。
@@ -2492,6 +2493,17 @@ try {
   const retriedView = retried ? (await request(appPort, 'GET', '/api/sessions/' + encodeURIComponent(retried), null, token)).json : null;
   const retriedUsers = (((retriedView || {}).session || {}).messages || []).filter(row => row && row.role === 'user');
   ok(retriedUsers.filter(row => String(row.content || '').indexOf('附录加封面') >= 0).length === 1, 'P20 重发没有造出重复的用户消息');
+
+  // C. 服务端明确拒绝（4xx）不是「未确认」：照旧显示真实错误，不给核对／重发。
+  const actStartC = await actCount();
+  await cdp.evaluate("window.__ruyiActFault = 'reject-409'; true");
+  await handOffTo(THREAD_TITLE + ' 再改一版');
+  const errPrefix = String(zh['stewardShell.chat.errGeneric']).split('{{')[0];
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.some(text => text.indexOf(${JSON.stringify(errPrefix)}) >= 0) ? 1 : null)()`, 300)),
+    'P21 服务端明确拒绝（409）时显示真实错误');
+  ok((await actCount()) === actStartC, 'P22 被拒绝的这一次没有到达服务端');
+  ok(await cdp.evaluate(`((document.getElementById('stewardFeed').textContent.match(new RegExp(${JSON.stringify(unknownPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))}, 'g')) || []).length) === 2`),
+    'P23 明确拒绝不会冒充「未确认」，也不会多出核对按钮');
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。

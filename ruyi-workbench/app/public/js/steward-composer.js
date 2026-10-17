@@ -78,13 +78,18 @@ export function stewardCandidateRows(hits, remembered, limit = STEWARD_PICKER_MA
   const labelled = rows.map(row => {
     if (counts.get(row.title) < 2) return { ...row, label: row.title };
     // 同名的两条必须看得出区别：本地化时间优先，缺时间退到 sessionId 尾段（可复述、稳定）。
-    const when = row.updatedAt ? fmtTime(row.updatedAt) : '';
+    // 畸形时间串不算时间（否则会把 "Invalid Date" 印进列表）。
+    const when = row.updatedAt && Number.isFinite(Date.parse(row.updatedAt)) ? fmtTime(row.updatedAt) : '';
     return { ...row, label: row.title + ' · ' + (when || row.sessionId.slice(-6)) };
   });
-  // 时间只到分钟：同一分钟建的两条同名线程会撞成同一个标签 —— 再撞一次就补 sessionId 尾段，保证唯一。
+  // 时间只到分钟：同一分钟建的两条同名线程会撞成同一个标签 —— 再撞一次就补 sessionId 尾段。
   const labelCounts = new Map();
   for (const row of labelled) labelCounts.set(row.label, (labelCounts.get(row.label) || 0) + 1);
-  return labelled.map(row => labelCounts.get(row.label) > 1 ? { ...row, label: row.label + ' · ' + row.sessionId.slice(-6) } : row);
+  const tailed = labelled.map(row => labelCounts.get(row.label) > 1 ? { ...row, label: row.label + ' · ' + row.sessionId.slice(-6) } : row);
+  // 尾段也可能相撞（自定义/极短的 sessionId）：仍相撞就退回整段 id，保证两行必然不同。
+  const tailCounts = new Map();
+  for (const row of tailed) tailCounts.set(row.label, (tailCounts.get(row.label) || 0) + 1);
+  return tailed.map(row => tailCounts.get(row.label) > 1 ? { ...row, label: row.label + ' · ' + row.sessionId } : row);
 }
 
 export function externalBotReferenceText(item, translate) {
