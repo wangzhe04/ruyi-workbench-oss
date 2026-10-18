@@ -854,3 +854,25 @@
 }
 .steward-act-switch .ic { flex: 0 0 auto; }
 .steward-receipt .ic { flex: 0 0 auto; margin-inline-end: var(--sp-1); }
+
+/* 74: task decision list, shared modal and theme tokens. */
+.steward-decisions-modal .modal{width:min(900px,calc(100vw - 24px));max-height:90dvh}
+.steward-decisions-modal .modal-body{overflow:auto;min-width:0}
+.steward-decisions-count{font-weight:600}
+.steward-decision-group h4{font-size:var(--fs-md);overflow-wrap:anywhere;margin:24px 0 8px}
+.steward-decision{border-top:1px solid var(--line);padding:12px 0;min-width:0}
+.steward-decision-heading{display:list-item;cursor:pointer;overflow-wrap:anywhere;font-weight:500}
+.steward-decision-type{margin-right:10px;color:var(--muted);flex-shrink:0;font-size:var(--fs-xs)}
+.steward-decision-body{padding:8px 0 0 18px;overflow-wrap:anywhere}
+.steward-decision-context{white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;font-size:var(--fs-xs);background:var(--bg);padding:12px;border-radius:8px}
+.steward-decision-effect{font-size:var(--fs-sm);color:var(--muted)}
+.steward-decision-question{border:0;padding:8px 0;min-width:0}
+.steward-decision-question legend{font-weight:600;overflow-wrap:anywhere}
+.steward-decision-question textarea{width:100%;box-sizing:border-box;margin-top:8px}
+.steward-decision-option{display:flex;gap:8px;margin:8px 0;align-items:flex-start}
+.steward-decision-option input{flex:0 0 auto;width:auto;margin-top:4px}
+.steward-decision-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.steward-decision-receipt{font-size:var(--fs-sm);color:var(--muted)}
+@media(max-width:640px){#stewardHeader{flex-wrap:wrap}.steward-decision-heading{display:list-item}.steward-decision-type{display:block}.steward-decision-body{padding-left:0}}
+
+.steward-decision-source{display:block;font-size:var(--fs-xs);font-weight:400;color:var(--muted);margin-top:4px}

@@ -2060,12 +2060,13 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 不带这个参数的调用逐字节不变。ETag 带上筛选键:同一个修订号下两种视图的响应体不同。
     const onlySessionRaw = new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId');
     const onlySession = onlySessionRaw ? (safeSessionId(onlySessionRaw) || '~invalid') : '';
+    const stewardView = new URL(req.url, 'http://127.0.0.1').searchParams.get('view') === 'steward';
     // 性能批 P3:待决列表按索引版本只收集、排序一次(引用 + 计数缓存在 index 对象上);分页与 ETag 在造条目之前 ——
     // 304 不再付整张表的代价,200 也只为这一页造条目。条目里的实时字段(可送达、活回合、倒计时)照旧每次现算。
     const { refs, counts } = pendingInterventionRefs(index, onlySession);
     const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, refs);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision() + (onlySession ? '-s:' + onlySession : ''), paged.page);
+    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision() + (onlySession ? '-s:' + onlySession : '') + (stewardView ? '-steward' : ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     paged.items = paged.items.map(ref => pendingInterventionItem(ref.slice, ref.iv));
     // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
@@ -2076,6 +2077,22 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const heads = await Promise.all(pageSids.map(sid => readSessionHeadResilient(sid).catch(() => null)));
     const titleOf = new Map(pageSids.map((sid, i) => [sid, String((heads[i] && heads[i].title) || '').slice(0, 120)]));
     for (const p of paged.items) p.title = titleOf.get(p.sessionId) || '';
+    if (stewardView) {
+      const ids = [...new Set(paged.items.map(p => p.missionId).filter(id => !pageSids.includes(id)))];
+      const containers = await Promise.all(ids.map(id => readMissionContainer(id).catch(() => null)));
+      const titles = new Map(ids.map((id, i) => [id, String(containers[i]?.title || '')]));
+      for (const p of paged.items) {
+        p.missionTitle = titles.get(p.missionId) || p.title;
+        const run = activeAgentRuns.get(p.runId)?.run;
+        const detail = p.type === 'permission' ? p.input
+          : p.type === 'plan' ? pendingPlans.get(String(p.id))?.markdown
+            : p.type === 'pool' ? run?.taskPool?.find(item => item.id === p.id)
+              : p.type === 'replan' ? run?.replanPatches?.find(item => item.id === p.id) : null;
+        const text = typeof detail === 'string' ? detail : detail ? JSON.stringify(detail, null, 2) : '';
+        p.detailsText = text.slice(0, 32000);
+        p.detailsComplete = !!detail && text.length <= 32000;
+      }
+    }
     return send(res, json({
       ok: true,
       pending: paged.items,

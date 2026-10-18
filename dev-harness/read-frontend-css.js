@@ -79,22 +79,14 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 AI 工作精简续钉（前值 29a7e758…）：workspace.css 新增模板与运行详情折叠入口样式，当前进度可换行，运行列表使用工具箱的单一滚动区域。
-// 算法自证：readLayerPayload 读本轮改动前的 CSS 快照重算 = 29a7e758ddf3d119394c7f9f740c3d3dd9701e42ddb6e0aa7b3a667b952125da，与旧锁逐字相同。
-// 反向验证：内存注入错误样式后 D51/F3 均失败；实际 CSS 文件未改坏。
-// 2026-10 62号运行故障与读取质量续钉（前值 e8b78800…）：仅workbench.css增加两视图共享紧凑故障/读取质量横幅，复用主题token和折行，不改布局骨架。
-// 算法自证：readLayerPayload读取git show HEAD各层得e8b7880080aa4fe5ee0b7d97bfe60457039ef070649e76fba83055af3b56a67c，与旧锁一致。
-// 反向验证：内存注入错误CSS后D51与F3失败，磁盘样式未修改。
-// 65: shared Steward read/fault notices use existing theme tokens and compact wrapping.
-// Prior HEAD layer payload self-check: 3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc; in-memory corrupt-layer probes must fail D51/F3.
-// 66: compact external bot connection/inbox styles use existing typography and theme tokens.
-// Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.
 // 67: compact bot setup uses existing settings tokens, with explicit credential, pairing and authorization steps.
 // Prior HEAD payload self-check: e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa; corrupt-layer probes must fail D51/F3.
 // 73 交付和修订续钉（前值 0256a4ea…）：steward-conversation.css 增加就近文件、检查与修订入口，沿用主题与字体。
 // 算法自证：git show HEAD 各层得 0256a4eaa3dfd4cce8fca6187b15516dfdb03f1cbfbbe3e1a08d99d4041e4097，与旧锁一致。
 // 反向验证：内存注入错误 CSS，D51/F3 均失败；磁盘样式未改坏。
-const LEGACY_STYLES_SHA256 = '9b0c698c8c1e74f8621af3703e5ba23301b870c4a3824ee52db5d7ac53ab476e';
+// 74 事项待决：新增可折叠的逐项决定清单，保留来源、原参数和独立回执。
+// HEAD 各层自证旧哈希 9b0c698c8c1e74f8621af3703e5ba23301b870c4a3824ee52db5d7ac53ab476e；内存损坏 CSS 后 D51/F3 均失败。
+const LEGACY_STYLES_SHA256 = '041f6543ce6d7d99c6612039737ff22732f5f50591de18b8e6ffda63bb059328';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

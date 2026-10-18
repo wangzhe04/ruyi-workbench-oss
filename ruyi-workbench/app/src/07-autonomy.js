@@ -1778,7 +1778,7 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
       });
       // 123-M1:计划审批与权限请求同一条口径 —— 无人值守回合等 schedulerAskWaitMinutes,到时仍是【拒】。
     }, schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs));   // 0 = 不限时(04 promptWaitMs)
-    pendingPlans.set(planId, { resolve: settle, sessionId, timer });
+    pendingPlans.set(planId, { resolve: settle, sessionId, timer, markdown: String(markdown || '') });
   });
 }
 

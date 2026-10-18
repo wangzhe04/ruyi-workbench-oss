@@ -872,3 +872,14 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 // 2026-10 班组体验走查续钉（前值 76316e75…）：workbench.css 新增概览、角色优先、容器响应式详情及窄屏用量布局；tool-pane.css 保持分类可见、统一标题与按钮间距、显示关闭入口；workbench.css 补历史选择与抽屉网格定位；workspace.css 将审计摘要独立成行。
 // 算法自证：readLayerPayload 读取 git show HEAD 各层得 76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193，与旧锁一致。
 // 反向验证：仅在读文件时注入错误的 .wb-node opacity，D51 与 F3 均变红；磁盘样式未修改。
+
+// 2026-10 AI 工作精简续钉（前值 29a7e758…）：workspace.css 新增模板与运行详情折叠入口样式，当前进度可换行，运行列表使用工具箱的单一滚动区域。
+// 算法自证：readLayerPayload 读本轮改动前的 CSS 快照重算 = 29a7e758ddf3d119394c7f9f740c3d3dd9701e42ddb6e0aa7b3a667b952125da，与旧锁逐字相同。
+// 反向验证：内存注入错误样式后 D51/F3 均失败；实际 CSS 文件未改坏。
+// 2026-10 62号运行故障与读取质量续钉（前值 e8b78800…）：仅workbench.css增加两视图共享紧凑故障/读取质量横幅，复用主题token和折行，不改布局骨架。
+// 算法自证：readLayerPayload读取git show HEAD各层得e8b7880080aa4fe5ee0b7d97bfe60457039ef070649e76fba83055af3b56a67c，与旧锁一致。
+// 反向验证：内存注入错误CSS后D51与F3失败，磁盘样式未修改。
+// 65: shared Steward read/fault notices use existing theme tokens and compact wrapping.
+// Prior HEAD layer payload self-check: 3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc; in-memory corrupt-layer probes must fail D51/F3.
+// 66: compact external bot connection/inbox styles use existing typography and theme tokens.
+// Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.

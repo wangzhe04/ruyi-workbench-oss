@@ -100,6 +100,7 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 121-K6a（34 号文 §4.3）：安静卡——工作台里管家的唯一打扰形态。形态仍然不变：本域内相对路径、
   // 零第三方库、零裸包名。
   "import { createQuietCard } from './quiet-card.js';",
+  "import { createStewardDecisions } from './steward-decisions.js';",
   // 123-M2（37 号文 §3.5）：安静卡的「稍后」改成真 snooze 之后，建不成那条 reminder 要 toast
   // 一句（成功才收卡）。toast 住 util.js（零 import 的叶子）。形态仍然不变：本域内相对路径、
   // 零第三方库、零裸包名。

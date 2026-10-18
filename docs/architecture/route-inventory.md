@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 166(精确 143 / 前缀 11 / 正则 12),ROUTE_AUTH 152 条,生成于 2026-10-18T01:38:55.392Z。
+> 判定点 166(精确 143 / 前缀 11 / 正则 12),ROUTE_AUTH 152 条,生成于 2026-10-18T02:15:11.572Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -72,7 +72,7 @@
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js · `handleApi` | agent-cli-registry.test.js |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js · `handleApi` | kimi-agent-cli.e2e.js, store-walkthrough-w1.e2e.js |
 | POST | `/api/todo` | exact | body-token | 13-http-router.js · `handleApi` | event-stream.e2e.js, todo-loopback.e2e.js, http-input-hardening.test.js 等 4 件 |
-| GET/POST | `/api/mission` | exact | body-token self | 13-http-router.js · `handleApi` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 63 件 |
+| GET/POST | `/api/mission` | exact | body-token self | 13-http-router.js · `handleApi` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 65 件 |
 | * | `/api/autonomy/grants` | exact | token self | 13-http-router.js · `handleApi` | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/grant` | exact | token self | 13-http-router.js · `handleApi` | autonomy-grant.e2e.js |
 | POST | `/api/autonomy/revoke` | exact | token self | 13-http-router.js · `handleApi` | autonomy-grant.e2e.js |
@@ -102,7 +102,7 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js · `handleEventStreamApiRoutes` | action-feedback.browser.e2e.js, background-completion.e2e.js, boot-failure-kind.browser.e2e.js 等 20 件 |
+| GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js · `handleEventStreamApiRoutes` | action-feedback.browser.e2e.js, background-completion.e2e.js, boot-failure-kind.browser.e2e.js 等 21 件 |
 
 ## external-bots(10)
 
@@ -124,9 +124,9 @@
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
 | POST | `/api/_test/pretender-maintenance` | exact | token | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | mission-index-scale.e2e.js |
-| POST | `/api/missions/:missionId/interventions/:interventionId/decision` | regex | token | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 27 件 |
-| GET | `/api/interventions` | exact | token-browser self | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, event-stream-client.browser.e2e.js 等 25 件 |
-| GET | `/api/interventions/:sessionId` | regex | token-browser self | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | interventions-persist.e2e.js, mission-index-scale.e2e.js, session-id-path-guard.e2e.js 等 5 件 |
+| POST | `/api/missions/:missionId/interventions/:interventionId/decision` | regex | token | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 29 件 |
+| GET | `/api/interventions` | exact | token-browser self | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, event-stream-client.browser.e2e.js 等 27 件 |
+| GET | `/api/interventions/:sessionId` | regex | token-browser self | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | interventions-persist.e2e.js, mission-index-scale.e2e.js, session-id-path-guard.e2e.js 等 7 件 |
 | POST | `/api/chat/answer` | exact | token-browser | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | event-stream-client.browser.e2e.js, event-stream-replay.browser.e2e.js, event-stream.e2e.js 等 17 件 |
 | POST | `/api/question/heartbeat` | exact | token-browser | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | — |
 | POST | `/api/question/request` | exact | body-token | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | — |
@@ -170,13 +170,13 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/missions` | exact | token-browser self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 48 件 |
-| POST | `/api/missions` | exact | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 48 件 |
-| PATCH/POST | `/api/missions/:missionId` | regex | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 27 件 |
-| POST | `/api/missions/:missionId/threads` | regex | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 27 件 |
-| POST | `/api/missions/:missionId/merge` | regex | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 27 件 |
-| POST | `/api/missions/:missionId/split` | regex | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 27 件 |
-| GET | `/api/missions/:missionId` | regex | token-browser self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 27 件 |
+| GET | `/api/missions` | exact | token-browser self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 50 件 |
+| POST | `/api/missions` | exact | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 50 件 |
+| PATCH/POST | `/api/missions/:missionId` | regex | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 29 件 |
+| POST | `/api/missions/:missionId/threads` | regex | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 29 件 |
+| POST | `/api/missions/:missionId/merge` | regex | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 29 件 |
+| POST | `/api/missions/:missionId/split` | regex | token self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 29 件 |
+| GET | `/api/missions/:missionId` | regex | token-browser self | 13d-core-domain-routes.js · `handleMissionsApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 29 件 |
 
 ## overlay(4)
 
@@ -236,8 +236,8 @@
 | GET | `/api/steward/arbiter` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | focus-rail.browser.e2e.js, net-token-replay.static.e2e.js, session-stop-execution.e2e.js 等 12 件 |
 | POST | `/api/steward/arbiter/prioritize` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | steward-board.static.e2e.js, steward-drawer.static.e2e.js, thread-arbiter.e2e.js |
 | POST | `/api/steward/reset` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | steward-conversation.static.e2e.js, steward-new-conversation.browser.e2e.js |
-| POST | `/api/steward/visit` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | steward-conversation.e2e.js, steward-conversation.static.e2e.js, steward-delivery.browser.e2e.js 等 5 件 |
-| POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js 等 26 件 |
+| POST | `/api/steward/visit` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | steward-conversation.e2e.js, steward-conversation.static.e2e.js, steward-decisions.browser.e2e.js 等 6 件 |
+| POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js 等 27 件 |
 | POST | `/api/steward/relay` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | foreign-turn-busy-guard.e2e.js, new-thread-engine-default.e2e.js, session-rewind-execution.e2e.js 等 13 件 |
 | POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream.e2e.js, external-bot-setup.e2e.js 等 21 件 |
 

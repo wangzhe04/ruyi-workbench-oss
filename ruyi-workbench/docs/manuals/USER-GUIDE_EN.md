@@ -238,6 +238,10 @@ engine is enough to start. Ruyi ships **no vendor presets**. Once configured, ch
 thread's header, or decide who uses which model under Models & Services → Model assignment. Provider keys are
 stored locally and masked in UI responses.
 
+Choose **Task decisions** in the Steward header to review pending items by task group. Expand an item to see its source and effects, then allow or deny that call, decide on its plan, or send its answers. Identical questions remain separate. Failed refreshes preserve answer drafts and disable decisions until a successful read.
+
+Each item has its own receipt. Use **Check receipt** for an unconfirmed outcome; refreshing during submission reads the source record without resending. Items answered elsewhere and stale versions cannot be approved again. Closing the list makes no decision. Open the source task when full details are unavailable. The list shows up to 500 items; refresh recovery relies on this browser’s short-lived receipt cache.
+
 On a delivery card, choose **Open files**, then a file name. Same-named files include their paths. Text, images and HTML use the safe preview; PDF and Office documents open through your configured local application. **View checks** distinguishes machine verification, human confirmation, model claims and unfinished work. Changed files and later turns make old checks historical.
 
 Choose **Request changes** to select the source task and turn, enter the change, then send. Existing drafts, attachments and targets are protected. If the source or files change before sending, delivery is rejected and your words remain available; refresh the card and prepare a new revision. Older records without snapshots say evidence was not recorded. **Refresh file status** checks the files; it does not rerun acceptance tests.

@@ -59,6 +59,9 @@ setTimeout(() => promptQueue.start(), 1500);   // 首拍对账：刷新前就挂
 // 权限／提问弹窗、展开的待办小窗（promptQueue 给），以及管家视角里开着的焦点栏 —— 它那条线程正有待决时。
 // 「人在不在跟前」归 js/presence-viewing.js 判；接到事件流上在 bindPromptQueueEvents（组合根一行不加）。
 function viewingCandidates() {
+  // 模态覆盖了小窗和焦点栏；只报眼前展开的这一项，避免后台候选挤占既有 viewing 上限。
+  const decisionList = document.querySelector('.steward-decisions-modal');
+  if (decisionList) return [...decisionList.querySelectorAll('details.steward-decision[open]')].map(row => row.dataset.sessionId);
   const ids = promptQueue.viewingSessionIds();
   const drawer = document.getElementById('stewardDrawer');
   const sid = drawer && !drawer.hidden && document.documentElement.getAttribute('data-shell-mode') === 'steward' ? String(drawer.dataset.sessionId || '') : '';
@@ -70,6 +73,7 @@ const viewingTracker = createViewingTracker({
   candidates: viewingCandidates,
   onChange: () => { if (viewingStream) viewingStream.sync(); },
 });
+globalThis.document?.addEventListener('steward:decisions-view', () => viewingTracker.check());
 
 // 弹窗头下的一行：这一条已经等了多久／还剩多久，以及后面还排着几条。每秒刷新，弹窗关掉即停。
 function attachQueueStatus(modal, item, { time: showTime = true } = {}) {

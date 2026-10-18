@@ -8,6 +8,7 @@ import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard, STEWARD_FOCUS_THREAD_EVENT } from './steward-board.js';   // 2026-09-24：线程头「回到管家」派的焦点事件名从同一条 import 取（同一份登记，不另起第二条 import 行）
 import { createThreadHead } from './thread-head.js';
 import { createQuietCard } from './quiet-card.js';
+import { createStewardDecisions } from './steward-decisions.js';
 import { toast } from './util.js';   // 123-M2：安静卡「稍后」建不成那条 reminder 时的一句提示
 import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS, createPollLifecycle } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源；轮询生命周期（启停／门控）同一份
 // 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有一份定义，byId 只有
@@ -464,6 +465,7 @@ export function createStewardShellDomain({
   // 117d：线程抽屉。它自己持有轮询与模式观察者（本文件的 C2a「恰好一处 setInterval」不受影响 ——
   // 抽屉那一处住在 steward-drawer.js 里，与 avatar 轮询各自独立门控）。
   const drawer = createStewardDrawer({ api, state, t, isStewardMode, applyShellMode, openSession });
+  const decisions = createStewardDecisions({ api, t, isStewardMode, eventStream, openThread: id => openInWorkbench(id) });
   // 117e：设置页「管家」页签 + 头部的盾牌与停机键。它是【唯一】写全局 permissionMode 与管家配置的
   // 地方；四档表与全自动确认文案由它从 steward-chips.js import 复用，本文件不碰。
   // 117j UX-F1：总开关关掉的那一刻要立刻回经典。准入判定的单点就在本文件的
@@ -604,6 +606,7 @@ export function createStewardShellDomain({
     settings.bindStewardSettings();       // 117e：设置页控件 + 头部盾牌与常驻停机键
     threadHead.bindThreadHead();          // 121-K5：工作台线程头（一套 chip / 任务 › 线程 / 管家条）
     board.bindStewardBoard();             // 117h：一行状态 / 看板 / 「现在这一件」
+    decisions.bind();
     conversation.bindStewardConversation(); // 117c：头像菜单的「细节」开关 + 进壳时的首次到访
     if (globalThis.MutationObserver && globalThis.document && globalThis.document.documentElement) {
       new MutationObserver(syncConversation)

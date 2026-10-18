@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 管家新增「事项待决」清单，按事项归组查看来源、具体内容与影响，逐项允许、拒绝或回答。同名事项、同文问题保持独立身份；陈旧按钮不会重复办理，读取失败保留草稿，处理中刷新可核对原回执，结果未确认时不自动重发。
+- The Steward’s Task decisions list groups pending items by task group, shows their sources, details and effects, and handles each approval, rejection or answer separately. Same-named groups and identical questions retain separate identities. Stale controls cannot repeat decisions; failed reads preserve drafts, refreshes recover source receipts, and unconfirmed requests are never resent automatically.
+
 - 管家交付卡可直接打开本轮产物、查看机器检查／用户确认／模型自报与未完成项，并准备回到原任务的修订。缺失、变更和旧回合会明确标记；文件或要求变化后，旧检查不再表示当前版本已验证。同名文件保留完整路径区别。
 - Steward delivery cards now open artifacts from the source turn, distinguish machine checks, human confirmation, model claims and unfinished work, and prepare revisions in the source task. Missing or changed files and historical turns are explicit; old checks cannot verify changed files or later requirements. Same-named files retain their full paths.
 
