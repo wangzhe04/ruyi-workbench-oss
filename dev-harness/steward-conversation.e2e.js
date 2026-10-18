@@ -1139,6 +1139,7 @@ try {
       clamped: body ? body.classList.contains('is-clamped') : false,
       overflowing: body ? (body.scrollHeight > body.clientHeight + 2) : false,
       acts: block ? [...block.querySelectorAll('.steward-deliverable-acts button')].map(node => node.textContent) : [],
+      fullNavigation: block?.querySelector('.steward-deliverable-full')?.textContent || '',
       // 版面次序：来源小头 → 管家的按语 → 交付卡（按语在卡【上面】，卡不抢开场白）。
       sayAbove: Boolean(block && block.previousElementSibling
         && block.previousElementSibling.classList.contains('steward-say')),
@@ -1228,9 +1229,9 @@ try {
   ok(deliverShot.text.indexOf('第一回合的旧答案') < 0 && deliverShot.text.indexOf('偏空') >= 0,
     'U2b 挑的是【第 3 回合】那条助手话，不是整份会话里随便一条（旧回合的答案没混进来）');
   ok(deliverShot.clamped === true && deliverShot.overflowing === true
-    && deliverShot.acts.length === 2 && deliverShot.acts[0] === 'stewardShell.chat.deliverableExpand'
-    && deliverShot.acts[1] === 'stewardShell.chat.deliverableFull',   // 117v-V1 ⑨：交付卡那枚改用自己的键
-    `U3 默认折叠（真的被裁掉了一截）且「展开」「看全文」两枚都在（实测 ${JSON.stringify(deliverShot.acts)}，clamped=${deliverShot.clamped}）`);
+    && deliverShot.acts.length === 2 && deliverShot.acts[0] === 'stewardShell.chat.deliverableExpand' && deliverShot.acts[1] === 'delivery.revise'
+    && deliverShot.fullNavigation === 'stewardShell.chat.deliverableFull',
+    `U3 默认折叠（真的被裁掉了一截），全文展开是主入口且工作台导航仍保留（实测 ${JSON.stringify(deliverShot.acts)}，clamped=${deliverShot.clamped}）`);
   const expanded = await cdp.evaluate(`(() => {
     const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiDeliverFrom || 0);
     const more = rows.map(row => row.querySelector('.steward-deliverable-more')).filter(Boolean)[0];
@@ -1458,6 +1459,7 @@ try {
             return body ? body.classList.contains('is-clamped') : null;
           })(),
           delivActs: [...row.querySelectorAll('.steward-deliverable-acts button')].map(node => node.textContent),
+          delivNavigation: row.querySelector('.steward-deliverable-full')?.textContent || '',
         };
       }),
     };
@@ -1581,7 +1583,8 @@ try {
   // 反向保护（同一屏、同一次渲染）：折叠实现没被删，只是只服务交付卡了 —— 线程卡里那份 15 行的
   // 交付【原文】仍然折着、仍然有那枚「展开」。这一条把 S3 的边界钉死：再往前削就会踩到它。
   ok(Boolean(a3) && a3.delivClamped === true
-    && a3.delivActs.length === 2 && a3.delivActs[0] === 'stewardShell.chat.deliverableExpand',
+    && a3.delivActs.length === 1 && a3.delivActs[0] === 'stewardShell.chat.deliverableExpand'
+    && a3.delivNavigation === 'stewardShell.chat.deliverableFull',
     `V5b 反向保护：交付卡【仍然】折叠、仍然有「展开」（clampIfLong 只是从两个调用方减到交付卡这一个；实测 clamped=${a3 && a3.delivClamped} / ${JSON.stringify(a3 && a3.delivActs)}）`);
   // 「首句抬成引子」是纯呈现：加粗的是第一个段落，而【一个字都没变】——把两边的空白去掉之后
   // DOM 里的字必须与模型说的那句话逐字相同（※ 是渲染层加的一枚按钮，不算正文，先摘掉）。

@@ -79,14 +79,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 73 交付和修订续钉（前值 0256a4ea…）：steward-conversation.css 增加就近文件、检查与修订入口，沿用主题与字体。
-// 算法自证：git show HEAD 各层得 0256a4eaa3dfd4cce8fca6187b15516dfdb03f1cbfbbe3e1a08d99d4041e4097，与旧锁一致。
-// 反向验证：内存注入错误 CSS，D51/F3 均失败；磁盘样式未改坏。
 // 74 事项待决：新增可折叠的逐项决定清单，保留来源、原参数和独立回执。
 // HEAD 各层自证旧哈希 9b0c698c8c1e74f8621af3703e5ba23301b870c4a3824ee52db5d7ac53ab476e；内存损坏 CSS 后 D51/F3 均失败。
 // 75 设置回执：沿用设置字体，实际值和作用域换行，撤销结果就近显示。
 // HEAD 各层自证旧哈希 041f6543ce6d7d99c6612039737ff22732f5f50591de18b8e6ffda63bb059328；内存损坏 CSS 后 D51/F3 均失败。
-const LEGACY_STYLES_SHA256 = '5a7668112606c17f86aa0a53dddda173c565e0dc3b84566645b2214acdc63614';
+// 31qc 用户走测续钉：steward-conversation.css 全文主按钮、操作换行、消息适应列宽；steward-shell.css 读宽720→900。
+// HEAD CSS 自证 5a7668112606c17f86aa0a53dddda173c565e0dc3b84566645b2214acdc63614；反向损坏验证记录见 80 号验收补记。
+const LEGACY_STYLES_SHA256 = '8a38e356a9a43004dcd6c32688703f7f54117c8493ea87a599aad9651be3ba84';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

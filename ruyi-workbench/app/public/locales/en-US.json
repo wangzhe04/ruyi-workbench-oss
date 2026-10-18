@@ -2911,7 +2911,7 @@
   ,"stewardShell.chat.deliverableLoading": "Fetching what it delivered…"
   ,"stewardShell.chat.deliverableFull": "Read it all in the Workbench"
   ,"stewardShell.chat.deliverableMissing": "Could not fetch the original this time; use \"Read it all in the Workbench\"."
-  ,"stewardShell.chat.deliverableExpand": "Expand"
+  ,"stewardShell.chat.deliverableExpand": "Read full text"
   ,"stewardShell.chat.deliverableCollapse": "Collapse"
   ,"stewardShell.chat.acked": "Got it"
   ,"stewardShell.chat.actDone": "Done: {{label}}"
@@ -4281,5 +4281,11 @@
   ,"settingsReceipt.effective.new_threads": "Used when creating a task"
   ,"settingsReceipt.threadSaved": "Selected model {{model}} for this task from the next turn; new-task defaults stay the same."
   ,"settingsReceipt.threadEntry": "For this task only, open its top model or permission menu. The model is used from the next turn."
-  ,"settingsReceipt.refreshFailed": "Settings could not refresh; displayed values may be old. Reopen Settings to check."
+  ,"settingsReceipt.refreshFailed": "Settings could not refresh; displayed values may be old. Reopen Settings to check.",
+  "delivery.more": "More",
+  "delivery.cancelRevision": "Cancel revision",
+  "delivery.cancelBeforeNew": "Cancel the current revision before starting a new task.",
+  "stewardShell.compose.cancelNew": "Cancel new task",
+  "stewardShell.compose.targetCancelled": "Target cleared. Your draft has been kept.",
+  "stewardShell.compose.newReady": "Send to ask the steward to create a new task."
 }

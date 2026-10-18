@@ -885,3 +885,7 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 // Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.
 // 67: compact bot setup uses existing settings tokens, with explicit credential, pairing and authorization steps.
 // Prior HEAD payload self-check: e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa; corrupt-layer probes must fail D51/F3.
+
+// 73 交付和修订续钉（前值 0256a4ea…）：steward-conversation.css 增加就近文件、检查与修订入口，沿用主题与字体。
+// 算法自证：git show HEAD 各层得 0256a4eaa3dfd4cce8fca6187b15516dfdb03f1cbfbbe3e1a08d99d4041e4097，与旧锁一致。
+// 反向验证：内存注入错误 CSS，D51/F3 均失败；磁盘样式未改坏。

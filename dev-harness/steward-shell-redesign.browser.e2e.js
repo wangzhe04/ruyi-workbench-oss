@@ -8,7 +8,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   A 走查①:右栏线程标题被程序性聚焦(activeElement 就是它)时【不画焦点环】(box-shadow/outline 都是 none);
 //   B 走查②:左栏「今天收工」的行收成一行 —— 行高 ≤44、与组头重复的「已收工」药丸与「我开的」人形只在紧凑密度不画
 //     (节点还在,看板密度一开又回来)、右侧时间说「刚刚」而不是「0s 前有动静」;
-//   C 走查③:中栏是【同一条居中的对话列】—— 头部与输入框同宽(720),右栏展开／收起两态宽度不变;
+//   C 走测修订:头部与输入框共用居中列，上限900，随右栏可用空间缩小;
 //   D 走查④:右栏减控件 —— 单线程任务不印页签行、已收工的线程不印「停止」、「发给它」搬到输入框旁、
 //     跟全局一样的三枚 chip 收成无边小字、没有验收项就不印那一格;主动作只有「在工作台打开」一枚金色;
 //   E 走查⑤:头部一句话状态 —— 0 计数不说(状态行空着、不占位),只有一颗状态点(旧的 ::before 那颗退役);
@@ -17,7 +17,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   H 走查⑧:390px 顶栏分段钮与右侧按钮不重叠、整页无横向滚动,且「@」与输入框同行;
 //   I 全程零未捕获异常。
 // 反向验证(各条对应的产品改动摘掉即红):A 删 steward-drawer.css 的 .steward-drawer-title:focus-visible;
-// B 删 steward-board.css 紧凑密度那组 display:none;C 把 --steward-col-w 改回 880px;D 删 renderTabs 的 host.hidden／
+// B 删 steward-board.css 紧凑密度那组 display:none;C 把 --steward-col-w 改回720;D 删 renderTabs 的 host.hidden／
 // renderFoot 的 stop.hidden／gradeFootActions 的 .steward-drawer-say;E 把 steward-avatar.css 的 ::before 那颗点加回来;
 // F 删 renderChip 的 is-quiet;G 删 renderMeta 的工作区那段;H 删 layout.css ≤640/≤480 两档容器查询。
 // 判定行:`STEWARD SHELL REDESIGN BROWSER E2E: ALL PASS`。
@@ -60,7 +60,7 @@ const SNAP = `(() => {
       origin: (() => { const o = row.querySelector('.rail-origin'); return o ? { origin: o.dataset.origin, visible: visible(o) } : null; })(),
       meta: (() => { const m = row.querySelector('.steward-board-meta'); return m ? { text: m.textContent.trim(), title: m.title, visible: visible(m) } : null; })(),
     })),
-    header: rect(q('.steward-header')), composer: rect(q('.steward-composer')),
+    header: rect(q('.steward-header')), composer: rect(q('.steward-composer')), stage: rect(q('.steward-stage')),
     tabs: (() => { const t = byId('stewardDrawerTabs'); return t ? { hidden: t.hidden, visible: visible(t), n: t.querySelectorAll('[role="tab"]').length } : null; })(),
     stop: (() => { const s = byId('stewardDrawerStopBtn'); return s ? { hidden: s.hidden, visible: visible(s) } : null; })(),
     sendInSay: Boolean(send) && Boolean(send.parentElement) && send.parentElement.classList.contains('steward-drawer-say')
@@ -144,14 +144,14 @@ const SNAP = `(() => {
 
     /* ═════════ C 走查③:同一条居中的对话列 ═════════ */
     const wide = await snap();
-    ok(wide.header && wide.composer && wide.header.w === 720 && wide.composer.w === 720 && wide.header.x === wide.composer.x,
-      `C1 右栏展开:头部与输入框同宽 720、同左缘(实测 header=${JSON.stringify(wide.header)} composer=${JSON.stringify(wide.composer)})`);
+    ok(wide.header && wide.composer && wide.header.w === Math.min(900, wide.stage.w - 48) && wide.composer.w === wide.header.w && wide.header.x === wide.composer.x,
+      `C1 右栏展开:头部与输入框共用900上限并适应可用宽,同左缘(实测 header=${JSON.stringify(wide.header)} composer=${JSON.stringify(wide.composer)})`);
     await fx.evaluate(`document.getElementById('stewardSideToggleBtn').click(), true`);
     // 列宽是过渡的(steward-shell.css 给 grid-template-columns 上了 --dur-fast):data-collapsed 一落地就量的话,
     // 居中的头部还停在过渡起点 —— 等它真的挪过去(x 变大)再判宽度,别在动画中途量(首跑 C2 就是这么红的)。
-    const narrowSide = await waitSnap(`s => s.collapsed === '1' && s.header && s.header.x > ${wide.header.x}`);
-    ok(Boolean(narrowSide) && narrowSide.header.w === 720 && narrowSide.composer.w === 720 && narrowSide.header.x === narrowSide.composer.x,
-      `C2 右栏收起:还是那条 720 的列,只是居中位置随中栏变(实测 header.x ${wide.header.x} → ${narrowSide && narrowSide.header.x}, w=${narrowSide && narrowSide.header.w}/${narrowSide && narrowSide.composer.w})`);
+    const narrowSide = await waitSnap(`s => s.collapsed === '1' && s.header && s.header.x > ${wide.header.x} && s.header.w === 900 && s.composer.w === 900`);
+    ok(Boolean(narrowSide) && narrowSide.header.w === 900 && narrowSide.composer.w === 900 && narrowSide.header.x === narrowSide.composer.x,
+      `C2 右栏收起:头部和输入框居中且同宽900(实测 header.x ${wide.header.x} → ${narrowSide && narrowSide.header.x}, w=${narrowSide && narrowSide.header.w}/${narrowSide && narrowSide.composer.w})`);
     await fx.evaluate(`document.getElementById('stewardSideStrip').click(), true`);
     ok(Boolean(await waitSnap(`s => s.collapsed === '' && s.drawerTitle === ${JSON.stringify(TITLE_A)}`)), 'C3 再展开(收摊)');
 

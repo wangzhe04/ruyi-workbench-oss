@@ -775,13 +775,18 @@ export function createStewardConversation({
     if (!longEnough) node.classList.remove('is-clamped');
     return longEnough;
   }
-  function collapseToggle(node) {
+  function collapseToggle(node, collapsible) {
+    let expanded = false;
     const more = button('steward-deliverable-more', t('stewardShell.chat.deliverableExpand'), () => {
-      const clamped = node.classList.toggle('is-clamped');
-      more.textContent = t(clamped ? 'stewardShell.chat.deliverableExpand' : 'stewardShell.chat.deliverableCollapse');
-      more.setAttribute('aria-expanded', clamped ? 'false' : 'true');
+      expanded = !expanded;
+      node.classList.toggle('is-clamped', !expanded && collapsible);
+      more.dataset.i18n = expanded ? 'stewardShell.chat.deliverableCollapse' : 'stewardShell.chat.deliverableExpand';
+      more.textContent = t(more.dataset.i18n);
+      more.setAttribute('aria-expanded', String(expanded));
+      node.dispatchEvent(new CustomEvent('delivery:expand', { bubbles: true, detail: { expanded } }));
     });
     more.setAttribute('aria-expanded', 'false');
+    more.dataset.i18n = 'stewardShell.chat.deliverableExpand';
     return more;
   }
 
@@ -1405,7 +1410,7 @@ export function createStewardConversation({
     if (!found || !found.text.trim()) {
       body.textContent = t('stewardShell.chat.deliverableMissing');
       if (hasArtifacts) paintSay(body, t('delivery.noNarrative'));
-      block.appendChild(deliverableActs(body, source, false));
+      block.appendChild(deliverableActs(body, source, false, hasArtifacts));
       if (hasArtifacts) attachStewardDeliveryPanel(block, source, { api, t, renderFilePreviewInto, prepareRevision: prepareDeliveryRevision });
       return null;
     }
@@ -1418,9 +1423,10 @@ export function createStewardConversation({
     return body;
   }
 
-  function deliverableActs(body, source, collapsible) {
+  function deliverableActs(body, source, collapsible, readable = true) {
     const acts = el('div', 'steward-deliverable-acts');
-    if (collapsible) acts.appendChild(collapseToggle(body));   // 117y-S3 之后这是折叠仅剩的一个调用方
+    // 短正文也有同一个全文入口；它同时展开原轮产物和检查，不再用低频菜单承担阅读主路径。
+    if (readable) acts.appendChild(collapseToggle(body, collapsible));
     // 117v-V1 ⑨（用户第十轮走查⑨「管家的回复看全文是打开 2.0，看英伟达分析全文是打开线程，
     // 这个 UX 体验就很迷」）：这一枚与抽屉那一枚确实还是同一个动作（两边都调 openClassicWindow），
     // 但**同一屏上还有第二枚「看…全文」**——管家写的 open_thread act（琥珀色那一枚）点下去是

@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 166(精确 143 / 前缀 11 / 正则 12),ROUTE_AUTH 152 条,生成于 2026-10-18T09:17:37.746Z。
+> 判定点 166(精确 143 / 前缀 11 / 正则 12),ROUTE_AUTH 152 条,生成于 2026-10-18T11:27:13.451Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -224,7 +224,7 @@
 | POST | `/api/steward/stop` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-preroute.e2e.js 等 5 件 |
 | GET | `/api/steward/state` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | mission-index-late-materialize.e2e.js, rail-pocket.browser.e2e.js, steward-deliverable.e2e.js 等 10 件 |
 | GET | `/api/steward/inbox` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-presence-gate.e2e.js 等 5 件 |
-| GET | `/api/steward/preroute` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | external-bots.browser.e2e.js, keyboard-walkthrough.browser.e2e.js, steward-conversation.e2e.js 等 6 件 |
+| GET | `/api/steward/preroute` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | external-bots.browser.e2e.js, keyboard-walkthrough.browser.e2e.js, steward-conversation.e2e.js 等 7 件 |
 | GET | `/api/steward/memory` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | action-feedback.static.e2e.js, rail-pocket.browser.e2e.js, steward-memory.e2e.js 等 6 件 |
 | GET | `/api/steward/memory/export` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | steward-memory.e2e.js, steward-settings.static.e2e.js |
 | POST | `/api/steward/memory/edit` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | steward-memory.e2e.js, steward-settings.static.e2e.js |
@@ -239,7 +239,7 @@
 | POST | `/api/steward/visit` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | external-bot-setup.browser.e2e.js, steward-conversation.e2e.js, steward-conversation.static.e2e.js 等 8 件 |
 | POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js 等 29 件 |
 | POST | `/api/steward/relay` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | foreign-turn-busy-guard.e2e.js, new-thread-engine-default.e2e.js, session-rewind-execution.e2e.js 等 13 件 |
-| POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream.e2e.js, external-bot-setup.e2e.js 等 21 件 |
+| POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream.e2e.js, external-bot-setup.e2e.js 等 22 件 |
 
 ## 域路由委派(handleApi → 域 handler)
 

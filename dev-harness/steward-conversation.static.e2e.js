@@ -193,10 +193,14 @@ ok(/if \(hint\) hint\.title = stewardShortTitle\(hint\.title\);/.test(composerCo
 ok(/label\.textContent = t\('stewardShell\.compose\.targetThread', \{ title: stewardShortTitle\(target\.title\)/.test(composerCode),
   'D9c 手选目标（target/picked）的标题同样过 stewardShortTitle —— ①的截短对两条分支都成立');
 ok(/const active = Boolean\(target \|\| hint\);/.test(composerCode)
-  && /if \(clear\) clear\.hidden = !active;/.test(composerCode)
+  && /if \(clear\) clear\.hidden = !active \|\| explicitMode;/.test(composerCode)
+  && /cancel\.hidden = !explicitMode;/.test(composerCode)
   && !/clear\.hidden = !picked/.test(composerCode),
   'D10 × 的显隐判据是「手选或自动命中，两者之一就有东西可撤」，不再只看 picked（修前自动命中的提示没有关闭出口）');
-ok(/if \(hintedThread\(\)\) \{[\s\S]{0,120}hintDismissed = true;/.test(composerCode),
+const cancelTargetCode = functionBlock(composerCode, 'cancelTarget');
+ok(/if \(event\.target === clear\) \{\s*cancelTarget\(\);/.test(composerCode)
+  && /routeKind = 'steward'; routeHits = \[\]; routeReason = ''; hintDismissed = true;/.test(cancelTargetCode)
+  && /cancelPreroute\(\); prerouteSeq \+= 1;/.test(cancelTargetCode),
   'D10b 点 × 撤自动预判：routeKind/routeHits/routeReason 清空，并置 hintDismissed（「用户已经否掉这一次预判」的状态位）');
 ok(/if \(hintDismissed\) return;/.test(composerCode)
   && composerCode.indexOf('if (hintDismissed) return;') < composerCode.indexOf('routeKind = String(result.kind'),
@@ -831,7 +835,7 @@ ok(count(conversationCode, /dataset\.threadHue/g) === 1
 ok(count(conversationCode, /function clampIfLong\(/g) === 1
   && count(conversationCode, /function collapseToggle\(/g) === 1
   && count(conversationCode, /clampIfLong\(body, found\.text\)/g) === 1
-  && count(conversationCode, /collapseToggle\(body\)/g) === 1
+  && count(conversationCode, /collapseToggle\(body, collapsible\)/g) === 1
   && count(conversationCode, /clampIfLong\(/g) === 2 && count(conversationCode, /collapseToggle\(/g) === 2,
   `Q6 折叠仍是【一处】实现，而调用方只剩交付卡那一个（clampIfLong ${count(conversationCode, /clampIfLong\(/g)} 处出现 = 定义 + fillDeliverable，collapseToggle 同 = 定义 + deliverableActs）`);
 const finishSayFrom = conversationCode.indexOf('function finishSay(');
@@ -842,7 +846,7 @@ ok(finishSayFrom > 0 && finishSayTo > finishSayFrom
   && count(conversationCode, /steward-say-acts/g) === 0,
   `Q6a 管家的话【不折叠】：finishSay 的函数体内一个 clampIfLong/collapseToggle/is-clamped 都没有，那枚按钮行（.steward-say-acts）整份文件不再生成（判据锚在【函数体】上——整文件匹配会被交付卡那一路假绿；实测函数体 ${finishSaySlice.length} 字符）`);
 ok(count(conversationCode, /button\('steward-deliverable-more'/g) === 1
-  && count(conversationCode, /classList\.toggle\('is-clamped'\)/g) === 1
+  && count(conversationCode, /classList\.toggle\('is-clamped', !expanded && collapsible\)/g) === 1
   && count(conversationCode, /classList\.add\('is-clamped'\)/g) === 1
   && count(conversationCode, /classList\.remove\('is-clamped'\)/g) === 1,
   'Q6b 「展开」按钮、is-clamped 的加/减/翻转各自全文件恰好一处 —— 想再造一个折叠必须先动这几行');

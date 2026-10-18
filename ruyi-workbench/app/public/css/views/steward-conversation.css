@@ -21,7 +21,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  max-width: 680px;
+  max-width: 100%;
   min-width: 0;
 }
 /* 117v-V4 ①（用户第十轮追加②「每段会话离的太近了，你看图，很密」＋ 再追加①「单线程的总结回复
@@ -591,10 +591,12 @@
 .steward-deliverable-body.md img { max-width: 100%; height: auto; }
 .steward-deliverable-acts {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--sp-2);
   margin-top: var(--sp-1);
 }
-/* 「展开」「看全文」都是安静档的文字键：不与管家那一行按钮（药丸＋主动作实底）抢眼。 */
+/* 工作台导航为安静文字键；下方全文主入口单独给阅读主色与点击尺寸。 */
 .steward-deliverable-more,
 .steward-deliverable-full {
   padding: 0;
@@ -610,6 +612,16 @@
 .steward-deliverable-full:hover { color: var(--accent); }
 .steward-deliverable-more:focus-visible,
 .steward-deliverable-full:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-deliverable-more {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--gold-ink);
+  background: var(--gold);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-pill);
+}
 
 /* 3.x：交付正文下的原件与证据，沿用当前色彩和紧凑的文字按钮。 */
 .steward-delivery-panel { min-width: 0; margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--line); }

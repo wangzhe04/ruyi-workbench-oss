@@ -14,7 +14,7 @@ function deliveryLabel(node, t, key, params = {}, suffix = '') {
   return node;
 }
 try { globalThis.addEventListener('i18n:change', () => {
-  for (const node of document.querySelectorAll('.steward-delivery-panel [data-delivery-i18n]')) relabelDeliveryNode(node);
+  for (const node of document.querySelectorAll('.steward-deliverable [data-delivery-i18n]')) relabelDeliveryNode(node);
 }); } catch { /* 无 DOM 的模块检查 */ }
 
 export function invalidateStewardDeliveryPanels(root, sessionId, t) {
@@ -27,14 +27,25 @@ export function invalidateStewardDeliveryPanels(root, sessionId, t) {
       const label = check.querySelector('.steward-delivery-check-label');
       if (label && deliveryLabels.has(label)) { deliveryLabels.get(label).suffix = 'delivery.checkHistorical'; relabelDeliveryNode(label); }
     }
-    const feedback = panel.querySelector('.steward-delivery-feedback');
-    if (feedback) { feedback.textContent = ''; deliveryLabels.delete(feedback); }
+    for (const feedback of [panel.querySelector('.steward-delivery-feedback'), panel.parentNode?.querySelector('.steward-delivery-revision-feedback')]) {
+      if (feedback) { feedback.textContent = ''; deliveryLabels.delete(feedback); }
+    }
   }
 }
 
 // 交付卡的文件、检查与修订。每块只写自己的 DOM；刷新或异步预览不触碰其它卡片与草稿。
 export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePreviewInto, prepareRevision } = {}) {
   const panel = el('section', 'steward-delivery-panel');
+  // 保留同一个工作台入口；与检查、刷新一起收进低频操作区，不再重复铺一排小按钮。
+  const fullTextAction = block.querySelector('.steward-deliverable-full');
+  if (fullTextAction) { deliveryLabel(fullTextAction, t, 'stewardShell.chat.deliverableFull'); fullTextAction.remove(); }
+  const primaryActions = block.querySelector('.steward-deliverable-acts');
+  const expand = block.querySelector('.steward-deliverable-more');
+  panel.hidden = Boolean(expand && expand.getAttribute('aria-expanded') !== 'true');
+  block.addEventListener('delivery:expand', event => {
+    if (event.target !== block.querySelector('.steward-deliverable-body')) return;
+    panel.hidden = !event.detail.expanded;
+  });
   const copy = (tag, cls, key, params) => deliveryLabel(el(tag, cls), t, key, params);
   const control = (cls, key, run, params) => deliveryLabel(button(cls, '', run), t, key, params);
   const feedback = (node, key) => deliveryLabel(node, t, key);
@@ -42,6 +53,9 @@ export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePr
   panel.dataset.i18nAttr = 'aria-label:delivery.details';
   panel.setAttribute('aria-label', t('delivery.details'));
   block.appendChild(panel);
+  const revisionFeedback = el('p', 'steward-delivery-feedback steward-delivery-revision-feedback');
+  revisionFeedback.setAttribute('role', 'status');
+  block.insertBefore(revisionFeedback, panel);
   let generation = 0;
   const endpoint = '/api/steward/delivery?sessionId=' + encodeURIComponent(source.sessionId) + '&turnSeq=' + encodeURIComponent(source.turnSeq);
   async function refresh() {
@@ -56,12 +70,12 @@ export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePr
       if (mine !== generation || !panel.isConnected) return;
       panel.textContent = '';
       panel.append(copy('p', 'steward-delivery-note', error && error.status === 404 ? 'delivery.sourceMissing' : 'delivery.loadFailed'), control('steward-delivery-action', 'delivery.refresh', refresh));
+      if (fullTextAction) panel.appendChild(fullTextAction);
     } finally { if (mine === generation) panel.removeAttribute('aria-busy'); }
   }
   function paint(data) {
     panel.textContent = '';
-    const heading = copy('p', 'steward-delivery-caption', 'delivery.source', { seq: data.turnSeq });
-    panel.appendChild(heading);
+    revisionFeedback.textContent = ''; deliveryLabels.delete(revisionFeedback);
     if (data.outdated) panel.appendChild(copy('p', 'steward-delivery-note steward-delivery-outdated', 'delivery.outdated', { seq: data.latestTurnSeq }));
     if (data.inProgress) panel.appendChild(copy('p', 'steward-delivery-note', 'delivery.inProgress'));
     if (!data.evidenceRecorded) panel.appendChild(copy('p', 'steward-delivery-note', 'delivery.evidenceUnrecorded'));
@@ -69,17 +83,21 @@ export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePr
     const checks = Array.isArray(data.checks) ? data.checks : [];
     if (files.some(file => file.status !== 'same') && files.length) panel.appendChild(copy('p', 'steward-delivery-note', 'delivery.filesNeedReview'));
     const actions = el('div', 'steward-delivery-actions');
+    const more = el('details', 'steward-delivery-more');
+    more.appendChild(copy('summary', 'steward-delivery-action', 'delivery.more'));
+    const moreActions = el('div', 'composer-more-pop'); more.appendChild(moreActions);
     const fileBox = el('div', 'steward-delivery-files'); fileBox.hidden = true;
     const checkBox = el('div', 'steward-delivery-checks'); checkBox.hidden = true;
     const preview = el('div', 'steward-delivery-preview'); preview.hidden = true;
     let previewGeneration = 0;
     const note = el('p', 'steward-delivery-feedback'); note.setAttribute('role', 'status');
-    const disclosure = (key, count, target) => {
-      const toggle = control('steward-delivery-action', key, () => {
+    const disclosure = (key, count, target, parent = actions) => {
+      const toggle = control(parent === actions ? 'steward-delivery-action' : 'cm-item steward-delivery-action', key, () => {
         target.hidden = !target.hidden;
         toggle.setAttribute('aria-expanded', String(!target.hidden));
+        more.open = false;
       }, { count });
-      toggle.setAttribute('aria-expanded', 'false'); actions.appendChild(toggle);
+      toggle.setAttribute('aria-expanded', 'false'); parent.appendChild(toggle);
     };
     disclosure('delivery.openFiles', files.length, fileBox);
     if (!files.length) fileBox.appendChild(copy('p', 'muted', 'delivery.noFiles'));
@@ -116,7 +134,7 @@ export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePr
       fileBox.appendChild(row);
     });
     if (data.filesTruncated) fileBox.appendChild(copy('p', 'muted', 'delivery.filesTruncated'));
-    disclosure('delivery.showChecks', checks.length, checkBox);
+    disclosure('delivery.showChecks', checks.length, checkBox, moreActions);
     if (!checks.length) checkBox.appendChild(copy('p', 'muted', data.checksRecorded ? 'delivery.checksEmpty' : 'delivery.checksUnrecorded'));
     checks.forEach(check => {
       const row = el('div', 'steward-delivery-check');
@@ -130,18 +148,30 @@ export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePr
       checkBox.appendChild(row);
     });
     const revise = control('steward-delivery-action steward-delivery-revise', 'delivery.revise', async () => {
+      const revisionGeneration = generation;
       revise.disabled = true;
       try {
         // 先刷新版本,再准备草稿；用户按发送时服务端还会再比对一次。
         const latest = await api(endpoint);
-        if (!revise.isConnected) return;
-        if (!latest || !latest.ok || latest.sourceStamp !== data.sourceStamp) { feedback(note, 'delivery.sourceChanged'); return; }
+        if (!revise.isConnected || revisionGeneration !== generation) return;
+        if (!latest || !latest.ok || latest.sourceStamp !== data.sourceStamp) { feedback(revisionFeedback, 'delivery.sourceChanged'); return; }
         const result = typeof prepareRevision === 'function' ? prepareRevision(latest) : null;
-        feedback(note, result && result.ok ? 'delivery.revisionReady' : 'delivery.draftBusy');
-      } catch { feedback(note, 'delivery.loadFailed'); }
+        if (result && result.ok) { revisionFeedback.textContent = ''; deliveryLabels.delete(revisionFeedback); }
+        else feedback(revisionFeedback, 'delivery.draftBusy');
+      } catch { if (revise.isConnected && revisionGeneration === generation) feedback(revisionFeedback, 'delivery.loadFailed'); }
       finally { revise.disabled = false; }
     });
-    actions.append(revise, control('steward-delivery-action', 'delivery.refresh', refresh));
+    moreActions.appendChild(control('cm-item steward-delivery-action', 'delivery.refresh', refresh));
+    if (fullTextAction) {
+      fullTextAction.classList.add('cm-item');
+      deliveryLabel(fullTextAction, t, 'stewardShell.chat.deliverableFull');
+      moreActions.appendChild(fullTextAction);
+    }
+    if (primaryActions) {
+      primaryActions.querySelector('.steward-delivery-revise')?.remove();
+      primaryActions.appendChild(revise);
+    } else actions.appendChild(revise);
+    actions.appendChild(more);
     panel.append(actions, fileBox, checkBox, preview, note);
   }
   panel.appendChild(copy('p', 'muted', 'delivery.loading'));

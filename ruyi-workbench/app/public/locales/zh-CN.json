@@ -2911,7 +2911,7 @@
   ,"stewardShell.chat.deliverableLoading": "正在取它交付的原文…"
   ,"stewardShell.chat.deliverableFull": "在工作台看全文"
   ,"stewardShell.chat.deliverableMissing": "这一次没取到原文；点「在工作台看全文」。"
-  ,"stewardShell.chat.deliverableExpand": "展开"
+  ,"stewardShell.chat.deliverableExpand": "展开全文"
   ,"stewardShell.chat.deliverableCollapse": "收起"
   ,"stewardShell.chat.acked": "知道了"
   ,"stewardShell.chat.actDone": "做了：{{label}}"
@@ -4281,5 +4281,11 @@
   ,"settingsReceipt.effective.new_threads": "新建任务时使用"
   ,"settingsReceipt.threadSaved": "仅此任务已选择模型 {{model}}，从下一回合使用；新任务默认不变。"
   ,"settingsReceipt.threadEntry": "仅修改这条任务：模型与权限入口在该任务顶部，模型从下一回合使用。"
-  ,"settingsReceipt.refreshFailed": "未能更新设置，当前显示可能是旧值。请稍后重新打开设置核对。"
+  ,"settingsReceipt.refreshFailed": "未能更新设置，当前显示可能是旧值。请稍后重新打开设置核对。",
+  "delivery.more": "更多",
+  "delivery.cancelRevision": "取消修订",
+  "delivery.cancelBeforeNew": "请先取消当前修订，再另起一件。",
+  "stewardShell.compose.cancelNew": "取消另起",
+  "stewardShell.compose.targetCancelled": "已取消当前目标，输入内容已保留。",
+  "stewardShell.compose.newReady": "发送后交给管家新建任务。"
 }

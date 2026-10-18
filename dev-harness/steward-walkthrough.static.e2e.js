@@ -604,8 +604,8 @@ const ok = (condition, label) => {
     const layoutCss = read('css/layout.css');
     ok(!/\.steward-presence-text::before/.test(avatarCss) && /\.steward-presence-dot \{/.test(shellCss),
       'J1 头部的状态点只有 #stewardPresenceDot 一颗：steward-avatar.css 里那枚靠 ~ 兄弟选择器取色的 ::before（头像搬进对话流后永远选不中、恒灰）整族退役');
-    ok(/\.steward-shell \{ --steward-col-w: 720px; \}/.test(shellCss) && /max-width: var\(--steward-col-w\);/.test(shellCss) && !/max-width: 880px/.test(shellCss),
-      'J2 走查③：中栏读宽是一个 token（720，两态里都装得下，于是永远是同一条居中的对话列）');
+    ok(/\.steward-shell \{ --steward-col-w: 900px; \}/.test(shellCss) && /max-width: var\(--steward-col-w\);/.test(shellCss) && /width: 100%;/.test(shellCss),
+      'J2 用户走测：读宽共用一个 900 token，四行居中并受可用宽度约束');
     ok(/@container frame \(max-width: 640px\) \{\s*\.app-topbar \{ grid-template-columns: auto minmax\(0, 1fr\) auto;/.test(layoutCss)
       && /@container frame \(max-width: 480px\) \{[\s\S]{0,600}\.lens-btn > span,\s*\.app-topbar \.steward-shield-label \{[\s\S]{0,300}clip-path: inset\(50%\);/.test(layoutCss)
       && /@container frame \(max-width: 480px\) \{[\s\S]{0,900}\.app-topbar \.app-status-chip \{ display: none; \}/.test(layoutCss),
