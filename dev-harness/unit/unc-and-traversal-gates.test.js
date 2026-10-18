@@ -258,7 +258,7 @@ describe('S7 · 敏感名单两份一致(03 isSensitiveDataPath 与 11 sensitive
   it('每个敏感名字:文件工具判敏感,rg 的排除 glob 也有它(改一份忘了另一份就红)', () => {
     let J;
     try { J = loadServerInternals(['isSensitiveDataPath', 'sensitiveGlobsForRg']); } catch (e) { if (e instanceof ReferenceError) return; throw e; }   // 同一进程里再 load 一份只为取这两个纯函数(状态无关)
-    const NAMES = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json'];
+    const NAMES = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'desktop'];
     const globs = J.sensitiveGlobsForRg(home);
     const miss = NAMES.filter(n => !J.isSensitiveDataPath(path.join(dataRootDir, n)) || !globs.includes('!/.ruyi-workbench/' + n));
     assert.deepEqual(miss, [], '两份名单不一致或漏名字');

@@ -378,8 +378,13 @@ try {
   const liveEnv = await waitForHttp(appPort, 'GET', `/api/sessions/${encodeURIComponent(sessionId)}`,
     r => !!(r.json && r.json.resumable && r.json.resumable.live === true), token);
   ok(Boolean(liveEnv), 'H1b 那个回合在服务端跑起来了(信封 resumable.live === true)');
-  ok(Boolean(liveEnv && liveEnv.json && liveEnv.json.relay && liveEnv.json.relay.channel === 'steer'),
-    `H1c 信封带出 relay.channel === 'steer'(13h 那条递话阶梯的原判;实测 ${JSON.stringify(liveEnv && liveEnv.json && liveEnv.json.relay)})`);
+  // live 也覆盖 provider 尚未启动的所有权阶段，此时 queued 是正确能力。
+  // 独立等到真实 steer 就绪，保留下面及后续 UI 的严格 steer 断言。
+  const steerEnv = await waitForHttp(appPort, 'GET', `/api/sessions/${encodeURIComponent(sessionId)}`,
+    r => !!(r.json && r.json.resumable && r.json.resumable.live === true &&
+      r.json.relay && r.json.relay.channel === 'steer'), token);
+  ok(Boolean(steerEnv && steerEnv.json && steerEnv.json.relay && steerEnv.json.relay.channel === 'steer'),
+    `H1c 信封带出 relay.channel === 'steer'(13h 那条递话阶梯的原判;实测 ${JSON.stringify(steerEnv && steerEnv.json && steerEnv.json.relay)})`);
 
   /* ═════════ H2 焦点栏 →「在工作台打开」═════════ */
   await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:open-thread', { detail: { sessionId: '${sessionId}' } })), true`);

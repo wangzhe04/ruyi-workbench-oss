@@ -187,6 +187,18 @@ try {
     }
     return null;
   };
+  const waitSteer = async sid => {
+    let res = null;
+    // live 包括启动/收尾所有权；只有引擎已注册的回合才接收 steer。
+    // 等真实递话能力，不能把启动阶段正确的 queued 当成运行中的引擎。
+    for (let i = 0; i < 300; i++) {
+      res = await envelope(sid);
+      if (res.json && res.json.resumable && res.json.resumable.live === true &&
+          res.json.relay && res.json.relay.channel === 'steer') return res;
+      await sleep(100);
+    }
+    return null;
+  };
 
   /* ═════════ (A) 后备闸:别处起的活回合 → 409 忙,不杀 ═════════ */
   console.log('── (A) 管家起的回合在跑时,经典壳发一句话 ──');
@@ -248,7 +260,7 @@ try {
 
     const sidB = await newThread('看信封的线程');
     await request('POST', '/api/steward/relay', { sessionId: sidB, message: 'SLOW 再来一趟' }, hdr);
-    const liveEnv = await waitLive(sidB, true);
+    const liveEnv = await waitSteer(sidB);
     ok(!!(liveEnv && liveEnv.json && liveEnv.json.relay && liveEnv.json.relay.channel === 'steer'),
       `B2 活回合在跑时 relay.channel === 'steer'(13h stewardRelayChannelFor 的原判,不是第二套判据;got ${JSON.stringify(liveEnv && liveEnv.json && liveEnv.json.relay)})`);
     let after = await waitLive(sidB, false);
@@ -269,6 +281,7 @@ try {
     const sidC = await newThread('同一扇窗连发两次');
     fireClassicTurn(sidC, 'SLOW 第一句');
     ok(!!(await waitLive(sidC, true)), 'C1 第一个回合在跑');
+    ok(!!(await waitSteer(sidC)), 'C1b 第一回合引擎已注册、可接收插话，再验证运行中 supersede 审计');
     const before = killsOf(sidC).length;
     fireClassicTurn(sidC, '第二句');
     let killed = null;

@@ -24,6 +24,51 @@ using System.Windows.Forms;
 
 namespace RuyiDesktop
 {
+    // Explicit data roots are independent installations. Keep default desktop state compatible,
+    // but do not let an acceptance/portable copy share the real user's mutex or WebView profile.
+    internal static class DesktopIsolation
+    {
+        internal static string ExplicitDataRoot()
+        {
+            string root = Environment.GetEnvironmentVariable("RUYI_HOME");
+            if (String.IsNullOrEmpty(root)) root = Environment.GetEnvironmentVariable("WIN_CLAUDE_WORKBENCH_HOME");
+            if (String.IsNullOrEmpty(root)) return null;
+            // ServerHost starts Node with baseDir as its working directory.
+            return ResolveExplicitRoot(root, AppDomain.CurrentDomain.BaseDirectory);
+        }
+
+        internal static string ResolveExplicitRoot(string root, string baseDir)
+        {
+            root = root.Replace('/', '\\');
+            // A single leading slash means the server's drive, not the caller's current drive.
+            if (root.StartsWith(@"\") && !root.StartsWith(@"\\")) root = Path.GetPathRoot(baseDir) + root.TrimStart('\\');
+            // C:folder depends on hidden per-drive cwd state; require an unambiguous absolute path.
+            if (root.Length >= 2 && root[1] == ':' && (root.Length == 2 || root[2] != '\\'))
+                throw new ArgumentException("数据目录请使用盘符绝对路径（例如 C:\\RuyiData），不能使用 C:folder。");
+            return Path.GetFullPath(Path.IsPathRooted(root) ? root : Path.Combine(baseDir, root));
+        }
+
+        internal static string MutexName()
+        {
+            const string prefix = @"Local\RuyiWorkbenchDesktopShell";
+            string root = ExplicitDataRoot();
+            if (root == null) return prefix;
+            string canonical = root.Length == Path.GetPathRoot(root).Length ? root
+                : root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            canonical = canonical.ToUpperInvariant();
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                return prefix + "-" + BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(canonical))).Replace("-", "");
+        }
+
+        internal static string WebViewUserData()
+        {
+            string root = ExplicitDataRoot();
+            return root == null
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Ruyi\EBWebView")
+                : Path.Combine(root, @"desktop\EBWebView");
+        }
+    }
+
     /* ============================ Win32 ============================ */
 
     internal static class Native
@@ -352,6 +397,8 @@ namespace RuyiDesktop
             psi.RedirectStandardError = true;
             psi.StandardOutputEncoding = Encoding.UTF8;
             psi.StandardErrorEncoding = Encoding.UTF8;
+            string explicitRoot = DesktopIsolation.ExplicitDataRoot();
+            if (explicitRoot != null) psi.EnvironmentVariables["RUYI_HOME"] = explicitRoot;
 
             process = new Process();
             process.StartInfo = psi;
@@ -726,9 +773,7 @@ namespace RuyiDesktop
 
         private void InitWebView()
         {
-            string userData = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Ruyi\EBWebView");
+            string userData = DesktopIsolation.WebViewUserData();
             try { Directory.CreateDirectory(userData); } catch { /* 创建失败时交给运行时自身报错 */ }
 
             envHandler = new EnvHandler(this);
@@ -1636,8 +1681,16 @@ namespace RuyiDesktop
         [STAThread]
         private static void Main()
         {
+            string mutexName;
+            try { mutexName = DesktopIsolation.MutexName(); }
+            catch (Exception ex)
+            {
+                MessageBox.Show("数据目录无效，请检查 RUYI_HOME / WIN_CLAUDE_WORKBENCH_HOME：" + ex.Message,
+                    "如意工作台", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
             bool createdNew;
-            var mutex = new System.Threading.Mutex(true, @"Local\RuyiWorkbenchDesktopShell", out createdNew);
+            var mutex = new System.Threading.Mutex(true, mutexName, out createdNew);
             if (!createdNew)
             {
                 MessageBox.Show("如意工作台已在运行（请查看任务栏或已有窗口）。", "如意工作台",

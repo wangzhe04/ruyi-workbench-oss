@@ -42,11 +42,18 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       cwd: WB, windowsHide: true, stdio: 'ignore',
       env: { ...process.env, ...isolated.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home },
     });
-    await until(async () => { try { return (await request('GET', '/health')).status === 200; } catch { return false; } }, 'service health');
-    await until(() => {
-      try { token = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { token = ''; }
-      return token;
-    }, 'runtime token');
+    // A restart can answer health before replacing its predecessor's runtime file.
+    await until(async () => {
+      if (server.exitCode !== null || server.signalCode !== null) throw new Error('service exited before readiness');
+      try {
+        const runtime = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8'));
+        if (runtime.pid !== server.pid || runtime.port !== port || !runtime.token || !runtime.overlayId) return false;
+        const health = await request('GET', '/health');
+        if (health.status !== 200 || health.json?.overlayId !== runtime.overlayId) return false;
+        token = runtime.token;
+        return true;
+      } catch { return false; }
+    }, 'owned service runtime and health');
   };
   const stopServer = async () => {
     const child = server;

@@ -18,7 +18,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   F7  往输入框里拖文字:不拦截、不弹「拖文件」遮罩;拖文件才接管。
 //   F8  见 composer-voice-stream.browser.e2e.js 的 D3(语音 Esc 取消后在途回包不再落字)。
 //   F9  「重试」带上原附件;流式中点「重试」被挡下(不变成插话);「编辑重发」把附件放回托盘、输入框有草稿时不覆盖。
-//   F10 计划待批准时按「停止」:状态条不再停在「等你拍板」,计划卡按钮禁用、标成已失效。
+//   F10 计划待批准时按「停止」:状态条不再停在「等你拍板」,计划卡禁用并标失效,或重绘为无操作的停止驳回记录。
 //   F11 变更页签:没有译文的工具名 / 操作名回落到原名,不再显示 `[changes.tool.xxx]`;补上的几个键有译文。
 //   F12 对话卡里的「允许」在请求失败时:申请不出队、按钮恢复,重新点才算数。
 //   F13 附件上传期间:托盘有「上传中…」占位、发送被拦并提示;缩略图 blob URL 在移除 / 发送后释放。
@@ -496,6 +496,16 @@ async function main() {
       buttons: [...document.querySelectorAll('#messages .plan-card .plan-card-foot button')].map(b => !b.disabled),
       decided: [...document.querySelectorAll('#messages .plan-card')].map(c => c.classList.contains('decided')),
       expired: [...document.querySelectorAll('#messages .plan-card')].map(c => c.classList.contains('plan-expired')),
+      stoppedSnapshots: [...document.querySelectorAll('#messages .plan-card')].map(c =>
+        c.classList.contains('narrative-plan')
+        && c.querySelector('.narrative-state-pill.state-rejected')?.textContent === ${JSON.stringify(ZH['narrative.status.rejected'])}
+        && c.querySelector('.narrative-state-note')?.textContent === 'turn stopped'
+        && c.querySelector('.plan-card-body')?.textContent.trim() === 'PLAN: 1. 读文件 2. 改文件'
+        && c.querySelectorAll('button, input, textarea, select').length === 0),
+      states: [...document.querySelectorAll('#messages .plan-card')].map(c => ({
+        pill: c.querySelector('.narrative-state-pill')?.className || '',
+        note: c.querySelector('.narrative-state-note')?.textContent || '',
+      })),
       bar: (() => { const b = document.getElementById('turnActivityBar'); return b && !b.classList.contains('hidden') ? b.textContent : ''; })(),
       hint: (document.getElementById('composerHint') || {}).textContent || '',
     })`);
@@ -541,10 +551,14 @@ async function main() {
       ok(/等你拍板/.test(pending.bar) && pending.hint.length > 0, `F10-1 前提:待批准时状态条「等你拍板」、输入框上有等批准提示(实得 ${JSON.stringify([pending.bar, pending.hint])})`);
       await clickB('#sendBtn');   // 输入框是空的 → 这一枚是「停止」
       await fx.waitForEval(`window.state.streaming === false ? 1 : null`, 200);
-      await sleep(500);
+      // clearPendingPlans rejects with "turn stopped"; the final narrative replaces the expired live card.
+      // Wait for that semantic terminal state rather than sampling between the two render paths.
+      await fx.waitForEval(`document.querySelector('#messages .plan-card.plan-expired, #messages .plan-card.narrative-plan .narrative-state-pill.state-rejected') ? 1 : null`, 200);
       const stopped = await planState();
       ok(!/等你拍板/.test(stopped.bar), `F10-2 停止后状态条不再停在「等你拍板」(实得 ${JSON.stringify(stopped.bar)})`);
-      ok(stopped.buttons.length === 3 && stopped.buttons.every(b => b === false) && stopped.expired[0] === true, `F10-3 计划卡按钮全部禁用、标成已失效(实得 ${JSON.stringify(stopped)})`);
+      const expiredLiveCard = stopped.buttons.length === 3 && stopped.buttons.every(b => b === false) && stopped.decided[0] === true && stopped.expired[0] === true;
+      const stoppedSnapshot = stopped.buttons.length === 0 && stopped.stoppedSnapshots[0] === true;
+      ok(stopped.cards === 1 && (expiredLiveCard || stoppedSnapshot), `F10-3 原计划卡已失效且不可操作(live禁用或静态停止驳回;实得 ${JSON.stringify(stopped)})`);
       ok(stopped.hint === '', `F10-4 「AI 在等你批准计划」提示收掉了(实得 ${JSON.stringify(stopped.hint)})`);
     }
     ok(fx.exceptions.length === 0, `B-X 夹具 B 零未捕获异常(${JSON.stringify(fx.exceptions)})`);

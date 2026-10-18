@@ -24,9 +24,35 @@ const canary='credential-only-'+crypto.randomBytes(20).toString('hex');
  }});
  fx.cdp.on('Runtime.consoleAPICalled',event=>consoleMessages.push(JSON.stringify(event)));
  const ev=expr=>fx.evaluate(expr),click=selector=>ev(`(()=>{const n=document.querySelector(${JSON.stringify(selector)});if(!n)return false;n.click();return true;})()`),wait=async expr=>{const value=await fx.waitForEval(expr,220);if(!value)throw Error('Timed out: '+expr);return value;};
- await fx.setLens('steward');await wait(`!document.getElementById('stewardComposerInput').disabled`);
+ // Hold a real arrival response until a real user reply has rendered. A late arrival used to
+ // clearFeed(), detaching the reply and its setup action even after the send had completed.
+ await fx.cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`
+  localStorage.setItem('wcw.shellMode','classic');
+  window.__arrivalProbeReady=true;
+  const originalFetch=window.fetch.bind(window);let holdArrival=true;
+  window.fetch=async(...args)=>{
+   const arrivalHistory=window.__arrivalConsumed&&String(args[0])==='/api/sessions/steward';
+   if(arrivalHistory)window.__arrivalHistoryRequested=true;
+   const response=await originalFetch(...args);
+   if(holdArrival&&String(args[0])==='/api/steward/visit'){
+    holdArrival=false;window.__arrivalHeld=true;
+    await new Promise(resolve=>{window.__releaseArrival=resolve;});
+    const json=response.json.bind(response);
+    response.json=async()=>{const value=await json();window.__arrivalConsumed=true;return value;};
+   }
+   if(arrivalHistory){const json=response.json.bind(response);response.json=async()=>{const value=await json();window.__arrivalHistoryConsumed=true;return value;};}
+   return response;
+  };`});
+ await fx.cdp.send('Page.reload');await wait(`window.__arrivalProbeReady&&!!window.state?.config?.configSchema&&typeof document.querySelector('#lensSeg [data-lens]')?.onclick==='function'`);
+ await fx.setLens('steward');await wait(`window.__arrivalHeld&&!document.getElementById('stewardComposerInput').disabled`);
  await ev(`(()=>{const n=document.getElementById('stewardComposerInput');n.value='SETUP_UI_APP 飞书 cli_fixture tenant_fixture ou_bot，请帮我配置机器人';n.dispatchEvent(new Event('input',{bubbles:true}));n.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));return true;})()`);
  ok(await wait(`Array.from(document.querySelectorAll('.steward-act')).some(n=>n.textContent==='继续配置机器人')`),'S1 production fake-provider prepare emits a real setup navigation card');
+ await ev(`window.__arrivalCard=Array.from(document.querySelectorAll('.steward-act')).find(n=>n.textContent==='继续配置机器人'),window.__releaseArrival(),true`);
+ await wait(`window.__arrivalConsumed`);
+ await ev(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+ if(await ev(`!!window.__arrivalHistoryRequested`))await wait(`window.__arrivalHistoryConsumed`);
+ await ev(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+ ok(await ev(`window.__arrivalCard.isConnected&&document.getElementById('stewardFeed').textContent.includes('SETUP_UI_APP')`),'S1b delayed arrival preserves the already-rendered user message and original reply card');
  const connections=await fx.request('GET','/api/external-bots/connections');const connection=connections?.json?.connections?.find(row=>row.label==='SETUP_UI_APP');if(!connection)throw Error('prepare did not create disabled connection');
  ok(prepares===1&&!connection.enabled&&connection.mode==='inbox'&&!connection.ownerSenderId,'S2 tool only creates a disabled connection with supplied non-secret identity');
  await ev(`(()=>{const real=window.fetch.bind(window);window.__setupCalls=[];window.fetch=(input,init)=>{const url=typeof input==='string'?input:String(input.url||input);window.__setupCalls.push({url,method:String(init?.method||'GET').toUpperCase()});return real(input,init);};return true;})()`);

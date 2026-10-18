@@ -367,8 +367,9 @@ function sessionEnvelopeEtag(id, stamp, liveParts, sinceRaw, deltaKey) {
 // 条件 GET 的 ETag 共用这一份取样 —— 判据只写一处,响应里放了什么,ETag 就带什么(sessionEnvelopeEtag 直接哈希它)。
 // 纯同步只读:不碰盘、不改 reg。取样逻辑与注释原样搬自路由体(只是从内联挪成函数,一个字没动)。
 function sessionEnvelopeLiveParts(id) {
-  // 运行中豁免:活回合/活 agent run 在跑时,见路由体里 resumable 那一段。
-  let live = activeChildren.has(id);
+  // A child can exit before its final assistant message is persisted. Keep pollers live until
+  // the driver releases its existing owner, or a user-only snapshot can stop polling forever.
+  let live = activeChildren.has(id) || turnSettlers.has(id);
   if (!live) {
     for (const runtime of activeAgentRuns.values()) {
       if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }

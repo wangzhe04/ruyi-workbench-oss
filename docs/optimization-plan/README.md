@@ -22,6 +22,7 @@
 - [77 · 认可做法复用](77-steward-approved-playbook-reuse.md)：明确选择成果、纠正、输入和验收项，沿原 Playbook 起草与执行；副本修改保留原版，新材料显式验证；未发布。
 - [78 · 递话发送中刷新恢复](78-steward-handoff-reload-recovery.md)：3.1 P1 收口补齐；标签页保存未确认递话，刷新只核对，实例、过期及淘汰窗口失效不误重派；未发布。
 - [79 · 3.1 源码收口与记忆采用决策](79-steward-31-source-closure.md)：新任务路由及原话保真、主动记忆范围与失效；固定模型对照无稳定增益，不建设 B/C；独立复核、全量回归和发布边界分别记录。
+- [80 · 3.1 发布前验收](80-steward-31-release-acceptance.md)：完整 Windows 回归、升级副本与全新数据目录、实际 Slim/Full ZIP，以及桌面副本隔离修复和证据边界。
 - [全局路线图](../OPTIMIZATION-ROADMAP.md)：产品状态与当前方向导航。
 - [文档总索引](../README.md)：开发、使用、发布和历史材料入口。
 

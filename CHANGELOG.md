@@ -5,6 +5,12 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 别处发起的回合在最终消息保存前继续保持运行状态，避免查看全文时提前停表而漏掉最终回复。管家到访回执迟到时保留期间新增的原话、回复与递话回执。
+- Turns started elsewhere remain live until their final messages are saved, so full-text views keep polling through settlement. Late Steward arrival receipts preserve messages, replies, and hand-off receipts added while they were loading.
+
+- 显式指定数据目录的桌面副本使用独立单实例锁和 WebView2 状态，可与其他数据目录并存，关闭只回收自己的后台。该浏览器状态纳入原生文件工具的内部数据保护；普通工作区中的 desktop 文件夹照常可用。原先使用显式数据目录的用户首次升级会建立新的浏览器状态，需重新选择仅保存在浏览器中的界面偏好；服务器配置与会话继续使用原数据目录。
+- Desktop copies with explicit data directories use independent instance locks and WebView2 profiles. Internal browser state is protected from native file tools; ordinary workspace desktop folders remain accessible. Existing explicit-directory users get a fresh browser profile and may need to reselect browser-only UI preferences; server configuration and conversations remain in their original data directory.
+
 - 直接进入工作台会完成共享侧栏的运行与排队读取，不再永久显示加载；关闭管家时不显示不适用的仲裁故障。
 - Opening the workbench directly completes the shared sidebar's run and queue read. Disabling the Steward no longer shows an inapplicable arbiter warning.
 

@@ -352,7 +352,8 @@ try {
     oneShot.push(name);
     if (!listed.has(name)) oneShotMissing.push(name);
   }
-  ok(oneShot.length >= 2, `一次性启动浏览器的夹具扫得到（实得 ${oneShot.length} 件；扫不到 = 本条静默失效）`);
+  // 79: dom-screenshot migrated to browser-fixture; dom-smoke is the sole direct one-shot owner.
+  ok(oneShot.length === 1 && oneShot[0] === 'dom-smoke.e2e.js', `一次性启动浏览器清册为 dom-smoke 一件（实得 ${oneShot.join('、')}）`);
   ok(oneShotMissing.length === 0, `每一件都排进独占桶 —— 把启动结果当断言的件对启动期抢占最敏感${oneShotMissing.length ? '；实得漏了：' + oneShotMissing.join('、') : ''}`);
 
   // 同一把锁的第三条判据（107-F5，46 号文 §5 ⓪；42 号文 §5-undecies 留给 107 的那件）：**断言里写死了墙钟上界**的件。

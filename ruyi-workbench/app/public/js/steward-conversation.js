@@ -805,6 +805,7 @@ export function createStewardConversation({
     return null;
   }
 
+  let feedRowRevision = 0;
   function appendRow(kind) {
     const feed = feedEl();
     if (!feed) return null;
@@ -814,6 +815,7 @@ export function createStewardConversation({
     // 现在空槽什么都不画，槽位（绝对定位的 36px）与行的 44px 左内边距原样保留，文字左缘不动。
     if (kind === 'ruyi') row.appendChild(el('span', 'steward-avslot'));
     feed.appendChild(row);
+    feedRowRevision += 1;
     markGroup(row, kind);
     feed.scrollTop = feed.scrollHeight;
     return row;
@@ -2019,7 +2021,10 @@ export function createStewardConversation({
     const actsRow = el('div', 'steward-acts');
     if (row) {
       row.dataset.recovered = String(!!attempt.recovered);
-      row.settleHandoff = text => { row.dataset.handoffState = 'applied'; row.querySelector('.steward-say').textContent = text; say(''); settleRow(actsRow, text, 'done'); };
+      row.settleHandoff = text => {
+        if (feedEl()?.contains(row)) feedRowRevision += 1;
+        row.dataset.handoffState = 'applied'; row.querySelector('.steward-say').textContent = text; say(''); settleRow(actsRow, text, 'done');
+      };
     }
     const checkBtn = button('steward-act', t('stewardShell.chat.handOffCheck'), async () => {
       if (checkBtn.disabled) return;
@@ -2211,7 +2216,9 @@ export function createStewardConversation({
       parkAvatar();   // W2-3 陷阱：头像此刻就住在这一行里，不先送回头部会跟着被删(第四个销毁点)
       firstRunRow.remove();
       firstRunRow = null;
-      renderFirstRun();
+      // Translating the same welcome row is not new conversation activity.
+      const before = feedRowRevision;
+      try { renderFirstRun(); } finally { feedRowRevision = before; }
     });
   } catch { /* 无 window（单测）时不挂 */ }
   function renderFirstRun() {
@@ -2389,6 +2396,9 @@ export function createStewardConversation({
 
   async function enterVisit() {
     const generation = conversationGeneration;
+    const rowRevision = feedRowRevision;
+    const hadActiveSend = streaming || sendQueue.length > 0;
+    const preserveFeed = () => hadActiveSend || feedRowRevision !== rowRevision;
     if (visitBusy) return null;
     if (!(state && state.config && state.config.stewardEnabledV1 === true)) return null;
     if (!syncEngineGate()) { renderEngineGate(); return null; }
@@ -2397,6 +2407,9 @@ export function createStewardConversation({
       const visit = await api('/api/steward/visit', { method: 'POST', body: JSON.stringify({}) });
       if (generation !== conversationGeneration || resetBusy) return null;
       if (!visit || visit.ok !== true) return null;
+      // A late arrival must not detach user rows or replies added while it was loading.
+      // New replies and in-place hand-off settlements also count as conversation activity.
+      if (preserveFeed()) { restoreHandOffs(); return visit; }
       visitStartedAt = String((visit.visit && visit.visit.startedAt) || '');
       const pending = Array.isArray(visit.pending) ? visit.pending : [];
       setPresence({ pendingCount: pending.length });
@@ -2408,6 +2421,7 @@ export function createStewardConversation({
         try { history = await api('/api/sessions/steward'); } catch { history = null; }
       }
       if (generation !== conversationGeneration || resetBusy) return null;
+      if (preserveFeed()) { restoreHandOffs(); return visit; }
       const messages = (history && history.session && Array.isArray(history.session.messages)) ? history.session.messages : [];
       clearFeed();
       lastRenderedAt = '';   // 117j W2-4：整屏重画,水位跟着归零——下面的 renderHistorySince 会把它重新推上去
@@ -2427,6 +2441,7 @@ export function createStewardConversation({
       restoreHandOffs();
       return visit;
     } catch (error) {
+      if (generation !== conversationGeneration || resetBusy || preserveFeed()) return null;
       // 引擎不支持是唯一要当场说清楚的失败（否则用户以为管家坏了）；其它失败保持沉默，下次进壳再试。
       const visitEngineInfo = engineProblemInfo(error);
       if (visitEngineInfo) {

@@ -87,7 +87,7 @@ const alive = pid => { try { process.kill(pid, 0); return true; } catch { return
 (async () => {
   try {
     /* ═══ 主实例:N / I / M ═══ */
-    const A = mkHome('a');
+    const A = mkHome('a', { permissionMode: 'bypass' });
     const portA = await getFreePort();
     const wbA = spawnWb(A.home, ['--port', String(portA)]);
     ok(Boolean(await waitUp('127.0.0.1', portA)), 'P0 服务起来了');
@@ -121,6 +121,25 @@ const alive = pid => { try { process.kill(pid, 0); return true; } catch { return
       const r = await lo(portA, 'GET', route);
       ok(r.status === 200 && re.test(String(r.headers['content-type'])), `N3 ${route} 的 content-type 正确(${r.headers['content-type']})`);
     }
+
+    // Explicit desktop homes contain cookies/local storage and are internal state even in bypass.
+    const profile = path.join(A.home, 'desktop', 'EBWebView', 'Default', 'Local Storage', 'private.txt');
+    const publicNote = path.join(A.work, 'desktop', 'public.txt');
+    for (const file of [profile, publicNote]) fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(profile, 'DESKTOP_PRIVATE_SENTINEL'); fs.writeFileSync(publicNote, 'DESKTOP_PUBLIC_SENTINEL');
+    const tool = (name, body) => lo(portA, 'POST', '/api/tools/' + name, { token, body });
+    const privateRead = await tool('file_read', { path: profile });
+    ok((privateRead.status === 400 || privateRead.json?.result?.ok === false) && !privateRead.text.includes('DESKTOP_PRIVATE_SENTINEL'), 'D1 WebView nested state cannot be read through a native tool');
+    const privateWrite = await tool('file_write', { path: profile, content: 'overwritten' });
+    ok((privateWrite.status === 400 || privateWrite.json?.result?.ok === false) && fs.readFileSync(profile, 'utf8') === 'DESKTOP_PRIVATE_SENTINEL', 'D2 bypass cannot overwrite WebView state');
+    const privateSearch = await tool('file_search', { root: A.home, pattern: 'DESKTOP_PRIVATE_SENTINEL', includeIgnored: true });
+    ok(privateSearch.status === 200 && privateSearch.json?.result?.ok === true && !privateSearch.text.includes('private.txt'), 'D3 data-root search excludes the internal WebView subtree');
+    const publicRead = await tool('file_read', { path: publicNote });
+    ok(publicRead.status === 200 && JSON.stringify(publicRead.json?.result).includes('DESKTOP_PUBLIC_SENTINEL'), 'D4 an ordinary workspace desktop directory remains readable');
+    const publicWrite = await tool('file_write', { path: publicNote, content: 'DESKTOP_PUBLIC_UPDATED' });
+    ok(publicWrite.status === 200 && publicWrite.json?.result?.ok === true && fs.readFileSync(publicNote, 'utf8') === 'DESKTOP_PUBLIC_UPDATED', 'D5 an ordinary workspace desktop directory remains writable');
+    const publicSearch = await tool('file_search', { root: A.work, pattern: 'DESKTOP_PUBLIC_UPDATED', includeIgnored: true });
+    ok(publicSearch.status === 200 && publicSearch.text.includes('public.txt'), 'D6 search still finds ordinary workspace desktop files');
 
     // [I] 导入会话
     const outside = path.join(ROOT, 'outside-' + Math.random().toString(36).slice(2, 8));
@@ -213,9 +232,15 @@ const alive = pid => { try { process.kill(pid, 0); return true; } catch { return
     ok(Boolean(hA), 'P1 实例 A(数据目录 A)在 :' + portP);
     const overlayA = hA && hA.json && hA.json.overlayId;
     const wbPB = spawnWb(PB.home, ['--port', String(portP)]);
-    let movedTo = 0;
+    let movedTo = 0, rtB = null;
     for (let i = 0; i < 400 && !movedTo; i++) {
-      for (let p = portP + 1; p <= portP + 9 && !movedTo; p++) { const r = await lo(p, 'GET', '/health'); if (r.status === 200) movedTo = p; }
+      // /health can respond before the asynchronous runtime.json commit. Bind readiness to B's
+      // persisted PID and overlay identity; another test's neighboring port is never evidence for B.
+      try { rtB = JSON.parse(fs.readFileSync(path.join(PB.home, 'runtime.json'), 'utf8')); } catch { rtB = null; }
+      if (rtB && rtB.pid === wbPB.pid && rtB.port > portP && rtB.port <= portP + 9) {
+        const r = await lo(rtB.port, 'GET', '/health');
+        if (r.status === 200 && r.json?.overlayId === rtB.overlayId) movedTo = rtB.port;
+      }
       if (!movedTo) await sleep(200);
     }
     ok(movedTo > portP && movedTo <= portP + 9, `P2 实例 B(另一个数据目录)顺延到了 :${movedTo || '?'},没有硬抢 :${portP}`);
@@ -223,8 +248,7 @@ const alive = pid => { try { process.kill(pid, 0); return true; } catch { return
     ok(hAfter.status === 200 && hAfter.json && hAfter.json.overlayId === overlayA, 'P3 :' + portP + ' 上仍是实例 A(overlayId 没变,没被换掉)');
     ok(wbPA.exitCode === null && alive(wbPA.pid), 'P4 实例 A 的进程还活着(没被结束)');
     ok(/unavailable|另一份如意|顺延|instead/.test(wbPB.out) || movedTo > 0, 'P5 B 的输出里记了改用端口的说明');
-    const rtB = (() => { try { return JSON.parse(fs.readFileSync(path.join(PB.home, 'runtime.json'), 'utf8')); } catch { return null; } })();
-    ok(rtB && rtB.port === movedTo, 'P6 B 的 runtime.json 记的是实际端口');
+    ok(rtB && rtB.pid === wbPB.pid && rtB.port === movedTo, 'P6 B 的 runtime.json 记的是自己 PID 与实际端口');
   } catch (e) {
     t.fail('fatal: ' + (e && e.stack || e));
   } finally {

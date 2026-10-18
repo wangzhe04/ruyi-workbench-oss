@@ -2,6 +2,8 @@
 
 更新：2026-10-18。接续 [62 号方案](62-steward-3x-iterations.md) 与 [78 号恢复片](78-steward-handoff-reload-recovery.md)。应用版本仍为 3.0.1，尚未打包发布。
 
+后续的完整回归、升级副本、全新目录与实际包验收另见 [80 号发布前验收](80-steward-31-release-acceptance.md)，本篇保留源码收口时的历史结果。
+
 ## 3.1 范围
 
 | 工作包 | 源码与证据 |

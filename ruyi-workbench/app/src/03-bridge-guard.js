@@ -481,7 +481,7 @@ function isSensitiveDataPath(p) {
   // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
   // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
-    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'external-bot-credentials.json', 'external-bots'];
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'external-bot-credentials.json', 'external-bots', 'desktop'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
@@ -545,7 +545,7 @@ async function isSensitiveHardlinkAlias(filePath, ids) {
 //   以及数据根顶层的几份状态文件(安装登记表记着别的包的启动位置、CLI 配置同步的所有权侧车等)。
 // 只拦【写】(guardFileToolPath write:true),读照旧 —— 不影响 file_read 检查点内容 / 工作流模板。uploads/、webcache/、
 // skills/、playbooks/、agent-worktrees/ 与会话自己放进数据根的普通文件不在此列(用户产物与写代理的隔离工作树)。
-const WRITE_PROTECTED_DATA_DIRS = Object.freeze(['mcp', 'agent-workflows', 'checkpoints', 'scheduler', 'steward', 'missions', 'migrations', 'overlay-tool']);
+const WRITE_PROTECTED_DATA_DIRS = Object.freeze(['mcp', 'agent-workflows', 'checkpoints', 'scheduler', 'steward', 'missions', 'migrations', 'overlay-tool', 'desktop']);
 const WRITE_PROTECTED_DATA_FILES = Object.freeze(['install-registry.json', 'claude-settings-sync.json', 'kimi-mcp-sync.json', 'engine-transcripts.json', 'context-calibration.json', 'proxy-models-cache.json', 'storage-trend.json', 'last-start-error.json']);
 function isWriteProtectedDataPath(p) {
   if (!p) return false;

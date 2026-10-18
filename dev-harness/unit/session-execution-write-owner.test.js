@@ -8,7 +8,7 @@ const path = require('node:path');
 const Module = require('node:module');
 
 // Load the actual manifest assembly in an isolated CommonJS scope. Test-only access does not add
-// product exports; no server/model starts. Saves and reads below use the production disk store.
+// product exports; no production server or real model starts. Saves and reads use the production disk store.
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-execution-write-owner-'));
 process.env.RUYI_HOME = home;
 process.env.WIN_CLAUDE_WORKBENCH_HOME = home;
@@ -18,7 +18,7 @@ const source = manifest.modules.map(m => fs.readFileSync(path.join(app, 'src', m
 const isolated = new Module(path.join(app, 'server.js'), module);
 isolated.filename = path.join(app, 'server.js');
 isolated.paths = Module._nodeModulePaths(app);
-isolated._compile(source + '\nmodule.exports.ownerProbe = { recordSessionExecutionOwner, turnSettlers, sessionWriteChains, saveTurnFinalSession };', isolated.filename);
+isolated._compile(source + '\nmodule.exports.ownerProbe = { recordSessionExecutionOwner, turnSettlers, sessionWriteChains, saveTurnFinalSession, activeChildren, DeliveryHooks, sessionEnvelopeLiveParts, sessionEnvelopeStamp, sessionEnvelopeEtag };', isolated.filename);
 const srv = isolated.exports;
 const internals = srv.ownerProbe;
 after(() => { try { fs.rmSync(home, { recursive: true, force: true }); } catch { /* optional temp cleanup */ } });
@@ -90,4 +90,44 @@ test('legacy callers with no captured owner keep their existing save contract', 
   internals.recordSessionExecutionOwner(f.id, f.ownerB);
   assert.equal(await internals.saveTurnFinalSession(f.a, 'legacy-final'), true);
   assert.deepEqual((await srv.loadSession(f.id)).messages.map(m => m.content), ['OLD_A']);
+});
+
+test('session stays live across final persistence after its provider child has ended', { timeout: 15000 }, async () => {
+  const { startFakeProvider, textFrames } = require('../lib/fake-openai-provider');
+  const fake = await startFakeProvider({ handler: () => textFrames('FINAL_SETTLEMENT_PROOF') });
+  fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
+    configSchema: 14, activeProvider: 'fake', engineMode: 'interactive', permissionMode: 'default',
+    defaultWorkspace: home, includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false,
+    enableMcpDropIn: false, schedulerEnabledV1: false, stewardEnabledV1: false,
+    desktopMcp: { enabled: false, autodetect: false },
+    providers: [{ id: 'fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'synthetic-key', model: 'fake-model' }],
+  }));
+  const session = await srv.createSession({ title: 'synthetic final-persistence barrier', cwd: home });
+  const previous = internals.DeliveryHooks.capture;
+  let release, entered, timer, turn;
+  const barrier = new Promise(resolve => { release = resolve; });
+  const reached = new Promise(resolve => { entered = resolve; });
+  internals.DeliveryHooks.capture = async value => { if (value.id === session.id) { entered(); await barrier; } };
+  try {
+    turn = srv.runSessionTurn({ sessionId: session.id, message: 'finish once', cwd: home, source: 'http', onEvent() {} });
+    await Promise.race([reached, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('final-persistence barrier not reached')), 5000); })]);
+    clearTimeout(timer);
+    assert.equal(internals.activeChildren.has(session.id), false, 'provider has already left the active registry');
+    assert.equal(internals.turnSettlers.has(session.id), true, 'driver still owns final persistence');
+    assert.equal((await srv.loadSession(session.id)).messages.some(m => m.role === 'assistant'), false, 'final assistant is not yet on disk');
+    const during = internals.sessionEnvelopeLiveParts(session.id);
+    assert.equal(during.live, true, 'polling must not stop on the old user-only history');
+    const etag = internals.sessionEnvelopeEtag(session.id, await internals.sessionEnvelopeStamp(session.id), during);
+    release();
+    assert.equal((await turn).ok, true);
+    const finished = await srv.loadSession(session.id);
+    assert.equal(finished.messages.at(-1).content, 'FINAL_SETTLEMENT_PROOF');
+    const after = internals.sessionEnvelopeLiveParts(session.id);
+    assert.equal(after.live, false, 'completed persistence releases the live state');
+    assert.equal(after.execution, null);
+    assert.notEqual(internals.sessionEnvelopeEtag(session.id, await internals.sessionEnvelopeStamp(session.id), after), etag, 'conditional polling observes the final transition');
+  } finally {
+    clearTimeout(timer); release();
+    try { if (turn) await turn; } finally { internals.DeliveryHooks.capture = previous; await fake.close(); }
+  }
 });

@@ -27,6 +27,37 @@ const key = 'ruyi.steward.handoffs.v1';
     const click = label => fx.evaluate(`(()=>{const b=[...document.querySelectorAll('#stewardFeed .steward-act')].find(x=>x.textContent===${JSON.stringify(label)});if(!b)return false;b.click();return true;})()`);
     const reload = async () => { await fx.cdp.send('Page.reload'); await fx.waitForEval(READY, 240); await fx.setLens('steward'); await fx.waitForEval("document.querySelector('[data-handoff-attempt]')?1:null", 240); };
     const fault = async mode => fx.evaluate(`(()=>{window.__heldHandoff=false;const original=window.fetch;window.fetch=async (...args)=>{const body=(()=>{try{return JSON.parse(args[1]?.body||'{}')}catch{return{}}})();if(String(args[0]).includes('/api/steward/act')&&body.act){window.fetch=original;if(${JSON.stringify(mode)}==='fail')throw new TypeError('fixture request not sent');const response=await original(...args);if(${JSON.stringify(mode)}==='drop')throw new TypeError('fixture response lost');window.__heldHandoff=true;return new Promise(resolve=>window.__releaseHandoff=()=>resolve(response));}return original(...args);};return true;})()`);
+    const holdArrival = async () => {
+      await fx.evaluate(`(() => {
+        const original = window.fetch; let hold = true;
+        window.__arrival = {}; window.__restoreArrivalFetch = () => { window.fetch = original; };
+        window.fetch = async (...args) => {
+          const history = window.__arrival.consumed && String(args[0]) === '/api/sessions/steward';
+          if (history) window.__arrival.historyRequested = true;
+          const response = await original(...args);
+          if (hold && String(args[0]) === '/api/steward/visit') {
+            hold = false; window.__arrival.held = true;
+            await new Promise(resolve => { window.__arrival.release = resolve; });
+            const json = response.json.bind(response);
+            response.json = async () => { const value = await json(); window.__arrival.consumed = true; return value; };
+          }
+          if (history) { const json = response.json.bind(response); response.json = async () => { const value = await json(); window.__arrival.historyConsumed = true; return value; }; }
+          return response;
+        }; return true;
+      })()`);
+      await fx.setLens('classic'); await fx.setLens('steward');
+      if (!await fx.waitForEval('window.__arrival.held')) throw new Error('arrival response was not held');
+    };
+    const releaseArrival = async () => {
+      await fx.evaluate('window.__arrival.release(),true');
+      if (!await fx.waitForEval('window.__arrival.consumed')) throw new Error('arrival was not consumed');
+      const frames = () => fx.evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+      await frames();
+      if (await fx.evaluate('!!window.__arrival.historyRequested')) {
+        if (!await fx.waitForEval('window.__arrival.historyConsumed')) throw new Error('arrival history was not consumed');
+      }
+      await frames(); await fx.evaluate('window.__restoreArrivalFetch(),true');
+    };
     await select();
     await fx.evaluate("(()=>{const d=new DataTransfer();d.items.add(new File(['月份,金额\\n十月,123'],'恢复资料.csv',{type:'text/csv'}));const i=document.getElementById('stewardComposerFile');i.files=d.files;i.dispatchEvent(new Event('change',{bubbles:true}));return true;})()");
     await fx.waitForEval("document.querySelector('#stewardComposer').textContent.includes('恢复资料.csv')?1:null", 200);
@@ -75,11 +106,23 @@ const key = 'ruyi.steward.handoffs.v1';
     await select(); await fault('drop'); await send('真实HTTP重放只结算原行');
     await fx.waitForEval("document.querySelector('[data-handoff-attempt]:not([data-handoff-state])')?1:null", 200);
     const beforeReplay = await fx.evaluate("document.querySelectorAll('#stewardFeed .steward-msg').length");
+    await holdArrival();
+    await fx.evaluate("window.__settledReceipt=document.querySelector('[data-handoff-attempt]:not([data-handoff-state])'),true");
     await click('重发这一次');
     await fx.waitForEval(`JSON.parse(sessionStorage.getItem('${key}')||'[]').length===0?1:null`, 160);
+    await releaseArrival();
+    ok(await fx.evaluate("window.__settledReceipt.isConnected&&window.__settledReceipt.dataset.handoffState==='applied'"), '迟到到访保留原行就地结算后的回执');
     const replayUi = await fx.evaluate(`({rows:document.querySelectorAll('#stewardFeed .steward-msg').length,pending:!!document.querySelector('[data-handoff-attempt]:not([data-handoff-state])'),undo:document.querySelectorAll('.steward-undo-face').length,states:[...document.querySelectorAll('[data-handoff-attempt]')].map(r=>({state:r.dataset.handoffState,say:r.querySelector('.steward-say')?.textContent}))})`);
     ok(replayUi.rows === beforeReplay && !replayUi.pending && replayUi.undo === 0 && (await users()).filter(m=>m.content==='真实HTTP重放只结算原行').length === 1, '真实顶层重放回包只结算原气泡，不增加回执行、撤回或重复消息');
     if (replayUi.rows !== beforeReplay || replayUi.pending || replayUi.undo) console.log('REPLAY-DIAG ' + JSON.stringify({beforeReplay,...replayUi}));
+    await select(); await fault('hold'); await send('到访期间新收到的直递回执');
+    await fx.waitForEval('window.__heldHandoff?1:null', 240);
+    await holdArrival();
+    await fx.evaluate('window.__releaseHandoff(),true');
+    if (!await fx.waitForEval(`JSON.parse(sessionStorage.getItem('${key}')||'[]').length===0`)) throw new Error('direct handoff did not settle');
+    await fx.evaluate("window.__freshReceipt=document.getElementById('stewardFeed').lastElementChild,true");
+    await releaseArrival();
+    ok(await fx.evaluate("window.__freshReceipt.isConnected&&window.__freshReceipt.classList.contains('steward-msg-ruyi')&&document.getElementById('stewardFeed').textContent.includes('到访期间新收到的直递回执')") && (await users()).filter(m=>m.content==='到访期间新收到的直递回执').length===1, '迟到到访保留在途直递新收到的回执，原线程只执行一次');
     ok(fx.exceptions.length === 0, '浏览器无未捕获异常'); console.log('ARTIFACTS ' + fx.root);
   } catch (error) { t.fail(error.stack || String(error)); if (fx) console.log('ARTIFACTS ' + fx.root); }
   finally { if (fx) await fx.close({ keepRoot: true }); t.done({ exit: true }); }
