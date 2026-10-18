@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-18T01:05:24.631Z",
+  "generatedAt": "2026-10-18T01:38:55.392Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -18,10 +18,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 151,
-    "decisionPoints": 165,
+    "routeAuthEntries": 152,
+    "decisionPoints": 166,
     "byKind": {
-      "exact": 142,
+      "exact": 143,
       "prefix": 11,
       "regex": 12
     },
@@ -827,6 +827,12 @@
     {
       "m": "POST",
       "p": "/api/steward/act",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/steward/delivery",
       "auth": "token",
       "prefix": false
     },
@@ -2364,7 +2370,8 @@
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\copy-path-guard.static.e2e.js",
         "dev-harness\\help-menu.e2e.js",
-        "dev-harness\\meta-guard.e2e.js"
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js"
       ]
     },
     {
@@ -3506,6 +3513,7 @@
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-drawer-keep-frame.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3787,6 +3795,7 @@
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-drawer-keep-frame.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3998,6 +4007,7 @@
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-drawer-keep-frame.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -5104,6 +5114,22 @@
     },
     {
       "kind": "exact",
+      "path": "/api/steward/delivery",
+      "file": "13h-steward-runner.js",
+      "handler": "handleStewardRunnerApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "steward",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\steward-delivery.browser.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/steward/arbiter",
       "file": "13h-steward-runner.js",
       "handler": "handleStewardRunnerApiRoutes",
@@ -5179,6 +5205,7 @@
       "coveredBy": [
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js"
       ]

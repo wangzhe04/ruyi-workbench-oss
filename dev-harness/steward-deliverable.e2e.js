@@ -208,6 +208,7 @@ try {
     // 换一个回合号:同一份账里没有那一回合的文件 -> 空数组(不许把别的回合的账算到这一回合头上)。
     const other = [{ inboxSeq: 901, kind: 'done', sessionId: threadId, missionId: threadId, runId: '', seq: 7, at: new Date().toISOString(), payload: { source: 'session_turn', turnSeq: 7 } }];
     await srv.StewardHooks.enrichInboxRows(other);
+    ok(!((other[0].payload.deliverable || {}).text), 'B4b 缺失回合不把最新助手正文递给管家');
     ok(JSON.stringify(((other[0].payload.deliverable || {}).files) || []) === '[]', 'B4 别的回合号 -> files 为空(按 turnSeq 过滤,不是整条会话的清单)');
   }
   // 未被管家关心的普通会话:一条都不补(不为用户自己的几百条对话装载会话)。

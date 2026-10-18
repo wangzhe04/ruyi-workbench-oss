@@ -1029,6 +1029,7 @@ const MCP_TOOLS = [
       properties: {
         sessionId: { type: 'string', minLength: 1, description: '目标线程 id(不能是管家自己的会话)。' },
         message: { type: 'string', minLength: 1, description: '要递过去的话,原话直递。' },
+        deliverySource: { type: 'object', description: '用户从交付卡继续修改时的来源,原样传递;过时则拒绝。', required: ['turnSeq', 'sourceStamp', 'fileStamp', 'latestTurnSeq'], properties: { turnSeq: { type: 'integer', minimum: 1 }, sourceStamp: { type: 'string' }, fileStamp: { type: 'string' }, latestTurnSeq: { type: 'integer', minimum: 1 } } },
         attachments: { type: 'array', maxItems: 12, description: '本次用户上传的附件记录(id/name)。仅目标空闲、可起新回合时支持;执行中、排队或待决时拒绝整次递送,不丢附件,等空闲再试。服务端重新核对文件存在及上传目录,不使用传入 path。', items: { type: 'object', required: ['id', 'name'], properties: { id: { type: 'string' }, name: { type: 'string' } } } },
         answerBasis: {
           type: 'object', additionalProperties: false,

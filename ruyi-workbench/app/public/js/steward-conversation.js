@@ -17,6 +17,7 @@ import { popover, closePopover, popoverAnchor } from './popover.js';
 // 「SVG 路径只许住在 icons.js」——所以本文件一条 path 都不写，只按名字取件（steward-board /
 // steward-drawer / steward-settings 三个消费方走的也是这条 import，不是第二份路径常量）。
 import { icon } from './icons.js';
+import { attachStewardDeliveryPanel, invalidateStewardDeliveryPanels } from './steward-delivery.js';
 // 33 号文 §4：stewardShortTitle 与 STEWARD_TITLE_MAX 搬去 util.js（无状态格式化叶子）—— 两个壳
 // 共用同一份截短口径，且 2.0 侧不必为了一个纯字符串函数 import 本模块（1481 行）。函数体逐字未改。
 import { stewardShortTitle, chatProviders } from './util.js';   // chatProviders:兜底取端点时不把只做语音的服务商当对话端点
@@ -646,6 +647,8 @@ export function createStewardConversation({
   // 由 steward-shell.js 从组合根手里转下来；本模块因此不新增一条 import（A2 锁：本域内相对路径）。
   // 缺席时那枚按钮照样不画（下面 onboardingActs 会一起判），Node 里 await import 本模块不受影响。
   openOnboardingWizard = null,
+  renderFilePreviewInto = null,
+  prepareDeliveryRevision = null,
 } = {}) {
   const feedEl = () => byId('stewardFeed');
   const setPresence = patch => { try { presence && presence.set && presence.set(patch); } catch { /* presence 是旁路 */ } };
@@ -1353,8 +1356,11 @@ export function createStewardConversation({
     // { envelope, deliverable } 两样 —— 两个消费方 await 的是同一个 promise，请求仍然只发一发。
     const task = (async () => {
       const payload = await api('/api/sessions/' + encodeURIComponent(sessionId));
-      return { envelope: payload, deliverable: stewardDeliverableFrom(payload && payload.session, turnSeq) };
-    })().then(got => ({ envelope: stewardThreadEnvelopeLite(got.envelope), deliverable: got.deliverable }));   // 整份信封到此为止，不进缓存
+      const original = payload && payload.session;
+      const messages = ((original && original.messages) || []).filter(row => Number(row.turnSeq) === Number(turnSeq));
+      const hasArtifacts = messages.some(row => row.turnSummary && ((row.turnSummary.artifacts || []).length || (row.turnSummary.filesChanged || []).length));
+      return { envelope: payload, hasArtifacts, deliverable: stewardDeliverableFrom({ messages }, turnSeq) };
+    })().then(got => ({ envelope: stewardThreadEnvelopeLite(got.envelope), deliverable: got.deliverable, hasArtifacts: got.hasArtifacts }));   // 整份信封到此为止，不进缓存
     deliverableCache.set(key, task);
     while (deliverableCache.size > DELIVERABLE_CACHE_MAX) deliverableCache.delete(deliverableCache.keys().next().value);
     task.catch(() => { deliverableCache.delete(key); });   // 失败不留在缓存里（下次还能再试）
@@ -1373,20 +1379,23 @@ export function createStewardConversation({
   async function fillDeliverable(block, head, body, source) {
     let found = null;
     let fetched = false;
-    try { const got = await loadDeliverable(source.sessionId, source.turnSeq); found = got ? got.deliverable : null; fetched = true; }
+    let hasArtifacts = false;
+    try { const got = await loadDeliverable(source.sessionId, source.turnSeq); found = got ? got.deliverable : null; hasArtifacts = !!(got && got.hasArtifacts); fetched = true; }
     catch { found = null; }   // 取不到：画兜底一句，原件不在这儿，去 2.0 视窗看
     if (!block.isConnected && block.parentNode === null) return null;   // 这一行已经被清屏收走了
     // 2026-09-24（用户：「每次带上『它交付的原文』『这一次没取到原文』，体验很差」）：信封取到了、
     // 但这一回合没有可交付的正文（以工具调用收尾、还在等后台活儿）—— 那就是【没有交付】，不是
     // 「没取到」。整块撤掉，不再垫一句道歉；线程卡上的「打开」仍在。取不到信封才画兜底。
-    if (fetched && (!found || !found.text.trim())) { block.remove(); return null; }
+    if (fetched && !hasArtifacts && (!found || !found.text.trim())) { block.remove(); return null; }
     const seq = (found && found.turnSeq) || source.turnSeq || 0;
     head.textContent = seq
       ? t('stewardShell.chat.deliverableHead', { seq })
       : t('stewardShell.chat.deliverableHeadPlain');
     if (!found || !found.text.trim()) {
       body.textContent = t('stewardShell.chat.deliverableMissing');
+      if (hasArtifacts) paintSay(body, t('delivery.noNarrative'));
       block.appendChild(deliverableActs(body, source, false));
+      if (hasArtifacts) attachStewardDeliveryPanel(block, source, { api, t, renderFilePreviewInto, prepareRevision: prepareDeliveryRevision });
       return null;
     }
     paintSay(body, found.text);   // 与管家的话【同一条】渲染＋净化路径（highlightIn 只在这里跑一次）
@@ -1394,6 +1403,7 @@ export function createStewardConversation({
     // F4 之后这一段搬进 clampIfLong；117y-S3 撤掉管家正文那一路之后，这里是它【唯一】的调用方。
     const longEnough = clampIfLong(body, found.text);
     block.appendChild(deliverableActs(body, source, longEnough));
+    attachStewardDeliveryPanel(block, source, { api, t, renderFilePreviewInto, prepareRevision: prepareDeliveryRevision });
     return body;
   }
 
@@ -1868,13 +1878,13 @@ export function createStewardConversation({
     return String(Date.now()) + Math.random().toString(36).slice(2, 10);
   }
 
-  async function handOff({ sessionId, title, message, reason, hits, attachments }) {
+  async function handOff({ sessionId, title, message, reason, hits, attachments, deliverySource }) {
     const sid = String(sessionId || '');
     const text = String(message || '').trim();
     if (!sid || !text) return null;
     const files = Array.isArray(attachments) ? attachments.map(file => ({ ...file })) : [];
     appendAttachLine(appendUser(text), files);
-    const attempt = { attemptId: handOffAttemptId(), sessionId: sid, title, text, reason, hits, attachments: files };
+    const attempt = { attemptId: handOffAttemptId(), sessionId: sid, title, text, reason, hits, attachments: files, deliverySource };
     return deliverHandOff(attempt);
   }
 
@@ -1885,14 +1895,14 @@ export function createStewardConversation({
     let response = null;
     try {
       response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({
-        act: { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: attempt.text, ...(attempt.attachments.length ? { attachments: attempt.attachments } : {}) } },
+        act: { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: attempt.text, ...(attempt.attachments.length ? { attachments: attempt.attachments } : {}), ...(attempt.deliverySource ? { deliverySource: attempt.deliverySource } : {}) } },
         attemptId: attempt.attemptId }) });
     } catch (error) {
       // HTTP 给了明确回应时不是「未知」：4xx 是服务端明确拒绝（这一发没有执行），照旧显示真实错误；
       // 5xx / 没有状态码的网络异常才可能已经执行 —— 那才需要「未确认 + 核对」。
       const status = Number(error && error.status);
       if (Number.isInteger(status) && status >= 400 && status < 500) {
-        if (attempt.attachments.length && !options.silentPending) return renderHandOffPending(attempt, stewardErrorText(error));
+        if ((attempt.attachments.length || attempt.deliverySource) && !options.silentPending) return renderHandOffPending(attempt, stewardErrorText(error));
         reportFailure(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
         return null;
       }
@@ -1902,11 +1912,12 @@ export function createStewardConversation({
     const result = response && response.result;
     if (result && result.ok === false) {
       const key = stewardActErrorKey(result.error);
-      if (attempt.attachments.length && !options.silentPending) return renderHandOffPending(attempt, key ? t(key) : stewardErrorText(result.message || result.error));
+      if ((attempt.attachments.length || attempt.deliverySource) && !options.silentPending) return renderHandOffPending(attempt, key ? t(key) : stewardErrorText(result.message || result.error));
       reportFailure(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.message || result.error) }));
       return null;
     }
     // 重放只说明「上一次已经执行过」：不再追加第二条回执行，也不重挂第二枚撤回按钮。
+    if (result && result.ok === true) invalidateStewardDeliveryPanels(feedEl(), sid, t);
     if (result && result.replayed === true) return { sessionId: sid, replayed: true, row: null, actsRow: null };
     const title = attempt.title;
     const hits = attempt.hits;

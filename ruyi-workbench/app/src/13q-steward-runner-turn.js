@@ -1085,6 +1085,7 @@ async function stewardRelayDeliver(input) {
   if (Array.isArray(o.attachments) && o.attachments.length && decided.channel !== 'turn') {
     return stewardFail('attachment_channel_unsupported', '这条任务正在执行、排队或等你处理待决,附件还没递进去;请等它空闲后重试,或在线程里处理当前事项', { channel: decided.channel, sessionId: sid });
   }
+  if (o.revision && decided.channel !== 'turn') return stewardFail('delivery_busy', '修订需要任务空闲,请处理当前运行或待决后重试', { sessionId: sid });
   if (decided.channel === 'answer') {
     // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,
     // 代答时那句话是管家自己编的,而线程分不出来(两者走同一条 decideIntervention,落到线程眼里

@@ -692,10 +692,10 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
 //    Tab 焦点陷阱／焦点归还／Esc／点背影都在 confirmDanger 里）。借的仍然是那颗【共用原语】——
 //    steward-board / steward-drawer / steward-settings / steward-chips 四个消费方走的是同一条 import，
 //    不是新借了一个域的实现；本文件不自己搭第二个模态（那正是这条锁要挡住的事）。
-const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './thread-facts.js', './util.js'];
+const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './steward-delivery.js', './thread-facts.js', './util.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
 ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
-  `P10 import 只有 net.js、steward-chips.js、popover.js、icons.js、util.js、thread-facts.js 与 confirm-panel.js 七条本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
+  `P10 import 只有 net.js、steward-chips.js、popover.js、icons.js、util.js、thread-facts.js 、confirm-panel.js 与 steward-delivery.js 八条本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
 ok(/openClassicWindow = null,/.test(conversation)
   && /if \(typeof openClassicWindow === 'function'\) \{/.test(conversationCode)
   && /openThread\(id\);/.test(conversationCode)
@@ -869,8 +869,8 @@ ok(factsStart > 0 && factsEnd > factsStart
     count(conversationCode, new RegExp(field, 'g')) === count(factsSlice, new RegExp(field, 'g'))),
   'Q7 信封上那四个字段（resumable/relay/engineRoute/stewardLastTurn）只在 stewardThreadFacts 一处读 —— 卡头的事实不许散落在渲染代码里');
 ok(/const got = await loadDeliverable\(source\.sessionId, source\.turnSeq\); facts = stewardThreadFacts\(got && got\.envelope\);/.test(conversationCode)
-  && /return \{ envelope: payload, deliverable: stewardDeliverableFrom\(payload && payload\.session, turnSeq\) \}/.test(conversationCode),
-  'Q7b 卡头与交付原文 await 的是【同一个】被缓存的 promise（loadDeliverable 一发信封解出两样），所以请求数一发没多');
+  && /return \{ envelope: payload, hasArtifacts, deliverable: stewardDeliverableFrom\(\{ messages \}, turnSeq\) \}/.test(conversationCode),
+  'Q7b 卡头与交付原文 await 的是【同一个】被缓存的 promise（loadDeliverable 一发信封解出两样），卡头与原文不重复取历史；文件和检查由独立投影核对');
 ok(JSON.stringify([...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\/[a-z/]+)'/g)].map(m => m[1]))].sort()) === JSON.stringify(ALLOWED),
   'Q7c companion：后端面仅使用已登记对话路由与新对话 reset（路由白名单与 J1 逐字相同）');
 ok(JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(CONVERSATION_IMPORTS),

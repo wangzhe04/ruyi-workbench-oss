@@ -1221,6 +1221,8 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const checkedAttachments = await stewardContinueAttachments(args.attachments);
   if (!checkedAttachments.ok) return checkedAttachments;
   const attachments = checkedAttachments.attachments;
+  const revision = args.deliverySource ? await StewardHooks.validateDeliveryReference(sessionId, args.deliverySource, config) : null;
+  if (revision && !revision.ok) return revision;
   // 121-K3(§4.5):用户正坐在这条线程前面 -> 不递话。排在权限闸【之前】:这不是「有没有权限」的问题,
   // 而是「现在不是时候」,先答这一句比先算一遍权限档诚实(也省一次配置读)。
   if (stewardSeatedByUser(sessionId)) return stewardSeatedFail(sessionId);
@@ -1278,10 +1280,12 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // title 用【显示名】(116-5b 单点),不拿 id 冒充标题;turn 通道的启动仍是 13g 自己的
   // stewardLaunchTurn(同一个 requestMeta、同一本决策日志)—— 13h 只决定「走哪条」。
   const delivered = await StewardHooks.relayDeliver({
-    sessionId, message, attachments, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
+    sessionId, message, attachments, revision: !!revision, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
     answerGuard: decided => { gate.decided = decided; return stewardAnswerGate(gate); },
     launch: async () => {
-      const launched = stewardLaunchTurn({ sessionId, message, attachments, expectedCwd: String(head.cwd || ''), source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
+      const launched = stewardLaunchTurn({ sessionId, message, attachments, expectedCwd: String(head.cwd || ''), source: 'steward',
+        ...(revision ? { expectedTurnSeq: revision.reference.latestTurnSeq, expectedDelivery: args.deliverySource, messageMeta: { origin: 'steward', tool: 'steward_thread_continue', revisionOf: revision.reference } } : {}),
+        requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
       const registration = await launched.registration;
       if (!registration) {
         await launched;
@@ -1793,7 +1797,8 @@ async function stewardEnrichInboxRows(rows) {
     // 回合号取事件自己的(第四源 stewardNormalizeSessionTurn 落的 payload.turnSeq);取不到就退到
     // 会话头上的当前回合号,再取不到才让下面的挑选退到「最后一条助手话」。
     const turnSeq = Math.max(0, Number(payload.turnSeq) || 0) || Math.max(0, Number(head.turnSeq) || 0);
-    const full = stewardSanitizeBlock(stewardTurnAssistantText(session, turnSeq));
+    const deliverySession = turnSeq > 0 ? { messages: (session.messages || []).filter(message => Number(message.turnSeq) === turnSeq) } : session;
+    const full = stewardSanitizeBlock(stewardTurnAssistantText(deliverySession, turnSeq));
     const patch = {};
     if (full.trim()) {
       patch.deliverable = {
@@ -1808,7 +1813,7 @@ async function stewardEnrichInboxRows(rows) {
     // 只是仍按 ≤1200 的老口径中和成单行 —— 两个字段从此不会各说各的。
     if (quick) {
       patch.quick = true;
-      patch.answer = stewardSanitizeText(full || stewardLastAssistantText(session)).slice(0, STEWARD_QUICK_ANSWER_CHARS);
+      patch.answer = stewardSanitizeText(full || (turnSeq > 0 ? '' : stewardLastAssistantText(session))).slice(0, STEWARD_QUICK_ANSWER_CHARS);
     }
     if (Object.keys(patch).length) row.payload = { ...payload, ...patch };
   }

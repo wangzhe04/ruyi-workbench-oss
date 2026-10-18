@@ -4143,4 +4143,46 @@
   ,"externalBots.verifyIdentity": "核验身份"
   ,"externalBots.verifyMatch": "核验通过：租户 {{tenant}} · 机器人 {{bot}} 与连接一致。"
   ,"externalBots.verifyMismatch": "核验不一致：飞书返回的租户 {{tenant}} · 机器人 {{bot}} 与连接不同，请核对应用。"
+,
+  "delivery.details": "交付文件与检查",
+  "delivery.source": "第 {{seq}} 轮交付记录",
+  "delivery.outdated": "任务已进行到第 {{seq}} 轮；这里保留的是旧交付，不能代表后续要求已完成。",
+  "delivery.evidenceUnrecorded": "这轮没有保存文件版本和检查快照，无法确认历史验证状态。",
+  "delivery.filesNeedReview": "部分文件已变化、不可用或缺少版本记录；旧检查不能证明当前文件通过。",
+  "delivery.openFiles": "打开产物 · {{count}}",
+  "delivery.showChecks": "查看检查 · {{count}}",
+  "delivery.revise": "继续修改",
+  "delivery.refresh": "刷新文件状态",
+  "delivery.loading": "正在核对交付记录…",
+  "delivery.loadFailed": "交付记录暂时读不到，可刷新重试；没有使用其它回合代替。",
+  "delivery.noFiles": "这轮未记录产物文件。",
+  "delivery.noNarrative": "这轮已记录文件，未记录交付正文。",
+  "delivery.filesTruncated": "这里只显示前 20 个文件，其余请到工作台查看。",
+  "delivery.checksEmpty": "这轮尚未列出检查项。",
+  "delivery.checksUnrecorded": "这轮未记录检查，不能视为验证通过。",
+  "delivery.checkHuman": "用户确认",
+  "delivery.checkFail": "检查未通过",
+  "delivery.checkMachine": "已验证",
+  "delivery.checkSelf": "模型自报，未验证",
+  "delivery.checkOpen": "尚未完成",
+  "delivery.checkHistorical": "历史记录，需重新核验",
+  "delivery.sourceChanged": "来源已变化，请刷新交付卡后重试。",
+  "delivery.revisionReady": "已选好原任务和来源回合，请在输入区写下修改要求。",
+  "delivery.draftBusy": "输入区已有草稿或目标，请先处理当前输入再继续修改。",
+  "delivery.filePreviewFailed": "文件预览失败，请刷新文件状态后重试。",
+  "delivery.target": "→ {{title}} · 修订第 {{seq}} 轮",
+  "delivery.revisionPlaceholder": "例如：只改第二部分，并重新验证修改后的文件",
+  "delivery.file.same": "交付版本",
+  "delivery.file.changed": "内容已变化，显示当前文件",
+  "delivery.file.missing": "文件已不存在",
+  "delivery.file.blocked": "无法访问此路径",
+  "delivery.file.unavailable": "暂时无法核对",
+  "delivery.file.unverified": "版本未核验"
+,
+  "delivery.opened": "已打开对应文件。"
+,
+  "delivery.revisionStarted": "任务已开始后续办理；这里保留原交付，旧检查需重新核验。",
+  "delivery.inProgress": "任务仍在执行，本卡不能表示当前要求已经完成。"
+,
+  "delivery.sourceMissing": "来源任务或回合已不存在，不能用其它交付代替。"
 }

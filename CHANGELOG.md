@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 管家交付卡可直接打开本轮产物、查看机器检查／用户确认／模型自报与未完成项，并准备回到原任务的修订。缺失、变更和旧回合会明确标记；文件或要求变化后，旧检查不再表示当前版本已验证。同名文件保留完整路径区别。
+- Steward delivery cards now open artifacts from the source turn, distinguish machine checks, human confirmation, model claims and unfinished work, and prepare revisions in the source task. Missing or changed files and historical turns are explicit; old checks cannot verify changed files or later requirements. Same-named files retain their full paths.
+
 - 管家手选已有任务后可带上传附件续办；目标空闲时沿既有回合接收，忙碌、待决或附件过期时整次拒绝并保留原话、材料和目标供核对或重试。被拒绝的工具结果不再记成成功递送，同一回执绑定原始目标与内容。任务搜索说明有界索引范围，未找到不代表从未做过。
 - The Steward can continue a selected idle task with uploaded attachments. Busy/waiting targets and expired files reject the whole delivery while preserving the words, files and target for retry. Rejected tools no longer count as successful deliveries; receipts bind to the original target and payload. Task search now explains its bounded index.
 - 联网搜索新增 DeepSeek Search / Fetch API 后端，普通任务和管家共用；支持 DeepSeek API Key、可选代理地址、Markdown 分页、取消和带来源的缓存回退。默认搜索选择不变，密钥仍按现有规则遮罩。

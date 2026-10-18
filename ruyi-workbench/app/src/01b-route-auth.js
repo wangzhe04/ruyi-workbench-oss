@@ -186,6 +186,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/steward/reset', auth: 'token' },
   { m: 'POST', p: '/api/steward/message', auth: 'token' },
   { m: 'POST', p: '/api/steward/act', auth: 'token' },
+  { m: 'GET', p: '/api/steward/delivery', auth: 'token' },
   // 第117波117l(27号文§11.9 D2): 递话通道的单口。抽屉「直接对这条线程说」与问答卡的自由回答都走它;
   // 它会按目标线程状态选「答/批/插/新」四条通道之一,写面(能回答一条待决、能起一个回合),token 级。
   { m: 'POST', p: '/api/steward/relay', auth: 'token' },

@@ -868,3 +868,7 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   就地错误行 `.wp-pop-err` 与输入框 `[aria-invalid]` 态;删去 `.wp-fav-rank`。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 620d76b:<css>` 重算 = ae8f54cb…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
+
+// 2026-10 班组体验走查续钉（前值 76316e75…）：workbench.css 新增概览、角色优先、容器响应式详情及窄屏用量布局；tool-pane.css 保持分类可见、统一标题与按钮间距、显示关闭入口；workbench.css 补历史选择与抽屉网格定位；workspace.css 将审计摘要独立成行。
+// 算法自证：readLayerPayload 读取 git show HEAD 各层得 76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193，与旧锁一致。
+// 反向验证：仅在读文件时注入错误的 .wb-node opacity，D51 与 F3 均变红；磁盘样式未修改。

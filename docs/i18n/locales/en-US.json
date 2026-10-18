@@ -4143,4 +4143,46 @@
   ,"externalBots.verifyIdentity": "Verify identity"
   ,"externalBots.verifyMatch": "Verified: tenant {{tenant}} · bot {{bot}} match this connection."
   ,"externalBots.verifyMismatch": "Mismatch: Feishu returned tenant {{tenant}} · bot {{bot}}, which differ from this connection."
+,
+  "delivery.details": "Delivery files and checks",
+  "delivery.source": "Delivery from turn {{seq}}",
+  "delivery.outdated": "The task is now on turn {{seq}}. This is an earlier delivery and does not complete later requests.",
+  "delivery.evidenceUnrecorded": "No file versions or check snapshot were saved for this turn; historical verification is unknown.",
+  "delivery.filesNeedReview": "Some files changed, are unavailable, or have no recorded version. Earlier checks do not verify the current files.",
+  "delivery.openFiles": "Open files · {{count}}",
+  "delivery.showChecks": "View checks · {{count}}",
+  "delivery.revise": "Request changes",
+  "delivery.refresh": "Refresh file status",
+  "delivery.loading": "Checking delivery records…",
+  "delivery.loadFailed": "Delivery records could not be read. Refresh to retry; no other turn was substituted.",
+  "delivery.noFiles": "No output files were recorded for this turn.",
+  "delivery.noNarrative": "Files were recorded for this turn, without delivery text.",
+  "delivery.filesTruncated": "Showing the first 20 files. Open the workbench for the rest.",
+  "delivery.checksEmpty": "No check items were listed for this turn.",
+  "delivery.checksUnrecorded": "No checks were recorded for this turn; verification is unknown.",
+  "delivery.checkHuman": "User confirmed",
+  "delivery.checkFail": "Check failed",
+  "delivery.checkMachine": "Verified",
+  "delivery.checkSelf": "Model reported; unverified",
+  "delivery.checkOpen": "Unfinished",
+  "delivery.checkHistorical": "Historical; recheck required",
+  "delivery.sourceChanged": "The source changed. Refresh the delivery before retrying.",
+  "delivery.revisionReady": "The original task and source turn are selected. Enter your requested changes below.",
+  "delivery.draftBusy": "A draft or target is already selected. Finish that input before requesting changes.",
+  "delivery.filePreviewFailed": "The file could not be previewed. Refresh its status and retry.",
+  "delivery.target": "→ {{title}} · revise turn {{seq}}",
+  "delivery.revisionPlaceholder": "For example: revise section two only, then verify the changed files",
+  "delivery.file.same": "Delivered version",
+  "delivery.file.changed": "Content changed; showing current file",
+  "delivery.file.missing": "File no longer exists",
+  "delivery.file.blocked": "Path cannot be accessed",
+  "delivery.file.unavailable": "Could not check this file",
+  "delivery.file.unverified": "Version unverified"
+,
+  "delivery.opened": "Opened the selected file."
+,
+  "delivery.revisionStarted": "The task has continued. This card preserves the earlier delivery; previous checks need revalidation.",
+  "delivery.inProgress": "The task is running. This card does not mean the current request is complete."
+,
+  "delivery.sourceMissing": "The source task or turn no longer exists. No other delivery was substituted."
 }

@@ -106,6 +106,7 @@ export function createStewardShellDomain({
   // 117c 自己不需要新依赖；而经典壳六个消费面拿到渲染器【都】是在组合根注入的，管家壳要复用
   // 同一条净化通道就得走同一条路。本文件只做转注入（不 import 渲染器，D2 的 import 白名单不变）。
   renderMarkdownInto = null,
+  renderFilePreviewInto = null,
   highlightIn = null,
   // 122-L1b（36 号文 §2.13）：首跑向导。组合根手里那一个（session-experience.js 的
   // openOnboardingWizard，工作台空态那枚「开始引导」点的也是它），本文件只做转注入。
@@ -452,6 +453,8 @@ export function createStewardShellDomain({
     openClassicWindow: sessionId => openInWorkbench(sessionId),
     // 117s-C：转注入渲染器。对话区自己不 import 它（A2 锁：本域内相对路径），缺席时回落纯文本。
     renderMarkdownInto, highlightIn,
+    renderFilePreviewInto,
+    prepareDeliveryRevision: source => composer.beginDeliveryRevision(source),
     openOnboardingWizard,   // 122-L1b（36 号文 §2.13）：管家问候行下那枚「开始引导」，与工作台空态同一个入口
   });
   // 128h-J03:焦点＝右栏抽屉此刻那一条。drawer 在下面才建 —— 这里是个闭包,输入时才调(那时早已就位;

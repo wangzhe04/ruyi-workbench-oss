@@ -238,6 +238,10 @@ engine is enough to start. Ruyi ships **no vendor presets**. Once configured, ch
 thread's header, or decide who uses which model under Models & Services → Model assignment. Provider keys are
 stored locally and masked in UI responses.
 
+On a delivery card, choose **Open files**, then a file name. Same-named files include their paths. Text, images and HTML use the safe preview; PDF and Office documents open through your configured local application. **View checks** distinguishes machine verification, human confirmation, model claims and unfinished work. Changed files and later turns make old checks historical.
+
+Choose **Request changes** to select the source task and turn, enter the change, then send. Existing drafts, attachments and targets are protected. If the source or files change before sending, delivery is rejected and your words remain available; refresh the card and prepare a new revision. Older records without snapshots say evidence was not recorded. **Refresh file status** checks the files; it does not rerun acceptance tests.
+
 In the Steward composer, select an existing task and attach materials to continue it. Idle tasks receive the words and files together. Running, queued or waiting tasks reject the whole delivery and keep the original materials and target for retry. Upload expired files again. Task candidates use a bounded text index; no match does not mean the work never happened.
 
 The Web search page (Settings → Tools & integrations) defaults to built-in search without a key. You can choose SearXNG, Bing, Brave, Tavily, Bocha, DeepSeek, or a custom endpoint and enter the address or key it requires. For DeepSeek, enter a DeepSeek API key and leave Base URL empty for the official service. Tasks and the Steward share its Search / Fetch APIs; fetched Markdown supports paging. Disabling search leaves local file tools available; it does not disable a configured remote model or other network tools.

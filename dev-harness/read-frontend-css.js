@@ -79,9 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 班组体验走查续钉（前值 76316e75…）：workbench.css 新增概览、角色优先、容器响应式详情及窄屏用量布局；tool-pane.css 保持分类可见、统一标题与按钮间距、显示关闭入口；workbench.css 补历史选择与抽屉网格定位；workspace.css 将审计摘要独立成行。
-// 算法自证：readLayerPayload 读取 git show HEAD 各层得 76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193，与旧锁一致。
-// 反向验证：仅在读文件时注入错误的 .wb-node opacity，D51 与 F3 均变红；磁盘样式未修改。
 // 2026-10 AI 工作精简续钉（前值 29a7e758…）：workspace.css 新增模板与运行详情折叠入口样式，当前进度可换行，运行列表使用工具箱的单一滚动区域。
 // 算法自证：readLayerPayload 读本轮改动前的 CSS 快照重算 = 29a7e758ddf3d119394c7f9f740c3d3dd9701e42ddb6e0aa7b3a667b952125da，与旧锁逐字相同。
 // 反向验证：内存注入错误样式后 D51/F3 均失败；实际 CSS 文件未改坏。
@@ -94,7 +91,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.
 // 67: compact bot setup uses existing settings tokens, with explicit credential, pairing and authorization steps.
 // Prior HEAD payload self-check: e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa; corrupt-layer probes must fail D51/F3.
-const LEGACY_STYLES_SHA256 = '0256a4eaa3dfd4cce8fca6187b15516dfdb03f1cbfbbe3e1a08d99d4041e4097';
+// 73 交付和修订续钉（前值 0256a4ea…）：steward-conversation.css 增加就近文件、检查与修订入口，沿用主题与字体。
+// 算法自证：git show HEAD 各层得 0256a4eaa3dfd4cce8fca6187b15516dfdb03f1cbfbbe3e1a08d99d4041e4097，与旧锁一致。
+// 反向验证：内存注入错误 CSS，D51/F3 均失败；磁盘样式未改坏。
+const LEGACY_STYLES_SHA256 = '9b0c698c8c1e74f8621af3703e5ba23301b870c4a3824ee52db5d7ac53ab476e';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

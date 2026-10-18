@@ -13,6 +13,7 @@
         "CONFIG_SCHEMA",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
+        "DeliveryHooks",
         "EventStreamHooks",
         "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
@@ -1948,6 +1949,7 @@
         "buildAttachmentPrompt",
         "buildBrowserOpenSpawn",
         "buildCodeEditorSpawn",
+        "buildDeliveryRevisionPrompt",
         "buildOpenSpawn",
         "buildRevealSpawn",
         "classifyCodeEditorExecutable",
@@ -3330,6 +3332,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -3653,6 +3662,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "buildAttachmentPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "buildDeliveryRevisionPrompt",
           "kinds": [
             "call"
           ]
@@ -8629,6 +8645,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -9078,6 +9101,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "buildAttachmentPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "buildDeliveryRevisionPrompt",
           "kinds": [
             "call"
           ]
@@ -17393,6 +17423,233 @@
         {
           "provider": "13i-steward-inbox.js",
           "symbol": "stewardDir",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13aa-steward-delivery.js",
+      "layer": "unclassified",
+      "provides": [
+        "STEWARD_DELIVERY_LIMITS",
+        "handleStewardDeliveryApiRoutes",
+        "stewardCaptureDelivery",
+        "stewardDeliveryFiles",
+        "stewardDeliveryInspect",
+        "stewardDeliveryProjection",
+        "stewardDeliveryRows",
+        "stewardDeliverySource",
+        "stewardValidateDeliveryReference"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "buildMissionAcceptanceProjection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "kindForPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "ensureDataRootReal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "fileAllowedRoots",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveDataPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveHardlinkAlias",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "pathWithinAnyRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "readFilePreview",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "remoteUncDenialResolved",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardRawKind",
           "kinds": [
             "call"
           ]

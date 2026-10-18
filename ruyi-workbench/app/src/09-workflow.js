@@ -1337,7 +1337,7 @@ function appendDisplayMessagesToProviderHistory(session, start) {
     if (m.role === 'user') {
       // Historical images are represented by their attachment prompt only. Re-embedding pixels from every
       // earlier turn would make an engine switch unexpectedly huge and bypass the live image cap.
-      session.providerHistory.push({ role: 'user', content: m.content + buildAttachmentPrompt(m.attachments), ...(m.meta ? { meta: m.meta } : {}) });
+      session.providerHistory.push({ role: 'user', content: m.content + buildAttachmentPrompt(m.attachments) + buildDeliveryRevisionPrompt(m.meta), ...(m.meta ? { meta: m.meta } : {}) });
     } else if (m.role === 'assistant') {
       session.providerHistory.push({ role: 'assistant', content: m.content });
     }
@@ -1564,7 +1564,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   let workspaceTurnBaseline = null;
   const promptTaskContext = buildPromptTaskContext(message, session);
-  const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
+  const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}${buildDeliveryRevisionPrompt(messageMeta)}`;
   // 线协议(58 号批 1):端点、请求头、请求体、流式解码、落历史字段都问 04i 的协议登记表;apiStyle 缺省 chat,
   // 存量配置零变化。
   const wire = providerWireProtocol(provider);
@@ -3762,6 +3762,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'openai', turnJournal);
+  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt }).catch(() => {});
   // 47b/86: 回合收尾前把仍在 'running' 的 tool/subagent/workflow 段标终态,防「卡在运行中」落盘。
   turnSegments.finalizeAll(wasStopped ? '回合被停止,进行中的工具已中断' : '回合结束,进行中的工具未完成');
   session.messages.push({

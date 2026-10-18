@@ -209,7 +209,8 @@ export function createStewardComposer({
     if (!label) return;
     // 同一条纪律的另一支：手选目标的标题也过 stewardShortTitle（这支不动 target/picked 本身——
     // picked 是持续状态，handOff() 会再读一次 title，不能在这里被悄悄改掉）。
-    if (target) label.textContent = t('stewardShell.compose.targetThread', { title: stewardShortTitle(target.title) });
+    if (target && target.deliverySource) label.textContent = t('delivery.target', { title: stewardShortTitle(target.title), seq: target.deliverySource.turnSeq });
+    else if (target) label.textContent = t('stewardShell.compose.targetThread', { title: stewardShortTitle(target.title) });
     else if (hint) label.textContent = t('stewardShell.compose.targetSteward.hint', { title: hint.title });
     else label.textContent = t(stewardTargetKey(routeKind));
   }
@@ -367,6 +368,7 @@ export function createStewardComposer({
       return;
     }
     const files = attachments.splice(0, attachments.length);   // 133e：这一句带走托盘里全部附件，托盘随即清空
+    note('');
     renderTray();
     composerSent(input, text);                                 // 59 号文 §6：麦克风拿这次机器写的几句与发出去的字去学改字
     input.value = '';
@@ -378,7 +380,7 @@ export function createStewardComposer({
     try {
       // 117l D1：**手选的目标才直递**（那是用户明示，§8.12 第 4 条）；其余一律发给管家，预判只
       // 随 routeHint 走一趟提示（§11.9 D1「无论关键词匹配到什么，都要发给管家让它决定」）。
-      if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits, attachments: files });
+      if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits, attachments: files, ...(target.deliverySource ? { deliverySource: { ...target.deliverySource } } : {}) });
       else await conversation.sendToSteward(text, { routeHint: routeHintPayload(), ...(files.length ? { attachments: files } : {}) });
     } finally {
       // 手选只管这一次发送，之后自动回到「→ 如意」（§8.12 第 4 条）。
@@ -449,6 +451,18 @@ export function createStewardComposer({
     input.style.height = Math.min(input.scrollHeight || 100, 240) + 'px';
     input.focus({ preventScroll: true });
     renderChip(); note(t('externalBots.draftAdded'));
+    return { ok: true };
+  }
+  function beginDeliveryRevision(source) {
+    const input = byId('stewardComposerInput');
+    if (!input || !isStewardMode()) return { ok: false };
+    if (String(input.value || '').length || attachments.length || pendingUploads || picked || ['starting', 'warming', 'recording', 'transcribing'].includes(voice.phase())) return { ok: false, reason: 'draftBusy' };
+    if (!source || !source.sessionId || !(source.turnSeq > 0)) return { ok: false };
+    cancelPreroute(); prerouteSeq += 1; closePicker();
+    picked = { sessionId: source.sessionId, title: source.title, deliverySource: { turnSeq: source.turnSeq, latestTurnSeq: source.latestTurnSeq, sourceStamp: source.sourceStamp, fileStamp: source.fileStamp } };
+    routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = true;
+    input.placeholder = t('delivery.revisionPlaceholder');
+    note(t('delivery.revisionReady')); renderChip(); input.focus({ preventScroll: true });
     return { ok: true };
   }
 
@@ -625,6 +639,7 @@ export function createStewardComposer({
     bindStewardComposer,
     resetComposer,
     importExternalReference,
+    beginDeliveryRevision,
     submit,
     // 117c：撤回／换一条之后由对话流回调，把候选列表就地打开 ——「那递给谁？」问完就得让用户
     // 能立刻挑，而不是让他自己再去点 chip（§8.12 第 3 条「改递时同样先回退再递」）。

@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 78,
-    "providedSymbols": 3789,
-    "requiredSymbols": 3315,
-    "edges": 565,
+    "modules": 79,
+    "providedSymbols": 3800,
+    "requiredSymbols": 3349,
+    "edges": 572,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -25,6 +25,7 @@
         "CONFIG_SCHEMA",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
+        "DeliveryHooks",
         "EventStreamHooks",
         "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
@@ -1988,6 +1989,7 @@
         "buildAttachmentPrompt",
         "buildBrowserOpenSpawn",
         "buildCodeEditorSpawn",
+        "buildDeliveryRevisionPrompt",
         "buildOpenSpawn",
         "buildRevealSpawn",
         "classifyCodeEditorExecutable",
@@ -3392,6 +3394,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -3715,6 +3724,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "buildAttachmentPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "buildDeliveryRevisionPrompt",
           "kinds": [
             "call"
           ]
@@ -8729,6 +8745,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -9178,6 +9201,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "buildAttachmentPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "buildDeliveryRevisionPrompt",
           "kinds": [
             "call"
           ]
@@ -17528,8 +17558,237 @@
       ]
     },
     {
-      "file": "13k-steward-threads.js",
+      "file": "13aa-steward-delivery.js",
       "order": 59,
+      "layer": "unclassified",
+      "note": "Bounded per-turn delivery evidence, file freshness and revision source projection via StewardHooks",
+      "provides": [
+        "STEWARD_DELIVERY_LIMITS",
+        "handleStewardDeliveryApiRoutes",
+        "stewardCaptureDelivery",
+        "stewardDeliveryFiles",
+        "stewardDeliveryInspect",
+        "stewardDeliveryProjection",
+        "stewardDeliveryRows",
+        "stewardDeliverySource",
+        "stewardValidateDeliveryReference"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "buildMissionAcceptanceProjection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "kindForPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "ensureDataRootReal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "fileAllowedRoots",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveDataPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveHardlinkAlias",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "pathWithinAnyRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "readFilePreview",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "remoteUncDenialResolved",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardRawKind",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13k-steward-threads.js",
+      "order": 60,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)",
       "provides": [
@@ -18457,7 +18716,7 @@
     },
     {
       "file": "13l-steward-ops.js",
-      "order": 60,
+      "order": 61,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
@@ -19351,7 +19610,7 @@
     },
     {
       "file": "13g-steward.js",
-      "order": 61,
+      "order": 62,
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
@@ -19892,7 +20151,7 @@
     },
     {
       "file": "13m-steward-runner-base.js",
-      "order": 62,
+      "order": 63,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
@@ -20063,7 +20322,7 @@
     },
     {
       "file": "13n-steward-arbiter.js",
-      "order": 63,
+      "order": 64,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
       "provides": [
@@ -20262,7 +20521,7 @@
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "order": 64,
+      "order": 65,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
@@ -20742,7 +21001,7 @@
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "order": 65,
+      "order": 66,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
       "provides": [
@@ -21221,7 +21480,7 @@
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "order": 66,
+      "order": 67,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
       "provides": [
@@ -21864,7 +22123,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 67,
+      "order": 68,
       "layer": "transport",
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
       "provides": [
@@ -22211,7 +22470,7 @@
     },
     {
       "file": "13r-event-stream.js",
-      "order": 68,
+      "order": 69,
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
@@ -22372,7 +22631,7 @@
     },
     {
       "file": "13s-scheduler.js",
-      "order": 69,
+      "order": 70,
       "layer": "transport",
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗",
       "provides": [
@@ -22693,7 +22952,7 @@
     },
     {
       "file": "13t-steward-schedule.js",
-      "order": 70,
+      "order": 71,
       "layer": "transport",
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环",
       "provides": [
@@ -22999,7 +23258,7 @@
     },
     {
       "file": "13u-migration-center.js",
-      "order": 71,
+      "order": 72,
       "layer": "transport",
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
@@ -23314,7 +23573,7 @@
     },
     {
       "file": "13v-external-channel-protocols.js",
-      "order": 72,
+      "order": 73,
       "layer": "transport",
       "note": "External QQ/Feishu signed protocol normalization; pure built-in crypto helpers",
       "provides": [
@@ -23346,7 +23605,7 @@
     },
     {
       "file": "13x-external-channel-delivery.js",
-      "order": 73,
+      "order": 74,
       "layer": "transport",
       "note": "Single bounded official QQ/Feishu reply delivery, explicit sent/failed/unknown outcomes",
       "provides": [
@@ -23371,7 +23630,7 @@
     },
     {
       "file": "13y-external-bot-credentials.js",
-      "order": 74,
+      "order": 75,
       "layer": "transport",
       "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS",
       "provides": [
@@ -23424,7 +23683,7 @@
     },
     {
       "file": "13z-external-bot-discovery.js",
-      "order": 75,
+      "order": 76,
       "layer": "transport",
       "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted",
       "provides": [
@@ -23434,7 +23693,7 @@
     },
     {
       "file": "13w-external-bots.js",
-      "order": 76,
+      "order": 77,
       "layer": "transport",
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker",
       "provides": [
@@ -23664,7 +23923,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 77,
+      "order": 78,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -28517,6 +28776,7 @@
       "from": "05-claude-engine.js",
       "to": "00-boot.js",
       "symbols": [
+        "DeliveryHooks",
         "EventStreamHooks",
         "RUYI_EVENTS",
         "URL",
@@ -28634,6 +28894,7 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "buildAttachmentPrompt",
+        "buildDeliveryRevisionPrompt",
         "cwdWarning",
         "normalizeCwd"
       ],
@@ -29984,6 +30245,7 @@
       "from": "09-workflow.js",
       "to": "00-boot.js",
       "symbols": [
+        "DeliveryHooks",
         "EventStreamHooks",
         "RUYI_EVENTS",
         "SubAgentMemoryHooks",
@@ -30109,6 +30371,7 @@
         "bridgedOfficeScriptGate",
         "bridgedReadPathGate",
         "buildAttachmentPrompt",
+        "buildDeliveryRevisionPrompt",
         "cwdWarning",
         "journalBridgedWrite",
         "normalizeCwd",
@@ -31551,6 +31814,85 @@
         "stopScheduler"
       ],
       "direction": "forward"
+    },
+    {
+      "from": "13aa-steward-delivery.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "DeliveryHooks",
+        "URL",
+        "apiFailure",
+        "apiSessionNotFound",
+        "crypto",
+        "fsp",
+        "json",
+        "nowIso",
+        "path"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aa-steward-delivery.js",
+      "to": "01-config.js",
+      "symbols": [
+        "readConfig",
+        "safeSessionId",
+        "send",
+        "tokenOk"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aa-steward-delivery.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "buildMissionAcceptanceProjection",
+        "kindForPath",
+        "loadSession",
+        "readMissionContainer",
+        "sessionDisplayTitle",
+        "sessionMissionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aa-steward-delivery.js",
+      "to": "03-bridge-guard.js",
+      "symbols": [
+        "ensureDataRootReal",
+        "fileAllowedRoots",
+        "isSensitiveDataPath",
+        "isSensitiveHardlinkAlias",
+        "pathWithinAnyRoot",
+        "readFilePreview",
+        "remoteUncDenialResolved"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aa-steward-delivery.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "sessionExecutionSnapshot"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aa-steward-delivery.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "StewardHooks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aa-steward-delivery.js",
+      "to": "13j-steward-tool-base.js",
+      "symbols": [
+        "stewardFail",
+        "stewardRawKind"
+      ],
+      "direction": "backward"
     },
     {
       "from": "13b-api-domain-routes.js",

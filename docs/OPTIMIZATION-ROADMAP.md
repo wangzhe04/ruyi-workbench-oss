@@ -8,12 +8,12 @@
 |---|---|---|
 | 已发布基线 | [3.0.1 发布说明](release-notes/v3.0.1.md)，2026-10-16 | 表示该发布物的范围，不代表之后的源码变化已经打包 |
 | 已合入未发布 | [CHANGELOG 的 Unreleased](../CHANGELOG.md#未发布--unreleased) 和 Git 提交 | 当前源码使用 3.0.1 版本；下一版本号在范围冻结时确定 |
-| 当前方案 | [3.x 管家迭代](optimization-plan/62-steward-3x-iterations.md) | 分批实施；63–65 号已有验收，66 号为新增接入专项，不是全部已上线清单 |
+| 当前方案 | [3.x 管家迭代](optimization-plan/62-steward-3x-iterations.md) | 分批实施；具体实现和验证边界见 63–73 号记录，不是全部已上线清单 |
 | 远期概念 | [Traveler 原始概念](TRAVELER-CONCEPT.md) | 历史探索，未纳入当前排期，也不再预设为 4.0 主线 |
 
 ## 当前优先级
 
-[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。本批完成 [附件续办与搜索边界说明](optimization-plan/71-steward-attachments-search-scope.md)，并新增 [DeepSeek Search / Fetch 后端](optimization-plan/72-deepseek-search-fetch.md)。下一步推进第四轮交付与修订；全文分片索引、可取消深入查找、第三轮 P2 记忆补查与 66 号真实平台部署联调各自保留边界。源码尚未发布。
+[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。本批完成 [附件续办与搜索边界说明](optimization-plan/71-steward-attachments-search-scope.md)，并新增 [DeepSeek Search / Fetch 后端](optimization-plan/72-deepseek-search-fetch.md)。第四轮[交付和修订](optimization-plan/73-steward-delivery-revision.md)已完成源码、行为／浏览器验证和本机 DeepSeek 生成→修订实测；下一片推进第五轮事项待决清单与逐项处理；全文分片索引、可取消深入查找、第三轮 P2 记忆补查与 66 号真实平台部署联调各自保留边界。源码尚未发布。
 
 | 顺序 | 目标 | 建议版本归属 |
 |---|---|---|

@@ -187,6 +187,10 @@ async function stewardAppendUserStop(sessionId, facts) {
 // 路由(token 级,ROUTE_AUTH 在 01b 登记)。经 13g 的 handleStewardApiRoutes 末尾转交(见那里的注释)。
 // ────────────────────────────────────────────────────────────────────────────
 async function handleStewardRunnerApiRoutes(req, res, pathname) {
+  if (req.method === 'GET' && pathname === '/api/steward/delivery') {
+    await StewardHooks.handleDeliveryApiRoutes(req, res, pathname);
+    if (res.writableEnded) return;
+  }
   // 116h(27 号文 §3.1 116h 行 / §8.10 多线程看板):线程间仲裁的只读状态与插队。
   // 状态是纯内存读模型(running/queue/hour/day),不写盘;prioritize 只动队列顺序,不打断在跑的回合。
   if (req.method === 'GET' && pathname === '/api/steward/arbiter') {

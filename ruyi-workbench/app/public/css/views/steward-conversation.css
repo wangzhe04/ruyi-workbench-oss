@@ -611,6 +611,27 @@
 .steward-deliverable-more:focus-visible,
 .steward-deliverable-full:focus-visible { outline: none; box-shadow: var(--ring); }
 
+/* 3.x：交付正文下的原件与证据，沿用当前色彩和紧凑的文字按钮。 */
+.steward-delivery-panel { min-width: 0; margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+.steward-delivery-caption { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
+.steward-delivery-note, .steward-delivery-feedback { margin: var(--sp-1) 0; color: var(--muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.steward-delivery-feedback:empty { display: none; }
+.steward-delivery-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); padding-top: var(--sp-2); }
+.steward-delivery-action, .steward-delivery-file-open { padding: 3px 0; border: 0; background: none; color: var(--ink-2); font: inherit; font-size: var(--fs-xs); cursor: pointer; text-align: left; }
+.steward-delivery-revise { color: var(--accent); }
+.steward-delivery-action:hover, .steward-delivery-file-open:hover { text-decoration: underline; }
+.steward-delivery-action:focus-visible, .steward-delivery-file-open:focus-visible { outline: none; box-shadow: var(--ring); }
+.steward-delivery-action:disabled, .steward-delivery-file-open:disabled { opacity: .6; cursor: default; text-decoration: none; }
+.steward-delivery-files, .steward-delivery-checks { margin-top: var(--sp-2); }
+.steward-delivery-file, .steward-delivery-check { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px var(--sp-2); padding: var(--sp-1) 0; border-bottom: 1px solid var(--line); }
+.steward-delivery-file-open, .steward-delivery-check-desc { min-width: 0; flex: 1 1 170px; overflow-wrap: anywhere; }
+.steward-delivery-file-status, .steward-delivery-check-label { font-size: var(--fs-xs); color: var(--muted); }
+.steward-delivery-file-path, .steward-delivery-check-detail { flex-basis: 100%; margin: 0; color: var(--muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.steward-delivery-preview { min-width: 0; max-width: 100%; margin-top: var(--sp-2); overflow: auto; }
+.steward-delivery-preview .fp-body-wrap { max-height: 420px; overflow: auto; }
+.steward-delivery-preview .fp-html-frame { width: 100%; min-height: 280px; }
+.steward-delivery-preview .fp-image { max-width: 100%; height: auto; }
+
 /* ── F1 线程卡 · 令牌（27 号文 §11.13.1「线程即频道」；设计稿画板「宽屏 · 线程即频道」）──────
    线程色卡是本波【新加】的四色，纪律是「同明度同饱和度只换色相」（27 号文 §11.13.1 F 原话）。
    所以这里不写四个颜色值，写的是【一组色相角 + 一对共用的饱和度/明度】：

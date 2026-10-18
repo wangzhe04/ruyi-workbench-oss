@@ -277,7 +277,7 @@ async function runClaudeTurn({
       onEvent({ type: 'resume_recovery', reason: resumeResetReason, automatic: true });
     }
   }
-  const basePrompt = `${message}${buildAttachmentPrompt(attachments)}`;
+  const basePrompt = `${message}${buildAttachmentPrompt(attachments)}${buildDeliveryRevisionPrompt(messageMeta)}`;
   // Seed a bounded continuity copy on every normal Claude turn. `--resume` can silently select a fresh
   // native transcript (missing/moved CLI state, upgrades, endpoint/model changes), and that fact is only
   // observable after the prompt has already been sent. A proactive bounded copy is the only side-effect-free
@@ -1134,6 +1134,7 @@ async function runClaudeTurn({
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'claude', turnJournal);
+  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt }).catch(() => {});
   if (agentRecoverySummary && exit.code === 0 && !wasStopped) {
     delete session.agentRecoverySummary;
     delete session.agentRecoverySource;

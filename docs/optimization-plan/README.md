@@ -15,6 +15,7 @@
 - [70 · 递话失败与迟到响应的保护](70-steward-handoff-failure-retry.md)：3.1 第三轮 P1 第二片；一次递话一个 attemptId（服务端只执行一次），失败只说「未确认」并可核对回执后再重发。源码与真浏览器验收完成，尚未发布。
 - [71 · 附件续办与搜索范围说明](71-steward-attachments-search-scope.md)：手选空闲任务带材料续办，失败保留原话、附件与目标，搜索明确有界索引；未发布。
 - [72 · DeepSeek Search / Fetch 接入](72-deepseek-search-fetch.md)：普通任务和管家共用官方独立 JSON API、密钥设置、Markdown 分页与缓存；未发布。
+- [73 · 交付和修订](73-steward-delivery-revision.md)：原轮文件、检查来源、就近打开与原任务修订，文件变化及新要求使旧检查失效；隔离、浏览器及本机 DeepSeek 旅程验证，未发布。
 - [全局路线图](../OPTIMIZATION-ROADMAP.md)：产品状态与当前方向导航。
 - [文档总索引](../README.md)：开发、使用、发布和历史材料入口。
 
