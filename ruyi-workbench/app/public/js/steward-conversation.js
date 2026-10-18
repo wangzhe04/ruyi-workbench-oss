@@ -1868,12 +1868,13 @@ export function createStewardConversation({
     return String(Date.now()) + Math.random().toString(36).slice(2, 10);
   }
 
-  async function handOff({ sessionId, title, message, reason, hits }) {
+  async function handOff({ sessionId, title, message, reason, hits, attachments }) {
     const sid = String(sessionId || '');
     const text = String(message || '').trim();
     if (!sid || !text) return null;
-    appendUser(text);
-    const attempt = { attemptId: handOffAttemptId(), sessionId: sid, title, text, reason, hits };
+    const files = Array.isArray(attachments) ? attachments.map(file => ({ ...file })) : [];
+    appendAttachLine(appendUser(text), files);
+    const attempt = { attemptId: handOffAttemptId(), sessionId: sid, title, text, reason, hits, attachments: files };
     return deliverHandOff(attempt);
   }
 
@@ -1884,13 +1885,14 @@ export function createStewardConversation({
     let response = null;
     try {
       response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({
-        act: { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: attempt.text } },
+        act: { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: attempt.text, ...(attempt.attachments.length ? { attachments: attempt.attachments } : {}) } },
         attemptId: attempt.attemptId }) });
     } catch (error) {
       // HTTP 给了明确回应时不是「未知」：4xx 是服务端明确拒绝（这一发没有执行），照旧显示真实错误；
       // 5xx / 没有状态码的网络异常才可能已经执行 —— 那才需要「未确认 + 核对」。
       const status = Number(error && error.status);
       if (Number.isInteger(status) && status >= 400 && status < 500) {
+        if (attempt.attachments.length && !options.silentPending) return renderHandOffPending(attempt, stewardErrorText(error));
         reportFailure(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
         return null;
       }
@@ -1900,7 +1902,8 @@ export function createStewardConversation({
     const result = response && response.result;
     if (result && result.ok === false) {
       const key = stewardActErrorKey(result.error);
-      reportFailure(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) }));
+      if (attempt.attachments.length && !options.silentPending) return renderHandOffPending(attempt, key ? t(key) : stewardErrorText(result.message || result.error));
+      reportFailure(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.message || result.error) }));
       return null;
     }
     // 重放只说明「上一次已经执行过」：不再追加第二条回执行，也不重挂第二枚撤回按钮。
@@ -1950,11 +1953,13 @@ export function createStewardConversation({
 
   // 未确认的递送：一行提示 + 两枚按钮。核对只读回执；重发带同一个 attemptId（服务端只执行一次）。
   // 所有结果都写回【这一行自己的】备注节点，不 append 到当前 feed —— 核对期间切换线程不会写错视图。
-  function renderHandOffPending(attempt) {
-    const row = appendSteward(t('stewardShell.chat.handOffUnknown', { title: stewardShortTitle(attempt.title || attempt.sessionId) }), '');
+  function renderHandOffPending(attempt, failure = '') {
+    const row = appendSteward(t(failure ? 'stewardShell.chat.handOffRejected' : 'stewardShell.chat.handOffUnknown', { title: stewardShortTitle(attempt.title || attempt.sessionId) }), '');
+    appendAttachLine(row, attempt.attachments);
     const note = el('p', 'muted');
     if (row) row.appendChild(note);
     const say = text => { if (note) note.textContent = text; };
+    if (failure) say(failure);
     const actsRow = el('div', 'steward-acts');
     const checkBtn = button('steward-act', t('stewardShell.chat.handOffCheck'), async () => {
       if (checkBtn.disabled) return;

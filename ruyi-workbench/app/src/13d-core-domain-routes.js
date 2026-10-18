@@ -242,9 +242,15 @@ function sessionSearchHayOf(entry) {
   sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
   return hay;
 }
+function sessionSearchScope(indexEnabled = true) {
+  return { fullText: false, mode: indexEnabled ? 'bounded_index' : 'metadata_only',
+    maxCharsPerSession: SESSION_SEARCH_UNIT_CAP, userCharsPerMessage: SESSION_SEARCH_USER_CHARS,
+    assistantCharsPerMessage: SESSION_SEARCH_ASSISTANT_CHARS, headBytes: SESSION_SEARCH_HEAD_BYTES, tailBytes: SESSION_SEARCH_TAIL_BYTES,
+    note: '只搜索标题、摘要及有限正文索引,长会话可能遗漏;未命中不能证明从未做过。可换关键词或读取选定线程核对。' };
+}
 async function searchSessionsByContent(query, limit) {
   const q = String(query || '').trim();
-  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
+  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope: sessionSearchScope(), reason: 'query_too_short' };
   const metas = await listSessions();
   const entries = await refreshSessionSearchIndex(metas);
   const byId = new Map(metas.map(meta => [meta.id, meta]));
@@ -252,7 +258,7 @@ async function searchSessionsByContent(query, limit) {
   const documents = metas
     .filter(meta => entries[meta.id])
     .map(meta => ({ id: meta.id, text: entries[meta.id].unit }));
-  if (!documents.length) return { ok: true, query: q, results: [], indexed: 0 };
+  if (!documents.length) return { ok: true, query: q, results: [], indexed: 0, scope: sessionSearchScope() };
 
   const terms = [...new Set(retrievalTerms(q).filter(term => !term.startsWith('#')))];
   const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
@@ -302,6 +308,7 @@ async function searchSessionsByContent(query, limit) {
     ok: true,
     query: q,
     indexed: documents.length,
+    scope: sessionSearchScope(),
     results: ranked.slice(0, cap).map(row => ({
       id: row.id,
       title: row.meta.title || '',

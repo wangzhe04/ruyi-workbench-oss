@@ -2498,10 +2498,11 @@ const NETWORK_TOOL_HANDLERS = {
     // v0.9-S9 (D6): web_search reads searchBackend from config (baseUrl is the admin's TRUSTED endpoint →
     // exempt from SSRF; see the web section header). web_fetch's url is UNTRUSTED → SSRF-guarded inside.
       const cfg = await readConfig().catch(() => ({ searchBackend: { type: 'none' } }));
-      return webSearch(args, cfg);
+      return webSearch(args, cfg, { signal: ctx && ctx.signal });
   } },
   web_fetch: { paths: null, guardNote: "纯网络读,SSRF 全套护栏内置(ssrfCheck/dnsResolvesToPrivate 逐跳)", handler: async (args, ctx) => {
-      return webFetch(args, { signal: ctx && ctx.signal });   // 用户 Stop / 插话要能取消进行中的抓取
+      const config = await readConfig().catch(() => ({}));
+      return webFetch(args, { signal: ctx && ctx.signal, config });   // 用户 Stop / 插话要能取消进行中的抓取
   } },
   http_request: { paths: null, guardNote: "纯网络调用,不触文件路径", handler: async (args, ctx) => {
       // 3.0 收口走查(第四波):不许经这个工具调如意【自己】的本机接口 —— 那里有 /api/permission/decision、/api/tools/*、会话与记忆读接口,

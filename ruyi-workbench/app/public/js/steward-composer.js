@@ -304,6 +304,7 @@ export function createStewardComposer({
       });
       picker.appendChild(option);
     }
+    picker.appendChild(el('p', 'muted', t('stewardShell.compose.searchScope')));
   }
 
   function openPicker() {
@@ -360,9 +361,7 @@ export function createStewardComposer({
     if (!text) return;
     const target = currentTarget();
     // 走查 S-13：两种「发不出去」都要在【清空输入框之前】拦下，话与附件原样留着（修前先清后发，那句话既不上屏也不保留）：
-    //   ① 手选了目标线程却带着附件 —— 直递走的是 relay（只传文字），附件会被静默丢掉；拦下并说清楚；
-    //   ② 管家那条路上一句还在跑、排队已满 —— sendToSteward 会拒收，同样不能把话吞掉。
-    if (target && attachments.length) { note(t('stewardShell.compose.attachNeedsSteward')); return; }
+    // 管家那条路上一句还在跑、排队已满时不能把话吞掉。直递附件由服务端按目标通道校验。
     if (!target && typeof conversation.sendQueueFull === 'function' && conversation.sendQueueFull()) {
       note(t('stewardShell.chat.queueFull'));
       return;
@@ -379,16 +378,18 @@ export function createStewardComposer({
     try {
       // 117l D1：**手选的目标才直递**（那是用户明示，§8.12 第 4 条）；其余一律发给管家，预判只
       // 随 routeHint 走一趟提示（§11.9 D1「无论关键词匹配到什么，都要发给管家让它决定」）。
-      // 133e：直递给线程那条路（handOff）不带附件 —— 递话走的是 relay，不是回合体；附件只在「对管家说」这条路上。
-      if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits });
+      if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits, attachments: files });
       else await conversation.sendToSteward(text, { routeHint: routeHintPayload(), ...(files.length ? { attachments: files } : {}) });
     } finally {
       // 手选只管这一次发送，之后自动回到「→ 如意」（§8.12 第 4 条）。
-      picked = null;
-      routeKind = 'steward';
-      routeHits = [];
-      routeReason = '';
-      hintDismissed = false;     // 117r-D3 ③ 复位点之一：发完这一句，下一句的预判不该被上一句否掉的状态拦住
+      // 等回执期间手选了别的目标,那是下一份草稿,迟到响应不能把它清掉。
+      if (picked === target) {
+        picked = null;
+        routeKind = 'steward';
+        routeHits = [];
+        routeReason = '';
+        hintDismissed = false;     // 117r-D3 ③ 复位点之一：发完这一句，下一句的预判不该被上一句否掉的状态拦住
+      }
       renderChip();
     }
   }

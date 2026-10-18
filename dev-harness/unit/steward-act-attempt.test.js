@@ -97,3 +97,18 @@ test('an unusable attemptId on a plain act degrades to a normal execution', asyn
   assert.equal(result.ok, true);
   assert.equal(result.replayed, undefined);
 });
+
+test('an attempt cannot replay a receipt for another target or payload', async () => {
+  const absent = await stewardRunAct(undefined, {}, { attemptId: 'attempt-absent-0001' });
+  assert.equal(absent.ok, false, 'missing act returns a failure instead of throwing');
+  await stewardRunAct(act('sess-bound'), {}, { attemptId: 'attempt-bound-00001' });
+  const changed = await stewardRunAct(act('sess-other'), {}, { attemptId: 'attempt-bound-00001' });
+  assert.equal(changed.ok, false);
+  assert.equal(changed.error, 'invalid_request');
+  const [owner, mismatch] = await Promise.all([
+    stewardRunAct(act('sess-owner'), {}, { attemptId: 'attempt-bound-00002' }),
+    stewardRunAct(act('sess-mismatch'), {}, { attemptId: 'attempt-bound-00002' }),
+  ]);
+  assert.equal(owner.ok, true);
+  assert.equal(mismatch.ok, false);
+});

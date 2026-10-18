@@ -3879,7 +3879,7 @@ function normalizeConfig(raw, opts = {}) {
     const raw0 = (config.searchBackend && typeof config.searchBackend === 'object' && !Array.isArray(config.searchBackend)) ? config.searchBackend : {};
     // v1.0-S6 (A): +tavily +bocha. v1.1-W1a (T3): +builtin. New枚举 values are OPTIONAL/缺省安全 — an
     // absent/unknown type still falls back to 'builtin' (the zero-config default), so configSchema stays 7.
-    let type = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'custom'].includes(raw0.type) ? raw0.type : 'builtin';
+    let type = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'deepseek', 'custom'].includes(raw0.type) ? raw0.type : 'builtin';
     // v1.1-W1a (T3): MIGRATE存量 'none' → 'builtin'. Rationale: 'none' was the *historical default* (nobody
     // ever actively chose "disable search" — the old default just left web_search off). Folding it to the new
     // zero-config backend turns search ON for every upgraded install, matching the 开箱即用 decision.
@@ -51038,6 +51038,8 @@ async function runSessionTurn(input) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const loadedSession = body.sessionId ? await loadSession(body.sessionId) : null;
+  if (source === 'steward' && body.sessionId && !loadedSession) throw Object.assign(new Error('目标线程已不存在,没有另开任务'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  if (loadedSession && typeof body.expectedCwd === 'string' && String(loadedSession.cwd || '') !== body.expectedCwd) throw Object.assign(new Error('目标线程的工作区已变化,请重新选择目标'), { code: 'SESSION_WORKSPACE_CHANGED', statusCode: 409 });
   // 系统自己起的唤醒回合绝不顺手新建会话:HTTP 的「合法 id 但装载不到 → 新建」是给用户的兜底(损坏会话被隔离后继续聊),
   // 对唤醒不成立 —— 线程在 runAgentWake 校验之后被删(或装载瞬时失败)时,新建只会冒出一条只有唤醒通知的孤儿会话。
   if (!loadedSession && source === AGENT_WAKE_SOURCE) throw Object.assign(new Error('session not found'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
@@ -56004,6 +56006,15 @@ async function webFetch(args = {}, opts = {}) {
   // never even attempts a socket, and NEVER falls back to cache (a blocked url must not leak cached content).
   const pre = ssrfCheck(url);
   if (!pre.allowed) return { ok: false, error: pre.reason, blocked: pre.host };
+  const sb = opts.config && opts.config.searchBackend;
+  const deepseek = sb && sb.type === 'deepseek';
+  if (deepseek) {
+    const parsed = new URL(url);
+    if (url.length > 8192 || parsed.username || parsed.password) return { ok: false, error: 'DeepSeek Fetch 需要不含用户名密码、长度不超过 8192 的网址', backend: 'deepseek' };
+    const dns = await dnsResolvesToPrivate(parsed.hostname);
+    if (dns && dns.blocked) return { ok: false, error: '目标地址解析到内网/回环', blocked: dns.host };
+  }
+  const cacheMatches = entry => entry && (deepseek ? entry.backend === 'deepseek' : entry.backend !== 'deepseek');
   // 一页 = 缓存条目的一个切片;live / cache 共用同一个出口,保证 truncated / nextOffset 的口径一致。
   const pageOf = (entry, extra) => {
     const full = String(entry.text || '');
@@ -56013,7 +56024,7 @@ async function webFetch(args = {}, opts = {}) {
       const res = { ok: true, url: entry.url || url, title: entry.title || '', text, offset: start, totalChars: full.length,
         truncated: more || entry.sourceTruncated === true || oldPartialCache, ts: entry.ts || null, ...extra };
       if (more) res.nextOffset = end;
-      for (const key of ['contentType', 'charset', 'warning', 'note']) if (entry[key]) res[key] = entry[key];
+      for (const key of ['contentType', 'charset', 'warning', 'note', 'backend']) if (entry[key]) res[key] = entry[key];
       if (oldPartialCache) {
         res.sourceTruncated = true;
         res.note = '旧缓存只保存了部分正文;totalChars 是已保存量,不是整页总量。';
@@ -56032,7 +56043,23 @@ async function webFetch(args = {}, opts = {}) {
   if (offset > 0) {
     const hit = await readWebCache(url);
     const age = hit && hit.ts ? Date.parse(hit.ts) : NaN;
-    if (hit && hit.truncated !== true && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
+    if (cacheMatches(hit) && hit.truncated !== true && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
+  }
+  if (deepseek) {
+    const got = await deepseekWebRequest(sb, 'fetch', { url }, { timeoutMs: 30000, signal: opts.signal });
+    if (got.ok) {
+      if (typeof got.data.content !== 'string' || !got.data.content.trim()) return { ok: false, error: 'DeepSeek Fetch 未返回 Markdown 正文', backend: 'deepseek', parseFailed: true };
+      const entry = { url, title: String(got.data.title || ''), text: got.data.content, ts: nowIso(), backend: 'deepseek', contentType: 'text/markdown' };
+      await writeWebCache(entry);
+      markNetworkOnline();
+      return pageOf(entry, { fromCache: false });
+    }
+    // 授权、余额、拒绝访问和页面删除均照实报告；仅临时网络/服务故障允许读旧缓存。
+    if (got.failClass !== 'aborted' && (!got.statusCode || got.statusCode === 408 || got.statusCode === 429 || got.statusCode >= 500) && !got.parseFailed && got.failClass !== 'invalid_request') {
+      const cached = await readWebCache(url);
+      if (cacheMatches(cached)) return pageOf(cached, { fromCache: true, staleReason: got.error });
+    }
+    return got;
   }
   const got = await httpGetGuarded(url, { totalTimeoutMs: 30000, signal: (opts && opts.signal) || null });
   if (got.ok && got.body) {
@@ -56072,7 +56099,8 @@ async function webFetch(args = {}, opts = {}) {
   // 对端明确答复「页面不存在 / 已删除」(HTTP 404 / 410)是权威的答复:修前这里也回落缓存,抓过一次的页面被删后,
   // 再抓回 ok:true + fromCache:true,把已下线的页面当成功读出来。这两个状态码不读缓存,照实报错。
   const pageGone = got.failClass === 'http' && (got.statusCode === 404 || got.statusCode === 410);
-  const cached = pageGone ? null : await readWebCache(url);
+  const candidate = pageGone ? null : await readWebCache(url);
+  const cached = cacheMatches(candidate) ? candidate : null;
   if (cached) return pageOf(cached, { fromCache: true, staleReason: mapped.error });
   // No cache. Decide the hint by a FAST live probe (multi-target, 2s) — only if that also fails do we say 离线.
   // 走了代理时不做这一探:探测走的是本机直连,代理网络里它必然失败,会把「代理没配好」误报成「当前疑似离线」。
@@ -56346,6 +56374,7 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
 function searchFailFromResponse(backend, r) {
   const st = r.statusCode;
   const out = { ok: false, error: r.error || ('HTTP ' + st), backend };
+  if (r.failClass) out.failClass = r.failClass;
   if (st) out.statusCode = st;
   if (r.hint) out.hint = r.hint;
   if (st === 403 && backend === 'searxng') out.hint = 'searxng 需要启用 JSON 输出:settings.yml 里 search.formats 加上 json(并确认没有被 limiter / 反向代理拦截)';
@@ -56366,12 +56395,34 @@ function searchParseJsonResponse(backend, r) {
   return { body };
 }
 function searchBackendNeverFallsBack(sb) { return !!sb && (sb.type === 'searxng' || sb.type === 'custom'); }
-async function webSearch(args, config) {
-  const first = await webSearchViaBackend(args, config);
+// DeepSeek 的独立 JSON API；同一管理员配置同时供 search/fetch 使用。不给重定向转发密钥，
+// 不把远端错误正文带回模型；所有调用仍经零依赖 httpRequest 的硬超时、响应上限与取消。
+async function deepseekWebRequest(sb, operation, payload, opts = {}) {
+  const backend = 'deepseek';
+  const apiKey = String(sb.apiKey || '').trim();
+  if (!apiKey) return { ok: false, error: 'DeepSeek API Key 未配置', backend, failClass: 'invalid_request', hint: '在 设置→搜索后端 填入 DeepSeek API Key' };
+  const root = String(sb.baseUrl || 'https://api.deepseek.com').trim().replace(/\/+$/, '').replace(/\/v1$/, '');
+  const r = await httpRequest({ url: `${root}/v1/tools/${operation}`, method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + apiKey }, body: JSON.stringify(payload),
+    timeoutMs: opts.timeoutMs || 12000, maxBodyChars: 2000000 }, { signal: opts.signal });
+  if (!r.ok || r.redirected) {
+    const fail = r.redirected ? searchParseJsonResponse(backend, r).fail : searchFailFromResponse(backend, r);
+    if (r.redirected) { fail.parseFailed = true; fail.statusCode = r.statusCode; }
+    if (r.failClass) fail.failClass = r.failClass;
+    if (r.statusCode === 402) fail.hint = 'DeepSeek 账号余额不足,充值后再试';
+    return fail;
+  }
+  const parsed = searchParseJsonResponse(backend, r);
+  if (parsed.fail) return parsed.fail;
+  if (r.truncated || parsed.body.error) return { ok: false, error: 'DeepSeek 返回不完整或错误响应', backend, parseFailed: true };
+  return { ok: true, data: parsed.body };
+}
+async function webSearch(args, config, opts = {}) {
+  const first = await webSearchViaBackend(args, config, opts);
   const sb = (config && config.searchBackend) || { type: 'none' };
   const backend = sb.type || 'none';
   const query = String(args && args.query || '').trim();
-  if (first.ok !== false || !query || backend === 'none' || backend === 'builtin') return first;
+  if (first.ok !== false || !query || backend === 'none' || backend === 'builtin' || first.failClass === 'invalid_request' || first.failClass === 'aborted') return first;
   if (searchBackendNeverFallsBack(sb)) return Object.assign({}, first, { fallbackSkipped: `搜索后端 ${backend} 失败;为避免把查询词发给公网搜索引擎,没有回退到内置搜索` });
   if (sb.fallbackToBuiltin !== true) return Object.assign({}, first, { fallbackSkipped: `搜索后端 ${backend} 失败;没有回退到内置免费搜索(会把查询词发给公网的 Bing / 百度)`, hint: ((first && first.hint) ? first.hint + ';' : '') + '如接受回退,在 config.json 的 searchBackend 里设 fallbackToBuiltin:true' });
   const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
@@ -56384,18 +56435,29 @@ async function webSearch(args, config) {
   }
   return Object.assign({}, first, { fallbackTried: 'builtin' });
 }
-async function webSearchViaBackend(args, config) {
+async function webSearchViaBackend(args, config, opts = {}) {
   const query = String(args && args.query || '').trim();
   // 缺省 8 条(修前 5 条):内置搜索是抓网页,前几条常被百科 / 问答聚合占住,5 条经常不够把问题答全;结果只是短摘要,多几条不贵。
   const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
   const sb = (config && config.searchBackend) || { type: 'none' };
   const backend = sb.type || 'none';
   if (!query) return { ok: false, error: 'query is required', backend };
-  if (backend === 'none') return { ok: false, error: '未配置搜索后端', hint: '到 设置→搜索后端 选择 内置免费搜索(builtin)/searxng/bing/brave/tavily/bocha/custom', backend };
+  if (backend === 'none') return { ok: false, error: '未配置搜索后端', hint: '到 设置→搜索后端 选择 内置免费搜索(builtin)/searxng/bing/brave/tavily/bocha/deepseek/custom', backend };
   const baseUrl = String(sb.baseUrl || '').trim().replace(/\/+$/, '');
   const apiKey = String(sb.apiKey || '').trim();
   const timeoutMs = Number(args && args.timeoutMs) || 12000;
   try {
+    if (backend === 'deepseek') {
+      if (Array.from(query).length > 128) return { ok: false, error: 'DeepSeek 搜索词最多 128 个 Unicode 字符,请精简关键词', backend, failClass: 'invalid_request' };
+      const got = await deepseekWebRequest(sb, 'search', { query, count: Math.floor(maxResults), need_content: false }, { timeoutMs, signal: opts.signal });
+      if (!got.ok) return got;
+      if (!Array.isArray(got.data.results)) return { ok: false, error: 'DeepSeek 响应缺少 results 数组', backend, parseFailed: true };
+      return { ok: true, backend, results: got.data.results.slice(0, maxResults).filter(x => x && typeof x === 'object').map(x => ({
+        title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.snippet || x.summary || '').slice(0, 4000),
+        ...(typeof x.summary === 'string' ? { summary: x.summary.slice(0, 4000) } : {}),
+        ...(typeof x.date === 'string' ? { date: x.date } : {}),
+      })) };
+    }
     // v1.1-W1a (T3): 'builtin' — zero-config, no-key HTML search. Primary Bing CN, 兜底 百度. Both scraped
     // with the realistic browser headers (T1) so anti-scrape edges serve real HTML. Fully defensive parsing
     // (a shape change collapses to [] rather than throwing). Results are JSON text only — the front-end renders
@@ -56405,7 +56467,7 @@ async function webSearchViaBackend(args, config) {
     if (backend === 'builtin') return await builtinSearch(query, maxResults, baseUrl, timeoutMs, String(sb.baiduBaseUrl || '').trim().replace(/\/+$/, ''));
     // 各 JSON 后端共用的收尾:请求 → 失败 / 非 JSON 说明 → 取出行 → 映射。extract(body) 返回行数组(缺失则 [])。
     const viaJson = async (reqArgs, extract, map, missingNote) => {
-      const r = await httpRequest(Object.assign({ timeoutMs, maxBodyChars: 500000 }, reqArgs));
+      const r = await httpRequest(Object.assign({ timeoutMs, maxBodyChars: 500000 }, reqArgs), { signal: opts.signal });
       if (!r.ok || r.redirected) {
         if (r.redirected) return searchParseJsonResponse(backend, r).fail;
         return searchFailFromResponse(backend, r);
@@ -60465,10 +60527,11 @@ const NETWORK_TOOL_HANDLERS = {
     // v0.9-S9 (D6): web_search reads searchBackend from config (baseUrl is the admin's TRUSTED endpoint →
     // exempt from SSRF; see the web section header). web_fetch's url is UNTRUSTED → SSRF-guarded inside.
       const cfg = await readConfig().catch(() => ({ searchBackend: { type: 'none' } }));
-      return webSearch(args, cfg);
+      return webSearch(args, cfg, { signal: ctx && ctx.signal });
   } },
   web_fetch: { paths: null, guardNote: "纯网络读,SSRF 全套护栏内置(ssrfCheck/dnsResolvesToPrivate 逐跳)", handler: async (args, ctx) => {
-      return webFetch(args, { signal: ctx && ctx.signal });   // 用户 Stop / 插话要能取消进行中的抓取
+      const config = await readConfig().catch(() => ({}));
+      return webFetch(args, { signal: ctx && ctx.signal, config });   // 用户 Stop / 插话要能取消进行中的抓取
   } },
   http_request: { paths: null, guardNote: "纯网络调用,不触文件路径", handler: async (args, ctx) => {
       // 3.0 收口走查(第四波):不许经这个工具调如意【自己】的本机接口 —— 那里有 /api/permission/decision、/api/tools/*、会话与记忆读接口,
@@ -62332,7 +62395,7 @@ const MCP_TOOLS = [
   // loopback/私网/元数据/协议) — an untrusted url can never reach an internal endpoint.
   {
     name: 'web_search',
-    description: 'Search the web via the configured search backend (built-in Bing/Baidu, searxng, bing, brave, tavily, bocha, custom). Returns {results:[{title,url,snippet}]}; a `note` explains an empty list (e.g. the engine showed a captcha); when the configured backend fails, the built-in search is tried once and the result carries `fallbackFrom`. Use specific keywords (product names, error messages, versions); if results look off-topic, rephrase and search again. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
+    description: "Search configured backend (built-in Bing/Baidu, SearXNG, Bing, Brave, Tavily, Bocha, DeepSeek, custom). Returns {results:[{title,url,snippet}],backend,note?}. API errors fall back to built-in only with explicit fallbackToBuiltin:true; fallbackFrom identifies it. Use specific keywords; rephrase off-topic queries. Search before answering time-sensitive or external facts, then web_fetch reliable sources. DeepSeek queries: at most 128 Unicode characters.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -62344,7 +62407,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'web_fetch',
-    description: 'Fetch a public http(s) page: extracted main text + title (links as "text [n]", URLs in `links`; GBK/Big5 decoded). Non-text URLs (PDF, images, zip, Office) are refused: use http_download. ≤3 redirects, 30s, ≤2MB; internal/loopback addresses refused. Paged: when `nextOffset` is returned, call again with offset=nextOffset. Offline serves a cached copy if any (fromCache:true).',
+    description: "Read a public HTTP(S) page; selecting DeepSeek search uses its Fetch API for Markdown. Returns title/text; direct HTML links use [n] + links; GBK/Big5 supported. Binary files: use http_download. Internal targets refused. Direct: <=3 redirects/2MB; all:30s. Paged: follow nextOffset. Network failure may serve cache (fromCache:true, timestamp/staleReason).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -62517,7 +62580,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['q'],
       properties: {
-        q: { type: 'string', description: '检索词(中英皆可)。太短(少于 2 字)会返回空结果并给出 reason:"query_too_short"。' },
+        q: { type: 'string', description: '检索词(中英皆可)。搜索仅覆盖标题、摘要及有界正文索引,未命中不能证明从未做过;长会话可用 thread_read/steward_thread_read 分页核对。太短(少于 2 字)会返回空结果并给出 reason:"query_too_short"。' },
         limit: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: '返回条数上限,夹取到 1..50,默认 10。' },
         includeClosed: { type: 'boolean', default: true, description: '默认包含已收工速查聊天;false 时排除。' },
       },
@@ -62675,6 +62738,7 @@ const MCP_TOOLS = [
       properties: {
         sessionId: { type: 'string', minLength: 1, description: '目标线程 id(不能是管家自己的会话)。' },
         message: { type: 'string', minLength: 1, description: '要递过去的话,原话直递。' },
+        attachments: { type: 'array', maxItems: 12, description: '本次用户上传的附件记录(id/name)。仅目标空闲、可起新回合时支持;执行中、排队或待决时拒绝整次递送,不丢附件,等空闲再试。服务端重新核对文件存在及上传目录,不使用传入 path。', items: { type: 'object', required: ['id', 'name'], properties: { id: { type: 'string' }, name: { type: 'string' } } } },
         answerBasis: {
           type: 'object', additionalProperties: false,
           description: '【只在代答时给】用户不在跟前、而目标线程正挂着一道给用户的提问时,这句话会被当成用户的答案答进去(通道 ①)。那种情况下必须说清答案的出处,否则一律转给用户。出处两种,给一种就够,都会被服务端核实:记忆条目 id(回库里查,必须仍有效)、委托书原文片段(逐字比对)。用户就在跟前时不用给 —— 那时递的是他的原话。',
@@ -67420,9 +67484,15 @@ function sessionSearchHayOf(entry) {
   sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
   return hay;
 }
+function sessionSearchScope(indexEnabled = true) {
+  return { fullText: false, mode: indexEnabled ? 'bounded_index' : 'metadata_only',
+    maxCharsPerSession: SESSION_SEARCH_UNIT_CAP, userCharsPerMessage: SESSION_SEARCH_USER_CHARS,
+    assistantCharsPerMessage: SESSION_SEARCH_ASSISTANT_CHARS, headBytes: SESSION_SEARCH_HEAD_BYTES, tailBytes: SESSION_SEARCH_TAIL_BYTES,
+    note: '只搜索标题、摘要及有限正文索引,长会话可能遗漏;未命中不能证明从未做过。可换关键词或读取选定线程核对。' };
+}
 async function searchSessionsByContent(query, limit) {
   const q = String(query || '').trim();
-  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
+  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope: sessionSearchScope(), reason: 'query_too_short' };
   const metas = await listSessions();
   const entries = await refreshSessionSearchIndex(metas);
   const byId = new Map(metas.map(meta => [meta.id, meta]));
@@ -67430,7 +67500,7 @@ async function searchSessionsByContent(query, limit) {
   const documents = metas
     .filter(meta => entries[meta.id])
     .map(meta => ({ id: meta.id, text: entries[meta.id].unit }));
-  if (!documents.length) return { ok: true, query: q, results: [], indexed: 0 };
+  if (!documents.length) return { ok: true, query: q, results: [], indexed: 0, scope: sessionSearchScope() };
 
   const terms = [...new Set(retrievalTerms(q).filter(term => !term.startsWith('#')))];
   const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
@@ -67480,6 +67550,7 @@ async function searchSessionsByContent(query, limit) {
     ok: true,
     query: q,
     indexed: documents.length,
+    scope: sessionSearchScope(),
     results: ranked.slice(0, cap).map(row => ({
       id: row.id,
       title: row.meta.title || '',
@@ -73026,10 +73097,11 @@ async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
   const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
   const includeClosed = args.includeClosed === true;   // 116-2e:把已收工的速查线程也算进来
-  if (!q) return { ok: true, query: '', results: [], indexed: 0, reason: 'query_empty' };
+  const scope = sessionSearchScope(sessionSearchIndexEnabled(config));
+  if (!q) return { ok: true, query: '', results: [], indexed: 0, scope, reason: 'query_empty' };
   // 第二轮工具走查(F8):13f 的描述一直写「太短(少于 2 字)返回空结果并给 reason」,实现却放行了 1 个字
   // (走词法兜底,于是 q:'x' 满屏命中)。与经典壳 GET /api/sessions/search(13d)同一个下限、同一个 reason 码。
-  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
+  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope, reason: 'query_too_short' };
   const metas = await listSessions().catch(() => []);
   const byId = new Map(metas.map(meta => [meta.id, meta]));
   const relations = threadRelationsIndex(metas);
@@ -73114,7 +73186,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       ...(wsName ? { workspace: wsName.name } : {}),
     });
   }
-  return { ok: true, query: q, results, indexed, ...(degraded ? { degraded } : {}) };
+  return { ok: true, query: q, results, indexed, scope, ...(degraded ? { degraded } : {}) };
 }
 
 // 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。
@@ -73816,6 +73888,30 @@ async function stewardAnswerGate(o) {
   return null;
 }
 
+// 续办只接受仍存在的上传件。以 id/name 在 uploads 内重新定位,不相信客户端的 path/size。
+async function stewardContinueAttachments(raw) {
+  if (raw == null) return { ok: true, attachments: [] };
+  if (!Array.isArray(raw) || raw.length > 12) return stewardFail('invalid_request', '最多递送 12 个上传附件');
+  const root = await fsp.realpath(paths.uploads).catch(() => paths.uploads);
+  const attachments = [];
+  for (const item of raw) {
+    const id = item && item.id, name = item && item.name;
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string' || !name || name.length > 200 || sanitizeFsSegmentName(name) !== name || /[. ]$/.test(name)) return stewardFail('invalid_request', '附件记录无效,请重新上传');
+    const target = path.resolve(paths.uploads, id, name);
+    const real = await fsp.realpath(target).catch(() => null);
+    const stat = real && pathWithinRoot(real, root) ? await fsp.stat(real).catch(() => null) : null;
+    if (!stat || !stat.isFile()) return stewardFail('attachment_missing', `附件「${stewardSanitizeText(name)}」已不可用,请重新上传`);
+    const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|svg|html|css|yaml|yml|ini|log)$/i.test(name);
+    const media = /\.(png|jpe?g|gif|webp|bmp|wav|mp3|m4a|webm|ogg|flac)$/i.test(name);
+    // 图片 OCR / 音频转写由上传端生成,仍按用户资料传递;文本文件的预览则重新从真实文件读取。
+    const textPreview = textLike && stat.size <= 256 * 1024 ? decodeTextFileBytes(await fsp.readFile(real), true).slice(0, 12000)
+      : media && typeof item.textPreview === 'string' ? item.textPreview.slice(0, 4000) : '';
+    attachments.push({ id, name, path: real, size: stat.size, textPreview,
+      ...(/\.(png|jpe?g|gif|webp|bmp)$/i.test(name) ? { kind: 'image' } : {}),
+      ...(/\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(name) ? { kind: 'audio' } : {}) });
+  }
+  return { ok: true, attachments };
+}
 // 11) steward_thread_continue —— 原话直递。undoRef 锚在递话【前】的 turnSeq(rewindSession 的主键)。
 async function stewardImplThreadContinue(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
@@ -73828,6 +73924,9 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot be a relay target');
+  const checkedAttachments = await stewardContinueAttachments(args.attachments);
+  if (!checkedAttachments.ok) return checkedAttachments;
+  const attachments = checkedAttachments.attachments;
   // 121-K3(§4.5):用户正坐在这条线程前面 -> 不递话。排在权限闸【之前】:这不是「有没有权限」的问题,
   // 而是「现在不是时候」,先答这一句比先算一遍权限档诚实(也省一次配置读)。
   if (stewardSeatedByUser(sessionId)) return stewardSeatedFail(sessionId);
@@ -73885,11 +73984,15 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // title 用【显示名】(116-5b 单点),不拿 id 冒充标题;turn 通道的启动仍是 13g 自己的
   // stewardLaunchTurn(同一个 requestMeta、同一本决策日志)—— 13h 只决定「走哪条」。
   const delivered = await StewardHooks.relayDeliver({
-    sessionId, message, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
+    sessionId, message, attachments, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
     answerGuard: decided => { gate.decided = decided; return stewardAnswerGate(gate); },
     launch: async () => {
-      const launched = stewardLaunchTurn({ sessionId, message, source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
+      const launched = stewardLaunchTurn({ sessionId, message, attachments, expectedCwd: String(head.cwd || ''), source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
       const registration = await launched.registration;
+      if (!registration) {
+        await launched;
+        return stewardFail('relay_failed', '目标回合未登记,这句话和附件尚未确认递送');
+      }
       if (registration) undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, ...registration };
       return { undoRef };
     },
@@ -75493,7 +75596,7 @@ async function stewardImplWebSearch(args, ctx, config) {
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 直接调 11 的实现(11 排在 13l 之前,后向边);搜索后端是管理端可信端点,SSRF 豁免录在案。
-  const raw = await webSearch({ query: q, maxResults: stewardClampInt(args && args.count, 1, 10, 5) }, config).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
+  const raw = await webSearch({ query: q, maxResults: stewardClampInt(args && args.count, 1, 10, 5) }, config, { signal: ctx && ctx.signal }).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_web_search');
   if (!raw || raw.ok === false) stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
   if (!raw || raw.ok === false) return stewardFail('search_failed', stewardSanitizeText(String((raw && raw.error) || 'web search failed')).slice(0, 200));
@@ -75518,7 +75621,7 @@ async function stewardImplWebFetch(args, ctx, config) {
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // SSRF 全套护栏在 12 的实现里(逐跳 ssrfCheck + dnsResolvesToPrivate),这里【不】另写一份。
-  const raw = await webFetch({ url, offset: stewardClampInt(args.offset, 0, 10000000, 0), maxChars: stewardClampInt(args.maxChars, 500, STEWARD_EYES_CHARS, STEWARD_EYES_CHARS) }).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
+  const raw = await webFetch({ url, offset: stewardClampInt(args.offset, 0, 10000000, 0), maxChars: stewardClampInt(args.maxChars, 500, STEWARD_EYES_CHARS, STEWARD_EYES_CHARS) }, { config, signal: ctx && ctx.signal }).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_web_fetch');
   if (!raw || raw.ok === false) {
     stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
@@ -80106,6 +80209,9 @@ async function stewardRelayDeliver(input) {
     decided = stewardRelayChannelFor(sid);
   }
 
+  if (Array.isArray(o.attachments) && o.attachments.length && decided.channel !== 'turn') {
+    return stewardFail('attachment_channel_unsupported', '这条任务正在执行、排队或等你处理待决,附件还没递进去;请等它空闲后重试,或在线程里处理当前事项', { channel: decided.channel, sessionId: sid });
+  }
   if (decided.channel === 'answer') {
     // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,
     // 代答时那句话是管家自己编的,而线程分不出来(两者走同一条 decideIntervention,落到线程眼里
@@ -80187,7 +80293,7 @@ async function stewardRelayDeliver(input) {
 // 账本只在内存、有界、十分钟过期：进程重启后旧 attemptId 不再等于「已执行」——界面本来就只说「未确认」。
 const STEWARD_ACT_ATTEMPT_LIMITS = Object.freeze({ entries: 256, ttlMs: 10 * 60 * 1000 });
 const stewardActAttempts = new Map();   // attemptId -> { at, result }
-const stewardActInflight = new Map();   // attemptId -> Promise<result>：并发同 id 共用一次执行
+const stewardActInflight = new Map();   // attemptId -> { signature, promise }：并发同 id 共用一次执行
 function stewardActAttemptId(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : '';
 }
@@ -80201,29 +80307,36 @@ async function stewardRunAct(act, config, attempt) {
   // 回执查询必须带合法 attemptId：否则它会被当成一次真实执行（那正是「核对」绝不能做的事）。
   if (check && !attemptId) return stewardFail('invalid_request', 'checkAttempt needs a valid attemptId');
   const now = Date.now();
+  const signature = attemptId && !check ? crypto.createHash('sha256').update(JSON.stringify(act ?? null)).digest('hex') : '';
   if (attemptId) {
     stewardActAttemptPrune(now);
     const prior = stewardActAttempts.get(attemptId);
     // 只读回执：告诉前端「这一次到底执行过没有」，绝不触发第二次执行。
     if (check) return { ok: true, kind: 'attempt_check', applied: Boolean(prior), ...(prior ? { executedAt: new Date(prior.at).toISOString() } : {}) };
-    if (prior) return { ...prior.result, replayed: true, executedAt: new Date(prior.at).toISOString() };
+    if (prior) {
+      if (prior.signature !== signature) return stewardFail('invalid_request', '这次递送的目标或内容已变化,请作为新的一次发送');
+      return { ...prior.result, replayed: true, executedAt: new Date(prior.at).toISOString() };
+    }
     // 先查后写之间隔着真实 I/O：同一 attemptId 的并发请求必须共用同一次执行，不能各自跑一遍。
     const inflight = stewardActInflight.get(attemptId);
-    if (inflight) return { ...await inflight, replayed: true };
+    if (inflight) {
+      if (inflight.signature !== signature) return stewardFail('invalid_request', '这次递送的目标或内容已变化,请作为新的一次发送');
+      return { ...await inflight.promise, replayed: true };
+    }
   }
   const run = stewardRunActOnce(act, config);
   if (!attemptId) return run;
   // 执行前先占用 attemptId，并发的那一份 await 同一条链；只有真的执行成功才落账，失败不占 id。
   const shared = run.then(result => {
-    if (result && result.ok === true) {
-      stewardActAttempts.set(attemptId, { at: Date.now(), result });
+    if (result && result.ok === true && result.executed !== false) {
+      stewardActAttempts.set(attemptId, { at: Date.now(), result, signature });
       stewardActAttemptPrune(Date.now());
     }
     return result;
   }).finally(() => {
-    if (stewardActInflight.get(attemptId) === shared) stewardActInflight.delete(attemptId);
+    if (stewardActInflight.get(attemptId)?.promise === shared) stewardActInflight.delete(attemptId);
   });
-  stewardActInflight.set(attemptId, shared);
+  stewardActInflight.set(attemptId, { signature, promise: shared });
   return shared;
 }
 async function stewardRunActOnce(act, config) {

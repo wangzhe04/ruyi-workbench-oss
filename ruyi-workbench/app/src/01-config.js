@@ -1552,7 +1552,7 @@ function normalizeConfig(raw, opts = {}) {
     const raw0 = (config.searchBackend && typeof config.searchBackend === 'object' && !Array.isArray(config.searchBackend)) ? config.searchBackend : {};
     // v1.0-S6 (A): +tavily +bocha. v1.1-W1a (T3): +builtin. New枚举 values are OPTIONAL/缺省安全 — an
     // absent/unknown type still falls back to 'builtin' (the zero-config default), so configSchema stays 7.
-    let type = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'custom'].includes(raw0.type) ? raw0.type : 'builtin';
+    let type = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'deepseek', 'custom'].includes(raw0.type) ? raw0.type : 'builtin';
     // v1.1-W1a (T3): MIGRATE存量 'none' → 'builtin'. Rationale: 'none' was the *historical default* (nobody
     // ever actively chose "disable search" — the old default just left web_search off). Folding it to the new
     // zero-config backend turns search ON for every upgraded install, matching the 开箱即用 decision.

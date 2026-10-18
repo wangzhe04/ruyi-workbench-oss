@@ -15483,6 +15483,7 @@
         "sessionSearchIndexPath",
         "sessionSearchRefreshChains",
         "sessionSearchRowIsNoise",
+        "sessionSearchScope",
         "sessionSearchSnippet"
       ],
       "requires": [
@@ -17411,6 +17412,7 @@
         "stewardBriefTextOf",
         "stewardCanonWorkspacePath",
         "stewardClaimDerivedWorkspace",
+        "stewardContinueAttachments",
         "stewardDeriveThreadCwd",
         "stewardDeriveWorkspaceDir",
         "stewardDiscardDerivedWorkspaceDir",
@@ -17476,6 +17478,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -17505,6 +17514,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
           "kinds": [
             "read"
           ]
@@ -18046,6 +18062,13 @@
           "symbol": "SESSION_SEARCH_MIN_QUERY",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "sessionSearchScope",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -21104,6 +21127,13 @@
         "stewardVisitsDir"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "fsp",

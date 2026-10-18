@@ -391,10 +391,11 @@ async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
   const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
   const includeClosed = args.includeClosed === true;   // 116-2e:把已收工的速查线程也算进来
-  if (!q) return { ok: true, query: '', results: [], indexed: 0, reason: 'query_empty' };
+  const scope = sessionSearchScope(sessionSearchIndexEnabled(config));
+  if (!q) return { ok: true, query: '', results: [], indexed: 0, scope, reason: 'query_empty' };
   // 第二轮工具走查(F8):13f 的描述一直写「太短(少于 2 字)返回空结果并给 reason」,实现却放行了 1 个字
   // (走词法兜底,于是 q:'x' 满屏命中)。与经典壳 GET /api/sessions/search(13d)同一个下限、同一个 reason 码。
-  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
+  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope, reason: 'query_too_short' };
   const metas = await listSessions().catch(() => []);
   const byId = new Map(metas.map(meta => [meta.id, meta]));
   const relations = threadRelationsIndex(metas);
@@ -479,7 +480,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       ...(wsName ? { workspace: wsName.name } : {}),
     });
   }
-  return { ok: true, query: q, results, indexed, ...(degraded ? { degraded } : {}) };
+  return { ok: true, query: q, results, indexed, scope, ...(degraded ? { degraded } : {}) };
 }
 
 // 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。
@@ -1181,6 +1182,30 @@ async function stewardAnswerGate(o) {
   return null;
 }
 
+// 续办只接受仍存在的上传件。以 id/name 在 uploads 内重新定位,不相信客户端的 path/size。
+async function stewardContinueAttachments(raw) {
+  if (raw == null) return { ok: true, attachments: [] };
+  if (!Array.isArray(raw) || raw.length > 12) return stewardFail('invalid_request', '最多递送 12 个上传附件');
+  const root = await fsp.realpath(paths.uploads).catch(() => paths.uploads);
+  const attachments = [];
+  for (const item of raw) {
+    const id = item && item.id, name = item && item.name;
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string' || !name || name.length > 200 || sanitizeFsSegmentName(name) !== name || /[. ]$/.test(name)) return stewardFail('invalid_request', '附件记录无效,请重新上传');
+    const target = path.resolve(paths.uploads, id, name);
+    const real = await fsp.realpath(target).catch(() => null);
+    const stat = real && pathWithinRoot(real, root) ? await fsp.stat(real).catch(() => null) : null;
+    if (!stat || !stat.isFile()) return stewardFail('attachment_missing', `附件「${stewardSanitizeText(name)}」已不可用,请重新上传`);
+    const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|svg|html|css|yaml|yml|ini|log)$/i.test(name);
+    const media = /\.(png|jpe?g|gif|webp|bmp|wav|mp3|m4a|webm|ogg|flac)$/i.test(name);
+    // 图片 OCR / 音频转写由上传端生成,仍按用户资料传递;文本文件的预览则重新从真实文件读取。
+    const textPreview = textLike && stat.size <= 256 * 1024 ? decodeTextFileBytes(await fsp.readFile(real), true).slice(0, 12000)
+      : media && typeof item.textPreview === 'string' ? item.textPreview.slice(0, 4000) : '';
+    attachments.push({ id, name, path: real, size: stat.size, textPreview,
+      ...(/\.(png|jpe?g|gif|webp|bmp)$/i.test(name) ? { kind: 'image' } : {}),
+      ...(/\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(name) ? { kind: 'audio' } : {}) });
+  }
+  return { ok: true, attachments };
+}
 // 11) steward_thread_continue —— 原话直递。undoRef 锚在递话【前】的 turnSeq(rewindSession 的主键)。
 async function stewardImplThreadContinue(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
@@ -1193,6 +1218,9 @@ async function stewardImplThreadContinue(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot be a relay target');
+  const checkedAttachments = await stewardContinueAttachments(args.attachments);
+  if (!checkedAttachments.ok) return checkedAttachments;
+  const attachments = checkedAttachments.attachments;
   // 121-K3(§4.5):用户正坐在这条线程前面 -> 不递话。排在权限闸【之前】:这不是「有没有权限」的问题,
   // 而是「现在不是时候」,先答这一句比先算一遍权限档诚实(也省一次配置读)。
   if (stewardSeatedByUser(sessionId)) return stewardSeatedFail(sessionId);
@@ -1250,11 +1278,15 @@ async function stewardImplThreadContinue(args, ctx, config) {
   // title 用【显示名】(116-5b 单点),不拿 id 冒充标题;turn 通道的启动仍是 13g 自己的
   // stewardLaunchTurn(同一个 requestMeta、同一本决策日志)—— 13h 只决定「走哪条」。
   const delivered = await StewardHooks.relayDeliver({
-    sessionId, message, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
+    sessionId, message, attachments, title: sessionDisplayTitle(head), source: 'steward_thread_continue',
     answerGuard: decided => { gate.decided = decided; return stewardAnswerGate(gate); },
     launch: async () => {
-      const launched = stewardLaunchTurn({ sessionId, message, source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
+      const launched = stewardLaunchTurn({ sessionId, message, attachments, expectedCwd: String(head.cwd || ''), source: 'steward', requestMeta: { tool: 'steward_thread_continue', ...(basis.origin ? { origin: basis.origin } : {}) } }, 'steward_thread_continue');
       const registration = await launched.registration;
+      if (!registration) {
+        await launched;
+        return stewardFail('relay_failed', '目标回合未登记,这句话和附件尚未确认递送');
+      }
       if (registration) undoRef = { kind: 'turn', sessionId, turnSeq: beforeTurnSeq, ...registration };
       return { undoRef };
     },

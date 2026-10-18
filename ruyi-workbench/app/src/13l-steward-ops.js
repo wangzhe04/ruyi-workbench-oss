@@ -1055,7 +1055,7 @@ async function stewardImplWebSearch(args, ctx, config) {
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 直接调 11 的实现(11 排在 13l 之前,后向边);搜索后端是管理端可信端点,SSRF 豁免录在案。
-  const raw = await webSearch({ query: q, maxResults: stewardClampInt(args && args.count, 1, 10, 5) }, config).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
+  const raw = await webSearch({ query: q, maxResults: stewardClampInt(args && args.count, 1, 10, 5) }, config, { signal: ctx && ctx.signal }).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_web_search');
   if (!raw || raw.ok === false) stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
   if (!raw || raw.ok === false) return stewardFail('search_failed', stewardSanitizeText(String((raw && raw.error) || 'web search failed')).slice(0, 200));
@@ -1080,7 +1080,7 @@ async function stewardImplWebFetch(args, ctx, config) {
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // SSRF 全套护栏在 12 的实现里(逐跳 ssrfCheck + dnsResolvesToPrivate),这里【不】另写一份。
-  const raw = await webFetch({ url, offset: stewardClampInt(args.offset, 0, 10000000, 0), maxChars: stewardClampInt(args.maxChars, 500, STEWARD_EYES_CHARS, STEWARD_EYES_CHARS) }).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
+  const raw = await webFetch({ url, offset: stewardClampInt(args.offset, 0, 10000000, 0), maxChars: stewardClampInt(args.maxChars, 500, STEWARD_EYES_CHARS, STEWARD_EYES_CHARS) }, { config, signal: ctx && ctx.signal }).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_web_fetch');
   if (!raw || raw.ok === false) {
     stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);

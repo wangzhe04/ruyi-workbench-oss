@@ -3501,6 +3501,8 @@ async function runSessionTurn(input) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const loadedSession = body.sessionId ? await loadSession(body.sessionId) : null;
+  if (source === 'steward' && body.sessionId && !loadedSession) throw Object.assign(new Error('目标线程已不存在,没有另开任务'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  if (loadedSession && typeof body.expectedCwd === 'string' && String(loadedSession.cwd || '') !== body.expectedCwd) throw Object.assign(new Error('目标线程的工作区已变化,请重新选择目标'), { code: 'SESSION_WORKSPACE_CHANGED', statusCode: 409 });
   // 系统自己起的唤醒回合绝不顺手新建会话:HTTP 的「合法 id 但装载不到 → 新建」是给用户的兜底(损坏会话被隔离后继续聊),
   // 对唤醒不成立 —— 线程在 runAgentWake 校验之后被删(或装载瞬时失败)时,新建只会冒出一条只有唤醒通知的孤儿会话。
   if (!loadedSession && source === AGENT_WAKE_SOURCE) throw Object.assign(new Error('session not found'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });

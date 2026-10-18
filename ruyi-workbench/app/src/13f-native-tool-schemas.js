@@ -686,7 +686,7 @@ const MCP_TOOLS = [
   // loopback/私网/元数据/协议) — an untrusted url can never reach an internal endpoint.
   {
     name: 'web_search',
-    description: 'Search the web via the configured search backend (built-in Bing/Baidu, searxng, bing, brave, tavily, bocha, custom). Returns {results:[{title,url,snippet}]}; a `note` explains an empty list (e.g. the engine showed a captcha); when the configured backend fails, the built-in search is tried once and the result carries `fallbackFrom`. Use specific keywords (product names, error messages, versions); if results look off-topic, rephrase and search again. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
+    description: "Search configured backend (built-in Bing/Baidu, SearXNG, Bing, Brave, Tavily, Bocha, DeepSeek, custom). Returns {results:[{title,url,snippet}],backend,note?}. API errors fall back to built-in only with explicit fallbackToBuiltin:true; fallbackFrom identifies it. Use specific keywords; rephrase off-topic queries. Search before answering time-sensitive or external facts, then web_fetch reliable sources. DeepSeek queries: at most 128 Unicode characters.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -698,7 +698,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'web_fetch',
-    description: 'Fetch a public http(s) page: extracted main text + title (links as "text [n]", URLs in `links`; GBK/Big5 decoded). Non-text URLs (PDF, images, zip, Office) are refused: use http_download. ≤3 redirects, 30s, ≤2MB; internal/loopback addresses refused. Paged: when `nextOffset` is returned, call again with offset=nextOffset. Offline serves a cached copy if any (fromCache:true).',
+    description: "Read a public HTTP(S) page; selecting DeepSeek search uses its Fetch API for Markdown. Returns title/text; direct HTML links use [n] + links; GBK/Big5 supported. Binary files: use http_download. Internal targets refused. Direct: <=3 redirects/2MB; all:30s. Paged: follow nextOffset. Network failure may serve cache (fromCache:true, timestamp/staleReason).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -871,7 +871,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['q'],
       properties: {
-        q: { type: 'string', description: '检索词(中英皆可)。太短(少于 2 字)会返回空结果并给出 reason:"query_too_short"。' },
+        q: { type: 'string', description: '检索词(中英皆可)。搜索仅覆盖标题、摘要及有界正文索引,未命中不能证明从未做过;长会话可用 thread_read/steward_thread_read 分页核对。太短(少于 2 字)会返回空结果并给出 reason:"query_too_short"。' },
         limit: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: '返回条数上限,夹取到 1..50,默认 10。' },
         includeClosed: { type: 'boolean', default: true, description: '默认包含已收工速查聊天;false 时排除。' },
       },
@@ -1029,6 +1029,7 @@ const MCP_TOOLS = [
       properties: {
         sessionId: { type: 'string', minLength: 1, description: '目标线程 id(不能是管家自己的会话)。' },
         message: { type: 'string', minLength: 1, description: '要递过去的话,原话直递。' },
+        attachments: { type: 'array', maxItems: 12, description: '本次用户上传的附件记录(id/name)。仅目标空闲、可起新回合时支持;执行中、排队或待决时拒绝整次递送,不丢附件,等空闲再试。服务端重新核对文件存在及上传目录,不使用传入 path。', items: { type: 'object', required: ['id', 'name'], properties: { id: { type: 'string' }, name: { type: 'string' } } } },
         answerBasis: {
           type: 'object', additionalProperties: false,
           description: '【只在代答时给】用户不在跟前、而目标线程正挂着一道给用户的提问时,这句话会被当成用户的答案答进去(通道 ①)。那种情况下必须说清答案的出处,否则一律转给用户。出处两种,给一种就够,都会被服务端核实:记忆条目 id(回库里查,必须仍有效)、委托书原文片段(逐字比对)。用户就在跟前时不用给 —— 那时递的是他的原话。',

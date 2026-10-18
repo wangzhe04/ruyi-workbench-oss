@@ -1082,6 +1082,9 @@ async function stewardRelayDeliver(input) {
     decided = stewardRelayChannelFor(sid);
   }
 
+  if (Array.isArray(o.attachments) && o.attachments.length && decided.channel !== 'turn') {
+    return stewardFail('attachment_channel_unsupported', '这条任务正在执行、排队或等你处理待决,附件还没递进去;请等它空闲后重试,或在线程里处理当前事项', { channel: decided.channel, sessionId: sid });
+  }
   if (decided.channel === 'answer') {
     // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,
     // 代答时那句话是管家自己编的,而线程分不出来(两者走同一条 decideIntervention,落到线程眼里
@@ -1163,7 +1166,7 @@ async function stewardRelayDeliver(input) {
 // 账本只在内存、有界、十分钟过期：进程重启后旧 attemptId 不再等于「已执行」——界面本来就只说「未确认」。
 const STEWARD_ACT_ATTEMPT_LIMITS = Object.freeze({ entries: 256, ttlMs: 10 * 60 * 1000 });
 const stewardActAttempts = new Map();   // attemptId -> { at, result }
-const stewardActInflight = new Map();   // attemptId -> Promise<result>：并发同 id 共用一次执行
+const stewardActInflight = new Map();   // attemptId -> { signature, promise }：并发同 id 共用一次执行
 function stewardActAttemptId(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : '';
 }
@@ -1177,29 +1180,36 @@ async function stewardRunAct(act, config, attempt) {
   // 回执查询必须带合法 attemptId：否则它会被当成一次真实执行（那正是「核对」绝不能做的事）。
   if (check && !attemptId) return stewardFail('invalid_request', 'checkAttempt needs a valid attemptId');
   const now = Date.now();
+  const signature = attemptId && !check ? crypto.createHash('sha256').update(JSON.stringify(act ?? null)).digest('hex') : '';
   if (attemptId) {
     stewardActAttemptPrune(now);
     const prior = stewardActAttempts.get(attemptId);
     // 只读回执：告诉前端「这一次到底执行过没有」，绝不触发第二次执行。
     if (check) return { ok: true, kind: 'attempt_check', applied: Boolean(prior), ...(prior ? { executedAt: new Date(prior.at).toISOString() } : {}) };
-    if (prior) return { ...prior.result, replayed: true, executedAt: new Date(prior.at).toISOString() };
+    if (prior) {
+      if (prior.signature !== signature) return stewardFail('invalid_request', '这次递送的目标或内容已变化,请作为新的一次发送');
+      return { ...prior.result, replayed: true, executedAt: new Date(prior.at).toISOString() };
+    }
     // 先查后写之间隔着真实 I/O：同一 attemptId 的并发请求必须共用同一次执行，不能各自跑一遍。
     const inflight = stewardActInflight.get(attemptId);
-    if (inflight) return { ...await inflight, replayed: true };
+    if (inflight) {
+      if (inflight.signature !== signature) return stewardFail('invalid_request', '这次递送的目标或内容已变化,请作为新的一次发送');
+      return { ...await inflight.promise, replayed: true };
+    }
   }
   const run = stewardRunActOnce(act, config);
   if (!attemptId) return run;
   // 执行前先占用 attemptId，并发的那一份 await 同一条链；只有真的执行成功才落账，失败不占 id。
   const shared = run.then(result => {
-    if (result && result.ok === true) {
-      stewardActAttempts.set(attemptId, { at: Date.now(), result });
+    if (result && result.ok === true && result.executed !== false) {
+      stewardActAttempts.set(attemptId, { at: Date.now(), result, signature });
       stewardActAttemptPrune(Date.now());
     }
     return result;
   }).finally(() => {
-    if (stewardActInflight.get(attemptId) === shared) stewardActInflight.delete(attemptId);
+    if (stewardActInflight.get(attemptId)?.promise === shared) stewardActInflight.delete(attemptId);
   });
-  stewardActInflight.set(attemptId, shared);
+  stewardActInflight.set(attemptId, { signature, promise: shared });
   return shared;
 }
 async function stewardRunActOnce(act, config) {

@@ -238,7 +238,9 @@ engine is enough to start. Ruyi ships **no vendor presets**. Once configured, ch
 thread's header, or decide who uses which model under Models & Services → Model assignment. Provider keys are
 stored locally and masked in UI responses.
 
-The Web search page (Settings → Tools & integrations) defaults to built-in search without a key. You can choose SearXNG, Bing, Brave, Tavily, Bocha, or a custom endpoint and enter the address or key it requires. Disabling search leaves local file tools available; it does not disable a configured remote model or other network tools.
+In the Steward composer, select an existing task and attach materials to continue it. Idle tasks receive the words and files together. Running, queued or waiting tasks reject the whole delivery and keep the original materials and target for retry. Upload expired files again. Task candidates use a bounded text index; no match does not mean the work never happened.
+
+The Web search page (Settings → Tools & integrations) defaults to built-in search without a key. You can choose SearXNG, Bing, Brave, Tavily, Bocha, DeepSeek, or a custom endpoint and enter the address or key it requires. For DeepSeek, enter a DeepSeek API key and leave Base URL empty for the official service. Tasks and the Steward share its Search / Fetch APIs; fetched Markdown supports paging. Disabling search leaves local file tools available; it does not disable a configured remote model or other network tools.
 
 On the General page (Settings → General → General), choose Simple or Pro UI, detailed or concise response style,
 language (Follow system, Simplified Chinese, or English), and the **Default view on launch**: whether the next start

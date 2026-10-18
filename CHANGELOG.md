@@ -5,6 +5,11 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 管家手选已有任务后可带上传附件续办；目标空闲时沿既有回合接收，忙碌、待决或附件过期时整次拒绝并保留原话、材料和目标供核对或重试。被拒绝的工具结果不再记成成功递送，同一回执绑定原始目标与内容。任务搜索说明有界索引范围，未找到不代表从未做过。
+- The Steward can continue a selected idle task with uploaded attachments. Busy/waiting targets and expired files reject the whole delivery while preserving the words, files and target for retry. Rejected tools no longer count as successful deliveries; receipts bind to the original target and payload. Task search now explains its bounded index.
+- 联网搜索新增 DeepSeek Search / Fetch API 后端，普通任务和管家共用；支持 DeepSeek API Key、可选代理地址、Markdown 分页、取消和带来源的缓存回退。默认搜索选择不变，密钥仍按现有规则遮罩。
+- Add DeepSeek Search / Fetch APIs as a shared web backend for tasks and the Steward, with an API key, optional proxy root, paged Markdown, cancellation and explicit cached results. Existing backend defaults and secret masking remain in effect.
+
 - 递话失败或超时时不再只说「没做成」：如实显示「结果未确认」并保留原话，可先核对回执再决定是否重发；同一次递送带同一个 attemptId，服务端只执行一次，重发不会把同一件事交办两遍。
 - When a hand-off fails or times out, the reply is no longer just "failed": it says the outcome is unconfirmed, keeps the text, and lets you check the receipt before resending. One hand-off carries one attemptId and executes once on the server, so resending cannot duplicate the task.
 

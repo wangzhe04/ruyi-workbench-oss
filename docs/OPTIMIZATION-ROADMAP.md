@@ -1,6 +1,6 @@
 # 如意发布与迭代路线
 
-更新：2026-10-17。当前研发主线是 **3.x 管家体验和功能扩展**；详细范围、优先级、依赖和验收见 [62 号方案](optimization-plan/62-steward-3x-iterations.md)。外部机器人接入新增为 [66 号专项](optimization-plan/66-external-bots-and-steward-channels.md)，首批包含本人账号远程控制真实管家与原会话回复，后续扩展主动进度和远程待决。4.0 暂不确定方向或排期。
+更新：2026-10-18。当前研发主线是 **3.x 管家体验和功能扩展**；详细范围、优先级、依赖和验收见 [62 号方案](optimization-plan/62-steward-3x-iterations.md)。外部机器人接入新增为 [66 号专项](optimization-plan/66-external-bots-and-steward-channels.md)，首批包含本人账号远程控制真实管家与原会话回复，后续扩展主动进度和远程待决。4.0 暂不确定方向或排期。
 
 ## 发布状态
 
@@ -13,7 +13,7 @@
 
 ## 当前优先级
 
-[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。接下来继续第三轮其余 P1（附件续办、搜索边界）与 66 号真实平台部署联调，尚未发布。
+[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。本批完成 [附件续办与搜索边界说明](optimization-plan/71-steward-attachments-search-scope.md)，并新增 [DeepSeek Search / Fetch 后端](optimization-plan/72-deepseek-search-fetch.md)。下一步推进第四轮交付与修订；全文分片索引、可取消深入查找、第三轮 P2 记忆补查与 66 号真实平台部署联调各自保留边界。源码尚未发布。
 
 | 顺序 | 目标 | 建议版本归属 |
 |---|---|---|
