@@ -1333,7 +1333,15 @@ const MCP_TOOLS = [
     description: '从一条线程起草一份 playbook 草稿(只起草,【不保存】)。何时用:用户说「把刚才这套流程存下来下次直接用」,或一条线程明显是可复用的固定套路。何时别用:① 保存要用户自己在界面上按——你只负责把草稿摆到他面前,别声称已经存好了;② 每个管家回合最多起草 1 次(它要调一次模型;还没调模型就失败的——如线程里没有用户消息——不占名额),超了回 quota_exceeded,不要重试;③ 管家会话自己不能被起草成 playbook。返回 {ok,draft,saveVia}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
-      properties: { sessionId: { type: 'string', description: '要起草的线程 id。' } },
+      properties: {
+        sessionId: { type: 'string', description: '要起草的线程 id。' },
+        mode: { type: 'string', enum: ['sources', 'draft'], description: '认可做法复用先用 sources 只读列出成果和用户纠正（不调模型、不占起草名额）。由用户明确选成果、纠正、可变输入和验收项后再 draft；不要把最后一句话自动当认可。起草仍需已配置的 provider，草稿不表示已保存或已验证。' },
+        selection: { type: 'object', description: '用户明确选择的提炼依据，ref 来自 sources，同一来源变化即拒绝。只有用户已指定时填写；否则引导在线程成果的「存为 Playbook」界面选择。', additionalProperties: false, required: ['resultRef', 'correctionRefs', 'inputs', 'checks'], properties: {
+          resultRef: { type: 'string' }, correctionRefs: { type: 'array', maxItems: 12, items: { type: 'string' } },
+          inputs: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object', additionalProperties: false, required: ['key', 'label', 'type'], properties: { key: { type: 'string' }, label: { type: 'string' }, type: { type: 'string', enum: ['text', 'file', 'folder'] } } } },
+          checks: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'string', minLength: 1, maxLength: 300 } },
+        } },
+      },
     },
   },
   {

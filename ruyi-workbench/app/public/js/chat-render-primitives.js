@@ -1164,7 +1164,7 @@ export function createChatRenderPrimitives(deps = {}) {
       // only (the draft uses the active provider). Hidden when no session or a turn is streaming.
       if (isProviderMode()) {
         const save = el('button', '', t('playbook.create.action'));
-        save.onclick = () => saveAsPlaybook(save);
+        save.onclick = () => saveAsPlaybook(save, '', msg);
         bar.append(save);
         // v2 跨会话记忆: 「存为记忆」(draft→编辑弹窗→保存)。draft 用 provider,故与「存为 playbook」同处 provider 分支。
         const mem = el('button', '', t('chat.saveMemory'));
@@ -1176,23 +1176,28 @@ export function createChatRenderPrimitives(deps = {}) {
   }
 
   /* ---------------- v0.9-S2: 存为 playbook ---------------- */
-  // Ask the server to draft a playbook from the current session (most-recent user msg + turn_summary), then
-  // open an edit modal (title/desc/promptTemplate editable) → confirm → POST /api/playbooks.
-  async function saveAsPlaybook(btn, sessionId = '') {
+  // Select an accepted answer, corrections, inputs and checks before asking for a draft; then
+  // open the existing editor/save flow. No Playbook is persisted until explicit confirmation.
+  async function saveAsPlaybook(btn, sessionId = '', message = null) {
     const sid = String(sessionId || (state.currentSession && state.currentSession.id) || '');
     if (!sid) { toast(t('playbook.create.noSession'), 'err'); return; }
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = t('playbook.create.drafting'); }
     try {
-      const r = await api('/api/playbooks/draft', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-      if (!r || !r.ok || !r.draft) { toast(t('playbook.create.draftFailed', { reason: apiErrText(r && r.error) || t('common.unknown') }), 'err'); return; }
-      openPlaybookEditModal(r.draft);
+      const { createPlaybookReuseUi } = await import('./playbook-reuse.js');
+      const isCurrent = () => state.currentSession?.id === sid;
+      if (isCurrent()) await createPlaybookReuseUi({ api, apiErrText, el, buildModal, t, toast, refreshPlaybooks, isCurrent }).select(sid, message, openPlaybookEditModal);
     } catch (e) { toast(t('playbook.create.draftFailed', { reason: apiErrText(e) }), 'err'); }
     finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
   }
   // Edit modal for a drafted playbook: title / desc / promptTemplate are editable; on confirm, POST the
   // normalized object to /api/playbooks (server re-normalizes). XSS-safe — values via el/value, never innerHTML.
   function openPlaybookEditModal(draft) {
+    if (draft.reuse) {
+      const sid = state.currentSession?.id;
+      void import('./playbook-reuse.js').then(({ createPlaybookReuseUi }) => { if (state.currentSession?.id === sid) createPlaybookReuseUi({ api, apiErrText, el, buildModal, t, toast, refreshPlaybooks }).edit(draft); }).catch(error => toast(apiErrText(error), 'err'));
+      return;
+    }
     const body = el('div', 'pb-form');
     const mkField = (label, value, rows) => {
       const field = el('div', 'pb-field');

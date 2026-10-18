@@ -1455,10 +1455,11 @@ async function stewardImplPlaybookDraft(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('steward.forbidden', 'the steward session cannot be turned into a playbook');
+  if (args.mode === 'sources') return playbookReuseSources(sessionId);
   if (!stewardTurnQuotaTake('playbook_draft', ctx, STEWARD_PLAYBOOK_DRAFTS_PER_TURN)) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_PLAYBOOK_DRAFTS_PER_TURN} playbook draft per steward turn; do not retry - tell the user what you have`);
   }
-  const draft = await draftPlaybookFromSession(sessionId);
+  const draft = await draftPlaybookFromSession(sessionId, { selection: args.selection });
   // 第二轮工具走查(F11):名额是为「起草要调一次模型」设的;修前先扣名额再试,于是「本会话没有可参考的用户消息」
   // 这类【根本没调模型】的失败也把本回合唯一的名额烧掉,同一回合里换一条对的线程再起草就被 quota_exceeded 挡死。
   // 06 在三个调模型之前的早退里带 noModelCall:true —— 那种失败把名额还回去;真调过模型(哪怕没解析出合法 JSON)照旧算一次。

@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 可从指定的认可成果、所选纠正、可变输入和验收项提炼一键任务。保存前可编辑、恢复或取消，修改已存规则会另存副本；使用新材料沿原 Playbook 路径执行，并明确尚未验证，模型自报不算机器验收。起草仍需要模型服务商。
+- Save an accepted result, selected corrections, variable inputs and acceptance criteria as a Playbook. Review, reset or cancel before saving; editing saved rules creates a copy. Verify with new materials through the existing execution path; model claims do not imply machine verification. Drafting still requires a model provider.
+
 - 管家可把一个新事项按 2–8 个有序步骤交办给同一协调线程，复用工作流的依赖、预算、资源租约和交付信封；前序失败或权限拒绝会阻止后序，停止传播到子步骤，重启后的未知结果等待人工核对。兼容存量 `claude-cli` 默认模型配置。
 - The Steward can delegate one new task group as 2–8 ordered steps in one coordinator thread, reusing workflow dependencies, budgets, resource leases and delivery envelopes. Failure or denied permission blocks successors; stop propagates to steps, and unknown results after restart require manual review. Legacy `claude-cli` model defaults remain supported.
 

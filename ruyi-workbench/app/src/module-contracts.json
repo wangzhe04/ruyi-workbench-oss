@@ -5139,6 +5139,7 @@
         "NETWORK_ANCHORS",
         "PLAYBOOK_INPUT_TYPES",
         "PLAYBOOK_REQUIRES",
+        "PLAYBOOK_REUSE_OPEN",
         "PLAYBOOK_SERVICES",
         "PLAYBOOK_STATUS_RANK",
         "PROJECT_MEMORY_CAP",
@@ -5218,10 +5219,14 @@
         "neutralizeAuthoredText",
         "normalizeMetricsPath",
         "normalizePlaybook",
+        "normalizePlaybookReuse",
         "normalizeStoragePolicy",
         "parsePlaybookDraft",
         "parseThreadBrief",
         "peekCapabilities",
+        "playbookReuseMessages",
+        "playbookReuseSources",
+        "playbookReuseTemplate",
         "probeAny",
         "probeDesktopMcp",
         "probeNetwork",
@@ -5238,6 +5243,7 @@
         "renderCliEnvBrief",
         "repairNodeJsonViaProvider",
         "resolveEngineEnvBrief",
+        "resolvePlaybookRecognition",
         "resolveToolIterationBudget",
         "sampleProcessRss",
         "saveUserPlaybook",
@@ -14226,6 +14232,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "playbookReuseSources",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "recordRequestMetric",
           "kinds": [
             "call"
@@ -18885,6 +18898,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "playbookReuseSources",
           "kinds": [
             "call"
           ]

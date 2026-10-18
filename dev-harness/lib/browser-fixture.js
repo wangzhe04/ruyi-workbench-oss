@@ -17,6 +17,7 @@ const { getFreePort } = require('../free-port.js');
 const { stopRuyiTestBrowsers } = require('./browser-cleanup');
 const { findBrowserExecutable } = require('./browser-path');
 const { killOwnTree } = require('./kill-own-tree');
+const { aggregate } = require('./fake-openai-provider');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -60,8 +61,9 @@ async function startProvider(port, script) {
     let raw = ''; for await (const chunk of req) raw += chunk;
     let body = {}; try { body = JSON.parse(raw || '{}'); } catch { body = {}; }
     const messages = Array.isArray(body.messages) ? body.messages : [];
-    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
-    const sse = value => { try { res.write('data: ' + JSON.stringify(value) + '\n\n'); } catch { /* client gone */ } };
+    const streaming = body.stream !== false, frames = [];
+    res.writeHead(200, { 'content-type': streaming ? 'text/event-stream' : 'application/json', 'cache-control': 'no-cache' });
+    const sse = value => { if (!streaming) { frames.push(value); return; } try { res.write('data: ' + JSON.stringify(value) + '\n\n'); } catch { /* client gone */ } };
     const ctx = {
       body, messages,
       answered: messages.some(m => m && m.role === 'tool'),
@@ -81,7 +83,7 @@ async function startProvider(port, script) {
       if (typeof script === 'function') await script(ctx);
       else { ctx.text('好。'); ctx.stop(); }
     } catch { /* 脚本自己的错不该让 provider 挂住 */ }
-    try { res.write('data: [DONE]\n\n'); res.end(); } catch { /* client gone */ }
+    try { if (streaming) { res.write('data: [DONE]\n\n'); res.end(); } else res.end(JSON.stringify(aggregate(frames, body.model))); } catch { /* client gone */ }
   });
   await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
   return server;

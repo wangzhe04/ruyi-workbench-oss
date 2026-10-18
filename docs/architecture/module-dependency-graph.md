@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 79 | 3805 | 3359 | 573 | 67 | 0 | 1 |
+| 79 | 3811 | 3361 | 573 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -44,7 +44,7 @@
 | 26 | `05b-kimi-bridge.js` | engine | 128 | 75 | 12 |
 | 27 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 28 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 29 | `06-provider-engine.js` | engine | 133 | 60 | 16 |
+| 29 | `06-provider-engine.js` | engine | 139 | 60 | 16 |
 | 30 | `06b-prompt-registry.js` | engine | 10 | 1 | 1 |
 | 31 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 32 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
@@ -67,7 +67,7 @@
 | 49 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
 | 50 | `12-tool-dispatch.js` | tools | 72 | 127 | 21 |
 | 51 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 52 | `13-http-router.js` | transport | 70 | 264 | 32 |
+| 52 | `13-http-router.js` | transport | 70 | 265 | 32 |
 | 53 | `13b-api-domain-routes.js` | transport | 40 | 65 | 9 |
 | 54 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 55 | `13d-core-domain-routes.js` | transport | 65 | 148 | 17 |
@@ -76,7 +76,7 @@
 | 58 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
 | 59 | `13aa-steward-delivery.js` | unclassified | 9 | 30 | 7 |
 | 60 | `13k-steward-threads.js` | transport | 58 | 124 | 17 |
-| 61 | `13l-steward-ops.js` | transport | 53 | 120 | 19 |
+| 61 | `13l-steward-ops.js` | transport | 53 | 121 | 19 |
 | 62 | `13g-steward.js` | transport | 20 | 72 | 11 |
 | 63 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
 | 64 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
@@ -385,7 +385,7 @@
 | `13-http-router.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle` |
 | `13-http-router.js` | `05-claude-engine.js` | backward | `CLAUDE_ENDPOINT_PRESETS`, `PROVIDER_PRESETS`, `activeOpenAiProvider`, `agentCliAdapter`, `maskProviders`, `maskedSecretConflictMessage`, `maskedSecretConflicts`, `resolveProvider`, `sanitizeProvider`, `unmaskProviders` |
 | `13-http-router.js` | `05b-kimi-bridge.js` | backward | `applyKimiStatusToSession`, `kimiSessionStatus`, `kimiStatusFingerprint`, `kimiUsageFromStatus` |
-| `13-http-router.js` | `06-provider-engine.js` | backward | `ERROR_CLASSES`, `buildMetricsPayload`, `buildOpsMetrics`, `collectAudit`, `collectStorageStats`, `deleteUserPlaybook`, `draftPlaybookFromSession`, `getCapabilities`, `listPlaybooksWithAvailability`, `matchServiceEntry`, `maybeRecordStorageTrend`, `normalizePlaybook`, `recordRequestMetric`, `saveUserPlaybook`, `storageSweep` |
+| `13-http-router.js` | `06-provider-engine.js` | backward | `ERROR_CLASSES`, `buildMetricsPayload`, `buildOpsMetrics`, `collectAudit`, `collectStorageStats`, `deleteUserPlaybook`, `draftPlaybookFromSession`, `getCapabilities`, `listPlaybooksWithAvailability`, `matchServiceEntry`, `maybeRecordStorageTrend`, `normalizePlaybook`, `playbookReuseSources`, `recordRequestMetric`, `saveUserPlaybook`, `storageSweep` |
 | `13-http-router.js` | `06d-memory-domain.js` | backward | `MEMORY_EXCLUSION_MAX`, `analyzeMemoryMaintenance`, `applyMemoryRelationProposal`, `confirmMemoryRelation`, `decideMemoryProposal`, `deleteMemory`, `deleteMemoryRelation`, `draftMemoryFromSession`, `listMemoryProjectGroups`, `listMemoryRelations`, `loadMemoryRegistry`, `memoryFailureResponse`, `migrateLegacyAccMemory`, `migrateMemory`, `moveMemoryScope`, `projectKeyForCwd`, `proposeMemoryFromSession`, `proposeMemoryRelation`, `readMemoryItem`, `replayPendingMemoryProposal`, `resolveCoreMemoryState`, `saveMemory`, `syncAgentInstructionImports`, `validateMemoryProposalSave` |
 | `13-http-router.js` | `06f-autonomy-grants.js` | backward | `activeDriverRuns`, `autonomyGrants`, `dryRunGrantFiles`, `listGrantsView`, `normalizeGrant`, `revokeAllGrants`, `revokeGrant` |
 | `13-http-router.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName` |
@@ -509,7 +509,7 @@
 | `13l-steward-ops.js` | `03-bridge-guard.js` | backward | `pathWithinRoot`, `realpathForContainment` |
 | `13l-steward-ops.js` | `04-permission-runtime.js` | backward | `redact` |
 | `13l-steward-ops.js` | `05-claude-engine.js` | backward | `KEY_MASK_PREFIX`, `maskProviders`, `maskedSecretConflictMessage`, `maskedSecretConflicts`, `unmaskSecrets` |
-| `13l-steward-ops.js` | `06-provider-engine.js` | backward | `collectAudit`, `draftPlaybookFromSession`, `listPlaybooksWithAvailability` |
+| `13l-steward-ops.js` | `06-provider-engine.js` | backward | `collectAudit`, `draftPlaybookFromSession`, `listPlaybooksWithAvailability`, `playbookReuseSources` |
 | `13l-steward-ops.js` | `06d-memory-domain.js` | backward | `cleanMemoryDate`, `memoryIsExpired`, `memoryProposalLooksSensitive` |
 | `13l-steward-ops.js` | `06i-steward-core.js` | backward | `STEWARD_CATALOG_DESC_CHARS`, `STEWARD_CATALOG_ROWS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_EYES_CHARS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_NOTIFY_KINDS`, `STEWARD_NOTIFY_TEXT_CHARS`, `STEWARD_SESSION_ID`, `stewardAutoAskIndirect`, `stewardAutoAskScanIncomplete`, `stewardAutoAskSensitiveKind`, `stewardConfigHelpFor`, `stewardConfigTierFor`, `stewardExemptDelegationVerdict`, `stewardExemptHits`, `stewardExemptReason`, `stewardExemptRiskNote`, `stewardExemptScanInput`, `stewardMayAct`, `stewardMemoryTerms`, `stewardPermissionLabel`, `stewardPermissionRank`, `stewardSamePath`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStateLabel`, `stewardStoppedRefusal`, `stewardStoppedTarget`, `stewardTermJaccard`, `stewardThreadArtifactFiles`, `stewardWatchedThread`, `stewardWorkspaceRootFor`, `threadOriginOf` |
 | `13l-steward-ops.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `agentRunFile`, `httpRequestInternalTargetReason`, `webPayloadReason` |

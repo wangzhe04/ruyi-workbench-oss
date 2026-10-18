@@ -345,7 +345,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
     if (!sessionId) return send(res, apiSessionIdInvalid());
-    return send(res, json(await draftPlaybookFromSession(sessionId)));
+    return send(res, json(body.mode === 'sources' ? await playbookReuseSources(sessionId) : await draftPlaybookFromSession(sessionId, { selection: body.selection })));
   }
   // POST /api/playbooks — save a user playbook (normalized; token-gated). Body = the playbook object.
   if (req.method === 'POST' && pathname === '/api/playbooks') {

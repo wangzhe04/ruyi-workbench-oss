@@ -1670,6 +1670,10 @@ function buildPlaybookCard(pb) {
 // call sendPrompt. XSS-safe: labels/hints via el()/textContent.
 function openPlaybookModal(pb) {
   const body = el('div', 'pb-form');
+  if (pb.reuse) {
+    body.append(el('p', 'pb-form-desc', t('playbook.reuse.unverified')));
+    const list = el('ol', 'pb-guide-text'); for (const check of pb.reuse.checks) list.append(el('li', '', check)); body.append(list);
+  }
   const description = playbookDisplayDescription(pb);
   if (description) body.appendChild(el('p', 'pb-form-desc', description));
   const fields = new Map(); // key -> input element
@@ -1709,9 +1713,18 @@ function openPlaybookModal(pb) {
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', t('common.cancel'));
   const go = el('button', 'primary', t('skills.playbook.start'));
+  if (pb.reuse) go.textContent = t('playbook.reuse.verify');
   foot.append(cancel, go);
   const modal = buildModal(playbookDisplayName(pb) || t('skills.group.playbooks'), body, foot);
   cancel.onclick = () => modal.close();
+  if (pb.reuse && !pb.builtin) {
+    foot.style.flexWrap = 'wrap';
+    const copy = el('button', '', t('playbook.reuse.editCopy')); foot.append(copy);
+    copy.onclick = async () => {
+      try { const { createPlaybookReuseUi } = await import('./playbook-reuse.js'); if (!body.isConnected) return; modal.close(); createPlaybookReuseUi({ api, apiErrText, el, buildModal, t, toast, refreshPlaybooks }).edit(pb, true); }
+      catch (error) { toast(apiErrText(error), 'err'); }
+    };
+  }
   go.onclick = () => {
     const values = {};
     for (const [key, ta] of fields) values[key] = ta.value.trim();

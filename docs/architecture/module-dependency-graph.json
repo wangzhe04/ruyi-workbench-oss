@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 79,
-    "providedSymbols": 3805,
-    "requiredSymbols": 3359,
+    "providedSymbols": 3811,
+    "requiredSymbols": 3361,
     "edges": 573,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -5209,6 +5209,7 @@
         "NETWORK_ANCHORS",
         "PLAYBOOK_INPUT_TYPES",
         "PLAYBOOK_REQUIRES",
+        "PLAYBOOK_REUSE_OPEN",
         "PLAYBOOK_SERVICES",
         "PLAYBOOK_STATUS_RANK",
         "PROJECT_MEMORY_CAP",
@@ -5288,10 +5289,14 @@
         "neutralizeAuthoredText",
         "normalizeMetricsPath",
         "normalizePlaybook",
+        "normalizePlaybookReuse",
         "normalizeStoragePolicy",
         "parsePlaybookDraft",
         "parseThreadBrief",
         "peekCapabilities",
+        "playbookReuseMessages",
+        "playbookReuseSources",
+        "playbookReuseTemplate",
         "probeAny",
         "probeDesktopMcp",
         "probeNetwork",
@@ -5308,6 +5313,7 @@
         "renderCliEnvBrief",
         "repairNodeJsonViaProvider",
         "resolveEngineEnvBrief",
+        "resolvePlaybookRecognition",
         "resolveToolIterationBudget",
         "sampleProcessRss",
         "saveUserPlaybook",
@@ -14342,6 +14348,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "playbookReuseSources",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "recordRequestMetric",
           "kinds": [
             "call"
@@ -19019,6 +19032,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "playbookReuseSources",
           "kinds": [
             "call"
           ]
@@ -31702,6 +31722,7 @@
         "matchServiceEntry",
         "maybeRecordStorageTrend",
         "normalizePlaybook",
+        "playbookReuseSources",
         "recordRequestMetric",
         "saveUserPlaybook",
         "storageSweep"
@@ -33280,7 +33301,8 @@
       "symbols": [
         "collectAudit",
         "draftPlaybookFromSession",
-        "listPlaybooksWithAvailability"
+        "listPlaybooksWithAvailability",
+        "playbookReuseSources"
       ],
       "direction": "backward"
     },
