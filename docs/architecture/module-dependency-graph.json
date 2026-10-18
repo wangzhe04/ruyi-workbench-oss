@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 79,
-    "providedSymbols": 3812,
-    "requiredSymbols": 3362,
+    "providedSymbols": 3819,
+    "requiredSymbols": 3366,
     "edges": 573,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -6090,6 +6090,7 @@
         "deleteMemoryRelation",
         "draftMemoryFromSession",
         "effectiveMemorySelection",
+        "eligibleMemoryEntries",
         "extractMemoryRelationProposals",
         "filterMemoryForNativeCli",
         "findMemoryProposalDuplicate",
@@ -6137,8 +6138,12 @@
         "memoryRetrievalText",
         "memoryReviewDue",
         "memorySearchTerms",
+        "memorySelectionSignature",
         "memorySupersededMarks",
         "memorySupersededTag",
+        "memoryToolLibraryCurrent",
+        "memoryToolLibraryVersion",
+        "memoryToolSupersededStatus",
         "memoryUsageFile",
         "memoryUsageKey",
         "memoryUsageWriteChain",
@@ -6182,6 +6187,7 @@
         "resolveCoreMemoryState",
         "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
+        "resolveWorkbenchMemoryReadContext",
         "resolveWorkbenchMemoryToolContext",
         "saveMemory",
         "sha256Hex",
@@ -9691,7 +9697,35 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "memoryExclusionSet",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memorySelectionSignature",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "proposeMemoryRelation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "readConfirmedSupersedeEdges",
           "kinds": [
             "call"
           ]
@@ -12164,7 +12198,8 @@
         "toolInvokeMissingNameResult",
         "toolInvokeTierCovers",
         "withFileToolWriteLock",
-        "withToolArgsGuide"
+        "withToolArgsGuide",
+        "workbenchMemoryReadLoopback"
       ],
       "requires": [
         {
@@ -30605,7 +30640,11 @@
         "buildMemoryTurnSection",
         "extractMemoryRelationProposals",
         "filterMemoryForNativeCli",
+        "memoryExclusionSet",
+        "memoryIsExpired",
+        "memorySelectionSignature",
         "proposeMemoryRelation",
+        "readConfirmedSupersedeEdges",
         "resolveMemoryPreflight"
       ],
       "direction": "backward"

@@ -8,12 +8,14 @@
 |---|---|---|
 | 已发布基线 | [3.0.1 发布说明](release-notes/v3.0.1.md)，2026-10-16 | 表示该发布物的范围，不代表之后的源码变化已经打包 |
 | 已合入未发布 | [CHANGELOG 的 Unreleased](../CHANGELOG.md#未发布--unreleased) 和 Git 提交 | 当前源码使用 3.0.1 版本；下一版本号在范围冻结时确定 |
-| 当前方案 | [3.x 管家迭代](optimization-plan/62-steward-3x-iterations.md) | 分批实施；具体实现和验证边界见 63–77 号记录，不是全部已上线清单 |
+| 当前方案 | [3.x 管家迭代](optimization-plan/62-steward-3x-iterations.md) | 3.1 源码与采用决策收口见 79；具体实现和验证边界见 63–79，不是已发布清单 |
 | 远期概念 | [Traveler 原始概念](TRAVELER-CONCEPT.md) | 历史探索，未纳入当前排期，也不再预设为 4.0 主线 |
 
 ## 当前优先级
 
-[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。本批完成 [附件续办与搜索边界说明](optimization-plan/71-steward-attachments-search-scope.md)，并新增 [DeepSeek Search / Fetch 后端](optimization-plan/72-deepseek-search-fetch.md)。第四轮[交付和修订](optimization-plan/73-steward-delivery-revision.md)已完成源码、行为／浏览器验证和本机 DeepSeek 生成→修订实测；第五轮[事项待决清单与逐项处理](optimization-plan/74-steward-task-decisions.md)已完成实现与验证；第五轮[设置回执与作用域](optimization-plan/75-steward-settings-scope-receipts.md)已完成实现和验证，清单、逐项处理与设置三片闭合；批量操作保留为有明确需求后的候选，第六轮逐项确定小片；全文分片索引、可取消深入查找、第三轮 P2 记忆补查与 66 号真实平台部署联调各自保留边界。源码尚未发布。
+3.1 的第二至四轮及可靠性前置已经完成源码工作包，发送中刷新恢复见 [78](optimization-plan/78-steward-handoff-reload-recovery.md)，路由与记忆收口见 [79](optimization-plan/79-steward-31-source-closure.md)。记忆 P2 经本机固定对照没有稳定收益，关闭新增提示，不继续建设 B/C；主动工具的会话范围与失效漏洞已修复。源码回归与发布包验收分别记录，当前版本仍为 3.0.1，尚未发布新版本。
+
+[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。本批完成 [附件续办与搜索边界说明](optimization-plan/71-steward-attachments-search-scope.md)，并新增 [DeepSeek Search / Fetch 后端](optimization-plan/72-deepseek-search-fetch.md)。第四轮[交付和修订](optimization-plan/73-steward-delivery-revision.md)已完成源码、行为／浏览器验证和本机 DeepSeek 生成→修订实测；第五轮[事项待决清单与逐项处理](optimization-plan/74-steward-task-decisions.md)已完成实现与验证；第五轮[设置回执与作用域](optimization-plan/75-steward-settings-scope-receipts.md)已完成实现和验证，清单、逐项处理与设置三片闭合；批量操作保留为有明确需求后的候选，第六轮逐项确定小片；全文分片索引、可取消深入查找与 66 号真实平台部署联调保留专项边界；第三轮 P2 记忆的采用决策已在 79 号收口。源码尚未发布。
 
 | 顺序 | 目标 | 建议版本归属 |
 |---|---|---|
@@ -30,7 +32,7 @@
 
 先完成可靠性和高频旅程，再扩大服务类型。既有线程、事项、班组、权限、通知、记忆和调度机制继续复用。跨设备交接、完整编辑器、全局架构重写均不作为当前前置。
 
-执行中记忆补查纳入 P2：第二轮建立对照，第三轮先复用主动检索并处理用户插话；只有仍有实测遗漏，才在第六轮评估默认关闭的事件触发试验。不扫描模型思考或每段输出来触发，不重建记忆系统。范围与成本、误召回采用门见 [62 号方案](optimization-plan/62-steward-3x-iterations.md#执行中按需补查记忆)。
+执行中记忆 P2 已完成现状/A 对照与采用决策，主动检索覆盖了本批材料、日志及用户插话样本，新增提示没有稳定净收益，按门关闭扩展。以后只有新的可重复遗漏证据，才重新评估 B 或第六轮默认关闭的 C；不扫描思考或普通输出触发，不重建记忆系统。范围与成本、误召回采用门见 [62 号方案](optimization-plan/62-steward-3x-iterations.md#执行中按需补查记忆)，本批证据见 [79](optimization-plan/79-steward-31-source-closure.md)。
 
 ## 发布规则
 

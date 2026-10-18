@@ -242,8 +242,9 @@ const srv = require(path.join(APP, 'server.js'));
     '③ 138 中英稳定层都写明「四个键每次都写全」(13o 契约兜底判的正是缺 why,提示词侧同一口径)');
   ok(/说到做到/.test(zh.stable) && /Words match deeds/i.test(en.stable),
     '③ 138 中英稳定层都有「说到做到」(say 里的完成时陈述必须有同回合的工具调用或 actions 背书)');
-  ok(/"actions":\[\{"tool":"steward_thread_continue"/.test(zh.stable) && /"actions":\[\{"tool":"steward_thread_continue"/.test(en.stable),
-    '③ 138 两包各带一个完整 JSON 例子,例子的 actions 里真的装着 steward_thread_continue(38 号文那条病的正样本)');
+  ok(/本回合调用工具或列入 actions/.test(zh.stable) && /call tools or emit actions/.test(en.stable)
+    && /say 只按实际回执报告完成/.test(zh.stable) && /completion only from receipts/.test(en.stable),
+    '③ 授权完整请求当轮执行,完成声明仍须实际回执(未执行的 actions 不能当已完成证据)');
   ok(!/职责:看\(/.test(zh.stable) && !/^My job:/m.test(en.stable),
     '③ 138 电报体「职责:看(…)、递(…)」行已并进第一句(提示词自己不再示范填表体)');
   for (const [label, pack] of [['中文', zh], ['英文', en]]) {

@@ -496,11 +496,26 @@ async function scratchpadWriteTool(args, ctx) {
 // 41b 行为锁(dev-harness/tool-dispatch.e2e.js): edit/exec 级且 paths 非 null 的条目,handler 源必须含 guard
 // 调用;paths:null 必须有非空 guardNote;注册表键集 === NATIVE_TOOL_PACKS 键集(目录漂移=锁红)。
 // 新工具忘了声明 = 锁红 —— archive 漏 guard(第27波)、desktop_screenshot 越界写(第36波)这类漏审整类收口。
+async function workbenchMemoryReadLoopback(name, args) {
+  const sessionId = safeSessionId(process.env.WCW_SESSION_ID || '');
+  const session = sessionId ? await loadSession(sessionId).catch(() => null) : null;
+  if (!session) return { ok: false, error: 'memory session unavailable' };
+  try {
+    const response = await httpRequest({ url: `http://${process.env.WCW_HOST || '127.0.0.1'}:${process.env.WCW_PORT}/api/tools/${name}`,
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-wcw-token': process.env.WCW_TOKEN }, timeoutMs: 15000, maxBodyChars: 300000,
+      body: JSON.stringify({ ...args, sessionId, turnSeq: session.turnSeq, memoryLiveRead: true }) });
+    const data = safeJsonParse(response.body, null);
+    return data && data.ok && data.result || { ok: false, error: 'memory parent read unavailable' };
+  } catch { return { ok: false, error: 'memory parent read unavailable' }; }
+}
+
 const CORE_TOOL_HANDLERS = {
   workbench_memory_list: { paths: null, guardNote: "工作台自有记忆元数据检索,范围固定在 dataRoot/memory", handler: async (args, ctx) => {
+      if (RUNTIME.isMcpChild && process.env.WCW_PORT && process.env.WCW_TOKEN) return workbenchMemoryReadLoopback('workbench_memory_list', args);
       return listWorkbenchMemories(args, ctx);
   } },
   workbench_memory_read: { paths: null, guardNote: "按受校验 id 读取 dataRoot/memory 内工作台记忆,不接受任意路径", handler: async (args, ctx) => {
+      if (RUNTIME.isMcpChild && process.env.WCW_PORT && process.env.WCW_TOKEN) return workbenchMemoryReadLoopback('workbench_memory_read', args);
       return readWorkbenchMemory(args, ctx);
   } },
   workbench_memory_propose: { paths: null, guardNote: "仅写待用户确认的候选元数据,不直接写入记忆库", handler: async (args, ctx) => {

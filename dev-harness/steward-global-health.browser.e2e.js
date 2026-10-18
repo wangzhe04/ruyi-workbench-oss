@@ -38,6 +38,12 @@ const { ok } = runner;
       } });
     const act = source => fx.evaluate(`(async()=>{${source}})()`);
     const focus = () => fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread',{detail:{sessionId:${JSON.stringify(sid)}}}));true`);
+    await fx.setLens('classic');
+    await fx.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.classicArbiterReads=0;const bootFetch=window.fetch;window.fetch=function(input,init){if(new URL(typeof input==='string'?input:input.url,location.href).pathname==='/api/steward/arbiter')window.classicArbiterReads++;return bootFetch.call(this,input,init);};` });
+    await fx.cdp.send('Page.reload');
+    ok(Boolean(await fx.waitForEval(`document.documentElement.dataset.shellMode==='classic'&&document.getElementById('stewardBoardReadHealth')?.hidden === true`)),
+      'G0b classic startup completes both shared rail reads without entering Steward');
+    ok(await fx.evaluate('window.classicArbiterReads===1'), 'G0c classic initialization reads arbiter exactly once');
     await fx.evaluate(String.raw`(()=>{
       window.healthPageNonce=Math.random();window.healthInitialNonce=healthPageNonce;
       window.healthModes={};window.healthReadRequests=[];window.healthAcks=[];window.healthHeld=[];
@@ -115,6 +121,12 @@ const { ok } = runner;
     ok(await fx.evaluate(`document.getElementById('stewardDrawerAsk').hidden&&document.getElementById('stewardDrawerAcceptanceList').textContent.includes('HEALTH_ACCEPT_B')&&!document.querySelector('#stewardDrawerReadHealth .workflow-read-health')`), 'G18 late old-process response cannot resurrect a pending decision or overwrite current quality');
     ok(await fx.evaluate(`healthReadRequests.some(row=>row.at!==healthOriginalEpoch&&row.at&&row.source==='arbiter')&&healthReadRequests.some(row=>row.at!==healthOriginalEpoch&&row.at&&row.source==='snapshot')`), 'G19 reconnect refresh covers arbiter and drawer authority, not just rows');
     ok(fx.exceptions.length===0,'G20 no uncaught browser exceptions: '+fx.exceptions.join('; '));
+    await fx.setLens('classic');
+    ok(await act(`return (await (await import('/js/net.js')).api('/api/config',{method:'POST',body:JSON.stringify({stewardEnabledV1:false})})).ok===true`), 'G21 explicitly disable Steward through production configuration');
+    await fx.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.disabledArbiterRequests=0;const originalFetch=window.fetch;window.fetch=function(input,init){if(new URL(typeof input==='string'?input:input.url,location.href).pathname==='/api/steward/arbiter')window.disabledArbiterRequests++;return originalFetch.call(this,input,init);};` });
+    await fx.cdp.send('Page.reload');
+    ok(Boolean(await fx.waitForEval(`window.state?.config?.stewardEnabledV1===false&&document.getElementById('stewardBoardReadHealth')?.hidden===true`)), 'G22 disabled classic startup has no inapplicable arbiter loading/failure notice');
+    ok(await fx.evaluate(`window.disabledArbiterRequests===0`), 'G23 disabled classic startup does not request the disabled arbiter endpoint');
   } catch(error) { runner.fail(error.stack||String(error)); }
   finally { if(fx) await fx.close(); runner.done({exit:true}); }
 })();

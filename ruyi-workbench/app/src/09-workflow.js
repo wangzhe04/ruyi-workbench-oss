@@ -1879,16 +1879,48 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 起整段作废(实测两回合 matches="1"→"2"、related 列表一变,其后全部历史按未缓存计)。它改投末条 user 尾部(buildBody 里,与 recall/notes 同位);
   // 前插的这一层只留跨回合稳定的核心胶囊 + 指南。管家回合整段换了提示词(不用工作台记忆),不拆。
   const stewardVolatile = !!(stewardPrompt && typeof stewardPrompt.volatile === 'string');
-  const memoryTurnTail = stewardVolatile ? '' : buildMemoryTurnSection(enabledMemoryEntries, 'openai', config, enabledMemoryConflicts, memoryPreflight.status);
-  const turnVolatile = stewardVolatile
+  let memoryTurnTail = stewardVolatile ? '' : buildMemoryTurnSection(enabledMemoryEntries, 'openai', config, enabledMemoryConflicts, memoryPreflight.status);
+  let turnVolatile = stewardVolatile
     ? stewardPrompt.volatile
     : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }, { memoryTurnTail: true }) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
-  const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+  let budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
   // 记忆回合尾部也要计预算(它最多一整个索引上限,默认 6000 字符,可配到 10 万)。上下文治理一律用 budgetPromptFull。
-  const budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
+  let budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
+  // Only invalidate the entry snapshot; no new topic lookup or automatic recall is added here.
+  const memorySnapshotSelection = memorySelectionSignature(session, workingDir);
+  const memorySnapshotRelations = enabledMemoryEntries.length ? JSON.stringify(await readConfirmedSupersedeEdges(workingDir).catch(() => [])) : '';
+  let memorySnapshotInvalid = false;
+  const refreshMemoryPromptScope = async () => {
+    if (stewardVolatile) return;
+    let changed = memorySelectionSignature(session, workingDir) !== memorySnapshotSelection;
+    if (!changed && !memorySnapshotInvalid && enabledMemoryEntries.length) {
+      const current = await Promise.all(enabledMemoryEntries.map(async entry => {
+        try { const stat = await fsp.stat(entry.file); return stat.isFile() && `${stat.size}:${stat.mtimeMs}` === entry.memoryVersion && !memoryIsExpired(entry); }
+        catch { return false; }
+      }));
+      const edges = await readConfirmedSupersedeEdges(workingDir).catch(() => null);
+      changed = !current.every(Boolean) || !edges || JSON.stringify(edges) !== memorySnapshotRelations;
+    }
+    changed = changed || memorySelectionSignature(session, workingDir) !== memorySnapshotSelection;
+    if (!changed && !memorySnapshotInvalid) return;
+    invalidateMemoryPromptScope();
+  };
+  const invalidateMemoryPromptScope = () => {
+    memorySnapshotInvalid = true;
+    const disabled = session.memoriesExplicit === true && !(session.memories || []).length;
+    // Do not report a new search from old counts. Active tools may query the current permitted set.
+    const status = { mode: disabled ? 'disabled' : 'unavailable', enabled: !disabled, checked: false,
+      candidateCount: 0, matchCount: 0, ruleFillCount: 0, projectMatches: 0, globalMatches: 0,
+      excludedCount: memoryExclusionSet(session, workingDir).size, coreActiveCount: 0 };
+    memoryTurnTail = buildMemoryTurnSection([], 'openai', config, null, status);
+    turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, [], session.mission,
+      null, status, playbookEntries, { session }, { memoryTurnTail: true }) + (volatileExtras ? '\n\n' + volatileExtras : '');
+    budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+    budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
+  };
   // Session notes are read at turn start and refreshed after compaction writes finish.
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
@@ -1956,6 +1988,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 正常调用恒传 undefined(走开关)。volatileTailLayoutEnabled 开时易变层从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
   const buildBodyWithLayout = (withTools, layoutOverride) => {
+    if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
+      || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
     const volatileTail = layoutOverride ? layoutOverride === 'tail' : volatileTailLayoutEnabled(config);
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
@@ -2601,7 +2635,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // candidate is tried AT MOST once per logical call;全失败 → the last failure object is returned (its
   // httpError/transportError drives the caller's existing error path). Single-candidate providers: the loop
   // runs once and this is a transparent pass-through (行为与现状完全一致).
-  const streamWithFailover = async b => {
+  const streamWithFailover = async buildRequestBody => {
     // Order the candidates for THIS call: sticky base first (if it's in the sequence), then the rest in
     // declared order, so a proven endpoint is tried first but the full sequence remains a fallback.
     const sticky = failoverStickyBase.get(provider.id);
@@ -2617,7 +2651,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         onEvent({ type: 'failover', providerId: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
-      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: b, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
+      await refreshMemoryPromptScope();
+      const requestBody = buildRequestBody();
+      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: requestBody, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
       // Decide if this outcome is a failover trigger (pre-first-byte only).
       let failReason = null;
       if (call.transportError) failReason = call.transportReason || 'connect';
@@ -2696,6 +2732,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // previous iteration's tool batch (if any) pushed all its role:'tool' replies before `continue`.
       await drainSteerQueue(reg, session, onEvent);
       if (EventStreamHooks.drainBackgroundJobs) EventStreamHooks.drainBackgroundJobs(session);
+      await refreshMemoryPromptScope();
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
@@ -2797,7 +2834,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (toolSchemaNamesSentBySession.size > 200) toolSchemaNamesSentBySession.delete(toolSchemaNamesSentBySession.keys().next().value);
       const toolSchemaChanged = Array.isArray(prevSentToolNames) && prevSentToolNames.join('\n') !== sentToolNames.join('\n');
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
-      const sendBody = econThisIter && econBody ? econBody : buildBody(useTools);
       // 限流(429;以及 Anthropic 的过载 529)是首字节前的瞬时失败:修前主回合一次 429 就整回合失败并归成 tool_error,
       // 而子代理早有有界重试(08,同一份 withTransientRetry 骨架)。这里至多重试 3 次,退避 500ms 起倍增并加 ±20% 抖动
       // (可被停止截断)。流式已开始的失败不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
@@ -2813,7 +2849,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // 服务商回了 Retry-After(07 openAiStreamOnce 带出 retryAfterMs,已封顶 30 s)就至少等这么久:修前固定 0.5/1/2 s 共约 3.5 s,
         // 限流窗口还没过就把 3 次重试用光,整回合失败。
         backoffMs: (n, c) => Math.max(Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
-        attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+        attempt: () => streamWithFailover(() => buildBody(useTools)), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
         classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;

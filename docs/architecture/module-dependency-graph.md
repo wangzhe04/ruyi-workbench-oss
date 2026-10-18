@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 79 | 3812 | 3362 | 573 | 67 | 0 | 1 |
+| 79 | 3819 | 3366 | 573 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -49,7 +49,7 @@
 | 31 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 32 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
 | 33 | `06i-steward-core.js` | engine | 166 | 0 | 0 |
-| 34 | `06d-memory-domain.js` | engine | 172 | 39 | 10 |
+| 34 | `06d-memory-domain.js` | engine | 178 | 39 | 10 |
 | 35 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 36 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 37 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
@@ -59,13 +59,13 @@
 | 41 | `08-agent-runs.js` | orchestration | 127 | 117 | 21 |
 | 42 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 43 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 44 | `09-workflow.js` | orchestration | 32 | 263 | 27 |
+| 44 | `09-workflow.js` | orchestration | 32 | 267 | 27 |
 | 45 | `10-context-governance.js` | orchestration | 227 | 103 | 18 |
 | 46 | `11-native-tools.js` | tools | 132 | 45 | 6 |
 | 47 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 48 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
 | 49 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
-| 50 | `12-tool-dispatch.js` | tools | 72 | 127 | 21 |
+| 50 | `12-tool-dispatch.js` | tools | 73 | 127 | 21 |
 | 51 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
 | 52 | `13-http-router.js` | transport | 70 | 265 | 32 |
 | 53 | `13b-api-domain-routes.js` | transport | 40 | 65 | 9 |
@@ -308,7 +308,7 @@
 | `09-workflow.js` | `06-provider-engine.js` | backward | `appendTurnPolicies`, `buildPromptTaskContext`, `buildStableSystemPrompt`, `buildVolatileParts`, `evalPlaybookAvailability`, `getCapabilities`, `loadAllPlaybooks`, `neutralizeAuthoredText`, `readProjectMemory`, `repairNodeJsonViaProvider`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget`, `softwareEngineeringTaskProfile` |
 | `09-workflow.js` | `06b-prompt-registry.js` | backward | `PROMPT_EN`, `PROMPT_PACK_VERSION`, `getPromptPack`, `revertNoticeTurns` |
 | `09-workflow.js` | `06c-agent-loop-hooks.js` | backward | `AgentLoopHooks` |
-| `09-workflow.js` | `06d-memory-domain.js` | backward | `buildMemoryCheckPrompt`, `buildMemoryConflictMap`, `buildMemoryPromptSection`, `buildMemoryTurnSection`, `extractMemoryRelationProposals`, `filterMemoryForNativeCli`, `proposeMemoryRelation`, `resolveMemoryPreflight` |
+| `09-workflow.js` | `06d-memory-domain.js` | backward | `buildMemoryCheckPrompt`, `buildMemoryConflictMap`, `buildMemoryPromptSection`, `buildMemoryTurnSection`, `extractMemoryRelationProposals`, `filterMemoryForNativeCli`, `memoryExclusionSet`, `memoryIsExpired`, `memorySelectionSignature`, `proposeMemoryRelation`, `readConfirmedSupersedeEdges`, `resolveMemoryPreflight` |
 | `09-workflow.js` | `06f-autonomy-grants.js` | backward | `consumeGrant` |
 | `09-workflow.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `inferToolResources`, `normalizeAgentResources`, `releaseResourceLease`, `remapAgentResources` |
 | `09-workflow.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName` |

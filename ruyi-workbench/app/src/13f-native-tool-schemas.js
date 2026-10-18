@@ -1005,7 +1005,7 @@ const MCP_TOOLS = [
           type: 'object', additionalProperties: false, required: ['userText'],
           description: '委托书。userText 必填且逐字保留;其余各段是你的补充,对用户可见、可改、可删,不得改写用户意图。',
           properties: {
-            userText: { type: 'string', minLength: 1, description: '用户原话,逐字。' },
+            userText: { type: 'string', minLength: 1, description: '整条用户原话,逐字保留“新任务:”等前缀、标点、路径、数字与换行;不得只提取任务正文。' },
             goal: { type: 'string', description: '一句话目标。' },
             acceptance: { type: 'array', items: { type: 'string' }, description: '验收项(做到什么算完成)。' },
             context: { type: 'array', items: { type: 'string' }, description: '相关文件、目录或已知事实。' },

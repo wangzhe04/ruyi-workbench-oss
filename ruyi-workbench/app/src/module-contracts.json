@@ -6010,6 +6010,7 @@
         "deleteMemoryRelation",
         "draftMemoryFromSession",
         "effectiveMemorySelection",
+        "eligibleMemoryEntries",
         "extractMemoryRelationProposals",
         "filterMemoryForNativeCli",
         "findMemoryProposalDuplicate",
@@ -6057,8 +6058,12 @@
         "memoryRetrievalText",
         "memoryReviewDue",
         "memorySearchTerms",
+        "memorySelectionSignature",
         "memorySupersededMarks",
         "memorySupersededTag",
+        "memoryToolLibraryCurrent",
+        "memoryToolLibraryVersion",
+        "memoryToolSupersededStatus",
         "memoryUsageFile",
         "memoryUsageKey",
         "memoryUsageWriteChain",
@@ -6102,6 +6107,7 @@
         "resolveCoreMemoryState",
         "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
+        "resolveWorkbenchMemoryReadContext",
         "resolveWorkbenchMemoryToolContext",
         "saveMemory",
         "sha256Hex",
@@ -9591,7 +9597,35 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "memoryExclusionSet",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memorySelectionSignature",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "proposeMemoryRelation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "readConfirmedSupersedeEdges",
           "kinds": [
             "call"
           ]
@@ -12052,7 +12086,8 @@
         "toolInvokeMissingNameResult",
         "toolInvokeTierCovers",
         "withFileToolWriteLock",
-        "withToolArgsGuide"
+        "withToolArgsGuide",
+        "workbenchMemoryReadLoopback"
       ],
       "requires": [
         {

@@ -44,7 +44,7 @@ const ctx = () => ({ session: { id: 'web-test', cwd: root }, config: { permissio
     ok(s.normalizeConfig({ searchBackend: { type: 'unknown' } }).config.searchBackend.type === 'builtin', '未知后端仍回落默认');
     const result = await s.toolCall('web_search', { query: '如意 site:example.com', maxResults: 3 }, ctx());
     ok(result.ok && result.backend === 'deepseek' && result.results.length === 1 && result.results[0].summary === '给模型的长摘要', '普通搜索工具接入 DeepSeek 并保留摘要');
-    ok(seen[0].method === 'POST' && seen[0].url === '/v1/tools/search' && seen[0].auth === 'Bearer deepseek-test-secret', '官方路径、POST 与 Bearer 鉴权正确, /v1 不重复');
+    ok(seen[0].method === 'POST' && seen[0].url === '/v1/tools/search' && seen[0].auth === 'Bearer ' + cfg.searchBackend.apiKey, '官方路径、POST 与 Bearer 鉴权正确, /v1 不重复');
     ok(seen[0].body.count === 3 && seen[0].body.need_content === false && seen[0].body.query.includes('site:'), '条数与操作符原样传递,搜索不额外拉全文');
     let count = seen.length;
     const long = await s.webSearch({ query: '😀'.repeat(129) }, cfg);

@@ -365,8 +365,10 @@ sanitized current state and proposed difference, then waits for an execution-lev
 saving. Secret environment values are never returned in the inventory.
 
 Workbench memory stores personal practices or project conventions after a draft-and-confirm step. Project memories
-apply to their matching workspace; global memories are enabled deliberately. Keep repository-wide shared rules in
+are retrieved by relevance with global memories by default; a session can pin a selection or disable memory. Active reads respect that selection, exclusions, project scope and expiry. Keep repository-wide shared rules in
 CLAUDE.md and personal habits in workbench memory.
+
+Memory is reference material; the current request takes precedence. Superseded entries are marked as historical. If selection or memory changes during an ordinary provider turn, later requests discard the old summary snapshot and use active reads within the current scope or the next turn's preflight. This never saves a new memory automatically. Already sent requests and historical tool results remain intact.
 
 The Usage tab in the right pane groups tokens and cost by engine, provider, thread, and day. It labels subscription-plan traffic
 honestly rather than inventing a monetary cost, and includes sub-agent and compaction usage. You can set a monthly

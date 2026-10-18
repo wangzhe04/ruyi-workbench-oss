@@ -5,6 +5,12 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 直接进入工作台会完成共享侧栏的运行与排队读取，不再永久显示加载；关闭管家时不显示不适用的仲裁故障。
+- Opening the workbench directly completes the shared sidebar's run and queue read. Disabling the Steward no longer shows an inapplicable arbiter warning.
+
+- 3.1 收口补齐明确新任务的当轮交办与整条原话保真规则；记忆主动读取遵守会话关闭、固定集合、排除、项目与有效期，取代关系有提示。停止、换回合及库变化后的迟到结果丢弃，后续模型请求不再追加失效摘要。本机固定样本中新增补查提示无稳定收益，保持现有指南，不引入额外自动召回。
+- The 3.1 source work clarifies immediate dispatch of explicit new tasks and verbatim message relay. Active memory reads honor session selection, exclusions, project scope and expiry, with superseded-reference warnings. Late results are discarded and stale summaries are removed from later requests. A fixed local-model comparison found no repeatable benefit from an extra recall hint, so the existing guide remains in place without new automatic recall.
+
 - 管家直接递话可在发送中刷新后找回原话、附件、目标和核对入口，不自动补发。服务重启、回执过期或容量淘汰后的未知结果不会按“未执行”重派；真实重放和迟到成功只结算原记录。
 - Direct Steward deliveries recover their text, attachments, target and receipt check after a page reload, without automatic resending. Restarted, expired or evicted receipt windows remain unknown; replays and late success settle the original record.
 

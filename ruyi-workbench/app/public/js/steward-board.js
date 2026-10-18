@@ -223,13 +223,15 @@ export function createStewardBoard({
   let missionsEtag = '';            // 带 If-None-Match 走，没变就连解析都省了
   let boardReadGeneration = 0;
   let arbiterReadSeq = 0;
+  let arbiterBootstrapGeneration = -1;
   const boardReadQuality = { missions: { state: 'loading', lastSuccessAt: 0 }, arbiter: { state: 'loading', lastSuccessAt: 0 } };
   function renderBoardReadHealth() {
     const rail = byId('railList'); if (!rail || !rail.parentNode) return;
     let host = byId('stewardBoardReadHealth');
     if (!host) { host = el('div', 'steward-read-health'); host.id = 'stewardBoardReadHealth'; rail.parentNode.insertBefore(host, rail); }
     clear(host);
-    appendResourceReadHealth(host, boardReadQuality, { el, t, locale: getLocale() });
+    const quality = state?.config?.stewardEnabledV1 === false ? { missions: boardReadQuality.missions } : boardReadQuality;
+    appendResourceReadHealth(host, quality, { el, t, locale: getLocale() });
     host.hidden = !host.childNodes.length;
     host.dataset.projectionRevision = boardReadQuality.missions.projectionRevision || '';
     host.dataset.builtAt = boardReadQuality.missions.builtAt || '';
@@ -404,6 +406,7 @@ export function createStewardBoard({
 
   async function loadArbiter() {
     const seq = ++arbiterReadSeq, generation = boardReadGeneration;
+    arbiterBootstrapGeneration = generation;
     try {
       const response = await api('/api/steward/arbiter');
       if (generation !== boardReadGeneration || seq !== arbiterReadSeq) return arbiter;
@@ -1957,8 +1960,17 @@ export function createStewardBoard({
   // 128f-⑫：修前这里是 `if (!isStewardMode())` —— 理由是「管家视角有兜底计时器」。可那一拍是 15 s（配置默认），
   // 于是在管家视角里删掉一条线程，行要等十几秒、或者用户随手点了别处（换焦点那一刷）才消失（用户 2026-09-19 原话）。
   // 用户动作之后复核一次行，两个视角都要。304 时照旧不重画。
+  function bootstrapArbiterRead() {
+    // Both lenses show this read quality. Classic has no board polling: read once per server generation,
+    // rather than leaving its arbiter permanently "loading" until the user opens the Steward lens.
+    if (state?.config?.stewardEnabledV1 === true && arbiterBootstrapGeneration !== boardReadGeneration) {
+      arbiterBootstrapGeneration = boardReadGeneration;
+      void loadArbiter().then(() => renderArbiterFacts());
+    }
+  }
   function syncRail() {
     renderRail();
+    bootstrapArbiterRead();
     void pushRefreshRows();
     return true;
   }
@@ -2276,7 +2288,7 @@ export function createStewardBoard({
     // 不刷的话在工作台直接刷新页面会看到一条空的左栏（第一版实测就是这样）。只取这一次、不起表：
     // 之后的新鲜度由推送（thread.* 五类）与用户动作（开／建／改名／删 → syncRail）给。
     if (isStewardMode()) void enterSteward();
-    else void refreshRows();
+    else { bootstrapArbiterRead(); void refreshRows(); }
     return true;
   }
 

@@ -238,7 +238,7 @@ try {
       'B7c 117m-A4:管家回合的请求体里有 steward_thread_stop(线程级停止原语真的到了模型手里)');
     const sys = stewardBody ? String((stewardBody.messages.find(m => m.role === 'system') || {}).content || '') : '';
     ok(/我是如意/.test(sys) && /永久豁免/.test(sys) && /输出契约/.test(sys), 'B8 稳定层:身份/永久豁免/输出契约都在系统提示里');
-    ok(!/先读后改/.test(sys) && !/当前能力/.test(sys), 'B8b 稳定层【整段替换】普通包(不含工具协议层与能力层)');
+    ok(!/工具协议守则：/.test(sys) && !/当前能力：/.test(sys), 'B8b 稳定层【整段替换】普通包(不含工具协议层与能力层)');
     const firstUser = stewardBody ? String((stewardBody.messages.find(m => m.role === 'user') || {}).content || '') : '';
     ok(/我记得的关于用户的事|还没有记下/.test(firstUser), 'B9 半稳定层:记忆块在第一条 user 消息前缀里(易变内容后置)');
     ok(/线程总览|当前没有线程/.test(firstUser) && /steward_thread_read/.test(firstUser), 'B10 到访层:线程总览 + 「更多细节用 steward_thread_read」尾句');

@@ -1723,6 +1723,7 @@ async function handleApi(req, res, pathname) {
     // write roots (guardDownloadDest → guardFileToolPath, 安全审计 #3). Best-effort; a load failure just falls
     // back to the config read from disk inside guardFileToolPath, never blocking the other tools.
     if (ctx) {
+      if (body.memoryLiveRead === true && ['workbench_memory_list', 'workbench_memory_read'].includes(name)) ctx.memoryLiveRead = true;
       try {
         ctx.config = await readConfig();
         const s = await loadSession(ctx.sessionId).catch(() => null);

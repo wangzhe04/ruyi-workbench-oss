@@ -269,12 +269,13 @@ try {
     const t0 = Date.now();
     const streaming = request('POST', '/api/chat/stream', { sessionId: sid, message: '开始一件很慢的事', cwd: HOME }, hdr);
 
-    // 等回合真的登记进 activeChildren 再按停。轮询用的就是这枚按钮本身:没在跑时它回 not_running
-    // 且【零副作用】(这正是本切片要证的性质之一),所以拿它当探针是安全的。
+    // 先读取真实执行身份再按停。无身份的停止现在会被生产护栏拒绝,不能再拿旧的无身份按钮当探针。
     let act = null;
     for (let i = 0; i < 40; i++) {
       await sleep(150);
-      act = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_thread_stop', args: { sessionId: sid } } }, hdr);
+      const observed = await request('GET', '/api/sessions/' + sid + '?view=live', undefined, hdr);
+      if (!observed.json || !observed.json.execution) continue;
+      act = await request('POST', '/api/steward/act', { act: { kind: 'tool', tool: 'steward_thread_stop', args: { sessionId: sid, expectedExecution: observed.json.execution } } }, hdr);
       if (act.status === 200 && act.json && act.json.result && act.json.result.stopped === true) break;
     }
     ok(act && act.status === 200 && act.json && act.json.ok === true && act.json.kind === 'tool',

@@ -55,7 +55,7 @@ const toolResult = (name, id) => {
   return null;
 };
 const run = async (name, message) => {
-  sent.set(name, `CASE-${name} ${message}`);
+  sent.set(name, `${name === 'EDIT' ? '新任务:\n' : ''}CASE-${name} ${message}`);
   const response = await request('POST', '/api/steward/message', { message: sent.get(name) });
   ok(response.status === 200 && response.lines.some(e => e.type === 'steward_reply'), `${name} 生产管家回合完成并返回 steward_reply`);
   return response;
@@ -121,7 +121,7 @@ const run = async (name, message) => {
     await run('STATUS', '已有报告现在是什么状态?');
     const status = toolResult('STATUS', 'status');
     ok(status && status.ok === true && capture('STATUS').length === 2, 'J01 已知状态:实际查询回执进入下一次模型请求');
-    ok(capture('STATUS')[0].messages.some(m => m.role === 'system' && /少量只读即可完整回答/.test(text(m.content))), '中文分流契约进入真实生产请求的系统提示');
+    ok(capture('STATUS')[0].messages.some(m => m.role === 'system' && /少量只读可完整回答/.test(text(m.content))), '中文分流契约进入真实生产请求的系统提示');
     await run('MATERIAL', `请解释 ${MATERIAL} 的统计口径。`);
     const material = toolResult('MATERIAL', 'material-MATERIAL');
     ok(material && material.ok === true && material.tainted === true && /37 万元/.test(material.content), 'J02 材料解释:本回合真实读到正文与污染标记');
@@ -154,7 +154,7 @@ const run = async (name, message) => {
     ok(denied && denied.ok === false && denied.error === 'propose_required' && savedCfg.theme === 'light', '反向:读取后的设置写动作被污染闸拒绝且设置未变');
     ok((await request('POST', '/api/config', { locale: 'en-US' })).status === 200, '切换英文契约');
     await run('EN', `Explain ${MATERIAL} using its original content.`);
-    ok(capture('EN')[0].messages.some(m => m.role === 'system' && /in this turn when a few read-only lookups suffice/.test(text(m.content)))
+    ok(capture('EN')[0].messages.some(m => m.role === 'system' && /Answer with a few read-only lookups when sufficient/.test(text(m.content)))
       && toolResult('EN', 'material-EN')?.ok === true, '英文生产系统提示与只读回执同样到位');
     ok(heads().length === afterJobs, '缺材料/失败/外部诱导均未额外开线程');
     const diskFiles = fs.readdirSync(path.join(DATA, 'sessions')).filter(f => f.startsWith('steward.'));

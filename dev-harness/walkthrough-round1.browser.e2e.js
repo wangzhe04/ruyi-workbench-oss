@@ -728,7 +728,7 @@ try {
     `F5 空态「当前引擎：…」那一行跟着变了（实测「${after && after.empty}」）`);
   ok(Boolean(after && after.statusTitle.includes(MODEL_2)),
     `F6 #statusLine 的 title（服务商 · 模型）跟着变了（实测「${after && after.statusTitle}」）`);
-  ok(Boolean(after && after.toast.includes(zh['stewardShell.chips.changed'])),
+  ok(Boolean(after && after.toast.includes(zh['settingsReceipt.threadSaved'].replace('{{model}}', MODEL_2))),
     `F7 切完有一条【看得见】的回执（工作台视角里 #stewardDrawerNote 是藏着的；实测「${after && after.toast}」）`);
 
   const modelsBefore = seenModels.length;

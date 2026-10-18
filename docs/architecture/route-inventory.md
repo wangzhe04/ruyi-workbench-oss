@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 166(精确 143 / 前缀 11 / 正则 12),ROUTE_AUTH 152 条,生成于 2026-10-18T04:27:17.456Z。
+> 判定点 166(精确 143 / 前缀 11 / 正则 12),ROUTE_AUTH 152 条,生成于 2026-10-18T06:05:10.873Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -41,7 +41,7 @@
 | POST | `/api/workspace/dedicated` | exact | token | 13-http-router.js · `handleApi` | onboarding-workspace.browser.e2e.js |
 | POST | `/api/pick-file` | exact | token | 13-http-router.js · `handleApi` | overlay-update-gui.static.e2e.js, settings-wave1.browser.e2e.js |
 | GET | `/api/models` | exact | open | 13-http-router.js · `handleApi` | asr-config-ui.static.e2e.js, claude-models-cache.e2e.js, context-window.e2e.js 等 7 件 |
-| POST | `/api/config` | exact | token | 13-http-router.js · `handleApi` | agent-coordination.e2e.js, agent-team-mode.e2e.js, agent-wake.e2e.js 等 63 件 |
+| POST | `/api/config` | exact | token | 13-http-router.js · `handleApi` | agent-coordination.e2e.js, agent-team-mode.e2e.js, agent-wake.e2e.js 等 64 件 |
 | GET | `/api/agent-roles` | exact | token-browser | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 7 件 |
 | POST | `/api/agent-roles` | exact | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 7 件 |
 | GET | `/api/agent-workflows` | exact | token-browser | 13-http-router.js · `handleApi` | agent-workflow-audit-fixes.e2e.js, auth-deny-default.e2e.js, meta-guard.e2e.js 等 6 件 |
@@ -67,7 +67,7 @@
 | POST | `/api/memory/relations/confirm` | exact | token-browser | 13-http-router.js · `handleApi` | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/relations/` | prefix | token-browser | 13-http-router.js · `handleApi` | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/` | prefix | token-browser | 13-http-router.js · `handleApi` | action-feedback.static.e2e.js, agent-quality-workflow.e2e.js, auth-deny-default.e2e.js 等 11 件 |
-| POST | `/api/stop` | exact | token-browser | 13-http-router.js · `handleApi` | agent-resource-wait-stop.e2e.js, agent-run-lifecycle.e2e.js, agent-wake.e2e.js 等 20 件 |
+| POST | `/api/stop` | exact | token-browser | 13-http-router.js · `handleApi` | agent-resource-wait-stop.e2e.js, agent-run-lifecycle.e2e.js, agent-wake.e2e.js 等 21 件 |
 | POST | `/api/provider/compact` | exact | token-browser | 13-http-router.js · `handleApi` | context-compact-v2.e2e.js, provider-compact-recall.e2e.js, provider-compact.e2e.js 等 6 件 |
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js · `handleApi` | agent-cli-registry.test.js |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js · `handleApi` | kimi-agent-cli.e2e.js, store-walkthrough-w1.e2e.js |
@@ -95,7 +95,7 @@
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js · `handleApi` | chat-ux-wave1.browser.e2e.js, external-bots.browser.e2e.js, file-text-encoding.e2e.js 等 9 件 |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js · `handleApi` | tool-result-render.browser.e2e.js, tool-result-shrink.test.js, vision-loop.e2e.js |
 | POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 194 件 |
-| POST | `/api/tools/` | prefix | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 18 件 |
+| POST | `/api/tools/` | prefix | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 19 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js · `startServerInner` | — |
 
 ## event-stream(1)

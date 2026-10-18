@@ -20,6 +20,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { readServerSource } = require('./src-reader');
+const { functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -152,8 +153,10 @@ const MISSION_INPUT = {
     ok(/async function saveSession\(session, opts\)/.test(src) && /if \(opts && opts\.mergeMissionFromDisk\)/.test(src)
       && /mergeMissionBeforeSave\(session, onDiskHead\)/.test(src),
     's 02 saveSession 的落盘前合并在【写链内】重读头(链外读+写中间还能插进路由那一存)');
-    ok((src.match(/await saveSession\(session, \{ mergeMissionFromDisk: true \}\);/g) || []).length === 2,
-      's 09／05 两处【起跑存】都带落盘前合并(claude 与 kimi 共用 05 那一处)');
+    ok(['runClaudeTurn', 'runOpenAiTurn'].every(name => {
+      const turn = functionBlock(src, name);
+      return turn && (turn.match(/await saveSession\(session, \{ mergeMissionFromDisk: true, executionOwner \}\);/g) || []).length === 1;
+    }), 's 09／05 两处【起跑存】都带落盘前合并和执行所有者(claude 与 kimi 共用 05 那一处)');
     ok((src.match(/mergeMissionBeforeSave\(session, onDisk\);/g) || []).length === 3,
       's 09／05／05b 三处【收尾存】前都调同一个合并函数');
   } finally {

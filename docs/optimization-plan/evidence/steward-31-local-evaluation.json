@@ -1,0 +1,505 @@
+{
+  "date": "2026-10-18",
+  "environment": "Windows, Node 24.14.1",
+  "scope": "Synthetic opt-in local DeepSeek experiments and Windows source regression. No release/package claims.",
+  "sources": {
+    "routingInitial": {
+      "sha256": "a1db53ffbd66acc09d874ca5bbd7582a0197adcaca73f63794e998237eceac27",
+      "model": "deepseek-flash",
+      "sourceUnchanged": true,
+      "summary": {
+        "baseline": {
+          "total": 10,
+          "strict": 6,
+          "unknown": 0
+        },
+        "candidate": {
+          "total": 10,
+          "strict": 6,
+          "unknown": 0
+        }
+      },
+      "requests": 20,
+      "tools": 43,
+      "scope": "synthetic first response only; no tool execution",
+      "failures": [
+        {
+          "repeat": 0,
+          "id": "report",
+          "variant": "baseline",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_thread_status",
+              "args": {
+                "sessionId": "sess_existing_report"
+              }
+            },
+            {
+              "tool": "steward_thread_read",
+              "args": {
+                "sessionId": "sess_existing_report",
+                "tail": 6
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 0,
+          "id": "report",
+          "variant": "candidate",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_thread_status",
+              "args": {
+                "sessionId": "sess_existing_report"
+              }
+            },
+            {
+              "tool": "steward_thread_read",
+              "args": {
+                "sessionId": "sess_existing_report",
+                "tail": 4
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 0,
+          "id": "edit",
+          "variant": "candidate",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\material.txt"
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 0,
+          "id": "edit",
+          "variant": "baseline",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\material.txt"
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "id": "report",
+          "variant": "candidate",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_thread_status",
+              "args": {
+                "sessionId": "sess_existing_report"
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "id": "report",
+          "variant": "baseline",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_thread_status",
+              "args": {
+                "sessionId": "sess_existing_report"
+              }
+            },
+            {
+              "tool": "steward_thread_read",
+              "args": {
+                "sessionId": "sess_existing_report",
+                "tail": 6
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "id": "edit",
+          "variant": "baseline",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\material.txt"
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "id": "edit",
+          "variant": "candidate",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\material.txt"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "routingAccepted": {
+      "sha256": "ebd0f90890f76a44bf1b5f752c3664ae17f4ba14c1a4d0a2a0ee9380b2d54280",
+      "model": "deepseek-flash",
+      "sourceUnchanged": true,
+      "summary": {
+        "baseline": {
+          "total": 10,
+          "strict": 6,
+          "unknown": 0
+        },
+        "candidate": {
+          "total": 10,
+          "strict": 8,
+          "unknown": 0
+        }
+      },
+      "requests": 20,
+      "tools": 43,
+      "scope": "synthetic first response only; no tool execution",
+      "failures": [
+        {
+          "repeat": 0,
+          "id": "report",
+          "variant": "baseline",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_thread_status",
+              "args": {
+                "sessionId": "sess_existing_report"
+              }
+            },
+            {
+              "tool": "steward_thread_read",
+              "args": {
+                "sessionId": "sess_existing_report",
+                "tail": 6
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 0,
+          "id": "report",
+          "variant": "candidate",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\a.txt"
+              }
+            },
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\b.txt"
+              }
+            },
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\c.txt"
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 0,
+          "id": "edit",
+          "variant": "baseline",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\material.txt"
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "id": "report",
+          "variant": "candidate",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_thread_status",
+              "args": {
+                "sessionId": "sess_existing_report"
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "id": "report",
+          "variant": "baseline",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_thread_status",
+              "args": {
+                "sessionId": "sess_existing_report"
+              }
+            },
+            {
+              "tool": "steward_thread_read",
+              "args": {
+                "sessionId": "sess_existing_report",
+                "tail": 6
+              }
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "id": "edit",
+          "variant": "baseline",
+          "strict": false,
+          "actions": [
+            {
+              "tool": "steward_file_read",
+              "args": {
+                "path": "C:\\RoutingFixture\\material.txt"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "memory": {
+      "sha256": "b8c9a130ae3cbaf24db691779d643751f98c44dac2be710e438d2104c1823dde",
+      "model": "deepseek-flash",
+      "sourceUnchanged": true,
+      "summary": {
+        "baseline": {
+          "samples": 16,
+          "taskSuccess": 16,
+          "readAndOutputProxy": 16,
+          "negativeErrors": 0,
+          "calls": 74,
+          "inputTokens": 1333697,
+          "cachedTokens": 1280640,
+          "meanMs": 7922.8,
+          "p50Ms": 7940,
+          "p95Ms": 10608,
+          "minMs": 5159,
+          "maxMs": 10608
+        },
+        "candidate": {
+          "samples": 16,
+          "taskSuccess": 16,
+          "readAndOutputProxy": 16,
+          "negativeErrors": 0,
+          "calls": 74,
+          "inputTokens": 1360691,
+          "cachedTokens": 1316736,
+          "meanMs": 8614.4,
+          "p50Ms": 8194,
+          "p95Ms": 16676,
+          "minMs": 3131,
+          "maxMs": 16676
+        }
+      },
+      "adoptionGate": {
+        "baseline": 16,
+        "samplesPerVariant": 16,
+        "rule": "Adopt only if both repeats improve the same positive case, zero additional negative errors, no task regression, and mean calls/input tokens <= 1.5x baseline. Otherwise close A without production changes; consider B only for repeatable steer misses.",
+        "improved": [],
+        "regressions": [],
+        "baselineNegativeErrors": 0,
+        "candidateNegativeErrors": 0,
+        "callRatio": 1,
+        "inputRatio": 1.020239979545579,
+        "decision": "close-A-no-repeatable-net-benefit",
+        "steerMisses": []
+      },
+      "manualReview": {
+        "positiveBodiesAndScopeChecked": 24,
+        "negativeOutputsChecked": 8,
+        "caveat": "Candidate material-a repeat 0 includes an unnecessary reference to a different 1.08 rate, while applying the correct 1.2 rule. Numeric correctness is not a general semantic accuracy guarantee."
+      },
+      "promptChangeAdopted": false,
+      "BImplemented": false,
+      "CImplemented": false
+    }
+  },
+  "regression": {
+    "environment": "Windows, Node 24.14.1",
+    "unitPreflight": {
+      "total": 2056,
+      "passed": 2030,
+      "skipped": 26,
+      "failed": 0
+    },
+    "primary": {
+      "command": "node dev-harness/run-all.js --parallel 4",
+      "passed": 509,
+      "failed": 18,
+      "knownFailed": 0,
+      "flaky": 2,
+      "ran": 527,
+      "skippedLive": 7,
+      "leftoverTestBrowsers": 0,
+      "logSha256": "659c6aad5afac53c26262abe7e874514207204903c54f529617fbe2ce1a07297",
+      "resultSha256": "18aa444d992c44a3d267ce4dd4ecf3d3d99c56d461d35608684399614ddc2650"
+    },
+    "finalTargeted": {
+      "strategy": "Original runner runOne, serial explicit files, one attempt each; after repairs and reviewed visual fixture/baseline update",
+      "passed": 25,
+      "failed": 0,
+      "sha256": "70a0c48bd24dff8c9a70b128245ed972ad673f771b0988c3455178fdd235fc55",
+      "files": [
+        {
+          "file": "prompt-snapshot.static.e2e.js",
+          "passed": true,
+          "ms": 151
+        },
+        {
+          "file": "process-safety.static.e2e.js",
+          "passed": true,
+          "ms": 243
+        },
+        {
+          "file": "checkpoint-visibility.e2e.js",
+          "passed": true,
+          "ms": 6165
+        },
+        {
+          "file": "external-bots.browser.e2e.js",
+          "passed": true,
+          "ms": 23303
+        },
+        {
+          "file": "chat-stream-remount.browser.e2e.js",
+          "passed": true,
+          "ms": 12867
+        },
+        {
+          "file": "mission-start-race.e2e.js",
+          "passed": true,
+          "ms": 27258
+        },
+        {
+          "file": "repo-hygiene.e2e.js",
+          "passed": true,
+          "ms": 18928
+        },
+        {
+          "file": "session-scratchpad.e2e.js",
+          "passed": true,
+          "ms": 8696
+        },
+        {
+          "file": "steward-background-hold.e2e.js",
+          "passed": true,
+          "ms": 4452
+        },
+        {
+          "file": "steward-runner.e2e.js",
+          "passed": true,
+          "ms": 11686
+        },
+        {
+          "file": "steward-guardrails.e2e.js",
+          "passed": true,
+          "ms": 17996
+        },
+        {
+          "file": "workbench-self-status.e2e.js",
+          "passed": true,
+          "ms": 4746
+        },
+        {
+          "file": "tool-audit-r2-meta.e2e.js",
+          "passed": true,
+          "ms": 6874
+        },
+        {
+          "file": "tool-dispatch.e2e.js",
+          "passed": true,
+          "ms": 1786
+        },
+        {
+          "file": "tool-invoke-promote.e2e.js",
+          "passed": true,
+          "ms": 6669
+        },
+        {
+          "file": "autonomy-durability.e2e.js",
+          "passed": true,
+          "ms": 31838
+        },
+        {
+          "file": "dom-screenshot.e2e.js",
+          "passed": true,
+          "ms": 9324
+        },
+        {
+          "file": "walkthrough-round1.browser.e2e.js",
+          "passed": true,
+          "ms": 18614
+        },
+        {
+          "file": "steward-global-health.browser.e2e.js",
+          "passed": true,
+          "ms": 21785
+        },
+        {
+          "file": "steward-board.e2e.js",
+          "passed": true,
+          "ms": 25972
+        },
+        {
+          "file": "steward-board.static.e2e.js",
+          "passed": true,
+          "ms": 104
+        },
+        {
+          "file": "overlay-payload-lock.static.e2e.js",
+          "passed": true,
+          "ms": 128
+        },
+        {
+          "file": "memory-active-scope.e2e.js",
+          "passed": true,
+          "ms": 3920
+        },
+        {
+          "file": "permission-plain.browser.e2e.js",
+          "passed": true,
+          "ms": 10261
+        },
+        {
+          "file": "subagent.e2e.js",
+          "passed": true,
+          "ms": 33701
+        }
+      ]
+    },
+    "limits": "Primary full run was not all green. Original 18 failures and 2 flaky cases passed final serial rechecks; related board, health, overlay and memory checks also passed. No second full 527-case run or release-package validation claimed."
+  }
+}

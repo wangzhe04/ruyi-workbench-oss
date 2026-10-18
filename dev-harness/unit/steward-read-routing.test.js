@@ -13,9 +13,9 @@ after(() => { try { fs.rmSync(root, { recursive: true, force: true }); } catch {
 test('双语管家契约允许当前回合轻量读取,独立调查与执行仍交线程', () => {
   const zh = srv.getPromptPack('zh-CN').steward.stable;
   const en = srv.getPromptPack('en-US').steward.stable;
-  assert.match(zh, /少量只读即可完整回答.*本回合/);
-  assert.match(en, /in this turn when a few read-only lookups suffice/);
-  assert.match(zh, /独立调查或短时执行才用 steward_quick_ask/);
+  assert.match(zh, /少量只读可完整回答.*本回合/);
+  assert.match(en, /Answer with a few read-only lookups when sufficient/);
+  assert.match(zh, /独立调查或短时执行用 steward_quick_ask/);
   assert.match(en, /steward_quick_ask for independent investigation or short execution/);
   assert.match(zh, /不按字数或文件数/);
   assert.match(en, /not word or file count/);

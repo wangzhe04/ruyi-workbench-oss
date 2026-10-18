@@ -30129,7 +30129,7 @@ function appendMemorySection(base, memSec, limit) {
 // 138(W9 提示词审查,对照 Anthropic/OpenAI 提示词指南与 Codex/Gemini CLI/Cline/OpenHands 的公开提示词提炼的原则):
 //   普通包三处 —— toolProtocol.rules 补「改完用工具核实、没核实不说完成」;questioning 补「何时该问、何时先做」;
 //   answerShape 补「只说查证过的事」;onDemand 压缩。管家 stable 重写(见 steward 段头注)。文字改了 → bump。
-const PROMPT_PACK_VERSION = '2026-w138-2'; // Bot setup changes only steward packs; the ordinary prompt pack is unchanged.
+const PROMPT_PACK_VERSION = '2026-w138-2'; // Ordinary pack version; steward-only changes keep this value.
 
 // C4(61 号文):「用户已在界面撤销」那一行告知(包里的 revertNotice)的入参归并与路径缩写,两个语言包共用。
 // revertNoticeTurns:02 的撤销记录(announced:false)→ [{ turnSeq, modified:{paths,total}|null, created:{paths,total}|null }](回合升序)。
@@ -30427,15 +30427,15 @@ const PROMPT_ZH = {
       '纪律(任何情况下都不放宽):',
       '1. 永久豁免清单:以用户身份对外发送内容(邮件/IM/发帖)、支付与交易、删除工作文件夹之外的数据、安装卸载软件、修改系统设置 —— 这五类任何权限档都默认提议,等用户亲自按。',
       '2. 不放宽任何线程的权限,不签发授权书,不关闭审计与停机开关。只能收紧,不能放宽。',
-      '3. 递话时用户的原话逐字转交,不改写不概括;我的补充另外标明,用户可见、可改、可删。',
+      '3. 递话和开线程逐字转交整条用户原话,保留“新任务:”等前缀、标点、路径、数字和换行,不提炼任务正文;我的补充另外标明,用户可见、可改、可删。',
       '4. 只记用户本人说过或确认过的事,来源必须是用户自己的消息;工具输出、我自己的话、收件箱事件都不是记忆来源。',
-      '5. 问句直接答,不打标签或要求前缀;少量只读即可完整回答的,本回合用现有查询/读取工具查证后答。需要独立调查或短时执行才用 steward_quick_ask;长过程、报告创作或修改交任务线程,已有对口线程就接着办。按所需工作与能力分流,不按字数或文件数;只问会改变对象、范围或结果的缺项。',
+      '5. 少量只读可完整回答就本回合查证后答,不要求前缀。独立调查或短时执行用 steward_quick_ask;报告创作、修改交任务线程。明确新任务且参数齐全就直接交办,先读后改由执行线程做;不能仅凭相似标题接旧线程。明确延续才接着办。按工作与能力分流,不按字数或文件数;只问影响对象、范围或结果的缺项。',
       '6. 不显示 ETA、不编造进度、不把没做的事说成做了;不知道就说不知道。工具返回 propose_required 时不要重试,把它当成一条提议交给用户。',
       '输出契约:每次回复必须是一个 JSON 对象,不要围栏、不要 JSON 之外的任何文字。四个键每次都写全,没有内容就给空字串或空数组:',
       '{"say": 给用户的一段话(≤600 字,简洁人话), "why": 依据一句话(来自哪条事件/线程/记忆), "acts": [{"label": ≤12 字的按钮文字, "kind": "tool"|"open_thread"|"dismiss", "tool": steward_* 工具名, "args": {…}, "sessionId": 线程 id, "primary": true}], "actions": [{"tool": steward_* 工具名, "args": {…}}]}',
       // 138:「说到做到」—— 38 号文的病根在这里堵:say 里的完成时陈述必须有同一回合的工具调用或 actions 项背书。
       // 例子里的 sessionId / message 是占位说明,不是字面值(不写尖括号:与本文件其余段同一条纪律)。
-      '说到做到:say 里说「递了/开了/记了」的动作,要么是这一回合真调过、拿到回执的工具,要么就写在这条回复的 actions 里(工作台立刻执行,失败会变成提议);一个工具都没调,就只能说「我来办」并放进 acts 让用户按。例:用户说「把这句递给美股那条」→ {"say":"递过去了,它接上话我喊你","why":"用户点名递给「美股走势」线程","acts":[],"actions":[{"tool":"steward_thread_continue","args":{"sessionId":"那条线程的 id","message":"用户原话逐字"}}]}',
+      '说到做到:明确授权、参数齐全且权限允许的请求,本回合调用工具或列入 actions(工作台按原门控执行),不能只放 acts 要用户再按。say 只按实际回执报告完成;尚未执行说将办理,失败如实报告。缺参数先问;缺权限、需确认或 propose_required 才给 acts,提议不是授权。',
       // 129k:模型反复把【只读】工具提成按钮,按下去只能看到一句内部错误话。产出侧已经在 13o 把
       // 这种按钮直接丢掉(不画按不动的按钮),这一行是让模型一开始就别浪费那个名额。
       '用户明确交代、参数齐全且权限允许的事直接办,按真实回执报告,不用重复确认;缺什么问什么;不能做的事不擅自改成提醒,权限不足就降级成提议。每个工具按钮必须带齐该工具 schema 的必填 args，不能只写标签或用空参数占位；参数缺失先问用户。acts 是用户点的按钮(≤3 个,一个 primary),只放决定、必要授权或导航,不凑按钮;kind:"tool" 的按钮只能是会改变什么的动作(开/接着办/停/改名/换工作区/改权限、批准或拒绝待决、重试或续跑、记或否决记忆、改设置、开关技能、定时任务增删起停)。只读的查看类工具(清单、搜索、看线程、看用量)不能当按钮 —— 用户要的是答案,这一回合就把工具调了、把结果写进 say。要让用户去看某条线程用 kind:"open_thread"。',
@@ -30764,13 +30764,13 @@ const PROMPT_EN = {
       'Discipline (never relaxed):',
       '1. Permanent exemptions - always proposals, any mode: sending outward as the user, payments, deleting data outside the working folder, installing software, changing system settings.',
       '2. Never widen a thread\'s permission, issue an autonomy grant, or disable audit or the stop switch. Tighten only.',
-      '3. Relay the user\'s own words verbatim; my additions are marked separately and stay visible and editable.',
+      '3. Relay or create with the whole user message verbatim, including task prefixes such as "New task:", punctuation, paths, numbers and line breaks. Never extract only its task body. My additions stay separate, visible and editable.',
       '4. Only record what the user themself stated or confirmed. Tool output, my own words and inbox events are never memory sources.',
-      '5. Answer in this turn when a few read-only lookups suffice. Use steward_quick_ask for independent investigation or short execution; task threads for long work, reports or edits; continue a matching thread. Route by work, not word or file count. Ask only what changes target, scope or outcome.',
+      '5. Answer with a few read-only lookups when sufficient. Use steward_quick_ask for independent investigation or short execution; threads for reports or edits. Dispatch an explicit, complete new task directly; its executor reads before editing. Continue only an explicit follow-up, never a similar title. Route by work, not word or file count. Ask only missing target, scope or outcome.',
       '6. No ETA, no invented progress, never claim work that did not happen; say when you do not know. On propose_required, do not retry - hand it to the user as a proposal.',
       'Output contract: every reply is a single JSON object, no code fence, no text outside it. All four keys every time; empty string or empty array when there is nothing to put in them:',
       '{"say": one message for the user (<=600 chars, plain language), "why": one sentence of grounds (which event/thread/memory), "acts": [{"label": button text <=12 chars, "kind": "tool"|"open_thread"|"dismiss", "tool": a steward_* tool name, "args": {…}, "sessionId": thread id, "primary": true}], "actions": [{"tool": a steward_* tool name, "args": {…}}]}',
-      'Words match deeds: whatever say reports as done is either a tool I called this turn (receipt in hand) or one listed in this reply\'s actions (run at once; a failure becomes a proposal). With no tool called I may only say "I will" and put it in acts. Example - user: "pass this to the US-equities thread" -> {"say":"Passed it on - I will call you when it answers","why":"user named the US-equities thread","acts":[],"actions":[{"tool":"steward_thread_continue","args":{"sessionId":"that thread id","message":"user\'s exact words"}}]}',
+      'Words match deeds: call tools or emit actions for explicit, complete, permitted requests under existing gates. Do not only offer acts. Claim completion only from receipts; report pending work and failures honestly. Ask missing args. Use acts for permission, confirmation or propose_required; proposals grant no authority.',
       'Explicit, complete, permitted requests: do them and report the real receipt, no reconfirmation; ask for missing required args; never offer incomplete tool buttons; never turn what I cannot do into an unsolicited reminder - short of permission, downgrade to a proposal. acts are buttons for the user (<=3, one primary): decisions, needed approvals or navigation only; a kind:"tool" button must change something (open / continue / stop / rename / move a thread or change its permission, decide a pending item, retry or resume, write or veto a memory, change a setting, toggle a skill, manage a schedule). Read-only lookups (listings, search, thread read, usage) are never a button - the user wants the answer: call the tool this turn and put the result in say. To point at a thread use kind:"open_thread".',
     ].join('\n'),
     // 117l: same keys/params as PROMPT_ZH.steward.rules / .routeHintBlock (see the Chinese pack for why
@@ -33875,7 +33875,7 @@ async function readMemoryDir(dir, scope) {
       id, scope,
       name: (fm.name || id).slice(0, 120),
       description: (fm.description || firstParaDesc(raw)).slice(0, 400),
-      type, file,
+      type, file, memoryVersion: cacheKey,
       createdAt: fm.createdat || '',
       updatedAt: fm.updatedat || fm.createdat || '',
       core,
@@ -34474,12 +34474,19 @@ async function resolveWorkbenchMemoryToolContext(ctx) {
 }
 
 async function listWorkbenchMemories(args, ctx) {
-  const { cwd, config } = await resolveWorkbenchMemoryToolContext(ctx);
+  const context = await resolveWorkbenchMemoryReadContext(ctx);
+  if (!context.valid()) return { ok: false, error: 'memory context changed or unavailable' };
+  const { cwd, config, session } = context;
   const scope = args && args.scope === 'global' ? 'global' : (args && args.scope === 'project' ? 'project' : 'all');
   const query = String(args && args.query || '').trim();
   const limitNum = Math.floor(Number(args && args.limit));   // ≤ 0 / 非数字回默认 20(修前 0 → 20、-5 → 1)
   const limit = limitNum > 0 ? Math.min(50, limitNum) : 20;
-  const coreState = await resolveCoreMemoryState(cwd, await loadMemoryRegistry(cwd), config);
+  const all = await loadMemoryRegistry(cwd);
+  const edges = await readConfirmedSupersedeEdges(cwd);
+  const libraryVersion = memoryToolLibraryVersion(all, edges);
+  const eligible = eligibleMemoryEntries(session, all, cwd, config);
+  const coreState = await resolveCoreMemoryState(cwd, eligible, config);
+  const superseded = memoryValidSupersededBy(edges, new Map(all.map(e => [memoryRetrievalKey(e), e])));
   let registry = coreState.all;
   if (scope !== 'all') registry = registry.filter(m => m.scope === scope);
   // 带 query 时 preference/convention 无词命中也会入榜(默认应遵守的稳定规则,列出来是对的),但它们【没有被这次检索
@@ -34490,27 +34497,88 @@ async function listWorkbenchMemories(args, ctx) {
     registry = ranked.map(x => x.entry);
     matched = ranked.filter(x => x.shared > 0).map(x => x.entry);
   } else registry = registry.slice(0, limit);
+  if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion)) return { ok: false, error: 'memory context changed or unavailable' };
   if (matched && matched.length) await touchMemoryUsage(matched, cwd, 'relevant');
+  if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion) || !await context.current()
+    || registry.some(e => memoryIsExpired(e))) return { ok: false, error: 'memory context changed or unavailable' };
   return { ok: true, query, scope, count: registry.length, core: coreState.stats,
     memories: registry.map(m => ({ id: m.id, scope: m.scope, name: m.name, description: m.description, type: m.type,
       createdAt: m.createdAt, updatedAt: m.updatedAt, core: m.core, coreStatus: m.coreStatus, importance: m.importance,
-      reviewAfter: m.reviewAfter, expiresAt: m.expiresAt, lastUsedAt: m.lastUsedAt, useCount: m.useCount })) };
+      reviewAfter: m.reviewAfter, expiresAt: m.expiresAt, lastUsedAt: m.lastUsedAt, useCount: m.useCount,
+      ...memoryToolSupersededStatus(m, superseded, eligible) })) };
 }
 
 async function readWorkbenchMemory(args, ctx) {
-  const { cwd } = await resolveWorkbenchMemoryToolContext(ctx);
+  const context = await resolveWorkbenchMemoryReadContext(ctx);
+  if (!context.valid()) return { ok: false, error: 'memory context changed or unavailable' };
+  const { cwd, session, config } = context;
   const id = String(args && args.id || '').trim();
   if (!SKILL_ID_RE.test(id)) return { ok: false, error: 'invalid memory id' };
-  if (args && (args.scope === 'global' || args.scope === 'project')) {
-    const item = await readMemoryItem(id, args.scope, cwd);
-    if (item.ok) await touchMemoryUsage([item.memory], cwd, 'read');
-    return item;
+  const all = await loadMemoryRegistry(cwd), eligible = eligibleMemoryEntries(session, all, cwd, config);
+  const edges = await readConfirmedSupersedeEdges(cwd);
+  const libraryVersion = memoryToolLibraryVersion(all, edges);
+  const candidates = eligible.filter(e => e.id === id && (!['global', 'project'].includes(args?.scope) || e.scope === args.scope));
+  if (candidates.length > 1) return { ok: false, error: 'memory id exists in both scopes; specify scope' };
+  if (!candidates.length || !context.valid()) return { ok: false, error: 'memory not available in this session' };
+  const selected = candidates[0], item = await readMemoryItem(id, selected.scope, cwd);
+  const superseded = memoryValidSupersededBy(edges, new Map(all.map(e => [memoryRetrievalKey(e), e])));
+  if (!await context.current() || !await memoryToolLibraryCurrent(cwd, libraryVersion) || !context.valid()
+    || item.ok && (memoryIsExpired(item.memory) || item.memory.updatedAt !== selected.updatedAt)) return { ok: false, error: 'memory context changed or unavailable' };
+  if (item.ok) {
+    Object.assign(item.memory, memoryToolSupersededStatus(item.memory, superseded, eligible));
+    await touchMemoryUsage([item.memory], cwd, 'read');
   }
-  const [projectItem, globalItem] = await Promise.all([readMemoryItem(id, 'project', cwd), readMemoryItem(id, 'global', cwd)]);
-  if (projectItem.ok && globalItem.ok) return { ok: false, error: 'memory id exists in both scopes; specify scope' };
-  const item = projectItem.ok ? projectItem : globalItem;
-  if (item.ok) await touchMemoryUsage([item.memory], cwd, 'read');
+  if (!await memoryToolLibraryCurrent(cwd, libraryVersion) || !await context.current() || item.ok && memoryIsExpired(item.memory)) return { ok: false, error: 'memory context changed or unavailable' };
   return item;
+}
+
+function memorySelectionSignature(session, cwd) {
+  return JSON.stringify([normalizeCwd(session?.cwd || cwd), session?.turnSeq, session?.memoriesExplicit === true,
+    session?.memories || [], session?.memoryExclusions || []]);
+}
+
+function memoryToolLibraryVersion(registry, edges = []) {
+  return JSON.stringify([registry.map(e => [memoryRetrievalKey(e), e.memoryVersion || '', memoryIsExpired(e)]), edges]);
+}
+
+async function memoryToolLibraryCurrent(cwd, version) {
+  const registry = await loadMemoryRegistry(cwd), edges = await readConfirmedSupersedeEdges(cwd);
+  return memoryToolLibraryVersion(registry, edges) === version;
+}
+
+async function resolveWorkbenchMemoryReadContext(ctx) {
+  const rawSid = String(ctx?.sessionId || process.env.WCW_SESSION_ID || '');
+  const initialSession = activeChildren.get(rawSid)?.session || ctx?.session;
+  const initialSignature = initialSession ? memorySelectionSignature(initialSession, ctx?.workingDir) : null;
+  const initialReg = rawSid ? activeChildren.get(rawSid) : null;
+  const context = await resolveWorkbenchMemoryToolContext(initialSession ? { ...ctx, session: initialSession } : ctx);
+  const { sid, session, cwd } = context;
+  const signature = initialSignature || memorySelectionSignature(session, cwd);
+  context.valid = () => (!rawSid || sid === rawSid && !!session) && !ctx?.signal?.aborted
+    && (!session || normalizeCwd(session.cwd, context.config.defaultWorkspace) === cwd)
+    && (ctx?.memoryLiveRead !== true || !!initialReg)
+    && (ctx?.turnSeq == null || Number(ctx.turnSeq) === Number(session?.turnSeq))
+    && memorySelectionSignature(session, cwd) === signature
+    && (!initialReg || activeChildren.get(sid) === initialReg && !initialReg.exited && initialReg.state === 'running')
+    && (!sid || !activeChildren.has(sid) || activeChildren.get(sid) === initialReg);
+  context.current = async () => {
+    if (!context.valid()) return false;
+    if (sid && !initialReg) {
+      const fresh = await loadSession(sid).catch(() => null);
+      if (!fresh || memorySelectionSignature(fresh, cwd) !== signature) return false;
+    }
+    return context.valid();
+  };
+  return context;
+}
+
+// Reveal a replacement identity only when it is itself in the selected set. Never expand a fixed selection.
+function memoryToolSupersededStatus(entry, marks, eligible) {
+  const by = marks.get(memoryRetrievalKey(entry));
+  if (!by?.size) return {};
+  const allowed = new Set(eligible.map(memoryRetrievalKey));
+  return { superseded: true, supersededBy: [...by].filter(id => allowed.has(entry.scope + ':' + id)),
+    applicability: 'Historical reference; a confirmed replacement exists. Verify current requirements before using.' };
 }
 
 async function proposeWorkbenchMemory(args, ctx) {
@@ -36147,30 +36215,11 @@ function effectiveMemorySelection(session, registry, cwd) {
     .map(e => ({ id: e.id, scope: e.scope === 'global' ? 'global' : 'project' }));
 }
 
-// resolveMemoryPreflight:每条用户消息的工作台记忆预检。默认模式只扫描 global + 当前项目的元数据并取 Top-3；
-// 显式模式沿用固定选择，显式空数组表示本会话关闭。无匹配也返回 checked=true 的状态供提示/UI 展示。
-// {id,scope} 锁定:scope 不匹配(启用时 project、现只剩 global 同 id)→ 跳过;文件消失(幽灵)→ 跳过。P3-3:project
-// 条目再按 projectKey 锁定,换 cwd 失配 → 跳过并经 onSourceMismatch(id,was,now) 通知一次。
-// 113a: 第五个参数 config 是可选的 —— 三个真实调用点（Claude 引擎/Provider 引擎/工作流节点）手里都已经有
-// config，直接传进来比在这里多读一次配置文件便宜（readConfig 无缓存）。缺省时自己读，
-// 旧调用方与测试（workbench-memory-core.e2e.js 直接调本函数）无需改动。
-// hunt2-mcp:第六个参数 options.cliType —— 本回合跑的是哪个原生 CLI('claude' / 'kimi';provider 引擎不传)。
-// 那个 CLI 自己会读的导入条目(agentmd-claude-md-* 之类)在【算核心预算之前】就摘掉:修前摘在调用点、预算之后,
-// 重复条目先把核心名额占满、又被丢弃,用户自己的核心记忆反倒被挤出去。
-async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null, options = {}) {
-  let registry = [];
-  try { registry = await loadMemoryRegistry(cwd); } catch {
-    return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
-  }
-  // 容量五旋钮都要读配置，所以在函数头就解一次（调用方传了就不重复读盘）。
-  const effectiveConfig = config || await readConfig().catch(() => null);
-  const fixedSelectionMax = memoryFixedSelectionMax(effectiveConfig);
+// Shared eligibility for automatic preflight and active list/read; ranking remains caller-specific.
+function eligibleMemoryEntries(session, registry, cwd, config, onSourceMismatch) {
   const explicit = !!(session && session.memoriesExplicit === true);
-  const exclusions = explicit ? new Set() : memoryExclusionSet(session, cwd);
+  const fixedSelectionMax = memoryFixedSelectionMax(config);
   const sel = effectiveMemorySelection(session, registry, cwd);
-  if (explicit && !sel.length) {
-    return { entries: [], coreEntries: [], status: { mode: 'disabled', enabled: false, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
-  }
   const curKey = projectKeyForCwd(cwd);
   const byKey = new Map(registry.map(e => [e.scope + ':' + e.id, e]));
   const eligible = [];
@@ -36191,6 +36240,34 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
     if (!memoryIsExpired(e)) eligible.push(e);
     if (explicit && eligible.length >= fixedSelectionMax) break;
   }
+  return eligible;
+}
+
+// resolveMemoryPreflight:每条用户消息的工作台记忆预检。默认模式只扫描 global + 当前项目的元数据并取 Top-3；
+// 显式模式沿用固定选择，显式空数组表示本会话关闭。无匹配也返回 checked=true 的状态供提示/UI 展示。
+// {id,scope} 锁定:scope 不匹配(启用时 project、现只剩 global 同 id)→ 跳过;文件消失(幽灵)→ 跳过。P3-3:project
+// 条目再按 projectKey 锁定,换 cwd 失配 → 跳过并经 onSourceMismatch(id,was,now) 通知一次。
+// 113a: 第五个参数 config 是可选的 —— 三个真实调用点（Claude 引擎/Provider 引擎/工作流节点）手里都已经有
+// config，直接传进来比在这里多读一次配置文件便宜（readConfig 无缓存）。缺省时自己读，
+// 旧调用方与测试（workbench-memory-core.e2e.js 直接调本函数）无需改动。
+// hunt2-mcp:第六个参数 options.cliType —— 本回合跑的是哪个原生 CLI('claude' / 'kimi';provider 引擎不传)。
+// 那个 CLI 自己会读的导入条目(agentmd-claude-md-* 之类)在【算核心预算之前】就摘掉:修前摘在调用点、预算之后,
+// 重复条目先把核心名额占满、又被丢弃,用户自己的核心记忆反倒被挤出去。
+async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null, options = {}) {
+  let registry = [];
+  try { registry = await loadMemoryRegistry(cwd); } catch {
+    return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
+  }
+  // 容量五旋钮都要读配置，所以在函数头就解一次（调用方传了就不重复读盘）。
+  const effectiveConfig = config || await readConfig().catch(() => null);
+  const explicit = !!(session && session.memoriesExplicit === true);
+  const exclusions = explicit ? new Set() : memoryExclusionSet(session, cwd);
+  const sel = effectiveMemorySelection(session, registry, cwd);
+  if (explicit && !sel.length) {
+    return { entries: [], coreEntries: [], status: { mode: 'disabled', enabled: false, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
+  }
+  const byKey = new Map(registry.map(e => [e.scope + ':' + e.id, e]));
+  const eligible = eligibleMemoryEntries(session, registry, cwd, effectiveConfig, onSourceMismatch);
   const nativeCli = options && options.cliType ? String(options.cliType) : '';
   if (nativeCli) {
     const kept = filterMemoryForNativeCli(eligible, nativeCli);
@@ -45691,16 +45768,48 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 起整段作废(实测两回合 matches="1"→"2"、related 列表一变,其后全部历史按未缓存计)。它改投末条 user 尾部(buildBody 里,与 recall/notes 同位);
   // 前插的这一层只留跨回合稳定的核心胶囊 + 指南。管家回合整段换了提示词(不用工作台记忆),不拆。
   const stewardVolatile = !!(stewardPrompt && typeof stewardPrompt.volatile === 'string');
-  const memoryTurnTail = stewardVolatile ? '' : buildMemoryTurnSection(enabledMemoryEntries, 'openai', config, enabledMemoryConflicts, memoryPreflight.status);
-  const turnVolatile = stewardVolatile
+  let memoryTurnTail = stewardVolatile ? '' : buildMemoryTurnSection(enabledMemoryEntries, 'openai', config, enabledMemoryConflicts, memoryPreflight.status);
+  let turnVolatile = stewardVolatile
     ? stewardPrompt.volatile
     : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }, { memoryTurnTail: true }) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.
-  const budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+  let budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
   // 记忆回合尾部也要计预算(它最多一整个索引上限,默认 6000 字符,可配到 10 万)。上下文治理一律用 budgetPromptFull。
-  const budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
+  let budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
+  // Only invalidate the entry snapshot; no new topic lookup or automatic recall is added here.
+  const memorySnapshotSelection = memorySelectionSignature(session, workingDir);
+  const memorySnapshotRelations = enabledMemoryEntries.length ? JSON.stringify(await readConfirmedSupersedeEdges(workingDir).catch(() => [])) : '';
+  let memorySnapshotInvalid = false;
+  const refreshMemoryPromptScope = async () => {
+    if (stewardVolatile) return;
+    let changed = memorySelectionSignature(session, workingDir) !== memorySnapshotSelection;
+    if (!changed && !memorySnapshotInvalid && enabledMemoryEntries.length) {
+      const current = await Promise.all(enabledMemoryEntries.map(async entry => {
+        try { const stat = await fsp.stat(entry.file); return stat.isFile() && `${stat.size}:${stat.mtimeMs}` === entry.memoryVersion && !memoryIsExpired(entry); }
+        catch { return false; }
+      }));
+      const edges = await readConfirmedSupersedeEdges(workingDir).catch(() => null);
+      changed = !current.every(Boolean) || !edges || JSON.stringify(edges) !== memorySnapshotRelations;
+    }
+    changed = changed || memorySelectionSignature(session, workingDir) !== memorySnapshotSelection;
+    if (!changed && !memorySnapshotInvalid) return;
+    invalidateMemoryPromptScope();
+  };
+  const invalidateMemoryPromptScope = () => {
+    memorySnapshotInvalid = true;
+    const disabled = session.memoriesExplicit === true && !(session.memories || []).length;
+    // Do not report a new search from old counts. Active tools may query the current permitted set.
+    const status = { mode: disabled ? 'disabled' : 'unavailable', enabled: !disabled, checked: false,
+      candidateCount: 0, matchCount: 0, ruleFillCount: 0, projectMatches: 0, globalMatches: 0,
+      excludedCount: memoryExclusionSet(session, workingDir).size, coreActiveCount: 0 };
+    memoryTurnTail = buildMemoryTurnSection([], 'openai', config, null, status);
+    turnVolatile = buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, [], session.mission,
+      null, status, playbookEntries, { session }, { memoryTurnTail: true }) + (volatileExtras ? '\n\n' + volatileExtras : '');
+    budgetPrompt = turnVolatile ? sys + '\n\n' + turnVolatile : sys;
+    budgetPromptFull = memoryTurnTail ? budgetPrompt + '\n\n' + memoryTurnTail : budgetPrompt;
+  };
   // Session notes are read at turn start and refreshed after compaction writes finish.
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
@@ -45768,6 +45877,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 正常调用恒传 undefined(走开关)。volatileTailLayoutEnabled 开时易变层从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
   const buildBodyWithLayout = (withTools, layoutOverride) => {
+    if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
+      || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
     const volatileTail = layoutOverride ? layoutOverride === 'tail' : volatileTailLayoutEnabled(config);
     // 21-E3 (actionArgumentModelViewV1): model view 投影 —— 开关开时,构建请求前把命中 audit 的已成功
     // 大参数动作投影为紧凑 envelope(原始 arguments 仍在 providerHistory 原消息,仅发送端换视图)。
@@ -46413,7 +46524,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // candidate is tried AT MOST once per logical call;全失败 → the last failure object is returned (its
   // httpError/transportError drives the caller's existing error path). Single-candidate providers: the loop
   // runs once and this is a transparent pass-through (行为与现状完全一致).
-  const streamWithFailover = async b => {
+  const streamWithFailover = async buildRequestBody => {
     // Order the candidates for THIS call: sticky base first (if it's in the sequence), then the rest in
     // declared order, so a proven endpoint is tried first but the full sequence remains a fallback.
     const sticky = failoverStickyBase.get(provider.id);
@@ -46429,7 +46540,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         onEvent({ type: 'failover', providerId: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
-      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: b, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
+      await refreshMemoryPromptScope();
+      const requestBody = buildRequestBody();
+      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: requestBody, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
       // Decide if this outcome is a failover trigger (pre-first-byte only).
       let failReason = null;
       if (call.transportError) failReason = call.transportReason || 'connect';
@@ -46508,6 +46621,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // previous iteration's tool batch (if any) pushed all its role:'tool' replies before `continue`.
       await drainSteerQueue(reg, session, onEvent);
       if (EventStreamHooks.drainBackgroundJobs) EventStreamHooks.drainBackgroundJobs(session);
+      await refreshMemoryPromptScope();
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
@@ -46609,7 +46723,6 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (toolSchemaNamesSentBySession.size > 200) toolSchemaNamesSentBySession.delete(toolSchemaNamesSentBySession.keys().next().value);
       const toolSchemaChanged = Array.isArray(prevSentToolNames) && prevSentToolNames.join('\n') !== sentToolNames.join('\n');
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
-      const sendBody = econThisIter && econBody ? econBody : buildBody(useTools);
       // 限流(429;以及 Anthropic 的过载 529)是首字节前的瞬时失败:修前主回合一次 429 就整回合失败并归成 tool_error,
       // 而子代理早有有界重试(08,同一份 withTransientRetry 骨架)。这里至多重试 3 次,退避 500ms 起倍增并加 ±20% 抖动
       // (可被停止截断)。流式已开始的失败不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
@@ -46625,7 +46738,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // 服务商回了 Retry-After(07 openAiStreamOnce 带出 retryAfterMs,已封顶 30 s)就至少等这么久:修前固定 0.5/1/2 s 共约 3.5 s,
         // 限流窗口还没过就把 3 次重试用光,整回合失败。
         backoffMs: (n, c) => Math.max(Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
-        attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+        attempt: () => streamWithFailover(() => buildBody(useTools)), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
         classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
@@ -58716,11 +58829,26 @@ async function scratchpadWriteTool(args, ctx) {
 // 41b 行为锁(dev-harness/tool-dispatch.e2e.js): edit/exec 级且 paths 非 null 的条目,handler 源必须含 guard
 // 调用;paths:null 必须有非空 guardNote;注册表键集 === NATIVE_TOOL_PACKS 键集(目录漂移=锁红)。
 // 新工具忘了声明 = 锁红 —— archive 漏 guard(第27波)、desktop_screenshot 越界写(第36波)这类漏审整类收口。
+async function workbenchMemoryReadLoopback(name, args) {
+  const sessionId = safeSessionId(process.env.WCW_SESSION_ID || '');
+  const session = sessionId ? await loadSession(sessionId).catch(() => null) : null;
+  if (!session) return { ok: false, error: 'memory session unavailable' };
+  try {
+    const response = await httpRequest({ url: `http://${process.env.WCW_HOST || '127.0.0.1'}:${process.env.WCW_PORT}/api/tools/${name}`,
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-wcw-token': process.env.WCW_TOKEN }, timeoutMs: 15000, maxBodyChars: 300000,
+      body: JSON.stringify({ ...args, sessionId, turnSeq: session.turnSeq, memoryLiveRead: true }) });
+    const data = safeJsonParse(response.body, null);
+    return data && data.ok && data.result || { ok: false, error: 'memory parent read unavailable' };
+  } catch { return { ok: false, error: 'memory parent read unavailable' }; }
+}
+
 const CORE_TOOL_HANDLERS = {
   workbench_memory_list: { paths: null, guardNote: "工作台自有记忆元数据检索,范围固定在 dataRoot/memory", handler: async (args, ctx) => {
+      if (RUNTIME.isMcpChild && process.env.WCW_PORT && process.env.WCW_TOKEN) return workbenchMemoryReadLoopback('workbench_memory_list', args);
       return listWorkbenchMemories(args, ctx);
   } },
   workbench_memory_read: { paths: null, guardNote: "按受校验 id 读取 dataRoot/memory 内工作台记忆,不接受任意路径", handler: async (args, ctx) => {
+      if (RUNTIME.isMcpChild && process.env.WCW_PORT && process.env.WCW_TOKEN) return workbenchMemoryReadLoopback('workbench_memory_read', args);
       return readWorkbenchMemory(args, ctx);
   } },
   workbench_memory_propose: { paths: null, guardNote: "仅写待用户确认的候选元数据,不直接写入记忆库", handler: async (args, ctx) => {
@@ -62905,7 +63033,7 @@ const MCP_TOOLS = [
           type: 'object', additionalProperties: false, required: ['userText'],
           description: '委托书。userText 必填且逐字保留;其余各段是你的补充,对用户可见、可改、可删,不得改写用户意图。',
           properties: {
-            userText: { type: 'string', minLength: 1, description: '用户原话,逐字。' },
+            userText: { type: 'string', minLength: 1, description: '整条用户原话,逐字保留“新任务:”等前缀、标点、路径、数字与换行;不得只提取任务正文。' },
             goal: { type: 'string', description: '一句话目标。' },
             acceptance: { type: 'array', items: { type: 'string' }, description: '验收项(做到什么算完成)。' },
             context: { type: 'array', items: { type: 'string' }, description: '相关文件、目录或已知事实。' },
@@ -65200,6 +65328,7 @@ async function handleApi(req, res, pathname) {
     // write roots (guardDownloadDest → guardFileToolPath, 安全审计 #3). Best-effort; a load failure just falls
     // back to the config read from disk inside guardFileToolPath, never blocking the other tools.
     if (ctx) {
+      if (body.memoryLiveRead === true && ['workbench_memory_list', 'workbench_memory_read'].includes(name)) ctx.memoryLiveRead = true;
       try {
         ctx.config = await readConfig();
         const s = await loadSession(ctx.sessionId).catch(() => null);
