@@ -4,7 +4,9 @@ const assert = require('node:assert/strict');
 const fs = require('fs'), os = require('os'), path = require('path'), cp = require('child_process');
 
 test('compiled desktop isolates explicit data roots and retains default desktop compatibility', { skip: process.platform !== 'win32' }, t => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-desktop-isolation-'));
+  const rootAlias = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-desktop-isolation-'));
+  // Hosted Windows may expose TEMP via an 8.3 alias; .NET resolves its existing parent.
+  const root = fs.realpathSync.native(rootAlias);
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const probe = path.join(root, 'Probe.cs'), exe = path.join(root, 'probe.exe');
   fs.writeFileSync(probe, 'namespace RuyiDesktop { class IsolationProbe { static void Main(string[] args) { if (args.Length == 1) { System.Console.WriteLine(DesktopIsolation.ResolveExplicitRoot(args[0], @"E:\\fixture\\app")); return; } System.Console.WriteLine(DesktopIsolation.ExplicitDataRoot() ?? "DEFAULT"); System.Console.WriteLine(DesktopIsolation.MutexName()); System.Console.WriteLine(DesktopIsolation.WebViewUserData()); } } }');
@@ -25,6 +27,7 @@ test('compiled desktop isolates explicit data roots and retains default desktop 
   const a = path.join(root, 'data-a'), b = path.join(root, 'data-b');
   const first = run(a, b), second = run(b), legacy = run(undefined, a);
   assert.equal(first[0], a, 'primary environment wins');
+  assert.deepEqual(run(path.join(rootAlias, 'data-a')), first, 'the TEMP alias selects the same root, mutex and WebView profile');
   assert.deepEqual(legacy, first, 'legacy environment selects the same isolated installation');
   assert.equal(first[2], path.join(a, 'desktop/EBWebView'));
   assert.notEqual(first[1], second[1], 'different roots have independent mutexes');
