@@ -463,6 +463,7 @@ async function agentRunPermissionMode(sessionId, config) {
 }
 function classifyRunResumeTier(run, currentPermissionMode) {
   const reasons = [];
+  if (run && run.kind === 'steward_delegation') reasons.push({ nodeId: '', reason: 'delegation_result_unknown' });
   for (const n of (Array.isArray(run && run.nodes) ? run.nodes : [])) {
     if (n.status === 'succeeded') continue;
     const risk = classifyNodeResumeRisk(n);
@@ -623,7 +624,24 @@ async function runSubAgentCore(opts) {
   }
 }
 
-async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, closeInbox, teamRoster, poolPolicy, originTurnAgentCap, onToolsReady, onBudgetTripped, runId }, lifecycle) {
+// Delegation nodes share the coordinator's real permission channel. Cancel only this request when a
+// node/run stops; clearing every permission for the parent could consume an unrelated later prompt.
+async function requestDelegationPermission(session, config, name, args, tier, onEvent, signal) {
+  let requestId = '';
+  const decision = requestNativePermission(session.id, name, args, evt => { if (evt.type === 'permission_request') requestId = evt.requestId; onEvent(evt); }, permissionWaitMs(session.id, config, session), tier);
+  const cancel = () => {
+    const entry = pendingPermissions.get(requestId);
+    if (!entry || entry.sessionId !== session.id || entry.commandApplying) return;
+    runAutomaticInterventionDecision({ missionId: session.id, interventionId: requestId, source: 'clear_permission', decidedBy: 'clear', idempotencyKey: `clear:${requestId}`, payload: { action: 'deny', message: 'delegation stopped' } }, () => {
+      if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+      pendingPermissions.delete(requestId); clearTimeout(entry.timer);
+      entry.resolve({ behavior: 'deny', message: 'delegation stopped' });
+    });
+  };
+  if (signal) { signal.addEventListener('abort', cancel, { once: true }); if (signal.aborted) cancel(); }
+  try { return await decision; } finally { if (signal) signal.removeEventListener('abort', cancel); }
+}
+async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, closeInbox, teamRoster, poolPolicy, originTurnAgentCap, onToolsReady, onBudgetTripped, runId, interactivePermissions, onPermissionWait }, lifecycle) {
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -1067,7 +1085,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           toolCallCount += 1;
           // Forward the sub-turn's tool_use TAGGED with subagentId so the UI nests it (additive field).
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
-          let resultObj;
+          let resultObj, delegationBlocked = false;
           // 参数不是完整的 JSON 对象(多半是输出触顶被截断):不按 {} 执行,回配对的失败结果让子代理重来(与主回合同)。
           if (!isProviderToolArgsObject(tc.rawArgs)) {
             resultObj = { ok: false, argsInvalid: true, error: subOutputLimited ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小后重试' : '工具调用参数不是完整的 JSON 对象,该调用未执行;请给出完整参数后重试' };
@@ -1118,6 +1136,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
             const allowedRank = tierRank[tier] != null ? tierRank[tier] : 0;
             if ((tierRank[ntier] != null ? tierRank[ntier] : 2) > allowedRank) {
+              if (interactivePermissions) throw new Error(`delegation permission denied: ${tc.name} exceeds ${tier}`);
               resultObj = { ok: false, error: `子代理工具级别 '${ntier}' 超出授权 '${tier}',已拒绝` };
               const isErr0 = true;
               onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr0, subagentId });
@@ -1126,21 +1145,50 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             }
             // Sub-turns run under the parent's permissionMode. In bypass (the common provider default) all
             // tiers allow; otherwise read auto-allows and edit/exec follow the same gate as the parent. A
-            // sub-turn does NOT open its own permission popups (no interactive channel) — a gate:'ask'/'block'
-            // resolves to a refusal result so the sub-turn keeps moving rather than hanging.
+            // Ordinary sub-turns refuse ask/block without a popup. Single-mission delegation nodes use
+            // the coordinator's canonical permission channel; denial fails the step and blocks successors.
             // v0.9 F4: gate on the effective per-turn mode (permModeOverride) — the parent passes 'default'
             // ONLY when the plan was approved this turn, else the parent's own config.permissionMode.
             // 安全走查 S3:角色自带档(项目来源的先夹到不高于父档)排在 permModeOverride / 父线程实时档前面的优先级逐字不变 —— 只是项目角色那一档不再能比父档宽。
-            const parentModeNow = permModeOverride || liveParentPermissionMode() || config.permissionMode;
+            const currentParentMode = () => interactivePermissions && config.permissionModeFromRequest !== true
+              ? (liveSessionPermissionMode(parentSession && parentSession.id) || permModeOverride || config.permissionMode)
+              : (permModeOverride || liveParentPermissionMode() || config.permissionMode);
+            const parentModeNow = currentParentMode();
             const roleMode = clampAgentRoleToParent(role, tier, parentModeNow).permissionMode;
-            const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || parentModeNow);
-            const gate = nativeToolGate(effMode, ntier, tc.name, args);
+            let effMode = parentModeNow === 'plan' ? 'plan' : (roleMode || parentModeNow);
+            let gate = nativeToolGate(effMode, ntier, tc.name, args);
+            let permissionApproved = false;
+            const recheckDelegationPermission = () => {
+              if (!interactivePermissions) return;
+              if (ctrl && ctrl.signal.aborted) { delegationBlocked = true; throw Object.assign(new Error('delegation stopped'), { name: 'AbortError' }); }
+              const currentMode = currentParentMode();
+              effMode = currentMode === 'plan' ? 'plan' : (clampAgentRoleToParent(role, tier, currentMode).permissionMode || currentMode);
+              const currentGate = nativeToolGate(effMode, ntier, tc.name, args);
+              if (currentGate === 'block' || (currentGate === 'ask' && !permissionApproved)) { delegationBlocked = true; throw new Error('delegation permission changed before execution'); }
+            };
             // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的工具在分发点拒绝(原生工具由下面的 toolCall 按 ctx 判,
             // 会话覆盖取 parentSession —— 这里取同一个,两边同口径)。
-            const bridgedPolicyOff = bridge ? toolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(parentSession), bridge) : '';
+            const bridgedPolicyOff = bridge || interactivePermissions ? toolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(parentSession), bridge) : '';
+            if (interactivePermissions && gate === 'ask' && !bridgedPolicyOff) {
+              const boundary = !bridge ? await preflightWriteBoundary(tc.name, args, { session: parentSession, config, workingDir }) : null;
+              if (boundary) throw new Error('delegation permission denied: ' + String(boundary.error?.message || boundary.error || 'write boundary'));
+              let decision;
+              if (typeof onPermissionWait === 'function') onPermissionWait(true);
+              try { decision = await requestDelegationPermission(parentSession, config, tc.name, args, ntier, evt => onEvent({ ...evt, subagentId }), ctrl && ctrl.signal); }
+              finally { if (typeof onPermissionWait === 'function') onPermissionWait(false); }
+              if (ctrl && ctrl.signal.aborted) throw Object.assign(new Error('delegation stopped'), { name: 'AbortError' });
+              if (decision && decision.behavior === 'allow') {
+                gate = 'allow';
+                permissionApproved = true;
+                if (decision.updatedInput && typeof decision.updatedInput === 'object') args = decision.updatedInput;
+                recheckDelegationPermission();
+              }
+            }
             if (bridgedPolicyOff) {
               resultObj = toolDisabledResult(tc.name, bridgedPolicyOff);
+              delegationBlocked = true;
             } else if (gate !== 'allow') {
+              delegationBlocked = true;
               // 安全走查 S1:联网请求带疑似载荷(超长查询串 / 编码串)在除 bypass 外的档位要用户确认,子代理没有交互通道 —— 拒绝并说清缘由,别说成「无权执行 read 级工具」。
               const webWhy = webPayloadReason(tc.name, args);
               resultObj = webWhy
@@ -1169,7 +1217,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                     startToolBeat();
                     const toolResources = inferToolResources(tc.name, args, bridge, workingDir, ntier);
                     toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
+                    recheckDelegationPermission();
                     await journalBridgedWrite(tc.name, args, parentSession, config, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq });
+                    recheckDelegationPermission();
                     resultObj = await client.callTool(bridge.toolName, args);
                   } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                   finally { stopToolBeat(); releaseResourceLease(toolLease); }
@@ -1183,6 +1233,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                 startToolBeat();
                 const toolResources = inferToolResources(tc.name, args, null, workingDir, ntier);
                 toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
+                recheckDelegationPermission();
                 // 代理模式 v2:把节点的 abort 信号交给工具 —— 显式停止(后台任务条/stop 动作)能中断在跑的长命令,而不是等它自然结束。
                 resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
               }
@@ -1214,6 +1265,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
+          if (interactivePermissions && delegationBlocked) { subOk = false; subErr = 'delegation permission denied: ' + String(resultObj.error || 'capability unavailable'); }
           // N3: 子代理的 tool_result 事件同样只发有界的展示副本(大图落附件);subHistory 那份仍按模型预算截断。
           onEvent({ type: 'tool_result', id: tc.id, content: await boundToolResultForDisplay(tc.name, resultObj, { sessionId: parentSession && parentSession.id }), isError: isErr, subagentId });
           const imgs = VisualPipeline.extractToolImages(resultObj);
@@ -1224,6 +1276,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           }
           subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(modelResult)) });
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
+          if (!subOk) break; // a denied delegation step cannot execute the rest of this tool batch
         }
         if (!subOk) break;
         if (!(ctrl && ctrl.signal && ctrl.signal.aborted)) {

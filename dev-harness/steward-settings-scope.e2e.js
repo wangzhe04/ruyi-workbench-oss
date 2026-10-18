@@ -66,6 +66,10 @@ const call = args => s.__eval('StewardHooks.configSet')(args, ctx);
     ok(saved.engineRoute.model === 'strong' && saved.engineRouteScope === 'thread' && next.engineRoute.model === 'base', '旧回合收尾保留仅此任务的模型与作用域，新任务默认不变');
     const raw = JSON.stringify((await s.stewardDecisionsRead({ limit: 200 })).rows);
     ok(!raw.includes('fixture-secret'), '回执、撤销与行动流水不泄露服务商密钥');
+    const legacyCli = await s.__eval('StewardHooks.configSet')({ patch: { activeProvider: 'claude-cli', model: 'opus' } }, { ...ctx, userPressed: true });
+    ok(legacyCli.ok && (await s.readConfig()).activeProvider === 'claude-cli', '合法旧 CLI 哨兵可显式设为新任务默认');
+    const cliModel = await s.__eval('StewardHooks.configSet')({ patch: { model: 'sonnet' } }, { ...ctx, userPressed: true });
+    ok(cliModel.ok && (await s.readConfig()).model === 'sonnet', '旧 CLI 哨兵下可修改 CLI 默认模型');
   } catch (error) { t.fail(error.stack || String(error)); }
   finally { t.done({ exit: true }); }
 })();

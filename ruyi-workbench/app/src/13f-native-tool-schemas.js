@@ -989,6 +989,11 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['brief'],
       properties: {
+        steps: {
+          type: 'array', minItems: 2, maxItems: 8,
+          description: '可选。单个新事项的有序多步骤交办（如资料汇总→对比报告、清点文件→整理）。一个协调线程确定性提交一次 orchestrate_agents DAG，后一步只在前一步成功后运行，最终统一交付。每步写清目标、必要输入和验收；缺输入先问用户。默认只读，修改文件用 edit，运行命令用 exec，仍受原权限/预算/租约限制。不能同时给 missionId、relatedSessionId 或 playbook；不支持既有线程自动接力。停止协调线程会停止子步骤；重启未知结果须核对后人工恢复，不自动重做。',
+          items: { type: 'object', additionalProperties: false, required: ['task'], properties: { task: { type: 'string', minLength: 1, maxLength: 2000 }, toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] } } },
+        },
         // 117s-A D2(27 号文 §11.13 ⑤a):修前这句写的是「线程标题;省略则由首条消息自动命名」,
         // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
         title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },

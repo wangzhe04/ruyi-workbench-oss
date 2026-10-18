@@ -65,6 +65,7 @@ async function stewardImplRunsStatus(args, ctx, config) {
         status: String(mem.status || ''),
         live: !!live,
         paused: !!(live && live.paused),
+        ...(mem.kind === 'steward_delegation' ? { steps: nodes.slice(0, 8).map(node => ({ id: node.id, task: stewardSanitizeText(redact(String(node.task || ''))).slice(0, 180), status: node.status, waitingPermission: !!live?.permissionWaits?.has(node.id), dependsOn: node.dependsOn, error: stewardSanitizeText(redact(String(node.error || ''))).slice(0, 240) })) } : {}),
         // done 数的是成功态:09 工作流里节点的成功终态叫 'succeeded'(没有 'done' 这个值)。修前统计 status === 'done',
         // 恒为 0 —— 一个全部跑完的 run 也报「0 个节点完成」。键名 done 不动(模型与测试已经按它读)。
         nodes: { total: nodes.length, done: nodes.filter(n => n && n.status === 'succeeded').length, failed: nodes.filter(n => n && n.status === 'failed').length, running: nodes.filter(n => n && (n.status === 'running' || n.status === 'waiting_resource')).length },
@@ -1331,7 +1332,8 @@ async function stewardImplConfigSet(args, ctx, config) {
   if (expected != null && (typeof expected !== 'object' || Array.isArray(expected) || Object.keys(expected).length !== keys.length || keys.some(key => !Object.prototype.hasOwnProperty.call(expected, key)))) return stewardFail('invalid_request', 'expected must contain exactly the patch keys');
   // 撤销入口可能从导入的旧历史渲染，不能靠客户端伪造的 action 绕过 confirm 分档。
   if (args.undo === true && (!expected || keys.some(key => stewardConfigTierFor(key) !== 'free'))) return stewardFail('steward.forbidden', 'receipt undo only accepts free settings with expected current values');
-  if (Object.prototype.hasOwnProperty.call(patch, 'model') && (patch.activeProvider ?? config.activeProvider)) return stewardFail('invalid_request', 'model 是命令行引擎的默认模型。当前使用服务商时，请在模型菜单选择模型并显式设为新任务默认，不能声称改 model 就切换了服务商模型。');
+  const targetDefaultProvider = patch.activeProvider ?? config.activeProvider;
+  if (Object.prototype.hasOwnProperty.call(patch, 'model') && targetDefaultProvider && targetDefaultProvider !== 'claude-cli') return stewardFail('invalid_request', 'model 是命令行引擎的默认模型。当前使用服务商时，请在模型菜单选择模型并显式设为新任务默认，不能声称改 model 就切换了服务商模型。');
 
   const forbidden = keys.filter(k => stewardConfigTierFor(k) === 'forbidden');
   if (forbidden.length) {
@@ -1402,7 +1404,7 @@ async function stewardImplConfigSet(args, ctx, config) {
       return stewardFail('invalid_request', `stewardProviderId must be one of the configured providers (${ids.filter(Boolean).join(', ') || 'none'}), or "" to follow the active provider`, { keys: ['stewardProviderId'] });
     }
   }
-  if (restoredPatch.activeProvider && !(config.providers || []).some(provider => provider.id === restoredPatch.activeProvider)) return stewardFail('invalid_request', 'activeProvider must be a configured provider');
+  if (restoredPatch.activeProvider && restoredPatch.activeProvider !== 'claude-cli' && !(config.providers || []).some(provider => provider.id === restoredPatch.activeProvider)) return stewardFail('invalid_request', 'activeProvider must be a configured provider');
 
   // 107-S0b:before／applied 会落进决策日志(磁盘、GET /api/steward/decisions、steward_audit_tail)并回给模型 ——
   // 与 steward_config_get 同一个掩码,修前改 externalMcpServers 一次就把全部连接器密钥明文写进这三处。

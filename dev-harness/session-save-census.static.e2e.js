@@ -22,7 +22,7 @@ const CENSUS = {
   '05b-kimi-bridge.js': 2,       // Kimi 回合自存(runKimiCompact 已改走 mutateSession;收尾那一存改走 02 saveTurnFinalSession)
   '06e-mission-domain.js': 6,    // 驱动器自存(拿着聊天流那份对象;撤回后由 sessionObjectIsStale 收手);hunt2-steward ⑤ 收手时降 supervised 那一存同属回合自存(仍归本回合、不陈旧才存)
   '07-autonomy.js': 1,           // steer 排空(回合自存)
-  '09-workflow.js': 9,           // runOpenAiTurn 自存(收尾那一存改走 02 saveTurnFinalSession;工具循环里的带 dropIfTurnSuperseded)
+  '09-workflow.js': 11,          // runOpenAiTurn 自存(收尾走 02 saveTurnFinalSession);新增协调图执行前/信封后两处也是回合自存，均带 turnSaveOpts 的 executionOwner + dropIfTurnSuperseded，迟到回归证明不盖新回合
   '10-context-governance.js': 1, // maybeAutoCompact(回合自存,L1 / L2 / L2 失败保 L1 三个出口并成一处);两个手动压缩已改走 mutateSession
   // 13-http-router.js 0:Kimi 状态那个 GET 回写用量读数(2026-10 走查 W1 #4)已改走 mutateSession + keepUpdatedAt,见下面 ② 的 kimi/status 一行。
   '13b-api-domain-routes.js': 1, // 插话路由往活回合那份对象里追加(回合自存)

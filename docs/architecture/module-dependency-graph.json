@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 79,
-    "providedSymbols": 3803,
-    "requiredSymbols": 3352,
-    "edges": 572,
+    "providedSymbols": 3805,
+    "requiredSymbols": 3359,
+    "edges": 573,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -7779,6 +7779,7 @@
         "recordRunBudgetTrippedEvent",
         "recordRunStalledEvent",
         "repairJson",
+        "requestDelegationPermission",
         "resolveAgentTeamRoute",
         "resolveOrchestrateFollowup",
         "resolveOrchestrateNodes",
@@ -8111,6 +8112,13 @@
           ]
         },
         {
+          "provider": "03-bridge-guard.js",
+          "symbol": "preflightWriteBoundary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "bridgedServerUnavailableMessage",
           "kinds": [
@@ -8140,6 +8148,20 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
             "call"
@@ -8148,6 +8170,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "resolveBridge",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
           ]
@@ -8421,6 +8450,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "openAiStreamOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "requestNativePermission",
           "kinds": [
             "call"
           ]
@@ -17817,6 +17853,7 @@
         "stewardCanonWorkspacePath",
         "stewardClaimDerivedWorkspace",
         "stewardContinueAttachments",
+        "stewardDelegationSteps",
         "stewardDeriveThreadCwd",
         "stewardDeriveWorkspaceDir",
         "stewardDiscardDerivedWorkspaceDir",
@@ -18303,6 +18340,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardMayTightenTo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardOpenAiFallback",
           "kinds": [
             "call"
           ]
@@ -18912,6 +18956,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "realpathForContainment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "redact",
           "kinds": [
             "call"
           ]
@@ -30096,7 +30147,8 @@
         "bridgedReadPathGate",
         "guardWorkspacePath",
         "journalBridgedWrite",
-        "normalizeCwd"
+        "normalizeCwd",
+        "preflightWriteBoundary"
       ],
       "direction": "backward"
     },
@@ -30108,8 +30160,11 @@
         "collectBridgedTools",
         "getBridgedClient",
         "logEvent",
+        "pendingPermissions",
+        "permissionWaitMs",
         "redact",
-        "resolveBridge"
+        "resolveBridge",
+        "runAutomaticInterventionDecision"
       ],
       "direction": "backward"
     },
@@ -30205,6 +30260,7 @@
         "nativeToolTier",
         "neutralizeInjectedPrefixes",
         "openAiStreamOnce",
+        "requestNativePermission",
         "runClaudeSubAgentOnce",
         "toolDisabledByPolicy",
         "toolDisabledResult",
@@ -33046,6 +33102,7 @@
         "stewardExemptScanInput",
         "stewardMayAct",
         "stewardMayTightenTo",
+        "stewardOpenAiFallback",
         "stewardPendingOneLine",
         "stewardPermissionLabel",
         "stewardPlaybookMissingInputs",
@@ -33194,6 +33251,14 @@
       "symbols": [
         "pathWithinRoot",
         "realpathForContainment"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13l-steward-ops.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "redact"
       ],
       "direction": "backward"
     },

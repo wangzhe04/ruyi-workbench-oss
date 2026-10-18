@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 管家可把一个新事项按 2–8 个有序步骤交办给同一协调线程，复用工作流的依赖、预算、资源租约和交付信封；前序失败或权限拒绝会阻止后序，停止传播到子步骤，重启后的未知结果等待人工核对。兼容存量 `claude-cli` 默认模型配置。
+- The Steward can delegate one new task group as 2–8 ordered steps in one coordinator thread, reusing workflow dependencies, budgets, resource leases and delivery envelopes. Failure or denied permission blocks successors; stop propagates to steps, and unknown results after restart require manual review. Legacy `claude-cli` model defaults remain supported.
+
 - 管家设置回执显示实际值、作用域和生效时机，历史与行动流水一致；free 标量修改可按现值条件撤销，冲突或回包未知时不会冒充成功。任务模型选择从下一回合使用，且不再间接改变“上次使用”的新任务默认；修改后续默认仍需显式操作。
 - Steward setting receipts show actual values, scope and effective timing in chat, history and the activity ledger. Free scalar changes support guarded undo; conflicts and unknown responses never imply success. Task model choices apply from the next turn and preserve new-task defaults, including the last-used route; changing defaults remains explicit.
 

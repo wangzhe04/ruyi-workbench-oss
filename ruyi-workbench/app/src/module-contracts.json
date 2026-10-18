@@ -7685,6 +7685,7 @@
         "recordRunBudgetTrippedEvent",
         "recordRunStalledEvent",
         "repairJson",
+        "requestDelegationPermission",
         "resolveAgentTeamRoute",
         "resolveOrchestrateFollowup",
         "resolveOrchestrateNodes",
@@ -8017,6 +8018,13 @@
           ]
         },
         {
+          "provider": "03-bridge-guard.js",
+          "symbol": "preflightWriteBoundary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "bridgedServerUnavailableMessage",
           "kinds": [
@@ -8046,6 +8054,20 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
             "call"
@@ -8054,6 +8076,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "resolveBridge",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
           ]
@@ -8327,6 +8356,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "openAiStreamOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "requestNativePermission",
           "kinds": [
             "call"
           ]
@@ -17685,6 +17721,7 @@
         "stewardCanonWorkspacePath",
         "stewardClaimDerivedWorkspace",
         "stewardContinueAttachments",
+        "stewardDelegationSteps",
         "stewardDeriveThreadCwd",
         "stewardDeriveWorkspaceDir",
         "stewardDiscardDerivedWorkspaceDir",
@@ -18171,6 +18208,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardMayTightenTo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardOpenAiFallback",
           "kinds": [
             "call"
           ]
@@ -18778,6 +18822,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "realpathForContainment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "redact",
           "kinds": [
             "call"
           ]

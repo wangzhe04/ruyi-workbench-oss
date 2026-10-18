@@ -825,12 +825,31 @@ async function stewardMissionExists(stewardMissionIdArg) {
 }
 
 // 10) steward_thread_new —— 委托书。原话逐字在最前,管家补充经中和后进围栏(见 06i buildStewardBrief)。
+// A step list is one DAG owned by one new thread, never cross-thread completion links.
+function stewardDelegationSteps(raw, args, config) {
+  if (raw === undefined) return { steps: null };
+  if (!Array.isArray(raw) || raw.length < 2 || raw.length > 8) return { error: 'steps requires 2–8 ordered steps' };
+  if (args.missionId || args.relatedSessionId || args.brief?.playbook) return { error: 'steps requires a new standalone mission, without missionId, relatedSessionId or playbook' };
+  const cap = Number(config.subagentMaxPerTurn) || 0;
+  if (cap <= 0) return { error: 'agent_delegation_disabled' };
+  if (Number(config.agentWorkflowMaxNodes) === 0) return { error: 'agent_workflow_disabled' };
+  if (raw.length > cap || (Number(config.agentWorkflowMaxNodes) > 0 && raw.length > Number(config.agentWorkflowMaxNodes))) return { error: 'steps exceeds the configured agent budget' };
+  if (!stewardOpenAiFallback(config)) return { error: 'steps requires a configured provider' };
+  const steps = [];
+  for (const [i, row] of raw.entries()) {
+    if (!row || typeof row !== 'object' || typeof row.task !== 'string' || !row.task.trim() || row.task.length > 2000 || !['read', 'edit', 'exec'].includes(row.toolTier || 'read') || Object.keys(row).some(k => !['task', 'toolTier'].includes(k))) return { error: `invalid step ${i + 1}: task (1–2000 chars) and toolTier (read/edit/exec) only` };
+    steps.push({ id: 'step-' + (i + 1), task: row.task.trim(), toolTier: row.toolTier || 'read', dependsOn: i ? ['step-' + i] : [], maxRetries: 0 });
+  }
+  return { steps };
+}
 async function stewardImplThreadNew(args, ctx, config) {
   const brief = (args.brief && typeof args.brief === 'object') ? args.brief : null;
   if (!brief || !String(brief.userText || '').trim()) {
     return stewardFail('invalid_request', 'brief.userText is required and must contain the user\'s own words verbatim');
   }
   // 116-3 P0-2:收件箱触发的「自己新开线程」要用户先在自理清单里留着这一项(§11.1 第 6 项)。
+  const delegation = stewardDelegationSteps(args.steps, args, config);
+  if (delegation.error) return stewardFail('invalid_request', delegation.error, { reason: 'delegation_unavailable' });
   // 新线程还没有目标线程可判权限,所以这里只有清单这一道闸;新线程自己的权限由全局默认档决定。
   if (stewardUnattendedByModel(ctx)) {
     const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
@@ -916,6 +935,7 @@ async function stewardImplThreadNew(args, ctx, config) {
     else cwdSource = 'default';
   }
   if (cwdPick.relatedSessionId) session.relatedSessionId = cwdPick.relatedSessionId;
+  if (delegation.steps) delegation.steps = delegation.steps.map(step => ({ ...step, resources: [(step.toolTier === 'read' ? 'read:' : '') + 'workspace:' + session.cwd] }));
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
   session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
   // 117z-E2 提交①(27 号文 §11.21.3):【出身】标 —— 这条线程是管家自己开的。
@@ -944,6 +964,7 @@ async function stewardImplThreadNew(args, ctx, config) {
     // 那个字段的老语义是「建议线程参考的 id」(一行文字,没人加载它);现在两种来源都落到同一格,
     // 界面与事后对账不必分辨是「参考过」还是「跑过」的 id —— 真跑过的那一次另有决策账本作证。
     playbookId: pbResolved ? pbResolved.id : String(brief.playbookId || ''),
+    ...(delegation.steps ? { steps: delegation.steps } : {}),
   };
   // 117l D7:按任务复杂度选档(缺省 strong)—— 写在 saveSession 之前,跟着同一次落盘走,零额外写。
   const tiered = StewardHooks.applyThreadTier(session, args.tier, config);
@@ -961,6 +982,7 @@ async function stewardImplThreadNew(args, ctx, config) {
     cwd: session.cwd,
     source: 'steward',
     requestMeta: { tool: 'steward_thread_new' },
+    ...(delegation.steps ? { delegationPlan: { nodes: delegation.steps, context: composed.text } } : {}),
   }, 'steward_thread_new');
 
   // 117d 第 0 步:回退锚点。undoRef.sessionId 是「删掉这条线程」的把手,但整单回退要的是
@@ -976,6 +998,7 @@ async function stewardImplThreadNew(args, ctx, config) {
       // W7:目录是怎么选出来的(explicit/mission/related/mission_thread/new/default)——行动流水事后
       // 答得出「为什么这条线程开在这儿」。只记来源不记全路径(决策日志也进管家的上下文)。
       cwdSource,
+      ...(delegation.steps ? { steps: delegation.steps.length } : {}),
       // 129h:跑过 playbook 的那一次,行动流水要看得出来是【哪一个】、正文有多长 ——
       // 「管家自己起了一条线程」与「管家按你存下的那个流程起了一条线程」是两件事。
       ...(pbResolved ? { playbookId: pbResolved.id, playbookChars: pbResolved.text.length } : {}),
@@ -991,6 +1014,7 @@ async function stewardImplThreadNew(args, ctx, config) {
     // W7:开在哪个工作区(名字,不给全路径)、为什么开在那儿。
     workspace: (stewardWorkspaceNameOf(session.cwd, config) || { name: '' }).name, cwdSource,
     briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef,
+    ...(delegation.steps ? { delegation: { kind: 'ordered_steps', steps: delegation.steps, coordinatorSessionId: session.id, status: 'accepted' } } : {}),
     ...(pbResolved ? { playbook: { id: pbResolved.id, title: pbResolved.title, chars: pbResolved.text.length } } : {}),
   };
 }

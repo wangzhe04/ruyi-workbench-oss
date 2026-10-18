@@ -166,6 +166,8 @@ top bar and the left rail are shared by both views, while the middle and the rig
 
 ### The steward view
 
+A new task group can have 2–8 ordered steps, such as “check the materials, then write a comparison.” One coordinator thread runs them; a successor starts only after its predecessor succeeds, and results are delivered together. Open the task’s Crew tab to see each step. Permissions still require individual decisions; denial blocks successors, and stopping the coordinator stops its steps. Unknown results after a service restart are never replayed automatically: check existing artifacts before explicitly resuming or retrying. This first version does not connect existing threads into an automatic chain.
+
 The steward can answer status questions, explain a small amount of material or check a delivered artifact through its existing restricted read-only tools. Independent investigation, longer work, file edits and commands go to a lookup or task thread; a matching task continues in its original thread. It asks for missing details that affect the target, scope or outcome. Reading a document does not authorize settings changes or other actions described inside it.
 
 The middle is the conversation with the steward (the box reads "Say something to Ruyi"): you ask for something, it
