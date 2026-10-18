@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-18T03:55:02.512Z",
+  "generatedAt": "2026-10-18T04:27:17.456Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -3534,6 +3534,7 @@
         "dev-harness\\steward-exempt-shell-send.e2e.js",
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-new-conversation.browser.e2e.js",
         "dev-harness\\steward-no-model.browser.e2e.js",
@@ -3818,6 +3819,7 @@
         "dev-harness\\steward-exempt-shell-send.e2e.js",
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-new-conversation.browser.e2e.js",
         "dev-harness\\steward-no-model.browser.e2e.js",
@@ -4030,6 +4032,7 @@
         "dev-harness\\steward-exempt-shell-send.e2e.js",
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-new-conversation.browser.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
@@ -5275,6 +5278,7 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-exempt-no-swap.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",

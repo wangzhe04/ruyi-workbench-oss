@@ -136,6 +136,7 @@ const PAYLOAD_FILES = [
   'app/public/js/steward-drawer.js',
   'app/public/js/steward-settings.js',   // 117e
   'app/public/js/steward-settings-receipt.js', // 75: chat/history/settings share actual settings receipts and guarded undo
+  'app/public/js/steward-handoff-recovery.js', // 78: tab-local unresolved handoffs survive page reloads
   'app/public/js/playbook-reuse.js', // 77: explicit recognition, editable copies and new-material checks
   'app/public/js/external-bots.js',      // external owner connection management and durable receipts
   'app/public/js/external-bot-setup.js', // local credential entry, verified pairing and explicit activation

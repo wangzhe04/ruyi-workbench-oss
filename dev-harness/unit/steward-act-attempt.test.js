@@ -98,6 +98,42 @@ test('an unusable attemptId on a plain act degrades to a normal execution', asyn
   assert.equal(result.replayed, undefined);
 });
 
+test('guarded windows distinguish missing, in-flight and applied without executing checks', async () => {
+  const attemptId = 'window-attempt-0001';
+  const before = await stewardRunAct(null, {}, { attemptId, check: true });
+  assert.equal(before.state, 'unknown', 'a bare missing receipt is not proof of non-execution');
+  const window = before.window;
+  const proven = await stewardRunAct(null, {}, { attemptId, check: true, window });
+  assert.equal(proven.state, 'not_applied');
+  const owner = stewardRunAct(act('sess-window'), {}, { attemptId, window });
+  const inflight = await stewardRunAct(null, {}, { attemptId, check: true, window });
+  assert.equal(inflight.state, 'inflight');
+  assert.equal(inflight.applied, null);
+  assert.equal((await owner).ok, true);
+  assert.equal((await stewardRunAct(null, {}, { attemptId, check: true, window })).state, 'applied');
+  assert.equal((await stewardRunAct(act('sess-window'), {}, { attemptId, window })).replayed, true);
+});
+
+test('expired or foreign-instance windows cannot execute a missing attempt', async () => {
+  const attemptId = 'window-attempt-0002', { window } = await stewardRunAct(null, {}, { attemptId, check: true });
+  for (const stale of [{ ...window, serverInstanceId: 'old-instance' }, { ...window, issuedAt: window.issuedAt - 600001, expiresAt: window.expiresAt - 600001 }]) {
+    const check = await stewardRunAct(null, {}, { attemptId, check: true, window: stale });
+    assert.equal(check.state, 'unknown'); assert.equal(check.applied, null);
+    const run = await stewardRunAct(act('sess-never'), {}, { attemptId, window: stale });
+    assert.equal(run.error, 'attempt_unknown');
+  }
+  assert.equal((await stewardRunAct(act('sess-never'), {}, { attemptId: '', window })).ok, false);
+});
+
+test('capacity eviction invalidates older missing windows without allowing a second execution', async () => {
+  const attemptId = 'window-evicted-0001', { window } = await stewardRunAct(null, {}, { attemptId, check: true });
+  await stewardRunAct(act('sess-once'), {}, { attemptId, window });
+  for (let i = 0; i < 257; i++) await stewardRunAct(act('sess-fill'), {}, { attemptId: 'fill-capacity-' + i });
+  const check = await stewardRunAct(null, {}, { attemptId, check: true, window });
+  assert.equal(check.state, 'unknown'); assert.equal(check.applied, null);
+  assert.equal((await stewardRunAct(act('sess-once'), {}, { attemptId, window })).error, 'attempt_unknown');
+});
+
 test('an attempt cannot replay a receipt for another target or payload', async () => {
   const absent = await stewardRunAct(undefined, {}, { attemptId: 'attempt-absent-0001' });
   assert.equal(absent.ok, false, 'missing act returns a failure instead of throwing');
@@ -111,4 +147,19 @@ test('an attempt cannot replay a receipt for another target or payload', async (
   ]);
   assert.equal(owner.ok, true);
   assert.equal(mismatch.ok, false);
+});
+
+test('TTL pruning never turns an executed guarded attempt into an executable missing receipt', async () => {
+  const attemptId = 'window-expiry-00001', { window } = await stewardRunAct(null, {}, { attemptId, check: true });
+  // Previous capacity-test evictions may share the same millisecond; wait before issuing a new window.
+  await new Promise(resolve => setTimeout(resolve, 5));
+  const fresh = (await stewardRunAct(null, {}, { attemptId, check: true })).window;
+  assert.equal((await stewardRunAct(act('sess-expiry'), {}, { attemptId, window: fresh })).ok, true);
+  const realNow = Date.now;
+  try {
+    Date.now = () => window.expiresAt + 600001;
+    const expired = await stewardRunAct(null, {}, { attemptId, check: true, window: fresh });
+    assert.equal(expired.state, 'unknown'); assert.equal(expired.applied, null);
+    assert.equal((await stewardRunAct(act('sess-expiry'), {}, { attemptId, window: fresh })).error, 'attempt_unknown');
+  } finally { Date.now = realNow; }
 });

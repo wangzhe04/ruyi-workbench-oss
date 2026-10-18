@@ -24,7 +24,7 @@ let fx;
       window.__attachmentActs = []; window.__lastUpload = null; window.__dropAttachmentReply = false;
       window.fetch = async (url, init) => {
         const route = String(url);
-        if (route.includes('/api/steward/act') && init && init.body) window.__attachmentActs.push(JSON.parse(init.body));
+        if (route.includes('/api/steward/act') && init && init.body && JSON.parse(init.body).act) window.__attachmentActs.push(JSON.parse(init.body));
         const response = await original(url, init);
         if (route.endsWith('/api/upload')) window.__lastUpload = (await response.clone().json()).file;
         if (route.includes('/api/steward/act') && init && JSON.parse(init.body || '{}').act && window.__dropAttachmentReply) {

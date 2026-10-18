@@ -693,10 +693,11 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
 //    steward-board / steward-drawer / steward-settings / steward-chips 四个消费方走的是同一条 import，
 //    不是新借了一个域的实现；本文件不自己搭第二个模态（那正是这条锁要挡住的事）。
 // 75：设置回执为纯展示/撤销叶子，聊天与行动流水共用，不另建配置权威或后台轮询。
-const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './steward-delivery.js', './steward-settings-receipt.js', './thread-facts.js', './util.js'];
+// 78: tab-local unresolved-delivery cache is a storage leaf, with no network or domain dependency.
+const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './steward-delivery.js', './steward-handoff-recovery.js', './steward-settings-receipt.js', './thread-facts.js', './util.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
 ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
-  `P10 import 仅登记的九条本域内相对路径，含共享设置回执叶子（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
+  `P10 import 仅登记的本域内相对路径，含共享设置回执和递话恢复叶子（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
 ok(/openClassicWindow = null,/.test(conversation)
   && /if \(typeof openClassicWindow === 'function'\) \{/.test(conversationCode)
   && /openThread\(id\);/.test(conversationCode)

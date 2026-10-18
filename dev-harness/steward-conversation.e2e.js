@@ -443,7 +443,7 @@ try {
         // 62 号第三轮 P1：两个故障注入点 —— 请求根本没发出去(fail-request)，以及发出去但响应丢了
         // (drop-response)。后者正是「服务端其实已经执行、客户端只知道失败」的那一类，用来验证回执核对。
         window.__ruyiActFault = window.__ruyiActFault || '';
-        const fault = route === '/api/steward/act' ? window.__ruyiActFault : '';
+        const fault = route === '/api/steward/act' && JSON.parse(init?.body || '{}').act ? window.__ruyiActFault : '';
         if (fault) window.__ruyiActFault = '';
         if (fault === 'fail-request') return Promise.reject(new TypeError('synthetic network failure'));
         if (fault === 'reject-409') return Promise.resolve(new Response(JSON.stringify({ ok: false, error: { code: 'steward.disabled' } }), { status: 409, headers: { 'content-type': 'application/json' } }));
@@ -1761,6 +1761,7 @@ try {
     const conv = mod.createStewardConversation({
       api: async (url, options) => {
         const path_ = String(url);
+        if (path_ === '/api/steward/act' && JSON.parse(options?.body || '{}').checkAttempt) return { ok: true, window: { serverInstanceId: 'synthetic-instance', issuedAt: Date.now(), expiresAt: Date.now() + 600000 } };
         window.__ruyiUndoCalls.push(path_);
         if (path_ === '/api/steward/act') return { result: { ok: true, undoRef: { turnSeq: 0, rewindTargetTurnSeq: 1,
           execution: { serverInstanceId: 'synthetic-instance', driverRunId: 'synthetic-driver', phase: 'starting' } } } };
@@ -2475,7 +2476,7 @@ try {
   const actStartB = await actCount();
   await cdp.evaluate("window.__ruyiActFault = 'fail-request'; true");
   await handOffTo(THREAD_TITLE + ' 附录加封面');
-  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.filter(text => text.indexOf(${JSON.stringify(unknownPrefix)}) >= 0).length >= 2 ? 1 : null)()`, 300)),
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.filter(text => text.indexOf(${JSON.stringify(unknownPrefix)}) >= 0).length === 1 ? 1 : null)()`, 300)),
     'P13 请求没发出去时同样只说「未确认」');
   ok((await actCount()) === actStartB, 'P14 这一次确实没有到达服务端');
   ok(await clickAct(zh['stewardShell.chat.handOffCheck']), 'P15 失败的提示上同样给出核对按钮');
@@ -2502,7 +2503,7 @@ try {
   ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.some(text => text.indexOf(${JSON.stringify(errPrefix)}) >= 0) ? 1 : null)()`, 300)),
     'P21 服务端明确拒绝（409）时显示真实错误');
   ok((await actCount()) === actStartC, 'P22 被拒绝的这一次没有到达服务端');
-  ok(await cdp.evaluate(`((document.getElementById('stewardFeed').textContent.match(new RegExp(${JSON.stringify(unknownPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))}, 'g')) || []).length) === 2`),
+  ok(await cdp.evaluate(`((document.getElementById('stewardFeed').textContent.match(new RegExp(${JSON.stringify(unknownPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))}, 'g')) || []).length) === 0`),
     'P23 明确拒绝不会冒充「未确认」，也不会多出核对按钮');
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────

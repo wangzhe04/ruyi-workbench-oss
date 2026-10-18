@@ -20,6 +20,7 @@
 - [75 · 设置回执与作用域](75-steward-settings-scope-receipts.md)：按实际写盘结果显示范围与时机，受现值检查保护的撤销，以及任务模型和新任务默认隔离；未发布。
 - [76 · 单事项多步骤交办](76-steward-single-mission-steps.md)：一个新事项、一个协调线程、2–8 个有序步骤；真实权限待决、失败阻断、停止传播与未知结果人工恢复，复用既有 DAG；未发布。
 - [77 · 认可做法复用](77-steward-approved-playbook-reuse.md)：明确选择成果、纠正、输入和验收项，沿原 Playbook 起草与执行；副本修改保留原版，新材料显式验证；未发布。
+- [78 · 递话发送中刷新恢复](78-steward-handoff-reload-recovery.md)：3.1 P1 收口补齐；标签页保存未确认递话，刷新只核对，实例、过期及淘汰窗口失效不误重派；未发布。
 - [全局路线图](../OPTIMIZATION-ROADMAP.md)：产品状态与当前方向导航。
 - [文档总索引](../README.md)：开发、使用、发布和历史材料入口。
 

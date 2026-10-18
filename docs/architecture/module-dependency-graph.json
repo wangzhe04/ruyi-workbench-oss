@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 79,
-    "providedSymbols": 3811,
-    "requiredSymbols": 3361,
+    "providedSymbols": 3812,
+    "requiredSymbols": 3362,
     "edges": 573,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -21584,6 +21584,7 @@
         "stewardActAttemptPrune",
         "stewardActAttempts",
         "stewardActInflight",
+        "stewardActReceiptFloor",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
         "stewardDecideNudged",
@@ -21644,6 +21645,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -33930,6 +33938,7 @@
       "from": "13q-steward-runner-turn.js",
       "to": "00-boot.js",
       "symbols": [
+        "OVERLAY_ID",
         "RUYI_EVENTS",
         "crypto",
         "fsp",

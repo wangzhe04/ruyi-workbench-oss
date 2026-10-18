@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 管家直接递话可在发送中刷新后找回原话、附件、目标和核对入口，不自动补发。服务重启、回执过期或容量淘汰后的未知结果不会按“未执行”重派；真实重放和迟到成功只结算原记录。
+- Direct Steward deliveries recover their text, attachments, target and receipt check after a page reload, without automatic resending. Restarted, expired or evicted receipt windows remain unknown; replays and late success settle the original record.
+
 - 可从指定的认可成果、所选纠正、可变输入和验收项提炼一键任务。保存前可编辑、恢复或取消，修改已存规则会另存副本；使用新材料沿原 Playbook 路径执行，并明确尚未验证，模型自报不算机器验收。起草仍需要模型服务商。
 - Save an accepted result, selected corrections, variable inputs and acceptance criteria as a Playbook. Review, reset or cancel before saving; editing saved rules creates a copy. Verify with new materials through the existing execution path; model claims do not imply machine verification. Drafting still requires a model provider.
 

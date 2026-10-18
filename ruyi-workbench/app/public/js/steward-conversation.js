@@ -30,6 +30,7 @@ import { stewardWaitText } from './thread-facts.js';   // W2-F5：等待原因�
 // 点背影都在它里面，33 号文 §4 的「四套收一套」），本文件不自己搭第二个模态。
 import { confirmDanger } from './confirm-panel.js';
 import { appendSettingsReceipt, settingsReceiptOf, settingsReceiptText, refreshSettingsAfterReceipt } from './steward-settings-receipt.js';
+import { createHandoffRecoveryStore } from './steward-handoff-recovery.js';
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -1841,6 +1842,15 @@ export function createStewardConversation({
   // 迟绑定一个回调（组合根在两个子域都建好之后注入），避免 conversation ↔ composer 互相 import。
   let pickTarget = () => {};
   function setPickTargetHandler(handler) { if (typeof handler === 'function') pickTarget = handler; }
+  const handoffRecovery = createHandoffRecoveryStore();
+  let restoreHandoffDraft = () => ({ ok: false });
+  function setHandOffDraftHandler(handler) { if (typeof handler === 'function') restoreHandoffDraft = handler; }
+  function forgetHandOff(attempt) { try { handoffRecovery.remove(attempt.attemptId); } catch { /* A retained row can still be checked, never automatically replayed. */ } }
+  function prepareHandOff({ sessionId, title, message, reason, hits, attachments, deliverySource }) {
+    const attempt = { attemptId: handOffAttemptId(), sessionId: String(sessionId || ''), title, text: String(message || '').trim(), reason, hits, attachments: (attachments || []).map(file => ({ ...file })), deliverySource, createdAt: Date.now() };
+    try { handoffRecovery.put(attempt); return attempt; }
+    catch { return { error: t('stewardShell.chat.handOffCacheFailed') }; }
+  }
 
   let undoTimer = 0;
   function stopUndoCountdown() {
@@ -1891,47 +1901,68 @@ export function createStewardConversation({
     return String(Date.now()) + Math.random().toString(36).slice(2, 10);
   }
 
-  async function handOff({ sessionId, title, message, reason, hits, attachments, deliverySource }) {
+  async function handOff({ sessionId, title, message, reason, hits, attachments, deliverySource, prepared }) {
     const sid = String(sessionId || '');
     const text = String(message || '').trim();
     if (!sid || !text) return null;
     const files = Array.isArray(attachments) ? attachments.map(file => ({ ...file })) : [];
     appendAttachLine(appendUser(text), files);
-    const attempt = { attemptId: handOffAttemptId(), sessionId: sid, title, text, reason, hits, attachments: files, deliverySource };
+    const attempt = prepared || prepareHandOff({ sessionId: sid, title, message: text, reason, hits, attachments: files, deliverySource });
+    if (attempt.error) { appendSteward(attempt.error, ''); return null; }
     return deliverHandOff(attempt);
   }
 
   async function deliverHandOff(attempt, options = {}) {
     const sid = attempt.sessionId;
+    const generation = conversationGeneration;
+    const pending = failure => generation === conversationGeneration && !options.silentPending
+      ? renderHandOffPending(attempt, failure) : { sessionId: sid, pending: true, row: null, actsRow: null };
     // 有 pending 行要写的时候，失败文案写进那一行；否则才写进当前 feed（避免切线程写错视图）。
-    const reportFailure = text => { if (typeof options.report === 'function') options.report(text); else appendSteward(text, ''); };
+    const reportFailure = text => { if (typeof options.report === 'function') options.report(text); else if (generation === conversationGeneration) appendSteward(text, ''); };
     let response = null;
     try {
+      if (!attempt.window) {
+        if (options.silentPending || attempt.recovered) return { sessionId: sid, pending: true, row: null, actsRow: null };
+        const check = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ checkAttempt: true, attemptId: attempt.attemptId }) });
+        if (!check?.ok || !check.window?.serverInstanceId) return pending();
+        attempt.window = check.window;
+        handoffRecovery.put(attempt); // Persist the server window before the first executable request.
+      }
       response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({
         act: { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: attempt.text, ...(attempt.attachments.length ? { attachments: attempt.attachments } : {}), ...(attempt.deliverySource ? { deliverySource: attempt.deliverySource } : {}) } },
-        attemptId: attempt.attemptId }) });
+        attemptId: attempt.attemptId, attemptWindow: attempt.window }) });
     } catch (error) {
       // HTTP 给了明确回应时不是「未知」：4xx 是服务端明确拒绝（这一发没有执行），照旧显示真实错误；
       // 5xx / 没有状态码的网络异常才可能已经执行 —— 那才需要「未确认 + 核对」。
       const status = Number(error && error.status);
       if (Number.isInteger(status) && status >= 400 && status < 500) {
-        if ((attempt.attachments.length || attempt.deliverySource) && !options.silentPending) return renderHandOffPending(attempt, stewardErrorText(error));
+        if (stewardErrorCode(error) === 'attempt_unknown') return pending();
+        attempt.failure = stewardErrorText(error); try { handoffRecovery.put(attempt); } catch { /* Keep the earlier recovery record. */ }
+        if ((attempt.attachments.length || attempt.deliverySource) && !options.silentPending) return pending(attempt.failure);
         reportFailure(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
         return null;
       }
       if (options.silentPending) return { sessionId: sid, pending: true, row: null, actsRow: null };
-      return renderHandOffPending(attempt);
+      return pending();
     }
     const result = response && response.result;
     if (result && result.ok === false) {
       const key = stewardActErrorKey(result.error);
-      if ((attempt.attachments.length || attempt.deliverySource) && !options.silentPending) return renderHandOffPending(attempt, key ? t(key) : stewardErrorText(result.message || result.error));
+      attempt.failure = key ? t(key) : stewardErrorText(result.message || result.error); try { handoffRecovery.put(attempt); } catch { /* Keep the earlier recovery record. */ }
+      if ((attempt.attachments.length || attempt.deliverySource) && !options.silentPending) return pending(attempt.failure);
       reportFailure(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.message || result.error) }));
       return null;
     }
+    if (!result || result.ok !== true) return pending();
+    forgetHandOff(attempt);
+    let settledRecovery = false;
+    for (const row of feedEl()?.querySelectorAll('[data-handoff-attempt]') || []) {
+      if (row.dataset.handoffAttempt === attempt.attemptId && (generation !== conversationGeneration || row.dataset.recovered === 'true')) { row.settleHandoff?.(t('stewardShell.chat.handOffLanded')); settledRecovery = true; }
+    }
+    if (generation !== conversationGeneration || settledRecovery || !isStewardMode()) return { sessionId: sid, replayed: true, row: null, actsRow: null };
     // 重放只说明「上一次已经执行过」：不再追加第二条回执行，也不重挂第二枚撤回按钮。
     if (result && result.ok === true) invalidateStewardDeliveryPanels(feedEl(), sid, t);
-    if (result && result.replayed === true) return { sessionId: sid, replayed: true, row: null, actsRow: null };
+    if (response.replayed === true || result.replayed === true) return { sessionId: sid, replayed: true, row: null, actsRow: null };
     const title = attempt.title;
     const hits = attempt.hits;
     const reason = attempt.reason;
@@ -1982,24 +2013,30 @@ export function createStewardConversation({
     appendAttachLine(row, attempt.attachments);
     const note = el('p', 'muted');
     if (row) row.appendChild(note);
+    if (row) row.dataset.handoffAttempt = attempt.attemptId;
     const say = text => { if (note) note.textContent = text; };
     if (failure) say(failure);
     const actsRow = el('div', 'steward-acts');
+    if (row) {
+      row.dataset.recovered = String(!!attempt.recovered);
+      row.settleHandoff = text => { row.dataset.handoffState = 'applied'; row.querySelector('.steward-say').textContent = text; say(''); settleRow(actsRow, text, 'done'); };
+    }
     const checkBtn = button('steward-act', t('stewardShell.chat.handOffCheck'), async () => {
       if (checkBtn.disabled) return;
       checkBtn.disabled = true; retryBtn.disabled = true;
       let response = null;
       try {
-        response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ checkAttempt: true, attemptId: attempt.attemptId }) });
+        response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ checkAttempt: true, attemptId: attempt.attemptId, attemptWindow: attempt.window }) });
       } catch { response = null; }
       if (response && response.ok === true && response.applied === true) {
+        forgetHandOff(attempt);
         say('');
-        settleRow(actsRow, t('stewardShell.chat.handOffLanded'), 'done');
+        row?.settleHandoff(t('stewardShell.chat.handOffLanded'));
         return;
       }
-      if (response && response.ok === true && response.applied === false) say(t('stewardShell.chat.handOffAbsent'));
+      if (response && response.ok === true && response.state === 'not_applied') say(t('stewardShell.chat.handOffAbsent'));
       else say(t('stewardShell.chat.handOffCheckUnknown'));
-      checkBtn.disabled = false; retryBtn.disabled = false;
+      checkBtn.disabled = false; retryBtn.disabled = attempt.recovered || !['not_applied', 'applied', 'inflight'].includes(response?.state);
     });
     const retryBtn = button('steward-act', t('stewardShell.chat.handOffRetry'), async () => {
       if (retryBtn.disabled) return;
@@ -2010,11 +2047,27 @@ export function createStewardConversation({
       if (outcome && outcome.pending) { say(t('stewardShell.chat.handOffRetryUnconfirmed')); checkBtn.disabled = false; retryBtn.disabled = false; return; }
       if (!outcome) { checkBtn.disabled = false; retryBtn.disabled = false; return; }   // 明确失败：错误已经印在这一行上
       say('');
-      settleRow(actsRow, t('stewardShell.chat.handOffRetried'), 'done');
+      row?.settleHandoff(t('stewardShell.chat.handOffRetried'));
     });
-    actsRow.append(checkBtn, retryBtn);
+    actsRow.append(checkBtn);
+    if (!attempt.recovered) actsRow.append(retryBtn);
+    const restore = button('steward-act', t('stewardShell.chat.handOffRestore'), () => {
+      const restored = restoreHandoffDraft(attempt);
+      say(t(restored?.ok ? 'stewardShell.chat.handOffDraftRestored' : 'stewardShell.chat.handOffDraftBusy'));
+    });
+    actsRow.append(restore);
+    if (attempt.recovered) actsRow.append(button('steward-act', t('stewardShell.chat.handOffForget'), () => { forgetHandOff(attempt); row?.remove(); }));
     if (row) row.appendChild(actsRow);
     return { sessionId: attempt.sessionId, undoRef: null, row, actsRow, pending: true };
+  }
+
+  function restoreHandOffs() {
+    let rows = []; try { rows = handoffRecovery.list(); } catch { appendSteward(t('stewardShell.chat.handOffCacheReadFailed'), ''); return; }
+    for (const attempt of rows) {
+      if ([...(feedEl()?.querySelectorAll('[data-handoff-attempt]') || [])].some(row => row.dataset.handoffAttempt === attempt.attemptId)) continue;
+      appendAttachLine(appendUser(attempt.text), attempt.attachments);
+      renderHandOffPending({ ...attempt, recovered: true }, attempt.failure || '');
+    }
   }
 
   // 撤回锚点：只认后端 117d 第 0 步补出的 undoRef.rewindTargetTurnSeq（= 被递那一回合将拥有的 seq，与 09-workflow
@@ -2371,6 +2424,7 @@ export function createStewardConversation({
         // 这里仍是首跑那条自我介绍 ＋ 示例 ＋ 引导入口。
         if (!rendered) { if (nothing) renderFirstRun(); else renderDigest(visit); rendered = 1; }
       }
+      restoreHandOffs();
       return visit;
     } catch (error) {
       // 引擎不支持是唯一要当场说清楚的失败（否则用户以为管家坏了）；其它失败保持沉默，下次进壳再试。
@@ -2591,6 +2645,8 @@ export function createStewardConversation({
   return Object.freeze({
     bindStewardConversation,
     setPickTargetHandler,
+    setHandOffDraftHandler,
+    prepareHandOff,
     enterVisit,
     ensureVisit,
     syncEngineGate,   // 走查 #1：config 每次刷新由 steward-shell 先调它，再调 ensureVisit

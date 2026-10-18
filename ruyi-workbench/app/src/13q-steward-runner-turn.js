@@ -1171,12 +1171,14 @@ async function stewardRelayDeliver(input) {
 const STEWARD_ACT_ATTEMPT_LIMITS = Object.freeze({ entries: 256, ttlMs: 10 * 60 * 1000 });
 const stewardActAttempts = new Map();   // attemptId -> { at, result }
 const stewardActInflight = new Map();   // attemptId -> { signature, promise }：并发同 id 共用一次执行
+let stewardActReceiptFloor = 0; // Missing receipts older than any eviction cannot prove non-execution.
 function stewardActAttemptId(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : '';
 }
 function stewardActAttemptPrune(now) {
-  for (const [id, row] of stewardActAttempts) if (now - row.at > STEWARD_ACT_ATTEMPT_LIMITS.ttlMs) stewardActAttempts.delete(id);
-  while (stewardActAttempts.size > STEWARD_ACT_ATTEMPT_LIMITS.entries) stewardActAttempts.delete(stewardActAttempts.keys().next().value);
+  const forget = id => { stewardActReceiptFloor = Math.max(stewardActReceiptFloor, stewardActAttempts.get(id).at); stewardActAttempts.delete(id); };
+  for (const [id, row] of stewardActAttempts) if (now - row.at > STEWARD_ACT_ATTEMPT_LIMITS.ttlMs) forget(id);
+  while (stewardActAttempts.size > STEWARD_ACT_ATTEMPT_LIMITS.entries) forget(stewardActAttempts.keys().next().value);
 }
 async function stewardRunAct(act, config, attempt) {
   const attemptId = stewardActAttemptId(attempt && attempt.attemptId);
@@ -1184,12 +1186,23 @@ async function stewardRunAct(act, config, attempt) {
   // 回执查询必须带合法 attemptId：否则它会被当成一次真实执行（那正是「核对」绝不能做的事）。
   if (check && !attemptId) return stewardFail('invalid_request', 'checkAttempt needs a valid attemptId');
   const now = Date.now();
+  const window = attempt && attempt.window;
+  if (window && !attemptId) return stewardFail('invalid_request', 'attemptWindow needs a valid attemptId');
+  const sameInstance = window && window.serverInstanceId === OVERLAY_ID;
+  const validWindow = sameInstance && Number.isFinite(window.issuedAt) && Number.isFinite(window.expiresAt) && window.issuedAt <= now && window.expiresAt === window.issuedAt + STEWARD_ACT_ATTEMPT_LIMITS.ttlMs && now < window.expiresAt;
   const signature = attemptId && !check ? crypto.createHash('sha256').update(JSON.stringify(act ?? null)).digest('hex') : '';
   if (attemptId) {
     stewardActAttemptPrune(now);
     const prior = stewardActAttempts.get(attemptId);
     // 只读回执：告诉前端「这一次到底执行过没有」，绝不触发第二次执行。
-    if (check) return { ok: true, kind: 'attempt_check', applied: Boolean(prior), ...(prior ? { executedAt: new Date(prior.at).toISOString() } : {}) };
+    if (check) {
+      const inflight = stewardActInflight.has(attemptId);
+      const known = !window || sameInstance;
+      const state = known && prior ? 'applied' : known && inflight ? 'inflight' : validWindow && window.issuedAt > stewardActReceiptFloor ? 'not_applied' : 'unknown';
+      return { ok: true, kind: 'attempt_check', applied: state === 'applied' ? true : state === 'not_applied' || !window ? false : null, state,
+        serverInstanceId: OVERLAY_ID, window: { serverInstanceId: OVERLAY_ID, issuedAt: now, expiresAt: now + STEWARD_ACT_ATTEMPT_LIMITS.ttlMs }, ...(state === 'applied' ? { executedAt: new Date(prior.at).toISOString() } : {}) };
+    }
+    if (window && !sameInstance) return stewardFail('attempt_unknown', '服务已重启，请先核对目标任务；这次递送不会自动重发');
     if (prior) {
       if (prior.signature !== signature) return stewardFail('invalid_request', '这次递送的目标或内容已变化,请作为新的一次发送');
       return { ...prior.result, replayed: true, executedAt: new Date(prior.at).toISOString() };
@@ -1200,6 +1213,7 @@ async function stewardRunAct(act, config, attempt) {
       if (inflight.signature !== signature) return stewardFail('invalid_request', '这次递送的目标或内容已变化,请作为新的一次发送');
       return { ...await inflight.promise, replayed: true };
     }
+    if (window && (!validWindow || window.issuedAt <= stewardActReceiptFloor)) return stewardFail('attempt_unknown', '回执窗口已失效，请先核对目标任务；不能证明这次尚未执行');
   }
   const run = stewardRunActOnce(act, config);
   if (!attemptId) return run;

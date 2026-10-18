@@ -251,7 +251,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
     }
     const body = await readJsonBody(req).catch(() => ({}));
     // 62 号第三轮 P1：同一次递话重试带同一个 attemptId；checkAttempt 只读回执，不触发执行。
-    const result = await stewardRunAct(body && body.act, config, { attemptId: body && body.attemptId, check: Boolean(body && body.checkAttempt === true) });
+    const result = await stewardRunAct(body && body.act, config, { attemptId: body && body.attemptId, check: Boolean(body && body.checkAttempt === true), window: body && body.attemptWindow });
     if (result && result.ok === false) return send(res, apiFailure(result.error, {}, result.message || result.error, 400));
     return send(res, json(result));
   }

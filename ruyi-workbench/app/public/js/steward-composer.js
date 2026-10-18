@@ -367,6 +367,8 @@ export function createStewardComposer({
       note(t('stewardShell.chat.queueFull'));
       return;
     }
+    const prepared = target && conversation.prepareHandOff?.({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits, attachments: attachments.slice(), deliverySource: target.deliverySource });
+    if (prepared?.error) { note(prepared.error); return; }
     const files = attachments.splice(0, attachments.length);   // 133e：这一句带走托盘里全部附件，托盘随即清空
     note('');
     renderTray();
@@ -380,7 +382,7 @@ export function createStewardComposer({
     try {
       // 117l D1：**手选的目标才直递**（那是用户明示，§8.12 第 4 条）；其余一律发给管家，预判只
       // 随 routeHint 走一趟提示（§11.9 D1「无论关键词匹配到什么，都要发给管家让它决定」）。
-      if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits, attachments: files, ...(target.deliverySource ? { deliverySource: { ...target.deliverySource } } : {}) });
+      if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits, attachments: files, prepared, ...(target.deliverySource ? { deliverySource: { ...target.deliverySource } } : {}) });
       else await conversation.sendToSteward(text, { routeHint: routeHintPayload(), ...(files.length ? { attachments: files } : {}) });
     } finally {
       // 手选只管这一次发送，之后自动回到「→ 如意」（§8.12 第 4 条）。
@@ -464,6 +466,15 @@ export function createStewardComposer({
     input.placeholder = t('delivery.revisionPlaceholder');
     note(t('delivery.revisionReady')); renderChip(); input.focus({ preventScroll: true });
     return { ok: true };
+  }
+  function restoreHandOffDraft(attempt) {
+    const input = byId('stewardComposerInput');
+    if (!input || !isStewardMode() || input.value || attachments.length || pendingUploads || picked || ['starting', 'warming', 'recording', 'transcribing'].includes(voice.phase())) return { ok: false };
+    cancelPreroute(); prerouteSeq += 1; closePicker();
+    picked = { sessionId: attempt.sessionId, title: attempt.title, ...(attempt.deliverySource ? { deliverySource: { ...attempt.deliverySource } } : {}) };
+    routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = true;
+    input.value = attempt.text; attachments.push(...attempt.attachments.map(file => ({ ...file })));
+    renderTray(); renderChip(); input.focus({ preventScroll: true }); return { ok: true };
   }
 
   // U14/U16 走查：chip／picker／「+」／发送键这几处的 aria-label／title 都是 buildComposer()
@@ -640,6 +651,7 @@ export function createStewardComposer({
     resetComposer,
     importExternalReference,
     beginDeliveryRevision,
+    restoreHandOffDraft,
     submit,
     // 117c：撤回／换一条之后由对话流回调，把候选列表就地打开 ——「那递给谁？」问完就得让用户
     // 能立刻挑，而不是让他自己再去点 chip（§8.12 第 3 条「改递时同样先回退再递」）。

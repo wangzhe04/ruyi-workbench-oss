@@ -21438,6 +21438,7 @@
         "stewardActAttemptPrune",
         "stewardActAttempts",
         "stewardActInflight",
+        "stewardActReceiptFloor",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
         "stewardDecideNudged",
@@ -21498,6 +21499,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
