@@ -48,6 +48,8 @@ const { ok } = runner;
     });
     await fx.setLens('steward');
     ok(Boolean(await fx.waitForEval(`document.querySelector(${JSON.stringify(row(ids.idle))})`)), 'S0 actual task row is rendered');
+    // Idle receipt keys also need the SSE server epoch; initial HTML can precede presence.ack.
+    if (!await fx.waitForEval(`JSON.parse(document.querySelector(${JSON.stringify(row(ids.idle) + ' [data-action="stop"]')})?.dataset.stewardStopTarget || '[]')[1]`)) throw new Error('stop controls did not observe server identity');
     await fx.evaluate(`(() => {
       window.stopCounts = {}; window.stopModes = {}; window.stopWaits = {};
       window.stopOriginalFetch = window.fetch;
@@ -114,6 +116,7 @@ const { ok } = runner;
 
     await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: ${JSON.stringify(ids.lost)} } }))`);
     ok(Boolean(await fx.waitForEval(`document.getElementById('stewardDrawerStopBtn').dataset.stewardStopSession === ${JSON.stringify(ids.lost)}`)), 'S6 actual drawer owns the intended thread');
+    if (!await fx.waitForEval(`document.getElementById('stewardDrawerStopBtn').dataset.stewardStopTarget === document.querySelector(${JSON.stringify(row(ids.lost) + ' [data-action="stop"]')})?.dataset.stewardStopTarget`)) throw new Error('drawer did not load the same execution identity');
     await fx.evaluate(`stopModes[${JSON.stringify(ids.lost)}] = 'drop'`);
     await clickStop(ids.lost);
     ok(Boolean(await fx.waitForEval(`typeof stopWaits[${JSON.stringify(ids.lost)}] === 'function'`)), 'S7 service applied stop while the response is withheld');

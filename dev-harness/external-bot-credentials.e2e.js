@@ -62,7 +62,8 @@ async function main() {
         USERPROFILE: path.join(root, 'home'), HOME: path.join(root, 'home'), LOCALAPPDATA: path.join(root, 'local'), APPDATA: path.join(root, 'roaming') };
       const child = cp.spawn(process.execPath, [__filename, '--credential-worker'], { env: { ...process.env, ...childEnv }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
       children.add(child); const chunks = []; let size = 0;
-      const timer = setTimeout(() => { killOwnTree(child); reject(new Error('credential fixture timed out')); }, 30000);
+      // A save may inspect, protect, and inspect again, each with its own bounded cold helper startup.
+      const timer = setTimeout(() => { killOwnTree(child); reject(new Error('credential fixture timed out')); }, 60000);
       child.stdout.on('data', chunk => { size += chunk.length; if (size > 65536) { killOwnTree(child); reject(new Error('credential fixture output exceeded limit')); } else chunks.push(chunk); });
       child.stderr.resume(); child.on('error', reject);
       child.on('close', code => {

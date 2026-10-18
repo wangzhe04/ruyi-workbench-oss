@@ -29,8 +29,12 @@ let fx, sid, artifact, before, calls = 0;
     await fx.evaluate("document.getElementById('stewardDrawerFullTextBtn').click();true");
     const card = `.steward-deliverable[data-session-id="${sid}"][data-turn-seq="1"]`;
     ok(await fx.waitForEval(`document.querySelector(${JSON.stringify(card)})?.textContent.includes('已完成两步汇总') ? 1 : null`), '无到访历史也能重开准确回合交付卡');
+    // Switching lens/repainting the drawer is asynchronous; open the same actual task again.
+    await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:open-thread',{detail:{sessionId:${JSON.stringify(sid)}}}));true`);
+    if (!await fx.waitForEval("document.getElementById('stewardDrawerFullTextBtn')?.textContent.includes('查看交付') ? 1 : null")) throw new Error('history delivery control did not reload');
     await fx.evaluate("document.getElementById('stewardDrawerFullTextBtn').click();true");
     ok(await fx.evaluate(`document.querySelectorAll(${JSON.stringify(card)}).length===1`), '重复打开定位现有交付而不重复插卡');
+    if (!await fx.waitForEval(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')})`)) throw new Error('history delivery body did not load');
     await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')}).click();true`);
     ok(await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')}).getAttribute('aria-expanded')==='true'`), '重开的历史交付可展开全文');
     await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-delivery-revise')}).click();true`);

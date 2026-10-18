@@ -458,7 +458,40 @@ try {
     // row.wait 是 waitReasonFor() 的对象（{reason,label,...}），不是数字——判据看它是不是那一档。
     return Boolean(row) && Boolean(row.wait) && row.wait.reason === 'needs_you';
   }, token)), 'A3c 今天的收件箱行为不变：管家视角下这条线程照常在 /api/missions 里算「等你」（wait.reason===needs_you）');
+  // Production SSE uses fetch/ReadableStream, not EventSource. Observe a clone of the next
+  // connection only; leave its original bytes and the actual presence handshake untouched.
+  await cdp.evaluate(`(() => {
+    window.quietPresenceAck = null;
+    const original = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await original(...args);
+      const input = args[0], url = new URL(typeof input === 'string' ? input : input.url, location.href);
+      if (url.pathname === '/api/events/stream') {
+        const reader = response.clone().body.getReader();
+        void (async () => {
+          let buffer = ''; const decoder = new TextDecoder();
+          try {
+            for (;;) {
+              const part = await reader.read(); if (part.done) break;
+              buffer += decoder.decode(part.value, { stream: true });
+              let end;
+              while ((end = buffer.indexOf('\\n\\n')) >= 0) {
+                const frame = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+                if (!/^event: presence\\.ack$/m.test(frame)) continue;
+                const data = frame.split('\\n').find(line => line.startsWith('data:'));
+                window.quietPresenceAck = JSON.parse(data.slice(5)); return;
+              }
+              if (buffer.length > 65536) throw new Error('presence frame exceeded fixture bound');
+            }
+          } catch (error) { window.quietPresenceError = String(error); }
+          finally { void reader.cancel().catch(() => {}); }
+        })();
+      }
+      return response;
+    };
+  })()`);
   await setLens('classic');
+  if (!await waitForEval(cdp, `window.quietPresenceAck?.lens === 'classic'`)) throw new Error('classic presence was not acknowledged before the question');
 
   /* ═════════ C：「去看」＝ 换成那条会话，且视角仍是 classic ═════════ */
   request(appPort, 'POST', '/api/chat/stream', { sessionId: created.go, message: 'ask about go', cwd: workGo }, token, 600000);

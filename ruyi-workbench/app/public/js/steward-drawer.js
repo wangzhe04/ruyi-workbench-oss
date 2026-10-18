@@ -1764,7 +1764,11 @@ export function createStewardDrawer({
   function setEventStream(stream) {
     if (!stream || typeof stream.on !== 'function') return false;
     const knownInstance = typeof stream.stats === 'function' ? stream.stats().serverInstanceId : '';
-    if (typeof knownInstance === 'string' && knownInstance) drawerServerInstanceId = knownInstance;
+    if (typeof knownInstance === 'string' && knownInstance) {
+      drawerServerInstanceId = knownInstance;
+      stewardStopServerInstanceId = knownInstance;
+      stewardPaintStopControls();
+    }
     drawerEventStream = stream;   // 128f-⑫：停掉一条之后页内广播用（见 stopThread）
     streamConnected = typeof stream.isConnected === 'function' ? stream.isConnected() === true : false;
     stream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
@@ -1780,6 +1784,7 @@ export function createStewardDrawer({
     stream.on('presence.ack', payload => {
       if (typeof payload?.serverInstanceId === 'string' && payload.serverInstanceId) drawerServerInstanceId = payload.serverInstanceId;
       if (typeof payload?.serverInstanceId === 'string') stewardStopServerInstanceId = payload.serverInstanceId;
+      stewardPaintStopControls();
       if (refreshAfterInstance) { refreshAfterInstance = false; if (sessionId) void pushRefreshSlice(); }
     });
     // thread.live 【只】就地改，不顺手重问切片：它每 500 ms 一条（§6.1 节流列），每条都跟一发

@@ -101,3 +101,21 @@ test('after epoch switch, late old stop results cannot repopulate history or pai
   assert.equal(c.stewardStopRequestSequence, 0);
   assert.equal(paints, 0);
 });
+
+test('late event-stream binding adopts the observed stop epoch and presence acknowledgement repaints controls', () => {
+  const fs = require('node:fs'); const path = require('node:path'); const vm = require('node:vm');
+  const { functionBlock } = require('../lib/source-slice');
+  const source = fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/public/js/steward-drawer.js'), 'utf8');
+  const listeners = new Map(); let paints = 0;
+  const c = vm.createContext({ drawerServerInstanceId: '', stewardStopServerInstanceId: '',
+    EVENT_STREAM_INSTANCE_EVENT: 'server.instance', EVENT_STREAM_LIVE_EVENT: 'thread.live', EVENT_STREAM_ROW_EVENTS: [],
+    stewardPaintStopControls() { paints++; } });
+  vm.runInContext(functionBlock(source, 'setEventStream'), c);
+  assert.equal(c.setEventStream({ stats: () => ({ serverInstanceId: 'already-connected' }),
+    isConnected: () => true, on: (name, fn) => listeners.set(name, fn) }), true);
+  assert.equal(c.drawerServerInstanceId, 'already-connected');
+  assert.equal(c.stewardStopServerInstanceId, 'already-connected');
+  assert.equal(paints, 1, 'binding an already connected stream immediately repaints existing idle controls');
+  listeners.get('presence.ack')({ serverInstanceId: 'already-connected' });
+  assert.equal(paints, 2, 'idle controls are repainted even if their previous render preceded the acknowledgement');
+});

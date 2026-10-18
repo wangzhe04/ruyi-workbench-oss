@@ -80,6 +80,12 @@ const MASK_TIMES = `(() => {
     const version = await fx.cdp.send('Browser.getVersion').catch(() => ({}));
     const browser = String(version.product || '');
     ok(Boolean(await fx.setLens('steward')), 'P0b 管家视角');
+    // Two equal screenshots can still be the same loading frame. Wait for the actual
+    // fixture task/answer and all drawer read-health checks before comparing its pixels.
+    if (!await fx.waitForEval(`document.getElementById('stewardDrawerTitle')?.textContent === '写周报初稿'
+      && document.getElementById('stewardDrawerLastSayText')?.textContent.trim() === '好。'
+      && document.getElementById('stewardDrawerReadHealth')?.hidden === true`)) throw new Error('pixel fixture drawer did not finish loading');
+    await fx.evaluate('document.fonts.ready.then(() => true)');
     await fx.evaluate(FREEZE);
 
     const shoot = async theme => {

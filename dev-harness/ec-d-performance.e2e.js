@@ -170,6 +170,21 @@ async function waitForTarget(debugPort, appUrl) {
   }
   return null;
 }
+// Timestamp in the renderer when the original readiness predicate first becomes true.
+// CDP polling/host scheduling latency is not application startup time.
+const RECORD_INTERACTIVE = `(() => {
+  const observer = new MutationObserver(check);
+  function check() {
+    const input = document.getElementById('promptInput'), messages = document.getElementById('messages');
+    if (window.state?.currentSession?.id !== 'sess_ecdperformance01' || !messages?.textContent.includes('基准回答 30。')
+      || document.readyState !== 'complete' || !document.querySelector('#threadChips .steward-chip')
+      || !input || input.disabled || !messages || messages.getAttribute('aria-busy') === 'true') return;
+    window.__ecdInteractiveMs = performance.now();
+    observer.disconnect(); document.removeEventListener('readystatechange', check);
+  }
+  observer.observe(document, { subtree: true, childList: true, attributes: true });
+  document.addEventListener('readystatechange', check); check();
+})()`;
 async function waitForInteractive(cdp, previousTimeOrigin = 0) {
   const expression = `(() => {
     const navigation = performance.getEntriesByType('navigation')[0];
@@ -179,6 +194,8 @@ async function waitForInteractive(cdp, previousTimeOrigin = 0) {
     const input = document.getElementById('promptInput');
     const messages = document.getElementById('messages');
     const ready = performance.timeOrigin !== ${Number(previousTimeOrigin)}
+      && window.state?.currentSession?.id === 'sess_ecdperformance01'
+      && !!messages && messages.textContent.includes('基准回答 30。')
       && document.readyState === 'complete'
       && !!chip && !!input && !input.disabled
       && !!messages && messages.getAttribute('aria-busy') !== 'true';
@@ -186,7 +203,7 @@ async function waitForInteractive(cdp, previousTimeOrigin = 0) {
     return {
       ready,
       timeOrigin: performance.timeOrigin,
-      interactiveMs: performance.now(),
+      interactiveMs: window.__ecdInteractiveMs ?? performance.now(),
       domInteractiveMs: navigation ? navigation.domInteractive : 0,
       loadEventMs: navigation ? navigation.loadEventEnd : 0,
       resourceCount: resources.length,
@@ -194,6 +211,7 @@ async function waitForInteractive(cdp, previousTimeOrigin = 0) {
       jsCount: resources.filter(entry => /\\/(?:app|js\\/[^/]+)\\.js(?:$|\\?)/.test(entry.name)).length,
       transferBytes: resources.reduce((sum, entry) => sum + (entry.transferSize || 0), 0),
       resourceDurationMs: resources.reduce((max, entry) => Math.max(max, entry.responseEnd || 0), 0),
+      slowResources: resources.slice().sort((a, b) => b.duration - a.duration).slice(0, 5).map(e => ({ path: new URL(e.name).pathname, duration: e.duration, responseEnd: e.responseEnd })),
     };
   })()`;
   for (let i = 0; i < 300; i++) {
@@ -263,6 +281,8 @@ const TOOL_VIEW_MEASURE = `(async () => {
     // 121 波 K0（34 号文 §8.4）：stewardEnabledV1 默认翻成 true、首开默认落管家视角。本件量的是
     // 【经典壳】的冷启动与视图切换预算（基线是按经典壳定的），显式关掉管家，别让口径悄悄换成另一个壳。
     stewardEnabledV1: false,
+    desktopMcp: { enabled: false, autodetect: false }, autoImportClaudeCodeMcp: false,
+    includeWorkbenchMcp: false, enableMcpDropIn: false, schedulerEnabledV1: false,
   }), 'utf8');
 
   const server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {
@@ -309,6 +329,7 @@ const TOOL_VIEW_MEASURE = `(async () => {
     await cdp.send('Runtime.enable');
     await cdp.send('Network.enable');
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+    await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: RECORD_INTERACTIVE });
 
     const startup = [];
     // Warm-up: let the browser process/renderer finish one-time init (V8 JIT, font/network stack).
@@ -323,6 +344,7 @@ const TOOL_VIEW_MEASURE = `(async () => {
     }
     ok(startup.length === STARTUP_RUNS, `captured ${STARTUP_RUNS}/${STARTUP_RUNS} cold interactive samples`);
     const startupMs = startup.map(sample => sample.interactiveMs);
+    console.log('STARTUP_SAMPLES ' + JSON.stringify(startup));
     const startupMax = startupMs.length ? Math.max(...startupMs) : Infinity;
     ok(startup.length === STARTUP_RUNS && startupMax < STARTUP_BUDGET_MS,
       `first interactive max < ${STARTUP_BUDGET_MS}ms (samples ${startupMs.map(ms => ms.toFixed(1)).join(', ')}ms)`);

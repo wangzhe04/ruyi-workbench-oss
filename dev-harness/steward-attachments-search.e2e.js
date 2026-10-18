@@ -51,7 +51,7 @@ async function idle(sid) {
     const loaded = await s.loadSession(target.id);
     const users = loaded.messages.filter(m => m.role === 'user');
     ok(users.length === 1 && users[0].content === '按新表修改报告', '原话逐字保存且没有重复用户消息');
-    ok(users[0].attachments.length === 1 && users[0].attachments[0].path === file.path && users[0].attachments[0].textPreview.includes('123') && !JSON.stringify(users[0]).includes('FORGED_PREVIEW'), '附件按 id/name 重新核对路径、正文与大小');
+    ok(users[0].attachments.length === 1 && users[0].attachments[0].path === await fs.promises.realpath(file.path) && users[0].attachments[0].size === fs.statSync(file.path).size && users[0].attachments[0].textPreview.includes('123') && !JSON.stringify(users[0]).includes('FORGED_PREVIEW'), '附件按 id/name 重新核对路径、正文与大小');
     ok((await s.loadSession(other.id)).messages.length === 0, '同名的另一条任务没有收到消息或附件');
     ok(fake.requests.some(r => JSON.stringify(r.body).includes('补充.csv') && JSON.stringify(r.body).includes('123')), '上传内容经现有附件管线送达模型');
     const check = await s.stewardRunAct(null, cfg, { attemptId: 'attachment-attempt-01', check: true });

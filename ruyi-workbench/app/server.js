@@ -84866,7 +84866,8 @@ const ExternalBotCredentials = (() => {
   const childProcess = require('node:child_process');
   const SLOTS = Object.freeze({ qq: ['botSecret'], feishu: ['verificationToken', 'encryptKey', 'appSecret'] });
   const REF = Object.freeze({ botSecret: 'botSecretEnv', verificationToken: 'verificationTokenEnv', encryptKey: 'encryptKeyEnv', appSecret: 'appSecretEnv' });
-  const LIMIT = Object.freeze({ records: 64, bytes: 4 * 1024 * 1024, cipherBytes: 65536, secretBytes: 4096, processMs: 5000, outputBytes: 131072 });
+  // Includes cold Windows PowerShell/.NET startup on slower machines; still bounded, with no retry.
+  const LIMIT = Object.freeze({ records: 64, bytes: 4 * 1024 * 1024, cipherBytes: 65536, secretBytes: 4096, processMs: 15000, outputBytes: 131072 });
   const revisionKey = crypto.randomBytes(32);
   const chains = new Map();
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);

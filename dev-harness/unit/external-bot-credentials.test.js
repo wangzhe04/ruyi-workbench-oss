@@ -53,7 +53,7 @@ function fixture({ platform = 'win32' } = {}) {
     fs: { readFileSync: raw, copyFileSync() { throw new Error('must not quarantine credential ciphertext'); } },
     fsp: { readFile: async () => raw(), stat: async () => ({ size: Buffer.byteLength(raw()) }), mkdir: async () => {} },
     paths: { data: '/isolated' }, atomicWriteJson: async (_file, value) => { writes++; if (writeError) throw new Error('write failed'); disk = JSON.stringify(value); },
-    setTimeout: (fn, ms) => setTimeout(fn, mode === 'timeout' && ms === 5000 ? 1 : ms), clearTimeout,
+    setTimeout: (fn, ms) => setTimeout(fn, mode === 'timeout' ? 1 : ms), clearTimeout,
   };
   const api = vm.runInNewContext(source, context);
   return { api, env, calls, counts: () => ({ writes, children }), disk: () => disk, setDisk: value => { disk = value; },
