@@ -43,10 +43,13 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       env: { ...process.env, ...isolated.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home },
     });
     await until(async () => { try { return (await request('GET', '/health')).status === 200; } catch { return false; } }, 'service health');
-    await until(() => {
-      try { token = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { token = ''; }
-      return token;
-    }, 'runtime token');
+    await until(async () => {
+      try {
+        const runtime = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8'));
+        token = runtime.pid === server.pid ? runtime.token || '' : '';
+        return token && (await request('GET', '/api/status')).status === 200;
+      } catch { token = ''; return false; }
+    }, 'current process runtime token and authenticated readiness');
   };
   const stopServer = async () => {
     const child = server;

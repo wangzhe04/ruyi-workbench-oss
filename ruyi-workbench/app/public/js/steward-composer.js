@@ -524,7 +524,11 @@ export function createStewardComposer({
   // （见文件尾的监听），不必假装这几处「反正状态一变就会重画」。
   function relabelComposerChrome() {
     const input = byId('stewardComposerInput');
-    if (input) input.placeholder = t(picked && picked.deliverySource ? 'delivery.revisionPlaceholder' : 'stewardShell.compose.placeholder');
+    if (input) {
+      const needsModel = input.disabled && input.getAttribute('data-i18n-attr') === 'placeholder:stewardShell.compose.needModel';
+      input.placeholder = t(needsModel ? 'stewardShell.compose.needModel'
+        : picked && picked.deliverySource ? 'delivery.revisionPlaceholder' : 'stewardShell.compose.placeholder');
+    }
     const chip = byId('stewardTarget');
     if (chip) chip.setAttribute('aria-label', t('stewardShell.compose.targetLabel'));
     const picker = byId('stewardTargetPicker');
