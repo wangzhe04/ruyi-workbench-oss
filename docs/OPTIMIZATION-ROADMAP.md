@@ -13,7 +13,7 @@
 
 ## 当前优先级
 
-[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。本批完成 [附件续办与搜索边界说明](optimization-plan/71-steward-attachments-search-scope.md)，并新增 [DeepSeek Search / Fetch 后端](optimization-plan/72-deepseek-search-fetch.md)。第四轮[交付和修订](optimization-plan/73-steward-delivery-revision.md)已完成源码、行为／浏览器验证和本机 DeepSeek 生成→修订实测；第五轮[事项待决清单与逐项处理](optimization-plan/74-steward-task-decisions.md)已完成实现与验证；下一片推进设置回执与作用域；全文分片索引、可取消深入查找、第三轮 P2 记忆补查与 66 号真实平台部署联调各自保留边界。源码尚未发布。
+[管家代办配置](optimization-plan/67-steward-assisted-bot-setup.md)、[飞书身份自动发现](optimization-plan/68-external-bot-identity-discovery.md) 已完成源码与隔离验收；3.1 的第三轮 P1 已完成两片：[同名任务候选的身份与消歧](optimization-plan/69-steward-candidate-identity.md) 与 [递话失败与迟到响应的保护](optimization-plan/70-steward-handoff-failure-retry.md)。本批完成 [附件续办与搜索边界说明](optimization-plan/71-steward-attachments-search-scope.md)，并新增 [DeepSeek Search / Fetch 后端](optimization-plan/72-deepseek-search-fetch.md)。第四轮[交付和修订](optimization-plan/73-steward-delivery-revision.md)已完成源码、行为／浏览器验证和本机 DeepSeek 生成→修订实测；第五轮[事项待决清单与逐项处理](optimization-plan/74-steward-task-decisions.md)已完成实现与验证；第五轮[设置回执与作用域](optimization-plan/75-steward-settings-scope-receipts.md)已完成实现和验证，清单、逐项处理与设置三片闭合；批量操作保留为有明确需求后的候选，第六轮逐项确定小片；全文分片索引、可取消深入查找、第三轮 P2 记忆补查与 66 号真实平台部署联调各自保留边界。源码尚未发布。
 
 | 顺序 | 目标 | 建议版本归属 |
 |---|---|---|

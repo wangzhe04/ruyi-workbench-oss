@@ -1261,6 +1261,20 @@ async function stewardImplNotify(args, ctx, config) {
 // 22) steward_config_get —— 掩码复用 POST /api/config 回包用的同一个 maskProviders(不另写一套)。
 //     forbidden 级的键【连掩码值都不回】,只在 omitted[] 里列键名 —— 给出掩码值等于承认它存在
 //     并暗示它的形状,而 forbidden 的意思是「这一族根本不经管家」。
+// 只描述可证明的时机。未列出的参数不承诺即时改变在途回合；相关功能下次读取配置时使用。
+function stewardSettingScope(key) {
+  if (key === 'permissionMode') return { scope: 'defaults', effective: 'next_turn' };
+  if (['activeProvider', 'agentCliType', 'model', 'newThreadEngine'].includes(key)) return { scope: 'new_threads', effective: 'new_threads' };
+  if (['stewardProviderId', 'stewardModel'].includes(key)) return { scope: 'steward', effective: 'next_turn' };
+  if (key === 'turnIdleTimeoutMs') return { scope: 'application', effective: 'next_turn' };
+  if (['questionTimeoutMs', 'permissionTimeoutMs'].includes(key)) return { scope: 'application', effective: 'next_wait', note: '读取新配置后创建的等待使用；已有等待不重新计时，在途回合可能沿用原配置。' };
+  return { scope: key.startsWith('steward') ? 'steward' : 'application', effective: 'next_read' };
+}
+function stewardSettingsReceipt(keys, previous, next) {
+  const before = maskProviders(previous), after = maskProviders(next);
+  const lang = String(next.locale || '').startsWith('en') ? 'en' : 'zh';
+  return { kind: 'settings', object: 'ruyi', changes: keys.map(key => ({ key, help: stewardConfigHelpFor(key, lang), before: before[key], value: after[key], ...stewardSettingScope(key) })) };
+}
 async function stewardImplConfigGet(args, ctx, config) {
   const masked = maskProviders(config);
   // 第二轮工具走查(F11):maskProviders 是给设置页回显用的 —— 外部 MCP 的 env / headers 值掩成「••••<末 4 位>」,
@@ -1295,19 +1309,29 @@ async function stewardImplConfigGet(args, ctx, config) {
     const line = stewardConfigHelpFor(key, lang);
     if (line) help[key] = line;
   }
-  return { ok: true, values, tiers, help, omitted };
+  return { ok: true, values, tiers, help, omitted, settings: Object.fromEntries(Object.keys(values).map(key => [key, stewardSettingScope(key)])) };
 }
 
 // 23) steward_config_set —— 整份原子:任一键 forbidden 就整份拒绝(零写入),任一键 confirm 且用户
 //     没亲手按就整份 propose_required。不做「能写的写、不能写的跳过」—— 半份生效的配置是最难解释
 //     的那种状态,用户按下按钮时看到的也必须是他刚才看到的那一整份。
 async function stewardImplConfigSet(args, ctx, config) {
+  // 配置工具没有线程写权限。明确的线程意图只能导航到那一条的既有模型/权限入口。
+  if (args.scope === 'thread' || args.sessionId) {
+    return stewardFail('scope_requires_thread', '仅修改这条任务请打开该任务顶部的模型/权限菜单；不要改全局默认。模型从下一回合使用，当前执行不切换。', { sessionId: safeSessionId(args.sessionId) || '', entry: 'thread_settings' });
+  }
   const rawPatch = (args.patch && typeof args.patch === 'object' && !Array.isArray(args.patch)) ? args.patch : null;
   if (!rawPatch) return stewardFail('invalid_request', 'patch must be an object of {key: value}');
   const patch = { ...rawPatch };   // 本地副本:下面要往里塞一个请求级信号(confirm),不该改模型给的对象
   const keys = Object.keys(patch);
   if (!keys.length) return stewardFail('invalid_request', 'patch is empty');
   if (keys.length > 32) return stewardFail('invalid_request', 'patch carries too many keys (max 32)');
+  if (args.scope === 'new_threads' && keys.some(key => stewardSettingScope(key).scope !== 'new_threads')) return stewardFail('invalid_request', 'new_threads scope only accepts new-thread defaults');
+  const expected = args.expected;
+  if (expected != null && (typeof expected !== 'object' || Array.isArray(expected) || Object.keys(expected).length !== keys.length || keys.some(key => !Object.prototype.hasOwnProperty.call(expected, key)))) return stewardFail('invalid_request', 'expected must contain exactly the patch keys');
+  // 撤销入口可能从导入的旧历史渲染，不能靠客户端伪造的 action 绕过 confirm 分档。
+  if (args.undo === true && (!expected || keys.some(key => stewardConfigTierFor(key) !== 'free'))) return stewardFail('steward.forbidden', 'receipt undo only accepts free settings with expected current values');
+  if (Object.prototype.hasOwnProperty.call(patch, 'model') && (patch.activeProvider ?? config.activeProvider)) return stewardFail('invalid_request', 'model 是命令行引擎的默认模型。当前使用服务商时，请在模型菜单选择模型并显式设为新任务默认，不能声称改 model 就切换了服务商模型。');
 
   const forbidden = keys.filter(k => stewardConfigTierFor(k) === 'forbidden');
   if (forbidden.length) {
@@ -1378,12 +1402,10 @@ async function stewardImplConfigSet(args, ctx, config) {
       return stewardFail('invalid_request', `stewardProviderId must be one of the configured providers (${ids.filter(Boolean).join(', ') || 'none'}), or "" to follow the active provider`, { keys: ['stewardProviderId'] });
     }
   }
+  if (restoredPatch.activeProvider && !(config.providers || []).some(provider => provider.id === restoredPatch.activeProvider)) return stewardFail('invalid_request', 'activeProvider must be a configured provider');
 
   // 107-S0b:before／applied 会落进决策日志(磁盘、GET /api/steward/decisions、steward_audit_tail)并回给模型 ——
   // 与 steward_config_get 同一个掩码,修前改 externalMcpServers 一次就把全部连接器密钥明文写进这三处。
-  const maskedBefore = maskProviders(config);
-  const before = {};
-  for (const key of keys) before[key] = maskedBefore[key];
   // 落盘走与 POST /api/config 同一个 applyConfigPatch:116h 的 arbiterRefresh、CLI settings 同步、
   // MCP 同步全在那条路径上,管家另开一条就会静默漏掉它们。
   // 116-3 B1:applyConfigPatch 顶部新加了「切全局默认权限到全自动须 confirm:true」的服务端门。
@@ -1392,12 +1414,19 @@ async function stewardImplConfigSet(args, ctx, config) {
   // 它是请求级信号不是配置键:applyConfigPatch 判完就把它剥掉,绝不会进 config.json;放在
   // keys/probe/before 三处算完【之后】才塞,免得它被当成一个待写的配置键。
   patch.confirm = true;
-  const next = await ConfigPatchHooks.applyConfigPatch(patch); // 06k 填入(见 01 的 ConfigPatchHooks)
+  let saved;
+  try { saved = await ConfigPatchHooks.applyConfigPatch(patch, { capture: true, expected }); }
+  catch (error) { if (error && error.code === 'config.conflict') return stewardFail('config.conflict', error.message); throw error; }
+  const next = saved.config;
+  const before = Object.fromEntries(keys.map(key => [key, maskProviders(saved.previous)[key]]));
   const maskedNext = maskProviders(next);
   const applied = {};
   for (const key of keys) applied[key] = maskedNext[key];
   // undoRef 内联在决策日志行里({kind:'config', before:{key:oldValue}}),不新增任何持久化面。
-  const undoRef = { kind: 'config', before };
+  // 只有 free 标量提供一键撤销，其他值仍可从设置页查看；不把连接器/秘密配置复制进撤销按钮。
+  const canUndo = keys.every(key => stewardConfigTierFor(key) === 'free' && ['string', 'number', 'boolean'].includes(typeof before[key]) && ['string', 'number', 'boolean'].includes(typeof applied[key])) && keys.some(key => JSON.stringify(before[key]) !== JSON.stringify(applied[key]));
+  const receipt = stewardSettingsReceipt(keys, saved.previous, next);
+  const undoRef = { kind: 'config', before, after: applied, receipt, ...(canUndo ? { action: { tool: 'steward_config_set', args: { patch: before, expected: applied, scope: 'application', undo: true } } } : {}) };
   stewardAppendDecision({
     tool: 'steward_config_set',
     args: { keys, confirmed: confirmKeys.length > 0 },
@@ -1407,7 +1436,7 @@ async function stewardImplConfigSet(args, ctx, config) {
     undoRef,
     basis: stewardBasisOf(args),
   });
-  return { ok: true, applied, tiers: Object.fromEntries(keys.map(k => [k, stewardConfigTierFor(k)])), undoRef };
+  return { ok: true, applied, receipt, tiers: Object.fromEntries(keys.map(k => [k, stewardConfigTierFor(k)])), undoRef };
 }
 
 // ════════════════════════════════════════════════════════════════════════════

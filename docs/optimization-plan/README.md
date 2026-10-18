@@ -17,6 +17,7 @@
 - [72 · DeepSeek Search / Fetch 接入](72-deepseek-search-fetch.md)：普通任务和管家共用官方独立 JSON API、密钥设置、Markdown 分页与缓存；未发布。
 - [73 · 交付和修订](73-steward-delivery-revision.md)：原轮文件、检查来源、就近打开与原任务修订，文件变化及新要求使旧检查失效；隔离、浏览器及本机 DeepSeek 旅程验证，未发布。
 - [74 · 事项待决清单与逐项处理](74-steward-task-decisions.md)：按事项保留待决身份，逐项 CAS 与独立回执，保留回答草稿并核对刷新后的原记录；未发布。
+- [75 · 设置回执与作用域](75-steward-settings-scope-receipts.md)：按实际写盘结果显示范围与时机，受现值检查保护的撤销，以及任务模型和新任务默认隔离；未发布。
 - [全局路线图](../OPTIMIZATION-ROADMAP.md)：产品状态与当前方向导航。
 - [文档总索引](../README.md)：开发、使用、发布和历史材料入口。
 

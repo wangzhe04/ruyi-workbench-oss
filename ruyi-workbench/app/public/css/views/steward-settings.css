@@ -430,3 +430,5 @@
 .external-bot-setup-notice { padding: var(--sp-2); background: var(--panel-2); border-left: 2px solid var(--accent); overflow-wrap: anywhere; }
 .external-bot-pair-code { display: block; margin-block: var(--sp-2); font-size: var(--fs-lg); font-weight: 700; letter-spacing: .08em; overflow-wrap: anywhere; user-select: all; }
 .external-bot-setup .external-bots-fields input { min-width: 0; width: 100%; }
+.steward-settings-receipt { min-width: 0; max-width: 100%; margin-block: 8px; overflow-wrap: anywhere; }
+.steward-settings-receipt .steward-receipt { white-space: pre-wrap; font-size: var(--fs-sm); }

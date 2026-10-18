@@ -2635,6 +2635,9 @@ function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; au
   // 之后切语言它们不跟。i18n.js setLocale 末尾派 i18n:change → 已挂载过就重画一遍（mountSettingsCatalog 按 dataset.lang 判，
   // 语言没变的段原样跳过）；还没挂的（设置从没打开过）不管，首次 fillSettings 自然按当时的语言画。
   try {
+    globalThis.addEventListener('ruyi:settings-refresh', () => {
+      void refreshStatus().catch(() => toast(t('settingsReceipt.refreshFailed'), 'err'));
+    });
     globalThis.addEventListener('i18n:change', () => {
       if (typeof document !== 'undefined' && document.querySelector('.setcat-section') && state.config) refreshSettingsCatalog();
     });

@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 管家设置回执显示实际值、作用域和生效时机，历史与行动流水一致；free 标量修改可按现值条件撤销，冲突或回包未知时不会冒充成功。任务模型选择从下一回合使用，且不再间接改变“上次使用”的新任务默认；修改后续默认仍需显式操作。
+- Steward setting receipts show actual values, scope and effective timing in chat, history and the activity ledger. Free scalar changes support guarded undo; conflicts and unknown responses never imply success. Task model choices apply from the next turn and preserve new-task defaults, including the last-used route; changing defaults remains explicit.
+
 - 管家新增「事项待决」清单，按事项归组查看来源、具体内容与影响，逐项允许、拒绝或回答。同名事项、同文问题保持独立身份；陈旧按钮不会重复办理，读取失败保留草稿，处理中刷新可核对原回执，结果未确认时不自动重发。
 - The Steward’s Task decisions list groups pending items by task group, shows their sources, details and effects, and handles each approval, rejection or answer separately. Same-named groups and identical questions retain separate identities. Stale controls cannot repeat decisions; failed reads preserve drafts, refreshes recover source receipts, and unconfirmed requests are never resent automatically.
 

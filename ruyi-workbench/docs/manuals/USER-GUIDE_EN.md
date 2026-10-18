@@ -216,6 +216,10 @@ General).
 
 ## 5. Settings
 
+Steward setting receipts show actual values, scope and effective timing in chat and the activity ledger. Simple settings that require no confirmation offer guarded undo: later changes to the same value block the old undo. If a response is unconfirmed, check current settings before submitting again. Other settings can be reviewed and changed in Settings.
+
+Choose a model in the task’s top menu for this task only. It applies from the next turn, preserves current execution and does not change new-task defaults, including the last-used route. Use the separate **Set as new-task default** action to change future defaults. Waiting limits apply to waits created with fresh configuration; existing waits keep their timers and current turns may retain old configuration. Global default permissions also affect existing tasks without an override. The proactive notification cap has no separate error exemption.
+
 Open the **gear** at the top right of the top bar and choose Settings. The left side has five groups: **General**
 (General / Permissions & safety / Usage & limits), **Steward**, **Models & Services** (Model assignment / Model
 providers / Speech recognition / Agent CLI / Agent roles), **Tools & integrations** (Web search / Integrations and

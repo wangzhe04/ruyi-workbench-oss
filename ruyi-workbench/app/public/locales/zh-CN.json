@@ -4231,4 +4231,23 @@
   "decisions.status.expired": "已过期",
   "decisions.status.indeterminate": "执行结果未知",
   "decisions.status.unknown": "未知"
+  ,"settingsReceipt.title": "设置已保存 · 如意"
+  ,"settingsReceipt.undo": "撤销这次修改"
+  ,"settingsReceipt.undone": "本次修改已撤销"
+  ,"settingsReceipt.conflict": "现值已有修改，未撤销。请先查看当前设置。"
+  ,"settingsReceipt.unconfirmed": "未拿到撤销完成回执，请先核对当前设置，不要重复提交。"
+  ,"settingsReceipt.noUndo": "此项不提供一键撤销，可到设置中核对并修改。"
+  ,"settingsReceipt.unset": "未设置"
+  ,"settingsReceipt.clipped": "…（已截短，请到设置查看完整值）"
+  ,"settingsReceipt.scope.application": "范围：应用设置"
+  ,"settingsReceipt.scope.steward": "范围：管家"
+  ,"settingsReceipt.scope.defaults": "范围：全局缺省，未单独设置的已有任务也跟随"
+  ,"settingsReceipt.scope.new_threads": "范围：后续新任务的引擎默认，已有任务绑定不变"
+  ,"settingsReceipt.effective.next_read": "相关功能下次读取配置时使用，当前执行不切换"
+  ,"settingsReceipt.effective.next_turn": "从下一回合使用，当前执行不切换"
+  ,"settingsReceipt.effective.next_wait": "读取新配置后创建的等待使用；已有等待不重新计时，在途回合可能沿用原配置"
+  ,"settingsReceipt.effective.new_threads": "新建任务时使用"
+  ,"settingsReceipt.threadSaved": "仅此任务已选择模型 {{model}}，从下一回合使用；新任务默认不变。"
+  ,"settingsReceipt.threadEntry": "仅修改这条任务：模型与权限入口在该任务顶部，模型从下一回合使用。"
+  ,"settingsReceipt.refreshFailed": "未能更新设置，当前显示可能是旧值。请稍后重新打开设置核对。"
 }

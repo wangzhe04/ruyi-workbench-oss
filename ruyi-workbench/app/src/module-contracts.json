@@ -970,6 +970,7 @@
         "sessionDesktopToolsOf",
         "sessionDesktopToolsOverrides",
         "sessionEngineRouteOverrides",
+        "sessionEngineRouteScopeOverrides",
         "sessionPermissionModeOf",
         "sessionPermissionModeOverrides"
       ],
@@ -1628,6 +1629,13 @@
         {
           "provider": "02d-session-overrides.js",
           "symbol": "sessionEngineRouteOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteScopeOverrides",
           "kinds": [
             "read"
           ]
@@ -11093,6 +11101,13 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteScopeOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02e-session-engine-route.js",
           "symbol": "configForSessionEngineRoute",
           "kinds": [
@@ -18633,6 +18648,8 @@
         "stewardQuoteInSource",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
+        "stewardSettingScope",
+        "stewardSettingsReceipt",
         "stewardSourceCwd",
         "stewardSourceIsUserMessage",
         "stewardSourceUserTexts",
@@ -21808,6 +21825,13 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_QUICK_DEBOUNCE_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TOOL_LABELS",
           "kinds": [
             "read"
           ]

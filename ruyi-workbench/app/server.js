@@ -6623,6 +6623,7 @@ function createTurnSegmentBuilder() {
 
 // 02d-session-overrides.js - 架构还债批 3·B: 从 02-session-store.js 搬出的会话级内存覆盖表(引擎路由/权限档/桌面工具的 live-turn stale-save guard;纯搬家,零行为变更)。
 const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
+const sessionEngineRouteScopeOverrides = new Map(); // 与路由同寿命，守住显式“仅此任务”的选择
 // 116-2a(27 号文 §3.3/§8.6 线程权限就地快切):会话级权限档的内存权威副本 —— 与上面那张 engineRoute
 // 覆盖表同款「live-turn stale-save guard」。值为档名,或 ''(= 用户清除了会话级设置,回落全局)。
 // 为什么需要它:活回合手里那份会话内存副本是回合开始时的快照,不带用户刚切的权限档;它的收尾 save
@@ -8480,14 +8481,18 @@ function applySessionMetaPatch(session, patch) {
     const route = normalizeSessionEngineRoute(patch.engineRoute);
     if (route) {
       session.engineRoute = route;
+      // 显式「仅此任务」跨回合保留，不能在下次用户发消息时又写成新任务的“上次用的”。
+      if (patch.engineRouteScope === 'thread') session.engineRouteScope = 'thread';
+      else delete session.engineRouteScope;
       sessionEngineRouteOverrides.set(id, route);
+      sessionEngineRouteScopeOverrides.set(id, session.engineRouteScope || '');
       // 123-N2 写入点①:用户在线程头上亲手换了引擎/模型。这条通道【只有】用户走得到 ——
       // PATCH /api/sessions/:id(线程头 chip)与进程内改会话头的调用方;管家给新线程定档走的
       // 是 13q stewardApplyThreadTier,它直接写 session.engineRoute,根本不经过本函数。
       // 本函数是同步的(它有两条调用路径:立即落盘与活回合 settle 之后重放),不能 await;
       // 记账是旁路,fire-and-forget 且内部整段 try —— 见 rememberLastUsedEngineRoute 头注第三条。
       // 重放那条路会再记一次:同值第二次是 mutateConfig 锁内的一次 abort,无副作用。
-      void rememberLastUsedEngineRoute(route);
+      if (session.engineRouteScope !== 'thread') void rememberLastUsedEngineRoute(route);
     }
   }
   // 116-2a(§3.3/§8.6):线程级权限档,形状与 engineRoute 这个既有的会话级先例对齐(同端点、同覆盖表
@@ -8850,6 +8855,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
   sessionTitleOverrides.delete(id);
   sessionEngineRouteOverrides.delete(id);
+  sessionEngineRouteScopeOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
   dropInterventionSessionState(id);          // 介入记录缓存 + 压实节拍计数:会话没了,内存里的这两份也不留
@@ -10576,6 +10582,10 @@ async function saveSession(session, opts) {
   // the newer UI route across that turn's later save instead of silently reverting the next-turn choice.
   const routeOverride = sessionEngineRouteOverrides.get(id);
   if (routeOverride) session.engineRoute = { ...routeOverride };
+  if (sessionEngineRouteScopeOverrides.has(id)) {
+    if (sessionEngineRouteScopeOverrides.get(id) === 'thread') session.engineRouteScope = 'thread';
+    else delete session.engineRouteScope;
+  }
   // 116-2a: 权限档同款陈旧-save 守卫 —— 活回合手里那份副本没有用户刚切的档,它的收尾 save 会把会话头
   // 写回「没有该字段」的样子。在这里重新盖一次,谁后写都不会丢(见 sessionPermissionModeOverrides 头注)。
   applySessionTitleOverride(session);
@@ -30370,6 +30380,7 @@ const PROMPT_ZH = {
     // 行为纪律不是身份定义,放在易变层的最前面同样每回合必达,只是不吃前缀缓存的那一份额度。
     rules: [
       '补充纪律(与稳定层同等效力):',
+      '· 设置以真实回执为准，说明范围和生效时机；线程换模型只影响下一回合，不得说当前执行已切换或选中即生效。普通提醒总限额不支持错误豁免。',
       '· 目标线程正在等用户回答时,用户这句话【就是】那道题的答案:直接用 steward_thread_continue 递过去(工作台会自动走答复通道,不会打断它)。不要为此新开线程,也不要回一句「它正忙」。',
       // 129g(31 号文 §2.5):代答是管家唯一一个【替用户说话】的动作 —— 线程分不出那句话是用户说的
       // 还是我编的。所以纪律写成「有出处才答」,而不是「谨慎地答」:后者模型永远能说服自己已经谨慎过了。
@@ -30701,7 +30712,8 @@ const PROMPT_EN = {
     // these live in the volatile layer instead of `stable`).
     rules: [
       'Additional discipline (as binding as the stable layer):',
-      '\u00b7 When the target thread is waiting for the user to answer, the user\'s sentence IS that answer: hand it over with steward_thread_continue (the workbench routes it to the answer channel and never interrupts the thread). Do not open a new thread for it, and never reply that it is busy.',
+      'Setting receipts give scope/timing. Task models change next turn, never mid-run. A total notification cap cannot exempt errors.',
+      '\u00b7 A waiting thread receives the user\'s answer via steward_thread_continue (answer channel, no interruption). Never open another thread or call it busy.',
       // 129g:\u53e5\u5b50\u6309 129a \u90a3\u628a token \u5c3a\u5b50\u538b\u8fc7 \u2014\u2014 \u82f1\u6587 rules \u9884\u7b97 860 tok,\u7b2c\u4e00\u7248 404 \u5b57\u7b26/112 tok \u76f4\u63a5\u9876\u7834
       // (\u9759\u6001\u9501 \u2462 \u5f53\u573a\u7ea2)\u3002\u538b\u5230 305 \u5b57\u7b26/85 tok,\u4e09\u4ef6\u4e8b\u4e00\u4ef6\u4e0d\u5c11:\u9ed8\u8ba4\u8f6c\u7528\u6237\u3001\u552f\u4e00\u4f8b\u5916\u8981\u6709\u51fa\u5904\u3001
       // \u731c\u6d4b\u4e0e\u7f51\u9875\u4e0d\u7b97\u51fa\u5904\u3002
@@ -37523,7 +37535,7 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
 // 路由层(13 的 POST /api/config)只剩 body 解析与错误翻译、掩码回包;13l 的 steward_config_set 同样调它。
 // 架构还债批 2 B2:从 13-http-router.js 原样搬到这里(同名、同行为)。两个调用方都经 01 的 ConfigPatchHooks 调,
 // 不直接引用本模块的符号 —— 本模块因此零入边、挂在唯一大 SCC 之外(见文件头)。
-async function applyConfigPatch(rawBody) {
+async function applyConfigPatch(rawBody, options = {}) {
   // 116-3 B1(会话/权限口径子审查):把全局默认权限切到「全自动」此前【没有服务端门】——
   // §8.6 那条二次确认只由界面出,任何别的调用方(脚本、117 壳、管家自己)一个 POST 就能把全局
   // 默认档改成 auto/bypass。13d 的 PATCH /api/sessions/:id 早就有这道门(同一张
@@ -37545,6 +37557,11 @@ async function applyConfigPatch(rawBody) {
   // (确认门仍在读之前、三路同步仍在写之后),变的只是这段临界区不再能被并发的另一次配置改动
   //  穿插 —— 此前 /api/config 与 storage/policy、agent-roles、连接器启停彼此吞字段。
   const patched = await mutateConfig(async (current) => {
+    // 设置回执的撤销与提议使用同一写锁比对现值，不能以锁外快照覆盖用户后来改的值。
+    const expected = options.expected ? unmaskSecrets(options.expected, current) : null;
+    if (expected && Object.keys(expected).some(key => JSON.stringify(current[key]) !== JSON.stringify(expected[key]))) {
+      throw Object.assign(new Error('settings changed since this receipt; read the current values before changing them again'), { code: 'config.conflict', statusCode: 409 });
+    }
     const merged = { ...current, ...body };
     // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
     // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
@@ -37666,7 +37683,7 @@ async function applyConfigPatch(rawBody) {
   if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
     await syncAgentCliMcpManifests(next, current);
   }
-  return next;
+  return options.capture === true ? { config: next, previous: current } : next;
 }
 
 // 加载即登记:13 / 13l 只经这个键调(见 01 的 ConfigPatchHooks)。
@@ -51135,7 +51152,8 @@ async function runSessionTurn(input) {
   // 用户开新线程时拿到一个自己从没选过的引擎,那比写死更糟。缺省值就是 'http'(见上面 source 那行)。
   // 位置在两道 4xx 闸门(STEWARD_SESSION_FORBIDDEN / SESSION_TURN_BUSY_ELSEWHERE)之后:被挡回去的
   // 那一发没有跑成任何回合,不该留下「上次用的」。旁路记账,不 await、失败静默。
-  if (source === 'http') {
+  const engineRouteScope = sessionEngineRouteScopeOverrides.has(session.id) ? sessionEngineRouteScopeOverrides.get(session.id) : session.engineRouteScope;
+  if (source === 'http' && engineRouteScope !== 'thread') {
     void rememberLastUsedEngineRoute(inferSessionEngineRoute(routeSource) || sessionEngineRouteFromConfig(config), storedConfig);
   }
   // 127 波 2-quater B2(45 号文 §2-quater.2 闸 6(b)「会话级粘性污染位」)清除点:用户【亲发】的下一条消息。
@@ -63012,7 +63030,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_config_get',
-    description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,help,omitted}:tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,help 逐键一句「是什么、单位、范围」,omitted 里的键是 forbidden。',
+    description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,help,omitted,settings}:settings 逐键说明作用域和生效时机；tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,help 逐键一句「是什么、单位、范围」,omitted 里的键是 forbidden。',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -63037,11 +63055,15 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_config_set',
-    description: '改如意的设置。绝大多数运行参数都能改(一百多个键),三级分级由 steward_config_get 的 tiers 逐键给出:free 级(界面语言/主题/风格、管家自己的节流与预算、各种等待时长、显示与启停整洁度)直接生效;confirm 级(主端点与模型、子代理与语音端点、MCP 连接器与浏览器目标、新线程默认权限、管家总开关与自理清单、引擎与上下文旋钮、并发上限、模型清单、调度器与安静卡、管家注意力面、用量预算)返回 propose_required——界面会把它变成一个按钮,用户按下才写;forbidden 级(任何密钥/token、数据目录与工作区围栏、命令与桌面工具放行、提示词注入面、代批开关、簿记)整份拒绝 steward.forbidden,一个键都不写。改之前先 steward_config_get 看当前值与 help(每个键一句「是什么、单位、范围」)。何时用:用户明确说了要改某个设置。何时别用:① 不要为了绕开某条限制去改设置(放宽权限是永久豁免的第 2 条,做不到也别试);② propose_required 与 steward.forbidden 都【不要重试】,把话说给用户听;③ 值被 sanitize 判非法会回 invalid_request 并列出键名,换合法值再来。整份原子:任一键不合格就零写入。返回 {ok,applied,tiers,undoRef}。',
+    description: '改如意的设置。绝大多数运行参数都能改(一百多个键),三级分级由 steward_config_get 的 tiers 逐键给出:free 级(界面语言/主题/风格、管家自己的节流与预算、各种等待时长、显示与启停整洁度)直接生效;confirm 级(主端点与模型、子代理与语音端点、MCP 连接器与浏览器目标、新线程默认权限、管家总开关与自理清单、引擎与上下文旋钮、并发上限、模型清单、调度器与安静卡、管家注意力面、用量预算)返回 propose_required——界面会把它变成一个按钮,用户按下才写;forbidden 级(任何密钥/token、数据目录与工作区围栏、命令与桌面工具放行、提示词注入面、代批开关、簿记)整份拒绝 steward.forbidden,一个键都不写。改之前先 steward_config_get 看当前值与 help(每个键一句「是什么、单位、范围」)。何时用:用户明确说了要改某个设置。何时别用:① 不要为了绕开某条限制去改设置(放宽权限是永久豁免的第 2 条,做不到也别试);② propose_required 与 steward.forbidden 都【不要重试】,把话说给用户听;③ 值被 sanitize 判非法会回 invalid_request 并列出键名,换合法值再来。整份原子:任一键不合格就零写入。返回 {ok,applied,tiers,receipt,undoRef}，仅真实 receipt 表示已保存；说明对象、范围、实际值和时机。只改这条任务模型时，用 open_thread 导航到指定任务的顶部模型菜单，绝不改全局默认模拟；强弱或范围不清就先问。新任务默认需明确选择。stewardNotifyPerHour 是主动通知总上限，没有错误豁免，不能把调低它说成「只减少普通提醒、错误保留」；先说明限制和核对范围。权限含糊不推导为扩大权限。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['patch'],
       properties: {
         patch: { type: 'object', description: '要改的键值对(最多 32 个键)。整份一起判、一起写。' },
+        scope: { type: 'string', enum: ['application', 'new_threads', 'thread'], description: '作用域。thread 不写全局，返回对应任务的设置入口；new_threads 仅新任务引擎默认。permissionMode 是全局缺省，未单独设置权限的已有任务也跟随。' },
+        sessionId: { type: 'string', description: '仅此任务时指明目标；此工具不改线程模型，打开该任务顶部模型菜单。' },
+        expected: { type: 'object', description: '可选。改前读到的现值，键必须与 patch 相同；落盘锁内不一致则整份 config.conflict，撤销不得覆盖后来修改。' },
+        undo: { type: 'boolean', description: '回执撤销入口使用；只允许 free 设置，必须带 expected，不因用户按下就放开 confirm 设置。' },
         basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
       },
     },
@@ -75981,6 +76003,20 @@ async function stewardImplNotify(args, ctx, config) {
 // 22) steward_config_get —— 掩码复用 POST /api/config 回包用的同一个 maskProviders(不另写一套)。
 //     forbidden 级的键【连掩码值都不回】,只在 omitted[] 里列键名 —— 给出掩码值等于承认它存在
 //     并暗示它的形状,而 forbidden 的意思是「这一族根本不经管家」。
+// 只描述可证明的时机。未列出的参数不承诺即时改变在途回合；相关功能下次读取配置时使用。
+function stewardSettingScope(key) {
+  if (key === 'permissionMode') return { scope: 'defaults', effective: 'next_turn' };
+  if (['activeProvider', 'agentCliType', 'model', 'newThreadEngine'].includes(key)) return { scope: 'new_threads', effective: 'new_threads' };
+  if (['stewardProviderId', 'stewardModel'].includes(key)) return { scope: 'steward', effective: 'next_turn' };
+  if (key === 'turnIdleTimeoutMs') return { scope: 'application', effective: 'next_turn' };
+  if (['questionTimeoutMs', 'permissionTimeoutMs'].includes(key)) return { scope: 'application', effective: 'next_wait', note: '读取新配置后创建的等待使用；已有等待不重新计时，在途回合可能沿用原配置。' };
+  return { scope: key.startsWith('steward') ? 'steward' : 'application', effective: 'next_read' };
+}
+function stewardSettingsReceipt(keys, previous, next) {
+  const before = maskProviders(previous), after = maskProviders(next);
+  const lang = String(next.locale || '').startsWith('en') ? 'en' : 'zh';
+  return { kind: 'settings', object: 'ruyi', changes: keys.map(key => ({ key, help: stewardConfigHelpFor(key, lang), before: before[key], value: after[key], ...stewardSettingScope(key) })) };
+}
 async function stewardImplConfigGet(args, ctx, config) {
   const masked = maskProviders(config);
   // 第二轮工具走查(F11):maskProviders 是给设置页回显用的 —— 外部 MCP 的 env / headers 值掩成「••••<末 4 位>」,
@@ -76015,19 +76051,29 @@ async function stewardImplConfigGet(args, ctx, config) {
     const line = stewardConfigHelpFor(key, lang);
     if (line) help[key] = line;
   }
-  return { ok: true, values, tiers, help, omitted };
+  return { ok: true, values, tiers, help, omitted, settings: Object.fromEntries(Object.keys(values).map(key => [key, stewardSettingScope(key)])) };
 }
 
 // 23) steward_config_set —— 整份原子:任一键 forbidden 就整份拒绝(零写入),任一键 confirm 且用户
 //     没亲手按就整份 propose_required。不做「能写的写、不能写的跳过」—— 半份生效的配置是最难解释
 //     的那种状态,用户按下按钮时看到的也必须是他刚才看到的那一整份。
 async function stewardImplConfigSet(args, ctx, config) {
+  // 配置工具没有线程写权限。明确的线程意图只能导航到那一条的既有模型/权限入口。
+  if (args.scope === 'thread' || args.sessionId) {
+    return stewardFail('scope_requires_thread', '仅修改这条任务请打开该任务顶部的模型/权限菜单；不要改全局默认。模型从下一回合使用，当前执行不切换。', { sessionId: safeSessionId(args.sessionId) || '', entry: 'thread_settings' });
+  }
   const rawPatch = (args.patch && typeof args.patch === 'object' && !Array.isArray(args.patch)) ? args.patch : null;
   if (!rawPatch) return stewardFail('invalid_request', 'patch must be an object of {key: value}');
   const patch = { ...rawPatch };   // 本地副本:下面要往里塞一个请求级信号(confirm),不该改模型给的对象
   const keys = Object.keys(patch);
   if (!keys.length) return stewardFail('invalid_request', 'patch is empty');
   if (keys.length > 32) return stewardFail('invalid_request', 'patch carries too many keys (max 32)');
+  if (args.scope === 'new_threads' && keys.some(key => stewardSettingScope(key).scope !== 'new_threads')) return stewardFail('invalid_request', 'new_threads scope only accepts new-thread defaults');
+  const expected = args.expected;
+  if (expected != null && (typeof expected !== 'object' || Array.isArray(expected) || Object.keys(expected).length !== keys.length || keys.some(key => !Object.prototype.hasOwnProperty.call(expected, key)))) return stewardFail('invalid_request', 'expected must contain exactly the patch keys');
+  // 撤销入口可能从导入的旧历史渲染，不能靠客户端伪造的 action 绕过 confirm 分档。
+  if (args.undo === true && (!expected || keys.some(key => stewardConfigTierFor(key) !== 'free'))) return stewardFail('steward.forbidden', 'receipt undo only accepts free settings with expected current values');
+  if (Object.prototype.hasOwnProperty.call(patch, 'model') && (patch.activeProvider ?? config.activeProvider)) return stewardFail('invalid_request', 'model 是命令行引擎的默认模型。当前使用服务商时，请在模型菜单选择模型并显式设为新任务默认，不能声称改 model 就切换了服务商模型。');
 
   const forbidden = keys.filter(k => stewardConfigTierFor(k) === 'forbidden');
   if (forbidden.length) {
@@ -76098,12 +76144,10 @@ async function stewardImplConfigSet(args, ctx, config) {
       return stewardFail('invalid_request', `stewardProviderId must be one of the configured providers (${ids.filter(Boolean).join(', ') || 'none'}), or "" to follow the active provider`, { keys: ['stewardProviderId'] });
     }
   }
+  if (restoredPatch.activeProvider && !(config.providers || []).some(provider => provider.id === restoredPatch.activeProvider)) return stewardFail('invalid_request', 'activeProvider must be a configured provider');
 
   // 107-S0b:before／applied 会落进决策日志(磁盘、GET /api/steward/decisions、steward_audit_tail)并回给模型 ——
   // 与 steward_config_get 同一个掩码,修前改 externalMcpServers 一次就把全部连接器密钥明文写进这三处。
-  const maskedBefore = maskProviders(config);
-  const before = {};
-  for (const key of keys) before[key] = maskedBefore[key];
   // 落盘走与 POST /api/config 同一个 applyConfigPatch:116h 的 arbiterRefresh、CLI settings 同步、
   // MCP 同步全在那条路径上,管家另开一条就会静默漏掉它们。
   // 116-3 B1:applyConfigPatch 顶部新加了「切全局默认权限到全自动须 confirm:true」的服务端门。
@@ -76112,12 +76156,19 @@ async function stewardImplConfigSet(args, ctx, config) {
   // 它是请求级信号不是配置键:applyConfigPatch 判完就把它剥掉,绝不会进 config.json;放在
   // keys/probe/before 三处算完【之后】才塞,免得它被当成一个待写的配置键。
   patch.confirm = true;
-  const next = await ConfigPatchHooks.applyConfigPatch(patch); // 06k 填入(见 01 的 ConfigPatchHooks)
+  let saved;
+  try { saved = await ConfigPatchHooks.applyConfigPatch(patch, { capture: true, expected }); }
+  catch (error) { if (error && error.code === 'config.conflict') return stewardFail('config.conflict', error.message); throw error; }
+  const next = saved.config;
+  const before = Object.fromEntries(keys.map(key => [key, maskProviders(saved.previous)[key]]));
   const maskedNext = maskProviders(next);
   const applied = {};
   for (const key of keys) applied[key] = maskedNext[key];
   // undoRef 内联在决策日志行里({kind:'config', before:{key:oldValue}}),不新增任何持久化面。
-  const undoRef = { kind: 'config', before };
+  // 只有 free 标量提供一键撤销，其他值仍可从设置页查看；不把连接器/秘密配置复制进撤销按钮。
+  const canUndo = keys.every(key => stewardConfigTierFor(key) === 'free' && ['string', 'number', 'boolean'].includes(typeof before[key]) && ['string', 'number', 'boolean'].includes(typeof applied[key])) && keys.some(key => JSON.stringify(before[key]) !== JSON.stringify(applied[key]));
+  const receipt = stewardSettingsReceipt(keys, saved.previous, next);
+  const undoRef = { kind: 'config', before, after: applied, receipt, ...(canUndo ? { action: { tool: 'steward_config_set', args: { patch: before, expected: applied, scope: 'application', undo: true } } } : {}) };
   stewardAppendDecision({
     tool: 'steward_config_set',
     args: { keys, confirmed: confirmKeys.length > 0 },
@@ -76127,7 +76178,7 @@ async function stewardImplConfigSet(args, ctx, config) {
     undoRef,
     basis: stewardBasisOf(args),
   });
-  return { ok: true, applied, tiers: Object.fromEntries(keys.map(k => [k, stewardConfigTierFor(k)])), undoRef };
+  return { ok: true, applied, receipt, tiers: Object.fromEntries(keys.map(k => [k, stewardConfigTierFor(k)])), undoRef };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -79589,6 +79640,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 回合被抢占 / 失败时,已经落定的代批照样是真的发生了,回执不能跟着回合一起丢。取不到回合号(回合整个抛出)
   // 就是空表。没有代批时三条出口的信封与修前逐字节相同。
   const turnToolCalls = await stewardDelegationToolCalls(turn && turn.turnSeq, true);
+  // 设置直调也须出现在可见回执和历史章里，不能只留在折叠的工具轨迹中。
+  const settingReceipts = turnToolCalls.filter(call => call.name === 'steward_config_set' && call.result?.error !== 'propose_required')
+    .map(call => ({ tool: call.name, args: call.input || {}, label: STEWARD_TOOL_LABELS[call.name], result: call.result }));
   const externalToolFacts = trigger === 'external' ? {
     toolFailures: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error !== 'propose_required').length),
     toolProposals: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error === 'propose_required').length),
@@ -79605,7 +79659,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 
   if (entry.cancelled) {
     logEvent({ kind: 'steward_turn_cancelled', reason: entry.cancelled, trigger });
-    const cancelledReceipts = stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf);
+    const cancelledReceipts = settingReceipts.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf));
     return stewardFail('steward.cancelled', `steward turn cancelled: ${entry.cancelled}`, { trigger, ...(cancelledReceipts.length ? { actions: cancelledReceipts } : {}) });
   }
 
@@ -79620,7 +79674,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
     if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'turn_failed');
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
-    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, ...externalToolFacts, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
+    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, ...externalToolFacts, stopped: !!turn.stopped, actions: selfServe.executed.concat(settingReceipts, stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
   const finalText = await stewardLastAssistantContent();
   // 123-N1 ①(34 号文;用户 2026-09-13 真机走查「同一段对话出现两遍」):回执带上【本回合落盘的
@@ -79674,7 +79728,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 127 波 2-quater B2:回合里工具直调的代批补进回执(上面已取出)。顺序按事情发生的先后:自理(模型之前)→
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。
   const delegationRows = stewardMergeDelegationReceipts(selfServe.executed.concat(actionRows), delegationCalls, delegationTitleOf);
-  const executed = selfServe.executed.concat(delegationRows, actionRows);
+  const executed = selfServe.executed.concat(settingReceipts, delegationRows, actionRows);
   // Direct tool calls happen before the final JSON reply too. Their receipts
   // must invalidate duplicate buttons just like the structured actions do.
   const directReceipts = turnToolCalls.map(call => ({ tool: call.name, args: call.input || {}, result: call.result }));

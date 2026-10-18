@@ -883,3 +883,5 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 // Prior HEAD layer payload self-check: 3f3d1fb3cb89fc04e07f91d2aade10958bc4d8935dcd6d93ce647c4101ac35bc; in-memory corrupt-layer probes must fail D51/F3.
 // 66: compact external bot connection/inbox styles use existing typography and theme tokens.
 // Prior HEAD payload self-check: ef77e97b6ccffed3f9d89d2c09bbc67b32d49db39397649114f0898ccfb9a97d; corrupt-layer probes must fail D51/F3.
+// 67: compact bot setup uses existing settings tokens, with explicit credential, pairing and authorization steps.
+// Prior HEAD payload self-check: e82f59d0cbf970fa8b94263409d8cf83bdfeea29bb9682ec19e6c00b17b69daa; corrupt-layer probes must fail D51/F3.

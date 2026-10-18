@@ -135,6 +135,7 @@ const PAYLOAD_FILES = [
   // 117d:线程抽屉与三处复用的快切 chip(steward-shell.js 静态 import 它们,缺任一都会整条挂掉)。
   'app/public/js/steward-drawer.js',
   'app/public/js/steward-settings.js',   // 117e
+  'app/public/js/steward-settings-receipt.js', // 75: chat/history/settings share actual settings receipts and guarded undo
   'app/public/js/external-bots.js',      // external owner connection management and durable receipts
   'app/public/js/external-bot-setup.js', // local credential entry, verified pairing and explicit activation
   'app/public/js/steward-chips.js',

@@ -4231,4 +4231,23 @@
   "decisions.status.expired": "expired",
   "decisions.status.indeterminate": "outcome unknown",
   "decisions.status.unknown": "unknown"
+  ,"settingsReceipt.title": "Settings saved · Ruyi"
+  ,"settingsReceipt.undo": "Undo this change"
+  ,"settingsReceipt.undone": "This change was undone"
+  ,"settingsReceipt.conflict": "Settings changed later; undo was not applied. Check current settings first."
+  ,"settingsReceipt.unconfirmed": "Undo is unconfirmed. Check current settings before submitting again."
+  ,"settingsReceipt.noUndo": "No one-click undo for this change. Review and edit it in Settings."
+  ,"settingsReceipt.unset": "Unset"
+  ,"settingsReceipt.clipped": "… (shortened; see Settings for the full value)"
+  ,"settingsReceipt.scope.application": "Scope: application settings"
+  ,"settingsReceipt.scope.steward": "Scope: steward"
+  ,"settingsReceipt.scope.defaults": "Scope: global defaults, including existing tasks without an override"
+  ,"settingsReceipt.scope.new_threads": "Scope: engine defaults for new tasks; existing task bindings stay the same"
+  ,"settingsReceipt.effective.next_read": "Used when the feature next reads configuration; current execution continues"
+  ,"settingsReceipt.effective.next_turn": "Used from the next turn; current execution continues"
+  ,"settingsReceipt.effective.next_wait": "Used for waits created with fresh configuration; existing waits keep their timers and current turns may retain old configuration"
+  ,"settingsReceipt.effective.new_threads": "Used when creating a task"
+  ,"settingsReceipt.threadSaved": "Selected model {{model}} for this task from the next turn; new-task defaults stay the same."
+  ,"settingsReceipt.threadEntry": "For this task only, open its top model or permission menu. The model is used from the next turn."
+  ,"settingsReceipt.refreshFailed": "Settings could not refresh; displayed values may be old. Reopen Settings to check."
 }

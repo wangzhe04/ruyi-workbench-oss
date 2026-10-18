@@ -103,6 +103,7 @@ test('the actual turn entry refuses admission while guarded rewind awaits storag
     AGENT_WAKE_SOURCE: 'agent_wake', EXCLUSIVE_TURN_SOURCES: new Set(),
     sessionTodosSignature: () => '', resolvePermissionMode: () => 'default', permissionModeFrom: () => '',
     configForSessionEngineRoute: config => config, agentWakeChain: new Map(), agentWakeSuppressed: new Set(),
+    sessionEngineRouteScopeOverrides: new Map(),
     makeId: () => { registered++; return 'B'; }, bindDriverRun: () => { registered++; },
   });
   vm.runInContext(functionBlock(read('src/10-context-governance.js'), 'runSessionTurn') + '\nthis.startTurn = runSessionTurn;', f.ctx);

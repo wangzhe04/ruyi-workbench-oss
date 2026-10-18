@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 79 | 3800 | 3349 | 572 | 67 | 0 | 1 |
+| 79 | 3803 | 3352 | 572 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -25,10 +25,10 @@
 | 7 | `01g-server-ownership.js` | foundation | 1 | 0 | 0 |
 | 8 | `01-config.js` | foundation | 192 | 58 | 12 |
 | 9 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
-| 10 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
+| 10 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 11 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 12 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 13 | `02-session-store.js` | foundation | 339 | 75 | 17 |
+| 13 | `02-session-store.js` | foundation | 339 | 76 | 17 |
 | 14 | `03-bridge-guard.js` | foundation | 106 | 28 | 7 |
 | 15 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
 | 16 | `04-permission-runtime.js` | foundation | 166 | 41 | 9 |
@@ -60,7 +60,7 @@
 | 42 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 43 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 44 | `09-workflow.js` | orchestration | 32 | 263 | 27 |
-| 45 | `10-context-governance.js` | orchestration | 227 | 102 | 18 |
+| 45 | `10-context-governance.js` | orchestration | 227 | 103 | 18 |
 | 46 | `11-native-tools.js` | tools | 132 | 45 | 6 |
 | 47 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 48 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
@@ -76,13 +76,13 @@
 | 58 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
 | 59 | `13aa-steward-delivery.js` | unclassified | 9 | 30 | 7 |
 | 60 | `13k-steward-threads.js` | transport | 57 | 123 | 17 |
-| 61 | `13l-steward-ops.js` | transport | 51 | 119 | 18 |
+| 61 | `13l-steward-ops.js` | transport | 53 | 119 | 18 |
 | 62 | `13g-steward.js` | transport | 20 | 72 | 11 |
 | 63 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
 | 64 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
 | 65 | `13o-steward-runner-prompt.js` | transport | 22 | 64 | 16 |
 | 66 | `13p-steward-runner-actions.js` | transport | 35 | 62 | 12 |
-| 67 | `13q-steward-runner-turn.js` | transport | 44 | 84 | 20 |
+| 67 | `13q-steward-runner-turn.js` | transport | 44 | 85 | 20 |
 | 68 | `13h-steward-runner.js` | transport | 7 | 47 | 12 |
 | 69 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
 | 70 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
@@ -121,7 +121,7 @@
 | `02-session-store.js` | `01-config.js` | backward | `DurableJsonStore`, `assertSessionIdForPath`, `atomicWriteJson`, `mutateConfig`, `noteSessionsDirOwnWrite`, `readConfig`, `readFileTail`, `safeSessionId`, `selectedAgentCli`, `sessionPath`, `sessionWriteChains` |
 | `02-session-store.js` | `01c-runtime-flags.js` | backward | `MEMORY_FIXED_SELECTION_HARD_MAX` |
 | `02-session-store.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
-| `02-session-store.js` | `02d-session-overrides.js` | backward | `applySessionDesktopToolsOverride`, `applySessionPermissionModeOverride`, `normalizeSessionDesktopTools`, `normalizeSessionPermissionMode`, `sessionDesktopToolsOverrides`, `sessionEngineRouteOverrides`, `sessionPermissionModeOf`, `sessionPermissionModeOverrides` |
+| `02-session-store.js` | `02d-session-overrides.js` | backward | `applySessionDesktopToolsOverride`, `applySessionPermissionModeOverride`, `normalizeSessionDesktopTools`, `normalizeSessionPermissionMode`, `sessionDesktopToolsOverrides`, `sessionEngineRouteOverrides`, `sessionEngineRouteScopeOverrides`, `sessionPermissionModeOf`, `sessionPermissionModeOverrides` |
 | `02-session-store.js` | `02e-session-engine-route.js` | backward | `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
 | `02-session-store.js` | `02f-turn-effect-kinds.js` | backward | `ARTIFACT_OUTPUT_PATH_KEYS`, `IRREVERSIBLE_LEDGER_MAX`, `TURN_SUMMARY_COMMAND_TOOLS`, `TURN_SUMMARY_FILE_TOOLS`, `TURN_SUMMARY_KNOWN_TOOLS`, `irreversibleDetail`, `irreversibleToolKind`, `isBridgedWriteTool`, `unprefixedBridgedName`, `unwrapToolInvokeCall` |
 | `02-session-store.js` | `03-bridge-guard.js` | forward | `guardFileToolPath`, `pathWithinRoot`, `realpathForContainment` |
@@ -326,7 +326,7 @@
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `evaporateBudgetBoundaryEnabled`, `historyReadDedupEnabled`, `observationRecallEnabled`, `reseedReattachFilesEnabled`, `reseedTailUnitsEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryPromptI18nEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
 | `10-context-governance.js` | `01e-permission-modes.js` | backward | `permissionModeFrom`, `resolvePermissionMode` |
 | `10-context-governance.js` | `02-session-store.js` | backward | `createSession`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `mutateSession`, `readSessionNotes`, `rememberLastUsedEngineRoute`, `repairProviderHistoryPairing`, `saveSession`, `sessionMessagesDelta`, `sessionMessagesStamp`, `sessionMissionId`, `sessionObjectIsStale`, `sessionTodosSignature`, `toolImageSessionTag`, `updateSessionMeta`, `withJournalWriteLock`, `writeSessionNotes` |
-| `10-context-governance.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf` |
+| `10-context-governance.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf`, `sessionEngineRouteScopeOverrides` |
 | `10-context-governance.js` | `02e-session-engine-route.js` | backward | `configForSessionEngineRoute`, `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
 | `10-context-governance.js` | `04-permission-runtime.js` | backward | `activeChildren`, `assertSessionExecutionOwner`, `driverAutoSessions`, `logEvent`, `recordSessionExecutionOwner`, `redact`, `requestSessionExecutionStop`, `sessionExecutionSnapshot`, `stopSession`, `turnOutcomePending`, `turnSettlers` |
 | `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1` |
@@ -577,7 +577,7 @@
 | `13q-steward-runner-turn.js` | `13j-steward-tool-base.js` | backward | `_stewardReadBudget`, `stewardFail`, `stewardReadSessionHead` |
 | `13q-steward-runner-turn.js` | `13k-steward-threads.js` | backward | `stewardErrorDetail`, `stewardLaunchingTurns`, `stewardMediatesPermissions` |
 | `13q-steward-runner-turn.js` | `13l-steward-ops.js` | backward | `stewardDecideAttempted` |
-| `13q-steward-runner-turn.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_BLOCKING_DEBOUNCE_MS`, `STEWARD_DEBOUNCE_MS`, `STEWARD_DIGEST_KIND_TEXT`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_PENDING_LIST_MAX`, `STEWARD_PREEMPT_WAIT_MS`, `STEWARD_QUICK_DEBOUNCE_MS`, `STEWARD_USER_QUEUE_WAIT_MS`, `STEWARD_VIEW_HELD_MAX`, `STEWARD_VIEW_RECHECK_MS`, `STEWARD_VISITS_DIR`, `STEWARD_VISITS_KEEP`, `STEWARD_VISIT_DIGEST_MAX`, `STEWARD_VISIT_SCHEMA`, `ensureStewardSession`, `stewardAbortInflight`, `stewardRunnerRuntime` |
+| `13q-steward-runner-turn.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_BLOCKING_DEBOUNCE_MS`, `STEWARD_DEBOUNCE_MS`, `STEWARD_DIGEST_KIND_TEXT`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_PENDING_LIST_MAX`, `STEWARD_PREEMPT_WAIT_MS`, `STEWARD_QUICK_DEBOUNCE_MS`, `STEWARD_TOOL_LABELS`, `STEWARD_USER_QUEUE_WAIT_MS`, `STEWARD_VIEW_HELD_MAX`, `STEWARD_VIEW_RECHECK_MS`, `STEWARD_VISITS_DIR`, `STEWARD_VISITS_KEEP`, `STEWARD_VISIT_DIGEST_MAX`, `STEWARD_VISIT_SCHEMA`, `ensureStewardSession`, `stewardAbortInflight`, `stewardRunnerRuntime` |
 | `13q-steward-runner-turn.js` | `13n-steward-arbiter.js` | backward | `stewardArbiterWait` |
 | `13q-steward-runner-turn.js` | `13o-steward-runner-prompt.js` | backward | `stewardParseReply`, `stewardThreadDigestRows` |
 | `13q-steward-runner-turn.js` | `13p-steward-runner-actions.js` | backward | `stewardCircuitCheck`, `stewardDowngradeActions`, `stewardExecuteActions`, `stewardHumanizeSay`, `stewardInboxMessage`, `stewardLastAssistantContent`, `stewardLastAssistantFinalSegment`, `stewardNormalizeRouteHint`, `stewardSelfServeInbox`, `stewardStampReply`, `stewardTriggerStamp` |

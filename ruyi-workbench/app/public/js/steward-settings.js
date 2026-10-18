@@ -2,6 +2,7 @@
 import { bindModelSelect, fillProviderSelect } from './model-catalog.js';
 import { validExecutionSnapshot } from './run-health.js';
 import { createExternalBotsPanel } from './external-bots.js';
+import { appendSettingsReceipt } from './steward-settings-receipt.js';
 
 import { toast } from './util.js';
 import {
@@ -721,7 +722,9 @@ export function createStewardSettingsDomain({
       tr.dataset.decisionSeq = String(row.seq || 0);
       tr.dataset.thread = String(row.targetSessionId || '');
       tr.appendChild(el('td', '', String(row.at || '').replace('T', ' ').slice(0, 19)));
-      tr.appendChild(el('td', '', toolLabel(row.tool)));
+      const what = el('td', '', toolLabel(row.tool));
+      if (row.tool === 'steward_config_set' && row.undoRef?.receipt) appendSettingsReceipt(what, { ok: true, receipt: row.undoRef.receipt, undoRef: row.undoRef }, { t, api: call, refresh: loadDecisions });
+      tr.appendChild(what);
       tr.appendChild(el('td', '', String(row.targetSessionId || '')));
       tr.appendChild(el('td', '', permissionText(row.permissionMode)));
       tr.appendChild(el('td', 'steward-decision-basis', basisText(row)));

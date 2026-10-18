@@ -562,7 +562,8 @@ try {
     const stewardOffered = srv.buildOpenAiTools(cfg, null, { stewardSession: true }).map(t => t.function.name).filter(n => n.startsWith('steward_')).sort();
     // 123-M2 重钉 27 -> 33(六件定时任务 steward_schedule_*;理由同上:本波真的多了六个工具,
     // 这条断言的语义仍是等号)。
-    ok(stewardOffered.length === 42, `K1b 面 1 管家会话拿到全部 42 个(129b:33→36;129d:36→40;129e:40→41;129f:41→42)(got ${stewardOffered.length})`);
+    // 前序 73 号交付片已增加 steward_thread_artifact_read；HEAD 基线实测也是 43 个。
+    ok(stewardOffered.length === 43, `K1b 面 1 管家会话拿到全部 43 个(含交付原件读取)(got ${stewardOffered.length})`);
     const stewardRegistered = Object.keys(srv.TOOL_HANDLERS).filter(n => n.startsWith('steward_')).sort();
     ok(JSON.stringify(stewardOffered) === JSON.stringify(stewardRegistered),
       `K1c offer 出去的那一份与 12 的注册表【逐名】相同(缺: ${stewardRegistered.filter(n => !stewardOffered.includes(n)).join(',') || '无'};多: ${stewardOffered.filter(n => !stewardRegistered.includes(n)).join(',') || '无'})`);
@@ -574,6 +575,8 @@ try {
 
   // 面 2(MCP tools/list 桥)与面 4(/api/status)要真进程:一个 MCP 子进程 + 一个真服务。
   {
+    const mcpToolList = text => text.split(/\r?\n/).map(line => { try { return JSON.parse(line); } catch { return null; } })
+      .find(row => row && row.id === 2 && Array.isArray(row.result && row.result.tools))?.result.tools;
     const mcpOut = await new Promise(resolve => {
       const child = cp.spawn(process.execPath, [SERVER, 'mcp'], { cwd: path.join(WB, 'app'), env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
       let out = '';
@@ -587,13 +590,15 @@ try {
       const timer = setTimeout(finish, 25000);
       child.stdout.on('data', d => {
         out += String(d);
-        if (/"id"\s*:\s*2\b/.test(out) && out.includes('"tools"')) finish();
+        if (mcpToolList(out)) finish();
       });
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }) + '\n');
       listTimer = setTimeout(() => { try { child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }) + '\n'); } catch {} }, 800);
     });
-    ok(mcpOut.includes('"tools"'), 'K3 面 2 MCP 子进程返回 tools/list');
-    ok(mcpOut.includes('"tools"') && !mcpOut.includes('steward_'), 'K3b 面 2 MCP tools/list(未注入 WCW_SESSION_KIND)零 steward_*');
+    const mcpTools = mcpToolList(mcpOut);
+    ok(Array.isArray(mcpTools), 'K3 面 2 MCP 子进程返回完整 tools/list');
+    // 普通工具说明会提及管家工具，不代表把它们 offer 出去了；按工具名字核对边界。
+    ok(Array.isArray(mcpTools) && !mcpTools.some(tool => String(tool.name || '').startsWith('steward_')), 'K3b 面 2 MCP tools/list(未注入 WCW_SESSION_KIND)零 steward_* 工具名');
   }
   {
     const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], {

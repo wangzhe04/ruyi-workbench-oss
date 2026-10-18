@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 79,
-    "providedSymbols": 3800,
-    "requiredSymbols": 3349,
+    "providedSymbols": 3803,
+    "requiredSymbols": 3352,
     "edges": 572,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -1002,6 +1002,7 @@
         "sessionDesktopToolsOf",
         "sessionDesktopToolsOverrides",
         "sessionEngineRouteOverrides",
+        "sessionEngineRouteScopeOverrides",
         "sessionPermissionModeOf",
         "sessionPermissionModeOverrides"
       ],
@@ -1666,6 +1667,13 @@
         {
           "provider": "02d-session-overrides.js",
           "symbol": "sessionEngineRouteOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteScopeOverrides",
           "kinds": [
             "read"
           ]
@@ -11195,6 +11203,13 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteScopeOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02e-session-engine-route.js",
           "symbol": "configForSessionEngineRoute",
           "kinds": [
@@ -18767,6 +18782,8 @@
         "stewardQuoteInSource",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
+        "stewardSettingScope",
+        "stewardSettingsReceipt",
         "stewardSourceCwd",
         "stewardSourceIsUserMessage",
         "stewardSourceUserTexts",
@@ -21954,6 +21971,13 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_QUICK_DEBOUNCE_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TOOL_LABELS",
           "kinds": [
             "read"
           ]
@@ -28328,6 +28352,7 @@
         "normalizeSessionPermissionMode",
         "sessionDesktopToolsOverrides",
         "sessionEngineRouteOverrides",
+        "sessionEngineRouteScopeOverrides",
         "sessionPermissionModeOf",
         "sessionPermissionModeOverrides"
       ],
@@ -30815,7 +30840,8 @@
       "from": "10-context-governance.js",
       "to": "02d-session-overrides.js",
       "symbols": [
-        "sessionDesktopToolsOf"
+        "sessionDesktopToolsOf",
+        "sessionEngineRouteScopeOverrides"
       ],
       "direction": "backward"
     },
@@ -33989,6 +34015,7 @@
         "STEWARD_PENDING_LIST_MAX",
         "STEWARD_PREEMPT_WAIT_MS",
         "STEWARD_QUICK_DEBOUNCE_MS",
+        "STEWARD_TOOL_LABELS",
         "STEWARD_USER_QUEUE_WAIT_MS",
         "STEWARD_VIEW_HELD_MAX",
         "STEWARD_VIEW_RECHECK_MS",

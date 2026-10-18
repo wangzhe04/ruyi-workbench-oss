@@ -1574,14 +1574,18 @@ function applySessionMetaPatch(session, patch) {
     const route = normalizeSessionEngineRoute(patch.engineRoute);
     if (route) {
       session.engineRoute = route;
+      // 显式「仅此任务」跨回合保留，不能在下次用户发消息时又写成新任务的“上次用的”。
+      if (patch.engineRouteScope === 'thread') session.engineRouteScope = 'thread';
+      else delete session.engineRouteScope;
       sessionEngineRouteOverrides.set(id, route);
+      sessionEngineRouteScopeOverrides.set(id, session.engineRouteScope || '');
       // 123-N2 写入点①:用户在线程头上亲手换了引擎/模型。这条通道【只有】用户走得到 ——
       // PATCH /api/sessions/:id(线程头 chip)与进程内改会话头的调用方;管家给新线程定档走的
       // 是 13q stewardApplyThreadTier,它直接写 session.engineRoute,根本不经过本函数。
       // 本函数是同步的(它有两条调用路径:立即落盘与活回合 settle 之后重放),不能 await;
       // 记账是旁路,fire-and-forget 且内部整段 try —— 见 rememberLastUsedEngineRoute 头注第三条。
       // 重放那条路会再记一次:同值第二次是 mutateConfig 锁内的一次 abort,无副作用。
-      void rememberLastUsedEngineRoute(route);
+      if (session.engineRouteScope !== 'thread') void rememberLastUsedEngineRoute(route);
     }
   }
   // 116-2a(§3.3/§8.6):线程级权限档,形状与 engineRoute 这个既有的会话级先例对齐(同端点、同覆盖表
@@ -1944,6 +1948,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
   sessionTitleOverrides.delete(id);
   sessionEngineRouteOverrides.delete(id);
+  sessionEngineRouteScopeOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
   dropInterventionSessionState(id);          // 介入记录缓存 + 压实节拍计数:会话没了,内存里的这两份也不留
@@ -3670,6 +3675,10 @@ async function saveSession(session, opts) {
   // the newer UI route across that turn's later save instead of silently reverting the next-turn choice.
   const routeOverride = sessionEngineRouteOverrides.get(id);
   if (routeOverride) session.engineRoute = { ...routeOverride };
+  if (sessionEngineRouteScopeOverrides.has(id)) {
+    if (sessionEngineRouteScopeOverrides.get(id) === 'thread') session.engineRouteScope = 'thread';
+    else delete session.engineRouteScope;
+  }
   // 116-2a: 权限档同款陈旧-save 守卫 —— 活回合手里那份副本没有用户刚切的档,它的收尾 save 会把会话头
   // 写回「没有该字段」的样子。在这里重新盖一次,谁后写都不会丢(见 sessionPermissionModeOverrides 头注)。
   applySessionTitleOverride(session);

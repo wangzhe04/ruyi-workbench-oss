@@ -658,7 +658,7 @@ export function createQuickSwitchChips({
     try {
       const response = await api(`/api/sessions/${encodeURIComponent(sessionId)}`, {
         method: 'PATCH',
-        body: JSON.stringify(patch),
+        body: JSON.stringify(patch.engineRoute ? { ...patch, engineRouteScope: 'thread' } : patch),
       });
       if (!response || response.ok !== true) {
         note(t('stewardShell.chips.changeFailed', { error: apiErrText((response && response.error) || 'failed') }), 'err');
@@ -666,7 +666,7 @@ export function createQuickSwitchChips({
       }
       session = response.session || session;
       render();
-      note(t('stewardShell.chips.changed'));
+      note(patch.engineRoute ? t('settingsReceipt.threadSaved', { model: String(session.engineRoute?.model || t('stewardShell.chips.modelDefault')) }) : t('stewardShell.chips.changed'));
       try { onChanged(session); } catch { /* 宿主刷新失败不该把 chip 打回旧值 */ }
       for (const other of LIVE_CHIPS) if (other !== peer && other.sessionIdOf() === sessionId) other.adopt(session);
       return session;

@@ -3585,7 +3585,8 @@ async function runSessionTurn(input) {
   // 用户开新线程时拿到一个自己从没选过的引擎,那比写死更糟。缺省值就是 'http'(见上面 source 那行)。
   // 位置在两道 4xx 闸门(STEWARD_SESSION_FORBIDDEN / SESSION_TURN_BUSY_ELSEWHERE)之后:被挡回去的
   // 那一发没有跑成任何回合,不该留下「上次用的」。旁路记账,不 await、失败静默。
-  if (source === 'http') {
+  const engineRouteScope = sessionEngineRouteScopeOverrides.has(session.id) ? sessionEngineRouteScopeOverrides.get(session.id) : session.engineRouteScope;
+  if (source === 'http' && engineRouteScope !== 'thread') {
     void rememberLastUsedEngineRoute(inferSessionEngineRoute(routeSource) || sessionEngineRouteFromConfig(config), storedConfig);
   }
   // 127 波 2-quater B2(45 号文 §2-quater.2 闸 6(b)「会话级粘性污染位」)清除点:用户【亲发】的下一条消息。

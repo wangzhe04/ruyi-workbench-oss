@@ -327,6 +327,7 @@ const PROMPT_ZH = {
     // 行为纪律不是身份定义,放在易变层的最前面同样每回合必达,只是不吃前缀缓存的那一份额度。
     rules: [
       '补充纪律(与稳定层同等效力):',
+      '· 设置以真实回执为准，说明范围和生效时机；线程换模型只影响下一回合，不得说当前执行已切换或选中即生效。普通提醒总限额不支持错误豁免。',
       '· 目标线程正在等用户回答时,用户这句话【就是】那道题的答案:直接用 steward_thread_continue 递过去(工作台会自动走答复通道,不会打断它)。不要为此新开线程,也不要回一句「它正忙」。',
       // 129g(31 号文 §2.5):代答是管家唯一一个【替用户说话】的动作 —— 线程分不出那句话是用户说的
       // 还是我编的。所以纪律写成「有出处才答」,而不是「谨慎地答」:后者模型永远能说服自己已经谨慎过了。
@@ -658,7 +659,8 @@ const PROMPT_EN = {
     // these live in the volatile layer instead of `stable`).
     rules: [
       'Additional discipline (as binding as the stable layer):',
-      '\u00b7 When the target thread is waiting for the user to answer, the user\'s sentence IS that answer: hand it over with steward_thread_continue (the workbench routes it to the answer channel and never interrupts the thread). Do not open a new thread for it, and never reply that it is busy.',
+      'Setting receipts give scope/timing. Task models change next turn, never mid-run. A total notification cap cannot exempt errors.',
+      '\u00b7 A waiting thread receives the user\'s answer via steward_thread_continue (answer channel, no interruption). Never open another thread or call it busy.',
       // 129g:\u53e5\u5b50\u6309 129a \u90a3\u628a token \u5c3a\u5b50\u538b\u8fc7 \u2014\u2014 \u82f1\u6587 rules \u9884\u7b97 860 tok,\u7b2c\u4e00\u7248 404 \u5b57\u7b26/112 tok \u76f4\u63a5\u9876\u7834
       // (\u9759\u6001\u9501 \u2462 \u5f53\u573a\u7ea2)\u3002\u538b\u5230 305 \u5b57\u7b26/85 tok,\u4e09\u4ef6\u4e8b\u4e00\u4ef6\u4e0d\u5c11:\u9ed8\u8ba4\u8f6c\u7528\u6237\u3001\u552f\u4e00\u4f8b\u5916\u8981\u6709\u51fa\u5904\u3001
       // \u731c\u6d4b\u4e0e\u7f51\u9875\u4e0d\u7b97\u51fa\u5904\u3002

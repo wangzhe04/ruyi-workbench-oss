@@ -283,6 +283,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 回合被抢占 / 失败时,已经落定的代批照样是真的发生了,回执不能跟着回合一起丢。取不到回合号(回合整个抛出)
   // 就是空表。没有代批时三条出口的信封与修前逐字节相同。
   const turnToolCalls = await stewardDelegationToolCalls(turn && turn.turnSeq, true);
+  // 设置直调也须出现在可见回执和历史章里，不能只留在折叠的工具轨迹中。
+  const settingReceipts = turnToolCalls.filter(call => call.name === 'steward_config_set' && call.result?.error !== 'propose_required')
+    .map(call => ({ tool: call.name, args: call.input || {}, label: STEWARD_TOOL_LABELS[call.name], result: call.result }));
   const externalToolFacts = trigger === 'external' ? {
     toolFailures: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error !== 'propose_required').length),
     toolProposals: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error === 'propose_required').length),
@@ -299,7 +302,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 
   if (entry.cancelled) {
     logEvent({ kind: 'steward_turn_cancelled', reason: entry.cancelled, trigger });
-    const cancelledReceipts = stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf);
+    const cancelledReceipts = settingReceipts.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf));
     return stewardFail('steward.cancelled', `steward turn cancelled: ${entry.cancelled}`, { trigger, ...(cancelledReceipts.length ? { actions: cancelledReceipts } : {}) });
   }
 
@@ -314,7 +317,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
     if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'turn_failed');
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
-    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, ...externalToolFacts, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
+    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, ...externalToolFacts, stopped: !!turn.stopped, actions: selfServe.executed.concat(settingReceipts, stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
   const finalText = await stewardLastAssistantContent();
   // 123-N1 ①(34 号文;用户 2026-09-13 真机走查「同一段对话出现两遍」):回执带上【本回合落盘的
@@ -368,7 +371,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 127 波 2-quater B2:回合里工具直调的代批补进回执(上面已取出)。顺序按事情发生的先后:自理(模型之前)→
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。
   const delegationRows = stewardMergeDelegationReceipts(selfServe.executed.concat(actionRows), delegationCalls, delegationTitleOf);
-  const executed = selfServe.executed.concat(delegationRows, actionRows);
+  const executed = selfServe.executed.concat(settingReceipts, delegationRows, actionRows);
   // Direct tool calls happen before the final JSON reply too. Their receipts
   // must invalidate duplicate buttons just like the structured actions do.
   const directReceipts = turnToolCalls.map(call => ({ tool: call.name, args: call.input || {}, result: call.result }));

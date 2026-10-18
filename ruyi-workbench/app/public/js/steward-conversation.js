@@ -29,6 +29,7 @@ import { stewardWaitText } from './thread-facts.js';   // W2-F5：等待原因�
 // 必须先得到用户明确的「是」。确认件走全仓那一份 confirmDanger（背影／Tab 焦点陷阱／焦点归还／Esc／
 // 点背影都在它里面，33 号文 §4 的「四套收一套」），本文件不自己搭第二个模态。
 import { confirmDanger } from './confirm-panel.js';
+import { appendSettingsReceipt, settingsReceiptOf, settingsReceiptText, refreshSettingsAfterReceipt } from './steward-settings-receipt.js';
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -522,6 +523,8 @@ export function stewardActionReceiptState(result) {
 // 工具稳定信封 → i18n 人话键（§8.4 按钮落定：result.ok===false 时按 result.error 说人话，
 // 按钮行保留可重试）。表外的一律落到 errGeneric 并把原始 error 原样带出去（诚实优先）。
 const STEWARD_ACT_ERROR_KEYS = Object.freeze({
+  'config.conflict': 'settingsReceipt.conflict',
+  'scope_requires_thread': 'settingsReceipt.threadEntry',
   invalid_request: 'stewardShell.chat.errInvalidAct',
   not_allowed: 'stewardShell.chat.errUnavailableAct',
   payload_forbidden_key: 'stewardShell.chat.errUnavailableAct',
@@ -1050,7 +1053,7 @@ export function createStewardConversation({
           || t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) });
         showActProblem(actsRow, message);
         if (btn) {
-          btn.disabled = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(result.error);
+          btn.disabled = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key', 'config.conflict', 'scope_requires_thread'].includes(result.error);
           if (btn.disabled) btn.classList.remove(STEWARD_PRIMARY_CLASS);
         }
         return;
@@ -1058,17 +1061,22 @@ export function createStewardConversation({
       // ② 纯导航：**不落回执、不消费按钮行**，把这一枚恢复成可点的（下次还要再点）。
       // 其余 kind 照旧一次性落定成灰字回执。
       actsRow?.parentNode?.querySelector('.steward-act-problem')?.remove();
+      const receiptHost = actsRow?.parentNode;
       if (isNavigationAct(act)) {
         if (btn) btn.disabled = false;
         if (act.sessionId) openThread(act.sessionId);
       } else {
         settleRow(actsRow, stopReceipt ? stewardStopReceiptText(stopReceipt, t) : receiptFor(act));
       }
+      if (!isNavigationAct(act) && settingsReceiptOf(result)) {
+        appendSettingsReceipt(receiptHost, result, { t, api });
+        refreshSettingsAfterReceipt();
+      }
       if (typeof onSettled === 'function') onSettled(act, response);
     } catch (error) {
       const info = apiErrorInfo(error);
       const code = stewardErrorCode(info || error);
-      const invalid = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(code);
+      const invalid = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key', 'config.conflict', 'scope_requires_thread'].includes(code);
       showActProblem(actsRow, invalid ? (code === 'invalid_request' ? stewardErrorText(info || error) : '') || stewardActErrorMessage(code, t) || t('stewardShell.chat.errUnavailableAct')
         : t('stewardShell.chat.actUnconfirmed'));
       if (btn) { if (isNavigationAct(act) && !invalid) btn.disabled = false; else { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); } }
@@ -1663,6 +1671,7 @@ export function createStewardConversation({
     // 124-P3：回执上可见层。排在 ※ 之后、按钮行之前 —— 它说的是【已经发生的事】，
     // 按钮说的是【你还可以做的事】，先读完发生了什么再看还能做什么。
     appendActionReceipts(row, reply.actions);
+    if ((reply.actions || []).some(action => settingsReceiptOf(action?.result))) refreshSettingsAfterReceipt();
     renderTools(row, tools);
     // 熔断或错误：只有话，没有按钮（后端已把人话放进 say；presence 走 error）。
     if (reply.circuit || reply.error) {
@@ -1781,6 +1790,7 @@ export function createStewardConversation({
   }
   function receiptText(row, state) {
     const result = row.result;
+    if (settingsReceiptOf(result)) return settingsReceiptText(result.receipt, t);
     // 三态各自的那半句。failed 那一档仍然把后端的错误人话原样带出来（诚实优先，不归一成一句）。
     const stateText = row.tool === 'steward_thread_stop' ? stewardStopReceiptText(stewardStopReceiptOf(result), t)
       : state === 'done' ? t('stewardShell.chat.actionDone')
@@ -1805,7 +1815,10 @@ export function createStewardConversation({
   function appendActionReceipts(row, actions) {
     const receipts = actionReceipts(actions);
     if (!row || !receipts.length) return 0;
+    let index = 0;
     for (const receipt of receipts) {
+      const action = (Array.isArray(actions) ? actions : []).filter(item => item && item.tool)[index++];
+      if (settingsReceiptOf(action?.result)) { appendSettingsReceipt(row, action.result, { t, api }); continue; }
       const line = el('p', 'steward-receipt', receipt.text);
       line.dataset.receipt = 'action';
       line.dataset.receiptState = receipt.state;
