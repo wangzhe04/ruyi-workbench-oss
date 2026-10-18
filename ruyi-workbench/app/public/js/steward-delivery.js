@@ -86,7 +86,7 @@ export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePr
     const more = el('details', 'steward-delivery-more');
     more.appendChild(copy('summary', 'steward-delivery-action', 'delivery.more'));
     const moreActions = el('div', 'composer-more-pop'); more.appendChild(moreActions);
-    const fileBox = el('div', 'steward-delivery-files'); fileBox.hidden = true;
+    const fileBox = el('div', 'steward-delivery-files'); fileBox.hidden = !files.length;
     const checkBox = el('div', 'steward-delivery-checks'); checkBox.hidden = true;
     const preview = el('div', 'steward-delivery-preview'); preview.hidden = true;
     let previewGeneration = 0;
@@ -99,8 +99,6 @@ export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePr
       }, { count });
       toggle.setAttribute('aria-expanded', 'false'); parent.appendChild(toggle);
     };
-    disclosure('delivery.openFiles', files.length, fileBox);
-    if (!files.length) fileBox.appendChild(copy('p', 'muted', 'delivery.noFiles'));
     files.forEach((file, index) => {
       const row = el('div', 'steward-delivery-file');
       const open = button('steward-delivery-file-open', file.name, async () => {
@@ -172,7 +170,7 @@ export function attachStewardDeliveryPanel(block, source, { api, t, renderFilePr
       primaryActions.appendChild(revise);
     } else actions.appendChild(revise);
     actions.appendChild(more);
-    panel.append(actions, fileBox, checkBox, preview, note);
+    panel.append(fileBox, preview, actions, checkBox, note);
   }
   panel.appendChild(copy('p', 'muted', 'delivery.loading'));
   void refresh();

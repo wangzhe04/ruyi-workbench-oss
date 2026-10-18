@@ -453,6 +453,7 @@ export function createStewardDrawer({
   // 不许把抽屉以覆盖式开出来。缺省恒开；判据只住看板一处（sideCollapsedActive），这里只问。
   let openGate = () => true;
   let openClassicWindow = null;   // 117g/121-K5：统一的「在工作台打开」入口（切视角＋选中会话；返回带已退役）
+  let openDelivery = null;
   // 33 号文 §4「抽屉 /api/missions 改经看板 rows」：那一批 200 行不再由本模块自己拉。行的那位主人
   // 是看板（etag／304／解析全在它的 loadMissions 一处），本模块只读它刚取回来的快照，并能在需要
   // 新鲜时请它刷一趟。与上面三条同一纪律：不动被静态锁逐字钉住的构造调用，新依赖一律走 setter。
@@ -958,6 +959,13 @@ export function createStewardDrawer({
   }
 
   function renderLastSay() {
+    const deliveryButton = byId('stewardDrawerFullTextBtn');
+    const deliveryLabel = deliveryButton && deliveryButton.querySelector('[data-i18n]');
+    if (deliveryLabel) {
+      const key = latestDeliverySource() && openDelivery ? 'stewardShell.drawer.viewDelivery' : 'stewardShell.drawer.fullText';
+      deliveryLabel.dataset.i18n = key;
+      deliveryLabel.textContent = t(key);
+    }
     const head = byId('stewardDrawerLastSayHead');
     const quote = byId('stewardDrawerLastSayText');
     if (!quote) { renderActing(false); return; }
@@ -1543,6 +1551,30 @@ export function createStewardDrawer({
     if (id) { try { await openSession(id); } catch (error) { failNote(error); } }
   }
 
+  // 已完成回合来自会话消息；不依赖管家到访历史是否仍保留。
+  function latestDeliverySource() {
+    if (drawerReadQuality.session.state !== 'ok') return null;
+    const messages = Array.isArray(session?.messages) ? session.messages : [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      const seq = Number(message?.turnSeq);
+      if (message?.role !== 'assistant' || !Number.isInteger(seq) || seq <= 0) continue;
+      if (isLive() && seq >= Number(session?.turnSeq || 0)) continue;
+      if (!stewardLastDeliverable([message]).trim() && !message.turnSummary?.artifacts?.length && !message.turnSummary?.filesChanged?.length) continue;
+      return { sessionId, turnSeq: seq, title: displayTitle || session?.title || '' };
+    }
+    return null;
+  }
+
+  async function openLatestDelivery() {
+    const source = latestDeliverySource();
+    if (!source || !openDelivery) return openClassicView();
+    try {
+      const opened = await openDelivery(source);
+      if (opened && source.sessionId === sessionId && mountMode === 'overlay') closeDrawer();
+    } catch (error) { failNote(error); }
+  }
+
   // ── ⑪ 整单回退：退到本线程【第一条用户消息】那一回合之前 ─────────────────────
   // 口径与 117d 第 0 步同款：rewindSession 按「要删掉的那一回合的第一条用户消息」定位，所以
   // targetTurnSeq 取 messages 里第一条 user 消息自己的 turnSeq（S4b 起每条新用户消息都打了戳），
@@ -1994,7 +2026,7 @@ export function createStewardDrawer({
     on('stewardDrawerCloseBtn', () => closeDrawer());
     on('stewardDrawerHandBackBtn', () => closeDrawer({ focusComposer: true }));
     on('stewardDrawerClassicBtn', () => { openClassicView(); });
-    on('stewardDrawerFullTextBtn', () => { openClassicView(); });
+    on('stewardDrawerFullTextBtn', () => { void openLatestDelivery(); });
     on('stewardDrawerChangesBtn', () => { openClassicView(); });
     on('stewardDrawerSendBtn', () => { submitDirect(); });
     on('stewardDrawerAskSendBtn', () => { submitAsk(); });
@@ -2106,6 +2138,7 @@ export function createStewardDrawer({
     // 117g/117h：三条迟绑定接线 + 挂法开关（构造调用那一行被 steward-drawer.static I3 逐字钉住，
     // 新依赖一律走 setter，不加构造参数）。
     setClassicWindow: handler => { openClassicWindow = typeof handler === 'function' ? handler : null; },
+    setOpenDelivery: handler => { openDelivery = typeof handler === 'function' ? handler : null; },
     setOnClosed: handler => { onClosed = typeof handler === 'function' ? handler : () => {}; },
     // 2026-09-24：事件路的「此刻别开」门（右栏收起时）。同一条迟绑定纪律；判据住看板，这里只接。
     setOpenGate: handler => { openGate = typeof handler === 'function' ? handler : () => true; },

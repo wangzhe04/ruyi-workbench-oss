@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 79 | 3819 | 3366 | 573 | 67 | 0 | 1 |
+| 79 | 3820 | 3367 | 573 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -74,7 +74,7 @@
 | 56 | `13e-pretender-index.js` | transport | 57 | 39 | 8 |
 | 57 | `13i-steward-inbox.js` | transport | 83 | 28 | 8 |
 | 58 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
-| 59 | `13aa-steward-delivery.js` | unclassified | 9 | 30 | 7 |
+| 59 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
 | 60 | `13k-steward-threads.js` | transport | 58 | 124 | 17 |
 | 61 | `13l-steward-ops.js` | transport | 53 | 121 | 19 |
 | 62 | `13g-steward.js` | transport | 20 | 72 | 11 |
@@ -400,7 +400,7 @@
 | `13-http-router.js` | `13e-pretender-index.js` | forward | `warmPretenderProjectionIndex` |
 | `13-http-router.js` | `13f-native-tool-schemas.js` | backward | `MCP_TOOLS` |
 | `13-http-router.js` | `13s-scheduler.js` | forward | `handleSchedulerApiRoutes`, `startScheduler`, `stopScheduler` |
-| `13aa-steward-delivery.js` | `00-boot.js` | backward | `DeliveryHooks`, `URL`, `apiFailure`, `apiSessionNotFound`, `crypto`, `fsp`, `json`, `nowIso`, `path` |
+| `13aa-steward-delivery.js` | `00-boot.js` | backward | `DeliveryHooks`, `URL`, `apiFailure`, `apiSessionNotFound`, `crypto`, `fsp`, `json`, `nowIso`, `path`, `text` |
 | `13aa-steward-delivery.js` | `01-config.js` | backward | `readConfig`, `safeSessionId`, `send`, `tokenOk` |
 | `13aa-steward-delivery.js` | `02-session-store.js` | backward | `buildMissionAcceptanceProjection`, `kindForPath`, `loadSession`, `readMissionContainer`, `sessionDisplayTitle`, `sessionMissionId` |
 | `13aa-steward-delivery.js` | `03-bridge-guard.js` | backward | `ensureDataRootReal`, `fileAllowedRoots`, `isSensitiveDataPath`, `isSensitiveHardlinkAlias`, `pathWithinAnyRoot`, `readFilePreview`, `remoteUncDenialResolved` |

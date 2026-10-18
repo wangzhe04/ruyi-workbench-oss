@@ -1,0 +1,47 @@
+'use strict';
+require('./lib/self-isolate-home');
+const fs = require('fs');
+const path = require('path');
+const { createRunner } = require('./lib/harness');
+const { startBrowserFixture } = require('./lib/browser-fixture');
+const { loadServerInternals } = require('./lib/server-internals');
+const t = createRunner('STEWARD DELIVERY HISTORY BROWSER'); const { ok } = t;
+let fx, sid, artifact, before, calls = 0;
+(async () => {
+  try {
+    fx = await startBrowserFixture({ prefix: 'ruyi-delivery-history-', ok, width: 1440,
+      provider: ctx => { calls++; ctx.text('unexpected model call'); ctx.stop(); },
+      prepare: async fixture => {
+        process.env.RUYI_HOME = fixture.home; process.env.WIN_CLAUDE_WORKBENCH_HOME = fixture.home;
+        const s = loadServerInternals(['createSession', 'saveSession', 'stewardCaptureDelivery']);
+        const session = await s.createSession({ title: '历史两步交付', cwd: fixture.work }); sid = session.id;
+        artifact = path.join(fixture.work, '汇总.md'); fs.writeFileSync(artifact, '# 汇总\n4 单，3000 元。');
+        session.turnSeq = 1;
+        const summary = { turnSeq: 1, artifacts: [{ path: artifact }], filesChanged: [] };
+        await s.stewardCaptureDelivery(session, summary, { startedAt: Date.now() - 86400000 });
+        session.messages = [{ role: 'user', content: '汇总订单', turnSeq: 1, createdAt: new Date(Date.now() - 86400000).toISOString() },
+          { role: 'assistant', content: '已完成两步汇总，4 单、3000 元。', turnSeq: 1, turnSummary: summary, createdAt: new Date(Date.now() - 86399000).toISOString() }];
+        await s.saveSession(session); before = JSON.stringify(session.messages);
+        // 没有管家收件箱历史，模拟新到访/历史已清理；交付必须从原任务读取。
+      } });
+    await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:open-thread',{detail:{sessionId:${JSON.stringify(sid)}}}));true`);
+    ok(await fx.waitForEval("document.getElementById('stewardDrawerFullTextBtn')?.textContent.includes('查看交付') ? 1 : null"), '任务抽屉提供已有交付入口');
+    await fx.evaluate("document.getElementById('stewardDrawerFullTextBtn').click();true");
+    const card = `.steward-deliverable[data-session-id="${sid}"][data-turn-seq="1"]`;
+    ok(await fx.waitForEval(`document.querySelector(${JSON.stringify(card)})?.textContent.includes('已完成两步汇总') ? 1 : null`), '无到访历史也能重开准确回合交付卡');
+    await fx.evaluate("document.getElementById('stewardDrawerFullTextBtn').click();true");
+    ok(await fx.evaluate(`document.querySelectorAll(${JSON.stringify(card)}).length===1`), '重复打开定位现有交付而不重复插卡');
+    await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')}).click();true`);
+    ok(await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')}).getAttribute('aria-expanded')==='true'`), '重开的历史交付可展开全文');
+    await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-delivery-revise')}).click();true`);
+    ok(await fx.waitForEval("document.querySelector('#stewardTarget .steward-target-label')?.textContent.includes('修订第 1 轮') ? 1 : null"), '历史交付继续修改挂接同一真实修订输入区');
+    await fx.evaluate("document.getElementById('stewardComposerInput').value='只改标题';document.getElementById('stewardComposerCancelTarget').click();true");
+    ok(await fx.evaluate("document.getElementById('stewardComposerCancelTarget').hidden&&document.getElementById('stewardComposerInput').value==='只改标题'"), '历史交付修订可独立取消并保留草稿');
+    const result = await fx.request('GET', '/api/sessions/' + sid);
+    ok(JSON.stringify(result.json.session.messages) === before && result.json.session.turnSeq === 1, '查看与取消不新增任务回合或改变原执行记录');
+    ok(fs.readFileSync(artifact, 'utf8') === '# 汇总\n4 单，3000 元。' && calls === 0, '操作不调用模型、不修改已有产物');
+    ok(fx.exceptions.length === 0, '无未捕获浏览器异常');
+  } catch (error) { t.fail(error.stack); }
+  finally { if (fx) await fx.close(); }
+  t.done({ exit: true });
+})();

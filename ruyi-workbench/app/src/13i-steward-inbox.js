@@ -559,7 +559,7 @@ const stewardRuntime = {
   loaded: false,
   cold: true,           // 本次装载时没有可用游标 = 冷启动(只建基线,不把历史灌进箱子)
   inboxSeq: 0,
-  pollMs: 15000,
+  pollMs: 5000,
   lastTickAt: '',
   lastInboxAt: '',      // 116-4:最后一次【真的写进箱子】的时刻(lastTickAt 只说明轮询活着)
   sourcesSeen: { sessionTurns: 0 }, // 116-4:第四源本进程入箱条数,给 /api/steward/state 的诚实字段
@@ -1322,7 +1322,7 @@ async function stewardRunTick() {
 async function startStewardInbox(config) {
   const cfg = (config && typeof config === 'object') ? config : {};
   if (cfg.stewardEnabledV1 !== true) return { ok: false, running: false, enabled: false };
-  const pollMs = Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 15000)));
+  const pollMs = Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 5000)));
   stewardRuntime.pollMs = pollMs;
   // 116f: start 同时解除回合队列的停机(stop 把轮询与回合一起停,start 把两者一起放开)。
   if (typeof StewardHooks.resumeRunner === 'function') { try { StewardHooks.resumeRunner(); } catch { /* 旁路 */ } }
@@ -1413,7 +1413,7 @@ async function stewardInboxState(config) {
     enabled: cfg.stewardEnabledV1 === true,
     running: stewardRuntime.running,
     inboxSeq: Math.max(inboxSeq, stewardRuntime.inboxSeq),
-    pollMs: Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 15000))),
+    pollMs: Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 5000))),
     lastTickAt: stewardRuntime.lastTickAt,
     // 116-4(§11.7 第 3 项「唤醒链诚实」):前端要能分清三件事 —— 轮询活着(lastTickAt 在动)、
     // 箱子真的收到过东西(lastInboxAt)、第四源真的在工作(sourcesSeen.sessionTurns)。

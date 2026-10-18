@@ -66,6 +66,37 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     old.messages[0].turnSummary.deliveryEvidence = JSON.parse(JSON.stringify(summary.deliveryEvidence));
     old.messages[0].meta = { imported: true }; await s.saveSession(old);
     ok(!(await s.stewardDeliveryProjection(old.id, 1, cfg)).evidenceRecorded, '导入回合不能携带本机检查通过凭据');
+    const reuse = await s.createSession({ title: '只读复核已有交付', cwd: work });
+    reuse.turnSeq = 2;
+    const outside = path.join(work, 'not-delivered.md'); fs.writeFileSync(outside, '并未交付');
+    const reusedText = '核验通过：`' + path.relative(work, a) + '`。任意路径 `' + outside + '` 不会自动变成产物。';
+    reuse.messages = [{ role: 'assistant', turnSeq: 1, content: '首次交付', turnSummary: summary },
+      { role: 'assistant', turnSeq: 2, content: reusedText, turnSummary: { turnSeq: 2, artifacts: [], filesChanged: [] } }];
+    await s.saveSession(reuse);
+    const reusedLegacy = await s.stewardDeliveryProjection(reuse.id, 2, cfg);
+    ok(reusedLegacy.files.length === 1 && reusedLegacy.files[0].path === a && reusedLegacy.files[0].status === 'unverified' && reusedLegacy.files[0].referenced,
+      '只读旧回合可找回明确引用的原产物,没有本轮快照则不冒充交付版本或收录任意路径');
+    const reuseSummary = { turnSeq: 2, artifacts: [], filesChanged: [] };
+    await s.stewardCaptureDelivery(reuse, reuseSummary, { finalText: reusedText });
+    reuse.messages[1].turnSummary = reuseSummary; await s.saveSession(reuse);
+    const reusedCurrent = await s.stewardDeliveryProjection(reuse.id, 2, cfg);
+    ok(reusedCurrent.files.length === 1 && reusedCurrent.files[0].status === 'same' && !reuseSummary.artifacts.length && !reuseSummary.filesChanged.length,
+      '新只读回合为原产物保存独立指纹,不伪造本轮新建或修改文件');
+    fs.writeFileSync(a, '引用交付后再次改变');
+    ok((await s.stewardDeliveryProjection(reuse.id, 2, cfg)).files[0].status === 'changed', '只读交付之后外部改动仍使该轮文件版本失效');
+    reuse.messages[0].meta = { imported: true }; await s.saveSession(reuse);
+    ok((await s.stewardDeliveryProjection(reuse.id, 2, cfg)).files.length === 0, '不会把导入的历史产物声明提升为可信本机文件入口');
+    delete reuse.messages[0].meta; reuse.messages[1].content = '`report.md`'; await s.saveSession(reuse);
+    ok((await s.stewardDeliveryProjection(reuse.id, 2, cfg)).files.length === 0, '单独文件名不猜测子目录下同名产物');
+    const relativeReport = path.relative(work, a).replace(/\\/g, '/');
+    for (const content of ['[报告](' + relativeReport + ')', '[报告](<' + a + '>)', '[报告](' + relativeReport + ' "查看报告")']) {
+      reuse.messages[1].content = content; await s.saveSession(reuse);
+      const linked = await s.stewardDeliveryProjection(reuse.id, 2, cfg);
+      ok(linked.files.length === 1 && linked.files[0].path === a && linked.files[0].status === 'changed', '标准 Markdown 文件链接找回同任务原产物并保留真实版本状态: ' + content);
+    }
+    reuse.messages[1].content = '[任意文件](' + outside + ') [远程](https://example.test/' + relativeReport + ') [远程](//example.test/' + relativeReport + ')';
+    await s.saveSession(reuse);
+    ok((await s.stewardDeliveryProjection(reuse.id, 2, cfg)).files.length === 0, 'Markdown 链接不引入未交付文件或外部 URL');
     const human = await s.createSession({ title: '人工复核', cwd: work });
     const at = new Date().toISOString();
     const container = await s.createMissionContainer({ title: '验收事项', acceptance: [{ id: 'human', text: '用户已复核', done: true, doneAt: at }] });

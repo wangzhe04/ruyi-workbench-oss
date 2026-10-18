@@ -629,6 +629,7 @@ try {
       seqRect: 'sequenceDiagram\\n A->>B: 去\\n rect rgb(191, 223, 255)\\n B->>A: 回\\n end',
       wide: 'flowchart LR\\n ' + Array.from({ length: 16 }, (_, i) => 'S' + i + '[第' + i + '步处理]').join(' --> '),
       bad: 'flowchart TD\\n A[未闭合',
+      badDelivery: 'flowchart TD\\n A[未闭合',
       // 走查复核(2026-10-04)抓到的三处「原本画对、被改坏」:
       autonum: 'sequenceDiagram\\n autonumber\\n A->>B: 第一步\\n B->>A: 第二步',
       annot: 'classDiagram\\n class Order{\\n  <<Aggregate Root>>\\n  +List<Item> items\\n }',
@@ -637,6 +638,7 @@ try {
     for (const [id, source] of Object.entries(cases)) {
       const box = document.createElement('div');
       box.dataset.case = id;
+      if (id === 'badDelivery') box.className = 'steward-deliverable-body';
       const pre = document.createElement('pre');
       const code = document.createElement('code');
       code.className = 'language-mermaid';
@@ -679,10 +681,27 @@ try {
       detail: (box('bad').querySelector('.mermaid-hint-detail') || {}).textContent || '',
       buttons: Array.from(box('bad').querySelectorAll('.mermaid-tools .mermaid-btn')).map(b => b.textContent),
     };
+    const failure = box('badDelivery').querySelector('.mermaid-failure-details');
+    out.deliveryFailure = !!failure && !failure.open && !!failure.querySelector('pre code') && !!failure.querySelector('.mermaid-hint-detail');
+    if (failure) failure.querySelector('summary').click();
+    out.deliveryFailureExpanded = !!failure && failure.open;
+    await renderMermaidBlocks(box('badDelivery'), { t });
+    out.deliveryFailureStable = box('badDelivery').querySelectorAll('.mermaid-block').length === 1
+      && box('badDelivery').querySelectorAll('.mermaid-failure-details').length === 1;
+    const savedTheme = document.documentElement.getAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', savedTheme === 'dark' ? 'light' : 'dark');
+    await renderMermaidBlocks(box('badDelivery'), { t });
+    out.deliveryFailureRethemed = box('badDelivery').querySelectorAll('.mermaid-block').length === 1
+      && box('badDelivery').querySelectorAll('pre code').length === 1
+      && box('badDelivery').querySelectorAll('.mermaid-failure-details').length === 1;
+    if (savedTheme === null) document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', savedTheme);
     host.remove();
     return out;
   })()`);
   const states = audit.states || {};
+  ok(audit.deliveryFailure && audit.deliveryFailureExpanded, 'B11n 交付卡图表失败默认折叠，点击仍能读取原始源码和错误');
+  ok(audit.deliveryFailureStable && audit.deliveryFailureRethemed, 'B11o 重复渲染及换主题保留一份图表源码与折叠详情');
   ok(['special', 'xy', 'sankey'].every(id => states[id] === 'ok+repaired'),
     `B11a 模型常写错的三种（括号标签+行尾注释、中文 xychart、中文桑基图）自动修好再画（实得 ${JSON.stringify(states)}；修前全部回落成源码）`);
   ok(['styled', 'click', 'arch', 'c4', 'seqRect', 'wide', 'autonum', 'annot'].every(id => states[id] === 'ok')

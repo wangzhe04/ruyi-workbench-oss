@@ -309,12 +309,12 @@ export function writeNote(id, text) {
 
 // 33 号文 §4「轮询常量收进叶子」：管家三处轮询（壳层状态、看板、抽屉）各写了一份同一组字面量 ——
 // 下限 5000（与 01-config 的 stewardPollMs 同一 clamp）、容差 250（setInterval 会比标称早几毫秒
-// 回来，不留容差就会整整推迟一拍）、默认 15000（配置还没到达时的兜底）。三者都以 chips.js 为既有
+// 回来，不留容差就会整整推迟一拍）、默认 5000（配置还没到达时的兜底）。三者都以 chips.js 为既有
 // 依赖，收进来不新增任何模块依赖边。三处的【本地名字】刻意保留（STEWARD_DRAWER_POLL_MS_MIN 等）：
 // 三把逐字锁钉的是 pollStewardTick／pollSlice／pollTick 的函数体、起表那一处与 clamp 写法，
 // 改名等于把锁全钉红；这一项收的是【值】不是名字 —— 本模块是这组数字的唯一来源。
 export const STEWARD_POLL_MS_MIN = 5000;
-export const STEWARD_POLL_MS_DEFAULT = 15000;
+export const STEWARD_POLL_MS_DEFAULT = 5000;
 export const STEWARD_POLL_DUE_SLACK_MS = 250;
 // 121-K2b（34 号文 §6.2「三条轮询保留为兜底」）：事件流连着的时候，轮询不再是「怎么知道事情变了」
 // 的路 —— 它只是【兜底心跳】（推送漏了、环补不上、ETag 口径与推送不同步时的自愈）。所以连接正常

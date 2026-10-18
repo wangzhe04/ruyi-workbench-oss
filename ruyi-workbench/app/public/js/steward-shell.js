@@ -558,6 +558,7 @@ export function createStewardShellDomain({
   // 117g：抽屉的「2.0 视窗」「看全文」「看改动」改走统一入口（构造那一行被 steward-drawer.static I3
   // 逐字钉住，新依赖一律走 setter —— 与 conversation.setPickTargetHandler 同一条迟绑定纪律）。
   drawer.setClassicWindow(sessionId => openInWorkbench(sessionId));
+  drawer.setOpenDelivery(source => conversation.openDelivery(source));
   // 两个子域的唯一反向依赖：撤回／换一条之后打开输入区的候选列表。迟绑定（组合根先例
   // previewStreamSink），不让 conversation import composer。
   conversation.setPickTargetHandler(() => composer.openPicker());

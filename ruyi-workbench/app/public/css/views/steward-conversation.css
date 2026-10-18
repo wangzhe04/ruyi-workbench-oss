@@ -622,6 +622,18 @@
   border: 1px solid var(--gold-line);
   border-radius: var(--r-pill);
 }
+.steward-deliverable-more[aria-expanded="true"] {
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  font-weight: 400;
+}
+.steward-deliverable-body .mermaid-failure-details > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  padding: var(--sp-2) 0;
+}
 
 /* 3.x：交付正文下的原件与证据，沿用当前色彩和紧凑的文字按钮。 */
 .steward-delivery-panel { min-width: 0; margin-top: var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--line); }
@@ -637,6 +649,8 @@
 .steward-delivery-files, .steward-delivery-checks { margin-top: var(--sp-2); }
 .steward-delivery-file, .steward-delivery-check { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px var(--sp-2); padding: var(--sp-1) 0; border-bottom: 1px solid var(--line); }
 .steward-delivery-file-open, .steward-delivery-check-desc { min-width: 0; flex: 1 1 170px; overflow-wrap: anywhere; }
+.steward-delivery-file { padding: var(--sp-2) 0; }
+.steward-delivery-file-open { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
 .steward-delivery-file-status, .steward-delivery-check-label { font-size: var(--fs-xs); color: var(--muted); }
 .steward-delivery-file-path, .steward-delivery-check-detail { flex-basis: 100%; margin: 0; color: var(--muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
 .steward-delivery-preview { min-width: 0; max-width: 100%; margin-top: var(--sp-2); overflow: auto; }

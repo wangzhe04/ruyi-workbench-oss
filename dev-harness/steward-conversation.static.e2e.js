@@ -657,14 +657,23 @@ ok(bodyTextWrites === 1 && /body\.textContent = t\('stewardShell\.chat\.delivera
 // 117v-V1 ③ 重钉：判据从「调用点长什么样」改成【那一支里的边界】—— 回放这一段（renderHistorySince）
 // 现在对 inbox 与 user 两种回合都挂线程卡，只有交付卡还锁在 inbox 那一支。锚在函数体里而不是整文件：
 // attachDeliverable 的定义在别处，整文件匹配连「调用点被整个删掉」都发现不了。
-const historyPath = conversationCode.slice(conversationCode.indexOf('function renderHistorySince'),
-  conversationCode.indexOf('async function appendSince'));
+const historyPath = functionBlock(conversationCode, 'renderHistorySince');
+const manualDeliveryPath = functionBlock(conversationCode, 'openDelivery');
 const attachDeliverableSites = (conversationCode.match(/attachDeliverable\(/g) || []).length;
-ok(historyPath.length > 0 && attachDeliverableSites === 2
+ok(historyPath.length > 0 && attachDeliverableSites === 3
   && (historyPath.match(/attachDeliverable\(/g) || []).length === 1
   && /if \(trigger\.kind === 'inbox'\) attachDeliverable\(row, \{ \.\.\.opening, turnSeq: trigger\.turnSeq \|\| inboxTurnSeq \}\);/.test(historyPath),
-  `P7 交付卡只在「收件箱触发且认得出来源」那一支挂（定义 1 处 + 回放里调用 1 处，实测全文件 ${attachDeliverableSites}）——`
+  `P7 自动回放交付卡只在「收件箱触发且认得出来源」那一支挂（定义 1 处 + 回放调用 1 处 + 用户主动重开 1 处，实测全文件 ${attachDeliverableSites}）——`
   + '用户自己问的那条一发请求都不多发；117v-V1 ③ 放出线程卡时它【没有】跟着放出来（刚开的线程还没有交付）');
+ok(manualDeliveryPath.length > 0
+  && /String\(source\?\.sessionId \|\| ''\)/.test(manualDeliveryPath)
+  && /Number\(source\?\.turnSeq\)/.test(manualDeliveryPath)
+  && /!Number\.isInteger\(seq\) \|\| seq <= 0/.test(manualDeliveryPath)
+  && /const origin = \{ sessionId: id, turnSeq: seq, title: String\(source\.title \|\| ''\) \};/.test(manualDeliveryPath)
+  && (manualDeliveryPath.match(/attachDeliverable\(row, origin\)/g) || []).length === 1
+  && !/\b(?:sendToSteward|handOff|appendSteward|api|fetch)\(/.test(manualDeliveryPath)
+  && !/lastRenderedAt\s*=/.test(manualDeliveryPath),
+  'P7b 主动重开只接受真实来源 sessionId 与正整数 turnSeq 并复用交付渲染，不伪造回复、不推进回放水位、不直接发请求');
 ok(/api\('\/api\/sessions\/' \+ encodeURIComponent\(sessionId\)\)/.test(conversationCode),
   'P8 取原文走【既有】的 GET /api/sessions/<id>（13d 的信封本来就带 session.messages，零新增路由）');
 const fetchSites = (conversationCode.match(/\bfetch\(/g) || []).length;
@@ -1057,8 +1066,7 @@ ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversati
   const navBranch = runActRule.slice(runActRule.indexOf('if (isNavigationAct(act))'));
   ok(/if \(btn\) btn\.disabled = false;/.test(navBranch) && /openThread\(act\.sessionId\)/.test(navBranch),
     'Z2 ② companion：导航那一支既把按钮恢复可点（runAct 入口统一 disable 过一次，不恢复的话按钮还在却按不动，与「失效」没区别），也照旧真去开线程');
-  const historyRule = conversationCode.slice(conversationCode.indexOf('function renderHistorySince'),
-    conversationCode.indexOf('async function appendSince'));
+  const historyRule = functionBlock(conversationCode, 'renderHistorySince');
   const finishRule = conversationCode.slice(conversationCode.indexOf('function finishReply('),
     conversationCode.indexOf('function actionWhyLines'));
   // Z3 的头一版只钉「attachThreadCard 没被 inbox 守着」，反向验证时发现它是【假绿】：把兜底那一档

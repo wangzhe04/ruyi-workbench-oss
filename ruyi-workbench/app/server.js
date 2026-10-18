@@ -2736,7 +2736,7 @@ function defaultConfig() {
     // 从此它归用户(以用户为准,见清洗块的「收编」一支)。管家的工作区清单与 cwd 校验把两张表合起来看。
     stewardManagedWorkspaces: [],
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
-    stewardPollMs: 15000,
+    stewardPollMs: 5000,
     // 第 121 波 K3(34 号文 §4.1/§4.2「噪音用窗口解决,不用能力解决」):任务索引的「最近 N 条」窗口。
     // 一条既不在途、今天也没动静、管家也不盯的旧线程,只有排在最近 N 条里才进索引 —— 几百条存量
     // 普通会话因此不会把左栏淹掉,但它们仍在搜索里找得到。clamp [10,200],判据单点在 06i 的
@@ -2748,7 +2748,7 @@ function defaultConfig() {
     // config.json,静默抬高别人的花钱上限不合适;只改默认,老用户在设置·管家页自己调。
     stewardMaxTurnsPerHour: 30,
     // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
-    stewardMaxCostPerDay: 1,
+    stewardMaxCostPerDay: 5,
     // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
     // 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 把用户的话递给对的线程是管家的
     // 本职,默认只提议等于每句话都多问一遍。answer(代答)仍默认关:那是唯一【替用户说话】的一格(129g)。
@@ -2793,7 +2793,7 @@ function defaultConfig() {
     // (熔断,见 13h stewardCircuitCheck),这两个管【全部线程】(排队,不拒绝)。
     stewardMaxParallelThreads: 5,
     stewardGlobalMaxTurnsPerHour: 120,
-    stewardGlobalMaxCostPerDay: 20,
+    stewardGlobalMaxCostPerDay: 50,
     // 第 123 波 M1(37 号文 §3.2/§3.4;设计权威 29 号文 §4「开关」):定时任务调度器总开关。
     // 默认【开】,但**没有任何任务时零开销**:13s 的 startScheduler 在零任务时不起 interval,
     // 关掉(显式 false)时更是一个字节都不写 —— 不建 <data>/scheduler/ 目录、不读盘、六条路由一律 409。
@@ -3713,10 +3713,10 @@ function normalizeConfig(raw, opts = {}) {
     if (JSON.stringify(tm) !== JSON.stringify(config.stewardThreadModels)) { config.stewardThreadModels = tm; changed = true; }
     else config.stewardThreadModels = tm;
   }
-  // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 15000,clamp [5000,120000]。
+  // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 5000,clamp [5000,120000]。
   {
     const n = Number(config.stewardPollMs);
-    const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 15000;
+    const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 5000;
     if (clamped !== config.stewardPollMs) { config.stewardPollMs = clamped; changed = true; }
   }
   // 第 121 波 K3(34 号文 §4.1):任务索引「最近 N 条」窗口,非法值(非有限数)回默认 30,
@@ -3735,10 +3735,10 @@ function normalizeConfig(raw, opts = {}) {
     const clamped = Number.isFinite(n) ? Math.min(120, Math.max(1, Math.round(n))) : 30;
     if (clamped !== config.stewardMaxTurnsPerHour) { config.stewardMaxTurnsPerHour = clamped; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000],非法回默认 1(允许小数,不取整)。
+  // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000],非法回默认 5(允许小数,不取整)。
   {
     const n = Number(config.stewardMaxCostPerDay);
-    const clamped = Number.isFinite(n) ? Math.min(1000, Math.max(0, n)) : 1;
+    const clamped = Number.isFinite(n) ? Math.min(1000, Math.max(0, n)) : 5;
     if (clamped !== config.stewardMaxCostPerDay) { config.stewardMaxCostPerDay = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单——retry/relay/newThread/answer 严格布尔
@@ -3827,7 +3827,7 @@ function normalizeConfig(raw, opts = {}) {
   }
   {
     const n = Number(config.stewardGlobalMaxCostPerDay);
-    const clamped = Number.isFinite(n) ? Math.min(10000, Math.max(0, n)) : 20;
+    const clamped = Number.isFinite(n) ? Math.min(10000, Math.max(0, n)) : 50;
     if (clamped !== config.stewardGlobalMaxCostPerDay) { config.stewardGlobalMaxCostPerDay = clamped; changed = true; }
   }
   // 第 123 波 M1:调度器总开关。与 stewardThreadBriefV1 同方向的严格布尔(!== false)——
@@ -22801,7 +22801,7 @@ async function runClaudeTurn({
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'claude', turnJournal);
-  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt }).catch(() => {});
+  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt, finalText }).catch(() => {});
   if (agentRecoverySummary && exit.code === 0 && !wasStopped) {
     delete session.agentRecoverySummary;
     delete session.agentRecoverySource;
@@ -30239,7 +30239,7 @@ const PROMPT_ZH = {
     },
     askProvider: '向用户提问用 request_user_input：如意界面会弹出提问卡，用户点选的结果回到你这里。',
     steward: '管家：如意的管家会看着各条线程，常把你最终答复的开头转述给用户，所以第一段就写结论。',
-    stewardOpened: '这条线程是管家替用户开的：第一条消息开头是用户原话，后面附有管家补充的委托书。你的交付由管家转述给用户，结论、关键数字和产出文件名要写清楚；没做完就直说卡在哪一步。',
+    stewardOpened: '这条线程是管家替用户开的：第一条消息开头是用户原话，后面附有管家补充的委托书。你的交付由管家转述给用户，结论、关键数字和产出文件名要写清楚；没做完就直说卡在哪一步。交付先写简短结论，再列可打开的报告文件及需要用户处理的事项。普通核验不主动附流程图、脚本、哈希或内部执行日志；用户明确要求这些证据时再展开。仍须实际验证，并如实说明未验证项与影响。',
     rgCapability: { shell: '有 ripgrep 快搜（终端里也可直接用 rg）', fast: '有 ripgrep 快搜', none: '无 ripgrep（用内置搜索）' },
   },
 
@@ -30634,7 +30634,7 @@ const PROMPT_EN = {
     },
     askProvider: 'To ask the user, use request_user_input: the Ruyi interface shows a question card and the user\'s choice comes back to you.',
     steward: 'Steward: Ruyi\'s steward watches the threads and often relays the opening of your final reply to the user, so lead with the conclusion.',
-    stewardOpened: 'The steward opened this thread for the user: the first message starts with the user\'s own words, followed by the steward\'s brief. Your deliverable is relayed by the steward, so state the conclusion, key numbers and output file names clearly; if the work is unfinished, say which step it is stuck on.',
+    stewardOpened: 'The steward opened this thread for the user: the first message starts with the user\'s own words, followed by the steward\'s brief. Your deliverable is relayed by the steward, so state the conclusion, key numbers and output file names clearly; if the work is unfinished, say which step it is stuck on. Lead with a brief result, then link report files and list anything requiring the user\'s attention. For routine checks, omit flowcharts, scripts, hashes and internal execution logs unless the user explicitly requests that evidence. Still perform verification and disclose unverified items and their impact.',
     rgCapability: { shell: 'ripgrep fast search (rg also usable in the terminal)', fast: 'ripgrep fast search', none: 'no ripgrep (built-in search)' },
   },
 
@@ -47724,7 +47724,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'openai', turnJournal);
-  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt }).catch(() => {});
+  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt, finalText }).catch(() => {});
   // 47b/86: 回合收尾前把仍在 'running' 的 tool/subagent/workflow 段标终态,防「卡在运行中」落盘。
   turnSegments.finalizeAll(wasStopped ? '回合被停止,进行中的工具已中断' : '回合结束,进行中的工具未完成');
   session.messages.push({
@@ -71632,7 +71632,7 @@ const stewardRuntime = {
   loaded: false,
   cold: true,           // 本次装载时没有可用游标 = 冷启动(只建基线,不把历史灌进箱子)
   inboxSeq: 0,
-  pollMs: 15000,
+  pollMs: 5000,
   lastTickAt: '',
   lastInboxAt: '',      // 116-4:最后一次【真的写进箱子】的时刻(lastTickAt 只说明轮询活着)
   sourcesSeen: { sessionTurns: 0 }, // 116-4:第四源本进程入箱条数,给 /api/steward/state 的诚实字段
@@ -72395,7 +72395,7 @@ async function stewardRunTick() {
 async function startStewardInbox(config) {
   const cfg = (config && typeof config === 'object') ? config : {};
   if (cfg.stewardEnabledV1 !== true) return { ok: false, running: false, enabled: false };
-  const pollMs = Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 15000)));
+  const pollMs = Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 5000)));
   stewardRuntime.pollMs = pollMs;
   // 116f: start 同时解除回合队列的停机(stop 把轮询与回合一起停,start 把两者一起放开)。
   if (typeof StewardHooks.resumeRunner === 'function') { try { StewardHooks.resumeRunner(); } catch { /* 旁路 */ } }
@@ -72486,7 +72486,7 @@ async function stewardInboxState(config) {
     enabled: cfg.stewardEnabledV1 === true,
     running: stewardRuntime.running,
     inboxSeq: Math.max(inboxSeq, stewardRuntime.inboxSeq),
-    pollMs: Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 15000))),
+    pollMs: Math.min(120000, Math.max(5000, Math.round(Number(cfg.stewardPollMs) || 5000))),
     lastTickAt: stewardRuntime.lastTickAt,
     // 116-4(§11.7 第 3 项「唤醒链诚实」):前端要能分清三件事 —— 轮询活着(lastTickAt 在动)、
     // 箱子真的收到过东西(lastInboxAt)、第四源真的在工作(sourcesSeen.sessionTurns)。
@@ -73076,6 +73076,32 @@ function stewardDeliveryFiles(summary, cwd) {
   }
   return [...pathsByKey.values()];
 }
+function stewardDeliveryReferencedFiles(session, summary, text) {
+  const keyFor = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const files = new Map(stewardDeliveryFiles(summary, session.cwd).map(file => [keyFor(file.path), file]));
+  // 只接受本任务此前执行记录中已有的产物，且本轮原文用行内代码或 Markdown 链接明确引用路径。
+  // 不扫描任意路径、不把用户文字或导入摘要变成本机产物证据，也不凭文件同名猜测。
+  const references = new Set();
+  const prose = String(text || '').slice(0, 200000).replace(/```[^]*?(?:```|$)/g, '');
+  const addReference = (raw, encoded = false) => {
+    let value = raw.trim();
+    if (encoded) { try { value = decodeURIComponent(value); } catch { return; } }
+    if (!value || /[\x00-\x1f]/.test(value) || /^\/\//.test(value)) return;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(value) && !/^[a-z]:[\\/]/i.test(value)) return;
+    references.add(keyFor(path.resolve(session.cwd || '', value)));
+  };
+  for (const match of prose.matchAll(/`([^`\r\n]{1,4096})`/g)) addReference(match[1]);
+  for (const match of prose.matchAll(/\[[^\]\r\n]{0,4096}\]\(\s*(?:<([^>\r\n]{1,4096})>|([^\s()]{1,4096}))(?:\s+["'][^\r\n]*?["'])?\s*\)/g)) addReference(match[1] || match[2], true);
+  if (!references.size) return [...files.values()];
+  for (const row of Array.isArray(session.messages) ? session.messages : []) {
+    if (row.role !== 'assistant' || row.meta?.imported || !row.turnSummary || !(Number(row.turnSeq) < Number(summary.turnSeq))) continue;
+    for (const file of stewardDeliveryFiles(row.turnSummary, session.cwd)) {
+      const key = keyFor(file.path);
+      if (references.has(key) && !files.has(key)) files.set(key, { ...file, referenced: true });
+    }
+  }
+  return [...files.values()];
+}
 async function stewardDeliveryInspect(file, session, config, budget, keepBytes = false) {
   const target = file.path;
   try {
@@ -73109,7 +73135,7 @@ async function stewardCaptureDelivery(session, summary, options = {}) {
   if (stewardRawKind(session) === 'steward') return;
   const config = await readConfig();
   if (config.stewardEnabledV1 !== true) return;
-  const all = stewardDeliveryFiles(summary, session.cwd);
+  const all = stewardDeliveryReferencedFiles(session, summary, options.finalText);
   const budget = { bytes: 0 }, files = [];
   for (const file of all.slice(0, STEWARD_DELIVERY_LIMITS.files)) files.push(await stewardDeliveryInspect(file, session, config, budget));
   const missionId = sessionMissionId(session);
@@ -73145,7 +73171,7 @@ async function stewardDeliveryProjection(sessionId, turnSeq, config) {
   const source = stewardDeliverySource(session, turnSeq);
   if (!source) return stewardFail('delivery_not_found', '指定回合已不存在,没有使用其它回合代替');
   const recorded = source.evidence;
-  const all = stewardDeliveryFiles(source.summary, session.cwd);
+  const all = stewardDeliveryReferencedFiles(session, source.summary, source.rows.filter(row => row.role === 'assistant' && !row.meta?.imported).map(row => row.content || '').join('\n'));
   const files = [], budget = { bytes: 0 };
   for (const file of all.slice(0, STEWARD_DELIVERY_LIMITS.files)) {
     const current = await stewardDeliveryInspect(file, session, config, budget);

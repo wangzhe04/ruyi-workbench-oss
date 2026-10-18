@@ -121,7 +121,7 @@ const PROMPT_ZH = {
     },
     askProvider: '向用户提问用 request_user_input：如意界面会弹出提问卡，用户点选的结果回到你这里。',
     steward: '管家：如意的管家会看着各条线程，常把你最终答复的开头转述给用户，所以第一段就写结论。',
-    stewardOpened: '这条线程是管家替用户开的：第一条消息开头是用户原话，后面附有管家补充的委托书。你的交付由管家转述给用户，结论、关键数字和产出文件名要写清楚；没做完就直说卡在哪一步。',
+    stewardOpened: '这条线程是管家替用户开的：第一条消息开头是用户原话，后面附有管家补充的委托书。你的交付由管家转述给用户，结论、关键数字和产出文件名要写清楚；没做完就直说卡在哪一步。交付先写简短结论，再列可打开的报告文件及需要用户处理的事项。普通核验不主动附流程图、脚本、哈希或内部执行日志；用户明确要求这些证据时再展开。仍须实际验证，并如实说明未验证项与影响。',
     rgCapability: { shell: '有 ripgrep 快搜（终端里也可直接用 rg）', fast: '有 ripgrep 快搜', none: '无 ripgrep（用内置搜索）' },
   },
 
@@ -516,7 +516,7 @@ const PROMPT_EN = {
     },
     askProvider: 'To ask the user, use request_user_input: the Ruyi interface shows a question card and the user\'s choice comes back to you.',
     steward: 'Steward: Ruyi\'s steward watches the threads and often relays the opening of your final reply to the user, so lead with the conclusion.',
-    stewardOpened: 'The steward opened this thread for the user: the first message starts with the user\'s own words, followed by the steward\'s brief. Your deliverable is relayed by the steward, so state the conclusion, key numbers and output file names clearly; if the work is unfinished, say which step it is stuck on.',
+    stewardOpened: 'The steward opened this thread for the user: the first message starts with the user\'s own words, followed by the steward\'s brief. Your deliverable is relayed by the steward, so state the conclusion, key numbers and output file names clearly; if the work is unfinished, say which step it is stuck on. Lead with a brief result, then link report files and list anything requiring the user\'s attention. For routine checks, omit flowcharts, scripts, hashes and internal execution logs unless the user explicitly requests that evidence. Still perform verification and disclose unverified items and their impact.',
     rgCapability: { shell: 'ripgrep fast search (rg also usable in the terminal)', fast: 'ripgrep fast search', none: 'no ripgrep (built-in search)' },
   },
 

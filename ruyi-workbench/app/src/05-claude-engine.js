@@ -1134,7 +1134,7 @@ async function runClaudeTurn({
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'claude', turnJournal);
-  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt }).catch(() => {});
+  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt, finalText }).catch(() => {});
   if (agentRecoverySummary && exit.code === 0 && !wasStopped) {
     delete session.agentRecoverySummary;
     delete session.agentRecoverySource;

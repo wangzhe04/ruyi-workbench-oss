@@ -14,6 +14,32 @@ function stewardDeliveryFiles(summary, cwd) {
   }
   return [...pathsByKey.values()];
 }
+function stewardDeliveryReferencedFiles(session, summary, text) {
+  const keyFor = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const files = new Map(stewardDeliveryFiles(summary, session.cwd).map(file => [keyFor(file.path), file]));
+  // 只接受本任务此前执行记录中已有的产物，且本轮原文用行内代码或 Markdown 链接明确引用路径。
+  // 不扫描任意路径、不把用户文字或导入摘要变成本机产物证据，也不凭文件同名猜测。
+  const references = new Set();
+  const prose = String(text || '').slice(0, 200000).replace(/```[^]*?(?:```|$)/g, '');
+  const addReference = (raw, encoded = false) => {
+    let value = raw.trim();
+    if (encoded) { try { value = decodeURIComponent(value); } catch { return; } }
+    if (!value || /[\x00-\x1f]/.test(value) || /^\/\//.test(value)) return;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(value) && !/^[a-z]:[\\/]/i.test(value)) return;
+    references.add(keyFor(path.resolve(session.cwd || '', value)));
+  };
+  for (const match of prose.matchAll(/`([^`\r\n]{1,4096})`/g)) addReference(match[1]);
+  for (const match of prose.matchAll(/\[[^\]\r\n]{0,4096}\]\(\s*(?:<([^>\r\n]{1,4096})>|([^\s()]{1,4096}))(?:\s+["'][^\r\n]*?["'])?\s*\)/g)) addReference(match[1] || match[2], true);
+  if (!references.size) return [...files.values()];
+  for (const row of Array.isArray(session.messages) ? session.messages : []) {
+    if (row.role !== 'assistant' || row.meta?.imported || !row.turnSummary || !(Number(row.turnSeq) < Number(summary.turnSeq))) continue;
+    for (const file of stewardDeliveryFiles(row.turnSummary, session.cwd)) {
+      const key = keyFor(file.path);
+      if (references.has(key) && !files.has(key)) files.set(key, { ...file, referenced: true });
+    }
+  }
+  return [...files.values()];
+}
 async function stewardDeliveryInspect(file, session, config, budget, keepBytes = false) {
   const target = file.path;
   try {
@@ -47,7 +73,7 @@ async function stewardCaptureDelivery(session, summary, options = {}) {
   if (stewardRawKind(session) === 'steward') return;
   const config = await readConfig();
   if (config.stewardEnabledV1 !== true) return;
-  const all = stewardDeliveryFiles(summary, session.cwd);
+  const all = stewardDeliveryReferencedFiles(session, summary, options.finalText);
   const budget = { bytes: 0 }, files = [];
   for (const file of all.slice(0, STEWARD_DELIVERY_LIMITS.files)) files.push(await stewardDeliveryInspect(file, session, config, budget));
   const missionId = sessionMissionId(session);
@@ -83,7 +109,7 @@ async function stewardDeliveryProjection(sessionId, turnSeq, config) {
   const source = stewardDeliverySource(session, turnSeq);
   if (!source) return stewardFail('delivery_not_found', '指定回合已不存在,没有使用其它回合代替');
   const recorded = source.evidence;
-  const all = stewardDeliveryFiles(source.summary, session.cwd);
+  const all = stewardDeliveryReferencedFiles(session, source.summary, source.rows.filter(row => row.role === 'assistant' && !row.meta?.imported).map(row => row.content || '').join('\n'));
   const files = [], budget = { bytes: 0 };
   for (const file of all.slice(0, STEWARD_DELIVERY_LIMITS.files)) {
     const current = await stewardDeliveryInspect(file, session, config, budget);

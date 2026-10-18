@@ -2378,6 +2378,25 @@ export function createStewardConversation({
     }
   }
 
+  // 用户主动重开旧交付：只展示已有回合，不伪造一轮管家回复，也不推进历史水位。
+  function openDelivery(source) {
+    const id = String(source?.sessionId || '');
+    const seq = Number(source?.turnSeq);
+    const feed = feedEl();
+    if (!feed || resetBusy || !id || !Number.isInteger(seq) || seq <= 0) return false;
+    const existing = Array.from(feed.querySelectorAll('.steward-deliverable')).find(node =>
+      node.dataset.sessionId === id && Number(node.dataset.turnSeq) === seq);
+    if (existing) { existing.scrollIntoView({ block: 'start', behavior: 'smooth' }); return true; }
+    const row = appendRow('ruyi');
+    if (!row) return false;
+    row.dataset.deliveryHistory = 'true';
+    const origin = { sessionId: id, turnSeq: seq, title: String(source.title || '') };
+    attachThreadCard(row, origin);
+    const block = attachDeliverable(row, origin);
+    if (block) block.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return !!block;
+  }
+
   async function appendSince(sinceIso) {
     const generation = conversationGeneration;
     const since = String(sinceIso || lastRenderedAt || visitStartedAt || '');
@@ -2682,6 +2701,7 @@ export function createStewardConversation({
     // 117j W2-4：壳层的状态轮询发现 lastReply 变了且 trigger==='inbox' 时调它（对话流的写口只有
     // 本模块，壳层不碰 feed 的 DOM）。
     appendSince,
+    openDelivery,
     conversationGeneration: () => conversationGeneration,
     resetInProgress: () => resetBusy,
     detailsEnabled: () => detailsOn,

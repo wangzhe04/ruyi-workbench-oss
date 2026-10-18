@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 79,
-    "providedSymbols": 3819,
-    "requiredSymbols": 3366,
+    "providedSymbols": 3820,
+    "requiredSymbols": 3367,
     "edges": 573,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -17668,6 +17668,7 @@
         "stewardDeliveryFiles",
         "stewardDeliveryInspect",
         "stewardDeliveryProjection",
+        "stewardDeliveryReferencedFiles",
         "stewardDeliveryRows",
         "stewardDeliverySource",
         "stewardValidateDeliveryReference"
@@ -17725,6 +17726,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
           "kinds": [
             "read"
           ]
@@ -31977,7 +31985,8 @@
         "fsp",
         "json",
         "nowIso",
-        "path"
+        "path",
+        "text"
       ],
       "direction": "backward"
     },

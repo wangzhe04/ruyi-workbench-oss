@@ -1163,13 +1163,13 @@ export function createStewardSettingsDomain({
       const threadModels = (c.stewardThreadModels && typeof c.stewardThreadModels === 'object') ? c.stewardThreadModels : {};
       fillStewardModel('cfgStewardStrongModel', 'cfgStewardStrongProviderId', threadModels.strong?.model);
       fillStewardModel('cfgStewardFastModel', 'cfgStewardFastProviderId', threadModels.fast?.model);
-      const poll = byId('cfgStewardPollMs'); if (poll) poll.value = String(Math.round(Number(c.stewardPollMs || 15000) / 1000));
+      const poll = byId('cfgStewardPollMs'); if (poll) poll.value = String(Math.round(Number(c.stewardPollMs || 5000) / 1000));
       const visitIdle = byId('cfgStewardVisitIdle'); if (visitIdle) visitIdle.value = String(Number(c.stewardVisitIdleMinutes || 60));
       const turns = byId('cfgStewardMaxTurnsPerHour'); if (turns) turns.value = String(Number(c.stewardMaxTurnsPerHour || 12));
-      const cost = byId('cfgStewardMaxCostPerDay'); if (cost) cost.value = String(Number(c.stewardMaxCostPerDay ?? 1));
+      const cost = byId('cfgStewardMaxCostPerDay'); if (cost) cost.value = String(Number(c.stewardMaxCostPerDay ?? 5));
       const parallel = byId('cfgStewardMaxParallelThreads'); if (parallel) parallel.value = String(Number(c.stewardMaxParallelThreads || 5));
       const globalTurns = byId('cfgStewardGlobalMaxTurnsPerHour'); if (globalTurns) globalTurns.value = String(Number(c.stewardGlobalMaxTurnsPerHour || 120));
-      const globalCost = byId('cfgStewardGlobalMaxCostPerDay'); if (globalCost) globalCost.value = String(Number(c.stewardGlobalMaxCostPerDay ?? 20));
+      const globalCost = byId('cfgStewardGlobalMaxCostPerDay'); if (globalCost) globalCost.value = String(Number(c.stewardGlobalMaxCostPerDay ?? 50));
       // 116-5b:默认开(缺字段 = 开),所以判的是 !== false 而不是 === true。
       const brief = byId('cfgStewardThreadBrief'); if (brief) brief.checked = c.stewardThreadBriefV1 !== false;
       // 127 波 2-quater B2：管家代批。默认开（缺字段 = 开），与上面那一格同方向：判 !== false。
@@ -1276,10 +1276,10 @@ export function createStewardSettingsDomain({
     });
     onChange('cfgStewardFastModel', event => saveConfig({ stewardThreadModels: threadModelPatch('fast', 'model', String(event.target.value || '').trim()) }));
     // 秒进毫秒出：界面按秒（下限 5），落盘按毫秒（后端 clamp [5000,120000]）。
-    onChange('cfgStewardPollMs', event => saveConfig({ stewardPollMs: Math.max(5, num(event.target, 15)) * 1000 }));
+    onChange('cfgStewardPollMs', event => saveConfig({ stewardPollMs: Math.max(5, num(event.target, 5)) * 1000 }));
     onChange('cfgStewardVisitIdle', event => saveConfig({ stewardVisitIdleMinutes: num(event.target, 60) }));
     onChange('cfgStewardMaxTurnsPerHour', event => saveConfig({ stewardMaxTurnsPerHour: num(event.target, 12) }));
-    onChange('cfgStewardMaxCostPerDay', event => saveConfig({ stewardMaxCostPerDay: num(event.target, 1) }));
+    onChange('cfgStewardMaxCostPerDay', event => saveConfig({ stewardMaxCostPerDay: num(event.target, 5) }));
     // 128f-⑫（审计 F）：存成功之后页内广播一帧 —— 左栏头上那个「同时最多 N 条」读的是仲裁面，不是这份配置。
     onChange('cfgStewardMaxParallelThreads', async event => {
       const saved = await saveConfig({ stewardMaxParallelThreads: num(event.target, 5) });
@@ -1287,7 +1287,7 @@ export function createStewardSettingsDomain({
       return saved;
     });
     onChange('cfgStewardGlobalMaxTurnsPerHour', event => saveConfig({ stewardGlobalMaxTurnsPerHour: num(event.target, 120) }));
-    onChange('cfgStewardGlobalMaxCostPerDay', event => saveConfig({ stewardGlobalMaxCostPerDay: num(event.target, 20) }));
+    onChange('cfgStewardGlobalMaxCostPerDay', event => saveConfig({ stewardGlobalMaxCostPerDay: num(event.target, 50) }));
     onChange('cfgStewardRetention', event => saveConfig({ stewardConversationRetention: String(event.target.value || '24h') }));   // 136:缺省回 24h
     // 136:预算两格 —— 送原样数字、服务端 normalizeConfig 钳完再回填(与 cfgStewardThreadIndexRecent 同一模具,
     // 客户端不抄第二份钳位)。tokens 键在 06i 是 forbidden(密钥正则),管家改不了,只能在这里改。

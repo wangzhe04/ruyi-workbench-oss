@@ -431,6 +431,10 @@ function collectMermaidBlocks(root) {
 function ensureWrapper(doc, pre) {
   const parent = pre.parentElement || pre.parentNode;
   if (parent && parent.classList && parent.classList.contains('mermaid-block')) return parent;
+  if (parent && parent.classList && parent.classList.contains('mermaid-failure-details')) {
+    const owner = parent.parentElement || parent.parentNode;
+    if (owner && owner.classList && owner.classList.contains('mermaid-block')) return owner;
+  }
   const wrapper = doc.createElement('div');
   wrapper.className = 'mermaid-block';
   if (parent && typeof pre.replaceWith === 'function') {
@@ -447,6 +451,7 @@ function ensureWrapper(doc, pre) {
 
 // 清掉上一轮生成的视图/提示/工具条,只保留原始 <pre>(降级与成功态共用)。
 function resetWrapper(wrapper, pre) {
+  if (pre && pre.parentNode !== wrapper) wrapper.appendChild(pre);
   for (const child of Array.from(wrapper.children || [])) {
     if (child !== pre && typeof child.remove === 'function') child.remove();
   }
@@ -984,6 +989,16 @@ function degrade(doc, wrapper, pre, hash, theme, message, extra = {}) {
     const notify = { fail: () => { if (typeof toast === 'function') toast(t('mermaid.exportFailed'), 'err'); } };
     bar.appendChild(makeButton(doc, t('common.copy'), () => copySource(source, t, toast, notify)));
     wrapper.appendChild(bar);
+  }
+  // Delivery cards prioritize the result; parser diagnostics remain available on demand.
+  if (typeof wrapper.closest === 'function' && wrapper.closest('.steward-deliverable-body') && typeof t === 'function') {
+    const details = doc.createElement('details');
+    details.className = 'mermaid-failure-details';
+    const summary = doc.createElement('summary');
+    summary.textContent = t('mermaid.deliveryFallback');
+    details.appendChild(summary);
+    for (const child of Array.from(wrapper.childNodes)) details.appendChild(child);
+    wrapper.appendChild(details);
   }
   wrapper.dataset.mermaidHash = hash;
   wrapper.dataset.mermaidTheme = theme;

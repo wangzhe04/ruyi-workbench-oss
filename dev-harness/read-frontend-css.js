@@ -85,7 +85,8 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // HEAD 各层自证旧哈希 041f6543ce6d7d99c6612039737ff22732f5f50591de18b8e6ffda63bb059328；内存损坏 CSS 后 D51/F3 均失败。
 // 31qc 用户走测续钉：steward-conversation.css 全文主按钮、操作换行、消息适应列宽；steward-shell.css 读宽720→900。
 // HEAD CSS 自证 5a7668112606c17f86aa0a53dddda173c565e0dc3b84566645b2214acdc63614；反向损坏验证记录见 80 号验收补记。
-const LEGACY_STYLES_SHA256 = '8a38e356a9a43004dcd6c32688703f7f54117c8493ea87a599aad9651be3ba84';
+// 交付阅读整理：收起降为次级、图表错误折叠、文件入口加粗；HEAD 旧载荷自证 8a38e356…3ba84。
+const LEGACY_STYLES_SHA256 = '118d4b57be0bb7f4e34257e4a72aa6aec9e6cb9f0b6e24e707702fe42ba1e6f7';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
