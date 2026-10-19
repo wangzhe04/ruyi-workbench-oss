@@ -162,10 +162,11 @@ ok(!/\bwbState\b/.test(app)
   && !/function (layoutWorkbenchDAG|switchMainView|renderWorkbench|wbNativeClaudeHydratedRuns|wbNativeClaudeOnSubagent|wbNativeClaudeFinalize|wbOnRuns)\(/.test(app),
   'D23 Workbench 状态与实现已从 app.js 清空');
 ok(agentWorkflows.includes('isWorkbenchCanvasView()')
-  && agentWorkflows.includes('markWorkbenchConnectionLost()')
+  && agentWorkflows.includes('wbOnRuns(runs, quality)')
   && workbench.includes('function isWorkbenchCanvasView()')
-  && workbench.includes('function markWorkbenchConnectionLost()'),
-  'D24 工作流轮询层仅通过窄接口读取画布态与标记断连');
+  && workbench.includes('wbReadQuality = quality;')
+  && workbench.includes('appendReadHealth(host, wbReadQuality'),
+  'D24 工作流轮询层通过窄接口传递快照与持久读取质量，重绘仍能显示断连');
 ok((workbench.match(/\.innerHTML\s*=/g) || []).length === 0,
   'D25 Workbench 域保持零 innerHTML 赋值');
 ok(overlayPayload.has('app/public/js/workbench.js'),

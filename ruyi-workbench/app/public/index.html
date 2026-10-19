@@ -690,6 +690,7 @@
                button 里再嵌 button 是非法 HTML、读屏点不到。文案与 hidden 都由 js/steward-board.js 写。 -->
           <button type="button" id="stewardStatusNeedsYouBtn" class="steward-status-needsyou" hidden></button>
         </div>
+        <button type="button" id="stewardDecisionsBtn" class="steward-act" data-i18n="decisions.title">事项待决</button>
         <button type="button" id="stewardNewConversation" class="steward-act" data-i18n="stewardShell.chat.newConversation">新对话</button>
         <!-- 117e 的盾牌与停机键（§8.2／§8.6）已搬到两视角共用的顶栏（121-K4，§2.2）：它们管的是
              【全局】默认权限与全局停机，不该只在管家视角里够得着。行为与 id 一个字没动。 -->
@@ -1481,6 +1482,41 @@
               <ul id="cfgStewardSchedule" class="steward-schedule-list"></ul>
             </section>
 
+            <section class="steward-settings-group external-bots" id="cfgStewardGroupExternalBots" aria-labelledby="cfgStewardExternalBotsHeading">
+              <h4 id="cfgStewardExternalBotsHeading" class="settings-subhead" data-i18n="externalBots.title">外部机器人</h4>
+              <p class="muted prov-hint" data-i18n="externalBots.hint">连接 QQ 官方或飞书应用机器人。可选收件箱接收引用资料，或明确绑定本人账号，远程控制同一个管家。</p>
+              <div class="external-bots-toolbar"><strong data-i18n="externalBots.connections">连接</strong><button type="button" id="cfgStewardBotNew" class="btn btn-sm" data-i18n="externalBots.new">新增连接</button><button type="button" id="cfgStewardBotDiscoverOpen" class="btn btn-sm" data-i18n="externalBots.discover">用应用信息自动发现</button><button type="button" id="cfgStewardBotConnectionsRefresh" class="btn btn-sm" data-i18n="externalBots.refresh">刷新</button></div>
+              <p id="cfgStewardBotConnectionsStatus" class="muted" role="status"></p>
+              <ul id="cfgStewardBotConnections" class="external-bots-list"></ul>
+              <form id="cfgStewardBotDiscoverForm" class="external-bots-form" hidden>
+                <p class="field-help" data-i18n="externalBots.discoverHint">填入飞书应用的 App ID 与 App Secret。如意会向飞书固定官方接口探测一次，取得租户 key 与机器人 open_id，准备一条关闭的连接，并把应用密钥存进本机凭据（Windows 用当前用户保护）。探测失败不保存任何凭据。</p>
+                <label class="external-bots-field" for="cfgStewardBotDiscoverAppId"><span data-i18n="externalBots.appId">应用 ID</span><input id="cfgStewardBotDiscoverAppId" required type="text" autocomplete="off" spellcheck="false" /></label>
+                <label class="external-bots-field" for="cfgStewardBotDiscoverSecret"><span data-i18n="externalBots.discoverSecret">应用密钥 App Secret（只提交到本机接口）</span><input id="cfgStewardBotDiscoverSecret" required type="password" autocomplete="new-password" spellcheck="false" /></label>
+                <label class="external-bots-field" for="cfgStewardBotDiscoverLabel"><span data-i18n="externalBots.label">显示名称</span><input id="cfgStewardBotDiscoverLabel" type="text" autocomplete="off" spellcheck="false" /></label>
+                <p id="cfgStewardBotDiscoverNote" class="field-help" role="status"></p>
+                <div class="external-bots-actions"><button type="submit" id="cfgStewardBotDiscoverRun" class="btn btn-sm btn-primary" data-i18n="externalBots.discoverRun">探测并准备连接</button><button type="button" id="cfgStewardBotDiscoverCancel" class="btn btn-sm" data-i18n="externalBots.cancel">取消</button></div>
+              </form>
+              <section id="cfgStewardBotSetup" class="external-bot-setup" hidden></section>
+              <form id="cfgStewardBotForm" class="external-bots-form" hidden>
+                <div class="external-bots-fields">
+                  <label class="external-bots-field" for="cfgStewardBotId"><span data-i18n="externalBots.id">连接 ID（同一次创建请保留此 ID）</span><input id="cfgStewardBotId" required type="text" autocomplete="off" spellcheck="false" /></label>
+                  <label class="external-bots-field" for="cfgStewardBotPlatform"><span data-i18n="externalBots.platform">平台</span><select id="cfgStewardBotPlatform"><option value="feishu" data-i18n="externalBots.feishu">飞书应用机器人</option><option value="qq" data-i18n="externalBots.qq">QQ 官方机器人</option></select></label>
+                  <label class="external-bots-field" for="cfgStewardBotLabel"><span data-i18n="externalBots.label">显示名称</span><input id="cfgStewardBotLabel" type="text" autocomplete="off" spellcheck="false" /></label><label class="external-bots-field" for="cfgStewardBotAppId"><span data-i18n="externalBots.appId">应用 ID</span><input id="cfgStewardBotAppId" required type="text" autocomplete="off" spellcheck="false" /></label><label class="external-bots-field" for="cfgStewardBotTenantId"><span data-i18n="externalBots.tenantId">租户 ID</span><input id="cfgStewardBotTenantId" type="text" autocomplete="off" spellcheck="false" /></label><label class="external-bots-field" for="cfgStewardBotUserId"><span data-i18n="externalBots.botUserId">机器人用户 ID</span><input id="cfgStewardBotUserId" type="text" autocomplete="off" spellcheck="false" /></label>
+                  <label class="external-bots-field" for="cfgStewardBotVerificationEnv"><span data-i18n="externalBots.verificationTokenEnv">验证令牌环境变量名</span><input id="cfgStewardBotVerificationEnv" type="text" autocomplete="off" spellcheck="false" /></label><label class="external-bots-field" for="cfgStewardBotEncryptEnv"><span data-i18n="externalBots.encryptKeyEnv">加密密钥环境变量名</span><input id="cfgStewardBotEncryptEnv" type="text" autocomplete="off" spellcheck="false" /></label><label class="external-bots-field" for="cfgStewardBotSecretEnv"><span data-i18n="externalBots.botSecretEnv">机器人密钥环境变量名</span><input id="cfgStewardBotSecretEnv" type="text" autocomplete="off" spellcheck="false" /></label>
+                  <label class="external-bots-field" for="cfgStewardBotMode"><span data-i18n="externalBots.mode">接入方式</span><select id="cfgStewardBotMode"><option value="inbox" data-i18n="externalBots.inboxMode">收件箱：手动加入草稿</option><option value="control" data-i18n="externalBots.controlMode">远程控制如意</option></select></label><label class="external-bots-field" for="cfgStewardBotOwnerSender"><span data-i18n="externalBots.ownerSender">本人发送者 ID</span><input id="cfgStewardBotOwnerSender" type="text" autocomplete="off" spellcheck="false" /></label><label class="external-bots-field" for="cfgStewardBotOwnerConversation"><span data-i18n="externalBots.ownerConversation">本人控制聊天 ID</span><input id="cfgStewardBotOwnerConversation" type="text" autocomplete="off" spellcheck="false" /></label><label class="external-bots-field" for="cfgStewardBotOwnerType"><span data-i18n="externalBots.ownerType">控制聊天类型</span><select id="cfgStewardBotOwnerType"><option value="direct" data-i18n="externalBots.direct">单聊</option><option value="group" data-i18n="externalBots.group">群聊（仅本人 @机器人）</option></select></label><label class="external-bots-field" for="cfgStewardBotAppSecretEnv"><span data-i18n="externalBots.appSecretEnv">飞书应用密钥环境变量名（平台回复）</span><input id="cfgStewardBotAppSecretEnv" type="text" autocomplete="off" spellcheck="false" /></label><label class="external-bots-field" for="cfgStewardBotAllowedSenders"><span data-i18n="externalBots.allowedSenders">允许的发送者 ID</span><textarea id="cfgStewardBotAllowedSenders" rows="2" spellcheck="false"></textarea></label>
+                  <label class="external-bots-field" for="cfgStewardBotAllowedConversations"><span data-i18n="externalBots.allowedConversations">允许的聊天 ID</span><textarea id="cfgStewardBotAllowedConversations" rows="2" spellcheck="false"></textarea></label>
+                </div>
+                <p class="field-help muted" data-i18n="externalBots.platformHint">飞书必填租户 ID 与机器人 open_id；QQ 可留空这两项。</p><p class="field-help muted" data-i18n="externalBots.envHint">只填 RUYI_BOT_ 开头的环境变量名，不填密钥。飞书使用验证令牌和加密密钥；QQ 使用机器人密钥。环境变量须在工作台启动前设置。</p><p class="field-help muted" data-i18n="externalBots.allowHint">每行一个 ID 或用逗号分隔。启用前须同时配置发送者与聊天名单。</p><p class="field-help muted" data-i18n="externalBots.identityHint">平台、应用、租户和机器人身份创建后固定；更换应用请新建连接。删除后该连接 ID 永不复用。</p>
+                <label class="external-bots-enabled" for="cfgStewardBotEnabled"><input type="checkbox" id="cfgStewardBotEnabled" /><span data-i18n="externalBots.enableForm">启用此连接（新连接默认关闭）</span></label>
+                <div class="external-bots-actions"><button type="submit" id="cfgStewardBotSave" class="btn btn-sm btn-primary" data-i18n="externalBots.save">保存连接</button><button type="button" id="cfgStewardBotCancel" class="btn btn-sm" data-i18n="externalBots.cancel">取消</button></div>
+              </form>
+              <div class="external-bots-toolbar"><strong data-i18n="externalBots.inbox">外部收件箱</strong><select id="cfgStewardBotInboxConnection" aria-labelledby="cfgStewardBotInboxLabel"></select><span id="cfgStewardBotInboxLabel" class="sr-only" data-i18n="externalBots.allConnections">全部连接</span><button type="button" id="cfgStewardBotInboxRefresh" class="btn btn-sm" data-i18n="externalBots.refreshLatest">刷新最新</button></div>
+              <p id="cfgStewardBotInboxStatus" class="muted" role="status"></p><p id="cfgStewardBotInboxWorkerStatus" class="field-help" role="status"></p>
+              <ul id="cfgStewardBotInbox" class="external-bots-list"></ul>
+              <div class="external-bots-toolbar"><span id="cfgStewardBotInboxCount" class="muted"></span><button type="button" id="cfgStewardBotInboxMore" class="btn btn-sm" hidden data-i18n="externalBots.more">更早消息</button></div>
+              <p id="cfgStewardExternalBotNote" class="field-help" role="status" aria-live="polite"></p>
+            </section>
+
             <!-- ⑤ 管家记得的关于你（§4「面板」）-->
             <section class="steward-settings-group" id="cfgStewardGroupMemory" aria-labelledby="cfgStewardMemoryHeading">
               <h4 id="cfgStewardMemoryHeading" class="settings-subhead" data-i18n="settings.steward.group.memory">管家记得的关于你</h4>
@@ -1773,6 +1809,7 @@
                   <option value="brave" data-i18n="settings.search.brave">Brave 搜索 API</option>
                   <option value="tavily" data-i18n="settings.search.tavily">Tavily（AI 搜索 API）</option>
                   <option value="bocha" data-i18n="settings.search.bocha">博查 Bocha（中文搜索 API）</option>
+                  <option value="deepseek" data-i18n="settings.search.deepseek">DeepSeek（搜索与网页抓取 API）</option>
                   <option value="custom" data-i18n="settings.search.custom">自定义（兼容 SearXNG JSON）</option>
                 </select>
               </div>

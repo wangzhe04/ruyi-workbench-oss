@@ -757,28 +757,32 @@ async function verifyKimiPlanFilePathGuard() {
       ok(lateSteerReply && lateSteerReply.ok !== true && !lateSteerReply.queued, `a steer that arrives while the Kimi turn is settling is refused, not silently queued (${JSON.stringify(lateSteerReply).slice(0, 120)})`);
 
       // hunt2-engines#12:还没有任何正文时被 Stop —— 子进程被杀导致的「process exited」不是失败原因,正文不写「ACP 调用失败」。
+      let silentExecution;
       let markSilentRunning;
       const silentRunning = new Promise(resolve => { markSilentRunning = resolve; });
       const silentPromise = stream(port, { sessionId, message: 'cancel-silent-kimi', cwd: project, attachments: [] }, event => {
+        if (event.type === 'session') silentExecution = event.execution;
         if (event.type === 'tool_use' && event.id === 'silent-read') markSilentRunning();   // session/prompt 已在途(还没有任何正文)
       });
       await silentRunning;
       await sleep(80);
-      await postJson(port, '/api/stop', { sessionId });
+      await postJson(port, '/api/stop', { sessionId, expectedExecution: silentExecution });
       const silent = await silentPromise;
       const silentSaved = (await getJson(port, `/api/sessions/${sessionId}`))?.session?.messages?.filter(message => message.role === 'assistant').at(-1);
       ok(silent.find(event => event.type === 'result')?.aborted === true && silentSaved && !/调用失败/.test(String(silentSaved.content || '')),
         `a user-stopped Kimi turn is not recorded as an ACP failure (${JSON.stringify(String(silentSaved && silentSaved.content || '')).slice(0, 80)})`);
 
 
+      let cancelableExecution;
       let markCancelableRunning;
       const cancelableRunning = new Promise(resolve => { markCancelableRunning = resolve; });
       const cancelablePromise = stream(port, { sessionId, message: 'cancel-kimi', cwd: project, attachments: [] }, event => {
+        if (event.type === 'session') cancelableExecution = event.execution;
         if (event.type === 'process' && event.state === 'running') markCancelableRunning();
       });
       await cancelableRunning;
       await sleep(80);
-      const stopReply = await postJson(port, '/api/stop', { sessionId });
+      const stopReply = await postJson(port, '/api/stop', { sessionId, expectedExecution: cancelableExecution });
       const cancelled = await cancelablePromise;
       const cancelledResult = cancelled.find(event => event.type === 'result');
       ok(stopReply?.ok === true && stopReply?.stopped === true, 'Kimi ACP live turn accepts the common stop endpoint');

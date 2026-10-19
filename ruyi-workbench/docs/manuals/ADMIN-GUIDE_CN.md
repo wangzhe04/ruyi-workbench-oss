@@ -2,7 +2,7 @@
 
 > 面向部署者 / IT / 内网运维。本手册讲清楚如意工作台的**部署形态、引擎接入、安全边界、验收回归与排障**。用户视角的操作说明另见同目录 [`USER-GUIDE_CN.md`](USER-GUIDE_CN.md)。
 >
-> 术语与硬约束：如意工作台是 **clean-room 独立实现**、**server.js 零 npm 运行时依赖**、**默认全离线零遥测**、**overlay 增量套用**、支持 **Windows 10/11**。产品名对外为「如意 Ruyi」。v1.0-S9 发布工程已将目录名改为 `ruyi-workbench`、可执行文件名改为 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）；**3.0 起 MCP server id 为 `ruyi`、默认数据目录为 `~/.ruyi-workbench`、环境变量为 `RUYI_HOME`**（旧的 `win-claude-workbench` / `~/.win-claude-workbench` / `WIN_CLAUDE_WORKBENCH_HOME` 自动迁移或仍可读，详见文末「品牌与兼容」）。
+> 术语与硬约束：如意工作台是 **clean-room 独立实现**、**server.js 零 npm 运行时依赖**、**离线优先、零遥测**、**overlay 增量套用**、支持 **Windows 10/11**。产品名对外为「如意 Ruyi」。v1.0-S9 发布工程已将目录名改为 `ruyi-workbench`、可执行文件名改为 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）；**3.0 起 MCP server id 为 `ruyi`、默认数据目录为 `~/.ruyi-workbench`、环境变量为 `RUYI_HOME`**（旧的 `win-claude-workbench` / `~/.win-claude-workbench` / `WIN_CLAUDE_WORKBENCH_HOME` 自动迁移或仍可读，详见文末「品牌与兼容」）。
 
 ---
 
@@ -13,7 +13,7 @@
 核心是一个零 npm 运行时依赖的 Node 服务 `app/server.js`（只用 Node 内置模块）。启动方式：
 
 ```powershell
-node app\server.js serve --open        # 源码方式（推荐，改动免重编即生效）
+node app\server.js serve --open        # 源码方式（改 app/src 后先运行 node app\build.js）
 .\Ruyi.exe serve --open   # 打包 exe 方式
 Start-Workbench.cmd                      # 便捷启动脚本（内部走上面之一）
 ```
@@ -50,7 +50,7 @@ Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 
 套用流程（`Do-Apply`，第53波 EC-B 加固）：**先内联 precheck 全检**（失败即拒、绝不写入，backup 目录都不建）-> **先备份**目标里将被覆盖的每个文件到 `目标\.overlay-backups\<版本>-<时间戳>\` → 复制 payload 覆盖 → 写 `.overlay-applied.json` 标记 + 追加 `.overlay-audit.jsonl` 审计条目 -> **post-apply 用 sha256 逐文件校验**，verify 结果决定顶层 `ok`/审计 `result`（`ok`/`verify_failed`，不再硬编码 ok）-> 只保留最近 5 份备份。`rollback` 恢复最近一次备份（服务运行时默认**拒绝**回滚，先停进程；`-Force` 跳过端口拒--API 路径自动带，因 API 跑在服务内，文件覆写后 restart 加载恢复的旧文件；本次套用新增的文件会一并删掉 —— 套用时记在备份目录的 `.overlay-added.json` 里；2026-09-19 之前打出的备份没有这份清单，新增文件照旧留下）。套用前若探测到 8765 / 8799 端口有工作台在跑，会告警提示先关闭，否则新 `server.js` 不生效。
 
-**precheck 四类写入前拒绝**（第53波 EC-B）：① 路径逃逸（manifest 条目含 `..`/盘符/绝对路径，防 zip-slip 越界写）② 完整性（payload 每文件 sha256 == manifest，防篡改/缺文件包）③ 版本兼容（包 `minHostVersion` > 宿主 `package.json` version 则拒）④ 幂等（同版本已 apply 且无 `-Force` -> precheck 警告，apply 升格拒）。`-Json` 输出单 JSON 对象供 API 消费。
+**precheck 四类写入前拒绝**（第53波 EC-B）：① 路径逃逸（manifest 条目含 `..`/盘符/绝对路径，防 zip-slip 越界写）② 完整性（payload 每文件 sha256 == manifest，防篡改/缺文件包）③ 版本兼容（包 `minHostVersion` 必须与宿主 `package.json` version 相同，读不到版本也拒绝）④ 幂等（同版本已 apply 且无 `-Force` -> precheck 警告，apply 升格拒）。`-Json` 输出单 JSON 对象供 API 消费。
 
 **桌面壳在运行时套用**：`RuyiDesktop.exe` / `WebView2Loader.dll` 被占用、不能直接覆盖，这两类文件改为先把旧映像改名挪开（`<名>.old-<时间戳>`，NTFS 允许改名运行中的映像）再放新文件，**重启桌面壳后才载入新版**；回执里的 `replacedInUse` 列出这样处理的文件，以往留下的 `.old-*` 在下一次 apply 时清掉。`rollback` 时 `.overlay-applied.json` 标记同步回到套用前（备份里存着上一份就放回原处，没有就清掉），所以回滚掉的版本可以再套，不会被幂等预检当成「已应用」。打覆盖包用 `node tools/build-overlay.js <version>`，`<version>` 必填，每包用不同的 version。
 
@@ -80,9 +80,9 @@ $env:RUYI_HOME = "D:\workbench-data"
 
 **端口被占时**（`listenWithFallback`，`EADDRINUSE`）：
 
-- **只接管「本数据目录自己的陈旧实例」**：占着端口的进程，其 pid 正是**本数据目录** `runtime.json` 记的那个（并核对 overlayId / 镜像名，防 pid 被回收给别的进程）时，才结束它并在同一端口重试（最多重试若干次）。**别的数据目录、别的安装目录里的如意实例，以及别人的服务，一律不动**——它们可能正在跑回合；报出占用 PID / 进程名只用于说明，不会去结束它。
+- **同一数据目录只开一个服务**：启动恢复与迁移之前取得数据目录独占权；已有实例运行时明确拒绝第二次启动，即使换端口也不会取消原任务的待决或覆盖握手。可继续使用原窗口，或先正常退出原服务。
 - **其余一律顺延**：自动改用「原端口 +1 … +9」里第一个能监听的端口；实际端口写进 `runtime.json` 与控制台 URL，界面顶部条会说明「已改用 X（原 Y 被占用）」。九个都不行才报错，并留下 `last-start-error.json` 供下次启动在界面里提示。
-- 若 `killPortOnStart=false`（配置）或 `WCW_KILL_PORT=0`（环境变量）→ **连本数据目录的陈旧实例也不接管**，同样直接顺延到下一个端口。
+- **不再自动结束任何占口进程**。`killPortOnStart` 和 `WCW_KILL_PORT` 保留旧配置兼容，但不再开启自动接管；不同数据目录的服务遇到端口占用时同样顺延。
 - 要固定端口：用 `--port <n>`，并先自己关掉占用者；固定端口被占时如意仍会顺延，而不是硬抢。
 
 ### 1.6 Win10/11 要求
@@ -245,7 +245,7 @@ node app\server.js doctor          # 应显示: claudeWorks: true
 
 | 环境变量 | 影响 |
 |---|---|
-| `WCW_KILL_PORT=0` | 禁止端口自动接管（连本数据目录自己的陈旧实例也不结束），8765 被占时直接顺延到下一个空闲端口 |
+| `WCW_KILL_PORT=0` | 旧兼容项；现在始终不自动结束占口进程，端口占用时顺延；同数据目录的重复服务直接拒绝 |
 | `WCW_FAKE_CLAUDE` | 测试用，指向假 CLI 脚本（生产环境**绝不应设**） |
 | `MAX_THINKING_TOKENS` | 限制思考 token 数（workbench 会用 `config.thinkingBudget` 覆盖它） |
 
@@ -412,7 +412,7 @@ v2.0 起 token 不再明文嵌入 HTML：浏览器在页面加载后经 `POST /a
 
 ### 3.7 零遥测 / 全离线 / clean-room
 
-无任何遥测 / 分析 / 埋点出站调用；全部日志本地化到数据目录。唯一的可选出站探测是能力矩阵的一次 HEAD（对 `config.capabilityProbeUrl` 或 provider baseUrl，用于判在线 / 离线，非遥测；默认 `capabilityProbeUrl` 为空）。clean-room：不含 Anthropic 泄露源码、不分发官方 Claude CLI、不复制第三方插件源码；本体 Apache-2.0，前端静态库许可见根 `THIRD-PARTY-NOTICES.md`。
+无产品遥测 / 分析 / 埋点出站调用；全部日志本地化到数据目录。离线使用需配本机模型，或在断开公网时仍可达的内网模型。模型请求、搜索及其他联网工具会按配置和任务访问对应服务；内置搜索默认可用，不需要密钥，可在设置中关闭。能力矩阵还可发送一次 HEAD（对 `config.capabilityProbeUrl` 或 provider baseUrl，用于判在线 / 离线，非遥测；默认 `capabilityProbeUrl` 为空）。clean-room：不含 Anthropic 泄露源码、不分发官方 Claude CLI、不复制第三方插件源码；本体 Apache-2.0，前端静态库许可见根 `THIRD-PARTY-NOTICES.md`。
 
 ### 3.8 Skills / 记忆 / 编排的不可信输入边界（v1.5）
 
@@ -446,7 +446,7 @@ v1.5 新增的技能、工作台记忆、节点间消息都可能来自**不可�
 
 ## 4. 专家模式与诊断
 
-右侧工作区在精简和专家模式下都保持 7 个页签：文件、产物、改动、记忆、工作流、用量、记录（审计时间线）。终端、桌面、MCP、搜索和读文件仍是完整的模型工具能力，但不再提供绕开对话上下文的手动运行器；它们由模型按 read/edit/exec 权限、检查点与审计策略调用。
+右侧工作区在精简和专家模式下都保持 7 个页签：文件、产物、改动、记忆、工作流、用量、记录（审计时间线）。「工作流」提供运行摘要、待审批与成员详情，中栏「班组」提供协作画布。终端、桌面、MCP、搜索和读文件仍是完整的模型工具能力，但不再提供绕开对话上下文的手动运行器；它们由模型按 read/edit/exec 权限、检查点与审计策略调用。ruyi-toolbox 的发现开关和组件启停在「设置 → 工具与集成 → 扩展组件」。
 
 专家运维入口集中在「设置」：
 
@@ -498,7 +498,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 | 症状 | 处理 |
 |---|---|
-| **端口占用** | 默认 8765 被占：只有占用者正是**本数据目录**登记的陈旧实例（`runtime.json` 的 pid）且 `killPortOnStart` 未禁用时，才会结束它并在原端口重来；别的如意实例（别的安装 / 别的数据目录）和别的程序都不动，如意自动顺延到下一个空闲端口（界面顶部条会说明改用了哪个，`runtime.json` 记实际端口）。要固定端口：`--port <n>` 并先手动结束占用者。 |
+| **端口占用** | 同一数据目录已有服务时拒绝重复启动；不同数据目录遇到占口时，保持原进程运行并顺延到下一个空闲端口。界面顶部条和 `runtime.json` 记录实际端口。要固定端口：`--port <n>` 并先正常退出占用者。 |
 | **引擎 401** | Claude CLI：检查 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` 与 `ANTHROPIC_BASE_URL`（或设置里的模型接口 Base / 密钥）。Provider：检查 apiKey 是否有效。注意 **401 不触发端点故障转移**（归因保留），换备用端点无益，应先修密钥。 |
 | **流断线 / failover 提示** | 前端收到 `failover` 事件即说明主端点预首字节不可用、已切备用（连接失败或 502/503/504）。若备用也不通会最终报错。SSE 正文已开始后的中断不会切端点（防重放），需重发本轮。 |
 | **搜索后端不通** | 检查 `searchBackend.type` 与对应的 baseUrl（searxng/custom 必填）/ apiKey（bing/brave 必填，tavily 必填、bocha 可选）。搜索后端是**受信端点不过 SSRF**，但仍需网络可达。断网时 web_fetch 会回落本地 webcache（`fromCache:true`）。 |
@@ -508,7 +508,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 ---
 
-## 7. 默认启用清单、升级与回滚（2.8.0 基线，3.0 预览版补充见 §7.6）
+## 7. 默认启用清单、升级与回滚（2.8.0 历史基线，3.0 迁移补充见 §7.6）
 
 > **归类口径**：**有实测读数、且出厂默认开 → 已交付**；**出厂默认关 → 实验**（§7.3 是第 126 波那一族的合并表：同一张表里三个已翻默认开、两个仍默认关，逐行写明）。「默认关」的含义是显式 `false` 或缺省时**与上一版逐字节等价**；**已翻默认开的那三个，只有显式 `false` 才是上一版的行为，「缺省」不再是**。证据只来自假端点（fake provider／假时钟）的条目打 ⚠。
 > **改法**：全部是数据目录 `config.json` 的**顶层键**，写 `false` 即关；改完重启服务（少数开关下一回合即生效）。这一节只列 2.8.0 要点名的那些，不是 `01-config.js` 默认值区的全表。
@@ -596,16 +596,42 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 - **顶层新键本身不会被删**：2.7.0 的 `normalizeConfig` 是「默认值铺底 ＋ 磁盘覆盖」，不认识的顶层键原样留着。所以 `asrProviderId`／`asrModel`／`stewardExemptDelegationV1`／`schedulerEnabledV1`／`newThreadEngine` 这些键降级后只是**没人读**，升回来照旧生效。**会被抹掉的只有 §7.5 开头那两类**：`providers[]` 里的**嵌套**字段（`models[].caps`／`audioBaseUrl`／`asrProtocol`／`hiddenModels`，被 `sanitizeProvider` 重建掉）与管家记忆里的 `expiresAt`／`scope`。三个压缩开关的键也属于「留在盘上、没人读」这一类（2.7.0 没有这三项）。
 - **降级再升级，会把你在 2.8.0 里关掉的压缩开关重新打开一次**：2.7.0 写盘时把 `configSchema` 改回 11，回到 2.8.0 时那道 `< 12` 的一次性迁移会再跑一遍（第 107 波 P1 实测）。要保持关着，升回来之后再写一次 `false`。
 
-### 7.6 3.0 预览版补充：`CONFIG_SCHEMA` 12 → 14
+### 7.6 3.0 迁移补充：`CONFIG_SCHEMA` 12 → 14
 
 上面各节按 2.8.0 写成，对 2.7.0 ↔ 2.8.0 仍然准确。当前树是 **3.0.0**，`CONFIG_SCHEMA` 已到 **14**（`app/src/00-boot.js`；迁移表是 `app/src/01-config.js` 的 `CONFIG_MIGRATIONS`）。从 2.8.0 升上来，怎么升同 §7.4：下载完整包、解压到新目录、旧目录留着当回退路径；数据目录与 MCP server id 的改名见 §1.4 与文末「品牌与兼容」。多出来的两道一次性迁移：
 
 - **13（稀疏落盘）**：配置只落「改过的键」，显式键集合记在 `configExplicitKeysV1`，没碰过的设置跟随产品当前默认。同时 `killOnDisconnect` 缺省翻成 `false`（刷新／关窗不再结束回合）；老文件里写着的 `true` 若不在显式键里，按「当年的默认」处理。
 - **14（出厂权限档）**：出厂权限档由「每步都问」翻成**智能自动**，**只给全新安装**。盘上已有配置、却没存过 `permissionMode` 的，迁移钉回 `default`，不会被悄悄放开；盘上本来就写着档的原样保留。「切到」智能自动与全自动仍要二次确认。
 
-3.0 预览版的其余默认值变化（例如后台代理跑完自动唤醒主会话的 `agentAutoWake`，出厂开）见根目录 `CHANGELOG.md`。本章的回滚演练只覆盖 2.8.0 ↔ 2.7.0；3.0 预览版回退到 2.8.0 没有做过同样的实测，回退前请按 §7.5 的办法把数据目录整份备份。
+3.0 的其余默认值变化（例如后台代理跑完自动唤醒主会话的 `agentAutoWake`，出厂开）见根目录 `CHANGELOG.md`。本章记录的回滚演练只覆盖 2.8.0 ↔ 2.7.0，不能因 3.0 正式发布而视为 3.0 → 2.8.0 也已实测通过；回退前请按 §7.5 的办法把数据目录整份备份。
 
 ---
+
+## 外部机器人接入与远程控制
+
+支持 QQ 官方机器人的单聊／群 @ 文本，以及飞书应用机器人的单聊／群 @ 文本。启用本人远程控制后，消息会直接交给同一个管家办理，并将本次答复返回原会话；也可选择只收件、人工转草稿。飞书群自定义机器人的发送 Webhook 不用于这个入口。
+
+先在本机启用管家并验证现有模型配置能正常办理。远程入口沿用该配置，包括已配置的 DeepSeek、Qwen 等端点，不要求安装本地模型。平台故障不会提高任务权限，也不会自动改换模型。
+
+推荐先让管家代办本机配置：用户提供 QQ AppID，或飞书 App ID、tenant key、bot open_id；管家检查缺项并准备禁用连接。若用户只有飞书 App ID 与应用密钥，在“外部机器人”面板用“用应用信息自动发现”：本机向飞书固定官方接口探测一次，取得租户 key 与机器人 open_id 并写入本机凭据；对已有连接的“核验身份”只报告租户与机器人是否仍一致。用户从对话中的继续配置入口进入专用引导，用密码框录入秘密，启动五分钟配对，并向机器人发送一次性码。通过完整平台验签后，系统自动取得本人发送者与聊天身份，本机核对共享上下文和群回复范围后才启用。配对本身不调用模型、不执行任务、不发平台消息；修改连接或凭据、过期及重启都会使旧配对失效。外部控制消息不能自行开通新控制入口。
+
+Windows 引导使用当前用户 DPAPI 持久保存机器人凭据，不经过普通聊天、模型或通用配置接口；系统加密不可用时明确失败，不降级明文。密文按本机 Windows 用户保护，不能把它视为跨机器可直接迁移的密钥备份，也不防御同一用户权限的恶意程序。非 Windows 本批保留环境变量方式。环境变量引用与本机保存值的来源按字段明确区分：有引用时只使用引用，不因环境值缺失而静默回退到本机旧值。轮换凭据先禁用连接，重配并重新确认后启用。
+
+以下是保留的管理员手工环境变量流程；HTTPS 网关与平台权限步骤也适用于管家引导方式。
+
+1. 在平台创建专用机器人，取得应用身份、允许的发送者与会话 ID。飞书还需租户 ID、机器人自己的 open_id、Verification Token 和 Encrypt Key；远程控制回发还需 App Secret。QQ 需官方 Bot Secret。申请接收和发送消息所需权限，并按平台要求配置可用范围。
+2. 在启动如意的进程环境中配置实际秘密，变量名统一以 `RUYI_BOT_` 开头，例如 `RUYI_BOT_FEISHU_TOKEN`、`RUYI_BOT_FEISHU_ENCRYPT_KEY`、`RUYI_BOT_FEISHU_APP_SECRET`、`RUYI_BOT_QQ_SECRET`。设置页只填写这些变量名，不填秘密。更改环境后重新启动如意才能读取新值；先妥善处理仍在运行的任务。
+3. 在“设置 → 管家 → 外部机器人”建立连接，填写应用身份、两张白名单和所需变量名。发送者和会话必须同时命中；群消息还须 @ 当前机器人。新连接默认禁用，完整配置后显式启用。要直接远程办理，选择“远程控制”，绑定本人发送者 ID、会话 ID 与私聊／群聊类型，并确认它可以代表你操作同一个管家。它共享本机管家上下文、任务与现有工具权限；群内回复对其他成员可见，其他成员没有控制权。连接的平台与应用身份创建后固定，换应用需新连接 ID；删除后原 ID 不可复用，历史收件仍保留。
+4. 主服务仍监听本机回环地址。从离线包解压根目录启动独立接收网关：`.\runtime\node\node.exe .\tools\external-bot-gateway.js --upstream http://127.0.0.1:8765 --host 127.0.0.1 --port 8788`。源码运行可用 `node ruyi-workbench/tools/external-bot-gateway.js` 加相同参数；上游端口须取当前如意的实际端口。由管理员配置 HTTPS 终止，只转到该网关。平台回调地址使用设置页显示的 `/api/external-bots/callback/feishu?connectionId=…` 或 `/api/external-bots/callback/qq?connectionId=…` 路径。不能将整个如意站点、bootstrap 或管理 API 反向代理出去；网关会拒绝这些路径，也不需要工作台 token。
+5. 使用指定测试会话发送低风险指令，例如查询当前任务；控制模式下检查真实管家回合及原会话回复，再验证交办、续办和停止。仅收件模式只检查入箱。平台回调确认仅代表受理；本地“配置就绪”不证明账户权限、HTTPS 和真实平台已联通。
+
+飞书需启用 Encrypt Key：首批地址验证接受经过解密且 token 匹配的 challenge；业务事件校验原始字节签名、时间戳与应用/租户。QQ challenge 与业务消息按官方协议分别处理。当前实现没有飞书长连接模式；不具备 HTTPS 回调入口时，可等待后续独立长连接适配，而不应暴露如意整站。
+
+状态文件为数据根下 `external-bots/state-v1.json`，保存连接元信息、环境变量引用、收件与去重记录、管家本次答复及执行／发送状态。上限为 16 个连接、1000 条消息；已读不删除，满箱会拒绝新收件。不要通过删除状态文件“清空”：这会丢失来源配置和去重证据。归档与保留期管理是后续迭代；当前应先停用连接、备份并评估收件量。接入凭据值不在该文件内：环境变量方式需重新配置进程环境，本机保存方式使用独立 DPAPI 密文账，迁移后无法解密时需重新录入。
+
+损坏状态、未知 schema 或读写失败会明确拒绝接收，不会重建空账继续确认。网络、平台权限和真平台收发需要独立联调；离线协议测试通过不能代替实际账户验收。开发设计与后续迭代范围见仓库 `docs/optimization-plan/66-external-bots-and-steward-channels.md`。
+
+执行和回发分别持久记账。回调重投不会重做同一消息；重启后已经开始但结果未确认的执行，以及已经发送但回执未确认的回复，均标为未知，不自动重放。尚未开始的排队指令可在复核授权后恢复。停用或换绑会阻止排队及后续新动作，已经启动的子任务仍需按现有停止流程处理。QQ 被动回复有平台时效限制，耗时过长可能已经办理但不能回发；不要把发送失败当成执行失败，先在如意或新消息中查询任务。
 
 ## 附：品牌与兼容（v1.0-S9 发布工程）
 

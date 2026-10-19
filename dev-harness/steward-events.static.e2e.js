@@ -141,7 +141,7 @@ function typeExpressionLiterals(text) {
   // 117 波 T2 重钉:13h 又拆出 13m/13n/13o/13p/13q 五个文件(纯搬家),它们必须排在 13h【之前】——
   // 13h 的注册表要引用它们的实现,排在后面才是前向边。判据的用意不变(整族连续、顺序即依赖方向、
   // 紧跟 13e 之后),故只是把这五个补进同一条链里;族从六个变成十一个,判得更严不更松。
-  const STEWARD_FAMILY = ['13i-steward-inbox.js', '13j-steward-tool-base.js', '13k-steward-threads.js',
+  const STEWARD_FAMILY = ['13i-steward-inbox.js', '13j-steward-tool-base.js', '13aa-steward-delivery.js', '13k-steward-threads.js',
     '13l-steward-ops.js', '13g-steward.js', '13m-steward-runner-base.js', '13n-steward-arbiter.js',
     '13o-steward-runner-prompt.js', '13p-steward-runner-actions.js', '13q-steward-runner-turn.js',
     '13h-steward-runner.js'];
@@ -289,7 +289,7 @@ function typeExpressionLiterals(text) {
   // (逐字节不变)。原断言读的是「13g 这个文件」,钉的是落点;改成读整个 13g 族(13g/13j/13k/13l)
   // 并把「有」换成【恰好几处】—— 既跟着搬家走,又比原来严:原来只钉「至少有一处」,加回一份重复的
   // 写入端照样绿;现在族里多一份就红。
-  const stewardFamilySrc = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js',
+  const stewardFamilySrc = ['13g-steward.js', '13j-steward-tool-base.js', '13aa-steward-delivery.js', '13k-steward-threads.js',
     '13l-steward-ops.js'].map(read).join('\n');
   const famCount = re => (stewardFamilySrc.match(re) || []).length;
   ok(famCount(/function stewardRecordLaunchOutcome\(/g) === 1,

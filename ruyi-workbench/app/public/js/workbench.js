@@ -4,6 +4,7 @@
 import { state } from './state.js';
 import { $, el, fmtTokens, toast } from './util.js';
 import { getLocale, t } from './i18n.js';
+import { appendReadHealth, appendRunFaults, hasReadNotice, readQualitySignature } from './run-health.js';
 
 export function createWorkbenchDomain({
   agentRunActive = new Set(),
@@ -84,6 +85,8 @@ try { window.layoutWorkbenchDAG = layoutWorkbenchDAG; } catch { /* ignore */ }
 // posCache 按 run 记忆布局(拓扑签名不变则复用坐标 → 状态/进度变化时节点不抖动)。
 // v3 P3b 追加交互态:zoom(画布缩放挡位)/panelOpen(右板三段折叠记忆,轮询重绘不丢)/sideOpen(窄屏抽屉开合)。
 const wbState = { view: 'chat', selectedRunId: null, selectedNodeId: null, persistedRuns: [], lastRuns: [], posCache: {}, zoom: 1, panelOpen: { detail: true, pool: true, mail: true }, detailExpand: { task: false, result: false }, sideOpen: false };
+let wbReadQuality = null;
+try { globalThis.addEventListener('i18n:change', () => { if (wbState.view === 'canvas') renderWorkbench(wbState.lastRuns); }); } catch { /* no browser */ }
 const wbSteerDrafts = new Map();
 const wbSteerPending = new Set();
 const wbDraftKey = (runId, nodeId) => JSON.stringify([state.currentSession && state.currentSession.id, runId, nodeId]);
@@ -324,7 +327,7 @@ function wbCaptureFocus(container) {
 }
 function wbRestoreFocus(container, fk) {
   if (!fk || !container) return;
-  const t = container.querySelector(`[data-fk="${CSS.escape(fk)}"]`);
+  const t = container.querySelector(`[data-fk="${CSS.escape(fk)}"]`) || (fk.startsWith('health:') ? container.querySelector('[data-fk="overview:details"]') : null);
   if (t && !t.disabled) { try { t.focus({ preventScroll: true }); } catch { /* ignore */ } }
 }
 // 主视图状态机:切 data-main-view + tab 激活态 + localStorage 记忆;进画布启轮询并即时重绘,离开按需停轮询。
@@ -357,7 +360,8 @@ function wbUpdateActivityDot(runs) {
   tab.classList.toggle('has-activity', (Array.isArray(runs) ? runs : []).some(r => AGENT_RUN_ACTIVE.has(r.status)));
 }
 // 画布数据入口(loadAgentRuns 每轮调用):缓存 runs、刷新亮点标,画布态则重绘。
-function wbOnRuns(runs) {
+function wbOnRuns(runs, quality = null) {
+  wbReadQuality = quality;
   wbState.persistedRuns = Array.isArray(runs) ? runs : [];
   wbState.lastRuns = wbNativeClaudeMergedRuns(wbState.persistedRuns);
   // 对抗轮 P3: posCache 只增不减——按当前 runs 清理已消失的 run,删除记录/切会话后不再缓慢累积。
@@ -378,7 +382,7 @@ function renderWorkbench(runs, force) {
   if (run && wbState.selectedNodeId && !(Array.isArray(run.nodes) ? run.nodes : []).some(n => n.id === wbState.selectedNodeId)) wbState.selectedNodeId = null;
   // 对抗轮 P2(系统性根因): 数据+选中态签名未变 → 整轮跳过重建。2s 轮询的静止期(等审批/暂停/已结束)不再冲刷
   // 焦点/滚动/文本选区/悬停高亮;live 期数据帧帧在变仍会重建,由各处保留逻辑兜底。
-  const sig = `${wbState.selectedRunId}|${wbState.selectedNodeId}|${JSON.stringify(arr)}`;
+  const sig = `${getLocale()}|${wbState.selectedRunId}|${wbState.selectedNodeId}|${JSON.stringify(arr)}|${readQualitySignature(wbReadQuality)}`;
   if (!force && sig === wbState.renderSig) return;
   wbState.renderSig = sig;
   renderWorkbenchRunbar(arr, wbState.selectedRunId);
@@ -466,6 +470,8 @@ function renderWorkbenchOverview(run) {
   const progress = el('progress', 'wb-overview-progress'); progress.max = nodes.length || 1; progress.value = done;
   progress.setAttribute('aria-label', t('workflow.overview.completed', { done, total: nodes.length }));
   info.appendChild(progress); host.appendChild(info);
+  appendReadHealth(host, wbReadQuality, { el, t, locale: getLocale() });
+  appendRunFaults(host, run, { el, t, nodeStatus: nodeDisplayStatus, onView: id => wbFocusRunNode(run.id, id) });
   const actions = el('div', 'wb-overview-actions');
   const picker = el('select', 'wb-member-select'); picker.dataset.fk = 'overview:member';
   picker.setAttribute('aria-label', t('workflow.overview.selectMember'));
@@ -742,7 +748,7 @@ function renderWorkbenchUsage(run) {
 }
 // ⑤ 空态:无 run → 画布区居中引导卡(云纹水印 + 「去对话交办任务」/「从模板运行」);同时清空 chips/用量条/右板。
 function renderWorkbenchEmpty() {
-  const overview = $('wbOverview'); if (overview) overview.textContent = '';
+  const overview = $('wbOverview'); if (overview) { overview.textContent = ''; appendReadHealth(overview, wbReadQuality, { el, t, locale: getLocale() }); }
   const runbar = $('wbRunbar'); if (runbar) runbar.textContent = '';
   const usage = $('wbUsage'); if (usage) usage.textContent = '';
   const side = $('wbSide'); if (side) side.textContent = '';   // 右板清空 → .wb-main :has(:empty) 收单列，无空右条
@@ -753,6 +759,7 @@ function renderWorkbenchEmpty() {
   wrap.textContent = '';
   const box = el('div', 'wb-empty');
   box.appendChild(el('div', 'wb-empty-cloud'));
+  if (hasReadNotice(wbReadQuality)) { wrap.appendChild(box); return; }
   box.appendChild(el('div', 'wb-empty-title', t('workflow.empty.title')));
   box.appendChild(el('div', 'wb-empty-sub', t('workflow.empty.subtitle')));
   const acts = el('div', 'wb-empty-acts');
@@ -1009,13 +1016,6 @@ function wbMailBody(run) {
     return wbState.view === 'canvas';
   }
 
-  function markWorkbenchConnectionLost() {
-    if (!isWorkbenchCanvasView()) return;
-    const usage = $('wbUsage');
-    if (usage) usage.textContent = t('workflow.connectionLost');
-    wbState.renderSig = null;
-  }
-
   function bindWorkbench() {
     document.querySelectorAll('.wb-mainview-tabs .wb-mv-tab').forEach(button => {
       button.onclick = () => switchMainView(button.dataset.mainView);
@@ -1037,7 +1037,6 @@ function wbMailBody(run) {
   return Object.freeze({
     bindWorkbench,
     isWorkbenchCanvasView,
-    markWorkbenchConnectionLost,
     restoreMainView,
     wbNativeClaudeFinalize,
     wbNativeClaudeOnSubagent,

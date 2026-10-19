@@ -268,9 +268,9 @@ fs.writeFileSync(path.join(home, 'steward', 'memory-v1.json'), JSON.stringify({
   ],
 }, null, 2), 'utf8');
 
-// 决策夹具：两条，分属两条线程；第一条带撤回锚点（表格给「撤销」），第二条不带（给「详情」）。
+// 决策夹具：两条，分属两条线程；第一条带撤回锚点和原执行身份（给「撤销」），第二条不带（给「详情」）。
 fs.writeFileSync(path.join(home, 'steward', 'decisions-v1.ndjson'), [
-  JSON.stringify({ seq: 1, at: '2026-09-06T01:00:00.000Z', tool: 'steward_thread_continue', args: { sessionId: SID_A }, targetSessionId: SID_A, permissionMode: 'acceptEdits', mayAct: 'auto', undoRef: { kind: 'turn', sessionId: SID_A, turnSeq: 2, rewindTargetTurnSeq: 3 }, basis: { inboxSeq: 7, auto: true } }),
+  JSON.stringify({ seq: 1, at: '2026-09-06T01:00:00.000Z', tool: 'steward_thread_continue', args: { sessionId: SID_A }, targetSessionId: SID_A, permissionMode: 'acceptEdits', mayAct: 'auto', undoRef: { kind: 'turn', sessionId: SID_A, turnSeq: 2, rewindTargetTurnSeq: 3, execution: { serverInstanceId: 'synthetic-instance', driverRunId: 'synthetic-driver' } }, basis: { inboxSeq: 7, auto: true } }),
   // 127 波 2-quater B2:第二条是一次管家代批 —— basis.delegation 带类别与理由;理由里故意写一对尖括号,
   // 证明它只当纯文本上屏(G7)。
   JSON.stringify({ seq: 2, at: '2026-09-06T02:00:00.000Z', tool: 'steward_decide', args: { type: 'permission', action: 'allow' }, targetSessionId: SID_B, permissionMode: 'auto', mayAct: 'auto', undoRef: { kind: 'none', note: '不可撤销' }, basis: { interventionId: 'iv_1', delegation: { categories: ['delete_data', 'push_remote'], exemptBy: 'command_text', commandExcerpt: 'Remove-Item .\\tmp -Recurse', riskNote: '只清 <b>临时</b> 目录', tainted: false, taintBy: null } } }),
@@ -631,7 +631,7 @@ try {
     'G4 「线程权限」列复用四档人话');
   ok(log && log.decisionCells.includes(zh['settings.steward.decisions.undo'])
     && log.decisionCells.includes(zh['settings.steward.decisions.details']),
-    'G5 有撤回锚点的给「撤销」，没有的给「详情」');
+    'G5 有原执行身份和撤回锚点的给「撤销」，没有的给「详情」');
   // 127 波 2-quater B2：代批那一行的「依据」列画出类别人话与理由；理由里的尖括号是字，不是元素。
   {
     const expected = zh['settings.steward.decisions.basisDelegation']

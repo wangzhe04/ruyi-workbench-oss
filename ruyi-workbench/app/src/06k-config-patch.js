@@ -20,7 +20,7 @@
 // 路由层(13 的 POST /api/config)只剩 body 解析与错误翻译、掩码回包;13l 的 steward_config_set 同样调它。
 // 架构还债批 2 B2:从 13-http-router.js 原样搬到这里(同名、同行为)。两个调用方都经 01 的 ConfigPatchHooks 调,
 // 不直接引用本模块的符号 —— 本模块因此零入边、挂在唯一大 SCC 之外(见文件头)。
-async function applyConfigPatch(rawBody) {
+async function applyConfigPatch(rawBody, options = {}) {
   // 116-3 B1(会话/权限口径子审查):把全局默认权限切到「全自动」此前【没有服务端门】——
   // §8.6 那条二次确认只由界面出,任何别的调用方(脚本、117 壳、管家自己)一个 POST 就能把全局
   // 默认档改成 auto/bypass。13d 的 PATCH /api/sessions/:id 早就有这道门(同一张
@@ -42,6 +42,11 @@ async function applyConfigPatch(rawBody) {
   // (确认门仍在读之前、三路同步仍在写之后),变的只是这段临界区不再能被并发的另一次配置改动
   //  穿插 —— 此前 /api/config 与 storage/policy、agent-roles、连接器启停彼此吞字段。
   const patched = await mutateConfig(async (current) => {
+    // 设置回执的撤销与提议使用同一写锁比对现值，不能以锁外快照覆盖用户后来改的值。
+    const expected = options.expected ? unmaskSecrets(options.expected, current) : null;
+    if (expected && Object.keys(expected).some(key => JSON.stringify(current[key]) !== JSON.stringify(expected[key]))) {
+      throw Object.assign(new Error('settings changed since this receipt; read the current values before changing them again'), { code: 'config.conflict', statusCode: 409 });
+    }
     const merged = { ...current, ...body };
     // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
     // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
@@ -163,7 +168,7 @@ async function applyConfigPatch(rawBody) {
   if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
     await syncAgentCliMcpManifests(next, current);
   }
-  return next;
+  return options.capture === true ? { config: next, previous: current } : next;
 }
 
 // 加载即登记:13 / 13l 只经这个键调(见 01 的 ConfigPatchHooks)。

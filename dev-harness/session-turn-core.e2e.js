@@ -5,7 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 事件序列、持久化形状、用量台账逐项同构 —— 这是「零行为搬家」的主证据。
 //
 // 拓扑(全离线、零依赖):
-//   · fake-openai(纯 chat 回声,不发工具)一份,两条路径共用;
+//   · fake-openai(纯 chat 回声,不发工具)一份,两条路径共用;⑦另用会合 provider 固定被抢占阶段;
 //   · HTTP 路径:子进程起真服务(HOME_HTTP),POST /api/chat/stream;
 //   · 核心路径:本进程 require(app/server.js)(HOME_CORE,require 前已把 RUYI_HOME/WIN_CLAUDE_WORKBENCH_HOME
 //     指到临时目录),直接调用导出的 runSessionTurn,自带 onEvent sink。
@@ -18,7 +18,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  ④ 持久化形状同构:会话 meta(turnSeq、消息角色序列)、messages.ndjson 的角色与引擎字段一致。
 //  ⑤ 用量台账:两个 HOME 各恰好 1 行,键集合与 engine/provider/model/kind 一致(source 不进台账、不改判定)。
 //  ⑥ source/requestMeta 只透传:传 'steward' 时返回值回显,台账行与 'http' 那条同形(不多不少一个键)。
-//  ⑦ 并发同会话:核心并发发起两回合与 HTTP 并发双发的语义相同(supersede,不是忙错误);两次都收敛,
+//  ⑦ 并发同会话:两路径都等 A 进入模型请求后再发 B,比较相同阶段的 supersede(不是忙错误);两次都收敛,
 //     且事后同一会话还能正常跑一回合 —— 没有留下脏锁。
 //  ⑧ signal abort:回合被 abort 后核心按原语义收尾(promise 正常 resolve、disconnected:true),
 //     且同一会话随后仍能正常跑一回合(授权登记/settle 登记都已清干净)。
@@ -33,6 +33,7 @@ const fs = require('fs');
 const os = require('os');
 
 const { getFreePort } = require('./free-port.js');
+const { startFakeProvider, textFrames, usageFrame } = require('./lib/fake-openai-provider');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HERE = __dirname;
@@ -72,7 +73,7 @@ function postStream(port, payload) {
     req.write(data); req.end();
   });
 }
-function writeConfig(home, fakePort) {
+function writeConfig(home, fakePort, concurrencyUrl, activeProvider = 'fake') {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
     stewardThreadBriefV1: false,
@@ -80,9 +81,13 @@ function writeConfig(home, fakePort) {
     // 【一条回合的旁车文件集合与台账形状】,管家开着会往同一个 HOME 里另写 steward/ 那一族面,
     // ④「两条路径会话旁车文件集合相同」当场红。管家自己的覆盖在 steward-* 那十几件里。
     stewardEnabledV1: false,
-    configSchema: 7, version: '1.4.0', permissionMode: 'bypass',
-    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false }],
-    activeProvider: 'fake',
+    // ⑦切换专用 provider 时只由配置选择,不受上一回合异步记下的 lastUsedEngineRoute 干扰。
+    configSchema: 7, version: '1.4.0', permissionMode: 'bypass', newThreadEngine: 'global',
+    providers: [
+      { id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false },
+      { id: 'concurrency-fake', label: 'Concurrency Fake', type: 'openai-compat', baseUrl: concurrencyUrl, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false },
+    ],
+    activeProvider,
   }, null, 2));
 }
 function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore */ } } }
@@ -118,11 +123,32 @@ function ledgerRows(home) {
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   const FAKE_PORT = await getFreePort();
   const WB_PORT = await getFreePort();
+  const heldRequests = new Set();
+  const concurrencyFake = await startFakeProvider({ handler(req) {
+    const lastUser = req.messages.findLast(m => m.role === 'user');
+    const content = typeof lastUser?.content === 'string' ? lastUser.content : JSON.stringify(lastUser?.content);
+    const marker = ['HTTP 并发 A', 'CORE 并发 A'].find(m => content?.includes(m));
+    if (marker) {
+      // 真 provider 请求到达才说明 owner/ctrl 已注册;挂住 A,让 B 必然抢占运行中的回合。
+      // 不能用 Promise.all 双发代替此会合:尚未进引擎即被抢占时合法地没有 result 信封。
+      req.sse({ id: 'concurrent-held', choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
+      heldRequests.add(marker);
+      return;
+    }
+    return [...textFrames('CONCURRENT_WINNER'), usageFrame(8, 4)];
+  } });
+  async function waitHeld(marker) {
+    const deadline = Date.now() + 15000;
+    while (!heldRequests.has(marker)) {
+      if (Date.now() >= deadline) throw new Error('provider rendezvous timeout: ' + marker);
+      await sleep(25);
+    }
+  }
 
   fs.rmSync(HOME_HTTP, { recursive: true, force: true });
   fs.mkdirSync(HOME_HTTP, { recursive: true });
-  writeConfig(HOME_HTTP, FAKE_PORT);
-  writeConfig(HOME_CORE, FAKE_PORT);
+  writeConfig(HOME_HTTP, FAKE_PORT, concurrencyFake.url);
+  writeConfig(HOME_CORE, FAKE_PORT, concurrencyFake.url);
 
   const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT) }, windowsHide: true });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
@@ -192,27 +218,42 @@ function ledgerRows(home) {
     ok(keysOf(afterSteward[1]) === keysOf(coreLedger[0]), '⑥ 台账形状不因 source 改变(source 不进台账、不改判定)');
     ok(JSON.stringify(typeRuns(stewardEvents)) === JSON.stringify(coreRuns), '⑥ 管家回合事件序列与 HTTP 回合相同');
 
-    // ---- ⑦ 并发同会话:核心与 HTTP 同语义(supersede,不是忙错误) ----
+    // ---- ⑦ 并发同会话:在同一个实际运行阶段验证 supersede ----
+    // HTTP 壳不接收 engineRoute 覆盖;两边都从相同配置推断 provider,保持原路径等价性。
+    writeConfig(HOME_HTTP, FAKE_PORT, concurrencyFake.url, 'concurrency-fake');
+    writeConfig(HOME_CORE, FAKE_PORT, concurrencyFake.url, 'concurrency-fake');
     const httpConcSid = (await postStream(WB_PORT, { message: '并发底座', cwd: HOME_HTTP })).find(e => e.type === 'session').session.id;
+    const httpA = postStream(WB_PORT, { sessionId: httpConcSid, message: 'HTTP 并发 A', cwd: HOME_HTTP });
+    await waitHeld('HTTP 并发 A');
     const [hA, hB] = await Promise.all([
-      postStream(WB_PORT, { sessionId: httpConcSid, message: '并发 A', cwd: HOME_HTTP }),
-      postStream(WB_PORT, { sessionId: httpConcSid, message: '并发 B', cwd: HOME_HTTP }),
+      httpA,
+      postStream(WB_PORT, { sessionId: httpConcSid, message: 'HTTP 并发 B', cwd: HOME_HTTP }),
     ]);
     const httpConcShape = [hA, hB].map(evs => ({ hasResult: evs.some(e => e.type === 'result'), busyError: evs.filter(e => e.type === 'error').map(e => e.error) }));
     const coreConcSid = (await api.runSessionTurn({ message: '并发底座', cwd: HOME_CORE, onEvent: () => {} })).sessionId;
     const cA = [], cB = [];
+    const coreA = api.runSessionTurn({ sessionId: coreConcSid, message: 'CORE 并发 A', cwd: HOME_CORE, onEvent: e => cA.push(e) });
+    await waitHeld('CORE 并发 A');
     const [rA, rB] = await Promise.all([
-      api.runSessionTurn({ sessionId: coreConcSid, message: '并发 A', cwd: HOME_CORE, onEvent: e => cA.push(e) }),
-      api.runSessionTurn({ sessionId: coreConcSid, message: '并发 B', cwd: HOME_CORE, onEvent: e => cB.push(e) }),
+      coreA,
+      api.runSessionTurn({ sessionId: coreConcSid, message: 'CORE 并发 B', cwd: HOME_CORE, onEvent: e => cB.push(e) }),
     ]);
     const coreConcShape = [cA, cB].map(evs => ({ hasResult: evs.some(e => e.type === 'result'), busyError: evs.filter(e => e.type === 'error').map(e => e.error) }));
     ok(JSON.stringify(httpConcShape.map(s => s.hasResult)) === JSON.stringify(coreConcShape.map(s => s.hasResult)),
       '⑦ 并发同会话:两路径「是否各自收尾」判定相同(HTTP ' + JSON.stringify(httpConcShape.map(s => s.hasResult)) + ')');
-    ok(JSON.stringify(httpConcShape.map(s => s.busyError.length)) === JSON.stringify(coreConcShape.map(s => s.busyError.length)),
-      '⑦ 并发同会话:两路径 error 事件条数相同(现网语义是 supersede,没有忙错误信封)');
-    ok(rA.sessionId === coreConcSid && rB.sessionId === coreConcSid, '⑦ 并发两回合都落在同一会话');
+    ok([hA, hB, cA, cB].every(evs => evs.filter(e => e.type === 'result').length === 1), '⑦ 两路径运行中的两回合都恰好一个 result');
+    const resultOf = evs => evs.find(e => e.type === 'result');
+    ok([hA, cA].every(evs => resultOf(evs)?.aborted === true && resultOf(evs)?.superseded === true && resultOf(evs)?.ok === false), '⑦ 两路径 A 都被 B supersede 并以 aborted 收尾');
+    ok([hB, cB].every(evs => resultOf(evs)?.ok === true && resultOf(evs)?.aborted === false), '⑦ 两路径 B 都正常完成');
+    ok([...httpConcShape, ...coreConcShape].every(s => s.busyError.length === 0),
+      '⑦ 并发同会话:两路径都无 error 事件(supersede,没有忙错误信封)');
+    ok(rA.sessionId === coreConcSid && rB.sessionId === coreConcSid && [hA, hB].every(evs => evs.find(e => e.type === 'session')?.session?.id === httpConcSid), '⑦ 两路径并发两回合都落在各自同一会话');
+    const httpAfterConc = await postStream(WB_PORT, { sessionId: httpConcSid, message: '并发之后', cwd: HOME_HTTP });
     const afterConc = await api.runSessionTurn({ sessionId: coreConcSid, message: '并发之后', cwd: HOME_CORE, onEvent: () => {} });
-    ok(afterConc.ok === true, '⑦ 并发之后同一会话仍能正常跑一回合(没有留下脏锁)');
+    ok(resultOf(httpAfterConc)?.ok === true && afterConc.ok === true, '⑦ 并发之后两路径同一会话仍能正常跑一回合(没有留下脏锁)');
+    ok(concurrencyFake.errors.length === 0, '⑦ 会合 provider 无夹具错误');
+    writeConfig(HOME_HTTP, FAKE_PORT, concurrencyFake.url);
+    writeConfig(HOME_CORE, FAKE_PORT, concurrencyFake.url);
 
     // ---- ⑧ signal abort ----
     const abortCtl = new AbortController();
@@ -243,6 +284,7 @@ function ledgerRows(home) {
     fail++; console.log('FAIL 未捕获异常: ' + (e && e.stack || e));
   } finally {
     killp(wb); killp(fake);
+    await concurrencyFake.close();
   }
 
   console.log(fail ? ('SESSION-TURN-CORE E2E: ' + fail + ' FAIL') : 'SESSION-TURN-CORE E2E: ALL PASS');

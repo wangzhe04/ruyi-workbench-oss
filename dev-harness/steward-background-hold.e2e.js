@@ -111,8 +111,9 @@ try {
     'S2 班组收工与本线程回合报告是同一件事:回合报告在箱里或被按住时,done 不单独叫醒管家');
   const conv = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'steward-conversation.js'), 'utf8');
   ok(/if \(!\(Number\(source\.turnSeq\) > 0\)\) return null;/.test(conv)
-    && /if \(fetched && \(!found \|\| !found\.text\.trim\(\)\)\) \{ block\.remove\(\); return null; \}/.test(conv),
-    'S3 交付卡只挂真回合;信封取到但这一回合没有交付正文 → 整块撤掉(不再垫「没取到原文」)');
+    && /if \(fetched && !hasArtifacts && \(!found \|\| !found\.text\.trim\(\)\)\) \{ block\.remove\(\); return null; \}/.test(conv)
+    && /if \(hasArtifacts\) attachStewardDeliveryPanel\(block, source,/.test(conv),
+    'S3 交付卡只挂真回合;仅无正文且无本轮产物时撤掉,有产物时保留交付面板');
   const narrative = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'turn-narrative.js'), 'utf8');
   ok(/if \(message && message\.backgroundJobId\) continue;/.test(narrative),
     'S4 后台任务完成回执不进对话流(数据仍在,模型下一回合照读)');

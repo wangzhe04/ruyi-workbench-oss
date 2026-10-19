@@ -1,5 +1,6 @@
 // 02d-session-overrides.js - 架构还债批 3·B: 从 02-session-store.js 搬出的会话级内存覆盖表(引擎路由/权限档/桌面工具的 live-turn stale-save guard;纯搬家,零行为变更)。
 const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
+const sessionEngineRouteScopeOverrides = new Map(); // 与路由同寿命，守住显式“仅此任务”的选择
 // 116-2a(27 号文 §3.3/§8.6 线程权限就地快切):会话级权限档的内存权威副本 —— 与上面那张 engineRoute
 // 覆盖表同款「live-turn stale-save guard」。值为档名,或 ''(= 用户清除了会话级设置,回落全局)。
 // 为什么需要它:活回合手里那份会话内存副本是回合开始时的快照,不带用户刚切的权限档;它的收尾 save

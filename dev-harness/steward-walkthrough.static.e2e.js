@@ -21,6 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -37,6 +38,7 @@ const ok = (condition, label) => {
   const conversation = read('js/steward-conversation.js');
   const composer = read('js/steward-composer.js');
   const drawer = read('js/steward-drawer.js');
+  const drawerOpenBody = functionBlock(drawer, 'openThread');
   const board = read('js/steward-board.js');
   const shell = read('js/steward-shell.js');
   const convCss = read('css/views/steward-conversation.css');
@@ -108,8 +110,11 @@ const ok = (condition, label) => {
       && !/doc\(\)\.addEventListener\('click'/.test(composer)
       && !/if \(!open \|\| open\.hidden\) return;/.test(composer),
       'B2 点列表外任意处收起（M2 起归 popover 原语的 mousedown ＋ shell 那处捕获阶段 click；composer 不再留第二路）');
-    ok(/const titles = new Set\(\);/.test(composer) && /if \(title && titles\.has\(title\)\) \{ seen\.add\(row\.sessionId\); return; \}/.test(composer),
-      'B3 候选按标题去重（同一件事开过好几条线程时，列表里不会出现三四行一样的字）');
+    // 62 号第三轮 E04（2026-10-17）：117j W2-2 的「按标题去重」被推翻 —— 同名但不同 session 是两件事，
+    // 折成一行等于用户没法选。候选改成按 sessionId 保留身份，重名行追加可分辨后缀（时间／sessionId 尾段）。
+    ok(/export function stewardCandidateRows/.test(composer) && !/const titles = new Set\(\);/.test(composer)
+      && /counts\.get\(row\.title\) < 2/.test(composer) && /row\.title \+ ' · ' \+/.test(composer),
+      'B3 候选按 sessionId 保留身份（62 号 E04：同名不再折叠，重名行带可分辨后缀）');
     ok(/if \(event\.key === 'Escape'\) \{ closePicker\(\); return; \}/.test(composer),
       'B4 Esc 收起');
     ok(/cancelPreroute\(\);\s*closePicker\(\);/.test(composer), 'B5 发送前先收起');
@@ -173,13 +178,13 @@ const ok = (condition, label) => {
     // 判据本身（!firstSeen && 管家模式 && trigger==='inbox'）一个字没动，所以这里只把「一行」
     // 放宽成「这个分支」，并用下面的 D3c/D3d companion 把「多出来的那件事到底是什么、有没有
     // 跑到别的分支去」重新钉死 —— 不是放宽正则让它过，是把断言拆成条件与动作两半各钉一遍。
-    ok(/if \(!firstSeen && isStewardMode\(\) && lastReply\.trigger === 'inbox'\) \{[^}]*void conversation\.appendSince\(''\);[^}]*\}/.test(shell),
+    ok(/if \(isStewardMode\(\) && \(lastReply\.trigger === 'external' \|\| \(!firstSeen && lastReply\.trigger === 'inbox'\)\)\) \{[^}]*void conversation\.appendSince\(''\);[^}]*\}/.test(shell),
       'D3 只认 trigger===\'inbox\'：用户自己发的那一条是 sendToSteward 当场画的，再追加一次就重了');
     // companion ①：nudge 全文件只被调用一次，且就在这一个分支里 —— 用户自己说完一句、
     // 首次轮询、非管家模式，一律不播（否则头像会在用户打字时莫名其妙地亮一下）。
     const nudgeCalls = (shell.match(/nudgeAvatar\(\)/g) || []).length;
     ok(nudgeCalls === 2
-      && /lastReply\.trigger === 'inbox'\) \{ nudgeAvatar\(\);/.test(shell),
+      && /lastReply\.trigger === 'external' \|\| \(!firstSeen && lastReply\.trigger === 'inbox'\)\)\) \{ nudgeAvatar\(\);/.test(shell),
       `D3c companion：nudgeAvatar 只有「定义 1 ＋ 调用 1」两处，调用点就在 inbox 那一分支的第一句（实测 ${nudgeCalls} 处）`);
     // companion ②：这记动效【零计时器】—— 类由 animationend 摘，本文件的 setTimeout 仍然是 0
     // （setInterval 恰好一处那条由 steward-avatar.static F1 / steward-shell.static C2a 各钉一遍）。
@@ -527,9 +532,11 @@ const ok = (condition, label) => {
     // 的函数体逐字钉死，多这一步就红；companion（H5d）钉住「focus 必须在闸之后」——
     // 闸落之前还没读到待决，那时候抢焦点等于赌它在问你。
     ok(/let loading = false;/.test(drawer) && /loading = true;/.test(drawer)
-      && /if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer),
+      && /if \(sessionId === id && drawerReadGeneration === openGeneration\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawerOpenBody),
       'H5 抽屉有「读取中」闸：数据到之前不画占位事实');
-    ok(drawer.indexOf('loading = false; renderAll(); if (wantFocus) focusAsk();') > drawer.indexOf('try { await refreshOnce(); }'),
+    const drawerRefreshAt = drawerOpenBody.indexOf('try { await refreshOnce(); }');
+    const drawerReadyFocusAt = drawerOpenBody.indexOf('loading = false; renderAll(); if (wantFocus) focusAsk();');
+    ok(drawerRefreshAt >= 0 && drawerReadyFocusAt > drawerRefreshAt,
       'H5d companion：焦点交给问答框发生在 refreshOnce 之后、闸落下的那一帧（不是开抽屉那一帧）');
     ok(/titleNode\.textContent = name \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : sessionId\);/.test(drawer)
       && /quote\.textContent = said \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : t\('stewardShell\.drawer\.lastSayEmpty'\)\);/.test(drawer),
@@ -579,8 +586,9 @@ const ok = (condition, label) => {
       && html.includes('id="stewardDrawerAskInput"')
       && /\.steward-drawer-ask\[hidden\] \{ display: none; \}/.test(read('css/views/steward-drawer.css')),
       'I3 ① 问答卡排在线程头之后，骨架在 index.html，显隐配了 [hidden] 守卫');
-    ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer),
-      'I3b 打开线程、数据到齐之后焦点落进问答框（这就是「打开线程回答」按下去该发生的事）');
+    ok(/if \(sessionId === id && drawerReadGeneration === openGeneration\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawerOpenBody)
+      && drawerOpenBody.includes('const openGeneration = drawerReadGeneration;'),
+      'I3b 打开线程、同代际数据到齐才聚焦问答框；旧进程/旧打开请求不得抢当前输入焦点');
 
     // I4 ①⑥ 递话单口：抽屉不再自己在 /api/steer 与 /api/chat/stream 之间猜通道。
     ok(/api\('\/api\/steward\/relay'/.test(drawer)
@@ -596,8 +604,8 @@ const ok = (condition, label) => {
     const layoutCss = read('css/layout.css');
     ok(!/\.steward-presence-text::before/.test(avatarCss) && /\.steward-presence-dot \{/.test(shellCss),
       'J1 头部的状态点只有 #stewardPresenceDot 一颗：steward-avatar.css 里那枚靠 ~ 兄弟选择器取色的 ::before（头像搬进对话流后永远选不中、恒灰）整族退役');
-    ok(/\.steward-shell \{ --steward-col-w: 720px; \}/.test(shellCss) && /max-width: var\(--steward-col-w\);/.test(shellCss) && !/max-width: 880px/.test(shellCss),
-      'J2 走查③：中栏读宽是一个 token（720，两态里都装得下，于是永远是同一条居中的对话列）');
+    ok(/\.steward-shell \{ --steward-col-w: 900px; \}/.test(shellCss) && /max-width: var\(--steward-col-w\);/.test(shellCss) && /width: 100%;/.test(shellCss),
+      'J2 用户走测：读宽共用一个 900 token，四行居中并受可用宽度约束');
     ok(/@container frame \(max-width: 640px\) \{\s*\.app-topbar \{ grid-template-columns: auto minmax\(0, 1fr\) auto;/.test(layoutCss)
       && /@container frame \(max-width: 480px\) \{[\s\S]{0,600}\.lens-btn > span,\s*\.app-topbar \.steward-shield-label \{[\s\S]{0,300}clip-path: inset\(50%\);/.test(layoutCss)
       && /@container frame \(max-width: 480px\) \{[\s\S]{0,900}\.app-topbar \.app-status-chip \{ display: none; \}/.test(layoutCss),

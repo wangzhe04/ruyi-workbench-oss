@@ -7,7 +7,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 这一件钉的是「一台两视」这句话本身能不能兑现 —— 十组事实，每组都是「切换前后／断点前后
 // 屏幕上真的是那样」，全部读 DOM 与计算样式，一个模块私有状态都不碰：
 //   ① 左栏是【同一份 DOM】：切视角前后 #sidebar／#railList／#sessionSearch 都 isSameNode（§2.1 第 10 条）；
-//   ② 1920 三栏在位、中栏读宽 ≤880（§7.1），且两个视角的三栏栅格【逐字相同】（切换不跳）；
+//   ② 1920 三栏在位、中栏读宽900（用户走测修订），且两个视角的三栏栅格【逐字相同】（切换不跳）；
 //   ③ 1200／900 两个断点：1200 右栏仍在栅格里、900 左栏折成 56px 图标栏且行一条不少（§7.3），各存一张图；
 //   ④ 切视角真的走 View Transitions：startViewTransition 一次切换【只调一次】，:root[data-vt]
 //      方向正确（管家→工作台 fwd、回来 back），命名部件上真的跑了 vt-* 那几条 keyframes，收尾即删属性；
@@ -568,12 +568,9 @@ try {
     && wide.stage && wide.stage.x === 268 && wide.side && wide.side.w > 0
     && Math.abs((wide.stage.x + wide.stage.w) - wide.side.x) <= 1,
     `C2 1920 下三栏在位且首尾相接：左栏 ${wide.rail && wide.rail.w} ｜ 中栏 ${wide.stage && wide.stage.w} ｜ 右栏 ${wide.side && wide.side.w}`);
-  // W4b 重钉（用户 2026-09-25 走查③「右栏展开时对话贴左、收起时居中」）：读宽从 880 收成 720 —— 880 比右栏
-  // 展开时中栏能给的宽还大，展开态是铺满贴边、收起态才居中，两态看着是两种版式；720 在两态里都装得下，
-  // 于是永远是同一条居中的对话列（steward-shell.css 的 --steward-col-w，一个 token）。管家的话本来就 ≤680、
-  // 用户气泡 ≤520，正文一个字没被削。反向：把 --steward-col-w 改回 880px → 本条红。
-  ok(wide.feed && wide.feed.w === 720,
-    `C2b 中栏内容读宽 = 720（--steward-col-w；实测 ${wide.feed && wide.feed.w}px，居中留白由 margin-inline:auto 给，右栏展开／收起两态同宽）`);
+  // 用户 2026-10-18 走测：长文与表格读宽适度加大，仍共用居中列，不越过右栏。
+  ok(wide.feed && wide.feed.w === 900 && wide.feed.w <= wide.stage.w,
+    `C2b 中栏内容读宽 = 900（--steward-col-w；实测 ${wide.feed && wide.feed.w}px，受中栏可用宽度限制）`);
   await setLens('classic');
   const wideClassic = await snap();
   ok(wideClassic.shellCols === wide.stewardCols,

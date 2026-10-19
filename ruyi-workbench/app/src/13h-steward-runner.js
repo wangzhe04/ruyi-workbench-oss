@@ -124,16 +124,15 @@ async function stewardImplThreadStop(args, ctx, config) {
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot stop its own turn');
   const reason = stewardSanitizeText(args.reason).trim().slice(0, STEWARD_STOP_REASON_MAX);
 
-  const stopped = activeChildren.has(sessionId) ? stopSession(sessionId, 'steward-stop') === true : false;
-  let queuedStopped = false;
-  try { queuedStopped = stewardCancelQueuedTurn(sessionId) === true; } catch { queuedStopped = false; }
+  const receipt = requestSessionExecutionStop(sessionId, args.expectedExecution, 'steward-stop');
+  if (!receipt.ok) return stewardFail(receipt.error, receipt.error + ': read thread_status before stopping', { sessionId });
+  const { stopped, queuedStopped, alreadyRequested } = receipt;
   if (!stopped && !queuedStopped) return stewardFail('not_running', '这条线程现在没有在跑,不用停', { sessionId });
-  try { revokeAllGrants(sessionId, 'steward-stop'); } catch { /* best-effort,与 /api/stop 同款 */ }
 
   // 停下的回合【不能】原样续上(它的半截输出已经落进会话正文;要撤销那一整回合是 rewind,另一件事)。
   // undoRef 诚实标 none,并把用户真正该走的那条路写进 note。
   const undoRef = { kind: 'none', note: '停下的回合不能原样续上;要继续用「接着办」' };
-  stewardAppendDecision({
+  if (!alreadyRequested) stewardAppendDecision({
     tool: 'steward_thread_stop',
     args: { stopped, queuedStopped, ...(reason ? { reason } : {}) },
     targetSessionId: sessionId,
@@ -188,6 +187,10 @@ async function stewardAppendUserStop(sessionId, facts) {
 // 路由(token 级,ROUTE_AUTH 在 01b 登记)。经 13g 的 handleStewardApiRoutes 末尾转交(见那里的注释)。
 // ────────────────────────────────────────────────────────────────────────────
 async function handleStewardRunnerApiRoutes(req, res, pathname) {
+  if (req.method === 'GET' && pathname === '/api/steward/delivery') {
+    await StewardHooks.handleDeliveryApiRoutes(req, res, pathname);
+    if (res.writableEnded) return;
+  }
   // 116h(27 号文 §3.1 116h 行 / §8.10 多线程看板):线程间仲裁的只读状态与插队。
   // 状态是纯内存读模型(running/queue/hour/day),不写盘;prioritize 只动队列顺序,不打断在跑的回合。
   if (req.method === 'GET' && pathname === '/api/steward/arbiter') {
@@ -247,7 +250,8 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
       return send(res, apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409));
     }
     const body = await readJsonBody(req).catch(() => ({}));
-    const result = await stewardRunAct(body && body.act, config);
+    // 62 号第三轮 P1：同一次递话重试带同一个 attemptId；checkAttempt 只读回执，不触发执行。
+    const result = await stewardRunAct(body && body.act, config, { attemptId: body && body.attemptId, check: Boolean(body && body.checkAttempt === true), window: body && body.attemptWindow });
     if (result && result.ok === false) return send(res, apiFailure(result.error, {}, result.message || result.error, 400));
     return send(res, json(result));
   }
@@ -448,6 +452,10 @@ Object.assign(StewardHooks, {
   // 补法放在 13g 的 stewardToolHandler 一处(42 个工具的唯一咽喉),它经本口取真值;
   // inflight 在回合本体开跑【前】同步认领、收尾时清空,所以工具循环期间它就是当前回合的那一个。
   currentTurnTrigger: () => (stewardRunnerRuntime.inflight ? String(stewardRunnerRuntime.inflight.kind || '') : ''),
+  currentTurnContext: () => {
+    const entry = stewardRunnerRuntime.inflight;
+    return entry ? { trigger: String(entry.kind || ''), ...(entry.kind === 'external' ? { externalActor: entry.externalActor } : {}) } : null;
+  },
   // 117l D7:同理住 13h —— 它要 02 的 normalizeSessionEngineRoute 与 04 的 logEvent,06i 够不着那两个。
   applyThreadTier: stewardApplyThreadTier,
 });
@@ -467,3 +475,6 @@ function stewardSanitizeAttachments(raw) {
   }
   return out;
 }
+
+SessionExecutionHooks.cancelQueuedTurn = stewardCancelQueuedTurn;
+SessionExecutionHooks.revokeGrants = sessionId => revokeAllGrants(sessionId, 'explicit-stop');

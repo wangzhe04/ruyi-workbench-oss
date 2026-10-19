@@ -1,5 +1,7 @@
 # UI vNext 概念稿:「交办台」范式(底层重构线)
 
+> **历史概念**：交办台壳层已于第 121 波退役，当前为管家与工作台两视角。下文的 3.0/3.1 设想属于 2026-07 的规划，不是现行版本承诺；后续范围见[当前路线](OPTIMIZATION-ROADMAP.md)。数据契约中继续使用的部分见 [Mission Schema](MISSION-SCHEMA.md)。
+
 状态:概念稿(2026-07-10,基于 HEAD f73cc4d)；2026-07-24 复核后作为 Pretender 立项输入，仍不构成 3.0 范围或发布时间承诺。**2026-07-30 范围解释以 `./archive/PRETENDER-PLAN.md` v4 为准**:3.0 交付稳定 Mission 身份与四类 Intervention(permission/question/plan/pool),一单多会话1:N及 conflict 生产语义移3.1；本概念稿保留长期北极星原文。作者:Fable 5(底层重构线,与 r2 美学打磨线平行,互不阻塞)。
 授权范围:质疑一切现有范式,包括三栏布局本身;迁移评估必须诚实。
 配套设计图:`docs/mockups/vnext-home.html`(交办台首页)、`docs/mockups/vnext-mission.html`(任务单监督面 · 多 Agent)。

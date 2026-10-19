@@ -276,6 +276,7 @@ const providerScript = async ctx => {
       `E1 英文界面单条卡:作用域说明是英文、卡上界面文字零中文(got ${JSON.stringify(e1)})`);
     await eev(`location.reload()`);
     await sleep(600);
+    if (!await ewait(`document.documentElement.lang === 'en-US' && window.state?.config?.locale === 'en-US'`, 1500)) throw new Error('English boot configuration did not settle');
     const e2 = await ewait(`(() => { const t = window.state && window.state.currentSession && window.state.currentSession.id ? ${chromeTexts} : []; return t.length ? t : null; })()`, 1500);
     ok(Array.isArray(e2) && e2.every(x => !cjk(x)) && e2.some(x => /AI suggested Global/.test(x)), `E2 刷新后画回来的卡同样是英文(got ${JSON.stringify(e2)})`);
     // 语言切换会重新画消息行；候选仍待确认时，卡不能随旧行一起消失。

@@ -90,10 +90,10 @@ ok(panelStart > 0 && panel.length > 0 && securityPanel && limitsPanel && modelsP
 // 搬走的两组由下面 A4d 在新页里逐个钉住（id、aria-labelledby、所在页），一组都不许丢。
 const GROUP_IDS = ['cfgStewardGroupPower', 'cfgStewardGroupPersona', 'cfgStewardGroupAuto',
   'cfgStewardGroupBudget', 'cfgStewardGroupIndex', 'cfgStewardGroupSchedule',
-  'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'];
-const groupOrder = [...panel.matchAll(/<section class="steward-settings-group" id="(cfgStewardGroup[A-Za-z]+)"/g)].map(m => m[1]);
+  'cfgStewardGroupExternalBots', 'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'];
+const groupOrder = [...panel.matchAll(/<section class="steward-settings-group(?: [^"]+)?" id="(cfgStewardGroup[A-Za-z]+)"/g)].map(m => m[1]);
 ok(JSON.stringify(groupOrder) === JSON.stringify(GROUP_IDS),
-  `A4 八组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
+  `A4 九组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
 // A4c companion（136）：人设组必须紧跟「管家总开关」—— 它是身份，不许插到预算或记忆旁边（那是事实与钱，
 // 不是它是谁）。W6：其后原是「新线程默认权限」，那一组搬去了「权限与安全」，现在紧跟的是「管家可以自己做的事」。
 ok(groupOrder.indexOf('cfgStewardGroupPersona') === groupOrder.indexOf('cfgStewardGroupPower') + 1
@@ -102,8 +102,9 @@ ok(groupOrder.indexOf('cfgStewardGroupPersona') === groupOrder.indexOf('cfgStewa
 // A4b companion：阅读顺序 节奏与上下文 → 任务索引 → 定时任务 → 记忆 → 流水（W6 之前中间还夹着「新开线程用什么模型」）。
 ok(groupOrder.indexOf('cfgStewardGroupIndex') === groupOrder.indexOf('cfgStewardGroupBudget') + 1
   && groupOrder.indexOf('cfgStewardGroupSchedule') === groupOrder.indexOf('cfgStewardGroupIndex') + 1
-  && groupOrder.indexOf('cfgStewardGroupMemory') === groupOrder.indexOf('cfgStewardGroupSchedule') + 1,
-  'A4b 117l-A3＋121-K7＋W6：「节奏与上下文」之后依次是「任务索引」「定时任务」「管家记得的关于你」');
+  && groupOrder.indexOf('cfgStewardGroupExternalBots') === groupOrder.indexOf('cfgStewardGroupSchedule') + 1
+  && groupOrder.indexOf('cfgStewardGroupMemory') === groupOrder.indexOf('cfgStewardGroupExternalBots') + 1,
+  'A4b 117l-A3＋121-K7＋W6：「节奏与上下文」之后依次是「任务索引」「定时任务」「外部机器人」「管家记得的关于你」');
 // A4d（W6 新增）：搬走的两组在新家里原样在 —— 权限组仍是带 aria-labelledby 的 <section>、住「权限与安全」；
 // 强／快两档的组 id 住「模型分配」那张表里（是 role=group 的外壳，不再是一整段 section），且两页都不在管家页里。
 ok(new RegExp('<section class="steward-settings-group" id="cfgStewardGroupPermission" aria-labelledby="').test(securityPanel)
@@ -112,7 +113,7 @@ ok(new RegExp('<section class="steward-settings-group" id="cfgStewardGroupPermis
   'A4d W6：「新线程默认权限」整段住「权限与安全」、「新开线程用什么模型」住「模型分配」，管家页里都不再有');
 
 // 每一组都必须是真的 <section>（不是 div 冒充）且带 aria-labelledby（§8.8 无障碍）。
-ok(GROUP_IDS.every(id => new RegExp(`<section class="steward-settings-group" id="${id}" aria-labelledby="`).test(panel)),
+ok(GROUP_IDS.every(id => new RegExp(`<section class="steward-settings-group(?: [^"]+)?" id="${id}" aria-labelledby="`).test(panel)),
   'A5 每组 <section> 都有 aria-labelledby');
 
 // W6：steward-settings.js 仍按 id 接线全部 cfgSteward* 控件（本模块不认识它们在哪一页），所以这张名单一个都没少，

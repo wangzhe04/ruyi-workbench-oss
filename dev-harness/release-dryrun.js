@@ -11,15 +11,22 @@
  * Run: node dev-harness/release-dryrun.js [--pkg]
  */
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
-const cp = require('child_process'), fs = require('fs'), path = require('path'), http = require('http'), crypto = require('crypto');
+const cp = require('child_process'), fs = require('fs'), path = require('path'), http = require('http'), crypto = require('crypto'), os = require('os');
 const { getFreePort } = require('./free-port.js');
+const { releaseEnvironment, packageAndCheck } = require('./lib/release-checks');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const VERSION = '0.0.0-dryrun';
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-release-dryrun-'));
+const releaseEnv = releaseEnvironment(path.join(scratch, 'home'), path.join(scratch, 'data'));
+releaseEnv.PKG_CACHE_PATH = process.env.PKG_CACHE_PATH || path.join(os.homedir(), '.pkg-cache');
+const accIndex = process.argv.indexOf('--acc-offline-source');
+if (accIndex >= 0 && (!process.argv[accIndex + 1] || process.argv[accIndex + 1].startsWith('--'))) throw new Error('--acc-offline-source requires a path');
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
-const run = (cmd, args, cwd, opts = {}) => cp.execFileSync(cmd, args, { cwd, stdio: opts.quiet ? 'pipe' : 'inherit', timeout: opts.timeout || 300000 });
+const run = (cmd, args, cwd, opts = {}) => cp.execFileSync(cmd, args, { cwd, env: releaseEnv, windowsHide: true, stdio: opts.quiet ? 'pipe' : 'inherit', timeout: opts.timeout || 300000 });
+const listArchive = zip => run('tar.exe', ['-tf', zip], WB, { quiet: true }).toString('utf8');
 const cleanupStage = (dir, label) => {
   try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 500 }); }
   catch (e) { console.log('WARN ' + label + ' 临时目录清理延后（不影响已完成的发行校验）: ' + (e.code || e.message || e)); }
@@ -92,55 +99,69 @@ const NPM_RUN = process.platform === 'win32'
 
   // ④ pkg 冒烟(可选)
   if (process.argv.includes('--pkg')) {
+    let child;
     try {
       run(NPM_RUN.cmd, NPM_RUN.args, WB, { timeout: 600000 });
       const exe = path.join(WB, 'dist', 'Ruyi.exe');
       ok(fs.existsSync(exe) && fs.statSync(exe).size > 10 * 1024 * 1024, '④ pkg 打包出 Ruyi.exe(>10MB)');
       const port = await getFreePort();
-      const HOME = path.join(ROOT, 'dev-harness', '.tmp-dryrun-home');
-      fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
-      const child = cp.spawn(exe, ['serve', '--port', String(port)], { env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+      const data = releaseEnv.RUYI_HOME;
+      fs.mkdirSync(data, { recursive: true });
+      fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ autoImportClaudeCodeMcp: false, includeWorkbenchMcp: false, schedulerEnabledV1: false }));
+      child = cp.spawn(exe, ['serve', '--port', String(port)], { cwd: WB, env: releaseEnv, windowsHide: true, stdio: 'ignore' });
+      let startError; child.on('error', error => { startError = error; });
       let healthy = false;
-      for (let i = 0; i < 60 && !healthy; i++) {
+      const expectedVersion = JSON.parse(fs.readFileSync(path.join(WB, 'package.json'), 'utf8')).version;
+      for (let i = 0; i < 60 && !healthy && !startError && child.exitCode === null; i++) {
         healthy = await new Promise(resolve => {
-          const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 2000 }, res => resolve(res.statusCode === 200));
+          const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 2000 }, res => {
+            let text = ''; res.on('data', chunk => { text += chunk; }); res.on('end', () => {
+              try { const health = JSON.parse(text), rt = JSON.parse(fs.readFileSync(path.join(data, 'runtime.json'), 'utf8'));
+                resolve(res.statusCode === 200 && health.ok === true && health.version === expectedVersion && rt.pid === child.pid && rt.port === port && health.overlayId === rt.overlayId);
+              } catch { resolve(false); }
+            });
+          });
           r.on('error', () => resolve(false)); r.on('timeout', () => { r.destroy(); resolve(false); });
         });
         if (!healthy) await new Promise(r => setTimeout(r, 500));
       }
       ok(healthy, '④ Ruyi.exe serve 冒烟(/health 200)');
-      try { killOwnTree(child); } catch { /* ignore */ }
-      fs.rmSync(HOME, { recursive: true, force: true });
     } catch (e) { ok(false, '④ pkg 冒烟失败: ' + ((e.message || '') + '').slice(0, 300)); }
+    finally {
+      if (child && child.pid && child.exitCode === null && child.signalCode === null) {
+        const exited = new Promise(resolve => child.once('exit', resolve));
+        killOwnTree(child); await Promise.race([exited, new Promise(resolve => setTimeout(resolve, 5000))]);
+        ok(child.exitCode !== null || child.signalCode !== null, '④ pkg 冒烟进程已退出');
+      }
+    }
   } else {
     console.log('SKIP ④ pkg 冒烟(传 --pkg 启用;CI release-dryrun job 会跑)');
   }
 
-  // EC-A A1: Slim 离线包文件清单可复验(stage 关键文件存在;ZIP 打包是 env 独立 concern,CI 原生 Windows 正常)
+  // A1: a nonzero packager or missing/unreadable ZIP is a failure even if stage files exist.
   try {
     const stageDir = path.join(WB, 'dist', 'Ruyi-slim-dryrun');
     cleanupStage(stageDir, 'Slim');
-    let pkgErr = null;
-    try { cp.execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'tools', 'package-offline.ps1'), '-SkipExeBuild', '-Variant', 'slim-dryrun'], { cwd: WB, stdio: 'pipe', timeout: 120000, windowsHide: true }); }
-    catch (e) { pkgErr = e; }
     const keyFiles = ['app/server.js', 'app/public/app.js', 'package.json', 'Start-Workbench.cmd', 'docs'];
-    const missing = keyFiles.filter(f => !fs.existsSync(path.join(stageDir, f)));
-    ok(missing.length === 0, 'A1 Slim 离线包文件清单可复验(' + keyFiles.length + ' 关键路径;missing=' + missing.join(',') + (pkgErr ? '; ZIP/stage 警告已忽略(env tar)' : '') + ')');
+    packageAndCheck({ stage: stageDir, zip: stageDir + '.zip', keys: keyFiles, listArchive,
+      invoke: () => run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'tools', 'package-offline.ps1'), '-SkipExeBuild', '-Variant', 'slim-dryrun'], WB, { quiet: true, timeout: 180000 }) });
+    ok(true, 'A1 Slim 构包成功且实际 ZIP 清单可读取');
     cleanupStage(stageDir, 'Slim');
   } catch (e) { ok(false, 'A1 Slim 离线包清单检查失败: ' + (e.message || e)); }
   // EC-A A1 Full: 若 ACC 离线运行时已 hydrate(build_offline 存在)则跑 Full 包校验;否则 SKIP(未配置,不算 pass)
   try {
-    const accOffline = path.join(ROOT, 'mcp', 'ai-computer-control', 'build_offline');
+    const accOffline = accIndex >= 0 ? path.resolve(process.argv[accIndex + 1]) : path.join(ROOT, 'mcp', 'ai-computer-control', 'build_offline');
     if (!fs.existsSync(accOffline)) {
+      if (accIndex >= 0 || process.argv.includes('--require-full')) throw new Error('Full ACC offline source missing');
       console.log('  A1 Full: SKIP (build_offline 未 hydrate;跑 package-offline.ps1 -BuildAccOffline 联网生成后再验;不算 pass)');
     } else {
       const fullStage = path.join(WB, 'dist', 'Ruyi-full-dryrun');
       cleanupStage(fullStage, 'Full');
-      try { cp.execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'tools', 'package-offline.ps1'), '-SkipExeBuild', '-IncludeAcc', '-AccOfflineSource', accOffline, '-Variant', 'full-dryrun'], { cwd: WB, stdio: 'pipe', timeout: 180000, windowsHide: true }); }
-      catch (e) { /* ZIP 可能失败,按 stage 校验 */ }
-      const fullKeys = ['app/server.js', 'app/public/app.js', 'package.json', 'mcp/ai-computer-control'];
-      const fullMissing = fullKeys.filter(f => !fs.existsSync(path.join(fullStage, f)));
-      ok(fullMissing.length === 0, 'A1 Full 离线包文件清单可复验(' + fullKeys.length + ' 关键路径;missing=' + fullMissing.join(',') + ')');
+      const fullKeys = ['app/server.js', 'app/public/app.js', 'package.json', 'Start-Workbench.cmd', 'runtime/node/node.exe',
+        'mcp/ai-computer-control/install.py', 'mcp/ai-computer-control/offline-manifest.json', 'mcp/ai-computer-control/python_embed/python.exe'];
+      packageAndCheck({ stage: fullStage, zip: fullStage + '.zip', keys: fullKeys, listArchive,
+        invoke: () => run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(WB, 'tools', 'package-offline.ps1'), '-SkipExeBuild', '-IncludeAcc', '-AccOfflineSource', accOffline, '-Variant', 'full-dryrun'], WB, { quiet: true, timeout: 600000 }) });
+      ok(true, 'A1 Full 构包成功且实际 ZIP 清单可读取');
       cleanupStage(fullStage, 'Full');
     }
   } catch (e) { ok(false, 'A1 Full 离线包清单检查失败: ' + (e.message || e)); }
@@ -162,11 +183,13 @@ const NPM_RUN = process.platform === 'win32'
       if (name === 'compact-quality-live.e2e.js') return providerKeyed ? 'CONFIGURED' : 'UNCONFIGURED';
       return 'UNKNOWN';
     }
-    console.log('  A5 live probe 状态(配置探针,不实跑;默认不调真实 API,--live 才真跑):');
+    console.log('  A5 live probe 状态(仅配置探针;实际调用由各 live 脚本显式执行):');
     let configured = 0;
     for (const name of probes) { const st = statusOf(name); if (st === 'CONFIGURED') configured++; console.log('    ' + name + ': ' + st); }
-    ok(probes.length > 0, 'A5 live probe 独立列出 ' + probes.length + ' 件(' + configured + ' CONFIGURED,余 UNCONFIGURED -- skip 不算 pass)');
+    ok(probes.length > 0, 'A5 live probe 独立列出 ' + probes.length + ' 件(' + configured + ' CONFIGURED;其余按上方各件状态;skip 不算 pass)');
   } catch (e) { ok(false, 'A5 live probe 报告失败: ' + (e.message || e)); }
   console.log('\nRELEASE-DRYRUN: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
+  console.log('ARTIFACTS ' + scratch);
+  if (!fail) cleanupStage(scratch, 'dryrun isolated home');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.log('ERROR ' + (e && e.stack || e)); process.exit(1); });

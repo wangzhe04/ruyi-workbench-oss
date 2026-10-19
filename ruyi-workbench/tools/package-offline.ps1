@@ -278,6 +278,10 @@ foreach ($desktopFile in @("RuyiDesktop.exe", "WebView2Loader.dll")) {
 
 Copy-Item (Join-Path $root "app") (Join-Path $stage "app") -Recurse
 
+# Optional callback gateway ships as a standalone opt-in tool in every variant. Do not copy developer tools.
+New-Item -ItemType Directory -Force -Path (Join-Path $stage "tools") | Out-Null
+Copy-Item -LiteralPath (Join-Path $root "tools\external-bot-gateway.js") -Destination (Join-Path $stage "tools\external-bot-gateway.js") -Force
+
 # Optional vendor payloads. The whole app/ tree copy above already carries them for EVERY variant
 # (slim and full alike); this block only checks and reports:
 #   app/public/vendor/mermaid.min.js -- mermaid diagrams in chat (lazy-loaded; absent = code block)

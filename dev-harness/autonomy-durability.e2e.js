@@ -128,7 +128,15 @@ function capturesContaining(dir, needle) {
     ok(/op === 'skip'\) continue/.test(src), 'B 幂等跳过不进本轮变更清单');
     const fe = readFrontendSrc(); // 聚合:public/app.js + public/js/**/*.js(拆域后横幅在 js/agent-workflows.js)
     const zh = JSON.parse(fs.readFileSync(path.join(WB, 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
-    ok(/persistenceDegraded/.test(fe) && /workflow\.stall\.persistence/.test(fe) && /进度持久化异常/.test(zh['workflow.stall.persistence'] || ''), 'B 前端横幅明示持久化退化');
+    const { runFaults, appendRunFaults } = await import(require('url').pathToFileURL(path.join(WB, 'app', 'public', 'js', 'run-health.js')).href);
+    const elements = [];
+    const el = () => ({ dataset: {}, setAttribute() {}, appendChild(child) { elements.push(child); } });
+    const keys = [];
+    appendRunFaults(el(), { persistenceDegraded: true }, { el, t: key => { keys.push(key); return zh[key]; } });
+    ok(JSON.stringify(runFaults({ persistenceDegraded: true })) === JSON.stringify([{ kind: 'persistence' }])
+      && keys.includes('workflow.health.persistence') && elements.length > 0
+      && /appendRunFaults\(/.test(fe) && /无法可靠保存/.test(zh['workflow.health.persistence'] || '')
+      && /重启后可能无法恢复/.test(zh['workflow.health.persistence'] || ''), 'B 前端共享故障横幅明示持久化退化及重启恢复风险');
   }
 
   // ── C) 崩溃注入·杀点1:≥1 工具完成后强杀 → 续点恢复 + 幂等跳过 ──

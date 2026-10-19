@@ -3,8 +3,8 @@
 This is the English companion to [MCP 连接器](README.md).
 
 An external stdio MCP connector is a folder containing a ruyi-mcp.json manifest. Place the folder under mcp/ or
-import it from the workbench UI. Ruyi validates and sanitizes the manifest, stores the configured connector, and
-bridges its available tools into the workbench tool loop. A folder placed under mcp/ needs no config edit and no
+import it from the workbench UI. Ruyi validates and sanitizes the manifest and bridges its available tools into
+the workbench tool loop. UI-imported connector settings are persisted; folder drop-ins are merged at runtime. A folder placed under mcp/ needs no config edit and no
 import wizard, and deleting the folder uninstalls it (a drop-in's existence is expressed purely by its folder and is
 never written back to the config file).
 
@@ -15,7 +15,7 @@ Two locations are scanned, each merging at most 10 entries (10 in total):
 
 ## Built-in desktop control
 
-ai-computer-control is a bundled, specially detected 108-tool desktop-control MCP (the exact count lives in the repository's `facts.json` as `accTools`). It is not a normal drop-in
+The Full package bundles ai-computer-control, a specially detected 108-tool desktop-control MCP (the exact count lives in the repository's `facts.json` as `accTools`). It is not a normal drop-in
 manifest, which avoids double registration. Browser URLs default to a new tab/window in the user's browser, and
 the Workbench tab is never navigated, reused, or closed. See [its README](ai-computer-control/README.md) for
 installation and offline deployment.

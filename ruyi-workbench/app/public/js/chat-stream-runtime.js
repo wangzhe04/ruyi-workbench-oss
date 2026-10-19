@@ -320,6 +320,9 @@ export function createChatStreamRuntime(deps = {}) {
   }
   function rememberTurnLine(turn, line) {
     if (!turn || !line || !line.trim()) return;
+    if (line.includes('"session"')) {
+      try { const frame = JSON.parse(line); if (frame.type === 'session') turn.execution = frame.execution; } catch { /* invalid frame has no authority */ }
+    }
     // raw_line is already available in the debug stream and can be extremely large; the visible
     // progress replay only needs normalized events.
     // 只有提到 "raw_line" 的行才值得整行解析去认它(大块 tool_result 行不再为这一问多 parse 一遍);
@@ -1131,12 +1134,32 @@ export function createChatStreamRuntime(deps = {}) {
     maybeScrollToBottom();
   }
 
-  function stopTurn() {
+  async function stopTurn() {
     const sid = state.currentSession?.id || '';
-    const turn = sid ? activeTurns.get(sid) : null;
-    if (turn && turn.abort) turn.abort.abort();
-    if (sid) api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: sid }) }).catch(() => {});
-    setProc('stopped');
+    const turn = sid ? activeTurns.get(sid) || null : null;
+    const expectedExecution = turn ? turn.execution : state.sessionExecution?.sessionId === sid ? state.sessionExecution.execution : undefined;
+    if (!sid || (turn && turn.stopRequested)) return;
+    const identityKey = value => value === undefined ? 'unknown' : value === null ? 'idle' : JSON.stringify([value.serverInstanceId, value.driverRunId]);
+    const actionKey = identityKey(expectedExecution);
+    const ownsReceipt = () => {
+      if (state.currentSession?.id !== sid) return false;
+      const currentTurn = activeTurns.get(sid) || null;
+      if (currentTurn !== turn) return false;
+      const currentExecution = currentTurn ? currentTurn.execution : state.sessionExecution?.sessionId === sid ? state.sessionExecution.execution : undefined;
+      return identityKey(currentExecution) === actionKey;
+    };
+    if (turn) turn.stopRequested = true;
+    try {
+      const receipt = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: sid, expectedExecution }) });
+      if (!ownsReceipt()) return;
+      if (receipt?.ok === true && (receipt.stopped === true || receipt.queuedStopped === true)) {
+        if (turn && activeTurns.get(sid) === turn && turn.abort) turn.abort.abort();
+        if (state.currentSession?.id === sid && (!turn || activeTurns.get(sid) === turn)) setProc('stopped');
+      } else if (receipt?.ok !== true && state.currentSession?.id === sid) toast(t('stewardShell.stop.unknown'), 'err');
+    } catch (error) {
+      if (ownsReceipt()) toast(Number(error?.status) >= 400 && Number(error?.status) < 500
+        ? t('stewardShell.chat.errConflict') : t('stewardShell.stop.unknown'), 'err');
+    } finally { if (turn) turn.stopRequested = false; }
   }
 
   function scheduleRender(live) {

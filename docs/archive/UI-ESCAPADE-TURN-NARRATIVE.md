@@ -2,7 +2,7 @@
 
 > 状态：**第54波已完成（P1）**
 >
-> 原型：[mockups/v4-turn-narrative.html](mockups/v4-turn-narrative.html)
+> 原型：[mockups/v4-turn-narrative.html](../mockups/v4-turn-narrative.html)
 >
 > 适用：Claude CLI 与 OpenAI 兼容引擎，共用一套数据协议和渲染器。
 > 不改变：一个任务一个大对话框、现有毛玻璃视觉基线、消息末尾的工具/变更/产物复盘能力。

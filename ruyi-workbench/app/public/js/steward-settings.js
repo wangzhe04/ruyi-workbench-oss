@@ -1,5 +1,8 @@
 'use strict';
 import { bindModelSelect, fillProviderSelect } from './model-catalog.js';
+import { validExecutionSnapshot } from './run-health.js';
+import { createExternalBotsPanel } from './external-bots.js';
+import { appendSettingsReceipt } from './steward-settings-receipt.js';
 
 import { toast } from './util.js';
 import {
@@ -96,6 +99,7 @@ export function createStewardSettingsDomain({
   presence = null,
 } = {}) {
   const config = () => (state && state.config) || {};
+  const externalBots = createExternalBotsPanel({ api, t });
 
   let bound = false;
   let seeding = false;          // fillStewardSettings 期间抑制 change 回写（否则每次刷新都在存）
@@ -637,10 +641,11 @@ export function createStewardSettingsDomain({
   // 「撤销」只在 undoRef 带得动锚点时才给（§3.5：写工具返回 undoRef；没有锚点的一律给「详情」）。
   function undoTarget(row) {
     const undoRef = (row && row.undoRef) || null;
-    if (!undoRef || typeof undoRef !== 'object') return null;
+    if (!undoRef || typeof undoRef !== 'object' || undoRef.kind === 'none'
+        || !undoRef.execution || !validExecutionSnapshot(undoRef.execution)) return null;
     const seq = Number(undoRef.rewindTargetTurnSeq);
     const sessionId = String(undoRef.sessionId || '');
-    return Number.isFinite(seq) && seq > 0 && sessionId ? { sessionId, seq } : null;
+    return Number.isFinite(seq) && seq > 0 && sessionId ? { sessionId, seq, execution: { ...undoRef.execution } } : null;
   }
 
   async function undoDecision(row) {
@@ -648,7 +653,8 @@ export function createStewardSettingsDomain({
     if (!target) return null;
     const response = await call('/api/session/rewind', {
       method: 'POST',
-      body: JSON.stringify({ sessionId: target.sessionId, targetTurnSeq: target.seq, rollbackFiles: true }),
+      body: JSON.stringify({ sessionId: target.sessionId, targetTurnSeq: target.seq, rollbackFiles: true,
+        guardExecution: true, expectedExecution: target.execution }),
     });
     if (!response) return null;
     // 回退没成真就不说「已撤销」（§8.1 原则 2 诚实优先）。
@@ -716,7 +722,9 @@ export function createStewardSettingsDomain({
       tr.dataset.decisionSeq = String(row.seq || 0);
       tr.dataset.thread = String(row.targetSessionId || '');
       tr.appendChild(el('td', '', String(row.at || '').replace('T', ' ').slice(0, 19)));
-      tr.appendChild(el('td', '', toolLabel(row.tool)));
+      const what = el('td', '', toolLabel(row.tool));
+      if (row.tool === 'steward_config_set' && row.undoRef?.receipt) appendSettingsReceipt(what, { ok: true, receipt: row.undoRef.receipt, undoRef: row.undoRef }, { t, api: call, refresh: loadDecisions });
+      tr.appendChild(what);
       tr.appendChild(el('td', '', String(row.targetSessionId || '')));
       tr.appendChild(el('td', '', permissionText(row.permissionMode)));
       tr.appendChild(el('td', 'steward-decision-basis', basisText(row)));
@@ -1155,13 +1163,13 @@ export function createStewardSettingsDomain({
       const threadModels = (c.stewardThreadModels && typeof c.stewardThreadModels === 'object') ? c.stewardThreadModels : {};
       fillStewardModel('cfgStewardStrongModel', 'cfgStewardStrongProviderId', threadModels.strong?.model);
       fillStewardModel('cfgStewardFastModel', 'cfgStewardFastProviderId', threadModels.fast?.model);
-      const poll = byId('cfgStewardPollMs'); if (poll) poll.value = String(Math.round(Number(c.stewardPollMs || 15000) / 1000));
+      const poll = byId('cfgStewardPollMs'); if (poll) poll.value = String(Math.round(Number(c.stewardPollMs || 5000) / 1000));
       const visitIdle = byId('cfgStewardVisitIdle'); if (visitIdle) visitIdle.value = String(Number(c.stewardVisitIdleMinutes || 60));
       const turns = byId('cfgStewardMaxTurnsPerHour'); if (turns) turns.value = String(Number(c.stewardMaxTurnsPerHour || 12));
-      const cost = byId('cfgStewardMaxCostPerDay'); if (cost) cost.value = String(Number(c.stewardMaxCostPerDay ?? 1));
+      const cost = byId('cfgStewardMaxCostPerDay'); if (cost) cost.value = String(Number(c.stewardMaxCostPerDay ?? 5));
       const parallel = byId('cfgStewardMaxParallelThreads'); if (parallel) parallel.value = String(Number(c.stewardMaxParallelThreads || 5));
       const globalTurns = byId('cfgStewardGlobalMaxTurnsPerHour'); if (globalTurns) globalTurns.value = String(Number(c.stewardGlobalMaxTurnsPerHour || 120));
-      const globalCost = byId('cfgStewardGlobalMaxCostPerDay'); if (globalCost) globalCost.value = String(Number(c.stewardGlobalMaxCostPerDay ?? 20));
+      const globalCost = byId('cfgStewardGlobalMaxCostPerDay'); if (globalCost) globalCost.value = String(Number(c.stewardGlobalMaxCostPerDay ?? 50));
       // 116-5b:默认开(缺字段 = 开),所以判的是 !== false 而不是 === true。
       const brief = byId('cfgStewardThreadBrief'); if (brief) brief.checked = c.stewardThreadBriefV1 !== false;
       // 127 波 2-quater B2：管家代批。默认开（缺字段 = 开），与上面那一格同方向：判 !== false。
@@ -1206,6 +1214,7 @@ export function createStewardSettingsDomain({
   function bindStewardSettings() {
     if (bound || !doc()) return false;
     bound = true;
+    externalBots.bind();
 
     onChange('cfgStewardEnabled', event => toggleEnabled(event.target.checked === true));
     const shellBtn = byId('cfgStewardShellBtn');
@@ -1267,10 +1276,10 @@ export function createStewardSettingsDomain({
     });
     onChange('cfgStewardFastModel', event => saveConfig({ stewardThreadModels: threadModelPatch('fast', 'model', String(event.target.value || '').trim()) }));
     // 秒进毫秒出：界面按秒（下限 5），落盘按毫秒（后端 clamp [5000,120000]）。
-    onChange('cfgStewardPollMs', event => saveConfig({ stewardPollMs: Math.max(5, num(event.target, 15)) * 1000 }));
+    onChange('cfgStewardPollMs', event => saveConfig({ stewardPollMs: Math.max(5, num(event.target, 5)) * 1000 }));
     onChange('cfgStewardVisitIdle', event => saveConfig({ stewardVisitIdleMinutes: num(event.target, 60) }));
     onChange('cfgStewardMaxTurnsPerHour', event => saveConfig({ stewardMaxTurnsPerHour: num(event.target, 12) }));
-    onChange('cfgStewardMaxCostPerDay', event => saveConfig({ stewardMaxCostPerDay: num(event.target, 1) }));
+    onChange('cfgStewardMaxCostPerDay', event => saveConfig({ stewardMaxCostPerDay: num(event.target, 5) }));
     // 128f-⑫（审计 F）：存成功之后页内广播一帧 —— 左栏头上那个「同时最多 N 条」读的是仲裁面，不是这份配置。
     onChange('cfgStewardMaxParallelThreads', async event => {
       const saved = await saveConfig({ stewardMaxParallelThreads: num(event.target, 5) });
@@ -1278,7 +1287,7 @@ export function createStewardSettingsDomain({
       return saved;
     });
     onChange('cfgStewardGlobalMaxTurnsPerHour', event => saveConfig({ stewardGlobalMaxTurnsPerHour: num(event.target, 120) }));
-    onChange('cfgStewardGlobalMaxCostPerDay', event => saveConfig({ stewardGlobalMaxCostPerDay: num(event.target, 20) }));
+    onChange('cfgStewardGlobalMaxCostPerDay', event => saveConfig({ stewardGlobalMaxCostPerDay: num(event.target, 50) }));
     onChange('cfgStewardRetention', event => saveConfig({ stewardConversationRetention: String(event.target.value || '24h') }));   // 136:缺省回 24h
     // 136:预算两格 —— 送原样数字、服务端 normalizeConfig 钳完再回填(与 cfgStewardThreadIndexRecent 同一模具,
     // 客户端不抄第二份钳位)。tokens 键在 06i 是 forbidden(密钥正则),管家改不了,只能在这里改。
@@ -1358,6 +1367,7 @@ export function createStewardSettingsDomain({
   // 切到「管家」页签，需要时把目标区块滚进视野，并按需拉一次面板数据。
   // section 名就是下面这张表，**不在别处再列一遍**（口袋那一份表里写的是同样这几个字符串）。
   const PANEL_SECTIONS = Object.freeze({
+    externalBots: 'cfgStewardGroupExternalBots',
     schedule: 'cfgStewardGroupSchedule',
     memory: 'cfgStewardGroupMemory',
     decisions: 'cfgStewardGroupDecisions',
@@ -1456,6 +1466,7 @@ export function createStewardSettingsDomain({
     bindStewardSettings,
     fillStewardSettings,
     openPanel,
+    openExternalBotSetup: id => { openPanel('externalBots'); return externalBots.openSetup(id); },
     refreshRunState,
     setStopped,
     renderShield,
@@ -1465,6 +1476,7 @@ export function createStewardSettingsDomain({
     // 走 setter 而不是构造参数——构造那一行被 steward-settings.static 逐字钉着（新依赖一律迟绑定，
     // 与 drawer.setClassicWindow / setMissionRows 同一条纪律）。
     setOpenThread: handler => { openThreadHandler = typeof handler === 'function' ? handler : null; },
+    setExternalDraftImporter: handler => externalBots.setDraftImporter(handler),
     // 40 号文 P0③：定时任务块订阅 schedule.changed（13r 那条帧只转发 taskId/phase/outcome 与 id，
     // 正文不进这条线）。口袋（rail-pocket）与焦点栏「接下来」（steward-drawer）早就订了，这一块没订
     // ——于是「管家自己建了一条」「到点跑完了」这两件事，在设置页要手动按刷新才看得见，而用户刚在
@@ -1473,6 +1485,7 @@ export function createStewardSettingsDomain({
     setEventStream: stream => {
       if (!stream || typeof stream.on !== 'function') return false;
       settingsEventStream = stream;   // 128f-⑫：清空记忆之后页内广播用
+      externalBots.setEventStream(stream);
       try { stream.on('schedule.changed', () => { if (scheduleLoaded) void loadSchedule(); }); }
       catch { return false; }   // 推送是旁路：订不上也不能影响这一页能用
       return true;

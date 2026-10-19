@@ -386,7 +386,8 @@ function fireAndForget(fx, pathname, body) {
       await fx.setLens('classic');
       // 收尾：问题弹层 Esc 是「收进右下角小窗」（不替用户答）；再把这条停在「等你」的回合停掉，后面几组不被它（弹层、在跑）挡着。
       for (let i = 0; i < 3 && await ev(`Boolean(document.querySelector('.modal-backdrop.ask-modal:not(.hidden)'))`); i++) { await fx.escape(); await sleep(300); }
-      await fx.request('POST', '/api/stop', { sessionId: ids.Q });
+      const stopView = await fx.request('GET', '/api/sessions/' + ids.Q);
+      await fx.request('POST', '/api/stop', { sessionId: ids.Q, expectedExecution: stopView.json.execution });
       await sleep(600);
     });
 

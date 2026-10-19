@@ -38,7 +38,12 @@ const stewardUserWaiters = [];
 async function runStewardTurn(input) {
   const generation = stewardRunnerRuntime.conversationGeneration;
   const opts = (input && typeof input === 'object') ? input : {};
-  const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
+  const trigger = opts.trigger === 'external' ? 'external' : opts.trigger === 'inbox' ? 'inbox' : 'user';
+  let externalSource = null;
+  if (trigger === 'external') {
+    try { externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: opts.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+  }
   const onEvent = typeof opts.onEvent === 'function' ? opts.onEvent : () => {};
   const events = Array.isArray(opts.events) ? opts.events : [];
   const config = await readConfig().catch(() => ({}));
@@ -67,13 +72,19 @@ async function runStewardTurn(input) {
   // 微任务里一起冲出去,各自开一个回合。占位 promise 在本函数真正返回时才 resolve —— 于是
   // 等在后面的那一句话不仅等到回合跑完,还等到 stewardStampReply 把结构化结果盖完章。
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
-  const entry = { kind: trigger, controller, cancelled: '', events, promise: null, routeHint: await stewardNormalizeRouteHint(opts.routeHint) };
+  const entry = { kind: trigger, controller, cancelled: '', events, promise: null, routeHint: await stewardNormalizeRouteHint(opts.routeHint),
+    ...(trigger === 'external' ? { externalActor: opts.externalActor, externalSource } : {}) };
   let finishEntry = () => {};
   entry.promise = new Promise(resolve => { finishEntry = () => resolve(); });
 
   if (generation !== stewardRunnerRuntime.conversationGeneration || stewardRunnerRuntime.inflight?.kind === 'reset') {
     if (trigger === 'inbox') stewardRunnerRuntime.queue.push(...events);
     return stewardFail('steward.cancelled', '已开始新对话，这句没有送入新上下文');
+  }
+  if (trigger === 'external') {
+    try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+    if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
   }
   const inflight = stewardRunnerRuntime.inflight;
   if (trigger === 'inbox' && (inflight || stewardUserWaiters.length)) {
@@ -104,7 +115,13 @@ async function runStewardTurn(input) {
     try {
       for (;;) {
         if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', '已开始新对话，排队消息已取消');
+        if (trigger === 'external') {
+          try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+          catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+          if (generation !== stewardRunnerRuntime.conversationGeneration) return stewardFail('steward.cancelled', 'conversation changed');
+        }
         const current = stewardRunnerRuntime.inflight;
+        // Authorization awaited disk IO. Read the slot and FIFO after it, then claim without another await.
         if (!current && stewardUserWaiters[0] === entry) break;
         const target = current || stewardUserWaiters[0];
         waitedFor = target.kind;
@@ -203,7 +220,7 @@ async function stewardDelegationToolCalls(turnSeq, includeActions = false) {
   for (const m of messages) {
     if (!m || m.role !== 'assistant' || Number(m.turnSeq) !== want || !Array.isArray(m.toolCalls)) continue;
     for (const call of m.toolCalls) {
-      if (call && ((includeActions && STEWARD_ACTION_HOOKS[call.name]) ||
+      if (call && ((includeActions && (STEWARD_ACTION_HOOKS[call.name] || call.name === 'steward_bot_setup')) ||
         (call.name === 'steward_decide' && call.result && call.result.ok === true && call.result.exemptDelegation))) out.push(call);
     }
   }
@@ -228,6 +245,10 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     : { executed: [], notes: [] };
   const message = trigger === 'inbox' ? await stewardInboxMessage(events, config, selfServe.notes) : String(opts.message == null ? '' : opts.message);
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
+  if (trigger === 'external') {
+    try { entry.externalSource = (await stewardAuthorizeExternalContext({ trigger, externalActor: entry.externalActor })).externalSource; }
+    catch { return stewardFail('external_channel.control_revoked', 'external owner authorization was revoked'); }
+  }
 
   if (!stewardRunnerRuntime.visit.startedAt) stewardRunnerRuntime.visit.startedAt = nowIso();
   stewardRunnerRuntime.visit.lastActivityAt = nowIso();
@@ -245,8 +266,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
         engineRoute: ensured.route,
         // 收件箱回合的这条 user 消息【不是用户本人说的话】:origin 随会话正文落盘,
         // steward_memory_write 的来源校验据此确定性拒绝它(13g stewardSourceIsUserMessage)。
-        messageMeta: trigger === 'inbox' ? { origin: 'inbox', inboxSeqs: events.map(e => Number(e && e.inboxSeq) || 0).slice(0, STEWARD_INBOX_EVENTS_PER_TURN) } : null,
-        requestMeta: { steward: true, trigger },
+        messageMeta: trigger === 'inbox' ? { origin: 'inbox', inboxSeqs: events.map(e => Number(e && e.inboxSeq) || 0).slice(0, STEWARD_INBOX_EVENTS_PER_TURN) }
+          : trigger === 'external' ? { origin: 'external-owner', externalSource: entry.externalSource } : null,
+        requestMeta: { steward: true, trigger, ...(trigger === 'external' ? { external: entry.externalSource } : {}) },
         onEvent,
         signal: controller ? controller.signal : null,
       });
@@ -261,6 +283,13 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 回合被抢占 / 失败时,已经落定的代批照样是真的发生了,回执不能跟着回合一起丢。取不到回合号(回合整个抛出)
   // 就是空表。没有代批时三条出口的信封与修前逐字节相同。
   const turnToolCalls = await stewardDelegationToolCalls(turn && turn.turnSeq, true);
+  // 设置直调也须出现在可见回执和历史章里，不能只留在折叠的工具轨迹中。
+  const settingReceipts = turnToolCalls.filter(call => call.name === 'steward_config_set' && call.result?.error !== 'propose_required')
+    .map(call => ({ tool: call.name, args: call.input || {}, label: STEWARD_TOOL_LABELS[call.name], result: call.result }));
+  const externalToolFacts = trigger === 'external' ? {
+    toolFailures: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error !== 'propose_required').length),
+    toolProposals: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error === 'propose_required').length),
+  } : {};
   const delegationCalls = turnToolCalls.filter(call => call.name === 'steward_decide' && call.result?.ok === true && call.result.exemptDelegation);
   const delegationTitles = new Map();
   for (const call of delegationCalls) {
@@ -273,7 +302,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 
   if (entry.cancelled) {
     logEvent({ kind: 'steward_turn_cancelled', reason: entry.cancelled, trigger });
-    const cancelledReceipts = stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf);
+    const cancelledReceipts = settingReceipts.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf));
     return stewardFail('steward.cancelled', `steward turn cancelled: ${entry.cancelled}`, { trigger, ...(cancelledReceipts.length ? { actions: cancelledReceipts } : {}) });
   }
 
@@ -288,7 +317,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
     if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'turn_failed');
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
-    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
+    return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, ...externalToolFacts, stopped: !!turn.stopped, actions: selfServe.executed.concat(settingReceipts, stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
   const finalText = await stewardLastAssistantContent();
   // 123-N1 ①(34 号文;用户 2026-09-13 真机走查「同一段对话出现两遍」):回执带上【本回合落盘的
@@ -337,22 +366,31 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 在这里查成 t(N-1):查不到本回合的,反而可能查到上一回合的。按本回合的序号给一份浅拷贝(只用作 ctx,不落盘)。
   const actionSession = (turn && Number(turn.turnSeq) > 0) ? { ...session, turnSeq: Number(turn.turnSeq) } : session;
   const actionRows = parsedReply.actions.length
-    ? await stewardExecuteActions(parsedReply.actions, actionSession, config, trigger, selfServeTargets)
+    ? await stewardExecuteActions(parsedReply.actions, actionSession, config, trigger, selfServeTargets, entry.externalActor)
     : [];
   // 127 波 2-quater B2:回合里工具直调的代批补进回执(上面已取出)。顺序按事情发生的先后:自理(模型之前)→
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。
   const delegationRows = stewardMergeDelegationReceipts(selfServe.executed.concat(actionRows), delegationCalls, delegationTitleOf);
-  const executed = selfServe.executed.concat(delegationRows, actionRows);
+  const executed = selfServe.executed.concat(settingReceipts, delegationRows, actionRows);
   // Direct tool calls happen before the final JSON reply too. Their receipts
   // must invalidate duplicate buttons just like the structured actions do.
   const directReceipts = turnToolCalls.map(call => ({ tool: call.name, args: call.input || {}, result: call.result }));
   const acts = stewardDowngradeActions(executed, parsedReply.acts, directReceipts);
+  if (trigger === 'user') {
+    const prepared = turnToolCalls.find(call => call.name === 'steward_bot_setup' && call.input?.op === 'prepare'
+      && call.result?.ok === true && call.result.prepared === true && /^[a-z][a-z0-9_-]{0,63}$/.test(call.result.connectionId));
+    if (prepared) {
+      if (acts.length >= STEWARD_ACTS_MAX) acts.pop();
+      acts.push({ kind: 'external_bot_setup', connectionId: prepared.result.connectionId, label: '继续配置机器人' });
+    }
+  }
   // 117l D5:say/why 在【这里】过一遍人话化 —— 于是 steward_reply 帧、落盘的 meta、/api/steward/state
   // 的 lastReply 三处拿到的是【同一份】文字(修前 ※ 里满是 sess_/question_)。acts/actions 不动。
   const say = await stewardHumanizeSay(parsedReply.say);
   const why = await stewardHumanizeSay(parsedReply.why);
   const reply = {
     trigger,
+    ...externalToolFacts,
     say,
     why,
     acts,
@@ -1047,6 +1085,10 @@ async function stewardRelayDeliver(input) {
     decided = stewardRelayChannelFor(sid);
   }
 
+  if (Array.isArray(o.attachments) && o.attachments.length && decided.channel !== 'turn') {
+    return stewardFail('attachment_channel_unsupported', '这条任务正在执行、排队或等你处理待决,附件还没递进去;请等它空闲后重试,或在线程里处理当前事项', { channel: decided.channel, sessionId: sid });
+  }
+  if (o.revision && decided.channel !== 'turn') return stewardFail('delivery_busy', '修订需要任务空闲,请处理当前运行或待决后重试', { sessionId: sid });
   if (decided.channel === 'answer') {
     // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,
     // 代答时那句话是管家自己编的,而线程分不出来(两者走同一条 decideIntervention,落到线程眼里
@@ -1123,7 +1165,72 @@ async function stewardRelayDeliver(input) {
 // acts 落定:用户点了一个按钮。tool 走 13g 的同一实现(同一门控、同一决策日志),
 // dismiss 只记一行日志,open_thread 只回 sessionId(切换由 UI 完成)。
 // ────────────────────────────────────────────────────────────────────────────
-async function stewardRunAct(act, config) {
+// 62 号第三轮 P1（失败与迟到响应保护）：递话超时后重发前要先核对上一次的回执。前端为「这一次递话」
+// 生成一个 attemptId，同一个 attemptId 只执行一次；`check` 是只读回执查询，永远不会再次执行。
+// 账本只在内存、有界、十分钟过期：进程重启后旧 attemptId 不再等于「已执行」——界面本来就只说「未确认」。
+const STEWARD_ACT_ATTEMPT_LIMITS = Object.freeze({ entries: 256, ttlMs: 10 * 60 * 1000 });
+const stewardActAttempts = new Map();   // attemptId -> { at, result }
+const stewardActInflight = new Map();   // attemptId -> { signature, promise }：并发同 id 共用一次执行
+let stewardActReceiptFloor = 0; // Missing receipts older than any eviction cannot prove non-execution.
+function stewardActAttemptId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : '';
+}
+function stewardActAttemptPrune(now) {
+  const forget = id => { stewardActReceiptFloor = Math.max(stewardActReceiptFloor, stewardActAttempts.get(id).at); stewardActAttempts.delete(id); };
+  for (const [id, row] of stewardActAttempts) if (now - row.at > STEWARD_ACT_ATTEMPT_LIMITS.ttlMs) forget(id);
+  while (stewardActAttempts.size > STEWARD_ACT_ATTEMPT_LIMITS.entries) forget(stewardActAttempts.keys().next().value);
+}
+async function stewardRunAct(act, config, attempt) {
+  const attemptId = stewardActAttemptId(attempt && attempt.attemptId);
+  const check = Boolean(attempt && attempt.check === true);
+  // 回执查询必须带合法 attemptId：否则它会被当成一次真实执行（那正是「核对」绝不能做的事）。
+  if (check && !attemptId) return stewardFail('invalid_request', 'checkAttempt needs a valid attemptId');
+  const now = Date.now();
+  const window = attempt && attempt.window;
+  if (window && !attemptId) return stewardFail('invalid_request', 'attemptWindow needs a valid attemptId');
+  const sameInstance = window && window.serverInstanceId === OVERLAY_ID;
+  const validWindow = sameInstance && Number.isFinite(window.issuedAt) && Number.isFinite(window.expiresAt) && window.issuedAt <= now && window.expiresAt === window.issuedAt + STEWARD_ACT_ATTEMPT_LIMITS.ttlMs && now < window.expiresAt;
+  const signature = attemptId && !check ? crypto.createHash('sha256').update(JSON.stringify(act ?? null)).digest('hex') : '';
+  if (attemptId) {
+    stewardActAttemptPrune(now);
+    const prior = stewardActAttempts.get(attemptId);
+    // 只读回执：告诉前端「这一次到底执行过没有」，绝不触发第二次执行。
+    if (check) {
+      const inflight = stewardActInflight.has(attemptId);
+      const known = !window || sameInstance;
+      const state = known && prior ? 'applied' : known && inflight ? 'inflight' : validWindow && window.issuedAt > stewardActReceiptFloor ? 'not_applied' : 'unknown';
+      return { ok: true, kind: 'attempt_check', applied: state === 'applied' ? true : state === 'not_applied' || !window ? false : null, state,
+        serverInstanceId: OVERLAY_ID, window: { serverInstanceId: OVERLAY_ID, issuedAt: now, expiresAt: now + STEWARD_ACT_ATTEMPT_LIMITS.ttlMs }, ...(state === 'applied' ? { executedAt: new Date(prior.at).toISOString() } : {}) };
+    }
+    if (window && !sameInstance) return stewardFail('attempt_unknown', '服务已重启，请先核对目标任务；这次递送不会自动重发');
+    if (prior) {
+      if (prior.signature !== signature) return stewardFail('invalid_request', '这次递送的目标或内容已变化,请作为新的一次发送');
+      return { ...prior.result, replayed: true, executedAt: new Date(prior.at).toISOString() };
+    }
+    // 先查后写之间隔着真实 I/O：同一 attemptId 的并发请求必须共用同一次执行，不能各自跑一遍。
+    const inflight = stewardActInflight.get(attemptId);
+    if (inflight) {
+      if (inflight.signature !== signature) return stewardFail('invalid_request', '这次递送的目标或内容已变化,请作为新的一次发送');
+      return { ...await inflight.promise, replayed: true };
+    }
+    if (window && (!validWindow || window.issuedAt <= stewardActReceiptFloor)) return stewardFail('attempt_unknown', '回执窗口已失效，请先核对目标任务；不能证明这次尚未执行');
+  }
+  const run = stewardRunActOnce(act, config);
+  if (!attemptId) return run;
+  // 执行前先占用 attemptId，并发的那一份 await 同一条链；只有真的执行成功才落账，失败不占 id。
+  const shared = run.then(result => {
+    if (result && result.ok === true && result.executed !== false) {
+      stewardActAttempts.set(attemptId, { at: Date.now(), result, signature });
+      stewardActAttemptPrune(Date.now());
+    }
+    return result;
+  }).finally(() => {
+    if (stewardActInflight.get(attemptId)?.promise === shared) stewardActInflight.delete(attemptId);
+  });
+  stewardActInflight.set(attemptId, { signature, promise: shared });
+  return shared;
+}
+async function stewardRunActOnce(act, config) {
   const raw = (act && typeof act === 'object') ? act : {};
   const kind = String(raw.kind || (raw.tool ? 'tool' : ''));
   if (kind === 'dismiss') {

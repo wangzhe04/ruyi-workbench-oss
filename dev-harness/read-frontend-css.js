@@ -79,19 +79,14 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 3.0 收口 · 工作文件夹选择器续钉(前值 ae8f54cb…＝2026-10 3.0 收口走查第三波 · 界面续钉):零新增、零删除层,改一层 ——
-//   `css/views/workspace.css`:顶栏工作文件夹弹层重做 —— 「浏览文件夹」主按钮(两行:标题 + 说明,可折行)、常用 / 最近每行「图标 + 名字 + 完整路径」
-//   (`.wp-fav-main` / `-text` / `-nameline` / `-path`(rtl 左省略 + bdi)/ `-badge` / `-icon`)、行尾图标按钮悬停或 focus-within 显出、`.wp-recent-list`、
-//   就地错误行 `.wp-pop-err` 与输入框 `[aria-invalid]` 态;删去 `.wp-fav-rank`。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 620d76b:<css>` 重算 = ae8f54cb…,与被替换的旧值逐字相同
-// (先自证再替换);按工作区重算得下面这个值。
-// 2026-10 班组体验走查续钉（前值 76316e75…）：workbench.css 新增概览、角色优先、容器响应式详情及窄屏用量布局；tool-pane.css 保持分类可见、统一标题与按钮间距、显示关闭入口；workbench.css 补历史选择与抽屉网格定位；workspace.css 将审计摘要独立成行。
-// 算法自证：readLayerPayload 读取 git show HEAD 各层得 76316e7541ef3085246d01c76fb3201359dee9aec3e0a2de5315cdcf895f2193，与旧锁一致。
-// 反向验证：仅在读文件时注入错误的 .wb-node opacity，D51 与 F3 均变红；磁盘样式未修改。
-// 2026-10 AI 工作精简续钉（前值 29a7e758…）：workspace.css 新增模板与运行详情折叠入口样式，当前进度可换行，运行列表使用工具箱的单一滚动区域。
-// 算法自证：readLayerPayload 读本轮改动前的 CSS 快照重算 = 29a7e758ddf3d119394c7f9f740c3d3dd9701e42ddb6e0aa7b3a667b952125da，与旧锁逐字相同。
-// 反向验证：内存注入错误样式后 D51/F3 均失败；实际 CSS 文件未改坏。
-const LEGACY_STYLES_SHA256 = 'e8b7880080aa4fe5ee0b7d97bfe60457039ef070649e76fba83055af3b56a67c';
+// 74 事项待决：新增可折叠的逐项决定清单，保留来源、原参数和独立回执。
+// HEAD 各层自证旧哈希 9b0c698c8c1e74f8621af3703e5ba23301b870c4a3824ee52db5d7ac53ab476e；内存损坏 CSS 后 D51/F3 均失败。
+// 75 设置回执：沿用设置字体，实际值和作用域换行，撤销结果就近显示。
+// HEAD 各层自证旧哈希 041f6543ce6d7d99c6612039737ff22732f5f50591de18b8e6ffda63bb059328；内存损坏 CSS 后 D51/F3 均失败。
+// 31qc 用户走测续钉：steward-conversation.css 全文主按钮、操作换行、消息适应列宽；steward-shell.css 读宽720→900。
+// HEAD CSS 自证 5a7668112606c17f86aa0a53dddda173c565e0dc3b84566645b2214acdc63614；反向损坏验证记录见 80 号验收补记。
+// 交付阅读整理：收起降为次级、图表错误折叠、文件入口加粗；HEAD 旧载荷自证 8a38e356…3ba84。
+const LEGACY_STYLES_SHA256 = '118d4b57be0bb7f4e34257e4a72aa6aec9e6cb9f0b6e24e707702fe42ba1e6f7';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

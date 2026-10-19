@@ -34,6 +34,7 @@ const src10 = read('10-context-governance.js');
 const src12 = read('12-tool-dispatch.js');
 const src13 = read('13-http-router.js');
 const src13d = read('13d-core-domain-routes.js');
+const src13s = read('13s-scheduler.js'); // scheduler timeout still consumes the internal queue-cancellation hook
 const src13g = read('13g-steward.js');
 // 117 波 T1(32 号文 §2.1):13g 的工具实现与共享原语拆到了三个新文件(纯搬家)。它们与 13g 同属
 // 「13g 族」,同样是 13h 的【消费者】—— 下面 ② 的零前向边判据与 unused 判据都必须覆盖它们,
@@ -161,7 +162,7 @@ const src01b = read('01b-route-auth.js');
   // 现在多了一个 13h 外的消费者:13g 的 stewardToolHandler 要按它给工具循环的 ctx 补上 trigger。
   // 不补的话 09-workflow 造的 ctx 里没有这个字段,所有按 trigger 分档的闸在【模型直接调工具】
   // 这条面上整个失灵(129g 的头注记了全程)。13g -> 13h 是前向边,只能经 06i 迟绑定取。
-  ok(hookKeys.length === 20, `② 13h 填充 20 个实现键(116f 8 + 116-pre 1 + 116h 5 + 117l 2 + 117m-A4 1 + 117s-G 1 + 121-K5 1 + 129g 1;got ${hookKeys.length}: ${hookKeys.join(',')})`);
+  ok(hookKeys.length === 21, `② 13h 填充 21 个实现键(116f 8 + 116-pre 1 + 116h 5 + 117l 2 + 117m-A4 1 + 117s-G 1 + 121-K5 1 + 129g 1 + external context 1;got ${hookKeys.length}: ${hookKeys.join(',')})`);
   ok(hookKeys.includes('threadStop') && /async function stewardImplThreadStop/.test(src13h) && !/async function stewardImplThreadStop/.test(src13g),
     '② 117m-A4 companion:新增的键是 threadStop,且它的实现真的在 13h、不在 13g(13g 的 2000 行闸就是这么守住的)');
   ok(hookKeys.includes('relayDeliver') && hookKeys.includes('applyThreadTier'),
@@ -175,9 +176,9 @@ const src01b = read('01b-route-auth.js');
   // 117 波 T1:relayDeliver / applyThreadTier 的消费者随线程族工具搬进了 13k-steward-threads.js,
   // 故消费面同样扩到整个 13g 族(13g/13j/13k/13l)。判据一字未变:每个键都必须真的有人用。
   // 架构还债批 2 B2:arbiterRefresh 的消费点 applyConfigPatch 随纯搬家从 13 去了 06k,消费面跟着落点扩一个文件(判据不变)。
-  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13j + src13k + src13l + src13i + src06k;
+  const consumedText = src09 + src10 + src12 + src13 + src13d + src13g + src13j + src13k + src13l + src13i + src06k + src13s;
   const unused = hookKeys.filter(k => !new RegExp('StewardHooks\\.' + k + '\\b').test(consumedText));
-  ok(unused.length === 0, '② 每个钩子键都被 09/10/12/13/13d/13g 族之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
+  ok(unused.length === 0, '② 每个钩子键都被 09/10/12/13/13d/13g/13s 族之一消费' + (unused.length ? ' → 无人用: ' + unused.join(',') : ''));
   ok(filled.length >= hookKeys.length, '② 键集抽取自 Object.assign 块(样本自洽)');
   // 06i 的契约注释必须把这些键写下来(注释不是装饰品:steward-tools.static 用它对账填充完整性)。
   const contract = src06i.slice(src06i.indexOf('// 预留键名契约'), src06i.indexOf('const StewardHooks = {};'));
@@ -241,8 +242,9 @@ const srv = require(path.join(APP, 'server.js'));
     '③ 138 中英稳定层都写明「四个键每次都写全」(13o 契约兜底判的正是缺 why,提示词侧同一口径)');
   ok(/说到做到/.test(zh.stable) && /Words match deeds/i.test(en.stable),
     '③ 138 中英稳定层都有「说到做到」(say 里的完成时陈述必须有同回合的工具调用或 actions 背书)');
-  ok(/"actions":\[\{"tool":"steward_thread_continue"/.test(zh.stable) && /"actions":\[\{"tool":"steward_thread_continue"/.test(en.stable),
-    '③ 138 两包各带一个完整 JSON 例子,例子的 actions 里真的装着 steward_thread_continue(38 号文那条病的正样本)');
+  ok(/本回合调用工具或列入 actions/.test(zh.stable) && /call tools or emit actions/.test(en.stable)
+    && /say 只按实际回执报告完成/.test(zh.stable) && /completion only from receipts/.test(en.stable),
+    '③ 授权完整请求当轮执行,完成声明仍须实际回执(未执行的 actions 不能当已完成证据)');
   ok(!/职责:看\(/.test(zh.stable) && !/^My job:/m.test(en.stable),
     '③ 138 电报体「职责:看(…)、递(…)」行已并进第一句(提示词自己不再示范填表体)');
   for (const [label, pack] of [['中文', zh], ['英文', en]]) {

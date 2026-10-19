@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { functionBlock, bracedBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -275,9 +276,10 @@ ok(/import \{ stewardThreadRunAction, stewardThreadStop \} from '\.\/steward-dra
   && typeof drawerMod.stewardThreadRunAction === 'function' && typeof drawerMod.stewardThreadStop === 'function'
   && typeof drawerMod.pausableRunOf === 'function',
   'D4 暂停／继续／停止走 steward-drawer.js 导出的同一段原语（抽屉自己也调它们，不复制）');
+const drawerStopAction = functionBlock(drawer, 'stopThread');
 ok(/const result = await stewardThreadRunAction\(\{ api, sessionId, runId: run\.id, action \}\);/.test(drawer)
-  && /const stopped = await stewardThreadStop\(\{ api, sessionId \}\);/.test(drawer),
-  'D5 抽屉自己也改调这段原语（「同一段」是真的同一段，不是抄一份给看板）');
+  && /stewardThreadStop\(\{[^}]*\bapi\b[^}]*sessionId:[^}]*\bexpectedExecution\b[^}]*\}\)/.test(drawerStopAction),
+  'D5 抽屉自己也调用共享动作原语，停止传入该按钮捕获的目标与执行身份');
 // 116h 交付记录登记项①的落点：等锁时给「停掉占用者」。
 // 33 号文 §4（M3-a）**重钉**：危险操作确认四套收一套后，看板不再自己拼文案键、也不再调原生
 // globalThis.confirm —— 原判据钉的正是那两行长什么样，改完当场假红。新判据钉同一件事的**更强**版本：
@@ -381,15 +383,21 @@ ok(/const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(anyThreadRunnin
   `F3b 兜底轮询存在且连接时节拍 ≥30 s（实测 ${chipsMod.STEWARD_POLL_MS_CONNECTED} ms；断开时回到「有线程在跑 5 s／空闲 config.stewardPollMs」两档）`);
 // 121-K2b 新钉（§6.4 的三条语义之三）：连接时那 30 s 一拍之外，行的变化靠推送落地，而推送落地
 // 【不许】变成每帧一发请求 —— thread.live 就地改（零请求），其余五类走串行合并的那一条路。
+const pushRowsBody = functionBlock(boardCode, 'pushRefreshRows');
 ok(/stream\.on\(EVENT_STREAM_LIVE_EVENT, data => \{ applyLivePush\(data\); \}\);/.test(board)
   && /for \(const name of EVENT_STREAM_ROW_EVENTS\) \{/.test(board)
-  && /if \(pushBusy\) \{ pushAgain = true; return false; \}/.test(board)
+  && pushRowsBody.includes('const generation = boardReadGeneration;')
+  && pushRowsBody.includes('if (pushBusy === generation) { pushAgain = true; return false; }')
+  && pushRowsBody.includes('finally { if (pushBusy === generation) pushBusy = false; }')
+  && pushRowsBody.includes('if (generation !== boardReadGeneration) return false;')
   && count(boardCode, /pushRefreshRows\(\)/g) === 5,
   'F3c thread.live 就地改行（零请求）；其余五类经 pushRefreshRows 串行合并（在飞时只记一个「还要再来一趟」的位，不加第二个计时器）。121-K4 多出的第四处是 syncRail：工作台视角没有兜底计时器，用户动作（开／建／改名／删）就是行最该被复核的时刻 —— 它走的是同一条串行合并的路，不是第二条。128f 的第五处是 presence.ack（见 F3d）');
 // 128f（thread-switch-race.browser 的 S1；c3a3585 全量 workbench-thread-head E3 的偶发）：行上的 seatedBy 是服务端按在场现算的，
 // 在场只在事件流连上那一刻登记；工作台视角没有兜底节拍、在场变了服务端也不推 —— 收到「我已经记下你坐在哪」的回执就补一发行，
 // 且推送那一路行变了要告诉宿主（线程头读的也是这批行）。两处任一拿掉，S1 就红（反向验证实测）。
-ok(/stream\.on\('presence\.ack', \(\) => \{ void pushRefreshRows\(\); \}\);/.test(boardCode)
+const boardAckBody = bracedBlock(boardCode, "stream.on('presence.ack'");
+ok(boardAckBody.includes('void pushRefreshRows();')
+  && boardAckBody.includes('if (serverRefreshPending) { serverRefreshPending = false; void loadArbiter().then(() => renderArbiterFacts()); }')
   && /async function refreshRows\(\) \{[\s\S]{0,700}?if \(changed\) renderRail\(\);[\s\S]{0,500}?if \(changed\) \{ try \{ onRowsChanged\(rows\.length\); \}/.test(boardCode),
   'F3d 在场回执（presence.ack）补一发行；refreshRows 行变了照样告诉宿主（onRowsChanged）—— 工作台线程头的管家条跟得上在场');
 // 128f（thread-switch-race W1e／W2）：取行只认最后发出的那一发；被取代的那一发【等它落地再回】（立刻回 false 的话，
@@ -411,9 +419,11 @@ ok(/function leaveSteward\(\) \{[\s\S]*?polling\.stop\(\);/.test(board)
   'F4 切离管家模式即收摊（谁改的 data-shell-mode 都算），且切换的第一帧左栏就已经按新视角画过一遍；出视角不动用户钉的焦点');
 ok(mod.STEWARD_BOARD_POLL_MS_MIN === 5000 && /Math\.max\(STEWARD_BOARD_POLL_MS_MIN, raw\)/.test(board),
   'F5 轮询周期取 config.stewardPollMs 并按 5000 下限 clamp（导出常量）');
-ok(/if \(response\.status === 304\) return false;/.test(board)
+const mission304Body = bracedBlock(functionBlock(boardCode, 'loadMissionsOnce'), 'if (response.status === 304)');
+ok(mission304Body.includes("if (!missionsEtag || !boardReadQuality.missions.lastSuccessAt) throw new Error('unverified mission cache');")
+  && mission304Body.includes('return false;') && !/\brows\s*=|renderRail\(/.test(mission304Body)
   && /'if-none-match': missionsEtag/.test(board),
-  'F6 行数据带 If-None-Match 走；没变（304）就不重画（也就不会打断正开着的 chip 菜单）');
+  'F6 已验证缓存才接受304；行数据带 If-None-Match，没变不替换行或重画，不打断 chip 菜单');
 for (const [name, source] of [['steward-board.js', boardCode], ['thread-head.js', classicCode]]) {
   ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(source),
     `F7 ${name} 零 innerHTML/insertAdjacentHTML/document.write`);

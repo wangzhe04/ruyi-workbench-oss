@@ -29,6 +29,10 @@ jobs:
       - name: Build freshness (artifact == concat(src))
         working-directory: ${{ github.workspace }}
         run: node ruyi-workbench/app/build.js --check
+      # Fail early on the real Windows credential IPC path before the long serial suite.
+      - name: Windows credential IPC smoke
+        working-directory: ${{ github.workspace }}
+        run: node dev-harness/external-bot-credentials.e2e.js
       # 第46波46a: unit 快通道(node:test,秒级)—— run-all 内也会跑,此处单独一步求最早反馈。
       - name: Unit tests (node --test)
         working-directory: ${{ github.workspace }}

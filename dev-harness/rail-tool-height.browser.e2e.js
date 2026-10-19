@@ -86,6 +86,8 @@ function killTree(child) {
 // 确定性 provider：三轮 file_read，轮与轮之间在【发出下一次 tool_use 之前】睡 GAP_MS —— 这段睡眠期间
 // 服务端手上的 tail.tool 是上一轮 tool_result 清成的 ''，正是本件要盯的窗口。
 let probeFile = '';
+let startTools;
+const toolsReady = new Promise(resolve => { startTools = resolve; });
 async function startProvider(port) {
   const server = http.createServer(async (req, res) => {
     if ((req.url || '').includes('/models')) {
@@ -101,6 +103,8 @@ async function startProvider(port) {
     const delta = text => sse({ choices: [{ index: 0, delta: { role: 'assistant', content: text }, finish_reason: null }] });
     if (rounds < 3) {
       delta(`第 ${rounds + 1} 步：我先看一眼现场。`);
+      // First sample must observe actual running state before the instant reads can finish.
+      if (rounds === 0) await toolsReady;
       if (rounds > 0) await sleep(GAP_MS); // 首轮不用等——一开场就该立刻进「在跑」，不留一段假的启动态
       const args = JSON.stringify({ path: probeFile });
       sse({ choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: `call_${rounds}`, type: 'function', function: { name: 'file_read', arguments: '' } }] }, finish_reason: null }] });
@@ -297,7 +301,8 @@ try {
   // （state 由 railThreadRow 落的 [data-state] 读出，见 steward-board.js:869）；B3 仍然管全程
   // （不管在跑还是收工，行本身都不许从左栏消失）。
   const WINDOW_MS = GAP_MS * 2 + 2500;
-  const samples = [];
+  const samples = [await cdp.evaluate(SAMPLE(sid))];
+  startTools();
   const deadline = Date.now() + WINDOW_MS;
   while (Date.now() < deadline) {
     let s = null;
@@ -332,6 +337,7 @@ try {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;
 } finally {
+  startTools();
   if (cdp && fail) console.log('CONSOLE ' + cdp.logs.slice(-6).join(' | '));
   if (cdp) cdp.close();
   killTree(browser);

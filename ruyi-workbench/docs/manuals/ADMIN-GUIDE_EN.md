@@ -5,7 +5,7 @@ security boundaries, verification, and troubleshooting. Audience: deployers, IT 
 user-facing instructions are in [USER-GUIDE_EN.md](USER-GUIDE_EN.md).
 
 Hard constraints: Ruyi is a **clean-room implementation**, **`server.js` has zero npm runtime dependencies**, it is
-**fully offline with zero telemetry by default**, it is updated **incrementally through overlays** within a version,
+**offline-first with zero telemetry**, it is updated **incrementally through overlays** within a version,
 and it targets **Windows 10/11**. The product name is "Ruyi". Since 3.0 the MCP server id is `ruyi`, the default data
 root is `~/.ruyi-workbench` and the environment variable is `RUYI_HOME` (the old `win-claude-workbench` /
 `~/.win-claude-workbench` / `WIN_CLAUDE_WORKBENCH_HOME` are migrated automatically or still read; see "Brand and
@@ -19,7 +19,7 @@ Ruyi is a local Windows application. The workbench server is a single Node.js pr
 dependencies (Node built-ins only), requiring Node ≥ 20.
 
 ```powershell
-node app\server.js serve --open        # from source (recommended; edits take effect without a rebuild of the exe)
+node app\server.js serve --open        # from source (run node app\build.js after editing app/src)
 .\Ruyi.exe serve --open                # packaged exe
 Start-Workbench.cmd                    # convenience launcher (runs one of the above)
 ```
@@ -125,7 +125,7 @@ $env:RUYI_HOME = "D:\workbench-data"
 
 The default HTTP port is 8765 (`--port <n>` → `PORT` → 8765). Ruyi binds `127.0.0.1` only; `--host` with any non-loopback address is refused at startup unless you also pass `--allow-remote` explicitly (and even then non-local peers never receive the page token — see `SECURITY.md`). Ruyi is not a multi-user or public web service.
 
-When the port is taken, Ruyi only takes over **its own data directory's stale instance**: the process holding the port must be the pid recorded in *this data directory's* `runtime.json` (cross-checked against overlayId / image name). A Ruyi instance from another install or another data directory — which may be running a turn — and any other program are never touched. In every other case Ruyi moves on to the first free port in original+1 … original+9; the actual port is written to `runtime.json` and the console URL, and the top bar in the UI says which port is in use. Only when all nine are unavailable does startup fail (leaving `last-start-error.json` for the next start to surface). `killPortOnStart=false` / `WCW_KILL_PORT=0` disables takeover entirely, even of its own stale instance.
+Each data directory permits one service. Ownership is acquired before startup recovery or migration; a second service is refused even on a different port, preserving the first service's pending tasks and handshake. Use the existing window or stop the existing service first. Ruyi no longer ends any process to take its port. For a different data directory, it tries original+1 … original+9 and records the actual port in `runtime.json`, the console URL and the UI banner. Only when all candidates are occupied does startup fail. `killPortOnStart` and `WCW_KILL_PORT` remain legacy configuration fields and no longer enable takeover.
 
 ### Windows 10/11 requirements
 
@@ -230,7 +230,7 @@ If you use the pure `setx` path, check these when something looks wrong:
 | `CLAUDE_CLI_PATH` | medium | `detectClaudePath()` checks it **first**; a wrong path overrides auto-detection |
 | `ANTHROPIC_BASE` | medium | Old base-URL variable that model discovery falls back to (below `ANTHROPIC_BASE_URL`) |
 | `RUYI_HOME` / `WIN_CLAUDE_WORKBENCH_HOME` | medium | Moves the data root, so the existing `config.json` and MCP configuration are not found |
-| `WCW_KILL_PORT=0` | low | Disables port takeover: a taken 8765 is not freed, Ruyi moves to the next port |
+| `WCW_KILL_PORT=0` | low | Legacy compatibility field; occupied ports always fall back without ending their owners, and a second service on the same data directory is refused |
 | `WCW_FAKE_CLAUDE` | low | Test only, points at a fake CLI script (**never set in production**) |
 | `MAX_THINKING_TOKENS` | low | Caps thinking tokens (the workbench overrides it with `config.thinkingBudget`) |
 
@@ -498,9 +498,7 @@ gate: any journal failure is swallowed and **never blocks the tool**. `GET /api/
 `POST /api/session/rewind` rewinds the conversation. Each session keeps its latest 20 turns, with a lazy global
 200 MB GC.
 
-There is no telemetry, analytics or beacon of any kind; every log stays in the data root. The only optional outbound
-probe is one HEAD from the capability matrix (to `config.capabilityProbeUrl` or the provider `baseUrl`, to decide
-online or offline; it is not telemetry, and `capabilityProbeUrl` is empty by default). Clean-room: no leaked
+There is no product telemetry, analytics or beacon; every log stays in the data root. Offline use requires a local model, or an intranet model that remains reachable without public internet. Model requests, search and other network tools contact services according to the configuration and task. Built-in search is enabled without a key and can be disabled in settings. The capability matrix may also send a HEAD request to `config.capabilityProbeUrl` or the provider `baseUrl` to check connectivity; this is not telemetry, and `capabilityProbeUrl` is empty by default. Clean-room: no leaked
 Anthropic source, no bundled official Claude CLI, no copied third-party plugin source; the product is Apache-2.0, and
 the front-end static libraries are covered in the root `THIRD-PARTY-NOTICES.md`.
 
@@ -530,9 +528,9 @@ Skills, workbench memories and inter-node messages can come from **untrusted sou
 ## 4. Pro mode and diagnostics
 
 The right-hand workspace keeps seven tabs in both simple and pro mode: Files, Artifacts, Changes, Memory, Workflows,
-Usage, and Activity (the audit timeline). Terminal, desktop, MCP, search, and file-read capabilities remain available
+Usage, and Activity (the audit timeline). Workflows presents run summaries, approvals and member details; the middle Crew tab presents the collaboration canvas. Terminal, desktop, MCP, search, and file-read capabilities remain available
 to the model through the normal read/edit/exec permission, checkpoint, and audit paths; they are no longer exposed
-as context-free manual runners.
+as context-free manual runners. ruyi-toolbox discovery and component switches are under **Settings → Tools & integrations → Add-on components**.
 
 Connector operations remain under **Settings → Tools & integrations → Integrations and MCP**, where connector
 sources, health, tool counts and failure reasons are shown and user connectors can be managed (a configuration
@@ -583,7 +581,7 @@ timeline when escalating an issue; do not paste unmasked keys or chat content in
 
 | Symptom | What to do |
 |---|---|
-| **Port taken** | On the default 8765, only a stale instance registered by **this data directory** (the pid in its `runtime.json`) is ended and retried on the same port, and only while `killPortOnStart` is not disabled; other Ruyi instances (another install or data directory) and other programs are left alone, and Ruyi moves on to the next free port (port+1 … port+9; the top banner names the actual port, `runtime.json` records it). Only when every candidate is taken does the start fail; to pin a port use `--port <n>` and end the holder by hand first. |
+| **Port taken** | A second service sharing a data directory is refused. With a different directory, Ruyi leaves the existing process running and tries port+1 … port+9; the banner and `runtime.json` record the actual port. To pin a port, use `--port <n>` and stop its current owner first. |
 | **Engine 401** | Claude CLI: check `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` and `ANTHROPIC_BASE_URL` (or the model-endpoint base and key in Settings). Provider: check the apiKey. A **401 does not trigger endpoint failover** (the attribution is kept), so a backup endpoint will not help; fix the key first. |
 | **Stream drops / failover notice** | A `failover` event means the primary endpoint was unavailable before the first byte and a backup was used (connection failure or 502/503/504). If the backup is down too the turn finally errors. A break after the SSE body has started never switches endpoints (replay protection); resend the turn. |
 | **Search backend unreachable** | Check `searchBackend.type` and its baseUrl (required for searxng/custom) and apiKey (required for bing/brave and tavily, optional for bocha). The search backend is a **trusted endpoint, outside SSRF checks**, but must still be reachable. Offline, `web_fetch` falls back to the local webcache (`fromCache: true`). |
@@ -696,7 +694,7 @@ today; only the test harness does.
   can still POST such an act directly. That route is covered by the route auth table and the UI token, but a
   server-side second credential for the confirm tier is not part of this release.
 
-## 8. Defaults, upgrade, and rollback (2.8.0 baseline; the 3.0 preview supplement is section 8.5)
+## 8. Defaults, upgrade, and rollback (historical 2.8.0 baseline; 3.0 migrations are in section 8.5)
 
 > **Classification**: measured readings plus factory-on means **shipped**; factory-off means **experimental**.
 > "Off by default" means an explicit `false`, or an absence that is byte-for-byte equivalent to the previous
@@ -847,7 +845,7 @@ v2.7.0 in wave 107's P1 drill (a provider carrying all four fields, one downgrad
   writes `configSchema` back as 11, so the one-time `< 12` migration runs again when you return to 2.8.0 (measured
   in wave 107's P1 drill). To keep one off, write `false` again after upgrading back.
 
-### 8.5 3.0 preview supplement: `CONFIG_SCHEMA` 12 → 14
+### 8.5 3.0 migration supplement: `CONFIG_SCHEMA` 12 → 14
 
 Sections 8.1–8.4 were written at 2.8.0 and remain accurate for 2.7.0 ↔ 2.8.0. The current tree is
 **3.0.0** and `CONFIG_SCHEMA` is **14** (`app/src/00-boot.js`; the migration table is
@@ -864,10 +862,34 @@ described under "Data root" and "Brand and compatibility". Two more one-shot mig
   migration, so nobody is quietly loosened; a level already written on disk is kept as is. Switching to Smart auto
   or Fully automatic still asks for a second confirmation.
 
-Other 3.0 preview default changes (for example `agentAutoWake`, which wakes the main conversation when background
-agents finish, on from the factory) are in the root `CHANGELOG.md`. The rollback drill in this section covers only
-2.8.0 ↔ 2.7.0; rolling a 3.0 preview back to 2.8.0 has not been measured the same way, so back up the whole data
+Other 3.0 default changes (for example `agentAutoWake`, which wakes the main conversation when background
+agents finish, on from the factory) are in the root `CHANGELOG.md`. The recorded rollback drill covers only
+2.8.0 ↔ 2.7.0; the 3.0 release does not establish that a 3.0 → 2.8.0 downgrade passed the same drill. Back up the whole data
 root first as in section 8.4.
+
+## External bots and remote control
+
+For assisted setup, give the Steward the QQ AppID, or the Feishu App ID, tenant key and bot open_id. It checks missing information and prepares a disabled connection. With only the Feishu App ID and App Secret, use "Discover from app credentials" in the External bots panel: the local instance probes the fixed official endpoints once, reads the tenant key and bot open_id and stores the app secret in the local credential ledger; verification of an existing connection reports whether tenant and bot still match. Open the setup entry in the conversation, enter the remaining secrets in dedicated password fields, start a five-minute pairing window and send the one-time code to the bot. Fully verified platform messages identify the owner and conversation; local review of the shared context and group visibility is still required before enabling control. Pairing does not call the model, execute tasks or send platform messages. Configuration/credential changes, expiry and restart invalidate old pairing. External instructions cannot authorize a new control entry.
+
+On Windows, the setup stores credentials with current-user DPAPI, outside ordinary chat, model calls and general config APIs. Protection failures do not fall back to plaintext. This is not a portable cross-machine secret backup and does not defend against malicious software running as the same user. Other platforms retain environment references in this iteration. An explicit environment reference always selects that source; a missing value never silently falls back to an older local credential. Disable the connection before rotating credentials and authorize it again afterward. The manual environment procedure below remains available; its HTTPS and platform-permission steps also apply to assisted setup.
+
+First enable the Steward locally and verify that its configured model can handle a request. Remote control uses that same configuration, including existing DeepSeek or Qwen endpoints; installing a local model is not required. Platform failures do not raise task permissions or switch models automatically.
+
+The integration accepts text from official QQ direct/group-mention events and Feishu app bot direct/group-mention events. An explicitly authorized owner can control the same Steward remotely and receive the current reply in the original conversation. Inbox-only/manual draft mode remains optional. Feishu custom group webhooks are a different integration.
+
+1. Create a dedicated platform application and obtain its app identity and permitted sender/conversation IDs. Feishu also requires its tenant ID, the bot's own open_id, Verification Token and Encrypt Key; outbound replies additionally need App Secret. QQ requires its official Bot Secret. Configure both receiving and sending permissions and application availability.
+2. Supply secrets in the environment of the process that starts Ruyi. Use names beginning with `RUYI_BOT_`, such as `RUYI_BOT_FEISHU_TOKEN`, `RUYI_BOT_FEISHU_ENCRYPT_KEY`, `RUYI_BOT_FEISHU_APP_SECRET` and `RUYI_BOT_QQ_SECRET`. Enter only these names in Settings. Environment changes require restarting Ruyi after dealing with active work.
+3. Under **Settings → Steward → External bots**, add a connection and both allowlists. Both the sender and conversation must match; group messages must mention this bot. New connections start disabled. Choose **Remote control** to bind your owner sender ID, conversation ID and direct/group type, then confirm locally. This account represents you in the same Steward, sharing its context, tasks and existing tool permissions. Group replies are visible to members; other members do not gain control. Platform/app identity is immutable: use a new connection ID for a different app. Deleted IDs cannot be reused, and historical inbox messages remain.
+4. Keep the main server on loopback. From the extracted offline package root, start the separate gateway with `.\runtime\node\node.exe .\tools\external-bot-gateway.js --upstream http://127.0.0.1:8765 --host 127.0.0.1 --port 8788`. Source checkouts can use `node ruyi-workbench/tools/external-bot-gateway.js` with the same arguments. Use Ruyi's actual upstream port. Configure an HTTPS entry point that leads only to this gateway. Use the callback path shown in Settings: `/api/external-bots/callback/feishu?connectionId=…` or `/api/external-bots/callback/qq?connectionId=…`. Never expose Ruyi's whole site, bootstrap or administration APIs through a reverse proxy. The gateway rejects those paths and needs no workbench token.
+5. Send a low-risk command, such as a task status query, from the designated test conversation. In control mode, check the actual Steward turn and platform reply before testing delegation, continuation and stopping. In inbox-only mode, check receipt only. Callback acknowledgement means acceptance; local readiness does not prove platform connectivity.
+
+Enable Feishu Encrypt Key: the initial challenge must decrypt successfully and match the verification token. Message events require a valid raw-byte signature, timestamp and app/tenant identity. QQ challenge and message verification follow their separate protocol paths. Feishu long connections are a later stage; exposing the whole Ruyi site is not a substitute for a dedicated callback entry point.
+
+The data-root file `external-bots/state-v1.json` stores connection metadata, environment references, received messages, deduplication records, current Steward replies and execution/delivery states. It does not store bot credential values. Limits are 16 connections and 1000 messages. Marking read does not delete a message; a full inbox rejects new receipts. Do not delete the state file to clear it, as this loses configuration and deduplication evidence. Retention/archive management is a later stage; disable the connection, back up its state and assess volume first. Environment-based credentials must be supplied again after restoring a backup; locally saved credentials use a separate DPAPI ciphertext ledger and must be entered again if the destination cannot decrypt them.
+
+Corruption, unknown schemas and read/write failures reject receipt instead of rebuilding an empty ledger and acknowledging delivery. HTTPS, account permissions and actual platform traffic need their own integration check; offline protocol tests do not replace it. See repository document `docs/optimization-plan/66-external-bots-and-steward-channels.md` for the phased design.
+
+Execution and delivery have separate durable records. Redelivery does not repeat a command. After restart, previously running commands and previously sending replies without confirmed results become unknown and are not automatically replayed. Commands still queued may resume after authorization is rechecked. Disabling/rebinding stops queued and subsequent new actions; already started tasks retain the normal stop workflow. QQ imposes a time window on passive replies, so work can succeed while a late reply fails. Query task state before repeating the work.
 
 ## Brand and compatibility
 

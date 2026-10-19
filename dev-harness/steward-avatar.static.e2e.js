@@ -100,6 +100,7 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   // 121-K6a（34 号文 §4.3）：安静卡——工作台里管家的唯一打扰形态。形态仍然不变：本域内相对路径、
   // 零第三方库、零裸包名。
   "import { createQuietCard } from './quiet-card.js';",
+  "import { createStewardDecisions } from './steward-decisions.js';",
   // 123-M2（37 号文 §3.5）：安静卡的「稍后」改成真 snooze 之后，建不成那条 reminder 要 toast
   // 一句（成功才收卡）。toast 住 util.js（零 import 的叶子）。形态仍然不变：本域内相对路径、
   // 零第三方库、零裸包名。
@@ -160,7 +161,7 @@ ok(/\.steward-avatar\.is-nudged \.sa-body \{ animation: none !important; \}/.tes
   && !/\.is-nudged::after/.test(reducedBlock),
   'E6 reduced-motion 下 .is-nudged 只做光环不做位移（光环留着，animationend 才回得来）');
 // 触发点唯一性：nudge 只在壳层轮询判定 trigger==='inbox' 的那一分支里发一次。
-ok(/lastReply\.trigger === 'inbox'\) \{ nudgeAvatar\(\);/.test(stewardShell)
+ok(/lastReply\.trigger === 'external' \|\| \(!firstSeen && lastReply\.trigger === 'inbox'\)\)\) \{ nudgeAvatar\(\);/.test(stewardShell)
   && (stewardShell.match(/nudgeAvatar\(\)/g) || []).length === 2,
   'E7 nudgeAvatar 只有「定义 1 ＋ 调用 1」两处，调用点就在 trigger===\'inbox\' 那一分支');
 ok(/function nudgeAvatar\(\) \{[\s\S]{0,420}addEventListener\('animationend'[\s\S]{0,120}\{ once: true \}\)/.test(stewardShell)

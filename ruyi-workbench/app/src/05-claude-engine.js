@@ -213,9 +213,10 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
 function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[normalizeAgentCliType(type)]; }
 
 async function runClaudeTurn({
-  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam, messageMeta,
+  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam, messageMeta, executionOwner,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
 }) {
+  assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   const turnSegments = createTurnSegmentBuilder();
   const downstreamEvent = onEvent;
@@ -276,7 +277,7 @@ async function runClaudeTurn({
       onEvent({ type: 'resume_recovery', reason: resumeResetReason, automatic: true });
     }
   }
-  const basePrompt = `${message}${buildAttachmentPrompt(attachments)}`;
+  const basePrompt = `${message}${buildAttachmentPrompt(attachments)}${buildDeliveryRevisionPrompt(messageMeta)}`;
   // Seed a bounded continuity copy on every normal Claude turn. `--resume` can silently select a fresh
   // native transcript (missing/moved CLI state, upgrades, endpoint/model changes), and that fact is only
   // observable after the prompt has already been sent. A proactive bounded copy is the only side-effect-free
@@ -320,7 +321,8 @@ async function runClaudeTurn({
       ...(messageMeta && typeof messageMeta === 'object' ? { meta: messageMeta } : {}),
     });
     // 122-§2.4:起跑这一存做落盘前合并(同 09 起跑那一存的头注)—— claude/kimi 两路都从这里起跑。
-    await saveSession(session, { mergeMissionFromDisk: true });
+    assertSessionExecutionOwner(session.id, executionOwner);
+    await saveSession(session, { mergeMissionFromDisk: true, executionOwner });
     await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
       engine: 'claude', model: currentClaudeModel || 'default', cwd: workingDir,
@@ -340,7 +342,7 @@ async function runClaudeTurn({
       `工作目录:${workingDir}`,
     ].join('\n');
     session.messages.push({ role: 'assistant', content: fallback, segments: [{ id: 'segment-1', type: 'text', text: fallback }], traceId: activeTraceId, createdAt: nowIso(), source: 'fallback' });
-    await saveSession(session);
+    await saveSession(session, { executionOwner });
     onEvent({ type: 'assistant_delta', text: fallback });
     await AgentLoopHooks.dispatchAgentLoopHooks('onError', {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
@@ -363,6 +365,7 @@ async function runClaudeTurn({
 
   // Serialize per session: if a turn for this session is already live, kill it first so we never
   // orphan a child (unkillable pid) or last-write-wins clobber the session file with a concurrent turn.
+  assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
   const interactive = adapter.interactive(config);
@@ -616,6 +619,7 @@ async function runClaudeTurn({
       if (tailArgs[i] === '--add-dir') additionalDirectories.push(tailArgs[++i]);
     }
     return adapter.runPreparedTurn({
+      executionOwner,
       session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
       additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
@@ -711,6 +715,7 @@ async function runClaudeTurn({
   // 环境说明、beforeSpawn、hooks……),同会话的两个回合可以都在那时看到「空闲」,各起一个子进程,后登记的
   // 把先登记的从表里挤掉 —— Stop 只杀得到一个,另一个成了孤儿。这里在「最后一个 await 之后、spawn 之前」
   // 再判一次(从这行到 activeChildren.set 全是同步代码,中间没有让出点),保证同会话同一时刻只有一个子进程。
+  assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
@@ -723,8 +728,9 @@ async function runClaudeTurn({
   reg.onEvent = evt => { reg.lastEventAt = Date.now(); onEvent(evt); };
   installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
-  activeChildren.set(session.id, reg);
-  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
+  registerSessionExecutionChild(session.id, reg, executionOwner);
+  RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
+  // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
   const stopSideChannelWatch = adapter.watchSideChannel(session, reg.onEvent);
 
@@ -1100,11 +1106,11 @@ async function runClaudeTurn({
     delete session.claudeSessionCwd;
     delete session.claudeSessionRouteKey;
     session.injectedIndexHash = null;
-    await saveSession(session);
+    await saveSession(session, { executionOwner });
     logEvent({ kind: 'claude_resume_retry', sessionId: session.id, reason: 'transcript-missing' });
     downstreamEvent({ type: 'resume_recovery', reason: 'transcript-missing', automatic: true, traceId: activeTraceId });
     return runClaudeTurn({
-      session, message, attachments, cwd, onEvent: downstreamEvent, config, driverAuto, agentTeam,
+      session, message, attachments, cwd, onEvent: downstreamEvent, config, driverAuto, agentTeam, executionOwner,
       _resumeRecoveryAttempt: true, _recoveryHistoryOverride: recoveryHistory, _traceId: activeTraceId,
       _workspaceBaseline: workspaceTurnBaseline,
     });
@@ -1128,6 +1134,7 @@ async function runClaudeTurn({
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(e => e && Number(e.turnSeq) === Number(session.turnSeq));
   const turnSummary = buildTurnSummary(session.turnSeq, toolCalls, 'claude', turnJournal);
+  if (typeof DeliveryHooks.capture === 'function') await DeliveryHooks.capture(session, turnSummary, { startedAt: turnStartedAt, finalText }).catch(() => {});
   if (agentRecoverySummary && exit.code === 0 && !wasStopped) {
     delete session.agentRecoverySummary;
     delete session.agentRecoverySource;
@@ -1185,7 +1192,7 @@ async function runClaudeTurn({
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
   // 回合代数闸(与 09 同一个 02 saveTurnFinalSession):被更新的回合顶替过的收尾存丢弃,不派 thread.done / 任务进度。
-  const turnSuperseded = !(await saveTurnFinalSession(session, 'claude-turn-final'));
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'claude-turn-final', { executionOwner }));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
   if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板:本回合记账(计价优先级与无结果帧的估算兜底见适配器 recordTurnUsage)。

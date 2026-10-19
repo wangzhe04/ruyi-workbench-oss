@@ -407,7 +407,7 @@ function defaultConfig() {
     // 从此它归用户(以用户为准,见清洗块的「收编」一支)。管家的工作区清单与 cwd 校验把两张表合起来看。
     stewardManagedWorkspaces: [],
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
-    stewardPollMs: 15000,
+    stewardPollMs: 5000,
     // 第 121 波 K3(34 号文 §4.1/§4.2「噪音用窗口解决,不用能力解决」):任务索引的「最近 N 条」窗口。
     // 一条既不在途、今天也没动静、管家也不盯的旧线程,只有排在最近 N 条里才进索引 —— 几百条存量
     // 普通会话因此不会把左栏淹掉,但它们仍在搜索里找得到。clamp [10,200],判据单点在 06i 的
@@ -419,7 +419,7 @@ function defaultConfig() {
     // config.json,静默抬高别人的花钱上限不合适;只改默认,老用户在设置·管家页自己调。
     stewardMaxTurnsPerHour: 30,
     // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
-    stewardMaxCostPerDay: 1,
+    stewardMaxCostPerDay: 5,
     // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
     // 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 把用户的话递给对的线程是管家的
     // 本职,默认只提议等于每句话都多问一遍。answer(代答)仍默认关:那是唯一【替用户说话】的一格(129g)。
@@ -464,7 +464,7 @@ function defaultConfig() {
     // (熔断,见 13h stewardCircuitCheck),这两个管【全部线程】(排队,不拒绝)。
     stewardMaxParallelThreads: 5,
     stewardGlobalMaxTurnsPerHour: 120,
-    stewardGlobalMaxCostPerDay: 20,
+    stewardGlobalMaxCostPerDay: 50,
     // 第 123 波 M1(37 号文 §3.2/§3.4;设计权威 29 号文 §4「开关」):定时任务调度器总开关。
     // 默认【开】,但**没有任何任务时零开销**:13s 的 startScheduler 在零任务时不起 interval,
     // 关掉(显式 false)时更是一个字节都不写 —— 不建 <data>/scheduler/ 目录、不读盘、六条路由一律 409。
@@ -1384,10 +1384,10 @@ function normalizeConfig(raw, opts = {}) {
     if (JSON.stringify(tm) !== JSON.stringify(config.stewardThreadModels)) { config.stewardThreadModels = tm; changed = true; }
     else config.stewardThreadModels = tm;
   }
-  // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 15000,clamp [5000,120000]。
+  // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),非法值(非有限数)回默认 5000,clamp [5000,120000]。
   {
     const n = Number(config.stewardPollMs);
-    const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 15000;
+    const clamped = Number.isFinite(n) ? Math.min(120000, Math.max(5000, Math.round(n))) : 5000;
     if (clamped !== config.stewardPollMs) { config.stewardPollMs = clamped; changed = true; }
   }
   // 第 121 波 K3(34 号文 §4.1):任务索引「最近 N 条」窗口,非法值(非有限数)回默认 30,
@@ -1406,10 +1406,10 @@ function normalizeConfig(raw, opts = {}) {
     const clamped = Number.isFinite(n) ? Math.min(120, Math.max(1, Math.round(n))) : 30;
     if (clamped !== config.stewardMaxTurnsPerHour) { config.stewardMaxTurnsPerHour = clamped; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000],非法回默认 1(允许小数,不取整)。
+  // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000],非法回默认 5(允许小数,不取整)。
   {
     const n = Number(config.stewardMaxCostPerDay);
-    const clamped = Number.isFinite(n) ? Math.min(1000, Math.max(0, n)) : 1;
+    const clamped = Number.isFinite(n) ? Math.min(1000, Math.max(0, n)) : 5;
     if (clamped !== config.stewardMaxCostPerDay) { config.stewardMaxCostPerDay = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单——retry/relay/newThread/answer 严格布尔
@@ -1498,7 +1498,7 @@ function normalizeConfig(raw, opts = {}) {
   }
   {
     const n = Number(config.stewardGlobalMaxCostPerDay);
-    const clamped = Number.isFinite(n) ? Math.min(10000, Math.max(0, n)) : 20;
+    const clamped = Number.isFinite(n) ? Math.min(10000, Math.max(0, n)) : 50;
     if (clamped !== config.stewardGlobalMaxCostPerDay) { config.stewardGlobalMaxCostPerDay = clamped; changed = true; }
   }
   // 第 123 波 M1:调度器总开关。与 stewardThreadBriefV1 同方向的严格布尔(!== false)——
@@ -1552,7 +1552,7 @@ function normalizeConfig(raw, opts = {}) {
     const raw0 = (config.searchBackend && typeof config.searchBackend === 'object' && !Array.isArray(config.searchBackend)) ? config.searchBackend : {};
     // v1.0-S6 (A): +tavily +bocha. v1.1-W1a (T3): +builtin. New枚举 values are OPTIONAL/缺省安全 — an
     // absent/unknown type still falls back to 'builtin' (the zero-config default), so configSchema stays 7.
-    let type = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'custom'].includes(raw0.type) ? raw0.type : 'builtin';
+    let type = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'deepseek', 'custom'].includes(raw0.type) ? raw0.type : 'builtin';
     // v1.1-W1a (T3): MIGRATE存量 'none' → 'builtin'. Rationale: 'none' was the *historical default* (nobody
     // ever actively chose "disable search" — the old default just left web_search off). Folding it to the new
     // zero-config backend turns search ON for every upgraded install, matching the 开箱即用 decision.
@@ -1764,7 +1764,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
         throw storeError('EDURABLE_SHAPE', id + ': root must be an object');
       }
       const actualSchema = raw[schemaKey];
-      if (schemaVersion !== null && actualSchema !== undefined && actualSchema !== schemaVersion) {
+      if (schemaVersion !== null && actualSchema !== schemaVersion && (options.strictRead === true || actualSchema !== undefined)) {
         throw storeError('EDURABLE_SCHEMA', id + ': unsupported ' + schemaKey + ' ' + String(actualSchema));
       }
       let value = cloneJson(raw);
@@ -1800,6 +1800,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
+        if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
         value = recover(error);
       }
@@ -1827,6 +1828,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
       } catch (error) {
+        if (options.strictRead === true && error?.code !== 'ENOENT') throw error;
         if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
         value = recover(error);
       }
@@ -3894,6 +3896,12 @@ function authorizeRoute(req, method, pathname) {
     if (r.m !== '*' && r.m !== m) continue;
     const match = r.prefix ? pathname.startsWith(r.p) : pathname === r.p;
     if (!match) continue;
+    // Only the two exact callback routes opt into platform verification in their handler. They never
+    // authenticate administration, and the HTTP host allowlist remains in force before this gate.
+    if (r.auth === 'external-callback') {
+      return m === 'POST' && !r.prefix && (pathname === '/api/external-bots/callback/qq' || pathname === '/api/external-bots/callback/feishu')
+        ? null : 'route not authorized';
+    }
     if (remote && r.auth !== 'body-token') {
       if (pathname === '/api/bootstrap') return 'remote client not allowed';
       return tokenOk(req) ? null : 'missing or invalid workbench token';

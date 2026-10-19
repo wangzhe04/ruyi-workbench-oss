@@ -25,6 +25,8 @@ const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'app', 'src', 'manif
 const srcModules = manifest.modules.map(m => 'app/src/' + (typeof m === 'string' ? m : m.file));
 const literals = overlay.PAYLOAD_FILES.filter(f => !srcModules.includes(f));
 const payload = new Set(overlay.PAYLOAD_FILES);
+ok(payload.has('app/public/js/external-bots.js') && payload.has('tools/external-bot-gateway.js'),
+  'external bot control page and its optional deployment gateway are both shipped by overlay');
 ok(literals.length > 10 && srcModules.length > 5 && srcModules.every(f => payload.has(f)),
   `载荷清单可重建(字面 ${literals.length} + src 模块 ${srcModules.length},manifest 的每个模块都在表里)`);
 

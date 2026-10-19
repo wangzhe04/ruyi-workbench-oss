@@ -1,6 +1,8 @@
 'use strict';
 
 import './mission-state.js';
+import { getLocale } from './i18n.js';
+import { appendRunFaults, appendResourceReadHealth, validProjectedRunHealth, validExecutionSnapshot, validExecutionObservation } from './run-health.js';
 // 117l D2：抽屉不再直调 fetch（原来那一处是 POST /api/chat/stream，已被 /api/steward/relay 取代），
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
@@ -8,7 +10,7 @@ import { apiErrorInfo } from './net.js';
 import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, stewardAskText, stewardWaitText, threadIsBlank, threadShownTitle } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
-import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
+import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT, EVENT_STREAM_INSTANCE_EVENT } from './event-stream.js';
 // 117u-G3（§11.15.7）：chipsWorthPrinting 是【看板与本文件共用】的那一份「跟全局一样吗」判据。
 // 它住在 steward-chips.js 而不是看板里，正是因为本文件不能反向 import 看板（steward-board.js 已经
 // import 本文件）—— 详见那边的函数头注释。本文件不自己比对任何会话字段。
@@ -30,7 +32,7 @@ import { missionStateIcon, icon } from './icons.js';
 // 33 号文 §4「抽屉 failNote 对齐看板」：错误信封的三处判据（稳定码 / wait.label / 人话文本）同样
 // 只留 conversation 那一份，抽屉不再自写弱化版 —— 同一条理由，同一行加三个名字。
 import { stewardThreadHueFor, stewardThreadStateKey, stewardAgoLabel, stewardDeliverableText,
-  stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel } from './steward-conversation.js';
+  stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardStopReceiptOf, stewardStopReceiptText } from './steward-conversation.js';
 // 32 号文 §4（M2-b）：暂停／继续的判据（含 pausableRunOf）搬到叶子 js/run-state.js，2.0 的 run 卡
 // 与 3.0 的看板行同一份。本文件原来那一处 export function pausableRunOf 就地改成 re-export ——
 // 看板/抽屉的既有 import 面（`{ stewardThreadRunAction, stewardThreadStop }` + pausableRunOf）
@@ -289,12 +291,102 @@ export async function stewardThreadRunAction({ api, sessionId, runId, action }) 
 }
 // 停任何回合（含仲裁器队列里还没轮到的那一条：116h 的 cancelQueuedTurn 就挂在这条路由上）。
 // 117h 的「停掉占用者」用的也是它 —— 等锁那一行点一下，停的就是 blockedBy 指的那条线程。
-export async function stewardThreadStop({ api, sessionId }) {
-  if (typeof api !== 'function' || !sessionId) return { ok: false, error: 'not_found' };
-  try {
-    const stopped = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId }) });
-    return (stopped && stopped.ok === false) ? { ok: false, error: stopped.error || 'stop_failed' } : { ok: true };
-  } catch (error) { return { ok: false, error }; }
+const stewardStopRequests = new Map();
+const stewardStopReceipts = new Map();
+const stewardStopControls = new WeakMap();
+let stewardStopServerInstanceId = '';
+let stewardStopRequestSequence = 0;
+
+// Page-local feedback survives read-only row refreshes. It never changes task/run state or replays a write.
+function stewardStopTargetKey(sessionId, execution) {
+  return JSON.stringify([String(sessionId || ''), execution && execution.serverInstanceId || stewardStopServerInstanceId, execution === null ? null : execution && execution.driverRunId, execution === undefined ? 'unknown' : 'known']);
+}
+export function stewardStopControl(button, sessionId, translate, feedbackHost = null, expectedExecution) {
+  if (!button) return;
+  button.dataset.stewardStopSession = String(sessionId || '');
+  const key = stewardStopTargetKey(sessionId, expectedExecution);
+  button.dataset.stewardStopTarget = key;
+  let receipt = stewardStopReceipts.get(key);
+  if (expectedExecution === null) {
+    // Idle may still show the last request as history; a new active identity never inherits it.
+    for (const [priorKey, prior] of stewardStopReceipts) {
+      const [priorSession, priorEpoch] = JSON.parse(priorKey);
+      if (priorSession === String(sessionId || '') && priorEpoch === stewardStopServerInstanceId && (!receipt || prior.requestOrder > receipt.requestOrder)) receipt = prior;
+    }
+  }
+  button.disabled = Boolean(receipt && receipt.outcome === 'pending');
+  const control = stewardStopControls.get(button);
+  let feedback = control && control.feedback;
+  if (!feedback || !feedback.hasAttribute('data-stop-receipt')) {
+    feedback = button.ownerDocument.createElement('span');
+    feedback.className = 'steward-receipt';
+    feedback.setAttribute('data-stop-receipt', '');
+    feedback.setAttribute('role', 'status');
+    if (feedbackHost) feedbackHost.appendChild(feedback);
+    else button.after(feedback);
+  }
+  stewardStopControls.set(button, { translate, feedback, expectedExecution });
+  feedback.dataset.stopOutcome = receipt ? receipt.outcome : '';
+  feedback.textContent = receipt ? translate('stewardShell.stop.receipt', { result: stewardStopReceiptText(receipt, translate) }) : '';
+  feedback.title = receipt ? new Date(receipt.requestedAt).toLocaleString(getLocale()) : '';
+  feedback.hidden = !receipt;
+}
+
+function stewardPublishStopReceipt(key, receipt) {
+  const [, requestEpoch] = JSON.parse(key);
+  if (stewardStopServerInstanceId && requestEpoch !== stewardStopServerInstanceId) return { ...receipt, latestRequest: false };
+  const previous = stewardStopReceipts.get(key);
+  receipt = { ...receipt, requestedAt: receipt.outcome === 'pending' ? Date.now() : (previous && previous.requestedAt) || Date.now(),
+    requestOrder: receipt.outcome === 'pending' ? ++stewardStopRequestSequence : previous?.requestOrder || ++stewardStopRequestSequence };
+  stewardStopReceipts.delete(key);
+  stewardStopReceipts.set(key, receipt);
+  // Bound page-local history; an in-flight target is never evicted.
+  for (const id of stewardStopReceipts.keys()) {
+    if (stewardStopReceipts.size <= 128) break;
+    if (!stewardStopRequests.has(id)) stewardStopReceipts.delete(id);
+  }
+  stewardPaintStopControls(key);
+  const [sessionId, epoch] = JSON.parse(key);
+  const latestRequest = ![...stewardStopReceipts].some(([otherKey, other]) => {
+    const [otherSession, otherEpoch] = JSON.parse(otherKey);
+    return otherSession === sessionId && otherEpoch === epoch && other.requestOrder > receipt.requestOrder;
+  });
+  return { ...receipt, latestRequest };
+}
+
+function stewardPaintStopControls(key = '') {
+  const document_ = doc();
+  if (!document_) return;
+  for (const button of document_.querySelectorAll('[data-steward-stop-session]')) {
+    if (key && button.dataset.stewardStopSession !== JSON.parse(key)[0]) continue;
+    const control = stewardStopControls.get(button);
+    if (control) stewardStopControl(button, button.dataset.stewardStopSession, control.translate, null, control.expectedExecution);
+  }
+}
+if (typeof globalThis.addEventListener === 'function') globalThis.addEventListener('i18n:change', () => stewardPaintStopControls());
+
+export async function stewardThreadStop({ api, sessionId, expectedExecution }) {
+  if (typeof api !== 'function' || !sessionId) return { ok: false, outcome: 'failed', error: 'not_found' };
+  const id = String(sessionId);
+  const key = stewardStopTargetKey(id, expectedExecution);
+  if (stewardStopRequests.has(key)) return stewardStopRequests.get(key);
+  const request = Promise.resolve().then(async () => {
+    let receipt;
+    try {
+      const response = await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: id, expectedExecution }) });
+      receipt = stewardStopReceiptOf(response);
+    } catch (error) {
+      // Only an explicit HTTP rejection proves failure. A disconnected/invalid response may follow a real stop.
+      receipt = Number(error && error.status) >= 400 && Number(error && error.status) < 500
+        ? { ok: false, outcome: 'failed', error: apiErrorInfo(error) || error }
+        : { ok: false, outcome: 'unknown' };
+    }
+    stewardStopRequests.delete(key);
+    return stewardPublishStopReceipt(key, receipt);
+  });
+  stewardStopRequests.set(key, request);
+  stewardPublishStopReceipt(key, { ok: false, outcome: 'pending' });
+  return request;
 }
 
 // 33 号文 §4「costText／acceptanceText／threadStateOf 三对收一处」：这三条判据此前看板与抽屉各一份、
@@ -339,6 +431,11 @@ export function createStewardDrawer({
 } = {}) {
   let sessionId = '';
   let session = null;             // GET /api/sessions/:id 的 session
+  let sessionExecution;           // undefined = unknown, null = explicitly observed idle, object = execution owner.
+  let sessionExecutionObservation;
+  let drawerReadGeneration = 0, threadReadSeq = 0, missionReadSeq = 0;
+  let drawerServerInstanceId = '';
+  let drawerReadQuality = Object.fromEntries(['session', 'pending', 'snapshot'].map(key => [key, { state: 'loading', lastSuccessAt: 0 }]));
   let resumable = null;           // 同一响应的 resumable（live 判定：在途才走插话通道）
   // 117l D4：同一响应【条件】带出来的活回合尾巴（回合一结束这个键就不在了）。零新请求。
   let liveTail = null;            // { text, tool, updatedAt } | null
@@ -356,6 +453,7 @@ export function createStewardDrawer({
   // 不许把抽屉以覆盖式开出来。缺省恒开；判据只住看板一处（sideCollapsedActive），这里只问。
   let openGate = () => true;
   let openClassicWindow = null;   // 117g/121-K5：统一的「在工作台打开」入口（切视角＋选中会话；返回带已退役）
+  let openDelivery = null;
   // 33 号文 §4「抽屉 /api/missions 改经看板 rows」：那一批 200 行不再由本模块自己拉。行的那位主人
   // 是看板（etag／304／解析全在它的 loadMissions 一处），本模块只读它刚取回来的快照，并能在需要
   // 新鲜时请它刷一趟。与上面三条同一纪律：不动被静态锁逐字钉住的构造调用，新依赖一律走 setter。
@@ -474,7 +572,7 @@ export function createStewardDrawer({
   // ── 取数 ────────────────────────────────────────────────────────────────────
   async function loadThreadSlice() {
     if (!sessionId) return;
-    const id = sessionId;
+    const id = sessionId, generation = drawerReadGeneration, seq = ++threadReadSeq;
     const [sessionRes, interventionsRes] = await Promise.all([
       // 条件 GET(perf):抽屉每 5 s(活)/15 s(闲)/30 s(推送连着)+ 每条 thread.state 推送来一发,服务端每次装载整份会话。
       // 带 If-None-Match 走:没变就 304,回上一次那份(带 notModified:true),下面的赋值照旧、只是不再付整份传输与解析。
@@ -482,16 +580,26 @@ export function createStewardDrawer({
       // hunt2-steward ⑨:只要这一条线程的待决(服务端按 sessionId 筛)—— 全局前 100 条里不一定有它。
       api('/api/interventions?limit=100&sessionId=' + encodeURIComponent(id)).catch(() => null),
     ]);
-    if (id !== sessionId) return;                    // 期间用户切了线程，这一趟作废
-    if (sessionRes && sessionRes.ok !== false && sessionRes.session) {
+    if (id !== sessionId || generation !== drawerReadGeneration || seq !== threadReadSeq) return;
+    if (sessionRes?.ok === true && sessionRes.session?.id === id && Array.isArray(sessionRes.session.messages)
+      && (!Object.hasOwn(sessionRes, 'execution') || validExecutionSnapshot(sessionRes.execution))
+      && (!Object.hasOwn(sessionRes, 'executionObservation') || validExecutionObservation(sessionRes.executionObservation))) {
       session = sessionRes.session;
+      sessionExecution = Object.hasOwn(sessionRes, 'execution') ? sessionRes.execution : undefined;
+      sessionExecutionObservation = Object.hasOwn(sessionRes, 'executionObservation') ? sessionRes.executionObservation : undefined;
+      drawerReadQuality.session = { state: 'ok', lastSuccessAt: Date.now() };
       resumable = sessionRes.resumable || null;
       displayTitle = String(sessionRes.displayTitle || '');
       // 117l D4：只在【真有活回合】时下发，所以「键不在」本身就是「回合结束了」的信号 ——
       // 抽屉据此把「它正在说」换回「它刚说」。不落盘、不进任何投影。
       liveTail = (sessionRes.liveTail && typeof sessionRes.liveTail === 'object') ? sessionRes.liveTail : null;
+    } else { sessionExecution = undefined; sessionExecutionObservation = undefined; drawerReadQuality.session = { ...drawerReadQuality.session, state: 'failed' }; }
+    if (interventionsRes?.ok !== true || !Array.isArray(interventionsRes.pending) || !interventionsRes.pending.every(item => item && typeof item.id === 'string' && item.id && typeof item.type === 'string' && typeof item.sessionId === 'string')) {
+      drawerReadQuality.pending = { ...drawerReadQuality.pending, state: 'failed' };
+      return;
     }
-    const list = (interventionsRes && Array.isArray(interventionsRes.pending)) ? interventionsRes.pending : [];
+    const list = interventionsRes.pending;
+    drawerReadQuality.pending = { state: 'ok', lastSuccessAt: Date.now() };
     // 117m-A2：按【与服务端同一条】优先级挑那一条待决（question > permission > plan > pool）。
     // 修前取的是 /api/interventions 按 requestedAt 排好的第一条 —— 同一条线程既挂着 question 又挂着
     // permission 时，抽屉会挑先来的那条、看板行挑优先级最高的那条，两边各说各的。
@@ -504,7 +612,7 @@ export function createStewardDrawer({
 
   async function loadMissionSlice() {
     if (!sessionId) return;
-    const id = sessionId;
+    const id = sessionId, generation = drawerReadGeneration, seq = ++missionReadSeq;
     // 33 号文 §4：这一批行不经本模块 —— 先请看板（唯一取数者）刷一趟，再读它手里的快照；两句并行，
     // 不在老的两次请求之外多等一趟。没注入来源时（本模块单测／2.0 侧）手里没有那一批，按「一行都
     // 没有」判，不在本文件留第二处 /api/missions 取数。
@@ -513,13 +621,37 @@ export function createStewardDrawer({
       source ? Promise.resolve(source.refresh()).catch(() => 0) : null,
       api(`/api/missions/${encodeURIComponent(id)}`).catch(() => null),
     ]);
-    if (id !== sessionId) return;
+    if (id !== sessionId || generation !== drawerReadGeneration || seq !== missionReadSeq) return;
     const listed = source ? source.rows() : null;
     const rows = Array.isArray(listed) ? listed : [];
-    missionRow = rows.find(row => row && String(row.sessionId) === id) || null;
-    const missionId = String((missionRow && missionRow.missionId) || (session && session.missionId) || '');
-    missionRows = missionId ? rows.filter(row => row && String(row.missionId) === missionId) : (missionRow ? [missionRow] : []);
-    snapshot = (snapshotRes && snapshotRes.snapshot) || null;
+    if (typeof source?.readQuality !== 'function' || source.readQuality().state === 'ok') {
+      missionRow = rows.find(row => row && String(row.sessionId) === id) || null;
+      const missionId = String((missionRow && missionRow.missionId) || (session && session.missionId) || '');
+      missionRows = missionId ? rows.filter(row => row && String(row.missionId) === missionId) : (missionRow ? [missionRow] : []);
+    }
+    if (snapshotRes?.ok === true && snapshotRes.snapshot?.sessionId === id && Array.isArray(snapshotRes.snapshot.runs)
+      && snapshotRes.snapshot.runs.every(run => run && typeof run.id === 'string' && (run.health === undefined || validProjectedRunHealth(run.health)))) {
+      snapshot = snapshotRes.snapshot;
+      drawerReadQuality.snapshot = { state: 'ok', lastSuccessAt: Date.now() };
+    } else drawerReadQuality.snapshot = { ...drawerReadQuality.snapshot, state: 'failed' };
+  }
+
+  function renderHealth() {
+    const meta = byId('stewardDrawerMission'); if (!meta || !meta.parentNode) return;
+    let host = byId('stewardDrawerReadHealth');
+    if (!host) { host = el('div', 'steward-drawer-health'); host.id = 'stewardDrawerReadHealth'; meta.parentNode.insertBefore(host, meta.nextSibling); }
+    const signature = JSON.stringify([getLocale(), drawerReadQuality, missionRowsFrom?.readQuality?.(), missionRow?.healthRuns, snapshot?.runs?.map(run => ({ id: run.id, live: run.live, health: run.health }))]);
+    // Last successful read times are quiet metadata; do not replace stable controls on a healthy tick.
+    const contentSignature = signature.replace(/"lastSuccessAt":\d+/g, '"lastSuccessAt":0');
+    if (host.dataset.healthSignature === contentSignature) return;
+    host.dataset.healthSignature = contentSignature;
+    clear(host);
+    const quality = { ...drawerReadQuality };
+    if (typeof missionRowsFrom?.readQuality === 'function') quality.missions = missionRowsFrom.readQuality();
+    appendResourceReadHealth(host, quality, { el, t, locale: getLocale() });
+    const runs = Array.isArray(missionRow?.healthRuns) ? missionRow.healthRuns : (Array.isArray(snapshot?.runs) ? snapshot.runs : []);
+    for (const run of runs) appendRunFaults(host, run, { el, t });
+    host.hidden = !host.childNodes.length;
   }
 
   // ── ② 元信息【一行】（§2.6）：来源图形 · 相对时间 · 验收 a/b ─────────────────────
@@ -827,6 +959,13 @@ export function createStewardDrawer({
   }
 
   function renderLastSay() {
+    const deliveryButton = byId('stewardDrawerFullTextBtn');
+    const deliveryLabel = deliveryButton && deliveryButton.querySelector('[data-i18n]');
+    if (deliveryLabel) {
+      const key = latestDeliverySource() && openDelivery ? 'stewardShell.drawer.viewDelivery' : 'stewardShell.drawer.fullText';
+      deliveryLabel.dataset.i18n = key;
+      deliveryLabel.textContent = t(key);
+    }
     const head = byId('stewardDrawerLastSayHead');
     const quote = byId('stewardDrawerLastSayText');
     if (!quote) { renderActing(false); return; }
@@ -1277,7 +1416,9 @@ export function createStewardDrawer({
     if (stop) {
       const queued = Boolean(sections && sections.queued);
       const activeTurn = Boolean(missionRow && missionRow.activeTurn === true);
-      stop.hidden = !(isLive() || activeTurn || queued);
+      const ownsExecution = sessionExecution !== null && validExecutionSnapshot(sessionExecution);
+      stop.hidden = !(isLive() || activeTurn || queued || ownsExecution);
+      stewardStopControl(stop, sessionId, t, null, sessionExecution);
     }
   }
 
@@ -1310,6 +1451,7 @@ export function createStewardDrawer({
   }
 
   function renderAll() {
+    renderHealth();
     renderChips();
     renderHead();
     renderMeta();
@@ -1409,6 +1551,30 @@ export function createStewardDrawer({
     if (id) { try { await openSession(id); } catch (error) { failNote(error); } }
   }
 
+  // 已完成回合来自会话消息；不依赖管家到访历史是否仍保留。
+  function latestDeliverySource() {
+    if (drawerReadQuality.session.state !== 'ok') return null;
+    const messages = Array.isArray(session?.messages) ? session.messages : [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      const seq = Number(message?.turnSeq);
+      if (message?.role !== 'assistant' || !Number.isInteger(seq) || seq <= 0) continue;
+      if (isLive() && seq >= Number(session?.turnSeq || 0)) continue;
+      if (!stewardLastDeliverable([message]).trim() && !message.turnSummary?.artifacts?.length && !message.turnSummary?.filesChanged?.length) continue;
+      return { sessionId, turnSeq: seq, title: displayTitle || session?.title || '' };
+    }
+    return null;
+  }
+
+  async function openLatestDelivery() {
+    const source = latestDeliverySource();
+    if (!source || !openDelivery) return openClassicView();
+    try {
+      const opened = await openDelivery(source);
+      if (opened && source.sessionId === sessionId && mountMode === 'overlay') closeDrawer();
+    } catch (error) { failNote(error); }
+  }
+
   // ── ⑪ 整单回退：退到本线程【第一条用户消息】那一回合之前 ─────────────────────
   // 口径与 117d 第 0 步同款：rewindSession 按「要删掉的那一回合的第一条用户消息」定位，所以
   // targetTurnSeq 取 messages 里第一条 user 消息自己的 turnSeq（S4b 起每条新用户消息都打了戳），
@@ -1432,15 +1598,18 @@ export function createStewardDrawer({
     // 确认返回后焦点若已不在这一条，就不动手 —— 修前这里确认之后才读闭包里的 sessionId，会把另一条线程
     // 停掉并按【这一条】的 turnSeq 回退文件。
     const id = sessionId;
+    const expectedExecution = sessionExecution;
+    const expectedIdleState = expectedExecution === null ? { turnSeq: Number(session?.turnSeq) || 0, rewindGen: Number(session?.rewindGen) || 0, executionObservation: sessionExecutionObservation } : undefined;
+    if (expectedExecution === null && !expectedIdleState.executionObservation) { failNote('execution_identity_required'); return; }
+    if (!validExecutionSnapshot(expectedExecution)) { failNote('execution_identity_required'); return; }
     if (!await confirmDanger({ name: 'rewindAll' })) return;
     if (!id || sessionId !== id) { note(t('stewardShell.drawer.threadSwitchedCancelled')); return; }
     try {
-      await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: id }) });
       const rewound = await api('/api/session/rewind', {
         method: 'POST',
-        body: JSON.stringify({ sessionId: id, targetTurnSeq: target, rollbackFiles: true }),
+        body: JSON.stringify({ sessionId: id, targetTurnSeq: target, rollbackFiles: true, guardExecution: true, expectedExecution, expectedIdleState }),
       });
-      if (!rewound || rewound.ok === false) { failNote((rewound && rewound.error) || 'rewind_failed'); return; }
+      if (!rewound || rewound.ok !== true) { failNote((rewound && rewound.error) || 'rewind_failed'); return; }
       note(t('stewardShell.drawer.rewindDone'));
     } catch (error) { failNote(error); return; }
     await refreshOnce();
@@ -1482,12 +1651,18 @@ export function createStewardDrawer({
   }
 
   async function stopThread() {
-    const stopped = await stewardThreadStop({ api, sessionId });
-    if (!stopped || stopped.ok !== true) { failNote(stopped && stopped.error); return; }
+    const button = byId('stewardDrawerStopBtn');
+    const control = button && stewardStopControls.get(button);
+    const targetId = button ? button.dataset.stewardStopSession : sessionId;
+    const expectedExecution = control ? control.expectedExecution : undefined;
+    const targetKey = stewardStopTargetKey(targetId, expectedExecution);
+    const stopped = await stewardThreadStop({ api, sessionId: targetId, expectedExecution });
+    if (stopped.latestRequest === false || targetId !== sessionId || (sessionExecution !== null && targetKey !== stewardStopTargetKey(sessionId, sessionExecution))) return;   // A late reply belongs to the original thread.
+    note(stewardStopReceiptText(stopped, t));
     await refreshOnce();
     // 128f-⑫（审计 F）：停掉的若是一条还在排队的，左栏头上的「排队 N」要当场少一 —— 那个数读仲裁面，而排队中的回合
     // 被停一帧线程推送都没有（它根本没起跑）。页内广播给左栏（steward-board 订了它，只重读仲裁面这一发）。
-    if (drawerEventStream && typeof drawerEventStream.publishLocal === 'function') drawerEventStream.publishLocal('steward.arbiter.changed', {});
+    if (stopped.outcome === 'accepted' && drawerEventStream && typeof drawerEventStream.publishLocal === 'function') drawerEventStream.publishLocal('steward.arbiter.changed', {});
   }
 
   // ── 刷新与轮询 ──────────────────────────────────────────────────────────────
@@ -1557,14 +1732,17 @@ export function createStewardDrawer({
   let pushAgain = false;
   async function pushRefreshSlice() {
     if (!sessionId) return false;
-    if (pushBusy) { pushAgain = true; return false; }
-    pushBusy = true;
+    const generation = drawerReadGeneration;
+    if (pushBusy === generation) { pushAgain = true; return false; }
+    pushBusy = generation;
     const id = sessionId;
     try {
       await loadThreadSlice();
+      if (generation !== drawerReadGeneration) return false;
       await loadMissionSlice();
-      if (id === sessionId) renderAll();
-    } finally { pushBusy = false; }
+      if (id === sessionId && generation === drawerReadGeneration) renderAll();
+    } finally { if (pushBusy === generation) pushBusy = false; }
+    if (generation !== drawerReadGeneration) return false;
     if (pushAgain) { pushAgain = false; return pushRefreshSlice(); }
     return true;
   }
@@ -1585,9 +1763,30 @@ export function createStewardDrawer({
   }
   function setEventStream(stream) {
     if (!stream || typeof stream.on !== 'function') return false;
+    const knownInstance = typeof stream.stats === 'function' ? stream.stats().serverInstanceId : '';
+    if (typeof knownInstance === 'string' && knownInstance) {
+      drawerServerInstanceId = knownInstance;
+      stewardStopServerInstanceId = knownInstance;
+      stewardPaintStopControls();
+    }
     drawerEventStream = stream;   // 128f-⑫：停掉一条之后页内广播用（见 stopThread）
     streamConnected = typeof stream.isConnected === 'function' ? stream.isConnected() === true : false;
     stream.on('connection', payload => { streamConnected = Boolean(payload && payload.connected); });
+    let refreshAfterInstance = false;
+    stream.on(EVENT_STREAM_INSTANCE_EVENT, payload => {
+      drawerServerInstanceId = payload.serverInstanceId;
+      stewardStopServerInstanceId = payload.serverInstanceId; stewardStopReceipts.clear();
+      drawerReadGeneration += 1; threadReadSeq += 1; missionReadSeq += 1; sessionExecution = undefined; sessionExecutionObservation = undefined;
+      refreshAfterInstance = true;
+      for (const key of Object.keys(drawerReadQuality)) drawerReadQuality[key] = { ...drawerReadQuality[key], state: 'restarting' };
+      if (sessionId) renderAll();
+    });
+    stream.on('presence.ack', payload => {
+      if (typeof payload?.serverInstanceId === 'string' && payload.serverInstanceId) drawerServerInstanceId = payload.serverInstanceId;
+      if (typeof payload?.serverInstanceId === 'string') stewardStopServerInstanceId = payload.serverInstanceId;
+      stewardPaintStopControls();
+      if (refreshAfterInstance) { refreshAfterInstance = false; if (sessionId) void pushRefreshSlice(); }
+    });
     // thread.live 【只】就地改，不顺手重问切片：它每 500 ms 一条（§6.1 节流列），每条都跟一发
     // /api/sessions/:id ＋事项切片的话，一个长回合期间就是持续两发请求在飞 —— 比今天的 5 s 一轮更重。
     // 回合起跑／收工／提问那三件事本来就各有一帧（thread.state／needs_you／done），重问跟着它们走。
@@ -1701,7 +1900,7 @@ export function createStewardDrawer({
   let lastFrame = null;
   function captureFrame() {
     if (!sessionId || !session) return null;
-    return { sessionId, at: Date.now(), session, resumable, snapshot, pendingForThread, displayTitle, missionRow, missionRows };
+    return { sessionId, at: Date.now(), session, resumable, snapshot, pendingForThread, displayTitle, missionRow, missionRows, sessionExecution, sessionExecutionObservation, readQuality: JSON.parse(JSON.stringify(drawerReadQuality)), serverInstanceId: drawerServerInstanceId };
   }
   // opts.focus：显式换焦点（用户点了行／页签／「打开」）时才移焦。缺省 'auto' = 只在用户没在打字时移。
   async function openThread(nextId, opts = {}) {
@@ -1717,15 +1916,24 @@ export function createStewardDrawer({
     lastFrame = null;
     // 走查 S-06：换线程（或关着抽屉重开）时，旧线程的两个草稿按它的 id 暂存、新线程的放回来。同一条线程重复打开不动。
     if (sessionId !== id) { stashDrafts(sessionId); restoreDrafts(id); }
+    drawerReadGeneration += 1; threadReadSeq += 1; missionReadSeq += 1;
+    const openGeneration = drawerReadGeneration;
     sessionId = id;
     drawer.dataset.sessionId = id;   // 2026-10：在场信号 viewing 读它（js/interaction-prompts.js：用户正看着的待决，管家不插手）
     if (keep) {
       ({ session, resumable, snapshot, pendingForThread, displayTitle, missionRow, missionRows } = keep);
+      sessionExecution = keep.serverInstanceId === drawerServerInstanceId ? keep.sessionExecution : undefined;
+      sessionExecutionObservation = keep.serverInstanceId === drawerServerInstanceId ? keep.sessionExecutionObservation : undefined;
+      drawerReadQuality = keep.readQuality || Object.fromEntries(['session', 'pending', 'snapshot'].map(key => [key, { state: 'loading', lastSuccessAt: 0 }]));
+      if (keep.serverInstanceId !== drawerServerInstanceId) for (const key of Object.keys(drawerReadQuality)) drawerReadQuality[key] = { ...drawerReadQuality[key], state: 'restarting' };
       if (!sameOpen) liveTail = null;
       loading = false;
     } else {
       loading = true;
       session = null; resumable = null; snapshot = null; pendingForThread = null;
+      sessionExecution = undefined;
+      sessionExecutionObservation = undefined;
+      drawerReadQuality = Object.fromEntries(['session', 'pending', 'snapshot'].map(key => [key, { state: 'loading', lastSuccessAt: 0 }]));
       liveTail = null;     // 117l D4：切线程要一起清，否则新线程第一帧还挂着上一条的活回合尾巴
       displayTitle = '';   // 116-5b:切线程要一起清,否则新线程头一帧还挂着上一条的名字
       missionRow = null; missionRows = [];
@@ -1744,7 +1952,7 @@ export function createStewardDrawer({
     // 在，焦点就落进那个回答框 —— 这才是「打开线程回答」按下去该发生的事（open_thread act →
     // steward:focus-thread → 抽屉）。闸落之前不抢焦点：那时候还不知道它到底有没有在问你。
     try { await refreshOnce(); } finally {
-      if (sessionId === id) { loading = false; renderAll(); if (wantFocus) focusAsk(); }
+      if (sessionId === id && drawerReadGeneration === openGeneration) { loading = false; renderAll(); if (wantFocus) focusAsk(); }
     }
   }
 
@@ -1823,7 +2031,7 @@ export function createStewardDrawer({
     on('stewardDrawerCloseBtn', () => closeDrawer());
     on('stewardDrawerHandBackBtn', () => closeDrawer({ focusComposer: true }));
     on('stewardDrawerClassicBtn', () => { openClassicView(); });
-    on('stewardDrawerFullTextBtn', () => { openClassicView(); });
+    on('stewardDrawerFullTextBtn', () => { void openLatestDelivery(); });
     on('stewardDrawerChangesBtn', () => { openClassicView(); });
     on('stewardDrawerSendBtn', () => { submitDirect(); });
     on('stewardDrawerAskSendBtn', () => { submitAsk(); });
@@ -1935,6 +2143,7 @@ export function createStewardDrawer({
     // 117g/117h：三条迟绑定接线 + 挂法开关（构造调用那一行被 steward-drawer.static I3 逐字钉住，
     // 新依赖一律走 setter，不加构造参数）。
     setClassicWindow: handler => { openClassicWindow = typeof handler === 'function' ? handler : null; },
+    setOpenDelivery: handler => { openDelivery = typeof handler === 'function' ? handler : null; },
     setOnClosed: handler => { onClosed = typeof handler === 'function' ? handler : () => {}; },
     // 2026-09-24：事件路的「此刻别开」门（右栏收起时）。同一条迟绑定纪律；判据住看板，这里只接。
     setOpenGate: handler => { openGate = typeof handler === 'function' ? handler : () => true; },

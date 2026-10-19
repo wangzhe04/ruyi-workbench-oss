@@ -125,12 +125,13 @@ test('[S5] 结构锁:三个引擎的收尾存都走回合代数闸,被顶替时�
   for (const [file, fn] of engines) {
     const body = functionBlock(fs.readFileSync(path.join(SRC, file), 'utf8'), fn);
     assert.ok(body.length > 2000, `切到了 ${file} ${fn}`);
-    assert.match(body, /const turnSuperseded = !\(await saveTurnFinalSession\(session, '[a-z-]+'\)\);/, `${fn} 收尾存走 saveTurnFinalSession`);
+    assert.ok(/const turnSuperseded = !\(await saveTurnFinalSession\(session, '[a-z-]+', \{ executionOwner \}\)\);/.test(body), `${fn} 收尾存携带本次 executionOwner 走 saveTurnFinalSession`);
     assert.match(body, /if \(!turnSuperseded\) RUYI_EVENTS\.emit\('thread\.done'/, `${fn} 被顶替时不派 thread.done`);
     assert.match(body, /if \(session\.mission && !turnSuperseded\) await bumpMissionChangeSeq\(/, `${fn} 被顶替时不记任务进度`);
   }
   // 09 回合中途的存盘(工具轨迹、计划、强压重试)都带 dropIfTurnSuperseded。
   const run = functionBlock(fs.readFileSync(path.join(SRC, '09-workflow.js'), 'utf8'), 'runOpenAiTurn');
+  assert.match(run, /const turnSaveOpts = \{[^}]*dropIfTurnSuperseded: true[^}]*executionOwner[^}]*\};/, '工具循环的共享保存选项携带本次 executionOwner');
   const afterStart = run.slice(run.indexOf('const turnSaveOpts'));
   const loop = afterStart.slice(afterStart.indexOf('for (let iter = 0; ; iter++)'));
   assert.ok(loop.length > 10000, '切到了工具循环');

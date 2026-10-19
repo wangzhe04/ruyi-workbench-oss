@@ -8,6 +8,7 @@ import { createStewardSettingsDomain } from './steward-settings.js';
 import { createStewardBoard, STEWARD_FOCUS_THREAD_EVENT } from './steward-board.js';   // 2026-09-24：线程头「回到管家」派的焦点事件名从同一条 import 取（同一份登记，不另起第二条 import 行）
 import { createThreadHead } from './thread-head.js';
 import { createQuietCard } from './quiet-card.js';
+import { createStewardDecisions } from './steward-decisions.js';
 import { toast } from './util.js';   // 123-M2：安静卡「稍后」建不成那条 reminder 时的一句提示
 import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS, createPollLifecycle } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源；轮询生命周期（启停／门控）同一份
 // 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有一份定义，byId 只有
@@ -106,6 +107,7 @@ export function createStewardShellDomain({
   // 117c 自己不需要新依赖；而经典壳六个消费面拿到渲染器【都】是在组合根注入的，管家壳要复用
   // 同一条净化通道就得走同一条路。本文件只做转注入（不 import 渲染器，D2 的 import 白名单不变）。
   renderMarkdownInto = null,
+  renderFilePreviewInto = null,
   highlightIn = null,
   // 122-L1b（36 号文 §2.13）：首跑向导。组合根手里那一个（session-experience.js 的
   // openOnboardingWizard，工作台空态那枚「开始引导」点的也是它），本文件只做转注入。
@@ -315,7 +317,7 @@ export function createStewardShellDomain({
       });
       // 117e：头部常驻停机键与设置页的运行态读同一份真值，不各自再发一条请求。
       settings.setStopped(response.stopped === true);
-      // 117j W2-4：收件箱唤醒管家跑完的那一回合要实时进对话流。只认 trigger==='inbox' ——
+      // Inbox and remote-owner turns load persisted messages by watermark; local submissions paint themselves.
       // 用户自己发的那一条是 sendToSteward 当场画的，再追加一次就重了；首次轮询也跳过（那一条
       // 属于进壳之前，enterVisit 已经画过）。
       const at = String((lastReply && lastReply.at) || '');
@@ -325,7 +327,7 @@ export function createStewardShellDomain({
         // 117l-B2 ①：nudge 与 appendSince 同一道判据、同一分支 —— 有「线程回来了」这件事的
         // 那一刻才播，且必须在追加之前发（头像随即被 moveAvatarTo 搬到新那一行，先播后搬，
         // 光环跟着头像走）。用户自己发的那条回复走的是 sendToSteward，压根不进这个分支。
-        if (!firstSeen && isStewardMode() && lastReply.trigger === 'inbox') { nudgeAvatar(); void conversation.appendSince(''); }
+        if (isStewardMode() && (lastReply.trigger === 'external' || (!firstSeen && lastReply.trigger === 'inbox'))) { nudgeAvatar(); void conversation.appendSince(''); }
       }
     }).catch(() => { lastStateAt = Date.now(); /* 状态面不因单次轮询失败整条消失，下一轮再试（失败也推水位，否则每一拍都重试） */ });
   }
@@ -441,6 +443,7 @@ export function createStewardShellDomain({
     // 117e：头像菜单的「设置／记忆／行动流水」三项（117c 那里只有「细节」）。菜单只负责调用，
     // 页签切换、滚动与取数全在 steward-settings.js 里。
     openStewardPanel: section => settings.openPanel(section),
+    openExternalBotSetup: id => settings.openExternalBotSetup(id),
     // 117 走查（用户 2026-09-06）：主端点是命令行引擎时，对话区的「改用『某端点』」按钮经这里写
     // stewardProviderId（走设置域同一个 saveConfigPartial，对话区不碰 /api/config）。
     setStewardProvider: id => saveConfigPartial({ stewardProviderId: id }),
@@ -451,6 +454,8 @@ export function createStewardShellDomain({
     openClassicWindow: sessionId => openInWorkbench(sessionId),
     // 117s-C：转注入渲染器。对话区自己不 import 它（A2 锁：本域内相对路径），缺席时回落纯文本。
     renderMarkdownInto, highlightIn,
+    renderFilePreviewInto,
+    prepareDeliveryRevision: source => composer.beginDeliveryRevision(source),
     openOnboardingWizard,   // 122-L1b（36 号文 §2.13）：管家问候行下那枚「开始引导」，与工作台空态同一个入口
   });
   // 128h-J03:焦点＝右栏抽屉此刻那一条。drawer 在下面才建 —— 这里是个闭包,输入时才调(那时早已就位;
@@ -460,6 +465,7 @@ export function createStewardShellDomain({
   // 117d：线程抽屉。它自己持有轮询与模式观察者（本文件的 C2a「恰好一处 setInterval」不受影响 ——
   // 抽屉那一处住在 steward-drawer.js 里，与 avatar 轮询各自独立门控）。
   const drawer = createStewardDrawer({ api, state, t, isStewardMode, applyShellMode, openSession });
+  const decisions = createStewardDecisions({ api, t, isStewardMode, eventStream, openThread: id => openInWorkbench(id) });
   // 117e：设置页「管家」页签 + 头部的盾牌与停机键。它是【唯一】写全局 permissionMode 与管家配置的
   // 地方；四档表与全自动确认文案由它从 steward-chips.js import 复用，本文件不碰。
   // 117j UX-F1：总开关关掉的那一刻要立刻回经典。准入判定的单点就在本文件的
@@ -472,6 +478,7 @@ export function createStewardShellDomain({
   // 123-M2（37 号文 §3.6）：定时任务展开的最近几次里，点产出线程在【如意内】打开它（不给路径）。
   // 迟绑定 setter —— 上面那一行构造被 steward-settings.static 逐字钉着。
   settings.setOpenThread(sessionId => { void openSession(sessionId); });
+  settings.setExternalDraftImporter(item => composer.importExternalReference(item));
   // 121-K5：工作台视角的线程头（§2.5）。它接替 117g 的「2.0 视窗返回带」：不发取数请求，只读
   // state 与左栏已经取回来的那一行（迟绑定句柄 —— board 在它之后才构造），控件是同一份 chips 工厂。
   let boardHandle = null;
@@ -551,9 +558,11 @@ export function createStewardShellDomain({
   // 117g：抽屉的「2.0 视窗」「看全文」「看改动」改走统一入口（构造那一行被 steward-drawer.static I3
   // 逐字钉住，新依赖一律走 setter —— 与 conversation.setPickTargetHandler 同一条迟绑定纪律）。
   drawer.setClassicWindow(sessionId => openInWorkbench(sessionId));
+  drawer.setOpenDelivery(source => conversation.openDelivery(source));
   // 两个子域的唯一反向依赖：撤回／换一条之后打开输入区的候选列表。迟绑定（组合根先例
   // previewStreamSink），不让 conversation import composer。
   conversation.setPickTargetHandler(() => composer.openPicker());
+  conversation.setHandOffDraftHandler(attempt => composer.restoreHandOffDraft(attempt));
 
   // 进壳即到访(§8.9「每次打开只汇报本次」)，出壳即收摊(清倒计时与去抖，零后台活动)。触发点与
   // syncPolling 同一路信号(data-shell-mode 的属性变化)，但各自独立观察 —— 轮询门控那一条的形状
@@ -599,6 +608,7 @@ export function createStewardShellDomain({
     settings.bindStewardSettings();       // 117e：设置页控件 + 头部盾牌与常驻停机键
     threadHead.bindThreadHead();          // 121-K5：工作台线程头（一套 chip / 任务 › 线程 / 管家条）
     board.bindStewardBoard();             // 117h：一行状态 / 看板 / 「现在这一件」
+    decisions.bind();
     conversation.bindStewardConversation(); // 117c：头像菜单的「细节」开关 + 进壳时的首次到访
     if (globalThis.MutationObserver && globalThis.document && globalThis.document.documentElement) {
       new MutationObserver(syncConversation)

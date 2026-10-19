@@ -1312,7 +1312,7 @@ try {
   //   ② 标题／正文／两枚按钮的文案逐字来自 locale 那几个键（键集中登记在确认件里一处）；
   //   ③ 取消 = 不动手（A 的用户消息一条没少）；
   //   ④ 确认 = 真动手（A 被退回第一句话之前）—— 这正是「同步变异步」要守的那条线：await 到 false
-  //      就什么都不做，await 到 true 才继续发 /api/stop + /api/session/rewind。
+  //      就什么都不做，await 到 true 才继续发 guarded /api/session/rewind。
   const REWIND_PANEL = `(() => {
     const backdrop = document.querySelector('.modal-backdrop.confirm-panel');
     if (!backdrop) return null;
@@ -1399,7 +1399,7 @@ try {
     const messages = (result.json && result.json.session && result.json.session.messages) || [];
     return !messages.some(message => message && message.role === 'user');
   }, token);
-  ok(Boolean(afterRewind), 'N4 点「确认」：真发 /api/stop + /api/session/rewind，A 退回第一句话之前（await 到 true 才往下走）');
+  ok(Boolean(afterRewind), 'N4 点「确认」：真发 guarded /api/session/rewind，A 退回第一句话之前（await 到 true 才往下走）');
   ok((await waitForEval(cdp, `document.querySelectorAll('.modal-backdrop.confirm-panel').length === 0 ? 1 : null`)) === 1,
     'N4b 动手之后确认层自己收起（不留悬空浮层、不挡住抽屉）');
 

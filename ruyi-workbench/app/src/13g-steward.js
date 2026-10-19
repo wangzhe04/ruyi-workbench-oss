@@ -183,9 +183,30 @@ function stewardCtxIsSteward(ctx) {
 function stewardWithTurnTrigger(ctx) {
   const base = (ctx && typeof ctx === 'object') ? ctx : {};
   if (base.trigger) return base;
+  const context = typeof StewardHooks.currentTurnContext === 'function' ? StewardHooks.currentTurnContext() : null;
+  if (context && context.trigger === 'external') return { ...base, trigger: 'external', externalActor: context.externalActor };
   const kind = typeof StewardHooks.currentTurnTrigger === 'function' ? StewardHooks.currentTurnTrigger() : '';
   // 取不到就保持既有的空串语义(进程内直调、夹具直调):这一口只补真的知道的那一部分。
   return (kind === 'user' || kind === 'inbox') ? { ...base, trigger: kind } : base;
+}
+
+// Opaque capabilities are issued only after authenticated bot ingress has persisted its claim.
+// This check never trusts model arguments, HTTP JSON, or a persisted source label as authority.
+const stewardExternalContexts = new WeakSet();
+function stewardExternalOwnerDirected(ctx) {
+  return Boolean(ctx && ctx.trigger === 'external' && stewardExternalContexts.has(ctx));
+}
+ExternalBotHooks.isAuthorizedContext = stewardExternalOwnerDirected;
+async function stewardAuthorizeExternalContext(ctx) {
+  if (!ctx || ctx.trigger !== 'external') return ctx;
+  if (typeof ExternalBotHooks.validateActor !== 'function') throw Object.assign(new Error('external owner authorization is unavailable'), { code: 'external_channel.control_revoked' });
+  let source;
+  try { source = await ExternalBotHooks.validateActor(ctx.externalActor); }
+  catch { throw Object.assign(new Error('external owner authorization was revoked'), { code: 'external_channel.control_revoked' }); }
+  if (!source) throw Object.assign(new Error('external owner authorization was revoked'), { code: 'external_channel.control_revoked' });
+  const authorized = { ...ctx, externalOwner: true, externalSource: source };
+  stewardExternalContexts.add(authorized);
+  return authorized;
 }
 
 // 第二轮工具走查(F8):管家工具族整体被 12 的 validateNativeToolArgs 豁免(「自带逐字段校验与专属错误码」),
@@ -230,6 +251,7 @@ const STEWARD_TAINT_GATED_TOOLS = new Set([
   'steward_thread_workspace', 'steward_playbook_draft', 'steward_decide', 'steward_run_action',
 ]);
 function stewardTaintGateApplies(toolName, args) {
+  if (toolName === 'steward_bot_setup') return args?.op === 'prepare';
   if (!STEWARD_TAINT_GATED_TOOLS.has(toolName)) return false;
   const action = String((args && args.action) || '').toLowerCase();
   if (toolName === 'steward_decide') return action !== 'deny' && action !== 'reject';
@@ -238,6 +260,7 @@ function stewardTaintGateApplies(toolName, args) {
 }
 
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
+async function stewardImplBotSetup(args, ctx) { return ExternalBotHooks.stewardSetup(args, ctx); }
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
     let config = null;
@@ -257,7 +280,7 @@ function stewardToolHandler(toolName, impl) {
       for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
       const typeProblems = stewardArgTypeProblems(toolName, clean);
       if (typeProblems.length) return stewardFail('invalid_request', `${toolName}: ${typeProblems.join('; ')}`);
-      const turnCtx = stewardWithTurnTrigger(ctx);
+      const turnCtx = await stewardAuthorizeExternalContext(stewardWithTurnTrigger(ctx));
       if (!(turnCtx && turnCtx.userPressed === true) && stewardTaintGateApplies(toolName, clean)) {
         const taintedBy = stewardTurnTaintedBy(turnCtx);
         if (taintedBy.length) {
@@ -268,6 +291,7 @@ function stewardToolHandler(toolName, impl) {
       }
       return await impl(clean, turnCtx, config);
     } catch (error) {
+      if (error && error.code === 'external_channel.control_revoked') return stewardFail(error.code, 'external owner authorization was revoked');
       const message = String((error && error.message) || error);
       logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
       return stewardFail('steward.failed', `${toolName} failed: ${message}`);
@@ -455,6 +479,7 @@ Object.assign(StewardHooks, {
   // 116-2e:设置族两个 + 内容管理三个(工具数 84 -> 89),外加两个基础设施键(收件箱行增强与速查收工,
   // 消费者分别是 13i 的轮询器与 13h 的回合收尾 —— 它们都只看 StewardHooks,不认识 13g)。
   configGet: stewardToolHandler('steward_config_get', stewardImplConfigGet),
+  botSetup: stewardToolHandler('steward_bot_setup', stewardImplBotSetup),
   configSet: stewardToolHandler('steward_config_set', stewardImplConfigSet),
   playbookDraft: stewardToolHandler('steward_playbook_draft', stewardImplPlaybookDraft),
   skillToggle: stewardToolHandler('steward_skill_toggle', stewardImplSkillToggle),

@@ -142,7 +142,8 @@ function streamChatStopAfterToolResult(body, afterMs, onStop, authHeaders) {
         while ((i = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (line) try { events.push(JSON.parse(line)); } catch {} }
         if (!stopped && events.some(e => e.type === 'tool_result' && !e.subagentId)) {
           stopped = true;
-          stopDone = new Promise(done => setTimeout(() => { request('POST', '/api/stop', { sessionId: body.sessionId }, authHeaders).then(r => { onStop(r); done(); }, () => { onStop(null); done(); }); }, afterMs));
+          const expectedExecution = events.find(event => event.type === 'session')?.execution;
+          stopDone = new Promise(done => setTimeout(() => { request('POST', '/api/stop', { sessionId: body.sessionId, expectedExecution }, authHeaders).then(r => { onStop(r); done(); }, () => { onStop(null); done(); }); }, afterMs));
         }
       });
       res.on('end', () => { stopDone.then(() => resolve(events)); });   // 流先收尾、/api/stop 的应答还在路上时,等它回来再交出去

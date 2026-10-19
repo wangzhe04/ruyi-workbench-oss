@@ -41,12 +41,23 @@ test('[C1] 同会话并发两个回合:只有一个 CLI 子进程跑完,另一�
   try {
     const session = await srv.createSession({ title: 'race', cwd: work });
     const a = collect(), b = collect();
+    const order = [];
+    for (const [name, sink] of [['A', a], ['B', b]]) {
+      const consume = sink.onEvent; sink.onEvent = event => { order.push({ name, event }); consume(event); };
+    }
     const pa = turn(session.id, 'first', a);
     const pb = turn(session.id, 'second', b);
     await Promise.all([pa.catch(e => e), pb.catch(e => e)]);
     const finals = [a, b].map(s => s.events.filter(e => e.type === 'process' && e.state !== 'running').map(e => e.state).pop());
     const running = [a, b].map(s => s.events.filter(e => e.type === 'process' && e.state === 'running').length);
-    assert.deepEqual(running, [1, 1], '两个回合各起过一个子进程');
+    const registrations = order.filter(item => item.event.type === 'session');
+    assert.equal(registrations.length, 2, '两个 driver 都发出了自己的登记事件');
+    const currentName = registrations.at(-1).name;
+    const currentIndex = currentName === 'A' ? 0 : 1;
+    assert.equal(running[currentIndex], 1, '最后登记的当前 owner 执行且只有一个子进程');
+    assert.ok(running[1 - currentIndex] <= 1, '旧 owner 最多只能有一个子进程');
+    const currentRegistered = order.findLastIndex(item => item.event.type === 'session');
+    assert.equal(order.slice(currentRegistered + 1).some(item => item.name !== currentName && item.event.type === 'process' && item.event.state === 'running'), false, '新 owner 登记之后旧 owner 不得在准备阶段迟到 spawn');
     assert.deepEqual(finals.slice().sort(), ['idle', 'stopped'], `恰好一个跑完、一个被顶掉(实际 ${JSON.stringify(finals)})`);
     assert.equal(srv.activeChildren.has(session.id), false, '收尾后登记表干净');
   } finally { delete process.env.WCW_FAKE_SLOW_MS; }

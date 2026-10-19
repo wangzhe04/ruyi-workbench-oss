@@ -20,7 +20,8 @@
 // 性能批 P3:6 -> 7。finalize 里切片的排序从 localeCompare 换成码位序:id 带大写 / 下划线 / 连字符时两种次序不同,
 // 而 missionsRevision 是按行序算的哈希 —— 不升号,盘上旧索引的修订号会与同一份事实新算出来的对不上。代价同前:升级后
 // 首次读全量重建一次。
-const PRETENDER_INDEX_SCHEMA = 7;
+// 62: card health summaries are new persistent projection facts; old source stamps must rebuild them.
+const PRETENDER_INDEX_SCHEMA = 8;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -723,6 +724,8 @@ function pretenderEtag(kind, revision, page) {
 function pretenderLiveOverlayRevision(sessionId = '') {
   const sid = String(sessionId || '');
   const rows = [];
+  const sessionIds = sid ? [sid] : (pretenderIndexRuntime.value && Array.isArray(pretenderIndexRuntime.value.sessions) ? pretenderIndexRuntime.value.sessions : []).map(row => row.sessionId);
+  for (const id of sessionIds) rows.push(['execution', id, sessionExecutionSnapshot(id), stewardThreadTurnQueued(id)]);
   // 121-K3:活回合这一行带上 liveTail 摘要的三个值。修前它只有 ['turn', id] —— 一个回合从起跑到
   // 收工整段时间里 ETag 一动不动,而卡片上的「正在调什么」每几百毫秒就变一次,兜底轮询于是永远
   // 拿 304、永远画着第一帧。overlayMissionCard 往卡片里放了什么,这里就得跟着算什么。
@@ -746,7 +749,7 @@ function pretenderLiveOverlayRevision(sessionId = '') {
   for (const runtime of activeAgentRuns.values()) {
     const run = runtime && runtime.run;
     if (!run || (sid && run.sessionId !== sid)) continue;
-    rows.push(['run', run.sessionId, run.id, run.status, Number(run.eventSeq) || 0, run.updatedAt || '', Boolean(runtime.paused)]);
+    rows.push(['run', run.sessionId, run.id, run.status, Number(run.eventSeq) || 0, run.updatedAt || '', Boolean(runtime.paused), agentRunHealth(run, true)]);
   }
   rows.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   return pretenderHash(rows);
@@ -820,10 +823,15 @@ function overlayMissionCard(slice, overlayAt) {
     liveTail,
     seatedBy,
     activeTurn,
+    execution: sessionExecutionSnapshot(slice.sessionId),
     queued,
     asksYou,
     runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),
     lastRun: latestLive ? missionRunDigest(latestLive, true) : card.lastRun,
+    healthRuns: [...new Map([
+      ...(Array.isArray(card.healthRuns) ? card.healthRuns : []).map(run => [run.id, run]),
+      ...liveRuns.map(run => [run.id, missionRunDigest(run, true)]),
+    ]).values()],
     freshness: {
       persistentRevision: slice.cardRevision || slice.missionRevision,
       indexedAt: slice.indexedAt,

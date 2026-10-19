@@ -21,7 +21,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 const has = (s, ...subs) => subs.every(x => s.includes(x));
 
 // renderAgentRuns 函数体切片(供 XSS / 结构断言精确定位,避免全文件误命中)。
-const rStart = src.indexOf('function renderAgentRuns(runs)');
+const rStart = src.indexOf('function renderAgentRuns(');
 const rEnd = src.indexOf('async function loadAgentRuns', rStart);
 ok(rStart >= 0 && rEnd > rStart, 'renderAgentRuns 函数存在且边界可定位');
 const renderBody = rStart >= 0 ? src.slice(rStart, rEnd > rStart ? rEnd : undefined) : '';
@@ -65,22 +65,23 @@ ok(has(css, '.agent-node.an-rejected', 'var(--warn)') && has(css, '.agent-node.a
 ok(css.includes('.agent-node.an-skipped'), '④ skipped 灰色标存在');
 
 // ───────────── ⑤ 停滞/失败横幅（§2.5）：idleAborted 或等待资源+blocker ─────────────
-ok(has(renderBody, "'wf-stall-banner'", 'idleAborted', 'waitingBlocked'),
-  '⑤ 停滞横幅由 run.idleAborted 或有 blocker 的等待资源节点触发');
-ok(has(renderBody, "t('workflow.stall.idle')", "t('workflow.stall.waiting'") && /疑似停滞/.test(zh['workflow.stall.idle'] || ''), '⑤ 横幅文案「疑似停滞」');
+const health = fs.readFileSync(path.join(PUB, 'js', 'run-health.js'), 'utf8');
+ok(has(renderBody, 'appendRunFaults(card, run,', 'nodeStatus: nodeDisplayStatus') && has(health, 'run.persistenceDegraded', 'run.idleAborted', 'waiting_resource', 'resourceBlockers'),
+  '⑤ 工具箱调用共享运行故障判据，持久化/空闲中止/资源阻塞均保留');
+ok(has(health, "'workflow.health.' + fault.kind", 'for (const fault of faults)') && !!zh['workflow.health.idle'] && !!zh['workflow.health.resource'], '⑤ 并存故障逐条显示双语文案');
 // 32 号文 §4（M2-b）：停止键由字面量 `t('workflow.stop')` 改为从 js/run-state.js 的唯一登记表取
 // （`t(WORKFLOW_KEYS.stop)`），键值不变。原判据钉的是「源码里字面量长什么样」——属脆锁（本仓纪律 5
 // 「锁不要钉文本长什么样，要钉哪件事必须成立」）。重钉为更强的结构判定：把判据**收进横幅切片**，
 // 免得运行控制区那几枚 stop 按钮把断言「代答」（旧判据在全函数体里找，删掉横幅那处也照样过）。
-const stallStart = renderBody.indexOf("'wf-stall-banner'");
-const stallSlice = stallStart >= 0 ? renderBody.slice(stallStart, stallStart + 1500) : '';
+const stallStart = renderBody.indexOf('appendRunFaults(card, run,');
+const stallSlice = stallStart >= 0 ? renderBody.slice(stallStart, stallStart + 2400) : '';
 ok(stallSlice.length > 0
-  && has(stallSlice, "t('workflow.view')")
+  && has(stallSlice, 'onView:', 'revealNode(')
   && /t\(WORKFLOW_KEYS\.stop\)|t\('workflow\.stop'\)/.test(stallSlice)
   && has(stallSlice, "agentRunAction(run.id, 'stop')")
   && /stop:\s*'workflow\.stop'/.test(src),
-  '⑤ 横幅切片内 [查看] + [停止](停止 wire 到 stop 动作；停止键取自 run-state.js 登记表且值仍 workflow.stop)');
-ok(has(css, '.wf-stall-banner', 'var(--warn)'), '⑤ 横幅以 --warn 琥珀着色');
+  '⑤ 共享故障提供查看成员，紧随的运行控制保留停止动作与单一文案登记');
+ok(has(css, '.workflow-run-health', 'var(--warn)'), '⑤ 共享横幅以 --warn 琥珀着色');
 
 // ───────────── ⑥ 迭代/预算 mini 进度 + 计时 + 质量门 + 资源锁（§2.3）─────────────
 ok(has(renderBody, "'wf-node-budget'", "'wf-budget-fill'") && has(renderBody, 'loopIteration', 'maxIters'),

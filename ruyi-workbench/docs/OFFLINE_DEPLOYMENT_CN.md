@@ -3,7 +3,7 @@
 ## 目标机器要求
 
 - Windows 10/11 或 Windows Server。
-- 有一个可用的模型：OpenAI 兼容端点（内网 vLLM、本机 Ollama / LM Studio 等，装好后在界面里配置），或本机已装好的 Claude Code / Kimi Code 命令行（也可以装好后再在设置里指定 CLI 路径）。
+- 有一个可用的模型：支持 Chat Completions、Responses API 或 Anthropic Messages 的 provider 端点（如内网 vLLM、本机 Ollama / LM Studio，具体协议按端点能力配置），或本机已装好的 Claude Code / Kimi Code 命令行（也可以装好后再在设置里指定 CLI 路径）。
 - 不要求公网。
 - 不要求 npm install；发布压缩包固定携带 Node 运行时，`Ruyi.exe` 为可选构建产物。
 
@@ -47,8 +47,8 @@ claude mcp add-json ruyi "{...}" -s user
 > ```powershell
 > claude mcp add ruyi --scope user `
 >   -e "RUYI_HOME=$env:USERPROFILE\.ruyi-workbench" `
->   -- "C:\Program Files\nodejs\node.exe" `
->   "<工作台路径>\ruyi-workbench\app\server.js" `
+>   -- "<解压目录>\runtime\node\node.exe" `
+>   "<解压目录>\app\server.js" `
 >   mcp
 > ```
 >
@@ -59,10 +59,10 @@ claude mcp add-json ruyi "{...}" -s user
 如果自动注册失败，手动导入：
 
 ```powershell
-.\Ruyi.exe mcp-config
+.\runtime\node\node.exe .\app\server.js mcp-config
 ```
 
-该命令会打印生成的 MCP JSON 文件路径。把其中 `mcpServers.ruyi` 配置加入 Claude CLI 的 MCP 配置即可(3.0 之前的服务名是 `win-claude-workbench`,旧登记用 `claude mcp remove win-claude-workbench` 删掉,安装脚本会自动做)。
+以上命令在离线包根目录执行；若包内含 `Ruyi.exe`，也可用 `./Ruyi.exe mcp-config`。该命令会打印生成的 MCP JSON 文件路径。把其中 `mcpServers.ruyi` 配置加入 Claude CLI 的 MCP 配置即可(3.0 之前的服务名是 `win-claude-workbench`,旧登记用 `claude mcp remove win-claude-workbench` 删掉,安装脚本会自动做)。
 
 ## 插件/技能
 
@@ -93,10 +93,14 @@ claude plugin install offline-toolkit@ruyi-offline --scope user
 
 这些 skill 会调用 Workbench MCP 工具，例如 `dependency_inventory`、`git_status`、`code_review_scan`、`frontend_audit`、`docs_search` 和 `http_request`。目标机器不需要访问 Anthropic 在线插件市场，也不需要运行时下载 npm/pip 包。
 
+## 运行实例与数据目录
+
+一个数据目录只运行一个 `serve` 实例。当前启动流程尚无同数据目录独占租约，第二实例即使换端口也可能改写待决交互和 runtime 握手。测试多实例时分别设置 `RUYI_HOME`，不要复用用户目录；独占保护仍是 [62 号方案](../../docs/optimization-plan/62-steward-3x-iterations.md) 的待办。正常 CLI 的 `mcp` 子进程可复用其父服务指定的数据目录。
+
 ## 验证
 
 ```powershell
-.\Ruyi.exe doctor
+.\runtime\node\node.exe .\app\server.js doctor
 ```
 
 在 Claude CLI 中可让它调用 MCP 工具，例如：

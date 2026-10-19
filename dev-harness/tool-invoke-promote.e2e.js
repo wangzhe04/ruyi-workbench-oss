@@ -103,7 +103,7 @@ const startServer = async () => {
 const stopServer = async () => {
   if (!wb) return;
   const exited = new Promise(resolve => { if (wb.exitCode !== null) resolve(); else wb.once('exit', resolve); });
-  try { killOwnTree(wb.pid); } catch { /* gone */ }
+  try { killOwnTree(wb); } catch { /* gone */ }
   await Promise.race([exited, sleep(5000)]);
   wb = null;
 };

@@ -1,15 +1,33 @@
 # dev-harness —— 如意 Ruyi 后端契约验证脚手架
 
-本轮为工作台(`ruyi-workbench`)与桌面控制(`ai-computer-control`)写的**离线 e2e** 与假件(fake)。
+本目录维护工作台(`ruyi-workbench`)与桌面控制(`ai-computer-control`)的**离线 e2e** 与假件(fake)。
 纯 Node、零 npm;路径已改为 `__dirname` 相对解析(dev-harness 与两子项目同级),**无需手改 WB 路径**。
+
+当前总数以根目录 [facts.json](../facts.json) 为准，测试范围和维护约定见 [CONTRIBUTING.md](../CONTRIBUTING.md)。下方逐件说明保留历次引入背景和当时参数；当前执行入口、端口分桶和跳过项以 `run-all.js` 及对应测试源码为准。
 
 ## 怎么跑
 
 ```powershell
 # 单件
 node dev-harness\openai-engine.e2e.js
-# 每件自成一体:spawn fake-openai/fake-mcp + workbench,断言,taskkill 清理,exit 0=全绿。
+# 每件自成一体:spawn 自己的假服务与工作台，断言后用 killOwnTree 清理自己的进程树。
+# 静态快通道（先运行单测）
+node dev-harness\run-all.js --fast --parallel 4
+# 全量回归由 runner 分桶；不要自行并发运行固定端口单件
+node dev-harness\run-all.js --parallel 4
 ```
+
+### 实际发布包验收（Windows，按需）
+
+先用 `ruyi-workbench/tools/package-offline.ps1` 分别生成真正包含 EXE 的 Slim 和 Full，保留打包退出码、日志、ZIP 及其同名 stage。Full 需要已验证的 ACC 离线载荷。不要用 `-SkipExeBuild` 的源码运行包代替 EXE 验收。
+
+```powershell
+node dev-harness/release-package-acceptance.js --slim <Slim.zip> --full <Full.zip> --baseline-ref v3.0.1 --output <新的短路径目录>
+```
+
+脚本验证实际 ZIP 及当前源码字节、随包 Node 和 EXE 的四份全新数据目录、候选特有的隐私保护行为、旧版数据副本升级/重启/续写/备份回退、每包 15 项核心旅程，以及 Full 安装版 Python 的完整性、重复安装、WinSDK OCR 和两个真实 MCP stdio 入口。旧数据由固定 `v3.0.1` 标签源码和随包 Node 生成，不冒充下载的旧发行二进制。`validation.json` 逐项记录结果和来源 SHA-256；失败保留现场，已有输出目录会拒绝复用。测试采用离线 Fake provider，原用户配置及工具箱目录被隔离。桌面窗口的实际启动/操作/关闭仍须另行观察，并核对 GUI 与后台的进程归属。
+
+`release-dryrun.js --pkg` 另验构建、overlay 和打包器链路；构包非零、ZIP 缺失或清单不完整均失败。普通干跑缺少 Full 载荷时明确 SKIP；`--require-full --acc-offline-source <目录>` 要求 Full 实际通过。此脚本只报告 live 配置状态，不调用真实模型 API。
 
 ### 在 Linux / 云端容器里跑(非主战场,但可用)
 

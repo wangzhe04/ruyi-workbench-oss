@@ -43,6 +43,10 @@
 
 ## 提交前的快速检查(与 CI 同序)
 
+功能实现后必须安排独立 agent 做 code review，修复发现的问题并完成相关验证后再提交。后续功能沿用此流程；复核须记录范围、发现和处理结果，不以实现者自查代替。
+
+开发检查使用 Node.js 24（与 CI 和单体 exe 构建目标一致）；Node.js ≥20 仅是应用运行最低版本。
+
 ```bash
 node dev-harness/syntax-gate.js
 node ruyi-workbench/app/build.js --check
@@ -71,12 +75,14 @@ node dev-harness/<改动相关>.e2e.js             # 单件:末行 ... E2E: ALL 
 - 起服务看界面:`node ruyi-workbench/app/server.js serve`(只监听 127.0.0.1,默认 8765,被占自动顺延)。
   用 `HOME=<临时目录>` 起可避免污染数据目录。页面带 SSE 长连接,Playwright 等 `load` 而不是 `networkidle`。
 - 全量回归:`LANG=zh_CN.UTF-8 node dev-harness/run-all.js --parallel 4`(4 核约 25–30 分钟,放后台跑)。
-- **Linux 上全量不会全绿,这是预期。** 2026-09 实测 402 件约 366 过。剩下的主要是:
+- **Linux 上的历史全量读数不能当作当前豁免清单。** 2026-09 曾实测 402 件约 366 过；这是当时的快照，当前件数以 `facts.json` 为准。当时未过的主要是:
   PowerShell 会话、`.cmd` 启动器、资源管理器、`C:\` 路径、像素基线;root 身份下「只读文件写不进去」一类断言。
   依赖未随开源仓发布的 `realhist-fixtures/` 的件(`observation-recall-*`、`session-notes` 的 [H] 等)缺夹具时 SKIP、不红。**判断回归要和改动前的同环境基线比**,
-  不要把这些当成自己改坏的;最终以 Windows CI(`.github/workflows/e2e.yml` 的 `e2e` job)为准。
+  须逐条确认是否属于同一环境限制，不要把新失败自动归为平台问题；最终以 Windows CI(`.github/workflows/e2e.yml` 的 `e2e` job)为准。
 - `mcp/ai-computer-control`(ACC)依赖 pywin32/pyautogui 与真桌面,云端装不上、测不了,改它只能靠 Windows CI。
 - 发布打包(`package:offline*`、`build:desktop`)是 PowerShell 脚本,只在 Windows 上跑。
+- 本地服务测试还须隔离用户家目录与两个 AppData 位置（`dev-harness/lib/fixture-home.js`）；只设 `RUYI_HOME` 不能隔离全局 CLI 配置。
+- 2026-10-16 已在本实施分支修复同一数据根重复 `serve` 干扰待决的问题：第二实例在恢复前明确拒绝，详见 [63 号验收记录](docs/optimization-plan/63-steward-startup-read-contracts.md)。每个并行测试实例仍须使用独立数据根，除非正在专门验证所有权竞争；源码修复不表示安装包已经发布。
 
 ## 平台相关代码的写法
 

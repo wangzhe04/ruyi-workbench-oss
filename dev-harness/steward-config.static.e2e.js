@@ -35,7 +35,7 @@ const configSrc = fs.readFileSync(path.join(SRC, '01-config.js'), 'utf8');
 ok(/stewardEnabledV1:\s*true,/.test(configSrc), '默认值: stewardEnabledV1=true(121 波 K0 从 false 翻转)');
 ok(/stewardProviderId:\s*'',/.test(configSrc), "默认值: stewardProviderId=''");
 ok(/stewardModel:\s*'',/.test(configSrc), "默认值: stewardModel=''(在 stewardProviderId 之后,与 subagent 写法对齐)");
-ok(/stewardPollMs:\s*15000,/.test(configSrc), '默认值: stewardPollMs=15000');
+ok(/stewardPollMs:\s*5000,/.test(configSrc), '默认值: stewardPollMs=5000');
 // 117m-A1 重钉(用户第六轮走查⑦):默认值 12 → 30。12 是 116a 拍脑袋的保守值,真机上被「代批风暴」
 // 15 分钟吃光(11 条 steward_decision),于是用户那两句「还在正常运转吗」撞上熔断。重钉的同时补两条
 // 【更强】的伴随断言:默认表与 sanitize 兜底必须是同一个数(B10b),且 clamp 区间一字未动(下面 clampChecks)。
@@ -50,7 +50,7 @@ ok(/stewardMaxTurnsPerHour:\s*30,/.test(configSrc), '默认值: stewardMaxTurnsP
 // 静默抬高别人的花钱上限不合适。下面 c1 那一段的 clamp 断言就是这条纪律的机器证据。
 ok(/if \(clamped !== config\.stewardMaxTurnsPerHour\) \{ config\.stewardMaxTurnsPerHour = clamped; changed = true; \}/.test(configSrc),
   'sanitize: 合法的存量值原样保留(只有 clamp 后不同才回写 —— 抬高默认值不会动老用户已有的上限)');
-ok(/stewardMaxCostPerDay:\s*1,/.test(configSrc), '默认值: stewardMaxCostPerDay=1');
+ok(/stewardMaxCostPerDay:\s*5,/.test(configSrc), '默认值: stewardMaxCostPerDay=5');
 // 129g 加了第五格 answer(代答),**默认关** —— 它独立于 relay:勾「事项内自动交接」不该顺带
 // 把「替我回答线程的提问」也给出去(一格两权,用户按的时候看不见第二个)。
 // 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 递话是管家本职,默认只提议
@@ -78,7 +78,7 @@ ok(/stewardConversationRetention:\s*'24h',/.test(configSrc), "默认值: steward
 // 116h(27 号文 §3.1 116h 行;用户 2026-09-03 拍板「默认 5、设置可调」):线程间仲裁三个全局闸。
 ok(/stewardMaxParallelThreads:\s*5,/.test(configSrc), '默认值: stewardMaxParallelThreads=5(116h 用户拍板)');
 ok(/stewardGlobalMaxTurnsPerHour:\s*120,/.test(configSrc), '默认值: stewardGlobalMaxTurnsPerHour=120');
-ok(/stewardGlobalMaxCostPerDay:\s*20,/.test(configSrc), '默认值: stewardGlobalMaxCostPerDay=20');
+ok(/stewardGlobalMaxCostPerDay:\s*50,/.test(configSrc), '默认值: stewardGlobalMaxCostPerDay=50');
 
 // stewardEnabledV1 严格布尔归一(=== true),不是宽松真值判断。
 ok(/const b = config\.stewardEnabledV1 === true;/.test(configSrc),
@@ -90,16 +90,16 @@ ok(/\['visit', '24h', 'forever'\]\.includes\(config\.stewardConversationRetentio
 
 // 数字键 clamp 上下限字面量(逐个断言,防止有意/无意漂移;含 Math.round(n) 嵌套括号,按实际写法逐字匹配)。
 const clampChecks = [
-  { label: 'stewardPollMs clamp [5000,120000]', re: /Math\.min\(120000, Math\.max\(5000, Math\.round\(n\)\)\) : 15000;/ },
+  { label: 'stewardPollMs clamp [5000,120000]', re: /Math\.min\(120000, Math\.max\(5000, Math\.round\(n\)\)\) : 5000;/ },
   { label: 'stewardMaxTurnsPerHour clamp [1,120]', re: /Math\.min\(120, Math\.max\(1, Math\.round\(n\)\)\) : 30;/ }, // 117m-A1:区间 [1,120] 一字未动,只有兜底默认 12→30
-  { label: 'stewardMaxCostPerDay clamp [0,1000]', re: /Math\.min\(1000, Math\.max\(0, n\)\) : 1;/ },
+  { label: 'stewardMaxCostPerDay clamp [0,1000]', re: /Math\.min\(1000, Math\.max\(0, n\)\) : 5;/ },
   { label: 'stewardContextBudgetTokens clamp [16000,2000000]', re: /Math\.min\(2000000, Math\.max\(16000, Math\.round\(n\)\)\) : 200000;/ },
   { label: 'stewardContextBudgetRatio clamp [0.3,0.95](136)', re: /Math\.min\(0\.95, Math\.max\(0\.3, n\)\) : 0\.6;/ },
   { label: 'stewardReadBudgetChars clamp [4000,400000]', re: /Math\.min\(400000, Math\.max\(4000, Math\.round\(n\)\)\) : 48000;/ },
   { label: 'stewardVisitIdleMinutes clamp [5,1440]', re: /Math\.min\(1440, Math\.max\(5, Math\.round\(n\)\)\) : 60;/ },
   { label: 'stewardMaxParallelThreads clamp [1,32]', re: /Math\.min\(32, Math\.max\(1, Math\.round\(n\)\)\) : 5;/ },
   { label: 'stewardGlobalMaxTurnsPerHour clamp [1,2000]', re: /Math\.min\(2000, Math\.max\(1, Math\.round\(n\)\)\) : 120;/ },
-  { label: 'stewardGlobalMaxCostPerDay clamp [0,10000]', re: /Math\.min\(10000, Math\.max\(0, n\)\) : 20;/ },
+  { label: 'stewardGlobalMaxCostPerDay clamp [0,10000]', re: /Math\.min\(10000, Math\.max\(0, n\)\) : 50;/ },
 ];
 for (const c of clampChecks) ok(c.re.test(configSrc), `sanitize: ${c.label}`);
 
@@ -188,6 +188,23 @@ const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-config-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = tmpHome;
 const srv = require(path.join(APP, 'server.js'));
 
+// 3.1 走测反馈：缺省与非法值采用新默认；用户已明确保存的旧预算和不限预算保持原样。
+const preferredDefaults = { stewardPollMs: 5000, stewardMaxCostPerDay: 5, stewardGlobalMaxCostPerDay: 50 };
+const freshConfig = srv.normalizeConfig(null).config;
+const invalidConfig = srv.normalizeConfig({ ...srv.defaultConfig(), stewardPollMs: 'bad', stewardMaxCostPerDay: 'bad', stewardGlobalMaxCostPerDay: 'bad' }).config;
+for (const [key, value] of Object.entries(preferredDefaults)) {
+  ok(srv.defaultConfig()[key] === value && freshConfig[key] === value && invalidConfig[key] === value,
+    `${key}: 新安装、缺省与非法值统一采用 ${value}`);
+}
+for (const explicit of [
+  { stewardPollMs: 15000, stewardMaxCostPerDay: 1, stewardGlobalMaxCostPerDay: 20 },
+  { stewardPollMs: 30000, stewardMaxCostPerDay: 0, stewardGlobalMaxCostPerDay: 0 },
+]) {
+  const normalized = srv.normalizeConfig({ configSchema: srv.CONFIG_SCHEMA, ...explicit, configExplicitKeysV1: Object.keys(explicit) });
+  ok(Object.entries(explicit).every(([key, value]) => normalized.config[key] === value && normalized.persisted[key] === value),
+    `显式存量配置读后与落盘均保留（含 0 费用不限）: ${JSON.stringify(explicit)}`);
+}
+
 const dirty = {
   ...srv.defaultConfig(),
   stewardEnabledV1: 'yes',            // 非严格布尔 -> false
@@ -195,7 +212,7 @@ const dirty = {
   stewardModel: 'm'.repeat(300),      // 超长(无空白,避免 trim+slice 边界巧合截出尾随空格的伪失败) -> 截断到 160
   stewardPollMs: 1,                   // 越界低 -> clamp 到 5000(注:1 非法? 是有限数,故 clamp 而非回默认)
   stewardMaxTurnsPerHour: -5,         // 越界低 -> clamp 到 1
-  stewardMaxCostPerDay: 'free',       // 非数字 -> 回默认 1
+  stewardMaxCostPerDay: 'free',       // 非数字 -> 回默认 5
   stewardAutoActions: { retry: 'yes', resume: 'sometimes', relay: 1, newThread: false, continueUnfinished: 'maybe', extraJunkKey: 'drop-me' },
   stewardContextBudgetTokens: 999999999, // 越界高 -> clamp 到 2000000
   stewardContextBudgetRatio: 99,         // 越界高 -> clamp 到 0.95(136)
@@ -206,7 +223,7 @@ const dirty = {
   stewardConversationRetention: 'never', // 非法枚举 -> 回默认 '24h'(136 起)
   stewardMaxParallelThreads: 999,      // 越界高 -> clamp 到 32
   stewardGlobalMaxTurnsPerHour: 0,     // 越界低 -> clamp 到 1
-  stewardGlobalMaxCostPerDay: 'lots',  // 非数字 -> 回默认 20
+  stewardGlobalMaxCostPerDay: 'lots',  // 非数字 -> 回默认 50
 };
 
 const first = srv.normalizeConfig(dirty);
@@ -216,7 +233,7 @@ ok(c1.stewardProviderId === '42', 'stewardProviderId=42 经 String() 归一为�
 ok(c1.stewardModel.length === 160, 'stewardModel 超长截断到 160 字符');
 ok(c1.stewardPollMs === 5000, 'stewardPollMs=1 clamp 到下限 5000');
 ok(c1.stewardMaxTurnsPerHour === 1, 'stewardMaxTurnsPerHour=-5 clamp 到下限 1');
-ok(c1.stewardMaxCostPerDay === 1, "非法 stewardMaxCostPerDay='free' 回默认 1");
+ok(c1.stewardMaxCostPerDay === 5, "非法 stewardMaxCostPerDay='free' 回默认 5");
 ok(c1.stewardAutoActions.retry === true && c1.stewardAutoActions.resume === null && c1.stewardAutoActions.relay === true
   && c1.stewardAutoActions.newThread === false && !('extraJunkKey' in c1.stewardAutoActions)
   && c1.stewardAutoActions.continueUnfinished === true,   // 非布尔回默认(开)
@@ -230,7 +247,7 @@ ok(c1.stewardVisitIdleMinutes === 1440, 'stewardVisitIdleMinutes 越界高 clamp
 ok(c1.stewardConversationRetention === '24h', "非法枚举 'never' 回默认 '24h'(136 起)");
 ok(c1.stewardMaxParallelThreads === 32, 'stewardMaxParallelThreads 越界高 clamp 到 32');
 ok(c1.stewardGlobalMaxTurnsPerHour === 1, 'stewardGlobalMaxTurnsPerHour=0 clamp 到下限 1');
-ok(c1.stewardGlobalMaxCostPerDay === 20, "非法 stewardGlobalMaxCostPerDay='lots' 回默认 20");
+ok(c1.stewardGlobalMaxCostPerDay === 50, "非法 stewardGlobalMaxCostPerDay='lots' 回默认 50");
 // 116h:仲裁只在开关开时生效。121 波 K0 把总开关默认翻成开 —— 于是【新装】默认就带仲裁,
 // 存量用户(config.json 里已显式落 false)不变。并发上限仍是 5,这一条没跟着动。
 ok(srv.defaultConfig().stewardEnabledV1 === true && srv.defaultConfig().stewardMaxParallelThreads === 5,

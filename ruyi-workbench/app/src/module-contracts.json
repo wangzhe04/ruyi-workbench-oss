@@ -13,7 +13,9 @@
         "CONFIG_SCHEMA",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
+        "DeliveryHooks",
         "EventStreamHooks",
+        "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
         "INSTALL_REGISTRY_SCHEMA",
         "LEGACY_API_ERROR_CODES",
@@ -29,6 +31,7 @@
         "RUYI_VENDOR_BIN_ON_PATH",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
+        "SessionExecutionHooks",
         "StringDecoder",
         "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
@@ -331,6 +334,14 @@
           ]
         }
       ]
+    },
+    {
+      "file": "01g-server-ownership.js",
+      "layer": "foundation",
+      "provides": [
+        "ServerOwnership"
+      ],
+      "requires": []
     },
     {
       "file": "01-config.js",
@@ -959,6 +970,7 @@
         "sessionDesktopToolsOf",
         "sessionDesktopToolsOverrides",
         "sessionEngineRouteOverrides",
+        "sessionEngineRouteScopeOverrides",
         "sessionPermissionModeOf",
         "sessionPermissionModeOverrides"
       ],
@@ -1260,6 +1272,7 @@
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
         "rewindSession",
+        "rewindSessionContents",
         "safeMissionId",
         "sanitizeImportedSessionMessages",
         "sanitizeSessionScratchpad",
@@ -1301,6 +1314,7 @@
         "sessionIndexRetireSeq",
         "sessionIndexWriteSeq",
         "sessionKind",
+        "sessionLegacyRewinds",
         "sessionLineHash",
         "sessionMessageStampLine",
         "sessionMessagesDelta",
@@ -1316,6 +1330,7 @@
         "sessionOmittedProviderHistory",
         "sessionProviderHistoryLength",
         "sessionRecentUserRequest",
+        "sessionRewindAdmissions",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
@@ -1453,6 +1468,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "SESSION_SCHEMA",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
           "kinds": [
             "read"
           ]
@@ -1607,6 +1629,13 @@
         {
           "provider": "02d-session-overrides.js",
           "symbol": "sessionEngineRouteOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteScopeOverrides",
           "kinds": [
             "read"
           ]
@@ -1928,6 +1957,7 @@
         "buildAttachmentPrompt",
         "buildBrowserOpenSpawn",
         "buildCodeEditorSpawn",
+        "buildDeliveryRevisionPrompt",
         "buildOpenSpawn",
         "buildRevealSpawn",
         "classifyCodeEditorExecutable",
@@ -2248,6 +2278,7 @@
         "_toolboxSkipLogged",
         "activeChildren",
         "appendLiveTail",
+        "assertSessionExecutionOwner",
         "bridgedCatalogCache",
         "bridgedCatalogInflight",
         "bridgedServerSpawnEnv",
@@ -2334,8 +2365,11 @@
         "promptDeadlineIsReal",
         "promptWaitMs",
         "reconcileMcpEntryFingerprint",
+        "recordSessionExecutionOwner",
         "redact",
+        "registerSessionExecutionChild",
         "registerUserQuestion",
+        "requestSessionExecutionStop",
         "requestUserQuestion",
         "resolveBridge",
         "resolveExternalMcpServers",
@@ -2349,6 +2383,12 @@
         "scanMcpDropIns",
         "scanMcpSources",
         "scanToolboxComponents",
+        "sessionExecutionCheck",
+        "sessionExecutionCheckRewind",
+        "sessionExecutionEvictionGeneration",
+        "sessionExecutionObservation",
+        "sessionExecutionSnapshot",
+        "sessionLastExecutions",
         "splitMcpArgsString",
         "stopSession",
         "subscribeActiveChildEvents",
@@ -2444,6 +2484,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
             "read"
@@ -2461,6 +2508,13 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -3286,6 +3340,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -3615,6 +3676,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "buildDeliveryRevisionPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "cwdWarning",
           "kinds": [
             "call"
@@ -3637,6 +3705,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "appendLiveTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
           "kinds": [
             "call"
           ]
@@ -3770,6 +3845,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "registerSessionExecutionChild",
           "kinds": [
             "call"
           ]
@@ -4685,6 +4767,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "clearPendingPermissions",
           "kinds": [
             "call"
@@ -4735,6 +4824,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "registerSessionExecutionChild",
           "kinds": [
             "call"
           ]
@@ -5043,6 +5139,7 @@
         "NETWORK_ANCHORS",
         "PLAYBOOK_INPUT_TYPES",
         "PLAYBOOK_REQUIRES",
+        "PLAYBOOK_REUSE_OPEN",
         "PLAYBOOK_SERVICES",
         "PLAYBOOK_STATUS_RANK",
         "PROJECT_MEMORY_CAP",
@@ -5122,10 +5219,14 @@
         "neutralizeAuthoredText",
         "normalizeMetricsPath",
         "normalizePlaybook",
+        "normalizePlaybookReuse",
         "normalizeStoragePolicy",
         "parsePlaybookDraft",
         "parseThreadBrief",
         "peekCapabilities",
+        "playbookReuseMessages",
+        "playbookReuseSources",
+        "playbookReuseTemplate",
         "probeAny",
         "probeDesktopMcp",
         "probeNetwork",
@@ -5142,6 +5243,7 @@
         "renderCliEnvBrief",
         "repairNodeJsonViaProvider",
         "resolveEngineEnvBrief",
+        "resolvePlaybookRecognition",
         "resolveToolIterationBudget",
         "sampleProcessRss",
         "saveUserPlaybook",
@@ -5908,6 +6010,7 @@
         "deleteMemoryRelation",
         "draftMemoryFromSession",
         "effectiveMemorySelection",
+        "eligibleMemoryEntries",
         "extractMemoryRelationProposals",
         "filterMemoryForNativeCli",
         "findMemoryProposalDuplicate",
@@ -5955,8 +6058,12 @@
         "memoryRetrievalText",
         "memoryReviewDue",
         "memorySearchTerms",
+        "memorySelectionSignature",
         "memorySupersededMarks",
         "memorySupersededTag",
+        "memoryToolLibraryCurrent",
+        "memoryToolLibraryVersion",
+        "memoryToolSupersededStatus",
         "memoryUsageFile",
         "memoryUsageKey",
         "memoryUsageWriteChain",
@@ -6000,6 +6107,7 @@
         "resolveCoreMemoryState",
         "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
+        "resolveWorkbenchMemoryReadContext",
         "resolveWorkbenchMemoryToolContext",
         "saveMemory",
         "sha256Hex",
@@ -7520,6 +7628,9 @@
         "agentRunDigestWriteSeq",
         "agentRunEventChains",
         "agentRunEventsFile",
+        "agentRunHealth",
+        "agentRunHealthChanged",
+        "agentRunLastHealth",
         "agentRunLastSavedStatus",
         "agentRunPermissionMode",
         "agentRunResultSlice",
@@ -7586,6 +7697,7 @@
         "recordRunBudgetTrippedEvent",
         "recordRunStalledEvent",
         "repairJson",
+        "requestDelegationPermission",
         "resolveAgentTeamRoute",
         "resolveOrchestrateFollowup",
         "resolveOrchestrateNodes",
@@ -7918,6 +8030,13 @@
           ]
         },
         {
+          "provider": "03-bridge-guard.js",
+          "symbol": "preflightWriteBoundary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "bridgedServerUnavailableMessage",
           "kinds": [
@@ -7947,6 +8066,20 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
             "call"
@@ -7955,6 +8088,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "resolveBridge",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
           ]
@@ -8228,6 +8368,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "openAiStreamOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "requestNativePermission",
           "kinds": [
             "call"
           ]
@@ -8548,6 +8695,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
           "kinds": [
             "read"
           ]
@@ -9009,6 +9163,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "buildDeliveryRevisionPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "cwdWarning",
           "kinds": [
             "call"
@@ -9045,6 +9206,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "appendLiveTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
           "kinds": [
             "call"
           ]
@@ -9136,6 +9304,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "registerSessionExecutionChild",
           "kinds": [
             "call"
           ]
@@ -9422,7 +9597,35 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "memoryExclusionSet",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memorySelectionSignature",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "proposeMemoryRelation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "readConfirmedSupersedeEdges",
           "kinds": [
             "call"
           ]
@@ -10660,6 +10863,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -10967,6 +11177,13 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteScopeOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02e-session-engine-route.js",
           "symbol": "configForSessionEngineRoute",
           "kinds": [
@@ -11003,6 +11220,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "driverAutoSessions",
           "kinds": [
             "read"
@@ -11017,7 +11241,28 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "recordSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "requestSessionExecutionStop",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
           "kinds": [
             "call"
           ]
@@ -11841,7 +12086,8 @@
         "toolInvokeMissingNameResult",
         "toolInvokeTierCovers",
         "withFileToolWriteLock",
-        "withToolArgsGuide"
+        "withToolArgsGuide",
+        "workbenchMemoryReadLoopback"
       ],
       "requires": [
         {
@@ -12915,6 +13161,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "defaultDataRoots",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "ensureDirs",
           "kinds": [
             "call"
@@ -12932,6 +13185,13 @@
           "symbol": "exePath",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -12971,6 +13231,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "isDirectServeInvocation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "isPkg",
           "kinds": [
             "call"
@@ -12985,7 +13252,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "lstatOrNull",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "migrateLegacyDataRoot",
           "kinds": [
             "call"
           ]
@@ -13425,6 +13706,13 @@
           ]
         },
         {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "applyMissionUpdate",
           "kinds": [
@@ -13748,6 +14036,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "requestSessionExecutionStop",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "resolveExternalMcpServers",
           "kinds": [
             "call"
@@ -13966,6 +14261,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "normalizePlaybook",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "playbookReuseSources",
           "kinds": [
             "call"
           ]
@@ -15283,6 +15585,7 @@
         "missionCardStatus",
         "missionContainerFailure",
         "missionContainerHttpStatus",
+        "missionHealthRuns",
         "missionPendingCounts",
         "missionRunDigest",
         "missionRunGraph",
@@ -15309,6 +15612,7 @@
         "sessionSearchIndexPath",
         "sessionSearchRefreshChains",
         "sessionSearchRowIsNoise",
+        "sessionSearchScope",
         "sessionSearchSnippet"
       ],
       "requires": [
@@ -15951,6 +16255,20 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionObservation",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "turnSettlers",
           "kinds": [
             "read"
@@ -16176,6 +16494,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "agentRunEventsFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunHealth",
           "kinds": [
             "call"
           ]
@@ -16582,6 +16907,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "stewardAsksYouForThread",
           "kinds": [
@@ -16626,6 +16958,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunDir",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunHealth",
           "kinds": [
             "call"
           ]
@@ -17190,6 +17529,241 @@
       ]
     },
     {
+      "file": "13aa-steward-delivery.js",
+      "layer": "unclassified",
+      "provides": [
+        "STEWARD_DELIVERY_LIMITS",
+        "handleStewardDeliveryApiRoutes",
+        "stewardCaptureDelivery",
+        "stewardDeliveryFiles",
+        "stewardDeliveryInspect",
+        "stewardDeliveryProjection",
+        "stewardDeliveryReferencedFiles",
+        "stewardDeliveryRows",
+        "stewardDeliverySource",
+        "stewardValidateDeliveryReference"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DeliveryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "buildMissionAcceptanceProjection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "kindForPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "ensureDataRootReal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "fileAllowedRoots",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveDataPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "isSensitiveHardlinkAlias",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "pathWithinAnyRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "readFilePreview",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "remoteUncDenialResolved",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardRawKind",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "13k-steward-threads.js",
       "layer": "transport",
       "provides": [
@@ -17202,6 +17776,8 @@
         "stewardBriefTextOf",
         "stewardCanonWorkspacePath",
         "stewardClaimDerivedWorkspace",
+        "stewardContinueAttachments",
+        "stewardDelegationSteps",
         "stewardDeriveThreadCwd",
         "stewardDeriveWorkspaceDir",
         "stewardDiscardDerivedWorkspaceDir",
@@ -17243,6 +17819,7 @@
         "stewardToolCallVerdict",
         "stewardTriggerOf",
         "stewardUnattendedByModel",
+        "stewardUserDirected",
         "stewardValidateCwd",
         "stewardWorkspaceNameOf",
         "stewardWorkspaceSlug",
@@ -17266,7 +17843,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
           "kinds": [
             "read"
           ]
@@ -17288,6 +17879,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
           "kinds": [
             "read"
           ]
@@ -17503,6 +18101,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06-provider-engine.js",
           "symbol": "listPlaybooksWithAvailability",
           "kinds": [
@@ -17659,6 +18264,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardMayTightenTo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardOpenAiFallback",
           "kinds": [
             "call"
           ]
@@ -17822,6 +18434,13 @@
           "symbol": "SESSION_SEARCH_MIN_QUERY",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "sessionSearchScope",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -18129,6 +18748,8 @@
         "stewardQuoteInSource",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
+        "stewardSettingScope",
+        "stewardSettingsReceipt",
         "stewardSourceCwd",
         "stewardSourceIsUserMessage",
         "stewardSourceUserTexts",
@@ -18262,6 +18883,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "KEY_MASK_PREFIX",
           "kinds": [
@@ -18313,6 +18941,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "playbookReuseSources",
           "kinds": [
             "call"
           ]
@@ -18956,7 +19591,7 @@
         },
         {
           "provider": "13k-steward-threads.js",
-          "symbol": "stewardTriggerOf",
+          "symbol": "stewardUserDirected",
           "kinds": [
             "call"
           ]
@@ -18978,7 +19613,11 @@
         "STEWARD_TAINT_GATED_TOOLS",
         "handleStewardApiRoutes",
         "stewardArgTypeProblems",
+        "stewardAuthorizeExternalContext",
         "stewardCtxIsSteward",
+        "stewardExternalContexts",
+        "stewardExternalOwnerDirected",
+        "stewardImplBotSetup",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
         "stewardMemoryPanelExport",
@@ -18997,6 +19636,13 @@
           "symbol": "apiFailure",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -19738,6 +20384,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
             "read"
@@ -19801,9 +20454,23 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -20573,6 +21240,20 @@
           ]
         },
         {
+          "provider": "13g-steward.js",
+          "symbol": "stewardAuthorizeExternalContext",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13g-steward.js",
+          "symbol": "stewardExternalOwnerDirected",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardAppendDecision",
           "kinds": [
@@ -20788,6 +21469,7 @@
       "file": "13q-steward-runner-turn.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_ACT_ATTEMPT_LIMITS",
         "STEWARD_COMMITMENT_I18N",
         "STEWARD_COMMITMENT_TEXT",
         "STEWARD_INBOX_TURN_RETRY_MAX",
@@ -20795,6 +21477,11 @@
         "STEWARD_RELAY_SETTLE_WAIT_MS",
         "STEWARD_VISIT_DIGEST_PAGES",
         "runStewardTurn",
+        "stewardActAttemptId",
+        "stewardActAttemptPrune",
+        "stewardActAttempts",
+        "stewardActInflight",
+        "stewardActReceiptFloor",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
         "stewardDecideNudged",
@@ -20817,6 +21504,7 @@
         "stewardRequeueFailedInboxBatch",
         "stewardResetConversation",
         "stewardRunAct",
+        "stewardRunActOnce",
         "stewardRunClaimedTurn",
         "stewardScheduleInboxDrain",
         "stewardTrimVisits",
@@ -20828,6 +21516,13 @@
         "stewardVisitsDir"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
@@ -20847,6 +21542,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -21082,6 +21784,13 @@
           ]
         },
         {
+          "provider": "13g-steward.js",
+          "symbol": "stewardAuthorizeExternalContext",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13i-steward-inbox.js",
           "symbol": "stewardDir",
           "kinds": [
@@ -21188,6 +21897,13 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_ACTS_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_BLOCKING_DEBOUNCE_MS",
           "kinds": [
             "read"
@@ -21231,6 +21947,13 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_QUICK_DEBOUNCE_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_TOOL_LABELS",
           "kinds": [
             "read"
           ]
@@ -21433,6 +22156,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
@@ -21469,14 +22199,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "stopSession",
+          "symbol": "requestSessionExecutionStop",
           "kinds": [
             "call"
           ]
@@ -21640,7 +22363,6 @@
           "provider": "13n-steward-arbiter.js",
           "symbol": "stewardCancelQueuedTurn",
           "kinds": [
-            "call",
             "read"
           ]
         },
@@ -21794,6 +22516,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -22828,6 +23557,346 @@
           "symbol": "syncAgentInstructionImports",
           "kinds": [
             "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13v-external-channel-protocols.js",
+      "layer": "transport",
+      "provides": [
+        "ExternalChannelProtocols"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13x-external-channel-delivery.js",
+      "layer": "transport",
+      "provides": [
+        "ExternalChannelDelivery"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13y-external-bot-credentials.js",
+      "layer": "transport",
+      "provides": [
+        "ExternalBotCredentials"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13z-external-bot-discovery.js",
+      "layer": "transport",
+      "provides": [
+        "ExternalBotDiscovery"
+      ],
+      "requires": []
+    },
+    {
+      "file": "13w-external-bots.js",
+      "layer": "transport",
+      "provides": [
+        "EXTERNAL_BOT_CONNECTION_KEYS",
+        "EXTERNAL_BOT_DISCOVERY_LIMITS",
+        "EXTERNAL_BOT_LIMITS",
+        "EXTERNAL_BOT_SETUP_KEYS",
+        "EXTERNAL_BOT_SETUP_PATHS",
+        "externalBotAcceptCallback",
+        "externalBotActiveActors",
+        "externalBotActors",
+        "externalBotCapturePairing",
+        "externalBotChains",
+        "externalBotConfigured",
+        "externalBotConnectionFingerprint",
+        "externalBotCredentialSnapshot",
+        "externalBotCurrentPairing",
+        "externalBotDecodeJson",
+        "externalBotDeliveries",
+        "externalBotDiscoverOperation",
+        "externalBotDiscoveryBusy",
+        "externalBotDiscoveryFailure",
+        "externalBotDiscoveryProbe",
+        "externalBotDiscoveryRate",
+        "externalBotDrain",
+        "externalBotEnvReference",
+        "externalBotError",
+        "externalBotFinishJob",
+        "externalBotIdentity",
+        "externalBotInflight",
+        "externalBotNextJob",
+        "externalBotNormalizeConnection",
+        "externalBotOutcome",
+        "externalBotOwnerMatches",
+        "externalBotPairings",
+        "externalBotPublicConnection",
+        "externalBotPublicItem",
+        "externalBotRate",
+        "externalBotReadBody",
+        "externalBotReadState",
+        "externalBotRecover",
+        "externalBotRecoveryDone",
+        "externalBotReplyText",
+        "externalBotResultUncertain",
+        "externalBotSafeCredentialError",
+        "externalBotSaveCredentials",
+        "externalBotSecrets",
+        "externalBotSetupHttpOperation",
+        "externalBotSetupOperation",
+        "externalBotSetupReceipt",
+        "externalBotSetupSnapshot",
+        "externalBotSetupToken",
+        "externalBotStewardSetup",
+        "externalBotStore",
+        "externalBotString",
+        "externalBotUnsettled",
+        "externalBotUpdateConnection",
+        "externalBotValidControlState",
+        "externalBotValidItem",
+        "externalBotValidSetupReceipt",
+        "externalBotValidState",
+        "externalBotValidateActor",
+        "externalBotWakeWorker",
+        "externalBotWorkerAgain",
+        "externalBotWorkerBusy",
+        "externalBotWorkerError",
+        "externalBotWorkerStopped",
+        "externalBotWriteState",
+        "handleExternalBotApiRoutes"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "originOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "runStewardTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13v-external-channel-protocols.js",
+          "symbol": "ExternalChannelProtocols",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13x-external-channel-delivery.js",
+          "symbol": "ExternalChannelDelivery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13y-external-bot-credentials.js",
+          "symbol": "ExternalBotCredentials",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13z-external-bot-discovery.js",
+          "symbol": "ExternalBotDiscovery",
+          "kinds": [
+            "read"
           ]
         }
       ]

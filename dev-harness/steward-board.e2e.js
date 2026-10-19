@@ -970,7 +970,8 @@ try {
   // 必须停：D1 刚把「同时最多」改成 3，而 A／B 两条挂着的回合正占着两个位；不停的话下面
   // R 组那条新回合会一直排队（实测 R6「线程 F 的新回合也在飞了」永远等不到）。
   for (const id of [created.A, created.B]) {
-    await request(appPort, 'POST', '/api/stop', { sessionId: id }, token);
+    const stopView = await request(appPort, 'GET', `/api/sessions/${id}`, null, token);
+    await request(appPort, 'POST', '/api/stop', { sessionId: id, expectedExecution: stopView.json.execution }, token);
   }
 
   // ── R 117s-B（用户第九轮走查①「递话给已有线程也不会自动打开线程详情页」／④「给已收工的
@@ -1218,7 +1219,8 @@ try {
   // 同上：E／F／F2 三条在 R 组里被重新点起来的回合到这里已经没人要了，显式停掉，把并发位
   // 让给 G/H/I（「同时最多」此刻是 3）。
   for (const id of [idE, idF, idF2]) {
-    await request(appPort, 'POST', '/api/stop', { sessionId: id }, token);
+    const stopView = await request(appPort, 'GET', `/api/sessions/${id}`, null, token);
+    await request(appPort, 'POST', '/api/stop', { sessionId: id, expectedExecution: stopView.json.execution }, token);
   }
   const workG = path.join(root, 'work-g');
   const workH = path.join(root, 'work-h');

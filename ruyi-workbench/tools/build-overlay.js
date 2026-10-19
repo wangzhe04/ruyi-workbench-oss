@@ -83,6 +83,7 @@ const PAYLOAD_FILES = [
   // 32 号文 §4（M2-b）：暂停／继续的判据与文案键（2.0 的 run 卡 + 3.0 的看板行／抽屉共用）——
   // 两壳都在 import，同样漏登记即白屏。
   'app/public/js/run-state.js',
+  'app/public/js/run-health.js',
   // 32 号文 §4（M2-a）：模态原语（2.0 动态模态 + 3.0 危险操作确认共用）搬成的叶子模块。
   'app/public/js/modal.js',
   // 33 号文 §4（M3-a）：3.0 管家壳危险操作确认的统一件与文案键登记表（建在 modal.js 之上；
@@ -128,10 +129,17 @@ const PAYLOAD_FILES = [
   // 117c:管家对话区与递话。缺任一文件都会让 steward-shell.js 的 import 整条挂掉(ESM 静态依赖),
   // 管家壳连骨架都绑不上 —— 离线包必须收全这两件。
   'app/public/js/steward-conversation.js',
+  'app/public/js/steward-delivery.js',
+  'app/public/js/steward-decisions.js',
   'app/public/js/steward-composer.js',
   // 117d:线程抽屉与三处复用的快切 chip(steward-shell.js 静态 import 它们,缺任一都会整条挂掉)。
   'app/public/js/steward-drawer.js',
   'app/public/js/steward-settings.js',   // 117e
+  'app/public/js/steward-settings-receipt.js', // 75: chat/history/settings share actual settings receipts and guarded undo
+  'app/public/js/steward-handoff-recovery.js', // 78: tab-local unresolved handoffs survive page reloads
+  'app/public/js/playbook-reuse.js', // 77: explicit recognition, editable copies and new-material checks
+  'app/public/js/external-bots.js',      // external owner connection management and durable receipts
+  'app/public/js/external-bot-setup.js', // local credential entry, verified pairing and explicit activation
   'app/public/js/steward-chips.js',
   // 117h/121-K5:工作台线程头与左栏(steward-shell.js 静态 import 它们)。
   'app/public/js/thread-head.js',
@@ -262,6 +270,7 @@ const PAYLOAD_FILES = [
   'resources/plugins/ruyi-offline/offline-toolkit/commands/summarize-changes.md',
   'resources/plugins/ruyi-offline/offline-toolkit/commands/test-changes.md',
   'resources/plugins/ruyi-offline/offline-toolkit/commands/workbench-doctor.md',
+  'tools/external-bot-gateway.js', // precise callback-only gateway; explicit deployment remains optional
   // 128g:tools/fake-claude.js(测试替身)与 tools/dev-serve.cmd(开发起服)不再随覆盖包发 —— 它们不属于部署面。
 ];
 // 109a: 可选载荷: 存在才随包发布,缺失不是错误。

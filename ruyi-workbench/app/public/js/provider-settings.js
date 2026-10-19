@@ -848,7 +848,7 @@ function fillSettings() {
   const sb = c.searchBackend || {};
   // v1.1-W1a 把关补:白名单加 'builtin'(免费内置搜索,新装默认)。缺了它,builtin 配置在设置页会被显示成
   // 「不启用」(纯显示 bug,后端不受影响);fallback 也改 'builtin' 与 normalizeConfig 的迁移语义一致。
-  { const el0 = $('cfgSearchType'); if (el0) el0.value = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'custom'].includes(sb.type) ? sb.type : 'builtin'; }
+  { const el0 = $('cfgSearchType'); if (el0) el0.value = ['none', 'builtin', 'searxng', 'bing', 'brave', 'tavily', 'bocha', 'deepseek', 'custom'].includes(sb.type) ? sb.type : 'builtin'; }
   { const el0 = $('cfgSearchBaseUrl'); if (el0) el0.value = sb.baseUrl || ''; }
   { const el0 = $('cfgSearchApiKey'); if (el0) el0.value = sb.apiKey || ''; }
   updateSearchBackendVisibility();
@@ -1513,9 +1513,9 @@ function updateSearchBackendVisibility() {
   const type = sel.value;
   const baseRow = $('cfgSearchBaseUrlRow');
   const keyRow = $('cfgSearchApiKeyRow');
-  const optionalBase = type === 'tavily' || type === 'bocha'; // 官方地址已内置 → baseUrl 仅作覆写，可留空
+  const optionalBase = type === 'tavily' || type === 'bocha' || type === 'deepseek'; // 官方地址已内置 → baseUrl 仅作覆写，可留空
   const showBase = type === 'searxng' || type === 'custom' || optionalBase;
-  const showKey = type === 'bing' || type === 'brave' || type === 'tavily' || type === 'bocha';
+  const showKey = type === 'bing' || type === 'brave' || type === 'tavily' || type === 'bocha' || type === 'deepseek';
   if (baseRow) {
     baseRow.classList.toggle('hidden', !showBase);
     const lbl = baseRow.querySelector('label');
@@ -2635,6 +2635,9 @@ function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; au
   // 之后切语言它们不跟。i18n.js setLocale 末尾派 i18n:change → 已挂载过就重画一遍（mountSettingsCatalog 按 dataset.lang 判，
   // 语言没变的段原样跳过）；还没挂的（设置从没打开过）不管，首次 fillSettings 自然按当时的语言画。
   try {
+    globalThis.addEventListener('ruyi:settings-refresh', () => {
+      void refreshStatus().catch(() => toast(t('settingsReceipt.refreshFailed'), 'err'));
+    });
     globalThis.addEventListener('i18n:change', () => {
       if (typeof document !== 'undefined' && document.querySelector('.setcat-section') && state.config) refreshSettingsCatalog();
     });

@@ -183,7 +183,7 @@ export function createFileBrowserDomain({
     return renderFilePreviewInto($('filePreview'), fullPath);
   }
 
-  async function renderFilePreviewInto(box, fullPath) {
+  async function renderFilePreviewInto(box, fullPath, options = {}) {
     if (!box) return;
     box.classList.remove('hidden');
     box.textContent = '';
@@ -191,16 +191,16 @@ export function createFileBrowserDomain({
     head.append(el('span', 'fp-name', fileBasename(fullPath)));
     const open = el('button', 'mini', t('file.open'));
     open.onclick = () => runTool('office_open', { path: fullPath });
-    head.appendChild(open);
+    if (options.open !== false) head.appendChild(open);
     box.appendChild(head);
     const body = el('div', 'fp-body-wrap');
     body.appendChild(el('div', 'fp-loading', t('file.preview.loading')));
     box.appendChild(body);
-    const sessionId = state.currentSession && state.currentSession.id;
+    const sessionId = options.sessionId || (state.currentSession && state.currentSession.id);
     try {
       const query = '?path=' + encodeURIComponent(fullPath)
         + (sessionId ? '&sessionId=' + encodeURIComponent(sessionId) : '');
-      const result = await api('/api/file/preview' + query);
+      const result = typeof options.load === 'function' ? await options.load() : await api('/api/file/preview' + query);
       body.textContent = '';
       if (!result || result.ok === false) {
         const reason = result && (result.errorText

@@ -9,7 +9,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ② 对如意说一句 → 先出「···」占位 → 流式文字 → steward_reply 的 say 与 ≤3 个按钮；
 //   ③ 点 dismiss 按钮 → 整行按钮换成灰字回执；
 //   ④ 输入含线程标题的话 → chip 变「→ 周报-W36」→ Enter 直接递 → 「递给了『周报-W36』。」回执与
-//      「撤回 N」倒计时 → 点撤回 → 先 POST /api/stop 再 POST /api/session/rewind（顺序由 fetch 探针
+//      「撤回 N」倒计时 → 点撤回 → 单次 guarded POST /api/session/rewind（原执行身份和锚点由 fetch 探针
 //      记录）→ 灰字「已撤回…」＋管家追问「那递给谁？」；
 //   ⑤ 与任何线程都不相关的陈述句 → chip 变「→ 如意 · 另起一件」；
 //   ⑥ 切回经典壳后无残留定时器（管家状态轮询与撤回倒计时都被清掉）。
@@ -430,19 +430,41 @@ try {
       window.__ruyiLiveIntervals = () => [...live.values()];
       window.__ruyiFetchLog = [];
       window.__ruyiStewardBodies = [];
+      window.__ruyiRewindBodies = [];
+      window.__ruyiHandOffUndoRefs = [];
       const nativeFetch = window.fetch;
       window.fetch = function (input, init) {
+        let route = '';
         try {
           const url = typeof input === 'string' ? input : (input && input.url) || '';
-          const route = String(url).replace(/^https?:\\/\\/[^/]+/, '').split('?')[0];
+          route = String(url).replace(/^https?:\\/\\/[^/]+/, '').split('?')[0];
           window.__ruyiFetchLog.push(route);
+        } catch { /* probe must never break the app */ }
+        // 62 号第三轮 P1：两个故障注入点 —— 请求根本没发出去(fail-request)，以及发出去但响应丢了
+        // (drop-response)。后者正是「服务端其实已经执行、客户端只知道失败」的那一类，用来验证回执核对。
+        window.__ruyiActFault = window.__ruyiActFault || '';
+        const fault = route === '/api/steward/act' && JSON.parse(init?.body || '{}').act ? window.__ruyiActFault : '';
+        if (fault) window.__ruyiActFault = '';
+        if (fault === 'fail-request') return Promise.reject(new TypeError('synthetic network failure'));
+        if (fault === 'reject-409') return Promise.resolve(new Response(JSON.stringify({ ok: false, error: { code: 'steward.disabled' } }), { status: 409, headers: { 'content-type': 'application/json' } }));
+        try {
           // 117l：管家域的请求体也留一份 —— routeHint 是否真的进了 POST /api/steward/message，
-          // 只有请求体说了算（URL 相同，差别全在 body 里）。
+          // 只有请求体说了算（URL 相同，差别全在 body 里）。只记【真的发出去】的请求。
           if (route.indexOf('/api/steward/') === 0) {
             window.__ruyiStewardBodies.push({ route, body: String((init && init.body) || '') });
           }
+          if (route === '/api/session/rewind') window.__ruyiRewindBodies.push(JSON.parse(init.body));
         } catch { /* probe must never break the app */ }
-        return nativeFetch.call(window, input, init);
+        const pending = nativeFetch.call(window, input, init);
+        if (route !== '/api/steward/act') return pending;
+        if (fault === 'drop-response') return pending.then(() => { throw new TypeError('synthetic lost response'); }, () => { throw new TypeError('synthetic lost response'); });
+        return pending.then(async response => {
+          try {
+            const body = await response.clone().json();
+            if (body.result?.undoRef?.execution) window.__ruyiHandOffUndoRefs.push(body.result.undoRef);
+          } catch { /* preserve the real response */ }
+          return response;
+        });
       };
     })();`,
   });
@@ -724,10 +746,16 @@ try {
   ok(Boolean(picker) && picker.options >= 1,
     `G2a 撤回后就地打开候选列表（「那递给谁？」问完能立刻挑；实测 ${picker ? picker.options : 0} 项）`);
   await cdp.evaluate("document.getElementById('stewardComposerInput').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); true");
-  const stopAt = undone ? undone.fetches.lastIndexOf('/api/stop') : -1;
-  const rewindAt = undone ? undone.fetches.lastIndexOf('/api/session/rewind') : -1;
-  ok(stopAt >= 0 && rewindAt > stopAt,
-    `G3 撤回的顺序是先 POST /api/stop 再 POST /api/session/rewind（实测 stop@${stopAt} rewind@${rewindAt}）`);
+  const undoEvidence = await cdp.evaluate(`({ bodies: window.__ruyiRewindBodies.slice(), ref: window.__ruyiHandOffUndoRefs.at(-1) })`);
+  const undoFetches = undone ? undone.fetches.slice(beforeHand) : [];
+  const undoBody = undoEvidence.bodies.at(-1);
+  ok(undoFetches.filter(url => url === '/api/session/rewind').length === 1 && !undoFetches.includes('/api/stop')
+    && undoBody?.guardExecution === true && undoBody.sessionId === threadId
+    && Boolean(undoEvidence.ref?.execution?.driverRunId && undoEvidence.ref.execution.serverInstanceId)
+    && Number.isInteger(undoEvidence.ref?.rewindTargetTurnSeq) && undoEvidence.ref.rewindTargetTurnSeq > 0
+    && undoBody.targetTurnSeq === undoEvidence.ref?.rewindTargetTurnSeq
+    && JSON.stringify(undoBody.expectedExecution) === JSON.stringify(undoEvidence.ref?.execution),
+    `G3 撤回只发一次guarded rewind，携原执行身份和锚点，不另发stop（实测 ${JSON.stringify(undoBody)}）`);
   const rewound = await request(appPort, 'GET', `/api/sessions/${threadId}`, null, token);
   const threadMessages = rewound && rewound.json && rewound.json.session && Array.isArray(rewound.json.session.messages)
     ? rewound.json.session.messages.length : -1;
@@ -1111,6 +1139,7 @@ try {
       clamped: body ? body.classList.contains('is-clamped') : false,
       overflowing: body ? (body.scrollHeight > body.clientHeight + 2) : false,
       acts: block ? [...block.querySelectorAll('.steward-deliverable-acts button')].map(node => node.textContent) : [],
+      fullNavigation: block?.querySelector('.steward-deliverable-full')?.textContent || '',
       // 版面次序：来源小头 → 管家的按语 → 交付卡（按语在卡【上面】，卡不抢开场白）。
       sayAbove: Boolean(block && block.previousElementSibling
         && block.previousElementSibling.classList.contains('steward-say')),
@@ -1200,9 +1229,9 @@ try {
   ok(deliverShot.text.indexOf('第一回合的旧答案') < 0 && deliverShot.text.indexOf('偏空') >= 0,
     'U2b 挑的是【第 3 回合】那条助手话，不是整份会话里随便一条（旧回合的答案没混进来）');
   ok(deliverShot.clamped === true && deliverShot.overflowing === true
-    && deliverShot.acts.length === 2 && deliverShot.acts[0] === 'stewardShell.chat.deliverableExpand'
-    && deliverShot.acts[1] === 'stewardShell.chat.deliverableFull',   // 117v-V1 ⑨：交付卡那枚改用自己的键
-    `U3 默认折叠（真的被裁掉了一截）且「展开」「看全文」两枚都在（实测 ${JSON.stringify(deliverShot.acts)}，clamped=${deliverShot.clamped}）`);
+    && deliverShot.acts.length === 2 && deliverShot.acts[0] === 'stewardShell.chat.deliverableExpand' && deliverShot.acts[1] === 'delivery.revise'
+    && deliverShot.fullNavigation === 'stewardShell.chat.deliverableFull',
+    `U3 默认折叠（真的被裁掉了一截），全文展开是主入口且工作台导航仍保留（实测 ${JSON.stringify(deliverShot.acts)}，clamped=${deliverShot.clamped}）`);
   const expanded = await cdp.evaluate(`(() => {
     const rows = [...document.querySelectorAll('#stewardFeed .steward-msg')].slice(window.__ruyiDeliverFrom || 0);
     const more = rows.map(row => row.querySelector('.steward-deliverable-more')).filter(Boolean)[0];
@@ -1430,6 +1459,7 @@ try {
             return body ? body.classList.contains('is-clamped') : null;
           })(),
           delivActs: [...row.querySelectorAll('.steward-deliverable-acts button')].map(node => node.textContent),
+          delivNavigation: row.querySelector('.steward-deliverable-full')?.textContent || '',
         };
       }),
     };
@@ -1553,7 +1583,8 @@ try {
   // 反向保护（同一屏、同一次渲染）：折叠实现没被删，只是只服务交付卡了 —— 线程卡里那份 15 行的
   // 交付【原文】仍然折着、仍然有那枚「展开」。这一条把 S3 的边界钉死：再往前削就会踩到它。
   ok(Boolean(a3) && a3.delivClamped === true
-    && a3.delivActs.length === 2 && a3.delivActs[0] === 'stewardShell.chat.deliverableExpand',
+    && a3.delivActs.length === 1 && a3.delivActs[0] === 'stewardShell.chat.deliverableExpand'
+    && a3.delivNavigation === 'stewardShell.chat.deliverableFull',
     `V5b 反向保护：交付卡【仍然】折叠、仍然有「展开」（clampIfLong 只是从两个调用方减到交付卡这一个；实测 clamped=${a3 && a3.delivClamped} / ${JSON.stringify(a3 && a3.delivActs)}）`);
   // 「首句抬成引子」是纯呈现：加粗的是第一个段落，而【一个字都没变】——把两边的空白去掉之后
   // DOM 里的字必须与模型说的那句话逐字相同（※ 是渲染层加的一枚按钮，不算正文，先摘掉）。
@@ -1728,14 +1759,16 @@ try {
     const mod = await import('/js/steward-conversation.js');
     window.__ruyiUndoFrom = document.querySelectorAll('#stewardFeed .steward-msg').length;
     window.__ruyiUndoCalls = [];
+    window.__ruyiUndoBodies = [];
     const dict = ${JSON.stringify(UNDO_DICT)};
     const conv = mod.createStewardConversation({
-      api: async url => {
+      api: async (url, options) => {
         const path_ = String(url);
+        if (path_ === '/api/steward/act' && JSON.parse(options?.body || '{}').checkAttempt) return { ok: true, window: { serverInstanceId: 'synthetic-instance', issuedAt: Date.now(), expiresAt: Date.now() + 600000 } };
         window.__ruyiUndoCalls.push(path_);
-        if (path_ === '/api/steward/act') return { result: { ok: true, undoRef: { turnSeq: 0, rewindTargetTurnSeq: 1 } } };
-        if (path_ === '/api/stop') return { ok: true };
-        if (path_ === '/api/session/rewind') return { ok: true, filesReverted: ['docs/a.md'] };
+        if (path_ === '/api/steward/act') return { result: { ok: true, undoRef: { turnSeq: 0, rewindTargetTurnSeq: 1,
+          execution: { serverInstanceId: 'synthetic-instance', driverRunId: 'synthetic-driver', phase: 'starting' } } } };
+        if (path_ === '/api/session/rewind') { window.__ruyiUndoBodies.push(JSON.parse(options.body)); return { ok: true, filesReverted: ['docs/a.md'] }; }
         return { ok: true };
       },
       // 真中文目录（本段判定的是用户【看见】的那几个字），插值不走正则：模板串里写 \\{ 太容易被吃掉。
@@ -1813,9 +1846,12 @@ try {
     && undoSettled.acts === 0 && undoSettled.receiptIcons === 1,
     `Z7 第三态：整行按钮退成一句安静的「✓ ${zh['stewardShell.chat.undone']}」——按钮一个不剩，对勾一枚（实测「${undoSettled && undoSettled.receipt}」/ 剩余按钮 ${undoSettled && undoSettled.acts} / 图标 ${undoSettled && undoSettled.receiptIcons}）`);
   const undoCalls = await cdp.evaluate('(window.__ruyiUndoCalls || []).slice()');
-  ok(Array.isArray(undoCalls) && undoCalls.lastIndexOf('/api/stop') >= 0
-    && undoCalls.lastIndexOf('/api/session/rewind') > undoCalls.lastIndexOf('/api/stop'),
-    `Z7b companion：换一条走的仍是「先 stop 再 rewind」那条老路（实测 ${JSON.stringify(undoCalls)}）`);
+  const undoBodies = await cdp.evaluate('window.__ruyiUndoBodies.slice()');
+  ok(Array.isArray(undoCalls) && !undoCalls.includes('/api/stop') && undoBodies.length === 1
+    && undoCalls.filter(url => url === '/api/session/rewind').length === 1 && undoBodies[0].guardExecution === true
+    && undoBodies[0].targetTurnSeq === 1 && undoBodies[0].sessionId === threadId
+    && JSON.stringify(undoBodies[0].expectedExecution) === JSON.stringify({ serverInstanceId: 'synthetic-instance', driverRunId: 'synthetic-driver', phase: 'starting' }),
+    `Z7b companion：换一条只发一次guarded rewind，保留原执行身份和锚点（实测 ${JSON.stringify(undoBodies)}）`);
 
   // ─── AA 117v-V1（27 号文 §11.16.2 V1 行；用户第十轮走查②③⑨）─────────────────────────────
   // ② 「打开线程」点完【不】落回执、按钮行原样留着，可以反复点（导航 ≠ 表态）；
@@ -2360,6 +2396,118 @@ try {
     ok(Boolean(opened2) && opened2.open === false && JSON.stringify(opened2.calls) === JSON.stringify(['/api/steward/act', '/api/steward/act']),
       `S1-7 open_thread 那一枚行为一个字没变：零面板、按下去直接发（实测 ${JSON.stringify(opened2 && { open: opened2.open, calls: opened2.calls })}）`);
   }
+
+  // ─── ③b 第三轮 P1（62 号 E04）：同名任务在候选里保留两条身份，并带可分辨的后缀 ─────
+  const dup = await request(appPort, 'POST', '/api/sessions', { title: THREAD_TITLE }, token);
+  const dupId = dup && dup.json && dup.json.session && dup.json.session.id;
+  ok(Boolean(dupId) && dupId !== threadId, 'P4 另建一条同名线程（同名、不同 session）');
+  await cdp.evaluate(`(() => {
+    const input = document.getElementById('stewardComposerInput');
+    input.focus();
+    input.value = ${JSON.stringify(THREAD_TITLE + ' 接着做')};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  let dupRows = [];
+  for (let attempt = 0; attempt < 20 && dupRows.length < 2; attempt += 1) {
+    await sleep(150);
+    // 每轮都重开一次：候选在打开时快照，先开的那一下可能还没拿到最新的预判响应。
+    await cdp.evaluate(`(() => {
+      const picker = document.getElementById('stewardTargetPicker');
+      const chip = document.getElementById('stewardTarget');
+      if (picker && !picker.hidden) chip.click();
+      return true;
+    })()`);
+    await sleep(80);
+    await cdp.evaluate(`document.getElementById('stewardTarget').click(), true`);
+    await sleep(120);
+    const labels = await cdp.evaluate(`(() => [...document.querySelectorAll('#stewardTargetPicker .steward-target-option')].map(node => (node.textContent || '').trim()))()`);
+    dupRows = (labels || []).filter(text => text.indexOf(THREAD_TITLE) >= 0);
+  }
+  ok(dupRows.length === 2, `P5 两条同名线程都在候选里（实得 ${dupRows.length} 行）`);
+  ok(new Set(dupRows).size === 2, 'P6 同名两行的显示标签不同，用户能分辨');
+  ok(dupRows.length === 2 && dupRows.every(text => text.indexOf(THREAD_TITLE) === 0), 'P7 区分后缀追加在原标题之后，不吞掉原话');
+
+  // ─── ③c 失败与迟到响应保护（62 号第三轮 P1）：先核对回执，再决定重发 ──────────────────
+  const actCount = () => cdp.evaluate(`(window.__ruyiStewardBodies || []).filter(row => row.route === '/api/steward/act' && (() => {
+    try { return JSON.parse(row.body).checkAttempt !== true; } catch { return true; }
+  })()).length`);
+  const feedHas = text => cdp.evaluate(`(document.getElementById('stewardFeed') || {}).textContent.indexOf(${JSON.stringify(text)}) >= 0`);
+  const clickAct = async label => cdp.evaluate(`(() => {
+    const node = [...document.querySelectorAll('#stewardFeed .steward-act')].filter(n => (n.textContent || '').trim() === ${JSON.stringify(label)}).pop();
+    if (!node) return false;
+    node.click();
+    return true;
+  })()`);
+  const handOffTo = async text => {
+    await cdp.evaluate(`(() => {
+      const input = document.getElementById('stewardComposerInput');
+      input.focus();
+      input.value = ${JSON.stringify(text)};
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+    await waitForEval(cdp, `(() => (${FEED}).chip.indexOf(${JSON.stringify(THREAD_TITLE)}) >= 0 || null)()`);
+    await cdp.evaluate(`document.getElementById('stewardTarget').click(), true`);
+    await sleep(120);
+    await cdp.evaluate(`(() => {
+      const option = [...document.querySelectorAll('#stewardTargetPicker .steward-target-option')].find(node => node.textContent.indexOf(${JSON.stringify(THREAD_TITLE)}) >= 0);
+      if (option) option.click();
+      return Boolean(option);
+    })()`);
+    await cdp.evaluate(`(() => {
+      const input = document.getElementById('stewardComposerInput');
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      return true;
+    })()`);
+  };
+  const unknownPrefix = String(zh['stewardShell.chat.handOffUnknown']).split('{{')[0];
+
+  // A. 请求到了服务端、响应丢了 —— 界面只能「未确认」；核对回执才知道其实已经递到。
+  const actStartA = await actCount();
+  await cdp.evaluate("window.__ruyiActFault = 'drop-response'; true");
+  await handOffTo(THREAD_TITLE + ' 落款改今天');
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.some(text => text.indexOf(${JSON.stringify(unknownPrefix)}) >= 0) ? 1 : null)()`, 300)),
+    'P8 响应丢失时只说「未确认」，原话留在提示里');
+  ok((await actCount()) === actStartA + 1, 'P9 这一次其实已经到达服务端');
+  ok(await clickAct(zh['stewardShell.chat.handOffCheck']), 'P10 未确认的提示上给出「核对是否已递到」');
+  ok(await waitForEval(cdp, `(document.getElementById('stewardFeed').textContent.indexOf(${JSON.stringify(zh['stewardShell.chat.handOffLanded'])}) >= 0) ? 1 : null`, 200),
+    'P11 核对读到回执：上一次已经递到');
+  ok((await actCount()) === actStartA + 1, 'P12 核对之后没有第二次执行');
+
+  // B. 请求根本没发出去 —— 核对说没递到；重发才真正执行，且不会造出第二条用户消息。
+  const actStartB = await actCount();
+  await cdp.evaluate("window.__ruyiActFault = 'fail-request'; true");
+  await handOffTo(THREAD_TITLE + ' 附录加封面');
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.filter(text => text.indexOf(${JSON.stringify(unknownPrefix)}) >= 0).length === 1 ? 1 : null)()`, 300)),
+    'P13 请求没发出去时同样只说「未确认」');
+  ok((await actCount()) === actStartB, 'P14 这一次确实没有到达服务端');
+  ok(await clickAct(zh['stewardShell.chat.handOffCheck']), 'P15 失败的提示上同样给出核对按钮');
+  ok(await waitForEval(cdp, `(document.getElementById('stewardFeed').textContent.indexOf(${JSON.stringify(zh['stewardShell.chat.handOffAbsent'])}) >= 0) ? 1 : null`, 200),
+    'P16 核对说没有递到');
+  ok(await clickAct(zh['stewardShell.chat.handOffRetry']), 'P17 给出「重发这一次」');
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.some(text => text.indexOf(${JSON.stringify(String(zh['stewardShell.chat.handedOff']).split('{{')[0])}) >= 0) ? 1 : null)()`, 300)),
+    'P18 重发之后才真正执行并给出递送回执');
+  ok((await actCount()) === actStartB + 1, 'P19 重发只执行一次');
+  const retried = await cdp.evaluate(`(() => {
+    const rows = (window.__ruyiStewardBodies || []).filter(row => row.route === '/api/steward/act');
+    const last = rows[rows.length - 1];
+    try { return String(JSON.parse(last.body).act.args.sessionId || ''); } catch { return ''; }
+  })()`);
+  const retriedView = retried ? (await request(appPort, 'GET', '/api/sessions/' + encodeURIComponent(retried), null, token)).json : null;
+  const retriedUsers = (((retriedView || {}).session || {}).messages || []).filter(row => row && row.role === 'user');
+  ok(retriedUsers.filter(row => String(row.content || '').indexOf('附录加封面') >= 0).length === 1, 'P20 重发没有造出重复的用户消息');
+
+  // C. 服务端明确拒绝（4xx）不是「未确认」：照旧显示真实错误，不给核对／重发。
+  const actStartC = await actCount();
+  await cdp.evaluate("window.__ruyiActFault = 'reject-409'; true");
+  await handOffTo(THREAD_TITLE + ' 再改一版');
+  const errPrefix = String(zh['stewardShell.chat.errGeneric']).split('{{')[0];
+  ok(Boolean(await waitForEval(cdp, `(() => (${FEED}).says.some(text => text.indexOf(${JSON.stringify(errPrefix)}) >= 0) ? 1 : null)()`, 300)),
+    'P21 服务端明确拒绝（409）时显示真实错误');
+  ok((await actCount()) === actStartC, 'P22 被拒绝的这一次没有到达服务端');
+  ok(await cdp.evaluate(`((document.getElementById('stewardFeed').textContent.match(new RegExp(${JSON.stringify(unknownPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))}, 'g')) || []).length) === 0`),
+    'P23 明确拒绝不会冒充「未确认」，也不会多出核对按钮');
 
   // ─── ⑥ 切回经典：无残留定时器 ────────────────────────────────────────────────
   // 121-K4（34 号文 §2.2）：切视角的唯一入口是外框顶栏的分段钮（输入区那枚「经典模式」已退役）。

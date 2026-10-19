@@ -46,6 +46,13 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     const reapplied = await fx.evaluate(`import('/js/i18n.js').then(m => { m.applyTranslations(document); const i = document.getElementById('stewardComposerInput'); return { disabled: i.disabled, placeholder: i.placeholder }; })`);
     ok(reapplied && reapplied.disabled === true && /先接一个模型/.test(reapplied.placeholder),
       `N2b 语言包重新套用之后占位仍说清原因（实测 ${JSON.stringify(reapplied)}）`);
+    const switched = await fx.evaluate(`(async () => {
+      const m = await import('/js/i18n.js');
+      const valid = () => { const input = document.getElementById('stewardComposerInput'); return input.disabled && input.placeholder === m.t('stewardShell.compose.needModel'); };
+      await m.setLocale('en-US'); const english = valid();
+      await m.setLocale('zh-CN'); return { english, chinese: valid() };
+    })()`);
+    ok(switched.english && switched.chinese, 'N2c 真实语言切换事件不会用普通输入占位覆盖缺模型提示');
     ok(gate && !/stewardProviderId/.test(gate.text) && !/claude/i.test(gate.text),
       'N3 不出配置键名，也不出用户没选过的「claude」');
     // N1b（走查 U12）：没接模型时左栏空态也别说「直接说你想做什么」—— 输入框是灰的，说了发不出去。

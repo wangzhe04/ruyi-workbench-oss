@@ -28,6 +28,7 @@ import { icon } from './icons.js';
 // 抽屉页签、灰字回执、2.0 的工具卡/工作流节点卡早就走这条口径，chip 是唯一漏掉的一处。
 // 33 号文 §4：那份实现的落点从 steward-conversation.js 搬到 util.js（无状态格式化叶子），函数体逐字未改。
 import { stewardShortTitle } from './util.js';
+import { fmtTime } from './util.js';
 import { autoGrow, fmtBytes } from './util.js';   // 133e：输入框随内容长高（与工作台 #promptInput 同一个 autoGrow）；附件 pill 的体积
 // 127-⑦（45 号文 §2-quinquies）：输入行里发送键前那枚麦克风。录音计时器、转写与回填全住 composer-voice.js ——
 // 本文件「恰好一处 setTimeout、零 setInterval」的纪律（I3/I4）因此一个字不用动。
@@ -55,6 +56,49 @@ const STEWARD_TARGET_KEYS = Object.freeze({
 
 export function stewardTargetKey(kind) {
   return STEWARD_TARGET_KEYS[String(kind || '')] || 'stewardShell.compose.targetSteward';
+}
+
+// 候选行（纯函数，导出给单测直调）：sessionId 是身份，标题只在重名时才带区分后缀。
+// hits 是预判命中（displayTitle 优先），remembered 是本次页面见过的线程回忆池；同 sessionId 只留先出现的。
+export function stewardCandidateRows(hits, remembered, limit = STEWARD_PICKER_MAX) {
+  const rows = [];
+  const seen = new Set();
+  const take = row => {
+    const sessionId = String((row && row.sessionId) || '');
+    if (!sessionId || seen.has(sessionId) || rows.length >= limit) return;
+    seen.add(sessionId);
+    const title = String(row.title || '').trim();
+    rows.push({ sessionId, title: title || sessionId, updatedAt: String(row.updatedAt || '') });
+  };
+  for (const hit of (Array.isArray(hits) ? hits : [])) take({ sessionId: hit && hit.sessionId,
+    title: String((hit && (hit.displayTitle || hit.title)) || ''), updatedAt: String((hit && hit.updatedAt) || '') });
+  for (const row of (Array.isArray(remembered) ? remembered : [])) take(row);
+  const counts = new Map();
+  for (const row of rows) counts.set(row.title, (counts.get(row.title) || 0) + 1);
+  const labelled = rows.map(row => {
+    if (counts.get(row.title) < 2) return { ...row, label: row.title };
+    // 同名的两条必须看得出区别：本地化时间优先，缺时间退到 sessionId 尾段（可复述、稳定）。
+    // 畸形时间串不算时间（否则会把 "Invalid Date" 印进列表）。
+    const when = row.updatedAt && Number.isFinite(Date.parse(row.updatedAt)) ? fmtTime(row.updatedAt) : '';
+    return { ...row, label: row.title + ' · ' + (when || row.sessionId.slice(-6)) };
+  });
+  // 时间只到分钟：同一分钟建的两条同名线程会撞成同一个标签 —— 再撞一次就补 sessionId 尾段。
+  const labelCounts = new Map();
+  for (const row of labelled) labelCounts.set(row.label, (labelCounts.get(row.label) || 0) + 1);
+  const tailed = labelled.map(row => labelCounts.get(row.label) > 1 ? { ...row, label: row.label + ' · ' + row.sessionId.slice(-6) } : row);
+  // 尾段也可能相撞（自定义/极短的 sessionId）：仍相撞就退回整段 id，保证两行必然不同。
+  const tailCounts = new Map();
+  for (const row of tailed) tailCounts.set(row.label, (tailCounts.get(row.label) || 0) + 1);
+  return tailed.map(row => tailCounts.get(row.label) > 1 ? { ...row, label: row.label + ' · ' + row.sessionId } : row);
+}
+
+export function externalBotReferenceText(item, translate) {
+  const t = typeof translate === 'function' ? translate : key => key;
+  const source = [t(item.platform === 'qq' ? 'externalBots.qq' : 'externalBots.feishu'), item.connectionLabel || item.connectionId].filter(Boolean).join(' / ');
+  const lines = [t('externalBots.referenceSource', { source }),
+    t('externalBots.referenceIdentity', { sender: item.senderId || '', conversation: item.conversationId || '' }),
+    t('externalBots.referenceMessage', { id: item.messageId || item.eventId || item.id || '' }), '', item.text];
+  return t('externalBots.referenceIntro') + '\n\n' + lines.join('\n').replace(/\r\n?/g, '\n').split('\n').map(line => '> ' + line).join('\n');
 }
 
 export function createStewardComposer({
@@ -85,6 +129,8 @@ export function createStewardComposer({
   let routeHits = [];
   let routeReason = '';
   let picked = null;             // { sessionId, title } —— 用户手选的目标
+  let targetGeneration = 0;     // 显式换目标后，上一句的迟到回执不能清掉下一份草稿的目标。
+  let newTarget = false;       // 自动预判也会返回 new；只有用户明选的新建目标才保持到发送/取消。
   // 117r-D3 ③（用户第八轮走查②「匹配的没法删掉/关掉」）：用户点过 chip 的 × 把这次自动预判否掉之后
   // 置真——在它被复位之前，runPreroute() 拿到的响应不再写回 routeKind/routeHits/routeReason（也就不会
   // 再把 chip 从「→ 如意」翻回「像是接着『X』」）。复位三处：submit() 的 finally、resetComposer()、
@@ -104,8 +150,8 @@ export function createStewardComposer({
       const index = recent.findIndex(row => row.sessionId === hit.sessionId);
       if (index >= 0) recent.splice(index, 1);
       // 116-5b:候选列表显示的是服务端算好的 displayTitle(06i stewardPrerouteHit;判据在 02 的
-      // sessionDisplayTitle)。缺席时逐字等于 title,老载荷零变化。
-      recent.unshift({ sessionId: String(hit.sessionId), title: String(hit.displayTitle || hit.title || hit.sessionId) });
+      // sessionDisplayTitle)。缺席时逐字等于 title,老载荷零变化。updatedAt 只用于同名消歧后缀。
+      recent.unshift({ sessionId: String(hit.sessionId), title: String(hit.displayTitle || hit.title || hit.sessionId), updatedAt: String(hit.updatedAt || '') });
     }
     while (recent.length > STEWARD_RECENT_MAX) recent.pop();
   }
@@ -117,6 +163,25 @@ export function createStewardComposer({
   // 线程，一句新话直接递进去，把那条线程正在等的提问 supersede 掉（§11.9.2 ①⑥ 同一起事故）。
   function currentTarget() {
     return picked;   // null = 递给如意（预判不再是目标，见 hintedThread）
+  }
+  function creatingNew() { return newTarget; }
+  function cancelTarget() {
+    cancelPreroute(); prerouteSeq += 1; closePicker();
+    targetGeneration += 1;
+    newTarget = false;
+    picked = null; routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = true;
+    const input = byId('stewardComposerInput');
+    if (input) { input.placeholder = t('stewardShell.compose.placeholder'); input.focus({ preventScroll: true }); }
+    note(t('stewardShell.compose.targetCancelled')); renderChip();
+  }
+  function selectTarget(target) {
+    cancelPreroute(); prerouteSeq += 1; closePicker(); targetGeneration += 1;
+    if (creatingNew()) { routeKind = 'steward'; routeHits = []; routeReason = ''; }
+    newTarget = false; picked = target;
+    // 选择目标不等于取消匹配依据；递话回执仍须说明这次手选之前命中了什么。
+    const input = byId('stewardComposerInput');
+    if (input) { input.placeholder = t('stewardShell.compose.placeholder'); input.focus(); }
+    note(''); renderChip();
   }
 
   // 预判命中的线程：只用来显示 chip 上那句「像是接着『X』」并组装 routeHint，永远不是递送目标。
@@ -146,6 +211,17 @@ export function createStewardComposer({
     const clear = chip.querySelector('.steward-target-clear');
     const target = currentTarget();
     const hint = hintedThread();
+    const revision = Boolean(target && target.deliverySource);
+    const explicitMode = revision || creatingNew();
+    // A delivery reference cannot be moved to another thread through the ordinary picker.
+    chip.disabled = revision;
+    const cancel = byId('stewardComposerCancelTarget');
+    if (cancel) {
+      cancel.hidden = !explicitMode;
+      cancel.classList.toggle('hidden', !explicitMode);
+      cancel.textContent = t(revision ? 'delivery.cancelRevision' : 'stewardShell.compose.cancelNew');
+      cancel.setAttribute('aria-label', cancel.textContent);
+    }
     // 117r-D3 ①（用户第八轮走查②「关键词匹配……会把输入框内容挤没」）：hintedThread() 返回的是
     // routeHits[0] 的原话，常常是用户说的一整句话——在它被塞进 chip 之前统一截短。hintedThread()
     // 每次调用都返回一个全新对象（不是共享状态），这里改它的 .title 不会影响别处。
@@ -161,11 +237,12 @@ export function createStewardComposer({
     chip.classList.toggle('is-quiet', !active && stewardTargetKey(routeKind) === 'stewardShell.compose.targetSteward');
     // 117r-D3 ③（用户第八轮走查②「匹配的没法删掉/关掉」）：修前 × 只在【手选】时才出——自动预判命中
     // 的「像是接着『X』」没有任何关闭出口。判据从「只看 picked」改成「有没有东西可撤」（手选或自动命中）。
-    if (clear) clear.hidden = !active;
+    if (clear) clear.hidden = !active || explicitMode;
     if (!label) return;
     // 同一条纪律的另一支：手选目标的标题也过 stewardShortTitle（这支不动 target/picked 本身——
     // picked 是持续状态，handOff() 会再读一次 title，不能在这里被悄悄改掉）。
-    if (target) label.textContent = t('stewardShell.compose.targetThread', { title: stewardShortTitle(target.title) });
+    if (target && target.deliverySource) label.textContent = t('delivery.target', { title: stewardShortTitle(target.title), seq: target.deliverySource.turnSeq });
+    else if (target) label.textContent = t('stewardShell.compose.targetThread', { title: stewardShortTitle(target.title) });
     else if (hint) label.textContent = t('stewardShell.compose.targetSteward.hint', { title: hint.title });
     else label.textContent = t(stewardTargetKey(routeKind));
   }
@@ -183,6 +260,7 @@ export function createStewardComposer({
     debounceTimer = setTimeout(() => { debounceTimer = 0; runPreroute(text); }, STEWARD_PREROUTE_DEBOUNCE_MS);
   }
   async function runPreroute(text) {
+    if (picked || creatingNew()) return;
     const query = String(text || '').trim();
     // 117r-D3 ③ 复位点之一：输入框被清空 = 用户在打一句新的话，之前否掉的那次预判不该再拦后面的响应。
     // hunt2-steward ⑦:清空时也让在途预判作废(序号 +1)——否则输入框清空之前发出去的那一趟慢响应回来,
@@ -210,27 +288,12 @@ export function createStewardComposer({
   }
 
   // ── 候选列表（点 chip／输入 @／Tab 循环共用同一份候选）────────────────────────
-  // 117j W2-2：按 sessionId 去重（原有）之外再【按标题去重】—— 同一件事开过好几条线程时，
-  // 候选列表里会出现三四行一模一样的字，用户没法选。同标题只留最先出现的那一条：预判命中排在
-  // 回忆池前面，而预判本身已按「近期更新」加过权，所以留下的就是最近那一条。
+  // 117j W2-2 曾按标题去重（「同一件事开过好几条线程，三四行一模一样的字」）。62 号第三轮 E04 推翻了
+  // 这条判据：同名但不同 session 是两件事，折成一行等于用户没法选。现在只按 sessionId 保留身份，
+  // 重名的行追加一个区分后缀（本地化时间；缺时间用 sessionId 尾段）—— 后缀只进列表显示，
+  // picked 里存的仍是原话标题，chip 与 handOff 的既有口径不变。
   function candidates() {
-    const out = [];
-    const seen = new Set();
-    const titles = new Set();
-    const take = row => {
-      if (!row || !row.sessionId || seen.has(row.sessionId)) return;
-      const title = String(row.title || '').trim();
-      if (title && titles.has(title)) { seen.add(row.sessionId); return; }
-      seen.add(row.sessionId);
-      if (title) titles.add(title);
-      out.push({ sessionId: String(row.sessionId), title: title || String(row.sessionId) });
-    };
-    for (const hit of routeHits) {
-      if (!hit || !hit.sessionId) continue;
-      take({ sessionId: hit.sessionId, title: String(hit.displayTitle || hit.title || hit.sessionId) });
-    }
-    for (const row of recent) take(row);
-    return out.slice(0, STEWARD_PICKER_MAX);
+    return stewardCandidateRows(routeHits, recent, STEWARD_PICKER_MAX);
   }
 
   // 117j UX-F3：候选列表也进 Esc 栈。输入框那条 keydown 保留（焦点在里面时的近路），
@@ -261,22 +324,21 @@ export function createStewardComposer({
     const rows = candidates();
     const options = [{ sessionId: '', title: t('stewardShell.compose.targetSteward') }, ...rows];
     for (const row of options) {
-      const option = el('button', 'steward-target-option', row.title);
+      // 列表显示 label（重名带区分后缀），选中的仍是原话 title —— 后缀不进入 picked/handOff。
+      const option = el('button', 'steward-target-option', row.label || row.title);
       option.type = 'button';
       option.setAttribute('role', 'option');
       option.setAttribute('aria-selected', String(Boolean(picked && picked.sessionId === row.sessionId)));
       option.addEventListener('click', () => {
-        picked = row.sessionId ? { sessionId: row.sessionId, title: row.title } : null;
-        closePicker();
-        renderChip();
-        const input = byId('stewardComposerInput');
-        if (input) input.focus();
+        selectTarget(row.sessionId ? { sessionId: row.sessionId, title: row.title } : null);
       });
       picker.appendChild(option);
     }
+    picker.appendChild(el('p', 'muted', t('stewardShell.compose.searchScope')));
   }
 
   function openPicker() {
+    if (picked && picked.deliverySource) return;
     const picker = byId('stewardTargetPicker');
     const chip = byId('stewardTarget');
     if (!picker || !chip) return;
@@ -310,12 +372,12 @@ export function createStewardComposer({
   // Tab 在「如意 → 各候选线程」间循环（§8.8）。没有候选时不劫持 Tab，Shift+Tab 永远是正常的
   // 反向焦点移动 —— 键盘用户必须能离开输入框。
   function cycleTarget() {
+    if ((picked && picked.deliverySource) || creatingNew()) return false;
     const rows = candidates();
     if (!rows.length) return false;
     const ring = [null, ...rows];
     const index = ring.findIndex(row => (row ? (picked && picked.sessionId === row.sessionId) : !picked));
-    picked = ring[(index + 1) % ring.length];
-    renderChip();
+    selectTarget(ring[(index + 1) % ring.length]);
     return true;
   }
 
@@ -329,15 +391,17 @@ export function createStewardComposer({
     const text = String(input.value || '').trim();
     if (!text) return;
     const target = currentTarget();
+    const submittedGeneration = targetGeneration;
     // 走查 S-13：两种「发不出去」都要在【清空输入框之前】拦下，话与附件原样留着（修前先清后发，那句话既不上屏也不保留）：
-    //   ① 手选了目标线程却带着附件 —— 直递走的是 relay（只传文字），附件会被静默丢掉；拦下并说清楚；
-    //   ② 管家那条路上一句还在跑、排队已满 —— sendToSteward 会拒收，同样不能把话吞掉。
-    if (target && attachments.length) { note(t('stewardShell.compose.attachNeedsSteward')); return; }
+    // 管家那条路上一句还在跑、排队已满时不能把话吞掉。直递附件由服务端按目标通道校验。
     if (!target && typeof conversation.sendQueueFull === 'function' && conversation.sendQueueFull()) {
       note(t('stewardShell.chat.queueFull'));
       return;
     }
+    const prepared = target && conversation.prepareHandOff?.({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits, attachments: attachments.slice(), deliverySource: target.deliverySource });
+    if (prepared?.error) { note(prepared.error); return; }
     const files = attachments.splice(0, attachments.length);   // 133e：这一句带走托盘里全部附件，托盘随即清空
+    note('');
     renderTray();
     composerSent(input, text);                                 // 59 号文 §6：麦克风拿这次机器写的几句与发出去的字去学改字
     input.value = '';
@@ -349,22 +413,26 @@ export function createStewardComposer({
     try {
       // 117l D1：**手选的目标才直递**（那是用户明示，§8.12 第 4 条）；其余一律发给管家，预判只
       // 随 routeHint 走一趟提示（§11.9 D1「无论关键词匹配到什么，都要发给管家让它决定」）。
-      // 133e：直递给线程那条路（handOff）不带附件 —— 递话走的是 relay，不是回合体；附件只在「对管家说」这条路上。
-      if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits });
+      if (target) await conversation.handOff({ sessionId: target.sessionId, title: target.title, message: text, reason: routeReason, hits: routeHits, attachments: files, prepared, ...(target.deliverySource ? { deliverySource: { ...target.deliverySource } } : {}) });
       else await conversation.sendToSteward(text, { routeHint: routeHintPayload(), ...(files.length ? { attachments: files } : {}) });
     } finally {
       // 手选只管这一次发送，之后自动回到「→ 如意」（§8.12 第 4 条）。
-      picked = null;
-      routeKind = 'steward';
-      routeHits = [];
-      routeReason = '';
-      hintDismissed = false;     // 117r-D3 ③ 复位点之一：发完这一句，下一句的预判不该被上一句否掉的状态拦住
+      // 等回执期间手选了别的目标,那是下一份草稿,迟到响应不能把它清掉。
+      if (picked === target && targetGeneration === submittedGeneration) {
+        newTarget = false;
+        picked = null;
+        routeKind = 'steward';
+        routeHits = [];
+        routeReason = '';
+        hintDismissed = false;     // 117r-D3 ③ 复位点之一：发完这一句，下一句的预判不该被上一句否掉的状态拦住
+      }
       renderChip();
     }
   }
 
   // ── 133e 附件托盘：与工作台 uploadFiles 同一条路（dataURL → /api/upload），记录形状同 04 makeAttachmentRecord ──
   const attachments = [];
+  let pendingUploads = 0;
   const STEWARD_ATTACH_MAX_BYTES = 90 * 1048576;
   const STEWARD_ATTACH_MAX = 12;
   function fileToDataUrl(file) {
@@ -386,17 +454,66 @@ export function createStewardComposer({
   }
   function note(text) { const n = byId('stewardComposerNote'); if (n) n.textContent = String(text || ''); }
   async function addFiles(files) {
-    for (const file of files) {
-      if (attachments.length >= STEWARD_ATTACH_MAX) { note(t('stewardShell.compose.attachMax', { n: STEWARD_ATTACH_MAX })); break; }
-      if (file.size > STEWARD_ATTACH_MAX_BYTES) { note(t('toast.fileTooLarge', { p1: file.name })); continue; }
-      try {
-        const data = await fileToDataUrl(file);
-        const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
-        if (res && res.file) { attachments.push(res.file); note(''); }
-      } catch (e) { note(t('toast.uploadFail', { p1: String((e && e.message) || e) })); }
-    }
-    renderTray();
-    const input = byId('stewardComposerInput'); if (input) input.focus();
+    pendingUploads += 1;
+    try {
+      for (const file of files) {
+        if (attachments.length >= STEWARD_ATTACH_MAX) { note(t('stewardShell.compose.attachMax', { n: STEWARD_ATTACH_MAX })); break; }
+        if (file.size > STEWARD_ATTACH_MAX_BYTES) { note(t('toast.fileTooLarge', { p1: file.name })); continue; }
+        try {
+          const data = await fileToDataUrl(file);
+          const res = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data }) });
+          if (res && res.file) { attachments.push(res.file); note(''); }
+        } catch (e) { note(t('toast.uploadFail', { p1: String((e && e.message) || e) })); }
+      }
+      renderTray();
+      const input = byId('stewardComposerInput'); if (input) input.focus();
+    } finally { pendingUploads -= 1; }
+  }
+
+  // An explicit local draft action only. Never dispatch input, submit, handOff or sendToSteward.
+  function importExternalReference(item) {
+    const input = byId('stewardComposerInput');
+    if (!input || !isStewardMode()) return { ok: false, reason: 'unavailable' };
+    if (String(input.value || '').length || attachments.length || pendingUploads || picked || creatingNew()
+        || ['starting', 'warming', 'recording', 'transcribing'].includes(voice.phase())) return { ok: false, reason: 'draftBusy' };
+    if (!item || !['qq', 'feishu'].includes(item.platform) || typeof item.text !== 'string' || !item.text.trim()) return { ok: false, reason: 'invalid' };
+    cancelPreroute(); prerouteSeq += 1;
+    targetGeneration += 1;
+    newTarget = false;
+    closePicker();
+    picked = null; routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = true;
+    input.value = externalBotReferenceText(item, t);
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight || 100, 240) + 'px';
+    input.focus({ preventScroll: true });
+    renderChip(); note(t('externalBots.draftAdded'));
+    return { ok: true };
+  }
+  function beginDeliveryRevision(source) {
+    const input = byId('stewardComposerInput');
+    if (!input || !isStewardMode()) return { ok: false };
+    if (String(input.value || '').length || attachments.length || pendingUploads || picked || creatingNew() || ['starting', 'warming', 'recording', 'transcribing'].includes(voice.phase())) return { ok: false, reason: 'draftBusy' };
+    if (!source || !source.sessionId || !(source.turnSeq > 0)) return { ok: false };
+    cancelPreroute(); prerouteSeq += 1; closePicker();
+    targetGeneration += 1;
+    newTarget = false;
+    picked = { sessionId: source.sessionId, title: source.title, deliverySource: { turnSeq: source.turnSeq, latestTurnSeq: source.latestTurnSeq, sourceStamp: source.sourceStamp, fileStamp: source.fileStamp } };
+    routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = true;
+    input.placeholder = t('delivery.revisionPlaceholder');
+    note(t('delivery.revisionReady')); renderChip(); input.focus({ preventScroll: true });
+    return { ok: true };
+  }
+  function restoreHandOffDraft(attempt) {
+    const input = byId('stewardComposerInput');
+    if (!input || !isStewardMode() || input.value || attachments.length || pendingUploads || picked || creatingNew() || ['starting', 'warming', 'recording', 'transcribing'].includes(voice.phase())) return { ok: false };
+    cancelPreroute(); prerouteSeq += 1; closePicker();
+    targetGeneration += 1;
+    newTarget = false;
+    picked = { sessionId: attempt.sessionId, title: attempt.title, ...(attempt.deliverySource ? { deliverySource: { ...attempt.deliverySource } } : {}) };
+    routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = true;
+    input.value = attempt.text; attachments.push(...attempt.attachments.map(file => ({ ...file })));
+    input.placeholder = t(attempt.deliverySource ? 'delivery.revisionPlaceholder' : 'stewardShell.compose.placeholder');
+    renderTray(); renderChip(); input.focus({ preventScroll: true }); return { ok: true };
   }
 
   // U14/U16 走查：chip／picker／「+」／发送键这几处的 aria-label／title 都是 buildComposer()
@@ -406,6 +523,12 @@ export function createStewardComposer({
   // 的语言。抽成一个可重复调用的函数，buildComposer() 建完调一次，i18n:change 来了再调一次
   // （见文件尾的监听），不必假装这几处「反正状态一变就会重画」。
   function relabelComposerChrome() {
+    const input = byId('stewardComposerInput');
+    if (input) {
+      const needsModel = input.disabled && input.getAttribute('data-i18n-attr') === 'placeholder:stewardShell.compose.needModel';
+      input.placeholder = t(needsModel ? 'stewardShell.compose.needModel'
+        : picked && picked.deliverySource ? 'delivery.revisionPlaceholder' : 'stewardShell.compose.placeholder');
+    }
     const chip = byId('stewardTarget');
     if (chip) chip.setAttribute('aria-label', t('stewardShell.compose.targetLabel'));
     const picker = byId('stewardTargetPicker');
@@ -439,21 +562,16 @@ export function createStewardComposer({
     chip.appendChild(clear);
     chip.addEventListener('click', event => {
       if (event.target === clear) {
-        if (picked) { picked = null; renderChip(); return; }         // 手选：撤回到「未选」
-        // 117r-D3 ③：自动预判也能撤——回到「→ 如意」，且这次否掉的判定不许随后续输入自己复活
-        // （置 hintDismissed，三处复位见 runPreroute 的空查询分支 / resetComposer / submit 的 finally）。
-        if (hintedThread()) {
-          routeKind = 'steward';
-          routeHits = [];
-          routeReason = '';
-          hintDismissed = true;
-          renderChip();
-        }
+        cancelTarget();
         return;
       }
       const picker = byId('stewardTargetPicker');
       if (picker && !picker.hidden) closePicker(); else openPicker();
     });
+
+    const cancel = el('button', 'steward-act hidden');
+    cancel.id = 'stewardComposerCancelTarget'; cancel.type = 'button'; cancel.hidden = true;
+    cancel.addEventListener('click', cancelTarget);
 
     const picker = el('div', 'steward-target-picker');
     picker.id = 'stewardTargetPicker';
@@ -512,6 +630,7 @@ export function createStewardComposer({
     const inputRow = el('div', 'steward-composer-row');
     composer.insertBefore(inputRow, input);
     composer.insertBefore(chip, inputRow);
+    composer.insertBefore(cancel, inputRow);
     composer.insertBefore(picker, inputRow);
     // 133e：附件托盘独占一行、在输入行上面（与工作台 #attachmentTray 同一套 pill 样式）；没附件时 :empty 收掉高度。
     const tray = el('div', 'attachment-tray steward-attach-tray');
@@ -527,7 +646,7 @@ export function createStewardComposer({
     input.placeholder = t('stewardShell.compose.placeholder');
     input.addEventListener('input', () => {
       autoGrow(input);                                        // 133e：多打几行就长高（上限在 CSS max-height），不再只见一行
-      if (picked) return;                                     // 手选期间不再被预判改写
+      if (picked || creatingNew()) return;                    // 显式目标不被自动预判改写
       const value = String(input.value || '');
       if (value.endsWith('@')) openPicker();
       schedulePreroute(value);
@@ -553,6 +672,8 @@ export function createStewardComposer({
   function resetComposer() {
     cancelPreroute();
     prerouteSeq += 1;
+    targetGeneration += 1;
+    newTarget = false;
     voice.cancel();   // 127-⑦：离开管家壳时还在录的那一段直接丢弃（不转写、不回填）
     attachments.length = 0; renderTray();   // 133e：离开管家壳，托盘里没发出去的附件丢掉（已上传的文件留在 uploads 目录，与工作台同）
     closePicker();
@@ -561,6 +682,7 @@ export function createStewardComposer({
     routeHits = [];
     routeReason = '';
     hintDismissed = false;   // 117r-D3 ③ 复位点之一：离开管家壳，否掉的状态不该带到下一次进壳
+    relabelComposerChrome(); note('');
     renderChip();
   }
 
@@ -571,6 +693,9 @@ export function createStewardComposer({
   const composerApi = Object.freeze({
     bindStewardComposer,
     resetComposer,
+    importExternalReference,
+    beginDeliveryRevision,
+    restoreHandOffDraft,
     submit,
     // 117c：撤回／换一条之后由对话流回调，把候选列表就地打开 ——「那递给谁？」问完就得让用户
     // 能立刻挑，而不是让他自己再去点 chip（§8.12 第 3 条「改递时同样先回退再递」）。
@@ -578,12 +703,21 @@ export function createStewardComposer({
     // 117d：抽屉的「＋ 线程」把输入区 chip 置为「→ 如意 · 在事项下新开」并记住目标事项。
     // 只改 chip 形态，不发请求 —— 真正的创建仍要用户说一句话、由管家的委托书完成。
     markNewInMission: missionId => {
+      if (picked && picked.deliverySource) {
+        note(t('delivery.cancelBeforeNew'));
+        byId('stewardComposerInput')?.focus();
+        return null;
+      }
+      cancelPreroute(); prerouteSeq += 1; closePicker(); targetGeneration += 1;
+      newTarget = true;
       picked = null;
       // 117l-B2 ②：看板空态那枚「＋ 线程」没有事项可挂（一条线程都还没有），派来的 missionId 是空串。
       // 这种时候 chip 说「在事项下新开」是句假话 —— 没有那个「事项」。空 id 一律落到「另起一件」。
       routeKind = missionId ? 'missionNew' : 'new';
       routeHits = [];
       routeReason = String(missionId || '');
+      hintDismissed = true;
+      relabelComposerChrome(); note(t('stewardShell.compose.newReady'));
       renderChip();
       const input = byId('stewardComposerInput');
       if (input && typeof input.focus === 'function') input.focus();

@@ -56,7 +56,7 @@ async function stewardSelfServeAllows(tool, args, config, trigger, ctx) {
   if (taintedBy.length) {
     return { allowed: false, reason: `我这一回合读过外部内容(${taintedBy.join('/')}),按规矩读过之后我只提议、不自己动手` };
   }
-  if (trigger === 'user') return { allowed: true };
+  if (trigger === 'user' || (trigger === 'external' && stewardExternalOwnerDirected(ctx))) return { allowed: true };
   if (tool === 'steward_memory_write' || tool === 'steward_memory_veto') return { allowed: true }; // 管家记忆自由(§3.5)
   if (tool === 'steward_thread_continue') {
     // 129g:目标此刻挂着一道给用户的提问时,这不是「递话」,是【代答】—— 归 answer 那一格管,
@@ -107,7 +107,7 @@ async function stewardSelfServeAllows(tool, args, config, trigger, ctx) {
 // STEWARD_SELF_SERVE_PER_TURN_MAX(3,只管确定性自理)与 STEWARD_ACTIONS_MAX(5,只管模型声明的
 // actions)彼此独立、不去重 sessionId,于是一个回合合规地触达 3+5=8 条不同线程 —— 与 §11.3 写的
 // 「≤3 个自理目标」对不上。priorTargets 把自理侧【真的动过】的目标带进来,两边合起来数。
-async function stewardExecuteActions(actions, session, config, trigger, priorTargets) {
+async function stewardExecuteActions(actions, session, config, trigger, priorTargets, externalActor) {
   const out = [];
   const touched = new Set((Array.isArray(priorTargets) ? priorTargets : []).filter(Boolean));
   for (const action of actions) {
@@ -136,7 +136,10 @@ async function stewardExecuteActions(actions, session, config, trigger, priorTar
         { reason: 'per_turn_target_max', sessionId: target }) });
       continue;
     }
-    const gate = await stewardSelfServeAllows(tool, args, config, trigger, { session, sessionId: session.id, config, trigger });
+    let actionCtx;
+    try { actionCtx = await stewardAuthorizeExternalContext({ session, sessionId: session.id, config, trigger, ...(trigger === 'external' ? { externalActor } : {}) }); }
+    catch { out.push({ tool, label, args, result: stewardFail('external_channel.control_revoked', 'external owner authorization was revoked') }); continue; }
+    const gate = await stewardSelfServeAllows(tool, args, config, trigger, actionCtx);
     if (!gate.allowed) {
       out.push({ tool, label, args, result: stewardFail('propose_required', gate.reason, { reason: 'self_serve_off' }) });
       continue;
@@ -146,7 +149,7 @@ async function stewardExecuteActions(actions, session, config, trigger, priorTar
     try {
       // 116-3 P0-2:trigger 进 ctx —— 13g 的线程族三工具据它区分「用户就在跟前」(直递)与
       // 「无人值守的收件箱回合」(要过自理清单 + 目标线程权限两道闸)。本文件不复制那套判据。
-      result = await StewardHooks[hookKey](args, { session, sessionId: session.id, config, trigger });
+      result = await StewardHooks[hookKey](args, actionCtx);
     } catch (error) {
       result = stewardFail('steward.failed', String((error && error.message) || error));
     }
@@ -814,6 +817,7 @@ async function stewardInboxMessage(events, config, selfServeNotes) {
 // 壳层的状态轮询(public/js/steward-shell.js:277 `lastReply.trigger === 'inbox'`)靠它决定要不要
 // 把新回复追进对话流,改了它就是一个静默的功能回归。两处是两个消费者,不必也不该同形。
 async function stewardTriggerStamp(trigger, events) {
+  if (trigger === 'external') return { kind: 'external' };
   if (trigger !== 'inbox') return { kind: 'user' };
   const rows = (Array.isArray(events) ? events : []).filter(r => r && safeSessionId(r.sessionId));
   const sessionIds = [...new Set(rows.map(r => safeSessionId(r.sessionId)))];

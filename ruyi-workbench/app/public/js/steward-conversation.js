@@ -17,6 +17,7 @@ import { popover, closePopover, popoverAnchor } from './popover.js';
 // 「SVG 路径只许住在 icons.js」——所以本文件一条 path 都不写，只按名字取件（steward-board /
 // steward-drawer / steward-settings 三个消费方走的也是这条 import，不是第二份路径常量）。
 import { icon } from './icons.js';
+import { attachStewardDeliveryPanel, invalidateStewardDeliveryPanels } from './steward-delivery.js';
 // 33 号文 §4：stewardShortTitle 与 STEWARD_TITLE_MAX 搬去 util.js（无状态格式化叶子）—— 两个壳
 // 共用同一份截短口径，且 2.0 侧不必为了一个纯字符串函数 import 本模块（1481 行）。函数体逐字未改。
 import { stewardShortTitle, chatProviders } from './util.js';   // chatProviders:兜底取端点时不把只做语音的服务商当对话端点
@@ -28,6 +29,8 @@ import { stewardWaitText } from './thread-facts.js';   // W2-F5：等待原因�
 // 必须先得到用户明确的「是」。确认件走全仓那一份 confirmDanger（背影／Tab 焦点陷阱／焦点归还／Esc／
 // 点背影都在它里面，33 号文 §4 的「四套收一套」），本文件不自己搭第二个模态。
 import { confirmDanger } from './confirm-panel.js';
+import { appendSettingsReceipt, settingsReceiptOf, settingsReceiptText, refreshSettingsAfterReceipt } from './steward-settings-receipt.js';
+import { createHandoffRecoveryStore } from './steward-handoff-recovery.js';
 
 // 第117波 117c：管家对话区（27 号文 §8.4「话＋一行按钮」／§8.9「空状态与首次／每次打开」）。
 //
@@ -489,6 +492,29 @@ export function stewardAgoLabel(iso, lang) {
 // 判据只看 `result`，`say` 里那句话一个字都不看（38 号文 §7 ④ 的裁决：下一档不是关键词表，
 // 而是让「我做了什么」结构化到 actions 里再判）。第三态是本刀补出来的那一格，见下面调用点的头注。
 export const STEWARD_RECEIPT_STATES = Object.freeze(['done', 'failed', 'no_receipt']);
+
+// A stop acknowledgement confirms that cancellation was requested, not that the process exited.
+// Both direct controls and live/history tool receipts use this exact contract.
+export function stewardStopReceiptOf(response) {
+  if (response && response.ok === false && stewardErrorCode(response.error) === 'not_running') return { ok: true, outcome: 'noop' };
+  if (response && response.ok === false) return { ok: false, outcome: 'failed', error: response.error || 'stop_failed' };
+  if (response && response.ok === true) {
+    if (response.stopped === true || response.queuedStopped === true) return { ok: true, outcome: 'accepted' };
+    if (response.stopped === false && (response.queuedStopped === undefined || response.queuedStopped === false)) {
+      return { ok: true, outcome: 'noop' };
+    }
+  }
+  return { ok: false, outcome: 'unknown' };
+}
+
+export function stewardStopReceiptText(receipt, translate) {
+  const outcome = receipt && receipt.outcome;
+  if (outcome === 'failed') return stewardActErrorMessage(receipt.error, translate)
+    || translate('stewardShell.stop.failed', { error: stewardErrorText(receipt.error) || 'failed' });
+  const keys = { accepted: 'stewardShell.stop.accepted', noop: 'stewardShell.stop.noop',
+    pending: 'stewardShell.stop.pending', unknown: 'stewardShell.stop.unknown' };
+  return translate(keys[outcome] || keys.unknown);
+}
 export function stewardActionReceiptState(result) {
   if (result && result.ok === true) return 'done';
   if (result && result.ok === false) return 'failed';
@@ -498,6 +524,8 @@ export function stewardActionReceiptState(result) {
 // 工具稳定信封 → i18n 人话键（§8.4 按钮落定：result.ok===false 时按 result.error 说人话，
 // 按钮行保留可重试）。表外的一律落到 errGeneric 并把原始 error 原样带出去（诚实优先）。
 const STEWARD_ACT_ERROR_KEYS = Object.freeze({
+  'config.conflict': 'settingsReceipt.conflict',
+  'scope_requires_thread': 'settingsReceipt.threadEntry',
   invalid_request: 'stewardShell.chat.errInvalidAct',
   not_allowed: 'stewardShell.chat.errUnavailableAct',
   payload_forbidden_key: 'stewardShell.chat.errUnavailableAct',
@@ -510,6 +538,11 @@ const STEWARD_ACT_ERROR_KEYS = Object.freeze({
   // （前者等它停，后者等它开跑）。表外落到 errGeneric 时用户看到的是后端那句原文，能懂但不成体系。
   'steward.queued': 'stewardShell.chat.errQueued',
   version_conflict: 'stewardShell.chat.errConflict',
+  execution_identity_required: 'stewardShell.chat.errConflict',
+  execution_identity_unavailable: 'stewardShell.chat.errConflict',
+  execution_changed: 'stewardShell.chat.errConflict',
+  session_execution_locked: 'stewardShell.chat.errConflict',
+  rewind_in_progress: 'stewardShell.chat.errConflict',
 });
 
 // 117e 第 0 步（117d 登记项 ②）：后端的失败信封有两种形状 —— 域层的裸串 `error:'not_found'`，
@@ -593,6 +626,7 @@ export function createStewardConversation({
   // 117e：头像菜单的「设置／记忆／行动流水」三项。本模块只负责【调用】——切页签、滚动、取数
   // 全在 steward-settings.js 里（对话区不认识设置页的任何 id，也不多一条 /api 路由）。
   openStewardPanel = null,
+  openExternalBotSetup = null,
   // 121-K4（§2.2／§2.4）：头像菜单末项「整体切到 2.0」退役 —— 视角切换只在外框顶栏的分段钮
   // 一处（§2.4 原话「不再有『整体切到 2.0』『经典模式』两个钮」）。注入随之撤掉。
   // 117s-H2：交付卡上的「看全文」——与焦点栏标题旁那一枚走【同一个】入口：
@@ -617,6 +651,8 @@ export function createStewardConversation({
   // 由 steward-shell.js 从组合根手里转下来；本模块因此不新增一条 import（A2 锁：本域内相对路径）。
   // 缺席时那枚按钮照样不画（下面 onboardingActs 会一起判），Node 里 await import 本模块不受影响。
   openOnboardingWizard = null,
+  renderFilePreviewInto = null,
+  prepareDeliveryRevision = null,
 } = {}) {
   const feedEl = () => byId('stewardFeed');
   const setPresence = patch => { try { presence && presence.set && presence.set(patch); } catch { /* presence 是旁路 */ } };
@@ -739,13 +775,18 @@ export function createStewardConversation({
     if (!longEnough) node.classList.remove('is-clamped');
     return longEnough;
   }
-  function collapseToggle(node) {
+  function collapseToggle(node, collapsible) {
+    let expanded = false;
     const more = button('steward-deliverable-more', t('stewardShell.chat.deliverableExpand'), () => {
-      const clamped = node.classList.toggle('is-clamped');
-      more.textContent = t(clamped ? 'stewardShell.chat.deliverableExpand' : 'stewardShell.chat.deliverableCollapse');
-      more.setAttribute('aria-expanded', clamped ? 'false' : 'true');
+      expanded = !expanded;
+      node.classList.toggle('is-clamped', !expanded && collapsible);
+      more.dataset.i18n = expanded ? 'stewardShell.chat.deliverableCollapse' : 'stewardShell.chat.deliverableExpand';
+      more.textContent = t(more.dataset.i18n);
+      more.setAttribute('aria-expanded', String(expanded));
+      node.dispatchEvent(new CustomEvent('delivery:expand', { bubbles: true, detail: { expanded } }));
     });
     more.setAttribute('aria-expanded', 'false');
+    more.dataset.i18n = 'stewardShell.chat.deliverableExpand';
     return more;
   }
 
@@ -769,6 +810,7 @@ export function createStewardConversation({
     return null;
   }
 
+  let feedRowRevision = 0;
   function appendRow(kind) {
     const feed = feedEl();
     if (!feed) return null;
@@ -778,6 +820,7 @@ export function createStewardConversation({
     // 现在空槽什么都不画，槽位（绝对定位的 36px）与行的 44px 左内边距原样保留，文字左缘不动。
     if (kind === 'ruyi') row.appendChild(el('span', 'steward-avslot'));
     feed.appendChild(row);
+    feedRowRevision += 1;
     markGroup(row, kind);
     feed.scrollTop = feed.scrollHeight;
     return row;
@@ -923,13 +966,20 @@ export function createStewardConversation({
   }
 
   // ── 一行按钮（≤3，主动作唯一）──────────────────────────────────────────────
+  function captureStopAct(act) {
+    if (!act || act.tool !== 'steward_thread_stop') return act;
+    const args = { ...(act.args || {}) };
+    if (args.expectedExecution && typeof args.expectedExecution === 'object') args.expectedExecution = { ...args.expectedExecution };
+    return { ...act, args };
+  }
   function renderActs(row, acts, onSettled) {
     const list = (Array.isArray(acts) ? acts : []).slice(0, STEWARD_ACTS_MAX);
     if (!row || !list.length) return null;
     const actsRow = el('div', 'steward-acts');
     let primaryTaken = false;
-    for (const act of list) {
-      const label = String((act && act.label) || t('stewardShell.acts.open'));
+    for (const original of list) {
+      const act = captureStopAct(original);
+      const label = act?.kind === 'external_bot_setup' ? t('botSetup.open') : String((act && act.label) || t('stewardShell.acts.open'));
       const btn = button('steward-act', label, () => runAct(act, actsRow, btn, onSettled));
       // 主动作只有一个（后端已归一过 primary；这里再守一道，防手工构造的 acts 出现第二个金色按钮）。
       if (act && act.primary === true && !primaryTaken) { btn.classList.add(STEWARD_PRIMARY_CLASS); primaryTaken = true; }
@@ -954,15 +1004,21 @@ export function createStewardConversation({
   // 117v-V1 ②（用户第十轮走查②「在会话中点开这些线程后，那个按钮就失效了，但是从 2.0 返回又会
   // 出现」）：**导航不是表态**。「知道了」这类表态是一次性的 —— 点完落成灰字回执，再点一次没有
   // 意义；而「打开线程」没有任何副作用，从 2.0 视窗回来还要再点同一枚按钮，它本来就该反复点。
-  // 判据钉在 kind 上而不是按钮文字上：后端 13h stewardRunAct 只认三种 kind，其中 dismiss 记一行
-  // 日志、tool 真去执行工具，**只有 open_thread 是「只回 sessionId，切换由 UI 完成」的纯导航**
-  // （那一段的头注原话）。所以这里只有它一条，不是一张会长的表。
+  // Navigation remains repeatable. external_bot_setup is a server-derived link to the local guide;
+  // its handler never submits an act, credentials or remote-control authorization.
   function isNavigationAct(act) {
-    return Boolean(act) && act.kind === 'open_thread';
+    return Boolean(act) && (act.kind === 'open_thread' || act.kind === 'external_bot_setup');
   }
 
   async function runAct(act, actsRow, btn, onSettled) {
     if (!act || typeof act !== 'object') return;
+    act = captureStopAct(act); // Freeze the observed target before the asynchronous confirmation.
+    // Server-derived navigation only: opening the guide never authorizes or executes a bot.
+    if (act.kind === 'external_bot_setup') {
+      if (typeof act.connectionId === 'string' && act.connectionId && typeof openExternalBotSetup === 'function') openExternalBotSetup(act.connectionId);
+      else showActProblem(actsRow, t('botSetup.unavailable'));
+      return;
+    }
     if (act.kind === 'dismiss' && isChangeAct(act)) { focusComposerForChange(); return; }
     // 122-L1b（36 号文 §2.13）：STEWARD_ONBOARDING_ACT 是【纯前端】的一枚 —— 后端 13h stewardRunAct
     // 只认 open_thread／dismiss／tool 三种 kind，把它发过去只会换回一条 unknown_act。所以在这里就地
@@ -985,6 +1041,12 @@ export function createStewardConversation({
     try {
       const response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
       const result = response && response.result;
+      const stopReceipt = act.tool === 'steward_thread_stop' ? stewardStopReceiptOf(result) : null;
+      if (stopReceipt && stopReceipt.outcome === 'unknown') {
+        showActProblem(actsRow, stewardStopReceiptText(stopReceipt, t));
+        if (btn) { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); }
+        return;
+      }
       if (!response || response.ok !== true || (act.kind === 'tool' && (!result || typeof result.ok !== 'boolean'))) {
         showActProblem(actsRow, t('stewardShell.chat.actUnconfirmed'));
         // A lost receipt may follow a successful write: do not invite duplicates.
@@ -992,14 +1054,14 @@ export function createStewardConversation({
         if (btn) { if (isNavigationAct(act)) btn.disabled = false; else { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); } }
         return;
       }
-      if (result && result.ok === false) {
+      if (result && result.ok === false && (!stopReceipt || stopReceipt.outcome !== 'noop')) {
         // 117l-B2 ⑤：查表那一步搬进 stewardActErrorMessage（多一条 steward.queued 要插 wait.label），
         // 表外仍然落到 errGeneric 并把原始 error 原样带出去。
         const message = (stewardErrorCode(result.error) === 'invalid_request' ? stewardErrorText(result.message) : '') || stewardActErrorMessage(result.error, t)
           || t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) });
         showActProblem(actsRow, message);
         if (btn) {
-          btn.disabled = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(result.error);
+          btn.disabled = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key', 'config.conflict', 'scope_requires_thread'].includes(result.error);
           if (btn.disabled) btn.classList.remove(STEWARD_PRIMARY_CLASS);
         }
         return;
@@ -1007,17 +1069,22 @@ export function createStewardConversation({
       // ② 纯导航：**不落回执、不消费按钮行**，把这一枚恢复成可点的（下次还要再点）。
       // 其余 kind 照旧一次性落定成灰字回执。
       actsRow?.parentNode?.querySelector('.steward-act-problem')?.remove();
+      const receiptHost = actsRow?.parentNode;
       if (isNavigationAct(act)) {
         if (btn) btn.disabled = false;
         if (act.sessionId) openThread(act.sessionId);
       } else {
-        settleRow(actsRow, receiptFor(act));
+        settleRow(actsRow, stopReceipt ? stewardStopReceiptText(stopReceipt, t) : receiptFor(act));
+      }
+      if (!isNavigationAct(act) && settingsReceiptOf(result)) {
+        appendSettingsReceipt(receiptHost, result, { t, api });
+        refreshSettingsAfterReceipt();
       }
       if (typeof onSettled === 'function') onSettled(act, response);
     } catch (error) {
       const info = apiErrorInfo(error);
       const code = stewardErrorCode(info || error);
-      const invalid = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(code);
+      const invalid = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key', 'config.conflict', 'scope_requires_thread'].includes(code);
       showActProblem(actsRow, invalid ? (code === 'invalid_request' ? stewardErrorText(info || error) : '') || stewardActErrorMessage(code, t) || t('stewardShell.chat.errUnavailableAct')
         : t('stewardShell.chat.actUnconfirmed'));
       if (btn) { if (isNavigationAct(act) && !invalid) btn.disabled = false; else { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); } }
@@ -1305,8 +1372,11 @@ export function createStewardConversation({
     // { envelope, deliverable } 两样 —— 两个消费方 await 的是同一个 promise，请求仍然只发一发。
     const task = (async () => {
       const payload = await api('/api/sessions/' + encodeURIComponent(sessionId));
-      return { envelope: payload, deliverable: stewardDeliverableFrom(payload && payload.session, turnSeq) };
-    })().then(got => ({ envelope: stewardThreadEnvelopeLite(got.envelope), deliverable: got.deliverable }));   // 整份信封到此为止，不进缓存
+      const original = payload && payload.session;
+      const messages = ((original && original.messages) || []).filter(row => Number(row.turnSeq) === Number(turnSeq));
+      const hasArtifacts = messages.some(row => row.turnSummary && ((row.turnSummary.artifacts || []).length || (row.turnSummary.filesChanged || []).length));
+      return { envelope: payload, hasArtifacts, deliverable: stewardDeliverableFrom({ messages }, turnSeq) };
+    })().then(got => ({ envelope: stewardThreadEnvelopeLite(got.envelope), deliverable: got.deliverable, hasArtifacts: got.hasArtifacts }));   // 整份信封到此为止，不进缓存
     deliverableCache.set(key, task);
     while (deliverableCache.size > DELIVERABLE_CACHE_MAX) deliverableCache.delete(deliverableCache.keys().next().value);
     task.catch(() => { deliverableCache.delete(key); });   // 失败不留在缓存里（下次还能再试）
@@ -1325,20 +1395,23 @@ export function createStewardConversation({
   async function fillDeliverable(block, head, body, source) {
     let found = null;
     let fetched = false;
-    try { const got = await loadDeliverable(source.sessionId, source.turnSeq); found = got ? got.deliverable : null; fetched = true; }
+    let hasArtifacts = false;
+    try { const got = await loadDeliverable(source.sessionId, source.turnSeq); found = got ? got.deliverable : null; hasArtifacts = !!(got && got.hasArtifacts); fetched = true; }
     catch { found = null; }   // 取不到：画兜底一句，原件不在这儿，去 2.0 视窗看
     if (!block.isConnected && block.parentNode === null) return null;   // 这一行已经被清屏收走了
     // 2026-09-24（用户：「每次带上『它交付的原文』『这一次没取到原文』，体验很差」）：信封取到了、
     // 但这一回合没有可交付的正文（以工具调用收尾、还在等后台活儿）—— 那就是【没有交付】，不是
     // 「没取到」。整块撤掉，不再垫一句道歉；线程卡上的「打开」仍在。取不到信封才画兜底。
-    if (fetched && (!found || !found.text.trim())) { block.remove(); return null; }
+    if (fetched && !hasArtifacts && (!found || !found.text.trim())) { block.remove(); return null; }
     const seq = (found && found.turnSeq) || source.turnSeq || 0;
     head.textContent = seq
       ? t('stewardShell.chat.deliverableHead', { seq })
       : t('stewardShell.chat.deliverableHeadPlain');
     if (!found || !found.text.trim()) {
       body.textContent = t('stewardShell.chat.deliverableMissing');
-      block.appendChild(deliverableActs(body, source, false));
+      if (hasArtifacts) paintSay(body, t('delivery.noNarrative'));
+      block.appendChild(deliverableActs(body, source, false, hasArtifacts));
+      if (hasArtifacts) attachStewardDeliveryPanel(block, source, { api, t, renderFilePreviewInto, prepareRevision: prepareDeliveryRevision });
       return null;
     }
     paintSay(body, found.text);   // 与管家的话【同一条】渲染＋净化路径（highlightIn 只在这里跑一次）
@@ -1346,12 +1419,14 @@ export function createStewardConversation({
     // F4 之后这一段搬进 clampIfLong；117y-S3 撤掉管家正文那一路之后，这里是它【唯一】的调用方。
     const longEnough = clampIfLong(body, found.text);
     block.appendChild(deliverableActs(body, source, longEnough));
+    attachStewardDeliveryPanel(block, source, { api, t, renderFilePreviewInto, prepareRevision: prepareDeliveryRevision });
     return body;
   }
 
-  function deliverableActs(body, source, collapsible) {
+  function deliverableActs(body, source, collapsible, readable = true) {
     const acts = el('div', 'steward-deliverable-acts');
-    if (collapsible) acts.appendChild(collapseToggle(body));   // 117y-S3 之后这是折叠仅剩的一个调用方
+    // 短正文也有同一个全文入口；它同时展开原轮产物和检查，不再用低频菜单承担阅读主路径。
+    if (readable) acts.appendChild(collapseToggle(body, collapsible));
     // 117v-V1 ⑨（用户第十轮走查⑨「管家的回复看全文是打开 2.0，看英伟达分析全文是打开线程，
     // 这个 UX 体验就很迷」）：这一枚与抽屉那一枚确实还是同一个动作（两边都调 openClassicWindow），
     // 但**同一屏上还有第二枚「看…全文」**——管家写的 open_thread act（琥珀色那一枚）点下去是
@@ -1605,6 +1680,7 @@ export function createStewardConversation({
     // 124-P3：回执上可见层。排在 ※ 之后、按钮行之前 —— 它说的是【已经发生的事】，
     // 按钮说的是【你还可以做的事】，先读完发生了什么再看还能做什么。
     appendActionReceipts(row, reply.actions);
+    if ((reply.actions || []).some(action => settingsReceiptOf(action?.result))) refreshSettingsAfterReceipt();
     renderTools(row, tools);
     // 熔断或错误：只有话，没有按钮（后端已把人话放进 say；presence 走 error）。
     if (reply.circuit || reply.error) {
@@ -1714,15 +1790,19 @@ export function createStewardConversation({
     const out = [];
     for (const row of (Array.isArray(actions) ? actions : [])) {
       if (!row || !row.tool) continue;
-      const state = stewardActionReceiptState(row.result);
-      out.push({ state, text: receiptText(row, state) });
+      const stopReceipt = row.tool === 'steward_thread_stop' ? stewardStopReceiptOf(row.result) : null;
+      const state = stopReceipt ? (stopReceipt.ok ? 'done' : (stopReceipt.outcome === 'failed' ? 'failed' : 'no_receipt'))
+        : stewardActionReceiptState(row.result);
+      out.push({ state, text: receiptText(row, state), ...(stopReceipt ? { stopOutcome: stopReceipt.outcome } : {}) });
     }
     return out;
   }
   function receiptText(row, state) {
     const result = row.result;
+    if (settingsReceiptOf(result)) return settingsReceiptText(result.receipt, t);
     // 三态各自的那半句。failed 那一档仍然把后端的错误人话原样带出来（诚实优先，不归一成一句）。
-    const stateText = state === 'done' ? t('stewardShell.chat.actionDone')
+    const stateText = row.tool === 'steward_thread_stop' ? stewardStopReceiptText(stewardStopReceiptOf(result), t)
+      : state === 'done' ? t('stewardShell.chat.actionDone')
       : state === 'failed' ? stewardActErrorMessage(result && result.error, t) || stewardErrorText(result && result.error)
         : t('stewardShell.chat.actionNoReceipt');
     return t('stewardShell.chat.actionLine', {
@@ -1744,10 +1824,14 @@ export function createStewardConversation({
   function appendActionReceipts(row, actions) {
     const receipts = actionReceipts(actions);
     if (!row || !receipts.length) return 0;
+    let index = 0;
     for (const receipt of receipts) {
+      const action = (Array.isArray(actions) ? actions : []).filter(item => item && item.tool)[index++];
+      if (settingsReceiptOf(action?.result)) { appendSettingsReceipt(row, action.result, { t, api }); continue; }
       const line = el('p', 'steward-receipt', receipt.text);
       line.dataset.receipt = 'action';
       line.dataset.receiptState = receipt.state;
+      if (receipt.stopOutcome) line.dataset.stopOutcome = receipt.stopOutcome;
       row.appendChild(line);
     }
     return receipts.length;
@@ -1766,6 +1850,15 @@ export function createStewardConversation({
   // 迟绑定一个回调（组合根在两个子域都建好之后注入），避免 conversation ↔ composer 互相 import。
   let pickTarget = () => {};
   function setPickTargetHandler(handler) { if (typeof handler === 'function') pickTarget = handler; }
+  const handoffRecovery = createHandoffRecoveryStore();
+  let restoreHandoffDraft = () => ({ ok: false });
+  function setHandOffDraftHandler(handler) { if (typeof handler === 'function') restoreHandoffDraft = handler; }
+  function forgetHandOff(attempt) { try { handoffRecovery.remove(attempt.attemptId); } catch { /* A retained row can still be checked, never automatically replayed. */ } }
+  function prepareHandOff({ sessionId, title, message, reason, hits, attachments, deliverySource }) {
+    const attempt = { attemptId: handOffAttemptId(), sessionId: String(sessionId || ''), title, text: String(message || '').trim(), reason, hits, attachments: (attachments || []).map(file => ({ ...file })), deliverySource, createdAt: Date.now() };
+    try { handoffRecovery.put(attempt); return attempt; }
+    catch { return { error: t('stewardShell.chat.handOffCacheFailed') }; }
+  }
 
   let undoTimer = 0;
   function stopUndoCountdown() {
@@ -1807,25 +1900,80 @@ export function createStewardConversation({
     }, 1000);
   }
 
-  async function handOff({ sessionId, title, message, reason, hits }) {
+  // 62 号第三轮 P1：一次递话 = 一个 attemptId。网络失败/超时不再只是一句「失败」——原话、目标与
+  // 这一次的 attemptId 都留在提示行上；「核对」只读服务端回执，「重发」带同一个 attemptId，服务端据此
+  // 只执行一次（13q stewardRunAct），所以就算上一次其实已经落地也不会重复执行。
+  function handOffAttemptId() {
+    const cryptoApi = globalThis.crypto;
+    if (cryptoApi && typeof cryptoApi.randomUUID === 'function') return cryptoApi.randomUUID().replace(/-/g, '');
+    return String(Date.now()) + Math.random().toString(36).slice(2, 10);
+  }
+
+  async function handOff({ sessionId, title, message, reason, hits, attachments, deliverySource, prepared }) {
     const sid = String(sessionId || '');
     const text = String(message || '').trim();
     if (!sid || !text) return null;
-    appendUser(text);
-    const act = { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: text } };
+    const files = Array.isArray(attachments) ? attachments.map(file => ({ ...file })) : [];
+    appendAttachLine(appendUser(text), files);
+    const attempt = prepared || prepareHandOff({ sessionId: sid, title, message: text, reason, hits, attachments: files, deliverySource });
+    if (attempt.error) { appendSteward(attempt.error, ''); return null; }
+    return deliverHandOff(attempt);
+  }
+
+  async function deliverHandOff(attempt, options = {}) {
+    const sid = attempt.sessionId;
+    const generation = conversationGeneration;
+    const pending = failure => generation === conversationGeneration && !options.silentPending
+      ? renderHandOffPending(attempt, failure) : { sessionId: sid, pending: true, row: null, actsRow: null };
+    // 有 pending 行要写的时候，失败文案写进那一行；否则才写进当前 feed（避免切线程写错视图）。
+    const reportFailure = text => { if (typeof options.report === 'function') options.report(text); else if (generation === conversationGeneration) appendSteward(text, ''); };
     let response = null;
     try {
-      response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
+      if (!attempt.window) {
+        if (options.silentPending || attempt.recovered) return { sessionId: sid, pending: true, row: null, actsRow: null };
+        const check = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ checkAttempt: true, attemptId: attempt.attemptId }) });
+        if (!check?.ok || !check.window?.serverInstanceId) return pending();
+        attempt.window = check.window;
+        handoffRecovery.put(attempt); // Persist the server window before the first executable request.
+      }
+      response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({
+        act: { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: sid, message: attempt.text, ...(attempt.attachments.length ? { attachments: attempt.attachments } : {}), ...(attempt.deliverySource ? { deliverySource: attempt.deliverySource } : {}) } },
+        attemptId: attempt.attemptId, attemptWindow: attempt.window }) });
     } catch (error) {
-      appendSteward(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }), '');
-      return null;
+      // HTTP 给了明确回应时不是「未知」：4xx 是服务端明确拒绝（这一发没有执行），照旧显示真实错误；
+      // 5xx / 没有状态码的网络异常才可能已经执行 —— 那才需要「未确认 + 核对」。
+      const status = Number(error && error.status);
+      if (Number.isInteger(status) && status >= 400 && status < 500) {
+        if (stewardErrorCode(error) === 'attempt_unknown') return pending();
+        attempt.failure = stewardErrorText(error); try { handoffRecovery.put(attempt); } catch { /* Keep the earlier recovery record. */ }
+        if ((attempt.attachments.length || attempt.deliverySource) && !options.silentPending) return pending(attempt.failure);
+        reportFailure(t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
+        return null;
+      }
+      if (options.silentPending) return { sessionId: sid, pending: true, row: null, actsRow: null };
+      return pending();
     }
     const result = response && response.result;
     if (result && result.ok === false) {
       const key = stewardActErrorKey(result.error);
-      appendSteward(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) }), '');
+      attempt.failure = key ? t(key) : stewardErrorText(result.message || result.error); try { handoffRecovery.put(attempt); } catch { /* Keep the earlier recovery record. */ }
+      if ((attempt.attachments.length || attempt.deliverySource) && !options.silentPending) return pending(attempt.failure);
+      reportFailure(key ? t(key) : t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.message || result.error) }));
       return null;
     }
+    if (!result || result.ok !== true) return pending();
+    forgetHandOff(attempt);
+    let settledRecovery = false;
+    for (const row of feedEl()?.querySelectorAll('[data-handoff-attempt]') || []) {
+      if (row.dataset.handoffAttempt === attempt.attemptId && (generation !== conversationGeneration || row.dataset.recovered === 'true')) { row.settleHandoff?.(t('stewardShell.chat.handOffLanded')); settledRecovery = true; }
+    }
+    if (generation !== conversationGeneration || settledRecovery || !isStewardMode()) return { sessionId: sid, replayed: true, row: null, actsRow: null };
+    // 重放只说明「上一次已经执行过」：不再追加第二条回执行，也不重挂第二枚撤回按钮。
+    if (result && result.ok === true) invalidateStewardDeliveryPanels(feedEl(), sid, t);
+    if (response.replayed === true || result.replayed === true) return { sessionId: sid, replayed: true, row: null, actsRow: null };
+    const title = attempt.title;
+    const hits = attempt.hits;
+    const reason = attempt.reason;
     const label = stewardShortTitle(title || sid);
     const others = (Array.isArray(hits) ? hits : []).filter(hit => hit && hit.sessionId !== sid)
       // 116-5b:与输入区候选列表同一份数据、同一个显示名(hit.displayTitle,服务端算好)。
@@ -1866,6 +2014,73 @@ export function createStewardConversation({
     return { sessionId: sid, undoRef, row, actsRow };
   }
 
+  // 未确认的递送：一行提示 + 两枚按钮。核对只读回执；重发带同一个 attemptId（服务端只执行一次）。
+  // 所有结果都写回【这一行自己的】备注节点，不 append 到当前 feed —— 核对期间切换线程不会写错视图。
+  function renderHandOffPending(attempt, failure = '') {
+    const row = appendSteward(t(failure ? 'stewardShell.chat.handOffRejected' : 'stewardShell.chat.handOffUnknown', { title: stewardShortTitle(attempt.title || attempt.sessionId) }), '');
+    appendAttachLine(row, attempt.attachments);
+    const note = el('p', 'muted');
+    if (row) row.appendChild(note);
+    if (row) row.dataset.handoffAttempt = attempt.attemptId;
+    const say = text => { if (note) note.textContent = text; };
+    if (failure) say(failure);
+    const actsRow = el('div', 'steward-acts');
+    if (row) {
+      row.dataset.recovered = String(!!attempt.recovered);
+      row.settleHandoff = text => {
+        if (feedEl()?.contains(row)) feedRowRevision += 1;
+        row.dataset.handoffState = 'applied'; row.querySelector('.steward-say').textContent = text; say(''); settleRow(actsRow, text, 'done');
+      };
+    }
+    const checkBtn = button('steward-act', t('stewardShell.chat.handOffCheck'), async () => {
+      if (checkBtn.disabled) return;
+      checkBtn.disabled = true; retryBtn.disabled = true;
+      let response = null;
+      try {
+        response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ checkAttempt: true, attemptId: attempt.attemptId, attemptWindow: attempt.window }) });
+      } catch { response = null; }
+      if (response && response.ok === true && response.applied === true) {
+        forgetHandOff(attempt);
+        say('');
+        row?.settleHandoff(t('stewardShell.chat.handOffLanded'));
+        return;
+      }
+      if (response && response.ok === true && response.state === 'not_applied') say(t('stewardShell.chat.handOffAbsent'));
+      else say(t('stewardShell.chat.handOffCheckUnknown'));
+      checkBtn.disabled = false; retryBtn.disabled = attempt.recovered || !['not_applied', 'applied', 'inflight'].includes(response?.state);
+    });
+    const retryBtn = button('steward-act', t('stewardShell.chat.handOffRetry'), async () => {
+      if (retryBtn.disabled) return;
+      checkBtn.disabled = true; retryBtn.disabled = true;
+      // 原话已经上屏一次，重发不再 appendUser；服务端按 attemptId 重放时也不会执行第二次。
+      // 重发失败的文案写回这一行（不写当前 feed），并明确说「仍未确认」。
+      const outcome = await deliverHandOff(attempt, { silentPending: true, report: text => say(text) });
+      if (outcome && outcome.pending) { say(t('stewardShell.chat.handOffRetryUnconfirmed')); checkBtn.disabled = false; retryBtn.disabled = false; return; }
+      if (!outcome) { checkBtn.disabled = false; retryBtn.disabled = false; return; }   // 明确失败：错误已经印在这一行上
+      say('');
+      row?.settleHandoff(t('stewardShell.chat.handOffRetried'));
+    });
+    actsRow.append(checkBtn);
+    if (!attempt.recovered) actsRow.append(retryBtn);
+    const restore = button('steward-act', t('stewardShell.chat.handOffRestore'), () => {
+      const restored = restoreHandoffDraft(attempt);
+      say(t(restored?.ok ? 'stewardShell.chat.handOffDraftRestored' : 'stewardShell.chat.handOffDraftBusy'));
+    });
+    actsRow.append(restore);
+    if (attempt.recovered) actsRow.append(button('steward-act', t('stewardShell.chat.handOffForget'), () => { forgetHandOff(attempt); row?.remove(); }));
+    if (row) row.appendChild(actsRow);
+    return { sessionId: attempt.sessionId, undoRef: null, row, actsRow, pending: true };
+  }
+
+  function restoreHandOffs() {
+    let rows = []; try { rows = handoffRecovery.list(); } catch { appendSteward(t('stewardShell.chat.handOffCacheReadFailed'), ''); return; }
+    for (const attempt of rows) {
+      if ([...(feedEl()?.querySelectorAll('[data-handoff-attempt]') || [])].some(row => row.dataset.handoffAttempt === attempt.attemptId)) continue;
+      appendAttachLine(appendUser(attempt.text), attempt.attachments);
+      renderHandOffPending({ ...attempt, recovered: true }, attempt.failure || '');
+    }
+  }
+
   // 撤回锚点：只认后端 117d 第 0 步补出的 undoRef.rewindTargetTurnSeq（= 被递那一回合将拥有的 seq，与 09-workflow
   // 的 plannedTurnSeq 同口径）。修前缺省时回落到「undoRef.turnSeq + 1」，没有 turnSeq 就是 0 + 1 —— 答提问那一支
   // 交回的 undoRef 恰好两样都没有，「撤回」把整条线程从第 1 回合起删光。没有显式锚点就不给撤回。
@@ -1875,26 +2090,30 @@ export function createStewardConversation({
     return Number.isFinite(explicit) && explicit > 0 ? explicit : 0;
   }
 
-  // 撤回 = 先 stop 再 rewind（顺序不能反：还在跑的回合不停下来就回退，回退完它还会接着往回写）。
+  // One guarded request owns stop, settlement and rewind, so a new execution cannot enter between them.
   async function undoHandOff({ sessionId, undoRef, actsRow }) {
     const sid = String(sessionId || '');
     let filesReverted = 0;
     const target = handOffRewindTarget(undoRef);
     if (!target) return false;   // 没有锚点:连 stop 都不发(不能停掉用户自己那一回合)
+    if (!Object.prototype.hasOwnProperty.call(undoRef, 'execution')) {
+      showActProblem(actsRow, stewardActErrorMessage('execution_identity_required', t));
+      return false;
+    }
     try {
-      await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
       const rewound = await api('/api/session/rewind', {
         method: 'POST',
-        body: JSON.stringify({ sessionId: sid, targetTurnSeq: target, rollbackFiles: true }),
+        body: JSON.stringify({ sessionId: sid, targetTurnSeq: target, rollbackFiles: true, guardExecution: true, expectedExecution: undoRef.execution }),
       });
       // 回退没成真就不许说「已撤回」（§8.1 原则 2 诚实优先）：按钮行留着，用户可以再点一次。
-      if (!rewound || rewound.ok === false) {
-        showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText((rewound && rewound.error) || 'rewind_failed') }));
+      if (!rewound || rewound.ok !== true) {
+        showActProblem(actsRow, stewardActErrorMessage(rewound && rewound.error, t)
+          || t('stewardShell.chat.errGeneric', { error: stewardErrorText((rewound && rewound.error) || 'rewind_failed') }));
         return false;
       }
       filesReverted = Array.isArray(rewound.filesReverted) ? rewound.filesReverted.length : 0;
     } catch (error) {
-      showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
+      showActProblem(actsRow, stewardActErrorMessage(error, t) || t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
       return false;
     }
     // 引擎没有检查点时 rewind 只回消息不回文件——如实标注，不假装全撤了（§8.1 原则 2「诚实优先」）。
@@ -2003,7 +2222,9 @@ export function createStewardConversation({
       parkAvatar();   // W2-3 陷阱：头像此刻就住在这一行里，不先送回头部会跟着被删(第四个销毁点)
       firstRunRow.remove();
       firstRunRow = null;
-      renderFirstRun();
+      // Translating the same welcome row is not new conversation activity.
+      const before = feedRowRevision;
+      try { renderFirstRun(); } finally { feedRowRevision = before; }
     });
   } catch { /* 无 window（单测）时不挂 */ }
   function renderFirstRun() {
@@ -2058,6 +2279,11 @@ export function createStewardConversation({
           continue;
         }
         const userRow = appendUser(String(message.content || ''));
+        const externalSource = message.meta?.origin === 'external-owner' ? message.meta.externalSource : null;
+        if (userRow && externalSource) userRow.appendChild(el('small', 'steward-remote-source muted', t('externalBots.remoteSource', {
+          platform: t(externalSource.platform === 'qq' ? 'externalBots.qq' : 'externalBots.feishu'),
+          sender: String(externalSource.senderId || ''), conversation: String(externalSource.conversationId || ''),
+        })));
         if (userRow && stampAt) userRow.dataset.createdAt = stampAt;   // 123-N1 ③：给这一行盖上身份
         rendered += 1;
         continue;
@@ -2152,6 +2378,25 @@ export function createStewardConversation({
     }
   }
 
+  // 用户主动重开旧交付：只展示已有回合，不伪造一轮管家回复，也不推进历史水位。
+  function openDelivery(source) {
+    const id = String(source?.sessionId || '');
+    const seq = Number(source?.turnSeq);
+    const feed = feedEl();
+    if (!feed || resetBusy || !id || !Number.isInteger(seq) || seq <= 0) return false;
+    const existing = Array.from(feed.querySelectorAll('.steward-deliverable')).find(node =>
+      node.dataset.sessionId === id && Number(node.dataset.turnSeq) === seq);
+    if (existing) { existing.scrollIntoView({ block: 'start', behavior: 'smooth' }); return true; }
+    const row = appendRow('ruyi');
+    if (!row) return false;
+    row.dataset.deliveryHistory = 'true';
+    const origin = { sessionId: id, turnSeq: seq, title: String(source.title || '') };
+    attachThreadCard(row, origin);
+    const block = attachDeliverable(row, origin);
+    if (block) block.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return !!block;
+  }
+
   async function appendSince(sinceIso) {
     const generation = conversationGeneration;
     const since = String(sinceIso || lastRenderedAt || visitStartedAt || '');
@@ -2176,6 +2421,9 @@ export function createStewardConversation({
 
   async function enterVisit() {
     const generation = conversationGeneration;
+    const rowRevision = feedRowRevision;
+    const hadActiveSend = streaming || sendQueue.length > 0;
+    const preserveFeed = () => hadActiveSend || feedRowRevision !== rowRevision;
     if (visitBusy) return null;
     if (!(state && state.config && state.config.stewardEnabledV1 === true)) return null;
     if (!syncEngineGate()) { renderEngineGate(); return null; }
@@ -2184,6 +2432,9 @@ export function createStewardConversation({
       const visit = await api('/api/steward/visit', { method: 'POST', body: JSON.stringify({}) });
       if (generation !== conversationGeneration || resetBusy) return null;
       if (!visit || visit.ok !== true) return null;
+      // A late arrival must not detach user rows or replies added while it was loading.
+      // New replies and in-place hand-off settlements also count as conversation activity.
+      if (preserveFeed()) { restoreHandOffs(); return visit; }
       visitStartedAt = String((visit.visit && visit.visit.startedAt) || '');
       const pending = Array.isArray(visit.pending) ? visit.pending : [];
       setPresence({ pendingCount: pending.length });
@@ -2195,6 +2446,7 @@ export function createStewardConversation({
         try { history = await api('/api/sessions/steward'); } catch { history = null; }
       }
       if (generation !== conversationGeneration || resetBusy) return null;
+      if (preserveFeed()) { restoreHandOffs(); return visit; }
       const messages = (history && history.session && Array.isArray(history.session.messages)) ? history.session.messages : [];
       clearFeed();
       lastRenderedAt = '';   // 117j W2-4：整屏重画,水位跟着归零——下面的 renderHistorySince 会把它重新推上去
@@ -2211,8 +2463,10 @@ export function createStewardConversation({
         // 这里仍是首跑那条自我介绍 ＋ 示例 ＋ 引导入口。
         if (!rendered) { if (nothing) renderFirstRun(); else renderDigest(visit); rendered = 1; }
       }
+      restoreHandOffs();
       return visit;
     } catch (error) {
+      if (generation !== conversationGeneration || resetBusy || preserveFeed()) return null;
       // 引擎不支持是唯一要当场说清楚的失败（否则用户以为管家坏了）；其它失败保持沉默，下次进壳再试。
       const visitEngineInfo = engineProblemInfo(error);
       if (visitEngineInfo) {
@@ -2431,6 +2685,8 @@ export function createStewardConversation({
   return Object.freeze({
     bindStewardConversation,
     setPickTargetHandler,
+    setHandOffDraftHandler,
+    prepareHandOff,
     enterVisit,
     ensureVisit,
     syncEngineGate,   // 走查 #1：config 每次刷新由 steward-shell 先调它，再调 ensureVisit
@@ -2445,6 +2701,7 @@ export function createStewardConversation({
     // 117j W2-4：壳层的状态轮询发现 lastReply 变了且 trigger==='inbox' 时调它（对话流的写口只有
     // 本模块，壳层不碰 feed 的 DOM）。
     appendSince,
+    openDelivery,
     conversationGeneration: () => conversationGeneration,
     resetInProgress: () => resetBusy,
     detailsEnabled: () => detailsOn,

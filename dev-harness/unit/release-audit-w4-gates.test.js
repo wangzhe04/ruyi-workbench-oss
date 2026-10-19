@@ -19,6 +19,34 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const cp = require('child_process');
+const { sliceBlock } = require('../lib/source-slice');
+
+test('离线包只携带独立回调网关并能用随包 Node 运行帮助', { skip: process.platform !== 'win32' }, () => {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-package-gateway-'));
+  try {
+    const wb = path.join(scratch, 'source'), stage = path.join(scratch, 'stage');
+    fs.mkdirSync(path.join(wb, 'tools'), { recursive: true }); fs.mkdirSync(stage);
+    const gateway = path.resolve(__dirname, '../../ruyi-workbench/tools/external-bot-gateway.js');
+    fs.copyFileSync(gateway, path.join(wb, 'tools/external-bot-gateway.js'));
+    fs.writeFileSync(path.join(wb, 'tools/developer-only.js'), 'must not ship');
+    const packager = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/tools/package-offline.ps1'), 'utf8');
+    const copy = sliceBlock(packager, '# Optional callback gateway', '# Optional vendor payloads');
+    assert.ok(copy.length > 100, 'slice contains the actual production packaging statements');
+    const script = '$ErrorActionPreference="Stop"\n$ProgressPreference="SilentlyContinue"\n$root=$env:RUYI_TEST_PACKAGE_SOURCE\n$stage=$env:RUYI_TEST_PACKAGE_STAGE\n' + copy;
+    const stageGateway = () => cp.execFileSync('powershell.exe', ['-NoProfile', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
+      env: { ...process.env, RUYI_TEST_PACKAGE_SOURCE: wb, RUYI_TEST_PACKAGE_STAGE: stage }, windowsHide: true, stdio: 'pipe',
+    });
+    stageGateway();
+    assert.deepEqual(fs.readdirSync(path.join(stage, 'tools')), ['external-bot-gateway.js']);
+    assert.equal(fs.readFileSync(path.join(stage, 'tools/external-bot-gateway.js'), 'utf8'), fs.readFileSync(gateway, 'utf8'));
+    fs.mkdirSync(path.join(stage, 'runtime/node'), { recursive: true });
+    fs.copyFileSync(process.execPath, path.join(stage, 'runtime/node/node.exe'));
+    const help = cp.execFileSync(path.join(stage, 'runtime/node/node.exe'), ['tools/external-bot-gateway.js', '--help'], { cwd: stage, encoding: 'utf8', windowsHide: true });
+    assert.match(help, /--upstream http:\/\/127\.0\.0\.1:8765/);
+    fs.unlinkSync(path.join(wb, 'tools/external-bot-gateway.js'));
+    assert.throws(stageGateway, 'packaging fails instead of silently omitting a missing gateway input');
+  } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
+});
 
 test('离线打包在依赖、EXE 或桌面编译失败时拒绝旧产物', { skip: process.platform !== 'win32' }, () => {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-package-fail-'));

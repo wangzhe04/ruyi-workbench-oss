@@ -1,6 +1,6 @@
 'use strict';
 
-import { apiRaw } from './net.js';
+import { apiRaw, resetConditionalApiCache } from './net.js';
 
 // 第 121 波 K2b（34 号文 §6.2）：事件流客户端。**全仓唯一一条服务端推送连接。**
 //
@@ -34,6 +34,7 @@ export const EVENT_STREAM_RETRY_JITTER = 0.2;
 export const EVENT_STREAM_PRESENCE_DEBOUNCE_MS = 300;
 // 订阅名：连接状态变化。消费者据此在「30 s 兜底」与「今天的节奏」之间切节拍。
 export const EVENT_STREAM_CONNECTION_EVENT = 'connection';
+export const EVENT_STREAM_INSTANCE_EVENT = 'server.instance';
 // 「这一行本身变了」的五个事件（§6.1 事件表）。名字收在这里而不是各消费者里各写一遍：它们是
 // 与 13r 的显式登记表对拍的【线上契约】，而且散在四个文件里写五个字面量会把看板那几把
 // 「五态字面量计数」的锁（B5／M6／N3）撞红 —— 事件名里那个 needs_you 不是五态，别混进那本账。
@@ -100,6 +101,8 @@ export function createEventStream({
   let retryTimer = 0;
   let presenceTimer = 0;
   let generation = 0;                   // 每次连接一个代号：旧连接的读循环收尾时不许改新连接的状态
+  let serverInstanceId = '';
+  let serverGeneration = 0;             // Read-cache generation; never interrupts the current SSE readLoop.
   let presenceKey = '';                 // 当前连接自报的 lens|sessionId
   let frames = 0;
   let connects = 0;
@@ -210,7 +213,20 @@ export function createEventStream({
     const seq = Number(frame.id || 0);
     if (replayWindow && Number.isFinite(seq) && seq > 0 && seq <= lastSeenSeq) { replayed += 1; return false; }
     // presence.ack 是连接私有帧、不带 id（13r 环头注）：它就是补发段的收尾标记。
-    if (frame.event === 'presence.ack') replayWindow = false;
+    if (frame.event === 'presence.ack') {
+      replayWindow = false;
+      const next = frame.data && frame.data.serverInstanceId;
+      if (typeof next === 'string' && next && next.length <= 128) {
+        const previous = serverInstanceId;
+        serverInstanceId = next;
+        if (previous && previous !== next) {
+          serverGeneration += 1;
+          lastEventId = ''; lastSeenSeq = 0;
+          resetConditionalApiCache();
+          emit(EVENT_STREAM_INSTANCE_EVENT, { serverInstanceId: next, previousServerInstanceId: previous, generation: serverGeneration });
+        }
+      }
+    }
     if (frame.id) { lastEventId = String(frame.id); if (Number.isFinite(seq)) lastSeenSeq = seq; }
     if (!frame.event) return false;
     emit(frame.event, frame.data);
@@ -360,6 +376,6 @@ export function createEventStream({
     setViewingProvider: fn => { viewingSource = typeof fn === 'function' ? fn : () => []; },
     isConnected: () => connected === true,
     // 只读实况（给 e2e 与诊断用；不挂全局、不给写口）。
-    stats: () => ({ connected, frames, connects, lastEventId, presenceKey, retryMs, lastSeenSeq, replayed, replayWindow }),
+    stats: () => ({ connected, frames, connects, lastEventId, presenceKey, retryMs, lastSeenSeq, replayed, replayWindow, serverInstanceId, serverGeneration }),
   });
 }

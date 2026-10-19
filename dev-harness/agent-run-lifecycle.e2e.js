@@ -122,7 +122,8 @@ async function waitFor(fn, tries = 60, gap = 150) {
       await api('POST', `/api/agent-runs/${liveRun.id}`, { sessionId: sid4, action: 'pause' });
       const paused = await waitFor(async () => { const run = await getRun(sid4, liveRun.id); return run && run.status === 'paused' && run; }, 60, 100);
       ok(!!paused, 'L4 前提:run 进入 paused');
-      await api('POST', '/api/stop', { sessionId: sid4 });
+      const stopView = (await api('GET', `/api/sessions/${sid4}`)).body;
+      await api('POST', '/api/stop', { sessionId: sid4, expectedExecution: stopView.execution });
       const ended = await waitFor(async () => chatEnded, 50, 100);
       ok(ended, 'L4 暂停中按回合的停止 → 聊天流收尾(修前一直挂着)');
       const after = await getRun(sid4, liveRun.id);

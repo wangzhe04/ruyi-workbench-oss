@@ -2317,11 +2317,12 @@ function prepareKimiAcpSpawn(command) {
 
 async function runKimiAcpTurnPrepared(context) {
   const {
-    session, message, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
+    session, message, onEvent, config, executionOwner, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
     additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
     currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
     resumeResetReason, promptTaskContext, agentRecoverySummary, attachments, kimiNativeSlashCommand,
   } = context;
+  assertSessionExecutionOwner(session.id, executionOwner);
   let workspaceTurnBaseline = context.workspaceTurnBaseline;
   const env = {
     ...process.env,
@@ -2516,6 +2517,7 @@ async function runKimiAcpTurnPrepared(context) {
     // hunt2-engines#1:与 05 runClaudeTurn 同一处复查 —— 05 开头那次 supersede 检查到这里隔着多个 await
     // (MCP 同步、基线捕获、hooks),同会话并发的两个回合会各起一个 ACP 子进程。从这行到 activeChildren.set
     // 全是同步代码,在这里判一次就不会有两个子进程同时在册。
+    assertSessionExecutionOwner(session.id, executionOwner);
     if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     reg = {
@@ -2530,11 +2532,12 @@ async function runKimiAcpTurnPrepared(context) {
       kimiAcpWire: { subagents: new Map(), childTools: new Map() },
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
-    activeChildren.set(session.id, reg);
+    registerSessionExecutionChild(session.id, reg, executionOwner);
     // 121-K3(34 号文 §13.4 登记项①):Kimi ACP 这一路在 K2a 漏了起跑/收尾两帧。形状照 05/09 逐字
     // 一样(同一个事件名、同一个载荷键),位置也一样 —— 紧跟 activeChildren.set,此刻这条线程对
     // 任何读 activeChildren 的判据来说都已经是「在跑」了,派晚一行就会出现「订阅者算出来还是停着」。
-    RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // §6.3 指标 a
+    RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
+    // §6.3 指标 a
     onEvent({ type: 'process', state: 'running', pid: child.pid, interactive: true, protocol: 'acp' });
     child.stderr.on('data', chunk => {
       const text = decodeClaudeCliText(chunk, stderrDecodeStream);
@@ -2703,7 +2706,7 @@ async function runKimiAcpTurnPrepared(context) {
       model: kimiAcpActivatedActualConfigValue(activated, 'model'),
       thinking: kimiAcpActivatedActualConfigValue(activated, 'thinking'),
     };
-    await saveSession(session);
+    await saveSession(session, { executionOwner });
     const applyOption = async (configId, value) => {
       if (value == null || value === '') return;
       const strictMode = configId === 'mode';
@@ -2830,7 +2833,7 @@ async function runKimiAcpTurnPrepared(context) {
             attachments: [], nativeSlash: false,
           });
         }
-        await saveSession(session);
+        await saveSession(session, { executionOwner });
       } else reg.acceptingSteer = false;
     }
   } catch (error) {
@@ -2854,9 +2857,11 @@ async function runKimiAcpTurnPrepared(context) {
     await updateQueue.catch(() => {});
     if (watchdog) clearInterval(watchdog);
     stopKimiWireWatch();
-    clearPendingPermissions(session.id, 'turn ended');
-    clearPendingQuestions(session.id, 'turn ended');
-    clearPendingPlans(session.id, 'turn ended');
+    if (reg && activeChildren.get(session.id) === reg) {
+      clearPendingPermissions(session.id, 'turn ended');
+      clearPendingQuestions(session.id, 'turn ended');
+      clearPendingPlans(session.id, 'turn ended');
+    }
     if (rpc) rpc.cancelReverseRequests(new Error('Kimi ACP turn ended'));
     if (reg && reg.kimiAcpCleanupPromise) await reg.kimiAcpCleanupPromise;
     if (reg) await cleanupKimiAcpTerminals(reg);
@@ -2864,6 +2869,7 @@ async function runKimiAcpTurnPrepared(context) {
     if (activeChildren.get(session.id) === reg) activeChildren.delete(session.id);
   }
 
+  if (state.error && state.error.code === 'STEWARD_TURN_CANCELLED') throw state.error;
   const wasStopped = Boolean(reg && reg.state !== 'running');
   // ACP 0.37+ emits authoritative used/size after every turn. Only fall back to wire/Server API when an
   // older adapter omitted that update; otherwise starting a separate Web bridge adds latency and can read a
@@ -2917,7 +2923,7 @@ async function runKimiAcpTurnPrepared(context) {
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* ignore */ }
   }
   // 回合代数闸(与 09 同一个 02 saveTurnFinalSession):被更新的回合顶替过的收尾存丢弃,不派 thread.done / 任务进度。
-  const turnSuperseded = !(await saveTurnFinalSession(session, 'kimi-turn-final'));
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'kimi-turn-final', { executionOwner }));
   // 121-K3(§13.4 登记项①的另一半):收尾帧。与 05/09 同位置(紧跟本回合最后一次 saveSession ——
   // summary 这一刻已经是本回合的话)、同载荷。收尾形状与那两路不同(Kimi 这一路没有 result 早退,
   // 整段 finally 之后才走到这里),但【派帧的时机语义】一致:回合真的结束了才派。

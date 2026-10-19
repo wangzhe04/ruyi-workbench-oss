@@ -7,7 +7,7 @@
 //   B 按钮行契约 ≤3（常量 + 渲染处的 slice 锚）与主动作唯一（全文件恰好一处 .is-primary）；
 //   C 禁词表（速问／不立单／已切到档位／Pretender／3.0）零出现；
 //   D 预判去抖 + 序号丢弃；
-//   E 撤回窄窗 10 秒 + 「先 stop 再 rewind」的顺序锚；
+//   E 撤回窄窗 10 秒 + 单次 guarded rewind 的身份与锚点；
 //   F 两个 CustomEvent 事件名是导出常量；
 //   G i18n 三组键中英对称；
 //   H 新样式层三处登记 + 零硬编码色 + reduced-motion + 390px；
@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -192,10 +193,14 @@ ok(/if \(hint\) hint\.title = stewardShortTitle\(hint\.title\);/.test(composerCo
 ok(/label\.textContent = t\('stewardShell\.compose\.targetThread', \{ title: stewardShortTitle\(target\.title\)/.test(composerCode),
   'D9c 手选目标（target/picked）的标题同样过 stewardShortTitle —— ①的截短对两条分支都成立');
 ok(/const active = Boolean\(target \|\| hint\);/.test(composerCode)
-  && /if \(clear\) clear\.hidden = !active;/.test(composerCode)
+  && /if \(clear\) clear\.hidden = !active \|\| explicitMode;/.test(composerCode)
+  && /cancel\.hidden = !explicitMode;/.test(composerCode)
   && !/clear\.hidden = !picked/.test(composerCode),
   'D10 × 的显隐判据是「手选或自动命中，两者之一就有东西可撤」，不再只看 picked（修前自动命中的提示没有关闭出口）');
-ok(/if \(hintedThread\(\)\) \{[\s\S]{0,120}hintDismissed = true;/.test(composerCode),
+const cancelTargetCode = functionBlock(composerCode, 'cancelTarget');
+ok(/if \(event\.target === clear\) \{\s*cancelTarget\(\);/.test(composerCode)
+  && /routeKind = 'steward'; routeHits = \[\]; routeReason = ''; hintDismissed = true;/.test(cancelTargetCode)
+  && /cancelPreroute\(\); prerouteSeq \+= 1;/.test(cancelTargetCode),
   'D10b 点 × 撤自动预判：routeKind/routeHits/routeReason 清空，并置 hintDismissed（「用户已经否掉这一次预判」的状态位）');
 ok(/if \(hintDismissed\) return;/.test(composerCode)
   && composerCode.indexOf('if (hintDismissed) return;') < composerCode.indexOf('routeKind = String(result.kind'),
@@ -205,13 +210,16 @@ ok(/if \(hintDismissed\) return;/.test(composerCode)
 ok((composerCode.match(/(?<!let )hintDismissed = false;/g) || []).length >= 3,
   'D10d hintDismissed 至少三处复位（runPreroute 空查询分支／resetComposer／submit 的 finally）——用户重打一句新的话，预判要正常回来');
 
-// ─── E 撤回：10 秒窄窗 + 先 stop 再 rewind ───────────────────────────────────────
+// ─── E 撤回：10 秒窄窗 + 单次受保护请求 ───────────────────────────────────────────
 ok(mod.STEWARD_UNDO_WINDOW_MS === 10000 && /export const STEWARD_UNDO_WINDOW_MS = 10000;/.test(conversation),
   'E1 撤回窄窗是 10 秒的导出常量');
-const stopAt = conversation.indexOf("api('/api/stop'");
-const rewindAt = conversation.indexOf("api('/api/session/rewind'");
-ok(stopAt > 0 && rewindAt > stopAt,
-  'E2 撤回的顺序是「先 stop 再 rewind」（还在跑的回合不停下来就回退，回退完它还会往回写）');
+const undoCode = functionBlock(conversation, 'undoHandOff');
+const rewindAt = undoCode.indexOf("api('/api/session/rewind'");
+ok(undoCode.length > 500 && rewindAt > 0 && !undoCode.includes("api('/api/stop'")
+  && undoCode.split("api('/api/session/rewind'").length === 2
+  && undoCode.includes('guardExecution: true, expectedExecution: undoRef.execution')
+  && undoCode.includes("hasOwnProperty.call(undoRef, 'execution')"),
+  'E2 撤回只发一次guarded rewind，携原execution；旧身份缺失不猜目标，不另发stop');
 // 117d 第 0 步重钉（语义收紧，不是放宽）：后端补出了显式字段 undoRef.rewindTargetTurnSeq
 // （= 被递那一回合的 seq，与 09-workflow 的 plannedTurnSeq 同口径）。2026-10 工具走查再收紧：只认这个显式锚点，
 // 删掉「undoRef.turnSeq + 1」回落 —— 答提问那一支交回的 undoRef 两样都没有，回落成 0 + 1 = 把整条线程删光。
@@ -221,10 +229,10 @@ ok(/targetTurnSeq: target, rollbackFiles: true/.test(conversation)
   && /undoRef\.kind === 'none'/.test(conversation)
   && !/before \+ 1/.test(conversation),
   'E3 rewind 的锚点只取 undoRef.rewindTargetTurnSeq（无回落），并请求文件回退');
-ok(conversation.indexOf('if (!target) return false;') > 0 && conversation.indexOf('if (!target) return false;') < stopAt
+ok(undoCode.indexOf('if (!target) return false;') > 0 && undoCode.indexOf('if (!target) return false;') < rewindAt
   && /if \(!handOffRewindTarget\(undoRef\)\)/.test(conversation),
   'E3b 没有回退锚点：不出撤回按钮，撤回也不先 stop');
-ok(/if \(!rewound \|\| rewound\.ok === false\) \{/.test(conversation),
+ok(/if \(!rewound \|\| rewound\.ok !== true\) \{/.test(undoCode),
   'E3a 回退没成真就不说「已撤回」（诚实优先；按钮行留着可重试）');
 ok(/filesReverted > 0 \? t\('stewardShell\.chat\.undone'\) : t\('stewardShell\.chat\.undoneFilesKept'\)/.test(conversation),
   'E4 rewind 没回文件时如实标注（诚实优先，不假装全撤了）');
@@ -318,7 +326,7 @@ const routes = [...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\
 // 账本立起来（GET 一次看账本空不空，空才 POST {action:'start'}）。它同样是**既有**路由 ——
 // 13-http-router.js:889 那一条，交办台退役前的派单输入框走的就是它；本刀零后端。
 // 133e 补一条 `/api/upload`：管家输入框「＋ → 添加文件」与工作台 uploadFiles 走同一条既有路由（13-http-router.js 的 POST /api/upload），零后端新面。
-const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/reset', '/api/steward/visit', '/api/stop', '/api/upload'];
+const ALLOWED = ['/api/mission', '/api/session/rewind', '/api/sessions/', '/api/sessions/steward', '/api/steward/act', '/api/steward/message', '/api/steward/reset', '/api/steward/visit', '/api/upload'];
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `J1 只调 116 已有的路由，零新增后端面（实测 ${JSON.stringify(routes)}）`);
 ok(importNamesFrom(conversation, 'net.js').includes('authHeaders')
@@ -649,14 +657,23 @@ ok(bodyTextWrites === 1 && /body\.textContent = t\('stewardShell\.chat\.delivera
 // 117v-V1 ③ 重钉：判据从「调用点长什么样」改成【那一支里的边界】—— 回放这一段（renderHistorySince）
 // 现在对 inbox 与 user 两种回合都挂线程卡，只有交付卡还锁在 inbox 那一支。锚在函数体里而不是整文件：
 // attachDeliverable 的定义在别处，整文件匹配连「调用点被整个删掉」都发现不了。
-const historyPath = conversationCode.slice(conversationCode.indexOf('function renderHistorySince'),
-  conversationCode.indexOf('async function appendSince'));
+const historyPath = functionBlock(conversationCode, 'renderHistorySince');
+const manualDeliveryPath = functionBlock(conversationCode, 'openDelivery');
 const attachDeliverableSites = (conversationCode.match(/attachDeliverable\(/g) || []).length;
-ok(historyPath.length > 0 && attachDeliverableSites === 2
+ok(historyPath.length > 0 && attachDeliverableSites === 3
   && (historyPath.match(/attachDeliverable\(/g) || []).length === 1
   && /if \(trigger\.kind === 'inbox'\) attachDeliverable\(row, \{ \.\.\.opening, turnSeq: trigger\.turnSeq \|\| inboxTurnSeq \}\);/.test(historyPath),
-  `P7 交付卡只在「收件箱触发且认得出来源」那一支挂（定义 1 处 + 回放里调用 1 处，实测全文件 ${attachDeliverableSites}）——`
+  `P7 自动回放交付卡只在「收件箱触发且认得出来源」那一支挂（定义 1 处 + 回放调用 1 处 + 用户主动重开 1 处，实测全文件 ${attachDeliverableSites}）——`
   + '用户自己问的那条一发请求都不多发；117v-V1 ③ 放出线程卡时它【没有】跟着放出来（刚开的线程还没有交付）');
+ok(manualDeliveryPath.length > 0
+  && /String\(source\?\.sessionId \|\| ''\)/.test(manualDeliveryPath)
+  && /Number\(source\?\.turnSeq\)/.test(manualDeliveryPath)
+  && /!Number\.isInteger\(seq\) \|\| seq <= 0/.test(manualDeliveryPath)
+  && /const origin = \{ sessionId: id, turnSeq: seq, title: String\(source\.title \|\| ''\) \};/.test(manualDeliveryPath)
+  && (manualDeliveryPath.match(/attachDeliverable\(row, origin\)/g) || []).length === 1
+  && !/\b(?:sendToSteward|handOff|appendSteward|api|fetch)\(/.test(manualDeliveryPath)
+  && !/lastRenderedAt\s*=/.test(manualDeliveryPath),
+  'P7b 主动重开只接受真实来源 sessionId 与正整数 turnSeq 并复用交付渲染，不伪造回复、不推进回放水位、不直接发请求');
 ok(/api\('\/api\/sessions\/' \+ encodeURIComponent\(sessionId\)\)/.test(conversationCode),
   'P8 取原文走【既有】的 GET /api/sessions/<id>（13d 的信封本来就带 session.messages，零新增路由）');
 const fetchSites = (conversationCode.match(/\bfetch\(/g) || []).length;
@@ -688,10 +705,12 @@ ok(/deliverableCache\.set\(key, task\);/.test(conversationCode)
 //    Tab 焦点陷阱／焦点归还／Esc／点背影都在 confirmDanger 里）。借的仍然是那颗【共用原语】——
 //    steward-board / steward-drawer / steward-settings / steward-chips 四个消费方走的是同一条 import，
 //    不是新借了一个域的实现；本文件不自己搭第二个模态（那正是这条锁要挡住的事）。
-const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './thread-facts.js', './util.js'];
+// 75：设置回执为纯展示/撤销叶子，聊天与行动流水共用，不另建配置权威或后台轮询。
+// 78: tab-local unresolved-delivery cache is a storage leaf, with no network or domain dependency.
+const CONVERSATION_IMPORTS = ['./confirm-panel.js', './icons.js', './net.js', './popover.js', './steward-chips.js', './steward-delivery.js', './steward-handoff-recovery.js', './steward-settings-receipt.js', './thread-facts.js', './util.js'];
 const conversationImports = [...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(match => match[1]);
 ok(JSON.stringify([...new Set(conversationImports)].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
-  `P10 import 只有 net.js、steward-chips.js、popover.js、icons.js、util.js、thread-facts.js 与 confirm-panel.js 七条本域内相对路径（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
+  `P10 import 仅登记的本域内相对路径，含共享设置回执和递话恢复叶子（实测 ${JSON.stringify([...new Set(conversationImports)].sort())}）`);
 ok(/openClassicWindow = null,/.test(conversation)
   && /if \(typeof openClassicWindow === 'function'\) \{/.test(conversationCode)
   && /openThread\(id\);/.test(conversationCode)
@@ -825,7 +844,7 @@ ok(count(conversationCode, /dataset\.threadHue/g) === 1
 ok(count(conversationCode, /function clampIfLong\(/g) === 1
   && count(conversationCode, /function collapseToggle\(/g) === 1
   && count(conversationCode, /clampIfLong\(body, found\.text\)/g) === 1
-  && count(conversationCode, /collapseToggle\(body\)/g) === 1
+  && count(conversationCode, /collapseToggle\(body, collapsible\)/g) === 1
   && count(conversationCode, /clampIfLong\(/g) === 2 && count(conversationCode, /collapseToggle\(/g) === 2,
   `Q6 折叠仍是【一处】实现，而调用方只剩交付卡那一个（clampIfLong ${count(conversationCode, /clampIfLong\(/g)} 处出现 = 定义 + fillDeliverable，collapseToggle 同 = 定义 + deliverableActs）`);
 const finishSayFrom = conversationCode.indexOf('function finishSay(');
@@ -836,7 +855,7 @@ ok(finishSayFrom > 0 && finishSayTo > finishSayFrom
   && count(conversationCode, /steward-say-acts/g) === 0,
   `Q6a 管家的话【不折叠】：finishSay 的函数体内一个 clampIfLong/collapseToggle/is-clamped 都没有，那枚按钮行（.steward-say-acts）整份文件不再生成（判据锚在【函数体】上——整文件匹配会被交付卡那一路假绿；实测函数体 ${finishSaySlice.length} 字符）`);
 ok(count(conversationCode, /button\('steward-deliverable-more'/g) === 1
-  && count(conversationCode, /classList\.toggle\('is-clamped'\)/g) === 1
+  && count(conversationCode, /classList\.toggle\('is-clamped', !expanded && collapsible\)/g) === 1
   && count(conversationCode, /classList\.add\('is-clamped'\)/g) === 1
   && count(conversationCode, /classList\.remove\('is-clamped'\)/g) === 1,
   'Q6b 「展开」按钮、is-clamped 的加/减/翻转各自全文件恰好一处 —— 想再造一个折叠必须先动这几行');
@@ -865,8 +884,8 @@ ok(factsStart > 0 && factsEnd > factsStart
     count(conversationCode, new RegExp(field, 'g')) === count(factsSlice, new RegExp(field, 'g'))),
   'Q7 信封上那四个字段（resumable/relay/engineRoute/stewardLastTurn）只在 stewardThreadFacts 一处读 —— 卡头的事实不许散落在渲染代码里');
 ok(/const got = await loadDeliverable\(source\.sessionId, source\.turnSeq\); facts = stewardThreadFacts\(got && got\.envelope\);/.test(conversationCode)
-  && /return \{ envelope: payload, deliverable: stewardDeliverableFrom\(payload && payload\.session, turnSeq\) \}/.test(conversationCode),
-  'Q7b 卡头与交付原文 await 的是【同一个】被缓存的 promise（loadDeliverable 一发信封解出两样），所以请求数一发没多');
+  && /return \{ envelope: payload, hasArtifacts, deliverable: stewardDeliverableFrom\(\{ messages \}, turnSeq\) \}/.test(conversationCode),
+  'Q7b 卡头与交付原文 await 的是【同一个】被缓存的 promise（loadDeliverable 一发信封解出两样），卡头与原文不重复取历史；文件和检查由独立投影核对');
 ok(JSON.stringify([...new Set([...`${conversation}\n${composer}`.matchAll(/'(\/api\/[a-z/]+)'/g)].map(m => m[1]))].sort()) === JSON.stringify(ALLOWED),
   'Q7c companion：后端面仅使用已登记对话路由与新对话 reset（路由白名单与 J1 逐字相同）');
 ok(JSON.stringify([...new Set([...conversation.matchAll(/^import .* from '([^']+)';/gm)].map(m => m[1]))].sort()) === JSON.stringify(CONVERSATION_IMPORTS),
@@ -987,7 +1006,7 @@ ok(/undoBtn\.classList\.add\('steward-act-switch'\);/.test(conversationCode)
 ok(/function settleRow\(actsRow, text, glyph\) \{/.test(conversationCode)
   && /const mark = glyph \? icon\(glyph, 12\) : null;/.test(conversationCode)
   && /settleRow\(actsRow, filesReverted > 0 \? t\('stewardShell\.chat\.undone'\) : t\('stewardShell\.chat\.undoneFilesKept'\), 'done'\);/.test(conversationCode)
-  && /settleRow\(actsRow, receiptFor\(act\)\);/.test(conversationCode)
+  && /settleRow\(actsRow, stopReceipt \? stewardStopReceiptText\(stopReceipt, t\) : receiptFor\(act\)\);/.test(conversationCode)
   && /settleRow\(actsRow, t\('stewardShell\.chat\.providerSwitched', \{ provider: candidate\.id \}\)\);/.test(conversationCode),
   'Y8 第三态「✓ 已撤回」：字形是 settleRow 的【可选】第三参，只有撤回这一处传 —— 另两处回执（dismiss／换 Provider）仍是两个参数，一个字没动');
 {
@@ -1041,14 +1060,13 @@ ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversati
     && /act\.kind === 'open_thread'/.test(navRule) && !/label/.test(navRule)
     && /if \(isNavigationAct\(act\)\) \{/.test(runActRule)
     && settleInRunAct === 1
-    && /\} else \{\s*settleRow\(actsRow, receiptFor\(act\)\);\s*\}/.test(runActRule),
+    && /\} else \{\s*settleRow\(actsRow, stopReceipt \? stewardStopReceiptText\(stopReceipt, t\) : receiptFor\(act\)\);\s*\}/.test(runActRule),
     `Z1 ② 导航 ≠ 表态：「点完要不要落回执」按 act.kind 判（不看按钮上的字），runAct 里唯一那处 settleRow`
     + `（实测 ${settleInRunAct} 处）落在【非导航】那一支 —— open_thread 点完按钮行原样留着，从 2.0 回来还能再点`);
   const navBranch = runActRule.slice(runActRule.indexOf('if (isNavigationAct(act))'));
   ok(/if \(btn\) btn\.disabled = false;/.test(navBranch) && /openThread\(act\.sessionId\)/.test(navBranch),
     'Z2 ② companion：导航那一支既把按钮恢复可点（runAct 入口统一 disable 过一次，不恢复的话按钮还在却按不动，与「失效」没区别），也照旧真去开线程');
-  const historyRule = conversationCode.slice(conversationCode.indexOf('function renderHistorySince'),
-    conversationCode.indexOf('async function appendSince'));
+  const historyRule = functionBlock(conversationCode, 'renderHistorySince');
   const finishRule = conversationCode.slice(conversationCode.indexOf('function finishReply('),
     conversationCode.indexOf('function actionWhyLines'));
   // Z3 的头一版只钉「attachThreadCard 没被 inbox 守着」，反向验证时发现它是【假绿】：把兜底那一档

@@ -496,11 +496,26 @@ async function scratchpadWriteTool(args, ctx) {
 // 41b 行为锁(dev-harness/tool-dispatch.e2e.js): edit/exec 级且 paths 非 null 的条目,handler 源必须含 guard
 // 调用;paths:null 必须有非空 guardNote;注册表键集 === NATIVE_TOOL_PACKS 键集(目录漂移=锁红)。
 // 新工具忘了声明 = 锁红 —— archive 漏 guard(第27波)、desktop_screenshot 越界写(第36波)这类漏审整类收口。
+async function workbenchMemoryReadLoopback(name, args) {
+  const sessionId = safeSessionId(process.env.WCW_SESSION_ID || '');
+  const session = sessionId ? await loadSession(sessionId).catch(() => null) : null;
+  if (!session) return { ok: false, error: 'memory session unavailable' };
+  try {
+    const response = await httpRequest({ url: `http://${process.env.WCW_HOST || '127.0.0.1'}:${process.env.WCW_PORT}/api/tools/${name}`,
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-wcw-token': process.env.WCW_TOKEN }, timeoutMs: 15000, maxBodyChars: 300000,
+      body: JSON.stringify({ ...args, sessionId, turnSeq: session.turnSeq, memoryLiveRead: true }) });
+    const data = safeJsonParse(response.body, null);
+    return data && data.ok && data.result || { ok: false, error: 'memory parent read unavailable' };
+  } catch { return { ok: false, error: 'memory parent read unavailable' }; }
+}
+
 const CORE_TOOL_HANDLERS = {
   workbench_memory_list: { paths: null, guardNote: "工作台自有记忆元数据检索,范围固定在 dataRoot/memory", handler: async (args, ctx) => {
+      if (RUNTIME.isMcpChild && process.env.WCW_PORT && process.env.WCW_TOKEN) return workbenchMemoryReadLoopback('workbench_memory_list', args);
       return listWorkbenchMemories(args, ctx);
   } },
   workbench_memory_read: { paths: null, guardNote: "按受校验 id 读取 dataRoot/memory 内工作台记忆,不接受任意路径", handler: async (args, ctx) => {
+      if (RUNTIME.isMcpChild && process.env.WCW_PORT && process.env.WCW_TOKEN) return workbenchMemoryReadLoopback('workbench_memory_read', args);
       return readWorkbenchMemory(args, ctx);
   } },
   workbench_memory_propose: { paths: null, guardNote: "仅写待用户确认的候选元数据,不直接写入记忆库", handler: async (args, ctx) => {
@@ -819,6 +834,7 @@ const STEWARD_TOOL_HANDLERS = {
   // 116-2e:设置族两个 + 内容管理三个。与上面 21 个同一纪律 —— 只写一行 StewardHooks.<键>(args, ctx),
   // handler 体里零 require、零 13g 内部符号(steward-tools.static ② 的机器判据)。
   steward_config_get: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.configGet(args, ctx) },
+  steward_bot_setup: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.botSetup(args, ctx) },
   steward_config_set: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.configSet(args, ctx) },
   steward_playbook_draft: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.playbookDraft(args, ctx) },
   steward_skill_toggle: { paths: null, guardNote: STEWARD_GUARD_NOTE, handler: async (args, ctx) => StewardHooks.skillToggle(args, ctx) },
@@ -2497,10 +2513,11 @@ const NETWORK_TOOL_HANDLERS = {
     // v0.9-S9 (D6): web_search reads searchBackend from config (baseUrl is the admin's TRUSTED endpoint →
     // exempt from SSRF; see the web section header). web_fetch's url is UNTRUSTED → SSRF-guarded inside.
       const cfg = await readConfig().catch(() => ({ searchBackend: { type: 'none' } }));
-      return webSearch(args, cfg);
+      return webSearch(args, cfg, { signal: ctx && ctx.signal });
   } },
   web_fetch: { paths: null, guardNote: "纯网络读,SSRF 全套护栏内置(ssrfCheck/dnsResolvesToPrivate 逐跳)", handler: async (args, ctx) => {
-      return webFetch(args, { signal: ctx && ctx.signal });   // 用户 Stop / 插话要能取消进行中的抓取
+      const config = await readConfig().catch(() => ({}));
+      return webFetch(args, { signal: ctx && ctx.signal, config });   // 用户 Stop / 插话要能取消进行中的抓取
   } },
   http_request: { paths: null, guardNote: "纯网络调用,不触文件路径", handler: async (args, ctx) => {
       // 3.0 收口走查(第四波):不许经这个工具调如意【自己】的本机接口 —— 那里有 /api/permission/decision、/api/tools/*、会话与记忆读接口,

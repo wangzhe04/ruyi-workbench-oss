@@ -84,6 +84,8 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
   });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 9, permissionMode: 'bypass', defaultWorkspace: HOME, includeWorkbenchMcp: false,
+    autoImportClaudeCodeMcp: false, enableMcpDropIn: false, schedulerEnabledV1: false, stewardEnabledV1: false,
+    desktopMcp: { enabled: false, autodetect: false },
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model' }],
     activeProvider: 'fake',
   }));
@@ -97,6 +99,31 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
     const auth = { 'x-wcw-token': token };
     const get = (id, extra = {}) => request(WP, 'GET', `/api/sessions/${encodeURIComponent(id)}`, { headers: { ...auth, ...extra } });
     const getLive = id => request(WP, 'GET', `/api/sessions/${encodeURIComponent(id)}?view=live`, { headers: auth });
+    const stabilitySamples = new Map();
+    const stableConditional = async (id, label) => {
+      const changes = []; let samples = 0;
+      try {
+        return await waitFor(async () => {
+          const a = await get(id), b = await get(id); samples += 1;
+          const sample = { aStatus: a.status, aTag: a.headers.etag, bStatus: b.status, bTag: b.headers.etag };
+          stabilitySamples.set(label, sample);
+          assert.equal(a.status, 200); assert.equal(b.status, 200);
+          assert.ok(a.headers.etag && b.headers.etag, 'full responses must carry ETags');
+          if (a.headers.etag !== b.headers.etag) { changes.push(sample); return null; }
+          const conditional = await get(id, { 'if-none-match': b.headers.etag });
+          if (conditional.status === 304) return conditional;
+          sample.conditionalStatus = conditional.status; sample.conditionalTag = conditional.headers.etag;
+          assert.equal(conditional.status, 200, 'only a changed 200 response can still be settling');
+          assert.ok(conditional.headers.etag && conditional.headers.etag !== b.headers.etag, 'same-tag 200 is an ETag violation');
+          changes.push(sample); return null;
+        }, 60, 100);
+      } catch (error) {
+        console.log('ETAG-DIAG ' + JSON.stringify({ label, samples, last: stabilitySamples.get(label), failed: true }));
+        throw error;
+      } finally {
+        if (changes.length) console.log('ETAG-DIAG ' + JSON.stringify({ label, samples, changedSamples: changes.length, changes: changes.slice(0, 10) }));
+      }
+    };
     const patch = (id, body) => request(WP, 'POST', `/api/sessions/${encodeURIComponent(id)}`, { headers: { ...auth, 'x-http-method': 'PATCH' }, body });
     // 一个回合:发 /api/chat/stream,读到流结束(hold 模式下由测试端收尾 provider 才会结束)。
     const turn = (sessionId, message) => request(WP, 'POST', '/api/chat/stream', { headers: auth, body: { sessionId, message, cwd: HOME } });
@@ -195,56 +222,65 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
     ok(!!ended, 'D6 回合收尾 → 标签变、200、liveTail 键消失、resumable.live 不再是 true');
     ok(ended && ended.json.session.messages.length > afterAppend.json.session.messages.length, 'D7 体里是回合收尾落盘的新消息');
     ok(ended && ended.json.session.permissionMode === 'plan', 'D8 延后落盘的权限档随回合收尾落到了头上');
+    ok(!!await waitFor(() => { try { return JSON.parse(fs.readFileSync(headFile, 'utf8')).permissionMode === 'plan'; } catch { return false; } }, 60, 100), 'D8b 权限补丁确实写入磁盘头，不只是内存覆盖');
     const liteEnded = await getLive(sid);
     ok(liteEnded.status === 200 && liteEnded.json.view === undefined && Array.isArray(liteEnded.json.session.messages)
       && liteEnded.json.session.messages.length === ended.json.session.messages.length && liteEnded.json.resumable.live !== true,
       'L7 回合收尾后 ?view=live 落回整份会话(前端「换上来」那一支拿的就是它)');
     // 回合收尾后还有延后落盘(权限档覆盖表清空、收尾窗口关闭)—— 标签会随之再动几次,这是「多刷新、不漏刷新」的方向。
     // 稳态 = 连续两次无条件 GET 拿到同一个标签;到了稳态,带这个标签的条件 GET 必须是 304(不是永远追不上的标签)。
-    let settledEtag = '';
-    await waitFor(async () => {
-      const a = await get(sid); const b = await get(sid);
-      if (a.headers.etag && a.headers.etag === b.headers.etag) { settledEtag = a.headers.etag; return true; }
-      return null;
-    }, 60, 100);
-    const settled = settledEtag ? await get(sid, { 'if-none-match': settledEtag }) : null;
+    const settled = await stableConditional(sid, 'D9');
+    const settledEtag = settled?.headers.etag || '';
     ok(!!settled && settled.status === 304, 'D9 收尾后达到稳态:连续两次 GET 同一个标签,且带它的条件 GET 是 304');
 
+    // H/F test the idle cache path on a separate session: E deliberately created an asynchronous
+    // permission writer, which may commit after a short-lived stable tag. Do not race that writer
+    // against the independent claim that a genuinely unchanged session returns 304 without loading.
+    const cacheCreated = await request(WP, 'POST', '/api/sessions', { headers: auth, body: { title: 'idle cache scope', cwd: HOME } });
+    const cacheSid = cacheCreated.json.session.id;
+    await turn(cacheSid, 'idle cache baseline');
+    const cacheStable = await stableConditional(cacheSid, 'HF0');
+    assert.equal(cacheStable?.status, 304, 'idle cache baseline must actually stabilize');
+    const cacheEtag = cacheStable.headers.etag;
     // ── H 后台任务账本:loadSession 会把 sessions/background-jobs/<id>.json 合并进 messages,账本变了标签必须变 ──────
     // (13d 里那条账本路径是照 11-native-tools 的 backgroundJobFile 约定手写的一份 —— 这一段钉住它不漂移。)
     const ledgerDir = path.join(HOME, 'sessions', 'background-jobs');
     fs.mkdirSync(ledgerDir, { recursive: true });
-    fs.writeFileSync(path.join(ledgerDir, sid + '.json'), JSON.stringify([{
-      id: 'job_etag_1', shellId: 'sh_1', name: 'bg-probe', sessionId: sid, status: 'succeeded', exitCode: 0,
+    fs.writeFileSync(path.join(ledgerDir, cacheSid + '.json'), JSON.stringify([{
+      id: 'job_etag_1', shellId: 'sh_1', name: 'bg-probe', sessionId: cacheSid, status: 'succeeded', exitCode: 0,
       output: 'ledger-output', completedAt: new Date().toISOString(),
     }]), 'utf8');
-    const h1 = await get(sid, { 'if-none-match': settledEtag });
-    ok(h1.status === 200 && h1.headers.etag !== settledEtag, 'H1 后台任务账本出现 → 标签变(头与正文都没动,只有账本变了)');
+    const h1 = await get(cacheSid, { 'if-none-match': cacheEtag });
+    ok(h1.status === 200 && h1.headers.etag !== cacheEtag, 'H1 后台任务账本出现 → 标签变(头与正文都没动,只有账本变了)');
     ok(h1.json.session.messages.some(m => m.backgroundJobId === 'job_etag_1'), 'H2 体里带着合并进来的回执消息');
-    let ledgerEtag = '';
-    await waitFor(async () => {
-      const a = await get(sid); const b = await get(sid);
-      if (a.headers.etag && a.headers.etag === b.headers.etag) { ledgerEtag = a.headers.etag; return true; }
-      return null;
-    }, 60, 100);
-    const h3 = ledgerEtag ? await get(sid, { 'if-none-match': ledgerEtag }) : null;
+    const h3 = await stableConditional(cacheSid, 'H3');
+    const ledgerEtag = h3?.headers.etag || '';
+    if (!h3 || h3.status !== 304) {
+      const stamps = {};
+      for (const suffix of ['.json', '.messages.ndjson', '.provider.ndjson']) {
+        try { const stat = fs.statSync(path.join(HOME, 'sessions', cacheSid + suffix)); stamps[suffix] = { size: stat.size, mtimeMs: stat.mtimeMs }; } catch {}
+      }
+      console.log('H3-DIAG ' + JSON.stringify({ ledgerEtag, ledgerSamples: stabilitySamples.get('H3'), status: h3?.status, returnedEtag: h3?.headers?.etag,
+        live: h3?.json?.resumable?.live, execution: h3?.json?.execution, stamps }));
+    }
     ok(!!h3 && h3.status === 304, 'H3 账本稳定后同一标签又是 304');
 
     // ── F 304 不装载会话 ────────────────────────────────────────────────────────
-    const stable = ledgerEtag || settledEtag || etag2;
+    const stable = ledgerEtag;
     // 判据:loadSession 在读到完整可读的 v2 会话后会顺手清掉残留的 <id>.messages.ndjson.prevbody(慢路径崩溃留下的快照,见 02
     // loadSession 尾部的清理)。放一份假的残留在盘上:304 路径若装载了会话,它就没了;不装载,它原样还在。
     // (比「同大小改写正文再拨回 mtime」稳:后者要求亚毫秒精度的 utimes 往返,在不同文件系统上会抖。)
-    const prevBody = path.join(HOME, 'sessions', sid + '.messages.ndjson.prevbody');
+    const prevBody = path.join(HOME, 'sessions', cacheSid + '.messages.ndjson.prevbody');
     fs.writeFileSync(prevBody, 'stale-prevbody-marker\n', 'utf8');
-    const f1 = await get(sid, { 'if-none-match': stable });
+    const f1 = await get(cacheSid, { 'if-none-match': stable });
+    if (f1.status !== 304) console.log('F1-DIAG ' + JSON.stringify({ expected: stable, status: f1.status, returned: f1.headers.etag, live: f1.json?.resumable?.live, execution: f1.json?.execution }));
     ok(f1.status === 304, 'F1 带当前标签 → 304');
     ok(fs.existsSync(prevBody), 'F2 304 之后残留快照原样还在 —— 304 路径没有装载会话(装载会清掉它)');
-    const wrongTag = await get(sid, { 'if-none-match': 'W/"session-1111"' });
+    const wrongTag = await get(cacheSid, { 'if-none-match': 'W/"session-1111"' });
     ok(wrongTag.status === 200 && !fs.existsSync(prevBody), 'F3 标签对不上走全量:这一次装载了会话,顺手清掉了残留快照(对照:证明上一条的判据有效)');
-    const renamed = await patch(sid, { title: 'etag-renamed' });
+    const renamed = await patch(cacheSid, { title: 'etag-renamed' });
     ok(renamed.status === 200, 'F4 PATCH 标题 → 头变了');
-    const f5 = await get(sid, { 'if-none-match': stable });
+    const f5 = await get(cacheSid, { 'if-none-match': stable });
     ok(f5.status === 200 && f5.headers.etag !== stable, 'F5 头一变 → 200 + 新标签');
     ok(f5.json.session.title === 'etag-renamed', 'F6 体里是新标题');
 
@@ -463,7 +499,8 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
   } finally {
     kill(wb);
     await fake.close();
-    fs.rmSync(HOME, { recursive: true, force: true });
+    if (!t.failures) fs.rmSync(HOME, { recursive: true, force: true });
+    else console.log('FAILURE_HOME ' + HOME);
   }
   t.done();
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 2; });

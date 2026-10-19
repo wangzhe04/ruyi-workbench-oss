@@ -1,7 +1,10 @@
-# 已交付优化方案归档 · Delivered optimization plans
+# 早期优化方案归档
 
-本目录归档**已交付/已落地**的 optimization-plan 实施文档，作为工程溯源档案保留。
-现行活跃规划见 `docs/optimization-plan/`；波次状态与后续计划以 `docs/OPTIMIZATION-ROADMAP.md` 为准。
+> 阅读口径更新：2026-10-16。此目录保留 14 份早期设计与当时交付记录；“归档”表示保留工程证据，不表示相关界面、默认值或产品名称仍然沿用。
+
+当前 3.x 迭代以 [62 号管家方案](../../optimization-plan/62-steward-3x-iterations.md) 为准，4.0 暂缓；全部方案分类见 [优化方案索引](../../optimization-plan/README.md)，产品导航见 [全局路线图](../../OPTIMIZATION-ROADMAP.md)。
+
+01–03、08–11、13–19 已移入本目录；12 号研究路线仍在原目录。08 号所述交办台后来已退役，见 [34 号历史记录](../../optimization-plan/34-wave-121-one-workbench-two-views.md)。正文中的历史状态、验收和决定原样保留，不能据此重新实施已移除功能。
 
 | 归档文档 | 对应交付 | 状态 |
 |---|---|---|

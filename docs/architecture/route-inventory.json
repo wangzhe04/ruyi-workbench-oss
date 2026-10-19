@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-15T06:25:35.865Z",
+  "generatedAt": "2026-10-19T03:54:10.470Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -13,19 +13,21 @@
       "ruyi-workbench/app/src/13g-steward.js",
       "ruyi-workbench/app/src/13h-steward-runner.js",
       "ruyi-workbench/app/src/13r-event-stream.js",
-      "ruyi-workbench/app/src/13s-scheduler.js"
+      "ruyi-workbench/app/src/13s-scheduler.js",
+      "ruyi-workbench/app/src/13w-external-bots.js"
     ]
   },
   "summary": {
-    "routeAuthEntries": 141,
-    "decisionPoints": 155,
+    "routeAuthEntries": 152,
+    "decisionPoints": 166,
     "byKind": {
-      "exact": 132,
+      "exact": 143,
       "prefix": 11,
       "regex": 12
     },
     "authLevels": [
       "body-token",
+      "external-callback",
       "host-gate",
       "open",
       "token",
@@ -36,6 +38,66 @@
     "warnings": 0
   },
   "routeAuth": [
+    {
+      "m": "GET",
+      "p": "/api/external-bots/connections",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/connections",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/external-bots/setup",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/setup",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/credentials",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/discover",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/external-bots/inbox",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/inbox/read",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/callback/qq",
+      "auth": "external-callback",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/callback/feishu",
+      "auth": "external-callback",
+      "prefix": false
+    },
     {
       "m": "GET",
       "p": "/api/status",
@@ -769,6 +831,12 @@
       "prefix": false
     },
     {
+      "m": "GET",
+      "p": "/api/steward/delivery",
+      "auth": "token",
+      "prefix": false
+    },
+    {
       "m": "POST",
       "p": "/api/steward/relay",
       "auth": "token",
@@ -900,6 +968,7 @@
         "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
         "dev-harness\\dom-smoke.e2e.js",
+        "dev-harness\\external-bot-gateway.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\facts.static.e2e.js",
         "dev-harness\\help-menu.e2e.js",
@@ -967,6 +1036,7 @@
         "dev-harness\\repo-hygiene.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
+        "dev-harness\\session-rewind-execution.e2e.js",
         "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\settings-catalog.browser.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
@@ -979,6 +1049,7 @@
         "dev-harness\\steward-contract-guard.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-settings-scope.browser.e2e.js",
         "dev-harness\\steward-settings.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-tools.e2e.js",
@@ -993,6 +1064,7 @@
         "dev-harness\\unit\\desktop-mcp-warm.test.js",
         "dev-harness\\unit\\fixture-home-per-test.test.js",
         "dev-harness\\unit\\net-errors.test.js",
+        "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\voice-learn.e2e.js",
@@ -1037,6 +1109,7 @@
       "coveredBy": [
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\service-match.browser.e2e.js",
         "dev-harness\\settings-skills.browser.e2e.js",
@@ -1072,6 +1145,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js"
       ]
     },
@@ -1090,6 +1164,7 @@
       "coveredBy": [
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\service-match.browser.e2e.js",
         "dev-harness\\settings-skills.browser.e2e.js",
@@ -1111,6 +1186,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js"
       ]
     },
@@ -1255,9 +1331,12 @@
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
         "dev-harness\\steward-no-model.browser.e2e.js",
+        "dev-harness\\steward-read-routing.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
+        "dev-harness\\steward-settings-scope.browser.e2e.js",
         "dev-harness\\steward-settings.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
@@ -1802,18 +1881,21 @@
         "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-wake.e2e.js",
+        "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\frontend-wave2.browser.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\live-full-text.static.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
+        "dev-harness\\session-stop-execution.e2e.js",
+        "dev-harness\\session-stop-identity.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
-        "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
+        "dev-harness\\steward-stop-receipts.browser.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\unit\\foreign-turn-composer.test.js"
@@ -1942,9 +2024,11 @@
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-deliverable.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
@@ -1954,6 +2038,7 @@
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -2297,7 +2382,8 @@
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\copy-path-guard.static.e2e.js",
         "dev-harness\\help-menu.e2e.js",
-        "dev-harness\\meta-guard.e2e.js"
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js"
       ]
     },
     {
@@ -2372,8 +2458,10 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\chat-ux-wave1.browser.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\frontend-wave2.browser.e2e.js",
+        "dev-harness\\steward-attachments.browser.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\tool-result-render.browser.e2e.js",
         "dev-harness\\unit\\tool-result-shrink.test.js",
@@ -2468,6 +2556,7 @@
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-replay.browser.e2e.js",
         "dev-harness\\exec-result-cache.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\failover.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
@@ -2515,6 +2604,7 @@
         "dev-harness\\parallel-read-island.e2e.js",
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbook-skill-tools.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\prefix-layout.e2e.js",
@@ -2568,6 +2658,7 @@
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
+        "dev-harness\\steward-settings-scope.browser.e2e.js",
         "dev-harness\\steward-shell-pixels.browser.e2e.js",
         "dev-harness\\steward-shell-redesign.browser.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
@@ -2626,11 +2717,13 @@
         "dev-harness\\file-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
         "dev-harness\\git.e2e.js",
+        "dev-harness\\memory-active-scope.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\repo-hygiene.e2e.js",
         "dev-harness\\search-robust.e2e.js",
         "dev-harness\\shell-session.e2e.js",
         "dev-harness\\subagent.e2e.js",
+        "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
@@ -2939,12 +3032,16 @@
         "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
+        "dev-harness\\session-rewind-execution.e2e.js",
+        "dev-harness\\session-stop-execution.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
-        "dev-harness\\steward-shell-wave1.browser.e2e.js"
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
+        "dev-harness\\steward-stop-receipts.browser.e2e.js",
+        "dev-harness\\unit\\session-rewind-execution.test.js"
       ]
     },
     {
@@ -3124,6 +3221,7 @@
       "domain": "mcp/checkpoint-storage/steer",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\data-root-migration.e2e.js",
         "dev-harness\\unit\\voice-learn-front.test.js",
         "dev-harness\\voice-learn.browser.e2e.js",
         "dev-harness\\voice-learn.e2e.js",
@@ -3143,6 +3241,7 @@
       "domain": "mcp/checkpoint-storage/steer",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\data-root-migration.e2e.js",
         "dev-harness\\unit\\voice-learn-front.test.js",
         "dev-harness\\voice-learn.browser.e2e.js",
         "dev-harness\\voice-learn.e2e.js",
@@ -3310,12 +3409,16 @@
         "dev-harness\\compaction-refetch-guard.e2e.js",
         "dev-harness\\composer-session-races.browser.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\data-root-migration.e2e.js",
         "dev-harness\\dns-rebind.e2e.js",
         "dev-harness\\dom-smoke.e2e.js",
         "dev-harness\\e3-engine-switch-continuity.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-replay.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\file-guard.e2e.js",
@@ -3377,6 +3480,7 @@
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\permission-survives-reload.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
@@ -3394,6 +3498,7 @@
         "dev-harness\\responses-websearch-inline.e2e.js",
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
+        "dev-harness\\run-health.browser.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\security-gates-w2.e2e.js",
@@ -3405,8 +3510,11 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-rewind-execution.e2e.js",
         "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
+        "dev-harness\\session-stop-execution.e2e.js",
+        "dev-harness\\session-stop-identity.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\shell-session.e2e.js",
         "dev-harness\\simple-mode.browser.e2e.js",
@@ -3416,12 +3524,15 @@
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-attachments.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-continue-unfinished.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
+        "dev-harness\\steward-delivery-history.browser.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-drawer-keep-frame.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3429,7 +3540,9 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-exempt-no-swap.e2e.js",
         "dev-harness\\steward-exempt-shell-send.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-new-conversation.browser.e2e.js",
         "dev-harness\\steward-no-model.browser.e2e.js",
@@ -3438,11 +3551,13 @@
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
+        "dev-harness\\steward-settings-scope.browser.e2e.js",
         "dev-harness\\steward-shell-pixels.browser.e2e.js",
         "dev-harness\\steward-shell-redesign.browser.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-side-collapse.browser.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
+        "dev-harness\\steward-stop-receipts.browser.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
@@ -3474,6 +3589,7 @@
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
+        "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
@@ -3581,12 +3697,16 @@
         "dev-harness\\compaction-refetch-guard.e2e.js",
         "dev-harness\\composer-session-races.browser.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
+        "dev-harness\\data-root-migration.e2e.js",
         "dev-harness\\dns-rebind.e2e.js",
         "dev-harness\\dom-smoke.e2e.js",
         "dev-harness\\e3-engine-switch-continuity.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-replay.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\file-guard.e2e.js",
@@ -3648,6 +3768,7 @@
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\permission-survives-reload.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
@@ -3665,6 +3786,7 @@
         "dev-harness\\responses-websearch-inline.e2e.js",
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
+        "dev-harness\\run-health.browser.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\security-gates-w2.e2e.js",
@@ -3676,8 +3798,11 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-rewind-execution.e2e.js",
         "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
+        "dev-harness\\session-stop-execution.e2e.js",
+        "dev-harness\\session-stop-identity.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\shell-session.e2e.js",
         "dev-harness\\simple-mode.browser.e2e.js",
@@ -3687,12 +3812,15 @@
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-attachments.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-continue-unfinished.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
+        "dev-harness\\steward-delivery-history.browser.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-drawer-keep-frame.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3700,7 +3828,9 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-exempt-no-swap.e2e.js",
         "dev-harness\\steward-exempt-shell-send.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
         "dev-harness\\steward-new-conversation.browser.e2e.js",
         "dev-harness\\steward-no-model.browser.e2e.js",
@@ -3709,11 +3839,13 @@
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
+        "dev-harness\\steward-settings-scope.browser.e2e.js",
         "dev-harness\\steward-shell-pixels.browser.e2e.js",
         "dev-harness\\steward-shell-redesign.browser.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-side-collapse.browser.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
+        "dev-harness\\steward-stop-receipts.browser.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
@@ -3745,6 +3877,7 @@
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
+        "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
@@ -3810,6 +3943,7 @@
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-parent-mailbox.e2e.js",
+        "dev-harness\\agent-resource-wait-stop.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-wake.e2e.js",
@@ -3832,10 +3966,13 @@
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-replay.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bots-control.e2e.js",
         "dev-harness\\fixture-home.static.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\frontend-wave2.browser.e2e.js",
         "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
@@ -3871,6 +4008,7 @@
         "dev-harness\\responses-websearch-inline.e2e.js",
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
+        "dev-harness\\run-health.browser.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
@@ -3879,8 +4017,11 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-rewind-execution.e2e.js",
         "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
+        "dev-harness\\session-stop-execution.e2e.js",
+        "dev-harness\\session-stop-identity.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\skills-registry.e2e.js",
         "dev-harness\\source-fields.e2e.js",
@@ -3888,30 +4029,38 @@
         "dev-harness\\steer-interrupt.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steering.e2e.js",
+        "dev-harness\\steward-attachments.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-continue-unfinished.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
+        "dev-harness\\steward-delivery-history.browser.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-drawer-keep-frame.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-exempt-no-swap.e2e.js",
         "dev-harness\\steward-exempt-shell-send.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-new-conversation.browser.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
+        "dev-harness\\steward-settings-scope.browser.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
+        "dev-harness\\steward-stop-receipts.browser.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\store-walkthrough-w1.e2e.js",
         "dev-harness\\subagent-thinking-continuity.browser.e2e.js",
         "dev-harness\\subagent-thinking-continuity.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\surface-hardening-w2.browser.e2e.js",
+        "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
@@ -3925,6 +4074,7 @@
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
@@ -3973,15 +4123,18 @@
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-deliverable.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -4035,15 +4188,18 @@
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-deliverable.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -4093,9 +4249,12 @@
         "dev-harness\\rail-reconcile.browser.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4135,9 +4294,12 @@
         "dev-harness\\rail-reconcile.browser.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4177,9 +4339,12 @@
         "dev-harness\\rail-reconcile.browser.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4219,9 +4384,12 @@
         "dev-harness\\rail-reconcile.browser.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4261,9 +4429,12 @@
         "dev-harness\\rail-reconcile.browser.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4319,9 +4490,12 @@
         "dev-harness\\rail-reconcile.browser.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4355,10 +4529,13 @@
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\steward-viewing-gate.e2e.js",
         "dev-harness\\unit\\steward-quick-replies.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
@@ -4382,7 +4559,9 @@
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\mission-index-scale.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
+        "dev-harness\\steward-task-decisions.e2e.js",
         "dev-harness\\steward-viewing-gate.e2e.js"
       ]
     },
@@ -4580,9 +4759,11 @@
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\run-health.browser.e2e.js",
         "dev-harness\\spawn-background-dag.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-multistep.browser.e2e.js",
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
@@ -4625,6 +4806,7 @@
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\run-health.browser.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
@@ -4663,6 +4845,7 @@
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\run-health.browser.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
@@ -4701,6 +4884,7 @@
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\run-health.browser.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
@@ -4739,6 +4923,7 @@
         "dev-harness\\monitor-incremental.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
+        "dev-harness\\run-health.browser.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
@@ -4845,9 +5030,11 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\keyboard-walkthrough.browser.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-preroute.e2e.js",
         "dev-harness\\thread-switch-race.browser.e2e.js"
       ]
@@ -4976,7 +5163,24 @@
         "dev-harness\\steward-settings.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
+        "dev-harness\\steward-stop-receipts.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/steward/delivery",
+      "file": "13h-steward-runner.js",
+      "handler": "handleStewardRunnerApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "steward",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\steward-delivery.browser.e2e.js"
       ]
     },
     {
@@ -4994,12 +5198,15 @@
       "coveredBy": [
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\net-token-replay.static.e2e.js",
+        "dev-harness\\session-stop-execution.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-config-tools.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-settings.e2e.js",
+        "dev-harness\\steward-stop-receipts.browser.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js"
       ]
     },
@@ -5051,8 +5258,12 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\external-bot-setup.browser.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js"
       ]
@@ -5074,17 +5285,23 @@
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-pageshow.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\steward-answer.e2e.js",
+        "dev-harness\\steward-attachments.browser.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-exempt-no-swap.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
+        "dev-harness\\steward-handoff-recovery.browser.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
+        "dev-harness\\steward-settings-scope.browser.e2e.js",
         "dev-harness\\steward-stop-respected.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\steward-tools.static.e2e.js",
@@ -5110,11 +5327,15 @@
       "coveredBy": [
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",
+        "dev-harness\\session-rewind-execution.e2e.js",
+        "dev-harness\\session-stop-execution.e2e.js",
+        "dev-harness\\session-stop-identity.browser.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
+        "dev-harness\\steward-stop-receipts.browser.e2e.js",
         "dev-harness\\steward-stop-respected.e2e.js",
         "dev-harness\\steward-walkthrough.static.e2e.js"
       ]
@@ -5134,19 +5355,25 @@
       "coveredBy": [
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\event-stream.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",
         "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\steward-contract-guard.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\steward-delivery.browser.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-exempt-no-swap.e2e.js",
         "dev-harness\\steward-guardrails.e2e.js",
         "dev-harness\\steward-no-model.browser.e2e.js",
+        "dev-harness\\steward-read-routing.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
+        "dev-harness\\unit\\external-bots-inbox.test.js",
+        "dev-harness\\unit\\external-owner-runner.test.js",
         "dev-harness\\unit\\steward-say-stream.test.js"
       ]
     },
@@ -5166,6 +5393,7 @@
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\background-completion.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
+        "dev-harness\\ec-d-performance.e2e.js",
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream-pageshow.browser.e2e.js",
         "dev-harness\\event-stream-replay.browser.e2e.js",
@@ -5173,9 +5401,12 @@
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\live-full-text.browser.e2e.js",
         "dev-harness\\permission-plain.browser.e2e.js",
+        "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-tool-height.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
+        "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
+        "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-viewing-gate.e2e.js",
@@ -5340,6 +5571,196 @@
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\scheduler-persist.test.js",
         "dev-harness\\unit\\scheduler-review-fixes.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/callback/qq",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "external-callback",
+      "coveredBy": [
+        "dev-harness\\external-bot-gateway.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\external-bots.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/callback/feishu",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": true,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "external-callback",
+      "coveredBy": [
+        "dev-harness\\external-bot-gateway.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
+        "dev-harness\\external-bots.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/setup",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-discovery.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\unit\\external-bots-ui.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/setup",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-discovery.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\unit\\external-bots-ui.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/credentials",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\unit\\external-bot-setup-ui.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/discover",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-discovery.e2e.js",
+        "dev-harness\\unit\\external-bots-ui.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/connections",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-discovery.e2e.js",
+        "dev-harness\\external-bot-gateway.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
+        "dev-harness\\external-bots.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/connections",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-discovery.e2e.js",
+        "dev-harness\\external-bot-gateway.e2e.js",
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
+        "dev-harness\\external-bots.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/inbox",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bot-setup.browser.e2e.js",
+        "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
+        "dev-harness\\external-bots.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/inbox/read",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bots.e2e.js"
       ]
     }
   ],

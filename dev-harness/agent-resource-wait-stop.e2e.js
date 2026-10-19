@@ -109,7 +109,8 @@ async function waitFor(fn, tries = 60, gap = 150) {
       // 等节点真的在跑(provider 请求已到),再按停止:这样走的是「在飞节点被中止」的路径。
       const running = await waitFor(async () => { const run = await getRun(sid2, live2.id); return run && (run.nodes || []).some(n => n.status === 'running') && run; }, 60, 100);
       ok(!!running, 'W2 前提:节点在跑');
-      await api('POST', '/api/stop', { sessionId: sid2 });
+      const stopView = (await api('GET', `/api/sessions/${sid2}`)).body;
+      await api('POST', '/api/stop', { sessionId: sid2, expectedExecution: stopView.execution });
       ok(await waitFor(async () => chatEnded, 80, 100), 'W2 按回合的停止 → 聊天流收尾');
       const fin = await waitFor(async () => { const run = await getRun(sid2, live2.id); return run && settled(run.status) && run; }, 80, 100);
       ok(!!fin && fin.status === 'stopped', `W2 父回合被停止导致的中止:run 记 stopped(修前 failed / partial;实得 ${fin && fin.status})`);

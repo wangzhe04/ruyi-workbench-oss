@@ -428,6 +428,7 @@ const NATIVE_TOOL_TIER = {
   // read(与观察族同档);config_set 真的改工作台的行为,exec。内容管理:playbook 起草只出草稿不落盘,
   // 归 edit;技能启停改的是那条线程下一回合的工具面与提示词、速查开的是一条真会动世界的线程,两者 exec。
   steward_config_get: 'read', steward_config_set: 'exec',
+  steward_bot_setup: 'edit', // inspect or prepare a disabled inbox only; activation is a separate local UI operation
   steward_playbook_draft: 'edit', steward_skill_toggle: 'exec', steward_quick_ask: 'exec',
   // 123-M2(37 号文 §3.5):定时任务六件归「如意设置」族 —— list 只读、零副作用,归 read;
   // 另五件都改的是【如意自己账面上的一张表】(任务定义),不动文件、不动外部世界,归 edit。
@@ -619,6 +620,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   steward_thread_stop: 'steward',                                            // 117m-A4
   steward_memory_write: 'steward', steward_memory_veto: 'steward', steward_memory_search: 'steward',
   steward_config_get: 'steward', steward_config_set: 'steward',              // 116-2e
+  steward_bot_setup: 'steward',
   steward_playbook_draft: 'steward', steward_skill_toggle: 'steward', steward_quick_ask: 'steward',
   // 123-M2:定时任务六件同归 steward 包(与上面 27 个同一条理由 —— 包只是目录归属的一致性声明)。
   steward_schedule_create: 'steward', steward_schedule_list: 'steward', steward_schedule_pause: 'steward',
@@ -1776,7 +1778,7 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
       });
       // 123-M1:计划审批与权限请求同一条口径 —— 无人值守回合等 schedulerAskWaitMinutes,到时仍是【拒】。
     }, schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs));   // 0 = 不限时(04 promptWaitMs)
-    pendingPlans.set(planId, { resolve: settle, sessionId, timer });
+    pendingPlans.set(planId, { resolve: settle, sessionId, timer, markdown: String(markdown || '') });
   });
 }
 

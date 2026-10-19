@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { constBlock, functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -39,6 +40,9 @@ const drawerCode = stripComments(drawer);
 const chipsCode = stripComments(chips);
 const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
 const count = (source, pattern) => (source.match(pattern) || []).length;
+// Named imports may grow as shared contracts are added; membership, not the final name/order, is the invariant.
+const drawerConversationNames = [...drawer.matchAll(/import \{([^}]+)\} from '\.\/steward-conversation\.js';/g)]
+  .flatMap(match => match[1].split(',').map(name => name.trim()));
 
 let fail = 0;
 const ok = (condition, label) => {
@@ -338,7 +342,7 @@ ok(/const code = stewardErrorCode\(info\);/.test(failNoteBody)
   && /stewardQueuedWaitLabel\(info(?:, t)?\)/.test(failNoteBody)   // W2-F5：可带第二个参数 t（本地化等待原因）
   && /stewardErrorText\(info\)/.test(failNoteBody)
   && !/String\(\(info && info\.message\)/.test(failNoteBody)
-  && /stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel \} from '\.\/steward-conversation\.js';/.test(drawer),
+  && ['stewardErrorCode', 'stewardErrorText', 'stewardQueuedWaitLabel'].every(name => drawerConversationNames.includes(name)),
   'F4d 抽屉 failNote 与看板同判据：稳定码 / wait.label / 人话文本三处都只经 steward-conversation.js（零本地弱化解包）');
 ok(/const relayed = await api\('\/api\/steward\/relay', \{ method: 'POST', body: JSON\.stringify\(\{ sessionId, message \}\) \}\);/.test(drawer)
   && !/api\('\/api\/steer'/.test(drawerCode) && !/\/api\/chat\/stream/.test(drawerCode),
@@ -351,10 +355,14 @@ ok(/const RELAY_NOTE_KEYS = Object\.freeze\(\{\s*answer:/.test(drawer)
 // 那是「回答一道正式提问」，不是「递一句话」，两者本来就是两条路。
 ok(/answers: \[\{ questionId: String\(\(first && first\.id\) \|\| ''\), selectedOptionIds: \[\], otherText: text \}\],\s*content: text,/.test(drawer),
   'F4c 问答卡的自由回答（有本地待决时）走 /api/chat/answer，content 与 otherText 都带上');
-ok(/targetTurnSeq: target, rollbackFiles: true/.test(drawer)
+const rewindAllCode = functionBlock(drawer, 'rewindAll');
+ok(rewindAllCode.length > 500 && /targetTurnSeq: target, rollbackFiles: true/.test(rewindAllCode)
   && /function firstUserTurnSeq\(\)/.test(drawer)
-  && drawer.indexOf("api('/api/stop'") < drawer.indexOf("api('/api/session/rewind'"),
-  'F5 整单回退＝先 stop 再 rewind，锚点是第一条用户消息那一回合（与 117d 第 0 步同口径）');
+  && !rewindAllCode.includes("api('/api/stop'") && rewindAllCode.split("api('/api/session/rewind'").length === 2
+  && rewindAllCode.includes('guardExecution: true, expectedExecution, expectedIdleState')
+  && rewindAllCode.indexOf('const expectedExecution = sessionExecution') < rewindAllCode.indexOf('await confirmDanger(')
+  && rewindAllCode.indexOf('const expectedIdleState =') < rewindAllCode.indexOf('await confirmDanger('),
+  'F5 整单回退只发一次guarded rewind；确认前捕获execution与idle观察，锚点仍是第一条用户消息回合');
 
 // ─── G 新样式层三处登记 + token / 降级 / 断点 ────────────────────────────────────
 ok(styles.includes('@import url("/css/views/steward-drawer.css");')
@@ -527,7 +535,7 @@ ok(/function askOptionReplies\(\) \{[\s\S]{0,320}return quickRepliesFor\(\{ pend
 // 121-K6b **重钉 J7**（§13.7 登记 ⑨）：焦点栏常驻之后，换焦点的触发者多数不是用户（管家递话、
 // 推送来帧、syncNow 的自动挑选），把光标从用户正在打字的地方抢走就是把键位丢掉。
 // 「闸落之后才移焦」这半句一个字没松，只是外面多了一道「用户没在打字」的门。
-ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer)
+ok(/if \(sessionId === id && drawerReadGeneration === openGeneration\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer)
   && /function userIsTyping\(\)/.test(drawer)
   && /return active\.isContentEditable === true;/.test(drawer)
   && /const wantFocus = opts && opts\.focus === true \? true : \(opts && opts\.focus === false \? false : !userIsTyping\(\) && !focusInOtherDialog\(\)\);/.test(drawer),
@@ -682,9 +690,14 @@ ok(typeof conversationMod.stewardThreadHueFor === 'function'
 // 本身；钉字面量的代价就是这种：合法复用把名单加长一个，锁当场红，整条 e2e 闸卡死。
 // 现在改成钉三件事实：① 三个名字都还是从这个模块 import 的（一个都没被本地重写）；
 // ② 色号在本文件只问一次；③ 本文件零本地登记表、零 stewardThreadHue()、零颜色字面量。
-ok(/import \{[^}]*\bstewardThreadHueFor\b[^}]*\bstewardThreadStateKey\b[^}]*\bstewardAgoLabel\b[^}]*\} from '\.\/steward-conversation\.js';/.test(drawer)
+// Only the two page-local stop-request maps are exempted. Any additional map still fails this hue-registry lock.
+const drawerHueCode = ['stewardStopRequests', 'stewardStopReceipts'].reduce((source, name) => {
+  const declaration = constBlock(source, name);
+  return declaration === 'const ' + name + ' = new Map();' ? source.replace(declaration, '') : source;
+}, drawerCode);
+ok(['stewardThreadHueFor', 'stewardThreadStateKey', 'stewardAgoLabel'].every(name => drawerConversationNames.includes(name))
   && count(drawerCode, /stewardThreadHueFor\(/g) === 1
-  && !/new Map\(\)|stewardThreadHue\(|hsl\(|rgb\(/.test(drawerCode),
+  && !/new Map\(\)|stewardThreadHue\(|hsl\(|rgb\(/.test(drawerHueCode),
   `M2 抽屉的色号【只问一次、不自己算】：一处 stewardThreadHueFor(（实测 ${count(drawerCode, /stewardThreadHueFor\(/g)}），零本地登记表、零 stewardThreadHue()、零颜色字面量`);
 ok(/headNode\.dataset\.threadHue = String\(stewardThreadHueFor\(sessionId, missionRow && missionRow\.missionId\)\);/.test(drawerCode)
   && /else headNode\.removeAttribute\('data-thread-hue'\);/.test(drawerCode),
@@ -877,10 +890,13 @@ ok(/\.steward-drawer-title:focus-visible \{ outline: none; box-shadow: none; \}/
   'P1 走查①：程序性聚焦的标题（tabindex=-1，Tab 走不到）不画焦点环 —— base.css 那圈 :focus-visible 在它身上只像个输入框');
 ok(/host\.hidden = missionRows\.length < 2;/.test(drawerCode) && /\.steward-drawer-tabs\[hidden\] \{ display: none; \}/.test(cssCode),
   'P2 走查④：单线程任务的页签行整行不印（那唯一一枚与卡头同名），[hidden] 守卫在（display:flex 会盖掉 UA 规则）');
-ok(/function renderFoot\(sections\) \{[\s\S]{0,900}stop\.hidden = !\(isLive\(\) \|\| activeTurn \|\| queued\);/.test(drawerCode)
+const footerStopBlock = functionBlock(drawerCode, 'renderFoot');
+ok(footerStopBlock.length > 0
+  && /const ownsExecution = sessionExecution !== null && validExecutionSnapshot\(sessionExecution\);/.test(footerStopBlock)
+  && /stop\.hidden = !\(isLive\(\) \|\| activeTurn \|\| queued \|\| ownsExecution\);/.test(footerStopBlock)
   && /const sections = renderStateSections\(\);[\s\S]{0,200}renderFoot\(sections\);/.test(drawerCode)
-  && !/function renderFoot\(sections\) \{[\s\S]{0,900}'(running|dispatching|needs_you|done|stopped)'/.test(drawerCode),
-  'P3 走查④：「停止」只在真有东西可停时出现（isLive ／ 行上的 activeTurn ／ renderStateSections 算好的 queued 三个现成事实），不新认五态字面量');
+  && !/'(running|dispatching|needs_you|done|stopped)'/.test(footerStopBlock),
+  'P3 停止可见性复用live/activeTurn/queued及有效非idle execution，包含starting/子回合间隙且不新认业务五态');
 ok(/const say = el\('div', 'steward-drawer-say'\);[\s\S]{0,200}say\.appendChild\(input\);\s*say\.appendChild\(send\);/.test(drawerCode)
   && /!input\.parentNode\.classList\.contains\('steward-drawer-say'\)/.test(drawerCode)
   && /\.steward-drawer-say \{ display: flex; align-items: flex-end;/.test(cssCode),

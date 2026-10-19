@@ -189,6 +189,8 @@ try {
     ok(s && s.ok === true, `I4 把掩码原样 set 回去(用户按了)-> ok(got ${s && (s.error || 'ok')};非 invalid_request 说明 sanitize 探针先还原再比)`);
     ok(diskServers() === before, 'I5 磁盘 externalMcpServers 逐字节不变(掩码没有落盘、真值没有被抹)');
     ok(plain(JSON.stringify(s)), 'I6 applied／undoRef 里零明文');
+    const guarded = await call('steward_config_set', { patch: { externalMcpServers: g.values.externalMcpServers }, expected: { externalMcpServers: g.values.externalMcpServers } }, ctxPressed);
+    ok(guarded && guarded.ok === true && diskServers() === before && plain(JSON.stringify(guarded)), 'I6b 现值条件接受既有全遮掩码往返，不把掩码与秘密真值误判为冲突');
     const decisionsFile = path.join(HOME, 'steward', 'decisions-v1.ndjson');
     let decisions = '';
     for (let i = 0; i < 40; i++) {
@@ -244,7 +246,8 @@ try {
     // 现在族里再冒出第二条落盘路径也红。
     const stewardFamilySrc = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js']
       .map(f => fs.readFileSync(path.join(WB, 'app', 'src', f), 'utf8')).join('\n');
-    ok((stewardFamilySrc.match(/await (?:ConfigPatchHooks\.)?applyConfigPatch\(patch\)/g) || []).length === 1,
+    // capture/expected 是同一写口的内部选项，不以调用括号紧接 patch 来限定参数数量。
+    ok((stewardFamilySrc.match(/await (?:ConfigPatchHooks\.)?applyConfigPatch\(patch(?:,|\))/g) || []).length === 1,
       'G5 源码单点:steward_config_set 走 applyConfigPatch,不另写落盘(13g 族里恰好一处)');
   }
 } catch (e) {

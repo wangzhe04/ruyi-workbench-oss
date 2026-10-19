@@ -780,7 +780,10 @@ function openModal(id) {
   const bd = $(id);
   _modalTriggers.set(bd, document.activeElement);
   bd.classList.remove('hidden');
-  if (id === 'settingsModal') { fillSettings(); switchSettingsTab(state._settingsTab || 'basic'); }
+  if (id === 'settingsModal') {
+    fillSettings(); switchSettingsTab(state._settingsTab || 'basic');
+    void refreshStatus().catch(() => toast(t('settingsReceipt.refreshFailed'), 'err'));
+  }
   const panel = bd.querySelector('.modal, .palette');
   // 打开者若已把焦点放进弹层（如左栏「定时任务」直达某一段），就不再抢回页首第一个控件——抢回会把滚动拽回顶部。
   setTimeout(() => { if (panel && panel.contains(document.activeElement)) return; focusFirstInteractive(panel)?.focus?.(); }, 0);

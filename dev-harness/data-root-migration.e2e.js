@@ -7,7 +7,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //      /api/status 的 dataRoot 是新目录、dataRootAliases 列出旧路径;启动行与日志各记一笔;
 //   M2 经旧路径(别名)读 config.json 的文件工具访问照样被拒(敏感子树判定认别名),经新路径同样拒;
 //   M3 第二次启动:不再迁移、不再打迁移行;
-//   M4 旧目录里有活实例(runtime.json 的 pid 活着)→ 不动它,本次继续用旧目录,启动行说明原因;
+//   M4 旧目录里有活实例(runtime.json 的 pid 活着)→ 不迁移、不启动第二个服务、不覆盖旧握手;
 //   M5 设了 RUYI_HOME → 不迁移(旧目录原样);
 //   M6 mcp-config 子命令不迁移;生成的 MCP 配置里如意自己的 server id 是 ruyi,子进程环境只写 RUYI_HOME;
 //   M2b 带 RUYI_HOME 的进程(Claude / Kimi 的 MCP 子进程就是这样)经旧路径联接搜 / 列数据根:敏感文件照样不出现
@@ -60,9 +60,9 @@ async function waitFor(fn, tries = 80, gap = 150) {
   return null;
 }
 // 起一个工作台,等到 /health 通,取页面 token;返回 { port, headers, log(), stop() }
-async function serve(home, extraEnv) {
+async function serve(home, extraEnv, nodeArgs = []) {
   const port = await getFreePort();
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, windowsHide: true, env: childEnv(home, extraEnv) });
+  const wb = cp.spawn(process.execPath, [...nodeArgs, 'app/server.js', 'serve', '--port', String(port)], { cwd: WB, windowsHide: true, env: childEnv(home, extraEnv) });
   let log = ''; wb.stdout.on('data', d => { log += d; }); wb.stderr.on('data', d => { log += d; });
   const stop = async () => { try { killOwnTree(wb); } catch { /* gone */ } await sleep(300); };
   const up = await waitFor(() => request(port, 'GET', '/health').catch(() => null));
@@ -70,6 +70,14 @@ async function serve(home, extraEnv) {
   const html = await new Promise(resolve => http.get({ host: '127.0.0.1', port, path: '/' }, res => { let b = ''; res.on('data', c => { b += c; }); res.on('end', () => resolve(b)); }));
   const token = (html.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1];
   return { port, headers: { 'x-wcw-token': token }, log: () => log, stop };
+}
+async function refused(home) {
+  const port = await getFreePort();
+  const child = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, windowsHide: true, env: childEnv(home) });
+  let output = ''; child.stdout.on('data', d => { output += d; }); child.stderr.on('data', d => { output += d; });
+  const ended = await waitFor(() => child.exitCode !== null ? { code: child.exitCode } : null);
+  if (!ended) { killOwnTree(child); throw new Error('duplicate migration startup did not refuse'); }
+  return { code: ended.code, output };
 }
 const lexists = p => { try { fs.lstatSync(p); return true; } catch { return false; } };
 const isLink = p => { try { return fs.lstatSync(p).isSymbolicLink(); } catch { return false; } };
@@ -92,6 +100,8 @@ const same = (a, b) => { try { return fs.realpathSync(a) === fs.realpathSync(b);
     ok(/data dir migrated .*\.win-claude-workbench -> .*\.ruyi-workbench/.test(s1.log()), 'M1 启动行记了迁移');
     const logs = fs.readdirSync(path.join(next1, 'logs')).map(f => fs.readFileSync(path.join(next1, 'logs', f), 'utf8')).join('\n');
     ok(/"kind":"data_root_migration".*"moved":true/.test(logs), 'M1 日志记了 data_root_migration');
+    const duplicate = await refused(h1);
+    ok(duplicate.code === 1 && /独占权/.test(duplicate.output), 'M1 迁移后再次默认启动仍被同一数据目录独占权拒绝');
     // M2:经旧路径(别名)与新路径读 config.json 都被拒
     const viaAlias = await request(s1.port, 'POST', '/api/tools/file_read', { path: path.join(legacy1, 'config.json') }, s1.headers);
     const viaNext = await request(s1.port, 'POST', '/api/tools/file_read', { path: path.join(next1, 'config.json') }, s1.headers);
@@ -124,12 +134,27 @@ const same = (a, b) => { try { return fs.realpathSync(a) === fs.realpathSync(b);
     const h4 = makeHome('m4');
     const legacy4 = seedLegacy(h4, 'MARK-M4');
     fs.writeFileSync(path.join(legacy4, 'runtime.json'), JSON.stringify({ pid: process.pid, port: 1 }));
-    const s4 = await serve(h4); running.push(s4);
-    const st4 = await request(s4.port, 'GET', '/api/status', null, s4.headers);
-    ok(!isLink(legacy4) && !lexists(path.join(h4, '.ruyi-workbench')) && st4 && same(st4.dataRoot, legacy4),
-      `M4 旧目录有活实例:不搬、本次用旧目录(dataRoot=${st4 && st4.dataRoot})`);
-    ok(/migration skipped \(legacy-in-use\)/.test(s4.log()), 'M4 启动行说明为什么没迁');
-    await s4.stop(); running.pop();
+    const oldIdentity = fs.readFileSync(path.join(legacy4, 'runtime.json'), 'utf8');
+    const s4 = await refused(h4);
+    ok(s4.code === 1 && !isLink(legacy4) && !lexists(path.join(h4, '.ruyi-workbench')), 'M4 旧目录有活实例:既不迁移也不启动第二个服务');
+    ok(fs.readFileSync(path.join(legacy4, 'runtime.json'), 'utf8') === oldIdentity && /旧如意进程仍存活/.test(s4.output), 'M4 拒绝时说明原因并保留旧身份记录');
+
+    // ── M8:目录迁移成功、旧位置 junction 创建失败也不能留下捕获旧路径的存储 ──
+    const h8 = makeHome('m8');
+    const legacy8 = seedLegacy(h8, 'MARK-M8');
+    const next8 = path.join(h8, '.ruyi-workbench');
+    const preloader = path.join(ROOT, 'deny-migration-junction.js');
+    fs.writeFileSync(preloader, `const fs=require('fs');const original=fs.symlinkSync;fs.symlinkSync=function(target,dest,...rest){if(dest===${JSON.stringify(legacy8)})throw Object.assign(new Error('fixture denied junction'),{code:'EPERM'});return original.call(this,target,dest,...rest);};`);
+    const s8 = await serve(h8, undefined, ['--require', preloader]); running.push(s8);
+    const st8 = await request(s8.port, 'GET', '/api/status', null, s8.headers);
+    const created8 = await request(s8.port, 'POST', '/api/sessions', { title: 'after migration' }, s8.headers);
+    const lex8 = await request(s8.port, 'POST', '/api/audio/lexicon', { text: 'OwnershipTerm' }, s8.headers);
+    ok(st8 && same(st8.dataRoot, next8) && !lexists(legacy8), 'M8 junction失败:权威根指向新目录且没有重建旧目录');
+    ok(created8.session?.id && fs.existsSync(path.join(next8, 'sessions', created8.session.id + '.json')), 'M8 会话写入迁移后的目录');
+    ok(lex8.ok === true && fs.existsSync(path.join(next8, 'voice-lexicon.json')) && !lexists(legacy8), 'M8 模块顶层DurableJsonStore回调写入新目录,不依赖旧junction');
+    const duplicate8 = await refused(h8);
+    ok(duplicate8.code === 1, 'M8 junction失败后第二个默认serve仍被新根独占权拒绝');
+    await s8.stop(); running.pop();
 
     // ── M5:显式 RUYI_HOME → 不迁移 ──────────────────────────────────────────────────────────────
     const h5 = makeHome('m5');

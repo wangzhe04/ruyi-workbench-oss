@@ -116,17 +116,19 @@ export async function api(path, options = {}) {
 // 服务端没给 ETag(旧服务/读不到盘戳的会话)就不记,行为与无条件 api() 完全一致。非 2xx 抛错的形状与 api() 相同。
 const CONDITIONAL_CACHE_MAX = 2;
 const conditionalCache = new Map();   // path -> { etag, payload };Map 插入序 = 最近使用序(命中时重新插入)
+let conditionalGeneration = 0;
 async function apiConditional(path, options = {}) {
+  const generation = conditionalGeneration;
   const fetchOptions = { ...options };
   const hit = conditionalCache.get(path);
   if (hit) fetchOptions.headers = { ...(fetchOptions.headers || {}), 'if-none-match': hit.etag };
   const res = await apiRaw(path, fetchOptions);
   if (res.status === 304 && hit) {
-    conditionalCache.delete(path); conditionalCache.set(path, hit);
+    if (generation === conditionalGeneration) { conditionalCache.delete(path); conditionalCache.set(path, hit); }
     return { ...hit.payload, notModified: true };
   }
   if (!res.ok) {
-    conditionalCache.delete(path);
+    if (generation === conditionalGeneration) conditionalCache.delete(path);
     const err = new Error((await res.text()) || `HTTP ${res.status}`);
     err.status = res.status;
     err.path = path;
@@ -134,6 +136,7 @@ async function apiConditional(path, options = {}) {
   }
   const payload = await res.json();
   const etag = res.headers.get('etag') || '';
+  if (generation !== conditionalGeneration) return payload;
   conditionalCache.delete(path);
   if (etag) {
     conditionalCache.set(path, { etag, payload });
@@ -146,7 +149,7 @@ async function apiConditional(path, options = {}) {
 // api() 自己的函数体一个字没动(static 锁钉着「403 换 token 重放只有 apiRaw 一份,api() 复用它」;条件 GET 同样只经 apiRaw)。
 api.conditional = apiConditional;
 // 测试口:清掉条件 GET 的记忆(单测在同一进程里换服务/换会话时用)。
-export function resetConditionalApiCache() { conditionalCache.clear(); }
+export function resetConditionalApiCache() { conditionalGeneration += 1; conditionalCache.clear(); }
 
 // v1.0.2 (G2/G5c): api() throws with the response body text on an HTTP error (400/403/404). Handlers that
 // return {ok:false,error} at those statuses want the human `error` — pull it out of the (usually JSON) text.

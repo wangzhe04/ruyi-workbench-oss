@@ -1,5 +1,15 @@
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
+  { m: 'GET', p: '/api/external-bots/connections', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/connections', auth: 'token' },
+  { m: 'GET', p: '/api/external-bots/setup', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/setup', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/credentials', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/discover', auth: 'token' },
+  { m: 'GET', p: '/api/external-bots/inbox', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/inbox/read', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/callback/qq', auth: 'external-callback' },
+  { m: 'POST', p: '/api/external-bots/callback/feishu', auth: 'external-callback' },
   // open: 低敏读(host 门已过,无 token 需求)
   { m: 'GET', p: '/api/status', auth: 'open' },
   { m: 'GET', p: '/api/capabilities', auth: 'open' },
@@ -176,6 +186,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/steward/reset', auth: 'token' },
   { m: 'POST', p: '/api/steward/message', auth: 'token' },
   { m: 'POST', p: '/api/steward/act', auth: 'token' },
+  { m: 'GET', p: '/api/steward/delivery', auth: 'token' },
   // 第117波117l(27号文§11.9 D2): 递话通道的单口。抽屉「直接对这条线程说」与问答卡的自由回答都走它;
   // 它会按目标线程状态选「答/批/插/新」四条通道之一,写面(能回答一条待决、能起一个回合),token 级。
   { m: 'POST', p: '/api/steward/relay', auth: 'token' },

@@ -337,11 +337,20 @@ try {
   };
   const openThread = async sessionId => {
     await cdp.evaluate(`(() => {
+      const probe = window.__threadOpenProbe = { done: false };
+      const originalFetch = window.fetch.bind(window), path = '/api/sessions/' + encodeURIComponent('${sessionId}');
+      window.fetch = async (...args) => {
+        if (String(args[0]) !== path) return originalFetch(...args);
+        window.fetch = originalFetch;
+        const response = await originalFetch(...args), json = response.json.bind(response);
+        response.json = async () => { const value = await json(); probe.done = true; return value; };
+        return response;
+      };
       const row = document.querySelector('#railList .steward-board-thread[data-session-id="${sessionId}"] .steward-board-thread-title');
       if (row) row.click();
       return true;
     })()`);
-    return waitForEval(cdp, `(() => (window.state && window.state.currentSession
+    return waitForEval(cdp, `(() => (window.__threadOpenProbe?.done && window.state && window.state.currentSession
       && window.state.currentSession.id === '${sessionId}') ? 1 : null)()`);
   };
   const clickSummary = () => cdp.evaluate(`(() => {
@@ -399,7 +408,7 @@ try {
   const grownCount = grown && grown.json && grown.json.session ? (grown.json.session.messages || []).length : 0;
   ok(grownCount >= BULK_TURNS * 2, `B8a 线程 S 已灌到 ${grownCount} 条消息`);
   // 换走再换回来，让中栏重新取一份会话（灌水是经 HTTP 做的，浏览器手里那份是旧的）。
-  await openThread(idU);
+  ok(Boolean(await openThread(idU)), 'B8b0 后台回合推送到达时仍能切到另一条线程');
   ok(Boolean(await openThread(idS)), 'B8b 重新打开线程 S');
   const firstMessageProbe = JSON.stringify(USER_TEXT);
   const windowed = await waitForEval(cdp, `(() => {

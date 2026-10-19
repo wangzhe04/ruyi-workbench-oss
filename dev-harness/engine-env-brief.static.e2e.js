@@ -65,6 +65,7 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
   ok(/整段加双引号/.test(cOn) && /注释单独占一行/.test(cOn) && /竖排（TD）/.test(cOn), 'A9b mermaid 写法建议(引号 / 注释独占一行 / 竖排)CLI 版同样带上(不写 %% 字样:A13 管 % 与 !)');
   ok(/「每步都问」模式/.test(cOn) && /不要换工具或换写法绕过去/.test(cOn), 'A10 权限档含义 + 拒绝不可绕过');
   ok(/管家会看着各条线程/.test(cOn) && /这条线程是管家替用户开的/.test(cOn), 'A11 管家看管 + 管家代开(createdBy=steward)时补一句交付会被转述');
+  ok(/交付先写简短结论/.test(cOn) && /普通核验不主动附流程图/.test(cOn) && /仍须实际验证/.test(cOn), 'A11b 管家交付先结果和文件，省略内部日志但保留验证义务');
   ok(cOn.length <= 1800, 'A12 中文 Claude 版 ≤ 1800 字(实 ' + cOn.length + ')');
   ok(!/[%!]/.test(cOn), 'A13 没有 % 与 !(claude.cmd 经 cmd.exe 展开)');
   ok(tagsOf(cOn).join(',') === '<ruyi-environment>,</ruyi-environment>', 'A14 除自身围栏外没有尖括号标签(' + tagsOf(cOn).join(',') + ')');

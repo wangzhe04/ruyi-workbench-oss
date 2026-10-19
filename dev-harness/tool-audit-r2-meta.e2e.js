@@ -54,7 +54,7 @@ const call = async (name, args, extra = {}) => {
   const ctx = extra.noCtx ? null : { sessionId: session.id, turnSeq: session.turnSeq, session, config: extra.config || cfg, workingDir: WS, ...(extra.ctx || {}) };
   try { return await srv.toolCall(name, args, ctx); } catch (e) { return { threw: String((e && e.message) || e) }; }
 };
-const nextTurn = () => { session.turnSeq += 1; };
+const nextTurn = async () => { session.turnSeq += 1; await srv.saveSession(session); };
 const liveCfg = () => srv.readConfig();   // 盘上最新配置(normalizeConfig 补全默认值之后)
 let fakeProvider = null, wb = null;
 
@@ -69,15 +69,15 @@ try {
   ok(rd.ok === true && rd.memory && rd.memory.scope === 'global', `B0 前置:memory_read 不给 scope 读得到只在 global 的记忆(got ${JSON.stringify(rd).slice(0, 100)})`);
   const rev = await call('workbench_memory_revise', { id: 'glob-one', body: 'new body', reason: '过时了' });
   ok(rev.ok === true && rev.proposal && rev.proposal.targetScope === 'global', `B1 memory_revise 不给 scope 时自动判到 global(修前:目标记忆不存在;got ${JSON.stringify(rev).slice(0, 160)})`);
-  nextTurn();
+  await nextTurn();
   const rev2 = await call('workbench_memory_revise', { id: 'no-such-mem', body: 'x', reason: 'y' });
   ok(rev2.ok === false && /project/.test(rev2.error) && /global/.test(rev2.error), `B1b 找不到时错误说明两个 scope 都查过(got ${rev2.error})`);
   const rev3 = await call('workbench_memory_revise', { id: 'glob-one', scope: 'project', body: 'x', reason: 'y' });
   ok(rev3.ok === false && /scope=project/.test(rev3.error), `B1c 显式给错 scope 时错误点名 scope=project(got ${rev3.error})`);
-  nextTurn();
+  await nextTurn();
   const rel = await call('workbench_memory_relation_propose', { type: 'supports', from: 'glob-one', to: 'glob-two', reason: '互相印证' });
   ok(rel.ok === true && rel.proposal && rel.proposal.scope === 'global', `B2 relation_propose 不给 scope 时自动判到 global(got ${JSON.stringify(rel).slice(0, 160)})`);
-  nextTurn();
+  await nextTurn();
 
   /* ── (7) memory_list 的使用计数 / propose 去重信息 ── */
   fs.writeFileSync(path.join(gdir, 'glob-three.md'), memMd('Glob Three', 'third convention entry', 'convention'));
@@ -137,7 +137,7 @@ try {
   const s0 = await call('tool_search', { query: 'file', limit: 0 }), sneg = await call('tool_search', { query: 'file', limit: -5 });
   ok(s0.matches.length > 1 && s0.matches.length === sneg.matches.length, `E3b tool_search limit 0 与 -5 都回默认(got ${s0.matches.length} / ${sneg.matches.length})`);
   const m0 = await call('workbench_memory_list', { limit: 0 }), mneg = await call('workbench_memory_list', { limit: -5 });
-  ok(m0.memories.length === 3 && mneg.memories.length === 3, `E3c workbench_memory_list limit 0 / -5 都回默认(got ${m0.memories.length} / ${mneg.memories.length})`);
+  ok(m0.ok && mneg.ok && m0.memories.length === 3 && mneg.memories.length === 3, `E3c workbench_memory_list limit 0 / -5 都回默认(got ${JSON.stringify([m0, mneg])})`);
   const sp = await call('tool_invoke_read', { name: ' file_read ', arguments: { path: 'a.txt' } });
   ok(sp.ok === true && /hello a/.test(sp.content || ''), `E4 tool_invoke 的 name 去首尾空白(got ${JSON.stringify(sp).slice(0, 120)})`);
   const js = await call('tool_invoke_read', { name: 'file_read', arguments: '{"path":"a.txt"}' });

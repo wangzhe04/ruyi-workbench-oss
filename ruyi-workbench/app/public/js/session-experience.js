@@ -3,6 +3,7 @@
 // EC-D：会话侧栏、任务/授权状态、历史渲染、空态与 Playbook 领域。
 import { state, MSG_WINDOW_STEP, MSG_WINDOW_TAIL, MSG_WINDOW_THRESHOLD } from './state.js';
 import { api } from './net.js';
+import { validExecutionSnapshot } from './run-health.js';
 import { $, el, autoGrow, fileBasename, toast, chatProviders, paintSessionMeta } from './util.js';
 // 每个 Agent CLI 的品牌名、路径键、原生用量接口只问这一张登记表（ENGINEERING-SPEC §11.1）。
 import { agentCliMeta } from './agent-cli-registry.js';
@@ -29,7 +30,7 @@ import {
 import { ARTIFACT_KIND_ICON } from './artifact-changes.js';
 import { confirmDanger } from './confirm-panel.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
-import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
+import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT, EVENT_STREAM_INSTANCE_EVENT } from './event-stream.js';
 
 // 走查 S-11：run 的终态有 succeeded／failed／timed_out／cancelled／partial／stopped／interrupted 七种，而文案键修前只有前四种 ——
 // 其余三种显示成「[chat.background.partial]」，还一律红色。颜色按「这对用户意味着什么」分：成功＝绿、部分完成＝黄（warn）、
@@ -272,48 +273,59 @@ async function refreshSessions() {
 // 没有的话照常取号，之后用户再点一条仍然盖过它。
 let sessionOpenSeq = 0;
 let sessionChoices = 0;
+let sessionOpenPending = null;
+let sessionOpenRefreshPending = false;
 async function openSession(id, opts = {}) {
   const restore = Boolean(opts && opts.restore === true);
   if (restore && sessionChoices > 0) return;
   if (!restore) sessionChoices += 1;
   const seq = ++sessionOpenSeq;
-  const res = await api(`/api/sessions/${encodeURIComponent(id)}`);
-  if (seq !== sessionOpenSeq) return;   // 已经有更新的一次「换会话」了，这一发晚到的回包不许再写回去
-  const prevId = state.currentSession?.id;
-  const switchedSession = prevId !== id;
-  state.currentSession = res.session;
-  currentChangedWhileAway = false;   // 128f-⑫：刚整份读过，「离开期间动过」那一笔作废
-  state.resumable = res.resumable || null; // v0.8-S0 A6: dangling-turn info for the resume banner
-  captureLiveTurn(id, res); // 117m-A5: 在途回合的活文本跟着同一发 GET 回来，零新请求
-  state.msgWindowStart = null; // v1.0-S7 (perf): each session opens windowed to its tail (recompute per open)
-  try { localStorage.setItem('wcw.lastSession', id); } catch { /* ignore */ }
-  // v1.9.1: 会话切换清空 steer 状态(模块级单例不按会话隔离,否则 A 的插话卡片/steeredSeen 残留到 B;
-  //   切到流式会话 setStreaming(true) 不清空 -> B 看到 A 的插话 + ×按钮报错 + steeredSeen 孤儿吞事件)。对抗验证发现。
-  if (switchedSession) {
-    steerPendingList.length = 0; steeredSeen.length = 0; resetStickyScroll(); // EC-D 57: 切会话 -> 恢复跟随最新
-    const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; }
-  }
-  updateEngineDependentUI();
-  renderSessions();
-  renderCurrentSession();
-  if (switchedSession) scrollMessagesToBottom(); // 旧会话的阅读锚点不能泄漏到新会话
-  renderResumeBanner();
-  syncStreamingUi();
-  mountActiveTurn(id);
-  syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
-  syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
-  if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
-  // The global status denominator describes the new-session default. Resolve this session's pinned route
-  // after every switch so the context meter and model list do not lag behind until the next completed turn.
-  api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
-    if (state.currentSession?.id !== id || !fresh) return;
-    if (state.status) {
-      state.status.contextWindowResolved = fresh.contextWindowResolved || null;
-      if (Array.isArray(fresh.models)) state.status.models = fresh.models;
+  sessionOpenPending = seq;
+  try {
+    const executionRead = ++sessionExecutionReadSeq;
+    const res = await api(`/api/sessions/${encodeURIComponent(id)}`);
+    if (seq !== sessionOpenSeq || executionRead !== sessionExecutionReadSeq || res?.session?.id !== id) return;   // 已经有更新的一次「换会话」了，这一发晚到的回包不许再写回去
+    const prevId = state.currentSession?.id;
+    const switchedSession = prevId !== id;
+    state.currentSession = res.session;
+    currentChangedWhileAway = false;   // 128f-⑫：刚整份读过，「离开期间动过」那一笔作废
+    state.resumable = res.resumable || null; // v0.8-S0 A6: dangling-turn info for the resume banner
+    captureLiveTurn(id, res, executionRead); // 117m-A5: 在途回合的活文本跟着同一发 GET 回来，零新请求
+    state.msgWindowStart = null; // v1.0-S7 (perf): each session opens windowed to its tail (recompute per open)
+    try { localStorage.setItem('wcw.lastSession', id); } catch { /* ignore */ }
+    // v1.9.1: 会话切换清空 steer 状态(模块级单例不按会话隔离,否则 A 的插话卡片/steeredSeen 残留到 B;
+    //   切到流式会话 setStreaming(true) 不清空 -> B 看到 A 的插话 + ×按钮报错 + steeredSeen 孤儿吞事件)。对抗验证发现。
+    if (switchedSession) {
+      steerPendingList.length = 0; steeredSeen.length = 0; resetStickyScroll(); // EC-D 57: 切会话 -> 恢复跟随最新
+      const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; }
     }
     updateEngineDependentUI();
-    renderContextMeter(latestUsage(state.currentSession));
-  }).catch(() => {});
+    renderSessions();
+    renderCurrentSession();
+    if (switchedSession) scrollMessagesToBottom(); // 旧会话的阅读锚点不能泄漏到新会话
+    renderResumeBanner();
+    syncStreamingUi();
+    mountActiveTurn(id);
+    syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
+    syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
+    if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
+    // The global status denominator describes the new-session default. Resolve this session's pinned route
+    // after every switch so the context meter and model list do not lag behind until the next completed turn.
+    api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
+      if (state.currentSession?.id !== id || !fresh) return;
+      if (state.status) {
+        state.status.contextWindowResolved = fresh.contextWindowResolved || null;
+        if (Array.isArray(fresh.models)) state.status.models = fresh.models;
+      }
+      updateEngineDependentUI();
+      renderContextMeter(latestUsage(state.currentSession));
+    }).catch(() => {});
+  } finally {
+    if (sessionOpenPending === seq) {
+      sessionOpenPending = null;
+      if (sessionOpenRefreshPending) { sessionOpenRefreshPending = false; void refreshLiveTurn(); }
+    }
+  }
 }
 // v0.8-S0 A6: show a lightweight banner above the composer when the opened session has a dangling
 // (interrupted) turn. "继续" resends a prompt asking the model to finish; the banner then hides.
@@ -962,7 +974,11 @@ let liveStreamConnected = false; // 121-K2b：推送连着没有（连着就不�
 let liveTurnPushBusy = false;    // 121-K2b：推送驱动的那一趟在飞（合并、串行；本模块不加第二个计时器）
 let liveTurnPushAgain = false;
 
-function captureLiveTurn(sessionId, res) {
+let sessionExecutionReadSeq = 0;
+let sessionExecutionNeedsRefresh = false;
+function captureLiveTurn(sessionId, res, executionRead) {
+  if (executionRead !== sessionExecutionReadSeq || !res || res.session?.id !== sessionId) return;
+  state.sessionExecution = { sessionId, execution: Object.hasOwn(res, 'execution') && validExecutionSnapshot(res.execution) ? res.execution : undefined };
   liveTurnSessionId = String(sessionId || '');
   liveTurnTail = res && res.liveTail && typeof res.liveTail === 'object' ? res.liveTail : null;
   liveTurnNarrative = res && res.liveTurn && typeof res.liveTurn === 'object' ? res.liveTurn : null;
@@ -1028,6 +1044,14 @@ async function pushLiveTurn(sessionId) {
 }
 function bindLiveEventStream() {
   if (!eventStream || typeof eventStream.on !== 'function') return false;
+  eventStream.on(EVENT_STREAM_INSTANCE_EVENT, () => {
+    sessionExecutionReadSeq += 1;
+    state.sessionExecution = undefined;
+    sessionExecutionNeedsRefresh = true;
+  });
+  eventStream.on('presence.ack', () => {
+    if (sessionExecutionNeedsRefresh) { sessionExecutionNeedsRefresh = false; void refreshLiveTurn(); }
+  });
   eventStream.on('background.completed', data => {
     if (!data || !data.sessionId) return;
     const outcome = backgroundToastOutcome(data.status);
@@ -1079,14 +1103,16 @@ function bindLiveEventStream() {
 }
 // 切回工作台时重读当前会话（只在离开期间真的来过它的推送时才走到这里）。自己的流在跑就不动：那一张正在实时画。
 async function reloadCurrentSessionAfterAway() {
+  if (sessionOpenPending === sessionOpenSeq) { sessionOpenRefreshPending = true; return false; }
   const id = String(state.currentSession?.id || '');
   if (!id || activeTurns.has(id) || state.streaming) return false;
+  const executionRead = ++sessionExecutionReadSeq;
   let res = null;
   try { res = await api(`/api/sessions/${encodeURIComponent(id)}`); } catch { res = null; }
-  if (!res || !res.ok || state.currentSession?.id !== id || activeTurns.has(id) || state.streaming) return false;
+  if (executionRead !== sessionExecutionReadSeq || !res || !res.ok || res.session?.id !== id || state.currentSession?.id !== id || activeTurns.has(id) || state.streaming) return false;
   state.currentSession = res.session;
   state.resumable = res.resumable || null;
-  captureLiveTurn(id, res);
+  captureLiveTurn(id, res, executionRead);
   liveTurnCardEls = null;
   renderCurrentSession();
   renderResumeBanner();
@@ -1106,16 +1132,20 @@ window.addEventListener('i18n:change', () => {
 // 一拍：重取信封 → 还在跑就只刷这张气泡（整份重绘会抹掉阅读位置，长会话还很贵）；
 // 已经跑完就把服务端刚落盘的正文整份换上来，临时气泡随之消失。
 async function refreshLiveTurn() {
+  // A push for the previous session must not invalidate the user's in-flight selection read.
+  // Coalesce it into one refresh after that selection settles; instance changes still invalidate it.
+  if (sessionOpenPending === sessionOpenSeq) { sessionOpenRefreshPending = true; return; }
   const id = state.currentSession?.id || '';
   if (!id) { syncLivePolling(); return; }
   let res = null;
+  const executionRead = ++sessionExecutionReadSeq;
   // 条件 GET:这一拍每 3 s(直播回合、推送断开时)/ 每条 thread.live·thread.state 推送各来一发,服务端每次装载整份会话。
   // 带 If-None-Match:没变就是 304,net.js 回上一次那份解析结果(res.notModified === true),下面照常吃信封。
   // ?view=live:回合还在跑时服务端只回在跑部分(不带历史);回合已收尾就回整份会话,下面「换上来」那一支正好用它。
   try { res = await (typeof api.conditional === 'function' ? api.conditional : api)(`/api/sessions/${encodeURIComponent(id)}?view=live`); } catch { res = null; }
-  if (!res || !res.ok || state.currentSession?.id !== id) { syncLivePolling(); return; }
+  if (executionRead !== sessionExecutionReadSeq || !res || !res.ok || res.session?.id !== id || state.currentSession?.id !== id) { syncLivePolling(); return; }
   const wasLive = liveTurnVisible();
-  captureLiveTurn(id, res);
+  captureLiveTurn(id, res, executionRead);
   if (liveTurnVisible()) {
     if (!paintLiveTurnCard()) renderCurrentSession(); // 气泡不在 DOM 上（刚切回来）才重绘一次
   } else if (wasLive && !state.streaming && !activeTurns.has(id)) {
@@ -1123,7 +1153,7 @@ async function refreshLiveTurn() {
     // 与信封无关,信封才是 304 保证「没变」的那部分。所以撞上 304 就无条件重读一发;轻量信封(view:'live')里没有会话本身,同理。
     if (res.notModified || res.view === 'live') {
       try { res = await api(`/api/sessions/${encodeURIComponent(id)}`); } catch { res = null; }
-      if (!res || !res.ok || state.currentSession?.id !== id || state.streaming || activeTurns.has(id)) { syncLivePolling(); return; }
+      if (executionRead !== sessionExecutionReadSeq || !res || !res.ok || res.session?.id !== id || state.currentSession?.id !== id || state.streaming || activeTurns.has(id)) { syncLivePolling(); return; }
     }
     state.currentSession = res.session;
     state.resumable = res.resumable || null;
@@ -1654,6 +1684,10 @@ function buildPlaybookCard(pb) {
 // call sendPrompt. XSS-safe: labels/hints via el()/textContent.
 function openPlaybookModal(pb) {
   const body = el('div', 'pb-form');
+  if (pb.reuse) {
+    body.append(el('p', 'pb-form-desc', t('playbook.reuse.unverified')));
+    const list = el('ol', 'pb-guide-text'); for (const check of pb.reuse.checks) list.append(el('li', '', check)); body.append(list);
+  }
   const description = playbookDisplayDescription(pb);
   if (description) body.appendChild(el('p', 'pb-form-desc', description));
   const fields = new Map(); // key -> input element
@@ -1693,9 +1727,18 @@ function openPlaybookModal(pb) {
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const cancel = el('button', '', t('common.cancel'));
   const go = el('button', 'primary', t('skills.playbook.start'));
+  if (pb.reuse) go.textContent = t('playbook.reuse.verify');
   foot.append(cancel, go);
   const modal = buildModal(playbookDisplayName(pb) || t('skills.group.playbooks'), body, foot);
   cancel.onclick = () => modal.close();
+  if (pb.reuse && !pb.builtin) {
+    foot.style.flexWrap = 'wrap';
+    const copy = el('button', '', t('playbook.reuse.editCopy')); foot.append(copy);
+    copy.onclick = async () => {
+      try { const { createPlaybookReuseUi } = await import('./playbook-reuse.js'); if (!body.isConnected) return; modal.close(); createPlaybookReuseUi({ api, apiErrText, el, buildModal, t, toast, refreshPlaybooks }).edit(pb, true); }
+      catch (error) { toast(apiErrText(error), 'err'); }
+    };
+  }
   go.onclick = () => {
     const values = {};
     for (const [key, ta] of fields) values[key] = ta.value.trim();

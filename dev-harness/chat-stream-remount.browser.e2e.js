@@ -76,7 +76,8 @@ window.__mk = async function (opts = {}) {
   const toasts = [];
   const deps = {
     $, el, state, t: (k, p) => k + (p ? JSON.stringify(p) : ''), toast: m => toasts.push(m),
-    api: async u => (u.startsWith('/api/sessions/') ? { session: state.currentSession } : { ok: true }),
+    api: async u => (u.startsWith('/api/sessions/') ? { session: state.currentSession }
+      : u === '/api/stop' ? { ok: true, stopped: true } : { ok: true }),
     apiErrText: e => String((e && e.message) || e),
     agentCliMeta: () => ({ id: 'claude', nativeCompact: 'slash-command', alwaysInteractive: false }),
     appendToolOutput() {}, authHeaders: () => ({}), autoGrow() {}, cliMissingCard: () => el('div'),
@@ -468,7 +469,7 @@ true`;
     // R15:中止/断流后装回重取的会话
     const r15 = await fx.evaluate(`(async () => {
       const FULL = { ok: true, session: { id: 'A', messages: [{ role: 'user', content: 'hello' }, { role: 'assistant', content: 'partial answer' }] } };
-      await window.__mk({ deps: { api: async u => (u.startsWith('/api/sessions/A') ? JSON.parse(JSON.stringify(FULL)) : { ok: true }) } });
+      await window.__mk({ deps: { api: async u => (u.startsWith('/api/sessions/A') ? JSON.parse(JSON.stringify(FULL)) : u === '/api/stop' ? { ok: true, stopped: true } : { ok: true }) } });
       const h = window.__h;
       h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(30);
       h.push({ type: 'assistant_delta', text: 'partial answer' }); await h.sleep(20);

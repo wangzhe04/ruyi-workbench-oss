@@ -1649,12 +1649,13 @@ function sensitiveGlobsForRg(base) {
     // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
     const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json']) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'external-bot-credentials.json', 'external-bots', 'desktop']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
       }
       const relRoot = path.relative(base, r);
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/config.json*');
+      if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/external-bot-credentials.json*');
     }
   } catch { /* 取不到数据根 → 只剩结果层过滤 */ }
   return globs;
@@ -4353,6 +4354,15 @@ async function webFetch(args = {}, opts = {}) {
   // never even attempts a socket, and NEVER falls back to cache (a blocked url must not leak cached content).
   const pre = ssrfCheck(url);
   if (!pre.allowed) return { ok: false, error: pre.reason, blocked: pre.host };
+  const sb = opts.config && opts.config.searchBackend;
+  const deepseek = sb && sb.type === 'deepseek';
+  if (deepseek) {
+    const parsed = new URL(url);
+    if (url.length > 8192 || parsed.username || parsed.password) return { ok: false, error: 'DeepSeek Fetch 需要不含用户名密码、长度不超过 8192 的网址', backend: 'deepseek' };
+    const dns = await dnsResolvesToPrivate(parsed.hostname);
+    if (dns && dns.blocked) return { ok: false, error: '目标地址解析到内网/回环', blocked: dns.host };
+  }
+  const cacheMatches = entry => entry && (deepseek ? entry.backend === 'deepseek' : entry.backend !== 'deepseek');
   // 一页 = 缓存条目的一个切片;live / cache 共用同一个出口,保证 truncated / nextOffset 的口径一致。
   const pageOf = (entry, extra) => {
     const full = String(entry.text || '');
@@ -4362,7 +4372,7 @@ async function webFetch(args = {}, opts = {}) {
       const res = { ok: true, url: entry.url || url, title: entry.title || '', text, offset: start, totalChars: full.length,
         truncated: more || entry.sourceTruncated === true || oldPartialCache, ts: entry.ts || null, ...extra };
       if (more) res.nextOffset = end;
-      for (const key of ['contentType', 'charset', 'warning', 'note']) if (entry[key]) res[key] = entry[key];
+      for (const key of ['contentType', 'charset', 'warning', 'note', 'backend']) if (entry[key]) res[key] = entry[key];
       if (oldPartialCache) {
         res.sourceTruncated = true;
         res.note = '旧缓存只保存了部分正文;totalChars 是已保存量,不是整页总量。';
@@ -4381,7 +4391,23 @@ async function webFetch(args = {}, opts = {}) {
   if (offset > 0) {
     const hit = await readWebCache(url);
     const age = hit && hit.ts ? Date.parse(hit.ts) : NaN;
-    if (hit && hit.truncated !== true && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
+    if (cacheMatches(hit) && hit.truncated !== true && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
+  }
+  if (deepseek) {
+    const got = await deepseekWebRequest(sb, 'fetch', { url }, { timeoutMs: 30000, signal: opts.signal });
+    if (got.ok) {
+      if (typeof got.data.content !== 'string' || !got.data.content.trim()) return { ok: false, error: 'DeepSeek Fetch 未返回 Markdown 正文', backend: 'deepseek', parseFailed: true };
+      const entry = { url, title: String(got.data.title || ''), text: got.data.content, ts: nowIso(), backend: 'deepseek', contentType: 'text/markdown' };
+      await writeWebCache(entry);
+      markNetworkOnline();
+      return pageOf(entry, { fromCache: false });
+    }
+    // 授权、余额、拒绝访问和页面删除均照实报告；仅临时网络/服务故障允许读旧缓存。
+    if (got.failClass !== 'aborted' && (!got.statusCode || got.statusCode === 408 || got.statusCode === 429 || got.statusCode >= 500) && !got.parseFailed && got.failClass !== 'invalid_request') {
+      const cached = await readWebCache(url);
+      if (cacheMatches(cached)) return pageOf(cached, { fromCache: true, staleReason: got.error });
+    }
+    return got;
   }
   const got = await httpGetGuarded(url, { totalTimeoutMs: 30000, signal: (opts && opts.signal) || null });
   if (got.ok && got.body) {
@@ -4421,7 +4447,8 @@ async function webFetch(args = {}, opts = {}) {
   // 对端明确答复「页面不存在 / 已删除」(HTTP 404 / 410)是权威的答复:修前这里也回落缓存,抓过一次的页面被删后,
   // 再抓回 ok:true + fromCache:true,把已下线的页面当成功读出来。这两个状态码不读缓存,照实报错。
   const pageGone = got.failClass === 'http' && (got.statusCode === 404 || got.statusCode === 410);
-  const cached = pageGone ? null : await readWebCache(url);
+  const candidate = pageGone ? null : await readWebCache(url);
+  const cached = cacheMatches(candidate) ? candidate : null;
   if (cached) return pageOf(cached, { fromCache: true, staleReason: mapped.error });
   // No cache. Decide the hint by a FAST live probe (multi-target, 2s) — only if that also fails do we say 离线.
   // 走了代理时不做这一探:探测走的是本机直连,代理网络里它必然失败,会把「代理没配好」误报成「当前疑似离线」。
@@ -4695,6 +4722,7 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
 function searchFailFromResponse(backend, r) {
   const st = r.statusCode;
   const out = { ok: false, error: r.error || ('HTTP ' + st), backend };
+  if (r.failClass) out.failClass = r.failClass;
   if (st) out.statusCode = st;
   if (r.hint) out.hint = r.hint;
   if (st === 403 && backend === 'searxng') out.hint = 'searxng 需要启用 JSON 输出:settings.yml 里 search.formats 加上 json(并确认没有被 limiter / 反向代理拦截)';
@@ -4715,12 +4743,34 @@ function searchParseJsonResponse(backend, r) {
   return { body };
 }
 function searchBackendNeverFallsBack(sb) { return !!sb && (sb.type === 'searxng' || sb.type === 'custom'); }
-async function webSearch(args, config) {
-  const first = await webSearchViaBackend(args, config);
+// DeepSeek 的独立 JSON API；同一管理员配置同时供 search/fetch 使用。不给重定向转发密钥，
+// 不把远端错误正文带回模型；所有调用仍经零依赖 httpRequest 的硬超时、响应上限与取消。
+async function deepseekWebRequest(sb, operation, payload, opts = {}) {
+  const backend = 'deepseek';
+  const apiKey = String(sb.apiKey || '').trim();
+  if (!apiKey) return { ok: false, error: 'DeepSeek API Key 未配置', backend, failClass: 'invalid_request', hint: '在 设置→搜索后端 填入 DeepSeek API Key' };
+  const root = String(sb.baseUrl || 'https://api.deepseek.com').trim().replace(/\/+$/, '').replace(/\/v1$/, '');
+  const r = await httpRequest({ url: `${root}/v1/tools/${operation}`, method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + apiKey }, body: JSON.stringify(payload),
+    timeoutMs: opts.timeoutMs || 12000, maxBodyChars: 2000000 }, { signal: opts.signal });
+  if (!r.ok || r.redirected) {
+    const fail = r.redirected ? searchParseJsonResponse(backend, r).fail : searchFailFromResponse(backend, r);
+    if (r.redirected) { fail.parseFailed = true; fail.statusCode = r.statusCode; }
+    if (r.failClass) fail.failClass = r.failClass;
+    if (r.statusCode === 402) fail.hint = 'DeepSeek 账号余额不足,充值后再试';
+    return fail;
+  }
+  const parsed = searchParseJsonResponse(backend, r);
+  if (parsed.fail) return parsed.fail;
+  if (r.truncated || parsed.body.error) return { ok: false, error: 'DeepSeek 返回不完整或错误响应', backend, parseFailed: true };
+  return { ok: true, data: parsed.body };
+}
+async function webSearch(args, config, opts = {}) {
+  const first = await webSearchViaBackend(args, config, opts);
   const sb = (config && config.searchBackend) || { type: 'none' };
   const backend = sb.type || 'none';
   const query = String(args && args.query || '').trim();
-  if (first.ok !== false || !query || backend === 'none' || backend === 'builtin') return first;
+  if (first.ok !== false || !query || backend === 'none' || backend === 'builtin' || first.failClass === 'invalid_request' || first.failClass === 'aborted') return first;
   if (searchBackendNeverFallsBack(sb)) return Object.assign({}, first, { fallbackSkipped: `搜索后端 ${backend} 失败;为避免把查询词发给公网搜索引擎,没有回退到内置搜索` });
   if (sb.fallbackToBuiltin !== true) return Object.assign({}, first, { fallbackSkipped: `搜索后端 ${backend} 失败;没有回退到内置免费搜索(会把查询词发给公网的 Bing / 百度)`, hint: ((first && first.hint) ? first.hint + ';' : '') + '如接受回退,在 config.json 的 searchBackend 里设 fallbackToBuiltin:true' });
   const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
@@ -4733,18 +4783,29 @@ async function webSearch(args, config) {
   }
   return Object.assign({}, first, { fallbackTried: 'builtin' });
 }
-async function webSearchViaBackend(args, config) {
+async function webSearchViaBackend(args, config, opts = {}) {
   const query = String(args && args.query || '').trim();
   // 缺省 8 条(修前 5 条):内置搜索是抓网页,前几条常被百科 / 问答聚合占住,5 条经常不够把问题答全;结果只是短摘要,多几条不贵。
   const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
   const sb = (config && config.searchBackend) || { type: 'none' };
   const backend = sb.type || 'none';
   if (!query) return { ok: false, error: 'query is required', backend };
-  if (backend === 'none') return { ok: false, error: '未配置搜索后端', hint: '到 设置→搜索后端 选择 内置免费搜索(builtin)/searxng/bing/brave/tavily/bocha/custom', backend };
+  if (backend === 'none') return { ok: false, error: '未配置搜索后端', hint: '到 设置→搜索后端 选择 内置免费搜索(builtin)/searxng/bing/brave/tavily/bocha/deepseek/custom', backend };
   const baseUrl = String(sb.baseUrl || '').trim().replace(/\/+$/, '');
   const apiKey = String(sb.apiKey || '').trim();
   const timeoutMs = Number(args && args.timeoutMs) || 12000;
   try {
+    if (backend === 'deepseek') {
+      if (Array.from(query).length > 128) return { ok: false, error: 'DeepSeek 搜索词最多 128 个 Unicode 字符,请精简关键词', backend, failClass: 'invalid_request' };
+      const got = await deepseekWebRequest(sb, 'search', { query, count: Math.floor(maxResults), need_content: false }, { timeoutMs, signal: opts.signal });
+      if (!got.ok) return got;
+      if (!Array.isArray(got.data.results)) return { ok: false, error: 'DeepSeek 响应缺少 results 数组', backend, parseFailed: true };
+      return { ok: true, backend, results: got.data.results.slice(0, maxResults).filter(x => x && typeof x === 'object').map(x => ({
+        title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.snippet || x.summary || '').slice(0, 4000),
+        ...(typeof x.summary === 'string' ? { summary: x.summary.slice(0, 4000) } : {}),
+        ...(typeof x.date === 'string' ? { date: x.date } : {}),
+      })) };
+    }
     // v1.1-W1a (T3): 'builtin' — zero-config, no-key HTML search. Primary Bing CN, 兜底 百度. Both scraped
     // with the realistic browser headers (T1) so anti-scrape edges serve real HTML. Fully defensive parsing
     // (a shape change collapses to [] rather than throwing). Results are JSON text only — the front-end renders
@@ -4754,7 +4815,7 @@ async function webSearchViaBackend(args, config) {
     if (backend === 'builtin') return await builtinSearch(query, maxResults, baseUrl, timeoutMs, String(sb.baiduBaseUrl || '').trim().replace(/\/+$/, ''));
     // 各 JSON 后端共用的收尾:请求 → 失败 / 非 JSON 说明 → 取出行 → 映射。extract(body) 返回行数组(缺失则 [])。
     const viaJson = async (reqArgs, extract, map, missingNote) => {
-      const r = await httpRequest(Object.assign({ timeoutMs, maxBodyChars: 500000 }, reqArgs));
+      const r = await httpRequest(Object.assign({ timeoutMs, maxBodyChars: 500000 }, reqArgs), { signal: opts.signal });
       if (!r.ok || r.redirected) {
         if (r.redirected) return searchParseJsonResponse(backend, r).fail;
         return searchFailFromResponse(backend, r);

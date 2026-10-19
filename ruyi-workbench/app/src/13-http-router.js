@@ -215,6 +215,11 @@ async function handleApi(req, res, pathname) {
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
+  if (typeof ExternalBotHooks.handleApiRoutes === 'function') {
+    const handled = await ExternalBotHooks.handleApiRoutes(req, res, pathname);
+    if (handled || res.writableEnded || res.destroyed) return;
+  }
+
   if (req.method === 'POST' && pathname === '/api/bootstrap') {
     // 47c(S1):浏览器拿 token 的【唯一】通道(HTML 不再明文下发)。auth=open -> 顶层 host 门已挡 rebinding
     // (Host=攻击域 -> 403),信任面与旧 GET / 明文下发完全等同;非浏览器(curl/node)亦同旧规可得。
@@ -340,7 +345,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
     if (!sessionId) return send(res, apiSessionIdInvalid());
-    return send(res, json(await draftPlaybookFromSession(sessionId)));
+    return send(res, json(body.mode === 'sources' ? await playbookReuseSources(sessionId) : await draftPlaybookFromSession(sessionId, { selection: body.selection })));
   }
   // POST /api/playbooks — save a user playbook (normalized; token-gated). Body = the playbook object.
   if (req.method === 'POST' && pathname === '/api/playbooks') {
@@ -892,26 +897,20 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/stop') {
     const body = await readJsonBody(req);
     const sid = safeSessionId(body.sessionId);
-    const stopped = stopSession(String(body.sessionId || ''), 'stopped');
-    // 第27波:显式停止 = 用户介入夺回控制 → 撤销该会话【全部】授权书(含 scope:'session')。断连触发的 stopSession 不
-    // 走此处,仅由 streamChat finally 蒸发 scope:'run'(保留 session 授权供重连续用)—— intent-aware 精确撤销。
-    if (sid) { try { revokeAllGrants(sid, 'ui-stop'); } catch { /* best-effort */ } }
-    // 116h(27 号文 §3.1 116h 行):被停的会话可能还【在排队】—— stopSession 只认活回合(activeChildren),
-    // 排队中的回合它看不见。经 06i 的延迟绑定问一下仲裁器(开关关时该键的实现直接返回 false)。
-    let queuedStopped = false;
-    if (sid && typeof StewardHooks.cancelQueuedTurn === 'function') {
-      try { queuedStopped = StewardHooks.cancelQueuedTurn(sid) === true; } catch { queuedStopped = false; }
-    }
+    if (!sid) return send(res, apiSessionIdInvalid());
+    const receipt = requestSessionExecutionStop(sid, body.expectedExecution, 'stopped');
+    if (!receipt.ok) return send(res, apiFailure(receipt.error, {}, receipt.error, 409));
+    const { stopped, queuedStopped, alreadyRequested } = receipt;
     // 121-K5(34 号文 §4.4 末条;33 号文 §0 记的那条不对称):管家按的停止进决策日志,用户手按的不进 ——
     // 于是「行动流水」上看得见模型停了哪条线程,看不见人停了哪条。这里补上,形状与 13h 的
     // steward_thread_stop 同款(tool:'user_stop'、mayAct:'user'、basis.origin:'ui_stop')。
     // 与 cancelQueuedTurn 同一条迟绑定纪律(13h 拼在本文件之后,直引它的符号是前向边);
     // **只在真停下了什么之后才记**——什么都没停时那不是一次行动,不该在流水上占一行。
     // await 它是为了让 e2e 能在响应回来之后立刻读到那一行(实现自己也是 fire-and-forget,不会抛)。
-    if ((stopped || queuedStopped) && sid && typeof StewardHooks.appendUserStop === 'function') {
+    if (!alreadyRequested && (stopped || queuedStopped) && sid && typeof StewardHooks.appendUserStop === 'function') {
       try { await StewardHooks.appendUserStop(sid, { stopped, queuedStopped }); } catch { /* 记账失败绝不影响停止本身 */ }
     }
-    return send(res, json({ ok: true, stopped: stopped || queuedStopped }));
+    return send(res, json({ ok: true, stopped, queuedStopped, execution: receipt.execution }));
   }
   if (req.method === 'POST' && pathname === '/api/provider/compact') {
     // §5.2: native-provider context compaction. Same-origin protected (mutating) like /api/stop and
@@ -1724,6 +1723,7 @@ async function handleApi(req, res, pathname) {
     // write roots (guardDownloadDest → guardFileToolPath, 安全审计 #3). Best-effort; a load failure just falls
     // back to the config read from disk inside guardFileToolPath, never blocking the other tools.
     if (ctx) {
+      if (body.memoryLiveRead === true && ['workbench_memory_list', 'workbench_memory_read'].includes(name)) ctx.memoryLiveRead = true;
       try {
         ctx.config = await readConfig();
         const s = await loadSession(ctx.sessionId).catch(() => null);
@@ -1929,30 +1929,10 @@ async function listenWithFallback(server, port, host, config) {
   try { await attempt(); return port; }
   catch (e) {
     if (e.code !== 'EADDRINUSE') throw e;
-    const envDisabled = /^(0|false|off|no)$/i.test(String(process.env.WCW_KILL_PORT || ''));
-    if (envDisabled || config.killPortOnStart === false) {
-      return await listenOnNextFreePort(server, port, host,
-        `端口 ${port} 已被占用,且已禁用自动接管(killPortOnStart=false / WCW_KILL_PORT=0)。`);
-    }
-    console.log(`[port] :${port} in use -- checking whether it's a stale workbench...`);
-    const res = await freeStalePort(port, host);
-    if (!res.ok) {
-      // 占用者不是「本数据目录登记的那个实例」:可能是另一份如意(别的安装目录 / 别的数据目录,正在跑自己的回合),也可能是别的程序。
-      // 两种都不动它,顺延到下一个端口。
-      return await listenOnNextFreePort(server, port, host, res.blocked.workbench
-        ? `端口 ${port} 被另一份如意实例占用(PID ${res.blocked.pid},不是本数据目录登记的实例),没有去结束它。`
-        : `端口 ${port} 被其它程序占用(PID ${res.blocked.pid} / ${res.blocked.image}),没有去误杀它。`);
-    }
-    for (let i = 0; i < 25; i++) {
-      await sleep(160);
-      try {
-        await attempt();
-        if (res.killed.length) console.log(`[port] reclaimed :${port} (freed ${res.killed.length} stale process(es)).`);
-        return port;
-      } catch (e2) { if (e2.code !== 'EADDRINUSE') throw e2; }
-    }
+    // 62: ownership is decided before recovery by the data-directory IPC gate.
+    // A listening process is never made "stale" by a runtime.json record; do not kill it.
     return await listenOnNextFreePort(server, port, host,
-      `端口 ${port} 在结束 ${res.killed.length} 个陈旧进程后仍然无法监听。`);
+      `端口 ${port} 已被占用，没有结束占用它的进程。`);
   }
 }
 
@@ -1963,13 +1943,39 @@ async function startServer(opts) {
   // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
   // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
   const bindHost = resolveBindHost(opts);
+  // Acquire before any recovery, imports, index invalidation, or startup error writes.
+  // Only the real pending legacy migration also owns its destination; mkdir(next) here
+  // would disable migration, so canonicalRoot resolves absent leaves via their real ancestor.
+  const roots = [paths.data];
+  const defaults = defaultDataRoots();
+  const old = lstatOrNull(defaults.legacy);
+  const migrate = isDirectServeInvocation() && !process.env.RUYI_HOME && !process.env.WIN_CLAUDE_WORKBENCH_HOME
+    && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
+  if (migrate) roots.push(defaults.legacy, defaults.next);
+  const ownership = await ServerOwnership.acquire(roots); // Refusal must not touch the owner's files.
   try {
-    return await startServerInner(opts, bindHost);
+    if (isDirectServeInvocation()) {
+      DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
+      if (DATA_ROOT_MIGRATION.moved) {
+        // All module-level DurableJsonStore files use callbacks; no store has read yet.
+        // Keep the same paths object for every consumer, even if the legacy junction failed.
+        const from = paths.data;
+        const to = DATA_ROOT_MIGRATION.to;
+        for (const key of Object.keys(paths)) paths[key] = path.join(to, path.relative(from, paths[key]));
+      }
+    }
+    const result = await startServerInner(opts, bindHost);
+    // Kernel-only endpoints are held through every exit-time flush and released by the OS.
+    // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.
+    if (ownership.portable) process.once('exit', () => { void ownership.release(); });
+    return result;
   } catch (error) {
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
     const message = String((error && error.message) || error || '').slice(0, 800)
       || '如意启动时出错了,没能开起来。';
     await writeStartError(kind, message);
+    // Boot may already have started asynchronous writers. Keep ownership until process exit,
+    // including a programmatic caller's failed boot; same-process restart is not supported.
     throw error;
   }
 }
@@ -2166,6 +2172,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   console.log(`Data: ${paths.data}`);
   console.log(`Server source: ${externalServerJs() || '(baked exe)'}`);
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
+  if (typeof ExternalBotHooks.start === 'function') ExternalBotHooks.start();
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
   //   · syncMcpServersToClaude / syncMcpServersToKimi:同步前缀 resolveExternalMcpServers → detectDesktopMcp
   //     → pickPython(三候选各一发 spawnSync,冷缓存实测 ~2 s);
@@ -2218,7 +2225,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   // 第123波 M1:关服收尾一并停掉调度器 tick(clearInterval + 代际自增,在途 tick 尽快退出)——
   // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
   // 走查 2026-10-08:在途的 Agent CLI 回合子进程一并收掉(stopAllActiveTurnsSync,见其头注),修前它们在这条路上变孤儿。
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop(); } catch { /* ignore */ } try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.

@@ -454,8 +454,8 @@ const rowSel = id => `#railList li.steward-board-thread[data-session-id="${id}"]
 
     await phase('S-02', async () => {
       ok(Boolean(await focusThread(ids.A)), 'S-02a 抽屉开在线程甲');
-      // 停止与回退两个写口桩掉（本件只看「发给了谁」，不真的去回退）。
-      await ev(`window.__fxRule('POST', '/api/stop', 200, { ok: true }), window.__fxRule('POST', '/api/session/rewind', 200, { ok: true }), true`);
+      // 单次受保护回退写口桩掉（本件只看「发给了谁及原观察值」，不真的去回退）。
+      await ev(`window.__fxRule('POST', '/api/session/rewind', 200, { ok: true }), true`);
       const openConfirm = async () => {
         for (let i = 0; i < 6; i++) {
           await ev(`document.getElementById('stewardDrawerRewindBtn').click(), true`);
@@ -478,12 +478,19 @@ const rowSel = id => `#railList li.steward-board-thread[data-session-id="${id}"]
 
       // 对照：焦点没动 → 照常对【线程甲】动手。
       ok(Boolean(await focusThread(ids.A)), 'S-02f 回到线程甲');
+      const observedA = (await fx.request('GET', '/api/sessions/' + ids.A)).json;
+      const expectedIdleState = observedA.execution === null ? { turnSeq: Number(observedA.session.turnSeq) || 0,
+        rewindGen: Number(observedA.session.rewindGen) || 0, executionObservation: observedA.executionObservation } : undefined;
       ok(await openConfirm(), 'S-02g 再点「整单回退」');
       const before2 = await ev(`window.__fx.calls.length`);
       await ev(`document.querySelector('.modal-backdrop.confirm-panel [data-confirm="ok"]').click(), true`);
       ok(Boolean(await waitFor(`window.__fx.calls.slice(${before2}).some(c => c.url.indexOf('/api/session/rewind') >= 0) ? 1 : null`)), 'S-02h 焦点没动：回退请求照常发出');
-      const bodies = await ev(`window.__fx.calls.slice(${before2}).filter(c => c.method === 'POST' && (c.url.indexOf('/api/stop') >= 0 || c.url.indexOf('/api/session/rewind') >= 0)).map(c => { try { return JSON.parse(c.body).sessionId; } catch { return ''; } })`);
-      ok(bodies.length >= 2 && bodies.every(id => id === ids.A), `S-02i 停止与回退发给的都是确认之前那条线程甲（线程甲 ${ids.A}；实测 ${JSON.stringify(bodies)}）`);
+      const writes = await ev(`window.__fx.calls.slice(${before2}).filter(c => c.method === 'POST' && (c.url.indexOf('/api/stop') >= 0 || c.url.indexOf('/api/session/rewind') >= 0)).map(c => ({ url: c.url, body: JSON.parse(c.body) }))`);
+      ok(writes.length === 1 && writes[0].url.includes('/api/session/rewind') && writes[0].body.sessionId === ids.A
+        && writes[0].body.guardExecution === true && writes[0].body.targetTurnSeq === 1
+        && JSON.stringify(writes[0].body.expectedExecution) === JSON.stringify(observedA.execution)
+        && JSON.stringify(writes[0].body.expectedIdleState) === JSON.stringify(expectedIdleState),
+        `S-02i 仅一次guarded rewind、零stop，保留确认前线程甲的执行身份/idle观察和原锚点（实测 ${JSON.stringify(writes)}）`);
       await ev(`window.__fxClear(), true`);
     });
 
