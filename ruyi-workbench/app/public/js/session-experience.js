@@ -273,49 +273,59 @@ async function refreshSessions() {
 // 没有的话照常取号，之后用户再点一条仍然盖过它。
 let sessionOpenSeq = 0;
 let sessionChoices = 0;
+let sessionOpenPending = null;
+let sessionOpenRefreshPending = false;
 async function openSession(id, opts = {}) {
   const restore = Boolean(opts && opts.restore === true);
   if (restore && sessionChoices > 0) return;
   if (!restore) sessionChoices += 1;
   const seq = ++sessionOpenSeq;
-  const executionRead = ++sessionExecutionReadSeq;
-  const res = await api(`/api/sessions/${encodeURIComponent(id)}`);
-  if (seq !== sessionOpenSeq || executionRead !== sessionExecutionReadSeq || res?.session?.id !== id) return;   // 已经有更新的一次「换会话」了，这一发晚到的回包不许再写回去
-  const prevId = state.currentSession?.id;
-  const switchedSession = prevId !== id;
-  state.currentSession = res.session;
-  currentChangedWhileAway = false;   // 128f-⑫：刚整份读过，「离开期间动过」那一笔作废
-  state.resumable = res.resumable || null; // v0.8-S0 A6: dangling-turn info for the resume banner
-  captureLiveTurn(id, res, executionRead); // 117m-A5: 在途回合的活文本跟着同一发 GET 回来，零新请求
-  state.msgWindowStart = null; // v1.0-S7 (perf): each session opens windowed to its tail (recompute per open)
-  try { localStorage.setItem('wcw.lastSession', id); } catch { /* ignore */ }
-  // v1.9.1: 会话切换清空 steer 状态(模块级单例不按会话隔离,否则 A 的插话卡片/steeredSeen 残留到 B;
-  //   切到流式会话 setStreaming(true) 不清空 -> B 看到 A 的插话 + ×按钮报错 + steeredSeen 孤儿吞事件)。对抗验证发现。
-  if (switchedSession) {
-    steerPendingList.length = 0; steeredSeen.length = 0; resetStickyScroll(); // EC-D 57: 切会话 -> 恢复跟随最新
-    const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; }
-  }
-  updateEngineDependentUI();
-  renderSessions();
-  renderCurrentSession();
-  if (switchedSession) scrollMessagesToBottom(); // 旧会话的阅读锚点不能泄漏到新会话
-  renderResumeBanner();
-  syncStreamingUi();
-  mountActiveTurn(id);
-  syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
-  syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
-  if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
-  // The global status denominator describes the new-session default. Resolve this session's pinned route
-  // after every switch so the context meter and model list do not lag behind until the next completed turn.
-  api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
-    if (state.currentSession?.id !== id || !fresh) return;
-    if (state.status) {
-      state.status.contextWindowResolved = fresh.contextWindowResolved || null;
-      if (Array.isArray(fresh.models)) state.status.models = fresh.models;
+  sessionOpenPending = seq;
+  try {
+    const executionRead = ++sessionExecutionReadSeq;
+    const res = await api(`/api/sessions/${encodeURIComponent(id)}`);
+    if (seq !== sessionOpenSeq || executionRead !== sessionExecutionReadSeq || res?.session?.id !== id) return;   // 已经有更新的一次「换会话」了，这一发晚到的回包不许再写回去
+    const prevId = state.currentSession?.id;
+    const switchedSession = prevId !== id;
+    state.currentSession = res.session;
+    currentChangedWhileAway = false;   // 128f-⑫：刚整份读过，「离开期间动过」那一笔作废
+    state.resumable = res.resumable || null; // v0.8-S0 A6: dangling-turn info for the resume banner
+    captureLiveTurn(id, res, executionRead); // 117m-A5: 在途回合的活文本跟着同一发 GET 回来，零新请求
+    state.msgWindowStart = null; // v1.0-S7 (perf): each session opens windowed to its tail (recompute per open)
+    try { localStorage.setItem('wcw.lastSession', id); } catch { /* ignore */ }
+    // v1.9.1: 会话切换清空 steer 状态(模块级单例不按会话隔离,否则 A 的插话卡片/steeredSeen 残留到 B;
+    //   切到流式会话 setStreaming(true) 不清空 -> B 看到 A 的插话 + ×按钮报错 + steeredSeen 孤儿吞事件)。对抗验证发现。
+    if (switchedSession) {
+      steerPendingList.length = 0; steeredSeen.length = 0; resetStickyScroll(); // EC-D 57: 切会话 -> 恢复跟随最新
+      const h = $('composerHint'); if (h) { h.innerHTML = ''; h.style.display = 'none'; }
     }
     updateEngineDependentUI();
-    renderContextMeter(latestUsage(state.currentSession));
-  }).catch(() => {});
+    renderSessions();
+    renderCurrentSession();
+    if (switchedSession) scrollMessagesToBottom(); // 旧会话的阅读锚点不能泄漏到新会话
+    renderResumeBanner();
+    syncStreamingUi();
+    mountActiveTurn(id);
+    syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
+    syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
+    if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
+    // The global status denominator describes the new-session default. Resolve this session's pinned route
+    // after every switch so the context meter and model list do not lag behind until the next completed turn.
+    api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
+      if (state.currentSession?.id !== id || !fresh) return;
+      if (state.status) {
+        state.status.contextWindowResolved = fresh.contextWindowResolved || null;
+        if (Array.isArray(fresh.models)) state.status.models = fresh.models;
+      }
+      updateEngineDependentUI();
+      renderContextMeter(latestUsage(state.currentSession));
+    }).catch(() => {});
+  } finally {
+    if (sessionOpenPending === seq) {
+      sessionOpenPending = null;
+      if (sessionOpenRefreshPending) { sessionOpenRefreshPending = false; void refreshLiveTurn(); }
+    }
+  }
 }
 // v0.8-S0 A6: show a lightweight banner above the composer when the opened session has a dangling
 // (interrupted) turn. "继续" resends a prompt asking the model to finish; the banner then hides.
@@ -1093,6 +1103,7 @@ function bindLiveEventStream() {
 }
 // 切回工作台时重读当前会话（只在离开期间真的来过它的推送时才走到这里）。自己的流在跑就不动：那一张正在实时画。
 async function reloadCurrentSessionAfterAway() {
+  if (sessionOpenPending === sessionOpenSeq) { sessionOpenRefreshPending = true; return false; }
   const id = String(state.currentSession?.id || '');
   if (!id || activeTurns.has(id) || state.streaming) return false;
   const executionRead = ++sessionExecutionReadSeq;
@@ -1121,6 +1132,9 @@ window.addEventListener('i18n:change', () => {
 // 一拍：重取信封 → 还在跑就只刷这张气泡（整份重绘会抹掉阅读位置，长会话还很贵）；
 // 已经跑完就把服务端刚落盘的正文整份换上来，临时气泡随之消失。
 async function refreshLiveTurn() {
+  // A push for the previous session must not invalidate the user's in-flight selection read.
+  // Coalesce it into one refresh after that selection settles; instance changes still invalidate it.
+  if (sessionOpenPending === sessionOpenSeq) { sessionOpenRefreshPending = true; return; }
   const id = state.currentSession?.id || '';
   if (!id) { syncLivePolling(); return; }
   let res = null;

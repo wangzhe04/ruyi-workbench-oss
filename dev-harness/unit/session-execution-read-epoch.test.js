@@ -12,6 +12,7 @@ function fixture() {
   const result = new Promise(resolve => { release = resolve; });
   const state = { currentSession: { id: 's', messages: ['current'] }, sessionExecution: undefined };
   const c = vm.createContext({ state, sessionOpenSeq: 0, sessionChoices: 0, sessionExecutionReadSeq: 0,
+    sessionOpenPending: null, sessionOpenRefreshPending: false,
     sessionExecutionNeedsRefresh: false, activeTurns: new Map(), api: async () => result,
     syncLivePolling() {}, renderCurrentSession() { throw Error('stale read rendered'); },
   });
@@ -26,6 +27,47 @@ test('an open read started before epoch change cannot refill identity, body or r
   await pending;
   assert.deepEqual(state.currentSession.messages, ['current']);
   assert.equal(state.sessionExecution, undefined);
+});
+
+for (const refresh of ['refreshLiveTurn', 'reloadCurrentSessionAfterAway']) test(refresh + ' defers old-session pushes until the user selection settles', async () => {
+  const { c, state, release } = fixture();
+  const reads = []; let renders = 0;
+  const noop = () => {};
+  Object.assign(c, {
+    api: async url => { reads.push(url); return url.startsWith('/api/status') ? {} : c.response; },
+    steerPendingList: [], steeredSeen: [], currentChangedWhileAway: false, localStorage: { setItem() {} }, $: () => null,
+    resetStickyScroll: noop, updateEngineDependentUI: noop, renderSessions: noop, renderCurrentSession: () => renders++,
+    renderResumeBanner: noop, syncStreamingUi: noop, mountActiveTurn: noop, syncOwnTurnLiveIndicator: noop,
+    syncEventStreamPresence: noop, scrollMessagesToBottom: noop, latestUsage: noop, renderContextMeter: noop,
+    liveTurnVisible: () => false, captureLiveTurn: noop,
+  });
+  c.response = new Promise(resolve => { c.resolveSelection = resolve; });
+  vm.runInContext([functionBlock(source, 'openSession'), functionBlock(source, 'refreshLiveTurn'), functionBlock(source, 'reloadCurrentSessionAfterAway')].join('\n'), c);
+  const opening = c.openSession('b');
+  const pushes = [c[refresh](), c[refresh]()];
+  const readsDuringSelection = [...reads], readSeqDuringSelection = c.sessionExecutionReadSeq;
+  c.resolveSelection({ ok: true, session: { id: 'b', messages: ['selected'] }, execution: null });
+  await opening; await Promise.all(pushes); await Promise.resolve();
+  assert.deepEqual(readsDuringSelection, ['/api/sessions/b'], 'no current-session read can supersede the selected session');
+  assert.equal(readSeqDuringSelection, 1);
+  assert.equal(state.currentSession.id, 'b'); assert.equal(renders, 1);
+  assert.equal(c.sessionOpenPending, null); assert.equal(c.sessionOpenRefreshPending, false);
+  assert.equal(reads.filter(url => url.includes('?view=live')).length, 1, 'skipped pushes coalesce into one fresh selected-session read');
+  assert.ok(reads.at(-1).startsWith('/api/sessions/b?'));
+  release({});
+});
+
+test('failed selection releases its pending guard and drains a skipped refresh', async () => {
+  const { c } = fixture(); let reject; let refreshes = 0;
+  c.api = () => new Promise((_resolve, fail) => { reject = fail; });
+  c.refreshLiveTurn = () => { refreshes++; };
+  vm.runInContext(functionBlock(source, 'openSession'), c);
+  const opening = c.openSession('b');
+  c.sessionOpenRefreshPending = true;
+  reject(Error('offline'));
+  await assert.rejects(opening, /offline/);
+  assert.equal(c.sessionOpenPending, null); assert.equal(c.sessionOpenRefreshPending, false);
+  assert.equal(refreshes, 1);
 });
 for (const name of ['reloadCurrentSessionAfterAway', 'refreshLiveTurn']) test(name + ' rejects a late epoch or superseded same-session read before all presentation updates', async () => {
   const { c, state, release } = fixture();
