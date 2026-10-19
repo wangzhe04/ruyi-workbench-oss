@@ -375,16 +375,22 @@ try {
     ok(crowded.includes('<exempt-command untrusted>') && /另有 \d+ 条交付正文没装下/.test(crowded),
       'P2c ③ 预算吃紧、交付正文被丢时,豁免摘录块不丢');
   }
-  // ③ steward_thread_status.pending[] 同挂;非豁免项键集不变。
+  // ③ 豁免元数据仍只挂豁免项;普通执行新增 execution 摘录,其余字段契约不变。
   {
     const st = await srv.toolCall('steward_thread_status', { sessionId: S }, stewardCtx);
     const pend = (st && Array.isArray(st.pending)) ? st.pending : [];
     const risky = pend.find(p => p.id === 'iv_b1_risky');
     const plain = pend.find(p => p.id === 'iv_b1_plain');
+    const edit = pend.find(p => p.id === 'iv_b1_edit');
+    const originalKeys = ['id', 'type', 'toolName', 'tier', 'summary', 'interventionVersion'];
     ok(risky && risky.exempt && JSON.stringify(risky.exempt) === JSON.stringify(byId('iv_b1_risky').payload.exempt),
       `P3 ③ steward_thread_status.pending[] 的豁免项挂同一份 exempt(实得 ${JSON.stringify(risky && risky.exempt).slice(0, 160)})`);
-    ok(plain && JSON.stringify(Object.keys(plain)) === JSON.stringify(['id', 'type', 'toolName', 'tier', 'summary', 'interventionVersion']),
-      `P3 ③ 非豁免项键集与修前相同(实得 ${JSON.stringify(plain && Object.keys(plain))})`);
+    ok(plain && JSON.stringify(Object.keys(plain).filter(key => key !== 'execution')) === JSON.stringify(originalKeys),
+      `P3 ③ 普通执行项保留原字段,只新增 execution,不误挂 exempt(实得 ${JSON.stringify(plain && Object.keys(plain))})`);
+    ok(plain && JSON.stringify(plain.execution) === JSON.stringify({ commandExcerpt: '{"command":"npm test"}', chars: 22, truncated: false }),
+      `P3a 普通执行项给出准确命令摘录与截断信息(实得 ${JSON.stringify(plain && plain.execution)})`);
+    ok(edit && JSON.stringify(Object.keys(edit)) === JSON.stringify(originalKeys),
+      `P3b 编辑项仍只有原字段,不挂 execution/exempt,文件正文不作为命令泄露(实得 ${JSON.stringify(edit && Object.keys(edit))})`);
   }
   // ④ 死按钮:豁免提议降级成「去线程里看」;非豁免的档位提议仍是「允许」。
   {

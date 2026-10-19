@@ -92,8 +92,10 @@ test('状态查询给未命名线程可读名字,普通执行待决包含脱敏�
   const session = await srv.createSession({ cwd: home });
   session.turnSeq = 1; session.messages = [{ role: 'user', turnSeq: 1, content: '检查构建产物是否完整' }];
   await srv.saveSession(session);
+  // Assemble a synthetic token at runtime so source hygiene still rejects literal credentials.
+  const fakeSecret = 'sk-' + 'abcdefghijklmnopqrstuvwxyz1234567890';
   fs.appendFileSync(path.join(home, 'sessions', session.id + '.interventions.ndjson'), [
-    { id: 'pending_exec', type: 'permission', tier: 'exec', toolName: 'powershell_run', input: { command: 'Get-ChildItem; $api_key="sk-abcdefghijklmnopqrstuvwxyz1234567890"' } },
+    { id: 'pending_exec', type: 'permission', tier: 'exec', toolName: 'powershell_run', input: { command: 'Get-ChildItem; $api_key="' + fakeSecret + '"' } },
     { id: 'pending_edit', type: 'permission', tier: 'edit', toolName: 'file_write', input: { content: 'private full document' } },
   ].map(iv => JSON.stringify({ ...iv, sessionId: session.id, status: 'pending', requestedAt: new Date().toISOString() })).join('\n') + '\n');
   const status = await call('steward_thread_status', { sessionId: session.id });
@@ -102,6 +104,7 @@ test('状态查询给未命名线程可读名字,普通执行待决包含脱敏�
   const exec = status.pending.find(p => p.id === 'pending_exec');
   assert.match(exec.execution.commandExcerpt, /Get-ChildItem/);
   assert.doesNotMatch(exec.execution.commandExcerpt, /abcdefghijklmnopqrstuvwxyz/);
+  assert.ok(!exec.execution.commandExcerpt.includes(fakeSecret), 'the synthetic token is redacted');
   assert.equal(status.pending.find(p => p.id === 'pending_edit').execution, undefined);
 });
 
