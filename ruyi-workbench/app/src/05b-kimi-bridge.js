@@ -2825,12 +2825,14 @@ async function runKimiAcpTurnPrepared(context) {
       if (state.stopReason === 'refusal') throw new Error('Kimi 拒绝了本次请求');
       if (reg.steerQueue.length) {
         const steers = reg.steerQueue.splice(0, reg.steerQueue.length);
-        for (const text of steers) {
-          session.messages.push({ role: 'user', content: text, turnSeq: session.turnSeq, steered: true, createdAt: nowIso() });
-          onEvent({ type: 'steered', text, queued: false, protocol: 'kimi-acp-followup' });
+        for (const item of steers) {
+          const text = typeof item === 'string' ? item : item.text;
+          const attachments = Array.isArray(item && item.attachments) ? item.attachments : [];
+          session.messages.push({ role: 'user', content: text, ...(attachments.length ? { attachments } : {}), turnSeq: session.turnSeq, steered: true, createdAt: nowIso() });
+          onEvent({ type: 'steered', text, ...(attachments.length ? { attachments } : {}), queued: false, protocol: 'kimi-acp-followup' });
           prompts.push({
             text: `[用户插话] ${text}\n\n请在同一会话中结合刚才已完成的工作继续处理这条补充指令。`,
-            attachments: [], nativeSlash: false,
+            attachments, nativeSlash: false,
           });
         }
         await saveSession(session, { executionOwner });

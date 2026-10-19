@@ -167,7 +167,7 @@ async function getToken(port) {
   'S16b 插话请求期间编辑的新草稿保留，按钮仍能把新草稿递为插话');
   // 50-fix(Steer 双消息):回声去重不限时(provider drain 可远超旧 15s 窗)
   ok(!app.includes('now - s.ts < 15000'), 'S17 steered 回声去重无 15s 窗(不限时文本队列)');
-  ok(app.includes("steeredSeen.findIndex(s => s.text === evt.text)"), 'S18 文本逐条 splice 去重在');
+  ok(app.includes("steeredSeen.findIndex(s => s.text === evt.text &&") && app.includes('steerAttachmentKey(evt.attachments || [])'), 'S18 文本与附件身份共同匹配,逐条 splice 去重');
   // 50-fix(标题):前端空标题 + 展示助手
   ok(app.includes("title: '', cwd") && app.includes('sessionDisplayTitle'), 'S19 前端创建传空标题 + sessionDisplayTitle 展示助手在');
   // 50d(02 Phase D):插话卡静态重渲染 + 队列可视化
@@ -187,7 +187,7 @@ async function getToken(port) {
   // EC-D 56b(持久化):后端 turnSegments.consume 把 steered 事件持久化为 steer segment -> 刷新后静态内嵌(消除 live↔静态差异)。
   ok(src.includes("evt.type === 'steered'") && /segments\.push\(\{ id: nextId\(\), type: 'steer', text:/.test(src), 'S29 EC-D 56b 后端 consume steered->steer segment 持久化');
   ok(app.includes('function buildNarrativeSteerSegment') && /segment\.type === 'steer'/.test(app)
-    && /narrative\.append\(buildNarrativeSteerSegment\(segment\.text\)\)/.test(app), 'S30 EC-D 56b 静态叙事渲染 steer 段(buildNarrativeSteerSegment live/静态共享)');
+    && /narrative\.append\(buildNarrativeSteerSegment\(segment\.text, segment\.attachments \|\| \[\]\)\)/.test(app), 'S30 静态叙事渲染 steer 段与附件(buildNarrativeSteerSegment live/静态共享)');
   // EC-D 56(粘性自动滚动):上滑阅读不拽回,接近底部恢复跟随。
   ok(app.includes("from './js/chat-scroll.js'") && app.includes('createChatScrollController') && app.includes('function scheduleLiveThinkingFollow(live)'),
     'S26 EC-D 57 粘性滚动状态已收敛到 chat-scroll 领域模块');
@@ -233,7 +233,8 @@ async function getToken(port) {
     // ───────────────── A 段: 对话 · Claude interactive 即时注入 ─────────────────
     console.log('── A 段: 对话 steer 全路径(注入/事件/持久化/上限) ──');
     const turn = streamChat(WP, { sessionId: sid, message: 'please steer the turn', cwd: HOME });
-    await sleep(500); // fake 慢滴正文(120ms×N)的窗口内
+    // 冷启动/并行回归时 500ms 可能连 CLI 都没起。等待真实运行事件,不把启动延迟误报为插话失败。
+    for (let i = 0; i < 400 && !turn.events.some(e => e.type === 'process' && e.state === 'running'); i++) await sleep(50);
     const s1 = await post(WP, '/api/steer', { sessionId: sid, text: '改用方案B' }, hdr);
     ok(!!s1 && s1.ok === true && s1.injected === true, 'A1 Claude interactive steer 响应 injected:true (got ' + JSON.stringify(s1) + ')');
     const s2 = await post(WP, '/api/steer', { sessionId: sid, text: '补充第二条' }, hdr);

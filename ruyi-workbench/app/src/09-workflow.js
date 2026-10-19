@@ -1733,7 +1733,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // v0.8-S7: steering queue (§4 A3). /api/steer pushes plain user text here (cap 3) while a provider
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
-    steerQueue: [],
+    steerQueue: [], vision: provider && provider.vision === true,
     // Installed only while an interruptible tool is running. /api/steer invokes it after enqueueing the
     // instruction, allowing the current tool reply to settle as an explicit interruption and the next model
     // iteration to consume the steer immediately. Quiet/non-interruptible tools still get liveness heartbeats.

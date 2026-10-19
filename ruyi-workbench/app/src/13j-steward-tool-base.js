@@ -361,6 +361,7 @@ function stewardNormalizeMemoryEntry(raw) {
     sourceSeq: Math.max(0, Number(raw.sourceSeq) || 0),
     // 走查 #14:凭哪句用户原话记的(steward_memory_write 的 sourceRef.quote,服务端已逐字核对过)。老条目没有 -> 空串,存量零迁移。
     sourceQuote: String(raw.sourceQuote || '').slice(0, STEWARD_MEMORY_LIMITS.quoteChars),
+    ...(raw.basis === 'activity' ? { basis: 'activity', sourceToolCallId: String(raw.sourceToolCallId || '').slice(0, 200) } : {}),
     createdAt: String(raw.createdAt || ''),
     updatedAt: String(raw.updatedAt || ''),
     lastUsedAt: String(raw.lastUsedAt || ''),
@@ -384,7 +385,8 @@ function stewardNormalizeMemoryEntry(raw) {
       ? raw.mergedFrom
         .filter(r => r && typeof r === 'object')
         .slice(-STEWARD_MEMORY_MERGED_FROM_MAX)
-        .map(r => ({ sessionId: String(r.sessionId || ''), turnSeq: Math.max(0, Number(r.turnSeq) || 0), at: String(r.at || '') }))
+        .map(r => ({ sessionId: String(r.sessionId || ''), turnSeq: Math.max(0, Number(r.turnSeq) || 0), at: String(r.at || ''),
+          ...(r.toolCallId ? { toolCallId: String(r.toolCallId).slice(0, 200) } : {}) }))
       : [],
   };
 }

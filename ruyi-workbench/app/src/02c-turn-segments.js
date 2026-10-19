@@ -251,7 +251,7 @@ function createTurnSegmentBuilder() {
       //   空文本守卫与 appendText 一致(API 层已拒空文本,此为防御性兜底,防空 steer 段渲染空 bubble)。
       const steerText = String(evt.text || '');
       if (!steerText.trim()) return;
-      segments.push({ id: nextId(), type: 'steer', text: steerText });
+      segments.push({ id: nextId(), type: 'steer', text: steerText, ...(Array.isArray(evt.attachments) && evt.attachments.length ? { attachments: evt.attachments } : {}) });
       fallbackBatchId = ''; lastEventType = 'steer';
       return;
     }

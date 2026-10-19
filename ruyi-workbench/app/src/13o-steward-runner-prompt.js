@@ -60,7 +60,8 @@ async function stewardMemoryBlock(session, config, pack) {
       // 所以这里【不按作用域过滤】,而是把项目条目**标出来**。把它们整个藏掉是信息损失;
       // 把它们当成到处成立才是今天的 bug。标出项目名,两头都不占。
       const scopeNote = stewardMemoryScopeLabel(row.scope, config);
-      lines.push(`- [${kind}#${stewardSanitizeText(row.id)}] ${stewardSanitizeText(row.text)}(${source},用过 ${Math.max(0, Number(row.useCount) || 0)} 次${scopeNote})`);
+      const evidence = row.basis === 'activity' ? `,行动推断 confidence=${row.confidence};非用户确认,不能代答或授权` : '';
+      lines.push(`- [${kind}#${stewardSanitizeText(row.id)}] ${stewardSanitizeText(row.text)}(${source},用过 ${Math.max(0, Number(row.useCount) || 0)} 次${scopeNote}${evidence})`);
     }
   }
   if (!lines.length) return pack.steward.memoryHeader + '\n' + pack.steward.memoryEmpty + vetoedBlock;
@@ -197,7 +198,7 @@ async function stewardThreadDigestRows(config) {
       // buildStewardDigestLine 的 lead 段只吃 id/missionTitle/title 三键,多一个顶层键对总览行的
       // 拼装零影响。**digest.title 仍是原话** —— 管家读到的是用户当时怎么说的,那比一个名字信息更全;
       // 需要显示名的是壳层(「现在这一件」、递送候选),它们读这个字段。
-      displayTitle: sessionDisplayTitle(head),
+      displayTitle: stewardThreadDisplayTitle(head, config),
       updatedAt: String(head.updatedAt || ''),
       state: derived.state,
       wait,   // 116h:结构化形状(与另外三个展示面同形),给 117 壳层与旁路消费者读
@@ -481,6 +482,7 @@ async function buildStewardSystemPrompt(session, config, ctx) {
   const parts = [];
   // 117l:本波三条纪律(见 06b 的 rules 头注:英文稳定层已到 2453/2500,塞不下)。恒在,零条件。
   parts.push(pack.steward.rules);
+  parts.push(pack.steward.memoryCapture({ sessionId: session.id, turnSeq: Math.max(0, Number(session.turnSeq) || 0) }));
   // 136:人设块(用户定的名字/口吻)紧跟 rules —— 它是身份级设定,排在总览与记忆这些「事实层」之前。
   // 未配置时 stewardPersonaBlock 返回空串,整段不输出(零字节纪律)。
   const persona = stewardPersonaBlock(config, pack);

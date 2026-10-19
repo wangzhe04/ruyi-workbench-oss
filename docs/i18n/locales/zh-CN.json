@@ -3292,6 +3292,7 @@
   ,"settings.steward.memory.confidence": "把握 {{value}}"
   ,"settings.steward.memory.used": "用过 {{count}} 次"
   ,"settings.steward.memory.source": "来源"
+  ,"settings.steward.memory.inferred": "行动经验／推断偏好"
   ,"settings.steward.memory.sourceDetail": "来自线程 {{sessionId}} 的第 {{seq}} 回合"
   ,"settings.steward.memory.editLabel": "改这一条"
   ,"settings.steward.memory.editDone": "改好了。"

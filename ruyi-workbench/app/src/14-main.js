@@ -1,3 +1,5 @@
+Object.assign(SteerAttachmentHooks, { pathWithinRoot, buildAttachmentPrompt });
+
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';

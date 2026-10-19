@@ -396,7 +396,7 @@ export function createChatStaticRenderer(deps = {}) {
       }
       i += 1;
       if (segment.type === 'text') narrative.append(narrativeTextBubble(segment.text));
-      else if (segment.type === 'steer') narrative.append(buildNarrativeSteerSegment(segment.text)); // EC-D 56b: 刷新后插话内嵌在助手回合内(与 live 同源)
+      else if (segment.type === 'steer') narrative.append(buildNarrativeSteerSegment(segment.text, segment.attachments || [])); // 刷新后插话与附件同源。
       else if (segment.type === 'thinking') narrative.append(thinkingPanel(segment.text || '').d);
       else if (segment.type === 'plan') {
         const isKimiSnapshot = segment.readOnly === true && segment.source === 'kimi-acp';
@@ -568,6 +568,7 @@ export function createChatStaticRenderer(deps = {}) {
     // v1.9.1: 同步设 data-steered,让全量重渲染的行也能被 renderSteeredMessage 幂等检查 + steered 事件闪绿匹配覆盖。
     if (msg.steered) main.appendChild(el('span', 'steered-badge', t('chat.steer')));
     if (msg.steered) row.dataset.steered = 'true'; // v1.9.1: 让全量重渲染的行也能被 renderSteeredMessage 幂等检查 + steered 事件闪绿匹配覆盖
+    if (msg.steered && msg.attachments?.length) row.dataset.steerAttachments = JSON.stringify(msg.attachments.map(a => [a.id || '', a.name || '']));
     const nativeAgents = Array.isArray(msg.nativeAgents) ? msg.nativeAgents : [];
     const visibleToolCalls = Array.isArray(msg.toolCalls)
       ? msg.toolCalls.filter(tc => !nativeAgents.length || !['Agent', 'Task', 'TaskOutput'].includes(tc && tc.name))
@@ -618,6 +619,7 @@ export function createChatStaticRenderer(deps = {}) {
 
 
   return {
+    messageAttachmentStrip,
     compactNarrativeProcessRuns,
     narrativeQuestionCard,
     narrativeSemanticCard,

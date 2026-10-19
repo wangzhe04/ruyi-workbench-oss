@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 79,
-    "providedSymbols": 3820,
-    "requiredSymbols": 3367,
-    "edges": 573,
+    "providedSymbols": 3830,
+    "requiredSymbols": 3381,
+    "edges": 576,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -7427,6 +7427,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "buildAttachmentPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "existsExecutableAsync",
           "kinds": [
             "call"
@@ -7515,6 +7522,13 @@
           "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -15064,6 +15078,7 @@
         "IMAGE_OCR_MAX_CHARS",
         "IMAGE_SEND_MAX_BYTES",
         "STEER_REFUSAL",
+        "SteerAttachmentHooks",
         "appendAsrFixUsage",
         "audioStreamFailure",
         "audioStreamReap",
@@ -15092,6 +15107,7 @@
         "readAudioBody",
         "runAudioWarmup",
         "silentWav16k",
+        "steerAttachments",
         "steerRefusal",
         "steerSessionCore"
       ],
@@ -15399,6 +15415,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "sanitizeFsSegmentName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "scanMcpSources",
           "kinds": [
             "call"
@@ -15407,6 +15430,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
           "kinds": [
             "read"
           ]
@@ -17140,8 +17170,11 @@
         "STEWARD_FIRST_SIGHT_MAX_TURNS",
         "STEWARD_INBOX_FILE",
         "STEWARD_INBOX_FULL_READ_BYTES",
+        "STEWARD_INBOX_HISTORY_MAX",
         "STEWARD_INBOX_LIMIT_DEFAULT",
         "STEWARD_INBOX_LIMIT_MAX",
+        "STEWARD_INBOX_MAINTENANCE_MS",
+        "STEWARD_INBOX_RETENTION_MS",
         "STEWARD_INBOX_TAIL_BYTES",
         "STEWARD_KIND_RESOLVERS",
         "STEWARD_MERGED_SEQS_MAX",
@@ -17169,12 +17202,14 @@
         "stewardInboxCounts",
         "stewardInboxCountsMemo",
         "stewardInboxPath",
+        "stewardInboxPendingState",
         "stewardInboxRead",
         "stewardInboxRowDedupeKeys",
         "stewardInboxState",
         "stewardIsoAt",
         "stewardKindFor",
         "stewardLoadState",
+        "stewardMaintainInbox",
         "stewardMergeAccumulate",
         "stewardMergeInboxEvents",
         "stewardNormalizeBudgetExhausted",
@@ -17210,6 +17245,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
           "kinds": [
             "read"
           ]
@@ -17938,6 +17980,7 @@
         "stewardMediatedPermissionWaitMs",
         "stewardMediatesPermissions",
         "stewardMissionExists",
+        "stewardPendingExecutionSummary",
         "stewardQuickClose",
         "stewardRecentUserRequest",
         "stewardRecordLaunchOutcome",
@@ -17947,6 +17990,7 @@
         "stewardResolveThreadCwd",
         "stewardSeatedByUser",
         "stewardSeatedFail",
+        "stewardThreadDisplayTitle",
         "stewardToolCallLine",
         "stewardToolCallVerdict",
         "stewardTriggerOf",
@@ -18073,6 +18117,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "isUntitledSessionTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "listSessions",
           "kinds": [
             "call"
@@ -18111,6 +18162,13 @@
           "symbol": "saveSession",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_BRIEF_TITLE_CHARS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18884,6 +18942,7 @@
         "stewardRunResumeTier",
         "stewardSettingScope",
         "stewardSettingsReceipt",
+        "stewardSourceActivityTexts",
         "stewardSourceCwd",
         "stewardSourceIsUserMessage",
         "stewardSourceUserTexts",
@@ -19103,6 +19162,13 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "memoryProposalLooksSensitive",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "isStewardToolName",
           "kinds": [
             "call"
           ]
@@ -19445,6 +19511,13 @@
         },
         {
           "provider": "13i-steward-inbox.js",
+          "symbol": "stewardInboxPendingState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
           "symbol": "stewardInboxRead",
           "kinds": [
             "call"
@@ -19719,6 +19792,20 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardSeatedFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardToolCallLine",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardToolCallVerdict",
           "kinds": [
             "call"
           ]
@@ -21012,6 +21099,13 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardSeatedByUser",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardThreadDisplayTitle",
           "kinds": [
             "call"
           ]
@@ -25094,6 +25188,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "buildAttachmentPrompt",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "buildBrowserOpenSpawn",
           "kinds": [
             "read"
@@ -27907,6 +28008,13 @@
           ]
         },
         {
+          "provider": "13b-api-domain-routes.js",
+          "symbol": "SteerAttachmentHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13d-core-domain-routes.js",
           "symbol": "buildMissionAggregateRows",
           "kinds": [
@@ -30027,6 +30135,7 @@
       "from": "07-autonomy.js",
       "to": "03-bridge-guard.js",
       "symbols": [
+        "buildAttachmentPrompt",
         "existsExecutableAsync",
         "normalizeCwd",
         "pathWithinRoot"
@@ -30047,6 +30156,14 @@
         "redact",
         "resolveBridge",
         "runAutomaticInterventionDecision"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "07-autonomy.js",
+      "to": "04-visual-pipeline.js",
+      "symbols": [
+        "VisualPipeline"
       ],
       "direction": "backward"
     },
@@ -32122,7 +32239,16 @@
         "redact",
         "resolveBridge",
         "resolveExternalMcpServers",
+        "sanitizeFsSegmentName",
         "scanMcpSources"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13b-api-domain-routes.js",
+      "to": "04-visual-pipeline.js",
+      "symbols": [
+        "VisualPipeline"
       ],
       "direction": "backward"
     },
@@ -32871,6 +32997,7 @@
       "symbols": [
         "EventStreamHooks",
         "RUYI_EVENTS",
+        "fs",
         "fsp",
         "nowIso",
         "path",
@@ -33082,7 +33209,9 @@
       "from": "13k-steward-threads.js",
       "to": "02-session-store.js",
       "symbols": [
+        "SESSION_BRIEF_TITLE_CHARS",
         "createSession",
+        "isUntitledSessionTitle",
         "listSessions",
         "loadSession",
         "missionIndexAdd",
@@ -33385,6 +33514,7 @@
         "STEWARD_NOTIFY_KINDS",
         "STEWARD_NOTIFY_TEXT_CHARS",
         "STEWARD_SESSION_ID",
+        "isStewardToolName",
         "stewardAutoAskIndirect",
         "stewardAutoAskScanIncomplete",
         "stewardAutoAskSensitiveKind",
@@ -33473,6 +33603,7 @@
       "from": "13l-steward-ops.js",
       "to": "13i-steward-inbox.js",
       "symbols": [
+        "stewardInboxPendingState",
         "stewardInboxRead",
         "stewardInboxState"
       ],
@@ -33527,6 +33658,8 @@
         "stewardLiveTurnPermissionMode",
         "stewardSeatedByUser",
         "stewardSeatedFail",
+        "stewardToolCallLine",
+        "stewardToolCallVerdict",
         "stewardUserDirected",
         "stewardWorkspaceNameOf"
       ],
@@ -33802,7 +33935,8 @@
         "stewardCanonWorkspacePath",
         "stewardFoldWorkspacePath",
         "stewardKnownWorkspaces",
-        "stewardSeatedByUser"
+        "stewardSeatedByUser",
+        "stewardThreadDisplayTitle"
       ],
       "direction": "backward"
     },
@@ -34897,6 +35031,7 @@
         "auditBridgedWriteCoverage",
         "bridgedOfficeScriptGate",
         "bridgedReadPathGate",
+        "buildAttachmentPrompt",
         "buildBrowserOpenSpawn",
         "buildCodeEditorSpawn",
         "buildOpenSpawn",
@@ -35474,6 +35609,14 @@
         "parseArgs",
         "startMcp",
         "startServer"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13b-api-domain-routes.js",
+      "symbols": [
+        "SteerAttachmentHooks"
       ],
       "direction": "backward"
     },

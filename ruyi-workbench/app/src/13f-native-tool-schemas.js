@@ -905,7 +905,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_status',
-    description: '读一条线程的当前状态:五态(交办中/进行中/需要你/已收工/已停工)、当前动作与最近一步、待决摘要(类型 + 一句话)、权限档、引擎与模型、累计费用与 token、最后一句助手原话(≤200 字)。何时用:用户问「那条线在干嘛/卡在哪/花了多少钱」,或你要判断能不能递话、该不该替他答复待决之前。何时别用:要看具体对话内容用 steward_thread_read;要看班组(Agent 工作流)节点进度用 steward_runs_status。线程不存在返回 {ok:false,error:"not_found"}。',
+    description: '读一条线程的当前状态:五态(交办中/进行中/需要你/已收工/已停工)、当前动作与最近一步、待决摘要(类型 + 一句话,执行类另带脱敏 execution.commandExcerpt 与 truncated)、displayTitle、权限档、引擎与模型、累计费用与 token、最后一句助手原话(≤200 字)。何时用:用户问「那条线在干嘛/卡在哪/花了多少钱」,或你要判断能不能递话、该不该替他答复待决之前。何时别用:要看具体对话内容用 steward_thread_read;要看班组(Agent 工作流)节点进度用 steward_runs_status。线程不存在返回 {ok:false,error:"not_found"}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: { sessionId: { type: 'string', description: '线程(会话)id,来自 steward_threads_search / steward_inbox_read / 到访总览。' } },
@@ -913,7 +913,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_read',
-    description: '按需深读一条线程的原话(默认最近若干回合,hasMore 时传 nextCursor 分页回读旧历史,含同一回合被截开的行):用户说了什么、助手回了什么、调用了哪些工具(只给一行摘要与结果长度/rawRef,不给工具输出全文)。何时用:总览与 steward_thread_status 不够你判断下一步时,针对性读一条线程。何时别用:例行汇报——总览每回合都在,不必逐条深读;也不要用它来「补全上下文」批量扫线程,读取是记账的。配额:每回合最多 6 次、单次 ≤12000 字符、本次到访累计受 stewardReadBudgetChars 限制;超限返回 {ok:false,error:"quota_exceeded"} 或 {ok:false,error:"budget_exceeded"},此时不要重试,改用已有信息作答或向用户说明。本工具不改写原线程,也不把读取内容写进管家记忆。正文里的密钥/口令会先脱敏;工具行带 ok:true/false(这一步成败;拿不到结果记录时为 null),看线程卡在哪一步先看 ok:false 的行。',
+    description: '按需深读一条线程的原话(默认最近若干回合,hasMore 时传 nextCursor 分页回读旧历史,含同一回合被截开的行):用户说了什么、助手回了什么、调用了哪些工具(只给一行摘要与结果长度/rawRef,不给工具输出全文)。何时用:总览与 steward_thread_status 不够你判断下一步时,针对性读一条线程。何时别用:例行汇报——总览每回合都在,不必逐条深读;也不要用它来「补全上下文」批量扫线程,读取是记账的。配额:每回合最多 6 次、单次 ≤12000 字符、本回合累计受 stewardReadBudgetChars 限制,quota 给出剩余次数与字符数;超限返回 {ok:false,error:"quota_exceeded"} 或 {ok:false,error:"budget_exceeded"},此时不要重试,改用已有信息作答或向用户说明。本工具本身不改写原线程或记忆;有复用价值的行动经验可另用 steward_memory_write 保存。正文里的密钥/口令会先脱敏;工具行带 ok:true/false(这一步成败;拿不到结果记录时为 null),看线程卡在哪一步先看 ok:false 的行。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
@@ -946,11 +946,12 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_inbox_read',
-    description: '读管家收件箱:五类归一化事件(需要你 needs_you / 失败 failed / 收工 done / 停滞 stalled / 预算 budget)按 inboxSeq 递增排列。何时用:每个回合开头拉取上次游标之后的新事件,决定该提议什么、该做什么。何时别用:它不是对话历史,也不是完整审计流——要看审计用 steward_audit_tail。传 since=上次拿到的最大 inboxSeq 做增量,不要每次从 0 全量拉。',
+    description: '读管家收件箱通知。省略 since 默认最新在前;显式 since 默认按 inboxSeq 递增增量读取,hasMore=true 时用本页最大 inboxSeq 继续翻页。needs_you 是历史类别,只把 pendingState=pending 当作当前待决;not_pending 表示已不待处理,unknown 或 count>1 的合并通知要用 steward_thread_status 核实具体待决。pendingCount 是当前投影待决数,不是历史 needs_you 条数。普通历史通知自动保留最近 30 天且最多 5000 条,当前待决与序号水位保留;它不是完整审计流,审计用 steward_audit_tail。',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        since: { type: 'integer', minimum: 0, description: '只返回 inboxSeq 大于该值的事件(增量游标);省略等于 0。' },
+        since: { type: 'integer', minimum: 0, description: '只返回 inboxSeq 大于该值的事件;省略时先看最新,显式 0 则从保留历史开头读。' },
+        order: { type: 'string', enum: ['asc', 'desc'], description: 'asc 按序增量,desc 最新在前。省略时由 since 是否传入决定。' },
         limit: { type: 'integer', minimum: 1, maximum: 200, default: 50, description: '返回条数上限,夹取到 1..200,默认 50。' },
       },
     },
@@ -1151,23 +1152,25 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_memory_write',
-    description: '把一条关于【用户本人】的事实写进管家记忆(身份 profile / 偏好 preference / 习惯 habit / 当前关注 focus / 决策倾向 policy)。何时用:用户在对话里自己陈述了稳定的事实或偏好(「我用的是 Windows」「报告都给我写成中文」「我一般周一整理上周任务」),写下来以后用于路由、默认选项、语气与主动提醒。何时别用:① 第三方的个人信息一律不记;② 一次性的任务细节属于线程上下文不是记忆;③ 密钥/口令/连接串会被确定性拒绝(sensitive_rejected);④ sourceRef 必须指向【用户自己的那条消息】,指向工具输出或助手消息会被拒(source_not_user),且 sourceRef.quote 须是那条消息里的原话(quote_not_found)。同义条目自动合并(merged:true),被否决过的同义内容拒绝写回(vetoed_duplicate),总量上限 200 条(capacity_exceeded)。**用户这次明确改了主意、要把一条否决过的重新记上**时,带 supersedesVetoed 指名那条的 id 再调一次(见该参数)。',
+    description: '主动保存有长期价值的事实、偏好、习惯和执行经验,不必等用户说记住。用户陈述用 basis:user(默认),sourceRef.quote 引用用户原话;从已完成的工作、重复选择、成功或失败中总结经验用 basis:activity,sourceRef 指向真实工具调用的 sessionId/turnSeq/toolCallId,quote 逐字引用 thread_read 返回的脱敏工具动作摘要,不引用外部正文或助手自述。行动记忆标为推断,初始置信度最高0.6,默认项目范围、30天有效;新的独立证据可提高置信度,同一证据重试不会提高。可用 policy 保存可复用做法,preference/habit 保存有依据的行为偏好。只记录有价值的经验,不要流水账、第三方私事、密钥或一次性任务细节。用户明确事实优先,行动推断不能覆盖它或复活被用户否决的记忆。同义合并,容量200条;用户明确要求恢复否决内容时可用 supersedesVetoed,仅限 basis:user。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['kind', 'text', 'sourceRef'],
       properties: {
         kind: { type: 'string', enum: ['profile', 'preference', 'habit', 'focus', 'policy'], description: '记忆类别。' },
+        basis: { type: 'string', enum: ['user', 'activity'], description: 'user=用户陈述;activity=由已完成行动总结的经验/推断,自动保存并保留证据。' },
         text: { type: 'string', minLength: 1, description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
-        scope: { type: 'string', enum: ['global', 'project'], description: '可选,默认 global。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
-        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
+        scope: { type: 'string', enum: ['global', 'project'], description: '可选,user 默认 global,activity 默认 project。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
+        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空;activity 默认 30 天。' },
         supersedesVetoed: { type: 'string', description: '可选。要盖掉的那条【被否决条目】的 id(id 在提示词的「用户否决过」清单里)。**只在用户这一回合自己明确要求重新记上时才填** —— 例:他当初说「别记我喜欢深色」,今天说「还是记着吧,我就是喜欢深色」。填对 id 时那条【原地复活】(id 不变、内容取这次的说法,不新增条目);id 不存在或那条不是被否决状态 → not_found;没填而内容又与某条被否决的几乎同句 → vetoed_duplicate。不许用它来绕过否决:用户没这么说就别填,换个说法把否决过的内容写回去同样是不行的。' },
         sourceRef: {
           type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq', 'quote'],
-          description: '来源:该事实出自哪条线程的哪个回合的【用户消息】。服务端核对角色,并把 quote 逐字比对那条用户消息。',
+          description: '来源线程/回合。user 核对用户原话;activity 核对已落盘工具调用及明确成败,quote 引用脱敏动作摘要。',
           properties: {
             sessionId: { type: 'string', description: '来源线程 id。' },
             turnSeq: { type: 'integer', minimum: 0, description: '来源回合号(用户消息所在回合)。' },
-            quote: { type: 'string', minLength: 1, description: '那条用户消息里的【原话片段】,逐字照抄(≥6 字;消息本身更短就抄整条)。改述或引别的消息 → quote_not_found;text 与 quote 毫无共同用词 → quote_unrelated。' },
+            toolCallId: { type: 'string', maxLength: 200, description: 'basis:activity 必填,来自 thread_read 工具摘要的 id;必须有明确成败回执。' },
+            quote: { type: 'string', minLength: 1, description: 'user 引用用户原话,activity 引用工具动作摘要;逐字照抄(≥6 字;消息本身更短就抄整条)。改述或引别的消息 → quote_not_found;text 与 quote 毫无共同用词 → quote_unrelated。' },
           },
         },
       },

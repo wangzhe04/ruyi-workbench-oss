@@ -2083,12 +2083,18 @@ function hasInterruptingSteer(reg) {
 async function drainSteerQueue(reg, session, onEvent) {
   if (!reg || !Array.isArray(reg.steerQueue) || reg.steerQueue.length === 0) return 0;
   const items = reg.steerQueue.splice(0, reg.steerQueue.length);
+  const imageBatchStart = session.providerHistory.length;
   for (const text of items) {
     const t = String((typeof text === 'string' ? text : text.text) || '');
-    session.providerHistory.push({ role: 'user', content: '[用户插话] ' + t });
-    session.messages.push({ role: 'user', content: t, turnSeq: session.turnSeq, steered: true, createdAt: nowIso() });
-    try { onEvent({ type: 'steered', text: t }); } catch { /* stream gone */ }
+    const attachments = Array.isArray(text && text.attachments) ? text.attachments : [];
+    const prompt = '[用户插话] ' + t + buildAttachmentPrompt(attachments);
+    const content = reg.vision === true && VisualPipeline.hasImageAttachment(attachments)
+      ? await VisualPipeline.buildUserContentParts(prompt, attachments) : prompt;
+    session.providerHistory.push({ role: 'user', content });
+    session.messages.push({ role: 'user', content: t, ...(attachments.length ? { attachments } : {}), turnSeq: session.turnSeq, steered: true, createdAt: nowIso() });
+    try { onEvent({ type: 'steered', text: t, ...(attachments.length ? { attachments } : {}) }); } catch { /* stream gone */ }
   }
+  if (reg.vision === true) VisualPipeline.pruneOldImages(session.providerHistory, imageBatchStart);
   await saveSession(session);
   return items.length;
 }

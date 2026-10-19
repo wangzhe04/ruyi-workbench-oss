@@ -387,6 +387,15 @@ function stewardRecentUserRequest(o) {
   const request = sessionMeta(o).recentUserRequest;
   return request ? { ...request, text: stewardSanitizeText(redact(request.text)) } : null;
 }
+function stewardThreadDisplayTitle(head, config) {
+  let title = sessionDisplayTitle(head);
+  if (head?.titleSource !== 'user' && isUntitledSessionTitle(title)) {
+    const request = stewardRecentUserRequest(head);
+    title = request?.text ? [...request.text].slice(0, SESSION_BRIEF_TITLE_CHARS).join('')
+      : /^en/i.test(String(config?.locale || '')) ? 'Unnamed thread' : '未命名线程';
+  }
+  return stewardSanitizeText(redact(String(title || '')));
+}
 async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
   const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
@@ -467,6 +476,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       // 116g:命中的线程属于哪个【事项】。未归类线程这里是空串(事项标题就是线程标题,不重复说)。
       missionTitle: await missionTitleOf(missionId),
       title: stewardSanitizeText(meta.title || (head && head.title) || ''),
+      displayTitle: stewardThreadDisplayTitle(head || meta, config),
       ...(sessionBriefOf(head) || sessionBriefOf(meta) ? { brief: sessionBriefOf(head) || sessionBriefOf(meta) } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
       kind: stewardDisplayKind(head),
       state: derived.state,
@@ -511,7 +521,8 @@ async function stewardImplThreadStatus(args, ctx, config) {
     .slice(0, STEWARD_PENDING_SUMMARY_MAX)
     .map(iv => {
       const exempt = stewardExemptPendingSummary(iv);
-      return { id: String(iv.id), type: String(iv.type || ''), toolName: String(iv.toolName || ''), tier: String(iv.tier || ''), summary: stewardPendingOneLine(iv), interventionVersion: Number(iv.interventionVersion) || 0, ...(exempt ? { exempt } : {}) };
+      const execution = stewardPendingExecutionSummary(iv);
+      return { id: String(iv.id), type: String(iv.type || ''), toolName: String(iv.toolName || ''), tier: String(iv.tier || ''), summary: stewardPendingOneLine(iv), interventionVersion: Number(iv.interventionVersion) || 0, ...(exempt ? { exempt } : {}), ...(execution ? { execution } : {}) };
     });
 
   const session = await loadSession(sessionId).catch(() => null);
@@ -537,6 +548,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
       workspace: missionRow && missionRow.workspace ? stewardWorkspaceNameOf(missionRow.workspace.path, config) : null,
     },
     title: stewardSanitizeText(head.title || ''),
+    displayTitle: stewardThreadDisplayTitle(head, config),
     // W7:它在哪个工作区里 —— { name, ruyiOwned }(name 是已知工作区清单里的那个名字,可以原样填回
     // steward_thread_new 的 cwd;ruyiOwned = 如意自己开的文件夹)。缺 cwd 时为 null。只加字段。
     relatedThreads: threadRelatedThreads(head, await listSessions()),
@@ -623,10 +635,10 @@ async function stewardImplThreadRead(args, ctx, config) {
   const stewardSessionId = String((ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || 'steward');
   const bucket = stewardReadBucket(stewardSessionId, stewardTurnKeyOf(ctx));
   if (bucket.calls >= STEWARD_READ_CALLS_PER_TURN) {
-    return stewardFail('quota_exceeded', `thread read quota exhausted for this turn (${STEWARD_READ_CALLS_PER_TURN} deep reads); answer with already-read information`);
+    return stewardFail('quota_exceeded', `thread read quota exhausted for this turn (${STEWARD_READ_CALLS_PER_TURN} deep reads); answer with already-read information`, { quota: { callsRemaining: 0, charsRemaining: Math.max(0, budgetChars - bucket.chars) } });
   }
   if (budgetChars - bucket.chars <= STEWARD_READ_ROW_OVERHEAD + STEWARD_READ_CLIP_MARK.length) {
-    return stewardFail('budget_exceeded', `thread read budget exhausted for this turn (${budgetChars} chars); answer with already-read information`);
+    return stewardFail('budget_exceeded', `thread read budget exhausted for this turn (${budgetChars} chars); answer with already-read information`, { quota: { callsRemaining: Math.max(0, STEWARD_READ_CALLS_PER_TURN - bucket.calls), charsRemaining: 0 } });
   }
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
@@ -696,7 +708,8 @@ async function stewardImplThreadRead(args, ctx, config) {
     recentUserRequest: stewardRecentUserRequest(session),
     activityGuidance: getPromptPack(config && config.locale).steward.activityGuidance,
     relatedThreads: threadRelatedThreads(head, await listSessions()),
-    quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars },
+    quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars,
+      callsRemaining: Math.max(0, STEWARD_READ_CALLS_PER_TURN - bucket.calls), charsRemaining: Math.max(0, budgetChars - bucket.chars) },
     rows: kept,
   };
 }
@@ -1129,6 +1142,7 @@ async function stewardResolveAnswerBasis(wanted, head) {
       // 时效是过滤不是删除,条目还在库里,但它不该再替用户拿主意)。
       if (entry.state !== 'active') { misses.push(`记忆 ${id} 已经被你否决过`); continue; }
       if (memoryIsExpired(entry, nowMs)) { misses.push(`记忆 ${id} 已过期`); continue; }
+      if (entry.basis === 'activity') { misses.push(`记忆 ${id} 是行动推断,不能代替用户明确答复`); continue; }
       resolved.memoryIds.push(id);
     }
   }
@@ -1726,6 +1740,14 @@ async function stewardImplQuickAsk(args, ctx, config) {
 //   ③ 摘录 = 04 redact(REDACT_PATTERNS 单一来源)→ 06i stewardExemptExcerpt(尖括号中和 + 以命中处为中心截 300 字)。
 // 返回 { categories(类别键,去重保序;纯工具名命中时为空数组), floor(任一命中是底线), commandExcerpt }。
 // 收件箱行(stewardEnrichInboxRows)与 steward_thread_status.pending[] 读的是这同一个函数。
+function stewardPendingExecutionSummary(iv) {
+  if (!iv || iv.type !== 'permission' || iv.status !== 'pending') return null;
+  const input = stewardExemptScanInput(iv.tier, iv.input);
+  if (input == null) return null; // 文件写入正文不作为命令摘录泄露。
+  const text = stewardSanitizeBlock(redact(typeof input === 'string' ? input : JSON.stringify(input)));
+  if (!text) return null;
+  return { commandExcerpt: text.slice(0, 1200), chars: text.length, truncated: text.length > 1200 };
+}
 function stewardExemptPendingSummary(iv) {
   const v = (iv && typeof iv === 'object') ? iv : null;
   if (!v || String(v.type || '') !== 'permission' || String(v.status || '') !== 'pending') return null;

@@ -16,7 +16,7 @@ import { t } from './i18n.js';
 const IMAGE_NAME_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
 const UPLOAD_MAX_BYTES = 90 * 1048576;
 
-export function createAttachmentTray({ apiErrText = error => String((error && error.message) || error || '') } = {}) {
+export function createAttachmentTray({ apiErrText = error => String((error && error.message) || error || ''), onChange = () => {} } = {}) {
   const pendingUploads = [];   // 「上传中…」占位 { name, size, controller, cancelled },与 state.uploading 同步
   // W2-F10：现场代数。清场（新线程／resetUploads）把它 +1；在飞的上传回来时发现代数变了，就丢掉自己的结果、不往新现场里塞附件
   // （修前 clearThreadStage 不碰 pendingUploads，上一条线程里还在飞的上传会落进新线程的托盘）。
@@ -58,6 +58,7 @@ export function createAttachmentTray({ apiErrText = error => String((error && er
       pill.appendChild(x);
       tray.appendChild(pill);
     }
+    onChange();
   }
 
   // 放行一个占位(成功 / 失败 / 过大 / 取消)就撤一个;幂等。

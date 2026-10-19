@@ -264,7 +264,7 @@ const {
   fillStewardSettings: () => stewardShellGuard?.fillStewardSettings(), // 117e：设置页「管家」页签随 config 回填
 });
 
-const { renderAttachments, revokeAttachmentPreview, uploadFiles, resetUploads } = createAttachmentTray({ apiErrText });
+const { renderAttachments, revokeAttachmentPreview, uploadFiles, resetUploads } = createAttachmentTray({ apiErrText, onChange: () => updateSendBtn() });
 const {
   buildStaticToolGroup,
   ctxTokensOf,
@@ -427,6 +427,7 @@ const {
   turnArtifactChips: (...args) => turnArtifactChips(...args),
   turnSummaryCard: (...args) => turnSummaryCard(...args),
   turnToolIndexCard: (...args) => turnToolIndexCard(...args),
+  messageAttachmentStrip: (...args) => messageAttachmentStrip(...args),
   updateContextMeter,
   updateJumpLatest,
   usageLine,
@@ -620,9 +621,10 @@ const {
   narrativeToolAnchor,
   renderStaticMessage,
   turnToolIndexCard,
+  messageAttachmentStrip,
 } = createChatStaticRenderer({
   attachmentImageUrl,
-  buildNarrativeSteerSegment: text => buildNarrativeSteerSegment(text),
+  buildNarrativeSteerSegment: (...args) => buildNarrativeSteerSegment(...args),
   buildStaticToolGroup,
   el,
   highlightIn,

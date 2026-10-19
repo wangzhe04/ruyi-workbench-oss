@@ -52,7 +52,8 @@ const readInbox = () => {
 // 距该组首条 ≤5 秒」的事件,拉开之后每条自成一组,300 条事件就是 300 行,轮次算术才干净。
 const PER_SESSION = 100;
 const SIDS = ['sess_inbox_a', 'sess_inbox_b', 'sess_inbox_c'];
-const BASE_MS = Date.parse('2026-09-01T00:00:00.000Z');
+// 增量恢复用近期历史;超过 30 天的普通通知会被保留策略正常整理(另有 retention 单测)。
+const BASE_MS = Date.now() - 24 * 60 * 60 * 1000;
 const expectedKeys = new Set();
 for (const sid of SIDS) {
   const now = new Date().toISOString();

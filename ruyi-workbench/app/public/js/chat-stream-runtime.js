@@ -93,6 +93,7 @@ export function createChatStreamRuntime(deps = {}) {
     refreshSessions,
     refreshToolPane = () => {},
     renderAttachments,
+    messageAttachmentStrip = () => null,
     // F13:发送出去后释放托盘缩略图的 blob URL(组合根注入;缺省空实现)。
     revokeAttachmentPreview = () => {},
     renderAutonomyBar,
@@ -453,7 +454,7 @@ export function createChatStreamRuntime(deps = {}) {
     const btn = $('sendBtn');
     if (!btn) return;
     const streaming = Boolean(state.streaming);
-    const hasText = !!(($('promptInput')?.value || '').trim());
+    const hasText = !!(($('promptInput')?.value || '').trim()) || (state.attachments || []).length > 0;
     const steerCapability = activeTurnSteerCapability();
     // 117s-G:按钮与发送门读【同一个】判据 —— 「它正在跑(这一回合是在别处起的)」那张卡在屏上时,
     // 按钮就该写「插话」,而不是写「发送」骗用户去杀掉那个回合。
@@ -754,6 +755,10 @@ export function createChatStreamRuntime(deps = {}) {
     // 也不清空/重绘经典托盘(预览壳下它根本未挂载)。
     const sentAttachments = Array.isArray(options.attachments) ? options.attachments.slice() : state.attachments;
     if (!Array.isArray(options.attachments)) { for (const a of sentAttachments) revokeAttachmentPreview(a); state.attachments = []; renderAttachments(); }
+    else if (Array.isArray(options.composerAttachments)) {
+      for (const a of options.composerAttachments) revokeAttachmentPreview(a);
+      state.attachments = state.attachments.filter(a => !options.composerAttachments.includes(a)); renderAttachments();
+    }
     // 第69波:留住乐观 user 行的引用 —— 它是合成对象(无 turnSeq、不在 session.messages),其操作条里的
     // 「回溯到此处」必然 toast「无法定位该消息的回合」;回合拿到持久化真身后必须重绑(见下方 finally 前)。
     const optimisticUserRow = renderStaticMessage({ role: 'user', content: message, createdAt: new Date().toISOString(), attachments: sentAttachments });
@@ -969,7 +974,7 @@ export function createChatStreamRuntime(deps = {}) {
       } else {
         const cancel = el('button', 'steer-queue-cancel');
         cancel.type = 'button'; cancel.textContent = '×'; cancel.title = t('chat.steerCancelAria'); cancel.setAttribute('aria-label', t('chat.steerCancelAria'));
-        cancel.addEventListener('click', () => { void window.cancelSteer(encodeURIComponent(pending.text)); });
+        cancel.addEventListener('click', () => { void window.cancelSteer(encodeURIComponent(pending.text), false, pending.attachmentKey || ''); });
         item.append(cancel);
       }
       items.appendChild(item);
@@ -978,7 +983,7 @@ export function createChatStreamRuntime(deps = {}) {
     h.replaceChildren(card);
   }
   // cancelSteer: 从队列中撤回一条插话。clearAll 是独立控制参数，绝不复用用户文本作哨兵值。
-  window.cancelSteer = async function(encodedText, clearAll = false) {
+  window.cancelSteer = async function(encodedText, clearAll = false, attachmentKey) {
     let text = '';
     if (!clearAll) {
       try { text = decodeURIComponent(encodedText); } catch { return; }
@@ -992,7 +997,7 @@ export function createChatStreamRuntime(deps = {}) {
       const items = [...steerPendingList];
       for (const p of items) {
         if (p.injected) continue; // v1.9.1: Claude injected 项不可撤回,跳过
-        try { await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId, text: p.text }) }); } catch {}
+        try { await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId, text: p.text, attachmentKey: p.attachmentKey }) }); } catch {}
       }
       // v1.9.1: 只移除快照中的非 injected 项,不 length=0 --否则 await 期间并发新 steer 会被误清(对抗验证发现)。
       for (const p of items) {
@@ -1001,9 +1006,9 @@ export function createChatStreamRuntime(deps = {}) {
         if (i >= 0) steerPendingList.splice(i, 1);
       }
     } else {
-      const pending = steerPendingList.find(p => p.text === text && !p.injected);
+      const pending = steerPendingList.find(p => p.text === text && !p.injected && (attachmentKey == null || (p.attachmentKey || '') === attachmentKey));
       try {
-        const r = await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId, text }) });
+        const r = await api('/api/steer', { method: 'DELETE', body: JSON.stringify({ sessionId, text, attachmentKey }) });
         if (r && r.ok) {
           const idx = steerPendingList.indexOf(pending);
           if (idx >= 0) steerPendingList.splice(idx, 1);
@@ -1016,9 +1021,12 @@ export function createChatStreamRuntime(deps = {}) {
   };
 
   async function steerPrompt(overrideText, options = {}) {
+    if (!Array.isArray(options.attachments) && Number(state.uploading) > 0) { toast(t('toast.uploadInProgress'), ''); return; }
     const composerDraft = overrideText == null ? $('promptInput').value : options.composerDraft;
-    const text = (overrideText != null ? overrideText : composerDraft).trim();
-    if (!text) return;
+    const sentAttachments = (Array.isArray(options.attachments) ? options.attachments : state.attachments).slice();
+    const rawText = (overrideText != null ? overrideText : composerDraft).trim();
+    if (!rawText && !sentAttachments.length) return;
+    const text = rawText || t('stewardShell.chat.attached', { names: sentAttachments.map(a => a.name).join(', ') }).slice(0, 2000);
     if (!state.currentSession?.id) return;
     const sessionId = state.currentSession.id;
     const selectionSeq = sessionSelectionSeq();
@@ -1027,7 +1035,7 @@ export function createChatStreamRuntime(deps = {}) {
     try {
       const delivery = $('steerDeliveryMode');
       const mode = delivery && !delivery.hidden ? delivery.value : 'queue';
-      const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId, text, mode }) });
+      const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId, text, mode, attachments: sentAttachments }) });
       if (!sameSelection()) return; // 包括 A→B→A；旧现场的回包不更新输入框、队列或触发重发。
       // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：
       // **服务端才是权威。** 它说这条线程此刻没有在途回合，就说明我们手上那份「可以插话」的信念
@@ -1038,17 +1046,23 @@ export function createChatStreamRuntime(deps = {}) {
       if (r && r.ok !== true && String((r.error && r.error.code) || '') === 'steer.no_live_turn') {
         if (state.sessionRelay && state.sessionRelay.sessionId === sessionId) state.sessionRelay = null;
         updateSendBtn();
-        return sendPrompt(text, { ...options, skipSteer: true, composerDraft });
+        return sendPrompt(rawText, { ...options, attachments: sentAttachments,
+          ...(!Array.isArray(options.attachments) ? { composerAttachments: sentAttachments } : {}), skipSteer: true, composerDraft });
       }
       if (!r || !r.ok) { toast(t("toast.steerFail", { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err'); return; }
+      if (!Array.isArray(options.attachments)) {
+        for (const a of sentAttachments) revokeAttachmentPreview(a);
+        state.attachments = state.attachments.filter(a => !sentAttachments.includes(a));
+        renderAttachments();
+      }
       if (composerDraft != null) { clearSentComposerDraft(composerDraft, text); updateSendBtn(); }
-      steeredSeen.push({ text, ts: Date.now() });
+      steeredSeen.push({ text, attachmentKey: steerAttachmentKey(sentAttachments), ts: Date.now() });
       if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
-      renderSteeredMessage(text);
+      renderSteeredMessage(text, false, sentAttachments);
       // v1.9.1: 两条路径都显示卡片(provider 排队可撤回 / Claude 已注入确认 2.5s)。
       if (r.queued) {
         // provider: 排队等待下次迭代边界注入,卡片可撤回
-        if (state.streaming) { steerPendingList.push({ text, ts: Date.now(), injected: false }); renderSteerQueue(); }
+        if (state.streaming) { steerPendingList.push({ text, attachmentKey: steerAttachmentKey(sentAttachments), ts: Date.now(), injected: false }); renderSteerQueue(); }
         toast(t('toast.steerQueued'), 'ok'); // v1.9.1: turn 已结束(POST 迟到)只 toast 不显卡片(无 drain 事件移除会持久残留)
       } else if (r.injected) {
         // v1.9.1: Claude 即时注入也显示卡片(「已注入」确认,不可撤回),2.5 秒后自动消失。
@@ -1084,15 +1098,21 @@ export function createChatStreamRuntime(deps = {}) {
   }
   // EC-D 56b: 构造 turn narrative 内的内嵌插话 segment(live renderSteeredMessage 与静态 renderStaticTurnNarrative 共享,
   //   确保流式与刷新后视觉一致)。用户插话原文用 textContent(不进 markdown,防 XSS 与引用断裂)。
-  function buildNarrativeSteerSegment(text) {
+  function steerAttachmentKey(attachments) {
+    return attachments.length ? JSON.stringify(attachments.map(a => [a.id || '', a.name || ''])) : '';
+  }
+  function buildNarrativeSteerSegment(text, attachments = []) {
     const seg = el('div', 'turn-segment narrative-steer');
+    seg.dataset.steerAttachments = steerAttachmentKey(attachments);
     seg.appendChild(el('span', 'steered-badge', t('chat.steer')));
     const bubble = el('div', 'bubble');
     bubble.textContent = String(text || '');
     seg.appendChild(bubble);
+    const strip = messageAttachmentStrip({ attachments });
+    if (strip) seg.appendChild(strip);
     return seg;
   }
-  function renderSteeredMessage(text, justInjected) {
+  function renderSteeredMessage(text, justInjected, attachments = []) {
     const box = $('messages');
     box.querySelector('.empty-state')?.remove();
     // v1.9.1 幂等:同文本插话只渲染一次。防 SSE 比 POST 响应先到的竞态双写
@@ -1101,6 +1121,7 @@ export function createChatStreamRuntime(deps = {}) {
     const now = Date.now();
     // v1.9.1 幂等加时间窗口:同文本且 1.5 秒内才算同一条的乐观/事件重复(跳过);超窗视为不同条同文本插话(跨回合重发或连发),各自渲染。纯文本去重会误杀不同条(对抗验证发现)。
     for (const node of box.querySelectorAll('[data-steered="true"]')) {
+      if ((node.dataset.steerAttachments || '') !== steerAttachmentKey(attachments)) continue;
       if (node.dataset.steerTs && now - Number(node.dataset.steerTs) > 1500) continue; // v1.9.1: 只对设了 steerTs 的乐观/事件行判窗;历史行(静态重渲染无 steerTs)始终参与文本去重,防会话切回 mountActiveTurn 重放双写
       const md = node.querySelector('.bubble'); // steered 行是 user .plain bubble(.markdown 类不存在);直接 .bubble 匹配
       if (md && md.textContent.trim() === String(text || '').trim()) {
@@ -1116,7 +1137,7 @@ export function createChatStreamRuntime(deps = {}) {
     const narrative = turn && turn.live && turn.live.narrative && turn.live.narrative.isConnected ? turn.live.narrative : null;
     if (narrative) {
       sealLiveTextSegment(turn.live); // 封存插话前的助手文本 -> 插话落在其后(无文本则移除空 bubble)
-      const seg = buildNarrativeSteerSegment(text);
+      const seg = buildNarrativeSteerSegment(text, attachments);
       seg.dataset.steered = 'true'; // 幂等检查/闪绿匹配覆盖
       seg.dataset.steerTs = String(now); // 时间戳供幂等窗口判定(静态重渲染行无此标记 -> 超窗 -> 不阻止新插话)
       narrative.appendChild(seg);
@@ -1126,8 +1147,9 @@ export function createChatStreamRuntime(deps = {}) {
       return;
     }
     // 回退:无活动 live turn -> 独立 user 行(刷新后静态渲染同源)
-    const row = renderStaticMessage({ role: 'user', content: text, createdAt: new Date().toISOString(), steered: true });
+    const row = renderStaticMessage({ role: 'user', content: text, attachments, createdAt: new Date().toISOString(), steered: true });
     row.dataset.steered = 'true'; // renderStaticMessage 已设,此处冗余保留
+    row.dataset.steerAttachments = steerAttachmentKey(attachments);
     row.dataset.steerTs = String(now); // v1.9.1: 时间戳供幂等窗口判定(静态重渲染行无此标记 -> 超窗 -> 不阻止新插话)
     box.appendChild(row);
     if (justInjected) flashSteerBadge(row); // 事件触发的渲染直接闪绿(乐观行可能尚未出现,等不到事件来闪)
@@ -1501,11 +1523,11 @@ export function createChatStreamRuntime(deps = {}) {
         // 50-fix(用户真机报告「Steer 一次发两条」):provider 引擎的 echo 在【下一次迭代边界 drain】时才发,
         // 慢工具下可远超旧 15s 窗口 → 窗口失效回声双写。改为【不限时文本队列】去重:同文本逐条 splice,
         // 两条相同插话仍各消各的(正确),回声多晚到都能命中。cap 50 防无限积。
-        const idx = steeredSeen.findIndex(s => s.text === evt.text);
+        const idx = steeredSeen.findIndex(s => s.text === evt.text && (s.attachmentKey || '') === steerAttachmentKey(evt.attachments || []));
         if (idx >= 0) { steeredSeen.splice(idx, 1); }
         // v1.9.1: 从 pendingList 移除已注入项。只移除 provider 排队项(!injected);
         //   Claude injected 项由 steerPrompt 的 setTimeout 管理--否则 steered 事件(与 POST 几乎同时到)立即移除,Claude 卡片一闪而过看不见。
-        const pidx = steerPendingList.findIndex(p => p.text === evt.text && !p.injected);
+        const pidx = steerPendingList.findIndex(p => p.text === evt.text && !p.injected && (p.attachmentKey || '') === steerAttachmentKey(evt.attachments || []));
         if (pidx >= 0) { steerPendingList.splice(pidx, 1); renderSteerQueue(); }
         // v1.9.1: 闪绿消息行「✓ 已注入」。关键:steered 行 append 到 $('messages') 顶层(非 assistant main 内部),
         //   旧代码用 main.querySelectorAll 永远匹配不到 -> 闪绿失效(用户报告"看不到插话插到哪里")。
@@ -1521,7 +1543,7 @@ export function createChatStreamRuntime(deps = {}) {
           if (target) flashSteerBadge(target);
         }
         // v1.9.1: justInjected-事件触发渲染直接闪绿(乐观行可能尚未出现,等不到事件来闪)
-        if (idx < 0) renderSteeredMessage(evt.text || '', true);
+        if (idx < 0) renderSteeredMessage(evt.text || '', true, evt.attachments || []);
         break;
       }
       case 'turn_summary':

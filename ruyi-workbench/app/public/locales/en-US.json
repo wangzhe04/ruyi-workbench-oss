@@ -3292,6 +3292,7 @@
   ,"settings.steward.memory.confidence": "Confidence {{value}}"
   ,"settings.steward.memory.used": "Used {{count}} times"
   ,"settings.steward.memory.source": "Source"
+  ,"settings.steward.memory.inferred": "Observed experience / inferred preference"
   ,"settings.steward.memory.sourceDetail": "From thread {{sessionId}}, turn {{seq}}"
   ,"settings.steward.memory.editLabel": "Edit this line"
   ,"settings.steward.memory.editDone": "Updated."

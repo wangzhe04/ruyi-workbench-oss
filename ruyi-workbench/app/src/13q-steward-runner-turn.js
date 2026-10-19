@@ -813,9 +813,10 @@ async function stewardVisitDigest(sinceSeq, sinceFireSeq) {
     try { commitments = (await SchedulerHooks.commitmentsSince(sinceFireSeq, Date.now())) || commitments; }
     catch { /* 保持全 0 */ }
   }
-  // 三项排在七类【之后】:那七类是刚发生的事(更新鲜),承诺是日程(用户自己早就知道有这回事)。
-  // 同样受 STEWARD_VISIT_DIGEST_MAX 那个 ≤5 的帽子。
-  for (const field of ['upcoming', 'missed', 'needsYou']) {
+  // 为承诺留出名额:事件类别满五种时也不能把漏跑/结果未知吞掉,同时推进 fireSeq 让它永远消失。
+  const commitmentFields = ['upcoming', 'missed', 'needsYou'].filter(field => Math.max(0, Number(commitments[field]) || 0) > 0);
+  items.splice(Math.max(0, STEWARD_VISIT_DIGEST_MAX - commitmentFields.length));
+  for (const field of commitmentFields) {
     if (items.length >= STEWARD_VISIT_DIGEST_MAX) break;
     const n = Math.max(0, Number(commitments[field]) || 0);
     if (!n) continue;

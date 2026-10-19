@@ -376,6 +376,7 @@ async function stewardMemoryPanelEdit(body) {
     if (kind) entry.kind = kind;
     entry.confidence = 1;
     entry.sourceSessionId = 'user_panel';
+    delete entry.basis; delete entry.sourceToolCallId;
     entry.sourceSeq = 0;
     entry.sourceQuote = ''; // 用户在面板里亲手改的:出处就是用户本人,不再挂着改前那句引文
     entry.updatedAt = nowIso();

@@ -73,6 +73,9 @@ const STEWARD_INBOX_FULL_READ_BYTES = 8 * 1024 * 1024; // 超过它只读尾窗(
 const STEWARD_INBOX_TAIL_BYTES = 1024 * 1024;
 const STEWARD_DEDUPE_TAIL_ROWS = 2000;     // 启动时从 inbox 尾部重建去重集合的行数上限
 const STEWARD_SEEN_MAX_KEYS = 20000;       // 去重集合内存硬顶,超了就按同一口径从尾部重建
+const STEWARD_INBOX_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const STEWARD_INBOX_HISTORY_MAX = 5000;
+const STEWARD_INBOX_MAINTENANCE_MS = 60 * 60 * 1000;
 
 // ────────────────────────────────────────────────────────────────────────────
 // 源事件 → 五类白名单的【唯一】映射表。
@@ -562,6 +565,7 @@ const stewardRuntime = {
   pollMs: 5000,
   lastTickAt: '',
   lastInboxAt: '',      // 116-4:最后一次【真的写进箱子】的时刻(lastTickAt 只说明轮询活着)
+  lastMaintenanceAt: 0,
   sourcesSeen: { sessionTurns: 0 }, // 116-4:第四源本进程入箱条数,给 /api/steward/state 的诚实字段
   lastError: '',
   seen: new Set(),      // 去重集合(启动时从 inbox 尾部重建,上限 STEWARD_DEDUPE_TAIL_ROWS 行)
@@ -737,6 +741,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.inboxSeq = 0;
   stewardRuntime.lastTickAt = '';
   stewardRuntime.lastInboxAt = '';
+  stewardRuntime.lastMaintenanceAt = 0;
   stewardRuntime.lastError = '';
   stewardRuntime.seen = new Set();
   stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} };
@@ -783,6 +788,53 @@ function stewardParseInboxText(text, droppedHead) {
 async function stewardReadInboxRows() {
   const { text, droppedHead } = await stewardReadInboxText();
   return stewardParseInboxText(text, droppedHead);
+}
+
+function stewardInboxPendingState(row, pending) {
+  if (!pending) return 'unknown';
+  const ids = new Set([row.payload?.interventionId, row.seq, ...(Array.isArray(row.payload?.mergedSeqs) ? row.payload.mergedSeqs : [])]
+    .filter(id => typeof id === 'string' && id));
+  for (const id of ids) if (pending.has(String(row.sessionId || '') + '\u0000' + id)) return 'pending';
+  // 合并行只记录前 20 个源 id;id 不全时不能推断这一整组已经处理完。
+  return !ids.size || Number(row.count) > ids.size ? 'unknown' : 'not_pending';
+}
+
+// 只整理通知副本,不动会话/待决/审计源。与 append 共用写链,读失败绝不能把原文件覆盖成空。
+// 当前待决不受年龄/历史条数限制;最后一行保留作序号水位,重启和增量读取都不会倒退。
+function stewardMaintainInbox(now = Date.now()) {
+  if (now - stewardRuntime.lastMaintenanceAt < STEWARD_INBOX_MAINTENANCE_MS) return Promise.resolve();
+  const pending = new Set(stewardRuntime.cursor.pendingIds);
+  const next = stewardAppendChain.catch(() => {}).then(async () => {
+    stewardRuntime.lastMaintenanceAt = now; // 故障也节流,坏文件/瞬时锁不能让每拍变成全量扫描。
+    const file = stewardInboxPath();
+    try { await fsp.stat(file); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+    const input = fs.createReadStream(file, { encoding: 'utf8' });
+    const lines = require('node:readline').createInterface({ input, crlfDelay: Infinity });
+    const history = [], active = [];
+    let latest = null, count = 0;
+    try {
+      for await (const line of lines) {
+        if (!line.trim()) continue;
+        const row = safeJsonParse(line, null);
+        // 未知/损坏格式交给原有读取与修复纪律;整理器不擅自丢弃无法理解的数据。
+        if (!row || !Number.isSafeInteger(Number(row.inboxSeq)) || !STEWARD_EVENT_KINDS.includes(row.kind)) throw new Error('steward.inbox_maintenance_invalid_row');
+        count += 1;
+        if (!latest || Number(row.inboxSeq) > Number(latest.inboxSeq)) latest = row;
+        if (row.kind === 'needs_you' && stewardInboxPendingState(row, pending) !== 'not_pending') active.push(row);
+        else if (!Number.isFinite(Date.parse(row.at)) || Date.parse(row.at) >= now - STEWARD_INBOX_RETENTION_MS) {
+          history.push(row);
+          if (history.length > STEWARD_INBOX_HISTORY_MAX) history.shift();
+        }
+      }
+    } finally { lines.close(); input.destroy(); }
+    const kept = active.concat(history);
+    if (latest && !kept.includes(latest)) kept.push(latest);
+    kept.sort((a, b) => Number(a.inboxSeq) - Number(b.inboxSeq));
+    if (kept.length < count) await atomicWriteJson(file, kept.map(row => JSON.stringify(row)).join('\n') + '\n', { mode: 0o600 });
+    stewardRuntime.lastMaintenanceAt = now;
+  });
+  stewardAppendChain = next.catch(() => {});
+  return next;
 }
 
 // 游标读取。读坏/缺失 → 冷启动(inboxSeq 从 inbox 尾行恢复,去重集合从 inbox 尾部 N 行重建,
@@ -927,7 +979,7 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
   stewardRuntime.cursor.missionChanges = mc.kept;
   stewardRuntime.cursor.agentRuns = ar.kept;
   const pendingIds = [...stewardRuntime.cursor.pendingIds].slice(0, STEWARD_CURSOR_MAX_PENDING);
-  stewardRuntime.cursor.pendingIds = new Set(pendingIds);
+  // 落盘容量不能裁掉内存中的当前待决,否则超出 2000 的部分每拍重复入箱,整理时还会被误认已处理。
   // 116-3 P1-9:budgetSeen 与另外两源同款做容量控制 —— 只留【本轮还见得到的会话】(会话没了就没有
   // 再去重的对象),再夹一次硬顶。它不像 pendingIds 那样每轮整份重算(预算触顶是一次性持久标记,
   // 不会「自然消失」),所以裁剪必须显式做,否则长跑进程里它只增不减。
@@ -1289,6 +1341,9 @@ async function stewardTickOnce() {
   }
   // 冷启动只建基线,基线本身也必须落盘 —— 否则下次仍是冷启动,永远补不上历史增量。
   await stewardSaveCursor(activeSessionIds, activeRunIds);
+  // 独立于入箱成功与否:整理失败不能把已落盘的一批重新投递,也不能阻止唤醒管家。
+  try { await stewardMaintainInbox(); }
+  catch (error) { try { logEvent({ kind: 'steward_inbox_maintenance_failed', code: String(error.code || error.message || '').slice(0, 100) }); } catch { /* 旁路 */ } }
   stewardRuntime.cold = false;
   stewardRuntime.lastTickAt = nowIso();
   // 116f: 本轮真的写进箱子的行交给回合运行器(13h 去抖 5 秒后起一个收件箱回合)。经 06i 的延迟绑定
@@ -1363,7 +1418,7 @@ async function stewardInboxRead(opts) {
     : STEWARD_INBOX_LIMIT_DEFAULT;
   const rows = await stewardReadInboxRows();
   const matched = rows.filter(row => Number(row.inboxSeq) > since).sort((a, b) => Number(a.inboxSeq) - Number(b.inboxSeq));
-  const items = matched.slice(0, limit);
+  const items = o.order === 'desc' ? matched.slice(-limit).reverse() : matched.slice(0, limit);
   return {
     items,
     since,
@@ -1422,5 +1477,7 @@ async function stewardInboxState(config) {
     sourcesSeen: { sessionTurns: Number(stewardRuntime.sourcesSeen.sessionTurns) || 0 },
     lastError: stewardRuntime.lastError,
     counts: { byKind },
+    retention: { historyDays: 30, historyMax: STEWARD_INBOX_HISTORY_MAX, preservesPending: true,
+      maintenanceIntervalMs: STEWARD_INBOX_MAINTENANCE_MS, lastMaintenanceAt: stewardRuntime.lastMaintenanceAt ? new Date(stewardRuntime.lastMaintenanceAt).toISOString() : '' },
   };
 }

@@ -482,11 +482,13 @@ export function createStewardSettingsDomain({
     }
     meta.appendChild(el('span', '', t('settings.steward.memory.confidence', { value: Number(entry.confidence || 0).toFixed(2) })));
     meta.appendChild(el('span', '', t('settings.steward.memory.used', { count: Number(entry.useCount || 0) })));
+    if (entry.basis === 'activity') meta.appendChild(el('span', '', t('settings.steward.memory.inferred')));
     // 来源悬停（§8.7「使用可解释」）：会话与 seq 走 title，不占版面。
     const source = el('span', '', t('settings.steward.memory.source'));
     source.title = t('settings.steward.memory.sourceDetail', {
       sessionId: String(entry.sourceSessionId || ''), seq: String(entry.sourceSeq || 0),
     });
+    if (entry.sourceQuote) source.title += '\n' + String(entry.sourceQuote);
     meta.appendChild(source);
     if (String(entry.state) === 'vetoed') {
       meta.appendChild(button('steward-memory-btn', t('settings.steward.memory.restore'), () => restoreMemory(entry)));

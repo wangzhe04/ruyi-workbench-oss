@@ -23,6 +23,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'ruyi-workbench', 'app', 'src');
@@ -106,7 +107,8 @@ const runner = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-ste
     '② 117l-A1-fix2 companion:非活回合分支仍是 detectDanglingTurn(session) 原样,没被顺手改动');
   ok(/\{ brief: sessionBriefOf\(head\) \|\| sessionBriefOf\(meta\) \}/.test(steward),
     '② steward_threads_search 结果带 brief');
-  ok(/displayTitle: sessionDisplayTitle\(head\),/.test(runner),
+  ok(/displayTitle: stewardThreadDisplayTitle\(head, config\),/.test(runner)
+    && /let title = sessionDisplayTitle\(head\);/.test(functionBlock(steward, 'stewardThreadDisplayTitle')),
     '② 管家总览行带 displayTitle(preroute 与「现在这一件」的 focus 都读它)');
   ok(/displayTitle: stewardSanitizeText\(\(candidate\.row && candidate\.row\.displayTitle\)/.test(core),
     '② 递送预判 hit 带 displayTitle');
