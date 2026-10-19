@@ -28,10 +28,10 @@ async function worker() {
     const stages = [], started = Date.now(); helperStages.push(stages);
     const marker = stage => `[Console]::Error.WriteLine('DPAPI_STAGE:${stage}')`;
     let script = Buffer.from(args.at(-1), 'base64').toString('utf16le');
-    for (const [line, stage] of [["try {", 'started'], ['Add-Type -AssemblyName System.Security', 'assembly'],
-      ['[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)', 'encoding'],
-      ['$request = [Console]::In.ReadLine() | ConvertFrom-Json', 'input'],
-      ['$entropy = [Convert]::FromBase64String($request.entropy)', 'decoded'],
+    for (const [line, stage] of [["try {", 'started'], ["[void][Reflection.Assembly]::Load('System.Security, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a')", 'assembly'],
+      ['[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)', 'encoding'],
+      ['$op = [Console]::In.ReadLine()', 'input'],
+      ['$entropy = [Convert]::FromBase64String([Console]::In.ReadLine())', 'decoded'],
       ['[Array]::Clear($bytes,0,$bytes.Length)', 'protected']]) script = script.replace(line, line + '\n  ' + marker(stage));
     const diagnosticArgs = [...args.slice(0, -1), Buffer.from(script, 'utf16le').toString('base64')];
     const child = cp.spawn(file, diagnosticArgs, { ...options, stdio: ['pipe', 'pipe', 'pipe'] });

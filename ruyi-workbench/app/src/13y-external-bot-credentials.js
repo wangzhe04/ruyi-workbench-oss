@@ -58,16 +58,17 @@ const ExternalBotCredentials = (() => {
   // No exception text or child stderr is exposed. DPAPI operates under the already loaded current user profile.
   const DPAPI_SCRIPT = `$ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
+$PSModuleAutoLoadingPreference='None'
 try {
-  Add-Type -AssemblyName System.Security
-  [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
-  [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
-  $request = [Console]::In.ReadLine() | ConvertFrom-Json
-  $bytes = [Convert]::FromBase64String($request.value)
-  $entropy = [Convert]::FromBase64String($request.entropy)
-  if ($request.op -eq 'protect') {
+  [void][Reflection.Assembly]::Load('System.Security, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a')
+  [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
+  [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+  $op = [Console]::In.ReadLine()
+  $bytes = [Convert]::FromBase64String([Console]::In.ReadLine())
+  $entropy = [Convert]::FromBase64String([Console]::In.ReadLine())
+  if ($op -eq 'protect') {
     $result = [Security.Cryptography.ProtectedData]::Protect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
-  } elseif ($request.op -eq 'unprotect') {
+  } elseif ($op -eq 'unprotect') {
     $result = [Security.Cryptography.ProtectedData]::Unprotect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
   } else { throw 'operation' }
   [Console]::Out.Write('{"ok":true,"value":"'+[Convert]::ToBase64String($result)+'"}')
@@ -118,8 +119,8 @@ try {
           if (code !== 0 || !exact(response, ['ok', 'value']) || response.ok !== true || !base64(response.value, LIMIT.cipherBytes)) { finish(op === 'unprotect' ? 'decrypt_failed' : 'process_failed'); return; }
           finish(null, Buffer.from(response.value, 'base64'));
         });
-        // One ASCII JSON line frames the request independently of Windows pipe EOF delivery.
-        child.stdin.end(JSON.stringify({ op, value: value.toString('base64'), entropy: Buffer.from('ruyi.external-bot-credentials.v1:' + JSON.stringify(owner)).toString('base64') }) + '\n');
+        // Three ASCII lines need neither pipe EOF nor cmdlet/module discovery (Add-Type/JSON).
+        child.stdin.end([op, value.toString('base64'), Buffer.from('ruyi.external-bot-credentials.v1:' + JSON.stringify(owner)).toString('base64'), ''].join('\n'));
       } catch { stop('process_failed'); }
     });
   }

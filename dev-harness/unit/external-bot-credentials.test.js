@@ -23,8 +23,9 @@ function fixture({ platform = 'win32' } = {}) {
     if (mode === 'spawn') throw new Error('must-not-leak-provider-secret');
     const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stdin = new EventEmitter(); child.kill = () => {};
     child.stdin.end = input => {
-      assert.ok(input.endsWith('\n') && !input.slice(0, -1).includes('\n'), 'one complete JSON line');
-      const request = JSON.parse(input); calls.at(-1).input = request;
+      const lines = input.split('\n');
+      assert.equal(lines.length, 4); assert.equal(lines[3], '');
+      const request = { op: lines[0], value: lines[1], entropy: lines[2] }; calls.at(-1).input = request;
       if (mode === 'timeout') return;
       setImmediate(() => {
         if (mode === 'capacity') { child.stdout.emit('data', Buffer.alloc(131073)); child.emit('close', 0); return; }
@@ -83,6 +84,7 @@ test('local credentials are encrypted/bound, public inspection omits values, and
     assert.equal(call.options.env.PSModulePath, path.join(path.dirname(call.executable), 'Modules'));
     assert.deepEqual(plain(call.options.stdio), ['pipe', 'pipe', 'ignore']);
     assert.match(Buffer.from(call.args.at(-1), 'base64').toString('utf16le'), /DataProtectionScope\]::CurrentUser/);
+    assert.doesNotMatch(Buffer.from(call.args.at(-1), 'base64').toString('utf16le'), /Add-Type|New-Object|ConvertFrom-Json/);
     assert.equal(call.executable, path.join('C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'));
   }
 });
