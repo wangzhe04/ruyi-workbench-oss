@@ -19,11 +19,33 @@ async function worker() {
   const task = JSON.parse(Buffer.concat(input));
   const secretValues = Object.values(task.values || {}).concat(Object.values(task.expected || {}), Object.values(task.env || {}));
   let ipcClean = true, helpers = 0;
+  const helperStages = [];
   const spawn = (file, args, options) => {
     helpers++;
     const visible = JSON.stringify([file, args, options.env]);
     if (secretValues.some(secret => typeof secret === 'string' && secret && visible.includes(secret))) ipcClean = false;
-    const child = cp.spawn(file, args, options);
+    // Only fixed stage labels are reported: never helper output, exception text or credential data.
+    const stages = [], started = Date.now(); helperStages.push(stages);
+    const marker = stage => `[Console]::Error.WriteLine('DPAPI_STAGE:${stage}')`;
+    let script = Buffer.from(args.at(-1), 'base64').toString('utf16le');
+    for (const [line, stage] of [["try {", 'started'], ['Add-Type -AssemblyName System.Security', 'assembly'],
+      ['[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)', 'encoding'],
+      ['$request = [Console]::In.ReadLine() | ConvertFrom-Json', 'input'],
+      ['$entropy = [Convert]::FromBase64String($request.entropy)', 'decoded'],
+      ['[Array]::Clear($bytes,0,$bytes.Length)', 'protected']]) script = script.replace(line, line + '\n  ' + marker(stage));
+    const diagnosticArgs = [...args.slice(0, -1), Buffer.from(script, 'utf16le').toString('base64')];
+    const child = cp.spawn(file, diagnosticArgs, { ...options, stdio: ['pipe', 'pipe', 'pipe'] });
+    child.on('spawn', () => stages.push({ stage: 'spawned', ms: Date.now() - started }));
+    let diagnostic = '';
+    child.stderr.on('data', chunk => {
+      diagnostic = (diagnostic + chunk.toString()).slice(-8192);
+      let newline;
+      while ((newline = diagnostic.indexOf('\n')) >= 0) {
+        const line = diagnostic.slice(0, newline).trim(); diagnostic = diagnostic.slice(newline + 1);
+        const stage = /^DPAPI_STAGE:(started|assembly|encoding|input|decoded|protected)$/.exec(line)?.[1];
+        if (stage && stages.length < 16) stages.push({ stage, ms: Date.now() - started });
+      }
+    });
     if (task.holdHelperInput) {
       // A complete request must be answered without waiting for the parent's stdin handle to close.
       // Reproduce a delayed EOF deterministically, including on machines where normal end() is fast.
@@ -51,8 +73,8 @@ async function worker() {
       answer = { matches: Object.entries(task.expected).every(([slot, value]) => snapshot.values[slot] === value),
         credentialRevision: snapshot.credentialRevision, fields: snapshot.fields };
     } else answer = await api.inspect(task.connection);
-    process.stdout.write(JSON.stringify({ ok: true, result: answer, elapsedMs: Date.now() - started, helpers, ipcClean }));
-  } catch (error) { process.stdout.write(JSON.stringify({ ok: false, errorCode: error.code || 'fixture.failed', helpers, ipcClean })); }
+    process.stdout.write(JSON.stringify({ ok: true, result: answer, elapsedMs: Date.now() - started, helpers, ipcClean, helperStages }));
+  } catch (error) { process.stdout.write(JSON.stringify({ ok: false, errorCode: error.code || 'fixture.failed', helpers, ipcClean, helperStages })); }
 }
 async function main() {
   const t = createRunner('EXTERNAL BOT CREDENTIALS'), { ok } = t;
@@ -89,6 +111,7 @@ async function main() {
     let result = await run({ op: 'inspect' });
     ok(result.ok && !fs.existsSync(vaultFile) && result.helpers === 0, 'A1 absent-vault inspection creates nothing and starts no helper');
     result = await run({ op: 'save', values, holdHelperInput: true });
+    console.log('DPAPI_DIAG ' + JSON.stringify(result.helperStages));
     ok(result.ok && Object.values(result.result.fields).every(field => field.present && field.ready), 'A2 real DPAPI protects and reads each configured field' + (result.errorCode ? ' (' + result.errorCode + ')' : ''));
     ok(result.ok && result.helpers >= 2, 'A2b framed protect/unprotect complete while helper stdin stays open');
     ok(result.ipcClean && result.helpers > 0, 'A3 no secret appears in helper argv or environment');

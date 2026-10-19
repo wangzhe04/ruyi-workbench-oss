@@ -29,14 +29,14 @@ jobs:
       - name: Build freshness (artifact == concat(src))
         working-directory: ${{ github.workspace }}
         run: node ruyi-workbench/app/build.js --check
-      # 第46波46a: unit 快通道(node:test,秒级)—— run-all 内也会跑,此处单独一步求最早反馈。
-      - name: Unit tests (node --test)
-        working-directory: ${{ github.workspace }}
-        run: node --test "dev-harness/unit/*.test.js"
       # Fail early on the real Windows credential IPC path before the long serial suite.
       - name: Windows credential IPC smoke
         working-directory: ${{ github.workspace }}
         run: node dev-harness/external-bot-credentials.e2e.js
+      # 第46波46a: unit 快通道(node:test,秒级)—— run-all 内也会跑,此处单独一步求最早反馈。
+      - name: Unit tests (node --test)
+        working-directory: ${{ github.workspace }}
+        run: node --test "dev-harness/unit/*.test.js"
       # 第46波46b: run-all 自带失败重试一次 + [flaky] 标记。
       # 注:hosted Windows runner 仅 2 vCPU,串行是刻意选择(并行实测会被静默杀进程,见第38波);
       # 本地开发机可用 --parallel 4,全量反馈 ~25min -> 个位数分钟。
