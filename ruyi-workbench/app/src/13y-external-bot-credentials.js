@@ -62,7 +62,7 @@ try {
   Add-Type -AssemblyName System.Security
   [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
   [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
-  $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
+  $request = [Console]::In.ReadLine() | ConvertFrom-Json
   $bytes = [Convert]::FromBase64String($request.value)
   $entropy = [Convert]::FromBase64String($request.entropy)
   if ($request.op -eq 'protect') {
@@ -94,6 +94,9 @@ try {
       // Do not inherit RUYI_BOT_* or provider credentials into the helper environment.
       for (const key of ['SystemRoot', 'SystemDrive', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA']) if (typeof process.env[key] === 'string') environment[key] = process.env[key];
       const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+      // Only Windows' built-in modules are needed. Without an explicit path PowerShell discovers
+      // third-party modules installed machine-wide, even with -NoProfile and a sanitized environment.
+      environment.PSModulePath = path.join(path.dirname(executable), 'Modules');
       try {
         child = childProcess.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(DPAPI_SCRIPT, 'utf16le').toString('base64')],
           { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], env: environment });
@@ -115,7 +118,8 @@ try {
           if (code !== 0 || !exact(response, ['ok', 'value']) || response.ok !== true || !base64(response.value, LIMIT.cipherBytes)) { finish(op === 'unprotect' ? 'decrypt_failed' : 'process_failed'); return; }
           finish(null, Buffer.from(response.value, 'base64'));
         });
-        child.stdin.end(JSON.stringify({ op, value: value.toString('base64'), entropy: Buffer.from('ruyi.external-bot-credentials.v1:' + JSON.stringify(owner)).toString('base64') }));
+        // One ASCII JSON line frames the request independently of Windows pipe EOF delivery.
+        child.stdin.end(JSON.stringify({ op, value: value.toString('base64'), entropy: Buffer.from('ruyi.external-bot-credentials.v1:' + JSON.stringify(owner)).toString('base64') }) + '\n');
       } catch { stop('process_failed'); }
     });
   }

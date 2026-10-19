@@ -15,7 +15,7 @@ const connection = (patch = {}) => ({ id: 'bot_one', platform: 'qq', appId: 'app
 const coded = suffix => error => error.code === 'external_credentials.' + suffix && Number.isInteger(error.statusCode) && error.message === error.code;
 function fixture({ platform = 'win32' } = {}) {
   let disk, writes = 0, children = 0, writeError = false, readError = false, mode = '';
-  const key = crypto.randomBytes(32), calls = [], env = { SystemRoot: 'C:\\Windows', RUYI_BOT_UNRELATED: 'not-for-child' };
+  const key = crypto.randomBytes(32), calls = [], env = { SystemRoot: 'C:\\Windows', RUYI_BOT_UNRELATED: 'not-for-child', PSModulePath: 'C:\\third-party-modules' };
   const missing = () => Object.assign(new Error('missing'), { code: 'ENOENT' });
   const raw = () => { if (readError) throw Object.assign(new Error('permission denied'), { code: 'EACCES' }); if (disk === undefined) throw missing(); return disk; };
   function spawn(executable, args, options) {
@@ -23,6 +23,7 @@ function fixture({ platform = 'win32' } = {}) {
     if (mode === 'spawn') throw new Error('must-not-leak-provider-secret');
     const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stdin = new EventEmitter(); child.kill = () => {};
     child.stdin.end = input => {
+      assert.ok(input.endsWith('\n') && !input.slice(0, -1).includes('\n'), 'one complete JSON line');
       const request = JSON.parse(input); calls.at(-1).input = request;
       if (mode === 'timeout') return;
       setImmediate(() => {
@@ -79,6 +80,7 @@ test('local credentials are encrypted/bound, public inspection omits values, and
   for (const call of f.calls) {
     assert.ok(!JSON.stringify(call.args).includes(value)); assert.ok(!JSON.stringify(call.options.env).includes(value));
     assert.equal(call.options.env.RUYI_BOT_UNRELATED, undefined); assert.equal(call.options.windowsHide, true);
+    assert.equal(call.options.env.PSModulePath, path.join(path.dirname(call.executable), 'Modules'));
     assert.deepEqual(plain(call.options.stdio), ['pipe', 'pipe', 'ignore']);
     assert.match(Buffer.from(call.args.at(-1), 'base64').toString('utf16le'), /DataProtectionScope\]::CurrentUser/);
     assert.equal(call.executable, path.join('C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'));

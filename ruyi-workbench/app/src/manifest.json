@@ -454,25 +454,25 @@
     {
       "file": "13y-external-bot-credentials.js",
       "startLine": 84863,
-      "endLine": 85084,
+      "endLine": 85088,
       "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS"
     },
     {
       "file": "13z-external-bot-discovery.js",
-      "startLine": 85085,
-      "endLine": 85180,
+      "startLine": 85089,
+      "endLine": 85184,
       "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted"
     },
     {
       "file": "13w-external-bots.js",
-      "startLine": 85181,
-      "endLine": 85920,
+      "startLine": 85185,
+      "endLine": 85924,
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker"
     },
     {
       "file": "14-main.js",
-      "startLine": 85921,
-      "endLine": 86667,
+      "startLine": 85925,
+      "endLine": 86671,
       "note": "main()/module.exports"
     }
   ]

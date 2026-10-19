@@ -23,7 +23,14 @@ async function worker() {
     helpers++;
     const visible = JSON.stringify([file, args, options.env]);
     if (secretValues.some(secret => typeof secret === 'string' && secret && visible.includes(secret))) ipcClean = false;
-    return cp.spawn(file, args, options);
+    const child = cp.spawn(file, args, options);
+    if (task.holdHelperInput) {
+      // A complete request must be answered without waiting for the parent's stdin handle to close.
+      // Reproduce a delayed EOF deterministically, including on machines where normal end() is fast.
+      child.stdin.end = input => child.stdin.write(input);
+      child.on('close', () => child.stdin.destroy());
+    }
+    return child;
   };
   const code = constBlock(readSource('01-config.js'), 'DurableJsonStore') + '\n' + functionBlock(readSource('00-boot.js'), 'runKeyedChain')
     + '\n' + readSource('13y-external-bot-credentials.js') + '\nExternalBotCredentials';
@@ -81,8 +88,9 @@ async function main() {
   try {
     let result = await run({ op: 'inspect' });
     ok(result.ok && !fs.existsSync(vaultFile) && result.helpers === 0, 'A1 absent-vault inspection creates nothing and starts no helper');
-    result = await run({ op: 'save', values });
+    result = await run({ op: 'save', values, holdHelperInput: true });
     ok(result.ok && Object.values(result.result.fields).every(field => field.present && field.ready), 'A2 real DPAPI protects and reads each configured field' + (result.errorCode ? ' (' + result.errorCode + ')' : ''));
+    ok(result.ok && result.helpers >= 2, 'A2b framed protect/unprotect complete while helper stdin stays open');
     ok(result.ipcClean && result.helpers > 0, 'A3 no secret appears in helper argv or environment');
     const ciphertext = fs.readFileSync(vaultFile, 'utf8');
     ok(Object.values(values).every(secret => !ciphertext.includes(secret)), 'A4 physical vault contains no plaintext fixture credential');

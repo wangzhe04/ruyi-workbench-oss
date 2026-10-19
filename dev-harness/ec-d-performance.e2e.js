@@ -113,6 +113,8 @@ class CdpClient {
     this.url = url;
     this.nextId = 1;
     this.pending = new Map();
+    this.requests = new Set();
+    this.lastNetworkActivity = Date.now();
     this.socket = null;
   }
   connect() {
@@ -124,6 +126,13 @@ class CdpClient {
       socket.addEventListener('message', event => {
         let message;
         try { message = JSON.parse(String(event.data)); } catch { return; }
+        if (message.method === 'Network.requestWillBeSent' && !message.params.request.url.includes('/api/events/stream')) {
+          this.requests.add(message.params.requestId);
+          this.lastNetworkActivity = Date.now();
+        }
+        if (message.method === 'Network.loadingFinished' || message.method === 'Network.loadingFailed') {
+          if (this.requests.delete(message.params.requestId)) this.lastNetworkActivity = Date.now();
+        }
         if (!message.id || !this.pending.has(message.id)) return;
         const { resolve: done, reject: failPending } = this.pending.get(message.id);
         this.pending.delete(message.id);
@@ -185,7 +194,7 @@ const RECORD_INTERACTIVE = `(() => {
   observer.observe(document, { subtree: true, childList: true, attributes: true });
   document.addEventListener('readystatechange', check); check();
 })()`;
-async function waitForInteractive(cdp, previousTimeOrigin = 0) {
+async function waitForInteractive(cdp, previousTimeOrigin = 0, attempts = 300) {
   const expression = `(() => {
     const navigation = performance.getEntriesByType('navigation')[0];
     // 121-K5：#modelChip 退役 —— 「可交互」的判据换成线程头那组 chip 已经建出来了
@@ -214,7 +223,7 @@ async function waitForInteractive(cdp, previousTimeOrigin = 0) {
       slowResources: resources.slice().sort((a, b) => b.duration - a.duration).slice(0, 5).map(e => ({ path: new URL(e.name).pathname, duration: e.duration, responseEnd: e.responseEnd })),
     };
   })()`;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < attempts; i++) {
     try {
       const value = await cdp.evaluate(expression);
       if (value && value.ready) return value;
@@ -317,10 +326,10 @@ const TOOL_VIEW_MEASURE = `(async () => {
       '--user-data-dir=' + profile,
     ];
     if (/msedge\.exe$/i.test(executable)) browserArgs.push('--edge-skip-compat-layer-relaunch');
-    browserArgs.push(appUrl);
+    browserArgs.push('about:blank');
     browser = cp.spawn(executable, browserArgs, { windowsHide: true, stdio: 'ignore' });
 
-    const target = await waitForTarget(debugPort, appUrl);
+    const target = await waitForTarget(debugPort, 'about:blank');
     ok(Boolean(target), 'CDP page target available');
     if (!target) throw new Error('CDP target unavailable');
     cdp = new CdpClient(target.webSocketDebuggerUrl);
@@ -330,12 +339,23 @@ const TOOL_VIEW_MEASURE = `(async () => {
     await cdp.send('Network.enable');
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
     await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: RECORD_INTERACTIVE });
+    // Attach before the warm-up starts so even its first bootstrap/status requests are tracked.
+    await cdp.send('Page.navigate', { url: appUrl });
 
     const startup = [];
     // Warm-up: let the browser process/renderer finish one-time init (V8 JIT, font/network stack).
     // That first load measures browser cold-start, not Workbench navigation, so it is not part of the
     // cold-navigation budget. Every sampled run below is still an ignoreCache:true cold-cache navigation.
-    let metrics = await waitForInteractive(cdp);
+    let metrics = await waitForInteractive(cdp, 0, 2000);
+    ok(Boolean(metrics), 'warm-up renders the baseline session before sampling');
+    if (!metrics) throw new Error('warm-up never became interactive');
+    // The initial page still has background capability/catalog requests after the chat is usable.
+    // Do not reload over that in-flight boot: its requests compete with the first sample, or are
+    // aborted halfway through. SSE is intentionally excluded; cold samples keep the original budget.
+    const warmupDeadline = Date.now() + 20000;
+    while ((cdp.requests.size || Date.now() - cdp.lastNetworkActivity < 100) && Date.now() < warmupDeadline) await sleep(25);
+    ok(cdp.requests.size === 0, 'warm-up background requests finish before cold navigation');
+    if (cdp.requests.size) throw new Error('warm-up background requests never settled');
     for (let i = 0; i < STARTUP_RUNS; i++) {
       const previous = metrics && metrics.timeOrigin || 0;
       await cdp.send('Page.reload', { ignoreCache: true });
