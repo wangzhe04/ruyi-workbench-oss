@@ -24,6 +24,17 @@ let fx, sid, artifact, before, calls = 0;
         await s.saveSession(session); before = JSON.stringify(session.messages);
         // 没有管家收件箱历史，模拟新到访/历史已清理；交付必须从原任务读取。
       } });
+    // Make the independently loaded delivery controls arrive after the card body, as on CI.
+    await fx.evaluate(`(() => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+        if (url.includes('/api/steward/delivery?')) await new Promise(resolve => setTimeout(resolve, 300));
+        return response;
+      };
+      return true;
+    })()`);
     await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:open-thread',{detail:{sessionId:${JSON.stringify(sid)}}}));true`);
     ok(await fx.waitForEval("document.getElementById('stewardDrawerFullTextBtn')?.textContent.includes('查看交付') ? 1 : null"), '任务抽屉提供已有交付入口');
     await fx.evaluate("document.getElementById('stewardDrawerFullTextBtn').click();true");
@@ -37,6 +48,8 @@ let fx, sid, artifact, before, calls = 0;
     if (!await fx.waitForEval(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')})`)) throw new Error('history delivery body did not load');
     await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')}).click();true`);
     ok(await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')}).getAttribute('aria-expanded')==='true'`), '重开的历史交付可展开全文');
+    // The card body renders before the delivery API response paints its revision control.
+    if (!await fx.waitForEval(`document.querySelector(${JSON.stringify(card + ' .steward-delivery-revise')})`)) throw new Error('history delivery revision control did not load');
     await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-delivery-revise')}).click();true`);
     ok(await fx.waitForEval("document.querySelector('#stewardTarget .steward-target-label')?.textContent.includes('修订第 1 轮') ? 1 : null"), '历史交付继续修改挂接同一真实修订输入区');
     await fx.evaluate("document.getElementById('stewardComposerInput').value='只改标题';document.getElementById('stewardComposerCancelTarget').click();true");

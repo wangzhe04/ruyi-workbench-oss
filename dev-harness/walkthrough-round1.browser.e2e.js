@@ -454,7 +454,24 @@ try {
     return false;
   };
 
+  // Startup reconciliation (interaction-prompts.js) discovers A's pending question asynchronously.
+  // Wait for it and use the real minimize control before probing non-modal overlays: modals are
+  // supposed to cover these menus (B4). Keep A unanswered so its needs_you/chip fixtures stay valid.
   await setLens('steward');
+  const pendingPrompt = await waitForEval(cdp, `(() => {
+    const modal = document.querySelector('.prompt-queue-modal');
+    return modal && modal.textContent.includes('华南那张表要等吗？')
+      && modal.querySelector('.prompt-minimize') ? 1 : null;
+  })()`);
+  ok(Boolean(pendingPrompt), 'A11 启动对账已呈现线程 A 的待回答提问');
+  if (!pendingPrompt) throw new Error('pending question modal did not load');
+  if (!await clickSelector('.prompt-queue-modal .prompt-minimize')) throw new Error('pending question minimize control unavailable');
+  const promptMinimized = await waitForEval(cdp, `!document.querySelector('.prompt-queue-modal') ? 1 : null`);
+  ok(Boolean(promptMinimized), 'A12 通过稍后处理收起提问，再检查非模态菜单层级');
+  if (!promptMinimized) throw new Error('pending question modal did not minimize');
+  const stillPending = await request(appPort, 'GET', '/api/interventions?limit=100', null, token);
+  ok(Boolean(stillPending?.json?.pending?.some(item => item.type === 'question' && item.sessionId === created.A)),
+    'A13 收起提问后线程 A 仍待回答，保留等你与权限 chip 的夹具');
   ok(await toggleMenuUntil('#stewardShieldBtn', '#stewardShieldMenu', true), 'B0 管家视角：盾牌菜单真的展开了');
   const shieldSteward = await cdp.evaluate(overlayProbe('#stewardShieldMenu'));
   ok(Boolean(shieldSteward && shieldSteward.onTop),
