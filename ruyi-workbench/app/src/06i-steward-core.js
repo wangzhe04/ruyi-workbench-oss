@@ -113,8 +113,12 @@ function stewardMayTightenTo(current, target) {
 // <围栏> 标记,人和模型都还读得出是「小于／大于／重定向」。
 const STEWARD_NEUTRAL_LT = '＜';
 const STEWARD_NEUTRAL_GT = '＞';
-function stewardSanitizeText(value) {
+function stewardForeignProjection(value) {
+  return typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.foreignView(value) : value;
+}
+function stewardSanitizeText(value, foreign = false) {
   if (value == null) return '';
+  if (foreign) value = stewardForeignProjection(value);
   return String(value).replace(/[\r\n]+/g, ' ').replace(/</g, STEWARD_NEUTRAL_LT).replace(/>/g, STEWARD_NEUTRAL_GT);
 }
 
@@ -214,7 +218,7 @@ function stewardStoppedRefusal(which) {
 function buildStewardDigestLine(thread) {
   const t = (thread && typeof thread === 'object') ? thread : {};
   const clip = (value, limit) => {
-    const raw = stewardSanitizeText(value);
+    const raw = stewardSanitizeText(value, true);
     return raw.length > limit ? raw.slice(0, limit) + '…' : raw;
   };
 
@@ -224,8 +228,8 @@ function buildStewardDigestLine(thread) {
   {
     const idText = stewardHasText(t.id) ? `[${stewardSanitizeText(t.id)}]` : '';
     const titleBits = [];
-    if (stewardHasText(t.missionTitle)) titleBits.push(stewardSanitizeText(t.missionTitle));
-    if (stewardHasText(t.title)) titleBits.push(stewardSanitizeText(t.title));
+    if (stewardHasText(t.missionTitle)) titleBits.push(stewardSanitizeText(t.missionTitle, true));
+    if (stewardHasText(t.title)) titleBits.push(stewardSanitizeText(t.title, true));
     const lead = [idText, titleBits.join(' / ')].filter(Boolean).join(' ');
     if (lead) segments.push(lead);
   }
@@ -1382,7 +1386,7 @@ function stewardAsksYouForThread(input) {
 // 不往 13g 堆),本波不放宽它。调用方全在 13g,跨模块方向是 13g -> 06i(后向边,合法)。
 const STEWARD_LAST_SAY_CHARS = STEWARD_DIGEST_LIMITS.lastSayChars;   // 200,与总览行同一口径
 function stewardClipSay(value) {
-  const raw = stewardSanitizeText(value);
+  const raw = stewardSanitizeText(value, true);
   return raw.length > STEWARD_LAST_SAY_CHARS ? raw.slice(0, STEWARD_LAST_SAY_CHARS) + '…' : raw;
 }
 // 走查 #12:权限待决的一句人话(管家的「等你」行、抽屉、总览都读 stewardPendingOneLine 这一个来源)。

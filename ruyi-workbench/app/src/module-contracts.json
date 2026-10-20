@@ -6178,6 +6178,7 @@
         "stewardExemptRiskNote",
         "stewardExemptScanInput",
         "stewardExemptStructuredWrite",
+        "stewardForeignProjection",
         "stewardHasText",
         "stewardHumanizeIds",
         "stewardMayAct",
@@ -6228,7 +6229,15 @@
         "threadVisible",
         "waitReasonFor"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "06d-memory-domain.js",
@@ -18762,6 +18771,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardForeignProjection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -19630,6 +19646,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardExemptScanInput",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardForeignProjection",
           "kinds": [
             "call"
           ]
@@ -21306,6 +21329,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardForeignProjection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -21763,6 +21793,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardAsksYouForThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardForeignProjection",
           "kinds": [
             "call"
           ]

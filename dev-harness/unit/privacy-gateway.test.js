@@ -51,6 +51,24 @@ test('resilient APIs retain the off identity path without invoking object getter
   assert.equal(await api.beforeModelRequest(body), body); assert.equal(await api.modelToolResult(body), body);
   assert.deepEqual(fs.readdirSync(root), []);
 });
+test('host cross-thread projection omits foreign and truncated aliases without changing records or relaxing fresh inputs', async t => {
+  const { api } = await setup(t); let reference;
+  await api.run('source-thread', config, async () => { reference = api.active().scope.protectValue('synthetic-foreign@example.test', 'EMAIL'); });
+  const original = { sessionId: 'source-thread', title: 'Title ' + reference, brief: { gist: reference.slice(0, 30) },
+    summary: 'Before ' + reference + ' after', recentUserRequest: { text: 'Request ' + reference.slice(0, 40) + '\nPublic next line' }, relatedThreads: [{ sessionId: 'other-thread', title: reference }] };
+  const snapshot = JSON.stringify(original), projected = api.foreignView(original);
+  assert.equal(JSON.stringify(original), snapshot); assert.equal(projected.sessionId, original.sessionId); assert.equal(projected.relatedThreads[0].sessionId, 'other-thread');
+  assert.ok(!JSON.stringify(projected).includes('[[RUYI_PVT:')); assert.ok(projected.summary.endsWith(' after')); assert.ok(projected.recentUserRequest.text.endsWith('\nPublic next line'));
+  assert.ok(!JSON.stringify(projected).includes('synthetic-foreign@example.test'));
+  await api.run('target-thread', config, async () => {
+    await assert.rejects(api.beforeModelRequest({ messages: [{ role: 'user', content: reference }] }), /privacy.reference_unknown/);
+    assert.ok(!JSON.stringify(await api.beforeModelRequest({ messages: [{ role: 'user', content: JSON.stringify(projected) }] })).includes('[[RUYI_PVT:'));
+    assert.ok(!JSON.stringify(await api.modelToolResult(projected)).includes('[[RUYI_PVT:'));
+  });
+  api.configure({ ...config, privacyModeV1: 'off' });
+  const opaque = {}; Object.defineProperty(opaque, 'value', { get() { throw Error('off projection inspected object'); } });
+  assert.equal(api.foreignView(opaque), opaque); assert.equal(api.foreignView(original), original);
+});
 async function setup(t) { const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-privacy-gateway-')); t.after(() => { if (path.dirname(root) !== path.resolve(os.tmpdir()) || !path.basename(root).startsWith('ruyi-privacy-gateway-')) throw Error('cleanup scope'); fs.rmSync(root, { recursive: true, force: true }); }); const f = fixture(), api = gateway(root, f); api.configure(config); return { root, f, api }; }
 
 test('complete mixed tool return survives repeated next requests without learning formatting whitespace', async t => {

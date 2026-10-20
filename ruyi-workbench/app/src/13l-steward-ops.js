@@ -96,11 +96,11 @@ async function stewardImplInboxRead(args) {
       }
     }
   } catch { pending = null; /* 无当前投影就明确 unknown,不能把读失败说成已处理 */ }
-  return { ok: true, ...result, order, pendingCount: pending ? pending.size : null,
+  return stewardForeignProjection({ ok: true, ...result, order, pendingCount: pending ? pending.size : null,
     items: result.items.map(row => row.kind === 'needs_you'
       ? { ...row, pendingState: stewardInboxPendingState(row, pending) }
       : row),
-  };
+  });
 }
 
 // 7) steward_usage —— 用量台账按会话/按日汇总;管家自身开销(kind:'aux', note:'steward')单列。

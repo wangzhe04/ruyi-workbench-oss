@@ -257,7 +257,7 @@ async function stewardPrerouteIndexRows(config) {
   // (getPretenderProjectionIndex 没有脏会话时直接返回同一个对象),所以连续敲字那段快路径一次没丢,
   // 多出来的只是「投影确实重建了一次」时多装配一次行。ETag 那一侧完全不受影响:这是 13h 自己的
   // 进程内 memo 键,不是 revision 的定义。
-  const revision = String((index && index.revision) || '') + '|' + String((index && index.builtAt) || '');
+  const revision = String((index && index.revision) || '') + '|' + String((index && index.builtAt) || '') + '|' + String(config && config.privacyModeV1 || 'off');
   if (index && revision === _stewardPrerouteCache.revision) return _stewardPrerouteCache.rows;
   const digestRows = await stewardThreadDigestRows(config);
   const rows = digestRows.map(row => ({
@@ -271,7 +271,7 @@ async function stewardPrerouteIndexRows(config) {
     // 116-pre 交付物口径:「summary(lastAssistantText 或摘要,≤400 字)」——digest.lastSay 就是
     // head.summary(诚实纪律:原话,不经模型改写),这里只做 400 字截断,不重新中和(stewardSanitizeText
     // 在 prerouteText 内部拼 reason/title 时才需要,summary 只参与打分不进返回值)。
-    summary: String((row.digest && row.digest.lastSay) || '').slice(0, 400),
+    summary: String(stewardForeignProjection((row.digest && row.digest.lastSay) || '')).slice(0, 400),
     state: row.state,
     updatedAt: row.updatedAt,
   }));
@@ -330,14 +330,14 @@ function stewardOverviewBlock(rows, pack) {
     // 117l D5:总览行的名字用【显示名】。修前这里是原话 title —— 用户机器上十几条还没起名的线程
     // 于是被管家一律叫成「New session」。**digest.title 本身不动**:preroute 的词法打分吃的就是它
     // (见 stewardPrerouteIndexRows 处的原注释),把索引里的原话换掉等于把用户当时打的词抹了。
-    const base = buildStewardDigestLine({ ...row.digest, title: row.displayTitle || row.digest.title });
+    const base = buildStewardDigestLine(stewardForeignProjection({ ...row.digest, title: row.displayTitle || row.digest.title }));
     const request = row.digest && row.digest.recentUserRequest;
-    const activity = request ? ' · ' + pack.steward.activityRequest + stewardSanitizeText(redact(request.text)).slice(0, 80) : '';
+    const activity = request ? ' · ' + pack.steward.activityRequest + stewardSanitizeText(redact(request.text), true).slice(0, 80) : '';
     // Related IDs are executable read targets: admit whole entries or omit them, never slice one.
     const clueBudget = Math.floor(STEWARD_DIGEST_LIMITS.lineChars / 2);
     const relatedEntries = [];
     for (const item of (row.relatedThreads || []).slice(0, 2)) {
-      const entry = `${item.sessionId}(${(item.reasons || [])[0] || ''})`;
+      const entry = `${item.sessionId}(${stewardSanitizeText((item.reasons || [])[0] || '', true)})`;
       const candidate = ` · related: ${[...relatedEntries, entry].join(',')}`;
       if (activity.length + candidate.length <= clueBudget) relatedEntries.push(entry);
     }
@@ -429,14 +429,14 @@ function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
   const rows = Array.isArray(stewardWorkspaceRows) ? stewardWorkspaceRows : [];
   const limits = STEWARD_KNOWN_WORKSPACE_LIMITS;
   const clip = (value, max) => {
-    const s = stewardSanitizeText(String(value == null ? '' : value)).trim();
+    const s = stewardSanitizeText(String(value == null ? '' : value), true).trim();
     return s.length > max ? s.slice(0, max - 1) + '…' : s;
   };
   const lines = [];
   let used = 0;
   let folded = 0;
   for (const row of rows) {
-    const name = stewardSanitizeText(String((row && row.label) || '')).trim();
+    const name = stewardSanitizeText(String((row && row.label) || ''), true).trim();
     if (!name) continue;
     if (lines.length >= STEWARD_WORKSPACE_TABLE_MAX) { folded += 1; continue; }
     const tags = [];

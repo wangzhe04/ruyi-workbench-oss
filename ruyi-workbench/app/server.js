@@ -15906,6 +15906,30 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const policy = currentPolicy;
     return policyLocal.run(policy.signature, () => policy.mode === 'off' ? work() : run(scopeId, policy.config, work));
   }
+  // Host-only cross-thread metadata projection. These aliases belong to the source
+  // transcript, so never resolve or admit them into another conversation's scope.
+  // Project before summary budgets; legacy summaries may already end mid-reference.
+  function foreignView(value) {
+    if (currentPolicy.mode === 'off') return value;
+    let nodes = 0;
+    const visit = (item, depth) => {
+      if (++nodes > 50000 || depth > 32) fail('structure_limit');
+      if (typeof item === 'string') return item.includes(PREFIX)
+        ? item.replace(/\[\[RUYI_PVT:[^\r\n]*?(?:\]\]|(?=\r?\n|$))/g, '[其他线程的隐私内容已省略]') : item;
+      if (Array.isArray(item)) { const next = item.map(row => visit(row, depth + 1)); return next.some((row, i) => row !== item[i]) ? next : item; }
+      if (item && typeof item === 'object') {
+        const next = Object.create(null); let changed = false;
+        for (const [key, row] of Object.entries(item)) {
+          const name = visit(key, depth + 1), projected = visit(row, depth + 1);
+          if (Object.hasOwn(next, name)) fail('key_collision');
+          next[name] = projected; changed ||= name !== key || projected !== row;
+        }
+        return changed ? next : item;
+      }
+      return item;
+    };
+    return visit(value, 0);
+  }
   const credentialContext = (span, start, end) => span.category === 'CREDENTIAL' && span.start < end && span.end > start
     && (span.start < start || span.end > end || span.start === start && span.end === end);
   function protectString(input, context, pointer, raw = false, budget, proof) {
@@ -16852,7 +16876,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (config ? enabled(config) : currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
@@ -34199,8 +34223,12 @@ function stewardMayTightenTo(current, target) {
 // <围栏> 标记,人和模型都还读得出是「小于／大于／重定向」。
 const STEWARD_NEUTRAL_LT = '＜';
 const STEWARD_NEUTRAL_GT = '＞';
-function stewardSanitizeText(value) {
+function stewardForeignProjection(value) {
+  return typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.foreignView(value) : value;
+}
+function stewardSanitizeText(value, foreign = false) {
   if (value == null) return '';
+  if (foreign) value = stewardForeignProjection(value);
   return String(value).replace(/[\r\n]+/g, ' ').replace(/</g, STEWARD_NEUTRAL_LT).replace(/>/g, STEWARD_NEUTRAL_GT);
 }
 
@@ -34300,7 +34328,7 @@ function stewardStoppedRefusal(which) {
 function buildStewardDigestLine(thread) {
   const t = (thread && typeof thread === 'object') ? thread : {};
   const clip = (value, limit) => {
-    const raw = stewardSanitizeText(value);
+    const raw = stewardSanitizeText(value, true);
     return raw.length > limit ? raw.slice(0, limit) + '…' : raw;
   };
 
@@ -34310,8 +34338,8 @@ function buildStewardDigestLine(thread) {
   {
     const idText = stewardHasText(t.id) ? `[${stewardSanitizeText(t.id)}]` : '';
     const titleBits = [];
-    if (stewardHasText(t.missionTitle)) titleBits.push(stewardSanitizeText(t.missionTitle));
-    if (stewardHasText(t.title)) titleBits.push(stewardSanitizeText(t.title));
+    if (stewardHasText(t.missionTitle)) titleBits.push(stewardSanitizeText(t.missionTitle, true));
+    if (stewardHasText(t.title)) titleBits.push(stewardSanitizeText(t.title, true));
     const lead = [idText, titleBits.join(' / ')].filter(Boolean).join(' ');
     if (lead) segments.push(lead);
   }
@@ -35468,7 +35496,7 @@ function stewardAsksYouForThread(input) {
 // 不往 13g 堆),本波不放宽它。调用方全在 13g,跨模块方向是 13g -> 06i(后向边,合法)。
 const STEWARD_LAST_SAY_CHARS = STEWARD_DIGEST_LIMITS.lastSayChars;   // 200,与总览行同一口径
 function stewardClipSay(value) {
-  const raw = stewardSanitizeText(value);
+  const raw = stewardSanitizeText(value, true);
   return raw.length > STEWARD_LAST_SAY_CHARS ? raw.slice(0, STEWARD_LAST_SAY_CHARS) + '…' : raw;
 }
 // 走查 #12:权限待决的一句人话(管家的「等你」行、抽屉、总览都读 stewardPendingOneLine 这一个来源)。
@@ -77000,14 +77028,14 @@ function threadRelatedThreads(head, metas) {
     const rank = row => row.reasons.some(reason => reason === 'source' || reason === 'derived') ? 0 : row.reasons.includes('same_mission') ? 1 : 2;
     return rank(a) - rank(b) || String(b.meta.updatedAt || '').localeCompare(String(a.meta.updatedAt || ''));
   }).slice(0, 4).map(({ meta, reasons }) => ({
-    sessionId: meta.id, title: stewardSanitizeText(redact(String(meta.title || ''))), updatedAt: String(meta.updatedAt || ''), reasons,
+    sessionId: meta.id, title: stewardSanitizeText(redact(String(meta.title || '')), true), updatedAt: String(meta.updatedAt || ''), reasons,
   }));
 }
 
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
 function stewardRecentUserRequest(o) {
   const request = sessionMeta(o).recentUserRequest;
-  return request ? { ...request, text: stewardSanitizeText(redact(request.text)) } : null;
+  return request ? { ...request, text: stewardSanitizeText(redact(request.text), true) } : null;
 }
 function stewardThreadDisplayTitle(head, config) {
   let title = sessionDisplayTitle(head);
@@ -77016,7 +77044,7 @@ function stewardThreadDisplayTitle(head, config) {
     title = request?.text ? [...request.text].slice(0, SESSION_BRIEF_TITLE_CHARS).join('')
       : /^en/i.test(String(config?.locale || '')) ? 'Unnamed thread' : '未命名线程';
   }
-  return stewardSanitizeText(redact(String(title || '')));
+  return stewardSanitizeText(redact(String(title || '')), true);
 }
 async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
@@ -77112,7 +77140,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       ...(wsName ? { workspace: wsName.name } : {}),
     });
   }
-  return { ok: true, query: q, results, indexed, scope, ...(degraded ? { degraded } : {}) };
+  return stewardForeignProjection({ ok: true, query: q, results, indexed, scope, ...(degraded ? { degraded } : {}) });
 }
 
 // 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。
@@ -77156,7 +77184,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
   const missionOfThread = sessionMissionId(head) || sessionId;
   const missionRow = (await buildMissionAggregateRows({ includeArchived: true, config }).catch(() => null) || { rows: [] })
     .rows.find(row => row.missionId === missionOfThread) || null;
-  return {
+  return stewardForeignProjection({
     ok: true,
     sessionId,
     missionId: sessionMissionId(head),
@@ -77214,7 +77242,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     updatedAt: String(head.updatedAt || ''),
     lastAssistantText: stewardClipSay(session ? stewardLastAssistantText(session) : (head.summary || '')),
     recentUserRequest: stewardRecentUserRequest(session || head),
-  };
+  });
 }
 
 // 4) steward_thread_read —— §11.2 按需层。配额与预算在写任何东西之前先扣;读到的内容【不写入任何
@@ -77229,7 +77257,7 @@ function stewardToolCallLine(call) {
     // 而同一个文件里 B1 的摘录管线(:1073)早就立了「命令原文先 redact」,两处分叉。
     // redact 住在 04,13k→04 是既有边(:1073 用的就是它),零新增依赖。
     // 顺序照 S0 的教训:redact 在裁剪【之前】—— 先裁 160 字会把密钥切成半截,正则一条都咬不到。
-    inputHint = stewardSanitizeText(redact(raw)).slice(0, 160);
+    inputHint = stewardSanitizeText(redact(raw), true).slice(0, 160);
   } catch { inputHint = '{…}'; }
   let resultChars = 0;
   try { resultChars = JSON.stringify((call && call.result) != null ? call.result : '').length; } catch { resultChars = -1; }
@@ -77283,9 +77311,9 @@ async function stewardImplThreadRead(args, ctx, config) {
     // 管家模型(并进了那一轮的会话文件),而同一个函数对工具入参早就脱敏了。顺序照 stewardToolCallLine 的教训:
     // redact 在【之前】,后面按 maxChars 裁剪时不会把密钥切成半截让正则咬不到。
     // 唤醒通知(meta.origin:'agent_wake')不是用户说的话:以 system 行给管家看,免得它把「后台代理已完成…」当成用户的诉求引用。
-    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: (m.meta && m.meta.origin === 'agent_wake') ? 'system' : 'user', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
+    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: (m.meta && m.meta.origin === 'agent_wake') ? 'system' : 'user', text: stewardSanitizeBlock(stewardForeignProjection(redact(String(m.content || '')))) });
     else if (m.role === 'assistant') {
-      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
+      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(stewardForeignProjection(redact(String(m.content || '')))) });
       for (const call of (Array.isArray(m.toolCalls) ? m.toolCalls : [])) {
         // ok:工具这一步成败(true/false;拿不到结果记录时为 null),给模型排查「线程卡在哪一步」用。
         rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'tool', ok: stewardToolCallVerdict(call), text: stewardToolCallLine(call) });
@@ -77323,7 +77351,7 @@ async function stewardImplThreadRead(args, ctx, config) {
   bucket.chars += chars;
   const hasMore = rowIndex >= 0;
   const nextCursor = hasMore ? `${rowIndex}:${end == null ? rows[rowIndex].text.length : end}` : null;
-  return {
+  return stewardForeignProjection({
     ok: true, sessionId, title: stewardSanitizeText(redact(String(head.title || ''))), tail,
     turnSeqs: [...pageTurns].filter(seq => seq != null).sort((a, b) => a - b),
     truncated: hasMore, clippedRows, chars, hasMore, nextCursor,
@@ -77333,7 +77361,7 @@ async function stewardImplThreadRead(args, ctx, config) {
     quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars,
       callsRemaining: Math.max(0, STEWARD_READ_CALLS_PER_TURN - bucket.calls), charsRemaining: Math.max(0, budgetChars - bucket.chars) },
     rows: kept,
-  };
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -78604,11 +78632,11 @@ async function stewardImplInboxRead(args) {
       }
     }
   } catch { pending = null; /* 无当前投影就明确 unknown,不能把读失败说成已处理 */ }
-  return { ok: true, ...result, order, pendingCount: pending ? pending.size : null,
+  return stewardForeignProjection({ ok: true, ...result, order, pendingCount: pending ? pending.size : null,
     items: result.items.map(row => row.kind === 'needs_you'
       ? { ...row, pendingState: stewardInboxPendingState(row, pending) }
       : row),
-  };
+  });
 }
 
 // 7) steward_usage —— 用量台账按会话/按日汇总;管家自身开销(kind:'aux', note:'steward')单列。
@@ -81825,7 +81853,7 @@ async function stewardPrerouteIndexRows(config) {
   // (getPretenderProjectionIndex 没有脏会话时直接返回同一个对象),所以连续敲字那段快路径一次没丢,
   // 多出来的只是「投影确实重建了一次」时多装配一次行。ETag 那一侧完全不受影响:这是 13h 自己的
   // 进程内 memo 键,不是 revision 的定义。
-  const revision = String((index && index.revision) || '') + '|' + String((index && index.builtAt) || '');
+  const revision = String((index && index.revision) || '') + '|' + String((index && index.builtAt) || '') + '|' + String(config && config.privacyModeV1 || 'off');
   if (index && revision === _stewardPrerouteCache.revision) return _stewardPrerouteCache.rows;
   const digestRows = await stewardThreadDigestRows(config);
   const rows = digestRows.map(row => ({
@@ -81839,7 +81867,7 @@ async function stewardPrerouteIndexRows(config) {
     // 116-pre 交付物口径:「summary(lastAssistantText 或摘要,≤400 字)」——digest.lastSay 就是
     // head.summary(诚实纪律:原话,不经模型改写),这里只做 400 字截断,不重新中和(stewardSanitizeText
     // 在 prerouteText 内部拼 reason/title 时才需要,summary 只参与打分不进返回值)。
-    summary: String((row.digest && row.digest.lastSay) || '').slice(0, 400),
+    summary: String(stewardForeignProjection((row.digest && row.digest.lastSay) || '')).slice(0, 400),
     state: row.state,
     updatedAt: row.updatedAt,
   }));
@@ -81898,14 +81926,14 @@ function stewardOverviewBlock(rows, pack) {
     // 117l D5:总览行的名字用【显示名】。修前这里是原话 title —— 用户机器上十几条还没起名的线程
     // 于是被管家一律叫成「New session」。**digest.title 本身不动**:preroute 的词法打分吃的就是它
     // (见 stewardPrerouteIndexRows 处的原注释),把索引里的原话换掉等于把用户当时打的词抹了。
-    const base = buildStewardDigestLine({ ...row.digest, title: row.displayTitle || row.digest.title });
+    const base = buildStewardDigestLine(stewardForeignProjection({ ...row.digest, title: row.displayTitle || row.digest.title }));
     const request = row.digest && row.digest.recentUserRequest;
-    const activity = request ? ' · ' + pack.steward.activityRequest + stewardSanitizeText(redact(request.text)).slice(0, 80) : '';
+    const activity = request ? ' · ' + pack.steward.activityRequest + stewardSanitizeText(redact(request.text), true).slice(0, 80) : '';
     // Related IDs are executable read targets: admit whole entries or omit them, never slice one.
     const clueBudget = Math.floor(STEWARD_DIGEST_LIMITS.lineChars / 2);
     const relatedEntries = [];
     for (const item of (row.relatedThreads || []).slice(0, 2)) {
-      const entry = `${item.sessionId}(${(item.reasons || [])[0] || ''})`;
+      const entry = `${item.sessionId}(${stewardSanitizeText((item.reasons || [])[0] || '', true)})`;
       const candidate = ` · related: ${[...relatedEntries, entry].join(',')}`;
       if (activity.length + candidate.length <= clueBudget) relatedEntries.push(entry);
     }
@@ -81997,14 +82025,14 @@ function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
   const rows = Array.isArray(stewardWorkspaceRows) ? stewardWorkspaceRows : [];
   const limits = STEWARD_KNOWN_WORKSPACE_LIMITS;
   const clip = (value, max) => {
-    const s = stewardSanitizeText(String(value == null ? '' : value)).trim();
+    const s = stewardSanitizeText(String(value == null ? '' : value), true).trim();
     return s.length > max ? s.slice(0, max - 1) + '…' : s;
   };
   const lines = [];
   let used = 0;
   let folded = 0;
   for (const row of rows) {
-    const name = stewardSanitizeText(String((row && row.label) || '')).trim();
+    const name = stewardSanitizeText(String((row && row.label) || ''), true).trim();
     if (!name) continue;
     if (lines.length >= STEWARD_WORKSPACE_TABLE_MAX) { folded += 1; continue; }
     const tags = [];
@@ -83064,16 +83092,16 @@ function stewardDecideNudgeNote(row, title) {
 
 async function stewardInboxMessage(events, config, selfServeNotes) {
   const pack = getPromptPack(config && config.locale);
-  const rows = events.slice(-STEWARD_INBOX_EVENTS_PER_TURN);
+  const rows = stewardForeignProjection(events.slice(-STEWARD_INBOX_EVENTS_PER_TURN));
   // 117l D5:一批事件里最多几十条,去重后逐个查一次会话头(与 stewardThreadDigestRows 同一读法)。
   const titles = new Map();
   for (const sid of [...new Set(rows.map(r => safeSessionId(r && r.sessionId)).filter(Boolean))]) {
-    titles.set(sid, await stewardDisplayTitleOf(sid));
+    titles.set(sid, stewardForeignProjection(await stewardDisplayTitleOf(sid)));
   }
   // 116-2b:自理动作的结果作为事件的【补充信息】进回合层 —— 模型于是只需要「说」,不必再决定
   // 该不该重试(那件事工作台已经按规则做完或明确放弃了)。没有自理行时这一段整段不出现,
   // 收件箱回合的消息与 116f 逐字节相同。
-  const notes = (Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean).slice(0, STEWARD_SELF_SERVE_PER_TURN_MAX);
+  const notes = stewardForeignProjection((Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean).slice(0, STEWARD_SELF_SERVE_PER_TURN_MAX));
   const headlines = rows.map(row => stewardEventLine(row, sid => titles.get(sid) || ''));
   const bodies = rows.map(row => stewardDeliverableBlock(row, titles.get(safeSessionId(row && row.sessionId)) || ''));
   // 127 波 2-quater B1 ③:豁免命令摘录块(没有 exempt 的行是空串,消息与修前逐字节相同)。

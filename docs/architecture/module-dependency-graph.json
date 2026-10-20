@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 87,
-    "providedSymbols": 3857,
-    "requiredSymbols": 3458,
-    "edges": 620,
+    "providedSymbols": 3858,
+    "requiredSymbols": 3463,
+    "edges": 621,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -6270,6 +6270,7 @@
         "stewardExemptRiskNote",
         "stewardExemptScanInput",
         "stewardExemptStructuredWrite",
+        "stewardForeignProjection",
         "stewardHasText",
         "stewardHumanizeIds",
         "stewardMayAct",
@@ -6320,7 +6321,15 @@
         "threadVisible",
         "waitReasonFor"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "06d-memory-domain.js",
@@ -18908,6 +18917,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardForeignProjection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -19778,6 +19794,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardExemptScanInput",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardForeignProjection",
           "kinds": [
             "call"
           ]
@@ -21462,6 +21485,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardForeignProjection",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -21921,6 +21951,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardAsksYouForThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardForeignProjection",
           "kinds": [
             "call"
           ]
@@ -30764,6 +30801,14 @@
       "direction": "backward"
     },
     {
+      "from": "06i-steward-core.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "06k-config-patch.js",
       "to": "00-boot.js",
       "symbols": [
@@ -34315,6 +34360,7 @@
         "stewardExemptHits",
         "stewardExemptInputText",
         "stewardExemptScanInput",
+        "stewardForeignProjection",
         "stewardMayAct",
         "stewardMayTightenTo",
         "stewardOpenAiFallback",
@@ -34542,6 +34588,7 @@
         "stewardExemptReason",
         "stewardExemptRiskNote",
         "stewardExemptScanInput",
+        "stewardForeignProjection",
         "stewardMayAct",
         "stewardMemoryTerms",
         "stewardPermissionLabel",
@@ -34900,6 +34947,7 @@
         "isStewardToolName",
         "prerouteText",
         "stewardActConfirmSpec",
+        "stewardForeignProjection",
         "stewardSanitizeText",
         "stewardThreadStateFromCard",
         "stewardThreadStateFromHead",
@@ -35058,6 +35106,7 @@
         "StewardHooks",
         "stewardActConfirmSpec",
         "stewardAsksYouForThread",
+        "stewardForeignProjection",
         "stewardHumanizeIds",
         "stewardMayAct",
         "stewardPermissionLabel",

@@ -237,6 +237,30 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const policy = currentPolicy;
     return policyLocal.run(policy.signature, () => policy.mode === 'off' ? work() : run(scopeId, policy.config, work));
   }
+  // Host-only cross-thread metadata projection. These aliases belong to the source
+  // transcript, so never resolve or admit them into another conversation's scope.
+  // Project before summary budgets; legacy summaries may already end mid-reference.
+  function foreignView(value) {
+    if (currentPolicy.mode === 'off') return value;
+    let nodes = 0;
+    const visit = (item, depth) => {
+      if (++nodes > 50000 || depth > 32) fail('structure_limit');
+      if (typeof item === 'string') return item.includes(PREFIX)
+        ? item.replace(/\[\[RUYI_PVT:[^\r\n]*?(?:\]\]|(?=\r?\n|$))/g, '[其他线程的隐私内容已省略]') : item;
+      if (Array.isArray(item)) { const next = item.map(row => visit(row, depth + 1)); return next.some((row, i) => row !== item[i]) ? next : item; }
+      if (item && typeof item === 'object') {
+        const next = Object.create(null); let changed = false;
+        for (const [key, row] of Object.entries(item)) {
+          const name = visit(key, depth + 1), projected = visit(row, depth + 1);
+          if (Object.hasOwn(next, name)) fail('key_collision');
+          next[name] = projected; changed ||= name !== key || projected !== row;
+        }
+        return changed ? next : item;
+      }
+      return item;
+    };
+    return visit(value, 0);
+  }
   const credentialContext = (span, start, end) => span.category === 'CREDENTIAL' && span.start < end && span.end > start
     && (span.start < start || span.end > end || span.start === start && span.end === end);
   function protectString(input, context, pointer, raw = false, budget, proof) {
@@ -1183,7 +1207,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (config ? enabled(config) : currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;

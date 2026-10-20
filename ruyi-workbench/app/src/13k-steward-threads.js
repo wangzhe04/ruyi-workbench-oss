@@ -378,14 +378,14 @@ function threadRelatedThreads(head, metas) {
     const rank = row => row.reasons.some(reason => reason === 'source' || reason === 'derived') ? 0 : row.reasons.includes('same_mission') ? 1 : 2;
     return rank(a) - rank(b) || String(b.meta.updatedAt || '').localeCompare(String(a.meta.updatedAt || ''));
   }).slice(0, 4).map(({ meta, reasons }) => ({
-    sessionId: meta.id, title: stewardSanitizeText(redact(String(meta.title || ''))), updatedAt: String(meta.updatedAt || ''), reasons,
+    sessionId: meta.id, title: stewardSanitizeText(redact(String(meta.title || '')), true), updatedAt: String(meta.updatedAt || ''), reasons,
   }));
 }
 
 // 2) steward_threads_search —— 113b 的会话内容搜索核心(不走 HTTP)+ 标题词法兜底。
 function stewardRecentUserRequest(o) {
   const request = sessionMeta(o).recentUserRequest;
-  return request ? { ...request, text: stewardSanitizeText(redact(request.text)) } : null;
+  return request ? { ...request, text: stewardSanitizeText(redact(request.text), true) } : null;
 }
 function stewardThreadDisplayTitle(head, config) {
   let title = sessionDisplayTitle(head);
@@ -394,7 +394,7 @@ function stewardThreadDisplayTitle(head, config) {
     title = request?.text ? [...request.text].slice(0, SESSION_BRIEF_TITLE_CHARS).join('')
       : /^en/i.test(String(config?.locale || '')) ? 'Unnamed thread' : '未命名线程';
   }
-  return stewardSanitizeText(redact(String(title || '')));
+  return stewardSanitizeText(redact(String(title || '')), true);
 }
 async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
@@ -490,7 +490,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       ...(wsName ? { workspace: wsName.name } : {}),
     });
   }
-  return { ok: true, query: q, results, indexed, scope, ...(degraded ? { degraded } : {}) };
+  return stewardForeignProjection({ ok: true, query: q, results, indexed, scope, ...(degraded ? { degraded } : {}) });
 }
 
 // 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。
@@ -534,7 +534,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
   const missionOfThread = sessionMissionId(head) || sessionId;
   const missionRow = (await buildMissionAggregateRows({ includeArchived: true, config }).catch(() => null) || { rows: [] })
     .rows.find(row => row.missionId === missionOfThread) || null;
-  return {
+  return stewardForeignProjection({
     ok: true,
     sessionId,
     missionId: sessionMissionId(head),
@@ -592,7 +592,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     updatedAt: String(head.updatedAt || ''),
     lastAssistantText: stewardClipSay(session ? stewardLastAssistantText(session) : (head.summary || '')),
     recentUserRequest: stewardRecentUserRequest(session || head),
-  };
+  });
 }
 
 // 4) steward_thread_read —— §11.2 按需层。配额与预算在写任何东西之前先扣;读到的内容【不写入任何
@@ -607,7 +607,7 @@ function stewardToolCallLine(call) {
     // 而同一个文件里 B1 的摘录管线(:1073)早就立了「命令原文先 redact」,两处分叉。
     // redact 住在 04,13k→04 是既有边(:1073 用的就是它),零新增依赖。
     // 顺序照 S0 的教训:redact 在裁剪【之前】—— 先裁 160 字会把密钥切成半截,正则一条都咬不到。
-    inputHint = stewardSanitizeText(redact(raw)).slice(0, 160);
+    inputHint = stewardSanitizeText(redact(raw), true).slice(0, 160);
   } catch { inputHint = '{…}'; }
   let resultChars = 0;
   try { resultChars = JSON.stringify((call && call.result) != null ? call.result : '').length; } catch { resultChars = -1; }
@@ -661,9 +661,9 @@ async function stewardImplThreadRead(args, ctx, config) {
     // 管家模型(并进了那一轮的会话文件),而同一个函数对工具入参早就脱敏了。顺序照 stewardToolCallLine 的教训:
     // redact 在【之前】,后面按 maxChars 裁剪时不会把密钥切成半截让正则咬不到。
     // 唤醒通知(meta.origin:'agent_wake')不是用户说的话:以 system 行给管家看,免得它把「后台代理已完成…」当成用户的诉求引用。
-    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: (m.meta && m.meta.origin === 'agent_wake') ? 'system' : 'user', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
+    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: (m.meta && m.meta.origin === 'agent_wake') ? 'system' : 'user', text: stewardSanitizeBlock(stewardForeignProjection(redact(String(m.content || '')))) });
     else if (m.role === 'assistant') {
-      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
+      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(stewardForeignProjection(redact(String(m.content || '')))) });
       for (const call of (Array.isArray(m.toolCalls) ? m.toolCalls : [])) {
         // ok:工具这一步成败(true/false;拿不到结果记录时为 null),给模型排查「线程卡在哪一步」用。
         rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'tool', ok: stewardToolCallVerdict(call), text: stewardToolCallLine(call) });
@@ -701,7 +701,7 @@ async function stewardImplThreadRead(args, ctx, config) {
   bucket.chars += chars;
   const hasMore = rowIndex >= 0;
   const nextCursor = hasMore ? `${rowIndex}:${end == null ? rows[rowIndex].text.length : end}` : null;
-  return {
+  return stewardForeignProjection({
     ok: true, sessionId, title: stewardSanitizeText(redact(String(head.title || ''))), tail,
     turnSeqs: [...pageTurns].filter(seq => seq != null).sort((a, b) => a - b),
     truncated: hasMore, clippedRows, chars, hasMore, nextCursor,
@@ -711,7 +711,7 @@ async function stewardImplThreadRead(args, ctx, config) {
     quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars,
       callsRemaining: Math.max(0, STEWARD_READ_CALLS_PER_TURN - bucket.calls), charsRemaining: Math.max(0, budgetChars - bucket.chars) },
     rows: kept,
-  };
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════════════

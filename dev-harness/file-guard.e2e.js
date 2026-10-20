@@ -101,7 +101,11 @@ function post(port, p, payload, headers) {
     const ge = await S.guardFileToolPath(ep, wide(), { write: true });
     ok(ge.ok === false && ge.code === expectCode, 'S3 v2.7.1 adversarial [' + tag + '] denied (' + ge.code + ')');
   }
-  const uncCfg = '\\\\?\\UNC\\localhost\\C$' + path.join(UNIT_DATA, 'sessions', 'x.json').replace(/^[A-Za-z]:/, '');
+  // The fixture home may be on a non-system drive. Its administrative share must
+  // name that same drive, otherwise this probes an unrelated C: path.
+  const dataDrive = /^[A-Za-z]:/.exec(UNIT_DATA)?.[0];
+  if (!dataDrive) throw new Error('Windows fixture requires an absolute drive path');
+  const uncCfg = '\\\\?\\UNC\\localhost\\' + dataDrive[0] + '$' + path.join(UNIT_DATA, 'sessions', 'x.json').replace(/^[A-Za-z]:/, '');
   const gu = await S.guardFileToolPath(uncCfg, wide(), { write: true });
   ok(gu.ok === false && gu.code === 'not-allowed', 'S3 v2.7.1 adversarial [unc-sessions] app-data denied');
   fs.unlinkSync(osProbe);

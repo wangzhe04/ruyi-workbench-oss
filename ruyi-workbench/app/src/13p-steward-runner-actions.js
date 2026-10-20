@@ -757,16 +757,16 @@ function stewardDecideNudgeNote(row, title) {
 
 async function stewardInboxMessage(events, config, selfServeNotes) {
   const pack = getPromptPack(config && config.locale);
-  const rows = events.slice(-STEWARD_INBOX_EVENTS_PER_TURN);
+  const rows = stewardForeignProjection(events.slice(-STEWARD_INBOX_EVENTS_PER_TURN));
   // 117l D5:一批事件里最多几十条,去重后逐个查一次会话头(与 stewardThreadDigestRows 同一读法)。
   const titles = new Map();
   for (const sid of [...new Set(rows.map(r => safeSessionId(r && r.sessionId)).filter(Boolean))]) {
-    titles.set(sid, await stewardDisplayTitleOf(sid));
+    titles.set(sid, stewardForeignProjection(await stewardDisplayTitleOf(sid)));
   }
   // 116-2b:自理动作的结果作为事件的【补充信息】进回合层 —— 模型于是只需要「说」,不必再决定
   // 该不该重试(那件事工作台已经按规则做完或明确放弃了)。没有自理行时这一段整段不出现,
   // 收件箱回合的消息与 116f 逐字节相同。
-  const notes = (Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean).slice(0, STEWARD_SELF_SERVE_PER_TURN_MAX);
+  const notes = stewardForeignProjection((Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean).slice(0, STEWARD_SELF_SERVE_PER_TURN_MAX));
   const headlines = rows.map(row => stewardEventLine(row, sid => titles.get(sid) || ''));
   const bodies = rows.map(row => stewardDeliverableBlock(row, titles.get(safeSessionId(row && row.sessionId)) || ''));
   // 127 波 2-quater B1 ③:豁免命令摘录块(没有 exempt 的行是空串,消息与修前逐字节相同)。

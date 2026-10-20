@@ -263,7 +263,8 @@ async function main() {
       const result = await app.runStewardTurn({ trigger: 'user', message, onEvent: usage });
       const config = await app.readConfig();
       turnTraces.push({ phase, steward: { ok: result.ok === true, ruleSaved: config.privacyRulesV1.some(rule => rule.id === 'company-rnd'),
-        errorCode: String(result.error || result.code || '').match(/privacy\.[a-z_]+|steward\.[a-z_]+|[a-z_]+_timeout/)?.[0] || (result.error ? 'other' : ''),
+        errorCode: [result.error, result.code, result.message].filter(value => typeof value === 'string').join(' ').match(/privacy\.[a-z_]+/)?.[0]
+          || [result.error, result.code, result.message].filter(value => typeof value === 'string').join(' ').match(/steward\.[a-z_]+|[a-z_]+_timeout/)?.[0] || (result.error ? 'other' : ''),
         resultKeys: Object.keys(result), actions: (result.actions || []).map(row => ({ kind: row.kind, tool: row.tool,
           resultKeys: Object.keys(row.result || {}), ok: row.result?.ok, saved: row.result?.saved, status: row.result?.status,
           code: typeof row.result?.code === 'string' && /^[a-z_.]+$/.test(row.result.code) ? row.result.code : undefined })) } });
