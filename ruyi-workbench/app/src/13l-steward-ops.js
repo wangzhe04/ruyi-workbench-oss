@@ -706,9 +706,8 @@ async function stewardImplMemoryWrite(args, ctx, config) {
   // 126-M02:时效。清洗复用 06d 的 cleanMemoryDate(非法/缺省 -> 空串 = 不过期)。
   // 写的时候允许留空 —— 「我用 Windows」这种事实本来就不该有到期日;该写的是
   //「这两周在赶 A 项目」那一类必然过期的。给不给由模型按提示词判断,服务端只管清洗与过滤。
-  // 构造默认期限;是否到期仍统一由 memoryIsExpired 判定。
-  const defaultActivityExpiry = activity ? new Date(Date.now() + 30 * 86400000).toISOString() : '';
-  const expiresAt = cleanMemoryDate(args && args.expiresAt) || defaultActivityExpiry;
+  const activityExpiry = activity ? new Date(Date.now() + 30 * 86400000).toISOString() : '';
+  const expiresAt = cleanMemoryDate(args && args.expiresAt) || activityExpiry;
   // 第二轮工具走查(F12):到期日【已经过去】修前被静默收下 —— 条目一落库就是「已过期」,既不进提示词也搜不到,
   // 模型却收到 ok:true,以为这条记住了(又一个「说 ok 其实没用」)。拒绝并如实说原因;要记就给将来的日期或不给。
   if (expiresAt && memoryIsExpired({ expiresAt })) {
@@ -1199,7 +1198,7 @@ async function stewardImplFileRead(args, ctx, config) {
   }
   const content = stewardExternalBlock('file', raw, out.content || out.text || '');
   stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
-  return { ...stewardFileVisualResult(out), ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true, content };
+  return privacySourceMark({ ...stewardFileVisualResult(out), ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true, content }, ['/content'], privacySourceViews.get(out));
 }
 
 // 30) steward_thread_artifact_read —— 读一条线程【自己在交付里列出来的】那些文件。
@@ -1232,7 +1231,7 @@ async function stewardImplThreadArtifactRead(args, ctx, config) {
   }
   const content = stewardExternalBlock('artifact', hit, out.content || out.text || '');
   stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
-  return { ...stewardFileVisualResult(out), ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true, content };
+  return privacySourceMark({ ...stewardFileVisualResult(out), ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true, content }, ['/content'], privacySourceViews.get(out));
 }
 
 function stewardFileReadArgs(args) {
@@ -1326,6 +1325,7 @@ function stewardSettingsReceipt(keys, previous, next) {
   return { kind: 'settings', object: 'ruyi', changes: keys.map(key => ({ key, help: stewardConfigHelpFor(key, lang), before: before[key], value: after[key], ...stewardSettingScope(key) })) };
 }
 async function stewardImplConfigGet(args, ctx, config) {
+  if (args.privacy === true) return PrivacyCore.configHooks.stewardPrivacy({ op: 'inspect' }, { sessionId: ctx.session?.id });
   const masked = maskProviders(config);
   // 第二轮工具走查(F11):maskProviders 是给设置页回显用的 —— 外部 MCP 的 env / headers 值掩成「••••<末 4 位>」,
   // 那 4 位是给用户认「是不是我填的那把」的。管家这条面不需要认,steward_providers 刻意只给 hasKey 布尔
@@ -1366,6 +1366,26 @@ async function stewardImplConfigGet(args, ctx, config) {
 //     没亲手按就整份 propose_required。不做「能写的写、不能写的跳过」—— 半份生效的配置是最难解释
 //     的那种状态,用户按下按钮时看到的也必须是他刚才看到的那一整份。
 async function stewardImplConfigSet(args, ctx, config) {
+  if (args.privacy != null) {
+    // The narrow privacy operation does not grant generic access to forbidden
+    // config, key material, recovery/export, or arbitrary patch keys.
+    if (args.patch == null || typeof args.patch !== 'object' || Array.isArray(args.patch) || Object.keys(args.patch).length || args.undo || args.expected || (args.scope && args.scope !== 'application') || args.sessionId) return stewardFail('invalid_request', 'privacy operations require an empty patch and application scope');
+    if (!args.privacy || typeof args.privacy !== 'object' || Array.isArray(args.privacy)) return stewardFail('invalid_request', 'privacy must be an operation object');
+    const allowed = new Set(['op', 'expectedRuleVersion', 'mode', 'technical', 'upsert', 'remove', 'tests', 'sourceRef']);
+    if (Object.keys(args.privacy).some(key => !allowed.has(key)) || !['preview', 'update'].includes(args.privacy.op)) return stewardFail('invalid_request', 'unsupported privacy operation');
+    if (args.privacy.op === 'update') {
+      // Only this local user's current message can authorize an update, never a
+      // prior user quote, a delegated task, an inbox event or tool/web contents.
+      const source = args.privacy.sourceRef;
+      if (ctx.trigger !== 'user' || !source || source.sessionId !== ctx.session?.id || source.turnSeq !== ctx.session?.turnSeq) return stewardFail('source_not_user', 'privacy updates require the current local user message');
+      const own = await stewardSourceUserTexts(source);
+      if (!own) return stewardFail('source_not_user', 'external content cannot authorize privacy changes');
+      const quoted = stewardQuoteInSource(source.quote, own);
+      if (!quoted.ok) return stewardFail(quoted.code, quoted.message);
+    }
+    try { return await PrivacyCore.configHooks.stewardPrivacy(args.privacy, { sessionId: ctx.session?.id, turnSeq: ctx.session?.turnSeq }); }
+    catch (error) { return stewardFail(/^(?:privacy|credential_vault)\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed', '隐私规则未保存；检查操作、规则版本和试验结果后再继续。'); }
+  }
   // 配置工具没有线程写权限。明确的线程意图只能导航到那一条的既有模型/权限入口。
   if (args.scope === 'thread' || args.sessionId) {
     return stewardFail('scope_requires_thread', '仅修改这条任务请打开该任务顶部的模型/权限菜单；不要改全局默认。模型从下一回合使用，当前执行不切换。', { sessionId: safeSessionId(args.sessionId) || '', entry: 'thread_settings' });

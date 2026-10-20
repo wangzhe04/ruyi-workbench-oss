@@ -26,7 +26,7 @@ const providers = [
   { id: 'fake-a', label: 'A', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9/v1', apiKey: 'sk-real-key-A', model: 'm-a', models: [{ id: 'm-a', label: 'm-a' }] },
   { id: 'fake-b', label: 'B', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9/v1', apiKey: 'sk-real-key-B', model: 'm-b', models: [{ id: 'm-b', label: 'm-b' }] },
 ];
-fs.writeFileSync(CONFIG, JSON.stringify({ configSchema: 7, activeProvider: 'fake-a', engineMode: 'interactive', providers, locale: 'zh-CN' }, null, 2));
+fs.writeFileSync(CONFIG, JSON.stringify({ configSchema: 7, credentialEncryptionV1: process.platform === 'win32', activeProvider: 'fake-a', engineMode: 'interactive', providers, locale: 'zh-CN' }, null, 2));
 
 let TOKEN = '';
 function getToken() {
@@ -52,13 +52,17 @@ async function waitForHttp(attempts = 300) { // 117q:预算 100×150ms=15s 低�
   for (let i = 0; i < attempts; i++) { try { const r = await reqJson('GET', '/api/status'); if (r.status === 200) return true; } catch { /* not up yet */ } await sleep(150); }
   return false;
 }
-const readDisk = () => JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
+let configReader = null;
+// 81-P1: recover immutable encrypted slots for the existing exact-value preservation assertions.
+const readDisk = () => configReader ? configReader.recover(JSON.parse(fs.readFileSync(CONFIG, 'utf8'))) : JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
 
 let wb = null;
 try {
   wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, RUYI_HOME: HOME }, windowsHide: true, stdio: 'ignore' });
   ok(await waitForHttp(), 'A0 workbench listening');
   TOKEN = await getToken();
+  configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(HOME);
+  ok(process.platform !== 'win32' || !!JSON.parse(fs.readFileSync(CONFIG, 'utf8')).credentialRefsV1, '81-P1 persistence assertions use encrypted config references on Windows');
   ok(!!TOKEN, 'A0b got UI token (POST /api/config is token-level)');
 
   // ① 部分 patch 不带 providers → 现值原样保留（合并语义）。
@@ -98,7 +102,7 @@ try {
   ok(r.status === 200 && Array.isArray(disk.providers) && disk.providers.length === 0, 'C1 clearing providers is still honoured (last-one-deleted is legal)');
   ok(backups.length === backupsBeforeClear + 1, `C2 exactly one more backup written before the wipe (${backups.join(',')})`);
   const newestBackup = backups.slice().sort().pop();
-  const backup = newestBackup ? JSON.parse(fs.readFileSync(path.join(HOME, newestBackup), 'utf8')) : null;
+  const backup = newestBackup ? configReader.recover(JSON.parse(fs.readFileSync(path.join(HOME, newestBackup), 'utf8'))) : null;
   ok(backup && Array.isArray(backup.providers) && backup.providers.length === 2 && backup.providers[0].apiKey === 'sk-real-key-A',
     'C3 the backup carries both providers with real keys (recoverable)');
   await sleep(300);
@@ -226,6 +230,7 @@ try {
 } catch (e) {
   fail++; console.log('FAIL exception ' + (e && e.stack || e));
 } finally {
+  configReader?.close();
   killp(wb);
   try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
 }

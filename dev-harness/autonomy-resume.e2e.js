@@ -40,7 +40,7 @@ const src = readServerSource();
 console.log('\n── [S] 静态锁 ──');
 ok(/autonomyAutoResume: false,/.test(src) && /config\.autonomyAutoResume = config\.autonomyAutoResume === true;/.test(src), 'S opt-in 默认 false(===true 归一,boot 自动续跑烧 token 必须显式开)');
 const markIdx = src.indexOf('await markInterruptedAgentRuns();');
-const autoIdx = src.indexOf('void autoResumeInterruptedRuns().catch');
+const autoIdx = src.indexOf('void waitForBootCliPathProbes().then(() => autoResumeInterruptedRuns()).catch');
 ok(markIdx > 0 && autoIdx > markIdx, 'S boot 挂点:自动恢复在诚实标死【之后】且 fire-and-forget');
 ok(/const AUTO_RESUME_MAX = 2;/.test(src), 'S 崩溃环上限 AUTO_RESUME_MAX=2');
 // 第40波:锁迁移 —— autoResumeInterruptedRuns 并发化(mapPool 工作项回调)后,跳过当前 run 的语句从

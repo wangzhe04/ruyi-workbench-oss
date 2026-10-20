@@ -30,6 +30,9 @@ async function applyConfigPatch(rawBody, options = {}) {
   const confirmed = raw.confirm === true;
   const body = { ...raw };
   delete body.confirm;
+  if (['privacyModeV1', 'privacyTechnicalV1', 'privacyRulesV1', 'privacyPolicyRecoveryRequiredV1', 'credentialEncryptionV1'].some(key => Object.hasOwn(body, key))) {
+    throw Object.assign(new Error('Use the dedicated privacy settings endpoint.'), { code: 'privacy.dedicated_settings_required', statusCode: 409 });
+  }
   if (Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
     const requested = body.permissionMode == null ? '' : String(body.permissionMode);
     if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested) && !confirmed) {

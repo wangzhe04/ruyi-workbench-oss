@@ -345,25 +345,28 @@ const STEER_REFUSAL = Object.freeze({
   injectFailed: { code: 'steer.inject_failed', message: '注入失败:子进程输入通道已关闭' },
 });
 const steerRefusal = which => ({ kind: 'json', body: { ok: false, error: { ...STEER_REFUSAL[which], params: {} } } });
-// 组合根注入桥接附件能力,避免路由域向桥接域新增循环依赖。
-const SteerAttachmentHooks = {};
 // 附件只按上传 id/name 重定位,绝不把请求里的 path 当可读文件。与普通消息使用同一上传目录。
 async function steerAttachments(raw) {
   if (raw == null) return [];
   if (!Array.isArray(raw) || raw.length > 12) throw new Error('最多递送 12 个上传附件');
   if (!raw.length) return [];
   const root = await fsp.realpath(paths.uploads);
+  // 81-P0 baseline repair: realpath upload containment stays local, avoiding a new bridge-guard cycle.
+  const insideUploads = file => {
+    const relative = path.relative(root, file);
+    return relative !== '' && relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative);
+  };
   const out = [];
   for (const item of raw) {
     const { id, name } = item || {};
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string' || !name || name.length > 200 || sanitizeFsSegmentName(name) !== name || /[. ]$/.test(name)) throw new Error('附件记录无效,请重新上传');
     const file = await fsp.realpath(path.join(root, id, name));
     const stat = await fsp.stat(file);
-    if (!SteerAttachmentHooks.pathWithinRoot(file, root) || !stat.isFile()) throw new Error('附件已不可用,请重新上传');
+    if (!insideUploads(file) || !stat.isFile()) throw new Error('附件已不可用,请重新上传');
     const image = /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
     const sendPath = image ? await fsp.realpath(path.join(root, id, 'send.jpg')).catch(() => '') : '';
     out.push({ id, name, path: file, size: stat.size, ...(image ? { kind: 'image' } : {}),
-      ...(sendPath && SteerAttachmentHooks.pathWithinRoot(sendPath, root) ? { sendPath } : {}),
+      ...(sendPath && insideUploads(sendPath) ? { sendPath } : {}),
       ...(typeof item.textPreview === 'string' ? { textPreview: item.textPreview.slice(0, 12000) } : {}),
       ...(typeof item.ocrText === 'string' ? { ocrText: item.ocrText.slice(0, 12000) } : {}),
       ...(typeof item.transcript === 'string' ? { transcript: item.transcript.slice(0, 12000) } : {}) });
@@ -409,7 +412,9 @@ async function steerSessionCore(input) {
     if (hasPendingQuestionForSession(sessionId)) return steerRefusal('answerPending');
     reg.claudeSteerCount = Number(reg.claudeSteerCount) || 0;
     if (reg.claudeSteerCount >= STEER_QUEUE_MAX) return steerRefusal('turnLimit');
-    const envelope = buildUserEnvelope('[用户插话] ' + text + SteerAttachmentHooks.buildAttachmentPrompt(attachments));
+    // 81-P0: engine-owned adapter avoids importing bridge helpers into the route dependency cycle.
+    if (attachments.length && typeof reg.buildSteerAttachmentPrompt !== 'function') return steerRefusal('injectFailed');
+    const envelope = buildUserEnvelope('[用户插话] ' + text + (attachments.length ? reg.buildSteerAttachmentPrompt(attachments) : ''));
     if (VisualPipeline.hasImageAttachment(attachments)) {
       const parts = await VisualPipeline.buildUserContentParts(envelope.message.content[0].text, attachments);
       envelope.message.content = parts.map(part => part.type === 'image_url'
@@ -792,6 +797,8 @@ function audioStreamReap() {
   }
 }
 async function audioStreamUpstream(s, method, suffix, body, contentType) {
+  // Re-read at every outbound chunk: the session may predate enabling protection.
+  if (method !== 'DELETE' && typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(await readConfig());
   const headers = body ? { 'content-type': contentType || 'application/json' } : {};
   const res = await fetch(s.upstream + '/stream/sessions' + suffix, { method, headers, body, signal: AbortSignal.timeout(AUDIO_STREAM_UPSTREAM_TIMEOUT_MS) });
   const text = await res.text();
@@ -803,6 +810,7 @@ function audioStreamFailure(up) {
 }
 async function handleAudioStreamOpen(req, res) {
   const config = await readConfig();
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(config);
   let resolved = resolveAsrStreamProvider(config);
   if (resolved.failure) { const f = resolved.failure; return send(res, apiFailure(f.code, f.params, f.message, f.status)); }
   // 指着 toolbox 组件而它这会儿没在跑 → 就地再起(与 transcribeAudioViaProvider 同一条路);端口若变了配置已改写,重取一次。
@@ -851,6 +859,7 @@ async function handleAudioStreamSession(req, res, pathname) {
     logEvent({ kind: 'asr_stream', action: 'delete', provider: s.providerId });
     return send(res, json({ ok: true }));
   }
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(await readConfig());
   if (action === 'audio') {
     const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     if (contentType !== 'audio/l16' && contentType !== 'application/octet-stream') {
@@ -940,16 +949,18 @@ async function maybeOcrImageAttachment(file) {
   try {
     if (!file || file.kind !== 'image' || !file.path) return;
     const config = await readConfig();
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(config);
     const provider = activeOpenAiProvider(config);
     if (provider && provider.vision === true) return; // 收图端点:像素直达,不需要 OCR 文本
     const target = await bridgedToolClient(config, 'ai_computer_control__ocr_image');
     if (!target) return;
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(await readConfig());
     const result = await target.client.callTool(target.toolName, { path: file.path, lang: 'zh' });
     if (!result || result.ok === false) return;
     const text = typeof result.text === 'string' ? result.text
       : (typeof result.content === 'string' ? result.content : '');
     if (text.trim()) file.ocrText = text.slice(0, IMAGE_OCR_MAX_CHARS);
-  } catch { file.ocrError = 'ocr.internal'; }
+  } catch (error) { file.ocrError = error.code === 'privacy.media_not_supported' ? error.code : 'ocr.internal'; }
 }
 
 async function maybeCompressImageAttachment(file) {
@@ -957,6 +968,7 @@ async function maybeCompressImageAttachment(file) {
     if (!file || file.kind !== 'image' || !file.path) return;
     if (!(file.size > IMAGE_SEND_MAX_BYTES)) return;
     const config = await readConfig();
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(config);
     const provider = activeOpenAiProvider(config);
     if (!provider || provider.vision !== true) return; // 不发像素的路径压缩了也没人看
     const target = await bridgedToolClient(config, 'ai_computer_control__image_resize');
@@ -966,6 +978,7 @@ async function maybeCompressImageAttachment(file) {
     // 仍超限就零行为 —— 发送侧的 5MB 闸会走原有占位降级,绝不发超限大包)。
     let scale = Math.min(1, Math.sqrt((IMAGE_SEND_MAX_BYTES * 0.85) / file.size));
     for (let i = 0; i < 2; i++) {
+      if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(await readConfig());
       const result = await target.client.callTool(target.toolName, { path: file.path, output_path: outPath, scale: Number(scale.toFixed(4)) });
       if (!result || result.ok === false || result.success === false) return;
       const st = await fsp.stat(outPath).catch(() => null);
@@ -973,10 +986,11 @@ async function maybeCompressImageAttachment(file) {
       if (st.size <= IMAGE_SEND_MAX_BYTES) { file.sendPath = outPath; file.sendSize = st.size; return; }
       scale *= 0.7;
     }
-  } catch { file.compressError = 'image.compress_failed'; }
+  } catch (error) { file.compressError = error.code === 'privacy.media_not_supported' ? error.code : 'image.compress_failed'; }
 }
 async function handleAudioTranscribe(req, res) {
   const config = await readConfig();
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(config);
   const resolved = resolveAsrProvider(config);
   if (resolved.failure) {
     const f = resolved.failure;

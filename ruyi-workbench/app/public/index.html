@@ -1091,7 +1091,8 @@
           <!-- 全局默认权限（permissionMode）此前只住管家页 —— 不用管家的人也得去那儿改。整段 section 连 id 原样搬来， -->
           <!-- 写口仍是 js/steward-settings.js 的 setDefaultPermission（切「全自动」就地二次确认 ＋ confirm:true），与顶栏盾牌写同一个键。 -->
           <div class="settings-tab" id="stab-security">
-            <p class="muted prov-hint" data-i18n="settings.security.hint">如意动手之前要不要先问你、等你回话等多久。改了就生效；每条线程还可以在线程头上单独改。</p>
+            <section class="settings-section" id="privacySettings" aria-label="Privacy"></section>
+            <p class="muted prov-hint" data-i18n="settings.security.hint">下方权限设置修改后即时生效。上方隐私设置需点击自己的保存按钮；每条线程仍可单独设置权限。</p>
             <section class="steward-settings-group" id="cfgStewardGroupPermission" aria-labelledby="cfgStewardPermissionHeading">
               <h4 id="cfgStewardPermissionHeading" class="settings-subhead" data-i18n="settings.steward.group.permission">新线程默认权限</h4>
               <p class="muted prov-hint" data-i18n="settings.steward.group.permissionHint">新开的线程用这一档；每条线程随时可以单独改。管家替你答复的范围也由这一档决定。</p>
@@ -2093,7 +2094,7 @@
         <div class="modal-foot">
           <div class="settings-foot-status">
             <span id="settingsStatus" class="muted" role="status" aria-live="polite"></span>
-            <p class="settings-save-hint muted" data-i18n="settings.saveHint">改动即时保存；服务商卡片改完点卡片下方的「保存服务商」。</p>
+            <p class="settings-save-hint muted" data-i18n="settings.saveHint">普通设置改后即时保存；服务商和隐私设置需点击各自的保存按钮。</p>
           </div>
           <span class="composer-spacer"></span>
           <button type="button" data-close-modal data-i18n="common.close">关闭</button>

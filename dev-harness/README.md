@@ -25,7 +25,9 @@ node dev-harness\run-all.js --parallel 4
 node dev-harness/release-package-acceptance.js --slim <Slim.zip> --full <Full.zip> --baseline-ref v3.0.1 --output <新的短路径目录>
 ```
 
-脚本验证实际 ZIP 及当前源码字节、随包 Node 和 EXE 的四份全新数据目录、候选特有的隐私保护行为、旧版数据副本升级/重启/续写/备份回退、每包 15 项核心旅程，以及 Full 安装版 Python 的完整性、重复安装、WinSDK OCR 和两个真实 MCP stdio 入口。旧数据由固定 `v3.0.1` 标签源码和随包 Node 生成，不冒充下载的旧发行二进制。`validation.json` 逐项记录结果和来源 SHA-256；失败保留现场，已有输出目录会拒绝复用。测试采用离线 Fake provider，原用户配置及工具箱目录被隔离。桌面窗口的实际启动/操作/关闭仍须另行观察，并核对 GUI 与后台的进程归属。
+脚本验证实际 ZIP 及当前源码字节、随包 Node 和 EXE 的四份全新数据目录、候选特有的隐私保护行为、丢失配置后的两种冷恢复、旧版数据副本升级/重启/续写/备份回退、每包 19 项核心旅程，以及 Full 安装版 Python 的完整性、重复安装、WinSDK OCR 和两个真实 MCP stdio 入口。旧数据由固定 `v3.0.1` 标签源码和随包 Node 生成，不冒充下载的旧发行二进制。`validation.json` 逐项记录结果和来源 SHA-256；失败保留现场，已有输出目录会拒绝复用。测试采用离线 Fake provider，原用户配置及工具箱目录被隔离。桌面窗口的实际启动/操作/关闭仍须另行观察，并核对 GUI 与后台的进程归属。
+
+隐私规则另有按需真实输入框验证：`node dev-harness/privacy-31/browser-input-validation.js --output=ruyi-workbench/dist/privacy-validation`。它在独立 home 启动真实浏览器，通过聊天与管家输入框填写、点击发送 45 条目录及对抗语料，检查四档位／技术开关、公开负例、未保存草稿和工具代号读写闭环；另用三代自然段验证整段输入、实际文件返回及代号回填，最新一代含 27 个敏感正例、25 个公开或已打码负例，并审计递归 JSON 解码后的完整模型请求。使用本地假模型，不连接用户实例或真实模型。标题截断与策略切换另由 `unit/privacy-thread-brief-boundary.test.js` 验证；用户显示与 HTTP／历史隔离由 `unit/privacy-display.test.js` 和 `unit/privacy-display-http.test.js` 验证。真实端点矩阵为 `privacy-31/live-matrix.js --live --report=<path>`，含 28 个场景（包括第二／三轮六场景正反例、管家自然语言规则管理和类型异常历史续跑），须显式启用并使用合成材料。
 
 `release-dryrun.js --pkg` 另验构建、overlay 和打包器链路；构包非零、ZIP 缺失或清单不完整均失败。普通干跑缺少 Full 载荷时明确 SKIP；`--require-full --acc-offline-source <目录>` 要求 Full 实际通过。此脚本只报告 live 配置状态，不调用真实模型 API。
 
@@ -233,7 +235,7 @@ LANG=zh_CN.UTF-8 RUYI_E2E_BROWSER=/tmp/chromium-ruyi node dev-harness/run-all.js
 - [ ] 临时 `HOME`(tmpdir),开跑清空;spawn env 带数据目录变量。
 - [ ] 健康轮询起服务,别裸 sleep 猜时间。
 - [ ] 需要 mutating 路由的 UI-token → 从 `runtime.json` 读;body-token 端点走 body。
-- [ ] `finally` 里 `taskkill /T /F` 杀 fake + workbench(**必做**,否则残留进程占端口)。
+- [ ] `finally` 里用 `lib/kill-own-tree.js` 的 `killOwnTree` 清理本件 fake + workbench，自有进程身份须可核对，不能按进程名批量终止。
 - [ ] 逐条 `PASS/FAIL <label>`;`process.exit(fail?1:0)`。
 - [ ] 断言只加不改语义(事件协议纪律);新字段可断言,别断言旧字段被删。
 - [ ] 跑两遍确认无端口/临时目录残留导致的偶发。

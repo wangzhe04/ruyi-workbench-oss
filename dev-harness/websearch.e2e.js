@@ -16,7 +16,7 @@ process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR = '1'; // 2026-10:本机假 provider 
 //       prompt names it 「当前不可用」; with searxng configured → web_search offered + the D6 proactive-search
 //       line renders (FAKE_CAPTURE_DIR system断言).
 //   (f) apiKey mask: searchBackend.apiKey='bing-secret-key-123456' → GET /api/status + POST /api/config responses
-//       mask it to ••••3456; a masked round-trip SAVE does NOT wipe the real key on disk.
+//       mask it to ••••3456; a masked round-trip SAVE preserves the exact recovered key (encrypted on Windows).
 'use strict';
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
@@ -93,7 +93,7 @@ function startFakeSearx(port) {
 function writeConfig(home, extra) {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify(Object.assign({
     // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
-    stewardThreadBriefV1: false,
+    stewardThreadBriefV1: false, credentialEncryptionV1: process.platform === 'win32',
     configSchema: 8, version: '1.0.0', permissionMode: 'bypass', toolLoadingMode: 'full',
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
     activeProvider: 'fake',
@@ -328,6 +328,7 @@ function writeConfig(home, extra) {
   let wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
+  let configReader = null;
   try {
     let h = null; for (let i = 0; i < 40 && !h; i++) { await sleep(150); h = await health(WB_PORT); }
     ok(!!h, 'workbench listening on :' + WB_PORT);
@@ -357,15 +358,21 @@ function writeConfig(home, extra) {
     ok(saveResp.body.config.searchBackend.apiKey === '••••3456', 'POST /api/config response masks searchBackend.apiKey (••••3456)');
     const status = await getJson(WB_PORT, '/api/status');
     ok(status.config.searchBackend.apiKey === '••••3456', 'GET /api/status masks searchBackend.apiKey (••••3456)');
-    // The REAL key is on disk (never wiped, never masked in the file).
-    const onDisk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
-    ok(onDisk.searchBackend.apiKey === 'bing-secret-key-123456', 'on-disk config keeps the REAL searchBackend key');
+    // Exact persistence semantics are checked after authenticated slot recovery.
+    configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(HOME);
+    const rawDisk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const onDisk = configReader.recover(rawDisk);
+    ok(onDisk.searchBackend.apiKey === 'bing-secret-key-123456', 'persisted config recovers the exact REAL searchBackend key');
+    const privateDisk = () => ['config.json', 'config.json.prev', 'credential-vault-v1.json'].filter(name => fs.existsSync(path.join(HOME, name)))
+      .every(name => !fs.readFileSync(path.join(HOME, name), 'utf8').includes('bing-secret-key-123456'));
+    ok(process.platform !== 'win32' || rawDisk.credentialRefsV1?.version === 1 && rawDisk.searchBackend.apiKey === '' && privateDisk(), 'Windows persistence stores encrypted references with no search key plaintext in config, backups or vault');
     // Round-trip: POST the masked value straight back (as the UI would) → disk key survives.
     await postJson(WB_PORT, '/api/config', { searchBackend: { type: 'bing', baseUrl: '', apiKey: '••••3456' } }, { 'x-wcw-token': token });
-    const onDisk2 = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const onDisk2 = configReader.recover(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')));
     ok(onDisk2.searchBackend.apiKey === 'bing-secret-key-123456', 'masked round-trip SAVE does NOT wipe the real key');
+    ok(process.platform !== 'win32' || privateDisk(), 'masked round-trip does not reintroduce search key plaintext into physical files');
   } catch (e) { console.log('ERROR(live none) ' + (e && e.stack || e)); fail++; }
-  finally { killp(wb); killp(fake1); await sleep(300); }
+  finally { configReader?.close(); killp(wb); killp(fake1); await sleep(300); }
 
   // Scenario 2: searxng configured → web_search offered + D6 line renders + a turn calls web_search live.
   fs.rmSync(CAP_DIR, { recursive: true, force: true });

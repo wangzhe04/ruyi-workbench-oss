@@ -1329,14 +1329,14 @@ function parseThreadBrief(text) {
   return title ? { title, gist } : null;   // 没有名字就不算成功(概括可以空)
 }
 
-function buildThreadBriefMessages(message, replyText, locale) {
+function buildThreadBriefMessages(message, replyText, locale, excerpts) {
   const zh = !String(locale || '').toLowerCase().startsWith('en');
   const sys = zh
     ? '你给一条对话线程起名字。只输出一个 JSON 对象:{"title":"…","gist":"…"}。title 是这件事的名字,不超过 24 个字,像文件名一样具体(例:「AMD 收盘分析」);gist 是一句人话,不超过 80 个字,说清要做什么。不要解释、不要代码围栏、不要任何多余字符。'
     : 'You name a conversation thread. Output only one JSON object: {"title":"…","gist":"…"}. title names the task in at most 24 characters, concrete like a filename; gist is one plain sentence of at most 80 characters saying what is being done. No explanation, no code fences, no extra characters.';
-  const parts = [(zh ? '用户原话:' : "User's own words:") + '\n' + String(message || '').slice(0, THREAD_BRIEF_INPUT_CHARS)];
+  const parts = [(zh ? '用户原话:' : "User's own words:") + '\n' + (excerpts ? excerpts.message : String(message || '').slice(0, THREAD_BRIEF_INPUT_CHARS))];
   const reply = String(replyText || '').trim();
-  if (reply) parts.push((zh ? '助手回复(节选):' : 'Assistant reply (excerpt):') + '\n' + reply.slice(0, THREAD_BRIEF_REPLY_CHARS));
+  if (reply) parts.push((zh ? '助手回复(节选):' : 'Assistant reply (excerpt):') + '\n' + (excerpts ? excerpts.reply : reply.slice(0, THREAD_BRIEF_REPLY_CHARS)));
   return [{ role: 'system', content: sys }, { role: 'user', content: parts.join('\n\n') }];
 }
 
@@ -1413,10 +1413,11 @@ async function updateAutomaticThreadTitle(input) {
   return { ok: true, updated: true, title: brief.title };
 }
 
-async function threadBriefOnce(o, sid) {
+async function threadBriefOnce(o, sid, policyBound = false) {
   try {
     const config = o.config || null;
     if (!threadBriefEnabled(config)) return null;
+    if (!policyBound && typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withPolicy(sid, () => threadBriefOnce(o, sid, true));
     const stage = o.stage === 'settled' ? 'settled' : 'first_turn';
     const message = String(o.message || '').trim();
     if (!message) return null;
@@ -1436,7 +1437,19 @@ async function threadBriefOnce(o, sid) {
     const provider = threadBriefProvider(config, o.threadProvider || null);
     if (!provider) return null;                    // 端点不可用:静默不生成
     if (threadBriefRateLimited()) return null;
-    const messages = buildThreadBriefMessages(message, o.replyText, config && config.locale);
+    let excerpts;
+    if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.active()) {
+      // Identify the full originals before applying title budgets. A raw slice can split a
+      // credential/identity into an unrecognizable fragment; a protected slice stays atomic.
+      const messageView = await PrivacyGateway.projectSource(message, true);
+      const reply = String(o.replyText || '').trim();
+      const replyView = reply ? await PrivacyGateway.projectSource(reply, true) : null;
+      excerpts = {
+        message: PrivacyGateway.sliceSource(messageView, 0, Math.min(message.length, THREAD_BRIEF_INPUT_CHARS)).text,
+        reply: replyView ? PrivacyGateway.sliceSource(replyView, 0, Math.min(reply.length, THREAD_BRIEF_REPLY_CHARS)).text : '',
+      };
+    }
+    const messages = buildThreadBriefMessages(message, o.replyText, config && config.locale, excerpts);
     const tries = stage === 'settled' ? THREAD_BRIEF_RETRY_BACKOFF_MS.length + 1 : THREAD_BRIEF_FIRST_TURN_TRIES;
     for (let attempt = 0; attempt < tries; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, THREAD_BRIEF_RETRY_BACKOFF_MS[attempt - 1]));

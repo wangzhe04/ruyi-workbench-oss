@@ -71,6 +71,14 @@ async function handleStewardApiRoutes(req, res, pathname) {
     if (typeof StewardHooks.runnerState === 'function') {
       try { runner = (await StewardHooks.runnerState(config)) || {}; } catch { runner = {}; }
     }
+    if (runner.lastReply && typeof runner.lastReply === 'object') {
+      let reply = runner.lastReply;
+      for (const key of ['say', 'why']) if (typeof reply[key] === 'string') {
+        const text = await PrivacyGateway.displayText(STEWARD_SESSION_ID, reply[key]);
+        if (text !== reply[key]) reply = { ...reply, [key]: text };
+      }
+      if (reply !== runner.lastReply) runner = { ...runner, lastReply: reply };
+    }
     return send(res, json({ ok: true, ...await stewardInboxState(config), ...runner }));
   }
 

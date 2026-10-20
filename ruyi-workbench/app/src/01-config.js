@@ -7,6 +7,11 @@ function defaultConfig() {
     // 128a(48 号文 §2):用户(或产品代用户)真正改过的键。盘上只落这些键 ＋ 簿记键 ＋ 本版不认识的键,
     // 没碰过的设置跟随产品当前默认 —— 否则装过一次的机器上每个默认值都会被冻在盘上(见 normalizeConfig 头注)。
     configExplicitKeysV1: [],
+    privacyModeV1: 'off',
+    privacyTechnicalV1: false,
+    privacyRulesV1: [],
+    privacyPolicyRecoveryRequiredV1: false,
+    credentialEncryptionV1: false, // Opt-in DPAPI storage. Existing encrypted references retain their explicit enabled state.
     version: VERSION,
     agentCliType: 'claude',       // claude | kimi — native Agent CLI driver
     // 123-N2(用户 2026-09-13 真机:「新开线程会默认开 Kimi code cli,我希望改成默认上一次用的」):
@@ -801,6 +806,18 @@ function normalizeConfig(raw, opts = {}) {
   const incomingConfigSchema = Number(raw && raw.configSchema) || 0;
   const rawExplicit = configExplicitKeysOf(raw);
   let changed = !raw || raw.configSchema !== CONFIG_SCHEMA;
+  if (!['off', 'basic', 'enhanced', 'strict'].includes(config.privacyModeV1)) { config.privacyModeV1 = 'off'; config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
+  if (typeof config.privacyTechnicalV1 !== 'boolean') { config.privacyTechnicalV1 = false; config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
+  if (!Array.isArray(config.privacyRulesV1)) { config.privacyRulesV1 = []; config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
+  if (typeof config.privacyPolicyRecoveryRequiredV1 !== 'boolean') { config.privacyPolicyRecoveryRequiredV1 = true; changed = true; }
+  if (typeof PrivacyCore !== 'undefined') PrivacyCore.createDetector({ rules: config.privacyRulesV1 });
+  if (typeof config.credentialEncryptionV1 !== 'boolean') { config.credentialEncryptionV1 = base.credentialEncryptionV1; changed = true; }
+  // Earlier defaults could omit the encryption flag while privacy was selected. Do not
+  // initialize a vault without consent under the new opt-in default. Hydrated references
+  // have already retained their explicit enabled state before normalization reaches here.
+  if (config.privacyModeV1 !== 'off' && config.credentialEncryptionV1 !== true && config.privacyPolicyRecoveryRequiredV1 !== true) {
+    config.privacyPolicyRecoveryRequiredV1 = true; changed = true;
+  }
   // P1(cmd8191 根治): npm shim(claude.cmd)→ 真身 claude.exe 的运行时解析(见 resolveClaudeLauncher)。
   // 收拢在这一个咽喉点 = 全部消费方(runClaudeTurn/子代理/mcp add-json/doctor)一致受益。不置 changed:
   // 解析是纯运行时升级,配置里保留用户原值,exe 消失时下一次解析自动回落 shim。结果 memoize,热路径零探测。
@@ -1874,9 +1891,15 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // 第25波 25.1: 写体收编进 atomicWriteJson;对抗轮修: 全局写链串行化并发 config 写(同 saveSession 理由——
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
 let configWriteChain = Promise.resolve();
-async function writeConfigAtomic(data) {
+async function writeConfigAtomic(data, options = {}) {
   configReadCache = null;   // 进程内写:读缓存立刻作废(写完后再作废一次,见下)。文件戳本来也会变,这是显式的第二道保险
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
+    // 81-P1: encrypt a serialized persistence copy; never pass runtime plaintext to the disk writer.
+    if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.protectConfig) {
+      let previous; try { previous = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null); } catch { /* The existing backup/read recovery path remains authoritative. */ }
+      const alreadyPlaintext = previous && typeof previous === 'object' && !Array.isArray(previous) && !previous.credentialRefsV1 && previous.credentialEncryptionV1 !== true;
+      data = await PrivacyCore.configHooks.protectConfig(data, { allowPlaintext: options.credentialEncryptionDisable === true || !!alreadyPlaintext });
+    }
     // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
     // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
     // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
@@ -1884,12 +1907,19 @@ async function writeConfigAtomic(data) {
     try {
       const current = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);   // safeJsonParse 认带 BOM 的文件(与 readConfig 同口径)
       if (current && typeof current === 'object' && !Array.isArray(current)) {
-        await fsp.copyFile(paths.config, `${paths.config}.prev`);
+        if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.protectBackup) {
+          const backup = await PrivacyCore.configHooks.protectBackup(JSON.stringify(current), data);
+          await atomicWriteJson(`${paths.config}.prev`, backup, { mode: 0o600 });
+        } else await fsp.copyFile(paths.config, `${paths.config}.prev`);
         // 安全走查 S11:.prev 是 readConfig 的第一恢复源,里面是真 apiKey,不能脱敏;只收紧权限。copyFile 带的是【旧】config.json 的权限位
         // (升级前落的盘是 0644),所以复制完显式再收一次;Windows 上 chmod 只动只读位,无害。
         await fsp.chmod(`${paths.config}.prev`, 0o600).catch(() => {});
       }
-    } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
+    } catch (error) {
+      if (String(error?.code || '').startsWith('credential_vault.')) throw error;
+      if (error?.code !== 'ENOENT' && safeJsonParse(data, null)?.credentialRefsV1) throw Object.assign(new Error('credential_vault.backup_unavailable'), { code: 'credential_vault.backup_unavailable' });
+    }
+    if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.migrateBackups) await PrivacyCore.configHooks.migrateBackups(data);
     return atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
   });
   configWriteChain = thisWrite;
@@ -1909,6 +1939,8 @@ async function readConfigPrev() {
 // 本次请求，writeConfig 在降级期间拒绝落盘（config.read_degraded），直到某次读成功为止。
 let configDegraded = false;
 let lastGoodConfig = null;
+// Do not let a caller holding the mutable last-good object forge a committed choice.
+let lastGoodCredentialEncryptionV1 = null;
 // 48b(P1) readConfig 内存缓存 -- 经对抗验证【回退】。根因:5 件 e2e(usage-ledger/skills-registry/
 // workbench-memory/vision-loop/subagent)直接 fs 写 config.json 切换 provider/配置,依赖 readConfig 每次
 // 读盘拾取(usage-ledger:137 注释明述"readConfig is uncached -> picked up");缓存让这些直接写不可见。
@@ -1948,8 +1980,9 @@ let configReadCache = null;   // { key, claudeProbe, kimiProbe, snapshot }
 async function configFileStamp() {
   try {
     const st = await fsp.stat(paths.config, { bigint: true });
+    const vaultStamp = typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.stateStamp ? await PrivacyCore.configHooks.stateStamp() : '';
     // ctimeNs:任何内容写入都会推它、utimes 改不回去 —— 「同尺寸改写后把 mtime 还原」(cp -p、rsync -t、robocopy /COPY:DAT)也认得出(审查轮)
-    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
+    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}|${vaultStamp}`, mtimeMs: Number(st.mtimeMs) };
   } catch { return null; }
 }
 function cloneConfigSnapshot(config) {
@@ -1973,20 +2006,34 @@ function configReadCacheStore(stamp, config) {
     configReadCache = { key: stamp.key, claudeProbe: detectClaudePath(), kimiProbe: detectKimiPath(), snapshot: cloneConfigSnapshot(config) };
   } catch { configReadCache = null; }
 }
+function configRecoveryCredentialChoice(raw, lastChoice, hasNonemptyVault) {
+  if (raw?.credentialRefsV1) return true;
+  if (typeof raw?.credentialEncryptionV1 === 'boolean') return raw.credentialEncryptionV1;
+  if (typeof lastChoice === 'boolean') return lastChoice;
+  return hasNonemptyVault ? true : null;
+}
 async function readConfig() {
+  try {
+  // Boot may use provisional discovery defaults before listen; API/turn callers must
+  // observe the completed first CLI checks, without blocking /health's event loop.
+  if (bootCliPathProbes && !bootCliPathProbes.beforeListen && bootCliPathProbes.pending.size) {
+    await waitForBootCliPathProbes();
+  }
   await ensureDirsForConfigRead();
+  if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.recoverPending && await PrivacyCore.configHooks.recoverPending()) { configReadCache = null; lastGoodConfig = null; }
   const stamp = await configFileStamp();   // 必须在读盘之前取(见 configReadCache 头注)
   const cached = configReadCacheLookup(stamp);
-  if (cached) { configDegraded = false; return cached; }
+  if (cached) { configDegraded = false; if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(cached); return cached; }
   let text = null; let readError = null;
   try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
   let raw = null; let recoveredFrom = '';
   const degrade = code => {
+    if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.();
     try { logEvent({ kind: 'config_read_failed', code, degraded: !lastGoodConfig }); } catch { /* 日志是旁路 */ }
-    if (lastGoodConfig) return lastGoodConfig;
+    if (lastGoodConfig) return { ...lastGoodConfig, privacyPolicyRecoveryRequiredV1: true };
     configDegraded = true;
     // 只供本次请求使用，绝不落盘。权限档钉最保守的 'default':读不出用户配置时不该按出厂的智能自动放权。
-    return { ...normalizeConfig(null).config, permissionMode: 'default' };
+    return { ...normalizeConfig(null).config, permissionMode: 'default', privacyPolicyRecoveryRequiredV1: true };
   };
   if (readError) {
     if (readError.code !== 'ENOENT') return degrade(String(readError.code || 'EREAD'));
@@ -1995,6 +2042,7 @@ async function readConfig() {
     if (prev) { raw = prev; recoveredFrom = 'prev'; }
   } else {
     raw = safeJsonParse(text, null);
+    if (raw !== null && (typeof raw !== 'object' || Array.isArray(raw))) raw = null;
     // 3.0 收口走查(第四波):0 字节 / 全空白的 config.json 同样先从 .prev 恢复。修前只有「文件不存在」与「非空但不是合法 JSON」
     // 两支读 .prev,空文件被当成全新安装 —— 断电后 rename 已落盘而数据没落盘就是这个样子(全仓无 fsync);用户随后存一次设置写下
     // 无服务商的新配置,再存一次 writeConfigAtomic 就把它拷进 .prev,含密钥的唯一好备份被覆盖,服务商与 key 永久丢失。
@@ -2009,7 +2057,11 @@ async function readConfig() {
       if (prev) {
         raw = prev; recoveredFrom = 'prev';
         // 恢复会把 .prev 落盘覆盖掉这份坏文件(用户可能是手改写坏的):覆盖前把原文件另存成 config.json.corrupt 留底。
-        await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
+        if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.protectCorrupt) {
+          const enabled = !!prev.credentialRefsV1 || prev.credentialEncryptionV1 === true;
+          const backup = await PrivacyCore.configHooks.protectCorrupt(text, 'config.json.corrupt', enabled);
+          await atomicWriteJson(`${paths.config}.corrupt`, backup, { mode: 0o600 });
+        } else await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
         await fsp.chmod(`${paths.config}.corrupt`, 0o600).catch(() => {});   // S11:坏文件的留底里同样可能有真 key
       }
       else return degrade('EJSON');
@@ -2018,18 +2070,47 @@ async function readConfig() {
   // 2026-10:没有可用配置(文件缺失 / 空文件 / {},且没有 .prev)不一定是全新安装 —— 数据目录里已经有会话,说明是一份
   // 用过的安装丢了配置。这时不给出厂的智能自动,钉回最保守的 'default'(显式键,落盘后不再走这里)。
   const rawEmpty = !raw || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0);
-  if (rawEmpty && (await fsp.readdir(paths.sessions).catch(() => [])).length > 0) {
-    raw = { permissionMode: 'default', configExplicitKeysV1: ['permissionMode'] };
+  const recoveringSource = rawEmpty || recoveredFrom === 'prev';
+  const vaultStat = recoveringSource ? await fsp.lstat(path.join(paths.data, 'credential-vault-v1.json')).catch(() => null) : null;
+  const hasNonemptyVault = !!vaultStat && vaultStat.isFile() && !vaultStat.isSymbolicLink() && vaultStat.size > 0;
+  const recoveryChoice = recoveringSource ? configRecoveryCredentialChoice(raw, lastGoodConfig ? lastGoodCredentialEncryptionV1 : null, hasNonemptyVault) : null;
+  // Only an actual off choice from a committed recovery source/snapshot preserves plaintext.
+  // Defaults do not grant this exception; unknown nonempty vaults remain encrypted and paused.
+  const preserveKnownPlaintext = recoveringSource && recoveryChoice === false && !raw?.credentialRefsV1;
+  if (rawEmpty && (lastGoodConfig || (await fsp.readdir(paths.sessions).catch(() => [])).length > 0 || vaultStat || await fsp.stat(path.join(paths.data, 'privacy-scopes')).then(() => true, () => false))) {
+    raw = { permissionMode: 'default', privacyPolicyRecoveryRequiredV1: true,
+      ...(recoveryChoice !== null ? { credentialEncryptionV1: recoveryChoice } : {}),
+      configExplicitKeysV1: ['permissionMode', 'privacyPolicyRecoveryRequiredV1', ...(recoveryChoice !== null ? ['credentialEncryptionV1'] : [])] };
+  } else if (recoveredFrom === 'prev' && recoveryChoice !== null) {
+    raw = { ...raw, credentialEncryptionV1: recoveryChoice,
+      ...(Array.isArray(raw.configExplicitKeysV1) ? { configExplicitKeysV1: [...new Set([...raw.configExplicitKeysV1, 'credentialEncryptionV1'])] } : {}) };
   }
-  const { config, changed, persisted } = normalizeConfig(raw);
+  const credentialChoiceTrusted = typeof raw?.credentialEncryptionV1 === 'boolean' || !!raw?.credentialRefsV1;
+  if (recoveredFrom) raw = { ...raw, privacyPolicyRecoveryRequiredV1: true };
+  if (raw?.privacyPolicyRecoveryRequiredV1 === true && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.();
+  let credentialsNeedMigration = false;
+  let normalized;
+  try {
+  if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.hydrateConfig) {
+    const hydrated = await PrivacyCore.configHooks.hydrateConfig(raw);
+    raw = hydrated.raw; credentialsNeedMigration = hydrated.needsMigration;
+  }
+    normalized = normalizeConfig(raw);
+  } catch (error) { if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
+  const { config, changed, persisted } = normalized;
   configDegraded = false;
-  lastGoodConfig = config;
   if (recoveredFrom) { try { logEvent({ kind: 'config_recovered', from: recoveredFrom }); } catch { /* 日志是旁路 */ } }
   // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read)；恢复自 .prev 时也落盘。
   // 128a:写的是投影(显式键 ＋ 簿记键 ＋ 不认识的键),不是整份内存视图。
-  if (changed || recoveredFrom) await writeConfigAtomic(JSON.stringify(persisted, null, 2)).catch(() => {});
+  if (changed || recoveredFrom || credentialsNeedMigration) await writeConfigAtomic(JSON.stringify(persisted, null, 2), { credentialEncryptionDisable: preserveKnownPlaintext }).catch(error => {
+    if (config.privacyPolicyRecoveryRequiredV1 === true || String(error?.code || '').startsWith('credential_vault.')) throw error;
+  });
   else if (!readError) configReadCacheStore(stamp, config);   // 干净读才缓存;存的是深拷贝,返回给调用方的 config 仍归调用方
+  if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
+  lastGoodConfig = config; // Do not advertise a successful encrypted state after a failed credential migration.
+  lastGoodCredentialEncryptionV1 = credentialChoiceTrusted ? config.credentialEncryptionV1 : null;
   return config;
+  } catch (error) { if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
 }
 
 // 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带订阅者要的开关位,
@@ -2037,13 +2118,16 @@ async function readConfig() {
 // 订阅者:13s 的调度器 —— 启动那一刻 schedulerEnabledV1 关着就没起(红线⑤:关着零开销、零写入),修前用户之后在设置里
 // 打开要重启才生效;现在听到这一声当场补起。零订阅者时 emit 是 no-op。
 function configEmitWritten(config) {
+  if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.deferConfigWritten?.(config)) return;
+  if (typeof config?.credentialEncryptionV1 === 'boolean') lastGoodCredentialEncryptionV1 = config.credentialEncryptionV1;
+  if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
   RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true) });
 }
 
 // 128a:before ＝ 这次写入之前的内存视图(mutateConfig 在 mutator 动手前拍的快照)。next 里归一化后值与它
 // 不同的键记成显式 —— 「被改过」的唯一口径,设置页、API、管家改设置、产品代用户记的状态一视同仁。
 // 没有 before 的调用(只剩单测)退回读盘语义:next 里不等于默认的键都算显式。
-async function writeConfig(next, before = null) {
+async function writeConfig(next, before = null, options = {}) {
   await ensureDirs();
   if (configDegraded) {
     // 读失败/JSON 损坏期间拿到的「当前配置」是默认值：在它上面合并再落盘 = 把用户配置冲成默认。拒绝。
@@ -2053,7 +2137,7 @@ async function writeConfig(next, before = null) {
   }
   if (!before) {
     const { config, persisted } = normalizeConfig(next);
-    await writeConfigAtomic(JSON.stringify(persisted, null, 2));
+    await writeConfigAtomic(JSON.stringify(persisted, null, 2), options);
     configEmitWritten(config);
     return config;
   }
@@ -2067,7 +2151,7 @@ async function writeConfig(next, before = null) {
     if (!configValueEquals(configComparableValue(config, key), configComparableValue(before, key))) explicit.add(key);
   }
   finalizeConfigExplicitKeys(config, explicit);
-  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2));
+  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2), options);
   configEmitWritten(config);
   return config;
 }
@@ -2089,7 +2173,7 @@ async function writeConfig(next, before = null) {
 // 结果统一为 { ok, config, value }:ok=true 时 config 是 writeConfig 之后已归一化的 next。
 // mutator 抛出的异常照常向调用方冒泡(与此前直接 await writeConfig 抛出等价),且不毒化队列。
 let configMutateChain = Promise.resolve();
-function mutateConfig(mutator) {
+function mutateConfig(mutator, options = {}) {
   const run = configMutateChain.catch(() => {}).then(async () => {
     const current = await readConfig();
     // 128a:mutator 可以就地改 current,所以「改之前」必须先深拷一份(Symbol 键 structuredClone 不带,手补)。
@@ -2098,7 +2182,7 @@ function mutateConfig(mutator) {
     const decision = await mutator(current);
     const d = (decision && typeof decision === 'object') ? decision : {};
     if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, config: current, value: d.abort };
-    const next = await writeConfig(Object.prototype.hasOwnProperty.call(d, 'next') ? d.next : current, before);
+    const next = await writeConfig(Object.prototype.hasOwnProperty.call(d, 'next') ? d.next : current, before, options);
     return { ok: true, config: next, value: d.value };
   });
   configMutateChain = run.then(() => {}, () => {});
@@ -2585,6 +2669,13 @@ function resolveClaudeLauncher(launcher) {
     if ((Date.now() - hit.at) >= CLAUDEPATH_CACHE_MS) refreshInBackground('launcher:' + p, () => resolveClaudeLauncherAsync(launcher, { force: true }));
     return hit.value;
   }
+  if (bootCliPathProbes?.beforeListen) {
+    // Preserve the configured launcher until its real executable check completes.
+    // This is only a boot view; post-listen config reads wait for the async check.
+    rememberClaudeLauncher(p, launcher);
+    queueBootCliPathProbe(() => resolveClaudeLauncherAsync(launcher, { force: true }));
+    return launcher;
+  }
   let value = launcher; // 默认:原样返回(解析不出 = 保持现状)
   try {
     const exe = claudeShimExeFor(p);
@@ -2746,6 +2837,42 @@ const AGENT_CLI_HOST = Object.freeze({
 });
 let _agentCliPathProbe = new Map(); // type -> { at, value }
 
+let bootCliPathProbes = null; // Only initialized by a real serve startup, never by config reads.
+function queueBootCliPathProbe(probe) {
+  const state = bootCliPathProbes;
+  const job = Promise.resolve().then(probe).catch(() => {}).finally(() => state.pending.delete(job));
+  state.pending.add(job);
+}
+function beginBootCliPathProbes() {
+  if (bootCliPathProbes) return;
+  bootCliPathProbes = { beforeListen: true, pending: new Set() };
+  const generation = _cliProbeGeneration;
+  if (!_claudePathProbe) {
+    _claudePathProbe = { at: Date.now(), value: '' };
+    queueBootCliPathProbe(async () => {
+      const value = await detectClaudePathUncachedAsync();
+      if (generation === _cliProbeGeneration) _claudePathProbe = { at: Date.now(), value };
+    });
+  }
+  if (!_agentCliPathProbe.has('kimi')) {
+    const provisional = { at: Date.now(), value: '' };
+    _agentCliPathProbe.set('kimi', provisional);
+    queueBootCliPathProbe(async () => {
+      const value = await detectAgentCliPathUncachedAsync('kimi');
+      if (generation === _cliProbeGeneration) _agentCliPathProbe.set('kimi', { at: Date.now(), value });
+      else if (_agentCliPathProbe.get('kimi') === provisional) _agentCliPathProbe.delete('kimi');
+    });
+  }
+}
+function finishBootCliPathProbes() {
+  if (bootCliPathProbes) bootCliPathProbes.beforeListen = false;
+}
+async function waitForBootCliPathProbes() {
+  // Launcher verification discovered during a boot read can add another job while
+  // the first checks are in flight. Wait for the whole set, not just one snapshot.
+  while (bootCliPathProbes?.pending.size) await Promise.all([...bootCliPathProbes.pending]);
+}
+
 function agentCliProbeSpawn(command) {
   const isScript = /\.cjs$/i.test(command);
   const kimiEntry = isScript ? '' : resolveKimiNpmEntry(command);
@@ -2788,6 +2915,13 @@ function agentCliProbeable(candidate) {
   // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
   return !((path.isAbsolute(candidate) || /[\\/]/.test(candidate)) && !fs.existsSync(candidate));
 }
+async function detectAgentCliPathUncachedAsync(type) {
+  for (const candidate of agentCliInstallCandidates(type)) {
+    if (!agentCliProbeable(candidate)) continue;
+    if (await probeAgentCliLauncherAsync(candidate)) return candidate;
+  }
+  return '';
+}
 function detectAgentCliPath(type) {
   const cached = _agentCliPathProbe.get(type);
   if (cached) {
@@ -2795,11 +2929,7 @@ function detectAgentCliPath(type) {
     if (Date.now() - cached.at >= CLAUDEPATH_CACHE_MS) {
       refreshInBackground('agent:' + type, async () => {
         const generation = _cliProbeGeneration;
-        let fresh = '';
-        for (const candidate of agentCliInstallCandidates(type)) {
-          if (!agentCliProbeable(candidate)) continue;
-          if (await probeAgentCliLauncherAsync(candidate)) { fresh = candidate; break; }
-        }
+        const fresh = await detectAgentCliPathUncachedAsync(type);
         if (generation === _cliProbeGeneration) _agentCliPathProbe.set(type, { at: Date.now(), value: fresh });
       });
     }
@@ -3722,7 +3852,10 @@ function buildUserEnvelope(text) {
 function writeToChild(sessionId, obj) {
   const reg = activeChildren.get(sessionId);
   if (!reg || !reg.child || !reg.child.stdin.writable) return false;
-  try { reg.child.stdin.write(JSON.stringify(obj) + '\n', 'utf8'); return true; } catch { return false; }
+  try {
+    if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.assertCliAllowed?.();
+    reg.child.stdin.write(JSON.stringify(obj) + '\n', 'utf8'); return true;
+  } catch { return false; }
 }
 // Tools the workbench OWNS the interactive answer for (never intercept tools the CLI runs itself).
 function isAskUserTool(name) {

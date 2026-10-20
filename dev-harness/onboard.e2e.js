@@ -12,7 +12,7 @@
 //   ④ 全新 HOME 首启 config: permissionMode==='auto'(2026-10 出厂档翻成智能自动) && engineMode==='interactive'
 //      && permissionBridge===true && uiMode==='simple'。
 //   ⑤ searchBackend 掩码回存往返: POST {type:'searxng',baseUrl,apiKey:真值} → GET /api/status apiKey 是掩码
-//      （非明文、hasKey===true）→ 把掩码原样 POST 回去 → 读磁盘 config.json: apiKey 仍是真值（掩码回存不覆盖）。
+//      （非明文、hasKey===true）→ 把掩码原样 POST 回去 → 解密磁盘引用后 apiKey 仍是真值；Windows 物理文件无明文。
 //   ⑥ provider vision 存续: POST providers[{id:'t1',...,vision:true}] → GET: vision===true。
 //
 // 判定行精确为 `ONBOARD E2E: ALL PASS`（失败打印明细并非零退出）。Port 8997（空闲段，见 dev-harness/README.md）。
@@ -141,6 +141,11 @@ function between(hay, startNeedle, endNeedle) {
     ok(c0.engineMode === 'interactive', '④ 新装 engineMode === interactive（got ' + c0.engineMode + '）');
     ok(c0.permissionBridge === true, '④ 新装 permissionBridge === true（got ' + c0.permissionBridge + '）');
     ok(c0.uiMode === 'simple', '④ 新装 uiMode === simple（got ' + c0.uiMode + '）');
+    ok(c0.credentialEncryptionV1 === false && c0.privacyModeV1 === 'off', '④ 新装凭据加密与脱敏默认关闭');
+    if (process.platform === 'win32') {
+      const enabled = await postJson(WB_PORT, '/api/privacy/encryption', { enabled: true }, hdr);
+      ok(enabled.status === 200 && enabled.json?.ok === true, '⑤ 显式开启凭据加密后再验收密钥保存');
+    }
 
     // ⑤ searchBackend 掩码回存往返。
     const REAL = 'sk-e2e-test-secret-123456';
@@ -154,9 +159,17 @@ function between(hay, startNeedle, endNeedle) {
     // 掩码原样回存（用户没改密钥框）。
     const sbEcho = await postJson(WB_PORT, '/api/config', { searchBackend: { type: 'searxng', baseUrl: 'http://192.0.2.1:8888', apiKey: sb1.apiKey } }, hdr);
     ok(sbEcho.status === 200 && sbEcho.json && sbEcho.json.ok === true, '⑤ 掩码回存 POST 被接受');
-    // 读磁盘 config.json：apiKey 仍是真值（掩码回存不覆盖真 key）。
-    const disk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
-    ok(disk.searchBackend && disk.searchBackend.apiKey === REAL, '⑤ 磁盘 config.json apiKey 仍为真值（掩码回存不覆盖，got ' + (disk.searchBackend && disk.searchBackend.apiKey) + '）');
+    // Recover authenticated slots only for exact-value assertions; do not weaken the mask round-trip.
+    const rawDisk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(HOME);
+    try {
+      const disk = configReader.recover(rawDisk);
+      ok(disk.searchBackend && disk.searchBackend.apiKey === REAL, '⑤ 持久凭据解密后逐字保留真值（掩码回存不覆盖）');
+      if (process.platform === 'win32') {
+        const files = ['config.json', 'config.json.prev', 'credential-vault-v1.json'].filter(name => fs.existsSync(path.join(HOME, name)));
+        ok(rawDisk.credentialRefsV1?.version === 1 && rawDisk.searchBackend.apiKey === '' && files.every(name => !fs.readFileSync(path.join(HOME, name), 'utf8').includes(REAL)), '⑤ Windows 主配置、备份和凭据库均无搜索密钥明文');
+      }
+    } finally { configReader.close(); }
 
     // ⑥ provider vision 存续。
     const pvSet = await postJson(WB_PORT, '/api/config', { providers: [{ id: 't1', label: 'T1', type: 'openai-compat', baseUrl: 'http://192.0.2.1:9', apiKey: 'k', model: 'm', vision: true }] }, hdr);

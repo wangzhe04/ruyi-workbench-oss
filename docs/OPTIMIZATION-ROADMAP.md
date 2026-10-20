@@ -1,6 +1,6 @@
 # 如意发布与迭代路线
 
-更新：2026-10-18。当前研发主线是 **3.x 管家体验和功能扩展**；详细范围、优先级、依赖和验收见 [62 号方案](optimization-plan/62-steward-3x-iterations.md)。外部机器人接入新增为 [66 号专项](optimization-plan/66-external-bots-and-steward-channels.md)，首批包含本人账号远程控制真实管家与原会话回复，后续扩展主动进度和远程待决。4.0 暂不确定方向或排期。
+更新：2026-10-20。当前研发主线是 **3.x 管家体验和功能扩展**；详细范围、优先级、依赖和验收见 [62 号方案](optimization-plan/62-steward-3x-iterations.md)。外部机器人接入新增为 [66 号专项](optimization-plan/66-external-bots-and-steward-channels.md)，首批包含本人账号远程控制真实管家与原会话回复，后续扩展主动进度和远程待决。4.0 暂不确定方向或排期。
 
 ## 发布状态
 
@@ -14,6 +14,10 @@
 | 远期概念 | [Traveler 原始概念](TRAVELER-CONCEPT.md) | 历史探索，未纳入当前排期，也不再预设为 4.0 主线 |
 
 ## 当前优先级
+
+2026-10-20 候选包实际反馈触发的识别与设置体验修复见 [85 号记录](optimization-plan/85-privacy-rule-and-settings-regression-31.md)：补强强标签及格式变体，设置页明确区分草稿与已生效状态，并由规则、工具协议和真实浏览器三组独立验证。该轮源码及包证据与 82 号旧候选分开记录。
+
+2026-10-19—20 新增 3.1 发布前功能补充：[凭据加密与本地双向隐私转译](optimization-plan/81-privacy-vault-and-tokenization-31.md)。独立 worktree 已接通凭据存储、恢复事务与入口、生产模型与登记工具的双向转译、自定义正则 worker；默认关闭及按档位启停以 [84 号补充](optimization-plan/84-privacy-tool-transport-and-profiles-31.md) 为准。稳定候选完成真实 DeepSeek 20 场景、实际 Slim／Full 与升级 666 检查点，最终 Windows 回归及历史失败证据见 [82 号记录](optimization-plan/82-privacy-31-implementation.md)。源码未发布，80 号旧包证据不覆盖此功能。
 
 3.1 的第二至四轮及可靠性前置已经完成源码工作包，发送中刷新恢复见 [78](optimization-plan/78-steward-handoff-reload-recovery.md)，路由与记忆收口见 [79](optimization-plan/79-steward-31-source-closure.md)。记忆 P2 经本机固定对照没有稳定收益，关闭新增提示，不继续建设 B/C；主动工具的会话范围与失效漏洞已修复。源码回归与发布包验收分别记录，当前版本仍为 3.0.1，尚未发布新版本。
 

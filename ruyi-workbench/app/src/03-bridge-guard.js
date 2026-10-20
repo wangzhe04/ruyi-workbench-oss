@@ -481,7 +481,7 @@ function isSensitiveDataPath(p) {
   // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
   // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
-    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'external-bot-credentials.json', 'external-bots', 'desktop'];
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
   const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
@@ -490,7 +490,7 @@ function isSensitiveDataPath(p) {
   // 凡是直接落在 dataRoot 下、文件名以 config.json 开头的，一律视为敏感。
   try {
     const base = path.basename(p);
-    if (/^(?:config\.json|external-bot-credentials\.json)(\.|$)/i.test(base)) {
+    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json)(\.|$)/i.test(base)) {
       const dir = path.resolve(path.dirname(p));
       for (const b of bases) if (dir.toLowerCase() === path.resolve(b).toLowerCase()) return true;
     }
@@ -503,15 +503,16 @@ function isSensitiveDataPath(p) {
 //   · 只有 nlink > 1 的文件才可能是它们的别名,所以调用方先看 nlink(遍历热路径上不为此给每个文件多 stat 一次);
 //   · ino 拿不到(0n / 缺失,个别网络盘 / 非 NTFS 文件系统)时不挡 —— 宁可漏一个极罕见的别名,也不误伤正常文件;
 //   · stat 用 bigint:Windows 的文件索引是 64 位,Number 会丢精度,两个不同文件可能撞成同一个值。
-const SENSITIVE_HARDLINK_FILES = Object.freeze(['config.json', 'runtime.json', 'external-bot-credentials.json', 'external-bots/state-v1.json']);
+const SENSITIVE_HARDLINK_FILES = Object.freeze(['config.json', 'runtime.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots/state-v1.json']);
 async function sensitiveFileIdentities() {
   const ids = new Set();
   let root = '';
   try { root = dataRoot(); } catch { return ids; }
   // 第三波(复核 #10):config.json 的备份族(.prev / .bak-* / .bak-providers-* / .corrupt)同样含真 key,硬链接别名一并比;名字族与 isSensitiveDataPath 同一条(/^config\.json(\.|$)/)。
   let names = SENSITIVE_HARDLINK_FILES;
-  try { names = [...new Set([...SENSITIVE_HARDLINK_FILES, ...(await fsp.readdir(root)).filter(n => /^(?:config\.json|external-bot-credentials\.json)\./i.test(n))])]; } catch { /* 读不了目录:只比已知正本 */ }
+  try { names = [...new Set([...SENSITIVE_HARDLINK_FILES, ...(await fsp.readdir(root)).filter(n => /^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json)\./i.test(n))])]; } catch { /* 读不了目录:只比已知正本 */ }
   try { names = [...new Set([...names, ...(await fsp.readdir(path.join(root, 'external-bots'))).filter(n => /^state-v1\.json\./i.test(n)).map(n => path.join('external-bots', n))])]; } catch { /* No inbox ledger has been created yet. */ }
+  try { names = [...new Set([...names, ...(await fsp.readdir(path.join(root, 'privacy-scopes'))).filter(n => /^[a-f0-9]{64}\.json(?:\.|$)/.test(n)).map(n => path.join('privacy-scopes', n))])]; } catch { /* No privacy map has been created yet. */ }
   for (const name of names) {
     try {
       const st = await fsp.stat(path.join(root, name), { bigint: true });

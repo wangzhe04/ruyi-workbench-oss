@@ -1,5 +1,3 @@
-Object.assign(SteerAttachmentHooks, { pathWithinRoot, buildAttachmentPrompt });
-
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
@@ -26,7 +24,8 @@ async function main() {
 // the internals so tests can exercise McpStdioClient / detectDesktopMcp without spawning a full server.
 if (require.main === module) {
   main().catch(err => {
-    console.error(err.stack || err.message || String(err));
+    const recoveryHelp = PrivacyCore.configHooks.startupGuidance?.(err);
+    console.error(recoveryHelp || err.stack || err.message || String(err));
     // Startup can create watchers/timers before listen() discovers a non-Ruyi port occupant. Merely setting
     // exitCode leaves those handles alive and makes the failed CLI look hung; a direct invocation must fail fast.
     process.exit(1);

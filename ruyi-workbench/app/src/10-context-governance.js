@@ -1873,6 +1873,18 @@ function fitHistoryForSummary(history, budgetTokens) {
 // 消息（长 Agent 工具循环），整块可远超预算；这种块不能只截每条消息后继续整块发送，也不能在
 // tool_call/tool_result 中间硬切。把超大块无损序列化成带角色标签的纯文本 transcript，再按实测
 // token 估算切成独立 user 片段：既不触发 Provider 的工具配对校验，也不会丢掉块的中后段。
+function privacySummarySliceEnd(text, start, end) {
+  if (typeof PrivacyGateway === 'undefined' || !PrivacyGateway.active() || end >= text.length) return end;
+  // All issued categories fit in this bounded window. Never clip the opaque alias
+  // itself after complete source protection; a split marker is not usable data.
+  const references = /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
+  references.lastIndex = Math.max(start, end - 80);
+  let match;
+  while ((match = references.exec(text)) && match.index < end) {
+    if (match.index + match[0].length > end) return match.index > start ? match.index : match.index + match[0].length;
+  }
+  return end;
+}
 function chunkHistoryByBudget(history, budgetTokens, sourceIndexes) {
   const starts = userBlockStarts(history);
   const blocks = [];
@@ -1908,6 +1920,8 @@ function chunkHistoryByBudget(history, budgetTokens, sourceIndexes) {
       // The kernel checks actual payload budgets before dispatch. If even one character cannot fit,
       // return one oversized node for that check instead of making an unbounded one-character loop.
       if (!row) { end = text.length; row = { role: 'user', content: `【超长回合分片】${sourceHeader}\n${text.slice(offset)}` }; }
+      const atomicEnd = privacySummarySliceEnd(text, offset, end);
+      if (atomicEnd !== end) { end = atomicEnd; row = { role: 'user', content: `【超长回合分片】${sourceHeader}\n${text.slice(offset, end)}` }; }
       const piece = [row];
       if (sourceIndexes) piece.summarySources = spans.filter(span => span.start < end && span.end > offset).map(span => span.source);
       pieces.push(piece);
@@ -2094,7 +2108,9 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       ? (extraSignal && typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function' ? AbortSignal.any([ctrl.signal, extraSignal]) : ctrl.signal)
       : (extraSignal || undefined);
     try {
-      const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: mergedSignal });
+      const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(bodyObj) : bodyObj;
+      if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
+      const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: mergedSignal });
       if (!res || !res.ok) {
         let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
         const detail = `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}`;
@@ -2368,6 +2384,7 @@ async function providerSummaryCallCore(provider, history, opts) {
 // 105c: 实体抽检 wrapper —— providerSummaryCallCore 的唯一出口增强点。开关关/摘要不成功/抽检内部异常
 // 都原样透传;只有 sc.ok 且显式开启时才做抽样检查与一次定向修补(见 applySummaryEntityCheck)。
 async function providerSummaryCall(provider, history, opts) {
+  if (opts?.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') history = await PrivacyGateway.protectHostHistory(opts.privacyHistoryOwner, history);
   const sc = await providerSummaryCallCore(provider, history, opts);
   // 失败发生在回合被停之后 = 是停止取消了它(fetch 的 AbortError 会被 singleSummaryCall 记成超时/兄弟块失败):统一标
   // aborted,调用方据此不把它算成「摘要服务坏了」(不进冷却、不武装滞回水位)。
@@ -2444,7 +2461,7 @@ function compactHistoryFromSession(session) {
       if (message.turnSummary && typeof message.turnSummary === 'object') evidence.turnSummary = message.turnSummary;
       if (Array.isArray(message.toolCalls) && message.toolCalls.length) evidence.toolCalls = message.toolCalls.map(call => ({ name: call && call.name, input: call && call.input }));
       const encoded = Object.keys(evidence).length ? JSON.stringify(evidence) : '';
-      if (encoded) content += `\n\n[Ruyi 本轮操作证据]\n${encoded.slice(0, 12000)}`;
+      if (encoded) content += `\n\n[Ruyi 本轮操作证据]\n${encoded.slice(0, privacySummarySliceEnd(encoded, 0, 12000))}`;
     }
     if (!content) continue;
     out.push({ role: message.role, content });
@@ -2531,14 +2548,54 @@ async function agentConversationContextMeta(config, session) {
 // Agent CLIs cannot import an arbitrary external summary into an existing native transcript. The safe
 // universal mapping is a visible reseed boundary: summarize Ruyi's complete display transcript, preserve
 // it in Ruyi, then start the next native CLI session with only that summary as recovery context.
-async function runAgentExternalCompact(sessionId, configOverride, trigger = 'manual') {
-  const config = configOverride || await readConfig();
+async function runAgentExternalCompact(sessionId, configOverride, trigger = 'manual', privacyBound = false) {
+  const storedConfig = await readConfig(), config = configOverride || storedConfig;
+  // Bind even the disabled policy before loading/formatting a transcript: a later
+  // opt-in must refuse the stale request rather than scan already clipped text.
+  if (!privacyBound && typeof PrivacyGateway !== 'undefined') return PrivacyGateway.withPolicy(String(sessionId || ''), () => runAgentExternalCompact(sessionId, configOverride, trigger, true));
   let session;
   try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, error: 'session not found' }; }
   if (!session) return { ok: false, error: 'session not found' };
   const resolved = resolveCompactionProvider(config, null);
   if (!resolved.provider || resolved.isDefault) return { ok: false, error: 'no external compaction model selected' };
-  const history = compactHistoryFromSession(session);
+  let compactSource = session;
+  if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.active()) {
+    // Display transcripts contain execution copies in toolCalls.input. Convert only
+    // the leaves the compactor actually sends into canonical protocol data slots,
+    // protect complete sources, then perform the original evidence caps/chunking.
+    // In particular, each tool input remains a complete JSON document, so a field
+    // rule such as /patientCode retains its input-root meaning before wrapping.
+    const sourceRows = [], slots = [];
+    for (const message of session.messages || []) {
+      if (!message || !['user', 'assistant'].includes(message.role)) continue;
+      const content = [{ type: 'text', text: String(message.content || '') }], slot = { attachments: [] };
+      if (message.role === 'user') for (const item of Array.isArray(message.attachments) ? message.attachments : []) {
+        const value = String(item && (item.path || item.name || item.filename) || '');
+        if (value) { slot.attachments.push(content.length); content.push({ type: 'text', text: value }); }
+      }
+      if (message.role === 'assistant' && message.turnSummary && typeof message.turnSummary === 'object') {
+        slot.summary = content.length; content.push({ type: 'text', text: JSON.stringify(message.turnSummary) });
+      }
+      const tool_calls = message.role === 'assistant' && Array.isArray(message.toolCalls) ? message.toolCalls.map((call, index) => ({
+        id: 'compact-source-' + index, type: 'function', function: { name: String(call && call.name || ''), arguments: JSON.stringify(call && call.input !== undefined ? call.input : {}) },
+      })) : [];
+      sourceRows.push({ role: message.role, content, ...(tool_calls.length ? { tool_calls } : {}) }); slots.push(slot);
+    }
+    const owner = {}; PrivacyGateway.bindHostHistory(owner, sourceRows);
+    const protectedRows = await PrivacyGateway.protectHostHistory(owner, sourceRows);
+    compactSource = { messages: protectedRows.map((row, index) => {
+      const slot = slots[index], parts = Array.isArray(row.content) ? row.content : [{ text: String(row.content || '') }];
+      const next = { role: row.role, content: String(parts[0]?.text || '') };
+      if (slot.attachments.length && Array.isArray(row.content)) next.attachments = slot.attachments.map(at => ({ path: String(parts[at]?.text || '') }));
+      if (slot.summary !== undefined && Array.isArray(row.content)) {
+        const text = String(parts[slot.summary]?.text || '');
+        try { next.turnSummary = JSON.parse(text); } catch { next.turnSummary = { privacyNotice: text }; }
+      }
+      if (row.tool_calls) next.toolCalls = row.tool_calls.map(call => ({ name: call.function.name, input: JSON.parse(call.function.arguments) }));
+      return next;
+    }) };
+  }
+  const history = compactHistoryFromSession(compactSource);
   if (!history.length) return { ok: false, error: 'no conversation history to compact' };
   // 128b:同 runProviderCompact —— 摘要是按「此刻这段对话」算的,落盘带 expectGen;期间撤回过、或对话又长了,都不写。
   const baseGen = Number(session.rewindGen) || 0;
@@ -3098,6 +3155,7 @@ async function runAutoCompaction(ctx) {
   onEvent({ type: 'compact', mode: 'summary', phase: 'started', trigger: 'auto', ...eventFields, beforeTokens: before2, contextWindow: window });
   const sc = await providerSummaryCall(summaryProvider, history, {
     model: compactTarget.model,
+    privacyHistoryOwner: ctx.privacyHistoryOwner,
     config,
     auxCtx: summaryAuxCtx,
     ...(promptOverride ? { promptOverride } : {}),
@@ -3121,8 +3179,10 @@ async function runAutoCompaction(ctx) {
   }
   compactionSummaryFailures.delete(summaryKey);
   // 被摘要掉那段里的工具调用索引(见 buildCompactionToolIndex)。管家会话的摘要是另一套口径(promptOverride),不附。
-  const toolIndex = promptOverride ? '' : buildCompactionToolIndex(history, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
+  const indexHistory = ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(ctx.privacyHistoryOwner, history) : history;
+  const toolIndex = promptOverride ? '' : buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
   const reseeded = CompactionPlan.reseed(plan, sc.summary, { toolIndex });
+  if (ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') PrivacyGateway.restoreHostHistoryProjection(ctx.privacyHistoryOwner, reseeded, true);
   // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
   // 既有的 repairProviderHistoryPairing 当安全网 —— **它应当一条都修不到**(e2e 就是这么断言的);
   // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
@@ -3168,7 +3228,7 @@ async function runForcedOverflowCompaction(ctx) {
     },
   });
   const sc = (signal && signal.aborted) ? { ok: false, aborted: true, error: 'summary request cancelled (turn stopped)' }
-    : await providerSummaryCall(provider, history, { config, auxCtx: summaryAuxCtx, ...(signal ? { signal } : {}) });
+    : await providerSummaryCall(provider, history, { config, privacyHistoryOwner: ctx.privacyHistoryOwner, auxCtx: summaryAuxCtx, ...(signal ? { signal } : {}) });
   if (sc && sc.aborted) {
     // 停止取消了强压的摘要:收掉状态条;返回 aborted,调用方不重试(回合已停)。L1 的原地蒸发保留(配对完好)。
     onEvent({ type: 'compact', mode: 'forced_400', phase: 'failed', trigger: 'forced_400', ...eventFields, aborted: true, error: String(sc.error || 'cancelled') });
@@ -3176,8 +3236,11 @@ async function runForcedOverflowCompaction(ctx) {
   }
   if (sc && sc.ok) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
-    const toolIndex = buildCompactionToolIndex(history, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
-    return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary, { toolIndex }), sc };
+    const indexHistory = ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(ctx.privacyHistoryOwner, history) : history;
+    const toolIndex = buildCompactionToolIndex(indexHistory, { upto: plan.boundary > 0 ? plan.boundary : history.length, rawRefPrefix, config, scratchpadHint: scratchpadHint === true });
+    const reseeded = CompactionPlan.reseed(plan, sc.summary, { toolIndex });
+    if (ctx.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') PrivacyGateway.restoreHostHistoryProjection(ctx.privacyHistoryOwner, reseeded, true);
+    return { level: 2, evaporated, reseeded, sc };
   }
   if (evaporated <= 0) onEvent({ type: 'compact', mode: 'forced_400', phase: 'failed', trigger: 'forced_400', ...eventFields, error: String((sc && sc.error) || 'nothing to compact') });
   return { level: evaporated > 0 ? 1 : 0, evaporated };
@@ -3199,7 +3262,7 @@ async function maybeCompactSubHistory(opts) {
     const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
     const parentId = parentSession && parentSession.id ? String(parentSession.id) : '';
     const r = await runAutoCompaction({
-      history: subHistory, scope: 'subagent', provider, model: subModel, sys, tools, config,
+      history: subHistory, privacyHistoryOwner: opts.privacyHistoryOwner, scope: 'subagent', provider, model: subModel, sys, tools, config,
       budget: budgetPlan.budget, window: budgetPlan.window, watermark: state && state.watermark,
       // 快照写进父会话的 checkpoints,但只写带内容哈希的文件名(观察缩减开着时才用得上 rawRef):不带哈希的
       // history-<回合>.json.gz 是父回合同一回合号的安全网快照,子代理不许覆盖它。
@@ -3261,6 +3324,7 @@ async function runProviderCompactTracked(sessionId, opts = {}) {
 }
 async function runProviderCompact(sessionId, opts = {}) {
   const storedConfig = await readConfig();
+  if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(storedConfig) && !PrivacyGateway.active()) return PrivacyGateway.run(String(sessionId), storedConfig, () => runProviderCompact(sessionId, opts));
   let session;
   try { session = await loadSession(String(sessionId || '')); }
   catch { return { ok: false, error: 'session not found' }; }
@@ -3271,6 +3335,11 @@ async function runProviderCompact(sessionId, opts = {}) {
   const compactTarget = resolveCompactionProvider(config, provider);
   const summaryProvider = compactTarget.provider || provider;
   const history = Array.isArray(session.providerHistory) ? session.providerHistory : [];
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.bindHostHistory(session, history);
+  if (typeof PrivacyGateway !== 'undefined' && !PrivacyGateway.enabled(storedConfig) && session.privacyHistoryV1 === true) {
+    const restored = await PrivacyGateway.restoreHistory(session.id, { providerHistory: history }, true);
+    PrivacyGateway.bindRestoredHostHistory(session, history, restored.providerHistory);
+  }
   if (!history.length) return { ok: false, error: 'no provider history to compact' };
   const mode = opts && opts.mode === 'summary' ? 'summary' : 'auto';
   // 128b:摘要要调数秒的模型。算之前记下撤回代数,落盘带 expectGen —— 期间撤回过就不写(撤回之前的历史算出来的
@@ -3278,9 +3347,10 @@ async function runProviderCompact(sessionId, opts = {}) {
   const baseGen = Number(session.rewindGen) || 0;
   const baseLength = history.length;
   // L1 原地改消息的 content:在浅拷贝的副本上做,落盘时整份换上(失败 / 放弃时会话一个字节不动)。
-  const work = history.map(m => (m && typeof m === 'object' ? { ...m } : m));
+  const hostHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(session, history) : history;
+  const work = hostHistory.map(m => (m && typeof m === 'object' ? { ...m } : m));
   const rawRefPrefix = sessionObjectIsStale(session) ? ''
-    : await writeHistorySnapshot(session.id, session.turnSeq, work, config.runtimeObservationReducerV1 === true).catch(() => '');
+    : await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true).catch(() => '');
   const model = String(provider.model || '');
   const budgetPlan = CompactionPlan.create({ scope: 'main', trigger: 'manual', history: work, provider, model, config, conversationWindow: true });
   const beforeTokens = estimateHistoryTokens(work);
@@ -3355,14 +3425,16 @@ async function runProviderCompact(sessionId, opts = {}) {
     return { ok: true, level: 0, nothingToCompact: true, freshTokens, beforeTokens, afterTokens: beforeTokens, evaporated: 0 };
   }
 
-  const sc = await providerSummaryCall(summaryProvider, work, { model: compactTarget.model, config });
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.bindHostHistory(session, work);
+  const sc = await providerSummaryCall(summaryProvider, work, { model: compactTarget.model, config, privacyHistoryOwner: session });
   if (!sc.ok) {
     logEvent({ kind: 'provider_compact', sessionId: session.id, ok: false, provider: summaryProvider.id, model: compactTarget.model, error: sc.error });
     return { ok: false, error: sc.error };
   }
   const summary = sc.summary;
   recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 手动压缩调用入 aux 台账(钱已经花了,照记)
-  const toolIndex = buildCompactionToolIndex(work, { upto: work.length, rawRefPrefix, config, scratchpadHint: session.kind !== 'steward' });
+  const indexHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(session, work) : work;
+  const toolIndex = buildCompactionToolIndex(indexHistory, { upto: work.length, rawRefPrefix, config, scratchpadHint: session.kind !== 'steward' });
 
   let afterTokens = 0;
   const saved = await persist(fresh => {
@@ -3407,7 +3479,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
     }
     const budget = stewardBudget > 0 ? stewardBudget : budgetPlan.budget;
     const r = await runAutoCompaction({
-      history, scope: 'main', provider, model, sys, tools, config, budget, window, watermark: session.autoCompactWatermark,
+      history, privacyHistoryOwner: session, scope: 'main', provider, model, sys, tools, config, budget, window, watermark: session.autoCompactWatermark,
       // 128b:撤回之前读出来的那份(垂死回合)不写快照 —— 快照按回合号落名,撤回之后的会话迟早会再走到同一个回合号。
       snapshot: () => (sessionObjectIsStale(session) ? '' : writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true)),
       onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
@@ -3512,6 +3584,7 @@ async function runSessionTurn(input) {
   // 对唤醒不成立 —— 线程在 runAgentWake 校验之后被删(或装载瞬时失败)时,新建只会冒出一条只有唤醒通知的孤儿会话。
   if (!loadedSession && source === AGENT_WAKE_SOURCE) throw Object.assign(new Error('session not found'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
   const session = loadedSession || await createSession({ title: body.title, cwd: body.cwd });
+  if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(storedConfig) && !PrivacyGateway.active()) return PrivacyGateway.run(session.id, storedConfig, () => runSessionTurn({ ...body, sessionId: session.id }));
   // 回合开头的计划条指纹:收尾时随成败账一起落(stewardLastTurn.todosStartSig),管家据此分辨「这一回合推进过的计划」
   // 与「早就搁下的旧计划」(见 02 sessionTodosSignature)。
   const todosStartSig = sessionTodosSignature(session.todos);
@@ -3723,6 +3796,7 @@ async function runSessionTurn(input) {
   recordSessionExecutionOwner(session.id, settleEntry);
   ownSettleEntry = settleEntry;
   let turnError = '';
+  let privacySettingsResult = null;
   // 116h(27 号文 §3.1 116h 行):线程间仲裁的凭据。开关关 / 管家会话时下面那个分支根本不进,
   // 这个变量恒为 null,收尾的 release 是一次 if 判空 —— runSessionTurn 的既有路径逐字节不变。
   let stewardSlot = null;
@@ -3730,6 +3804,29 @@ async function runSessionTurn(input) {
   let briefSettleCandidate = false;
   let briefSettleProvider = null;
   try {
+    // Keep the admission check→owner registration synchronous. Legacy-history I/O happens only
+    // after this turn owns the session, under the existing cancellation and finally cleanup.
+    if (typeof PrivacyGateway !== 'undefined') {
+      if (PrivacyGateway.enabled(storedConfig)) session.privacyHistoryV1 = true;
+      else if (session.privacyHistoryV1 !== false) {
+        const history = { messages: session.messages, providerHistory: session.providerHistory };
+        let restoredHistory, projectionOnly = false;
+        try { restoredHistory = await PrivacyGateway.restoreHistory(session.id, history); }
+        catch (error) {
+          if (!['privacy.reference_unknown', 'privacy.reference_expired', 'privacy.reference_revoked', 'privacy.reference_malformed'].includes(error.code)) throw error;
+          restoredHistory = await PrivacyGateway.restoreHistory(session.id, history, true);
+          PrivacyGateway.bindRestoredHostHistory(session, history.providerHistory || [], restoredHistory.providerHistory || []);
+          projectionOnly = true;
+        }
+        if (executionAbort.signal.aborted || turnSettlers.get(session.id) !== settleEntry) throw Object.assign(new Error('回合在历史恢复时被取消'), { code: 'STEWARD_TURN_CANCELLED' });
+        if (restoredHistory !== history && !projectionOnly) {
+          session.messages = restoredHistory.messages;
+          session.providerHistory = restoredHistory.providerHistory;
+        }
+        session.privacyHistoryV1 = projectionOnly;
+        // The admitted engine's existing session commit persists this copy with the new turn.
+      }
+    }
     // perf(前端长会话):经典壳(只有 source 'http' 这条流有它在读)把这一份会话当作回合收尾时增量取的底子 ——
     // messagesStamp 是 02 sessionMessagesStamp 对【这一刻】messages 的前缀戳,与下面这次同步序列化是同一拍
     // (emit → onEvent → streamChat 的 writeEvent 当场 JSON.stringify,中间没有 await),所以戳与客户端收到的内容一致。
@@ -3843,6 +3940,10 @@ async function runSessionTurn(input) {
     if (outcomePatch) turnOutcomePending.add(outcomeId);
     const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合(没有更新的回合接手)
     if (turnStillOwned) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    if (session.kind === 'steward' && typeof PrivacyCore.configHooks.settleStewardPrivacy === 'function') {
+      privacySettingsResult = await PrivacyCore.configHooks.settleStewardPrivacy(session.id, Number(session.turnSeq),
+        turnStillOwned && !turnError && !turnStopped && !settleEntry.cancelRequested && lastResult?.ok === true && !lastResult.aborted && !lastResult.superseded);
+    }
     // 后台代理唤醒(见 scheduleAgentWake):收尾时账本里还有没送达的后台代理信封(落在本回合最后一次模型调用之后)→ 补唤醒。
     // 用户停止 / 被新回合顶掉 / 断线时按设置杀掉回合(lastResult.aborted)的那次收尾不补:用户刚叫停,信封留到下一回合开头送达。
     // 只是关了页面 / 刷新(killOnDisconnect 缺省关,回合在服务端照常跑完)要补 —— 用户离开正是这个功能要管的情形。
@@ -3890,6 +3991,7 @@ async function runSessionTurn(input) {
     disconnected: disconnectHandled,
     source,
     error: turnError || undefined,
+    ...(privacySettingsResult ? { privacySettings: privacySettingsResult } : {}),
   };
 }
 
@@ -4073,6 +4175,21 @@ async function streamChat(req, res) {
     if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
     try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
   };
+  // This is a user-facing HTTP copy only. The engine's events, stored messages and
+  // provider history keep their opaque references. Bind new sessions from the host's
+  // session frame, never from a model/subagent-supplied scope identifier.
+  let display = null, displayScope = '', displayPending = Promise.resolve();
+  const writeDisplayEvent = evt => {
+    if (!display && evt?.type === 'session' && safeSessionId(evt.session?.id)) {
+      displayScope = evt.session.id;
+      display = PrivacyGateway.createDisplayStream(displayScope, writeEvent);
+    }
+    if (!display) { writeEvent(evt); return; }
+    // write() snapshots the host event synchronously and already serializes display I/O.
+    displayPending = display.write(evt);
+    // Event producers are synchronous; retain failures for the awaited HTTP finalizer.
+    displayPending.catch(() => {});
+  };
   // 客户端断线 → abort:核心把它翻译回原来的 killOnDisconnect → stopSession 语义。
   const disconnectController = new AbortController();
   let shellFinished = false;
@@ -4106,15 +4223,26 @@ async function streamChat(req, res) {
       cwd: body.cwd,
       agentTeam: body.agentTeam,
       permissionMode: body.permissionMode,
-      knownMessages: body.knownMessages,
+      // A canonical prefix stamp cannot validate a previously restored display
+      // prefix after mapping expiry/import/revocation. Use a full UI snapshot.
+      knownMessages: body.knownMessages && await PrivacyGateway.displayCacheKey(body.sessionId) ? null : body.knownMessages,
       source: 'http',
-      onEvent: writeEvent,
+      onEvent: writeDisplayEvent,
       onFlush: flushDeltas,
       onStart,
       signal: disconnectController.signal,
     });
   } finally {
-    shellFinished = true;
-    if (started) res.end();
+    try {
+      try { await displayPending; }
+      finally {
+        if (display) await display.flush();
+        flushDeltas();
+      }
+    } finally {
+      if (display) display.close();
+      shellFinished = true;
+      if (started) res.end();
+    }
   }
 }

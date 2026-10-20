@@ -2,14 +2,56 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 64,
+  "count": 67,
   "lifecycleCounts": {
     "dedicated-exemption": 20,
     "external-exemption": 10,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 27
+    "shared-lifecycle": 30
   },
   "entries": [
+    {
+      "id": "credential-import-v1",
+      "pattern": "<data>/credential-import-v1.json",
+      "owner": "01l-credential-recovery.js",
+      "anchor": "'credential-import-v1.json'",
+      "schema": "version 1 authenticated encrypted rollback journal",
+      "writePrimitive": "DurableJsonStore strictRead cache:false quarantine:false; created after immutable vault append, before config switch; deleted only after commit or successful rollback",
+      "corruption": "bad envelope or decryption refuses config access; never silently resets",
+      "capacity": "one pending transaction; 2MiB encrypted read cap; previous config <=1MiB",
+      "cache": "none",
+      "recovery": "readConfig rolls unfinished transaction back before serving current configuration",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "passwords and imported master keys never persist in journal; old records remain recoverable"
+    },
+    {
+      "id": "privacy-mapping-v1",
+      "pattern": "<data>/privacy-scopes/<sha256(scopeId)>.json",
+      "owner": "03a-privacy-gateway.js",
+      "anchor": "'privacy-scopes'",
+      "schema": "version 1 authenticated encrypted stable reference map",
+      "writePrimitive": "host-injected DurableJsonStore strictRead cache:false quarantine:false; per-scope writes chained and completed before network send",
+      "corruption": "bad shape, scope binding, key, expired or unknown references reject; no raw fallback",
+      "capacity": "10000 mappings and 1MiB plaintext per scope; 128 unlocked scopes in memory; inactive scope eviction clears plaintext map; disk retained for history",
+      "cache": "async-local execution context; detector signature binds policy; persisted map reloaded after restart",
+      "recovery": "same local vault master restores mapping; portable credential recovery excludes maps; no automatic deletion in this slice",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "native text coverage only; references restore only in allowed local tool fields before existing permission gates"
+    },
+    {
+      "id": "credential-vault-v1",
+      "pattern": "<data>/credential-vault-v1.json",
+      "owner": "01k-credential-vault.js",
+      "anchor": "'credential-vault-v1.json'",
+      "schema": "object / schema 1 (DPAPI CurrentUser wrapped master, immutable AES-GCM credential records with keyed owner/value fingerprints)",
+      "writePrimitive": "DurableJsonStore strictRead cache:false quarantine:false; private serial chain; ciphertext is persisted before config references",
+      "corruption": "malformed, oversized or unreadable state and failed DPAPI/GCM reject; no plaintext fallback or reset",
+      "capacity": "1024 immutable records, 8MiB vault, 256 slots/config, 64KiB value; no automatic record eviction",
+      "cache": "only unlocked master cached by exact protected-key header; immutable records read fresh",
+      "recovery": "encrypted previous config retains original revisions; password-encrypted portable export and side-effect-free preview followed by journaled merge transaction and application UI",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "credential references preserve runtime behavior without persisting config plaintext"
+    },
     {
       "id": "external-bots",
       "pattern": "<data>/external-bots/state-v1.json",

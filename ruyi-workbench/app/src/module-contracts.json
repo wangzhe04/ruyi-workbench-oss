@@ -344,6 +344,62 @@
       "requires": []
     },
     {
+      "file": "01i-privacy-rules.js",
+      "layer": "foundation",
+      "provides": [
+        "PrivacyRuleCatalog"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01h-privacy-core.js",
+      "layer": "foundation",
+      "provides": [
+        "PrivacyCore"
+      ],
+      "requires": [
+        {
+          "provider": "01i-privacy-rules.js",
+          "symbol": "PrivacyRuleCatalog",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01m-privacy-regex.js",
+      "layer": "foundation",
+      "provides": [
+        "PrivacyRegex"
+      ],
+      "requires": [
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01j-local-crypto.js",
+      "layer": "foundation",
+      "provides": [
+        "LocalSecretCrypto"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
@@ -401,6 +457,8 @@
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
+        "beginBootCliPathProbes",
+        "bootCliPathProbes",
         "bridgedCliServerEnv",
         "bridgedEnvKeyStripped",
         "buildClaudeCliEnv",
@@ -423,6 +481,7 @@
         "configReadCache",
         "configReadCacheLookup",
         "configReadCacheStore",
+        "configRecoveryCredentialChoice",
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
@@ -454,6 +513,7 @@
         "desktopPythonSelectionPlan",
         "desktopPythonSelectionStore",
         "detectAgentCliPath",
+        "detectAgentCliPathUncachedAsync",
         "detectClaudePath",
         "detectClaudePathUncached",
         "detectClaudePathUncachedAsync",
@@ -465,6 +525,7 @@
         "ensureDirsForConfigRead",
         "externalServerJs",
         "finalizeConfigExplicitKeys",
+        "finishBootCliPathProbes",
         "generateAgentNodeMcpConfig",
         "generateMcpConfig",
         "generateSessionMcpConfig",
@@ -479,6 +540,7 @@
         "kimiMcpManagedIds",
         "kimiMcpSyncChains",
         "lastGoodConfig",
+        "lastGoodCredentialEncryptionV1",
         "looksLikeRuyiSelfMcp",
         "mcpConfigFilePath",
         "mutateConfig",
@@ -498,6 +560,7 @@
         "probeAgentCliLauncherVerdictAsync",
         "probeDesktopPython",
         "probeDesktopPythonAsync",
+        "queueBootCliPathProbe",
         "readBody",
         "readConfig",
         "readConfigPrev",
@@ -535,6 +598,7 @@
         "syncMcpServersToKimiNow",
         "tokenMatches",
         "tokenOk",
+        "waitForBootCliPathProbes",
         "writeConfig",
         "writeConfigAtomic",
         "writeDesktopPythonDiskEntry",
@@ -823,6 +887,13 @@
           ]
         },
         {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "existsExecutableAsync",
           "kinds": [
@@ -944,6 +1015,172 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "TOOL_PACK_DESCRIPTIONS",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01k-credential-vault.js",
+      "layer": "foundation",
+      "provides": [
+        "CredentialVault"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01l-credential-recovery.js",
+      "layer": "foundation",
+      "provides": [
+        "CredentialRecovery",
+        "credentialRecoveryJournal"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configEmitWritten",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadCache",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "lastGoodConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "normalizeConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
           "kinds": [
             "read"
           ]
@@ -2219,6 +2456,29 @@
       ]
     },
     {
+      "file": "03a-privacy-gateway.js",
+      "layer": "foundation",
+      "provides": [
+        "PrivacyGateway"
+      ],
+      "requires": [
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01m-privacy-regex.js",
+          "symbol": "PrivacyRegex",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "04-visual-pipeline.js",
       "layer": "foundation",
       "provides": [
@@ -2928,7 +3188,15 @@
         "providerThrownErrorText",
         "withTransientRetry"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "04i-provider-anthropic.js",
@@ -3671,7 +3939,8 @@
           "provider": "03-bridge-guard.js",
           "symbol": "buildAttachmentPrompt",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -3693,6 +3962,13 @@
           "symbol": "normalizeCwd",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -4759,6 +5035,13 @@
           ]
         },
         {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -5539,6 +5822,13 @@
           "symbol": "probeGitCliAsync",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -7202,6 +7492,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -7359,6 +7656,13 @@
           "symbol": "pathWithinRoot",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -8048,6 +8352,13 @@
           "symbol": "preflightWriteBoundary",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -9208,6 +9519,13 @@
           "symbol": "preflightWriteBoundary",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -10723,6 +11041,7 @@
         "parseSessionNotesMarkdown",
         "persistContextCalibration",
         "pickSummaryFailure",
+        "privacySummarySliceEnd",
         "protectedObservation",
         "providerCompactInFlight",
         "providerContextWindow",
@@ -11051,6 +11370,13 @@
           ]
         },
         {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "createSession",
           "kinds": [
@@ -11223,6 +11549,13 @@
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -11537,6 +11870,7 @@
         "GIT_TIMEOUT_MAX_MS",
         "GIT_UNTRACKED_LIST_MAX",
         "HARD_IGNORE_DIRS",
+        "NativeSourceHooks",
         "PATH_MATCH_WORKER_SRC",
         "REGEX_SCAN_MAX_MS",
         "REGEX_SCAN_WORKER_SRC",
@@ -11598,6 +11932,14 @@
         "persistBackgroundJob",
         "powershellMissingOr",
         "powershellUnavailable",
+        "privacyProjectSearch",
+        "privacyReadTextWindow",
+        "privacySourceActive",
+        "privacySourceFragment",
+        "privacySourceLine",
+        "privacySourceLineOffsets",
+        "privacySourceMark",
+        "privacySourceViews",
         "probeRg",
         "probeRgAsync",
         "probeRgInfoSync",
@@ -11900,6 +12242,13 @@
           ]
         },
         {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -12076,6 +12425,7 @@
         "fileToolDropPhantom",
         "fileToolFsFailure",
         "fileToolNotFound",
+        "fileToolPrivacySourceOptions",
         "fileToolUnencodable",
         "fileToolWorkspaceDir",
         "fileToolWriteChains",
@@ -12276,7 +12626,8 @@
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -12569,6 +12920,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "WriteBoundaryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
           "kinds": [
             "read"
           ]
@@ -12954,9 +13312,58 @@
         },
         {
           "provider": "11-native-tools.js",
+          "symbol": "NativeSourceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
           "symbol": "powershellMissingOr",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "privacyReadTextWindow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "privacySourceActive",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "privacySourceLine",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "privacySourceLineOffsets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "privacySourceMark",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "privacySourceViews",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -13420,6 +13827,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "beginBootCliPathProbes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "ConfigPatchHooks",
           "kinds": [
             "read"
@@ -13484,6 +13898,13 @@
         {
           "provider": "01-config.js",
           "symbol": "externalServerJs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "finishBootCliPathProbes",
           "kinds": [
             "call"
           ]
@@ -13643,6 +14064,13 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "waitForBootCliPathProbes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01c-runtime-flags.js",
           "symbol": "coreMemoryCharBudget",
           "kinds": [
@@ -13722,6 +14150,13 @@
         {
           "provider": "01g-server-ownership.js",
           "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
           "kinds": [
             "read"
           ]
@@ -13997,6 +14432,13 @@
           "symbol": "resolveWorkspace",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14960,7 +15402,6 @@
         "IMAGE_OCR_MAX_CHARS",
         "IMAGE_SEND_MAX_BYTES",
         "STEER_REFUSAL",
-        "SteerAttachmentHooks",
         "appendAsrFixUsage",
         "audioStreamFailure",
         "audioStreamReap",
@@ -15202,6 +15643,13 @@
           "symbol": "saveSession",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -16197,6 +16645,13 @@
           "symbol": "resolveContainmentPath",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18914,6 +19369,13 @@
           ]
         },
         {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
@@ -19324,6 +19786,20 @@
           "symbol": "listAgentRuns",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "privacySourceMark",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "privacySourceViews",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -19796,6 +20272,13 @@
           ]
         },
         {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
@@ -19833,6 +20316,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_PREROUTE_QUERY_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
           ]
@@ -22292,6 +22782,13 @@
           ]
         },
         {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "requestSessionExecutionStop",
           "kinds": [
@@ -22303,6 +22800,13 @@
           "symbol": "revokeAllGrants",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -23756,6 +24260,13 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -23766,6 +24277,134 @@
         "ExternalBotDiscovery"
       ],
       "requires": []
+    },
+    {
+      "file": "13ab-privacy-api.js",
+      "layer": "unclassified",
+      "provides": [
+        "PrivacySettings"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01i-privacy-rules.js",
+          "symbol": "PrivacyRuleCatalog",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01m-privacy-regex.js",
+          "symbol": "PrivacyRegex",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "normalizeToolInvokeArgs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolSchema",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardAppendDecision",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
     },
     {
       "file": "13w-external-bots.js",
@@ -24564,6 +25203,13 @@
           ]
         },
         {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "BRIDGED_WRITE_PATH_ARGS",
           "kinds": [
@@ -25014,13 +25660,6 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "bridgedReadPathGate",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "buildAttachmentPrompt",
           "kinds": [
             "read"
           ]
@@ -27837,13 +28476,6 @@
           "symbol": "startServer",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "13b-api-domain-routes.js",
-          "symbol": "SteerAttachmentHooks",
-          "kinds": [
-            "read"
           ]
         },
         {

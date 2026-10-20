@@ -1,7 +1,6 @@
 // Dedicated local bot credentials, never a model tool. Windows DPAPI CurrentUser protects stored values;
 // it does not protect against another program already running as the same OS user. No npm dependency.
 const ExternalBotCredentials = (() => {
-  const childProcess = require('node:child_process');
   const SLOTS = Object.freeze({ qq: ['botSecret'], feishu: ['verificationToken', 'encryptKey', 'appSecret'] });
   const REF = Object.freeze({ botSecret: 'botSecretEnv', verificationToken: 'verificationTokenEnv', encryptKey: 'encryptKeyEnv', appSecret: 'appSecretEnv' });
   // Includes cold Windows PowerShell/.NET startup on slower machines; still bounded, with no retry.
@@ -56,73 +55,12 @@ const ExternalBotCredentials = (() => {
   }
   // The command is static. Secret data goes only through bounded stdin, never argv, environment or files.
   // No exception text or child stderr is exposed. DPAPI operates under the already loaded current user profile.
-  const DPAPI_SCRIPT = `$ErrorActionPreference='Stop'
-$ProgressPreference='SilentlyContinue'
-$PSModuleAutoLoadingPreference='None'
-try {
-  [void][Reflection.Assembly]::Load('System.Security, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a')
-  [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
-  [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-  $op = [Console]::In.ReadLine()
-  $bytes = [Convert]::FromBase64String([Console]::In.ReadLine())
-  $entropy = [Convert]::FromBase64String([Console]::In.ReadLine())
-  if ($op -eq 'protect') {
-    $result = [Security.Cryptography.ProtectedData]::Protect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
-  } elseif ($op -eq 'unprotect') {
-    $result = [Security.Cryptography.ProtectedData]::Unprotect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
-  } else { throw 'operation' }
-  [Console]::Out.Write('{"ok":true,"value":"'+[Convert]::ToBase64String($result)+'"}')
-  [Array]::Clear($bytes,0,$bytes.Length)
-  [Array]::Clear($result,0,$result.Length)
-  exit 0
-} catch { [Console]::Out.Write('{"ok":false}'); exit 1 }`;
-  function dpapi(op, value, owner) {
-    if (process.platform !== 'win32') return Promise.reject(Object.assign(new Error('external_credentials.unsupported'), { code: 'external_credentials.unsupported', apiCode: 'external_credentials.unsupported', statusCode: 501 }));
-    return new Promise((resolve, reject) => {
-      let child, complete = false, outputSize = 0;
-      const output = [];
-      const finish = (suffix, result) => {
-        if (complete) return;
-        complete = true; clearTimeout(timer);
-        for (const chunk of output) chunk.fill(0);
-        output.length = 0;
-        if (suffix) reject(Object.assign(new Error('external_credentials.' + suffix), { code: 'external_credentials.' + suffix, apiCode: 'external_credentials.' + suffix, statusCode: 503 }));
-        else resolve(result);
-      };
-      const stop = suffix => { finish(suffix); if (child) { try { child.kill(); } catch { /* own PowerShell has no descendants */ } } };
-      const timer = setTimeout(() => stop('process_timeout'), LIMIT.processMs);
-      const environment = {};
-      // Do not inherit RUYI_BOT_* or provider credentials into the helper environment.
-      for (const key of ['SystemRoot', 'SystemDrive', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA']) if (typeof process.env[key] === 'string') environment[key] = process.env[key];
-      const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-      // Only Windows' built-in modules are needed. Without an explicit path PowerShell discovers
-      // third-party modules installed machine-wide, even with -NoProfile and a sanitized environment.
-      environment.PSModulePath = path.join(path.dirname(executable), 'Modules');
-      try {
-        child = childProcess.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(DPAPI_SCRIPT, 'utf16le').toString('base64')],
-          { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], env: environment });
-        child.on('error', () => finish('process_failed'));
-        child.stdout.on('data', chunk => {
-          if (complete) { chunk.fill(0); return; }
-          outputSize += chunk.length;
-          if (outputSize > LIMIT.outputBytes) { chunk.fill(0); stop('process_capacity'); return; }
-          output.push(chunk);
-        });
-        child.stdout.on('error', () => stop('process_failed'));
-        child.stdin.on('error', () => stop('process_failed'));
-        child.on('close', code => {
-          if (complete) return;
-          let response;
-          const bytes = Buffer.concat(output);
-          try { response = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { finish('process_failed'); return; }
-          finally { bytes.fill(0); }
-          if (code !== 0 || !exact(response, ['ok', 'value']) || response.ok !== true || !base64(response.value, LIMIT.cipherBytes)) { finish(op === 'unprotect' ? 'decrypt_failed' : 'process_failed'); return; }
-          finish(null, Buffer.from(response.value, 'base64'));
-        });
-        // Three ASCII lines need neither pipe EOF nor cmdlet/module discovery (Add-Type/JSON).
-        child.stdin.end([op, value.toString('base64'), Buffer.from('ruyi.external-bot-credentials.v1:' + JSON.stringify(owner)).toString('base64'), ''].join('\n'));
-      } catch { stop('process_failed'); }
-    });
+  async function dpapi(op, value, owner) {
+    try { return await LocalSecretCrypto.run(op, value, Buffer.from('ruyi.external-bot-credentials.v1:' + JSON.stringify(owner))); }
+    catch (error) {
+      const suffix = String(error && error.code || '').replace(/^local_crypto\./, '');
+      fail(['unsupported', 'decrypt_failed', 'process_timeout', 'process_capacity'].includes(suffix) ? suffix : 'process_failed', suffix === 'unsupported' ? 501 : 503);
+    }
   }
   function selectedEnv(connection, slots) {
     const env = {};

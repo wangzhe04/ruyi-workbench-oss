@@ -30,14 +30,14 @@ const PRO_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'providers
 const SIMPLE_TABS = PRO_TABS;
 
 (async () => {
-  let fx = null;
+  let fx = null, configReader = null;
   try {
     fx = await startBrowserFixture({
       ok,
       prefix: 'ruyi-settings-ia-',
       width: 1440,
       height: 900,
-      config: { uiMode: 'pro' },
+      config: { uiMode: 'pro', credentialEncryptionV1: process.platform === 'win32' },
       prepare: async f => {
         const saved = await f.request('POST', '/api/config', {
           activeProvider: 'fake',
@@ -72,7 +72,8 @@ const SIMPLE_TABS = PRO_TABS;
       if (!(await waitConfig(serverPred))) return false;
       return Boolean(await settled(clientPred || String(serverPred)));
     };
-    const diskConfig = () => JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8'));
+    configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(fx.home);
+    const diskConfig = () => configReader.recover(JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8')));
     const provider = (c, id) => ((c && c.providers) || []).find(p => p && p.id === id) || {};
     // 选中一枚下拉的某个值并派发 change（值不存在就回 false —— 「能选」本身也是被量的事）。
     const pick = (selector, value) => ev(`(() => {
@@ -250,6 +251,16 @@ const SIMPLE_TABS = PRO_TABS;
     ok(qwen.reasoningEffort === 'medium' && qwen.model === 'qwen-turbo',
       `S5j 编辑期间的外部改动、以及「模型分配」主模型那一行写的 qwen-turbo 都在（qwen.reasoningEffort=${qwen.reasoningEffort} model=${qwen.model}）`);
     ok(fake.apiKey === 'k' && qwen.apiKey === 'k2', 'S5k 密钥没被掩码或空值冲掉');
+    if (process.platform === 'win32') {
+      const rawDisk = JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8'));
+      const physicalFiles = ['config.json', 'config.json.prev', 'credential-vault-v1.json'].filter(name => fs.existsSync(path.join(fx.home, name)));
+      // 短夹具值不能对子串搜 k;只比 JSON 字符串值,避免把普通键名或密文中的字母当作泄露。
+      const hasPlainKey = value => typeof value === 'string' ? value === 'k' || value === 'k2'
+        : value && typeof value === 'object' ? Object.values(value).some(hasPlainKey) : false;
+      ok(rawDisk.credentialRefsV1?.version === 1 && provider(rawDisk, 'fake').apiKey === '' && provider(rawDisk, 'qwen').apiKey === ''
+        && physicalFiles.every(name => !hasPlainKey(JSON.parse(fs.readFileSync(path.join(fx.home, name), 'utf8')))),
+      'S5k1 Windows 主配置、备份和凭据库使用密文引用,无精确密钥明文');
+    }
     ok(Boolean(await fx.waitForEval(`(() => { const b = document.getElementById('saveConfigBtn'); const tab = document.querySelector('#settingsTabs button[data-stab="providers"]'); return b && b.disabled && document.getElementById('providersSaveBar').dataset.dirty === 'false' && !tab.dataset.dirty ? 1 : null; })()`, 100)),
       'S5l 保存之后保存条回到干净、小圆点消失');
 
@@ -327,6 +338,7 @@ const SIMPLE_TABS = PRO_TABS;
     fail += 1;
     console.log('FAIL 未捕获异常:' + (error && error.stack || error));
   } finally {
+    configReader?.close();
     if (fx) await fx.close();
   }
   console.log(fail === 0 ? 'SETTINGS IA BROWSER E2E: ALL PASS' : `SETTINGS IA BROWSER E2E: FAILURES ${fail}`);

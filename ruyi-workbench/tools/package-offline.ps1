@@ -41,16 +41,23 @@ $repoRoot = (Resolve-Path (Join-Path $root "..")).Path
 $dist = Join-Path $root $OutputDir
 $stage = Join-Path $dist "Ruyi-$Variant"
 
-function Copy-LongTree([string]$Source, [string]$Destination) {
+function Copy-LongTree([string]$Source, [string]$Destination, [switch]$ExcludePythonBytecode) {
   New-Item -ItemType Directory -Force -Path $Destination | Out-Null
   $robocopy = Get-Command robocopy.exe -ErrorAction SilentlyContinue
   if ($robocopy) {
-    & $robocopy.Source $Source $Destination /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP
+    $exclusions = @()
+    if ($ExcludePythonBytecode) { $exclusions = @('/XD', '__pycache__', '/XF', '*.pyc') }
+    & $robocopy.Source $Source $Destination /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP @exclusions
     $copyCode = $LASTEXITCODE
     if ($copyCode -gt 7) { throw "Long-path copy failed with robocopy exit code ${copyCode}: '$Source' -> '$Destination'." }
     return
   }
-  Copy-Item (Join-Path $Source "*") $Destination -Recurse -Force
+  if ($ExcludePythonBytecode) {
+    Get-ChildItem -LiteralPath $Source -Force | Where-Object { $_.Name -ne '__pycache__' -and $_.Extension -ne '.pyc' } | ForEach-Object {
+      if ($_.PSIsContainer) { Copy-LongTree $_.FullName (Join-Path $Destination $_.Name) -ExcludePythonBytecode }
+      else { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $Destination $_.Name) -Force }
+    }
+  } else { Copy-Item (Join-Path $Source "*") $Destination -Recurse -Force }
 }
 
 function Remove-LongTree([string]$Target, [string]$AllowedRoot) {
@@ -87,13 +94,9 @@ function Sync-AccReleaseRuntime([string]$AccSource, [string]$AccDestination, [st
   if (Test-Path -LiteralPath $runtimePackage) {
     Remove-LongTree $runtimePackage $StageRoot
   }
-  Copy-LongTree $sourcePackage $runtimePackage | Out-Null
-  Get-ChildItem -LiteralPath $runtimePackage -Recurse -Force -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -eq '__pycache__' } |
-    Sort-Object FullName -Descending |
-    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
-  Get-ChildItem -LiteralPath $runtimePackage -Recurse -Force -File -Filter *.pyc -ErrorAction SilentlyContinue |
-    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
+  # Exclude caches during copying. Removing deep bytecode paths afterwards exceeds PS5.1's
+  # path limit in managed worktrees and can leave a partially staged release.
+  Copy-LongTree $sourcePackage $runtimePackage -ExcludePythonBytecode | Out-Null
 
   # Copy the installer inputs after the cached offline payload, otherwise its older copies win.
   foreach ($name in @('install.py', 'install.bat', 'mcp_config_template.json')) {
@@ -513,10 +516,14 @@ $zip = Join-Path $dist "$archiveBase.zip"
 # winsdk contain deep paths, so a verbose release asset name can make Explorer silently skip files even
 # when the final visible path looks shorter than MAX_PATH.
 $explorerDefaultPathBudget = 200
-$longestStagedRelativePath = Get-ChildItem -LiteralPath $stage -Recurse -Force -File |
-  ForEach-Object { $_.FullName.Substring($stage.Length).TrimStart('\').Length } |
-  Measure-Object -Maximum
-$projectedExplorerPath = $archiveBase.Length + 1 + [int]$longestStagedRelativePath.Maximum
+# Node's Unicode filesystem APIs can enumerate deep Chromium resources even when PS5.1's
+# Get-ChildItem fails before the relative-path budget can be measured. Do not skip unreadable paths.
+$measurePaths = @'
+const fs=require('node:fs'),path=require('node:path');let longest=0;function walk(dir,prefix){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const relative=prefix?prefix+'/'+entry.name:entry.name;if(entry.isDirectory())walk(path.join(dir,entry.name),relative);else longest=Math.max(longest,relative.length);}}walk(process.argv[1],'');process.stdout.write(String(longest));
+'@
+$longestStagedRelativePath = & node -e $measurePaths $stage
+if ($LASTEXITCODE -ne 0) { throw "Cannot enumerate the complete staged package for the Explorer path budget." }
+$projectedExplorerPath = $archiveBase.Length + 1 + [int]$longestStagedRelativePath
 if ($projectedExplorerPath -gt $explorerDefaultPathBudget) {
   throw "Windows Explorer extraction path budget exceeded ($projectedExplorerPath > $explorerDefaultPathBudget). Use a shorter -Variant (for example 'v1.6.5-full') and tell users not to skip files during extraction."
 }

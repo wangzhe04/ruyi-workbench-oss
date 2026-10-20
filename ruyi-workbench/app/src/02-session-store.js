@@ -4024,6 +4024,7 @@ async function createSession({ title, cwd, origin, engineRoute }) {
     messages: initialMessages,
     providerHistory: [],
     providerHistoryCursor: 0,
+    privacyHistoryV1: false, // Fresh disabled sessions bypass legacy-reference migration entirely.
     attachments: [],
     // 123-N2:四层优先级搬进 newSessionEngineRoute(见那里的头注)。修前这一行是
     // `inferSessionEngineRoute({messages}) || sessionEngineRouteFromConfig(config)` —— 即今天的

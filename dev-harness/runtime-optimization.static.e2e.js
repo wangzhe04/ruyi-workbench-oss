@@ -212,7 +212,8 @@ ok(!/metaToolHintsV1: true/.test(src), 'E5 meta hints are not defaulted on');
 console.log('\n── [E3] action-argument model view wiring (21) ──');
 ok(/actionArgumentModelViewV1: false/.test(src), 'E3 action model view defaults false');
 ok(/function projectActionModelView/.test(src) && /ACTION_VIEW_TOOLS = new Set\(/.test(src) && /ACTION_VIEW_MIN_CHARS = 512/.test(src), 'E3 projection block present (whitelist + threshold)');
-ok(/const viewHistory = actionAuditMap\.size \? projectActionModelView\(session\.providerHistory, actionAuditMap\)\.history : session\.providerHistory;/.test(src), 'E3 buildBody consumes the projected view');
+ok(/const privacyHistory = typeof PrivacyGateway !== 'undefined' \? PrivacyGateway\.projectHostHistory\(session, session\.providerHistory\) : session\.providerHistory;/.test(src)
+  && /const viewHistory = actionAuditMap\.size \? projectActionModelView\(privacyHistory, actionAuditMap\)\.history : privacyHistory;/.test(src), 'E3 buildBody consumes the privacy history projection followed by the action view');
 ok(/crypto\.createHash\('sha256'\)\.update\(rawArgs\)\.digest\('hex'\) !== entry\.sha256/.test(src), 'E3 sha256 tamper gate on projection');
 ok(/session\.actionAudit\.length > 200/.test(src), 'E3 audit capped (no unbounded growth)');
 ok(/status: isErr \? 'failed' : 'completed'/.test(src), 'E3 failed actions never projected');

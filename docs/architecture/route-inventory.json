@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-19T08:23:45.069Z",
+  "generatedAt": "2026-10-20T13:37:41.688Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -14,14 +14,15 @@
       "ruyi-workbench/app/src/13h-steward-runner.js",
       "ruyi-workbench/app/src/13r-event-stream.js",
       "ruyi-workbench/app/src/13s-scheduler.js",
-      "ruyi-workbench/app/src/13w-external-bots.js"
+      "ruyi-workbench/app/src/13w-external-bots.js",
+      "ruyi-workbench/app/src/13ab-privacy-api.js"
     ]
   },
   "summary": {
-    "routeAuthEntries": 152,
-    "decisionPoints": 166,
+    "routeAuthEntries": 161,
+    "decisionPoints": 175,
     "byKind": {
-      "exact": 143,
+      "exact": 152,
       "prefix": 11,
       "regex": 12
     },
@@ -38,6 +39,60 @@
     "warnings": 0
   },
   "routeAuth": [
+    {
+      "m": "GET",
+      "p": "/api/privacy/status",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/privacy/settings",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/privacy/settings",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/privacy/encryption",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/privacy/rules/test",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/privacy/use-native",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/privacy/backup/export",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/privacy/backup/preview",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/privacy/backup/import",
+      "auth": "token",
+      "prefix": false
+    },
     {
       "m": "GET",
       "p": "/api/external-bots/connections",
@@ -1064,6 +1119,7 @@
         "dev-harness\\unit\\desktop-mcp-warm.test.js",
         "dev-harness\\unit\\fixture-home-per-test.test.js",
         "dev-harness\\unit\\net-errors.test.js",
+        "dev-harness\\unit\\privacy-missing-config-vault.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\usage-ledger.e2e.js",
@@ -1323,6 +1379,7 @@
         "dev-harness\\onboard.e2e.js",
         "dev-harness\\onboarding.e2e.js",
         "dev-harness\\onboarding.static.e2e.js",
+        "dev-harness\\privacy-gateway.e2e.js",
         "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\repo-hygiene.e2e.js",
@@ -2609,6 +2666,7 @@
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\prefix-layout.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
+        "dev-harness\\privacy-gateway.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-no-model-locale.e2e.js",
@@ -2683,6 +2741,7 @@
         "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\shutdown-active-turns.test.js",
         "dev-harness\\unit\\steer-attachments.test.js",
         "dev-harness\\usage-accum.e2e.js",
@@ -2744,6 +2803,162 @@
       "domain": "core-inline",
       "auth": "host-gate",
       "coveredBy": []
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/status",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\config-read-safety.e2e.js",
+        "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\privacy-missing-config-vault.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/settings",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\privacy-config-health.test.js",
+        "dev-harness\\unit\\privacy-missing-config-vault.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/settings",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\privacy-config-health.test.js",
+        "dev-harness\\unit\\privacy-missing-config-vault.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/encryption",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\offline-upgrade-drill.e2e.js",
+        "dev-harness\\onboard.e2e.js",
+        "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\privacy-missing-config-vault.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/rules/test",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\privacy-gateway.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/use-native",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\privacy-gateway.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/backup/export",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\privacy-missing-config-vault.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/backup/preview",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\privacy-missing-config-vault.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/privacy/backup/import",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacySettings",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\privacy-missing-config-vault.test.js"
+      ]
     },
     {
       "kind": "exact",
@@ -3138,6 +3353,7 @@
       "coveredBy": [
         "dev-harness\\composer-voice-stream.browser.e2e.js",
         "dev-harness\\composer-voice-warmup.browser.e2e.js",
+        "dev-harness\\privacy-channels.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js",
         "dev-harness\\voice-lexicon.e2e.js"
       ]
@@ -3155,6 +3371,7 @@
       "domain": "mcp/checkpoint-storage/steer",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\privacy-channels.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js",
         "dev-harness\\voice-lexicon.e2e.js"
       ]
@@ -3172,6 +3389,7 @@
       "domain": "mcp/checkpoint-storage/steer",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\privacy-channels.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js",
         "dev-harness\\voice-lexicon.e2e.js"
       ]
@@ -3486,6 +3704,7 @@
         "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
+        "dev-harness\\privacy-gateway.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-no-model-locale.e2e.js",
@@ -3591,6 +3810,7 @@
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\steer-attachments.test.js",
@@ -3775,6 +3995,7 @@
         "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
+        "dev-harness\\privacy-gateway.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-no-model-locale.e2e.js",
@@ -3880,6 +4101,7 @@
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\steer-attachments.test.js",
@@ -4079,6 +4301,7 @@
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
@@ -4999,6 +5222,7 @@
         "dev-harness\\steward-settings.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\steward-shell.e2e.js",
+        "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\steward-inbox-tick-cost.test.js"
       ]
     },
@@ -5380,6 +5604,7 @@
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\unit\\external-bots-inbox.test.js",
         "dev-harness\\unit\\external-owner-runner.test.js",
+        "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\steward-say-stream.test.js"
       ]
     },

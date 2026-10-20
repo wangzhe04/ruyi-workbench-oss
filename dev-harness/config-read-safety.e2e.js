@@ -21,7 +21,7 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already
 const WB_PORT = await getFreePort();
 const CONFIG = path.join(HOME, 'config.json');
 const PREV = CONFIG + '.prev';
-const seeded = { configSchema: 7, activeProvider: 'fake-a', engineMode: 'interactive', locale: 'zh-CN', providers: [
+const seeded = { credentialEncryptionV1: process.platform === 'win32', configSchema: 7, activeProvider: 'fake-a', engineMode: 'interactive', locale: 'zh-CN', providers: [
   { id: 'fake-a', label: 'A', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9/v1', apiKey: 'sk-real-key-A', model: 'm-a', models: [{ id: 'm-a', label: 'm-a' }] },
 ] };
 fs.writeFileSync(CONFIG, JSON.stringify(seeded, null, 2));
@@ -51,7 +51,9 @@ async function waitForHttp(attempts = 300) { // 117q:预算 100×150ms=15s 低�
   return false;
 }
 const diskText = () => fs.readFileSync(CONFIG, 'utf8');
-const diskJson = () => JSON.parse(diskText());
+let configReader = null;
+// 81-P1: retain exact recovery assertions against encrypted credentials, not plaintext disk slots.
+const diskJson = () => configReader ? configReader.recover(JSON.parse(diskText())) : JSON.parse(diskText());
 const logText = () => { const d = path.join(HOME, 'logs'); return fs.existsSync(d) ? fs.readdirSync(d).filter(f => f.endsWith('.ndjson')).map(f => fs.readFileSync(path.join(d, f), 'utf8')).join('\n') : ''; };
 
 let wb = null;
@@ -59,6 +61,8 @@ try {
   wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, RUYI_HOME: HOME }, windowsHide: true, stdio: 'ignore' });
   ok(await waitForHttp(), 'A0 workbench listening');
   TOKEN = await getToken();
+  configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(HOME);
+  ok(process.platform !== 'win32' || !!JSON.parse(fs.readFileSync(CONFIG, 'utf8')).credentialRefsV1, '81-P1 persistence assertions use encrypted config references on Windows');
   ok(!!TOKEN, 'A0b got UI token');
 
   // ① 一次正常写入 → 上一版被留成 .prev。
@@ -77,7 +81,7 @@ try {
   ok(/config_recovered/.test(logText()), 'B2 recovery logged as config_recovered');
   // hunt2-P7:恢复那一次落盘经 writeConfigAtomic —— 修前它先把【当前那份坏文件】无条件拷到 .prev 上,
   // 唯一的好备份被坏文件盖掉(再坏一次就只剩降级)。现在只有当前那份是 JSON 对象时才刷新 .prev。
-  let prevAfter = null; try { prevAfter = JSON.parse(fs.readFileSync(PREV, 'utf8')); } catch { prevAfter = null; }
+  let prevAfter = null; try { prevAfter = configReader.recover(JSON.parse(fs.readFileSync(PREV, 'utf8'))); } catch { prevAfter = null; }
   ok(!!prevAfter && Array.isArray(prevAfter.providers) && prevAfter.providers[0].apiKey === 'sk-real-key-A',
     'B3 recovering from .prev does not overwrite .prev with the corrupt file');
 
@@ -120,16 +124,23 @@ try {
   await sleep(300);
   ok(fs.existsSync(CONFIG) && diskJson().providers.length === 1, 'E1 missing config.json is restored from .prev');
 
-  // ⑥ 文件与 .prev 都没有 → 这才是全新安装：默认配置落盘。
+  // ⑥ 主文件与 .prev 丢失、旧库仍在：是旧安装恢复，保持加密并暂停外发。
+  const vaultFile = path.join(HOME, 'credential-vault-v1.json');
+  const vaultHash = () => require('crypto').createHash('sha256').update(fs.readFileSync(vaultFile)).digest('hex');
+  const beforeMissing = process.platform === 'win32' ? vaultHash() : null;
   fs.unlinkSync(CONFIG); try { fs.unlinkSync(PREV); } catch { /* ok */ }
   r = await reqJson('GET', '/api/status');
   await sleep(300);
-  // 128a(48 号文 §2):全新安装落的是稀疏文件(簿记键 ＋ 迁移播种的工作区表),等于默认的 providers:[] 不落盘。
-  ok(fs.existsSync(CONFIG) && diskJson().configSchema === 14 && (diskJson().providers === undefined || diskJson().providers.length === 0),
-    'F1 fresh install (no file, no .prev) writes a fresh config (sparse: no providers on disk)');
+  const recovered = fs.existsSync(CONFIG) ? diskJson() : null;
+  ok(r.status === 200 && recovered?.configSchema === 14 && (recovered.providers === undefined || recovered.providers.length === 0) && recovered.privacyPolicyRecoveryRequiredV1 === true,
+    'F1 used installation with missing config stays readable with sparse defaults and unconfirmed privacy policy');
+  const recoveryStatus = await reqJson('GET', '/api/privacy/status');
+  ok(recoveryStatus.status === 200 && recoveryStatus.json?.recoveryRequired === true && (process.platform !== 'win32' || recoveryStatus.json.encryption === true && beforeMissing === vaultHash()),
+    'F2 recovery UI remains accessible while the old encrypted vault is unchanged and outbound traffic is paused');
 } catch (e) {
   fail++; console.log('FAIL exception ' + (e && e.stack || e));
 } finally {
+  configReader?.close();
   killp(wb);
   try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
 }

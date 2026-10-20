@@ -60,6 +60,10 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // 实测撞 120s 硬超时(单跑无争用 ~39s),这些墙钟窗口本身就是在测「收件箱 tick 到达」这件事,
 // 挤在一起量不准,排到并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
+  // The hand-off undo button has a real 10-second expiry. CDP inspection and the
+  // subsequent click share that window; competing browser fixtures can exhaust it.
+  // Keep all existing rewind/identity/grouping assertions, run this clock-bound UI alone.
+  'steward-conversation.e2e.js',
   'event-stream-client.browser.e2e.js',
   'one-workbench-frame.browser.e2e.js',
   'workbench-thread-head.browser.e2e.js',
@@ -174,6 +178,12 @@ const PARALLEL_EXCLUSIVE = new Set([
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
 // 每条附实测依据 —— 表不是兜底借口,能优化掉的慢件应优化而非加薪。
 const TIMEOUT_OVERRIDES = {
+  // 3.1 privacy release acceptance adds G: eleven real PS5 rollback fixtures, including
+  // complete 3 MB reader compilation/fingerprints and rejection/audit/zero-write checks.
+  // Both default 120 s attempts reached G and were killed before finishing, with all reached
+  // assertions passing. This is a whole-file hang guard, not a product latency assertion;
+  // keep every PS invocation's 120 s bound and all functional/security assertions unchanged.
+  'overlay-update-core.e2e.js': 300000,
   // scheduler-ready-queue: 时序敏感(等调度器 tick),慢机器上偶发贴边
   'scheduler-ready-queue.e2e.js': 180000,
   // 123 合并复核（37 号文 §5.5）：steward-board 一趟里起一台真服务并跑一百多条看板断言，
@@ -458,6 +468,7 @@ async function main() {
       // CPU for the unit gate even when E2E was limited to four lanes; CI's default is unchanged.
       const unitArgs = ['--test', ...(parallelIdx >= 0 ? ['--test-concurrency=' + PARALLEL] : []), unitGlob];
       const u = cp.spawnSync(process.execPath, unitArgs, { encoding: 'utf8', windowsHide: true });
+      fs.writeFileSync(path.join(HARNESS, 'last-unit-run.log'), String(u.stdout || '') + String(u.stderr || ''));
       const tail = String(u.stdout + u.stderr).split(/\r?\n/).filter(l => /^(?:#|ℹ) (pass|fail|tests|skipped)\b/.test(l));
       if (u.status !== 0) {
         console.error('# unit 测试失败(node --test dev-harness/unit),拒跑 e2e:\n' + String(u.stdout + u.stderr).split(/\r?\n/).slice(-40).join('\n'));

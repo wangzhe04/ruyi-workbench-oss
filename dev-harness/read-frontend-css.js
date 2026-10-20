@@ -79,14 +79,15 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 74 事项待决：新增可折叠的逐项决定清单，保留来源、原参数和独立回执。
-// HEAD 各层自证旧哈希 9b0c698c8c1e74f8621af3703e5ba23301b870c4a3824ee52db5d7ac53ab476e；内存损坏 CSS 后 D51/F3 均失败。
 // 75 设置回执：沿用设置字体，实际值和作用域换行，撤销结果就近显示。
 // HEAD 各层自证旧哈希 041f6543ce6d7d99c6612039737ff22732f5f50591de18b8e6ffda63bb059328；内存损坏 CSS 后 D51/F3 均失败。
 // 31qc 用户走测续钉：steward-conversation.css 全文主按钮、操作换行、消息适应列宽；steward-shell.css 读宽720→900。
 // HEAD CSS 自证 5a7668112606c17f86aa0a53dddda173c565e0dc3b84566645b2214acdc63614；反向损坏验证记录见 80 号验收补记。
 // 交付阅读整理：收起降为次级、图表错误折叠、文件入口加粗；HEAD 旧载荷自证 8a38e356…3ba84。
-const LEGACY_STYLES_SHA256 = '118d4b57be0bb7f4e34257e4a72aa6aec9e6cb9f0b6e24e707702fe42ba1e6f7';
+// 3.1 隐私设置体验续钉（前值 118d4b57…）：仅 settings.css 增加已生效摘要、四档草稿、规则表单与不遮正文的 modal footer，隐私入口复用既有更多菜单。
+// 算法自证：仅用 git HEAD settings.css 替换内存读取后，载荷精确回到旧锁 118d4b57be0bb7f4e34257e4a72aa6aec9e6cb9f0b6e24e707702fe42ba1e6f7；其余层未改。
+// 反向验证：内存注入错误 CSS 后 D51/F3 均失败；磁盘 CSS 未改，证据见 ux4/validation/static-rechecks。
+const LEGACY_STYLES_SHA256 = 'b98aab331819db3353d3feb1be5447a2b1f25821432199a9f25b2b34fa66ad04';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

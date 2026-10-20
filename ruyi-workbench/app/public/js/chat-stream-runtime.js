@@ -1026,7 +1026,7 @@ export function createChatStreamRuntime(deps = {}) {
     const sentAttachments = (Array.isArray(options.attachments) ? options.attachments : state.attachments).slice();
     const rawText = (overrideText != null ? overrideText : composerDraft).trim();
     if (!rawText && !sentAttachments.length) return;
-    const text = rawText || t('stewardShell.chat.attached', { names: sentAttachments.map(a => a.name).join(', ') }).slice(0, 2000);
+    const text = rawText || t('chat.attachmentOnly', { names: sentAttachments.map(a => a.name).join(', ') }).slice(0, 2000);
     if (!state.currentSession?.id) return;
     const sessionId = state.currentSession.id;
     const selectionSeq = sessionSelectionSeq();

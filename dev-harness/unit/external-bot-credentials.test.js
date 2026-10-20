@@ -9,7 +9,7 @@ const { EventEmitter } = require('node:events');
 const { constBlock, functionBlock } = require('../lib/source-slice');
 const readSource = name => fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/src', name), 'utf8');
 const source = constBlock(readSource('01-config.js'), 'DurableJsonStore') + '\n' + functionBlock(readSource('00-boot.js'), 'runKeyedChain')
-  + '\n' + readSource('13y-external-bot-credentials.js') + '\nExternalBotCredentials';
+  + '\n' + readSource('01j-local-crypto.js') + '\n' + readSource('13y-external-bot-credentials.js') + '\nExternalBotCredentials';
 const plain = value => JSON.parse(JSON.stringify(value));
 const connection = (patch = {}) => ({ id: 'bot_one', platform: 'qq', appId: 'app_one', tenantId: 'app_one', botUserId: '', enabled: false, ...patch });
 const coded = suffix => error => error.code === 'external_credentials.' + suffix && Number.isInteger(error.statusCode) && error.message === error.code;
@@ -51,7 +51,7 @@ function fixture({ platform = 'win32' } = {}) {
     return child;
   }
   const context = { Buffer, TextDecoder, crypto, path,
-    process: { platform, env }, require: name => { assert.equal(name, 'node:child_process'); return { spawn }; },
+    process: { platform, env }, require: name => { if (name === 'node:path') return path; assert.equal(name, 'node:child_process'); return { spawn }; },
     fs: { readFileSync: raw, copyFileSync() { throw new Error('must not quarantine credential ciphertext'); } },
     fsp: { readFile: async () => raw(), stat: async () => ({ size: Buffer.byteLength(raw()) }), mkdir: async () => {} },
     paths: { data: '/isolated' }, atomicWriteJson: async (_file, value) => { writes++; if (writeError) throw new Error('write failed'); disk = JSON.stringify(value); },

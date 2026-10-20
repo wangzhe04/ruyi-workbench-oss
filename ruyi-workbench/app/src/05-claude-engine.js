@@ -231,6 +231,7 @@ async function runClaudeTurn({
     downstreamEvent(normalized);
   };
   const config = turnConfig || await readConfig();
+  if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const cliDriver = selectedAgentCli(config);
   const agentCliType = cliDriver.id;
   const adapter = agentCliAdapter(agentCliType);   // 架构还债批 3 A:本回合一切「这一家 CLI 怎么做」都问它
@@ -366,6 +367,7 @@ async function runClaudeTurn({
   // Serialize per session: if a turn for this session is already live, kill it first so we never
   // orphan a child (unkillable pid) or last-write-wins clobber the session file with a concurrent turn.
   assertSessionExecutionOwner(session.id, executionOwner);
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
   const interactive = adapter.interactive(config);
@@ -715,12 +717,13 @@ async function runClaudeTurn({
   // 环境说明、beforeSpawn、hooks……),同会话的两个回合可以都在那时看到「空闲」,各起一个子进程,后登记的
   // 把先登记的从表里挤掉 —— Stop 只杀得到一个,另一个成了孤儿。这里在「最后一个 await 之后、spawn 之前」
   // 再判一次(从这行到 activeChildren.set 全是同步代码,中间没有让出点),保证同会话同一时刻只有一个子进程。
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
   assertSessionExecutionOwner(session.id, executionOwner);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, permissionMode: String(config.permissionMode || ''), liveSegments: turnSegments }; // 审计 C:permissionMode = 本回合 spawn CLI 时用的解析档(请求级 > 会话级 > 全局),13d 的 CLI 权限桥按它判而不是按全局档;47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
+  const reg = { buildSteerAttachmentPrompt: buildAttachmentPrompt, child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, permissionMode: String(config.permissionMode || ''), liveSegments: turnSegments }; // 审计 C:permissionMode = 本回合 spawn CLI 时用的解析档(请求级 > 会话级 > 全局),13d 的 CLI 权限桥按它判而不是按全局档;47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -854,8 +857,7 @@ async function runClaudeTurn({
     ].join('\n');
     if (assistantText && !assistantText.endsWith('\n')) assistantText += '\n\n';
     nativeContinuationTextStart = assistantText.length;
-    reg.child.stdin.write(JSON.stringify(buildUserEnvelope(continuation)) + '\n', 'utf8');
-    return true;
+    return writeToChild(session.id, buildUserEnvelope(continuation));
   };
   // Native Agent internals are not included in the parent stream-json protocol. Emit honest elapsed-time
   // heartbeats so the UI distinguishes a live child from a frozen card without inventing fake milestones.
@@ -1778,6 +1780,7 @@ function configUrlOrCleared(value) {
 function maskSecrets(config) {
   if (!config || typeof config !== 'object') return config;
   const out = { ...config };
+  delete out.privacyRulesV1;
   if (Array.isArray(config.providers)) {
     out.providers = config.providers.map(p => {
       if (!p || typeof p !== 'object') return p;
@@ -2262,6 +2265,7 @@ function asrDashscopeNativeText(parsed) {
 // 133f:warmup=true 是 /api/audio/warmup 装模型用的静音探针 —— 走的就是这一条出站路径(所以「预热好了」＝「真请求不会再等加载」),
 // 但它不是用户的一次转写:成功时不记账、不记 asr_transcribe_ok(调用方自己记 asr_warmup);失败照记,并标 warmup。
 async function transcribeAudioViaProvider(provider, asrModel, { audio, contentType, filename, language, prompt, warmup }) {
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(await readConfig());
   // 出站目标 URL【只来自配置】(audioBaseUrl || baseUrl),绝不接受请求体里的地址(威胁模型见 13b audio 域头注)。
   //   transcriptions:multipart(Node 内置 FormData+Blob)→ {base}/audio/transcriptions;
   //   chat-audio    :application/json + input_audio data URI → {base}/chat/completions。

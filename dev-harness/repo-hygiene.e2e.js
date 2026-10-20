@@ -50,6 +50,14 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
 
 // Spawn the workbench with a specific env override map (env vars NOT listed are cleared re: the two HOME
 // vars so precedence is deterministic — we start from the parent env, then delete both, then apply overrides).
+const hygieneRecoveryReaders = new Map();
+async function hygieneRuntimeConfig(configFile) {
+  const data = path.dirname(configFile);
+  if (!hygieneRecoveryReaders.has(data)) hygieneRecoveryReaders.set(data, await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(data));
+  return hygieneRecoveryReaders.get(data).recover(JSON.parse(fs.readFileSync(configFile, 'utf8')));
+}
+process.once('exit', () => { for (const reader of hygieneRecoveryReaders.values()) reader.close(); });
+
 async function statusWith(port, envOverrides) {
   const env = { ...process.env };
   delete env.RUYI_HOME; delete env.WIN_CLAUDE_WORKBENCH_HOME;
@@ -196,7 +204,7 @@ function walk(dir, acc, skip) {
     const REAL_MODELS_KEY = 'mk-test-5566wxyz';
     const keyHead = v => (typeof v === 'string' ? JSON.stringify(v.slice(0, 6) + (v.length > 6 ? '…' : '')) : String(v));
     fs.writeFileSync(cfgPath, JSON.stringify({
-      configSchema: 6, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false,
+      credentialEncryptionV1: process.platform === 'win32', configSchema: 6, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false,
       modelsApiBase: 'http://127.0.0.1:1', modelsApiKey: REAL_MODELS_KEY,
       providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: REAL_KEY, model: 'm', models: [{ id: 'm', label: 'M' }] }],
       activeProvider: 'fake',
@@ -221,8 +229,10 @@ function walk(dir, acc, skip) {
       const echoed = st.json.config.providers; // masked providers straight from status
       const save1 = await postJson(PORT_C, '/api/config', { providers: echoed }, { 'x-wcw-token': token });
       ok(save1.status === 200 && save1.json && save1.json.ok === true, '(e②) POST /api/config (masked echo) ok');
-      const disk1 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      const disk1 = await hygieneRuntimeConfig(cfgPath);
       const dp1 = disk1.providers.find(p => p.id === 'fake');
+      const physical = fs.readFileSync(cfgPath, 'utf8');
+      ok(process.platform !== 'win32' || (JSON.parse(physical).credentialRefsV1 && !physical.includes(REAL_KEY)), '(e②) physical Windows configuration uses encrypted references and contains no plaintext provider key');
       ok(dp1 && dp1.apiKey === REAL_KEY, '(e②) disk config.json real key intact after masked round-trip (got ' + (dp1 && dp1.apiKey) + ')');
       // the save response is itself masked (never re-emits the real key).
       ok(save1.raw && !save1.raw.includes(REAL_KEY), '(e②) POST /api/config response contains NO plaintext key');
@@ -231,7 +241,7 @@ function walk(dir, acc, skip) {
       const NEW_KEY = 'sk-live-9999zzzz';
       const save2 = await postJson(PORT_C, '/api/config', { providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: NEW_KEY, model: 'm', models: [{ id: 'm', label: 'M' }] }] }, { 'x-wcw-token': token });
       ok(save2.status === 200 && save2.json && save2.json.ok === true, '(e③) POST /api/config (new plaintext key) ok');
-      const disk2 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      const disk2 = await hygieneRuntimeConfig(cfgPath);
       const dp2 = disk2.providers.find(p => p.id === 'fake');
       ok(dp2 && dp2.apiKey === NEW_KEY, '(e③) disk config.json updated to the new key (got ' + (dp2 && dp2.apiKey) + ')');
 
@@ -244,7 +254,7 @@ function walk(dir, acc, skip) {
       // ⑤ 设置页的保存形状:把掩码原样回传(连同掩码过的 providers)→ 磁盘上的真值逐字节不变,回包也不带明文。
       const save3 = await postJson(PORT_C, '/api/config', { modelsApiBase: 'http://127.0.0.1:1', modelsApiKey: maskedModelsKey, providers: st2.json.config.providers }, { 'x-wcw-token': token });
       ok(save3.status === 200 && save3.json && save3.json.ok === true, '(e⑤) POST /api/config (masked modelsApiKey echo) ok');
-      const disk3 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      const disk3 = await hygieneRuntimeConfig(cfgPath);
       ok(disk3.modelsApiKey === REAL_MODELS_KEY, '(e⑤) disk modelsApiKey byte-identical after masked round-trip (got ' + keyHead(disk3.modelsApiKey) + ')');
       ok((disk3.providers.find(p => p.id === 'fake') || {}).apiKey === NEW_KEY, '(e⑤) provider key intact in the same save');
       ok(save3.raw && !save3.raw.includes(REAL_MODELS_KEY), '(e⑤) POST /api/config response contains NO plaintext modelsApiKey');
@@ -252,12 +262,12 @@ function walk(dir, acc, skip) {
       // ⑥ 真新填的明文照存;清成空串照清(掩码还原只认掩码前缀)。
       const NEW_MODELS_KEY = 'mk-live-7788abcd';
       const save4 = await postJson(PORT_C, '/api/config', { modelsApiKey: NEW_MODELS_KEY }, { 'x-wcw-token': token });
-      const disk4 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      const disk4 = await hygieneRuntimeConfig(cfgPath);
       ok(save4.status === 200 && disk4.modelsApiKey === NEW_MODELS_KEY, '(e⑥) POST a new plaintext modelsApiKey → disk updated (got ' + keyHead(disk4.modelsApiKey) + ')');
       ok(save4.raw && !save4.raw.includes(NEW_MODELS_KEY) && save4.json && save4.json.config && save4.json.config.modelsApiKey === '••••abcd',
         '(e⑥) the save response echoes the NEW key masked, not plaintext (got ' + keyHead(save4.json && save4.json.config && save4.json.config.modelsApiKey) + ')');
       const save5 = await postJson(PORT_C, '/api/config', { modelsApiKey: '' }, { 'x-wcw-token': token });
-      const disk5 = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      const disk5 = await hygieneRuntimeConfig(cfgPath);
       ok(save5.status === 200 && disk5.modelsApiKey === '', '(e⑥) POST modelsApiKey:"" clears it (got ' + keyHead(disk5.modelsApiKey) + ')');
     } catch (e) { console.log('ERROR(e) ' + (e && e.stack || e)); fail++; }
     finally { killp(wb); await sleep(300); fs.rmSync(F2_HOME, { recursive: true, force: true }); }
@@ -288,7 +298,7 @@ function walk(dir, acc, skip) {
     const MASK = '••••', REDACTED = '«redacted»';
     const keyHead = v => (typeof v === 'string' ? JSON.stringify(v.slice(0, 6) + (v.length > 6 ? '…' : '')) : String(v));
     const leaks = text => Object.entries(SECRETS).filter(([, v]) => String(text || '').includes(v)).map(([k]) => k);
-    const readDisk = () => JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    const readDisk = () => hygieneRuntimeConfig(cfgPath);
     const findIn = (list, id) => (Array.isArray(list) ? list : []).find(s => s && s.id === id) || null;
     const readText = f => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
     const safeParse = t => { try { return JSON.parse(t); } catch { return null; } };
@@ -325,7 +335,7 @@ function walk(dir, acc, skip) {
     const REMOTE_URL_SHOWN = 'http://127.0.0.1:' + PORT_REMOTE + '/mcp?api_key=' + MASK + URL_KEY.slice(-4);
     const REMOTE = { id: 'hyg-remote', label: 'Hyg remote', type: 'http', url: REMOTE_URL, headers: { Authorization: 'Bearer ' + BEARER_VAL }, enabled: true };
     fs.writeFileSync(cfgPath, JSON.stringify({
-      configSchema: 11, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, enableMcpDropIn: false,
+      credentialEncryptionV1: process.platform === 'win32', configSchema: 11, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, enableMcpDropIn: false,
       desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
       claudePath: fakeClaude, agentCliType: 'kimi', includeWorkbenchMcp: true,
       stewardEnabledV1: false, stewardThreadBriefV1: false,
@@ -344,7 +354,9 @@ function walk(dir, acc, skip) {
       // 启动期的两路同步是 fire-and-forget:等它们各落一次,再清掉产物,之后看到的就只属于「掩码回传」那一次保存。
       for (let i = 0; i < 100 && !(/add-json hyg-stdio/.test(readText(CLAUDE_LOG)) && fs.existsSync(KIMI_FILE)); i++) await sleep(150);
       await sleep(1000);
-      const diskBase = readDisk();   // 启动时 normalize 过的那一份才是「磁盘真值」基线
+      const diskBase = await readDisk();
+      const physicalMcp = fs.readFileSync(cfgPath, 'utf8');
+      ok(process.platform !== 'win32' || (JSON.parse(physicalMcp).credentialRefsV1 && !leaks(physicalMcp).length), '(f) physical Windows MCP configuration contains encrypted references and zero fixture secrets');   // 启动时 normalize 过的那一份才是「磁盘真值」基线
       const baseStdio = findIn(diskBase.externalMcpServers, 'hyg-stdio');
       const baseRemote = findIn(diskBase.externalMcpServers, 'hyg-remote');
       ok(baseStdio && baseStdio.env.GITHUB_TOKEN === GH && baseRemote && baseRemote.headers.Authorization === 'Bearer ' + BEARER_VAL, '(f) fixture on disk carries the real env/header values');
@@ -373,7 +385,7 @@ function walk(dir, acc, skip) {
       const echoed = st.json.config.externalMcpServers;
       const save1 = await postJson(PORT_F, '/api/config', { externalMcpServers: echoed }, hdr, 20000);
       ok(save1.status === 200 && save1.json && save1.json.ok === true, '(f②) POST /api/config with masked MCP echo ok (status ' + save1.status + ')');
-      const disk1 = readDisk();
+      const disk1 = await readDisk();
       ok(JSON.stringify(disk1.externalMcpServers) === JSON.stringify(diskBase.externalMcpServers),
         '(f②) disk externalMcpServers byte-identical after masked round-trip (GITHUB_TOKEN ' + keyHead(findIn(disk1.externalMcpServers, 'hyg-stdio') && findIn(disk1.externalMcpServers, 'hyg-stdio').env.GITHUB_TOKEN) + ')');
       ok(leaks(save1.raw).length === 0, '(f①) POST /api/config response has 0 plaintext MCP secrets' + (leaks(save1.raw).length ? ' (leaked ' + leaks(save1.raw).join(',') + ')' : ''));
@@ -430,7 +442,7 @@ function walk(dir, acc, skip) {
       findIn(rotated, 'hyg-stdio').env.GITHUB_TOKEN = GH_NEW;
       delete findIn(rotated, 'hyg-stdio').env.DROP_ME;
       const save2 = await postJson(PORT_F, '/api/config', { externalMcpServers: rotated }, hdr, 20000);
-      const d2 = findIn(readDisk().externalMcpServers, 'hyg-stdio');
+      const d2 = findIn((await readDisk()).externalMcpServers, 'hyg-stdio');
       ok(save2.status === 200 && d2 && d2.env.GITHUB_TOKEN === GH_NEW, '(f②) a new plaintext env value is stored (got ' + keyHead(d2 && d2.env.GITHUB_TOKEN) + ')');
       ok(d2 && !Object.prototype.hasOwnProperty.call(d2.env, 'DROP_ME') && d2.env.FAKE_MCP_ENV_CAPTURE === ENV_CAPTURE && JSON.stringify(d2.args) === JSON.stringify(baseStdio.args),
         '(f②) a deleted env key is removed; the untouched masked env/args are restored (keys ' + (d2 && JSON.stringify(Object.keys(d2.env))) + ')');
@@ -442,7 +454,7 @@ function walk(dir, acc, skip) {
       const newbie = { ...JSON.parse(JSON.stringify(findIn(cur, 'hyg-stdio'))), id: 'hyg-new', label: 'new' };
       const renamed = { ...JSON.parse(JSON.stringify(findIn(cur, 'hyg-remote'))), id: 'hyg-remote-renamed' };
       const save3 = await postJson(PORT_F, '/api/config', { externalMcpServers: [...cur, newbie, renamed] }, hdr, 20000);
-      const disk3 = readDisk();
+      const disk3 = await readDisk();
       const n3 = findIn(disk3.externalMcpServers, 'hyg-new'), r3 = findIn(disk3.externalMcpServers, 'hyg-remote-renamed');
       ok(save3.status === 200 && n3 && n3.env.GITHUB_TOKEN === '' && n3.args[2] === '' && n3.args[3] === '' && r3 && r3.headers.Authorization === '',
         '(f②) new/renamed server with masked values and no match → cleared (env ' + keyHead(n3 && n3.env.GITHUB_TOKEN) + ', header ' + keyHead(r3 && r3.headers.Authorization) + ')');
@@ -457,7 +469,7 @@ function walk(dir, acc, skip) {
       findIn(moved, 'hyg-stdio').command = path.join(MCP_HOME, 'other-launcher.exe');
       findIn(moved, 'hyg-remote').url = 'http://127.0.0.1:1/elsewhere';
       const save4 = await postJson(PORT_F, '/api/config', { externalMcpServers: moved }, hdr, 20000);
-      const disk4 = readDisk();
+      const disk4 = await readDisk();
       const m4 = findIn(disk4.externalMcpServers, 'hyg-stdio'), mr4 = findIn(disk4.externalMcpServers, 'hyg-remote');
       ok(save4.status === 200 && m4 && m4.env.GITHUB_TOKEN === '' && m4.args[2] === '' && mr4 && mr4.headers.Authorization === '' && leaks(readText(cfgPath)).length === 0 && !readText(cfgPath).includes(GH_NEW),
         '(f②) same id but changed command/url → masked values are NOT re-attached (env ' + keyHead(m4 && m4.env.GITHUB_TOKEN) + ', header ' + keyHead(mr4 && mr4.headers.Authorization) + ')');

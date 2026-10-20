@@ -24,7 +24,8 @@ function treeHash(root) {
 }
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const revision = ref => cp.execFileSync('git', ['rev-parse', '--verify', ref + '^{commit}'], { cwd: ROOT, encoding: 'utf8', windowsHide: true }).trim();
-let scratch, fake, targetFile;
+let scratch, fake, targetFile, privacyScenario;
+let journeyBarrierPassed = false;
 const children = new Set();
 const report = { schema: 1, startedAt: new Date().toISOString(), platform: process.platform, node: process.version, complete: false, packages: {}, checks: [] };
 function record(label, values = {}) { report.checks.push({ label, ...values }); save(); }
@@ -89,10 +90,25 @@ async function serve(bundle, data, home, executable = false) {
   const status = await request('/api/status');
   const runtime = JSON.parse(fs.readFileSync(path.join(data, 'runtime.json'), 'utf8'));
   check(path.resolve(status.dataRoot) === path.resolve(data) && runtime.pid === child.pid, 'service data root and runtime PID belong to this child');
-  return { child, request, port, env };
+  return { child, request, port, env, bundle, data, home, executable };
+}
+// Run the packaged production reader in an isolated Node process. No API exposes decoded credentials.
+// The result stays in memory and is never written to the acceptance report or command log.
+async function effectiveConfig(server) {
+  const script = 'require(process.argv[1]).readConfig().then(value => process.stdout.write(JSON.stringify(value))).catch(() => { process.stderr.write("production config reader failed"); process.exitCode = 1; });';
+  const child = spawn(path.join(server.bundle, 'runtime/node/node.exe'), ['-e', script, path.join(server.bundle, 'app/server.js')], { cwd: server.bundle, env: server.env });
+  let output = '', bytes = 0, overflow = false, timer;
+  child.stdout.on('data', value => { bytes += value.length; if (bytes > 2 * 1024 * 1024) { overflow = true; killOwnTree(child); } else output += value; });
+  child.stderr.resume();
+  const code = await Promise.race([
+    new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); }),
+    new Promise(resolve => { timer = setTimeout(() => { killOwnTree(child); resolve(null); }, 60000); }),
+  ]).finally(() => clearTimeout(timer));
+  if (code !== 0 || overflow) throw new Error('Isolated packaged production config reader failed');
+  return JSON.parse(output);
 }
 function config(work) {
-  return { confirm: true, includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, schedulerEnabledV1: false, stewardEnabledV1: true,
+  return { confirm: true, includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, schedulerEnabledV1: false, stewardEnabledV1: true, stewardThreadBriefV1: false,
     killOnDisconnect: false, permissionMode: 'bypass', defaultWorkspace: work, toolLoadingMode: 'full',
     activeProvider: 'release-fake', providers: [{ id: 'release-fake', label: 'Release fixture', type: 'openai-compat',
       baseUrl: fake.url, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model' }] }], legacyReleaseAcceptance: { marker: 'preserve-v301' } };
@@ -130,10 +146,186 @@ async function candidatePrivacy(server, data, work, label) {
   check(ordinary?.ok === true && JSON.stringify(ordinary).includes('RELEASE_PUBLIC_SENTINEL'), label + ': ordinary workspace desktop files remain readable');
   const write = (await tool('file_write', { path: publicFile, content: 'RELEASE_PUBLIC_UPDATED' })).result;
   check(write?.ok === true && fs.readFileSync(publicFile, 'utf8') === 'RELEASE_PUBLIC_UPDATED', label + ': ordinary workspace desktop files remain writable');
+  const basename = path.basename(publicFile).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const listed = (await tool('file_list', { root: path.dirname(publicFile), pattern: '^(' + basename + ')$', absolute: true })).result;
+  check(listed?.ok === true && !listed.truncated && listed.files.some(file => file.path === publicFile), label + ': packaged nonlinear path-pattern worker lists the exact file');
+  // Rust regex rejects lookahead, which forces the real bounded JS worker even
+  // when the package contains ripgrep. Do not let the rg fast path mask a failure.
+  const jsSearch = (await tool('file_search', { root: path.dirname(publicFile), pattern: 'RELEASE_PUBLIC_(?=UPDATED)UPDATED' })).result;
+  check(jsSearch?.ok === true && jsSearch.engine === 'js' && jsSearch.matches.some(match => match.path === publicFile && match.text === 'RELEASE_PUBLIC_UPDATED'),
+    label + ': packaged content-search worker succeeds through the actual JS fallback');
+  const slowRoot = path.join(work, label + '-bounded-search'); fs.mkdirSync(slowRoot);
+  fs.writeFileSync(path.join(slowRoot, 'slow.txt'), 'a'.repeat(40000) + '!');
+  const started = Date.now();
+  const [slowSearch, healthMs] = await Promise.all([
+    tool('file_search', { root: slowRoot, pattern: '(?=a)(a+)+$', regexTimeoutMs: 250 }).then(response => response.result),
+    server.request('/health').then(() => Date.now() - started),
+  ]);
+  check(slowSearch?.ok === true && slowSearch.engine === 'js' && slowSearch.truncated === true && /time budget/.test(slowSearch.patternNote || '') && healthMs < 5000,
+    label + ': packaged catastrophic content regex is terminated while HTTP remains responsive');
+}
+async function candidateVaultAndRules(server, data, work, label) {
+  const suffix = crypto.randomBytes(8).toString('hex');
+  const auth = 'release-fixture-auth-' + suffix, changedAuth = 'release-rotated-auth-' + suffix;
+  const email = 'release-' + suffix + '@example.test', employee = 'EMP-' + String(crypto.randomInt(100000, 1000000));
+  const secret = 'release-private-password-' + suffix, patientCode = 'PAT-' + suffix + '\u00a0X', password = 'release-recovery-password-' + suffix;
+  const source = path.join(work, label + '-private-source.txt'), destination = path.join(work, label + '-private-restored.txt');
+  fs.writeFileSync(source, JSON.stringify({ email, employee, patientCode, password: secret }));
+  const rules = [{ id: 'release-employee', kind: 'regex', value: 'EMP-[0-9]{6}', category: 'INTERNAL' }, { id: 'release-patient', kind: 'field', value: '/patientCode', category: 'INTERNAL' }];
+  const settings = { mode: 'enhanced', technical: false, rules };
+  const provider = { ...config(work).providers[0], apiKey: auth };
+  let active = server, created, firstReferences;
+  const diskHasNoSecrets = () => ['config.json', 'config.json.prev', 'credential-vault-v1.json'].filter(name => fs.existsSync(path.join(data, name)))
+    .every(name => { const value = fs.readFileSync(path.join(data, name), 'utf8'); return ![auth, changedAuth, secret, email, employee, patientCode].some(item => value.includes(item)); });
+  const turn = async (message, phase) => {
+    if (fs.existsSync(destination)) fs.unlinkSync(destination);
+    const callPrefix = 'release_private_' + crypto.randomBytes(8).toString('hex');
+    const scenario = { source, destination, auth, email, employee, patientCode, secret, step: 0, requests: 0, references: null,
+      callIds: { partial: callPrefix + '_partial', read: callPrefix + '_read', write: callPrefix + '_write' } };
+    privacyScenario = scenario;
+    try {
+      const stream = await active.request('/api/chat/stream', { sessionId: created.session.id, cwd: work, message });
+      successfulTurn(stream, label + ': ' + phase);
+      check(scenario.step === 4 && scenario.requests >= 4 && !!scenario.references, label + ': ' + phase + ' completes protected line and complete reads before the real reference/file-write loop');
+      check(fs.readFileSync(destination, 'utf8') === email + '\n' + employee + '\n' + patientCode + '\n', label + ': ' + phase + ' restores exact email, worker-regex and field values before file execution');
+      return scenario.references;
+    } finally { privacyScenario = null; }
+  };
+  try {
+    await active.request('/api/config', { providers: [provider], stewardEnabledV1: false, contextAutoCompactEnabled: false, runtimeOptimizationShadowV1: false, importAgentInstructions: false });
+    const initialDisk = JSON.parse(fs.readFileSync(path.join(data, 'config.json'), 'utf8'));
+    check(initialDisk.credentialEncryptionV1 !== true && !initialDisk.credentialRefsV1 && initialDisk.providers[0].apiKey === auth && !fs.existsSync(path.join(data, 'credential-vault-v1.json')), label + ': default off retains ordinary plaintext credential storage without initializing a vault');
+    await active.request('/api/privacy/encryption', { enabled: true });
+    const persisted = JSON.parse(fs.readFileSync(path.join(data, 'config.json'), 'utf8'));
+    check(persisted.credentialEncryptionV1 === true && persisted.credentialRefsV1?.version === 1 && persisted.providers[0].apiKey === '' && diskHasNoSecrets(), label + ': actual runtime migrates synthetic credential into DPAPI-backed encrypted storage');
+    const trial = await active.request('/api/privacy/rules/test', { ...settings, sample: JSON.stringify({ email, employee, patientCode, password: secret }) });
+    check(![email, employee, patientCode, secret].some(value => trial.protectedSample.includes(value)) && ['release-employee', 'release-patient'].every(id => trial.matches.some(match => match.ruleIds.includes(id))), label + ': packaged worker and field rules scan draft data through the actual API');
+    const beforeTyped = hash(path.join(data, 'config.json'));
+    let typedDenied = false;
+    try { await active.request('/api/privacy/rules/test', { ...settings, sample: '{"diagnosis":true}' }); }
+    catch (error) { typedDenied = error.httpStatus === 409 && error.code === 'privacy.typed_sensitive'; }
+    check(typedDenied && hash(path.join(data, 'config.json')) === beforeTyped, label + ': packaged builtin personal rules refuse sensitive boolean data without saving');
+    const prior = hash(path.join(data, 'config.json'));
+    let timedOut = false;
+    const started = Date.now();
+    const jobs = [active.request('/api/privacy/rules/test', { ...settings, rules: [{ ...rules[0], value: '(a+)+$' }], sample: 'a'.repeat(40000) + '!' }).catch(error => { timedOut = error.code === 'privacy.regex_timeout'; }),
+      active.request('/health').then(() => Date.now() - started)];
+    const [, healthMs] = await Promise.all(jobs);
+    check(timedOut && healthMs < 5000 && hash(path.join(data, 'config.json')) === prior, label + ': catastrophic worker is terminated while packaged HTTP remains responsive and draft test does not save');
+    await active.request('/api/privacy/settings', settings);
+    created = await active.request('/api/sessions', { title: label + ' privacy', cwd: work, engine: 'openai' });
+    firstReferences = await turn('Read the synthetic contact fixture and copy its email and employee code to the requested local artifact.', 'first protected turn');
+    const maps = fs.readdirSync(path.join(data, 'privacy-scopes')).filter(name => /^[a-f0-9]{64}\.json$/.test(name));
+    check(maps.length > 0 && maps.every(name => { const value = fs.readFileSync(path.join(data, 'privacy-scopes', name), 'utf8'); return !!JSON.parse(value).envelope && ![email, employee, patientCode, secret, ...firstReferences].some(item => value.includes(item)); }), label + ': real model mappings persist only as authenticated ciphertext');
+
+    await stop(active.child);
+    active = await serve(server.bundle, data, server.home, server.executable);
+    const restartedReferences = await turn('Repeat the synthetic contact transfer after the runtime restart.', 'restarted protected turn');
+    check(JSON.stringify(restartedReferences) === JSON.stringify(firstReferences), label + ': restarted package unwraps DPAPI and reuses the same encrypted scope references');
+
+    const exported = await active.request('/api/privacy/backup/export', { password });
+    check(typeof exported.backup === 'string' && ![auth, secret, email, employee].some(value => exported.backup.includes(value)), label + ': encrypted recovery export contains no synthetic secrets in plaintext');
+    const exportedFile = path.join(scratch, label + '-recovery.json'); fs.writeFileSync(exportedFile, exported.backup);
+    await active.request('/api/config', { providers: [{ ...provider, apiKey: changedAuth }] });
+    const beforeWrong = [hash(path.join(data, 'config.json')), hash(path.join(data, 'credential-vault-v1.json'))];
+    let rejected = false;
+    try { await active.request('/api/privacy/backup/preview', { backup: exported.backup, password: 'incorrect-fixture-password' }); }
+    catch (error) { rejected = error.httpStatus === 409; }
+    check(rejected && JSON.stringify(beforeWrong) === JSON.stringify([hash(path.join(data, 'config.json')), hash(path.join(data, 'credential-vault-v1.json'))]), label + ': wrong recovery password is rejected without writing config or vault');
+    const preview = await active.request('/api/privacy/backup/preview', { backup: exported.backup, password });
+    check(typeof preview.ticket === 'string' && ![auth, changedAuth].some(value => JSON.stringify(preview).includes(value)), label + ': recovery preview exposes a ticket and safe target summary');
+    await active.request('/api/privacy/backup/import', { ticket: preview.ticket });
+    let replayDenied = false;
+    try { await active.request('/api/privacy/backup/import', { ticket: preview.ticket }); } catch (error) { replayDenied = error.httpStatus === 409; }
+    check(replayDenied && !fs.existsSync(path.join(data, 'credential-import-v1.json')), label + ': recovery commits once and removes its transaction journal');
+    const restoredConfig = await effectiveConfig(active);
+    check(restoredConfig.providers.find(item => item.id === provider.id)?.apiKey === auth && diskHasNoSecrets(), label + ': packaged production reader restores the exported exact credential and leaves no plaintext copy');
+    await turn('Confirm the recovered credential works and repeat the synthetic transfer.', 'recovered credential turn');
+    const { providers: fixtureProviders, activeProvider: fixtureProviderId, ...fixtureControls } = config(work);
+    const controls = { ...fixtureControls, stewardEnabledV1: false, importAgentInstructions: false, contextAutoCompactEnabled: false, runtimeOptimizationShadowV1: false };
+    const recoverMissingConfig = async (phase, removePrevious) => {
+      if (path.dirname(path.resolve(data)) !== scratch) throw new Error('Cold recovery data root is not owned by this acceptance run');
+      const vaultBefore = hash(path.join(data, 'credential-vault-v1.json'));
+      await stop(active.child);
+      fs.unlinkSync(path.join(data, 'config.json'));
+      if (removePrevious && fs.existsSync(path.join(data, 'config.json.prev'))) fs.unlinkSync(path.join(data, 'config.json.prev'));
+      active = await serve(server.bundle, data, server.home, server.executable);
+      const state = await active.request('/api/privacy/status');
+      check(state.recoveryRequired === true && state.encryption === removePrevious && hash(path.join(data, 'credential-vault-v1.json')) === vaultBefore,
+        label + ': ' + phase + ' keeps the existing vault and exposes the paused recovery UI with the correct storage choice');
+      // Keep background fixtures quiet without changing the restored provider credentials
+      // or confirming the pending privacy policy. The import itself must recover the key.
+      await active.request('/api/config', controls);
+      const beforePreview = [hash(path.join(data, 'config.json')), hash(path.join(data, 'credential-vault-v1.json'))];
+      const pending = await active.request('/api/privacy/backup/preview', { backup: exported.backup, password });
+      check(typeof pending.ticket === 'string' && JSON.stringify(beforePreview) === JSON.stringify([hash(path.join(data, 'config.json')), hash(path.join(data, 'credential-vault-v1.json'))]),
+        label + ': ' + phase + ' previews the real recovery package without config or vault writes');
+      await active.request('/api/privacy/backup/import', { ticket: pending.ticket });
+      const imported = await effectiveConfig(active);
+      check(imported.credentialEncryptionV1 === true && imported.providers.find(item => item.id === provider.id)?.apiKey === auth,
+        label + ': ' + phase + ' imports the exact exported credential through the packaged recovery transaction');
+      const importedState = await active.request('/api/privacy/status');
+      check(importedState.recoveryRequired === true, label + ': ' + phase + ' keeps policy confirmation pending after credential recovery');
+      await active.request('/api/config', { activeProvider: provider.id });
+      await active.request('/api/privacy/settings', settings);
+      await turn('Repeat the synthetic transfer after explicit cold recovery confirmation.', phase + ' protected turn');
+      check(diskHasNoSecrets(), label + ': ' + phase + ' leaves credentials and backups encrypted');
+    };
+    await recoverMissingConfig('cold encrypted vault without config or previous file', true);
+    await active.request('/api/privacy/settings', { mode: 'off', technical: false, rules: [] });
+    await active.request('/api/privacy/encryption', { enabled: false, confirmPlaintext: true });
+    await active.request('/api/config', { providers: [{ ...provider, apiKey: changedAuth }] });
+    const currentPlainConfig = await effectiveConfig(active);
+    await active.request('/api/config', { locale: currentPlainConfig.locale === 'en-US' ? 'zh-CN' : 'en-US' }); // Commit a genuine plaintext .prev after explicit disable.
+    const plainPrevious = JSON.parse(fs.readFileSync(path.join(data, 'config.json.prev'), 'utf8'));
+    check(plainPrevious.credentialEncryptionV1 === false && !plainPrevious.credentialRefsV1 && plainPrevious.providers.find(item => item.id === provider.id)?.apiKey === changedAuth,
+      label + ': explicit disable produces a real plaintext previous-config fixture with a different credential from the backup');
+    await recoverMissingConfig('cold confirmed plaintext previous file with retained vault', false);
+    record(label + ': encrypted recovery artifact', { passed: true, sha256: hash(exportedFile) });
+  } finally {
+    privacyScenario = null;
+    try { if (active.child.exitCode === null && !active.child.startError) await active.request('/api/privacy/settings', { mode: 'off', technical: false, rules: [] }); }
+    finally { if (active !== server) await stop(active.child); }
+  }
+}
+function privateProviderResponse(req) {
+  const scenario = privacyScenario;
+  if (!scenario) return null;
+  const originals = [scenario.email, scenario.employee, scenario.patientCode, scenario.secret, scenario.auth];
+  const containsOriginal = (value, depth = 0) => {
+    if (depth > 16) return true;
+    if (typeof value === 'string') {
+      if (originals.some(secret => value.includes(secret))) return true;
+      try { return containsOriginal(JSON.parse(value), depth + 1); } catch { return false; }
+    }
+    return value && typeof value === 'object' ? Object.entries(value).some(([key, row]) => containsOriginal(key, depth + 1) || containsOriginal(row, depth + 1)) : false;
+  };
+  check(!containsOriginal(req.raw), 'packaged privacy request body contains no random synthetic plaintext, including nested JSON escapes');
+  check(req.headers.authorization === 'Bearer ' + scenario.auth, 'packaged runtime authenticates to the intended fixture endpoint with the actual recovered credential');
+  scenario.requests++;
+  if (req.stream === false) return textFrames('Release auxiliary fixture');
+  if (scenario.step++ === 0) return toolCallFrames('file_read', { path: scenario.source, lineOffset: 1 }, scenario.callIds.partial);
+  if (scenario.step === 2) {
+    const result = JSON.parse(req.messages.filter(message => message.role === 'tool').at(-1)?.content || '{}');
+    check(result.ok === true && JSON.stringify(result).includes('[[RUYI_PVT:') && !('non_ascii' in result), 'packaged formatted read succeeds with source-projected references and no diagnostic plaintext copy');
+    return toolCallFrames('file_read', { path: scenario.source }, scenario.callIds.read);
+  }
+  if (scenario.step === 3) {
+    const content = req.messages.filter(message => message.role === 'tool').at(-1)?.content || '';
+    const result = JSON.parse(content), contact = JSON.parse(result.content);
+    const { email, employee, patientCode } = contact;
+    check(result.ok === true && !('non_ascii' in result) && /^\[\[RUYI_PVT:EMAIL:[a-f0-9]{32}\]\]$/.test(email) && [employee, patientCode].every(value => /^\[\[RUYI_PVT:INTERNAL:[a-f0-9]{32}\]\]$/.test(value)), 'packaged full read returns builtin, worker-regex and field references without source diagnostic copies');
+    scenario.references = [email, employee, patientCode];
+    return toolCallFrames('file_write', { path: scenario.destination, content: email + '\n' + employee + '\n' + patientCode + '\n' }, scenario.callIds.write);
+  }
+  const written = req.messages.filter(message => message.role === 'tool').at(-1);
+  check(written?.tool_call_id === scenario.callIds.write && JSON.parse(written.content || '{}').ok === true, 'packaged write returns success for the exact issued tool call before final completion');
+  return [...textFrames('PACKAGE_ACCEPTANCE_OK'), usageFrame(8, 4)];
 }
 async function snapshot(server, data, seeded) {
   const session = (await server.request('/api/sessions/' + seeded.id)).session;
-  const cfg = JSON.parse(fs.readFileSync(path.join(data, 'config.json'), 'utf8'));
+  const disk = JSON.parse(fs.readFileSync(path.join(data, 'config.json'), 'utf8'));
+  const cfg = await effectiveConfig(server);
   const journal = suffix => fs.readFileSync(path.join(data, 'sessions', seeded.id + suffix), 'utf8');
   const readUsage = () => Object.fromEntries((fs.existsSync(path.join(data, 'usage')) ? fs.readdirSync(path.join(data, 'usage')) : []).filter(f => f.endsWith('.jsonl')).sort().map(f => [f, fs.readFileSync(path.join(data, 'usage', f), 'utf8')]));
   let usage;
@@ -146,6 +338,10 @@ async function snapshot(server, data, seeded) {
   }
   check(journal('.provider.ndjson').trim().length > 0 && Object.values(usage).some(body => body.trim()), 'old conversation has persisted provider history and usage evidence');
   check(cfg.legacyReleaseAcceptance?.marker === 'preserve-v301' && cfg.permissionMode === 'bypass' && cfg.providers.some(p => p.id === 'release-fake' && p.apiKey === 'k'), 'synthetic configuration and unknown legacy field are actually present');
+  if (fs.existsSync(path.join(server.bundle, 'app/src/01k-credential-vault.js'))) {
+    if (cfg.credentialEncryptionV1 === true) check(disk.credentialRefsV1?.version === 1 && disk.providers.find(p => p.id === 'release-fake')?.apiKey === '', 'explicitly encrypted upgrade persists references while production reader returns the exact old value');
+    else check(!disk.credentialRefsV1 && disk.providers.find(p => p.id === 'release-fake')?.apiKey === 'k', 'default-off upgrade retains the exact old storage semantics until explicit opt-in');
+  }
   return { title: session.title, messages: session.messages.map(({ role, content }) => ({ role, content })),
     history: journal('.provider.ndjson'), messagesJournal: journal('.messages.ndjson'), usage, permission: cfg.permissionMode, providerKey: cfg.providers.find(p => p.id === 'release-fake').apiKey,
     legacy: cfg.legacyReleaseAcceptance, memory: fs.readFileSync(path.join(data, 'memory/global/release-upgrade.md'), 'utf8'), artifact: hash(seeded.artifact) };
@@ -155,6 +351,10 @@ async function extract(zip, variant) {
   const entries = cp.execFileSync('tar.exe', ['-tf', zip], { encoding: 'utf8', windowsHide: true, maxBuffer: 16 * 1024 * 1024 }).split(/\r?\n/).filter(Boolean);
   check(entries.length > 10 && entries.every(name => !/^(?:\/|[a-z]:)|(?:^|\/)\.\.(?:\/|$)/i.test(name.replace(/\\/g, '/'))), variant + ': ZIP entries have safe relative paths');
   check(new Set(entries.map(name => name.toLowerCase())).size === entries.length, variant + ': ZIP has no case-colliding duplicate entries');
+  if (variant === 'full') {
+    const runtimePrefix = 'mcp/ai-computer-control/python_embed/Lib/site-packages/ai_computer_control/';
+    check(!entries.some(name => name.replace(/\\/g, '/').startsWith(runtimePrefix) && /(?:\/__pycache__(?:\/|$)|\.pyc$)/i.test(name)), 'Full actual ZIP excludes stale bytecode from the synchronized ACC runtime');
+  }
   await run('tar.exe', ['-xf', zip, '-C', dest], {}, variant + '-extract');
   const files = ['app/server.js', 'app/src/manifest.json', 'app/public/index.html', 'Ruyi.exe', 'RuyiDesktop.exe', 'WebView2Loader.dll', 'runtime/node/node.exe', 'Start-Workbench.cmd', 'package.json'];
   check(files.every(file => fs.existsSync(path.join(dest, file))), variant + ': actual ZIP contains all launch modes');
@@ -173,17 +373,36 @@ async function extract(zip, variant) {
   return dest;
 }
 async function journeys(bundle, variant) {
+  // Other full-suite runs own test browsers too. An optional fresh barrier lets
+  // ZIP/runtime/upgrade checks proceed first while serializing browser cleanup.
+  // This delays the same journeys; it never skips or changes their assertions.
+  if (args['journey-barrier'] && !journeyBarrierPassed) {
+    const marker = path.resolve(args['journey-barrier']), started = Date.now();
+    record('waiting-for-browser-journey-barrier', { marker });
+    while (true) {
+      if (fs.existsSync(marker)) {
+        const stat = fs.statSync(marker), value = JSON.parse(fs.readFileSync(marker, 'utf8'));
+        check(stat.mtimeMs >= Date.parse(report.startedAt) && value.fullSuiteSettled === true
+          && value.serverSha256 === hash(path.join(ROOT, 'ruyi-workbench/app/server.js')), 'fresh full-suite barrier matches this candidate before browser journeys');
+        journeyBarrierPassed = true; break;
+      }
+      if (Date.now() - started > 3600000) throw new Error('Browser journey barrier timed out');
+      await sleep(1000);
+    }
+  }
   const root = path.join(scratch, variant + '-journeys'), harness = path.join(root, 'dev-harness'); fs.mkdirSync(harness, { recursive: true });
-  const files = cp.execFileSync('git', ['ls-files', '-z', '--', 'dev-harness'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024 }).split('\0').filter(Boolean);
+  const files = [...new Set(cp.execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', 'dev-harness'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024 }).split('\0').filter(Boolean))];
   for (const file of files) {
     if (file.startsWith('dev-harness/unit/') || file.includes('/realhist-fixtures/')) continue;
+    if (!fs.existsSync(path.join(ROOT, file))) continue; // A tracked deletion is not a candidate fixture.
     const dest = path.join(root, file); fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.copyFileSync(path.join(ROOT, file), dest);
   }
   fs.symlinkSync(bundle, path.join(root, 'ruyi-workbench'), 'junction');
   const cases = ['steward-read-routing.e2e.js', 'steward-attachments-search.e2e.js', 'steward-delivery.e2e.js',
     'steward-task-decisions.e2e.js', 'steward-settings-scope.e2e.js', 'steward-multistep.e2e.js', 'playbook-reuse.e2e.js',
     'memory-active-scope.e2e.js', 'steward-handoff-recovery.browser.e2e.js', 'steward-delivery.browser.e2e.js', 'surface-hardening-w2.e2e.js',
-    'session-stop-execution.e2e.js', 'session-get-etag.e2e.js', 'external-bot-setup.browser.e2e.js', 'live-full-text.browser.e2e.js'];
+    'session-stop-execution.e2e.js', 'session-get-etag.e2e.js', 'external-bot-setup.browser.e2e.js', 'live-full-text.browser.e2e.js',
+    'privacy-gateway.e2e.js', 'privacy-protocols.e2e.js', 'privacy-channels.e2e.js', 'credential-vault.e2e.js'];
   const env = environment(path.join(root, 'home'), path.join(root, 'data'));
   const runtimeFiles = ['app/server.js', 'app/src/manifest.json'];
   const before = runtimeFiles.map(file => hash(path.join(bundle, file)));
@@ -191,6 +410,14 @@ async function journeys(bundle, variant) {
   const output = await run(path.join(bundle, 'runtime/node/node.exe'), [path.join(harness, 'run-all.js'), ...cases],
     { cwd: root, env }, variant + '-core-journeys', 1200000);
   check(output.includes('# 汇总: ' + cases.length + ' pass / 0 fail') && !/\b[1-9]\d* flaky\b/.test(output), variant + ': all ' + cases.length + ' packaged core journeys pass without retry');
+  const mixedOutput = path.join(root, 'mixed-input-validation');
+  await run(path.join(bundle, 'runtime/node/node.exe'), [path.join(harness, 'privacy-31/browser-input-validation.js'), '--output=' + mixedOutput],
+    { cwd: root, env }, variant + '-mixed-input-tool-loop', 300000);
+  const mixed = JSON.parse(fs.readFileSync(path.join(mixedOutput, 'browser-input-validation.json'), 'utf8'));
+  check(mixed.complete === true && mixed.failures.length === 0 && mixed.domSends === 15 && mixed.mixedGroups.length === 2
+    && mixed.mixedGroups.every(group => group.entities === 47 && group.providerRequests === 3)
+    && mixed.secondGroups.length === 2 && mixed.secondGroups.every(group => group.entities === 69 && group.providerRequests === 4)
+    && mixed.thirdGroups.length === 2 && mixed.thirdGroups.every(group => group.entities === 53 && group.providerRequests === 4), variant + ': packaged browser covers all three mixed corpora, including third-generation 27 sensitive cases, 25 public negatives and technical opt-ins through input and actual tool returns');
   check(!output.includes('自动重建') && JSON.stringify(runtimeFiles.map(file => hash(path.join(bundle, file)))) === JSON.stringify(before), variant + ': journeys did not repair the package');
 }
 async function fullInstall(bundle) {
@@ -263,7 +490,7 @@ async function installedMcp(python, module, env) {
     report.releaseChecksSha256 = hash(path.join(__dirname, 'lib/release-checks.js'));
     report.applicationVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'ruyi-workbench/package.json'), 'utf8')).version;
     report.sourceAppSha256 = treeHash(path.join(ROOT, 'ruyi-workbench/app')); save();
-    fake = await startFakeProvider({ handler(req) { if (!req.messages.some(m => m.role === 'tool')) return toolCallFrames('file_write', { path: targetFile, content: 'PACKAGE_ACCEPTANCE_OK\n' }, 'qa_write'); return [...textFrames('PACKAGE_ACCEPTANCE_OK'), usageFrame(8, 4)]; } });
+    fake = await startFakeProvider({ handler(req) { if (privacyScenario) return privateProviderResponse(req); if (!req.messages.some(m => m.role === 'tool')) return toolCallFrames('file_write', { path: targetFile, content: 'PACKAGE_ACCEPTANCE_OK\n' }, 'qa_write'); return [...textFrames('PACKAGE_ACCEPTANCE_OK'), usageFrame(8, 4)]; } });
     const bundles = {};
     for (const variant of ['slim', 'full']) bundles[variant] = await extract(path.resolve(args[variant]), variant);
     check(!fs.existsSync(path.join(bundles.slim, 'mcp/ai-computer-control/python_embed')), 'Slim does not pretend to include Full ACC');
@@ -294,6 +521,7 @@ async function installedMcp(python, module, env) {
           await conversation(server, work, label);
           const counts = await server.request('/api/tools/workbench_self_status', { section: 'counts' }); check(counts.result?.counts?.nativeTools === 120, label + ': actual runtime has the candidate tool registry');
           await candidatePrivacy(server, data, work, label);
+          await candidateVaultAndRules(server, data, work, label);
         } finally { await stop(server.child); }
       }
       const upgraded = path.join(scratch, variant + '-upgrade-data'); fs.cpSync(backup, upgraded, { recursive: true });
@@ -311,9 +539,17 @@ async function installedMcp(python, module, env) {
             continued = await snapshot(current, upgraded, seeded);
             check(continued.history !== before.history && JSON.stringify(continued.usage) !== JSON.stringify(before.usage), variant + ': continuation persists history and usage');
           }
+          if (restart === 2) {
+            check(!fs.existsSync(path.join(upgraded, 'credential-vault-v1.json')), variant + ': default-off upgrade and three starts do not initialize encryption');
+            await current.request('/api/privacy/encryption', { enabled: true });
+            check(JSON.stringify(await snapshot(current, upgraded, seeded)) === JSON.stringify(continued), variant + ': explicit encryption migration preserves all old data and the exact effective credential');
+          }
         }
         finally { await stop(current.child); }
       }
+      const encryptedRestart = await serve(bundle, upgraded, path.join(scratch, variant + '-upgrade-home'), true);
+      try { check(JSON.stringify(await snapshot(encryptedRestart, upgraded, seeded)) === JSON.stringify(continued), variant + ': post-opt-in restart unlocks encrypted old credentials and preserves continuation'); }
+      finally { await stop(encryptedRestart.child); }
       await journeys(bundle, variant);
     }
     const restored = path.join(scratch, 'restored-v301-data'); fs.cpSync(backup, restored, { recursive: true });
@@ -321,6 +557,7 @@ async function installedMcp(python, module, env) {
     try { check(JSON.stringify(await snapshot(rollback, restored, seeded)) === JSON.stringify(before), 'restore original backup to v3.0.1 preserves all seeded facts'); }
     finally { await stop(rollback.child); }
     await fullInstall(bundles.full);
+    check(hash(__filename) === report.acceptanceHarnessSha256 && treeHash(path.join(ROOT, 'ruyi-workbench/app')) === report.sourceAppSha256, 'candidate app and acceptance entry point remain frozen throughout validation');
     report.complete = true;
   } catch (error) { t.fail(error.stack || String(error)); report.error = String(error.message || error); }
   finally {

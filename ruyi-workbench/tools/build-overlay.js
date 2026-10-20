@@ -65,6 +65,7 @@ const PAYLOAD_FILES = [
   'app/public/js/agent-roles.js',
   'app/public/js/skills-memory.js',
   'app/public/js/provider-settings.js',
+  'app/public/js/privacy-settings.js', // 3.1 privacy policy, rule playground and recovery UI.
   // 134 波:模型目录统一件(agent-roles/navigation-controls/provider-settings/steward-chips/steward-settings
   // 五处静态 import)—— 漏登记即离线包白屏(43e 同款),overlay-payload-lock ③ 当场擒获。
   'app/public/js/model-catalog.js',
