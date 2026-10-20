@@ -25,6 +25,9 @@ const SERVER = process.env.RUYI_TEST_SERVER_JS
 // opts.withEval:再给一个 __eval(code) —— 在 server.js 的模块作用域里直接 eval,供单测把【模块级】依赖(netstat / tasklist /
 // 杀进程这类 Linux 上没有的外部命令封装)换成桩:`__eval('pidsOnPort = async () => [4242]')`。同一份测试代码因此既能跑新码
 // 也能跑 RUYI_TEST_SERVER_JS 指到的修前基线,反向验证才是同一把尺子。默认不给,不扩大别的测试的接触面。
+// opts.testPlatform: run platform-specific handlers against an isolated module-local process
+// facade. Only the platform name is overridden; the actual global/node:process is never changed.
+// Callers must replace external platform operations (for example DPAPI) with synthetic adapters.
 function loadServerInternals(names, opts = {}) {
   if (!Array.isArray(names) || !names.length || !names.every(n => /^[A-Za-z_$][\w$]*$/.test(n))) {
     throw new Error('loadServerInternals: names must be a non-empty array of identifiers');
@@ -34,7 +37,26 @@ function loadServerInternals(names, opts = {}) {
   mod.filename = SERVER;
   mod.paths = Module._nodeModulePaths(path.dirname(SERVER));
   const evalHook = opts && opts.withEval ? '\n;module.exports.__eval = code => eval(code);' : '';
-  mod._compile(`${src}\n;module.exports.__internals = { ${names.join(', ')} };${evalHook}\n`, SERVER);
+  let compiled = `${src}\n;module.exports.__internals = { ${names.join(', ')} };${evalHook}\n`;
+  if (opts && Object.hasOwn(opts, 'testPlatform')) {
+    if (!['win32', 'linux', 'darwin'].includes(opts.testPlatform)) throw new Error('loadServerInternals: invalid testPlatform');
+    const testPlatform = opts.testPlatform, bound = new Map();
+    mod.__testProcess = new Proxy(Object.create(null), {
+      get(target, name) {
+        if (name === 'platform') return testPlatform;
+        if (Object.hasOwn(target, name)) return Reflect.get(target, name);
+        const value = Reflect.get(process, name, process);
+        if (typeof value !== 'function') return value;
+        if (!bound.has(name)) bound.set(name, value.bind(process));
+        return bound.get(name);
+      },
+      set(target, name, value) { if (name === 'platform') return false; return Reflect.set(target, name, value); },
+    });
+    // The wrapper keeps the source's own strict-mode directive effective. A hashbang
+    // is legal only at the outer script start, so remove that one non-executable line.
+    compiled = `(function(process) {\n${compiled.replace(/^#![^\r\n]*(?:\r?\n|$)/, '')}\n}).call(this, module.__testProcess);\n`;
+  }
+  try { mod._compile(compiled, SERVER); } finally { delete mod.__testProcess; }
   if (evalHook) mod.exports.__internals.__eval = mod.exports.__eval;
   return mod.exports.__internals;
 }

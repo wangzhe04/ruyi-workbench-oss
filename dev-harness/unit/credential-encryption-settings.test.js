@@ -9,13 +9,18 @@ const { loadServerInternals } = require('../lib/server-internals');
 const TEMP_BASE = path.resolve(os.tmpdir());
 const initial = () => ({ privacyModeV1: 'off', stewardEnabledV1: false, schedulerEnabledV1: false,
   providers: [{ id: 'fixture', type: 'openai-compat', model: 'fixture-model', apiKey: 'SYNTHETIC-OPTIN-KEY', baseUrl: 'https://fixture.invalid/v1' }] });
-function setup(t) {
+function setup(t, testPlatform = 'win32') {
   const root = fs.mkdtempSync(path.join(TEMP_BASE, 'ruyi-encryption-settings-'));
   Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), path.join(root, 'data')));
   fs.mkdirSync(path.join(root, 'data'), { recursive: true });
   const file = path.join(root, 'data', 'config.json'), vaultFile = path.join(root, 'data', 'credential-vault-v1.json');
   fs.writeFileSync(file, JSON.stringify(initial()));
-  const app = loadServerInternals(['CredentialVault', 'PrivacyCore', 'PrivacyGateway', 'readConfig', 'mutateConfig', 'ConfigPatchHooks', 'defaultConfig'], { withEval: true });
+  const hostPlatform = process.platform;
+  const app = loadServerInternals(['CredentialVault', 'PrivacyCore', 'PrivacyGateway', 'readConfig', 'mutateConfig', 'ConfigPatchHooks', 'defaultConfig'], { withEval: true, ...(testPlatform === null ? {} : { testPlatform }) });
+  assert.equal(process.platform, hostPlatform); assert.equal(require('node:process').platform, hostPlatform);
+  assert.equal(app.__eval('process.platform'), testPlatform ?? hostPlatform);
+  assert.equal(app.__eval('process === require("node:process")'), testPlatform === null);
+  assert.equal(app.__eval('(function() { return this; })()'), undefined, 'the test wrapper preserves module strict mode');
   let wraps = 0, failVault = false;
   const installVault = () => {
     const vault = app.CredentialVault.create({ core: app.PrivacyCore,
@@ -147,4 +152,36 @@ test('conditional privacy settings reject stale policy or encryption drafts with
   const committed = fs.readFileSync(f.file, 'utf8');
   const stalePolicy = await f.post('settings', { ...draft, expectedEncryption: true, mode: 'off' });
   assert.equal(stalePolicy.body.error.code, 'privacy.settings_changed'); assert.equal(fs.readFileSync(f.file, 'utf8'), committed);
+});
+
+test('unsupported platforms refuse real encryption handlers before any config, backup or vault write', async t => {
+  // Linux/macOS CI additionally exercises its real process.platform without a facade.
+  const platforms = ['linux', 'darwin', ...(process.platform !== 'win32' ? ['native-host'] : [])];
+  for (const platform of platforms) await t.test(platform, async t => {
+    const hostPlatform = process.platform, f = setup(t, platform === 'native-host' ? null : platform);
+    await f.app.readConfig();
+    const folder = path.dirname(f.file), snapshot = () => Object.fromEntries(fs.readdirSync(folder).sort().map(name => {
+      const file = path.join(folder, name);
+      return [name, fs.statSync(file).isFile() ? fs.readFileSync(file).toString('base64') : 'directory'];
+    }));
+    const before = snapshot();
+    for (const [route, request] of [
+      ['encryption', { enabled: true }],
+      ['settings', { mode: 'enhanced', technical: false, rules: [], encryption: true }],
+    ]) {
+      const refused = await f.post(route, request);
+      assert.equal(refused.status, 409); assert.equal(refused.body.error.code, 'credential_vault.unsupported');
+      assert.deepEqual(snapshot(), before); assert.equal(f.wraps(), 0); assert.equal(fs.existsSync(f.vaultFile), false);
+    }
+    const current = await f.app.readConfig();
+    assert.equal(current.credentialEncryptionV1, false); assert.equal(current.privacyModeV1, 'off');
+    assert.equal(current.providers[0].apiKey, 'SYNTHETIC-OPTIN-KEY'); assert.deepEqual(snapshot(), before);
+    assert.equal(process.platform, hostPlatform); assert.equal(require('node:process').platform, hostPlatform);
+  });
+});
+
+test('test platform facade remains module-local and rejects arbitrary process replacements', () => {
+  const original = process.platform;
+  for (const testPlatform of ['', 'windows', { platform: 'win32' }]) assert.throws(() => loadServerInternals(['defaultConfig'], { testPlatform }), /invalid testPlatform/);
+  assert.equal(process.platform, original); assert.equal(require('node:process').platform, original);
 });
