@@ -120,7 +120,7 @@ const EXPECTED = {
   // W7:stewardManagedWorkspaces(如意自己为任务开的文件夹那张表)与 workspaces 同属围栏 —— 它进管家的
   // 已知工作区、cwd 校验与 steward_file_read 的可读根。管家能改它 = 能给自己登记一个可读可派的新目录。
   stewardManagedWorkspaces: 'forbidden',
-  configSchema: 'forbidden', configExplicitKeysV1: 'forbidden', version: 'forbidden', lastUsedEngineRoute: 'forbidden',
+  configSchema: 'forbidden', configExplicitKeysV1: 'forbidden', credentialEncryptionV1: 'forbidden', privacyModeV1: 'forbidden', privacyTechnicalV1: 'forbidden', privacyRulesV1: 'forbidden', privacyPolicyRecoveryRequiredV1: 'forbidden', version: 'forbidden', lastUsedEngineRoute: 'forbidden',
   claudePath: 'forbidden', kimiPath: 'forbidden', defaultWorkspace: 'forbidden', extraClaudeArgs: 'forbidden',
   allowCommandTools: 'forbidden', allowDesktopTools: 'forbidden', mcpCommandMode: 'forbidden', permissionBridge: 'forbidden',
   autonomyAutoResume: 'forbidden', modelsApiKey: 'forbidden', claudeAuthMode: 'forbidden', providers: 'forbidden',

@@ -285,7 +285,9 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   const turnToolCalls = await stewardDelegationToolCalls(turn && turn.turnSeq, true);
   // 设置直调也须出现在可见回执和历史章里，不能只留在折叠的工具轨迹中。
   const settingReceipts = turnToolCalls.filter(call => call.name === 'steward_config_set' && call.result?.error !== 'propose_required')
-    .map(call => ({ tool: call.name, args: call.input || {}, label: STEWARD_TOOL_LABELS[call.name], result: call.result }));
+    .map(call => ({ tool: call.name, args: call.input?.privacy ? { privacy: true } : call.input || {}, label: STEWARD_TOOL_LABELS[call.name],
+      result: call.result?.status === 'pending' && turn?.privacySettings ? { ...turn.privacySettings,
+        receipt: { kind: 'settings', object: 'ruyi', changes: [{ key: 'privacyModeV1', value: turn.privacySettings.mode, scope: 'application', effective: 'next_turn' }] } } : call.result }));
   const externalToolFacts = trigger === 'external' ? {
     toolFailures: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error !== 'propose_required').length),
     toolProposals: Math.min(100, turnToolCalls.filter(call => call.result?.ok === false && call.result.error === 'propose_required').length),

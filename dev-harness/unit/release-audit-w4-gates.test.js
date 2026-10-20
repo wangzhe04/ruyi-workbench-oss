@@ -115,7 +115,11 @@ test('[C] 0 字节 / 全空白 config.json 从 .prev 恢复服务商与密钥;�
     const cfg = await I.readConfig();
     const p1 = (cfg.providers || []).find(p => p && p.id === 'p1');
     assert.ok(p1 && p1.apiKey === 'sk-AUDIT-W4-0123456789', `空文件 ${JSON.stringify(empty)} 应从 .prev 恢复出 p1 与密钥,实得 ${JSON.stringify(cfg.providers)}`);
-    assert.match(fs.readFileSync(cfgFile, 'utf8'), /sk-AUDIT-W4-0123456789/, '恢复后落盘,config.json 不再是空的');
+    const restoredDisk = fs.readFileSync(cfgFile, 'utf8');
+    if (cfg.credentialEncryptionV1 === true) {
+      assert.ok(JSON.parse(restoredDisk).credentialRefsV1.slots.length > 0, '81-P1: 恢复后落盘为可解锁凭据引用');
+      assert.equal(restoredDisk.includes('sk-AUDIT-W4-0123456789'), false, '81-P1: 恢复过程不能重新写入明文密钥');
+    } else assert.match(restoredDisk, /sk-AUDIT-W4-0123456789/, '旧存储模式恢复后落盘,config.json 不再是空的');
   }
   fs.unlinkSync(cfgFile + '.prev');
   fs.writeFileSync(cfgFile, '', 'utf8');

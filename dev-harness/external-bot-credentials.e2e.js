@@ -55,10 +55,10 @@ async function worker() {
     return child;
   };
   const code = constBlock(readSource('01-config.js'), 'DurableJsonStore') + '\n' + functionBlock(readSource('00-boot.js'), 'runKeyedChain')
-    + '\n' + readSource('13y-external-bot-credentials.js') + '\nExternalBotCredentials';
+    + '\n' + readSource('01j-local-crypto.js') + '\n' + readSource('13y-external-bot-credentials.js') + '\nExternalBotCredentials';
   const context = { fs, fsp, path, crypto, Buffer, TextDecoder, setTimeout, clearTimeout, paths: { data: task.data },
     process: { platform: process.platform, env: { ...process.env, ...(task.env || {}) } },
-    require: name => { if (name !== 'node:child_process') throw new Error('unexpected module'); return { spawn }; },
+    require: name => { if (name === 'node:path') return path; if (name !== 'node:child_process') throw new Error('unexpected module'); return { spawn }; },
     atomicWriteJson: async (file, value) => {
       const temporary = file + '.fixture-tmp'; await fsp.writeFile(temporary, JSON.stringify(value), { mode: 0o600 }); await fsp.rename(temporary, file);
     } };

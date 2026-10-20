@@ -12,6 +12,75 @@
    「集成与 MCP」），本层补公用页分段 .settings-section、「模型分配」表与服务商保存条三族。 */
 
 /* ── 弹窗加宽：720 → 920（与 tool-pane.css 的 #settingsModal .modal 同特指度，本层后加载取胜） ── */
+/* Privacy: saved state, a separate draft, then progressively disclosed tools. */
+#settingsModal .privacy-panel { gap: var(--sp-3); }
+.privacy-summary { display: grid; gap: var(--sp-1); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); overflow-wrap: anywhere; }
+.privacy-summary > strong { font-size: var(--fs-lg); }
+.privacy-summary:focus { outline: none; }
+.privacy-summary p { margin: 0; line-height: 1.6; font-size: var(--fs-sm); font-weight: 400; }
+.privacy-eyebrow, .privacy-storage { font-size: var(--fs-xs); color: var(--muted); }
+.privacy-summary[data-mode="enhanced"], .privacy-summary[data-mode="basic"], .privacy-summary[data-mode="strict"] { border-color: var(--accent); }
+.privacy-summary[data-mode="paused"], .privacy-recovery { border-color: var(--danger-fg); }
+.privacy-levels { margin: 0; padding: 0; border: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); min-width: 0; }
+.privacy-levels legend { margin-bottom: var(--sp-2); font-weight: 600; font-size: var(--fs-sm); }
+.privacy-level { display: flex; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; background: var(--panel); min-width: 0; }
+.privacy-level:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.privacy-level:focus-within { box-shadow: var(--ring); }
+#settingsModal .privacy-level input, #settingsModal .privacy-check input { flex: 0 0 auto; width: 16px; height: 16px; padding: 0; margin: 3px 0 0; }
+.privacy-level-copy { display: grid; gap: var(--sp-1); min-width: 0; }
+.privacy-level-copy strong { font-size: var(--fs-sm); }
+.privacy-level-copy > span { color: var(--muted); font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
+#settingsModal .privacy-check { display: flex; align-items: flex-start; gap: var(--sp-2); font-size: var(--fs-sm); line-height: 1.6; }
+.privacy-dependency, .privacy-recovery { padding: var(--sp-2) var(--sp-3); background: var(--accent-soft); border-radius: var(--r-sm); font-size: var(--fs-xs); line-height: 1.6; margin: 0; }
+.privacy-savebar { position: static; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-2); min-width: 0; flex: 1 1 auto; }
+#settingsModal .privacy-savebar[hidden] { display: none; }
+#settingsModal .modal-foot.privacy-footer-active { flex: 0 0 auto; background: var(--panel); }
+#settingsModal .privacy-footer-active > .settings-foot-status, #settingsModal .privacy-footer-active > .composer-spacer, #settingsModal .privacy-footer-active > [data-close-modal] { display: none; }
+.privacy-footer-status { min-width: 0; display: grid; gap: var(--sp-1); }
+.privacy-savebar .privacy-pending { margin: 0; color: var(--muted); font-size: var(--fs-xs); }
+.privacy-savebar .privacy-pending[data-dirty="true"] { color: var(--link); font-weight: 600; }
+#settingsModal .privacy-savebar button { white-space: normal; overflow-wrap: anywhere; }
+#settingsModal #privacyReload { color: var(--ink); background: var(--panel); border-color: var(--line-2); }
+.privacy-operation { margin: 0; font-size: var(--fs-sm); line-height: 1.6; overflow-wrap: anywhere; }
+.privacy-operation:empty { display: none; }
+.privacy-fold { border-top: 1px solid var(--line); padding-top: var(--sp-3); min-width: 0; }
+.privacy-fold summary { cursor: pointer; font-size: var(--fs-sm); font-weight: 600; margin-bottom: var(--sp-2); }
+.privacy-fold .field-help { font-size: var(--fs-xs); line-height: 1.6; }
+.privacy-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 18rem; overflow: auto; font-size: var(--fs-xs); }
+.composer-more-pop .cm-item.privacy-menu-item { display: grid; grid-template-columns: 16px minmax(0,1fr) auto; gap: var(--sp-2); min-width: min(290px, calc(100vw - 40px)); max-width: 340px; white-space: normal; text-decoration: none; }
+.privacy-menu-copy { display: grid; gap: 3px; min-width: 0; }
+.privacy-menu-copy strong { font-size: var(--fs-sm); font-weight: 500; }
+.privacy-menu-copy > span { font-size: var(--fs-xs); color: var(--muted); line-height: 1.4; }
+.privacy-menu-state { color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; }
+.privacy-menu-item[data-privacy="paused"] .privacy-menu-state { color: var(--danger-fg); }
+.privacy-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.privacy-rule-list, .privacy-rule-builder { display: grid; gap: var(--sp-2); margin-block: var(--sp-3); min-width: 0; }
+.privacy-rule-row { display: flex; gap: var(--sp-2); align-items: center; border-bottom: 1px solid var(--line); padding-block: var(--sp-2); min-width: 0; }
+.privacy-rule-copy { flex: 1; display: grid; gap: var(--sp-1); min-width: 0; font-size: var(--fs-xs); }
+.privacy-rule-copy code, .privacy-example code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-xs); }
+.privacy-rule-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--sp-2); }
+.privacy-rule-grid .field-block:has(#privacyRuleValue) { grid-column: 1 / -1; }
+.privacy-rule-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.privacy-rule-row button { min-height: 30px; padding: 4px 8px; font-size: var(--fs-xs); }
+.privacy-example { padding-block: var(--sp-2); display: grid; gap: var(--sp-1); border-bottom: 1px solid var(--line); }
+.privacy-example > button { justify-self: start; }
+.privacy-example-toolbar { display: flex; gap: var(--sp-2); align-items: flex-end; margin-bottom: var(--sp-3); }
+.privacy-example-toolbar > .field-block { flex: 1; min-width: 0; }
+#settingsModal #stab-security > .settings-jumplist { position: static; box-shadow: none; }
+#privacySettings [hidden] { display: none !important; }
+@media (max-width: 540px) {
+  .privacy-level { padding: var(--sp-2); gap: var(--sp-1); }
+  .privacy-level-copy > span { font-size: var(--fs-xs); line-height: 1.45; }
+  .privacy-savebar { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .privacy-footer-status { grid-column: 1 / -1; }
+  .privacy-savebar > #privacySave { grid-column: 1; grid-row: 2; }
+  .privacy-savebar > #privacyReload { grid-column: 2; grid-row: 2; }
+  .privacy-savebar:has(#privacyReload[hidden]) > #privacySave { grid-column: 1 / -1; }
+  .privacy-rule-grid { grid-template-columns: minmax(0,1fr); }
+  .privacy-rule-row { flex-wrap: wrap; }
+  .privacy-example-toolbar { flex-wrap: wrap; }
+}
+
 #settingsModal .modal { width: min(920px, 94vw); }
 
 /* ── 骨架：左导航 ＋ 右面板。`.modal` 是 column flex，本行吃掉头部与页脚之间的全部高度。 ── */

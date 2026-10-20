@@ -119,7 +119,8 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
   // ── H 段: HTTP 全路径 ──
   console.log('── H 段: HTTP scan/apply ──');
   const WP = await getFreePort();
-  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '2.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, externalMcpServers: [{ id: 'existing', label: '已有', command: 'old.exe', args: [], env: {}, cwd: '', enabled: true }] }));
+  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ credentialEncryptionV1: process.platform === 'win32', configSchema: 7, version: '2.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, externalMcpServers: [{ id: 'existing', label: '已有', command: 'old.exe', args: [], env: {}, cwd: '', enabled: true }] }));
+  let configReader = null;
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   try {
     ok(await up(WP), 'workbench up');
@@ -152,12 +153,20 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
     ok(ap.json.added.includes('imported-stdio') && ap.json.added.includes('imported-sse'), 'H7 apply 写 stdio + sse(49c 远程已落地)');
     ok(ap.json.skipped.some(s => s.id === 'imported-bad'), 'H7b apply 跳过缺 url 的远程条目');
     // 验证写回 config
-    const cfg = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(HOME);
+    const rawCfg = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const cfg = configReader.recover(rawCfg);
     const ids = (cfg.externalMcpServers || []).map(s => s.id);
     ok(ids.includes('imported-stdio') && ids.includes('imported-sse'), 'H8 config.externalMcpServers 含 stdio + sse');
     const sseCfg = (cfg.externalMcpServers || []).find(s => s.id === 'imported-sse');
     ok(!!sseCfg && sseCfg.transport === 'sse' && sseCfg.url === 'http://x', 'H8b 远程条目落盘形状(transport/url)');
-    ok(!!sseCfg && sseCfg.headers && sseCfg.headers.Authorization === 'Bearer ${MCP_SECRET_VAR}', 'H8c 落盘 headers 保持 ${VAR} 引用(密钥未明文)');
+    ok(!!sseCfg && sseCfg.headers && sseCfg.headers.Authorization === 'Bearer ${MCP_SECRET_VAR}', 'H8c 持久 headers 解密后逐字保留 ${VAR} 引用(未展开密钥)');
+    if (process.platform === 'win32') {
+      const physicalFiles = ['config.json', 'config.json.prev', 'credential-vault-v1.json'].filter(name => fs.existsSync(path.join(HOME, name)));
+      ok(rawCfg.credentialRefsV1?.version === 1 && rawCfg.externalMcpServers.find(s => s.id === 'imported-sse')?.headers === ''
+        && physicalFiles.every(name => { const text = fs.readFileSync(path.join(HOME, name), 'utf8'); return !text.includes('Bearer ${MCP_SECRET_VAR}') && !text.includes('should-not-bake-in'); }),
+      'H8d Windows 主配置、备份和凭据库无 header 引用明文或展开的密钥');
+    }
 
     // apply id 撞名 -> 更新(非追加)
     const ap2 = await post(WP, '/api/mcp/import-config/apply', { servers: [{ id: 'existing', label: '更新后', command: 'updated.exe', args: [], env: {}, cwd: '' }] }, hdr);
@@ -172,7 +181,7 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
       { id: 'masked-stdio', label: 'm', command: 'node', args: ['x.js', '--token', '«redacted»'], env: { TOKEN: '••••abcd' }, cwd: '' },
       { id: 'masked-remote', type: 'http', url: 'http://x', headers: { Authorization: '••••wxyz' }, command: '' },
     ] }, hdr);
-    const cfgM = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const cfgM = configReader.recover(JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')));
     const ms = (cfgM.externalMcpServers || []).find(s => s.id === 'masked-stdio');
     const mr = (cfgM.externalMcpServers || []).find(s => s.id === 'masked-remote');
     const cfgMText = fs.readFileSync(path.join(HOME, 'config.json'), 'utf8');
@@ -186,6 +195,7 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
     ok(ap3.json && ap3.json.skipped.some(s => s.id === 'overflow' && /上限/.test(s.reason)), 'H12 apply 超 10 上限 -> skip 带原因');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
+    configReader?.close();
     if (wb && wb.pid) { try { killOwnTree(wb); } catch {} }
     await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nMCP IMPORT CONFIG E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

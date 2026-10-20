@@ -131,8 +131,18 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     fs.writeFileSync(failCompletedFlag,'fail');await callback('completion_failure','请汇报 CONTROL_FINISHFAIL');
     const failedRead=await until(async()=>{const value=(await request('GET','/api/external-bots/inbox')).json;const item=value.items.find(row=>row.messageId==='completion_failure');return value.worker.errorCode&&item?.execution?.status==='unknown'&&value;},'failed completion projection');
     const completedCalls=commandCalls.get('CONTROL_FINISHFAIL');ok(failedRead.worker.errorCode==='external_channel.storage_unavailable','C16 completion write failure projects unknown with persistent visible read quality');
+    const persistedFailure=JSON.parse(fs.readFileSync(stateFile,'utf8')).items.find(item=>item.messageId==='completion_failure');
+    ok(persistedFailure?.execution?.status==='running','C16b failed completion persistence leaves the durable execution running before restart');
     fs.unlinkSync(failCompletedFlag);await stop();await start();
-    ok((await readItem('completion_failure')).execution.status==='unknown'&&commandCalls.get('CONTROL_FINISHFAIL')===completedCalls,'C17 restart settles running-to-unknown without replaying a command after failed result persistence');
+    // Health/token readiness precedes asynchronous worker recovery. Observe its actual durable commit,
+    // rather than treating the first inbox read as proof that background recovery has already finished.
+    const recovered=await until(()=>{
+      const item=JSON.parse(fs.readFileSync(stateFile,'utf8')).items.find(row=>row.messageId==='completion_failure');
+      if(commandCalls.get('CONTROL_FINISHFAIL')!==completedCalls)throw new Error('restart replayed the uncertain command');
+      return item?.execution?.status==='unknown'&&item;
+    },'persisted restart recovery');
+    ok((await readItem('completion_failure')).execution.status==='unknown'&&recovered.execution.errorCode==='external_channel.execution_unknown'
+      &&Number.isFinite(Date.parse(recovered.execution.finishedAt))&&commandCalls.get('CONTROL_FINISHFAIL')===completedCalls,'C17 restart settles running-to-unknown without replaying a command after failed result persistence');
     await callback('control_create','请创建任务 CONTROL_CREATE，并告诉我真实结果。','feishu','restart_duplicate');await sleep(100);
     ok(commandCalls.get('CONTROL_CREATE')===before,'C18 actual process restart preserves source-message execution dedupe');
     ok(fake.errors.length===0,'C19 scripted model fixture has no hidden handler failures');

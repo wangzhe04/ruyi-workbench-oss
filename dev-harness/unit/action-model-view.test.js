@@ -69,7 +69,8 @@ console.log('\n── 对抗验证 ──');
 // A1: 伪造 audit 条目(sha 对不上)→ 不投影(tamper-safe, 已覆盖)
 // A2: 幂等(已覆盖)
 // A3: responses 路径透传 —— 投影后的 arguments 经 buildResponsesInputItems 原样透传为 function_call.arguments
-ok(src.includes("const viewHistory = actionAuditMap.size ? projectActionModelView(session.providerHistory, actionAuditMap).history : session.providerHistory;")
+ok(src.includes("const privacyHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(session, session.providerHistory) : session.providerHistory;")
+  && src.includes("const viewHistory = actionAuditMap.size ? projectActionModelView(privacyHistory, actionAuditMap).history : privacyHistory;")
   && src.includes("const msgs = [{ role: 'system', content: sys }, ...viewHistory];"), 'A3 responses+chat buildBody both consume the projected view');
 // A4: malformed rawArgs(非 JSON)→ 拒绝生成空 envelope,不投影
 const malformedAudit = new Map([['call-4', { actionRef: 'r4', toolCallId: 'call-4', toolName: 'file_write', sha256: crypto.createHash('sha256').update('{not-json').digest('hex'), status: 'completed' }]]);

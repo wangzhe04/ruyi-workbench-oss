@@ -9,7 +9,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   V1 没配语音识别:两个视角的输入框里都有一枚待开启的麦克风(data-state="setup"),提示说清「还没开启、点这里去设置」。
 //   V2 点工作台那一枚:设置页打开、落在「服务商」页签、「语音识别」那一栏在(无候选也渲染),焦点落在「模型名」输入框。
 //   V3 在那一栏里选服务商、填模型名、点「添加并启用」:配置里那个服务商多了一条带 asr 能力的模型、语音识别选中了它;
-//      【密钥没被冲掉】(整份 providers 回写要经服务端的掩码合并 —— 读盘上的 config.json 核)。
+//      【密钥没被冲掉】(整份 providers 回写要经服务端的掩码合并 —— 解密磁盘引用后核对精确原值)。
 //   V4 不用重载:两个视角的麦克风都从待开启变成能录(data-state="idle");设置页那一栏变成选择器且选中了它。
 //   V5 选择器切回「不启用」:两枚麦克风回到待开启(修前是整个拆掉)。
 // 判定行:`VOICE SETUP BROWSER E2E: ALL PASS`。
@@ -25,9 +25,9 @@ const ok = (condition, label) => {
 const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'locales', 'zh-CN.json'), 'utf8'));
 
 (async () => {
-  let fx = null;
+  let fx = null, configReader = null;
   try {
-    fx = await startBrowserFixture({ ok, prefix: 'ruyi-voice-setup-', width: 1400, height: 900 });
+    fx = await startBrowserFixture({ ok, prefix: 'ruyi-voice-setup-', width: 1400, height: 900, config: { credentialEncryptionV1: process.platform === 'win32' } });
     const mic = id => fx.evaluate(`(() => { const b = document.getElementById(${JSON.stringify(id)});
       return b ? { state: b.dataset.state || '', title: b.title || '', label: b.getAttribute('aria-label') || '', pressed: b.getAttribute('aria-pressed') } : null; })()`);
     const waitMic = (id, state) => fx.waitForEval(`(() => { const b = document.getElementById(${JSON.stringify(id)}); return b && b.dataset.state === ${JSON.stringify(state)} ? 1 : null; })()`, 150);
@@ -58,7 +58,8 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     ok(Boolean(landed) && /asr-add-model/.test(landed.focused), `V2b 焦点落在「模型名」输入框(实测 activeElement.className=${landed && landed.focused})`);
 
     /* ── V3 添加并启用 ── */
-    const before = JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8'));
+    configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(fx.home);
+    const before = configReader.recover(JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8')));
     const keyBefore = ((before.providers || []).find(p => p && p.id === 'fake') || {}).apiKey;
     // 134(4ecd1ed) 起「模型名」是统一下拉,只能选服务商目录里有的:先像「刷新模型清单」那样把 fake-asr 发布进 fake 的目录,再选它。
     await fx.evaluate(`(async () => { const m = await import('/js/model-catalog.js');
@@ -72,12 +73,18 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
       return true;
     })()`);
     const saved = await fx.waitForEval(`(() => { const c = window.state && window.state.config; return c && c.asrProviderId === 'fake' && c.asrModel === 'fake-asr' ? 1 : null; })()`, 150);
-    const disk = JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8'));
+    const rawDisk = JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8'));
+    const disk = configReader.recover(rawDisk);
     const fake = (disk.providers || []).find(p => p && p.id === 'fake') || {};
     const asrModel = (fake.models || []).find(m => m && typeof m === 'object' && m.id === 'fake-asr');
     ok(Boolean(saved) && disk.asrProviderId === 'fake' && disk.asrModel === 'fake-asr' && Boolean(asrModel) && Array.isArray(asrModel.caps) && asrModel.caps.includes('asr'),
       `V3 添加并启用:盘上 config.json 里服务商多了一条带 asr 能力的模型、语音识别选中了它(实测 asr=${disk.asrProviderId}/${disk.asrModel} 模型 ${JSON.stringify(asrModel)})`);
-    ok(Boolean(keyBefore) && fake.apiKey === keyBefore, `V3b 整份服务商回写没冲掉密钥(前 ${keyBefore ? '有' : '无'}、后 ${fake.apiKey === keyBefore ? '原样' : '变了:' + String(fake.apiKey).slice(0, 6)})`);
+    ok(Boolean(keyBefore) && fake.apiKey === keyBefore, 'V3b 整份服务商回写后,持久凭据解密仍为逐字相同的原值');
+    if (process.platform === 'win32') {
+      const physicalFiles = ['config.json', 'config.json.prev', 'credential-vault-v1.json'].filter(name => fs.existsSync(path.join(fx.home, name)));
+      const rawFake = (rawDisk.providers || []).find(provider => provider.id === 'fake');
+      ok(rawDisk.credentialRefsV1?.version === 1 && rawFake?.apiKey === '' && physicalFiles.every(name => !fs.readFileSync(path.join(fx.home, name), 'utf8').includes(keyBefore)), 'V3b1 Windows 主配置、备份及凭据库使用密文引用,不含原密钥明文');
+    }
     ok((fake.models || []).some(m => (m && typeof m === 'object' ? m.id : m) === 'fake-model'), 'V3c 原来那个聊天模型还在');
 
     /* ── V4 不用重载,两枚麦克风都能录了 ── */
@@ -152,6 +159,7 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     fail += 1;
     console.log('FAIL 未捕获异常:' + (error && error.stack || error));
   } finally {
+    configReader?.close();
     if (fx) await fx.close({ keepRoot: false });
   }
   console.log(fail === 0 ? 'VOICE SETUP BROWSER E2E: ALL PASS' : `VOICE SETUP BROWSER E2E: FAILURES ${fail}`);

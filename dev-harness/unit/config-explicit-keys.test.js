@@ -82,6 +82,9 @@ test('[B] 旧版本的整份配置:等于默认的键清掉,不等于的记成�
 
 test('[C] mutateConfig 改过的键进显式集合;改回默认值仍然钉住', async () => {
   reset();
+  // A reused process has a last-good config: deleting it is now a lost installation,
+  // not a fresh install. Seed a valid sparse configuration for this explicit-key test.
+  writeDisk({ configSchema: CONFIG_SCHEMA, configExplicitKeysV1: [] });
   await readConfig();
   const other = DEFAULTS.toolLoadingMode === 'auto' ? 'full' : 'auto';
   await mutateConfig(current => { current.toolLoadingMode = other; });

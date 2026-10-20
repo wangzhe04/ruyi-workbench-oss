@@ -2738,12 +2738,13 @@ function isNativeToolName(name) {
 }
 function resolveBridge(bridgedRoute, name) {
   if (!name || !bridgedRoute) return null;
-  if (bridgedRoute[name]) return bridgedRoute[name];       // ① 精确前缀名
+  const valid = value => value && typeof value === 'object' && Object.hasOwn(value, 'serverId') && typeof value.serverId === 'string' && value.serverId.length > 0 && Object.hasOwn(value, 'toolName') && typeof value.toolName === 'string' && value.toolName.length > 0;
+  if (Object.hasOwn(bridgedRoute, name) && valid(bridgedRoute[name])) return bridgedRoute[name]; // ① 精确前缀名
   if (isNativeToolName(name)) return null;                 // ② 内建优先,不被桥接遮蔽
   let hit = null, count = 0;                               // ③ 裸名唯一命中桥接工具 → 容错路由
-  for (const k in bridgedRoute) {
+  for (const k of Object.keys(bridgedRoute)) {
     const r = bridgedRoute[k];
-    if (r && r.toolName === name) { hit = r; if (++count > 1) return null; }
+    if (valid(r) && r.toolName === name) { hit = r; if (++count > 1) return null; }
   }
   return count === 1 ? hit : null;
 }

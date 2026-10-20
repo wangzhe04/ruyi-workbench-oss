@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), fsp = require('node:fs/promises'), os = require('node:os'), path = require('node:path'), vm = require('node:vm');
 const { functionBlock } = require('../lib/source-slice');
 const { fixture: composerFixture } = require('../lib/composer-race-fixture');
+const { killOwnTree } = require('../lib/kill-own-tree');
 const src = path.resolve(__dirname, '../../ruyi-workbench/app/src');
 const read = file => fs.readFileSync(path.join(src, file), 'utf8');
 const domain = read('13b-api-domain-routes.js');
@@ -27,9 +28,9 @@ function backend(t, kind = 'openai') {
   vm.runInContext(read('04-visual-pipeline.js') + '\n' + functionBlock(bridge, 'pathWithinRoot') + '\n' +
     functionBlock(bridge, 'buildAttachmentPrompt') + '\n' + functionBlock(read('04-permission-runtime.js'), 'sanitizeFsSegmentName') + '\n' +
     functionBlock(read('01-config.js'), 'buildUserEnvelope') + '\n' + steering + '\n' +
-    'Object.assign(SteerAttachmentHooks, { pathWithinRoot, buildAttachmentPrompt });\n' +
     functionBlock(read('07-autonomy.js'), 'drainSteerQueue') + '\n' + functionBlock(read('02c-turn-segments.js'), 'createTurnSegmentBuilder'), c);
   reg.onEvent = event => events.push(event);
+  reg.buildSteerAttachmentPrompt = c.buildAttachmentPrompt;
   return { c, reg, session, regs, attachment, events, writes };
 }
 
@@ -126,7 +127,17 @@ test('真实 HTTP 回合的下一次 provider 请求包含插话图片,会话保
       APPDATA: path.join(home, 'AppData', 'Roaming'), LOCALAPPDATA: path.join(home, 'AppData', 'Local') },
     windowsHide: true, stdio: 'ignore',
   });
-  t.after(async () => { releaseFirst(); child.kill(); await fake.close(); fs.rmSync(home, { recursive: true, force: true }); });
+  t.after(async () => {
+    releaseFirst(); killOwnTree(child);
+    if (child.exitCode === null && child.signalCode === null) await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('owned steering server did not exit')), 5000);
+      child.once('exit', () => { clearTimeout(timer); resolve(); });
+    });
+    await fake.close();
+    const target = path.resolve(home);
+    if (path.dirname(target) !== path.resolve(os.tmpdir()) || !path.basename(target).startsWith('ruyi-steer-http-image-')) throw new Error('steering fixture cleanup scope');
+    fs.rmSync(target, { recursive: true, force: true });
+  });
   let token = '';
   for (let i = 0; i < 200; i++) {
     try { token = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { /* boot */ }

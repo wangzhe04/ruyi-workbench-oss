@@ -1016,9 +1016,10 @@ function fileToolUnencodable(e, p, encoding, what) {
   return { ok: false, code: 'unencodable', error: e.message, path: p, encoding, hint };
 }
 // F6:file_edit 未命中。按「空白差异 > 整段 oldText 的最接近窗口」给出可操作的诊断。
-function buildFileEditMiss(p, raw, oldText, sourceLineEnding) {
+function buildFileEditMiss(p, raw, oldText, sourceLineEnding, sourceView = null, oldView = null) {
   const fileLines = raw.split(/\r?\n/);
   const oldLines = oldText.split(/\r?\n/);
+  const sourceOffsets = sourceView ? privacySourceLineOffsets(raw) : null;
   const needle = oldLines[0] || '';
   const MAX_CLOSEST_SCAN_LINES = 20000;
   // ① 只差空白?(制表符↔空格、行尾空白、NBSP/全角空格、行内空白个数)—— 最常见也最能一句话说清的一类。
@@ -1038,7 +1039,7 @@ function buildFileEditMiss(p, raw, oldText, sourceLineEnding) {
     closest = {
       line: win.start + 1,
       distance,
-      snippet: fileLines.slice(from, to).map((t, k) => `${from + k + 1}\t${FileTextIo.showWs(t.slice(0, 500))}`).join('\n'),
+      snippet: fileLines.slice(from, to).map((t, k) => `${from + k + 1}\t${FileTextIo.showWs(sourceView ? privacySourceLine(sourceView, raw, sourceOffsets, from + k + 1, 500) : t.slice(0, 500))}`).join('\n'),
       scannedLines: Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES),
       ...(oldLines.length > 1 ? { matchedLines: win.matched, oldTextLines: oldLines.length } : {}),
     };
@@ -1053,10 +1054,10 @@ function buildFileEditMiss(p, raw, oldText, sourceLineEnding) {
   if (oldText.normalize('NFC') !== oldText) hints.push('oldText 含组合字符(NFD 形式),文件可能是预组合 NFC');
   for (const ch of oldText) {
     const cp = ch.codePointAt(0);
-    if (cp >= 0xFF01 && cp <= 0xFF5E) { hints.push('oldText 含全角字符 ' + accCpName(ch) + ',文件里可能是半角'); break; }
+    if (cp >= 0xFF01 && cp <= 0xFF5E) { hints.push(sourceView ? 'oldText 含全角字符,文件里可能是半角' : 'oldText 含全角字符 ' + accCpName(ch) + ',文件里可能是半角'); break; }
   }
   const nonAsciiOld = [...oldText].filter(c => c.codePointAt(0) > 0x7F);
-  if (nonAsciiOld.length) hints.push('oldText 含非 ASCII 字符: ' + nonAsciiOld.slice(0, 8).map(accCpName).join(', ') + '——文件对应位置可能是 ASCII 形近字符(或反之),逐字节必然不匹配');
+  if (nonAsciiOld.length) hints.push(sourceView ? 'oldText 含非 ASCII 字符;请核对原文中的空白和形近字符。' : 'oldText 含非 ASCII 字符: ' + nonAsciiOld.slice(0, 8).map(accCpName).join(', ') + '——文件对应位置可能是 ASCII 形近字符(或反之),逐字节必然不匹配');
   // firstDiff: independent two-phase scan (long tokens, then single alnum chars) with per-line
   // sliding-window alignment. NOT derived from closest.best — whole-line Levenshtein distance
   // favours short unrelated lines over the real lookalike line (e.g. 'return x' beats 'x = a → b'
@@ -1095,7 +1096,10 @@ function buildFileEditMiss(p, raw, oldText, sourceLineEnding) {
         const a = lineText[bestOff + k];
         const b = ned[k];
         if (a === undefined || b === undefined || a !== b) {
-          firstDiff = { line: bestLine + 1, column: bestOff + k + 1, fileChar: accCpName(a === undefined ? null : a), wantChar: accCpName(b === undefined ? null : b) };
+          const privateChar = (view, offset, length) => view && offset >= 0 && offset < length && PrivacyGateway.sliceSource(view, offset, offset + 1).text.includes('[[RUYI_PVT:');
+          firstDiff = { line: bestLine + 1, column: bestOff + k + 1,
+            fileChar: privateChar(sourceView, (sourceOffsets?.[bestLine] || 0) + bestOff + k, raw.length) ? '[private character]' : accCpName(a === undefined ? null : a),
+            wantChar: privateChar(oldView, k, oldText.length) ? '[private character]' : accCpName(b === undefined ? null : b) };
           break;
         }
       }
@@ -1105,18 +1109,26 @@ function buildFileEditMiss(p, raw, oldText, sourceLineEnding) {
   let hint;
   if (ws) {
     out.code = 'whitespace_mismatch';
-    out.whitespace = { line: ws.line, lineCount: ws.lineCount, kinds: ws.kinds, actualText: ws.actualText.slice(0, 4000) };
+    const start = sourceOffsets?.[ws.line - 1];
+    out.whitespace = { line: ws.line, lineCount: ws.lineCount, kinds: ws.kinds, actualText: sourceView
+      ? PrivacyGateway.sliceSource(sourceView, start, Math.min(raw.length, start + Math.min(ws.actualText.length, 4000))).text : ws.actualText.slice(0, 4000) };
     hint = `第 ${ws.line} 行起的文本与 oldText 只有空白不同:${FileTextIo.describeWsKinds(ws.kinds)}。请把 oldText 改成 whitespace.actualText(文件里的原样文本),或先用 file_read 行模式复制原文再改`;
   } else if (closest) {
     const mm = win && win.mismatch;
     hint = `oldText 在文件里没有逐字节命中;最接近的位置在第 ${closest.line} 行`
-      + (mm ? `(第 ${mm.line} 行起不同:文件是 ${JSON.stringify(mm.actual)},oldText 是 ${JSON.stringify(mm.expected)})` : '')
+      + (mm && !sourceView ? `(第 ${mm.line} 行起不同:文件是 ${JSON.stringify(mm.actual)},oldText 是 ${JSON.stringify(mm.expected)})` : '')
       + '。请用 file_read 重新读取该区域(行模式),逐字复制作为 oldText;snippet 里的 → 表示制表符';
-    if (mm) out.mismatch = mm;
+    if (mm) out.mismatch = sourceView ? { ...mm,
+      actual: mm.actual === null ? null : FileTextIo.showWs(privacySourceLine(sourceView, raw, sourceOffsets, mm.line, 200)),
+      expected: oldView ? privacySourceLine(oldView, oldText, privacySourceLineOffsets(oldText), mm.oldTextLine || 1, 200) : mm.expected } : mm;
   } else hint = 'oldText 在文件里没有逐字节命中;请用 file_read 重新读取该区域,逐字复制作为 oldText';
   if (hints.length) out.hints = hints;
   if (firstDiff) out.firstDiff = firstDiff;
   out.hint = hint;
+  if (sourceView) privacySourceMark(out, ['/closest/snippet', '/whitespace/actualText', '/mismatch/actual'].filter(pointer => {
+    const parts = pointer.slice(1).split('/'); return typeof out[parts[0]]?.[parts[1]] === 'string';
+  }), sourceView);
+  if (oldView && typeof out.mismatch?.expected === 'string') PrivacyGateway.markSourceView(out, ['/mismatch/expected'], oldView);
   return out;
 }
 
@@ -1199,6 +1211,14 @@ async function fileToolBatch(operation, args, ctx) {
   } catch (error) { return { ok: false, code: error.code || 'batch_failed', error: error.message, partial: results.some(r => r.ok) || changedDirectories > 0, results }; }
 }
 
+NativeSourceHooks.readTextWindow = (filePath, st, req) => FileTextIo.readTextWindow(filePath, st, req);
+function fileToolPrivacySourceOptions(ctx, tool) {
+  if (!privacySourceActive()) return {};
+  return { privacyGuard: async target => {
+    const gate = await guardFileToolPath(target, ctx, { tool, write: false });
+    if (!gate.ok) throw Object.assign(new Error('Privacy source access was refused.'), { code: 'privacy.source_access_denied' });
+  } };
+}
 const FILE_TOOL_HANDLERS = {
   acceptance_report: { paths: 'both', guardNote: '', handler: async (args, ctx) => {
     if (!args.path || !args.title || !Array.isArray(args.checks) || !args.checks.length || args.checks.length > 50) return { ok: false, code: 'invalid_report', error: 'Provide path, title and 1..50 checks.' };
@@ -1249,6 +1269,7 @@ const FILE_TOOL_HANDLERS = {
     return { path: p, ...await MediaInspection.checkSyntax(p, String(content)) };
   } },
   file_read: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      const privacyTextRead = typeof PrivacyGateway !== 'undefined' && !!PrivacyGateway.active();
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_read', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       // Native pixels/documents use the same provider image channel as MCP screenshots.
@@ -1256,6 +1277,9 @@ const FILE_TOOL_HANDLERS = {
       let visualKind;
       try {
         visualKind = await FileVisualIo.kind(p);
+        // Text-only extraction still paginates/transforms document source and may start
+        // an external parser. It is unsupported by the privacy boundary, even without pixels.
+        if (privacyTextRead && visualKind) return { ok: false, code: 'privacy.media_not_supported' };
         if (args.as === 'image' && !visualKind) return { ok: false, code: 'not_image', error: 'This file is not an image or supported visual document.', path: p };
         if (args.as === 'image') args = { ...args, includeImages: true };
         if (args.as === 'text' && visualKind === 'image') return { ok: false, code: 'not_text', error: 'Image bytes cannot be read as text; use as:image.', path: p };
@@ -1277,7 +1301,9 @@ const FILE_TOOL_HANDLERS = {
       // 106 #2a: 权限守卫之后、读盘之前的缓存查找 —— 命中即返回(带 cacheHit 标记),未命中
       // 走原路径并在成功结果上存储。cctx 为 null(开关关/非白名单/无会话)时零额外开销。
       // Linked images have independent versions/permissions; never serve a parent-only cache hit.
-      const cctx = args.includeImages === true ? null : execCacheContext('file_read', args, ctx, p);
+      // Off-mode entries may contain truncated text or diagnostic source copies. Never reuse
+      // or store those view objects inside a privacy scope, even for a complete character read.
+      const cctx = privacyTextRead || args.includeImages === true ? null : execCacheContext('file_read', args, ctx, p);
       if (cctx) {
         const hit = await execCacheLookup(cctx);
         if (hit) return hit;
@@ -1319,7 +1345,7 @@ const FILE_TOOL_HANDLERS = {
       if (limitClamped) limit = FILE_READ_CHAR_MAX;
       let w;
       try {
-        w = await FileTextIo.readTextWindow(p, st, {
+        w = await privacyReadTextWindow(p, st, {
           encoding: encReq.enc, mode: hasLineParams ? 'lines' : 'chars', offset: start, limit, lineOffset, lineLimit,
           jsonBudget: FILE_READ_JSON_BUDGET, xform: annotateFlag ? accAnnotateNonAscii : null,
           // 2026-10 走查(R2):前 8KB 含 NUL 的(无 BOM)一律当二进制拒绝,不再只管无扩展名文件 —— 修前 .dat/.log/改了后缀的
@@ -1332,7 +1358,7 @@ const FILE_TOOL_HANDLERS = {
         throw e;
       }
       if (!w.ok) return { ok: false, code: w.code, error: w.error, path: p, hint: w.hint };
-      const linked = await FileVisualIo.linkedImages(p, w.content || (w.lines || []).map(l => l.text).join('\n'), args,
+      const linked = privacyTextRead ? {} : await FileVisualIo.linkedImages(p, w.content || (w.lines || []).map(l => l.text).join('\n'), args,
         target => guardFileToolPath(target, ctx, { tool: 'file_read', write: false }));
       const encFields = { ...linked, encoding: w.encoding, ...(w.bom ? { bom: true } : {}), ...(w.encodingDetected ? { encodingDetected: true } : {}),
         ...(w.encodingWarning ? { encodingWarning: w.encodingWarning } : {}) };
@@ -1340,7 +1366,7 @@ const FILE_TOOL_HANDLERS = {
         const width = String(w.lines.length ? w.lines[w.lines.length - 1].no : 0).length;
         const rawLines = w.lines.map(l => l.text);
         const content = w.lines.map(l => String(l.no).padStart(width, ' ') + '\t' + l.text).join('\n');
-        const na = buildNonAsciiReport(rawLines.join('\n'), { baseLine: w.lines.length ? w.lines[0].no : 1 });
+        const na = privacyTextRead ? null : buildNonAsciiReport(rawLines.join('\n'), { baseLine: w.lines.length ? w.lines[0].no : 1 });
         const result = { ok: true, path: p, mode: 'lines', content: finalContent(content), size: w.size,
           ...(w.totalLines != null ? { totalLines: w.totalLines } : {}), lineOffset, lineLimit, returnedLines: w.lines.length, truncated: w.truncated,
           ...(w.truncated ? { nextLine: w.nextLine } : {}),
@@ -1348,17 +1374,21 @@ const FILE_TOOL_HANDLERS = {
           ...(w.truncated ? { hint: w.lineTruncated
             ? `第 ${w.lineTruncated.line} 行超长(${w.lineTruncated.lineChars} 字符),只返回了开头;要读它的其余部分请用字符模式 offset=${w.lineTruncated.nextOffset};继续后面的行请用 lineOffset=${w.nextLine}`
             : `还有更多内容;继续读请用 lineOffset=${w.nextLine}` } : {}),
-          ...encFields, sourceLineEnding: w.eol, contentLineEnding: 'lf', ...(na.total ? { non_ascii: na } : {}) };
+          ...encFields, sourceLineEnding: w.eol, contentLineEnding: 'lf', ...(na && na.total ? { non_ascii: na } : {}) };
+        privacySourceMark(result, ['/content'], privacySourceViews.get(w));
         if (cctx) await execCacheStore(cctx, result);
         return result;
       }
-      const na = buildNonAsciiReport(w.content, { baseLine: w.lineBase });
-      const result = { ok: true, path: p, content: finalContent(w.content), offset: start, size: w.size, ...(w.totalChars != null ? { totalChars: w.totalChars } : {}),
+      // Diagnostic contexts/characters are raw derived copies with no JSON Pointer identity.
+      // Let the unified gateway scan the single complete source before it reaches the model.
+      const na = privacyTextRead ? null : buildNonAsciiReport(w.content, { baseLine: w.lineBase });
+      const result = { ok: true, path: p, content: finalContent(w.content), offset: privacyTextRead ? w.start : start, size: w.size, ...(w.totalChars != null ? { totalChars: w.totalChars } : {}),
         truncated: w.truncated, ...(w.truncated ? { nextOffset: w.nextOffset } : {}),
         ...(w.truncated && w.totalChars != null ? { remainingChars: w.totalChars - w.nextOffset } : {}),
         ...(w.truncated ? { hint: `还有更多内容;继续读请用 offset=${w.nextOffset}(或用 lineOffset/lineLimit 行模式按行读)` } : {}),
         ...(limitClamped ? { limitClamped: true, limitMax: FILE_READ_CHAR_MAX } : {}),
-        ...encFields, sourceLineEnding: w.eol, contentLineEnding: detectTextLineEnding(w.content), ...(na.total ? { non_ascii: na } : {}) };
+        ...encFields, sourceLineEnding: w.eol, contentLineEnding: detectTextLineEnding(w.content), ...(na && na.total ? { non_ascii: na } : {}) };
+      privacySourceMark(result, ['/content'], privacySourceViews.get(w));
       if (cctx) await execCacheStore(cctx, result);
       return result;
   } },
@@ -1558,7 +1588,13 @@ const FILE_TOOL_HANDLERS = {
             if (normalizedCount > 0) { matchText = normalized; count = normalizedCount; normalizedOldText = true; }
           }
         }
-        if (count === 0) return buildFileEditMiss(p, raw, oldText, sourceLineEnding);
+        if (count === 0) {
+          if (privacySourceActive()) {
+            const view = await PrivacyGateway.projectSource(raw), oldView = await PrivacyGateway.projectSource(oldText);
+            return buildFileEditMiss(p, raw, oldText, sourceLineEnding, view, oldView);
+          }
+          return buildFileEditMiss(p, raw, oldText, sourceLineEnding);
+        }
         // F6:多处命中不再抛异常(其余失败都是 {ok:false} 信封),并列出每处的行号,模型可加上下文消歧。
         if (count > 1 && !args.replaceAll) {
           const matches = FileTextIo.locateMatches(raw, matchText, 8);
@@ -1816,7 +1852,7 @@ const FILE_TOOL_HANDLERS = {
       // maxResults ≤0 / 非数字按没传(200)—— 修前 0 或负数让两个引擎都立刻停在 0 条并报 truncated。
       const maxResultsReq = Number(args.maxResults);
       const maxResults = args.maxResults != null && maxResultsReq >= 1 ? Math.floor(maxResultsReq) : 200;
-      let matches = await searchFileContent(walkRoot, String(args.pattern || ''), { ...args, maxResults });
+      let matches = await searchFileContent(walkRoot, String(args.pattern || ''), { ...args, maxResults, ...fileToolPrivacySourceOptions(ctx, 'file_search') });
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
       const regexTimedOut = !!(matches && matches.regexTimedOut);   // 审计 F:JS 正则撞了时间预算
@@ -2645,7 +2681,7 @@ const CODE_TOOL_HANDLERS = {
   git_diff: { paths: null, guardNote: "同 git_status;另 --no-ext-diff/--no-textconv 关外部执行面", handler: async (args, ctx) => {
       const g = await resolveGitToolCwd(args, ctx);
       if (!g.ok) return g;
-      return gitDiff({ ...args, cwd: g.cwd });
+      return gitDiff({ ...args, cwd: g.cwd, ...fileToolPrivacySourceOptions(ctx, 'git_diff') });
   } },
   git_log: { paths: null, guardNote: "同 git_status", handler: async (args, ctx) => {
       const g = await resolveGitToolCwd(args, ctx);
@@ -2671,7 +2707,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return respellWalkPaths(await codeReviewScan(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
+      return respellWalkPaths(await codeReviewScan(guardedWalkRoot(root, g), { ...args, ...fileToolPrivacySourceOptions(ctx, 'code_review_scan') }), guardedWalkRoot(root, g), root);
   } },
   frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2679,7 +2715,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return respellWalkPaths(await frontendAudit(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
+      return respellWalkPaths(await frontendAudit(guardedWalkRoot(root, g), { ...args, ...fileToolPrivacySourceOptions(ctx, 'frontend_audit') }), guardedWalkRoot(root, g), root);
   } },
   claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -2695,7 +2731,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return respellWalkPaths(await docsSearch(guardedWalkRoot(root, g), String(args.query || ''), args), guardedWalkRoot(root, g), root);
+      return respellWalkPaths(await docsSearch(guardedWalkRoot(root, g), String(args.query || ''), { ...args, ...fileToolPrivacySourceOptions(ctx, 'docs_search') }), guardedWalkRoot(root, g), root);
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
@@ -2705,7 +2741,7 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return respellWalkPaths(await codebaseSymbolSearch(guardedWalkRoot(root, g), args), guardedWalkRoot(root, g), root);
+      return respellWalkPaths(await codebaseSymbolSearch(guardedWalkRoot(root, g), { ...args, ...fileToolPrivacySourceOptions(ctx, 'codebase_symbol_search') }), guardedWalkRoot(root, g), root);
   } },
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
       return debugHypothesis(args);
@@ -3228,6 +3264,11 @@ function validateNativeToolArgs(name, args) {
 }
 
 async function toolCall(name, args = {}, ctx = null) {
+  if (typeof PrivacyGateway !== 'undefined') {
+    // MCP processes can outlive a settings change; consult persisted policy before every unscoped call.
+    if (!PrivacyGateway.active() && typeof readConfig === 'function') PrivacyGateway.assertSupported((ctx && ctx.config) || await readConfig(), 'external-tool');
+    PrivacyGateway.assertToolChannel();
+  }
   const entry = Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name) ? TOOL_HANDLERS[name] : null;
   if (!entry) throw unknownToolError(name);
   // 审计 N4:设置里关掉的命令/桌面工具在【分发点】也拒绝(offer 面只是藏 schema;bypass/auto 下 gate 恒放行)。

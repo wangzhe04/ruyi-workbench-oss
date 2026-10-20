@@ -8,7 +8,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   · `unit/config-explicit-keys.test.js` 管的是【只落改过的键】;
 //   · `durable-json-store.e2e.js` / `config-read-safety.e2e.js` 管的是【单个文件】的读写安全。
 // 本件管的是它们都不管的那一层:**整个数据目录**从一个旧版本装过的状态走一遍
-// 升级 → 降级兼容 → 断电 → 损坏 → 备份恢复,每一步都对账「东西还在不在、还对不对」。
+// 升级 → 旧键保留与凭据解密 → 断电 → 损坏 → 备份恢复,每一步都对账「东西还在不在、还对不对」。
 //
 // 为什么 P4 把它列成硬门:前面那些锁各自看着自己那一小块,**没有一条断言看着「用户那一整个
 // 文件夹升级之后有没有少东西」**。而那正是升级事故的真实形状 —— 不是某个键错了,
@@ -17,7 +17,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 // 覆盖:
 //   (A) 造一个旧版本装过的数据目录,并取下【事实指纹】(条数 + 关键字段)。
 //   (B) 升级:当前构建读它 —— 每样都还在、指纹不变、configSchema 已迁移。
-//   (C) 降级兼容:新版落盘之后,**旧版本认识的顶层键一个都不许少**(47 号文 §4.2 第 24 条那一族)。
+//   (C) 旧键保留与凭据解密:新版保留旧顶层键、运行时解密后的凭据逐字相同。
+//       此项不证明旧程序能直接读升级后的加密数据；降级须恢复升级前完整数据备份。
 //   (D) 断电:会话消息 ndjson 与用量台账各截半行 —— 前面完整的行仍读得出,不抛、不整份丢。
 //   (E) 损坏隔离:一个会话 json 写成坏 JSON —— 它被隔离,而不是让整份会话列表打不开。
 //   (F) 备份恢复:整份拷走、删原件、拷回来 —— 指纹与 (A) 逐项一致。
@@ -26,8 +27,6 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 (async () => {
 const fs = require('fs'), os = require('os'), path = require('path');
 
-const ROOT = path.resolve(__dirname, '..');
-const SERVER = path.join(ROOT, 'ruyi-workbench', 'app', 'server.js');
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-upgrade-drill-'));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
@@ -65,7 +64,7 @@ fs.writeFileSync(path.join(HOME, 'steward', 'memory-v1.json'), JSON.stringify({
 
 process.env.RUYI_HOME = HOME;
 process.env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
-const srv = require(SERVER);
+const srv = require('./lib/server-internals').loadServerInternals(['CONFIG_SCHEMA', 'createSession', 'listSessions', 'loadSession', 'readConfig', 'saveSession', 'PrivacyCore']);
 
 // 用真原语造几条会话(它们的落盘形状才与产线一致)
 const madeIds = [];
@@ -126,9 +125,9 @@ try {
   ok(cfgNow.runtimeEvaporateBudgetBoundaryV1 === false && cfgNow.runtimeReseedReattachFilesV1 === false,
     'B8 拍板【不翻】的那两个没被顺手带上(迁移名单没被扩大)');
 
-  /* ═════════ (C) 降级兼容 ═════════ */
-  console.log('── (C) 降级兼容 ──');
-  // 新版落盘之后,旧版本认识的顶层键一个都不许少 —— 否则用户装回旧版会丢设置。
+  /* ═════════ (C) 旧键保留与升级后凭据解密 ═════════ */
+  console.log('── (C) 旧键保留与升级后凭据解密 ──');
+  // 新版不能丢弃旧顶层键；凭据引用是新格式，程序回退不能代替完整旧数据恢复。
   const onDisk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
   // 自带尺子:C1 若在「配置文件压根没被重写过」的情况下通过,它就什么都没证明
   // (旧键当然还在——没人动过那个文件)。所以先钉住「盘上的那份确实被改写过」:
@@ -137,9 +136,26 @@ try {
     `C0 尺子:盘上那份配置确实被重写过(${OLD_SCHEMA} → ${onDisk.configSchema});否则 C1 是白过的`);
   const lostUnknown = Object.keys(UNKNOWN_KEYS).filter(k => !(k in onDisk));
   ok(lostUnknown.length === 0,
-    `C1 当前版本【不认识】的旧键原样留在盘上(装回旧版才不丢设置;丢了的: ${JSON.stringify(lostUnknown)})`);
-  ok(onDisk.providers && onDisk.providers[0] && onDisk.providers[0].apiKey === 'k-old',
-    'C2 端点与密钥原样(升级不许重写用户凭据)');
+    `C1 当前版本【不认识】的旧键原样留在盘上(丢了的: ${JSON.stringify(lostUnknown)};不代表旧版支持加密凭据)`);
+  // An upgrade retains legacy plaintext until the user explicitly opts in to encryption.
+  ok(cfgNow.providers && cfgNow.providers[0] && cfgNow.providers[0].apiKey === 'k-old',
+    'C2 端点与密钥运行时逐字保留');
+  ok(cfgNow.credentialEncryptionV1 === false && !onDisk.credentialRefsV1 && onDisk.providers?.[0]?.apiKey === 'k-old'
+    && !fs.existsSync(path.join(HOME, 'credential-vault-v1.json')),
+    'C2-default 升级保留原明文配置、默认不启用加密或初始化凭据库');
+  if (process.platform === 'win32') {
+    const req = require('node:stream').Readable.from([Buffer.from(JSON.stringify({ enabled: true }))]); req.method = 'POST'; req.headers = {};
+    let status, body; const res = { writeHead(code) { status = code; }, end(value) { body = JSON.parse(value); } };
+    await srv.PrivacyCore.configHooks.handleApiRoutes(req, res, '/api/privacy/encryption');
+    ok(status === 200 && body?.ok === true, 'C2-opt-in 专用设置接口明确开启凭据加密');
+    const encryptedDisk = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    ok(encryptedDisk.credentialEncryptionV1 === true && encryptedDisk.credentialRefsV1?.version === 1 && encryptedDisk.providers[0].apiKey === ''
+      && (await srv.readConfig()).providers[0].apiKey === 'k-old',
+      'C2a Windows 显式开启后将旧密钥改为加密引用,运行时凭据仍准确');
+    const persisted = ['config.json', 'config.json.prev', 'credential-vault-v1.json'].filter(name => fs.existsSync(path.join(HOME, name)));
+    ok(persisted.every(name => !fs.readFileSync(path.join(HOME, name), 'utf8').includes('k-old')),
+      'C2b 主配置、历史备份与凭据库都没有旧密钥明文');
+  } else ok(onDisk.providers?.[0]?.apiKey === 'k-old', 'C2a 未支持 DPAPI 的旧存储模式保持精确原值');
 
   /* ═════════ (D) 断电:写到一半的行 ═════════ */
   console.log('── (D) 断电 ──');

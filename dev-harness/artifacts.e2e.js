@@ -316,9 +316,11 @@ const PNG_1x1 = Buffer.from(
       "$dir = $env:RUYI_TEST_REVEAL_DIR.TrimEnd('\\')",
       "$sh = New-Object -ComObject Shell.Application",
       "function Match($w) { $u = $null; try { $u = $w.LocationURL } catch {}; if (-not $u) { return $false }; try { return (([Uri]$u).LocalPath.TrimEnd('\\') -ieq $dir) } catch { return $false } }",
-      "$closed = 0; $deadline = (Get-Date).AddSeconds(15)",
-      "do { foreach ($w in @($sh.Windows())) { if (Match $w) { try { $w.Quit(); $closed++ } catch {} } }; if ($closed -gt 0) { break }; Start-Sleep -Milliseconds 250 } while ((Get-Date) -lt $deadline)",
-      "Start-Sleep -Milliseconds 400",
+      // Quit() is asynchronous; a COM window may still be enumerated after 400 ms.
+      // Keep the same 15 s bound and exact-directory ownership, and wait for a
+      // stable empty interval instead of treating the first Quit call as closure.
+      "$closed = 0; $emptySince = $null; $deadline = (Get-Date).AddSeconds(15)",
+      "do { $owned = @(@($sh.Windows()) | Where-Object { Match $_ }); if ($owned.Count) { $emptySince = $null; foreach ($w in $owned) { try { $w.Quit(); $closed++ } catch {} } } elseif ($closed -gt 0) { if (-not $emptySince) { $emptySince = Get-Date }; if (((Get-Date) - $emptySince).TotalMilliseconds -ge 750) { break } }; Start-Sleep -Milliseconds 200 } while ((Get-Date) -lt $deadline)",
       "$left = @(@($sh.Windows()) | Where-Object { Match $_ }).Count",
       "Write-Output ('closed=' + $closed + ' left=' + $left)",
     ].join('; ')], { env: { ...process.env, RUYI_TEST_REVEAL_DIR: WS }, encoding: 'utf8', timeout: 30000, windowsHide: true });

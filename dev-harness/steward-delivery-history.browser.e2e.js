@@ -7,6 +7,15 @@ const { startBrowserFixture } = require('./lib/browser-fixture');
 const { loadServerInternals } = require('./lib/server-internals');
 const t = createRunner('STEWARD DELIVERY HISTORY BROWSER'); const { ok } = t;
 let fx, sid, artifact, before, calls = 0;
+// Drawers can repaint between CDP evaluations. Locate, validate and click in one browser turn.
+async function clickWhenReady(selector, text = '') {
+  const clicked = await fx.waitForEval(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el || !el.textContent.includes(${JSON.stringify(text)})) return null;
+    el.click(); return 1;
+  })()`);
+  if (!clicked) throw new Error('delivery control did not become ready: ' + selector);
+}
 (async () => {
   try {
     fx = await startBrowserFixture({ prefix: 'ruyi-delivery-history-', ok, width: 1440,
@@ -37,22 +46,26 @@ let fx, sid, artifact, before, calls = 0;
     })()`);
     await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:open-thread',{detail:{sessionId:${JSON.stringify(sid)}}}));true`);
     ok(await fx.waitForEval("document.getElementById('stewardDrawerFullTextBtn')?.textContent.includes('查看交付') ? 1 : null"), '任务抽屉提供已有交付入口');
-    await fx.evaluate("document.getElementById('stewardDrawerFullTextBtn').click();true");
+    await clickWhenReady('#stewardDrawerFullTextBtn', '查看交付');
     const card = `.steward-deliverable[data-session-id="${sid}"][data-turn-seq="1"]`;
     ok(await fx.waitForEval(`document.querySelector(${JSON.stringify(card)})?.textContent.includes('已完成两步汇总') ? 1 : null`), '无到访历史也能重开准确回合交付卡');
     // Switching lens/repainting the drawer is asynchronous; open the same actual task again.
     await fx.evaluate(`document.dispatchEvent(new CustomEvent('steward:open-thread',{detail:{sessionId:${JSON.stringify(sid)}}}));true`);
     if (!await fx.waitForEval("document.getElementById('stewardDrawerFullTextBtn')?.textContent.includes('查看交付') ? 1 : null")) throw new Error('history delivery control did not reload');
-    await fx.evaluate("document.getElementById('stewardDrawerFullTextBtn').click();true");
+    await clickWhenReady('#stewardDrawerFullTextBtn', '查看交付');
     ok(await fx.evaluate(`document.querySelectorAll(${JSON.stringify(card)}).length===1`), '重复打开定位现有交付而不重复插卡');
     if (!await fx.waitForEval(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')})`)) throw new Error('history delivery body did not load');
-    await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')}).click();true`);
+    await clickWhenReady(card + ' .steward-deliverable-more');
     ok(await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-deliverable-more')}).getAttribute('aria-expanded')==='true'`), '重开的历史交付可展开全文');
     // The card body renders before the delivery API response paints its revision control.
-    if (!await fx.waitForEval(`document.querySelector(${JSON.stringify(card + ' .steward-delivery-revise')})`)) throw new Error('history delivery revision control did not load');
-    await fx.evaluate(`document.querySelector(${JSON.stringify(card + ' .steward-delivery-revise')}).click();true`);
+    await clickWhenReady(card + ' .steward-delivery-revise');
     ok(await fx.waitForEval("document.querySelector('#stewardTarget .steward-target-label')?.textContent.includes('修订第 1 轮') ? 1 : null"), '历史交付继续修改挂接同一真实修订输入区');
-    await fx.evaluate("document.getElementById('stewardComposerInput').value='只改标题';document.getElementById('stewardComposerCancelTarget').click();true");
+    if (!await fx.waitForEval(`(() => {
+      const input = document.getElementById('stewardComposerInput');
+      const cancel = document.getElementById('stewardComposerCancelTarget');
+      if (!input || !cancel || cancel.hidden) return null;
+      input.value = '只改标题'; cancel.click(); return 1;
+    })()`)) throw new Error('delivery revision cancel control did not become ready');
     ok(await fx.evaluate("document.getElementById('stewardComposerCancelTarget').hidden&&document.getElementById('stewardComposerInput').value==='只改标题'"), '历史交付修订可独立取消并保留草稿');
     const result = await fx.request('GET', '/api/sessions/' + sid);
     ok(JSON.stringify(result.json.session.messages) === before && result.json.session.turnSeq === 1, '查看与取消不新增任务回合或改变原执行记录');

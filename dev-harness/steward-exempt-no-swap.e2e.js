@@ -391,6 +391,10 @@ try {
       `P3a 普通执行项给出准确命令摘录与截断信息(实得 ${JSON.stringify(plain && plain.execution)})`);
     ok(edit && JSON.stringify(Object.keys(edit)) === JSON.stringify(originalKeys),
       `P3b 编辑项仍只有原字段,不挂 execution/exempt,文件正文不作为命令泄露(实得 ${JSON.stringify(edit && Object.keys(edit))})`);
+    ok(plain && JSON.stringify(Object.keys(plain)) === JSON.stringify([...originalKeys, 'execution']),
+      `P3c 非豁免 exec 待决仅新增 execution 摘录(实得 ${JSON.stringify(plain && Object.keys(plain))})`);
+    ok(edit && !JSON.stringify(edit).includes('rm -rf / 与 git push 只是文件正文'),
+      'P3d edit 待决不把文件正文当成执行命令展示');
   }
   // ④ 死按钮:豁免提议降级成「去线程里看」;非豁免的档位提议仍是「允许」。
   {

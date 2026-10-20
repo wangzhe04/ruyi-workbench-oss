@@ -560,6 +560,11 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const id = safeDecodeURIComponent(single[1]) || '';
     if (req.method === 'GET') {
       if (!safeSessionId(id)) return send(res, apiSessionNotFound());   // 不合形/保留名(01 safeSessionId)不可能是一条会话
+      // Mapping expiry/import/revocation may change a user-facing copy without a
+      // canonical session write. Such sessions must not reuse canonical HTTP/delta
+      // cache proofs. Fresh OFF sessions retain the original fast paths.
+      const displayPrivate = Boolean(await PrivacyGateway.displayCacheKey(id));
+      const displayReply = async (envelope, headers = {}) => send(res, json(await PrivacyGateway.displayEnvelope(id, envelope), 200, headers));
       // 条件 GET(perf):这条路由每 3 s(直播回合)/ 5–30 s(管家抽屉)被轮询一次,而 loadSession 要读整份头 + 两个
       // 正文并逐行 sha1(18 MB 会话 250–350 ms;逐行 sha1 后来去掉了,见 02 sessionBodyState)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
       // 内存覆盖表 + 内存活态」算出,与 If-None-Match 相等就直接 304,连会话都不装载。取样顺序有讲究:盘上的戳在装载【之前】取,
@@ -573,7 +578,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const deltaQuery = sinceRaw == null ? new URL(req.url, 'http://x').searchParams : null;
       const deltaFromRaw = deltaQuery ? deltaQuery.get('fromIndex') : null;
       const deltaStampRaw = deltaQuery ? deltaQuery.get('prefixStamp') : null;
-      const deltaKey = deltaFromRaw != null || deltaStampRaw != null ? [deltaFromRaw, deltaStampRaw] : null;
+      const deltaKey = !displayPrivate && (deltaFromRaw != null || deltaStampRaw != null) ? [deltaFromRaw, deltaStampRaw] : null;
       // perf(前端长会话):?view=live —— 经典壳看「别处起的回合」时每条 thread.live 推送(约 1 次/秒)来一发,只读信封上的在跑部分
       // (liveTail / liveTurn / relay / resumable.live)。修前每发都整份装载并下发全部历史(2000 条消息约 7.7 MB)。
       // 真有活回合时只读会话头、回轻量信封(view:'live',session 只带几个标量,不是完整会话);没有活回合就落回下面的全量路径
@@ -586,19 +591,19 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
           const count = (n, list) => (Number.isInteger(n) ? n : (Array.isArray(list) ? list.length : 0));
           const historyLength = count(head.providerHistoryCount, head.providerHistory);
-          return send(res, json({
+          return displayReply({
             ok: true, view: 'live', execution, executionObservation,
             session: { id, updatedAt: String(head.updatedAt || ''), turnSeq, messageCount: count(head.messageCount, head.messages), providerHistoryCount: historyLength },
             resumable: { dangling: false, kind: null, turnSeq, historyLength, live: true },
             ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}),
-          }, 200, { 'cache-control': 'no-store' }));
+          }, { 'cache-control': 'no-store' });
         }
       }
       // 审查轮:活态在盘上戳【之前】取。反过来(先戳后活态)时,两次取样之间「落盘 + 活态翻转」可能拼出一个等于客户端手上旧标签的
       // 组合(旧盘 + 新活态),回一次不该回的 304;先取活态,竞态最多多回一次 200。
       const preLive = sessionEnvelopeLiveParts(id);
       const envelopeStamp = await sessionEnvelopeStamp(id);
-      if (envelopeStamp) {
+      if (envelopeStamp && !displayPrivate) {
         const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw, deltaKey);
         if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
       }
@@ -623,7 +628,8 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const liveParts = sessionEnvelopeLiveParts(id);
       const { live, liveTail, liveTurn, relay, execution, executionObservation } = liveParts;
       // 200 体的标签:盘上戳是装载前取的(见上),内存活态是这一刻取的;没有戳(读不到头/正文)就不发 ETag,照旧无条件全量。
-      const envelopeHeaders = envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw, deltaKey), 'cache-control': 'no-store' } : {};
+      const envelopeHeaders = displayPrivate ? { 'cache-control': 'no-store' }
+        : envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw, deltaKey), 'cache-control': 'no-store' } : {};
       // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 steward-drawer.js 的
       // isLive() 第一判据是 `resumable && resumable.live === true`,而这个活回合分支修前没有
       // `live` 键,那条判据从没走通过,一直静默回落到「事项行五态 === 'running'」——挂在
@@ -646,7 +652,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const at = Date.parse(String((m && m.createdAt) || ''));
           return Number.isFinite(at) && at > sinceMs;
         });
-        return send(res, json({ ok: true, execution, executionObservation, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
+        return displayReply({ ok: true, execution, executionObservation, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, envelopeHeaders);
       }
       // 增量取:前缀戳对得上才回尾巴。信封与全量同形(同一组键、同一份 resumable/displayTitle/活态),只有三处不同 ——
       // session.messages 只是 messages[N..];session 上不带 providerHistory(前端从不读它,全量里照旧有);信封上多
@@ -656,17 +662,17 @@ async function handleSessionApiRoutes(req, res, pathname) {
       if (deltaKey) {
         if (delta) {
           const { providerHistory: _providerHistory, ...sessionHead } = session;
-          return send(res, json({
+          return displayReply({
             ok: true, execution, executionObservation, session: { ...sessionHead, messages: delta.tail }, resumable, displayTitle: sessionDisplayTitle(session),
             messagesFrom: delta.from, messageCount: delta.count, messagesStamp: delta.stamp,
             ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}),
-          }, 200, envelopeHeaders));
+          }, envelopeHeaders);
         }
       }
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, execution, executionObservation, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, 200, envelopeHeaders));
+      return displayReply({ ok: true, execution, executionObservation, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, envelopeHeaders);
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);

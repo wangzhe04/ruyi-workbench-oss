@@ -1375,13 +1375,108 @@ function normalizeSearchPattern(rawPattern) {
   }
 }
 
+// Host-only provenance follows the actual object, never text supplied by a tool.
+const privacySourceViews = new WeakMap();
+const NativeSourceHooks = {};
+function privacySourceActive() { return typeof PrivacyGateway !== 'undefined' && !!PrivacyGateway.active(); }
+function privacySourceMark(value, paths, view) {
+  if (view) { PrivacyGateway.markSourceView(value, paths, view); privacySourceViews.set(value, view); }
+  return value;
+}
+function privacySourceLineOffsets(raw) {
+  const offsets = [0]; for (let i = 0; i < raw.length; i += 1) if (raw[i] === '\n') offsets.push(i + 1);
+  return offsets;
+}
+function privacySourceLine(view, raw, offsets, line, limit, trim = false) {
+  const start = offsets[Math.max(0, line - 1)] ?? raw.length;
+  let end = offsets[line] === undefined ? raw.length : offsets[line] - 1;
+  if (raw[end - 1] === '\r') end -= 1;
+  let from = start;
+  if (trim) { const text = raw.slice(start, end); from += text.length - text.trimStart().length; end = from + text.trim().length; }
+  return PrivacyGateway.sliceSource(view, from, Math.min(end, from + limit)).text;
+}
+function privacySourceFragment(view, raw, fragment) {
+  if (!view || !fragment) return fragment;
+  let from = 0, found = false, budget = 32 * 1048576;
+  while (from < raw.length) {
+    budget -= raw.length - from;
+    if (budget < 0) throw Object.assign(new Error('Privacy source fragment exceeds its comparison budget.'), { code: 'privacy.source_limit' });
+    const at = raw.indexOf(fragment, from); if (at < 0) break;
+    found = true; const projected = PrivacyGateway.sliceSource(view, at, at + fragment.length).text;
+    if (projected !== fragment) return projected;
+    from = at + 1;
+  }
+  return found ? fragment : '[source fragment unavailable]';
+}
+async function privacyReadTextWindow(filePath, st, req) {
+  if (!privacySourceActive()) return NativeSourceHooks.readTextWindow(filePath, st, req);
+  if (st.size > 4 * 1048576) throw Object.assign(new Error('Privacy source exceeds the complete read budget.'), { code: 'privacy.source_limit' });
+  const full = await NativeSourceHooks.readTextWindow(filePath, st, { ...req, mode: 'chars', offset: 0, limit: 4 * 1048576 + 1, jsonBudget: 32 * 1048576, xform: null });
+  if (!full.ok) return full;
+  if (full.truncated) throw Object.assign(new Error('Privacy source snapshot is incomplete.'), { code: 'privacy.source_limit' });
+  const raw = full.content, view = await PrivacyGateway.projectSource(raw), offsets = privacySourceLineOffsets(raw);
+  const budget = Math.max(1000, Number(req.jsonBudget) || 50000), xform = req.xform || (text => text);
+  const fit = (start, end) => {
+    let piece = PrivacyGateway.sliceSource(view, start, end);
+    while (JSON.stringify(xform(piece.text)).length > budget && end > start + 1) {
+      end = start + Math.max(1, Math.floor((end - start) * 0.75)); piece = PrivacyGateway.sliceSource(view, start, end);
+    }
+    return piece;
+  };
+  if (req.mode !== 'lines') {
+    const start = Math.min(raw.length, Math.max(0, req.offset || 0)), piece = fit(start, Math.min(raw.length, start + req.limit));
+    return privacySourceMark({ ...full, content: piece.text, start: piece.start, truncated: piece.end < raw.length,
+      nextOffset: piece.end, totalChars: raw.length, lineBase: raw.slice(0, piece.start).split('\n').length }, ['/content'], view);
+  }
+  const lines = [], lineOffset = req.lineOffset, totalLines = raw.length ? offsets.length - (raw.endsWith('\n') ? 1 : 0) : 0;
+  let cost = 0, nextLine = 0, lineTruncated = null;
+  for (let no = lineOffset; no <= totalLines; no += 1) {
+    if (lines.length >= req.lineLimit) { nextLine = no; break; }
+    const start = offsets[no - 1]; let end = offsets[no] === undefined ? raw.length : offsets[no] - 1;
+    if (raw[end - 1] === '\r') end -= 1;
+    let piece = PrivacyGateway.sliceSource(view, start, end);
+    if (cost + JSON.stringify(xform(no + '\t' + piece.text)).length > budget) {
+      if (lines.length) { nextLine = no; break; }
+      piece = fit(start, end);
+      if (piece.end < end) lineTruncated = { line: no, keptChars: piece.end - start, lineChars: end - start, nextOffset: piece.end };
+      nextLine = no + 1;
+    }
+    lines.push({ no, text: piece.text }); cost += JSON.stringify(xform(no + '\t' + piece.text)).length;
+    if (nextLine) break;
+  }
+  const result = { ...full, mode: 'lines', lines, lineOffset, lineLimit: req.lineLimit, totalLines, truncated: !!nextLine,
+    ...(nextLine ? { nextLine } : {}), ...(lineTruncated ? { lineTruncated } : {}) };
+  delete result.content;
+  return privacySourceMark(result, lines.map((_, i) => '/lines/' + i + '/text'), view);
+}
+async function privacyProjectSearch(scan, opts) {
+  if (!privacySourceActive()) return scan;
+  if (scan.error) throw Object.assign(new Error('Privacy source scan did not complete.'), { code: 'privacy.source_scan_failed' });
+  const views = new Map();
+  for (const rec of scan.results) {
+    let source = views.get(rec.path);
+    if (!source) {
+      const raw = scan.sources.get(rec.path);
+      if (typeof raw !== 'string') throw Object.assign(new Error('Privacy source snapshot is unavailable.'), { code: 'privacy.source_snapshot_missing' });
+      if (typeof opts.privacyGuard === 'function') await opts.privacyGuard(rec.path);
+      source = { raw, view: await PrivacyGateway.projectSource(raw), offsets: privacySourceLineOffsets(raw) }; views.set(rec.path, source);
+    }
+    const { raw, view, offsets } = source, paths = [];
+    if (typeof rec.text === 'string') { rec.text = privacySourceLine(view, raw, offsets, rec.line, 500); paths.push('/text'); }
+    for (let i = 0; i < (rec.context || []).length; i += 1) {
+      rec.context[i].text = privacySourceLine(view, raw, offsets, rec.context[i].line, 500); paths.push('/context/' + i + '/text');
+    }
+    privacySourceMark(rec, paths, view);
+  }
+  return scan;
+}
 async function searchFileContent(root, pattern, opts = {}) {
   // F2: single normalization point shared by the rg fast path and the JS scanner.
   const norm = normalizeSearchPattern(pattern);
   const effOpts = norm.extraFlags ? { ...opts, extraFlags: norm.extraFlags } : opts;
   let results = null;
   // Fast path: ripgrep, if vendored. Failure/timeout → silent fallback to the JS scanner below.
-  if (await hasRgAsync()) {
+  if (!privacySourceActive() && await hasRgAsync()) {
     try {
       const viaRg = await searchFileContentRg(root, norm.pattern, effOpts);
       if (viaRg) {
@@ -1411,6 +1506,8 @@ function maybeGroup(results, group) {
   for (const r of results) {
     if (!byFile.has(r.path)) byFile.set(r.path, { path: r.path, relativePath: r.relativePath, matches: [] });
     const { path: _p, relativePath: _rp, ...rest } = r;
+    const view = privacySourceViews.get(r);
+    if (view) privacySourceMark(rest, ['/text', ...(rest.context || []).map((_, i) => '/context/' + i + '/text')], view);
     byFile.get(r.path).matches.push(rest);
   }
   return Array.from(byFile.values());
@@ -1429,7 +1526,7 @@ const REGEX_SCAN_WORKER_SRC = `
   const fs = require('fs');
   // docs_search 的 autoDecode 与 file_search 的逐文件解码已合成同一个 decodeFile(BOM → 严格 UTF-8 → GB18030 → 宽松 UTF-8),
   // 两条路径都按它解;autoDecode 只留作入参兼容。
-  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars, onlyNonUtf8 } = workerData;
+  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars, onlyNonUtf8, privacySources } = workerData;
   let re;
   try { re = new RegExp(pattern, flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
   // 2026-10 走查(R2):按文件判编码再解码(与 file_read 同一口径:BOM > 严格 UTF-8 > GB18030),不再一律当 UTF-8 ——
@@ -1445,7 +1542,7 @@ const REGEX_SCAN_WORKER_SRC = `
     try { return { text: new TextDecoder('gb18030', { fatal: true }).decode(buf), enc: 'gb18030' }; } catch { /* 也不是 GBK / 运行时无 GB18030 */ }
     return { text: buf.toString('utf8'), enc: 'utf8', lossy: true };
   };
-  let count = 0;
+  let count = 0, privacySourceBytes = 0, privacySourceFiles = 0;
   for (const file of files) {
     if (count >= maxResults) break;
     let raw = '';
@@ -1463,10 +1560,16 @@ const REGEX_SCAN_WORKER_SRC = `
       if (re.test(raw.slice(0, wholeFileChars))) { parentPort.postMessage({ type: 'match', rec: { path: file.path, relativePath: file.relativePath, line: 1 } }); count += 1; }
       continue;
     }
-    const lines = raw.split(/\\r?\\n/);
+    const lines = raw.split(/\\r?\\n/); let sourceSent = false;
     for (let i = 0; i < lines.length; i += 1) {
       re.lastIndex = 0;
       if (re.test(lines[i])) {
+        if (privacySources && !sourceSent) {
+          const bytes = Buffer.byteLength(raw);
+          if (bytes > 1048576 || privacySourceBytes + bytes > 8 * 1048576 || privacySourceFiles >= 128) { parentPort.postMessage({ type: 'error', error: 'privacy.source_limit' }); return; }
+          privacySourceBytes += bytes; privacySourceFiles += 1;
+          parentPort.postMessage({ type: 'source', path: file.path, raw }); sourceSent = true;
+        }
         const rec = { path: file.path, relativePath: file.relativePath, line: i + 1, text: lines[i].slice(0, 500) };
         if (ctx > 0) {
           const block = [];
@@ -1490,13 +1593,14 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
   return new Promise(resolve => {
     const results = [];
     const encs = [];   // 非 UTF-8 文件的编码上报 [{path, relativePath, enc}]
+    const sources = new Map();
     let settled = false, worker = null, timer = null;
     const finish = extra => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
       if (worker) { try { worker.terminate(); } catch { /* already gone */ } }
-      resolve({ results, encs, timedOut: false, error: '', ...extra });
+      resolve({ results, encs, sources, timedOut: false, error: '', ...extra });
     };
     try {
       const { Worker } = require('worker_threads');
@@ -1507,6 +1611,7 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
           ctx: Math.max(0, Math.min(5, Number(opts.context || 0) || 0)), maxResults: Math.max(1, Number(opts.maxResults || 200)),
           wholeFile: opts.wholeFile === true, wholeFileChars: Math.max(1, Number(opts.wholeFileChars) || 400000),
           onlyNonUtf8: opts.onlyNonUtf8 === true,
+          privacySources: privacySourceActive(),
         },
       });
     } catch (e) { finish({ error: String((e && e.message) || e) }); return; }
@@ -1514,6 +1619,7 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
     worker.on('message', m => {
       if (!m || settled) return;
       if (m.type === 'match') results.push(m.rec);
+      else if (m.type === 'source') sources.set(m.path, m.raw);
       else if (m.type === 'enc') encs.push({ path: m.path, relativePath: m.relativePath, enc: m.enc });
       else if (m.type === 'done') finish({});
       else if (m.type === 'error') finish({ error: String(m.error || 'regex error') });
@@ -1617,6 +1723,7 @@ async function searchFileContentJs(root, pattern, opts = {}) {
   // 多要一条用来判「是否还有更多」:恰好 maxResults 条命中时不该报 truncated(修前 `>= maxResults` 一律报截断)。
   const wantMax = Math.max(1, Number(opts.maxResults || 200));
   const scan = await regexScanFilesBounded(scanFiles, pattern, flags, { ...opts, maxResults: wantMax + 1 });
+  await privacyProjectSearch(scan, opts);
   const moreMatches = scan.results.length > wantMax;
   if (moreMatches) scan.results.length = wantMax;
   const grouped = maybeGroup(scan.results, opts.group);
@@ -1649,13 +1756,14 @@ function sensitiveGlobsForRg(base) {
     // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
     const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'external-bot-credentials.json', 'external-bots', 'desktop']) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
       }
       const relRoot = path.relative(base, r);
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/config.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/external-bot-credentials.json*');
+      if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/credential-vault-v1.json*');
     }
   } catch { /* 取不到数据根 → 只剩结果层过滤 */ }
   return globs;
@@ -1841,8 +1949,10 @@ function searchFileContentRg(root, pattern, opts = {}) {
 async function readIfExists(file, limit = 200000) {
   try {
     const raw = await fsp.readFile(file, 'utf8');
+    if (privacySourceActive() && raw.length > limit) throw Object.assign(new Error('Privacy source exceeds the complete read budget.'), { code: 'privacy.source_limit' });
     return raw.slice(0, limit);
-  } catch {
+  } catch (error) {
+    if (String(error.code || '').startsWith('privacy.')) throw error;
     return '';
   }
 }
@@ -2147,7 +2257,7 @@ async function gitDiff(args = {}) {
   // spawn 空命令而报错)。正常 diff 输出不受影响(已实弹验证:+/- 行照常产出、恶意 diff.external 不触发)。
   const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:clean/smudge/process 过滤器与子模块递归
   if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
-  const baseArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
+  const baseArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty', ...(privacySourceActive() ? ['--full-index'] : [])];
   const gitArgs = [...baseArgs];
   const staged = args.staged === true;
   if (staged) gitArgs.push('--cached');
@@ -2167,22 +2277,115 @@ async function gitDiff(args = {}) {
   const asText = b => (Buffer.isBuffer(b) ? decodeConsoleText(b) : String(b || ''));
   const overflow = !res.ok && res.error && res.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
   if (!res.ok && !overflow) return gitHumanError({ ...res, stdout: asText(res.stdout), stderr: asText(res.stderr) }, cwd);
-  const full = asText(res.stdout);
+  let full = asText(res.stdout), privacyDiffView = null;
+  if (privacySourceActive()) {
+    if (overflow) throw Object.assign(new Error('Privacy diff snapshot exceeds the complete source budget.'), { code: 'privacy.source_limit' });
+    if (full.includes('[[RUYI_PVT:')) throw Object.assign(new Error('Raw source contains a reserved privacy marker.'), { code: 'privacy.reserved_literal' });
+    const rawArgs = [...guard.flags, '-C', cwd, 'diff', '--raw', '-z', '--no-abbrev', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
+    if (staged) rawArgs.push('--cached');
+    if (ref) rawArgs.push(ref);
+    if (rawPath || ref) rawArgs.push('--');
+    if (rawPath) rawArgs.push(rawPath);
+    const inventory = await runGit(rawArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
+    if (!inventory.ok) throw Object.assign(new Error('Privacy diff source inventory is unavailable.'), { code: 'privacy.source_snapshot_missing' });
+    const records = [], parts = asText(inventory.stdout).split('\0'), diffBlocks = full.split(/^diff --git /m).slice(1);
+    for (let i = 0; i < parts.length && parts[i];) {
+      const match = /^:\d+ \d+ ([0-9a-f]{40,64}) ([0-9a-f]{40,64}) ([A-Z][0-9]*)$/.exec(parts[i++]);
+      if (!match || !parts[i]) throw Object.assign(new Error('Privacy diff source inventory cannot be verified.'), { code: 'privacy.source_snapshot_missing' });
+      const from = parts[i++], to = /^[RC]/.test(match[3]) ? parts[i++] : from;
+      // Mode/rename-only and binary diffs contain no source text. Do not pre-read their
+      // potentially huge blobs merely to return the existing metadata-only result.
+      if (diffBlocks[records.length] !== undefined && !/^@@ /m.test(diffBlocks[records.length])) {
+        records.push({ metadataOnly: true, old: { hash: match[1], view: null }, next: { hash: match[2], view: null } }); continue;
+      }
+      const load = async (hash, name, current) => {
+        if (/^0+$/.test(hash) && !current) return { raw: '', view: null, offsets: [0], hash };
+        if (typeof args.privacyGuard === 'function') await args.privacyGuard(path.resolve(cwd, name));
+        let raw, actualHash = hash;
+        if (/^0+$/.test(hash)) {
+          const target = path.resolve(cwd, name);
+          const snapshot = await readProfileWindow(target, 4 * 1048576);
+          if (snapshot.error || snapshot.buf.length !== snapshot.fileBytes) throw Object.assign(new Error('Privacy diff working source is unavailable.'), { code: 'privacy.source_snapshot_missing' });
+          actualHash = require('node:crypto').createHash(hash.length === 64 ? 'sha256' : 'sha1').update(Buffer.from('blob ' + snapshot.buf.length + '\0')).update(snapshot.buf).digest('hex');
+          raw = decodeConsoleText(snapshot.buf);
+        } else {
+          const blob = await runGit([...guard.flags, '-C', cwd, 'cat-file', 'blob', hash], cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: 4 * 1048576 });
+          if (!blob.ok) throw Object.assign(new Error('Privacy diff revision source is unavailable.'), { code: 'privacy.source_snapshot_missing' });
+          raw = asText(blob.stdout);
+        }
+        return { raw, view: await PrivacyGateway.projectSource(raw), offsets: privacySourceLineOffsets(raw), hash: actualHash };
+      };
+      records.push({ old: await load(match[1], from, false), next: await load(match[2], to, !staged && !/^D/.test(match[3])) });
+    }
+    let record = null, index = -1, oldLine = 0, nextLine = 0, contextWork = 32 * 1048576;
+    const sectionContext = (record, text) => {
+      if (!text || !record || record.metadataOnly) return '';
+      let found = false;
+      for (const side of [record.old, record.next]) {
+        if (!side.view) continue;
+        let from = 0;
+        while (from < side.raw.length) {
+          contextWork -= side.raw.length - from;
+          if (contextWork < 0) throw Object.assign(new Error('Privacy diff context exceeds its comparison budget.'), { code: 'privacy.source_limit' });
+          const at = side.raw.indexOf(text, from); if (at < 0) break;
+          found = true;
+          const projected = PrivacyGateway.sliceSource(side.view, at, at + text.length).text;
+          if (projected !== text) return projected;
+          from = at + 1;
+        }
+      }
+      return found ? text : '[source context unavailable]';
+    };
+    const projected = full.split('\n').map(line => {
+      if (line.startsWith('diff --git ')) {
+        record = records[++index]; oldLine = 0; nextLine = 0;
+        if (!record) throw Object.assign(new Error('Privacy diff source inventory changed during collection.'), { code: 'privacy.source_changed' });
+        return line;
+      }
+      const hashes = /^index ([0-9a-f]{40,64})\.\.([0-9a-f]{40,64})(?: |$)/.exec(line);
+      if (hashes && (!record || !record.metadataOnly && (hashes[1] !== record.old.hash || hashes[2] !== record.next.hash))) throw Object.assign(new Error('Privacy diff source changed during collection.'), { code: 'privacy.source_changed' });
+      const hunk = /^(@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@)(?: (.*))?$/.exec(line);
+      if (hunk) { oldLine = Number(hunk[2]); nextLine = Number(hunk[3]); const suffix = sectionContext(record, hunk[4] || ''); return hunk[1] + (suffix ? ' ' + suffix : ''); }
+      if (!record || record.metadataOnly || !oldLine && !nextLine || !/^[ +\-]/.test(line)) return line;
+      const side = line[0] === '+' ? record.next : record.old, no = line[0] === '+' ? nextLine : oldLine;
+      const original = side.raw.slice(side.offsets[no - 1] ?? side.raw.length, side.offsets[no] === undefined ? side.raw.length : side.offsets[no] - 1).replace(/\r$/, '');
+      if (original !== line.slice(1).replace(/\r$/, '')) throw Object.assign(new Error('Privacy diff source changed during collection.'), { code: 'privacy.source_changed' });
+      const text = side.view ? privacySourceLine(side.view, side.raw, side.offsets, no, Infinity) : '';
+      if (line[0] !== '+') oldLine += 1;
+      if (line[0] !== '-') nextLine += 1;
+      return line[0] + text;
+    }).join('\n');
+    if (index + 1 !== records.length) throw Object.assign(new Error('Privacy diff source inventory changed during collection.'), { code: 'privacy.source_changed' });
+    // Re-project the host-built safe representation to obtain one proof for its final leaf.
+    privacyDiffView = { records, text: projected }; full = projected;
+  }
   let diff = full;
   let truncated = false;
-  let stat = '';
+  let stat = '', privacyStatView = null;
   if (overflow || JSON.stringify(full).length > GIT_DIFF_MAX_CHARS) {
     truncated = true;
     const cut = gitHeadToJsonBudget(full, GIT_DIFF_MAX_CHARS);
+    if (privacyDiffView) {
+      const at = cut.text.lastIndexOf('[[RUYI_PVT:');
+      if (at >= 0 && cut.text.indexOf(']]', at) < 0) {
+        const end = full.indexOf(']]', at); if (end >= 0) cut.text = full.slice(0, end + 2);
+      }
+    }
     const total = overflow ? `超过 ${Math.round(GIT_DIFF_MAX_BUFFER / 1024 / 1024)}MB` : `${full.length} 字符`;
     diff = cut.text + `\n\n[已截断:diff 共 ${total},只显示前 ${cut.text.length} 字符。文件清单见 stat;用 path 参数只看单个文件,或减小 contextLines。]`;
-    const statArgs = [...baseArgs, '--stat=120,60', '--stat-count=60'];
+    const statArgs = [...baseArgs, ...(privacyDiffView ? ['--numstat', '-z'] : ['--stat=120,60', '--stat-count=60'])];
     if (staged) statArgs.push('--cached');
     if (ref) statArgs.push(ref);
     if (rawPath || ref) statArgs.push('--');
     if (rawPath) statArgs.push(rawPath);
     const st = await runGit(statArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
-    if (st.ok || (st.error && st.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) stat = gitHeadToJsonBudget(asText(st.stdout), GIT_DIFF_STAT_MAX_CHARS).text.trimEnd();
+    if (st.ok || (st.error && st.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) {
+      if (privacyDiffView) {
+        if (!st.ok) throw Object.assign(new Error('Privacy diff metadata exceeds the complete source budget.'), { code: 'privacy.source_limit' });
+        const rawStat = asText(st.stdout); privacyStatView = await PrivacyGateway.projectSource(rawStat);
+        stat = PrivacyGateway.sliceSource(privacyStatView, 0, Math.min(rawStat.length, GIT_DIFF_STAT_MAX_CHARS)).text.replace(/\0/g, '\n').trimEnd();
+      } else stat = gitHeadToJsonBudget(asText(st.stdout), GIT_DIFF_STAT_MAX_CHARS).text.trimEnd();
+    }
   }
   const out = { ok: true, cwd, staged, path: rawPath || undefined, ...(ref ? { ref } : {}), truncated };
   // NE-7:git diff 不含未跟踪文件 —— 只有新文件时不能对模型说「没有改动」。列出来(≤50)并提示用 file_read 看内容。
@@ -2220,7 +2423,12 @@ async function gitDiff(args = {}) {
     if (missing) out.hint = missing;
   }
   if (stat) out.stat = stat;
+  if (stat && privacyStatView) { out.statFormat = 'numstat'; PrivacyGateway.markSourceView(out, ['/stat'], privacyStatView); }
   out.diff = diff;
+  if (privacyDiffView) {
+    const views = privacyDiffView.records.flatMap(record => [record.old.view, record.next.view]).filter(Boolean);
+    if (views.length) PrivacyGateway.markSourceView(out, ['/diff'], views);
+  }
   if (guard.names.length) out.filtersNeutralized = guard.names;
   return out;
 }
@@ -2519,6 +2727,7 @@ async function codeReviewScan(root, opts = {}) {
     if (file.size > maxFileBytes) { skippedLargeFiles.push(file.relativePath); continue; }
     scannedFiles += 1;
     const raw = await readIfExists(file.path, maxFileBytes);
+    let sourceView = null, sourceOffsets = null;
     const lines = raw.split(/\r?\n/);
     for (let i = 0; i < lines.length; i += 1) {
       if (/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(lines[i])) continue;
@@ -2534,16 +2743,20 @@ async function codeReviewScan(root, opts = {}) {
           if (!j) continue;   // 判据不过:这条规则不报,但同一行还可能命中后面的规则 → 继续而不是 break
           confidence = j;
         }
-        findings.push({
+        if (privacySourceActive() && !sourceView) {
+          if (typeof opts.privacyGuard === 'function') await opts.privacyGuard(file.path);
+          sourceView = await PrivacyGateway.projectSource(raw); sourceOffsets = privacySourceLineOffsets(raw);
+        }
+        findings.push(privacySourceMark({
           id: ptn.id,
           severity: ptn.severity,
           confidence,
           relativePath: file.relativePath,
           ...(absolute ? { path: file.path } : {}),
           line: i + 1,
-          text: lines[i].trim().slice(0, 200),
+          text: sourceView ? privacySourceLine(sourceView, raw, sourceOffsets, i + 1, 200, true) : lines[i].trim().slice(0, 200),
           hint: ptn.hint,
-        });
+        }, ['/text'], sourceView));
         break;
       }
       if (findings.length >= maxFindings) { capped = true; break outer; }
@@ -2617,6 +2830,7 @@ async function frontendAudit(root, opts = {}) {
     if (file.size > 1024 * 1024) { skippedLargeFiles.push(file.relativePath); continue; }
     scannedFiles += 1;
     const raw = await readIfExists(file.path, 1024 * 1024);
+    let sourceView = null, sourceOffsets = null;
     const allLines = raw.split(/\r?\n/);
     const checks = [
       { id: 'external-asset', host: true, hint: 'External asset (CDN/font/script/image/stylesheet) will fail offline; bundle it locally' },
@@ -2652,7 +2866,15 @@ async function frontendAudit(root, opts = {}) {
           if (hit) { hitCount += 1; if (!hitLine) { hitLine = li + 1; hitText = line.trim().slice(0, 160); } }
         }
       }
-      if (hitLine > 0) issues.push({ id: check.id, relativePath: file.relativePath, path: file.path, line: hitLine, text: hitText, ...(hitHost ? { host: hitHost } : {}), ...(hitCount > 1 ? { count: hitCount } : {}), hint: check.hint });
+      if (hitLine > 0) {
+        if (privacySourceActive() && !sourceView) {
+          if (typeof opts.privacyGuard === 'function') await opts.privacyGuard(file.path);
+          sourceView = await PrivacyGateway.projectSource(raw); sourceOffsets = privacySourceLineOffsets(raw);
+        }
+        issues.push(privacySourceMark({ id: check.id, relativePath: file.relativePath, path: file.path, line: hitLine,
+        text: sourceView ? privacySourceLine(sourceView, raw, sourceOffsets, hitLine, 160, true) : hitText,
+        ...(hitHost ? { host: sourceView ? privacySourceFragment(sourceView, raw, hitHost) : hitHost } : {}), ...(hitCount > 1 ? { count: hitCount } : {}), hint: check.hint }, ['/text', ...(hitHost ? ['/host'] : [])], sourceView));
+      }
     }
   }
   const out = { ok: true, root: cwd, scannedFiles, issues };
@@ -2752,6 +2974,7 @@ async function docsSearch(root, query, opts = {}) {
       if (retry.results.length) { scan = retry; literalRetryNote = 'regex matched nothing; matches below are for the query as literal text'; }
     }
   }
+  await privacyProjectSearch(scan, opts);
   const hits = scan.results;
   const truncated = hits.length > maxResults || files.truncated === true || scan.timedOut;
   const out = { ok: true, root: cwd, query, matches: hits.slice(0, maxResults), scannedFiles: cands.length };
@@ -2934,6 +3157,7 @@ async function codebaseSymbolSearch(root, opts = {}) {
     if (file.size > 1024 * 1024) { skippedLargeFiles.push(file.relativePath); continue; }
     scannedFiles += 1;
     const raw = await readIfExists(file.path, 1024 * 1024);
+    let sourceView = null, sourceOffsets = null;
     const lines = raw.split(/\r?\n/);
     const defPatterns = defPatternsFor(file.relativePath);
     const cFamily = SYMBOL_C_FAMILY.test(file.relativePath);
@@ -2954,13 +3178,19 @@ async function codebaseSymbolSearch(root, opts = {}) {
       if (isDef ? !wantDef : !wantRef) continue;
       // 已满 maxResults → 这是第 maxResults+1 条未过滤命中,截断(hitCap 语义,恰好满时不误报 truncated)。
       if (definitions.length + references.length >= maxResults) { truncated = true; break outer; }
+      if (privacySourceActive() && !sourceView) {
+        if (typeof opts.privacyGuard === 'function') await opts.privacyGuard(file.path);
+        sourceView = await PrivacyGateway.projectSource(raw); sourceOffsets = privacySourceLineOffsets(raw);
+      }
       let rec = fileMap.get(file.relativePath);
       if (!rec) { rec = { relativePath: file.relativePath, ...(absolute ? { path: file.path } : {}), definitions: 0, references: 0 }; fileMap.set(file.relativePath, rec); }
       if (isDef) {
-        definitions.push({ relativePath: file.relativePath, ...(absolute ? { path: file.path } : {}), line: i + 1, text: line.trim().slice(0, 500), kind: defKind });
+        definitions.push(privacySourceMark({ relativePath: file.relativePath, ...(absolute ? { path: file.path } : {}), line: i + 1,
+          text: sourceView ? privacySourceLine(sourceView, raw, sourceOffsets, i + 1, 500, true) : line.trim().slice(0, 500), kind: defKind }, ['/text'], sourceView));
         rec.definitions += 1;
       } else {
-        references.push({ relativePath: file.relativePath, ...(absolute ? { path: file.path } : {}), line: i + 1, text: line.trim().slice(0, 500) });
+        references.push(privacySourceMark({ relativePath: file.relativePath, ...(absolute ? { path: file.path } : {}), line: i + 1,
+          text: sourceView ? privacySourceLine(sourceView, raw, sourceOffsets, i + 1, 500, true) : line.trim().slice(0, 500) }, ['/text'], sourceView));
         rec.references += 1;
       }
     }
@@ -3241,6 +3471,7 @@ function numericStats(values) {
 // 单元格 → 展示/去重用的文本。缺失(undefined/null)不是字符串 "undefined"/"null";JSON 里的对象/数组用 JSON.stringify
 // (截断),不再是 "[object Object]"。返回 null 表示缺失,空串仍是空串(调用方一并当缺失统计)。
 const PROFILE_CELL_MAX_CHARS = 80;
+const privacyProfileSamples = new WeakMap();
 function profileCellValue(v) {
   if (v === undefined || v === null) return null;
   if (typeof v === 'object') {
@@ -3266,6 +3497,10 @@ function columnProfile(name, rawValues, maxSampleValues) {
     name, type, nonNullCount: nonNull.length, nullCount: values.length - nonNull.length,
     uniqueCount: uniq.size, sampleValues: seen,
   };
+  if (privacySourceActive()) privacyProfileSamples.set(prof, seen.map(value => {
+    const index = values.findIndex(item => item !== null && String(item) === value), original = rawValues[index];
+    return typeof original === 'object' && original !== null ? JSON.stringify(original) : value;
+  }));
   if (type === 'numeric') { const ns = numericStats(values); if (ns) Object.assign(prof, ns); }
   return prof;
 }
@@ -3440,8 +3675,59 @@ function detectProfileDelimiter(raw) {
   return pick;
 }
 async function dataProfile(filePath, args = {}) {
+  if (!privacySourceActive()) return dataProfileRaw(filePath, args);
+  const win = await readProfileWindow(String(filePath || ''), 4 * 1048576);
+  if (win.error) return { ok: false, code: win.code, error: win.error, path: filePath };
+  if (win.buf.length !== win.fileBytes) throw Object.assign(new Error('Privacy source exceeds the complete read budget.'), { code: 'privacy.source_limit' });
+  const raw = decodeProfileText(win.buf, false).text, view = await PrivacyGateway.projectSource(raw);
+  const out = await dataProfileRaw(filePath, args, win);
+  const samples = [];
+  for (const column of out.columns || []) {
+    const originals = privacyProfileSamples.get(column) || column.sampleValues;
+    for (let i = 0; i < column.sampleValues.length; i += 1) samples.push({ values: column.sampleValues, index: i, original: originals[i] });
+  }
+  const numbers = [];
+  const collectNumbers = value => {
+    if (!value || typeof value !== 'object') return;
+    for (const [key, item] of Object.entries(value)) {
+      if (typeof item === 'number' && Number.isFinite(item)) numbers.push({ container: value, key, original: String(item) });
+      else if (item && typeof item === 'object') collectNumbers(item);
+    }
+  };
+  collectNumbers(out);
+  // A complete object sample may reveal a field classification unavailable in a scalar
+  // sample. Learn all full samples before rendering any of their shortened displays.
+  const sampleViews = new Map([...samples, ...numbers].map(sample => [sample.original, null]));
+  for (const original of sampleViews.keys()) await PrivacyGateway.projectSource(original);
+  for (const original of sampleViews.keys()) sampleViews.set(original, await PrivacyGateway.projectSource(original));
+  for (const { values, index, original } of samples) {
+    const sampleView = sampleViews.get(original);
+    values[index] = PrivacyGateway.sliceSource(sampleView, 0, original.length > PROFILE_CELL_MAX_CHARS && /^[\[{]/.test(original) ? PROFILE_CELL_MAX_CHARS : original.length).text;
+    PrivacyGateway.markSourceView(values, ['/' + index], sampleView);
+  }
+  for (const { container, key, original } of numbers) {
+    const numberView = sampleViews.get(original);
+    // Calculations still use original numbers. A private numeric display (for example
+    // min/max of a phone column inferred as numeric) must use an opaque text reference;
+    // leaving that number in the model JSON would bypass the protected sample values.
+    if (numberView.text !== original) {
+      container[key] = numberView.text;
+      PrivacyGateway.markSourceView(container, ['/' + key.replace(/~/g, '~0').replace(/\//g, '~1')], numberView);
+    }
+  }
+  if (out.topPrefixes) {
+    for (const entry of out.topPrefixes) {
+      // The statistics use original prefixes; only the displayed representative is projected.
+      const offset = raw.indexOf(entry.prefix);
+      if (offset >= 0) entry.prefix = PrivacyGateway.sliceSource(view, offset, offset + entry.prefix.length).text;
+      privacySourceMark(entry, ['/prefix'], view);
+    }
+  }
+  return out;
+}
+async function dataProfileRaw(filePath, args = {}, snapshot = null) {
   const p = String(filePath || '');
-  const win = await readProfileWindow(p, DATA_PROFILE_WINDOW_BYTES);
+  const win = snapshot || await readProfileWindow(p, DATA_PROFILE_WINDOW_BYTES);
   if (win.error) return { ok: false, error: win.error, code: win.code, path: p };
   const binKind = profileBinaryKind(win.buf);
   if (binKind) {

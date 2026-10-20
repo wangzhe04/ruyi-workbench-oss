@@ -457,7 +457,6 @@ try {
   // Startup reconciliation (interaction-prompts.js) discovers A's pending question asynchronously.
   // Wait for it and use the real minimize control before probing non-modal overlays: modals are
   // supposed to cover these menus (B4). Keep A unanswered so its needs_you/chip fixtures stay valid.
-  await setLens('steward');
   const pendingPrompt = await waitForEval(cdp, `(() => {
     const modal = document.querySelector('.prompt-queue-modal');
     return modal && modal.textContent.includes('华南那张表要等吗？')
@@ -472,6 +471,7 @@ try {
   const stillPending = await request(appPort, 'GET', '/api/interventions?limit=100', null, token);
   ok(Boolean(stillPending?.json?.pending?.some(item => item.type === 'question' && item.sessionId === created.A)),
     'A13 收起提问后线程 A 仍待回答，保留等你与权限 chip 的夹具');
+  await setLens('steward');
   ok(await toggleMenuUntil('#stewardShieldBtn', '#stewardShieldMenu', true), 'B0 管家视角：盾牌菜单真的展开了');
   const shieldSteward = await cdp.evaluate(overlayProbe('#stewardShieldMenu'));
   ok(Boolean(shieldSteward && shieldSteward.onTop),

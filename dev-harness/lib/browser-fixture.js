@@ -251,7 +251,7 @@ async function startBrowserFixture(opts = {}) {
     onboarding: { completedAt: '2026-09-13T00:00:00.000Z', version: 1, skipped: false },
     providers: [{
       id: 'fake', label: 'Fake', type: 'openai-compat',
-      baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'k', model: 'fake-model',
+      baseUrl: `http://127.0.0.1:${providerPort}`, apiKey: 'browser-fixture-auth-only', model: 'fake-model',
       models: [{ id: 'fake-model', label: 'Fake' }],
     }],
     ...(opts.config || {}),

@@ -53,6 +53,7 @@ const ROUTER_FILES = [
   // 经 handleApi 里一行 `await handleSchedulerApiRoutes(...)` 直调委派，同 13b/13c/13d）。
   '13s-scheduler.js',
   '13w-external-bots.js',
+  '13ab-privacy-api.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 

@@ -280,6 +280,123 @@ function Remove-OverlayAsideFiles($t) {
   }
 }
 
+# Inspect program bytes only. Never load a candidate module or inspect the user's data/home.
+# A fixed, isolated Node auditor parses syntax and removes JS literals/comments before matching
+# privacy candidates. A candidate's complete server hash must match the installed server;
+# names alone never establish data compatibility, and no candidate module executes.
+function Get-ServerPrivacyCapability($t, $file) {
+  $node = Join-Path $t 'runtime\node\node.exe'
+  if (-not (Test-Path -LiteralPath $node -PathType Leaf)) { return 'unknown' }
+  if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return 'unknown' }
+  $audit = @'
+const fs = require('node:fs'), vm = require('node:vm'), crypto = require('node:crypto');
+try {
+  const file = process.argv[2], stat = fs.lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 1024 || stat.size > 64 * 1024 * 1024) throw Error();
+  const bytes = fs.readFileSync(file), source = bytes.toString('utf8');
+  new vm.Script(source); // Compile only: no candidate code executes.
+  const preceders = new Set('(,=:[!&|?{};+-*%<>~^');
+  function skip(i, previous, depth = 0) {
+    if (depth > 128) throw Error();
+    const c = source[i], n = source[i + 1];
+    if (c === '/' && n === '/') { const e = source.indexOf('\n', i); return e < 0 ? source.length : e; }
+    if (c === '/' && n === '*') { const e = source.indexOf('*/', i + 2); if (e < 0) throw Error(); return e + 2; }
+    if (c === "'" || c === '"') {
+      for (let j = i + 1; j < source.length; j++) { if (source[j] === '\\') j++; else if (source[j] === c) return j + 1; }
+      throw Error();
+    }
+    if (c === '`') {
+      for (let j = i + 1; j < source.length; j++) {
+        if (source[j] === '\\') j++;
+        else if (source[j] === '`') return j + 1;
+        else if (source[j] === '$' && source[j + 1] === '{') {
+          let braces = 1, prev = '{'; j += 2;
+          for (; j < source.length && braces; j++) {
+            if (/\s/.test(source[j])) continue;
+            const end = skip(j, prev, depth + 1);
+            if (end >= 0) { prev = 'x'; j = end - 1; continue; }
+            if (source[j] === '{') braces++; else if (source[j] === '}') braces--;
+            prev = source[j];
+          }
+          if (braces) throw Error(); j--;
+        }
+      }
+      throw Error();
+    }
+    if (c === '/' && (!previous || preceders.has(previous) || /(?:^|[^\w$])(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await)$/.test(source.slice(Math.max(0, i - 16), i).trimEnd()))) {
+      let inClass = false;
+      for (let j = i + 1; j < source.length; j++) {
+        if (source[j] === '\\') j++;
+        else if (source[j] === '\n') return -1;
+        else if (source[j] === '[') inClass = true;
+        else if (source[j] === ']') inClass = false;
+        else if (source[j] === '/' && !inClass) { let end = j + 1; while (/[a-z]/i.test(source[end] || '')) end++; return end; }
+      }
+    }
+    return -1;
+  }
+  const parts = []; let from = 0, previous = '';
+  for (let i = 0; i < source.length; i++) {
+    if (/\s/.test(source[i])) continue;
+    const end = skip(i, previous);
+    if (end >= 0) { parts.push(source.slice(from, i), '\n'); if (!(source[i] === '/' && ['/', '*'].includes(source[i + 1]))) previous = 'x'; i = end - 1; from = end; }
+    else previous = source[i];
+  }
+  parts.push(source.slice(from)); const code = parts.join('');
+  const base = /^function defaultConfig\s*\(/m.test(code) && /^async function readConfig\s*\(/m.test(code) && /^async function main\s*\(/m.test(code) && /^module\.exports\s*=\s*\{/m.test(code);
+  const signatures = [
+    /^const PrivacyCore\s*=\s*\(\(cryptoApi,\s*ruleCatalog\)\s*=>\s*\{/m,
+    /^const CredentialVault\s*=\s*\(\(cryptoApi\)\s*=>\s*\{/m,
+    /^const PrivacyGateway\s*=\s*\(\(cryptoApi,\s*fileApi,\s*pathApi,\s*AsyncLocalStorage,\s*core,\s*UrlApi\)\s*=>\s*\{/m,
+    /^Object\.assign\(PrivacyCore\.configHooks,\s*CredentialVault\.create\(\{/m,
+    /^PrivacyCore\.configHooks\.configurePrivacy\s*=\s*PrivacyGateway\.configure\s*;/m,
+  ].map(pattern => pattern.test(code));
+  // Deliberately conservative: source-name matches only identify a privacy candidate.
+  // Only identical complete server bytes can establish compatibility with the installed reader.
+  // Hashing the whole program also covers config code and host bindings outside the namespaces.
+  process.stdout.write(base && signatures.every(Boolean) ? 'privacy-v1:' + crypto.createHash('sha256').update(bytes).digest('hex') : base && signatures.every(value => !value) ? 'legacy' : 'unknown');
+} catch { process.stdout.write('unknown'); }
+'@
+  $process = $null
+  try {
+    $start = New-Object System.Diagnostics.ProcessStartInfo
+    $start.FileName = $node
+    $start.Arguments = '- "' + $file + '"'
+    $start.UseShellExecute = $false; $start.CreateNoWindow = $true
+    $start.RedirectStandardInput = $true; $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+    $start.EnvironmentVariables.Clear()
+    foreach ($name in @('SystemRoot', 'WINDIR', 'TEMP', 'TMP')) { if ([Environment]::GetEnvironmentVariable($name)) { $start.EnvironmentVariables[$name] = [Environment]::GetEnvironmentVariable($name) } }
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $start
+    $null = $process.Start()
+    $output = $process.StandardOutput.ReadToEndAsync(); $errors = $process.StandardError.ReadToEndAsync()
+    $process.StandardInput.Write($audit); $process.StandardInput.Close()
+    if (-not $process.WaitForExit(10000)) { $process.Kill(); return 'unknown' }
+    $result = $output.GetAwaiter().GetResult().Trim()
+    $null = $errors.GetAwaiter().GetResult()
+    if ($process.ExitCode -eq 0 -and ($result -eq 'legacy' -or $result -match '^privacy-v1:[a-f0-9]{64}$')) { return $result }
+  } catch { } finally { if ($process) { $process.Dispose() } }
+  return 'unknown'
+}
+
+function Test-RollbackDataCompatible($t, $backup) {
+  $savedServer = Join-Path $backup 'app\server.js'
+  $touchesServer = Test-Path -LiteralPath $savedServer
+  foreach ($bookkeeping in @((Join-Path $backup '.overlay-added.json'), (Join-Path $t 'update-manifest.json'))) {
+    if (-not (Test-Path -LiteralPath $bookkeeping)) { continue }
+    try {
+      $value = Get-Content -Raw -LiteralPath $bookkeeping | ConvertFrom-Json
+      $paths = if ($bookkeeping.EndsWith('.overlay-added.json')) { @($value) } else { @($value.files | ForEach-Object { $_.path }) }
+      if (@($paths | Where-Object { ([string]$_).Replace('\', '/') -ieq 'app/server.js' }).Count) { $touchesServer = $true }
+    } catch { return $false }
+  }
+  if (-not $touchesServer) { return $true } # Frontend-only patch: the current server stays installed.
+  $current = Get-ServerPrivacyCapability $t (Join-Path $t 'app\server.js')
+  $saved = Get-ServerPrivacyCapability $t $savedServer
+  if ($current -eq 'unknown' -or $saved -eq 'unknown') { return $false }
+  return $current -eq 'legacy' -or $current -eq $saved
+}
+
 function Do-Apply($t) {
   Assert-Deployment $t
   # EC-B:apply 前先跑 precheck 全检(路径逃逸/完整性/版本/幂等);失败即拒,绝不写入。
@@ -390,6 +507,13 @@ function Do-Rollback($t) {
         $rbResult = [ordered]@{ ok = $false; error = "No backups found." }
         if (-not $Json) { Fail $rbResult.error }
       } else {
+        if (-not (Test-RollbackDataCompatible $t $latest.FullName)) {
+          $message = 'Rollback refused: cannot verify storage compatibility for a different privacy server implementation or an incomplete fingerprint. Automatic program-only rollback requires identical server bytes, even when the privacy switch is off; -Force cannot bypass this boundary. To use a different release, stop Ruyi and restore the complete pre-upgrade data backup with that release; a credential recovery package does not restore conversation history.'
+          Write-Audit $t @{ action='rollback'; version=$latest.Name; result='storage_compatibility_rejected'; fileCount=0; backup=$latest.FullName; error=$message }
+          $rbResult = [ordered]@{ ok = $false; rejected = $true; code = 'overlay.rollback_storage_compatibility_unverified'; error = $message }
+          if ($Json) { $rbResult | ConvertTo-Json -Depth 5; return }
+          Fail $message
+        }
         Info "Restoring backup $($latest.Name) -> $t"
         $restored = 0
         Get-ChildItem $latest.FullName -Recurse -File | ForEach-Object {

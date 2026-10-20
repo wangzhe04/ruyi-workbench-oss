@@ -6,8 +6,8 @@
 // 拼提示词/解析业务回体的外壳仍留在各自的模块里(它们依赖 05/06/07 的提示词与协议翻译,挪到这里会造前向边)。
 //
 // 为什么排在 04f 之后、05 之前:所有消费者(05/06/06d/07/08/09/10)都在它后面,全是后向边;而它自己
-// 【零出边】—— 不引用任何其他模块的顶层符号(连 redact/logEvent 都不引用:脱敏留给调用方,回体原样交回),
-// 所以进不了任何环,也不扩大既有唯一 SCC。往这里加东西时守住这一条:需要别的模块的符号,就留在调用方做。
+// 81-P2: 出站正文经无应用状态的 PrivacyGateway;其宿主经 Hooks 注入。仍不直接引用配置、会话或日志,回体原样交回。
+// 只允许依赖环外的原语,不扩大既有唯一 SCC。需要应用模块的符号时留在调用方或注入宿主中。
 
 // Normalize a provider base URL to the OpenAI "/v1" level so we can append /chat/completions or /models.
 // Keeps an existing /vN (or /compatible-mode/v1) segment; otherwise appends /v1.
@@ -68,6 +68,10 @@ async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
+    if (typeof PrivacyGateway !== 'undefined') {
+      body = await PrivacyGateway.beforeModelRequest(body);
+      PrivacyGateway.assertPolicyAvailable();
+    }
     const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
     let raw = ''; if (res) { try { raw = await res.text(); } catch { raw = ''; } }
     let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = null; }

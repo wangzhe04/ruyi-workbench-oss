@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { api } from './net.js';
 import { $, el, fmtTokens, toast, chatProviders } from './util.js';
 import { icon } from './icons.js';
+import { privacyComposerMenuItem } from './privacy-settings.js';
 import { t, tCount } from './i18n.js';
 // 32 号文 §4（M1-b）：浮层原语（popover/closePopover）搬成叶子模块 js/popover.js —— 两壳共用同一份
 // 「开合」，而 3.0 不必为了它把本域的组合根（help-menu / help-viewer / onboarding-wizard）一起拉进来。
@@ -734,6 +735,7 @@ function openComposerMorePopover() {
     const compact = el('button', 'cm-item'); compact.type = 'button'; compact.append(icon('compress', 16), document.createTextNode(t('composer.compactContext')));
     compact.onclick = () => { close(); compactContext(); };
     wrap.appendChild(compact);
+    wrap.appendChild(privacyComposerMenuItem('chatPrivacyIndicator', close));
     return wrap;
   }, { placement: 'bottom-start', onOpen: node => { const first = node.querySelector('.cm-item'); if (first) first.focus(); } });
 }

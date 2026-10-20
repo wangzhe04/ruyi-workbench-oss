@@ -67,17 +67,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   fs.mkdirSync(HOME2, { recursive: true });
   fs.writeFileSync(path.join(HOME2, 'config.json'), JSON.stringify({ configSchema: 4, version: '0.7.0', permissionMode: 'bypass' }, null, 2));
   const PORT = await getFreePort();
-  const childEnv = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME2 };
-  delete childEnv.RUYI_HOME;
+  const childEnv = { ...process.env, RUYI_HOME: HOME2, WIN_CLAUDE_WORKBENCH_HOME: HOME2 };
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, env: childEnv, windowsHide: true });
   wb.stdout.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb] ' + l.trim())));
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   function getJson(p, headers) {
     return new Promise(resolve => {
-      const r = http.get({ host: '127.0.0.1', port: PORT, path: p, headers: headers || {}, timeout: 4000 }, resp => {
+      // Windows RSS sampling itself may take its full 5 s tasklist timeout; this is a
+      // response-shape integration check, so its client deadline must include that work.
+      const r = http.get({ host: '127.0.0.1', port: PORT, path: p, headers: headers || {}, timeout: 15000 }, resp => {
         let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { let j = null; try { j = JSON.parse(b); } catch { /* ignore */ } resolve({ status: resp.statusCode, body: j }); });
       });
-      r.on('error', () => resolve({ status: 0, body: null })); r.on('timeout', () => { r.destroy(); resolve({ status: 0, body: null }); });
+      r.on('error', error => resolve({ status: 0, body: null, transportError: error.code || 'request_error' })); r.on('timeout', () => { resolve({ status: 0, body: null, transportError: 'request_timeout' }); r.destroy(); });
     });
   }
   function getToken() { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port: PORT, path: '/', timeout: 5000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
@@ -93,10 +94,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await getJson('/api/storage/summary', { 'x-wcw-token': token });
     await getJson('/api/sessions', { 'x-wcw-token': token });
     const m = await getJson('/api/metrics', { 'x-wcw-token': token });
-    ok(m.status === 200 && m.body && m.body.ok === true, 'B2 有 token → 200 ok');
+    ok(m.status === 200 && m.body && m.body.ok === true, 'B2 有 token → 200 ok(status=' + m.status + ', transport=' + (m.transportError || 'none') + ')');
     const b = m.body || {};
     ok(b.memory && Number(b.memory.rss) > 0 && Array.isArray(b.children) && Array.isArray(b.storageTrend) && b.requests,
       'B3 memory/children/storageTrend/requests 字段齐');
+    if (!b.requests) throw new Error('Metrics response missing requests: status=' + m.status + ', transport=' + (m.transportError || 'none'));
     const total1 = b.requests.total;
     const bucketSum = b.requests.buckets.reduce((a, x) => a + x, 0);
     ok(total1 > 0 && bucketSum === total1, 'B4 请求计数 total=' + total1 + ' 且 buckets 之和相等');

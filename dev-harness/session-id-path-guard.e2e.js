@@ -41,11 +41,11 @@ function req(port, method, route, payload, headers = {}) {
 }
 
 (async () => {
-  let wb = null;
+  let wb = null, configReader = null;
   try {
     const port = await getFreePort();
     fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-      configSchema: 8, permissionMode: 'bypass', defaultWorkspace: HOME,
+      credentialEncryptionV1: process.platform === 'win32', configSchema: 8, permissionMode: 'bypass', defaultWorkspace: HOME,
       providers: [{ id: 'p', label: 'P', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9/v1', apiKey: SECRET, model: 'm', models: [{ id: 'm', label: 'm' }] }],
       activeProvider: 'p',
     }, null, 2));
@@ -70,7 +70,9 @@ function req(port, method, route, payload, headers = {}) {
       ok(r.status === 404 && !r.raw.includes(SECRET), `P2 ${route} ../config → 404(${r.status} ${r.raw.slice(0, 100).replace(/\s+/g, ' ')})`);
     }
     const after = fs.readFileSync(path.join(HOME, 'config.json'), 'utf8');
-    ok(JSON.parse(after).providers[0].apiKey === SECRET && !fs.existsSync(path.join(HOME, 'config.json.corrupt')), 'P2 config.json 没被当成会话改写或隔离');
+    configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(HOME);
+    ok(configReader.recover(JSON.parse(after)).providers[0].apiKey === SECRET && !fs.existsSync(path.join(HOME, 'config.json.corrupt')), 'P2 config.json 没被当成会话改写或隔离,持久凭据准确保留');
+    if (process.platform === 'win32') ok(JSON.parse(after).credentialRefsV1?.version === 1 && !after.includes(SECRET), 'P2 Windows 配置使用加密引用,没有凭据明文');
     ok(JSON.parse(before).activeProvider === JSON.parse(after).activeProvider, 'P2 配置内容前后一致');
 
     const sessDir = path.join(HOME, 'sessions');
@@ -139,6 +141,7 @@ function req(port, method, route, payload, headers = {}) {
   } catch (error) {
     t.fail('fatal: ' + (error && error.stack || error));
   } finally {
+    configReader?.close();
     if (wb) { try { killOwnTree(wb); } catch { /* gone */ } await sleep(300); }
     if (t.failures === 0) fs.rmSync(HOME, { recursive: true, force: true });
     else console.log('[keep] ' + HOME);

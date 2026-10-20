@@ -215,6 +215,7 @@ async function handleApi(req, res, pathname) {
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
+  if (typeof PrivacyCore !== 'undefined' && typeof PrivacyCore.configHooks.handleApiRoutes === 'function' && await PrivacyCore.configHooks.handleApiRoutes(req, res, pathname)) return;
   if (typeof ExternalBotHooks.handleApiRoutes === 'function') {
     const handled = await ExternalBotHooks.handleApiRoutes(req, res, pathname);
     if (handled || res.writableEnded || res.destroyed) return;
@@ -1971,12 +1972,15 @@ async function startServer(opts) {
     return result;
   } catch (error) {
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
-    const message = String((error && error.message) || error || '').slice(0, 800)
+    const recoveryHelp = typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks.startupGuidance?.(error) : '';
+    const message = String(recoveryHelp || (error && error.message) || error || '').slice(0, 800)
       || '如意启动时出错了,没能开起来。';
     await writeStartError(kind, message);
     // Boot may already have started asynchronous writers. Keep ownership until process exit,
     // including a programmatic caller's failed boot; same-process restart is not supported.
     throw error;
+  } finally {
+    finishBootCliPathProbes();
   }
 }
 
@@ -2042,6 +2046,7 @@ function stopAllActiveTurnsSync(reason = 'shutdown') {
 }
 
 async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
+  beginBootCliPathProbes();
   try {
     await ensureDirs();
   } catch (error) {
@@ -2070,7 +2075,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   void warmPretenderProjectionIndex().catch(() => {});
   // 第29波(§29b): boot 自动恢复分级(opt-in,默认 false=零行为变化)。放在诚实标死【之后】、fire-and-forget:
   // 恢复失败/慢盘绝不阻塞 boot;真正的续跑在 runAgentWorkflow 内自走调度环。
-  void autoResumeInterruptedRuns().catch(() => {});
+  void waitForBootCliPathProbes().then(() => autoResumeInterruptedRuns()).catch(() => {});
   // PF2 fix: a hard crash (SIGKILL / power loss, where no exit handler ran to flush) can leave sessions/index.json
   // stale while its id-set still MATCHES the session files on disk — listSessions' fast path would then trust that
   // stale index FOREVER (renames / pins / messageCounts / summaries never re-surface until some OTHER session is
@@ -2160,6 +2165,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   // 118c: 实际监听端口可能不是请求的那个(原端口被别的程序占着时自动往后找)。下面的 runtime.json、
   // 控制台 URL 与 --open 全部用【实际】端口,前端顶部条另有 START_NOTICE.portFallback 说明改用了谁。
   const port = await listenWithFallback(server, requestedPort, host, config);
+  finishBootCliPathProbes(); // No await before the runtime token handshake below.
   const url = `http://${host}:${port}/`;
   // Port+token handshake file for the permission-bridge MCP child; also useful for tooling.
   const runtimeToken = crypto.randomBytes(16).toString('hex');
@@ -2171,6 +2177,9 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   console.log(`UI: ${url}`);
   console.log(`Data: ${paths.data}`);
   console.log(`Server source: ${externalServerJs() || '(baked exe)'}`);
+  // /health and the token handshake are live already. Boot consumers must now use
+  // the real discovered CLI paths, including verified shim-to-exe upgrades.
+  config = await readConfig();
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
   if (typeof ExternalBotHooks.start === 'function') ExternalBotHooks.start();
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
@@ -2549,7 +2558,9 @@ async function startMcp() {
           const routedPacks = new Set(String(process.env.WCW_TOOL_PACKS || '').split(',').filter(Boolean));
           routedPacks.add('core');
           const adaptiveAlways = new Set(['permission_prompt', 'list_tools', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
-          const listConfig = await readConfig().catch(() => null);
+          const listConfig = await readConfig();
+          PrivacyGateway.assertPolicyAvailable(listConfig);
+          if (PrivacyGateway.enabled(listConfig)) return sendMcp(msg.id, { tools: [], _meta: { privacy: 'privacy.engine_not_supported' } });
           const recallEnabled = observationRecallEnabled(listConfig);
           // 116c: Claude/Kimi CLI 桥的 offer 面。管家会话由注入的 WCW_SESSION_KIND 标识;缺失/非
           // 'steward' 一律隐藏 steward_*(fail-closed —— 普通 CLI 会话永远看不到管家工具)。
@@ -2578,6 +2589,7 @@ async function startMcp() {
           if (progressTimer && progressTimer.unref) progressTimer.unref();
           try {
             const result = await toolCall(name, args);
+            PrivacyGateway.assertSupported(await readConfig(), 'external-tool-result');
             // S1 修复:MCP tools/call 路径(Claude 引擎)原样直出大结果会灌爆 CLI context。
             // 经 truncateToolResult 截断(file_read 走 head/tail,其余 60KB+标记),与 OpenAI 引擎 push 路径一致。
             const images = VisualPipeline.extractToolImages(result);
@@ -2595,6 +2607,9 @@ async function startMcp() {
           }
         }
         if (msg.method === 'resources/list') {
+          const resourceConfig = await readConfig();
+          PrivacyGateway.assertPolicyAvailable(resourceConfig);
+          if (PrivacyGateway.enabled(resourceConfig)) return sendMcp(msg.id, { resources: [], _meta: { privacy: 'privacy.engine_not_supported' } });
           return sendMcp(msg.id, {
             resources: [
               {
@@ -2607,6 +2622,8 @@ async function startMcp() {
           });
         }
         if (msg.method === 'resources/read') {
+          const resourceConfig = await readConfig();
+          PrivacyGateway.assertSupported(resourceConfig, 'external-resource');
           const uri = String(msg.params?.uri || '');
           if (!uri.startsWith('file://')) throw new Error('Only file:// resources are supported');
           const p = decodeURIComponent(uri.replace(/^file:\/\//, '')).replace(/^\/+/, '');
@@ -2619,11 +2636,15 @@ async function startMcp() {
           // 107-S0／S0b 掩了同一批值,文件工具也把 config.json 列为敏感路径拒读 —— 这是绕过两道门的第三条路)。
           // 现在交出去的是与 /api/status 同一份掩码视图(maskProviders,不另写一套),并且是归一化后的整份配置 ——
           // 128a 之后盘上是稀疏文件,原样读反而给不出「当前生效的配置」。
-          const view = maskProviders(await readConfig());
+          const view = maskProviders(resourceConfig);
           return sendMcp(msg.id, { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(view, null, 2) }] });
         }
         if (msg.id !== undefined) return sendMcp(msg.id, {});
       } catch (err) {
+        // A long tool may fail after protection was enabled in the serving process.
+        // Error text can contain private paths or stdout too; recheck before exposing it.
+        try { PrivacyGateway.assertSupported(await readConfig(), 'external-error'); }
+        catch (policyError) { err = new Error(policyError.code === 'privacy.engine_not_supported' ? policyError.code : 'privacy.policy_unavailable'); }
         return sendMcp(msg.id, null, err);
       }
     })();

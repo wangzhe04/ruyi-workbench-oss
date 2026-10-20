@@ -484,6 +484,75 @@ function zipOverlayPkg(pkgDir, zipPath) {
       `F11 壳退出后下一次 apply 清掉了以往的旁路文件(剩 ${JSON.stringify(fs.readdirSync(DEPLOY_F).filter(n => /\.old-/.test(n)))})`);
   }
 
+  // G: Program-only rollback cannot downgrade the reader of migrated DPAPI/privacy state.
+  // The guard inspects program bytes, never a user's home/data; these fixtures have no data root.
+  console.log('── G 段: 隐私数据格式能力不能被程序回滚降级(-Force 也拒绝) ──');
+  const legacyServer = 'function defaultConfig() { return {}; }\nasync function readConfig() { return defaultConfig(); }\nasync function main() {}\nmodule.exports = { readConfig };\n' + '// legacy fixture\n'.repeat(100);
+  const currentServer = fs.readFileSync(SERVER_SRC, 'utf8');
+  const capabilityMentions = [
+    'const PrivacyCore = ((cryptoApi, ruleCatalog) => {',
+    'const CredentialVault = ((cryptoApi) => {',
+    'const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, UrlApi) => {',
+    'Object.assign(PrivacyCore.configHooks, CredentialVault.create({',
+    'PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;',
+  ].join('\n');
+  const emptyPrivacyStub = legacyServer + [
+    'const PrivacyCore = ((cryptoApi, ruleCatalog) => { return { configHooks: {} }; })(null, null);',
+    'const CredentialVault = ((cryptoApi) => { return { create() { return {}; } }; })(null);',
+    'const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, UrlApi) => { return { configure() {} }; })(null, null, null, null, null, null);',
+    'Object.assign(PrivacyCore.configHooks, CredentialVault.create({}));',
+    'PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;',
+  ].join('\n');
+  function rollbackFixture(name, savedServer, touchesServer = true, installedServer = currentServer) {
+    const target = path.join(HOME, 'deploy-g-' + name), backup = path.join(target, '.overlay-backups', 'fixture');
+    fs.mkdirSync(path.join(target, 'app/public'), { recursive: true });
+    fs.mkdirSync(path.join(target, 'runtime/node'), { recursive: true });
+    const node = path.join(target, 'runtime/node/node.exe');
+    try { fs.linkSync(process.execPath, node); } catch { fs.copyFileSync(process.execPath, node); }
+    fs.writeFileSync(path.join(target, 'app/server.js'), installedServer);
+    fs.writeFileSync(path.join(target, 'app/public/hello.txt'), 'AFTER');
+    fs.writeFileSync(path.join(target, 'app/public/added.txt'), 'ADDED');
+    fs.writeFileSync(path.join(target, '.overlay-applied.json'), JSON.stringify({ version: 'after' }));
+    fs.writeFileSync(path.join(target, 'update-manifest.json'), JSON.stringify({ files: [{ path: touchesServer ? 'app/server.js' : 'app/public/hello.txt' }] }));
+    fs.mkdirSync(path.join(backup, 'app/public'), { recursive: true });
+    if (savedServer !== null) fs.writeFileSync(path.join(backup, 'app/server.js'), savedServer);
+    fs.writeFileSync(path.join(backup, 'app/public/hello.txt'), 'BEFORE');
+    fs.writeFileSync(path.join(backup, '.overlay-applied.json'), JSON.stringify({ version: 'before' }));
+    fs.writeFileSync(path.join(backup, '.overlay-added.json'), JSON.stringify(['app/public/added.txt']));
+    return target;
+  }
+  const legacyTarget = rollbackFixture('legacy', legacyServer);
+  const plainDowngrade = runPs1('rollback', null, legacyTarget);
+  ok(plainDowngrade.json?.ok === false, 'G1 ordinary rollback from privacy runtime to legacy reader refuses');
+  for (const [name, saved] of [
+    ['legacy', legacyServer],
+    ['comment-spoof', legacyServer + '\n/*\n' + capabilityMentions + '\n*/'],
+    ['string-spoof', legacyServer + '\nconst documentation = ' + JSON.stringify(capabilityMentions) + ';\n'],
+    ['empty-privacy-stub', emptyPrivacyStub],
+    ['different-reader', currentServer + '\n// A different complete reader is not implicitly data-compatible.\n'],
+    ['empty', ''],
+    ['invalid', legacyServer + '\nconst broken = {'],
+    ['missing', null],
+  ]) {
+    const target = name === 'legacy' ? legacyTarget : rollbackFixture(name, saved);
+    const before = ['app/server.js', 'app/public/hello.txt', 'app/public/added.txt', '.overlay-applied.json', 'update-manifest.json'].map(file => sha256(path.join(target, file)));
+    const result = runPs1('rollback', null, target, ['-Force']);
+    ok(result.json?.ok === false && result.json?.rejected === true && result.json?.code === 'overlay.rollback_storage_compatibility_unverified' && result.json.error.includes('cannot verify storage compatibility') && result.leak === '', 'G2 ' + name + ': -Force cannot bypass the storage compatibility verification guard');
+    ok(JSON.stringify(before) === JSON.stringify(['app/server.js', 'app/public/hello.txt', 'app/public/added.txt', '.overlay-applied.json', 'update-manifest.json'].map(file => sha256(path.join(target, file)))), 'G3 ' + name + ': refusal precedes every restored/deleted program file and applied marker');
+    const audit = runPs1('audit', null, target);
+    ok(audit.json?.entries?.some(entry => entry.action === 'rollback' && entry.result === 'storage_compatibility_rejected'), 'G4 ' + name + ': rejected rollback has an audit record');
+  }
+  for (const [name, saved, touchesServer, installed] of [
+    ['privacy', currentServer, true, currentServer],
+    ['frontend-only', null, false, currentServer],
+    ['legacy-compatible', legacyServer, true, legacyServer],
+  ]) {
+    const target = rollbackFixture(name, saved, touchesServer, installed);
+    const result = runPs1('rollback', null, target, ['-Force']);
+    ok(result.json?.ok === true && fs.readFileSync(path.join(target, 'app/public/hello.txt'), 'utf8') === 'BEFORE' && !fs.existsSync(path.join(target, 'app/public/added.txt')), 'G5 ' + name + ': compatible rollback preserves the existing restore/delete contract');
+    ok(fs.readFileSync(path.join(target, 'app/server.js'), 'utf8') === (saved === null ? installed : saved), 'G6 ' + name + ': the compatible server bytes stay exact');
+  }
+
   // 收尾
   fs.rmSync(HOME, { recursive: true, force: true });
   console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAIL`);

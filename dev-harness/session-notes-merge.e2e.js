@@ -92,16 +92,14 @@ const SUMMARY_V2 = [
   const HOOK_SID = 'merge-hook';
   await srv.writeSessionNotes(HOOK_SID, prevMd); // 预置 prev
   const cfgBOnly = srv.normalizeConfig({ runtimeSessionNotesV1: true, runtimeSessionNotesMergeV1: false }).config; // 105b 开、merge 显式关
-  srv.maybeWriteSessionNotes({ id: HOOK_SID, turnSeq: 2 }, SUMMARY_V2, cfgBOnly);
-  await new Promise(r => setTimeout(r, 300));
+  await srv.maybeWriteSessionNotes({ id: HOOK_SID, turnSeq: 2 }, SUMMARY_V2, cfgBOnly);
   const offMd = await srv.readSessionNotes(HOOK_SID);
   ok(!!offMd && offMd.includes('- 新决定B') && !offMd.includes('旧决定A') && !offMd.includes('prev-only'),
     'U14 merge 显式关→整体重写:prev 独有行消失(105b 现状语义)');
 
   await srv.writeSessionNotes(HOOK_SID, prevMd); // 再预置 prev
   const cfgBoth = srv.normalizeConfig({ runtimeSessionNotesV1: true, runtimeSessionNotesMergeV1: true }).config;
-  srv.maybeWriteSessionNotes({ id: HOOK_SID, turnSeq: 3 }, SUMMARY_V2, cfgBoth);
-  await new Promise(r => setTimeout(r, 300));
+  await srv.maybeWriteSessionNotes({ id: HOOK_SID, turnSeq: 3 }, SUMMARY_V2, cfgBoth);
   const onMd = await srv.readSessionNotes(HOOK_SID);
   ok(!!onMd && onMd.includes('- 新决定B') && onMd.includes('- 旧决定A') && onMd.includes('prev-only'),
     'U15 merge 开 → 落盘合并结果:next 新行与 prev 独有行并存');
@@ -111,8 +109,7 @@ const SUMMARY_V2 = [
 
   const ONLY_MERGE_SID = 'merge-only';
   const cfgMergeOnly = srv.normalizeConfig({ runtimeSessionNotesV1: false, runtimeSessionNotesMergeV1: true }).config; // 105b 显式关、单开 merge
-  srv.maybeWriteSessionNotes({ id: ONLY_MERGE_SID, turnSeq: 1 }, SUMMARY_V2, cfgMergeOnly);
-  await new Promise(r => setTimeout(r, 200));
+  await srv.maybeWriteSessionNotes({ id: ONLY_MERGE_SID, turnSeq: 1 }, SUMMARY_V2, cfgMergeOnly);
   ok(!fs.existsSync(srv.sessionNotesPath(ONLY_MERGE_SID)), 'U18 单开 merge 而无 105b → 零文件(挂在 105b 写链内)');
 
   // ═══ [H] 项目真实 checkpoint:相邻 L2 摘要增量合并 ═══

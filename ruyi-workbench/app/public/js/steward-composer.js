@@ -23,6 +23,7 @@ import { stewardEscapeStack, doc, byId, el, isSubmitEnter } from './steward-chip
 import { popover, closePopover, popoverAnchor } from './popover.js';
 // F5a 收编（33 号文 §4「F5a 漏网图标」）：字形一律走全仓唯一那张 ICONS 表，本文件零 SVG path 字面量。
 import { icon } from './icons.js';
+import { privacyComposerMenuItem } from './privacy-settings.js';
 // 117r-D3（用户第八轮走查②「关键词匹配……最好不要和输入框放同一行」「而且匹配的没法删掉/关掉」）：
 // 线程标题截短复用【唯一那一份】实现（util.js 的 stewardShortTitle，STEWARD_TITLE_MAX=24），不在本文件里另起一份——
 // 抽屉页签、灰字回执、2.0 的工具卡/工作流节点卡早就走这条口径，chip 是唯一漏掉的一处。
@@ -608,6 +609,7 @@ export function createStewardComposer({
         fresh.append(icon('plus', 16), doc().createTextNode(t('rail.newTask')));
         fresh.onclick = () => { close(); composerApi.markNewInMission(''); };   // 点击时 composerApi 早已建好（下面 return 的那份）
         wrap.append(attach, fresh);
+        wrap.append(privacyComposerMenuItem('stewardPrivacyIndicator', close));
         return wrap;
       }, { placement: 'top-start' });
     });

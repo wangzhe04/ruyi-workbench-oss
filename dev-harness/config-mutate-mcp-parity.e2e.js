@@ -93,6 +93,7 @@ async function waitForAudit(home, kind, id, tries = 40) {
 
 const baseConfig = extra => ({
   configSchema: 7, version: '2.0.1', permissionMode: 'bypass',
+  credentialEncryptionV1: process.platform === 'win32',
   // 管家/线程摘要与本件无关,显式关掉避免背景写盘干扰配置比对。
   stewardEnabledV1: false, stewardThreadBriefV1: false,
   // autoImportClaudeCodeMcp 会读【真实】~/.claude.json 污染 temp-HOME,必须关。
@@ -115,6 +116,7 @@ const baseConfig = extra => ({
     dismissedMcpIds: ['tool-c'],
   }), null, 2));
   process.env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
+  process.env.RUYI_HOME = HOME;
   const srv = require(SERVER);
   const cfgTool = () => srv.configureMcpFromTool;
 
@@ -166,18 +168,20 @@ const baseConfig = extra => ({
   const rS0 = await cfgTool()({ operation: 'upsert', id: 'tool-s', server: secretServer });
   const plainT12 = t => [T12_GH, T12_ARG].some(s => String(t).includes(s));
   ok(rS0 && rS0.ok === true && !plainT12(JSON.stringify(rS0)) && rS0.server.args[2] === '«redacted»', 'T12a 明文 upsert 成功,回包 args 显示脱敏、零明文');
-  const diskS = () => (readCfg(HOME).externalMcpServers || []).find(s => s && s.id === 'tool-s') || null;
-  const realS = JSON.stringify(diskS());
-  ok(realS.includes(T12_GH) && realS.includes(T12_ARG), 'T12b 磁盘上是真值');
-  const inv = srv.safeMcpInventory(readCfg(HOME)).find(e => e.id === 'tool-s');
+  // 81-P1: read via runtime hydration; retain exact-value tests and add physical ciphertext assertions.
+  const diskS = async () => ((await srv.readConfig()).externalMcpServers || []).find(s => s && s.id === 'tool-s') || null;
+  const realS = JSON.stringify(await diskS());
+  ok(realS.includes(T12_GH) && realS.includes(T12_ARG), 'T12b 81-P1: 持久化凭据能从运行时逐字恢复');
+  ok(process.platform !== 'win32' || !plainT12(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')), 'T12b2 81-P1: 配置磁盘副本不含明文密钥或参数');
+  const inv = srv.safeMcpInventory(await srv.readConfig()).find(e => e.id === 'tool-s');
   ok(inv && inv.args[2] === '«redacted»' && !plainT12(JSON.stringify(inv)), 'T12c mcp_list(safeMcpInventory)args 显示脱敏、零明文');
-  const maskedS = srv.maskSecrets(readCfg(HOME)).externalMcpServers.find(s => s.id === 'tool-s');
+  const maskedS = srv.maskSecrets(await srv.readConfig()).externalMcpServers.find(s => s.id === 'tool-s');
   const rS1 = await cfgTool()({ operation: 'upsert', id: 'tool-s', server: { ...maskedS, label: 'S relabeled' } });
-  const afterS1 = diskS();
+  const afterS1 = await diskS();
   ok(rS1 && rS1.ok === true && afterS1 && afterS1.label === 'S relabeled'
     && JSON.stringify({ ...afterS1, label: 'S' }) === realS, 'T12d 掩码原样 upsert 回来(只改 label)-> 真值逐字节还原');
   const rS2 = await cfgTool()({ operation: 'upsert', id: 'tool-s', server: { ...maskedS, command: path.join(HOME, 'other-launcher.exe') } });
-  const afterS2 = diskS();
+  const afterS2 = await diskS();
   const textS2 = fs.readFileSync(path.join(HOME, 'config.json'), 'utf8');
   ok(rS2 && rS2.ok === true && afterS2 && afterS2.env.GITHUB_TOKEN === '' && afterS2.args[2] === '' && !plainT12(textS2) && !textS2.includes('••••') && !textS2.includes('«redacted»'),
     'T12e 改了 command 的 upsert 带着掩码 -> 清空(不改接、不落掩码)');
@@ -192,7 +196,7 @@ const baseConfig = extra => ({
     enableMcpDropIn: false, externalMcpServers: conc,
   }), null, 2));
   let WP = await getFreePort();
-  const spawnWb = () => cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME2 }, windowsHide: true });
+  const spawnWb = () => cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME2, WIN_CLAUDE_WORKBENCH_HOME: HOME2 }, windowsHide: true });
   let wb = null, started = false;
   for (let attempt = 0; attempt < 3 && !started; attempt++) {
     wb = spawnWb();
@@ -234,7 +238,7 @@ const baseConfig = extra => ({
   const src = fs.readFileSync(SERVER, 'utf8');
   // mutateConfig 不是 async 函数:它必须【同步】把自己接到 configMutateChain 上再返回,
   // 否则两个并发调用会在各自的第一个 await 之后才排队,临界区就漏了。两条一起钉。
-  ok(/function mutateConfig\(mutator\)/.test(src) && /configMutateChain/.test(src), 'S1 mutateConfig(全程持锁的读-改-写)+ 独立队列 configMutateChain 在');
+  ok(/^function mutateConfig\(mutator(?:,\s*options\s*=\s*\{\})?\)/m.test(src) && /configMutateChain/.test(src), 'S1 mutateConfig(全程持锁的读-改-写)+ 独立队列 configMutateChain 在');
   ok(/async function mutateMcpConnector\(/.test(src), 'S2 mutateMcpConnector(连接器变更唯一内核)在');
   ok(/function mcpConnectorMutateError\(/.test(src), 'S3 护栏 mcpConnectorMutateError 仍在');
   const bare = (src.match(/await writeConfig\(/g) || []).length;

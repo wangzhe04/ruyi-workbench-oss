@@ -335,6 +335,13 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
       if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
       try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
     };
+    const display = PrivacyGateway.createDisplayStream(STEWARD_SESSION_ID, writeEvent);
+    let displayPending = Promise.resolve();
+    const writeDisplayEvent = evt => {
+      // write() snapshots the host event synchronously and already serializes display I/O.
+      displayPending = display.write(evt);
+      displayPending.catch(() => {});
+    };
     try { req.socket.setNoDelay(true); } catch { /* ignore */ }
     res.writeHead(200, {
       'content-type': 'application/x-ndjson; charset=utf-8',
@@ -346,11 +353,11 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
     res.on('error', () => {});   // 断线后的异步写错误(EPIPE / write-after-end)不得成为 uncaughtException
     try {
       // 117l D1:routeHint 随请求进来,但它只是【提示】—— 服务端只信 sessionId(见 stewardNormalizeRouteHint)。
-      const result = await runStewardTurn({ trigger: 'user', message, routeHint: body && body.routeHint, attachments, onEvent: writeEvent });
+      const result = await runStewardTurn({ trigger: 'user', message, routeHint: body && body.routeHint, attachments, onEvent: writeDisplayEvent });
       // 流的最后一帧 = 这次请求的响应载荷(见文件头「steward_reply 的投放口径」)。失败态也发这一帧:
       // 响应头早已发出,不能再改回 4xx 信封,故把稳定信封的 error/message 放进同一帧里,前端一处分支即可。
       const reply = (result && typeof result === 'object') ? result : {};
-      writeEvent({
+      writeDisplayEvent({
         type: 'steward_reply',
         trigger: 'user',
         say: String(reply.say || ''),
@@ -372,8 +379,13 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         ...(reply.ok === false && reply.error ? { error: reply.error, message: reply.message || '' } : {}),
       });
     } finally {
-      flushDeltas();
-      try { res.end(); } catch { /* client gone */ }
+      try {
+        try { await displayPending; }
+        finally { await display.flush(); flushDeltas(); }
+      } finally {
+        display.close();
+        try { res.end(); } catch { /* client gone */ }
+      }
     }
     return;
   }

@@ -115,7 +115,17 @@ async function stopServer(wb) { if (wb && wb.pid) { try { killOwnTree(wb); } cat
       const S = await startServer(PORT);
       wb = S.wb;
       ok(!!(S.h && S.h.body), '(B0) 工作台 listening :' + PORT);
-      const st = await getJson(PORT, '/api/status');
+      // /health only proves listening; the first status still awaits cold CLI/capability
+      // probes. Keep each request's 1500ms limit and the exact assertions below, while
+      // giving status the same bounded readiness window as the boot health fixture.
+      const statusDeadline = Date.now() + 45000;
+      let st = null;
+      while (Date.now() + 1500 <= statusDeadline) {
+        st = await getJson(PORT, '/api/status');
+        if (st && st.status === 200 && st.body && st.body.config && Array.isArray(st.body.health)) break;
+        if (wb.exitCode !== null || wb.signalCode !== null || (st && st.status !== 200)) break;
+        await sleep(150);
+      }
       const cpv = st && st.body && st.body.config && st.body.config.claudePath;
       ok(!!cpv && path.resolve(cpv) === path.resolve(L1.exe), '(B1) /api/status config.claudePath 已解析为 exe — ' + cpv);
       const cliHealth = st && st.body && Array.isArray(st.body.health) && st.body.health.find(x => x.id === 'claude-cli');

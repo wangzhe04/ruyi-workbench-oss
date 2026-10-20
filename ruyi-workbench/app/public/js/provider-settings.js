@@ -2,6 +2,7 @@
 
 // EC-D：运行时引擎状态、Provider 配置、设置保存与诊断领域。
 import { state } from './state.js';
+import { mountPrivacySettings, renderPrivacyIndicators as renderSavedPrivacyIndicators } from './privacy-settings.js';
 import { bindModelSelect, providerModels, agentModels, publishProviderModels, publishAgentModels, refreshModelSelects } from './model-catalog.js';
 import { fillProviderSelect } from './model-catalog.js';   // W6：「模型分配」每一行服务商下拉的唯一选项构建器
 
@@ -23,6 +24,10 @@ import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiSt
 import { stripProviderEndpointSuffix, inferProviderApiStyleFromUrl, isAnthropicOfficialUrl, stepAutoProviderStyle } from './provider-api-styles.js';
 // 2026-10 设置补全：修前没有任何控件的约 70 个 config 键，由这一张目录统一渲染、回填、即存。
 import { mountSettingsCatalog, fillSettingsCatalog, catalogPatch } from './settings-catalog.js';
+
+export function renderPrivacyIndicators(onOpen) {
+  renderSavedPrivacyIndicators(state.config, onOpen);
+}
 
 // 118a: the ONE place a PROVIDER_PRESETS template turns into a providers[] entry. Extracted from
 // addProviderFromPreset() verbatim (zero behavior change) so the welcome wizard writes byte-identical
@@ -171,6 +176,7 @@ async function refreshStatus() {
   if (writeRaced && state.config && fresh) fresh.config = state.config;
   state.status = fresh;
   state.config = state.status.config || {};
+  renderPrivacyIndicators();
   for (const provider of state.config.providers || []) provider.models = providerModels(provider);
   applyTheme(state.config.theme || 'dark');
   applyUiMode(state.config.uiMode || 'pro'); // v0.9-S1 (C1)
@@ -773,6 +779,12 @@ function fillWaitSelect(id, choices, current) {
 
 /* 第61波：Agent 角色设置与子代理偏好选择已拆入 ./js/agent-roles.js。 */
 function fillSettings() {
+  mountPrivacySettings({ onSaved: () => refreshStatus() });
+  renderPrivacyIndicators(() => {
+    $('openSettingsBtn')?.click();
+    switchSettingsTab('security', true);
+    window.dispatchEvent(new Event('privacy:open'));
+  });
   const c = state.config;
   // W6：fillSettings 会在弹窗开着时重入（打开、任一次 refreshStatus）。别处的控件都已「改了就存」，唯一会丢的是
   // 【正在打字、还没失焦】的那一格 —— 回填前记下它，回填后原样放回去。

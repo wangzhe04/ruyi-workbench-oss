@@ -1530,6 +1530,7 @@ function emptyReplyNotice(locale, afterText) {
 }
 
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta, executionOwner, delegationPlan }) {
+  if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(config) && !PrivacyGateway.active()) return PrivacyGateway.run(session.id, config, () => runOpenAiTurn(arguments[0]));
   assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 回合入口刷新分桶镜像(同步估算热路径用)
@@ -1612,6 +1613,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // The API is stateless, so every Claude/workflow message since the previous Provider turn must be mirrored
   // before this request. The cursor prevents duplicates while retaining Provider-native tool protocol rows.
   syncProviderHistoryFromDisplay(session);
+  // Bind only the host-loaded prefix. This turn's user input remains strict.
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.bindHostHistory(session, session.providerHistory);
   // 配对铁律自愈:持久化历史若带孤儿 tool_calls(上次回合在工具块中途被杀/崩溃,abort 的 skip 填充
   // 来不及跑),下面 push 新 user 消息后请求体即触发 strict provider 400 且每次重发同一份孤儿历史
   // (会话永久卡死)。在 push user 之前把缺失的 role:'tool' 补齐(原位插入,不删不改既有消息)。
@@ -1996,7 +1999,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const actionAuditMap = (config.actionArgumentModelViewV1 === true && Array.isArray(session.actionAudit))
       ? new Map(session.actionAudit.map(e => e && e.toolCallId ? [e.toolCallId, e] : null).filter(Boolean))
       : new Map();
-    const viewHistory = actionAuditMap.size ? projectActionModelView(session.providerHistory, actionAuditMap).history : session.providerHistory;
+    const privacyHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(session, session.providerHistory) : session.providerHistory;
+    const viewHistory = actionAuditMap.size ? projectActionModelView(privacyHistory, actionAuditMap).history : privacyHistory;
     // 请求体(58 号批 1):消息视图(volatile 布局、recall、session notes)只构建一份,协议差异只剩登记表的
     // encodeMessages / applyTools —— chat 发 messages(+stream_options),Responses 发 instructions + input 项
     // (v1.8:服务端工具项 serverToolItems 接在翻译后的历史之后,DeepSeek 在服务端恢复搜索结果)。
@@ -2698,7 +2702,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (reg.state !== 'running' || ctrl.signal.aborted) throw Object.assign(new Error('delegation stopped'), { name: 'AbortError' });
       onEvent({ type: 'tool_use', id, name: 'orchestrate_agents', input: args });
       const envelope = await launchOrchestrateFromTurn(args, evt => { touch(); onEvent(evt); }, true);
-      session.providerHistory.push({ role: 'tool', tool_call_id: id, content: truncateToolResult('orchestrate_agents', JSON.stringify(envelope)) });
+      session.providerHistory.push({ role: 'tool', tool_call_id: id, content: truncateToolResult('orchestrate_agents', JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(envelope) : envelope)) });
       toolCalls.push({ id, name: 'orchestrate_agents', input: args, result: envelope });
       onEvent({ type: 'tool_result', id, content: envelope, isError: envelope.ok === false });
       if (envelope.runId && EventStreamHooks.markAgentEnvelopeDelivered) EventStreamHooks.markAgentEnvelopeDelivered(session, envelope.runId);
@@ -2901,7 +2905,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           contextRetried = true;
           // 快照 → L1 蒸发 → L2 摘要重播种,与子代理走同一个内核(10 runForcedOverflowCompaction)。
           const forced = await runForcedOverflowCompaction({
-            history: session.providerHistory, scope: 'main', provider, model, config,
+            history: session.providerHistory, privacyHistoryOwner: session, scope: 'main', provider, model, config,
             snapshot: () => writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => ''),
             onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
             summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
@@ -3016,7 +3020,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: pargs });
             onEvent({ type: 'tool_result', id: tc.id, content: refuse, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: pargs, result: refuse });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(refuse)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(refuse) : refuse)) });
             await notifyToolHookEnd(tc, refuse, iter, 'plan_refused');
           }
           await saveSession(session, turnSaveOpts);
@@ -3055,11 +3059,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // and must not be paired as function_call_output); their raw item is echoed back into the next
         // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
-        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall)   // 写歪的代理壳先还原(见该函数头注)
+        let localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall)   // 写歪的代理壳先还原(见该函数头注)
           .map(tc => retierToolInvokeCall(tc, toolLoading.catalog, bridgedRoute, config));                      // 61-B2:代理档低报只升不降地改道
         const outputLimited = providerWireOutputLimited(call.finishReason);
         const contextLimited = providerWireContextExceeded(call.finishReason);   // 上下文窗口满了而被截断:同样不执行,但建议不同
-        const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
+        const toolArgsRefusal = tc => tc.privacyError || (isProviderToolArgsObject(tc.rawArgs) ? null : {
           ok: false, argsInvalid: true,
           error: outputLimited
             ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小(分几次写入)后重试'
@@ -3083,6 +3087,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
         // image messages here and FLUSH them after the for-loop, once every role:'tool' reply has been pushed.
+        if (typeof PrivacyGateway !== 'undefined') localToolCalls = localToolCalls.map(tc => PrivacyGateway.prepareCall(tc, { isRegisteredTool: name => Boolean(resolveBridge(bridgedRoute, name)) }));
         const pendingToolImages = []; // [{ toolCallId, note, parts:[{text},{image_url}…] }]
         // hb360 C1: read-tier 并行批 —— 整批全部是【原生只读工具】(无桥接/控制面/spawn/todo/mission/
         // 交互类)时入口并发预执行(单线程事件循环下的 I/O 并发),结果按 id 存表;下方串行循环走到通用
@@ -3185,7 +3190,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args });
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             await notifyToolHookEnd(tc, resultObj, iter, 'loop_refused');
             // v1.4.1 (audit #1 配对铁律):若这是【并行批】,break 会漏答本批其后的 tool_call —— 严格 provider
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
@@ -3199,7 +3204,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
-              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
               await notifyToolHookEnd(rem, skip, iter, 'loop_skipped');
             }
             // v2.7.1 (opt#2): 5x 中止后自主恢复 -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)要求模型换策略,
@@ -3234,7 +3239,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (argsRefused) {
             onEvent({ type: 'tool_result', id: tc.id, content: argsRefused, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: argsRefused });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(argsRefused)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(argsRefused) : argsRefused)) });
             await notifyToolHookEnd(tc, argsRefused, iter, 'args_invalid');
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -3248,7 +3253,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const refused = compactionRefetchRefusal(refetch.count);
             onEvent({ type: 'tool_result', id: tc.id, content: refused, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: refused });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(refused)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(refused) : refused)) });
             await notifyToolHookEnd(tc, refused, iter, 'compaction_refetch_refused');
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -3278,7 +3283,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               } catch { /* shadow comparison must never affect the legacy tool result */ }
             }
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             markToolProgress(tc, resultObj, iter);
             await notifyToolHookEnd(tc, resultObj, iter, 'control_plane');
             touch();
@@ -3346,7 +3351,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const shownAgentResult = await boundToolResultForDisplay(tc.name, resultObj, { sessionId: session.id }); // N3: 展示副本(agent_result 等可能很大)
             onEvent({ type: 'tool_result', id: tc.id, content: shownAgentResult, isError: isErr });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: shownAgentResult });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
             markToolProgress(tc, resultObj, iter);
             await notifyToolHookEnd(tc, resultObj, iter, 'agent_orchestration');
             touch();
@@ -3592,7 +3597,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj, 'no-vision');
           }
           // v0.8-S5: tiered truncation — file_read keeps head+tail, others flat 60KB (truncateToolResult).
-          session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(toolResultForHistory)) });
+          session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(toolResultForHistory) : toolResultForHistory)) });
           markToolProgress(tc, resultObj, iter);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -3612,7 +3617,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
-              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(skip)) });
+              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
               await notifyToolHookEnd(rem, skip, iter, 'steer_skipped');
             }
             steerAborted = true;

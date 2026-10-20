@@ -1,5 +1,14 @@
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
+  { m: 'GET', p: '/api/privacy/status', auth: 'token' },
+  { m: 'GET', p: '/api/privacy/settings', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/settings', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/encryption', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/rules/test', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/use-native', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/backup/export', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/backup/preview', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/backup/import', auth: 'token' },
   { m: 'GET', p: '/api/external-bots/connections', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/connections', auth: 'token' },
   { m: 'GET', p: '/api/external-bots/setup', auth: 'token' },

@@ -47,7 +47,7 @@ const MCP_GH = 'ghp_' + 'StewardS0b' + 'Fake0123456789LMNOP';
 const MCP_ARG = 'stewArg' + 'S0b' + 'Tok445566';
 fs.mkdirSync(HOME, { recursive: true });
 fs.writeFileSync(configFile, JSON.stringify({
-  configSchema: 7, engineMode: 'interactive', permissionMode: 'default', locale: 'zh-CN',
+  credentialEncryptionV1: process.platform === 'win32', configSchema: 7, engineMode: 'interactive', permissionMode: 'default', locale: 'zh-CN',
   includeWorkbenchMcp: false, defaultWorkspace: HOME, recentWorkspaces: [], subagentMaxPerTurn: 0,
   stewardEnabledV1: true, stewardPollMs: 120000, stewardMaxParallelThreads: 5,
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:1', apiKey: 'super-secret-key', model: 'm', models: [{ id: 'm', label: 'm' }] }],
@@ -64,7 +64,7 @@ const ctxPressed = { ...ctxPlain, userPressed: true };
 const call = (name, args, ctx) => srv.toolCall(name, args, ctx || ctxPlain);
 const onDisk = () => JSON.parse(fs.readFileSync(configFile, 'utf8'));
 
-let wb = null;
+let wb = null, configReader = null;
 try {
   /* ═════════ (A) get ═════════ */
   console.log('── (A) config_get ──');
@@ -175,7 +175,18 @@ try {
     const plain = t => ![MCP_GH, MCP_ARG].some(s => String(t).includes(s));
     const diskServers = () => JSON.stringify(onDisk().externalMcpServers);
     const before = diskServers();
-    ok(before.includes(MCP_GH) && before.includes(MCP_ARG), 'I0 夹具:磁盘上是真值');
+    configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(HOME);
+    const recoveredServers = () => JSON.stringify(configReader.recover(onDisk()).externalMcpServers);
+    const recoveredBefore = recoveredServers();
+    const recovered = JSON.parse(recoveredBefore).find(s => s.id === 'stew-mcp');
+    ok(recovered?.env.GITHUB_TOKEN === MCP_GH && recovered?.args[3] === MCP_ARG, 'I0 夹具:持久 env/args 解密为逐字相同的原值');
+    if (process.platform === 'win32') {
+      const raw = onDisk(), rawMcp = raw.externalMcpServers.find(s => s.id === 'stew-mcp');
+      const physicalFiles = ['config.json', 'config.json.prev', 'credential-vault-v1.json'].filter(name => fs.existsSync(path.join(HOME, name)));
+      ok(raw.credentialRefsV1?.version === 1 && rawMcp?.env === '' && rawMcp?.args === ''
+        && physicalFiles.every(name => { const text = fs.readFileSync(path.join(HOME, name), 'utf8'); return plain(text) && !text.includes('super-secret-key'); }),
+      'I0b Windows 主配置、备份和凭据库无 MCP 或服务商凭据明文');
+    }
     const g = await call('steward_config_get', { keys: ['externalMcpServers'] });
     const srvView = g && g.values && Array.isArray(g.values.externalMcpServers) ? g.values.externalMcpServers.find(s => s.id === 'stew-mcp') : null;
     ok(g && g.ok === true && g.tiers.externalMcpServers === 'confirm', 'I1 externalMcpServers 是 confirm 档、get 能读到');
@@ -187,10 +198,10 @@ try {
     ok(plain(JSON.stringify(g)), 'I3 get 返回体里零明文');
     const s = await call('steward_config_set', { patch: { externalMcpServers: g.values.externalMcpServers } }, ctxPressed);
     ok(s && s.ok === true, `I4 把掩码原样 set 回去(用户按了)-> ok(got ${s && (s.error || 'ok')};非 invalid_request 说明 sanitize 探针先还原再比)`);
-    ok(diskServers() === before, 'I5 磁盘 externalMcpServers 逐字节不变(掩码没有落盘、真值没有被抹)');
+    ok(diskServers() === before && recoveredServers() === recoveredBefore, 'I5 磁盘 externalMcpServers 及解密原值逐字节不变(掩码没有落盘、真值没有被抹)');
     ok(plain(JSON.stringify(s)), 'I6 applied／undoRef 里零明文');
     const guarded = await call('steward_config_set', { patch: { externalMcpServers: g.values.externalMcpServers }, expected: { externalMcpServers: g.values.externalMcpServers } }, ctxPressed);
-    ok(guarded && guarded.ok === true && diskServers() === before && plain(JSON.stringify(guarded)), 'I6b 现值条件接受既有全遮掩码往返，不把掩码与秘密真值误判为冲突');
+    ok(guarded && guarded.ok === true && diskServers() === before && recoveredServers() === recoveredBefore && plain(JSON.stringify(guarded)), 'I6b 现值条件接受既有全遮掩码往返，不把掩码与秘密真值误判为冲突');
     const decisionsFile = path.join(HOME, 'steward', 'decisions-v1.ndjson');
     let decisions = '';
     for (let i = 0; i < 40; i++) {
@@ -254,6 +265,7 @@ try {
   console.log('ERROR ' + ((e && e.stack) || e));
   fail++;
 } finally {
+  configReader?.close();
   kill(wb);
   await sleep(300);
 }

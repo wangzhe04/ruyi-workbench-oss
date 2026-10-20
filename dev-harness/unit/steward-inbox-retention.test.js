@@ -8,7 +8,9 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
+const { functionBlock } = require('../lib/source-slice');
 const src = path.resolve(__dirname, '../../ruyi-workbench/app/src');
+const projectionSource = functionBlock(fs.readFileSync(path.join(src, '06i-steward-core.js'), 'utf8'), 'stewardForeignProjection');
 const inboxSource = fs.readFileSync(path.join(src, '13i-steward-inbox.js'), 'utf8');
 const configSource = fs.readFileSync(path.join(src, '01-config.js'), 'utf8');
 const atomicSource = configSource.slice(configSource.indexOf('async function atomicWriteJson('), configSource.indexOf('async function readFileTail('));
@@ -38,7 +40,7 @@ function harness(t, rows = []) {
     repairMissionChangeTornTail: async () => {}, safeSessionId: value => value, nowIso: () => new Date().toISOString(),
     getPretenderProjectionIndex: async () => ({ sessions: [{ sessionId: 'sess_test', interventions: [] }] }),
   });
-  vm.runInContext(atomicSource + '\n' + inboxSource + '\n' + toolSource + '\n' +
+  vm.runInContext(atomicSource + '\n' + inboxSource + '\n' + projectionSource + '\n' + toolSource + '\n' +
     'globalThis.api = { stewardRuntime, stewardMaintainInbox, stewardAppendInboxRows, stewardInboxRead, stewardImplInboxRead, stewardSaveCursor, stewardLoadState };', context);
   return { context, ...context.api, file, read: () => fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse) };
 }

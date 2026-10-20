@@ -71,7 +71,9 @@ async function probeProviderCompletion(provider, model, timeoutMs = 15000) {
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
-    const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
+    const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body) : body;
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
+    const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
     const raw = await res.text().catch(() => '');
     // 报文原样回给界面之前,先把本次请求带出去的凭据按字面抹掉再截断(先截会把横跨 300 字边界的 key 切成认不出的半截)。
     if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + providerScrubSecrets(raw, provider).replace(/\s+/g, ' ').slice(0, 300) : '') };
@@ -1893,7 +1895,11 @@ function projectActionModelView(history, auditMap) {
 // protocol;没传(老调用点、单测)时按请求体形状认(Responses 用 input 项,chat 用 messages)。
 async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol }) {
   const wire = protocol || providerWireProtocolForBody(body);
-  const doFetch = b => fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(b), signal: ctrl ? ctrl.signal : undefined });
+  const doFetch = async b => {
+    const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(b) : b;
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
+    return fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
+  };
   let res;
   try {
     res = await doFetch(body);
@@ -2445,6 +2451,7 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
 async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
+  if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
@@ -2549,7 +2556,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // 45c:over_window 重试时的可变任务(缩载);初值 = 原任务。
   let taskForAttempt = task, overWindowShrunk = false;
   // One CLI spawn attempt -> collected exit/output state. Does NOT decide retry; the loop below does.
-  const runOnce = () => new Promise(resolve => {
+  const runOnce = async () => {
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+    return new Promise(resolve => {
     const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     currentChild = child;
     let lastEventAt = Date.now();
@@ -2570,6 +2579,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       for (const raw of steers) {
         const text = String(raw || '').trim();
         if (!text) continue;
+        try { if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertCliAllowed(); } catch { return delivered; }
         try {
           child.stdin.write(JSON.stringify(buildUserEnvelope('[编排者插话] ' + text + (steerReminder || ''))) + '\n', 'utf8');
           delivered += 1;
@@ -2641,6 +2651,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     child.on('close', code => finish(code == null ? -1 : code));
   });
 
+  };
   const MAX_ATTEMPTS = 3;
   let lastFinalText = '', lastErr = '', lastToolCalls = 0;
   // v1.4-OSS 用量看板(补): accumulate token/cost across ALL attempts (a failed attempt still burned real tokens).

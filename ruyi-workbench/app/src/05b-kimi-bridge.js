@@ -107,6 +107,7 @@ async function stopKimiServer() {
 
 async function kimiApi(config, method, pathname, body) {
   const bridge = await ensureKimiServer(config);
+  if (method === 'POST' && pathname.endsWith(':compact') && typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
   return kimiHttp(bridge.port, bridge.token, method, pathname, body);
 }
 
@@ -254,6 +255,7 @@ async function syncKimiSessionUsage(session, config, onEvent) {
 }
 
 async function compactKimiNative(config, nativeSessionId, instruction, onEvent) {
+  if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const before = await kimiSessionStatus(config, nativeSessionId);
   if (!before.ok) return before;
   const beforeWire = await readKimiWireRuntime(nativeSessionId);
@@ -262,6 +264,7 @@ async function compactKimiNative(config, nativeSessionId, instruction, onEvent) 
     // A long-lived Kimi Web process caches the session snapshot it loaded. Always start this operation
     // from a fresh process so compaction includes turns appended by Ruyi's separate CLI child.
     await stopKimiServer();
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
     await kimiApi(config, 'POST', `/api/v1/sessions/${encodeURIComponent(nativeSessionId)}:compact`, instruction ? { instruction } : {});
   } catch (error) {
     const message = (error && error.message) || 'Kimi 压缩请求失败';
@@ -756,6 +759,7 @@ function createKimiAcpRpc(child, handlers = {}) {
   if (child && child.stdin) child.stdin.on('error', () => {});
   const write = payload => {
     if (closed || !child.stdin || child.stdin.destroyed || child.stdin.writableEnded) throw new Error('Kimi ACP input channel is closed');
+    if (payload.method !== 'session/cancel' && typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertCliAllowed();
     child.stdin.write(JSON.stringify(payload) + '\n', 'utf8');
   };
   // hunt2-engines#3:子进程先死、管道还没被标 destroyed 的那一瞬间写进去,EPIPE 是在 stdin 流上【异步】抛的 'error' ——
@@ -2517,6 +2521,7 @@ async function runKimiAcpTurnPrepared(context) {
     // hunt2-engines#1:与 05 runClaudeTurn 同一处复查 —— 05 开头那次 supersede 检查到这里隔着多个 await
     // (MCP 同步、基线捕获、hooks),同会话并发的两个回合会各起一个 ACP 子进程。从这行到 activeChildren.set
     // 全是同步代码,在这里判一次就不会有两个子进程同时在册。
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
     assertSessionExecutionOwner(session.id, executionOwner);
     if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
@@ -2802,6 +2807,7 @@ async function runKimiAcpTurnPrepared(context) {
           session, config, workingDir, onEvent: reg.onEvent, kimiNativeSlashCommand: Boolean(promptItem && promptItem.nativeSlash),
         })
         : [{ type: 'text', text: prompt }];
+      if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
       const response = await rpc.request('session/prompt', {
         sessionId: nativeSessionId,
         prompt: Array.isArray(promptParts) && promptParts.length ? promptParts : [{ type: 'text', text: prompt }],

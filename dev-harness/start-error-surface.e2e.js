@@ -30,6 +30,7 @@ const http = require('http');
 const net = require('net');
 const path = require('path');
 const fs = require('fs');
+const { stripJsComments } = require('./lib/port-audit');
 const os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -268,8 +269,13 @@ function killTree(child) {
   const listenAt = routerSrc.indexOf('const port = await listenWithFallback(server, requestedPort, host, config);');
   const runtimeAt = routerSrc.indexOf('RUNTIME.token = runtimeToken;');
   const criticalSection = listenAt >= 0 && runtimeAt > listenAt ? routerSrc.slice(listenAt, runtimeAt) : 'await';
-  ok(!/\bawait\b/.test(criticalSection.replace('const port = await listenWithFallback', '')),
+  const hasHandshakeAwait = section => /\bawait\b/.test(stripJsComments(section).replace('const port = await listenWithFallback', ''));
+  ok(!hasHandshakeAwait(criticalSection),
     '⑤ listen 与 RUNTIME 握手常量赋值之间零 await(服务可服务时 token 必须已就位)');
+  ok(!hasHandshakeAwait(criticalSection + '\n// await in a comment is not a suspension point\n'),
+    '⑤ 临界区检查忽略注释中的 await');
+  ok(hasHandshakeAwait(criticalSection + '\nawait Promise.resolve();\n') && hasHandshakeAwait('await'),
+    '⑤ 临界区检查仍拒绝真实 await 和缺失锚点');
   ok(routerSrc.indexOf('START_NOTICE.lastError = await consumeStartError();') < listenAt,
     '⑤ 上次失败记录在 listen 【之前】读出(不占用上面那段临界区)');
   const inventory = fs.readFileSync(path.join(__dirname, 'durable-state-inventory.js'), 'utf8');

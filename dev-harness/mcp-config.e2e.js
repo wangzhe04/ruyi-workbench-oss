@@ -18,7 +18,7 @@ async function runCase(label, desktopMcp, wantPresent, port) {
   const HOME = path.join(os.tmpdir(), 'wcw-mcpcfg-e2e-' + label);
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
-  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 4, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, desktopMcp }, null, 2));
+  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ credentialEncryptionV1: process.platform === 'win32', configSchema: 4, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, desktopMcp }, null, 2));
   const wb = cp.spawn(NODE, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   const out = { pass: 0, fail: 0 };
   const ok = (c, l) => { if (c) { out.pass++; console.log('PASS [' + label + '] ' + l); } else { out.fail++; console.log('FAIL [' + label + '] ' + l); } };
@@ -71,7 +71,7 @@ async function runImportFolder(port) {
   const HOME = path.join(os.tmpdir(), 'wcw-mcpimport-e2e');
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
-  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, externalMcpServers: [] }, null, 2));
+  fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ credentialEncryptionV1: process.platform === 'win32', configSchema: 7, version: '1.0.0', permissionMode: 'bypass', autoImportClaudeCodeMcp: false, externalMcpServers: [] }, null, 2));
   // 一个带合法清单的文件夹。
   const FOLDER = path.join(HOME, 'my-mcp');
   fs.mkdirSync(FOLDER, { recursive: true });
@@ -80,6 +80,10 @@ async function runImportFolder(port) {
   const EMPTY = path.join(HOME, 'empty-folder');
   fs.mkdirSync(EMPTY, { recursive: true });
 
+  let configReader = null;
+  const physicalHasNoSecrets = secrets => ['config.json', 'config.json.prev', 'credential-vault-v1.json']
+    .filter(name => fs.existsSync(path.join(HOME, name)))
+    .every(name => secrets.every(secret => !fs.readFileSync(path.join(HOME, name), 'utf8').includes(secret)));
   const wb = cp.spawn(NODE, ['app/server.js', 'serve', '--port', String(port)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   try {
     let st = null; for (let i = 0; i < 40 && !st; i++) { await sleep2(150); st = await getJson(port, '/api/status'); }
@@ -99,10 +103,14 @@ async function runImportFolder(port) {
     // 掩码:env 值不回明文。
     ok(r1.json && r1.json.server && r1.json.server.env && r1.json.server.env.TOKEN && !/super-secret-token-123456/.test(JSON.stringify(r1.json.server.env)), '① 响应 env 值被掩码(不回明文 token)');
     // config 落盘含该条。
-    const disk1 = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    configReader = await require('./lib/privacy-backup-fixture').createConfigRecoveryReader(HOME);
+    const rawDisk1 = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const disk1 = configReader.recover(rawDisk1);
     const ext1 = disk1.externalMcpServers || [];
     ok(ext1.length === 1 && ext1[0].id === 'demo-mcp' && ext1[0].command === './server.exe', '① config.json 落盘含 demo-mcp(真值 command)');
-    ok(ext1[0].env && ext1[0].env.TOKEN === 'super-secret-token-123456', '① 磁盘 env 存真值(掩码只在响应, 不落盘)');
+    ok(ext1[0].env && ext1[0].env.TOKEN === 'super-secret-token-123456', '① 持久 env 解密为精确原值(掩码只在响应)');
+    if (process.platform === 'win32') ok(rawDisk1.credentialRefsV1?.version === 1 && rawDisk1.externalMcpServers[0].env === ''
+      && physicalHasNoSecrets(['super-secret-token-123456']), '① Windows 主配置、备份和凭据库使用密文引用,无 env 明文');
     // 生成的 .mcp.json 含该条。
     let gen = null; try { gen = JSON.parse(fs.readFileSync(path.join(HOME, 'generated', 'workbench.mcp.json'), 'utf8')); } catch { /* ignore */ }
     ok(gen && gen.mcpServers && gen.mcpServers['demo-mcp'], '① generateMcpConfig 再生成 → .mcp.json 含 demo-mcp');
@@ -129,8 +137,12 @@ async function runImportFolder(port) {
     const rr = await postJson(port, '/api/mcp/import-folder', { path: RFOLDER }, hdr);
     ok(rr.status === 200 && rr.json && rr.json.ok === true && rr.json.server && rr.json.server.headers && rr.json.server.headers.Authorization === '••••' + R_BEARER.slice(-4)
       && !JSON.stringify(rr.json).includes(R_BEARER), '① 远程清单导入回包 headers 值被掩码(不回明文)');
-    const diskR = (JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')).externalMcpServers || []).find(s => s.id === 'remote-mcp');
-    ok(diskR && diskR.headers.Authorization === 'Bearer ' + R_BEARER && diskR.headers.Stale === '', '① 磁盘 headers 存真值、清单里残留的掩码被清空(107-S0b)');
+    const rawDiskR = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const diskR = (configReader.recover(rawDiskR).externalMcpServers || []).find(s => s.id === 'remote-mcp');
+    ok(diskR && diskR.headers.Authorization === 'Bearer ' + R_BEARER && diskR.headers.Stale === '', '① 持久 headers 解密为精确原值、清单里残留的掩码被清空(107-S0b)');
+    if (process.platform === 'win32') ok(rawDiskR.credentialRefsV1?.version === 1
+      && rawDiskR.externalMcpServers.find(s => s.id === 'remote-mcp')?.headers === ''
+      && physicalHasNoSecrets(['super-secret-token-123456', R_BEARER]), '① Windows 主配置、备份和凭据库无 env/header 明文');
 
     // ⑤ 超 10 条被拒:填满到 10(含 demo-mcp), 再导入第 11 个不同 id → 拒。
     // 直接写 config 到 10 条, 重启不便;改为连续导入 9 个新文件夹凑到 10, 第 11 个拒。
@@ -149,6 +161,7 @@ async function runImportFolder(port) {
     ok(r11.status === 200 && r11.json && r11.json.ok === false && r11.json.error?.code === 'api.request_failed' && /上限/.test(r11.json.error?.message || ''), '⑤ 超 10 条 → 结构化上限错误');
   } catch (e) { console.log('ERROR [import] ' + (e && e.message || e)); out.fail++; }
   finally {
+    configReader?.close();
     if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }
     await sleep2(250);
     fs.rmSync(HOME, { recursive: true, force: true });
@@ -192,7 +205,7 @@ async function runDropIn(fakePort, wbPort) {
   fs.mkdirSync(conflFolder, { recursive: true });
   fs.writeFileSync(path.join(conflFolder, 'ruyi-mcp.json'), JSON.stringify({ id: 'confl-mcp', label: 'Drop-in Loser', command: 'DROPIN_SHOULD_LOSE.exe' }, null, 2));
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
-    configSchema: 7, version: '1.0.0', permissionMode: 'bypass',
+    credentialEncryptionV1: process.platform === 'win32', configSchema: 7, version: '1.0.0', permissionMode: 'bypass',
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], reasoning: false }],
     activeProvider: 'fake',
     // 显式条目 confl-mcp（config 优先）→ 与 drop-in 同 id，合并后应取这一个（command=NODE，真的能启动）。

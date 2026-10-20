@@ -44,17 +44,25 @@ test('[B2] 带 BOM + 有 .prev:不回滚覆盖用户的编辑', async () => {
   assert.ok(!fs.existsSync(cfgFile + '.corrupt'), '合法 JSON 不该被当成坏文件留底');
 });
 
-test('[B3] 真损坏 + 有 .prev:从 .prev 恢复,覆盖前把坏文件另存成 .corrupt', async () => {
+test('[B3] 真损坏 + 有 .prev:从 .prev 恢复并按明确加密选择保留 .corrupt', async () => {
   const prevWs = path.join(root, 'prev-ws');
   fs.mkdirSync(prevWs, { recursive: true });
-  fs.writeFileSync(cfgFile + '.prev', JSON.stringify({ defaultWorkspace: prevWs }), 'utf8');
   const broken = '{ "defaultWorkspace": "' + ws.replace(/\\/g, '\\\\') + '", "oops": ';   // 截断,不是合法 JSON
-  fs.writeFileSync(cfgFile, broken, 'utf8');
-  const cfg = await srv.readConfig();
-  assert.equal(cfg.defaultWorkspace, prevWs, '仍从 .prev 恢复');
-  assert.equal(fs.readFileSync(cfgFile + '.corrupt', 'utf8'), broken, '被覆盖的坏文件留了底,用户手改的内容不至于凭空消失');
-  // 恢复后的 config.json 是合法 JSON。
-  assert.doesNotThrow(() => JSON.parse(fs.readFileSync(cfgFile, 'utf8')));
+  for (const encryption of process.platform === 'win32' ? [false, true] : [false]) {
+    fs.writeFileSync(cfgFile + '.prev', JSON.stringify({ defaultWorkspace: prevWs, credentialEncryptionV1: encryption }), 'utf8');
+    fs.writeFileSync(cfgFile, broken, 'utf8');
+    const cfg = await srv.readConfig();
+    assert.equal(cfg.defaultWorkspace, prevWs, '仍从 .prev 恢复');
+    const recovery = fs.readFileSync(cfgFile + '.corrupt', 'utf8');
+    if (encryption) {
+      assert.equal(JSON.parse(recovery).ruyiEncryptedBackupV1, 1, '显式开启后，损坏留底采用认证加密');
+      assert.equal(await require('../lib/privacy-backup-fixture').recoverCorruptBackup(root), broken, '加密留底仍逐字恢复原始坏文件');
+    } else {
+      assert.equal(recovery, broken, '默认关闭时保持原始留底格式');
+      assert.ok(!fs.existsSync(path.join(root, 'credential-vault-v1.json')), '默认关闭恢复不创建加密库');
+    }
+    assert.doesNotThrow(() => JSON.parse(fs.readFileSync(cfgFile, 'utf8')));
+  }
 });
 
 test('[B4] 带 BOM 的文件之后再写配置,.prev 照常刷新成用户那一版', async () => {
