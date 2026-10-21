@@ -1379,7 +1379,7 @@ function renderCurrentSession() {
     const key = messageDomKey(m, i, session.id);
     const signature = messageRenderSignature(m, getLocale());
     let row = existing.get(key);
-    if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(m, key, signature);
+    if (!row || row.dataset.renderSignature !== signature) row = renderStaticMessage(m, key, signature, { sessionId: session.id, messageIndex: i });
     // 132a（53 号文 §1.2）：委托书线程的【第一条】消息 —— 气泡正文只印用户原话，管家补充收进一个折叠块（见 decorateCommissionedFirstMessage）。
     // 行是按 renderSignature 复用的，所以这一步必须幂等；改的是显示层，消息本身一个字没动。
     decorateCommissionedFirstMessage(row, m, i, session);

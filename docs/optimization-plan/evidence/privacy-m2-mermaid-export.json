@@ -1,0 +1,317 @@
+{
+  "date": "2026-10-21",
+  "batch": "M2-6b2",
+  "base": "6eeefe5b",
+  "status": "implemented, independently reviewed, scoped validation complete",
+  "contract": [
+    "Canonical message content/text/plan slot and exact GET display-source hash; whole logical source projected before original marked/sanitizer fence extraction.",
+    "Source/clipboard/SVG/PNG use one prepare/derive/validate loop; independent protected-source rendering, safe filenames, explicit per-copy plaintext, OFF-only source-less views.",
+    "Click intent captured synchronously before dynamic import; text and Mermaid sends bind expected privacy snapshot. Disclosure guards bind effective policy and availability epochs, including round trips and recovery.",
+    "Host attests whole Markdown and current source/policy/mapping state. It does not attest arbitrary client-supplied binary hashes or atomic OS submission."
+  ],
+  "independentReview": {
+    "reviewer": "m2_delivery_scope",
+    "findings": [
+      "P1 lazy-import gap could adopt OFF after protected click; synchronous intent and delayed-first-import browser negative added.",
+      "P1 same-signature recovery revived old guard; availability transition epoch and permanent invalidation tests added.",
+      "P2 source hash must match actual GET slot display semantics; shared displayMessages([message]) preserves content JSON aliases and literal plan semantics."
+    ],
+    "final": "All three resolved on final product review; no remaining blocker in this slice. Manual egress review preserves conservative classifications; clipboard scanner gap and other raw-copy buttons are tracked in M2-6b3. Final4 static/metadata repairs and manual9source/9candidate/5retired review confirmed by m2_bot_delivery; no protection relaxed."
+  },
+  "tests": {
+    "newE2e": {
+      "file": "dev-harness/privacy-mermaid-export.e2e.js",
+      "runs": [
+        {
+          "log": "23-mermaid-cleanup-final-a.log",
+          "pass": 87,
+          "exit": 0
+        },
+        {
+          "log": "24-mermaid-cleanup-final-b.log",
+          "pass": 87,
+          "exit": 0
+        }
+      ],
+      "priorFinalRuns": [
+        {
+          "log": "12-mermaid-final-a.log",
+          "pass": 87,
+          "exit": 0
+        },
+        {
+          "log": "15-mermaid-final-b.log",
+          "pass": 87,
+          "exit": 0
+        }
+      ]
+    },
+    "related": [
+      {
+        "log": "13-mermaid-static.log",
+        "pass": 123
+      },
+      {
+        "log": "14-export-unit-final.log",
+        "pass": 11
+      },
+      {
+        "log": "16-text-export-regression.log",
+        "pass": 55
+      },
+      {
+        "log": "17-mermaid-viewer-regression.log",
+        "pass": 65
+      }
+    ],
+    "firstFailures": [
+      {
+        "log": "06-mermaid-e2e-initial.log",
+        "reason": "Fixture omitted isProviderMode dependency."
+      },
+      {
+        "log": "07-mermaid-e2e-clipboard.log",
+        "fail": 4,
+        "reason": "Windows CF_UNICODETEXT CRLF normalization in receiver oracle; native clipboard write succeeded."
+      },
+      {
+        "log": "08-mermaid-e2e-os-clipboard.log",
+        "fail": 4,
+        "reason": "Same CRLF oracle mismatch in normal Edge; only receiver comparison normalized, product unchanged."
+      }
+    ],
+    "unified": {
+      "syntax": {
+        "log": "25-syntax-final.log",
+        "files": 1114,
+        "failed": 0
+      },
+      "build": {
+        "log": "19-build-check.log",
+        "fresh": true
+      },
+      "unit": {
+        "log": "20-complete-unit.log",
+        "tests": 2552,
+        "suites": 192,
+        "pass": 2526,
+        "skip": 26,
+        "fail": 0
+      },
+      "fast": {
+        "log": "20-full-fast.log",
+        "ran": 80,
+        "pass": 76,
+        "fail": 4,
+        "flaky": 0
+      },
+      "targetedRepairs": [
+        {
+          "log": "21-fixture-home.static.e2e.js.log",
+          "exit": 0
+        },
+        {
+          "log": "21-process-safety.static.e2e.js.log",
+          "exit": 0
+        },
+        {
+          "log": "21-facts.static.e2e.js.log",
+          "exit": 0
+        },
+        {
+          "log": "22-steward-settings-final.log",
+          "exit": 0
+        }
+      ],
+      "note": "Full unit passed on unchanged final product bytes. Four fast failures were missing English README count, awaited owned cleanup, exact new kill-owner registration and memory-export static reader now sharing its module with Mermaid. Repaired and independently reviewed; the first steward targeted reader still used the pre-snapshot call spelling, corrected in22. No claim that all80 were rerun together."
+    }
+  },
+  "limitations": [
+    "Validation response to browser/OS handoff remains a cross-process gap; exported copies cannot be recalled.",
+    "Streaming/tool/help views without canonical provenance can be viewed locally, but ON export is unavailable. No ambient currentSession grant.",
+    "Synthetic local vault and Edge receiver tests do not replace real DPAPI or release-package acceptance.",
+    "This slice changes disclosurePolicyGuard epochs, not all existing signature-only receipts. Bot receipt epoch continuity is queued for M2 closure.",
+    "Ordinary copy-button paths and clipboard inventory detection remain M2-6b3 work; manual user selection/Ctrl+C is outside application-button control."
+  ],
+  "sourceFiles": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "7096ef39168e819be21b7476586168f89323cdbf6c59d6de3c9661610c0d5290"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "148c6c58e21d841fb4cbf48e142a6a1ecf1048b1073c09586c491842e3153e38"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "5877afb1bb0dc129547ace995d430c3f6010852377825673e1dfe85ebccfb973"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/mermaid-runtime.js",
+      "sha256": "3addb892bdef48fe14ed63b90648cf0bc3390e0505af3472d9a613e24ac95419"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/privacy-export.js",
+      "sha256": "6ebd6c08f9b9c039767deb5638c076d95dae4c39b708bd9b9cf6b36a26694a9b"
+    },
+    {
+      "file": "dev-harness/privacy-mermaid-export.e2e.js",
+      "sha256": "67c212ce8f7aac61790fa834aabed9a9c5d20b3fbfecfecdd0b8503a042638c1"
+    }
+  ],
+  "rawLogs": {
+    "directory": "../ruyi-workbench-maintenance-20261021/checks/m2-mermaid",
+    "files": [
+      {
+        "file": "01-export-ui-initial.log",
+        "bytes": 518,
+        "sha256": "d9ba7735672f406283849af07f18976fc4e409a0d0ac32baccdd2fefedf663ea"
+      },
+      {
+        "file": "02-disclosure-ui-unit.log",
+        "bytes": 1124,
+        "sha256": "f6a60f0ecfa73fda6cb8ac2a0df2a62a5b975c5563f3fb297c2e37b44dc93c99"
+      },
+      {
+        "file": "03-build.log",
+        "bytes": 107,
+        "sha256": "5b67925088b328802a7694af85629d28d05b9533c934fb48017fe0b8215edbd2"
+      },
+      {
+        "file": "04-build-review-fixes.log",
+        "bytes": 107,
+        "sha256": "29e14c08c190dda1abc963912db4c766093a0302c0a739a72e35505746902302"
+      },
+      {
+        "file": "05-unit-review-fixes.log",
+        "bytes": 1253,
+        "sha256": "c54e69dae4485df36b02f0e536817b0d3c0d54d26d5fd9ce5114ee7fe8617063"
+      },
+      {
+        "file": "06-mermaid-e2e-initial.log",
+        "bytes": 4296,
+        "sha256": "e4d3e595705f97cd2dfad481e921f9732f0a7420e12e69cd3e0b5462edbaf049"
+      },
+      {
+        "file": "07-mermaid-e2e-clipboard.log",
+        "bytes": 6969,
+        "sha256": "53ee199764b2524456adb98d6ab1a0f46940490b4f7a9eec1cd4cdd25104ff68"
+      },
+      {
+        "file": "08-mermaid-e2e-os-clipboard.log",
+        "bytes": 6969,
+        "sha256": "53ee199764b2524456adb98d6ab1a0f46940490b4f7a9eec1cd4cdd25104ff68"
+      },
+      {
+        "file": "09-mermaid-e2e-os-newline.log",
+        "bytes": 7097,
+        "sha256": "9a702d85b37e886437241eb33d47b89ee1deeb6ef6843177d31c19a334c6173c"
+      },
+      {
+        "file": "10-mermaid-e2e-negative.log",
+        "bytes": 7457,
+        "sha256": "6d16fafbca5e94791ed9989599ab618cc1af331f792124dc4945babebfdc4929"
+      },
+      {
+        "file": "11-build-final.log",
+        "bytes": 51,
+        "sha256": "2298c3dcb2b9410720dbc132c204770f7753b334caf8dc17fdc3f3b9c62f6bd8"
+      },
+      {
+        "file": "12-mermaid-final-a.log",
+        "bytes": 7457,
+        "sha256": "6d16fafbca5e94791ed9989599ab618cc1af331f792124dc4945babebfdc4929"
+      },
+      {
+        "file": "13-mermaid-static.log",
+        "bytes": 9189,
+        "sha256": "74c1483b458ba8921de9adc6fc213e0e29ac100f68886e433b4069f6cced4f26"
+      },
+      {
+        "file": "14-export-unit-final.log",
+        "bytes": 1255,
+        "sha256": "0cd68b1b8e19adb78786fbb3d183d64868f591a60b416f5645f0004a93c5032d"
+      },
+      {
+        "file": "15-mermaid-final-b.log",
+        "bytes": 7457,
+        "sha256": "6d16fafbca5e94791ed9989599ab618cc1af331f792124dc4945babebfdc4929"
+      },
+      {
+        "file": "16-text-export-regression.log",
+        "bytes": 3681,
+        "sha256": "102b5f1a2c23e04b5cf86e66f1541c986ed108e4c0ec5a99307bb9ea2e6b44f2"
+      },
+      {
+        "file": "17-mermaid-viewer-regression.log",
+        "bytes": 5812,
+        "sha256": "b64847d6a3d0e903c8ba61f6929d82368e0ccef6e12cfd9fbd2d97fe05b76ac4"
+      },
+      {
+        "file": "18-syntax-gate.log",
+        "bytes": 61,
+        "sha256": "5998287d7c09003041cba77ef86ff6ba22da90bb41aa0ccda165b47649ce3728"
+      },
+      {
+        "file": "19-build-check.log",
+        "bytes": 70,
+        "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9"
+      },
+      {
+        "file": "20-complete-unit.log",
+        "bytes": 398311,
+        "sha256": "82c2eaf8adf2b57ebe1073e58ea8a062a3c536d6575a741b8bb971faf9ec9ca5"
+      },
+      {
+        "file": "20-full-fast.log",
+        "bytes": 16980,
+        "sha256": "ef54b592546a4a5059338329ef9435adf57cc02158dd5572b317bda1d1ee99e3"
+      },
+      {
+        "file": "21-facts.static.e2e.js.log",
+        "bytes": 2368,
+        "sha256": "d97beb9a9697f27b4fe066f544b6fb0df7b293116fc7b25a828843bb2351b933"
+      },
+      {
+        "file": "21-fixture-home.static.e2e.js.log",
+        "bytes": 3583,
+        "sha256": "26f9db73c28f964763a094b5c34f0e8fedce95c5bdd9e4564e2256110afd09c5"
+      },
+      {
+        "file": "21-process-safety.static.e2e.js.log",
+        "bytes": 868,
+        "sha256": "e0d85fa9c5bcb9a3ecd22b14853aec4d15de416b4ca7649699c4cfdeb73a0c17"
+      },
+      {
+        "file": "21-steward-settings.static.e2e.js.log",
+        "bytes": 12495,
+        "sha256": "67769990b5203b94fb6c8e202cb84bd02aedd61785e410f3cf436865cdc79a5a"
+      },
+      {
+        "file": "22-steward-settings-final.log",
+        "bytes": 12495,
+        "sha256": "10c1af0bd311b8543e548dafff50eb5235798bf46c4142c7e2b8f0a6bb1ebbfd"
+      },
+      {
+        "file": "23-mermaid-cleanup-final-a.log",
+        "bytes": 7457,
+        "sha256": "6d16fafbca5e94791ed9989599ab618cc1af331f792124dc4945babebfdc4929"
+      },
+      {
+        "file": "24-mermaid-cleanup-final-b.log",
+        "bytes": 7457,
+        "sha256": "6d16fafbca5e94791ed9989599ab618cc1af331f792124dc4945babebfdc4929"
+      },
+      {
+        "file": "25-syntax-final.log",
+        "bytes": 61,
+        "sha256": "5998287d7c09003041cba77ef86ff6ba22da90bb41aa0ccda165b47649ce3728"
+      }
+    ]
+  },
+  "egress": {
+    "sources": 269,
+    "candidates": 656,
+    "status": "manual conservative classifications; clipboard scanner blindspot remains M2-6b3"
+  }
+}

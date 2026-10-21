@@ -5,6 +5,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const sourceViews = new WeakMap(), sourceProofs = new WeakMap();
   const PREFIX = '[[RUYI_PVT:', pattern = () => /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
   let currentPolicy = { mode: 'off', signature: '' }, unavailable = false;
+  let policyEpoch = 0;
+  function setUnavailable(value) { if (unavailable !== value) policyEpoch++; unavailable = value; }
   const fail = suffix => { throw Object.assign(new Error('privacy.' + suffix), { code: 'privacy.' + suffix, statusCode: 409 }); };
   const enabled = config => ['basic', 'enhanced', 'strict'].includes(config?.privacyModeV1);
   function assertPolicyAvailable(config) {
@@ -57,13 +59,17 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       knownSecrets: secrets(config), rules: config.privacyRulesV1 || [] };
   }
   function configure(config) {
-    unavailable = config.privacyPolicyRecoveryRequiredV1 === true;
+    try {
+    setUnavailable(config.privacyPolicyRecoveryRequiredV1 === true);
     const mode = config.privacyModeV1 || 'off';
     // The disabled path must not enumerate secrets, build detectors or start workers.
     // A mode change still invalidates any already-running protected context.
-    if (mode === 'off') { currentPolicy = { mode, signature: 'off', config }; return; }
+    if (mode === 'off') { if (currentPolicy.signature !== 'off') policyEpoch++; currentPolicy = { mode, signature: 'off', config }; return; }
     const signature = cryptoApi.createHash('sha256').update(JSON.stringify([mode, options(config)])).digest('hex');
-    currentPolicy = { mode, signature, config: structuredClone(config) };
+    const policy = { mode, signature, config: structuredClone(config) };
+    if (currentPolicy.signature !== signature) policyEpoch++;
+    currentPolicy = policy;
+    } catch (error) { setUnavailable(true); throw error; }
   }
   function active() { return local.getStore(); }
   const keyOf = scopeId => cryptoApi.createHash('sha256').update(scopeId).digest('hex');
@@ -354,8 +360,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   function disclosurePolicyGuard() {
     assertPolicyAvailable();
-    const signature = currentPolicy.signature;
-    return () => { assertPolicyAvailable(); if (signature !== currentPolicy.signature) fail('policy_changed'); };
+    const signature = currentPolicy.signature, epoch = policyEpoch;
+    return () => { assertPolicyAvailable(); if (signature !== currentPolicy.signature || epoch !== policyEpoch) fail('policy_changed'); };
   }
   async function prepareLocalDisclosure(scopeId, work) {
     const policyGuard = disclosurePolicyGuard(), key = keyOf(scopeId);
@@ -1462,7 +1468,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;

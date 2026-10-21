@@ -59,13 +59,13 @@ const primitives = read('ruyi-workbench/app/public/js/chat-render-primitives.js'
 const appJs = read('ruyi-workbench/app/public/app.js');
 ok(/renderMermaidBlocks = \(\) => Promise\.resolve\(0\),/.test(primitives),
   'B1 chat-render-primitives 从 deps 取 renderMermaidBlocks(缺省安全空实现)');
-ok(/renderMermaidBlocks\(container, \{ t, toast \}\)/.test(primitives),
-  'B2 highlightIn() 同一趟调用 renderMermaidBlocks(container)');
+ok(/renderMermaidBlocks\(container, \{ t, toast, renderMarkdownInto \}\)/.test(primitives),
+  'B2 highlightIn() 同一趟调用运行时并提供同源 Markdown 解析器');
 ok(primitives.includes("!(block.classList && block.classList.contains('language-mermaid'))"),
   'B3 hljs 明确跳过 code.language-mermaid');
-ok(appJs.includes("import { renderMermaidBlocks } from './js/mermaid-runtime.js';"),
-  'B4 组合根 app.js 导入 mermaid 运行时');
-ok(appJs.includes('renderMermaidBlocks: (container, opts) => renderMermaidBlocks(container, { ...opts, withLayoutChange: keepPinnedAcross }),'),
+ok(appJs.includes("import { renderMermaidBlocks, bindMermaidDocument } from './js/mermaid-runtime.js';"),
+  'B4 组合根 app.js 导入运行时与 canonical document locator binder');
+ok(appJs.includes('renderMermaidBlocks: (container, opts) => renderMermaidBlocks(container, { ...opts, withLayoutChange: keepPinnedAcross,') && appJs.includes('exportSnapshot: () => ({ sessionId: state.currentSession?.id, privacy:'),
   'B5 组合根把真实实现注入 chat-render-primitives,并让每次换图都经聊天区的贴底守卫(keepPinnedAcross)');
 
 // ═══════════ ③ 载荷 / 合规 ═══════════

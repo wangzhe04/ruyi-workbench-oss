@@ -29,6 +29,7 @@ export function createChatStaticRenderer(deps = {}) {
     wrapPreWithCopy,
     humanizeToolName = name => name,   // 走查 #5/#12:待决权限卡说人话动词、就地给「允许／拒绝」
     decidePermission = null,
+    bindMermaidDocument = () => {},
   } = deps;
   // Formatting is synchronous in marked/sanitizer/highlight.js. Beyond this bounded size, keep the raw
   // source as selectable plain text so one answer cannot monopolize dragging/scrolling at settle/re-entry.
@@ -90,15 +91,17 @@ export function createChatStaticRenderer(deps = {}) {
   function narrativeToolAnchor(toolCallId, scope) {
     return turnToolAnchorId(toolCallId, scope);
   }
-  function narrativeTextBubble(text) {
+  function narrativeTextBubble(text, sourceLocator) {
     const bubble = el('div', 'bubble');
     const value = String(text || '');
     if (value.length <= MARKDOWN_SYNC_MAX_CHARS) {
-      bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(value); highlightIn(bubble);
+      bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(value);
+      if (sourceLocator) bindMermaidDocument(bubble, sourceLocator, value);
+      highlightIn(bubble);
     } else { bubble.classList.add('plain'); bubble.textContent = value; }
     return bubble;
   }
-  function narrativePlanCard(segment) {
+  function narrativePlanCard(segment, sourceLocator) {
     const kimiSnapshot = segment && segment.readOnly === true && segment.source === 'kimi-acp';
     const card = el('div', `plan-card narrative-plan${kimiSnapshot ? ' kimi-plan-snapshot' : ''}`);
     if (kimiSnapshot) {
@@ -120,7 +123,9 @@ export function createChatStaticRenderer(deps = {}) {
     const body = el('div', 'plan-card-body md');
     const markdown = String(segment.markdown || '');
     if (markdown.length <= MARKDOWN_SYNC_MAX_CHARS) {
-      body.innerHTML = renderMarkdown(markdown); highlightIn(body);
+      body.innerHTML = renderMarkdown(markdown);
+      if (sourceLocator) bindMermaidDocument(body, sourceLocator, markdown);
+      highlightIn(body);
     } else { body.classList.add('plain'); body.textContent = markdown; }
     card.append(body);
     if (kimiSnapshot && segment.path) {
@@ -339,7 +344,7 @@ export function createChatStaticRenderer(deps = {}) {
     }
     flush(block);
   }
-  function renderStaticTurnNarrative(msg, host, idScope = '') {
+  function renderStaticTurnNarrative(msg, host, idScope = '', sourceLocator = null) {
     const rawSegments = validTurnSegments(msg);
     if (!rawSegments.length) return null;
     const tools = new Map((Array.isArray(msg.toolCalls) ? msg.toolCalls : []).filter(Boolean).map(tc => [String(tc.id || ''), tc]));
@@ -395,7 +400,7 @@ export function createChatStaticRenderer(deps = {}) {
         continue;
       }
       i += 1;
-      if (segment.type === 'text') narrative.append(narrativeTextBubble(segment.text));
+      if (segment.type === 'text') narrative.append(narrativeTextBubble(segment.text, sourceLocator && { ...sourceLocator, slot: 'segment-text', segmentIndex: msg.segments.indexOf(segment) }));
       else if (segment.type === 'steer') narrative.append(buildNarrativeSteerSegment(segment.text, segment.attachments || [])); // 刷新后插话与附件同源。
       else if (segment.type === 'thinking') narrative.append(thinkingPanel(segment.text || '').d);
       else if (segment.type === 'plan') {
@@ -405,10 +410,11 @@ export function createChatStaticRenderer(deps = {}) {
         // A removal/update may carry only planId + status. Merge it with the last snapshot so static replay
         // preserves the same markdown/path that live rendering retained when those fields were omitted.
         const normalizedSegment = previous ? { ...previous.segment, ...segment } : segment;
-        const card = narrativePlanCard(normalizedSegment);
+        const sourceIndex = typeof segment.markdown === 'string' ? msg.segments.indexOf(segment) : previous?.sourceIndex;
+        const card = narrativePlanCard(normalizedSegment, sourceLocator && Number.isSafeInteger(sourceIndex) && sourceIndex >= 0 ? { ...sourceLocator, slot: 'segment-markdown', segmentIndex: sourceIndex } : null);
         if (previous) previous.card.replaceWith(card);
         else narrative.append(card);
-        if (isKimiSnapshot && planId) kimiPlanCards.set(planId, { card, segment: normalizedSegment });
+        if (isKimiSnapshot && planId) kimiPlanCards.set(planId, { card, segment: normalizedSegment, sourceIndex });
       }
       else if (segment.type === 'question') narrative.append(narrativeQuestionCard(segment));
       else if (segment.type === 'workflow') narrative.append(narrativeWorkflowCard(segment, tools)); // 代理模式 v2:工作流卡 + 信封摘要
@@ -547,6 +553,10 @@ export function createChatStaticRenderer(deps = {}) {
   }
 
   function renderStaticMessage(msg, messageKey, renderSignature, options = {}) {
+    const sourceLocator = options.sessionId && Number.isSafeInteger(options.messageIndex) && !options.running ? {
+      sessionId: options.sessionId, messageIndex: options.messageIndex,
+      messageIdentity: { id: msg.id || '', role: msg.role, createdAt: msg.createdAt || '', turnSeq: msg.turnSeq ?? null },
+    } : null;
     // 后台代理唤醒(服务端 10 scheduleAgentWake):那条 user 消息是工作台替模型起回合的系统通知,不是用户说的话 ——
     // 画成一行系统提示(本地化的短句),不出「编辑重发 / 重试 / 回溯」这些只对用户原话有意义的按钮。
     if (msg.role === 'user' && msg.meta && msg.meta.origin === 'agent_wake') {
@@ -574,7 +584,7 @@ export function createChatStaticRenderer(deps = {}) {
       ? msg.toolCalls.filter(tc => !nativeAgents.length || !['Agent', 'Task', 'TaskOutput'].includes(tc && tc.name))
       : [];
     let narrativeResult = null;
-    if (msg.role === 'assistant' && segments.length) narrativeResult = renderStaticTurnNarrative(msg, main, options.idScope || '');
+    if (msg.role === 'assistant' && segments.length) narrativeResult = renderStaticTurnNarrative(msg, main, options.idScope || '', sourceLocator);
     else {
       if (msg.thinking) { const { d } = thinkingPanel(msg.thinking); main.appendChild(d); }
       const attachmentStrip = msg.role === 'user' ? messageAttachmentStrip(msg) : null;
@@ -583,7 +593,9 @@ export function createChatStaticRenderer(deps = {}) {
       if (content || !attachmentStrip) {
         const bubble = el('div', 'bubble');
         if (msg.role === 'assistant' && content.length <= MARKDOWN_SYNC_MAX_CHARS) {
-          bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(content); highlightIn(bubble);
+          bubble.classList.add('md'); bubble.innerHTML = renderMarkdown(content);
+          if (sourceLocator) bindMermaidDocument(bubble, { ...sourceLocator, slot: 'content' }, content);
+          highlightIn(bubble);
         } else { bubble.classList.add('plain'); bubble.textContent = content; }
         main.appendChild(bubble);
       }

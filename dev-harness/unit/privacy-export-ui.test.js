@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app
 function fixture(respond) {
   const state = { currentSession: { id: 'session-one' }, config: { privacyModeV1: 'enhanced' } }, downloads = [], blobs = [], notices = [], calls = [];
   const api = async (route, options) => { const body = JSON.parse(options.body); calls.push(body); return respond(body, state, calls); };
-  const run = vm.runInNewContext(source.replace(/^import .*;\r?\n/gm, '').replace('export async function', 'async function') + '\ndownloadPrivacyExport', {
+  const run = vm.runInNewContext(source.replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '') + '\ndownloadPrivacyExport', {
     api, apiErrorInfo: error => ({ code: error.code || '' }), state, Blob, URL: { createObjectURL: blob => { blobs.push(blob); return 'blob:export-' + blobs.length; }, revokeObjectURL() {} },
     document: { createElement: () => ({ click() { downloads.push({ href: this.href, filename: this.download }); } }) },
     t: key => key, toast: (...args) => notices.push(args), setTimeout: fn => { fn(); },

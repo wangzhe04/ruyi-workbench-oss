@@ -15849,6 +15849,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const sourceViews = new WeakMap(), sourceProofs = new WeakMap();
   const PREFIX = '[[RUYI_PVT:', pattern = () => /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
   let currentPolicy = { mode: 'off', signature: '' }, unavailable = false;
+  let policyEpoch = 0;
+  function setUnavailable(value) { if (unavailable !== value) policyEpoch++; unavailable = value; }
   const fail = suffix => { throw Object.assign(new Error('privacy.' + suffix), { code: 'privacy.' + suffix, statusCode: 409 }); };
   const enabled = config => ['basic', 'enhanced', 'strict'].includes(config?.privacyModeV1);
   function assertPolicyAvailable(config) {
@@ -15901,13 +15903,17 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       knownSecrets: secrets(config), rules: config.privacyRulesV1 || [] };
   }
   function configure(config) {
-    unavailable = config.privacyPolicyRecoveryRequiredV1 === true;
+    try {
+    setUnavailable(config.privacyPolicyRecoveryRequiredV1 === true);
     const mode = config.privacyModeV1 || 'off';
     // The disabled path must not enumerate secrets, build detectors or start workers.
     // A mode change still invalidates any already-running protected context.
-    if (mode === 'off') { currentPolicy = { mode, signature: 'off', config }; return; }
+    if (mode === 'off') { if (currentPolicy.signature !== 'off') policyEpoch++; currentPolicy = { mode, signature: 'off', config }; return; }
     const signature = cryptoApi.createHash('sha256').update(JSON.stringify([mode, options(config)])).digest('hex');
-    currentPolicy = { mode, signature, config: structuredClone(config) };
+    const policy = { mode, signature, config: structuredClone(config) };
+    if (currentPolicy.signature !== signature) policyEpoch++;
+    currentPolicy = policy;
+    } catch (error) { setUnavailable(true); throw error; }
   }
   function active() { return local.getStore(); }
   const keyOf = scopeId => cryptoApi.createHash('sha256').update(scopeId).digest('hex');
@@ -16198,8 +16204,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   function disclosurePolicyGuard() {
     assertPolicyAvailable();
-    const signature = currentPolicy.signature;
-    return () => { assertPolicyAvailable(); if (signature !== currentPolicy.signature) fail('policy_changed'); };
+    const signature = currentPolicy.signature, epoch = policyEpoch;
+    return () => { assertPolicyAvailable(); if (signature !== currentPolicy.signature || epoch !== policyEpoch) fail('policy_changed'); };
   }
   async function prepareLocalDisclosure(scopeId, work) {
     const policyGuard = disclosurePolicyGuard(), key = keyOf(scopeId);
@@ -17306,7 +17312,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
@@ -89606,6 +89612,8 @@ const PrivacyTextExports = (() => {
   async function prepareOnce(body, retainProof, guard) {
     const configGeneration = configReadGeneration;
     const config = await readConfig(); guard();
+    const privacySnapshot = { mode: config.privacyModeV1 || 'off', technical: config.privacyTechnicalV1 === true, rules: config.privacyRulesV1 || [] };
+    if ((Object.hasOwn(body, 'expectedPrivacy') || body.kind === 'mermaid-document') && JSON.stringify(body.expectedPrivacy) !== JSON.stringify(privacySnapshot)) fail('privacy.export_source_changed');
     if (body.kind === 'memory' && configGeneration !== configReadGeneration) fail('privacy.disclosure_dirty');
     const enabled = PrivacyGateway.enabled(config), plaintext = body.plaintext === true;
     const sourceGuards = []; let mappingGuardCount = 0;
@@ -89625,6 +89633,48 @@ const PrivacyTextExports = (() => {
       }
       format = ['json', 'html', 'md'].includes(format) ? format : 'md';
       value = { session, filename: `${session.title || 'session'}.${format}` };
+    } else if (body.kind === 'mermaid-document') {
+      if (!['copy', 'svg', 'png'].includes(format) || typeof body.expectedDocumentHash !== 'string' || !/^[a-f0-9]{64}$/.test(body.expectedDocumentHash)) fail('privacy.export_invalid');
+      const id = safeSessionId(body.sessionId);
+      let document;
+      if (!id) {
+        // OFF-only local views have no session/restoration authority. A later
+        // opt-in cannot reuse this caller-supplied source as a canonical proof.
+        if ((config.privacyModeV1 || 'off') !== 'off' || plaintext || body.sessionId !== undefined || typeof body.localDocument !== 'string') fail('privacy.export_source_missing');
+        document = body.localDocument; source = { localDocument: document };
+        check = async () => {};
+      } else {
+        const session = await loadSession(id), index = body.messageIndex, identity = body.messageIdentity;
+        const message = session?.messages?.[index];
+        if (!session || !Number.isSafeInteger(index) || index < 0 || !message || !identity || typeof identity !== 'object' || Array.isArray(identity)
+          || identity.role !== message.role || identity.role !== 'assistant' || identity.createdAt !== (message.createdAt || '')
+          || identity.turnSeq !== (message.turnSeq ?? null) || identity.id !== (message.id || '')) fail('privacy.export_source_changed');
+        if (body.slot === 'content') document = message.content;
+        else {
+          const segment = Number.isSafeInteger(body.segmentIndex) && body.segmentIndex >= 0 ? message.segments?.[body.segmentIndex] : null;
+          if (body.slot === 'segment-text' && segment?.type === 'text') document = segment.text;
+          else if (body.slot === 'segment-markdown' && segment?.type === 'plan') document = segment.markdown;
+        }
+        if (typeof document !== 'string') fail('privacy.export_source_missing');
+        const sourceHash = hash(session), seq = sessionDiskWriteSeqOf(id);
+        sourceGuards.push(() => { if (sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); });
+        check = async () => { if (hash(await loadSession(id)) !== sourceHash || sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); };
+        source = { sessionId: id, messageIndex: index, messageIdentity: identity, slot: body.slot, segmentIndex: body.segmentIndex, document };
+        scopes = [id];
+        const selectDocument = row => body.slot === 'content' ? row.content : row.segments?.[body.segmentIndex]?.[body.slot === 'segment-text' ? 'text' : 'markdown'];
+        // Match GET's exact content/segment display contract, including escaped
+        // JSON aliases and plan snapshots that intentionally remain literal.
+        const local = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.displayMessages(id, [message]));
+        sourceGuards.push(local.assert);
+        const displayedDocument = selectDocument(local.value[0]);
+        if (hash(displayedDocument) !== body.expectedDocumentHash) fail('privacy.export_source_changed');
+        if (plaintext) {
+          const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, { document }));
+          document = plain.value.document; sourceGuards.push(plain.assert);
+        } else if (!enabled) document = displayedDocument;
+      }
+      if (Buffer.byteLength(document) > 1048576 || (!id && hash(document) !== body.expectedDocumentHash)) fail('privacy.export_source_limit');
+      value = { document, filename: 'mermaid-' + Date.now() + (format === 'copy' ? '.txt' : '.' + format) };
     } else if (body.kind === 'memory') {
       if (config.stewardEnabledV1 !== true) fail('privacy.export_source_changed');
       await stewardMemoryChain;
@@ -89704,7 +89754,8 @@ const PrivacyTextExports = (() => {
         const rows = (s.messages || []).map(m => `<div class="m ${escape(m.role)}"><b>${escape(m.role)}</b><pre>${escape(m.content || '')}</pre></div>`).join('\n');
         content = `<!doctype html><meta charset="utf-8"><title>${escape(s.title || '')}</title><style>body{font-family:sans-serif;max-width:820px;margin:2rem auto}pre{white-space:pre-wrap;background:#f4f4f4;padding:8px;border-radius:6px}.m{margin:1rem 0}</style><h1>${escape(s.title || '')}</h1>${rows}`; mime = 'text/html';
       } else { content = `# ${s.title || 'Session'}\n\n` + (s.messages || []).map(m => `## ${m.role}\n\n${m.content || ''}`).join('\n\n'); mime = 'text/markdown'; }
-    } else if (body.kind === 'memory') { content = JSON.stringify(value.payload, null, 2); mime = 'application/json'; }
+    } else if (body.kind === 'mermaid-document') { content = value.document; mime = 'text/markdown'; }
+    else if (body.kind === 'memory') { content = JSON.stringify(value.payload, null, 2); mime = 'application/json'; }
     else { content = value.events.join('\n'); mime = 'application/x-ndjson'; }
     const assert = () => { guard(); prepared.assert(); for (const sourceGuard of sourceGuards) sourceGuard(); };
     await check(); assert();

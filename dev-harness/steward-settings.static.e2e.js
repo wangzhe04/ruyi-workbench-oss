@@ -268,12 +268,16 @@ ok(count(settingsCode, /setInterval\(/g) === 0 && count(settingsCode, /setTimeou
   'D3 设置页零计时器（不轮询；停机态由壳层那一处已有的 setInterval 喂进来）');
 const privacyExport = fs.readFileSync(path.join(PUBLIC, 'js/privacy-export.js'), 'utf8');
 const memoryExport = functionBlock(settings, 'exportMemory');
+// Mermaid shares the module and proof loop; memory still delegates only to the
+// text action, whose final bytes and filename must come from the host artifact.
+const textCopyAction = functionBlock(privacyExport, 'downloadPrivacyExport');
 ok(count(settingsCode, /\.download = /g) === 0
   && memoryExport.includes("await import('./privacy-export.js')")
   && memoryExport.includes("downloadPrivacyExport({ kind: 'memory', plaintext })")
-  && count(stripComments(privacyExport), /\.download = /g) === 1
-  && privacyExport.includes('link.download = artifact.filename')
-  && privacyExport.includes('new Blob([artifact.content]'),
+  && textCopyAction.includes('await validatedCopy({ ...request, expectedPrivacy },')
+  && count(stripComments(textCopyAction), /\.download = /g) === 1
+  && textCopyAction.includes('link.download = artifact.filename')
+  && textCopyAction.includes('new Blob([value.content]'),
   'D4 记忆导出惰性委托唯一受保护下载器；设置模块零原文 Blob/下载，实际字节与文件名来自同一宿主成品');
 ok(count(stewardShell, /setInterval\(/g) === 1,
   'D5 steward-shell.js 仍然全文件恰好一处 setInterval（117b 的 C2a 未被 117e 稀释）');

@@ -35,7 +35,7 @@ import { createChatRenderPrimitives } from './js/chat-render-primitives.js';
 import { createAttachmentTray } from './js/attachment-tray.js'; // 附件托盘:渲染 / 上传(上传中占位)/ 预览 URL 释放(F13)
 // Agent CLI 登记表（ENGINEERING-SPEC §11.1）：两个零 import 工厂（渲染原语／流运行时）经 deps.agentCliMeta 拿它。
 import { agentCliMeta } from './js/agent-cli-registry.js';
-import { renderMermaidBlocks } from './js/mermaid-runtime.js';
+import { renderMermaidBlocks, bindMermaidDocument } from './js/mermaid-runtime.js';
 import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
 import { createTurnActivity, describeTurnActivity } from './js/turn-activity.js';
@@ -325,7 +325,7 @@ const {
   renderCurrentSession: (...args) => renderCurrentSession(...args),
   renderAttachments: () => renderAttachments(),   // F9:编辑重发把原附件放回托盘
   // 109a: mermaid 图表渲染(懒加载 vendor,缺文件时原样降级);每张图换上去时经 keepPinnedAcross 保持贴底。
-  renderMermaidBlocks: (container, opts) => renderMermaidBlocks(container, { ...opts, withLayoutChange: keepPinnedAcross }),
+  renderMermaidBlocks: (container, opts) => renderMermaidBlocks(container, { ...opts, withLayoutChange: keepPinnedAcross, privacyMode: () => state.config?.privacyModeV1 || 'off', exportSnapshot: () => ({ sessionId: state.currentSession?.id, privacy: { mode: state.config?.privacyModeV1 || 'off', technical: state.config?.privacyTechnicalV1 === true, rules: state.config?.privacyRulesV1 || [] } }) }),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
   saveAsMemory: (...args) => saveAsMemory(...args),
   sendPrompt: (...args) => sendPrompt(...args),
@@ -624,6 +624,7 @@ const {
   turnToolIndexCard,
   messageAttachmentStrip,
 } = createChatStaticRenderer({
+  bindMermaidDocument,
   attachmentImageUrl,
   buildNarrativeSteerSegment: (...args) => buildNarrativeSteerSegment(...args),
   buildStaticToolGroup,

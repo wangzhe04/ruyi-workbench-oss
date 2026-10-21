@@ -126,6 +126,8 @@ const PrivacyTextExports = (() => {
   async function prepareOnce(body, retainProof, guard) {
     const configGeneration = configReadGeneration;
     const config = await readConfig(); guard();
+    const privacySnapshot = { mode: config.privacyModeV1 || 'off', technical: config.privacyTechnicalV1 === true, rules: config.privacyRulesV1 || [] };
+    if ((Object.hasOwn(body, 'expectedPrivacy') || body.kind === 'mermaid-document') && JSON.stringify(body.expectedPrivacy) !== JSON.stringify(privacySnapshot)) fail('privacy.export_source_changed');
     if (body.kind === 'memory' && configGeneration !== configReadGeneration) fail('privacy.disclosure_dirty');
     const enabled = PrivacyGateway.enabled(config), plaintext = body.plaintext === true;
     const sourceGuards = []; let mappingGuardCount = 0;
@@ -145,6 +147,48 @@ const PrivacyTextExports = (() => {
       }
       format = ['json', 'html', 'md'].includes(format) ? format : 'md';
       value = { session, filename: `${session.title || 'session'}.${format}` };
+    } else if (body.kind === 'mermaid-document') {
+      if (!['copy', 'svg', 'png'].includes(format) || typeof body.expectedDocumentHash !== 'string' || !/^[a-f0-9]{64}$/.test(body.expectedDocumentHash)) fail('privacy.export_invalid');
+      const id = safeSessionId(body.sessionId);
+      let document;
+      if (!id) {
+        // OFF-only local views have no session/restoration authority. A later
+        // opt-in cannot reuse this caller-supplied source as a canonical proof.
+        if ((config.privacyModeV1 || 'off') !== 'off' || plaintext || body.sessionId !== undefined || typeof body.localDocument !== 'string') fail('privacy.export_source_missing');
+        document = body.localDocument; source = { localDocument: document };
+        check = async () => {};
+      } else {
+        const session = await loadSession(id), index = body.messageIndex, identity = body.messageIdentity;
+        const message = session?.messages?.[index];
+        if (!session || !Number.isSafeInteger(index) || index < 0 || !message || !identity || typeof identity !== 'object' || Array.isArray(identity)
+          || identity.role !== message.role || identity.role !== 'assistant' || identity.createdAt !== (message.createdAt || '')
+          || identity.turnSeq !== (message.turnSeq ?? null) || identity.id !== (message.id || '')) fail('privacy.export_source_changed');
+        if (body.slot === 'content') document = message.content;
+        else {
+          const segment = Number.isSafeInteger(body.segmentIndex) && body.segmentIndex >= 0 ? message.segments?.[body.segmentIndex] : null;
+          if (body.slot === 'segment-text' && segment?.type === 'text') document = segment.text;
+          else if (body.slot === 'segment-markdown' && segment?.type === 'plan') document = segment.markdown;
+        }
+        if (typeof document !== 'string') fail('privacy.export_source_missing');
+        const sourceHash = hash(session), seq = sessionDiskWriteSeqOf(id);
+        sourceGuards.push(() => { if (sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); });
+        check = async () => { if (hash(await loadSession(id)) !== sourceHash || sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); };
+        source = { sessionId: id, messageIndex: index, messageIdentity: identity, slot: body.slot, segmentIndex: body.segmentIndex, document };
+        scopes = [id];
+        const selectDocument = row => body.slot === 'content' ? row.content : row.segments?.[body.segmentIndex]?.[body.slot === 'segment-text' ? 'text' : 'markdown'];
+        // Match GET's exact content/segment display contract, including escaped
+        // JSON aliases and plan snapshots that intentionally remain literal.
+        const local = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.displayMessages(id, [message]));
+        sourceGuards.push(local.assert);
+        const displayedDocument = selectDocument(local.value[0]);
+        if (hash(displayedDocument) !== body.expectedDocumentHash) fail('privacy.export_source_changed');
+        if (plaintext) {
+          const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, { document }));
+          document = plain.value.document; sourceGuards.push(plain.assert);
+        } else if (!enabled) document = displayedDocument;
+      }
+      if (Buffer.byteLength(document) > 1048576 || (!id && hash(document) !== body.expectedDocumentHash)) fail('privacy.export_source_limit');
+      value = { document, filename: 'mermaid-' + Date.now() + (format === 'copy' ? '.txt' : '.' + format) };
     } else if (body.kind === 'memory') {
       if (config.stewardEnabledV1 !== true) fail('privacy.export_source_changed');
       await stewardMemoryChain;
@@ -224,7 +268,8 @@ const PrivacyTextExports = (() => {
         const rows = (s.messages || []).map(m => `<div class="m ${escape(m.role)}"><b>${escape(m.role)}</b><pre>${escape(m.content || '')}</pre></div>`).join('\n');
         content = `<!doctype html><meta charset="utf-8"><title>${escape(s.title || '')}</title><style>body{font-family:sans-serif;max-width:820px;margin:2rem auto}pre{white-space:pre-wrap;background:#f4f4f4;padding:8px;border-radius:6px}.m{margin:1rem 0}</style><h1>${escape(s.title || '')}</h1>${rows}`; mime = 'text/html';
       } else { content = `# ${s.title || 'Session'}\n\n` + (s.messages || []).map(m => `## ${m.role}\n\n${m.content || ''}`).join('\n\n'); mime = 'text/markdown'; }
-    } else if (body.kind === 'memory') { content = JSON.stringify(value.payload, null, 2); mime = 'application/json'; }
+    } else if (body.kind === 'mermaid-document') { content = value.document; mime = 'text/markdown'; }
+    else if (body.kind === 'memory') { content = JSON.stringify(value.payload, null, 2); mime = 'application/json'; }
     else { content = value.events.join('\n'); mime = 'application/x-ndjson'; }
     const assert = () => { guard(); prepared.assert(); for (const sourceGuard of sourceGuards) sourceGuard(); };
     await check(); assert();

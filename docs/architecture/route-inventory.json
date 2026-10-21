@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-21T10:11:27.462Z",
+  "generatedAt": "2026-10-21T11:14:47.954Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2860,6 +2860,7 @@
       "domain": "13ab-privacy-api.js",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\privacy-mermaid-export.e2e.js",
         "dev-harness\\privacy-text-export.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js"
       ]
@@ -3729,6 +3730,7 @@
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
         "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\privacy-mermaid-export.e2e.js",
         "dev-harness\\privacy-text-export.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
@@ -4021,6 +4023,7 @@
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
         "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\privacy-mermaid-export.e2e.js",
         "dev-harness\\privacy-text-export.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
@@ -4249,6 +4252,7 @@
         "dev-harness\\perf.e2e.js",
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\privacy-mermaid-export.e2e.js",
         "dev-harness\\privacy-text-export.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",

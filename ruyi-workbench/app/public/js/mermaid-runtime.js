@@ -31,6 +31,17 @@ let renderSeq = 0;
 // 全页一条渲染队列:mermaid 的主题是全局配置(initialize),两路渲染交错时(整会话重绘 + 切主题重画),
 // 后一路的 initialize 会改掉前一路还没画的块的配色。每块在队里先按【自己的】主题 initialize 再 render。
 let renderQueue = Promise.resolve();
+const documentSources = new WeakMap();
+export function bindMermaidDocument(node, locator, document) {
+  if (!node || !locator || typeof document !== 'string') return;
+  documentSources.set(node, Object.freeze({ node, document, locator: Object.freeze({ ...locator, messageIdentity: Object.freeze({ ...locator.messageIdentity }) }) }));
+}
+function documentSourceFor(node) {
+  for (let current = node; current; current = current.parentElement || current.parentNode) {
+    const record = documentSources.get(current); if (record) return record;
+  }
+  return null;
+}
 function enqueueRender(task) {
   const run = renderQueue.then(task, task);
   renderQueue = run.then(() => {}, () => {});
@@ -468,18 +479,6 @@ function makeButton(doc, label, onClick) {
   return button;
 }
 
-function triggerDownload(doc, blobUrl, filename) {
-  try {
-    const link = doc.createElement('a');
-    link.href = blobUrl;
-    link.download = filename;
-    const host = doc.body || doc.documentElement;
-    if (host && typeof host.appendChild === 'function') host.appendChild(link);
-    if (typeof link.click === 'function') link.click();
-    if (typeof link.remove === 'function') link.remove();
-  } catch { /* 调用方已在 try 内兜底 */ }
-}
-
 function svgMarkupOf(view) {
   const svg = view && typeof view.querySelector === 'function' ? view.querySelector('svg') : null;
   if (!svg) {
@@ -536,65 +535,36 @@ function exportableSvgMarkup(svg, markup) {
   } catch { return markup; }
 }
 
-function exportSvg(doc, view, notify) {
-  const { svg, markup: raw } = svgMarkupOf(view);
-  const markup = exportableSvgMarkup(svg, raw);
-  if (!markup) { notify.fail(); return; }
-  let url = '';
-  try {
-    const blob = new globalThis.Blob([markup], { type: 'image/svg+xml;charset=utf-8' });
-    url = globalThis.URL.createObjectURL(blob);
-    triggerDownload(doc, url, `mermaid-${Date.now()}.svg`);
-  } catch { notify.fail(); }
-  if (url) setTimeout(() => { try { globalThis.URL.revokeObjectURL(url); } catch { /* noop */ } }, 4000);
-}
-
-// PNG uses a self-contained data URL: Chromium taints canvas when an SVG
-// containing Mermaid's foreignObject labels is loaded through a blob URL.
-function exportPng(doc, view, notify) {
+function svgExportBlob(view) {
   const { svg, markup } = svgMarkupOf(view);
-  if (!svg || !markup) { notify.fail(); return; }
-  let sourceUrl = '';
-  try {
-    const { width, height } = svgNaturalSize(svg);
-    const copy = svg.cloneNode(true);
-    copy.setAttribute('width', String(width));
-    copy.setAttribute('height', String(height));
-    copy.style.maxWidth = 'none';
-    sourceUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new globalThis.XMLSerializer().serializeToString(copy));
-    const scale = Math.min(2, 8192 / Math.max(width, height), Math.sqrt(16777216 / (width * height)));
-    const image = new globalThis.Image();
-    const cleanup = () => { try { globalThis.URL.revokeObjectURL(sourceUrl); } catch { /* noop */ } };
-    image.onload = () => {
-      try {
-        const canvas = doc.createElement('canvas');
-        canvas.width = width * scale;
-        canvas.height = height * scale;
-        const ctx = canvas.getContext('2d');
-        // 先铺图的底色(paintSvgBackground 写在 SVG 上的那个):暗色图是浅字,透明 PNG 在白底看图器里看不见。
-        const background = svg.style && svg.style.backgroundColor;
-        if (background) { ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(pngBlob => {
-          cleanup();
-          if (!pngBlob) { notify.fail(); return; }
-          let pngUrl = '';
-          try {
-            pngUrl = globalThis.URL.createObjectURL(pngBlob);
-            triggerDownload(doc, pngUrl, `mermaid-${Date.now()}.png`);
-          } catch { notify.fail(); }
-          if (pngUrl) setTimeout(() => { try { globalThis.URL.revokeObjectURL(pngUrl); } catch { /* noop */ } }, 4000);
-        }, 'image/png');
-      } catch { cleanup(); notify.fail(); }
-    };
-    image.onerror = () => { cleanup(); notify.fail(); };
-    image.src = sourceUrl;
-  } catch {
-    if (sourceUrl) { try { globalThis.URL.revokeObjectURL(sourceUrl); } catch { /* noop */ } }
-    notify.fail();
-  }
+  if (!svg || !markup) throw new Error('missing independent SVG');
+  return new globalThis.Blob([exportableSvgMarkup(svg, markup)], { type: 'image/svg+xml;charset=utf-8' });
 }
-
+// Only the new independent SVG may become pixels; never use the local display DOM.
+function pngExportBlob(doc, view) {
+  return new Promise((resolve, reject) => {
+    try {
+      const { svg, markup } = svgMarkupOf(view);
+      if (!svg || !markup) throw new Error('missing independent SVG');
+      const { width, height } = svgNaturalSize(svg);
+      const source = exportableSvgMarkup(svg, markup);
+      const scale = Math.min(2, 8192 / Math.max(width, height), Math.sqrt(16777216 / (width * height)));
+      const image = new globalThis.Image();
+      image.onerror = () => reject(new Error('PNG image load failed'));
+      image.onload = () => {
+        try {
+          const canvas = doc.createElement('canvas'); canvas.width = width * scale; canvas.height = height * scale;
+          const ctx = canvas.getContext('2d');
+          const background = svg.style && svg.style.backgroundColor;
+          if (background) { ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG encoding failed')), 'image/png');
+        } catch (error) { reject(error); }
+      };
+      image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source);
+    } catch (error) { reject(error); }
+  });
+}
 // ── 放大查看(用户 2026-09-22 反馈:大图在消息栏里缩成一团,看不全)──────────────
 // 全屏灯箱:把同一份已消毒 SVG 克隆进独立覆盖层,滚轮缩放(以指针为锚)/拖拽平移/
 // 「适应窗口」一键复位,Esc、点遮罩或「关闭」退出。只操作本模块自建 DOM —— 不开窗、
@@ -778,22 +748,75 @@ function openMermaidViewer(doc, markup, t) {
 }
 
 // 复制图源(工具条与回落提示共用一份):复制的是模型写的原文,不是预处理后的那份。
-function copySource(source, t, toast, notify) {
-  try {
-    const clipboard = globalThis.navigator && globalThis.navigator.clipboard;
-    if (!clipboard) return;
-    clipboard.writeText(source).then(
-      () => { if (typeof toast === 'function') toast(t('toast.copyCode'), 'ok'); },
-      () => notify.fail(),
-    );
-  } catch { notify.fail(); }
+function beginProtectedClipboard() {
+  const clipboard = globalThis.navigator?.clipboard;
+  if (!clipboard?.write || typeof globalThis.ClipboardItem !== 'function') throw new Error('clipboard capability unavailable');
+  let resolve, reject;
+  const data = new Promise((yes, no) => { resolve = yes; reject = no; });
+  // Start while the click still owns user activation; bytes resolve only after
+  // host validation. Failure rejects this one write rather than copying raw text.
+  const pending = clipboard.write([new globalThis.ClipboardItem({ 'text/plain': data })]);
+  pending.catch(() => {}); data.catch(() => {});
+  return { resolve, reject, pending };
 }
-
+function diagramExport(doc, context, format, plaintext, t, toast) {
+  const { record, source, code, wrapper, options } = context;
+  // Capture intent on the synchronous click stack, before the lazy module load
+  // or any other wait can observe a new OFF configuration or another session.
+  const intent = typeof options.exportSnapshot === 'function' ? JSON.parse(JSON.stringify(options.exportSnapshot())) : null;
+  const intentKey = JSON.stringify(intent);
+  let clipboard;
+  try { if (format === 'copy') clipboard = beginProtectedClipboard(); }
+  catch { if (typeof toast === 'function') toast(t('mermaid.clipboardUnavailable'), 'err'); return; }
+  const assertCurrent = () => {
+    if (!intent || (typeof options.exportSnapshot === 'function' && JSON.stringify(options.exportSnapshot()) !== intentKey)) throw new Error('privacy.export_source_changed');
+    if (wrapper.isConnected === false || code.textContent !== source || (record && documentSources.get(record.node) !== record)) throw new Error('privacy.export_source_changed');
+  };
+  void import('./privacy-export.js').then(async ({ exportMermaidDocument }) => {
+    assertCurrent();
+    const extract = document => {
+      if (!record) return document; // The host accepts this local view only in OFF.
+      if (typeof options.renderMarkdownInto !== 'function') throw new Error('privacy.export_source_missing');
+      const original = doc.createElement('template'), projected = doc.createElement('template');
+      options.renderMarkdownInto(original, record.document); options.renderMarkdownInto(projected, document);
+      const oldBlocks = collectMermaidBlocks(original.content || original), newBlocks = collectMermaidBlocks(projected.content || projected);
+      const visible = collectMermaidBlocks(record.node), index = visible.findIndex(item => item.code === code);
+      if (index < 0 || oldBlocks.length !== visible.length || newBlocks.length !== oldBlocks.length || oldBlocks[index]?.code.textContent !== source) throw new Error('privacy.export_source_changed');
+      return String(newBlocks[index].code.textContent || '');
+    };
+    await exportMermaidDocument({ record, localDocument: source, format, plaintext, clipboard, intent, assertCurrent,
+      create: async document => {
+        assertCurrent();
+        const selected = extract(document);
+        let blob;
+        if (format === 'copy') blob = new globalThis.Blob([selected], { type: 'text/plain' });
+        else {
+          const lib = await (typeof options.ensure === 'function' ? options.ensure({ document: doc }) : ensureMermaid({ document: doc })); assertCurrent();
+          if (!lib) throw new Error('Mermaid unavailable');
+          const theme = mermaidThemeFor(isDarkTheme(doc));
+          const outcome = await enqueueRender(() => renderOneSvg(doc, lib, { source: selected, wrapper }, theme, appFontFamily(doc))); assertCurrent();
+          if (!outcome.markup) throw new Error('protected Mermaid render failed');
+          const view = doc.createElement('div'); view.innerHTML = outcome.markup;
+          blob = format === 'svg' ? svgExportBlob(view) : await pngExportBlob(doc, view);
+        }
+        assertCurrent();
+        // The immutable Blob comes only from this protected-source render. The
+        // host attests its complete Markdown, not arbitrary client image bytes.
+        return Object.freeze({ blob, ...(format === 'copy' ? {} : { url: globalThis.URL.createObjectURL(blob) }) });
+      },
+    });
+  }).catch(error => { if (clipboard) clipboard.reject(error); if (typeof toast === 'function') toast(t('mermaid.exportFailed'), 'err'); });
+}
+function exportButton(doc, label, context, format, plaintext, t, toast) {
+  const button = makeButton(doc, label, () => diagramExport(doc, context, format, plaintext, t, toast));
+  const unavailable = !context.record && typeof context.options.privacyMode === 'function' && context.options.privacyMode() !== 'off';
+  if (unavailable) { button.disabled = true; button.title = t('mermaid.exportSourceMissing'); }
+  return button;
+}
 function buildToolbar(doc, ctx) {
   const bar = doc.createElement('div');
   bar.className = 'mermaid-tools';
-  const { pre, view, source, t, toast, sourceOpen } = ctx;
-  const notify = { fail: () => { if (typeof toast === 'function') toast(t('mermaid.exportFailed'), 'err'); } };
+  const { pre, view, source, t, toast, sourceOpen, exportContext } = ctx;
   const toggle = makeButton(doc, t('mermaid.toggleSource'), () => {
     const hidden = !pre.hidden;
     pre.hidden = hidden;
@@ -801,15 +824,21 @@ function buildToolbar(doc, ctx) {
     toggle.setAttribute('aria-expanded', hidden ? 'false' : 'true');
   });
   toggle.setAttribute('aria-expanded', sourceOpen ? 'true' : 'false');
-  const copy = makeButton(doc, t('common.copy'), () => copySource(source, t, toast, notify));
+  const copy = exportButton(doc, t('common.copy'), exportContext, 'copy', false, t, toast);
   const openViewer = () => openMermaidViewer(doc, svgMarkupOf(view).markup, t);
   const zoomBtn = makeButton(doc, t('mermaid.viewerOpen'), openViewer);
   // 整图本身也可点开灯箱(光标由 CSS 给 zoom-in);工具条按钮走同一入口,行为只有一份。
   view.onclick = openViewer;
   view.setAttribute('title', t('mermaid.viewerHint'));
-  const svgBtn = makeButton(doc, t('mermaid.exportSvg'), () => exportSvg(doc, view, notify));
-  const pngBtn = makeButton(doc, t('mermaid.exportPng'), () => exportPng(doc, view, notify));
+  const svgBtn = exportButton(doc, t('mermaid.exportSvg'), exportContext, 'svg', false, t, toast);
+  const pngBtn = exportButton(doc, t('mermaid.exportPng'), exportContext, 'png', false, t, toast);
   for (const node of [toggle, copy, zoomBtn, svgBtn, pngBtn]) bar.appendChild(node);
+  if (exportContext.record && typeof exportContext.options.privacyMode === 'function' && exportContext.options.privacyMode() !== 'off') {
+    const menu = doc.createElement('details'); menu.className = 'mermaid-plain-menu';
+    const summary = doc.createElement('summary'); summary.textContent = t('privacy.export.plain'); summary.title = t('privacy.export.plainNotice'); menu.appendChild(summary);
+    for (const [format, key] of [['copy', 'common.copy'], ['svg', 'mermaid.exportSvg'], ['png', 'mermaid.exportPng']]) menu.appendChild(exportButton(doc, t(key), exportContext, format, true, t, toast));
+    bar.appendChild(menu);
+  }
   return bar;
 }
 
@@ -976,7 +1005,7 @@ function degrade(doc, wrapper, pre, hash, theme, message, extra = {}) {
   hint.className = 'mermaid-hint';
   hint.textContent = message;
   wrapper.appendChild(hint);
-  const { detail, source, t, toast } = extra;
+  const { detail, source, t, toast, exportContext } = extra;
   if (detail && typeof t === 'function') {
     const line = doc.createElement('div');
     line.className = 'mermaid-hint mermaid-hint-detail';
@@ -986,8 +1015,7 @@ function degrade(doc, wrapper, pre, hash, theme, message, extra = {}) {
   if (typeof source === 'string' && typeof t === 'function') {
     const bar = doc.createElement('div');
     bar.className = 'mermaid-tools';
-    const notify = { fail: () => { if (typeof toast === 'function') toast(t('mermaid.exportFailed'), 'err'); } };
-    bar.appendChild(makeButton(doc, t('common.copy'), () => copySource(source, t, toast, notify)));
+    bar.appendChild(exportButton(doc, t('common.copy'), exportContext, 'copy', false, t, toast));
     wrapper.appendChild(bar);
   }
   // Delivery cards prioritize the result; parser diagnostics remain available on demand.
@@ -1053,7 +1081,7 @@ export async function renderMermaidBlocks(container, opts = {}) {
     wrapper.dataset.mermaidHash = hash;
     wrapper.dataset.mermaidTheme = theme;
     wrapper.dataset.mermaidState = 'pending';
-    pending.push({ code, pre, wrapper, source, hash, previous });
+    pending.push({ code, pre, wrapper, source, hash, previous, exportContext: { record: documentSourceFor(code), source, code, wrapper, options: opts } });
   }
   if (!pending.length) return 0;
 
@@ -1061,7 +1089,7 @@ export async function renderMermaidBlocks(container, opts = {}) {
   try { lib = await ensure({ document: doc }); } catch { lib = null; }
   if (!lib || typeof lib.render !== 'function') {
     applyLayoutChange(opts, () => {
-      for (const item of pending) degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.fallbackHint'), { source: item.source, t, toast });
+      for (const item of pending) degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.fallbackHint'), { source: item.source, t, toast, exportContext: item.exportContext });
     });
     return 0;
   }
@@ -1072,7 +1100,7 @@ export async function renderMermaidBlocks(container, opts = {}) {
   for (const [index, item] of pending.entries()) {
     // 一条回复里有好几张图时,块与块之间让一拍主线程(修前 8 张图连着画,一个长任务卡 0.9 s)。
     if (index > 0) await yieldToEventLoop();
-    blockRenderOptions.set(item.wrapper, { t: opts.t, toast: opts.toast, ensure: opts.ensure, withLayoutChange: opts.withLayoutChange });
+    blockRenderOptions.set(item.wrapper, opts);
     let outcome = { markup: '', error: null, repaired: false };
     try { outcome = await enqueueRender(() => renderOneSvg(doc, lib, item, theme, fontFamily)); } catch { outcome = { markup: '', error: null, repaired: false }; }
     const svgMarkup = outcome.markup;
@@ -1085,7 +1113,7 @@ export async function renderMermaidBlocks(container, opts = {}) {
         continue;
       }
       applyLayoutChange(opts, () => degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.renderFailed'),
-        { detail: firstErrorLine(outcome.error), source: item.source, t, toast }));
+        { detail: firstErrorLine(outcome.error), source: item.source, t, toast, exportContext: item.exportContext }));
       continue;
     }
     applyLayoutChange(opts, () => mountDiagram(doc, item, svgMarkup, outcome.repaired, t, toast));
@@ -1110,7 +1138,7 @@ function mountDiagram(doc, item, svgMarkup, repaired, t, toast) {
   // 所以 click 指令不会接线。此处赋值发生在 sanitizeNode() 之后,是有意的受控写入。
   view.innerHTML = svgMarkup;
   const sourceOpen = Boolean(item.previous && item.previous.sourceOpen);
-  const toolbar = buildToolbar(doc, { pre: item.pre, view, source: item.source, t, toast, sourceOpen });
+  const toolbar = buildToolbar(doc, { pre: item.pre, view, source: item.source, t, toast, sourceOpen, exportContext: item.exportContext });
   if (typeof item.pre.before === 'function') {
     item.pre.before(view);
     item.pre.before(toolbar);

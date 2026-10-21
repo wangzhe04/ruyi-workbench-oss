@@ -49,3 +49,31 @@ test('unpersisted learning cannot be evicted to evade a captured mapping guard',
   for (let i = 0; i < 140; i++) await api.withPolicy('clean-extra-' + i, async () => {});
   assert.throws(copy.assert, /privacy.disclosure_dirty/);
 });
+test('disclosure policy guards reject a policy round trip but accept unrelated same-policy configuration', async t => {
+  const api = await setup(t);
+  for (const initial of ['off', 'enhanced']) {
+    const first = { ...policy, privacyModeV1: initial };
+    api.configure(first); const guard = api.disclosurePolicyGuard();
+    api.configure({ ...first, defaultWorkspace: 'unrelated-workspace', theme: 'light' }); guard();
+    api.configure({ ...policy, privacyModeV1: initial === 'off' ? 'enhanced' : 'off' });
+    api.configure(first); assert.throws(guard, /privacy.policy_changed/);
+  }
+});
+test('a failed policy configuration leaves disclosure unavailable until a valid policy is installed', async t => {
+  const api = await setup(t), guard = api.disclosurePolicyGuard();
+  assert.throws(() => api.configure({ ...policy, providers: [null] }));
+  assert.throws(guard, /privacy.policy_unavailable/);
+  api.configure(policy); assert.throws(guard, /privacy.policy_changed/); api.disclosurePolicyGuard()();
+});
+test('recovery-required round trips permanently revoke earlier disclosure guards without repeated paused-config changes', async t => {
+  const api = await setup(t);
+  for (const mode of ['off', 'enhanced']) {
+    const config = { ...policy, privacyModeV1: mode };
+    api.configure(config); const guard = api.disclosurePolicyGuard();
+    api.configure({ ...config, privacyPolicyRecoveryRequiredV1: true });
+    assert.throws(guard, /privacy.policy_unavailable/);
+    api.configure({ ...config, privacyPolicyRecoveryRequiredV1: true });
+    api.configure(config); assert.throws(guard, /privacy.policy_changed/);
+    const fresh = api.disclosurePolicyGuard(); api.configure(config); fresh();
+  }
+});

@@ -344,7 +344,7 @@ export function createChatRenderPrimitives(deps = {}) {
     // 109a: 在同一趟里分流 mermaid 围栏: `pre > code.language-mermaid` 不进 hljs,交给懒加载的
     // 图表运行时;vendor/mermaid.min.js 缺失或渲染失败时它把原代码块留在原地并补一行提示。
     // 异步且不阻塞高亮;失败已在运行时内部收敛,这里只兜住 promise 防未处理拒绝。
-    try { Promise.resolve(renderMermaidBlocks(container, { t, toast })).catch(() => {}); } catch { /* ignore */ }
+    try { Promise.resolve(renderMermaidBlocks(container, { t, toast, renderMarkdownInto })).catch(() => {}); } catch { /* ignore */ }
     if (typeof hljs === 'undefined') return;
     const blocks = Array.from(container.querySelectorAll('pre code'))
       .filter(block => !block.dataset.hl && !(block.classList && block.classList.contains('language-mermaid')));
