@@ -28,7 +28,28 @@ LPAC 先不添加网络 capability，通过额外进程创建属性退出普通�
 
 网关需提供固定接收方、有界载荷、明确 purpose 和实际发送保护；任意 URL 代理不能作为通过。区分固定 IPC fixture、原始 HTTP 传输、实际官方 CLI 模型请求和完整工具闭环。Node 运行器的公开预加载机制、同进程 loopback 与本地命名管道可以作为候选实验，但需要实测，不能因为模拟脚本可用就认定 Claude/Kimi 已支持。参考 [Microsoft IPC 限制](https://learn.microsoft.com/windows/uwp/communication/interprocess-communication)。
 
-本节尚未取得新的 LPAC 结果，不能沿用普通 AppContainer 证据。
+续验结果见[CLI 运行说明](../../dev-harness/privacy-m1/cli/README.md)和[LPAC 证据](evidence/privacy-m1-cli-lpac.json)。本机 Windows build 26200、Node 24 的分闸观察：
+
+| 环境 | 程序与文件结果 | 网络/网关结果 |
+|---|---|---|
+| 普通 AppContainer，零 capability | 父子可运行；AAP 投影外文件可读 | 六个独立接收端未收到隔离请求，同进程 HTTP 可用 |
+| LPAC，零 capability | 启动属性设置成功，但 Node 在 JS 执行前 WSAStartup 10107 退出 | 未执行到探针，不计作出口封锁通过 |
+| LPAC + registryRead | Node 与后代可运行，实际 token 的 package SID/唯一 capability SID 匹配；父子 AAP 投影外文件均拒绝 | 六个独立接收端有成功正控制、隔离请求零到达；同进程 HTTP 在 listen 阶段 EACCES |
+| LPAC + registryRead + 专用 LOCAL pipe | 命名空间按目标 profile SID 绑定；原始值在宿主先投影，CLI stdin 为 NUL | 原创 Node 公开预加载 fetch 适配器，经受限 pipe 和宿主 PrivacyCore 到独立本机假模型服务；实际未修改的 Kimi 0.42.0 请求及助手完成已观察到 |
+
+registryRead 是额外资源授权，不能沿用“零 capability”的结论；不含互联网或局域网网络 capability。未约束或测试完整注册表视图，文件负控通过也不意味着独占全部系统资源。`GetTokenInformation` class 46 在普通 AC/LPAC 均返回 87，证据保留 null/unknown；不能伪称直接查询到 LPAC flag。限定结论来自成功设置 opt-out、真实 package/capability token 和父子行为对照。
+
+首轮 pipe 创建时合并 SACL 引发缺特权错误，之后仅创建自有 DACL 再对自有 handle 降低完整性；没有提权。第一版 LOCAL 名称在子进程命名空间中 ENOENT，按实际 profile 的 AppContainerNamedObjects 命名空间修正后才连通。这些首次失败保留，不将接收端零请求冒充成功保护。
+
+网关只接受固定虚拟 origin、recipient/purpose 和明确模型路径，不解析该虚拟主机的 DNS；实际外发由宿主固定上游处理。正文及响应有界，拒绝任意 URL、重定向与未知代号。适配器是传输桥，不承担 OS 安全边界。Kimi 的有限请求验证使用宿主独有的随机响应挑战，挑战不在 prompt、环境、argv 或投影源码中，并检查真实助手完成事件；仅回显用户输入不能通过。
+
+审查发现并修复 CLI stderr 可伪造宿主控制消息的问题：受管模式将 CLI stderr 合并到只作哈希/计数的 CLI 输出通道，不向 CLI 继承宿主控制 stderr；宿主事件仅保存白名单字段。伪造 broker/cleanup/error 行不能触发请求或污染控制证据。管道 ACL 授权目标 profile 与宿主用户、拒绝 NETWORK；错误 profile 访问若未单独实测，不能声称已通过全调用者隔离矩阵。
+
+此轮是固定模型 schema 的可行性桥，尚未验证任意 JSON 的长整数、重复键或原始转义保真，也没有集成生产 Gateway、真实外部模型、完整工具/编辑/压缩/恢复流程。实际 Claude 原生程序没有接入这条 Node 预加载路径；此前普通 AC 的超时保留，新 LPAC 模型闭环尚未取得。M1 仍未完成，不能开放全部托管 CLI 支持。
+
+实现冻结后，独立审查复验三份定向 unit 共 15 项通过，并将第二次真实 OS 实验写到自有 TEMP，不覆盖入库结果：两次均观察到真实 Kimi 0.42.0 退出 0、一次模型请求、接收正文哈希与 broker 提交哈希一致、原合成秘密未到达、助手最终内容严格匹配宿主随机挑战、六个未授权接收端均零连接；固定 IPC fixture 的伪造控制负例通过。取消负例覆盖 body 最后一次读取结束时 abort 和已 abort 的 pipe 提交，均零交换/写入。五次启动的 Job、profile 与临时目录清理均 verified。
+
+13 份 CLI 原型文件的 manifest SHA-256 为 `cd67ddfb3224e68f1a1850d6960d4aab07eef8f9084e2f087b5a0d0c9de2b25c`，与入库证据及独立复验一致；四项直接加载的第一方依赖哈希匹配，所有 CLI JS/MJS 语法检查通过。证据还绑定 Node、helper/编译器、原 Claude 11 份与 Kimi 1196 份程序文件；Kimi 原程序与临时副本完整树哈希相同。独立复验结果 SHA-256 为 `6659038699e7f57c57a3ec23ad8c227a3955f00fbdee7875b8f17dd75fe94494`，归档到仓库外维护目录 `checks/m1-lpac-review/`。审查没有新增阻断；结论仍限定为本机、冻结版本的模型传输原型，`completedM1` 保持 false。
 
 ## ASR 评估与缩小范围
 

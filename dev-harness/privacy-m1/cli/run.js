@@ -9,6 +9,7 @@ const dgram = require('node:dgram');
 const crypto = require('node:crypto');
 const readline = require('node:readline');
 const { once } = require('node:events');
+const {StringDecoder}=require('node:string_decoder');
 const { killOwnTree } = require('../../lib/kill-own-tree');
 const { startFakeProvider } = require('../../lib/fake-openai-provider');
 
@@ -66,18 +67,48 @@ async function receiver(kind, address, counters, label) {
   server.bind(0, address); await once(server, 'listening');
   return { port: server.address().port, close: () => new Promise(resolve => server.close(resolve)), label };
 }
-async function launch(helper, root, projection, write, exe, args, timeoutMs = 20000, environmentOverrides = {}) {
+function controlEvent(value) {
+  const fields={
+    'token-verified':['kind','isAppContainer','isLessPrivilegedAppContainer','lpacQuerySucceeded','lpacQueryError','packageSid','capabilityCount','capabilitySids','profileSidMatched'],
+    launched:['isolation','capabilities','capabilityNames'],exit:['code'],timeout:['terminateJobSucceeded','rootWaitResult'],
+    error:['errorType','errorHresult'],cleanup:['profileDeleteHresult','profileDirectoryAbsent','terminateSucceeded','rootWaitResult','jobActiveProcesses','jobTotalProcesses','ownedTreeTerminated','processCreated'],
+    'pipe-created':['profileSidAuthorized','hostUserAuthorized','networkDenied','lowIntegrity'],'pipe-relay-stopped':['error'],
+  };
+  if(!value||!Object.hasOwn(fields,value.stage))return null;
+  const clean={stage:value.stage};for(const key of fields[value.stage])if(Object.hasOwn(value,key)){
+    const item=value[key];if(item===null||typeof item==='boolean'||typeof item==='number'&&Number.isFinite(item)||typeof item==='string'&&item.length<=512||Array.isArray(item)&&item.length<=16&&item.every(s=>typeof s==='string'&&s.length<=128))clean[key]=item;
+  }return clean;
+}
+function createAssistantObserver(challenge) {
+  let pending='',observed=false,overflow=false;
+  return {write(text){pending+=text;for(let index;(index=pending.indexOf('\n'))>=0;){const line=pending.slice(0,index);pending=pending.slice(index+1);if(!overflow&&Buffer.byteLength(line)<=262144){try{const row=JSON.parse(line);if(row.role==='assistant'&&typeof row.content==='string'&&row.content.trim()===challenge&&!row.tool_calls?.length)observed=true;}catch{}}overflow=false;}if(Buffer.byteLength(pending)>262144){pending='';overflow=true;}},get observed(){return observed;}};
+}
+async function launch(helper, root, projection, write, exe, args, timeoutMs = 20000, environmentOverrides = {}, isolation = 'AppContainer', registryRead = false, broker = null) {
   launchesStarted++;
   const file = path.join(root, 'launch-' + crypto.randomUUID() + '.json');
   const profile='ruyi.m1.'+crypto.randomUUID().replaceAll('-','');
-  fs.writeFileSync(file, JSON.stringify({ profile, projection, write, aapDirectory:path.join(root,'aap-control'), exe, args, cwd: write, env: {...childEnvironment(write, projection),...environmentOverrides}, timeoutMs }));
+  fs.writeFileSync(file, JSON.stringify({ profile, isolation, registryRead, pipeBroker:Boolean(broker), projection, write, aapDirectory:path.join(root,'aap-control'), exe, args, cwd: write, env: {...childEnvironment(write, projection),...environmentOverrides}, timeoutMs }));
   const child = cp.spawn(helper, [file], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const output = [], events = []; let text = '', error = '';
-  child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
-  child.stdout.on('data', chunk => { if(text.length < 262144) text += chunk; });
-  child.stderr.on('data', chunk => { if(error.length < 262144) error += chunk; });
-  const lines = readline.createInterface({ input: child.stdout });
-  lines.on('line', line => {
+  if(!broker){child.stdout.setEncoding('utf8');child.stderr.setEncoding('utf8');}
+  let stdoutBytes=0,matchTail='';const stdoutHash=crypto.createHash('sha256'),stdoutDecoder=new StringDecoder('utf8'),stderrDecoder=new StringDecoder('utf8'),diagnosticCodes=new Set(),assistantObserver=createAssistantObserver(broker?.expectedResponse);
+  child.stdout.on('data',chunk=>{
+    if(!broker){if(text.length<262144)text+=chunk;return;}
+    stdoutBytes+=chunk.length;stdoutHash.update(chunk);const decoded=stdoutDecoder.write(chunk);assistantObserver.write(decoded);const window=matchTail+decoded;
+    for(const match of window.matchAll(/\b(?:ERR_[A-Z_]+|EACCES|EPERM|ENOENT|AssertionError|owned-pipe-required|broker-transport-closed|broker-unavailable)\b/g))if(diagnosticCodes.size<32)diagnosticCodes.add(match[0]);matchTail=window.slice(-1024);
+  });
+  let brokerChain=Promise.resolve(),stderrPending='',stderrBytes=0;const stderrHash=crypto.createHash('sha256');
+  child.stderr.on('data', chunk => {
+    if(!broker){if(error.length<262144)error+=chunk;return;}
+    stderrBytes+=chunk.length;stderrHash.update(chunk);stderrPending+=stderrDecoder.write(chunk);
+    if(Buffer.byteLength(stderrPending)>800000){events.push({stage:'parent-frame-limit'});killOwnTree(child);return;}
+    for(let index;(index=stderrPending.indexOf('\n'))>=0;){const line=stderrPending.slice(0,index);stderrPending=stderrPending.slice(index+1);let value;try{value=JSON.parse(line);}catch{continue;}
+      if(value.stage==='broker-request')brokerChain=brokerChain.then(async()=>{let reply;try{reply=await broker.handle(value.request);}catch{reply={id:typeof value.request?.id==='string'?value.request.id:'invalid',status:502,contentType:'application/json',bodyBase64:Buffer.from('{"error":"broker-denied"}').toString('base64')};}if(!child.stdin.destroyed)child.stdin.write(JSON.stringify(reply)+'\n');});
+      else {const event=controlEvent(value);if(event&&events.length<128)events.push(event);}
+    }
+  });
+  const lines = broker?null:readline.createInterface({ input: child.stdout });
+  lines?.on('line', line => {
     try { const value = JSON.parse(line); if(output.length<128) output.push(value); if(value.kind === 'rpc') child.stdin.write(brokerReply(value)); } catch {}
   });
   child.stdin.on('error', () => {});
@@ -85,7 +116,8 @@ async function launch(helper, root, projection, write, exe, args, timeoutMs = 20
   const watchdog=setTimeout(()=>{ watchdogFired=true; killOwnTree(child); },timeoutMs+10000);
   let code;
   try { [code] = await once(child, 'close'); }
-  finally { clearTimeout(watchdog); lines.close(); if(child.exitCode===null && child.signalCode===null) killOwnTree(child); }
+  finally { clearTimeout(watchdog); lines?.close(); if(child.exitCode===null && child.signalCode===null) killOwnTree(child); }
+  await brokerChain;
   for (const line of error.split(/\r?\n/)) { try { events.push(JSON.parse(line)); } catch {} }
   if(!events.some(e=>e.stage==='cleanup'&&e.profileDeleteHresult===0&&e.profileDirectoryAbsent===true)) {
     try { const recovered=cp.spawnSync(helper,['--cleanup-profile',profile],{windowsHide:true,encoding:'utf8',timeout:10000}); for(const line of String(recovered.stderr||'').split(/\r?\n/)){try{events.push(JSON.parse(line));}catch{}} }
@@ -93,6 +125,7 @@ async function launch(helper, root, projection, write, exe, args, timeoutMs = 20
   }
   // Only bounded/redacted diagnostics are persisted. No CLI transcript from a real account exists.
   const redact = value => value.split(root).join('<temporary-root>').replaceAll(process.env.USERPROFILE || '<none>', '<user-home>');
+  if(broker)return {code,watchdogFired,output:[],events,stdoutBytes,stdoutSha256:stdoutHash.digest('hex'),stderrBytes,stderrSha256:stderrHash.digest('hex'),expectedResponseObserved:assistantObserver.observed,untrustedOutputDiagnosticCodes:[...diagnosticCodes]};
   return { code, watchdogFired, output, events, stdout: redact(text).slice(0, 6000), stderr: redact(error).slice(0, 6000) };
 }
 async function main() {
@@ -173,4 +206,4 @@ async function main() {
   }
 }
 if(require.main===module) main().catch(e=>{ console.error(e.message); process.exitCode=1; });
-module.exports={safeRemove,childEnvironment,brokerReply,summarizeProbe,redactEvidence};
+module.exports={safeRemove,childEnvironment,brokerReply,summarizeProbe,redactEvidence,launch,receiver,controlEvent,createAssistantObserver};

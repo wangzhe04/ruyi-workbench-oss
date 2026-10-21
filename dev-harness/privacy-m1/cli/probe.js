@@ -5,6 +5,7 @@ const net = require('node:net');
 const dgram = require('node:dgram');
 const cp = require('node:child_process');
 const readline = require('node:readline');
+const http = require('node:http');
 const cfg = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const descendant = process.argv[3] === 'descendant';
 const emit = value => process.stdout.write(JSON.stringify({ ...value, descendant }) + '\n');
@@ -38,6 +39,17 @@ async function main() {
   fileCheck('project-write-denied', () => { fs.writeFileSync(cfg.allowed, 'MUTATED'); return true; });
   fileCheck('owned-write', () => { fs.writeFileSync(cfg.write + (descendant ? '/child.txt' : '/parent.txt'), 'SYNTHETIC_OUTPUT'); return true; });
   fileCheck('outside-write', () => { fs.writeFileSync(cfg.deniedWrite, 'MUTATED'); return true; });
+  if (cfg.sameProcessHttp) {
+    let accepted=0,stage='listen';
+    const server=http.createServer((req,res)=>{accepted++;res.end('SYNTHETIC_SELF_HTTP');});
+    try {
+      await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+      stage='request';
+      const response=await fetch('http://127.0.0.1:'+server.address().port+'/fixed',{signal:AbortSignal.timeout(2000),redirect:'error'});
+      emit({kind:'same-process-http',allowed:response.status===200&&(await response.text())==='SYNTHETIC_SELF_HTTP',accepted});
+    } catch(error) {emit({kind:'same-process-http',allowed:false,accepted,stage,code:error.cause?.code||error.code||error.name,syscall:error.cause?.syscall||error.syscall});}
+    finally {server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+  }
   await tcp('loopback-tcp4', '127.0.0.1', cfg.tcp4);
   await tcp('loopback-tcp6', '::1', cfg.tcp6);
   await tcp('private-gateway', '127.0.0.1', cfg.gateway);
@@ -45,7 +57,7 @@ async function main() {
   await udp('loopback-udp6', '::1', cfg.udp6, 'udp6');
   await udp('dns-owned-receiver', '127.0.0.1', cfg.dns, 'udp4', true);
   if (!descendant) {
-    const tokenChild = cp.spawnSync(cfg.tokenProbe, ['--token-self'], { windowsHide: true, stdio: ['ignore', 'inherit', 'inherit'], env: process.env });
+    const tokenChild = cp.spawnSync(cfg.tokenProbe, ['--token-self'], { windowsHide: true, stdio: ['ignore', 'inherit', 'inherit'], env: process.env,timeout:5000 });
     emit({kind:'descendant-token-probe-exit',code:tokenChild.status,error:tokenChild.error&&tokenChild.error.code});
     const lines = readline.createInterface({ input: process.stdin });
     const answer = new Promise(resolve => lines.once('line', line => { resolve(line); lines.close(); }));

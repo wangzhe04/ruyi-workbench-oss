@@ -1,6 +1,7 @@
 // Original, isolated M1 experiment. Job Object manages lifetime, not isolation.
 using System;
 using System.IO;
+using System.IO.Pipes;
 using System.Text;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -11,6 +12,8 @@ using System.Web.Script.Serialization;
 
 public class AppContainerHost {
   [StructLayout(LayoutKind.Sequential)] struct SC { public IntPtr sid, capabilities; public int count, reserved; }
+  [StructLayout(LayoutKind.Sequential)] struct SidAndAttributes { public IntPtr sid; public uint attributes; }
+  [StructLayout(LayoutKind.Sequential)] struct TokenGroupsOne { public uint count; public SidAndAttributes first; }
   [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] struct SI { public int cb; public string reserved,desktop,title; public int x,y,xs,ys,xc,yc,fill,flags; public short show, reserved2; public IntPtr data,input,output,error; }
   [StructLayout(LayoutKind.Sequential)] struct SIX { public SI si; public IntPtr attrs; }
   [StructLayout(LayoutKind.Sequential)] struct PI { public IntPtr process,thread; public int pid,tid; }
@@ -28,6 +31,7 @@ public class AppContainerHost {
   [DllImport("kernel32.dll")] static extern void DeleteProcThreadAttributeList(IntPtr list);
   [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)] static extern bool CreateProcess(string app,StringBuilder cmd,IntPtr pa,IntPtr ta,bool inherit,uint flags,IntPtr env,string cwd,ref SIX si,out PI pi);
   [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int handle);
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern IntPtr CreateFile(string name,uint access,uint share,IntPtr security,uint disposition,uint flags,IntPtr template);
   [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetHandleInformation(IntPtr handle,int mask,int flags);
   [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr CreateJobObject(IntPtr attr,string name);
   [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetInformationJobObject(IntPtr job,int cls,ref JobLimit info,int size);
@@ -42,16 +46,51 @@ public class AppContainerHost {
   [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool ConvertStringSecurityDescriptorToSecurityDescriptor(string value,uint rev,out IntPtr descriptor,out uint size);
   [DllImport("advapi32.dll",SetLastError=true)] static extern bool GetSecurityDescriptorSacl(IntPtr sd,out bool present,out IntPtr sacl,out bool defaulted);
   [DllImport("advapi32.dll",CharSet=CharSet.Unicode)] static extern uint SetNamedSecurityInfo(string name,int type,uint info,IntPtr owner,IntPtr group,IntPtr dacl,IntPtr sacl);
+  [DllImport("advapi32.dll")] static extern uint SetSecurityInfo(IntPtr handle,int type,uint info,IntPtr owner,IntPtr group,IntPtr dacl,IntPtr sacl);
   [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr pointer);
   [DllImport("advapi32.dll",SetLastError=true)] static extern bool OpenProcessToken(IntPtr process,uint access,out IntPtr token);
   [DllImport("advapi32.dll",SetLastError=true)] static extern bool GetTokenInformation(IntPtr token,int type,out int value,int size,out int needed);
+  [DllImport("advapi32.dll",EntryPoint="GetTokenInformation",SetLastError=true)] static extern bool GetTokenBuffer(IntPtr token,int type,IntPtr value,int size,out int needed);
+  [DllImport("api-ms-win-security-base-l1-2-2.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool DeriveCapabilitySidsFromName(string name,out IntPtr groups,out uint groupCount,out IntPtr capabilities,out uint count);
+  static int TokenInteger(IntPtr token,int type) { int value,needed; Check(GetTokenInformation(token,type,out value,4,out needed),"query-token-"+type); return value; }
+  static object TokenSnapshot(IntPtr process,string expectedSid,bool? expectedLpac,string stage,string[] expectedCapabilities) {
+    IntPtr token; Check(OpenProcessToken(process,8,out token),"open-token");
+    try {
+      bool app=TokenInteger(token,29)==1; int needed,lpacValue;
+      bool lpacQuery=GetTokenInformation(token,46,out lpacValue,4,out needed); int lpacError=lpacQuery?0:Marshal.GetLastWin32Error(); bool? lpac=lpacQuery?(bool?)(lpacValue!=0):null;
+      GetTokenBuffer(token,31,IntPtr.Zero,0,out needed); IntPtr buffer=Marshal.AllocHGlobal(needed); string actualSid;
+      try { Check(GetTokenBuffer(token,31,buffer,needed,out needed),"query-package-sid"); actualSid=new SecurityIdentifier(Marshal.ReadIntPtr(buffer)).Value; } finally { Marshal.FreeHGlobal(buffer); }
+      GetTokenBuffer(token,30,IntPtr.Zero,0,out needed); buffer=Marshal.AllocHGlobal(needed); int capabilities; var capabilitySids=new List<string>();
+      try { Check(GetTokenBuffer(token,30,buffer,needed,out needed),"query-capabilities"); capabilities=Marshal.ReadInt32(buffer); int offset=(int)Marshal.OffsetOf(typeof(TokenGroupsOne),"first"),stride=Marshal.SizeOf(typeof(SidAndAttributes)); for(int i=0;i<capabilities;i++)capabilitySids.Add(new SecurityIdentifier(Marshal.ReadIntPtr(buffer,offset+i*stride)).Value); } finally { Marshal.FreeHGlobal(buffer); }
+      bool capsMatch=expectedCapabilities==null || String.Join(",",capabilitySids.ToArray())==String.Join(",",expectedCapabilities);
+      if(!app || expectedSid!=null&&actualSid!=expectedSid || expectedLpac.HasValue&&lpac.HasValue&&lpac!=expectedLpac.Value || !capsMatch) throw new Exception("unexpected-token-boundary");
+      return new {stage=stage,kind="descendant-token",isAppContainer=app,isLessPrivilegedAppContainer=lpac,lpacQuerySucceeded=lpacQuery,lpacQueryError=lpacError,packageSid=actualSid,capabilityCount=capabilities,capabilitySids=capabilitySids.ToArray(),profileSidMatched=expectedSid==null?(bool?)null:actualSid==expectedSid};
+    } finally {CloseHandle(token);}
+  }
   static JavaScriptSerializer json=new JavaScriptSerializer();
-  static void Event(object value) { Console.Error.WriteLine(json.Serialize(value)); }
+  static readonly object jsonLock=new object();
+  static void Event(object value) { lock(jsonLock)Console.Error.WriteLine(json.Serialize(value)); }
+  static string BoundedLine(TextReader reader) { var line=new StringBuilder();for(int next;(next=reader.Read())!=-1;){if(next=='\n')return line.ToString();if(line.Length>=400000)throw new Exception("pipe-frame-limit");if(next!='\r')line.Append((char)next);}if(line.Length==0)return null;throw new Exception("pipe-truncated-frame"); }
+  static void Relay(NamedPipeServerStream pipe) {
+    try {
+      pipe.WaitForConnection();var reader=new StreamReader(pipe,new UTF8Encoding(false,true),false,4096,true);var writer=new StreamWriter(pipe,new UTF8Encoding(false),4096,true);writer.AutoFlush=true;
+      string line;while((line=BoundedLine(reader))!=null) {
+        Dictionary<string,object> request;lock(jsonLock)request=json.Deserialize<Dictionary<string,object>>(line);Event(new {stage="broker-request",request=request});
+        string reply=BoundedLine(Console.In);if(reply==null)throw new Exception("broker-host-closed");
+        writer.WriteLine(reply);
+      }
+    } catch(Exception error) {Event(new {stage="pipe-relay-stopped",error=error.GetType().Name});}
+  }
   static void Check(bool result,string stage) { if(!result) throw new Exception(stage+":"+Marshal.GetLastWin32Error()); }
   static void Low(string directory) {
     IntPtr sd=IntPtr.Zero,sacl; uint size; bool present,defaulted;
     try { Check(ConvertStringSecurityDescriptorToSecurityDescriptor("S:(ML;OICI;NW;;;LW)",1,out sd,out size),"low-descriptor"); Check(GetSecurityDescriptorSacl(sd,out present,out sacl,out defaulted),"low-sacl"); uint status=SetNamedSecurityInfo(directory,1,16,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,sacl); if(status!=0) throw new Exception("low-label:"+status); }
     finally { if(sd!=IntPtr.Zero) LocalFree(sd); }
+  }
+  static void LowPipe(NamedPipeServerStream pipe) {
+    IntPtr sd=IntPtr.Zero,sacl;uint size;bool present,defaulted;
+    try {Check(ConvertStringSecurityDescriptorToSecurityDescriptor("S:(ML;;NW;;;LW)",1,out sd,out size),"pipe-low-descriptor");Check(GetSecurityDescriptorSacl(sd,out present,out sacl,out defaulted),"pipe-low-sacl");uint status=SetSecurityInfo(pipe.SafePipeHandle.DangerousGetHandle(),6,16,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,sacl);if(status!=0)throw new Exception("pipe-low-label:"+status);}
+    finally {if(sd!=IntPtr.Zero)LocalFree(sd);}
   }
   static void Grant(string directory,SecurityIdentifier sid,FileSystemRights rights) { var acl=Directory.GetAccessControl(directory); acl.AddAccessRule(new FileSystemAccessRule(sid,rights,InheritanceFlags.ContainerInherit|InheritanceFlags.ObjectInherit,PropagationFlags.None,AccessControlType.Allow)); Directory.SetAccessControl(directory,acl); }
   static void ValidateOwnedPaths(string config,string projection,string write,string exe,string aap) {
@@ -66,6 +105,7 @@ public class AppContainerHost {
   // Implements CommandLineToArgvW quoting, including empty args and trailing slashes.
   public static string Quote(string arg) { var b=new StringBuilder("\""); int slashes=0; foreach(char c in arg) { if(c=='\\') { slashes++; continue; } if(c=='\"') b.Append('\\',slashes*2+1); else b.Append('\\',slashes); b.Append(c); slashes=0; } b.Append('\\',slashes*2); return b.Append('"').ToString(); }
   public static int Main(string[] args) {
+    Console.OutputEncoding=new UTF8Encoding(false);Console.InputEncoding=new UTF8Encoding(false);
     if(args.Length==2 && args[0]=="--cleanup-profile") {
       if(!System.Text.RegularExpressions.Regex.IsMatch(args[1],@"^ruyi\.m1\.[a-f0-9]{32}$")) return 64;
       IntPtr recoveredSid=IntPtr.Zero,recoveredPath; string folder=null;
@@ -74,15 +114,22 @@ public class AppContainerHost {
       Event(new {stage="recovery-cleanup",profileDeleteHresult=status,profileDirectoryAbsent=absent}); return status==0&&absent?0:1;
     }
     if(args.Length==1 && args[0]=="--token-self") {
-      IntPtr token; Check(OpenProcessToken(System.Diagnostics.Process.GetCurrentProcess().Handle,8,out token),"open-self-token");
-      try { int value,needed; Check(GetTokenInformation(token,29,out value,4,out needed),"query-self-token"); Console.WriteLine(json.Serialize(new {kind="descendant-token",isAppContainer=value==1})); return value==1?0:1; } finally {CloseHandle(token);}
+      Console.WriteLine(json.Serialize(TokenSnapshot(System.Diagnostics.Process.GetCurrentProcess().Handle,null,null,"descendant-token",null))); return 0;
     }
     if(args.Length!=1) return 64;
     string profile="ruyi.m1."+Guid.NewGuid().ToString("N");
-    IntPtr sid=IntPtr.Zero,list=IntPtr.Zero,scmem=IntPtr.Zero,handles=IntPtr.Zero,envmem=IntPtr.Zero,job=IntPtr.Zero; PI pi=new PI(); bool assigned=false; string profilePath=null;
+    IntPtr sid=IntPtr.Zero,list=IntPtr.Zero,scmem=IntPtr.Zero,handles=IntPtr.Zero,envmem=IntPtr.Zero,job=IntPtr.Zero,lpacPolicy=IntPtr.Zero,capmem=IntPtr.Zero,capSid=IntPtr.Zero,nullInput=IntPtr.Zero; PI pi=new PI(); bool assigned=false; string profilePath=null;NamedPipeServerStream brokerPipe=null;
     int result=1;
     try {
       var c=json.Deserialize<Dictionary<string,object>>(File.ReadAllText(args[0]));
+      string isolation=c.ContainsKey("isolation")?(string)c["isolation"]:"AppContainer";
+      if(isolation!="AppContainer"&&isolation!="LPAC") throw new Exception("invalid-isolation"); bool lpac=isolation=="LPAC";
+      bool registryRead=c.ContainsKey("registryRead")&&(bool)c["registryRead"]; if(registryRead&&!lpac)throw new Exception("registry-read-requires-lpac"); string[] expectedCapabilities=new string[0];
+      if(registryRead) {
+        IntPtr groups=IntPtr.Zero,caps=IntPtr.Zero;uint groupCount=0,count=0;
+        try { Check(DeriveCapabilitySidsFromName("registryRead",out groups,out groupCount,out caps,out count),"derive-registry-read"); if(count!=1)throw new Exception("unexpected-derived-capability-count"); capSid=Marshal.ReadIntPtr(caps); expectedCapabilities=new string[]{new SecurityIdentifier(capSid).Value}; capmem=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(SidAndAttributes))); var entry=new SidAndAttributes();entry.sid=capSid;entry.attributes=4;Marshal.StructureToPtr(entry,capmem,false); }
+        finally {if(groups!=IntPtr.Zero){for(int i=0;i<groupCount;i++)LocalFree(Marshal.ReadIntPtr(groups,i*IntPtr.Size));LocalFree(groups);}if(caps!=IntPtr.Zero)LocalFree(caps);}
+      }
       profile=(string)c["profile"];
       if(!System.Text.RegularExpressions.Regex.IsMatch(profile,@"^ruyi\.m1\.[a-f0-9]{32}$")) throw new Exception("invalid-owned-profile-name");
       string projection=(string)c["projection"],write=(string)c["write"],exe=(string)c["exe"];
@@ -91,27 +138,41 @@ public class AppContainerHost {
       Grant((string)c["aapDirectory"],new SecurityIdentifier("S-1-15-2-1"),FileSystemRights.ReadAndExecute);
       int hr=CreateAppContainerProfile(profile,profile,"Temporary isolated synthetic M1 probe",IntPtr.Zero,0,out sid); if(hr!=0) throw new Exception("create-profile:0x"+hr.ToString("X8"));
       var identity=new SecurityIdentifier(sid); IntPtr pp; if(GetAppContainerFolderPath(identity.Value,out pp)==0) { profilePath=Marshal.PtrToStringUni(pp); Marshal.FreeCoTaskMem(pp); }
+      bool pipeBroker=c.ContainsKey("pipeBroker")&&(bool)c["pipeBroker"];string pipeName=null;
+      if(pipeBroker) {
+        if(!lpac)throw new Exception("pipe-broker-requires-lpac");pipeName="LOCAL\\ruyi.m1."+Guid.NewGuid().ToString("N");
+        var security=new PipeSecurity();security.SetSecurityDescriptorSddlForm("D:P(D;;GA;;;NU)(A;;GA;;;"+WindowsIdentity.GetCurrent().User.Value+")(A;;GRGW;;;"+identity.Value+")");
+        string serverPipeName="Sessions\\"+System.Diagnostics.Process.GetCurrentProcess().SessionId+"\\AppContainerNamedObjects\\"+identity.Value+"\\"+pipeName.Substring(6);
+        brokerPipe=new NamedPipeServerStream(serverPipeName,PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous,4096,4096,security,HandleInheritability.None,PipeAccessRights.TakeOwnership);LowPipe(brokerPipe);
+        var relay=new System.Threading.Thread(()=>Relay(brokerPipe));relay.IsBackground=true;relay.Start();Event(new {stage="pipe-created",profileSidAuthorized=true,hostUserAuthorized=true,networkDenied=true,lowIntegrity=true});
+        nullInput=CreateFile("NUL",0x80000000,3,IntPtr.Zero,3,0,IntPtr.Zero);if(nullInput==(IntPtr)(-1))throw new Exception("open-null-stdin:"+Marshal.GetLastWin32Error());
+      }
       Grant(projection,identity,FileSystemRights.ReadAndExecute); Grant(write,identity,FileSystemRights.FullControl); Low(write);
-      IntPtr size=IntPtr.Zero; InitializeProcThreadAttributeList(IntPtr.Zero,2,0,ref size); list=Marshal.AllocHGlobal(size); Check(InitializeProcThreadAttributeList(list,2,0,ref size),"initialize-attributes");
-      SC sc=new SC(); sc.sid=sid; scmem=Marshal.AllocHGlobal(Marshal.SizeOf(sc)); Marshal.StructureToPtr(sc,scmem,false);
+      int attributeCount=lpac?3:2; IntPtr size=IntPtr.Zero; InitializeProcThreadAttributeList(IntPtr.Zero,attributeCount,0,ref size); list=Marshal.AllocHGlobal(size); Check(InitializeProcThreadAttributeList(list,attributeCount,0,ref size),"initialize-attributes");
+      SC sc=new SC(); sc.sid=sid;sc.capabilities=capmem;sc.count=registryRead?1:0; scmem=Marshal.AllocHGlobal(Marshal.SizeOf(sc)); Marshal.StructureToPtr(sc,scmem,false);
       Check(UpdateProcThreadAttribute(list,0,(IntPtr)0x20009,scmem,(IntPtr)Marshal.SizeOf(sc),IntPtr.Zero,IntPtr.Zero),"security-capabilities");
+      // PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY; opt out of AAP.
+      if(lpac) { lpacPolicy=Marshal.AllocHGlobal(4); Marshal.WriteInt32(lpacPolicy,1); Check(UpdateProcThreadAttribute(list,0,(IntPtr)0x2000f,lpacPolicy,(IntPtr)4,IntPtr.Zero,IntPtr.Zero),"all-application-packages-opt-out"); }
       SIX si=new SIX(); si.si.cb=Marshal.SizeOf(si); si.si.flags=0x101; si.si.show=0; si.si.input=GetStdHandle(-10); si.si.output=GetStdHandle(-11); si.si.error=GetStdHandle(-12); si.attrs=list;
-      IntPtr[] allowed={si.si.input,si.si.output,si.si.error}; handles=Marshal.AllocHGlobal(IntPtr.Size*3); for(int i=0;i<3;i++){ Check(SetHandleInformation(allowed[i],1,1),"inherit-stdio"); Marshal.WriteIntPtr(handles,i*IntPtr.Size,allowed[i]); }
-      Check(UpdateProcThreadAttribute(list,0,(IntPtr)0x20002,handles,(IntPtr)(IntPtr.Size*3),IntPtr.Zero,IntPtr.Zero),"handle-list");
-      var env=(Dictionary<string,object>)c["env"]; var keys=new List<string>(env.Keys); keys.Sort(StringComparer.OrdinalIgnoreCase); var block=new StringBuilder(); foreach(string key in keys) block.Append(key).Append('=').Append((string)env[key]).Append('\0'); block.Append('\0'); envmem=Marshal.StringToHGlobalUni(block.ToString());
+      // Broker control stderr must never be inherited by the CLI. Raw CLI diagnostics
+      // share its stdout; host stdin exclusively carries broker replies to this helper.
+      if(pipeBroker){si.si.input=nullInput;si.si.error=si.si.output;}
+      var allowed=new List<IntPtr>();foreach(IntPtr handle in new IntPtr[]{si.si.input,si.si.output,si.si.error})if(!allowed.Contains(handle))allowed.Add(handle);
+      handles=Marshal.AllocHGlobal(IntPtr.Size*allowed.Count); for(int i=0;i<allowed.Count;i++){ Check(SetHandleInformation(allowed[i],1,1),"inherit-stdio"); Marshal.WriteIntPtr(handles,i*IntPtr.Size,allowed[i]); }
+      Check(UpdateProcThreadAttribute(list,0,(IntPtr)0x20002,handles,(IntPtr)(IntPtr.Size*allowed.Count),IntPtr.Zero,IntPtr.Zero),"handle-list");
+      var env=(Dictionary<string,object>)c["env"];if(pipeBroker)env["RUYI_M1_PIPE"]="\\\\.\\pipe\\"+pipeName; var keys=new List<string>(env.Keys); keys.Sort(StringComparer.OrdinalIgnoreCase); var block=new StringBuilder(); foreach(string key in keys) block.Append(key).Append('=').Append((string)env[key]).Append('\0'); block.Append('\0'); envmem=Marshal.StringToHGlobalUni(block.ToString());
       var command=new StringBuilder(Quote(exe)); foreach(object a in (System.Collections.IEnumerable)c["args"]) command.Append(' ').Append(Quote((string)a));
       job=CreateJobObject(IntPtr.Zero,null); if(job==IntPtr.Zero) throw new Exception("create-job:"+Marshal.GetLastWin32Error()); var limits=new JobLimit(); limits.basic.flags=0x2000; Check(SetInformationJobObject(job,9,ref limits,Marshal.SizeOf(limits)),"job-limits");
       Check(CreateProcess(exe,command,IntPtr.Zero,IntPtr.Zero,true,0x08080404,envmem,(string)c["cwd"],ref si,out pi),"create-process");
       Check(AssignProcessToJobObject(job,pi.process),"assign-job"); assigned=true;
-      IntPtr token; Check(OpenProcessToken(pi.process,8,out token),"open-child-token");
-      try { int isAppContainer,needed; Check(GetTokenInformation(token,29,out isAppContainer,4,out needed),"query-appcontainer-token"); if(isAppContainer!=1) throw new Exception("child-token-not-appcontainer"); Event(new {stage="token-verified",isAppContainer=true}); } finally {CloseHandle(token);}
+      Event(TokenSnapshot(pi.process,identity.Value,lpac,"token-verified",expectedCapabilities));
       if(ResumeThread(pi.thread)==0xffffffff) throw new Exception("resume:"+Marshal.GetLastWin32Error());
-      Event(new {stage="launched",isolation="AppContainer",capabilities=0});
+      Event(new {stage="launched",isolation=isolation,capabilities=sc.count,capabilityNames=registryRead?new string[]{"registryRead"}:new string[0]});
       uint wait=WaitForSingleObject(pi.process,Convert.ToUInt32(c["timeoutMs"]));
       if(wait==258) { bool terminated=TerminateJobObject(job,124); uint stopped=WaitForSingleObject(pi.process,5000); Event(new {stage="timeout",terminateJobSucceeded=terminated,rootWaitResult=stopped}); result=124; }
       else if(wait!=0) throw new Exception("wait:"+wait);
       else { uint code; Check(GetExitCodeProcess(pi.process,out code),"exit-code"); result=unchecked((int)code); Event(new {stage="exit",code=code}); }
-    } catch(Exception e) { Event(new {stage="error",error=e.Message}); }
+    } catch(Exception e) { Event(new {stage="error",error=e.Message,errorType=e.GetType().Name,errorHresult=e.HResult}); }
     finally {
       bool? terminateSucceeded=null; uint? rootWait=null,activeProcesses=null,totalProcesses=null;
       if(pi.process!=IntPtr.Zero) {
@@ -120,10 +181,13 @@ public class AppContainerHost {
       }
       if(pi.thread!=IntPtr.Zero) CloseHandle(pi.thread); if(pi.process!=IntPtr.Zero) CloseHandle(pi.process); if(job!=IntPtr.Zero) CloseHandle(job);
       if(list!=IntPtr.Zero) { DeleteProcThreadAttributeList(list); Marshal.FreeHGlobal(list); } if(scmem!=IntPtr.Zero) Marshal.FreeHGlobal(scmem); if(handles!=IntPtr.Zero) Marshal.FreeHGlobal(handles); if(envmem!=IntPtr.Zero) Marshal.FreeHGlobal(envmem);
+      if(lpacPolicy!=IntPtr.Zero) Marshal.FreeHGlobal(lpacPolicy);
+      if(capmem!=IntPtr.Zero)Marshal.FreeHGlobal(capmem);if(capSid!=IntPtr.Zero)LocalFree(capSid);
+      if(brokerPipe!=null)brokerPipe.Dispose();if(nullInput!=IntPtr.Zero&&nullInput!=(IntPtr)(-1))CloseHandle(nullInput);
       int deleted=sid==IntPtr.Zero ? 0 : DeleteAppContainerProfile(profile); if(sid!=IntPtr.Zero) FreeSid(sid);
       bool? profileAbsent=profilePath==null ? (bool?)null : !Directory.Exists(profilePath);
       bool treeStopped=pi.process!=IntPtr.Zero && terminateSucceeded==true && rootWait==0 && (!assigned || activeProcesses==0);
-      Event(new {stage="cleanup",profileDeleteHresult=deleted,profileDirectoryAbsent=profileAbsent,terminateSucceeded=terminateSucceeded,rootWaitResult=rootWait,jobActiveProcesses=activeProcesses,jobTotalProcesses=totalProcesses,ownedTreeTerminated=treeStopped});
+      Event(new {stage="cleanup",profileDeleteHresult=deleted,profileDirectoryAbsent=profileAbsent,terminateSucceeded=terminateSucceeded,rootWaitResult=rootWait,jobActiveProcesses=activeProcesses,jobTotalProcesses=totalProcesses,ownedTreeTerminated=treeStopped,processCreated=pi.process!=IntPtr.Zero});
       if(deleted!=0 || profileAbsent!=true || (pi.process!=IntPtr.Zero && !treeStopped)) result=1;
     }
     return result;
