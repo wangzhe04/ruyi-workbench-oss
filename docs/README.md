@@ -23,6 +23,7 @@ Ruyi ships Chinese and English user and deployment guides. Historical design and
 | [3.1 补完与隐私路线](optimization-plan/86-3.1-completion-and-privacy-roadmap.md) | 当前执行入口；范围、隐私支持边界、依赖与发布门 |
 | [代码规模与合理精简审计](optimization-plan/87-code-size-and-simplification-audit.md) | 当前基线统计、重复机制与精简候选；实施安排见 86 |
 | [M1 隐私边界原型](optimization-plan/88-privacy-m1-prototypes.md) | 外发清册、CLI 隔离与本地媒体实验；已验证与未完成分别记录 |
+| [音频修复与 CLI 隔离续验](optimization-plan/89-audio-and-cli-isolation-followup.md) | 音频发送和配置竞态、LPAC/网关验证、ASR 可选范围 |
 | [3.x 管家分轮设计](optimization-plan/62-steward-3x-iterations.md) | 既有旅程与采用门来源；旧版本归属和候选排期由 86 更新 |
 | [优化方案目录](optimization-plan/README.md) | 当前方案、候选研究、历史设计分别列出 |
 | [CHANGELOG](../CHANGELOG.md) | 面向用户的发布与未发布变化 |

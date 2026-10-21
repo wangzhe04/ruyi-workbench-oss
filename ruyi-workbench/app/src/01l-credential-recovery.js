@@ -122,7 +122,7 @@ Object.assign(PrivacyCore.configHooks, CredentialRecovery.create({
   committed: configEmitWritten, vault: { ...PrivacyCore.configHooks }, normalize: normalizeConfig, readConfig, mutate: mutateConfig,
   busy: () => typeof PrivacyCore.configHooks.isBusy === 'function' && PrivacyCore.configHooks.isBusy(),
   readConfigFile: () => fsp.readFile(paths.config, 'utf8'),
-  writeConfigFile: value => atomicWriteJson(paths.config, value, { mode: 0o600 }),
+  writeConfigFile: value => { invalidateConfigReads(); return atomicWriteJson(paths.config, value, { mode: 0o600 }); },
   readJournal: async () => {
     try { const file = path.join(paths.data, 'credential-import-v1.json'), stat = await fsp.lstat(file);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024) throw new Error('credential_recovery.journal_invalid');
@@ -131,5 +131,5 @@ Object.assign(PrivacyCore.configHooks, CredentialRecovery.create({
   },
   writeJournal: value => credentialRecoveryJournal.write(value),
   removeJournal: () => fsp.unlink(path.join(paths.data, 'credential-import-v1.json')).catch(error => { if (error.code !== 'ENOENT') throw error; }),
-  invalidate: () => { configReadCache = null; lastGoodConfig = null; },
+  invalidate: () => { invalidateConfigReads(); lastGoodConfig = null; },
 }));

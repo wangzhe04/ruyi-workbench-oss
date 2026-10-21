@@ -51,12 +51,12 @@ UI 到本机 `/api`、Kimi 本机桥、toolbox 本机探活在清册中标成 `l
 | CLI 与任意子进程 | Claude 主/子任务，Kimi bridge/ACP/terminal，通用 shell、Git、媒体 helper、桌面/脚本启动器 | 现有开启保护时拒绝不支持 CLI，不是已经交付托管保护模式；关闭保护时的 hooks/MCP/plugins/遥测/子进程/缓存出口未知。清册记 `unknown`；无 OS 网络隔离证明 |
 | ACC Python | `fetch -> _fetch_once -> opener.open -> _PinnedHTTP(S)Connection -> _pinned_connect`，两处 DNS，browser CDP/launch/goto/evaluate，shell/application/startfile、Office/file save | 固定 IP 与重定向 SSRF 检查不是正文脱敏；独立 ACC MCP consumer 收到原始工具结果/截图的边界未知。不能把“本地 stdio”当成可信不联网计算 |
 | QQ/飞书 | delivery `post` 与 discovery `request/probe`，真实 HTTPS 请求与认证 token | 幂等、身份和回执约束已有；回复正文/接收群体没有共同的接收方投影合同，`bypassed`。发现/认证请求与业务回复复用底层 HTTP，不表示数据类别相同 |
-| 外部文件与媒体 | 浏览器事件日志/会话/记忆/图表导出；后端/Python/Office 的 file save/copy/write；音频 multipart/JSON 和实时 PCM | 明文导出为 `bypassed`；凭据恢复包单列，不能代表完整工作数据保护；通用文件目标可能是可移动盘/网络共享，静态记 `unknown`。音频的条件拒绝与下述 TOCTOU 单列为 `unknown`，不能概括为最终发送始终 blocked，更不是本地 ASR/像素遮盖已实现 |
+| 外部文件与媒体 | 浏览器事件日志/会话/记忆/图表导出；后端/Python/Office 的 file save/copy/write；音频 multipart/JSON 和实时 PCM | 明文导出为 `bypassed`；凭据恢复包单列，不能代表完整工作数据保护；通用文件目标可能是可移动盘/网络共享，静态记 `unknown`。音频增加提交点检查并修复迟到配置发布，但没有接收方合同或本地 ASR，仍为 `unknown` |
 | 浏览器加载与导航 | `.src/.href/.innerHTML/.srcdoc/setAttribute`、Markdown 渲染、HTML iframe、桌面 WebView 和外部浏览器 | 词法候选不等于能绕过 CSP。`index.html` 的 `img-src self/data/blob`、`connect-src self` 阻止普通远程图片/脚本 fetch；sanitizeNode 单独允许 http(s) src/href 不足以判断实际请求。用户点击外链、外部浏览器与动态页面的终点仍须审阅，记 `unknown` |
 
 入口还涉及 `external-bot-gateway.js`，它是向已约束本机上游转发 webhook 的**入站中继**，没有被错标为机器人对外回复。桌面 `Process.Start`、安装/更新 PowerShell/batch 和打包下载命令保留为委托进程或动态命令；构建期依赖下载与用户聊天外发是不同目的。
 
-音频事实复核：`transcribeAudioViaProvider` 开头执行 `assertMediaAllowed(await readConfig())`；若是 toolbox provider，之后仍会 `await ensureForProvider` 并再次 `await readConfig()` 获取配置；构造含原音频的 payload 到最终 `fetch` 没有紧邻重验。在这些 await 期间从 off 切换到 basic，原音频仍可能发送，故专属 `audio-transcription` 组为 `unknown` 并明确记录 TOCTOU。实时 `audioStreamUpstream` 非 DELETE 每块先读配置检查再发，DELETE 清理允许携带 session identifier；这也只是条件性源码检查，不是与策略更新原子绑定的运行保证。此轮只纠正清册事实，没有修补生产路径。
+音频事实复核：首版记录了 `transcribeAudioViaProvider` 在 toolbox/配置等待后的 TOCTOU，及迟到 `readConfig` 重新发布旧 off 策略的问题。后续修复在转写及非 DELETE PCM 的 `fetch` 前增加无 await 的当前策略检查，并以配置 generation 阻止旧读与其迁移回写覆盖新提交。真实生成服务器函数和本机接收端回归证明三档切换、迟到 hydration、失败及 DELETE 清理行为，见 `privacy-audio-send-boundary.e2e.js` 和 `unit/privacy-config-publication.test.js`。DELETE 仅保留无正文会话清理；已经提交的请求不能声称撤回。本清册仍不将该通道标为完整 protected：接收方合同、本地转写及原媒体处理尚未实现，详情见 [89 号记录](../../../docs/optimization-plan/89-audio-and-cli-isolation-followup.md)。
 
 ## 词法扫描能力和限制
 

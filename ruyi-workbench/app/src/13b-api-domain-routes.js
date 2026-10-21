@@ -800,6 +800,9 @@ async function audioStreamUpstream(s, method, suffix, body, contentType) {
   // Re-read at every outbound chunk: the session may predate enabling protection.
   if (method !== 'DELETE' && typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(await readConfig());
   const headers = body ? { 'content-type': contentType || 'application/json' } : {};
+  // readConfig's await can resume after a newer policy was committed. DELETE is
+  // cleanup only; preserve it while rejecting original PCM under the current policy.
+  if (method !== 'DELETE' && typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed();
   const res = await fetch(s.upstream + '/stream/sessions' + suffix, { method, headers, body, signal: AbortSignal.timeout(AUDIO_STREAM_UPSTREAM_TIMEOUT_MS) });
   const text = await res.text();
   return { status: res.status, body: safeJsonParse(text, null), text };

@@ -2331,6 +2331,9 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
     payload = form;
   }
   let upstream = null, upstreamText = '';
+  // Toolbox startup/config refresh can await after the initial media check. Commit
+  // against the current process policy, with no await or stale config before fetch.
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed();
   try {
     upstream = await fetch(target, { method: 'POST', headers, body: payload, signal: AbortSignal.timeout(120000) });
     // 错误体只留 8 KB(下面再脱敏、裁到 1000 字符回显);成功体留 4 MB —— 修前成功体也裁在 8 KB,一段十几分钟的

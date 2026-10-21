@@ -5168,9 +5168,18 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // 第25波 25.1: 写体收编进 atomicWriteJson;对抗轮修: 全局写链串行化并发 config 写(同 saveSession 理由——
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
 let configWriteChain = Promise.resolve();
+let configReadGeneration = 0;
+function invalidateConfigReads() { configReadGeneration++; configReadCache = null; }
 async function writeConfigAtomic(data, options = {}) {
-  configReadCache = null;   // 进程内写:读缓存立刻作废(写完后再作废一次,见下)。文件戳本来也会变,这是显式的第二道保险
+  // Only read-derived migration/recovery writes may be superseded. Ordinary
+  // writes retain their existing ordered persistence and never silently disappear.
+  const conditionalRead = options.expectedReadGeneration !== undefined;
+  if (conditionalRead && options.expectedReadGeneration !== configReadGeneration) return { saved: false };
+  invalidateConfigReads();
+  const generation = configReadGeneration;
+  const superseded = () => conditionalRead && generation !== configReadGeneration;
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
+    if (superseded()) return { saved: false };
     // 81-P1: encrypt a serialized persistence copy; never pass runtime plaintext to the disk writer.
     if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.protectConfig) {
       let previous; try { previous = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null); } catch { /* The existing backup/read recovery path remains authoritative. */ }
@@ -5196,11 +5205,14 @@ async function writeConfigAtomic(data, options = {}) {
       if (String(error?.code || '').startsWith('credential_vault.')) throw error;
       if (error?.code !== 'ENOENT' && safeJsonParse(data, null)?.credentialRefsV1) throw Object.assign(new Error('credential_vault.backup_unavailable'), { code: 'credential_vault.backup_unavailable' });
     }
+    if (superseded()) return { saved: false };
     if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.migrateBackups) await PrivacyCore.configHooks.migrateBackups(data);
-    return atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
+    if (superseded()) return { saved: false };
+    await atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
+    return { saved: true };
   });
   configWriteChain = thisWrite;
-  try { await thisWrite; }
+  try { return await thisWrite; }
   finally { configReadCache = null; }   // 写在飞的这段时间里别的读者可能按旧戳填过缓存:落盘之后再清一次
 }
 async function readConfigPrev() {
@@ -5290,6 +5302,8 @@ function configRecoveryCredentialChoice(raw, lastChoice, hasNonemptyVault) {
   return hasNonemptyVault ? true : null;
 }
 async function readConfig() {
+  let generation = configReadGeneration;
+  const current = () => generation === configReadGeneration;
   try {
   // Boot may use provisional discovery defaults before listen; API/turn callers must
   // observe the completed first CLI checks, without blocking /health's event loop.
@@ -5297,18 +5311,18 @@ async function readConfig() {
     await waitForBootCliPathProbes();
   }
   await ensureDirsForConfigRead();
-  if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.recoverPending && await PrivacyCore.configHooks.recoverPending()) { configReadCache = null; lastGoodConfig = null; }
+  if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.recoverPending && await PrivacyCore.configHooks.recoverPending()) { invalidateConfigReads(); lastGoodConfig = null; generation = configReadGeneration; }
   const stamp = await configFileStamp();   // 必须在读盘之前取(见 configReadCache 头注)
   const cached = configReadCacheLookup(stamp);
-  if (cached) { configDegraded = false; if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(cached); return cached; }
+  if (cached) { if (current()) { configDegraded = false; if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(cached); } return cached; }
   let text = null; let readError = null;
   try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
   let raw = null; let recoveredFrom = '';
   const degrade = code => {
-    if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.();
+    if (current() && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.();
     try { logEvent({ kind: 'config_read_failed', code, degraded: !lastGoodConfig }); } catch { /* 日志是旁路 */ }
     if (lastGoodConfig) return { ...lastGoodConfig, privacyPolicyRecoveryRequiredV1: true };
-    configDegraded = true;
+    if (current()) configDegraded = true;
     // 只供本次请求使用，绝不落盘。权限档钉最保守的 'default':读不出用户配置时不该按出厂的智能自动放权。
     return { ...normalizeConfig(null).config, permissionMode: 'default', privacyPolicyRecoveryRequiredV1: true };
   };
@@ -5337,8 +5351,8 @@ async function readConfig() {
         if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.protectCorrupt) {
           const enabled = !!prev.credentialRefsV1 || prev.credentialEncryptionV1 === true;
           const backup = await PrivacyCore.configHooks.protectCorrupt(text, 'config.json.corrupt', enabled);
-          await atomicWriteJson(`${paths.config}.corrupt`, backup, { mode: 0o600 });
-        } else await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
+          if (current()) await atomicWriteJson(`${paths.config}.corrupt`, backup, { mode: 0o600 });
+        } else if (current()) await fsp.copyFile(paths.config, `${paths.config}.corrupt`).catch(() => {});
         await fsp.chmod(`${paths.config}.corrupt`, 0o600).catch(() => {});   // S11:坏文件的留底里同样可能有真 key
       }
       else return degrade('EJSON');
@@ -5364,7 +5378,7 @@ async function readConfig() {
   }
   const credentialChoiceTrusted = typeof raw?.credentialEncryptionV1 === 'boolean' || !!raw?.credentialRefsV1;
   if (recoveredFrom) raw = { ...raw, privacyPolicyRecoveryRequiredV1: true };
-  if (raw?.privacyPolicyRecoveryRequiredV1 === true && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.();
+  if (current() && raw?.privacyPolicyRecoveryRequiredV1 === true && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.();
   let credentialsNeedMigration = false;
   let normalized;
   try {
@@ -5373,21 +5387,30 @@ async function readConfig() {
     raw = hydrated.raw; credentialsNeedMigration = hydrated.needsMigration;
   }
     normalized = normalizeConfig(raw);
-  } catch (error) { if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
+  } catch (error) { if (current() && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
   const { config, changed, persisted } = normalized;
-  configDegraded = false;
+  if (current()) configDegraded = false;
   if (recoveredFrom) { try { logEvent({ kind: 'config_recovered', from: recoveredFrom }); } catch { /* 日志是旁路 */ } }
   // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read)；恢复自 .prev 时也落盘。
   // 128a:写的是投影(显式键 ＋ 簿记键 ＋ 不认识的键),不是整份内存视图。
-  if (changed || recoveredFrom || credentialsNeedMigration) await writeConfigAtomic(JSON.stringify(persisted, null, 2), { credentialEncryptionDisable: preserveKnownPlaintext }).catch(error => {
-    if (config.privacyPolicyRecoveryRequiredV1 === true || String(error?.code || '').startsWith('credential_vault.')) throw error;
-  });
-  else if (!readError) configReadCacheStore(stamp, config);   // 干净读才缓存;存的是深拷贝,返回给调用方的 config 仍归调用方
-  if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
-  lastGoodConfig = config; // Do not advertise a successful encrypted state after a failed credential migration.
-  lastGoodCredentialEncryptionV1 = credentialChoiceTrusted ? config.credentialEncryptionV1 : null;
+  if (changed || recoveredFrom || credentialsNeedMigration) {
+    if (!current()) return config;
+    const writing = writeConfigAtomic(JSON.stringify(persisted, null, 2), { credentialEncryptionDisable: preserveKnownPlaintext, expectedReadGeneration: generation });
+    generation = configReadGeneration; // This read's own migration reserved a generation synchronously.
+    const written = await writing.catch(error => {
+      if (config.privacyPolicyRecoveryRequiredV1 === true || String(error?.code || '').startsWith('credential_vault.')) throw error;
+    });
+    if (written?.saved === false) return config;
+  } else if (!readError && current()) configReadCacheStore(stamp, config);
+  // An old snapshot may still serve its reader, but cannot replace a newer
+  // committed policy, cache, or recovery facts after an asynchronous read/hydration.
+  if (current()) {
+    if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
+    lastGoodConfig = cloneConfigSnapshot(config);
+    lastGoodCredentialEncryptionV1 = credentialChoiceTrusted ? config.credentialEncryptionV1 : null;
+  }
   return config;
-  } catch (error) { if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
+  } catch (error) { if (current() && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
 }
 
 // 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带订阅者要的开关位,
@@ -5396,8 +5419,10 @@ async function readConfig() {
 // 打开要重启才生效;现在听到这一声当场补起。零订阅者时 emit 是 no-op。
 function configEmitWritten(config) {
   if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.deferConfigWritten?.(config)) return;
+  invalidateConfigReads(); // Publication invalidates readers which started during the physical write.
   if (typeof config?.credentialEncryptionV1 === 'boolean') lastGoodCredentialEncryptionV1 = config.credentialEncryptionV1;
   if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
+  lastGoodConfig = cloneConfigSnapshot(config);
   RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true) });
 }
 
@@ -7795,7 +7820,7 @@ Object.assign(PrivacyCore.configHooks, CredentialRecovery.create({
   committed: configEmitWritten, vault: { ...PrivacyCore.configHooks }, normalize: normalizeConfig, readConfig, mutate: mutateConfig,
   busy: () => typeof PrivacyCore.configHooks.isBusy === 'function' && PrivacyCore.configHooks.isBusy(),
   readConfigFile: () => fsp.readFile(paths.config, 'utf8'),
-  writeConfigFile: value => atomicWriteJson(paths.config, value, { mode: 0o600 }),
+  writeConfigFile: value => { invalidateConfigReads(); return atomicWriteJson(paths.config, value, { mode: 0o600 }); },
   readJournal: async () => {
     try { const file = path.join(paths.data, 'credential-import-v1.json'), stat = await fsp.lstat(file);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024) throw new Error('credential_recovery.journal_invalid');
@@ -7804,7 +7829,7 @@ Object.assign(PrivacyCore.configHooks, CredentialRecovery.create({
   },
   writeJournal: value => credentialRecoveryJournal.write(value),
   removeJournal: () => fsp.unlink(path.join(paths.data, 'credential-import-v1.json')).catch(error => { if (error.code !== 'ENOENT') throw error; }),
-  invalidate: () => { configReadCache = null; lastGoodConfig = null; },
+  invalidate: () => { invalidateConfigReads(); lastGoodConfig = null; },
 }));
 
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
@@ -16875,7 +16900,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   function assertSupported(config, kind) { assertPolicyAvailable(config); if (enabled(config) && kind !== 'native') fail('engine_not_supported'); }
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
-  function assertMediaAllowed(config) { assertPolicyAvailable(config); if (config ? enabled(config) : currentPolicy.mode !== 'off') fail('media_not_supported'); }
+  function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
   return Object.freeze({ enabled, configure, active, run, withPolicy, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
@@ -26737,6 +26762,9 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
     payload = form;
   }
   let upstream = null, upstreamText = '';
+  // Toolbox startup/config refresh can await after the initial media check. Commit
+  // against the current process policy, with no await or stale config before fetch.
+  if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed();
   try {
     upstream = await fetch(target, { method: 'POST', headers, body: payload, signal: AbortSignal.timeout(120000) });
     // 错误体只留 8 KB(下面再脱敏、裁到 1000 字符回显);成功体留 4 MB —— 修前成功体也裁在 8 KB,一段十几分钟的
@@ -70508,6 +70536,9 @@ async function audioStreamUpstream(s, method, suffix, body, contentType) {
   // Re-read at every outbound chunk: the session may predate enabling protection.
   if (method !== 'DELETE' && typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed(await readConfig());
   const headers = body ? { 'content-type': contentType || 'application/json' } : {};
+  // readConfig's await can resume after a newer policy was committed. DELETE is
+  // cleanup only; preserve it while rejecting original PCM under the current policy.
+  if (method !== 'DELETE' && typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertMediaAllowed();
   const res = await fetch(s.upstream + '/stream/sessions' + suffix, { method, headers, body, signal: AbortSignal.timeout(AUDIO_STREAM_UPSTREAM_TIMEOUT_MS) });
   const text = await res.text();
   return { status: res.status, body: safeJsonParse(text, null), text };

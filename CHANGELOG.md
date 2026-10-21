@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 修复语音服务初始化或配置读取期间开启隐私保护后，待发送原音频仍可能外发的问题。转写与实时音频块在发送前重新检查当前策略，迟到的旧配置读取不再覆盖新设置；关闭语音会话的清理仍可用。
+- Fix pending original audio being sent after privacy protection is enabled during speech-service initialization or configuration reads. Transcription and live audio chunks check the current policy before sending; late reads cannot overwrite newer settings. Voice-session cleanup remains available.
+
 - 新增可选的本地凭据加密与发送前隐私保护，默认均关闭。原生文字模型、主／子任务及受管 MCP 文字可用代号处理已识别的敏感内容，工具执行副本按原权限还原；支持分档规则、独立技术信息开关、自定义规则和本地试验。Windows 凭据库与口令恢复包保护支持的凭据配置，恢复包不包含聊天、隐私规则或代号映射。当前未覆盖的 CLI、媒体及独立 MCP 通道在开启脱敏时明确阻止，工作数据整体加密尚未提供。以上已随 PR #58 合入；扩围后的 3.1 仍按[当前规划](docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md)完成后再发布。
 - Add opt-in local credential encryption and pre-send privacy protection, both off by default. Native text model requests, main/subtask loops and managed MCP text use references for recognized sensitive values; execution copies restore values under existing permissions. Protection levels, a separate technical-data option, custom rules and local previews are available. The Windows vault and password-protected recovery package cover supported credential configuration; the package does not restore conversations, privacy rules or reference mappings. Unsupported CLI, media and independent MCP channels are blocked while disclosure protection is enabled; encryption of all work data is not yet available. These changes are merged in PR #58; the expanded 3.1 release awaits the [current completion plan](docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md).
 
