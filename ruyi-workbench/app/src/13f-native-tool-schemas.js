@@ -805,11 +805,11 @@ const MCP_TOOLS = [
   // getCapabilities/loadSkillRegistry/getAgentWorkflows 等),不新造事实源;config 段只回显白名单标量字段。
   {
     name: 'workbench_self_status',
-    description: "只读查询本工作台自身的运行时状态:版本、启动模式、安装位置、数据目录、服务地址与实例标识、健康检查、工具/技能/命令/Playbook/工作流数量,以及当前设置(引擎/端点/模型/权限模式/输出风格/界面语言,密钥已掩码)。用户问「哪个版本/装在哪/端口/数据目录/当前模型和权限模式/有多少工具」或你需要核对自身环境时调用,不要凭记忆猜。不用于查用户项目文件、工作区或桌面状态(改用 project_snapshot/file_list/ACC diagnostics)。section 可选,缩小返回范围,默认 all。",
+    description: "只读查询本工作台自身的运行时状态:版本、启动模式、安装位置、数据目录、服务地址与实例标识、健康检查、工具/技能/命令/Playbook/工作流数量,以及本次宿主execution事实和配置默认快照(引擎/端点/模型/权限模式/输出风格/界面语言,密钥已掩码)。execution才是本次请求身份；config和历史用量不能代替它，无宿主执行上下文时身份未知。用户问「哪个版本/装在哪/端口/数据目录/当前模型和权限模式/有多少工具」或你需要核对自身环境时调用,不要凭记忆猜。不用于查用户项目文件、工作区或桌面状态(改用 project_snapshot/file_list/ACC diagnostics)。section 可选,缩小返回范围,默认 all。",
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'capabilities', 'all'], default: 'all', description: 'identity=版本/位置/端口等恒定量;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);capabilities=模态/服务商能力位/引擎限制/检查点范围;all=全部(默认)。' },
+        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'capabilities', 'all'], default: 'all', description: 'identity=版本/位置/端口等恒定量及可用的本次execution事实;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);capabilities=模态/服务商能力位/引擎限制/检查点范围;all=全部(默认)。' },
       },
     },
   },
@@ -861,7 +861,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'steward', 'all'], default: 'all', description: "identity=版本/位置/端口等恒定量;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);steward=管家设置掩码与收件箱状态;all=全部(默认)。" },
+        section: { type: 'string', enum: ['identity', 'health', 'counts', 'config', 'steward', 'all'], default: 'all', description: "identity=版本/位置/端口等恒定量及可用的本次execution事实;health=健康检查项;counts=工具/技能/Playbook/工作流计数;config=当前设置(掩码);steward=管家设置掩码与收件箱状态;all=全部(默认)。" },
       },
     },
   },
@@ -958,7 +958,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_usage',
-    description: '读用量与费用台账:按线程或按日汇总 token 与花费,并把管家自身开销(kind=aux、note=steward)单列。何时用:用户问「今天/这条线花了多少」,或你要在开新线程前核对预算。何时别用:要看单条线程的状态与最近一步用 steward_thread_status。金额按币种分列,不做汇率换算(诚实优先)。',
+    description: '读历史用量与费用台账(不是本次执行模型身份):按线程或按日汇总 token 与花费,并把管家自身开销(kind=aux、note=steward)单列。何时用:用户问「今天/这条线花了多少」,或你要在开新线程前核对预算。何时别用:要看单条线程的状态与最近一步用 steward_thread_status。金额按币种分列,不做汇率换算(诚实优先)。',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -1293,7 +1293,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_config_get',
-    description: '读如意的设置(掩码后)。何时用:用户问「现在用的是哪个模型/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,help,omitted,settings}:settings 逐键说明作用域和生效时机；tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,help 逐键一句「是什么、单位、范围」,omitted 里的键是 forbidden。',
+    description: '读如意的配置快照(掩码后,不是本次执行模型身份)。何时用:用户问「默认模型配了什么/管家多久看一次/并发几条」,或你要改设置前先确认当前值。何时别用:密钥、数据目录、命令与桌面工具放行这些【禁止经管家】的键读不到——它们只会出现在 omitted[] 里(连掩码值都不给),别再换个名字试第二遍。返回 {ok,values,tiers,help,omitted,settings}:settings 逐键说明作用域和生效时机；tiers 逐键给出 free(可直接改)/confirm(要用户按按钮)两档,help 逐键一句「是什么、单位、范围」,omitted 里的键是 forbidden。',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {

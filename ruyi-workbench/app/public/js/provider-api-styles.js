@@ -33,13 +33,26 @@ export const ANTHROPIC_THINKING_CHOICES = Object.freeze(['', 'adaptive', 'off'])
 
 export const PROVIDER_API_STYLE_IDS = Object.freeze(Object.keys(PROVIDER_API_STYLES));
 
+export function isProviderApiStyle(value) {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PROVIDER_API_STYLES, value);
+}
+
 // 与服务端 normalizeProviderApiStyle 同一口径:登记过的键原样,其余(缺失、空串、大小写不对、原型链名字、非字符串)一律缺省。
 export function normalizeProviderApiStyle(value) {
-  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PROVIDER_API_STYLES, value) ? value : PROVIDER_API_STYLE_DEFAULT;
+  return isProviderApiStyle(value) ? value : PROVIDER_API_STYLE_DEFAULT;
 }
 
 export function providerApiStyleMeta(value) {
   return PROVIDER_API_STYLES[normalizeProviderApiStyle(value)];
+}
+
+// Display only for a known configured endpoint. The label describes its selected
+// wire protocol; it does not verify the vendor behind a URL or a model identifier.
+export function providerDisplayLabel(provider, translate) {
+  if (!provider || typeof provider !== 'object') return '';
+  const label = String(provider.label || provider.id || '');
+  if (!label) return '';
+  return label + ' · ' + translate(providerApiStyleMeta(provider.apiStyle).labelKey);
 }
 
 // 用户往 Base URL 里粘的常是完整端点:剥掉端点后缀,只留到服务商要的 base(与服务端拼端点的口径一致:

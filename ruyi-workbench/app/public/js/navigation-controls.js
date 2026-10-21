@@ -1,5 +1,6 @@
 'use strict';
 import { providerModels, bindModelSelect } from './model-catalog.js';
+import { isProviderApiStyle, providerDisplayLabel } from './provider-api-styles.js';
 
 // EC-D：命令面板、模型/能力弹层、模态、页签与工具栏布局领域。
 import { state } from './state.js';
@@ -663,7 +664,12 @@ function openCapPopover(anchorOverride) {
     };
     wrap.appendChild(el('h4', null, t('capability.networkAndEngine')));
     wrap.appendChild(item(t('capability.network.label'), netLabel, netCls));
-    wrap.appendChild(item(t('capability.engine.label'), caps.engine === 'openai' ? t('capability.engine.providerNative') : engineLabel()));
+    // Capabilities describe the server's captured global route, which can differ
+    // from the open conversation. Use only explicit recognized snapshot evidence.
+    const nativeLabel = t('capability.engine.providerNative');
+    const capProvider = caps.provider && isProviderApiStyle(caps.provider.apiStyle) ? caps.provider : null;
+    const capEngineLabel = capProvider ? providerDisplayLabel({ ...capProvider, label: nativeLabel }, t) : nativeLabel;
+    wrap.appendChild(item(t('capability.engine.label'), caps.engine === 'openai' ? capEngineLabel : engineLabel()));
     if (caps.provider) {
       wrap.appendChild(item(t('capability.visionInput'), caps.provider.vision ? t('capability.supported') : t('capability.unsupported'), caps.provider.vision ? 'ok' : 'muted'));
       wrap.appendChild(item(t('capability.reasoningModel'), caps.provider.reasoning ? t('common.yes') : t('common.no'), 'muted'));

@@ -730,6 +730,7 @@ async function buildWorkbenchSelfStatus(args, ctx) {
       const out = {
         ok: true, app: identity.appName, version: identity.version, launchMode: identity.launchMode,
         installDir: identity.installDir, dataDir: identity.dataDir, address: identity.address, instanceId: identity.instanceId,
+        execution: ctx && ctx.execution ? { ...ctx.execution } : { status: 'unknown', source: 'host_execution_context_unavailable' },
       };
       if (section === 'identity') return out;
 
@@ -756,10 +757,13 @@ async function buildWorkbenchSelfStatus(args, ctx) {
         };
       }
       if (section === 'all' || section === 'config' || section === 'capabilities') {
-        const p = (ctx && ctx.provider) || activeOpenAiProvider(config);
+        const p = activeOpenAiProvider(config);
+        const capabilityProvider = (ctx && ctx.provider) || p;
         const cli = selectedAgentCli(config);
-        const modalities = { vision: p ? p.vision === true : null, audio: false, asr: !resolveAsrProvider(config).failure };
+        const modalities = { vision: capabilityProvider ? capabilityProvider.vision === true : null, audio: false, asr: !resolveAsrProvider(config).failure };
+        const configModalities = { vision: p ? p.vision === true : null, audio: false, asr: modalities.asr };
         out.config = {
+          provenance: 'configuration_defaults', identityAuthority: false,
           engine: p ? 'openai' : cli.id,
           providerId: p ? p.id : '',
           providerLabel: p ? (p.label || p.id) : cli.label,
@@ -767,17 +771,18 @@ async function buildWorkbenchSelfStatus(args, ctx) {
           permissionMode: String(config.permissionMode || ''),
           outputStyle: String(config.outputStyle || ''),
           locale: String(config.locale || ''),
-          modalities,
-          providerCapabilities: { protocol: p ? providerWireProtocol(p).id : 'cli', visionConfigured: p ? p.vision === true : null, source: 'configuration', modelSupportProbed: false },
+          modalities: configModalities,
+          providerCapabilities: { protocol: p ? providerWireProtocol(p).id : 'cli', visionConfigured: p ? p.vision === true : null, source: 'configuration_defaults', modelSupportProbed: false },
         };
         out.capabilities = {
           modalities,
+          providerCapabilities: { providerId: capabilityProvider ? capabilityProvider.id : '', protocol: capabilityProvider ? providerWireProtocol(capabilityProvider).id : 'cli', visionConfigured: capabilityProvider ? capabilityProvider.vision === true : null, source: ctx && ctx.provider ? 'host_execution_provider_configuration' : 'configuration_defaults', modelSupportProbed: false },
           matrix: [
             { modality: 'image', tools: ['file_read'], input: 'as:image or auto', providerVisionEnabled: modalities.vision },
             { modality: 'document', tools: ['file_read'], input: 'PDF/OOXML/ODF; embedded images and page windows' },
             { modality: 'audio', tools: ['audio_inspect', 'audio_transcribe'], analysis: 'local FFmpeg measurements', listening: false, transcriptionConfigured: modalities.asr },
             { modality: 'code', tools: ['code_check', 'file_edit', 'file_write'], input: 'validateSyntax:true checks candidate before writing' },
-            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!p && !RUNTIME.isMcpChild, engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
+            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!capabilityProvider && !RUNTIME.isMcpChild, engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
             { modality: 'verification', tools: ['acceptance_report', 'media_probe', 'checkpoint_list'] },
           ],
           checkpointScope: 'Native journaled file operations only. Shell/script/ffmpeg/browser/application side effects are not checkpointed; recursive operations restore file contents, not empty-directory metadata.',

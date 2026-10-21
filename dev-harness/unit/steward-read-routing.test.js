@@ -54,4 +54,4 @@ test('发给管家的schema与稳定提示同口径,受限读取schema保持原�
   assert.match(tools.get('steward_thread_new').description, /少量受限只读就能完整回答的问题/);
 });
 
-test('bot setup discipline is bilingual, local and keeps secrets out of model tools',()=>{for(const locale of ['zh-CN','en-US']){const prompt=srv.getPromptPack(locale).steward.stable;assert.match(prompt,/steward_bot_setup inspect/);assert.match(prompt,/prepare/);assert.match(prompt,/密钥|never chat secrets/);assert.match(prompt,/真实收发|confirmed traffic/);}assert.equal(srv.PROMPT_PACK_VERSION,'2026-w138-2','only steward text changed; ordinary prompt pack retains its version');});
+test('bot setup discipline is bilingual, local and keeps secrets out of model tools',()=>{for(const locale of ['zh-CN','en-US']){const prompt=srv.getPromptPack(locale).steward.stable;assert.match(prompt,/steward_bot_setup inspect/);assert.match(prompt,/prepare/);assert.match(prompt,/密钥|never chat secrets/);assert.match(prompt,/真实收发|confirmed traffic/);}assert.equal(srv.PROMPT_PACK_VERSION,'2026-w138-3','ordinary identity wording changed; steward-only changes still do not bump');});

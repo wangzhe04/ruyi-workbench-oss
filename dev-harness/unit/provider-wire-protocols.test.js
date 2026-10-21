@@ -29,7 +29,7 @@ const { PROVIDER_WIRE_PROTOCOLS, normalizeProviderApiStyle, providerWireProtocol
 const loadFrontend = () => import(pathToFileURL(path.join(app, 'public', 'js', 'provider-api-styles.js')).href);
 
 const MEMBERS = {
-  id: 'string', serverWebSearch: 'boolean', outputTokensField: 'string',
+  id: 'string', displayLabel: 'string', serverWebSearch: 'boolean', outputTokensField: 'string',
   endpointBase: 'function', completionUrl: 'function', modelsUrl: 'function', requestHeaders: 'function',
   encodeMessages: 'function', applyEffort: 'function', applyTemperature: 'function', applyTools: 'function', encodeQuick: 'function',
   decodeCompletion: 'function', createStreamDecoder: 'function', normalizeUsage: 'function', assistantHistoryFields: 'function',
@@ -61,7 +61,10 @@ test('[R] 登记表成员齐全、冻结;前端表与服务端逐一相同', asy
     assert.equal(typeof row.anthropicOptions, 'boolean', `${id}.anthropicOptions 是布尔`);
     assert.equal(row.id, id);
     assert.equal(row.serverWebSearch, PROVIDER_WIRE_PROTOCOLS[id].serverWebSearch, `${id}.serverWebSearch 两边同值`);
-    for (const loc of locales) assert.equal(typeof loc[row.labelKey], 'string', `${row.labelKey} 两份语言包都有`);
+    for (const loc of locales) {
+      assert.equal(typeof loc[row.labelKey], 'string', `${row.labelKey} 两份语言包都有`);
+      assert.equal(PROVIDER_WIRE_PROTOCOLS[id].displayLabel, loc[row.labelKey], `${id} 后端品牌标签与前端现有语言标签一致`);
+    }
   }
 });
 

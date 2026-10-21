@@ -35,6 +35,8 @@ import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT, EVENT_STREAM_INSTANCE
 // 走查 S-11：run 的终态有 succeeded／failed／timed_out／cancelled／partial／stopped／interrupted 七种，而文案键修前只有前四种 ——
 // 其余三种显示成「[chat.background.partial]」，还一律红色。颜色按「这对用户意味着什么」分：成功＝绿、部分完成＝黄（warn）、
 // 用户自己停的（stopped／cancelled）＝中性、失败／超时／中断＝红；表外的状态不编文案，回落一句通用的「已结束」。
+let turnSummaryBodySeq = 0;
+
 export const BACKGROUND_TOAST_OUTCOMES = Object.freeze({
   succeeded: 'ok', partial: 'warn', stopped: '', cancelled: '', failed: 'err', timed_out: 'err', interrupted: 'err',
 });
@@ -544,6 +546,8 @@ async function submitGrant(ev) {
 // 「本次未改动任何文件」(C5/C6 seed). Returns a DOM node.
 // 撤销一个文件时按它这一轮的 op 选确认说法：新建 → 撤销＝删除；删除 → 撤销＝找回；其余 → 恢复到改动前。
 function revertConfirmName(op) { return op === 'create' ? 'revertFileCreate' : op === 'delete' ? 'revertFileDelete' : 'revertFileModify'; }
+// Remember only explicit choices for this domain's session/turn cards, not a global preference.
+const turnSummaryExpanded = new Map();
 function turnSummaryCard(summary) {
   const s = summary || {};
   const files = Array.isArray(s.filesChanged) ? s.filesChanged : [];
@@ -553,7 +557,14 @@ function turnSummaryCard(summary) {
   const allReverted = files.length > 0 && files.every(f => !f || !f.revertible || f.reverted) && files.some(f => f && f.reverted);
   const card = el('div', 'turn-summary');
   const head = el('div', 'turn-summary-head');
-  head.append(el('span', '', t('changes.title')));
+  const bits = [];
+  if (files.length) bits.push(tCount('changes.fileCount', files.length));
+  if (commands) bits.push(tCount('changes.commandCount', commands));
+  const toggle = el('button', 'ts-toggle'); toggle.type = 'button';
+  const chevron = el('span', 'ts-disclosure', '▾'); chevron.setAttribute('aria-hidden', 'true');
+  toggle.append(chevron, el('span', '', t('changes.title')));
+  if (bits.length) toggle.append(el('span', 'turn-summary-cmds', bits.join(' · ')));
+  head.append(toggle);
   // v0.8-S4b: 「撤销整轮」— rolls back every journaled file of this turn (default entrySeq). Only shown when
   // there is at least one revertible file AND we know the turnSeq (static or live event both carry it).
   if (hasRevertible && Number.isFinite(turnSeq)) {
@@ -565,6 +576,25 @@ function turnSummaryCard(summary) {
   }
   card.append(head);
   const body = el('div', 'turn-summary-body');
+  body.id = 'turn-summary-body-' + (++turnSummaryBodySeq);
+  toggle.setAttribute('aria-controls', body.id);
+  const sessionId = state.currentSession?.id;
+  const choiceKey = sessionId && Number.isFinite(turnSeq) ? JSON.stringify([sessionId, turnSeq]) : '';
+  const setExpanded = expanded => {
+    body.hidden = !expanded;
+    card.classList.toggle('is-collapsed', !expanded);
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.title = t(expanded ? 'changes.collapse' : 'changes.expand');
+  };
+  setExpanded(!choiceKey || turnSummaryExpanded.get(choiceKey) !== false);
+  toggle.onclick = () => {
+    const expanded = body.hidden;
+    setExpanded(expanded);
+    if (choiceKey) {
+      turnSummaryExpanded.delete(choiceKey); turnSummaryExpanded.set(choiceKey, expanded);
+      if (turnSummaryExpanded.size > 128) turnSummaryExpanded.delete(turnSummaryExpanded.keys().next().value);
+    }
+  };
   if (!files.length && commands === 0) {
     body.append(el('div', 'turn-summary-empty', t('changes.empty')));
   } else {
@@ -590,10 +620,6 @@ function turnSummaryCard(summary) {
       }
       body.append(row);
     }
-    const bits = [];
-    if (files.length) bits.push(tCount('changes.fileCount', files.length));
-    if (commands) bits.push(tCount('changes.commandCount', commands));
-    if (bits.length) body.append(el('div', 'turn-summary-cmds', bits.join(' · ')));
     // commands can't be auto-undone — say so, once, when any command ran (C6/B3 discipline).
     if (commands > 0) body.append(el('div', 'turn-summary-warn', `⚠ ${t('changes.commandNotRevertible')}`));
   }

@@ -86,6 +86,7 @@
   "capability.view": "查看能力矩阵",
   "capability.visionInput": "视觉输入",
   "changes.collapse": "收起",
+  "changes.expand": "展开",
   "changes.commandCount.one": "{{count}} 条命令",
   "changes.commandCount.other": "{{count}} 条命令",
   "changes.commandNotRevertible": "命令/终端操作无法自动撤销",
@@ -656,7 +657,7 @@
   "onboarding.engine.advancedClaude": "高级：我有 Agent CLI",
   "onboarding.engine.configureClaude": "配置 Agent CLI →",
   "onboarding.engine.configureKey.action": "去配置 API Key",
-  "onboarding.engine.configureKey.description": "填一个 OpenAI 兼容服务的地址和密钥，几分钟就能用起来。",
+  "onboarding.engine.configureKey.description": "填写模型服务的 API 地址和密钥，几分钟就能用起来。",
   "onboarding.engine.configureKey.title": "配置 API Key 即可开始",
   "onboarding.engine.notReady": "请先配置一个 AI 引擎",
   "onboarding.engine.providerFallback": "Provider",
@@ -2869,7 +2870,7 @@
   ,"stewardShell.chat.needModel": "我还没接上能用的模型，暂时回不了话。"
   ,"stewardShell.chat.needModelHow": "先接一个模型（大约 5 分钟）：本机的 Ollama／LM Studio，或者一个云端服务的密钥都可以。接好之后就能直接跟我说要办的事。"
   ,"stewardShell.chat.connectModel": "接一个模型"
-  ,"stewardShell.chat.engineNeedsOpenAi": "管家要用一个 OpenAI 兼容的模型服务才能回话，现在的主模型走的是命令行引擎。可以让管家单独用下面这个服务。"
+  ,"stewardShell.chat.engineNeedsOpenAi": "管家需要原生模型 API 端点才能回话；当前主模型走的是命令行引擎。可以让管家单独使用下面这个服务。"
   ,"stewardShell.chat.digest": "你不在的这段时间里有 {{count}} 件事："
   ,"stewardShell.chat.digestNone": "你不在的这段时间里没有新事。"
   ,"stewardShell.digest.commitment.upcoming": "24 小时内要触发的定时任务：{{count}} 件"
@@ -2925,7 +2926,7 @@
   ,"stewardShell.chat.errConflict": "这条刚被别处改过，刷新一下再试。"
   ,"stewardShell.chat.errGeneric": "没做成：{{error}}"
   ,"stewardShell.chat.engineNotListed": "管家设的服务商「{{provider}}」已经不在服务商列表里了，所以它现在一句话也跑不了。换一家，或者去设置里把它加回来。"
-  ,"stewardShell.chat.engineUnsupported": "管家只能用 OpenAI 兼容的模型服务商，而你的对话主模型走的是命令行引擎。给管家单独选一家服务商，就能聊了。"
+  ,"stewardShell.chat.engineUnsupported": "管家需要原生模型 API 端点，而你的对话主模型走的是命令行引擎。给管家单独选一家服务商，就能聊了。"
   ,"stewardShell.chat.useProvider": "改用「{{provider}}」"
   ,"stewardShell.chat.providerSwitched": "已改用「{{provider}}」"
   ,"stewardShell.chat.listSeparator": "、"

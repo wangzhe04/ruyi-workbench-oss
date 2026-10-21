@@ -137,9 +137,10 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
     {
       const r = await selfStatus(WB_PORT, token, sid, { section: 'identity' });
       const keys = Object.keys(r || {}).sort();
-      const expected = ['address', 'app', 'dataDir', 'instanceId', 'installDir', 'launchMode', 'ok', 'version'].sort();
+      const expected = ['address', 'app', 'dataDir', 'execution', 'instanceId', 'installDir', 'launchMode', 'ok', 'version'].sort();
       ok(JSON.stringify(keys) === JSON.stringify(expected), `section:'identity' 键集精确为身份字段(got ${keys.join(',')})`);
       ok(!('health' in r) && !('counts' in r) && !('config' in r), `section:'identity' 不含 health/counts/config`);
+      ok(r.execution && r.execution.status === 'unknown' && r.execution.source === 'host_execution_context_unavailable', 'direct tool query without a live host execution reports unknown rather than configured default identity');
     }
 
     // ── (e) section:'health' / 'counts' / 'config' 各自只带对应段 ──

@@ -502,7 +502,7 @@ async function buildStewardSystemPrompt(session, config, ctx) {
   // 按需读出现过的事项容器(与总览同一种按需读法)。清单是旁路增强,读不到就整段照旧给空清单的写法。
   try { parts.push(stewardWorkspaceTableBlock(await stewardKnownWorkspaceRows(config), pack)); } catch { /* 同上 */ }
   try { parts.push(stewardOverviewBlock(await stewardThreadDigestRows(config), pack)); } catch { /* 同上 */ }
-  return { stable: pack.steward.stable, volatile: parts.filter(Boolean).join('\n\n') };
+  return { stable: buildModelIdentityPrompt(ctx && ctx.provider, ctx && ctx.model, (ctx && ctx.workingDir) || session.cwd || '', config) + '\n\n' + pack.steward.stable, volatile: parts.filter(Boolean).join('\n\n') };
 }
 
 // 10 的预算分叉入口(经 StewardHooks.contextBudget 调)。§11.2:预算 = min(stewardContextBudgetTokens,

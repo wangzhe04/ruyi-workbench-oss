@@ -269,7 +269,7 @@ async function getCapabilities(config, force) {
 
   const value = {
     network: { online, checkedAt: nowIso() },
-    provider: provider ? { id: provider.id, vision: provider.vision === true, reasoning: provider.reasoning === true } : null,
+    provider: provider ? { id: provider.id, apiStyle: normalizeProviderApiStyle(provider.apiStyle), vision: provider.vision === true, reasoning: provider.reasoning === true } : null,
     // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
     // rgSource(加法字段):env / bundled / system;rgShell:模型在终端里敲裸 rg 找得到的那一份(bundled/system/'')。
     binaries: { git: await existsExecutableAsync('git'), rg: !!rgInfo, rgSource: rgInfo ? rgInfo.source : null, rgShell: rgInfo ? rgInfo.shell : '' },
@@ -1923,13 +1923,32 @@ async function resolveEngineEnvBrief(opts = {}) {
   return buildEngineEnvBrief({ ...opts, rg });
 }
 
+// Host request facts, not defaults or a claim about proxy internals.
+function buildModelExecutionFacts(provider, model, role = 'main') {
+  const label = value => {
+    const text = String(value || '').trim();
+    return /(?:https?|wss?):\/\/|[\x00-\x1f\x7f?#]/i.test(text) ? '[route label omitted]' : text.slice(0, 160);
+  };
+  if (!provider || !provider.id || !String(model || '').trim()) return { status: 'unknown', source: 'host_execution_context_unavailable' };
+  const wire = providerWireProtocol(provider);
+  return { status: 'known', source: 'host_request_route', engine: 'native-provider', protocol: wire.id, protocolLabel: wire.displayLabel,
+    role: ['main', 'subagent', 'steward'].includes(role) ? role : 'main',
+    providerId: label(provider.id), providerLabel: label(provider.label || provider.id),
+    requestModel: label(model), backendModelVerified: false };
+}
+function buildModelIdentityPrompt(provider, model, cwd, config) {
+  const facts = buildModelExecutionFacts(provider, model);
+  return getPromptPack(config && config.locale).identity({
+    label: JSON.stringify(facts.providerLabel || '(unknown endpoint)'),
+    modelName: JSON.stringify(facts.requestModel || '(unspecified model)'), protocolLabel: JSON.stringify(facts.protocolLabel || '(unknown protocol)'), cwd,
+  });
+}
+
 function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config) {
-  const label = String((provider && provider.label) || (provider && provider.id) || '模型端点').trim();
-  const modelName = String(model || '').trim() || '(未指定模型)';
   const hasTools = Array.isArray(tools) && tools.length > 0;
   const lines = [];
   // [身份层]
-  lines.push(getPromptPack(config && config.locale).identity({ label, modelName, cwd }));
+  lines.push(buildModelIdentityPrompt(provider, model, cwd, config));
   // [运行时身份层] - 108a
   if (!identityOnly) lines.push(getPromptPack(config && config.locale).runtimeIdentity(buildRuntimeIdentityFacts()));
   // [界面渲染] - 145-W3:mermaid 成图 / 本地图片(版本级常量,稳定层;Markdown 与代码块那半句身份层已说过)。

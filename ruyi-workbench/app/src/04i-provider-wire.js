@@ -593,7 +593,7 @@ const setTemperature = (body, temperature) => { if (temperature !== undefined) b
 const PROVIDER_WIRE_DEFAULT = 'chat';
 const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   chat: Object.freeze({
-    id: 'chat',
+    id: 'chat', displayLabel: 'Chat Completions',
     serverWebSearch: false,
     endpointBase: baseUrl => providerApiBase(baseUrl, false),
     completionUrl: baseUrl => providerCompletionUrl(baseUrl, false),
@@ -626,7 +626,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     retryOn400: noRetryOn400,
   }),
   responses: Object.freeze({
-    id: 'responses',
+    id: 'responses', displayLabel: 'Responses API',
     serverWebSearch: true,
     // 对抗轮(open-risk):responses 走原样 baseUrl + /responses(不加 /v1,与官方 SDK 示例一致),见 04h providerResponsesBase。
     endpointBase: baseUrl => providerApiBase(baseUrl, true),
@@ -661,7 +661,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   }),
   // 批 2:Anthropic Messages(官方与兼容网关)。编解码见 04i-provider-anthropic.js;这里只接线:配对自愈、makeId / redact 钩子。
   anthropic: Object.freeze({
-    id: 'anthropic',
+    id: 'anthropic', displayLabel: 'Anthropic Messages',
     serverWebSearch: false, // 批 3 映射 web_search_20260209
     endpointBase: anthropicApiBase,
     completionUrl: anthropicMessagesUrl,

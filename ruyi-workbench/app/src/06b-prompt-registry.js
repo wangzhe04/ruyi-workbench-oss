@@ -11,7 +11,7 @@
 // 138(W9 提示词审查,对照 Anthropic/OpenAI 提示词指南与 Codex/Gemini CLI/Cline/OpenHands 的公开提示词提炼的原则):
 //   普通包三处 —— toolProtocol.rules 补「改完用工具核实、没核实不说完成」;questioning 补「何时该问、何时先做」;
 //   answerShape 补「只说查证过的事」;onDemand 压缩。管家 stable 重写(见 steward 段头注)。文字改了 → bump。
-const PROMPT_PACK_VERSION = '2026-w138-2'; // Ordinary pack version; steward-only changes keep this value.
+const PROMPT_PACK_VERSION = '2026-w138-3'; // Ordinary pack version; steward-only changes keep this value.
 
 // C4(61 号文):「用户已在界面撤销」那一行告知(包里的 revertNotice)的入参归并与路径缩写,两个语言包共用。
 // revertNoticeTurns:02 的撤销记录(announced:false)→ [{ turnSeq, modified:{paths,total}|null, created:{paths,total}|null }](回合升序)。
@@ -57,8 +57,8 @@ const MEMORY_PRECEDENCE_EN = 'An explicit request the user makes in this convers
 // 中文提示词包(Phase1 基线,与原内联文本逐字一致)
 const PROMPT_ZH = {
   // [身份层] - always 注入
-  identity: ({ label, modelName, cwd }) =>
-    `你是运行在本地 AI 工作台中的智能助手，由 ${label} 的 ${modelName} 模型驱动。\n当前工作目录：${cwd}\n用 GitHub 风格 Markdown 回答；代码放进带语言标注的围栏代码块。`,
+  identity: ({ label, modelName, protocolLabel, cwd }) =>
+    `本地 AI 工作台。本次请求：${label}，请求模型标识 ${modelName}，协议 ${protocolLabel}。配置默认值/历史用量非本次身份；型号可为代理别名，后端未验证。问身份再说明。\n工作目录：${cwd}\nGitHub 风格 Markdown；代码围栏标语言。`,
 
   // [运行时身份层] - 108a · !identityOnly 时注入。字段全部取自进程内恒定量(00-boot/01-config),
   // 不含时间戳/会话 id,保证同进程逐字节稳定(prefix-cache 友好)。
@@ -69,7 +69,7 @@ const PROMPT_ZH = {
   // 七个字段仍全量留在 buildRuntimeIdentityFacts() 返回值里(108c workbench_self_status 单一事实源
   // 不变);需要端口/路径/实例标识时引导模型调用自状态查询工具。
   runtimeIdentity: ({ appName, version, launchMode }) =>
-    `运行环境：「${appName}」本地 AI 工作台 v${version}（${launchMode === 'exe' ? '打包 exe' : '源码 node'} 模式）。同一台机器可能装有多个版本，回答自身版本时以此为准，不要猜测；服务端口、安装位置、数据目录与实例标识不在此处，需要时用自状态查询工具获取。`,
+    `运行环境：「${appName}」v${version}（${launchMode === 'exe' ? '打包 exe' : '源码 node'}）。多版本并存，版本以此为准，勿猜。端口、安装位置、数据目录、实例标识仅用自状态工具查询。`,
 
   // [引擎运行环境说明] - 145-W3(用户 2026-09-24「根据不同引擎的线程设计不同的提示词,让 claude code 知道它
   // 是在如意工作台中、有什么能力」)。装配在 06 的 buildEngineEnvBrief(单一事实源:能力矩阵 + 会话元数据),
@@ -156,7 +156,7 @@ const PROMPT_ZH = {
     unavailable: ({ list }) => '当前不可用：' + list + '。',
     // 108c: offeredNames 含 workbench_self_status 时注入。自身版本／安装位置／端口／当前设置这类问题不要凭记忆回答，
     // 用工具查（避免同机多版本时张冠李戴）。
-    selfStatus: '自身版本／安装位置／端口／数据目录／当前模型与权限模式等问题，用 workbench_self_status 查询，不要凭记忆回答。',
+    selfStatus: '版本/位置/本次模型/权限用 workbench_self_status 核对；execution 指本次请求，config 指默认配置，用量是历史。缺执行证据答未知。',
   },
 
   // [工具/MCP 定制层] - 108b · offeredNames 含 mcp_list/mcp_configure 时注入(buildToolCustomizationHint)。
@@ -467,8 +467,8 @@ const PROMPT_ZH = {
 // 经 getPromptPack(config.locale) 选用。模板参数(label/modelName/cwd/concurrent/total/...)与中文版同形,
 // 仅文本翻译。locale!=='en-US' 一律走 PROMPT_ZH(基线,行为零漂移)。
 const PROMPT_EN = {
-  identity: ({ label, modelName, cwd }) =>
-    `You are an intelligent assistant running in a local AI workbench, powered by ${label}'s ${modelName} model.\nCurrent working directory: ${cwd}\nAnswer in GitHub-flavored Markdown; put code in fenced code blocks with a language tag.`,
+  identity: ({ label, modelName, protocolLabel, cwd }) =>
+    `You are a local AI workbench assistant. Host request: ${label}, requested model identifier ${modelName}, wire protocol ${protocolLabel}. Config defaults and usage are not this identity. Proxy backend unverified; explain only when asked about identity.\nCurrent working directory: ${cwd}\nAnswer in GitHub-flavored Markdown; put code in fenced code blocks with a language tag.`,
 
   // 108a runtime identity layer - same fields as PROMPT_ZH.runtimeIdentity.
   // 108a-fix2: the rendered text must be process-invariant, so address (random getFreePort port) and
@@ -476,7 +476,7 @@ const PROMPT_EN = {
   // the capabilities.e2e.js identity-bleed guard). All seven fields are still returned by
   // buildRuntimeIdentityFacts() for the 108c workbench_self_status tool.
   runtimeIdentity: ({ appName, version, launchMode }) =>
-    `Runtime environment: "${appName}" local AI workbench v${version} (${launchMode === 'exe' ? 'packaged exe' : 'source (node)'} mode). Several versions may be installed on the same machine, so answer questions about your own version from these facts; do not guess. Service port, install location, data directory and instance id are not included here; use the self-status tool when you need them.`,
+    `Runtime: "${appName}" v${version} (${launchMode === 'exe' ? 'packaged exe' : 'source (node)'}). Multiple versions may coexist; use these version facts, never guess. Query self-status for port, install location, data directory and instance id.`,
 
   // 145-W3 engine environment brief - same keys/params as PROMPT_ZH.engineBrief (see the Chinese pack for
   // the per-engine layout, the byte-stability contract and the no-percent/no-bang/no-angle-tag wording rules).
@@ -544,7 +544,7 @@ const PROMPT_EN = {
     subagentPreferred: ({ provider, model }) => `Sub-agent default endpoint and model: ${provider}${model ? ' / ' + model : ''}. orchestrate_agents nodes default to this endpoint and model; for harder tasks you may pick a stronger model under the same endpoint (e.g. a Pro variant) via the node model field, or handle the task yourself without delegating an agent.`,
     unavailable: ({ list }) => 'Currently unavailable: ' + list + '.',
     // 108c: injected when offeredNames has workbench_self_status.
-    selfStatus: 'For your own version/install location/port/current model and permission mode, use workbench_self_status; do not answer from memory.',
+    selfStatus: 'Use workbench_self_status for version/location/model/permissions. execution identifies this host request; config is defaults and usage is history. Missing execution evidence means unknown.',
   },
 
   // 108b tool/MCP customization layer - the pre-108b English wording is kept verbatim (browser-mcp.static

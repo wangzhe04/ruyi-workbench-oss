@@ -154,7 +154,7 @@ async function stewardImplUsage(args) {
     .slice(0, 20)
     .map(([sid, bucket]) => ({ sessionId: sid, ...bucket }));
   const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-31).map(([d, bucket]) => ({ day: d, ...bucket }));
-  return { ok: true, scope: { sessionId: sessionId || '', day: day || '' }, total, steward, bySession: topSessions, byDay: days };
+  return { ok: true, provenance: 'historical_usage', identityAuthority: false, scope: { sessionId: sessionId || '', day: day || '' }, total, steward, bySession: topSessions, byDay: days };
 }
 
 // 8) steward_health —— computeHealth 的原始项(人话映射留给前端/管家自己说)。
@@ -1359,7 +1359,7 @@ async function stewardImplConfigGet(args, ctx, config) {
     const line = stewardConfigHelpFor(key, lang);
     if (line) help[key] = line;
   }
-  return { ok: true, values, tiers, help, omitted, settings: Object.fromEntries(Object.keys(values).map(key => [key, stewardSettingScope(key)])) };
+  return { ok: true, provenance: 'configuration_snapshot', identityAuthority: false, values, tiers, help, omitted, settings: Object.fromEntries(Object.keys(values).map(key => [key, stewardSettingScope(key)])) };
 }
 
 // 23) steward_config_set —— 整份原子:任一键 forbidden 就整份拒绝(零写入),任一键 confirm 且用户

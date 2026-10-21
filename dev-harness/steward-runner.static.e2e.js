@@ -409,7 +409,7 @@ const srv = require(path.join(APP, 'server.js'));
   // 本条仍钉「管家段不单独 bump 普通包」—— 版本号只随普通包文字变。
   // 138 重钉:W9 提示词审查同时改了普通包(toolProtocol.rules / questioning / onDemand / answerShape)与管家 stable,
   // 普通包文字变了所以 bump 是对的;钉的口径不变 —— 只改管家段时这个值不许动。
-  ok(srv.PROMPT_PACK_VERSION === '2026-w138-2', `④ PROMPT_PACK_VERSION 为 138 波值(普通包文字新增跨线程回读指引;管家段不单独 bump 普通包;got ${srv.PROMPT_PACK_VERSION})`);
+  ok(srv.PROMPT_PACK_VERSION === '2026-w138-3', `④ PROMPT_PACK_VERSION 为 138 波值(普通包身份层明确宿主请求模型与配置/历史边界;管家段不单独 bump 普通包;got ${srv.PROMPT_PACK_VERSION})`);
   const provider = { id: 'fake', label: 'Fake端点', model: 'fake-model' };
   const tools = [{ function: { name: 'file_read' } }, { function: { name: 'tool_search' } }];
   const stable = srv.buildStableSystemPrompt(provider, 'fake-model', 'C:\\proj', tools, false, {});

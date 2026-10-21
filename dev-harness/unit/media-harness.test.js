@@ -108,8 +108,18 @@ test('image declaration and capability search surface native vision and provider
   assert.equal(status.capabilities.modalities.audio, false);
   assert.match(status.capabilities.checkpointScope, /not checkpointed/);
   const disabled = await srv.toolCall('workbench_self_status', { section: 'config' }, { ...ctx, provider: { id: 'p', vision: false, apiStyle: 'anthropic' } });
-  assert.equal(disabled.config.modalities.vision, false);
-  assert.equal(disabled.config.providerCapabilities.protocol, 'anthropic');
+  assert.equal(disabled.capabilities.modalities.vision, false);
+  assert.equal(disabled.capabilities.providerCapabilities.providerId, 'p');
+  assert.equal(disabled.capabilities.providerCapabilities.protocol, 'anthropic');
+  assert.equal(disabled.capabilities.providerCapabilities.visionConfigured, false);
+  assert.equal(disabled.capabilities.providerCapabilities.source, 'host_execution_provider_configuration');
+  assert.equal(disabled.capabilities.providerCapabilities.modelSupportProbed, false);
+  // This fixture has no global provider: runtime evidence must not fill configuration defaults.
+  assert.equal(disabled.config.providerId, '');
+  assert.equal(disabled.config.modalities.vision, null);
+  assert.equal(disabled.config.providerCapabilities.protocol, 'cli');
+  assert.equal(disabled.config.providerCapabilities.visionConfigured, null);
+  assert.equal(disabled.config.providerCapabilities.source, 'configuration_defaults');
   assert.equal(disabled.config.providerCapabilities.modelSupportProbed, false);
 });
 

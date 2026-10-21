@@ -86,6 +86,7 @@
   "capability.view": "View capability matrix",
   "capability.visionInput": "Vision input",
   "changes.collapse": "Collapse",
+  "changes.expand": "Expand",
   "changes.commandCount.one": "{{count}} command",
   "changes.commandCount.other": "{{count}} commands",
   "changes.commandNotRevertible": "Commands and terminal operations cannot be reverted automatically",
@@ -656,7 +657,7 @@
   "onboarding.engine.advancedClaude": "Advanced: I have an Agent CLI",
   "onboarding.engine.configureClaude": "Configure Agent CLI →",
   "onboarding.engine.configureKey.action": "Configure API key",
-  "onboarding.engine.configureKey.description": "Enter the address and API key of any OpenAI-compatible service and you are ready in minutes.",
+  "onboarding.engine.configureKey.description": "Enter your model service API address and key to get started in minutes.",
   "onboarding.engine.configureKey.title": "Configure an API key to get started",
   "onboarding.engine.notReady": "Configure an AI engine first",
   "onboarding.engine.providerFallback": "Provider",
@@ -2869,7 +2870,7 @@
   ,"stewardShell.chat.needModel": "I'm not connected to a model yet, so I can't reply."
   ,"stewardShell.chat.needModelHow": "Connect one first (about 5 minutes): a local Ollama / LM Studio, or a key for a hosted service. Then just tell me what you need done."
   ,"stewardShell.chat.connectModel": "Connect a model"
-  ,"stewardShell.chat.engineNeedsOpenAi": "The steward needs an OpenAI-compatible model service to reply; your main model runs through a command-line engine. You can let the steward use the service below on its own."
+  ,"stewardShell.chat.engineNeedsOpenAi": "The steward needs a native model API endpoint to reply; your main model runs through a command-line engine. You can let the steward use the service below separately."
   ,"stewardShell.chat.digest": "{{count}} things happened while you were away:"
   ,"stewardShell.chat.digestNone": "Nothing new while you were away."
   ,"stewardShell.digest.commitment.upcoming": "Scheduled tasks firing within 24 hours: {{count}}"
@@ -2925,7 +2926,7 @@
   ,"stewardShell.chat.errConflict": "This was just changed elsewhere; refresh and try again."
   ,"stewardShell.chat.errGeneric": "Didn't go through: {{error}}"
   ,"stewardShell.chat.engineNotListed": "The steward's provider \"{{provider}}\" is no longer in your provider list, so it cannot run a single turn. Pick another one, or add it back in settings."
-  ,"stewardShell.chat.engineUnsupported": "The steward can only use an OpenAI-compatible model provider, and your main model runs through a command-line engine. Pick a provider for the steward and it can talk."
+  ,"stewardShell.chat.engineUnsupported": "The steward needs a native model API endpoint, while your main model runs through a command-line engine. Pick a provider for the steward to start chatting."
   ,"stewardShell.chat.useProvider": "Use “{{provider}}”"
   ,"stewardShell.chat.providerSwitched": "Now using “{{provider}}”"
   ,"stewardShell.chat.listSeparator": ", "

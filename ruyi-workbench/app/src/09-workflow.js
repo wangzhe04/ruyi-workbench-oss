@@ -1590,6 +1590,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const base = stripUrlUserinfo(wire.endpointBase(provider.baseUrl));
   const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
+  const execution = Object.freeze(buildModelExecutionFacts(provider, model, session.kind === 'steward' ? 'steward' : 'main'));
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
   activeTraceId = AgentLoopHooks.makeAgentLoopTraceId(session.id, plannedTurnSeq);
 
@@ -1876,7 +1877,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 普通回合,而不是回合直接失败。
   let stewardPrompt = null;
   if (isStewardTurn && typeof StewardHooks.buildSystemPrompt === 'function') {
-    try { stewardPrompt = await StewardHooks.buildSystemPrompt(session, config, { tools: initialTools }); } catch { stewardPrompt = null; }
+    try { stewardPrompt = await StewardHooks.buildSystemPrompt(session, config, { tools: initialTools, provider, model, workingDir }); } catch { stewardPrompt = null; }
   }
   if (stewardPrompt && typeof stewardPrompt.stable === 'string' && stewardPrompt.stable) sys = stewardPrompt.stable;
   // #9: 随每条消息变化的那一半记忆(检索回执 + 相关索引)不再前插首条 user —— 召回一变,首条 user 就变,provider 的前缀缓存从 messages[1]
@@ -3135,7 +3136,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
                   res = await awaitProviderTool(
                     tc,
-                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
+                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                   );
                 } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -3159,7 +3160,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     poolQueueWaitMs += Date.now() - tWait0; // 21-E2: 资源锁排队时长计量
                     res = await awaitProviderTool(
                       tc,
-                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
+                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
                       INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                     );
                   } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -3519,7 +3520,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     tc,
                     // mainTurn:会话自己的主回合标记(08 子代理、MCP 子进程、/api/tools 都不带)。只写本会话旁车的工具(C2 scratchpad_write)
                     // 据此 fail-closed;代理 tool_invoke_* 把同一个 ctx 原样转给目标(12 invokeAdaptiveMcpTool)。
-                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
+                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
                     // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)

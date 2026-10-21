@@ -21,7 +21,7 @@ import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONB
 // 每个 Agent CLI 的知识（品牌名、路径键、思考强度档位、头像字母……）只问这一张登记表（ENGINEERING-SPEC §11.1）。
 import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 // 服务商线协议(provider.apiStyle)只问这一张表(58 号方案批 1;键集合与服务端 04i PROVIDER_WIRE_PROTOCOLS 相同)。
-import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta, PROVIDER_REASONING_EFFORT_CHOICES, ANTHROPIC_AUTH_CHOICES, ANTHROPIC_THINKING_CHOICES } from './provider-api-styles.js';
+import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta, providerDisplayLabel, PROVIDER_REASONING_EFFORT_CHOICES, ANTHROPIC_AUTH_CHOICES, ANTHROPIC_THINKING_CHOICES } from './provider-api-styles.js';
 import { stripProviderEndpointSuffix, inferProviderApiStyleFromUrl, isAnthropicOfficialUrl, stepAutoProviderStyle } from './provider-api-styles.js';
 // 2026-10 设置补全：修前没有任何控件的约 70 个 config 键，由这一张目录统一渲染、回填、即存。
 import { mountSettingsCatalog, fillSettingsCatalog, catalogPatch } from './settings-catalog.js';
@@ -438,7 +438,7 @@ function wireSubagentAssignRow() {
 function engineLabel() {
   const route = currentConversationRoute();
   const p = activeProviderObj();
-  if (p) return p.label || p.id;
+  if (p) return providerDisplayLabel(p, t);
   return isProviderMode() ? route.providerId : currentAgentCliLabel();
 }
 // Meta describing the CURRENT engine, shaped like the per-message meta the server now sends, so the

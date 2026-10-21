@@ -1,5 +1,6 @@
 'use strict';
 import { providerModels, agentModels } from './model-catalog.js';
+import { providerDisplayLabel } from './provider-api-styles.js';
 
 // 第117波 117d：快切 chip（权限／模型／引擎）。
 //
@@ -772,7 +773,7 @@ export function createQuickSwitchChips({
       if (!provider || !provider.id) continue;
       options.push({
         key: 'openai:' + provider.id,
-        label: String(provider.label || provider.id),
+        label: providerDisplayLabel(provider, t),
         route: { engine: 'openai', providerId: String(provider.id), model: String(provider.model || '') },
       });
     }
@@ -1080,7 +1081,7 @@ export function createQuickSwitchChips({
     if (kind === 'engine') {
       if (route.engine === 'openai') {
         const provider = (config().providers || []).find(item => item && item.id === route.providerId) || null;
-        return String((provider && (provider.label || provider.id)) || route.providerId);
+        return provider ? providerDisplayLabel(provider, t) : String(route.providerId);
       }
       return agentCliMeta(route.agentCliType).label;
     }

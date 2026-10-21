@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 88,
-    "providedSymbols": 3883,
-    "requiredSymbols": 3498,
-    "edges": 629,
+    "providedSymbols": 3885,
+    "requiredSymbols": 3502,
+    "edges": 630,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -5563,6 +5563,8 @@
         "buildClaudeNativeAgentPolicy",
         "buildEngineEnvBrief",
         "buildMetricsPayload",
+        "buildModelExecutionFacts",
+        "buildModelIdentityPrompt",
         "buildOpsMetrics",
         "buildPlaybookIndexSection",
         "buildPromptTaskContext",
@@ -6013,6 +6015,13 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "normalizeProviderApiStyle",
           "kinds": [
             "call"
           ]
@@ -8652,6 +8661,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "buildModelExecutionFacts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "buildProviderSystemPrompt",
           "kinds": [
             "call"
@@ -9931,6 +9947,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "appendTurnPolicies",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "buildModelExecutionFacts",
           "kinds": [
             "call"
           ]
@@ -21536,6 +21559,13 @@
           ]
         },
         {
+          "provider": "06-provider-engine.js",
+          "symbol": "buildModelIdentityPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06b-prompt-registry.js",
           "symbol": "getPromptPack",
           "kinds": [
@@ -30769,6 +30799,7 @@
       "to": "04i-provider-wire.js",
       "symbols": [
         "applyProviderReasoningEffort",
+        "normalizeProviderApiStyle",
         "providerWireProtocol"
       ],
       "direction": "backward"
@@ -31541,6 +31572,7 @@
       "symbols": [
         "TOOL_ITERATION_BUDGETS",
         "appendResponseLanguagePolicy",
+        "buildModelExecutionFacts",
         "buildProviderSystemPrompt",
         "getCapabilities",
         "readProjectMemory",
@@ -31872,6 +31904,7 @@
       "to": "06-provider-engine.js",
       "symbols": [
         "appendTurnPolicies",
+        "buildModelExecutionFacts",
         "buildPromptTaskContext",
         "buildStableSystemPrompt",
         "buildVolatileParts",
@@ -35268,6 +35301,14 @@
         "activeChildren",
         "logEvent",
         "redact"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
+      "to": "06-provider-engine.js",
+      "symbols": [
+        "buildModelIdentityPrompt"
       ],
       "direction": "backward"
     },

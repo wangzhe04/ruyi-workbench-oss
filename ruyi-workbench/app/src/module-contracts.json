@@ -5477,6 +5477,8 @@
         "buildClaudeNativeAgentPolicy",
         "buildEngineEnvBrief",
         "buildMetricsPayload",
+        "buildModelExecutionFacts",
+        "buildModelIdentityPrompt",
         "buildOpsMetrics",
         "buildPlaybookIndexSection",
         "buildPromptTaskContext",
@@ -5927,6 +5929,13 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "normalizeProviderApiStyle",
           "kinds": [
             "call"
           ]
@@ -8542,6 +8551,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "buildModelExecutionFacts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "buildProviderSystemPrompt",
           "kinds": [
             "call"
@@ -9815,6 +9831,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "appendTurnPolicies",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "buildModelExecutionFacts",
           "kinds": [
             "call"
           ]
@@ -21373,6 +21396,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "redact",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "buildModelIdentityPrompt",
           "kinds": [
             "call"
           ]

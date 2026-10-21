@@ -87,7 +87,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 3.1 隐私设置体验续钉（前值 118d4b57…）：仅 settings.css 增加已生效摘要、四档草稿、规则表单与不遮正文的 modal footer，隐私入口复用既有更多菜单。
 // 算法自证：仅用 git HEAD settings.css 替换内存读取后，载荷精确回到旧锁 118d4b57be0bb7f4e34257e4a72aa6aec9e6cb9f0b6e24e707702fe42ba1e6f7；其余层未改。
 // 反向验证：内存注入错误 CSS 后 D51/F3 均失败；磁盘 CSS 未改，证据见 ux4/validation/static-rechecks。
-const LEGACY_STYLES_SHA256 = 'b98aab331819db3353d3feb1be5447a2b1f25821432199a9f25b2b34fa66ad04';
+// 用户反馈「本轮变更」折叠续钉（前值 b98aab33…）：仅 chat-live.css 新增六条隐藏正文、收起分隔线、原生按钮/焦点和箭头样式，默认仍展开。
+// 算法自证：内存仅替换 HEAD chat-live.css 后精确回到旧锁 b98aab331819db3353d3feb1be5447a2b1f25821432199a9f25b2b34fa66ad04；其余层不变、不忽略。
+// 反向验证：内存注入错误 CSS 后 D51/F3 均失败；实际产品 CSS 未修改，记录见 checks/ux-model-turn/34-css-lock-*。
+const LEGACY_STYLES_SHA256 = '0fd1b7866821d78905535ee1bc99afd959f32b333351693917c79987634e40be';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

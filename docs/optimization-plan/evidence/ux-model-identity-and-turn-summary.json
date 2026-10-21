@@ -1,0 +1,697 @@
+{
+  "date": "2026-10-21",
+  "baseline": "b71745ea",
+  "status": "verified and independently reviewed; final full unit passed, two CSS baseline static failures resolved by independently reviewed exact pin and targeted retests",
+  "scope": "User feedback: collapsible turn changes, host execution identity versus configuration/history, protocol-aware current displays including Anthropic Messages",
+  "contract": [
+    "Turn changes default expanded. Native button/aria and Enter/Space toggle only the existing body. Counts and whole-turn undo/status remain visible; per-file nodes and pending undo state are retained. Explicit choices are bounded128 per domain/session/turn, with no persistent global setting.",
+    "Main/subagent capture one immutable execution snapshot immediately after the actual request model resolves. Three main tool call sites and the subagent tool site carry the same snapshot. Steward dedicated prompt includes the shared identity once.",
+    "execution identifies a host-selected request route/model and native-provider wire protocol, not a verified proxy backend. Missing host context and unproven CLI remain unknown. The identity-only section returns before reading configuration.",
+    "config contains consistent global defaults, including its own modalities/protocol. capabilities describes the actual runtime provider when supplied and names its own provider/source. Historical usage and configuration tools declare provenance and cannot override execution identity.",
+    "Protocol display labels live in existing backend/frontend registries, with bilingual label equality checks. Current engine label, chip/title/menu follow the selected protocol. Capability popovers use explicit recognized protocol from their own cached packet; old/unknown packets stay generic.",
+    "Historical message badges and usage records are not relabeled from the current configuration. Stored route values, model-selection priority, permission/undo behavior, billing keys and capability-cache lifetime are unchanged.",
+    "Normal interaction adds no dialog, password, setting or deployment dependency. New execution/prompt labels omit URL-shaped credentials/query material; this is not a claim that legacy configuration labels or all tool payloads are globally sanitized."
+  ],
+  "independentReview": {
+    "reviewer": "release_priority",
+    "findings": [
+      "Added actual session/steward resolver tests and real submodel precedence rather than relying on manually overridden provider objects.",
+      "Separated the internal openai route value from the new native-provider presentation identity; include actual protocol and unverified-backend status.",
+      "Capture execution once per turn/subturn rather than rebuilding it at four call sites.",
+      "Fixed mixed authority where global config provider/model were combined with actual runtime capabilities; both groups now have consistent provider/protocol/source.",
+      "Kept original prompt limits and compacted repeated identity/runtime instructions instead of increasing the budget.",
+      "Protocol selection knowledge remains in the existing registry; normalized protocol validation is shared. Capability display cannot infer missing packet evidence from the open conversation.",
+      "Collapsing preserves existing undo nodes/status and keyboard focus; historical labels and accounting remain separate.",
+      "Historical media-harness runtime assertions moved to capabilities with additional unset-global-config checks; kept original section config to avoid unrelated health/count work.",
+      "Independently recomputed full layered CSS payload and reversed only six new collapse rules to reproduce old pin exactly. Updated exact shared pin; damage controls still fail each owner check. No algorithm, layer or assertion removed."
+    ],
+    "final": "Final product/tests/generated contracts and16 egress source fingerprints plus two configuration-candidate fingerprints independently reviewed. Before commit reviewer verified all31 finalFiles,43 raw logs,3 raw artifacts and7 generated file hashes/sizes, exact results/initial failures/negative controls and86/92 scope; no open blocker."
+  },
+  "tests": {
+    "identity": {
+      "file": "dev-harness/model-execution-identity.e2e.js",
+      "runs": [
+        {
+          "log": "16-model-execution-identity.e2e.js.log",
+          "pass": 37,
+          "fail": 0,
+          "exit": 0
+        },
+        {
+          "log": "17-model-execution-identity.e2e.js.log",
+          "pass": 37,
+          "fail": 0,
+          "exit": 0
+        }
+      ],
+      "coverage": "Actual generated runSessionTurn with persisted session route and ensureStewardSession dedicated provider/model; actual subcore explicit/role/preferred/provider model precedence; in-flight global-default change; real loopback Anthropic Messages request/system/tool roundtrip; fake response alias stays unverified; identity-only readConfig throws; globalChat versus runtimeAnthropic capabilities; three protocol packets and safe new labels."
+    },
+    "collapse": {
+      "file": "dev-harness/turn-summary-collapse.browser.e2e.js",
+      "runs": [
+        {
+          "log": "03-collapse-browser-initial.log",
+          "pass": 18,
+          "fail": 0,
+          "exit": 0
+        },
+        {
+          "log": "06-collapse-browser-repeat.log",
+          "pass": 18,
+          "fail": 0,
+          "exit": 0
+        }
+      ],
+      "coverage": "Actual production card factory in real browser;13 feature assertions plus5 fixture assertions. Default expanded, hide CSS, real Enter/Space/focus, node identity/pending state, counts/whole undo/status, same-turn rerender, session/new-turn separation, English locale and128-choice eviction."
+    },
+    "protocolDisplay": {
+      "file": "dev-harness/provider-protocol-display.browser.e2e.js",
+      "runs": [
+        {
+          "log": "04-protocol-browser-initial.log",
+          "pass": 37,
+          "fail": 0,
+          "exit": 0
+        },
+        {
+          "log": "07-protocol-browser-repeat.log",
+          "pass": 37,
+          "fail": 0,
+          "exit": 0
+        }
+      ],
+      "coverage": "Bilingual three-protocol production factories: actual chip/title/menu, capability DOM from deliberately different snapshot protocol, old/unknown packet fallback, recorded messageShell badge unchanged and zero selection writes. Engine label is rendered into a fixture status span; not a full settings-to-main-status journey."
+    },
+    "focusedUnits": [
+      {
+        "log": "21-focused-final.log",
+        "tests": 15,
+        "pass": 15,
+        "fail": 0,
+        "exit": 0
+      },
+      {
+        "log": "02-protocol-pure-unit.log",
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "exit": 0
+      },
+      {
+        "log": "30-media-contract-final.log",
+        "tests": 8,
+        "pass": 8,
+        "fail": 0,
+        "skip": 0,
+        "exit": 0
+      }
+    ],
+    "related": [
+      {
+        "file": "workbench-self-status.e2e.js",
+        "log": "18-workbench-self-status.e2e.js.log",
+        "pass": 49,
+        "exit": 0
+      },
+      {
+        "file": "steward-read-routing.e2e.js",
+        "log": "19-steward-read-routing.e2e.js.log",
+        "pass": 33,
+        "exit": 0
+      },
+      {
+        "file": "agent-team-mode.e2e.js",
+        "log": "20-agent-team-mode.e2e.js.log",
+        "pass": 22,
+        "exit": 0
+      },
+      {
+        "file": "turn-undo.browser.e2e.js",
+        "log": "05-turn-undo-browser.log",
+        "pass": 25,
+        "exit": 0
+      }
+    ],
+    "targetedStatics": [
+      {
+        "log": "14-prompt-final.log",
+        "exit": 0
+      },
+      {
+        "log": "15-steward-static-final.log",
+        "exit": 0
+      },
+      {
+        "log": "25-integration-preflight.log",
+        "exit": 0,
+        "files": 8
+      }
+    ],
+    "inventory": {
+      "log": "26-inventory-reviewed.log",
+      "sourceFiles": 269,
+      "candidates": 655,
+      "errors": 0,
+      "sourceFingerprintsReviewed": 16,
+      "classificationsChanged": false,
+      "exit": 0,
+      "finalCheck": {
+        "log": "33-inventory-final-check.log",
+        "sourceFiles": 269,
+        "candidates": 655,
+        "errors": 0,
+        "exit": 0
+      }
+    },
+    "fullFastFirst": {
+      "log": "27-fast-final.log",
+      "unitLog": "28-unit-first.log",
+      "unit": {
+        "tests": 2549,
+        "pass": 2522,
+        "fail": 1,
+        "skip": 26,
+        "durationMs": 338006.7172
+      },
+      "staticStage": "not run because the unit gate failed"
+    },
+    "fullFast": {
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "log": "31-fast-final.log",
+      "exit": 1,
+      "unit": {
+        "log": "32-unit-final.log",
+        "tests": 2549,
+        "suites": 192,
+        "pass": 2523,
+        "skip": 26,
+        "fail": 0,
+        "durationMs": 329059.7098
+      },
+      "static": {
+        "ran": 80,
+        "pass": 78,
+        "fail": 2,
+        "flaky": 0,
+        "liveSkipped": 7
+      },
+      "resolution": "Only frontend-domains D51 and live-full-text F3 shared aggregate CSS baseline was stale after six intentional collapse style additions. Exact payload pin independently reviewed, then both consumers passed targeted tests.31 is not described as an all-green rerun."
+    },
+    "cssBaseline": {
+      "computation": "34-css-lock-computation.json",
+      "oldSha256": "b98aab331819db3353d3feb1be5447a2b1f25821432199a9f25b2b34fa66ad04",
+      "newSha256": "0fd1b7866821d78905535ee1bc99afd959f32b333351693917c79987634e40be",
+      "changedFile": "ruyi-workbench/app/public/css/states/chat-live.css",
+      "addedRules": 6,
+      "proof": "In memory, substituting only HEAD chat-live into the full original layer reader reproduces the old pin exactly. No layer is ignored and no product stylesheet changed after browser tests.",
+      "targeted": [
+        {
+          "file": "frontend-domains.static.e2e.js",
+          "log": "34-css-lock-frontend-domains-final.log",
+          "pass": 136,
+          "fail": 0,
+          "exit": 0
+        },
+        {
+          "file": "live-full-text.static.e2e.js",
+          "log": "35-css-lock-live-full-text-final.log",
+          "pass": 90,
+          "fail": 0,
+          "exit": 0
+        }
+      ],
+      "negativeControls": [
+        {
+          "log": "34-css-lock-negative-frontend-domains.log",
+          "expectedExit": 1,
+          "onlyExpectedFailure": "D51"
+        },
+        {
+          "log": "34-css-lock-negative-live-full-text.log",
+          "expectedExit": 1,
+          "onlyExpectedFailure": "F3"
+        }
+      ]
+    },
+    "syntax": {
+      "log": "23-syntax-final.log",
+      "files": 1113,
+      "exit": 0,
+      "finalChangesChecked": [
+        {
+          "file": "dev-harness/unit/media-harness.test.js",
+          "log": "30-media-contract-final.log",
+          "exit": 0
+        },
+        {
+          "file": "dev-harness/read-frontend-css.js",
+          "log": "34-css-lock-syntax.log",
+          "exit": 0
+        }
+      ],
+      "note": "Full syntax pass preceded these two test-only edits; changed files separately node --check passed. Product bytes remain unchanged."
+    },
+    "build": {
+      "log": "24-build-final.log",
+      "exit": 0,
+      "fresh": true
+    }
+  },
+  "observations": {
+    "ordinaryStableFixtureChars": 1899,
+    "ordinaryExistingLimitExclusive": 1900,
+    "stewardIdentityFixtureChars": 226,
+    "stewardCombinedFixtureChars": 2369,
+    "stewardOriginalBaseLimit": 2500,
+    "note": "Fixed synthetic fixtures, not a universal input-token count, latency benchmark or assertion of identical token usage. No billing calculation/ledger changes."
+  },
+  "initialFailuresAndCorrections": [
+    "01-focused-unit-first.log: two failures required explicit new displayLabel registry member and removal of out-of-owner typeof-apiStyle literal branching. Added exact member/type/bilingual equality assertions and moved shared recognized-protocol predicate into existing owner, without weakening the guard.",
+    "05-workbench-self-status.log: historical exact identity key set correctly rejected new execution field. Exact set now includes the additive field and separately asserts unknown without host context; all prior identity keys remain.",
+    "Prompt snapshots05a/07/10/12 exceeded unchanged1900 fixture budget at2007/1952/1924/1904. Compacted repeated bilingual identity/runtime text, retaining app/version/mode, multiversion no-guess, self-status-only dynamic paths/port/instance facts, request model/protocol, configuration/history distinction and alias limitation. Final14 is1899; no budget was raised.",
+    "Initial identity02/04 were before final prompt/authority cleanup. Final37x2 are16/17 and bind the final backend bytes. First browser runs passed; they were repeated as required.",
+    "27-fast-final.log/28-unit-first.log: complete unit found one historical media-harness assertion still reading actual context capabilities under config. Test-only fix retained false/Anthropic/unprobed assertions under capabilities, added actual providerId/source and separate unset global-config checks (empty provider/null vision/cli).29-media-contract-unit.log passes8; final30 retains section config so the test does not add health/counts work, passes8 and node --check. Runtime product unchanged;31 is the subsequent unified rerun.",
+    "31-fast-final.log: full unit passes2523 with26 condition skips, static78/80 pass. Two failures are the same expected shared CSS baseline mismatch (D51/F3). Only read-frontend-css exact pin/comment changed after the run.34/35 targeted owners pass136/90; in-memory wrong-style controls intentionally fail onlyD51/F3. No further all-fast rerun is claimed."
+  ],
+  "generated": {
+    "graph": {
+      "modules": 88,
+      "edges": 630,
+      "forward": 67,
+      "scc": 1,
+      "largestScc": 31,
+      "newEdge": "13o-steward-runner-prompt.js ->06-provider-engine.js: shared identity prompt (backward)"
+    },
+    "facts": {
+      "e2e": 549,
+      "defaultE2e": 542,
+      "liveE2e": 7,
+      "unitFiles": 286
+    },
+    "routes": {
+      "decisionPoints": 176,
+      "auth": 162,
+      "existingUncovered": 5,
+      "warnings": 0
+    }
+  },
+  "limitations": [
+    "Synthetic offline providers and fixture factories verify host-selected facts and presentation; no live model conversation was evaluated for whether it always follows the prompt, and no vendor/backend identity is cryptographically proven.",
+    "Capability display remains a captured global probe snapshot using the existing60-second cache, which can differ from the current conversation. Runtime self-status capabilities explicitly identify their source.",
+    "No full product E2E suite, actual release-package acceptance, real platform messages or user data migration was performed by this batch.",
+    "Mermaid export M2-6b2 remains next and is concretely documented in92; M2-5 remains cancelled, independent namespace and localASR paused."
+  ],
+  "rawEvidenceLocation": "../ruyi-workbench-maintenance-20261021/checks/ux-model-turn",
+  "rawFiles": [
+    {
+      "file": "01-focused-unit-first.log",
+      "sha256": "c58097a9c42f7d9295b60fc8aedc3ee01caa524692eae591c0d5d701dd2d1d58",
+      "bytes": 6641
+    },
+    {
+      "file": "01-protocol-pure-unit.log",
+      "sha256": "6422a681e8cfc9ba648458dd175c4fcbc12ad869304c0f3304ee4659eb5a3da1",
+      "bytes": 914
+    },
+    {
+      "file": "02-identity-e2e-first.log",
+      "sha256": "dc8e07ed6c5353ca1888bd3c2b7c36644f95134b51c3d3c367e53b0f9a98e012",
+      "bytes": 3597
+    },
+    {
+      "file": "02-protocol-pure-unit.log",
+      "sha256": "ac5ef645a246f0166c2cb825df80dcc5fa0c309cdfb825920080a3a935b6c836",
+      "bytes": 912
+    },
+    {
+      "file": "03-collapse-browser-initial.log",
+      "sha256": "4ec4662faaf90c3c2453073fb3e56cf013372e459f4bb0c8591992e29ed7ca69",
+      "bytes": 1014
+    },
+    {
+      "file": "03-focused-unit-label-contract.log",
+      "sha256": "156c5a7e8f91d043f14ded5126d2a4c6da0e39ae0f9b82bade7224be5e8c7d76",
+      "bytes": 3597
+    },
+    {
+      "file": "04-identity-e2e-second.log",
+      "sha256": "dc8e07ed6c5353ca1888bd3c2b7c36644f95134b51c3d3c367e53b0f9a98e012",
+      "bytes": 3597
+    },
+    {
+      "file": "04-protocol-browser-initial.log",
+      "sha256": "f59e4e8f515f950a53e8364e5fd2712bc479ef6428c7d00a39304db4c167aa42",
+      "bytes": 2702
+    },
+    {
+      "file": "05-turn-undo-browser.log",
+      "sha256": "ee85e116baea47c26858d284929a9cd74b3fc028521d028c5646a58b273a032b",
+      "bytes": 2295
+    },
+    {
+      "file": "05-workbench-self-status.log",
+      "sha256": "eb4bc162879c057b99ac1c1632ddc7f891e56d5dbc926fc682d8facfbbd0daf9",
+      "bytes": 2374
+    },
+    {
+      "file": "05a-prompt-snapshot-budget-failure.log",
+      "sha256": "f01631e142020b9889b93d6c0fe826858f9a64c8c25c7115d03e664137737fd5",
+      "bytes": 8155
+    },
+    {
+      "file": "06-collapse-browser-repeat.log",
+      "sha256": "4ec4662faaf90c3c2453073fb3e56cf013372e459f4bb0c8591992e29ed7ca69",
+      "bytes": 1014
+    },
+    {
+      "file": "06-focused-unit-concise-authority.log",
+      "sha256": "eb41215aa5b2a97dc302752ae0ca05953b7544bf835f17a75922f2af1d2ee338",
+      "bytes": 3600
+    },
+    {
+      "file": "07-prompt-snapshot-concise.log",
+      "sha256": "29391688e158274d668e8d28dc223a7f1aa5f9b3fe204d3566e36f40564ed87d",
+      "bytes": 8155
+    },
+    {
+      "file": "07-protocol-browser-repeat.log",
+      "sha256": "f59e4e8f515f950a53e8364e5fd2712bc479ef6428c7d00a39304db4c167aa42",
+      "bytes": 2702
+    },
+    {
+      "file": "09-focused-final.log",
+      "sha256": "51c875170241eb5554534c1393a9513422140dc71d419c9abcb4e4549ac53e2b",
+      "bytes": 3599
+    },
+    {
+      "file": "10-prompt-final.log",
+      "sha256": "116e18f98fcc21513d4fbf390913e07e4143e77ced8f9019f86ba57169714ef8",
+      "bytes": 8155
+    },
+    {
+      "file": "12-prompt-final.log",
+      "sha256": "4a37ad6a1eda2d8bcded65fd682cfcdd379a01fbe9b837590c0b24188049241f",
+      "bytes": 8155
+    },
+    {
+      "file": "14-prompt-final.log",
+      "sha256": "462cfd2b718a890eecbafd3e75621bd1ecffa35e4e69cdc5bd0151c1f1f5b218",
+      "bytes": 8155
+    },
+    {
+      "file": "15-steward-static-final.log",
+      "sha256": "c95111a6ff4296f97ec2e15e9dc6c18d97f37fdb6de6e24e92f48d2164256929",
+      "bytes": 14812
+    },
+    {
+      "file": "16-model-execution-identity.e2e.js.log",
+      "sha256": "4bf5ca34b94f6ac1458a550d2c1bb57a2eeb0d10fc45da0dfac83be4450a822b",
+      "bytes": 3699
+    },
+    {
+      "file": "17-model-execution-identity.e2e.js.log",
+      "sha256": "4bf5ca34b94f6ac1458a550d2c1bb57a2eeb0d10fc45da0dfac83be4450a822b",
+      "bytes": 3699
+    },
+    {
+      "file": "18-workbench-self-status.e2e.js.log",
+      "sha256": "9a4ba0b9db21ad2c6bd822aebe5c852f280c299b82f4150aed543f681db7725b",
+      "bytes": 2484
+    },
+    {
+      "file": "19-steward-read-routing.e2e.js.log",
+      "sha256": "5a2a1eb8a4b6934cc6923a1c754fc6a0d4cf1d665cf03524ef639a49ab8e520a",
+      "bytes": 1932
+    },
+    {
+      "file": "20-agent-team-mode.e2e.js.log",
+      "sha256": "8d61cfd75810de394a45e607643736b4efde6cfcde9cedd7a6520d9c8747654a",
+      "bytes": 1597
+    },
+    {
+      "file": "21-focused-final.log",
+      "sha256": "2e2542af146011590f2840e6f6c962b3af37f5d0766d8787ff098edbb0c00c85",
+      "bytes": 3600
+    },
+    {
+      "file": "22-generators-final.log",
+      "sha256": "4aa54898eb3887a5fd19142c4de9cce362f50b6cbde20ce5d96f77de8148c176",
+      "bytes": 554
+    },
+    {
+      "file": "23-syntax-final.log",
+      "sha256": "120ab24f644bbdbfd39c97cd4f85cb51204e6e6f3667ddc197c071e0c4f5e6f3",
+      "bytes": 61
+    },
+    {
+      "file": "24-build-final.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    {
+      "file": "25-integration-preflight.log",
+      "sha256": "ea0fccffaf3f35836aaacfa2ad35661cc400b6cb1c8cfc6c285c33e371852d3d",
+      "bytes": 23247
+    },
+    {
+      "file": "26-inventory-reviewed.log",
+      "sha256": "4dc594a66203782e8cb8b6a51a31bb4a1396a4216682c360d9085ad2b3d65f71",
+      "bytes": 67
+    },
+    {
+      "file": "27-fast-final.log",
+      "sha256": "8e5dde7aa9b312fa494a268f424b8d2c59d6996d1e7a5dbe656c9cc0b98cd578",
+      "bytes": 2609
+    },
+    {
+      "file": "28-unit-first.log",
+      "sha256": "0ab9de7b54926251bcdb75219e07cd71c625d35007d420e076358b76fcb0c511",
+      "bytes": 398568
+    },
+    {
+      "file": "29-media-contract-unit.log",
+      "sha256": "1bc3d808d1191663b6b7f10a88c51467e53d4a0d1d9dbe42853f7080f94ea93e",
+      "bytes": 989
+    },
+    {
+      "file": "30-media-contract-final.log",
+      "sha256": "62e46ed043e2f6ab59d03db2421cbcefafe382b66390915d2ed07a1fb5e96851",
+      "bytes": 988
+    },
+    {
+      "file": "31-fast-final.log",
+      "sha256": "05a589b7f66fc5a114fe969e9cf486c774123601362dd9b3bf5cc3bdf2576bbd",
+      "bytes": 10786
+    },
+    {
+      "file": "32-unit-final.log",
+      "sha256": "5638c5955f9af436cb7cde7cc48f1c51b814ba4584b7c9e42ecdd88034fbbb47",
+      "bytes": 397984
+    },
+    {
+      "file": "33-inventory-final-check.log",
+      "sha256": "4dc594a66203782e8cb8b6a51a31bb4a1396a4216682c360d9085ad2b3d65f71",
+      "bytes": 67
+    },
+    {
+      "file": "34-css-lock-frontend-domains-final.log",
+      "sha256": "1df227572e1c41a4873282b23ba47c2c27b3e518cdec2c0e313b5e9401ea8fc0",
+      "bytes": 7732
+    },
+    {
+      "file": "34-css-lock-negative-frontend-domains.log",
+      "sha256": "362b7324b576389878e1be1e152675ca82c3e0b571c5079230fa31f22a3f4fe9",
+      "bytes": 7594,
+      "purpose": "Deliberate in-memory corruption control; expected test failure, no product stylesheet mutation"
+    },
+    {
+      "file": "34-css-lock-negative-live-full-text.log",
+      "sha256": "828be28e5a4761984e9d8307386b738e4c1c1fcc72133f50fe4e6a801e88ad99",
+      "bytes": 7248,
+      "purpose": "Deliberate in-memory corruption control; expected test failure, no product stylesheet mutation"
+    },
+    {
+      "file": "34-css-lock-syntax.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "35-css-lock-live-full-text-final.log",
+      "sha256": "101d98dc6d5f5bbf0ea0b582fc17d87b3b661c8811969c93dbdfb3c666eafca4",
+      "bytes": 7339
+    }
+  ],
+  "finalFiles": [
+    {
+      "file": "dev-harness/model-execution-identity.e2e.js",
+      "sha256": "1f8e45e234cb1d45210a2d246f4b38d0de23ff8e8f2aef476d70039588628c8b"
+    },
+    {
+      "file": "dev-harness/privacy-m1/egress/manifest.json",
+      "sha256": "1be0fecfd1687c6810cd301828142de289c3e7e182491a074d517aeb986a3fad"
+    },
+    {
+      "file": "dev-harness/provider-protocol-display.browser.e2e.js",
+      "sha256": "cbaaa40e5f009bb75739900143676bcb52b320bbfc17d9b558012679ca399818"
+    },
+    {
+      "file": "dev-harness/read-frontend-css.js",
+      "sha256": "eab0f47328beb98e23b764db75261e42ad82768d5ff4e2dc1525ce506d56f24e"
+    },
+    {
+      "file": "dev-harness/steward-runner.static.e2e.js",
+      "sha256": "e0b43bc920fec78dc35292d50c2b2beb7be221e9c40311769a91a973848971d4"
+    },
+    {
+      "file": "dev-harness/turn-summary-collapse.browser.e2e.js",
+      "sha256": "fbdd7b2d051d844af21b4c51524b59795f601084c2332f2814ae9af38140fb70"
+    },
+    {
+      "file": "dev-harness/unit/media-harness.test.js",
+      "sha256": "d40e34741cf1dba612cb897974b2bd1b7275bf3ea031878fa15a5d3a2fea528e"
+    },
+    {
+      "file": "dev-harness/unit/provider-protocol-display.test.js",
+      "sha256": "ac78a254fdada6dbfb7bf97bbd728ed29f8e2879deafe81e023e6f4744c658cc"
+    },
+    {
+      "file": "dev-harness/unit/provider-wire-protocols.test.js",
+      "sha256": "6eb3bafd70456266b1a603cca8126e9192df2be36b8b331d6b739499f341378f"
+    },
+    {
+      "file": "dev-harness/unit/steward-read-routing.test.js",
+      "sha256": "2d0116d2c70c0f2e907567132e94e0b731ede69b3bd729268bfb9a537ed02c65"
+    },
+    {
+      "file": "dev-harness/workbench-self-status.e2e.js",
+      "sha256": "1a8fe39290920ef8177014e3fce8c7030fbf4d96e842dda6ff6f751c679f6293"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/states/chat-live.css",
+      "sha256": "45ab35da69c251b91544b9757378947dc20e8b451188931926c4f318581d63a1"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/navigation-controls.js",
+      "sha256": "160da91af05f4bc47e30b2e8d95c9681e1c68bb22d62ba3970570e49290135ca"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/provider-api-styles.js",
+      "sha256": "60b8ddb066415375db6bd73edd1486be59eabd783f93ed51c9e19fcab02c865a"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/provider-settings.js",
+      "sha256": "a1a8934895275b62320284fd61de69f91d16283d050ec47d5d021604fbe4b49c"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/session-experience.js",
+      "sha256": "c42f0e127d6e0f58033f1b43d3ffe888adfb7cd9a75e2d9e4846bd7a98e0a2df"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-chips.js",
+      "sha256": "b82e4e9028228ec2190c20a4e14a518bb544db55689fc728f38791f0d348ccd0"
+    },
+    {
+      "file": "ruyi-workbench/app/public/locales/en-US.json",
+      "sha256": "804b4331db3e5d99f7f76c1fe028192416f2053afd1aca94b530dbb503554018"
+    },
+    {
+      "file": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "sha256": "e3283dec12025bdaa470de2b589f6bf26c21514d378adab0b241578df16c2946"
+    },
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "d535b64102f9fffe547a1fae8f96ee3d0ef12de11170a6635ff68d8f29be59a4"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04i-provider-wire.js",
+      "sha256": "cdefedf43329284f94cdd3a3a29e813c7b05d5634c966ff98d625546a27ef372"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "e5e8b259ab462f52d0693e3bd76430bf334182eef6c11e0a2340fb27ee5a704c"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "sha256": "b0590b29e4202fc5b9b6ddacfbd2ef5988c3c56eec1419a02c1942dd215828fb"
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "c335652c9f3530e5b76895d63d7ec6442d81c831e21c07d33df8964e4fd3eca4"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "39c3596b501bf29885534b0f07dcd99363792bc3b4226505676745d1a429fe51"
+    },
+    {
+      "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "44801b54e302ac8b2b68dbd24f284af3c7421dd5b67293d05d8d4ce78bb91d82"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "sha256": "919f419e78b5d02e5c9849dc3fd29750830a0c6595729d00915a6aeaa42887e4"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "sha256": "04737b58fd07a0451a46b5a3a49e8049537facf2deef432e6735dfeb86619574"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "sha256": "dd841a472736ba3821f9fad65ab037229a47d3426099f8d254dbf2954d3352fc"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "39d56c81e108e23b5ee530946dd1c18766da7ae4325566cf66fdf6159eab063a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "811deaaf31d8ac4f87890c504420eb3f2507af87ef195437dea1014ad55327e6"
+    }
+  ],
+  "rawArtifacts": [
+    {
+      "file": "34-css-lock-computation.json",
+      "sha256": "9eef16db4940afe2bf5d98c4b71a42cfd632f30be61fa3fec77aa22acee6171b",
+      "bytes": 438
+    },
+    {
+      "file": "34-css-lock-negative-preload.cjs",
+      "sha256": "8a87e77154c96942acd29205ec30ae75c2603853eb5f70729beb015427ecb79c",
+      "bytes": 328
+    },
+    {
+      "file": "frontend-frozen-sources.json",
+      "sha256": "99de5e38b32773d3696153d57409ec1ac68b560d569dfcd5031be1f044189b3c",
+      "bytes": 7208
+    }
+  ],
+  "finalGeneratedFiles": [
+    {
+      "file": "facts.json",
+      "sha256": "8cbde9a9ef7f22f5b6ca1ba996fee3e46006f6c004741428ea9674827391b887"
+    },
+    {
+      "file": "docs/architecture/module-dependency-graph.json",
+      "sha256": "8978bfe5991b62dc3b388d8bf32d022ff599c4f2c41a54ee7f5e775b57d65195"
+    },
+    {
+      "file": "docs/architecture/module-dependency-graph.md",
+      "sha256": "22663d95f0d867b8f35d8117a98f4ec2bbfd384486b3100bbb7ebf18f1f41509"
+    },
+    {
+      "file": "docs/architecture/route-inventory.json",
+      "sha256": "8d02226a50650a39ead25b05ac5244dcf58bccf1984d2dd9f8b50d7d822e3443"
+    },
+    {
+      "file": "docs/architecture/route-inventory.md",
+      "sha256": "d1da2958158b9f9e55a97ff44bdba79a6ab70b64bb6d65f6a29426f63aae066d"
+    },
+    {
+      "file": "docs/architecture/privacy-egress-inventory.json",
+      "sha256": "1f8257b49c7f82c977dca38849453f034fc46c0eb435b5a101ce83b35f55d3ce"
+    },
+    {
+      "file": "docs/architecture/privacy-egress-inventory.md",
+      "sha256": "f910d2a96aa3f4ecdebe147579c0ceeb6baa2bdfa3aff746a909ca94bb7ca6d2"
+    }
+  ]
+}
