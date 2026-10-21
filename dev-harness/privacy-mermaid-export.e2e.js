@@ -170,8 +170,12 @@ async function downloaded(selector, extension) {
     const before = await cdp.evaluate('window.fixtureClipboard.length'); await click(button(2));
     const copied = await waitValue(`window.fixtureClipboard[${before}]?.done || window.fixtureClipboard[${before}]?.failed ? window.fixtureClipboard[${before}] : null`);
     ok(copied.done && (value === 'off' ? copied.text === diagram : !copied.text.includes(secret)), `${value} real user click completes native promise-based clipboard write without permission grants`);
-    const systemText=await clipboardGuard.read();
-    ok(copied.done && systemText.replace(/\r\n/g,'\n') === copied.text.replace(/\r\n/g,'\n'), `${value} actual system clipboard contains the synthetic validated source (Windows newline normalization)`);
+    let systemText=await clipboardGuard.read(), readCount=1;
+    const normalizeClipboard=text=>text.replace(/\r\n/g,'\n');
+    const firstLength=systemText.length, firstExact=systemText===copied.text, firstNormalized=normalizeClipboard(systemText)===normalizeClipboard(copied.text);
+    for(let attempt=0;copied.done && normalizeClipboard(systemText)!==normalizeClipboard(copied.text) && attempt<20;attempt++){await sleep(25);systemText=await clipboardGuard.read();readCount++;}
+    console.log('MERMAID_CLIPBOARD_RECEIVER',JSON.stringify({mode:value,nativeDone:copied.done,reads:readCount,firstLength,firstExact,firstNormalized,finalLength:systemText.length,expectedLength:copied.text?.length,exactNormalized:copied.done && normalizeClipboard(systemText)===normalizeClipboard(copied.text)}));
+    ok(copied.done && normalizeClipboard(systemText) === normalizeClipboard(copied.text), `${value} actual system clipboard contains the synthetic validated source (Windows newline normalization)`);
     const svg = await downloaded(button(4), '.svg');
     ok(!svg.bytes.includes(Buffer.from('LOCAL_ONLY_PRIVATE_METADATA')) && (value === 'off' ? svg.bytes.includes(Buffer.from(secret)) : !svg.bytes.includes(Buffer.from(secret))), `${value} actual SVG source/metadata uses an independent protected-source render`);
     const png = await downloaded(button(5), '.png');

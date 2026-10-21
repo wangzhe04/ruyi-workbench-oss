@@ -1,4 +1,5 @@
 'use strict';
+import { bindDisclosureSource, disclosureSourceFor, assertDisclosureSource, beginClipboardWrite } from './disclosure-source.js';
 import { installFocusTrap } from './modal.js';
 import { prepareMermaidSource, repairMermaidSource } from './mermaid-source.js';
 import { polishMermaidSvg } from './mermaid-postprocess.js';
@@ -31,17 +32,8 @@ let renderSeq = 0;
 // 全页一条渲染队列:mermaid 的主题是全局配置(initialize),两路渲染交错时(整会话重绘 + 切主题重画),
 // 后一路的 initialize 会改掉前一路还没画的块的配色。每块在队里先按【自己的】主题 initialize 再 render。
 let renderQueue = Promise.resolve();
-const documentSources = new WeakMap();
-export function bindMermaidDocument(node, locator, document) {
-  if (!node || !locator || typeof document !== 'string') return;
-  documentSources.set(node, Object.freeze({ node, document, locator: Object.freeze({ ...locator, messageIdentity: Object.freeze({ ...locator.messageIdentity }) }) }));
-}
-function documentSourceFor(node) {
-  for (let current = node; current; current = current.parentElement || current.parentNode) {
-    const record = documentSources.get(current); if (record) return record;
-  }
-  return null;
-}
+export function bindMermaidDocument(node, locator, document) { return bindDisclosureSource(node, locator, document); }
+const documentSourceFor = node => disclosureSourceFor(node, true);
 function enqueueRender(task) {
   const run = renderQueue.then(task, task);
   renderQueue = run.then(() => {}, () => {});
@@ -748,17 +740,7 @@ function openMermaidViewer(doc, markup, t) {
 }
 
 // 复制图源(工具条与回落提示共用一份):复制的是模型写的原文,不是预处理后的那份。
-function beginProtectedClipboard() {
-  const clipboard = globalThis.navigator?.clipboard;
-  if (!clipboard?.write || typeof globalThis.ClipboardItem !== 'function') throw new Error('clipboard capability unavailable');
-  let resolve, reject;
-  const data = new Promise((yes, no) => { resolve = yes; reject = no; });
-  // Start while the click still owns user activation; bytes resolve only after
-  // host validation. Failure rejects this one write rather than copying raw text.
-  const pending = clipboard.write([new globalThis.ClipboardItem({ 'text/plain': data })]);
-  pending.catch(() => {}); data.catch(() => {});
-  return { resolve, reject, pending };
-}
+function beginProtectedClipboard() { return beginClipboardWrite(); }
 function diagramExport(doc, context, format, plaintext, t, toast) {
   const { record, source, code, wrapper, options } = context;
   // Capture intent on the synchronous click stack, before the lazy module load
@@ -770,7 +752,7 @@ function diagramExport(doc, context, format, plaintext, t, toast) {
   catch { if (typeof toast === 'function') toast(t('mermaid.clipboardUnavailable'), 'err'); return; }
   const assertCurrent = () => {
     if (!intent || (typeof options.exportSnapshot === 'function' && JSON.stringify(options.exportSnapshot()) !== intentKey)) throw new Error('privacy.export_source_changed');
-    if (wrapper.isConnected === false || code.textContent !== source || (record && documentSources.get(record.node) !== record)) throw new Error('privacy.export_source_changed');
+    if (wrapper.isConnected === false || code.textContent !== source || (record && (() => { try { assertDisclosureSource(record); return false; } catch { return true; } })())) throw new Error('privacy.export_source_changed');
   };
   void import('./privacy-export.js').then(async ({ exportMermaidDocument }) => {
     assertCurrent();

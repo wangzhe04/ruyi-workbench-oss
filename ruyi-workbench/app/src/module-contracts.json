@@ -2524,6 +2524,9 @@
         "LIVE_FULL_CHARS",
         "LIVE_TAIL_CHARS",
         "LIVE_TOOLS_MAX",
+        "LOG_TAIL_DEFAULT_LINES",
+        "LOG_TAIL_MAX_BYTES",
+        "LOG_TAIL_MAX_LINES",
         "MCP_COMPAT_MATRIX",
         "MCP_CONFIG_JSON_MAX_BYTES",
         "MCP_CONFIG_OTHER_MAX_BYTES",
@@ -2605,7 +2608,9 @@
         "killPosixChildTree",
         "lastAssistantEngine",
         "lastSuccessfulClaudeModel",
+        "latestLogFile",
         "logEvent",
+        "logFileIdentity",
         "logStream",
         "logStreamDay",
         "makeAttachmentRecord",
@@ -2647,6 +2652,7 @@
         "probeMcpConnector",
         "promptDeadlineIsReal",
         "promptWaitMs",
+        "readLogTailSnapshot",
         "reconcileMcpEntryFingerprint",
         "recordSessionExecutionOwner",
         "redact",
@@ -2675,6 +2681,7 @@
         "splitMcpArgsString",
         "stopSession",
         "subscribeActiveChildEvents",
+        "tailLinesFromBuffer",
         "toolboxComponentsDir",
         "turnOutcomePending",
         "turnSettlers",
@@ -13619,9 +13626,6 @@
         "HELP_DOC_LANGS",
         "HELP_DOC_MAX_BYTES",
         "LAST_START_ERROR_FILE",
-        "LOG_TAIL_DEFAULT_LINES",
-        "LOG_TAIL_MAX_BYTES",
-        "LOG_TAIL_MAX_LINES",
         "MODEL_PRESETS",
         "MODEL_TIER_LABEL",
         "MODEL_TIER_USE",
@@ -13651,7 +13655,6 @@
         "installIntegration",
         "killPid",
         "kimiModelList",
-        "latestLogFile",
         "listenOnNextFreePort",
         "listenOnce",
         "listenWithFallback",
@@ -13679,7 +13682,6 @@
         "startServer",
         "startServerInner",
         "stopAllActiveTurnsSync",
-        "tailLinesFromBuffer",
         "tierModelForNode",
         "writeStartError"
       ],
@@ -14666,6 +14668,20 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "LOG_TAIL_DEFAULT_LINES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "LOG_TAIL_MAX_LINES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
             "call"
@@ -14674,6 +14690,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "makeAttachmentRecord",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "readLogTailSnapshot",
           "kinds": [
             "call"
           ]
@@ -24718,6 +24741,13 @@
           "symbol": "activeChildren",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "readLogTailSnapshot",
+          "kinds": [
+            "call"
           ]
         },
         {

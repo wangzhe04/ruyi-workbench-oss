@@ -155,6 +155,18 @@ button.pb-card:hover { border-color: var(--accent); transform: translateY(-2px);
 /* 第54波: 全屏桌面不再把聊天锁在 880px（超宽屏上不足三分之一）。1320px 上限兼顾长文本、工具结果
    与代码 diff；94% 让中等窗口仍保留呼吸边距，窄屏继续自然收缩。 */
 .message { width: min(1320px, 94%); margin: 0 auto 14px; display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 12px; }
+/* Shared copy options stay outside scrollable pre content and never add a text row. */
+.privacy-copy-options { position: relative; font-family: var(--font); font-size: var(--fs-xs); line-height: 1.4; }
+.privacy-copy-options > summary { list-style: none; cursor: pointer; min-width: 24px; padding: 2px 6px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2); color: var(--muted); text-align: center; }
+.privacy-copy-options > summary::-webkit-details-marker { display: none; }
+.privacy-copy-options > summary:hover, .privacy-copy-options > summary:focus-visible { color: var(--ink); background: var(--panel-3); }
+.privacy-copy-options[open] > button { position: absolute; z-index: 8; right: 0; top: calc(100% + 4px); white-space: nowrap; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2); color: var(--ink); box-shadow: var(--elev-2); }
+.privacy-code-copy-wrap { position: relative; margin: .7em 0; }
+.md .privacy-code-copy-wrap > pre { margin: 0; }
+.privacy-code-copy-wrap > .privacy-copy-options, .tc-pre-wrap > .privacy-copy-options { position: absolute; top: 6px; right: calc(3.5rem + 6px); z-index: 2; opacity: 0; }
+.privacy-code-copy-wrap:hover > .privacy-copy-options, .privacy-code-copy-wrap:focus-within > .privacy-copy-options, .tc-pre-wrap:hover > .privacy-copy-options, .tc-pre-wrap:focus-within > .privacy-copy-options, .privacy-copy-options[open] { opacity: 1; }
+.privacy-code-copy-wrap > .privacy-copy-options[open] > button, .tc-pre-wrap > .privacy-copy-options[open] > button { top: auto; bottom: calc(100% + 4px); }
+.privacy-code-copy-wrap:hover .copy-code, .privacy-code-copy-wrap:focus-within .copy-code, .tool-card .tc-pre-wrap:focus-within .copy-code { opacity: 1; }
 .message .avatar { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: var(--fs-md); font-weight: 700; }
 .message.user .avatar { background: var(--user-line); color: var(--ink); }
 .message.assistant .avatar { background: var(--accent); color: var(--accent-ink); }

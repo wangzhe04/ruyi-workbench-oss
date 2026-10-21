@@ -147,19 +147,26 @@ ok(jsHits.length === 0, `① public/**/*.js 的代码行零「自己去打开」
 
 // 剪贴板写入白名单 : 每条写明「复制的是内容,不是路径」。
 const ALLOWED_CLIPBOARD = Object.freeze({
-  'external-bot-setup.js': '67:仅复制平台必须配置的相对HTTP回调地址和五分钟配对挑战值；不是本机文件路径、命令或凭据。平台后台与本人机器人消息是该接入流程的必要外部验证，不能由本机设置冒充完成。',
-  'chat-render-primitives.js': '复制代码块 / 复制整条消息:复制的是回答内容',
-  'mermaid-runtime.js': '复制图源:复制的是图的源码',
+  'external-bot-setup.js': '显式管理用途：仅复制平台协议相对HTTP回调地址与短时配对能力挑战；不是一般会话外发许可，不能用本机状态冒充外部验证。',
+  'disclosure-source.js': '共享ClipboardItem activation reservation；仅接收宿主proof核验副本或固定安全摘要，未知来源须宿主核验OFF且不还原任何引用。',
   'provider-settings.js': '118g 后是「复制 JSON(排错用)」次要动作:复制的是模板内容,主动作已改为一键应用',
-  'help-menu.js': '118d 日志面板「复制全部」:复制的是日志正文,供用户发问题报告',
-  'boot-failure.js': '128f-① 启动故障卡「复制诊断」:复制的是诊断原文(哪一步、状态码、服务端原话、栈),供用户发给开发者;不是让用户照着去找的路径',
 });
 const clipboardFiles = fs.readdirSync(jsDir)
   .filter(n => n.endsWith('.js'))
   .filter(n => /(navigator\s*&&\s*globalThis\.navigator\.clipboard|navigator\??\.clipboard|clipboard\.writeText)/.test(read(jsDir, n)));
 const clipboardUnexpected = clipboardFiles.filter(n => !ALLOWED_CLIPBOARD[n]);
-ok(clipboardUnexpected.length === 0,
+const clipboardStale = Object.keys(ALLOWED_CLIPBOARD).filter(n => !clipboardFiles.includes(n));
+ok(clipboardUnexpected.length === 0 && clipboardStale.length === 0,
   `② 剪贴板写入只在白名单 ${Object.keys(ALLOWED_CLIPBOARD).length} 处(${clipboardFiles.join(', ')})` + (clipboardUnexpected.length ? ' -- 未登记: ' + clipboardUnexpected.join(', ') : ''));
+const copyPrimitives = read(PUBLIC, 'js', 'chat-render-primitives.js'), copyPolicy = read(PUBLIC, 'js', 'privacy-export.js');
+ok(!/navigator\??\.clipboard/.test(copyPrimitives) && ['block', 'pre', 'copy'].every(node => copyPrimitives.includes(`copyDisclosure(${node},`))
+  && copyPolicy.includes('if (!intent.knownUsableOff)') && copyPolicy.includes('privacyPolicyRecoveryRequiredV1 !== true')
+  && copyPolicy.includes("kind: 'clipboard-local'") && copyPolicy.includes('expectedTextHash')
+  && copyPolicy.includes('await validatedCopy(request,') && copyPolicy.includes('expectedMessageHash'),
+  '② 消息/代码/工具统一经来源与proof验证；未知来源OFF也须宿主proof，暂停OFF不能复制原文');
+const bootCopySource = read(PUBLIC, 'js', 'boot-failure.js');
+ok(!/writeText|selectNodeContents|knownOff|privacyState/.test(bootCopySource) && bootCopySource.includes('safeBootDiagText(err)') && bootCopySource.includes('beginClipboardWrite()'),
+  '② 启动诊断按钮一律固定安全摘要，无原文复制或自动选择回退');
 // This narrow exception cannot expand into copying passwords, files, commands or arbitrary form values.
 const botSetupSrc = read(PUBLIC, 'js', 'external-bot-setup.js');
 const botSetupCopy = functionBlock(botSetupSrc, 'copy');
@@ -213,8 +220,9 @@ ok(MENU_ITEM_IDS.every(id => menuSrc.includes(`id: '${id}'`)),
 ok(menuSrc.includes("openHelpDoc({ docId: 'user-guide' })") && menuSrc.includes("openHelpDoc({ docId: 'admin-guide' })"),
   '③ 管理员手册终于有了 UI 入口(118a-fix 打通通道但没有按钮)');
 ok(menuSrc.includes("api(logTailRequestPath(select.value))") && menuSrc.includes("openWorkbenchFolder('logs')")
-  && menuSrc.includes("t('help.logs.copyAll')"),
-  '③ 日志面板三件套:应用内看内容 + 复制全部(内容) + 打开日志目录(真动作)');
+  && menuSrc.includes("t('privacy.copy.latestLogs')") && menuSrc.includes("kind: 'log-tail-copy'")
+  && !/expectedFile|expectedText/.test(menuSrc),
+  '③ 日志面板三件套:应用内看内容 + 宿主核验最新尾部副本 + 打开日志目录(真动作)');
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(menuSrc), '③ help-menu.js 零 innerHTML');
 ok(!/^import\s/m.test(menuSrc), '③ help-menu.js 零 import(壳无关工厂,环境依赖全注入)');
 ok(overlayPayload.has('app/public/js/help-menu.js'), '③ overlay 离线载荷登记 help-menu.js');

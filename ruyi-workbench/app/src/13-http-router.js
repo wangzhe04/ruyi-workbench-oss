@@ -36,11 +36,6 @@ const OPEN_PATH_TARGETS = Object.freeze(['data', 'logs', 'workspace', 'manuals']
 
 // 118d: 应用内看日志。不是所有环境都有图形外壳(远程桌面/受控终端/精简部署),「打开日志目录」不能是
 // 唯一出路,所以再给一条只读的尾部读取通道。日志文件名由服务端按当天日期自己生成,请求只能给行数。
-const LOG_TAIL_MAX_LINES = 2000;
-const LOG_TAIL_DEFAULT_LINES = 200;
-// 只读文件尾部这么多字节再切行:日志按天滚动,单份也可能到几十 MB,整份读进内存没有必要。
-const LOG_TAIL_MAX_BYTES = 2 * 1024 * 1024;
-
 // 枚举 -> 绝对目录。data/logs 是 00-boot 的 paths 常量,manuals 复用手册阅读器的同一份目录解析,
 // workspace 取当前会话 cwd;取不到就让调用方报 400,绝不去猜一个目录打开。
 function openPathTargetDir(target, session) {
@@ -49,27 +44,6 @@ function openPathTargetDir(target, session) {
   if (target === 'manuals') return helpDocsDir();
   if (target === 'workspace') return String((session && session.cwd) || '');
   return '';
-}
-
-// 最近一份工作台日志(04-permission-runtime 的 logEvent 按天写 workbench-YYYY-MM-DD.ndjson)。
-// 只在【服务端已知目录】里按【固定正则】筛文件名,不接受任何外部路径入参。
-function latestLogFile() {
-  let names = [];
-  try { names = fs.readdirSync(paths.logs); } catch { return ''; }
-  const hits = names.filter(n => /^workbench-\d{4}-\d{2}-\d{2}\.ndjson$/.test(n)).sort();
-  return hits.length ? path.join(paths.logs, hits[hits.length - 1]) : '';
-}
-
-// 尾部若干行。startedMidFile 时首行大概率被切断(字节偏移不是行/字符边界),直接丢掉半行。
-function tailLinesFromBuffer(buf, startedMidFile, wanted) {
-  let text = buf.toString('utf8');
-  if (startedMidFile) {
-    const nl = text.indexOf('\n');
-    text = nl >= 0 ? text.slice(nl + 1) : '';
-  }
-  const all = text.split(/\r?\n/).filter(line => line.length > 0);
-  const lines = all.slice(Math.max(0, all.length - wanted));
-  return { lines, more: all.length > lines.length };
 }
 
 // 118c: 启动体验。两件用户看得见的事,都通过 GET /api/status 的【一个】只读字段 startNotice 上线:
@@ -1498,27 +1472,12 @@ async function handleApi(req, res, pathname) {
     const q = new URL(req.url, 'http://x').searchParams;
     const asked = Number.parseInt(q.get('lines') || '', 10);
     const wanted = Number.isFinite(asked) ? Math.min(Math.max(asked, 1), LOG_TAIL_MAX_LINES) : LOG_TAIL_DEFAULT_LINES;
-    const file = latestLogFile();
-    if (!file) return send(res, json({ ok: false, error: 'logs.none', maxLines: LOG_TAIL_MAX_LINES }));
-    let handle = null;
     try {
-      const st = await fsp.stat(file);
-      const size = Math.min(st.size, LOG_TAIL_MAX_BYTES);
-      const start = Math.max(0, st.size - size);
-      const buf = Buffer.alloc(size);
-      handle = await fsp.open(file, 'r');
-      if (size > 0) await handle.read(buf, 0, size, start);
-      const { lines, more } = tailLinesFromBuffer(buf, start > 0, wanted);
-      // 只回文件名不回目录:面板抬头要能说清这是哪一天的日志,但界面上不出现任何可以「照着去找」的路径。
-      return send(res, json({ ok: true, file: path.basename(file), lines, count: lines.length,
-        requested: wanted, maxLines: LOG_TAIL_MAX_LINES, more }));
+      const { assert: assertSource, ...view } = await readLogTailSnapshot(wanted);
+      return send(res, json({ ok: true, ...view }));
     } catch (e) {
-      // 只回一个机器码,【不回 e.message】:Node 的 ENOENT/EPERM 文本里带着日志文件的绝对路径,
-      // 回给前端就等于又把路径印到界面上了(本波要消灭的正是这类出口)。原因进结构化日志。
-      logEvent({ kind: 'logs_tail_failed', error: String(e && e.message || e) });
-      return send(res, json({ ok: false, error: 'logs.read_failed', maxLines: LOG_TAIL_MAX_LINES }));
-    } finally {
-      if (handle) await handle.close().catch(() => {});
+      if (e.code !== 'logs.none') logEvent({ kind: 'logs_tail_failed', error: String(e && e.message || e) });
+      return send(res, json({ ok: false, error: e.code === 'logs.none' ? 'logs.none' : 'logs.read_failed', maxLines: LOG_TAIL_MAX_LINES }));
     }
   }
   // v0.9-S4 (C4): local file PREVIEW. GET /api/file/preview?path=&sessionId= — returns file content for the

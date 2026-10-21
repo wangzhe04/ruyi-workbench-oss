@@ -21,7 +21,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   B4 服务端兜底码 api.internal_error:诊断里有服务端原话与错误码,说明那一行不再只剩「服务发生内部错误。」;
 //   B5 前端异常(状态接口回 200、正文 null → 我们代码里抛 TypeError):诊断写明界面代码出错、哪一步、栈里有那一帧;
 //      B5b 这一轮没有任何一发 POST /api/config 带 locale;B5c 回的不是 JSON:诊断点名 SyntaxError 与原话;
-//   B6 「复制诊断」:交给剪贴板的就是诊断原文;剪贴板不给用时原文被整段选中(页内桩,不碰系统剪贴板);
+//   B6 「复制安全诊断摘要」:只给固定白名单摘要；失败不选择原文(页内ClipboardItem桩,不碰系统剪贴板);
 //   B3 拦截撤掉之后点「重新加载」:状态行里没有生花括号、写着第 1 次;卡消失、左栏出现那条线程。
 // 判定行:`BOOT FAILURE KIND BROWSER E2E: ALL PASS`。
 const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
@@ -170,8 +170,8 @@ const CARD = `(() => {
 
     /* ═════════ B6 复制诊断 ═════════ */
     // 【不碰真剪贴板】:新无头 Edge 用的是 Windows 系统剪贴板(读回来换行成了 CRLF 就是证据),测试写进去会冲掉
-    // 用户自己复制的东西。页内把 navigator.clipboard 换成桩:一次收下文本(成功路),一次拒绝(退路:整段选中原文)。
-    ok(Boolean(c5) && c5.copy, 'B6a 诊断里有「复制诊断」');
+    // 用户自己复制的东西。页内把实际write/ClipboardItem结果换成接收桩；真实OS路径由privacy-clipboard-copy覆盖。
+    ok(Boolean(c5) && c5.copy, 'B6a 诊断里有「复制安全诊断摘要」');
     const copied = await fx.evaluate(`(async () => {
       const card = document.querySelector('.boot-failure');
       const btn = card && card.querySelector('.boot-diag-copy');
@@ -182,21 +182,26 @@ const CARD = `(() => {
       if (toggle && card.querySelector('.boot-failure-diag').hidden) toggle.click();
       const expanded = toggle ? toggle.getAttribute('aria-expanded') : '';
       const got = [];
-      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { got.push(text); } } });
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write: async items => { got.push(await (await items[0].getType('text/plain')).text()); } } });
       btn.click();
       await new Promise(r => setTimeout(r, 100));
       const okLabel = btn.textContent;
-      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('denied (stub)'); } } });
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write: async () => { throw new Error('denied (stub)'); } } });
       getSelection().removeAllRanges();
       btn.click();
       await new Promise(r => setTimeout(r, 100));
-      return { expanded, okLabel, got, failLabel: btn.textContent, selected: String(getSelection()), text: pre.textContent };
+      let safe; try { safe = JSON.parse(got[0].slice(0, got[0].lastIndexOf('}') + 1)); } catch {}
+      return { expanded, okLabel, got, safe, origin: location.origin, failLabel: btn.textContent, selected: String(getSelection()), text: pre.textContent };
     })()`);
     ok(Boolean(copied) && copied.expanded === 'true', `B6c 「查看诊断」展开面板(aria-expanded=${copied && copied.expanded})`);
-    ok(Boolean(copied) && copied.okLabel === zh['common.copied'] && copied.got.length === 1 && copied.got[0] === copied.text,
-      `B6 交给剪贴板的就是诊断原文(按钮「${copied && copied.okLabel}」,${copied && copied.got.length} 次,${copied && copied.got[0] && copied.got[0].length} 字/原文 ${copied && copied.text.length} 字)`);
-    ok(Boolean(copied) && copied.failLabel === zh['bootFailure.diagCopyFailed'] && copied.selected === copied.text,
-      `B6b 剪贴板不给用时整段选中原文、按钮说怎么办(「${copied && copied.failLabel}」,选中 ${copied && copied.selected.length} 字)`);
+    ok(Boolean(copied) && copied.okLabel === zh['common.copied'] && copied.got.length === 1 && copied.got[0] !== copied.text
+      && copied.safe?.step === 'refreshStatus · GET /api/status' && copied.safe.contentWithheld === true
+      && Object.keys(copied.safe).every(key => ['step', 'status', 'code', 'at', 'contentWithheld'].includes(key))
+      && typeof copied.safe.at === 'string' && !copied.got[0].includes(copied.origin) && !copied.got[0].includes('TypeError')
+      && !['message', 'stack', 'path', 'origin'].some(key => Object.hasOwn(copied.safe, key)),
+      'B6 ClipboardItem接收的是固定白名单安全摘要，不是屏幕原message/stack/path/origin');
+    ok(Boolean(copied) && copied.failLabel === zh['bootFailure.diagCopyFailed'] && copied.selected === '',
+      'B6b 剪贴板拒绝后原诊断仍可查看，但不会自动选择原文回退');
 
     /* ═════════ B5c 原生 SyntaxError 也点得出名 ═════════ */
     mode = 'status-garbage';

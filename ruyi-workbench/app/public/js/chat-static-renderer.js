@@ -30,6 +30,7 @@ export function createChatStaticRenderer(deps = {}) {
     humanizeToolName = name => name,   // 走查 #5/#12:待决权限卡说人话动词、就地给「允许／拒绝」
     decidePermission = null,
     bindMermaidDocument = () => {},
+    bindDisclosureSource = () => {},
   } = deps;
   // Formatting is synchronous in marked/sanitizer/highlight.js. Beyond this bounded size, keep the raw
   // source as selectable plain text so one answer cannot monopolize dragging/scrolling at settle/re-entry.
@@ -362,7 +363,7 @@ export function createChatStaticRenderer(deps = {}) {
           const toolSegment = segments[i++];
           const tc = tools.get(String(toolSegment.toolCallId || '')) || { id: toolSegment.toolCallId, name: toolSegment.name || 'tool' };
           const staticTc = { ...tc, isError: toolSegment.status === 'error' || tc.isError === true };
-          const card = toolCard(staticTc).d;
+          const card = toolCard(staticTc, sourceLocator && { ...sourceLocator, toolIndex: msg.toolCalls.indexOf(tc), toolId: tc.id, toolName: tc.name }).d;
           const anchorScope = `${idScope ? idScope + '-' : ''}${msg.turnSeq || msg.createdAt || ''}`;
           const anchorId = narrativeToolAnchor(toolSegment.toolCallId || tc.id, anchorScope);
           if (anchorId !== 'turn-tool-') card.id = anchorId;
@@ -556,6 +557,7 @@ export function createChatStaticRenderer(deps = {}) {
     const sourceLocator = options.sessionId && Number.isSafeInteger(options.messageIndex) && !options.running ? {
       sessionId: options.sessionId, messageIndex: options.messageIndex,
       messageIdentity: { id: msg.id || '', role: msg.role, createdAt: msg.createdAt || '', turnSeq: msg.turnSeq ?? null },
+      messageSnapshot: JSON.stringify(msg),
     } : null;
     // 后台代理唤醒(服务端 10 scheduleAgentWake):那条 user 消息是工作台替模型起回合的系统通知,不是用户说的话 ——
     // 画成一行系统提示(本地化的短句),不出「编辑重发 / 重试 / 回溯」这些只对用户原话有意义的按钮。
@@ -572,6 +574,7 @@ export function createChatStaticRenderer(deps = {}) {
     }
     const meta = msg.role === 'assistant' ? metaFromMessage(msg) : null;
     const { row, main } = messageShell(msg.role, msg.createdAt, meta);
+    if (sourceLocator) bindDisclosureSource(row, { ...sourceLocator, slot: 'content' }, String(msg.content || ''));
     const segments = validTurnSegments(msg);
     // 50d(02 Phase D):插话卡静态重渲染 -- steered:true 消息(刷新/重进会话后从 session.messages 读出)
     //   统一在此加「插话」徽章,与流式期 renderSteeredMessage 同源(后者也传 steered:true 走此路径)。
@@ -602,7 +605,7 @@ export function createChatStaticRenderer(deps = {}) {
     }
     if (!narrativeResult && visibleToolCalls.length) {
       // v1.0.2 (G4): >3 top-level tool cards → collapse them all into one <details.tool-group>. ≤3 render flat.
-      const cardEls = visibleToolCalls.map(tc => toolCard(tc).d);
+      const cardEls = visibleToolCalls.map(tc => toolCard(tc, sourceLocator && { ...sourceLocator, toolIndex: msg.toolCalls.indexOf(tc), toolId: tc.id, toolName: tc.name }).d);
       const group = buildStaticToolGroup(cardEls);
       if (group) main.appendChild(group);
       else for (const c of cardEls) main.appendChild(c);

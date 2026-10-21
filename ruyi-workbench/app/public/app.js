@@ -1,5 +1,6 @@
 'use strict';
-import { downloadPrivacyExport } from './js/privacy-export.js';
+import { bindDisclosureSource } from './js/disclosure-source.js';
+import { downloadPrivacyExport, copyDisclosureSource } from './js/privacy-export.js';
 /* ============================================================
    如意 Ruyi — client (overlay v0.3;原 Win Claude Workbench,v0.8-S8 品牌落地)
    ============================================================ */
@@ -298,6 +299,7 @@ const {
   usageLine,
   wrapPreWithCopy,
 } = createChatRenderPrimitives({
+  bindDisclosureSource, copyDisclosure: (node, options) => copyDisclosureSource(node, { ...options, renderMarkdownInto }),
   $,
   api,
   fetchAttachmentImage: att => attachmentImageUrl(att), // N11: 落盘截图走既有 /api/upload/content(带鉴权头 fetch → objectURL)
@@ -624,6 +626,7 @@ const {
   turnToolIndexCard,
   messageAttachmentStrip,
 } = createChatStaticRenderer({
+  bindDisclosureSource,
   bindMermaidDocument,
   attachmentImageUrl,
   buildNarrativeSteerSegment: (...args) => buildNarrativeSteerSegment(...args),

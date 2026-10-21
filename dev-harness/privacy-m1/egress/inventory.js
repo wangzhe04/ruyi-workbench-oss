@@ -91,7 +91,7 @@ function owners(tokens, matched, source, python) {
   return position => spans.filter(s => s.start <= position && position < s.end).sort((a, b) => (a.end - a.start) - (b.end - b.start))[0]?.name || '<module>';
 }
 const NETWORK_MODULE = /^(?:node:)?(?:https?|http2|net|tls|dgram|dns|child_process|undici|node-fetch|axios|ws|socket|subprocess|requests|httpx|urllib(?:\.request)?|webbrowser)$/;
-const SINKS = new Map();
+const SINKS = new Map([['writeText', 'delegated']]);
 for (const name of ['fetch', 'request', 'urlopen', 'WebSocket', 'XMLHttpRequest', 'EventSource', 'sendBeacon', 'createConnection', 'create_connection', 'connect', 'getaddrinfo', 'resolve4', 'resolve6', 'lookup', 'HTTPConnection', 'HTTPSConnection']) SINKS.set(name, 'network');
 for (const name of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'Popen', 'run', 'check_call', 'check_output', 'system', 'create_subprocess_exec', 'create_subprocess_shell', 'startfile', 'Start-Process', 'Start']) SINKS.set(name, 'process');
 for (const name of ['writeFile', 'writeFileSync', 'copyFile', 'copyFileSync', 'createWriteStream', 'save', 'Save', 'SaveAs', 'ExportAsFixedFormat', 'write_bytes', 'write_text', 'createObjectURL']) SINKS.set(name, 'file');
@@ -100,20 +100,27 @@ for (const name of ['providerModelPostOnce', 'providerPostJsonOnce', 'openAiStre
 
 function analyze(file, source) {
   const python = file.endsWith('.py'), tokens = lex(source, python), matched = pairs(tokens), owner = owners(tokens, matched, source, python);
-  const aliases = new Map();
+  const aliases = new Map(), clipboardReceivers = new Set(['clipboard']);
   // Fixed-point simple aliases, including destructured renamed imports and aliases of aliases.
   for (let pass = 0; pass < 8; pass++) for (let i = 0; i < tokens.length; i++) {
     if (tokens[i].kind !== 'word') continue;
     if (!python && tokens[i + 1]?.v === '=') {
       let end = i + 2; while (end < tokens.length && ![';', '\n'].includes(tokens[end].v) && end < i + 25) end++;
       const rhs = tokens.slice(i + 2, end);
+      if (rhs.length <= 8 && rhs.some(t => clipboardReceivers.has(t.v))) {
+        clipboardReceivers.add(tokens[i].v);
+        if (rhs.some(t => t.v === 'write')) aliases.set(tokens[i].v, 'clipboard-write');
+      }
       const candidate = rhs.find(t => SINKS.has(t.v) || aliases.has(t.v));
       if (candidate && rhs.length <= 8 && !rhs.some(t => ['{', '=>', '(', '=', ','].includes(t.v))) aliases.set(tokens[i].v, aliases.get(candidate.v) || candidate.v);
     }
-    if (tokens[i + 1]?.v === ':' && tokens[i + 2]?.kind === 'word' && SINKS.has(tokens[i].v)) {
+    if (tokens[i + 1]?.v === ':' && tokens[i + 2]?.kind === 'word' && (SINKS.has(tokens[i].v) || tokens[i].v === 'write')) {
       let open = i - 1; while (open >= 0 && tokens[open].v !== '{') open--;
       const close = matched.get(open);
-      if (['const', 'let', 'var'].includes(tokens[open - 1]?.v) && tokens[close + 1]?.v === '=') aliases.set(tokens[i + 2].v, tokens[i].v);
+      if (['const', 'let', 'var'].includes(tokens[open - 1]?.v) && tokens[close + 1]?.v === '=') {
+        if (tokens[i].v !== 'write') aliases.set(tokens[i + 2].v, tokens[i].v);
+        else if (tokens.slice(close + 2, close + 10).some(t => clipboardReceivers.has(t.v))) aliases.set(tokens[i + 2].v, 'clipboard-write');
+      }
     }
     if (python && tokens[i + 1]?.v === 'as' && tokens[i + 2]?.kind === 'word' && SINKS.has(tokens[i].v)) aliases.set(tokens[i + 2].v, tokens[i].v);
   }
@@ -142,6 +149,7 @@ function analyze(file, source) {
     if (token.v === 'setAttribute' && next === '(' && ['"src"', "'src'", '"href"', "'href'", '"srcdoc"', "'srcdoc'"].includes(tokens[i + 2]?.v)) add(i, 'delegated', '<dom-attribute>', matched.get(i + 1) + 1 || i + 2, 'Browser resource or markup attribute; final destination and CSP effects require review');
     const actual = aliases.get(token.v) || token.v;
     let category = SINKS.get(actual);
+    if (actual === 'clipboard-write' || actual === 'write' && clipboardReceivers.has(tokens[i - 2]?.v)) category = 'delegated';
     if ((actual === 'get' && ['http', 'https', 'lib', 'transport'].includes(tokens[i - 2]?.v)) || (actual === 'open' && ['opener', 'window', 'webbrowser', 'browser'].includes(tokens[i - 2]?.v))) category = 'network';
     if (actual === 'write' && tokens.slice(Math.max(0, i - 5), i).some(t => t.v === 'stdin')) category = 'stdio';
     if (actual === 'write' && tokens.slice(Math.max(0, i - 5), i).some(t => t.v === 'stdout')) category = 'stdio-output';

@@ -17759,6 +17759,60 @@ function logEvent(record) {
   }
 }
 
+const LOG_TAIL_MAX_LINES = 2000;
+const LOG_TAIL_DEFAULT_LINES = 200;
+// 只读文件尾部这么多字节再切行:日志按天滚动,单份也可能到几十 MB,整份读进内存没有必要。
+const LOG_TAIL_MAX_BYTES = 2 * 1024 * 1024;
+
+// 最近一份工作台日志(04-permission-runtime 的 logEvent 按天写 workbench-YYYY-MM-DD.ndjson)。
+// 只在【服务端已知目录】里按【固定正则】筛文件名,不接受任何外部路径入参。
+function latestLogFile() {
+  let names = [];
+  try { names = fs.readdirSync(paths.logs); } catch { return ''; }
+  const hits = names.filter(n => /^workbench-\d{4}-\d{2}-\d{2}\.ndjson$/.test(n)).sort();
+  return hits.length ? path.join(paths.logs, hits[hits.length - 1]) : '';
+}
+
+// 尾部若干行。startedMidFile 时首行大概率被切断(字节偏移不是行/字符边界),直接丢掉半行。
+function tailLinesFromBuffer(buf, startedMidFile, wanted) {
+  let text = buf.toString('utf8');
+  if (startedMidFile) {
+    const nl = text.indexOf('\n');
+    text = nl >= 0 ? text.slice(nl + 1) : '';
+  }
+  const all = text.split(/\r?\n/).filter(line => line.length > 0);
+  const lines = all.slice(Math.max(0, all.length - wanted));
+  return { lines, more: all.length > lines.length };
+}
+
+// Shared local-log source owner. No caller-supplied path or raw content is accepted.
+function logFileIdentity(file) {
+  try {
+    const value = fs.lstatSync(file, { bigint: true });
+    if (!value.isFile() || value.isSymbolicLink()) throw new Error();
+    return [value.dev, value.ino, value.size, value.mtimeNs, value.ctimeNs].join(':');
+  } catch { return ''; }
+}
+async function readLogTailSnapshot(requested, { stable = false } = {}) {
+  const wanted = Number.isSafeInteger(requested) ? Math.min(Math.max(requested, 1), LOG_TAIL_MAX_LINES) : LOG_TAIL_DEFAULT_LINES;
+  const file = latestLogFile();
+  if (!file) throw Object.assign(new Error('logs.none'), { code: 'logs.none' });
+  const identity = logFileIdentity(file);
+  if (!identity) throw Object.assign(new Error('logs.read_failed'), { code: 'logs.read_failed' });
+  const assert = () => {
+    if (latestLogFile() !== file || logFileIdentity(file) !== identity) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+  };
+  let handle;
+  try {
+    const st = await fsp.stat(file), size = Math.min(st.size, LOG_TAIL_MAX_BYTES), start = Math.max(0, st.size - size);
+    const buffer = Buffer.alloc(size); handle = await fsp.open(file, 'r');
+    if (size) await handle.read(buffer, 0, size, start);
+    const { lines, more } = tailLinesFromBuffer(buffer, start > 0, wanted);
+    if (stable) assert();
+    return { file: path.basename(file), lines, count: lines.length, requested: wanted, maxLines: LOG_TAIL_MAX_LINES, more, assert };
+  } finally { if (handle) await handle.close().catch(() => {}); }
+}
+
 // --- Active claude child registry keyed by session id, for stop/restart/interrupt + disconnect kill. ---
 const activeChildren = new Map(); // sessionId -> { child, pid, state, startedAt, lastEventAt, interactive, onEvent }
 // 第 117 波 117l D4(27 号文 §11.9;用户第四轮走查第 3 条「『它刚说』更新不够及时」):活回合尾巴的累加器。
@@ -67987,11 +68041,6 @@ const OPEN_PATH_TARGETS = Object.freeze(['data', 'logs', 'workspace', 'manuals']
 
 // 118d: 应用内看日志。不是所有环境都有图形外壳(远程桌面/受控终端/精简部署),「打开日志目录」不能是
 // 唯一出路,所以再给一条只读的尾部读取通道。日志文件名由服务端按当天日期自己生成,请求只能给行数。
-const LOG_TAIL_MAX_LINES = 2000;
-const LOG_TAIL_DEFAULT_LINES = 200;
-// 只读文件尾部这么多字节再切行:日志按天滚动,单份也可能到几十 MB,整份读进内存没有必要。
-const LOG_TAIL_MAX_BYTES = 2 * 1024 * 1024;
-
 // 枚举 -> 绝对目录。data/logs 是 00-boot 的 paths 常量,manuals 复用手册阅读器的同一份目录解析,
 // workspace 取当前会话 cwd;取不到就让调用方报 400,绝不去猜一个目录打开。
 function openPathTargetDir(target, session) {
@@ -68000,27 +68049,6 @@ function openPathTargetDir(target, session) {
   if (target === 'manuals') return helpDocsDir();
   if (target === 'workspace') return String((session && session.cwd) || '');
   return '';
-}
-
-// 最近一份工作台日志(04-permission-runtime 的 logEvent 按天写 workbench-YYYY-MM-DD.ndjson)。
-// 只在【服务端已知目录】里按【固定正则】筛文件名,不接受任何外部路径入参。
-function latestLogFile() {
-  let names = [];
-  try { names = fs.readdirSync(paths.logs); } catch { return ''; }
-  const hits = names.filter(n => /^workbench-\d{4}-\d{2}-\d{2}\.ndjson$/.test(n)).sort();
-  return hits.length ? path.join(paths.logs, hits[hits.length - 1]) : '';
-}
-
-// 尾部若干行。startedMidFile 时首行大概率被切断(字节偏移不是行/字符边界),直接丢掉半行。
-function tailLinesFromBuffer(buf, startedMidFile, wanted) {
-  let text = buf.toString('utf8');
-  if (startedMidFile) {
-    const nl = text.indexOf('\n');
-    text = nl >= 0 ? text.slice(nl + 1) : '';
-  }
-  const all = text.split(/\r?\n/).filter(line => line.length > 0);
-  const lines = all.slice(Math.max(0, all.length - wanted));
-  return { lines, more: all.length > lines.length };
 }
 
 // 118c: 启动体验。两件用户看得见的事,都通过 GET /api/status 的【一个】只读字段 startNotice 上线:
@@ -69449,27 +69477,12 @@ async function handleApi(req, res, pathname) {
     const q = new URL(req.url, 'http://x').searchParams;
     const asked = Number.parseInt(q.get('lines') || '', 10);
     const wanted = Number.isFinite(asked) ? Math.min(Math.max(asked, 1), LOG_TAIL_MAX_LINES) : LOG_TAIL_DEFAULT_LINES;
-    const file = latestLogFile();
-    if (!file) return send(res, json({ ok: false, error: 'logs.none', maxLines: LOG_TAIL_MAX_LINES }));
-    let handle = null;
     try {
-      const st = await fsp.stat(file);
-      const size = Math.min(st.size, LOG_TAIL_MAX_BYTES);
-      const start = Math.max(0, st.size - size);
-      const buf = Buffer.alloc(size);
-      handle = await fsp.open(file, 'r');
-      if (size > 0) await handle.read(buf, 0, size, start);
-      const { lines, more } = tailLinesFromBuffer(buf, start > 0, wanted);
-      // 只回文件名不回目录:面板抬头要能说清这是哪一天的日志,但界面上不出现任何可以「照着去找」的路径。
-      return send(res, json({ ok: true, file: path.basename(file), lines, count: lines.length,
-        requested: wanted, maxLines: LOG_TAIL_MAX_LINES, more }));
+      const { assert: assertSource, ...view } = await readLogTailSnapshot(wanted);
+      return send(res, json({ ok: true, ...view }));
     } catch (e) {
-      // 只回一个机器码,【不回 e.message】:Node 的 ENOENT/EPERM 文本里带着日志文件的绝对路径,
-      // 回给前端就等于又把路径印到界面上了(本波要消灭的正是这类出口)。原因进结构化日志。
-      logEvent({ kind: 'logs_tail_failed', error: String(e && e.message || e) });
-      return send(res, json({ ok: false, error: 'logs.read_failed', maxLines: LOG_TAIL_MAX_LINES }));
-    } finally {
-      if (handle) await handle.close().catch(() => {});
+      if (e.code !== 'logs.none') logEvent({ kind: 'logs_tail_failed', error: String(e && e.message || e) });
+      return send(res, json({ ok: false, error: e.code === 'logs.none' ? 'logs.none' : 'logs.read_failed', maxLines: LOG_TAIL_MAX_LINES }));
     }
   }
   // v0.9-S4 (C4): local file PREVIEW. GET /api/file/preview?path=&sessionId= — returns file content for the
@@ -89873,6 +89886,21 @@ const PrivacyTextExports = (() => {
   const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
   const fail = code => { throw Object.assign(new Error(code), { code }); };
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  function clipboardContainsMedia(value) {
+    let nodes = 0;
+    const visit = (item, depth = 0) => {
+      if (++nodes > 50000 || depth > 32) fail('privacy.export_source_limit');
+      if (typeof item === 'string') return /^data:[^,]+;base64,/i.test(item) || item.length >= 128 && /^[A-Za-z0-9+/=\r\n]+$/.test(item);
+      if (!item || typeof item !== 'object') return false;
+      if (['image', 'audio', 'video', 'document', 'image_url', 'input_image', 'input_audio', 'input_file', 'base64'].includes(item.type)) return true;
+      if (Array.isArray(item.imageAttachments) && item.imageAttachments.length) return true;
+      if (typeof item.mimeType === 'string' && !/^(?:text\/|application\/(?:json|xml))/.test(item.mimeType)) return true;
+      if (Object.entries(item).some(([key, value]) => /^(?:blob|image_base64|audio_base64|video_base64|base64|b64|screenshot_base64)$/i.test(key) && typeof value === 'string' && value.length > 0)) return true;
+      return Object.values(item).some(child => visit(child, depth + 1));
+    };
+    return visit(value);
+  }
+
   async function memorySource() {
     const store = await stewardReadMemoryStore();
     return { ok: true, schema: STEWARD_MEMORY_SCHEMA, entries: store.entries.filter(e => e.state === 'active') };
@@ -89950,6 +89978,76 @@ const PrivacyTextExports = (() => {
       }
       if (Buffer.byteLength(document) > 1048576 || (!id && hash(document) !== body.expectedDocumentHash)) fail('privacy.export_source_limit');
       value = { document, filename: 'mermaid-' + Date.now() + (format === 'copy' ? '.txt' : '.' + format) };
+    } else if (body.kind === 'clipboard-local') {
+      // An unknown local DOM source grants no scope or restoration authority.
+      // Literal copying is allowed only while the authoritative host remains OFF.
+      if (enabled || typeof body.text !== 'string' || hash(body.text) !== body.expectedTextHash) fail('privacy.export_source_missing');
+      source = { kind: body.kind, hash: hash(body.text) }; check = async () => {};
+      value = { localText: body.text, filename: 'clipboard.txt' }; format = 'copy';
+    } else if (body.kind === 'clipboard-source') {
+      const id = safeSessionId(body.sessionId), index = body.messageIndex, identity = body.messageIdentity;
+      if (!id || !Number.isSafeInteger(index) || index < 0 || typeof body.expectedDocumentHash !== 'string') fail('privacy.export_source_missing');
+      const session = await loadSession(id), message = session?.messages?.[index];
+      if (!message || !['user', 'assistant'].includes(message.role) || !identity || identity.role !== message.role
+        || identity.id !== (message.id || '') || identity.createdAt !== (message.createdAt || '') || identity.turnSeq !== (message.turnSeq ?? null)) fail('privacy.export_source_changed');
+      const select = row => {
+        if (body.slot === 'content') return row.content;
+        if (body.slot === 'segment-text' && row.segments?.[body.segmentIndex]?.type === 'text') return row.segments[body.segmentIndex].text;
+        if (body.slot === 'segment-markdown' && row.segments?.[body.segmentIndex]?.type === 'plan') return row.segments[body.segmentIndex].markdown;
+        if (['tool-input', 'tool-result'].includes(body.slot)) {
+          const tool = Number.isSafeInteger(body.toolIndex) && body.toolIndex >= 0 ? row.toolCalls?.[body.toolIndex] : null;
+          if (!tool || !body.toolId || tool.id !== body.toolId || tool.name !== body.toolName
+            || row.toolCalls.filter(item => item?.id === body.toolId).length !== 1) fail('privacy.export_source_changed');
+          return tool[body.slot === 'tool-input' ? 'input' : 'result'];
+        }
+        fail('privacy.export_source_missing');
+      };
+      const stringify = value => value == null ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+      const raw = select(message);
+      if (raw === undefined) fail('privacy.export_source_missing');
+      if (enabled && !plaintext && ['tool-input', 'tool-result'].includes(body.slot) && clipboardContainsMedia(raw)) fail('privacy.export_media_unsupported');
+      const sourceHash = hash(message), seq = sessionDiskWriteSeqOf(id);
+      const assertSource = () => { if (sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); };
+      sourceGuards.push(assertSource);
+      check = async () => { const current = await loadSession(id); if (!current || hash(current.messages?.[index]) !== sourceHash) fail('privacy.export_source_changed'); assertSource(); };
+      const displayed = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.displayMessages(id, [message]));
+      sourceGuards.push(displayed.assert);
+      const view = select(displayed.value[0]);
+      if (typeof body.expectedMessageHash !== 'string' || hash(displayed.value[0]) !== body.expectedMessageHash) fail('privacy.export_source_changed');
+      if (hash(stringify(view)) !== body.expectedDocumentHash) fail('privacy.export_source_changed');
+      let logical = { source: raw, metadata: { slot: body.slot, ...(body.toolId ? { id: body.toolId, name: body.toolName } : {}) } };
+      if (plaintext) {
+        const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, logical));
+        logical = plain.value; sourceGuards.push(plain.assert);
+      } else if (!enabled) logical.source = view;
+      else {
+        // Native tool field rules retain their original logical root (for example
+        // /secret), rather than acquiring a /logical/source wrapper prefix.
+        // Markdown/code documents likewise project in full before fence extraction.
+        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(raw, [id], { recipient: 'user-clipboard', purpose: 'clipboard:' + body.slot, sourceHash: hash(raw) });
+        logical.source = copy.value; sourceGuards.push(copy.assert); mappingGuardCount++;
+      }
+      if (Buffer.byteLength(JSON.stringify(logical)) > 8 * 1024 * 1024) fail('privacy.export_source_limit');
+      source = { sessionId: id, messageIndex: index, messageHash: sourceHash, slot: body.slot, toolId: body.toolId };
+      scopes = [id]; value = { logical, filename: 'clipboard.txt' }; format = 'copy';
+    } else if (body.kind === 'log-tail-copy') {
+      const snapshot = await readLogTailSnapshot(body.lines, { stable: true });
+      const assertLog = snapshot.assert;
+      sourceGuards.push(assertLog); check = async () => { assertLog(); };
+      source = { file: snapshot.file, hash: hash(snapshot.lines), requested: snapshot.requested };
+      let lines = snapshot.lines;
+      if (enabled && !plaintext) {
+        missing = lines.length > 0;
+        lines = lines.map((line, ordinal) => {
+          // A claimed session id in a log payload is not proof of content provenance.
+          // Keep only independently safe, bounded operational facts; never restore references.
+          let row; try { row = JSON.parse(line); } catch {}
+          const ts = typeof row?.ts === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(row.ts) ? row.ts : undefined;
+          const status = Number.isInteger(row?.status) && row.status >= 100 && row.status <= 599 ? row.status : undefined;
+          return JSON.stringify({ ordinal: ordinal + 1, ...(ts ? { ts } : {}), ...(status ? { status } : {}), contentWithheld: true, message: omitted });
+        });
+      }
+      value = { lines, filename: 'workbench-log-copy.txt' }; format = 'copy';
     } else if (body.kind === 'memory') {
       if (config.stewardEnabledV1 !== true) fail('privacy.export_source_changed');
       await stewardMemoryChain;
@@ -90030,6 +90128,9 @@ const PrivacyTextExports = (() => {
         content = `<!doctype html><meta charset="utf-8"><title>${escape(s.title || '')}</title><style>body{font-family:sans-serif;max-width:820px;margin:2rem auto}pre{white-space:pre-wrap;background:#f4f4f4;padding:8px;border-radius:6px}.m{margin:1rem 0}</style><h1>${escape(s.title || '')}</h1>${rows}`; mime = 'text/html';
       } else { content = `# ${s.title || 'Session'}\n\n` + (s.messages || []).map(m => `## ${m.role}\n\n${m.content || ''}`).join('\n\n'); mime = 'text/markdown'; }
     } else if (body.kind === 'mermaid-document') { content = value.document; mime = 'text/markdown'; }
+    else if (body.kind === 'clipboard-local') { content = value.localText; mime = 'text/plain'; }
+    else if (body.kind === 'clipboard-source') { content = value.logical.source == null ? '' : typeof value.logical.source === 'string' ? value.logical.source : JSON.stringify(value.logical.source, null, 2); mime = 'text/plain'; }
+    else if (body.kind === 'log-tail-copy') { content = value.lines.join('\n'); mime = 'text/plain'; }
     else if (body.kind === 'memory') { content = JSON.stringify(value.payload, null, 2); mime = 'application/json'; }
     else { content = value.events.join('\n'); mime = 'application/x-ndjson'; }
     const assert = () => { guard(); prepared.assert(); for (const sourceGuard of sourceGuards) sourceGuard(); };

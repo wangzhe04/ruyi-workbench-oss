@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 176(精确 153 / 前缀 11 / 正则 12),ROUTE_AUTH 162 条,生成于 2026-10-21T11:14:47.954Z。
+> 判定点 176(精确 153 / 前缀 11 / 正则 12),ROUTE_AUTH 162 条,生成于 2026-10-21T13:19:13.610Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -11,7 +11,7 @@
 |---|---|---|---|---|---|
 | GET | `/api/privacy/status` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | config-read-safety.e2e.js, privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
 | GET | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js, privacy-config-health.test.js, privacy-missing-config-vault.test.js |
-| POST | `/api/privacy/export` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-mermaid-export.e2e.js, privacy-text-export.e2e.js, steward-settings.static.e2e.js |
+| POST | `/api/privacy/export` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-clipboard-copy.e2e.js, privacy-mermaid-export.e2e.js, privacy-text-export.e2e.js 等 4 件 |
 | POST | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js, privacy-config-health.test.js, privacy-missing-config-vault.test.js |
 | POST | `/api/privacy/encryption` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | offline-upgrade-drill.e2e.js, onboard.e2e.js, privacy-gateway.e2e.js 等 4 件 |
 | POST | `/api/privacy/rules/test` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js |
@@ -52,7 +52,7 @@
 | POST | `/api/playbooks` | exact | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, meta-guard.e2e.js, playbook-reuse.browser.e2e.js 等 7 件 |
 | DELETE/POST | `/api/playbooks/` | prefix | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, playbook-reuse.browser.e2e.js, playbooks.e2e.js |
 | POST | `/api/workspace/resolve` | exact | token | 13-http-router.js · `handleApi` | workspace-resolve.e2e.js |
-| POST | `/api/pick-folder` | exact | token | 13-http-router.js · `handleApi` | onboarding-workspace.browser.e2e.js, settings-wave1.browser.e2e.js, workspace-picker-popover.browser.e2e.js 等 4 件 |
+| POST | `/api/pick-folder` | exact | token | 13-http-router.js · `handleApi` | onboarding-workspace.browser.e2e.js, privacy-clipboard-copy.e2e.js, settings-wave1.browser.e2e.js 等 5 件 |
 | POST | `/api/workspace/dedicated` | exact | token | 13-http-router.js · `handleApi` | onboarding-workspace.browser.e2e.js |
 | POST | `/api/pick-file` | exact | token | 13-http-router.js · `handleApi` | overlay-update-gui.static.e2e.js, settings-wave1.browser.e2e.js |
 | GET | `/api/models` | exact | open | 13-http-router.js · `handleApi` | asr-config-ui.static.e2e.js, claude-models-cache.e2e.js, context-window.e2e.js 等 7 件 |
@@ -217,12 +217,12 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 259 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 260 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-id-path-guard.e2e.js, session-search.e2e.js, steward-runner.e2e.js 等 4 件 |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 259 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 260 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-bulk-cleanup.e2e.js |
 | GET | `/api/sessions/background-counts` | exact | token-browser self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | — |
-| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | acc-capability-gates.e2e.js, action-feedback.browser.e2e.js, agent-mode-v2.e2e.js 等 145 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | acc-capability-gates.e2e.js, action-feedback.browser.e2e.js, agent-mode-v2.e2e.js 等 146 件 |
 
 ## steer(2)
 

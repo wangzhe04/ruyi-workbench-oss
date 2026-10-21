@@ -156,3 +156,18 @@ test('repository review retains one physical model POST and all four business en
   assert.equal(manifest.groups[byId.get(audio.id).group].privacyStatus, 'unknown');
   assert.match(manifest.groups[byId.get(audio.id).group].evidence, /TOCTOU/);
 });
+
+test('clipboard writes, optional receivers and method aliases enter manual review without acquiring a protected classification', t => {
+  const { root, file } = fixture(t, 'const ready = true;'); const manifest = reviewed(inventory.scan(root));
+  fs.writeFileSync(file, `navigator.clipboard.writeText(text); navigator.clipboard?.write(items);
+const copied=navigator.clipboard; const copy2=copied; copy2.write(items);
+const send=navigator.clipboard.writeText; send(text);
+const {write:sendItems}=navigator.clipboard; sendItems(items);`);
+  const after = inventory.scan(root), errors = inventory.validate(after, manifest);
+  for (const callee of ['writeText', 'write', 'send', 'sendItems']) {
+    const candidates = after.findings.filter(row => row.callee === callee);
+    assert(candidates.length > 0, callee);
+    assert(candidates.every(row => row.category === 'delegated' && errors.includes('unclassified:' + row.id)));
+  }
+  assert(after.findings.filter(row => row.callee === 'write').length >= 2);
+});

@@ -315,7 +315,23 @@ try {
   const fixtureSrc = fs.readFileSync(path.join(harnessDir, 'lib', 'browser-fixture.js'), 'utf8');
   ok(/\bstopRuyiTestBrowsers\s*\(\s*profile\s*\)/.test(fixtureSrc) && /\bkillTree\(fx\.browser\)/.test(fixtureSrc),
     '公共夹具 lib/browser-fixture 的 close() 收浏览器（killTree ＋ 按本件 profile 收尸）');
-  const fixtureUsers = files.filter(name => /require\(['"]\.\/lib\/browser-fixture['"]\)/.test(fs.readFileSync(path.join(harnessDir, name), 'utf8')));
+  // Only every occurrence being an exact named CDP transport import exempts an owner.
+  function isCdpTransportOnly(source) {
+    const calls = [...source.matchAll(/require\(['"]\.\/lib\/browser-fixture['"]\)/g)];
+    const imports = [...source.matchAll(/\{([^{}]+)\}\s*=\s*(require\(['"]\.\/lib\/browser-fixture['"]\))/g)];
+    const transportCalls = new Set(imports.filter(match => match[1].split(',').map(name => name.trim()).every(name => ['CdpClient', 'waitForTarget'].includes(name))).map(match => match.index + match[0].lastIndexOf(match[2])));
+    return calls.length > 0 && calls.every(match => transportCalls.has(match.index));
+  }
+  for (const [label, source, expected] of [
+    ['CDP-only named import', "const { CdpClient, waitForTarget } = require('./lib/browser-fixture');", true],
+    ['lifecycle named import', "const { startBrowserFixture } = require('./lib/browser-fixture');", false],
+    ['later lifecycle import', "const { CdpClient } = require('./lib/browser-fixture'); const { startBrowserFixture } = require('./lib/browser-fixture');", false],
+    ['namespace import', "const fixture = require('./lib/browser-fixture');", false],
+  ]) ok(isCdpTransportOnly(source) === expected, 'browser fixture discovery: ' + label);
+  const fixtureUsers = files.filter(name => {
+    const source = fs.readFileSync(path.join(harnessDir, name), 'utf8');
+    return /require\(['"]\.\/lib\/browser-fixture['"]\)/.test(source) && !isCdpTransportOnly(source);
+  });
   const unclosed = fixtureUsers.filter(name => !/\bawait\s+\w+\.close\(/.test(fs.readFileSync(path.join(harnessDir, name), 'utf8')));
   ok(fixtureUsers.length >= 4, `用公共夹具的件扫得到（实得 ${fixtureUsers.length} 件）`);
   ok(unclosed.length === 0, `每一件用公共夹具的都 await 过 .close()${unclosed.length ? '；实得漏了：' + unclosed.join('、') : ''}`);

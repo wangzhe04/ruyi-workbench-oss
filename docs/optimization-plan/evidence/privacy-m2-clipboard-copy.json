@@ -1,0 +1,666 @@
+{
+  "date": "2026-10-21",
+  "batch": "M2-6b3",
+  "base": "fe9f1ea4",
+  "status": "implemented, independently reviewed, scoped validation complete",
+  "contract": [
+    "Ordinary saved message/code/tool input and result copy uses canonical host-owned source, exact full displayed-message and logical-slot hashes, render-time provenance and one shared prepare/validate/clipboard path. Whole logical source is projected at its original rule root before code fence extraction or formatting.",
+    "Usual default copy remains one click with no routine dialog. Per-action plaintext is an explicit secondary menu; it does not become a global default or authorize an unknown source. Protected unsupported media is refused; usable OFF and explicit canonical plaintext preserve original JSON.",
+    "Unknown live/subagent DOM sources require host-authoritative usable OFF plus literal-only proof and final epoch/DOM/getter checks. Stale local OFF, paused OFF and ON plaintext cannot grant source/restoration authority.",
+    "Log copy means the latest bounded host log-tail snapshot. Protected default retains only safe timestamp/status/ordinal with an omission notice; an explicit plaintext action is separate. Claimed session ids in logs confer no restoration authority.",
+    "Boot copy always emits a fixed safe diagnostic summary, including when OFF or the host is unavailable. It never automatically selects raw diagnostics after failure. The full diagnostic remains locally visible; manual selection/Ctrl+C is outside the application-button contract.",
+    "Callback/pairing capability and connector template copies retain their exact explicit management purpose. The generic clipboard reservation primitive itself grants no authority.",
+    "Log helpers remain with the existing 04 logger owner; the abandoned new 00e module was removed. Existing module dependency policy was not relaxed."
+  ],
+  "independentReview": {
+    "reviewers": [
+      "m2_consumer_review",
+      "root (design, source and visual review)"
+    ],
+    "findingsResolved": [
+      "Paused OFF client state could allow unbound raw copy; further root review found stale cross-window OFF and boot old-status authority. Both paths now fail closed or copy safe summary.",
+      "Copy options initially added rows to code/tool content. Minimal production CSS keeps compact keyboard-accessible menus outside scrollable pre content without adding text rows.",
+      "Plaintext fixture reused a DOM id and had weak per-slot receiver checks. Final checks target each current slot and compare complete expected content.",
+      "A proposed 00e source owner added 22 cycle edges. Moving the unchanged logger and helpers to original 04 restores the original 88 modules/631 edges/67 forward edges/one SCC.",
+      "Component fixture omitted production post-mount near-view highlighting. The public lifecycle call now matches session-experience, without fabricated buttons or internal highlighter calls."
+    ],
+    "notes": [
+      "m2-8-independent-review/b3-design-simplification.md",
+      "m2-8-independent-review/b3-egress-classification-review.md",
+      "m2-8-independent-review/b3-fixture-highlight-lifecycle-review.md",
+      "m2-8-independent-review/b3-four-static-repairs-review.md",
+      "m2-8-independent-review/b3-frozen-product-review.md",
+      "m2-8-independent-review/b3-mermaid-os-receiver-review.md",
+      "m2-8-independent-review/b3-owner-convergence-metadata-v2-review.md",
+      "m2-8-independent-review/b3-paused-off-followup.md",
+      "m2-8-independent-review/b3-port-literal-spelling-review.md",
+      "m2-8-independent-review/b3-related-tests-metadata-review.md",
+      "m2-8-independent-review/b3-shared-staleoff-css-review.md",
+      "m2-8-independent-review/b3-stale-off-authority-review.md"
+    ]
+  },
+  "tests": {
+    "finalRelated": [
+      {
+        "name": "32-owner-copy-final-a.log",
+        "passes": 347,
+        "allPass": true,
+        "sha256": "8278A7967CE1D6CD4B2465E5F5FF69334A44ED98956E81141559B1D386528815"
+      },
+      {
+        "name": "33-owner-copy-final-b.log",
+        "passes": 347,
+        "allPass": true,
+        "sha256": "DDEB5CE3D0800D8AF4284462DA28CE6B378B6C5C9BBE21780B43BDDEC94A0D5A"
+      },
+      {
+        "name": "34-owner-text.log",
+        "passes": 55,
+        "allPass": true,
+        "sha256": "4403DB0827180D29312B087C1F0242764704B0B600BF759052AD800CF3041565"
+      },
+      {
+        "name": "36-owner-help.log",
+        "passes": 37,
+        "allPass": true,
+        "sha256": "DD397441183BB7E3164FA5952757EBA2D7F61AFE1DDF110A010C6EF80B71844C"
+      },
+      {
+        "name": "37-owner-mermaid-receiver.log",
+        "passes": 87,
+        "allPass": true,
+        "sha256": "C4CEF7397534B4431F90E0778251B640C96B950CDB4D74F0B1C7C8D702C0A6B8"
+      }
+    ],
+    "unchangedFrontendAdditional": [
+      {
+        "log": "19-mermaid-viewer-final.log",
+        "pass": 65
+      },
+      {
+        "log": "24-boot-browser-safe-final.log",
+        "pass": 29
+      },
+      {
+        "log": "25-copy-static-final.log",
+        "pass": 57
+      }
+    ],
+    "firstFailures": [
+      {
+        "logs": [
+          "03-copy-initial.log",
+          "04-copy-diagnostic.log"
+        ],
+        "reason": "Fixture learned mappings without the real persistence path and omitted actual icon/tool-label dependencies. Production correctly refused dirty disclosures."
+      },
+      {
+        "logs": [
+          "05-copy-persisted-scope.log",
+          "06-copy-hit-diagnostic.log"
+        ],
+        "reason": "The fixture clicked opacity-hidden controls without the actual hover lifecycle. Final native CDP mouse input verifies the hit target before clicking."
+      },
+      {
+        "logs": [
+          "08-copy-idle-controls.log"
+        ],
+        "reason": "An immediate system clipboard read did not equal the completed native payload; its cause is unproven. Final checks use bounded read-only full-content polling, never another write or click."
+      },
+      {
+        "logs": [
+          "10-copy-guard-initial.log",
+          "20-help-menu-first.log",
+          "21-help-menu-owner-final.log",
+          "23-boot-browser-first.log"
+        ],
+        "reason": "Existing source-owner/raw-copy/auto-selection locks required migration to the current owner and intentional safe-summary contract. One intermediate source-slice helper invocation used the wrong argument type. Original path/error/retry protections remain."
+      },
+      {
+        "logs": [
+          "26-initial-graph.json",
+          "26-initial-graph-policy.json"
+        ],
+        "reason": "New source-owner layout introduced 22 cycle edges; all resolved by cancelling that new module, without policy changes."
+      },
+      {
+        "logs": [
+          "27-owner-copy-a.log",
+          "28-owner-copy-a.log",
+          "29-owner-dom-diagnostic.log",
+          "30-owner-highlight-diagnostic.log"
+        ],
+        "reason": "Final component assembly relied on lazy observer timing and lacked the real production post-insert highlight lifecycle. Final fixed viewport and public near-view call match product assembly. The initial conjecture that the copy button moved outside pre was withdrawn."
+      },
+      {
+        "logs": [
+          "35-owner-mermaid.log"
+        ],
+        "reason": "One immediate OS receiver equality failed; the old log cannot prove its cause. A bounded read-only receiver check retains exact Windows-newline-normalized equality and native-write completion. Original newline rule was already correct; a proposed regex-bug diagnosis caused by escaped tool output was withdrawn. Final four cases pass on the first read, so no reproduced-delay claim is made."
+      },
+      {
+        "logs": [
+          "38-full-fast.log"
+        ],
+        "reason": "Runner stopped before unit tests because A.repeat(9000) was mistaken for a port declaration. Equivalent 9*1000 preserves exactly the same payload; no port lock or whitelist change."
+      }
+    ],
+    "fixtureIdentity": "Final product bytes were used for the 347-by-two runs (32/33). Afterwards only the clipboard fixture spelling 9000 -> 9*1000 changed; node syntax and the real port auditor verify that same 9000-character payload. Final Mermaid receiver-only bytes were exercised in 37.",
+    "unified": {
+      "syntax": {
+        "log": "39-syntax.log",
+        "files": 1117,
+        "failed": 0,
+        "finalDelta": "43-delta-syntax.log"
+      },
+      "build": {
+        "log": "42-build-check.log",
+        "fresh": true
+      },
+      "unit": {
+        "log": "40-complete-unit.log",
+        "tests": 2553,
+        "suites": 192,
+        "pass": 2527,
+        "skip": 26,
+        "fail": 0,
+        "durationMs": 372231.3017
+      },
+      "fast": {
+        "log": "40-full-fast.log",
+        "firstPass": 76,
+        "firstFail": 4,
+        "flaky": 0,
+        "total": 80,
+        "allRequiredPass": true,
+        "whole80Rerun": false,
+        "repaired": [
+          "live-full-text.static.e2e.js",
+          "frontend-domains.static.e2e.js",
+          "fixture-home.static.e2e.js",
+          "process-safety.static.e2e.js"
+        ],
+        "finalTargetedLogs": [
+          "41-live-full-text-static.log",
+          "41-frontend-domains-static.log",
+          "42-fixture-home-discovery.log",
+          "41-process-safety-static.log"
+        ],
+        "repairs": "Reviewed intentional copy-menu CSS aggregate hash; explicit DOM dependency object properties independent of order; CDP-only imports distinguished from fixture lifecycle at every require occurrence with four positive/negative cases; exactly one new owned-cleanup fixture."
+      },
+      "egress": {
+        "unitLog": "42-egress-unit.log",
+        "tests": 15,
+        "fail": 0,
+        "checkLog": "42-egress-check.log",
+        "errors": 0
+      },
+      "sourceOrder": "Full unit and final related journeys use final product bytes. Later changes affect only static contracts and the mathematically equivalent clipboard fixture length literal; final delta syntax and dedicated static/probe checks validate those files.",
+      "runnerTemp": "Owned per-batch TEMP/TMP root isolates the runner janitor from the earlier cleanup-denied directories."
+    }
+  },
+  "metadata": {
+    "nativeTools": 121,
+    "e2e": 552,
+    "defaultE2e": 545,
+    "live": 7,
+    "unitFiles": 286,
+    "modules": 88,
+    "edges": 631,
+    "forwardEdges": 67,
+    "scc": 1,
+    "egressSources": 270,
+    "egressCandidates": 660,
+    "manuallyReviewedSources": 15,
+    "manuallyReviewedCandidates": 5,
+    "retiredCandidates": 0,
+    "privacyStatusPromotions": 0
+  },
+  "sourceHashes": [
+    {
+      "path": "dev-harness/boot-failure-kind.browser.e2e.js",
+      "sha256": "7A74B0212A72503861BD9B743F5AC4A01EFDCF6FBFD5613F7EAF3E3A26B45DB5",
+      "bytes": 18246
+    },
+    {
+      "path": "dev-harness/copy-path-guard.static.e2e.js",
+      "sha256": "DF55FDE433F1C096833A6B9CFEA9FB4F3A34B12BC2612D99921670B4F9A7DDCC",
+      "bytes": 34737
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "sha256": "17279BBB57266D76EA62BA4436819CDC334BAC01CCDC58F51AD4B880747C162C",
+      "bytes": 40938
+    },
+    {
+      "path": "dev-harness/frontend-domains.static.e2e.js",
+      "sha256": "5BE949AE6315954132AE5FBB9985CD147973FF1E19DDE6ADF32A8CA892C8F5CE",
+      "bytes": 18328
+    },
+    {
+      "path": "dev-harness/help-menu.e2e.js",
+      "sha256": "4FCEC114453C42DE38820604C00F773708D0CE91D2E5AC1230112DE6E84F58A1",
+      "bytes": 18832
+    },
+    {
+      "path": "dev-harness/privacy-clipboard-copy.e2e.js",
+      "sha256": "B98A3EABC36D2CC31EE2E22E094DBD703949BE42C90E81CB5E414DE420BAFDDC",
+      "bytes": 45279
+    },
+    {
+      "path": "dev-harness/privacy-m1/egress/inventory.js",
+      "sha256": "6774049A8D02B09A1898FC62357BBA4F694C6A6EF1BC3D6F29A59AB73910B73D",
+      "bytes": 20344
+    },
+    {
+      "path": "dev-harness/privacy-m1/egress/inventory.test.js",
+      "sha256": "5D032F426B949DD908D3EB20772886F60C8E5D0C3C2B2D20BCB2B5214ADFFB9F",
+      "bytes": 15047
+    },
+    {
+      "path": "dev-harness/privacy-mermaid-export.e2e.js",
+      "sha256": "7FF3CCDBE21BB326C9301494436D63851086F488B7A773B15C2D95C3F1E950CA",
+      "bytes": 28600
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "sha256": "C3B081149D3A732C13009F546A73BBBA11A03FB9ACE8881BB12DA341B0E3DBED",
+      "bytes": 13336
+    },
+    {
+      "path": "dev-harness/read-frontend-css.js",
+      "sha256": "2C61A52F4D9CC79EA1DBC5C5D0212C2F88F7D4546C2FA854664CB194E184BBB4",
+      "bytes": 8177
+    },
+    {
+      "path": "docs/i18n/locales/en-US.json",
+      "sha256": "05135C131335A8C1493D5AEF6931E2DEAE8039C5F2E0C6CF4AAC2679BCCAC6B1",
+      "bytes": 336804
+    },
+    {
+      "path": "docs/i18n/locales/zh-CN.json",
+      "sha256": "522D484CD592C12042EE3E235D31E60810F364D98AE329701842F4B0683BFBA7",
+      "bytes": 323376
+    },
+    {
+      "path": "ruyi-workbench/app/public/app.js",
+      "sha256": "AF94EAEE57106693215F57F608B78DFD6659040A5A5C4864D82D7C0DC4F0D17C",
+      "bytes": 73439
+    },
+    {
+      "path": "ruyi-workbench/app/public/css/components/chat-primitives.css",
+      "sha256": "25C8053B7F4DFEFBEBF60DB9E7E50D8EB79DF20BB50D50A1506581E243B68C45",
+      "bytes": 20402
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/boot-failure.js",
+      "sha256": "E491474F8C231E7991716DED9675154908A063BC557C6C887C6AD8BC6732E56C",
+      "bytes": 12206
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/chat-render-primitives.js",
+      "sha256": "0680DF6FC8A853819DAF8CC765EB859901AA21F303B01724DE6F5C6D979498DD",
+      "bytes": 82118
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/chat-static-renderer.js",
+      "sha256": "397684934F704EE1290F42F9BAF415539A359EA33F4F5891E163FD63EEC6F22A",
+      "bytes": 35626
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/disclosure-source.js",
+      "sha256": "E5F64620AD8B74581D808439A8AE20230F58AB7C0CFBF938179B136E24407A04",
+      "bytes": 1688
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/help-menu.js",
+      "sha256": "46DD25016DC9A3EF0A26EDB7509742AD1EA5F1F67A56089FE4EF4DA8FA2BCD52",
+      "bytes": 14271
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/mermaid-runtime.js",
+      "sha256": "AA9E46EC5610234A289F221799512962DFAB657A8F54650692BA597412A03394",
+      "bytes": 57698
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/navigation-controls.js",
+      "sha256": "6BF41439BE900E1B0073803F1B76422861FC0D3EE1C79C1C048D6378BEBBD712",
+      "bytes": 75710
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/privacy-export.js",
+      "sha256": "DAB539A398A15DA84379EEA859018136596714B4C49F60B583102A8BFBB76B4E",
+      "bytes": 13377
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/en-US.json",
+      "sha256": "05135C131335A8C1493D5AEF6931E2DEAE8039C5F2E0C6CF4AAC2679BCCAC6B1",
+      "bytes": 336804
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "sha256": "522D484CD592C12042EE3E235D31E60810F364D98AE329701842F4B0683BFBA7",
+      "bytes": 323376
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "F07EF977CD56CDEFF7908B62A94C6F96A299E54615013F79C5A52F92A42E72DD",
+      "bytes": 6743825
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "sha256": "6E8078BE86DA95FE47CDB511D6F0C11ED5F692DF1195D0CBDFDD06AB8E19A09E",
+      "bytes": 212554
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "55ABF485BD11D7C28A24DBBD0ACADB1FC97C3AFEA0C1D41C35A58F2592AC73E0",
+      "bytes": 215888
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "07097FF75B5BB9B39A0ABA537EEEE5D41C9E5D49ACFA55072CC9C6598EE6DA49",
+      "bytes": 37822
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "300323798D12026F3D34DE806CD9A4011C99978254F7D0F7BCCB4FBCAFD6FAA8",
+      "bytes": 23425
+    },
+    {
+      "path": "ruyi-workbench/tools/build-overlay.js",
+      "sha256": "1E8AC19D252D5758D4268B9AFB41F09D239369590350F453DAF4F24259F2061B",
+      "bytes": 21781
+    }
+  ],
+  "finalMetadataHashes": [
+    {
+      "file": "README.md",
+      "sha256": "360c8d013d03057718f4846cfd43004d4a07111bae0a57e5b97833a51d261887"
+    },
+    {
+      "file": "README_EN.md",
+      "sha256": "7d7096f22d83133c1c26808f603fe445c7771e3a06da1c734d973dd5130f8c9c"
+    },
+    {
+      "file": "facts.json",
+      "sha256": "31c5d294c4279c0681245eb89d7c7ef8539cca6b92228956d5f1c8cc123e67ee"
+    },
+    {
+      "file": "dev-harness/privacy-m1/egress/manifest.json",
+      "sha256": "0d23ee3864479dcac104e58914402e947745e400475f61a0541cc0306f56e7e5"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "e734890330a3e581534de7683844bdb6ee4cf029b8968ce8a7ae8c2568e12746"
+    }
+  ],
+  "limits": [
+    "Synthetic Windows loopback API, production rendering factories and real Edge/Windows clipboard; this is a component journey rather than a full application journey. Test content is synthetic, with no production credential or platform account. The original clipboard DataObject is held and restored only in the owned helper memory; its content is never logged or written to a file.",
+    "API validation and browser-to-OS submission are separate steps. Already submitted copies cannot be recalled; arbitrary OS readers and manual selection are outside this contract.",
+    "No binary/media sanitizer, independent filesystem namespace, CLI containment, ASR, full product E2E or release-package claim."
+  ],
+  "rawLogDirectory": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-copy-clipboard",
+  "rawLogs": [
+    {
+      "file": "01-build.log",
+      "sha256": "1a7f1832ad9745b9dba8fbd8e0acd328fd6e8f5996933a6a80a9ddadb1caec83",
+      "bytes": 107
+    },
+    {
+      "file": "02-focused-unit.log",
+      "sha256": "d40ab8f94c34016c49658ed6871afecb669a105d02d63d62c87095d94fc5966c",
+      "bytes": 9009
+    },
+    {
+      "file": "03-copy-initial.log",
+      "sha256": "c184f423a908616b671e589d30e3ce642ac6aadfc10b325c6998058955f8bc7b",
+      "bytes": 16768
+    },
+    {
+      "file": "04-copy-diagnostic.log",
+      "sha256": "d7be0652566b6c58fb1cdcaabbd1051d798d85897b7cba5aa67c822eef7a6d23",
+      "bytes": 18042
+    },
+    {
+      "file": "05-copy-persisted-scope.log",
+      "sha256": "9dbc760c8f4419c9dd5639705be2926fee5405e06a5ef8fdfc45af5a463e035f",
+      "bytes": 17998
+    },
+    {
+      "file": "06-copy-hit-diagnostic.log",
+      "sha256": "c96d1036bc5cf20a818939bf9a3d81d145c2d35845b6f7a8d35a7bf222e658ae",
+      "bytes": 18120
+    },
+    {
+      "file": "07-copy-trusted-hover.log",
+      "sha256": "3093de4cbc4a4bcfbde86d530f4997e23fbbbdebc051a83f3aa9524340c093d8",
+      "bytes": 18305
+    },
+    {
+      "file": "08-copy-idle-controls.log",
+      "sha256": "d04936a6c761d26d2f248ae32b578688892f5e4aafeb29fd4df5a3b9fbe512c1",
+      "bytes": 28064
+    },
+    {
+      "file": "09-copy-receiver-visual.log",
+      "sha256": "0f037187427b0b3e9d4bcb3d7d29fc2429d3dd330b02b29469e07106957b42f1",
+      "bytes": 28280
+    },
+    {
+      "file": "10-copy-guard-initial.log",
+      "sha256": "6cbe0b0c7387ba1b2a67ca8f9401a929f6ef2d5333399790019ef075aaf48f21",
+      "bytes": 5375
+    },
+    {
+      "file": "11-local-guard-build.log",
+      "sha256": "8944cc90092395d04bffc77a823fbe3432e96b75853d4db7a4251aef0472cb79",
+      "bytes": 106
+    },
+    {
+      "file": "12-copy-guard-refined.log",
+      "sha256": "10efd1066727583cf7cf5efc5666c9ad473e71e416cecf25ea1ded049563f805",
+      "bytes": 5536
+    },
+    {
+      "file": "13-copy-host-guard-visual.log",
+      "sha256": "ca37e42e6103719316fbdf459ad5e049c2071756366fa009ee3ba4174929e280",
+      "bytes": 29834
+    },
+    {
+      "file": "14-build-check.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    {
+      "file": "15-copy-final-a.log",
+      "sha256": "bac66624ac2b43c2a2213f53f71520ea2a4acac8b3def4924e172f10b7bb83ad",
+      "bytes": 29870
+    },
+    {
+      "file": "16-copy-final-b.log",
+      "sha256": "fe675cf27120be93f4b38cc62e7c695adbd18eb3f1b52d6d4c6e819f88db09e7",
+      "bytes": 29807
+    },
+    {
+      "file": "17-text-export-final.log",
+      "sha256": "1911e4ea83efeb977fd95ea6dfe7f12975b25636e5cd674666cbdba2f2beca16",
+      "bytes": 3680
+    },
+    {
+      "file": "18-mermaid-export-final.log",
+      "sha256": "6d16fafbca5e94791ed9989599ab618cc1af331f792124dc4945babebfdc4929",
+      "bytes": 7457
+    },
+    {
+      "file": "19-mermaid-viewer-final.log",
+      "sha256": "62d55a278b226d9490db0e8ebfb3ddab9f49d6b8dae180d3f6da6f77a82c7b7f",
+      "bytes": 5812
+    },
+    {
+      "file": "20-help-menu-first.log",
+      "sha256": "48437e26c0ada08a91021c521c0f478019556627a4e135ba4a15a5ed105e467d",
+      "bytes": 3457
+    },
+    {
+      "file": "21-help-menu-owner-final.log",
+      "sha256": "ee9e17d3493ba5029bc07ab9c05cd8ef49495bacf6c12b2671d1110c4c626015",
+      "bytes": 3777
+    },
+    {
+      "file": "22-help-menu-owner-final.log",
+      "sha256": "399562c11e4a6246f47ade694ecc96f816b16d1abff7b98eb79fd5cb775afee8",
+      "bytes": 3457
+    },
+    {
+      "file": "23-boot-browser-first.log",
+      "sha256": "82489221e780f2ce1323a9bbbe6add6b0b6a395892f4a122eadbe6657ac68250",
+      "bytes": 3703
+    },
+    {
+      "file": "24-boot-browser-safe-final.log",
+      "sha256": "bdac6087a8c9ec2b59001a49ff24c49d0d887134a745126ca775377467a8e9ef",
+      "bytes": 3651
+    },
+    {
+      "file": "25-copy-static-final.log",
+      "sha256": "10efd1066727583cf7cf5efc5666c9ad473e71e416cecf25ea1ded049563f805",
+      "bytes": 5536
+    },
+    {
+      "file": "27-owner-copy-a.log",
+      "sha256": "4a3b874477871fa87e4f8df694dfc352ae441d1c229cb9fcc7b4b286f60ded7c",
+      "bytes": 18819
+    },
+    {
+      "file": "28-owner-copy-a.log",
+      "sha256": "af3a798b9201e34c1f569ed0d6f79de72c2b322cb02a9b9cea3ed19c07811dbd",
+      "bytes": 18819
+    },
+    {
+      "file": "29-owner-dom-diagnostic.log",
+      "sha256": "69517a047f609b784421009d747d19ca90b2472fd2df0ef00e92ef8e5df473ab",
+      "bytes": 18966
+    },
+    {
+      "file": "30-owner-highlight-diagnostic.log",
+      "sha256": "466a06192a6db49aaa94cdf1f9416a5ad3046ee9c1b00496cc2f81c645158393",
+      "bytes": 19062
+    },
+    {
+      "file": "31-owner-viewport.log",
+      "sha256": "9f8411e6d15cdd43f455bc31624a804eb4dff56dc71eb6dc6244a90661383352",
+      "bytes": 29883
+    },
+    {
+      "file": "32-owner-copy-final-a.log",
+      "sha256": "8278a7967ce1d6cd4b2465e5f5ff69334a44ed98956e81141559b1d386528815",
+      "bytes": 29781
+    },
+    {
+      "file": "33-owner-copy-final-b.log",
+      "sha256": "ddeb5ce3d0800d8af4284462da28ce6b378b6c5c9bbe21780b43bddec94a0d5a",
+      "bytes": 29689
+    },
+    {
+      "file": "34-owner-text.log",
+      "sha256": "4403db0827180d29312b087c1f0242764704b0b600bf759052ad800cf3041565",
+      "bytes": 3681
+    },
+    {
+      "file": "35-owner-mermaid.log",
+      "sha256": "bcfd74b760e7559971c8150b482cb8114571a6ba1932e50169a8134ee4441085",
+      "bytes": 7457
+    },
+    {
+      "file": "36-owner-help.log",
+      "sha256": "dd397441183bb7e3164fa5952757eba2d7f61afe1ddf110a010c6ef80b71844c",
+      "bytes": 3457
+    },
+    {
+      "file": "37-owner-mermaid-receiver.log",
+      "sha256": "c4cef7397534b4431f90e0778251b640c96b950cdb4d74f0b1c7c8d702c0a6b8",
+      "bytes": 8227
+    },
+    {
+      "file": "38-full-fast.log",
+      "sha256": "69b92aaadab21639e4bdc85719bf229b55229c11943bebe09fd264ec1e970d0f",
+      "bytes": 538
+    },
+    {
+      "file": "39-syntax.log",
+      "sha256": "9b1467bd2d1ada2d4ce0644a6d5f1c927ec0815df312f8293941895a68cdfe91",
+      "bytes": 61
+    },
+    {
+      "file": "40-complete-unit.log",
+      "sha256": "aa35c77c85109eb302f6fce81b4d74954a051938299e3c01a6a9db8f7f965f24",
+      "bytes": 398511
+    },
+    {
+      "file": "40-full-fast.log",
+      "sha256": "5501fb28a3173fb93b5e7e59fe5e16b4aa029d657c054ac4ca57723eebf459b0",
+      "bytes": 16259
+    },
+    {
+      "file": "41-fixture-home-static.log",
+      "sha256": "7611d840840b34fd758ec0b8ae5ef3ac851eec9c45a092ae782d8153fc883d1d",
+      "bytes": 3583
+    },
+    {
+      "file": "41-frontend-domains-static.log",
+      "sha256": "1df227572e1c41a4873282b23ba47c2c27b3e518cdec2c0e313b5e9401ea8fc0",
+      "bytes": 7732
+    },
+    {
+      "file": "41-live-full-text-static.log",
+      "sha256": "101d98dc6d5f5bbf0ea0b582fc17d87b3b661c8811969c93dbdfb3c666eafca4",
+      "bytes": 7339
+    },
+    {
+      "file": "41-process-safety-static.log",
+      "sha256": "4693fea6edc802ecfad4764124af59fca7dfa25b2c58f6bef29fcd6aa5b7938f",
+      "bytes": 868
+    },
+    {
+      "file": "42-build-check.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    {
+      "file": "42-egress-check.log",
+      "sha256": "33f9016d6395f75f0901c490286f57f0699aaa9a8840be48eeb1b311a014ab78",
+      "bytes": 67
+    },
+    {
+      "file": "42-egress-unit.log",
+      "sha256": "96acd61156176ef4773a0cd17063c786bedbacd59c95ff08ad8dae91ab361494",
+      "bytes": 1871
+    },
+    {
+      "file": "42-fixture-home-discovery.log",
+      "sha256": "e9b2e43b2dbc573b25e7e06424af9e57d14bd7a2f2c3865a099fbd67b477b65a",
+      "bytes": 3800
+    },
+    {
+      "file": "43-delta-syntax.log",
+      "sha256": "c11826c02d2d410d6e914066b10f85d45e106335c6a4d151a2d2037b9abeca08",
+      "bytes": 332
+    },
+    {
+      "file": "copy-controls-default.png",
+      "sha256": "5c4d74e8bc36125e2382d2ba469339595fd8c8358056a5acc62e3de5368d2792",
+      "bytes": 1112099
+    },
+    {
+      "file": "copy-controls-plain-keyboard.png",
+      "sha256": "940f45ff5469e8a54e8e1e884aae3d548ef7906f3d2a425fe4c068cacd7ed822",
+      "bytes": 1113165
+    },
+    {
+      "file": "copy-controls-tool-menu.png",
+      "sha256": "d2c6a47637c6230a88aee39eca0be89043594d7b4dc00cf2f807f08d8f0c4008",
+      "bytes": 1114451
+    }
+  ]
+}

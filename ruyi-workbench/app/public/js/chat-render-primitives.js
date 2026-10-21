@@ -123,6 +123,8 @@ export function createChatRenderPrimitives(deps = {}) {
     $,
     api,
     apiErrText,
+    bindDisclosureSource = () => {},
+    copyDisclosure = () => { toast(t("privacy.export.sourceMissing"), "err"); },
     // Agent CLI 登记表的查询函数（js/agent-cli-registry.js 的 agentCliMeta）。本模块零 import，由组合根注入。
     agentCliMeta,
     autoGrow,
@@ -293,13 +295,23 @@ export function createChatRenderPrimitives(deps = {}) {
     container.innerHTML = renderMarkdown(text, opts);
     return container;
   }
+  function addPlainCopyAction(host, sourceNode, options) {
+    const menu = el('details', 'privacy-copy-options');
+    const summary = el('summary', '', '⋯'); summary.setAttribute('aria-label', t('privacy.copy.options')); summary.title = t('privacy.copy.options');
+    const plain = el('button', '', t('privacy.copy.plain')); plain.type = 'button';
+    plain.title = t('privacy.copy.plainNotice');
+    plain.onclick = event => { event.preventDefault(); event.stopPropagation(); menu.open = false; copyDisclosure(sourceNode, { ...options, plaintext: true }); };
+    menu.append(summary, plain); host.appendChild(menu);
+  }
   function highlightCodeBlock(block) {
     if (block.dataset.hl) return;
     const pre = block.parentElement;
     if (pre && !pre.querySelector('.copy-code')) {
       const btn = el('button', 'copy-code', t('common.copy'));
-      btn.onclick = () => { navigator.clipboard?.writeText(block.textContent).then(() => toast(t("toast.copyCode"), 'ok')); };
+      btn.onclick = () => { copyDisclosure(block, { kind: 'code', localText: () => block.textContent }); };
       pre.appendChild(btn);
+      const wrap = el('div', 'privacy-code-copy-wrap'); pre.parentNode.insertBefore(wrap, pre); wrap.appendChild(pre);
+      addPlainCopyAction(wrap, block, { kind: 'code', localText: () => block.textContent });
     }
     // Highlight.js is synchronous. Very large individual blocks stay readable/copyable plain text;
     // smaller blocks are processed in idle slices when their combined weight is high.
@@ -511,8 +523,8 @@ export function createChatRenderPrimitives(deps = {}) {
   function wrapPreWithCopy(pre) {
     const wrap = el('div', 'tc-pre-wrap');
     const btn = el('button', 'copy-code', t('common.copy')); btn.type = 'button';
-    btn.onclick = e => { e.preventDefault(); e.stopPropagation(); navigator.clipboard?.writeText((typeof pre.copyText === 'function' ? pre.copyText() : pre.textContent) || '').then(() => toast(t("toast.copied"), 'ok')); };
-    wrap.append(pre, btn);
+    btn.onclick = e => { e.preventDefault(); e.stopPropagation(); copyDisclosure(pre, { kind: 'tool', localText: () => (typeof pre.copyText === 'function' ? pre.copyText() : pre.textContent) || '' }); };
+    wrap.append(pre, btn); addPlainCopyAction(wrap, pre, { kind: 'tool', localText: () => (typeof pre.copyText === 'function' ? pre.copyText() : pre.textContent) || '' });
     return wrap;
   }
   // v1.0-S4: pull the unified-diff text out of a git_diff tool result (accepts an object with `.diff`, or a
@@ -564,7 +576,7 @@ export function createChatRenderPrimitives(deps = {}) {
   // (running/ok/err), arg summary, optional duration, copy buttons on both <pre>. All states stay collapsed
   // by default; failures remain visible through their red status and can be opened on demand.
   // Returns handles the streaming path uses to fill the result + timing + status bar post-render.
-  function toolCard(tc) {
+  function toolCard(tc, sourceLocator = null) {
     const d = el('details', 'tool-card');
     // 117o-A7:在途回合(经典壳「看全文」那张临时卡)走的是【同一张工具卡】,但它手上没有工具结果 ——
     // 服务端的 liveTurn 信封只送 {id,name,inputPreview,status},结果一律不下发(可能是整份文件、可能含密钥)。
@@ -624,11 +636,14 @@ export function createChatRenderPrimitives(deps = {}) {
     const detailSum = el('summary', 'tc-detail-sum'); detailSum.textContent = t('chat.details'); detail.appendChild(detailSum);
     detail.appendChild(el('div', 'tc-label', t('chat.input')));
     // 在途卡没有完整参数(只有那一行摘要)也没有结果:详情区如实写清楚,不留一个空框让人以为丢了东西。
-    const inp = el('pre'); inp.textContent = safeStringify(tc.input) || argSource; detail.appendChild(wrapPreWithCopy(inp));
+    const inp = el('pre'); inp.textContent = safeStringify(tc.input) || argSource;
+    if (sourceLocator && tc.input !== undefined) bindDisclosureSource(inp, { ...sourceLocator, slot: 'tool-input' }, safeStringify(tc.input));
+    detail.appendChild(wrapPreWithCopy(inp));
     const resLabel = el('div', 'tc-label', t('chat.result')); detail.appendChild(resLabel);
     const resPre = el('pre');
     if (tc.result !== undefined) renderToolResultInto(resPre, tc.name, tc.result);
     else resPre.textContent = settled ? t('chat.liveTurn.resultOffEnvelope') : t('chat.waitingResult');
+    if (sourceLocator && tc.result !== undefined) bindDisclosureSource(resPre, { ...sourceLocator, slot: 'tool-result' }, safeStringify(tc.result));
     detail.appendChild(wrapPreWithCopy(resPre));
     body.appendChild(detail);
     // 109b: 结果图内联缩略图,挂在含 result <pre> 的 detail 之后,只在终态(done)且非错误时懒请求预览。
@@ -1120,8 +1135,8 @@ export function createChatRenderPrimitives(deps = {}) {
   function msgActions(msg) {
     const bar = el('div', 'msg-actions');
     const copy = el('button', '', t('common.copy'));
-    copy.onclick = () => { navigator.clipboard?.writeText(msg.content || '').then(() => toast(t("toast.copied"), 'ok')); };
-    bar.appendChild(copy);
+    copy.onclick = () => { copyDisclosure(copy, { kind: 'message', localText: () => msg.content || '' }); };
+    bar.appendChild(copy); addPlainCopyAction(bar, copy, { kind: 'message', localText: () => msg.content || '' });
     if (msg.role === 'user') {
       // F9:这条消息发出去时带的附件。重试 / 编辑重发都要带上 —— 修前只重发文字,附件丢了。
       // 去掉 previewUrl(托盘缩略图的 blob URL 只在原页面生命周期里有效,早被释放了)。

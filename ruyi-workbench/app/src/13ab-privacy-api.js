@@ -112,6 +112,21 @@ const PrivacyTextExports = (() => {
   const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
   const fail = code => { throw Object.assign(new Error(code), { code }); };
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  function clipboardContainsMedia(value) {
+    let nodes = 0;
+    const visit = (item, depth = 0) => {
+      if (++nodes > 50000 || depth > 32) fail('privacy.export_source_limit');
+      if (typeof item === 'string') return /^data:[^,]+;base64,/i.test(item) || item.length >= 128 && /^[A-Za-z0-9+/=\r\n]+$/.test(item);
+      if (!item || typeof item !== 'object') return false;
+      if (['image', 'audio', 'video', 'document', 'image_url', 'input_image', 'input_audio', 'input_file', 'base64'].includes(item.type)) return true;
+      if (Array.isArray(item.imageAttachments) && item.imageAttachments.length) return true;
+      if (typeof item.mimeType === 'string' && !/^(?:text\/|application\/(?:json|xml))/.test(item.mimeType)) return true;
+      if (Object.entries(item).some(([key, value]) => /^(?:blob|image_base64|audio_base64|video_base64|base64|b64|screenshot_base64)$/i.test(key) && typeof value === 'string' && value.length > 0)) return true;
+      return Object.values(item).some(child => visit(child, depth + 1));
+    };
+    return visit(value);
+  }
+
   async function memorySource() {
     const store = await stewardReadMemoryStore();
     return { ok: true, schema: STEWARD_MEMORY_SCHEMA, entries: store.entries.filter(e => e.state === 'active') };
@@ -189,6 +204,76 @@ const PrivacyTextExports = (() => {
       }
       if (Buffer.byteLength(document) > 1048576 || (!id && hash(document) !== body.expectedDocumentHash)) fail('privacy.export_source_limit');
       value = { document, filename: 'mermaid-' + Date.now() + (format === 'copy' ? '.txt' : '.' + format) };
+    } else if (body.kind === 'clipboard-local') {
+      // An unknown local DOM source grants no scope or restoration authority.
+      // Literal copying is allowed only while the authoritative host remains OFF.
+      if (enabled || typeof body.text !== 'string' || hash(body.text) !== body.expectedTextHash) fail('privacy.export_source_missing');
+      source = { kind: body.kind, hash: hash(body.text) }; check = async () => {};
+      value = { localText: body.text, filename: 'clipboard.txt' }; format = 'copy';
+    } else if (body.kind === 'clipboard-source') {
+      const id = safeSessionId(body.sessionId), index = body.messageIndex, identity = body.messageIdentity;
+      if (!id || !Number.isSafeInteger(index) || index < 0 || typeof body.expectedDocumentHash !== 'string') fail('privacy.export_source_missing');
+      const session = await loadSession(id), message = session?.messages?.[index];
+      if (!message || !['user', 'assistant'].includes(message.role) || !identity || identity.role !== message.role
+        || identity.id !== (message.id || '') || identity.createdAt !== (message.createdAt || '') || identity.turnSeq !== (message.turnSeq ?? null)) fail('privacy.export_source_changed');
+      const select = row => {
+        if (body.slot === 'content') return row.content;
+        if (body.slot === 'segment-text' && row.segments?.[body.segmentIndex]?.type === 'text') return row.segments[body.segmentIndex].text;
+        if (body.slot === 'segment-markdown' && row.segments?.[body.segmentIndex]?.type === 'plan') return row.segments[body.segmentIndex].markdown;
+        if (['tool-input', 'tool-result'].includes(body.slot)) {
+          const tool = Number.isSafeInteger(body.toolIndex) && body.toolIndex >= 0 ? row.toolCalls?.[body.toolIndex] : null;
+          if (!tool || !body.toolId || tool.id !== body.toolId || tool.name !== body.toolName
+            || row.toolCalls.filter(item => item?.id === body.toolId).length !== 1) fail('privacy.export_source_changed');
+          return tool[body.slot === 'tool-input' ? 'input' : 'result'];
+        }
+        fail('privacy.export_source_missing');
+      };
+      const stringify = value => value == null ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+      const raw = select(message);
+      if (raw === undefined) fail('privacy.export_source_missing');
+      if (enabled && !plaintext && ['tool-input', 'tool-result'].includes(body.slot) && clipboardContainsMedia(raw)) fail('privacy.export_media_unsupported');
+      const sourceHash = hash(message), seq = sessionDiskWriteSeqOf(id);
+      const assertSource = () => { if (sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); };
+      sourceGuards.push(assertSource);
+      check = async () => { const current = await loadSession(id); if (!current || hash(current.messages?.[index]) !== sourceHash) fail('privacy.export_source_changed'); assertSource(); };
+      const displayed = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.displayMessages(id, [message]));
+      sourceGuards.push(displayed.assert);
+      const view = select(displayed.value[0]);
+      if (typeof body.expectedMessageHash !== 'string' || hash(displayed.value[0]) !== body.expectedMessageHash) fail('privacy.export_source_changed');
+      if (hash(stringify(view)) !== body.expectedDocumentHash) fail('privacy.export_source_changed');
+      let logical = { source: raw, metadata: { slot: body.slot, ...(body.toolId ? { id: body.toolId, name: body.toolName } : {}) } };
+      if (plaintext) {
+        const plain = await PrivacyGateway.prepareLocalDisclosure(id, () => PrivacyGateway.restoreHistory(id, logical));
+        logical = plain.value; sourceGuards.push(plain.assert);
+      } else if (!enabled) logical.source = view;
+      else {
+        // Native tool field rules retain their original logical root (for example
+        // /secret), rather than acquiring a /logical/source wrapper prefix.
+        // Markdown/code documents likewise project in full before fence extraction.
+        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(raw, [id], { recipient: 'user-clipboard', purpose: 'clipboard:' + body.slot, sourceHash: hash(raw) });
+        logical.source = copy.value; sourceGuards.push(copy.assert); mappingGuardCount++;
+      }
+      if (Buffer.byteLength(JSON.stringify(logical)) > 8 * 1024 * 1024) fail('privacy.export_source_limit');
+      source = { sessionId: id, messageIndex: index, messageHash: sourceHash, slot: body.slot, toolId: body.toolId };
+      scopes = [id]; value = { logical, filename: 'clipboard.txt' }; format = 'copy';
+    } else if (body.kind === 'log-tail-copy') {
+      const snapshot = await readLogTailSnapshot(body.lines, { stable: true });
+      const assertLog = snapshot.assert;
+      sourceGuards.push(assertLog); check = async () => { assertLog(); };
+      source = { file: snapshot.file, hash: hash(snapshot.lines), requested: snapshot.requested };
+      let lines = snapshot.lines;
+      if (enabled && !plaintext) {
+        missing = lines.length > 0;
+        lines = lines.map((line, ordinal) => {
+          // A claimed session id in a log payload is not proof of content provenance.
+          // Keep only independently safe, bounded operational facts; never restore references.
+          let row; try { row = JSON.parse(line); } catch {}
+          const ts = typeof row?.ts === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(row.ts) ? row.ts : undefined;
+          const status = Number.isInteger(row?.status) && row.status >= 100 && row.status <= 599 ? row.status : undefined;
+          return JSON.stringify({ ordinal: ordinal + 1, ...(ts ? { ts } : {}), ...(status ? { status } : {}), contentWithheld: true, message: omitted });
+        });
+      }
+      value = { lines, filename: 'workbench-log-copy.txt' }; format = 'copy';
     } else if (body.kind === 'memory') {
       if (config.stewardEnabledV1 !== true) fail('privacy.export_source_changed');
       await stewardMemoryChain;
@@ -269,6 +354,9 @@ const PrivacyTextExports = (() => {
         content = `<!doctype html><meta charset="utf-8"><title>${escape(s.title || '')}</title><style>body{font-family:sans-serif;max-width:820px;margin:2rem auto}pre{white-space:pre-wrap;background:#f4f4f4;padding:8px;border-radius:6px}.m{margin:1rem 0}</style><h1>${escape(s.title || '')}</h1>${rows}`; mime = 'text/html';
       } else { content = `# ${s.title || 'Session'}\n\n` + (s.messages || []).map(m => `## ${m.role}\n\n${m.content || ''}`).join('\n\n'); mime = 'text/markdown'; }
     } else if (body.kind === 'mermaid-document') { content = value.document; mime = 'text/markdown'; }
+    else if (body.kind === 'clipboard-local') { content = value.localText; mime = 'text/plain'; }
+    else if (body.kind === 'clipboard-source') { content = value.logical.source == null ? '' : typeof value.logical.source === 'string' ? value.logical.source : JSON.stringify(value.logical.source, null, 2); mime = 'text/plain'; }
+    else if (body.kind === 'log-tail-copy') { content = value.lines.join('\n'); mime = 'text/plain'; }
     else if (body.kind === 'memory') { content = JSON.stringify(value.payload, null, 2); mime = 'application/json'; }
     else { content = value.events.join('\n'); mime = 'application/x-ndjson'; }
     const assert = () => { guard(); prepared.assert(); for (const sourceGuard of sourceGuards) sourceGuard(); };

@@ -93,7 +93,7 @@ export function createHelpMenuDomain({
   openHelpDoc = () => null,
   openOnboarding = () => null,
   currentSessionId = () => '',
-  clipboard = () => (globalThis.navigator && globalThis.navigator.clipboard) || null,
+  copyLogTail = null,
 } = {}) {
 
   // 真动作:让服务端把资源管理器开出来。失败一律给人话,绝不退化成「路径是 X,你自己去开」。
@@ -141,7 +141,7 @@ export function createHelpMenuDomain({
     body.append(pre);
 
     const foot = el('div', 'confirm-foot help-logs-foot');
-    const copyBtn = el('button', 'btn btn-sm', t('help.logs.copyAll'));
+    const copyBtn = el('button', 'btn btn-sm', t('privacy.copy.latestLogs'));
     copyBtn.type = 'button';
     const openDirBtn = el('button', 'btn btn-sm', t('help.menu.openLogsDir'));
     openDirBtn.type = 'button';
@@ -182,12 +182,17 @@ export function createHelpMenuDomain({
 
     select.onchange = () => { load(); };
     refreshBtn.onclick = () => { load(); };
-    copyBtn.onclick = async () => {
-      const board = clipboard();
-      if (!board || typeof board.writeText !== 'function' || !text) { toast(t('toast.copyFail'), 'err'); return; }
-      try { await board.writeText(text); toast(t('toast.copied'), 'ok'); }
-      catch { toast(t('toast.copyFail'), 'err'); }
+    copyBtn.onclick = () => {
+      if (!text || typeof copyLogTail !== 'function') { toast(t('toast.copyFail'), 'err'); return; }
+      void copyLogTail({ kind: 'log-tail-copy', lines: Number.parseInt(select.value, 10) });
     };
+    const plainCopy = el('button', '', t('privacy.copy.plain'));
+    plainCopy.type = 'button'; plainCopy.title = t('privacy.copy.plainNotice');
+    plainCopy.onclick = () => {
+      if (!text || typeof copyLogTail !== 'function') { toast(t('toast.copyFail'), 'err'); return; }
+      void copyLogTail({ kind: 'log-tail-copy', lines: Number.parseInt(select.value, 10), plaintext: true });
+    };
+    foot.appendChild(plainCopy);
     openDirBtn.onclick = () => { openWorkbenchFolder('logs'); };
 
     const modal = buildModal(t('help.logs.title'), body, foot);

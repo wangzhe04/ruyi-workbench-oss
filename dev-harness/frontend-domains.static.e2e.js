@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { bracedBlock } = require('./lib/source-slice');
 const {
   CSS_COMPAT_ROUTES,
   CSS_ROUTES,
@@ -264,7 +265,8 @@ for (const name of [
     `D42 chat-render-primitives 持有 ${name}()`);
 }
 ok(/const\s*\{\s*\$,\s*api,/.test(chatRenderPrimitives)
-  && /createChatRenderPrimitives\(\{\s*\$,\s*api,/.test(app),
+  && /(?:^|[,{])\s*\$\s*,/.test(bracedBlock(app, 'createChatRenderPrimitives('))
+  && /(?:^|[,{])\s*api\s*,/.test(bracedBlock(app, 'createChatRenderPrimitives(')),
   'D42 chat-render-primitives 显式接收并注入 DOM 查询 helper');
 for (const name of [
   'renderStaticMessage',

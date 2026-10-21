@@ -1,7 +1,7 @@
 // boot-failure.js — 启动故障卡（v1.5 §1.3 起住在 app.js；128f-① 用户首启走查改造后搬出来，
 // 组合根行数护栏见 frontend-domains D45）。
 //
-// 显式故障卡：大标题 + 可能原因 +「重试」（重跑 bootData，不重复 bindEvents）+「查看诊断」（展开可整段复制的原文）。
+// 显式故障卡：大标题 + 可能原因 +「重试」（重跑 bootData，不重复 bindEvents）+「查看诊断」（本地完整原文；复制按钮只给安全摘要）。
 // 主卡不暴露英文栈 —— 原文收进折叠的诊断面板。DOM 全 createElement／textContent（err 内容不可信，永不 innerHTML
 // 拼它）。可键盘操作：重试是真 <button> 且自动聚焦，诊断按钮带 aria-expanded／aria-controls。
 //
@@ -15,10 +15,11 @@
 //   ③ 一抛就整段中止 —— boot 的最后一步是起推送连接，前面随便哪步抛了推送就再也不起（改在 app.js 的 boot()）；
 //   ④ 诊断框只有 apiErrText(err) 一行：服务端 500 被按码译成「服务发生内部错误。」、它写在 message 里的真原因被扔掉；
 //      前端异常只剩一句 message，不知道是哪一步、没有栈；下面那行提示是半句「常见原因：」，后面什么也没有。
-//      现在给一份能整段发给开发者的原文：哪一步（bootStep 贴的）、哪一类、状态码与路径（net.js api() 贴的）、服务端
-//      原话、错误码、栈、时刻、页面；多一枚「复制诊断」；
+//      现在本地显示完整原文：哪一步（bootStep 贴的）、哪一类、状态码与路径（net.js api() 贴的）、服务端
+//      原话、错误码、栈、时刻、页面；复制按钮只给固定白名单摘要，服务失联时同样安全；
 //   ⑤ 点「重试」后状态行原样写着「已尝试 {n} 次」（单花括号不插值、也没传参）。
 // boot-failure-kind.browser 在管家视角里用 CDP Fetch 造几种失败逐条钉住。
+import { beginClipboardWrite } from './disclosure-source.js';
 import { el, setStatus, toast } from './util.js';
 import { apiErrorInfo } from './net.js';
 import { t } from './i18n.js';
@@ -30,6 +31,17 @@ export function createBootFailure({
   documentRef = globalThis.document,
 } = {}) {
   const doc = documentRef;
+
+  const STATUS_STEP = 'refreshStatus · GET /api/status';
+  const SAFE_BOOT_STEPS = new Set([STATUS_STEP, 'refreshSessions · GET /api/sessions', 'openSession · GET /api/sessions/:id', 'renderCurrentSession', 'updateShellPolling']);
+  const SAFE_BOOT_CODES = new Set(['auth.token_invalid', 'privacy.policy_unavailable', 'config.read_degraded', 'logs.read_failed']);
+  function safeBootDiagText(err) {
+    const status = Number.isInteger(err?.status) && err.status >= 100 && err.status <= 599 ? err.status : undefined;
+    const code = apiErrorInfo(err).code;
+    return JSON.stringify({ step: SAFE_BOOT_STEPS.has(err?.bootStep) ? err.bootStep : 'unknown',
+      ...(status ? { status } : {}), ...(SAFE_BOOT_CODES.has(code) ? { code } : {}), at: new Date().toISOString(), contentWithheld: true }, null, 2)
+      + '\n' + t('privacy.copy.diagnosticOmitted');
+  }
 
   function bootFailureKind(err) {
     const msg = String((err && err.message) || err || '');
@@ -132,10 +144,12 @@ export function createBootFailure({
     const copy = el('button', 'ghost boot-diag-copy', t('bootFailure.diagCopy'));
     copy.type = 'button';
     copy.onclick = async () => {
-      try { await navigator.clipboard.writeText(diagText); copy.textContent = t('common.copied'); }
+      try {
+        const clipboard = beginClipboardWrite(); clipboard.resolve(new Blob([safeBootDiagText(err)], { type: 'text/plain' })); await clipboard.pending;
+        copy.textContent = t('common.copied');
+      }
       catch {
-        // 剪贴板不给用（非安全上下文／权限）：把原文整段选中，用户按 Ctrl+C 即可
-        try { const r = doc.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } catch { /* ignore */ }
+        // A failed copy never selects or exposes the raw diagnostic as a fallback.
         copy.textContent = t('bootFailure.diagCopyFailed');
       }
       setTimeout(() => { copy.textContent = t('bootFailure.diagCopy'); }, 2000);

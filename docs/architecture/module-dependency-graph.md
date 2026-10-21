@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 88 | 3887 | 3511 | 631 | 67 | 0 | 1 |
+| 88 | 3889 | 3515 | 631 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -39,7 +39,7 @@
 | 21 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 22 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
 | 23 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
-| 24 | `04-permission-runtime.js` | foundation | 167 | 43 | 10 |
+| 24 | `04-permission-runtime.js` | foundation | 174 | 43 | 10 |
 | 25 | `04-desktop-shell.js` | foundation | 1 | 11 | 3 |
 | 26 | `04f-toolbox-services.js` | foundation | 26 | 14 | 3 |
 | 27 | `04h-provider-http.js` | foundation | 16 | 1 | 1 |
@@ -75,7 +75,7 @@
 | 57 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
 | 58 | `12-tool-dispatch.js` | tools | 77 | 142 | 22 |
 | 59 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 60 | `13-http-router.js` | transport | 70 | 272 | 35 |
+| 60 | `13-http-router.js` | transport | 65 | 275 | 35 |
 | 61 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
 | 62 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 63 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
@@ -100,7 +100,7 @@
 | 82 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
 | 83 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
 | 84 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
-| 85 | `13ab-privacy-api.js` | unclassified | 2 | 35 | 16 |
+| 85 | `13ab-privacy-api.js` | unclassified | 2 | 36 | 16 |
 | 86 | `13w-external-bots.js` | transport | 69 | 24 | 9 |
 | 87 | `14-main.js` | entrypoint | 1 | 591 | 49 |
 
@@ -418,7 +418,7 @@
 | `13-http-router.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `13-http-router.js` | `03b-privacy-local-drive.js` | backward | `PrivacyLocalDriveProbe` |
 | `13-http-router.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
-| `13-http-router.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `activeChildren`, `killAllMcpClients`, `killOwnProcessTree`, `logEvent`, `makeAttachmentRecord`, `redact`, `requestSessionExecutionStop`, `resolveExternalMcpServers`, `stopSession` |
+| `13-http-router.js` | `04-permission-runtime.js` | backward | `LOG_TAIL_DEFAULT_LINES`, `LOG_TAIL_MAX_LINES`, `ToolboxHooks`, `activeChildren`, `killAllMcpClients`, `killOwnProcessTree`, `logEvent`, `makeAttachmentRecord`, `readLogTailSnapshot`, `redact`, `requestSessionExecutionStop`, `resolveExternalMcpServers`, `stopSession` |
 | `13-http-router.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
 | `13-http-router.js` | `04h-provider-http.js` | backward | `providerScrubSecrets` |
 | `13-http-router.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle` |
@@ -457,7 +457,7 @@
 | `13ab-privacy-api.js` | `03-bridge-guard.js` | backward | `PrivacyFileIoHooks`, `PrivacyRecipientHooks` |
 | `13ab-privacy-api.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `13ab-privacy-api.js` | `03b-privacy-local-drive.js` | backward | `PrivacyLocalDriveProbe` |
-| `13ab-privacy-api.js` | `04-permission-runtime.js` | backward | `activeChildren`, `turnSettlers` |
+| `13ab-privacy-api.js` | `04-permission-runtime.js` | backward | `activeChildren`, `readLogTailSnapshot`, `turnSettlers` |
 | `13ab-privacy-api.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `StewardHooks` |
 | `13ab-privacy-api.js` | `07-autonomy.js` | backward | `nativeToolSchema` |
 | `13ab-privacy-api.js` | `12-tool-dispatch.js` | backward | `planPrivacyToolDisclosure` |

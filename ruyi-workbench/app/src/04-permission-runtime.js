@@ -126,6 +126,60 @@ function logEvent(record) {
   }
 }
 
+const LOG_TAIL_MAX_LINES = 2000;
+const LOG_TAIL_DEFAULT_LINES = 200;
+// 只读文件尾部这么多字节再切行:日志按天滚动,单份也可能到几十 MB,整份读进内存没有必要。
+const LOG_TAIL_MAX_BYTES = 2 * 1024 * 1024;
+
+// 最近一份工作台日志(04-permission-runtime 的 logEvent 按天写 workbench-YYYY-MM-DD.ndjson)。
+// 只在【服务端已知目录】里按【固定正则】筛文件名,不接受任何外部路径入参。
+function latestLogFile() {
+  let names = [];
+  try { names = fs.readdirSync(paths.logs); } catch { return ''; }
+  const hits = names.filter(n => /^workbench-\d{4}-\d{2}-\d{2}\.ndjson$/.test(n)).sort();
+  return hits.length ? path.join(paths.logs, hits[hits.length - 1]) : '';
+}
+
+// 尾部若干行。startedMidFile 时首行大概率被切断(字节偏移不是行/字符边界),直接丢掉半行。
+function tailLinesFromBuffer(buf, startedMidFile, wanted) {
+  let text = buf.toString('utf8');
+  if (startedMidFile) {
+    const nl = text.indexOf('\n');
+    text = nl >= 0 ? text.slice(nl + 1) : '';
+  }
+  const all = text.split(/\r?\n/).filter(line => line.length > 0);
+  const lines = all.slice(Math.max(0, all.length - wanted));
+  return { lines, more: all.length > lines.length };
+}
+
+// Shared local-log source owner. No caller-supplied path or raw content is accepted.
+function logFileIdentity(file) {
+  try {
+    const value = fs.lstatSync(file, { bigint: true });
+    if (!value.isFile() || value.isSymbolicLink()) throw new Error();
+    return [value.dev, value.ino, value.size, value.mtimeNs, value.ctimeNs].join(':');
+  } catch { return ''; }
+}
+async function readLogTailSnapshot(requested, { stable = false } = {}) {
+  const wanted = Number.isSafeInteger(requested) ? Math.min(Math.max(requested, 1), LOG_TAIL_MAX_LINES) : LOG_TAIL_DEFAULT_LINES;
+  const file = latestLogFile();
+  if (!file) throw Object.assign(new Error('logs.none'), { code: 'logs.none' });
+  const identity = logFileIdentity(file);
+  if (!identity) throw Object.assign(new Error('logs.read_failed'), { code: 'logs.read_failed' });
+  const assert = () => {
+    if (latestLogFile() !== file || logFileIdentity(file) !== identity) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+  };
+  let handle;
+  try {
+    const st = await fsp.stat(file), size = Math.min(st.size, LOG_TAIL_MAX_BYTES), start = Math.max(0, st.size - size);
+    const buffer = Buffer.alloc(size); handle = await fsp.open(file, 'r');
+    if (size) await handle.read(buffer, 0, size, start);
+    const { lines, more } = tailLinesFromBuffer(buffer, start > 0, wanted);
+    if (stable) assert();
+    return { file: path.basename(file), lines, count: lines.length, requested: wanted, maxLines: LOG_TAIL_MAX_LINES, more, assert };
+  } finally { if (handle) await handle.close().catch(() => {}); }
+}
+
 // --- Active claude child registry keyed by session id, for stop/restart/interrupt + disconnect kill. ---
 const activeChildren = new Map(); // sessionId -> { child, pid, state, startedAt, lastEventAt, interactive, onEvent }
 // 第 117 波 117l D4(27 号文 §11.9;用户第四轮走查第 3 条「『它刚说』更新不够及时」):活回合尾巴的累加器。

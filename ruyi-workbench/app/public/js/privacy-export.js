@@ -1,4 +1,5 @@
 import { api, apiErrorInfo } from './net.js';
+import { beginClipboardWrite, disclosureSourceFor, assertDisclosureSource } from './disclosure-source.js';
 import { state } from './state.js';
 import { t } from './i18n.js';
 import { toast } from './util.js';
@@ -27,7 +28,8 @@ async function validatedCopy(request, { unchanged, create, dispose, commit }) {
 }
 function exportFailure(error) {
   const code = apiErrorInfo(error).code;
-  const key = /(?:changed|dirty|revoked|unknown|expired|missing)/.test(code) ? 'changed'
+  const key = code === 'privacy.export_media_unsupported' ? 'mediaUnsupported' : code === 'privacy.export_source_missing' ? 'sourceMissing'
+    : code === 'privacy.export_clipboard_unavailable' ? 'clipboardUnavailable' : /(?:changed|dirty|revoked|unknown|expired|missing)/.test(code) ? 'changed'
     : /(?:limit|capacity)/.test(code) ? 'limit' : /(?:busy)/.test(code) ? 'busy' : 'failed';
   toast(t('privacy.export.' + key), 'err');
 }
@@ -96,4 +98,95 @@ export async function exportMermaidDocument({ record, localDocument, format, pla
     toast(t(artifact.protected ? 'privacy.export.protected' : 'privacy.export.saved'), 'ok');
     return artifact;
   } catch (error) { if (clipboard) clipboard.reject(error); exportFailure(error); return null; }
+}
+
+function clipboardIntent(bindSession = true) {
+  return { ...(bindSession ? { sessionId: state.currentSession?.id } : {}), config: JSON.stringify(state.config),
+    knownUsableOff: Object.hasOwn(state.config || {}, 'privacyModeV1') && state.config.privacyModeV1 === 'off' && state.config.privacyPolicyRecoveryRequiredV1 !== true,
+    privacy: {
+    mode: Object.hasOwn(state.config || {}, 'privacyModeV1') ? state.config.privacyModeV1 : 'unknown',
+    technical: state.config?.privacyTechnicalV1 === true, rules: structuredClone(state.config?.privacyRulesV1 || []),
+  } };
+}
+function assertClipboardIntent(intent) {
+  if ((Object.hasOwn(intent, 'sessionId') && intent.sessionId !== state.currentSession?.id) || intent.config !== JSON.stringify(state.config)) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+}
+export async function copyPrivacyExport(request) {
+  const intent = clipboardIntent(false); let clipboard;
+  try {
+    clipboard = beginClipboardWrite();
+    const unchanged = () => assertClipboardIntent(intent);
+    const artifact = await validatedCopy({ ...request, expectedPrivacy: intent.privacy }, {
+      unchanged, create: artifact => ({ blob: new Blob([artifact.content], { type: 'text/plain' }) }), dispose: () => {},
+      commit: value => { clipboard.resolve(value.blob); return clipboard.pending; },
+    });
+    toast(t(artifact.contentWithheld ? 'privacy.copy.withheld' : artifact.protected ? 'privacy.copy.protected' : 'toast.copied'), 'ok');
+    return artifact;
+  } catch (error) { clipboard?.reject(error); exportFailure(error); return null; }
+}
+export async function copyDisclosureSource(node, { kind, plaintext = false, renderMarkdownInto, localText } = {}) {
+  const intent = clipboardIntent(); let clipboard;
+  try {
+    clipboard = beginClipboardWrite();
+    if (node?.isConnected === false) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+    const record = disclosureSourceFor(node);
+    const expectedSlot = kind === 'tool' ? record?.locator.slot?.startsWith('tool-')
+      : kind === 'message' ? record?.locator.slot === 'content'
+        : ['content', 'segment-text', 'segment-markdown'].includes(record?.locator.slot);
+    const canonical = record && expectedSlot;
+    let unchanged, request, visibleText;
+    if (!canonical) {
+      if (!intent.knownUsableOff) throw Object.assign(new Error('privacy.export_source_missing'), { code: 'privacy.export_source_missing' });
+      const readText = () => String((typeof localText === 'function' ? localText() : typeof localText === 'string' ? localText : node?.textContent) ?? '');
+      const text = readText();
+      unchanged = () => {
+        assertClipboardIntent(intent);
+        if (!node || node.isConnected === false || readText() !== text) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+      };
+      unchanged(); const expectedTextHash = await mermaidDocumentHash(text); unchanged();
+      request = { kind: 'clipboard-local', text, expectedTextHash, expectedPrivacy: intent.privacy, ...(plaintext ? { plaintext: true } : {}) };
+    } else {
+      visibleText = kind === 'code' ? String(node.textContent || '') : record.document;
+      unchanged = () => {
+        assertClipboardIntent(intent); assertDisclosureSource(record);
+        const locator = record.locator, message = state.currentSession?.messages?.[locator.messageIndex];
+        if (!record.messageSnapshot || JSON.stringify(message) !== record.messageSnapshot) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+        const identity = message && { id: message.id || '', role: message.role, createdAt: message.createdAt || '', turnSeq: message.turnSeq ?? null };
+        let source = locator.slot === 'content' ? message?.content : locator.slot === 'segment-text' ? message?.segments?.[locator.segmentIndex]?.text
+          : locator.slot === 'segment-markdown' ? message?.segments?.[locator.segmentIndex]?.markdown : undefined;
+        if (locator.slot?.startsWith('tool-')) {
+          const tool = message?.toolCalls?.[locator.toolIndex];
+          if (!tool || tool.id !== locator.toolId || tool.name !== locator.toolName) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+          source = tool[locator.slot === 'tool-input' ? 'input' : 'result'];
+        }
+        const current = source == null ? '' : typeof source === 'string' ? source : JSON.stringify(source, null, 2);
+        if (current !== record.document) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+        if (intent.sessionId !== locator.sessionId || JSON.stringify(identity) !== JSON.stringify(locator.messageIdentity)) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+        if (kind === 'code' && node.textContent !== visibleText) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+      };
+      unchanged();
+      const expectedDocumentHash = await mermaidDocumentHash(record.document); unchanged();
+      const expectedMessageHash = await mermaidDocumentHash(JSON.parse(record.messageSnapshot)); unchanged();
+      request = { kind: 'clipboard-source', ...record.locator, expectedDocumentHash, expectedMessageHash, expectedPrivacy: intent.privacy, ...(plaintext ? { plaintext: true } : {}) };
+    }
+    const artifact = await validatedCopy(request, {
+      unchanged,
+      create: artifact => {
+        let text = artifact.content;
+        if (canonical && kind === 'code') {
+          if (typeof renderMarkdownInto !== 'function') throw Object.assign(new Error('privacy.export_source_missing'), { code: 'privacy.export_source_missing' });
+          const original = document.createElement('template'), projected = document.createElement('template');
+          renderMarkdownInto(original, record.document); renderMarkdownInto(projected, text);
+          const blocks = root => Array.from((root.content || root).querySelectorAll('pre > code'));
+          const oldBlocks = blocks(original), newBlocks = blocks(projected), visible = blocks(record.node);
+          const ordinal = visible.indexOf(node);
+          if (ordinal < 0 || oldBlocks.length !== visible.length || newBlocks.length !== oldBlocks.length || oldBlocks[ordinal]?.textContent !== visibleText) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
+          text = String(newBlocks[ordinal].textContent || '');
+        }
+        return { blob: new Blob([text], { type: 'text/plain' }) };
+      },
+      dispose: () => {}, commit: value => { clipboard.resolve(value.blob); return clipboard.pending; },
+    });
+    toast(t(artifact.protected ? 'privacy.copy.protected' : 'toast.copied'), 'ok'); return artifact;
+  } catch (error) { clipboard?.reject(error); exportFailure(error); return null; }
 }

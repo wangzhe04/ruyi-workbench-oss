@@ -14,6 +14,7 @@ import { t, tCount } from './i18n.js';
 import { popover, popoverAnchor } from './popover.js';
 // 118d: 常驻帮助菜单。菜单本体是壳无关工厂,住在这里只因为 popover 原语在本域;手册阅读器与新手向导
 // 都走各自模块的「共用实例登记处」(help-viewer / onboarding-wizard),所以组合根不必再多注入两条依赖。
+import { copyPrivacyExport } from './privacy-export.js';
 import { createHelpMenuDomain } from './help-menu.js';
 import { openSharedHelpDoc } from './help-viewer.js';
 import { openSharedOnboarding } from './onboarding-wizard.js';
@@ -83,6 +84,7 @@ export function createNavigationControlsDomain({
 } = {}) {
 // 118d: 帮助菜单实例。手册与向导都取各自模块的共用实例,拿不到时(理论上只有预览壳单跑)静默不动作。
 const helpMenu = createHelpMenuDomain({
+  copyLogTail: request => copyPrivacyExport(request),
   api, el, t, toast, apiErrText, buildModal,
   popover: (...args) => popover(...args),
   openHelpDoc: options => openSharedHelpDoc(options),

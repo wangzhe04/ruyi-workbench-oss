@@ -25,6 +25,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { getFreePort } = require('./free-port.js');
+const { functionBlock, bracedBlock } = require('./lib/source-slice.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -242,14 +243,17 @@ async function up() { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.
       && /if \(target === 'data'\) return paths\.data;/.test(routerSrc)
       && /if \(target === 'workspace'\) return String\(\(session && session\.cwd\) \|\| ''\);/.test(routerSrc),
       '⑦ 目录映射是四条硬编码分支 + 兜底空串,没有任何字符串拼接');
-    ok(/const hits = names\.filter\(n => \/\^workbench-\\d\{4\}-\\d\{2\}-\\d\{2\}\\\.ndjson\$\/\.test\(n\)\)/.test(routerSrc),
+    const logsSrc = fs.readFileSync(path.join(WB, 'app', 'src', '04-permission-runtime.js'), 'utf8');
+    const latestLog = functionBlock(logsSrc, 'latestLogFile');
+    ok(/const hits = names\.filter\(n => \/\^workbench-\\d\{4\}-\\d\{2\}-\\d\{2\}\\\.ndjson\$\/\.test\(n\)\)/.test(latestLog)
+      && latestLog.includes('fs.readdirSync(paths.logs)') && !/\b(?:req|body|url)\b/.test(latestLog),
       '⑦ 日志文件名在服务端已知目录里按固定正则筛,请求里没有文件名入参');
     // 读失败分支绝不能把 Node 的 ENOENT/EPERM 文本回给前端: 那句话里带着日志文件的绝对路径。
     const logStart = routerSrc.indexOf("if (req.method === 'GET' && pathname === '/api/logs/tail') {");
-    const logEnd = routerSrc.indexOf('\n  }\n', logStart);
-    const logBlock = logStart >= 0 && logEnd > logStart ? routerSrc.slice(logStart, logEnd) : '';
-    ok(!!logBlock && logBlock.includes("error: 'logs.read_failed', maxLines: LOG_TAIL_MAX_LINES")
-      && !/detail:/.test(logBlock) && logBlock.includes("kind: 'logs_tail_failed'"),
+    const logBlock = logStart >= 0 ? bracedBlock(routerSrc, "if (req.method === 'GET' && pathname === '/api/logs/tail')") : '';
+    ok(!!logBlock && logBlock.includes('await readLogTailSnapshot(wanted)')
+      && logBlock.includes("error: e.code === 'logs.none' ? 'logs.none' : 'logs.read_failed', maxLines: LOG_TAIL_MAX_LINES")
+      && !/detail:|json\(\{\s*ok:\s*false[^}]*e\.(?:message|stack)/.test(logBlock) && logBlock.includes("kind: 'logs_tail_failed'"),
       '⑦ 读失败只回机器码,e.message(含绝对路径)只进结构化日志,不回前端');
     const authSrc = fs.readFileSync(path.join(WB, 'app', 'src', '01b-route-auth.js'), 'utf8');
     ok(authSrc.includes("{ m: 'POST', p: '/api/open-path', auth: 'token' }")
