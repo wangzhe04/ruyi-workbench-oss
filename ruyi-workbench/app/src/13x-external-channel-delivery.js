@@ -40,6 +40,9 @@ const ExternalChannelDelivery = (() => {
       const headers = { 'content-type': 'application/json; charset=utf-8', 'content-length': String(bytes.length) };
       if (authorization) headers.authorization = authorization;
       try {
+        // All JSON bytes are ready. No await may separate the host's final
+        // identity/policy/cancellation check from creating the message request.
+        if (options.assertDispatch) options.assertDispatch(bytes);
         request = transport.request({ protocol: 'https:', hostname, port: 443, path, method: 'POST', headers,
           agent: false, rejectUnauthorized: true, maxHeaderSize: 8192 }, incoming => {
           if (done) { incoming.destroy(); return; }
@@ -60,11 +63,12 @@ const ExternalChannelDelivery = (() => {
         });
         request.on('error', () => finish({ failure: 'network' }));
         request.end(bytes);
-      } catch { finish({ failure: 'network' }); if (request) request.destroy(); }
+      } catch { finish({ failure: request ? 'network' : 'predispatch' }); if (request) request.destroy(); }
     });
   }
   function classify(result, tokenPhase) {
     const status = tokenPhase ? 'failed' : 'unknown';
+    if (result.failure === 'predispatch') return failure('failed', 'predispatch');
     if (result.failure) return failure(status, (tokenPhase ? 'token_' : '') + result.failure);
     if (result.statusCode === 429) return failure('failed', 'rate_limited', { retryAfterMs: result.retryAfterMs });
     if (result.statusCode >= 400 && result.statusCode < 500) return failure('failed', tokenPhase ? 'token_rejected' : 'rejected');
@@ -83,7 +87,6 @@ const ExternalChannelDelivery = (() => {
     if (platform === 'qq' && originalMessage.conversationType === 'direct' && originalMessage.conversationId !== originalMessage.senderId) return failure('failed', 'identity_mismatch');
     if (typeof text !== 'string' || !text.trim() || text.length > 1048576
       || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text) || Buffer.from(text).toString('utf8') !== text) return failure('failed', 'text_invalid');
-    const bounded = boundedText(text); text = bounded.text;
     const credential = platform === 'qq' ? connection.botSecret : connection.appSecret;
     if (!secret(credential)) return failure('failed', 'invalid_config');
     const timeoutMs = options.timeoutMs === undefined ? 10000 : options.timeoutMs;
@@ -106,16 +109,30 @@ const ExternalChannelDelivery = (() => {
     if (!object(payload) || (platform === 'feishu' && payload.code !== 0)) return failure('failed', 'token_rejected');
     const token = platform === 'qq' ? payload.access_token : payload.tenant_access_token;
     if (typeof token !== 'string' || !/^[\x21-\x7e]{1,4096}$/.test(token)) return failure('failed', 'token_invalid');
-    // Cancellation before dispatch is a known failure, even though token retrieval already happened.
-    if (requestOptions.signal && requestOptions.signal.aborted) return failure('failed', 'aborted');
-    requestOptions.timeoutMs = deadline - Date.now();
-    if (requestOptions.timeoutMs <= 0) return failure('failed', 'timeout');
-    const result = await post(hostname, platform === 'qq'
-      ? '/v2/' + (group ? 'groups/' : 'users/') + encodeURIComponent(conversationId) + '/messages'
-      : '/open-apis/im/v1/messages/' + encodeURIComponent(messageId) + '/reply',
-    platform === 'qq' ? { msg_type: 0, content: text, msg_id: messageId, msg_seq: 1 }
-      : { msg_type: 'text', content: JSON.stringify({ text }), uuid },
-    (platform === 'qq' ? 'QQBot ' : 'Bearer ') + token, requestOptions);
+    // Host preparation runs after authentication and protects the COMPLETE logical
+    // reply before any clipping. Auth slots remain fixed official-platform slots.
+    let bounded, result, dispatched = false;
+    const dispatch = prepared => {
+      if (dispatched) throw new Error('duplicate dispatch');
+      dispatched = true;
+      if (!prepared || typeof prepared.text !== 'string' || (options.prepare && typeof prepared.assertCurrent !== 'function')) throw new Error('invalid preparation');
+      bounded = boundedText(prepared.text); text = bounded.text;
+      if (prepared.assertCurrent) requestOptions.assertDispatch = bytes => {
+        if (requestOptions.signal?.aborted) throw new Error('cancelled');
+        prepared.assertCurrent({ text, bytes });
+      };
+      if (requestOptions.signal?.aborted) return Promise.resolve({ failure: 'predispatch' });
+      requestOptions.timeoutMs = deadline - Date.now();
+      if (requestOptions.timeoutMs <= 0) return Promise.resolve({ failure: 'predispatch' });
+      return post(hostname, platform === 'qq'
+        ? '/v2/' + (group ? 'groups/' : 'users/') + encodeURIComponent(conversationId) + '/messages'
+        : '/open-apis/im/v1/messages/' + encodeURIComponent(messageId) + '/reply',
+      platform === 'qq' ? { msg_type: 0, content: text, msg_id: messageId, msg_seq: 1 }
+        : { msg_type: 'text', content: JSON.stringify({ text }), uuid },
+      (platform === 'qq' ? 'QQBot ' : 'Bearer ') + token, requestOptions);
+    };
+    try { result = options.prepare ? await options.prepare(dispatch) : await dispatch({ text }); }
+    catch { return failure('failed', 'predispatch'); }
     const sendFailure = classify(result, false);
     if (sendFailure) return sendFailure;
     if (!object(result.payload)) return failure('unknown', 'invalid_response');

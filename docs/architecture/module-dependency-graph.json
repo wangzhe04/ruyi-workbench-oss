@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 88,
-    "providedSymbols": 3878,
-    "requiredSymbols": 3480,
-    "edges": 625,
+    "providedSymbols": 3881,
+    "requiredSymbols": 3482,
+    "edges": 627,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -24786,6 +24786,7 @@
         "externalBotAcceptCallback",
         "externalBotActiveActors",
         "externalBotActors",
+        "externalBotBoundReplyText",
         "externalBotCapturePairing",
         "externalBotChains",
         "externalBotConfigured",
@@ -24810,6 +24811,7 @@
         "externalBotOutcome",
         "externalBotOwnerMatches",
         "externalBotPairings",
+        "externalBotPrepareReply",
         "externalBotPublicConnection",
         "externalBotPublicItem",
         "externalBotRate",
@@ -24817,6 +24819,7 @@
         "externalBotReadState",
         "externalBotRecover",
         "externalBotRecoveryDone",
+        "externalBotReplyBinding",
         "externalBotReplyText",
         "externalBotResultUncertain",
         "externalBotSafeCredentialError",
@@ -24963,6 +24966,20 @@
           "symbol": "tokenOk",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -35995,6 +36012,22 @@
         "originOk",
         "send",
         "tokenOk"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "STEWARD_SESSION_ID"
       ],
       "direction": "backward"
     },

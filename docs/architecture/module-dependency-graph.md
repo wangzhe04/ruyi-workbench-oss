@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 88 | 3878 | 3480 | 625 | 67 | 0 | 1 |
+| 88 | 3881 | 3482 | 627 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -101,7 +101,7 @@
 | 83 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
 | 84 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
 | 85 | `13ab-privacy-api.js` | unclassified | 1 | 23 | 14 |
-| 86 | `13w-external-bots.js` | transport | 66 | 22 | 7 |
+| 86 | `13w-external-bots.js` | transport | 69 | 24 | 9 |
 | 87 | `14-main.js` | entrypoint | 1 | 591 | 49 |
 
 ## 模块边
@@ -675,6 +675,8 @@
 | `13v-external-channel-protocols.js` | `00-boot.js` | backward | `crypto`, `json`, `text` |
 | `13w-external-bots.js` | `00-boot.js` | backward | `ExternalBotHooks`, `OVERLAY_ID`, `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `text` |
 | `13w-external-bots.js` | `01-config.js` | backward | `DurableJsonStore`, `originOk`, `send`, `tokenOk` |
+| `13w-external-bots.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
+| `13w-external-bots.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID` |
 | `13w-external-bots.js` | `13q-steward-runner-turn.js` | backward | `runStewardTurn` |
 | `13w-external-bots.js` | `13v-external-channel-protocols.js` | backward | `ExternalChannelProtocols` |
 | `13w-external-bots.js` | `13x-external-channel-delivery.js` | backward | `ExternalChannelDelivery` |

@@ -1,0 +1,281 @@
+{
+  "date": "2026-10-21",
+  "baseline": "42867359",
+  "scope": "M2-6a managed bot reply disclosure; exports/sharing remain M2-6b",
+  "status": "verified and independently reviewed",
+  "contract": [
+    "Protect complete logical reply before historical 1700-character/5500-byte clipping; OFF retains prior content and clipping with no detector or mapping-encryption initialization.",
+    "After platform token wait, reread authoritative execution, delivery attempt, recipient/connection and credential revision under existing state keyed chain.",
+    "Opaque host-only receipt binds policy, recipient/purpose, source hash and stable projection revision; actual message JSON is ready before synchronous receipt/cancellation/env check and transport.request, with no intervening await.",
+    "Unrelated scope learning is reprojected; affected complete originals are rescanned. Unknown/cross-scope/revoked references refuse.",
+    "Execution and delivery settle separately; oversize or 40 MiB ledger capacity refusal preserves business outcome, fails delivery without sending a clipped private prefix. Dispatched uncertainty remains unknown and never automatically retries business."
+  ],
+  "independentReview": {
+    "reviewer": "release_priority",
+    "findings": [
+      "Two nested await gaps could associate old projection bytes with a newly learned revision; stable transform now returns value/revision together.",
+      "Historical OFF clipping and suffix restored after full projection.",
+      "Oversized or ledger-capacity reply must retain completed execution and fail only delivery.",
+      "Concurrent-learning test hook moved after scope prewarm to make timing unambiguous; earlier reviewer claim prewarm auto-persisted was withdrawn after reading run()."
+    ],
+    "final": "Final code/test and generated contract/egress fingerprints reviewed; no remaining blocker. Final evidence/doc reconciliation reviewed before commit."
+  },
+  "tests": {
+    "newE2e": {
+      "file": "dev-harness/privacy-bot-disclosure.e2e.js",
+      "runs": [
+        {
+          "skip": 0,
+          "pass": 104,
+          "fail": 0,
+          "exit": 0,
+          "log": "13-e2e-final.log"
+        },
+        {
+          "skip": 0,
+          "pass": 104,
+          "fail": 0,
+          "exit": 0,
+          "log": "14-e2e-final-repeat.log"
+        }
+      ],
+      "coverage": "4 modes x QQ/Feishu x direct/group; real generated gateway/authoritative outbox/official request adapter redirected to owned loopback receiver. Held token/prepare policy, credential, recipient, source, attempt and cancellation mutations; foreign/revoked refs; full-source clipping; failed/unknown no replay."
+    },
+    "focusedUnits": {
+      "pass": 27,
+      "log": "20-unit-final.log",
+      "exit": 0,
+      "skip": 0,
+      "tests": 27,
+      "fail": 0
+    },
+    "relatedE2e": [
+      {
+        "file": "external-channel-delivery.e2e.js",
+        "pass": 49,
+        "exit": 0,
+        "log": "10-external-delivery.log",
+        "fail": 0
+      },
+      {
+        "file": "external-bots-control.e2e.js",
+        "pass": 21,
+        "exit": 0,
+        "log": "11-external-control.log",
+        "fail": 0
+      },
+      {
+        "file": "external-bot-credentials.e2e.js",
+        "pass": 17,
+        "exit": 0,
+        "log": "12-external-credentials.log",
+        "fail": 0
+      }
+    ],
+    "syntax": {
+      "exit": 0,
+      "fail": 0,
+      "files": 1105,
+      "log": "15-syntax.log"
+    },
+    "build": {
+      "exit": 0,
+      "log": "16-build-check.log",
+      "fresh": true
+    },
+    "fullFast": {
+      "static": {
+        "liveSkipped": 7,
+        "pass": 80,
+        "flaky": 0,
+        "fail": 0
+      },
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "exit": 0,
+      "unit": {
+        "durationMs": 330045.7276,
+        "pass": 2513,
+        "log": "19-unit-full.log",
+        "skip": 26,
+        "suites": 192,
+        "tests": 2539,
+        "fail": 0
+      },
+      "log": "17-fast.log"
+    },
+    "inventory": {
+      "errors": 0,
+      "candidates": 660,
+      "log": "21-inventory-check.log",
+      "classificationsChanged": false,
+      "sourceFiles": 268
+    }
+  },
+  "firstFailures": [
+    "01-unit-initial.log: new revoke test expected reference_revoked, but core deletion correctly refuses reference_unknown. Accepted either refusal without weakening refusal/zero-send assertions; final 27 units pass.",
+    "05 initial E2E passed 98 assertions before coverage additions; 08/09 passed 104 before final test-hook ordering edit; only 13/14 are final test identity.",
+    "First inventory generation correctly refused newly generated module-contracts.json as unreviewed; reviewer read exact three helper/two dependency additions and updated its fingerprint. Next write hit transient Windows fs.open UNKNOWN on existing inventory output; single retry succeeded without product/generator changes. Tool outputs retained in conversation; 18 and21 are successful write/check logs.",
+    "Existing unit test worktree EOL normalized to LF before static gate; final focused27 rerun20 binds final test bytes. No product mutation during gates."
+  ],
+  "limitations": [
+    "Synthetic local platform endpoint and synthetic privacy vault are not live QQ/Feishu account acceptance. Existing credentials regression exercises Windows DPAPI separately; neither proves live platform operation.",
+    "New E2E seeds completed execution and exercises real delivery ledger/transport; full business execution is covered only by existing external-bots-control regression.",
+    "Physical post also carries token requests; discovery and optional bare transport adapter calls are outside managed worker receipt claim. Egress classifications remain unchanged.",
+    "State/credential serialization covers application writers; same-account direct disk tampering or OS-level isolation is not claimed.",
+    "M2-6b session/raw/memory/Mermaid export and sharing remains unimplemented by this batch; independent namespace/ASR stay paused, M2-5 cancelled."
+  ],
+  "rawEvidenceLocation": "../ruyi-workbench-maintenance-20261021/checks/m2-bot-disclosure",
+  "rawFiles": [
+    {
+      "file": "01-unit-initial.log",
+      "sha256": "06c1b051fed25967b91cc05c3abae43dd7ecaf7b440eb4fdee8b4bb5681d5b18",
+      "bytes": 4881
+    },
+    {
+      "file": "02-unit.log",
+      "sha256": "05994672baa58dc7ae8088f70d5fcbc88476ab9beb7fe4a5a634d1fc3d5b0879",
+      "bytes": 3358
+    },
+    {
+      "file": "03-build.log",
+      "sha256": "625f82e09c8685550e9b6647f87443c32a0abbbdde6c0cca8549008d1b1c3fc7",
+      "bytes": 107
+    },
+    {
+      "file": "04-build.log",
+      "sha256": "9997c774863261bf11de5820e1006d972a547d0cf3b3908c618c2646fb552703",
+      "bytes": 106
+    },
+    {
+      "file": "05-e2e-initial.log",
+      "sha256": "2220206e98495fb8d91c6fce2aed1edb8461feaafc3ef02c640cf1f967c04f8d",
+      "bytes": 6029
+    },
+    {
+      "file": "06-build.log",
+      "sha256": "32776e88dcaee1a0e774855a49c1a70b957dfff187d7eadebfbcd8ec05c57b15",
+      "bytes": 107
+    },
+    {
+      "file": "07-unit.log",
+      "sha256": "9e206a0ea0b82073dd4d4bad6db88e38856ed8b35269b5be7ee8dac6ef40d0d2",
+      "bytes": 3729
+    },
+    {
+      "file": "08-e2e.log",
+      "sha256": "6bffdff3ae0b2c2e3f329d9166af1b6c4e9cbca4ab6fe96b6255ff6d048897de",
+      "bytes": 6391
+    },
+    {
+      "file": "09-e2e-repeat.log",
+      "sha256": "6bffdff3ae0b2c2e3f329d9166af1b6c4e9cbca4ab6fe96b6255ff6d048897de",
+      "bytes": 6391
+    },
+    {
+      "file": "10-external-delivery.log",
+      "sha256": "b9f77d4d2571fe52a8031107ad28484af7557e4bbb37c09a9a9c22a9b6cba447",
+      "bytes": 2303
+    },
+    {
+      "file": "11-external-control.log",
+      "sha256": "699d85a4d5bf42970bc039c7a1f1fefe08e377e40acf0f4598ce889b7660df4e",
+      "bytes": 1721
+    },
+    {
+      "file": "12-external-credentials.log",
+      "sha256": "c8d2f5a840cd4187928e43caf4a565be9f690b088cce1e541b61544295fdbb21",
+      "bytes": 1773
+    },
+    {
+      "file": "13-e2e-final.log",
+      "sha256": "6bffdff3ae0b2c2e3f329d9166af1b6c4e9cbca4ab6fe96b6255ff6d048897de",
+      "bytes": 6391
+    },
+    {
+      "file": "14-e2e-final-repeat.log",
+      "sha256": "6bffdff3ae0b2c2e3f329d9166af1b6c4e9cbca4ab6fe96b6255ff6d048897de",
+      "bytes": 6391
+    },
+    {
+      "file": "15-syntax.log",
+      "sha256": "da0b2f39d77a84f3b54b97b9c6dbba91c90f1f1d4b062d634332bf094300921a",
+      "bytes": 61
+    },
+    {
+      "file": "16-build-check.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    {
+      "file": "17-fast.log",
+      "sha256": "d340331db0f9ea7586dbe4aff1fc4231192bc5bf29e91fae553e1877e27de0dd",
+      "bytes": 6183
+    },
+    {
+      "file": "18-inventory-write.log",
+      "sha256": "426ad592b36cf5ba6487b4b54e61bb2f20304759cbb995fbd65a20e1092ca000",
+      "bytes": 67
+    },
+    {
+      "file": "19-unit-full.log",
+      "sha256": "6b92761a35808806bd96b2fa6a60a0a0268e7cf5f1ffe44c2c2eb4ccc1b3be0e",
+      "bytes": 396440
+    },
+    {
+      "file": "20-unit-final.log",
+      "sha256": "dfb54ffab61d5dc16ad931bdd6c6b0f1ef7d1a72d09cb64f19e5bd0132e6be49",
+      "bytes": 3730
+    },
+    {
+      "file": "21-inventory-check.log",
+      "sha256": "426ad592b36cf5ba6487b4b54e61bb2f20304759cbb995fbd65a20e1092ca000",
+      "bytes": 67
+    }
+  ],
+  "finalFiles": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "388d97bd3582514a73a4c7221af4ad905730a2eea68e7e6769e2f0be3d93dcca"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "314921f3e84eaa452c61584ac0d27f2124cbb1af03e133465d6a36aab8103b94"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "3e5f5299f3e8404904822965157d90763646e7bd3178cec3cb74959204dda80c"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "sha256": "3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"
+    },
+    {
+      "file": "dev-harness/privacy-bot-disclosure.e2e.js",
+      "sha256": "bc15c0fcad71bd8ae83c5b272364eb114c9ff00debced795c39f4d29d17c4d08"
+    },
+    {
+      "file": "dev-harness/unit/privacy-bot-disclosure.test.js",
+      "sha256": "59cd6aec7605b459f42758e84f87d050540884dc7967f0cfd7b4903450e34cf6"
+    },
+    {
+      "file": "dev-harness/unit/external-bots-inbox.test.js",
+      "sha256": "449d10eb46e91580f8a6528e452d876a61cf992a192be4af4fcdd76d88557659"
+    }
+  ],
+  "graph": {
+    "forwardEdges": 67,
+    "modules": 88,
+    "duplicateProvides": 0,
+    "largestComponent": 31,
+    "stronglyConnectedComponents": 1,
+    "edges": 627
+  },
+  "environment": {
+    "releasePackage": false,
+    "platform": "win32",
+    "userData": false,
+    "realAccounts": false,
+    "publicInternet": false,
+    "node": "24.14.0"
+  }
+}

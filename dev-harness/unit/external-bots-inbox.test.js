@@ -18,6 +18,7 @@ function fixture() {
     fs: { readFileSync: read }, fsp: { readFile: async () => read(), stat: async () => ({ size: Buffer.byteLength(read()) }), mkdir: async () => {} },
     process: { env: new Proxy({ RUYI_BOT_QQ: 'TEST_ONLY_FAKE_KEY' }, { get(object, key) { envReads.push(key); assert.match(key, /^RUYI_BOT_/); return object[key]; } }) },
     paths: { data: '/isolated' }, OVERLAY_ID: 'epoch_' + crypto.randomBytes(6).toString('hex'), ExternalBotHooks: {}, nowIso: () => new Date().toISOString(), makeId: prefix => prefix + '_' + crypto.randomBytes(8).toString('hex'),
+    STEWARD_SESSION_ID: 'fixture-steward', PrivacyGateway: { withPolicy: (_scope, work) => work() },
     atomicWriteJson: async (_file, value) => { writes++; if (writeGate) await writeGate; if (writeFailure) throw new Error('disk full'); disk = JSON.stringify(value); },
     ExternalChannelProtocols: { verifyAndNormalize(_platform, _connection, _headers, raw) { verified++; return { kind: 'message', message: JSON.parse(raw.toString('utf8')) }; } },
     runStewardTurn: async input => { await context.ExternalBotHooks.validateActor(input.externalActor); assert.equal(input.trigger, 'external'); runs++; if (modelGate) await modelGate; if (modelError) throw modelError; return { ok: true, say: '真实回合结果', turnSeq: runs }; },
@@ -221,4 +222,26 @@ test('setup-only receipt capacity rejects new messages without evicting old dedu
  const state=plain(await f.api.read()),first=state.setupReceipts[0];state.setupReceipts=Array.from({length:4096},(_,index)=>({...first,messageId:'setup_'+index,sourceKey:JSON.stringify([id,first.tenantId,first.conversationId,'setup_'+index])}));f.setDisk(JSON.stringify(state));
  await assert.rejects(f.api.acceptFor(id,f.message({text:waiting.pairing.code})),{code:'external_channel.setup_receipts_full'});assert.equal((await f.api.snapshot(id)).pairing.candidate,null);assert.equal((await f.api.read()).setupReceipts.length,4096);
  state.setupReceipts[0].senderId='tampered';f.setDisk(JSON.stringify(state));await assert.rejects(f.api.read(),{code:'external_channel.storage_unavailable'});
+});
+test('oversized complete reply preserves completed business and fails only delivery without a private prefix', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
+  const job = await f.api.next(); await f.api.finish(job, { ok: true, say: 'PRIVATE_PREFIX' + '私'.repeat(400000), turnSeq: 7 });
+  const item = (await f.api.read()).items[0];
+  assert.equal(item.execution.status, 'completed'); assert.equal(item.execution.turnSeq, 7); assert.equal(item.delivery.status, 'failed');
+  assert.equal(item.delivery.errorCode, 'external_delivery.source_limit'); assert.ok(!item.execution.replyText.includes('PRIVATE_PREFIX'));
+  await f.api.drain(); assert.equal(f.counts().runs, 0); assert.equal(f.counts().sends, 0);
+});
+test('outbox capacity refuses oversized projection source without widening state cap or losing completed business', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
+  const job = await f.api.next(), state = await f.api.read();
+  for (let i = 0; i < 39; i++) {
+    const item = plain(state.items[0]); item.id = 'capacity_item_' + i; item.messageId = 'capacity_message_' + i;
+    item.sourceKey = JSON.stringify([item.connectionId, item.tenantId, item.conversationId, item.messageId]);
+    item.execution.status = 'completed'; item.execution.replyText = 'x'.repeat(1048576); item.delivery = null; state.items.push(item);
+  }
+  f.setDisk(JSON.stringify(state)); assert.ok(Buffer.byteLength(f.disk()) < f.api.limits.stateBytes);
+  await f.api.finish(job, { ok: true, say: 'PRIVATE_PREFIX' + 'x'.repeat(1048500), turnSeq: 8 });
+  const item = (await f.api.read()).items[0]; assert.equal(item.execution.status, 'completed'); assert.equal(item.delivery.status, 'failed');
+  assert.equal(item.delivery.errorCode, 'external_delivery.source_limit'); assert.ok(!item.execution.replyText.includes('PRIVATE_PREFIX'));
+  assert.ok(Buffer.byteLength(f.disk()) <= f.api.limits.stateBytes);
 });

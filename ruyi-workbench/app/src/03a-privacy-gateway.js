@@ -211,7 +211,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         // earlier prose/metadata leaf, and classification can tighten an existing alias.
         const trustedLeaves = flags?.sourceProof ? sourceLeaves(value, context) : flags?.trustedLeaves;
         const result = transform(value, context, { ...flags, budget, trustedLeaves });
-        if (context.scope.revision() === revision) return result;
+        if (context.scope.revision() === revision) return flags?.snapshot ? { value: result, revision } : result;
       }
       fail('learning_not_stable');
     };
@@ -236,6 +236,69 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     assertPolicyAvailable();
     const policy = currentPolicy;
     return policyLocal.run(policy.signature, () => policy.mode === 'off' ? work() : run(scopeId, policy.config, work));
+  }
+  // Host capabilities never travel in model data, JSON or HTTP parameters.
+  const disclosures = new WeakMap();
+  function disclosureBinding(binding) {
+    if (!binding || typeof binding.recipient !== 'string' || !binding.recipient || typeof binding.purpose !== 'string' || !binding.purpose
+      || typeof binding.sourceHash !== 'string' || !binding.sourceHash || binding.plaintext === true) fail('disclosure_invalid');
+    return JSON.stringify([binding.recipient, binding.purpose, binding.sourceHash]);
+  }
+  function disclosureRecord(receipt, binding) {
+    assertPolicyAvailable();
+    const record = disclosures.get(receipt);
+    if (!record || record.binding !== disclosureBinding(binding)) fail('recipient_changed');
+    if (record.policy !== currentPolicy.signature) fail('policy_changed');
+    const context = active();
+    if (record.context ? record.context.scope !== context?.scope || record.context.scopeId !== context?.scopeId : context) fail('scope_changed');
+    return record;
+  }
+  async function projectDisclosure(record) {
+    const context = record.context;
+    if (!context) return { value: record.source, revision: undefined };
+    for (let pass = 0; pass < 4; pass++) {
+      const { value, revision } = await protectedTransform(record.source, context, { data: true, snapshot: true });
+      await context.persist();
+      assertPolicyAvailable();
+      if (revision === context.scope.revision()) return { value, revision };
+    }
+    fail('learning_not_stable');
+  }
+  async function prepareDisclosure(value, binding) {
+    assertPolicyAvailable();
+    const key = disclosureBinding(binding), context = active();
+    if (currentPolicy.mode !== 'off' && !context) fail('scope_invalid');
+    // Host-only credential slots augment discovery in the source scope. OFF does
+    // not enumerate secrets, initialize detectors or create encryption state.
+    if (context && binding.knownSecrets !== undefined) {
+      if (!Array.isArray(binding.knownSecrets) || binding.knownSecrets.length > 32) fail('disclosure_invalid');
+      for (const secret of binding.knownSecrets) {
+        if (typeof secret !== 'string' || !secret || Buffer.byteLength(secret) > 4096) fail('disclosure_invalid');
+        context.scope.protectValue(secret, 'CREDENTIAL');
+      }
+    }
+    const record = { binding: key, policy: currentPolicy.signature, context, source: structuredClone(value) };
+    Object.assign(record, await projectDisclosure(record));
+    const receipt = Object.freeze({}); disclosures.set(receipt, record);
+    return { value: structuredClone(record.value), receipt };
+  }
+  async function refreshDisclosure(receipt, binding) {
+    const record = disclosureRecord(receipt, binding);
+    // Parallel learning does not invalidate unrelated replies. Always reproject
+    // the complete original and let the host rebuild clipping/body if it changes.
+    if (record.context && record.revision !== record.context.scope.revision()) {
+      Object.assign(record, await projectDisclosure(record));
+    }
+    assertDisclosure(receipt, binding);
+    return structuredClone(record.value);
+  }
+  function assertDisclosure(receipt, binding) {
+    const record = disclosureRecord(receipt, binding);
+    if (record.context) {
+      if (record.revision !== record.context.scope.revision()) fail('disclosure_dirty');
+      containsExecutionReferences(record.value, record.context);
+    }
+    if (Object.hasOwn(binding, 'value') && JSON.stringify(binding.value) !== JSON.stringify(record.value)) fail('disclosure_changed');
   }
   // Host-only cross-thread metadata projection. These aliases belong to the source
   // transcript, so never resolve or admit them into another conversation's scope.
@@ -1329,7 +1392,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;

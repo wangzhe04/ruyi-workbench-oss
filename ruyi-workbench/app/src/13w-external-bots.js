@@ -320,7 +320,7 @@ function externalBotValidControlState(item) {
     || !externalBotIdentity(control.appId) || !['connectionId', 'platform', 'tenantId', 'senderId', 'conversationId', 'conversationType'].every(key => control[key] === item[key])) return false;
   if (!execution || typeof execution !== 'object' || Array.isArray(execution) || !['queued', 'running', 'completed', 'failed', 'unknown'].includes(execution.status)
     || !externalBotString(execution.serverInstanceId, 128, true) || !date(execution.startedAt) || !date(execution.finishedAt)
-    || !externalBotString(execution.errorCode, 128, true) || typeof execution.replyText !== 'string' || execution.replyText.length > 3000
+    || !externalBotString(execution.errorCode, 128, true) || typeof execution.replyText !== 'string' || Buffer.byteLength(execution.replyText) > 1048576
     || !Number.isSafeInteger(execution.turnSeq) || execution.turnSeq < 0 || typeof execution.contractIncomplete !== 'boolean'
     || ![execution.actionFailures, execution.proposals].every(value => Number.isSafeInteger(value) && value >= 0 && value <= 100)) return false;
   return delivery === null || (delivery && typeof delivery === 'object' && !Array.isArray(delivery)
@@ -357,6 +357,11 @@ function externalBotReplyText(result) {
   if (outcome.proposals) facts.push(`有 ${outcome.proposals} 项后续选项，请在如意查看。`);
   if (outcome.actionFailures) facts.push(`有 ${outcome.actionFailures} 项操作失败，请在如意查看详情。`);
   if (facts.length) text = facts.join('\n') + '\n' + text;
+  // Keep the complete logical reply for disclosure. Channel clipping belongs after
+  // protection; a private match may extend beyond what the platform can display.
+  return text;
+}
+function externalBotBoundReplyText(text) {
   const tail = '\n（答复已截短，完整内容请在如意查看或继续追问。）';
   if (text.length <= 1700 && Buffer.byteLength(text, 'utf8') <= 5500) return text;
   let out = '';
@@ -403,7 +408,9 @@ async function externalBotNextJob() {
     }
     if (item.delivery?.status === 'pending') {
       item.delivery = { ...item.delivery, status: 'sending', updatedAt: nowIso() }; await externalBotWriteState(state);
-      return { kind: 'send', item: JSON.parse(JSON.stringify(item)), connection: { ...connection, ...await externalBotSecrets(connection) } };
+      const credentials = await externalBotCredentialSnapshot(connection);
+      return { kind: 'send', item: JSON.parse(JSON.stringify(item)), connection: { ...connection, ...credentials.values }, credentialRevision: credentials.credentialRevision,
+        connectionFingerprint: externalBotConnectionFingerprint(connection) };
     }
     item.execution = { ...item.execution, status: 'running', serverInstanceId: OVERLAY_ID, startedAt: nowIso() }; await externalBotWriteState(state);
     const actor = Object.freeze({}); const proof = { itemId: item.id, connectionId: item.connectionId, controlRevision: item.control.controlRevision, controller: new AbortController() };
@@ -421,6 +428,12 @@ async function externalBotFinishJob(job, result) {
         errorCode: externalBotResultUncertain(result) ? 'external_channel.execution_unknown' : result?.ok === true ? '' : result?.error === 'external_channel.control_revoked' ? result.error : 'external_channel.execution_failed',
         replyText: externalBotReplyText(result), turnSeq: Math.max(0, Number.isSafeInteger(result?.turnSeq) ? result.turnSeq : 0), ...externalBotOutcome(result) };
       item.delivery = { status: 'pending', attemptId: makeId('reply'), messageId: '', errorCode: '', updatedAt: nowIso() };
+      // A completed business turn must not become running/unknown just because its
+      // outbox source is too large. Never send a clipped, unscanned private prefix.
+      if (Buffer.byteLength(item.execution.replyText) > 1048576 || Buffer.byteLength(JSON.stringify(state)) > EXTERNAL_BOT_LIMITS.stateBytes) {
+        item.execution.replyText = '答复过长，外部投递未开始；请在如意查看本次处理结果。';
+        item.delivery = { ...item.delivery, status: 'failed', errorCode: 'external_delivery.source_limit' };
+      }
     } else {
       if (item.delivery?.status !== 'sending' || item.delivery.attemptId !== job.item.delivery.attemptId) throw externalBotError('external_channel.delivery_unknown', 409);
       const sent = result?.status === 'sent' && externalBotIdentity(result.messageId);
@@ -429,6 +442,45 @@ async function externalBotFinishJob(job, result) {
     }
     await externalBotWriteState(state);
   });
+}
+function externalBotReplyBinding(connection, item, credentialRevision) {
+  const recipient = JSON.stringify([connection.id, connection.platform, connection.appId, connection.botUserId, connection.tenantId,
+    item.conversationType, item.conversationId, item.senderId, item.messageId, connection.controlRevision, credentialRevision]);
+  const sourceHash = crypto.createHash('sha256').update(JSON.stringify([item.id, item.control, item.execution,
+    item.delivery?.attemptId, item.delivery?.status])).digest('hex');
+  return { recipient, purpose: 'external-bot-reply', sourceHash };
+}
+async function externalBotPrepareReply(job, controller, dispatch) {
+  // The adapter continuation creates the request within the existing state chain.
+  // Release the chain after request creation, not after the platform response.
+  const prepared = await runKeyedChain(externalBotChains, 'state', async () => {
+    const check = async () => {
+      const state = await externalBotReadState(), item = state.items.find(row => row.id === job.item.id);
+      const connection = state.connections.find(row => row.id === job.item.connectionId);
+      if (!item || !connection || item.delivery?.status !== 'sending' || controller.signal.aborted || externalBotWorkerStopped
+        || externalBotConnectionFingerprint(connection) !== job.connectionFingerprint || !(await externalBotOwnerMatches(connection, item))) throw externalBotError('external_channel.control_revoked', 403);
+      const credentials = await externalBotCredentialSnapshot(connection);
+      const binding = externalBotReplyBinding(connection, item, credentials.credentialRevision);
+      const expected = externalBotReplyBinding(job.connection, job.item, job.credentialRevision);
+      if (JSON.stringify(binding) !== JSON.stringify(expected)) throw externalBotError('external_channel.delivery_changed', 409);
+      return { item, connection, credentials, binding };
+    };
+    const initial = await check();
+    const { receipt } = await PrivacyGateway.prepareDisclosure(initial.item.execution.replyText,
+      { ...initial.binding, knownSecrets: Object.values(initial.credentials.values).filter(Boolean) });
+    // Privacy projection/persistence can await workers or disk. Re-read the current
+    // authoritative item, recipient and credential revision after those waits.
+    const current = await check();
+    const env = ['botSecretEnv', 'verificationTokenEnv', 'encryptKeyEnv', 'appSecretEnv'].filter(key => current.connection[key])
+      .map(key => [current.connection[key], process.env[current.connection[key]]]);
+    const fullText = await PrivacyGateway.refreshDisclosure(receipt, current.binding);
+    const text = externalBotBoundReplyText(fullText);
+    return { result: dispatch({ text, assertCurrent: () => {
+      if (controller.signal.aborted || externalBotWorkerStopped || env.some(([key, value]) => process.env[key] !== value)) throw externalBotError('external_channel.control_revoked', 403);
+      PrivacyGateway.assertDisclosure(receipt, { ...current.binding, value: fullText });
+    } }) };
+  });
+  return prepared.result;
 }
 async function externalBotDrain() {
   if (externalBotWorkerStopped) return;
@@ -440,7 +492,7 @@ async function externalBotDrain() {
       externalBotWorkerAgain = false;
       while (!externalBotWorkerStopped) {
         const job = await externalBotNextJob(); if (!job) break; if (job.kind === 'skip') continue;
-        let result;
+        let result, sendEntered = false;
         try {
           if (job.kind === 'run') result = await runStewardTurn({ trigger: 'external', externalActor: job.actor, message: job.item.text });
           else {
@@ -451,9 +503,14 @@ async function externalBotDrain() {
               return item && await externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item);
             });
             result = !allowed || controller.signal.aborted ? { status: 'failed', errorCode: 'external_channel.control_revoked' }
-              : await ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText, { attemptId: job.item.delivery.attemptId, signal: controller.signal });
+              : await PrivacyGateway.withPolicy(STEWARD_SESSION_ID, () => {
+                sendEntered = true;
+                return ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText,
+                  { attemptId: job.item.delivery.attemptId, signal: controller.signal, prepare: dispatch => externalBotPrepareReply(job, controller, dispatch) });
+              });
           }
-        } catch (error) { result = job.kind === 'run' ? (error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }) : { status: 'unknown', errorCode: 'external_channel.delivery_unknown' }; }
+        } catch (error) { result = job.kind === 'run' ? (error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }) : sendEntered
+          ? { status: 'unknown', errorCode: 'external_channel.delivery_unknown' } : { status: 'failed', errorCode: 'external_delivery.predispatch' }; }
         finally { if (job.actor) { externalBotActors.delete(job.actor); externalBotActiveActors.delete(job.item.id); } externalBotDeliveries.delete(job.item.id); }
         try { await externalBotFinishJob(job, result); }
         catch (error) { externalBotUnsettled.set(job.item.id, { kind: job.kind, at: nowIso() }); externalBotRecoveryDone = false; throw error; }

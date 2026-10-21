@@ -24602,6 +24602,7 @@
         "externalBotAcceptCallback",
         "externalBotActiveActors",
         "externalBotActors",
+        "externalBotBoundReplyText",
         "externalBotCapturePairing",
         "externalBotChains",
         "externalBotConfigured",
@@ -24626,6 +24627,7 @@
         "externalBotOutcome",
         "externalBotOwnerMatches",
         "externalBotPairings",
+        "externalBotPrepareReply",
         "externalBotPublicConnection",
         "externalBotPublicItem",
         "externalBotRate",
@@ -24633,6 +24635,7 @@
         "externalBotReadState",
         "externalBotRecover",
         "externalBotRecoveryDone",
+        "externalBotReplyBinding",
         "externalBotReplyText",
         "externalBotResultUncertain",
         "externalBotSafeCredentialError",
@@ -24779,6 +24782,20 @@
           "symbol": "tokenOk",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
