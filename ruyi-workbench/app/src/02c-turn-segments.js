@@ -256,10 +256,17 @@ function createTurnSegmentBuilder() {
       return;
     }
     if (evt.type === 'result' && evt.ok === false && (evt.error || evt.reason)) {
+      const detail = evt.errorInfo && typeof evt.errorInfo === 'object' ? evt.errorInfo : evt.error && typeof evt.error === 'object' ? evt.error : {};
+      const code = evt.code || detail.code;
       segments.push({
         id: nextId(), type: 'error',
         text: String(evt.error || evt.reason || '').slice(0, 4000),
         errorClass: String(evt.errorClass || ''),
+        // Keep bounded machine identity and execution uncertainty, never the raw
+        // structured error/params/stack, for the same live and history guidance.
+        ...(typeof code === 'string' && /^(?:privacy|mcp_consumer)\.[a-z_]{1,80}$/.test(code) ? { code } : {}),
+        ...(evt.operationMayHaveExecuted === true || detail.operationMayHaveExecuted === true ? { operationMayHaveExecuted: true } : {}),
+        ...(evt.resultUnavailable === true || detail.resultUnavailable === true ? { resultUnavailable: true } : {}),
       });
       fallbackBatchId = ''; lastEventType = 'error';
     }

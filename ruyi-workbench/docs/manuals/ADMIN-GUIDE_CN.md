@@ -27,9 +27,9 @@ Start-Workbench.cmd                      # 便捷启动脚本（内部走上面�
 | 子命令 | 作用 |
 |---|---|
 | `serve` | 启动前端与 HTTP API（Web UI 主入口）。 |
-| `mcp` | 启动 MCP stdio server，供 Claude CLI 调用（一次性子进程，置 `RUNTIME.isMcpChild=true`）。 |
-| `mcp-config` | 打印可导入 Claude CLI 的 MCP JSON（含桌面 / 外部 MCP）。 |
-| `install` | 尝试自动向 Claude CLI 注册 MCP（`claude mcp add-json`）。 |
+| `mcp` | 启动 stdio MCP：旧 `ruyi` 条目仅供如意发起且带有效会话身份的 CLI 子进程；独立应用须使用设置中生成的专用连接。 |
+| `mcp-config` | 打印如意托管 CLI 的 MCP 配置（含桌面 / 外部 MCP）；不是独立应用凭据签发入口。 |
+| `install` | 登记如意托管 CLI 使用的内部 MCP 配置；独立应用仍须专用连接授权。 |
 | `doctor` | 输出本机诊断（claude CLI / git / python / 端口 / overlay 完整性等）。 |
 
 ### 1.3 overlay 增量包套用
@@ -175,6 +175,8 @@ claude.cmd -p "Reply with exactly: ENDPOINT_OK"
 
 **第五步 · 绑定到工作台**
 
+以下 `ruyi` 配置仅供如意发起的 CLI 回合使用，不授权外部 CLI 会话独立调用。独立应用请使用下文 M2-8 的专用连接配置；不能把旧登记或 `claude mcp list` 的状态当成已获得该授权。
+
 工作台配置 `claudePath`（留空则自动探测）。确认 `~/.ruyi-workbench/config.json` 中 `claudePath` 已指向 CLI（如 `"claude.cmd"`）。注册 MCP server（让 Claude CLI 能调用工作台工具）：
 
 ```powershell
@@ -194,7 +196,7 @@ claude mcp add ruyi --scope user `
 **第六步 · 验证**
 
 ```powershell
-claude mcp list                    # 应显示: ruyi - ✔ Connected（3.0 之前登记的 win-claude-workbench 请先 claude mcp remove 掉，install 子命令会自动做）
+claude mcp list                    # 仅检查登记；独立进程可能提示需要专用连接配置
 node app\server.js doctor          # 应显示: claudeWorks: true
 ```
 
@@ -454,7 +456,12 @@ PR #58 的凭据加密与发送前脱敏已合入源码，应用版本仍为 3.0
 
 凭据恢复包使用独立密码，只合并支持的服务商、连接器及相关凭据配置，**不恢复聊天、隐私规则或代号映射**。跨 Windows 账户／机器恢复须保留旧数据，在独立新数据目录预览和导入，不能用新主密钥覆盖旧目录。**已加密数据回旧版必须恢复完整的升级前备份及匹配旧程序**；只回退程序文件或导入凭据恢复包不等于恢复原工作数据。
 
-当前开启脱敏时，外部 CLI 内部请求、媒体及独立 MCP 未覆盖链路被阻止；已有原生文字／受管 MCP 文字覆盖不等于托管 CLI 或媒体已支持。聊天、附件、索引等工作数据整体加密尚未完成。3.1 暂不发布，扩围实施及验收见 [86 号规划](../../../docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md)。
+原生回合内的受管 MCP 文字结果、资源及受限通知已有 M2-7 覆盖，原值输入仍受用途适配约束。独立 MCP 的 M2-8 已完成本批实际验证：仅限设置中为指定应用明确生成的本机连接，授予目录内的有限文件工具与安全概要资源，不提供 OS 隔离。未签发凭据的直连、受保护 CLI 执行和原始媒体仍不支持。聊天、附件、索引等工作数据整体加密尚未完成。
+
+- 应用内复制默认使用与来源绑定的受保护副本。无可核实来源时，仅宿主确认当前保护关闭后可复制字面内容，不恢复代号；启动失败的复制诊断按钮始终只给安全摘要。手动选择文字／Ctrl+C仍由你控制。
+- 隐私错误中的「检查设置」或「选择引擎」只打开页面，不会关闭保护或替你重发。请明确保存恢复设置或选择原生引擎后，再发起新请求；若提示结果被扣留，先检查本地变更或投递状态，勿自动重复操作。
+
+独立 MCP 接入：先启动如意，打开所需工作目录的线程（或设置默认工作目录），再打开设置 → 工具与集成 → 集成与 MCP 面板。核对面板显示的固定目录，为指定应用配置授权，一次下载标准 MCP JSON 配置并导入该应用。面板打开后目录固定；切换线程不会改变该面板或已签发连接的授权目录，日常调用无须重复配置。显示目录与该连接实际授权目录一致；普通本地工具不增加日常弹窗。最多七个文件工具与两类固定概要资源，权限取现有工作台权限的交集；支持仅含已授权 capabilities/workspace 的 ruyi://consumer/{kind} 模板、这两类固定资源的订阅／取消订阅及更新通知；既有连接每15秒核对更新，状态有界，不提供任意资源 URI 或二进制通路。JSON含专用访问令牌，只在这一次下载提供，不能从连接列表恢复；请保存在目标应用配置中，不贴入聊天或日志。授权可撤销，撤销或断连使当前连接代号失效。off 不取消认证或目录授权；日常无须重复端口或口令。仅为应用授权边界，支持限于本次 M2-8 实测范围。3.1 暂不发布，扩围实施及验收见 [86 号规划](../../../docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md)。
 
 ## 4. 专家模式与诊断
 

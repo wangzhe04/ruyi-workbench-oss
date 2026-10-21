@@ -161,7 +161,14 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   }
   assert.ok(providersJs.includes("if (adv) adv.open = true;") && providersJs.includes("querySelector('.asr-advanced')"), '前端: 从灰麦克风跳过来先把高级区打开(否则聚焦不到里面的输入框)');
   assert.ok(providersJs.includes("void save({ asrFixMode: modeSel.value });") && providersJs.includes("void save({ asrFixProviderId: provSel.value, asrFixModel: '' });") && providersJs.includes("void save({ asrFixModel: modelSel.value });"), '前端: 三个选择器各自选中即存部分补丁,不碰上面两栏的键');
-  assert.ok(voiceJs.includes("catch { sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); }"), '前端: 流式开不了 → 说一句、回落按停顿切段');
+  const { functionBlock, bracedBlock, sliceBlock } = require('./lib/source-slice.js');
+  const voiceStart = functionBlock(voiceJs, 'start');
+  assert.ok(voiceStart, '前端: 切到真实麦克风启动流程');
+  const streamAttempt = sliceBlock(voiceStart, 'try { await startStreaming(media, session); }', "if (mine !== attempt || phase !== 'starting')");
+  const streamFailure = bracedBlock(streamAttempt, 'catch (error)');
+  const privacyStop = bracedBlock(streamFailure, 'if (privacy)');
+  assert.ok(privacyStop.includes('releaseTracks(media);') && privacyStop.includes('fail(privacy.key);') && privacyStop.includes('return;'), '前端: 隐私拒绝先释放媒体并退出，不回落采集');
+  assert.ok(streamFailure.indexOf(privacyStop) < streamFailure.indexOf("notify(t('composer.voice.error.streamFallback')") && streamFailure.includes("sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); }"), '前端: 非隐私流式失败仍提示并回落按停顿切段');
   for (const [name, dict] of [['zh-CN', zh], ['en-US', en]]) {
     for (const k of ['settings.asrStream.title', 'settings.asrStream.disabled', 'settings.asrStream.hintSet', 'settings.asrStream.hintUnset', 'settings.asrStream.none', 'settings.asr.roleHint', 'composer.voice.hintStream', 'composer.voice.streaming', 'composer.voice.error.streamFallback',
       'settings.asrFix.title', 'settings.asrFix.mode.auto', 'settings.asrFix.mode.audio', 'settings.asrFix.mode.llm', 'settings.asrFix.mode.off', 'settings.asrFix.providerLabel', 'settings.asrFix.followMain', 'settings.asrFix.noMain', 'settings.asrFix.defaultModel',

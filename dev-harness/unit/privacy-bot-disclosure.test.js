@@ -78,3 +78,30 @@ test('off preserves exact payload without initializing scopes or inspecting host
     assert.throws(() => api.assertDisclosure(prepared.receipt, binding), /policy_changed/);
   });
 });
+
+test('receipt policy epochs reject signature and availability round trips even after refresh', async t => {
+  for (const startingMode of ['off', 'enhanced']) {
+    const { api, config } = await setup(t, startingMode);
+    await api.withPolicy('steward', async () => {
+      const prepared = await api.prepareDisclosure('public synthetic reply', binding);
+      assert.equal(await api.refreshDisclosure(prepared.receipt, binding), prepared.value);
+      api.configure({ ...config, unrelatedUiPreference: true });
+      api.assertDisclosure(prepared.receipt, binding);
+      api.configure({ ...config, privacyModeV1: startingMode === 'off' ? 'enhanced' : 'off' });
+      api.configure(config);
+      assert.throws(() => api.assertDisclosure(prepared.receipt, binding), /policy_changed/);
+      await assert.rejects(api.refreshDisclosure(prepared.receipt, binding), /policy_changed/);
+    });
+  }
+  for (const disrupt of [api => api.markUnavailable(), (api, config) => api.configure({ ...config, privacyPolicyRecoveryRequiredV1: true }), (api, config) => {
+    try { api.configure({ ...config, privacyRulesV1: [{}] }); } catch { /* actual invalid configuration */ }
+  }]) {
+    const { api, config } = await setup(t);
+    await api.withPolicy('steward', async () => {
+      const prepared = await api.prepareDisclosure('public synthetic reply', binding);
+      disrupt(api, config); api.configure(config);
+      assert.throws(() => api.assertDisclosure(prepared.receipt, binding), /policy_changed/);
+      await assert.rejects(api.refreshDisclosure(prepared.receipt, binding), /policy_changed/);
+    });
+  }
+});

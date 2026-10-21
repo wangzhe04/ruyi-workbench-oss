@@ -9,7 +9,7 @@ const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-op
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-privacy-channels-')), data = path.join(root, 'data'), work = path.join(root, 'work');
 fs.mkdirSync(data); fs.mkdirSync(work);
 process.env.RUYI_HOME = data; process.env.WIN_CLAUDE_WORKBENCH_HOME = data;
-const app = loadServerInternals(['readConfig', 'mutateConfig', 'McpStdioClient', 'audioStreamUpstream', 'handleAudioStreamOpen', 'handleAudioStreamSession', 'maybeOcrImageAttachment', 'maybeCompressImageAttachment', 'runSessionTurn', 'runStewardTurn', 'createSession', 'saveSession', 'loadSession', 'stewardImplThreadRead', 'stewardPrerouteIndexRows', 'runAgentExternalCompact', 'compactHistoryFromSession', 'AgentLoopHooks', 'PrivacyGateway', 'createKimiAcpRpc', 'writeToChild'], { withEval: true });
+const app = loadServerInternals(['readConfig', 'mutateConfig', 'McpStdioClient', 'handleApi', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers', 'audioStreamUpstream', 'handleAudioStreamOpen', 'handleAudioStreamSession', 'maybeOcrImageAttachment', 'maybeCompressImageAttachment', 'runSessionTurn', 'runStewardTurn', 'createSession', 'saveSession', 'loadSession', 'stewardImplThreadRead', 'stewardPrerouteIndexRows', 'runAgentExternalCompact', 'compactHistoryFromSession', 'AgentLoopHooks', 'PrivacyGateway', 'createKimiAcpRpc', 'writeToChild'], { withEval: true });
 const t = createRunner('PRIVACY CHANNELS');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function waitFor(check) { for (let i = 0; i < 200; i++) { if (check()) return true; await sleep(50); } return false; }
@@ -17,7 +17,20 @@ const policy = mode => app.mutateConfig(current => { current.privacyModeV1 = mod
 const refused = async work => { try { await work(); return false; } catch (error) { return /privacy\.(?:engine|media)_not_supported/.test(error.code || error.message); } };
 
 async function main() {
-  let mcp, audioServer, summaryServer, foreignProvider;
+  let mcp, audioServer, summaryServer, foreignProvider, mcpSession, mcpOwner, mcpReg, mcpSettle, mcpHost, mcpRuntimeBefore, mcpClosed=false;
+  async function closeMcp() {
+    try {
+      const child=mcp?.child;if(child&&!mcpClosed){const closed=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Privacy CLI child close deadline')),5000);child.once('close',()=>{clearTimeout(timer);resolve();});});closed.catch(()=>{});if(child.exitCode===null&&child.signalCode===null)await killOwnTree(child);await closed;}
+    }
+    finally {
+      if(mcpSession&&app.activeChildren.get(mcpSession.id)===mcpReg)app.activeChildren.delete(mcpSession.id);
+      if(mcpSession&&app.turnSettlers.get(mcpSession.id)===mcpOwner)app.turnSettlers.delete(mcpSession.id);
+      mcpSettle?.();mcp=null;
+      try {
+        if(mcpHost){const host=mcpHost;mcpHost=null;host.closeAllConnections();await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Privacy CLI host close deadline')),5000);host.close(error=>{clearTimeout(timer);if(error)reject(error);else resolve();});});}
+      } finally {if(mcpRuntimeBefore){Object.assign(app.RUNTIME,mcpRuntimeBefore);mcpRuntimeBefore=null;}}
+    }
+  }
   try {
     if (process.platform !== 'win32') { console.log('SKIP production channel persistence requires Windows DPAPI'); return; }
     await app.mutateConfig(current => { Object.assign(current, { credentialEncryptionV1: true, privacyModeV1: 'off', privacyRulesV1: [], defaultWorkspace: work, activeProvider: '', permissionMode: 'acceptEdits', providers: [],
@@ -26,33 +39,56 @@ async function main() {
     const delayed = path.join(work, 'delayed.txt'), delayedError = path.join(work, 'delayed-error.txt'), started = path.join(root, 'tool-started'), release = path.join(root, 'tool-release');
     fs.writeFileSync(delayed, sentinel);
     fs.writeFileSync(delayedError, sentinel);
-    // A real MCP server and real file_read; only delay its completed result to expose a policy-change race.
+    // A real registered CLI wrapper owns the MCP child under the current host.
+    // Keep the actual file_read and its completed-result delay unchanged.
+    mcpHost=http.createServer((req,res)=>{void app.handleApi(req,res,new URL(req.url,'http://local').pathname).catch(()=>{if(!res.headersSent)res.writeHead(500);res.end('{}');});});
+    await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Privacy CLI host listen deadline')),5000);mcpHost.once('error',error=>{clearTimeout(timer);reject(error);});mcpHost.listen(0,'127.0.0.1',()=>{clearTimeout(timer);resolve();});});
+    mcpRuntimeBefore={host:app.RUNTIME.host,port:app.RUNTIME.port,token:app.RUNTIME.token};
+    Object.assign(app.RUNTIME,{host:'127.0.0.1',port:mcpHost.address().port,token:'e'.repeat(32)});
+    mcpSession=await app.createSession({title:'Synthetic privacy CLI owner',cwd:work,engineRoute:{engine:'claude',agentCliType:'claude'}});
     const script = path.join(root, 'delayed-mcp.cjs');
     const internalsPath = path.resolve(__dirname, 'lib/server-internals.js');
     const delayHook = `const original = toolCall; toolCall = async (name, args) => { const result = await original(name, args); if (name === 'file_read' && ${JSON.stringify([delayed, delayedError])}.includes(args.path)) { fs.writeFileSync(${JSON.stringify(started)}, 'ready'); const until = Date.now() + 12000; while (!fs.existsSync(${JSON.stringify(release)}) && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 30)); if (args.path === ${JSON.stringify(delayedError)}) throw new Error(${JSON.stringify('fixture error: ' + sentinel)}); } return result; };`;
     fs.writeFileSync(script, `const app = require(${JSON.stringify(internalsPath)}).loadServerInternals(['startMcp'], { withEval: true }); app.__eval(${JSON.stringify(delayHook)}); app.startMcp();`);
-    mcp = new app.McpStdioClient({ id: 'privacy-fixture', command: process.execPath, args: [script], cwd: work, startupTimeoutMs: 20000 });
-    await mcp.start();
+    const wrapper=path.join(root,'owned-delayed-cli.cjs');
+    fs.writeFileSync(wrapper,[
+      "const cp=require('node:child_process');",
+      "const child=cp.spawn(process.execPath,["+JSON.stringify(script)+"],{env:process.env,windowsHide:true,stdio:['pipe','pipe','pipe']});",
+      "child.stdin.on('error',()=>{});process.stdin.pipe(child.stdin);child.stdout.pipe(process.stdout,{end:false});child.stderr.pipe(process.stderr,{end:false});",
+      "process.stdout.on('error',()=>process.exit(1));process.stderr.on('error',()=>process.exit(1));child.once('error',()=>process.exit(1));",
+      "child.once('close',(code,signal)=>{process.stdin.unpipe(child.stdin);process.stdin.pause();const timer=setTimeout(()=>process.exit(1),5000);process.stdout.write('',()=>process.stderr.write('',()=>{clearTimeout(timer);process.exit(signal||!Number.isInteger(code)?1:code);}));});"
+    ].join('\n'));
+    mcp = new app.McpStdioClient({id:'privacy-fixture',command:process.execPath,args:[wrapper],cwd:work,startupTimeoutMs:20000,
+      env:{WCW_HOST:'127.0.0.1',WCW_PORT:String(app.RUNTIME.port),WCW_TOKEN:app.RUNTIME.token,WCW_SESSION_ID:mcpSession.id}});
+    // start synchronously creates the real wrapper; register it before the host
+    // can process the descendant's actual initialize verification request.
+    const starting=mcp.start();starting.catch(()=>{});
+    mcpClosed=false;mcp.child?.once('close',()=>{mcpClosed=true;});
+    if(!mcp.child?.pid)throw Error('Actual CLI wrapper did not start');
+    mcpOwner={promise:new Promise(resolve=>{mcpSettle=resolve;}),source:'fixture-cli',driverRunId:'privacy-channel-cli',phase:'starting',cancelRequested:false,cancel(){this.cancelRequested=true;}};
+    mcpReg={child:mcp.child,pid:mcp.child.pid,kind:'kimi-acp',state:'running',exited:false,session:mcpSession};
+    app.recordSessionExecutionOwner(mcpSession.id,mcpOwner);app.registerSessionExecutionChild(mcpSession.id,mcpReg,mcpOwner);
+    await starting;
     const listed = await mcp._rpc('resources/list', {}); const uri = listed.resources?.[0]?.uri;
-    t.ok(!!uri, 'M1 off mode retains the ordinary MCP config resource');
+    t.ok(!!uri, 'M1 off mode retains the ordinary registered CLI MCP config resource');
     const pending = mcp._rpc('tools/call', { name: 'file_read', arguments: { path: delayed } }, 20000).then(value => ({ value }), error => ({ error: error.message }));
     t.ok(await waitFor(() => fs.existsSync(started)), 'M2 actual MCP file read reaches its delayed result');
     await policy('enhanced'); fs.writeFileSync(release, 'continue');
     const result = await pending;
     t.ok(result.error?.includes('privacy.engine_not_supported') && !JSON.stringify(result).includes(sentinel), 'M3 a tool started while off cannot return plaintext after privacy is enabled');
-    const hidden = await mcp._rpc('resources/list', {});
-    t.ok(hidden.resources.length === 0 && !JSON.stringify(hidden).includes(data), 'M4 an already-running MCP child hides resource paths after a persisted policy change');
+    const hidden = await mcp._rpc('resources/list', {}).then(value=>({value}),error=>({error:error.message}));
+    t.ok(hidden.error==='privacy.engine_not_supported'&&!JSON.stringify(hidden).includes(data), 'M4 an already-running registered CLI MCP rejects resource listing with its exact privacy code and exposes no resource paths after policy change');
     t.ok(await refused(() => mcp._rpc('resources/read', { uri })), 'M5 a previously issued config URI cannot bypass privacy');
-    t.ok(await refused(() => mcp._rpc('tools/call', { name: 'file_read', arguments: { path: delayed } })), 'M6 standalone MCP tools are blocked after enabling privacy');
-    const hiddenTools = await mcp._rpc('tools/list', {});
-    t.ok(hiddenTools.tools.length === 0, 'M6b unsupported standalone MCP does not advertise usable tools');
+    t.ok(await refused(() => mcp._rpc('tools/call', { name: 'file_read', arguments: { path: delayed } })), 'M6 registered CLI MCP tools are blocked after enabling privacy');
+    const hiddenTools = await mcp._rpc('tools/list', {}).then(value=>({value}),error=>({error:error.message}));
+    t.ok(hiddenTools.error==='privacy.engine_not_supported', 'M6b unsupported registered CLI MCP rejects tool listing with its exact privacy code instead of advertising usable tools');
     await policy('off'); fs.unlinkSync(started); fs.unlinkSync(release);
     const throwing = mcp._rpc('tools/call', { name: 'file_read', arguments: { path: delayedError } }, 20000).then(value => ({ value }), error => ({ error: error.message }));
     t.ok(await waitFor(() => fs.existsSync(started)), 'M7 delayed throwing tool started while protection was off');
     await policy('enhanced'); fs.writeFileSync(release, 'continue');
     const thrown = await throwing;
     t.ok(thrown.error?.includes('privacy.engine_not_supported') && !JSON.stringify(thrown).includes(sentinel), 'M8 exception paths also recheck policy and hide private error text');
-    killOwnTree(mcp.child); mcp = null;
+    await closeMcp();
 
     const audioCalls = [];
     audioServer = http.createServer(async (req, res) => { const chunks = []; for await (const chunk of req) chunks.push(chunk); audioCalls.push({ method: req.method, bytes: Buffer.concat(chunks).length }); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ id: 'b'.repeat(32), sampleRate: 16000 })); });
@@ -226,7 +262,7 @@ async function main() {
     } finally { restoreIndex(); }
   } catch (error) { t.fail('fixture failure: ' + String(error.stack || error.code || error.message).slice(0, 600)); }
   finally {
-    if (mcp?.child) killOwnTree(mcp.child);
+    await closeMcp();
     if (audioServer) await new Promise(resolve => audioServer.close(resolve));
     if (summaryServer) await new Promise(resolve => summaryServer.close(resolve));
     if (foreignProvider) await foreignProvider.close();

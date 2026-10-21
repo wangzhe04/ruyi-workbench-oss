@@ -50,6 +50,9 @@ export function createSessionExperienceDomain({
   // 改吃 thread.live（3 s 轮询降为断连兜底）；②换会话时报一次新的在场信号（§4.3 —— 服务端只在
   // 连接时读 ?lens=&sessionId=，所以换会话＝重连，这是唯一的写口）。
   eventStream = null,
+  privacyFailure = () => null,
+  openPrivacySettings = () => {},
+  openSessionEngine = () => {},
   apiErrText = error => String(error && error.message || error || ''),
   // 118a-fix: 手册正文的落 DOM 与高亮。组合根透进来的就是 chat-render-primitives 那一份已消毒管线,
   // 阅读器不另造解析器,也不自己拼 HTML。
@@ -709,7 +712,8 @@ function errorClassAction(cls) {
 // Render the human error card. `noFilesChanged` appends the reassurance line 「本次未改动任何文件」 (C6) when
 // this turn's turn_summary was empty (a failed turn that touched nothing shouldn't leave the user unsure).
 function errorCard(cls, rawError, noFilesChanged) {
-  const info = errorClassInfo(cls);
+  const privacy = privacyFailure(rawError);
+  const info = privacy ? { title: t(privacy.titleKey), next: t(privacy.key) } : errorClassInfo(cls);
   const card = el('div', 'error-card');
   const head = el('div', 'error-card-head');
   head.append(el('span', 'error-card-icon', '⚠'), el('span', 'error-card-title', (info && info.title) || t('error.generic.title')));
@@ -717,13 +721,15 @@ function errorCard(cls, rawError, noFilesChanged) {
   const body = el('div', 'error-card-body');
   if (info && info.next) body.append(el('div', 'error-card-next', info.next));
   else body.append(el('div', 'error-card-next', rawError ? String(rawError) : t('error.generic.description')));
-  const act = errorClassAction(cls);
+  if (privacy?.mayHaveExecuted && privacy.code !== 'privacy.tool_result_withheld') body.append(el('div', 'error-card-next', t('privacy.failure.withheld')));
+  const act = privacy ? (privacy.action === 'privacy' ? { label: t('privacy.failure.openSettings'), run: openPrivacySettings } : privacy.action === 'engine' ? { label: t('privacy.failure.chooseEngine'), run: openSessionEngine } : null) : errorClassAction(cls);
   if (act) {
     const btn = el('button', 'error-card-btn', act.label);
+    btn.type = 'button';
     btn.onclick = () => { try { act.run(); } catch { /* ignore */ } };
     body.append(btn);
   }
-  if (noFilesChanged) body.append(el('div', 'error-card-noop', t('changes.empty')));
+  if (noFilesChanged && !privacy) body.append(el('div', 'error-card-noop', t('changes.empty')));
   card.append(body);
   return card;
 }

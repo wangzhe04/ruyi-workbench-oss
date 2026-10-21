@@ -257,7 +257,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     assertPolicyAvailable();
     const record = disclosures.get(receipt);
     if (!record || record.binding !== disclosureBinding(binding)) fail('recipient_changed');
-    if (record.policy !== currentPolicy.signature) fail('policy_changed');
+    if (record.policy !== currentPolicy.signature || record.epoch !== policyEpoch) fail('policy_changed');
     const context = active();
     if (record.context ? record.context.scope !== context?.scope || record.context.scopeId !== context?.scopeId : context) fail('scope_changed');
     return record;
@@ -286,7 +286,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         context.scope.protectValue(secret, 'CREDENTIAL');
       }
     }
-    const record = { binding: key, policy: currentPolicy.signature, context, source: structuredClone(value) };
+    const record = { binding: key, policy: currentPolicy.signature, epoch: policyEpoch, context, source: structuredClone(value) };
     Object.assign(record, await projectDisclosure(record));
     const receipt = Object.freeze({}); disclosures.set(receipt, record);
     return { value: structuredClone(record.value), receipt };

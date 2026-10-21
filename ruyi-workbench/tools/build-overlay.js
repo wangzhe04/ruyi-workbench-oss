@@ -44,6 +44,7 @@ const PAYLOAD_FILES = [
   'app/public/js/state.js',
   'app/public/js/util.js',
   'app/public/js/net.js',
+  'app/public/js/api-error-i18n.js',
   'app/public/js/i18n.js',
   'app/public/js/icons.js',
   'app/public/js/turn-narrative.js',
@@ -68,6 +69,7 @@ const PAYLOAD_FILES = [
   'app/public/js/privacy-settings.js', // 3.1 privacy policy, rule playground and recovery UI.
   'app/public/js/disclosure-source.js', // Shared DOM source capabilities and clipboard activation reservation.
   'app/public/js/mcp-consumers.js', // Explicit owner setup for independent authenticated MCP consumers.
+  'app/public/js/privacy-failure.js', // Pure localized privacy refusal/receipt presentation.
   'app/public/js/privacy-export.js', // Host-prepared protected text copies and final download validation.
   // 134 波:模型目录统一件(agent-roles/navigation-controls/provider-settings/steward-chips/steward-settings
   // 五处静态 import)—— 漏登记即离线包白屏(43e 同款),overlay-payload-lock ③ 当场擒获。

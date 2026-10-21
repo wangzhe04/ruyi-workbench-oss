@@ -18,7 +18,7 @@ function fixture() {
     fs: { readFileSync: read }, fsp: { readFile: async () => read(), stat: async () => ({ size: Buffer.byteLength(read()) }), mkdir: async () => {} },
     process: { env: new Proxy({ RUYI_BOT_QQ: 'TEST_ONLY_FAKE_KEY' }, { get(object, key) { envReads.push(key); assert.match(key, /^RUYI_BOT_/); return object[key]; } }) },
     paths: { data: '/isolated' }, OVERLAY_ID: 'epoch_' + crypto.randomBytes(6).toString('hex'), ExternalBotHooks: {}, nowIso: () => new Date().toISOString(), makeId: prefix => prefix + '_' + crypto.randomBytes(8).toString('hex'),
-    STEWARD_SESSION_ID: 'fixture-steward', PrivacyGateway: { withPolicy: (_scope, work) => work() },
+    STEWARD_SESSION_ID: 'fixture-steward', PrivacyGateway: { withPolicy: (_scope, work) => work(), disclosurePolicyGuard: () => () => {} },
     atomicWriteJson: async (_file, value) => { writes++; if (writeGate) await writeGate; if (writeFailure) throw new Error('disk full'); disk = JSON.stringify(value); },
     ExternalChannelProtocols: { verifyAndNormalize(_platform, _connection, _headers, raw) { verified++; return { kind: 'message', message: JSON.parse(raw.toString('utf8')) }; } },
     runStewardTurn: async input => { await context.ExternalBotHooks.validateActor(input.externalActor); assert.equal(input.trigger, 'external'); runs++; if (modelGate) await modelGate; if (modelError) throw modelError; return { ok: true, say: '真实回合结果', turnSeq: runs }; },

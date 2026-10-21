@@ -30,6 +30,8 @@ export function createChatStaticRenderer(deps = {}) {
     humanizeToolName = name => name,   // 走查 #5/#12:待决权限卡说人话动词、就地给「允许／拒绝」
     decidePermission = null,
     bindMermaidDocument = () => {},
+    privacyFailure = () => null,
+    errorCard = () => null,
     bindDisclosureSource = () => {},
   } = deps;
   // Formatting is synchronous in marked/sanitizer/highlight.js. Beyond this bounded size, keep the raw
@@ -421,7 +423,7 @@ export function createChatStaticRenderer(deps = {}) {
       else if (segment.type === 'workflow') narrative.append(narrativeWorkflowCard(segment, tools)); // 代理模式 v2:工作流卡 + 信封摘要
       else if (segment.type === 'permission' || segment.type === 'mission') narrative.append(narrativeSemanticCard(segment));
       else if (segment.type === 'note') narrative.append(el('div', 'msg-note', segment.text || ''));
-      else if (segment.type === 'error') narrative.append(el('div', 'msg-error', segment.text || ''));
+      else if (segment.type === 'error') { const card = privacyFailure(segment) ? errorCard(segment.errorClass, segment, false) : null; narrative.append(card || el('div', 'msg-error', segment.text || '')); }
       else if (segment.type === 'subagent') {
         const record = nativeAgents.get(String(segment.toolCallId || ''));
         if (record) { narrative.append(renderStaticNativeAgent(record)); renderedNative.add(String(segment.toolCallId || '')); }

@@ -4295,7 +4295,7 @@
   "stewardShell.compose.newReady": "发送后交给管家新建任务。"
   ,"settings.steward.memory.inferred": "行动经验／推断偏好"
   ,"privacy.title": "本地隐私保护"
-  ,"privacy.coverage": "开启后，原生模型文字请求及工具返回中的命中内容会替换为本地代号；已登记工具的文字参数在本地还原后仍须通过原有权限检查。CLI、独立 MCP 通道、服务端内建工具、图片、音频和加密思考内容暂不支持，开启时会阻止相关请求。规则识别存在漏检，无法保证隐藏全部敏感信息。"
+  ,"privacy.coverage": "开启后，原生模型文字、受管 MCP 的文字工具结果和资源会按已保存规则投影；私密原值仅可用于已核验接收方、用途与字段的本地适配器。独立 MCP 须先在设置中为指定应用生成连接，仅开放授权目录内的文件工具和安全概要资源；未认证直连不支持。固定摘要资源模板、订阅与更新通知仅限已授权的 capabilities/workspace 两类固定概要资源。代号仅属于当前连接，撤销授权或断连后失效；不提供任意资源 URI、二进制通路或 OS 隔离。CLI、服务端内建工具、原始媒体和签名／加密思考仍不支持。普通公开查询与抓取沿用现有网络安全边界，不新增内容脱敏或确认；本地私密引用不会自动还原到请求。规则可能漏检。"
   ,"privacy.off": "关闭"
   ,"privacy.basic": "基础：密钥与认证信息"
   ,"privacy.enhanced": "增强：基础 + 个人信息"
@@ -4355,9 +4355,9 @@
   ,"privacy.covered": "已覆盖文本；登记工具在原权限检查前还原执行参数"
   ,"privacy.blocked": "开启脱敏时阻止"
   ,"privacy.channel.nativeText": "原生模型：聊天、子任务、摘要与重试"
-  ,"privacy.channel.managedMcpText": "原生模型经工作台调用的 MCP 文本结果"
+  ,"privacy.channel.managedMcpText": "原生回合内受管 MCP：文字工具结果、资源与受限通知"
   ,"privacy.channel.cli": "Claude / Kimi CLI（含原生工具、恢复与压缩）"
-  ,"privacy.channel.standaloneMcp": "外部客户端直连工作台 MCP 工具与资源"
+  ,"privacy.channel.standaloneMcp": "未签发凭据的独立 MCP 直连"
   ,"privacy.channel.media": "图片、音视频、二进制附件与实时语音"
   ,"privacy.channel.serverTools": "服务端工具与签名／加密思考"
   ,"privacy.sourceViews": "支持文件分页、行读取、搜索片段、差异、画像、命令及管家摘读；内置源工具先扫描完整来源再生成视图，超出预算或来源证明失效时拒绝。字段规则依赖完整 JSON 结构，第三方工具的无标签片段请补充字面或正则规则；任意编码和语义转换不能保证识别。"
@@ -4377,7 +4377,7 @@
   ,"privacy.savedOff": "脱敏未开启"
   ,"privacy.savedOffHelp": "聊天和工具文字不会替换为代号。身份证等个人信息仍可能作为原文发送。"
   ,"privacy.savedOn": "已开启：{{level}}"
-  ,"privacy.savedScope": "适用于工作台原生模型的文字请求和受支持的工具结果；规则可能漏检，无法保证隐藏全部敏感内容。"
+  ,"privacy.savedScope": "适用于原生文字、受管 MCP 文字及显式授权的独立 MCP 连接。权限和支持范围仍分别约束；规则可能漏检。"
   ,"privacy.savedPaused": "外发已暂停，隐私策略待确认"
   ,"privacy.storageOff": "凭据保存：未加密"
   ,"privacy.loading": "正在读取已保存设置…"
@@ -4487,5 +4487,35 @@
   "mcpConsumer.revoked": "连接已撤销；在途输出已停止。",
   "mcpConsumer.required": "请填写接收应用，并先打开一个工作区。",
   "mcpConsumer.created": "配置已下载。请导入指定应用；令牌不会再次显示。",
-  "mcpConsumer.failed": "操作未完成，请检查工作台状态；不会恢复或显示已有令牌。"
+  "mcpConsumer.failed": "操作未完成，请检查工作台状态；不会恢复或显示已有令牌。",
+  "privacy.failure.title": "隐私保护需要处理",
+  "privacy.failure.engine": "隐私保护暂不能完整约束此命令行引擎。请为本线程选择可用的原生 API 引擎，准备好后再发送。",
+  "privacy.failure.media": "保护开启时暂不能发送图片、音频或视频原文。请继续使用文字输入。",
+  "privacy.failure.unavailable": "隐私设置需要复核，发送已暂停。核对恢复的设置并明确保存后，再发起新请求。",
+  "privacy.failure.changed": "等待时隐私策略发生了变化。继续前请检查执行与投递状态。",
+  "privacy.failure.adapter": "此外部工具尚无经过审计的隐私原值适配器。请使用已支持的本地文件或文本操作。",
+  "privacy.failure.reference": "此引用已失效、被撤销，或属于其他授权来源。请重新读取其授权来源；重试前先检查已经完成的变更。",
+  "privacy.failure.withheld": "未向外部返回这份结果，操作可能已经执行。请检查本地变更或投递状态，不要自动重复操作。",
+  "privacy.failure.openSettings": "检查隐私设置",
+  "privacy.failure.chooseEngine": "选择本线程引擎",
+  "privacy.failure.content": "当前隐私规则无法安全表示这份内容。请改用更小的文本操作或已授权的来源引用；重试前先检查已完成的变更。",
+  "privacy.failure.cancelled": "操作已取消；若已开始执行，请先检查本地变更或投递状态。",
+  "privacy.channel.authenticatedMcpText": "已授权独立 MCP：受限目录文件文字与安全概要资源（非 OS 隔离）",
+  "privacy.failure.mcpChanged": "MCP 回合、连接或资源已变化。请重新列出资源；继续前检查已完成的操作。",
+  "privacy.failure.mcpBinary": "此 MCP 入口仅支持文字。请改用已支持的文字操作，勿直接重发原始媒体或二进制附件。",
+  "privacy.failure.mcpInvalid": "MCP 资源请求或响应格式不受支持。请重新列出资源，并检查连接器能力。",
+  "privacy.failure.mcpLimit": "MCP 结果超出读取预算。请缩小范围或读取下一页；重试前检查已完成的操作。",
+  "privacy.failure.mcpUnavailable": "MCP 连接器暂不可用。请检查连接和操作状态，再决定是否发起新操作。",
+  "privacy.failure.mcpUnsupported": "此连接器未声明资源能力。请检查连接器的工具与连接设置。",
+  "privacy.failure.serverTools": "保护开启时暂不支持服务端内建工具或签名／加密思考。请选择已支持的原生文字能力。",
+  "privacy.failure.toolChannel": "此调用没有受支持的受保护工具上下文。独立应用须使用设置中明确生成的 MCP 连接；CLI 受保护执行仍未支持。",
+  "privacy.failure.consumerGrant": "独立 MCP 的身份、授权或工作台权限不允许此请求。请在设置的 MCP 页面检查指定应用的授权；不会自动扩大权限。",
+  "privacy.failure.consumerWorkspace": "独立 MCP 的目录已变化、超出授权范围或无法核实。请检查目录并重新配置该应用的连接授权。",
+  "privacy.failure.consumerConnection": "独立 MCP 连接已失效或尚未配置。请启动对应工作台，检查设置中的连接配置；重新连接前先检查操作结果，不要自动重复写入。",
+  "privacy.failure.consumerCursor": "资源页已失效或已被使用。请重新列出资源，再读取所需页面。",
+  "privacy.failure.consumerLimit": "独立 MCP 请求超出容量或大小限制。请缩小请求或等待当前请求结束；先检查已完成的操作。",
+  "privacy.failure.consumerAudit": "独立 MCP 的文件审计线程忙碌、已变化或不可用。请在工作台检查该线程和本地变更后再决定下一步。",
+  "privacy.failure.consumerRequest": "独立 MCP 不支持此请求格式或方法。请核对该连接实际公布的工具与资源能力。",
+  "privacy.failure.consumerSubscription": "同一 URI 的订阅尚未完成。请等待当前订阅请求结束或检查连接；不要因此重新执行业务操作。",
+  "privacy.failure.consumerFailed": "独立 MCP 未返回可用结果。请检查本地变更和操作状态，再决定下一步；不要自动重复操作。"
 }

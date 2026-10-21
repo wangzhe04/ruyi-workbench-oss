@@ -4,7 +4,7 @@
 
 日期：2026-10-19。状态：独立 worktree 推进中，P1 凭据存储、恢复包事务与应用内入口，以及 P2 原生文字模型／工具双向脱敏已接通源码并验证；未覆盖引擎和媒体在开启时明确拒绝，尚未合并或发布。进度和实测证据见 [82 号实施记录](../archive/optimization-plan/82-privacy-31-implementation.md)。本文是 3.1 新增范围，不能用 [80 号旧候选验收](../archive/optimization-plan/80-steward-31-release-acceptance.md)代替本功能的验证。
 
-最新范围以 [84 号工具转译与档位设计](84-privacy-tool-transport-and-profiles-31.md) 为准：凭据加密和脱敏均默认关闭；登记工具统一还原文字参数，源视图支持分页、搜索、画像与差异。下文保留原始分阶段设计。
+最新范围以 [84 号工具转译与档位设计](84-privacy-tool-transport-and-profiles-31.md) 为准：凭据加密和脱敏均默认关闭；当前参数授权、MCP与复制支持矩阵以84及[92号交接](92-3.1-implementation-handoff.md)对应批次实测为准，不再沿用登记即任意还原的旧合同。源视图支持分页、搜索、画像与差异。下文保留原始分阶段设计。
 
 ## 1. 目标与已确定决定
 

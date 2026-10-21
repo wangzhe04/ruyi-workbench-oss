@@ -8110,10 +8110,17 @@ function createTurnSegmentBuilder() {
       return;
     }
     if (evt.type === 'result' && evt.ok === false && (evt.error || evt.reason)) {
+      const detail = evt.errorInfo && typeof evt.errorInfo === 'object' ? evt.errorInfo : evt.error && typeof evt.error === 'object' ? evt.error : {};
+      const code = evt.code || detail.code;
       segments.push({
         id: nextId(), type: 'error',
         text: String(evt.error || evt.reason || '').slice(0, 4000),
         errorClass: String(evt.errorClass || ''),
+        // Keep bounded machine identity and execution uncertainty, never the raw
+        // structured error/params/stack, for the same live and history guidance.
+        ...(typeof code === 'string' && /^(?:privacy|mcp_consumer)\.[a-z_]{1,80}$/.test(code) ? { code } : {}),
+        ...(evt.operationMayHaveExecuted === true || detail.operationMayHaveExecuted === true ? { operationMayHaveExecuted: true } : {}),
+        ...(evt.resultUnavailable === true || detail.resultUnavailable === true ? { resultUnavailable: true } : {}),
       });
       fallbackBatchId = ''; lastEventType = 'error';
     }
@@ -16154,7 +16161,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     assertPolicyAvailable();
     const record = disclosures.get(receipt);
     if (!record || record.binding !== disclosureBinding(binding)) fail('recipient_changed');
-    if (record.policy !== currentPolicy.signature) fail('policy_changed');
+    if (record.policy !== currentPolicy.signature || record.epoch !== policyEpoch) fail('policy_changed');
     const context = active();
     if (record.context ? record.context.scope !== context?.scope || record.context.scopeId !== context?.scopeId : context) fail('scope_changed');
     return record;
@@ -16183,7 +16190,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         context.scope.protectValue(secret, 'CREDENTIAL');
       }
     }
-    const record = { binding: key, policy: currentPolicy.signature, context, source: structuredClone(value) };
+    const record = { binding: key, policy: currentPolicy.signature, epoch: policyEpoch, context, source: structuredClone(value) };
     Object.assign(record, await projectDisclosure(record));
     const receipt = Object.freeze({}); disclosures.set(receipt, record);
     return { value: structuredClone(record.value), receipt };
@@ -49753,6 +49760,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // the results), NOT paired as function_call_output. Accumulated across tool-loop iterations this turn.
   const serverToolItems = [];
   let ok = true, errorMsg = '', aborted = false;
+  let privacyFailureInfo = null;
   const toolCalls = [];                 // for the display message (session.messages)
   // 本回合与会话历史里【已经用过】的 tool_call id。有的服务商每次迭代都从 call_1 起编(甚至同一批里重复):同 id 的第二次 tool_use
   // 在叙事账本里不建段(02c 以 id 为键),tool_result 回写第一张卡;Anthropic 还要求 tool_use id 唯一,重复会 400。
@@ -51397,7 +51405,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (e && (e.name === 'AbortError' || reg.state !== 'running')) { aborted = true; ok = false; }
     // errorMsg 带上 cause 的真因:流中途断线 undici 只抛 TypeError('terminated'),原因挂在 e.cause(04h providerThrownErrorText),
     // 不并进来用户看到的只是 "terminated",下面的 errorClass 也认不出这是掉线。
-    else { ok = false; errorMsg = providerThrownErrorText(e); }
+    else {
+      ok = false; errorMsg = providerThrownErrorText(e);
+      // Match the bounded machine-identity gate used by turn segments. Preserve
+      // ordinary display text; never persist exception params, stack or cause.
+      if (typeof e?.code === 'string' && /^(?:privacy|mcp_consumer)\.[a-z_]{1,80}$/.test(e.code)) privacyFailureInfo = {
+        code: e.code,
+        ...(e.operationMayHaveExecuted === true ? { operationMayHaveExecuted: true } : {}),
+        ...(e.resultUnavailable === true ? { resultUnavailable: true } : {}),
+      };
+    }
   }
   clearInterval(watchdog);
 
@@ -51476,7 +51493,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const failureText = iterationTextGap(assistantText, failureNote) + failureNote;
     assistantText += failureText;
     downstreamEvent({ type: 'assistant_delta', text: failureText, traceId: activeTraceId });
-    turnSegments.consume({ type: 'result', ok: false, error: failureNote, errorClass: errorClass || '' });
+    turnSegments.consume({ type: 'result', ok: false, error: failureNote, errorClass: errorClass || '', ...(privacyFailureInfo || {}) });
   }
 
   if (activeChildren.get(session.id) === reg) {
@@ -51621,7 +51638,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
-  onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass, ...(turnSuperseded ? { superseded: true } : {}) });
+  onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass, ...(privacyFailureInfo || {}), ...(turnSuperseded ? { superseded: true } : {}) });
 }
 
 // 110-4b: token 估算与分桶簇(fmtTokensServer/CJK_RE/setEstimateBucketsV1/estimateTextTokens/classifyTextForEstimate/estimateContentTokens/estimateHistoryTokens/CONTEXT_WINDOW_FALLBACK/EVAPORATED_PREFIX)抽至 09d-token-estimation.js。
@@ -90262,7 +90279,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
       const config = await readConfig();
       if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: process.platform === 'win32', recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
         { id: 'nativeText', supported: true }, { id: 'managedMcpText', supported: true },
-        { id: 'cli', supported: false }, { id: 'standaloneMcp', supported: false }, { id: 'media', supported: false }, { id: 'serverTools', supported: false },
+        { id: 'cli', supported: false }, { id: 'standaloneMcp', supported: false }, { id: 'authenticatedMcpText', supported: true }, { id: 'media', supported: false }, { id: 'serverTools', supported: false },
       ] });
       else if (req.method === 'GET' && pathname === '/api/privacy/settings') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, technical: config.privacyTechnicalV1, rules: config.privacyRulesV1, ruleVersion: PrivacyGateway.ruleVersion(config), regexLimits: PrivacyRegex.LIMITS, catalog: PrivacyRuleCatalog.list() });
       else return false;
@@ -90770,7 +90787,8 @@ function externalBotReplyBinding(connection, item, credentialRevision) {
     item.delivery?.attemptId, item.delivery?.status])).digest('hex');
   return { recipient, purpose: 'external-bot-reply', sourceHash };
 }
-async function externalBotPrepareReply(job, controller, dispatch) {
+async function externalBotPrepareReply(job, controller, dispatch, assertPolicy = PrivacyGateway.disclosurePolicyGuard()) {
+  assertPolicy();
   // The adapter continuation creates the request within the existing state chain.
   // Release the chain after request creation, not after the platform response.
   const prepared = await runKeyedChain(externalBotChains, 'state', async () => {
@@ -90785,6 +90803,7 @@ async function externalBotPrepareReply(job, controller, dispatch) {
       if (JSON.stringify(binding) !== JSON.stringify(expected)) throw externalBotError('external_channel.delivery_changed', 409);
       return { item, connection, credentials, binding };
     };
+    assertPolicy();
     const initial = await check();
     const { receipt } = await PrivacyGateway.prepareDisclosure(initial.item.execution.replyText,
       { ...initial.binding, knownSecrets: Object.values(initial.credentials.values).filter(Boolean) });
@@ -90797,6 +90816,7 @@ async function externalBotPrepareReply(job, controller, dispatch) {
     const text = externalBotBoundReplyText(fullText);
     return { result: dispatch({ text, assertCurrent: () => {
       if (controller.signal.aborted || externalBotWorkerStopped || env.some(([key, value]) => process.env[key] !== value)) throw externalBotError('external_channel.control_revoked', 403);
+      assertPolicy();
       PrivacyGateway.assertDisclosure(receipt, { ...current.binding, value: fullText });
     } }) };
   });
@@ -90824,9 +90844,10 @@ async function externalBotDrain() {
             });
             result = !allowed || controller.signal.aborted ? { status: 'failed', errorCode: 'external_channel.control_revoked' }
               : await PrivacyGateway.withPolicy(STEWARD_SESSION_ID, () => {
+                const assertPolicy = PrivacyGateway.disclosurePolicyGuard();
                 sendEntered = true;
                 return ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText,
-                  { attemptId: job.item.delivery.attemptId, signal: controller.signal, prepare: dispatch => externalBotPrepareReply(job, controller, dispatch) });
+                  { attemptId: job.item.delivery.attemptId, signal: controller.signal, prepare: dispatch => externalBotPrepareReply(job, controller, dispatch, assertPolicy) });
               });
           }
         } catch (error) { result = job.kind === 'run' ? (error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }) : sendEntered

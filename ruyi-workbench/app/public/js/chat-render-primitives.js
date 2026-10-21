@@ -123,6 +123,8 @@ export function createChatRenderPrimitives(deps = {}) {
     $,
     api,
     apiErrText,
+    privacyFailure = () => null,
+    privacyFailureCard = () => null,
     bindDisclosureSource = () => {},
     copyDisclosure = () => { toast(t("privacy.export.sourceMissing"), "err"); },
     // Agent CLI 登记表的查询函数（js/agent-cli-registry.js 的 agentCliMeta）。本模块零 import，由组合根注入。
@@ -792,6 +794,10 @@ export function createChatRenderPrimitives(deps = {}) {
   }
   function renderToolResultInto(resPre, name, result) {
     if (!resPre) return;
+    const privacyErrorResult = result && typeof result === 'object' && result.ok !== true && result.isError !== false
+      && (result.ok === false || result.isError === true || result.type === 'error' || result.resultUnavailable === true
+        || result.errorInfo && typeof result.errorInfo === 'object' || result.error && typeof result.error === 'object');
+    if (privacyErrorResult && privacyFailure(result)) { const card = privacyFailureCard(result); if (card) { resPre.textContent = ''; resPre.copyText = () => card.textContent; resPre.classList.add('tc-result-rich'); resPre.appendChild(card); return; } }
     const parts = toolResultRichParts(result);
     resPre.classList.toggle('tc-result-rich', Boolean(parts));
     resPre.copyText = parts ? () => safeStringify(result) : undefined;

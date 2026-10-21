@@ -99,8 +99,19 @@ ok(/\['rewind_superseded', 'session\.rewind_superseded'\]/.test(boot), "⑤ 裸�
 const app = fs.readFileSync(path.join(SRC, '..', 'public', 'app.js'), 'utf8');
 const drawer = fs.readFileSync(path.join(SRC, '..', 'public', 'js', 'steward-drawer.js'), 'utf8');
 const codes = ['session.rewind_superseded', 'session.rewound_during_write', 'session.history_changed_during_compact'];
-ok(codes.every(c => app.includes(`'${c}':`) && drawer.includes(`'${c}':`)), '⑤ 工作台与管家抽屉都给这三个码配了人话键');
+const presenterSource = fs.readFileSync(path.join(SRC, '..', 'public', 'js', 'api-error-i18n.js'), 'utf8');
+ok(app.includes("import { createApiErrorPresenter } from './js/api-error-i18n.js';")
+  && app.includes('const apiErrText = createApiErrorPresenter({ t, apiErrorInfo, rawApiErrText, privacyFailure });'), '⑤ 工作台实际导入并组合 API 人话呈现器');
+ok(codes.every(c => presenterSource.includes(`'${c}':`) && drawer.includes(`'${c}':`)), '⑤ 工作台与管家抽屉都给这三个码配了人话键');
 const keys = ['error.api.rewindSuperseded', 'error.api.rewoundDuringWrite', 'error.api.historyChangedDuringCompact'];
+// Execute the real pure presenter with the real HTTP parser; no DOM, transport or product exports.
+const netSource = fs.readFileSync(path.join(SRC, '..', 'public', 'js', 'net.js'), 'utf8');
+const privacySource = fs.readFileSync(path.join(SRC, '..', 'public', 'js', 'privacy-failure.js'), 'utf8');
+const presenterContext = { codes };
+require('node:vm').runInNewContext([netSource, privacySource, presenterSource].map(source => source.replace(/^export /gm, '')).join('\n') +
+  '\nconst present = createApiErrorPresenter({ t: key => key, apiErrorInfo, rawApiErrText: apiErrText, privacyFailure });' +
+  '\nthis.presentedKeys = codes.map(code => present(new Error(JSON.stringify({ error: { code, message: code } }))));', presenterContext);
+ok(keys.every((key, index) => presenterContext.presentedKeys[index] === key), '⑤ 实际 API 呈现器解析 HTTP 错误信封并返回这三个本地化键');
 const localeFiles = ['ruyi-workbench/app/public/locales/zh-CN.json', 'ruyi-workbench/app/public/locales/en-US.json', 'docs/i18n/locales/zh-CN.json', 'docs/i18n/locales/en-US.json']
   .map(r => JSON.parse(fs.readFileSync(path.join(__dirname, '..', r), 'utf8')));
 ok(localeFiles.every(l => keys.every(k => typeof l[k] === 'string' && l[k].length > 8)), '⑤ 四份 locale 都有这三句人话');

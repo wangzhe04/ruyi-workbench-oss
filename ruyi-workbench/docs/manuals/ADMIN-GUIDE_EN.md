@@ -33,9 +33,9 @@ Start-Workbench.cmd                    # convenience launcher (runs one of the a
 | Subcommand | What it does |
 |---|---|
 | `serve` | Starts the front end and HTTP API (the main entry). |
-| `mcp` | Starts the MCP stdio server for the Claude CLI (a one-shot child process). |
-| `mcp-config` | Prints MCP JSON importable by the Claude CLI (including desktop and external MCP). |
-| `install` | Tries to register the MCP with the Claude CLI automatically (`claude mcp add-json`). |
+| `mcp` | Starts stdio MCP. The legacy `ruyi` entry requires a live Ruyi-launched CLI identity; independent apps require a dedicated connection from Settings. |
+| `mcp-config` | Prints Ruyi-managed CLI MCP configuration, including desktop and external MCP; it does not issue independent-app credentials. |
+| `install` | Registers the internal MCP configuration for Ruyi-managed CLI sessions; independent apps still require a dedicated grant. |
 | `doctor` | Prints local diagnostics (CLI / git / python / port / overlay integrity and more). |
 
 ### Overlay packages
@@ -143,7 +143,7 @@ chosen by `config.activeProvider`.
 `activeProvider` empty or `'claude-cli'` (the default). Ruyi spawns the internal `claude` CLI over `stream-json`.
 Point Settings to an internal Claude CLI executable or configure it during installation. Ruyi generates and can
 register its workbench MCP configuration. If PowerShell JSON quoting breaks Claude's add-json command, use the
-non-JSON add form or import the file printed by mcp-config.
+non-JSON add form or import the file printed by mcp-config. This internal entry requires a Ruyi-launched CLI session; it does not authorize an independent app.
 
 - **`claudePath`**: the CLI executable (blank means auto-detect common locations).
 - **Third-party endpoint and key (`modelsApiBase` / `modelsApiKey` / `claudeAuthMode`)**: since v1.4.4 these three
@@ -193,8 +193,8 @@ API key from the endpoint vendor.
    (`Invalid configuration: : Invalid input`); the non-JSON `claude mcp add` avoids that. The workbench's own
    `install` goes through Node and passes an argument array, and the bundled `install-workbench.ps1` builds its own
    command line, so neither is affected.
-6. **Verify.** `claude mcp list` should show `ruyi - ✔ Connected` (remove a pre-3.0 `win-claude-workbench`
-   registration first; `install` does it for you), and `node app\server.js doctor` should show `claudeWorks: true`.
+6. **Verify.** `claude mcp list` checks the registration; a standalone process may request a dedicated connection.
+   A registration is not an independent-app grant. `node app\server.js doctor` should show `claudeWorks: true`.
    Then pick the Claude CLI engine in the top bar. The model can be switched in the top-bar model drop-down or under
    Settings → Models & Services → Agent CLI; both take effect on the next turn. With no specific model, the vendor console decides.
 
@@ -535,7 +535,12 @@ Tool registration no longer grants original-value disclosure. Supported local fi
 
 A credential recovery package uses an independent password and merges only supported provider, connector and related credential settings. It **does not restore chats, privacy rules or token mappings**. For another Windows account/machine, preserve the old data and preview/import into a separate new data root; do not overwrite the old root with a new master key. **Downgrading after encrypting data requires the complete pre-upgrade backup and matching old application.** Rolling back program files or importing a credential recovery package does not restore the original work data.
 
-With redaction enabled, uncovered external CLI requests, media and independent MCP consumer paths are blocked. Existing native/managed-MCP text coverage does not provide protected CLI or media support. Full work-data encryption, including chats, attachments and indexes, is not complete. 3.1 remains unreleased; implementation and acceptance follow the [completion roadmap](../../../docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md).
+M2-7 covers managed MCP text results, resources and bounded notifications in native turns; original-value inputs still require purpose adapters. M2-8 independent MCP passed this batch’s runtime validation: only a local connection explicitly created for a named app, limited to granted workspace file tools and safe summary resources, with no OS isolation. Direct access without issued credentials, protected CLI execution and original media remain unsupported. Encryption of all work data, including chats, attachments and indexes, is not complete.
+
+- App copy buttons use a protected copy bound to its source. For content without a verifiable source, literal copying requires the host to confirm protection is currently off; aliases are never restored by this fallback. The startup-failure diagnostic-copy button always produces a safe summary. Manual text selection and Ctrl+C remain under your control.
+- Review settings and Choose engine in a privacy error only open the relevant page; they do not disable protection or resend. Explicitly save recovered settings or select a native engine, then start a fresh request. If a result was withheld, check local changes or delivery status before repeating any operation.
+
+Independent MCP setup: start Ruyi and open a thread in the required workspace, or set the default workspace. Then open Settings → Tools & integrations → Integrations & MCP. Check the fixed directory displayed by the panel, configure grants for the named app, download the standard MCP JSON configuration once, and import it in that app. The directory stays fixed after the panel opens; switching threads does not update that panel or an issued connection’s workspace grant. Normal calls do not require setup again. The displayed directory matches the actual grant; ordinary local tools add no routine dialogs. Up to seven file tools and two fixed summary resources are intersected with existing workbench permissions; the ruyi://consumer/{kind} template covers only granted capabilities/workspace kinds, with subscribe/unsubscribe and update notifications for those two fixed resources. Updates are checked every 15 seconds through the existing connection, with bounded connection state; arbitrary resource URIs and binary paths remain unavailable. The JSON contains a dedicated access token, provided only in this one download and never recoverable from the connection list. Keep it in the target app configuration, not in chat or logs. Grants can be revoked; revocation or disconnect retires connection-owned aliases. Off does not remove authentication or workspace restrictions. No routine port entry or repeated password is needed. This is an application grant boundary; support is limited to the M2-8 scope described here. 3.1 remains unreleased; implementation and acceptance follow the [completion roadmap](../../../docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md).
 
 ## 4. Pro mode and diagnostics
 

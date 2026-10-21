@@ -42,9 +42,10 @@ async function seed(platform = 'qq', kind = 'group', replyText = 'public reply')
   return app.externalBotNextJob();
 }
 async function send(job, controller = new AbortController()) {
+  const assertPolicy = app.PrivacyGateway.disclosurePolicyGuard();
   const result = await app.PrivacyGateway.withPolicy(app.STEWARD_SESSION_ID, () => app.ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText,
     { attemptId: job.item.delivery.attemptId, signal: controller.signal, timeoutMs: 5000,
-      prepare: dispatch => app.externalBotPrepareReply(job, controller, dispatch) }));
+      prepare: dispatch => app.externalBotPrepareReply(job, controller, dispatch, assertPolicy) }));
   await app.externalBotFinishJob(job, result); return result;
 }
 async function edit(change) {
@@ -144,6 +145,23 @@ const textOf = row => row.host === 'api.bot.qq.com' ? row.body.content : JSON.pa
         { attemptId: job.item.delivery.attemptId, signal: controller.signal, prepare: dispatch => app.externalBotPrepareReply(job, controller, dispatch) }));
       ok(held && result.status === 'failed' && messageRequests().length === 0, `held prepare ${name} refuses before message transport`);
     } finally { app.PrivacyCore.configHooks.sealLocal = original; }
+  }
+  for (const [start, middle] of [['enhanced','off'],['off','enhanced']]) {
+    app.PrivacyGateway.configure(policy(start));const job=await seed();
+    onToken=async()=>{app.PrivacyGateway.configure(policy(middle));app.PrivacyGateway.configure(policy(start));};
+    const result=await send(job), before=JSON.stringify((await app.externalBotReadState()).items[0].execution);
+    await app.externalBotDrain();
+    ok(result.status==='failed'&&messageRequests().length===0&&JSON.stringify((await app.externalBotReadState()).items[0].execution)===before, 'held token '+start+' roundtrip refuses unsent body without replay');
+  }
+  for(const stage of ['persist','refreshed']) {
+    app.PrivacyGateway.configure(policy());const job=await seed('qq','group','{"password":"epoch-closure-'+serial+'"}'),controller=new AbortController();
+    const guard=app.PrivacyGateway.disclosurePolicyGuard(), original=app.PrivacyCore.configHooks.sealLocal;let reached=false;
+    if(stage==='persist')app.PrivacyCore.configHooks.sealLocal=async(...args)=>{if(!reached){reached=true;app.PrivacyGateway.configure(policy('off'));app.PrivacyGateway.configure(policy());}return original(...args);};
+    try {
+      const result=await app.PrivacyGateway.withPolicy(app.STEWARD_SESSION_ID,()=>app.ExternalChannelDelivery.sendReply(job.connection,job.item,job.item.execution.replyText,{attemptId:job.item.delivery.attemptId,prepare:dispatch=>app.externalBotPrepareReply(job,controller,prepared=>{if(stage==='refreshed'){reached=true;app.PrivacyGateway.markUnavailable();app.PrivacyGateway.configure(policy());}return dispatch(prepared);},guard)}));
+      await app.externalBotFinishJob(job,result);
+      ok(reached&&result.status==='failed'&&messageRequests().length===0&&(await app.externalBotReadState()).items[0].execution.status==='completed','policy epoch '+stage+' refuses before actual platform request, retaining completed execution');
+    }finally{app.PrivacyCore.configHooks.sealLocal=original;}
   }
   app.PrivacyGateway.configure(policy());
   // Unrelated learning during host projection does not falsely deny a public reply.

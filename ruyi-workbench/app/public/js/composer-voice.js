@@ -298,6 +298,8 @@ const now = () => (globalThis.performance && typeof globalThis.performance.now =
 export function createComposerVoice({
   state = null,
   t = key => key,
+  privacyFailure = () => null,
+  privacyVoiceFailure = () => null,
   id = '',
   input = () => null,    // 输入框取件函数（节点可能晚于本工厂才建）
   anchor = () => null,   // 麦克风插在它前面（发送键）
@@ -521,7 +523,7 @@ export function createComposerVoice({
           if (!res.ok) {
             let raw = '';
             try { raw = await res.text(); } catch { raw = ''; }
-            failedKey = transcribeErrorKey(apiErrorInfo(new Error(raw)));
+            failedKey = voiceErrorKey(apiErrorInfo(new Error(raw)));
             break;
           }
         } catch {
@@ -564,22 +566,32 @@ export function createComposerVoice({
     return true;
   }
 
+  function voiceErrorKey(info) { return privacyFailure(info)?.key || transcribeErrorKey(info); }
+
   async function start() {
+    const blocked = privacyVoiceFailure(state?.config);
+    if (blocked) { fail(blocked.key); input()?.focus(); return; }
     const mine = ++attempt;
     errorKey = '';
     phase = 'starting';
     bindEscape(true);
     paint();
     if (composerVoiceNeedsWarmup(state && state.config) && !(await warmUp(mine))) return;
+    const afterWarmup = privacyVoiceFailure(state?.config);
+    if (afterWarmup) { fail(afterWarmup.key); input()?.focus(); return; }
     let media = null;
     try {
       media = await globalThis.navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (error) {
       if (mine !== attempt) return;
-      fail(micErrorKey(error));
+      const privacy = privacyVoiceFailure(state?.config);
+      fail(privacy?.key || micErrorKey(error));
+      if (privacy) input()?.focus();
       return;
     }
     if (mine !== attempt || phase !== 'starting') { releaseTracks(media); return; }
+    const afterMic = privacyVoiceFailure(state?.config);
+    if (afterMic) { releaseTracks(media); fail(afterMic.key); input()?.focus(); return; }
     // 一次录音 = 一个 session：各段按先后排队转写（queue 是一条 Promise 链，保证字按说的顺序落进输入框）。
     const session = { id: mine, discard: false, failedKey: '', sent: 0, inserted: 0, anchor: null, queue: Promise.resolve() };
     const boxAtStart = input();
@@ -587,8 +599,10 @@ export function createComposerVoice({
     // 130：配了实时识别就先试流式路；开会话失败（组件没起来／服务端 409）→ 说一句、原样走按停顿切段。
     if (composerVoiceStreamConfigured(state && state.config) && streamCapable()) {
       try { await startStreaming(media, session); }
-      catch { sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); } catch { /* 无托盘宿主 */ } }
+      catch (error) { const privacy = privacyVoiceFailure(state?.config) || privacyFailure(error); if (privacy) { if (sx) streamTeardown(sx, true); sx = null; releaseTracks(media); session.discard = true; fail(privacy.key); input()?.focus(); return; } sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); } catch { /* 无托盘宿主 */ } }
       if (mine !== attempt || phase !== 'starting') { if (sx) streamTeardown(sx, true); sx = null; releaseTracks(media); return; }
+      const afterStream = privacyVoiceFailure(state?.config);
+      if (afterStream) { if (sx) streamTeardown(sx, true); sx = null; releaseTracks(media); session.discard = true; fail(afterStream.key); input()?.focus(); return; }
     }
     if (sx) {
       stream = media;
@@ -621,8 +635,18 @@ export function createComposerVoice({
   function streamCapable() { return Boolean(globalThis.AudioContext || globalThis.webkitAudioContext); }
   async function startStreaming(media, session) {
     const opened = await request('/api/audio/stream/sessions', { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } });
-    if (!opened.ok) throw new Error('stream open failed');
-    const body = await opened.json();
+    const afterOpen = privacyVoiceFailure(state?.config);
+    if (afterOpen) { releaseTracks(media); session.discard = true; }
+    if (afterOpen && !opened.ok) throw Object.assign(new Error(afterOpen.code), { code: afterOpen.code });
+    if (!opened.ok) { let raw = ''; try { raw = await opened.text(); } catch {} throw new Error(raw || 'stream open failed'); }
+    let body;
+    try { body = await opened.json(); } catch (error) { if (afterOpen) throw Object.assign(new Error(afterOpen.code), { code: afterOpen.code }); throw error; }
+    const afterBody = afterOpen || privacyVoiceFailure(state?.config);
+    if (afterBody) {
+      releaseTracks(media); session.discard = true;
+      if (body?.id) void request('/api/audio/stream/sessions/' + String(body.id), { method: 'DELETE' }).catch(() => {});
+      throw Object.assign(new Error(afterBody.code), { code: afterBody.code });
+    }
     if (!body || !body.id) throw new Error('stream open failed');
     const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
     const context = new Ctx();
@@ -668,7 +692,7 @@ export function createComposerVoice({
     if (!res.ok) {
       let raw = '';
       try { raw = await res.text(); } catch { raw = ''; }
-      streamDead(s, transcribeErrorKey(apiErrorInfo(new Error(raw))));
+      streamDead(s, voiceErrorKey(apiErrorInfo(new Error(raw))));
       return;
     }
     let body = null;
@@ -938,7 +962,7 @@ export function createComposerVoice({
         let raw = '';
         try { raw = await res.text(); } catch { raw = ''; }
         const info = apiErrorInfo(new Error(raw));
-        segmentFailed(session, transcribeErrorKey(info));
+        segmentFailed(session, voiceErrorKey(info));
         return;
       }
       const body = await res.json();
@@ -1004,6 +1028,7 @@ export function createComposerVoice({
   }
 
   function onClick() {
+    if (phase !== 'recording' && phase !== 'starting' && phase !== 'warming') { const blocked = privacyVoiceFailure(state?.config); if (blocked) { fail(blocked.key); input()?.focus(); return; } }
     if (phase === 'setup') { openSetup(); return; }   // 128f-⑭：去设置里把语音识别开起来
     if (phase === 'transcribing') return;
     if (phase === 'recording') { stop(); return; }

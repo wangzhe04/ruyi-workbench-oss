@@ -1,0 +1,1889 @@
+{
+  "schema": 1,
+  "status": "Verified current agreed M2 text-boundary+P0 scope complete. Final17runtime/15unique/1995PASS; complete unit2571/2545pass26skip0fail; full80static79pass1fail thenH14fourtargetstatics/locale allpass,0unresolved. M2-5cancelled; namespace/ASRpaused; R1brootcause unknown. No M3 or whole3.1release claim.",
+  "baseCommit": "52c5bb43",
+  "datePrepared": "2026-10-22",
+  "purpose": "P0 dual-language failure/recovery and shared receipt epoch closure; final step for currently authorized M2 text scope, not M3 or whole3.1 release",
+  "planningInputs": [
+    {
+      "file": "p0-ux-draft/P0-FINAL-VALIDATION-MATRIX.md",
+      "sha256": "E2AF26CA6979D2F61D7475ED4DE1F133FBF51938961C986A4D0D6E4043DBBD7A"
+    },
+    {
+      "file": "p0-ux-draft/validation-plan.md",
+      "sha256": "ED9F37E721D5FAEA2B5DCBD0EF86CF91843BCEB0BDFD5C3AEFB3B9D57C7187B4"
+    }
+  ],
+  "requiredChecks": {
+    "F1": "exact known code and JSON-RPC error.data; preserve success/opaque business text; unknown errors generic; both locale mirrors; no auto retry for executed-withheld/pending",
+    "B1": "both locales actual protected CLI failure, navigate existing engine/settings without business or policy mutation; explicit native selection and fresh user retry sends once; corrupt policy recovery preserves protection/encryption",
+    "B2": "main-session and steward voice input boxes in both locales ON/paused zero mic; usable OFF unchanged; held warmup/getUserMedia/open/JSON races release tracks and prevent recorder/PCM/audio send; exact body-free session DELETE",
+    "B3": "actual pre-POST unknown reference error (privacy.reference_unknown), provider receiver0, NDJSON assistant error code and localized reload guidance; do not call this typed_sensitive. Keep native authorized local result vs model withheld and managed MCP live/history once-only cases as separately required coverage.",
+    "B4": "keyboard/focus actual native action; support UI accurately splits unissued direct access vs authorized consumer and8b finite template/subscription; ordinary provider error remains generic",
+    "R1": "receipt epoch binds signature/availability and flipback; token await guard captured before firstawait; rejected actualsend0, execution not replayed",
+    "R2": "existing ordinary voice/stream/warmup + privacy audio send regressions",
+    "R3": "clipboard/text/Mermaid/managed MCP/gateway/channels regressions on final P0 receipt bytes",
+    "R4": "final8a+8b relay/restart/resources authenticated grants/ceiling/isolation/revoke and template/subscribe/unsubscribe/updated regressions",
+    "G": "syntax/build freshness/complete unit/actual80faststatic/locale/payload/facts/graph/routes/egress as affected",
+    "D": "independent final merged source/fixture/review; preserve all firstfailures and historical8a8b identities"
+  },
+  "runs": [
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/30-R1-bot-disclosure-H07-a01.log",
+      "sha256": "76D7C1C4B34EDB861AA9EB7052AD8E06C190215159B354A9FEEF6AFCD490B886",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/30-R1-bot-disclosure-H07-a01.json",
+        "sha256": "A422AD6FAC2BC28856500B2FD7687868B95D71DABD910D6247EC4DEB05049D42"
+      },
+      "fixture": "privacy-bot-disclosure.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 108,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 1.576,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/30-R1-bot-disclosure-H07-a02.log",
+      "sha256": "76D7C1C4B34EDB861AA9EB7052AD8E06C190215159B354A9FEEF6AFCD490B886",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/30-R1-bot-disclosure-H07-a02.json",
+        "sha256": "A749E901BA64D3340DCD86142E9562BA75797C5586AF785C19ED83633BCC783C"
+      },
+      "fixture": "privacy-bot-disclosure.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 108,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 1.5,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/43-R2-audio-boundary-H07-a01.log",
+      "sha256": "34ABDD6AFF3FB3ED70E546AC974DEEF5CD1E1D2EF5300F2CC731041FD08FC8A2",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/43-R2-audio-boundary-H07-a01.json",
+        "sha256": "F14C438961540AC7897C414D59013852B1795814B5EBA67C16BD589055CD93BB"
+      },
+      "fixture": "privacy-audio-send-boundary.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 22,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 2.483,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/50-R3-clipboard-H07-a01.log",
+      "sha256": "C3EE71EB03AA08A3CEADC0223691663247A2C1AEF4ED52A25D13A445DAC35F99",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/50-R3-clipboard-H07-a01.json",
+        "sha256": "0D339C67E53A0425CF102C9C270C86F01F4A6CAD6874D453540E94D001463C95"
+      },
+      "fixture": "privacy-clipboard-copy.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 347,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 41.558,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/51-R3-text-export-H07-a01.log",
+      "sha256": "EEEFC77DB6AFBE95068E7E4F594858A0A18666847E1515DB4D46E6A107204D06",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/51-R3-text-export-H07-a01.json",
+        "sha256": "B15935646BF5CAB74B51346DD6E94FC5F8A282553AE2D6B8573DD2BB6348F73C"
+      },
+      "fixture": "privacy-text-export.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 55,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 7.554,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/52-R3-mermaid-export-H07-a01.log",
+      "sha256": "14C4BF1C2F516536B4F23C54165DE4D1163F76A7715C9B1882A910363ECA085E",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/52-R3-mermaid-export-H07-a01.json",
+        "sha256": "28E0F9E143767673C80D50A86927ACD205974ACF6F2F07AA462BEC4104E262B7"
+      },
+      "fixture": "privacy-mermaid-export.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 87,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 27.705,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/53-R3-managed-mcp-H07-a01.log",
+      "sha256": "55BF10CAF12C05ADC762D7CEFEEBBE8356902A0496D8E9F3D8E140C7EF5B2423",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/53-R3-managed-mcp-H07-a01.json",
+        "sha256": "60C6D7FC4633B7BA2FBB949AC0F8C7B1A4A5E5A15C0B7425C61E7EC60C698342"
+      },
+      "fixture": "privacy-managed-mcp.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 485,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 67.594,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/54-R3-gateway-H08-a01.log",
+      "sha256": "6E110EF32B996B091037D16BB677550834A14A800CAEE712B2B2C6A0D4D6D4E8",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/54-R3-gateway-H08-a01.json",
+        "sha256": "17661E3FA9FDF5BE9C07C1FE8D367CF5B8E1045A788AEF7CB3817B0AA1BB3550"
+      },
+      "fixture": "privacy-gateway.e2e.js",
+      "sourceIdentity": "-H08-",
+      "exitCode": 0,
+      "pass": 128,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 65.102,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/55-R3-channels-H10-a01.log",
+      "sha256": "0B2474661ECD866FA5DEC415BF345467A28A00094E624181987278EDFFDFA9CA",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/55-R3-channels-H10-a01.json",
+        "sha256": "C2F84F9C752F1EE1CEF0ACF23B391159AC6E067D98EA4110817A031A8E953427"
+      },
+      "fixture": "privacy-channels.e2e.js",
+      "sourceIdentity": "-H10-",
+      "exitCode": 0,
+      "pass": 39,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 11.843,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/60-R4-consumer-relay-H10-a01.log",
+      "sha256": "423E93781D3119236973D1975231F4EC2678A7D4C7936404308A99818B60DB6B",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/60-R4-consumer-relay-H10-a01.json",
+        "sha256": "8C2870888BF718A7EEE5DA184E96CF68B63282923D6DD981B8914A45F876AD59"
+      },
+      "fixture": "mcp-consumer-relay.e2e.js",
+      "sourceIdentity": "-H10-",
+      "exitCode": 0,
+      "pass": 98,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 22.99,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/61-R4-consumer-restart-H10-a01.log",
+      "sha256": "1EEF1CF329EB007C97F9FE29E626515E7684A6E12D8AE747C9997086D6AE8046",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/61-R4-consumer-restart-H10-a01.json",
+        "sha256": "15E5E07FEBB1021971B3AE6150AB9D733C4330F2BA0478C8924D57BE4E8694F9"
+      },
+      "fixture": "mcp-consumer-restart.e2e.js",
+      "sourceIdentity": "-H10-",
+      "exitCode": 0,
+      "pass": 34,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 43.697,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/62-R4-consumer-resources-H10-a01.log",
+      "sha256": "FFF58E6E3C0AE0E9FC0B72B9B83CDD488E12453F5C7D86F2C3E6F990AE6C2D34",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/62-R4-consumer-resources-H10-a01.json",
+        "sha256": "3AF12089039CE262A5FCD5BB3A83B194BAF9DE316545C4AAF6B8476D3C24823C"
+      },
+      "fixture": "mcp-consumer-resources.e2e.js",
+      "sourceIdentity": "-H10-",
+      "exitCode": 0,
+      "pass": 45,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 231.893,
+      "internalReportedDurationMs": 231629,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/82-B1-privacy-failure-H13-a01.log",
+      "sha256": "E01A0B5145973C227DDD7C10F7A53E93EF29C6D429F029ED43EB56D52EF91C94",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/82-B1-privacy-failure-H13-a01.json",
+        "sha256": "37442E5CD121B1D14FB354252E27949CB87401F0E16FC9BF04D7364D6FBCEF71"
+      },
+      "fixture": "privacy-failure.browser.e2e.js",
+      "sourceIdentity": "-H13-",
+      "exitCode": 0,
+      "pass": 122,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 43.981,
+      "timing": "wrapper start/end elapsed",
+      "acceptance": "final H13 fixture / H12 frontend"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/82-B1-privacy-failure-H13-a02.log",
+      "sha256": "E01A0B5145973C227DDD7C10F7A53E93EF29C6D429F029ED43EB56D52EF91C94",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/82-B1-privacy-failure-H13-a02.json",
+        "sha256": "D0033AD58C7306BF6D4D5405238A5F22CD8E0786B576D64D6C84365970F476EA"
+      },
+      "fixture": "privacy-failure.browser.e2e.js",
+      "sourceIdentity": "-H13-",
+      "exitCode": 0,
+      "pass": 122,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 47.903,
+      "timing": "wrapper start/end elapsed",
+      "acceptance": "final H13 fixture / H12 frontend"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/83-R2-composer-voice-H13-a01.log",
+      "sha256": "72DEDA57EAEF90F49DDE629A9C7FAFD57A2AAD62F6DE2FEA633131C4AC9A3C06",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/83-R2-composer-voice-H13-a01.json",
+        "sha256": "461D95BB5C67B83185DC9348A8EFC6F519CAA24DCF2921A3DE9E9216522A681D"
+      },
+      "fixture": "composer-voice.browser.e2e.js",
+      "sourceIdentity": "-H13-",
+      "exitCode": 0,
+      "pass": 98,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 52.047,
+      "timing": "wrapper start/end elapsed",
+      "acceptance": "final H13 fixture / H12 frontend"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/84-R2-composer-stream-H13-a01.log",
+      "sha256": "5EEFD81FB35F786FDB2F68E62715ED3164D21F5335B0864EDB274E5AD4AA855B",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/84-R2-composer-stream-H13-a01.json",
+        "sha256": "B36586B541D6269D2D71281D40727ABF1A1FD594C9752F41343A27AAB0EB61D3"
+      },
+      "fixture": "composer-voice-stream.browser.e2e.js",
+      "sourceIdentity": "-H13-",
+      "exitCode": 0,
+      "pass": 39,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 34.259,
+      "timing": "wrapper start/end elapsed",
+      "acceptance": "final H13 fixture / H12 frontend"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/85-R2-composer-warmup-H13-a01.log",
+      "sha256": "38BC9788868E97E91D43542D01A2114CCE5090AD201AB1ABBF51FE87DF8E8B25",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/85-R2-composer-warmup-H13-a01.json",
+        "sha256": "DE387E7A27BD096A67D6BF2659A6835EA5755F9132E62DD049181868BECEF7E6"
+      },
+      "fixture": "composer-voice-warmup.browser.e2e.js",
+      "sourceIdentity": "-H13-",
+      "exitCode": 0,
+      "pass": 58,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 29.089,
+      "timing": "wrapper start/end elapsed",
+      "acceptance": "final H13 fixture / H12 frontend"
+    }
+  ],
+  "firstFailures": [
+    {
+      "sourceIdentity": "H01",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H01-a01.json",
+        "sha256": "02A060F0A7D7AA6E4731F72F5BF8B7CF2DC0474D39F948B7F6AB29EEAE19DF3A"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H01-a01.log",
+        "sha256": "8040287152BBD0AED021AC9EAA1F130C80267B36B275F92B143FECABF2E3A934"
+      },
+      "exitCode": 1,
+      "failures": 2,
+      "classification": "fixture oracle assumptions, not product defects",
+      "causes": [
+        "password:null already has safe contentRecovery replacement, so expecting top-level refusal was incorrect",
+        "session head JSON has no message bodies; authoritative message assertions belong to NDJSON"
+      ],
+      "correction": "H02 uses existing exact f*32 unknown reference, proves actual provider0 and NDJSON assistant error privacy.reference_unknown, plus localized reload guidance"
+    },
+    {
+      "sourceIdentity": "H02",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H02-a01.json",
+        "sha256": "70AB21304B83C498D4A0CF7106750AA299DB9D14FEF23DA03EF1D5002B394E46"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H02-a01.log",
+        "sha256": "51936E3A81C78A0B605F099629B9C6765CC721330CB6C3464FDC3FC8F8C3644D"
+      },
+      "exitCode": 1,
+      "failures": 3,
+      "durationMs": 161215,
+      "classification": "fixture setup/lens/OFF counter assumptions, not product defects",
+      "causes": [
+        "stewardEnabled false and false setLens ignored, so actual intended second composer was not established",
+        "reload restores host stream configuration; nonstream OFF oracle counted legitimate open/delete"
+      ],
+      "correction": "H03 fixture only enables actual steward with idle1440, disables brief/schedule/auto, requires visible trusted click and successful setLens, explicitly sets nonstream OFF; product H01 unchanged; final H03 runtime pending"
+    },
+    {
+      "sourceIdentity": "H06",
+      "status": "preserved manifest; browser fixture oracle expected host rejection incorrectly",
+      "diagnosis": "host actually200 skipRemote and clientOFF; H07 sets both host+client knownON before true warmup200 completion and asserts zero mic; not production bug"
+    },
+    {
+      "sourceIdentity": "H07 gateway",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/54-R3-gateway-H07-a01.json",
+        "sha256": "C5DC457484B6AB80E4321792A96771A532B5F5189DC0DD0DABC557E7C14864F1"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/54-R3-gateway-H07-a01.log",
+        "sha256": "AB0142A2FAE9CC5C847995E9F6787D93EDACDFBFFEA34D80445F1FEF496A2094"
+      },
+      "passLines": 127,
+      "failLines": 1,
+      "durationSeconds": 66.416,
+      "exitCode": 1,
+      "diagnosis": "old coverage6/2 count-only assertion; intended reviewed authenticatedMcpText makes7/3. H08 fixture exact seven id/boolean eachonce+total7, retaining legacyfalse and fakeproviders; no production change."
+    },
+    {
+      "sourceIdentity": "H08",
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/55-R3-channels-H08-a01.log",
+        "sha256": "412418FB1E3D79CE4A81A77B6991E64DD9B3B46D317312BE70AE39B43BC77D36"
+      },
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/90-first-failures-H09-addendum.json",
+        "sha256": "5153F9261416ABA14B7F3BED2CE5D2AC45258FFC3515668E95DEEB79A1FB3DB1"
+      },
+      "exitCode": 1,
+      "passLines": 0,
+      "failLines": 1,
+      "durationSeconds": 3.193,
+      "diagnosis": "The legacy fixture directly started an unauthenticated standalone MCP process. MCP8 correctly refused initialize with mcp_consumer.setup_required before any business assertion. This was an omitted fifteenth legacy-fixture migration, not a P0 product regression. The fixture's intended M1-M8 contract is the unsupported CLI channel across an OFF-to-ON policy change; replacing it with an authorized independent consumer would change that contract incorrectly.",
+      "correction": "Retain the real generated MCP server, McpStdioClient, RPC path and original completed-tool delay hook. Register the actual CLI wrapper ChildProcess with its same compiled application's real HTTP verifier/owner records before awaiting client.start; the actual descendant remains verified by production code. Preserve all M1-M8 and later audio/CLI/compact/foreign-scope assertions. Cleanup awaits only the owned tree, closes the loopback host and restores exact owner/RUNTIME state.",
+      "productionChanged": false
+    },
+    {
+      "sourceIdentity": "H09",
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/55-R3-channels-H09-a01.log",
+        "sha256": "1D480B3B7CABD27D0E67961D03F7E850C83F0C8270DAB97D08FC4AB311906417"
+      },
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/90-first-failures-H10-addendum.json",
+        "sha256": "87201A3362490918DEBA132875786C3A4247A7E6E7E460603A36741550D63677"
+      },
+      "exitCode": 1,
+      "passLines": 3,
+      "failLines": 1,
+      "durationSeconds": 4.912,
+      "diagnosis": "Real registered CLI ownership, the original completed file-read latch and OFF-to-ON result rejection passed M1-M3. The next resource-list request was correctly refused with exact privacy.engine_not_supported. MCP8 internal verification now asserts the CLI privacy boundary before resource/tool listing, so the old successful-empty-list oracle no longer describes the actual contract.",
+      "correction": "Only M4 and M6b capture the actual RPC outcome and require the exact privacy.engine_not_supported message; a successful empty list does not pass. M4 still rejects any exposed data-root path. Production verification, authorization, execution, the remaining original assertions and owned cleanup are unchanged.",
+      "productionChanged": false
+    },
+    {
+      "sourceIdentity": "H12",
+      "metadata": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/82-B1-privacy-failure-H12-a01.json",
+        "sha256": "F96592AA9ED7D5311742FF3F2AE2EE8E7269A21784E79FDA37BCC767C0BA3FD1"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/82-B1-privacy-failure-H12-a01.log",
+        "sha256": "362E9F2E4F139ED0FB752053645209EBD2534A975A93866A81076B1977335386"
+      },
+      "exitCode": 1,
+      "pass": 121,
+      "fail": 1,
+      "durationSeconds": 85.054,
+      "failedCase": "en-US/classic expected toast after actual corrupt config",
+      "observedCoverage": "other recovery/credential encryption/local result/withheld assertions passed; not final full browser acceptance",
+      "hypothesis": "bootData then async setLocale; reload waited config/thread but not language. Source supports readiness hypothesis; no failing-time language sample exists, so root cause is not proven and not assigned to new production defect.",
+      "proposedCorrection": "H13 fixture-only bounded html.lang===state.config.locale after reload plus body-free synthetic failure diagnostics; original assertion/budget/product unchanged; review/application and final5 frontend executions pending"
+    }
+  ],
+  "reviews": [
+    {
+      "file": "m2-8-independent-review/p0-h07-warmup-oracle-review.md",
+      "sha256": "83C24016E0396BEDBA094C6BD531F4FE2A151E152A965FE309AD1D28948BBCCB"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h08-support-metadata-review.md",
+      "sha256": "B8734107E869A0E469376FADF45152B0441491BCF1FB2BD4A44542FC9242C794"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h01-integration-review.md",
+      "sha256": "F759426097B7631DB57F31B775394F1417BB49B35AE4F437C8D96A0DA16A59E0"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h02-fixture-egress-review.md",
+      "sha256": "225D062243ACED6CCFAFA1B9EE2B80BF66C98298A59AF578D3C8018FBEB47E1F"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h03-fixture-preconditions-review.md",
+      "sha256": "5DA5B7C7FEF39ABEE678AB90F4FECE7B882630D579EA2206D5EE7C7C81EF38A3"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h04-lazy-control-wait-review.md",
+      "sha256": "F7D402E564408B91A77FF3846F82CEF9DFB2DA1404012ED0EF816DCED40EC2C1"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h06-pointer-helper-review.md",
+      "sha256": "42F97F130B915C8C21B1E7106DB79396AC2002F439FB5D4D5DD9B45102DACE30"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h09-channels-auth-review.md",
+      "sha256": "F3FEDEB1B3A4E9BD70DC382376C59BD1ED748330747114EFC41DE85FFD86C841"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h10-list-oracle-review.md",
+      "sha256": "A515CA7A3586C919EE0F8D09B458B7E96C686DE8992FFF926805CFAB97F6404B"
+    },
+    {
+      "file": "m2-8-independent-review/p0-first-full-unit-diagnosis-review.md",
+      "sha256": "E7B90EE0A75FAEB1D976CE065C554379C36B8ED3829B994B16BCBEF7BCC2EEC9"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h12-v3-static-repairs-review.md",
+      "sha256": "B4B7118195FEF96416A8BC9626DEF6976957C2D3B7385AF090B1F81750113579"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h13-locale-ready-review.md",
+      "sha256": "BFAC641D029E19093721D9A25F0062BF860C42B382FAD29A5D829F8ADBEC33C0"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h14-census-review.md",
+      "sha256": "6F20B1CC6416468DECCE510181A0BF64FB8599D900F0BF749257506DFF5663AA"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h14-copy-only-review.md",
+      "sha256": "38E3F258A08E05C7CD7D80629932A822C0B4499601C4AD7C5B58E91F8AFE75D6"
+    },
+    {
+      "file": "m2-8-independent-review/p0-h14-applied-freeze-checks-review.md",
+      "sha256": "F3D5185A077573EDA95C9069AC79443F0FAAD5567793A2FDA04559EF29DA2DEA"
+    }
+  ],
+  "finalFrozenSources": {
+    "README.md": "b37726d536af9fc180e2ad40f424f0e0ccfa10715d8a154d6d6a935cebbe5de9",
+    "README_EN.md": "e7b2f3cdb307d032dda6d3534fd625fe5ac69ac622d3dee2e2a06355e6dc906e",
+    "dev-harness/asr-config-ui.static.e2e.js": "2c7ab65a61e45f571dd5516f80b37ec7857803e4d2e54d7ec8d1fd38b8bc5117",
+    "dev-harness/copy-path-guard.static.e2e.js": "0ead3df738684308cd6ec52b89e46c333f2cec1bd9404e4a24a8f59f8413adf2",
+    "dev-harness/privacy-bot-disclosure.e2e.js": "fe48ae1fd93588748ba5303a644ac56422c0f8d652f243f52697b3cd66d0feb5",
+    "dev-harness/privacy-channels.e2e.js": "9986db29cae98533ee8ac7bc9fedfecea9bcd3464db0ef20bff30abc0c090c0a",
+    "dev-harness/privacy-failure.browser.e2e.js": "b396692ff95d3e7d99c73ca9acc0e3af96d2273fbcde4d486b407a083894fa4c",
+    "dev-harness/privacy-gateway.e2e.js": "2a33efb3278b6f3c4fb2e99d7b55b366425b0a66044b68ac702723e341f5d57f",
+    "dev-harness/privacy-m1/egress/manifest.json": "b42c8b75135ed57eca7cea357913ddc2e79ae77cacff494331bb3864e78ae8c8",
+    "dev-harness/session-save-census.static.e2e.js": "a9ab528d0806021ff3ecfc716ecbf13d489a4036fe6b85ddffb0ee7882fe7ab7",
+    "dev-harness/unit/external-bots-inbox.test.js": "1711296984af7032196166af57b192e5680ed9cb62b58bce9099d6ad5034a2f9",
+    "dev-harness/unit/privacy-bot-disclosure.test.js": "46502c64d67d57d15abec7b43486fbc7459ab2a6cf7aac653bcaaacd5a9ea2ff",
+    "dev-harness/unit/privacy-failure.test.js": "f9d906211eb295bc3158e46370c234cf7936552edbc8e9ec60053255f03ef55f",
+    "docs/architecture/privacy-egress-inventory.json": "a0806e6356aca1c6fb52f1275d0f44e90d6453cd782339cb17b285886969c0b8",
+    "docs/architecture/privacy-egress-inventory.md": "e1186d2681b843ed83556b544884eabc234c1b7c90ddd75590110435fb2a0fa8",
+    "docs/architecture/route-inventory.json": "570fa93bbaa3d0612db3d76c00665c832fe5ec33f98497a6f353bb3e20cefd8e",
+    "docs/architecture/route-inventory.md": "12a3f5feee5a7ccac1fcd1e76124f20cdbfa2e3d79884839fcdbf7306995f8fc",
+    "docs/i18n/locales/en-US.json": "15ce77c27dc8b3db85997a6c958e6fd8ef0449f361a74d13422ad9af808d7677",
+    "docs/i18n/locales/zh-CN.json": "420b85be671ad87e9794f7b61714df537e628227a07134f360ec4f7c243bfd3d",
+    "docs/optimization-plan/81-privacy-vault-and-tokenization-31.md": "921a4cbb270ea1e978412271bc4dbef89fc5346c2a24598c18d68df54aae12d8",
+    "docs/optimization-plan/83-privacy-rule-catalog.md": "ad931a2348252a61926eb25aeb864c12b9da5afc5561e55ec793217874dbabd0",
+    "docs/optimization-plan/84-privacy-tool-transport-and-profiles-31.md": "4187b63b4da51fa12ff652b490ec2fdc83b6e637cf30d4db1e324a1b7cdf3d16",
+    "facts.json": "f8c1e5b9738c0618efd2542f95439510cae2e1bf506593b31c48033c8408bc35",
+    "ruyi-workbench/README.md": "578a7fac858a808aa0c24fa7935bb8e7c3800f0085b62619b9a5e86fef09e5bb",
+    "ruyi-workbench/app/public/app.js": "9f6f3c3758fd2d8337b5262c59e461236dde4bce177bb8cdc7664f417453e78f",
+    "ruyi-workbench/app/public/js/api-error-i18n.js": "7745c393af213406a4c1c4d626d98e6ed2b4da47daf364d414f49c08513655aa",
+    "ruyi-workbench/app/public/js/chat-render-primitives.js": "9e6c0301bcbd0135e46579a2c172690f6deb71e0d26c999ecfc80f2af0b24fcc",
+    "ruyi-workbench/app/public/js/chat-static-renderer.js": "e552f996130fccda25359122f936ae1aca6cca4848492b5baab343a1fb48bb89",
+    "ruyi-workbench/app/public/js/chat-stream-runtime.js": "6facd9c4c9799c0f2389bb1959d4d8585d4d2b58a253d880d88275c94c2b7124",
+    "ruyi-workbench/app/public/js/composer-voice.js": "655291dabba9333ad8dd20144b69e9bf87b9d0af3b53ff774e772df3b3647c4b",
+    "ruyi-workbench/app/public/js/privacy-failure.js": "50de0f00bd401b8f3b34697bd3bd6238f2bbf0589c949bde0244721acd0160f0",
+    "ruyi-workbench/app/public/js/session-experience.js": "e00c3d596c8448cf4621fb7c7d3bcc9a79c08b371fc56829cd7bba8481514d23",
+    "ruyi-workbench/app/public/js/steward-composer.js": "ea1dfbfdc8f332c33a917017b4bef5eca32fb7bd76c14050a1c4be3f62a0d7d1",
+    "ruyi-workbench/app/public/locales/en-US.json": "15ce77c27dc8b3db85997a6c958e6fd8ef0449f361a74d13422ad9af808d7677",
+    "ruyi-workbench/app/public/locales/zh-CN.json": "420b85be671ad87e9794f7b61714df537e628227a07134f360ec4f7c243bfd3d",
+    "ruyi-workbench/app/server.js": "01bc3bda62e9b91d3775974d67bc47c967f16f7c4527a2d0e3f14f12555a49fb",
+    "ruyi-workbench/app/src/02c-turn-segments.js": "69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf",
+    "ruyi-workbench/app/src/03a-privacy-gateway.js": "ec955f9f36b292a779fc5366c3cf98bea064866d758fa1f2e4034676aade84dc",
+    "ruyi-workbench/app/src/09-workflow.js": "b4eccb3245807198eca75fe8f8fe96f9aa82c11d717fdcf7413dcd3ea44ae61f",
+    "ruyi-workbench/app/src/13ab-privacy-api.js": "2cf6d60386970f1394160a592c6bc94097bb387f989e984f6a22ffbd964493c6",
+    "ruyi-workbench/app/src/13w-external-bots.js": "a592caf719027e2a4164a2b92d9ff7722639c31d64c5978e885fe3047e510b7d",
+    "ruyi-workbench/app/src/manifest.json": "7f298c66b9bed246796c7f9b60ddf877ecf4cfb41e49396f69415c263ade9924",
+    "ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md": "95bff451a65cafbb31f6fefabc439d0df65bdaca3ba08f6c8667bd31ee68d041",
+    "ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md": "361282c779f8adae0f87b9f3c572807a05a87846f89d8b0c8b75448c4e0fa906",
+    "ruyi-workbench/docs/manuals/USER-GUIDE_CN.md": "051c2645b7e2a0afaab6dd39c471d668856b93348fe7870195b955a673f8c53e",
+    "ruyi-workbench/docs/manuals/USER-GUIDE_EN.md": "bbc371dbb7b8210dc728d37e5edf23ec2fad6bfe7643a1d789dd68c1dca2bba9",
+    "ruyi-workbench/tools/build-overlay.js": "3c5ae213b573ef76328ef9ed51c777110de7025e6371450fbb1cf58a34c8ab72"
+  },
+  "gates": {
+    "syntax": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-syntax-H12.log",
+      "sha256": "1FCB50D4530036A05D3AC739CAD5DDFBA5A5CF9E796FCB53CCB8C2A97B97A958",
+      "files": 1128,
+      "fail": 0,
+      "exitCode": 0,
+      "scope": "Complete H12syntax1128files0fail; H13fixture node--check exit0 confirmed by author/root, followed by H14copy/static-only checks separately recorded.",
+      "note": "H12 complete1128syntax; later H13fixture andH14copy/static-only follow their narrow checks, not another complete syntax identity"
+    },
+    "build": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-buildfresh-H12.log",
+      "sha256": "93D1FC697B9CE9A627A871B17D07C5852CC4B59243E94C3334AAFD9BE5A20501",
+      "fresh": true,
+      "exitCode": 0
+    },
+    "unit": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-complete-unit-third.log",
+      "sha256": "EABEC37A80E99CB9E2A3607FC7F07DDF0AB610ECDD1FD4E368ACAAAC2A851830",
+      "tests": 2571,
+      "suites": 192,
+      "pass": 2545,
+      "fail": 0,
+      "skip": 26,
+      "durationMs": 272402.1686,
+      "exitCode": 0,
+      "sourceIdentity": "H13 complete source before finalH14copy/static-only delta"
+    },
+    "static": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-static-third.log",
+      "sha256": "54BA46FF5A948C28A4D760BDCD50E9BB645B3B0AFE7666ACED12573F385E9488",
+      "total": 80,
+      "pass": 79,
+      "fail": 1,
+      "flaky": 0,
+      "liveSkipped": 7,
+      "leftoverBrowsers": 0,
+      "failedNames": [
+        "session-save-census.static.e2e.js"
+      ],
+      "unresolvedFailures": 0,
+      "targetedResolution": [
+        {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S1-copy-path-guard-H14-a01.log",
+          "sha256": "CD8A581EE8CDEF7C8643E9893FDD20E7C4096FD78F3B921CBB908C950617BC06",
+          "metadata": {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S1-copy-path-guard-H14-a01.json",
+            "sha256": "C5308A9D8D963649C4ECEF3843D181A4CCBA0D249E812FFF5DFF9F8350D1A106"
+          },
+          "name": "copy-path-guard.static.e2e.js",
+          "pass": 57,
+          "fail": 0,
+          "exitCode": 0,
+          "durationSeconds": 0.266
+        },
+        {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S2-copy-terms-H14-a01.log",
+          "sha256": "9F62BF9669F9E09448CC76F0B04C3052A1344878B7C085E66E131C15EFE8C65E",
+          "metadata": {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S2-copy-terms-H14-a01.json",
+            "sha256": "676EF6C5C650BEC9B79D4BD462F0AC787D308ADC36C3FEEFDA7F9EDCC85EBDCD"
+          },
+          "name": "copy-terms.static.e2e.js",
+          "pass": 50,
+          "fail": 0,
+          "exitCode": 0,
+          "durationSeconds": 0.203
+        },
+        {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S3-i18n-H14-a01.log",
+          "sha256": "E1B3D00355DDE614EBA1F07476E6F8B7122B6AFC15B43E193DEF50212014D09F",
+          "metadata": {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S3-i18n-H14-a01.json",
+            "sha256": "C896265321E797A8FC2BA8111400D7747409A7BE73A98ACE5EA42BD3016EB737"
+          },
+          "name": "i18n.static.e2e.js",
+          "pass": 8,
+          "fail": 0,
+          "exitCode": 0,
+          "durationSeconds": 1.705
+        },
+        {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S4-session-save-census-H14-a01.log",
+          "sha256": "C103DD7C5D0311191ADBBA41411A252F8036596FDA4ECFDF39FA673F015537F4",
+          "metadata": {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S4-session-save-census-H14-a01.json",
+            "sha256": "010152498BCF59A8678459DE25CEC8062F85D5562A07C59F21AF7ADC82B48B93"
+          },
+          "name": "session-save-census.static.e2e.js",
+          "pass": 22,
+          "fail": 0,
+          "exitCode": 0,
+          "durationSeconds": 0.233
+        }
+      ],
+      "acceptance": "actual full80run79pass1fail atH13; final failed census lock resolved by H14target; allfourH14targetstatics exit0. No fourth complete unit/80static rerun or first-pass-all-green claimed."
+    },
+    "egress": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-egress-H12.log",
+      "sha256": "3815C1F3FE95A6FF22323B77687AC13A7007BE00DC50325B599C256EBB4DB46A",
+      "sourceIdentity": "H12 pure presenter extraction, H14 copy-only/static-lock delta has no transport candidate change",
+      "sources": 274,
+      "candidates": 678,
+      "errors": 0,
+      "promotions": 0,
+      "exitCode": 0,
+      "manualProof": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-egress-review-H12.json",
+        "sha256": "84CC1876F2AF90051D2563813740E070E5133D00A6AFB0BAA0E61A49938547B2"
+      }
+    },
+    "firstAttempt": {
+      "metadata": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-first.json",
+        "sha256": "38090FF78BFCDAB7E8E50F1D130732646BAA6EC4796DCEC80410AB1EB96485F8"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-first.log",
+        "sha256": "2762356787AB8E985F5AA273DD1368F3DE4CE905EBC77CD05BFCE441A20DA2C8"
+      },
+      "completeUnitLog": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-complete-unit-first.log",
+        "sha256": "3E2357D12517999B9DAFC01A6D2BA8FE394C0DF6313DEEF96BA76CBF5CAD6CA0"
+      },
+      "exitCode": 2,
+      "unit": {
+        "tests": 2569,
+        "suites": 192,
+        "pass": 2538,
+        "fail": 5,
+        "skip": 26,
+        "durationMs": 279125.9116
+      },
+      "static": "not run; no current static log copied from another run",
+      "failureGroups": [
+        {
+          "count": 4,
+          "owner": "unit/external-bots-inbox.test.js",
+          "status": "H11 independent diagnosis confirmed isolated unit VM omitted disclosurePolicyGuard factory; single noop factory mock added, original22 tests/business assertions unchanged; targeted22pass and second complete unit now passes"
+        },
+        {
+          "count": 1,
+          "owner": "privacy-source-views unit",
+          "observedError": "real git Filename too long under root-owned deep TEMP directory",
+          "next": "root will rerun with a fresh dedicated short TEMP; fixture unchanged and denied-delete directories untouched",
+          "status": "second complete unit in fresh shortTEMP passed the unchanged real long-filename test; retain first environment failure and original fixture/denied-delete boundaries"
+        }
+      ],
+      "description": "Historical first attempt at that time:5unitfail andno static run. Four inbox failures later resolved by reviewedH11 mock; unchanged longfilename test later passed under shortTEMP."
+    },
+    "secondAttempt": {
+      "metadata": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-second.json",
+        "sha256": "52BF6330A6918BFA32E5AE1C390CDD417ED2427BC4E844C93F361CBD9523004B"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-second.log",
+        "sha256": "CAE5EB9852146000980419068B74BF9D0942CC05F8ADF35E32902976241C232F"
+      },
+      "unit": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-complete-unit-second.log",
+        "sha256": "D69EDC3A6A57E4D45822B5BB34DBC902A98D0103CF3714B8BDFB2BD653211D33",
+        "tests": 2569,
+        "suites": 192,
+        "pass": 2543,
+        "fail": 0,
+        "skip": 26,
+        "exitCode": 0
+      },
+      "static": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-static-second.log",
+        "sha256": "725C69EAC413F410114941037F57F80BB800CED1730B35B1CFDC5796401DFF57",
+        "total": 80,
+        "pass": 70,
+        "fail": 10,
+        "flaky": 0,
+        "liveSkipped": 7,
+        "leftoverBrowsers": 0
+      },
+      "exitCode": 1,
+      "tempRoot": "fresh short maintenance/pf2",
+      "failedStaticGroups": [
+        {
+          "count": 1,
+          "label": "ASR exact catch text lock"
+        },
+        {
+          "count": 1,
+          "label": "copy-path guard old line number/locale guidance contract"
+        },
+        {
+          "count": 1,
+          "label": "Chinese copy terminology: conversation should be thread"
+        },
+        {
+          "count": 1,
+          "label": "i18n literal{kind} single braces"
+        },
+        {
+          "count": 6,
+          "label": "app.js composition root1289 exceeds1280 guard"
+        }
+      ],
+      "next": "Historical planned H12 repairs were applied/reviewed and separately validated as recorded in h12TargetedChecks/h13Closure; original70/10 result remains.",
+      "description": "Historical second attempt at that time:unit0fail but10staticfail. H12source/static repairs and H13frontend validation later completed; not a current pending proposal."
+    },
+    "thirdAttempt": {
+      "metadata": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-third.json",
+        "sha256": "8A94E083E0A06DC43B3E4E6913ED314FA552B71E911F9404F3986BB6B41DB304"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-third.log",
+        "sha256": "2F72BD9FEB952E40130F1CA9A35B792660262E7B7B7458368BA92250CC4C3A24"
+      },
+      "exitCode": 1,
+      "sourceIdentity": "H13 frontend/fixture freeze",
+      "unit": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-complete-unit-third.log",
+        "sha256": "EABEC37A80E99CB9E2A3607FC7F07DDF0AB610ECDD1FD4E368ACAAAC2A851830",
+        "tests": 2571,
+        "suites": 192,
+        "pass": 2545,
+        "fail": 0,
+        "skip": 26,
+        "durationMs": 272402.1686,
+        "exitCode": 0
+      },
+      "static": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-static-third.log",
+        "sha256": "54BA46FF5A948C28A4D760BDCD50E9BB645B3B0AFE7666ACED12573F385E9488",
+        "total": 80,
+        "pass": 79,
+        "fail": 1,
+        "flaky": 0,
+        "liveSkipped": 7,
+        "leftoverBrowsers": 0,
+        "failedNames": [
+          "session-save-census.static.e2e.js"
+        ],
+        "unresolvedFailures": 0,
+        "targetedResolution": [
+          {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S1-copy-path-guard-H14-a01.log",
+            "sha256": "CD8A581EE8CDEF7C8643E9893FDD20E7C4096FD78F3B921CBB908C950617BC06",
+            "metadata": {
+              "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S1-copy-path-guard-H14-a01.json",
+              "sha256": "C5308A9D8D963649C4ECEF3843D181A4CCBA0D249E812FFF5DFF9F8350D1A106"
+            },
+            "name": "copy-path-guard.static.e2e.js",
+            "pass": 57,
+            "fail": 0,
+            "exitCode": 0,
+            "durationSeconds": 0.266
+          },
+          {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S2-copy-terms-H14-a01.log",
+            "sha256": "9F62BF9669F9E09448CC76F0B04C3052A1344878B7C085E66E131C15EFE8C65E",
+            "metadata": {
+              "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S2-copy-terms-H14-a01.json",
+              "sha256": "676EF6C5C650BEC9B79D4BD462F0AC787D308ADC36C3FEEFDA7F9EDCC85EBDCD"
+            },
+            "name": "copy-terms.static.e2e.js",
+            "pass": 50,
+            "fail": 0,
+            "exitCode": 0,
+            "durationSeconds": 0.203
+          },
+          {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S3-i18n-H14-a01.log",
+            "sha256": "E1B3D00355DDE614EBA1F07476E6F8B7122B6AFC15B43E193DEF50212014D09F",
+            "metadata": {
+              "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S3-i18n-H14-a01.json",
+              "sha256": "C896265321E797A8FC2BA8111400D7747409A7BE73A98ACE5EA42BD3016EB737"
+            },
+            "name": "i18n.static.e2e.js",
+            "pass": 8,
+            "fail": 0,
+            "exitCode": 0,
+            "durationSeconds": 1.705
+          },
+          {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S4-session-save-census-H14-a01.log",
+            "sha256": "C103DD7C5D0311191ADBBA41411A252F8036596FDA4ECFDF39FA673F015537F4",
+            "metadata": {
+              "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S4-session-save-census-H14-a01.json",
+              "sha256": "010152498BCF59A8678459DE25CEC8062F85D5562A07C59F21AF7ADC82B48B93"
+            },
+            "name": "session-save-census.static.e2e.js",
+            "pass": 22,
+            "fail": 0,
+            "exitCode": 0,
+            "durationSeconds": 0.233
+          }
+        ],
+        "acceptance": "actual full80run79pass1fail atH13; final failed census lock resolved by H14target; allfourH14targetstatics exit0. No fourth complete unit/80static rerun or first-pass-all-green claimed."
+      },
+      "failure": "The original full-run census error-location lock failed after presenter extraction; H14 independently reviewed correction reads real presenter factory and app wiring and passed the exact census plus three related targetstatics. Actual original79/1 remains unchanged; current unresolved0.",
+      "retainedScope": "No fourth complete unit/80static run performed. Final acceptance combines actual H13full79/1 with H14fourtargetstatics andlocale0fail, not a fabricated full80green."
+    }
+  },
+  "M2Closure": {
+    "status": "complete",
+    "completedEarlier": [
+      "M2-1",
+      "M2-2",
+      "M2-3",
+      "M2-4 narrowed",
+      "M2-6a",
+      "M2-6b1",
+      "M2-6b2",
+      "M2-6b3",
+      "M2-7",
+      "M2-8a",
+      "M2-8b"
+    ],
+    "remainingInM2": [],
+    "cancelled": [
+      "M2-5 generic web/download/HTTP redaction adapters by2026-10-21 user decision; not implemented"
+    ],
+    "paused": [
+      "strict managed CLI/VM/namespace continuation per91",
+      "local ASR implementation"
+    ],
+    "outsideM2": [
+      "M3 work-data storage encryption and complete shard index",
+      "M4 media production protection",
+      "M5 botB/C,existing-thread handoff,scheduler templates",
+      "M6 actual packaged3.1 release acceptance"
+    ],
+    "limits": [
+      "current text application boundaries are finite; model-only/bypassed inventory categories are not promoted to universal protection",
+      "ACC/document original-value adapters remain unavailable without proved launch identity; unknown external MCP private references refuse",
+      "no OS isolation, arbitrary external account validation, strictCLI or protected original-audio/ASR support claimed",
+      "manual OS selection/clipboard readers/external consumer independent reads and already-delivered copies remain outside enforcement",
+      "M2 completion after P0 would not mean all working data is encrypted, media delivery complete, all external platforms tested or3.1 released"
+    ],
+    "unresolvedHistoricalEvidence": [
+      "R1b first intermittent process cleanup failure root cause remains unknown; later repeated passes do not prove resolved (92/90 historical limitation retained)"
+    ],
+    "authority": "root explicitly accepted current agreed text-boundary M2+P0 scope after finalH14targeted0fail; not M3/whole3.1release",
+    "next": "M3-1 next, explicitly not implemented in this batch",
+    "completeScope": "Current agreed application text boundary only, with explicit finite recipient contracts and declared unsupported paths"
+  },
+  "nextAfterActualAcceptance": "M3-1 is the next task only after root accepts M2 closure; this P0/M2 batch does not implement M3-1 or migrate user data.",
+  "notes": [
+    "Raw logs and staging drafts stay outside repo; eventual evidence JSON is repository summary.",
+    "All nulls are intentionally unrun/unknown. Do not convert source/plans to PASS.",
+    "Do not edit8a/8b historical evidence or rewrite first failures; later P0 regression logs get distinct identity.",
+    "First fullgate5fail is preserved as its own identity; do not preassign the four inbox failures to fixture or product before author diagnosis/review. No static result is inferred because runner stopped at unit stage.",
+    "H14neutral unavailable copy avoids promising a button in voice-only toast. Existing card action/renderer and JS/backend behavior unchanged byH14. Complete gates remain explicitlyH13; H14targetedresults are separately named."
+  ],
+  "observedCoverageNotFinal": [
+    {
+      "sourceIdentity": "H02",
+      "cases": [
+        "actual prePOST receiver0",
+        "NDJSON assistant error code exactly privacy.reference_unknown",
+        "reload localized reference guidance",
+        "ordinary provider prose merely containing privacy code remains generic"
+      ],
+      "status": "already passed individual assertions, full browser still failed fixture setup; not final browser acceptance"
+    }
+  ],
+  "integrationReview": {
+    "status": "H01 integrated source review accepted; H12/H13/H14 incremental source, fixture andcopy/static reviews cited. Final four-document review occurs after this authorized write.",
+    "productIdentity": "H01 production unchanged in H02/H03 fixture-only fixes"
+  },
+  "manualEgress": {
+    "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-egress-review-H12.json",
+    "sha256": "84CC1876F2AF90051D2563813740E070E5133D00A6AFB0BAA0E61A49938547B2",
+    "firstPartySources": 274,
+    "candidates": 678,
+    "reviewedSourceCount": 3,
+    "sourcePaths": [
+      "ruyi-workbench/app/public/app.js",
+      "ruyi-workbench/app/public/js/api-error-i18n.js",
+      "ruyi-workbench/tools/build-overlay.js"
+    ],
+    "candidateChanges": 0,
+    "entryChanges": 0,
+    "groupChanges": 0,
+    "promotions": 0,
+    "errors": 0,
+    "baseline": "H11 manifest, earlier root-egress-review.json retained"
+  },
+  "inProgress": {
+    "remaining": [],
+    "status": "root authorized final fourdoc/evidence write, followed by independent final review/commit; no further product/runtime work in this batch"
+  },
+  "firstFailureManifests": [
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/90-first-failures.json",
+      "sha256": "AADA8F0300E9FC2AB6309D84A1D7720886EF3E5ECDB71FB8001568A99159D2F7"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/90-first-failures-H08-addendum.json",
+      "sha256": "56AAA50C57FF24B8A4876D9ECDD8E58B9714B64038A01029CE2B47650292D58D"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/90-first-failures-H09-addendum.json",
+      "sha256": "5153F9261416ABA14B7F3BED2CE5D2AC45258FFC3515668E95DEEB79A1FB3DB1"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/90-first-failures-H10-addendum.json",
+      "sha256": "87201A3362490918DEBA132875786C3A4247A7E6E7E460603A36741550D63677"
+    }
+  ],
+  "currentFinalFixture": {
+    "sourceIdentity": "H13",
+    "browserSHA256": "b396692ff95d3e7d99c73ca9acc0e3af96d2273fbcde4d486b407a083894fa4c",
+    "runtimeStatus": "all final17executions1995PASS0fail0skip accepted as targeted; complete third gate pending"
+  },
+  "productFreezeReference": {
+    "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-frozen-products-H08.json",
+    "sha256": "7C8F7FC6B70A9CB760C4FD7A0C20A5FB0691F530AD68E1B461067A18C1B37C47",
+    "baseline": "H01",
+    "note": "author H08 product snapshot; H09/H10 only channels fixture changes, root final gate snapshot to confirm"
+  },
+  "passingEarlierBrowserEvidence": [
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H07-a01.log",
+      "sha256": "F490F2C97E2E4AA3F9B305E74F8ED0A3C581335A36AC91E31DBA44B62D6F2FEA",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H07-a01.json",
+        "sha256": "2A4BDE757293E1EF05DD4F4D74825AC472A7F94EBE16F97D45D4EF606DF3F0A8"
+      },
+      "exitCode": 0,
+      "sourceIdentity": "H07",
+      "passLines": 122,
+      "durationSeconds": 44.321,
+      "acceptance": "historical122PASS twice; superseded for final browser by H08 encryption assertion"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H07-a02.log",
+      "sha256": "F490F2C97E2E4AA3F9B305E74F8ED0A3C581335A36AC91E31DBA44B62D6F2FEA",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H07-a02.json",
+        "sha256": "AD8502DA8104605FF66111D1DA20A0B75745684D88072D16BC96A661C45C4AE7"
+      },
+      "exitCode": 0,
+      "sourceIdentity": "H07",
+      "passLines": 122,
+      "durationSeconds": 44.477,
+      "acceptance": "historical122PASS twice; superseded for final browser by H08 encryption assertion"
+    }
+  ],
+  "focusedUnits": [
+    {
+      "kind": "focused integrated unit",
+      "sourceIdentity": "H01",
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/10-F1-focused-H01-a01.log",
+      "sha256": "E50DF39582E4CDCC258C024323846F3BD0996407A302B7EA2A12B6AD38A93C4B",
+      "tests": 57,
+      "pass": 57,
+      "fail": 0,
+      "exitCode": 0,
+      "scope": "focused only, not complete repository unit/gates"
+    }
+  ],
+  "runtimeAggregate": {
+    "executions": 17,
+    "uniqueFixtures": 15,
+    "pass": 1995,
+    "fail": 0,
+    "skip": 0,
+    "originalAuthorSummary": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/99-summary.json",
+      "sha256": "EBA03D3B8D46EC9693C63380826B19E7A91800DB6C29AA8E57F8157938BC93DE"
+    },
+    "finalFrontendReplacement": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/101-H13-closure.json",
+      "sha256": "A58C46ECA69F1062F512CCD9030D97B9B9110D7C6A0B88254014F02421620C34"
+    },
+    "note": "H13 five executions439 replace previous five439; no duplicate historical runs counted"
+  },
+  "freezeIdentity": {
+    "id": "H14",
+    "files": 47,
+    "manifest": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H14/source-identity.json",
+      "sha256": "0A08A6C4471253B554C32FB786FE92ECE9481EE55EC2F5B84A5981470799AD57"
+    },
+    "mergePatch": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H14/merge.patch",
+      "sha256": "60D842595C24E53097C3235F4A40DD21994228F3114741186B405A1A58F1E5E1"
+    },
+    "mapDigest": "0ed4db6e138b4ec00657c231df7359896d26d99c89b09ea889016e70d0cbd6b7",
+    "acceptedForFinalClosure": true,
+    "meaning": "Final pre-doc-only closure snapshot47files. Complete unit and80static ran atH13; H14fourlocale singlevaluecopy andcensus test-owner lock were proportionately revalidated by fourstatics pluslocale actual assertions. Final84doc-only write changes that snapshot document and three finaldoc hashes are separately recorded; no evidence JSON self-reference."
+  },
+  "authorSummary": {
+    "file": "root-logs/p0-final/20261022-52c5bb43-r01/99-summary.json",
+    "sha256": "EBA03D3B8D46EC9693C63380826B19E7A91800DB6C29AA8E57F8157938BC93DE"
+  },
+  "firstFullGate": {
+    "metadata": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-first.json",
+      "sha256": "38090FF78BFCDAB7E8E50F1D130732646BAA6EC4796DCEC80410AB1EB96485F8"
+    },
+    "log": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-first.log",
+      "sha256": "2762356787AB8E985F5AA273DD1368F3DE4CE905EBC77CD05BFCE441A20DA2C8"
+    },
+    "completeUnitLog": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-complete-unit-first.log",
+      "sha256": "3E2357D12517999B9DAFC01A6D2BA8FE394C0DF6313DEEF96BA76CBF5CAD6CA0"
+    },
+    "exitCode": 2,
+    "unit": {
+      "tests": 2569,
+      "suites": 192,
+      "pass": 2538,
+      "fail": 5,
+      "skip": 26,
+      "durationMs": 279125.9116
+    },
+    "static": "not run; no current static log copied from another run",
+    "failureGroups": [
+      {
+        "count": 4,
+        "owner": "unit/external-bots-inbox.test.js",
+        "status": "H11 independent diagnosis confirmed isolated unit VM omitted disclosurePolicyGuard factory; single noop factory mock added, original22 tests/business assertions unchanged; targeted22pass and second complete unit now passes"
+      },
+      {
+        "count": 1,
+        "owner": "privacy-source-views unit",
+        "observedError": "real git Filename too long under root-owned deep TEMP directory",
+        "next": "root will rerun with a fresh dedicated short TEMP; fixture unchanged and denied-delete directories untouched",
+        "status": "second complete unit in fresh shortTEMP passed the unchanged real long-filename test; retain first environment failure and original fixture/denied-delete boundaries"
+      }
+    ]
+  },
+  "historicalH10Freeze": {
+    "id": "H10",
+    "files": 42,
+    "productionFilesUnchangedSinceH01": 18,
+    "manifest": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H10/source-identity.json",
+      "sha256": "83532435EBA8543D031A8E870AB144B4109D70094488779DDF982901237ACA18"
+    },
+    "mergePatch": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H10/merge.patch",
+      "sha256": "36B35A78C38B2D7258DC46BC3A26D36C15BCF3AF363DA282B49E67C088EE5C2B"
+    },
+    "mapDigest": "ac883ee95b4886bd4ff3325ae759a53a6b50096860ffca8519e760ebd91300b4",
+    "mapDigestMeaning": "SHA256 of JSON.stringify(sorted files-to-file-SHA256 map), not the source-identity.json file hash"
+  },
+  "h11UnitClosure": {
+    "summary": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/100-H11-unit-closure.json",
+      "sha256": "09E9F3618FB9F34C70399C217F6964EA81C94F3B86D77DE963BA1CCF09FBC1EF"
+    },
+    "before": {
+      "metadata": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/70-U1-external-bots-H10-before-a01.json",
+        "sha256": "68EBBFD42DFBE93FD516C4BA2DC805F6679FCF4D49B65B40C5BD0A264439DDD4"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/70-U1-external-bots-H10-before-a01.log",
+        "sha256": "F018E047835D043DC808562BC16983AAC11731FCB7645154665DB7E3A26F7889"
+      },
+      "tests": 22,
+      "pass": 18,
+      "fail": 4,
+      "exitCode": 1
+    },
+    "after": {
+      "metadata": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/70-U1-external-bots-H11-a01.json",
+        "sha256": "B26C52599A3B0F89339ED11677FBB9C8D56BAF0BA6AE1A630F374AF5CB8D5F67"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/70-U1-external-bots-H11-a01.log",
+        "sha256": "E1441FE7903AE8203D6E77ACA089EF7DFB9253E4F856B1181B7F91EBCF18D0B2"
+      },
+      "tests": 22,
+      "pass": 22,
+      "fail": 0,
+      "skip": 0,
+      "exitCode": 0
+    },
+    "diagnosis": "The isolated inbox ledger unit VM supplied withPolicy but omitted the new disclosurePolicyGuard factory. The factory call threw before sendEntered, so existing production catch correctly recorded a predispatch failure and no mocked send. The only fix adds the missing factory returning a no-op policy assertion to this already policy-isolated fixture. All 22 tests and business assertions are unchanged; no production guard or delivery behavior changed.",
+    "productionChanged": false,
+    "businessAssertionsChanged": false
+  },
+  "finalClosureDocumentSources": {
+    "docs/optimization-plan/84-privacy-tool-transport-and-profiles-31.md": "C213F69DF95F3B0C76ADD298E25CC9DBC01ECF87B88B41F9EF18C1275027FBF2",
+    "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md": "EF3817259617EDCE435B9F5B6EBA195B483F9FA0414C3F7CEAB7111CCC625907",
+    "docs/optimization-plan/92-3.1-implementation-handoff.md": "B1622DD41CA2C292BA0D8128B8B80347A8D0B25A88CCCE8422E155CEDE84A651"
+  },
+  "secondFullGate": {
+    "metadata": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-second.json",
+      "sha256": "52BF6330A6918BFA32E5AE1C390CDD417ED2427BC4E844C93F361CBD9523004B"
+    },
+    "log": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-second.log",
+      "sha256": "CAE5EB9852146000980419068B74BF9D0942CC05F8ADF35E32902976241C232F"
+    },
+    "unit": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-complete-unit-second.log",
+      "sha256": "D69EDC3A6A57E4D45822B5BB34DBC902A98D0103CF3714B8BDFB2BD653211D33",
+      "tests": 2569,
+      "suites": 192,
+      "pass": 2543,
+      "fail": 0,
+      "skip": 26,
+      "exitCode": 0
+    },
+    "static": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-static-second.log",
+      "sha256": "725C69EAC413F410114941037F57F80BB800CED1730B35B1CFDC5796401DFF57",
+      "total": 80,
+      "pass": 70,
+      "fail": 10,
+      "flaky": 0,
+      "liveSkipped": 7,
+      "leftoverBrowsers": 0
+    },
+    "exitCode": 1,
+    "tempRoot": "fresh short maintenance/pf2",
+    "failedStaticGroups": [
+      {
+        "count": 1,
+        "label": "ASR exact catch text lock"
+      },
+      {
+        "count": 1,
+        "label": "copy-path guard old line number/locale guidance contract"
+      },
+      {
+        "count": 1,
+        "label": "Chinese copy terminology: conversation should be thread"
+      },
+      {
+        "count": 1,
+        "label": "i18n literal{kind} single braces"
+      },
+      {
+        "count": 6,
+        "label": "app.js composition root1289 exceeds1280 guard"
+      }
+    ],
+    "next": "Historical planned H12 repairs were applied/reviewed and separately validated as recorded in h12TargetedChecks/h13Closure; original70/10 result remains.",
+    "description": "Historical second attempt at that time:unit0fail but10staticfail. H12source/static repairs and H13frontend validation later completed; not a current pending proposal."
+  },
+  "historicalH11Freeze": {
+    "id": "H11",
+    "files": 43,
+    "manifest": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H11/source-identity.json",
+      "sha256": "FCD1E41C0766074F6E375B98E44AB96F22D8C0555E590ECA10B472E73F88F22E"
+    },
+    "mergePatch": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H11/merge.patch",
+      "sha256": "563B2D5807B4B7A33E06BF41B8E09E536FDF1F768F6CF12EA83EE6B8CE159EDB"
+    },
+    "mapDigest": "9b012b62d7739fd1e38032466abc54404ee78427e48bca37cef578ce6b02750c",
+    "productionFilesUnchangedSinceH01": 18,
+    "meaning": "H11 43-file pre-run snapshot, not a claim all43 remain current after closure docs. The84 document in this snapshot changes on final doc-only closure; three final document hashes are recorded separately. Production18 and other test/metadata identities are unchanged at H11; later H12 changes require a new reviewed freeze."
+  },
+  "h12FrontendDelta": {
+    "sourceReview": {
+      "file": "m2-8-independent-review/p0-h12-v3-static-repairs-review.md",
+      "sha256": "B4B7118195FEF96416A8BC9626DEF6976957C2D3B7385AF090B1F81750113579"
+    },
+    "proposalReview": {
+      "file": "m2-8-independent-review/p0-h12-static-proposal-review.md",
+      "sha256": "8C3683E768A48B6418502DCB0FA1C09913696B4AFBDAC8C64503A685C14E254B"
+    },
+    "scope": "existing API error map/localizer whole-responsibility pure factory extraction, dynamic locale and classification/fallback preserved; app physical1289to1241/trimmed1288to1240; no1280cap increase",
+    "locale": "standard terminology and fixed-summary explanation; no i18nbrace exception",
+    "static": "ASR stream-catch structural lock; two external proposal oracle errors fixed before shared application or runtime, not shared failures",
+    "runtimeToReplace": [
+      "final browser twice",
+      "composer-voice",
+      "composer-voice-stream",
+      "composer-voice-warmup"
+    ],
+    "otherPriorRuns": "remaining prior bot/audio/send/copy/export/MCP/gateway/channels results retain unchanged backend contracts; not rerun blindly"
+  },
+  "manualEgressHistory": [
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-egress-review.json",
+      "sha256": "CBC2D96941CF8659B240C7E983E859EB5AA0EBA034CC8F6D1568398E85330391",
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-egress-review.log",
+        "sha256": "93BA33CE51AEEC36DA5F0058B73605E281A5DB64EC350F85EDF384604C856AC9"
+      },
+      "focusedInventoryUnit": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-egress-unit-H01.log",
+        "sha256": "C86E703E2EEB7EF79912412000E3B4727249F62E9E8581979A2B44B62AFE93ED"
+      },
+      "firstPartySources": 273,
+      "candidates": 678,
+      "reviewedSources": 15,
+      "changedCandidates": 2,
+      "promotions": 0,
+      "inventoryUnitTests": 15,
+      "inventoryUnitFailed": 0,
+      "authority": "root strict manual review; not universal protection claim"
+    }
+  ],
+  "h12PureChecks": {
+    "summary": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-purechecks-H12.json",
+      "sha256": "53EC4E755EE40B0E024E2519C188C8872B9557A25D90682680C83B3867DB5076"
+    },
+    "records": [
+      {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-syntax-H12.log",
+        "sha256": "1FCB50D4530036A05D3AC739CAD5DDFBA5A5CF9E796FCB53CCB8C2A97B97A958",
+        "exitCode": 0,
+        "durationMs": 140848
+      },
+      {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-buildfresh-H12.log",
+        "sha256": "93D1FC697B9CE9A627A871B17D07C5852CC4B59243E94C3334AAFD9BE5A20501",
+        "exitCode": 0,
+        "durationMs": 489
+      },
+      {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-facts-H12.log",
+        "sha256": "2759F2D7EB1B96676B7A9FD6126758D0D5A36F67A119F67B68D819897B5E04B3",
+        "exitCode": 0,
+        "durationMs": 2709
+      },
+      {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-egress-H12.log",
+        "sha256": "3815C1F3FE95A6FF22323B77687AC13A7007BE00DC50325B599C256EBB4DB46A",
+        "exitCode": 0,
+        "durationMs": 2119
+      }
+    ]
+  },
+  "h12TargetedChecks": {
+    "unit": {
+      "metadata": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/80-U2-privacy-failure-H12-a01.json",
+        "sha256": "2C30C930B20C8459FD58637D8C1A1D1468294266227F1A15BC815C4B0ABF4151"
+      },
+      "log": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/80-U2-privacy-failure-H12-a01.log",
+        "sha256": "73C02CC6268359DA73D2BC9E6D4E4B0DEEA8CC530748B2641E77C0383AE6EB81"
+      },
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "exitCode": 0
+    },
+    "static": [
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S01-asr-config-ui-H12-a01.json",
+          "sha256": "F24151F351F64B2F41571E40118D1E69FFC2E0098ADBE6768908575B2BB6417D"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S01-asr-config-ui-H12-a01.log",
+          "sha256": "84F291CBC10ADCA224B6286F5AB655DA628386000F15898628B3CA5DB91144CD"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S02-copy-path-guard-H12-a01.json",
+          "sha256": "51B10B025F0EEA5C157FBD18CE4E7875A7C0244C21D35C389115CA7BF7923D8B"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S02-copy-path-guard-H12-a01.log",
+          "sha256": "CD8A581EE8CDEF7C8643E9893FDD20E7C4096FD78F3B921CBB908C950617BC06"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S03-copy-terms-H12-a01.json",
+          "sha256": "B3541BC16B85465D3DD4AA70CD72B2B17B4ACB9B30251ED1BE8BB259035D3FB5"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S03-copy-terms-H12-a01.log",
+          "sha256": "9F62BF9669F9E09448CC76F0B04C3052A1344878B7C085E66E131C15EFE8C65E"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S04-ec-d-closure-H12-a01.json",
+          "sha256": "C58977E1B0216A72ED8F48D8FD48379135254AD0DF4368B99988E59CBF9777DD"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S04-ec-d-closure-H12-a01.log",
+          "sha256": "2C85AB0ED6302B795DF7CC88CEA016FF8B917C194AA084226E3E340CFDEAB784"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S05-frontend-domains-H12-a01.json",
+          "sha256": "761CC1D9FECDFD5127056432EB9DB2431C050548213D310E6B173502191A32D4"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S05-frontend-domains-H12-a01.log",
+          "sha256": "A69F82716331A20F9AD207866F9FCC6C092F990012782AB6391FD99DCD1CCDF0"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S06-i18n-H12-a01.json",
+          "sha256": "AE86CF45B7679F5E3C0C01DC51D00EF92D7730EF027EE689AA8DC482D508ED23"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S06-i18n-H12-a01.log",
+          "sha256": "E1B3D00355DDE614EBA1F07476E6F8B7122B6AFC15B43E193DEF50212014D09F"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S07-steward-board-H12-a01.json",
+          "sha256": "D00D741D933BE02AD7424498E5C2DC3A3B99B9A32F355D8E34D19E18F1EE35E9"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S07-steward-board-H12-a01.log",
+          "sha256": "091C5F977F4FDD69EEEF8DD8618D40E6A11A8BE76F6A458B3FE9B69FDA6F6D94"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S08-steward-drawer-H12-a01.json",
+          "sha256": "9331C1166D689323A99CA2BBE57E5BEAFBC361E155F03D3A46AE8CDC76BC345A"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S08-steward-drawer-H12-a01.log",
+          "sha256": "BF255744B71E8B690891E48ECCEBB092267322DB2AC8AAD1DD9BAE15D73974DA"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S09-steward-settings-H12-a01.json",
+          "sha256": "010A937F19C06E47BF4F4ECF44949808DD6F3D653D539AFE8A70F3A3C5A2034E"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S09-steward-settings-H12-a01.log",
+          "sha256": "B942E66153AEBEBAE08BC0F3F9FB43BEE1E6D01B83AEF8A93F8AD04C70896F17"
+        },
+        "exitCode": 0
+      },
+      {
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S10-steward-walkthrough-H12-a01.json",
+          "sha256": "C9A3920435D6FE870ED2116D72704F4EDB00074C26975D4011195CBB5086F350"
+        },
+        "log": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S10-steward-walkthrough-H12-a01.log",
+          "sha256": "6DA7C18E158F3BF1B348EB1CC2D2968F03B37968390143B99830D105A2B7930A"
+        },
+        "exitCode": 0
+      }
+    ]
+  },
+  "h13FrontendPlan": {
+    "product": "H12 unchanged",
+    "original18H01ProductFilesUnchanged": 14,
+    "changedOriginalFiles": [
+      "app.js",
+      "two public locale copies",
+      "build-overlay.js"
+    ],
+    "newProductModule": "api-error-i18n.js",
+    "fixtureOnly": true,
+    "freezeStatus": "H13 actual46file pre-H14 snapshot retained in historicalH13Freeze; fivefinalruns accepted before H14copy-only followup",
+    "requiredFinalRuns": [
+      "browser twice",
+      "voice",
+      "stream",
+      "warmup"
+    ],
+    "status": "completed: independent review + five final executions passed; not whole-M2 acceptance until root fullgate"
+  },
+  "historicalFrontendRuns": [
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/40-R2-composer-voice-H07-a01.log",
+      "sha256": "F8714FB064CB57A22CF6CAC03F702ADE857FB17FB4624A8127D506F70B80849D",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/40-R2-composer-voice-H07-a01.json",
+        "sha256": "B3AEE6809900D70C74BAE88D0941D6B1CA82FD8406C21CC54FC0649E5112D260"
+      },
+      "fixture": "composer-voice.browser.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 98,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 52.787,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded",
+      "finalAcceptance": "historical H01-front runtime; pending replacement by H12 frontend run"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/41-R2-composer-stream-H07-a01.log",
+      "sha256": "35C8332927F1D38654FE5E0D8E7D2D83A472D6CB548817BEBA6DCE00B06EFD8E",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/41-R2-composer-stream-H07-a01.json",
+        "sha256": "7B6D244D4A933B3820C98F932140EB116339B25028E0C8AFA32C18F78E861726"
+      },
+      "fixture": "composer-voice-stream.browser.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 39,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 34.851,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded",
+      "finalAcceptance": "historical H01-front runtime; pending replacement by H12 frontend run"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/42-R2-composer-warmup-H07-a01.log",
+      "sha256": "EEE2F79BE8938C8CD24E73CE413CD1C87C1488CCC03A9FA3519F6DFB86F1B443",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/42-R2-composer-warmup-H07-a01.json",
+        "sha256": "1505C609025A2EBEEE47065D450FEE0F00EC3604B5FAA5B893545471AC6372C4"
+      },
+      "fixture": "composer-voice-warmup.browser.e2e.js",
+      "sourceIdentity": "-H07-",
+      "exitCode": 0,
+      "pass": 58,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 29.644,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded",
+      "finalAcceptance": "historical H01-front runtime; pending replacement by H12 frontend run"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H08-a01.log",
+      "sha256": "E01A0B5145973C227DDD7C10F7A53E93EF29C6D429F029ED43EB56D52EF91C94",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H08-a01.json",
+        "sha256": "13DB44ED401AC618E3B71036D2FD02DDBF3879D53363DFC6760545881391DF74"
+      },
+      "fixture": "privacy-failure.browser.e2e.js",
+      "sourceIdentity": "-H08-",
+      "exitCode": 0,
+      "pass": 122,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 41.974,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded",
+      "finalAcceptance": "historical H01-front runtime; pending replacement by H12 frontend run"
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H08-a02.log",
+      "sha256": "E01A0B5145973C227DDD7C10F7A53E93EF29C6D429F029ED43EB56D52EF91C94",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/20-B1-privacy-failure-H08-a02.json",
+        "sha256": "0808D0370B85B9C81FA53503008CD43A4BA8B1BF068863C6235C02E7568E35DF"
+      },
+      "fixture": "privacy-failure.browser.e2e.js",
+      "sourceIdentity": "-H08-",
+      "exitCode": 0,
+      "pass": 122,
+      "fail": 0,
+      "skip": 0,
+      "durationSeconds": 43.28,
+      "timing": "wrapper start/end elapsed; resource internal INFO separately recorded",
+      "finalAcceptance": "historical H01-front runtime; pending replacement by H12 frontend run"
+    }
+  ],
+  "historicalH12Freeze": {
+    "id": "H12",
+    "files": 46,
+    "manifest": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H12/source-identity.json",
+      "sha256": "4F32F82FF95CC9305465F4F3F0CED63F8F09037F08A5923318151F1F4698709E"
+    },
+    "mergePatch": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H12/merge.patch",
+      "sha256": "83DF83D799BEDE97D911E77DDC8BDB45B52687C5E72B8C8984D538911D82F9E7"
+    },
+    "acceptedForFinalClosure": false,
+    "meaning": "H12 pre-final-run source freeze; changed frontend/error presenter/locale module replaces H01 frontend identity. Backend H01 remains unchanged. Final84/86/92 doc-only hashes are separate from runtime snapshot."
+  },
+  "h13Closure": {
+    "summary": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/101-H13-closure.json",
+      "sha256": "A58C46ECA69F1062F512CCD9030D97B9B9110D7C6A0B88254014F02421620C34"
+    },
+    "h01ProductIdentity": {
+      "unchanged": [
+        "ruyi-workbench/app/public/js/chat-render-primitives.js",
+        "ruyi-workbench/app/public/js/chat-static-renderer.js",
+        "ruyi-workbench/app/public/js/chat-stream-runtime.js",
+        "ruyi-workbench/app/public/js/composer-voice.js",
+        "ruyi-workbench/app/public/js/privacy-failure.js",
+        "ruyi-workbench/app/public/js/session-experience.js",
+        "ruyi-workbench/app/public/js/steward-composer.js",
+        "ruyi-workbench/app/server.js",
+        "ruyi-workbench/app/src/02c-turn-segments.js",
+        "ruyi-workbench/app/src/03a-privacy-gateway.js",
+        "ruyi-workbench/app/src/09-workflow.js",
+        "ruyi-workbench/app/src/13ab-privacy-api.js",
+        "ruyi-workbench/app/src/13w-external-bots.js",
+        "ruyi-workbench/app/src/manifest.json"
+      ],
+      "changed": [
+        "ruyi-workbench/app/public/app.js",
+        "ruyi-workbench/app/public/locales/en-US.json",
+        "ruyi-workbench/app/public/locales/zh-CN.json",
+        "ruyi-workbench/tools/build-overlay.js"
+      ],
+      "new": [
+        "ruyi-workbench/app/public/js/api-error-i18n.js"
+      ]
+    },
+    "delta": [
+      "dev-harness/privacy-failure.browser.e2e.js"
+    ],
+    "originalFailAssessment": "121PASS/1FAIL retained. Only first en-US/classic recovered voice localized-toast assertion failed. bootData readiness precedes asynchronous configured setLocale; H13 waits actual configured html.lang and retains all original oracles. Original failing-state locale was not captured; boot locale race is a source-supported inference, not proven observed state.",
+    "reviewedRuntimeAggregate": {
+      "executions": 5,
+      "pass": 439,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "h13TargetedChecks": [
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/80-U2-privacy-failure-H12-a01.log",
+      "sha256": "73C02CC6268359DA73D2BC9E6D4E4B0DEEA8CC530748B2641E77C0383AE6EB81",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/80-U2-privacy-failure-H12-a01.json",
+        "sha256": "2C30C930B20C8459FD58637D8C1A1D1468294266227F1A15BC815C4B0ABF4151"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S01-asr-config-ui-H12-a01.log",
+      "sha256": "84F291CBC10ADCA224B6286F5AB655DA628386000F15898628B3CA5DB91144CD",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S01-asr-config-ui-H12-a01.json",
+        "sha256": "F24151F351F64B2F41571E40118D1E69FFC2E0098ADBE6768908575B2BB6417D"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S02-copy-path-guard-H12-a01.log",
+      "sha256": "CD8A581EE8CDEF7C8643E9893FDD20E7C4096FD78F3B921CBB908C950617BC06",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S02-copy-path-guard-H12-a01.json",
+        "sha256": "51B10B025F0EEA5C157FBD18CE4E7875A7C0244C21D35C389115CA7BF7923D8B"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S03-copy-terms-H12-a01.log",
+      "sha256": "9F62BF9669F9E09448CC76F0B04C3052A1344878B7C085E66E131C15EFE8C65E",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S03-copy-terms-H12-a01.json",
+        "sha256": "B3541BC16B85465D3DD4AA70CD72B2B17B4ACB9B30251ED1BE8BB259035D3FB5"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S04-ec-d-closure-H12-a01.log",
+      "sha256": "2C85AB0ED6302B795DF7CC88CEA016FF8B917C194AA084226E3E340CFDEAB784",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S04-ec-d-closure-H12-a01.json",
+        "sha256": "C58977E1B0216A72ED8F48D8FD48379135254AD0DF4368B99988E59CBF9777DD"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S05-frontend-domains-H12-a01.log",
+      "sha256": "A69F82716331A20F9AD207866F9FCC6C092F990012782AB6391FD99DCD1CCDF0",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S05-frontend-domains-H12-a01.json",
+        "sha256": "761CC1D9FECDFD5127056432EB9DB2431C050548213D310E6B173502191A32D4"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S06-i18n-H12-a01.log",
+      "sha256": "E1B3D00355DDE614EBA1F07476E6F8B7122B6AFC15B43E193DEF50212014D09F",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S06-i18n-H12-a01.json",
+        "sha256": "AE86CF45B7679F5E3C0C01DC51D00EF92D7730EF027EE689AA8DC482D508ED23"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S07-steward-board-H12-a01.log",
+      "sha256": "091C5F977F4FDD69EEEF8DD8618D40E6A11A8BE76F6A458B3FE9B69FDA6F6D94",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S07-steward-board-H12-a01.json",
+        "sha256": "D00D741D933BE02AD7424498E5C2DC3A3B99B9A32F355D8E34D19E18F1EE35E9"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S08-steward-drawer-H12-a01.log",
+      "sha256": "BF255744B71E8B690891E48ECCEBB092267322DB2AC8AAD1DD9BAE15D73974DA",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S08-steward-drawer-H12-a01.json",
+        "sha256": "9331C1166D689323A99CA2BBE57E5BEAFBC361E155F03D3A46AE8CDC76BC345A"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S09-steward-settings-H12-a01.log",
+      "sha256": "B942E66153AEBEBAE08BC0F3F9FB43BEE1E6D01B83AEF8A93F8AD04C70896F17",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S09-steward-settings-H12-a01.json",
+        "sha256": "010A937F19C06E47BF4F4ECF44949808DD6F3D653D539AFE8A70F3A3C5A2034E"
+      },
+      "exitCode": 0
+    },
+    {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S10-steward-walkthrough-H12-a01.log",
+      "sha256": "6DA7C18E158F3BF1B348EB1CC2D2968F03B37968390143B99830D105A2B7930A",
+      "record": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/81-S10-steward-walkthrough-H12-a01.json",
+        "sha256": "C9A3920435D6FE870ED2116D72704F4EDB00074C26975D4011195CBB5086F350"
+      },
+      "exitCode": 0
+    }
+  ],
+  "h14CopyOnlyFinalization": {
+    "status": "applied and independently reviewed; fourtargetstatics plusactualsharedkey/locale/mirror assertions all exit0",
+    "applied": true,
+    "patch": {
+      "file": "p0-ux-draft/h14-copy-proposal/h14.patch",
+      "sha256": "C7EA1B36E6E030A15FD81ACF7C4FB7705A2ED91825FA59DF5BB18C199E31DA2E"
+    },
+    "identity": {
+      "file": "p0-ux-draft/h14-copy-proposal/identity.json",
+      "sha256": "A10769703E4D07550DC7641DFDA340E84CF973F320C8F7879AAA7976F59A5A7B"
+    },
+    "review": {
+      "file": "m2-8-independent-review/p0-h14-copy-only-review.md",
+      "sha256": "38E3F258A08E05C7CD7D80629932A822C0B4499601C4AD7C5B58E91F8AFE75D6"
+    },
+    "scope": "exact unavailable guidance value in four locale mirrors only; removes nonexistent voice-toast button promise and retains explicit review/save/new-request guidance; renderer/actions/backend/frontendJS unchanged",
+    "fullGateIdentity": "Completed H13full unit0fail and80static79/1, then final H14fourtargetstatics+locale all0fail; exact resolved references are gates.static.targetedResolution. No H14full80rerun claim.",
+    "requiredAfterApply": [
+      "copy-path-guard.static.e2e.js",
+      "copy-terms.static.e2e.js",
+      "i18n.static.e2e.js",
+      "session-save-census.static.e2e.js",
+      "focused actuallocale/mirror assertions"
+    ],
+    "checks": [
+      {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S1-copy-path-guard-H14-a01.log",
+        "sha256": "CD8A581EE8CDEF7C8643E9893FDD20E7C4096FD78F3B921CBB908C950617BC06",
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S1-copy-path-guard-H14-a01.json",
+          "sha256": "C5308A9D8D963649C4ECEF3843D181A4CCBA0D249E812FFF5DFF9F8350D1A106"
+        },
+        "name": "dev-harness/copy-path-guard.static.e2e.js",
+        "pass": 57,
+        "fail": 0,
+        "exitCode": 0,
+        "durationSeconds": 0.266
+      },
+      {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S2-copy-terms-H14-a01.log",
+        "sha256": "9F62BF9669F9E09448CC76F0B04C3052A1344878B7C085E66E131C15EFE8C65E",
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S2-copy-terms-H14-a01.json",
+          "sha256": "676EF6C5C650BEC9B79D4BD462F0AC787D308ADC36C3FEEFDA7F9EDCC85EBDCD"
+        },
+        "name": "dev-harness/copy-terms.static.e2e.js",
+        "pass": 50,
+        "fail": 0,
+        "exitCode": 0,
+        "durationSeconds": 0.203
+      },
+      {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S3-i18n-H14-a01.log",
+        "sha256": "E1B3D00355DDE614EBA1F07476E6F8B7122B6AFC15B43E193DEF50212014D09F",
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S3-i18n-H14-a01.json",
+          "sha256": "C896265321E797A8FC2BA8111400D7747409A7BE73A98ACE5EA42BD3016EB737"
+        },
+        "name": "dev-harness/i18n.static.e2e.js",
+        "pass": 8,
+        "fail": 0,
+        "exitCode": 0,
+        "durationSeconds": 1.705
+      },
+      {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S4-session-save-census-H14-a01.log",
+        "sha256": "C103DD7C5D0311191ADBBA41411A252F8036596FDA4ECFDF39FA673F015537F4",
+        "metadata": {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S4-session-save-census-H14-a01.json",
+          "sha256": "010152498BCF59A8678459DE25CEC8062F85D5562A07C59F21AF7ADC82B48B93"
+        },
+        "name": "dev-harness/session-save-census.static.e2e.js",
+        "pass": 22,
+        "fail": 0,
+        "exitCode": 0,
+        "durationSeconds": 0.233
+      }
+    ],
+    "finalFreeze": {
+      "id": "H14",
+      "files": 47,
+      "manifest": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/H14/source-identity.json",
+        "sha256": "0A08A6C4471253B554C32FB786FE92ECE9481EE55EC2F5B84A5981470799AD57"
+      },
+      "mergePatch": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/H14/merge.patch",
+        "sha256": "60D842595C24E53097C3235F4A40DD21994228F3114741186B405A1A58F1E5E1"
+      },
+      "mapDigest": "0ed4db6e138b4ec00657c231df7359896d26d99c89b09ea889016e70d0cbd6b7",
+      "acceptedForFinalClosure": true,
+      "meaning": "Final pre-doc-only closure snapshot47files. Complete unit and80static ran atH13; H14fourlocale singlevaluecopy andcensus test-owner lock were proportionately revalidated by fourstatics pluslocale actual assertions. Final84doc-only write changes that snapshot document and three finaldoc hashes are separately recorded; no evidence JSON self-reference."
+    },
+    "noFiveUiRepeat": "root approved proportionate H14copy-only validation; H13fiveUI retained explicitly bound to pre-H14copy frontend bytes",
+    "additionalStaticRepair": "after independent review, census lock reads actual pure presenter factory and app wiring, preserving all three stable codes and existing census/rewind assertions",
+    "localeAssertions": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/87-L1-copy-context-H14-a01.log",
+      "sha256": "A38DF5D14831A4177A80590A027DF9AAB19CC710A51F168156344E09A4F26028",
+      "metadata": {
+        "file": "root-logs/p0-final/20261022-52c5bb43-r01/87-L1-copy-context-H14-a01.json",
+        "sha256": "86A68B88F0E7143CFDDDDFF023433DCF0166867EEE27379CDACA6EF4B12B7920"
+      },
+      "name": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\p0-ux-draft\\check-h14-locales.cjs",
+      "pass": 7,
+      "fail": 0,
+      "exitCode": 0,
+      "durationSeconds": 0.174
+    },
+    "authorClosure": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/102-H14-final-closure.json",
+      "sha256": "4DBBB0A396646D60DB85315ADDE5C213F8448E8399CCC4852F702E080688569D"
+    }
+  },
+  "thirdFullGate": {
+    "metadata": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-third.json",
+      "sha256": "8A94E083E0A06DC43B3E4E6913ED314FA552B71E911F9404F3986BB6B41DB304"
+    },
+    "log": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-fast-third.log",
+      "sha256": "2F72BD9FEB952E40130F1CA9A35B792660262E7B7B7458368BA92250CC4C3A24"
+    },
+    "exitCode": 1,
+    "sourceIdentity": "H13 frontend/fixture freeze",
+    "unit": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-complete-unit-third.log",
+      "sha256": "EABEC37A80E99CB9E2A3607FC7F07DDF0AB610ECDD1FD4E368ACAAAC2A851830",
+      "tests": 2571,
+      "suites": 192,
+      "pass": 2545,
+      "fail": 0,
+      "skip": 26,
+      "durationMs": 272402.1686,
+      "exitCode": 0
+    },
+    "static": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/root-final-static-third.log",
+      "sha256": "54BA46FF5A948C28A4D760BDCD50E9BB645B3B0AFE7666ACED12573F385E9488",
+      "total": 80,
+      "pass": 79,
+      "fail": 1,
+      "flaky": 0,
+      "liveSkipped": 7,
+      "leftoverBrowsers": 0,
+      "failedNames": [
+        "session-save-census.static.e2e.js"
+      ],
+      "unresolvedFailures": 0,
+      "targetedResolution": [
+        {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S1-copy-path-guard-H14-a01.log",
+          "sha256": "CD8A581EE8CDEF7C8643E9893FDD20E7C4096FD78F3B921CBB908C950617BC06",
+          "metadata": {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S1-copy-path-guard-H14-a01.json",
+            "sha256": "C5308A9D8D963649C4ECEF3843D181A4CCBA0D249E812FFF5DFF9F8350D1A106"
+          },
+          "name": "copy-path-guard.static.e2e.js",
+          "pass": 57,
+          "fail": 0,
+          "exitCode": 0,
+          "durationSeconds": 0.266
+        },
+        {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S2-copy-terms-H14-a01.log",
+          "sha256": "9F62BF9669F9E09448CC76F0B04C3052A1344878B7C085E66E131C15EFE8C65E",
+          "metadata": {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S2-copy-terms-H14-a01.json",
+            "sha256": "676EF6C5C650BEC9B79D4BD462F0AC787D308ADC36C3FEEFDA7F9EDCC85EBDCD"
+          },
+          "name": "copy-terms.static.e2e.js",
+          "pass": 50,
+          "fail": 0,
+          "exitCode": 0,
+          "durationSeconds": 0.203
+        },
+        {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S3-i18n-H14-a01.log",
+          "sha256": "E1B3D00355DDE614EBA1F07476E6F8B7122B6AFC15B43E193DEF50212014D09F",
+          "metadata": {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S3-i18n-H14-a01.json",
+            "sha256": "C896265321E797A8FC2BA8111400D7747409A7BE73A98ACE5EA42BD3016EB737"
+          },
+          "name": "i18n.static.e2e.js",
+          "pass": 8,
+          "fail": 0,
+          "exitCode": 0,
+          "durationSeconds": 1.705
+        },
+        {
+          "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S4-session-save-census-H14-a01.log",
+          "sha256": "C103DD7C5D0311191ADBBA41411A252F8036596FDA4ECFDF39FA673F015537F4",
+          "metadata": {
+            "file": "root-logs/p0-final/20261022-52c5bb43-r01/86-S4-session-save-census-H14-a01.json",
+            "sha256": "010152498BCF59A8678459DE25CEC8062F85D5562A07C59F21AF7ADC82B48B93"
+          },
+          "name": "session-save-census.static.e2e.js",
+          "pass": 22,
+          "fail": 0,
+          "exitCode": 0,
+          "durationSeconds": 0.233
+        }
+      ],
+      "acceptance": "actual full80run79pass1fail atH13; final failed census lock resolved by H14target; allfourH14targetstatics exit0. No fourth complete unit/80static rerun or first-pass-all-green claimed."
+    },
+    "failure": "The original full-run census error-location lock failed after presenter extraction; H14 independently reviewed correction reads real presenter factory and app wiring and passed the exact census plus three related targetstatics. Actual original79/1 remains unchanged; current unresolved0.",
+    "retainedScope": "No fourth complete unit/80static run performed. Final acceptance combines actual H13full79/1 with H14fourtargetstatics andlocale0fail, not a fabricated full80green."
+  },
+  "historicalH13Freeze": {
+    "id": "H13",
+    "files": 46,
+    "manifest": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H13/source-identity.json",
+      "sha256": "4967D69F6386CB6586FE0EA6B984312CADC480CE49EAE91F31EEFD9FFB94BA7C"
+    },
+    "mergePatch": {
+      "file": "root-logs/p0-final/20261022-52c5bb43-r01/H13/merge.patch",
+      "sha256": "3AB0C7B0D30B92BAAD3C65B03CFBE6D4402A4C6FF0B85B9F987E7F1B56C5269A"
+    },
+    "mapDigest": "79461dead681cd32d6f2d5036413015ad1358ab2c29abbb2505ae46d424f3ed6",
+    "acceptedForFinalClosure": false,
+    "meaning": "H13 46-file pre-third-gate/run snapshot. Final84doc-only closure changes that snapshot document; final84/86/92 hashes are recorded separately. Backend H01 unchanged; H12 frontend/new presenter and four changed original product files are explicit."
+  },
+  "commitIdentity": "Carried by this changeset; base52c5bb43 and source/recorded hashes identify final reviewed state without self-referential evidence commit hash."
+}

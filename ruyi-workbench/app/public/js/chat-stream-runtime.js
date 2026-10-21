@@ -48,6 +48,7 @@ export function createChatStreamRuntime(deps = {}) {
     $,
     api,
     apiErrText,
+    privacyFailure = () => null,
     // Agent CLI 登记表的查询函数（js/agent-cli-registry.js 的 agentCliMeta）。本模块零 import，由组合根注入。
     agentCliMeta,
     appendToolOutput,
@@ -877,7 +878,7 @@ export function createChatStreamRuntime(deps = {}) {
       live = turnState.live; main = turnState.main;
       turnEndedBadly = true;
       if (err.name === 'AbortError') { appendMsgNote(main, live, t('status.stopped')); toast(t("toast.turnStopped")); }
-      else if (/"session\.turn_busy_elsewhere"/.test(String(err && err.message || ''))) { /* 线程正被别处起的回合占着(后台代理唤醒 / 管家 / 定时任务)而本页的插话快照还没跟上:服务端 409、这句没发出 —— 放回输入框,不吞 */ appendMsgNote(main, live, t('chat.turnBusyElsewhere')); const box = $('promptInput'); if (box && !box.value.trim()) { box.value = message; autoGrow(box); updateSendBtn(); } toast(t('chat.turnBusyElsewhere')); } else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
+      else if (/"session\.turn_busy_elsewhere"/.test(String(err && err.message || ''))) { /* 线程正被别处起的回合占着(后台代理唤醒 / 管家 / 定时任务)而本页的插话快照还没跟上:服务端 409、这句没发出 —— 放回输入框,不吞 */ appendMsgNote(main, live, t('chat.turnBusyElsewhere')); const box = $('promptInput'); if (box && !box.value.trim()) { box.value = message; autoGrow(box); updateSendBtn(); } toast(t('chat.turnBusyElsewhere')); } else { if (privacyFailure(err)) main.appendChild(errorCard('', err, false)); else appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
       finalizeLive(live);
       // 失败/中止路径没有成功路径的回合末重取 —— 单独拉一次,把乐观行的操作条重绑到持久化真身。
       // 也把重取回来的会话装回 state(与成功路径同口径,不重画):中止/断流时服务端已经落了半截回答,修前 state 里没有它,
@@ -1568,7 +1569,7 @@ export function createChatStreamRuntime(deps = {}) {
         if (evt.errorClass || evt.ok === false) {
           // v1.0.2 (F6c): CLI 缺失 → 友好引导卡(向后兼容:无 code 字段走原 errorCard)。
           const noFiles = !(live && live.filesTouched);
-          (live && live.narrative ? live.narrative : main).appendChild(evt.code === 'cli-missing' ? cliMissingCard() : errorCard(evt.errorClass, evt.error, noFiles));
+          (live && live.narrative ? live.narrative : main).appendChild(evt.code === 'cli-missing' ? cliMissingCard() : errorCard(evt.errorClass, privacyFailure(evt) ? evt : evt.error, noFiles));
           maybeScrollToBottom();
         }
         // v2.7.2: 每轮对话结束自动刷新工具面板(已打开页签;files/artifacts/changes/audit/usage/agent-runs)。
@@ -1691,7 +1692,8 @@ export function createChatStreamRuntime(deps = {}) {
         if (evt.code === 'cli-missing') { (live && live.narrative ? live.narrative : main).appendChild(cliMissingCard()); if (live) live.errorShown = true; maybeScrollToBottom(); break; }
         // C6: a real .msg-error block (red tint + left bar), text via textContent — never folded into the
         // markdown buffer where it would render as bold prose and could be mis-parsed.
-        appendMsgError(live && live.narrative ? live.narrative : main, live, String(evt.error ?? ''));
+        if (privacyFailure(evt)) { (live && live.narrative ? live.narrative : main).appendChild(errorCard(evt.errorClass, evt, false)); if (live) live.errorShown = true; maybeScrollToBottom(); }
+        else appendMsgError(live && live.narrative ? live.narrative : main, live, String(evt.error ?? ''));
         break;
       default: break;
     }

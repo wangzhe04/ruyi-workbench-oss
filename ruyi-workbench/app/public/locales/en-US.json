@@ -4295,7 +4295,7 @@
   "stewardShell.compose.newReady": "Send to ask the steward to create a new task."
   ,"settings.steward.memory.inferred": "Observed experience / inferred preference"
   ,"privacy.title": "Local privacy protection"
-  ,"privacy.coverage": "Native model text requests and tool results use local references for detected content. Registered tools restore text arguments locally before their existing permission checks. CLI, standalone MCP channels, server-side tools, images, audio and opaque thinking are unsupported and blocked while enabled. Detection can miss sensitive information."
+  ,"privacy.coverage": "Protection projects native model text and managed MCP text results and resources under saved rules. Private originals are available only through local adapters with verified recipients, purposes and fields. Independent MCP requires a connection explicitly created for a named app; it exposes granted workspace file tools and safe summary resources only. Unauthenticated direct access is unsupported. The fixed summary resource template, subscriptions and update notifications cover only granted capabilities/workspace summary resources. Aliases belong to one connection and expire on revocation or disconnect; arbitrary resource URIs, binary paths and OS isolation are not provided. CLI, server-side built-in tools, original media and signed/encrypted thinking remain unsupported. Public queries and fetching retain existing network safeguards without new content redaction or confirmation; local private references are not automatically restored into requests. Rules can miss sensitive content."
   ,"privacy.off": "Off"
   ,"privacy.basic": "Basic: credentials"
   ,"privacy.enhanced": "Enhanced: credentials and personal data"
@@ -4355,9 +4355,9 @@
   ,"privacy.covered": "Text covered; registered tools restore execution arguments before existing permission checks"
   ,"privacy.blocked": "Blocked while privacy is enabled"
   ,"privacy.channel.nativeText": "Native models: threads, subagents, summaries and retries"
-  ,"privacy.channel.managedMcpText": "MCP text results called by native models through the workbench"
+  ,"privacy.channel.managedMcpText": "Managed MCP in native turns: text results, resources and bounded notifications"
   ,"privacy.channel.cli": "Claude / Kimi CLI, including native tools, resume and compaction"
-  ,"privacy.channel.standaloneMcp": "External clients accessing workbench MCP tools and resources"
+  ,"privacy.channel.standaloneMcp": "Independent MCP direct access without issued credentials"
   ,"privacy.channel.media": "Images, audio, video, binary attachments and live speech"
   ,"privacy.channel.serverTools": "Server tools and signed or encrypted reasoning"
   ,"privacy.sourceViews": "File pages, line reads, search excerpts, diffs, profiles, commands and steward excerpts are supported. Built-in source tools scan complete sources before deriving views; budget limits or invalid source proofs cause refusal. Field rules require complete JSON structures. Add literal or regex rules for unlabelled third-party excerpts; arbitrary encodings and semantic transformations cannot be fully recognized."
@@ -4377,7 +4377,7 @@
   ,"privacy.savedOff": "Redaction is off"
   ,"privacy.savedOffHelp": "Thread messages and tool text are not replaced with references. Personal data, including identity numbers, may be sent unchanged."
   ,"privacy.savedOn": "Enabled: {{level}}"
-  ,"privacy.savedScope": "Applies to workbench native-model text and supported tool results. Detection can miss data and cannot conceal every sensitive value."
+  ,"privacy.savedScope": "Applies to native text, managed MCP text and explicitly granted independent MCP connections. Permissions and capability limits still apply; rules can miss sensitive content."
   ,"privacy.savedPaused": "Outbound traffic paused; confirm the privacy policy"
   ,"privacy.storageOff": "Credential storage: not encrypted"
   ,"privacy.loading": "Reading saved settings…"
@@ -4487,5 +4487,35 @@
   "mcpConsumer.revoked": "Connection revoked; in-flight output stopped.",
   "mcpConsumer.required": "Name the receiving app and open a workspace first.",
   "mcpConsumer.created": "Configuration downloaded. Import it into the named app; the token will not be shown again.",
-  "mcpConsumer.failed": "Operation did not complete. Check the workbench status; existing tokens are never recovered or displayed."
+  "mcpConsumer.failed": "Operation did not complete. Check the workbench status; existing tokens are never recovered or displayed.",
+  "privacy.failure.title": "Privacy protection needs attention",
+  "privacy.failure.engine": "Privacy protection cannot fully contain this command-line engine. Select an available native API engine for this thread, then send again when ready.",
+  "privacy.failure.media": "Original images, audio and video cannot be sent while protection is enabled. Continue using typed text.",
+  "privacy.failure.unavailable": "Privacy settings need review. Sending is paused. Review the recovered settings and explicitly save before sending a new request.",
+  "privacy.failure.changed": "Privacy policy changed while this operation was waiting. Check execution and delivery status before continuing.",
+  "privacy.failure.adapter": "This external tool has no audited adapter for private original values. Use a supported local file or text operation.",
+  "privacy.failure.reference": "This reference is stale, revoked or belongs to another authorized source. Read its authorized source again, and check any completed changes before retrying.",
+  "privacy.failure.withheld": "The result was withheld. The operation may already have run. Check local changes or delivery status; do not automatically repeat the operation.",
+  "privacy.failure.openSettings": "Review privacy settings",
+  "privacy.failure.chooseEngine": "Choose this thread’s engine",
+  "privacy.failure.content": "This content cannot be safely represented under the current privacy rules. Use a smaller text operation or an authorized source reference. Check completed changes before retrying.",
+  "privacy.failure.cancelled": "Operation cancelled. If execution had started, check local changes or delivery status first.",
+  "privacy.channel.authenticatedMcpText": "Granted independent MCP: bounded workspace file text and safe summary resources (no OS isolation)",
+  "privacy.failure.mcpChanged": "The MCP turn, connection or resource changed. List resources again and check completed operations before continuing.",
+  "privacy.failure.mcpBinary": "This MCP operation supports text only. Use a supported text operation; do not resend original media or binary attachments.",
+  "privacy.failure.mcpInvalid": "This MCP resource request or response format is unsupported. List resources again and check the connector capabilities.",
+  "privacy.failure.mcpLimit": "The MCP result exceeds the read budget. Narrow the selection or read the next page; check completed operations before retrying.",
+  "privacy.failure.mcpUnavailable": "The MCP connector is unavailable. Check the connection and operation status before deciding whether to start a new operation.",
+  "privacy.failure.mcpUnsupported": "This connector does not advertise resources. Check its tools and connection settings.",
+  "privacy.failure.serverTools": "Protection does not yet support server-side built-in tools or signed/encrypted thinking. Select a supported native text capability.",
+  "privacy.failure.toolChannel": "This call has no supported protected tool context. Independent apps must use an explicitly created MCP connection from Settings; protected CLI execution remains unsupported.",
+  "privacy.failure.consumerGrant": "The independent MCP identity, grant or workbench permission does not allow this request. Review the named app’s grant in Settings > MCP; permissions are not expanded automatically.",
+  "privacy.failure.consumerWorkspace": "The independent MCP directory changed, is outside its grant or cannot be verified. Check the directory and configure a new connection grant for this app.",
+  "privacy.failure.consumerConnection": "The independent MCP connection expired or is not configured. Start the matching workbench and check its connection settings. Check the operation result before reconnecting; do not automatically repeat writes.",
+  "privacy.failure.consumerCursor": "This resource page expired or was already used. List resources again, then read the required page.",
+  "privacy.failure.consumerLimit": "The independent MCP request exceeds a capacity or size limit. Narrow it or wait for active requests to finish; check completed operations first.",
+  "privacy.failure.consumerAudit": "The independent MCP file audit thread is busy, changed or unavailable. Check that thread and local changes in Ruyi before deciding what to do next.",
+  "privacy.failure.consumerRequest": "Independent MCP does not support this request format or method. Check the tools and resources actually advertised by this connection.",
+  "privacy.failure.consumerSubscription": "A subscription to this URI is still being established. Wait for the current subscription request to finish or check the connection; do not repeat the business operation.",
+  "privacy.failure.consumerFailed": "Independent MCP returned no usable result. Check local changes and operation status before continuing; do not automatically repeat the operation."
 }

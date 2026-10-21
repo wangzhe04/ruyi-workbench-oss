@@ -24,8 +24,10 @@ node .\app\server.js serve --open     # 只监听 127.0.0.1（`--host` 绑非回
 node .\app\server.js doctor           # 体检：引擎、依赖、端口、数据目录
 node .\app\server.js mcp-config       # 输出工作台 MCP 配置
 node .\app\server.js install          # 把工作台 MCP 注册进本机 Claude Code
-node .\app\server.js mcp              # 以 stdio MCP server 方式运行
+node .\app\server.js mcp              # 内部会话 stdio MCP；独立应用须专用连接配置
 ```
+
+旧的 `ruyi` MCP 登记仅供如意发起的 CLI 会话使用，不授权任意外部应用。M2-8 的独立连接须从设置为指定应用生成一次专用 JSON，限定当前工作目录和文件工具／概要资源，本批实际验证已完成；不提供 OS 隔离。
 
 需要 Windows 10/11 与 Node.js ≥ 20（开发与 CI 使用 Node.js 24，单体 exe 构建目标为 Node.js 24），不需要 `npm install`（`package.json` 里的 devDependencies 只给打包单体 exe 用）。
 数据目录默认 `~/.ruyi-workbench`（3.0 之前叫 `~/.win-claude-workbench`，满足迁移条件时首次启动迁移），可用 `RUYI_HOME` 覆盖。

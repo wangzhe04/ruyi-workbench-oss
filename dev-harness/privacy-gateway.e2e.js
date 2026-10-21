@@ -235,7 +235,8 @@ async function main() {
     const maps = fs.readdirSync(path.join(fx.home, 'privacy-scopes')).map(name => fs.readFileSync(path.join(fx.home, 'privacy-scopes', name), 'utf8')).join('');
     t.ok(!maps.includes(email) && !maps.includes(secret) && !maps.includes('[[RUYI_PVT:'), 'A9 physically persisted mapping files are encrypted');
     const coverage = await fx.request('GET', '/api/privacy/status');
-    t.ok(coverage.json.channels.length === 6 && coverage.json.channels.filter(row => row.supported).length === 2 && coverage.json.nativeProviders.some(row => row.id === 'fake'), 'P4-1 coverage reports native and managed MCP text only');
+    const expectedChannels={nativeText:true,managedMcpText:true,cli:false,standaloneMcp:false,authenticatedMcpText:true,media:false,serverTools:false};
+    t.ok(coverage.json.channels.length===Object.keys(expectedChannels).length&&Object.entries(expectedChannels).every(([id,supported])=>coverage.json.channels.filter(row=>row.id===id&&row.supported===supported).length===1)&&coverage.json.nativeProviders.some(row=>row.id==='fake'), 'P4-1 exact coverage separates bounded authorized MCP text from refused unissued standalone, CLI, media and server-tool channels');
     const fixtureProvider = { id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fx.providerPort, apiKey: 'browser-fixture-auth-only', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] };
     const secondProvider = { ...fixtureProvider, id: 'fake-second', label: 'Fake second', apiKey: 'browser-fixture-second-auth-only', model: 'fake-second-model', models: [{ id: 'fake-second-model', label: 'Fake second' }] };
     const registered = await fx.request('POST','/api/config',{providers:[fixtureProvider,secondProvider]});

@@ -34,6 +34,7 @@ import { autoGrow, fmtBytes } from './util.js';   // 133e：输入框随内容�
 // 127-⑦（45 号文 §2-quinquies）：输入行里发送键前那枚麦克风。录音计时器、转写与回填全住 composer-voice.js ——
 // 本文件「恰好一处 setTimeout、零 setInterval」的纪律（I3/I4）因此一个字不用动。
 import { createComposerVoice, composerSent } from './composer-voice.js';
+import { privacyFailure, privacyVoiceFailure } from './privacy-failure.js';
 
 // 121-K5（34 号文 §13.7 登记⑧）：F2 频道条那条 steward:pick-channel 的常量与监听器已删。
 // K4-3 删掉了频道条与它【唯一】的生产者（steward-conversation.js 的 pickChannelTarget），此后
@@ -143,7 +144,7 @@ export function createStewardComposer({
   // 目标仍然只有 picked 一个（currentTarget() 一个字没改）。
   const recent = [];             // 见过的线程回忆池（@ 列表里「最近线程」那一半）
   // 127-⑦：麦克风只回填不发送 —— 它手里没有 submit，填完只派发 input（预判照常跟着走）。
-  const voice = createComposerVoice({ state, t, id: 'stewardComposerVoice', input: () => byId('stewardComposerInput'), anchor: () => byId('stewardComposerSend') });
+  const voice = createComposerVoice({ state, t, privacyFailure, privacyVoiceFailure, id: 'stewardComposerVoice', input: () => byId('stewardComposerInput'), anchor: () => byId('stewardComposerSend') });
 
   function rememberHits(hits) {
     for (const hit of (Array.isArray(hits) ? hits : [])) {

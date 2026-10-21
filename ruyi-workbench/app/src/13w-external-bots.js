@@ -450,7 +450,8 @@ function externalBotReplyBinding(connection, item, credentialRevision) {
     item.delivery?.attemptId, item.delivery?.status])).digest('hex');
   return { recipient, purpose: 'external-bot-reply', sourceHash };
 }
-async function externalBotPrepareReply(job, controller, dispatch) {
+async function externalBotPrepareReply(job, controller, dispatch, assertPolicy = PrivacyGateway.disclosurePolicyGuard()) {
+  assertPolicy();
   // The adapter continuation creates the request within the existing state chain.
   // Release the chain after request creation, not after the platform response.
   const prepared = await runKeyedChain(externalBotChains, 'state', async () => {
@@ -465,6 +466,7 @@ async function externalBotPrepareReply(job, controller, dispatch) {
       if (JSON.stringify(binding) !== JSON.stringify(expected)) throw externalBotError('external_channel.delivery_changed', 409);
       return { item, connection, credentials, binding };
     };
+    assertPolicy();
     const initial = await check();
     const { receipt } = await PrivacyGateway.prepareDisclosure(initial.item.execution.replyText,
       { ...initial.binding, knownSecrets: Object.values(initial.credentials.values).filter(Boolean) });
@@ -477,6 +479,7 @@ async function externalBotPrepareReply(job, controller, dispatch) {
     const text = externalBotBoundReplyText(fullText);
     return { result: dispatch({ text, assertCurrent: () => {
       if (controller.signal.aborted || externalBotWorkerStopped || env.some(([key, value]) => process.env[key] !== value)) throw externalBotError('external_channel.control_revoked', 403);
+      assertPolicy();
       PrivacyGateway.assertDisclosure(receipt, { ...current.binding, value: fullText });
     } }) };
   });
@@ -504,9 +507,10 @@ async function externalBotDrain() {
             });
             result = !allowed || controller.signal.aborted ? { status: 'failed', errorCode: 'external_channel.control_revoked' }
               : await PrivacyGateway.withPolicy(STEWARD_SESSION_ID, () => {
+                const assertPolicy = PrivacyGateway.disclosurePolicyGuard();
                 sendEntered = true;
                 return ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText,
-                  { attemptId: job.item.delivery.attemptId, signal: controller.signal, prepare: dispatch => externalBotPrepareReply(job, controller, dispatch) });
+                  { attemptId: job.item.delivery.attemptId, signal: controller.signal, prepare: dispatch => externalBotPrepareReply(job, controller, dispatch, assertPolicy) });
               });
           }
         } catch (error) { result = job.kind === 'run' ? (error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }) : sendEntered

@@ -2088,6 +2088,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // the results), NOT paired as function_call_output. Accumulated across tool-loop iterations this turn.
   const serverToolItems = [];
   let ok = true, errorMsg = '', aborted = false;
+  let privacyFailureInfo = null;
   const toolCalls = [];                 // for the display message (session.messages)
   // 本回合与会话历史里【已经用过】的 tool_call id。有的服务商每次迭代都从 call_1 起编(甚至同一批里重复):同 id 的第二次 tool_use
   // 在叙事账本里不建段(02c 以 id 为键),tool_result 回写第一张卡;Anthropic 还要求 tool_use id 唯一,重复会 400。
@@ -3732,7 +3733,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (e && (e.name === 'AbortError' || reg.state !== 'running')) { aborted = true; ok = false; }
     // errorMsg 带上 cause 的真因:流中途断线 undici 只抛 TypeError('terminated'),原因挂在 e.cause(04h providerThrownErrorText),
     // 不并进来用户看到的只是 "terminated",下面的 errorClass 也认不出这是掉线。
-    else { ok = false; errorMsg = providerThrownErrorText(e); }
+    else {
+      ok = false; errorMsg = providerThrownErrorText(e);
+      // Match the bounded machine-identity gate used by turn segments. Preserve
+      // ordinary display text; never persist exception params, stack or cause.
+      if (typeof e?.code === 'string' && /^(?:privacy|mcp_consumer)\.[a-z_]{1,80}$/.test(e.code)) privacyFailureInfo = {
+        code: e.code,
+        ...(e.operationMayHaveExecuted === true ? { operationMayHaveExecuted: true } : {}),
+        ...(e.resultUnavailable === true ? { resultUnavailable: true } : {}),
+      };
+    }
   }
   clearInterval(watchdog);
 
@@ -3811,7 +3821,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const failureText = iterationTextGap(assistantText, failureNote) + failureNote;
     assistantText += failureText;
     downstreamEvent({ type: 'assistant_delta', text: failureText, traceId: activeTraceId });
-    turnSegments.consume({ type: 'result', ok: false, error: failureNote, errorClass: errorClass || '' });
+    turnSegments.consume({ type: 'result', ok: false, error: failureNote, errorClass: errorClass || '', ...(privacyFailureInfo || {}) });
   }
 
   if (activeChildren.get(session.id) === reg) {
@@ -3956,7 +3966,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
-  onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass, ...(turnSuperseded ? { superseded: true } : {}) });
+  onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass, ...(privacyFailureInfo || {}), ...(turnSuperseded ? { superseded: true } : {}) });
 }
 
 // 110-4b: token 估算与分桶簇(fmtTokensServer/CJK_RE/setEstimateBucketsV1/estimateTextTokens/classifyTextForEstimate/estimateContentTokens/estimateHistoryTokens/CONTEXT_WINDOW_FALLBACK/EVAPORATED_PREFIX)抽至 09d-token-estimation.js。
