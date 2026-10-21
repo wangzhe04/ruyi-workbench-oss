@@ -1,0 +1,409 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-21T03:02:16.132Z",
+  "prototypeVersion": "m1-media-0.1.0",
+  "productionIntegrated": false,
+  "executionEnvironment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "osRelease": "10.0.26200",
+    "nodeVersion": "v24.14.0"
+  },
+  "scope": "synthetic PNG images only; loopback receiver; no user media, cloud inference or new downloads",
+  "limitations": [
+    "WinSDK OCR exposes no confidence score; this is controlled-fixture feasibility, not a general image safety gate",
+    "No face, signature, QR, arbitrary rotation, multi-language fixture, PDF, Office or video anonymization claim",
+    "ASR is not implemented; no local model was configured or exercised; fail closed only",
+    "Inventory is bounded to existing ACC runtime, repository known model locations and process PATH; not a whole-machine scan"
+  ],
+  "cases": [
+    {
+      "id": "plain",
+      "status": "passed",
+      "policyHash": "d2c20beaec31b13b072df7258ed2dd3297cc032df42a1d87647d0325d34cc4d3",
+      "rulesHash": "d97e2a2a180c1f84d579edb2f0b85521695da836bbb9028878359e0584ad6d43",
+      "processorHash": "f48b2d92e0251a32932a9fff37e4464c567708acdbbea78285e3bf65be951045",
+      "orchestrationHash": "0c3927950d03009927d86c05c7974ed135236ec436700a6efcc15febac14bc1d",
+      "policyRevision": 1,
+      "sourceHash": "9f707a028763a30f54b79bdb28f83423d7a389312942a2653a795a020a90c1e7",
+      "derivedHash": "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "sourceBytes": 46127,
+      "derivedBytes": 30999,
+      "hitCount": 3,
+      "categories": [
+        "EMAIL",
+        "INTERNAL",
+        "PHONE"
+      ],
+      "matchedWords": 5,
+      "crossWord": true,
+      "metadataStripped": true,
+      "coveredPixelsBlack": true,
+      "publicTitlePixelsIdentical": true,
+      "secondOcrPrivateAbsent": true,
+      "secondOcrPublicPreserved": true,
+      "delivery": "sent",
+      "acknowledged": true,
+      "actualHttpCaptureHash": "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "onlyDerivedSent": true,
+      "originalNotSent": true,
+      "originalUnchanged": true
+    },
+    {
+      "id": "scaled",
+      "status": "passed",
+      "policyHash": "d2c20beaec31b13b072df7258ed2dd3297cc032df42a1d87647d0325d34cc4d3",
+      "rulesHash": "d97e2a2a180c1f84d579edb2f0b85521695da836bbb9028878359e0584ad6d43",
+      "processorHash": "f48b2d92e0251a32932a9fff37e4464c567708acdbbea78285e3bf65be951045",
+      "orchestrationHash": "0c3927950d03009927d86c05c7974ed135236ec436700a6efcc15febac14bc1d",
+      "policyRevision": 1,
+      "sourceHash": "1a6254c43283d7bfb2e55fff68d9b69a92450bec6767bd54979dcd3a6cb23b31",
+      "derivedHash": "1db93b0726288b9195f7db183378664beceb095b1bea6d9352b6e518c7c6afe0",
+      "sourceBytes": 104404,
+      "derivedBytes": 59762,
+      "hitCount": 3,
+      "categories": [
+        "EMAIL",
+        "INTERNAL",
+        "PHONE"
+      ],
+      "matchedWords": 5,
+      "crossWord": true,
+      "metadataStripped": true,
+      "coveredPixelsBlack": true,
+      "publicTitlePixelsIdentical": true,
+      "secondOcrPrivateAbsent": true,
+      "secondOcrPublicPreserved": true,
+      "delivery": "sent",
+      "acknowledged": true,
+      "actualHttpCaptureHash": "1db93b0726288b9195f7db183378664beceb095b1bea6d9352b6e518c7c6afe0",
+      "onlyDerivedSent": true,
+      "originalNotSent": true,
+      "originalUnchanged": true
+    },
+    {
+      "id": "oriented",
+      "status": "passed",
+      "policyHash": "d2c20beaec31b13b072df7258ed2dd3297cc032df42a1d87647d0325d34cc4d3",
+      "rulesHash": "d97e2a2a180c1f84d579edb2f0b85521695da836bbb9028878359e0584ad6d43",
+      "processorHash": "f48b2d92e0251a32932a9fff37e4464c567708acdbbea78285e3bf65be951045",
+      "orchestrationHash": "0c3927950d03009927d86c05c7974ed135236ec436700a6efcc15febac14bc1d",
+      "policyRevision": 1,
+      "sourceHash": "9edbb81ca95c307f7ad0db9eacfb756759b04d6286992a94207a4563adde112a",
+      "derivedHash": "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "sourceBytes": 64951,
+      "derivedBytes": 30999,
+      "hitCount": 3,
+      "categories": [
+        "EMAIL",
+        "INTERNAL",
+        "PHONE"
+      ],
+      "matchedWords": 5,
+      "crossWord": true,
+      "metadataStripped": true,
+      "coveredPixelsBlack": true,
+      "publicTitlePixelsIdentical": true,
+      "secondOcrPrivateAbsent": true,
+      "secondOcrPublicPreserved": true,
+      "delivery": "sent",
+      "acknowledged": true,
+      "actualHttpCaptureHash": "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "onlyDerivedSent": true,
+      "originalNotSent": true,
+      "originalUnchanged": true
+    }
+  ],
+  "failures": [
+    {
+      "id": "missing-ocr-runtime",
+      "expectedCode": "missing-component",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "unrecognized-image",
+      "expectedCode": "unrecognized",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "cancel-before-processing",
+      "expectedCode": "cancelled",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "cancel-before-upload",
+      "expectedCode": "cancelled",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "cancel-on-upload-entry",
+      "expectedCode": "cancelled",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "changed-snapshot",
+      "expectedCode": "source-changed",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "changed-derived",
+      "expectedCode": "source-changed",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "changed-current-source",
+      "expectedCode": "source-changed",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "changed-policy-version",
+      "expectedCode": "processor-or-policy-changed",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "replace-authoritative-policy-before-upload",
+      "expectedCode": "processor-or-policy-changed",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "replace-authoritative-policy-upload-entry",
+      "expectedCode": "processor-or-policy-changed",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "stale-processor-manifest",
+      "expectedCode": "processor-or-policy-changed",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "bounded-worker-timeout",
+      "expectedCode": "timeout",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "ocr-stage-timeout",
+      "expectedCode": "timeout",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "cancel-active-worker",
+      "expectedCode": "cancelled",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    },
+    {
+      "id": "asr-no-adapter-or-model",
+      "expectedCode": "missing-component",
+      "status": "passed",
+      "originalFallback": false,
+      "additionalHttpRequests": 0
+    }
+  ],
+  "uploadOutcomes": [
+    {
+      "id": "timeout-without-response",
+      "status": "passed",
+      "code": "upload-timeout",
+      "delivery": "unknown",
+      "requestDestroyed": true,
+      "elapsedMs": 254,
+      "deadlineBudgetMs": 250,
+      "additionalHttpRequests": 1,
+      "receiverCapturedDerived": true,
+      "actualHttpCaptureHash": "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "originalFallback": false,
+      "retracted": false,
+      "retried": false
+    },
+    {
+      "id": "cancel-after-receiver-capture",
+      "status": "passed",
+      "code": "cancelled",
+      "delivery": "unknown",
+      "requestDestroyed": true,
+      "elapsedMs": 6,
+      "deadlineBudgetMs": 250,
+      "additionalHttpRequests": 1,
+      "receiverCapturedDerived": true,
+      "actualHttpCaptureHash": "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "originalFallback": false,
+      "retracted": false,
+      "retried": false
+    }
+  ],
+  "receiver": {
+    "bind": "127.0.0.1",
+    "requests": 5,
+    "acknowledgedRequests": 3,
+    "unknownOutcomeRequests": 2,
+    "actualBytesCaptured": true,
+    "requestHashes": [
+      "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "1db93b0726288b9195f7db183378664beceb095b1bea6d9352b6e518c7c6afe0",
+      "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d",
+      "8559eb386af6ce877383ba0bedbbc4d543e3f4912bc37a6d5cf8eb8932ed573d"
+    ],
+    "originalPayloadRequests": 0
+  },
+  "components": {
+    "python": "3.12.10",
+    "asrPackages": {
+      "whisper": false,
+      "faster_whisper": false,
+      "vosk": false,
+      "sherpa_onnx": false,
+      "torch": false,
+      "transformers": false,
+      "onnxruntime": false
+    },
+    "videoOnPath": {
+      "ffmpeg": false,
+      "ffprobe": false
+    },
+    "packages": {
+      "Pillow": {
+        "version": "12.3.0",
+        "license": "MIT-CMU"
+      },
+      "winsdk": {
+        "version": "1.0.0b10",
+        "license": "MIT"
+      }
+    },
+    "nativeRuntimeHashes": {
+      "winsdk._winrt": "344f13fbbcb3c76ea7149b5c679c499962ef974ac45c1cce1ac2e54974f4c7f3",
+      "PIL._imaging": "c8c519ec72bf75b2945b4fc4afa854af2fca8b970a403134f9ddda3e164d85e9"
+    },
+    "windowsVersion": {
+      "major": 10,
+      "minor": 0,
+      "build": 26200
+    },
+    "ocrLanguages": [
+      "en-US",
+      "ja",
+      "zh-Hans-CN"
+    ],
+    "runtime": "existing ACC build_offline/python_embed",
+    "additionalRuntimeProbes": [
+      {
+        "runtime": "ACC development venv",
+        "python": "3.12.10",
+        "asrPackages": {
+          "whisper": false,
+          "faster_whisper": false,
+          "vosk": false,
+          "sherpa_onnx": false,
+          "torch": false,
+          "transformers": false,
+          "onnxruntime": false
+        },
+        "videoOnPath": {
+          "ffmpeg": false,
+          "ffprobe": false
+        }
+      },
+      {
+        "runtime": "system Python312",
+        "python": "3.12.10",
+        "asrPackages": {
+          "whisper": false,
+          "faster_whisper": false,
+          "vosk": false,
+          "sherpa_onnx": false,
+          "torch": false,
+          "transformers": false,
+          "onnxruntime": false
+        },
+        "videoOnPath": {
+          "ffmpeg": false,
+          "ffprobe": false
+        }
+      }
+    ],
+    "knownRepositoryModelDirectories": [
+      {
+        "id": "models",
+        "present": false
+      },
+      {
+        "id": "ruyi-workbench/models",
+        "present": false
+      },
+      {
+        "id": "mcp/asr-shim/models",
+        "present": false
+      }
+    ],
+    "pythonLicense": "PSF-2.0 (bundled Python distribution)",
+    "ocrRuntime": "Windows.Media.Ocr, OS component; Windows license applies; no OCR model redistribution"
+  },
+  "manifest": {
+    "processorVersion": "m1-media-0.1.0",
+    "processorHash": "f48b2d92e0251a32932a9fff37e4464c567708acdbbea78285e3bf65be951045",
+    "orchestrationHash": "0c3927950d03009927d86c05c7974ed135236ec436700a6efcc15febac14bc1d",
+    "pythonExecutableHash": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a",
+    "policyVersion": "m1-fixture-policy-1",
+    "policyHash": "d2c20beaec31b13b072df7258ed2dd3297cc032df42a1d87647d0325d34cc4d3",
+    "rulesHash": "d97e2a2a180c1f84d579edb2f0b85521695da836bbb9028878359e0584ad6d43",
+    "acceptanceSourceHashes": {
+      "media.e2e.js": "dff52740f10372ff92800696c15733325c421c954f3a51d7a107bddff2851763",
+      "mapping.test.js": "25bda9c5b44281c0771be331981712ea61fef4c3a28bff880c5f4c4e9b06349c"
+    },
+    "policyAuthorityContract": "independent owner revision/hash; checked at processing stages and synchronous HTTP submission",
+    "uploadContract": "signal + absolute deadline + commit check; acknowledged=sent; post-submit error=unknown; never auto-retry",
+    "encoding": "fresh RGB PNG, no copied image metadata",
+    "sourceContract": "owned single source snapshot, checked before derive and send"
+  },
+  "asr": {
+    "status": "missing-component",
+    "completeTranscriptionPassed": false,
+    "syntheticAudioHash": "643f8a8dc8bd9c19225afffad2becfec5426180b3749cb208abdf1a6c8354efc",
+    "modelConfigured": false,
+    "modelVersion": null,
+    "modelHash": null,
+    "modelLicense": null,
+    "rawAudioUploaded": false
+  },
+  "video": {
+    "status": "not-implemented",
+    "completeVideoRedactionPassed": false,
+    "ffmpegVersion": null,
+    "ffmpegLicense": null,
+    "reason": "ffmpeg/ffprobe absent from tested PATH"
+  },
+  "status": "image-fixture-feasibility-passed",
+  "cleanup": {
+    "ownTemporaryDirectoryRemoved": true
+  }
+}

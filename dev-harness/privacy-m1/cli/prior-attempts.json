@@ -1,0 +1,30 @@
+[
+  {
+    "attempt": 1,
+    "observedAt": "2026-10-21T02:49:10.354Z",
+    "osProbeExit": 1,
+    "failure": "Node 24 main entry resolution attempted lstat of C:\\ and failed EPERM before any probe action. Zero receiver packets were not treated as proof.",
+    "claude": { "packageVersion": "2.1.202", "versionExit": 0, "helpExit": 124 },
+    "kimi": { "packageVersion": "0.42.0", "versionExit": 1, "helpExit": 1, "error": "EPERM lstat C:\\" },
+    "resolution": "Preserve main symlinks to avoid root realpath; no ACL relaxation.",
+    "cleanup": "Five profile deletes returned HRESULT 0 and profile directories were absent; owned temporary directory removed. Earlier tree booleans were inferred and superseded by measured termination receipts."
+  },
+  {
+    "attempt": 2,
+    "observedAt": "2026-10-21T02:51:46Z",
+    "osProbeExit": 124,
+    "failure": "File/network probes and synthetic broker ran for parent and descendant, but Node stdin kept the parent event loop alive until the 20 second helper deadline.",
+    "kimi": { "packageVersion": "0.42.0", "versionExit": 1, "helpExit": 1, "error": "ERR_MODULE_NOT_FOUND: ws (temporary program projection omitted installed dependencies)" },
+    "resolution": "Close synthetic probe stdin explicitly; copy installed program node_modules into temporary projection.",
+    "cleanup": "Five profile deletes returned HRESULT 0 and profile directories were absent; owned temporary directory removed."
+  },
+  {
+    "attempt": 3,
+    "observedAt": "2026-10-21T02:53:18.446Z",
+    "osProbeExit": 0,
+    "descendantTokenIsAppContainer": true,
+    "claude": { "packageVersion": "2.1.202", "versionExit": 0, "helpExit": 124 },
+    "kimi": { "packageVersion": "0.42.0", "versionExit": 0, "helpExit": 0 },
+    "cleanup": "All five profile deletes HRESULT 0; five profile directories absent; measured terminate=true/rootWait=0/jobActiveProcesses=0; owned temporary directory removed."
+  }
+]

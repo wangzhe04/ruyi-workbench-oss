@@ -1,0 +1,764 @@
+{
+  "schemaVersion": 1,
+  "experiment": "privacy-m1-cli",
+  "productWired": false,
+  "completedM1": false,
+  "generatedAt": "2026-10-21T03:01:45.096Z",
+  "platform": {
+    "os": "Windows",
+    "release": "10.0.26200",
+    "node": "v24.14.0"
+  },
+  "assumptions": [
+    "AppContainer with zero network capabilities is the OS boundary",
+    "Job Object is lifecycle management only",
+    "No firewall edits or loopback exemptions"
+  ],
+  "osProbe": {
+    "code": 0,
+    "watchdogFired": false,
+    "output": [
+      {
+        "kind": "file",
+        "name": "project-read",
+        "allowed": true,
+        "value": "SYNTHETIC_PROJECT_[PRIVATE_M1]",
+        "descendant": false
+      },
+      {
+        "kind": "file",
+        "name": "outside-secret-read",
+        "allowed": false,
+        "code": "EPERM",
+        "descendant": false
+      },
+      {
+        "kind": "file",
+        "name": "outside-all-app-packages-read",
+        "allowed": true,
+        "value": "SYNTHETIC_AAP_OUTSIDE_PROJECTION",
+        "descendant": false
+      },
+      {
+        "kind": "file",
+        "name": "project-write-denied",
+        "allowed": false,
+        "code": "EPERM",
+        "descendant": false
+      },
+      {
+        "kind": "file",
+        "name": "owned-write",
+        "allowed": true,
+        "value": true,
+        "descendant": false
+      },
+      {
+        "kind": "file",
+        "name": "outside-write",
+        "allowed": false,
+        "code": "EPERM",
+        "descendant": false
+      },
+      {
+        "kind": "network",
+        "name": "loopback-tcp4",
+        "allowed": false,
+        "code": "ETIMEDOUT",
+        "descendant": false
+      },
+      {
+        "kind": "network",
+        "name": "loopback-tcp6",
+        "allowed": false,
+        "code": "ETIMEDOUT",
+        "descendant": false
+      },
+      {
+        "kind": "network",
+        "name": "private-gateway",
+        "allowed": false,
+        "code": "ETIMEDOUT",
+        "descendant": false
+      },
+      {
+        "kind": "network",
+        "name": "loopback-udp4",
+        "allowed": null,
+        "code": "NO_REPLY",
+        "descendant": false
+      },
+      {
+        "kind": "network",
+        "name": "loopback-udp6",
+        "allowed": null,
+        "code": "NO_REPLY",
+        "descendant": false
+      },
+      {
+        "kind": "network",
+        "name": "dns-owned-receiver",
+        "allowed": null,
+        "code": "NO_REPLY",
+        "descendant": false
+      },
+      {
+        "kind": "descendant-token",
+        "isAppContainer": true
+      },
+      {
+        "kind": "descendant-token-probe-exit",
+        "code": 0,
+        "descendant": false
+      },
+      {
+        "kind": "rpc",
+        "operation": "read-project-model",
+        "descendant": false
+      },
+      {
+        "kind": "broker",
+        "receivedModelView": true,
+        "containsOriginal": false,
+        "descendant": false
+      },
+      {
+        "kind": "file",
+        "name": "project-read",
+        "allowed": true,
+        "value": "SYNTHETIC_PROJECT_[PRIVATE_M1]",
+        "descendant": true
+      },
+      {
+        "kind": "file",
+        "name": "outside-secret-read",
+        "allowed": false,
+        "code": "EPERM",
+        "descendant": true
+      },
+      {
+        "kind": "file",
+        "name": "outside-all-app-packages-read",
+        "allowed": true,
+        "value": "SYNTHETIC_AAP_OUTSIDE_PROJECTION",
+        "descendant": true
+      },
+      {
+        "kind": "file",
+        "name": "project-write-denied",
+        "allowed": false,
+        "code": "EPERM",
+        "descendant": true
+      },
+      {
+        "kind": "file",
+        "name": "owned-write",
+        "allowed": true,
+        "value": true,
+        "descendant": true
+      },
+      {
+        "kind": "file",
+        "name": "outside-write",
+        "allowed": false,
+        "code": "EPERM",
+        "descendant": true
+      },
+      {
+        "kind": "network",
+        "name": "loopback-tcp4",
+        "allowed": false,
+        "code": "ETIMEDOUT",
+        "descendant": true
+      },
+      {
+        "kind": "network",
+        "name": "loopback-tcp6",
+        "allowed": false,
+        "code": "ETIMEDOUT",
+        "descendant": true
+      },
+      {
+        "kind": "network",
+        "name": "private-gateway",
+        "allowed": false,
+        "code": "ETIMEDOUT",
+        "descendant": true
+      },
+      {
+        "kind": "network",
+        "name": "loopback-udp4",
+        "allowed": null,
+        "code": "NO_REPLY",
+        "descendant": true
+      },
+      {
+        "kind": "network",
+        "name": "loopback-udp6",
+        "allowed": null,
+        "code": "NO_REPLY",
+        "descendant": true
+      },
+      {
+        "kind": "network",
+        "name": "dns-owned-receiver",
+        "allowed": null,
+        "code": "NO_REPLY",
+        "descendant": true
+      },
+      {
+        "kind": "child",
+        "code": 0,
+        "descendant": false
+      }
+    ],
+    "events": [
+      {
+        "stage": "token-verified",
+        "isAppContainer": true
+      },
+      {
+        "stage": "launched",
+        "isolation": "AppContainer",
+        "capabilities": 0
+      },
+      {
+        "stage": "exit",
+        "code": 0
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 4,
+        "ownedTreeTerminated": true
+      }
+    ],
+    "stdout": "{\"kind\":\"file\",\"name\":\"project-read\",\"allowed\":true,\"value\":\"SYNTHETIC_PROJECT_[PRIVATE_M1]\",\"descendant\":false}\n{\"kind\":\"file\",\"name\":\"outside-secret-read\",\"allowed\":false,\"code\":\"EPERM\",\"descendant\":false}\n{\"kind\":\"file\",\"name\":\"outside-all-app-packages-read\",\"allowed\":true,\"value\":\"SYNTHETIC_AAP_OUTSIDE_PROJECTION\",\"descendant\":false}\n{\"kind\":\"file\",\"name\":\"project-write-denied\",\"allowed\":false,\"code\":\"EPERM\",\"descendant\":false}\n{\"kind\":\"file\",\"name\":\"owned-write\",\"allowed\":true,\"value\":true,\"descendant\":false}\n{\"kind\":\"file\",\"name\":\"outside-write\",\"allowed\":false,\"code\":\"EPERM\",\"descendant\":false}\n{\"kind\":\"network\",\"name\":\"loopback-tcp4\",\"allowed\":false,\"code\":\"ETIMEDOUT\",\"descendant\":false}\n{\"kind\":\"network\",\"name\":\"loopback-tcp6\",\"allowed\":false,\"code\":\"ETIMEDOUT\",\"descendant\":false}\n{\"kind\":\"network\",\"name\":\"private-gateway\",\"allowed\":false,\"code\":\"ETIMEDOUT\",\"descendant\":false}\n{\"kind\":\"network\",\"name\":\"loopback-udp4\",\"allowed\":null,\"code\":\"NO_REPLY\",\"descendant\":false}\n{\"kind\":\"network\",\"name\":\"loopback-udp6\",\"allowed\":null,\"code\":\"NO_REPLY\",\"descendant\":false}\n{\"kind\":\"network\",\"name\":\"dns-owned-receiver\",\"allowed\":null,\"code\":\"NO_REPLY\",\"descendant\":false}\n{\"kind\":\"descendant-token\",\"isAppContainer\":true}\r\n{\"kind\":\"descendant-token-probe-exit\",\"code\":0,\"descendant\":false}\n{\"kind\":\"rpc\",\"operation\":\"read-project-model\",\"descendant\":false}\n{\"kind\":\"broker\",\"receivedModelView\":true,\"containsOriginal\":false,\"descendant\":false}\n{\"kind\":\"file\",\"name\":\"project-read\",\"allowed\":true,\"value\":\"SYNTHETIC_PROJECT_[PRIVATE_M1]\",\"descendant\":true}\n{\"kind\":\"file\",\"name\":\"outside-secret-read\",\"allowed\":false,\"code\":\"EPERM\",\"descendant\":true}\n{\"kind\":\"file\",\"name\":\"outside-all-app-packages-read\",\"allowed\":true,\"value\":\"SYNTHETIC_AAP_OUTSIDE_PROJECTION\",\"descendant\":true}\n{\"kind\":\"file\",\"name\":\"project-write-denied\",\"allowed\":false,\"code\":\"EPERM\",\"descendant\":true}\n{\"kind\":\"file\",\"name\":\"owned-write\",\"allowed\":true,\"value\":true,\"descendant\":true}\n{\"kind\":\"file\",\"name\":\"outside-write\",\"allowed\":false,\"code\":\"EPERM\",\"descendant\":true}\n{\"kind\":\"network\",\"name\":\"loopback-tcp4\",\"allowed\":false,\"code\":\"ETIMEDOUT\",\"descendant\":true}\n{\"kind\":\"network\",\"name\":\"loopback-tcp6\",\"allowed\":false,\"code\":\"ETIMEDOUT\",\"descendant\":true}\n{\"kind\":\"network\",\"name\":\"private-gateway\",\"allowed\":false,\"code\":\"ETIMEDOUT\",\"descendant\":true}\n{\"kind\":\"network\",\"name\":\"loopback-udp4\",\"allowed\":null,\"code\":\"NO_REPLY\",\"descendant\":true}\n{\"kind\":\"network\",\"name\":\"loopback-udp6\",\"allowed\":null,\"code\":\"NO_REPLY\",\"descendant\":true}\n{\"kind\":\"network\",\"name\":\"dns-owned-receiver\",\"allowed\":null,\"code\":\"NO_REPLY\",\"descendant\":true}\n{\"kind\":\"child\",\"code\":0,\"descendant\":false}\n",
+    "stderr": "{\"stage\":\"token-verified\",\"isAppContainer\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"AppContainer\",\"capabilities\":0}\r\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":4,\"ownedTreeTerminated\":true}\r\n",
+    "receivers": [
+      {
+        "id": "loopback-tcp4",
+        "positiveControlConnections": 1,
+        "unauthorizedConnections": 0
+      },
+      {
+        "id": "loopback-tcp6",
+        "positiveControlConnections": 1,
+        "unauthorizedConnections": 0
+      },
+      {
+        "id": "private-gateway",
+        "positiveControlConnections": 1,
+        "unauthorizedConnections": 0
+      },
+      {
+        "id": "loopback-udp4",
+        "positiveControlConnections": 1,
+        "unauthorizedConnections": 0
+      },
+      {
+        "id": "loopback-udp6",
+        "positiveControlConnections": 1,
+        "unauthorizedConnections": 0
+      },
+      {
+        "id": "dns-owned-receiver",
+        "positiveControlConnections": 1,
+        "unauthorizedConnections": 0
+      }
+    ],
+    "hostChecks": {
+      "originalProjectUnchanged": true,
+      "outsideWriteAbsent": true,
+      "parentOutputExists": true,
+      "childOutputExists": true
+    },
+    "summary": {
+      "processCompleted": true,
+      "fileBoundaryObserved": true,
+      "allApplicationPackagesOutsideFileReadable": true,
+      "projectionIsExclusiveFilesystemAllowlist": false,
+      "networkDeliveryBlockedAtTestedReceivers": true,
+      "networkDenialMechanism": "not established: TCP timeout and UDP no-reply are retained",
+      "descendantAppContainerTokenVerified": true,
+      "fixtureBrokerRoundTrip": true,
+      "realCliBrokerIntegrated": false
+    }
+  },
+  "realCli": [
+    {
+      "id": "claude",
+      "packageVersion": "2.1.202",
+      "entrySha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6",
+      "version": {
+        "code": 0,
+        "watchdogFired": false,
+        "output": [],
+        "events": [
+          {
+            "stage": "token-verified",
+            "isAppContainer": true
+          },
+          {
+            "stage": "launched",
+            "isolation": "AppContainer",
+            "capabilities": 0
+          },
+          {
+            "stage": "exit",
+            "code": 0
+          },
+          {
+            "stage": "cleanup",
+            "profileDeleteHresult": 0,
+            "profileDirectoryAbsent": true,
+            "terminateSucceeded": true,
+            "rootWaitResult": 0,
+            "jobActiveProcesses": 0,
+            "jobTotalProcesses": 2,
+            "ownedTreeTerminated": true
+          }
+        ],
+        "stdout": "2.1.202 (Claude Code)\n",
+        "stderr": "{\"stage\":\"token-verified\",\"isAppContainer\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"AppContainer\",\"capabilities\":0}\r\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true}\r\n"
+      },
+      "help": {
+        "code": 124,
+        "watchdogFired": false,
+        "output": [],
+        "events": [
+          {
+            "stage": "token-verified",
+            "isAppContainer": true
+          },
+          {
+            "stage": "launched",
+            "isolation": "AppContainer",
+            "capabilities": 0
+          },
+          {
+            "stage": "timeout",
+            "terminateJobSucceeded": true,
+            "rootWaitResult": 0
+          },
+          {
+            "stage": "cleanup",
+            "profileDeleteHresult": 0,
+            "profileDirectoryAbsent": true,
+            "terminateSucceeded": true,
+            "rootWaitResult": 0,
+            "jobActiveProcesses": 0,
+            "jobTotalProcesses": 2,
+            "ownedTreeTerminated": true
+          }
+        ],
+        "stdout": "",
+        "stderr": "{\"stage\":\"token-verified\",\"isAppContainer\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"AppContainer\",\"capabilities\":0}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true}\r\n"
+      },
+      "completeLoop": false,
+      "syntheticGatewayAttempt": {
+        "code": 124,
+        "watchdogFired": false,
+        "output": [],
+        "events": [
+          {
+            "stage": "token-verified",
+            "isAppContainer": true
+          },
+          {
+            "stage": "launched",
+            "isolation": "AppContainer",
+            "capabilities": 0
+          },
+          {
+            "stage": "timeout",
+            "terminateJobSucceeded": true,
+            "rootWaitResult": 0
+          },
+          {
+            "stage": "cleanup",
+            "profileDeleteHresult": 0,
+            "profileDirectoryAbsent": true,
+            "terminateSucceeded": true,
+            "rootWaitResult": 0,
+            "jobActiveProcesses": 0,
+            "jobTotalProcesses": 2,
+            "ownedTreeTerminated": true
+          }
+        ],
+        "stdout": "",
+        "stderr": "{\"stage\":\"token-verified\",\"isAppContainer\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"AppContainer\",\"capabilities\":0}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true}\r\n",
+        "receiver": {
+          "positiveControlHttpStatus": 200,
+          "unauthorizedTcpConnections": 0,
+          "modelRequests": 0
+        },
+        "scope": "actual installed CLI, synthetic key and endpoint; no real provider call"
+      }
+    },
+    {
+      "id": "kimi",
+      "packageVersion": "0.42.0",
+      "entrySha256": "3f632148344f68c15633215244e1ca8c106116051cd0e744968906773230930a",
+      "version": {
+        "code": 0,
+        "watchdogFired": false,
+        "output": [],
+        "events": [
+          {
+            "stage": "token-verified",
+            "isAppContainer": true
+          },
+          {
+            "stage": "launched",
+            "isolation": "AppContainer",
+            "capabilities": 0
+          },
+          {
+            "stage": "exit",
+            "code": 0
+          },
+          {
+            "stage": "cleanup",
+            "profileDeleteHresult": 0,
+            "profileDirectoryAbsent": true,
+            "terminateSucceeded": true,
+            "rootWaitResult": 0,
+            "jobActiveProcesses": 0,
+            "jobTotalProcesses": 2,
+            "ownedTreeTerminated": true
+          }
+        ],
+        "stdout": "0.42.0\n",
+        "stderr": "{\"stage\":\"token-verified\",\"isAppContainer\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"AppContainer\",\"capabilities\":0}\r\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true}\r\n"
+      },
+      "help": {
+        "code": 0,
+        "watchdogFired": false,
+        "output": [],
+        "events": [
+          {
+            "stage": "token-verified",
+            "isAppContainer": true
+          },
+          {
+            "stage": "launched",
+            "isolation": "AppContainer",
+            "capabilities": 0
+          },
+          {
+            "stage": "exit",
+            "code": 0
+          },
+          {
+            "stage": "cleanup",
+            "profileDeleteHresult": 0,
+            "profileDirectoryAbsent": true,
+            "terminateSucceeded": true,
+            "rootWaitResult": 0,
+            "jobActiveProcesses": 0,
+            "jobTotalProcesses": 2,
+            "ownedTreeTerminated": true
+          }
+        ],
+        "stdout": "Usage: kimi [options] [command]\n\nThe Starting Point for Next-Gen Agents\n\nOptions:\n  -V, --version                 output the version number\n  -S, --session [id]            Resume a session. With ID: resume that session. Without ID:\n                                interactively pick.\n  -c, --continue                Continue the previous session for the working directory. (default:\n                                false)\n  -y, --yolo                    Start in Ask When Needed mode: routine edits and commands run\n                                automatically; risky actions, questions, and plans still ask.\n                                (default: false)\n  --auto                        Start in Never Ask mode: never interrupts you; everything runs and\n                                is decided automatically. (default: false)\n  -m, --model <model>           LLM model alias to use for this invocation. Defaults to\n                                default_model in config.toml.\n  -p, --prompt <prompt>         Run one prompt non-interactively and print the response.\n  --output-format <format>      Output format for prompt mode. Defaults to text. (choices: \"text\",\n                                \"stream-json\")\n  --skills-dir <dir>            Load skills from this directory instead of auto-discovered user and\n                                project directories. Can be repeated. (default: [])\n  --agent <name>                Agent profile to start the new session with. Custom profiles are\n                                discovered from agent directories or loaded via --agent-file. Cannot\n                                be combined with --session/--continue.\n  --agent-file <path>           Load an agent definition from a Markdown file and select it for the\n                                new session. Cannot be combined with --session/--continue. (default:\n                                [])\n  --add-dir <dir>               Add an additional workspace directory for this session. Can be\n                                repeated. (default: [])\n  --plan                        Start in plan mode. (default: false)\n  -h, --help                    Show help.\n\nCommands:\n  export [options] [sessionId]  Export a session as a ZIP archive.\n  fork [options] [sessionId]    Fork a session into a new session.\n  provider                      Manage LLM providers non-interactively.\n  session                       Manage sessions non-interactively.\n  acp [options]                 Run kimi-code as an Agent Client Protocol (ACP) server over stdio.\n  web [options]                 Run the local Kimi server and open the web UI.\n  server                        Deprecated — use `kimi web` instead.\n  rc|remote [options]           Run the local Kimi server and open the web UI through Remote\n                                Control.\n  login [options]               Authenticate with Kimi Code CLI via the device-code flow.\n  doctor                        Validate Kimi Code configuration files.\n  vis [options] [sessionId]     Launch the session visualizer in your browser.\n  migrate [options]             Migrate data from a legacy kimi-cli installation into kimi-code.\n  upgrade|update                Upgrade Kimi Code to the latest version.\n\nDocumentation:        https://moonshotai.github.io/kimi-code/\n\n",
+        "stderr": "{\"stage\":\"token-verified\",\"isAppContainer\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"AppContainer\",\"capabilities\":0}\r\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true}\r\n"
+      },
+      "completeLoop": false,
+      "syntheticGatewayAttempt": {
+        "code": 124,
+        "watchdogFired": false,
+        "output": [
+          {
+            "role": "meta",
+            "type": "system.version",
+            "version": "0.42.0"
+          },
+          {
+            "role": "meta",
+            "type": "turn.step.retrying",
+            "failed_attempt": 1,
+            "next_attempt": 2,
+            "max_attempts": 10,
+            "delay_ms": 530.3599087292624,
+            "error_name": "APITimeoutError",
+            "error_message": "Request timed out."
+          },
+          {
+            "role": "meta",
+            "type": "turn.step.retrying",
+            "failed_attempt": 2,
+            "next_attempt": 3,
+            "max_attempts": 10,
+            "delay_ms": 1009.4186043958974,
+            "error_name": "APITimeoutError",
+            "error_message": "Request timed out."
+          },
+          {
+            "role": "meta",
+            "type": "turn.step.retrying",
+            "failed_attempt": 3,
+            "next_attempt": 4,
+            "max_attempts": 10,
+            "delay_ms": 2420.818915135795,
+            "error_name": "APITimeoutError",
+            "error_message": "Request timed out."
+          },
+          {
+            "role": "meta",
+            "type": "turn.step.retrying",
+            "failed_attempt": 4,
+            "next_attempt": 5,
+            "max_attempts": 10,
+            "delay_ms": 4151.492010387011,
+            "error_name": "APITimeoutError",
+            "error_message": "Request timed out."
+          },
+          {
+            "role": "meta",
+            "type": "turn.step.retrying",
+            "failed_attempt": 5,
+            "next_attempt": 6,
+            "max_attempts": 10,
+            "delay_ms": 9406.777742681486,
+            "error_name": "APITimeoutError",
+            "error_message": "Request timed out."
+          }
+        ],
+        "events": [
+          {
+            "stage": "token-verified",
+            "isAppContainer": true
+          },
+          {
+            "stage": "launched",
+            "isolation": "AppContainer",
+            "capabilities": 0
+          },
+          {
+            "stage": "timeout",
+            "terminateJobSucceeded": true,
+            "rootWaitResult": 0
+          },
+          {
+            "stage": "cleanup",
+            "profileDeleteHresult": 0,
+            "profileDirectoryAbsent": true,
+            "terminateSucceeded": true,
+            "rootWaitResult": 0,
+            "jobActiveProcesses": 0,
+            "jobTotalProcesses": 2,
+            "ownedTreeTerminated": true
+          }
+        ],
+        "stdout": "{\"role\":\"meta\",\"type\":\"system.version\",\"version\":\"0.42.0\"}\n{\"role\":\"meta\",\"type\":\"turn.step.retrying\",\"failed_attempt\":1,\"next_attempt\":2,\"max_attempts\":10,\"delay_ms\":530.3599087292624,\"error_name\":\"APITimeoutError\",\"error_message\":\"Request timed out.\"}\n{\"role\":\"meta\",\"type\":\"turn.step.retrying\",\"failed_attempt\":2,\"next_attempt\":3,\"max_attempts\":10,\"delay_ms\":1009.4186043958974,\"error_name\":\"APITimeoutError\",\"error_message\":\"Request timed out.\"}\n{\"role\":\"meta\",\"type\":\"turn.step.retrying\",\"failed_attempt\":3,\"next_attempt\":4,\"max_attempts\":10,\"delay_ms\":2420.818915135795,\"error_name\":\"APITimeoutError\",\"error_message\":\"Request timed out.\"}\n{\"role\":\"meta\",\"type\":\"turn.step.retrying\",\"failed_attempt\":4,\"next_attempt\":5,\"max_attempts\":10,\"delay_ms\":4151.492010387011,\"error_name\":\"APITimeoutError\",\"error_message\":\"Request timed out.\"}\n{\"role\":\"meta\",\"type\":\"turn.step.retrying\",\"failed_attempt\":5,\"next_attempt\":6,\"max_attempts\":10,\"delay_ms\":9406.777742681486,\"error_name\":\"APITimeoutError\",\"error_message\":\"Request timed out.\"}\n",
+        "stderr": "{\"stage\":\"token-verified\",\"isAppContainer\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"AppContainer\",\"capabilities\":0}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true}\r\n",
+        "receiver": {
+          "positiveControlHttpStatus": 200,
+          "unauthorizedTcpConnections": 0,
+          "modelRequests": 0
+        },
+        "scope": "actual installed CLI, synthetic key and endpoint; no real provider call"
+      }
+    }
+  ],
+  "untested": [
+    "public Internet TCP",
+    "private LAN TCP",
+    "system DNS resolver",
+    "proxy override",
+    "redirects",
+    "project MCP/plugin injection",
+    "real CLI model/tool/edit/compact/restart loop",
+    "crash-recovery cleanup"
+  ],
+  "cleanup": {
+    "temporaryDirectoryAbsent": true,
+    "profiles": [
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 4,
+        "ownedTreeTerminated": true
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 4,
+        "ownedTreeTerminated": true
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 2,
+        "ownedTreeTerminated": true
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 2,
+        "ownedTreeTerminated": true
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 2,
+        "ownedTreeTerminated": true
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 2,
+        "ownedTreeTerminated": true
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 2,
+        "ownedTreeTerminated": true
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 2,
+        "ownedTreeTerminated": true
+      }
+    ],
+    "launchesStarted": 8,
+    "verified": true
+  },
+  "priorAttempts": [
+    {
+      "attempt": 1,
+      "observedAt": "2026-10-21T02:49:10.354Z",
+      "osProbeExit": 1,
+      "failure": "Node 24 main entry resolution attempted lstat of C:\\ and failed EPERM before any probe action. Zero receiver packets were not treated as proof.",
+      "claude": {
+        "packageVersion": "2.1.202",
+        "versionExit": 0,
+        "helpExit": 124
+      },
+      "kimi": {
+        "packageVersion": "0.42.0",
+        "versionExit": 1,
+        "helpExit": 1,
+        "error": "EPERM lstat C:\\"
+      },
+      "resolution": "Preserve main symlinks to avoid root realpath; no ACL relaxation.",
+      "cleanup": "Five profile deletes returned HRESULT 0 and profile directories were absent; owned temporary directory removed. Earlier tree booleans were inferred and superseded by measured termination receipts."
+    },
+    {
+      "attempt": 2,
+      "observedAt": "2026-10-21T02:51:46Z",
+      "osProbeExit": 124,
+      "failure": "File/network probes and synthetic broker ran for parent and descendant, but Node stdin kept the parent event loop alive until the 20 second helper deadline.",
+      "kimi": {
+        "packageVersion": "0.42.0",
+        "versionExit": 1,
+        "helpExit": 1,
+        "error": "ERR_MODULE_NOT_FOUND: ws (temporary program projection omitted installed dependencies)"
+      },
+      "resolution": "Close synthetic probe stdin explicitly; copy installed program node_modules into temporary projection.",
+      "cleanup": "Five profile deletes returned HRESULT 0 and profile directories were absent; owned temporary directory removed."
+    },
+    {
+      "attempt": 3,
+      "observedAt": "2026-10-21T02:53:18.446Z",
+      "osProbeExit": 0,
+      "descendantTokenIsAppContainer": true,
+      "claude": {
+        "packageVersion": "2.1.202",
+        "versionExit": 0,
+        "helpExit": 124
+      },
+      "kimi": {
+        "packageVersion": "0.42.0",
+        "versionExit": 0,
+        "helpExit": 0
+      },
+      "cleanup": "All five profile deletes HRESULT 0; five profile directories absent; measured terminate=true/rootWait=0/jobActiveProcesses=0; owned temporary directory removed."
+    }
+  ],
+  "sourceSha256": {
+    "AppContainerHost.cs": "b6b8d3f5de93ea9a0a5cf01adeeacd8fff03f4329f649f453ac9e4137bed9e46",
+    "probe.js": "2f837d6e2c64e4cc7c31e18f78ba270ffbc744484e8b57ec9d9e1b1ac1d6e32c",
+    "run.js": "e427f4c2f3fd74fe98536078a063bed7668d6fb291e046da4a31715f3eb7fc28",
+    "runner.test.js": "9790804d73d938e3250498e0c2cc4d52edfbab88aff504c3e6c0899705a3068b",
+    "prior-attempts.json": "bffbcf5ae5e60800a789174c457df9d6d6de4781fddb7754eeed6fae167f3180"
+  },
+  "timeoutProbe": {
+    "code": 124,
+    "watchdogFired": false,
+    "output": [
+      {
+        "kind": "lifetime",
+        "descendantSpawned": true
+      }
+    ],
+    "events": [
+      {
+        "stage": "token-verified",
+        "isAppContainer": true
+      },
+      {
+        "stage": "launched",
+        "isolation": "AppContainer",
+        "capabilities": 0
+      },
+      {
+        "stage": "timeout",
+        "terminateJobSucceeded": true,
+        "rootWaitResult": 0
+      },
+      {
+        "stage": "cleanup",
+        "profileDeleteHresult": 0,
+        "profileDirectoryAbsent": true,
+        "terminateSucceeded": true,
+        "rootWaitResult": 0,
+        "jobActiveProcesses": 0,
+        "jobTotalProcesses": 4,
+        "ownedTreeTerminated": true
+      }
+    ],
+    "stdout": "{\"kind\":\"lifetime\",\"descendantSpawned\":true}\n",
+    "stderr": "{\"stage\":\"token-verified\",\"isAppContainer\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"AppContainer\",\"capabilities\":0}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":4,\"ownedTreeTerminated\":true}\r\n"
+  },
+  "infrastructurePassed": true
+}
