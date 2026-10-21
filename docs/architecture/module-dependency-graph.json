@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 87,
-    "providedSymbols": 3861,
+    "providedSymbols": 3862,
     "requiredSymbols": 3465,
     "edges": 621,
     "forwardEdges": 67,
@@ -8924,6 +8924,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "encodeModelToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "call"
@@ -8960,13 +8967,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "runForcedOverflowCompaction",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "truncateToolResult",
           "kinds": [
             "call"
           ]
@@ -10910,6 +10910,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "encodeModelToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "call"
@@ -10967,13 +10974,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "runForcedOverflowCompaction",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "truncateToolResult",
           "kinds": [
             "call"
           ]
@@ -11139,6 +11139,7 @@
         "ctxProbeKey",
         "dedupeRepeatedReads",
         "economicsShadowEnabledCached",
+        "encodeModelToolResult",
         "estimateFactor",
         "evaporateBudgetBoundary",
         "evaporateHistory",
@@ -31361,13 +31362,13 @@
         "compactionRefetchRefusal",
         "compactionRefetchWarning",
         "createCompactionRefetchGuard",
+        "encodeModelToolResult",
         "estimateFactor",
         "isContextOverflowError",
         "maybeCompactSubHistory",
         "noteWindowOvershoot",
         "recordCompactUsage",
         "runForcedOverflowCompaction",
-        "truncateToolResult",
         "writeHistorySnapshot"
       ],
       "direction": "forward"
@@ -31828,6 +31829,7 @@
         "compactionRefetchRefusal",
         "compactionRefetchWarning",
         "createCompactionRefetchGuard",
+        "encodeModelToolResult",
         "estimateFactor",
         "isContextOverflowError",
         "maybeAutoCompact",
@@ -31837,7 +31839,6 @@
         "providerContextWindow",
         "recordCompactUsage",
         "runForcedOverflowCompaction",
-        "truncateToolResult",
         "upsertCompactMarker",
         "writeHistorySnapshot"
       ],

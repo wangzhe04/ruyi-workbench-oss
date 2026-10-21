@@ -133,6 +133,8 @@ for group, row in totals.items():
 
 ### A2 · 工具结果入模型历史的 17 个相同管道（证据强，中风险）
 
+2026-10-21 实施更新：17处已接入 `10-context-governance.js:encodeModelToolResult`，保留完整结果保护及映射持久化后再编码、截断的顺序，调用方继续管理历史配对与事件。新增真实Gateway单测6项、主/子实际HTTP接收端4场景（最终版两遍通过），并补跑拒绝、跳过、编排、预算与重取相关回归；统一门与独立审查详情见[本批证据](evidence/privacy-m2-tool-encoding.json)。下列位置及统计仍是原审计基线，不表示接收方披露合同已完成。
+
 - `src/08-agent-runs.js` 七处：1062、1075、1104、1113、1140、1154、1288；`src/09-workflow.js` 十处：2705、3023、3193、3207、3242、3256、3286、3354、3600、3620。
 - 共同表达式是 `truncateToolResult(name, JSON.stringify(await PrivacyGateway.modelToolResult(value)))`，外加相同的可用性判断。分支包括预算拒绝、权限拒绝、兄弟调用跳过、普通原生/MCP 返回、编排结果。
 - 适合提供一个纯数据结果编码 helper，再由各自循环保持 `role:'tool'`、调用 ID、事件与历史追加的顺序。先不要合并整个主/子工具循环，两者角色、预算、心跳与编排规则不同。

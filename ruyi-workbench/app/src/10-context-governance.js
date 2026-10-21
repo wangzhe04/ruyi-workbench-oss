@@ -629,6 +629,12 @@ function truncateToolResult(name, jsonStr) {
   return trimmed.slice(0, cap) + `\n[...已截断，共 ${s.length} 字符，仅保留前 ${cap} 字符；${toolResultRecoveryHint(name)}...]\n`;
 }
 
+// 模型历史只编码受保护的完整结果；扫描与映射落盘完成后才收缩，保留已执行但结果扣留的回执。
+async function encodeModelToolResult(name, value) {
+  const protectedResult = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(value) : value;
+  return truncateToolResult(name, JSON.stringify(protectedResult));
+}
+
 // N3:展示副本 + 图片落附件。返回的对象用于 SSE tool_result 事件与 session.messages[].toolCalls[].result。
 // ① 大图 base64 字段(image / image_base64 / screenshot.image …)写进 uploads/<toolimg_…>/ 走既有附件回显通路
 //    (/api/upload/content),结果里留占位 + imageAttachments[{id,name,mime,size,field}];UI 用它画 <img>,不再有整墙 base64 文本。

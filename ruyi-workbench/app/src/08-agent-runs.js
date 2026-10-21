@@ -1059,7 +1059,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             const resultObj = { ok: false, error: `连续 ${SUB_LOOP_ABORT_AT} 次相同工具调用，已停止子任务以避免死循环`, loopAborted: true };
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
-            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, resultObj) });
             // v1.x (B3-fix): seed the pairing dedup with EVERY tool_call already answered in this sub-turn
             // (derived from the role:'tool' entries in subHistory, which now includes this abort tc pushed just
             // above). Mirrors the parent turn's `answeredIds = new Set(toolCalls.map(...))`. Without this, an
@@ -1072,7 +1072,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               const skip = { ok: false, error: '子任务已因重复调用停止，该调用未执行' };
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs, subagentId });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true, subagentId });
-              subHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
+              subHistory.push({ role: 'tool', tool_call_id: rem.id, content: await encodeModelToolResult(rem.name, skip) });
             }
             // v2.7.1 (opt#2): 5x 中止后自主恢复(与主回合对称) -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)
             // 到 subHistory,重置签名连击,仅 break 内层 for(不设 subOk=false)-> 907 行 if(!subOk) 不触发 -> 930 continue 续跑。
@@ -1101,7 +1101,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           if (!isProviderToolArgsObject(tc.rawArgs)) {
             resultObj = { ok: false, argsInvalid: true, error: subOutputLimited ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小后重试' : '工具调用参数不是完整的 JSON 对象,该调用未执行;请给出完整参数后重试' };
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
-            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, resultObj) });
             continue;
           }
           // 压缩后重取守卫(与主回合同):同一调用本回合被压缩省略后反复重取,第 2 次提醒、第 3 次起不执行。
@@ -1110,7 +1110,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           if (refetch && refetch.action === 'refuse') {
             resultObj = compactionRefetchRefusal(refetch.count);
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
-            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, resultObj) });
             continue;
           }
           // 团队模式 v2 (A1/B1): propose_task/send_to_agent 是编排元工具,经 runSubAgent 注入的闭包分发(不走全局
@@ -1137,7 +1137,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             if (!allows(tc.name, bridge)) {
               resultObj = { ok: false, error: `Agent 角色 '${role && role.id || ''}' 未授权工具 ${tc.name}` };
               onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
-              subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+              subHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, resultObj) });
               continue;
             }
             // v0.9-S6 tierFilter enforcement (defense-in-depth): the tool set was already filtered to `tier`,
@@ -1151,7 +1151,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               resultObj = { ok: false, error: `子代理工具级别 '${ntier}' 超出授权 '${tier}',已拒绝` };
               const isErr0 = true;
               onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr0, subagentId });
-              subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+              subHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, resultObj) });
               continue;
             }
             // Sub-turns run under the parent's permissionMode. In bypass (the common provider default) all
@@ -1285,7 +1285,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             subToolImages.push({ role: 'user', content: [{ type: 'text', text: `[工具 ${tc.name} 返回的图像，来源与页码见工具结果]` },
               ...imgs.map(uri => ({ type: 'image_url', image_url: { url: uri } }))] });
           }
-          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(modelResult) : modelResult)) });
+          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, modelResult) });
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
           if (!subOk) break; // a denied delegation step cannot execute the rest of this tool batch
         }

@@ -8816,6 +8816,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "encodeModelToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "call"
@@ -8852,13 +8859,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "runForcedOverflowCompaction",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "truncateToolResult",
           "kinds": [
             "call"
           ]
@@ -10796,6 +10796,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "encodeModelToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "call"
@@ -10853,13 +10860,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "runForcedOverflowCompaction",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "truncateToolResult",
           "kinds": [
             "call"
           ]
@@ -11023,6 +11023,7 @@
         "ctxProbeKey",
         "dedupeRepeatedReads",
         "economicsShadowEnabledCached",
+        "encodeModelToolResult",
         "estimateFactor",
         "evaporateBudgetBoundary",
         "evaporateHistory",

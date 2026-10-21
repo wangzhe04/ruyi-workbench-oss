@@ -41,6 +41,10 @@ M2/A3 将四处正文 POST 接线收敛到 `04h-provider-http.js / providerModel
 
 生成清册同时列出上述 helper 的调用点；包装函数是生产关系证据，不能再当作新的物理 HTTP 出口相加。模型清单探测/HEAD、原始音频 POST、实时 PCM、MCP HTTP、Web 工具和机器人不应混进这四个模型业务入口来声称它们都受保护。
 
+## M2-2 工具历史编码收敛审阅
+
+`08-agent-runs.js` 七处与 `09-workflow.js` 十处历史编码改为调用 `10-context-governance.js:encodeModelToolResult`。完整结果对象原样传给 `modelToolResult`，其映射持久化完成后才 JSON 序列化并调用原 `truncateToolResult`；来源证明、已执行结果扣留回执、错误传播及各调用方事件/历史配对职责保留。未新增实际外发点，本片不补接收方授权，原 `model-only` / `unknown` 分类不变。依赖图仍为621条边、一个强连通分量。此次按已读差异更新三份产品源及构建manifest/module-contracts指纹；测试证据由本批独立记录提供，不把源码收敛写成完整隐私验收。
+
 ## 外发链路的重要缺口
 
 | 通道 | 真实边界/生产关系 | 当前事实与 M2 后续要求 |

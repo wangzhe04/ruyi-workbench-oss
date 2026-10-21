@@ -1,0 +1,301 @@
+{
+  "date": "2026-10-21",
+  "baseline": "fcee8917",
+  "scope": "M2-2: shared model tool-result history encoding at 7 child and 10 main call sites",
+  "status": "implemented, independently reviewed and verified; ready to commit",
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "8f898a87506021d84bd3b31bcf5cbb9310c763d8bf8db4dcf9efabda1a4c0e8f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "59f4567aa49a56670397b3937b0d104f1be52c4dd35bf83d6049b8ee796a9f4e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "a9e0c10812e31fe49706ab2b77c705078b02e7b660ffcdb22cc0921189bf6a4b"
+    },
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "1e3c864e7824f05d0627defc7ae19c81148f9774a80b512b70878e8d1c11ecd2"
+    },
+    {
+      "file": "dev-harness/unit/model-tool-result-encoding.test.js",
+      "sha256": "746303f87dbd0a80071073a69e74ff2953718ac64653a70f8c5bcb97e6ddc149"
+    },
+    {
+      "file": "dev-harness/privacy-model-tool-result.e2e.js",
+      "sha256": "8f2f9ddc377dc31def4c9aad8f03111204e582524b4c6d521d081bac3e183c46"
+    }
+  ],
+  "contract": [
+    "complete result with source-proof identity -> await modelToolResult protection and mapping persistence -> JSON.stringify -> existing tool-specific truncateToolResult",
+    "callers retain history role, call ID, ordering, events, permissions and real execution",
+    "existing typed withholding receipt and error identities preserved; no replay introduced"
+  ],
+  "targeted": {
+    "newUnit": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0
+    },
+    "newE2eFinalReplays": [
+      {
+        "log": "model-tool-result-final-1.log",
+        "exit": 0,
+        "pass": 4,
+        "fail": 0,
+        "skip": 0
+      },
+      {
+        "log": "model-tool-result-final-2.log",
+        "exit": 0,
+        "pass": 4,
+        "fail": 0,
+        "skip": 0
+      }
+    ],
+    "existingE2e": [
+      {
+        "name": "agent-subturn-loop-guard",
+        "exit": 0,
+        "signal": null,
+        "pass": 12,
+        "fail": 0,
+        "skip": 0,
+        "elapsedMs": 7980
+      },
+      {
+        "name": "provider-turnloop-hardening",
+        "exit": 0,
+        "signal": null,
+        "pass": 31,
+        "fail": 0,
+        "skip": 0,
+        "elapsedMs": 26919
+      },
+      {
+        "name": "subagent",
+        "exit": 0,
+        "signal": null,
+        "pass": 77,
+        "fail": 0,
+        "skip": 0,
+        "elapsedMs": 36496
+      },
+      {
+        "name": "agent-workflow-budget-finalizer",
+        "exit": 0,
+        "signal": null,
+        "pass": 4,
+        "fail": 0,
+        "skip": 0,
+        "elapsedMs": 5531
+      },
+      {
+        "name": "compaction-refetch-guard",
+        "exit": 0,
+        "signal": null,
+        "pass": 11,
+        "fail": 0,
+        "skip": 0,
+        "elapsedMs": 5485
+      },
+      {
+        "name": "privacy-gateway",
+        "exit": 0,
+        "signal": null,
+        "pass": 128,
+        "fail": 0,
+        "skip": 0,
+        "elapsedMs": 58341
+      }
+    ],
+    "existingRelatedUnit": {
+      "tests": 89,
+      "pass": 89,
+      "fail": 0
+    },
+    "inventoryUnit": {
+      "tests": 14,
+      "pass": 14,
+      "fail": 0
+    },
+    "protocolsMcpE2e": {
+      "exit": 0,
+      "pass": 483,
+      "fail": 0,
+      "skip": 0,
+      "scope": "chat/responses/anthropic actual main, child and history tool loops including real managed stdio MCP and file round-trips"
+    }
+  },
+  "initialTestFailures": [
+    {
+      "log": "encoding-unit.log",
+      "exit": 1,
+      "pass": 5,
+      "fail": 1,
+      "note": "Strengthened fixture assertion exposed JS Unicode literal instead of an actual JSON Unicode escape."
+    },
+    {
+      "log": "encoding-unit-fixed.log",
+      "exit": 1,
+      "pass": 5,
+      "fail": 1,
+      "note": "Correct literal escape plus 100K CJK fixture exceeded existing mapping envelope privacy.text_limit; reduced encoded fixture to 36K CJK, still truncated with omitted alias persisted."
+    }
+  ],
+  "syntax": {
+    "existingFilesChecked": 1096,
+    "newFilesCheckedSeparately": 2,
+    "fail": 0,
+    "node": "24.14.0",
+    "note": "Full syntax scan began before the two new tests existed; both final new files separately passed node --check."
+  },
+  "gates": {
+    "buildFreshness": "passed",
+    "fullFastRunner": {
+      "exit": 1,
+      "staticPass": 79,
+      "staticFail": 1,
+      "staticRan": 80,
+      "flaky": 0,
+      "failure": "eol-policy.static.e2e.js: 10 pre-existing working-tree EOL mismatches, retained on automatic retry",
+      "resolution": "Normalized nine LF documents/JSON and one CRLF PowerShell file according to .gitattributes; independent review confirmed content unchanged. EOL targeted recheck passed 5 assertions. No whole fast/unit rerun after EOL-only correction; initial 79/1 result retained."
+    },
+    "eolTargetedRecheck": {
+      "exit": 0,
+      "pass": 5,
+      "fail": 0,
+      "note": "Working-tree line endings only; normalization did not introduce substantive Git changes or alter historical evidence fields."
+    }
+  },
+  "inventory": {
+    "sources": 267,
+    "candidates": 654,
+    "errors": 0,
+    "status": "model-only/unknown unchanged; manually reviewed source fingerprints"
+  },
+  "dependencyGraph": {
+    "modules": 87,
+    "edges": 621,
+    "scc": 1
+  },
+  "independentReview": {
+    "reviewer": "release_priority",
+    "scope": "17 call sites, shared helper, graph, egress inventory, real Gateway semantics and final test assertions",
+    "findings": [
+      "Strengthen one tool_call_id to exactly one history result and check withheld ok/reason; implemented.",
+      "Root review found Unicode fixture used a JS escape rather than a literal JSON escape; corrected with explicit input/snapshot assertions."
+    ],
+    "final": "Approved to commit: product, final tests, evidence/hash bindings, navigation and EOL-only correction independently reviewed; no unresolved blocker."
+  },
+  "externalMaintenanceRootRelativeToRepository": "../ruyi-workbench-maintenance-20261021",
+  "logs": [
+    {
+      "file": "checks/m2-tool-encoding/agent-subturn-loop-guard.log",
+      "sha256": "2100bb403d705f6869c8790e3b57553b907daea3afc9a78760ff2ba781392113"
+    },
+    {
+      "file": "checks/m2-tool-encoding/agent-workflow-budget-finalizer.log",
+      "sha256": "689ac97eff49d447606f9a0a4b034ab12e1a9686d41388524cedb76b83461461"
+    },
+    {
+      "file": "checks/m2-tool-encoding/compaction-refetch-guard.log",
+      "sha256": "a2836e91bbaaa1fad3cf18125accbc5f1b4aa02f4bf674cea45d946993d88d1b"
+    },
+    {
+      "file": "checks/m2-tool-encoding/encoding-unit-final.log",
+      "sha256": "e06bd93f6df2057410508315ea47281ac92055ae9b8e479d81e5b4afe508eba8"
+    },
+    {
+      "file": "checks/m2-tool-encoding/encoding-unit-fixed.log",
+      "sha256": "da2b6e49533fe9e29fec9eff2bbb210949a89c45de7db4429dbb826320e50f31"
+    },
+    {
+      "file": "checks/m2-tool-encoding/encoding-unit-fixed2.log",
+      "sha256": "98c9ec53f2fc33cf8ef43c87d1f6113d34c34e2991973776b4d6c145730625e1"
+    },
+    {
+      "file": "checks/m2-tool-encoding/encoding-unit.log",
+      "sha256": "f8a374d48e240cf7cbfc780bfd30e711d1d618d73201fa7983964929bc0d5ffa"
+    },
+    {
+      "file": "checks/m2-tool-encoding/eol-recheck.log",
+      "sha256": "3d743f9936b9de63d8629541ecc3157cc0c5f63b9ef60df04ccf94b5a5384b44"
+    },
+    {
+      "file": "checks/m2-tool-encoding/fast.log",
+      "sha256": "59cf7d7028008ec9f4b8db76b46a0fc492c5521efbaf7281e16cda0da2439d8a"
+    },
+    {
+      "file": "checks/m2-tool-encoding/final-replays.json",
+      "sha256": "2692ab20ed33783d2cacfdc387b990b3e57f74ab5cb7d14caf3d7c37242e996c"
+    },
+    {
+      "file": "checks/m2-tool-encoding/full-unit.log",
+      "sha256": "85fbbdcec9a74fb09d962a0d7ce5af277bc846cdd78042157aefc224b7da60b0"
+    },
+    {
+      "file": "checks/m2-tool-encoding/model-tool-result-final-1.log",
+      "sha256": "66d98c3d06d6ca2eeeacc9f54e176ae82b5e1a3b29043a686526f5e27c7a7e65"
+    },
+    {
+      "file": "checks/m2-tool-encoding/model-tool-result-final-2.log",
+      "sha256": "66d98c3d06d6ca2eeeacc9f54e176ae82b5e1a3b29043a686526f5e27c7a7e65"
+    },
+    {
+      "file": "checks/m2-tool-encoding/model-tool-result-run2.log",
+      "sha256": "407fc30495504bd8abfa5f0ff64f21e3e59d6fbf6ce846260c2e4471cf4df92c"
+    },
+    {
+      "file": "checks/m2-tool-encoding/privacy-gateway.log",
+      "sha256": "fa4b06ab6da4393d3e9716cdb86ce965590c8348041d4bb4a362b47736cbbae5"
+    },
+    {
+      "file": "checks/m2-tool-encoding/privacy-protocols.log",
+      "sha256": "bec4f82d03ec0cab6396329148656448452ca901cbb57ec327e35849df2fffad"
+    },
+    {
+      "file": "checks/m2-tool-encoding/provider-turnloop-hardening.log",
+      "sha256": "3ba6576f92a1e46f4271ce7bdd33a3cf1d30ca68eb7640d6362adcfbb5b0c8bf"
+    },
+    {
+      "file": "checks/m2-tool-encoding/related-results.json",
+      "sha256": "b1a50dae1695bcabef202d4917fd2008d56730d8deafd739d08956c48ce5e819"
+    },
+    {
+      "file": "checks/m2-tool-encoding/subagent.log",
+      "sha256": "737d0cb3bf206534adf9257486c3de597fa69fc409974da40ec2b96033837731"
+    },
+    {
+      "file": "checks/m2-tool-encoding/test-identity.json",
+      "sha256": "a2e42853c8a1cc7fb78a1b71c9f57c39b7fd077b6813ff8f8fc96d6a80140959"
+    }
+  ],
+  "limits": [
+    "New end-to-end coverage is four representative chat main/child execution cases, not each of 17 branches.",
+    "On non-Windows, the two durable PowerShell cases are explicit SKIP; two file-read cases still run.",
+    "Local vault protector is synthetic; model transport, engine loop, source-proof tools and persisted counters are real.",
+    "The remaining branches are supported by independent 17-call-site diff review and existing targeted E2E, not 17 new individual runtime cases.",
+    "No complete product E2E or release package acceptance.",
+    "M2-3 recipient/purpose/field authorization remains pending; no new recipient protection claim.",
+    "No work-data encryption or migration implementation; daily seamless-use requirement remains normative.",
+    "Independent file namespace, strict CLI isolation and ASR remain deferred."
+  ],
+  "fullUnit": {
+    "tests": 2508,
+    "pass": 2482,
+    "skip": 26,
+    "fail": 0,
+    "durationMs": 305850.3598,
+    "concurrency": 4,
+    "command": "node dev-harness/run-all.js --fast --parallel 4 (included unit stage)"
+  },
+  "navigationValidation": {
+    "localMarkdownTargets": 131,
+    "missing": 0,
+    "note": "External URLs and heading anchors not validated."
+  }
+}

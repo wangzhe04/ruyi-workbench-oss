@@ -2702,7 +2702,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (reg.state !== 'running' || ctrl.signal.aborted) throw Object.assign(new Error('delegation stopped'), { name: 'AbortError' });
       onEvent({ type: 'tool_use', id, name: 'orchestrate_agents', input: args });
       const envelope = await launchOrchestrateFromTurn(args, evt => { touch(); onEvent(evt); }, true);
-      session.providerHistory.push({ role: 'tool', tool_call_id: id, content: truncateToolResult('orchestrate_agents', JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(envelope) : envelope)) });
+      session.providerHistory.push({ role: 'tool', tool_call_id: id, content: await encodeModelToolResult('orchestrate_agents', envelope) });
       toolCalls.push({ id, name: 'orchestrate_agents', input: args, result: envelope });
       onEvent({ type: 'tool_result', id, content: envelope, isError: envelope.ok === false });
       if (envelope.runId && EventStreamHooks.markAgentEnvelopeDelivered) EventStreamHooks.markAgentEnvelopeDelivered(session, envelope.runId);
@@ -3020,7 +3020,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: pargs });
             onEvent({ type: 'tool_result', id: tc.id, content: refuse, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: pargs, result: refuse });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(refuse) : refuse)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, refuse) });
             await notifyToolHookEnd(tc, refuse, iter, 'plan_refused');
           }
           await saveSession(session, turnSaveOpts);
@@ -3190,7 +3190,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args });
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, resultObj) });
             await notifyToolHookEnd(tc, resultObj, iter, 'loop_refused');
             // v1.4.1 (audit #1 配对铁律):若这是【并行批】,break 会漏答本批其后的 tool_call —— 严格 provider
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
@@ -3204,7 +3204,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
-              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
+              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: await encodeModelToolResult(rem.name, skip) });
               await notifyToolHookEnd(rem, skip, iter, 'loop_skipped');
             }
             // v2.7.1 (opt#2): 5x 中止后自主恢复 -- 还有恢复预算时,不硬停:注入恢复指令(user 角色)要求模型换策略,
@@ -3239,7 +3239,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (argsRefused) {
             onEvent({ type: 'tool_result', id: tc.id, content: argsRefused, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: argsRefused });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(argsRefused) : argsRefused)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, argsRefused) });
             await notifyToolHookEnd(tc, argsRefused, iter, 'args_invalid');
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -3253,7 +3253,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const refused = compactionRefetchRefusal(refetch.count);
             onEvent({ type: 'tool_result', id: tc.id, content: refused, isError: true });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: refused });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(refused) : refused)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, refused) });
             await notifyToolHookEnd(tc, refused, iter, 'compaction_refetch_refused');
             touch();
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -3283,7 +3283,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               } catch { /* shadow comparison must never affect the legacy tool result */ }
             }
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, resultObj) });
             markToolProgress(tc, resultObj, iter);
             await notifyToolHookEnd(tc, resultObj, iter, 'control_plane');
             touch();
@@ -3351,7 +3351,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const shownAgentResult = await boundToolResultForDisplay(tc.name, resultObj, { sessionId: session.id }); // N3: 展示副本(agent_result 等可能很大)
             onEvent({ type: 'tool_result', id: tc.id, content: shownAgentResult, isError: isErr });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: shownAgentResult });
-            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(resultObj) : resultObj)) });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, resultObj) });
             markToolProgress(tc, resultObj, iter);
             await notifyToolHookEnd(tc, resultObj, iter, 'agent_orchestration');
             touch();
@@ -3597,7 +3597,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj, 'no-vision');
           }
           // v0.8-S5: tiered truncation — file_read keeps head+tail, others flat 60KB (truncateToolResult).
-          session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(toolResultForHistory) : toolResultForHistory)) });
+          session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, toolResultForHistory) });
           markToolProgress(tc, resultObj, iter);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -3617,7 +3617,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               onEvent({ type: 'tool_use', id: rem.id, name: rem.name, input: rargs });
               onEvent({ type: 'tool_result', id: rem.id, content: skip, isError: true });
               toolCalls.push({ id: rem.id, name: rem.name, input: rargs, result: skip });
-              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: truncateToolResult(rem.name, JSON.stringify(typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(skip) : skip)) });
+              session.providerHistory.push({ role: 'tool', tool_call_id: rem.id, content: await encodeModelToolResult(rem.name, skip) });
               await notifyToolHookEnd(rem, skip, iter, 'steer_skipped');
             }
             steerAborted = true;
