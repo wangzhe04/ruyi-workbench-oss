@@ -864,7 +864,7 @@
 
 **背景**:V2.0 第一波。toolCall() 的 50 分支 switch(14886-15580,约 700 行)是 tool-dispatcher 模块化的最大障碍,也是「新工具忘了挂护栏」事故(archive 漏 guard、desktop_screenshot 越界)的结构性温床。
 
-**41a 表驱动拆分**:codemod(codemod-toolcall-table.js)机械搬运 —— 50 个 case 原文转入 `TOOL_DISPATCH` 注册表(9 组 `{paths, guardNote, handler}`,按 file/shell/script/desktop/network/archive 分域);toolCall 缩为 4 行查表分发;装时机重名断言(静默覆盖 = 启动即炸)。转写完整性机器证据:codemod 干跑 50/50 + 实质行多重集 diff 对消(零丢失)。
+**41a 表驱动拆分**:codemod([codemod-toolcall-table.js](../../dev-harness/archive/codemod-toolcall-table.js))机械搬运 —— 50 个 case 原文转入 `TOOL_DISPATCH` 注册表(9 组 `{paths, guardNote, handler}`,按 file/shell/script/desktop/network/archive 分域);toolCall 缩为 4 行查表分发;装时机重名断言(静默覆盖 = 启动即炸)。转写完整性机器证据:codemod 干跑 50/50 + 实质行多重集 diff 对消(零丢失)。
 
 **41b guard 声明化行为锁**:tool-dispatch.e2e(18 断言)—— 内省注册表非 grep 源码形状,是 V2.0「静态锁行为化迁移」的第一个样板:每个 exec/edit 级工具必须显式声明 guard(guardNote 非空),未知工具显式 tier 而非靠兜底。首擒两条真实 drift:① `permission_prompt` 无 tier 声明(靠 unknown→exec 兜底)→ 已显式化;② **`project_snapshot` 缺读闸**(file_list/file_search/glob 同族都有,远端模型可越界列目录)→ 已补 —— 注册表的第一个实战成果。
 
@@ -887,7 +887,7 @@
 
 ## 40. 第43波:V2.0「立柱」主梁 —— 构建期拼接模块化(42a 方案A 落地)
 
-**切片(43a/43b)**:18,485 行单体 → `app/src/` 15 模块(388-2362 行,43a 程序验证 15 个切点全部「前一行空白+切点顶格」;codemod-slice-modules.js 机械切,不手工搬)。`app/build.js` 零依赖拼接器(manifest.json 顺序 join('\n'),tmp+rename 原子写,装载首行自检)。**首轮切片 git diff 为空(字节级不变)已证**;dev-harness/src-reader.js 逻辑全文 === 产物已证;548 条静态锁零迁移存活。dev 循环实测:改 src → build → 产物 +9 行(banner),一切正常。
+**切片(43a/43b)**:18,485 行单体 → `app/src/` 15 模块(388-2362 行,43a 程序验证 15 个切点全部「前一行空白+切点顶格」;[codemod-slice-modules.js](../../dev-harness/archive/codemod-slice-modules.js) 机械切,不手工搬)。`app/build.js` 零依赖拼接器(manifest.json 顺序 join('\n'),tmp+rename 原子写,装载首行自检)。**首轮切片 git diff 为空(字节级不变)已证**;dev-harness/src-reader.js 逻辑全文 === 产物已证;548 条静态锁零迁移存活。dev 循环实测:改 src → build → 产物 +9 行(banner),一切正常。
 
 **接线(43c)**:run-all.js 起跑前 freshness 门(--check → 落后自动重建,失败拒跑;build.js 不存在跳门兼容单体时代);.github/workflows/e2e.yml 加 build --check fail-fast(CI 拒陈旧入库,与开发机的自动重建分工);build-overlay.js 打包前 --check + src 清单 manifest 驱动;package-offline.ps1 同款门;README 单文件叙事更新为「产物单文件,源码 15 模块」。
 

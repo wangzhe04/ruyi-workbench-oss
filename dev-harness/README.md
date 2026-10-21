@@ -1,5 +1,7 @@
 # dev-harness —— 如意 Ruyi 后端契约验证脚手架
 
+历史一次性迁移和临时复现见 [归档清册](archive/README.md)；这些文件不是当前测试或维护入口。
+
 本目录维护工作台(`ruyi-workbench`)与桌面控制(`ai-computer-control`)的**离线 e2e** 与假件(fake)。
 纯 Node、零 npm;路径已改为 `__dirname` 相对解析(dev-harness 与两子项目同级),**无需手改 WB 路径**。
 

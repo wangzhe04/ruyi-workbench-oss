@@ -3,7 +3,7 @@
 > **2026-08-27 新旧规划衔接**：本文保留为原壳层线的决策与交付依据；新引擎版 Pretender 3.0 的范围、证据分类与发布门改由 [22 号方案](../optimization-plan/22-agent-soc-microarchitecture.md) §8 管理。下文“换容器、不换引擎”、壳层目标及旧工期不再统管新引擎线，不代表允许重写既有执行资产。
 > P1–P3 工程成果保留；正式外部人因验证未执行，不能宣告 Product Ready；第101／102波和默认切壳继续搁置，恢复时须重新评估相关前置。安全、契约、迁移／恢复等通用门不豁免；正式发布批准前继续冻结 Pretender／3.0 用户界面与发布物正名。
 > **C2 触发点显式修订**：双壳退出时钟绑定“首次默认启用新壳的公开 Release”，不再仅由 3.0.0 引擎版发布触发。相对 release 次数与 6 个月的强制评审要求保留，详见下文 C2；其余历史决定不因本轮文档修订自动恢复或改记完成。
-> **2026-08-30 架构前序衔接**：当前主树已存在 75b 的唯一 `decideIntervention()`、Mission-scoped contract 与四类经典适配器，T1／T2／S2 不得改写成“待 103 落码”。[第 103 波](../optimization-plan/23-architecture-repayment-sequence.md)只补 command surface 快照、路由声明与模块／存储结构债，并作为未来恢复旧壳 P4 时的成文结构前置；104／105 的上下文演进不自动恢复人因或默认切壳。
+> **2026-08-30 架构前序衔接**：当前主树已存在 75b 的唯一 `decideIntervention()`、Mission-scoped contract 与四类经典适配器，T1／T2／S2 不得改写成“待 103 落码”。[第 103 波](optimization-plan/23-architecture-repayment-sequence.md)只补 command surface 快照、路由声明与模块／存储结构债，并作为未来恢复旧壳 P4 时的成文结构前置；104／105 的上下文演进不自动恢复人因或默认切壳。
 
 状态:**已拍板 v4(2026-07-30)**。四轮决策:
 - **第一轮(拍板)**:D1=方案 B(mission.id 稳定主键)、D2=做叙事镜头 v1 规则版、D3=先发 Escapade 2.3.0 再进 P1(§6)。
@@ -11,7 +11,7 @@
 - **第三轮(多代理对抗审判修订)**:四路只读代理(架构/工程/范围攻击 + steelman 辩护)+ 独立裁决,17 条发现裁决 **13 confirmed / 3 plausible / 1 refuted**,总裁决 **revise-major**。主会话对全部 confirmed 证据逐条亲验属实后修订:**契约幂等持久地基**(T1 拍板)、**决策路由改形带 missionId 段**(T2 拍板)、Intervention seq/settle 字段/撕裂尾行焊行/双壳跨路径四处数据缺口入 74–75 波交付清单、75b 阈值门前置成文、北极星指标可测化并删除「成文豁免」后门、C2 死线加日历兜底、stall 类型补拍板程序、工期加 DoD 乘数与时钟锚点(§6)。
 - **第四轮(契约与门语义复核)**:补齐 Intervention 状态 CAS 与崩溃中间态、规定旧端点必须收敛到同一 command core、以 Mission 级 `changeSeq` 取代脆弱的复合 lastSeenCursor、把三层门细化为五层、拆分第75波、收紧 1:N「零迁移」表述,并把双壳日历死线改为强制决策日而非无条件删除日(§6)。
 
-依据:`docs/UI-VNEXT-CONCEPT.md` §8–§11、`docs/archive/PRETENDER-GATE-REVIEW.md`(第56波评审,GO 有条件 4 条)、路线图 EC-E 三切片(70/71/71b/72)已交付事实。
+依据:`docs/archive/UI-VNEXT-CONCEPT.md` §8–§11、`docs/archive/PRETENDER-GATE-REVIEW.md`(第56波评审,GO 有条件 4 条)、路线图 EC-E 三切片(70/71/71b/72)已交付事实。
 配套:`docs/archive/PRETENDER-GATE-REVIEW.md`、`docs/OPTIMIZATION-ROADMAP.md`。
 本文书是「规划」不是「承诺」:波次划分可随实施反馈重切,但**范围冻结项、四条附加条件、非目标、双壳退出死线、§6 四轮拍板项、§8 降级序**不得静默修改,改动必须成文。
 
@@ -90,7 +90,7 @@ v2 补充:**3.0 不交付 1:N 多会话 Mission**(移 3.1,见目标 1);conflict/
 ### P1 · 领域基础收尾 + 契约与规模门(第74–75c波)
 
 **第74波 · schema 冻结文书 + 威胁模型 + 权威状态协议**
-- 交付:`../MISSION-SCHEMA.md`——覆盖 `docs/UI-VNEXT-CONCEPT.md` §9 的 Mission projection / Intervention 全字段,冻结字段类型、权威来源、可变性、事件语义、schema version 与迁移契约。missionId 按 D1 成文,明确 3.1 的1:N只保证身份不重映射,不承诺存储零升级。
+- 交付:`../MISSION-SCHEMA.md`——覆盖 `docs/archive/UI-VNEXT-CONCEPT.md` §9 的 Mission projection / Intervention 全字段,冻结字段类型、权威来源、可变性、事件语义、schema version 与迁移契约。missionId 按 D1 成文,明确 3.1 的1:N只保证身份不重映射,不承诺存储零升级。
 - **Intervention 状态协议**:
   - 权威键=`(missionId, interventionId)`,版本=`interventionVersion`;状态转换=`pending → applying → terminal`,并定义崩溃恢复态 `indeterminate/cancelled_restart`;
   - `expectedVersion` 参与 CAS;`idempotencyKey` 是请求重试键而非业务唯一键。相同 key 返回已存响应,不同 key 命中终态返回 409;

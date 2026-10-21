@@ -8,7 +8,7 @@
 > 基线：论文《MicroAgent: Context-Augmented Multi-Agent Framework for Automatic Microservice Decomposition》（arXiv:2606.29742v1，CUHK + 中山大学，2026-06）× Ruyi 现状对照（2026-08-10，主会话亲自工具核查，未用子代理报告）。
 > 行号对应核查时的 `app/src/*.js` 当前版本，改动后会漂移，请以就近搜索为准。
 > 性质：只读对照分析 + 候选优化项，未改动任何现有代码；定位为 06（HB360 成本收敛）的姊妹篇——06 治「单 agent 烧 token」，本文治「编排层的方法论沉淀」。
-> **排期校准（2026-08-30）**：A／B／C／F 的相关成果已通过独立提交交付，D 的两个方法论工具也已交付；这些名称是候选批次，不是实际“第 N 波”记录。此前 Roadmap 的“第 103 波起”占位已撤销，第 103 波现用于 [23 号架构偿还序列](23-architecture-repayment-sequence.md)；本方案未完成项继续按候选单独立项，不抢占波次号。
+> **排期校准（2026-08-30）**：A／B／C／F 的相关成果已通过独立提交交付，D 的两个方法论工具也已交付；这些名称是候选批次，不是实际“第 N 波”记录。此前 Roadmap 的“第 103 波起”占位已撤销，第 103 波现用于 [23 号架构偿还序列](../archive/optimization-plan/23-architecture-repayment-sequence.md)；本方案未完成项继续按候选单独立项，不抢占波次号。
 
 ---
 

@@ -1,5 +1,5 @@
 'use strict';
-// 3.0 收口走查(第四波,docs/RELEASE-3.0-AUDIT-2026-10-08.md)后端安全 / 数据修复的回归钉。真源码、临时 HOME、零外网。
+// 3.0 收口走查(第四波,docs/archive/RELEASE-3.0-AUDIT-2026-10-08.md)后端安全 / 数据修复的回归钉。真源码、临时 HOME、零外网。
 //   [C] 0 字节 / 全空白的 config.json 从 .prev 恢复(修前当全新安装,两次保存后含密钥的 .prev 被覆盖);
 //   [D] 管家代批:命令超出扫描窗口 / 嵌套过深(scan_incomplete)、http_request 打本机内网(internal_target)一律交回用户;
 //   [G] 智能自动档:http_request 指向回环 / 内网 / 链路本地(含云元数据,各种 IPv4 写法)停下来问;公网照旧放行;

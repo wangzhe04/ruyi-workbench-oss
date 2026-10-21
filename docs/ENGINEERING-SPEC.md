@@ -3,7 +3,7 @@
 > 阅读口径：结构与提交约定继续使用；下文规模表和“拆分顺序”保留起草时基线。当前模块、路由和跨模块关系分别核对[模块依赖清册](architecture/module-dependency-graph.md)与[路由清册](architecture/route-inventory.md)，实施优先级见[当前路线](OPTIMIZATION-ROADMAP.md)。
 
 > 状态（2026-09-03）：第 110 波「结构化重构与代码精简」阶段①「SPEC 先行」交付物，来源为
-> [`docs/optimization-plan/24-waves-108-110-implementation.md`](optimization-plan/24-waves-108-110-implementation.md) §3.2 大纲。
+> [`docs/archive/optimization-plan/24-waves-108-110-implementation.md`](archive/optimization-plan/24-waves-108-110-implementation.md) §3.2 大纲。
 > 本文只回答「怎么切、切到哪、什么算过门」，不新增或修改任何运行时行为。
 > 起草基线：HEAD `b80e36b` 加第 108 波在途工作树改动（行数表里 `09-workflow.js` 等数字含在途增量）；第 110 波开工时按 §4 步骤 1 重新实测后再冻结本表。
 
@@ -16,13 +16,13 @@
 `mcp/ai-computer-control`（桌面控制 MCP，Python 独立打包）。
 
 本文**不复述**贡献红线，只引用：五条硬约束见 `CONTRIBUTING.md:5-11`；范围冻结与统一纪律见
-[`23-architecture-repayment-sequence.md` §1](optimization-plan/23-architecture-repayment-sequence.md)（`docs/optimization-plan/23-architecture-repayment-sequence.md:28-34`）。
+[`23-architecture-repayment-sequence.md` §1](archive/optimization-plan/23-architecture-repayment-sequence.md)（`docs/archive/optimization-plan/23-architecture-repayment-sequence.md:28-34`）。
 两者与本文冲突时以两者为准，本文只是二者在「模块怎么拆、命名怎么起、锁怎么改」这一具体问题上的操作细则。
 
 **规范与现状不符时的处理原则**：本文第 2 节列出的规模上限在起草时已有 10 个文件超限（见该节清单表）。
 超限文件**先登记待办**，不自动构成违规、不阻塞其他改动、不需要立即整改。只有*新建*文件违反硬上限，
 或者一次提交让某文件的超限程度继续恶化，才算违规。存量超限的收敛节奏由第 110 波
-[§3.3 拆分顺序表](optimization-plan/24-waves-108-110-implementation.md)（本文第 10 节复制）安排。
+[§3.3 拆分顺序表](archive/optimization-plan/24-waves-108-110-implementation.md)（本文第 10 节复制）安排。
 
 ---
 
@@ -228,7 +228,7 @@
 
 ## 7. 前端
 
-- **产品 UX 红线（2026-09-03 用户拍板）**：**不得实现「给用户一个路径或命令，让他自己去别处打开」的交互**。用户不应为完成一件事而离开如意——手册在应用内阅读、文件夹与日志由应用内的动作打开、设置在应用内改。只能给出路径的地方，先补一个真正可点的动作再谈文案。（canonical 表述见 `docs/optimization-plan/28-wave-118-onboarding.md` §2，管家侧展开见 27 号 §8.1。）
+- **产品 UX 红线（2026-09-03 用户拍板）**：**不得实现「给用户一个路径或命令，让他自己去别处打开」的交互**。用户不应为完成一件事而离开如意——手册在应用内阅读、文件夹与日志由应用内的动作打开、设置在应用内改。只能给出路径的地方，先补一个真正可点的动作再谈文案。（canonical 表述见 `docs/archive/optimization-plan/28-wave-118-onboarding.md` §2，管家侧展开见 27 号 §8.1。）
 - **原生 ES Modules，无 bundler**：`app/public/js/*.js` 直接以脚本模块方式被 `index.html` 引用，构建期
   不经过任何打包器；这是既有前端交付方式，本波不引入 bundler。
 - **CSS 载荷分组变更必须同 commit 重钉 `LEGACY_STYLES_SHA256`**（`dev-harness/read-frontend-css.js:90`），步骤：

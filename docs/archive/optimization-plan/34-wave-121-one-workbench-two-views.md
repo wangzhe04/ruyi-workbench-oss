@@ -1,0 +1,628 @@
+# 34 · 第 121 波 · 一台两视：管家视角与工作台视角共用一台（设计稿 v2；交办台退役；即时推送）
+
+> **归档说明（2026-10-21）**：下文保留原始设计、执行与验收事实；其中“当前”“未合并”“下一轮”等状态按原日期解释。今日范围与发布门见 [86 号路线](../../optimization-plan/86-3.1-completion-and-privacy-roadmap.md)。归档不表示遗留项全部完成。
+
+<!-- document-status:start -->
+> **阅读口径（2026-10-16）：历史设计与实施记录。** 正文 §13/§14 记录刀序出门；两视角与交办台退役是已有能力，后续界面变化见 [57 号](57-wave-137-parallel-seven.md)。
+> 当前 3.x 排期与发布门以 [62 号管家迭代方案](../../optimization-plan/62-steward-3x-iterations.md) 为准，4.0 暂缓。下文保留历史原话、决定、默认值和测量；行号以对应历史基线为准，不把旧排期或未完成项自动转成新决定。
+<!-- document-status:end -->
+
+> **状态**：设计稿 v2（2026-09-10 晚，Fable 设计与验收；Opus／Sonnet 实现）。行号按 master `e2ebf42`。
+> **交互原型**：<https://claude.ai/code/artifact/f389c702-7b7b-4eae-85f6-54108caee4e9>（v2：可切视角、可模拟线程提问／收工／开新任务、带 ①…⑫ 标注、切换动效已做进去）；仓内副本 `docs/mockups/one-workbench-two-views.html`。
+> **与前文的关系**：本文接替 27 号文 §8.2 的信息架构（「三壳互斥＋2.0 视窗」），§8.1／§8.3–§8.13 的原则、avatar、对话语法、递话、抽屉里的「话」**全部沿用**；§11.15 的「一枚线程卡三种密度」沿用并扩到左栏。33 号文的重复审计是本文 §3 的依据。
+> **波次编号**：120 仍留给「组合编排与轨迹复用」（27 号文 §10），本波取 121。
+> **第二轮（2026-09-10 晚）**：用户看过 v1 原型后的四条反馈已吸收（§0.1）；§11 五条拍板**全部按推荐落定**，本波可按 §9 开工。
+
+---
+
+## 0. 用户原话与一句话
+
+用户（2026-09-10）六条：① 从 3.0 打开 2.0 显示很复杂，顶上一套 3.0 的配置和下面 2.0 的配置矛盾，认知成本高；② 交办台／任务台取缔，代码删掉，默认入口改成 3.0 管家；③ 设计一套 3.0／2.0 并存的交互，用户能随意切换——管家开了线程，用户能到 2.0 里随意开线程、插话，管家也能感知；④ 3.0 全屏太稀疏，把后续规划的功能点加进来；⑤ 3.0 的线程和看板体验差、更新不及时；⑥ 先出设计与原型，实现交给 Opus／Sonnet。
+
+**一句话**：不再是三个互斥的壳，而是**一台工作台的两种视角**——顶栏一个切换钮，左栏任务索引两边共用，切换只换中间与右栏；管家开的任务你能在工作台里直接接手，你在工作台开的任务管家看得见、不插手；「更新及时」靠一条服务端推送替代 5／15 秒轮询；交办台整体删除，管家视角成为默认入口。
+
+### 0.1 用户第二轮反馈（2026-09-10 晚，对着 v1 原型）
+
+> 「其实我觉得还不错，但我觉得管家层显示的内容有点多，整个界面文字有点太多了，然后管家层的线程是否改为任务为分类会更好？（疑问，看你怎么想），然后不用把用量/耗的钱放在每个页面；然后要确保切换界面的动效要足够丝滑美观，其余的就按你推荐的来就行」
+
+四条的落点：
+1. **文字太多** → §2.4 立「文字预算」：头部一行状态；每条管家的话一句结论＋≤2 段；按钮 ≤2；「※ 依据与回执（N）」折成一个 ※；卡头不印模型名；来源用图形不用字；composer 不印快捷键提示；频道条退役（左栏就是索引，不再画第二遍）。
+2. **以任务为分类** → **改，而且两视角都改**。管家视角的单位本来就该是任务：用户对管家说的是「看博纳」「写周报」，不是「第 3 条会话」；管家的路由、委托、收工回执也都落在任务上；真机数据里任务与线程绝大多数一比一（§11.15.2 病 2），按线程分类等于把同一个名字印两遍。所以左栏按**任务**分组（§2.3 改写）：一个任务只有一条线程时就是一行；≥2 条时可展开看线程；色号按任务分配（线程继承）。工作台视角操作的仍是线程，线程头用「任务 › 线程」面包屑（只在多线程任务时出现）。术语：**任务 = mission**（119 波已把「事项」归一为「任务」），**线程 = session**。
+3. **费用不上每页** → §7.2：费用只在右栏「用量」页签与体检里出现；顶栏、左栏、焦点栏、工作台线程头、口袋一律不印钱。v1 原型里的「今天」四格删除。
+4. **切换动效** → §2.9 动效规格（View Transitions；左栏与顶栏不动、中栏滑、右栏淡、焦点卡标题与色条跨视角变形；reduced-motion 即时）。
+5. **其余按推荐** → §11 五条全部落定：视角命名「管家｜工作台」；索引口径「在途 ∪ 今天 ∪ 最近 30 ∪ 管家盯的」；`stewardEnabledV1` 默认 `true`；通知策略层改名 `notify-policy.js` 保留；`13e-pretender-index.js` 本波不改名。
+
+---
+
+## 1. 摸底结论（对着源码数的，不是推的）
+
+### 1.1 三个壳今天怎么切
+- 唯一状态源是 `<html data-shell-mode>`，三值白名单 `['classic','preview','steward']`（`js/preview-shell.js:41`），未知值回落 `classic`。预绘制脚本 `index.html:71-78` 只认 `'preview'|'steward'`，**默认 `classic`**。
+- 后端门 `stewardEnabledV1: false`（`src/01-config.js:295`）：即使本机偏好存了 `steward`，配置没到之前也先起经典壳（`js/steward-shell.js:159-166` 准入，`:341-356` 配置到达后复核并 fail-closed）。
+- **`applyShellMode` 住在 `js/preview-shell.js:379-401`**，是 `data-shell-mode` 的唯一常规写者；`app.js:995` 把它注入管家壳。所以**交办台今天是管家壳的启动依赖**——删交办台必须先把它搬走（§8.2）。
+- 用户能切壳的入口有 8 处：设置下拉 `#cfgShellMode`（`index.html:891-899`）、侧栏「交办台」`#openPreviewBtn`（`:103`）、预览「返回经典」、3.0 输入区「经典模式」`#stewardClassicBtn`（`:623`）、头像菜单「整体切到 2.0」（`js/steward-conversation.js:1923-1930`）、看板顶「整体切到 2.0」（`:653`）、看板行／抽屉「2.0 视窗」（`js/steward-board.js:698`、`js/steward-drawer.js:1088-1093`）、管家总开关关闭强制回经典（`js/steward-settings.js:173-186`）。**八个入口，三种语义**（整体切／按会话切／被迫切），这就是「认知成本高」的结构原因。
+
+### 1.2 「2.0 视窗」为什么显示矛盾（用户第 ① 条）
+- `js/steward-classic-window.js`（148 行）：`openClassicWindow(sessionId)`（`:82-90`）＝写 `sessionStorage['wcw.stewardReturn']` → `applyShellMode('classic')` → `openSession(id)` → 画返回带。
+- 返回带 `#stewardReturnBand`（`index.html:128-136`）挂在 `main.chat-pane` 第一个子节点，里面 `#stewardReturnChips` 用 `createQuickSwitchChips` 造 **权限＋模型＋引擎** 三枚 chip（`js/steward-chips.js:908-909`，`compact` 默认 false `:455`）。
+- 它下面的 2.0 顶栏（`index.html:137-179`）**原样全画**：`#permChip`（`:159`）、`#modelChip`（`:166`）、`#workspacePicker`、`#contextMeter`……没有任何隐藏规则。
+- 两套 chip 不只是重复，**语义不同**：返回带那枚直接 `PATCH /api/sessions/:id`（只改本会话）；2.0 顶栏那枚 `setEngineModel` 在改会话的同时 `POST /api/config` 改全局默认（`js/navigation-controls.js:275-296`；119 波给它加了 `opts.scope`，2.0 不传时行为未变）。同屏两枚控件、两种写法、一份数据——这是 33 号文 §0 记下、本波必须收掉的账。
+
+### 1.3 管家为什么看不见你在 2.0 开的线程（用户第 ③ 条）
+- `/api/missions` 的行＝`index.sessions.filter(row => row.card)`（`src/13d-core-domain-routes.js:821`；`src/13e-pretender-index.js:208`）。
+- card 只在 `kind === 'mission' || stewardWatchedThread(head, sid, missionId)` 时生成（`13e:158-161`）；`stewardWatchedThread`（`src/06i-steward-core.js:823-828`）只认 `head.stewardQuick`、`head.launchedBy === 'steward'`、`missionId !== sessionId` 三种。
+- 所以**用户在 2.0 里开的普通会话（无 mission 账本、`missionId === sessionId`、非管家起）没有 card，永远不进 `/api/missions`，永远不上看板**。`13e:150-157` 的注释写明这是刻意的（「用户自己在 2.0 里聊的几百条普通会话一律不进」）——理由是噪音，不是能力。
+- 收件箱（`src/13i-steward-inbox.js`）五种事件 `needs_you | failed | done | stalled | budget`（`:76`）。回合结束事件在 `:714/:746` 按 `watched` 过滤——2.0 会话跑完一回合管家收不到；但**待决不过滤**（`:784-796` 走遍所有索引会话）——2.0 会话弹出的权限／提问**已经**会进收件箱成 `needs_you`。也就是说管家今天「半看得见」：它会替你操心 2.0 线程的提问，却在界面上找不到那条线程。
+- 认领路径服务端有（`missionAttachThread`，`src/02-session-store.js:3851,:3906,:3950`；`POST /api/missions/:id/...` `13d:897`），**前端没有任何入口**；抽屉的「交回管家」只是 `closeDrawer()`（`js/steward-drawer.js:1272-1280`）。
+
+### 1.4 为什么更新不及时（用户第 ⑤ 条）
+- **没有任何服务端推送**。全仓只有两条 NDJSON 写流，都是「谁起的回合谁收」：`src/10-context-governance.js:2333-2399`（`POST /api/chat/stream`）与 `src/13h-steward-runner.js:246-309`（管家自己的回合）。没有 SSE、EventSource、WebSocket、long-poll。27 号文 `:20` 早写了「不存在进程内 pub/sub」。
+- 扇出点是 `activeChildren`（`src/04-permission-runtime.js:95`）——`sessionId → {…, onEvent}`，**单订阅者**（`src/05-claude-engine.js:493` 装、`:841-842` 卸）。**K2a 实测修正**：`reg.onEvent` 只看得见桥接／MCP 那一路；两个引擎自己流出的 `assistant_delta/tool_use/tool_result` 走各自本地 `onEvent` 包装，唯一交汇点是 `04 appendLiveTail`——所以旁路装在两处（`04:164` 与 `04:199 installActiveChildEventFanout`）。
+- 前端三条轮询（常量 `js/steward-chips.js:253-255`：最小 5000、默认 15000）：壳（`js/steward-shell.js:300`，打 `/api/steward/state`）、看板（`js/steward-board.js:1011`，打 `/api/missions?limit=200`＋`/api/steward/arbiter`，**看板关着不跑** `:1014-1017`）、抽屉（`js/steward-drawer.js:1203`，打 `/api/sessions/:id`＋`/api/interventions`，抽屉关着不跑）。2.0 那边非发起端也是 3 秒轮询（`js/session-experience.js:815,866`）。
+- 中途动作**有**，但只在一个端点上：`reg.liveTail = {text, tool, updatedAt, iterations, tools[]}`（`04:121`）经 `GET /api/sessions/:id` 出（`13d:275-289`）；**`/api/missions` 行里没有**，看板行天生画不出「正在调什么工具」。
+- 五态服务端是即时的（`13d:660-677` 每次请求派生，`activeTurn` 读内存 `13e:414,425`），慢的全在客户端轮询与开关门。
+- 今天事件到看板的最坏延迟：
+
+| 事件 | 延迟 | 原因 |
+|---|---|---|
+| a. 线程开始跑 | ~15 s（看板关着 ∞） | 起跑前一拍 `anyThreadRunning()` 还是 false，走 15 s 档（`steward-board.js:997`） |
+| b. 线程收工 | ~5 s；标题／摘要再滞后数分钟 | 五态与 `lastSay` 快档；`threadBrief` 异步限流（`src/06-provider-engine.js:1196`） |
+| c. 线程提问 | 5–15 s（看板关着 ∞） | avatar 的「等你」计数是看板的透传（`steward-shell.js:267`） |
+| d. 中途工具调用 | **永远看不到** | `/api/missions` 无 `liveTail`；只有打开的那一条抽屉 5 s 一刷 |
+| e. 管家新开线程 | 最长 ~30 s | 收件箱 tick 15 s（`13i:967`）＋看板闲档 15 s |
+
+- 三把逐字锁钉着这些 `setInterval`：`dev-harness/steward-walkthrough.static.e2e.js:195-212`、`steward-avatar.static.e2e.js:99,150-155`、`live-full-text.static.e2e.js:90-101`。换推送要重钉（§6.4）。
+
+### 1.5 宽屏为什么稀疏（用户第 ④ 条）
+`css/views/steward-shell.css:37-56`：舞台是 `width: min(1280px, 100%)` 的玻璃卡片，卡片里头部／对话／输入又钉 `max-width: 800px`（`:60-66`），右栏 390px（`steward-board.css:477-484`）。1920 宽下两侧各空 300 多像素，卡片里再空 240。这是 115 波纸面原型（`docs/mockups/steward-shell.html`）的「居中一张卡」被 117i 原样搬进产品的结果，当时只做了 1000–1280 宽的验证。
+
+### 1.6 交办台今天占多少
+8 个 `js/preview-*.js` 共 4,075 行、`css/views/preview-shell.css` 1,985 行、`previewShell.*` 508 键 × 4 份目录、18 件 `dev-harness/pretender-*.e2e.js` 共 4,123 行、`index.html` 约 90 行、`app.js` 约 120 行；**合计约 12,400 行**。后端**一行不用删**：`src/13e-pretender-index.js` 是 Mission／Intervention 投影索引，`/api/missions`、`/api/interventions` 的靠山，管家壳全靠它。细目见 §8。
+
+---
+
+## 2. 设计：一台两视（信息架构）
+
+### 2.1 原则
+沿用 27 号文 §8.1 全部九条，另加四条：
+10. **一份数据一处控件**：同一条线程的权限／模型／引擎在任一视角只画一次；不存在「上面一套下面一套」。
+11. **视角切换不丢现场**：切回管家视角时对话流、焦点任务、滚动位置原样；切到工作台时上次选中的线程仍选中。视角是投影，不是导航。
+12. **看得见 ≠ 插手**：管家对索引里的每个任务都看得见（状态、最后动静、是否在问你），但只对「管家开的」和「你交给它的」动手；你正坐着的那条线程它绝不代答、不递话。
+13. **文字预算**（第二轮）：界面上每个位置的字都有上限（§2.4）；能用图形、颜色、位置表达的不用字；数字只在改变用户动作时出现（在跑／等你计数留，费用不留）。
+
+### 2.2 顶栏（两视角同一条，46px）
+左：品牌标＋「如意」。中：**视角切换**分段钮「管家 ｜ 工作台」（滑块式，快捷键 Ctrl+`）。右：全局状态胶囊「N 在跑 · M 等你」（点开＝左栏滚到该组）、盾牌「新任务默认权限」（§8.6 不变）、**一键停机**（电源符，管家专用；线程停止仍是实心方块——F5a 已立）、设置。
+- 3.0 头部今天的「细节」开关移到管家视角中栏头部右侧（只影响对话流，不该在全局顶栏）。
+- 2.0 顶栏今天的 `#uiModeToggle`／`#themeToggle`／`#moreMenuBtn` 收进设置齿轮菜单；`#toggleToolsBtn`（收起右栏）保留为右栏自己的折叠钮。
+- 顶栏**不印**费用、线程总数、模型名。
+
+### 2.3 左栏：任务索引（两视角共用，268px；「看板」密度 440px；≤980 折成 56px 图标栏）
+- **单位是任务**（mission）。头：「任务 · N」＋「看板」密度切换（图标）；搜索框（Ctrl+K）；一个「＋」按钮，**两视角两种含义**（用户 2026-09-10 晚追加）：管家视角印「＋ 新任务」＝让如意另起一件（点击只把输入框目标切成「→ 如意 · 另起一件」并聚焦，回车后由管家开任务与首条线程，走 `steward_thread_new`）；工作台视角印「＋ 新线程」＝立即开一条线程、自成一个任务（与今天的「新会话」同义，走 `createSession`），**并且像今天 2.0 的「新会话」一样清空中栏现场**（用户 2026-09-10 晚追加）：消息流、附件托盘、草稿、「它正在跑」卡、右栏「项目与进度」的本轮变更全部归零，不把上一条线程的任何内容带进新线程；左栏选中行切到新线程；工作区沿用上一条线程的（这是唯一保留的上下文）。给**已有任务**加兄弟线程不走这个钮，走任务行悬停动作「＋ 线程」（两视角相同，走 `missionAttachThread`）。
+- **按任务的聚合状态分组**：等你 ／ 在跑 ／ 排队（含暂停）／ 今天收工 ／ 更早（默认折叠）。聚合＝子线程五态确定性聚合（等你 ＞ 失败 ＞ 在跑 ＞ 排队 ＞ 收工），复用 `mission-state.js`，不另起状态机。组头带计数，「等你」金色、「在跑」青花蓝。
+- **行＝任务卡最紧密度**：3px 色条（色号**按任务**分配，同一张 hue 表，线程继承任务色）＋任务名＋聚合五态药丸＋来源图形（管家开的＝环、我开的＝人形、定时＝钟；悬停才出字）。**第二行只在有话可说时出现**——在跑：`工具 · N 秒前有输出`；等你：问句前 22 字；排队：等待原因（等你／等锁：被谁占着／等并发位：前面还有几条）；收工：**不印**（药丸已经说了）。
+- **多线程任务**：任务名旁一个小计数与折角，点开展开缩进的线程行（色点＋线程名＋五态药丸）；含等你／在跑的任务默认展开。一个任务只有一条线程时**就是一行**，不多画任何层级（§11.15.3 B1 的口径搬到左栏并反过来：任务是主，线程是展开项）。
+- **「看板」密度**：栏加宽到 440px，每行多一行事实（验收 a/b · 线程数 · **只在与全局不同时**印权限——§11.15.7 判据 `chipsWorthPrinting` 不新增第二份；**不印费用**）；悬停出一行动作（暂停／继续／停止／插队／在工作台打开）。今天的看板浮层 `#stewardBoard`（`index.html:632-658`）**退役**，它的并发上限「同时最多 5」与「全部暂停」搬到看板密度的栏头。
+- **口袋**（栏底，常驻，取代头像菜单）：定时任务（带数量）、行动流水、记得的关于你（新写入 24h 带「新」）、体检 · 用量（**不带金额**）。这四样今天藏在 `steward-conversation.js:69-73` 的头像菜单里，用户找不到——这就是「稀疏但没功能」的另一半。
+- 2.0 侧栏（`index.html:90-118`）**就是这一栏**：`#sessionList` 由任务索引取代，`#newSessionBtn` 成「＋ 新任务」，`#openPreviewBtn` 删除，`#sessionSearch` 成 Ctrl+K，栏底四个按钮（清理历史／设置／帮助菜单／帮助）合并进设置齿轮与口袋。
+- 点击语义：单线程任务行→打开它（管家视角＝换焦点，工作台＝选中）；多线程任务行→展开／收起；线程行→打开它。
+
+### 2.4 中栏：管家视角（含文字预算）
+- 头：avatar（§8.3 七态不变）＋名字＋**一行**状态（「空闲」／「看着 2 条在跑」／「1 条在等你」；不印任务总数、不印模型）＋右侧「细节」开关。**不再有**「整体切到 2.0」「经典模式」两个钮——视角切换只在顶栏一处。
+- **频道条（F2）退役**：左栏就是索引，频道条是它的第二遍；≤980 左栏折成图标栏时，色点仍在，不再另画一排 chip。
+- 对话流（F1／F4／117y）沿用，**卡头只印**：色点 · 任务名（多线程任务时「任务 › 线程」）· 五态药丸 · 相对时间 · 一个图标钮「在工作台打开」（悬停出字）。**不印模型名**（那是配置，不是叙事）。
+- **文字预算**：每条管家的话＝一句结论（加粗首句）＋≤2 段；按钮 ≤2（主动作金色）；「※ 依据与回执（N）」折成一个 ※ 圆钮（点开浮层，§8.4 口径不变）；灰字行（记忆写入、看到你开了任务）≤1 句＋≤1 个小按钮；「你不在的时候」要点 ≤3 条、每条 ≤20 字。这些是**渲染层**的预算；**提示词层**沿用 117y「宁可少说一件事，也不要说半句」，不再压字数。
+- 输入框：递送目标 chip（§8.12）＋输入＋发送；工具行只留附件／技能两个图标，**不印**「Enter 发送 · Shift+Enter 换行」。
+- 中栏读宽 `max-width: 880px`，随窗口铺满，不再是居中玻璃卡（§7.1）。
+
+### 2.5 中栏：工作台视角（原经典壳 `main.chat-pane`）
+- **线程头一套 chip**：色条＋「任务 › 线程」（单线程任务只印一个名）＋五态药丸＋来源图形＋工作区路径；第二行：权限／模型／引擎三枚 chip＋上下文电量图标（百分比一个数）——**用 `steward-chips.js` 那一份工厂**（`createQuickSwitchChips`，`compact:false`），取代 `#permChip`＋`#modelChip`（§3.1）。
+- **管家条**（同一行右侧）：小 avatar（同源七态）＋一句「如意盯着这条」或「如意看得见、不插手」＋开关「交给管家盯」。这是工作台里管家在场的唯一表达（§4）。
+- 返回带 `#stewardReturnBand` **删除**；`steward-classic-window.js` **删除**（§3.1）。
+- 消息流、工具卡、「它正在跑」卡（117m-A5）、composer（Agent 团队／技能／附件／发送三态）**不动**；composer 工具行同样不印快捷键提示。117s-G 的插话判据（answer > permission > queued > steer > turn）不动。
+
+### 2.6 右栏（392px；≤1240 变抽屉）
+- **管家视角＝「焦点」**（取代「现在这几件」`#stewardNow`＋停靠的抽屉）：
+  - 焦点线程＝等你 ＞ 在跑 ＞ 失败 ＞ 最近动静；点左栏任一行可换焦点。
+  - 焦点卡＝任务卡「工作」密度（§11.15.3 D1–D4）：卡头（色条＋「任务 › 线程」＋药丸）→ 元信息**一行**（来源图形 · 相对时间 · 只在定过时印权限）→ **按五态一段**：等你→「它在问你」callout＋候选答案＋直接回答框；在跑→「它正在说」（**流式**，来自推送 `thread.live`，非 5 s 一刷）＋当前动作行 `工具 · 第 N 次调用 · N 秒前有输出`＋「递给它一句」框；排队→在等什么＋「插队」「并发上限」；收工→「它最后说」＋接着说框 → 动作行：主＝「在工作台打开」，次＝暂停／停止或继续，破坏性收进「更多」。
+  - 其它在途：其余非收工线程的最紧密度行，点击换焦点。
+  - 「接下来」：定时任务最近两条（119 波 `steward_schedule_*` 的读面）。
+  - **没有「今天」统计块**（第二轮删除）：费用、回合数、线程数都不在这里。
+- **工作台视角＝「项目与进度」**（`#toolPane`，`index.html:350-366`）七页签不动；费用与回合数**只在「用量」页签**。
+
+### 2.7 视角切换语义
+- 切换是**全局**的：`data-shell-mode` 只剩 `steward | classic` 两值（`preview` 删除），左栏不重画。
+- 从任何任务卡／焦点卡「在工作台打开」＝`applyShellMode('classic')`＋`openSession(id)`；从工作台切回管家＝`applyShellMode('steward')`＋派 `steward:focus-thread`（今天 `backToSteward` 的后半 `steward-classic-window.js:101-109` 保留这一行为，前半的 sessionStorage 标记与返回带整段删）。**K5 复核裁决（§13.8）**：「派 `steward:focus-thread`」是那枚已退役的「回到管家（看这条）」按钮的语义；分段钮是全局视角开关，切回管家**不**改写焦点——以 §2.1 第 11 条与下面第三条为准（K4 的 `one-workbench-frame` K6 钉着）。
+- 每个视角记住自己的现场（管家：焦点线程、滚动；工作台：选中线程）——都已有各自的状态，只是不再互相清空。
+- 设置里的 `#cfgShellMode` 保留两项「管家（默认）／经典」，含义变为**启动默认视角**，不再是「壳」。
+
+### 2.8 明确不做
+不做第三种视角；不做每线程独立窗口；不做视角级不同的任务列表（左栏必须同一份）；不做「管家视角里也开 2.0 右栏」；不把交办台任何界面搬进管家（码头／任务单／收工页全部退役，它们的**数据**——验收里程碑、通知策略——另行归位，§8.3）；不做频道条；不在管家视角任何位置印费用。
+
+### 2.9 动效规格（第二轮：「切换要足够丝滑美观」）
+用 **View Transitions API**（`document.startViewTransition`，WebView2／Chromium 111+ 已支持；不支持或 `prefers-reduced-motion: reduce` 时**即时切换、零动画**）。原型已按此实现，可直接照抄时序：
+
+| 元素 | `view-transition-name` | 切换时 |
+|---|---|---|
+| 顶栏、左栏 | `titlebar`、`rail` | **不动**（有名字＝独立快照，默认动画关掉）——用户的锚点不能漂 |
+| 分段钮滑块 | — | CSS `transform` 220ms `--ease-out`，先于内容动 |
+| 中栏 | `center` | 旧内容 140ms 淡出并平移 14px，新内容 240ms 淡入并从 18px 归位；**方向随前进后退**：管家→工作台向左（进入），工作台→管家向右（返回） |
+| 右栏 | `side` | 只淡入淡出（140／240ms），不平移——两栏同时平移会晕 |
+| 焦点卡的标题与色条 ↔ 工作台线程头的标题与色条 | `thread-title`、`thread-bar` | **共享元素变形** 260ms：从焦点卡飞到线程头，用户看得见「就是这一条」；仅当焦点线程＝将要选中的线程时命名（同一帧内名字必须唯一） |
+| 焦点卡整卡（换焦点时） | `focus-card` | 120ms 淡出／200ms 淡入 |
+| 左栏选中行、多线程展开 | — | 背景 120ms；展开用 `grid-template-rows: 0fr → 1fr` 200ms（内容高度未知也能顺） |
+| 安静卡 | — | 从下方 8px 升起 320ms |
+
+纪律：所有时长走 `--dur-fast/base/slow` 与 `--ease-out`／`--ease-inout` token；不加弹跳、不加模糊、不加缩放；切换期间不允许布局跳动（两视角的三栏栅格相同，只换栏内内容）；`::view-transition-old(root)/new(root)` 关掉默认交叉淡入，只让命名的部件动。验收：录 60fps 视频逐帧看无闪白、无重叠残影；`reduced-motion` 下 `performance.getEntriesByType('animation')` 为空。
+
+### 2.10 视觉与文案规范（第三轮：用户 2026-09-10 晚「整体的界面／图标／文字也重新设计一下，优化一版」；原型 v3 已按此做）
+
+**总原则**：不换品牌（青花蓝主色、鎏金只给「等你」与如意的主动作、月白／墨夜双主题、系统字体——离线桌面应用不引外部字体），换的是**一致性**：一套图标、一套字阶、一套措辞、一套间距。今天的问题不是丑，是三套壳各画各的。
+
+**2.10.1 图标（一套词汇表，两壳共用）**
+- 规格：24px 网格、**1.75px 单线、圆头圆角**（`stroke-linecap/linejoin: round`）；只有三处用实心求最小尺寸辨识——线程「停止」方块、「暂停」双竖条、来源「如意开的」环心点。五态药丸内的小字形用 3px 粗线（10px 尺寸下 1.75 看不清）。
+- 全部进 `js/icons.js` 的 `ICONS` 表（F5a 已立「一份词汇表」），本波**新增**：`lensSteward`（环＋心点，就是 avatar 的最简形）、`lensWork`（三栏面板）、`originUser`（人形）、`originSchedule`（钟）、`task`（可选）、`live`（脉冲）、`folder`／`file`（工作台工具卡）、`check`、`play`（继续）；**删除**交办台专用的 `dispatch/sheet/takeover/dockArchive/dockPin/ticket/narrative`（随 K1）。
+- 品牌标：顶栏用 `docs/branding/ruyi-mark.svg` 的三曲瓣云头（`tokens.css` 里 `--ruyi-cloud` 那条路径）＋一颗鎏金珠，26×16；不再用「圆环＋渐变球」。avatar 仍是圆形主体＋环（§8.3 不变）。
+- 尺寸阶梯：顶栏按钮 17px、chip 内 13px、行内动作 13px、药丸内 10px、口袋 14px。图标**永远带可访问名**（`title`／`aria-label`），且不作为唯一信号（档位名、状态词永远同时在场——F5a 纪律）。
+
+**2.10.2 字阶与排版**
+- 字阶只有五档：12（辅助／元信息）、13（列表行、按钮、chip）、14（基线）、15（正文：如意的话、线程消息、用户气泡）、17（视角内标题：线程名、如意名）。删掉 0.786rem 之类的半像素档，`--fs-*` 直接取整像素（`tokens.css` 的 rem 阶梯改成 px 阶梯，simple／pro 模式的 +1px 由 `:root` 字号控制不变）。
+- 正文行高 1.65（中文），列表 1.5，标题 1.2；段间距 6px；对话流消息间距 18px。
+- 组头与区块标题**不再用「小写字母＋字距」的英文风**（今天 `.rail-gh`、`.blk h3` 的 `uppercase; letter-spacing`），改 12px 加粗次级墨色；计数进一枚小胶囊（等你金底、在跑蓝底、其它灰底）。
+- 圆角：卡 10、chip／按钮／输入框 胶囊、callout 只圆右侧 6。左侧 3px 色条是唯一的「归属」信号。
+- 输入框改**胶囊**（高 50，圆角 26）：递送目标 chip 在内左、工具图标在内右、发送是 36px 圆钮；`focus-within` 才描主色边。
+
+**2.10.3 色彩用法（语义与品牌分开）**
+| 色 | 只用于 |
+|---|---|
+| 青花蓝 `--accent` | 在跑、主动作（发送、在工作台打开、回答）、选中行、「它正在说」callout |
+| 鎏金 `--gold` | 等你、如意的建议主动作（金底按钮）、新任务默认权限盾牌、「记得的关于你」的「新」 |
+| 竹青 `--ok` | 已收工、工具成功 |
+| 釉里红 `--danger` | 失败、停止、停机 |
+| 赭 `--warn` | 已暂停 |
+| 任务四色 `--th-1..4` | **只表示「是哪个任务」**，不表示状态（F1 纪律）；同任务同色，线程继承 |
+灰阶只有 `ink / ink-2 / muted / line / line-2 / panel / panel-2 / panel-3` 八档，不再新造。
+
+**2.10.4 文案规范（术语表与措辞）**
+- **术语只剩这几个**：任务（mission）、线程（session；2.0 侧的「会话」**全部改「线程」**，119 波往「会话」归一的那一步在本波反过来，因为用户口中一直是「线程」）、如意（对话里的第一人称与称呼）、管家（视角名、角色名）、工作台（**只指视角**）、**班组**（多 agent 协作面板：线程中栏「对话｜班组」页签与班组画布，即今天 `navigation.workbench`／`#mainViewTabCanvas`／`#workbenchView`；**用户 2026-09-11 指出它与视角名「工作台」撞名**，改用仓里已有的班组一词——`turnActivity.phase.orchestrating`「班组在跑」、`settings.steward.tool.runAction`「动了班组」、13h／13l 的班组暂停／继续本来就这么叫；英文 Crew；K4 验收轮由主会话改 locale 键值、`index.html` aria 与 `ui-v3-p3a.static`／`ec-d-performance` 两把锁，键名 `navigation.workbench` 保留不改以免撞 i18n 锁）、权限／模型／引擎、工作区。**禁用词**（界面上一个都不许出现）：会话、事项、壳、经典壳、2.0 视窗、3.0、档位、派单、交办、码头、任务单、投影、mission、session。
+- 名字一律用「」（今天『』与「」混用；`stewardShell.chat.*` 里 21 处『』改「」）。
+- 按钮是动词短语，≤4 字优先：打开／回答／递给它／交给如意／停止／暂停／继续／插队／撤回／知道了／别记／先停一下。不用「去线程里看」「到 2.0 视窗看全文」这类带路径的说法（§8.1 第 4 条）。
+- 状态词只有五态：等你／在跑／排队／已收工／失败（＋已暂停），全仓一份 `STEWARD_THREAD_STATE_KEYS`。
+- 如意说话：第一人称「我」，称线程为「它」，称用户为「你」；一句结论在前；不解释机制（不说「收件箱」「回合」「投影」）；数字只在改变你动作时出现。
+- 空状态与占位：输入框占位是动词句（「跟如意说点什么」「说你想做什么」「插话，它下一步会看到」「接着说」），不带省略号、不带快捷键提示。
+- 错误：说清「没做成什么」＋「下一步做什么」，不道歉不打哈哈（既有 `errBusy`／`errQueued` 的口径是对的，照它写）。
+
+**2.10.5 落地**：本波新增 **K8 · 视觉与文案刷新**（§9），排在 K6 之后、K7 之前；locale 四份同步（zh 约 260 个 `stewardShell.*` 键逐条过一遍，2.0 侧「会话」→「线程」约 40 键）；`tokens.css` 字阶改 px；`icons.js` 加 9 减 7；CSS 载荷锁由 K8 独占重钉。
+
+---
+
+## 3. 线程配置去重（用户第 ① 条）
+
+### 3.1 一套 chip、一种语义
+- `createQuickSwitchChips`（`js/steward-chips.js:600-691` 渲染、`:436-456` 写回）成为**唯一**的线程配置控件，服务：左栏看板密度（只读值，`chipsWorthPrinting` 决定印不印）、焦点卡、工作台线程头。
+- 2.0 的 `openModelChipPopover`（`js/navigation-controls.js:351-484`）与 `#permChip` 弹层退役；119 波已把菜单内容（`js/model-menu.js`）与开合（`js/popover.js`）共用，剩下的只是**换掉容器与写回路径**。2.0 独有的三项（思考强度／删自定义模型／刷新与管理 Providers）进 chips 的模型菜单尾部（「管理服务商…」直达设置）。
+- **写回恒为会话级**：`setEngineModel(…, {scope:'session'})`。「设为新任务默认」是模型菜单里的显式一项（写 `POST /api/config`），盾牌管权限默认——两个默认都只在这两处改。
+- 术语：权限四档人话只剩 `stewardShell.permission.*.label` 一份（119 波已把 3.0 的 auto 改「智能自动」，2.0 的 `permission.mode.*.short` 收编成别名）。
+
+### 3.2 删除清单（本节）
+`js/steward-classic-window.js`（148）、`index.html:128-136` 返回带、`css/views/steward-board.css:511-521` 返回带样式、`index.html:159-170` 的 `#permChip`／`#permSelect`／`#modelChip`、`navigation-controls.js:351-484`。锁：`steward-board.static` 里钉 `openClassicWindow` 的条目、`dom-contract.e2e.js` 对 `#modelChip` 的契约（改钉「线程头恰有一组 `.steward-chip`」）。
+
+---
+
+## 4. 感知与交接（用户第 ③ 条）
+
+### 4.1 线程＝会话；来源三值
+- 每个会话头新增 `origin: 'steward' | 'user' | 'schedule'`（写在 `createSession`，`02:2708` 附近；管家起的已有 `launchedBy:'steward'`，定时起的由 119 波 `stewardLaunchTurn` 写；其余默认 `'user'`）。界面上来源**只用图形**（环／人形／钟），悬停才出字。
+- **两个判据取代一个**：`visible`（进索引）与 `watched`（管家动手）。`stewardWatchedThread`（`06i:823-828`）**保留原语义作为 `watched`**；新增 `threadVisible(head)`＝在途 ∪ 今天有动静 ∪ 最近 30 条（设置可调）∪ watched。**（拍板 ② 已定）**
+- 「交给管家」＝`PATCH /api/sessions/:id {stewardWatch:true}` → `watched` 为真；反向「别盯了」写 false。`stewardWatchedThread` 多认一个 `head.stewardWatch === true`；写 false 时对管家开的线程也生效（用户接手）。
+
+### 4.2 索引口径
+- `13e-pretender-index.js:158-161` 的 card 生成条件改成 `visible`；行加 `origin`、`watched`、`liveTail` 摘要（`tool`、`updatedAt`、`iterations`，**不带正文**）。`/api/missions` 的消费者（左栏、焦点）零改动即能画来源与「正在调什么」。
+- 收件箱 `13i:714/:746` 的 `watched` 过滤**保留**（管家不为你 2.0 里的每一回合写回执）；待决不过滤（`:784-796`）也保留，但**新增在场过滤**（§4.3）。
+- 噪音担忧（`13e:150-157` 注释）用**窗口**解决：几百条旧会话在「更早」组默认折叠、只进搜索，不进「在途」与「今天」。
+
+### 4.3 在场信号与打扰纪律
+- 客户端随推送连接（§6.1）报告 `presence = {lens:'steward'|'classic', sessionId, at}`；断连即视为「不在壳里」。这是 31 号文 E-嘴要的「最小在场信号」，本波先落，E-嘴直接用。
+- 收件箱对每条候选事件加一道**在场门**：
+  - 用户在工作台且正坐在该线程上 → 事件只更新索引与徽标，**不生成管家回合、不出安静卡**（他自己看得见）。
+  - 用户在工作台但坐在别的线程 → 生成 `needs_you`／`failed` 的**安静卡**（右下角一张，可就地回答：候选答案／去看／稍后），不弹窗、不切视角、不抢焦点；`done` 只更新左栏。
+  - 用户在管家视角 → 今天的行为（收件箱触发管家回合 → 任务卡）。
+  - 用户不在壳里 → 累积进「你不在的时候」；E-嘴落地后走托盘。
+- 安静卡是工作台里管家的**唯一**打扰形态；5 分钟同线程同类合并、静默时段规则沿用 §8.5；交办台的策略层（去重／免打扰／基线，`js/preview-notifications.js`）**搬到这里复用**，不写第二份（§8.3，拍板 ④ 已定）。
+
+### 4.4 交接
+- 工作台 → 管家：「交给管家盯」（管家条开关）＝写 `stewardWatch:true` ＋ 向管家会话追加一条系统事件 `thread.adopted`，管家在下一回合回一句「好，『X』我盯着」；用户可附一句委托（输入框回车即带上）。
+- 管家 → 工作台：「在工作台打开」只是视角切换；线程的 `watched` 不变——管家仍盯，但按 §2.1 第 12 条，用户坐着时它不动手；用户离开（presence 变化）后恢复。
+- 线程回合互斥：两视角都走 117s-G 那一份判据（`10 runSessionTurn` 409 后备），插话进 `steerSessionCore`（`13b:247`），停止进 `stopSession`（`04:1768`）。**用户手按的停止也进决策日志**（33 号文 §0 记的不对称，本波一并还）。
+
+### 4.5 管家对「你正坐着的线程」
+不代答它的提问（权限门不变，只是不主动 `steward_thread_continue`）、不递话、不改它的权限与模型；可以读（`steward_thread_read`）用于回答你的问题。索引行带 `seatedBy:'user'` 供提示词与工具门判断。
+
+---
+
+## 5. 任务索引与任务卡（用户第 ⑤ 条的 UX 半）
+
+- **一枚卡，四种密度**：对话流（转述）／焦点（工作）／左栏（清点，第二行按需）／左栏看板密度（清点＋事实行＋悬停动作）。骨架、hue 表、五态词表、`stewardThreadFacts` 仍各一份（§11.15.4 纪律不变）。
+- **色号按任务**：hue 表的键从 sessionId 改为 missionId，线程继承任务色；F1 立的「同一条线程在所有面恒用同一色」仍成立（线程的任务不变，色就不变）。多线程任务内部靠线程名与色点区分，不靠颜色。
+- 排队必须可解释（§8.10）；「最后动静」统一用 `stewardAgoLabel`（33 号文第 11 项：抽屉里两种时间写法收成一种）。
+- 焦点卡「它正在说」只显示最近 ≤3 句（`liveTail.text` 尾窗），带光标；「当前动作」一行等宽字体：`web_fetch · 第 7 次调用 · 3 秒前有输出`。不显示百分比、不显示 ETA（§8.1 第 6 条）、不显示费用。
+- 左栏「在跑」组每行的第二行也是这一句事实（来自索引行的 `liveTail` 摘要，§4.2）。
+
+---
+
+## 6. 即时更新（用户第 ⑤ 条的数据半）
+
+### 6.1 一条推送：`GET /api/events/stream`（SSE）
+- 服务端新增模块 `src/13r-event-stream.js`（传输层，排在 `13q` 后、`14` 前；文件名按 SPEC §1 的 `^13[a-z]?-` 正则）。职责只有一件：**把已有的四个事件源扇出到所有连接**。
+- 四个事件源与钩子：
+  1. `activeChildren[sid].onEvent`（`04:95`）改成**多订阅者**（数组）：引擎原有订阅者不动，事件流模块追加一个只做「节流转发」的订阅——这是 27 号文 `:20` 预告过的那一步。
+  2. 会话头写入（`02-session-store.js` 的 `patchSessionHead`／`stewardLaunchTurn` settle）：写完派 `thread.state`。
+  3. 收件箱 append（`13i`）：派 `inbox.appended`；管家回合 say 落盘（`13h`）：派 `steward.say`。
+  4. `createSession`／`missionAttachThread`：派 `thread.created`／`thread.adopted`。
+- 事件表（`event:` 名 ＋ `data:` JSON）：
+
+| 事件 | 载荷 | 节流 |
+|---|---|---|
+| `thread.state` | `{sessionId, missionId, state, updatedAt, wait, origin, watched}` | 即时 |
+| `thread.live` | `{sessionId, tool, textTail(≤240), iterations, updatedAt}` | 每会话 ≥500 ms 一条 |
+| `thread.needs_you` | `{sessionId, interventionId, kind, question, options}` | 即时 |
+| `thread.done` | `{sessionId, summary(≤160), deliverable?}` | 即时 |
+| `thread.created` / `thread.adopted` | `{sessionId, missionId, origin, title}` | 即时 |
+| `steward.say` | `{turnSeq, trigger}`（正文仍走 `/api/steward/messages` 拉，避免双写） | 即时 |
+| `presence.ack` | `{lens, sessionId}` | 连接时 |
+
+- 连接参数 `?lens=&sessionId=` 即在场信号（§4.3）；心跳 `: ping` 每 25 s；`Last-Event-ID` 支持断线补发最近 200 条（内存环）。鉴权沿用 `01b-route-auth.js` 的 token 规则。
+- 红线：事件流**不承载工具输出正文**（`steward_thread_read` 的债不在这里还）；不改任何写路径的语义，只是多一个观察者。
+
+### 6.2 客户端
+- 组合根持**一条**流连接（新叶子 `js/event-stream.js`，注入到管家壳与工作台）。**K2a 后修正**：路由走 `token-browser`（header token，与 `/api/chat/stream` 同档），`EventSource` 设不了请求头，前端用 **`fetch + ReadableStream`** 读 SSE 帧（与今天发 `/api/chat/stream` 同一种读法），自己实现 `Last-Event-ID` 重连；`presence.ack` 是连接私有帧不带 `id`；三个消费者：左栏索引（`thread.*` 就地改行，不重拉）、焦点卡（`thread.live` 直接写「它正在说」）、对话流（`steward.say` 时拉一次消息）。2.0 的「它正在跑」卡（`session-experience.js:832-911`）也改吃 `thread.live`，3 s 轮询降为兜底。
+- 三条轮询**保留为兜底**：连接断开时恢复今天的节奏；连接正常时统一降到 30 s 心跳（ETag 保留）。看板关着不刷的门（`steward-board.js:1014-1017`）删除——左栏永远开着。
+- `app.js` 今天 1279/1280 行：本波 K1 先删交办台接线（约 120 行）腾出余量，事件流的注入才放得下。
+
+### 6.3 验收指标（可证伪）
+
+| 事件 | 今天 | 目标 |
+|---|---|---|
+| a. 线程开始跑 → 左栏药丸变「在跑」 | ~15 s／∞ | ≤1 s |
+| b. 线程收工 → 药丸＋「它最后说」 | ~5 s | ≤1 s（摘要仍异步，但 `summary` 即时） |
+| c. 线程提问 → 左栏「等你」计数＋焦点卡 callout | 5–15 s／∞ | ≤1 s |
+| d. 中途工具调用 → 焦点卡当前动作行 | 永远不 | ≤1 s |
+| e. 管家新开线程 → 左栏出现 | ~30 s | ≤1 s（收件箱触发管家回合的 15 s 是另一件事，不在本指标里） |
+
+真夹具：起一条真线程（真端点，同 §11.15.0 口径），用 `EventSource` 客户端记事件到达时刻，与服务端写头时刻比对。
+
+### 6.4 撞锁
+`steward-walkthrough.static:195-212`、`steward-avatar.static:99,150-155`、`live-full-text.static:90-101` 三把钉 `setInterval` 字面量的锁，**重钉为事实**：「兜底轮询存在且间隔 ≥30 s」「事件流连接时不发起 `/api/missions` 轮询」（反向验证：把兜底改回 5 s → 红）。`route-inventory` 加新路由；`durable-state-inventory` 不变（事件流无落盘）。
+
+---
+
+## 7. 宽屏密度与功能点（用户第 ④ 条）
+
+### 7.1 铺满，不再居中卡片
+`.steward-shell` 的场景层＋玻璃舞台（`steward-shell.css:20-56`）退役；两视角共用同一个应用外框：顶栏 46px ＋ 三栏 `268px | minmax(0,1fr) | 392px`（看板密度时左栏 440px）。中栏内容读宽 `max-width: 880px` 居中；≥1600 宽时右栏放宽到 440px。`--glass-*` token 只留给浮层与安静卡。
+
+### 7.2 带进来的功能点（都是既有或已立项能力，只补入口）
+| 功能 | 来源 | 位置 |
+|---|---|---|
+| 定时任务列表＋最近两条 | 119 波（29 号文）`steward_schedule_*` | 口袋 ＋ 焦点栏「接下来」 |
+| 行动流水 | 116-3 决策日志（`/api/steward/decisions`） | 口袋 |
+| 记得的关于你 | 116d 记忆面板 | 口袋（新写入带「新」） |
+| 体检 · 用量 | `/health`、`buildUsageSummary`（`00:465`） | 口袋入口（**不带金额**）→ 右栏「用量」页签 |
+| 并发上限与全部暂停 | 116h | 左栏看板密度栏头 |
+| 委托书 | §8.13 | 工作台线程头下第一条系统消息（今天已在现场，只是 2.0 没画） |
+| 全局状态胶囊 | 今天的状态行 | 顶栏 |
+
+**费用规则（第二轮）**：金额只在「用量」页签、体检页与行动流水的单条明细里出现。顶栏、左栏（含看板密度）、焦点栏、工作台线程头、口袋按钮、任务卡一律不印钱。锁：`grep -c '¥\|CNY'` 在这些面的渲染函数里为 0。
+
+### 7.3 响应式断点（容器查询以外框为准）
+≤1240：右栏成抽屉（顶栏出「右栏」钮）；≤980：左栏成 56px 图标栏（色点＝任务，图标＝口袋）；≤390 的手机断点沿用今天各层的规则。内容一件不少，只改容器。
+
+---
+
+## 8. 交办台退役（用户第 ② 条）
+
+### 8.1 删除清单
+| 类别 | 内容 | 行数 |
+|---|---|---|
+| 前端 JS | `js/preview-shell.js`(3657)、`preview-notifications.js`(117)、`preview-task-sheet.js`(91)、`preview-narrative.js`(75)、`preview-finish.js`(56)、`preview-store.js`(45)、`preview-dock-home.js`(23)、`preview-lenses.js`(11) | 4,075 |
+| CSS | `css/views/preview-shell.css`；`css/components/onboarding.css:83` 那条孤儿规则 | 1,986 |
+| locale | `previewShell.*` 508 键 × 4 份（`public/locales/*.json`、`docs/i18n/locales/*.json`）；**留 4 键改名**：`settingLabel/settingClassic/settingHint` 与新加的 `settingSteward` 搬到 `shell.*` | ~2,032 |
+| index.html | `:30` 样式链接、`:67-78` 预绘制白名单去 `preview`、`:103` 侧栏「交办台」、`:508-553` `#previewShell` 子树、`:893` 设置项、`:901-920` 通知设置块 | ~90 |
+| app.js | `:38,41` import、`:44-45`、`:325`、`:616`、`:869-935` 三个 preview 专用 helper、`:936-992` 领域构造、`:1012`、`:1252-1272` `previewFirst` 分支 | ~120 |
+| 构建 | `tools/build-overlay.js:84-93,132` 九条清单；`styles.css:20` `@import`；`steward-shell.css:10` | ~12 |
+| 测试 | 18 件 `dev-harness/pretender-*.e2e.js`；**但 `pretender-gate.e2e.js`(245) 与 `pretender-index-scale.e2e.js`(190) 测的是后端投影索引，改名保留**（→ `mission-index-*.e2e.js`） | 4,123（保留 435） |
+| 文档 | `docs/PRETENDER-PLAN.md`、`PRETENDER-METRICS.md` 归档到 `docs/archive/`；`PRETENDER-SCHEMA.md` 是仍在用的数据契约，**改名 `MISSION-SCHEMA.md` 保留** | — |
+| 后端 | **零删除**。`13e-pretender-index.js` 保留、**本波不改名**（拍板 ⑤ 已定；改名会漂 `durable-state-inventory` 与 route 产物，记债） | 0 |
+
+### 8.2 先搬后删（否则管家壳启动即崩）
+| 符号 | 今天 | 去处 |
+|---|---|---|
+| `applyShellMode`＋`recoverClassicShell`＋`cfgShellMode` 同步 | `preview-shell.js:379-401,107-119,238,3561-3568` | **新叶子 `js/shell-mode.js`**（两值白名单、预绘制同步、唯一写者） |
+| `SHELL_MODE_STORAGE_KEY`／`SHELL_MODES`／`normalizeShellMode` | `preview-shell.js:39,41,46` | `js/shell-mode.js`；`steward-shell.js:14` 改 import |
+| `dockToneForMissionState` | `preview-shell.js:54` | `js/mission-state.js`（它本来就是五态→色调的映射） |
+| `elapsedLabel`／`acceptanceItems`／`activeAcceptanceIndex`／`taskProgress` | `preview-task-sheet.js:82,20,32,8` | 新叶子 `js/thread-facts.js`（与 33 号文第 12 项「`costText/acceptanceText/threadStateOf` 收进一处」同刀） |
+| `missionCardSignature` | `preview-dock-home.js:7` | `js/mission-state.js`；`steward-guardrails.e2e.js:780-786` A4 改 import |
+
+### 8.3 两处行为缺口（删掉就丢功能，必须归位）
+1. **`dispatchAcceptanceMilestones`**（`preview-task-sheet.js:39`，唯一调用点 `app.js:887` 在交办台派单路径里）是前端**唯一**的 mission `milestones` 生产者。删了它，抽屉验收块（`steward-drawer.js:315-316`）与看板验收计数（`steward-board.js:366`）对新任务永远为空。**归位**：搬进 `js/thread-facts.js`，由管家「＋ 新任务」（另起一件）、工作台「＋ 新线程」与任务行「＋ 线程」三条路径都调用（服务端 `13k stewardImplThreadNew` 已写 mission 账本，前端只补里程碑）。
+2. **`PreviewNotifications` 策略层**（`preview-notifications.js`：去重、免打扰时段、基线）——管家今天没有本地通知策略。**归位**（拍板 ④ 已定）：改名 `js/notify-policy.js`，安静卡（§4.3）与 E-嘴的托盘通道共用；设置块 `index.html:901-920` 改名为「提醒」保留，键改 `notify.*`。
+
+### 8.4 默认入口（拍板 ③ 已定）
+- 预绘制默认 `steward`（`index.html:71-78`）；`stewardEnabledV1` 默认 `true`（`01-config.js:295`）。本机偏好里存着 `preview` 的老用户回落 `steward`。
+- 管家不可用（DOM 未就绪／配置关闭）仍 fail-closed 到 classic（`steward-shell.js:341-356` 不动）。
+- 118a 向导多一步「管家用哪个模型」（拍板 ③ 的代价，这里记下）；完成页落在管家视角。
+
+### 8.5 锁与产物
+重钉／改写：`read-frontend-css.js:25,400,430`（路由表、`LEGACY_STYLES_SHA256` 从 HEAD 重算、载荷分组）；`steward-shell.static:18,34,38,67,70-84,162`（改钉 `shell-mode.js`、两值、写者表 `['index.html',2],['js/shell-mode.js',1],['js/steward-shell.js',1]`）；`steward-board.static:71-72,116,121-122,142-145,335,376-387,664`；`steward-drawer.static:180-181,185,349,376`；`steward-avatar.static:101-105`；`steward-conversation.static:114-115,735-736`；`steward-shell.e2e.js:6-11,149,270,293`（去掉 `#previewShell` 与 30 s 轮询停止断言）；`i18n.static:31-42,223-228`（`stateLabel()` 三份→两份）；`progress-events.static:74,149-155,180`；`onboarding.static:36`；`mission-result.e2e.js:251-258`；`copy-path-guard.static:103`；`agent-workflows-polling-visibility.static:8`；`run-all.js:26`。产物：`facts.json` e2eCount（331→约 315）、`route-inventory.json`、`module-dependency-graph.json`、`architecture-contract-snapshots.json`、`durable-state-inventory.json`（去 `wcw.previewUiState.v1`／`wcw.previewNeedsNotifications.v1`）、`docs/i18n/STRING-CATALOG.md`。
+
+---
+
+## 9. 切片与分工（Opus／Sonnet；每刀独占文件；一刀出门再开下一刀）
+
+| 刀 | 做什么 | 独占文件 | 绝不碰 | 判据／验收 |
+|---|---|---|---|---|
+| **K0** 默认入口翻转（派单时收窄：壳模式搬家并入 K1，因为 `applyShellMode` 的注入依赖只有在 `preview-shell.js` 消失时才自然落到新叶子，且 `app.js` 只剩 1 行余量） | §8.4：预绘制无偏好时默认 `steward`；`stewardEnabledV1` 默认 `true`；`data-shell-mode` 暂仍三值（`preview` 由 K1 删） | `index.html:67-78`、`01-config.js:295`（及其注释）、所有钉「默认经典」「默认 false」的测试与共用浏览器夹具、生成器链产物 | `preview-shell.js`、`app.js`、任何 `steward-*.js` 行为 | 全新 profile 首开落管家视角；存 `classic`／`preview` 的 profile 各落各的；`stewardEnabledV1:false` 时落经典；测经典壳的 e2e 在**一处**共用夹具里显式选经典（不逐件散改）；全量回归真红 0 |
+| **K1** 交办台删除＋壳模式搬家 | §8.1／§8.2 全部／§8.3／§8.5；`data-shell-mode` 收成两值 | 全部 `preview-*`、`preview-shell.css`、4 份 locale、`index.html` 相关段、`app.js` 相关段、新 `js/shell-mode.js`、`steward-shell.js:14,105-112`、`tools/build-overlay.js`、18 件测试、新 `js/thread-facts.js`、`js/notify-policy.js`、`js/mission-state.js`、`steward-shell.static`、`steward-avatar.static:101-105` | `steward-*.js` 行为（只改 import 行） | `git grep -i 'preview-shell\|previewShell\|pretender'` 在 `public/`、`app.js`、`dev-harness/`（保留的两件除外）零命中；`build --check` 新鲜；生成器链整条重跑；`run-all --parallel 4` 真红 0；**里程碑不丢**：新开任务后 `/api/missions/:id` 的 `milestones` 非空（反向：注释掉 `thread-facts.js` 的调用→红） |
+| **K2a** 事件流后端 | §6.1 | 新 `src/13r-event-stream.js`、`04-permission-runtime.js:95-125`（`onEvent` 多订阅）、`02-session-store.js` 写头钩子（各一行）、`13i` append 钩子、`13h` say 钩子、`01b-route-auth.js`、manifest、生成器链产物 | `public/` | 新 e2e `event-stream.e2e.js`：真线程跑一回合，客户端收到 a–e 五类事件且 ≤1 s；断线 `Last-Event-ID` 补发；`forwardEdges` 不增；引擎单订阅者行为逐字节不变（`05:493` 的那一个仍第一个收到） |
+| **K2b** 事件流前端 | §6.2／§6.4 | 新 `js/event-stream.js`、`steward-shell.js:238-303`、`steward-board.js:961-1017`、`steward-drawer.js:1127-1209`、`session-experience.js:815-889`、`steward-chips.js:253-255`、三把静态锁 | 视觉层 CSS | §6.3 五指标真夹具；断连后兜底轮询恢复；连接时 `/api/missions` 请求数在 60 s 内 ≤2 |
+| **K3** 索引口径＋在场＋交接 | §4.1–§4.5 | `13e-pretender-index.js:150-215`、`06i-steward-core.js:823-828`、`13i:700-800`（在场门）、`02-session-store.js`（`origin`、`stewardWatch` 白名单）、`13d` 行字段、`13k`（`seatedBy` 进提示词）、`13r`（presence）、相关 unit／e2e | 前端 | 2.0 新开的会话出现在 `/api/missions`（`origin:'user'`、`watched:false`）；用户坐在 X 上时 X 的 `needs_you` 不触发管家回合（反向：拔掉在场门→触发）；`stewardWatch:true` 后回合结束事件进收件箱；「更早」窗口默认 30 |
+| **K4** 外框＋顶栏＋视角切换＋左栏＋动效 | §2.2／§2.3／§2.7／§2.9／§7.1／§7.3 | `index.html`（顶栏、左栏、`#stewardBoard`／`#stewardNow` 删、频道条删）、`app.js`（注入）、`steward-shell.js`、`steward-board.js`（改成左栏任务索引，去浮层）、`steward-conversation.js:1050-1106`（频道条删）、`css/views/steward-shell.css`、`steward-board.css`、`layout.css`、`workbench.css`、`chat-shell.css`（侧栏部分） | 对话流其余、抽屉、chips | 两视角切换左栏 DOM 节点同一（`isSameNode`）；1920 宽三栏铺满、中栏 ≤880；容器查询两档断点各一张截图；切换走 `startViewTransition`、命名部件与时序照 §2.9、`reduced-motion` 零动画；`LEGACY_STYLES_SHA256` 本刀独占重钉 |
+| **K5** 工作台线程头＋管家条 | §2.5／§3 | `index.html:120-180`、`navigation-controls.js:268-484`、`steward-chips.js`（`compact` 与「设为默认」菜单项）、`steward-classic-window.js`（删）、`dom-contract.e2e.js` | 左栏、焦点 | 工作台里 `.steward-chip` 恰一组、`#modelChip`／`#permChip`／`#stewardReturnBand` 不存在；切模型只改本会话（`/api/config` 零请求，反向：菜单项「设为默认」→ 恰一次）；管家条随 presence 变态；线程头「任务 › 线程」只在多线程任务出现 |
+| **K6** 焦点栏＋任务卡四密度＋安静卡＋文字预算 | §2.4 预算／§2.6／§5／§4.3 前端 | `steward-drawer.js`（改造为焦点栏）、`steward-conversation.js`（卡头去模型名、※ 折叠、按钮上限；只加导出）、`css/views/steward-drawer.css`、`steward-conversation.css`（hue 令牌）、新 `js/quiet-card.js`、`js/notify-policy.js` 接线 | 左栏 | 同一任务四面 `data-thread-hue` 相同；焦点卡「它正在说」在 `thread.live` 到达后 ≤100 ms 更新（DOM 断言）；安静卡只在「工作台且非当前会话」出现（三种在场状态各一断言）；`chipsWorthPrinting` 仍只有一份；**费用零命中**（§7.2 锁）；卡头无模型名、每条 `.acts` 内 `.abtn` ≤2 |
+| **K7** 口袋＋接下来 | §7.2 | `index.html`（口袋、右栏「接下来」）、`steward-settings.js`（记忆／流水面板入口改从口袋进）、119 波 schedule 读面 | 其余 | 头像菜单只剩「细节」「设置」；口袋四项各可达且 deep link 到具体面板；口袋按钮无金额 |
+| **K8** 视觉与文案刷新 | §2.10 | `js/icons.js`（加 9 减 7）、`css/tokens.css`（字阶改 px）、`css/base.css`、`css/views/steward-*.css`、`css/views/chat-shell.css`、`css/views/workbench.css`（组头、胶囊输入框、圆角、色彩用法）、四份 locale（术语表、「」、按钮动词、2.0 侧「会话」→「线程」）、`read-frontend-css.js`（载荷锁）、`i18n.static`、`copy-path-guard.static` | JS 行为（只换 class／文案键，不改逻辑） | `grep` 禁用词清单在四份 locale 与 `public/` 模板里零命中（保留 API 名与代码标识符）；`icons.js` 每枚字形 `stroke-width` 只有 1.75／3 两档；`tokens.css` 无 rem 字阶；两主题各一张截图对照原型 v3；CSS 载荷锁本刀独占重钉 |
+
+顺序：**K0 → K1 → K2a ∥ K3（后端两刀文件互斥可并行）→ K2b → K4 → K5 → K6 → K8 → K7**。K4 之前，管家视角仍是今天的样子但已经吃推送（用户能先感受到「及时」）。每刀出门都跑真浏览器 e2e（32 号文 §4 纪律 13）；改了 `src/` 就整条生成器链（纪律 10）；共享资源归属：CSS 载荷锁归 K4（K5／K6 预期红、K4 之后主会话统一重钉一次）、locale 归 K1（其余刀在报告里给键，主会话补）、`facts.json` 归 K1。
+
+---
+
+## 10. 验收（整波，可证伪）
+1. `git grep -il 'preview-shell\|previewShell\|pretender' -- ruyi-workbench/app/public app.js dev-harness` 只剩改名保留的两件测试与 `13e` 文件名。
+2. 全新 profile 首开落管家视角；顶栏一钮切到工作台，左栏 DOM 同一节点；工作台里同一条线程只有一组配置 chip。
+3. 在工作台新开一条会话 → 1 s 内出现在左栏「在跑」组，来源图形为人形；切回管家视角，管家没有为它生成任何回合（决策日志零条）；点「交给管家盯」→ 管家回一句。
+4. 管家开的线程提问时：用户在管家视角 → 任务卡；用户在工作台别的会话 → 安静卡可就地回答；用户正坐在该会话 → 什么都不弹。
+5. §6.3 五指标全部 ≤1 s（真夹具）。
+6. 1920×1080 下三栏铺满、无 300px 空白；1180 宽右栏成抽屉；900 宽左栏成图标栏。
+7. 左栏以任务为行：单线程任务恰一行、多线程任务可展开；同一任务四面色号相同。
+8. 管家视角、左栏、焦点栏、工作台线程头、口袋的渲染函数里 `¥`／`CNY` 零命中；卡头无模型名；每条管家的话按钮 ≤2。
+9. 切换动效：`startViewTransition` 被调用、`titlebar`／`rail` 快照零位移、`thread-title` 在焦点线程＝选中线程时存在于两帧；`reduced-motion` 下零动画。
+10. `run-all --parallel 4` 真回归 0；`build --check` 新鲜；`forwardEdges` 不增、SCC 仍 1。
+
+---
+
+## 11. 拍板项（2026-09-10 晚用户「其余按你推荐的来」——**全部按推荐落定**；记 32 号文 §3 第 8 条）
+
+1. ~~视角命名~~ → **「管家 ｜ 工作台」**。代价（记下）：产品名「如意工作台」与「工作台」视角同词。
+2. ~~线程索引口径~~ → **「在途 ∪ 今天 ∪ 最近 30 ∪ 管家盯的」**，其余进搜索（Ctrl+K）。
+3. ~~管家默认开~~ → **`stewardEnabledV1` 默认 `true`**。代价：118a 向导多一步「管家用哪个模型」（§8.4 已记）。
+4. ~~交办台通知策略层去留~~ → **保留并改名 `notify-policy.js`**，安静卡与 E-嘴共用。
+5. ~~`13e-pretender-index.js` 改名~~ → **本波不改**，记债（文件名与「交办台已删」不符）。
+
+---
+
+## 12. 与既有账目的关系
+- 33 号文第 1／2／3／5／6／7／9／10／11／13／17 项在本波各归其刀（K5：1、3、5；K4：2、9、10；K2b：6、7；K6：11、13；K1：17 的一半）。
+- 32 号文 §5 的「看板紧凑行在看板关着时会陈旧」「刚起的线程没有它刚说」由 K2b 自然还清（左栏常开、`thread.live` 首字即到）。
+- E-嘴（§11.23）的「最小在场信号」由 K3 先落；E-嘴改为只做托盘通道。
+- W2（同文件夹多线程）不受影响；119 波定时任务的读面被 K7 消费。
+- F2 频道条（117t `f621288`／`9fd7628`）在本波退役；它的「只看这条」语义由左栏点击换焦点承接，不再有第二个过滤器。
+
+---
+
+## 13. 交付记录（主会话逐条亲核后才写进来）
+
+### 13.1 K0 · 默认入口翻转（Opus 实现，`effd3cd`，2026-09-10 23:12；主会话复核 23:20）
+
+- **产品改动三处**（主会话逐行看过 diff）：`index.html:68-78` 预绘制无偏好／未知值／异常一律落 `steward`，显式 `classic`／`preview` 各落各的；`src/01-config.js:295` `stewardEnabledV1` 默认 `true`（三处注释对齐、行数不增，sanitize 不动）；`public/js/steward-shell.js:349-362` 再入判据从「存了 steward」放宽成「没存过显式的非管家偏好」，fail-closed 分支一字未动。
+- **派单稿被证伪一处（记入纪律）**：只改预绘制是空转——`preview-shell.js:3645` 在 bind 期用 `normalizeShellMode`（空值→classic）把预绘制盖掉，而那一拍 `state.config` 未到、`canEnterSteward()` 恒 false；首开进哪个视角**只能**由 config 到达后 `steward-shell.js` 那一处决定。执行者拿 `pretender-shell.e2e.js` B1 照旧 PASS 作证据后越界改了 `steward-shell.js`，主会话核过 `storedMode()` 返回原始值（`:111-114`），放宽是真放宽，**裁决：越界成立**。预绘制与 `normalizeShellMode` 的兜底自此不同构（前者 steward、后者 classic），K1 搬家时统一。
+- **共用夹具不存在**：17 件真浏览器 e2e 各自 spawn，`dev-harness/lib/browser-path.js` 只返回 exe 路径。走各件 config 种子逐件写 `stewardEnabledV1:false`（13 件，全是经典壳／交办台的件）；`live-full-text.browser` 走预绘制前注入 localStorage。
+- **锁 6 把重钉**，各做反向验证（执行者报告有命令与红绿；主会话抽核复跑 `steward-config.static`、`steward-classic-window.e2e`、`pretender-shell.e2e` 全绿）。
+- **生成器链**：forwardEdges 67、SCC 1、`build --check` 新鲜（主会话复核）。**测试**：`--fast` 70/70（主会话复跑）；17 件真浏览器 e2e 串行 17/0；全量 `--parallel 4` 三轮，末轮 323/1，唯一红 `live-full-text.browser` 是 4 路下自身 54–132 s 撞 120 s 上限，串行 4 次全绿，不算真红。
+- **顺手挖出的真 bug → K0b**：管家默认开后，`13i:762` 收件箱 tick 直接调 `getPretenderProjectionIndex()`，绕过 `13e:329-333` 的空目录守卫，把空索引持久化；boot 后才物化的会话冷读 `/api/missions` 得 0 行（影响导入、多进程写入与大量夹具）。主会话核过路径，已派 Sonnet 修在根上（`getPretenderProjectionIndex` 自带空目录判据，不落盘不缓存）＋新 e2e `mission-index-late-materialize`。
+- **登记未做**（不在 K0 范围）：118a 向导「管家用哪个模型」一步与完成页落管家视角 → 归 K7 之后的 118 补刀；`live-full-text.browser` 在 4 路下必超时 → 治抖动那批。
+
+### 13.2 K0b · 投影索引空目录守卫（Sonnet 实现，`826504c`；主会话复核）
+
+- **病根**：`13e:290`（原）索引文件从未建过时无条件 `rebuildPretenderIndexFull`，`sources` 为空也建出空索引 → `:313` 落盘并缓存 → 下次 `:279` 见 diskStamp 未变不清内存、`:284` 短路，永不再扫目录。`13i:762` 直接调 `getPretenderProjectionIndex`，不经 `warm` 的守卫。
+- **修法**：`13e:289-303` 在 `if (!disk)` 内新增早退——`currentDiskStamp === '-' && sources 为空` 时直接 `return finalizePretenderIndex([], …, 'empty_sessions_dir')`；主会话核过该 `return` 走不到 `:327-328` 的落盘与缓存；`warm` 只改注释；热路径三分支与并发去重逐字不变（diff 只有一处新增块＋一处注释）。
+- **新 e2e** `mission-index-late-materialize.e2e.js`：等第一拍 tick 跑完再物化 2 条 mission 会话 → `/api/missions` 得 2 行；反向验证（条件改 false → 红「实 total=0」→ 还原绿）。主会话复跑新件与 `pretender-index-scale` 全绿。
+- 生成器链：forwardEdges 67／SCC 1／`build --check` 新鲜（主会话复核）；e2eCount 331→332，README 与 `fixture-home.static` 两条自指锁随之更新。全量 `--parallel 4` 324/1/5，唯一红 `mcp-ops-closure` 单跑绿（并行争用），非真红。
+
+### 13.3 K1 · 交办台退役＋壳模式搬家（Opus 实现，`df4c9cf`→`3e8e65e` 六提交，2026-09-11 上午；中途撞额度续做；主会话复核）
+
+- **规模**：83 files，+1451／−12516；`app.js` 1279 → **1147**（上限 1280）。8 个 `preview-*.js`、`preview-shell.css`、505 个 `previewShell.*` 键 × 4 份、16 件 pretender 测试删；`pretender-gate`／`pretender-index-scale` 改名 `mission-index-*`；三份文档归位（`docs/archive/PRETENDER-PLAN.md`、`PRETENDER-METRICS.md`、`docs/MISSION-SCHEMA.md`）。
+- **新叶子三个**：`js/shell-mode.js`（`SHELL_MODES=[steward,classic]`，三处归一化同构：无偏好／未知／异常→steward、显式 classic→classic、老 `preview`→steward 并就地改写偏好；`steward-shell.static` A3 把预绘制那行规则 `new Function` 真跑与 `normalizeShellMode` 比同一张真值表，两侧各做反向验证）、`js/thread-facts.js`（`elapsedLabel`／验收三函数／`dispatchAcceptanceMilestones`／**`dockToneForMissionState`／`missionCardSignature` 也放这里**——执行者拒绝按设计稿放进 `mission-state.js`：那是 UMD、六件 Node 测试 `require` 它、`steward-board.static` B1 钉「看板零直接 MissionState 引用」、`steward-tools.static` ⑥ 拿它与 06i 逐条对账；**裁决：理由成立，设计稿 §8.2 以此为准**）、`js/notify-policy.js`（ESM，存储键 `wcw.notifyPolicy.v1`，旧键只迁移一次，19 例单测）。
+- **写者表**收成 `[index.html,2][js/shell-mode.js,1][js/steward-shell.js,1]`；CSS 载荷锁从 HEAD 复现旧值 `37efa1e5…` 后重钉 `859860b3…`；生成器链 forwardEdges 67／SCC 1、依赖图零 diff、e2eCount 332→316、unitSuites 38→40。
+- **主会话复核**：`git status` 干净；`build --check` 新鲜；依赖图 PASS；`--fast` 63/63；`steward-shell.e2e`（26 条，含新 B0/B1 两个退役偏好归一）、`dom-smoke`、`steward-board.e2e`、`steward-settings.e2e` 全绿；`git grep` preview/pretender 在 `public/`、`tools/` 只剩注释与后端投影索引符号。
+- **执行者拒绝／没做到（都成立）**：① 目标 4a「新开任务后 milestones 非空」的 e2e **做不到**——交办台退役后前端零处写 `milestones`，服务端 `13k stewardImplThreadNew` 不建账本，管家开的线程本来就没有里程碑，**没有幸存界面倒退**；函数搬进 `thread-facts.js` 用 17 例真值表钉死，接线归 K4／K5「＋ 新任务」；② `durable-state-inventory` 从不登记 localStorage 键、`STRING-CATALOG.md` 是手写散文——派单稿两处前提有误；③ 「提醒」设置块投递侧零实现（全仓无 `new Notification`）——**主会话裁决：藏起来**（`index.html` 该 `<section>` 加 `hidden`，K6 接好安静卡投递再露出）；④ `shell.settingClassic` 仍叫「经典」，K8 统一；⑤ `chat-stream-runtime.js:591` 注释仍提交办台（行号表锁着，不动）。
+- **执行者自己抓的回归（记入纪律）**：它在 `6f9d3c5` 撤掉 K0 给 `mission-index-scale` 写的 `stewardEnabledV1:false` 种子，依据「K0b 已结构性堵死＋串行 4 次绿」——全量里真红（冷列表 300 条没读满）：K0b 堵的是「空索引被持久化」，tick 与 seed **抢时序**本身没消失，tick 仍可能在 seed 写到一半时扫出部分索引。`3e8e65e` 还原。「跑 N 次没复现不是证伪竞态的证据」（30 号文 §8.14 形状阶梯）再次应验。**这条竞态是真的产品债**：boot 后批量物化会话时，第一拍 tick 可能建出部分索引并持久化 → 登记给 K3（索引口径那一刀顺手治：tick 在 sessions 目录 mtime 稳定 ≥1 个 tick 前不建索引，或建后按 sources 差异自愈——K0b 的 `sameSourceMap` 分支应已覆盖「之后再变」的情况，K3 要用夹具证明）。
+- **全量**：`3990a3e` 上 306/3/7，三条红串行复验：`repo-hygiene`（端口争用）、`context-compact-v2` 绿，`mission-index-scale` 真红→`3e8e65e` 还原后串行 4 次 3 绿 1 红（性能预算 P95 445 ms，机器没凉）。最终 HEAD 未重跑全量——**主会话在 `12d05b7` 补跑**：307 pass / 2 fail / 3 flaky / 309 ran；两条红 `session-index`（起服务超时）与 `mcp-ops-closure`（连接器并发探针）串行复验全绿，**真回归 0**。
+
+### 13.4 K2a · 事件流后端（Opus 实现，`e3acedf`／`095b8fe`／`c215c06`；主会话复核）
+
+- **总线** `RUYI_EVENTS`＋延迟绑定 `EventStreamHooks` 落 `00-boot.js:580-599`（六个生产者模块对 00-boot 的边本就存在，零新前向边；13r 只有 6 条后向边、0 入边）。依赖图 49→50 模块、390→396 边、**forwardEdges 67、SCC 1**（主会话复核）。
+- **生产点八处**（派单稿写四处，执行者按事实补齐：05 与 09 两引擎各一份起跑／收工，`updateSessionMeta` 两条落盘路径各一处 `thread.state`）；`thread.state` 的五态由 13r 调 06i `deriveStewardThreadState` 现算，入参与 13d ②支逐字一致；`wait`＝四类未决之和（执行者定义，主会话认可）。
+- **摸底稿一处不实**：`reg.onEvent` 不是唯一扇出点（§1.4 已改）；旁路装 `04:164`＋`04:199`，只注释掉前者 → `thread.live` 收到 0 条（反向验证）。引擎订阅者仍第一个收到：结构（`04:199-208`，主会话看过）＋ e2e G1/G2。
+- **SSE**：`GET /api/events/stream`，`token-browser`（→ K2b 用 `fetch + ReadableStream`，§6.2 已改），心跳 25 s，环 200 条 `Last-Event-ID`，在场信号记连接对象、`stewardPresenceSnapshot()` 导出（K3 经 `EventStreamHooks` 延迟绑定取，别直引符号）。
+- **e2e** `event-stream.e2e.js` 44 条：五类事件延迟 0–1 ms、节流最小 612 ms、断线补发、无工具结果魔术串、403；七处反向验证各红。主会话复跑全绿；`--fast` 63/63；`steward-runner` 绿。全量 308/2/2，两红串行绿，真回归 0。
+- **登记**：① `05b-kimi-bridge.js` 那一路没补起跑／收工两帧（收尾形状不同）→ **K3 顺手补**；② 提交署名执行者按其模型写 Opus（拒绝假署名，成立；此后各刀署自己的模型名）。
+
+### 13.5 K3 · 索引口径＋在场门＋交接（Opus 实现，`f0fd655`／`498afd4`／`768040b`，2026-09-11 下午；主会话复核）
+
+- **§4.1 两个判据取代一个**（都在 `06i`，别处只消费；主会话逐行看过）：`stewardWatchedThread`（`06i:842`）保留原三条，前面多认显式开关 `head.stewardWatch`（true 恒盯、**false 对管家自己开的线程也生效＝用户接手**，顺序在原三条之前——`steward-events.static` D7 补两条钉这个顺序，反向验证挪到 `launchedBy` 之后即红）；新增 `threadOriginOf`（`:869`，存量头无 `origin` 时读侧派生 createdBy＞launchedBy＞user，**不回写**）与 `threadVisible`（`:887`，在途 ∪ 24 h 有动静 ∪ 最近 N ∪ watched，纯函数只收算好的布尔）。`origin` 只在 `createSession` 写一次（`02`），13k 两条建线程路径传 `'steward'`，`POST /api/sessions` 钉死 `'user'`（body 不透传），**不进 PATCH 白名单**；`stewardWatch` 进白名单但只认两个布尔字面量。新配置 `threadIndexRecent` 默认 30、clamp [10,200]，三个数只在 `01-config` 一份；`unit/steward-config-tier` 把它判为管家 forbidden（管家不能自己调大注意力面）。`'schedule'` 今天无生产者（119 波零实现），只留判据。
+- **§4.2 索引口径**（`13e`）：卡片产生条件 `kind==='mission' || threadVisible(...)`（`13e:233`），`PRETENDER_INDEX_SCHEMA` 5→6 强制重建；行加 `origin`／`watched`（进 `cardRevision` 哈希，否则只改 `stewardWatch` 拿不到新 ETag）；叠加层加 `liveTail` 摘要（`{tool,updatedAt,iterations}`，**零正文**，e2e F5/F6 钉）与 `seatedBy`；`pretenderLiveOverlayRevision` 把这两者算进去（否则一整个回合 ETag 不动、兜底轮询永远 304）。「最近 N」按会话文件 mtime 排（一次 readdir＋每文件一次 stat）。
+- **§4.3 在场门**（`13i:593 stewardApplyPresenceGate`，事实源经 `EventStreamHooks.presenceSnapshot` 延迟绑定取，零前向边）：四种情形逐条落地；②里 `stalled`／`budget` 与 `needs_you`／`failed` 同档进箱打 `quiet:true`，`done` 不进；结转事件不再过门（两个时刻的事实不互相污染）；`adopted` 不过门。fail-open：在场读不到＝今天的行为。
+- **§4.4 交接**：`PATCH {stewardWatch:true}` 落盘后 `02` 两条路径各派 `thread.adopted{by:'user'}`；`13i` 模块加载期订阅总线只排队不落盘（队列硬顶 50，溢出丢最早），下一拍 `stewardCollectEvents` 开头取走，收件箱第六类 `adopted`（`06i` 表尾追加、`13m` 人话「N 条线程刚交给你盯」）。**§4.4 末尾「用户手按的停止也进决策日志」没做**——不在派单文件范围，登记给 **K5**（停止键住在工作台线程头那一刀）。
+- **§4.5**：`13k:681 stewardSeatedByUser` 单点；`steward_thread_continue`／`steward_thread_permission`／`steward_decide` 三处结构化拒绝 `seated_by_user`，`steward_thread_read` 不过门（只能静态钉：`/api/steward/act` 白名单不收读工具，跑一次「没被拒」是假绿——执行者指出，成立）；`13o` 总览行带 `seatedBy`，`06i buildStewardDigestLine` 拼「你正坐在这条线程里」。
+- **K2a 登记项①**：`05b:2410`／`:2740` 补 `thread.state`／`thread.done` 两帧，位置语义与 05/09 一致。`13r` 的 `thread.state` 载荷补 `origin`／`watched`（与索引同一对函数）。
+- **K1 登记的抢时序竞态——先复现再修**（`498afd4`）：新 `mission-index-boot-race.e2e` A 支把机制钉成**确定性**（索引进内存后外部写 8 条，修前 want 10 实得 2、连读 2/2/2，不是偶尔红是永远），B 支跑 §13.3 那个现场（修前 seed 期间八次读数全是 1，写完 want 40 实得 1）。病根是 K0b 的一般形式：`buildOrLoadPretenderIndex` 的 `if (!value)` 短路后没人给外部写入打脏页。修法**目录级自愈**（`13e:52-66`）：`stat(paths.sessions).mtimeMs` 当指纹，指纹变了或距扫描不足 `PRETENDER_DIR_SETTLE_MS`(1 s) 就重扫，真有差异才按差异刷片（`buildReason:'sources_dir_changed'`），双向（外部删除也缩）。`mission-index-scale` 的 `stewardEnabledV1:false` 种子这次撤掉是因为病根修了（7/7 绿，跑真实默认配置）。**主会话记一笔代价**：`saveSession` 走 tmp＋rename 会刷目录 mtime，所以每次会话落盘后 1 s 内的索引读要多付一次全量 `scanPretenderSessionSources`（16 路并发、每会话 2 stat＋1 readdir），落盘停 1 s 后第一次读把指纹变可信、此后每读只多一次 stat——有界且收敛（A4 钉），但 300 条以上的机器在连续落盘期间会感到索引读变慢，K2b 把轮询降到 30 s 后这条几乎不再触发。
+- **全量逮到的两条真红→`768040b`**：K3 放宽口径后普通会话也有卡片，而 `sessionKind()` 对它们同样返回 `'quick_ask'`（第 70 波的**档位**不是**身份**），117r-D5 建在「有卡片＋quick_ask＝速查」的巧合上——`steward-guardrails` H3b 与 `steward-quickask-board` ③ 双红，且 `steward-board.js:490` 会给每条普通会话贴「速问」徽标（无断言逮到）。修法：`13d buildMissionCard` 新增身份格 `quick`（判据与 `13j stewardQuickThread` 同源），`06i stewardThreadStateFromCard` 与抄写件 `public/js/mission-state.js` 同一行改读 `card.quick`（**唯一一处动 `public/`，裁决成立**：`unit/thread-state-quick-kind` 钉两份逐字相等，不同改即分叉）；`kind` 一字不动。`quickask-board` ③ 翻面重钉得更紧（普通会话在、但 `watched=false`／`origin=user`／`quick=false`；真速查 `quick=true`）。**登记 K4**：左栏「速问」徽标改读 `row.quick`，连同来源图形一起做。
+- **派单稿未按原样执行两处（都成立）**：三提交合不成——K3-1／K3-2 改同一批文件共用一条生成器链产物，按路径拆会让第一个提交带过期 `server.js`；`steward_thread_read` 不过门只能静态钉（见上）。
+- **新 e2e**：`thread-index-visibility`（37 条：A 2.0 新会话进索引 origin user／watched false、B 窗口钳 10 时 15 条旧会话只进最近几条、C/D stewardWatch 两个方向、E 第四源过滤保留、F liveTail 零正文）、`steward-presence-gate`（37 条：四情形各一、seatedBy 随在场变、三处工具门＋断连后不再拒的天然反向面）、`mission-index-boot-race`（A/B 两支＋两把静态锁）。文末各有 REVERSE VERIFICATION 段（主会话读过，条条对得上源码行）。
+- **主会话复核**：`git status` 干净；`build --check` 新鲜；依赖图 PASS（50 模块、398 边、**forwardEdges 67、SCC 1**，两条新边 13l→13k、13o→13k 皆后向）；src diff 全部读过并与 §4.1–4.5 逐条对上；e2eCount 317→320。主会话复跑：`--fast` 63/63；`steward-events.static` 66 条、`unit/thread-state-quick-kind`、`unit/steward-config-tier` 全绿；九件串行全绿（`thread-index-visibility`／`steward-presence-gate`／`mission-index-boot-race`／`steward-quickask-board`／`steward-guardrails`／`event-stream`／`mission-index-scale`／`context-compact-v2`／`steward-board`），`mission-index-scale` 冷列表 300 条 822 ms、列表热 P95 55 ms、收件箱热 P95 12 ms（目录自愈没拖慢稳态）。**反向验证抽查**：拔掉 `06i` 的 `if (head.stewardWatch === false) return false;` → 重建 → `thread-index-visibility` D2「管家开的线程收不回来（实得 true）」与 S4「显式开关排在原三条之前」双红 → 还原重建，`build --check` 新鲜、树干净。**全量**：执行者三轮 `--parallel 4`——`498afd4` 上 306/7/8（七红里两条真红→`768040b`），`768040b` 前 309/4/8，`768040b` 上 **311/2/9**，两红 `context-compact-v2`（并行争用惯犯）与 `steward-board.e2e`（4 路下 241 s 超时）串行全绿，**真回归 0**。
+- **登记未做**：① 用户手按停止进决策日志 → K5；② `steward-board.js:490` 速问徽标读 `row.quick`＋来源图形 → K4；③ `threadIndexRecent` 的设置面入口 → K7（口袋／设置）。
+
+### 13.6 K2b · 事件流前端（Opus 实现，`3c15b97`／`4949ae9`／`56997a2`，2026-09-11 下午；主会话复核）
+
+- **新叶子** `public/js/event-stream.js`（317 行；主会话通读）：`parseEventStreamBlock` 纯函数按 SSE 规范切帧（`id:`／`event:`／多行 `data:`／`: ping` 注释；`\n\n` 与 `\r\n\r\n` 都收）；`createEventStream` 一条连接，请求走 `net.js` 的 `apiRaw`（**不裸 fetch**——它持 `authHeaders` 且 403 换 token 重放一次，后台同端口重启后旧 token 失效时退避循环才能自愈，117q-B3a 那条纪律；主会话认可，比派单稿的 `fetch(…, authHeaders())` 更对）；退避 1 s→30 s ×2 ±20% 抖动；`Last-Event-ID` 只记带 id 的广播帧；换视角（`data-shell-mode` 的 MutationObserver）／换会话（`openSession` 后 `sync()`）去抖 300 ms **重连**＝在场信号的唯一写口；隐藏页不断连，`pagehide` 才 `stop()`。`start()` 排在 `boot()` 最后（视角与会话落定后连接参数才是真在场；抢前面起实测多建两条连接并给在场门几百毫秒错信号）。`app.js` 1147→1165。
+- **四个消费者**：`STEWARD_POLL_MS_CONNECTED = 30000` 只在 `steward-chips.js:261` 一份；四处只改每拍的 `due`，`setInterval` 周期与「每文件恰好一处」一字未动；看板「看板关着不刷」的门删除。**两处合理偏离**（主会话裁决成立）：① 左栏药丸**不就地编**——五态由 `mission-state.js` 从卡片证据派生、全仓一份判据（`steward-board.static` B1），把推送里的 state 写进行等于客户端第二份派生；改法是 `thread.live` 就地写 `row.liveTail`（零请求），其余五类经 `pushRefreshRows`（串行＋合并、无计时器）重问一发 ETag 化的 `/api/missions` 并紧跟 `syncNow()`（否则新线程永远不成为焦点，指标 d 无从发生），实测 27–87 ms；② `steward.say` 的拉取口在壳层 `bindEventStream` 复用 `pollStewardState()`（`/api/steward/messages` 唯一写口是对话流的 `appendSince`，派单稿写「抽屉拉」与事实不符）。抽屉 `thread.live` 只就地改不重问切片（每 500 ms 一条，跟请求比今天更重）。2.0「它正在跑」卡：连接时不开 3 s 表（`liveTurnPollable` 第四道门），推送走同一个 `refreshLiveTurn()`。
+- **锁**：派单稿六把里 `steward-drawer.static`／`live-full-text.static` 本来没红（派单稿与事实不符，执行者指出）；重钉 `steward-shell.static` C2b2（＋C2b3）、`steward-avatar.static` D2、`steward-board.static` F3（＋F3b／F3c）、`steward-walkthrough.static` E1b／E2／E3（＋E6–E10）；派单稿没列但撞红的四把：`steward-board.e2e` B2d／C11／E2b／**R7 翻面**（它钉的正是 32 号文 §5 那笔「没刷新就发现不了」的债，本刀还清）、`steward-drawer.e2e` B15／F2、`live-full-text.browser` 改在 CDP 层只挡 `/api/events/stream`（它测的正是兜底那一路，20+ 条断言不改）、`fixture-home.static` 117→118。反向验证 12 轮真跑（静态 8 例各改一处恰好 1 红；浏览器 4 轮日志）。
+- **新 e2e** `event-stream-client.browser.e2e.js` 39 条：DOM 变化时刻由页内 MutationObserver 当拍记，服务端时刻取并行 Node SSE 客户端帧里的 `at`。**§6.3 五指标实测**：a 29 ms／b 69 ms／c 52 ms／**d 4 ms**（今天永远看不到）／e 87 ms，另加 f 看板收起时左栏 39 ms；连接正常 58.5 s 窗口 `/api/missions` **2 拍**；断连后 2.0 卡兜底表 968 ms 回来、管家侧 35 s 内 6 拍（连着时 2 拍）；换视角＋换会话后 `seatedBy` null→`user`。进 `run-all` 的 `PARALLEL_EXCLUSIVE`（墙钟门）＋ 420 s 超时表。执行者自纠一条判据：「相邻两拍 ≥25 s」实测 636 ms 红——红的不是节拍，是一个兜底拍本来就两发（看板→抽屉经看板取行），判据错就拆掉，不放宽成拦不住的数（主会话认可）。
+- **src 一字未改**（断连用 CDP 只挡那一条路由，不需要 `RUYI_TEST_HOOKS` 门）；`build --check` 新鲜；依赖图 PASS（50／398／forwardEdges 67／SCC 1）；`facts.json` e2eCount 320→321；route-inventory 重生成（新件的路由引用面）；`build-overlay.js` 离线包载荷加 `event-stream.js`。
+- **主会话复核**：src diff 为空；新叶子与四消费者 diff 逐行读过；`--fast` 63/63；串行复跑七件全绿（`event-stream-client.browser`／`steward-shell`／`steward-board`／`steward-drawer`／`live-full-text.browser`／`dom-smoke`／`event-stream`），新件五指标复现 a 21／b 46／c 41／d 3／e 68 ms，59 s 内 `/api/missions` 1 拍；**反向抽查**：`STEWARD_POLL_MS_CONNECTED` 改回 5000 → `steward-walkthrough.static` E6 与 `steward-board.static` F3b 双红（各报「实测 5000 ms」）→ 还原绿。**全量**（执行者）312/2/6，两红 `classic-window-live-steer`（4 路超时）与 `responses-websearch-fake`（起服务 ECONNREFUSED）串行全绿，**真回归 0**。
+- **登记**：① `steward-board.e2e` R8「行上『打开』自己也刷」在推送下恒真绿（4 ms 推送先翻）——断连时仍是唯一救回的路，没删；要真判据得先造断连态 → 治抖动那批；② 左栏第二行「正在调什么」渲染、`row.quick` 徽标与来源图形 → K4；③ 管家新开的线程不进工作台侧条（`refreshSessions` 不被推送驱动）→ K4 左栏统一后自然关闭；④ `pagehide` 后前进后退缓存恢复（`pageshow`）不自动重连，刷新即恢复 → 备查。
+
+### 13.7 K4 · 外框＋顶栏＋视角切换＋左栏任务索引＋动效（Opus 实现，`69a505b`／`87a0d2f`／`0f0b668`／`2a69a7b`，2026-09-11 晚；主会话复核）
+
+- **规模**：51 files，+3440／−1802；`app.js` 1165→1224（护栏 1280）；`src/` 一字未改；新叶子 `js/app-frame.js`（210 行：外框、齿轮菜单、共享元素命名 `markSharedThread`、两条对话流的滚动位置保持）；`LEGACY_STYLES_SHA256` 三次重钉 `859860b3…`→`bc6876b6…`→`66e8d9a7…`→`4182a40f…`（每次先按前一 HEAD 复现旧值）。locale 四份加 27 键（`shell.brand`／`shell.lens.*`／`shell.side`／`shell.focus`／`rail.*`）。
+- **K4-1 外框**（§2.2／§7.1／§7.3）：`.app-frame`（46px 顶栏＋`.app-body` 两轨）＞ `.task-rail(#sidebar)` ｜ `.app-views` ＞ {`.app-shell`, `#stewardShell`}；左栏就是 2.0 侧栏那一个节点，两视角**同一份 DOM**；顶栏品牌＋分段钮「管家｜工作台」（滑块 220ms，Ctrl+`）＋「N 在跑 · M 等你」胶囊＋盾牌＋一键停机＋齿轮菜单（收侧栏栏底四钮与「⋯」）；`#statusLine` 的「服务商 · 模型」改视觉隐藏（顶栏不印模型名）；管家视角场景层＋玻璃舞台＋1280/800 钉宽退役，`#stewardNow` 浮层退役改常驻 `#stewardSide`（内容仍是同一个 `#stewardDrawer` 节点，K6 改造）；`#stewardClassicBtn`／`#stewardBoardClassicBtn` 删除，切换只剩分段钮一处；三档容器查询 ≥1600／≤1180／≤980（**实测证伪**：`@container` 改不了容器自己，断点覆盖落在 `.app-body`）；`--right-w` 定义点挪到 `.app-frame`、392px（两视角右栏读同一个数，否则切视角跳 52px）。
+- **K4-2 左栏**（§2.3）：按 `missionId` 归组、聚合五态读行上 `aggregateState`（06i 一处算），`railGroupFor` 纯函数映五组；行＝三面共用的线程卡基元＋来源图形（`row.origin`）＋速查徽标读 `row.quick`（K3 登记②）＋第二行只在有话可说时出现（在跑读 `row.liveTail`，K2b 登记②）；单线程任务一行，多线程展开 `grid-template-rows 0fr→1fr`；看板密度 440px 多印验收 a/b · 线程数（**费用连 import 一起删**）；`#stewardBoard` 浮层退役，「同时最多」「全部暂停」搬栏头；`#sessionList`→`#railList`，`sessionItem` 删，置顶／改名／删除搬到行动作但动手仍在 `session-experience.js` 一处；Ctrl+K 复用 113b 后端搜索；「＋」两义（管家不建会话只切目标；工作台 `createSession`＋清空附件／草稿／本轮变更）；工作台侧左栏靠推送与动作刷新，不加第二条计时器（K2b 登记③在此关闭）。两处真毛病：`thread.live` 整栏重画排满主线程（改只改那一行第二行）；回合第一个字到达时补一发 `refreshOnce`（右栏一直画上一回合「它刚说」的真病根）。
+- **K4-3 动效与现场**（§2.9／§2.7）：`layout.css` 照抄原型 `:80-100`（root 关掉、`titlebar`／`rail` 不动、`center` 双向平移、`side` 只淡、`thread-title`／`thread-bar` 260ms）；`shell-mode.js` `runShellTransition` 不支持或 reduced-motion 时零动画；出管家视角不再松开用户钉的焦点；**频道条整段退役**（`channelList`…`pickChannelTarget`＋CSS 一族＋头像菜单「整体切到 2.0」）；落焦白调修掉（VT 的 update 回调比 rAF 晚，落焦收进写回调）。
+- **K4-4 新件** `one-workbench-frame.browser.e2e.js` 63 条十组（同一份 DOM `isSameNode`；两视角栅格逐字相同 1236/392；1200／900 两档截图；一次切换恰一次 `startViewTransition` 且方向对；reduced-motion 与不支持两条路零动画；按任务归组；「＋」两义；多线程展开；管家开线程 65–113 ms 进左栏；滚动位置与各视角焦点保持），进 `PARALLEL_EXCLUSIVE`＋360 s；`ia.e2e` ⑥ 重钉（「更多」搬进齿轮菜单）；`steward-board.e2e` 就绪判据 `#stewardBoard`→`#railList`（每趟白等 32 s 的夹具债）。e2eCount 321→322。
+- **主会话复核**：`build --check` 新鲜、依赖图 PASS（50／398／forwardEdges 67／SCC 1）；四个提交信息逐条读过并与 §2.2／§2.3／§2.7／§2.9／§7.1／§7.3 对上；看过执行者三张截图（1920 两视角、1200、900）；改「班组」后复跑 `--fast` 63/63、`dom-smoke`／`one-workbench-frame.browser`／`steward-shell`／`ec-d-performance` 串行全绿；反向抽查：页签文案改回「工作台」→ `ui-v3-p3a.static` 第 0 条红 → 还原绿。**全量**（执行者）313/2/6，两红 `event-stream`（并行下 `inbox.appended` kind 丢失）与 `mission-index-scale`（并行 3130 ms 超预算）串行各两遍全绿，六件 flaky 重跑绿，**真回归 0**。**执行者指出的派单稿与事实不符（都成立）**：§7.1「≥1600 右栏 440」被 2.0 `restoreRightWidth()` 写的内联 `--right-w` 压死（K6 合并档位）；§7.3 写 1240 仓里 `isNarrow()` 与 `tool-pane.css` 都是 1180（落 1180，K6 归一）；`@container` 改不了容器自己（断点覆盖落 `.app-body`）。
+- **用户 2026-09-11 晚追加并由主会话落地**：线程中栏页签「对话｜工作台」与视角名撞名 → 改「**班组**」（§2.10.4 术语表已记；`navigation.workbench` 键名不改，只改四份 locale 的值与 `index.html` 的 aria）。
+- **登记给后续刀**：① 工作台线程头在 1200 宽会折成两行（引擎 chip 与打印钮掉到第二行）→ **K5**（线程头本来就是它的面）；② 右栏「项目与进度」的页签仍有「用量与成本」入口 → 费用只在用量页，**K6** 收；③ `#stewardNowBody` 挂点名与抽屉内部「关掉」语义 → K6；④ 口袋槽位 `#railPocket` 空着 → K7；⑤ 「搜索会话…」等「会话」措辞、`shell.settingClassic`「经典」、未命名线程标题回落 `navigation.workbench`「工作台」→ K8；⑥ 缺的图标（分段钮 `target`／`monitor`、右栏钮 `sheet`、看板密度 `ledger`、口袋四枚、来源钟形）用既有字形占位，`--ease-inout` token 缺（带 fallback），字阶仍 rem → K8；⑦ `#statusLine` 只是 sr-only 藏起来，`setStatus()` 换落点才算根除 → K5／K8；⑧ `steward-composer.js` 的 `STEWARD_PICK_CHANNEL_EVENT` 监听器无生产者 → K5 清；⑨ 抽屉 `openThread` 把焦点送到卡头会抢走输入区焦点（`steward-drawer.js:1322`）、右栏空轨 `:has()` 规则在右栏有内容后要复核、任务级 hue 表（现按领头线程发色）→ K6；⑩ 顶栏齿轮菜单已收「清理历史／设置／帮助／快捷键／能力矩阵」，与口袋分工先对齐 → K7。
+
+### 13.8 K5 · 工作台线程头＋管家条（Opus 实现，`630ed97`／`6233939`／`53b43c3`，2026-09-11 深夜；主会话复核 2026-09-12 凌晨，复核补刀 `dab5c30`）
+
+- **规模**：K5-1 `src/` 三处（`13h` 新增 `stewardAppendUserStop`、`06i` 命名空间注释、`13-http-router` `/api/stop` 只在真停下了什么之后才 `await StewardHooks.appendUserStop`）＋整条生成器链；K5-2 43 files，+1574／−1042，新叶子 `js/thread-head.js`（246 行），`js/steward-classic-window.js`（148）与 `steward-classic-window.e2e.js`（442）整件删，新真浏览器件 `workbench-thread-head.browser.e2e.js`（625 行，55 条）；`app.js` 1224→1222；e2eCount 322 不变（−1＋1）；`LEGACY_STYLES_SHA256` `4182a40f…`→`aba7e98f…`（先从 HEAD blob 复现旧值再取新值）。locale 四份各 −2＋8（删 `stewardShell.classicWindow.back`／`.switchWhole`；加 `status.connected`、`threadHead.chips`／`.watch`／`.steward.seeing`／`.steward.watching`／`.steward.watchingSeated`、`stewardShell.chips.setAsDefault`／`.defaultSaved`）。
+- **K5-1 用户手按的停止进决策日志**（§4.4 末条、33 号文 §0）：`13-http-router.js` 拼在 `13h` 之前，直调 `13j stewardAppendDecision` 是前向边，故与 `cancelQueuedTurn` 同款走 `StewardHooks.appendUserStop` 迟绑定（`steward-runner.static` ② 18→19 键）；行形状对齐 `steward_thread_stop`：`tool:'user_stop'`、`mayAct:'user'`（没有过权限判定，记的是「这一下是人做的」）、`basis.origin:'ui_stop'`（与 `revokeAllGrants(sid,'ui-stop')` 同源）、`undoRef` 逐字相同；开关关时零写；依赖图 forwardEdges 67 不变。
+- **K5-2 线程头**（§2.5／§3）：`header.topbar` 改两行**结构**（不是换行）——第一行 色条 `#threadHue`（`data-thread-hue` 与三面同一张表）· `#threadMission › #sessionTitle`（面包屑只在 `row.threadCount>1` 出现）· 五态药丸 `#threadState`（读 `stewardThreadStateOf(row)`）· 来源图形 `#threadOrigin`（环／人形／钟，悬停出字）· 工作区 · **管家条** `#threadStewardBand`（小 avatar 同一个 `data-state`＋一句话＋开关）· `#toggleToolsBtn`；第二行 `#threadChips`＝`createQuickSwitchChips({compact:false})` 那**一份**工厂（唯一写口 `PATCH /api/sessions/:id`，天然会话级）＋上下文电量＋`#statusLine`（从 sr-only 搬到线程头右端一颗点＋一句话，`setStatus(text,tone)`／`setStatusDetail()` 模型名只进 title）。**删**：`#permChip`／`#permSelect`／`#permSelectHost`／`#modelChip`、返回带、`steward-classic-window.js`、`navigation-controls.js` 的 `openModelChipPopover`／`renderModelChip`（七个域内调用点一对一换成注入的 `onEngineConfigChanged`）、`populatePermSelect`／`renderPermChip`／四档单选卡（`#permChip` 管的原是**全局默认**权限，不是会话级——派单稿只列了 DOM id）；2.0 独有三项（思考强度／删自定义模型／刷新与管理服务商）经 `modelMenuExtras.appendTail` 进 chips 模型菜单尾部；「**设为新任务默认**」是模型菜单里显式一项（`setAsNewDefault` → `POST /api/config`），其余切换 `/api/config` 零请求。「在工作台打开」收成 `app-frame.js openInWorkbench`（`applyShellMode('classic')`＋`openSession`）一处，看板／抽屉／对话流／composer 六处调它；`backToSteward` 后半（派 `steward:focus-thread`）留在 `shell-mode.js` 分段钮切回那条路（`focusThreadInSteward`），sessionStorage 返回标记整段删；`STEWARD_PICK_CHANNEL_EVENT` 监听器（无生产者）删（§13.7 ⑧）。三档视口线程头高度逐字相同 75px（§13.7 ①关闭）。
+- **管家条三态**：`row.watched`（K3）× `row.seatedBy`（`13e:591-595` 读 presence）→ `threadHead.steward.seeing`／`.watching`／`.watchingSeated`；开关写 `PATCH {stewardWatch}`（`02:1114`，写 true 派 `thread.adopted`）。**执行者证伪派单稿两处**：① 归并进事项容器的线程按 `06i stewardWatchedThread` 第三条天生 `watched`，「没盯」那一态只能拿自成一件的线程量；② `/api/steward/decisions` 返回字段是 `rows`。**未做**：§4.4「用户可附一句委托」——`PATCH` 白名单只认布尔、`thread.adopted` 无 note 槽位，要动 `src`（K3 地界）→ **登记 K6**。
+- **执行者自己逮到的假绿**（纪律 5）：「两行」第一版判据 `rowConfig.y > rowMain.y` 在 `align-items:center` 下并排也差 2px 恒真，改回单行仍 ALL PASS；改成「同一左边界＋第二行整个落在第一行下面＋三枚 chip 同 y 不溢出」后才拦得住（破坏→5 红→还原绿）。
+- **主会话复核**：三提交逐条读 diff 并与 §2.5／§3.1／§3.2／§4.4 对上；`build --check`／依赖图 `--check`（50／398／forwardEdges 67／SCC 1）新鲜；EOL／NUL 零；`--fast` 63/63；看过 1200／1600／1920 三张截图（两行结构、管家条、三枚 chip 同行）；K5 碰过的 12 件运行时件串行复跑：9 绿，3 红全部核到底——① `steward-conversation` W2-3d「全页只有一个头像节点，实测 2 个」是 **K5 造成的真红**（执行者误判为抖动件）：线程头管家条有意画第二颗 `.steward-avatar`，锁守的是「管家视角对话流里头像是搬不是复制」，计数改排除 `#threadStewardAvatar`（反向：往 `index.html` 塞一颗游离 `.steward-avatar`→红→还原绿）；同件第二条红是截图写到 117r 那次会话的 scratchpad **绝对路径**（换机器 ENOENT）→ `mkdtemp`；② `ia` ⑦／`ec-d`「服务起得来」在**基线提交同样红**：本机全新 HOME 首启 6.5 s（`--require` 预载记 spawnSync：`01-config detectDesktopMcp` 用 python／python3／py -3 三次探 `mcp.server.fastmcp`，装了 Python 没装 mcp 包每次慢失败 ~1.7 s，另 kimi.exe 0.74 s；PATH 收窄到只剩 node 时 0.43 s），两把门放到 20 s（`dab5c30`）。**反向抽查**：注掉 `13h` 的 `appendUserStop` 挂钩→重建→`workbench-thread-head` G2／G3 红→还原→`build --check` 新鲜。
+- **复核二（`0fb9a61`，修后全量逮到的 K5 真回归）**：K5 把退役的 `backToSteward` 后半搬到分段钮上（切回管家就派 `steward:focus-thread` 到工作台此刻那条线程），与 K4 的 `one-workbench-frame` K6「两个视角各记自己的现场」直接冲突——§2.7 第一条与第三条在这里打架，**裁决**：分段钮是全局视角开关，不改写焦点（§2.1 第 11 条；§2.7 已加注）。`app-frame.js` 的 `focusThreadInSteward`／`workbenchThreadId` 注入／本模块那份 `STEWARD_FOCUS_THREAD_EVENT` 常量随之删（无第二个调用点），`app.js` 1222→1219；`workbench-thread-head` ⑧ 重钉为同一事实的工作台侧（先在管家视角钉焦点 A → 到工作台点行打开 C → 切回仍是 A；反向：在 `setLens` 切回时派一发→F2 红→还原绿）。**教训**：执行者的串行复验名单只覆盖「本刀改过的件」，**改了共享框架（`app-frame.js`／`shell-mode.js`）必须把 K4 的 `one-workbench-frame.browser` 一并串行跑**——它是外框的总锁。
+- **登记给后续刀**：**K6** ① 委托一句（需 `src` 开 note 槽）；② `buildModelMenuBody`（`model-menu.js` 约 100 行）与 `.mc-pop`／`.mc-row` 一族成死代码；③ `permissionSwitchNeedsConfirm`／`permissionConfirmText` 零应用调用点；④ 线程头 avatar 的 SVG 标记是 `index.html` 内联之外的第二份（`thread-head.js buildAvatar` 手建三个圆，七态仍走同一个 `data-state`）→ 收成一个工厂或 `<use>`。**K8** ① `.model-chip`／`.perm-chip`／`.perm-select-host`／`.perm-pop` 一族 CSS 无消费者；② 1200 宽三枚 chip 值省略号（中栏 ~512px）；③ `classic-window-live-steer.e2e.js` 文件名与「2.0 视窗」措辞；④ `icons.js` 仍缺 `lensSteward`／`originUser`／`originSchedule`。**产品债（不在刀序）**：启动期 `detectDesktopMcp` 的三次 python 探针同步阻塞 ~5 s（装了 Python 没装 mcp 的机器），应改异步／跨进程缓存探测结果。**治抖动**：`classic-window-live-steer` 单跑 240 s+，超时表该抬。
+
+### 13.9 治抖动那批（Sonnet 隔离 worktree 实现，cherry-pick 为 `af87c79`／`b485070`／`9fb998b`／`e8e4f91`／`f3837d0`＋产物 `984623c`；主会话复核 2026-09-12 凌晨）
+
+- **①** `steward-board.e2e` R8 恒真绿（§13.6 ①）：R7 的推送先把状态翻了，R8 点「打开」时门早开着。改法：换一条全新线程 F2，`Network.setBlockedURLs` 挡 `/api/events/stream` ＋ 用分段钮切视角触发 `connect()` 的 `abortCurrent()` 把已建连接真掐断（本仓唯一重连扳机是在场信号变化），R8pre2 用「断连期间新挂线程 1.2 s 内不上屏」证断连是真的，R8 再证 `syncNow` 的 HTTP 强刷在推送死了之后仍救得回那一帧。
+- **②** `live-full-text.browser` 4 路超时：S 组「两拍必然长过」的 sleep 改成有判据的等（`scrollHeight` 真变高，上限 500×40ms），并进 `PARALLEL_EXCLUSIVE`（硬节拍量的是产品吐字速度，与别的 Edge 抢 CPU 时量不准）。
+- **③** `context-compact-v2`／`mcp-ops-closure`／`session-index` 并行争用：病根是**固定字面量临时目录**——run-all 失败自动重跑时第二跑的 `rmSync+mkdirSync` 与刚被 kill、Windows 下句柄未必释放的上一跑撞同一目录；改 `mkdtempSync`。
+- **④** `pageshow(persisted)` 后事件流不重连（§13.6 ④）：`pagehide` 已 `stop()`，bfcache 恢复时没人再 `start()`；`bind()` 补一个监听复用既有 `start()`（`bind` 幂等＋`connect()`／退避），不写第二条。新件 `event-stream-pageshow.browser.e2e.js`（修前红）；`fixture-home.static` 119→120；e2eCount 322→323。
+- **主会话复核**：五提交逐条读 diff；worktree 里 7 件串行 4 绿（后 3 件因与主树同时跑撞端口作废，见下）；cherry-pick 两处冲突手工合（`facts.json` 取 323；`run-all.js` 两边各加一条独占件，四条并存）；`route-inventory` 重生成（新件引用 `/api/events/stream`）；`--fast` 63/63。
+- **换机器两条硬教训**（已记 32 号文 §4 纪律 14／15）：**e2e 端口按件固定，两棵树（主树＋worktree）或同一棵树里两个回归同时跑，同一件撞同一端口→大面积 `workbench listening`／`ECONNREFUSED` 级联，两边结果全作废**（执行者的 74 红、我的 worktree 全量都是这个）；本机 `core.autocrlf=true` 检出 118 文件 CRLF/mixed（`eol-policy` 红），`git config core.autocrlf false` 后要**先 `rm` 再 `git checkout --`** 才会重写。
+- **全量（主会话，合并后 master，本机 8 路，唯一在跑的回归）**：第一遍 248/68 —— 68 红清一色 `workbench listening`／`ECONNREFUSED`（14–15 s 就败），与 ia／ec-d 同一病根，见 §13.10；修后第二遍见 §13.10。
+
+### 13.10 换机器的启动阻塞（主会话，`eb93c02`，2026-09-12 凌晨）
+
+- **现象**：合并后 master 全量 8 路 248/68，68 红全是「服务在启动预算内起不来」；执行者 K5 报的 74 红同一签名（它归因 TIME_WAIT，不对）。`--require` 预载把 `spawnSync` 逐条计时：全新 HOME 首启 6.6 s 里，`01-config pickPython` 把 `python`／`python3`／`py -3` 三个候选**全部**探完（为了优先选 Full；前两个 miss、第三个 core），每个 ~1.7 s（这台机器系统 Python 起得慢），合计 ~5 s **同步阻塞在 `listen()` 之前**；结果只缓存在进程内 → 每件 e2e 各起一个服务就各付 5 s。PATH 收窄到只剩 node 时首启 0.43 s（反证）。基线提交同样红，不是 K5／治抖动的回归。
+- **修法**（`eb93c02`）：整轮结果跨进程写进 `os.tmpdir()/ruyi-desktop-python-probe.v1.json`（肯定 5 min／否定 10 min，与进程内那张表同一对数字；肯定答案的命令是绝对路径且已不存在就不信；键带 PATH／PYTHON／根目录／PYTHONPATH／候选清单／探针脚本原文；tmp+rename；`options.probe`／`noCache` 一律绕过）。实测冷进程 6.2 s、下一个进程 **1.25 s**。新单测 `unit/desktop-python-miss-cache.test.js`（八条，全在子进程里证「换进程不用再探」；反向：拔掉磁盘读→② 红→还原绿）。unitSuites 40→41；依赖图不变。
+- **没做**：探针本身仍是同步的（老机器上 Python 不在场时本来就快；真正的根治是把 `generateMcpConfig` 挪到 `listen()` 之后异步做，登记为产品债，不在 121 波刀序）。
+- **真机配置污染（用户 2026-09-12 上午「把环境问题都处理了」）**：病根＝产品启动期把 `externalMcpServers` 同步进用户全局 CLI 配置（`01-config syncMcpServersToClaude` 走 `claude mcp add-json` 写 `~/.claude.json`；`syncMcpServersToKimi` 改 `~/.kimi-code/mcp.json`），直跑过注册 fake-mcp 夹具的件就把 `stdio-hang`／`dummy-tool`／`confl-mcp` 等写进真机——本机清出 14（Claude）＋9（Kimi）条，各留 `.bak-<时间>`。修法（主会话）：新 `dev-harness/lib/self-isolate-home.js`，直跑时若家目录仍是真机家就把本进程 USERPROFILE／HOME 换成 run-all 同款临时家（`fixtureHomeDir()`），29 件会注册 MCP 的运行时 e2e 第一行 `require` 它；run-all 跑时零动作。验证：直跑 `mcp-ops-closure`／`mcp-config`／`capabilities` 前后两份真机配置 sha1 不变、写入落在 `%TEMP%\ruyi-e2e-home-*`。`classic-window-live-steer` 进超时表 300 s。**仍需用户做的**：`dev-harness/realhist-fixtures/`（gitignore 的真实历史夹具，`sess_fe3de15dfc3b8354/history-24|25.json.gz`）本机搜不到那条会话，只能从老机器拷；`~/.claude.json` 里 8 条 `loca_*`（指向 `%TEMP%\loca-bench-inspect-…` 的已失效路径）属 loca-bench 项目，未动。
+- **全量（修后，本机 8 路）**：第二遍 310/6/5 flaky。六红逐件串行核：`config-mutate-mcp-parity` 串行绿（并行争用）；`observation-recall-realhistory`／`observation-recall-replay`／`session-notes` 三件要 `dev-harness/realhist-fixtures/`（未入库的真实历史夹具，**本机没有**，纪律 8 说的就是它们；从老机器拷贝后才有意义）；`websearch` 直跑红、经 run-all 隔离跑绿——直跑时服务从本机真实 `~/.claude.json` 自动导入了 10 个夹具名 MCP（`stdio-hang` 等），工具清单被拖坏，纪律 15 的那笔泄漏账；`one-workbench-frame` K6 是 **K5 的真回归**（§13.8 复核二，`0fb9a61`）。flaky 五件：`agent-role-openai`／`agent-roles`／`steward-conversation`／`budget-guard`／`mcp-ops-closure`（首跑红重跑绿）。
+- **全量（焦点修复后，K5 收口那一遍，`0fb9a61`，本机 8 路）**：309/7/5 flaky。七红逐件串行：`economics-shadow`／`config-read-safety`／`onboarding`／`bridge-cancel-timeout` 串行全绿（8 路争用）；`observation-recall-realhistory`／`-replay`／`session-notes` 缺 `realhist-fixtures`（环境）；`index-dedup` E3 三次串行同红、**基线 `46684b7` 同红**，27 号文 116c-0 就把它列在「干净 HEAD 同红」既有名单里（`index-dedup`／`session-notes`／`websearch`）。flaky 五件 `steward-settings`／`subagent`／`budget-guard`／`mcp-ops-closure`／`workbench-thread-head.browser` 重跑绿。**K5＋治抖动批真回归 0。** 观察：本机 8 路每遍会多出 4–5 件「串行即绿」的争用红，名单每遍不同（都是各件自己的启动／墙钟预算），下一遍可试 6 路对照。
+
+### 13.11 K6a · 安静卡＋提醒设置＋委托一句＋费用零命中＋死代码（Sonnet 实现，`8df45d5`／`1e00be8`／`11762f8`／`d1d74a6`／`a38a06d`／`8811643`／`c6896f2`，2026-09-12 上午；主会话复核）
+
+主会话把 K6 拆成两半：**K6a**（本节）＝§4.3 安静卡、§13.3 ③ 提醒设置块、§4.4 委托一句、§7.2 费用零命中锁、§13.8 K6 ②③ 死代码；**K6b**（下一刀，Opus）＝§2.6 抽屉改焦点栏、§5 任务卡四密度、hue 按任务、§2.4 文字预算、`#stewardNowBody` 改名、`dispatchAcceptanceMilestones` 接线。两刀文件互斥（K6a 不碰 `steward-drawer.js`／`steward-conversation.js`／`steward-board.js` 及其 CSS）。
+
+- **规模**：新叶子 `js/quiet-card.js`（243 行）＋`css/views/quiet-card.css`（111 行，进 `build-overlay.js` 与 `styles.css`）；新真浏览器件 `quiet-card.browser.e2e.js`（519 行）与新静态锁 `cost-zero.static.e2e.js`（101 行）；`model-menu.js` −107、`steward-chips.js` −23；`src/` 三处（`02` 白名单、`13i` 派帧字段与 adopted 人话、`13r` 帧字段）；`app.js` 1219 不变（接线在 `steward-shell.js`）；e2eCount 323→325；locale 四份各 +3（`quietCard.go`／`.later`／`.fallbackTitle`）；`LEGACY_STYLES_SHA256` `aba7e98f…`→`f08cbe54…`。
+- **安静卡**（§4.3 第二情形）：事实源仍是 `13i:570-620` 的在场门（②打 `payload.quiet:true`）；`13i` 派 `inbox.appended` 与 `13r` 推帧时多带 `quiet`／`ask`（≤200）／`interventionId`／`answerQuestionId`／`options`（≤6，label ≤60）——**不带正文**。前端 `createQuietCard` 只在 `data-shell-mode==='classic'` 且 `sessionId !== state.currentSession.id` 时画（双保险：单连接下服务端在场门①③已经把这两类挡在箱外，执行者反向验证拔掉这两句**不红**，如实记为安全冗余，多标签页才轮到它们）；同线程同类 5 分钟合并（`.quiet-card` 恒 1 张，计数 1→2）；静默时段走 `notify-policy.js isQuietTime`（拔掉→E1 红）；候选答案按钮→`/api/interventions` 对应 pending 消失（服务端事实）；「去看」→`state.currentSession.id` 换、`data-shell-mode` 仍 `classic`；`done` 永不出卡。「开启本机通知」打开时同一时刻走 `Notification`。策略层没写第二份：`reconcileNotifications` 那份是为轮询快照设计的（每拍给完整待决集合），事件驱动的卡不套它，只复用 `isQuietTime`／`readNotifySettings`——这一点执行者写进了文件头。
+- **提醒设置块**：`index.html:922` 去 `hidden`；`app.js:972` 的 `bindNotifySettings` 早就接着。
+- **委托一句**（§4.4）：`02` PATCH 白名单加 `stewardWatchNote`（trim ≤200，只在 `stewardWatch:true` 同发里有效，不落会话头），`thread.adopted` 带 `note`，`13i` 收件箱人话「用户把线程『X』交给你盯，说：『…』」；`thread-head.js` 开关打开时把 `#promptInput` 草稿随同一发带走并清空（`wcw.draft` 一起清，与 `app.js:958` 同键）。`stewardWatch:false` 同发的 note 被忽略（钉了）。
+- **费用零命中**：`cost-zero.static` 扫 `index.html`（挖掉 `tab-usage` 本体）＋`steward-*.js`／`thread-head.js`／`quiet-card.js`，白名单只放「描述规则本身的注释」；反向塞 `¥12.50`→两条红。**执行者指出**：`steward-drawer.js` 的 `#stewardDrawerMissionCost`／`stewardCostText` 仍在印费用，与 §2.6「没有『今天』统计块，费用不在这里」冲突——文件在 K6b 地界，锁头注已记，**K6b 删**。
+- **死代码**：`buildModelMenuBody`（`model-menu.js`）与 `permissionSwitchNeedsConfirm`／`permissionConfirmText`（实际住 `steward-chips.js`，派单稿写错了文件）整段删，`public/` 零命中；`steward-walkthrough.static` F1、`i18n.static` 的 `tCount('modelMenu.modelCount'` 改钉「不存在」。
+- **执行者自己逮到的两件**：① `quiet-card.browser` 约 1/3 概率红——boot 末尾 `provider-settings.js fillSettings()` 调一次 `syncStewardShellAvailability()`，与测试点 classic 之间无互斥，会把刚点好的视角翻回 steward；夹具「按住 2 s」绕过（`8811643`），**根在产品**（登记下面）；② 8 路全量下 `quiet-card.browser` 撞 120 s，进 `PARALLEL_EXCLUSIVE`（`c6896f2`）。
+- **执行者全量**（8 路）：312/6/4 flaky，六红串行：四件环境红（`session-notes`／`observation-recall-realhistory`／`-replay`／`index-dedup`）、`websearch` 隔离跑绿、`classic-window-live-steer` 单跑 32 s 绿；共享框架六件串行绿；**真回归 0**。另证 `event-stream.e2e` B-g1（`inbox.appended` kind=undefined）在基线 `306fcdd` 的旧产物上同样必现——本机固有时序缺陷，未在本刀修（§13.6 ① 那条并行丢 kind 的账在这台机器上串行也会出，治抖动批待查）。
+- **主会话复核**：七提交逐条读 diff（`02`／`13i`／`13r` 三处与 §4.3／§4.4 对上；草稿键与输入框 id 核过；四把被牵连的静态锁改法都是「翻面钉」而非放宽）；`build --check`／依赖图 `--check`（50／398／forwardEdges 67／SCC 1）新鲜；NUL／CRLF 零；`--fast` 64/64；串行七件：`quiet-card.browser` 33/33、`one-workbench-frame.browser` 63/63、`workbench-thread-head.browser` 56/56、`steward-shell` 27/27、`dom-smoke` 52/52、`event-stream-client.browser` 38/38、`event-stream` 43/1（B-g1，执行者已证基线同红）；**反向抽查**：拔掉 `13i` 在场门打 `quiet:true` 的那一行→重建→`quiet-card.browser` 12 红（A2a／A2b／A2c…）→还原→`build --check` 新鲜。**K6a 真回归 0。**
+- **登记**：**K6b** ① 抽屉费用 pill 删（`stewardCostText`／`#stewardDrawerMissionCost`）；**K8** ① `.mc-pop`／`.mc-row` CSS 死族；**产品债** ① `syncStewardShellAvailability()` 在 boot 末尾无条件跑一次，会覆盖用户刚做的视角切换（`provider-settings.js fillSettings` → `steward-shell.js`），应只在「没有显式偏好且当前不是用户刚切的」时落默认；② `event-stream.e2e` B-g1 本机固有。
+
+### 13.12 K6b · 焦点栏＋任务卡四密度＋文字预算（Opus 实现，`19f57e4`／`967e51e`／`b6f6b9c`／`fc47dd6`，2026-09-12 下午；主会话复核）
+
+- **规模**：30 files，+1800／−324；`steward-drawer.js` 1461→1627（改造为常驻焦点栏）、`steward-conversation.js` +197；新真浏览器件 `focus-rail.browser.e2e.js`（771 行）进 `PARALLEL_EXCLUSIVE`；`src/` 一字未改；`app.js` 1219 不变；e2eCount 325→326；locale 四份 +12／−4／改 1（新增 `chat.openInWorkbench`、`chat.whyLabelCount`、`drawer.metaSection`／`.queueHead`／`.queueUnknown`／`.jumpQueue`／`.maxParallel`／`.maxParallelMissing`／`.actingCalls`／`.actingSince`／`.composerLabelLive`／`.composerLabelDone`；删 `drawer.cost`／`.costBudget`／`.costNone`／`.usingTool`）；`LEGACY_STYLES_SHA256` `f08cbe54…`→`690afbfd…`（先按 `84fee4b` blob 复现旧值）。
+- **K6b-1 对话流文字预算＋hue 按任务＋里程碑接线**（§2.4／§5／§13.3 ①）：卡头去模型名（`facts.model` 那一处；反向加回→V8／V8b 红）；`.steward-acts` 内 `.steward-act` ≤2（仓里类名不是 `.acts`／`.abtn`，派单稿写错；剧本给 4 枚只渲染 2；反向 `ACTS_MAX=3`→C5 红）；「※」本来就只有一枚且是圆钮，本刀只把 N 收进悬停文案与可访问名；灰字行本来就是单个 `.steward-receipt` 零按钮，无改动。**hue 表键 sessionId→missionId**：`stewardThreadHueFor(sessionId, missionId)`＋登记表 `stewardRegisterThreadMission`／`stewardThreadMissionOf`（面包屑「任务 › 线程」顺带从同一张表取），单线程任务 missionId＝sessionId 口径不变，表仍一份；对话流／焦点卡／左栏行／看板密度四面 `data-thread-hue` 逐字相等（`focus-rail` F1–F3 实测 2/2/2/2），多线程任务两条线程同色（`steward-board` C12b/C12d，反面 C12e 另一任务不同色）。`dispatchAcceptanceMilestones` 接线：新开任务后 `/api/missions/:id` `milestones` 非空（G1 2 条、G2 goal 是用户原话；反向注释调用→双红）——**执行者逮到写口竞争**：管家开线程后立刻派的第一回合会把账本盖掉（同件两跑一红一绿），前端改「回读＋有界重试」，根治要动 `src`（登记产品债）。
+- **K6b-2 焦点栏**（§2.6）：`#stewardNowBody`→`#stewardFocus`（§13.7 ③；`setMount`／`applyModal` 的 docked／modal 收成一态，≤1240 抽屉态由 K4 的 `.side-open` 管）；卡头（色条＋「任务 › 线程」＋五态药丸）→ 元信息**一行**（来源图形 · 相对时间 · 验收 a/b）→ **按五态一段**：等你「它在问你」callout＋候选答案（点一枚→服务端 pending 真消失）＋直接回答框；在跑「它正在说」流式尾窗＋当前动作行等宽 `用一个工具 · 第 1 次调用 · 0 秒前有输出`＋「递给它一句」；排队「等并发位：下一个就是它」＋插队／并发上限；收工「它最后说」＋接着说框 → 动作行三档（主「在工作台打开」走 `app-frame.js openInWorkbench` 一处；次暂停／停止／继续；破坏性收「更多」）；焦点线程＝等你＞在跑＞失败＞最近动静（纯函数四档真值表＋真页面一条）；**费用 pill 删**（`stewardCostText`／`#stewardDrawerMissionCost`，`cost-zero.static` 扩到 6 文件，反向塞 `¥`→红）；`openThread` 不抢输入区焦点（E1）；「其它在途」复用左栏行基元。**改名牵连远超派单清单**：`steward-board.js placeNowStacks` 也按旧挂点找节点（只改 `setMount` 会让两条小行叠挂在游离节点上，右栏一条在途行都不显示）；`steward-board.static`／`steward-walkthrough.static`／`unit/steward-quick-replies` 三件不在清单里也被牵连，都按「翻面钉」改。
+- **K6b-3／4**：新件 `focus-rail.browser`（`thread.live` 帧→DOM **30／33 ms**，帧时刻取并行 Node SSE 客户端的 `at`，DOM 时刻由页内 MutationObserver 当拍记）；全量逮到两件——等你那一态收掉空的「它刚说」与撞车的「在等什么」（`fc47dd6`）。**执行者自抓半假绿**（纪律 5）：`event-stream-client.browser` 指标 d 读已删的 `usingTool` 键→空串→`indexOf('')` 恒真→退化成只看标题；改钉当前动作行里的工具人话。
+- **执行者全量**（8 路）：312/7/5 flaky；七红串行：`bridge-cancel-timeout`／`subagent`／`websearch` 争用红串行绿，三件 realhist 环境红，`index-dedup` E3 基线名单；**真回归 0**。三张截图（1920 管家视角：等你／在跑／收工）主会话看过——等你态 callout＋React／Vue 两枚＋回答框，在跑态尾窗三句＋动作行，都对上 §2.6。
+- **主会话复核**：四提交逐条读 stat 与关键 diff（hue 函数、挂点改名、卡头 header 结构）；`build --check`／依赖图 `--check`（50／398／SCC 1）新鲜；NUL／CRLF 零；`--fast` 64/64；串行十一件：`focus-rail.browser` 38、`one-workbench-frame.browser` 63、`workbench-thread-head.browser` 56、`quiet-card.browser` 33、`steward-shell` 27、`steward-board` 104、`dom-smoke` 52、`dom-contract` 20、`event-stream-client.browser` 38、`steward-conversation` 136 全绿；`steward-drawer` H1 三跑一绿两红——判据先抓一拍 DOM 再读一拍服务端，两拍之间线程在收尾态会翻面，主会话改成「同一轮读两边、不齐等一拍再对、最多 30 拍」（有判据的等），改后三跑 130/130；**反向抽查**：`stewardThreadHueFor` 的键强制回 sessionId→`steward-board` C12b／C12d／S5d 三红→还原绿。**K6b 真回归 0。**
+- **派单稿被证伪**：① §13.7 ② 「用量与成本」label 本就在 `tab-usage` 里（`index.html:583`），无需改；② §13.8 K6 ④ avatar 第二份 SVG 在 `thread-head.js`（本刀绝不碰）→ **转 K8**；③ §13.7 ⑨ 右栏空轨 `:has()` 键的是右栏自己的 `[hidden]`，语义不变。
+- **登记**：**K8** ① 收工那一段 `drawer.lastSay` 值仍是「它刚说」，§2.6 口径「它最后说」；② `drawer.classicView`「2.0 视窗」是焦点卡主动作文案，术语改「在工作台打开」；③ 卡头图标钮沿用 `monitor` 字形；④ `thread-head.js` avatar 第二份标记；⑤ `.mc-pop`／`.mc-row` CSS 死族（K6a）。**K7** 右栏「接下来」（定时任务最近两条）。**产品债** ① `POST /api/mission {action:'start'}` 与刚派出去的第一回合写口竞争（`13-http-router` 的 C4/75a-3 同步只在回合已进 `activeChildren` 时够得着）；② boot 末尾 `syncStewardShellAvailability()` 无条件跑一次会覆盖用户刚做的视角切换（K6a §13.11）。
+
+### 13.13 K8 · 视觉与文案刷新（Opus 实现，`7f27792`／`1506a05`／`5a6c584`／`63f54dd`／`2d8ace8`／`4580570`／`89c6425`，2026-09-12 傍晚；主会话复核）
+
+- **规模**：35 files，+940／−648；`src/` 零改动；`app.js` 1219 不变；e2eCount 326→327（新静态锁 `copy-terms.static.e2e.js`，145 行）；`LEGACY_STYLES_SHA256` `690afbfd…`→`b9852892…`（两次都从 git blob 算：先按 `5c129cd` 复现旧值，再按 `5a6c584` 取新值；分组表 18 组 22 层一个字节没动）。
+- **K8-1 图标**（§2.10.1）：`icon()` 的描边只从 `STROKE_BASE='1.75'`／`STROKE_PILL='3'` 两个常量出，字形表零字面量（真浏览器量全页 `svg.ic` 的 stroke-width 集合 `["1.75","3"]`）；**加 12**（§2.10.1 的九枚 `lensSteward`／`lensWork`／`originUser`／`originSchedule`／`task`／`live`／`file`／`check`／`play` ＋ 派单稿没点名但 §13.7 ⑥ 要的 `panelRight`（右栏开合）／`columns`（看板密度）／`memory`（口袋））**减 8**（`dispatch`／`takeover`／`dockArchive`／`dockPin`／`narrative` 零消费者直删；`sheet`／`ticket` 有消费者，换 `panelRight`／`file`／`shield` 再删；**另删 `target`**——它同时给「管家视角」与「如意开的」当占位，两处要的都是 `lensSteward`）；分段钮／来源三处表／右栏钮／看板密度／「在工作台打开」三处／任务栏全部换真字形，`git grep` 八枚旧名 `public/` 零命中；品牌标换三曲瓣云头＋鎏金珠 26×16。**avatar 收成一处**（§13.8 K6 ④）：`thread-head.js buildAvatar` 改成克隆 `#stewardAvatar` 内联 SVG 并摘 `<defs>`，`public/` 里 `class="sa-ring"` 只剩 `index.html` 一处——**不用 `<symbol>`+`<use>`**：七态是 `.steward-avatar[data-state=x] .sa-ring` 从祖先选进去的，`<use>` 的内容在影子树里文档 CSS 选不中。
+- **K8-2 字阶与排版**（§2.10.2）：`--fs-*` 改 px 五档（pro 12／13／14／15／17，simple 13／14／15／16／18，`#promptInput` 两模式差 1px 实测），`--fs-xl`／`--fs-2xl` 降为 `--fs-lg` 别名（消费点在 onboarding／tool-pane／chat-primitives 三层，非独占，名字退役登记清障）；组头去英文风改掉七处（`.cap-pop h4`／`.steward-why-h`／`.steward-drawer-h`／`.steward-drawer-more-summary`／`.wb-rb-label`／`.wb-layer-tag`／`.wb-sec-hd`），独占层里 `uppercase` 零命中、`letter-spacing` 只剩三处各有理由（品牌名 .2px、「···」点距 2px、等宽节点 id 负字距）；计数进小胶囊（栏头总数也进，`5a6c584`）；两视角输入框都改胶囊（月白／墨夜各量：h=50、r=26px，管家发送钮 36×36 圆）。**有意偏离原型一处**：工作台发送键不是 36px 圆钮而是高 36 的胶囊——它在「发送／插话／停止」三个词之间换（`chat-stream-runtime.js updateSendBtn`），纯图标圆钮会把「停止」这个状态词藏掉，违反 §2.10.1「图标不作唯一信号」。管家 composer 的 chip 允许换行（`flex-flow: row wrap`＋`.steward-composer-row { flex: 1 1 520px }`）——按原型硬单行时 117r-D3 那笔「chip 一长把输入框挤到零宽」当场复现（D3-2 红），520px 是从「输入框 ≥ 行宽 60%」倒推的。
+- **K8-3 色彩与死族**（§2.10.3）：灰阶八档＋`--panel-veil`（`color-mix(--panel)` 玻璃材质，两主题对称、两处消费，不是第九档灰，保留）；`.model-chip`／`.perm-*`／`.mc-pop`／`.mc-row`／`.mc-group`／`.mc-sep`／`.mc-switch-note` 剥注释后零命中（反向往 `chat-shell.css` 追加 `.perm-chip{}`→`ui-v3-wave1` A1 红）。**派单稿证伪**：仓里任务四色叫 `--thread-hue-1..4`＋`[data-thread-hue]`→`--thread-color`（K6b 落的），不叫 `--th-1..4`，语义一致，本文档口径以仓为准；`.rail-gh`（K4 已是 12px 无字距）与 `.blk h3`（零命中）两个派单稿点名的选择器都不存在。
+- **K8-4 文案**（§2.10.4）：zh 改 139 条值——「会话」124 条**改 115 留 9**（留的都写进锁的 `SESSION_ALLOW` 并附理由：HTTP 鉴权 token、浏览器登录态、Kimi ACP 协议名词、引擎侧 resume／上下文、PowerShell 进程），量词「个」→「条」12 条，`『』`→`「」` 3 条，占位与按钮去省略号 20 条（进行态「压缩中…」保留，那三个点是「还在动」），「壳」「交办」6 条；en 改 33 条（只跟 zh 改了语义的键）；`index.html` 可见文案 14 处；§13.12 K8 ①② `drawer.lastSay`「它最后说」、`drawer.classicView`「在工作台打开」；`classic-window-live-steer.e2e` 只改文案不改名。**新锁 `copy-terms.static`** 49 格：四份 locale 与 `public/` 模板里「会话」「2.0 视窗」「经典模式」「交办台」「去线程里看」「Enter 发送」「…」零白名单外命中（反向塞「到 2.0 视窗看全文」＋「新会话」→两格红）。
+- **执行者报的硬教训（纪律 7 第四个样本，已补进 32 号文）**：用 `python - <<'PYEOF'` 写含 `\b` 的正则，一层反斜杠在到达 python 之前被 heredoc 吃掉，`\b` 成了**裸 0x08 写进锁文件**——断言恒真，`sed -n` 打出来长得一模一样（终端把 0x08 当退格渲染），只有 `cat -A` 看得见 `^H`。改用 Write／node 按字节写才真红；此后所有改动文件做 0x00–0x1f 扫描。**主会话复核也把这条扫描加进了每刀必做**。
+- **执行者全量**（8 路）：312/8/1 flaky；八红串行：`workflow-editor-v2.static` **真红**（自己改的「自定义…」去省略号，锁还钉着旧字面量→`89c6425` 翻面钉）；`bridge-cancel-timeout` 串行绿；`classic-window-live-steer` 8 路 TIMEOUT 串行绿（单跑 ~250 s，表里 300 s 并行下不够）；`websearch` 5 格串行仍红、临时 worktree 回 `5c129cd` 同红（执行者判基线红——主会话复核见下）；`index-dedup` E3 基线；三件 realhist 环境红。收尾 `--fast` 65/65；十件真浏览器串行全绿。
+- **主会话复核**：七提交逐条读 stat；`build --check`／依赖图 `--check`（50／398）新鲜；改动文件 **0x00–0x1f 控制字符与 CR 扫描零命中**；`--fast` 65/65；看过四张截图（墨夜管家：云头品牌标、分段钮真字形、组头计数胶囊、行左 3px 任务色条、胶囊输入框＋圆送键、焦点卡「在工作台打开」；月白工作台：线程头两行、「＋ 线程」页签、胶囊输入框）；串行十件：`one-workbench-frame.browser` 63、`workbench-thread-head.browser` 56、`quiet-card.browser` 33、`focus-rail.browser` 38、`steward-shell` 27、`steward-drawer` 130、`steward-conversation` 136、`dom-smoke` 52、`dom-contract` 20 全绿；`steward-board` S5b 三跑一红两绿（在跑那条的药丸读到「交办中」——dispatching→running 差一拍，与 H1 同一模具的时序，主会话改成有判据的等）；**websearch 定案**：经 run-all 隔离跑 PASS（5.8 s），直跑 5 红——直跑时服务从真机 `~/.claude.json` 自动导入剩下那 10 条（`loca_*`／`godot-ai`／`acc`），工具清单被拖坏；执行者「回 `5c129cd` 同红」是直跑得出的，**不是基线红**。于是把 `self-isolate-home` 从 29 件扩到**全部运行时 e2e**（两个方向都断：导入与同步）。**反向抽查**：往 `index.html` 塞「到 2.0 视窗看全文」→`copy-terms.static` 第 2 格红（行 184）→还原 ALL PASS。**K8 真回归 0。**
+- **登记**：**K7** ① 口袋四枚字形已备好（`originSchedule`／`ledger`／`memory`／`stethoscope`，`memory` 零消费者）；② 右栏「项目与进度」页签 1920 下折三行，布局归 K7；③ `task`／`live`／`check`／`play`／`panelRight` 零／单消费者。**清障（不在刀序）** ① en-US「chat／session」→「thread」全量归一；② `--fs-xl`／`--fs-2xl` 名字退役要动 onboarding／tool-pane／chat-primitives；③ `model-menu.js MODEL_MENU_CLASSES` 的 `mc-*` 纯字符串死码；④ 非独占层剩 25 处 letter-spacing／9 处 uppercase；⑤ `classic-window-live-steer` 8 路下必 TIMEOUT（300 s 不够，或从并行桶挪到独占）；⑥ `websearch` 5 格执行者判基线红——**主会话核**：它直跑与隔离跑结论不同（§13.10／§13.11 都是隔离跑绿），待填。
+
+### 13.14 K7 · 口袋＋接下来＋设置入口＋向导一步（Opus 实现，`6109aa1`／`61d1280`／`2d4d2a1`／`bfd7958`／`c31464b`／`aaa4c25`／`98ba775`／`8ac79d2`，2026-09-12 夜；主会话复核）——**121 波最后一刀**
+
+- **规模**：30 files；新叶子 `js/rail-pocket.js`（306 行，零计时器）；新真浏览器件 `rail-pocket.browser.e2e.js`（715 行）与静态锁 `rail-pocket.static.e2e.js`；`src/` 零改动；`app.js` 1219→1221（import＋bind＋给 `createSessionExperienceDomain` 注入 `applyShellMode`，护栏 1280）；e2eCount 327→329；locale 四份 +28（`rail.pocket.*`、`stewardShell.drawer.upNext*`、`settings.steward.{group.index,threadIndexRecent,group.schedule,schedule.*}`、`onboarding.wizard.steward.*`）；`LEGACY_STYLES_SHA256` `b9852892…`→`cc9fc48a…`（两次都从 git blob 算；四个既有层改动，分组表 18 组 22 层不动）。
+- **K7-1 口袋**（§2.3／§7.2）：`#railPocket` 四项——定时任务（带数量）／行动流水／记得的关于你（24h 新写入带鎏金「新」，**用服务端 13g 算好的 `counts.isNew`，客户端零窗口常量**）／体检 · 用量（**零金额**，`cost-zero.static` 扩到 7 文件；待办计数读手里已有的 `state.status.health`，零新增请求）；各 deep link 到真面（`settings.openPanel(section)`；体检两视角两条路：管家→设置体检页，工作台→`#tab-usage`）；≤980 只留图标（可访问名仍在 `title`）；数据靠打开时刷一次＋推送帧到达时刷，**零 `setInterval`**（静态锁＋12 s 静置窗零新请求）。头像菜单只剩「细节」「设置」（`steward-conversation.js` 只动那一段：`menu.memory`／`menu.decisions` 搬进口袋后删）。**派单稿证伪**：① `GET /api/scheduler/tasks` **不存在**——119 波定时任务零实现（§13.5 原话），实测 403（`01b` 未登记路径 fail-closed）；读法写成前向兼容（读不到＝零条），设置页补只读面当落点，e2e 用页内 fetch 垫片造五条任务证渲染；② 记忆是 `/api/steward/memory` 不是 `/api/memory`；③ 行动流水无角标，不发那一发。
+- **K7-2「接下来」**（§2.6）：`steward-drawer.js` 只加一段——定时任务按下次触发升序取 2，过去与关掉的不进，零任务整段不画（`hidden` 且 `offsetParent=null`）。
+- **K7-3 设置与向导**：`threadIndexRecent` 数字输入（`POST /api/config`；**钳位 [10,200]**，派单稿「改成 5 回读 5」不成立，钉真口径 12→12／5→10／UI 回填 10）；118a 向导多一步「管家用哪个模型」（落 `config.stewardModel`），完成页落管家视角（`applyShellMode('steward')`，`shell-mode.js` 仍唯一写者；从工作台进向导完成后也落管家）。
+- **K7-4 右栏页签**：`tool-pane.css` 三列→四列，1920 下七枚两行（专家档 7/4=2 行、精简档 5/3=2 行）；`ia.e2e` ④ 翻面钉。
+- **执行者自抓两处假绿**（纪律 5）：① `ia.e2e ④` 前值正则 `\.tool-tabs\s*\{` 同时命中精简档选择器的后缀，改四列后照旧 PASS——改成剥注释后逐字取整条选择器；② 自己的 D3 第一版只读 `section.hidden`，右栏在零线程时整块 `[hidden]`，看不见的栏里量出「两行」还 PASS——夹具先造一条线程，判据加 `offsetParent`。**踩纪律 7**：heredoc＋python 把 `/\r?\n/` 吃成真换行写进源码，改用 Write 重写；30 个提交文件 0x00–0x1f／\r 扫描零命中。
+- **齿轮菜单去重没做**（§13.7 ⑩）：真正重复的是 `#moreMenuBtn` 与它四个同级兄弟（主题／界面／能力矩阵／快捷键），删它要动 `navigation-controls.js`（非独占）且与 K5 刚重钉的 `ia.e2e ⑥` 打架→**登记清障**；口袋 ∩ 齿轮 = ∅ 由 `rail-pocket.static` D3/D4 与 `steward-settings.static` E5b 钉着。
+- **执行者全量**（8 路）：317/5/3 flaky；五红串行：`websearch` 争用红串行绿，`index-dedup` E3 在 `9f0222d` 干净 worktree 同红，三件 realhist 环境红；**真回归 0**。串行十一件全绿（`steward-conversation` G4 首跑红两跑绿，撤回后回读消息数的时序件）；`--fast` 66/66。两张截图主会话看过：管家视角栏底口袋四项（定时任务 5／行动流水／记得的关于你「新」／体检 · 用量）＋焦点栏底部「接下来」两行；工作台右栏七页签两行。
+- **主会话复核**：八提交逐条读 stat 与关键 diff（口袋数据路径零计时器、头像菜单只删两项、`upNext` 段 `hidden` 判据）；`build --check`／依赖图 `--check`（50／398／forwardEdges 67／SCC 1）新鲜；控制字符与 CR 扫描零；`--fast` 66/66；串行十二件全绿：`rail-pocket.browser` 48、`one-workbench-frame.browser` 63、`workbench-thread-head.browser` 56、`quiet-card.browser` 33、`focus-rail.browser` 38、`steward-shell` 27、`steward-board` 104、`steward-drawer` 130、`steward-conversation` 136、`dom-smoke` 52、`dom-contract` 20、`ia` 34；**反向抽查**：往 `rail-pocket.js` 末尾加一行 `setInterval`→`rail-pocket.static` A1 红（实测 L308）→还原 ALL PASS。**K7 真回归 0。**
+- **遗留登记**：① `#moreMenuBtn` 与四个同级兄弟重复（清障）；② **管家视角没有向导入口**——首跑卡上那枚「开始引导」只画在工作台空态，新装默认落管家视角，新用户只能从齿轮→帮助→重新打开引导（要动 `steward-conversation.js` 对话流空态，登记 122 波）；③ 119 波定时任务后端零实现，口袋计数与「接下来」现实里恒空，后端上线当天前端零改动。
+
+### 13.15 整波验收（§10 逐条，主会话按 K7 报告核对钉点；2026-09-12 夜）
+
+| # | §10 条目 | 钉在哪 |
+|---|---|---|
+| ① | 交办台零残留 | `steward-shell.static` B1（`#previewShell` DOM 零残留）／C9b（`app.js` 零 `preview-shell`）／CSS 那条；`public/` 剩余命中全是注释里的历史出处 |
+| ② | 首开落管家＋左栏同一节点＋一组 chip | `one-workbench-frame.browser` ①（`isSameNode`）、`workbench-thread-head.browser`（`.steward-chip` 恰一组、`#modelChip`／`#permChip` 不存在）、K7 I3（全新 HOME 落 steward） |
+| ③ | 2.0 新会话进左栏、管家不生成回合、交接 | `thread-index-visibility` A/C/D ＋ `steward-presence-gate`（在场门四情形，拔门即触发） |
+| ④ | 三种在场 | `quiet-card.browser` A1–A3（①②在单连接夹具下由服务端在场门兜住、③可独立证伪——§13.11 如实记） |
+| ⑤ | §6.3 五指标 ≤1 s | `event-stream-client.browser` B 组（实测 3–87 ms） |
+| ⑥ | 1920 三栏／1180 抽屉／900 图标栏 | `one-workbench-frame.browser` ②③（1920/1200/900）＋ K7 J1/J2（1181 在栅格／1180 成抽屉，此前边界没人钉） |
+| ⑦ | 左栏以任务为行、四面同色 | `one-workbench-frame.browser` ⑧ ＋ `focus-rail.browser` F1–F3 ＋ `steward-board` C12b/C12d |
+| ⑧ | 费用零命中／卡头无模型名／按钮 ≤2 | `cost-zero.static`（7 文件）＋ `steward-conversation.e2e` V8/C5 ＋ K7 B4（渲染后文本与 title） |
+| ⑨ | 切换动效 | `one-workbench-frame.browser` ④⑤（一次切换恰一次 `startViewTransition`、reduced-motion 零动画） |
+| ⑩ | 真回归 0／`build --check`／forwardEdges 不增、SCC 1 | 每刀 §13.x 各一遍；最终 HEAD 主会话全量见 §13.16 |
+
+### 13.16 最终 HEAD 全量（主会话，`e318df5`，本机 8 路，2026-09-12 深夜）
+
+**316 pass / 6 fail / 2 flaky / 322 ran / 7 skipped**（e2e 总数 329，默认 322）。六红逐件经 run-all 隔离单跑：`mission-index-late-materialize`（并行下 223 ms 快败）／`agent-worktree`／`claude-context-continuity`／`responses-fake`／`websearch` **串行全绿**（8 路争用）；`observation-recall-replay` 缺 realhist-fixtures（环境）。失败尾巴里另有 `index-dedup` E3（基线名单）、`session-notes`／`observation-recall-realhistory`（环境）、`bridge-cancel-timeout`（重跑前首败，争用）。flaky 两件 `steward-shell`／`classic-window-live-steer` 重跑绿。`build --check` 新鲜、依赖图 50／398／forwardEdges 67／SCC 1（整波 K0→K7 前向边一条未增）。**121 波真回归 0，收口。** 未推送；推送前由用户拍板。
+
+### 13.17 用户走查修复第一轮（Opus 实现，`04dbae5`／`1470c79`／`019917d`／`59d60eb`／`9c93dd0`／`5828c90`，2026-09-13；主会话复核，补刀 quiet-card 静默窗）
+
+用户 2026-09-13 对着真机报五条，主会话先核事实再派单，执行者每条先真浏览器复现（`elementFromPoint`／真鼠标）再修再钉，新件 `walkthrough-round1.browser.e2e.js`（739 行）。`src/` 零改动；`app.js` 1222→1232；e2eCount 329→330；`LEGACY_STYLES_SHA256` `cc9fc48a…`→`7738fe50…`（两端 blob 复现）。
+
+- **① 顶栏浮层被右栏盖住**：病根不是派单稿写的 `layout.css:13`（那是 `.app-frame`）——`.app-topbar` 只因 `view-transition-name: titlebar` 成了 z-index:auto 的层叠上下文，盾牌菜单 z20／齿轮 z50 被关在里面，`.app-body` 后来者赢。修 `.app-topbar { position: relative; z-index: 42 }`（注释写死与 30/40/44/46/50/55/60 的关系）。钉 B1–B4；反向整条拔掉→四红；**额外发现**：改成 1 时 B1–B3 仍绿、只 B4 红——压住右栏只需「定位＋任意正 z」，B4 守的是档位。
+- **② 左栏显示太多、必须点文字**：`bindRowClick`（整行接 click，命中 `button/a/input/select/textarea/label` 让位；线程行→`openRow`、多线程任务行→展开收起）；普通密度悬停动作栏收进行尾一枚「⋯」（`popover` layer 模式开合**同一个** `.steward-board-actions` 节点，动作实现仍只在 `session-experience.js` 一处），`.rail-board` 看板密度保留悬停；**不加 `role="button"`／`tabindex`**——行里嵌着真按钮，Enter／Space 由标题按钮原生给。钉 C1–C7；反向拔 `bindRowClick`→C1/C2 红、去 `.rail-board` 前缀→C3 红。
+- **③「＋」两义看不出差别**：`syncRailPlus` 同一处写 `data-lens` 与字形（`lensSteward`／`plus`），管家侧鎏金描边次级钮，`rail.newTask`「新任务」→「另起一件」（无新键）。**派单稿证伪**：`button.primary` 底色是 `linear-gradient`，`background-color` 两边都是透明，判据改钉 `background-image`。反向拔样式→D3 红。
+- **④ chip 弹层与「对话｜班组」页签叠画**：两条病根——`.topbar` 带 `backdrop-filter` 让线程头成 z-index:auto 层叠上下文，菜单出不了头；左栏行同层＋`.rail-threads-inner` 手风琴 `overflow:hidden` 裁掉浮层。修 `.steward-chip-menu` z 2→30、`.topbar.thread-head` z 12、左栏 `:has()` 松裁＋开着的行 z 3。钉 E1–E5；反向**单拔菜单 z 仍全绿**（真正的门是宿主那一层），拔 `.topbar.thread-head` 的 12→E1 红。
+- **⑤ 切引擎／模型「似乎不直接生效」——复现定案：后端与写口全绿，断的全在前端回显与回执**。修前绿：PATCH 恰一发 200、服务端回读变了、chip 值变了、下一回合真打到新模型（fake provider 抓 `model`）、agent 路由形状写得进去；修前红：`state.currentSession.engineRoute` 没回填、空态「当前引擎：…」没变、`#statusLine` title 没变、**改完一条看得见的回执都没有**（chips 的 `note()` 写死 `#stewardDrawerNote`，工作台里 `display:none`）。修：`thread-head.js adoptSession`（只回填 `engineRoute`／`permissionMode`）＋ `noteSink: toast`；`steward-chips.js` 可选 `noteSink`（管家两处宿主一字未改）；`app.js` 接 `updateEngineDependentUI`／`updateContextMeter`／`renderStatusLine`；`provider-settings.js` 里 `(p && p.model) || currentModelId()` 次序反了顺带改。反向拔回填那一行→F3/F5/F6/F10 四红。
+- **执行者全量**（8 路）：317/6/2 flaky；六红串行：`index-dedup` E3 基线、三件 realhist 环境、`websearch` 只在 8 路红、`quiet-card.browser` 串行也红且基线同红——**主会话核**：后两条都是环境，见下。
+- **主会话复核**：六提交逐条读 stat 与关键 diff；`build --check`／依赖图 `--check` 新鲜；控制字符与 CR 扫描零；`--fast` 66/66；看过两张截图（管家视角盾牌菜单压在右栏之上；工作台 chip 菜单压在页签之上，菜单文字有横向裁切——遗留①）；串行五件全绿：`walkthrough-round1.browser` 46、`one-workbench-frame.browser` 63、`workbench-thread-head.browser` 56、`steward-board` 104、`dom-smoke` 52；**反向抽查**：`layout.css:51` 的 `.app-topbar` z-index 42→auto → B1–B4 与 B0 五红 → 还原逐字节一致。**走查第一轮真回归 0。**。
+- **两条「基线红」的真相**：① `quiet-card.browser`——安静卡按 §4.3 尊重静默时段，`notify-policy` 默认 22:00–08:00，本件从不覆盖它：白天 33 绿、夜里 A2a 起 12 红（00:18 复现）。主会话把静默窗钉到离此刻 6 小时之外（E 组自己再改成覆盖此刻），钉后 33/33。② `websearch` 8 路红——日志「Auto-imported fake／dummy-tool／stdio-hang」：真机 `~/.claude.json` **又被写进 8 条夹具**（22:50）。这次的路是**产品自己的回路**：真机数据根 `~/.win-claude-workbench/config.json` 的 `externalMcpServers` 早在某次启动时从被污染的 `~/.claude.json` 自动导入了它们，此后每次开真机 app（用户走查时 22:05／23:01）又经 `syncMcpServersToClaude`／`syncMcpServersToKimi` 同步回两份 CLI 配置。主会话把三处（Ruyi config、`~/.claude.json`、`~/.kimi-code/mcp.json`）与 Kimi sidecar 的 `managedIds` 一起清掉（各留 `.bak-<时间>`）。**产品债**：从 Claude Code 导入的条目不该再同步回 Claude Code（打来源标记），登记 122。另：run-all 一轮里所有件共用一个临时家（`fixtureHomeDir()` 按 runner 进程缓存），先跑的 `mcp-ops-closure` 让服务往临时家的 `.claude.json` 写夹具、后跑的 `websearch` 又导入——**每件一个临时家**是 122 的测试基建项。
+- **遗留**：① chip 菜单文字横向裁切（`.steward-chip-option` 是 `<button>` 继承 `base.css:49` 的 `white-space: nowrap`，`overflow-wrap` 失效；一行可修 `white-space: normal`）；② 导入→同步回路（上）；③ run-all 每件独立临时家（上）。
+
+---
+
+## 14. 换机器接着做（2026-09-11 晚收口；下一台机器从这里进）
+
+**基线**：`origin/master` 推到 K4 收口提交（本节所在提交）。本地无未提交改动；`.ruyi-runtime/` 与 `dev-harness/summary-provider-matrix-live.js` 是本机杂物，不入库。
+
+**开工三步**：① `git pull`，`node -v` ≥ 24；② `node ruyi-workbench/app/build.js --check` 与 `node dev-harness/module-dependency-graph.js --check`（期望新鲜、forwardEdges 67、SCC 1）；③ `node dev-harness/run-all.js --fast`（63/63）。真浏览器件靠 `dev-harness/lib/browser-path.js` 找 Edge。
+
+**已出门**（§13.1–13.14）：K0／K0b／K1／K2a／K3／K2b／K4／K5／治抖动批／K6a／K6b／K8／**K7**——**121 波刀序全部出门**，整波验收见 §13.15，最终 HEAD 全量见 §13.16。**下一波从「清障与产品债」清单进**（本节末），不再有 K 刀。（§9 派单表是范围与验收的权威；下面只补每刀要吃的登记项）。派单纪律不变：主会话规划＋亲核，Opus 子代理主树串行实现，按路径提交，红件串行复验，每把新断言先弄红再还原，改了 `src/` 就整条生成器链重跑。**并行度按机器**：24 核机器全量可 `--parallel 8`（用户 2026-09-11 拍板），老机器仍 4；无论几路，**整台机器同一时刻只许一个回归在跑**（32 号文 §4 纪律 14）。
+
+- **K6b 焦点栏＋任务卡四密度＋文字预算**（§2.4／§2.6／§5；K6 的另一半，K6a 已出门见 §13.11）：`steward-drawer.js` 改造成焦点栏（`#stewardSide` 里，K4 已把它放进栅格；`#stewardNowBody` 挂点改名，§13.7 ③）——焦点线程＝等你＞在跑＞失败＞最近动静、焦点卡＝「工作」密度、按五态一段（等你 callout＋候选答案＋直接回答框／在跑「它正在说」流式尾窗 ≤3 句＋当前动作行等宽／排队在等什么＋插队／收工「它最后说」）、其它在途最紧密度行、**删费用 pill**（`stewardCostText`／`#stewardDrawerMissionCost`，§13.11 登记）、没有「今天」统计块；hue 表键 sessionId→missionId（`steward-conversation.js:255 stewardThreadHueFor`，线程继承任务色，三面同一张表）；对话流卡头去模型名、`.abtn` ≤2、「※」折成圆钮、灰字行 ≤1 句（§2.4 文字预算，渲染层）；`dispatchAcceptanceMilestones` 接线（§13.3 ①）；`stewardAgoLabel` 一种时间写法。**吃的登记**：§13.8 K6 ④ 线程头 avatar SVG 第二份标记收成一处；§13.7 ⑨ 抽屉 `openThread` 抢焦点、右栏空轨 `:has()`、任务级 hue 表；§13.7 ② 右栏「项目与进度」页签的费用入口只留用量页。**绝不碰** `quiet-card.js`／`notify-policy.js`／`thread-head.js`／`app-frame.js`／`shell-mode.js`。
+- **K8 视觉与文案刷新**（§2.10）：`icons.js` 加 9 减 7、`tokens.css` 字阶改 px、四份 locale 术语表（「会话」→「线程」、禁用词零命中、`shell.settingClassic`）、CSS 载荷锁独占重钉、两主题截图对照原型 v3。**吃的登记**：§13.7 ⑤⑥；§13.8 K8 ①–④（`.model-chip`／`.perm-chip`／`.perm-select-host`／`.perm-pop` CSS 死族、1200 宽 chip 值省略号、`classic-window-live-steer` 措辞、`lensSteward`／`originUser`／`originSchedule` 字形）；§13.11 K8 ①（`.mc-pop`／`.mc-row` 死族）；§13.12 K8 ①–④（`drawer.lastSay`「它最后说」、`drawer.classicView`「在工作台打开」、卡头钮 `monitor` 占位、`thread-head.js` avatar 第二份 SVG 收成一处——这刀可以碰 `thread-head.js`）。
+- ~~**K7 口袋＋接下来**~~（已出门，§13.14；下面保留派单原文供对照）（§7.2）：`#railPocket`（`index.html:212`，空槽）四项（定时任务带数量／行动流水／记得的关于你（24h 新写入带「新」）／体检 · 用量，**不带金额**），各 deep link 到具体面板（`settings.openPanel(section)`，`steward-shell.js:419`；数据面 `/api/scheduler/tasks`（119d）、`/api/steward/decisions`（13g）、`/api/memory`、`/health`＋`/api/usage/summary`）；头像菜单只剩「细节」「设置」；焦点栏「接下来」（定时任务最近两条，§2.6，K6b 未做）；`threadIndexRecent` 设置入口（§13.5 ③，`01-config:322`）；118a 向导「管家用哪个模型」一步与完成页落管家视角（§13.1 登记，`onboarding-wizard.js`）；§13.7 ⑩ 齿轮菜单（清理历史／设置／帮助／快捷键／能力矩阵）与口袋分工对齐；≤980 左栏折成 56px 图标栏时口袋成图标（§7.3）。**吃 K8 的登记**（§13.13）：口袋字形 `originSchedule`／`ledger`／`memory`／`stethoscope` 已备；右栏「项目与进度」页签 1920 下折三行归本刀；`task`／`live`／`check`／`play`／`panelRight` 接线时直接用。**绝不碰** `steward-drawer.js` 的五态段落（只加「接下来」一段）、`quiet-card.js`、`thread-head.js`、`app-frame.js` 逻辑。
+- **不在刀序里，攒着**：`classic-window-live-steer` 单跑 240 s+ 该进超时表（§13.8）；**产品债** 启动期 `01-config detectDesktopMcp` 三次 python 探针同步阻塞 ~5 s（装了 Python 没装 mcp 包的机器；§13.8）→ 改异步或跨进程缓存；本机真实 `~/.claude.json` 里有一批 e2e 夹具名的 MCP（`stdio-hang`／`fake`／`dummy-tool` 等）疑似某次未隔离家目录的直跑泄漏，待查是哪件写的（`fixture-home-guard` 就是为这个立的）；**本机缺 `dev-harness/realhist-fixtures/`**（未入库的真实历史夹具），`observation-recall-realhistory`／`-replay`／`session-notes` 三件在拷来之前必红（§13.10）。
+
+**每刀出门后主会话必做**：`git show --stat` 逐提交读 diff；`build --check`／依赖图 `--check`／`--fast`；改动文件 0x00–0x1f／\r 扫描；本刀新件与撞过的真浏览器件串行复跑；一处反向验证抽查（拔掉一行→红→还原）；写 §13.x 交付记录；推进 32 号文 §6 一句话地图；按路径提交 docs。
+
+**121 波收口后的「清障与产品债」清单（2026-09-12 深夜汇总；下一波从这里挑，按风险排序）**
+1. **产品**：119 波定时任务后端零实现（`/api/scheduler/tasks` 403）——口袋计数与「接下来」现实里恒空，前端已前向兼容（§13.14）。
+2. **产品**：管家视角没有向导入口——新装默认落管家，首跑卡「开始引导」只在工作台空态（§13.14 ②）。
+3. **产品**：`POST /api/mission {action:'start'}` 与刚派出的第一回合写口竞争，里程碑账本被盖（§13.12；前端回读重试兜着）。
+4. **产品**：boot 末尾 `syncStewardShellAvailability()` 无条件跑一次会覆盖用户刚做的视角切换（§13.11；夹具「按住 2 s」绕过）。
+5. **产品**：启动期 `detectDesktopMcp` 三次 python 探针同步阻塞（§13.10；磁盘缓存已把第二次起降到 1.25 s，第一次仍 6 s；根治＝挪到 `listen()` 后异步）。
+6. **产品**：`#moreMenuBtn` 与齿轮菜单四个同级兄弟重复（§13.14；牵连 `navigation-controls.js` 与 `ia.e2e ⑥`）。
+7. **文案／样式清障**：en-US「chat／session」→「thread」全量归一；`--fs-xl`／`--fs-2xl` 名字退役（onboarding／tool-pane／chat-primitives）；`model-menu.js MODEL_MENU_CLASSES` 的 `mc-*` 死字符串；非独占层 25 处 letter-spacing／9 处 uppercase；`.mc-pop` 一族已清。
+8. **锁与抖动**：`index-dedup` E3 疑似过期锁（`/compact` 后重注可能是对的，跑一次打印 t6.meta 定）；`event-stream` B-g1 本机固有；`classic-window-live-steer` 8 路下必 TIMEOUT（300 s 不够，或挪独占）；`quiet-card.browser` ①② 两句判据在单连接夹具下拦不到东西（多标签页夹具才轮到）。
+9. **环境（用户侧）**：`dev-harness/realhist-fixtures/`——用户在另一台电脑测（35 号文 §4 ②）；`~/.claude.json` 里 8 条失效的 `loca_*`。
+10. **走查第一轮追加（§13.17）**：① chip 菜单文字横向裁切（`.steward-chip-option { white-space: normal }` 一行）；② **产品债** 从 Claude Code 导入的 MCP 条目不该再同步回 Claude Code／Kimi（导入→同步回路会让删掉的条目复活，打来源标记）；③ **测试基建** run-all 每件独立临时家（现按 runner 进程共用一个，先跑的件让服务往临时家写 `.claude.json`、后跑的件又导入，8 路下 `websearch` 因此红）。
+
+**去向（122 波收口后，2026-09-13；详见 36 号文 §5）**：1 → 123 波（35 号文 §2）；2 → 122-L1b 已做（两支 renderFirstRun／renderDigest 都挂）；3 → 122-L2 已做（真根在回合起跑存，写链内合并）；4 → 122-L1a 已做（判据没错，真根是 applyShellMode 两次视图过渡写回调乱序＋app-frame setLens 同值早退，后者 122-L1b 已修）；5 → 122-L2 已挪 listen 后 500 ms，`detectDesktopMcp` async 化登记后续；6 → 122-L1b 已做（齿轮一层七项）；7 → 122-L3 已做 en-US／--fs-xl／letter-spacing／uppercase，`model-menu.js MODEL_MENU_CLASSES` 的 `mc-*` 死字符串**未做**，登记 123 波清障；8 → 122-L3 已定案（E3 是夹具泄漏真机 ACC 记忆、B-g1 是夹具没给轮询窗口、live-steer 独占），quiet-card ①② 由 J04 件 `quiet-card-typing.browser` 覆盖；9 → 用户侧不变；10 → ① L1b ② L2 ③ L3 全部已做。

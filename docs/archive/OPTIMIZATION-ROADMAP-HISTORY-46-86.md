@@ -355,7 +355,7 @@ roadmap §43 line 954"第52波+ · 发布与范式"+ 51 波遗留技术债收尾
 2. 新壳层 PoC 对单任务、长任务、多 Agent、Quick Ask 四条旅程的改善证据。
 3. 旧会话兼容、离线升级/回滚、经典壳层并存成本与退出期限。
 4. UI 重构是否可以完全复用现有执行引擎、权限、工具、检查点和审计链路。
-5. `docs/UI-VNEXT-CONCEPT.md` 中定义的 Pretender 目标、非目标、分阶段计划与 go / no-go 门。
+5. `docs/archive/UI-VNEXT-CONCEPT.md` 中定义的 Pretender 目标、非目标、分阶段计划与 go / no-go 门。
 
 只有评审通过后，才冻结 **Ruyi Pretender 3.0** 的范围、兼容策略和时间表；未通过则继续以 Escapade 壳层迭代，Mission 数据层仍作为 2.x 的用户价值保留。
 

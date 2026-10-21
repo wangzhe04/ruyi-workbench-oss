@@ -82,7 +82,7 @@ node dev-harness/<改动相关>.e2e.js             # 单件:末行 ... E2E: ALL 
 - `mcp/ai-computer-control`(ACC)依赖 pywin32/pyautogui 与真桌面,云端装不上、测不了,改它只能靠 Windows CI。
 - 发布打包(`package:offline*`、`build:desktop`)是 PowerShell 脚本,只在 Windows 上跑。
 - 本地服务测试还须隔离用户家目录与两个 AppData 位置（`dev-harness/lib/fixture-home.js`）；只设 `RUYI_HOME` 不能隔离全局 CLI 配置。
-- 2026-10-16 已在本实施分支修复同一数据根重复 `serve` 干扰待决的问题：第二实例在恢复前明确拒绝，详见 [63 号验收记录](docs/optimization-plan/63-steward-startup-read-contracts.md)。每个并行测试实例仍须使用独立数据根，除非正在专门验证所有权竞争；源码修复不表示安装包已经发布。
+- 2026-10-16 已在本实施分支修复同一数据根重复 `serve` 干扰待决的问题：第二实例在恢复前明确拒绝，详见 [63 号验收记录](docs/archive/optimization-plan/63-steward-startup-read-contracts.md)。每个并行测试实例仍须使用独立数据根，除非正在专门验证所有权竞争；源码修复不表示安装包已经发布。
 
 ## 平台相关代码的写法
 

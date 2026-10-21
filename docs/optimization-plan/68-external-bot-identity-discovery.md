@@ -1,5 +1,7 @@
 # 飞书应用身份自动发现（本机发起）
 
+> **当前状态（2026-10-21）**：本机固定接口探测已有源码与隔离证据；真实飞书身份响应、配置接续与权限边界仍须在 3.1 发布前核对，按 86 号实施，不以 fake 响应代替真平台验收。 当前执行入口：[86 号路线](86-3.1-completion-and-privacy-roadmap.md)。
+
 设计日期：2026-10-17。基线：`c7c1cd3d`；实施分支：`codex/steward-3x-implementation`；当前应用版本 3.0.1。承接 [66 号远程控制](66-external-bots-and-steward-channels.md) 与 [67 号管家代办配置](67-steward-assisted-bot-setup.md)，实现 67 号文末登记的下一片：用户明确发起的固定官方 API 探测，自动发现飞书 tenant key 与机器人 open_id。
 
 ## 用户目标

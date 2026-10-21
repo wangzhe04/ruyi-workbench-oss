@@ -50,7 +50,7 @@ npm run build:desktop            # 构建 RuyiDesktop.exe 桌面壳
 - 管理员手册（部署、引擎、安全边界、计费、回归）：[中文](docs/manuals/ADMIN-GUIDE_CN.md) · [English](docs/manuals/ADMIN-GUIDE_EN.md)
 - 架构说明：[中文](docs/ARCHITECTURE_CN.md) · [English](docs/ARCHITECTURE_EN.md)
 - 离线部署：[中文](docs/OFFLINE_DEPLOYMENT_CN.md) · [English](docs/OFFLINE_DEPLOYMENT_EN.md)
-- 早期外部材料阅读记录（历史）：[中文](docs/SOURCE_REVIEW_CN.md) · [English](docs/SOURCE_REVIEW_EN.md)
+- 早期外部材料阅读记录（历史）：[中文](../docs/archive/SOURCE_REVIEW_CN.md) · [English](../docs/archive/SOURCE_REVIEW_EN.md)
 - 技能与一键任务目录：[中文](docs/SKILLS-CATALOG_CN.md)
 - 工作流模型规范：[中文](docs/MODEL-WORKFLOW-SPEC_CN.md) · [English](docs/MODEL-WORKFLOW-SPEC_EN.md)
 - 后续管家 3.x 迭代（方案，不代表已交付）：[62 号计划](../docs/optimization-plan/62-steward-3x-iterations.md)

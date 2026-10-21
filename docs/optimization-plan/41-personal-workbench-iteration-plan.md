@@ -810,14 +810,14 @@ SharedResource（未实现的限定试点扩展）：
 - [工程模块与契约规范](../ENGINEERING-SPEC.md#L1)
 - [当前总体路线图](../OPTIMIZATION-ROADMAP.md#L1)
 - [22：SoC 类比边界与收益证据](./22-agent-soc-microarchitecture.md#L17)
-- [23：架构偿还与上下文序列](./23-architecture-repayment-sequence.md#L1)
-- [25：压缩、过程可见性、检索](./25-waves-111-113-compaction-visibility-memory.md#L1)
-- [27：管家规划与交付](./27-waves-115-117-steward.md#L1)
-- [28：新手引导与离线/小白走查](./28-wave-118-onboarding.md#L1)
-- [29：定时任务与触发器](./29-wave-119-scheduler.md#L31)
-- [31：管家放权七轴](./31-steward-empowerment.md#L1)
-- [34：一台两视的产品原则](./34-wave-121-one-workbench-two-views.md#L101)
-- [34：最新 K6a 交付与后续边界](./34-wave-121-one-workbench-two-views.md#L507)
+- [23：架构偿还与上下文序列](../archive/optimization-plan/23-architecture-repayment-sequence.md#L1)
+- [25：压缩、过程可见性、检索](../archive/optimization-plan/25-waves-111-113-compaction-visibility-memory.md#L1)
+- [27：管家规划与交付](../archive/optimization-plan/27-waves-115-117-steward.md#L1)
+- [28：新手引导与离线/小白走查](../archive/optimization-plan/28-wave-118-onboarding.md#L1)
+- [29：定时任务与触发器](../archive/optimization-plan/29-wave-119-scheduler.md#L31)
+- [31：管家放权七轴](../archive/optimization-plan/31-steward-empowerment.md#L1)
+- [34：一台两视的产品原则](../archive/optimization-plan/34-wave-121-one-workbench-two-views.md#L101)
+- [34：最新 K6a 交付与后续边界](../archive/optimization-plan/34-wave-121-one-workbench-two-views.md#L507)
 - [默认开关与管家配置](../../ruyi-workbench/app/src/01-config.js#L295)
 - [管家线程的委托与模型选择](../../ruyi-workbench/app/src/13k-steward-threads.js#L630)
 - [管家记忆的用户来源检查](../../ruyi-workbench/app/src/13l-steward-ops.js#L339)
@@ -949,7 +949,7 @@ SharedResource（未实现的限定试点扩展）：
 
 - 已在生产 `app/src` 和前端 `.js` 搜索 `schedulerEnabledV1`、`/api/scheduler/tasks`、`steward_schedule_*`、`nextFireAt`；未找到定时服务实现。
 - 时间意图预判已有：[stewardPrerouteIsSchedule](../../ruyi-workbench/app/src/06i-steward-core.js#L941)。DAG scheduler 也已有，但两者都不提供定时运行闭环。
-- 对照 [119 的接口/触发模型](./29-wave-119-scheduler.md#L31) 与当前 [管家线程动作](../../ruyi-workbench/app/src/13k-steward-threads.js#L1)：未找到对应定时 CRUD/触发执行、任意线程 after 接力或依据式代答/白名单代批消费者。
+- 对照 [119 的接口/触发模型](../archive/optimization-plan/29-wave-119-scheduler.md#L31) 与当前 [管家线程动作](../../ruyi-workbench/app/src/13k-steward-threads.js#L1)：未找到对应定时 CRUD/触发执行、任意线程 after 接力或依据式代答/白名单代批消费者。
 - 未找到 31 候选 `steward_web_search`、`steward_notify`、`steward_playbook_run`、`stewardApprovalWhitelist`、tainted 回合门的生产实现；现有本地通知不因此被否认，它走 C10 的 UI 通路。
 - 边界：这是该基线限定范围的核查结果。实施前先复查 HEAD，不能忽略别的 agent 后续新增。
 

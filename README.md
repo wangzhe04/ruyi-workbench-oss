@@ -589,10 +589,10 @@ node dev-harness/<改动相关>.e2e.js             # 单件：末行 ... E2E: AL
 | 工具装载设计 | [按需装载与 A/B](ruyi-workbench/docs/TOOL-LOADING_CN.md) | — |
 | 内置技能与一键任务 | [技能与一键任务目录](ruyi-workbench/docs/SKILLS-CATALOG_CN.md) | — |
 | MCP 连接器 | [MCP 连接器](mcp/README.md) | [MCP Connectors](mcp/README_EN.md) |
-| Clean-room 依据 | [源码审阅结论](ruyi-workbench/docs/SOURCE_REVIEW_CN.md) | [Source Review](ruyi-workbench/docs/SOURCE_REVIEW_EN.md) |
+| Clean-room 依据 | [源码审阅结论](docs/archive/SOURCE_REVIEW_CN.md) | [Source Review](docs/archive/SOURCE_REVIEW_EN.md) |
 | 界面多语言契约 | [多语言兼容方案](docs/i18n/README.md) | [Localization Guide](docs/i18n/README_EN.md) |
 | 发布线与路线图 | [优化路线图](docs/OPTIMIZATION-ROADMAP.md) | — |
-| 3.x 管家迭代提案（未实施） | [分轮方案](docs/optimization-plan/62-steward-3x-iterations.md) | — |
+| 3.1 补完与隐私路线（未发布） | [当前范围与发布门](docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md) | — |
 
 完整的双语文档索引见 [docs/README.md](docs/README.md)。
 

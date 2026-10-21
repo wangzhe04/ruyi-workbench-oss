@@ -1,6 +1,8 @@
 # 隐私规则目录、识别策略与维护规范
 
-更新：2026-10-20。属于 [81 号 3.1 隐私方案](81-privacy-vault-and-tokenization-31.md)，实施见 [82](82-privacy-31-implementation.md)，最新识别补强及多代理验收见 [85](85-privacy-rule-and-settings-regression-31.md)。本目录定义目标覆盖及验收；“设计项”不是已支持能力。扩展目录保持 45 个规则 ID，当前版本见 `app/src/01i-privacy-rules.js`，初始规则和精确凭据匹配在 `01h-privacy-core.js`；原生文字请求与工具返回已接入生产网关。版本 3 新增集成凭据、卡有效期、车辆标识、工号／门禁卡及个人主页五条规则；后续版本沿用稳定 ID 补强格式。
+> **当前状态（2026-10-21）**：本规则规范对应源码已随 PR #58 合入；规则与工具识别的边界继续适用，最终 ux15 证据见 85 号归档。媒体、外部 CLI、独立 MCP 和工作数据加密的新增覆盖目标与支持门以 86 为准；不把已识别格式的验证泛化为任意隐私、任意编码或工具派生输出的绝对保护。 当前执行入口：[86 号路线](86-3.1-completion-and-privacy-roadmap.md)。
+
+更新：2026-10-20。属于 [81 号 3.1 隐私方案](81-privacy-vault-and-tokenization-31.md)，实施见 [82](../archive/optimization-plan/82-privacy-31-implementation.md)，最新识别补强及多代理验收见 [85](../archive/optimization-plan/85-privacy-rule-and-settings-regression-31.md)。本目录定义目标覆盖及验收；“设计项”不是已支持能力。扩展目录保持 45 个规则 ID，当前版本见 `app/src/01i-privacy-rules.js`，初始规则和精确凭据匹配在 `01h-privacy-core.js`；原生文字请求与工具返回已接入生产网关。版本 3 新增集成凭据、卡有效期、车辆标识、工号／门禁卡及个人主页五条规则；后续版本沿用稳定 ID 补强格式。
 
 ## 1. 分类和默认值
 

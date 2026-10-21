@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- 第 121 波交互原型 v3 · 一台两视（界面／图标／文字优化版）。同一份内容发布为 artifact：https://claude.ai/code/artifact/f389c702-7b7b-4eae-85f6-54108caee4e9 ；设计稿 docs/optimization-plan/34-wave-121-one-workbench-two-views.md -->
+<!-- 第 121 波交互原型 v3 · 一台两视（界面／图标／文字优化版）。同一份内容发布为 artifact：https://claude.ai/code/artifact/f389c702-7b7b-4eae-85f6-54108caee4e9 ；设计稿 docs/archive/optimization-plan/34-wave-121-one-workbench-two-views.md -->
 <title>如意 · 一台两视</title>
 <style>
 /* ============================================================
    如意 Ruyi · 第 121 波交互原型 v3 —— 一台两视（管家视角 / 工作台视角）
-   依据：docs/optimization-plan/34-wave-121-one-workbench-two-views.md（§2.10 视觉与文案规范）
+   依据：docs/archive/optimization-plan/34-wave-121-one-workbench-two-views.md（§2.10 视觉与文案规范）
    v3（用户第三轮）：整体界面／图标／文字优化一版 —— 一套 24px 网格 1.75px 圆头单线图标；
    云头品牌标；字阶 12/13/14/15/17；正文 15px/1.65；组头去大写；输入框改胶囊；名字统一「」；
    术语「线程」「任务」「如意」；费用不上首屏；动效走 View Transitions。
@@ -688,7 +688,7 @@ function renderWork(){
         <p class="lead">${esc((t.lastSay||'先看现场。').split('。')[0])}。</p>
         <p>${esc(t.origin==='user'?'本体停在 117r，九刀全入库，git 干净；领先远端 11 个 commit 没 push。三个 worktree 里两个已合回主树，剩下那个基线是 HEAD~2。':'今天（9/10）收 5.72、−2.39%，确认跌破 10 日线。从 5.72 回到 7.00 要涨 +22.4%，路上得站上半年线 6.63。')}</p>
       </div>
-      <div class="toolcard">${I.file}<span class="verb">读文件</span><span class="mono">docs/optimization-plan/32-handoff-next-cuts.md</span><span class="ok">${I.check}322 行</span></div>
+      <div class="toolcard">${I.file}<span class="verb">读文件</span><span class="mono">docs/archive/optimization-plan/32-handoff-next-cuts.md</span><span class="ok">${I.check}322 行</span></div>
       <div class="toolcard">${I.play}<span class="verb">跑命令</span><span class="mono">git worktree list --porcelain</span><span class="ok">${I.check}0.3s</span></div>
       ${live?`<div class="livebar"><span class="d"></span><span data-livebar="${t.id}">${esc(t.live.tool)} · 第 ${t.live.iter} 次工具调用 · ${ago(Date.now()-t.live.at)}有输出</span><button class="stop">${I.stopsq}停止</button></div>`:
         t.state==='needs_you'?`<div class="callout"><div class="cap">它在问你</div>${esc(t.question)}<div class="opts" style="margin-top:6px">${t.options.map(o=>`<button class="abtn" data-answer="${t.id}">${esc(o)}</button>`).join('')}</div></div>`:''}`}
@@ -745,7 +745,7 @@ function renderProject(){
       <div class="f i1">${I.folder}ruyi-workbench</div><div class="f i1">${I.file}README.md</div>
     </div></div>
     <div class="blk"><h3>本轮变更</h3>
-      <div class="diffrow"><span class="add">+18</span><span class="del">−4</span><span>docs/optimization-plan/32-handoff-next-cuts.md</span></div>
+      <div class="diffrow"><span class="add">+18</span><span class="del">−4</span><span>docs/archive/optimization-plan/32-handoff-next-cuts.md</span></div>
       <div class="diffrow"><span class="add">+2</span><span class="del">−0</span><span>docs/architecture/route-inventory.json</span></div>
     </div>
   </div>`;

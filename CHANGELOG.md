@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 新增可选的本地凭据加密与发送前隐私保护，默认均关闭。原生文字模型、主／子任务及受管 MCP 文字可用代号处理已识别的敏感内容，工具执行副本按原权限还原；支持分档规则、独立技术信息开关、自定义规则和本地试验。Windows 凭据库与口令恢复包保护支持的凭据配置，恢复包不包含聊天、隐私规则或代号映射。当前未覆盖的 CLI、媒体及独立 MCP 通道在开启脱敏时明确阻止，工作数据整体加密尚未提供。以上已随 PR #58 合入；扩围后的 3.1 仍按[当前规划](docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md)完成后再发布。
+- Add opt-in local credential encryption and pre-send privacy protection, both off by default. Native text model requests, main/subtask loops and managed MCP text use references for recognized sensitive values; execution copies restore values under existing permissions. Protection levels, a separate technical-data option, custom rules and local previews are available. The Windows vault and password-protected recovery package cover supported credential configuration; the package does not restore conversations, privacy rules or reference mappings. Unsupported CLI, media and independent MCP channels are blocked while disclosure protection is enabled; encryption of all work data is not yet available. These changes are merged in PR #58; the expanded 3.1 release awaits the [current completion plan](docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md).
+
 - 别处发起的回合在最终消息保存前继续保持运行状态，避免查看全文时提前停表而漏掉最终回复。管家到访回执迟到时保留期间新增的原话、回复与递话回执。
 - Turns started elsewhere remain live until their final messages are saved, so full-text views keep polling through settlement. Late Steward arrival receipts preserve messages, replies, and hand-off receipts added while they were loading.
 
@@ -288,7 +291,7 @@ This file records user-facing release highlights; it does not replace the comple
      还差的人工终验见 55 号文。正式发布时把本节标题改成 `## 如意 Ruyi Pretender 3.0 · v3.0.0 · <发布日> · …`，
      并把 preview 之后的变化并进来。 -->
 
-> **如意 Ruyi Pretender 3.0 预览版 1 · 2026-09-24** —— 第 128 波（偿债波）起到第 136 波的用户可见变化。主线是两件事：**把地基上的裂缝补上**，以及**让管家从「只会说」变成「能自己看、能自己办，但每一步都说得出凭据」**。这是预览版：功能冻结、自动化全量回归与离线包冒烟已过；独立安全红队终审、真读屏与人因走查、Full 包真实桌面双击这几项人工终验留到正式版前（见 [55 号文](docs/optimization-plan/55-release-3.0-preview.md)）。上一个 GitHub Release 是 v2.6.2，2.7.0／2.8.0 的变化见下方各节，一并随本预览发布。
+> **如意 Ruyi Pretender 3.0 预览版 1 · 2026-09-24** —— 第 128 波（偿债波）起到第 136 波的用户可见变化。主线是两件事：**把地基上的裂缝补上**，以及**让管家从「只会说」变成「能自己看、能自己办，但每一步都说得出凭据」**。这是预览版：功能冻结、自动化全量回归与离线包冒烟已过；独立安全红队终审、真读屏与人因走查、Full 包真实桌面双击这几项人工终验留到正式版前（见 [55 号文](docs/archive/optimization-plan/55-release-3.0-preview.md)）。上一个 GitHub Release 是 v2.6.2，2.7.0／2.8.0 的变化见下方各节，一并随本预览发布。
 > **Ruyi Pretender 3.0 Preview 1 · 2026-09-24** — user-facing changes from wave 128 (debt repayment) through wave 136. Two themes: repairing cracks in the foundation, and moving the steward from "can only talk" to "can look and act on its own — while always able to show its grounds". This is a pre-release: features are frozen and the full automated regression plus offline-package smoke tests pass; the human sign-offs (independent security red-team review, real screen-reader and human-factors walkthroughs, double-clicking the Full launcher on a real desktop) remain before 3.0 final. The last GitHub Release was v2.6.2; the 2.7.0 and 2.8.0 sections below ship as part of this preview.
 
 ### 中文

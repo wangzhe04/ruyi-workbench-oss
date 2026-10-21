@@ -587,10 +587,10 @@ Architecture and engineering: [Architecture](ruyi-workbench/docs/ARCHITECTURE_EN
 | Tool loading design | — | [按需装载与 A/B](ruyi-workbench/docs/TOOL-LOADING_CN.md) |
 | Built-in skills and quick tasks | — | [技能与一键任务目录](ruyi-workbench/docs/SKILLS-CATALOG_CN.md) |
 | MCP connectors | [MCP Connectors](mcp/README_EN.md) | [MCP 连接器](mcp/README.md) |
-| Clean-room rationale | [Source Review](ruyi-workbench/docs/SOURCE_REVIEW_EN.md) | [源码审阅结论](ruyi-workbench/docs/SOURCE_REVIEW_CN.md) |
+| Clean-room rationale | [Source Review](docs/archive/SOURCE_REVIEW_EN.md) | [源码审阅结论](docs/archive/SOURCE_REVIEW_CN.md) |
 | UI localization contract | [Localization Guide](docs/i18n/README_EN.md) | [多语言兼容方案](docs/i18n/README.md) |
 | Release lines and roadmap | [Optimization roadmap](docs/OPTIMIZATION-ROADMAP.md) | [优化路线图](docs/OPTIMIZATION-ROADMAP.md) |
-| Proposed 3.x steward iterations (not implemented) | [Iteration plan (Chinese)](docs/optimization-plan/62-steward-3x-iterations.md) | [分轮方案](docs/optimization-plan/62-steward-3x-iterations.md) |
+| 3.1 completion and privacy roadmap (unreleased) | [Current scope and release gates (Chinese)](docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md) | [当前范围与发布门](docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md) |
 
 The complete bilingual documentation index is [docs/README.md](docs/README.md).
 

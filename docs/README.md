@@ -1,8 +1,8 @@
 # 如意文档导航
 
-现行产品基线为 3.0.1，当前研发重点是 3.x 管家体验与功能扩展。阅读顺序按使用目的划分；历史审计、旧方案和测试读数均保留其原始日期，不能作为当前版本已通过的证明。
+现行已发布基线为 3.0.1。PR #58 已合入；3.1 暂不发布，先完成 [86 号补完与隐私路线](optimization-plan/86-3.1-completion-and-privacy-roadmap.md) 纳入的原未完成范围。阅读顺序按使用目的划分；历史审计、旧方案和测试读数均保留其原始日期，不能作为当前版本已通过的证明。
 
-Ruyi ships Chinese and English user and deployment guides. Historical design and audit records remain in their original language. Current planning focuses on Steward improvements in the 3.x series; 4.0 is not scheduled.
+Ruyi ships Chinese and English user and deployment guides. Historical design and audit records remain in their original language. 3.1 remains unreleased while the completion and privacy roadmap is implemented; 4.0 is not scheduled.
 
 ## 使用与部署
 
@@ -20,12 +20,14 @@ Ruyi ships Chinese and English user and deployment guides. Historical design and
 | 入口 | 状态与用途 |
 |---|---|
 | [发布与迭代路线](OPTIMIZATION-ROADMAP.md) | 当前发布基线、未发布内容和下一步范围 |
-| [3.x 管家六轮迭代方案](optimization-plan/62-steward-3x-iterations.md) | 待实施；优先级、工作包、依赖、验收和暂缓项 |
+| [3.1 补完与隐私路线](optimization-plan/86-3.1-completion-and-privacy-roadmap.md) | 当前执行入口；范围、隐私支持边界、依赖与发布门 |
+| [代码规模与合理精简审计](optimization-plan/87-code-size-and-simplification-audit.md) | 当前基线统计、重复机制与精简候选；实施安排见 86 |
+| [3.x 管家分轮设计](optimization-plan/62-steward-3x-iterations.md) | 既有旅程与采用门来源；旧版本归属和候选排期由 86 更新 |
 | [优化方案目录](optimization-plan/README.md) | 当前方案、候选研究、历史设计分别列出 |
 | [CHANGELOG](../CHANGELOG.md) | 面向用户的发布与未发布变化 |
 | [3.0.1 发布说明](release-notes/v3.0.1.md) | 2026-10-16 发布基线；[HARD-51 实测与逐题数据](benchmarks/hard51-2026-10-15/README.md) · [English report](benchmarks/hard51-2026-10-15/README_EN.md) |
 | [3.0 正式版](release-notes/v3.0.0.md) | 2026-10-08 发布范围；[预览一](release-notes/v3.0.0-preview.1.md)、[预览二](release-notes/v3.0.0-preview.2.md)、[预览三](release-notes/v3.0.0-preview.3.md)保留原发布口径 |
-| [Traveler 概念](TRAVELER-CONCEPT.md) | 历史探索，4.0 暂缓定案；不属于当前承诺 |
+| [Traveler 概念](archive/TRAVELER-CONCEPT.md) | 历史探索，4.0 暂缓定案；不属于当前承诺 |
 
 ## 开发与扩展
 
@@ -41,7 +43,7 @@ Ruyi ships Chinese and English user and deployment guides. Historical design and
 | 技能与一键任务 | [技能目录](../ruyi-workbench/docs/SKILLS-CATALOG_CN.md)；随包技能正文属于运行时资源，按功能变更维护 |
 | 测试 | [离线 harness](../dev-harness/README.md) · [提示词评测](../dev-harness/prompt-benchmark/README.md) · [语音评测](../dev-harness/bench-voice/README.md) |
 | 多语言 | [中文约定](i18n/README.md) · [English](i18n/README_EN.md) · [字符串目录](i18n/STRING-CATALOG.md) |
-| 视觉语言 | [V4 设计基线](UI-DESIGN-V4.md)，现行交互形态以产品和浏览器测试为准 |
+| 视觉语言 | [V4 设计基线](UI-DESIGN-V4.md) · [原型与历史夹具](mockups/README.md)，现行交互形态以产品和浏览器测试为准 |
 | 文档维护 | [文档分类与维护规则](DOCUMENTATION-GUIDE.md) |
 
 ## 架构清册
@@ -59,6 +61,6 @@ Ruyi ships Chinese and English user and deployment guides. Historical design and
 
 ## 历史记录
 
-[归档目录](archive/README.md)收录旧路线、退役界面和历次决策。[旧交办台概念](UI-VNEXT-CONCEPT.md)已经由管家与工作台两视角替代，其数据契约仍有沿用；不能将旧壳层的搁置误读为 3.0 产品尚未发布。
+[归档目录](archive/README.md)收录旧路线、退役界面和历次决策；[69 篇历史方案](archive/optimization-plan/README.md)与现行规划分开存放。[旧交办台概念](archive/UI-VNEXT-CONCEPT.md)已经由管家与工作台两视角替代，其数据契约仍有沿用；不能将旧壳层的搁置误读为 3.0 产品尚未发布。
 
-[2026-09-23 审计](RELEASE-3.0-AUDIT-2026-09-23.md)、[2026-10-08 审计](RELEASE-3.0-AUDIT-2026-10-08.md)、[源码阅读记录](../ruyi-workbench/docs/SOURCE_REVIEW_CN.md)和[视觉审阅记录](../VISUAL-REVIEW.md)均是带基线的历史证据。已修复与尚未验证的项目按原文及后续提交核对，不按文档存在与否判定完成。
+[2026-09-23 审计](archive/RELEASE-3.0-AUDIT-2026-09-23.md)、[2026-10-08 审计](archive/RELEASE-3.0-AUDIT-2026-10-08.md)、[源码阅读记录](archive/SOURCE_REVIEW_CN.md)和[视觉审阅记录](archive/VISUAL-REVIEW.md)均是带基线的历史证据。已修复与尚未验证的项目按原文及后续提交核对，不按文档存在与否判定完成。

@@ -104,6 +104,17 @@ Ruyi separates recovery points, execution records and rollback controls. **Autom
 
 Renames, outbound messages, payments and arbitrary script side effects cannot all be undone. An audit entry shows what happened; it does not guarantee a recovery point.
 
+### Privacy before sending (merged, unreleased)
+
+The following capabilities were merged in PR #58 and have not shipped in a new formal release; do not assume the 3.0.1 release package includes them. Open Local privacy protection in settings, or More → Privacy protection in the composer. Redaction and credential encryption default to off on a new install; upgrades keep existing choices.
+
+- **Credential encryption** protects credentials such as model keys in local configuration. **Redaction before sending** replaces recognized sensitive text with tokens for the model; tools restore values under the existing permissions. Redaction requires explicit opt-in to credential encryption. It does not encrypt all work data.
+- The three profiles are Key protection (basic), Personal information protection (enhanced), and Confidential content protection (strict, adding explicitly marked confidential content). Technical information has a separate switch. Add confidential terms, fields or regex rules and try synthetic samples locally. Trials use the current draft without calling a cloud model; save to apply it. Detection can miss content or hide too much.
+- A credential recovery package has its own password and restores supported provider, connector and related credential settings. It **does not restore chats, privacy rules or token mappings**, and is not a complete backup.
+- With redaction enabled, uncovered external CLI requests, media and independent MCP consumer paths are blocked; they do not become protected usable channels. Native text models and managed MCP text are already covered. Encryption of all work data, including chats, attachments and indexes, is not complete.
+
+3.1 remains unreleased. See the [completion roadmap](../../../docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md) for the additional channels and work-data encryption; planned support is not current behavior.
+
 ## 3. Common tasks
 
 ### Combine Excel workbooks

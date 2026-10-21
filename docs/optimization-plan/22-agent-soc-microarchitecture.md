@@ -1,15 +1,15 @@
 # 22 · Agent SoC 微架构收敛线 — Pretender 3.0 核心架构迭代
 
 <!-- document-status:start -->
-> **阅读口径（2026-10-16）：候选研究／部分实施依据。** 早期方向池；后续实施和启用裁决已写入 [23 号](23-architecture-repayment-sequence.md)，本页最初的“未实施”不是当前状态。
+> **阅读口径（2026-10-16）：候选研究／部分实施依据。** 早期方向池；后续实施和启用裁决已写入 [23 号](../archive/optimization-plan/23-architecture-repayment-sequence.md)，本页最初的“未实施”不是当前状态。
 > 当前 3.x 排期与发布门以 [62 号管家迭代方案](62-steward-3x-iterations.md) 为准，4.0 暂缓。下文保留历史原话、决定、默认值和测量；行号以对应历史基线为准，不把旧排期或未完成项自动转成新决定。
 <!-- document-status:end -->
 
 > **立项（2026-08-27，用户拍板）**：Pretender 3.0 的核心由壳层收口改为引擎侧迭代。原壳层 P1–P3 成果保留，P4 默认切壳与发布正名保持搁置，不因本线立项自动恢复。新旧规划适用边界见 §8。
 > **评审修订（2026-08-27，依据本轮讨论）**：先取得足够证据，不统一等待长期真实用户数据；采用确定性测试、本地基准、固定任务集上的真实模型／后端测试，优先交付限定范围内可验证的收益。
 > **状态**：规划已修订；§4.2 第 0 步计量校准核心已交付（2026-08-27：econ_call_totals / econ_summary_call / 报表 schema 2，A 类合成账目与离线真链路对账全绿），首批其余各项均未实施；本文不启用任何主动优化开关、不宣告收益已兑现。保留 15 项方向编号，#2／#13／#14 按风险与证据类型拆成子项；首批不要求全部 15 项落地。
-> **前置序列整合（2026-08-30）**：第 103 波提案经主树核查后以 revise-major 纳入 [23 号架构偿还与上下文演进序列](23-architecture-repayment-sequence.md)。已交付的 75b command core 不重做；103–105 分别承担结构地基、上下文结构与默认关行为实验，106 再收敛本线证据，107 形成发布批准材料。
-> 关联：[06 成本收敛](06-hb360-cost-convergence.md)、[20 运行时优化](20-runtime-optimization-cost-benefit.md)、[21 工具经济性](21-tool-call-economics-convergence.md)、[12 架构研究](12-agent-architecture-research-roadmap.md)、[23 架构偿还序列](23-architecture-repayment-sequence.md)；去重关系见 §5。
+> **前置序列整合（2026-08-30）**：第 103 波提案经主树核查后以 revise-major 纳入 [23 号架构偿还与上下文演进序列](../archive/optimization-plan/23-architecture-repayment-sequence.md)。已交付的 75b command core 不重做；103–105 分别承担结构地基、上下文结构与默认关行为实验，106 再收敛本线证据，107 形成发布批准材料。
+> 关联：[06 成本收敛](06-hb360-cost-convergence.md)、[20 运行时优化](20-runtime-optimization-cost-benefit.md)、[21 工具经济性](21-tool-call-economics-convergence.md)、[12 架构研究](12-agent-architecture-research-roadmap.md)、[23 架构偿还序列](../archive/optimization-plan/23-architecture-repayment-sequence.md)；去重关系见 §5。
 
 ---
 
@@ -190,7 +190,7 @@ A／B／C 的证据含义见 §4.1，不代表收益或上线许可已经取得�
 
 ### 4.4 后续与暂缓
 
-- **第 103–105 波前序（2026-08-30）**：路由／依赖／durable data surface、上下文结构和行为实验由 [23 号方案](23-architecture-repayment-sequence.md) 管理。105 的 `observation_recall` 是 #7 的生产消费者；实体校验、单发优先与 refine 仍按 B 类真实模型对照验收，默认关不构成语义豁免。
+- **第 103–105 波前序（2026-08-30）**：路由／依赖／durable data surface、上下文结构和行为实验由 [23 号方案](../archive/optimization-plan/23-architecture-repayment-sequence.md) 管理。105 的 `observation_recall` 是 #7 的生产消费者；实体校验、单发优先与 refine 仍按 B 类真实模型对照验收，默认关不构成语义豁免。
 - **#6 降级为数据触发（2026-08-27）**：热点基线显示真实负载 `wideReadBatchesOver8=0`、readOnlyBatchShare≈1%，没有可验证的增量对象；重启条件 = 报表出现统计显著的纯读宽批／混合只读岛频率。
 - **下一阶段候选**：#2b 按需回载＋观察去重、#4 batch_review、#10 后端调度、#14a 隔离；各自前置与 A／B 证据到位后单独立项。
 - **降级闭环**：#11／#13b 的模型降档与 #15 一起设计和验收，不允许先发布降档再补升级；#14b 复用该闭环。
@@ -210,7 +210,7 @@ A／B／C 的证据含义见 §4.1，不代表收益或上线许可已经取得�
 | #5 | 12-R2／R3 | 复用候选提议／隔离回放／人工发布；R3 平台可暂缓，固定 benchmark／holdout 与基本统计纪律不可省 |
 | #13 | 06-O2 与现有 Mission 预算／watchdog | 补计量与保护缺口，复用停止／暂停／恢复链，不造第二套冲突控制器 |
 | #2a／#14 | 既有资源／上下文治理 | 共享权限与资源身份；后台任务同样进入总成本，不绕过记忆／模板发布审批 |
-| #1／#2b／#7／#13b | [23 号第 103–105 波](23-architecture-repayment-sequence.md) | 103 先使路由、依赖与存储生命周期可校验；104 提供压缩单一落点；105 产出按需回载和摘要保真证据。结构出门不等于行为项自动启用 |
+| #1／#2b／#7／#13b | [23 号第 103–105 波](../archive/optimization-plan/23-architecture-repayment-sequence.md) | 103 先使路由、依赖与存储生命周期可校验；104 提供压缩单一落点；105 产出按需回载和摘要保真证据。结构出门不等于行为项自动启用 |
 
 ## 6. 安全契约与验收纪律
 

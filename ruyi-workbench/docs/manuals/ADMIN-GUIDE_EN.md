@@ -525,6 +525,16 @@ Skills, workbench memories and inter-node messages can come from **untrusted sou
   automatic write (the poisoning defence). Storage is `dataRoot/memory/{global,project/<projectKey>}`, where
   `projectKey` is a truncated sha256 of the normalized (win32 lowercased) cwd, so case differences do not split it.
 
+### Merged, unreleased privacy and recovery capabilities
+
+PR #58 merged credential encryption and redaction before sending; the application version remains 3.0.1. This does not mean the existing 3.0.1 release package includes them. Open Local privacy protection in settings or More → Privacy protection in the composer. Both default to off on a new install; upgrades preserve choices. Encryption protects local configuration secrets. Redaction substitutes reversible tokens in model/tool text, requires explicit opt-in to credential encryption, and keeps existing tool permissions. Local encryption currently depends on Windows account protection; automatic unlocking on another machine is not guaranteed.
+
+The basic/enhanced/strict profiles protect credentials, add personal information, then add explicitly marked confidential content. Technical information is separate. Custom terms, fields and regex rules support local trials using the unsaved draft without a cloud-model call; save to apply changes. Recognition does not guarantee protection against every meaning, encoding or script-derived output.
+
+A credential recovery package uses an independent password and merges only supported provider, connector and related credential settings. It **does not restore chats, privacy rules or token mappings**. For another Windows account/machine, preserve the old data and preview/import into a separate new data root; do not overwrite the old root with a new master key. **Downgrading after encrypting data requires the complete pre-upgrade backup and matching old application.** Rolling back program files or importing a credential recovery package does not restore the original work data.
+
+With redaction enabled, uncovered external CLI requests, media and independent MCP consumer paths are blocked. Existing native/managed-MCP text coverage does not provide protected CLI or media support. Full work-data encryption, including chats, attachments and indexes, is not complete. 3.1 remains unreleased; implementation and acceptance follow the [completion roadmap](../../../docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md).
+
 ## 4. Pro mode and diagnostics
 
 The right-hand workspace keeps seven tabs in both simple and pro mode: Files, Artifacts, Changes, Memory, Workflows,
