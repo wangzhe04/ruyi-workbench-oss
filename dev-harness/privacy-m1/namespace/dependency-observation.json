@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-21T04:59:45.231Z",
+  "platform": "win32",
+  "probeSha256": "085a493b36004db265f581a2f3faa5dae2d68f65a03f98b09a74ab326e51b41d",
+  "status": "inventory-only",
+  "facts": {
+    "hypervisorPresent": true,
+    "os": {
+      "caption": "Microsoft Windows 11 专业版",
+      "architecture": "64-bit",
+      "version": "10.0.26200"
+    },
+    "sandboxBinary": false,
+    "features": {
+      "Microsoft-Hyper-V-All": "unknown:COMException",
+      "Microsoft-Windows-Subsystem-Linux": "unknown:COMException",
+      "VirtualMachinePlatform": "unknown:COMException",
+      "Containers-DisposableClientVM": "unknown:COMException"
+    },
+    "tools": {
+      "docker.exe": true,
+      "qemu-system-x86_64.exe": false,
+      "VBoxManage.exe": false,
+      "wsl.exe": true,
+      "Get-VM": true,
+      "podman.exe": false,
+      "Get-VMSwitch": true,
+      "vmrun.exe": false
+    },
+    "hypervVMs": "unknown:VirtualizationException"
+  },
+  "wsl": {
+    "status": {
+      "exitCode": 0,
+      "reason": null,
+      "cleanup": null,
+      "nonemptyOutput": true
+    },
+    "list": {
+      "exitCode": 0,
+      "reason": null,
+      "cleanup": null,
+      "nonemptyOutput": true
+    }
+  },
+  "inventoryCommand": {
+    "exitCode": 0,
+    "reason": null,
+    "cleanup": null
+  },
+  "isolationPassed": false,
+  "guestStarted": false,
+  "blockers": [
+    "No dedicated guest image or verified namespace configured",
+    "No enforced broker-only guest network configured",
+    "No synthetic host-secret/descendant/manual-mount or lifecycle negative tests executed"
+  ],
+  "unknown": [
+    "Offline image availability and redistribution terms",
+    "Guest CLI/runtime availability",
+    "Hyper-V VM access and Hyper-V socket broker enforceability",
+    "Docker daemon/container isolation availability (executable discovery only)",
+    "WSL version and isolation (status success is not a security boundary)"
+  ],
+  "cleanup": {
+    "temporaryDirectoryAbsent": true,
+    "commandCloseConfirmed": true
+  }
+}

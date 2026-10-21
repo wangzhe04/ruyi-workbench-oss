@@ -1,0 +1,185 @@
+{
+  "experiment": "claude-http-ordinary-host-baseline",
+  "securityBoundaryEstablished": false,
+  "completedM1": false,
+  "generatedAt": "2026-10-21T04:58:16.475Z",
+  "program": {
+    "version": "2.1.202",
+    "installed": {
+      "fileCount": 11,
+      "totalBytes": 504234049,
+      "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+      "files": [
+        {
+          "path": "bin/claude.exe",
+          "size": 252038816,
+          "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+        },
+        {
+          "path": "cli-wrapper.cjs",
+          "size": 4963,
+          "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+        },
+        {
+          "path": "install.cjs",
+          "size": 7162,
+          "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+        },
+        {
+          "path": "LICENSE.md",
+          "size": 147,
+          "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+        },
+        {
+          "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+          "size": 252038816,
+          "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+        },
+        {
+          "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+          "size": 148,
+          "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+        },
+        {
+          "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+          "size": 272,
+          "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+        },
+        {
+          "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+          "size": 150,
+          "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+        },
+        {
+          "path": "package.json",
+          "size": 1476,
+          "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+        },
+        {
+          "path": "README.md",
+          "size": 2037,
+          "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+        },
+        {
+          "path": "sdk-tools.d.ts",
+          "size": 140062,
+          "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+        }
+      ]
+    },
+    "copy": {
+      "fileCount": 11,
+      "totalBytes": 504234049,
+      "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+      "files": [
+        {
+          "path": "bin/claude.exe",
+          "size": 252038816,
+          "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+        },
+        {
+          "path": "cli-wrapper.cjs",
+          "size": 4963,
+          "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+        },
+        {
+          "path": "install.cjs",
+          "size": 7162,
+          "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+        },
+        {
+          "path": "LICENSE.md",
+          "size": 147,
+          "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+        },
+        {
+          "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+          "size": 252038816,
+          "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+        },
+        {
+          "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+          "size": 148,
+          "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+        },
+        {
+          "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+          "size": 272,
+          "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+        },
+        {
+          "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+          "size": 150,
+          "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+        },
+        {
+          "path": "package.json",
+          "size": 1476,
+          "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+        },
+        {
+          "path": "README.md",
+          "size": 2037,
+          "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+        },
+        {
+          "path": "sdk-tools.d.ts",
+          "size": 140062,
+          "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+        }
+      ]
+    }
+  },
+  "exit": {
+    "code": 1,
+    "signal": null
+  },
+  "observation": {
+    "preloadConnected": false,
+    "realpathCompat": null,
+    "assistantChallengeObserved": false,
+    "successResultObserved": false,
+    "errorResultObserved": true
+  },
+  "output": {
+    "stdoutBytes": 2690,
+    "stderrBytes": 0
+  },
+  "http": [
+    {
+      "method": "HEAD",
+      "path": "/"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/messages?beta=true"
+    }
+  ],
+  "gateway": {
+    "protocol": "anthropic",
+    "recipient": "m1-synthetic-provider",
+    "purpose": "model-inference",
+    "policySha256": "506c47eec9687d1457bc5afd470a35e447142c35da5a29be8a6fb37b97a88175",
+    "rulesSha256": "d97e2a2a180c1f84d579edb2f0b85521695da836bbb9028878359e0584ad6d43",
+    "originalPromptSha256": "131b778f752ea004c97cc5eb863cab2768664d50c65d2a96ad364e0d1694b825",
+    "projectedPromptSha256": "5f443f8484782424272d918c593f6dc1c7f654a08ca56c702090d77cd141fff0",
+    "responseChallengeSha256": "f8e84ccc36c354d65e2506666715351562515dc247743f288c6725935854189f",
+    "projectionMatches": 1,
+    "requests": [],
+    "rejected": 0
+  },
+  "receiver": {
+    "requests": 0,
+    "bodySha256": [],
+    "containsOriginal": false,
+    "hashesMatch": true
+  },
+  "compatibilityPassed": false,
+  "finalKillReceipt": {
+    "killed": [],
+    "skipped": "root-exited"
+  },
+  "cleanup": {
+    "temporaryDirectoryAbsent": true
+  }
+}
