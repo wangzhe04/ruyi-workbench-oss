@@ -481,6 +481,7 @@
         "configReadCache",
         "configReadCacheLookup",
         "configReadCacheStore",
+        "configReadGeneration",
         "configRecoveryCredentialChoice",
         "configValueEquals",
         "configWriteChain",
@@ -532,6 +533,7 @@
         "hostAllowed",
         "invalidateAgentCliPathCaches",
         "invalidateClaudePathCache",
+        "invalidateConfigReads",
         "isAskUserTool",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
@@ -1138,16 +1140,16 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "configReadCache",
+          "symbol": "DurableJsonStore",
           "kinds": [
             "read"
           ]
         },
         {
           "provider": "01-config.js",
-          "symbol": "DurableJsonStore",
+          "symbol": "invalidateConfigReads",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {

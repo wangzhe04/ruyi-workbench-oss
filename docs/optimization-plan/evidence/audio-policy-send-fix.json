@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "kind": "manual verification summary",
+  "generatedAt": "2026-10-21T03:39:09.470Z",
+  "sourceCommit": "60ca5e13",
+  "sourceSha256": {
+    "ruyi-workbench/app/src/01-config.js": "e41e27a3e4a816a8e9cf4a0eb3883d2262c27226522e3368cafb55d222069b99",
+    "ruyi-workbench/app/src/01l-credential-recovery.js": "0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419",
+    "ruyi-workbench/app/src/03a-privacy-gateway.js": "765f99cb5409b25bca5f2a1801e75dd2750a5d3e732b71a1300da7154a07e0ed",
+    "ruyi-workbench/app/src/05-claude-engine.js": "13221bcb5db85ef10dfda49146f417abbc87a19cad1f27ceac6971d8de5855c6",
+    "ruyi-workbench/app/src/13b-api-domain-routes.js": "1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79",
+    "dev-harness/privacy-audio-send-boundary.e2e.js": "fd5748bb483036cc66455bb6d0cbe45f8e2e068726c4e413716790e786caa07c",
+    "dev-harness/unit/privacy-config-publication.test.js": "ba1326890f762761cc0be319666478fe1e016241ff44ddb86b16b6f4c7a9e075"
+  },
+  "audioE2E": {
+    "passed": 22,
+    "failed": 0,
+    "independentReviewPassed": true,
+    "realGeneratedServerFunctions": true,
+    "realLoopbackReceiver": true
+  },
+  "configurationFocusedUnits": {
+    "passed": 46,
+    "failed": 0,
+    "skipped": 0,
+    "newPublicationCases": 6,
+    "independentReviewPassed": true
+  },
+  "existingAsrE2E": [
+    "asr-transcribe.e2e.js",
+    "asr-warmup.e2e.js"
+  ],
+  "reverseChecks": {
+    "completeOldCodeFailedCases": 13,
+    "oldConfigOnlyFailedCases": 3,
+    "method": "isolated temporary source copy; production checkout unchanged"
+  },
+  "initialUnitRun": {
+    "tests": 2494,
+    "passed": 2468,
+    "failed": 0,
+    "skipped": 26,
+    "scope": "Started before new publication test discovery; final config covered by focused rechecks"
+  },
+  "fastEntryUnitRun": {
+    "tests": 2500,
+    "passed": 2473,
+    "failed": 1,
+    "skipped": 26,
+    "failedTest": "kill-own-tree.test.js R1b",
+    "staticStageRan": false
+  },
+  "failedUnitFocusedRecheck": {
+    "file": "kill-own-tree.test.js",
+    "passed": 5,
+    "failed": 0,
+    "originalFailurePreserved": true,
+    "causeEstablished": false
+  },
+  "staticStageFirstRun": {
+    "method": "existing runner runWithRetry, static stage selected in memory; repository runner and assertions unchanged",
+    "total": 80,
+    "passed": 77,
+    "failed": [
+      "fixture-home.static.e2e.js",
+      "process-safety.static.e2e.js",
+      "module-dependency-graph.static.e2e.js"
+    ],
+    "flaky": 0
+  },
+  "staticMetadataFollowup": {
+    "cause": [
+      "M0 archived v25-smoke spawn leaves current scan",
+      "M1 two new killOwnTree users",
+      "new config helper requires generated contracts refresh"
+    ],
+    "targetedRechecksPassed": true,
+    "fullFastEntryPassed": false
+  },
+  "rawLogs": {
+    "location": "external maintenance directory/checks/m1-audio-60ca5e13",
+    "files": [
+      {
+        "id": "unit-initial",
+        "file": "ruyi-audio-unit-review.log",
+        "sha256": "8fa2f307b8acdb04925a24f2319b90bbde9acf73944d609bbc96bfca72a88575"
+      },
+      {
+        "id": "fast-entry-unit-failed",
+        "file": "ruyi-audio-fast-review.log",
+        "sha256": "2d47758cc54f620c2e81002d59b193df423e73833209469b1dc4017e8e259219"
+      },
+      {
+        "id": "static-first-stage",
+        "file": "ruyi-audio-static-only-review.log",
+        "sha256": "1686d4bde07aa928deb0ba82db727738e387dd0e3b9fee48465d7988f2b77eb9"
+      }
+    ]
+  },
+  "limitations": [
+    "No full product E2E run",
+    "The original process-lifecycle unit failure is retained; one focused pass does not establish its cause",
+    "No real provider, microphone, user configuration or original user audio used"
+  ]
+}

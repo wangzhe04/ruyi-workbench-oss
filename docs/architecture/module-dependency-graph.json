@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 87,
-    "providedSymbols": 3858,
+    "providedSymbols": 3860,
     "requiredSymbols": 3463,
     "edges": 621,
     "forwardEdges": 67,
@@ -517,6 +517,7 @@
         "configReadCache",
         "configReadCacheLookup",
         "configReadCacheStore",
+        "configReadGeneration",
         "configRecoveryCredentialChoice",
         "configValueEquals",
         "configWriteChain",
@@ -568,6 +569,7 @@
         "hostAllowed",
         "invalidateAgentCliPathCaches",
         "invalidateClaudePathCache",
+        "invalidateConfigReads",
         "isAskUserTool",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
@@ -1178,16 +1180,16 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "configReadCache",
+          "symbol": "DurableJsonStore",
           "kinds": [
             "read"
           ]
         },
         {
           "provider": "01-config.js",
-          "symbol": "DurableJsonStore",
+          "symbol": "invalidateConfigReads",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {
@@ -29276,7 +29278,7 @@
         "DurableJsonStore",
         "atomicWriteJson",
         "configEmitWritten",
-        "configReadCache",
+        "invalidateConfigReads",
         "lastGoodConfig",
         "mutateConfig",
         "normalizeConfig",

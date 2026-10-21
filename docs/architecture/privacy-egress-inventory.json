@@ -249,7 +249,7 @@
     {"file":"ruyi-workbench/app/src/14-main.js","fingerprint":"6fb879913d42499526702de06f95c8f5a5c591f16a2116b9c47d8f9b12b435de"},
     {"file":"ruyi-workbench/app/src/context-governance-rules.json","fingerprint":"68b1205a18ee143aab399dcd8581e18be1d25788a7f7be2dca0de291d9ff044c"},
     {"file":"ruyi-workbench/app/src/manifest.json","fingerprint":"d6b8cdaadb3a138f8dacfe37d25913642dc085bdb4f1b6be91f2a09a9cc2b59b"},
-    {"file":"ruyi-workbench/app/src/module-contracts.json","fingerprint":"2f05a0a19676f6c315614312467200c653d201399fbc04748c31b7cb758c1b8b"},
+    {"file":"ruyi-workbench/app/src/module-contracts.json","fingerprint":"299fe9c0405918c8843b4edff55186e45cd83c01126707655a4cacb4bd513252"},
     {"file":"ruyi-workbench/app/src/module-dependency-policy.json","fingerprint":"8fa55c5c1b5075d43bf469782e5eaf8ecc231210f2fe29e3f711846d7809974a"},
     {"file":"ruyi-workbench/config/example.claude-settings.json","fingerprint":"4672ba1e74f8363d054dfd39764c38875621fe4cd96759ba4b5b5f6075ed051d"},
     {"file":"ruyi-workbench/config/example.mcp.json","fingerprint":"6546f316f5d9950037b79a0125357095ff806f863e6b40bd09a5d5ea7a67c0b0"},
@@ -852,7 +852,7 @@
     {"id":"ruyi-workbench/app/src/13z-external-bot-discovery.js#request#request#1","file":"ruyi-workbench/app/src/13z-external-bot-discovery.js","symbol":"request","callee":"request","category":"network","fingerprint":"67c09be7197c66f21dd73a7d1d91ead7db08c3de7c2ac8f6b9c5b1bd884eb526","group":"bots"},
     {"id":"ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/context-governance-rules.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"17bbab90aaa446b9ebb7e2856a621f149a6e59bbbc2ca20eed3b8c3c7afaf47f","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/manifest.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"114cf8947d20d90337bd78d5bf6254b1c80f5486c693e57aee5148145ec7d0a7","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
-    {"id":"ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/module-contracts.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"58af241f2f9b1ce54b57978a189fcfb6e696a35159be2deb0722fe4c0ff08ff8","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
+    {"id":"ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/module-contracts.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"b2cc3359ecfd098dd1ba6b2fbf3c18be9257757600b3e0ae57cc421317686d29","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/app/src/module-dependency-policy.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/module-dependency-policy.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"e01929c094e3cbe0756f48d4b2a4f47dba0932c7b6752d5f04e38f126b2c7f8a","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/config/example.claude-settings.json#<module>#<configuration>#1","file":"ruyi-workbench/config/example.claude-settings.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"eed852e519bda34fd91edc4ff8e0e7df4fced2267b828b1b9cac45d7a0a31a4b","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/config/example.mcp.json#<module>#<configuration>#1","file":"ruyi-workbench/config/example.mcp.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"647c2f608b6f35e3e6aaa2ef8f4e23739a04dbc8fe36ee813487837ceebcd0ee","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
@@ -946,7 +946,7 @@
     {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#<launcher-command>#2","file":"ruyi-workbench/tools/package-offline.ps1","symbol":"<module>","callee":"<launcher-command>","category":"dynamic","fingerprint":"d83a956bb783f3c9f236507af2b82b50d14c70c9718f49138f6e647e85709e72","uncertainty":"Shell/desktop command can delegate network, environment, or local file disclosure","group":"dynamic"},
     {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#write#1","file":"ruyi-workbench/tools/package-offline.ps1","symbol":"<module>","callee":"write","category":"stdio-output","fingerprint":"fbac27df280fb8c3d6de272b6088a366ae32113ad02bb4eec673f58baf909bb4","group":"process-stdout"}
   ],
-  "manifestFingerprint": "a3ff16726df5b286dd7035d3ba2d694be34ac18a5969f2ee75bcd5174b2dc42f",
+  "manifestFingerprint": "ec56ba1b956cd069d7ab8634d0c351bd9b95608fb0c5aec6f85000c9c3c173d7",
   "groups": {
     "unknown": {
       "privacyStatus": "unknown",
