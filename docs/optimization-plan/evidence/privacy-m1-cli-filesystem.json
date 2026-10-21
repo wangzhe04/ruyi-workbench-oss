@@ -1,0 +1,4183 @@
+{
+  "schemaVersion": 1,
+  "experiment": "privacy-m1-cli-filesystem",
+  "generatedAt": "2026-10-21T04:17:32.006Z",
+  "productWired": false,
+  "completedM1": false,
+  "baselineCommit": "3fea5af1deab5999085ee7bcc0a0b886f7310ab8",
+  "platform": {
+    "release": "10.0.26200",
+    "node": "v24.14.0"
+  },
+  "contract": "filesystem-contract.md",
+  "sourceManifest": {
+    "fileCount": 7,
+    "sha256": "291d6ce81b7b153e4c3911175f52073df37ce9a46b36931eb1d6dd40fe20fcfb",
+    "files": [
+      {
+        "path": "AppContainerHost.cs",
+        "size": 31744,
+        "sha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162"
+      },
+      {
+        "path": "run.js",
+        "size": 22215,
+        "sha256": "9dd6d8a19a03ea9bffff2879f690ba4f3e10fa1192cfbcf4b19b1aa0cc9db488"
+      },
+      {
+        "path": "filesystem.js",
+        "size": 13449,
+        "sha256": "4f261b6b5462704ab5760a30340e0b62c5c8eb747c059096c72957869395ac15"
+      },
+      {
+        "path": "filesystem-probe.js",
+        "size": 3508,
+        "sha256": "a5cb1241badd990c70a14d430bec85dfc408f75cc812d539431299bd09d4ac63"
+      },
+      {
+        "path": "filesystem-inspect.ps1",
+        "size": 788,
+        "sha256": "d65829777e64add2be07ca7b28f43e239edfd28c7a5ae166d61b4064a1d864e1"
+      },
+      {
+        "path": "filesystem-contract.md",
+        "size": 5796,
+        "sha256": "219632ca6db0f8fc0a4ca19c6d4824fd9aa71b455bcb02c83d319aacd20db5ad"
+      },
+      {
+        "path": "filesystem.test.js",
+        "size": 3807,
+        "sha256": "1ea6a6ad2a716263525c26c845122a24f6ca236ce2ae26bab00d8cbb45571cc8"
+      }
+    ]
+  },
+  "sourceDependencies": {
+    "../../lib/kill-own-tree.js": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730",
+    "../../lib/fake-openai-provider.js": "f770479cb7950effcd5467c0c37a49aded565b64604bb8710c448f54c1b29202"
+  },
+  "programs": {
+    "node": {
+      "version": "v24.14.0",
+      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+    },
+    "helper": {
+      "sha256": "2e1b64817421342b98fb9ee538cdf936d4bbe8c6117bb60f9dbb849b2aad90b1",
+      "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+    }
+  },
+  "attempts": [
+    {
+      "code": 0,
+      "watchdogFired": false,
+      "output": [
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "probe",
+          "operation": "ready",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-read",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-read",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-read",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-read",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-write",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-write",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-write",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-write",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "everyone-read",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "everyone-read",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "everyone-read",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "everyone-read",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "everyone-write",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "everyone-write",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "everyone-write",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "everyone-write",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-read",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-read",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-read",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-read",
+          "operation": "extended-read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-write",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-write",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-write",
+          "operation": "write",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-write",
+          "operation": "extended-read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-read",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-read",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-read",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-read",
+          "operation": "extended-read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-write",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-write",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-write",
+          "operation": "write",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-write",
+          "operation": "extended-read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "aap",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "aap",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "aap",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "aap",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-storage",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-storage",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "profile-storage",
+          "operation": "write",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-write",
+          "operation": "junction-create",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "symlink"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-write",
+          "operation": "junction-read",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-write",
+          "operation": "junction-enumerate",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "user-write",
+          "operation": "junction-write",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-write",
+          "operation": "junction-create",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "symlink"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-write",
+          "operation": "junction-read",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-write",
+          "operation": "junction-enumerate",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "arap-write",
+          "operation": "junction-write",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "hardlink-inside",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "hardlink-outside",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "project",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "project",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "output",
+          "operation": "write",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "stage": "descendant-token",
+          "kind": "descendant-token",
+          "isAppContainer": true,
+          "isLessPrivilegedAppContainer": null,
+          "lpacQuerySucceeded": false,
+          "lpacQueryError": 87,
+          "packageSid": "S-1-15-2-189510232-1850588499-4043114602-2030421313-306191478-1139767464-757726878",
+          "capabilityCount": 1,
+          "capabilitySids": [
+            "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+          ],
+          "profileSidMatched": null,
+          "restrictedSidCount": 0,
+          "restrictedSids": [],
+          "expectedRestrictionMatched": null
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "actual-descendant-token",
+          "operation": "token",
+          "exitCode": 3762504530
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "probe",
+          "operation": "ready",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-read",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-read",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-read",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-read",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-write",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-write",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-write",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-write",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "everyone-read",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "everyone-read",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "everyone-read",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "everyone-read",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "everyone-write",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "everyone-write",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "everyone-write",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "everyone-write",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-read",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-read",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-read",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-read",
+          "operation": "extended-read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-write",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-write",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-write",
+          "operation": "write",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-write",
+          "operation": "extended-read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-read",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-read",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-read",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-read",
+          "operation": "extended-read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-write",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-write",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-write",
+          "operation": "write",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-write",
+          "operation": "extended-read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "aap",
+          "operation": "read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "aap",
+          "operation": "enumerate",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "aap",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "aap",
+          "operation": "extended-read",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-storage",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-storage",
+          "operation": "enumerate",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "profile-storage",
+          "operation": "write",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-write",
+          "operation": "junction-create",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "symlink"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-write",
+          "operation": "junction-read",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-write",
+          "operation": "junction-enumerate",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "user-write",
+          "operation": "junction-write",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-write",
+          "operation": "junction-create",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "symlink"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-write",
+          "operation": "junction-read",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-write",
+          "operation": "junction-enumerate",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "scandir"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "arap-write",
+          "operation": "junction-write",
+          "allowed": false,
+          "code": "ENOENT",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "hardlink-inside",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "hardlink-outside",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "project",
+          "operation": "read",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "project",
+          "operation": "write",
+          "allowed": false,
+          "code": "EPERM",
+          "syscall": "open"
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "output",
+          "operation": "write",
+          "allowed": true,
+          "verified": true
+        },
+        {
+          "stage": "descendant-token",
+          "kind": "descendant-token",
+          "isAppContainer": true,
+          "isLessPrivilegedAppContainer": null,
+          "lpacQuerySucceeded": false,
+          "lpacQueryError": 87,
+          "packageSid": "S-1-15-2-189510232-1850588499-4043114602-2030421313-306191478-1139767464-757726878",
+          "capabilityCount": 1,
+          "capabilitySids": [
+            "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+          ],
+          "profileSidMatched": null,
+          "restrictedSidCount": 0,
+          "restrictedSids": [],
+          "expectedRestrictionMatched": null
+        },
+        {
+          "kind": "filesystem",
+          "descendant": true,
+          "name": "actual-descendant-token",
+          "operation": "token",
+          "exitCode": 3762504530
+        },
+        {
+          "kind": "filesystem",
+          "descendant": false,
+          "name": "child",
+          "operation": "exit",
+          "exitCode": 0
+        }
+      ],
+      "events": [
+        {
+          "stage": "token-verified",
+          "kind": "descendant-token",
+          "isAppContainer": true,
+          "isLessPrivilegedAppContainer": null,
+          "lpacQuerySucceeded": false,
+          "lpacQueryError": 87,
+          "packageSid": "S-1-15-2-189510232-1850588499-4043114602-2030421313-306191478-1139767464-757726878",
+          "capabilityCount": 1,
+          "capabilitySids": [
+            "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+          ],
+          "profileSidMatched": true,
+          "restrictedSidCount": 0,
+          "restrictedSids": [],
+          "expectedRestrictionMatched": null
+        },
+        {
+          "stage": "launched",
+          "isolation": "LPAC",
+          "capabilities": 1,
+          "capabilityNames": [
+            "registryRead"
+          ]
+        },
+        {
+          "stage": "exit",
+          "code": 0
+        },
+        {
+          "stage": "cleanup",
+          "profileDeleteHresult": 0,
+          "profileDirectoryAbsent": true,
+          "terminateSucceeded": true,
+          "rootWaitResult": 0,
+          "jobActiveProcesses": 0,
+          "jobTotalProcesses": 5,
+          "ownedTreeTerminated": true,
+          "processCreated": true
+        }
+      ],
+      "stdout": "{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"probe\",\"operation\":\"ready\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-create\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"symlink\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-read\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-enumerate\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-write\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-create\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"symlink\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-read\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-enumerate\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesys",
+      "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-189510232-1850588499-4043114602-2030421313-306191478-1139767464-757726878\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true,\"restrictedSidCount\":0,\"restrictedSids\":[],\"expectedRestrictionMatched\":null}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n\n\n   由于 Exception.ToString() 失败，因此无法打印异常字符串。\n\n\n   由于 Exception.ToString() 失败，因此无法打印异常字符串。\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":5,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+      "summary": {
+        "processCompleted": true,
+        "rootAndChildExecuted": true,
+        "rootAndDescendantTokensVerified": true,
+        "descendantTokenProbeCleanExits": false,
+        "directLpacQueryVerified": false,
+        "matrixComplete": true,
+        "projectionAndOutputControlsPassed": true,
+        "outsideFixtureAccess": [
+          {
+            "name": "arap-read",
+            "operation": "read",
+            "descendant": false
+          },
+          {
+            "name": "arap-read",
+            "operation": "enumerate",
+            "descendant": false
+          },
+          {
+            "name": "arap-read",
+            "operation": "extended-read",
+            "descendant": false
+          },
+          {
+            "name": "arap-write",
+            "operation": "read",
+            "descendant": false
+          },
+          {
+            "name": "arap-write",
+            "operation": "enumerate",
+            "descendant": false
+          },
+          {
+            "name": "arap-write",
+            "operation": "write",
+            "descendant": false
+          },
+          {
+            "name": "arap-write",
+            "operation": "extended-read",
+            "descendant": false
+          },
+          {
+            "name": "profile-read",
+            "operation": "read",
+            "descendant": false
+          },
+          {
+            "name": "profile-read",
+            "operation": "enumerate",
+            "descendant": false
+          },
+          {
+            "name": "profile-read",
+            "operation": "extended-read",
+            "descendant": false
+          },
+          {
+            "name": "profile-write",
+            "operation": "read",
+            "descendant": false
+          },
+          {
+            "name": "profile-write",
+            "operation": "enumerate",
+            "descendant": false
+          },
+          {
+            "name": "profile-write",
+            "operation": "write",
+            "descendant": false
+          },
+          {
+            "name": "profile-write",
+            "operation": "extended-read",
+            "descendant": false
+          },
+          {
+            "name": "arap-read",
+            "operation": "read",
+            "descendant": true
+          },
+          {
+            "name": "arap-read",
+            "operation": "enumerate",
+            "descendant": true
+          },
+          {
+            "name": "arap-read",
+            "operation": "extended-read",
+            "descendant": true
+          },
+          {
+            "name": "arap-write",
+            "operation": "read",
+            "descendant": true
+          },
+          {
+            "name": "arap-write",
+            "operation": "enumerate",
+            "descendant": true
+          },
+          {
+            "name": "arap-write",
+            "operation": "write",
+            "descendant": true
+          },
+          {
+            "name": "arap-write",
+            "operation": "extended-read",
+            "descendant": true
+          },
+          {
+            "name": "profile-read",
+            "operation": "read",
+            "descendant": true
+          },
+          {
+            "name": "profile-read",
+            "operation": "enumerate",
+            "descendant": true
+          },
+          {
+            "name": "profile-read",
+            "operation": "extended-read",
+            "descendant": true
+          },
+          {
+            "name": "profile-write",
+            "operation": "read",
+            "descendant": true
+          },
+          {
+            "name": "profile-write",
+            "operation": "enumerate",
+            "descendant": true
+          },
+          {
+            "name": "profile-write",
+            "operation": "write",
+            "descendant": true
+          },
+          {
+            "name": "profile-write",
+            "operation": "extended-read",
+            "descendant": true
+          }
+        ],
+        "strictFilesystemContract": "failed",
+        "exclusiveFilesystemAllowlistEstablished": false,
+        "registryViewConstrained": false
+      }
+    }
+  ],
+  "cleanup": {
+    "temporaryDirectoryAbsent": true,
+    "launchCount": 2,
+    "verified": true
+  },
+  "limitations": [
+    "finite synthetic matrix does not prove whole-filesystem isolation",
+    "required system/runtime file inventory not established",
+    "registry view untested",
+    "hardlink row is intentionally unsafe projection creation, separate from LPAC ACL authorization",
+    "reparse races and competing malicious host processes untested",
+    "raw NT device names, alternate streams and all possible name aliases untested",
+    "no VM, managed WSL or privileged filesystem enforcement installed or tested"
+  ],
+  "priorAttempts": [
+    {
+      "evidenceSha256": "3fe048f51a1fb96d77d37c28e0249a56a610140e66570352e6232173ae1b4a5a",
+      "sourceManifest": {
+        "fileCount": 21,
+        "totalBytes": 141468,
+        "sha256": "533d2ded9334470cb89d1293b976a3135d22b7eadc7e44ea96923cd7c66dc411",
+        "files": [
+          {
+            "path": "AppContainerHost.cs",
+            "size": 27943,
+            "sha256": "30e5f00c601c3a11bd2bca514c7397d815f49d98391499d994db43075e51d5a1"
+          },
+          {
+            "path": "claude-preload-marker.mjs",
+            "size": 237,
+            "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859"
+          },
+          {
+            "path": "claude-run.js",
+            "size": 7438,
+            "sha256": "ba33c5f328bfa854947bba579b46b87b66070a299420ea14a2cf72939e639fd6"
+          },
+          {
+            "path": "claude-run.test.js",
+            "size": 972,
+            "sha256": "560a8494036821fb10b0694488a79993689f62f407e81c4700a5acadd675e9b9"
+          },
+          {
+            "path": "fetch-adapter.mjs",
+            "size": 2108,
+            "sha256": "13b8d6d78247cbb852c40d435171480e4ae70963664f9d945c9f5556406da3bc"
+          },
+          {
+            "path": "filesystem-contract.md",
+            "size": 5284,
+            "sha256": "c51ee8d27f8399ab3a9a141b73bd42563e2cabe5dc51590502a831e64b0a1588"
+          },
+          {
+            "path": "filesystem-inspect.ps1",
+            "size": 703,
+            "sha256": "d2f9035225e72053756b0c92a3b56317fdca4955913f078ba15e7dc0ad6d512d"
+          },
+          {
+            "path": "filesystem-probe.js",
+            "size": 3616,
+            "sha256": "2fa12920bfeff26409ebe25486abc2670b03c95112b0d76bc57d945a6e3acc96"
+          },
+          {
+            "path": "filesystem.js",
+            "size": 9500,
+            "sha256": "b73c8533f1cdb2d7210a0e740ba379f642b8d0d07ee1b28d09437d9cd21d4105"
+          },
+          {
+            "path": "filesystem.test.js",
+            "size": 3517,
+            "sha256": "6560a9b9dda82c20634846e2f63e641063d756c6fa825bb99790dbbc08efaae7"
+          },
+          {
+            "path": "gateway-broker.js",
+            "size": 5159,
+            "sha256": "7fdaadeabefefb947730a222184a9d12eb20f8aa56b1ecdc1c661affb500b2bf"
+          },
+          {
+            "path": "gateway-preload.mjs",
+            "size": 1655,
+            "sha256": "4dd20abfccc04c960a076901b4155cad299f055be2364beded42c250ee0042a5"
+          },
+          {
+            "path": "gateway-probe.mjs",
+            "size": 1654,
+            "sha256": "91ce1b15688be6730eaf13e944e6bce84bc93344bb445fe2f834cf8c98508471"
+          },
+          {
+            "path": "gateway.test.js",
+            "size": 6226,
+            "sha256": "9f1877aca272ec30579efafc5843201dba4e724355aead4cf371885131033eca"
+          },
+          {
+            "path": "lpac.js",
+            "size": 16804,
+            "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9"
+          },
+          {
+            "path": "lpac.test.js",
+            "size": 3277,
+            "sha256": "c1ce003076ef5fd03b17b88c0f6231e4cde81a0df8ef818e69bb0e6083c7c68c"
+          },
+          {
+            "path": "prior-attempts.json",
+            "size": 1922,
+            "sha256": "bffbcf5ae5e60800a789174c457df9d6d6de4781fddb7754eeed6fae167f3180"
+          },
+          {
+            "path": "probe.js",
+            "size": 5120,
+            "sha256": "b840e14eec6c72c9f9e7f0d7dc868c506a7bdc92446b4d0b0dce064e33b50cbf"
+          },
+          {
+            "path": "README.md",
+            "size": 12433,
+            "sha256": "6837488415f11667118d14c6cf88c592759373eef425f10215dcc4fe9dcbb985"
+          },
+          {
+            "path": "run.js",
+            "size": 22092,
+            "sha256": "f5fbabb8220a90699a568810fd277f80aa869517a5af41a886fc400a5e7c12da"
+          },
+          {
+            "path": "runner.test.js",
+            "size": 3808,
+            "sha256": "9790804d73d938e3250498e0c2cc4d52edfbab88aff504c3e6c0899705a3068b"
+          }
+        ]
+      },
+      "programs": {
+        "node": {
+          "version": "v24.14.0",
+          "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+        },
+        "helper": {
+          "sha256": "532dfc686f72c71f447f07695791eff547640932a43ce3a16204689e9d7f3f41",
+          "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+        }
+      },
+      "attempts": [
+        {
+          "code": 124,
+          "watchdogFired": false,
+          "output": [
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "probe",
+              "operation": "ready",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-create",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "symlink"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-read",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-enumerate",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-write",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-create",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "symlink"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-read",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-enumerate",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-write",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "hardlink-inside",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "hardlink-outside",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "project",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "project",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "output",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            }
+          ],
+          "events": [
+            {
+              "stage": "token-verified",
+              "kind": "descendant-token",
+              "isAppContainer": true,
+              "isLessPrivilegedAppContainer": null,
+              "lpacQuerySucceeded": false,
+              "lpacQueryError": 87,
+              "packageSid": "S-1-15-2-2456874390-714496553-2669008337-267303404-1587256091-3585016340-1429452631",
+              "capabilityCount": 1,
+              "capabilitySids": [
+                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+              ],
+              "profileSidMatched": true
+            },
+            {
+              "stage": "launched",
+              "isolation": "LPAC",
+              "capabilities": 1,
+              "capabilityNames": [
+                "registryRead"
+              ]
+            },
+            {
+              "stage": "timeout",
+              "terminateJobSucceeded": true,
+              "rootWaitResult": 0
+            },
+            {
+              "stage": "cleanup",
+              "profileDeleteHresult": 0,
+              "profileDirectoryAbsent": true,
+              "terminateSucceeded": true,
+              "rootWaitResult": 0,
+              "jobActiveProcesses": 0,
+              "jobTotalProcesses": 2,
+              "ownedTreeTerminated": true,
+              "processCreated": true
+            }
+          ],
+          "stdout": "{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"probe\",\"operation\":\"ready\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-create\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"symlink\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-read\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-enumerate\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-write\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-create\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"symlink\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-read\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-enumerate\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesys",
+          "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-2456874390-714496553-2669008337-267303404-1587256091-3585016340-1429452631\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+          "summary": {
+            "processCompleted": false,
+            "rootAndChildExecuted": false,
+            "rootAndDescendantTokensVerified": false,
+            "directLpacQueryVerified": false,
+            "matrixComplete": false,
+            "projectionAndOutputControlsPassed": false,
+            "outsideFixtureAccess": [
+              {
+                "name": "arap-read",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "arap-read",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "arap-read",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "write",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "write",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "extended-read",
+                "descendant": false
+              }
+            ],
+            "strictFilesystemContract": "failed",
+            "exclusiveFilesystemAllowlistEstablished": false,
+            "registryViewConstrained": false
+          }
+        }
+      ],
+      "cleanup": {
+        "temporaryDirectoryAbsent": true,
+        "verified": true
+      },
+      "resolution": "TokenProbe stdin changed from an open pipe to NUL; preserve timeout and incomplete child matrix."
+    },
+    {
+      "evidenceSha256": "c6bfa359d3801a5025796e220a5532843214fe0969c22e4ef6001a3d87f91be9",
+      "sourceManifest": {
+        "fileCount": 24,
+        "totalBytes": 152256,
+        "sha256": "77d08ad282e318383634f05bc5d873d7eb7f41dbd8792ba818c841a4c36bd4ca",
+        "files": [
+          {
+            "path": "AppContainerHost.cs",
+            "size": 27943,
+            "sha256": "30e5f00c601c3a11bd2bca514c7397d815f49d98391499d994db43075e51d5a1"
+          },
+          {
+            "path": "claude-gateway.test.js",
+            "size": 4495,
+            "sha256": "ddff551ecd45bca1b134f6d8f684525e56cd0935813dc470be8b87fbd2604942"
+          },
+          {
+            "path": "claude-observer.js",
+            "size": 1336,
+            "sha256": "834e4fe499746ca7dee14f84ec9fe0144d77b4286756432da94965a7357283ec"
+          },
+          {
+            "path": "claude-preload-marker.mjs",
+            "size": 237,
+            "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859"
+          },
+          {
+            "path": "claude-preload.mjs",
+            "size": 294,
+            "sha256": "288ff4ccc27bf6f0de125b5516ffb9cd516ff8670eff86eb4627b9da0d2ebe1e"
+          },
+          {
+            "path": "claude-run.js",
+            "size": 10975,
+            "sha256": "e913a3e2afa4655726deddf16016d16eb0b0a7946629fc5d2a94a3a98729e8c4"
+          },
+          {
+            "path": "claude-run.test.js",
+            "size": 972,
+            "sha256": "560a8494036821fb10b0694488a79993689f62f407e81c4700a5acadd675e9b9"
+          },
+          {
+            "path": "fetch-adapter.mjs",
+            "size": 2309,
+            "sha256": "80ba065bc8714f1e7eb9fc23738c7934cc2db0c0244b4b756d2167b9112be2ee"
+          },
+          {
+            "path": "filesystem-contract.md",
+            "size": 5284,
+            "sha256": "c51ee8d27f8399ab3a9a141b73bd42563e2cabe5dc51590502a831e64b0a1588"
+          },
+          {
+            "path": "filesystem-inspect.ps1",
+            "size": 788,
+            "sha256": "d65829777e64add2be07ca7b28f43e239edfd28c7a5ae166d61b4064a1d864e1"
+          },
+          {
+            "path": "filesystem-probe.js",
+            "size": 3647,
+            "sha256": "816599c5b94db9d731d63d9d1f7b615a68e22f7975f8c0fc941ada7fad5a9f1d"
+          },
+          {
+            "path": "filesystem.js",
+            "size": 9945,
+            "sha256": "1eb5719eabcc74042611235076f1bf1f26fc963db8dc3715caf603ee9cabf047"
+          },
+          {
+            "path": "filesystem.test.js",
+            "size": 3517,
+            "sha256": "6560a9b9dda82c20634846e2f63e641063d756c6fa825bb99790dbbc08efaae7"
+          },
+          {
+            "path": "gateway-broker.js",
+            "size": 5377,
+            "sha256": "a08bfa3354c306e856b484a702a8209f596300cb1903ae0fe63938beb157d3ad"
+          },
+          {
+            "path": "gateway-preload.mjs",
+            "size": 1801,
+            "sha256": "c1b8ac6f0f98bd081af953e1b54fa1efd9324fe78aedfef401ccb4713c9b2f39"
+          },
+          {
+            "path": "gateway-probe.mjs",
+            "size": 1654,
+            "sha256": "91ce1b15688be6730eaf13e944e6bce84bc93344bb445fe2f834cf8c98508471"
+          },
+          {
+            "path": "gateway.test.js",
+            "size": 6226,
+            "sha256": "9f1877aca272ec30579efafc5843201dba4e724355aead4cf371885131033eca"
+          },
+          {
+            "path": "lpac.js",
+            "size": 16804,
+            "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9"
+          },
+          {
+            "path": "lpac.test.js",
+            "size": 3277,
+            "sha256": "c1ce003076ef5fd03b17b88c0f6231e4cde81a0df8ef818e69bb0e6083c7c68c"
+          },
+          {
+            "path": "prior-attempts.json",
+            "size": 1922,
+            "sha256": "bffbcf5ae5e60800a789174c457df9d6d6de4781fddb7754eeed6fae167f3180"
+          },
+          {
+            "path": "probe.js",
+            "size": 5120,
+            "sha256": "b840e14eec6c72c9f9e7f0d7dc868c506a7bdc92446b4d0b0dce064e33b50cbf"
+          },
+          {
+            "path": "README.md",
+            "size": 12433,
+            "sha256": "6837488415f11667118d14c6cf88c592759373eef425f10215dcc4fe9dcbb985"
+          },
+          {
+            "path": "run.js",
+            "size": 22092,
+            "sha256": "f5fbabb8220a90699a568810fd277f80aa869517a5af41a886fc400a5e7c12da"
+          },
+          {
+            "path": "runner.test.js",
+            "size": 3808,
+            "sha256": "9790804d73d938e3250498e0c2cc4d52edfbab88aff504c3e6c0899705a3068b"
+          }
+        ]
+      },
+      "programs": {
+        "node": {
+          "version": "v24.14.0",
+          "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+        },
+        "helper": {
+          "sha256": "5100bc361249bd3b146847c0d0be1c27e042ac4c07e921fed7cb5dd5e6c9ff63",
+          "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+        }
+      },
+      "attempts": [
+        {
+          "code": 124,
+          "watchdogFired": false,
+          "output": [
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "probe",
+              "operation": "ready",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-create",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "symlink"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-read",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-enumerate",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-write",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-create",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "symlink"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-read",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-enumerate",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-write",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "hardlink-inside",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "hardlink-outside",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "project",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "project",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "output",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            }
+          ],
+          "events": [
+            {
+              "stage": "token-verified",
+              "kind": "descendant-token",
+              "isAppContainer": true,
+              "isLessPrivilegedAppContainer": null,
+              "lpacQuerySucceeded": false,
+              "lpacQueryError": 87,
+              "packageSid": "S-1-15-2-607109155-176795181-1975853439-3421625871-3254128935-3477811581-2305910156",
+              "capabilityCount": 1,
+              "capabilitySids": [
+                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+              ],
+              "profileSidMatched": true
+            },
+            {
+              "stage": "launched",
+              "isolation": "LPAC",
+              "capabilities": 1,
+              "capabilityNames": [
+                "registryRead"
+              ]
+            },
+            {
+              "stage": "timeout",
+              "terminateJobSucceeded": true,
+              "rootWaitResult": 0
+            },
+            {
+              "stage": "cleanup",
+              "profileDeleteHresult": 0,
+              "profileDirectoryAbsent": true,
+              "terminateSucceeded": true,
+              "rootWaitResult": 0,
+              "jobActiveProcesses": 0,
+              "jobTotalProcesses": 2,
+              "ownedTreeTerminated": true,
+              "processCreated": true
+            }
+          ],
+          "stdout": "{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"probe\",\"operation\":\"ready\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-create\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"symlink\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-read\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-enumerate\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-write\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-create\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"symlink\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-read\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-enumerate\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesys",
+          "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-607109155-176795181-1975853439-3421625871-3254128935-3477811581-2305910156\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+          "summary": {
+            "processCompleted": false,
+            "rootAndChildExecuted": false,
+            "rootAndDescendantTokensVerified": false,
+            "directLpacQueryVerified": false,
+            "matrixComplete": false,
+            "projectionAndOutputControlsPassed": false,
+            "outsideFixtureAccess": [
+              {
+                "name": "arap-read",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "arap-read",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "arap-read",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "write",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "write",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "extended-read",
+                "descendant": false
+              }
+            ],
+            "strictFilesystemContract": "failed",
+            "exclusiveFilesystemAllowlistEstablished": false,
+            "registryViewConstrained": false
+          }
+        }
+      ],
+      "cleanup": {
+        "temporaryDirectoryAbsent": true,
+        "verified": true
+      },
+      "resolution": "TokenProbe capture pipes replaced with inherited output, retaining NUL input; preserve both timeout attempts and incomplete child matrices. Cause remains unknown."
+    },
+    {
+      "evidenceSha256": "7185030524500b9d34285eecd5cccd1bbdcd94505a6083533804af16762a8bc4",
+      "sourceManifest": {
+        "fileCount": 24,
+        "totalBytes": 152287,
+        "sha256": "c4223cf27bad101f93b46106075fe983c19f7d873537423ee1560f2a421fe47f",
+        "files": [
+          {
+            "path": "AppContainerHost.cs",
+            "size": 27943,
+            "sha256": "30e5f00c601c3a11bd2bca514c7397d815f49d98391499d994db43075e51d5a1"
+          },
+          {
+            "path": "claude-gateway.test.js",
+            "size": 4495,
+            "sha256": "ddff551ecd45bca1b134f6d8f684525e56cd0935813dc470be8b87fbd2604942"
+          },
+          {
+            "path": "claude-observer.js",
+            "size": 1336,
+            "sha256": "834e4fe499746ca7dee14f84ec9fe0144d77b4286756432da94965a7357283ec"
+          },
+          {
+            "path": "claude-preload-marker.mjs",
+            "size": 237,
+            "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859"
+          },
+          {
+            "path": "claude-preload.mjs",
+            "size": 294,
+            "sha256": "288ff4ccc27bf6f0de125b5516ffb9cd516ff8670eff86eb4627b9da0d2ebe1e"
+          },
+          {
+            "path": "claude-run.js",
+            "size": 10975,
+            "sha256": "e913a3e2afa4655726deddf16016d16eb0b0a7946629fc5d2a94a3a98729e8c4"
+          },
+          {
+            "path": "claude-run.test.js",
+            "size": 972,
+            "sha256": "560a8494036821fb10b0694488a79993689f62f407e81c4700a5acadd675e9b9"
+          },
+          {
+            "path": "fetch-adapter.mjs",
+            "size": 2309,
+            "sha256": "80ba065bc8714f1e7eb9fc23738c7934cc2db0c0244b4b756d2167b9112be2ee"
+          },
+          {
+            "path": "filesystem-contract.md",
+            "size": 5284,
+            "sha256": "c51ee8d27f8399ab3a9a141b73bd42563e2cabe5dc51590502a831e64b0a1588"
+          },
+          {
+            "path": "filesystem-inspect.ps1",
+            "size": 788,
+            "sha256": "d65829777e64add2be07ca7b28f43e239edfd28c7a5ae166d61b4064a1d864e1"
+          },
+          {
+            "path": "filesystem-probe.js",
+            "size": 3508,
+            "sha256": "a5cb1241badd990c70a14d430bec85dfc408f75cc812d539431299bd09d4ac63"
+          },
+          {
+            "path": "filesystem.js",
+            "size": 10115,
+            "sha256": "b5100843e7f0bfb50d73bf8612111afa64ff9e66918ff7a576a72a0db9a7e225"
+          },
+          {
+            "path": "filesystem.test.js",
+            "size": 3517,
+            "sha256": "6560a9b9dda82c20634846e2f63e641063d756c6fa825bb99790dbbc08efaae7"
+          },
+          {
+            "path": "gateway-broker.js",
+            "size": 5377,
+            "sha256": "a08bfa3354c306e856b484a702a8209f596300cb1903ae0fe63938beb157d3ad"
+          },
+          {
+            "path": "gateway-preload.mjs",
+            "size": 1801,
+            "sha256": "c1b8ac6f0f98bd081af953e1b54fa1efd9324fe78aedfef401ccb4713c9b2f39"
+          },
+          {
+            "path": "gateway-probe.mjs",
+            "size": 1654,
+            "sha256": "91ce1b15688be6730eaf13e944e6bce84bc93344bb445fe2f834cf8c98508471"
+          },
+          {
+            "path": "gateway.test.js",
+            "size": 6226,
+            "sha256": "9f1877aca272ec30579efafc5843201dba4e724355aead4cf371885131033eca"
+          },
+          {
+            "path": "lpac.js",
+            "size": 16804,
+            "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9"
+          },
+          {
+            "path": "lpac.test.js",
+            "size": 3277,
+            "sha256": "c1ce003076ef5fd03b17b88c0f6231e4cde81a0df8ef818e69bb0e6083c7c68c"
+          },
+          {
+            "path": "prior-attempts.json",
+            "size": 1922,
+            "sha256": "bffbcf5ae5e60800a789174c457df9d6d6de4781fddb7754eeed6fae167f3180"
+          },
+          {
+            "path": "probe.js",
+            "size": 5120,
+            "sha256": "b840e14eec6c72c9f9e7f0d7dc868c506a7bdc92446b4d0b0dce064e33b50cbf"
+          },
+          {
+            "path": "README.md",
+            "size": 12433,
+            "sha256": "6837488415f11667118d14c6cf88c592759373eef425f10215dcc4fe9dcbb985"
+          },
+          {
+            "path": "run.js",
+            "size": 22092,
+            "sha256": "f5fbabb8220a90699a568810fd277f80aa869517a5af41a886fc400a5e7c12da"
+          },
+          {
+            "path": "runner.test.js",
+            "size": 3808,
+            "sha256": "9790804d73d938e3250498e0c2cc4d52edfbab88aff504c3e6c0899705a3068b"
+          }
+        ]
+      },
+      "programs": {
+        "node": {
+          "version": "v24.14.0",
+          "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+        },
+        "helper": {
+          "sha256": "5b1e55a1f45b4b240d5458be52a35352777c548de41ced8cbddaaee30aeedf4f",
+          "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+        }
+      },
+      "attempts": [
+        {
+          "code": 0,
+          "watchdogFired": false,
+          "output": [
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "probe",
+              "operation": "ready",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-read",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-read",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "everyone-write",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-read",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-read",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-write",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "aap",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "profile-storage",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-create",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "symlink"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-read",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-enumerate",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "user-write",
+              "operation": "junction-write",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-create",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "symlink"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-read",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-enumerate",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "arap-write",
+              "operation": "junction-write",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "hardlink-inside",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "hardlink-outside",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "project",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "project",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "output",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "stage": "descendant-token",
+              "kind": "descendant-token",
+              "isAppContainer": true,
+              "isLessPrivilegedAppContainer": null,
+              "lpacQuerySucceeded": false,
+              "lpacQueryError": 87,
+              "packageSid": "S-1-15-2-3782289912-1551300315-4113969168-404283502-2957141104-2754369274-3061255347",
+              "capabilityCount": 1,
+              "capabilitySids": [
+                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+              ],
+              "profileSidMatched": null
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "actual-descendant-token",
+              "operation": "token",
+              "exitCode": 3762504530
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "probe",
+              "operation": "ready",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-read",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-read",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-read",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-write",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-write",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-write",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-write",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "everyone-read",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "everyone-read",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "everyone-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "everyone-read",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "everyone-write",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "everyone-write",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "everyone-write",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "everyone-write",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-read",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-read",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-read",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-write",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-write",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-write",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-write",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-read",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-read",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-read",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-read",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-write",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-write",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-write",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-write",
+              "operation": "extended-read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "aap",
+              "operation": "read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "aap",
+              "operation": "enumerate",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "aap",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "aap",
+              "operation": "extended-read",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-storage",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-storage",
+              "operation": "enumerate",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "profile-storage",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-write",
+              "operation": "junction-create",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "symlink"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-write",
+              "operation": "junction-read",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-write",
+              "operation": "junction-enumerate",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "user-write",
+              "operation": "junction-write",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-write",
+              "operation": "junction-create",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "symlink"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-write",
+              "operation": "junction-read",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-write",
+              "operation": "junction-enumerate",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "scandir"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "arap-write",
+              "operation": "junction-write",
+              "allowed": false,
+              "code": "ENOENT",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "hardlink-inside",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "hardlink-outside",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "project",
+              "operation": "read",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "project",
+              "operation": "write",
+              "allowed": false,
+              "code": "EPERM",
+              "syscall": "open"
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "output",
+              "operation": "write",
+              "allowed": true,
+              "verified": true
+            },
+            {
+              "stage": "descendant-token",
+              "kind": "descendant-token",
+              "isAppContainer": true,
+              "isLessPrivilegedAppContainer": null,
+              "lpacQuerySucceeded": false,
+              "lpacQueryError": 87,
+              "packageSid": "S-1-15-2-3782289912-1551300315-4113969168-404283502-2957141104-2754369274-3061255347",
+              "capabilityCount": 1,
+              "capabilitySids": [
+                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+              ],
+              "profileSidMatched": null
+            },
+            {
+              "kind": "filesystem",
+              "descendant": true,
+              "name": "actual-descendant-token",
+              "operation": "token",
+              "exitCode": 3762504530
+            },
+            {
+              "kind": "filesystem",
+              "descendant": false,
+              "name": "child",
+              "operation": "exit",
+              "exitCode": 0
+            }
+          ],
+          "events": [
+            {
+              "stage": "token-verified",
+              "kind": "descendant-token",
+              "isAppContainer": true,
+              "isLessPrivilegedAppContainer": null,
+              "lpacQuerySucceeded": false,
+              "lpacQueryError": 87,
+              "packageSid": "S-1-15-2-3782289912-1551300315-4113969168-404283502-2957141104-2754369274-3061255347",
+              "capabilityCount": 1,
+              "capabilitySids": [
+                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+              ],
+              "profileSidMatched": true
+            },
+            {
+              "stage": "launched",
+              "isolation": "LPAC",
+              "capabilities": 1,
+              "capabilityNames": [
+                "registryRead"
+              ]
+            },
+            {
+              "stage": "exit",
+              "code": 0
+            },
+            {
+              "stage": "cleanup",
+              "profileDeleteHresult": 0,
+              "profileDirectoryAbsent": true,
+              "terminateSucceeded": true,
+              "rootWaitResult": 0,
+              "jobActiveProcesses": 0,
+              "jobTotalProcesses": 5,
+              "ownedTreeTerminated": true,
+              "processCreated": true
+            }
+          ],
+          "stdout": "{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"probe\",\"operation\":\"ready\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-read\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-read\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"everyone-write\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-read\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-read\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-write\",\"operation\":\"extended-read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"enumerate\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"write\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"aap\",\"operation\":\"extended-read\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"read\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"enumerate\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"profile-storage\",\"operation\":\"write\",\"allowed\":true,\"verified\":true}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-create\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"symlink\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-read\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-enumerate\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"user-write\",\"operation\":\"junction-write\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-create\",\"allowed\":false,\"code\":\"EPERM\",\"syscall\":\"symlink\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-read\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"open\"}\n{\"kind\":\"filesystem\",\"descendant\":false,\"name\":\"arap-write\",\"operation\":\"junction-enumerate\",\"allowed\":false,\"code\":\"ENOENT\",\"syscall\":\"scandir\"}\n{\"kind\":\"filesys",
+          "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-3782289912-1551300315-4113969168-404283502-2957141104-2754369274-3061255347\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n\n\n   由于 Exception.ToString() 失败，因此无法打印异常字符串。\n\n\n   由于 Exception.ToString() 失败，因此无法打印异常字符串。\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":5,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+          "summary": {
+            "processCompleted": true,
+            "rootAndChildExecuted": true,
+            "rootAndDescendantTokensVerified": false,
+            "directLpacQueryVerified": false,
+            "matrixComplete": true,
+            "projectionAndOutputControlsPassed": true,
+            "outsideFixtureAccess": [
+              {
+                "name": "arap-read",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "arap-read",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "arap-read",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "write",
+                "descendant": false
+              },
+              {
+                "name": "arap-write",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "profile-read",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "read",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "enumerate",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "write",
+                "descendant": false
+              },
+              {
+                "name": "profile-write",
+                "operation": "extended-read",
+                "descendant": false
+              },
+              {
+                "name": "arap-read",
+                "operation": "read",
+                "descendant": true
+              },
+              {
+                "name": "arap-read",
+                "operation": "enumerate",
+                "descendant": true
+              },
+              {
+                "name": "arap-read",
+                "operation": "extended-read",
+                "descendant": true
+              },
+              {
+                "name": "arap-write",
+                "operation": "read",
+                "descendant": true
+              },
+              {
+                "name": "arap-write",
+                "operation": "enumerate",
+                "descendant": true
+              },
+              {
+                "name": "arap-write",
+                "operation": "write",
+                "descendant": true
+              },
+              {
+                "name": "arap-write",
+                "operation": "extended-read",
+                "descendant": true
+              },
+              {
+                "name": "profile-read",
+                "operation": "read",
+                "descendant": true
+              },
+              {
+                "name": "profile-read",
+                "operation": "enumerate",
+                "descendant": true
+              },
+              {
+                "name": "profile-read",
+                "operation": "extended-read",
+                "descendant": true
+              },
+              {
+                "name": "profile-write",
+                "operation": "read",
+                "descendant": true
+              },
+              {
+                "name": "profile-write",
+                "operation": "enumerate",
+                "descendant": true
+              },
+              {
+                "name": "profile-write",
+                "operation": "write",
+                "descendant": true
+              },
+              {
+                "name": "profile-write",
+                "operation": "extended-read",
+                "descendant": true
+              }
+            ],
+            "strictFilesystemContract": "failed",
+            "exclusiveFilesystemAllowlistEstablished": false,
+            "registryViewConstrained": false
+          }
+        }
+      ],
+      "cleanup": {
+        "temporaryDirectoryAbsent": true,
+        "verified": true
+      },
+      "resolution": "Historical bounded attempt retained with its source identity. Capture-pipe timeouts remain unknown; later inherited-output snapshots and CLR exit failures are separate observations."
+    }
+  ],
+  "positiveControls": [
+    {
+      "name": "user-read",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    },
+    {
+      "name": "user-write",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    },
+    {
+      "name": "everyone-read",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    },
+    {
+      "name": "everyone-write",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    },
+    {
+      "name": "arap-read",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    },
+    {
+      "name": "arap-write",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    },
+    {
+      "name": "profile-read",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    },
+    {
+      "name": "profile-write",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    },
+    {
+      "name": "aap",
+      "read": true,
+      "enumerate": true,
+      "write": true
+    }
+  ],
+  "hardlink": {
+    "unsafeProjectionMakerNegativeControl": true,
+    "before": {
+      "outside": {
+        "device": "1587757136",
+        "fileId": "12947848929238793",
+        "links": 2
+      },
+      "inside": {
+        "device": "1587757136",
+        "fileId": "12947848929238793",
+        "links": 2
+      },
+      "acl": {
+        "projection\\linked-secret.txt": "O:<host-user-sid>G:<host-user-sid>D:AI(A;ID;0x1301bf;;;<host-account-sid>)(A;ID;0x1301bf;;;<host-account-sid>)(A;ID;0x1301ff;;;<host-account-sid>)(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;FA;;;<host-user-sid>)",
+        "hardlink-source\\marker.txt": "O:<host-user-sid>G:<host-user-sid>D:AI(A;ID;0x1301bf;;;<host-account-sid>)(A;ID;0x1301bf;;;<host-account-sid>)(A;ID;0x1301ff;;;<host-account-sid>)(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;FA;;;<host-user-sid>)"
+      }
+    },
+    "hostReadVerified": true,
+    "after": {
+      "outside": {
+        "device": "1587757136",
+        "fileId": "12947848929238793",
+        "links": 2
+      },
+      "inside": {
+        "device": "1587757136",
+        "fileId": "12947848929238793",
+        "links": 2
+      },
+      "acl": {
+        "projection\\linked-secret.txt": "O:<host-user-sid>G:<host-user-sid>D:AI(A;ID;0x1200a9;;;S-1-15-2-189510232-1850588499-4043114602-2030421313-306191478-1139767464-757726878)(A;ID;0x1301bf;;;<host-account-sid>)(A;ID;0x1301bf;;;<host-account-sid>)(A;ID;0x1301ff;;;<host-account-sid>)(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;FA;;;<host-user-sid>)",
+        "hardlink-source\\marker.txt": "O:<host-user-sid>G:<host-user-sid>D:AI(A;ID;0x1200a9;;;S-1-15-2-189510232-1850588499-4043114602-2030421313-306191478-1139767464-757726878)(A;ID;0x1301bf;;;<host-account-sid>)(A;ID;0x1301bf;;;<host-account-sid>)(A;ID;0x1301ff;;;<host-account-sid>)(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;FA;;;<host-user-sid>)"
+      }
+    },
+    "sharedIdentity": true,
+    "outsideAclChanged": true
+  },
+  "hostChecks": {
+    "originalProjectUnchanged": true,
+    "sourceMarkerUnchanged": true
+  },
+  "restrictedPrimaryTokenCandidate": {
+    "attempt": {
+      "code": 3221225506,
+      "watchdogFired": false,
+      "output": [],
+      "events": [
+        {
+          "stage": "token-verified",
+          "kind": "descendant-token",
+          "isAppContainer": true,
+          "isLessPrivilegedAppContainer": null,
+          "lpacQuerySucceeded": false,
+          "lpacQueryError": 87,
+          "packageSid": "S-1-15-2-1578117058-3065059063-617147510-3387920852-4272420611-1166178925-929312206",
+          "capabilityCount": 1,
+          "capabilitySids": [
+            "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+          ],
+          "profileSidMatched": true,
+          "restrictedSidCount": 1,
+          "restrictedSids": [
+            "S-1-5-21-1165054726-1271201806-3148556960-1395411169"
+          ],
+          "expectedRestrictionMatched": true
+        },
+        {
+          "stage": "launched",
+          "isolation": "LPAC",
+          "capabilities": 1,
+          "capabilityNames": [
+            "registryRead"
+          ]
+        },
+        {
+          "stage": "exit",
+          "code": 3221225506
+        },
+        {
+          "stage": "cleanup",
+          "profileDeleteHresult": 0,
+          "profileDirectoryAbsent": true,
+          "terminateSucceeded": true,
+          "rootWaitResult": 0,
+          "jobActiveProcesses": 0,
+          "jobTotalProcesses": 1,
+          "ownedTreeTerminated": true,
+          "processCreated": true
+        }
+      ],
+      "stdout": "",
+      "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-1578117058-3065059063-617147510-3387920852-4272420611-1166178925-929312206\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true,\"restrictedSidCount\":1,\"restrictedSids\":[\"S-1-5-21-1165054726-1271201806-3148556960-1395411169\"],\"expectedRestrictionMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"exit\",\"code\":3221225506}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":1,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+      "summary": {
+        "processCompleted": false,
+        "rootAndChildExecuted": false,
+        "rootAndDescendantTokensVerified": false,
+        "descendantTokenProbeCleanExits": false,
+        "directLpacQueryVerified": false,
+        "matrixComplete": false,
+        "projectionAndOutputControlsPassed": false,
+        "outsideFixtureAccess": [],
+        "strictFilesystemContract": "unknown",
+        "exclusiveFilesystemAllowlistEstablished": false,
+        "registryViewConstrained": false
+      }
+    },
+    "rootRestrictionVerified": true,
+    "descendantRestrictionVerified": false,
+    "exclusiveFilesystemAllowlistEstablished": false,
+    "status": "blocked-before-complete-probe",
+    "interpretation": "Creation or runtime failure is not isolation success. A successful reduced probe would still require the full adversarial filesystem matrix and runtime-resource inventory."
+  },
+  "sourcesStableDuringRun": true,
+  "infrastructurePassed": false
+}

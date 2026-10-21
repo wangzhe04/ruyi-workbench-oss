@@ -69,7 +69,7 @@ async function receiver(kind, address, counters, label) {
 }
 function controlEvent(value) {
   const fields={
-    'token-verified':['kind','isAppContainer','isLessPrivilegedAppContainer','lpacQuerySucceeded','lpacQueryError','packageSid','capabilityCount','capabilitySids','profileSidMatched'],
+    'token-verified':['kind','isAppContainer','isLessPrivilegedAppContainer','lpacQuerySucceeded','lpacQueryError','packageSid','capabilityCount','capabilitySids','profileSidMatched','restrictedSidCount','restrictedSids','expectedRestrictionMatched'],
     launched:['isolation','capabilities','capabilityNames'],exit:['code'],timeout:['terminateJobSucceeded','rootWaitResult'],
     error:['errorType','errorHresult'],cleanup:['profileDeleteHresult','profileDirectoryAbsent','terminateSucceeded','rootWaitResult','jobActiveProcesses','jobTotalProcesses','ownedTreeTerminated','processCreated'],
     'pipe-created':['profileSidAuthorized','hostUserAuthorized','networkDenied','lowIntegrity'],'pipe-relay-stopped':['error'],
@@ -83,15 +83,17 @@ function createAssistantObserver(challenge) {
   let pending='',observed=false,overflow=false;
   return {write(text){pending+=text;for(let index;(index=pending.indexOf('\n'))>=0;){const line=pending.slice(0,index);pending=pending.slice(index+1);if(!overflow&&Buffer.byteLength(line)<=262144){try{const row=JSON.parse(line);if(row.role==='assistant'&&typeof row.content==='string'&&row.content.trim()===challenge&&!row.tool_calls?.length)observed=true;}catch{}}overflow=false;}if(Buffer.byteLength(pending)>262144){pending='';overflow=true;}},get observed(){return observed;}};
 }
-async function launch(helper, root, projection, write, exe, args, timeoutMs = 20000, environmentOverrides = {}, isolation = 'AppContainer', registryRead = false, broker = null) {
+async function launch(helper, root, projection, write, exe, args, timeoutMs = 20000, environmentOverrides = {}, isolation = 'AppContainer', registryRead = false, broker = null, options = {}) {
+  if(!options||typeof options!=='object'||Array.isArray(options)||Object.keys(options).some(key=>!['filesystemFixtures','filesystemStorage','filesystemRestrictedToken'].includes(key)))throw new Error('unsupported-launch-option');
   launchesStarted++;
   const file = path.join(root, 'launch-' + crypto.randomUUID() + '.json');
   const profile='ruyi.m1.'+crypto.randomUUID().replaceAll('-','');
-  fs.writeFileSync(file, JSON.stringify({ profile, isolation, registryRead, pipeBroker:Boolean(broker), projection, write, aapDirectory:path.join(root,'aap-control'), exe, args, cwd: write, env: {...childEnvironment(write, projection),...environmentOverrides}, timeoutMs }));
+  const filesystemOptions={};for(const key of ['filesystemFixtures','filesystemStorage','filesystemRestrictedToken'])if(Object.hasOwn(options,key))filesystemOptions[key]=options[key];
+  fs.writeFileSync(file, JSON.stringify({ profile, isolation, registryRead, pipeBroker:Boolean(broker), projection, write, aapDirectory:path.join(root,'aap-control'), exe, args, cwd: write, env: {...childEnvironment(write, projection),...environmentOverrides}, timeoutMs, ...filesystemOptions }));
   const child = cp.spawn(helper, [file], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const output = [], events = []; let text = '', error = '';
   if(!broker){child.stdout.setEncoding('utf8');child.stderr.setEncoding('utf8');}
-  let stdoutBytes=0,matchTail='';const stdoutHash=crypto.createHash('sha256'),stdoutDecoder=new StringDecoder('utf8'),stderrDecoder=new StringDecoder('utf8'),diagnosticCodes=new Set(),assistantObserver=createAssistantObserver(broker?.expectedResponse);
+  let stdoutBytes=0,matchTail='';const stdoutHash=crypto.createHash('sha256'),stdoutDecoder=new StringDecoder('utf8'),stderrDecoder=new StringDecoder('utf8'),diagnosticCodes=new Set(),assistantObserver=broker?.assistantObserver??createAssistantObserver(broker?.expectedResponse);
   child.stdout.on('data',chunk=>{
     if(!broker){if(text.length<262144)text+=chunk;return;}
     stdoutBytes+=chunk.length;stdoutHash.update(chunk);const decoded=stdoutDecoder.write(chunk);assistantObserver.write(decoded);const window=matchTail+decoded;
@@ -117,6 +119,7 @@ async function launch(helper, root, projection, write, exe, args, timeoutMs = 20
   let code;
   try { [code] = await once(child, 'close'); }
   finally { clearTimeout(watchdog); lines?.close(); if(child.exitCode===null && child.signalCode===null) killOwnTree(child); }
+  if(broker)assistantObserver.write(stdoutDecoder.end());
   await brokerChain;
   for (const line of error.split(/\r?\n/)) { try { events.push(JSON.parse(line)); } catch {} }
   if(!events.some(e=>e.stage==='cleanup'&&e.profileDeleteHresult===0&&e.profileDirectoryAbsent===true)) {
