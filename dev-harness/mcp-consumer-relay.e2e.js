@@ -111,11 +111,12 @@ const bodyText = result => result?.result?.content?.[0]?.text || '';
   await app.mutateConfig(config => { config.privacyModeV1 = 'enhanced'; });
   ok(Boolean((await a.send('tools/list', { cursor: oldPage.result.nextCursor })).error), 'policy flipback invalidates issued cursor rather than resuming a new snapshot');
   ok(tools.length === 7 && tools.every(tool => first.consumer.tools.includes(tool.name)), 'actual paginated tools list advertises precisely the explicit native grant');
-  ok((await a.send('resources/templates/list')).result.resourceTemplates.length === 0, 'unsupported templates are accurately empty');
+  ok((await a.send('resources/templates/list')).result.resourceTemplates[0]?.uriTemplate === 'ruyi://consumer/{kind}', 'granted fixed resources have a real RFC template');
   const listed = await a.send('resources/list'); ok(listed.result.resources.length === 2, 'resources list offers useful fixed safe summaries');
   for (const resource of listed.result.resources) { const value = await a.send('resources/read', { uri: resource.uri }); ok(value.result.contents[0].mimeType === 'application/json' && !JSON.stringify(value).includes(adminToken), 'each offered resource reads through the authenticated output boundary'); }
   ok((await a.send('resources/read', { uri: 'file://' + path.join(data, 'config.json') })).error, 'raw config and arbitrary resource URIs are not granted');
-  ok((await a.send('resources/subscribe', { uri: listed.result.resources[0].uri })).error?.code === -32601, 'subscriptions are not advertised or silently accepted');
+  ok(Boolean((await a.send('resources/subscribe', { uri: listed.result.resources[0].uri })).result), 'advertised fixed-resource subscription receives actual ACK');
+  ok(Boolean((await a.send('resources/unsubscribe', { uri: listed.result.resources[0].uri })).result), 'actual unsubscribe clears the compatibility fixture subscription');
   const privateFile = path.join(workspace, 'source.txt'); fs.writeFileSync(privateFile, 'consumer-private@example.test');
   const originalProgressRules=(await app.readConfig()).privacyRulesV1;
   await app.mutateConfig(config=>{config.privacyRulesV1=[...originalProgressRules,{id:'progress-body-fixture',kind:'literal',value:'Operation started',category:'INTERNAL'}];});

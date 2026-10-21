@@ -70,7 +70,7 @@ const McpConsumers = (() => {
   }
   function retire(connection) {
     if (connection.retired) return; connection.retired = true;
-    clearTimeout(connection.unboundTimer); clearInterval(connection.heartbeat);
+    clearTimeout(connection.unboundTimer); clearInterval(connection.heartbeat); connection.subscriptions.clear();
     connection.controller.abort(); connections.delete(connection.id); connection.scopeCapability.close();
     const lease = connection.lease; connection.lease = null; if (lease && !lease.destroyed) lease.destroy();
   }
@@ -86,7 +86,7 @@ const McpConsumers = (() => {
     // Recheck after filesystem awaits; this check-to-registration has no await.
     if (connections.size >= limit.connections || [...connections.values()].filter(connection => connection.consumerId === row.id).length >= limit.perConsumer) deny('capacity');
     const id = crypto.randomBytes(24).toString('hex'), connection = { id, consumerId: row.id, revision: row.revision, tokenHash: row.tokenHash,
-      scopeCapability: PrivacyGateway.createConnectionScope(), controller: new AbortController(), inflight: new Map(), touched: Date.now(), cursors: new Map() };
+      scopeCapability: PrivacyGateway.createConnectionScope(), controller: new AbortController(), inflight: new Map(), touched: Date.now(), cursors: new Map(), subscriptions: new Map(), checkingSubscriptions: false };
     connections.set(id, connection);
     connection.unboundTimer = setTimeout(() => retire(connection), 10000); connection.unboundTimer.unref();
     try { assertCurrent(connection, row); } catch (failure) { retire(connection); throw failure; }
@@ -132,6 +132,75 @@ const McpConsumers = (() => {
     const available = row.tools.filter(name => !nativeToolDisabledByPolicy(name, config)
       && (nativeToolTier(name) === 'read' || audit) && toolAdvertised(name, config) && toolAdvertised(name, config, audit));
     return { names: available, assert: check };
+  }
+  function resourceTemplates(row) {
+    // RFC URI-template expansion only selects one of the already granted fixed
+    // resources. No file URI or arbitrary variable acquires a resource grant.
+    return row.resources.length ? [{ uriTemplate: 'ruyi://consumer/{kind}', name: 'consumer-resources', mimeType: 'application/json',
+      description: 'kind must be one of: ' + row.resources.join(', '), _meta: { allowedKinds: row.resources } }] : [];
+  }
+  function resourceKind(row, uri) {
+    const kind = resources.find(kind => uri === 'ruyi://consumer/' + kind);
+    if (!kind || !row.resources.includes(kind)) deny('resource_denied');
+    return kind;
+  }
+  async function resourceSnapshot(row, kind, config) {
+    const available = kind === 'capabilities' ? await availableTools(row, config) : null;
+    const value = kind === 'capabilities' ? { grantedTools: row.tools, currentlyAvailableTools: available.names, resources: row.resources,
+      templates: resourceTemplates(row), subscriptions: true, scope: 'connection-owned', osIsolation: false }
+      : { workspace: row.workspace, permissions: 'existing-workbench-permission-floor', grantRevision: row.revision };
+    return { value, hash: digest(JSON.stringify(value)), assert: available ? available.assert : () => {} };
+  }
+  async function projectedOutput(connection, value, control, assert, sourceAssert, emit) {
+    if (control.notification === 'progress' && !(['string', 'number'].includes(typeof control.progressToken) && String(control.progressToken).length <= 128
+      && (typeof control.progressToken !== 'number' || Number.isFinite(control.progressToken)))) deny('message_invalid');
+    if (control.notification === 'resource-updated' && !resources.some(kind => control.uri === 'ruyi://consumer/' + kind)) deny('resource_denied');
+    assert(); sourceAssert();
+    const binding = { recipient: 'mcp-consumer:' + connection.id, purpose: control.notification || 'rpc-result', sourceHash: digest(JSON.stringify(value)) };
+    const prepared = await PrivacyGateway.prepareDisclosure(value, binding);
+    for (let pass = 0; pass < 4; pass++) {
+      try {
+        const current = pass ? await PrivacyGateway.refreshDisclosure(prepared.receipt, binding) : prepared.value;
+        // These exact host-fixed URIs and the originating client's scalar token
+        // are protocol routing fields. Source/body/error text is never exempted.
+        const payload = control.notification === 'resource-updated'
+          ? { jsonrpc: '2.0', method: 'notifications/resources/updated', params: { ...current, uri: control.uri } }
+          : control.notification === 'progress'
+            ? { jsonrpc: '2.0', method: 'notifications/progress', params: { ...current, progressToken: control.progressToken } }
+            : { jsonrpc: '2.0', id: control.id, result: current };
+        const bytes = JSON.stringify(payload) + '\n';
+        if (Buffer.byteLength(bytes) > limit.resultBytes) deny('result_limit');
+        assert(); sourceAssert(); PrivacyGateway.assertDisclosure(prepared.receipt, { ...binding, value: current }); emit(bytes); return;
+      } catch (failure) { if (failure.code !== 'privacy.disclosure_dirty' || pass === 3) throw failure; }
+    }
+  }
+  async function checkSubscriptions(connection, row, lease) {
+    // The existing heartbeat is the only scheduler. Idle consumers do no config
+    // or resource reads; a held cycle never queues another background pass.
+    if (!connection.subscriptions.size || connection.checkingSubscriptions) return;
+    connection.checkingSubscriptions = true;
+    try {
+      const policy = PrivacyGateway.disclosurePolicyGuard(), generation = configReadGeneration;
+      const assert = () => { policy(); assertCurrent(connection, row); if (generation !== configReadGeneration) deny('configuration_changed');
+        if (connection.lease !== lease || lease.destroyed) deny('cancelled'); };
+      const config = await readConfig(); assert();
+      for (const [uri, subscription] of [...connection.subscriptions]) {
+        if (!subscription.ready) continue;
+        const source = await resourceSnapshot(row, subscription.kind, config); assert(); source.assert();
+        if (connection.subscriptions.get(uri) !== subscription) continue;
+        let changed = source.hash !== subscription.hash;
+        try { subscription.policy(); } catch { changed = true; }
+        if (!changed) continue;
+        const sourceAssert = () => { source.assert(); if (connection.subscriptions.get(uri) !== subscription || !subscription.ready) deny('cancelled'); };
+        await connection.scopeCapability.run(() => projectedOutput(connection, {}, { notification: 'resource-updated', uri }, assert, sourceAssert,
+          bytes => { if (!lease.write(bytes)) { retire(connection); deny('cancelled'); } }));
+        // scopeCapability.run resolves across an await. Recheck before advancing
+        // the snapshot; invalidation may repeat a fixed update, never a tool.
+        assert(); sourceAssert();
+        subscription.hash = source.hash; subscription.policy = policy;
+      }
+    } catch { /* A dirty/held snapshot waits for the next heartbeat, never replays a tool. */ }
+    finally { connection.checkingSubscriptions = false; }
   }
   async function withAuditWrite(row, controller, assert, work) {
     // Do not queue stale mutations or supersede a UI run. The caller may retry a
@@ -186,34 +255,15 @@ const McpConsumers = (() => {
     let config;
     let executed = false, finalSourceCheck = () => {};
     const requestAssert = () => { assert(); if (!connection.lease || connection.lease.destroyed || controller.signal.aborted) deny('cancelled'); };
-    const send = async (value, notification = false, progressToken) => {
-      if (notification && !(['string', 'number'].includes(typeof progressToken) && String(progressToken).length <= 128 && (typeof progressToken !== 'number' || Number.isFinite(progressToken)))) deny('message_invalid');
-      requestAssert(); finalSourceCheck();
-      const binding = { recipient: 'mcp-consumer:' + connection.id, purpose: notification ? 'notification' : 'rpc-result', sourceHash: digest(JSON.stringify(value)) };
-      const prepared = await PrivacyGateway.prepareDisclosure(value, binding);
-      // Concurrent learning may dirty a receipt across any await. Refresh only
-      // the complete output; the business operation above is never re-executed.
-      for (let pass = 0; pass < 4; pass++) {
-        try {
-          const current = pass ? await PrivacyGateway.refreshDisclosure(prepared.receipt, binding) : prepared.value;
-          // Client-supplied scalar correlation is protocol control, like JSON-RPC
-          // id. Only host message/data is projected; it grants no original lookup.
-          const payload = notification ? { jsonrpc: '2.0', method: 'notifications/progress', params: { ...current, progressToken } } : { jsonrpc: '2.0', id, result: current };
-          const bytes = JSON.stringify(payload) + '\n';
-          if (Buffer.byteLength(bytes) > limit.resultBytes) deny('result_limit');
-          requestAssert(); finalSourceCheck(); PrivacyGateway.assertDisclosure(prepared.receipt, { ...binding, value: current }); emit(bytes); return;
-        } catch (failure) {
-          if (failure.code !== 'privacy.disclosure_dirty' || pass === 3) throw failure;
-        }
-      }
-    };
+    const send = (value, notification = false, progressToken) => projectedOutput(connection, value,
+      { id, notification: notification ? 'progress' : null, progressToken }, requestAssert, () => finalSourceCheck(), emit);
     try {
       requestAssert(); config = await readConfig(); requestAssert();
       await withFileAccessCeiling(row.workspace, row.workspaceIdentity, () => connection.scopeCapability.run(async () => {
         assert();
         const params = message.params || {};
-        if (message.method === 'initialize') return send({ protocolVersion: '2024-11-05', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'ruyi', version: VERSION },
-          _meta: { identity: 'authenticated-connection', isolation: 'application-grants-only', templates: 'empty', subscriptions: false } });
+        if (message.method === 'initialize') return send({ protocolVersion: '2024-11-05', capabilities: { tools: {}, resources: { subscribe: true } }, serverInfo: { name: 'ruyi', version: VERSION },
+          _meta: { identity: 'authenticated-connection', isolation: 'application-grants-only', templates: 'granted-fixed-kinds', subscriptions: true } });
         if (message.method === 'notifications/initialized') return;
         if (message.method === 'ping') return send({});
         if (message.method === 'tools/list') {
@@ -221,19 +271,30 @@ const McpConsumers = (() => {
           const result = page(connection, MCP_TOOLS.filter(tool => available.names.includes(tool.name)), params.cursor, 'tools', policy);
           return send({ tools: result.items, ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}) });
         }
-        if (message.method === 'resources/templates/list') return send({ resourceTemplates: [] });
+        if (message.method === 'resources/templates/list') {
+          const result = page(connection, resourceTemplates(row), params.cursor, 'resource-templates', policy);
+          return send({ resourceTemplates: result.items, ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}) });
+        }
         if (message.method === 'resources/list') {
           const result = page(connection, row.resources.map(kind => ({ uri: 'ruyi://consumer/' + kind, name: kind, mimeType: 'application/json' })), params.cursor, 'resources', policy);
           return send({ resources: result.items, ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}) });
         }
-        if (message.method === 'resources/read') {
-          const kind = String(params.uri || '').replace(/^ruyi:\/\/consumer\//, '');
-          if (!row.resources.includes(kind) || params.uri !== 'ruyi://consumer/' + kind) deny('resource_denied');
-          const available = kind === 'capabilities' ? await availableTools(row, config) : null;
-          if (available) finalSourceCheck = available.assert;
-          const value = kind === 'capabilities' ? { grantedTools: row.tools, currentlyAvailableTools: available.names, resources: row.resources, templates: [], subscriptions: false, scope: 'connection-owned', osIsolation: false }
-            : { workspace: row.workspace, permissions: 'existing-workbench-permission-floor', grantRevision: row.revision };
-          return send({ contents: [{ uri: params.uri, mimeType: 'application/json', text: JSON.stringify(value) }] });
+        if (['resources/read', 'resources/subscribe', 'resources/unsubscribe'].includes(message.method)) {
+          const kind = resourceKind(row, params.uri);
+          if (message.method === 'resources/unsubscribe') { connection.subscriptions.delete(params.uri); return send({}); }
+          const source = await resourceSnapshot(row, kind, config); requestAssert(); source.assert();
+          if (message.method === 'resources/read') {
+            finalSourceCheck = source.assert;
+            return send({ contents: [{ uri: params.uri, mimeType: 'application/json', text: JSON.stringify(source.value) }] });
+          }
+          const existing = connection.subscriptions.get(params.uri);
+          if (existing) { if (!existing.ready) deny('subscription_pending'); return send({}); }
+          const subscription = { kind, hash: source.hash, policy, ready: false };
+          connection.subscriptions.set(params.uri, subscription);
+          finalSourceCheck = () => { source.assert(); if (connection.subscriptions.get(params.uri) !== subscription) deny('cancelled'); };
+          try { await send({}); subscription.ready = true; }
+          catch (failure) { if (connection.subscriptions.get(params.uri) === subscription) connection.subscriptions.delete(params.uri); throw failure; }
+          return;
         }
         if (message.method !== 'tools/call') deny('method_not_supported');
         if (!names.includes(params.name) || !row.tools.includes(params.name)) deny('tool_denied');
@@ -327,7 +388,7 @@ const McpConsumers = (() => {
         res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
         if (!res.write('\n')) { retire(connection); return true; }
         connection.heartbeat = setInterval(() => {
-          try { assertCurrent(connection, row); if (res.destroyed || !res.write('\n')) retire(connection); }
+          try { assertCurrent(connection, row); if (res.destroyed || !res.write('\n')) retire(connection); else void checkSubscriptions(connection, row, res); }
           catch { retire(connection); }
         }, 15000); connection.heartbeat.unref();
         return true;
@@ -415,9 +476,29 @@ const McpConsumers = (() => {
         };
         const request = relayHttp.request({ hostname: '127.0.0.1', port: target.host.port, path: '/api/mcp/consumer', method: 'POST', agent: false,
           headers: { 'content-type': 'application/json', 'content-length': bytes.length, 'x-ruyi-mcp-consumer': token } }, response => {
+          const decoder = new (require('node:string_decoder').StringDecoder)('utf8'); let pending = '', pausedForStdout = false;
+          const resumeLease = () => { pausedForStdout = false; if (!target.lost && !response.destroyed) response.resume(); };
+          response.once('close', () => process.stdout.removeListener('drain', resumeLease));
           response.on('data', chunk => {
-            if (response.statusCode !== 200 || chunk.length > 128 || chunk.some(byte => byte !== 10)) { request.destroy(); lost(); return; }
-            if (!acknowledged) { acknowledged = true; request.setTimeout(45000); resolve(); }
+            if (response.statusCode !== 200 || chunk.length > 4096) { request.destroy(); lost(); return; }
+            pending += decoder.write(chunk);
+            if (Buffer.byteLength(pending) > 4096) { request.destroy(); lost(); return; }
+            let end;
+            while ((end = pending.indexOf('\n')) >= 0) {
+              const line = pending.slice(0, end); pending = pending.slice(end + 1);
+              if (!line) { if (!acknowledged) { acknowledged = true; request.setTimeout(45000); resolve(); } continue; }
+              try {
+                const value = JSON.parse(line);
+                if (!acknowledged || Buffer.byteLength(line) > 512 || !value || Array.isArray(value) || Object.keys(value).sort().join(',') !== 'jsonrpc,method,params'
+                  || value.jsonrpc !== '2.0' || value.method !== 'notifications/resources/updated' || !value.params || Array.isArray(value.params)
+                  || Object.keys(value.params).join(',') !== 'uri' || !['ruyi://consumer/capabilities', 'ruyi://consumer/workspace'].includes(value.params.uri)) throw Error();
+                if (!output(value)) {
+                  response.pause();
+                  if (!pausedForStdout) { pausedForStdout = true; process.stdout.once('drain', resumeLease); }
+                }
+              } catch { request.destroy(); lost(); return; }
+            }
+            if (Buffer.byteLength(pending) > 512) { request.destroy(); lost(); }
           });
           response.on('end', lost); response.on('error', lost); response.on('aborted', lost);
         });

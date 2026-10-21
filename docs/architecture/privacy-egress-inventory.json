@@ -225,7 +225,7 @@
     {"file":"ruyi-workbench/app/src/13-http-router.js","fingerprint":"d4e106855e880f4474d79be10d1fb7d29c7f96f5e9ac559770348682e0ad5d86"},
     {"file":"ruyi-workbench/app/src/13aa-steward-delivery.js","fingerprint":"5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e"},
     {"file":"ruyi-workbench/app/src/13ab-privacy-api.js","fingerprint":"07097ff75b5bb9b39a0aba537eeee5d41c9e5d49acfa55072cc9c6598ee6da49"},
-    {"file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","fingerprint":"0cb473a9239a5ae81f52279f2645e24151c024688d36d0a7e016f38e1eb4b2e1"},
+    {"file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","fingerprint":"aaf5a0c8ba112c41531c3c4bb462769baedbf5b9dd7acd1beace6954810dbd04"},
     {"file":"ruyi-workbench/app/src/13b-api-domain-routes.js","fingerprint":"1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79"},
     {"file":"ruyi-workbench/app/src/13c-overlay-routes.js","fingerprint":"5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a"},
     {"file":"ruyi-workbench/app/src/13d-core-domain-routes.js","fingerprint":"326ec92bbcf12ed9eca005b43b466001aef23287b6ff1d375071e9e206c63747"},
@@ -253,7 +253,7 @@
     {"file":"ruyi-workbench/app/src/13z-external-bot-discovery.js","fingerprint":"6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766"},
     {"file":"ruyi-workbench/app/src/14-main.js","fingerprint":"6fb879913d42499526702de06f95c8f5a5c591f16a2116b9c47d8f9b12b435de"},
     {"file":"ruyi-workbench/app/src/context-governance-rules.json","fingerprint":"68b1205a18ee143aab399dcd8581e18be1d25788a7f7be2dca0de291d9ff044c"},
-    {"file":"ruyi-workbench/app/src/manifest.json","fingerprint":"0ecc8be7e8aa5344f238a254628b14da39752628238f444f60367fca738615f2"},
+    {"file":"ruyi-workbench/app/src/manifest.json","fingerprint":"2dddb9d0d187361da44e188df32b9ed7a623a834fea61c8982665a35fe8a11c8"},
     {"file":"ruyi-workbench/app/src/module-contracts.json","fingerprint":"e0bf33a87c458c68e6abc3301cd1c5860ec51c5e5ba636db6e8240de6363a15c"},
     {"file":"ruyi-workbench/app/src/module-dependency-policy.json","fingerprint":"8fa55c5c1b5075d43bf469782e5eaf8ecc231210f2fe29e3f711846d7809974a"},
     {"file":"ruyi-workbench/config/example.claude-settings.json","fingerprint":"4672ba1e74f8363d054dfd39764c38875621fe4cd96759ba4b5b5f6075ed051d"},
@@ -840,12 +840,13 @@
     {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#9","file":"ruyi-workbench/app/src/13-http-router.js","symbol":"startMcp","callee":"sendMcp","category":"wrapper","fingerprint":"dffbb4a3ddfa7740b8fc751526564e053216eced88e59d485c2a1637247f28bc","group":"workbench-mcp-output"},
     {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcpNotification#1","file":"ruyi-workbench/app/src/13-http-router.js","symbol":"startMcp","callee":"sendMcpNotification","category":"wrapper","fingerprint":"00a3e6bd19b11ff21d664cbd0c838e1fea8b2c3dc767ab5652bf9f5b19d36451","group":"workbench-mcp-output"},
     {"id":"ruyi-workbench/app/src/13-http-router.js#startServerInner#spawnDetachedChecked#1","file":"ruyi-workbench/app/src/13-http-router.js","symbol":"startServerInner","callee":"spawnDetachedChecked","category":"wrapper","fingerprint":"9280311cb2445a34e4cf5eac3b5c9e6da654f48d71cd37c8b6f0a8e6141382c8","group":"process"},
+    {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#checkSubscriptions#run#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"checkSubscriptions","callee":"run","category":"process","fingerprint":"85e76107f054e6cf59c128f415106ae0d1fbef335c94a7558f2b702ea41217cb","group":"local-callback"},
     {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#handle#run#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"handle","callee":"run","category":"process","fingerprint":"91c69d749f68f21d99de208a796e91e0510c73bf049e152e2696eb4b675029ac","group":"local-callback"},
-    {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#lease#request#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"lease","callee":"request","category":"network","fingerprint":"dd856cc8beaf152bf7e234cad5f0668cdc5e1a664f373366889db1a11eb50b81","group":"mcp-authenticated-loopback"},
+    {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#lease#request#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"lease","callee":"request","category":"network","fingerprint":"6e575de909b779a91859aa5132c66f2d619ab8c39ed383e24a5c449ca6f64a59","group":"mcp-authenticated-loopback"},
     {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#post#request#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"post","callee":"request","category":"network","fingerprint":"00aeaaf4b27621a0615735c8bb7c53cdf4d24ffc4b1304af46f4dd74e15157d4","group":"mcp-authenticated-loopback"},
     {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#relay#<transport-import>#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"relay","callee":"<transport-import>","category":"capability","fingerprint":"957f86e0434ff92d00c5d54ec64e7bc934f21b0071d215e6f93c591c26335f1a","uncertainty":"Imported implementation can add unrecognized or delegated sends","group":"capability"},
     {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#relay#write#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"relay","callee":"write","category":"stdio-output","fingerprint":"2b489e21d482203ec85d9534c04404d03a6cf1fed4aa49dccbacd6ec3ebd0c2b","group":"mcp-authenticated-text"},
-    {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#run#run#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"run","callee":"run","category":"process","fingerprint":"9acd335f850ffb4ec228cdf2e05e5f310b11f7247d3cdf8db4c9b4534f7103cf","group":"local-callback"},
+    {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#run#run#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"run","callee":"run","category":"process","fingerprint":"7ba8000ab811b508284f50516a8ab4c33949cd45438d1fcee6af1902662df3e7","group":"local-callback"},
     {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#verifyInternal#<transport-import>#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"verifyInternal","callee":"<transport-import>","category":"capability","fingerprint":"957f86e0434ff92d00c5d54ec64e7bc934f21b0071d215e6f93c591c26335f1a","uncertainty":"Imported implementation can add unrecognized or delegated sends","group":"capability"},
     {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#verifyInternal#request#1","file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","symbol":"verifyInternal","callee":"request","category":"network","fingerprint":"eec4360ceebd1c7042c982daea999ccfe4aa7c62cf85e86e9ea960c9cabbe3b4","group":"mcp-authenticated-loopback"},
     {"id":"ruyi-workbench/app/src/13b-api-domain-routes.js#audioStreamUpstream#fetch#1","file":"ruyi-workbench/app/src/13b-api-domain-routes.js","symbol":"audioStreamUpstream","callee":"fetch","category":"network","fingerprint":"a54ce75401161dac5a95aca96d7ca0210985162113680229ee59698f52a2b730","group":"media"},
@@ -879,7 +880,7 @@
     {"id":"ruyi-workbench/app/src/13z-external-bot-discovery.js#probe#request#3","file":"ruyi-workbench/app/src/13z-external-bot-discovery.js","symbol":"probe","callee":"request","category":"network","fingerprint":"d25239e7597f290c55c79d00f6a537706e3cc7c1a34ce9d4e97abe20aab3ef2e","group":"bots"},
     {"id":"ruyi-workbench/app/src/13z-external-bot-discovery.js#request#request#1","file":"ruyi-workbench/app/src/13z-external-bot-discovery.js","symbol":"request","callee":"request","category":"network","fingerprint":"67c09be7197c66f21dd73a7d1d91ead7db08c3de7c2ac8f6b9c5b1bd884eb526","group":"bots"},
     {"id":"ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/context-governance-rules.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"17bbab90aaa446b9ebb7e2856a621f149a6e59bbbc2ca20eed3b8c3c7afaf47f","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
-    {"id":"ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/manifest.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"6c9c0f146d9754ffc2ac45050e9ec8bfe3a8523452225af56d6ada3105e33d6a","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
+    {"id":"ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/manifest.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"89e69f79167f5af8b05e6370ac29a6b0448165d13b705cec6fa79cebbbd6045a","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/module-contracts.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"3bf3a6fff4e695c68828962f80e88cdae0db3cb2cf6822d810adb1a3e18ffd8d","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/app/src/module-dependency-policy.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/module-dependency-policy.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"e01929c094e3cbe0756f48d4b2a4f47dba0932c7b6752d5f04e38f126b2c7f8a","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/config/example.claude-settings.json#<module>#<configuration>#1","file":"ruyi-workbench/config/example.claude-settings.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"eed852e519bda34fd91edc4ff8e0e7df4fced2267b828b1b9cac45d7a0a31a4b","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
@@ -974,7 +975,7 @@
     {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#<launcher-command>#2","file":"ruyi-workbench/tools/package-offline.ps1","symbol":"<module>","callee":"<launcher-command>","category":"dynamic","fingerprint":"d83a956bb783f3c9f236507af2b82b50d14c70c9718f49138f6e647e85709e72","uncertainty":"Shell/desktop command can delegate network, environment, or local file disclosure","group":"dynamic"},
     {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#write#1","file":"ruyi-workbench/tools/package-offline.ps1","symbol":"<module>","callee":"write","category":"stdio-output","fingerprint":"fbac27df280fb8c3d6de272b6088a366ae32113ad02bb4eec673f58baf909bb4","group":"process-stdout"}
   ],
-  "manifestFingerprint": "76237556d0a0f0bba889e7b926f9771069836dfb5c5e176b016a8e75ea5fd6e0",
+  "manifestFingerprint": "596cb5dcc67aac069bd1cda2074feea9d4e69efc541ea47a1e20a822eeecee59",
   "groups": {
     "unknown": {
       "privacyStatus": "unknown",
@@ -1456,11 +1457,12 @@
         "MCP-request",
         "projected-response",
         "connection-lifetime",
-        "CLI-owner-verification"
+        "CLI-owner-verification",
+        "fixed-resource-update-notifications"
       ],
       "recipient": "running local Ruyi host",
       "purpose": "Dedicated consumer relay or active internal CLI verification",
-      "productionRelation": "post/lease target exact 127.0.0.1 and carry only the dedicated consumer token; verifyInternal accepts the fixed loopback host names and carries the real inherited management token and session and requires an active registered CLI owner. Discovery contains no secret; the relay never reads runtime.json.",
+      "productionRelation": "post/lease target exact 127.0.0.1 and carry only the dedicated consumer token. Lease accepts LF acknowledgement/heartbeat and bounded exact update envelopes for the two fixed resource URIs; the relay shares its output encoder and applies local response pause/drain handling. verifyInternal retains the real inherited management token plus active registered CLI owner/session check. Discovery contains no secret; the consumer relay never reads runtime.json.",
       "evidence": "Manual review of all three exact request sites and real relay/restart/CLI owner tests. Internal verification is token plus registered owner/session, not OS caller-PID proof; same-account host/discovery tampering and third-party client networking remain outside this boundary."
     },
     "mcp-authenticated-text": {
@@ -1471,12 +1473,14 @@
         "two-fixed-summary-resources",
         "protected-errors",
         "fixed-progress-notifications",
-        "protocol-correlation"
+        "protocol-correlation",
+        "grant-filtered-summary-template",
+        "fixed-resource-update-notifications"
       ],
       "recipient": "explicitly configured independent MCP consumer",
       "purpose": "Bounded authorized text view",
-      "productionRelation": "Seven existing file tools and two fixed resources intersect the existing permission floor and immutable workspace grant. Complete logical text is projected in a connection-owned memory scope and checked immediately before emission; cancellation/revocation destroys authority without business replay.",
-      "evidence": "M2-8 manual source review and real two-consumer, cancellation, pagination, write/checkpoint, restart and policy-race tests. No binary/media, subscriptions/templates, arbitrary tools, uncredentialed consumer access, OS isolation or control of the receiving application is claimed."
+      "productionRelation": "Seven existing file tools and two fixed resources intersect the existing permission floor and immutable workspace grant. One URI template expands only to those granted fixed resources. Connection-owned subscriptions use the existing single-flight heartbeat; updates contain only a whitelisted server-fixed URI protocol routing field, with the empty body projected and final policy/grant/source/lease/entry guards. RPC and notification stdio output share one encoder. Complete resource/tool text is projected before formatting.",
+      "evidence": "M2-8a and M2-8b manual source and exact candidate review; scoped receiver evidence is recorded per batch. No binary/media, arbitrary file URI or template, unrelated subscriptions, arbitrary tool, uncredentialed consumer access, OS isolation or control of the receiving application is claimed. Fixed metadata updates may repeat across a post-write invalidation; no business operation is replayed."
     }
   },
   "reviewErrors": []

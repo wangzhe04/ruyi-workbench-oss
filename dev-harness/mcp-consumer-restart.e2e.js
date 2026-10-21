@@ -67,8 +67,8 @@ async function run(){
   }
   function relay(entry){
     const child=cp.spawn(process.execPath,[path.resolve(__dirname,'../ruyi-workbench/app/server.js'),'mcp','--consumer'],{env:{...process.env,...entry.env},windowsHide:true,stdio:['pipe','pipe','pipe']});children.push(child);child.stdin.on('error',()=>{});child.stderr.on('data',()=>{});
-    let buffer='';const replies=new Map();child.stdout.on('data',chunk=>{buffer+=chunk;let end;while((end=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,end);buffer=buffer.slice(end+1);if(line){const value=JSON.parse(line);if(value.id!==undefined)replies.set(value.id,value);}}});
-    return {child,async send(method,params={}){const id=++serial;child.stdin.write(JSON.stringify({jsonrpc:'2.0',id,method,params})+'\n');for(let i=0;i<400;i++){if(replies.has(id)){const value=replies.get(id);replies.delete(id);return value;}await wait(25);}throw Error('Owned relay response timeout');}};
+    let buffer='';const replies=new Map(),notifications=[];child.stdout.on('data',chunk=>{buffer+=chunk;let end;while((end=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,end);buffer=buffer.slice(end+1);if(line){const value=JSON.parse(line);if(value.id!==undefined)replies.set(value.id,value);else notifications.push(value);}}});
+    return {child,notifications,async send(method,params={}){const id=++serial;child.stdin.write(JSON.stringify({jsonrpc:'2.0',id,method,params})+'\n');for(let i=0;i<400;i++){if(replies.has(id)){const value=replies.get(id);replies.delete(id);return value;}await wait(25);}throw Error('Owned relay response timeout');}};
   }
   async function browserSetupJourney(actualHost){
     const secondWorkspace=path.join(root,'workspace-two');fs.mkdirSync(secondWorkspace);
@@ -156,6 +156,7 @@ async function run(){
     const opened=await post(first,{op:'open',consumerId:issued.value.consumer.id},token,'/api/mcp/consumer'),oldConnection=opened.value;await lease(first,issued.value.consumer.id,token,oldConnection);
     const pageReply=await post(first,{op:'request',consumerId:issued.value.consumer.id,...oldConnection,message:{jsonrpc:'2.0',id:'page',method:'tools/list',params:{}}},token,'/api/mcp/consumer'),page=pageReply.value;
     ok(alias&&page.result.nextCursor&&oldConnection.connectionId,'actual product serve produces protected stdio alias and authenticated connection cursor');
+    ok(Boolean((await client.send('resources/subscribe',{uri:'ruyi://consumer/capabilities'})).result),'old actual host connection subscribes before crash');
     first.child.kill('SIGKILL');await exited(first.child);
     blocker=http.createServer((req,res)=>{res.writeHead(503);res.end('{}');});await listenOwned(blocker,first.port);
     const second=await host(first.port);ok(second.port!==first.port&&second.instanceId!==first.instanceId,'real restarted host uses port fallback and a new instance identity');
@@ -168,6 +169,13 @@ async function run(){
     const target=path.join(workspace,'stale-alias.txt'),reused=await fresh.send('tools/call',{name:'file_write',arguments:{path:target,content:alias}});
     ok(reused.result?.isError&&!fs.existsSync(target),'new host connection cannot restore alias from killed host memory');
     const freshRead=await fresh.send('tools/call',{name:'file_read',arguments:{path:privateFile}});ok(!freshRead.error&&freshRead.result&&!freshRead.result.isError&&Array.isArray(freshRead.result.content)&&freshRead.result.content.some(part=>part.type==='text'&&typeof part.text==='string'&&part.text.length>0)&&!JSON.stringify(freshRead).includes('restart-private@example.test'),'explicit new request after reconnect succeeds with nonempty actual file result and remains protected');
+    const changed=await post(second,{permissionMode:'dontAsk'},undefined,'/api/config');ok(changed.status===200,'actual restarted product host accepts permission change');
+    await wait(17000);ok(!fresh.notifications.some(value=>value.method==='notifications/resources/updated'),'fresh actual relay inherits no subscription from killed host after a real changed-content heartbeat');
+    ok(Boolean((await fresh.send('resources/subscribe',{uri:'ruyi://consumer/capabilities'})).result),'reconnected consumer explicitly creates its new resource subscription');
+    await post(second,{permissionMode:'acceptEdits'},undefined,'/api/config');
+    const notificationDeadline=Date.now()+22000;while(Date.now()<notificationDeadline&&!fresh.notifications.some(value=>value.method==='notifications/resources/updated'&&value.params?.uri==='ruyi://consumer/capabilities'))await wait(25);
+    ok(fresh.notifications.some(value=>value.method==='notifications/resources/updated'&&value.params?.uri==='ruyi://consumer/capabilities'),'explicit new subscription receives actual permission-change notification from restarted product host');
+    const currentResource=await fresh.send('resources/read',{uri:'ruyi://consumer/capabilities'});ok(currentResource.result?.contents?.length>0&&JSON.parse(currentResource.result.contents[0].text).currentlyAvailableTools.includes('file_write'),'restarted notification leads to successful actual current resource read');
     const list=await post(second,{op:'list'});ok(list.status===200&&list.value.consumers.some(value=>value.id===issued.value.consumer.id)&&!list.text.includes(token),'durable consumer identity/grants survive host restart without token recovery');
     ok(!fs.existsSync(path.join(data,'privacy-scopes')),'actual restarted connection scopes leave no persistent original mappings');
   }catch(error){console.error(error.stack);t.fail('uncaught restart fixture error');}

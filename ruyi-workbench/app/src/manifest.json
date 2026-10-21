@@ -526,13 +526,13 @@
     {
       "file": "13ac-mcp-consumer.js",
       "startLine": 91118,
-      "endLine": 91642,
+      "endLine": 91723,
       "note": "Authenticated independent stdio consumer relay, bounded host-owned scopes and grants"
     },
     {
       "file": "14-main.js",
-      "startLine": 91643,
-      "endLine": 92390,
+      "startLine": 91724,
+      "endLine": 92471,
       "note": "main()/module.exports"
     }
   ]

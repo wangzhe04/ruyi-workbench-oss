@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 179(精确 156 / 前缀 11 / 正则 12),ROUTE_AUTH 165 条,生成于 2026-10-21T14:46:23.300Z。
+> 判定点 179(精确 156 / 前缀 11 / 正则 12),ROUTE_AUTH 165 条,生成于 2026-10-21T15:29:52.363Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -56,7 +56,7 @@
 | POST | `/api/workspace/dedicated` | exact | token | 13-http-router.js · `handleApi` | onboarding-workspace.browser.e2e.js |
 | POST | `/api/pick-file` | exact | token | 13-http-router.js · `handleApi` | overlay-update-gui.static.e2e.js, settings-wave1.browser.e2e.js |
 | GET | `/api/models` | exact | open | 13-http-router.js · `handleApi` | asr-config-ui.static.e2e.js, claude-models-cache.e2e.js, context-window.e2e.js 等 7 件 |
-| POST | `/api/config` | exact | token | 13-http-router.js · `handleApi` | agent-coordination.e2e.js, agent-team-mode.e2e.js, agent-wake.e2e.js 等 65 件 |
+| POST | `/api/config` | exact | token | 13-http-router.js · `handleApi` | agent-coordination.e2e.js, agent-team-mode.e2e.js, agent-wake.e2e.js 等 66 件 |
 | GET | `/api/agent-roles` | exact | token-browser | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 7 件 |
 | POST | `/api/agent-roles` | exact | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 7 件 |
 | GET | `/api/agent-workflows` | exact | token-browser | 13-http-router.js · `handleApi` | agent-workflow-audit-fixes.e2e.js, auth-deny-default.e2e.js, meta-guard.e2e.js 等 6 件 |
@@ -166,9 +166,9 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| POST | `/api/mcp/consumer` | exact | mcp-consumer self | 13ac-mcp-consumer.js · `handle` | mcp-consumer-relay.e2e.js, mcp-consumer-restart.e2e.js, server-ownership.e2e.js |
-| POST | `/api/mcp/consumers` | exact | token self | 13ac-mcp-consumer.js · `handle` | mcp-consumer-relay.e2e.js, mcp-consumer-restart.e2e.js, server-ownership.e2e.js |
-| POST | `/api/mcp/internal/verify` | exact | token self | 13ac-mcp-consumer.js · `handle` | mcp-consumer-relay.e2e.js |
+| POST | `/api/mcp/consumer` | exact | mcp-consumer self | 13ac-mcp-consumer.js · `handle` | mcp-consumer-relay.e2e.js, mcp-consumer-resources.e2e.js, mcp-consumer-restart.e2e.js 等 4 件 |
+| POST | `/api/mcp/consumers` | exact | token self | 13ac-mcp-consumer.js · `handle` | mcp-consumer-relay.e2e.js, mcp-consumer-resources.e2e.js, mcp-consumer-restart.e2e.js 等 4 件 |
+| POST | `/api/mcp/internal/verify` | exact | token self | 13ac-mcp-consumer.js · `handle` | mcp-consumer-relay.e2e.js, mcp-consumer-resources.e2e.js |
 
 ## mcp/checkpoint-storage/steer(14)
 

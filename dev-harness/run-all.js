@@ -178,6 +178,10 @@ const PARALLEL_EXCLUSIVE = new Set([
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
 // 每条附实测依据 —— 表不是兜底借口,能优化掉的慢件应优化而非加薪。
 const TIMEOUT_OVERRIDES = {
+  // M2-8b fixed resources: real 15s heartbeats and complete 17s negative windows
+  // across cancel/ABA/revoke/parser/backpressure/idle. Complete run was 231s (partial 207s);
+  // keep the actual heartbeat and per-wait bounds, with a 360s owned-case watchdog.
+  'mcp-consumer-resources.e2e.js': 420000,
   // 3.1 privacy release acceptance adds G: eleven real PS5 rollback fixtures, including
   // complete 3 MB reader compilation/fingerprints and rejection/audit/zero-write checks.
   // Both default 120 s attempts reached G and were killed before finishing, with all reached

@@ -1,0 +1,311 @@
+{
+  "schema": 1,
+  "status": "M2-8b independently reviewed and verified: resources45, relay98, restart/UI34 each twice; complete unit and80static first unified run passed. P0 remains pending; M2 not complete.",
+  "parentBatch": {
+    "id": "M2-8a",
+    "commit": "bd200364",
+    "status": "previous authenticated-consumer baseline committed"
+  },
+  "scope": {
+    "implemented": [
+      "one genuine ruyi://consumer/{kind} resource template, allowedKinds filtered to already granted capabilities/workspace kinds",
+      "real resources/subscribe, resources/unsubscribe and notifications/resources/updated on exact fixed authorized URIs",
+      "subscription map maximum2, synchronous insertion after guarded snapshot, exact-entry identity for ABA, one single-flight heartbeat pass",
+      "reuse existing15s heartbeat; empty subscription map performs no resource/config reads",
+      "whole-view protection under original connection scope; fixed URI in outer routing is server-owned, not arbitrary original text authority",
+      "same source/grant/policy/scope guards before emit and after awaited scope before snapshot advancement",
+      "bounded strict lease parser and lease-only pause/drain flow control; duplicate fixed notifications allowed without replaying file tool business"
+    ],
+    "exclusions": [
+      "no arbitrary URI, binary/media source, external-service resource proxy, or OS isolation",
+      "controlled low-highWaterMark PassThrough backpressure is a real stream contract test, not a Windows kernel slow-reader reproduction",
+      "P0 bilingual recovery and user journey batch remains pending after8b final verification",
+      "no new notification-role model turns; progress is distinct from real resource updated notifications"
+    ]
+  },
+  "initialFailures": [
+    {
+      "file": "checks/m2-consumer/8b-02-resources-first.log",
+      "sha256": "1EAE17C2868B69C2198477530BA828FB12C76F2EE57D505AFF181CA06A611BC4",
+      "failures": [
+        {
+          "label": "cancelled subscription remains absent across a real changed-content heartbeat",
+          "finding": "fixture did not establish cancel had closed the exact response before ACK release; late successful ACK may be legal, no production error established",
+          "correction": "test-only observer waits exact aborted response.close(!writableEnded) for pending request id before releasing ACK"
+        },
+        {
+          "label": "actual stdout false pauses actual lease response deadline",
+          "finding": "Confirmed v8 fixture burst used literal backslash-n instead of newline RPC framing; it did not establish write(false)/drain. Earlier Windows pipe/kernel speculation is withdrawn; no production defect or kernel behavior conclusion follows.",
+          "correction": "Final test-only highWaterMark1 PassThrough supplies real write(false)/drain and forwards complete bytes to a real Writable/original stdout; this is controlled stream backpressure, not Windows kernel slow-reader reproduction."
+        }
+      ]
+    }
+  ],
+  "finalRuntimeRuns": [
+    {
+      "file": "checks/m2-consumer/8b-03-resources-cancel-stream-fix.log",
+      "sha256": "156A7A82C4E7D03D872682998E171151ED9255F15AA63700514508D517D2911D",
+      "assertions": 45,
+      "allPass": true,
+      "durationMs": 231341,
+      "exitCode": 0,
+      "fixtureSHA256": "5418F801FEE9FAFB9016BC2ACE98BBE68CD4BCECACCB6F14409594A7271F8407",
+      "production13acSHA256": "AAF5A0C8BA112C41531C3C4BB462769BAEDBF5B9DD7ACD1BEACE6954810DBD04",
+      "ordinal": 1,
+      "exitAuthority": "root and author confirmed actual process exit0"
+    },
+    {
+      "file": "checks/m2-consumer/8b-04-resources-final-second.log",
+      "sha256": "599DD9F99C020906F0AF2EBF679B40B3F5A296F61CA8B493FA0C6E54E76CCCC5",
+      "assertions": 45,
+      "allPass": true,
+      "durationMs": 231956,
+      "exitCode": 0,
+      "exitAuthority": "root and author confirmed actual process exit0",
+      "fixtureSHA256": "5418F801FEE9FAFB9016BC2ACE98BBE68CD4BCECACCB6F14409594A7271F8407",
+      "production13acSHA256": "AAF5A0C8BA112C41531C3C4BB462769BAEDBF5B9DD7ACD1BEACE6954810DBD04",
+      "ordinal": 2
+    },
+    {
+      "file": "checks/m2-consumer/8b-05-relay-final-first.log",
+      "sha256": "0A5FC7A24DD122938954D9651F125CFEC71FA193A38DB2EA67822B1DEB2E76BC",
+      "assertions": 98,
+      "allPass": true,
+      "exitCode": 0,
+      "exitAuthority": "root and author confirmed actual process exit0",
+      "fixture": "dev-harness/mcp-consumer-relay.e2e.js",
+      "fixtureSHA256": "EE0527155DBE0C12F1235611E445B0E18159FEDC77A11D4472F9AB79703F54C6",
+      "ordinal": 1,
+      "durationMs": null
+    },
+    {
+      "file": "checks/m2-consumer/8b-06-relay-final-second.log",
+      "sha256": "0A5FC7A24DD122938954D9651F125CFEC71FA193A38DB2EA67822B1DEB2E76BC",
+      "assertions": 98,
+      "allPass": true,
+      "exitCode": 0,
+      "exitAuthority": "root and author confirmed actual process exit0",
+      "fixture": "dev-harness/mcp-consumer-relay.e2e.js",
+      "fixtureSHA256": "EE0527155DBE0C12F1235611E445B0E18159FEDC77A11D4472F9AB79703F54C6",
+      "ordinal": 2,
+      "durationMs": null
+    },
+    {
+      "file": "checks/m2-consumer/8b-07-restart-final-first.log",
+      "sha256": "A402574EA6DAF4C8D2D35957C1BD8D41B4DCC5C72AC6BD2AF1596C33151D07F8",
+      "assertions": 34,
+      "allPass": true,
+      "exitCode": 0,
+      "exitAuthority": "root and author confirmed actual process exit0",
+      "fixture": "dev-harness/mcp-consumer-restart.e2e.js",
+      "fixtureSHA256": "36CEC245A1AABAA28CD688B611B4ACEE7124A85159AFDC70170A4CF5EEF6C1AF",
+      "ordinal": 1,
+      "durationMs": 45944,
+      "durationAuthority": "external Stopwatch"
+    },
+    {
+      "file": "checks/m2-consumer/8b-08-restart-final-second.log",
+      "sha256": "957E0886E00A2BF96327A7DABB98EC447E46D30CF3FCFFDA2C8992C3DEC02C6E",
+      "assertions": 34,
+      "allPass": true,
+      "exitCode": 0,
+      "exitAuthority": "root and author confirmed actual process exit0",
+      "fixture": "dev-harness/mcp-consumer-restart.e2e.js",
+      "fixtureSHA256": "36CEC245A1AABAA28CD688B611B4ACEE7124A85159AFDC70170A4CF5EEF6C1AF",
+      "ordinal": 2,
+      "durationMs": 45279,
+      "durationAuthority": "external Stopwatch"
+    }
+  ],
+  "reviews": [
+    {
+      "file": "m2-8-independent-review/mcp8b-resources-v3-review.md",
+      "sha256": "31366D9E4BD6EF3A84DCB195FE83ED742CD7EF3DD2B84B5171B0D7EF604ABA9C"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8b-executable-v7-review.md",
+      "sha256": "6DFB4A63DCF6004B7AC0D9F730AA5D52DB9F6C820FDE584F3751B5255A7C3A93"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8b-metadata-v8-oracle-review.md",
+      "sha256": "0334DD98BBA7A7B5DEA88568705C51F524C983579841900E663190749015B20E"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8b-controlled-stream-p0-preview-review.md",
+      "sha256": "32BA2AE5E00813089AEF74BEAA1154DBD7818BBD9C59624700541F857343211C"
+    }
+  ],
+  "manualEgress": {
+    "sources": 272,
+    "candidates": 677,
+    "changedCandidates": 4,
+    "newCandidates": 1,
+    "retiredCandidates": 0,
+    "statusPromotions": 0,
+    "errors": 0,
+    "authority": "root strict four-candidate manual review; no group status promotion"
+  },
+  "metadata": {
+    "e2e": 555,
+    "defaultRegression": 548,
+    "unitSuites": 287,
+    "processOwners": 345,
+    "graph": {
+      "modules": 89,
+      "edges": 643,
+      "forwardEdges": 67,
+      "SCC": 1,
+      "SCCMembersAndCycleForwardKeysUnchangedFrom8a": true,
+      "policyRelaxed": false
+    },
+    "home": {
+      "direct": 214,
+      "e2eDirect": 209,
+      "authenticatedHelperCalls": 6,
+      "unchanged": true
+    },
+    "logs": [
+      {
+        "file": "checks/m2-consumer-resources/metadata-contracts-check.log",
+        "sha256": "6854F05B4A23EA5C9445F617BF7BD2AAAAC3A810F91EFF4BDB0C976855406361"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-contracts.log",
+        "sha256": "40B9607922F9DC1043CB36BB15343C25C09B59F51C2F040CF537A9D00F9054FD"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-facts-check.log",
+        "sha256": "6B0BE5C4E01D9DE331C524E575A6F608F78E6082C69DF6425BE2854B122964C9"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-facts.log",
+        "sha256": "B34E35C4C6BB52B526021123EFDA810516042DF9346CF0BED75F9839550C3A2B"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-graph-check.log",
+        "sha256": "0308341BA3FF95800A163B80EDB8C5BFEFAE8965FDD7F24FC681B8ECFFF1CAC8"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-graph-write.log",
+        "sha256": "D392EEC95ACE3CF1694183B68F228E4D9FFD825AE652A2833DACAC88F2762A2C"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-home-census.log",
+        "sha256": "9AC417331187EAC96AD7E54E4A7813F551D4C7AB4401A0BE370816F2A475F34A"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-process-safety.log",
+        "sha256": "E4CDE4C8179C74D5DD9084E10F7C3B920F9CCE128DADCEB55A1B1E3CDBFE606E"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-routes-check.log",
+        "sha256": "0442F6E4037AB8E2C4802519B980B294C46B002179F16341A53E82BFBC0A9739"
+      },
+      {
+        "file": "checks/m2-consumer-resources/metadata-routes.log",
+        "sha256": "B0DABA48E66A1052095B3787FE3F08AF012A4288C886D736B6E95E40AB882FFC"
+      }
+    ]
+  },
+  "gates": {
+    "syntax": {
+      "file": "checks/m2-consumer-resources/final-syntax.log",
+      "sha256": "DB87EC5D0D0FDDF2819BAE3ED65CAF9E4DDD722B7FF5A7BD8C519DED424F09A6",
+      "files": 1124,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "build": {
+      "file": "checks/m2-consumer-resources/final-build-check.log",
+      "sha256": "2B54D266D01DD4FA0C70C7114D171FDE9D928FC015963C3F7313D1A446CC5DF9",
+      "fresh": true,
+      "exitCode": 0
+    },
+    "fullFast": {
+      "file": "checks/m2-consumer-resources/final-fast-first.log",
+      "sha256": "F82E87ADC23FB1C96C9D76E11815CEC3A455FE88B1C7DB38A87B516A90A412B3",
+      "exitCode": 0,
+      "firstUnifiedRunPassed": true
+    },
+    "unit": {
+      "file": "checks/m2-consumer-resources/final-complete-unit-first.log",
+      "sha256": "8A7A4358B1D69EA8D2B0A59DB1D454C1E52FF9CA37E316D619AF968DA550B1FB",
+      "total": 2559,
+      "suites": 192,
+      "pass": 2533,
+      "skip": 26,
+      "fail": 0,
+      "durationMs": 275567.4145,
+      "exitCode": 0
+    },
+    "static": {
+      "file": "checks/m2-consumer-resources/final-static-first.log",
+      "sha256": "037F1A25029742AEE411AE45B7D3DDE74B5D2F94237931A4C10F02C3C2B0FC2E",
+      "total": 80,
+      "pass": 80,
+      "fail": 0,
+      "flaky": 0,
+      "liveSkipped": 7,
+      "leftoverTestBrowsers": 0,
+      "exitCode": 0
+    },
+    "egress": {
+      "file": "checks/m2-consumer-resources/final-egress-check.log",
+      "sha256": "7604405DC353BC66D67C93E8C3B60567E8D351420D01D36092DEC62F17796162",
+      "sources": 272,
+      "candidates": 677,
+      "errors": 0,
+      "exitCode": 0
+    }
+  },
+  "finalFrozenSources": {
+    "ruyi-workbench/app/src/13ac-mcp-consumer.js": "AAF5A0C8BA112C41531C3C4BB462769BAEDBF5B9DD7ACD1BEACE6954810DBD04",
+    "ruyi-workbench/app/server.js": "641DE44270AE9C56A06363A287CD8077DFE2EC942AE9D704FE524FB4C76F955C",
+    "dev-harness/mcp-consumer-resources.e2e.js": "5418F801FEE9FAFB9016BC2ACE98BBE68CD4BCECACCB6F14409594A7271F8407",
+    "dev-harness/mcp-consumer-relay.e2e.js": "EE0527155DBE0C12F1235611E445B0E18159FEDC77A11D4472F9AB79703F54C6",
+    "dev-harness/mcp-consumer-restart.e2e.js": "36CEC245A1AABAA28CD688B611B4ACEE7124A85159AFDC70170A4CF5EEF6C1AF",
+    "dev-harness/run-all.js": "4F8323AF2060575180DBCC3CCDC54CD180B3A31BAEAF5394EA07C58830F02D61"
+  },
+  "notes": [
+    "Raw logs and staging remain outside the repository under ruyi-workbench-maintenance-20261021; this JSON is the committed repository evidence summary.",
+    "Final two runtime runs bind the frozen source/fixture hashes above; prior oracle versions and first failures are retained, not relabeled as final passes.",
+    "The fullfast first unified run passed; no targeted-static repair round is substituted for a full green run.",
+    "Controlled highWaterMark1 PassThrough tests actual stream write(false)/drain and complete receiving bytes, not Windows kernel slow-reader behavior.",
+    "P0 bilingual recovery/user journeys remain pending. M2 is not complete merely because M2-8b passed."
+  ],
+  "fixtureTimeout": {
+    "caseTimeoutMs": 420000,
+    "ownedWatchdogMs": 360000,
+    "realHeartbeatMs": 15000,
+    "unsubscribeObservationMs": 17000,
+    "reviewedRunnerSHA256": "D78C73C9F9AEE625AAC0009D28FE014476B5E4C0530427329FB19241A6965092",
+    "currentRunnerSHA256": "4F8323AF2060575180DBCC3CCDC54CD180B3A31BAEAF5394EA07C58830F02D61",
+    "status": "final runner4F8323 only comment adds complete231s over reviewedD78; no timeout/production change; root and author confirmed"
+  },
+  "finalStaticTargeted": [
+    {
+      "file": "checks/m2-consumer/8b-09-fixture-home-static.log",
+      "sha256": "9AC417331187EAC96AD7E54E4A7813F551D4C7AB4401A0BE370816F2A475F34A",
+      "exitCode": 0,
+      "authority": "author confirmed"
+    },
+    {
+      "file": "checks/m2-consumer/8b-10-runner-syntax.log",
+      "sha256": "32F94ED90CECACB155B6962371CDC926870CD7C769B4A48CDA8DA11C352BC0D8",
+      "exitCode": 0,
+      "authority": "author confirmed"
+    }
+  ],
+  "date": "2026-10-22",
+  "baseCommit": "bd200364",
+  "runtimeCoverage": [
+    "both granted kinds templates/read and exact complete protected JSON",
+    "cross-consumer alias isolation",
+    "full17s unsubscribe negative window",
+    "ABA old callback blocked plus new-entry subsequent actual update/read",
+    "held two heartbeat ticks single-flight",
+    "post-write source-owner invalidation guard and later valid repeat",
+    "revoke/disconnect/restart cases"
+  ],
+  "commitIdentity": "Carried by this changeset; baseCommit and final frozen file SHA256 values identify the reviewed working tree without a self-referential commit hash."
+}
