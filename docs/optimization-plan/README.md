@@ -1,6 +1,6 @@
 # 优化方案索引
 
-> 更新：2026-10-21。3.1 暂不发布：先完成 [86 号补完与隐私路线](86-3.1-completion-and-privacy-roadmap.md) 的全部范围，再冻结候选并重新验收。4.0 暂不确定方向或排期。旧编号是文档身份，不是执行顺序。
+> 更新：2026-10-21。3.1 暂不发布：先完成 [86 号补完与隐私路线](86-3.1-completion-and-privacy-roadmap.md) 的当前发布范围，再冻结候选并重新验收。按用户最新取舍，独立命名空间与严格托管 CLI 支持暂缓研究，本地 ASR 暂不实施；其余范围继续。4.0 暂不确定方向或排期。旧编号是文档身份，不是执行顺序。
 
 ## 当前实施入口
 
@@ -9,7 +9,7 @@
 - [88 · M1 外发边界与本地处理原型](88-privacy-m1-prototypes.md)：外发清册、Windows CLI 隔离与媒体原型的设计、实验证据及未解决条件。
 - [89 · 音频修复与 CLI 隔离续验](89-audio-and-cli-isolation-followup.md)：发送边界与配置发布竞态修复、LPAC/网关后续实验，以及本地 ASR 改为可选组件的评估。
 - [90 · Claude 与严格文件边界验证](90-claude-and-filesystem-feasibility.md)：原生 Claude 初始化与网关候选、LPAC 文件视图反例、额外受限令牌，以及进程回收测试的调查与观测修正。
-- [91 · 独立命名空间与成本裁决](91-independent-namespace-cost-decision.md)：依赖实测、VM 工程与用户部署成本、暂缓决定及 Claude 有限 HTTP 基线。
+- [91 · 独立命名空间与成本裁决](91-independent-namespace-cost-decision.md)：依赖实测、VM 工程与用户部署成本、独立命名空间/严格托管 CLI 暂缓决定及 Claude 有限 HTTP 基线；有限实验不代表完整支持，原失败与恢复研究合同保留。
 - [全局路线图](../OPTIMIZATION-ROADMAP.md)：已发布基线、已合入状态和发布规则。
 - [文档总索引](../README.md)：使用、开发、发布和历史证据导航。
 

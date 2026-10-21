@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-21",
+  "baseline": "4549eb1d",
+  "scope": "M2 first slice: shared model POST boundary and stale unscoped OFF policy rejection",
+  "productionSourceHashes": [
+    {
+      "file": "ruyi-workbench/app/src/04h-provider-http.js",
+      "sha256": "d5df67af5f7305d331ec2dd007fcc2c009e06ac0c4e1f043039513f79f889c6a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "3e708a2158d9d858591f9eb4306910fcc34f7d11fdca89be7173e2968a5b6b17"
+    },
+    {
+      "file": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "f793335af133312ab0e9ae1559743408dd2f63f49483b469194d2cc7cdd87d26"
+    },
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "65d4bcbb31db3ce35fae82683a5954e0e941f474d24a2fe950f9c99a88fb90ec"
+    },
+    {
+      "file": "dev-harness/privacy-model-send-boundary.e2e.js",
+      "sha256": "94245dcb38d79d6827d5c905a3f2dbcaceca24e0e7e80a95a06bcda0fa570149"
+    },
+    {
+      "file": "dev-harness/unit/privacy-thread-brief-boundary.test.js",
+      "sha256": "3d196cbc361fba84a88e49fcd1d501efb03b7d7c1c722d07014e5ed41635a3a0"
+    }
+  ],
+  "fullUnit": {
+    "tests": 2502,
+    "pass": 2476,
+    "skip": 26,
+    "fail": 0,
+    "durationMs": 333724.882,
+    "concurrency": 4,
+    "note": "Standalone unit run. During run, helper-local send was renamed postPreparedBody without semantic change; final generated server was independently checked by 16-case boundary E2E after rename/build."
+  },
+  "syntax": {
+    "files": 1096,
+    "fail": 0
+  },
+  "targeted": {
+    "modelSendBoundary": 16,
+    "independentBoundaryRepeat": "passed on final build",
+    "relatedUnits": 16,
+    "inventoryUnits": 14,
+    "audioBoundary": 22,
+    "privacyConfigHealthUnits": 7,
+    "otherPassed": [
+      "privacy-channels.e2e.js",
+      "summary-call-policy.e2e.js",
+      "failover.e2e.js",
+      "module-dependency-graph.static.e2e.js",
+      "fixture-home.static.e2e.js",
+      "build --check",
+      "inventory --check"
+    ]
+  },
+  "initialStaticFailures": [
+    "facts: two README E2E totals remained 540 after new test; corrected to 541",
+    "process-safety: owner count 334 omitted two prior-turn prototype files; independently confirmed 336 and updated count only"
+  ],
+  "targetedStaticRecheck": {
+    "facts": "passed",
+    "processSafety": "passed"
+  },
+  "inventory": {
+    "sources": 267,
+    "candidates": 654,
+    "errors": 0,
+    "privacyStatus": "model-only; no recipient-policy certification"
+  },
+  "independentReview": "release_priority reviewed source, real Gateway semantics, tests and egress records; release_scope reviewed support limits and encryption UX/migration design. Local name false dependency fixed; graph returns to 621 edges / 1 SCC.",
+  "logs": [
+    {
+      "file": "checks/m2-model-boundary/unit.log",
+      "sha256": "30c445fc1dfd44bc2ef62a9dcc6d3b01a15e88557ae9a1db4ab6f34d8a65d818"
+    },
+    {
+      "file": "checks/m2-model-boundary/syntax.log",
+      "sha256": "b4c4beec6d1ca12d1617be53dc652261d253c14ed4f36f4cf10c551e30c82515"
+    }
+  ],
+  "limits": [
+    "No full E2E or release-package acceptance this turn",
+    "26 conditional unit skips are not passes",
+    "Policy binding uses existing signatures, not a new monotonic revision",
+    "Does not withdraw requests already submitted",
+    "Search/bot/independent MCP recipient contracts remain unfinished",
+    "CLI strong isolation and ASR deferred by user",
+    "Encryption UX is design only, no encryption implementation"
+  ],
+  "externalMaintenanceRootRelativeToRepository": "../ruyi-workbench-maintenance-20261021"
+}

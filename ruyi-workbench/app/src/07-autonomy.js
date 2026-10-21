@@ -71,9 +71,7 @@ async function probeProviderCompletion(provider, model, timeoutMs = 15000) {
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
-    const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body) : body;
-    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
-    const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
+    const res = await providerModelPostOnce({ url, headers: wire.requestHeaders(provider, { model }), body, signal: ctrl ? ctrl.signal : undefined });
     const raw = await res.text().catch(() => '');
     // 报文原样回给界面之前,先把本次请求带出去的凭据按字面抹掉再截断(先截会把横跨 300 字边界的 key 切成认不出的半截)。
     if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + providerScrubSecrets(raw, provider).replace(/\s+/g, ' ').slice(0, 300) : '') };
@@ -1895,11 +1893,7 @@ function projectActionModelView(history, auditMap) {
 // protocol;没传(老调用点、单测)时按请求体形状认(Responses 用 input 项,chat 用 messages)。
 async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol }) {
   const wire = protocol || providerWireProtocolForBody(body);
-  const doFetch = async b => {
-    const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(b) : b;
-    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
-    return fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
-  };
+  const doFetch = b => providerModelPostOnce({ url: chatUrl, headers, body: b, signal: ctrl ? ctrl.signal : undefined });
   let res;
   try {
     res = await doFetch(body);

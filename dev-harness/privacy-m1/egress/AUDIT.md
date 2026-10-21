@@ -1,6 +1,6 @@
 # M1 外发清册原型：源码审阅与离线变更门
 
-日期：2026-10-21。此原型不修改产品源码，不实现统一外发网关，不将任何新通道标成 `protected`。它给后续 M2 接收方合同提供可比较的源码清单；它不是运行时网络监视器或“全部出口已覆盖”的证明。
+日期：2026-10-21。清点器本身不修改产品源码，不实现完整披露策略，不将任何新通道标成 `protected`。M2/A3 产品发送边界收敛及策略切换修复独立验收，本清册同步记录其调用关系。它给后续 M2 接收方合同提供可比较的源码清单；它不是运行时网络监视器或“全部出口已覆盖”的证明。
 
 ## 使用
 
@@ -20,7 +20,7 @@ node dev-harness/privacy-m1/egress/inventory.js --write
 
 ## 清点范围与计数
 
-当前快照：267 份第一方源码/声明配置，653 条**候选**。其中包含 132 个已审为本地正则的 `RegExp.exec`、同名 UI 回调、传输能力导入、声明配置和动态边界。这些数字不能当作 653 次实际外网发送，也不能用命中数推导覆盖率。网络、MCP stdio 输入与 stdout 输出、子进程、文件、浏览器委托、包装函数、动态边界及模块能力分别保留 `category`。
+当前快照：267 份第一方源码/声明配置，654 条**候选**。其中包含 132 个已审为本地正则的 `RegExp.exec`、同名 UI 回调、传输能力导入、声明配置和动态边界。这些数字不能当作 654 次实际外网发送，也不能用命中数推导覆盖率。网络、MCP stdio 输入与 stdout 输出、子进程、文件、浏览器委托、包装函数、动态边界及模块能力分别保留 `category`。
 
 扫描仅遍历仓库 `ruyi-workbench/` 与 `mcp/` 的 `.js/.mjs/.cjs/.py/.ps1/.cmd/.bat/.cs/.html/.sh/.json/.toml/.yaml/.yml`。不遍历工作台运行时用户数据目录，不启动这些程序。`app/server.js` 是 `app/src` 拼接产物，排除以免双算；vendor、node_modules、tests/test、build/build_offline、dist、bin/obj、Python runtime/venv/site-packages、locales 与 package-lock 排除。新文件在允许范围内会出现；新增排除目录内部实现不会出现，修改扫描范围必须另行审阅。符号链接拒绝扫描，不跟随到仓库外。
 
@@ -30,16 +30,16 @@ UI 到本机 `/api`、Kimi 本机桥、toolbox 本机探活在清册中标成 `l
 
 ## 四个模型正文发送入口
 
-以下是四个真实 `fetch` 正文发送点，不是把四个业务调用方误算成只有四条产品路径。当前统一记 `model-only`，说明已有模型视图保护的源码关系，**不是本原型补齐了接收方策略**。
+M2/A3 将四处正文 POST 接线收敛到 `04h-provider-http.js / providerModelPostOnce / fetch` 一个物理发送点。以下四个业务入口仍分别登记为 `wrapper`，不因物理调用从四处变为一处而宣称覆盖提升。物理点和四个包装调用均记 `model-only`，**接收方披露策略尚未补齐**。统一边界在既有 `withPolicy` 内执行 `await beforeModelRequest → JSON.stringify → assertPolicyAvailable → fetch`，策略复核后没有其它 await；已有 active scope 复用，无上下文沿用 `auxiliary`，off 仅绑定策略签名而不建立 scope。此绑定也修复无 scope/off 的请求在 prepare await 期间开启保护后仍可能提交的竞态，因此本片包含行为修复。调用方继续负责头、信号、协议、重试和读体。
 
-| 真正发送点 | 生产调用关系及重试边界 | 当前源码证据与边界 |
+| 业务入口（均调用统一 POST） | 生产调用关系及重试边界 | 当前源码证据与边界 |
 |---|---|---|
-| `04h-provider-http.js / providerPostJsonOnce / fetch` | `05 providerFixCompletion`、`06 providerRawCompletion` 经共用非流式 helper；更上层摘要/纠错/起草消费者依然需要正确 scope | 正文先 `PrivacyGateway.beforeModelRequest`，再 `assertPolicyAvailable`；headers 的服务认证与模型正文分开；不能据此证明任意调用者 scope 正确 |
-| `07-autonomy.js / probeProviderCompletion / fetch` | 模型兼容性探测，协议登记表生成 ping 请求体 | 每次正文发送有同一两步检查；探测 URL/认证头另属接收方元数据披露 |
-| `07-autonomy.js / openAiStreamOnce / fetch` | `09-workflow.js / runOpenAiTurn`；`08-agent-runs.js / runSubAgentCore` 的普通与重试调用均使用它；内部 `doFetch` 负责重新发送 | `doFetch` 在每发之前执行两步检查；流式/非流式、工具拒绝等兼容重发要复用此处，不能只检查第一次业务入口 |
-| `10-context-governance.js / singleSummaryCall / fetch` | `providerSummaryCallCore`、摘要/压缩和多轮合并路径；受信号/预算约束 | 每次摘要正文在发送前执行两步检查；历史来源投影与 scope 生命周期不由清册静态证明 |
+| `04h-provider-http.js / providerPostJsonOnce / providerModelPostOnce` | `05 providerFixCompletion`、`06 providerRawCompletion` 经共用非流式 helper；更上层摘要/纠错/起草消费者依然需要正确 scope | 统一边界先保护完整正文、编码，再 `assertPolicyAvailable`；headers 的服务认证与模型正文分开；不能据此证明任意调用者 scope 正确 |
+| `07-autonomy.js / probeProviderCompletion / providerModelPostOnce` | 模型兼容性探测，协议登记表生成 ping 请求体 | 每次正文发送经过统一边界；探测 URL/认证头另属接收方元数据披露 |
+| `07-autonomy.js / openAiStreamOnce / providerModelPostOnce` | `09-workflow.js / runOpenAiTurn`；`08-agent-runs.js / runSubAgentCore` 的普通与重试调用均使用它；内部 `doFetch` 负责重新发送 | `doFetch` 每发均调用统一边界；流式/非流式、工具拒绝等兼容重发要复用此处，不能只检查第一次业务入口 |
+| `10-context-governance.js / singleSummaryCall / providerModelPostOnce` | `providerSummaryCallCore`、摘要/压缩和多轮合并路径；受信号/预算约束 | 每次摘要正文在发送前经过统一边界；历史来源投影与 scope 生命周期不由清册静态证明 |
 
-生成清册同时列出上述 helper 的调用点；包装函数是生产关系证据，不能再当作新的物理 HTTP 出口相加。模型清单探测/HEAD、原始音频 POST、实时 PCM、MCP HTTP、Web 工具和机器人不应混进这四个模型正文点来声称它们都受保护。
+生成清册同时列出上述 helper 的调用点；包装函数是生产关系证据，不能再当作新的物理 HTTP 出口相加。模型清单探测/HEAD、原始音频 POST、实时 PCM、MCP HTTP、Web 工具和机器人不应混进这四个模型业务入口来声称它们都受保护。
 
 ## 外发链路的重要缺口
 
@@ -68,6 +68,8 @@ UI 到本机 `/api`、Kimi 本机桥、toolbox 本机探活在清册中标成 `l
 
 ## 行为测试证据
 
-`inventory.test.js` 在临时目录创建并修改合成源码，不执行夹具代码。当前 13 项 Node test 通过，覆盖：新增 fetch/WebSocket/赋值别名链/解构重命名；计算调用、fetch.bind、动态 import 与模板疑似代码进入 unknown；ESM 别名保留模块能力；Python urllib opener/DNS/subprocess/重命名函数；独立工作台 MCP 两处 stdout serializer 与文本/图片/资源/错误/进度包装调用新增时拒绝未分类，仓库专属合同与受管 MCP/ACC 分开，转写音频保持 unknown/TOCTOU；端点改体/删除/分类删除及非法字段；未知调用形状触发源码重审；新增声明 MCP；生成 server/vendor/包内重复件不重复计数；同字节确定输出及无敏感字面量，注释不制造出口但触发复核，Python 缩进/JS return 换行/PowerShell 行继续变化触发复核；分类合同变化使生成指纹变化、拒绝重复分类和无运行证据的 protected；仓库四个模型正文点及当前 manifest 新鲜度。
+`inventory.test.js` 在临时目录创建并修改合成源码，不执行夹具代码。当前 14 项 Node test 通过，覆盖：新增 fetch/WebSocket/赋值别名链/解构重命名；计算调用、fetch.bind、动态 import 与模板疑似代码进入 unknown；ESM 别名保留模块能力；Python urllib opener/DNS/subprocess/重命名函数；独立工作台 MCP 两处 stdout serializer 与文本/图片/资源/错误/进度包装调用新增时拒绝未分类，仓库专属合同与受管 MCP/ACC 分开，转写音频保持 unknown/TOCTOU；端点改体/删除/分类删除及非法字段；未知调用形状触发源码重审；新增声明 MCP；生成 server/vendor/包内重复件不重复计数；同字节确定输出及无敏感字面量，注释不制造出口但触发复核，Python 缩进/JS return 换行/PowerShell 行继续变化触发复核；分类合同变化使生成指纹变化、拒绝重复分类和无运行证据的 protected；新增模型 POST wrapper、四个业务入口与唯一物理 fetch 分开记账，新增 wrapper 调用拒绝未分类；仓库四个入口与单发送点及当前 manifest 新鲜度。
+
+M2/A3 产品独立验收：`node dev-harness/privacy-model-send-boundary.e2e.js` 16 项 ALL PASS。真实 PrivacyGateway 与本机接收端覆盖三线协议各四入口、off 原字节且不建 scope/worker/映射密封、无 scope 的 off→三档开启及 on→off/规则切换阻断、无上下文 auxiliary、已有 scope 对象与代号复用、JSON 编码时策略切换、持久化失败、取消，以及兼容重发每次保护和切换后阻止第二次发送。这是该发送边界的证据，不提升搜索、机器人或独立 MCP 的状态。
 
 这些测试证明的是清点器和审阅门的行为，不是被清点产品的隐私性能或真实出口封锁。产品全量 E2E、真实 provider/CLI/MCP/机器人、网络抓包均不在此原型测试结论内。

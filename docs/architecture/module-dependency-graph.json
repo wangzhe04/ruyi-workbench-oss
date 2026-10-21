@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 87,
-    "providedSymbols": 3860,
-    "requiredSymbols": 3463,
+    "providedSymbols": 3861,
+    "requiredSymbols": 3465,
     "edges": 621,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -3245,6 +3245,7 @@
         "providerBaseWithV1",
         "providerCallIsTransient",
         "providerCompletionUrl",
+        "providerModelPostOnce",
         "providerPostJsonOnce",
         "providerRequestHeaders",
         "providerResponsesBase",
@@ -7869,6 +7870,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerModelPostOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "providerRetryAfterMs",
           "kinds": [
             "call"
@@ -11765,6 +11773,13 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerModelPostOnce",
           "kinds": [
             "call"
           ]
@@ -31026,6 +31041,7 @@
       "to": "04h-provider-http.js",
       "symbols": [
         "providerBaseIsLocalOrLan",
+        "providerModelPostOnce",
         "providerRetryAfterMs",
         "providerScrubSecrets",
         "providerThrownErrorText",
@@ -32012,7 +32028,8 @@
       "from": "10-context-governance.js",
       "to": "04h-provider-http.js",
       "symbols": [
-        "providerBaseWithV1"
+        "providerBaseWithV1",
+        "providerModelPostOnce"
       ],
       "direction": "backward"
     },

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 87 | 3860 | 3463 | 621 | 67 | 0 | 1 |
+| 87 | 3861 | 3465 | 621 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -41,7 +41,7 @@
 | 23 | `04-permission-runtime.js` | foundation | 166 | 41 | 9 |
 | 24 | `04-desktop-shell.js` | foundation | 1 | 11 | 3 |
 | 25 | `04f-toolbox-services.js` | foundation | 26 | 14 | 3 |
-| 26 | `04h-provider-http.js` | foundation | 15 | 1 | 1 |
+| 26 | `04h-provider-http.js` | foundation | 16 | 1 | 1 |
 | 27 | `04i-provider-anthropic.js` | foundation | 59 | 1 | 1 |
 | 28 | `04i-provider-wire.js` | foundation | 37 | 17 | 2 |
 | 29 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
@@ -62,12 +62,12 @@
 | 44 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
 | 45 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 46 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 47 | `07-autonomy.js` | orchestration | 150 | 80 | 19 |
+| 47 | `07-autonomy.js` | orchestration | 150 | 81 | 19 |
 | 48 | `08-agent-runs.js` | orchestration | 127 | 118 | 22 |
 | 49 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 50 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 51 | `09-workflow.js` | orchestration | 32 | 268 | 28 |
-| 52 | `10-context-governance.js` | orchestration | 228 | 105 | 20 |
+| 52 | `10-context-governance.js` | orchestration | 228 | 106 | 20 |
 | 53 | `11-native-tools.js` | tools | 141 | 46 | 7 |
 | 54 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 55 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
@@ -290,7 +290,7 @@
 | `07-autonomy.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `07-autonomy.js` | `04-permission-runtime.js` | backward | `PermissionWaitHooks`, `killChildTree`, `logEvent`, `parseClaudeEvent`, `pendingPermissions`, `pendingPlans`, `promptWaitMs`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
 | `07-autonomy.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
-| `07-autonomy.js` | `04h-provider-http.js` | backward | `providerBaseIsLocalOrLan`, `providerRetryAfterMs`, `providerScrubSecrets`, `providerThrownErrorText`, `withTransientRetry` |
+| `07-autonomy.js` | `04h-provider-http.js` | backward | `providerBaseIsLocalOrLan`, `providerModelPostOnce`, `providerRetryAfterMs`, `providerScrubSecrets`, `providerThrownErrorText`, `withTransientRetry` |
 | `07-autonomy.js` | `04i-provider-wire.js` | backward | `ProviderWireHooks`, `providerWireProtocol`, `providerWireProtocolForBody` |
 | `07-autonomy.js` | `06-provider-engine.js` | backward | `appendResponseLanguagePolicy`, `toolRequirementsMet` |
 | `07-autonomy.js` | `06i-steward-core.js` | backward | `isStewardToolName`, `stewardAutoAskIndirect`, `stewardAutoAskScanIncomplete`, `stewardAutoAskSensitiveKind`, `stewardToolPermanentlyExempt` |
@@ -361,7 +361,7 @@
 | `10-context-governance.js` | `02e-session-engine-route.js` | backward | `configForSessionEngineRoute`, `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
 | `10-context-governance.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `10-context-governance.js` | `04-permission-runtime.js` | backward | `activeChildren`, `assertSessionExecutionOwner`, `driverAutoSessions`, `logEvent`, `recordSessionExecutionOwner`, `redact`, `requestSessionExecutionStop`, `sessionExecutionSnapshot`, `stopSession`, `turnOutcomePending`, `turnSettlers` |
-| `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1` |
+| `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerModelPostOnce` |
 | `10-context-governance.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle`, `providerWireProtocol` |
 | `10-context-governance.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `agentCliAdapter`, `runClaudeTurn` |
 | `10-context-governance.js` | `06-provider-engine.js` | backward | `buildProviderSystemPrompt`, `buildStableSystemPrompt`, `maybeWriteThreadBrief`, `settleThreadBrief` |

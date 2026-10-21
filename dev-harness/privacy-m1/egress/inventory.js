@@ -96,7 +96,7 @@ for (const name of ['fetch', 'request', 'urlopen', 'WebSocket', 'XMLHttpRequest'
 for (const name of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'Popen', 'run', 'check_call', 'check_output', 'system', 'create_subprocess_exec', 'create_subprocess_shell', 'startfile', 'Start-Process', 'Start']) SINKS.set(name, 'process');
 for (const name of ['writeFile', 'writeFileSync', 'copyFile', 'copyFileSync', 'createWriteStream', 'save', 'Save', 'SaveAs', 'ExportAsFixedFormat', 'write_bytes', 'write_text', 'createObjectURL']) SINKS.set(name, 'file');
 for (const name of ['goto', 'navigate', 'Navigate', 'NavigateToString', 'launchPersistentContext', 'launch', 'openExternal', 'connect_over_cdp']) SINKS.set(name, 'delegated');
-for (const name of ['providerPostJsonOnce', 'openAiStreamOnce', 'singleSummaryCall', 'httpRequest', 'openHttpRequest', 'spawnDetachedChecked', 'sendMcp', 'sendMcpNotification']) SINKS.set(name, 'wrapper');
+for (const name of ['providerModelPostOnce', 'providerPostJsonOnce', 'openAiStreamOnce', 'singleSummaryCall', 'httpRequest', 'openHttpRequest', 'spawnDetachedChecked', 'sendMcp', 'sendMcpNotification']) SINKS.set(name, 'wrapper');
 
 function analyze(file, source) {
   const python = file.endsWith('.py'), tokens = lex(source, python), matched = pairs(tokens), owner = owners(tokens, matched, source, python);

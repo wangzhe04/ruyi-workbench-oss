@@ -2108,9 +2108,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       ? (extraSignal && typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function' ? AbortSignal.any([ctrl.signal, extraSignal]) : ctrl.signal)
       : (extraSignal || undefined);
     try {
-      const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(bodyObj) : bodyObj;
-      if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
-      const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: mergedSignal });
+      const res = await providerModelPostOnce({ url: chatUrl, headers, body: bodyObj, signal: mergedSignal });
       if (!res || !res.ok) {
         let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
         const detail = `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}`;

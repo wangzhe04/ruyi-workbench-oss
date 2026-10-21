@@ -21210,6 +21210,21 @@ function providerSseAsCompletion(raw) {
   }
   return { choices: [{ message: { content } }], usage };
 }
+// 单次模型 JSON POST 的最终发送边界。调用方持有头、信号、协议与重试/读体生命周期。
+// 异步保护完成后先编码，再检查当前策略，直接提交 fetch；不得返回正文让调用方 await 后另发。
+async function providerModelPostOnce({ url, headers, body, signal }) {
+  const postPreparedBody = async () => {
+    const prepared = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body) : body;
+    const encoded = JSON.stringify(prepared);
+    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
+    return fetch(url, { method: 'POST', headers, body: encoded, signal });
+  };
+  // OFF 也绑定当前策略，拒绝 beforeModelRequest 的 await 期间发生的开启/规则切换。
+  // 已有上下文保持原 scope；独立探测沿用 gateway 的 auxiliary fallback。OFF 不建 scope。
+  return typeof PrivacyGateway !== 'undefined'
+    ? PrivacyGateway.withPolicy(PrivacyGateway.active()?.scopeId || 'auxiliary', postPreparedBody)
+    : postPreparedBody();
+}
 // 非流式一次性 POST:超时由 AbortController 管(计时覆盖读回体),回体整段读成文本再试 JSON。
 // 不抛:fetch/读体之外的异常以 { threw:true, error } 交回,由调用方按自己的口径出错误文本
 // (05 的改字是 'timeout (20s)',06 的起草是 'draft request timed out (60s)',两者都不许在这里被统一掉)。
@@ -21218,11 +21233,7 @@ async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
-    if (typeof PrivacyGateway !== 'undefined') {
-      body = await PrivacyGateway.beforeModelRequest(body);
-      PrivacyGateway.assertPolicyAvailable();
-    }
-    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
+    const res = await providerModelPostOnce({ url, headers, body, signal: ctrl ? ctrl.signal : undefined });
     let raw = ''; if (res) { try { raw = await res.text(); } catch { raw = ''; } }
     let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = null; }
     if (sseFallback && !parsed && /(^|\n)data:/.test(raw)) parsed = providerSseAsCompletion(raw);
@@ -40705,9 +40716,7 @@ async function probeProviderCompletion(provider, model, timeoutMs = 15000) {
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
-    const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body) : body;
-    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
-    const res = await fetch(url, { method: 'POST', headers: wire.requestHeaders(provider, { model }), body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
+    const res = await providerModelPostOnce({ url, headers: wire.requestHeaders(provider, { model }), body, signal: ctrl ? ctrl.signal : undefined });
     const raw = await res.text().catch(() => '');
     // 报文原样回给界面之前,先把本次请求带出去的凭据按字面抹掉再截断(先截会把横跨 300 字边界的 key 切成认不出的半截)。
     if (!res.ok) return { ok: false, status: res.status, error: 'HTTP ' + res.status + (raw ? ': ' + providerScrubSecrets(raw, provider).replace(/\s+/g, ' ').slice(0, 300) : '') };
@@ -42529,11 +42538,7 @@ function projectActionModelView(history, auditMap) {
 // protocol;没传(老调用点、单测)时按请求体形状认(Responses 用 input 项,chat 用 messages)。
 async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol }) {
   const wire = protocol || providerWireProtocolForBody(body);
-  const doFetch = async b => {
-    const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(b) : b;
-    if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
-    return fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: ctrl ? ctrl.signal : undefined });
-  };
+  const doFetch = b => providerModelPostOnce({ url: chatUrl, headers, body: b, signal: ctrl ? ctrl.signal : undefined });
   let res;
   try {
     res = await doFetch(body);
@@ -52777,9 +52782,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       ? (extraSignal && typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function' ? AbortSignal.any([ctrl.signal, extraSignal]) : ctrl.signal)
       : (extraSignal || undefined);
     try {
-      const requestBody = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(bodyObj) : bodyObj;
-      if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
-      const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(requestBody), signal: mergedSignal });
+      const res = await providerModelPostOnce({ url: chatUrl, headers, body: bodyObj, signal: mergedSignal });
       if (!res || !res.ok) {
         let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
         const detail = `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}`;

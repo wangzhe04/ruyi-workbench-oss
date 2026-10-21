@@ -59,6 +59,22 @@ function progress(){sendMcpNotification('notifications/progress',{progressToken,
   for (const symbol of ['toolResult', 'resourceResult', 'failed', 'progress']) assert(scan.findings.some(f => f.symbol === symbol && f.category === 'wrapper'), symbol);
   assert(scan.findings.every(f => errors.includes('unclassified:' + f.id)));
 });
+test('model POST wrapper preserves business entry candidates separately from physical fetch', t => {
+  const { root, file } = fixture(t, `async function providerModelPostOnce(args){return fetch(args.url);}
+function providerPostJsonOnce(){return providerModelPostOnce(args);}
+function probeProviderCompletion(){return providerModelPostOnce(args);}
+function openAiStreamOnce(){const doFetch=b=>providerModelPostOnce(b);}
+function singleSummaryCall(){return providerModelPostOnce(args);}`);
+  const scan = inventory.scan(root), manifest = reviewed(scan);
+  assert.equal(scan.findings.filter(f => f.callee === 'fetch').length, 1);
+  const wrappers = scan.findings.filter(f => f.callee === 'providerModelPostOnce');
+  assert.deepEqual(wrappers.map(f => f.symbol).sort(), ['openAiStreamOnce', 'probeProviderCompletion', 'providerPostJsonOnce', 'singleSummaryCall']);
+  assert(wrappers.every(f => f.category === 'wrapper'));
+  fs.appendFileSync(file, '\nfunction another(){return providerModelPostOnce(args);}');
+  const after = inventory.scan(root), added = after.findings.find(f => f.symbol === 'another');
+  assert(added); assert(inventory.validate(after, manifest).includes('unclassified:' + added.id));
+});
+
 test('removed endpoint, changed body, deleted file and removed classification cannot silently pass', t => {
   const { root, file } = fixture(t); const before = inventory.scan(root), manifest = reviewed(before);
   const removed = structuredClone(manifest); removed.entries = []; assert(inventory.validate(before, removed).some(e => e.startsWith('unclassified:')));
@@ -119,13 +135,17 @@ test('classification edits invalidate generated review; duplicate entries and un
   assert(inventory.validate(scan, protectedClaim).some(e => e.startsWith('protected-without-runtime-evidence:')));
   const duplicates = structuredClone(manifest); duplicates.entries.push(duplicates.entries[0]); assert(inventory.validate(scan, duplicates).some(e => e.startsWith('duplicate-classification:')));
 });
-test('repository review is current and four model body sends retain explicit source-only classifications', () => {
+test('repository review retains one physical model POST and all four business entry classifications', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, 'manifest.json'), 'utf8')), scan = inventory.scan();
   assert.deepEqual(inventory.validate(scan, manifest), []);
-  const modelSends = scan.findings.filter(f => f.callee === 'fetch' && ['providerPostJsonOnce', 'probeProviderCompletion', 'openAiStreamOnce', 'singleSummaryCall'].includes(f.symbol));
-  assert.equal(modelSends.length, 4);
+  const modelSends = scan.findings.filter(f => f.callee === 'fetch' && f.symbol === 'providerModelPostOnce');
+  assert.equal(modelSends.length, 1);
+  const modelEntries = scan.findings.filter(f => f.callee === 'providerModelPostOnce');
+  assert.deepEqual(modelEntries.map(f => f.symbol).sort(), ['openAiStreamOnce', 'probeProviderCompletion', 'providerPostJsonOnce', 'singleSummaryCall']);
+  assert(modelEntries.every(f => f.category === 'wrapper'));
+  assert(!scan.findings.some(f => f.callee === 'fetch' && ['providerPostJsonOnce', 'probeProviderCompletion', 'openAiStreamOnce', 'singleSummaryCall'].includes(f.symbol)));
   const byId = new Map(manifest.entries.map(e => [e.id, e]));
-  for (const f of modelSends) assert.equal(manifest.groups[byId.get(f.id).group].privacyStatus, 'model-only');
+  for (const f of [...modelSends, ...modelEntries]) assert.equal(manifest.groups[byId.get(f.id).group].privacyStatus, 'model-only');
   assert(!Object.values(manifest.groups).some(p => p.privacyStatus === 'protected'));
   const ownMcp = scan.findings.filter(f => f.file.endsWith('13-http-router.js') && f.category === 'stdio-output');
   assert.deepEqual(ownMcp.map(f => f.symbol).sort(), ['sendMcp', 'sendMcpNotification']);

@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 修复部分模型请求在准备正文期间开启或改变隐私保护后，仍可能按旧策略发送的问题。统一模型发送入口绑定当前策略，正文准备和编码后再次检查；保留各协议、取消和兼容重试行为。
+- Fix some model requests sending under an outdated privacy policy when protection changes during body preparation. The shared send boundary binds the policy and checks it again after preparation and encoding, preserving protocol, cancellation, and compatibility-retry behavior.
+
 - 修复语音服务初始化或配置读取期间开启隐私保护后，待发送原音频仍可能外发的问题。转写与实时音频块在发送前重新检查当前策略，迟到的旧配置读取不再覆盖新设置；关闭语音会话的清理仍可用。
 - Fix pending original audio being sent after privacy protection is enabled during speech-service initialization or configuration reads. Transcription and live audio chunks check the current policy before sending; late reads cannot overwrite newer settings. Voice-session cleanup remains available.
 
