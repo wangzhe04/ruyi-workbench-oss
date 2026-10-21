@@ -224,6 +224,8 @@ export function createSettingsOperationsDomain({
     if (hint) hint.textContent = t(probe ? 'settings.mcp.probing' : 'settings.mcp.loading');
     const button = $('mcpRefreshBtn'); if (button) button.disabled = true;
     try {
+      const consumers = $('mcpConsumersPanel');
+      if (consumers) await (await import('./mcp-consumers.js')).mountMcpConsumers(consumers);
       const result = await api('/api/mcp/connectors' + (probe ? '?probe=1' : ''));
       if (seq !== mcpOpsSeq) return;
       mcpConnectorCache = Array.isArray(result.connectors) ? result.connectors : [];

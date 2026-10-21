@@ -4,6 +4,7 @@ require('./lib/self-isolate-home.js');
 const fs = require('fs'), os = require('os'), path = require('path'), http = require('http'), cp = require('child_process'), crypto = require('crypto');
 const { createRunner } = require('./lib/harness');
 const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-openai-provider');
+const { spawnMcpWithOwnedHost, closeFixtureMcp } = require('./lib/internal-mcp-fixture');
 const { killOwnTree } = require('./lib/kill-own-tree');
 const { StringDecoder } = require('string_decoder');
 const t = createRunner('READING CONTINUATION'), { ok } = t;
@@ -33,7 +34,7 @@ function pagesValid(pages, expected) {
 }
 function unwrapExternal(content) { return content.split('\n').slice(2, -1).join('\n'); }
 async function startMcp(sessionId) {
-  const child = cp.spawn(process.execPath, [path.resolve(__dirname, '../ruyi-workbench/app/server.js'), 'mcp'], { env: { ...process.env, WCW_SESSION_ID: sessionId }, windowsHide: true });
+  const child = await spawnMcpWithOwnedHost({ env: { ...process.env, WCW_SESSION_ID: sessionId }, windowsHide: true });
   const waiting = new Map(), decoder = new StringDecoder('utf8'); let buffer = '', counter = 0;
   child.stdin.on('error', () => {});
   child.stdout.on('data', bytes => {
@@ -52,7 +53,7 @@ async function startMcp(sessionId) {
   return { async call(name, args) {
     const response = await request('tools/call', { name, arguments: args });
     return JSON.parse(response.result.content.find(part => part.type === 'text').text);
-  }, close() { killOwnTree(child); for (const slot of waiting.values()) clearTimeout(slot.timer); } };
+  }, async close() { await closeFixtureMcp(child); for (const slot of waiting.values()) clearTimeout(slot.timer); } };
 }
 (async () => {
 let mcp;
@@ -124,7 +125,7 @@ try {
   const recallSession = await srv.createSession({ title: '观察分页', cwd: ws }), original = ('观察原文😀 "值" \\路径\n').repeat(12000);
   const history = [{ role: 'user', content: 'u' }, { role: 'assistant', content: '', tool_calls: [{ id: 'old_call', type: 'function', function: { name: 'http_request', arguments: '{}' } }] }, { role: 'tool', tool_call_id: 'old_call', content: original }];
   const prefix = await srv.writeHistorySnapshot(recallSession.id, 7, history, true), hash = crypto.createHash('sha256').update(original).digest('hex').slice(0, 16), rawRef = `${prefix}:2:${hash}`;
-  mcp.close(); mcp = await startMcp(recallSession.id);
+  await mcp.close(); mcp = await startMcp(recallSession.id);
   const recalled = []; offset = 0;
   for (let i = 0; i < 8; i++) {
     const page = await mcp.call('observation_recall', { rawRef, offset, maxChars: 60000 });
@@ -152,5 +153,5 @@ try {
   const response = await srv.toolCall('http_request', { url: url.replace('/page', '/oversize'), method: 'POST', maxBodyChars: 1000 }, { session: mcpSession });
   ok(response.truncated && /非幂等.*不要.*重发/.test(response.hint), 'non-idempotent HTTP truncation does not recommend replay as continuation');
 } catch (error) { t.fail(error.stack || String(error)); }
-finally { if (mcp) mcp.close(); if (fake) await fake.close(); if (server) await new Promise(resolve => server.close(resolve)); t.done({ exit: true }); }
+finally { if (mcp) await mcp.close(); if (fake) await fake.close(); if (server) await new Promise(resolve => server.close(resolve)); t.done({ exit: true }); }
 })();

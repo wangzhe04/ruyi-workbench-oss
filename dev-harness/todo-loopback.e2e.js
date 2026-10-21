@@ -9,6 +9,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //    session.todos.length === 2 (proving the loopback persisted through the serve process).
 //  Part 2: a BARE mcp child (no WCW_* env) calling todo_write returns the guiding error (independent MCP
 //    mode has no workbench session context).
+const { spawnInternalMcpHost, spawnAuthenticatedMcp } = require('./lib/internal-mcp-fixture');
+let fixtureHost;
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
@@ -31,7 +33,7 @@ function postJson(port, p, payload) {
 }
 // Drive a `node app/server.js mcp` child over stdio JSON-RPC. `env` is merged over the process env.
 function mcpChild(env) {
-  const child = cp.spawn(process.execPath, [SERVER, 'mcp'], { env: { ...process.env, ...env }, windowsHide: true });
+  const child = env.WCW_SESSION_ID ? spawnAuthenticatedMcp(fixtureHost, { env: { ...process.env, ...env } }) : cp.spawn(process.execPath, [SERVER, 'mcp'], { env: { ...process.env, ...env }, windowsHide: true });
   child.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[mcp!] ' + l.trim())));
   const pending = new Map(); let buf = '', idc = 0;
   child.stdout.on('data', d => { buf += d; let nl; while ((nl = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, nl); buf = buf.slice(nl + 1); if (!line.trim()) continue; try { const m = JSON.parse(line); if (m.id !== undefined && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch { /* ignore */ } } });
@@ -45,7 +47,7 @@ function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore *
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 6, version: '1.0.0', permissionMode: 'bypass' }, null, 2));
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+  const wb = fixtureHost = spawnInternalMcpHost({ port: WB_PORT, cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME } });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   const kids = [wb];
   try {
@@ -81,8 +83,8 @@ function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore *
     const call2 = await bare.rpc('tools/call', { name: 'todo_write', arguments: { items: [{ text: 'x', status: 'pending' }] } });
     const text2 = (call2.result && call2.result.content && call2.result.content[0] && call2.result.content[0].text) || '';
     let parsed2 = {}; try { parsed2 = JSON.parse(text2); } catch { /* leave empty */ }
-    ok(call2.result && call2.result.isError === true && parsed2.ok === false, 'bare child: todo_write → isError:true, ok:false');
-    ok(typeof parsed2.error === 'string' && parsed2.error.includes('工作台会话上下文'), 'bare child: guiding error mentions 工作台会话上下文 (got: ' + text2.slice(0, 120) + ')');
+    ok(call2.error && /setup_required/.test(call2.error.message), 'bare child: todo_write receives authenticated setup refusal');
+    ok(call2.error && /如意设置/.test(call2.error.message), 'bare child: guiding error points to initial MCP setup');
     kill(bare.child);
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-21T13:19:13.610Z",
+  "generatedAt": "2026-10-21T14:46:23.300Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -15,14 +15,15 @@
       "ruyi-workbench/app/src/13r-event-stream.js",
       "ruyi-workbench/app/src/13s-scheduler.js",
       "ruyi-workbench/app/src/13w-external-bots.js",
-      "ruyi-workbench/app/src/13ab-privacy-api.js"
+      "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "ruyi-workbench/app/src/13ac-mcp-consumer.js"
     ]
   },
   "summary": {
-    "routeAuthEntries": 162,
-    "decisionPoints": 176,
+    "routeAuthEntries": 165,
+    "decisionPoints": 179,
     "byKind": {
-      "exact": 153,
+      "exact": 156,
       "prefix": 11,
       "regex": 12
     },
@@ -30,6 +31,7 @@
       "body-token",
       "external-callback",
       "host-gate",
+      "mcp-consumer",
       "open",
       "token",
       "token-browser"
@@ -39,6 +41,24 @@
     "warnings": 0
   },
   "routeAuth": [
+    {
+      "m": "POST",
+      "p": "/api/mcp/consumer",
+      "auth": "mcp-consumer",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/mcp/consumers",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/mcp/internal/verify",
+      "auth": "token",
+      "prefix": false
+    },
     {
       "m": "GET",
       "p": "/api/privacy/status",
@@ -1087,6 +1107,7 @@
         "dev-harness\\i18n.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\mcp-config.e2e.js",
+        "dev-harness\\mcp-consumer-restart.e2e.js",
         "dev-harness\\mcp-ops-closure.e2e.js",
         "dev-harness\\onboard.e2e.js",
         "dev-harness\\onboarding.e2e.js",
@@ -2988,6 +3009,58 @@
       ]
     },
     {
+      "path": "/api/mcp/consumer",
+      "handler": "handle",
+      "selfChecksToken": true,
+      "kind": "exact",
+      "file": "13ac-mcp-consumer.js",
+      "methods": [
+        "POST"
+      ],
+      "methodOverride": false,
+      "domain": "mcp-consumer",
+      "auth": "mcp-consumer",
+      "coveredBy": [
+        "dev-harness\\mcp-consumer-relay.e2e.js",
+        "dev-harness\\mcp-consumer-restart.e2e.js",
+        "dev-harness\\server-ownership.e2e.js"
+      ]
+    },
+    {
+      "path": "/api/mcp/consumers",
+      "handler": "handle",
+      "selfChecksToken": true,
+      "kind": "exact",
+      "file": "13ac-mcp-consumer.js",
+      "methods": [
+        "POST"
+      ],
+      "methodOverride": false,
+      "domain": "mcp-consumer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-consumer-relay.e2e.js",
+        "dev-harness\\mcp-consumer-restart.e2e.js",
+        "dev-harness\\server-ownership.e2e.js"
+      ]
+    },
+    {
+      "path": "/api/mcp/internal/verify",
+      "handler": "handle",
+      "selfChecksToken": true,
+      "kind": "exact",
+      "file": "13ac-mcp-consumer.js",
+      "methods": [
+        "POST"
+      ],
+      "methodOverride": false,
+      "domain": "mcp-consumer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\mcp-consumer-relay.e2e.js"
+      ]
+    },
+    {
       "kind": "exact",
       "path": "/api/migration/scan",
       "file": "13b-api-domain-routes.js",
@@ -3698,6 +3771,7 @@
         "dev-harness\\long-tool-liveness-steer.e2e.js",
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
+        "dev-harness\\mcp-consumer-restart.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-scope.e2e.js",
@@ -3992,6 +4066,7 @@
         "dev-harness\\long-tool-liveness-steer.e2e.js",
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
+        "dev-harness\\mcp-consumer-restart.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-scope.e2e.js",

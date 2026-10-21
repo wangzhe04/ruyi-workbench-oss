@@ -2132,6 +2132,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   await atomicWriteJson(path.join(paths.data, 'runtime.json'),
     { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() },
     { mode: 0o600 }).catch(() => {});   // 安全走查 S11:里面是接口令牌,只给属主读写(POSIX;Windows 靠用户目录 ACL)
+  if (typeof PrivacyCore.configHooks.consumerListen === 'function') await PrivacyCore.configHooks.consumerListen();
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);
   console.log(`Data: ${paths.data}`);
@@ -2490,6 +2491,7 @@ function sendMcpNotification(method, params) {
 }
 
 async function startMcp() {
+  if (process.argv.includes('--consumer') || process.env.RUYI_MCP_CONSUMER_ID || process.env.RUYI_MCP_CONSUMER_TOKEN) return PrivacyCore.configHooks.startConsumerMcp();
   await ensureDirs();
   // v0.8-S2: mark this process as the one-shot MCP child. Shell-session tools detect this and return a
   // guiding error instead of pretending to work — their state (the powershell child + ring buffer) lives
@@ -2502,6 +2504,7 @@ async function startMcp() {
       const msg = safeJsonParse(line);
       if (!msg || !msg.method) return;
       try {
+        await PrivacyCore.configHooks.verifyInternalMcp();
         if (msg.method === 'initialize') {
           return sendMcp(msg.id, {
             protocolVersion: msg.params?.protocolVersion || '2024-11-05',
@@ -2617,6 +2620,7 @@ async function installIntegration() {
   const mcpPath = await generateMcpConfig();
   const installer = path.join(externalRoot(), 'resources', 'scripts', 'install-workbench.ps1');
   console.log(`${APP_NAME} integration`);
+  console.log('The ruyi entry is the internal active-CLI bridge. Independent apps: create a dedicated connection in Settings > MCP. / ruyi 条目仅用于工作台启动的 CLI；独立应用请在设置的 MCP 页面生成专用连接。');
   console.log(`Data root: ${paths.data}`);
   console.log(`MCP config: ${mcpPath}`);
   console.log(`Claude CLI: ${config.claudePath || '(not configured)'}`);

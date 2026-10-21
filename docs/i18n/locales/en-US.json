@@ -4476,5 +4476,16 @@
   "privacy.export.clipboardUnavailable": "This browser could not start a clipboard write. No raw content was copied.",
   "privacy.copy.options": "Copy options",
   "privacy.copy.plainNotice": "Copies original values and any embedded data for this action only.",
-  "privacy.copy.latestLogs": "Copy latest log tail"
+  "privacy.copy.latestLogs": "Copy latest log tail",
+  "mcpConsumer.title": "Independent MCP application connections",
+  "mcpConsumer.help": "Generate a connection configuration once for the named receiving app. It contains an access token: import it only into that app. Keep Ruyi running; no daily port or password entry is needed. Grants restrict workspace and tools, not operating-system access.",
+  "mcpConsumer.application": "Receiving application name",
+  "mcpConsumer.workspace": "Granted workspace",
+  "mcpConsumer.writes": "Include file write tools (existing workbench permissions still apply; operations needing confirmation are refused)",
+  "mcpConsumer.issue": "Generate and download connection configuration (contains access token)",
+  "mcpConsumer.revoke": "Revoke connection",
+  "mcpConsumer.revoked": "Connection revoked; in-flight output stopped.",
+  "mcpConsumer.required": "Name the receiving app and open a workspace first.",
+  "mcpConsumer.created": "Configuration downloaded. Import it into the named app; the token will not be shown again.",
+  "mcpConsumer.failed": "Operation did not complete. Check the workbench status; existing tokens are never recovered or displayed."
 }

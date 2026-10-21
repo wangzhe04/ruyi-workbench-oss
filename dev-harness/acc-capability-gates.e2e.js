@@ -24,6 +24,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(服务启�
 //       C1 ACC 条目带 ACC_HIDE_TOOLS(命令族 + 转调器 + 这条线程 desktopTools:false 带来的桌面族,不含名单外工具),
 //       外部条目不带;C2 权限桥对 mcp__ai-computer-control__run_command / screenshot 直接拒(不弹窗),
 //       read_document 与外部 MCP 的 run_command 照常弹窗。
+const { spawnInternalMcpHost, spawnAuthenticatedMcp, spawnMcpWithOwnedHost } = require('./lib/internal-mcp-fixture');
 const { killOwnTree } = require('./lib/kill-own-tree');
 const fs = require('fs');
 const os = require('os');
@@ -75,8 +76,8 @@ function chatStream(port, payload, onEvent) {
 const readLines = file => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)); } catch { return []; } };
 const readToken = home => { try { return JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token || ''; } catch { return ''; } };
 
-function mcpSession(home, extraEnv) {
-  const child = cp.spawn(process.execPath, [SERVER, 'mcp'], {
+function mcpSession(home, extraEnv, fixtureHost) {
+  const child = spawnAuthenticatedMcp(fixtureHost, {
     cwd: WB, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, ...extraEnv },
   });
@@ -146,7 +147,7 @@ async function withProviderServer(configExtra, body) {
   }));
   const fakeEnv = { FAKE_MCP_ACC_POLICY: '1', FAKE_MCP_CALL_CAPTURE: capture, FAKE_MCP_SERVER_TAG: 'acc' };
   const WP = await getFreePort();
-  const wb = cp.spawn(process.execPath, [SERVER, 'serve', '--port', String(WP)], {
+  const wb = spawnInternalMcpHost({ port: WP,
     cwd: WB, windowsHide: true, stdio: 'ignore',
     env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME, ...fakeEnv },
   });
@@ -173,7 +174,7 @@ async function withProviderServer(configExtra, body) {
       return r.json && r.json.session && r.json.session.id;
     };
     const patch = (sid, body2) => httpJson(WP, 'PATCH', '/api/sessions/' + encodeURIComponent(sid), body2, token);
-    const mcp = env2 => { const m = mcpSession(HOME, { ...fakeEnv, ...env2 }); children.push(m.child); return m; };
+    const mcp = env2 => { const m = mcpSession(HOME, { ...fakeEnv, ...env2 }, wb); children.push(m.child); return m; };
     const status = () => httpJson(WP, 'GET', '/api/status', undefined, token);
     await body({ run, newSession, patch, mcp, callCount, status, HOME, WS });
   } finally {

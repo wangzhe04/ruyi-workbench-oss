@@ -1,0 +1,671 @@
+{
+  "schema": 1,
+  "status": "M2-8a verified; M2-8b templates/subscriptions and P0 remain pending; not M2 completion",
+  "sourceHeadAtDraft": "2fe14ab1b271bae81d017c4f912ab2fa43b9d702",
+  "scope": {
+    "implemented": [
+      "owner-created consumer token; host-bound consumer/workspace/grants and per-connection scope",
+      "seven explicit file tools and two fixed safe text summary resources",
+      "bounded tools/resources pagination; authenticated tools/resources/results/errors/progress",
+      "revoke/disconnect/restart and actual Windows setup UI; migration of old internal CLI stdio tests to live registered host owner"
+    ],
+    "notYetImplemented": [
+      "nonempty fixed-summary resource templates",
+      "resources/subscribe, resources/unsubscribe and notifications/resources/updated (progress is not a subscription)",
+      "P0 bilingual failure/recovery user journeys and final M2 closure"
+    ],
+    "boundaries": [
+      "application authorization, not OS isolation",
+      "consumer can independently read files or contact services outside Ruyi boundary",
+      "no raw-reference lookup grant; unknown consumer references refuse",
+      "media/binary outside text summaries and file tool text scope; unsupported protocol methods accurately refuse",
+      "setup plaintext token intentionally transfers to target application configuration; registry stores only tokenHash",
+      "OFF retains authentication/grant/workspace ceiling; bare stdio no longer has old ambient authority"
+    ]
+  },
+  "runs": [
+    {
+      "file": "checks/m2-consumer/12-restart-browser-final-first.log",
+      "sha256": "1066CB0D061D103C6150C8217DE53BDD3FA9A28FF433487A81578F37E5B0B637",
+      "expectedAssertions": 27,
+      "observedPassLines": 27,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/13-relay-final-first.log",
+      "sha256": "23B3BF4606EC7EE2EFB7AE416A9616C6E2F92ADABD09F3B241BD2568FB2905D7",
+      "expectedAssertions": 97,
+      "observedPassLines": 97,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/14-relay-final-second.log",
+      "sha256": "23B3BF4606EC7EE2EFB7AE416A9616C6E2F92ADABD09F3B241BD2568FB2905D7",
+      "expectedAssertions": 97,
+      "observedPassLines": 97,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/15-restart-browser-final-second.log",
+      "sha256": "1066CB0D061D103C6150C8217DE53BDD3FA9A28FF433487A81578F37E5B0B637",
+      "expectedAssertions": 27,
+      "observedPassLines": 27,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/16-managed-mcp-final.log",
+      "sha256": "EB34211E5DFB52A5A5E09487BC52DA7A80AC0872552A3D4122D0D4BC24432FA6",
+      "expectedAssertions": 485,
+      "observedPassLines": 485,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/17-mcp-remote-final.log",
+      "sha256": "6974DD3738D650E12288D7181A416065FB29147F9303A6379D94A0F6864DD441",
+      "expectedAssertions": 23,
+      "observedPassLines": 23,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/18-mcp-ops-final.log",
+      "sha256": "F450839FE8DB1F006F091D406DED854860E1E86E83207798272169D1782BBFC4",
+      "expectedAssertions": 108,
+      "observedPassLines": 108,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/19-checkpoint-native-final.log",
+      "sha256": "18FBF32192D6BBDA959F7BB42D78567EE97BBEB57889EE4FF4D85C0E44FF28FD",
+      "expectedAssertions": 40,
+      "observedPassLines": 40,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/20-disclosure-contract-final.log",
+      "sha256": "AF6A91D59CDBCA217A7CC80BB978D90011AB990D222E1B6A7782EEAC332CE8B2",
+      "expectedAssertions": 6,
+      "observedPassLines": 6,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/21-restart-browser-layout-final.log",
+      "sha256": "A6E82B7A739406A9CC32914BC51B4A25A664F2748FF61D369919A5D34E26A0AB",
+      "expectedAssertions": 28,
+      "observedPassLines": 28,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/22-todo-auth-migration-first.log",
+      "sha256": "DD4521E8FF211922FA1B5E9EE3B0B4B12AD2CB3725D132EB876498AB75A0C118",
+      "expectedAssertions": 9,
+      "observedPassLines": 9,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/23-checkpoint-auth-migration-first.log",
+      "sha256": "D18FCAAF0EDD6CD142730C49E7DB2426E7120268A23C7A3821C84CC717838BCC",
+      "expectedAssertions": 15,
+      "observedPassLines": 15,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/24-shell-auth-migration-first.log",
+      "sha256": "3A11A8EB9ECC578E4BB537290CB3582FCC87E4B17DBB84823FED013DBD9A3974",
+      "expectedAssertions": 6,
+      "observedPassLines": 6,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/25-resource-mask-auth-migration-first.log",
+      "sha256": "79778E4A949DAFA0E8F0BEEA8F7C7B8462CC905548D1898FA494645B3E528DED",
+      "expectedAssertions": 5,
+      "observedPassLines": 5,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/26-tool-loading-auth-migration-first.log",
+      "sha256": "55A9A91775E7E601C62AE06358A155239C4D296CFBA26015BC42EA15D04B1E41",
+      "expectedAssertions": 20,
+      "observedPassLines": 20,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/27-cross-history-auth-migration-first.log",
+      "sha256": "2D7AAE41B5670D6FDBE0559C5EE8CB940AFDBF8685D35000FC7D0F062D4CBE8D",
+      "expectedAssertions": 39,
+      "observedPassLines": 39,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/29-reading-auth-migration-close.log",
+      "sha256": "DA96D4117A26897470C9A310829F8C59CF295FE81A50098CACD8AF3E5EE382D8",
+      "expectedAssertions": 15,
+      "observedPassLines": 15,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/31-memory-active-auth-migration-final.log",
+      "sha256": "509A0BC327B9A2C8AD81F770CBAD0337E17305D09D19089C4180C586BD54F365",
+      "expectedAssertions": 39,
+      "observedPassLines": 39,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/32-agent-mode-auth-migration.log",
+      "sha256": "FE3C6483E20FFD5E3548A677CF4116F9A28B55869996A0B3F95FA827AFFA7856",
+      "expectedAssertions": 49,
+      "observedPassLines": 49,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/33-acc-auth-migration.log",
+      "sha256": "9EB80B45285ECCE9E0E5E168E8E2CC5815410F73C0030F54E588DB54C73F69D2",
+      "expectedAssertions": 37,
+      "observedPassLines": 37,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/34-steward-tools-auth-migration.log",
+      "sha256": "EFC27A607B0BD75A5F493319453BD879862255245B89A7D0332FE75967242B21",
+      "expectedAssertions": 189,
+      "observedPassLines": 189,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/35-server-ownership-consumer-migration.log",
+      "sha256": "0C12E1A072F46BCBC13BBD6F142AAFC176D2EF18F36B768C9B586411C4666CCF",
+      "expectedAssertions": 16,
+      "observedPassLines": 16,
+      "allPassMarker": true,
+      "exitCode": "root/release recorded exit0; raw stdout has no portable exit trailer"
+    },
+    {
+      "file": "checks/m2-consumer/38-helper-eof-slow-stdout-probe.log",
+      "sha256": "0DB9EE6FCD1EAE6D5AEF4EE717BB3E5B42F75E20958F4DB6FF739141A1653F09",
+      "expectedAssertions": 4,
+      "observedPassLines": 4,
+      "allPassMarker": false,
+      "exitCode": 0,
+      "identity": "accepted final drain-v2 helper; 46/47/48 also use final LF-only product bytes"
+    },
+    {
+      "file": "checks/m2-consumer/39-reading-drain-final.log",
+      "sha256": "DA96D4117A26897470C9A310829F8C59CF295FE81A50098CACD8AF3E5EE382D8",
+      "expectedAssertions": 15,
+      "observedPassLines": 15,
+      "allPassMarker": true,
+      "exitCode": 0,
+      "identity": "accepted final drain-v2 helper; 46/47/48 also use final LF-only product bytes"
+    },
+    {
+      "file": "checks/m2-consumer/40-todo-drain-final.log",
+      "sha256": "54BED5DF46F29BDE63B11C416CF5DB4F39B24FD57AFB702DD8129EAF33C0D559",
+      "expectedAssertions": 9,
+      "observedPassLines": 9,
+      "allPassMarker": true,
+      "exitCode": 0,
+      "identity": "accepted final drain-v2 helper; 46/47/48 also use final LF-only product bytes"
+    },
+    {
+      "file": "checks/m2-consumer/41-checkpoint-drain-final.log",
+      "sha256": "91E045A7C9AD664112AD47B8124A6BDE598038B5B1A6B2F9E0B5CE3375552507",
+      "expectedAssertions": 15,
+      "observedPassLines": 15,
+      "allPassMarker": true,
+      "exitCode": 0,
+      "identity": "accepted final drain-v2 helper; 46/47/48 also use final LF-only product bytes"
+    },
+    {
+      "file": "checks/m2-consumer/46-relay-lease-lf-final-first.log",
+      "sha256": "23B3BF4606EC7EE2EFB7AE416A9616C6E2F92ADABD09F3B241BD2568FB2905D7",
+      "expectedAssertions": 97,
+      "observedPassLines": 97,
+      "allPassMarker": true,
+      "exitCode": 0,
+      "identity": "accepted final drain-v2 helper; 46/47/48 also use final LF-only product bytes"
+    },
+    {
+      "file": "checks/m2-consumer/47-relay-lease-lf-final-second.log",
+      "sha256": "23B3BF4606EC7EE2EFB7AE416A9616C6E2F92ADABD09F3B241BD2568FB2905D7",
+      "expectedAssertions": 97,
+      "observedPassLines": 97,
+      "allPassMarker": true,
+      "exitCode": 0,
+      "identity": "accepted final drain-v2 helper; 46/47/48 also use final LF-only product bytes"
+    },
+    {
+      "file": "checks/m2-consumer/48-restart-browser-lease-lf-final.log",
+      "sha256": "A6E82B7A739406A9CC32914BC51B4A25A664F2748FF61D369919A5D34E26A0AB",
+      "expectedAssertions": 28,
+      "observedPassLines": 28,
+      "allPassMarker": true,
+      "exitCode": 0,
+      "identity": "accepted final drain-v2 helper; 46/47/48 also use final LF-only product bytes"
+    }
+  ],
+  "reviews": [
+    {
+      "file": "m2-8-independent-review/mcp8-v10-review.md",
+      "sha256": "C0F584096BD4E9F56CA9544CDC10443A8AD944FD99CCBC6A890EC51A653BCF12"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8-atomic-descriptor-relay-helper-review.md",
+      "sha256": "D4D30421026805430A72FCA9DB0D1FBE392DC5BDF6CE42603DC7F35568BF81A3"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8-browser-setup-v2-review.md",
+      "sha256": "7B63BEF30568E91956CA55CEF24C6628154C18C65D8189FC4A5E4C35283F4C56"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8-final-egress-persistence-ui-review.md",
+      "sha256": "EE762261BCD4606A222284EBD6ADCA5E91D51E79E70549D862C46337C65A234D"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8-cli-auth-migration-review.md",
+      "sha256": "F0F2B0D7EB5DDC7B6C75505360A910F2A20A773994EB973766E092748E68CA3E"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8-metadata-egress-p0-identity-review.md",
+      "sha256": "D131FC9CB9806EBBCAD4E877EAEADA44C7FDED10AFC179FCD65D7520E744348A"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8-templates-subscriptions-scope-review.md",
+      "sha256": "B351B983E6ED1C2ECE4462F913FCEAB19F28D07472A4FEE32FDB148B4C8FE501"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8a-cli-fixture-final-review.md",
+      "sha256": "941CB2CA6D287A68C0514F64B29D924919C5DBD5AEA6595630539539E02A13DA"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8a-native-vision-eof-review.md",
+      "sha256": "0ACC96A246EE7FD0D842DBCBCDEE92884573D1E4A8F451114F75B833A78C6195"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8a-lease-lf-review.md",
+      "sha256": "9DCE90BF89047625C03825FFC4D65F343F38BBD064EAA14BAB23206BA360255C"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8a-final-metadata-guards-review.md",
+      "sha256": "68A0DFE07F53B482EA0640C2586B484E77BBB8E77553592D2E89415D50084CB6"
+    },
+    {
+      "file": "m2-8-independent-review/mcp8a-eol-normalization-review.md",
+      "sha256": "1B0601D873E23919F89DC6EB6DE009C22D051937D1A3D5C57C06034DFB45D921"
+    }
+  ],
+  "firstFailures": [
+    {
+      "logs": [
+        "03-relay-first.log"
+      ],
+      "classification": "real product descriptor bug, fixed before final runs"
+    },
+    {
+      "logs": [
+        "07-relay-descriptor-first.log",
+        "08-relay-fixed-count-diagnostic.log"
+      ],
+      "classification": "Node fetch Sec-Fetch fixture header behavior; genuine nonbrowser transport fixture corrected"
+    },
+    {
+      "logs": [
+        "10-restart-browser-first.log",
+        "11-restart-browser-artifact-gate.log"
+      ],
+      "classification": "readiness/artifact identity fixture oracle; final UI checks actual mounting and downloaded consumerId/root"
+    },
+    {
+      "logs": [
+        "28-reading-auth-migration-first.log"
+      ],
+      "classification": "owned close wait fixture lifecycle"
+    },
+    {
+      "logs": [
+        "30-memory-active-auth-migration.log"
+      ],
+      "classification": "Final fixture retains activeChildren.delete and asserts setup_required after owner deletion; the preceding two live-owner business assertions remain. It does not recreate or preserve the deleted owner for a later call."
+    },
+    {
+      "logs": [
+        "37-full-fast.log"
+      ],
+      "file": "checks/m2-consumer/37-full-fast.log",
+      "sha256": "1E75C71BA5CF9C6833EF8A723D16B3DAF8B74E7F865F3065227F5DA7C4A5D757",
+      "classification": "First complete fast attempt: unit total2559/suites192/pass2532/fail1/skip26; sole native-file-vision old unauthenticated handshake received setup_required. Static80 did not run. The real same-host registered CLI wrapper migration retained all five image assertions; targeted unit42 and subsequent complete unit43 passed."
+    },
+    {
+      "logs": [
+        "43-full-fast-final.log"
+      ],
+      "classification": "Complete unit2559/pass2533/skip26/fail0; static80 first76pass/4fail/0flaky. Generated architecture snapshot, precise fixture-home helper migration guard, audit turn-save census, and LF-only control heartbeat were repaired. Four final targeted gates passed; no full eighty-static rerun is claimed.",
+      "artifacts": [
+        {
+          "file": "checks/m2-consumer/43-full-fast-final.log",
+          "sha256": "502A0235AED077F39CA74053E60A476423D692529B63C150DF3A0FD7BAFAF5BC"
+        }
+      ]
+    },
+    {
+      "logs": [
+        "44-build-lease-lf-byte.log"
+      ],
+      "classification": "The first one-line LF control patch had CR bytes and the build gate rejected it. LF was restored before successful build45 and final real relay46/47/browser48.",
+      "artifacts": [
+        {
+          "file": "checks/m2-consumer/44-build-lease-lf-byte.log",
+          "sha256": "B92B1CA84FEE1516FF15A1BDFDB1B76A3D61990D60255AFF8C2CA1FD4798FD40"
+        }
+      ]
+    },
+    {
+      "logs": [
+        "49-egress-unit-final.log"
+      ],
+      "classification": "Root initially invoked a nonexistent inventory test path. No test executed there; the actual inventory.test.js path passed all15 in50-egress-unit-final.log.",
+      "artifacts": [
+        {
+          "file": "checks/m2-consumer/49-egress-unit-final.log",
+          "sha256": "A506826519034D11998CD0BA0FF256C212EA70D099ACFF0BC14B3660AE9631B7"
+        }
+      ]
+    }
+  ],
+  "manualEgress": {
+    "reviewedChangedCandidates": 18,
+    "firstPartySources": 272,
+    "candidates": 676,
+    "errors": 0,
+    "promotions": 0,
+    "authority": "root manual audit, not generated blanket approval"
+  },
+  "processOwnerCount": {
+    "count": 344,
+    "previous": 341,
+    "reason": "root registered and independently reviewed exact count: original341 + two consumer fixtures + one shared internal-auth helper"
+  },
+  "gates": {
+    "status": "complete",
+    "syntax": {
+      "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\36-syntax.log",
+      "sha256": "9B46620F3E293F26493BDC316310D74C51B7DF572BF4A9F06449F1C5D6134AA8",
+      "files": 1123,
+      "fail": 0,
+      "finalDelta": {
+        "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\51-delta-syntax-final.log",
+        "sha256": "DDA24C2EEE78F80030FA6CF4617F33327C2C9364A4FED0ABB5A98CDEDAF4BD8B"
+      }
+    },
+    "build": {
+      "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\50-build-final.log",
+      "sha256": "2B54D266D01DD4FA0C70C7114D171FDE9D928FC015963C3F7313D1A446CC5DF9",
+      "fresh": true
+    },
+    "unit": {
+      "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\43-complete-unit-final.log",
+      "sha256": "889E1D84D3727C67844A6984B5002472BA6717A62AD5E0AAC7A57D714259C560",
+      "total": 2559,
+      "suites": 192,
+      "pass": 2533,
+      "skip": 26,
+      "fail": 0,
+      "durationMs": 275729.3277,
+      "exitCode": 0,
+      "productSHA256": "6FF5DBC47FA43BD61ECC0549E34F3917517DEB251D1006CD5D3422A7C7E2C637"
+    },
+    "static": {
+      "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\43-full-fast-final.log",
+      "sha256": "502A0235AED077F39CA74053E60A476423D692529B63C150DF3A0FD7BAFAF5BC",
+      "total": 80,
+      "pass": 76,
+      "fail": 4,
+      "flaky": 0,
+      "exitCode": 1,
+      "whole80Rerun": false,
+      "failedNames": [
+        "architecture-contract-snapshots.static.e2e.js",
+        "fixture-home.static.e2e.js",
+        "ndjson-line-feeder.static.e2e.js",
+        "session-save-census.static.e2e.js"
+      ],
+      "targetedRepairs": [
+        {
+          "name": "architecture-contract-snapshots.static.e2e.js",
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\52-architecture-static-final.log",
+          "sha256": "6854F05B4A23EA5C9445F617BF7BD2AAAAC3A810F91EFF4BDB0C976855406361",
+          "fail": 0,
+          "exitCode": 0,
+          "explanation": "Regenerated architecture snapshots for the new authenticated consumer auth domain and module."
+        },
+        {
+          "name": "fixture-home.static.e2e.js",
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\52-fixture-home-static-final.log",
+          "sha256": "9AC417331187EAC96AD7E54E4A7813F551D4C7AB4401A0BE370816F2A475F34A",
+          "fail": 0,
+          "exitCode": 0,
+          "explanation": "Direct spawn census 220 to 214 is exactly six calls moved to the authenticated helper. All six retain real import, env and isolated parent checks. Helper child spawns are scanned and source-sliced locally; three negative env-removal cases reject."
+        },
+        {
+          "name": "ndjson-line-feeder.static.e2e.js",
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\50-ndjson-static-final.log",
+          "sha256": "7742481241ECB0D3F00DC6F3C54660BC6EC26E06C3C43F7C4C84D4744134E5B4",
+          "fail": 0,
+          "exitCode": 0,
+          "explanation": "Source-free lease ACK/heartbeat accepts only LF bytes, retaining original status/128-byte limits. No per-chunk Unicode conversion and no relaxed static exclusion. Final real relay and browser regressions passed."
+        },
+        {
+          "name": "session-save-census.static.e2e.js",
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\52-session-save-static-final.log",
+          "sha256": "229A5D8E6B6601C2E5AA3C4ED33FD1DF4225D67F59ED5BE2BAD0DCAB91FC419D",
+          "fail": 0,
+          "exitCode": 0,
+          "explanation": "Registered the one admitted audit turn save with exclusive execution owner, writeSeq CAS and turnSeq semantics. Other saves retain their original contracts."
+        }
+      ]
+    },
+    "helper": {
+      "applied": true,
+      "sha256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E",
+      "finalRuns": [
+        {
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\38-helper-eof-slow-stdout-probe.log",
+          "sha256": "0DB9EE6FCD1EAE6D5AEF4EE717BB3E5B42F75E20958F4DB6FF739141A1653F09",
+          "assertions": 4,
+          "fail": 0,
+          "exitCode": 0,
+          "helperSHA256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E"
+        },
+        {
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\39-reading-drain-final.log",
+          "sha256": "DA96D4117A26897470C9A310829F8C59CF295FE81A50098CACD8AF3E5EE382D8",
+          "assertions": 15,
+          "fail": 0,
+          "exitCode": 0,
+          "helperSHA256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E"
+        },
+        {
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\40-todo-drain-final.log",
+          "sha256": "54BED5DF46F29BDE63B11C416CF5DB4F39B24FD57AFB702DD8129EAF33C0D559",
+          "assertions": 9,
+          "fail": 0,
+          "exitCode": 0,
+          "helperSHA256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E"
+        },
+        {
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\41-checkpoint-drain-final.log",
+          "sha256": "91E045A7C9AD664112AD47B8124A6BDE598038B5B1A6B2F9E0B5CE3375552507",
+          "assertions": 15,
+          "fail": 0,
+          "exitCode": 0,
+          "helperSHA256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E"
+        },
+        {
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\46-relay-lease-lf-final-first.log",
+          "sha256": "23B3BF4606EC7EE2EFB7AE416A9616C6E2F92ADABD09F3B241BD2568FB2905D7",
+          "assertions": 97,
+          "fail": 0,
+          "exitCode": 0,
+          "helperSHA256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E"
+        },
+        {
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\47-relay-lease-lf-final-second.log",
+          "sha256": "23B3BF4606EC7EE2EFB7AE416A9616C6E2F92ADABD09F3B241BD2568FB2905D7",
+          "assertions": 97,
+          "fail": 0,
+          "exitCode": 0,
+          "helperSHA256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E"
+        },
+        {
+          "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\48-restart-browser-lease-lf-final.log",
+          "sha256": "A6E82B7A739406A9CC32914BC51B4A25A664F2748FF61D369919A5D34E26A0AB",
+          "assertions": 28,
+          "fail": 0,
+          "exitCode": 0,
+          "helperSHA256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E"
+        }
+      ]
+    },
+    "egress": {
+      "sources": 272,
+      "candidates": 676,
+      "changedCandidates": 18,
+      "promotions": 0,
+      "check": {
+        "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\53-egress-eol-final.log",
+        "sha256": "FE55840447D2CB138619E1A4F85B7C906EFB368877E7745427DD1839967E9ACC"
+      },
+      "unit": {
+        "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\50-egress-unit-final.log",
+        "sha256": "FF3A2452F830EBE01CA91DFF09AD29B090B1B796202CFF63E6FE4692B88FB814",
+        "total": 15,
+        "pass": 15,
+        "fail": 0
+      }
+    },
+    "frozenSources": {
+      "dev-harness/acc-capability-gates.e2e.js": "422E993407CF28E9A331CBA98F37D848A4A9B21452560C03A6B70B4089083CE6",
+      "dev-harness/agent-mode-v2.e2e.js": "C9AFB2C53B9E301A46610A147138F84CED7DC6FD516302B81E1124AB22BC4481",
+      "dev-harness/checkpoint-mcpchild.e2e.js": "2F2DD95F12B2816E2A5FBA88BA333CAADCEE8AFD5DB51BAC0AA4D074B48410A8",
+      "dev-harness/cross-thread-history.e2e.js": "0B50912132311530E04FB5DDB1143514BB7423FC489235E450F3CC62EF68C297",
+      "dev-harness/durable-state-inventory.js": "7E91355FA9299A33CA28B21527C87709AC78611999DB6DEF00AA8EC9D821C7D2",
+      "dev-harness/fixture-home.static.e2e.js": "6FA29C0024C55F0B37662D69DB80447483B25064BC7E116042A6B2EA2B5CD547",
+      "dev-harness/lib/internal-mcp-fixture.js": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E",
+      "dev-harness/mcp-consumer-relay.e2e.js": "DFE3859B9399F7AB7016CEFE068653E50BD4654C15D66BBA083D4AE0143FBDD6",
+      "dev-harness/mcp-consumer-restart.e2e.js": "53A66EAD5F9AFD7397ABCBCBE2619576F9B085B1A23E919CE024449F8B95F44B",
+      "dev-harness/mcp-resource-config-mask.e2e.js": "81450F7F50DBFCA7F7E08734F27F4987F3E3F8D957E3FEAF66C19E29FA63F99A",
+      "dev-harness/memory-active-scope.e2e.js": "2A0E7B18B1925867DB5950FC89F1BACE1652BF489734C32B5B3A9CC11657C248",
+      "dev-harness/privacy-m1/egress/manifest.json": "CC5C924CB917FE4BAE056E0E28A3B14BA993EC5A22BE11CDD3DCAF0A31949CD7",
+      "dev-harness/privacy-managed-mcp.e2e.js": "E321937EAE103234943EA3A681EA9DD011441396A89854D4AB6C45F721AB8E97",
+      "dev-harness/process-safety.static.e2e.js": "E1A358E507E9EFE800825CC8A183A505549E84874FDAEC31E303071E979FC2FC",
+      "dev-harness/reading-continuation.e2e.js": "A338CAEC7B2294794CC4808249DF36981AE308CA8ECBC27685657A5C918E68AC",
+      "dev-harness/route-inventory.js": "0BE679E27C2596ED25437B7CC937AD37BC83FF96F003FBF583F1800FB1F0A10C",
+      "dev-harness/route-inventory.static.e2e.js": "CA1C2F80398EEB932AB7E3771DBC67E3428E898EC6FE6F4F769821AF61052C9E",
+      "dev-harness/server-ownership.e2e.js": "13CBFB49920BE800550A00B5B3EC9B09580E9C1C535BEF0DF83A5291A9C3A61B",
+      "dev-harness/session-save-census.static.e2e.js": "278450A3560610A2B93132E5A18B93D7CC72C4E0ABB04EAE756EBBF065778FCE",
+      "dev-harness/shell-mcp-guard.e2e.js": "91BEE372DC48A8D5DEF9D6D6C2C4B7DC021305EACF28E5F63C7DB9F93131307D",
+      "dev-harness/steward-tools.e2e.js": "2682C84A155C261E41591ABBAA10E93E0BFD35C3FA82D300BAF882A1D408A52E",
+      "dev-harness/todo-loopback.e2e.js": "69420068F329C0743B756C38964CF0C0CD1D87B2EB85C95E94C64EB28E93E060",
+      "dev-harness/tool-loading.e2e.js": "E96662F847EC53698CD2525D1C682C17D4DDA6B197B53675B624C8B3429FF84B",
+      "dev-harness/unit/mcp-consumer-scope.test.js": "9A1E3A297A9CE473D6E3AD95A7FF75459B6110C9BC220F6E659E6FD65C5366D4",
+      "dev-harness/unit/native-file-vision.test.js": "32C2D3BB0DC1220ECF8EF565ED442EACCA98F31EBA0EA1E123A8E7004E85DCA4",
+      "ruyi-workbench/app/public/index.html": "94672A4854362E70EB9486A9A13DBC2D7CB449A427D54866CA6EA5F2F38B510E",
+      "ruyi-workbench/app/public/js/mcp-consumers.js": "66A5C3AFE705D62963583383D48FD39BC16D16D0F7A418885FA1DE1D049A4F6A",
+      "ruyi-workbench/app/public/js/settings-operations.js": "3653A5DDEAA402DA0908DEEFB9F2CAE6579DFABFBC5070E889CB402EA7ACB999",
+      "ruyi-workbench/app/public/locales/en-US.json": "877596E63E643E745CE6510E17FF434E44E82C01DDF39C95040ED7414D83688D",
+      "ruyi-workbench/app/public/locales/zh-CN.json": "E1BE3A3CBAA8DC5FA5EC6B460E0FCB0FE332205BAA2DD6DADF3942A88169A4DE",
+      "ruyi-workbench/app/server.js": "C482905930C3B6725A6C56FA273F544AB8F6F0663BB0760E67651920D6AFD5A5",
+      "ruyi-workbench/app/src/01-config.js": "8632C9E95B92BE470C06FB8DA5F1B9D22C09C68D1394BB5E21B20E63B60A356B",
+      "ruyi-workbench/app/src/01b-route-auth.js": "E08A9E037254A7768D93B936C2870C56551D80263BE016F7868374D30B5721F7",
+      "ruyi-workbench/app/src/03-bridge-guard.js": "9C63BF63B9DBA5EAAE0F6D8B45A309853EEDB99C1BD3A4F4F69C51C2EBDC3636",
+      "ruyi-workbench/app/src/03a-privacy-gateway.js": "C59F9F996EB128ADFC44355BB52F454ADCF267366174541A5285292A3D3FD9CA",
+      "ruyi-workbench/app/src/11-native-tools.js": "26A27E741719CD840C250151AE27E1737C47E76273661DF4FCBB2EA59C45AEBC",
+      "ruyi-workbench/app/src/13-http-router.js": "D4E106855E880F4474D79BE10D1FB7D29C7F96F5E9AC559770348682E0AD5D86",
+      "ruyi-workbench/app/src/13ac-mcp-consumer.js": "0CB473A9239A5AE81F52279F2645E24151C024688D36D0A7E016F38E1EB4B2E1",
+      "ruyi-workbench/app/src/manifest.json": "0ECC8BE7E8AA5344F238A254628B14DA39752628238F444F60367FCA738615F2",
+      "ruyi-workbench/app/src/module-contracts.json": "E0BF33A87C458C68E6ABC3301CD1C5860EC51C5E5BA636DB6E8240DE6363A15C",
+      "ruyi-workbench/resources/scripts/install-workbench.ps1": "48CBB2CC1EB007E63359553FACCD5A43A40C1BCCBD35ED117E932A0E2FF1C2CA",
+      "ruyi-workbench/tools/build-overlay.js": "42C2C51D1248CCA1B591D8EE98FCC23E54C9E21E396A27DA2F8BC3E05564AE38"
+    },
+    "sourceDeltaOrder": "The complete unit pass precedes the one-line source-free LF lease check. The final generated product then passed relay 97 twice and real serve/browser 28, final syntax/build/egress and the four repaired static gates. No full eighty-static rerun is claimed. Final three-file CRLF-to-LF normalization matches existing committed blobs exactly; runtime hashes and final physical hashes are both preserved.",
+    "summary": "完整2559单测中2533过、26条件跳过、0失败；80静态首轮76过/4失败，四门修正后定向通过，未重跑完整80门。完整单测之后仅源自由LF心跳检查窄修，最终生成物另经relay97项两遍和真实启动/浏览器28项、语法/构建及清册复验。helper末帧/背压修复通过真实EOF慢读及原功能回归。",
+    "eolNormalization": {
+      "records": [
+        {
+          "file": "dev-harness/mcp-consumer-relay.e2e.js",
+          "runtimeSourceSHA256": "39E73295F6701021C81E8B6B8A2632FF1245384F8A7DFCCEAB988B4101FD0B1B",
+          "committedAndWorkingSourceSHA256": "DFE3859B9399F7AB7016CEFE068653E50BD4654C15D66BBA083D4AE0143FBDD6",
+          "proof": "CRLF to LF only; normalized bytes equal the already committed Git blob exactly."
+        },
+        {
+          "file": "dev-harness/mcp-consumer-restart.e2e.js",
+          "runtimeSourceSHA256": "DFD719DE851C8977D7617C0C2A13067997211300DF64B53A92F2B4EFC3EA9D7A",
+          "committedAndWorkingSourceSHA256": "53A66EAD5F9AFD7397ABCBCBE2619576F9B085B1A23E919CE024449F8B95F44B",
+          "proof": "CRLF to LF only; normalized bytes equal the already committed Git blob exactly."
+        },
+        {
+          "file": "ruyi-workbench/app/public/js/mcp-consumers.js",
+          "runtimeSourceSHA256": "BDB493E560E340EEDA6A3A88FBC683A90D993C05B82C8E934E07535240E397D8",
+          "committedAndWorkingSourceSHA256": "66A5C3AFE705D62963583383D48FD39BC16D16D0F7A418885FA1DE1D049A4F6A",
+          "proof": "CRLF to LF only; normalized bytes equal the already committed Git blob exactly."
+        }
+      ],
+      "syntax": {
+        "path": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-consumer\\54-eol-delta-syntax.log",
+        "sha256": "79C9F37655358803621B20D67BA6C7355DFD39E4E46D2FEB45DC3A9690076358"
+      },
+      "semantics": "Three newly added JavaScript files had CRLF working bytes while Git had already stored LF. Physical files were normalized to exactly those existing blobs; only the egress source fingerprint and evidence were refreshed. Runtime-source hashes are preserved in these records. No JavaScript token or behavior changed."
+    }
+  },
+  "notes": [
+    "Raw logs and staging drafts live outside the repository; final committed JSON is a repository evidence summary, not raw test output.",
+    "Existing old logs/first failures remain; no past result was rewritten.",
+    "Final gate records bind current source fingerprints and preserve the order of full unit, one-line LF control delta, final affected receiver tests and targeted static repairs."
+  ],
+  "helperFinalization": {
+    "status": "accepted drain-v2 actually applied and targeted revalidated under final hash",
+    "findings": [
+      "original helper exit/flush race",
+      "v1 output backpressure handling finding"
+    ],
+    "acceptedExternalAfter": "m2-8-helper-drain-review-v2/after.js",
+    "acceptedSHA256": "78458E0AB695E0ED8F09DCDABBDE558037C2353C7E0DD89B9087B6CCF0A8DD5E",
+    "target": "dev-harness/lib/internal-mcp-fixture.js",
+    "historicalRunIdentity": "Existing A658-era helper runs are historical and are not final v2 byte runs.",
+    "requiredFinalEvidence": [
+      "actual target helper SHA equals accepted external SHA",
+      "post-application affected targeted runs all exit0 under same helper SHA",
+      "root final unified unit/static gates and any explicitly recorded targeted repairs"
+    ]
+  },
+  "unitVisionFinal": {
+    "file": "checks/m2-consumer/42-native-vision-auth-final.log",
+    "sha256": "92E79F40857BC0027DB75643C066F2C003626507CE9AC6154AE705974652D92B",
+    "tests": 8,
+    "pass": 7,
+    "skip": 1,
+    "fail": 0,
+    "skipReason": "optional PDF dependencies unavailable",
+    "exitCode": 0
+  }
+}

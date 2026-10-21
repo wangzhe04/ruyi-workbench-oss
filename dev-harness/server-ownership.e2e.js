@@ -100,9 +100,19 @@ function pending(root) {
       ok(await exited(casing) === 1, 'Windows case aliases resolve to the same OS gate');
     }
 
-    const mcp = spawn(root, null, 'mcp');
+    // Independent initialization now requires an explicitly issued consumer grant.
+    // Keep this fixture's original product serve/ownership/recovery path intact.
+    const workspace = path.join(ROOT, 'consumer-workspace'); fs.mkdirSync(workspace);
+    const issued = await new Promise((resolve, reject) => {
+      const bytes = Buffer.from(JSON.stringify({ op: 'create', label: 'Ownership fixture', workspace, tools: ['file_read'], resources: ['capabilities'] }));
+      const req = http.request({ host: '127.0.0.1', port: rtA.port, path: '/api/mcp/consumers', method: 'POST', headers: { 'x-wcw-token': rtA.token, 'content-type': 'application/json', 'content-length': bytes.length } }, res => {
+        let text = ''; res.on('data', chunk => { text += chunk; }); res.on('end', () => { try { if (res.statusCode !== 200) throw Error(); resolve(JSON.parse(text)); } catch { reject(Error('Owned consumer setup failed')); } }); res.on('error', reject);
+      }); req.setTimeout(10000, () => req.destroy(Error('Owned setup deadline'))); req.on('error', reject); req.end(bytes);
+    });
+    const entry = Object.values(issued.configuration.mcpServers)[0];
+    const mcp = spawn(root, null, 'mcp', [], entry.env);
     mcp.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'ownership-test', version: '1' } } }) + '\n');
-    ok(await until(() => mcp.output.split(/\r?\n/).some(line => { try { const r = JSON.parse(line); return r.id === 1 && r.result?.serverInfo; } catch { return false; } })), 'legitimate MCP child can initialize beside the owning serve');
+    ok(await until(() => mcp.output.split(/\r?\n/).some(line => { try { const r = JSON.parse(line); return r.id === 1 && r.result?.serverInfo; } catch { return false; } })), 'authenticated independent MCP child can initialize beside the owning serve');
     await stop(mcp);
     ok(fs.readFileSync(pendingFile, 'utf8') === beforePending, 'MCP initialization does not perform serve recovery');
 

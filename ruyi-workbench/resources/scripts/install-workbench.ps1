@@ -94,6 +94,7 @@ if (-not (Test-Path $mcpConfigPath)) {
 $mcpConfig = Get-Content -Raw $mcpConfigPath | ConvertFrom-Json
 # 3.0: Ruyi's MCP server id is 'ruyi' (tools show up as mcp__ruyi__*); the pre-3.0 id 'win-claude-workbench' is removed first.
 $serverJson = $mcpConfig.mcpServers.'ruyi' | ConvertTo-Json -Depth 20 -Compress
+Write-Host "The ruyi entry is for Ruyi-launched CLI sessions only. For independent apps, generate a dedicated connection in Ruyi Settings > MCP."
 
 if ($ClaudePath) {
   Write-Host "Registering MCP server with Claude CLI..."

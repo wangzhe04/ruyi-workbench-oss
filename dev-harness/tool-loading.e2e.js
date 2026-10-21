@@ -2,6 +2,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // E2E: adaptive tool loading across OpenAI-compatible turns and Claude CLI's MCP child.
 // Verifies pre-routing, incremental schema injection, compact discovery, and tier-safe proxying.
 'use strict';
+const { spawnInternalMcpHost, spawnAuthenticatedMcp, spawnMcpWithOwnedHost } = require('./lib/internal-mcp-fixture');
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const fs = require('fs');
@@ -50,8 +51,9 @@ function killTree(child) {
   try { killOwnTree(child); } catch { try { child.kill('SIGKILL'); } catch { /* gone */ } }
 }
 
+let fixtureHost;
 function mcpSession(extraEnv) {
-  const child = cp.spawn(process.execPath, [SERVER, 'mcp'], {
+  const child = spawnAuthenticatedMcp(fixtureHost, {
     cwd: WB,
     env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME, ...extraEnv },
     windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
@@ -100,7 +102,7 @@ function mcpSession(extraEnv) {
       { name: 'file_read', args: { path: path.join(HOME, 'does-not-exist.txt') } },
     ];
     const fake = cp.spawn(process.execPath, [path.join(__dirname, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(fakePort), FAKE_TOOL_SEQUENCE: JSON.stringify(sequence), FAKE_CAPTURE_DIR: CAPTURE }, windowsHide: true });
-    const wb = cp.spawn(process.execPath, [SERVER, 'serve', '--port', String(wbPort)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+    const wb = fixtureHost = spawnInternalMcpHost({ port: wbPort, cwd: WB, env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
     children.push(fake, wb);
     let live = null; for (let i = 0; i < 50 && !live; i++) { await sleep(120); live = await health(wbPort); }
     ok(!!live, 'provider workbench starts');
@@ -126,7 +128,7 @@ function mcpSession(extraEnv) {
     const failureLogs = logFiles.flatMap(f => fs.readFileSync(path.join(HOME, 'logs', f), 'utf8').split(/\r?\n/).filter(Boolean).map(line => { try { return JSON.parse(line); } catch { return null; } })).filter(row => row && row.kind === 'runtime_failure_classified');
     ok(failureLogs.length > 0 && !JSON.stringify(failureLogs).includes('does-not-exist.txt'), '20-F1 persisted shadow log contains classification metadata but no raw error/path');
 
-    const compact = mcpSession({ WCW_TOOL_LOADING_MODE: 'auto', WCW_TOOL_PACKS: 'core', WCW_SESSION_ID: 'test' }); children.push(compact.child);
+    const compact = mcpSession({ WCW_TOOL_LOADING_MODE: 'auto', WCW_TOOL_PACKS: 'core' }); children.push(compact.child);
     await compact.call('initialize', { protocolVersion: '2024-11-05' });
     const list1 = await compact.call('tools/list');
     const listed1 = new Set((list1.result.tools || []).map(t => t.name));
@@ -151,7 +153,7 @@ function mcpSession(extraEnv) {
     const mismatchText = JSON.parse(mismatch.result.content[0].text);
     ok(mismatchText.ok === false && /tier mismatch/.test(mismatchText.error), 'Claude proxy rejects tier downgrade');
 
-    const routed = mcpSession({ WCW_TOOL_LOADING_MODE: 'auto', WCW_TOOL_PACKS: 'core,files_read', WCW_SESSION_ID: 'test' }); children.push(routed.child);
+    const routed = mcpSession({ WCW_TOOL_LOADING_MODE: 'auto', WCW_TOOL_PACKS: 'core,files_read' }); children.push(routed.child);
     await routed.call('initialize', { protocolVersion: '2024-11-05' });
     const list2 = await routed.call('tools/list');
     ok((list2.result.tools || []).some(t => t.name === 'file_read'), 'Claude pre-router exposes likely concrete tools for the turn');

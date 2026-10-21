@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(服务启动会导入真机 MCP 配置,见 lib 头注)
+const { spawnMcpWithOwnedHost, closeFixtureMcp } = require('./lib/internal-mcp-fixture');
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间)
 // 128e(48 号文 §1):工作台 MCP 服务的资源面不许把明文密钥交给模型。
 //
@@ -9,7 +10,7 @@ const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的�
 // (Claude 引擎会话;以及用户自己 Claude Code 里登记了工作台 MCP 的会话)都能用读资源的工具把它们读走。
 // 同一批值在状态接口上早在 107-S0／S0b 就掩码了,文件工具也把 config.json 列为敏感路径拒读 ——
 // 资源面是绕过这两道门的第三条路。(这里不写路由字面量:路由清册把测试文件里出现的路由串算作覆盖,本件并不打那条路由。)
-// 判据(真子进程 `server.js mcp`,合成配置,假密钥):
+// 判据(真实注册CLI owner→MCP子进程 + 隔离完整产品host,合成配置与假密钥):
 //   R1 列出的资源仍是那一条(不改接口形状);
 //   R2 读出来的内容里【一个明文密钥都没有】(三处埋的假密钥逐字搜);
 //   R3 读出来的是掩码形(••••后四位)且仍是合法 JSON(调用方拿到的是有用的配置视图,而不是一个空壳)。
@@ -37,7 +38,7 @@ fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
 }, null, 2));
 
 (async () => {
-  const child = cp.spawn(process.execPath, [SERVER, 'mcp'], {
+  const child = await spawnMcpWithOwnedHost({
     cwd: path.join(ROOT, 'ruyi-workbench', 'app'),
     env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME },
     windowsHide: true,
@@ -75,7 +76,7 @@ fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     ok(Boolean(p1) && String(p1.apiKey || '').startsWith('••••') && p1.hasKey === true,
       `R3 仍是合法 JSON,provider 密钥是掩码形并带 hasKey(实 ${p1 ? JSON.stringify(p1.apiKey) : '解析失败'})`);
   } finally {
-    killOwnTree(child);
+    await closeFixtureMcp(child);
     try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* 仍被占用 */ }
   }
   console.log(`MCP RESOURCE CONFIG MASK E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);

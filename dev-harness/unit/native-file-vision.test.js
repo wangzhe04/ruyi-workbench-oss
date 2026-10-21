@@ -15,7 +15,8 @@ process.env.RUYI_HOME = home;
 process.env.WIN_CLAUDE_WORKBENCH_HOME = home;
 if (process.env.RUYI_NATIVE_READ_TEST_PYTHON) process.env.RUYI_BUNDLED_PYTHON = process.env.RUYI_NATIVE_READ_TEST_PYTHON;
 const app = path.resolve(__dirname, '../../ruyi-workbench/app');
-const srv = require(path.join(app, 'server.js'));
+const internals = require('../lib/server-internals').loadServerInternals(['module', 'handleApi', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers']);
+const srv = internals.module.exports;
 const V = srv.dispatchTestHooks.VisualPipeline;
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 fs.writeFileSync(path.join(ws, 'pic.png'), png);
@@ -163,17 +164,44 @@ test('actual native image result encodes as Responses input_image and Anthropic 
 });
 
 test('native MCP returns real image content blocks, with base64 stripped from JSON text', async () => {
-  const client = new srv.McpStdioClient({ id: 'native', command: process.execPath, args: [path.join(app, 'server.js'), 'mcp'],
-    env: { RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home }, cwd: ws });
+  const host = require('node:http').createServer((req, res) => {
+    void internals.handleApi(req, res, new URL(req.url, 'http://local').pathname).catch(() => { if (!res.headersSent) res.writeHead(500); res.end('{}'); });
+  });
+  await new Promise((resolve, reject) => { host.once('error', reject); host.listen(0, '127.0.0.1', resolve); });
+  const prior = { host: internals.RUNTIME.host, port: internals.RUNTIME.port, token: internals.RUNTIME.token };
+  Object.assign(internals.RUNTIME, { host: '127.0.0.1', port: host.address().port, token: 'f'.repeat(32) });
+  let session, client, child, reg, settle;
+  const owner = { promise: new Promise(resolve => { settle = resolve; }), source: 'fixture-cli', driverRunId: 'unit-native-image', phase: 'starting', cancelRequested: false, cancel() { this.cancelRequested = true; } };
   try {
-    await client.start();
+    session = await srv.createSession({ title: 'Synthetic image CLI owner', cwd: ws });
+    client = new srv.McpStdioClient({ id: 'native', command: process.execPath, args: [path.resolve(__dirname, '../lib/internal-mcp-fixture.js'), '--cli'],
+    env: { RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, WCW_HOST: '127.0.0.1', WCW_PORT: String(internals.RUNTIME.port), WCW_TOKEN: internals.RUNTIME.token, WCW_SESSION_ID: session.id }, cwd: ws });
+    // start() synchronously spawns before its first await. Register this actual
+    // wrapper in the same stack, before the host can process initialize's HTTP
+    // verification. Neither the verifier nor McpStdioClient RPC path is replaced.
+    const started = client.start(); child = client.child;
+    assert.ok(child && child.pid);
+    reg = { child, pid: child.pid, kind: 'kimi-acp', state: 'running', exited: false, session };
+    internals.recordSessionExecutionOwner(session.id, owner); internals.registerSessionExecutionChild(session.id, reg, owner);
+    await started;
     const r = await client._rpc('tools/call', { name: 'file_read', arguments: { path: path.join(ws, 'pic.png') } }, 10000);
     assert.equal(r.isError, false);
     assert.equal(r.content[1].type, 'image');
     assert.equal(r.content[1].data, png.toString('base64'));
     assert.ok(!r.content[0].text.includes(png.toString('base64')));
     assert.match(r.content[0].text, /image attached in MCP content/);
-  } finally { client.kill(); }
+  } finally {
+    const closed = child && child.exitCode === null && child.signalCode === null ? new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(Error('Image CLI close deadline')), 5000); child.once('close', () => { clearTimeout(timer); resolve(); });
+    }) : Promise.resolve();
+    try { client?.kill(); await closed; }
+    finally {
+      if (session && reg && internals.activeChildren.get(session.id) === reg) internals.activeChildren.delete(session.id);
+      if (session && internals.turnSettlers.get(session.id) === owner) internals.turnSettlers.delete(session.id);
+      settle(); Object.assign(internals.RUNTIME, prior); host.closeAllConnections();
+      await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(Error('Image host close deadline')), 5000); host.close(error => { clearTimeout(timer); if (error) reject(error); else resolve(); }); });
+    }
+  }
 });
 
 test('main and subagent tool loops send pixels after tool replies; non-vision never sends base64 text', async () => {

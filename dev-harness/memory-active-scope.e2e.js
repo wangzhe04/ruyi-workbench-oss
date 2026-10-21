@@ -5,6 +5,7 @@ const { createRunner } = require('./lib/harness');
 const { loadServerInternals } = require('./lib/server-internals');
 const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-openai-provider');
 const cp = require('child_process');
+const { spawnMcpInApp } = require('./lib/internal-mcp-fixture');
 const { killOwnTree } = require('./lib/kill-own-tree');
 const { getFreePort } = require('./free-port');
 const t = createRunner('MEMORY ACTIVE SCOPE'), { ok } = t;
@@ -12,7 +13,7 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-memory-active-'));
 const home = path.join(root, 'home'), work = path.join(root, 'work'); fs.mkdirSync(home); fs.mkdirSync(work);
 process.env.RUYI_HOME = home; process.env.WIN_CLAUDE_WORKBENCH_HOME = home;
 const s = loadServerInternals(['saveMemory', 'createSession', 'saveSession', 'listWorkbenchMemories', 'readWorkbenchMemory',
-  'readMemoryItem', 'loadMemoryRegistry', 'projectKeyForCwd', 'proposeMemoryRelation', 'confirmMemoryRelation', 'deleteMemoryRelation', 'activeChildren', 'runSessionTurn', 'loadSession', 'startServer'], { withEval: true });
+  'readMemoryItem', 'loadMemoryRegistry', 'projectKeyForCwd', 'proposeMemoryRelation', 'confirmMemoryRelation', 'deleteMemoryRelation', 'activeChildren', 'runSessionTurn', 'loadSession', 'startServer', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'turnSettlers'], { withEval: true });
 const config = { defaultWorkspace: work, permissionMode: 'bypass', includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false,
   desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [], stewardEnabledV1: false, toolLoadingMode: 'full', subagentMaxPerTurn: 0 };
 let fake, mcp;
@@ -126,8 +127,7 @@ const ctx = session => ({ session, sessionId: session.id, turnSeq: session.turnS
     const httpRead = () => fetch(`http://127.0.0.1:${runtime.port}/api/tools/workbench_memory_read`, { method: 'POST',
       headers: { 'content-type': 'application/json', 'x-wcw-token': runtime.token }, body: JSON.stringify({ sessionId: bridge.id, turnSeq: 7, id: 'old' }) }).then(r=>r.json());
     ok((await httpRead()).result?.ok === true, 'HTTP read uses live selection over a disabled disk copy');
-    mcp = cp.spawn(process.execPath, [path.resolve(__dirname, '../ruyi-workbench/app/server.js'), 'mcp'], { windowsHide: true,
-      env: { ...process.env, WCW_SESSION_ID: bridge.id, WCW_PORT: String(runtime.port), WCW_HOST: '127.0.0.1', WCW_TOKEN: runtime.token } });
+    mcp = spawnMcpInApp(s, { session: bridge, env: process.env });
     mcp.stdin.on('error', () => {}); let buffer = ''; const pending = new Map();
     mcp.stdout.on('data', bytes => { buffer += bytes.toString(); let end;
       while ((end = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, end); buffer = buffer.slice(end + 1); let value; try { value = JSON.parse(line); } catch { continue; }
@@ -144,7 +144,8 @@ const ctx = session => ({ session, sessionId: session.id, turnSeq: session.turnS
     bridge.memories = [];
     ok(!(await mcpRead()).ok, 'MCP parent enforces a newly disabled live selection');
     bridge.memories = [{ id: 'old', scope: 'project' }]; s.activeChildren.delete(bridge.id);
-    ok(!(await mcpRead()).ok, 'MCP late call cannot read after parent turn stops');
+    const stoppedRead = await request('tools/call', { name: 'workbench_memory_read', arguments: { id: 'old' } });
+    ok(stoppedRead.error && /setup_required/.test(stoppedRead.error.message), 'MCP late call is refused by real host authentication after parent turn stops');
     console.log('ARTIFACTS ' + root);
   } catch (error) { t.fail(error.stack); }
   finally { if (mcp) killOwnTree(mcp); if (fake) await fake.close(); t.done({ exit: true }); }

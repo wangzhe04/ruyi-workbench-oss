@@ -25,6 +25,7 @@ const CENSUS = {
   '09-workflow.js': 11,          // runOpenAiTurn 自存(收尾走 02 saveTurnFinalSession);新增协调图执行前/信封后两处也是回合自存，均带 turnSaveOpts 的 executionOwner + dropIfTurnSuperseded，迟到回归证明不盖新回合
   '10-context-governance.js': 1, // maybeAutoCompact(回合自存,L1 / L2 / L2 失败保 L1 三个出口并成一处);两个手动压缩已改走 mutateSession
   // 13-http-router.js 0:Kimi 状态那个 GET 回写用量读数(2026-10 走查 W1 #4)已改走 mutateSession + keepUpdatedAt,见下面 ② 的 kimi/status 一行。
+  '13ac-mcp-consumer.js': 1, // withAuditWrite owns an admitted execution turn: keyed consumer audit admission, load/writeSeq CAS, live execution owner and turnSeq increment before conditional save; not background read-modify-write.
   '13b-api-domain-routes.js': 1, // 插话路由往活回合那份对象里追加(回合自存)
   '13d-core-domain-routes.js': 1,// 权限暂停计时器的纯重写
   '13k-steward-threads.js': 2,   // 建会话

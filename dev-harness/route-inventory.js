@@ -27,6 +27,7 @@
 // generatedAt:重生成时若除时间戳外内容未变,沿用提交件里的旧时间戳 —— 重跑生成器不产生纯时间戳噪声。
 'use strict';
 const fs = require('fs');
+const { functionBlock, bracedBlock } = require('./lib/source-slice');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -54,6 +55,7 @@ const ROUTER_FILES = [
   '13s-scheduler.js',
   '13w-external-bots.js',
   '13ab-privacy-api.js',
+  '13ac-mcp-consumer.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 
@@ -103,6 +105,7 @@ const DOMAIN_BY_FILE = {
   '13h-steward-runner.js': 'steward',
   '13r-event-stream.js': 'event-stream',
   '13s-scheduler.js': 'scheduler',
+  '13ac-mcp-consumer.js': 'mcp-consumer',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -192,10 +195,31 @@ function methodsFromText(text) {
   return [...wire].sort();
 }
 
+// Lexically recognizes literal rejection arrays in req/res/pathname handlers (the current owner has one handle).
+// This is not an arbitrary nested-function/control-flow analyzer. Exact auth remains ROUTE_AUTH-owned.
+function literalArrayPostRoutes(text) {
+  const routes = [];
+  for (const fn of text.matchAll(/(?:async\s+)?function\s+(\w+)\s*\(\s*req\s*,\s*res\s*,\s*pathname\s*\)/g)) {
+    const block = functionBlock(text.slice(fn.index), fn[1]);
+    const guard = block.match(/if\s*\(\s*!\s*\[((?:\s*'[^']+'\s*,?)+)\]\.includes\(pathname\)\s*\)\s*return false;/);
+    if (!guard) continue;
+    const method = block.match(/if\s*\(req\.method\s*!==\s*'POST'\s*(?:\|\|[^\n]*\)|\))\s*\{/);
+    if (!method || !/return true;\s*\}$/.test(bracedBlock(block, method[0].slice(0, -1)))) continue;
+    for (const item of guard[1].matchAll(/'([^']+)'/g)) {
+      if (!item[1].startsWith('/')) continue;
+      routes.push({ path: item[1], handler: fn[1], line: text.slice(0, fn.index + block.indexOf(guard[0])).split('\n').length, selfChecksToken: /tokenOk\(req\)/.test(block) }); // Handler-level lexical signal only; conditional admin checks are not consumer token authority.
+    }
+  }
+  return routes;
+}
+
 function scanRouterFile(fileName, srcDir = SRC) {
-  const text = fs.readFileSync(path.join(srcDir, fileName), 'utf8');
+  return scanRouterSource(fs.readFileSync(path.join(srcDir, fileName), 'utf8'), fileName);
+}
+
+function scanRouterSource(text, fileName = 'fixture.js') {
   const lines = text.split('\n');
-  const points = [];
+  const points = literalArrayPostRoutes(text).map(point => ({ ...point, kind: 'exact', file: fileName, methods: ['POST'], methodOverride: false }));
   const delegations = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -221,6 +245,7 @@ function scanRouterFile(fileName, srcDir = SRC) {
     } else if (prefix) {
       point = { kind: 'prefix', path: prefix[1], ...(suffix ? { suffix: suffix[1] } : {}) };
     } else if (exact) {
+      if (/^\s*(?:const|let|var)\s/.test(line)) continue; // Derived booleans are not additional route branches.
       point = { kind: 'exact', path: exact[1] };
     }
     if (!point) continue;
@@ -495,4 +520,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { computeInventory, canonical, renderMarkdown, withStableTimestamp, authFirstMatch, parseRouteAuth, JSON_PATH, MD_PATH };
+module.exports = { literalArrayPostRoutes, scanRouterSource, scanRouterFile, computeInventory, canonical, renderMarkdown, withStableTimestamp, authFirstMatch, parseRouteAuth, JSON_PATH, MD_PATH };

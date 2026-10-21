@@ -15,6 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const cp = require('child_process');
+const { functionBlock, bracedBlock } = require('./lib/source-slice');
 
 const HARNESS = __dirname;
 const ROOT = path.resolve(__dirname, '..');
@@ -147,8 +148,18 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // covers root *.js only: restoring all five reproduces 221; only v25-smoke.js:64
 // contributes a RUYI_HOME spawn (spread process.env), so the active scope is 220.
 // The archive remains outside this root scan; isolation predicates are unchanged.
-const RUYI_HOME_SPAWN_SITES = 220; // +1: credential-vault.e2e uses an isolated DPAPI worker. // +1: external-bot-discovery starts an isolated production service with its own fake official host. // +1: external-bot-setup starts an isolated production service. // +2: external-bots and external-bots-control each spawn their isolated production service. // +1: agent-coordination.e2e starts its workbench with an isolated fixture home. // +1: agent-parent-mailbox.e2e starts an isolated workbench. // 205 -> 207:2026-10 子代理思维链 + 时限:新增 subagent-thinking-continuity.e2e 与 agent-node-limits.e2e(各一处带 RUYI_HOME 起真服务的 spawn 点;browser 件走 lib/browser-fixture 不另计)。204 -> 205:2026-10 第二波安全走查:新增 security-gates-w2.e2e(带 RUYI_HOME 起真服务的 spawn 点)。203 -> 204:安全 B(表面加固)合并。202 -> 203:Anthropic 接入两件新 e2e。201 -> 202:2026-10 合入 fix/mem-scope。199 -> 201:2026-10 走查「记忆 B」:新增 memory-recall-injection.e2e 与 memory-subagent.e2e。198 -> 199:2026-10 子代理 Retry-After e2e。197 -> 198:2026-10 走查 W1 存储批:新增 store-walkthrough-w1.e2e(带 RUYI_HOME 起真服务的 spawn 点)。195 -> 197:2026-10 走查合并:新增 preflight-relative-write.e2e 与 file-text-encoding.e2e。194 -> 195:2026-10 走查合并:新增 settings-wave1.browser 与 provider-no-model-locale.e2e。192 -> 194:2026-10 新增 agent-wake.e2e 与 provider-compact-recall.e2e(各一个带 RUYI_HOME 起真服务的 spawn 点)。190 -> 192:2026-10 合并 master(PR #43):agent-workflow-claude-engine.e2e 新增 (D) 权限档、(R) 命令行阶梯两段各一个 spawn 点(master 上 182 -> 184)。189 -> 190:2026-10 61-C2 新增 session-scratchpad.e2e(带 RUYI_HOME 起真服务的 spawn 点)。188 -> 189:2026-10 61-C1 新增 playbook-skill-tools.e2e(带 RUYI_HOME 起真服务的 spawn 点)。187 -> 188:2026-10 61-C3 新增 memory-batch-proposal.e2e(与 61-C4 checkpoint-visibility.e2e 各 +1,合并后叠加)。186 -> 187:2026-10 新增 checkpoint-visibility.e2e(带 RUYI_HOME 起真服务的 spawn 点)。185 -> 186:2026-10 新增 harness-friction.e2e(带 RUYI_HOME 起真服务的 spawn 点)。182 -> 185:2026-10 新增 acc-capability-gates.e2e(带 RUYI_HOME 起真服务 ×2 与 MCP 子进程 ×1 的 spawn 点)。181 -> 182:2026-10 新增 tool-invoke-promote.e2e(带 RUYI_HOME 起真服务的 spawn 点)。180 -> 181:2026-10 新增 steward-viewing-gate.e2e(带 RUYI_HOME 起真服务的 spawn 点)。179 -> 180:59 号文 §6 新增 voice-learn.e2e(带 RUYI_HOME 起真服务的 spawn 点)。178 -> 179:59 号文新增 voice-lexicon.e2e(带 RUYI_HOME 起真服务的 spawn 点)。177 -> 178:新增 tool-audit-r2-meta.e2e(带 RUYI_HOME 起真服务的 spawn 点)。176 -> 177:新增 steward-continue-unfinished.e2e 的 spawn 点。173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
-const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
+// MCP8: direct220 ->214; ACC(-2), resource-mask(-1), steward-tools(-1), tool-loading(-2) moved to six explicitly scanned authenticated helper calls. No isolation surface was removed.
+const RUYI_HOME_SPAWN_SITES = 214; // +1: credential-vault.e2e uses an isolated DPAPI worker. // +1: external-bot-discovery starts an isolated production service with its own fake official host. // +1: external-bot-setup starts an isolated production service. // +2: external-bots and external-bots-control each spawn their isolated production service. // +1: agent-coordination.e2e starts its workbench with an isolated fixture home. // +1: agent-parent-mailbox.e2e starts an isolated workbench. // 205 -> 207:2026-10 子代理思维链 + 时限:新增 subagent-thinking-continuity.e2e 与 agent-node-limits.e2e(各一处带 RUYI_HOME 起真服务的 spawn 点;browser 件走 lib/browser-fixture 不另计)。204 -> 205:2026-10 第二波安全走查:新增 security-gates-w2.e2e(带 RUYI_HOME 起真服务的 spawn 点)。203 -> 204:安全 B(表面加固)合并。202 -> 203:Anthropic 接入两件新 e2e。201 -> 202:2026-10 合入 fix/mem-scope。199 -> 201:2026-10 走查「记忆 B」:新增 memory-recall-injection.e2e 与 memory-subagent.e2e。198 -> 199:2026-10 子代理 Retry-After e2e。197 -> 198:2026-10 走查 W1 存储批:新增 store-walkthrough-w1.e2e(带 RUYI_HOME 起真服务的 spawn 点)。195 -> 197:2026-10 走查合并:新增 preflight-relative-write.e2e 与 file-text-encoding.e2e。194 -> 195:2026-10 走查合并:新增 settings-wave1.browser 与 provider-no-model-locale.e2e。192 -> 194:2026-10 新增 agent-wake.e2e 与 provider-compact-recall.e2e(各一个带 RUYI_HOME 起真服务的 spawn 点)。190 -> 192:2026-10 合并 master(PR #43):agent-workflow-claude-engine.e2e 新增 (D) 权限档、(R) 命令行阶梯两段各一个 spawn 点(master 上 182 -> 184)。189 -> 190:2026-10 61-C2 新增 session-scratchpad.e2e(带 RUYI_HOME 起真服务的 spawn 点)。188 -> 189:2026-10 61-C1 新增 playbook-skill-tools.e2e(带 RUYI_HOME 起真服务的 spawn 点)。187 -> 188:2026-10 61-C3 新增 memory-batch-proposal.e2e(与 61-C4 checkpoint-visibility.e2e 各 +1,合并后叠加)。186 -> 187:2026-10 新增 checkpoint-visibility.e2e(带 RUYI_HOME 起真服务的 spawn 点)。185 -> 186:2026-10 新增 harness-friction.e2e(带 RUYI_HOME 起真服务的 spawn 点)。182 -> 185:2026-10 新增 acc-capability-gates.e2e(带 RUYI_HOME 起真服务 ×2 与 MCP 子进程 ×1 的 spawn 点)。181 -> 182:2026-10 新增 tool-invoke-promote.e2e(带 RUYI_HOME 起真服务的 spawn 点)。180 -> 181:2026-10 新增 steward-viewing-gate.e2e(带 RUYI_HOME 起真服务的 spawn 点)。179 -> 180:59 号文 §6 新增 voice-learn.e2e(带 RUYI_HOME 起真服务的 spawn 点)。178 -> 179:59 号文新增 voice-lexicon.e2e(带 RUYI_HOME 起真服务的 spawn 点)。177 -> 178:新增 tool-audit-r2-meta.e2e(带 RUYI_HOME 起真服务的 spawn 点)。176 -> 177:新增 steward-continue-unfinished.e2e 的 spawn 点。173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
+const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js', 'lib/internal-mcp-fixture.js'];
+const MCP_HOME_HELPER_SITES = 6;
+const MCP_HOME_HELPERS = ['spawnInternalMcpHost', 'spawnAuthenticatedMcp', 'spawnMcpWithOwnedHost'];
+function hasOwnedMcpImport(source, name) {
+  const owners = [];
+  for (const match of source.matchAll(/\{([^{}]+)\}\s*=\s*require\(['"]([^'"]+)['"]\)/g)) {
+    if (match[1].split(',').map(value => value.trim()).includes(name)) owners.push(match[2]);
+  }
+  return owners.length === 1 && owners[0] === './lib/internal-mcp-fixture' && !new RegExp('function\\s+' + name + '\\s*\\(').test(source);
+}
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
 const SPAWN_CALL = /\.(spawn|spawnSync|execFile|execFileSync|exec|fork)\s*\(/g;
@@ -193,6 +204,39 @@ function scanRuyiHomeSpawnSites() {
     }
   }
   return sites;
+}
+
+const helperSites = [];
+for (const file of fs.readdirSync(HARNESS).filter(file => file.endsWith('.js') && file !== path.basename(__filename))) {
+  const source = fs.readFileSync(path.join(HARNESS, file), 'utf8');
+  for (const match of source.matchAll(/\b(spawnInternalMcpHost|spawnAuthenticatedMcp|spawnMcpWithOwnedHost)\s*\(/g)) {
+    const args = argsTextAt(source, match.index, source.indexOf('(', match.index));
+    if (!/RUYI_HOME/.test(args)) continue;
+    helperSites.push({ file, imported: hasOwnedMcpImport(source, match[1]), spread: /\.\.\.process\.env/.test(args), isolatedParent: /require\(['"]\.\/lib\/self-isolate-home(?:\.js)?['"]\)/.test(source) });
+  }
+}
+ok(helperSites.length === MCP_HOME_HELPER_SITES, 'MCP helper isolation sites: ' + helperSites.length + ' == ' + MCP_HOME_HELPER_SITES);
+ok(helperSites.every(site => site.imported && site.spread && site.isolatedParent), 'MCP helper calls retain real imported owner, process.env and isolated parent home');
+for (const [label, source, expected] of [
+  ['real helper import', "const { spawnInternalMcpHost } = require('./lib/internal-mcp-fixture');", true],
+  ['same name without import', 'function spawnInternalMcpHost() {}', false],
+  ['mixed foreign binding', "const { spawnInternalMcpHost } = require('./lib/internal-mcp-fixture'); const { spawnInternalMcpHost } = require('./other');", false],
+]) ok(hasOwnedMcpImport(source, 'spawnInternalMcpHost') === expected, 'MCP helper authority: ' + label);
+const mcpHelperSource = fs.readFileSync(path.join(HARNESS, 'lib/internal-mcp-fixture.js'), 'utf8');
+function mcpHelperPreservesEnv(source) {
+  const host = functionBlock(source, 'spawnInternalMcpHost');
+  const proxy = functionBlock(source, 'spawnAuthenticatedMcp');
+  const main = functionBlock(source, 'hostMain');
+  const cli = bracedBlock(source, "if (role === '--cli')");
+  return /\.\.\.options,/.test(host) && /\.\.\.options,/.test(proxy)
+    && /env: process\.env/.test(cli) && /env: \{ \.\.\.process\.env, \.\.\.message\.env,/.test(main);
+}
+ok(mcpHelperPreservesEnv(mcpHelperSource), 'MCP helper preserves supplied env and inherited isolated home in actual child spawns');
+for (const name of ['spawnInternalMcpHost', 'spawnAuthenticatedMcp', 'hostMain']) {
+  const owned = functionBlock(mcpHelperSource, name);
+  const changed = name === 'hostMain' ? owned.replace('...process.env, ...message.env,', '...message.env,') : owned.replace('...options,', '');
+  const negative = mcpHelperSource.replace(owned, changed) + "\nfunction unrelated() { const x = { ...options, env: { ...process.env, ...message.env, } }; }";
+  ok(owned.length > 0 && changed !== owned && !mcpHelperPreservesEnv(negative), 'MCP helper local env removal rejects despite unrelated text: ' + name);
 }
 
 const sites = scanRuyiHomeSpawnSites();

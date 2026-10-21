@@ -7,11 +7,11 @@ const { createRunner } = require('./lib/harness');
 const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-openai-provider');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-managed-mcp-'));
 Object.assign(process.env, require('./lib/release-checks').releaseEnvironment(path.join(root, 'home'), path.join(root, 'data')));
-const app = require('./lib/server-internals').loadServerInternals(['PrivacyCore', 'PrivacyGateway', 'runSessionTurn', 'runSubAgentCore', 'createSession', 'readConfig', 'mutateConfig', 'ManagedMcp', 'killAllMcpClients', 'getBridgedClient'], { withEval: true });
+const app = require('./lib/server-internals').loadServerInternals(['PrivacyCore', 'PrivacyGateway', 'runSessionTurn', 'runSubAgentCore', 'createSession', 'readConfig', 'mutateConfig', 'ManagedMcp', 'killAllMcpClients', 'getBridgedClient', 'handleApi', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers'], { withEval: true });
 const vault = require('./lib/privacy-test-fixture').fixture().vault;
 app.PrivacyCore.configHooks.sealLocal = vault.sealLocal; app.PrivacyCore.configHooks.openLocal = vault.openLocal;
 const t = createRunner('PRIVACY MANAGED MCP');
-let model, server, step, eventStream, held, heldSubscription;
+let model, server, step, eventStream, held, heldSubscription, cliHost;
 const capture = path.join(root, 'stdio-rpc.ndjson');
 const received = () => calls.concat(fs.existsSync(capture) ? fs.readFileSync(capture, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse) : []);
 const calls = [], secret = 'managed-private@example.test', personal = 'managed-person@example.test';
@@ -219,10 +219,30 @@ function rpc(res, payload) { if (res.sseResponse) return res.sseResponse.write('
     const searched = await app.__eval('toolCall')('tool_search', { query: 'mcp_resource' }, { config });
     t.ok(compact.groups?.integrations?.includes('mcp_resource') && searched.matches?.some(tool => tool.name === 'mcp_resource'), 'native auto discovery lists and searches the usable managed resource tool');
   }));
+  // MCP8 authenticates this old global bridge through a live host-owned CLI.
+  // A real synthetic wrapper owns the actual mcp grandchild and inherits WCW_*.
+  // No verification hook is replaced or disabled in this fixture.
+  cliHost = http.createServer((req, res) => {
+    void app.handleApi(req, res, new URL(req.url, 'http://local').pathname).catch(() => { if (!res.headersSent) res.writeHead(500); res.end('{}'); });
+  });
+  await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('CLI host listen timeout')), 5000); cliHost.once('error', error => { clearTimeout(timer); reject(error); }); cliHost.listen(0, '127.0.0.1', () => { clearTimeout(timer); resolve(); }); });
+  const cliToken = 'd'.repeat(32), cliPort = cliHost.address().port;
+  app.__eval('RUNTIME.token=' + JSON.stringify(cliToken) + ';RUNTIME.port=' + cliPort + ';RUNTIME.host="127.0.0.1";');
+  const wrapper = path.join(root, 'owned-cli-wrapper.cjs');
+  fs.writeFileSync(wrapper, `const cp=require('node:child_process');
+    const child=cp.spawn(process.execPath,[process.env.WCW_FIXTURE_SERVER_JS,'mcp'],{env:process.env,windowsHide:true,stdio:['pipe','pipe','pipe']});
+    child.stdin.on('error',()=>{});process.stdin.pipe(child.stdin);child.stdout.pipe(process.stdout);child.stderr.pipe(process.stderr);
+    child.on('error',()=>{process.exitCode=1;});child.on('exit',code=>{process.exitCode=code||0;process.stdin.pause();});`);
   for (const loading of ['full', 'auto']) {
-    const child = cp.spawn(process.execPath, [path.resolve(__dirname, '../ruyi-workbench/app/server.js'), 'mcp'], {
-      env: { ...process.env, WCW_TOOL_LOADING_MODE: loading }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+    const cliSession = await app.createSession({ title: 'Synthetic CLI offer owner ' + loading, cwd: root });
+    const child = cp.spawn(process.execPath, [wrapper], {
+      env: { ...process.env, WCW_TOOL_LOADING_MODE: loading, WCW_FIXTURE_SERVER_JS: path.resolve(__dirname, '../ruyi-workbench/app/server.js'), WCW_SESSION_ID: cliSession.id, WCW_HOST: '127.0.0.1', WCW_PORT: String(cliPort), WCW_TOKEN: cliToken }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
+    let settle; const owner = { promise: new Promise(resolve => { settle = resolve; }), source: 'fixture-cli', driverRunId: 'managed-cli-' + loading, phase: 'starting', cancelRequested: false, cancel() { this.cancelRequested = true; } };
+    app.recordSessionExecutionOwner(cliSession.id, owner);
+    const reg = { child, pid: child.pid, kind: 'kimi-acp', state: 'running', exited: false, session: cliSession };
+    app.registerSessionExecutionChild(cliSession.id, reg, owner);
+    child.stdin.on('error', () => {});
     let buffer = '', seq = 0; const pending = new Map();
     child.stdout.on('data', chunk => { buffer += chunk; let at; while ((at = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, at); buffer = buffer.slice(at + 1); let message; try { message = JSON.parse(line); } catch { continue; } pending.get(message.id)?.(message); } });
     child.stderr.resume();
@@ -240,7 +260,13 @@ function rpc(res, payload) { if (res.sseResponse) return res.sseResponse.write('
         const result = JSON.parse(reply.result.content[0].text);
         t.ok(result.ok === false && result.code === 'privacy.mcp_native_turn_required' && result.operationMayHaveExecuted === false, loading + ': CLI guessed resource ' + (proxy ? 'proxy' : 'direct') + ' gets typed pre-dispatch refusal');
       }
+      app.activeChildren.delete(cliSession.id);
+      const unauthenticated = await call('tools/list', {});
+      t.ok(Boolean(unauthenticated.error), loading + ': unchanged inherited token/session environment cannot authorize RPC after real host CLI ownership is removed');
     } finally {
+      if (app.activeChildren.get(cliSession.id) === reg) app.activeChildren.delete(cliSession.id);
+      if (app.turnSettlers.get(cliSession.id) === owner) app.turnSettlers.delete(cliSession.id);
+      settle();
       killOwnTree(child);
       if (child.exitCode === null && child.signalCode === null) await new Promise(resolve => { const timer = setTimeout(resolve, 3000); child.once('exit', () => { clearTimeout(timer); resolve(); }); });
     }
@@ -248,5 +274,6 @@ function rpc(res, payload) { if (res.sseResponse) return res.sseResponse.write('
 })().catch(error => { console.error(error.stack); t.fail('uncaught managed MCP fixture error'); }).finally(async () => {
   held?.done?.(); heldSubscription?.done?.(); await resetClients(false); if (model) await model.close();
   if (server) await new Promise(resolve => server.close(resolve));
+  if (cliHost) { cliHost.closeAllConnections(); await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('CLI host close timeout')), 5000); cliHost.close(error => { clearTimeout(timer); if (error) reject(error); else resolve(); }); }); }
   fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); t.done();
 });

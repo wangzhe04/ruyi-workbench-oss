@@ -4,6 +4,7 @@ require('./lib/self-isolate-home.js');
 const fs = require('fs'), os = require('os'), path = require('path'), cp = require('child_process');
 const { createRunner } = require('./lib/harness');
 const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-openai-provider');
+const { spawnMcpWithOwnedHost, closeFixtureMcp } = require('./lib/internal-mcp-fixture');
 const { killOwnTree } = require('./lib/kill-own-tree');
 const t = createRunner('CROSS THREAD HISTORY'), { ok } = t;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-cross-history-'));
@@ -21,7 +22,7 @@ let config;
 const writeConfig = patch => { config = { ...configBase, ...config, ...patch }; fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify(config)); };
 const call = (name, args, session) => srv.toolCall(name, args, { session });
 async function mcp(sessionId) {
-  const child = cp.spawn(process.execPath, [path.resolve(__dirname, '../ruyi-workbench/app/server.js'), 'mcp'], {
+  const child = await spawnMcpWithOwnedHost({
     env: { ...process.env, WCW_SESSION_ID: sessionId }, windowsHide: true });
   const pending = new Map(); let buffer = '';
   child.stdin.on('error', () => {});
@@ -45,7 +46,7 @@ async function mcp(sessionId) {
     const response = await request(3, 'tools/call', { name: 'thread_read', arguments: { sessionId: historyId, maxChars: 1000 } });
     const read = JSON.parse(response.result.content.find(part => part.type === 'text').text);
     ok(read.ok && read.rows.length && read.hasMore, 'MCP reads using WCW_SESSION_ID without steward enabled');
-  } finally { killOwnTree(child); for (const slot of pending.values()) clearTimeout(slot.timer); }
+  } finally { await closeFixtureMcp(child); for (const slot of pending.values()) clearTimeout(slot.timer); }
 }
 (async () => {
 try {

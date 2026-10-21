@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 88,
-    "providedSymbols": 3889,
-    "requiredSymbols": 3515,
-    "edges": 631,
+    "modules": 89,
+    "providedSymbols": 3895,
+    "requiredSymbols": 3553,
+    "edges": 643,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2244,6 +2244,7 @@
         "_defaultBrowserExecutable",
         "_gitCliProbe",
         "_homeRealCache",
+        "assertFileAccessCeiling",
         "auditBridgedWriteCoverage",
         "bridgedOfficeScriptGate",
         "bridgedReadPathGate",
@@ -2256,6 +2257,8 @@
         "classifyCodeEditorExecutable",
         "cleanupExternalDiffCache",
         "codeEditorLabel",
+        "consumerCeilingRoots",
+        "consumerFileCeiling",
         "cwdWarning",
         "defaultBrowserExecutable",
         "deviceNamespaceIsLocalVolume",
@@ -2320,6 +2323,7 @@
         "wideWriteModeEnabled",
         "windowsFileAssociationExecutable",
         "windowsRegistryString",
+        "withFileAccessCeiling",
         "workspaceWriteRoots"
       ],
       "requires": [
@@ -25259,8 +25263,287 @@
       ]
     },
     {
-      "file": "14-main.js",
+      "file": "13ac-mcp-consumer.js",
       "order": 87,
+      "layer": "unclassified",
+      "note": "Authenticated independent stdio consumer relay, bounded host-owned scopes and grants",
+      "provides": [
+        "McpConsumers",
+        "priorConsumerApi"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "commandForSelfMcp",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadGeneration",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "requestIsLoopback",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "RUNTIME",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "createSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDiskWriteSeqOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "privacyInspectLocalPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "withFileAccessCeiling",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "recordSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "truncateToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "14-main.js",
+      "order": 88,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -33686,6 +33969,128 @@
         "stewardMemoryWriteEpoch",
         "stewardPanelGate",
         "stewardReadMemoryStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "SessionExecutionHooks",
+        "VERSION",
+        "crypto",
+        "fsp",
+        "json",
+        "makeId",
+        "path",
+        "paths",
+        "runKeyedChain"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "01-config.js",
+      "symbols": [
+        "DurableJsonStore",
+        "RUNTIME",
+        "atomicWriteJson",
+        "commandForSelfMcp",
+        "configReadGeneration",
+        "readConfig",
+        "requestIsLoopback",
+        "safeSessionId",
+        "send",
+        "sessionWriteChains",
+        "tokenOk"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "01h-privacy-core.js",
+      "symbols": [
+        "PrivacyCore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "createSession",
+        "loadSession",
+        "saveSession",
+        "sessionDiskWriteSeqOf"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "03-bridge-guard.js",
+      "symbols": [
+        "privacyInspectLocalPath",
+        "withFileAccessCeiling"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "activeChildren",
+        "recordSessionExecutionOwner",
+        "turnSettlers"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "04-visual-pipeline.js",
+      "symbols": [
+        "VisualPipeline"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "nativeToolDisabledByPolicy",
+        "nativeToolGate",
+        "nativeToolTier"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "10-context-governance.js",
+      "symbols": [
+        "truncateToolResult"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ac-mcp-consumer.js",
+      "to": "13f-native-tool-schemas.js",
+      "symbols": [
+        "MCP_TOOLS"
       ],
       "direction": "backward"
     },

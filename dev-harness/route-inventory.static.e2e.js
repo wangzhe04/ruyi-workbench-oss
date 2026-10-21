@@ -11,11 +11,24 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { computeInventory, canonical, renderMarkdown, withStableTimestamp, authFirstMatch, JSON_PATH, MD_PATH } = require('./route-inventory.js');
+const { scanRouterSource, computeInventory, canonical, renderMarkdown, withStableTimestamp, authFirstMatch, JSON_PATH, MD_PATH } = require('./route-inventory.js');
 
 const ROOT = path.resolve(__dirname, '..');
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
+
+const arrayHandler = "async function handle(req, res, pathname) {\n  if (!['/api/one', '/api/two', '/api/three'].includes(pathname)) return false;\n  if (req.method !== 'POST' || !allowed(req)) { minimal(); return true; }\n  return true;\n}";
+for (const [label, source, expected] of [
+  ['literal array POST handler', arrayHandler, ['/api/one', '/api/two', '/api/three']],
+  ['conditional AND does not reject every non-POST', arrayHandler.replace("|| !allowed(req)", "&& !allowed(req)"), []],
+  ['non-POST guard', arrayHandler.replace("!== 'POST'", "!== 'GET'"), []],
+  ['unrelated array receiver', arrayHandler.replace('.includes(pathname)', '.includes(otherPath)'), []],
+  ['pathname not a handler argument', arrayHandler.replace('(req, res, pathname)', '(req, res, otherPath)'), []],
+  ['single equality branch', "async function handle(req, res, pathname) {\n if (req.method === 'POST' && pathname === '/api/one') { return true; }\n}", ['/api/one']],
+]) {
+  const points = scanRouterSource(source).points;
+  ok(JSON.stringify(points.map(point => point.path)) === JSON.stringify(expected) && points.every(point => JSON.stringify(point.methods) === '["POST"]'), 'route scanner: ' + label);
+}
 
 const inv = computeInventory();
 ok(inv.summary.decisionPoints > 0 && inv.summary.routeAuthEntries > 0,

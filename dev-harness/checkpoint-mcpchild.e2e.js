@@ -7,9 +7,10 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //    with env carrying WCW_SESSION_ID (+ loopback port/token, as generateSessionMcpConfig injects) →
 //    JSON-RPC file_write. Assert the serve-side GET /api/checkpoints now shows that path's entry (proving
 //    the child wrote the journal into the shared checkpoints dir).
-//  Part 2: a BARE mcp child (NO WCW_SESSION_ID) file_write still succeeds, but adds NO new journal entry
-//    (no session context → journaling gracefully no-ops; the tool runs regardless).
+//  Part 2: a BARE unauthenticated child is refused before file IO and adds no journal entry.
 // 手法 copied from todo-loopback (mcp child driver) + search-robust (token scrape).
+const { spawnInternalMcpHost, spawnAuthenticatedMcp } = require('./lib/internal-mcp-fixture');
+let fixtureHost;
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
@@ -32,7 +33,7 @@ function postJson(port, p, payload) {
 }
 // Drive a `node app/server.js mcp` child over stdio JSON-RPC. `env` is merged over the process env.
 function mcpChild(env) {
-  const child = cp.spawn(process.execPath, [SERVER, 'mcp'], { env: { ...process.env, ...env }, windowsHide: true });
+  const child = env.WCW_SESSION_ID ? spawnAuthenticatedMcp(fixtureHost, { env: { ...process.env, ...env } }) : cp.spawn(process.execPath, [SERVER, 'mcp'], { env: { ...process.env, ...env }, windowsHide: true });
   child.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[mcp!] ' + l.trim())));
   const pending = new Map(); let buf = '', idc = 0;
   child.stdout.on('data', d => { buf += d; let nl; while ((nl = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, nl); buf = buf.slice(nl + 1); if (!line.trim()) continue; try { const m = JSON.parse(line); if (m.id !== undefined && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch { /* ignore */ } } });
@@ -47,7 +48,7 @@ function parseCall(call) { const t = (call.result && call.result.content && call
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 6, version: '1.0.0', permissionMode: 'bypass' }, null, 2));
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+  const wb = fixtureHost = spawnInternalMcpHost({ port: WB_PORT, cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME } });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   const kids = [wb];
   try {
@@ -83,20 +84,20 @@ function parseCall(call) { const t = (call.result && call.result.content && call
     ok(entry && entry.turnSeq === baseline, 'serve: entry turnSeq === the session baseline the child read (got ' + (entry && entry.turnSeq) + ' vs ' + baseline + ')');
     const entryCountAfter1 = cp1.entries.length;
 
-    // ---- Part 2: BARE MCP child (no WCW_SESSION_ID) → file_write succeeds but adds NO journal entry ----
+    // ---- Part 2: BARE unauthenticated MCP child → typed auth refusal and no side effect ----
     const bareTarget = path.join(HOME, 'bare-made.txt');
     const bare = mcpChild({ WIN_CLAUDE_WORKBENCH_HOME: HOME, WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '' });
     kids.push(bare.child);
     await bare.rpc('initialize', { protocolVersion: '2024-11-05' });
     const call2 = await bare.rpc('tools/call', { name: 'file_write', arguments: { path: bareTarget, content: 'bare child write' } });
     const parsed2 = parseCall(call2);
-    ok(call2.result && call2.result.isError === false && parsed2.ok === true, 'bare child: file_write still succeeds (journal is a safety net, not a gate)');
-    ok(fs.existsSync(bareTarget), 'bare child: file actually written');
+    ok(call2.error && /setup_required/.test(call2.error.message), 'bare child: file_write requires authenticated setup');
+    ok(!fs.existsSync(bareTarget), 'bare child: authentication refusal performs zero file writes');
     kill(bare.child);
 
     // The bare child had no session context → nothing new should be journaled for our session.
     const cp2 = await getJson(WB_PORT, '/api/checkpoints?sessionId=' + sid, { 'x-wcw-token': token });
-    ok(cp2.entries.length === entryCountAfter1, 'serve: bare-child write added NO new journal entry (graceful skip) (' + cp2.entries.length + ' vs ' + entryCountAfter1 + ')');
+    ok(cp2.entries.length === entryCountAfter1, 'serve: authentication refusal added NO new journal entry (' + cp2.entries.length + ' vs ' + entryCountAfter1 + ')');
     ok(!cp2.entries.some(e => e.path === bareTarget), 'serve: no journal entry for the bare-child path');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {

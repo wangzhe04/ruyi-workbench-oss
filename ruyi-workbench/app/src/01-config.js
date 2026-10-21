@@ -3759,6 +3759,9 @@ async function generateMcpConfig(mode) {
         env: {
           // MCP 子进程的数据根 = 父进程已解析的 dataRoot(3.0 起只写 RUYI_HOME;旧变量名 WIN_CLAUDE_WORKBENCH_HOME 只读兼容)。
           RUYI_HOME: paths.data,
+          // Intent marker only, not authentication. Kimi inherits actual run
+          // credentials; the host verifies the live CLI owner on every RPC.
+          RUYI_MCP_INTERNAL_ONLY: '1',
         },
       },
     },
@@ -4059,6 +4062,15 @@ function authorizeRoute(req, method, pathname) {
     if (r.auth === 'external-callback') {
       return m === 'POST' && !r.prefix && (pathname === '/api/external-bots/callback/qq' || pathname === '/api/external-bots/callback/feishu')
         ? null : 'route not authorized';
+    }
+    // Consumer transport precheck grants no management authority. The exact
+    // owner authenticates the token hash before reading its bounded body.
+    if (r.auth === 'mcp-consumer') {
+      return m === 'POST' && !r.prefix && pathname === '/api/mcp/consumer' && !remote && !browser
+        && typeof req.headers['x-ruyi-mcp-consumer'] === 'string'
+        && /^[a-f0-9]{64}$/.test(req.headers['x-ruyi-mcp-consumer'])
+        && (!req.headers['content-length'] || /^\d{1,7}$/.test(req.headers['content-length']) && Number(req.headers['content-length']) <= 1048576)
+        ? null : 'consumer request not authorized';
     }
     if (remote && r.auth !== 'body-token') {
       if (pathname === '/api/bootstrap') return 'remote client not allowed';

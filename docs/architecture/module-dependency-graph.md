@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 88 | 3889 | 3515 | 631 | 67 | 0 | 1 |
+| 89 | 3895 | 3553 | 643 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -35,7 +35,7 @@
 | 17 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 18 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
 | 19 | `02-session-store.js` | foundation | 339 | 76 | 17 |
-| 20 | `03-bridge-guard.js` | foundation | 118 | 28 | 7 |
+| 20 | `03-bridge-guard.js` | foundation | 122 | 28 | 7 |
 | 21 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 22 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
 | 23 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
@@ -102,7 +102,8 @@
 | 84 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
 | 85 | `13ab-privacy-api.js` | unclassified | 2 | 36 | 16 |
 | 86 | `13w-external-bots.js` | transport | 69 | 24 | 9 |
-| 87 | `14-main.js` | entrypoint | 1 | 591 | 49 |
+| 87 | `13ac-mcp-consumer.js` | unclassified | 2 | 38 | 12 |
+| 88 | `14-main.js` | entrypoint | 1 | 591 | 49 |
 
 ## 模块边
 
@@ -462,6 +463,18 @@
 | `13ab-privacy-api.js` | `07-autonomy.js` | backward | `nativeToolSchema` |
 | `13ab-privacy-api.js` | `12-tool-dispatch.js` | backward | `planPrivacyToolDisclosure` |
 | `13ab-privacy-api.js` | `13j-steward-tool-base.js` | backward | `STEWARD_MEMORY_SCHEMA`, `stewardAppendDecision`, `stewardMemoryChain`, `stewardMemoryWriteEpoch`, `stewardPanelGate`, `stewardReadMemoryStore` |
+| `13ac-mcp-consumer.js` | `00-boot.js` | backward | `SessionExecutionHooks`, `VERSION`, `crypto`, `fsp`, `json`, `makeId`, `path`, `paths`, `runKeyedChain` |
+| `13ac-mcp-consumer.js` | `01-config.js` | backward | `DurableJsonStore`, `RUNTIME`, `atomicWriteJson`, `commandForSelfMcp`, `configReadGeneration`, `readConfig`, `requestIsLoopback`, `safeSessionId`, `send`, `sessionWriteChains`, `tokenOk` |
+| `13ac-mcp-consumer.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
+| `13ac-mcp-consumer.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
+| `13ac-mcp-consumer.js` | `02-session-store.js` | backward | `createSession`, `loadSession`, `saveSession`, `sessionDiskWriteSeqOf` |
+| `13ac-mcp-consumer.js` | `03-bridge-guard.js` | backward | `privacyInspectLocalPath`, `withFileAccessCeiling` |
+| `13ac-mcp-consumer.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
+| `13ac-mcp-consumer.js` | `04-permission-runtime.js` | backward | `activeChildren`, `recordSessionExecutionOwner`, `turnSettlers` |
+| `13ac-mcp-consumer.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
+| `13ac-mcp-consumer.js` | `07-autonomy.js` | backward | `nativeToolDisabledByPolicy`, `nativeToolGate`, `nativeToolTier` |
+| `13ac-mcp-consumer.js` | `10-context-governance.js` | backward | `truncateToolResult` |
+| `13ac-mcp-consumer.js` | `13f-native-tool-schemas.js` | backward | `MCP_TOOLS` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRevertLogRecord`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |

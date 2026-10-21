@@ -34,6 +34,7 @@ process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR = '1'; // 2026-10:本机假 provider 
 //  (O8)W7 清单每行带最近在那儿做过的线程与默认标,尾巴给出选目录顺序。
 //
 // 端口全部 getFreePort() 动态取(run-all 端口审计口径)。判定行:`STEWARD TOOLS E2E: ALL PASS`。
+const { spawnInternalMcpHost, spawnAuthenticatedMcp, spawnMcpWithOwnedHost, closeFixtureMcp } = require('./lib/internal-mcp-fixture');
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
@@ -577,16 +578,16 @@ try {
   {
     const mcpToolList = text => text.split(/\r?\n/).map(line => { try { return JSON.parse(line); } catch { return null; } })
       .find(row => row && row.id === 2 && Array.isArray(row.result && row.result.tools))?.result.tools;
-    const mcpOut = await new Promise(resolve => {
-      const child = cp.spawn(process.execPath, [SERVER, 'mcp'], { cwd: path.join(WB, 'app'), env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+    const child = await spawnMcpWithOwnedHost({ cwd: path.join(WB, 'app'), env: { ...process.env, RUYI_HOME: HOME, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+    const mcpOut = await new Promise((resolve, reject) => {
       let out = '';
       // 128c:修前判「输出里出现 "tools"」—— initialize 的回包 capabilities 里就有 "tools",于是 K3 在 tools/list
       // 发出去之前就算过了、子进程被杀,800 ms 那一发再往死进程的 stdin 里写。killOwnTree 同步取进程表会占住
       // 事件循环几百毫秒,那一写落在子进程退出事件被处理之前,变成异步 EPIPE 'error' 事件,没人接就把整件带崩。
       // 现在等的是 tools/list 自己的回包(id 2),定时器在收尾时一并清掉,stdin 的错误有人接。
       child.stdin.on('error', () => { /* 子进程已被收尸,迟到的写入无所谓 */ });
-      let listTimer = null;
-      const finish = () => { clearTimeout(timer); clearTimeout(listTimer); kill(child); resolve(out); };
+      let listTimer = null, finished = false;
+      const finish = () => { if (finished) return; finished = true; clearTimeout(timer); clearTimeout(listTimer); void closeFixtureMcp(child).then(() => resolve(out), reject); };
       const timer = setTimeout(finish, 25000);
       child.stdout.on('data', d => {
         out += String(d);

@@ -4476,5 +4476,16 @@
   "privacy.export.clipboardUnavailable": "此浏览器未能开始剪贴板写入；未复制原始内容。",
   "privacy.copy.options": "复制选项",
   "privacy.copy.plainNotice": "仅本次复制原始值和其中嵌入的数据。",
-  "privacy.copy.latestLogs": "复制当前最新日志尾部"
+  "privacy.copy.latestLogs": "复制当前最新日志尾部",
+  "mcpConsumer.title": "独立 MCP 应用连接",
+  "mcpConsumer.help": "为指定接收应用生成一次连接配置；配置含访问令牌，请仅导入该应用。工作台须保持运行，无需每天输入端口或密码。连接仅能使用所选工作区和工具，不构成系统隔离。",
+  "mcpConsumer.application": "接收应用名称",
+  "mcpConsumer.workspace": "授权工作区",
+  "mcpConsumer.writes": "允许文件写工具（仍须满足工作台当前权限；需要另行确认的操作会明确拒绝）",
+  "mcpConsumer.issue": "生成并下载连接配置（含访问令牌）",
+  "mcpConsumer.revoke": "撤销连接",
+  "mcpConsumer.revoked": "连接已撤销；在途输出已停止。",
+  "mcpConsumer.required": "请填写接收应用，并先打开一个工作区。",
+  "mcpConsumer.created": "配置已下载。请导入指定应用；令牌不会再次显示。",
+  "mcpConsumer.failed": "操作未完成，请检查工作台状态；不会恢复或显示已有令牌。"
 }
