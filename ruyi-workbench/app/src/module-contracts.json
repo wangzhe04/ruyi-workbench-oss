@@ -2169,6 +2169,8 @@
         "PREVIEW_IMG_MIME",
         "PREVIEW_TEXT_EXTS",
         "PREVIEW_TEXT_MAX",
+        "PrivacyFileIoHooks",
+        "PrivacyRecipientHooks",
         "READDIR_TIMEOUT",
         "REALPATH_LINK_DEPTH_MAX",
         "REVEAL_OPEN_SAFE_EXTS",
@@ -2233,6 +2235,16 @@
         "pathWithinAnyRoot",
         "pathWithinRoot",
         "preflightWriteBoundary",
+        "privacyDrainDriveQueries",
+        "privacyDriveActive",
+        "privacyDriveWaiting",
+        "privacyInspectLocalPath",
+        "privacyInspectLocalPathUncached",
+        "privacyInspectionLocal",
+        "privacyInspectionSegment",
+        "privacyLocalIo",
+        "privacyMapBounded",
+        "privacyQueryDrives",
         "probeGitCli",
         "probeGitCliAsync",
         "providerIsLocal",
@@ -2479,6 +2491,14 @@
           ]
         }
       ]
+    },
+    {
+      "file": "03b-privacy-local-drive.js",
+      "layer": "foundation",
+      "provides": [
+        "PrivacyLocalDriveProbe"
+      ],
+      "requires": []
     },
     {
       "file": "04-visual-pipeline.js",
@@ -8374,6 +8394,13 @@
           ]
         },
         {
+          "provider": "03-bridge-guard.js",
+          "symbol": "privacyMapBounded",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03a-privacy-gateway.js",
           "symbol": "PrivacyGateway",
           "kinds": [
@@ -9536,6 +9563,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "preflightWriteBoundary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "privacyMapBounded",
           "kinds": [
             "call"
           ]
@@ -12256,6 +12290,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "privacyLocalIo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "realpathForContainment",
           "kinds": [
             "call"
@@ -12422,6 +12463,7 @@
         "FILE_TOOL_HANDLERS",
         "OBSERVATION_RECALL_MAX_CHARS",
         "OBSERVATION_RECALL_QUOTA",
+        "PRIVACY_LOCAL_TOOL_ADAPTERS",
         "SCRATCHPAD_WRITE_NOTE",
         "STEWARD_GUARD_NOTE",
         "STEWARD_TOOL_HANDLERS",
@@ -12466,8 +12508,10 @@
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
+        "planPrivacyToolDisclosure",
         "policyDesktopOverrideFor",
         "policySessionFor",
+        "privacyLocalCleanup",
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "scratchpadWriteTool",
@@ -12645,6 +12689,13 @@
         {
           "provider": "01-config.js",
           "symbol": "externalServerJs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "normalizeConfig",
           "kinds": [
             "call"
           ]
@@ -12914,6 +12965,35 @@
           "symbol": "pathWithinRoot",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "privacyInspectionSegment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "privacyInspectLocalPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "privacyLocalIo",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "PrivacyRecipientHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14464,6 +14544,13 @@
         {
           "provider": "03a-privacy-gateway.js",
           "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03b-privacy-local-drive.js",
+          "symbol": "PrivacyLocalDriveProbe",
           "kinds": [
             "read"
           ]
@@ -24363,6 +24450,20 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "configReadCache",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadGeneration",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "DurableJsonStore",
           "kinds": [
             "read"
@@ -24425,8 +24526,29 @@
           ]
         },
         {
+          "provider": "03-bridge-guard.js",
+          "symbol": "PrivacyFileIoHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "PrivacyRecipientHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03a-privacy-gateway.js",
           "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03b-privacy-local-drive.js",
+          "symbol": "PrivacyLocalDriveProbe",
           "kinds": [
             "read"
           ]
@@ -24450,6 +24572,13 @@
           "symbol": "nativeToolSchema",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "12-tool-dispatch.js",
+          "symbol": "planPrivacyToolDisclosure",
+          "kinds": [
+            "read"
           ]
         },
         {

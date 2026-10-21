@@ -1141,41 +1141,52 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       return walk(history);
     } finally { if (temporary) scope.clear(); }
   }
-  const localTools = new Set(['file_read', 'file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'file_list', 'file_search', 'glob',
-    'docs_search', 'codebase_symbol_search', 'data_profile', 'steward_file_read', 'steward_thread_read', 'steward_thread_search', 'steward_memory_write']);
-  function restoreArgs(name, args, context, prefix = '', registry = null, state = { nodes: 0, bytes: 0 }, level = 0) {
-    if (++state.nodes > 50000 || level > 32) fail('structure_limit');
-    if (/^tool_invoke_(?:read|edit|exec|ask)$/.test(name) && args && typeof args === 'object' && !Array.isArray(args)) {
-      const normalized = typeof host.normalizeToolInvokeArgs === 'function' ? host.normalizeToolInvokeArgs(args) : args;
-      const canonical = typeof normalized.name === 'string';
-      const target = canonical ? normalized.name.trim() : typeof normalized.tool === 'string' ? normalized.tool.trim() : '';
-      if (!target || target.includes(PREFIX)) fail('tool_unregistered');
-      let nested = (canonical ? normalized.arguments : normalized.args) || {};
-      if (typeof nested === 'string') { try { nested = JSON.parse(nested); } catch { fail('arguments_invalid'); } }
-      const restored = restoreArgs(target, nested, context, '', registry, state, level + 1);
-      return canonical ? { ...normalized, name: target, arguments: restored } : { ...normalized, tool: target, args: restored };
-    }
-    const registered = registry && (host.isRegisteredTool?.(name) === true || registry(name) === true);
+  // Execution capabilities never travel in model data, JSON, history or MCP parameters.
+  const executionCalls = new WeakMap(), executionInputs = new WeakMap(), executionLocal = new AsyncLocalStorage();
+  const executionMessage = code => {
+    if (code.startsWith('privacy.drive_probe_')) return '无法核实本地目的地，当前未派发；原数据保持不变。 Local destination could not be verified; nothing was dispatched and the source data is unchanged.';
+    if (code === 'privacy.disclosure_not_supported' || code === 'privacy.disclosure_requires_planning') return '此工具尚未适配隐私原值，请改用已支持的本地文件或文本操作；重复代号不会增加授权。 This tool has no adapter for private original values. Use an explicitly supported local file/text operation; repeating this reference will not authorize a script, HTTP request or MCP service.';
+    if (code === 'privacy.recipient_denied' || code === 'privacy.recipient_changed') return '目的地不是已核实的本地位置，或等待时发生了变化；当前未派发。 The private value destination is not a verified local recipient, or changed while waiting. No operation was dispatched. Choose a supported local file destination.';
+    if (code === 'privacy.policy_changed') return '等待时隐私策略已改变；当前未派发，请按新策略重新发起。 Privacy policy changed while this call was waiting. No operation was dispatched; start a fresh call under the current policy.';
+    if (code === 'privacy.execution_cancelled') return '此调用已在派发前取消。 This call was cancelled before dispatch.';
+    return '隐私策略拒绝此输入，当前未派发；请核对本会话已有代号与拒绝原因。 Privacy policy refused this input. No operation was dispatched. Use an existing valid reference from this conversation and inspect the refusal before retrying.';
+  };
+  const executionRefusal = error => {
+    const code = String(error.code || '').startsWith('privacy.') ? error.code : 'privacy.arguments_invalid';
+    return { ok: false, code, error: executionMessage(code) };
+  };
+  function executionCheck(context, execution) {
+    assertPolicyAvailable();
+    if (active() !== context) fail('scope_changed');
+    if (execution?.signal?.aborted) fail('execution_cancelled');
+    // Unrelated mappings may be learned by parallel reads. Each bound reference is checked again at dispatch.
+  }
+  function containsExecutionReferences(value, context) {
+    let nodes = 0, bytes = 0;
+    const visit = (item, depth) => {
+      if (++nodes > 50000 || depth > 32) fail('structure_limit');
+      if (typeof item === 'string') { if ((bytes += Buffer.byteLength(item)) > 8 * 1024 * 1024) fail('aggregate_limit'); if (context && item.includes(PREFIX)) context.scope.validateProtected(item); return item.includes(PREFIX); }
+      if (Array.isArray(item)) return item.reduce((found, row) => visit(row, depth + 1) || found, false);
+      if (item && typeof item === 'object') return Object.entries(item).reduce((found, [key, row]) => visit(key, depth + 1) || visit(row, depth + 1) || found, false);
+      return false;
+    };
+    return visit(value, 0);
+  }
+  function restoreArgs(name, args, context, contract, state = { nodes: 0, bytes: 0 }, level = 0) {
     const segment = key => key.replace(/~/g, '~0').replace(/\//g, '~1');
     const walk = (value, pointer, depth) => {
       if (++state.nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string' && (state.bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
       if (typeof value === 'string' && value.includes(PREFIX)) {
         return context.scope.restoreForTool(value, { scopeId: context.scopeId, tool: name, pointer,
-          destination: 'local-harness', purpose: registered ? 'registered-tool-input' : 'authorized-tool-input', allowCredentialEmbedding: registered === true,
-          authorize: ref => {
-            // This capability comes only from the host's actual native/managed-MCP registry.
-            // Privacy transport does not replace tool permissions, file guards or SSRF checks.
-            if (registry) return registered === true;
-            if (!localTools.has(name) || ref.category === 'CREDENTIAL') return false;
-            return /^\/(?:path|paths(?:\/\d+)?|source|destination|from|to|query|pattern|content|oldText|newText|old_text|new_text|text|quote|fact)(?:\/\d+)?$/.test(pointer);
-          } });
+          destination: contract?.recipient || 'unadapted', purpose: contract?.purpose || 'unadapted', allowCredentialEmbedding: contract?.credentialEmbedding === true,
+          authorize: ref => { if (!contract) fail('disclosure_not_supported'); return contract.authorize(ref) === true; } });
       }
       if (Array.isArray(value)) return value.map((row, i) => walk(row, pointer + '/' + i, depth + 1));
       if (value && typeof value === 'object') {
         const output = Object.create(null);
         for (const [key, row] of Object.entries(value)) {
-          const nextKey = registry ? walk(key, pointer + '/@key', depth + 1) : key;
+          const nextKey = walk(key, pointer + '/@key', depth + 1);
           if (Object.hasOwn(output, nextKey)) fail('key_collision');
           output[nextKey] = walk(row, pointer + '/' + segment(key), depth + 1);
         }
@@ -1183,31 +1194,142 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       }
       return value;
     };
-    return walk(args, prefix, level);
+    return walk(args, '', level);
   }
-  function prepareCall(call, registration) {
+  // Synchronous compatibility is deliberately strict. Tool registration is not disclosure authority.
+  function prepareCall(call) {
+    try {
+      assertPolicyAvailable(); if (!active()) return call;
+      const args = JSON.parse(call.rawArgs);
+      if (containsExecutionReferences(args)) fail('disclosure_requires_planning');
+      return call;
+    } catch (error) { return { ...call, privacyError: executionRefusal(error) }; }
+  }
+  async function prepareExecution(call, execution = {}) {
     const context = active();
     try {
-      assertPolicyAvailable();
-      if (!context) return call;
-      const args = JSON.parse(call.rawArgs);
-      let nodes = 0;
-      const bounded = (value, depth = 0) => {
-        if (++nodes > 50000 || depth > 32) fail('structure_limit');
-        if (value && typeof value === 'object') for (const row of Object.values(value)) bounded(row, depth + 1);
+      assertPolicyAvailable(); if (!context) return call;
+      const source = JSON.parse(call.rawArgs);
+      if (!containsExecutionReferences(source, context)) return call;
+      executionCheck(context, execution);
+      const prepare = async (name, args, depth = 0) => {
+        if (depth > 32) fail('structure_limit');
+        if (/^tool_invoke_(?:read|edit|exec|ask)$/.test(name)) {
+          const normalized = typeof host.normalizeToolInvokeArgs === 'function' ? host.normalizeToolInvokeArgs(args) : args;
+          const target = String(normalized.name || normalized.tool || '').trim();
+          if (!target || target.includes(PREFIX)) fail('disclosure_not_supported');
+          let inner = normalized.arguments || normalized.args || {};
+          if (typeof inner === 'string') { try { inner = JSON.parse(inner); } catch { fail('arguments_invalid'); } }
+          const nested = await prepare(target, inner, depth + 1);
+          const output = { ...normalized, ...(typeof normalized.name === 'string' ? { name: target, arguments: nested.args } : { tool: target, args: nested.args }) };
+          return { args: output, plans: nested.plans };
+        }
+        if (execution.bridge || execution.resolveBridge?.(name)) fail('disclosure_not_supported');
+        if (typeof host.planDisclosure !== 'function') fail('disclosure_not_supported');
+        // Only the host planner may ask to resolve its adapter's path slots. No handler receives this private copy.
+        const plan = await host.planDisclosure(name, args, execution, (value, pointer) => context.scope.restoreForTool(value, {
+          scopeId: context.scopeId, tool: name, pointer, destination: 'host-private-path-planner', purpose: 'resolve-recipient',
+          allowCredentialEmbedding: true, authorize: () => true,
+        }));
+        executionCheck(context, execution);
+        if (!plan || typeof plan.authorize !== 'function') fail('disclosure_not_supported');
+        const restored = restoreArgs(name, args, context, plan);
+        const record = { context, execution, name, source: args, plan, planner: host.planDisclosure, snapshot: JSON.stringify(restored) };
+        executionInputs.set(restored, record);
+        return { args: restored, plans: [record] };
       };
-      bounded(args);
-      const registry = typeof registration?.isRegisteredTool === 'function' ? registration.isRegisteredTool : null;
-      return { ...call, rawArgs: JSON.stringify(restoreArgs(call.name, args, context, '', registry)) };
-    } catch (error) {
-      return { ...call, privacyError: { ok: false, code: String(error.code || '').startsWith('privacy.') ? error.code : 'privacy.arguments_invalid', error: 'Privacy policy refused this tool input. This call was not executed. Copy an existing valid reference from this conversation exactly; do not construct or guess a reference. Inspect this error before retrying.' } };
+      const prepared = await prepare(call.name, source);
+      executionCheck(context, execution);
+      const result = { ...call, rawArgs: JSON.stringify(prepared.args) };
+      executionCalls.set(result, prepared.args);
+      if (!executionInputs.has(prepared.args)) executionInputs.set(prepared.args, { context, execution, name: call.name, nested: prepared.plans, snapshot: JSON.stringify(prepared.args) });
+      return result;
+    } catch (error) { return { ...call, privacyError: executionRefusal(error) }; }
+  }
+  function executionArgs(call) {
+    return executionCalls.get(call) || JSON.parse(call.rawArgs || '{}');
+  }
+  function updateExecutionInput(previous, next, name, execution = {}) {
+    const context = active();
+    if (!context || !next || typeof next !== 'object') return next;
+    const record = executionInputs.get(previous);
+    executionInputs.set(next, record ? { ...record, edited: true } : { context, execution, name, edited: true });
+    return next;
+  }
+  function transferExecutionCall(previous, next) {
+    const outer = executionCalls.get(previous);
+    if (!outer || previous === next) return next;
+    const inner = outer.arguments || outer.args;
+    const record = inner && executionInputs.get(inner);
+    if (record && record.name === next.name) executionCalls.set(next, inner);
+    return next;
+  }
+  async function revalidateExecution(name, args, execution = {}) {
+    const context = active(); assertPolicyAvailable(); if (!context) return args;
+    let record = executionInputs.get(args);
+    if (!record) {
+      if (!containsExecutionReferences(args)) return args;
+      const prepared = await prepareExecution({ name, rawArgs: JSON.stringify(args) }, execution);
+      if (prepared.privacyError) throw Object.assign(new Error(prepared.privacyError.error), prepared.privacyError);
+      args = executionArgs(prepared); record = executionInputs.get(args);
+    }
+    executionCheck(record.context, execution);
+    if (record.name !== name || execution.bridge || record.execution.resolveBridge?.(name)) fail('recipient_changed');
+    if (record.edited || JSON.stringify(args) !== record.snapshot) {
+      // Permission edits are host input, but their new recipient/fields receive no inherited authority.
+      const protectedInput = await protectedTransform(args, context, { raw: true, data: true });
+      await context.persist(); executionCheck(context, execution);
+      const prepared = await prepareExecution({ name, rawArgs: JSON.stringify(protectedInput) }, execution);
+      if (prepared.privacyError) throw Object.assign(new Error(prepared.privacyError.error), prepared.privacyError);
+      return executionArgs(prepared);
+    }
+    const records = record.nested || [record];
+    for (const current of records) {
+      executionCheck(current.context, execution);
+      if (host.planDisclosure !== current.planner) fail('adapter_changed');
+      await current.plan.revalidate(execution);
+      executionCheck(current.context, execution);
+      restoreArgs(current.name, current.source, current.context, current.plan); // revalidate expiry/revocation before dispatch
+    }
+    return args;
+  }
+  function assertExecution(name, args, execution = {}) {
+    assertPolicyAvailable(); const record = executionInputs.get(args); if (!record) return;
+    executionCheck(record.context, execution);
+    if (name !== record.name || JSON.stringify(args) !== record.snapshot) fail('recipient_changed');
+    for (const bound of record.nested || [record]) {
+      if (host.planDisclosure !== bound.planner || bound.execution.resolveBridge?.(bound.name)) fail('recipient_changed');
+      restoreArgs(bound.name, bound.source, bound.context, bound.plan);
+      bound.plan.assertCurrent?.(execution);
+    }
+  }
+  async function withExecution(name, args, execution, work) {
+    const checked = await revalidateExecution(name, args, execution);
+    if (!executionInputs.has(checked)) return work(checked);
+    assertExecution(name, checked, execution);
+    return executionLocal.run({ name, args: checked, execution }, () => work(checked));
+  }
+  function assertIo() {
+    const current = executionLocal.getStore(); if (!current) return;
+    assertExecution(current.name, current.args, current.execution);
+  }
+  async function beforeExecutionIo(targets, write, kind) {
+    const current = executionLocal.getStore(); if (!current) return;
+    const record = executionInputs.get(current.args); assertIo();
+    const records = record.nested || [record];
+    for (const bound of records) {
+      if (host.planDisclosure !== bound.planner) fail('adapter_changed');
+      if (bound.execution.resolveBridge?.(bound.name)) fail('recipient_changed');
+      restoreArgs(bound.name, bound.source, bound.context, bound.plan);
+      await bound.plan.beforeIo(targets, write, current.execution, kind);
+      assertIo();
     }
   }
   function assertSupported(config, kind) { assertPolicyAvailable(config); if (enabled(config) && kind !== 'native') fail('engine_not_supported'); }
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;

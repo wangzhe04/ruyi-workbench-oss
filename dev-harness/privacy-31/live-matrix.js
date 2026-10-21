@@ -6,6 +6,7 @@ const { killOwnTree } = require('../lib/kill-own-tree');
 const t = createRunner('DEEPSEEK PRIVACY MATRIX');
 const check = (condition, label) => { if (!t.ok(condition, label)) throw Error('assertion_failed'); };
 const option = name => process.argv.find(value => value.startsWith('--' + name + '='))?.slice(name.length + 3);
+const prepareTool = (app, call, config, work, extra = {}) => app.PrivacyGateway.prepareExecution(call, { ...extra, config, workingDir: work, session: { id: 'live-matrix-disclosure', cwd: work } });
 const safeError = error => /^privacy\.[a-z_]+$/.test(error.code || '') ? error.code : /^[a-z_]+$/.test(error.message || '') ? error.message : 'sanitized_failure';
 async function readSourceConfig(file) {
   const parsed = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
@@ -39,7 +40,7 @@ async function main() {
       check(body.messages.at(-1).content === saved.ref, 'fresh Node process decrypts the same stable scope reference');
       const result = await app.providerRawCompletion(provider, [{ role: 'user', content: 'Reply OK. Contact: ' + saved.ref }]);
       check(result.ok, 'fresh Node authenticates through the migrated credential and reuses persisted references');
-      const restored = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'restart.txt', content: saved.ref }) });
+      const restored = await prepareTool(app, { name: 'file_write', rawArgs: JSON.stringify({ path: 'restart.txt', content: saved.ref }) }, cfg, cfg.defaultWorkspace);
       check(!restored.privacyError && JSON.parse(restored.rawArgs).content === saved.email, 'fresh Node restores persisted reference exactly');
     });
     return;
@@ -303,7 +304,7 @@ async function main() {
       const cfg = await app.readConfig(); let valid;
       await app.PrivacyGateway.run(session.id, cfg, async () => {
         valid = (await app.PrivacyGateway.toolResult({ email: values.email })).email;
-        const refused = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'never-execute.txt', content: invalid }) });
+        const refused = await prepareTool(app, { name: 'file_write', rawArgs: JSON.stringify({ path: 'never-execute.txt', content: invalid }) }, cfg, work);
         check(refused.privacyError?.code === 'privacy.reference_unknown', 'synthetic unknown reference remains strictly refused before execution');
       });
       // Replay a previously refused host-owned batch, as a restarted session would load it.
@@ -350,47 +351,33 @@ async function main() {
       check(toolSucceeded(events, 'file_search', input => typeof input.glob === 'string' && input.glob.includes('contact.json') && samePath(input.root, '.')) && toolSucceeded(events, 'data_profile', input => samePath(input.path, 'contact.json')) && toolSucceeded(events, 'git_diff', input => samePath(input.cwd, 'diff-fixture')) && toolSucceeded(events, 'file_read', input => samePath(input.path, 'contact.json') && input.lineOffset === 1 && input.lineLimit === 1), 'real model successfully runs search, profile, Git diff and the requested formatted line read on their intended targets');
       check(fs.readFileSync(path.join(work, 'views.txt'), 'utf8').trim() === values.email + '\n' + values.field, 'source-derived opaque references restore exactly after the real model selects them');
     });
-    await runCase('registered-command-roundtrip', async () => {
-      const command = "[System.IO.File]::WriteAllText((Join-Path (Get-Location) 'command.txt'), '" + values.email + "')";
-      try {
-        await app.mutateConfig(current => { current.allowCommandTools = true; current.permissionMode = 'bypass'; return {}; });
-        let used = false;
-        await turn(copy + 'Call powershell_run with cwd current directory and exactly this command (copy its opaque reference unchanged):\n```powershell\n' + command + '\n```\nDo not run any other command, script, shell, network or MCP tool.', undefined, event => {
-          if (event.type !== 'tool_use') return;
-          if (event.name === 'powershell_run') { check(event.input?.command === command, 'owned command is restored exactly before execution'); used = true; }
-          else check(['file_list', 'file_read'].includes(event.name), 'command fixture does not execute unexpected tools');
-        });
-        check(used && fs.readFileSync(path.join(work, 'command.txt'), 'utf8') === values.email, 'registered command executes with the restored synthetic value');
-      } finally { await app.mutateConfig(current => { current.allowCommandTools = false; current.permissionMode = 'acceptEdits'; return {}; }); }
-    });
-    await runCase('registered-http-roundtrip', async () => {
-      let hits = 0;
-      const service = http.createServer((req, res) => {
-        const url = new URL(req.url, 'http://127.0.0.1');
-        if (url.pathname !== '/contact' || url.searchParams.get('email') !== values.email || url.searchParams.get('token') !== values.key) { res.writeHead(400); res.end('{}'); return; }
-        hits++; res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ email: values.email, staff: values.staff, password: values.key }));
+    await runCase('unadapted-command-pre-dispatch-refusal', async () => {
+      const cfg = await app.readConfig(), target = path.join(work, 'command.txt');
+      await app.PrivacyGateway.run('command-refusal', cfg, async () => {
+        const ref = (await app.PrivacyGateway.toolResult({ email: values.email })).email;
+        for (const [name, args] of [['powershell_run', { command: "[IO.File]::WriteAllText('command.txt','" + ref + "')" }], ['script_run', { language: 'node', code: 'console.log(' + JSON.stringify(ref) + ')' }]]) {
+          const prepared = await prepareTool(app, { name, rawArgs: JSON.stringify(args) }, cfg, work);
+          check(prepared.privacyError?.code === 'privacy.disclosure_not_supported' && !prepared.rawArgs.includes(values.email), name + ': registered arbitrary execution cannot receive restored originals');
+        }
+        check(!fs.existsSync(target), 'refused command preparation creates no command output file');
       });
-      const prior = process.env.WCW_TEST_ALLOW_LOOPBACK, priorPermissionMode = (await app.readConfig()).permissionMode;
+    });
+    await runCase('unadapted-http-zero-receiver', async () => {
+      let hits = 0; const service = http.createServer((req, res) => { hits++; res.end('{}'); });
       try {
         await new Promise(resolve => service.listen(0, '127.0.0.1', resolve));
-        process.env.WCW_TEST_ALLOW_LOOPBACK = '1'; // Existing test-only loopback exception; other SSRF guards remain active.
-        await app.mutateConfig(current => { current.permissionMode = 'bypass'; return {}; });
-        const url = 'http://127.0.0.1:' + service.address().port + '/contact?email=' + values.email + '&token=' + values.key;
-        let used = false; const events = [];
-        await turn(copy + 'Call web_fetch with this exact URL, copying references unchanged: ' + url + ' . Then use file_write to copy only its email and staff values into ' + path.join(work, 'http.txt') + ', one per line. Only web_fetch and this destination file read/write are authorized. Do not use http_request, proxy, command, MCP or any other tool.', undefined, event => {
-          events.push(event);
-          if (event.type !== 'tool_use') return;
-          if (event.name === 'web_fetch') { check(event.input?.url === url, 'registered HTTP tool receives the exact restored URL including credential query'); used = true; }
-          else check(['file_write', 'file_read'].includes(event.name) && samePath(event.input?.path, 'http.txt'), 'HTTP fixture only accesses its own requested destination');
+        const cfg = await app.readConfig();
+        await app.PrivacyGateway.run('http-refusal', cfg, async () => {
+          const refs = await app.PrivacyGateway.toolResult({ email: values.email, password: values.key });
+          const url = 'http://127.0.0.1:' + service.address().port + '/contact?email=' + refs.email + '&token=' + refs.password;
+          for (const name of ['web_fetch', 'http_request']) {
+            const prepared = await prepareTool(app, { name, rawArgs: JSON.stringify({ url }) }, cfg, work);
+            check(prepared.privacyError?.code === 'privacy.disclosure_not_supported' && !prepared.rawArgs.includes(values.key), name + ': unknown disclosure adapter cannot restore query originals');
+            let code = ''; try { await app.toolCall(name, { url }, { config: cfg, workingDir: work }); } catch (error) { code = error.code; }
+            check(code === 'privacy.disclosure_not_supported' && hits === 0, name + ': actual dispatch refuses before any receiver request');
+          }
         });
-        check(used && hits > 0 && toolSucceeded(events, 'web_fetch', input => input.url === url) && toolSucceeded(events, 'file_write', input => samePath(input.path, 'http.txt')) && fs.readFileSync(path.join(work, 'http.txt'), 'utf8').trim() === values.email + '\n' + values.staff, 'owned HTTP endpoint receives originals and the real model only receives protected response values');
-      } finally {
-        try { await app.mutateConfig(current => { current.permissionMode = priorPermissionMode; return {}; }); }
-        finally {
-          if (prior === undefined) delete process.env.WCW_TEST_ALLOW_LOOPBACK; else process.env.WCW_TEST_ALLOW_LOOPBACK = prior;
-          service.closeAllConnections(); await new Promise(resolve => service.close(resolve));
-        }
-      }
+      } finally { service.closeAllConnections(); await new Promise(resolve => service.close(resolve)); }
     });
     await runCase('subagent-read-write', async () => {
       const cfg = await app.readConfig(), parent = await app.createSession({ cwd: work, title: 'Synthetic parent' });
@@ -399,7 +386,7 @@ async function main() {
       const child = await app.runSubAgentCore({ parentSession: parent, provider: cfg.providers[0], config: cfg, task: copy + 'Read contact.json. Write exactly email, phone, staff, project, patientCode in that order, one per line, into child.txt. Exclude apiKey.', agentKey: 'fixture', toolTier: 'edit', maxIters: 5, model: provider.model, onEvent: usage, subagentId: 'live-child', depth: 1, ctrl: new AbortController(), permModeOverride: 'acceptEdits' });
       check(child.ok && fs.readFileSync(path.join(work, 'child.txt'), 'utf8').trim() === [values.email, values.phone, values.staff, values.literal, values.field].join('\n'), 'real production subagent conceals and restores structured source values independently');
     });
-    await runCase('managed-mcp-text-and-credential-arguments', async () => {
+    await runCase('managed-mcp-text-and-unadapted-credential-refusal', async () => {
       const script = path.join(root, 'contact-mcp.cjs'), payload = path.join(root, 'mcp-contact.json'), called = path.join(root, 'mcp-called'), captured = path.join(root, 'mcp-arguments.json');
       fs.writeFileSync(payload, JSON.stringify({ email: values.email, staff: values.staff, password: values.key }));
       fs.writeFileSync(script, `const fs=require('node:fs'),rl=require('node:readline').createInterface({input:process.stdin});
@@ -416,11 +403,13 @@ else result={};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result
         const output = fs.existsSync(path.join(work, 'mcp.txt')) ? fs.readFileSync(path.join(work, 'mcp.txt'), 'utf8').trim() : '';
         turnTraces.at(-1).mcpOutputShape = { exists: !!output, lines: output.split('\n').length, emailPresent: output.includes(values.email), staffPresent: output.includes(values.staff), references: (output.match(/\[\[RUYI_PVT:/g) || []).length, exact: output === values.email + '\n' + values.staff };
         check(toolUsed && fs.existsSync(called) && fs.readFileSync(path.join(work, 'mcp.txt'), 'utf8').trim() === values.email + '\n' + values.staff, 'real managed MCP child returns originals, real model sees references and local file execution restores them');
-        let echoed = false;
-        await turn(copy + 'Call contact__echo_private using the previous contact result: password is its password, email is its email, details.copiedStaff is its staff. Copy only email and details.copiedStaff from the echo into mcp-echo.txt, one per line. Keep password in tool arguments only. Do not read any files.', session, event => { if (event.type === 'tool_use' && event.name === 'contact__echo_private') echoed = true; });
-        const actual = JSON.parse(fs.readFileSync(captured, 'utf8'));
-        check(echoed && actual.password === values.key && actual.email === values.email && actual.details.copiedStaff === values.staff, 'registered MCP receives restored credential and arbitrary nested parameter values');
-        check(fs.readFileSync(path.join(work, 'mcp-echo.txt'), 'utf8').trim() === values.email + '\n' + values.staff, 'MCP argument echo is concealed again before the model reuses it');
+        const cfg = await app.readConfig();
+        await app.PrivacyGateway.run(session.id, cfg, async () => {
+          const refs = await app.PrivacyGateway.toolResult({ email: values.email, password: values.key, staff: values.staff });
+          const prepared = await prepareTool(app, { name: 'contact__echo_private', rawArgs: JSON.stringify({ password: refs.password, email: refs.email, details: { copiedStaff: refs.staff } }) }, cfg, work, { bridge: { serverId: 'contact', toolName: 'echo_private' } });
+          check(prepared.privacyError?.code === 'privacy.disclosure_not_supported' && !prepared.rawArgs.includes(values.key), 'registered managed MCP without a recipient adapter cannot receive restored credentials or nested values');
+          check(!fs.existsSync(captured), 'refused MCP argument release never calls echo_private');
+        });
       } finally {
         await stopMcp();
         await app.mutateConfig(current => { current.externalMcpServers = []; current.bridgedToolTiers = {}; current.bridgeExternalToolsToProvider = false; current.toolLoadingMode = 'auto'; return {}; });
@@ -452,11 +441,13 @@ else result={};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result
         check(credentialContextDenied && requests === count, 'ordinary reference cannot be reused as a credential through a sensitive field');
         const credentialHistory = await app.PrivacyGateway.beforeRequest({ messages: [{ role: 'tool', content: JSON.stringify({ password: secret }) }] });
         check(credentialHistory.messages.at(-1).content.includes(secret) && requests === count, 'genuine credential references retain their protected history representation');
-        for (const [name, content] of [['powershell_run', ref], ['web_fetch', ref], ['file_write', secret]]) {
-          const prepared = app.PrivacyGateway.prepareCall({ name, rawArgs: JSON.stringify({ command: content, url: content, content }) }, { isRegisteredTool: () => false });
-          check(!prepared.privacyError && JSON.parse(prepared.rawArgs).content === (content === secret ? values.key : values.email), name + ': registered execution copy supports general reference parameters');
+        for (const [name, args] of [['powershell_run', { command: ref }], ['web_fetch', { url: 'https://example.test/?q=' + ref }], ['file_write', { path: 'safe-credential.txt', content: secret, unknownSlot: ref }]]) {
+          const prepared = await prepareTool(app, { name, rawArgs: JSON.stringify(args) }, cfg, work);
+          check(!!prepared.privacyError && !prepared.rawArgs.includes(values.key), name + ': unknown receiver or field cannot receive an execution original');
         }
-        for (const name of ['invented_private_tool', 'constructor', '__proto__']) check(!!app.PrivacyGateway.prepareCall({ name, rawArgs: JSON.stringify({ secret }) }, { isRegisteredTool: () => false }).privacyError, name + ': unregistered tool cannot receive an execution secret');
+        const local = await prepareTool(app, { name: 'file_write', rawArgs: JSON.stringify({ path: 'explicit-local-credential.txt', content: secret }) }, cfg, work);
+        check(!local.privacyError && JSON.parse(local.rawArgs).content === values.key, 'audited local file content explicitly permits the credential original');
+        for (const name of ['invented_private_tool', 'constructor', '__proto__']) check(!!(await prepareTool(app, { name, rawArgs: JSON.stringify({ secret }) }, cfg, work)).privacyError, name + ': unregistered tool cannot receive an execution secret');
         for (const name of ['file_search', 'docs_search', 'data_profile']) {
           const result = await app.toolCall(name, { root: work, path: 'contact.json', pattern: 'patientCode', query: 'patientCode', command: 'Write-Output unused' }, { config: cfg, workingDir: work });
           check(result.ok === true, name + ': source tool remains available under active privacy');
@@ -466,7 +457,7 @@ else result={};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result
         const disabled = await app.toolCall('powershell_run', { command: 'Write-Output unused' }, { config: cfg, workingDir: work });
         check(disabled.ok === false && disabled.code !== 'privacy.tool_view_not_supported', 'ordinary command enablement policy still refuses execution when commands are disabled');
       });
-      await app.PrivacyGateway.run('deny-two', cfg, async () => { check(!!app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: ref }) }).privacyError, 'cross-scope reference is refused'); });
+      await app.PrivacyGateway.run('deny-two', cfg, async () => { check((await prepareTool(app, { name: 'file_write', rawArgs: JSON.stringify({ path: 'cross-scope.txt', content: ref }) }, cfg, work)).privacyError?.code === 'privacy.reference_unknown', 'cross-scope reference is refused'); });
       for (const sample of ['{"phone":13800138000}', '{"patientCode":true}', '{"patientCode":null}', '{"patientCode":{"finding":"positive"}}']) {
         await app.PrivacyGateway.run('strict-typed-negative', cfg, async () => {
           let code = ''; try { await app.PrivacyGateway.beforeRequest({ messages: [{ role: 'user', content: sample }] }); } catch (error) { code = error.code; }
@@ -503,17 +494,29 @@ else result={};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result
         'real model continues a typed-sensitive historical write without replaying its side effects');
       check(JSON.stringify((await app.loadSession(session.id)).providerHistory).includes('apiKey'), 'canonical typed write arguments remain available for the local audit');
     });
-    await runCase('all-native-transport-contracts', async () => {
+    await runCase('explicit-native-disclosure-contracts', async () => {
       const cfg = await app.readConfig();
-      await app.PrivacyGateway.run('all-native-contracts', cfg, async () => {
+      await app.PrivacyGateway.run('native-disclosure-contracts', cfg, async () => {
         const refs = await app.PrivacyGateway.toolResult({ email: values.email, password: values.key });
+        const pathRef = app.PrivacyGateway.active().scope.protectValue(path.join(work, 'contact.json'), 'INTERNAL');
         const names = [...new Set([...Object.keys(app.TOOL_HANDLERS), ...app.MCP_TOOLS.map(tool => tool.name), ...app.PROVIDER_SESSION_TOOL_SCHEMAS.map(tool => tool.name)])].sort();
         for (const name of names) {
-          const args = /^tool_invoke_/.test(name) ? { name: 'file_write', arguments: { content: refs.password } } : { transportFixture: { [refs.email]: [refs.email, refs.password] } };
-          const prepared = app.PrivacyGateway.prepareCall({ name, rawArgs: JSON.stringify(args) }, { isRegisteredTool: () => false });
-          check(!prepared.privacyError && prepared.rawArgs.includes(values.key), name + ': actual registered native transport restores execution arguments');
+          const args = /^tool_invoke_/.test(name) ? { name: 'file_write', arguments: { path: 'explicit-proxy.txt', content: refs.password } } : { transportFixture: { [refs.email]: [refs.email, refs.password] } };
+          const prepared = await prepareTool(app, { name, rawArgs: JSON.stringify(args) }, cfg, work);
+          if (/^tool_invoke_/.test(name)) check(!prepared.privacyError && JSON.parse(prepared.rawArgs).arguments.content === values.key, name + ': proxy uses the explicit local target fields');
+          else check(!!prepared.privacyError && !prepared.rawArgs.includes(values.key), name + ': registration cannot authorize arbitrary fields or nested keys');
         }
-        check(names.length === Object.keys(app.TOOL_HANDLERS).length && names.length >= 120, 'native transport contract uses the complete actual registry (including provider-only and on-demand tools), without executing its real side effects');
+        for (const [name, args, slot, expected] of [
+          ['file_read', { path: pathRef }, 'path', path.join(work, 'contact.json')],
+          ['file_write', { path: 'explicit-content.txt', content: refs.password }, 'content', values.key],
+          ['file_edit', { path: 'contact.json', oldText: refs.email, newText: refs.email }, 'oldText', values.email],
+          ['docs_search', { root: work, query: refs.email }, 'query', values.email],
+          ['codebase_symbol_search', { root: work, symbol: refs.email }, 'symbol', values.email],
+        ]) {
+          const prepared = await prepareTool(app, { name, rawArgs: JSON.stringify(args) }, cfg, work);
+          check(!prepared.privacyError && JSON.parse(prepared.rawArgs)[slot] === expected, name + ': audited local field preserves the exact authorized value');
+        }
+        check(names.length === Object.keys(app.TOOL_HANDLERS).length && names.length >= 120, 'complete current registry is checked for explicit fields or refusal, without executing arbitrary side effects');
       });
     });
     await runCase('thread-brief-atomic-private-excerpts', async () => {
@@ -558,8 +561,8 @@ else result={};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result
       // capture offsets and the decoded wire check, rather than a meaningless ciphertext substring test.
       check(![provider.apiKey, ...Object.values(values), '[[RUYI_PVT:'].filter(value => value.length >= 8).some(value => disk.includes(value)), 'credential vault, persisted rules and reference maps contain no private originals');
     });
-    const expectedCases = ['default-off-no-encryption', 'off-identity', 'basic-credential', 'enhanced-builtin-custom-unicode', 'strict-builtin-custom-unicode', 'technical-private-network-and-path', 'complete-forty-five-rule-catalog', 'natural-mixed-input-and-tool-return', 'second-six-scenario-input-and-tool-return', 'third-six-scenario-input-and-tool-return', 'steward-natural-language-rule-management', 'tool-read-write-six-fields', 'user-input-and-history', 'unavailable-history-reference-recovery', 'json-exact-edit-escaped-bigint', 'source-views-search-profile-diff', 'registered-command-roundtrip', 'registered-http-roundtrip', 'subagent-read-write', 'managed-mcp-text-and-credential-arguments', 'transient-retry', 'restart-persisted-reference', 'fail-closed-negative-matrix', 'all-native-transport-contracts', 'thread-brief-atomic-private-excerpts', 'native-model-user-display-roundtrip', 'physical-encryption'];
-    expectedCases.splice(expectedCases.indexOf('all-native-transport-contracts'), 0, 'typed-content-live-recovery');
+    const expectedCases = ['default-off-no-encryption', 'off-identity', 'basic-credential', 'enhanced-builtin-custom-unicode', 'strict-builtin-custom-unicode', 'technical-private-network-and-path', 'complete-forty-five-rule-catalog', 'natural-mixed-input-and-tool-return', 'second-six-scenario-input-and-tool-return', 'third-six-scenario-input-and-tool-return', 'steward-natural-language-rule-management', 'tool-read-write-six-fields', 'user-input-and-history', 'unavailable-history-reference-recovery', 'json-exact-edit-escaped-bigint', 'source-views-search-profile-diff', 'unadapted-command-pre-dispatch-refusal', 'unadapted-http-zero-receiver', 'subagent-read-write', 'managed-mcp-text-and-unadapted-credential-refusal', 'transient-retry', 'restart-persisted-reference', 'fail-closed-negative-matrix', 'explicit-native-disclosure-contracts', 'thread-brief-atomic-private-excerpts', 'native-model-user-display-roundtrip', 'physical-encryption'];
+    expectedCases.splice(expectedCases.indexOf('explicit-native-disclosure-contracts'), 0, 'typed-content-live-recovery');
     check(JSON.stringify(checks.map(row => row.label)) === JSON.stringify(expectedCases), 'all twenty-eight required cases executed successfully in order');
     complete = true;
   } catch (error) {

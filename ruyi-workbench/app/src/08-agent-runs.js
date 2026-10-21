@@ -1042,12 +1042,12 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         // 本批的配对去重只看本批之后的 role:'tool'(与主回合同):服务商跨迭代复用 id 时,上一轮答过的 call_1
         // 不能让本批还没答的 call_1 漏补配对。
-        if (typeof PrivacyGateway !== 'undefined') localToolCalls = localToolCalls.map(tc => PrivacyGateway.prepareCall(tc, { isRegisteredTool: name => Boolean(resolveBridge(bridgedRoute, name)) }));
+        if (typeof PrivacyGateway !== 'undefined') localToolCalls = await privacyMapBounded(localToolCalls, tc => PrivacyGateway.prepareExecution(tc, { sessionId: parentSession.id, session: parentSession, config, workingDir, signal: ctrl && ctrl.signal , resolveBridge: name => resolveBridge(bridgedRoute, name) }));
         const subBatchHistStart = subHistory.length;
         const subOutputLimited = providerWireOutputLimited(call.finishReason);
         const subToolImages = [];
         for (const tc of localToolCalls) {
-          let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
+          let args = {}; try { args = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
           // threshold, refuse to execute, emit a self-contained refusal, PAIR every remaining tool_call in this
           // batch (配对铁律: strict providers 400 on an orphan tool_call_id), then fail the sub-turn.
@@ -1191,7 +1191,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               if (decision && decision.behavior === 'allow') {
                 gate = 'allow';
                 permissionApproved = true;
-                if (decision.updatedInput && typeof decision.updatedInput === 'object') args = decision.updatedInput;
+                if (decision.updatedInput && typeof decision.updatedInput === 'object') args = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.updateExecutionInput(args, decision.updatedInput, tc.name) : decision.updatedInput;
                 recheckDelegationPermission();
               }
             }
@@ -1231,6 +1231,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                     recheckDelegationPermission();
                     await journalBridgedWrite(tc.name, args, parentSession, config, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq });
                     recheckDelegationPermission();
+                    if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { bridge, session: parentSession, config, workingDir, signal: ctrl && ctrl.signal });
                     resultObj = await client.callTool(bridge.toolName, args);
                   } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                   finally { stopToolBeat(); releaseResourceLease(toolLease); }

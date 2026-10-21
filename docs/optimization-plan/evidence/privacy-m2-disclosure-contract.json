@@ -1,0 +1,983 @@
+{
+  "date": "2026-10-21",
+  "baseline": "cc78831e",
+  "status": "implemented, independently reviewed and verified",
+  "scope": "M2-3 host recipient/purpose/field authorization before reference restoration; initial local file/text/session adapters",
+  "deferred": [
+    "Independent file namespace and strict CLI isolation",
+    "Local ASR",
+    "External web-search/HTTP/bot/managed MCP original-value adapters remain their subsequent M2 batches; local filesystem search is in the initial local adapters"
+  ],
+  "designReviewFindings": [
+    {
+      "finding": "Tool registration alone restored arbitrary fields and embedded credentials to scripts/services.",
+      "resolution": "Explicit host adapters/fields and private recipient planning before original payload release."
+    },
+    {
+      "finding": "The ordinary workspace guard permits authorized UNC/mapped drives and can fall back lexically on some realpath failures.",
+      "resolution": "Separate local-medium proof before target filesystem probes; reject unknown medium and unresolved I/O."
+    },
+    {
+      "finding": "Drive broker killed an already-exited PID through delayed tree enumeration.",
+      "resolution": "Fixed no-child script now terminates only a live owned ChildProcess handle; exit retires without kill. Independent subreview confirmed."
+    },
+    {
+      "finding": "Drive broker cleanup/stream errors could escape event handlers.",
+      "resolution": "Catch cleanup failures and fail closed on stdout/stderr errors; late retired child events cannot affect the new owner. Independent subreview confirmed."
+    },
+    {
+      "finding": "Leaf mtime/size/inode recipient identity rejects legitimate atomic replacement and batch operations.",
+      "resolution": "Bind canonical recipient/topology rather than unrelated content edits; preserve normal local operations."
+    },
+    {
+      "finding": "Bare native names can collide with exact host MCP route names.",
+      "resolution": "Bind actual host route/recipient kind during planning and actual dispatch, including proxy targets."
+    },
+    {
+      "finding": "Normalization/proxy cloning can lose private WeakMap bindings after arguments already contain originals.",
+      "resolution": "Transfer or rebuild host binding explicitly; do not interpret a copied restored tree as a new no-reference call."
+    },
+    {
+      "finding": "Permission updatedInput may introduce new secrets or change destination even when the old input had no references.",
+      "resolution": "Reprotect and replan every host permission edit before dispatch."
+    },
+    {
+      "finding": "Existing todo items:[string] form must continue to work with references.",
+      "resolution": "Normalize and authorize legitimate text fields without losing the binding."
+    },
+    {
+      "finding": "Session state tools need a final synchronous check after asynchronous authorization returns.",
+      "resolution": "Assert in the synchronous actual state-commit section, not only inside the prior async helper."
+    },
+    {
+      "finding": "Authorization failure at atomic rename left a plaintext owned temporary file.",
+      "resolution": "Clean only the owned temporary before preserving the original refusal; never run the in-place fallback on privacy errors. Independent real-FileTextIo reproduction and frozen 22-unit run passed after repair."
+    },
+    {
+      "finding": "Canonical local junction roots were rejected by lexical-only I/O recipient matching and could be swallowed into empty search results.",
+      "resolution": "Match verified canonical paths while retaining original link-topology checks; propagate privacy errors instead of treating them as empty directories. Real junction private-query search passes."
+    },
+    {
+      "finding": "Case-only move revocation could block restorative rollback and then discard checkpoints.",
+      "resolution": "Allow narrowly owned local rollback despite policy/cancellation changes; retain partial status, intermediate location and checkpoints if rollback fails. Windows real successful-rollback branch passed; failed-rollback branch reviewed but not fault-injected."
+    },
+    {
+      "finding": "The eight-job DriveType broker capacity conflicted with concurrent call planning and many configured workspace roots.",
+      "resolution": "Host preparation/root mapping and probe admission are bounded to four concurrent tasks; queued requests retain cancellation and total five-second deadline. Nine-call/nine-workspace read case and queued-cancel test pass."
+    },
+    {
+      "finding": "Repeated checks made a synthetic 100-small-file search much slower when its query contained a private reference.",
+      "resolution": "Deduplicate path/drive/component inspection only within one I/O check segment, stop after a current permission root matches, then use a new segment for fresh actual and original-recipient checks; synchronous policy/reference assertions remain. No cross-I/O authority cache. Investigation below records the remaining cost."
+    },
+    {
+      "finding": "Private wide-write/outside-workspace guard still probed unrelated UNC roots only for diagnostic logging.",
+      "resolution": "Private branch returns after actual local-medium and hard-floor checks without unrelated root probing; ordinary no-reference/off behavior remains. Regression observes zero UNC realpath calls and exact local credential writes."
+    }
+  ],
+  "brokerCostObservation": {
+    "environment": "Windows / Node 24; built-in Windows PowerShell, no new install",
+    "coldMsApprox": 250,
+    "hotQueryMsApprox": 0.3,
+    "note": "Small synthetic sample only; not a whole tool-call latency promise.",
+    "latestFirstFrozenColdMs": 278.5
+  },
+  "verification": {
+    "syntax": {
+      "files": 1102,
+      "fail": 0,
+      "node": "v24.14.0",
+      "log": "syntax-final.log"
+    },
+    "buildCheck": "fresh; source/manifest ranges consistent",
+    "graph": {
+      "modules": 88,
+      "edges": 625,
+      "duplicateProvides": 0,
+      "sccCount": 1,
+      "sccMembers": 31,
+      "policyChanged": false,
+      "log": "graph-final.log"
+    },
+    "fullUnitAndFast": {
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "exit": 0,
+      "unit": {
+        "tests": 2532,
+        "suites": 192,
+        "pass": 2506,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 26,
+        "durationMs": 326159.5386,
+        "log": "unit-final-first.log"
+      },
+      "static": {
+        "pass": 80,
+        "fail": 0,
+        "knownFail": 0,
+        "unexpectedPass": 0,
+        "flaky": 0,
+        "ran": 80,
+        "liveSkipped": 7,
+        "log": "fast-final-first.log"
+      },
+      "note": "One complete final-source full unit+fast run, no selective pass substitution."
+    },
+    "relatedE2e": {
+      "files": 9,
+      "passAssertions": 402,
+      "fail": 0,
+      "conditionalSkips": 1,
+      "skipReason": "tool-audit-r2-files Z4 cannot create file symlink in this environment; directory-junction contract tests pass without skips",
+      "resultsFile": "final-related-results.json"
+    },
+    "inventory": {
+      "sourceFiles": 268,
+      "candidates": 660,
+      "reviewErrors": 0,
+      "manualFingerprintReview": true,
+      "note": "Final source/config fingerprints and six new candidates were read and classified by the independent reviewer before regeneration."
+    },
+    "postDocumentationChecks": {
+      "buildCheck": "fresh",
+      "inventoryCheck": {
+        "sourceFiles": 268,
+        "candidates": 660,
+        "errors": 0
+      },
+      "diffCheck": "pass",
+      "eolPolicy": "five assertions pass before staging; new files separately LF checked",
+      "evidenceHashes": "31 source and47 raw hashes verified by both primary and independent reviewer",
+      "commandCorrection": "The optional final EOL recheck was initially invoked under the nonexistent eol.static.e2e.js name; corrected to eol-policy.static.e2e.js and passed. The complete fast run already passed the correct EOL gate."
+    }
+  },
+  "independentFinalReview": {
+    "reviewer": "release_priority (separate from implementation)",
+    "scope": [
+      "Full product diff, normalization/proxy/permission paths and final IO binding",
+      "Local drive broker security, natural-exit lifecycle and final built-in imports",
+      "New contract/probe units and actual main/child E2E",
+      "Four historical scripts migrated to current authorization contract",
+      "Egress candidate classifications and source fingerprints",
+      "Dependency graph initial failures and final constraints"
+    ],
+    "conclusion": "Completed before commit: no remaining blocker. Independent reviewer verified all31 source hashes and47 raw hashes/sizes, actual final-source unit/static/E2E results, conditional skips, cost samples, documentation state and residual limitations."
+  },
+  "initialFrozenVerification": {
+    "serverSha256": "782e14ca58c713d82bc5946c3abbca9a5bdd013d1f53f3cc29b24a4856bbfa8a",
+    "contractAndProbeUnit": {
+      "tests": 22,
+      "pass": 22,
+      "fail": 0,
+      "skip": 0,
+      "log": "contract-probe-frozen-first.log"
+    },
+    "newE2e": {
+      "scenarios": 6,
+      "pass": 6,
+      "fail": 0,
+      "log": "disclosure-e2e-frozen-1.log"
+    },
+    "note": "Reopened for concurrency/UX cost findings; these are not final-source verification."
+  },
+  "initialActualToolCostObservation": {
+    "syntheticOnly": true,
+    "realDpapi": false,
+    "sampleCountPerCase": 1,
+    "log": "scope-small-local-cost-20261021-144408.*",
+    "fileWriteColdMs": 366.79,
+    "fileWriteHotMs": 75.4,
+    "search100FilesMs": {
+      "off": 240.62,
+      "onNoReference": 201.67,
+      "onReference": 1801.07
+    },
+    "limitations": "Single sequential/cache-influenced investigation, not a statistical benchmark or deployment promise; prompted optimization before final acceptance."
+  },
+  "generationFindings": [
+    {
+      "finding": "First graph generation reported 691 edges and seven duplicate globals.",
+      "resolution": "Scanner mistook the top-level for(const ...) header for a full global declaration. Equivalent adapter-freezing forEach removed false globals; no scanner or budget relaxation. Preliminary graph saved externally."
+    },
+    {
+      "finding": "Next graph gate failed on new cycle edges 03b->00-boot and 13-http-router->03b.",
+      "resolution": "Drive broker now imports built-in child_process/path inside its own closure; controlled VM require stubs preserve test isolation. Final graph gate passes: 88 modules,625 edges,zero duplicates,one31-member SCC (ceiling unchanged)."
+    }
+  ],
+  "finalSource": {
+    "serverSha256": "24468fb183f12fb45d10ae05a55767f8d54b4363188d614c0f1e7d340e945e99",
+    "applicationVersion": "3.0.1",
+    "branch": "codex/3.1-completion-plan",
+    "serverLines": 90955
+  },
+  "targeted": {
+    "contractAndProbeUnit": {
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "skip": 0,
+      "log": "ux-contract-probe-wide-final.log",
+      "note": "Before equivalent forEach and broker built-in import changes; final full-unit gate runs these again."
+    },
+    "brokerFinalImportUnit": {
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skip": 0,
+      "note": "Independent scope-agent run after closure import fix; full unit runs it again."
+    },
+    "newE2eAndProtocols": {
+      "serverSha256": "24468fb183f12fb45d10ae05a55767f8d54b4363188d614c0f1e7d340e945e99",
+      "rows": [
+        {
+          "label": "disclosure-final-2",
+          "file": "privacy-disclosure-contract.e2e.js",
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 14266,
+          "pass": 6,
+          "fail": 0
+        },
+        {
+          "label": "disclosure-final-3",
+          "file": "privacy-disclosure-contract.e2e.js",
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 13930,
+          "pass": 6,
+          "fail": 0
+        },
+        {
+          "label": "protocols-final",
+          "file": "privacy-protocols.e2e.js",
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 54911,
+          "pass": 483,
+          "fail": 0
+        }
+      ]
+    },
+    "migratedGatewaySourceHistoryUnit": {
+      "tests": 66,
+      "pass": 66,
+      "fail": 0,
+      "skip": 0,
+      "log": "scope-three-unit-first-20261021-143007.log"
+    },
+    "migratedFileAndInputUnit": {
+      "tests": 20,
+      "pass": 20,
+      "fail": 0,
+      "skip": 0,
+      "log": "file-input-migration-fixed.log"
+    },
+    "offlineScripts": {
+      "scripts": [
+        "privacy-31/profile-overhead.js",
+        "privacy-31/steward-privacy-repro.js",
+        "privacy-31/oracle-boundary-probe.js"
+      ],
+      "exit": [
+        0,
+        0,
+        0
+      ],
+      "logPrefix": "scope-*-20261021-144352",
+      "scope": "Synthetic-only; no real provider, no live matrix. Core comparison benchmark is not filesystem/DriveType cost."
+    },
+    "inventoryUnit": {
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "sourceFiles": 268,
+      "candidates": 660,
+      "reviewErrors": 0
+    },
+    "relatedE2e": {
+      "serverSha256": "24468fb183f12fb45d10ae05a55767f8d54b4363188d614c0f1e7d340e945e99",
+      "rows": [
+        {
+          "label": "cost-final",
+          "args": [
+            "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-disclosure-contract\\scope-small-local-cost.cjs",
+            "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 4309,
+          "pass": 0,
+          "fail": 0,
+          "skip": 0
+        },
+        {
+          "label": "file-text-encoding-final",
+          "args": [
+            "dev-harness\\file-text-encoding.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 2955,
+          "pass": 10,
+          "fail": 0,
+          "skip": 0
+        },
+        {
+          "label": "file-guard-final",
+          "args": [
+            "dev-harness\\file-guard.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 3192,
+          "pass": 63,
+          "fail": 0,
+          "skip": 0
+        },
+        {
+          "label": "tool-audit-r2-files-final",
+          "args": [
+            "dev-harness\\tool-audit-r2-files.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 2993,
+          "pass": 91,
+          "fail": 0,
+          "skip": 1
+        },
+        {
+          "label": "meta-tools-final",
+          "args": [
+            "dev-harness\\meta-tools.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 8287,
+          "pass": 14,
+          "fail": 0,
+          "skip": 0
+        },
+        {
+          "label": "parallel-read-island-final",
+          "args": [
+            "dev-harness\\parallel-read-island.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 19557,
+          "pass": 14,
+          "fail": 0,
+          "skip": 0
+        },
+        {
+          "label": "data-profile-final",
+          "args": [
+            "dev-harness\\data-profile.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 252,
+          "pass": 19,
+          "fail": 0,
+          "skip": 0
+        },
+        {
+          "label": "session-scratchpad-final",
+          "args": [
+            "dev-harness\\session-scratchpad.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 8742,
+          "pass": 59,
+          "fail": 0,
+          "skip": 0
+        },
+        {
+          "label": "privacy-model-tool-result-final",
+          "args": [
+            "dev-harness\\privacy-model-tool-result.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 3263,
+          "pass": 4,
+          "fail": 0,
+          "skip": 0
+        },
+        {
+          "label": "privacy-gateway-final",
+          "args": [
+            "dev-harness\\privacy-gateway.e2e.js"
+          ],
+          "exit": 0,
+          "signal": null,
+          "elapsedMs": 60904,
+          "pass": 128,
+          "fail": 0,
+          "skip": 0
+        }
+      ]
+    }
+  },
+  "firstFailuresAndEvidenceLimits": [
+    {
+      "failure": "First contract fixture run8/9 passed; missing real session/turn checkpoint context.",
+      "resolution": "Use real createSession and turnSeq. Raw output retained only in tool history, not external log."
+    },
+    {
+      "failure": "Initial broker VM assertion crossed realms;5-case run repaired before later security/lifecycle expansion.",
+      "resolution": "Compare serialized map records rather than cross-realm prototypes; later expanded7 tests pass. Raw first output retained only in tool history."
+    },
+    {
+      "failure": "Old file/input fixture migration included undefined config, then10pass/10fail credential_vault.disable_requires_migration.",
+      "resolution": "Seed valid config before the synthetic vault mappings and use current actual adapter context;20/20pass. Recorded first combined log is file-input-migration-final.log; fixed log separate."
+    },
+    {
+      "failure": "Intermediate contract14/15: case-only move .rn path did not carry owned-temp purpose.",
+      "resolution": "Authorize the host-created same-directory intermediate, restorative local cleanup and partial/checkpoint behavior. Targeted1/1 then24/24 passed. Initial raw only in tool history."
+    },
+    {
+      "failure": "Some earlier views failed because normalizeConfig returns{config,...}, not config directly.",
+      "resolution": "Authority selector reads normalized .config, with actual mutateConfig/readConfig fixture publication. Final full unit covers corrected tests."
+    }
+  ],
+  "limitations": [
+    "This is a host restoration/disclosure contract, not OS isolation. Same-account filesystem races, scripts independently reading files and indirect file-then-execute workflows remain existing boundaries.",
+    "Only explicit local file/text/current-session adapters are authorized for original values; ordinary no-reference/off calls preserve the existing path. UNC/mapped/unknown drives and unadapted scripts/HTTP/MCP original inputs refuse.",
+    "No extra ordinary permission dialog/password/installation was added; private-reference file operations still pay destination and policy verification costs.",
+    "Actual media/HTTP/web-search/bot/export/MCP recipient adapters remain later M2/M4 batches; strict CLI/independent namespace and ASR remain paused.",
+    "Atomic owned-temp cleanup is best effort on OS/medium failures; failed move restoration preserves an explicit partial/intermediate/checkpoint receipt. Failed-rollback branch reviewed but not fault-injected; Windows successful rollback is tested.",
+    "No live-provider/live-matrix, real external platform, complete product E2E, new package, DPAPI storage migration or release acceptance is claimed."
+  ],
+  "finalActualToolCostObservation": {
+    "synthetic": true,
+    "statisticalBenchmark": false,
+    "dpapi": false,
+    "scope": "one cold/hot local write and one search per mode; OS/file caches/order affect values",
+    "serverSha256": "24468fb183f12fb45d10ae05a55767f8d54b4363188d614c0f1e7d340e945e99",
+    "rows": [
+      {
+        "label": "write-ref-cold",
+        "prepareMs": 278.74,
+        "totalMs": 333.12
+      },
+      {
+        "label": "write-ref-hot",
+        "prepareMs": 5.8,
+        "totalMs": 48.92
+      },
+      {
+        "label": "search-100-off",
+        "prepareMs": 0.01,
+        "totalMs": 216.66
+      },
+      {
+        "label": "search-100-enhanced-no-ref",
+        "prepareMs": 0.05,
+        "totalMs": 195.99
+      },
+      {
+        "label": "search-100-enhanced-ref",
+        "prepareMs": 4.19,
+        "totalMs": 1347.08
+      }
+    ],
+    "log": "cost-final.log",
+    "interpretation": "Investigation only: initial reference search1801.07ms; optimized-source instrumented profile about1292ms (exact source and counters separately recorded); final-source uninstrumented sample1347.08ms vs enhanced-no-reference195.99ms/off216.66ms. Query references still cost real recipient checks; no claim of zero latency. No new everyday interaction or dependency installation."
+  },
+  "optimizationInstrumentedCostObservation": {
+    "synthetic": true,
+    "statisticalBenchmark": false,
+    "dpapi": false,
+    "scope": "one cold/hot local write and one search per mode; OS/file caches/order affect values",
+    "serverSha256": "3c391a98c0250fa4e53dd75ea14905569999485bd0e55715ad42e7aed86cbd0e",
+    "rows": [
+      {
+        "label": "write-ref-cold",
+        "prepareMs": 303.69,
+        "totalMs": 375.17,
+        "fsStats": {
+          "lstat": {
+            "count": 162,
+            "ms": 20.089599999997517
+          },
+          "stat": {
+            "count": 27,
+            "ms": 4.300700000000688
+          },
+          "readFile": {
+            "count": 11,
+            "ms": 8.998000000000275
+          },
+          "realpath": {
+            "count": 1,
+            "ms": 0.25700000000006185
+          },
+          "readdir": {
+            "count": 2,
+            "ms": 0.6975999999995111
+          }
+        }
+      },
+      {
+        "label": "write-ref-hot",
+        "prepareMs": 9.4,
+        "totalMs": 60.85,
+        "fsStats": {
+          "lstat": {
+            "count": 162,
+            "ms": 20.497199999998884
+          },
+          "stat": {
+            "count": 24,
+            "ms": 2.9036000000010063
+          },
+          "readFile": {
+            "count": 8,
+            "ms": 7.898200000000543
+          }
+        }
+      },
+      {
+        "label": "search-100-off",
+        "prepareMs": 0.01,
+        "totalMs": 230.49,
+        "fsStats": {
+          "realpath": {
+            "count": 3,
+            "ms": 0.8955000000000837
+          },
+          "stat": {
+            "count": 145,
+            "ms": 14.287100000002738
+          },
+          "readFile": {
+            "count": 3,
+            "ms": 1.2008999999998196
+          },
+          "readdir": {
+            "count": 4,
+            "ms": 0.6635000000005675
+          }
+        }
+      },
+      {
+        "label": "search-100-enhanced-no-ref",
+        "prepareMs": 0.05,
+        "totalMs": 216.7,
+        "fsStats": {
+          "realpath": {
+            "count": 304,
+            "ms": 48.796700000005785
+          },
+          "stat": {
+            "count": 319,
+            "ms": 27.92879999999559
+          },
+          "readFile": {
+            "count": 3,
+            "ms": 1.5870000000004438
+          },
+          "readdir": {
+            "count": 7,
+            "ms": 0.9075999999995474
+          }
+        }
+      },
+      {
+        "label": "search-100-enhanced-ref",
+        "prepareMs": 5.37,
+        "totalMs": 1292.44,
+        "fsStats": {
+          "lstat": {
+            "count": 5584,
+            "ms": 528.0188999999891
+          },
+          "stat": {
+            "count": 931,
+            "ms": 82.24689999999691
+          },
+          "readFile": {
+            "count": 307,
+            "ms": 259.86180000000195
+          },
+          "readdir": {
+            "count": 7,
+            "ms": 1.1417000000010376
+          },
+          "realpath": {
+            "count": 1,
+            "ms": 0.1756000000000313
+          }
+        }
+      }
+    ],
+    "log": "ux-profile-local-cost-matching-root.log"
+  },
+  "sourceHashes": [
+    {
+      "file": "dev-harness/lib/privacy-test-fixture.js",
+      "sha256": "628dbb6f75c37df73434abf4f6bb84cc737ee189c0a0a396455a51225b0a0c7e"
+    },
+    {
+      "file": "dev-harness/privacy-31/live-matrix.js",
+      "sha256": "538a7c9808350d9a701d478be1bc8871ce0aa24ec68723a1cda09285b2bb8ad4"
+    },
+    {
+      "file": "dev-harness/privacy-31/oracle-boundary-probe.js",
+      "sha256": "a48563635c275d4a301190321a4e3152377fb244855f1e0849324adec88574b9"
+    },
+    {
+      "file": "dev-harness/privacy-31/profile-overhead.js",
+      "sha256": "ffdba338a92fb1e3474c91cef234ff2d0f759ec184fe90807196e7b3c0bae907"
+    },
+    {
+      "file": "dev-harness/privacy-31/steward-privacy-repro.js",
+      "sha256": "06de09b858a21e0cfbc069939aed9b3f86e2606c92aebb077034836de1de458d"
+    },
+    {
+      "file": "dev-harness/privacy-disclosure-contract.e2e.js",
+      "sha256": "f0ceb71dc8bffe8d5da3d92526257a56cacd4a735f67986be54c9ab45ad520e2"
+    },
+    {
+      "file": "dev-harness/privacy-m1/egress/manifest.json",
+      "sha256": "981f3c34dfe290d3aa04db6056968eaad2b7a26919ed7e1c9229c97ac3cf7d33"
+    },
+    {
+      "file": "dev-harness/privacy-protocols.e2e.js",
+      "sha256": "571541eb258381a6e0ab372c73379a75a1a3256c84f15d128203568d0b32eab2"
+    },
+    {
+      "file": "dev-harness/process-safety.static.e2e.js",
+      "sha256": "9b3f16f1ae925b59250631e17fcb12adf55869e6bf6357347cb940fe9848bcba"
+    },
+    {
+      "file": "dev-harness/unit/privacy-disclosure-contract.test.js",
+      "sha256": "d55402b9ff27725ab3c02066ddd3c3831285794ce14ec1d87032eb8db213d93f"
+    },
+    {
+      "file": "dev-harness/unit/privacy-file-read.test.js",
+      "sha256": "10abbe261cc99e01b3d2609e9463f93758282457229f2795472f6fe65a64f4f3"
+    },
+    {
+      "file": "dev-harness/unit/privacy-gateway.test.js",
+      "sha256": "085c1dcb662f234e2ba913ef54b239560a417c7b23d6a2ea2bb8c5a79588ab29"
+    },
+    {
+      "file": "dev-harness/unit/privacy-history-quarantine.test.js",
+      "sha256": "0ed10f2683e50cda58ac16f578c6979e3bded39a4e4111edb5bbd74ff094f3d6"
+    },
+    {
+      "file": "dev-harness/unit/privacy-input-tool-regression.test.js",
+      "sha256": "4550fa9978436f919db0e9f02066415835b8c838bf7c57dac0f03aa53c8c0bc5"
+    },
+    {
+      "file": "dev-harness/unit/privacy-local-drive.test.js",
+      "sha256": "b1e1dd6733bee6be298515232a224248a279beb8466c49755ed589be0ead441e"
+    },
+    {
+      "file": "dev-harness/unit/privacy-source-views.test.js",
+      "sha256": "faaa158ff314a9051c239cf98d48109e0a81d6c56b4f19733f68993e232b6b48"
+    },
+    {
+      "file": "dev-harness/unit/privacy-tool-transport.test.js",
+      "sha256": "4fc4753cc553509b48b830211c693005acffd8b260be5f89f269e6983d522a80"
+    },
+    {
+      "file": "dev-harness/unit/privacy-tool-views.test.js",
+      "sha256": "2817f2092773dbf216852927c58922d2e495f9d2d8196505451800b1ddcee09f"
+    },
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "24468fb183f12fb45d10ae05a55767f8d54b4363188d614c0f1e7d340e945e99"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "sha256": "6a4bbe67977cda0968ff0a2de04cee14e2b6de1fac5cb866e937ab6a43b8bae1"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "55b703355b73f9f89cce2945596d9b078a15ae5683f08b1d402ecc14a3042039"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03b-privacy-local-drive.js",
+      "sha256": "fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4"
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "5555ee98f6647082d6d309c92a6ae4756cad0c48f048903f8d4d063fc7cd6f24"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "009518ae8f214504f825bbd1e06ccbcaf7a33d2bef5aaa547105e3f6cf6b6545"
+    },
+    {
+      "file": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "834d07ae6a1339d6c69d2e992c11040f9aad575dcb495d374e2ef481a6161c00"
+    },
+    {
+      "file": "ruyi-workbench/app/src/11b-file-text-io.js",
+      "sha256": "35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "fda42c063cefaabf1773a25d2f3aa0d37bbb0fa662f6eb18f7611eb91da92359"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "dae4a8edb35c141fe5c06df85f4c99dd6b48f45044c0cf42a88264a04ff24b7a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "4e38b060add74c4967e1fdb079c35d3470e14605a846a1a8152fabf31f01fb50"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "3a1bdf6c322a027e0d2c637e03e011154f38a011248ee681bcbe89ce3a5995b7"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "e8d292e1d649fd4bfb12fb317da4cc0751ffba3bf37f0c87ae3e07e7c0a5bd25"
+    }
+  ],
+  "rawEvidenceLocation": "../ruyi-workbench-maintenance-20261021/checks/m2-disclosure-contract",
+  "rawFiles": [
+    {
+      "file": "contract-probe-frozen-first.log",
+      "bytes": 2963,
+      "sha256": "327960aeaa031c2d123b9d8431c2f4693dcb5e33acc48c9acc9c8b553bdeaf1c"
+    },
+    {
+      "file": "cost-final.log",
+      "bytes": 772,
+      "sha256": "6ebca0cf9afef5b15edf3488e2b34d6151928df2493b48f1ee1359ce0d39d518"
+    },
+    {
+      "file": "data-profile-final.log",
+      "bytes": 771,
+      "sha256": "050e9e915c9641756c6ba56b8a640246f1aed85c94b862acfd2cd09841090c73"
+    },
+    {
+      "file": "disclosure-e2e-final-1.log",
+      "bytes": 740,
+      "sha256": "af6a91d59cdbca217a7cc80bb978d90011ab990d222e1b6a7782eeac332ce8b2"
+    },
+    {
+      "file": "disclosure-e2e-frozen-1.log",
+      "bytes": 740,
+      "sha256": "af6a91d59cdbca217a7cc80bb978d90011ab990d222e1b6a7782eeac332ce8b2"
+    },
+    {
+      "file": "disclosure-final-2.log",
+      "bytes": 732,
+      "sha256": "9ebfc423d4322098519e561c4014f17829d83818a36a5f084e5e17e0eda221f2"
+    },
+    {
+      "file": "disclosure-final-3.log",
+      "bytes": 732,
+      "sha256": "9ebfc423d4322098519e561c4014f17829d83818a36a5f084e5e17e0eda221f2"
+    },
+    {
+      "file": "fast-final-first.log",
+      "bytes": 6182,
+      "sha256": "f838cbd9ce62aec89ddc6659b56f5757500abd89b300849a556760a511bd42bd"
+    },
+    {
+      "file": "file-guard-final.log",
+      "bytes": 4112,
+      "sha256": "d15a2101f7516a97e6883a1c14220e0fe21881d77d17850def20958a6eb01c81"
+    },
+    {
+      "file": "file-input-migration-final.log",
+      "bytes": 12017,
+      "sha256": "4eb9b6a4ade6a750a19c584aa24457d07fea548e07efc169add2426909ef6063"
+    },
+    {
+      "file": "file-input-migration-fixed.log",
+      "bytes": 2509,
+      "sha256": "27fe149b39ed4b960e573b4e4328e52ca30008e842fdba02e64de2e947ecb1a1"
+    },
+    {
+      "file": "file-text-encoding-final.log",
+      "bytes": 905,
+      "sha256": "cf49ae41b1b487177779cf511738e0fde099695bae9d21020c1821388f66113b"
+    },
+    {
+      "file": "final-main-e2e-results.json",
+      "bytes": 694,
+      "sha256": "c15e8dc7d135d22f40a2773b70d739bbf0a6814dd91d060851ae58d48f66a04d"
+    },
+    {
+      "file": "final-related-results.json",
+      "bytes": 2682,
+      "sha256": "caf2dc93f6e55cb4e953d43d2b9b5daf319ade41177616f4e66222943f5de685"
+    },
+    {
+      "file": "graph-final.log",
+      "bytes": 1251,
+      "sha256": "2bacf84a90a0f7653041d5e1c05ca09e9581cc122383fb1d3a3299bc4c9831c8"
+    },
+    {
+      "file": "graph-first-scanner-pollution.json",
+      "bytes": 961611,
+      "sha256": "226dc18ceacafd0c649e4b2b3cdf2b15eaaa6efae91eb2532322335ae45ef6cc"
+    },
+    {
+      "file": "meta-tools-final.log",
+      "bytes": 844,
+      "sha256": "b383e5062c75804c42cb6c28a3e44f4bdae07be7b63c907c2840993783ad6167"
+    },
+    {
+      "file": "parallel-read-island-final.log",
+      "bytes": 850,
+      "sha256": "c48e9443765bd2d62da8dd87f797806fce5accc3cc2f7a803f3f68cec3c3cb02"
+    },
+    {
+      "file": "privacy-gateway-final.log",
+      "bytes": 11457,
+      "sha256": "3fe525d867f929778565fcd2fa1e307f669c1d4cc97964097f90108dea7f9d4e"
+    },
+    {
+      "file": "privacy-model-tool-result-final.log",
+      "bytes": 505,
+      "sha256": "66d98c3d06d6ca2eeeacc9f54e176ae82b5e1a3b29043a686526f5e27c7a7e65"
+    },
+    {
+      "file": "protocols-final.log",
+      "bytes": 43772,
+      "sha256": "e9bb08f4dfe72c761b5e88b83fe42821d485da8641b045ed521a3c47697793e7"
+    },
+    {
+      "file": "scope-oracle-boundary-probe-20261021-144352.result.json",
+      "bytes": 186,
+      "sha256": "3ad51a74a3857e36d49ed5de6ea3fc6a37a0e5e90c157e3e16edf421cd7cb1e5"
+    },
+    {
+      "file": "scope-oracle-boundary-probe-20261021-144352.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "scope-oracle-boundary-probe-20261021-144352.stdout.log",
+      "bytes": 706,
+      "sha256": "86087caeb623581d03f7c4fd0d4b65012daab8fbb515c5a0e4d71c699766f34b"
+    },
+    {
+      "file": "scope-profile-overhead-20261021-144352.result.json",
+      "bytes": 181,
+      "sha256": "8cd7a7153bd71545e7218bbfec12c29788460a9dfe7b89db73e937c1e96796cb"
+    },
+    {
+      "file": "scope-profile-overhead-20261021-144352.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "scope-profile-overhead-20261021-144352.stdout.log",
+      "bytes": 1137,
+      "sha256": "eecda86c9fc07e487ad5afcedbac01d3ba5939c8752da5a30cda90bf308904ff"
+    },
+    {
+      "file": "scope-small-local-cost-20261021-144408.result.json",
+      "bytes": 172,
+      "sha256": "b6d77532032cde4ef85e9173e1a0654e497af1a73a7bf2cf2ffce8ae30bdf6bc"
+    },
+    {
+      "file": "scope-small-local-cost-20261021-144408.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "scope-small-local-cost-20261021-144408.stdout.log",
+      "bytes": 772,
+      "sha256": "3795a7cf939cfc125837e53efcbfef5e11cd492e9784cf00107190b7b26900db"
+    },
+    {
+      "file": "scope-small-local-cost.cjs",
+      "bytes": 3875,
+      "sha256": "f9c364ad26679774b957a9ac1635ceaafde1de429188746936d6477dd980eca9"
+    },
+    {
+      "file": "scope-steward-privacy-repro-20261021-144352.result.json",
+      "bytes": 186,
+      "sha256": "1d6a4e449398b519afdfe9d6db1fdcc04975d3862376ecba718773d8cdeb8ef1"
+    },
+    {
+      "file": "scope-steward-privacy-repro-20261021-144352.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "scope-steward-privacy-repro-20261021-144352.stdout.log",
+      "bytes": 427,
+      "sha256": "aaa5becf585a111f88f7b5b002e8d28f5aac71babb5238aa6df549aecbdc2326"
+    },
+    {
+      "file": "scope-three-unit-first-20261021-143007.log",
+      "bytes": 7754,
+      "sha256": "4f529532f991b36e2f9557a742ecbd7b982eba1d98e8ecf6ff5a33575e6c0d0a"
+    },
+    {
+      "file": "session-scratchpad-final.log",
+      "bytes": 6254,
+      "sha256": "a816b481b3414647250ebd5168199f46d7de25bd7a6c56605daebde353894a12"
+    },
+    {
+      "file": "syntax-final.log",
+      "bytes": 61,
+      "sha256": "4cc999b688d24adfcc20a400189578e8298309b9bc2accddea05c329080f8f4c"
+    },
+    {
+      "file": "tool-audit-r2-files-final.log",
+      "bytes": 14273,
+      "sha256": "509519b6169659748ee4fd3d15ecf1831c18633663d83fe3eb6164e42f53a667"
+    },
+    {
+      "file": "unit-final-first.log",
+      "bytes": 395435,
+      "sha256": "88b93b8401523956cf037b89c321bb2bf047ab4e3a17a5a0d6c44d1f017564ce"
+    },
+    {
+      "file": "ux-contract-first.log",
+      "bytes": 2314,
+      "sha256": "f58175ecb9174aaced8d28f5ece57759e3039a1cb73bfb06d536a5fc433842fa"
+    },
+    {
+      "file": "ux-contract-probe-final.log",
+      "bytes": 3190,
+      "sha256": "325bb6cf4fede76dc99bddc702e321784aadc52548a972fe449f537df78c8819"
+    },
+    {
+      "file": "ux-contract-probe-wide-final.log",
+      "bytes": 3188,
+      "sha256": "8a234ba2ea783d90ae74957d1b70fac5294280bff07462094cdb8e74afffc3e2"
+    },
+    {
+      "file": "ux-profile-local-cost-matching-root.log",
+      "bytes": 2906,
+      "sha256": "56be80937445b4eb5d8fa58135b4f248de28b4413fb9208c7ebe86ce7143e3fc"
+    },
+    {
+      "file": "ux-profile-local-cost.cjs",
+      "bytes": 4301,
+      "sha256": "c0fc4092796d789675c62e5d7fa6924d943c3910ba22128ef66417a61afd0a0f"
+    },
+    {
+      "file": "ux-profile-local-cost.log",
+      "bytes": 2902,
+      "sha256": "9ee3eade773ea89d549ae5031ecc42a0a13bd51a56d833f55bbb485cace84349"
+    },
+    {
+      "file": "ux-small-local-cost-first.log",
+      "bytes": 807,
+      "sha256": "dcb89c52ba744d61090cec8a57fd6f48701f8aac830b3233ac8f0ba716ee2dd0"
+    },
+    {
+      "file": "ux-small-local-cost-prefix.log",
+      "bytes": 807,
+      "sha256": "cfb83f6544fe9c7445fa58125bc943a147640205d9c482ac8e6ced7e0d8822cb"
+    }
+  ]
+}

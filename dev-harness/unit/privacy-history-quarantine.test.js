@@ -24,8 +24,8 @@ test('host history quarantines only bad slots while canonical arguments and vali
     assert.equal(view[1].tool_calls[0].id, 'negative'); assert.equal(view[1].tool_calls[0].function.name, 'file_write');
     assert.equal(view[2], history[2]); assert.ok(!JSON.stringify(view).includes(unknown)); assert.equal(JSON.stringify(history), frozen);
     assert.ok(!JSON.stringify(await api.beforeRequest({ messages: view })).includes('synthetic-history@example.test'));
-    assert.equal(api.prepareCall({ name: 'file_write', rawArgs: args }).privacyError.code, 'privacy.reference_unknown');
-    assert.equal(JSON.parse(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'positive.txt', content: valid }) }).rawArgs).content, 'synthetic-history@example.test');
+    assert.equal((await api.prepareExecution({ name: 'file_write', rawArgs: args })).privacyError.code, 'privacy.reference_unknown');
+    assert.equal(JSON.parse((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'positive.txt', content: valid }) })).rawArgs).content, 'synthetic-history@example.test');
   });
 });
 test('new user and steer forgeries stay strict, but the next host-loaded turn can recover', async t => {
@@ -65,10 +65,10 @@ test('expired and revoked historical references disappear only from the model vi
     const history = [{ role: 'assistant', content: revoked }], owner = {}; api.bindHostHistory(owner, []);
     assert.ok(!JSON.stringify(api.projectHostHistory(owner, history)).includes(revoked));
     assert.equal(history[0].content, revoked);
-    assert.match(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'x', content: revoked }) }).privacyError.code, /^privacy.reference_(unknown|revoked)$/);
+    assert.match((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'x', content: revoked }) })).privacyError.code, /^privacy.reference_(unknown|revoked)$/);
     const expired = scope.protectValue('synthetic-expired@example.test', 'EMAIL'), snapshot = scope.exportState();
     snapshot.entries.find(entry => entry.token === expired).expiresAt = 0; scope.importState(snapshot);
-    assert.equal(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'x', content: expired }) }).privacyError.code, 'privacy.reference_expired');
+    assert.equal((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'x', content: expired }) })).privacyError.code, 'privacy.reference_expired');
     assert.ok(!JSON.stringify(api.projectHostHistory(owner, [{ role: 'assistant', content: expired }])).includes(expired));
   });
 });
@@ -92,7 +92,7 @@ test('restart reloads valid mappings and quarantines only unavailable historical
     const history = [{ role: 'user', content: valid }, { role: 'assistant', content: unknown }], owner = {}; restarted.bindHostHistory(owner, history);
     const projected = restarted.projectHostHistory(owner, history);
     assert.equal(projected[0].content, valid); assert.ok(!JSON.stringify(projected).includes(unknown));
-    assert.equal(JSON.parse(restarted.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'restart.txt', content: valid }) }).rawArgs).content, 'restart-history@example.test');
+    assert.equal(JSON.parse((await restarted.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'restart.txt', content: valid }) })).rawArgs).content, 'restart-history@example.test');
   });
 });
 test('policy and resource failures remain hard errors for history projection', async t => {

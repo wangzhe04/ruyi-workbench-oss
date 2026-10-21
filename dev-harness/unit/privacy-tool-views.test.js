@@ -15,7 +15,7 @@ const off = { privacyModeV1: 'off', privacyRulesV1: [], privacyTechnicalV1: fals
   desktopMcp: { enabled: false, autodetect: false }, allowCommandTools: true, defaultWorkspace: work,
   stewardEnabledV1: false, schedulerEnabledV1: false, toolLoadingMode: 'auto' };
 fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify(off));
-const app = require('../lib/server-internals').loadServerInternals(['toolCall', 'TOOL_HANDLERS', 'NATIVE_COMMAND_TOOL_NAMES', 'PrivacyGateway', 'PrivacyCore']);
+const app = require('../lib/server-internals').loadServerInternals(['toolCall', 'TOOL_HANDLERS', 'NATIVE_COMMAND_TOOL_NAMES', 'PrivacyGateway', 'PrivacyCore', 'PrivacyLocalDriveProbe', 'mutateConfig', 'readConfig']);
 const vault = require('../lib/privacy-test-fixture').fixture().vault;
 for (const key of ['hydrateConfig', 'protectConfig', 'protectBackup', 'protectCorrupt', 'migrateBackups', 'stateStamp', 'sealLocal', 'openLocal']) app.PrivacyCore.configHooks[key] = vault[key];
 const secret = 'SYNTHETIC-PRIVATE-PATIENT-FIELD', target = path.join(work, 'patient.json');
@@ -27,12 +27,14 @@ const ctx = config => ({ config, workingDir: work, sessionId: 'sess_privacy_view
 let serial = 0;
 async function scoped(mode, fn) {
   const policy = { ...off, credentialEncryptionV1: true, privacyModeV1: mode, privacyRulesV1: [{ id: 'patient', kind: 'field', value: '/patientCode', category: 'INTERNAL' }] };
-  fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify(policy));
-  app.PrivacyGateway.configure(policy);
-  return app.PrivacyGateway.run('unsupported-views-' + (++serial), policy, () => fn(policy));
+  await app.mutateConfig(current => Object.assign(current, policy));
+  const live = await app.readConfig();
+  app.PrivacyGateway.configure(live);
+  return app.PrivacyGateway.run('unsupported-views-' + (++serial), live, () => fn(live));
 }
 
 after(() => {
+  app.PrivacyLocalDriveProbe.stopSync();
   vault.clear();
   if (path.dirname(root) !== tempBase || !path.basename(root).startsWith('ruyi-privacy-tool-views-')) throw Error('cleanup scope');
   fs.rmSync(root, { recursive: true, force: true });
@@ -94,7 +96,7 @@ test('supported native location/full-text tools stay available and unknown tools
     assert.equal(read.ok, true); assert.equal(read.content.includes(secret), false);
     const protectedRead = await app.PrivacyGateway.toolResult(read);
     assert.equal(JSON.stringify(protectedRead).includes(secret), false);
-    const restored = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'copy.json', content: protectedRead.content }) });
+    const restored = await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'copy.json', content: protectedRead.content }) }, ctx(policy));
     assert.equal(restored.privacyError, undefined); assert.equal(JSON.parse(restored.rawArgs).content, original);
     await assert.rejects(() => app.toolCall('file_searhc', {}, ctx(policy)), error => error.toolFailure?.code === 'unknown-tool' && /Unknown tool/.test(error.message));
     await assert.rejects(() => app.toolCall('constructor', {}, ctx(policy)), error => error.toolFailure?.code === 'unknown-tool');

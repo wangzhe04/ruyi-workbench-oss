@@ -9,18 +9,22 @@ const root = fs.mkdtempSync(path.join(tempBase, 'ruyi-privacy-file-read-'));
 const data = path.join(root, 'data'), work = path.join(root, 'work');
 fs.mkdirSync(data); fs.mkdirSync(work);
 Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), data));
-const app = require('../lib/server-internals').loadServerInternals(['FILE_TOOL_HANDLERS', 'PrivacyGateway', 'PrivacyCore', 'execResultCacheBySession']);
+fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ privacyModeV1: 'off', credentialEncryptionV1: true, providers: [], defaultWorkspace: work, autoImportClaudeCodeMcp: false, includeWorkbenchMcp: false, externalMcpServers: [], desktopMcp: { enabled: false, autodetect: false }, stewardEnabledV1: false, schedulerEnabledV1: false }));
+const app = require('../lib/server-internals').loadServerInternals(['FILE_TOOL_HANDLERS', 'PrivacyGateway', 'PrivacyCore', 'execResultCacheBySession', 'mutateConfig', 'readConfig', 'toolCall', 'PrivacyLocalDriveProbe']);
 const { fixture } = require('../lib/privacy-test-fixture');
 const vault = fixture().vault;
 app.PrivacyCore.configHooks.sealLocal = vault.sealLocal;
 app.PrivacyCore.configHooks.openLocal = vault.openLocal;
+for (const key of ['hydrateConfig', 'protectConfig', 'protectBackup', 'protectCorrupt', 'migrateBackups', 'stateStamp']) app.PrivacyCore.configHooks[key] = vault[key];
 let serial = 0;
-const config = (mode = 'enhanced', rules = []) => ({ privacyModeV1: mode, privacyRulesV1: rules, privacyTechnicalV1: false,
+const config = (mode = 'enhanced', rules = []) => ({ credentialEncryptionV1: true, privacyPolicyRecoveryRequiredV1: false, autoImportClaudeCodeMcp: false, includeWorkbenchMcp: false, externalMcpServers: [], desktopMcp: { enabled: false, autodetect: false }, stewardEnabledV1: false, schedulerEnabledV1: false, privacyModeV1: mode, privacyRulesV1: rules, privacyTechnicalV1: false,
   providers: [], defaultWorkspace: work, runtimeExecResultCacheV1: true, execResultCacheMaxEntriesV1: 20 });
 const context = policy => ({ config: policy, workingDir: work, sessionId: 'sess_privacy_file_read', session: { cwd: work } });
 const file = (name, content) => { const target = path.join(work, name); fs.writeFileSync(target, content); return target; };
 const rawRead = (target, args, policy) => app.FILE_TOOL_HANDLERS.file_read.handler({ path: target, ...args }, context(policy));
 async function scoped(policy, fn) {
+  await app.mutateConfig(current => Object.assign(current, policy));
+  Object.assign(policy, await app.readConfig());
   app.PrivacyGateway.configure(policy);
   return app.PrivacyGateway.run('file-read-test-' + (++serial), policy, fn);
 }
@@ -33,7 +37,7 @@ function refused(value, originals = []) {
   for (const secret of originals) assert.equal(JSON.stringify(value).includes(secret), false);
 }
 after(() => {
-  app.execResultCacheBySession.clear(); vault.clear();
+  app.PrivacyLocalDriveProbe.stopSync(); app.execResultCacheBySession.clear(); vault.clear();
   if (path.dirname(root) !== tempBase || !path.basename(root).startsWith('ruyi-privacy-file-read-')) throw Error('cleanup scope');
   fs.rmSync(root, { recursive: true, force: true });
 });
@@ -89,7 +93,7 @@ test('complete JSON reads retain lexical source for field protection and suppres
     const result = await app.PrivacyGateway.toolResult(raw);
     assert.equal(JSON.stringify(result).includes(secret), false);
     assert.match(result.content, /\[\[RUYI_PVT:INTERNAL:/);
-    const call = app.PrivacyGateway.prepareCall({ name: 'file_edit', rawArgs: JSON.stringify({ path: target, oldText: result.content, newText: '{}' }) });
+    const call = await app.PrivacyGateway.prepareExecution({ name: 'file_edit', rawArgs: JSON.stringify({ path: target, oldText: result.content, newText: '{}' }) }, context(policy));
     assert.equal(call.privacyError, undefined); assert.equal(JSON.parse(call.rawArgs).oldText, original);
   });
 });
@@ -112,9 +116,9 @@ test('an actual read-write-read verification loop keeps a learned field private 
   await scoped(policy, async () => {
     const protectedSource = await app.PrivacyGateway.toolResult(await rawRead(source, {}, policy));
     const reference = JSON.parse(protectedSource.content).patientCode;
-    const prepared = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: destination, content: reference + '\n' }) });
+    const prepared = await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: destination, content: reference + '\n' }) }, context(policy));
     assert.equal(prepared.privacyError, undefined);
-    const write = await app.FILE_TOOL_HANDLERS.file_write.handler(JSON.parse(prepared.rawArgs), { ...context(policy), turnSeq: 2 });
+    const write = await app.toolCall('file_write', app.PrivacyGateway.executionArgs(prepared), { ...context(policy), turnSeq: 2 });
     assert.equal(write.ok, true); assert.equal(fs.readFileSync(destination, 'utf8'), secret + '\n');
     const verified = await app.PrivacyGateway.toolResult(await rawRead(destination, {}, policy));
     assert.equal(verified.content, reference + '\n'); assert.equal(JSON.stringify(verified).includes(secret), false);

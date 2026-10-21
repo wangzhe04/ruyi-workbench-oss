@@ -10,7 +10,7 @@ const work = path.join(root, 'work'), data = path.join(root, 'data');
 fs.mkdirSync(work); fs.mkdirSync(data);
 Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), data));
 const app = require('../lib/server-internals').loadServerInternals(['PrivacyGateway', 'PrivacyCore', 'FILE_TOOL_HANDLERS', 'providerWireProtocol',
-  'createSession', 'loadSession', 'saveSession', 'readConfig', 'runSessionTurn', 'turnSettlers'], { withEval: true });
+  'createSession', 'loadSession', 'saveSession', 'readConfig', 'runSessionTurn', 'turnSettlers', 'mutateConfig', 'toolCall', 'PrivacyLocalDriveProbe'], { withEval: true });
 const f = require('../lib/privacy-test-fixture').fixture();
 app.PrivacyCore.configHooks.sealLocal = f.vault.sealLocal;
 app.PrivacyCore.configHooks.openLocal = f.vault.openLocal;
@@ -24,6 +24,7 @@ const policy = (mode, technical = false) => ({ privacyModeV1: mode, privacyTechn
   providers: [], credentialEncryptionV1: true, defaultWorkspace: work });
 const ctx = config => ({ config, workingDir: work, sessionId: 'sess_input_chain', session: { id: 'sess_input_chain', cwd: work } });
 const scoped = async (config, run, id = 'input-chain-' + (++serial)) => {
+  await app.mutateConfig(current => Object.assign(current, config)); Object.assign(config, await app.readConfig());
   app.PrivacyGateway.configure(config); return app.PrivacyGateway.run(id, config, run);
 };
 
@@ -39,7 +40,7 @@ test('business-number phone exclusions survive complete JSON requests and tool r
     assert.ok(returned.phone.startsWith('[[RUYI_PVT:PHONE:'));
     const duplicate = await app.PrivacyGateway.toolResult({ orderId: '13900000088' });
     assert.ok(!JSON.stringify(duplicate).includes('13900000088'), 'a known private value cannot be declassified by relabelling it as an order');
-    const prepared = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'synthetic.txt', content: returned.phone }) });
+    const prepared = (await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'synthetic.txt', content: returned.phone }) }, ctx(await app.readConfig())));
     assert.equal(prepared.privacyError, undefined); assert.equal(JSON.parse(prepared.rawArgs).content, '13900000088');
   });
 });
@@ -57,7 +58,7 @@ for (const generation of ['second', 'third']) test(generation + ' scenarios pres
         const visible = value => value.replace(/\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g, '');
         assert.equal(!visible(protectedInput).includes(row.secret), hidden, mode + '/' + row.id + '/input');
         assert.equal(!visible(returned.text).includes(row.secret), hidden, mode + '/' + row.id + '/tool');
-        const prepared = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'synthetic.txt', content: returned.text }) }, { isRegisteredTool: () => false });
+        const prepared = (await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'synthetic.txt', content: returned.text }) }, ctx(await app.readConfig())));
         assert.equal(prepared.privacyError, undefined, mode + '/' + row.id + '/restore');
         assert.equal(JSON.parse(prepared.rawArgs).content, row.sample, mode + '/' + row.id + '/exact');
       }
@@ -70,11 +71,11 @@ for (const generation of ['second', 'third']) test(generation + ' scenarios pres
 });
 const encode = (style, messages) => app.providerWireProtocol(style).encodeMessages({ model: 'synthetic', messages, stream: true,
   provider: { apiStyle: style, anthropicThinking: 'off' }, hasTools: false });
-const restore = (text, name = 'file_write') => {
-  const prepared = app.PrivacyGateway.prepareCall({ name, rawArgs: JSON.stringify({ content: text }) }, { isRegisteredTool: () => false });
+const restore = async (text, name = 'file_write') => {
+  const prepared = (await app.PrivacyGateway.prepareExecution({ name, rawArgs: JSON.stringify({ path: path.join(work, 'synthetic-restore.txt'), content: text }) }, ctx(await app.readConfig())));
   assert.equal(prepared.privacyError, undefined); return JSON.parse(prepared.rawArgs).content;
 };
-after(() => { f.vault.clear(); if (path.dirname(root) !== tempBase || !path.basename(root).startsWith('ruyi-input-tool-regression-')) throw Error('cleanup scope'); fs.rmSync(root, { recursive: true, force: true }); });
+after(() => { app.PrivacyLocalDriveProbe.stopSync(); f.vault.clear(); if (path.dirname(root) !== tempBase || !path.basename(root).startsWith('ruyi-input-tool-regression-')) throw Error('cleanup scope'); fs.rmSync(root, { recursive: true, force: true }); });
 
 test('three production wire encoders protect fresh input and old history according to each selected tier', async () => {
   const text = [values.email, values.id, JSON.stringify(cnCredentials), '手机号：' + commonPersonal[0], '手机号是' + commonPersonal[1],
@@ -101,7 +102,7 @@ test('complete JSON and formatted file reads cross each real wire encoder, then 
   for (const style of ['chat', 'responses', 'anthropic']) for (const view of [{}, { lineOffset: 2, lineLimit: 2 }]) {
     const config = policy('enhanced');
     await scoped(config, async () => {
-      const result = await app.PrivacyGateway.toolResult(await app.FILE_TOOL_HANDLERS.file_read.handler({ path: source, ...view }, ctx(config)));
+      const result = await app.PrivacyGateway.toolResult(await app.FILE_TOOL_HANDLERS.file_read.handler({ path: source, ...view }, ctx(await app.readConfig())));
       assert.equal(result.ok, true);
       const serialized = JSON.stringify(result);
       assert.ok(!serialized.includes(values.email)); assert.ok(!serialized.includes(values.id)); assert.ok(!serialized.includes(values.key));
@@ -111,11 +112,11 @@ test('complete JSON and formatted file reads cross each real wire encoder, then 
       const sent = JSON.stringify(await app.PrivacyGateway.beforeRequest(body));
       for (const original of [values.email, values.id, values.key]) assert.equal(sent.includes(original), false);
       const destination = path.join(work, style + '-' + (view.lineOffset || 'full') + '.txt');
-      const prepared = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: destination, content: reference }) }, { isRegisteredTool: () => false });
+      const prepared = (await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: destination, content: reference }) }, ctx(await app.readConfig())));
       assert.equal(prepared.privacyError, undefined);
-      const written = await app.FILE_TOOL_HANDLERS.file_write.handler(JSON.parse(prepared.rawArgs), ctx(config));
+      const written = await app.toolCall('file_write', app.PrivacyGateway.executionArgs(prepared), ctx(await app.readConfig()));
       assert.equal(written.ok, true); assert.equal(fs.readFileSync(destination, 'utf8'), values.email);
-      const verified = await app.PrivacyGateway.toolResult(await app.FILE_TOOL_HANDLERS.file_read.handler({ path: destination }, ctx(config)));
+      const verified = await app.PrivacyGateway.toolResult(await app.FILE_TOOL_HANDLERS.file_read.handler({ path: destination }, ctx(await app.readConfig())));
       assert.equal(verified.content, reference);
     });
   }
@@ -162,11 +163,11 @@ test('typed personal values, unknown and cross-scope references cannot reach exe
       await assert.rejects(app.PrivacyGateway.beforeRequest(encode(style, [{ role: 'user', content: JSON.stringify(value) }])), /privacy\.(?:typed|numeric)_sensitive/);
     }
     const unknown = '[[RUYI_PVT:EMAIL:' + 'f'.repeat(32) + ']]';
-    assert.equal(app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: unknown }) }).privacyError.code, 'privacy.reference_unknown');
+    assert.equal((await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: path.join(work, 'unknown.txt'), content: unknown }) }, ctx(await app.readConfig()))).privacyError.code, 'privacy.reference_unknown');
     for (const style of ['chat', 'responses', 'anthropic']) await assert.rejects(app.PrivacyGateway.beforeRequest(encode(style, [{ role: 'user', content: unknown }])), /privacy\.reference_unknown/);
   });
   await scoped(policy('enhanced'), async () => {
-    assert.equal(app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: reference }) }).privacyError.code, 'privacy.reference_unknown');
+    assert.equal((await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: path.join(work, 'cross-scope.txt'), content: reference }) }, ctx(await app.readConfig()))).privacyError.code, 'privacy.reference_unknown');
     for (const style of ['chat', 'responses', 'anthropic']) await assert.rejects(app.PrivacyGateway.beforeRequest(encode(style, [{ role: 'user', content: reference }])), /privacy\.reference_unknown/);
   });
   let now = 100;
@@ -179,7 +180,7 @@ test('typed personal values, unknown and cross-scope references cannot reach exe
 test('on-to-off host history migration restores old values without secretly enabling the disabled tool translator', async () => {
   let reference;
   const scopeId = 'off-history-regression';
-  await scoped(policy('enhanced'), async () => { reference = (await app.PrivacyGateway.toolResult({ email: values.email })).email; assert.equal(restore(reference), values.email); }, scopeId);
+  await scoped(policy('enhanced'), async () => { reference = (await app.PrivacyGateway.toolResult({ email: values.email })).email; assert.equal(await restore(reference), values.email); }, scopeId);
   app.PrivacyGateway.configure(policy('off'));
   const oldHistory = [{ role: 'assistant', content: reference }, { role: 'user', content: 'Copy that old tool contact.' }];
   const migrated = await app.PrivacyGateway.restoreHistory(scopeId, oldHistory);
@@ -194,7 +195,7 @@ test('on-to-off host history migration restores old values without secretly enab
   const call = { name: 'file_write', rawArgs: JSON.stringify({ path: path.join(work, 'off-old-history.txt'), content: migrated[0].content }) };
   const prepared = app.PrivacyGateway.prepareCall(call);
   assert.equal(prepared, call, 'required disabled-path identity is preserved');
-  const result = await app.FILE_TOOL_HANDLERS.file_write.handler(JSON.parse(prepared.rawArgs), ctx(policy('off')));
+  const result = await app.toolCall('file_write', app.PrivacyGateway.executionArgs(prepared), ctx(policy('off')));
   assert.equal(result.ok, true);
   assert.equal(fs.readFileSync(path.join(work, 'off-old-history.txt'), 'utf8'), values.email);
   const fresh = [{ role: 'user', content: 'Public fresh off history' }];

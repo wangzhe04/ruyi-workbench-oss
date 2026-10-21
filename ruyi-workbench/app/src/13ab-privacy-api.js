@@ -1,5 +1,10 @@
+PrivacyRecipientHooks.isPrivateExecution = () => PrivacyGateway.isExecutingOriginal();
+PrivacyRecipientHooks.configState = () => ({ generation: configReadGeneration, config: configReadCache?.snapshot });
+PrivacyRecipientHooks.queryDrives = (roots, signal) => PrivacyLocalDriveProbe.query(roots, signal);
+PrivacyFileIoHooks.beforeIo = (targets, write, kind) => PrivacyGateway.beforeExecutionIo(targets, write, kind);
+PrivacyFileIoHooks.assertIo = () => PrivacyGateway.assertIo();
 // 81: This administration surface requires the workbench token, including loopback clients.
-PrivacyGateway.setHost({ data: paths.data, isRegisteredTool: name => Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name) || Boolean(nativeToolSchema(name)), normalizeToolInvokeArgs: args => normalizeToolInvokeArgs(args), makeStore: (file, key) => DurableJsonStore.create({
+PrivacyGateway.setHost({ data: paths.data, planDisclosure: planPrivacyToolDisclosure, isRegisteredTool: name => Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name) || Boolean(nativeToolSchema(name)), normalizeToolInvokeArgs: args => normalizeToolInvokeArgs(args), makeStore: (file, key) => DurableJsonStore.create({
   id: 'privacy-mapping-' + key, file, schemaKey: 'version', schemaVersion: 1, cache: false, strictRead: true, quarantine: false,
   defaultValue: () => ({}), validate: value => value.version === 1 && typeof value.instanceId === 'string' && !!value.envelope,
 }) });

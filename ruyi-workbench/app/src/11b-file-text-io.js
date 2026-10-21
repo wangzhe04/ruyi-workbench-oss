@@ -228,7 +228,7 @@ const FileTextIo = (() => {
     const xform = typeof req.xform === 'function' ? req.xform : (s => s);
     const budget = Math.max(1000, Number(req.jsonBudget) || 50000);
     let fh;
-    try { fh = await nodeFsp.open(filePath, 'r'); } catch (e) { throw e; }
+    try { fh = await (typeof req.io === 'function' ? req.io(filePath, false, () => nodeFsp.open(filePath, 'r')) : nodeFsp.open(filePath, 'r')); } catch (e) { throw e; }
     try {
       const first = Buffer.alloc(Math.min(size, CHUNK_BYTES));
       let got = 0;
@@ -385,8 +385,8 @@ const FileTextIo = (() => {
     }
   }
 
-  async function readHead(filePath, n) {
-    const fh = await nodeFsp.open(filePath, 'r');
+  async function readHead(filePath, n, io) {
+    const fh = await (typeof io === 'function' ? io(filePath, false, () => nodeFsp.open(filePath, 'r')) : nodeFsp.open(filePath, 'r'));
     try {
       const buf = Buffer.alloc(n);
       const { bytesRead } = await fh.read(buf, 0, n, 0);
@@ -400,25 +400,28 @@ const FileTextIo = (() => {
   // 目标是符号链接 / 多硬链接时改走原地写(rename 会让链接指向旧 inode / 断开硬链接)。
   // rename 永久失败时最后再试一次原地写(与旧行为等价),两者都失败才抛。
   async function writeFileAtomic(target, data, opts = {}) {
+    const io = (paths, write, work) => typeof opts.io === 'function' ? opts.io(paths, write, work) : work();
     let st = null;
-    try { st = await nodeFsp.lstat(target); } catch { st = null; }
-    const inPlace = async () => { await nodeFsp.writeFile(target, data); };
+    try { st = await io(target, false, () => nodeFsp.lstat(target)); } catch (error) { if (String(error?.code || '').startsWith('privacy.')) throw error; st = null; }
+    const inPlace = async () => { await io(target, true, () => nodeFsp.writeFile(target, data)); };
     // 符号链接 / 多硬链接:直接原地写(writeFile 自己会在无权时报 EACCES)。必须在 access 之前 —— 悬空链接的 access 会
     // 跟随链接报 ENOENT(假的 not_found),而原地写正好会经链接把目标创建出来(与改前 writeFile 行为一致)。
     if (st && (st.isSymbolicLink() || st.nlink > 1)) { await inPlace(); return { atomic: false, reason: st.isSymbolicLink() ? 'symlink' : 'hardlink' }; }
     // rename 会无视目标文件自身的只读位(只看目录权限),原地写不会 —— 先确认我们本来就有权写它,保持「只读文件写不进去」的语义。
-    if (st) await nodeFsp.access(target, 2);
+    if (st) await io(target, false, () => nodeFsp.access(target, 2));
     const dir = nodePath.dirname(target);
     const tmp = nodePath.join(dir, '.' + nodePath.basename(target) + '.' + process.pid + '.' + nodeCrypto.randomBytes(4).toString('hex') + '.tmp');
-    try { await nodeFsp.writeFile(tmp, data); }
+    const cleanTemp = async () => { try { if (typeof opts.cleanup === 'function') await opts.cleanup(tmp, () => nodeFsp.unlink(tmp)); else await nodeFsp.unlink(tmp); } catch { /* owned temporary cleanup is best effort */ } };
+    try { await io({ path: tmp, temporaryFor: target }, true, () => nodeFsp.writeFile(tmp, data)); }
     catch (e) {
-      nodeFsp.unlink(tmp).catch(() => {});
+      if (String(e?.code || '').startsWith('privacy.')) { await cleanTemp(); throw e; }
+      await cleanTemp();
       // 建不了临时文件(目录没有「创建文件」权 / 只读目录 / 加了临时名后路径超长 …)但目标文件本身可写:退回原地写(改前的行为),
       // 只有原地写也失败才报原错误。ENOSPC 不退(原地写会先截断目标,写不满就丢数据)。
       const c = e && e.code;
       if (c === 'EACCES' || c === 'EPERM' || c === 'EROFS' || c === 'ENAMETOOLONG' || c === 'ENOENT') {
         try { await inPlace(); return { atomic: false, reason: 'tmp_create_failed:' + c }; }
-        catch { throw e; }
+        catch (fallback) { if (String(fallback?.code || '').startsWith('privacy.')) throw fallback; throw e; }
       }
       throw e;
     }
@@ -426,19 +429,20 @@ const FileTextIo = (() => {
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     let lastErr = null;
     for (let attempt = 0; ; attempt += 1) {
-      try { await nodeFsp.rename(tmp, target); return { atomic: true }; }
+      try { await io([{ path: tmp, temporaryFor: target }, target], true, () => nodeFsp.rename(tmp, target)); return { atomic: true }; }
       catch (e) {
+      if (String(e?.code || '').startsWith('privacy.')) { await cleanTemp(); throw e; }
         lastErr = e;
         const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
         if (transient && attempt < retries) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
         break;
       }
     }
-    try { await nodeFsp.unlink(tmp); } catch { /* best-effort tmp cleanup */ }
+    await cleanTemp();
     // 目录/权限类错误不必再试原地写(同样会失败且会掩盖真因);锁类错误给原地写一次机会。
     if (lastErr && (lastErr.code === 'EISDIR' || lastErr.code === 'ENOTDIR' || lastErr.code === 'ENOSPC' || lastErr.code === 'EROFS')) throw lastErr;
     try { await inPlace(); return { atomic: false, reason: 'rename_failed:' + (lastErr && lastErr.code) }; }
-    catch { throw lastErr; }
+    catch (fallback) { if (String(fallback?.code || '').startsWith('privacy.')) throw fallback; throw lastErr; }
   }
 
   // ── 文件系统错误 -> 结构化失败 ─────────────────────────────────────────────────────────────────

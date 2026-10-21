@@ -904,6 +904,135 @@ const UNC_DENIED_ERROR = '不允许经文件工具访问网络共享(\\\\主机\
 // 走查 U7:越界报错说人话、说清去哪儿改,不印配置键名(它也会原样出现在对话卡上)。
 const OUTSIDE_WORKSPACE_WRITE_ERROR = '这个位置在工作文件夹外面,已拒绝写入。要允许改工作文件夹外的文件,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
 const OUTSIDE_WORKSPACE_READ_ERROR = '这个位置在工作文件夹外面,当前用的不是本机模型,已拒绝读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
+// Privacy's recipient proof is narrower than the workspace guard: authorized UNC/mapped
+// shares remain usable normally, but cannot receive restored private values through a local adapter.
+const PrivacyRecipientHooks = {};
+const PrivacyFileIoHooks = {};
+// Bounded host admission, shared by batch preparations and workspace-root checks.
+const privacyInspectionLocal = new (require('node:async_hooks').AsyncLocalStorage)();
+let privacyDriveActive = 0;
+const privacyDriveWaiting = [];
+function privacyQueryDrives(roots, signal) {
+  return new Promise((resolve, reject) => {
+    const fail = kind => Object.assign(new Error('privacy.drive_probe_' + kind), { code: 'privacy.drive_probe_' + kind });
+    if (signal?.aborted) return reject(fail('cancelled'));
+    if (privacyDriveWaiting.length >= 512) return reject(fail('busy'));
+    const job = { roots, signal, resolve, reject, started: false, controller: new AbortController() };
+    const remove = error => {
+      if (job.started) { job.controller.abort(); reject(error); return; }
+      const index = privacyDriveWaiting.indexOf(job); if (index >= 0) privacyDriveWaiting.splice(index, 1);
+      clearTimeout(job.timer); signal?.removeEventListener('abort', job.abort); reject(error);
+    };
+    job.abort = () => remove(fail('cancelled'));
+    job.timer = setTimeout(() => remove(fail('timeout')), 5000);
+    signal?.addEventListener('abort', job.abort, { once: true });
+    privacyDriveWaiting.push(job); privacyDrainDriveQueries();
+  });
+}
+function privacyDrainDriveQueries() {
+  while (privacyDriveActive < 4 && privacyDriveWaiting.length) {
+    const job = privacyDriveWaiting.shift(); job.started = true;
+    privacyDriveActive++;
+    Promise.resolve().then(() => PrivacyRecipientHooks.queryDrives(job.roots, job.controller.signal)).then(job.resolve, job.reject)
+      .finally(() => { clearTimeout(job.timer); job.signal?.removeEventListener('abort', job.abort); privacyDriveActive--; privacyDrainDriveQueries(); });
+  }
+}
+async function privacyMapBounded(values, mapper) {
+  const result = new Array(values.length); let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, values.length) }, async () => {
+    while (next < values.length) { const index = next++; result[index] = await mapper(values[index], index); }
+  }));
+  return result;
+}
+function privacyInspectionSegment(work) {
+  return privacyInspectionLocal.run({ paths: new Map(), drives: new Map(), stats: new Map(), links: new Map() }, work);
+}
+async function privacyLocalIo(targets, write, operation, kind) {
+  if (typeof PrivacyFileIoHooks.beforeIo === 'function') await PrivacyFileIoHooks.beforeIo(Array.isArray(targets) ? targets : [targets], write, kind);
+  if (typeof PrivacyFileIoHooks.assertIo === 'function') PrivacyFileIoHooks.assertIo();
+  return operation();
+}
+async function privacyInspectLocalPath(rawPath, signal, fresh = false) {
+  const cache = privacyInspectionLocal.getStore();
+  if (fresh) return privacyInspectionSegment(() => privacyInspectLocalPath(rawPath, signal));
+  if (!cache) return privacyInspectionSegment(() => privacyInspectLocalPath(rawPath, signal));
+  const key = path.resolve(String(rawPath || ''));
+  if (!cache.paths.has(key)) cache.paths.set(key, privacyInspectLocalPathUncached(rawPath, signal));
+  return cache.paths.get(key);
+}
+async function privacyInspectLocalPathUncached(rawPath, signal) {
+  const refuse = () => { throw Object.assign(new Error('Private original destination is not verified local.'), { code: 'privacy.recipient_denied' }); };
+  const checkCancelled = () => { if (signal?.aborted) throw Object.assign(new Error('Cancelled before dispatch.'), { code: 'privacy.execution_cancelled' }); };
+  const localMedium = async candidate => {
+    checkCancelled();
+    if (process.platform === 'win32') {
+      if (/^[\\/]{2}/.test(candidate) || !/^[A-Za-z]:[\\/]/.test(candidate)) refuse();
+      if (candidate.slice(2).includes(':')) refuse();
+      const root = candidate.slice(0, 2).toUpperCase() + '\\';
+      if (typeof PrivacyRecipientHooks.queryDrives !== 'function') refuse();
+      const drives = privacyInspectionLocal.getStore().drives;
+      if (!drives.has(root)) drives.set(root, privacyQueryDrives([root], signal));
+      const result = await drives.get(root);
+      if (!['Fixed', 'Removable', 'Ram', 'CDRom'].includes(result.get(root))) refuse();
+    } else if (process.platform === 'linux') {
+      // Read only the kernel mount table, before probing the target path. NFS/CIFS/FUSE
+      // and unknown mounts are not silently treated as a local medium.
+      const mounts = String(await fsp.readFile('/proc/self/mountinfo', 'utf8')).split('\n').map(line => {
+        const parts = line.split(' - '), fields = parts[0].split(' ');
+        return { mount: String(fields[4] || '').replace(/\\([0-7]{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8))), type: parts[1]?.split(' ')[0] };
+      }).filter(row => candidate === row.mount || candidate.startsWith(row.mount === '/' ? '/' : row.mount + '/')).sort((a, b) => b.mount.length - a.mount.length);
+      if (!mounts.length || !['ext2', 'ext3', 'ext4', 'xfs', 'btrfs', 'tmpfs', 'ramfs', 'overlay', 'zfs'].includes(mounts[0].type)) refuse();
+    } else refuse();
+    checkCancelled();
+  };
+  const normalizePrivatePath = value => {
+    const candidate = String(value), slash = String.fromCharCode(92), prefix = slash.repeat(2) + '?' + slash;
+    if (process.platform === 'win32' && candidate.startsWith(prefix)) {
+      const rest = candidate.slice(prefix.length);
+      if (!/^(?:[A-Za-z]:[\\/]|UNC[\\/])/i.test(rest)) refuse();
+      return stripWin32VerbatimPrefix(candidate);
+    }
+    return candidate;
+  };
+  let target = path.resolve(normalizePrivatePath(rawPath || ''));
+  const linkVersions = [];
+  for (let links = 0; links <= 32; links++) {
+    await localMedium(target);
+    const root = path.parse(target).root, parts = target.slice(root.length).split(path.sep).filter(Boolean);
+    let probe = root, redirected = false, leaf = null;
+    for (let i = 0; i <= parts.length; i++) {
+      if (i) probe = path.join(probe, parts[i - 1]);
+      checkCancelled();
+      let st;
+      try {
+        const stats = privacyInspectionLocal.getStore().stats;
+        if (!stats.has(probe)) stats.set(probe, fsp.lstat(probe, { bigint: true }));
+        st = await stats.get(probe);
+      }
+      catch (error) {
+        if (error?.code === 'ENOENT') { leaf = null; break; }
+        refuse();
+      }
+      if (st.isSymbolicLink()) {
+        let link; try {
+          const links = privacyInspectionLocal.getStore().links;
+          if (!links.has(probe)) links.set(probe, fsp.readlink(probe));
+          link = await links.get(probe);
+        } catch { refuse(); }
+        // Reject the redirected medium lexically/with DriveType before any target fs call.
+        linkVersions.push([probe, String(st.dev), String(st.ino), link]);
+        target = path.resolve(path.dirname(probe), normalizePrivatePath(link), ...parts.slice(i));
+        await localMedium(target); redirected = true; break;
+      }
+      if (i < parts.length && !st.isDirectory()) refuse();
+      if (i === parts.length) leaf = [String(st.dev), String(st.ino), String(st.size), String(st.mtimeNs)];
+    }
+    if (redirected) continue;
+    checkCancelled();
+    return { path: target, identity: JSON.stringify([process.platform === 'win32' ? target.toLowerCase() : target, linkVersions]) };
+  }
+  refuse();
+}
 async function guardFileToolPath(rawPath, ctx, opts) {
   const write = !!(opts && opts.write);
   const tool = (opts && opts.tool) || 'file';
@@ -912,12 +1041,18 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
+  const privateOriginal = opts?.privateOriginal === true || PrivacyRecipientHooks.isPrivateExecution?.() === true;
+  let privateLocal;
+  if (privateOriginal) {
+    privateLocal = await privacyInspectLocalPath(absRaw, ctx?.signal);
+    PrivacyFileIoHooks.assertIo?.();
+  }
   // 安全走查 W1:非本机 UNC 在任何 I/O 之前拒(realpath 自己就会去连对方主机的 SMB),排在所有逃生舱与宽写之前。
   if (await remoteUncDenialResolved([String(rawPath || ''), absRaw, abs], session, config)) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   }
-  const resolved = await resolveContainmentPath(absRaw);
+  const resolved = privateOriginal ? { path: privateLocal.path } : await resolveContainmentPath(absRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:悬空链接已在 resolveContainmentPath 里解到真实落点(下面的包含判定与三层地板都按它判);
   // 链接读不出目标 / 层数超限时不知道会写到哪儿 —— 任何模式下都不放行(含宽写与越界豁免)。
@@ -991,6 +1126,9 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   // 三层硬地板(应用数据/autoexec/OS 关键目录)已在上方拦截,此处放行的仅是"越工作区但非系统保护"的用户路径。
   const wideWrite = write && wideWriteModeEnabled(ctx, config);
   if ((config && config.allowOutsideWorkspace === true) || wideWrite) {
+    // The actual private destination already passed local-medium proof and every
+    // hard floor. Unrelated roots here serve logging only, never authorization.
+    if (privateOriginal) return { ok: true, absPath: real };
     const roots0 = fileAllowedRoots(session, config);
     const realRoots0 = await Promise.all(roots0.map(r => realpathForContainment(r)));
     if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: wideWrite ? 'allow-wide-mode' : 'allow-config', pathLen: abs.length });
@@ -1000,7 +1138,18 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   // 只给检查点回滚用(安全审计 #8):bridged 写快照当初按读根集合(guardWorkspacePath)入账,回滚写回同一处要认得它;
   // 三层硬地板与受保护数据照旧先拦。
   const roots = (write && !(opts && opts.rootSet === 'read')) ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
-  const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
+  const realRoots = [];
+  if (privateOriginal) {
+    // One matching current grant is sufficient. Do not probe unrelated configured
+    // workspaces after the actual destination has passed all hard floors above.
+    for (const root of roots) {
+      try {
+        const checkedRoot = (await privacyInspectLocalPath(root, ctx?.signal)).path;
+        realRoots.push(checkedRoot);
+        if (pathWithinRoot(real, checkedRoot)) break;
+      } catch (error) { if (error?.code !== 'privacy.recipient_denied') throw error; }
+    }
+  } else realRoots.push(...await Promise.all(roots.map(r => realpathForContainment(r))));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
     logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny', pathLen: abs.length });

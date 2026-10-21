@@ -55,7 +55,8 @@ async function update(message, privacy, trigger = 'user') {
     await app.PrivacyGateway.run('synthetic-new-rule', cfg, async () => {
       const body = await app.PrivacyGateway.beforeRequest({ messages: [{ role: 'user', content: 'EMP-34567 and order 34567' }] });
       const content = body.messages.at(-1).content; assert.ok(!content.includes('EMP-34567') && content.includes('order 34567'));
-      const restored = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'synthetic.txt', content }) });
+      const restored = await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'synthetic.txt', content }) }, { config: cfg, workingDir: work, session: { id: 'synthetic-new-rule', cwd: work } });
+      assert.equal(restored.privacyError, undefined);
       assert.equal(JSON.parse(restored.rawArgs).content, 'EMP-34567 and order 34567');
       const result = await app.PrivacyGateway.toolResult({ content: 'EMP-34567 and order 34567' }); assert.ok(!result.content.includes('EMP-34567'));
     }); report.effectiveOnInputAndTool = true;

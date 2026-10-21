@@ -1169,7 +1169,7 @@ async function walkFiles(root, opts = {}) {
   // 指向遍历根之外的符号链接/联接不返回:guardFileToolPath 只判了 root,修前 ws/link.md -> /outside/secret.md 被当成
   // 普通文件列出来,docs_search / codebase_symbol_search / code_review_scan 接着就把区外文件的内容读出来了
   // (file_read 读同一个链接是 not-allowed)。只对链接条目多做一次 realpath,普通文件不受影响。
-  const baseReal = await realpathForContainment(base);
+  const baseReal = await privacyLocalIo(base, false, () => realpathForContainment(base));
   let skippedLinks = 0;
   const depthExamples = [];   // 到 maxDepth 不再下钻、且里面非空的目录(最多 5 个例子)
   let depthProbes = 0;
@@ -1179,7 +1179,7 @@ async function walkFiles(root, opts = {}) {
   let visited = 0;
   const emit = async (full, rel, isDir) => {
     // 目录不需要 stat(size 恒记 0;信封里目录不带 size);文件要 size,glob 还要 mtime。
-    const stat = isDir ? null : await fsp.stat(full).catch(() => null);
+    const stat = isDir ? null : await privacyLocalIo(full, false, () => fsp.stat(full)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
     if (stat && sensitiveIds.size && stat.nlink > 1 && await isSensitiveHardlinkAlias(full, sensitiveIds)) return;
     const rec = { path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 };
     if (stat) rec.mtimeMs = Math.round(stat.mtimeMs);
@@ -1209,7 +1209,7 @@ async function walkFiles(root, opts = {}) {
   try {
     while (hasDir() && !stopped && !patternTimedOut) {
       const { dir, relDir, depth, hiddenOk } = nextDir();
-      const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+      const entries = await privacyLocalIo(dir, false, () => fsp.readdir(dir, { withFileTypes: true })).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
       // 排序:各平台 readdir 顺序不同(Linux 不定序、NTFS 字典序),截断时「取到哪些」必须可复现。
       entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
       const dotnetDir = ignore.dotnet && entries.some(e => !e.isDirectory() && DOTNET_PROJECT_RE.test(e.name));
@@ -1232,12 +1232,12 @@ async function walkFiles(root, opts = {}) {
         const full = path.join(dir, entry.name);
         if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
         if (entry.isSymbolicLink()) {
-          if (!pathWithinRoot(await realpathForContainment(full), baseReal)) { skippedLinks += 1; continue; }
+          if (!pathWithinRoot(await privacyLocalIo(full, false, () => realpathForContainment(full)), baseReal)) { skippedLinks += 1; continue; }
           // browse(file_list 非递归 = 目录浏览)下,指向目录的符号链接/联接(Windows 的 My Documents 之类)Dirent 报的是链接而不是目录,
           // 修前被标成 file,前端点开报「is a directory」。已过上面的包含校验后 stat 一下:是目录就标 directory(也要过一遍剪枝名单)。
           // 只改标记不下钻:递归遍历(browse 为假)不跟随符号链接 —— 防环,链接目标要列就以它为 root 单独列。
           if (opts.browse === true && !isDir) {
-            const target = await fsp.stat(full).catch(() => null);
+            const target = await privacyLocalIo(full, false, () => fsp.stat(full)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
             if (target && target.isDirectory()) {
               isDir = true;
               linkedDir = true;
@@ -1262,7 +1262,7 @@ async function walkFiles(root, opts = {}) {
           // 与「确实没有」无法区分。只在目录【非空】时才算被截(空目录没东西可漏),探查有上限(200 次 readdir),够给几个例子就停。
           if (depthExamples.length < 5 && depthProbes < 200) {
             depthProbes += 1;
-            const kids = await fsp.readdir(full).catch(() => []);
+            const kids = await privacyLocalIo(full, false, () => fsp.readdir(full)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
             if (kids.length) depthExamples.push(toSlash(rel));
           } else if (depthProbes >= 200 && !depthExamples.length) depthExamples.push('…');
         }
@@ -1482,7 +1482,7 @@ async function searchFileContent(root, pattern, opts = {}) {
       if (viaRg) {
         results = viaRg;
         // rg 不报被剪掉的目录;补一次有界探查,让「没搜到」不再静默地可能落在 build/dist/out/target 里。
-        const pd = await discoverPrunedDirs(root, effOpts, searchExplicitNames(root, effOpts)).catch(() => []);
+        const pd = await discoverPrunedDirs(root, effOpts, searchExplicitNames(root, effOpts)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
         if (pd.length) results.prunedDirs = pd;
       }
     } catch { /* fall through to JS path */ }
@@ -1547,7 +1547,7 @@ const REGEX_SCAN_WORKER_SRC = `
     if (count >= maxResults) break;
     let raw = '';
     try {
-      const dec = decodeFile(fs.readFileSync(file.path));
+      const dec = decodeFile(file.content ? Buffer.from(file.content) : fs.readFileSync(file.path));
       if (!dec) continue;
       const nonUtf8 = dec.enc !== 'utf8' || dec.lossy === true;
       if (nonUtf8) parentPort.postMessage({ type: 'enc', path: file.path, relativePath: file.relativePath, enc: dec.lossy ? 'lossy' : dec.enc });
@@ -1588,7 +1588,18 @@ const REGEX_SCAN_WORKER_SRC = `
 })();
 `;
 // files: [{path, relativePath}];返回 { results, timedOut, error }。永不 reject。
-function regexScanFilesBounded(files, pattern, flags, opts = {}) {
+async function regexScanFilesBounded(files, pattern, flags, opts = {}) {
+  if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.isExecutingOriginal()) {
+    let bytes = 0;
+    const snapshots = [];
+    for (const file of files) {
+      const content = await privacyLocalIo(file.path, false, () => fsp.readFile(file.path));
+      bytes += content.length;
+      if (bytes > 8 * 1048576) throw Object.assign(new Error('Private local search snapshot exceeds the complete read budget; narrow the root.'), { code: 'privacy.source_limit' });
+      snapshots.push({ ...file, content });
+    }
+    files = snapshots;
+  }
   const budgetMs = Math.max(50, Math.min(REGEX_SCAN_MAX_MS, Number(opts.regexTimeoutMs) || REGEX_SCAN_MAX_MS));
   return new Promise(resolve => {
     const results = [];
@@ -1607,7 +1618,7 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
       worker = new Worker(REGEX_SCAN_WORKER_SRC, {
         eval: true,
         workerData: {
-          files: files.map(f => ({ path: f.path, relativePath: f.relativePath })), pattern: String(pattern), flags: String(flags || ''),
+          files: files.map(f => ({ path: f.path, relativePath: f.relativePath, ...(f.content ? { content: f.content } : {}) })), pattern: String(pattern), flags: String(flags || ''),
           ctx: Math.max(0, Math.min(5, Number(opts.context || 0) || 0)), maxResults: Math.max(1, Number(opts.maxResults || 200)),
           wholeFile: opts.wholeFile === true, wholeFileChars: Math.max(1, Number(opts.wholeFileChars) || 400000),
           onlyNonUtf8: opts.onlyNonUtf8 === true,
@@ -1674,7 +1685,7 @@ async function discoverPrunedDirs(root, opts, names) {
   for (let qi = 0; qi < queue.length && reads < 2000 && found.length < 12; qi += 1) {
     const { dir, rel, depth, hiddenOk } = queue[qi];
     reads += 1;
-    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     const dotnetDir = ignore.dotnet && entries.some(e => !e.isDirectory() && DOTNET_PROJECT_RE.test(e.name));
     for (const e of entries) {
@@ -3558,7 +3569,7 @@ function decodeProfileText(buf, partial) {
 async function readProfileWindow(p, maxBytes) {
   let fh = null;
   try {
-    fh = await fsp.open(p, 'r');
+    fh = await privacyLocalIo(p, false, () => fsp.open(p, 'r'));
     const st = await fh.stat();
     if (!st.isFile()) return { error: '不是普通文件(是目录或设备)', code: 'not_file' };
     if (st.size === 0) return { error: '文件为空', code: 'empty' };
@@ -3584,7 +3595,7 @@ async function readProfileWindow(p, maxBytes) {
 // 大 JSON 的顶层数组:边读边扫括号/字符串状态,遇到深度 1 的逗号切出一个元素 JSON.parse,取够 maxItems 就停。
 // 只支持 UTF-8(带/不带 BOM)。返回 { items, scannedBytes, arrayEnded } 或 { notArray:true }。
 async function profileJsonArrayHead(p, maxItems) {
-  const fh = await fsp.open(p, 'r');
+  const fh = await privacyLocalIo(p, false, () => fsp.open(p, 'r'));
   try {
     const dec = new TextDecoder('utf-8');
     const chunk = Buffer.allocUnsafe(1024 * 1024);
@@ -4164,7 +4175,7 @@ async function evictWebCacheOverCap() {
   if (files.length <= max) return 0;
   const rows = [];
   for (const f of files) {
-    const st = await fsp.stat(path.join(paths.webcache, f)).catch(() => null);
+    const st = await fsp.stat(path.join(paths.webcache, f)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
     if (st) rows.push({ f, mtime: st.mtimeMs });
   }
   rows.sort((a, b) => a.mtime - b.mtime || (a.f < b.f ? -1 : 1));
@@ -5423,7 +5434,7 @@ async function zipCollectEntries(rootPaths, opts = {}) {
   const topNames = zipTopLevelNames(uniq);
   for (let i = 0; i < uniq.length; i += 1) {
     const abs = uniq[i];
-    const st = await fsp.lstat(abs).catch(() => null);
+    const st = await fsp.lstat(abs).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
     if (!st) throw new Error(`路径不存在：${abs}`);
     if (topNames[i] !== path.win32.basename(abs)) entries.renamedInputs.push({ path: abs, zipName: topNames[i] });
     await addFile(abs, topNames[i], '');

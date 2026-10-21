@@ -8,7 +8,8 @@ const root = fs.mkdtempSync(path.join(tempBase, 'ruyi-privacy-tool-contract-'));
 const data = path.join(root, 'data'); fs.mkdirSync(data);
 Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), data));
 const app = require('../lib/server-internals').loadServerInternals(['PrivacyGateway', 'PrivacyCore', 'MCP_TOOLS', 'PROVIDER_SESSION_TOOL_SCHEMAS', 'TOOL_HANDLERS', 'resolveBridge']);
-const { fixture } = require('../lib/privacy-test-fixture');
+const { fixture, syntheticComparisonPlan } = require('../lib/privacy-test-fixture');
+app.PrivacyGateway.setHost({ planDisclosure: syntheticComparisonPlan });
 const vault = fixture().vault;
 app.PrivacyCore.configHooks.sealLocal = vault.sealLocal;
 app.PrivacyCore.configHooks.openLocal = vault.openLocal;
@@ -16,49 +17,45 @@ const policy = { credentialEncryptionV1: true, privacyModeV1: 'enhanced', privac
 let serial = 0;
 const scoped = async (fn, selectedPolicy = policy) => { app.PrivacyGateway.configure(selectedPolicy); return app.PrivacyGateway.run('transport-' + (++serial), selectedPolicy, fn); };
 const nativeCapability = { isRegisteredTool: () => false }; // Host native registry, not caller-supplied names.
-const call = (name, args, capability = nativeCapability) => app.PrivacyGateway.prepareCall({ name, rawArgs: JSON.stringify(args) }, capability);
+const call = (name, args, capability = nativeCapability) => app.PrivacyGateway.prepareExecution({ name, rawArgs: JSON.stringify(args) }, capability);
 const unpack = prepared => { assert.equal(prepared.privacyError, undefined); return JSON.parse(prepared.rawArgs); };
 after(() => { vault.clear(); if (path.dirname(root) !== tempBase || !path.basename(root).startsWith('ruyi-privacy-tool-contract-')) throw Error('cleanup scope'); fs.rmSync(root, { recursive: true, force: true }); });
 
-test('every actual native registry entry has the same inverse transport contract, independent of parameter names', async () => {
+test('actual native registration alone grants no arbitrary field disclosure; explicit payload slots retain nested values and keys', async () => {
   const names = [...new Set([...Object.keys(app.TOOL_HANDLERS), ...app.MCP_TOOLS.map(row => row.name), ...app.PROVIDER_SESSION_TOOL_SCHEMAS.map(row => row.name)])].sort();
   assert.ok(names.length >= app.MCP_TOOLS.length && app.MCP_TOOLS.length > 100);
   await scoped(async () => {
-    const original = { email: 'transport-fixture@example.test', password: 'transport-credential-1234' };
-    const protectedValues = await app.PrivacyGateway.toolResult(original);
-    const executed = new Set();
-    for (const name of names.filter(value => !/^tool_invoke_/.test(value))) {
-      const input = { nested: [{ [protectedValues.email]: { arbitraryParameter: protectedValues.email, credential: protectedValues.password, embedded: 'prefix=' + protectedValues.password } }] };
-      const actual = unpack(call(name, input));
-      // A fake recipient isolates transport from destructive real tool side effects. Runtime
-      // schema/permission/handler behavior has separate representative E2E coverage.
-      const recipient = args => { assert.deepEqual(args, { nested: [{ [original.email]: { arbitraryParameter: original.email, credential: original.password, embedded: 'prefix=' + original.password } }] }); executed.add(name); };
-      recipient(actual);
-      assert.ok(JSON.stringify(input).includes(protectedValues.email), 'execution restoration does not mutate model input');
+    const original = 'transport-fixture@example.test', refs = await app.PrivacyGateway.toolResult({ email: original });
+    const input = { path: 'fixture.txt', content: { nested: [{ [refs.email]: { arbitraryParameter: refs.email } }] } };
+    const prepared = unpack(await call('file_write', input));
+    assert.deepEqual(prepared, { path: 'fixture.txt', content: { nested: [{ [original]: { arbitraryParameter: original } }] } });
+    assert.ok(JSON.stringify(input).includes(refs.email));
+    for (const name of names) {
+      const rejected = await call(name, { arbitraryParameter: refs.email }, { isRegisteredTool: () => true });
+      assert.ok(rejected.privacyError, name + ': registry existence cannot authorize arbitrary fields');
+      assert.equal(rejected.rawArgs.includes(original), false);
     }
-    assert.deepEqual([...executed].sort(), names.filter(value => !/^tool_invoke_/.test(value)), 'new registry entries automatically join the transport contract');
-    for (const name of names.filter(value => /^tool_invoke_/.test(value))) {
-      const args = unpack(call(name, { name: 'file_write', arguments: { path: 'fixture.txt', content: protectedValues.email } }));
-      assert.equal(args.arguments.content, original.email);
-    }
+    const proxy = unpack(await call('tool_invoke_edit', { name: 'file_write', arguments: { path: 'fixture.txt', content: refs.email } }));
+    assert.equal(proxy.arguments.content, original);
   });
 });
 
-test('managed MCP registration is the host route, rejects inherited or invented names, and covers arbitrary nested fields', async () => {
+test('managed MCP registration and model-owned capability fields cannot release original values', async () => {
   await scoped(async () => {
     const refs = await app.PrivacyGateway.toolResult({ password: 'managed-secret-fixture' });
     const route = { fixture__custom_operation: { serverId: 'fixture', toolName: 'custom_operation' } };
-    const capability = { isRegisteredTool: name => Boolean(app.resolveBridge(route, name)) };
-    for (const name of ['fixture__custom_operation', 'custom_operation']) assert.equal(unpack(call(name, { anything: [refs.password] }, capability)).anything[0], 'managed-secret-fixture');
-    for (const name of ['constructor', 'toString', '__proto__', 'invented_tool']) {
-      assert.equal(app.resolveBridge(route, name), null);
-      assert.ok(call(name, { anything: refs.password }, capability).privacyError);
+    const capability = { resolveBridge: name => app.resolveBridge(route, name), isRegisteredTool: name => Boolean(app.resolveBridge(route, name)) };
+    for (const name of ['fixture__custom_operation', 'custom_operation', 'constructor', 'toString', '__proto__', 'invented_tool']) {
+      const refused = await call(name, { anything: [refs.password] }, capability);
+      assert.ok(refused.privacyError); assert.equal(refused.rawArgs.includes('managed-secret-fixture'), false);
     }
-    assert.ok(call('tool_invoke_exec', { name: 'invented_tool', arguments: { password: refs.password } }, capability).privacyError);
-    const proxied = unpack(call('tool_invoke_exec', { name: 'fixture__custom_operation', arguments: JSON.stringify({ password: refs.password }) }, capability));
-    assert.equal(proxied.arguments.password, 'managed-secret-fixture');
-    const spoof = app.PrivacyGateway.prepareCall({ name: 'invented_tool', registered: true, isRegisteredTool: true, rawArgs: JSON.stringify({ value: refs.password }) });
-    assert.ok(spoof.privacyError, 'model-visible call fields cannot mint the host capability');
+    assert.equal(app.resolveBridge(route, 'constructor'), null);
+    for (const name of ['invented_tool', 'fixture__custom_operation']) {
+      const refused = await call('tool_invoke_exec', { name, arguments: JSON.stringify({ password: refs.password }) }, capability);
+      assert.ok(refused.privacyError); assert.equal(refused.rawArgs.includes('managed-secret-fixture'), false);
+    }
+    const spoof = await app.PrivacyGateway.prepareExecution({ name: 'invented_tool', registered: true, isRegisteredTool: true, recipient: 'local', rawArgs: JSON.stringify({ value: refs.password }) });
+    assert.ok(spoof.privacyError);
   });
 });
 
@@ -66,12 +63,12 @@ test('inverse transport checks key collisions, scope ownership and proxy depth b
   let ref;
   await scoped(async () => {
     ref = (await app.PrivacyGateway.toolResult({ email: 'collision@example.test' })).email;
-    assert.equal(call('file_write', { map: { [ref]: 1, 'collision@example.test': 2 } }).privacyError.code, 'privacy.key_collision');
+    assert.equal((await call('file_write', { content: { [ref]: 1, 'collision@example.test': 2 } })).privacyError.code, 'privacy.key_collision');
     let args = { name: 'file_write', arguments: { content: ref } };
     for (let i = 0; i < 34; i++) args = { name: 'tool_invoke_exec', arguments: args };
-    assert.equal(call('tool_invoke_exec', args).privacyError.code, 'privacy.structure_limit');
+    assert.equal((await call('tool_invoke_exec', args)).privacyError.code, 'privacy.structure_limit');
   });
-  await scoped(async () => assert.equal(call('file_write', { content: ref }).privacyError.code, 'privacy.reference_unknown'));
+  await scoped(async () => assert.equal((await call('file_write', { content: ref })).privacyError.code, 'privacy.reference_unknown'));
 });
 
 test('off mode preserves exact objects and does not parse arguments, inspect rules, start workers or create encrypted state', async () => {
@@ -122,7 +119,7 @@ test('source proof supports multiple source snapshots and exact escaped JSON res
     app.PrivacyGateway.markSourceView(result, ['/content'], first);
     const output = await app.PrivacyGateway.toolResult(result);
     assert.equal(output.diff, result.diff);
-    assert.equal(unpack(call('file_edit', { oldText: output.content, newText: '{}' })).oldText, source);
+    assert.equal(unpack((await call('file_edit', { oldText: output.content, newText: '{}' }))).oldText, source);
     for (let i = 2; i < 128; i++) await app.PrivacyGateway.projectSource('public text');
     await assert.rejects(() => app.PrivacyGateway.projectSource('over budget'), /source_limit/);
   });

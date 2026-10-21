@@ -20,7 +20,7 @@ node dev-harness/privacy-m1/egress/inventory.js --write
 
 ## 清点范围与计数
 
-当前快照：267 份第一方源码/声明配置，654 条**候选**。其中包含 132 个已审为本地正则的 `RegExp.exec`、同名 UI 回调、传输能力导入、声明配置和动态边界。这些数字不能当作 654 次实际外网发送，也不能用命中数推导覆盖率。网络、MCP stdio 输入与 stdout 输出、子进程、文件、浏览器委托、包装函数、动态边界及模块能力分别保留 `category`。
+当前快照：268 份第一方源码/声明配置，660 条**候选**。其中包含 133 个已审为本地正则的 `RegExp.exec`、同名 UI 回调、传输能力导入、声明配置和动态边界。这些数字不能当作 660 次实际外网发送，也不能用命中数推导覆盖率。网络、MCP stdio 输入与 stdout 输出、子进程、文件、浏览器委托、包装函数、动态边界及模块能力分别保留 `category`。
 
 扫描仅遍历仓库 `ruyi-workbench/` 与 `mcp/` 的 `.js/.mjs/.cjs/.py/.ps1/.cmd/.bat/.cs/.html/.sh/.json/.toml/.yaml/.yml`。不遍历工作台运行时用户数据目录，不启动这些程序。`app/server.js` 是 `app/src` 拼接产物，排除以免双算；vendor、node_modules、tests/test、build/build_offline、dist、bin/obj、Python runtime/venv/site-packages、locales 与 package-lock 排除。新文件在允许范围内会出现；新增排除目录内部实现不会出现，修改扫描范围必须另行审阅。符号链接拒绝扫描，不跟随到仓库外。
 
@@ -45,12 +45,18 @@ M2/A3 将四处正文 POST 接线收敛到 `04h-provider-http.js / providerModel
 
 `08-agent-runs.js` 七处与 `09-workflow.js` 十处历史编码改为调用 `10-context-governance.js:encodeModelToolResult`。完整结果对象原样传给 `modelToolResult`，其映射持久化完成后才 JSON 序列化并调用原 `truncateToolResult`；来源证明、已执行结果扣留回执、错误传播及各调用方事件/历史配对职责保留。未新增实际外发点，本片不补接收方授权，原 `model-only` / `unknown` 分类不变。依赖图仍为621条边、一个强连通分量。此次按已读差异更新三份产品源及构建manifest/module-contracts指纹；测试证据由本批独立记录提供，不把源码收敛写成完整隐私验收。
 
+## M2-3 受限本地原值使用审阅
+
+`prepareExecution` 在释放引用原值前使用宿主确定的本地文件/当前会话字段适配器，注册和工具tier不再授予通用还原。参数/代理归一、权限编辑、等待后的派发及真实文件I/O保留宿主绑定并重验；UNC、映射网络盘、未知介质或链接落点不继承本地授权。未适配脚本、HTTP和MCP收到引用时拒绝恢复；普通不含引用的调用及off语义不因此变成已隔离。搜索/HTTP/机器人/独立MCP的完整接收方合同仍待后续批次，原model-only/unknown/bypassed分类不作通道级升级。
+
+新增六个词法候选逐项审阅：`03/privacyInspectionSegment/run`为短命AsyncLocalStorage检查段，记non-egress；`03a/withExecution/run`为AsyncLocalStorage本地回调，记non-egress；`03b/start/exec`为回复正则，记non-egress；`03b/start/spawn`和`03b/pump/write`为固定DriveInfo本地子进程及仅盘符根字母的stdin，单列privacy-drive-probe/local-only。新增`03b/<transport-import>`为局部node:child_process能力导入，沿用capability/unknown，不用固定调用点推导builtin内部普遍安全。探针仅提供受限介质判据，不是OS隔离；脚本无派生子进程，生命周期只处理仍存活的ChildProcess对象。主/子批准备、DriveType准入及根检查有界；检查缓存只在单次检查段内复用，实际I/O前重新读取实际目标和原词法接收方的介质/链接拓扑并复核权限、策略和引用。原子临时件和移动中间件仅有受限本地清理/恢复路径。这是明确适配器的宿主合同，并非所有文件系统元数据调用都加了新hook，更不是系统强制隔离或抵御同账户恶意程序的证明。最终依赖图为88模块/625边/0重复provides/1强连通分量；顶层冻结循环误识别和broker反向依赖导致的初始图失败由本批证据保留，不放宽政策。最终源码100文件合成搜索单次观察约1.35秒，对照无引用约196毫秒（非统计基准，不含真实DPAPI），剩余成本已记录，不能用盘符探针热查询约0.3毫秒代替整条工具成本。详细产品证据由本批记录承载，不用词法候选数量推导覆盖率。
+
 ## 外发链路的重要缺口
 
 | 通道 | 真实边界/生产关系 | 当前事实与 M2 后续要求 |
 |---|---|---|
-| Web 搜索/抓取/下载/任意 HTTP | `builtinSearch/webSearchViaBackend/deepseekWebRequest/httpRequest/httpGetGuarded` 经 `openHttpRequest`；代理有 CONNECT 与 TLS，DNS 本身也披露目标 | 现有 SSRF、权限、认证清理不等于接收方隐私合同。执行需要还原的原值可能进入 query/body/header；当前 `bypassed`，需目的地/字段用途策略 |
-| 受管 MCP | `McpStdioClient.start/_rpc/_notify/_onLine` 与 `McpHttpClient._request/_openSseStream`；HTTP/SSE 的 `lib`、`transport` 别名仍被 `.request` 候选发现 | `model-only` 是宿主模型侧结果投影的有界声明；执行参数还原、本地 stdio 内部再联网、远程工具/资源/错误、独立消费者的连接级 scope 仍需单独实现/验收 |
+| Web 搜索/抓取/下载/任意 HTTP | `builtinSearch/webSearchViaBackend/deepseekWebRequest/httpRequest/httpGetGuarded` 经 `openHttpRequest`；代理有 CONNECT 与 TLS，DNS 本身也披露目标 | 现有 SSRF、权限、认证清理不等于接收方隐私合同。本批对带引用的未适配输入拒绝还原；普通query/body/header仍无完整接收方策略，通道级保留 `bypassed`，需后续目的地/字段用途接线 |
+| 受管 MCP | `McpStdioClient.start/_rpc/_notify/_onLine` 与 `McpHttpClient._request/_openSseStream`；HTTP/SSE 的 `lib`、`transport` 别名仍被 `.request` 候选发现 | `model-only` 是宿主模型侧结果投影的有界声明；本批未适配服务的引用参数拒绝恢复；本地 stdio 内部再联网、远程工具/资源/错误、独立消费者的连接级 scope 仍需单独实现/验收 |
 | 独立工作台 MCP consumer | `13-http-router.js/startMcp -> sendMcp/sendMcpNotification -> process.stdout.write`；工具文本/图片、resources、error、progress 均是输出数据 | 专属 `workbench-mcp-output` 合同，记 `unknown`；不同于受管 MCP 客户端和独立 ACC 服务器。工具/资源列表在保护开启时隐藏，工具结果、资源读取和 catch 错误各有条件拒绝检查，但两处 stdout serializer 没有统一的连接级身份/scope/最终披露合同。进度 timer 直接发 progress token/通知，初始化/协议返回与错误行为也不能从工具结果检查推导已覆盖 |
 | CLI 与任意子进程 | Claude 主/子任务，Kimi bridge/ACP/terminal，通用 shell、Git、媒体 helper、桌面/脚本启动器 | 现有开启保护时拒绝不支持 CLI，不是已经交付托管保护模式；关闭保护时的 hooks/MCP/plugins/遥测/子进程/缓存出口未知。清册记 `unknown`；无 OS 网络隔离证明 |
 | ACC Python | `fetch -> _fetch_once -> opener.open -> _PinnedHTTP(S)Connection -> _pinned_connect`，两处 DNS，browser CDP/launch/goto/evaluate，shell/application/startfile、Office/file save | 固定 IP 与重定向 SSRF 检查不是正文脱敏；独立 ACC MCP consumer 收到原始工具结果/截图的边界未知。不能把“本地 stdio”当成可信不联网计算 |

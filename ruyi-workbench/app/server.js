@@ -15089,6 +15089,135 @@ const UNC_DENIED_ERROR = '不允许经文件工具访问网络共享(\\\\主机\
 // 走查 U7:越界报错说人话、说清去哪儿改,不印配置键名(它也会原样出现在对话卡上)。
 const OUTSIDE_WORKSPACE_WRITE_ERROR = '这个位置在工作文件夹外面,已拒绝写入。要允许改工作文件夹外的文件,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
 const OUTSIDE_WORKSPACE_READ_ERROR = '这个位置在工作文件夹外面,当前用的不是本机模型,已拒绝读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
+// Privacy's recipient proof is narrower than the workspace guard: authorized UNC/mapped
+// shares remain usable normally, but cannot receive restored private values through a local adapter.
+const PrivacyRecipientHooks = {};
+const PrivacyFileIoHooks = {};
+// Bounded host admission, shared by batch preparations and workspace-root checks.
+const privacyInspectionLocal = new (require('node:async_hooks').AsyncLocalStorage)();
+let privacyDriveActive = 0;
+const privacyDriveWaiting = [];
+function privacyQueryDrives(roots, signal) {
+  return new Promise((resolve, reject) => {
+    const fail = kind => Object.assign(new Error('privacy.drive_probe_' + kind), { code: 'privacy.drive_probe_' + kind });
+    if (signal?.aborted) return reject(fail('cancelled'));
+    if (privacyDriveWaiting.length >= 512) return reject(fail('busy'));
+    const job = { roots, signal, resolve, reject, started: false, controller: new AbortController() };
+    const remove = error => {
+      if (job.started) { job.controller.abort(); reject(error); return; }
+      const index = privacyDriveWaiting.indexOf(job); if (index >= 0) privacyDriveWaiting.splice(index, 1);
+      clearTimeout(job.timer); signal?.removeEventListener('abort', job.abort); reject(error);
+    };
+    job.abort = () => remove(fail('cancelled'));
+    job.timer = setTimeout(() => remove(fail('timeout')), 5000);
+    signal?.addEventListener('abort', job.abort, { once: true });
+    privacyDriveWaiting.push(job); privacyDrainDriveQueries();
+  });
+}
+function privacyDrainDriveQueries() {
+  while (privacyDriveActive < 4 && privacyDriveWaiting.length) {
+    const job = privacyDriveWaiting.shift(); job.started = true;
+    privacyDriveActive++;
+    Promise.resolve().then(() => PrivacyRecipientHooks.queryDrives(job.roots, job.controller.signal)).then(job.resolve, job.reject)
+      .finally(() => { clearTimeout(job.timer); job.signal?.removeEventListener('abort', job.abort); privacyDriveActive--; privacyDrainDriveQueries(); });
+  }
+}
+async function privacyMapBounded(values, mapper) {
+  const result = new Array(values.length); let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, values.length) }, async () => {
+    while (next < values.length) { const index = next++; result[index] = await mapper(values[index], index); }
+  }));
+  return result;
+}
+function privacyInspectionSegment(work) {
+  return privacyInspectionLocal.run({ paths: new Map(), drives: new Map(), stats: new Map(), links: new Map() }, work);
+}
+async function privacyLocalIo(targets, write, operation, kind) {
+  if (typeof PrivacyFileIoHooks.beforeIo === 'function') await PrivacyFileIoHooks.beforeIo(Array.isArray(targets) ? targets : [targets], write, kind);
+  if (typeof PrivacyFileIoHooks.assertIo === 'function') PrivacyFileIoHooks.assertIo();
+  return operation();
+}
+async function privacyInspectLocalPath(rawPath, signal, fresh = false) {
+  const cache = privacyInspectionLocal.getStore();
+  if (fresh) return privacyInspectionSegment(() => privacyInspectLocalPath(rawPath, signal));
+  if (!cache) return privacyInspectionSegment(() => privacyInspectLocalPath(rawPath, signal));
+  const key = path.resolve(String(rawPath || ''));
+  if (!cache.paths.has(key)) cache.paths.set(key, privacyInspectLocalPathUncached(rawPath, signal));
+  return cache.paths.get(key);
+}
+async function privacyInspectLocalPathUncached(rawPath, signal) {
+  const refuse = () => { throw Object.assign(new Error('Private original destination is not verified local.'), { code: 'privacy.recipient_denied' }); };
+  const checkCancelled = () => { if (signal?.aborted) throw Object.assign(new Error('Cancelled before dispatch.'), { code: 'privacy.execution_cancelled' }); };
+  const localMedium = async candidate => {
+    checkCancelled();
+    if (process.platform === 'win32') {
+      if (/^[\\/]{2}/.test(candidate) || !/^[A-Za-z]:[\\/]/.test(candidate)) refuse();
+      if (candidate.slice(2).includes(':')) refuse();
+      const root = candidate.slice(0, 2).toUpperCase() + '\\';
+      if (typeof PrivacyRecipientHooks.queryDrives !== 'function') refuse();
+      const drives = privacyInspectionLocal.getStore().drives;
+      if (!drives.has(root)) drives.set(root, privacyQueryDrives([root], signal));
+      const result = await drives.get(root);
+      if (!['Fixed', 'Removable', 'Ram', 'CDRom'].includes(result.get(root))) refuse();
+    } else if (process.platform === 'linux') {
+      // Read only the kernel mount table, before probing the target path. NFS/CIFS/FUSE
+      // and unknown mounts are not silently treated as a local medium.
+      const mounts = String(await fsp.readFile('/proc/self/mountinfo', 'utf8')).split('\n').map(line => {
+        const parts = line.split(' - '), fields = parts[0].split(' ');
+        return { mount: String(fields[4] || '').replace(/\\([0-7]{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8))), type: parts[1]?.split(' ')[0] };
+      }).filter(row => candidate === row.mount || candidate.startsWith(row.mount === '/' ? '/' : row.mount + '/')).sort((a, b) => b.mount.length - a.mount.length);
+      if (!mounts.length || !['ext2', 'ext3', 'ext4', 'xfs', 'btrfs', 'tmpfs', 'ramfs', 'overlay', 'zfs'].includes(mounts[0].type)) refuse();
+    } else refuse();
+    checkCancelled();
+  };
+  const normalizePrivatePath = value => {
+    const candidate = String(value), slash = String.fromCharCode(92), prefix = slash.repeat(2) + '?' + slash;
+    if (process.platform === 'win32' && candidate.startsWith(prefix)) {
+      const rest = candidate.slice(prefix.length);
+      if (!/^(?:[A-Za-z]:[\\/]|UNC[\\/])/i.test(rest)) refuse();
+      return stripWin32VerbatimPrefix(candidate);
+    }
+    return candidate;
+  };
+  let target = path.resolve(normalizePrivatePath(rawPath || ''));
+  const linkVersions = [];
+  for (let links = 0; links <= 32; links++) {
+    await localMedium(target);
+    const root = path.parse(target).root, parts = target.slice(root.length).split(path.sep).filter(Boolean);
+    let probe = root, redirected = false, leaf = null;
+    for (let i = 0; i <= parts.length; i++) {
+      if (i) probe = path.join(probe, parts[i - 1]);
+      checkCancelled();
+      let st;
+      try {
+        const stats = privacyInspectionLocal.getStore().stats;
+        if (!stats.has(probe)) stats.set(probe, fsp.lstat(probe, { bigint: true }));
+        st = await stats.get(probe);
+      }
+      catch (error) {
+        if (error?.code === 'ENOENT') { leaf = null; break; }
+        refuse();
+      }
+      if (st.isSymbolicLink()) {
+        let link; try {
+          const links = privacyInspectionLocal.getStore().links;
+          if (!links.has(probe)) links.set(probe, fsp.readlink(probe));
+          link = await links.get(probe);
+        } catch { refuse(); }
+        // Reject the redirected medium lexically/with DriveType before any target fs call.
+        linkVersions.push([probe, String(st.dev), String(st.ino), link]);
+        target = path.resolve(path.dirname(probe), normalizePrivatePath(link), ...parts.slice(i));
+        await localMedium(target); redirected = true; break;
+      }
+      if (i < parts.length && !st.isDirectory()) refuse();
+      if (i === parts.length) leaf = [String(st.dev), String(st.ino), String(st.size), String(st.mtimeNs)];
+    }
+    if (redirected) continue;
+    checkCancelled();
+    return { path: target, identity: JSON.stringify([process.platform === 'win32' ? target.toLowerCase() : target, linkVersions]) };
+  }
+  refuse();
+}
 async function guardFileToolPath(rawPath, ctx, opts) {
   const write = !!(opts && opts.write);
   const tool = (opts && opts.tool) || 'file';
@@ -15097,12 +15226,18 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
+  const privateOriginal = opts?.privateOriginal === true || PrivacyRecipientHooks.isPrivateExecution?.() === true;
+  let privateLocal;
+  if (privateOriginal) {
+    privateLocal = await privacyInspectLocalPath(absRaw, ctx?.signal);
+    PrivacyFileIoHooks.assertIo?.();
+  }
   // 安全走查 W1:非本机 UNC 在任何 I/O 之前拒(realpath 自己就会去连对方主机的 SMB),排在所有逃生舱与宽写之前。
   if (await remoteUncDenialResolved([String(rawPath || ''), absRaw, abs], session, config)) {
     logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unc', pathLen: abs.length });
     return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
   }
-  const resolved = await resolveContainmentPath(absRaw);
+  const resolved = privateOriginal ? { path: privateLocal.path } : await resolveContainmentPath(absRaw);
   const real = normalizeGuardPath(resolved.path);
   // 安全审计 #7:悬空链接已在 resolveContainmentPath 里解到真实落点(下面的包含判定与三层地板都按它判);
   // 链接读不出目标 / 层数超限时不知道会写到哪儿 —— 任何模式下都不放行(含宽写与越界豁免)。
@@ -15176,6 +15311,9 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   // 三层硬地板(应用数据/autoexec/OS 关键目录)已在上方拦截,此处放行的仅是"越工作区但非系统保护"的用户路径。
   const wideWrite = write && wideWriteModeEnabled(ctx, config);
   if ((config && config.allowOutsideWorkspace === true) || wideWrite) {
+    // The actual private destination already passed local-medium proof and every
+    // hard floor. Unrelated roots here serve logging only, never authorization.
+    if (privateOriginal) return { ok: true, absPath: real };
     const roots0 = fileAllowedRoots(session, config);
     const realRoots0 = await Promise.all(roots0.map(r => realpathForContainment(r)));
     if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: wideWrite ? 'allow-wide-mode' : 'allow-config', pathLen: abs.length });
@@ -15185,7 +15323,18 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   // 只给检查点回滚用(安全审计 #8):bridged 写快照当初按读根集合(guardWorkspacePath)入账,回滚写回同一处要认得它;
   // 三层硬地板与受保护数据照旧先拦。
   const roots = (write && !(opts && opts.rootSet === 'read')) ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
-  const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
+  const realRoots = [];
+  if (privateOriginal) {
+    // One matching current grant is sufficient. Do not probe unrelated configured
+    // workspaces after the actual destination has passed all hard floors above.
+    for (const root of roots) {
+      try {
+        const checkedRoot = (await privacyInspectLocalPath(root, ctx?.signal)).path;
+        realRoots.push(checkedRoot);
+        if (pathWithinRoot(real, checkedRoot)) break;
+      } catch (error) { if (error?.code !== 'privacy.recipient_denied') throw error; }
+    }
+  } else realRoots.push(...await Promise.all(roots.map(r => realpathForContainment(r))));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
     logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny', pathLen: abs.length });
@@ -16835,41 +16984,52 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       return walk(history);
     } finally { if (temporary) scope.clear(); }
   }
-  const localTools = new Set(['file_read', 'file_write', 'file_edit', 'file_delete', 'file_move', 'file_copy', 'file_list', 'file_search', 'glob',
-    'docs_search', 'codebase_symbol_search', 'data_profile', 'steward_file_read', 'steward_thread_read', 'steward_thread_search', 'steward_memory_write']);
-  function restoreArgs(name, args, context, prefix = '', registry = null, state = { nodes: 0, bytes: 0 }, level = 0) {
-    if (++state.nodes > 50000 || level > 32) fail('structure_limit');
-    if (/^tool_invoke_(?:read|edit|exec|ask)$/.test(name) && args && typeof args === 'object' && !Array.isArray(args)) {
-      const normalized = typeof host.normalizeToolInvokeArgs === 'function' ? host.normalizeToolInvokeArgs(args) : args;
-      const canonical = typeof normalized.name === 'string';
-      const target = canonical ? normalized.name.trim() : typeof normalized.tool === 'string' ? normalized.tool.trim() : '';
-      if (!target || target.includes(PREFIX)) fail('tool_unregistered');
-      let nested = (canonical ? normalized.arguments : normalized.args) || {};
-      if (typeof nested === 'string') { try { nested = JSON.parse(nested); } catch { fail('arguments_invalid'); } }
-      const restored = restoreArgs(target, nested, context, '', registry, state, level + 1);
-      return canonical ? { ...normalized, name: target, arguments: restored } : { ...normalized, tool: target, args: restored };
-    }
-    const registered = registry && (host.isRegisteredTool?.(name) === true || registry(name) === true);
+  // Execution capabilities never travel in model data, JSON, history or MCP parameters.
+  const executionCalls = new WeakMap(), executionInputs = new WeakMap(), executionLocal = new AsyncLocalStorage();
+  const executionMessage = code => {
+    if (code.startsWith('privacy.drive_probe_')) return '无法核实本地目的地，当前未派发；原数据保持不变。 Local destination could not be verified; nothing was dispatched and the source data is unchanged.';
+    if (code === 'privacy.disclosure_not_supported' || code === 'privacy.disclosure_requires_planning') return '此工具尚未适配隐私原值，请改用已支持的本地文件或文本操作；重复代号不会增加授权。 This tool has no adapter for private original values. Use an explicitly supported local file/text operation; repeating this reference will not authorize a script, HTTP request or MCP service.';
+    if (code === 'privacy.recipient_denied' || code === 'privacy.recipient_changed') return '目的地不是已核实的本地位置，或等待时发生了变化；当前未派发。 The private value destination is not a verified local recipient, or changed while waiting. No operation was dispatched. Choose a supported local file destination.';
+    if (code === 'privacy.policy_changed') return '等待时隐私策略已改变；当前未派发，请按新策略重新发起。 Privacy policy changed while this call was waiting. No operation was dispatched; start a fresh call under the current policy.';
+    if (code === 'privacy.execution_cancelled') return '此调用已在派发前取消。 This call was cancelled before dispatch.';
+    return '隐私策略拒绝此输入，当前未派发；请核对本会话已有代号与拒绝原因。 Privacy policy refused this input. No operation was dispatched. Use an existing valid reference from this conversation and inspect the refusal before retrying.';
+  };
+  const executionRefusal = error => {
+    const code = String(error.code || '').startsWith('privacy.') ? error.code : 'privacy.arguments_invalid';
+    return { ok: false, code, error: executionMessage(code) };
+  };
+  function executionCheck(context, execution) {
+    assertPolicyAvailable();
+    if (active() !== context) fail('scope_changed');
+    if (execution?.signal?.aborted) fail('execution_cancelled');
+    // Unrelated mappings may be learned by parallel reads. Each bound reference is checked again at dispatch.
+  }
+  function containsExecutionReferences(value, context) {
+    let nodes = 0, bytes = 0;
+    const visit = (item, depth) => {
+      if (++nodes > 50000 || depth > 32) fail('structure_limit');
+      if (typeof item === 'string') { if ((bytes += Buffer.byteLength(item)) > 8 * 1024 * 1024) fail('aggregate_limit'); if (context && item.includes(PREFIX)) context.scope.validateProtected(item); return item.includes(PREFIX); }
+      if (Array.isArray(item)) return item.reduce((found, row) => visit(row, depth + 1) || found, false);
+      if (item && typeof item === 'object') return Object.entries(item).reduce((found, [key, row]) => visit(key, depth + 1) || visit(row, depth + 1) || found, false);
+      return false;
+    };
+    return visit(value, 0);
+  }
+  function restoreArgs(name, args, context, contract, state = { nodes: 0, bytes: 0 }, level = 0) {
     const segment = key => key.replace(/~/g, '~0').replace(/\//g, '~1');
     const walk = (value, pointer, depth) => {
       if (++state.nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string' && (state.bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
       if (typeof value === 'string' && value.includes(PREFIX)) {
         return context.scope.restoreForTool(value, { scopeId: context.scopeId, tool: name, pointer,
-          destination: 'local-harness', purpose: registered ? 'registered-tool-input' : 'authorized-tool-input', allowCredentialEmbedding: registered === true,
-          authorize: ref => {
-            // This capability comes only from the host's actual native/managed-MCP registry.
-            // Privacy transport does not replace tool permissions, file guards or SSRF checks.
-            if (registry) return registered === true;
-            if (!localTools.has(name) || ref.category === 'CREDENTIAL') return false;
-            return /^\/(?:path|paths(?:\/\d+)?|source|destination|from|to|query|pattern|content|oldText|newText|old_text|new_text|text|quote|fact)(?:\/\d+)?$/.test(pointer);
-          } });
+          destination: contract?.recipient || 'unadapted', purpose: contract?.purpose || 'unadapted', allowCredentialEmbedding: contract?.credentialEmbedding === true,
+          authorize: ref => { if (!contract) fail('disclosure_not_supported'); return contract.authorize(ref) === true; } });
       }
       if (Array.isArray(value)) return value.map((row, i) => walk(row, pointer + '/' + i, depth + 1));
       if (value && typeof value === 'object') {
         const output = Object.create(null);
         for (const [key, row] of Object.entries(value)) {
-          const nextKey = registry ? walk(key, pointer + '/@key', depth + 1) : key;
+          const nextKey = walk(key, pointer + '/@key', depth + 1);
           if (Object.hasOwn(output, nextKey)) fail('key_collision');
           output[nextKey] = walk(row, pointer + '/' + segment(key), depth + 1);
         }
@@ -16877,35 +17037,256 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       }
       return value;
     };
-    return walk(args, prefix, level);
+    return walk(args, '', level);
   }
-  function prepareCall(call, registration) {
+  // Synchronous compatibility is deliberately strict. Tool registration is not disclosure authority.
+  function prepareCall(call) {
+    try {
+      assertPolicyAvailable(); if (!active()) return call;
+      const args = JSON.parse(call.rawArgs);
+      if (containsExecutionReferences(args)) fail('disclosure_requires_planning');
+      return call;
+    } catch (error) { return { ...call, privacyError: executionRefusal(error) }; }
+  }
+  async function prepareExecution(call, execution = {}) {
     const context = active();
     try {
-      assertPolicyAvailable();
-      if (!context) return call;
-      const args = JSON.parse(call.rawArgs);
-      let nodes = 0;
-      const bounded = (value, depth = 0) => {
-        if (++nodes > 50000 || depth > 32) fail('structure_limit');
-        if (value && typeof value === 'object') for (const row of Object.values(value)) bounded(row, depth + 1);
+      assertPolicyAvailable(); if (!context) return call;
+      const source = JSON.parse(call.rawArgs);
+      if (!containsExecutionReferences(source, context)) return call;
+      executionCheck(context, execution);
+      const prepare = async (name, args, depth = 0) => {
+        if (depth > 32) fail('structure_limit');
+        if (/^tool_invoke_(?:read|edit|exec|ask)$/.test(name)) {
+          const normalized = typeof host.normalizeToolInvokeArgs === 'function' ? host.normalizeToolInvokeArgs(args) : args;
+          const target = String(normalized.name || normalized.tool || '').trim();
+          if (!target || target.includes(PREFIX)) fail('disclosure_not_supported');
+          let inner = normalized.arguments || normalized.args || {};
+          if (typeof inner === 'string') { try { inner = JSON.parse(inner); } catch { fail('arguments_invalid'); } }
+          const nested = await prepare(target, inner, depth + 1);
+          const output = { ...normalized, ...(typeof normalized.name === 'string' ? { name: target, arguments: nested.args } : { tool: target, args: nested.args }) };
+          return { args: output, plans: nested.plans };
+        }
+        if (execution.bridge || execution.resolveBridge?.(name)) fail('disclosure_not_supported');
+        if (typeof host.planDisclosure !== 'function') fail('disclosure_not_supported');
+        // Only the host planner may ask to resolve its adapter's path slots. No handler receives this private copy.
+        const plan = await host.planDisclosure(name, args, execution, (value, pointer) => context.scope.restoreForTool(value, {
+          scopeId: context.scopeId, tool: name, pointer, destination: 'host-private-path-planner', purpose: 'resolve-recipient',
+          allowCredentialEmbedding: true, authorize: () => true,
+        }));
+        executionCheck(context, execution);
+        if (!plan || typeof plan.authorize !== 'function') fail('disclosure_not_supported');
+        const restored = restoreArgs(name, args, context, plan);
+        const record = { context, execution, name, source: args, plan, planner: host.planDisclosure, snapshot: JSON.stringify(restored) };
+        executionInputs.set(restored, record);
+        return { args: restored, plans: [record] };
       };
-      bounded(args);
-      const registry = typeof registration?.isRegisteredTool === 'function' ? registration.isRegisteredTool : null;
-      return { ...call, rawArgs: JSON.stringify(restoreArgs(call.name, args, context, '', registry)) };
-    } catch (error) {
-      return { ...call, privacyError: { ok: false, code: String(error.code || '').startsWith('privacy.') ? error.code : 'privacy.arguments_invalid', error: 'Privacy policy refused this tool input. This call was not executed. Copy an existing valid reference from this conversation exactly; do not construct or guess a reference. Inspect this error before retrying.' } };
+      const prepared = await prepare(call.name, source);
+      executionCheck(context, execution);
+      const result = { ...call, rawArgs: JSON.stringify(prepared.args) };
+      executionCalls.set(result, prepared.args);
+      if (!executionInputs.has(prepared.args)) executionInputs.set(prepared.args, { context, execution, name: call.name, nested: prepared.plans, snapshot: JSON.stringify(prepared.args) });
+      return result;
+    } catch (error) { return { ...call, privacyError: executionRefusal(error) }; }
+  }
+  function executionArgs(call) {
+    return executionCalls.get(call) || JSON.parse(call.rawArgs || '{}');
+  }
+  function updateExecutionInput(previous, next, name, execution = {}) {
+    const context = active();
+    if (!context || !next || typeof next !== 'object') return next;
+    const record = executionInputs.get(previous);
+    executionInputs.set(next, record ? { ...record, edited: true } : { context, execution, name, edited: true });
+    return next;
+  }
+  function transferExecutionCall(previous, next) {
+    const outer = executionCalls.get(previous);
+    if (!outer || previous === next) return next;
+    const inner = outer.arguments || outer.args;
+    const record = inner && executionInputs.get(inner);
+    if (record && record.name === next.name) executionCalls.set(next, inner);
+    return next;
+  }
+  async function revalidateExecution(name, args, execution = {}) {
+    const context = active(); assertPolicyAvailable(); if (!context) return args;
+    let record = executionInputs.get(args);
+    if (!record) {
+      if (!containsExecutionReferences(args)) return args;
+      const prepared = await prepareExecution({ name, rawArgs: JSON.stringify(args) }, execution);
+      if (prepared.privacyError) throw Object.assign(new Error(prepared.privacyError.error), prepared.privacyError);
+      args = executionArgs(prepared); record = executionInputs.get(args);
+    }
+    executionCheck(record.context, execution);
+    if (record.name !== name || execution.bridge || record.execution.resolveBridge?.(name)) fail('recipient_changed');
+    if (record.edited || JSON.stringify(args) !== record.snapshot) {
+      // Permission edits are host input, but their new recipient/fields receive no inherited authority.
+      const protectedInput = await protectedTransform(args, context, { raw: true, data: true });
+      await context.persist(); executionCheck(context, execution);
+      const prepared = await prepareExecution({ name, rawArgs: JSON.stringify(protectedInput) }, execution);
+      if (prepared.privacyError) throw Object.assign(new Error(prepared.privacyError.error), prepared.privacyError);
+      return executionArgs(prepared);
+    }
+    const records = record.nested || [record];
+    for (const current of records) {
+      executionCheck(current.context, execution);
+      if (host.planDisclosure !== current.planner) fail('adapter_changed');
+      await current.plan.revalidate(execution);
+      executionCheck(current.context, execution);
+      restoreArgs(current.name, current.source, current.context, current.plan); // revalidate expiry/revocation before dispatch
+    }
+    return args;
+  }
+  function assertExecution(name, args, execution = {}) {
+    assertPolicyAvailable(); const record = executionInputs.get(args); if (!record) return;
+    executionCheck(record.context, execution);
+    if (name !== record.name || JSON.stringify(args) !== record.snapshot) fail('recipient_changed');
+    for (const bound of record.nested || [record]) {
+      if (host.planDisclosure !== bound.planner || bound.execution.resolveBridge?.(bound.name)) fail('recipient_changed');
+      restoreArgs(bound.name, bound.source, bound.context, bound.plan);
+      bound.plan.assertCurrent?.(execution);
+    }
+  }
+  async function withExecution(name, args, execution, work) {
+    const checked = await revalidateExecution(name, args, execution);
+    if (!executionInputs.has(checked)) return work(checked);
+    assertExecution(name, checked, execution);
+    return executionLocal.run({ name, args: checked, execution }, () => work(checked));
+  }
+  function assertIo() {
+    const current = executionLocal.getStore(); if (!current) return;
+    assertExecution(current.name, current.args, current.execution);
+  }
+  async function beforeExecutionIo(targets, write, kind) {
+    const current = executionLocal.getStore(); if (!current) return;
+    const record = executionInputs.get(current.args); assertIo();
+    const records = record.nested || [record];
+    for (const bound of records) {
+      if (host.planDisclosure !== bound.planner) fail('adapter_changed');
+      if (bound.execution.resolveBridge?.(bound.name)) fail('recipient_changed');
+      restoreArgs(bound.name, bound.source, bound.context, bound.plan);
+      await bound.plan.beforeIo(targets, write, current.execution, kind);
+      assertIo();
     }
   }
   function assertSupported(config, kind) { assertPolicyAvailable(config); if (enabled(config) && kind !== 'native') fail('engine_not_supported'); }
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
 PrivacyCore.configHooks.markPrivacyUnavailable = PrivacyGateway.markUnavailable;
+
+// Host-only drive classification; no user path, directory or volume-content probes.
+const PrivacyLocalDriveProbe = (() => {
+  const driveChildProcess = require('node:child_process'), drivePath = require('node:path');
+  const host = {};
+  const script = String.raw`
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+while ($null -ne ($line = [Console]::ReadLine())) {
+  if ($line -notmatch '^[A-Z](,[A-Z]){0,25}$') { exit 23 }
+  $rows = foreach ($letter in $line.Split(',')) {
+    $drive = [IO.DriveInfo]::new($letter + ':\')
+    $letter + ':' + [string]$drive.DriveType
+  }
+  [Console]::WriteLine(($rows -join '|'))
+}
+`;
+  let child = null, active = null, queued = [], buffer = '', idle = null, exitHook = false;
+  const error = kind => Object.assign(new Error('privacy.drive_probe_' + kind), { code: 'privacy.drive_probe_' + kind });
+  function stopSync(reason = error('stopped'), terminate = true) {
+    clearTimeout(idle); idle = null;
+    const owned = child; child = null; buffer = '';
+    const work = active ? [active, ...queued] : queued;
+    active = null; queued = [];
+    for (const job of work) { clearTimeout(job.timer); job.signal?.removeEventListener('abort', job.abort); job.reject(reason); }
+    if (owned) {
+      for (const stream of [owned.stdin, owned.stdout, owned.stderr]) { try { stream?.destroy(); } catch { /* Continue retiring this owner. */ } }
+      // This fixed DriveInfo-only script never spawns descendants. Use its live
+      // ChildProcess handle, never a delayed tree kill against a reusable PID.
+      if (terminate && owned.exitCode === null && owned.signalCode === null) {
+        try { if (typeof host.stopChild === 'function') host.stopChild(owned); else owned.kill(); } catch { /* Fail closed without crashing the server. */ }
+      }
+    }
+  }
+  function start() {
+    if (child) return;
+    if (process.platform !== 'win32') throw error('unsupported');
+    const root = process.env.SystemRoot;
+    if (typeof root !== 'string' || !/^[A-Z]:\\[^\r\n]*$/i.test(root) || root.includes('..')) throw error('system_root');
+    if (!exitHook) { process.once('exit', () => stopSync()); exitHook = true; }
+    const executable = drivePath.win32.join(root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const owned = driveChildProcess.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+      windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    child = owned;
+    owned.stdout.setEncoding('utf8');
+    owned.stdout.on('data', chunk => {
+      if (child !== owned) return;
+      buffer += chunk;
+      if (buffer.length > 2048) return stopSync(error('protocol'));
+      const newline = buffer.indexOf('\n');
+      if (newline < 0) return;
+      const line = buffer.slice(0, newline).replace(/\r$/, '');
+      buffer = buffer.slice(newline + 1);
+      if (!active || buffer.length) return stopSync(error('protocol'));
+      const expected = active.letters;
+      const rows = line.split('|'), values = new Map();
+      if (rows.length !== expected.length) return stopSync(error('protocol'));
+      for (let i = 0; i < rows.length; i++) {
+        const match = /^([A-Z]):(Unknown|NoRootDirectory|Removable|Fixed|Network|CDRom|Ram)$/.exec(rows[i]);
+        if (!match || match[1] !== expected[i]) return stopSync(error('protocol'));
+        values.set(match[1], match[2]);
+      }
+      const job = active; active = null;
+      clearTimeout(job.timer); job.signal?.removeEventListener('abort', job.abort);
+      job.resolve(new Map(job.roots.map(root => [root, values.get(root[0].toUpperCase())])));
+      pump();
+    });
+    owned.stderr.on('data', () => { if (child === owned) stopSync(error('stderr')); });
+    owned.stdout.on('error', () => { if (child === owned) stopSync(error('read')); });
+    owned.stderr.on('error', () => { if (child === owned) stopSync(error('read')); });
+    owned.stdin.on('error', () => { if (child === owned) stopSync(error('write')); });
+    owned.on('error', () => { if (child === owned) stopSync(error('spawn')); });
+    owned.on('exit', () => { if (child === owned) stopSync(error('exit'), false); });
+  }
+  function pump() {
+    clearTimeout(idle); idle = null;
+    if (active) return;
+    if (!queued.length) {
+      if (child) {
+        // A dormant classifier must not hold a CLI/test process open. The exit
+        // hook retires this handle; active requests retain their deadline timer.
+        for (const handle of [child, child.stdin, child.stdout, child.stderr]) handle?.unref?.();
+        idle = setTimeout(() => stopSync(), 15000); idle.unref?.();
+      }
+      return;
+    }
+    active = queued.shift();
+    try {
+      start();
+      for (const handle of [child, child.stdin, child.stdout, child.stderr]) handle?.ref?.();
+      child.stdin.write(active.letters.join(',') + '\n');
+    }
+    catch { stopSync(error('unavailable')); }
+  }
+  function query(roots, signal) {
+    if (!Array.isArray(roots) || roots.length > 26 || roots.some(root => typeof root !== 'string' || !/^[A-Z]:\\$/i.test(root))) return Promise.reject(error('roots'));
+    if (signal?.aborted) return Promise.reject(error('cancelled'));
+    if (!roots.length) return Promise.resolve(new Map());
+    if (queued.length + (active ? 1 : 0) >= 8) return Promise.reject(error('busy'));
+    return new Promise((resolve, reject) => {
+      const job = { roots: [...roots], letters: [...new Set(roots.map(root => root[0].toUpperCase()))], signal, resolve, reject };
+      job.abort = () => stopSync(error('cancelled'));
+      job.timer = setTimeout(() => stopSync(error('timeout')), 5000);
+      signal?.addEventListener('abort', job.abort, { once: true });
+      queued.push(job); pump();
+    });
+  }
+  return Object.freeze({ query, stopSync, setHost: hooks => Object.assign(host, hooks) });
+})();
 
 const VisualPipeline = (() => {
   const nodeFsp = require('fs/promises');
@@ -44438,12 +44819,12 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         // 本批的配对去重只看本批之后的 role:'tool'(与主回合同):服务商跨迭代复用 id 时,上一轮答过的 call_1
         // 不能让本批还没答的 call_1 漏补配对。
-        if (typeof PrivacyGateway !== 'undefined') localToolCalls = localToolCalls.map(tc => PrivacyGateway.prepareCall(tc, { isRegisteredTool: name => Boolean(resolveBridge(bridgedRoute, name)) }));
+        if (typeof PrivacyGateway !== 'undefined') localToolCalls = await privacyMapBounded(localToolCalls, tc => PrivacyGateway.prepareExecution(tc, { sessionId: parentSession.id, session: parentSession, config, workingDir, signal: ctrl && ctrl.signal , resolveBridge: name => resolveBridge(bridgedRoute, name) }));
         const subBatchHistStart = subHistory.length;
         const subOutputLimited = providerWireOutputLimited(call.finishReason);
         const subToolImages = [];
         for (const tc of localToolCalls) {
-          let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
+          let args = {}; try { args = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
           // threshold, refuse to execute, emit a self-contained refusal, PAIR every remaining tool_call in this
           // batch (配对铁律: strict providers 400 on an orphan tool_call_id), then fail the sub-turn.
@@ -44587,7 +44968,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               if (decision && decision.behavior === 'allow') {
                 gate = 'allow';
                 permissionApproved = true;
-                if (decision.updatedInput && typeof decision.updatedInput === 'object') args = decision.updatedInput;
+                if (decision.updatedInput && typeof decision.updatedInput === 'object') args = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.updateExecutionInput(args, decision.updatedInput, tc.name) : decision.updatedInput;
                 recheckDelegationPermission();
               }
             }
@@ -44627,6 +45008,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                     recheckDelegationPermission();
                     await journalBridgedWrite(tc.name, args, parentSession, config, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq });
                     recheckDelegationPermission();
+                    if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { bridge, session: parentSession, config, workingDir, signal: ctrl && ctrl.signal });
                     resultObj = await client.callTool(bridge.toolName, args);
                   } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
                   finally { stopToolBeat(); releaseResourceLease(toolLease); }
@@ -48126,7 +48508,7 @@ const PROXY_UNWRAP_AGENT_TARGETS = new Set(['orchestrate_agents', 'spawn_agent',
 function unwrapProxiedControlCall(tc, offered) {
   if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
   let outer;
-  try { outer = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  try { outer = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { return tc; }
   outer = normalizeToolInvokeArgs(outer);
   if (!outer || typeof outer !== 'object' || Array.isArray(outer)) return tc;
   const target = typeof outer.name === 'string' ? outer.name.trim() : '';
@@ -48134,7 +48516,8 @@ function unwrapProxiedControlCall(tc, offered) {
   if (offered && PROXY_UNWRAP_AGENT_TARGETS.has(target) && !offered.has(target)) return tc;
   const inner = outer.arguments;
   if (inner !== undefined && (inner === null || typeof inner !== 'object' || Array.isArray(inner))) return tc; // 参数坏了:留给原路径给 invalid-arguments
-  return { ...tc, name: target, rawArgs: JSON.stringify(inner || {}) };
+  const rewritten = { ...tc, name: target, rawArgs: JSON.stringify(inner || {}) };
+  return typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.transferExecutionCall(tc, rewritten) : rewritten;
 }
 
 // 代理壳还原(02f toolInvokeEnvelopeRepair)放在【入批处】做、直接改写 rawArgs:权限闸、hook、循环签名、并行只读岛、
@@ -48144,7 +48527,7 @@ function unwrapProxiedControlCall(tc, offered) {
 function canonicalToolInvokeCall(tc) {
   if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
   let parsed;
-  try { parsed = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  try { parsed = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { return tc; }
   const { args, repair } = toolInvokeEnvelopeRepair(parsed);
   if (!repair) return tc;
   return { ...tc, rawArgs: JSON.stringify(args), proxyRepair: repair };
@@ -48161,7 +48544,7 @@ function retierToolInvokeCall(tc, catalog, bridgedRoute, config) {
   const proxyTier = tc.name.slice('tool_invoke_'.length);
   if (!Object.prototype.hasOwnProperty.call(TOOL_TIER_RANK, proxyTier)) return tc;
   let parsed;
-  try { parsed = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  try { parsed = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { return tc; }
   const target = parsed && typeof parsed.name === 'string' ? parsed.name.trim() : '';
   if (!target || RETIER_SKIP_TARGETS.has(target) || target.startsWith('tool_invoke_')) return tc;
   const item = (catalog || []).find(x => x && x.name === target);
@@ -48900,7 +49283,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const econProxyFields = tc => {
     if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return {};
     let target = '';
-    try { const a = JSON.parse(tc.rawArgs || '{}'); target = a && typeof a.name === 'string' ? a.name.trim() : ''; } catch { /* args_invalid */ }
+    try { const a = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); target = a && typeof a.name === 'string' ? a.name.trim() : ''; } catch { /* args_invalid */ }
     const named = /^[A-Za-z_][A-Za-z0-9_.-]{0,79}$/.test(target) ? target : (target ? 'invalid' : '');
     const item = named && named !== 'invalid' ? toolLoading.catalog.find(x => x && x.name === named) : null;
     return { proxyTarget: named || 'missing', ...(item ? { proxyTargetTier: item.tier } : {}), ...(tc.proxyRepair ? { proxyRepair: tc.proxyRepair } : {}) };
@@ -49737,7 +50120,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // whose modifying half was never authorized, and one paired result per call keeps history valid.
           session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(call.toolCalls, { sessionId: session.id }) });
           for (const tc of call.toolCalls) {
-            let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+            let pargs = {}; try { pargs = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
             await notifyToolHookStart(tc, pargs, iter, 'plan_refused');
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: pargs });
@@ -49810,7 +50193,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
         // image messages here and FLUSH them after the for-loop, once every role:'tool' reply has been pushed.
-        if (typeof PrivacyGateway !== 'undefined') localToolCalls = localToolCalls.map(tc => PrivacyGateway.prepareCall(tc, { isRegisteredTool: name => Boolean(resolveBridge(bridgedRoute, name)) }));
+        if (typeof PrivacyGateway !== 'undefined') localToolCalls = await privacyMapBounded(localToolCalls, tc => PrivacyGateway.prepareExecution(tc, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true , resolveBridge: name => resolveBridge(bridgedRoute, name) }));
         const pendingToolImages = []; // [{ toolCallId, note, parts:[{text},{image_url}…] }]
         // hb360 C1: read-tier 并行批 —— 整批全部是【原生只读工具】(无桥接/控制面/spawn/todo/mission/
         // 交互类)时入口并发预执行(单线程事件循环下的 I/O 并发),结果按 id 存表;下方串行循环走到通用
@@ -49849,7 +50232,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (withinLegacyWidth) {
               // 现状全量并发路径(逐字节等价,仅供 E1 埋点延续)
               await Promise.all(islandCalls.map(async tc => {
-                let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+                let pargs = {}; try { pargs = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { pargs = {}; }
                 let res, lease = '';
                 if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 并行预执行真实起点
                 try {
@@ -49872,7 +50255,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               await Promise.all(Array.from({ length: poolWorkers }, async () => {
                 while (poolNext < islandCalls.length) {
                   const tc = islandCalls[poolNext++];
-                  let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+                  let pargs = {}; try { pargs = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { pargs = {}; }
                   let res, lease = '', tWait0 = Date.now();
                   if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 预执行真实起点
                   try {
@@ -49898,7 +50281,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const offeredToolNames = new Set(allTools.map(t => t && t.function && t.function.name).filter(Boolean));
         for (const tc0 of localToolCalls) {
           const tc = unwrapProxiedControlCall(tc0, offeredToolNames);   // tool_invoke_* → 引擎特判工具时解开成直调(见该函数头注)
-          let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
+          let args = {}; try { args = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
           // can (a) inject loopWarning on the 3rd hit's result and (b) refuse to run the 5th hit at all.
@@ -50142,7 +50525,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
               reg.lastEventAt = Date.now();
               if (!decision || decision.behavior !== 'allow') resultObj = { ok: false, error: (decision && decision.message) || 'denied by user' };
-              else if (decision.updatedInput && typeof decision.updatedInput === 'object') args = decision.updatedInput;
+              else if (decision.updatedInput && typeof decision.updatedInput === 'object') args = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.updateExecutionInput(args, decision.updatedInput, tc.name) : decision.updatedInput;
             }
             if (!resultObj) {
               if (bridge) {
@@ -50165,7 +50548,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                       await journalBridgedWrite(tc.name, args, session, config, { sessionId: session.id, turnSeq: session.turnSeq });
                       resultObj = await awaitProviderTool(
                         tc,
-                        signal => client.callTool(bridge.toolName, args, undefined, { signal }),
+                        async signal => {
+                          if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { bridge, session, config, workingDir, signal });
+                          return client.callTool(bridge.toolName, args, undefined, { signal });
+                        },
                         true,
                       );
                     } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -50173,6 +50559,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   }
                 }
               } else if (tc.name === 'request_user_input') {
+                if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
                 // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
@@ -50186,6 +50574,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // 先过同一道校验(先认同义词),不合格就把校验信封原样交回,让模型照提示重调。
                 resultObj = validateNativeToolArgs(tc.name, normalizeMetaToolArgs(tc.name, args));
               } else if (tc.name === 'todo_write') {
+                if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,
                 // so handle it here (mirrors the bridge special-case) rather than in the context-free toolCall().
@@ -50203,6 +50593,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   ? { ok: true, count: items.length, unchanged: true, note: '任务清单与当前状态一致,跳过重复写入' }
                   : { ok: true, count: items.length };
               } else if (tc.name === 'mission_update') {
+                if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // 第26波b provider-engine 特例:in-process 合并进 session.mission(闭包持 session + onEvent)。
                 if (session.mission) {
                   // 对抗轮 P1: 模型路径 trusted=false —— 不能设 check.cmd、不能把 done 回退 pending。
@@ -56096,7 +56488,7 @@ async function walkFiles(root, opts = {}) {
   // 指向遍历根之外的符号链接/联接不返回:guardFileToolPath 只判了 root,修前 ws/link.md -> /outside/secret.md 被当成
   // 普通文件列出来,docs_search / codebase_symbol_search / code_review_scan 接着就把区外文件的内容读出来了
   // (file_read 读同一个链接是 not-allowed)。只对链接条目多做一次 realpath,普通文件不受影响。
-  const baseReal = await realpathForContainment(base);
+  const baseReal = await privacyLocalIo(base, false, () => realpathForContainment(base));
   let skippedLinks = 0;
   const depthExamples = [];   // 到 maxDepth 不再下钻、且里面非空的目录(最多 5 个例子)
   let depthProbes = 0;
@@ -56106,7 +56498,7 @@ async function walkFiles(root, opts = {}) {
   let visited = 0;
   const emit = async (full, rel, isDir) => {
     // 目录不需要 stat(size 恒记 0;信封里目录不带 size);文件要 size,glob 还要 mtime。
-    const stat = isDir ? null : await fsp.stat(full).catch(() => null);
+    const stat = isDir ? null : await privacyLocalIo(full, false, () => fsp.stat(full)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
     if (stat && sensitiveIds.size && stat.nlink > 1 && await isSensitiveHardlinkAlias(full, sensitiveIds)) return;
     const rec = { path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 };
     if (stat) rec.mtimeMs = Math.round(stat.mtimeMs);
@@ -56136,7 +56528,7 @@ async function walkFiles(root, opts = {}) {
   try {
     while (hasDir() && !stopped && !patternTimedOut) {
       const { dir, relDir, depth, hiddenOk } = nextDir();
-      const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+      const entries = await privacyLocalIo(dir, false, () => fsp.readdir(dir, { withFileTypes: true })).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
       // 排序:各平台 readdir 顺序不同(Linux 不定序、NTFS 字典序),截断时「取到哪些」必须可复现。
       entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
       const dotnetDir = ignore.dotnet && entries.some(e => !e.isDirectory() && DOTNET_PROJECT_RE.test(e.name));
@@ -56159,12 +56551,12 @@ async function walkFiles(root, opts = {}) {
         const full = path.join(dir, entry.name);
         if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
         if (entry.isSymbolicLink()) {
-          if (!pathWithinRoot(await realpathForContainment(full), baseReal)) { skippedLinks += 1; continue; }
+          if (!pathWithinRoot(await privacyLocalIo(full, false, () => realpathForContainment(full)), baseReal)) { skippedLinks += 1; continue; }
           // browse(file_list 非递归 = 目录浏览)下,指向目录的符号链接/联接(Windows 的 My Documents 之类)Dirent 报的是链接而不是目录,
           // 修前被标成 file,前端点开报「is a directory」。已过上面的包含校验后 stat 一下:是目录就标 directory(也要过一遍剪枝名单)。
           // 只改标记不下钻:递归遍历(browse 为假)不跟随符号链接 —— 防环,链接目标要列就以它为 root 单独列。
           if (opts.browse === true && !isDir) {
-            const target = await fsp.stat(full).catch(() => null);
+            const target = await privacyLocalIo(full, false, () => fsp.stat(full)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
             if (target && target.isDirectory()) {
               isDir = true;
               linkedDir = true;
@@ -56189,7 +56581,7 @@ async function walkFiles(root, opts = {}) {
           // 与「确实没有」无法区分。只在目录【非空】时才算被截(空目录没东西可漏),探查有上限(200 次 readdir),够给几个例子就停。
           if (depthExamples.length < 5 && depthProbes < 200) {
             depthProbes += 1;
-            const kids = await fsp.readdir(full).catch(() => []);
+            const kids = await privacyLocalIo(full, false, () => fsp.readdir(full)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
             if (kids.length) depthExamples.push(toSlash(rel));
           } else if (depthProbes >= 200 && !depthExamples.length) depthExamples.push('…');
         }
@@ -56409,7 +56801,7 @@ async function searchFileContent(root, pattern, opts = {}) {
       if (viaRg) {
         results = viaRg;
         // rg 不报被剪掉的目录;补一次有界探查,让「没搜到」不再静默地可能落在 build/dist/out/target 里。
-        const pd = await discoverPrunedDirs(root, effOpts, searchExplicitNames(root, effOpts)).catch(() => []);
+        const pd = await discoverPrunedDirs(root, effOpts, searchExplicitNames(root, effOpts)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
         if (pd.length) results.prunedDirs = pd;
       }
     } catch { /* fall through to JS path */ }
@@ -56474,7 +56866,7 @@ const REGEX_SCAN_WORKER_SRC = `
     if (count >= maxResults) break;
     let raw = '';
     try {
-      const dec = decodeFile(fs.readFileSync(file.path));
+      const dec = decodeFile(file.content ? Buffer.from(file.content) : fs.readFileSync(file.path));
       if (!dec) continue;
       const nonUtf8 = dec.enc !== 'utf8' || dec.lossy === true;
       if (nonUtf8) parentPort.postMessage({ type: 'enc', path: file.path, relativePath: file.relativePath, enc: dec.lossy ? 'lossy' : dec.enc });
@@ -56515,7 +56907,18 @@ const REGEX_SCAN_WORKER_SRC = `
 })();
 `;
 // files: [{path, relativePath}];返回 { results, timedOut, error }。永不 reject。
-function regexScanFilesBounded(files, pattern, flags, opts = {}) {
+async function regexScanFilesBounded(files, pattern, flags, opts = {}) {
+  if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.isExecutingOriginal()) {
+    let bytes = 0;
+    const snapshots = [];
+    for (const file of files) {
+      const content = await privacyLocalIo(file.path, false, () => fsp.readFile(file.path));
+      bytes += content.length;
+      if (bytes > 8 * 1048576) throw Object.assign(new Error('Private local search snapshot exceeds the complete read budget; narrow the root.'), { code: 'privacy.source_limit' });
+      snapshots.push({ ...file, content });
+    }
+    files = snapshots;
+  }
   const budgetMs = Math.max(50, Math.min(REGEX_SCAN_MAX_MS, Number(opts.regexTimeoutMs) || REGEX_SCAN_MAX_MS));
   return new Promise(resolve => {
     const results = [];
@@ -56534,7 +56937,7 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
       worker = new Worker(REGEX_SCAN_WORKER_SRC, {
         eval: true,
         workerData: {
-          files: files.map(f => ({ path: f.path, relativePath: f.relativePath })), pattern: String(pattern), flags: String(flags || ''),
+          files: files.map(f => ({ path: f.path, relativePath: f.relativePath, ...(f.content ? { content: f.content } : {}) })), pattern: String(pattern), flags: String(flags || ''),
           ctx: Math.max(0, Math.min(5, Number(opts.context || 0) || 0)), maxResults: Math.max(1, Number(opts.maxResults || 200)),
           wholeFile: opts.wholeFile === true, wholeFileChars: Math.max(1, Number(opts.wholeFileChars) || 400000),
           onlyNonUtf8: opts.onlyNonUtf8 === true,
@@ -56601,7 +57004,7 @@ async function discoverPrunedDirs(root, opts, names) {
   for (let qi = 0; qi < queue.length && reads < 2000 && found.length < 12; qi += 1) {
     const { dir, rel, depth, hiddenOk } = queue[qi];
     reads += 1;
-    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     const dotnetDir = ignore.dotnet && entries.some(e => !e.isDirectory() && DOTNET_PROJECT_RE.test(e.name));
     for (const e of entries) {
@@ -58485,7 +58888,7 @@ function decodeProfileText(buf, partial) {
 async function readProfileWindow(p, maxBytes) {
   let fh = null;
   try {
-    fh = await fsp.open(p, 'r');
+    fh = await privacyLocalIo(p, false, () => fsp.open(p, 'r'));
     const st = await fh.stat();
     if (!st.isFile()) return { error: '不是普通文件(是目录或设备)', code: 'not_file' };
     if (st.size === 0) return { error: '文件为空', code: 'empty' };
@@ -58511,7 +58914,7 @@ async function readProfileWindow(p, maxBytes) {
 // 大 JSON 的顶层数组:边读边扫括号/字符串状态,遇到深度 1 的逗号切出一个元素 JSON.parse,取够 maxItems 就停。
 // 只支持 UTF-8(带/不带 BOM)。返回 { items, scannedBytes, arrayEnded } 或 { notArray:true }。
 async function profileJsonArrayHead(p, maxItems) {
-  const fh = await fsp.open(p, 'r');
+  const fh = await privacyLocalIo(p, false, () => fsp.open(p, 'r'));
   try {
     const dec = new TextDecoder('utf-8');
     const chunk = Buffer.allocUnsafe(1024 * 1024);
@@ -59091,7 +59494,7 @@ async function evictWebCacheOverCap() {
   if (files.length <= max) return 0;
   const rows = [];
   for (const f of files) {
-    const st = await fsp.stat(path.join(paths.webcache, f)).catch(() => null);
+    const st = await fsp.stat(path.join(paths.webcache, f)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
     if (st) rows.push({ f, mtime: st.mtimeMs });
   }
   rows.sort((a, b) => a.mtime - b.mtime || (a.f < b.f ? -1 : 1));
@@ -60350,7 +60753,7 @@ async function zipCollectEntries(rootPaths, opts = {}) {
   const topNames = zipTopLevelNames(uniq);
   for (let i = 0; i < uniq.length; i += 1) {
     const abs = uniq[i];
-    const st = await fsp.lstat(abs).catch(() => null);
+    const st = await fsp.lstat(abs).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
     if (!st) throw new Error(`路径不存在：${abs}`);
     if (topNames[i] !== path.win32.basename(abs)) entries.renamedInputs.push({ path: abs, zipName: topNames[i] });
     await addFile(abs, topNames[i], '');
@@ -60904,7 +61307,7 @@ const FileTextIo = (() => {
     const xform = typeof req.xform === 'function' ? req.xform : (s => s);
     const budget = Math.max(1000, Number(req.jsonBudget) || 50000);
     let fh;
-    try { fh = await nodeFsp.open(filePath, 'r'); } catch (e) { throw e; }
+    try { fh = await (typeof req.io === 'function' ? req.io(filePath, false, () => nodeFsp.open(filePath, 'r')) : nodeFsp.open(filePath, 'r')); } catch (e) { throw e; }
     try {
       const first = Buffer.alloc(Math.min(size, CHUNK_BYTES));
       let got = 0;
@@ -61061,8 +61464,8 @@ const FileTextIo = (() => {
     }
   }
 
-  async function readHead(filePath, n) {
-    const fh = await nodeFsp.open(filePath, 'r');
+  async function readHead(filePath, n, io) {
+    const fh = await (typeof io === 'function' ? io(filePath, false, () => nodeFsp.open(filePath, 'r')) : nodeFsp.open(filePath, 'r'));
     try {
       const buf = Buffer.alloc(n);
       const { bytesRead } = await fh.read(buf, 0, n, 0);
@@ -61076,25 +61479,28 @@ const FileTextIo = (() => {
   // 目标是符号链接 / 多硬链接时改走原地写(rename 会让链接指向旧 inode / 断开硬链接)。
   // rename 永久失败时最后再试一次原地写(与旧行为等价),两者都失败才抛。
   async function writeFileAtomic(target, data, opts = {}) {
+    const io = (paths, write, work) => typeof opts.io === 'function' ? opts.io(paths, write, work) : work();
     let st = null;
-    try { st = await nodeFsp.lstat(target); } catch { st = null; }
-    const inPlace = async () => { await nodeFsp.writeFile(target, data); };
+    try { st = await io(target, false, () => nodeFsp.lstat(target)); } catch (error) { if (String(error?.code || '').startsWith('privacy.')) throw error; st = null; }
+    const inPlace = async () => { await io(target, true, () => nodeFsp.writeFile(target, data)); };
     // 符号链接 / 多硬链接:直接原地写(writeFile 自己会在无权时报 EACCES)。必须在 access 之前 —— 悬空链接的 access 会
     // 跟随链接报 ENOENT(假的 not_found),而原地写正好会经链接把目标创建出来(与改前 writeFile 行为一致)。
     if (st && (st.isSymbolicLink() || st.nlink > 1)) { await inPlace(); return { atomic: false, reason: st.isSymbolicLink() ? 'symlink' : 'hardlink' }; }
     // rename 会无视目标文件自身的只读位(只看目录权限),原地写不会 —— 先确认我们本来就有权写它,保持「只读文件写不进去」的语义。
-    if (st) await nodeFsp.access(target, 2);
+    if (st) await io(target, false, () => nodeFsp.access(target, 2));
     const dir = nodePath.dirname(target);
     const tmp = nodePath.join(dir, '.' + nodePath.basename(target) + '.' + process.pid + '.' + nodeCrypto.randomBytes(4).toString('hex') + '.tmp');
-    try { await nodeFsp.writeFile(tmp, data); }
+    const cleanTemp = async () => { try { if (typeof opts.cleanup === 'function') await opts.cleanup(tmp, () => nodeFsp.unlink(tmp)); else await nodeFsp.unlink(tmp); } catch { /* owned temporary cleanup is best effort */ } };
+    try { await io({ path: tmp, temporaryFor: target }, true, () => nodeFsp.writeFile(tmp, data)); }
     catch (e) {
-      nodeFsp.unlink(tmp).catch(() => {});
+      if (String(e?.code || '').startsWith('privacy.')) { await cleanTemp(); throw e; }
+      await cleanTemp();
       // 建不了临时文件(目录没有「创建文件」权 / 只读目录 / 加了临时名后路径超长 …)但目标文件本身可写:退回原地写(改前的行为),
       // 只有原地写也失败才报原错误。ENOSPC 不退(原地写会先截断目标,写不满就丢数据)。
       const c = e && e.code;
       if (c === 'EACCES' || c === 'EPERM' || c === 'EROFS' || c === 'ENAMETOOLONG' || c === 'ENOENT') {
         try { await inPlace(); return { atomic: false, reason: 'tmp_create_failed:' + c }; }
-        catch { throw e; }
+        catch (fallback) { if (String(fallback?.code || '').startsWith('privacy.')) throw fallback; throw e; }
       }
       throw e;
     }
@@ -61102,19 +61508,20 @@ const FileTextIo = (() => {
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     let lastErr = null;
     for (let attempt = 0; ; attempt += 1) {
-      try { await nodeFsp.rename(tmp, target); return { atomic: true }; }
+      try { await io([{ path: tmp, temporaryFor: target }, target], true, () => nodeFsp.rename(tmp, target)); return { atomic: true }; }
       catch (e) {
+      if (String(e?.code || '').startsWith('privacy.')) { await cleanTemp(); throw e; }
         lastErr = e;
         const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
         if (transient && attempt < retries) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
         break;
       }
     }
-    try { await nodeFsp.unlink(tmp); } catch { /* best-effort tmp cleanup */ }
+    await cleanTemp();
     // 目录/权限类错误不必再试原地写(同样会失败且会掩盖真因);锁类错误给原地写一次机会。
     if (lastErr && (lastErr.code === 'EISDIR' || lastErr.code === 'ENOTDIR' || lastErr.code === 'ENOSPC' || lastErr.code === 'EROFS')) throw lastErr;
     try { await inPlace(); return { atomic: false, reason: 'rename_failed:' + (lastErr && lastErr.code) }; }
-    catch { throw lastErr; }
+    catch (fallback) { if (String(fallback?.code || '').startsWith('privacy.')) throw fallback; throw lastErr; }
   }
 
   // ── 文件系统错误 -> 结构化失败 ─────────────────────────────────────────────────────────────────
@@ -61738,7 +62145,7 @@ async function fileToolWorkspaceDir(ctx) {
       if (s && s.cwd) return path.resolve(String(s.cwd));
     } catch { /* fall through */ }
   }
-  const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
+  const cfg = (ctx && ctx.config) || await readConfig().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
   return normalizeCwd(null, cfg && cfg.defaultWorkspace);
 }
 // 2026-10 走查(R2):路径开头的 `~`(~ / ~/ / ~\\)与 %USERPROFILE% / %HOMEPATH% / %APPDATA% / %LOCALAPPDATA% / %TEMP% / %TMP% 先展开成真实目录。
@@ -61748,7 +62155,7 @@ async function fileToolWorkspaceDir(ctx) {
 // 纯函数:env / home 可注入,便于单测。
 function expandFileToolPathVars(raw, env, home) {
   const s = String(raw == null ? '' : raw);
-  // 路径里混进 NUL(\0)在最前面就拦:Node 的 fs 会抛 ERR_INVALID_ARG_VALUE,而 stat(...).catch(() => null) 这类写法会把它读成
+  // 路径里混进 NUL(\0)在最前面就拦:Node 的 fs 会抛 ERR_INVALID_ARG_VALUE,而 stat(...).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }) 这类写法会把它读成
   // 「文件不存在」(file_delete)。这里抛带 code 的 TypeError,toolCall 的出口把它变成 bad_path 信封。
   if (s.includes('\0')) { const e = new TypeError('The argument \'path\' must be a string without null bytes'); e.code = 'ERR_INVALID_ARG_VALUE'; throw e; }
   const E = env || process.env;
@@ -61883,12 +62290,13 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   if (relArg) return { ok: false, error: `desktop/document writes require an absolute path; '${relArg}' is relative` };
   try {
     const sid = process.env.WCW_SESSION_ID || '';
-    const sidSession = sid ? await loadSession(sid).catch(() => null) : null;
+    const sidSession = sid ? await loadSession(sid).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }) : null;
     const session = (ctx && ctx.session) || sidSession;
     // 审计 A②:桥接读文件过读边界(与 09/08 两个分发点同一个函数)。MCP 子进程里 ctx 为空 → 按 WCW_SESSION_ID 装会话。
     const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
     if (readRefusal) return readRefusal;
     if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
+    if (typeof PrivacyGateway !== 'undefined') targetArgs = await PrivacyGateway.revalidateExecution(targetName, targetArgs || {}, { ...(ctx || {}), bridge });
     const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
     return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
@@ -62088,7 +62496,7 @@ async function scratchpadWriteTool(args, ctx) {
 // 新工具忘了声明 = 锁红 —— archive 漏 guard(第27波)、desktop_screenshot 越界写(第36波)这类漏审整类收口。
 async function workbenchMemoryReadLoopback(name, args) {
   const sessionId = safeSessionId(process.env.WCW_SESSION_ID || '');
-  const session = sessionId ? await loadSession(sessionId).catch(() => null) : null;
+  const session = sessionId ? await loadSession(sessionId).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }) : null;
   if (!session) return { ok: false, error: 'memory session unavailable' };
   try {
     const response = await httpRequest({ url: `http://${process.env.WCW_HOST || '127.0.0.1'}:${process.env.WCW_PORT}/api/tools/${name}`,
@@ -62331,9 +62739,9 @@ async function buildWorkbenchSelfStatus(args, ctx) {
       if (section === 'all' || section === 'counts') {
         const cwd = (ctx && ctx.workingDir) || (ctx && ctx.session && ctx.session.cwd) || process.cwd();
         const [caps, entries, workflows] = await Promise.all([
-          getCapabilities(config).catch(() => null),
-          loadSkillRegistry(cwd, config).catch(() => []),
-          getAgentWorkflows(cwd).catch(() => null),
+          getCapabilities(config).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }),
+          loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; }),
+          getAgentWorkflows(cwd).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }),
         ]);
         const kindCount = k => entries.filter(e => e.kind === k).length;
         out.counts = {
@@ -62503,7 +62911,7 @@ function execCacheContext(name, args, ctx, resolvedPath) {
 async function execCacheLookup(c) {
   const t0 = Date.now();
   let st = null;
-  try { st = await fsp.stat(c.path); } catch { st = null; }
+  try { st = await privacyLocalIo(c.path, false, () => fsp.stat(c.path)); } catch { st = null; }
   const version = execCacheVersionOf(st);
   const sess = execCacheSessionMap(c.sessionId, false);
   const entry = sess && sess.get(c.key);
@@ -62529,7 +62937,7 @@ async function execCacheStore(c, result) {
   if (!result || result.ok !== true) return;
   if (c.signal && c.signal.aborted) return; // 中断结果不缓存(22 §6.1)
   let st = null;
-  try { st = await fsp.stat(c.path); } catch { st = null; }
+  try { st = await privacyLocalIo(c.path, false, () => fsp.stat(c.path)); } catch { st = null; }
   const statAfter = execCacheVersionOf(st);
   if (c.statBefore && !execCacheSameVersion(c.statBefore, statAfter)) {
     logEvent({ kind: 'exec_result_cache', outcome: 'skip', reason: 'race', tool: c.tool, sessionId: c.sessionId });
@@ -62555,6 +62963,173 @@ async function execCacheStore(c, result) {
 // 不再落到服务进程的 process.cwd()(安装目录/启动目录)。此前 file_read('notes.txt') 会被「工作区外」拒绝并报一个根本不存在的
 // 路径;开了「允许工作区外读写」或本机模型时更糟 —— 相对路径的写入静默落进服务的启动目录并回 ok:true。
 // 绝对路径原样规范化(与旧行为一致);报错里的 path 一律是【解析后的绝对路径】。
+// Explicit adapters for private original inputs. Registration/tier/schema never grants disclosure.
+const PRIVACY_LOCAL_TOOL_ADAPTERS = Object.freeze({
+  file_read: { paths: [['path', false]], fields: ['path'] },
+  file_write: { paths: [['path', true]], fields: ['path', 'content'] },
+  file_edit: { paths: [['path', true]], fields: ['path', 'oldText', 'newText'] },
+  file_delete: { paths: [['path', true], ['paths', true]], fields: ['path', 'paths'], batch: true },
+  file_move: { paths: [['from', true], ['to', true]], fields: ['from', 'to', 'items'], batch: true },
+  file_copy: { paths: [['from', false], ['to', true]], fields: ['from', 'to', 'items'], batch: true },
+  file_list: { root: true, fields: ['root', 'pattern', 'glob', 'ignoreDirs'] },
+  file_search: { root: true, fields: ['root', 'pattern', 'glob', 'ignoreDirs'] },
+  glob: { root: true, fields: ['root', 'pattern', 'ignoreDirs'] },
+  project_snapshot: { root: true, fields: ['root', 'pattern', 'glob', 'ignoreDirs'] },
+  dependency_inventory: { root: true, fields: ['root'] },
+  code_review_scan: { root: true, fields: ['root', 'pattern', 'glob', 'ignoreDirs'] },
+  frontend_audit: { root: true, fields: ['root', 'pattern', 'glob', 'ignoreDirs'] },
+  claude_md_audit: { root: true, fields: ['root'] },
+  docs_search: { root: true, fields: ['root', 'query', 'ignoreDirs'] },
+  codebase_symbol_search: { root: true, fields: ['root', 'symbol', 'ignoreDirs'] },
+  data_profile: { paths: [['path', false]], fields: ['path', 'delimiter'] },
+  todo_write: { session: true, fields: [] },
+  mission_update: { session: true, fields: [] },
+  scratchpad_write: { session: true, fields: ['text', 'content', 'note', 'value'] },
+  thread_title_update: { session: true, fields: ['title', 'gist'] },
+  request_user_input: { session: true, fields: [] },
+});
+Object.values(PRIVACY_LOCAL_TOOL_ADAPTERS).forEach(adapterDefinition => { Object.freeze(adapterDefinition.fields); if (adapterDefinition.paths) { for (const row of adapterDefinition.paths) Object.freeze(row); Object.freeze(adapterDefinition.paths); } Object.freeze(adapterDefinition); });
+async function privacyLocalCleanup(targets, operation) {
+  // Only host-owned temporary files/restorative renames call this, never model input.
+  // Cancellation/policy revocation must not block local rollback; a changed/unknown medium still does.
+  if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.isExecutingOriginal()) {
+    for (const target of Array.isArray(targets) ? targets : [targets]) await privacyInspectLocalPath(target);
+  }
+  return operation();
+}
+async function planPrivacyToolDisclosure(name, original, execution, restorePath) {
+  const denied = code => { throw Object.assign(new Error(code), { code: 'privacy.' + code }); };
+  const adapter = Object.hasOwn(PRIVACY_LOCAL_TOOL_ADAPTERS, name) ? PRIVACY_LOCAL_TOOL_ADAPTERS[name] : null;
+  if (!adapter) denied('disclosure_not_supported');
+  // Syntax validators may start optional external parsers; no original payload is released to those parsers.
+  if (original.validateSyntax === true) denied('disclosure_not_supported');
+  const ctx = execution || {};
+  if (adapter.session) {
+    const session = ctx.session;
+    if (!session || !session.id || ctx.sessionId && ctx.sessionId !== session.id) denied('recipient_denied');
+    const identity = String(session.id), kind = session.kind;
+    const authorize = ref => {
+      const pointer = ref.pointer;
+      if (name === 'todo_write') return /^\/(?:items|todos)\/\d+$/.test(pointer) || /^\/(?:items|todos)\/\d+\/(?:text|content|title|activeForm)$/.test(pointer);
+      if (name === 'mission_update') return /^\/(?:goal|title|summary)$/.test(pointer) || /^\/constraints\/\d+$/.test(pointer) || /^\/milestones\/\d+\/(?:title|text|description)$/.test(pointer);
+      if (name === 'request_user_input') return /^\/questions\/\d+\/(?:question|header)$/.test(pointer) || /^\/questions\/\d+\/options\/\d+\/(?:label|description)$/.test(pointer);
+      return adapter.fields.some(field => pointer === '/' + field);
+    };
+    const check = next => {
+      if (next?.signal?.aborted) denied('execution_cancelled');
+      if (ctx.session !== session || String(session.id) !== identity || session.kind !== kind || next?.session && next.session !== session) denied('recipient_changed');
+    };
+    return { recipient: 'native-current-session:' + identity + ':' + name + ':v1', purpose: 'current-session-text', credentialEmbedding: true, authorize: ref => { if (!authorize(ref)) denied('disclosure_not_supported'); return true; },
+      revalidate: async next => check(next), assertCurrent: check,
+      beforeIo: async () => denied('recipient_denied') };
+  }
+  const selectAuthority = config => JSON.stringify({
+    defaultWorkspace: config.defaultWorkspace, recentWorkspaces: config.recentWorkspaces, workspaces: config.workspaces,
+    allowOutsideWorkspace: config.allowOutsideWorkspace, permissionMode: config.permissionMode, activeProvider: config.activeProvider,
+    providers: (config.providers || []).map(provider => [provider.id, provider.type, provider.baseUrl]),
+    mcpIdentity: crypto.createHash('sha256').update(JSON.stringify(config.externalMcpServers || [])).digest('hex'),
+  });
+  const authority = await readConfig(), authoritySignature = selectAuthority(authority);
+  if (ctx.config && selectAuthority(normalizeConfig(ctx.config).config) !== authoritySignature) denied('recipient_changed');
+  let checkedGeneration = PrivacyRecipientHooks.configState?.().generation;
+  const assertAuthority = () => {
+    const current = PrivacyRecipientHooks.configState?.();
+    if (current && current.generation !== checkedGeneration) {
+      if (!current.config || selectAuthority(current.config) !== authoritySignature) denied('recipient_changed');
+      checkedGeneration = current.generation;
+    }
+  };
+  const currentExecution = async next => {
+    const config = await readConfig();
+    if (selectAuthority(config) !== authoritySignature) denied('recipient_changed');
+    checkedGeneration = PrivacyRecipientHooks.configState?.().generation;
+    return { ...ctx, ...next, config };
+  };
+  const targets = [];
+  const add = async (value, pointer, write) => {
+    if (typeof value !== 'string' || !value) denied('recipient_denied');
+    const raw = restorePath(value, pointer), abs = await resolveFileToolPath(raw, ctx);
+    targets.push({ abs, raw, write });
+  };
+  if (adapter.root) {
+    const raw = original.root ? restorePath(String(original.root), '/root') : undefined;
+    targets.push({ abs: await resolveFileToolRoot(raw ? { root: raw } : {}, ctx), rootRaw: raw, root: true, write: false });
+  } else if (adapter.batch && Array.isArray(original.items)) {
+    for (let i = 0; i < original.items.length; i++) {
+      await add(original.items[i]?.from, '/items/' + i + '/from', name !== 'file_copy');
+      await add(original.items[i]?.to, '/items/' + i + '/to', true);
+    }
+  } else if (name === 'file_delete' && Array.isArray(original.paths)) {
+    for (let i = 0; i < original.paths.length; i++) await add(original.paths[i], '/paths/' + i, true);
+  } else for (const [field, write] of adapter.paths || []) if (field !== 'paths') await add(original[field], '/' + field, write);
+  if (!targets.length || targets.length > 200) denied('recipient_denied');
+  const inspect = async (currentExecution = ctx) => privacyInspectionSegment(async () => {
+    if (ctx.signal?.aborted) denied('execution_cancelled');
+    const found = [];
+    for (const target of targets) {
+      const latest = target.root ? await resolveFileToolRoot(target.rootRaw ? { root: target.rootRaw } : {}, currentExecution) : await resolveFileToolPath(target.raw, currentExecution);
+      if (latest !== target.abs) denied('recipient_changed');
+      // Independent local-medium proof comes before guardFileToolPath (which can allow authorized UNC).
+      const local = await privacyInspectLocalPath(target.abs, ctx.signal);
+      const guard = await guardFileToolPath(target.abs, ctx, { tool: name, write: target.write, privateOriginal: true });
+      if (!guard.ok) denied('recipient_denied');
+      const after = await privacyInspectLocalPath(target.abs, ctx.signal, true);
+      if (local.identity !== after.identity) denied('recipient_changed');
+      found.push(after);
+    }
+    return found;
+  });
+  const initial = await inspect();
+  const allowed = pointer => {
+    if (adapter.batch && pointer.startsWith('/items/')) return /^\/items\/\d+\/(?:from|to)$/.test(pointer);
+    if (pointer.startsWith('/paths/')) return name === 'file_delete' && /^\/paths\/\d+$/.test(pointer);
+    return adapter.fields.some(field => pointer === '/' + field || ['content', 'oldText', 'newText', 'ignoreDirs'].includes(field) && pointer.startsWith('/' + field + '/'));
+  };
+  return {
+    recipient: 'native-local-file:' + name + ':v1', purpose: 'local-file-operation', credentialEmbedding: true, assertCurrent: assertAuthority,
+    authorize: ref => { if (!allowed(ref.pointer)) denied('disclosure_not_supported'); return true; },
+    async revalidate(nextExecution) {
+      if (PRIVACY_LOCAL_TOOL_ADAPTERS[name] !== adapter || nextExecution?.signal?.aborted) denied('recipient_changed');
+      const current = await inspect(await currentExecution(nextExecution));
+      for (let i = 0; i < initial.length; i++) {
+        if (initial[i].identity !== current[i].identity) denied('recipient_changed');
+      }
+    },
+    async beforeIo(actualPaths, write, nextExecution, kind) {
+      return privacyInspectionSegment(async () => {
+      const activeExecution = await currentExecution(nextExecution);
+      for (const actual of actualPaths) {
+        const temporaryFor = actual && typeof actual === 'object' ? actual.temporaryFor : null;
+        const abs = path.resolve(String(temporaryFor || actual));
+        const actualPath = path.resolve(String(temporaryFor ? actual.path : actual));
+        if (temporaryFor && path.dirname(actualPath) !== path.dirname(abs)) denied('recipient_denied');
+        const target = targets.find((row, index) => abs === row.abs || abs === initial[index].path
+          || (adapter.root || adapter.batch || original.recursive === true) && pathWithinRoot(abs, initial[index].path)
+          || (adapter.root || adapter.batch || original.recursive === true) && !path.relative(row.abs, abs).startsWith('..')
+          || (!write || kind === 'mkdir') && pathWithinRoot(row.abs, abs));
+        if (!target) denied('recipient_denied');
+        const index = targets.indexOf(target);
+        const receiver = await privacyInspectLocalPath(target.abs, activeExecution.signal);
+        if (receiver.identity !== initial[index].identity) denied('recipient_changed');
+        const local = await privacyInspectLocalPath(abs, activeExecution.signal);
+        if (temporaryFor) await privacyInspectLocalPath(actualPath, activeExecution.signal);
+        const gate = await guardFileToolPath(abs, activeExecution, { tool: name, write: target.write, privateOriginal: true });
+        if (!gate.ok) denied('recipient_denied');
+        const [after, receiverAfter] = await privacyInspectionSegment(async () => {
+          const actualAfter = await privacyInspectLocalPath(abs, activeExecution.signal);
+          const boundAfter = abs === target.abs ? actualAfter : await privacyInspectLocalPath(target.abs, activeExecution.signal);
+          return [actualAfter, boundAfter];
+        });
+        if (receiverAfter.identity !== initial[index].identity) denied('recipient_changed');
+        if (local.identity !== after.identity) denied('recipient_changed');
+
+      }
+      });
+    },
+    targets,
+  };
+}
+
 async function resolveFileToolPath(raw, ctx) {
   const s = expandFileToolPathVars(raw);
   if (path.isAbsolute(s)) return path.resolve(s);
@@ -62582,7 +63157,7 @@ const FILE_READ_JSON_BUDGET = READ_PAGE_JSON_BUDGET;
 // 检查点「改前内容」:超过日志上限的不读进内存(只给一个 skippedBytes 标记,journalRecord 会如实记成 skipped)。
 async function fileToolBeforeForCheckpoint(p, size) {
   if (size > JOURNAL_MAX_BEFORE_BYTES) return { skippedBytes: size };
-  return fsp.readFile(p);
+  return privacyLocalIo(p, false, () => fsp.readFile(p));
 }
 // 写失败后撤掉刚记的检查点条目(它描述的是一次没发生的写入,否则之后撤回会去「还原」一个没被改过的文件)。
 async function fileToolDropPhantom(jctx, tool, p, jr) {
@@ -62747,21 +63322,21 @@ async function fileToolBatch(operation, args, ctx) {
   const inside = (a, b) => { const rel = path.relative(a, b); return !rel || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel)); };
   const check = async (p, write) => { const g = await guardFileToolPath(p, ctx, { tool: operation, write }); if (!g.ok) fail(g.code, g.error); return g.absPath || p; };
   const workspaceRaw = await fileToolWorkspaceDir(ctx);
-  const workspace = await fsp.realpath(workspaceRaw).catch(() => workspaceRaw);
+  const workspace = await privacyLocalIo(workspaceRaw, false, () => fsp.realpath(workspaceRaw)).catch(() => workspaceRaw);
   async function visit(from, to, depth) {
     if (++entries > 1000 || depth > 32) fail('batch_limit', 'Batch exceeds 1000 entries or depth 32; split it into smaller batches.');
     const realFrom = await check(from, operation !== 'file_copy');
     if (to) await check(to, true);
-    const st = await fsp.lstat(from);
+    const st = await privacyLocalIo(from, false, () => fsp.lstat(from));
     if (st.isSymbolicLink()) fail('symlink_refused', 'Directory/batch operations do not follow symlinks: ' + from);
-    const dest = to ? await fsp.lstat(to).catch(e => { if (e.code !== 'ENOENT') throw e; return null; }) : null;
+    const dest = to ? await privacyLocalIo(to, false, () => fsp.lstat(to)).catch(e => { if (e.code !== 'ENOENT') throw e; return null; }) : null;
     if (dest?.isSymbolicLink()) fail('symlink_refused', 'Destination is a symlink: ' + to);
     if (st.isDirectory()) {
       if (!args.recursive) fail('recursive_required', 'Directory operations require recursive:true.');
       if (operation !== 'file_copy' && (inside(realFrom, workspace) || realFrom === path.parse(realFrom).root)) fail('protected_root', 'Refusing to delete/move the workspace root or its ancestors.');
       if (dest && !dest.isDirectory()) fail('target_type_mismatch', 'Destination is not a directory: ' + to);
       directories.push({ from, to });
-      for (const entry of await fsp.readdir(from)) await visit(path.join(from, entry), to && path.join(to, entry), depth + 1);
+      for (const entry of await privacyLocalIo(from, false, () => fsp.readdir(from))) await visit(path.join(from, entry), to && path.join(to, entry), depth + 1);
     } else {
       if (!st.isFile()) fail('unsupported_file', 'Only regular files/directories are supported.');
       if (dest && (dest.isDirectory() || !args.overwrite)) fail('target_exists', 'Destination exists; use overwrite:true for files: ' + to);
@@ -62782,26 +63357,26 @@ async function fileToolBatch(operation, args, ctx) {
     }
     for (const dir of directories) if (dir.to) {
       await check(dir.to, true);
-      if (!(await fsp.lstat(dir.to).catch(() => null))) { await fsp.mkdir(dir.to, { recursive: true }); changedDirectories++; }
+      if (!(await privacyLocalIo(dir.to, false, () => fsp.lstat(dir.to)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }))) { await privacyLocalIo(dir.to, true, () => fsp.mkdir(dir.to, { recursive: true }), 'mkdir'); changedDirectories++; }
     }
     for (const file of files) {
       // Recheck type immediately before the guarded primitive; reject links introduced since preflight.
-      if ((await fsp.lstat(file.from)).isSymbolicLink() || (file.to && (await fsp.lstat(file.to).catch(() => null))?.isSymbolicLink())) fail('symlink_refused', 'A batch path changed into a symlink.');
+      if ((await privacyLocalIo(file.from, false, () => fsp.lstat(file.from))).isSymbolicLink() || (file.to && (await privacyLocalIo(file.to, false, () => fsp.lstat(file.to)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }))?.isSymbolicLink())) fail('symlink_refused', 'A batch path changed into a symlink.');
       const result = await FILE_TOOL_HANDLERS[operation].handler(deleting ? { path: file.from } : { from: file.from, to: file.to, overwrite: args.overwrite }, ctx);
       results.push(result);
       if (!result.ok) return { ok: false, code: 'batch_failed', partial: results.some(r => r.ok) || changedDirectories > 0, results, error: result.error };
     }
     if (operation !== 'file_copy') for (const dir of directories.slice().reverse()) {
       await check(dir.from, true);
-      if ((await fsp.lstat(dir.from)).isSymbolicLink()) fail('symlink_refused', 'A source directory changed into a symlink.');
-      await fsp.rmdir(dir.from); changedDirectories++;
+      if ((await privacyLocalIo(dir.from, false, () => fsp.lstat(dir.from))).isSymbolicLink()) fail('symlink_refused', 'A source directory changed into a symlink.');
+      await privacyLocalIo(dir.from, true, () => fsp.rmdir(dir.from)); changedDirectories++;
     }
     return { ok: true, operation, files: results.length, directories: directories.length, results,
       checkpointWarn: results.some(r => !!r.checkpointWarn), checkpointScope: 'File contents only, subject to per-file snapshot limits. Empty directories and directory metadata are not restored.' };
   } catch (error) { return { ok: false, code: error.code || 'batch_failed', error: error.message, partial: results.some(r => r.ok) || changedDirectories > 0, results }; }
 }
 
-NativeSourceHooks.readTextWindow = (filePath, st, req) => FileTextIo.readTextWindow(filePath, st, req);
+NativeSourceHooks.readTextWindow = (filePath, st, req) => FileTextIo.readTextWindow(filePath, st, { ...req, io: privacyLocalIo });
 function fileToolPrivacySourceOptions(ctx, tool) {
   if (!privacySourceActive()) return {};
   return { privacyGuard: async target => {
@@ -62822,7 +63397,7 @@ const FILE_TOOL_HANDLERS = {
         const p = await resolveFileToolPath(item, ctx);
         const g = await guardFileToolPath(p, ctx, { tool: 'acceptance_report', write: false });
         if (!g.ok) return { ok: false, code: g.code, error: g.error };
-        const st = await fsp.stat(p).catch(() => null);
+        const st = await privacyLocalIo(p, false, () => fsp.stat(p)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         if (!st?.isFile()) return { ok: false, code: 'evidence_missing', error: 'Evidence file missing: ' + p };
         evidence.push({ path: p, bytes: st.size, modifiedAt: st.mtime.toISOString() });
       }
@@ -62840,7 +63415,7 @@ const FILE_TOOL_HANDLERS = {
     const p = await resolveFileToolPath(args.path, ctx);
     const guard = await guardFileToolPath(p, ctx, { tool: 'audio_inspect', write: false });
     if (!guard.ok) return { ok: false, code: guard.code, error: guard.error };
-    const st = await fsp.stat(guard.path || p).catch(() => null);
+    const st = await privacyLocalIo(guard.path || p, false, () => fsp.stat(guard.path || p)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
     if (!st || !st.isFile()) return { ok: false, code: 'not_found', error: 'Audio source must be an existing local file.' };
     return MediaInspection.inspectAudio(guard.absPath || p, args);
   } },
@@ -62906,7 +63481,7 @@ const FILE_TOOL_HANDLERS = {
       // instead of letting the raw ENOENT bubble up as a bare error string (the model can't self-correct
       // from "ENOENT" alone). 目录等其它已知 errno 也走结构化信封(F11)。
       let st;
-      try { st = await fsp.stat(p); }
+      try { st = await privacyLocalIo(p, false, () => fsp.stat(p)); }
       catch (e) {
         if (e && e.code === 'ENOENT') return fileToolNotFound(p, args.path);
         const f = fileToolFsFailure(e, p); if (f) return f;
@@ -63000,14 +63575,14 @@ const FILE_TOOL_HANDLERS = {
         // v0.8-S4a: checkpoint BEFORE writing. op = create when the file doesn't yet exist (no before to
         // store), else modify (snapshot the existing bytes). Reading the old content can't block the write.
         // F15/F10:先 stat,不为了「比一比」把 300MB 旧文件整个读进来;超过检查点上限的只读头部 64KB 用来判编码/BOM/换行。
-        const st = await fsp.stat(p).catch(() => null);
+        const st = await privacyLocalIo(p, false, () => fsp.stat(p)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         if (st && st.isDirectory()) return fileToolFsFailure({ code: 'EISDIR', message: 'EISDIR' }, p);
         const exists = !!st;
         let before = null, head = null;
         if (exists) {
           try {
-            if (st.size <= JOURNAL_MAX_BEFORE_BYTES) { before = await fsp.readFile(p); head = before; }
-            else { before = { skippedBytes: st.size }; head = await FileTextIo.readHead(p, 65536); }
+            if (st.size <= JOURNAL_MAX_BEFORE_BYTES) { before = await privacyLocalIo(p, false, () => fsp.readFile(p)); head = before; }
+            else { before = { skippedBytes: st.size }; head = await FileTextIo.readHead(p, 65536, privacyLocalIo); }
           } catch (e) {
             if (e && e.code === 'ENOENT') { before = null; head = null; }
             else { const f = fileToolFsFailure(e, p); if (f) return f; throw e; }
@@ -63076,7 +63651,7 @@ const FILE_TOOL_HANDLERS = {
         if (existed) {
           let same = false;
           if (Buffer.isBuffer(before)) same = before.equals(payload);
-          else if (st.size === payload.length) { const full = await fsp.readFile(p).catch(() => null); same = !!full && full.equals(payload); }
+          else if (st.size === payload.length) { const full = await privacyLocalIo(p, false, () => fsp.readFile(p)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }); same = !!full && full.equals(payload); }
           if (same) {
             return { ok: true, path: p, op: 'skip', unchanged: true, bytes: payload.length, sourceLineEnding, writtenLineEnding,
               note: '目标内容已与要写入的内容一致,幂等跳过(未产生新检查点)' };
@@ -63086,8 +63661,8 @@ const FILE_TOOL_HANDLERS = {
         const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, existed ? 'modify' : 'create', existed ? before : null);
         // F11:原子写(同目录临时文件 + rename,瞬时锁退避重试);写失败撤掉刚记的检查点,并把 EBUSY/ENOSPC 等变成带 hint 的信封。
         try {
-          if (args.createDirs !== false) await fsp.mkdir(path.dirname(p), { recursive: true });
-          await FileTextIo.writeFileAtomic(p, payload);
+          if (args.createDirs !== false) await privacyLocalIo(path.dirname(p), true, () => fsp.mkdir(path.dirname(p), { recursive: true }), 'mkdir');
+          await FileTextIo.writeFileAtomic(p, payload, { io: privacyLocalIo, cleanup: privacyLocalCleanup });
         } catch (e) {
           const dropped = await fileToolDropPhantom(jctx, 'file_write', p, jr);
           const f = fileToolFsFailure(e, p, { checkpointRolledBack: !!(dropped && dropped.ok) });
@@ -63115,7 +63690,7 @@ const FILE_TOOL_HANDLERS = {
         // v0.8-S7 error guidance: distinguish "file doesn't exist" (structured hint) from other read errors.
         // 走查 W1·F8:先 stat 再读 —— 修前整份 readFile 完才判 >50MB(先吃了内存;>2GiB 时 readFile 直接抛裸 ERR_FS_FILE_TOO_LARGE)。
         let stBefore = null;
-        try { stBefore = await fsp.stat(p); }
+        try { stBefore = await privacyLocalIo(p, false, () => fsp.stat(p)); }
         catch (e) {
           if (e && e.code === 'ENOENT') return fileToolNotFound(p, args.path);
           const f = fileToolFsFailure(e, p); if (f) return f;
@@ -63123,7 +63698,7 @@ const FILE_TOOL_HANDLERS = {
         }
         let rawBytes;
         if (!(stBefore.isFile() && stBefore.size > FILE_EDIT_MAX_BYTES)) {
-          try { rawBytes = await fsp.readFile(p); }
+          try { rawBytes = await privacyLocalIo(p, false, () => fsp.readFile(p)); }
           catch (e) {
             if (e && e.code === 'ENOENT') return fileToolNotFound(p, args.path);
             const f = fileToolFsFailure(e, p); if (f) return f;
@@ -63216,7 +63791,7 @@ const FILE_TOOL_HANDLERS = {
         // hunt2 #2:检查点存读到的原字节(Buffer),不存解码后的串 —— 撤销必须逐字节还原。
         const jctx = await journalSessionCtx(ctx);
         const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_edit', p, 'modify', rawBytes);
-        try { await FileTextIo.writeFileAtomic(p, payload); }
+        try { await FileTextIo.writeFileAtomic(p, payload, { io: privacyLocalIo, cleanup: privacyLocalCleanup }); }
         catch (e) {
           // F11:写失败 -> 撤掉刚记的检查点(否则留一条描述「没发生的改动」的条目),并把锁/磁盘满等变成带 hint 的信封。
           const dropped = await fileToolDropPhantom(jctx, 'file_edit', p, jr);
@@ -63239,7 +63814,7 @@ const FILE_TOOL_HANDLERS = {
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_delete', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       return withFileToolWriteLock([p], async () => {
-        const st = await fsp.stat(p).catch(() => null);
+        const st = await privacyLocalIo(p, false, () => fsp.stat(p)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         // v0.8-S7 error guidance: same ENOENT hint as file_read/file_edit so the model confirms the path first.
         if (!st) return fileToolNotFound(p, args.path);
         if (st.isDirectory()) return { ok: false, code: 'is_directory', error: 'is a directory', path: p, hint: '仅支持删除文件' };
@@ -63263,7 +63838,7 @@ const FILE_TOOL_HANDLERS = {
         // (此前唯独删除硬性拒绝,导致清理大日志/大产物在原生工具里根本做不到;安全性由权限档位与用户审批把守,
         //  与同样会不可逆丢掉旧内容的 file_write 覆盖一致。)
         const checkpointWarn = journalCheckpointWarn(jr);
-        try { await fsp.unlink(p); }
+        try { await privacyLocalIo(p, true, () => fsp.unlink(p)); }
         catch (e) {
           const dropped = await fileToolDropPhantom(jctx, 'file_delete', p, jr);
           const f = fileToolFsFailure(e, p, { checkpointRolledBack: !!(dropped && dropped.ok) });
@@ -63289,11 +63864,11 @@ const FILE_TOOL_HANDLERS = {
       // 的差别把区外文件系统的存在性泄给了模型(对 /etc/xxx、别的用户目录逐个探测)。
       { const gf = await guardFileToolPath(from, ctx, { tool: 'file_move', write: true }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
       { const gt = await guardFileToolPath(to, ctx, { tool: 'file_move', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
-      const fromSt = await fsp.stat(from).catch(() => null);
+      const fromSt = await privacyLocalIo(from, false, () => fsp.stat(from)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       if (!fromSt) return { ...fileToolNotFound(from, args.from), error: '源文件不存在', hint: '先用 glob 或 file_list 确认路径' };
       if (fromSt.isDirectory()) return { ok: false, error: '暂不支持移动文件夹', hint: '仅支持移动单个文件' };
       return withFileToolWriteLock([from, to], async () => {
-        const toSt = await fsp.stat(to).catch(() => null);
+        const toSt = await privacyLocalIo(to, false, () => fsp.stat(to)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         // 目标是目录:rename / 记检查点读目录都会炸(修前是裸 EISDIR 异常)—— 明说,并提示把文件名写进 to。
         if (toSt && toSt.isDirectory()) return { ok: false, code: 'target_is_directory', error: '目标是一个已存在的目录', path: to, hint: 'to 要写成「目录/新文件名」(含文件名),file_move 不会自动把文件放进目录里' };
         // 源与目标是同一个文件:路径逐字相同 → 什么也不用做(修前 overwrite:true 会记两条空检查点;没带 overwrite 还谎报「目标已存在」)。
@@ -63332,27 +63907,30 @@ const FILE_TOOL_HANDLERS = {
           if (jrTo && Number.isFinite(jrTo.entrySeq)) recordedSeqs.push(jrTo.entrySeq);
           checkpointWarn = journalCheckpointWarn(jrTo);
         }
-        await fsp.mkdir(path.dirname(to), { recursive: true });
+        await privacyLocalIo(path.dirname(to), true, () => fsp.mkdir(path.dirname(to), { recursive: true }), 'mkdir');
         try {
           if (caseOnly) {
             // 大小写不敏感文件系统上的纯改大小写:经一个临时名中转两步改(直接 rename 在个别驱动 / 同步盘上不会真的改大小写)。
             const tmp = path.join(path.dirname(from), `.${path.win32.basename(from)}.${process.pid}.${Date.now().toString(36)}.rn`);
-            await fsp.rename(from, tmp);
-            try { await fsp.rename(tmp, to); }
-            catch (e2) { await fsp.rename(tmp, from).catch(() => {}); throw e2; }
-          } else await fsp.rename(from, to);
+            await privacyLocalIo([from, { path: tmp, temporaryFor: from }], true, () => fsp.rename(from, tmp));
+            try { await privacyLocalIo([{ path: tmp, temporaryFor: from }, to], true, () => fsp.rename(tmp, to)); }
+            catch (e2) {
+              try { await privacyLocalCleanup([tmp, from], () => fsp.rename(tmp, from)); }
+              catch { return { ok: false, code: e2.code || 'move_interrupted', error: '移动中断，原文件保留在中间路径；检查点已保留。 Move interrupted; the intermediate file and checkpoints were retained.', from, to, intermediatePath: tmp, partial: true, checkpointRetained: true }; }
+              throw e2;
+            }
+          } else await privacyLocalIo([from, to], true, () => fsp.rename(from, to));
         } catch (e) {
           if (e && e.code === 'EXDEV') {
             // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
             // hunt2 #5:检查点只在退化也失败时才回滚 —— 修前 drop 在进这个分支之前就跑了,copy+unlink 成功后文件
             // 已经移走、检查点却是 0 条,撤回本轮什么也不做(Windows 上 C:→D: 就是这条路)。
             try {
-              await fsp.copyFile(from, to);
-              await fsp.unlink(from);
+              await privacyLocalIo([from, to], true, () => fsp.copyFile(from, to));
+              await privacyLocalIo(from, true, () => fsp.unlink(from));
             } catch (e2) {
               // copy+delete 也失败：from 未动、to 可能半写 —— 回滚检查点,如实披露部分状态。
-              const dropped = await dropRecorded();
-              return { ok: false, error: `跨盘移动失败: ${(e2 && e2.message) || String(e2)}。from 未移动;to 可能不完整。`, from, to, partial: true, checkpointRolledBack: !!(dropped && dropped.ok) };
+              return { ok: false, code: e2.code || 'move_failed', error: `跨盘移动中断: ${(e2 && e2.message) || String(e2)}。源与目标可能已部分变更；检查点已保留。`, from, to, partial: true, checkpointRetained: true };
             }
           } else {
             // b3-P2: 移动失败时刚写的两条检查点尚未对应任何真实变更 —— 回滚它们,避免 phantom journal
@@ -63376,11 +63954,11 @@ const FILE_TOOL_HANDLERS = {
       // 2026-10 走查(R2):围栏先于 stat(同 file_move:不让区外路径的存在性经「拒绝 / not_found」的差别泄给模型)。
       { const gf = await guardFileToolPath(from, ctx, { tool: 'file_copy', write: false }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
       { const gt = await guardFileToolPath(to, ctx, { tool: 'file_copy', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
-      const fromSt = await fsp.stat(from).catch(() => null);
+      const fromSt = await privacyLocalIo(from, false, () => fsp.stat(from)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       if (!fromSt) return { ...fileToolNotFound(from, args.from), error: '源文件不存在', hint: '先用 glob 或 file_list 确认路径' };
       if (fromSt.isDirectory()) return { ok: false, error: '暂不支持复制文件夹', hint: '仅支持复制单个文件' };
       return withFileToolWriteLock([from, to], async () => {
-        const toSt = await fsp.stat(to).catch(() => null);
+        const toSt = await privacyLocalIo(to, false, () => fsp.stat(to)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         if (toSt && toSt.isDirectory()) return { ok: false, code: 'target_is_directory', error: '目标是一个已存在的目录', path: to, hint: 'to 要写成「目录/新文件名」(含文件名),file_copy 不会自动把文件放进目录里' };
         // 复制到自己身上:copyFile 会报错 / 在个别平台截断成空文件 —— 同一个文件就什么也不做。
         if (fileMoveSameFileKind(from, to, fromSt, toSt) !== null) return { ok: true, from, to, op: 'copy', overwritten: false, unchanged: true, note: '源与目标是同一个文件,未做任何改动' };
@@ -63390,8 +63968,8 @@ const FILE_TOOL_HANDLERS = {
         const jctx = await journalSessionCtx(ctx);
         const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_copy', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
         try {
-          await fsp.mkdir(path.dirname(to), { recursive: true });
-          await fsp.copyFile(from, to);
+          await privacyLocalIo(path.dirname(to), true, () => fsp.mkdir(path.dirname(to), { recursive: true }), 'mkdir');
+          await privacyLocalIo([from, to], true, () => fsp.copyFile(from, to));
         } catch (e) {
           // b3-P2: 复制失败(写满/权限等)时 to 未产生(或半写),检查点尚未对应真实变更 —— 回滚 phantom 条目。
           const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_copy', [to]).catch(() => ({ ok: false }));
@@ -63574,7 +64152,7 @@ const ARCHIVE_TOOL_HANDLERS = {
       }
       { const gd = await guardFileToolPath(dest, ctx, { tool: 'archive_zip', write: true }); if (!gd.ok) return { ok: false, error: gd.error, code: gd.code, path: dest }; }
       // 2026-10 走查(R2):dest 是已存在的目录 —— 修前读它当「旧 zip」做检查点,抛裸 EISDIR。
-      const destSt0 = await fsp.stat(dest).catch(() => null);
+      const destSt0 = await fsp.stat(dest).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       if (destSt0 && destSt0.isDirectory()) return { ok: false, code: 'target_is_directory', error: 'dest 是一个已存在的目录,不是 .zip 文件', path: dest, hint: 'dest 要写成「目录/名字.zip」(含文件名)' };
       let entries;
       // F9:子目录默认按共用忽略清单剪枝(node_modules/.git/__pycache__/venv/dist/build …);exclude 追加目录名,
@@ -63585,7 +64163,7 @@ const ARCHIVE_TOOL_HANDLERS = {
       if (!entries.length) return { ok: false, error: '没有可打包的文件（源为空、全是符号链接,或只有 dest 自己）', ...(entries.skippedLinks ? { skippedLinks: entries.skippedLinks } : {}) };
       const zipBuf = await zipWriteAsync(entries);   // F9:压缩走线程池 + 让出事件循环,不再同步卡住服务
       // 走查 W1·F8:已存在的旧 zip 先 stat、按检查点上限决定读不读(超限只记 skippedBytes 标记),不再不看大小整份读进内存。
-      const destSt = await fsp.stat(dest).catch(() => null);
+      const destSt = await fsp.stat(dest).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       const destExists = !!destSt;
       let destBefore = null;
       if (destSt) {
@@ -63634,12 +64212,12 @@ const ARCHIVE_TOOL_HANDLERS = {
       // Zip Slip 逐条防御(下方)仍在,二者叠加:destDir 受限 + 每个解出的条目再验落在 destDir 内。
       { const gs = await guardFileToolPath(src, ctx, { tool: 'archive_unzip', write: false }); if (!gs.ok) return { ok: false, error: gs.error, code: gs.code, path: src }; }
       if (!listOnly) { const gdd = await guardFileToolPath(destDir, ctx, { tool: 'archive_unzip', write: true }); if (!gdd.ok) return { ok: false, error: gdd.error, code: gdd.code, path: destDir }; }
-      const srcSt = await fsp.stat(src).catch(() => null);
+      const srcSt = await fsp.stat(src).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       if (!srcSt) return { ok: false, error: '压缩包不存在', path: src, hint: '先用 file_list 确认路径' };
       // 2026-10 走查(R2):src 是目录 → is_directory 信封(修前是 readFile 的 EISDIR 原话);destDir 是已存在的文件 → not_a_directory。
       if (srcSt.isDirectory()) return fileToolFsFailure({ code: 'EISDIR', message: 'EISDIR' }, src);
       if (!listOnly) {
-        const ddSt = await fsp.stat(destDir).catch(() => null);
+        const ddSt = await fsp.stat(destDir).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         if (ddSt && !ddSt.isDirectory()) return { ok: false, code: 'not_a_directory', error: 'destDir 是一个已存在的文件,不是目录', path: destDir, hint: '换一个目录路径作为 destDir' };
       }
       if (srcSt.size > ZIP_MAX_TOTAL) return { ok: false, error: `压缩包超过大小上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）` };
@@ -63765,7 +64343,7 @@ const ARCHIVE_TOOL_HANDLERS = {
         if (extractedBytes > ZIP_MAX_TOTAL) return failWithWritten(`解压总大小超过上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）`, { hint: '疑似 zip 炸弹，已中止' });
         // 同一批里前面的条目还没落盘:同名条目(包里重复的路径)先把前一批落完再判存在,免得 exists 判错。
         if (pending.some(b => fileToolWriteLockKey(b.absPath) === fileToolWriteLockKey(absPath))) { await flush(); if (writeErr) return failWithWritten('解压写入失败'); }
-        const exSt = await fsp.stat(absPath).catch(() => null);
+        const exSt = await fsp.stat(absPath).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         const exists = !!exSt;
         if (exists && !args.overwrite) return failWithWritten('目标文件已存在', { path: absPath, hint: '若要覆盖请设置 overwrite=true' });
         // 目标位置是个目录(包里的文件名与已有目录同名):读它当「旧内容」做检查点会抛 EISDIR —— 明说冲突。
@@ -64004,7 +64582,7 @@ async function attachScreenshotImage(result, outPath) {
     try { buf = await fsp.readFile(sidecar); } catch { buf = null; }
     finally { await fsp.rm(sidecar, { force: true }).catch(() => {}); }
     if (!buf || !buf.length) {
-      const st = await fsp.stat(outPath).catch(() => null);
+      const st = await fsp.stat(outPath).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       if (!st || !st.isFile()) return result;
       if (st.size > SCREENSHOT_EMBED_MAX_BYTES) return { ...result, imageOmitted: `screenshot is ${st.size} bytes; not embedded (use ocr / a smaller region via the desktop control tools)` };
       buf = await fsp.readFile(outPath);
@@ -64114,7 +64692,7 @@ const DESKTOP_TOOL_HANDLERS = {
       // 定位出来,让用户自己决定要不要运行。
       const ext = path.extname(target).slice(1).toLowerCase();
       if (!REVEAL_OPEN_SAFE_EXTS.has(ext)) {
-        const st = await fsp.stat(target).catch(() => null);
+        const st = await fsp.stat(target).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         if (!(st && st.isDirectory())) {
           const r = buildRevealSpawn('select', target);
           const shown = await spawnDetachedChecked(r.command, r.args, { detached: true, windowsHide: true, stdio: 'ignore' });
@@ -64183,7 +64761,7 @@ const NETWORK_TOOL_HANDLERS = {
       let dest = guard.absPath;
       // dest 是文件夹:已存在的目录,或以 / \ 结尾(path.resolve 会吞掉结尾分隔符,所以看原始串)—— 文件存进去,名字取响应头 / URL。
       // 修前:已存在的目录直接抛裸 EISDIR;`x/newdir/` 悄悄写成一个叫 newdir 的文件。
-      const destStat = await fsp.stat(dest).catch(() => null);
+      const destStat = await fsp.stat(dest).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       const intoDir = /[\\/]$/.test(rawDest) || !!(destStat && destStat.isDirectory());
       if (intoDir && destStat && !destStat.isDirectory()) {
         return { ok: false, code: 'ENOTDIR', error: `dest 以 / 结尾表示文件夹,但 ${dest} 是一个已存在的文件`, hint: '去掉结尾的分隔符,或换一个文件夹路径' };
@@ -64214,7 +64792,7 @@ const NETWORK_TOOL_HANDLERS = {
       // ④ 检查点 + 落盘。fs 的失败(EISDIR / ENAMETOOLONG / EACCES …)翻成 {ok:false, code, error},不再把裸异常甩出去。
       let exists = false, before = null, jr = null;
       try {
-        const st2 = await fsp.stat(dest).catch(() => null);
+        const st2 = await fsp.stat(dest).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         if (st2 && st2.isDirectory()) return { ok: false, code: 'EISDIR', error: `${dest} 是一个文件夹,不能当文件写`, hint: '给 dest 一个文件名,或以 / 结尾表示存进该文件夹' };
         exists = !!st2;
         before = exists ? await fileToolBeforeForCheckpoint(dest, st2.size) : null;   // 走查 W1·F8:先 stat,超检查点上限的旧文件不整份读进内存
@@ -64246,7 +64824,7 @@ const NETWORK_TOOL_HANDLERS = {
       if (await openToolUncDenied(target, ctx)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR, target };
       // 网址 / 本地 HTML 之外只放行【文件夹】(资源管理器打开)。修前 calc.exe、.bat 之类的路径会落到系统关联打开 = 执行。
       if (!isBrowserDocumentTarget(target)) {
-        const st = await fsp.stat(path.resolve(target)).catch(() => null);
+        const st = await fsp.stat(path.resolve(target)).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
         if (!(st && st.isDirectory())) {
           return { ok: false, error: 'browser_open 只打开网址(http/https/file)、本地 .html 文件或文件夹', target, hint: '打开文档用 office_open;运行程序用命令工具' };
         }
@@ -64346,7 +64924,7 @@ const CODE_TOOL_HANDLERS = {
         return { ok: false, error: '不支持的音频扩展名(仅 wav/mp3/m4a/webm/ogg/flac)', path: p };
       }
       let audio = null;
-      try { audio = await fsp.readFile(p); }
+      try { audio = await privacyLocalIo(p, false, () => fsp.readFile(p)); }
       catch (e) {
         if (e && e.code === 'ENOENT') return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
         // 2026-10 走查(R2):路径是个目录(叫 x.wav 的文件夹)/ 被占用 / 无权限 —— 修前是裸 EISDIR 异常。
@@ -64486,7 +65064,7 @@ const INTEGRATION_TOOL_HANDLERS = {
       // 白名单: 只认 ctx.session.skills 里的 id;dir 从统一注册表解析(与优先级/校验单一真源一致)。
       // 路径安全: 遍历时每个文件解析后必须仍在该技能目录内(path.relative 不得以 .. 开头/绝对),防符号链接穿越。
       const session = ctx && ctx.session;
-      const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
+      const cfg = (ctx && ctx.config) || await readConfig().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       const enabled = effectiveSkillSelection(session, cfg);
       const id = String(args.id || '').trim();
       // P2-2: enabled 元素为 {id, source}(或旧裸字符串)。白名单按 id 匹配;source 非空则下方再校验注册表来源一致。
@@ -64550,8 +65128,8 @@ const INTEGRATION_TOOL_HANDLERS = {
   // 三件都只读如意自己的注册表 / 模板目录。返回里所有「作者写的文本」(标题、描述、模板正文)一律过 neutralizeAuthoredText
   // (06,与 Playbook 索引段同一个中和函数),模板正文再包进 <playbook-reference> 围栏;结果 note 讲明「只在用户点名或明确同意后照做」。
   playbook_list: { paths: null, guardNote: "只读列出 Playbook 目录(内置 resources/playbooks ∪ dataRoot/playbooks)与可用性,不接受路径参数", handler: async (args, ctx) => {
-      const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
-      const list = await listPlaybooksWithAvailability(cfg).catch(() => []);
+      const cfg = (ctx && ctx.config) || await readConfig().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
+      const list = await listPlaybooksWithAvailability(cfg).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
       const q = String((args && args.query) || '').trim().toLowerCase();
       const hit = (Array.isArray(list) ? list : []).filter(pb => pb && (!q || `${pb.id} ${pb.title} ${pb.desc}`.toLowerCase().includes(q)));
       const limit = clampCatalogToolLimit(args && args.limit, 30, PLAYBOOK_TOOL_ROWS_MAX);
@@ -64573,8 +65151,8 @@ const INTEGRATION_TOOL_HANDLERS = {
   playbook_read: { paths: null, guardNote: "只读取 Playbook 目录里按 id 命中的一条并填参,id 须过 normalizePlaybook 的安全文件名白名单,不接受路径", handler: async (args, ctx) => {
       const wantId = String((args && args.id) || '').trim().replace(/^pb:/, '');
       if (!wantId) return { ok: false, code: 'invalid-arguments', tool: 'playbook_read', error: 'playbook_read: id is required', hint: 'pass the id from playbook_list' };
-      const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
-      const list = await listPlaybooksWithAvailability(cfg).catch(() => []);
+      const cfg = (ctx && ctx.config) || await readConfig().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
+      const list = await listPlaybooksWithAvailability(cfg).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; });
       const pb = (Array.isArray(list) ? list : []).find(one => one && one.id === wantId) || null;
       if (!pb) {
         return {
@@ -64629,7 +65207,7 @@ const INTEGRATION_TOOL_HANDLERS = {
       };
   } },
   skill_list: { paths: null, guardNote: "只读列出技能注册表(loadSkillRegistry:内置 / 用户 / 项目 / 其它 CLI 只读直连)的元数据,不返回目录路径、不读文件内容", handler: async (args, ctx) => {
-      const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
+      const cfg = (ctx && ctx.config) || await readConfig().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
       const session = await policySessionFor(ctx);
       const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), cfg && cfg.defaultWorkspace);
       let registry = [];
@@ -64886,14 +65464,21 @@ async function toolCall(name, args = {}, ctx = null) {
     return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: arguments must be a JSON object (got ${jsonSchemaTypeName(args)})`, hint: 'pass arguments as an object of named fields' };
   }
   if (name.startsWith('tool_invoke_')) {
-    args = normalizeToolInvokeArgs(args);   // 还原写歪的壳 / name 去空白 / arguments 给成 JSON 字符串时解析
+    const proxyOriginal = args;
+    args = normalizeToolInvokeArgs(args);
+    if (args !== proxyOriginal && typeof PrivacyGateway !== 'undefined') args = PrivacyGateway.updateExecutionInput(proxyOriginal, args, name, ctx || {});   // 还原写歪的壳 / name 去空白 / arguments 给成 JSON 字符串时解析
     const missingName = toolInvokeMissingNameResult(name, args);
     if (missingName) return missingName;
   }
-  args = normalizeMetaToolArgs(name, args);   // todo_write/mission_update:content/completed 等同义词先归一,再校验
+  const metaOriginal = args;
+  args = normalizeMetaToolArgs(name, args);
+  if (args !== metaOriginal && typeof PrivacyGateway !== 'undefined') args = PrivacyGateway.updateExecutionInput(metaOriginal, args, name, ctx || {});   // todo_write/mission_update:content/completed 等同义词先归一,再校验
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
-  try { return await entry.handler(args, ctx); }
+  try {
+    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, checked => entry.handler(checked, ctx));
+    return await entry.handler(args, ctx);
+  }
   catch (e) {
     // 路径里混进 NUL(\0):Node 在 stat/open 上抛 ERR_INVALID_ARG_VALUE,修前是裸 TypeError 一路抛给模型。
     // 只认这一类(fsErrorEnvelope 给 bad_path),其余异常照旧向上抛。
@@ -65033,7 +65618,7 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   // 145-W3:随包的两件可选载荷各报一行人话。detail 以来源/状态词开头(与 desktop-control 同一个前缀约定,
   // 前端 health-i18n.js 与 CLI doctor --human 靠它挑文案):ripgrep 是 env / bundled / system / absent;
   // shell 段说模型在终端里敲裸 rg 能不能找到(RUYI_RG_PATH 只服务 file_search,不进 PATH)。
-  const rgInfo = await probeRgAsync().catch(() => null);
+  const rgInfo = await probeRgAsync().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
   push('search-ripgrep', Boolean(rgInfo), rgInfo
     ? `${rgInfo.source}: ${rgInfo.path}; shell: ${rgInfo.shell || 'none'}`
     : 'absent: file_search falls back to the built-in scanner; no rg in shell');
@@ -65217,14 +65802,14 @@ async function claudePluginSkillDirs() {
   return out;
 }
 async function loadSkillRegistry(cwd, config, caps) {
-  if (caps === undefined) caps = await getCapabilities(config).catch(() => null);
+  if (caps === undefined) caps = await getCapabilities(config).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
   const out = [];
   const tk = path.join(externalRoot(), 'resources', 'plugins', 'ruyi-offline', 'offline-toolkit');
   // ---- 技能: builtin(toolkit)→ user(dataRoot/skills)→ project(<cwd>/.ruyi/skills),后写覆盖同 id ----
   const skillMap = new Map();
   {
     const skillDir = path.join(tk, 'skills');
-    for (const d of (await fsp.readdir(skillDir, { withFileTypes: true }).catch(() => []))) {
+    for (const d of (await fsp.readdir(skillDir, { withFileTypes: true }).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; }))) {
       if (!d.isDirectory() || !SKILL_ID_RE.test(d.name)) continue;
       const dir = path.join(skillDir, d.name);
       const raw = await readIfExists(path.join(dir, 'SKILL.md'), 16000);
@@ -65263,12 +65848,12 @@ async function loadSkillRegistry(cwd, config, caps) {
     out.push({ id: name, name: meta.name || name, description: meta.description || '', detail: docBody(raw), prompt: commandPrompt(raw), kind: 'command', source: src, dir: '', insert: '/' + name, requires: [], available: true, unavailableReason: '' });
   };
   const cmdDir = path.join(tk, 'commands');
-  for (const f of (await fsp.readdir(cmdDir).catch(() => [])).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), await readIfExists(path.join(cmdDir, f), 12000), 'builtin');
+  for (const f of (await fsp.readdir(cmdDir).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; })).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), await readIfExists(path.join(cmdDir, f), 12000), 'builtin');
   const userCmd = path.join(os.homedir(), '.claude', 'commands');
-  for (const f of (await fsp.readdir(userCmd).catch(() => [])).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), await readIfExists(path.join(userCmd, f), 12000), 'user');
+  for (const f of (await fsp.readdir(userCmd).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; })).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), await readIfExists(path.join(userCmd, f), 12000), 'user');
 
   // ---- Playbook: loadAllPlaybooks + evalPlaybookAvailability 映射(id 加 'pb:' 前缀防与技能/命令撞) ----
-  for (const pb of (await loadAllPlaybooks().catch(() => []))) {
+  for (const pb of (await loadAllPlaybooks().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; }))) {
     const avail = evalPlaybookAvailability(pb, caps);
     out.push({
       id: 'pb:' + pb.id, name: pb.title || pb.id, description: pb.desc || '', kind: 'playbook',
@@ -69160,7 +69745,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   // 第123波 M1:关服收尾一并停掉调度器 tick(clearInterval + 代际自增,在途 tick 尽快退出)——
   // 与上面那条管家收件箱同款。直调(前向边 13 → 13s 已登记);开关关时它从未起过 timer,调用是无操作。
   // 走查 2026-10-08:在途的 Agent CLI 回合子进程一并收掉(stopAllActiveTurnsSync,见其头注),修前它们在这条路上变孤儿。
-  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop(); } catch { /* ignore */ } try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
+  const cleanupMcp = () => { if (cleanedUp) return; cleanedUp = true; try { PrivacyLocalDriveProbe.stopSync(); } catch { /* ignore */ } try { if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop(); } catch { /* ignore */ } try { if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox(); } catch { /* ignore */ } try { stopScheduler(); } catch { /* ignore */ } try { stopAllActiveTurnsSync('shutdown'); } catch { /* ignore */ } try { killAllMcpClients(); } catch { /* ignore */ } try { killAllShellSessions(); } catch { /* ignore */ } try { if (typeof ToolboxHooks.stopAllSync === 'function') ToolboxHooks.stopAllSync(); } catch { /* ignore */ } };
   // PF2 fix: flush the pending session-index batch synchronously on the way out. 'exit' runs for a normal exit,
   // for the SIGINT/SIGTERM handlers below (they call process.exit), and for the uncaughtException handler — so a
   // single registration here covers every graceful termination path.
@@ -88705,8 +89290,13 @@ const ExternalBotDiscovery = (() => {
   return Object.freeze({ probe });
 })();
 
+PrivacyRecipientHooks.isPrivateExecution = () => PrivacyGateway.isExecutingOriginal();
+PrivacyRecipientHooks.configState = () => ({ generation: configReadGeneration, config: configReadCache?.snapshot });
+PrivacyRecipientHooks.queryDrives = (roots, signal) => PrivacyLocalDriveProbe.query(roots, signal);
+PrivacyFileIoHooks.beforeIo = (targets, write, kind) => PrivacyGateway.beforeExecutionIo(targets, write, kind);
+PrivacyFileIoHooks.assertIo = () => PrivacyGateway.assertIo();
 // 81: This administration surface requires the workbench token, including loopback clients.
-PrivacyGateway.setHost({ data: paths.data, isRegisteredTool: name => Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name) || Boolean(nativeToolSchema(name)), normalizeToolInvokeArgs: args => normalizeToolInvokeArgs(args), makeStore: (file, key) => DurableJsonStore.create({
+PrivacyGateway.setHost({ data: paths.data, planDisclosure: planPrivacyToolDisclosure, isRegisteredTool: name => Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name) || Boolean(nativeToolSchema(name)), normalizeToolInvokeArgs: args => normalizeToolInvokeArgs(args), makeStore: (file, key) => DurableJsonStore.create({
   id: 'privacy-mapping-' + key, file, schemaKey: 'version', schemaVersion: 1, cache: false, strictRead: true, quarantine: false,
   defaultValue: () => ({}), validate: value => value.version === 1 && typeof value.instanceId === 'string' && !!value.envelope,
 }) });

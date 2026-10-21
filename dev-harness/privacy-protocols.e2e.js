@@ -166,11 +166,9 @@ async function main() {
         && ['file_read', 'file_search', 'contact__read_contact', 'file_write'].every(name => paired(childEvents, name)) && !containsDecoded(captured, 'child-user@example.test'), style + ': real subagent input and file/search/MCP tool loop restore exact values independently');
       await app.PrivacyGateway.run('permission-check-' + style, cfg, async () => {
         const value = await app.PrivacyGateway.toolResult({ content: 'denied-person@example.test' });
-        const prepared = app.PrivacyGateway.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: '../outside-' + value.content + '.txt', content: 'x' }) });
-        t.ok(JSON.parse(prepared.rawArgs).path.includes('denied-person@example.test'), style + ': execution copy exposes the real target to the original permission guard');
-        // The command-return fixture deliberately runs with owner bypass. This negative
-        // path test must exercise the ordinary constrained permission mode instead.
-        const guard = await app.guardFileToolPath(JSON.parse(prepared.rawArgs).path, { session: { cwd: work }, config: { ...cfg, permissionMode: 'acceptEdits', allowOutsideWorkspace: false } }, { write: true, tool: 'file_write' }); const denied = guard.ok === false;
+        const prepared = await app.PrivacyGateway.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: '../outside-' + value.content + '.txt', content: 'x' }) }, { session, config: cfg, workingDir: work, effectivePermissionMode: 'acceptEdits' });
+        t.ok(prepared.privacyError && !prepared.rawArgs.includes('denied-person@example.test'), style + ': recipient planning rejects an outside path before releasing its original');
+        const guard = await app.guardFileToolPath(path.resolve(work, '../outside-denied-person@example.test.txt'), { session: { cwd: work }, config: { ...cfg, permissionMode: 'acceptEdits', allowOutsideWorkspace: false } }, { write: true, tool: 'file_write' }); const denied = guard.ok === false;
         t.ok(denied, style + ': restoring a reference never authorizes a path outside the workspace');
       });
       await stopMcp();

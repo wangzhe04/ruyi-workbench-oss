@@ -88,7 +88,7 @@ test('complete mixed tool return survives repeated next requests without learnin
     const entries = api.active().scope.exportState().entries;
     assert.ok(entries.every(entry => /\S/.test(entry.value) && !['Bearer', 'Bearer ', '"', "'"].includes(entry.value)), 'no whitespace, scheme or quote mapping is learned');
     const email = [...result.content.matchAll(/\[\[RUYI_PVT:EMAIL:[a-f0-9]{32}\]\]/g)].at(-1)[0];
-    const prepared = api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'copy.txt', content: email }) });
+    const prepared = (await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'copy.txt', content: email }) }));
     assert.equal(prepared.privacyError, undefined); assert.equal(JSON.parse(prepared.rawArgs).content, contact);
   });
 });
@@ -208,7 +208,7 @@ test('field values stay protected in earlier copies, later unlabelled reads and 
     assert.equal((await api.toolResult({ content: 'verified ' + secret })).content, 'verified ' + token);
     const request = await api.beforeRequest({ messages: [{ role: 'user', content: 'history ' + secret }] });
     assert.equal(request.messages.at(-1).content, 'history ' + token);
-    const restored = api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'copy.txt', content: token }) });
+    const restored = (await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'copy.txt', content: token }) }));
     assert.equal(restored.privacyError, undefined); assert.equal(JSON.parse(restored.rawArgs).content, secret);
   });
   await api.run('fresh-session', policy, async () => assert.equal((await api.toolResult({ content: secret })).content, secret));
@@ -222,16 +222,16 @@ test('escaped credential aliases and previously exposed aliases retain credentia
   let alias;
   await api.run('escaped-learned', policy, async () => {
     alias = JSON.parse((await api.toolResult({ content: source })).content).patientCode;
-    assert.equal(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: alias }) }).privacyError, undefined);
+    assert.equal((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: alias }) })).privacyError, undefined);
     await api.toolResult({ password: decoded });
-    assert.ok(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: alias }) }).privacyError, 'an old escaped alias must tighten even when this result contains only decoded credentials');
+    assert.ok((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: alias }) })).privacyError, 'an old escaped alias must tighten even when this result contains only decoded credentials');
     const again = await api.toolResult({ content: JSON.stringify({ unrelated: decoded }) });
     assert.equal(JSON.parse(again.content).unrelated, alias);
-    assert.ok(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: JSON.parse(again.content).unrelated }) }).privacyError);
+    assert.ok((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: JSON.parse(again.content).unrelated }) })).privacyError);
   });
   const restarted = gateway(root, { ...f, vault: f.restartVault() }); restarted.configure(policy);
   await restarted.run('escaped-learned', policy, async () => {
-    assert.ok(restarted.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: alias }) }).privacyError);
+    assert.ok((await restarted.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: alias }) })).privacyError);
     const again = await restarted.toolResult({ content: JSON.stringify({ unrelated: decoded }) });
     assert.equal(JSON.parse(again.content).unrelated, alias);
   });
@@ -242,12 +242,12 @@ test('learned credential overlap upgrades a stable longer reference and learned 
   await api.run('learned-classification', config, async () => {
     const scope = api.active().scope, longer = scope.protectValue('ABCDE', 'INTERNAL'); scope.protectValue('ABC', 'CREDENTIAL');
     assert.equal((await api.toolResult({ content: 'ABCDE' })).content, longer);
-    assert.ok(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: longer }) }).privacyError);
+    assert.ok((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: longer }) })).privacyError);
     scope.protectValue('foo"bar', 'CREDENTIAL');
     const encoded = await api.toolResult({ content: '{"other":"foo\\"bar"}' });
     const escaped = JSON.parse(encoded.content).other;
     assert.match(escaped, /^\[\[RUYI_PVT:CREDENTIAL:/);
-    assert.ok(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: escaped }) }).privacyError);
+    assert.ok((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: escaped }) })).privacyError);
     scope.protectValue('12345', 'INTERNAL');
     await assert.rejects(() => api.toolResult({ value: 12345 }), /numeric_sensitive/);
     await assert.rejects(() => api.toolResult({ content: '{"value":12345}' }), /numeric_sensitive/);
@@ -308,11 +308,11 @@ test('actual request bodies keep auth/control fields and pseudonymize nested str
     token = result.rows[0].email; assert.ok(token.startsWith('[[RUYI_PVT:EMAIL:')); assert.ok(result.rows[0].password.startsWith('[[RUYI_PVT:CREDENTIAL:'));
     const again = await api.beforeRequest({ messages: [{ role: 'tool', content: JSON.stringify(result) }] });
     assert.ok(JSON.stringify(again).includes(token));
-    const call = api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'safe.txt', content: 'Contact ' + token }) });
+    const call = (await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'safe.txt', content: 'Contact ' + token }) }));
     assert.equal(JSON.parse(call.rawArgs).content, 'Contact alice@example.test'); assert.equal(call.privacyError, undefined);
-    const denied = api.prepareCall({ name: 'web_fetch', rawArgs: JSON.stringify({ url: 'https://example.test/?x=' + token }) }); assert.ok(denied.privacyError);
-    const deniedKey = api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'safe.txt', content: result.rows[0].password }) }); assert.ok(deniedKey.privacyError);
-    assert.ok(api.prepareCall({ name: 'file_read', rawArgs: '{broken' }).privacyError);
+    const denied = (await api.prepareExecution({ name: 'web_fetch', rawArgs: JSON.stringify({ url: 'https://example.test/?x=' + token }) })); assert.ok(denied.privacyError);
+    const deniedKey = (await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'safe.txt', content: result.rows[0].password }) })); assert.ok(deniedKey.privacyError);
+    assert.ok((await api.prepareExecution({ name: 'file_read', rawArgs: '{broken' })).privacyError);
   });
   const files = fs.readdirSync(path.join(root, 'privacy-scopes')); assert.equal(files.length, 1);
   const disk = fs.readFileSync(path.join(root, 'privacy-scopes', files[0]), 'utf8'); assert.ok(!disk.includes('alice@example.test')); assert.ok(!disk.includes(token));
@@ -323,7 +323,7 @@ test('scope separation, unknown refs, opaque content, media and changed policy f
   const { api } = await setup(t); let token;
   await api.run('one', config, async () => { token = (await api.toolResult({ email: 'alice@example.test' })).email; });
   await api.run('two', config, async () => {
-    assert.ok(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: token }) }).privacyError);
+    assert.ok((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: token }) })).privacyError);
     for (const body of [{ messages: [{ content: token }] }, { messages: [{ content: [{ type: 'image_url', image_url: { url: 'https://example.test/image' } }] }] }, { thinking: 'opaque value' }, { content: [{ type: 'redacted_thinking', data: 'ciphertext' }] }, { input: [{ type: 'reasoning', encrypted_content: 'ciphertext' }] }, { model: 'alice@example.test' }]) await assert.rejects(() => api.beforeRequest(body), /privacy/);
     api.configure({ ...config, privacyModeV1: 'off' }); await assert.rejects(() => api.beforeRequest({ messages: [] }), /policy_changed/);
   });
@@ -386,9 +386,9 @@ test('technical paths restore before callers inspect the permission target; trav
   const { root, f } = await setup(t), api = gateway(root, f), policy = { ...config, privacyTechnicalV1: true }; api.configure(policy);
   await api.run('paths', policy, async () => {
     const value = await api.toolResult({ content: 'C:\\Users\\Alice\\private.txt' });
-    const call = api.prepareCall({ name: 'file_read', rawArgs: JSON.stringify({ path: value.content }) });
+    const call = (await api.prepareExecution({ name: 'file_read', rawArgs: JSON.stringify({ path: value.content }) }));
     assert.equal(JSON.parse(call.rawArgs).path, 'C:\\Users\\Alice\\private.txt');
-    assert.ok(api.prepareCall({ name: 'powershell_run', rawArgs: JSON.stringify({ command: value.content }) }).privacyError);
+    assert.ok((await api.prepareExecution({ name: 'powershell_run', rawArgs: JSON.stringify({ command: value.content }) })).privacyError);
   });
 });
 
@@ -419,7 +419,7 @@ test('file JSON keeps whitespace and integer precision so file_edit oldText can 
   await api.run('json-source', config, async () => {
     const original = '{\n  "order": 900719925474099312345,\n  "email": "format-user@example.test"\n}\n';
     const output = await api.toolResult({ content: original });
-    const call = api.prepareCall({ name: 'file_edit', rawArgs: JSON.stringify({ path: 'data.json', oldText: output.content, newText: 'replacement' }) });
+    const call = (await api.prepareExecution({ name: 'file_edit', rawArgs: JSON.stringify({ path: 'data.json', oldText: output.content, newText: 'replacement' }) }));
     assert.equal(call.privacyError, undefined); assert.equal(JSON.parse(call.rawArgs).oldText, original);
   });
 });
@@ -430,7 +430,7 @@ test('escaped JSON source values restore byte-for-byte; sensitive numeric source
     const original = '{"email":"\\u0061lice@example.test","path":"a\\/b"}';
     const output = await api.toolResult({ content: original });
     assert.equal(output.content.includes('alice@example.test'), false);
-    const call = api.prepareCall({ name: 'file_edit', rawArgs: JSON.stringify({ path: 'data.json', oldText: output.content, newText: 'replacement' }) });
+    const call = (await api.prepareExecution({ name: 'file_edit', rawArgs: JSON.stringify({ path: 'data.json', oldText: output.content, newText: 'replacement' }) }));
     assert.equal(call.privacyError, undefined); assert.equal(JSON.parse(call.rawArgs).oldText, original);
     await assert.rejects(() => api.toolResult({ content: '{"phone":13800138000}' }), /numeric_sensitive/);
   });
@@ -458,13 +458,13 @@ test('nested trusted history mixes validated references and new secrets without 
       // duplicate keys, long integers and optional solidus escapes.
       assert.ok(protectedArgs.startsWith('{ "path":"data.json", "oldText":'));
       assert.ok(protectedArgs.includes('900719925474099312345')); assert.ok(protectedArgs.includes('a\\\\/b'));
-      const restored = api.prepareCall({ name: 'file_edit', rawArgs: protectedArgs });
+      const restored = (await api.prepareExecution({ name: 'file_edit', rawArgs: protectedArgs }));
       assert.equal(restored.privacyError, undefined);
       assert.equal(JSON.parse(restored.rawArgs).oldText, original + ' ' + fresh);
     }
     const nested = JSON.stringify({ oldText: JSON.stringify({ ref: alias, patientCode: 'PATIENT-NESTED-ONLY' }), newText: 'replacement' });
     const body = await api.beforeRequest({ input: [{ type: 'function_call', name: 'file_edit', arguments: nested }] });
-    const restored = api.prepareCall({ name: 'file_edit', rawArgs: body.input[0].arguments });
+    const restored = (await api.prepareExecution({ name: 'file_edit', rawArgs: body.input[0].arguments }));
     assert.equal(restored.privacyError, undefined);
     assert.equal(JSON.parse(restored.rawArgs).oldText, '{"ref":"\\u006datrix-synthetic@example.test","patientCode":"PATIENT-NESTED-ONLY"}');
   });
@@ -484,7 +484,7 @@ test('nested validated references do not authorize raw tool forgeries, unknown r
     const body = await api.beforeRequest({ input: [{ arguments: source }] });
     assert.ok(body.input[0].arguments.includes('\\u005b'), 'unchanged encoded references preserve their lexical spelling');
     assert.ok(!body.input[0].arguments.includes('FRESH-NESTED-CREDENTIAL'));
-    assert.ok(api.prepareCall({ name: 'file_edit', rawArgs: body.input[0].arguments }).privacyError, 'a mixed leaf never downgrades a newly classified credential');
+    assert.ok((await api.prepareExecution({ name: 'file_edit', rawArgs: body.input[0].arguments })).privacyError, 'a mixed leaf never downgrades a newly classified credential');
   });
   await api.run('nested-other-scope', config, async () => {
     await assert.rejects(() => api.beforeRequest({ input: [{ arguments: JSON.stringify({ oldText: alias + ' fresh@example.test' }) }] }), /reference_unknown/);
@@ -501,11 +501,11 @@ test('credential contexts refuse personal references without denying genuine or 
     await assert.rejects(() => send(JSON.stringify({ password: email })), /credential_context/);
     await assert.rejects(() => send(JSON.stringify({ nested: JSON.stringify({ password: email + ' fresh' }) })), /credential_context/);
     assert.equal(sent, 0, 'context misuse is refused before a caller can submit any request');
-    assert.equal(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: email }) }).privacyError, undefined, 'a refused context does not revoke the original authorized email use');
+    assert.equal((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: email }) })).privacyError, undefined, 'a refused context does not revoke the original authorized email use');
     await send(JSON.stringify({ email }));
     await send(JSON.stringify({ password: credential }));
     await api.toolResult({ password: 'email-context@example.test' });
-    assert.ok(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: email }) }).privacyError);
+    assert.ok((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: email }) })).privacyError);
     await send(JSON.stringify({ password: email }));
     assert.equal(sent, 3, 'classification comes from current scope metadata, not the old token prefix');
   });
@@ -519,7 +519,7 @@ test('short learned credentials inside opaque reference IDs do not cause random 
     api.active().scope.protectValue('a', 'CREDENTIAL');
     const result = await api.beforeRequest({ input: [{ content: JSON.stringify({ x: token }) }] });
     assert.equal(JSON.parse(result.input[0].content).x, token);
-    assert.equal(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: token }) }).privacyError, undefined);
+    assert.equal((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: token }) })).privacyError, undefined);
     await assert.rejects(() => api.beforeRequest({ input: [{ content: JSON.stringify({ password: token }) }] }), /credential_context/);
   });
 });
@@ -536,7 +536,7 @@ test('worker regex is used by requests, tool returns and ephemeral previews, inc
     const body = await api.beforeRequest({ messages: [{ role: 'user', content: 'EMP-1234' }] }); assert.ok(!JSON.stringify(body).includes('EMP-1234'));
     const outputs = await Promise.all(['EMP-1234', 'EMP-4321'].map(value => api.toolResult({ content: '{"staff":"' + value + '"}' })));
     for (let i = 0; i < outputs.length; i++) {
-      const call = api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: outputs[i].content }) });
+      const call = (await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: outputs[i].content }) }));
       assert.equal(JSON.parse(call.rawArgs).content, '{"staff":"' + ['EMP-1234', 'EMP-4321'][i] + '"}');
     }
     const escaped = await api.toolResult({ content: '{"staff":"EMP-\\u0031234"}' }); assert.ok(!escaped.content.includes('EMP-'));
@@ -574,7 +574,7 @@ test('canonical JSON escapes never confuse decoded offsets with source offsets a
   assert.ok(result.protectedSample.includes('[[RUYI_PVT:CREDENTIAL:'));
   await api.run('escaped-canonical', policy, async () => {
     const output = await api.toolResult({ content: sample });
-    assert.ok(api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ content: output.content }) }).privacyError);
+    assert.ok((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: output.content }) })).privacyError);
   });
 });
 
@@ -722,8 +722,12 @@ test('credential-named env and headers retain exact protection while unknown fie
       assert.ok(!JSON.stringify(wire).includes(value), value);
       const result = await api.toolResult({ content: value });
       assert.ok(!result.content.includes(value), value);
-      const call = api.prepareCall({ name: 'file_write', rawArgs: JSON.stringify({ path: 'fixture.txt', content: result.content }) }, { isRegisteredTool: name => name === 'file_write' });
-      assert.equal(call.privacyError, undefined); assert.equal(JSON.parse(call.rawArgs).content, value);
+      const call = (await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ path: 'fixture.txt', content: result.content }) }, { isRegisteredTool: name => name === 'file_write' }));
+      // Registration alone cannot upgrade this synthetic comparison recipient to a
+      // credential destination. Actual local credential writes have real-adapter coverage.
+      assert.equal(call.privacyError.code, 'privacy.restore_denied');
+      assert.equal(JSON.parse(call.rawArgs).content, result.content);
+      assert.equal(call.rawArgs.includes(value), false);
     }
     assert.equal(api.active().scope.detect('1').length, 0, 'ordinary header values remain ordinary even beside real credentials');
   });

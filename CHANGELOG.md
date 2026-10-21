@@ -5,6 +5,9 @@ This file records user-facing release highlights; it does not replace the comple
 
 ## 未发布 / Unreleased
 
+- 开启发送前隐私保护时，原值还原改为按宿主确认的接收方、用途和字段授权。明确适配的本地文件、文本检索和会话工具保持原权限及正常操作；未适配的脚本、任意HTTP和MCP输入不再仅凭工具登记取得代号原值。权限改参、策略或目标变化后重新核对，不增加日常密码或重复确认；该约束不代表操作系统隔离，网络盘等支持边界见当前隐私方案。
+- With pre-send privacy protection enabled, original values are restored only under host-bound recipient, purpose and field authorization. Supported local file, text-search and session tools retain their existing permissions and normal workflows. Unadapted scripts, arbitrary HTTP and MCP inputs no longer obtain originals merely by registering a tool. Permission edits and policy or destination changes are checked again without extra routine passwords or confirmations. This is not operating-system isolation; current privacy documentation records filesystem and channel support limits.
+
 - 修复部分模型请求在准备正文期间开启或改变隐私保护后，仍可能按旧策略发送的问题。统一模型发送入口绑定当前策略，正文准备和编码后再次检查；保留各协议、取消和兼容重试行为。
 - Fix some model requests sending under an outdated privacy policy when protection changes during body preparation. The shared send boundary binds the policy and checks it again after preparation and encoding, preserving protocol, cancellation, and compatibility-retry behavior.
 

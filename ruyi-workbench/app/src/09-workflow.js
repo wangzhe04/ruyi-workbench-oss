@@ -1403,7 +1403,7 @@ const PROXY_UNWRAP_AGENT_TARGETS = new Set(['orchestrate_agents', 'spawn_agent',
 function unwrapProxiedControlCall(tc, offered) {
   if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
   let outer;
-  try { outer = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  try { outer = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { return tc; }
   outer = normalizeToolInvokeArgs(outer);
   if (!outer || typeof outer !== 'object' || Array.isArray(outer)) return tc;
   const target = typeof outer.name === 'string' ? outer.name.trim() : '';
@@ -1411,7 +1411,8 @@ function unwrapProxiedControlCall(tc, offered) {
   if (offered && PROXY_UNWRAP_AGENT_TARGETS.has(target) && !offered.has(target)) return tc;
   const inner = outer.arguments;
   if (inner !== undefined && (inner === null || typeof inner !== 'object' || Array.isArray(inner))) return tc; // 参数坏了:留给原路径给 invalid-arguments
-  return { ...tc, name: target, rawArgs: JSON.stringify(inner || {}) };
+  const rewritten = { ...tc, name: target, rawArgs: JSON.stringify(inner || {}) };
+  return typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.transferExecutionCall(tc, rewritten) : rewritten;
 }
 
 // 代理壳还原(02f toolInvokeEnvelopeRepair)放在【入批处】做、直接改写 rawArgs:权限闸、hook、循环签名、并行只读岛、
@@ -1421,7 +1422,7 @@ function unwrapProxiedControlCall(tc, offered) {
 function canonicalToolInvokeCall(tc) {
   if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
   let parsed;
-  try { parsed = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  try { parsed = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { return tc; }
   const { args, repair } = toolInvokeEnvelopeRepair(parsed);
   if (!repair) return tc;
   return { ...tc, rawArgs: JSON.stringify(args), proxyRepair: repair };
@@ -1438,7 +1439,7 @@ function retierToolInvokeCall(tc, catalog, bridgedRoute, config) {
   const proxyTier = tc.name.slice('tool_invoke_'.length);
   if (!Object.prototype.hasOwnProperty.call(TOOL_TIER_RANK, proxyTier)) return tc;
   let parsed;
-  try { parsed = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  try { parsed = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { return tc; }
   const target = parsed && typeof parsed.name === 'string' ? parsed.name.trim() : '';
   if (!target || RETIER_SKIP_TARGETS.has(target) || target.startsWith('tool_invoke_')) return tc;
   const item = (catalog || []).find(x => x && x.name === target);
@@ -2177,7 +2178,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const econProxyFields = tc => {
     if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return {};
     let target = '';
-    try { const a = JSON.parse(tc.rawArgs || '{}'); target = a && typeof a.name === 'string' ? a.name.trim() : ''; } catch { /* args_invalid */ }
+    try { const a = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); target = a && typeof a.name === 'string' ? a.name.trim() : ''; } catch { /* args_invalid */ }
     const named = /^[A-Za-z_][A-Za-z0-9_.-]{0,79}$/.test(target) ? target : (target ? 'invalid' : '');
     const item = named && named !== 'invalid' ? toolLoading.catalog.find(x => x && x.name === named) : null;
     return { proxyTarget: named || 'missing', ...(item ? { proxyTargetTier: item.tier } : {}), ...(tc.proxyRepair ? { proxyRepair: tc.proxyRepair } : {}) };
@@ -3014,7 +3015,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // whose modifying half was never authorized, and one paired result per call keeps history valid.
           session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(call.toolCalls, { sessionId: session.id }) });
           for (const tc of call.toolCalls) {
-            let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+            let pargs = {}; try { pargs = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
             await notifyToolHookStart(tc, pargs, iter, 'plan_refused');
             onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: pargs });
@@ -3087,7 +3088,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
         // image messages here and FLUSH them after the for-loop, once every role:'tool' reply has been pushed.
-        if (typeof PrivacyGateway !== 'undefined') localToolCalls = localToolCalls.map(tc => PrivacyGateway.prepareCall(tc, { isRegisteredTool: name => Boolean(resolveBridge(bridgedRoute, name)) }));
+        if (typeof PrivacyGateway !== 'undefined') localToolCalls = await privacyMapBounded(localToolCalls, tc => PrivacyGateway.prepareExecution(tc, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true , resolveBridge: name => resolveBridge(bridgedRoute, name) }));
         const pendingToolImages = []; // [{ toolCallId, note, parts:[{text},{image_url}…] }]
         // hb360 C1: read-tier 并行批 —— 整批全部是【原生只读工具】(无桥接/控制面/spawn/todo/mission/
         // 交互类)时入口并发预执行(单线程事件循环下的 I/O 并发),结果按 id 存表;下方串行循环走到通用
@@ -3126,7 +3127,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (withinLegacyWidth) {
               // 现状全量并发路径(逐字节等价,仅供 E1 埋点延续)
               await Promise.all(islandCalls.map(async tc => {
-                let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+                let pargs = {}; try { pargs = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { pargs = {}; }
                 let res, lease = '';
                 if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 并行预执行真实起点
                 try {
@@ -3149,7 +3150,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               await Promise.all(Array.from({ length: poolWorkers }, async () => {
                 while (poolNext < islandCalls.length) {
                   const tc = islandCalls[poolNext++];
-                  let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
+                  let pargs = {}; try { pargs = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { pargs = {}; }
                   let res, lease = '', tWait0 = Date.now();
                   if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 预执行真实起点
                   try {
@@ -3175,7 +3176,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const offeredToolNames = new Set(allTools.map(t => t && t.function && t.function.name).filter(Boolean));
         for (const tc0 of localToolCalls) {
           const tc = unwrapProxiedControlCall(tc0, offeredToolNames);   // tool_invoke_* → 引擎特判工具时解开成直调(见该函数头注)
-          let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
+          let args = {}; try { args = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we
           // can (a) inject loopWarning on the 3rd hit's result and (b) refuse to run the 5th hit at all.
@@ -3419,7 +3420,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
               reg.lastEventAt = Date.now();
               if (!decision || decision.behavior !== 'allow') resultObj = { ok: false, error: (decision && decision.message) || 'denied by user' };
-              else if (decision.updatedInput && typeof decision.updatedInput === 'object') args = decision.updatedInput;
+              else if (decision.updatedInput && typeof decision.updatedInput === 'object') args = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.updateExecutionInput(args, decision.updatedInput, tc.name) : decision.updatedInput;
             }
             if (!resultObj) {
               if (bridge) {
@@ -3442,7 +3443,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                       await journalBridgedWrite(tc.name, args, session, config, { sessionId: session.id, turnSeq: session.turnSeq });
                       resultObj = await awaitProviderTool(
                         tc,
-                        signal => client.callTool(bridge.toolName, args, undefined, { signal }),
+                        async signal => {
+                          if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { bridge, session, config, workingDir, signal });
+                          return client.callTool(bridge.toolName, args, undefined, { signal });
+                        },
                         true,
                       );
                     } catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -3450,6 +3454,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   }
                 }
               } else if (tc.name === 'request_user_input') {
+                if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
                 // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
@@ -3463,6 +3469,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // 先过同一道校验(先认同义词),不合格就把校验信封原样交回,让模型照提示重调。
                 resultObj = validateNativeToolArgs(tc.name, normalizeMetaToolArgs(tc.name, args));
               } else if (tc.name === 'todo_write') {
+                if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,
                 // so handle it here (mirrors the bridge special-case) rather than in the context-free toolCall().
@@ -3480,6 +3488,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   ? { ok: true, count: items.length, unchanged: true, note: '任务清单与当前状态一致,跳过重复写入' }
                   : { ok: true, count: items.length };
               } else if (tc.name === 'mission_update') {
+                if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // 第26波b provider-engine 特例:in-process 合并进 session.mission(闭包持 session + onEvent)。
                 if (session.mission) {
                   // 对抗轮 P1: 模型路径 trusted=false —— 不能设 check.cmd、不能把 done 回退 pending。

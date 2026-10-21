@@ -12,10 +12,19 @@ function fixture() {
     stamp: async () => String(serial) };
   return { ...primitives, vault: primitives.CredentialVault.create(host), restartVault: () => primitives.CredentialVault.create(host), state: () => clone(state) };
 }
+// Core/lexical tests use an explicit synthetic comparison recipient. It performs no file
+// dispatch and deliberately excludes credentials; real file authority is tested against
+// generated server adapters and actual paths in privacy-disclosure-contract.test.js.
+function syntheticComparisonPlan(name) {
+  if (!['file_read', 'file_write', 'file_edit'].includes(name)) throw Object.assign(new Error('Synthetic comparison recipient is not adapted.'), { code: 'privacy.disclosure_not_supported' });
+  return { recipient: 'synthetic-text-comparison-v1', purpose: 'unit-literal-comparison', credentialEmbedding: false,
+    authorize: ref => ref.category !== 'CREDENTIAL' && /^\/(?:path|content|oldText|newText)(?:\/.*)?$/.test(ref.pointer),
+    revalidate: async () => {}, assertCurrent() {}, beforeIo: async () => { throw Error('Synthetic comparison recipient cannot execute filesystem operations.'); } };
+}
 function gateway(root, f) {
-  return vm.runInNewContext(read('03a-privacy-gateway.js') + '\nPrivacyGateway.setHost({ data: paths.data, makeStore: file => ({ read: async () => JSON.parse(await fsp.readFile(file, "utf8")), write: value => atomicWriteJson(file, value) }) }); PrivacyGateway', {
-    require, Buffer, structuredClone, URL, PrivacyRegex: f.PrivacyRegex, PrivacyCore: { ...f.PrivacyCore, configHooks: { sealLocal: f.vault.sealLocal, openLocal: f.vault.openLocal } },
+  return vm.runInNewContext(read('03a-privacy-gateway.js') + '\nPrivacyGateway.setHost({ data: paths.data, planDisclosure: syntheticComparisonPlan, makeStore: file => ({ read: async () => JSON.parse(await fsp.readFile(file, "utf8")), write: value => atomicWriteJson(file, value) }) }); PrivacyGateway', {
+    require, Buffer, structuredClone, URL, syntheticComparisonPlan, PrivacyRegex: f.PrivacyRegex, PrivacyCore: { ...f.PrivacyCore, configHooks: { sealLocal: f.vault.sealLocal, openLocal: f.vault.openLocal } },
     fsp: fs.promises, path, paths: { data: root }, atomicWriteJson: async (file, value) => { await fs.promises.writeFile(file, JSON.stringify(value)); },
   });
 }
-module.exports = { fixture, gateway, clone };
+module.exports = { fixture, gateway, clone, syntheticComparisonPlan };

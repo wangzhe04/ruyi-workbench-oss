@@ -20,7 +20,11 @@ async function main() {
         for (let i = 0; i < 101; i++) {
           const before = performance.now();
           const protectedBody = await g.beforeModelRequest(body), protectedResult = await g.modelToolResult(result);
-          g.prepareCall(input);
+          const preparedInput = mode === 'off' ? input : { ...input, rawArgs: JSON.stringify({ content: (await g.toolResult({ email: 'profile@example.test' })).email }) };
+          const prepared = await g.prepareExecution(preparedInput);
+          assert.equal(prepared.privacyError, undefined);
+          assert.equal(JSON.parse(prepared.rawArgs).content, 'profile@example.test');
+          if (mode === 'off') assert.equal(prepared, input);
           if (mode === 'off') { assert.equal(protectedBody, body); assert.equal(protectedResult, result); }
           if (i) samples.push(performance.now() - before);
         }
@@ -31,7 +35,7 @@ async function main() {
       assert.equal(seals, mode === 'off' ? 0 : 1, 'stable references persist once; off never encrypts');
       f.vault.clear();
     }
-    const report = { schema: 1, node: process.version, platform: process.platform, sourceSha256: require('node:crypto').createHash('sha256').update(fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/03a-privacy-gateway.js'))).digest('hex'), synthetic: true, networkCalls: 0, storageProtector: 'synthetic wrapper with real AES; DPAPI startup and model latency excluded', rows };
+    const report = { schema: 1, node: process.version, platform: process.platform, sourceSha256: require('node:crypto').createHash('sha256').update(fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/03a-privacy-gateway.js'))).digest('hex'), synthetic: true, networkCalls: 0, storageProtector: 'synthetic wrapper with real AES; DPAPI startup and model latency excluded', executionRecipient: 'synthetic text comparison only; filesystem/planner/DriveType costs excluded', rows };
     const output = process.argv.find(value => value.startsWith('--report='))?.slice(9);
     if (output) fs.writeFileSync(path.resolve(output), JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify(report, null, 2));
