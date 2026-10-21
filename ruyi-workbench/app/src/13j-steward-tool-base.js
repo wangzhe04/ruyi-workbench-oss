@@ -343,7 +343,16 @@ function stewardMemoryScopeLabel(scope, config) {
 
 // ── 管家记忆存储(§4)────────────────────────────────────────────────────────────────────
 const stewardMemoryPath = () => path.join(stewardDir(), STEWARD_MEMORY_FILE);
+// 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
+// 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。
+async function stewardPanelGate(req) {
+  if (!tokenOk(req)) return apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403);
+  const config = await readConfig();
+  if (config.stewardEnabledV1 !== true) return apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409);
+  return null;
+}
 let stewardMemoryChain = Promise.resolve();
+let stewardMemoryWriteEpoch = 0;
 function stewardEmptyMemoryStore() { return { schema: STEWARD_MEMORY_SCHEMA, updatedAt: '', entries: [] }; }
 function stewardNormalizeMemoryEntry(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -420,9 +429,12 @@ function stewardMutateMemory(mutator) {
     const store = await stewardReadMemoryStore();
     const outcome = await mutator(store);
     if (outcome && outcome.persist) {
-      store.updatedAt = nowIso();
-      await fsp.mkdir(stewardDir(), { recursive: true });
-      await atomicWriteJson(stewardMemoryPath(), store);
+      stewardMemoryWriteEpoch++;
+      try {
+        store.updatedAt = nowIso();
+        await fsp.mkdir(stewardDir(), { recursive: true });
+        await atomicWriteJson(stewardMemoryPath(), store);
+      } finally { stewardMemoryWriteEpoch++; }
     }
     return outcome ? outcome.result : null;
   });

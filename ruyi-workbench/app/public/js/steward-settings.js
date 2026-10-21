@@ -63,7 +63,7 @@ import { confirmDanger } from './confirm-panel.js';
 //   · 零 setInterval／setTimeout —— 设置页不轮询，停机态由「打开页签／按下按钮／壳层轮询喂进来」
 //     三个确定性时刻刷新（壳层那一处是 steward-shell.js 已有的唯一计时器，本模块不另起）；
 //   · 配置写口只有注入的 saveConfigPartial（= POST /api/config），本模块不自己拼那条请求；
-//   · `<a download>` 只用于记忆导出这一处（浏览器把 blob 存到本地，不经服务端）。
+//   · 记忆导出惰性委托 privacy-export，保护与文件编码由宿主负责。
 //
 // 一条产品纪律（§8.6）：切到「全自动」要二次确认。116-3 B1 之后这是【两半】——界面这一半出弹窗
 // （用的还是 chips 那五条文案，不写第二份），服务端那一半由 `POST /api/config` 的 applyConfigPatch
@@ -557,23 +557,11 @@ export function createStewardSettingsDomain({
     return loadMemory();
   }
 
-  // 导出：把 GET /api/steward/memory/export 的 JSON 包成 blob 交给浏览器存。整个前端只有这一处
-  // `<a download>`（静态锁看住）——服务端不生成文件，也不给可点的路径（§8.1 原则 4 的反面：
-  // 这不是「给你一个路径你自己去开」，是直接把文件交到手上）。
-  async function exportMemory() {
-    const payload = await call('/api/steward/memory/export');
-    if (!payload) return null;
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = el('a');
-    anchor.href = url;
-    anchor.download = 'steward-memory.json';
-    doc().body.appendChild(anchor);
-    anchor.click();
-    doc().body.removeChild(anchor);
-    URL.revokeObjectURL(url);
-    note(t('settings.steward.memory.exportDone'));
-    return payload;
+  // 宿主准备完整副本，共用下载器复验后交给浏览器；惰性 import
+  // 保持此设置模块可在不提供浏览器全局量的纯契约测试中加载。
+  async function exportMemory(plaintext = false) {
+    const { downloadPrivacyExport } = await import('./privacy-export.js');
+    return downloadPrivacyExport({ kind: 'memory', plaintext });
   }
 
   function toggleClearConfirm(show) {
@@ -1341,6 +1329,8 @@ export function createStewardSettingsDomain({
     if (refreshMemory) refreshMemory.onclick = () => loadMemory();
     const exportBtn = byId('cfgStewardMemoryExportBtn');
     if (exportBtn) exportBtn.onclick = () => exportMemory();
+    const plainExport = byId('cfgStewardMemoryExportPlainBtn');
+    if (plainExport) plainExport.onclick = () => exportMemory(true);
     const clearBtn = byId('cfgStewardMemoryClearBtn');
     if (clearBtn) clearBtn.onclick = () => toggleClearConfirm(true);
     const clearCancel = byId('cfgStewardMemoryClearCancel');

@@ -30,14 +30,6 @@
 // ────────────────────────────────────────────────────────────────────────────
 // 形态与 handleOverlayApiRoutes 一致:命中即 send(调用方以 res.writableEnded 为命中信号),
 // 不命中就自然返回让路由链继续(不写前缀早退守卫 —— 那会在路由清册里多出一个无鉴权首配的裸前缀判定点)。
-// 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
-// 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。
-async function stewardPanelGate(req) {
-  if (!tokenOk(req)) return apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403);
-  const config = await readConfig();
-  if (config.stewardEnabledV1 !== true) return apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409);
-  return null;
-}
 // 域层稳定信封 -> 路由层 apiFailure(不转的话会被 normalizeApiErrorPayload 归一成 api.request_failed)。
 function stewardPanelFailure(result) {
   const code = String((result && result.error) || 'invalid_request');
@@ -124,7 +116,14 @@ async function handleStewardApiRoutes(req, res, pathname) {
 
   if (req.method === 'GET' && pathname === '/api/steward/memory/export') {
     const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    return send(res, json(await stewardMemoryPanelExport()));
+    try {
+      const prepared = await StewardHooks.prepareMemoryExportCopy();
+      const response = json(prepared.payload, 200, { 'cache-control': 'no-store' });
+      prepared.assert(); return send(res, response);
+    } catch (error) {
+      const code = /^privacy\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed';
+      return send(res, apiFailure(code, {}, code, 409));
+    }
   }
 
   if (req.method === 'POST' && pathname === '/api/steward/memory/edit') {

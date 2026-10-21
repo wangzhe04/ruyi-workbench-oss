@@ -7,6 +7,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/privacy/rules/test', auth: 'token' },
   { m: 'POST', p: '/api/privacy/use-native', auth: 'token' },
   { m: 'POST', p: '/api/privacy/backup/export', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/export', auth: 'token' },
   { m: 'POST', p: '/api/privacy/backup/preview', auth: 'token' },
   { m: 'POST', p: '/api/privacy/backup/import', auth: 'token' },
   { m: 'GET', p: '/api/external-bots/connections', auth: 'token' },

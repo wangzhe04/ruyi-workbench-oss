@@ -322,8 +322,8 @@ function scheduleRawEventDom(item) {
     if ($('debugAutoscroll')?.checked) pre.scrollTop = pre.scrollHeight;
   });
 }
-function pushRawEvent(seq, line) {
-  const item = { seq, line };
+function pushRawEvent(seq, line, sourceSessionId) {
+  const item = { seq, line, sourceSessionId };
   state.rawEvents.push(item);
   if (state.rawEvents.length > 2000) state.rawEvents.shift();
   scheduleRawEventDom(item);

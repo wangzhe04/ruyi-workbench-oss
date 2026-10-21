@@ -4453,5 +4453,14 @@
   ,"privacy.menuHint": "Replace sensitive text before sending"
   ,"privacy.ruleEntryPending": "This rule is not in the draft yet. Add or update it, or cancel editing, before saving or reloading."
   ,"privacy.nativeSavedRefreshFailed": "The default engine was saved, but its status could not be refreshed. The old recovery preview was invalidated. Reopen Settings to verify; do not submit again."
-  ,"privacy.nativeCoverage": "Text requests from every provider using Workbench’s native model channels automatically follow the saved redaction policy. Change models or providers in the existing model settings."
+  ,"privacy.nativeCoverage": "Text requests from every provider using Workbench’s native model channels automatically follow the saved redaction policy. Change models or providers in the existing model settings.",
+  "privacy.export.changed": "Source or settings changed. Export again.",
+  "privacy.export.failed": "Export incomplete; no file downloaded.",
+  "privacy.export.plain": "Export plaintext copy",
+  "privacy.export.plainNotice": "This copy may contain private originals. Applies to this export only; saved copies cannot be recalled.",
+  "privacy.export.protected": "Protected copy exported.",
+  "privacy.export.saved": "Copy exported.",
+  "privacy.export.withheld": "Exported; content with unverified sources is explicitly withheld.",
+  "privacy.export.busy": "An export is being prepared or awaits download. Complete it, then retry.",
+  "privacy.export.limit": "The content exceeds safe export limits. Export a smaller selection; choose a plaintext copy only when originals are required."
 }

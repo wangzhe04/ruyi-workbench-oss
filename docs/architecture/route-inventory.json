@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-20T13:37:41.688Z",
+  "generatedAt": "2026-10-21T09:48:52.939Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -19,10 +19,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 161,
-    "decisionPoints": 175,
+    "routeAuthEntries": 162,
+    "decisionPoints": 176,
     "byKind": {
-      "exact": 152,
+      "exact": 153,
       "prefix": 11,
       "regex": 12
     },
@@ -78,6 +78,12 @@
     {
       "m": "POST",
       "p": "/api/privacy/backup/export",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/privacy/export",
       "auth": "token",
       "prefix": false
     },
@@ -2808,7 +2814,7 @@
       "kind": "exact",
       "path": "/api/privacy/status",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "GET"
       ],
@@ -2826,7 +2832,7 @@
       "kind": "exact",
       "path": "/api/privacy/settings",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "GET"
       ],
@@ -2842,9 +2848,26 @@
     },
     {
       "kind": "exact",
+      "path": "/api/privacy/export",
+      "file": "13ab-privacy-api.js",
+      "handler": "PrivacyTextExports",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13ab-privacy-api.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\privacy-text-export.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/privacy/settings",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "POST"
       ],
@@ -2862,7 +2885,7 @@
       "kind": "exact",
       "path": "/api/privacy/encryption",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "POST"
       ],
@@ -2881,7 +2904,7 @@
       "kind": "exact",
       "path": "/api/privacy/rules/test",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "POST"
       ],
@@ -2897,7 +2920,7 @@
       "kind": "exact",
       "path": "/api/privacy/use-native",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "POST"
       ],
@@ -2913,7 +2936,7 @@
       "kind": "exact",
       "path": "/api/privacy/backup/export",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "POST"
       ],
@@ -2930,7 +2953,7 @@
       "kind": "exact",
       "path": "/api/privacy/backup/preview",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "POST"
       ],
@@ -2947,7 +2970,7 @@
       "kind": "exact",
       "path": "/api/privacy/backup/import",
       "file": "13ab-privacy-api.js",
-      "handler": "PrivacySettings",
+      "handler": "PrivacyTextExports",
       "methods": [
         "POST"
       ],
@@ -3705,6 +3728,7 @@
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
         "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\privacy-text-export.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-no-model-locale.e2e.js",
@@ -3996,6 +4020,7 @@
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
         "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\privacy-text-export.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-no-model-locale.e2e.js",
@@ -4223,6 +4248,7 @@
         "dev-harness\\perf.e2e.js",
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\privacy-text-export.e2e.js",
         "dev-harness\\provider-compact-recall.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
@@ -5282,6 +5308,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\action-feedback.static.e2e.js",
+        "dev-harness\\privacy-text-export.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\steward-memory.e2e.js",
         "dev-harness\\steward-settings.e2e.js",
@@ -5302,8 +5329,8 @@
       "domain": "steward",
       "auth": "token",
       "coveredBy": [
-        "dev-harness\\steward-memory.e2e.js",
-        "dev-harness\\steward-settings.static.e2e.js"
+        "dev-harness\\privacy-text-export.e2e.js",
+        "dev-harness\\steward-memory.e2e.js"
       ]
     },
     {

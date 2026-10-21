@@ -74,11 +74,14 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     if (!entry || entry.signature !== signature) {
       if (entry?.busy) fail('policy_changed');
       if (!entry && loaded.size >= 128) {
-        const victim = [...loaded].find(([, value]) => !value.busy); if (!victim) fail('scope_capacity');
-        (await victim[1].promise).scope.clear(); loaded.delete(victim[0]);
+        // Dirty mappings cannot disappear behind an unchanged disk identity.
+        const victim = [...loaded].find(([, value]) => !value.busy && value.value?.isPersisted()); if (!victim) fail('scope_capacity');
+        const evicted = await victim[1].promise;
+        if (loaded.get(victim[0]) !== victim[1] || victim[1].busy || !evicted.isPersisted()) fail('scope_capacity');
+        evicted.scope.clear(); loaded.delete(victim[0]);
       }
       const previous = entry;
-      entry = { signature, busy: 0 };
+      entry = { signature, busy: 0, token: Object.freeze({}), value: null };
       entry.promise = (async () => {
         const detector = makeDetector(config);
         const scope = core.createScope({ scopeId, detector, ttlMs: 365 * 86400000 });
@@ -112,8 +115,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
             if (pendingRevision === revision) pendingRevision = -1;
           }); writes = next; return next;
         };
-        return { scope, detector, persist, key };
-      })();
+        return { scope, detector, persist, key, isPersisted: () => pendingRevision === -1 && (scope.revision() === persistedRevision || (scope.revision() === 0 && scope.size() === 0)) };
+      })().then(value => { entry.value = value; return value; });
       loaded.set(key, entry);
       entry.promise.catch(() => { if (loaded.get(key) === entry) loaded.delete(key); });
     }
@@ -299,6 +302,73 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       containsExecutionReferences(record.value, record.context);
     }
     if (Object.hasOwn(binding, 'value') && JSON.stringify(binding.value) !== JSON.stringify(record.value)) fail('disclosure_changed');
+  }
+  const disclosureFs = require('node:fs');
+  function mappingIdentity(key) {
+    try {
+      const stat = disclosureFs.lstatSync(pathApi.join(host.data, 'privacy-scopes', key + '.json'), { bigint: true });
+      if (!stat.isFile() || stat.isSymbolicLink()) fail('mapping_invalid');
+      return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
+    } catch (error) { if (error.code === 'ENOENT') return 'missing'; throw error; }
+  }
+  function mappingGuard(context) {
+    const key = keyOf(context.scopeId), entry = loaded.get(key), revision = context.scope.revision();
+    if (!entry?.value?.isPersisted()) fail('disclosure_dirty');
+    const token = entry.token, identity = mappingIdentity(key);
+    return guardMappingMetadata(key, token, revision, identity);
+  }
+  function guardMappingMetadata(key, token, revision, identity) {
+    // Retain metadata only: no scope, entry, context or mapping originals survive.
+    return () => {
+      const current = loaded.get(key);
+      if (current && (!current.value?.isPersisted() || (current.token === token && current.value.scope.revision() !== revision))) fail('disclosure_dirty');
+      if (mappingIdentity(key) !== identity) fail('disclosure_dirty');
+    };
+  }
+  // Export capabilities bind persisted mapping identities across LRU eviction.
+  // Client scope declarations are never restoration authority.
+  async function prepareMultiSourceDisclosure(value, scopeIds, binding) {
+    if (!Array.isArray(scopeIds) || scopeIds.length > 2048 || scopeIds.some(id => typeof id !== 'string' || !id || id.length > 160)) fail('scope_invalid');
+    const policyGuard = disclosurePolicyGuard();
+    if (currentPolicy.mode === 'off') return { value: structuredClone(value), assert: policyGuard };
+    if (!scopeIds.length) fail('scope_invalid');
+    const policy = currentPolicy.signature, proofs = [];
+    let copy = foreignView(structuredClone(value));
+    for (const id of [...new Set(scopeIds)]) {
+      await withPolicy(id, async () => {
+        if (policy !== currentPolicy.signature) fail('policy_changed');
+        const prepared = await prepareDisclosure(copy, binding);
+        assertDisclosure(prepared.receipt, binding);
+        proofs.push(mappingGuard(active()));
+        copy = foreignView(prepared.value);
+      });
+    }
+    if (policy !== currentPolicy.signature) fail('policy_changed');
+    const assert = () => {
+      if (policy !== currentPolicy.signature) fail('policy_changed');
+      policyGuard();
+      for (const proof of proofs) proof();
+    };
+    assert();
+    return { value: copy, assert };
+  }
+  function disclosurePolicyGuard() {
+    assertPolicyAvailable();
+    const signature = currentPolicy.signature;
+    return () => { assertPolicyAvailable(); if (signature !== currentPolicy.signature) fail('policy_changed'); };
+  }
+  async function prepareLocalDisclosure(scopeId, work) {
+    const policyGuard = disclosurePolicyGuard(), key = keyOf(scopeId);
+    const pending = loaded.get(key);
+    if (pending && !pending.value) await pending.promise;
+    policyGuard();
+    const current = loaded.get(key);
+    const sourceGuard = guardMappingMetadata(key, current?.token, current?.value?.scope.revision(), mappingIdentity(key));
+    const assert = () => { policyGuard(); sourceGuard(); };
+    assert();
+    const value = await work();
+    assert();
+    return { value, assert };
   }
   // Host-only cross-thread metadata projection. These aliases belong to the source
   // transcript, so never resolve or admit them into another conversation's scope.
@@ -1392,7 +1462,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;

@@ -2,6 +2,7 @@
 
 // EC-D：运行时引擎状态、Provider 配置、设置保存与诊断领域。
 import { state } from './state.js';
+import { downloadPrivacyExport } from './privacy-export.js';
 import { mountPrivacySettings, renderPrivacyIndicators as renderSavedPrivacyIndicators } from './privacy-settings.js';
 import { bindModelSelect, providerModels, agentModels, publishProviderModels, publishAgentModels, refreshModelSelects } from './model-catalog.js';
 import { fillProviderSelect } from './model-catalog.js';   // W6：「模型分配」每一行服务商下拉的唯一选项构建器
@@ -2601,23 +2602,10 @@ function healthRow(ok, id, detail) {
 }
 
 /* ---------------- v4: export/import, templates, MCP inspector ---------------- */
-function exportSession(fmt) {
-  const s = state.currentSession;
-  if (!s) { toast(t("toast.openSessionFirst"), 'err'); return; }
-  let content, mime, ext;
-  if (fmt === 'json') {
-    content = JSON.stringify(s, null, 2); mime = 'application/json'; ext = 'json';
-  } else if (fmt === 'html') {
-    const rows = (s.messages || []).map(m => `<div class="m ${escapeHtml(m.role)}"><b>${escapeHtml(m.role)}</b><pre>${escapeHtml(m.content || '')}</pre></div>`).join('\n');
-    content = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(s.title || '')}</title><style>body{font-family:sans-serif;max-width:820px;margin:2rem auto}pre{white-space:pre-wrap;background:#f4f4f4;padding:8px;border-radius:6px}.m{margin:1rem 0}</style><h1>${escapeHtml(s.title || '')}</h1>${rows}`;
-    mime = 'text/html'; ext = 'html';
-  } else {
-    content = `# ${s.title || 'Session'}\n\n` + (s.messages || []).map(m => `## ${m.role}\n\n${m.content || ''}`).join('\n\n'); mime = 'text/markdown'; ext = 'md';
-  }
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `${(s.title || 'session').replace(/[^\w一-龥-]+/g, '_').slice(0, 40)}.${ext}`; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+function exportSession(fmt, plaintext = false) {
+  const sessionId = state.currentSession?.id;
+  if (!sessionId) { toast(t('toast.openSessionFirst'), 'err'); return; }
+  return downloadPrivacyExport({ kind: 'session', sessionId, format: fmt, plaintext });
 }
 function importSession() {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';

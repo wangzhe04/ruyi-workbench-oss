@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 88 | 3881 | 3482 | 627 | 67 | 0 | 1 |
+| 88 | 3883 | 3498 | 629 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -81,11 +81,11 @@
 | 63 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
 | 64 | `13e-pretender-index.js` | transport | 57 | 39 | 8 |
 | 65 | `13i-steward-inbox.js` | transport | 88 | 29 | 8 |
-| 66 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
+| 66 | `13j-steward-tool-base.js` | transport | 82 | 26 | 9 |
 | 67 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
 | 68 | `13k-steward-threads.js` | transport | 60 | 127 | 17 |
 | 69 | `13l-steward-ops.js` | transport | 54 | 129 | 21 |
-| 70 | `13g-steward.js` | transport | 20 | 74 | 12 |
+| 70 | `13g-steward.js` | transport | 19 | 75 | 12 |
 | 71 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
 | 72 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
 | 73 | `13o-steward-runner-prompt.js` | transport | 22 | 66 | 16 |
@@ -100,7 +100,7 @@
 | 82 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
 | 83 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
 | 84 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
-| 85 | `13ab-privacy-api.js` | unclassified | 1 | 23 | 14 |
+| 85 | `13ab-privacy-api.js` | unclassified | 2 | 35 | 16 |
 | 86 | `13w-external-bots.js` | transport | 69 | 24 | 9 |
 | 87 | `14-main.js` | entrypoint | 1 | 591 | 49 |
 
@@ -445,20 +445,22 @@
 | `13aa-steward-delivery.js` | `04-permission-runtime.js` | backward | `sessionExecutionSnapshot` |
 | `13aa-steward-delivery.js` | `06i-steward-core.js` | backward | `StewardHooks` |
 | `13aa-steward-delivery.js` | `13j-steward-tool-base.js` | backward | `stewardFail`, `stewardRawKind` |
-| `13ab-privacy-api.js` | `00-boot.js` | backward | `apiFailure`, `json`, `paths` |
-| `13ab-privacy-api.js` | `01-config.js` | backward | `DurableJsonStore`, `configReadCache`, `configReadGeneration`, `mutateConfig`, `readConfig`, `send` |
+| `13ab-privacy-api.js` | `00-boot.js` | backward | `apiFailure`, `crypto`, `json`, `nowIso`, `paths` |
+| `13ab-privacy-api.js` | `01-config.js` | backward | `DurableJsonStore`, `configReadCache`, `configReadGeneration`, `mutateConfig`, `readConfig`, `safeSessionId`, `send` |
 | `13ab-privacy-api.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
 | `13ab-privacy-api.js` | `01i-privacy-rules.js` | backward | `PrivacyRuleCatalog` |
 | `13ab-privacy-api.js` | `01m-privacy-regex.js` | backward | `PrivacyRegex` |
+| `13ab-privacy-api.js` | `02-session-store.js` | backward | `loadSession`, `sessionDiskWriteSeqOf` |
 | `13ab-privacy-api.js` | `02e-session-engine-route.js` | backward | `sessionEngineRouteFromConfig` |
 | `13ab-privacy-api.js` | `02f-turn-effect-kinds.js` | backward | `normalizeToolInvokeArgs` |
 | `13ab-privacy-api.js` | `03-bridge-guard.js` | backward | `PrivacyFileIoHooks`, `PrivacyRecipientHooks` |
 | `13ab-privacy-api.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `13ab-privacy-api.js` | `03b-privacy-local-drive.js` | backward | `PrivacyLocalDriveProbe` |
 | `13ab-privacy-api.js` | `04-permission-runtime.js` | backward | `activeChildren`, `turnSettlers` |
+| `13ab-privacy-api.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `StewardHooks` |
 | `13ab-privacy-api.js` | `07-autonomy.js` | backward | `nativeToolSchema` |
 | `13ab-privacy-api.js` | `12-tool-dispatch.js` | backward | `planPrivacyToolDisclosure` |
-| `13ab-privacy-api.js` | `13j-steward-tool-base.js` | backward | `stewardAppendDecision` |
+| `13ab-privacy-api.js` | `13j-steward-tool-base.js` | backward | `STEWARD_MEMORY_SCHEMA`, `stewardAppendDecision`, `stewardMemoryChain`, `stewardMemoryWriteEpoch`, `stewardPanelGate`, `stewardReadMemoryStore` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRevertLogRecord`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |
@@ -509,7 +511,7 @@
 | `13g-steward.js` | `06i-steward-core.js` | backward | `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_PREROUTE_QUERY_MAX`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardSanitizeText` |
 | `13g-steward.js` | `07-autonomy.js` | backward | `nativeToolSchema` |
 | `13g-steward.js` | `13i-steward-inbox.js` | backward | `startStewardInbox`, `stewardInboxRead`, `stewardInboxState`, `stopStewardInbox` |
-| `13g-steward.js` | `13j-steward-tool-base.js` | backward | `STEWARD_MEMORY_NEW_WINDOW_MS`, `STEWARD_MEMORY_SCHEMA`, `stewardAppendDecision`, `stewardDecisionsRead`, `stewardFail`, `stewardMemoryScopeLabel`, `stewardMutateMemory`, `stewardQuickClosed`, `stewardReadMemoryStore`, `stewardTurnTaintedBy` |
+| `13g-steward.js` | `13j-steward-tool-base.js` | backward | `STEWARD_MEMORY_NEW_WINDOW_MS`, `STEWARD_MEMORY_SCHEMA`, `stewardAppendDecision`, `stewardDecisionsRead`, `stewardFail`, `stewardMemoryScopeLabel`, `stewardMutateMemory`, `stewardPanelGate`, `stewardQuickClosed`, `stewardReadMemoryStore`, `stewardTurnTaintedBy` |
 | `13g-steward.js` | `13k-steward-threads.js` | backward | `stewardEnrichInboxRows`, `stewardImplQuickAsk`, `stewardImplThreadContinue`, `stewardImplThreadNew`, `stewardImplThreadNote`, `stewardImplThreadPermission`, `stewardImplThreadRead`, `stewardImplThreadRename`, `stewardImplThreadStatus`, `stewardImplThreadWorkspace`, `stewardImplThreadsSearch`, `stewardQuickClose`, `threadRelatedThreads`, `threadRelationsIndex` |
 | `13g-steward.js` | `13l-steward-ops.js` | backward | `stewardImplAuditTail`, `stewardImplConfigGet`, `stewardImplConfigSet`, `stewardImplDecide`, `stewardImplFileRead`, `stewardImplHealth`, `stewardImplInboxRead`, `stewardImplMemorySearch`, `stewardImplMemoryVeto`, `stewardImplMemoryWrite`, `stewardImplMissions`, `stewardImplNotify`, `stewardImplPlaybookDraft`, `stewardImplPlaybooks`, `stewardImplProviders`, `stewardImplRunAction`, `stewardImplRunsStatus`, `stewardImplSelfStatus`, `stewardImplSkillToggle`, `stewardImplSkills`, `stewardImplThreadArtifactRead`, `stewardImplUsage`, `stewardImplWebFetch`, `stewardImplWebSearch` |
 | `13h-steward-runner.js` | `00-boot.js` | backward | `SessionExecutionHooks`, `apiFailure`, `json`, `nowIso` |
@@ -533,8 +535,8 @@
 | `13i-steward-inbox.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13i-steward-inbox.js` | `08-agent-runs.js` | backward | `listAgentRuns`, `readAgentRunEvents` |
 | `13i-steward-inbox.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |
-| `13j-steward-tool-base.js` | `00-boot.js` | backward | `fsp`, `nowIso`, `path`, `safeJsonParse`, `text` |
-| `13j-steward-tool-base.js` | `01-config.js` | backward | `atomicWriteJson`, `readFileTail`, `safeSessionId`, `sessionPath` |
+| `13j-steward-tool-base.js` | `00-boot.js` | backward | `apiFailure`, `fsp`, `nowIso`, `path`, `safeJsonParse`, `text` |
+| `13j-steward-tool-base.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readFileTail`, `safeSessionId`, `sessionPath`, `tokenOk` |
 | `13j-steward-tool-base.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
 | `13j-steward-tool-base.js` | `02-session-store.js` | backward | `foldTurnSummaries`, `repairMissionChangeTornTail` |
 | `13j-steward-tool-base.js` | `02d-session-overrides.js` | backward | `applySessionPermissionModeOverride` |

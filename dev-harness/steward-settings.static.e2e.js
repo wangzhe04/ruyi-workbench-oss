@@ -16,6 +16,7 @@
 //     共用一份定义、写口整对象上传、六个新 i18n 键中英都非空且挂在面板里。
 const fs = require('fs');
 const path = require('path');
+const { functionBlock } = require('./lib/source-slice');
 const { pathToFileURL } = require('url');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -265,8 +266,15 @@ ok(/textContent/.test(settings)
 const count = (source, pattern) => (source.match(pattern) || []).length;
 ok(count(settingsCode, /setInterval\(/g) === 0 && count(settingsCode, /setTimeout\(/g) === 0,
   'D3 设置页零计时器（不轮询；停机态由壳层那一处已有的 setInterval 喂进来）');
-ok(count(settingsCode, /\.download = /g) === 1 && /anchor\.download = 'steward-memory\.json';/.test(settings),
-  'D4 全模块恰好一处 `<a download>`，且只用于记忆导出');
+const privacyExport = fs.readFileSync(path.join(PUBLIC, 'js/privacy-export.js'), 'utf8');
+const memoryExport = functionBlock(settings, 'exportMemory');
+ok(count(settingsCode, /\.download = /g) === 0
+  && memoryExport.includes("await import('./privacy-export.js')")
+  && memoryExport.includes("downloadPrivacyExport({ kind: 'memory', plaintext })")
+  && count(stripComments(privacyExport), /\.download = /g) === 1
+  && privacyExport.includes('link.download = artifact.filename')
+  && privacyExport.includes('new Blob([artifact.content]'),
+  'D4 记忆导出惰性委托唯一受保护下载器；设置模块零原文 Blob/下载，实际字节与文件名来自同一宿主成品');
 ok(count(stewardShell, /setInterval\(/g) === 1,
   'D5 steward-shell.js 仍然全文件恰好一处 setInterval（117b 的 C2a 未被 117e 稀释）');
 ok(count(stewardShell, /\bapi\(/g) === 1,
@@ -410,7 +418,7 @@ const routes = [...new Set([
 const ALLOWED = [
   '/api/config-is-not-called-here',  // 占位：配置写口只经注入的 saveConfigPartial，本模块不拼它
   '/api/session/rewind', '/api/steward/decisions', '/api/steward/memory', '/api/steward/memory/clear',
-  '/api/steward/memory/edit', '/api/steward/memory/export', '/api/steward/memory/restore',
+  '/api/steward/memory/edit', '/api/steward/memory/restore',
   '/api/steward/memory/veto', '/api/steward/start', '/api/steward/state', '/api/steward/stop',
   // 123-M2(37 号文 §3.6):定时任务块从只读改成可建可改 —— 六条 /api/scheduler/tasks 里的
   // GET/POST/PATCH/DELETE/run-now/runs 全部落在这一个前缀上(正则只抓到前缀,后面的 /:id 与
@@ -419,7 +427,11 @@ const ALLOWED = [
   '/api/missions', '/api/scheduler/tasks',
 ].filter(route => !route.includes('not-called-here')).sort();
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
-  `I1 只调 116 已有的路由 + 117e 第 0 步的 /api/steward/decisions（实测 ${JSON.stringify(routes)}）`);
+  `I1 设置模块仅调用现有路由；记忆导出已委托受保护出口（实测 ${JSON.stringify(routes)}）`);
+const exportRoutes = [...new Set([...privacyExport.matchAll(/'(\/api\/[a-z/-]+)'/g)].map(match => match[1]))];
+ok(JSON.stringify(exportRoutes) === JSON.stringify(['/api/privacy/export'])
+  && privacyExport.includes("op: 'validate'") && !/\bfetch\(/.test(stripComments(privacyExport)),
+  'I1b 共用下载器仅经鉴权 api 调唯一 /api/privacy/export，保留最终 validate 无旁路');
 ok(!/\/api\/config/.test(settingsCode) && count(settingsCode, /saveConfigPartial\(/g) >= 1,
   'I2 配置写口只经注入的 saveConfigPartial（本模块不自己拼 POST /api/config）');
 ok(count(settingsCode, /\bfetch\(/g) === 0, 'I3 零直调 fetch（一律经注入的 api()）');

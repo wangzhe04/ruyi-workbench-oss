@@ -106,8 +106,153 @@ const PrivacySettings = (() => {
 })();
 PrivacyCore.configHooks.stewardPrivacy = PrivacySettings.administer;
 PrivacyCore.configHooks.settleStewardPrivacy = PrivacySettings.settle;
+// Text copies have one host boundary. Proofs contain assertions, not private mappings.
+const PrivacyTextExports = (() => {
+  const proofs = new Map(), omitted = '[来源无法核验，内容未导出 / Unverified source: content withheld]';
+  const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const fail = code => { throw Object.assign(new Error(code), { code }); };
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  async function memorySource() {
+    const store = await stewardReadMemoryStore();
+    return { ok: true, schema: STEWARD_MEMORY_SCHEMA, entries: store.entries.filter(e => e.state === 'active') };
+  }
+  async function prepare(body, retainProof = true, operationGuard = PrivacyGateway.disclosurePolicyGuard()) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      operationGuard();
+      try { return await prepareOnce(body, retainProof, operationGuard); }
+      catch (error) { if (error.code !== 'privacy.disclosure_dirty' || attempt === 3) throw error; }
+    }
+  }
+  async function prepareOnce(body, retainProof, guard) {
+    const configGeneration = configReadGeneration;
+    const config = await readConfig(); guard();
+    if (body.kind === 'memory' && configGeneration !== configReadGeneration) fail('privacy.disclosure_dirty');
+    const enabled = PrivacyGateway.enabled(config), plaintext = body.plaintext === true;
+    const sourceGuards = []; let mappingGuardCount = 0;
+    let value, scopes = [], source, check, format = body.format, missing = false;
+    if (body.kind === 'session') {
+      const id = safeSessionId(body.sessionId);
+      if (!id || !(source = await loadSession(id))) fail('privacy.export_source_missing');
+      const sourceHash = hash(source), seq = sessionDiskWriteSeqOf(id);
+      sourceGuards.push(() => { if (sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); });
+      check = async () => { if (hash(await loadSession(id)) !== sourceHash || sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); };
+      scopes = [id];
+      let session = source;
+      if (plaintext || !enabled) {
+        const local = await PrivacyGateway.prepareLocalDisclosure(id, () => plaintext ? PrivacyGateway.restoreHistory(id, source)
+          : PrivacyGateway.displayEnvelope(id, { session: source }));
+        session = plaintext ? local.value : local.value.session; sourceGuards.push(local.assert);
+      }
+      format = ['json', 'html', 'md'].includes(format) ? format : 'md';
+      value = { session, filename: `${session.title || 'session'}.${format}` };
+    } else if (body.kind === 'memory') {
+      if (config.stewardEnabledV1 !== true) fail('privacy.export_source_changed');
+      await stewardMemoryChain;
+      const epoch = stewardMemoryWriteEpoch;
+      const memoryGuard = () => {
+        if (stewardMemoryWriteEpoch !== epoch || epoch % 2) fail('privacy.export_source_changed');
+        if (configReadGeneration !== configGeneration) fail('privacy.disclosure_dirty');
+      };
+      memoryGuard(); sourceGuards.push(memoryGuard);
+      source = await memorySource(); const originalHash = hash(source);
+      check = async () => {
+        if ((await readConfig()).stewardEnabledV1 !== true || hash(await memorySource()) !== originalHash) fail('privacy.export_source_changed');
+      };
+      scopes = [STEWARD_SESSION_ID];
+      const entries = [];
+      for (const entry of source.entries) {
+        const ids = [entry.sourceSessionId, ...(entry.mergedFrom || []).map(ref => ref.sessionId)].filter(Boolean);
+        const valid = [];
+        for (const id of [...new Set(ids)]) if (safeSessionId(id)) valid.push(id);
+        if (enabled && (!ids.length || valid.length !== new Set(ids).size)) {
+          missing = true; entries.push({ id: entry.id, state: entry.state, contentWithheld: true, text: omitted });
+        } else if (enabled && !plaintext) {
+          const copy = await PrivacyGateway.prepareMultiSourceDisclosure(entry, [...new Set([STEWARD_SESSION_ID, ...valid])], { recipient: 'user-file-copy', purpose: 'text-export:memory-entry', sourceHash: hash(entry) });
+          mappingGuardCount += new Set([STEWARD_SESSION_ID, ...valid]).size;
+          entries.push(copy.value); sourceGuards.push(copy.assert);
+        } else { entries.push(entry); scopes.push(...valid); }
+      }
+      // Memory may contain aliases from merged sources. Explicit plaintext copies
+      // retain local raw text but never guess which scope owns such an alias.
+      value = { payload: { ...source, exportedAt: nowIso(), entries }, filename: 'steward-memory.json' };
+      if (plaintext && enabled) {
+        const before = JSON.stringify(value); value = PrivacyGateway.foreignView(value);
+        missing ||= before !== JSON.stringify(value);
+      }
+      if (enabled && !plaintext) scopes = [STEWARD_SESSION_ID];
+      format = 'json';
+    } else if (body.kind === 'raw-events') {
+      if (!Array.isArray(body.events) || body.events.length > 2000 || Buffer.byteLength(JSON.stringify(body.events)) > 1024 * 1024) fail('privacy.body_limit');
+      source = structuredClone(body.events); check = async () => {};
+      const events = [], groups = new Map();
+      const sourceSessions = new Map();
+      for (const event of source) {
+        if (!event || typeof event.line !== 'string' || !Number.isSafeInteger(event.seq)) fail('privacy.export_invalid');
+        const id = typeof event.sourceSessionId === 'string' && safeSessionId(event.sourceSessionId);
+        if (id && !sourceSessions.has(id)) sourceSessions.set(id, await loadSession(id));
+        const valid = id && sourceSessions.get(id);
+        if (enabled && !plaintext && !valid) { missing = true; events.push(JSON.stringify({ seq: event.seq, contentWithheld: true, message: omitted })); }
+        else {
+          const index = events.push(event.line) - 1;
+          if (valid && enabled && !plaintext) {
+            if (!groups.has(id)) groups.set(id, []);
+            groups.get(id).push({ index, line: event.line });
+          }
+        }
+      }
+      for (const [id, group] of groups) {
+        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(group.map(row => row.line), [id], { recipient: 'user-file-copy', purpose: 'text-export:raw-group', sourceHash: hash(group) });
+        mappingGuardCount++;
+        group.forEach((row, index) => { events[row.index] = copy.value[index]; }); sourceGuards.push(copy.assert);
+      }
+      // Submitted debug lines are requested local content, never restoration proof.
+      value = { events, filename: `claude-events-${Date.now()}.ndjson` }; format = 'ndjson';
+    } else fail('privacy.export_invalid');
+    scopes = [...new Set(scopes)];
+    if (!scopes.length) scopes = [STEWARD_SESSION_ID];
+    if (enabled && !plaintext && Buffer.byteLength(JSON.stringify(value)) > 8 * 1024 * 1024) fail('privacy.export_source_limit');
+    const binding = { recipient: 'user-file-copy', purpose: 'text-export:' + body.kind, sourceHash: hash(source) };
+    const sourceGuard = plaintext && enabled ? await PrivacyGateway.prepareMultiSourceDisclosure(null, scopes, binding) : null;
+    const prepared = plaintext || !enabled ? { value, assert: () => { guard(); sourceGuard?.assert(); } } : await PrivacyGateway.prepareMultiSourceDisclosure(value, scopes, binding);
+    mappingGuardCount += scopes.length;
+    value = prepared.value;
+    let content, mime;
+    if (body.kind === 'session') {
+      const s = value.session;
+      if (format === 'json') { content = JSON.stringify(s, null, 2); mime = 'application/json'; }
+      else if (format === 'html') {
+        const rows = (s.messages || []).map(m => `<div class="m ${escape(m.role)}"><b>${escape(m.role)}</b><pre>${escape(m.content || '')}</pre></div>`).join('\n');
+        content = `<!doctype html><meta charset="utf-8"><title>${escape(s.title || '')}</title><style>body{font-family:sans-serif;max-width:820px;margin:2rem auto}pre{white-space:pre-wrap;background:#f4f4f4;padding:8px;border-radius:6px}.m{margin:1rem 0}</style><h1>${escape(s.title || '')}</h1>${rows}`; mime = 'text/html';
+      } else { content = `# ${s.title || 'Session'}\n\n` + (s.messages || []).map(m => `## ${m.role}\n\n${m.content || ''}`).join('\n\n'); mime = 'text/markdown'; }
+    } else if (body.kind === 'memory') { content = JSON.stringify(value.payload, null, 2); mime = 'application/json'; }
+    else { content = value.events.join('\n'); mime = 'application/x-ndjson'; }
+    const assert = () => { guard(); prepared.assert(); for (const sourceGuard of sourceGuards) sourceGuard(); };
+    await check(); assert();
+    const filename = body.kind === 'session' ? `${(value.session.title || 'session').replace(/[^\w一-龥-]+/g, '_').slice(0, 40)}.${format}` : value.filename;
+    const artifact = { ok: true, filename, mime, content, protected: enabled && !plaintext, contentWithheld: missing };
+    if (!retainProof) return { artifact, assert, payload: value.payload };
+    const proof = crypto.randomBytes(24).toString('hex'), artifactHash = hash(artifact);
+    for (const [id, item] of proofs) if (item.expires < Date.now()) proofs.delete(id);
+    const bytes = 3 * (Buffer.byteLength(JSON.stringify(body)) + Buffer.byteLength(JSON.stringify(value)) + Buffer.byteLength(content)) + mappingGuardCount * 2048;
+    if (proofs.size >= 4 || bytes + [...proofs.values()].reduce((sum, item) => sum + item.bytes, 0) > 64 * 1024 * 1024) fail('privacy.export_busy');
+    proofs.set(proof, { expires: Date.now() + 60000, bytes, hash: artifactHash, check, assert, reprepare: () => prepare(body, true, guard) });
+    return { artifact: { ...artifact, proof, hash: artifactHash }, assert, payload: value.payload };
+  }
+  async function validate(body) {
+    const item = proofs.get(body.proof);
+    if (!item || item.expires < Date.now() || item.hash !== body.hash) fail('privacy.export_expired');
+    proofs.delete(body.proof);
+    await item.check();
+    try { item.assert(); return { assert: item.assert }; }
+    catch (error) { if (error.code !== 'privacy.disclosure_dirty') throw error; return item.reprepare(); }
+  }
+  return { prepare, validate };
+})();
+// The domain route loads earlier. Bind only its protected, proof-free memory
+// copy capability after this policy owner initializes; no raw fallback exists.
+StewardHooks.prepareMemoryExportCopy = () => PrivacyTextExports.prepare({ kind: 'memory' }, false);
 PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
-  const routes = new Set(['/api/privacy/status', '/api/privacy/settings', '/api/privacy/encryption', '/api/privacy/rules/test', '/api/privacy/use-native', '/api/privacy/backup/export', '/api/privacy/backup/preview', '/api/privacy/backup/import']);
+  const routes = new Set(['/api/privacy/export', '/api/privacy/status', '/api/privacy/settings', '/api/privacy/encryption', '/api/privacy/rules/test', '/api/privacy/use-native', '/api/privacy/backup/export', '/api/privacy/backup/preview', '/api/privacy/backup/import']);
   if (!routes.has(pathname)) return false;
   const reply = value => send(res, json(value, 200, { 'cache-control': 'no-store' }));
   const nativeProviders = config => (config.providers || []).filter(provider => provider.type === 'openai-compat' && provider.model && !String(provider.id).startsWith('toolbox-')).map(provider => ({ id: provider.id, label: provider.label || provider.id, model: provider.model }));
@@ -137,7 +282,14 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
     for await (const chunk of req) { bytes += chunk.length; if (bytes > cap) throw Object.assign(new Error(), { code: 'privacy.body_limit' }); chunks.push(chunk); }
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw Object.assign(new Error(), { code: 'privacy.settings_invalid' });
-    if (req.method === 'POST' && pathname === '/api/privacy/settings') {
+    if (pathname === '/api/privacy/export') {
+      if (body.kind === 'memory' && body.op !== 'validate') {
+        const gate = await stewardPanelGate(req); if (gate) { send(res, gate); return true; }
+      }
+      const prepared = body.op === 'validate' ? await PrivacyTextExports.validate(body) : await PrivacyTextExports.prepare(body);
+      const response = json(prepared.artifact || { ok: true }, 200, { 'cache-control': 'no-store' });
+      prepared.assert(); send(res, response);
+    } else if (req.method === 'POST' && pathname === '/api/privacy/settings') {
       reply(await PrivacySettings.apply(body));
     } else if (req.method === 'POST' && pathname === '/api/privacy/encryption') {
       await mutateConfig(current => {

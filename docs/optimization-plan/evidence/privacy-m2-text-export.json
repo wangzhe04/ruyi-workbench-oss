@@ -1,0 +1,573 @@
+{
+  "date": "2026-10-21",
+  "baseline": "205a1606",
+  "scope": "M2-6b1: session MD/JSON/HTML, raw NDJSON and memory text copies including original memory GET; Mermaid remains M2-6b2",
+  "status": "verified and independently reviewed; final fast route-coverage metadata failure resolved by targeted regeneration/retest",
+  "contract": [
+    "Protection ON defaults to protected copies; OFF keeps existing display-envelope/format semantics. Explicit plaintext is per artifact, with no global preference, password or confirmation in the normal path.",
+    "One host prepare/validate boundary binds full authoritative source, policy and mapping state before formatting and clipping. Metadata, JSON keys and filenames are included. Failed validation never falls back to raw originals.",
+    "Session copy loads the canonical session. Raw stream provenance is captured outside event text and grants scanning only, never alias restoration. Default protected copies explicitly withhold unknown raw origins; ON memory copies explicitly withhold unprovable memory origins.",
+    "Memory entry text remains its own stored authority, including active expired records and historical origins whose original thread has been deleted. Scan each complete entry against its actual source scopes, then the assembled payload against the steward scope.",
+    "Final synchronous guards bind session write sequence, memory writer epoch/config generation, policy and persisted mapping file identity. Policy guard starts before readConfig await and spans bounded retries.",
+    "LRU never evicts dirty/pending scopes. Multi-source guards retain metadata rather than entire mappings. Proofs are one use, 60 seconds, maximum four and an estimated 64 MiB retained-payload budget.",
+    "Browser prepares Blob, validates or replaces dirty artifact with bounded retry, checks known source/config state and downloads synchronously. Response-to-OS submission gap is explicitly retained."
+  ],
+  "independentReview": {
+    "reviewer": "release_priority",
+    "findings": [
+      "OFF session copy needed historical displayEnvelope restoration/withheld semantics, not raw loadSession.",
+      "Memory must preserve old steward gate and all-active export semantics; historical source deletion is not authority loss for stored memory.",
+      "Initial memory all-scopes projection was quadratic and exceeded reasonable latency; complete entries are now processed against their actual origins.",
+      "LRU guard design changed from retaining per-source contexts/receipts to metadata with persistence and dirty-eviction checks.",
+      "Await gaps fixed by final write-sequence/epoch assertions and policy snapshot before config hydration.",
+      "New module dependency cycle/forward edge corrected by shared gate ownership and fixed no-argument memory capability; real runtime coupling remains documented.",
+      "Final full-suite integration found locale mirrors, packaging registration, nested-memory expiry audit, fixture cleanup recognition, pure-import seam and generated architecture snapshot omissions; each is retained and repaired without weakening locks."
+    ],
+    "final": "Final product/test/static integration repairs, generated contracts and manual egress fingerprints reviewed. Reviewer verified all11 final source/test hashes and59 raw log hashes/sizes, exact final results and documented limitations before commit; no remaining blocker."
+  },
+  "tests": {
+    "finalE2e": {
+      "file": "dev-harness/privacy-text-export.e2e.js",
+      "priorFinalRuns": [
+        {
+          "log": "26-text-e2e-memory-capability-first.log",
+          "pass": 54,
+          "fail": 0,
+          "exit": 0
+        },
+        {
+          "log": "27-text-e2e-memory-capability-second.log",
+          "pass": 54,
+          "fail": 0,
+          "exit": 0
+        }
+      ],
+      "note": "Final E2E SHA e8190f55c4c380d6f5fa97028377942142aceea30910a54498ddb93096a90385. Includes actual createStewardSettingsDomain.bindStewardSettings -> memory button -> lazy exporter -> actual 200-entry JSON file.",
+      "runs": [
+        {
+          "log": "46-text-e2e-lazy-steward-action.log",
+          "pass": 55,
+          "fail": 0,
+          "exit": 0
+        },
+        {
+          "log": "47-text-e2e-lazy-steward-action-second.log",
+          "pass": 55,
+          "fail": 0,
+          "exit": 0
+        }
+      ]
+    },
+    "focusedUnit": {
+      "log": "45-focused-unit-static-seams.log",
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skip": 0,
+      "exit": 0
+    },
+    "relatedE2e": [
+      {
+        "file": "steward-memory.e2e.js",
+        "log": "28-steward-memory-capability.log",
+        "pass": 93,
+        "exit": 0
+      },
+      {
+        "file": "privacy-bot-disclosure.e2e.js",
+        "log": "12-bot-disclosure.log",
+        "pass": 104,
+        "exit": 0
+      },
+      {
+        "file": "privacy-gateway.e2e.js",
+        "log": "14-privacy-gateway.log",
+        "pass": 128,
+        "exit": 0
+      },
+      {
+        "file": "privacy-channels.e2e.js",
+        "log": "15-privacy-channels.log",
+        "pass": 39,
+        "exit": 0
+      }
+    ],
+    "fullUnit": {
+      "command": "node dev-harness/run-all.js --fast --parallel 4 (final unit stage)",
+      "log": "53-unit-final.log",
+      "tests": 2547,
+      "suites": 192,
+      "pass": 2521,
+      "skip": 26,
+      "fail": 0,
+      "durationMs": 319661.7645
+    },
+    "staticInitial": {
+      "log": "35-fast-mirror-final.log",
+      "ran": 80,
+      "pass": 74,
+      "fail": 6,
+      "liveSkipped": 7
+    },
+    "syntax": {
+      "log": "49-syntax-integration-final.log",
+      "files": 1109,
+      "exit": 0
+    },
+    "build": {
+      "log": "50-build-integration-final.log",
+      "fresh": true,
+      "exit": 0
+    },
+    "fullFast": {
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "log": "52-fast-final.log",
+      "exit": 1,
+      "static": {
+        "ran": 80,
+        "pass": 79,
+        "fail": 1,
+        "liveSkipped": 7,
+        "flaky": 0
+      },
+      "resolved": "Only route-inventory JSON/MD stale coverage metadata after steward-settings.static was updated: two coveredBy arrays changed, route/auth semantics unchanged. Regenerated route and architecture snapshot, targeted tests56/57 pass. Do not describe52 as an all-green rerun."
+    },
+    "staticTargeted": [
+      {
+        "file": "route-inventory.static.e2e.js",
+        "log": "56-route-final.log",
+        "exit": 0
+      },
+      {
+        "file": "architecture-contract-snapshots.static.e2e.js",
+        "log": "57-contract-final.log",
+        "exit": 0
+      }
+    ],
+    "inventory": {
+      "log": "59-inventory-check-final.log",
+      "sourceFiles": 269,
+      "candidates": 655,
+      "errors": 0,
+      "exit": 0,
+      "focusedUnit": {
+        "log": "58-inventory-unit-final.log",
+        "tests": 14,
+        "pass": 14,
+        "fail": 0,
+        "exit": 0
+      },
+      "note": "Final post-suite edit only changes manual runtimeEvidence wording54->55 and generated manifest fingerprint. Classifications and runtime source unchanged."
+    },
+    "relatedE2eScope": "Logs12-15 exercise final03a core but precede later13ab/13j gate/ownership refinements; latest93 memory regression28 and final55API/browser runs bind final backend. They are not claimed as whole-suite final-server reruns."
+  },
+  "measurements": {
+    "fixture": "200 short ordinary public memory entries from 200 distinct historical sources plus steward, empty historical mapping scopes, synthetic vault, local Node24 Windows HTTP API. Two individual runs, not a statistical benchmark.",
+    "protectedMs": [
+      812.3,
+      820.6
+    ],
+    "offMs": [
+      9.7,
+      10.2
+    ],
+    "logs": [
+      "46-text-e2e-lazy-steward-action.log",
+      "47-text-e2e-lazy-steward-action-second.log"
+    ],
+    "interpretation": "Normal browser download measured one click and zero dialogs. No claim about large histories/maps, real DPAPI cost, cold/hot p95 or process peak memory."
+  },
+  "generated": {
+    "graph": {
+      "modules": 88,
+      "edges": 629,
+      "forward": 67,
+      "scc": 1,
+      "largestScc": 31
+    },
+    "routes": {
+      "decisionPoints": 176,
+      "exact": 153,
+      "prefix": 11,
+      "regex": 12,
+      "auth": 162,
+      "existingUncovered": 5,
+      "warnings": 0
+    },
+    "facts": {
+      "e2e": 546,
+      "defaultE2e": 539,
+      "liveE2e": 7,
+      "unitFiles": 285
+    },
+    "egress": {
+      "sourceFiles": 269,
+      "candidates": 655,
+      "reviewErrors": 0,
+      "classification": "New narrow text-export group remains conservative bypassed; browser href unknown; one lazy import is dynamic/unknown. No channel-wide coverage upgrade."
+    }
+  },
+  "initialFailuresAndCorrections": [
+    "First memory fixture used an unsupported kind; corrected fixture to profile.",
+    "Initial global memory/source product took approximately 44.6 seconds for 200 sources; replaced by complete-entry projection with metadata guards. No JSON lexical protection was weakened.",
+    "Initial browser fixture treated waitForTarget result as target, imported before actual location readiness, and omitted toastTray although the download succeeded; each corrected. One Windows breakaway-browser EPERM cleanup was fixed by exact-profile owned cleanup, not broad process killing.",
+    "Raw grouping test initially relied on a different scope secret present only in another origin line; fixture corrected to actual per-origin semantics. Unknown origins do not authorize alias restoration.",
+    "Initial graph added a second SCC and a 68th forward edge. Shared steward gate and fixed memory capability restored original ceilings without raising graph policy.",
+    "32-fast-final.log: unit2547 had5 failures, all mismatched documentation locale mirrors. Mirrors synchronized byte-for-byte; five affected unit files76 tests passed in34-unit-mirror-fix.log. 33-unit-first.log retains original full output.",
+    "35-fast-mirror-final.log: full unit passes; six static integration failures retained. Corrected exact overlay payload, lazy import, actual awaited owned fixture close, exact cleanup-owner count, expiry audit entry/parser and generated architecture contracts. Final retests documented below.",
+    "41-static-steward-settings.log: after fixing pure-import seam, historical direct-download/route assertions correctly failed. Updated assertions require zero local raw downloader, one shared final-artifact Blob and authenticated prepare/validate route;43 passes without weakening the boundary.",
+    "37-inventory-integration-write.log: final steward-settings comment changed after reviewer fingerprint, refused source-unreviewed; reviewer reread final source and51/59 pass.48-fast-integration-final.log was manually interrupted before unit-stage output so the manifest could be synchronized; CIM confirmed owned runner/unit children ended.48 is neither pass nor product failure.",
+    "52-fast-final.log: complete unit passes and79/80 static pass; only two coveredBy arrays stale in route inventory after static-contract adaptation.54/55 regenerate,56/57 pass. No fourth fullfast rerun is claimed; no product/runtime changes followed."
+  ],
+  "limitations": [
+    "Synthetic local receiver and fixture vault do not prove live-provider/platform delivery, actual Windows DPAPI export latency, peak process memory or full release-package acceptance.",
+    "File-identity and generation guards cover application writers and ordinary external edits, not malicious same-account OS isolation or forged filesystem metadata.",
+    "Browser final validation response and OS file submission are separate processes; already downloaded copies cannot be revoked.",
+    "Explicit plaintext is a deliberate user copy; unproven/foreign memory alias material can still be omitted with a visible notice. Raw source identifiers never grant private restoration.",
+    "Mermaid source/SVG/PNG and other channels are not covered by this batch. Independent namespace and ASR remain paused; M2-5 is cancelled."
+  ],
+  "rawEvidenceLocation": "../ruyi-workbench-maintenance-20261021/checks/m2-export-text",
+  "rawFiles": [
+    {
+      "file": "01-focused-unit-first.log",
+      "sha256": "f7eaad0088034d7caf8239aa4e872c46c02095f9219a93af155b90eb2e0b26d4",
+      "bytes": 877
+    },
+    {
+      "file": "02-text-e2e-first.log",
+      "sha256": "eed2f00b3c8820010c3e7c192e5e2b066594d42a13b34a6c4807402468c40f42",
+      "bytes": 2145
+    },
+    {
+      "file": "03-text-e2e-fixture-kind-fix.log",
+      "sha256": "d32f3de506dee047fa036572400f4d0b2c2c03e6e32551771ae37644904e4202",
+      "bytes": 2145
+    },
+    {
+      "file": "04-text-e2e-browser-cost.log",
+      "sha256": "c5c5851011e49e1345fead1f94dc39780f8ffdbc3001b5a333bcb6b528f224c4",
+      "bytes": 3793
+    },
+    {
+      "file": "05-focused-unit.log",
+      "sha256": "3f54d5210cbfa579b7046662dc0aa27313c87ece5efd5cd046187711a77bad03",
+      "bytes": 878
+    },
+    {
+      "file": "06-text-e2e-localcopy-grouping.log",
+      "sha256": "58328caffb9c73a78438ac4c6ffc5a3994c1cc8960a0c523b91f7bbed91c19dd",
+      "bytes": 3300
+    },
+    {
+      "file": "07-text-e2e-config-race-browser.log",
+      "sha256": "baa8818604ed98474f6570393381a6469422041a36ad93573995ca7fea0581f8",
+      "bytes": 3194
+    },
+    {
+      "file": "08-text-e2e-browser-diagnostic.log",
+      "sha256": "819a7aaf3c9a97b92f2fe85d71b63656dc093e1868cf9ac0d77f7741cb803faf",
+      "bytes": 3381
+    },
+    {
+      "file": "09-text-e2e-browser-toast-fixture.log",
+      "sha256": "512a9c9af057058c9b0bd9957dfdcec95ab5d5b178461d46e58f79a75823979e",
+      "bytes": 3192
+    },
+    {
+      "file": "10-text-e2e-second.log",
+      "sha256": "0f45d4d0c1bbc2d46c4f3ee828a718e70a254b825e31d7d532e2e0b7cd269095",
+      "bytes": 3192
+    },
+    {
+      "file": "11-focused-unit-final.log",
+      "sha256": "f0e3abb44033a42d2bb3cc3a572949345542e9c2528deab8d9dbe03db92fb7ef",
+      "bytes": 876
+    },
+    {
+      "file": "12-bot-disclosure.log",
+      "sha256": "6bffdff3ae0b2c2e3f329d9166af1b6c4e9cbca4ab6fe96b6255ff6d048897de",
+      "bytes": 6391
+    },
+    {
+      "file": "13-steward-memory.log",
+      "sha256": "302a3407300eaa96c28b712757499950b52d3cfdebc5c61ff229a5900428cf20",
+      "bytes": 5615
+    },
+    {
+      "file": "14-privacy-gateway.log",
+      "sha256": "d2a404420daf43be0f96bf0c183699b4261945b4a4ae15163194fd47f7434255",
+      "bytes": 11588
+    },
+    {
+      "file": "15-privacy-channels.log",
+      "sha256": "2ca8a6f703b6ebc3e20eec1fe42927f8163e18237fb5ff7aaa060a18f5cbceb7",
+      "bytes": 3554
+    },
+    {
+      "file": "16-text-e2e-memory-gate-final-first.log",
+      "sha256": "29f18f9ef04db2649bbc002da96bccb15445d4eafd2469d4084cba31f991a581",
+      "bytes": 3318
+    },
+    {
+      "file": "17-text-e2e-memory-gate-final-second.log",
+      "sha256": "60152958ecc8e2de7de35c04a66708a1d933d589db700f140b4127c600633f41",
+      "bytes": 3319
+    },
+    {
+      "file": "18-steward-memory-final.log",
+      "sha256": "9327977f758e6d65cd76a2f6fa83d78dfb6eb965cf7d92d9a2af4b7ce53534ec",
+      "bytes": 5615
+    },
+    {
+      "file": "19-focused-unit-sync-source.log",
+      "sha256": "e1cf18dc6cc034ec1e3ac0c1514b5b0d1ced8ae2c0b31df4f11efea9a60e82d4",
+      "bytes": 901
+    },
+    {
+      "file": "20-text-e2e-sync-source-first.log",
+      "sha256": "ff5b9c924803358c35567ce449fd147a42ab70e4ebc7b0bd55d8a9f767d11259",
+      "bytes": 3565
+    },
+    {
+      "file": "21-text-e2e-sync-source-second.log",
+      "sha256": "b96e8044979572579e4d47b657c203714101ca6316ff130c3a694dbd28e37d91",
+      "bytes": 3565
+    },
+    {
+      "file": "22-steward-memory-sync-source.log",
+      "sha256": "44b2bc5b497928409acf0b0ca2f99188c0ec06c6299f4662d09275d8014f7ec3",
+      "bytes": 5615
+    },
+    {
+      "file": "23-text-e2e-gate-owner-first.log",
+      "sha256": "bf55981792cdbf9ddfc258142b85e10047d86e4984996e75666846d844576c18",
+      "bytes": 3566
+    },
+    {
+      "file": "24-text-e2e-gate-owner-second.log",
+      "sha256": "5fc93024b2222923121af91363430fecedef7eb4f274b73d9d7b26bdcb85b4d8",
+      "bytes": 3566
+    },
+    {
+      "file": "25-steward-memory-gate-owner.log",
+      "sha256": "8e0bbdf571acf6d656c6a9ccc5f6f597d52ce6d13c17f2a9bfe6840596958d0a",
+      "bytes": 5615
+    },
+    {
+      "file": "26-text-e2e-memory-capability-first.log",
+      "sha256": "cbaae7030aa215d98bb9d33129d2a80274dc770bb09a3a3c8f6bb704110d1def",
+      "bytes": 3566
+    },
+    {
+      "file": "27-text-e2e-memory-capability-second.log",
+      "sha256": "a3d7f4f1796a79289fa419eec8ae56c1783e7799e75650d26e5974efc66db139",
+      "bytes": 3566
+    },
+    {
+      "file": "28-steward-memory-capability.log",
+      "sha256": "f525b4077cb1a644d13be46f092744f4b300ad3f2e8f9f1a9b8a406412cc060d",
+      "bytes": 5615
+    },
+    {
+      "file": "29-syntax-final.log",
+      "sha256": "d1698132320b7bb3d1c8397f9345622b10923d5f23827b60baaccdc9d3d73f7c",
+      "bytes": 61
+    },
+    {
+      "file": "30-build-final.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    {
+      "file": "31-inventory-write.log",
+      "sha256": "e891347d6d8aefe9288001c69727609f0d0854a166a68c427982974112531db3",
+      "bytes": 67
+    },
+    {
+      "file": "32-fast-final.log",
+      "sha256": "e930616b76ae13fc0ed001875ce53ade4ed04b09229f39c6b0410197d780d1eb",
+      "bytes": 2578
+    },
+    {
+      "file": "33-unit-first.log",
+      "sha256": "d282a299f073d666d3df63b449355087c677b66e59bb03114c145b33c2f66a51",
+      "bytes": 429423
+    },
+    {
+      "file": "34-unit-mirror-fix.log",
+      "sha256": "c2f62ec1df915b3684cad1c6c95d96e155ecc2976b77209913f3a0236f26d6b3",
+      "bytes": 13403
+    },
+    {
+      "file": "35-fast-mirror-final.log",
+      "sha256": "5ba6e06ad306675fc102d1b250be878ed2a8613ef15be1a5ea007b356d761577",
+      "bytes": 21954
+    },
+    {
+      "file": "36-unit-mirror-final.log",
+      "sha256": "6ffb0e2340013c9937a4c443c4b0e4794c15e4291c0b783065f6c510963ce33b",
+      "bytes": 397215
+    },
+    {
+      "file": "37-inventory-integration-write.log",
+      "sha256": "0b38b7dc99587a75e0234f0336ae2505e58177a509cd40cf1d2826388be897fc",
+      "bytes": 145
+    },
+    {
+      "file": "37-static-overlay-payload.log",
+      "sha256": "40943a9a3a7c40dd0effa95604b03b6d987fd12a0caf32b0d45d3936c9815bc8",
+      "bytes": 1839
+    },
+    {
+      "file": "38-static-fixture-home.log",
+      "sha256": "bda7f86551f53ef0a828fd15350ae21600c49e9c2a4baeebf62bbb3393a36fda",
+      "bytes": 3583
+    },
+    {
+      "file": "39-static-process-safety.log",
+      "sha256": "2cc51682659993c0983b3df05f20d1900847746786327d6cf5977b75d211b96c",
+      "bytes": 868
+    },
+    {
+      "file": "40-static-steward-tools.log",
+      "sha256": "77fd51bb292f41e656e8695b891de16882d24a33f43c04c77fd92ee270dd3fe1",
+      "bytes": 11406
+    },
+    {
+      "file": "41-static-steward-settings.log",
+      "sha256": "0ee8eba5b8e52c21751c5924e7e46938972200f32feaea55d4dc4c220b6d473a",
+      "bytes": 12314
+    },
+    {
+      "file": "43-static-steward-settings-delegated-contract.log",
+      "sha256": "f96a5e489210e9fbc4ba421582202260e1d278d0b015e4c1b16e5a80870e7936",
+      "bytes": 12495
+    },
+    {
+      "file": "44-static-architecture-contracts.log",
+      "sha256": "6854f05b4a23ea5c9445f617bf7bd2aaaac3a810f91eff4bdb0c976855406361",
+      "bytes": 884
+    },
+    {
+      "file": "45-focused-unit-static-seams.log",
+      "sha256": "a77794efc37a632f0deb36261452e44b6592e0787e47caf4ff47098a638229ab",
+      "bytes": 899
+    },
+    {
+      "file": "46-text-e2e-lazy-steward-action.log",
+      "sha256": "52d985db444bb209aae9301652eaeb8dc673356d39979b0f7a214b29680c0d21",
+      "bytes": 3680
+    },
+    {
+      "file": "47-text-e2e-lazy-steward-action-second.log",
+      "sha256": "27124c13a4d23fc341c33c6bb3630a6414749662e063d89db4637acde727f4ad",
+      "bytes": 3681
+    },
+    {
+      "file": "48-fast-integration-final.log",
+      "sha256": "4530949b8c7d0d060dfd0b8b2bbee1888bfffb58d98bbf8343767aff11913bb3",
+      "bytes": 555
+    },
+    {
+      "file": "49-syntax-integration-final.log",
+      "sha256": "d1698132320b7bb3d1c8397f9345622b10923d5f23827b60baaccdc9d3d73f7c",
+      "bytes": 61
+    },
+    {
+      "file": "50-build-integration-final.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    {
+      "file": "51-inventory-final.log",
+      "sha256": "4dc594a66203782e8cb8b6a51a31bb4a1396a4216682c360d9085ad2b3d65f71",
+      "bytes": 67
+    },
+    {
+      "file": "52-fast-final.log",
+      "sha256": "a34000657269ae5a68fdea9fb030d2dd7c69ddce89e28d7239a1fec11d7af9f4",
+      "bytes": 8157
+    },
+    {
+      "file": "53-unit-final.log",
+      "sha256": "2e86d8553ad79c57416335d8409974e66b2457a3d5f84d7af289f6017057406d",
+      "bytes": 397205
+    },
+    {
+      "file": "54-route-regenerate.log",
+      "sha256": "c4440c74283055781d91dca4e4213129d0de6403b411171a1e5bb2d289acefe1",
+      "bytes": 123
+    },
+    {
+      "file": "55-contract-regenerate.log",
+      "sha256": "40b9607922f9dc1043cb36bb15343c25c09b59f51c2f040cf537a9d00f9054fd",
+      "bytes": 41
+    },
+    {
+      "file": "56-route-final.log",
+      "sha256": "065527cf6ae9c210227461a7924f4da88fda8d539425a164db8686bc511b05ed",
+      "bytes": 1040
+    },
+    {
+      "file": "57-contract-final.log",
+      "sha256": "6854f05b4a23ea5c9445f617bf7bd2aaaac3a810f91eff4bdb0c976855406361",
+      "bytes": 884
+    },
+    {
+      "file": "58-inventory-unit-final.log",
+      "sha256": "65a9010c493f8cedb7203b711d3c9446442a0769c6b3f20aaa388407aa746e41",
+      "bytes": 1735
+    },
+    {
+      "file": "59-inventory-check-final.log",
+      "sha256": "4dc594a66203782e8cb8b6a51a31bb4a1396a4216682c360d9085ad2b3d65f71",
+      "bytes": 67
+    }
+  ],
+  "finalFiles": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "77c248979d7f927a77bfc91648ff64c771cd846b6db46b20147990d5d6e5f43a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "c96ba2a9109f4f7d76770e0716fcc272adf17b086f7fc4b3b155ea0508188704"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "e32047cda803d19dcb94466a10579ada178a7531105164a076f0e36c993336bf"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13g-steward.js",
+      "sha256": "31a38b9990602f008ce3de69b803d5d86f8cedc5f5e92274798743aa6517ea82"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "sha256": "889ef8e11504cf12215b7a0c4840c2967cc635953b2c751675b160f31c1ebdb3"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/privacy-export.js",
+      "sha256": "2241a13e07de76844ea6ccd38ba5b4631d1d215a18df52d5a310b59d3f0f0120"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/steward-settings.js",
+      "sha256": "050f8902df9778a41fa723cc28e4c09e96ce059830c4d881493649e7f3a9841d"
+    },
+    {
+      "file": "ruyi-workbench/tools/build-overlay.js",
+      "sha256": "d0b39db0ece3a048265ec5ce8f77379a7e5fa29d850810dbfb73296e6f67e63e"
+    },
+    {
+      "file": "dev-harness/privacy-text-export.e2e.js",
+      "sha256": "e8190f55c4c380d6f5fa97028377942142aceea30910a54498ddb93096a90385"
+    },
+    {
+      "file": "dev-harness/unit/privacy-export-disclosure.test.js",
+      "sha256": "1d46b9956c40b6649d4ec69e71fee9fbb0c4043933080a5e5f883f279fd2a1a7"
+    },
+    {
+      "file": "dev-harness/unit/privacy-export-ui.test.js",
+      "sha256": "9cbc10d7dc4dcafcf0bbdd5b49a321de9ebf6c09753aaf3e90b7c32445fd9f04"
+    }
+  ]
+}

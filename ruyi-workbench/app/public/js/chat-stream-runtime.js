@@ -1324,7 +1324,7 @@ export function createChatStreamRuntime(deps = {}) {
         }
         break;
       case 'raw_line':
-        pushRawEvent(evt.seq, evt.line);
+        pushRawEvent(evt.seq, evt.line, streamSessionId);
         break;
       case 'meta': {
         // Engine-aware prefix: provider turns show the provider label, claude turns show 'claude'.

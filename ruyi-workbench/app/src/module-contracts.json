@@ -17953,12 +17953,14 @@
         "stewardMemoryScopeLabel",
         "stewardMemoryScopeMatches",
         "stewardMemoryScopeOf",
+        "stewardMemoryWriteEpoch",
         "stewardMutateMemory",
         "stewardNormalizeMemoryEntry",
         "stewardNormalizeMemoryScope",
         "stewardNotifiesInWindow",
         "stewardNotifyRecord",
         "stewardNotifyTimes",
+        "stewardPanelGate",
         "stewardQuickClosed",
         "stewardQuickThread",
         "stewardRawKind",
@@ -17976,6 +17978,13 @@
         "stewardTurnTaintedBy"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
@@ -18020,6 +18029,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readFileTail",
           "kinds": [
             "call"
@@ -18035,6 +18051,13 @@
         {
           "provider": "01-config.js",
           "symbol": "sessionPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
           "kinds": [
             "call"
           ]
@@ -20316,7 +20339,6 @@
         "stewardMemoryPanelRestore",
         "stewardMemoryPanelRow",
         "stewardPanelFailure",
-        "stewardPanelGate",
         "stewardTaintGateApplies",
         "stewardToolHandler",
         "stewardWithTurnTrigger"
@@ -20553,6 +20575,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardMutateMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardPanelGate",
           "kinds": [
             "call"
           ]
@@ -24424,7 +24453,8 @@
       "file": "13ab-privacy-api.js",
       "layer": "unclassified",
       "provides": [
-        "PrivacySettings"
+        "PrivacySettings",
+        "PrivacyTextExports"
       ],
       "requires": [
         {
@@ -24436,7 +24466,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
           "kinds": [
             "call"
           ]
@@ -24485,6 +24529,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "send",
           "kinds": [
             "call"
@@ -24509,6 +24560,20 @@
           "symbol": "PrivacyRegex",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDiskWriteSeqOf",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -24568,6 +24633,20 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "nativeToolSchema",
           "kinds": [
@@ -24583,7 +24662,42 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "STEWARD_MEMORY_SCHEMA",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardAppendDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardMemoryChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardMemoryWriteEpoch",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardPanelGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadMemoryStore",
           "kinds": [
             "call"
           ]

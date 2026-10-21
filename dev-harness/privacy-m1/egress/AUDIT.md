@@ -61,6 +61,12 @@ M2/A3 将四处正文 POST 接线收敛到 `04h-provider-http.js / providerModel
 
 本批104项真实生成物/权威收发箱/本机官方协议接收端断言连续两遍通过；是 synthetic 凭据与本地传输证据，不是真 QQ/飞书账号验收。物理 `13x:post` 同时承载 token 和消息，裸适配器调用也仍可不带宿主 prepare，因此保留 bots/capability 原分类，不据受管消息子路径升级整个通道；导出与 MCP 仍按后续批次验收。指纹更新经独立逐项审阅，详见本批证据与92交接。
 
+### 2026-10-21 M2-6b1 文本副本出口
+
+会话MD/JSON/HTML、raw NDJSON、记忆JSON改用 `13ab:PrivacyTextExports` 与前端 `privacy-export.js` 的共同准备/校验/Blob下载路径。保护开启时默认投影；OFF沿用既有显示副本，明确单次明文不记录为全局偏好。文件名、title、JSON key/元数据同查；raw来源仅用于扫描，不构成还原授权。记忆逐完整条目按历史来源处理再做全局投影，旧GET保留原gate，经无参数固定记忆能力接同一策略；失败不回原文。映射持久化身份、LRU dirty约束、会话writeSeq、记忆writer epoch与配置代际均在最终提交复验。
+
+本片55项真实API/Edge下载断言最终连续两遍，校验实际文件bytes/filename且默认一点击零弹窗，包括管家设置按钮实际惰性载入下载器。9处旧词法候选收敛成新helper三处候选，另有惰性模块载入一处保守dynamic/unknown；新增`text-export`组保持保守`bypassed`并注明已验子范围，`href`仍为browser-dom/unknown。这不是整体导出保护率或9份完整实现被删除的证明。Mermaid源码/SVG/PNG及其他导出仍按M2-6b2处理，不升级旧export组。浏览器最终校验响应到OS下载之间不是跨进程原子；已下载副本不可撤回。票据仅有界内存、无新秘密库，详见[本批证据](../../../docs/optimization-plan/evidence/privacy-m2-text-export.json)及92。
+
 ## 外发链路的重要缺口
 
 | 通道 | 真实边界/生产关系 | 当前事实与 M2 后续要求 |

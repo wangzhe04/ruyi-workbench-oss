@@ -1524,7 +1524,7 @@
               <p class="muted prov-hint" data-i18n="settings.steward.group.memoryHint">这些只进管家自己的提示词，不会进普通线程。每条都能改、能否决、能恢复。</p>
               <div class="steward-settings-row">
                 <button type="button" id="cfgStewardMemoryRefreshBtn" class="btn btn-sm" data-i18n="settings.steward.memory.refresh">刷新</button>
-                <button type="button" id="cfgStewardMemoryExportBtn" class="btn btn-sm" data-i18n="settings.steward.memory.export">导出 JSON</button>
+                <button type="button" id="cfgStewardMemoryExportBtn" class="btn btn-sm" data-i18n="settings.steward.memory.export">导出 JSON</button><button type="button" id="cfgStewardMemoryExportPlainBtn" class="btn btn-sm" data-i18n="privacy.export.plain" data-i18n-attr="title:privacy.export.plainNotice">导出明文副本</button>
                 <button type="button" id="cfgStewardMemoryClearBtn" class="btn btn-sm" data-i18n="settings.steward.memory.clear">清空全部</button>
               </div>
               <div class="steward-settings-confirm" id="cfgStewardMemoryClearConfirm" role="dialog" aria-labelledby="cfgStewardMemoryClearTitle" hidden>
@@ -1947,7 +1947,7 @@
                   <label data-i18n="settings.doctor.rawEventStream">原始事件流</label>
                   <div class="debug-actions">
                     <button id="debugClearBtn" class="mini" data-i18n="common.clear">清空</button>
-                    <button id="debugDownloadBtn" class="mini" data-i18n="settings.doctor.downloadLog">下载 .ndjson</button>
+                    <button id="debugDownloadBtn" class="mini" data-i18n="settings.doctor.downloadLog">下载 .ndjson</button><button type="button" id="debugDownloadPlainBtn" class="btn btn-sm" data-i18n="privacy.export.plain" data-i18n-attr="title:privacy.export.plainNotice">导出明文副本</button>
                     <label class="mini-check"><input type="checkbox" id="debugAutoscroll" checked /> <span data-i18n="settings.doctor.followLog">跟随</span></label>
                   </div>
                 </div>
@@ -1970,7 +1970,7 @@
                   <option value="html">HTML</option>
                   <option value="json">JSON</option>
                 </select>
-                <button type="button" id="settingsExportSessionBtn" class="btn btn-sm" data-i18n="settings.storage.exportSession">导出当前线程</button>
+                <button type="button" id="settingsExportSessionBtn" class="btn btn-sm" data-i18n="settings.storage.exportSession">导出当前线程</button><button type="button" id="settingsExportSessionPlainBtn" class="btn btn-sm" data-i18n="privacy.export.plain" data-i18n-attr="title:privacy.export.plainNotice">导出明文副本</button>
                 <button type="button" id="settingsImportSessionBtn" class="btn btn-sm" data-i18n="settings.storage.importSession">导入线程（.json）</button>
                 <button type="button" id="settingsViewLogsBtn" class="btn btn-sm" data-i18n="settings.storage.viewLogs">查看日志</button>
               </div>

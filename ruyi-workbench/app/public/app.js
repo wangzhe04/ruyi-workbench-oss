@@ -1,4 +1,5 @@
 'use strict';
+import { downloadPrivacyExport } from './js/privacy-export.js';
 /* ============================================================
    如意 Ruyi — client (overlay v0.3;原 Win Claude Workbench,v0.8-S8 品牌落地)
    ============================================================ */
@@ -1145,6 +1146,7 @@ function bindEvents() {
   $('refreshDoctorBtn').onclick = () => refreshStatus();
   $('debugClearBtn').onclick = () => { state.rawEvents = []; $('rawEvents').innerHTML = ''; };
   $('debugDownloadBtn').onclick = downloadRawEvents;
+  $('debugDownloadPlainBtn').onclick = () => downloadRawEvents(true);
 
   // settings modal
   $('saveConfigBtn').onclick = saveSettings;
@@ -1197,11 +1199,8 @@ function bindEvents() {
     else if (e.key === '?' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) { openModal('helpModal'); }
   });
 }
-function downloadRawEvents() {
-  const blob = new Blob([state.rawEvents.map(r => r.line).join('\n')], { type: 'application/x-ndjson' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `claude-events-${Date.now()}.ndjson`; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+function downloadRawEvents(plaintext = false) {
+  return downloadPrivacyExport({ kind: 'raw-events', events: state.rawEvents.map(item => ({ ...item })), plaintext: plaintext === true });
 }
 
 /* ---------------- v1.5 (§1.3): 首次连接失败故障卡 ---------------- */

@@ -1493,6 +1493,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/privacy/rules/test', auth: 'token' },
   { m: 'POST', p: '/api/privacy/use-native', auth: 'token' },
   { m: 'POST', p: '/api/privacy/backup/export', auth: 'token' },
+  { m: 'POST', p: '/api/privacy/export', auth: 'token' },
   { m: 'POST', p: '/api/privacy/backup/preview', auth: 'token' },
   { m: 'POST', p: '/api/privacy/backup/import', auth: 'token' },
   { m: 'GET', p: '/api/external-bots/connections', auth: 'token' },
@@ -15917,11 +15918,14 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     if (!entry || entry.signature !== signature) {
       if (entry?.busy) fail('policy_changed');
       if (!entry && loaded.size >= 128) {
-        const victim = [...loaded].find(([, value]) => !value.busy); if (!victim) fail('scope_capacity');
-        (await victim[1].promise).scope.clear(); loaded.delete(victim[0]);
+        // Dirty mappings cannot disappear behind an unchanged disk identity.
+        const victim = [...loaded].find(([, value]) => !value.busy && value.value?.isPersisted()); if (!victim) fail('scope_capacity');
+        const evicted = await victim[1].promise;
+        if (loaded.get(victim[0]) !== victim[1] || victim[1].busy || !evicted.isPersisted()) fail('scope_capacity');
+        evicted.scope.clear(); loaded.delete(victim[0]);
       }
       const previous = entry;
-      entry = { signature, busy: 0 };
+      entry = { signature, busy: 0, token: Object.freeze({}), value: null };
       entry.promise = (async () => {
         const detector = makeDetector(config);
         const scope = core.createScope({ scopeId, detector, ttlMs: 365 * 86400000 });
@@ -15955,8 +15959,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
             if (pendingRevision === revision) pendingRevision = -1;
           }); writes = next; return next;
         };
-        return { scope, detector, persist, key };
-      })();
+        return { scope, detector, persist, key, isPersisted: () => pendingRevision === -1 && (scope.revision() === persistedRevision || (scope.revision() === 0 && scope.size() === 0)) };
+      })().then(value => { entry.value = value; return value; });
       loaded.set(key, entry);
       entry.promise.catch(() => { if (loaded.get(key) === entry) loaded.delete(key); });
     }
@@ -16142,6 +16146,73 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       containsExecutionReferences(record.value, record.context);
     }
     if (Object.hasOwn(binding, 'value') && JSON.stringify(binding.value) !== JSON.stringify(record.value)) fail('disclosure_changed');
+  }
+  const disclosureFs = require('node:fs');
+  function mappingIdentity(key) {
+    try {
+      const stat = disclosureFs.lstatSync(pathApi.join(host.data, 'privacy-scopes', key + '.json'), { bigint: true });
+      if (!stat.isFile() || stat.isSymbolicLink()) fail('mapping_invalid');
+      return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
+    } catch (error) { if (error.code === 'ENOENT') return 'missing'; throw error; }
+  }
+  function mappingGuard(context) {
+    const key = keyOf(context.scopeId), entry = loaded.get(key), revision = context.scope.revision();
+    if (!entry?.value?.isPersisted()) fail('disclosure_dirty');
+    const token = entry.token, identity = mappingIdentity(key);
+    return guardMappingMetadata(key, token, revision, identity);
+  }
+  function guardMappingMetadata(key, token, revision, identity) {
+    // Retain metadata only: no scope, entry, context or mapping originals survive.
+    return () => {
+      const current = loaded.get(key);
+      if (current && (!current.value?.isPersisted() || (current.token === token && current.value.scope.revision() !== revision))) fail('disclosure_dirty');
+      if (mappingIdentity(key) !== identity) fail('disclosure_dirty');
+    };
+  }
+  // Export capabilities bind persisted mapping identities across LRU eviction.
+  // Client scope declarations are never restoration authority.
+  async function prepareMultiSourceDisclosure(value, scopeIds, binding) {
+    if (!Array.isArray(scopeIds) || scopeIds.length > 2048 || scopeIds.some(id => typeof id !== 'string' || !id || id.length > 160)) fail('scope_invalid');
+    const policyGuard = disclosurePolicyGuard();
+    if (currentPolicy.mode === 'off') return { value: structuredClone(value), assert: policyGuard };
+    if (!scopeIds.length) fail('scope_invalid');
+    const policy = currentPolicy.signature, proofs = [];
+    let copy = foreignView(structuredClone(value));
+    for (const id of [...new Set(scopeIds)]) {
+      await withPolicy(id, async () => {
+        if (policy !== currentPolicy.signature) fail('policy_changed');
+        const prepared = await prepareDisclosure(copy, binding);
+        assertDisclosure(prepared.receipt, binding);
+        proofs.push(mappingGuard(active()));
+        copy = foreignView(prepared.value);
+      });
+    }
+    if (policy !== currentPolicy.signature) fail('policy_changed');
+    const assert = () => {
+      if (policy !== currentPolicy.signature) fail('policy_changed');
+      policyGuard();
+      for (const proof of proofs) proof();
+    };
+    assert();
+    return { value: copy, assert };
+  }
+  function disclosurePolicyGuard() {
+    assertPolicyAvailable();
+    const signature = currentPolicy.signature;
+    return () => { assertPolicyAvailable(); if (signature !== currentPolicy.signature) fail('policy_changed'); };
+  }
+  async function prepareLocalDisclosure(scopeId, work) {
+    const policyGuard = disclosurePolicyGuard(), key = keyOf(scopeId);
+    const pending = loaded.get(key);
+    if (pending && !pending.value) await pending.promise;
+    policyGuard();
+    const current = loaded.get(key);
+    const sourceGuard = guardMappingMetadata(key, current?.token, current?.value?.scope.revision(), mappingIdentity(key));
+    const assert = () => { policyGuard(); sourceGuard(); };
+    assert();
+    const value = await work();
+    assert();
+    return { value, assert };
   }
   // Host-only cross-thread metadata projection. These aliases belong to the source
   // transcript, so never resolve or admit them into another conversation's scope.
@@ -17235,7 +17306,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { unavailable = true; }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
@@ -76953,7 +77024,16 @@ function stewardMemoryScopeLabel(scope, config) {
 
 // ── 管家记忆存储(§4)────────────────────────────────────────────────────────────────────
 const stewardMemoryPath = () => path.join(stewardDir(), STEWARD_MEMORY_FILE);
+// 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
+// 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。
+async function stewardPanelGate(req) {
+  if (!tokenOk(req)) return apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403);
+  const config = await readConfig();
+  if (config.stewardEnabledV1 !== true) return apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409);
+  return null;
+}
 let stewardMemoryChain = Promise.resolve();
+let stewardMemoryWriteEpoch = 0;
 function stewardEmptyMemoryStore() { return { schema: STEWARD_MEMORY_SCHEMA, updatedAt: '', entries: [] }; }
 function stewardNormalizeMemoryEntry(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -77030,9 +77110,12 @@ function stewardMutateMemory(mutator) {
     const store = await stewardReadMemoryStore();
     const outcome = await mutator(store);
     if (outcome && outcome.persist) {
-      store.updatedAt = nowIso();
-      await fsp.mkdir(stewardDir(), { recursive: true });
-      await atomicWriteJson(stewardMemoryPath(), store);
+      stewardMemoryWriteEpoch++;
+      try {
+        store.updatedAt = nowIso();
+        await fsp.mkdir(stewardDir(), { recursive: true });
+        await atomicWriteJson(stewardMemoryPath(), store);
+      } finally { stewardMemoryWriteEpoch++; }
     }
     return outcome ? outcome.result : null;
   });
@@ -80831,14 +80914,6 @@ async function stewardImplSkillToggle(args, ctx, config) {
 // ────────────────────────────────────────────────────────────────────────────
 // 形态与 handleOverlayApiRoutes 一致:命中即 send(调用方以 res.writableEnded 为命中信号),
 // 不命中就自然返回让路由链继续(不写前缀早退守卫 —— 那会在路由清册里多出一个无鉴权首配的裸前缀判定点)。
-// 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
-// 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。
-async function stewardPanelGate(req) {
-  if (!tokenOk(req)) return apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403);
-  const config = await readConfig();
-  if (config.stewardEnabledV1 !== true) return apiFailure('steward.disabled', {}, 'steward is disabled (stewardEnabledV1=false)', 409);
-  return null;
-}
 // 域层稳定信封 -> 路由层 apiFailure(不转的话会被 normalizeApiErrorPayload 归一成 api.request_failed)。
 function stewardPanelFailure(result) {
   const code = String((result && result.error) || 'invalid_request');
@@ -80925,7 +81000,14 @@ async function handleStewardApiRoutes(req, res, pathname) {
 
   if (req.method === 'GET' && pathname === '/api/steward/memory/export') {
     const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
-    return send(res, json(await stewardMemoryPanelExport()));
+    try {
+      const prepared = await StewardHooks.prepareMemoryExportCopy();
+      const response = json(prepared.payload, 200, { 'cache-control': 'no-store' });
+      prepared.assert(); return send(res, response);
+    } catch (error) {
+      const code = /^privacy\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed';
+      return send(res, apiFailure(code, {}, code, 409));
+    }
   }
 
   if (req.method === 'POST' && pathname === '/api/steward/memory/edit') {
@@ -89478,8 +89560,153 @@ const PrivacySettings = (() => {
 })();
 PrivacyCore.configHooks.stewardPrivacy = PrivacySettings.administer;
 PrivacyCore.configHooks.settleStewardPrivacy = PrivacySettings.settle;
+// Text copies have one host boundary. Proofs contain assertions, not private mappings.
+const PrivacyTextExports = (() => {
+  const proofs = new Map(), omitted = '[来源无法核验，内容未导出 / Unverified source: content withheld]';
+  const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const fail = code => { throw Object.assign(new Error(code), { code }); };
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  async function memorySource() {
+    const store = await stewardReadMemoryStore();
+    return { ok: true, schema: STEWARD_MEMORY_SCHEMA, entries: store.entries.filter(e => e.state === 'active') };
+  }
+  async function prepare(body, retainProof = true, operationGuard = PrivacyGateway.disclosurePolicyGuard()) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      operationGuard();
+      try { return await prepareOnce(body, retainProof, operationGuard); }
+      catch (error) { if (error.code !== 'privacy.disclosure_dirty' || attempt === 3) throw error; }
+    }
+  }
+  async function prepareOnce(body, retainProof, guard) {
+    const configGeneration = configReadGeneration;
+    const config = await readConfig(); guard();
+    if (body.kind === 'memory' && configGeneration !== configReadGeneration) fail('privacy.disclosure_dirty');
+    const enabled = PrivacyGateway.enabled(config), plaintext = body.plaintext === true;
+    const sourceGuards = []; let mappingGuardCount = 0;
+    let value, scopes = [], source, check, format = body.format, missing = false;
+    if (body.kind === 'session') {
+      const id = safeSessionId(body.sessionId);
+      if (!id || !(source = await loadSession(id))) fail('privacy.export_source_missing');
+      const sourceHash = hash(source), seq = sessionDiskWriteSeqOf(id);
+      sourceGuards.push(() => { if (sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); });
+      check = async () => { if (hash(await loadSession(id)) !== sourceHash || sessionDiskWriteSeqOf(id) !== seq) fail('privacy.export_source_changed'); };
+      scopes = [id];
+      let session = source;
+      if (plaintext || !enabled) {
+        const local = await PrivacyGateway.prepareLocalDisclosure(id, () => plaintext ? PrivacyGateway.restoreHistory(id, source)
+          : PrivacyGateway.displayEnvelope(id, { session: source }));
+        session = plaintext ? local.value : local.value.session; sourceGuards.push(local.assert);
+      }
+      format = ['json', 'html', 'md'].includes(format) ? format : 'md';
+      value = { session, filename: `${session.title || 'session'}.${format}` };
+    } else if (body.kind === 'memory') {
+      if (config.stewardEnabledV1 !== true) fail('privacy.export_source_changed');
+      await stewardMemoryChain;
+      const epoch = stewardMemoryWriteEpoch;
+      const memoryGuard = () => {
+        if (stewardMemoryWriteEpoch !== epoch || epoch % 2) fail('privacy.export_source_changed');
+        if (configReadGeneration !== configGeneration) fail('privacy.disclosure_dirty');
+      };
+      memoryGuard(); sourceGuards.push(memoryGuard);
+      source = await memorySource(); const originalHash = hash(source);
+      check = async () => {
+        if ((await readConfig()).stewardEnabledV1 !== true || hash(await memorySource()) !== originalHash) fail('privacy.export_source_changed');
+      };
+      scopes = [STEWARD_SESSION_ID];
+      const entries = [];
+      for (const entry of source.entries) {
+        const ids = [entry.sourceSessionId, ...(entry.mergedFrom || []).map(ref => ref.sessionId)].filter(Boolean);
+        const valid = [];
+        for (const id of [...new Set(ids)]) if (safeSessionId(id)) valid.push(id);
+        if (enabled && (!ids.length || valid.length !== new Set(ids).size)) {
+          missing = true; entries.push({ id: entry.id, state: entry.state, contentWithheld: true, text: omitted });
+        } else if (enabled && !plaintext) {
+          const copy = await PrivacyGateway.prepareMultiSourceDisclosure(entry, [...new Set([STEWARD_SESSION_ID, ...valid])], { recipient: 'user-file-copy', purpose: 'text-export:memory-entry', sourceHash: hash(entry) });
+          mappingGuardCount += new Set([STEWARD_SESSION_ID, ...valid]).size;
+          entries.push(copy.value); sourceGuards.push(copy.assert);
+        } else { entries.push(entry); scopes.push(...valid); }
+      }
+      // Memory may contain aliases from merged sources. Explicit plaintext copies
+      // retain local raw text but never guess which scope owns such an alias.
+      value = { payload: { ...source, exportedAt: nowIso(), entries }, filename: 'steward-memory.json' };
+      if (plaintext && enabled) {
+        const before = JSON.stringify(value); value = PrivacyGateway.foreignView(value);
+        missing ||= before !== JSON.stringify(value);
+      }
+      if (enabled && !plaintext) scopes = [STEWARD_SESSION_ID];
+      format = 'json';
+    } else if (body.kind === 'raw-events') {
+      if (!Array.isArray(body.events) || body.events.length > 2000 || Buffer.byteLength(JSON.stringify(body.events)) > 1024 * 1024) fail('privacy.body_limit');
+      source = structuredClone(body.events); check = async () => {};
+      const events = [], groups = new Map();
+      const sourceSessions = new Map();
+      for (const event of source) {
+        if (!event || typeof event.line !== 'string' || !Number.isSafeInteger(event.seq)) fail('privacy.export_invalid');
+        const id = typeof event.sourceSessionId === 'string' && safeSessionId(event.sourceSessionId);
+        if (id && !sourceSessions.has(id)) sourceSessions.set(id, await loadSession(id));
+        const valid = id && sourceSessions.get(id);
+        if (enabled && !plaintext && !valid) { missing = true; events.push(JSON.stringify({ seq: event.seq, contentWithheld: true, message: omitted })); }
+        else {
+          const index = events.push(event.line) - 1;
+          if (valid && enabled && !plaintext) {
+            if (!groups.has(id)) groups.set(id, []);
+            groups.get(id).push({ index, line: event.line });
+          }
+        }
+      }
+      for (const [id, group] of groups) {
+        const copy = await PrivacyGateway.prepareMultiSourceDisclosure(group.map(row => row.line), [id], { recipient: 'user-file-copy', purpose: 'text-export:raw-group', sourceHash: hash(group) });
+        mappingGuardCount++;
+        group.forEach((row, index) => { events[row.index] = copy.value[index]; }); sourceGuards.push(copy.assert);
+      }
+      // Submitted debug lines are requested local content, never restoration proof.
+      value = { events, filename: `claude-events-${Date.now()}.ndjson` }; format = 'ndjson';
+    } else fail('privacy.export_invalid');
+    scopes = [...new Set(scopes)];
+    if (!scopes.length) scopes = [STEWARD_SESSION_ID];
+    if (enabled && !plaintext && Buffer.byteLength(JSON.stringify(value)) > 8 * 1024 * 1024) fail('privacy.export_source_limit');
+    const binding = { recipient: 'user-file-copy', purpose: 'text-export:' + body.kind, sourceHash: hash(source) };
+    const sourceGuard = plaintext && enabled ? await PrivacyGateway.prepareMultiSourceDisclosure(null, scopes, binding) : null;
+    const prepared = plaintext || !enabled ? { value, assert: () => { guard(); sourceGuard?.assert(); } } : await PrivacyGateway.prepareMultiSourceDisclosure(value, scopes, binding);
+    mappingGuardCount += scopes.length;
+    value = prepared.value;
+    let content, mime;
+    if (body.kind === 'session') {
+      const s = value.session;
+      if (format === 'json') { content = JSON.stringify(s, null, 2); mime = 'application/json'; }
+      else if (format === 'html') {
+        const rows = (s.messages || []).map(m => `<div class="m ${escape(m.role)}"><b>${escape(m.role)}</b><pre>${escape(m.content || '')}</pre></div>`).join('\n');
+        content = `<!doctype html><meta charset="utf-8"><title>${escape(s.title || '')}</title><style>body{font-family:sans-serif;max-width:820px;margin:2rem auto}pre{white-space:pre-wrap;background:#f4f4f4;padding:8px;border-radius:6px}.m{margin:1rem 0}</style><h1>${escape(s.title || '')}</h1>${rows}`; mime = 'text/html';
+      } else { content = `# ${s.title || 'Session'}\n\n` + (s.messages || []).map(m => `## ${m.role}\n\n${m.content || ''}`).join('\n\n'); mime = 'text/markdown'; }
+    } else if (body.kind === 'memory') { content = JSON.stringify(value.payload, null, 2); mime = 'application/json'; }
+    else { content = value.events.join('\n'); mime = 'application/x-ndjson'; }
+    const assert = () => { guard(); prepared.assert(); for (const sourceGuard of sourceGuards) sourceGuard(); };
+    await check(); assert();
+    const filename = body.kind === 'session' ? `${(value.session.title || 'session').replace(/[^\w一-龥-]+/g, '_').slice(0, 40)}.${format}` : value.filename;
+    const artifact = { ok: true, filename, mime, content, protected: enabled && !plaintext, contentWithheld: missing };
+    if (!retainProof) return { artifact, assert, payload: value.payload };
+    const proof = crypto.randomBytes(24).toString('hex'), artifactHash = hash(artifact);
+    for (const [id, item] of proofs) if (item.expires < Date.now()) proofs.delete(id);
+    const bytes = 3 * (Buffer.byteLength(JSON.stringify(body)) + Buffer.byteLength(JSON.stringify(value)) + Buffer.byteLength(content)) + mappingGuardCount * 2048;
+    if (proofs.size >= 4 || bytes + [...proofs.values()].reduce((sum, item) => sum + item.bytes, 0) > 64 * 1024 * 1024) fail('privacy.export_busy');
+    proofs.set(proof, { expires: Date.now() + 60000, bytes, hash: artifactHash, check, assert, reprepare: () => prepare(body, true, guard) });
+    return { artifact: { ...artifact, proof, hash: artifactHash }, assert, payload: value.payload };
+  }
+  async function validate(body) {
+    const item = proofs.get(body.proof);
+    if (!item || item.expires < Date.now() || item.hash !== body.hash) fail('privacy.export_expired');
+    proofs.delete(body.proof);
+    await item.check();
+    try { item.assert(); return { assert: item.assert }; }
+    catch (error) { if (error.code !== 'privacy.disclosure_dirty') throw error; return item.reprepare(); }
+  }
+  return { prepare, validate };
+})();
+// The domain route loads earlier. Bind only its protected, proof-free memory
+// copy capability after this policy owner initializes; no raw fallback exists.
+StewardHooks.prepareMemoryExportCopy = () => PrivacyTextExports.prepare({ kind: 'memory' }, false);
 PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
-  const routes = new Set(['/api/privacy/status', '/api/privacy/settings', '/api/privacy/encryption', '/api/privacy/rules/test', '/api/privacy/use-native', '/api/privacy/backup/export', '/api/privacy/backup/preview', '/api/privacy/backup/import']);
+  const routes = new Set(['/api/privacy/export', '/api/privacy/status', '/api/privacy/settings', '/api/privacy/encryption', '/api/privacy/rules/test', '/api/privacy/use-native', '/api/privacy/backup/export', '/api/privacy/backup/preview', '/api/privacy/backup/import']);
   if (!routes.has(pathname)) return false;
   const reply = value => send(res, json(value, 200, { 'cache-control': 'no-store' }));
   const nativeProviders = config => (config.providers || []).filter(provider => provider.type === 'openai-compat' && provider.model && !String(provider.id).startsWith('toolbox-')).map(provider => ({ id: provider.id, label: provider.label || provider.id, model: provider.model }));
@@ -89509,7 +89736,14 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
     for await (const chunk of req) { bytes += chunk.length; if (bytes > cap) throw Object.assign(new Error(), { code: 'privacy.body_limit' }); chunks.push(chunk); }
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw Object.assign(new Error(), { code: 'privacy.settings_invalid' });
-    if (req.method === 'POST' && pathname === '/api/privacy/settings') {
+    if (pathname === '/api/privacy/export') {
+      if (body.kind === 'memory' && body.op !== 'validate') {
+        const gate = await stewardPanelGate(req); if (gate) { send(res, gate); return true; }
+      }
+      const prepared = body.op === 'validate' ? await PrivacyTextExports.validate(body) : await PrivacyTextExports.prepare(body);
+      const response = json(prepared.artifact || { ok: true }, 200, { 'cache-control': 'no-store' });
+      prepared.assert(); send(res, response);
+    } else if (req.method === 'POST' && pathname === '/api/privacy/settings') {
       reply(await PrivacySettings.apply(body));
     } else if (req.method === 'POST' && pathname === '/api/privacy/encryption') {
       await mutateConfig(current => {

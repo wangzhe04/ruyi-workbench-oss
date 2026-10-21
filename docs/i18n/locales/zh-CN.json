@@ -4453,5 +4453,14 @@
   ,"privacy.menuHint": "发送前替换敏感信息"
   ,"privacy.ruleEntryPending": "这条规则尚未加入草稿：请先添加或更新，或者取消编辑，再保存或重新读取。"
   ,"privacy.nativeSavedRefreshFailed": "默认引擎已保存，但状态刷新未完成。旧恢复预览已作废，请重新打开设置后核对；不要重复提交。"
-  ,"privacy.nativeCoverage": "所有服务商经工作台原生通道发出的模型文字请求，都会自动应用已保存的脱敏策略。更换模型或服务商，请使用原有的模型设置。"
+  ,"privacy.nativeCoverage": "所有服务商经工作台原生通道发出的模型文字请求，都会自动应用已保存的脱敏策略。更换模型或服务商，请使用原有的模型设置。",
+  "privacy.export.changed": "来源或设置已变化，请重新导出。",
+  "privacy.export.failed": "导出未完成，未下载文件。",
+  "privacy.export.plain": "导出明文副本",
+  "privacy.export.plainNotice": "此副本可能包含私密原文；仅用于本次导出，不能撤回已保存的副本。",
+  "privacy.export.protected": "已导出受保护副本。",
+  "privacy.export.saved": "副本已导出。",
+  "privacy.export.withheld": "已导出；无法核验来源的内容已明确省略。",
+  "privacy.export.busy": "导出正在准备或待下载，请完成当前导出后重试。",
+  "privacy.export.limit": "内容超出安全导出容量，请缩小导出范围；仅在确需原文时选择明文副本。"
 }

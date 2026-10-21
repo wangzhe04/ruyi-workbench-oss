@@ -101,6 +101,8 @@ function initHelpEntries() {
   // 2026-10 设置补全「存储与数据」：会话导出／导入与日志查看器修前只在命令面板与帮助菜单里。
   const exportBtn = $('settingsExportSessionBtn');
   if (exportBtn) exportBtn.onclick = () => exportSession(($('settingsExportFormat') || {}).value || 'md');
+  const plainExport = $('settingsExportSessionPlainBtn');
+  if (plainExport) plainExport.onclick = () => exportSession(($('settingsExportFormat') || {}).value || 'md', true);
   const importBtn = $('settingsImportSessionBtn'); if (importBtn) importBtn.onclick = () => importSession();
   const logsBtn = $('settingsViewLogsBtn'); if (logsBtn) logsBtn.onclick = () => helpMenu.openLogPanel();
 }

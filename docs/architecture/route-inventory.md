@@ -1,23 +1,24 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 175(精确 152 / 前缀 11 / 正则 12),ROUTE_AUTH 161 条,生成于 2026-10-20T13:37:41.688Z。
+> 判定点 176(精确 153 / 前缀 11 / 正则 12),ROUTE_AUTH 162 条,生成于 2026-10-21T09:48:52.939Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
-## 13ab-privacy-api.js(9)
+## 13ab-privacy-api.js(10)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/privacy/status` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | config-read-safety.e2e.js, privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
-| GET | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | privacy-gateway.e2e.js, privacy-config-health.test.js, privacy-missing-config-vault.test.js |
-| POST | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | privacy-gateway.e2e.js, privacy-config-health.test.js, privacy-missing-config-vault.test.js |
-| POST | `/api/privacy/encryption` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | offline-upgrade-drill.e2e.js, onboard.e2e.js, privacy-gateway.e2e.js 等 4 件 |
-| POST | `/api/privacy/rules/test` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | privacy-gateway.e2e.js |
-| POST | `/api/privacy/use-native` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | privacy-gateway.e2e.js |
-| POST | `/api/privacy/backup/export` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
-| POST | `/api/privacy/backup/preview` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
-| POST | `/api/privacy/backup/import` | exact | token | 13ab-privacy-api.js · `PrivacySettings` | privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
+| GET | `/api/privacy/status` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | config-read-safety.e2e.js, privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
+| GET | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js, privacy-config-health.test.js, privacy-missing-config-vault.test.js |
+| POST | `/api/privacy/export` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-text-export.e2e.js, steward-settings.static.e2e.js |
+| POST | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js, privacy-config-health.test.js, privacy-missing-config-vault.test.js |
+| POST | `/api/privacy/encryption` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | offline-upgrade-drill.e2e.js, onboard.e2e.js, privacy-gateway.e2e.js 等 4 件 |
+| POST | `/api/privacy/rules/test` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js |
+| POST | `/api/privacy/use-native` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js |
+| POST | `/api/privacy/backup/export` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
+| POST | `/api/privacy/backup/preview` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
+| POST | `/api/privacy/backup/import` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js, privacy-missing-config-vault.test.js |
 
 ## agent-run(5)
 
@@ -216,12 +217,12 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 257 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 258 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-id-path-guard.e2e.js, session-search.e2e.js, steward-runner.e2e.js 等 4 件 |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 257 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 258 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-bulk-cleanup.e2e.js |
 | GET | `/api/sessions/background-counts` | exact | token-browser self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | — |
-| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | acc-capability-gates.e2e.js, action-feedback.browser.e2e.js, agent-mode-v2.e2e.js 等 143 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | acc-capability-gates.e2e.js, action-feedback.browser.e2e.js, agent-mode-v2.e2e.js 等 144 件 |
 
 ## steer(2)
 
@@ -239,8 +240,8 @@
 | GET | `/api/steward/state` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | mission-index-late-materialize.e2e.js, rail-pocket.browser.e2e.js, steward-deliverable.e2e.js 等 11 件 |
 | GET | `/api/steward/inbox` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-presence-gate.e2e.js 等 5 件 |
 | GET | `/api/steward/preroute` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | external-bots.browser.e2e.js, keyboard-walkthrough.browser.e2e.js, steward-conversation.e2e.js 等 7 件 |
-| GET | `/api/steward/memory` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | action-feedback.static.e2e.js, rail-pocket.browser.e2e.js, steward-memory.e2e.js 等 6 件 |
-| GET | `/api/steward/memory/export` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | steward-memory.e2e.js, steward-settings.static.e2e.js |
+| GET | `/api/steward/memory` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | action-feedback.static.e2e.js, privacy-text-export.e2e.js, rail-pocket.browser.e2e.js 等 7 件 |
+| GET | `/api/steward/memory/export` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | privacy-text-export.e2e.js, steward-memory.e2e.js |
 | POST | `/api/steward/memory/edit` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | steward-memory.e2e.js, steward-settings.static.e2e.js |
 | POST | `/api/steward/memory/veto` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | steward-memory.e2e.js, steward-settings.static.e2e.js |
 | POST | `/api/steward/memory/restore` | exact | token | 13g-steward.js · `handleStewardApiRoutes` | steward-memory.e2e.js, steward-settings.static.e2e.js |
