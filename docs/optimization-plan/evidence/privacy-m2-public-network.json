@@ -1,0 +1,125 @@
+{
+  "date": "2026-10-21",
+  "baseline": "14e29878",
+  "scope": "M2-4 reduced public-network verification; M2-5 cancelled",
+  "status": "verified and independently reviewed",
+  "productChanges": false,
+  "serverSha256": "24468fb183f12fb45d10ae05a55767f8d54b4363188d614c0f1e7d340e945e99",
+  "test": {
+    "file": "dev-harness/privacy-public-network.e2e.js",
+    "sha256": "6fe0f9d0dc2bf205026784d38e65668f343668a33c95e086222fefc18d19fb08",
+    "matrix": "off/basic/enhanced/strict x main/child x direct/adaptive proxy =16",
+    "finalRuns": [
+      {
+        "log": "public-network-final-1.log",
+        "pass": 16,
+        "fail": 0,
+        "skip": 0,
+        "exit": 0
+      },
+      {
+        "log": "public-network-final-2.log",
+        "pass": 16,
+        "fail": 0,
+        "skip": 0,
+        "exit": 0
+      }
+    ]
+  },
+  "regression": {
+    "file": "deepseek-search-fetch.e2e.js",
+    "pass": 44,
+    "fail": 0,
+    "skip": 0,
+    "exit": 0,
+    "log": "deepseek-search-fetch.log",
+    "coverage": "existing cancellation/search/fetch/SSRF/redirect/auth/cache/error checks"
+  },
+  "contract": [
+    "Ordinary no-reference public query, fetch URL and HTTP request body reach real loopback receivers byte-for-byte; no additional confirmation flow.",
+    "With protection enabled private-reference query, URL and body each independently refuse before toolCall dispatch; no receiver hits and no original-value bytes.",
+    "Off passes opaque references literally; it does not restore prior-scope originals.",
+    "No new generic content filter, per-hop disclosure authorization, cache partitioning, plaintext classification, runtime dependency or public internet call."
+  ],
+  "independentReview": {
+    "reviewer": "release_priority",
+    "finding": "Original private http_request had both URL and body references, so could not independently prove body slot.",
+    "resolution": "HTTP URL is now a plain /private endpoint; only body contains the reference. Existing web_fetch negative covers URL separately. Final16-case runs passed twice.",
+    "remaining": "None; body-only negative independently confirmed with final test hash.",
+    "final": "Completed: final product/test hashes and8 raw hashes/sizes verified, actual unit/static/syntax/E2E logs and documentation state consistent; no remaining blocker."
+  },
+  "firstFailures": "No test failures. First two passes predated independent review coverage correction; preserved separately and not substituted for final fixed test.",
+  "limitations": [
+    "Configured fake DeepSeek endpoint tests actual API query/fetch payloads; public page target uses literal public IP without contacting it. Native HTTP uses a real loopback receiver.",
+    "Existing network safety checks were not replaced/mocked. The separate regression covers their current behavior.",
+    "This does not protect arbitrary manually entered plaintext or arbitrary scripts/MCP networking, and does not claim generic HTTP full-chain privacy.",
+    "No real provider, external platform, user data or release package acceptance."
+  ],
+  "rawEvidenceLocation": "../ruyi-workbench-maintenance-20261021/checks/m2-public-network",
+  "rawFiles": [
+    {
+      "file": "deepseek-search-fetch.log",
+      "sha256": "3aeb89b0b78a11e4c61b35240c7505f561ce6bbdaa8fec14a34bc30c92adeea7",
+      "bytes": 2425
+    },
+    {
+      "file": "fast-final.log",
+      "sha256": "8a161bba3ec05ddce2308727aa525f14f227e0872346ac0b3526511b7b562a99",
+      "bytes": 6183
+    },
+    {
+      "file": "public-network-final-1.log",
+      "sha256": "e9b96ddb74dfc14917debca3ee7f8e3a5972e2009187780799334d9e11eb1d61",
+      "bytes": 1760
+    },
+    {
+      "file": "public-network-final-2.log",
+      "sha256": "e9b96ddb74dfc14917debca3ee7f8e3a5972e2009187780799334d9e11eb1d61",
+      "bytes": 1760
+    },
+    {
+      "file": "public-network-first.log",
+      "sha256": "e9b96ddb74dfc14917debca3ee7f8e3a5972e2009187780799334d9e11eb1d61",
+      "bytes": 1760
+    },
+    {
+      "file": "public-network-second.log",
+      "sha256": "e9b96ddb74dfc14917debca3ee7f8e3a5972e2009187780799334d9e11eb1d61",
+      "bytes": 1760
+    },
+    {
+      "file": "syntax-final.log",
+      "sha256": "325400ec16033f5ab867368c7cccb04c31ae4a3e3afdb670e5d6b9dbf20894ca",
+      "bytes": 61
+    },
+    {
+      "file": "unit-final.log",
+      "sha256": "1f0a04068f0633f383e1897cfc0ccb3bda0e67d6cb09b915183fe8da9e33f8c5",
+      "bytes": 395628
+    }
+  ],
+  "unifiedGates": {
+    "node": "v24.14.0",
+    "syntax": {
+      "files": 1103,
+      "fail": 0,
+      "log": "syntax-final.log"
+    },
+    "build": "fresh, no product-source change",
+    "unit": {
+      "tests": 2532,
+      "pass": 2506,
+      "fail": 0,
+      "skipped": 26,
+      "duration_ms": 359456.9029
+    },
+    "fast": {
+      "pass": 80,
+      "fail": 0,
+      "flaky": 0,
+      "liveSkipped": 7,
+      "log": "fast-final.log"
+    }
+  },
+  "initialTestSha256": "f6055c69e20410d583ce1b562f76484695b9f1869d910f3a6370670e362712d6"
+}
