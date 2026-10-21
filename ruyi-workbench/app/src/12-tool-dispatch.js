@@ -243,6 +243,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 注意作用面:模型服务商回合里,代理到 list_tools / tool_search / tool_load / todo_write / mission_update / 代理工具族的调用
   // 在 09 入批处就被 unwrapProxiedControlCall 【有意】解开成直调(它们要活的回合闭包,经这里会是静默空操作),到不了这一行;
   // 这道闸拦的是 MCP / CLI 路径,以及没被解开的 permission_prompt 与 tool_invoke_* 自指(壳还原最多剥两层,剩下的在这里拒)。
+  if (!nativeToolAvailableInContext(targetName)) return ManagedMcp.rejected({ code: 'privacy.mcp_native_turn_required' });
   if (isControlPlaneToolName(targetName)) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   const config = await readConfig();
   const desktopOverride = await policyDesktopOverrideFor(ctx);
@@ -3255,6 +3256,7 @@ const INTEGRATION_TOOL_HANDLERS = {
       return { ok: true, servers: safeMcpInventory(cfg), browserAutomation: cfg.browserAutomation || defaultConfig().browserAutomation,
         note: 'env 仅返回键名，不返回可能含密钥的值。' };
   } },
+  mcp_resource: { paths: null, guardNote: '只读受管 MCP 资源；仅宿主签发 resourceId/cursor，不接受任意 URI 或原值还原许可', handler: async (args, ctx) => nativeToolAvailableInContext('mcp_resource') ? ManagedMcp.resource(args, ctx) : ManagedMcp.rejected({ code: 'privacy.mcp_native_turn_required' }) },
   mcp_configure: { paths: null, guardNote: "写应用配置(exec tier 门),不触任意文件路径", handler: async (args, ctx) => {
       const cfg = await readConfig(); // use latest disk config, not the turn-start snapshot
       return configureMcpFromTool(args, cfg);

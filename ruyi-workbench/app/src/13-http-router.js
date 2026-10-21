@@ -2566,6 +2566,7 @@ async function startMcp() {
           // 'steward' 一律隐藏 steward_*(fail-closed —— 普通 CLI 会话永远看不到管家工具)。
           const stewardSession = process.env.WCW_SESSION_KIND === 'steward';
           const listed = MCP_TOOLS.filter(t => {
+            if (!nativeToolAvailableInContext(t.name)) return false;
             if (t.name === 'request_user_input' && !userInputEnabled) return false;
             if (t.name === 'observation_recall' && !recallEnabled) return false; // 105a: 双开关门
             if (isStewardToolName(t.name) && !stewardSession) return false; // 116c: 管家工具族门

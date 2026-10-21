@@ -379,7 +379,7 @@ const TOOL_VERB_MAP = {
   debug_hypothesis: 'tools.verb.debug_hypothesis', dependency_inventory: 'tools.verb.dependency_inventory', docs_search: 'tools.verb.docs_search',
   file_list: 'tools.verb.file_list', file_read: 'tools.verb.file_read', file_search: 'tools.verb.file_search', frontend_audit: 'tools.verb.frontend_audit',
   agent_result: 'tools.verb.agent_result', // 代理模式 v2:按需读代理产出全文
-  glob: 'tools.verb.glob', list_tools: 'tools.verb.list_tools', mcp_configure: 'tools.verb.mcp_configure', mcp_list: 'tools.verb.mcp_list',
+  glob: 'tools.verb.glob', list_tools: 'tools.verb.list_tools', mcp_configure: 'tools.verb.mcp_configure', mcp_list: 'tools.verb.mcp_list', mcp_resource: 'tools.verb.mcp_resource',
   mission_update: 'tools.verb.mission_update', observation_recall: 'tools.verb.observation_recall', office_open: 'tools.verb.office_open',
   orchestrate_agents: 'tools.verb.orchestrate_agents', permission_prompt: 'tools.verb.permission_prompt', project_snapshot: 'tools.verb.project_snapshot',
   request_user_input: 'tools.verb.request_user_input', skill_read: 'tools.verb.skill_read', spawn_agent: 'tools.verb.spawn_agent',

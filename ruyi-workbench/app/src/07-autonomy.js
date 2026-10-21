@@ -249,6 +249,11 @@ function nativeToolsAcceptingArgKeys(keys) {
   }
   return out;
 }
+// Resource handles and subscriptions exist only inside a host-managed native turn.
+// CLI/stdin RPCs deliberately have no cross-request resource capability state.
+function nativeToolAvailableInContext(name) {
+  return name !== 'mcp_resource' || !!(ManagedMcp.active() && !ManagedMcp.active().ended);
+}
 function buildOpenAiTools(config, caps, opts) {
   // 116f: 管家会话标记。为 true 时本函数【只】返回 steward_*(收口在末尾的唯一出口,见那里的注释)。
   const stewardSession = !!(opts && opts.stewardSession === true);
@@ -276,6 +281,7 @@ function buildOpenAiTools(config, caps, opts) {
   // tools under 「当前不可用」 so the model is told why they're absent.
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   for (const t of MCP_TOOLS) {
+    if (!nativeToolAvailableInContext(t.name)) continue;
     if (t.name === 'list_tools' || t.name === 'tool_search' || t.name === 'tool_load' || t.name.startsWith('tool_invoke_')) continue;
     if (t.name === 'permission_prompt') continue;
     if (t.name === 'request_user_input' && noAgentTools) continue;
@@ -382,7 +388,7 @@ const NATIVE_TOOL_TIER = {
   git_diff: 'read', git_log: 'read', // v1.0-S4: read-only git inspection → auto-allow
   git_commit: 'exec', // v1.0-S4: commit triggers .git/hooks (arbitrary code) → must be exec (never lower)
   dependency_inventory: 'read', code_review_scan: 'read', frontend_audit: 'read', claude_md_audit: 'read', docs_search: 'read', codebase_symbol_search: 'read', debug_hypothesis: 'read', data_profile: 'read',
-  mcp_list: 'read', mcp_configure: 'exec',
+  mcp_list: 'read', mcp_resource: 'read', mcp_configure: 'exec',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
   // C2(61 号文):会话草稿本与 todo_write 同类 —— 只写工作台自有的会话旁车(sessions/<id>.scratchpad.json),不碰用户文件、
@@ -602,7 +608,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
   archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', send_to_agent: 'agents', skill_read: 'skills',
   playbook_list: 'skills', playbook_read: 'skills', skill_list: 'skills', // 61 号文 C1:不进 PROVIDER_STARTER_TOOLS(起手工具影响前缀缓存),说到 Playbook/技能时 classifyToolPacks 带出
-  mcp_list: 'integrations', mcp_configure: 'integrations',
+  mcp_list: 'integrations', mcp_resource: 'integrations', mcp_configure: 'integrations',
   // 116c: 管家工具族全部归 steward 包 —— 普通会话的 classifyToolPacks 永远不会路由到这个包
   // (四个 offer 面在包路由【之前】就按 isStewardToolName 拦掉了,包只是目录归属的一致性声明)。
   steward_self_status: 'steward', steward_threads_search: 'steward', steward_thread_status: 'steward',

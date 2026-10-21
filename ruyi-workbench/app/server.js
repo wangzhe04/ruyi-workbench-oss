@@ -2751,7 +2751,11 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       }
       scan(/\beyJ[A-Za-z0-9_-]+\.[ \t]*(?:\r?\n[ \t]*)?[A-Za-z0-9_-]+\.[ \t]*(?:\r?\n[ \t]*)?[A-Za-z0-9_-]+\b/g, 'CREDENTIAL', 'builtin.jwt');
       scan(/(?:^|[\r\n])[ \t]*(?:Cookie|Set-Cookie)[ \t]*:[ \t]*([^\r\n]+)/gi, 'CREDENTIAL', 'builtin.cookie', 1, value => /\S/.test(value));
-      scan(/\b[a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@/]{1,256}:([^\s@/]{1,4096})@/gi, 'CREDENTIAL', 'builtin.url-password', 1);
+      // JSON wrapper spelling cannot form userinfo across quotes or escapes. Actual
+      // decoded string values retain the full raw URL rule, including apostrophes.
+      scan(context[lexicalJsonSource] === 'automatic'
+        ? /\b[a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@/"\\<>]{1,256}:([^\s@/"\\<>]{1,4096})@/gi
+        : /\b[a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@/]{1,256}:([^\s@/]{1,4096})@/gi, 'CREDENTIAL', 'builtin.url-password', 1);
       scan(/[?&](?:access_token|api_key|apikey|token|signature|x-amz-signature|x-amz-credential)=([^&#\s"']+)/gi, 'CREDENTIAL', 'builtin.signed-url', 1);
       // Match field names exactly at their suffix. maxTokens/tokenCount stay intact.
       scan(/(?:^|[\s{,;])(?:["']?)(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))["']?\s*[:=]\s*"([^"\r\n]+)"/gi, 'CREDENTIAL', 'builtin.quoted-field', 1);
@@ -18574,6 +18578,230 @@ function mcpBridgeError(message, kind) {
   return e;
 }
 
+// Managed MCP capabilities are host-only. No model-provided scope, URI or schema grants restoration.
+const ManagedMcp = (() => {
+  const local = new (require('node:async_hooks').AsyncLocalStorage)();
+  const listeners = new WeakMap(), statesByClient = new WeakMap();
+  const MAX = Object.freeze({ handles: 256, events: 64, eventBytes: 65536, resultBytes: 1048576, ttl: 60000 });
+  const fail = code => {
+    const hints = {
+      'privacy.mcp_resource_binary_unsupported': '此只读资源入口仅支持文字；请使用已支持的媒体通路。 / This read-only resource operation supports text only; use a supported media path.',
+      'privacy.mcp_resource_limit': '资源超出本次读取预算；请缩小范围或读取下一页。 / Resource budget exceeded; narrow the selection or read the next page.',
+      'privacy.mcp_resource_unsupported': '该连接器未声明资源能力；请检查其工具或连接配置。 / This connector does not advertise resources; check its tools or connection settings.',
+      'privacy.mcp_resource_invalid': '资源请求或响应格式不受支持；请重新列出资源。 / Unsupported resource request or response; list resources again.',
+      'privacy.mcp_resource_unavailable': '连接器暂不可用；检查连接后重试。 / Connector unavailable; check the connection and retry.',
+    };
+    const error = new Error(hints[code] || '连接、策略或资源已变化；请重新列出资源后重试。 / Connection, policy or resource changed; list resources again and retry.');
+    error.code = code; throw error;
+  };
+  function rejected(error) {
+    return { ok: false, code: error.code,
+      error: '请求在发送前被拒绝：连接、保护策略或引用用途不匹配。请检查连接或改用有明确授权的本地工具；不要重复粘贴同一隐私代号。 / Request refused before dispatch: connector, privacy policy or reference purpose does not match. Check the connector or use an explicitly authorized local tool; do not repeatedly paste the same private reference.',
+      operationMayHaveExecuted: false };
+  }
+  function unavailable(error) {
+    return { ok: false, code: String(error.code || '').startsWith('privacy.') ? error.code : 'privacy.mcp_result_unavailable',
+      error: 'MCP操作可能已执行；结果因连接或保护策略变化被扣留，请勿为取回结果而重复副作用。 / The MCP operation may have executed; its result was withheld after a connection or privacy change. Do not repeat side effects to recover the result.',
+      operationMayHaveExecuted: true, resultUnavailable: true };
+  }
+  const clone = value => structuredClone(value);
+  const hash = value => require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const active = () => local.getStore();
+  async function runTurn(owner, work) {
+    const state = { owner, ended: false, handles: new Map(), events: [], eventBytes: 0, subscriptions: new Set(), clients: new Set(), guard: PrivacyGateway.disclosurePolicyGuard() };
+    return local.run(state, async () => {
+      try { return await work(); }
+      finally {
+        for (const subscription of state.subscriptions) {
+          listeners.get(subscription.client)?.delete(subscription);
+          // Best-effort teardown uses the same authority, never an unguarded URI dispatch.
+          if (!subscription.client.dead) subscription.client._rpc('resources/unsubscribe', { uri: subscription.uri }, 1000,
+            { managedAssert: () => assertTeardown(subscription) }).catch(() => {});
+        }
+        for (const client of state.clients) statesByClient.get(client)?.delete(state);
+        state.clients.clear(); state.ended = true;
+        state.handles.clear(); state.events.length = 0; state.subscriptions.clear();
+      }
+    });
+  }
+
+  function assertState(state) {
+    if (!state || state.ended || active() !== state) fail('privacy.mcp_turn_changed');
+    state.guard();
+  }
+  async function prepare(client, method, params, options = {}) {
+    const state = active();
+    if (!state) return { params, options };
+    assertState(state);
+    const generation = configReadGeneration;
+    const config = await readConfig();
+    assertState(state);
+    if (generation !== configReadGeneration) fail('privacy.mcp_recipient_changed');
+    const entry = resolveExternalMcpServers(config).find(item => item.id === client.id);
+    if (!entry || mcpClients.get(client.id) !== client || client.dead) fail('privacy.mcp_recipient_changed');
+    const fingerprint = mcpEntryFingerprint(entry), clientGeneration = mcpClientGen.get(client.id) || 0;
+    let states = statesByClient.get(client); if (!states) statesByClient.set(client, states = new Set());
+    states.add(state); state.clients.add(client);
+    // Unknown services receive no restoration capability. Existing literal/no-reference calls retain their bytes.
+    if (method === 'tools/call') await PrivacyGateway.revalidateExecution(params.name, params.arguments || {}, { bridge: { serverId: client.id, toolName: params.name } });
+    const snapshot = hash(params); let sent = false;
+    const assert = () => {
+      assertState(state);
+      if (options.signal?.aborted) fail('privacy.mcp_cancelled');
+      if (generation !== configReadGeneration || client.dead || mcpClients.get(client.id) !== client
+        || (mcpClientGen.get(client.id) || 0) !== clientGeneration || mcpClientFingerprints.get(client.id) !== fingerprint) fail('privacy.mcp_recipient_changed');
+      if (snapshot !== hash(params)) fail('privacy.mcp_arguments_changed');
+    };
+    assert();
+    return { params, options: { ...options, managedAssert: assert, managedSent: () => { sent = true; } }, get sent() { return sent; }, identity: { client, fingerprint, clientGeneration, generation }, assert };
+  }
+  function assertIdentity(identity, state) {
+    assertState(state);
+    const { client, fingerprint, clientGeneration, generation } = identity;
+    if (client.dead || configReadGeneration !== generation || mcpClients.get(client.id) !== client
+      || mcpClientFingerprints.get(client.id) !== fingerprint || (mcpClientGen.get(client.id) || 0) !== clientGeneration) fail('privacy.mcp_recipient_changed');
+  }
+  function connectionIdentity(client) {
+    return hash([client.transport || 'stdio', client.command || '', client.args || [], client.cwd || '', client.env || {}, client.url || '', client.headers || {}, client._ssePostUrl || '', client._sessionId || '']);
+  }
+  function assertTeardown(subscription) {
+    // Release only an already-attempted subscription on its exact old connection.
+    // Policy/config changes cannot grant more work, but must not prevent cleanup.
+    const { client, fingerprint, clientGeneration } = subscription.identity;
+    if (client.dead) fail('privacy.mcp_recipient_changed');
+    if (mcpClients.get(client.id) !== client || mcpClientFingerprints.get(client.id) !== fingerprint
+      || (mcpClientGen.get(client.id) || 0) !== clientGeneration || connectionIdentity(client) !== subscription.connection
+      || (subscription.child && client.child !== subscription.child) || (subscription.sseRequest && client._sseReq !== subscription.sseRequest)) {
+      client.kill(); fail('privacy.mcp_recipient_changed');
+    }
+  }
+
+  function offer(state, value) {
+    for (const [key, record] of state.handles) if (record.expires < Date.now()) state.handles.delete(key);
+    if (state.handles.size >= MAX.handles) fail('privacy.mcp_resource_limit');
+    const id = require('node:crypto').randomBytes(18).toString('base64url');
+    state.handles.set(id, { ...value, expires: Date.now() + MAX.ttl }); return id;
+  }
+  function handle(state, id, kind, serverId) {
+    const record = state.handles.get(id);
+    if (!record || record.expires < Date.now() || record.kind !== kind || record.identity.client.id !== serverId) fail('privacy.mcp_resource_changed');
+    assertIdentity(record.identity, state); return record;
+  }
+  function notify(client, method, params) {
+    if (method === 'notifications/tools/list_changed') { client._toolsStale = true; bridgedCatalogCache.value = null; return; }
+    if (method === 'notifications/resources/list_changed') {
+      for (const state of statesByClient.get(client) || []) {
+        for (const [id, record] of state.handles) if (record.identity.client === client) state.handles.delete(id);
+      }
+      return;
+    }
+    if (method !== 'notifications/resources/updated' || typeof params?.uri !== 'string') return;
+    for (const subscription of listeners.get(client) || []) {
+      const state = subscription.state;
+      if (state.ended || subscription.uri !== params.uri) continue;
+      // Never retain arbitrary notification fields, credentials, binary payloads or server messages.
+      const event = { serverId: client.id, resourceId: subscription.resourceId, status: 'updated' };
+      const bytes = Buffer.byteLength(JSON.stringify(event));
+      if (state.events.length >= MAX.events || state.eventBytes + bytes > MAX.eventBytes) { state.overflow = true; continue; }
+      state.events.push({ event, identity: subscription.identity }); state.eventBytes += bytes;
+    }
+  }
+  function drain(value) {
+    const state = active(); if (!state || !state.events.length && !state.overflow) return value;
+    const events = state.events.splice(0); state.eventBytes = 0;
+    const output = []; let discarded = 0;
+    for (const item of events) {
+      try { assertIdentity(item.identity, state); output.push(item.event); }
+      catch { discarded++; } // Notification expiry must not change the original operation's receipt.
+    }
+    const overflow = state.overflow === true; state.overflow = false;
+    return { ...(value && typeof value === 'object' && !Array.isArray(value) ? value : { value }), mcpNotifications: { events: output, discarded, overflow, lifetime: 'current_turn_only' } };
+  }
+  function textResource(item) {
+    if (!item || typeof item.text !== 'string' || typeof item.uri !== 'string' || item.blob !== undefined
+      || !/^(?:text\/[a-z0-9.+-]+|application\/(?:json|xml|javascript))$/i.test(item.mimeType || 'text/plain')) fail('privacy.mcp_resource_binary_unsupported');
+    let nodes = 0;
+    const inspect = (value, depth = 0) => {
+      if (++nodes > 10000 || depth > 32) fail('privacy.mcp_resource_limit');
+      if (typeof value === 'string') {
+        if (/^data:[^,]+;base64,/i.test(value) || value.length > 8000 && /^[A-Za-z0-9+/=\r\n]+$/.test(value)) fail('privacy.mcp_resource_binary_unsupported');
+      } else if (value && typeof value === 'object') {
+        if (Buffer.isBuffer(value)) fail('privacy.mcp_resource_binary_unsupported');
+        for (const [key, field] of Object.entries(value)) {
+          if (/^(?:blob|base64|image|audio|video|image_base64|screenshot)$/i.test(key)) fail('privacy.mcp_resource_binary_unsupported');
+          inspect(field, depth + 1);
+        }
+      }
+    };
+    // Return only protocol text-resource fields; extension media fields cannot masquerade as text.
+    const value = { uri: item.uri, text: item.text, ...(item.mimeType ? { mimeType: item.mimeType } : {}),
+      ...(item._meta ? { _meta: clone(item._meta) } : {}), ...(item.annotations ? { annotations: clone(item.annotations) } : {}) };
+    inspect(value); return value;
+  }
+
+  async function resource(args, ctx) {
+    const state = active(); assertState(state);
+    if (!args || typeof args.serverId !== 'string' || !['list', 'templates', 'read'].includes(args.operation)) fail('privacy.mcp_resource_invalid');
+    const guard = PrivacyGateway.disclosurePolicyGuard();
+    const config = await readConfig(); guard();
+    const client = await getBridgedClient(args.serverId, config); guard(); assertState(state);
+    if (!client) fail('privacy.mcp_resource_unavailable');
+    if (!client.capabilities?.resources) fail('privacy.mcp_resource_unsupported');
+    const operation = args.operation;
+    let params = {}, source, selected;
+    if (operation === 'read') { source = handle(state, args.resourceId, 'resource', args.serverId); selected = { id: args.resourceId, kind: 'resource' }; params.uri = source.uri; }
+    else if (args.cursor) { source = handle(state, args.cursor, operation, args.serverId); selected = { id: args.cursor, kind: operation }; params.cursor = source.cursor; }
+    const method = operation === 'list' ? 'resources/list' : operation === 'templates' ? 'resources/templates/list' : 'resources/read';
+    const prepared = await prepare(client, method, params, ctx?.signal ? { signal: ctx.signal } : {});
+    const assertSelected = () => { if (selected && handle(state, selected.id, selected.kind, args.serverId) !== source) fail('privacy.mcp_resource_changed'); };
+    assertSelected();
+    const dispatchAssert = prepared.options.managedAssert;
+    prepared.options.managedAssert = () => { dispatchAssert(); assertSelected(); };
+    let result;
+    try {
+      result = await client._rpc(method, prepared.params, 10000, prepared.options);
+      prepared.assert(); assertSelected();
+    } catch (error) { if (prepared.sent) return unavailable(error); throw error; }
+    if (Buffer.byteLength(JSON.stringify(result)) > MAX.resultBytes) fail('privacy.mcp_resource_limit');
+    if (operation === 'read') {
+      if (!Array.isArray(result?.contents)) fail('privacy.mcp_resource_invalid');
+      const contents = result.contents.map(textResource);
+      if (client.capabilities.resources.subscribe === true && ![...state.subscriptions].some(item => item.client === client && item.uri === source.uri)) {
+        const subscription = { client, uri: source.uri, resourceId: args.resourceId, state, identity: prepared.identity, connection: connectionIdentity(client), child: client.child, sseRequest: client._sseReq };
+        let set = listeners.get(client); if (!set) listeners.set(client, set = new Set());
+        set.add(subscription); state.subscriptions.add(subscription);
+        let sub;
+        try {
+          sub = await prepare(client, 'resources/subscribe', { uri: source.uri }, ctx?.signal ? { signal: ctx.signal } : {});
+          const subDispatchAssert = sub.options.managedAssert;
+          sub.options.managedAssert = () => { subDispatchAssert(); assertSelected(); };
+          await client._rpc('resources/subscribe', sub.params, 10000, sub.options); sub.assert(); assertSelected();
+        } catch (error) {
+          set.delete(subscription);
+          // Sent/unknown-outcome subscriptions still require exact-old-connection cleanup.
+          if (!sub?.sent) state.subscriptions.delete(subscription);
+          if (String(error.code || error.message).startsWith('privacy.')) { if (sub?.sent) return unavailable(error); throw error; }
+          try { prepared.assert(); assertSelected(); } catch (guardError) { if (sub?.sent) return unavailable(guardError); throw guardError; } // An unsupported optional subscription does not break an otherwise valid read.
+        }
+      }
+      return { ok: true, serverId: args.serverId, resourceId: args.resourceId, contents, subscriptionLifetime: 'current_turn_only' };
+    }
+    const key = operation === 'list' ? 'resources' : 'resourceTemplates';
+    if (!Array.isArray(result?.[key]) || result[key].length > MAX.handles) fail('privacy.mcp_resource_limit');
+    const items = result[key].map(item => {
+      if (!item || typeof item !== 'object') fail('privacy.mcp_resource_invalid');
+      if (operation === 'templates') return clone(item);
+      if (typeof item.uri !== 'string' || item.uri.length > 8192) fail('privacy.mcp_resource_invalid');
+      return { ...clone(item), resourceId: offer(state, { kind: 'resource', uri: item.uri, identity: prepared.identity }) };
+    });
+    const cursor = typeof result.nextCursor === 'string' && result.nextCursor.length <= 8192
+      ? offer(state, { kind: operation, cursor: result.nextCursor, identity: prepared.identity }) : undefined;
+    return { ok: true, serverId: args.serverId, [key]: items, ...(cursor ? { cursor } : {}), templatesAreListOnly: operation === 'templates' };
+  }
+  return Object.freeze({ active, runTurn, prepare, notify, drain, resource, unavailable, rejected });
+})();
+
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -18600,7 +18828,15 @@ class McpStdioClient {
   }
 
   // Send one JSON-RPC request and await its result (by id). Rejects on timeout/child death.
-  _rpc(method, params, timeoutMs = 8000, options = {}) {
+  async _rpc(method, params, timeoutMs = 8000, options = {}) {
+    if (method === 'tools/call' && !options.managedAssert && ManagedMcp.active()) {
+      const prepared = await ManagedMcp.prepare(this, method, params, options);
+      let result, rpcError;
+      try { result = await this._rpc(method, prepared.params, timeoutMs, prepared.options); } catch (error) { rpcError = error; }
+      try { prepared.assert(); } catch (error) { error.mcpOperationMayHaveExecuted = prepared.sent; throw error; }
+      if (rpcError) throw rpcError;
+      return result;
+    }
     return new Promise((resolve, reject) => {
       if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) {
         return reject(new Error('mcp client not running'));
@@ -18633,7 +18869,10 @@ class McpStdioClient {
         if (signal.aborted) { abortHandler(); return; }
       }
       try {
-        this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params: params || {} }) + '\n', 'utf8');
+        const bytes = JSON.stringify({ jsonrpc: '2.0', id, method, params: params || {} }) + '\n';
+        if (options.managedAssert) options.managedAssert();
+        this.child.stdin.write(bytes, 'utf8');
+        if (options.managedSent) options.managedSent();
       } catch (e) {
         cleanup(); this._pending.delete(id); reject(e);
       }
@@ -18648,7 +18887,8 @@ class McpStdioClient {
     line = line.trim();
     if (!line) return;
     const msg = safeJsonParse(line);
-    if (!msg || msg.id == null) return;          // notifications/logs from the server: ignore
+    if (!msg) return;
+    if (msg.id == null) { if (msg.method) ManagedMcp.notify(this, msg.method, msg.params); return; }
     if (msg.method != null) {                     // 对端发起的请求(ping 等),不是给我们的响应
       if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) return;
       try { this.child.stdin.write(JSON.stringify(mcpServerRequestReply(msg)) + '\n', 'utf8'); } catch { /* ignore */ }
@@ -18743,6 +18983,7 @@ class McpStdioClient {
         clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 客户端标识名与 server id 一致
       }, mcpStartupRpcMs(this, 8000));
       this.serverInfo = (init && init.serverInfo) || {};
+      this.capabilities = (init && init.capabilities) || {};
       this._notify('notifications/initialized', {});
       this.tools = await this._listAllTools(mcpStartupRpcMs(this, 8000));
     } catch (e) {
@@ -18770,6 +19011,8 @@ class McpStdioClient {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
+      if (e && e.mcpOperationMayHaveExecuted) return ManagedMcp.unavailable(e);
+      if (String(e && e.code || '').startsWith('privacy.')) return ManagedMcp.rejected(e);
       const m = (e && e.message) ? e.message : String(e);
       if (e && e.mcpChildExit) return mcpChildExitResult(this, name, e.mcpChildExit);   // 审计 A14
       if (e && e.mcpTimeout) {
@@ -18867,6 +19110,7 @@ class McpHttpClient {
         if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
         resolve(why && value && value.error ? { ...value, why } : value);
       };
+      try { if (options.managedAssert) options.managedAssert(); } catch (error) { finish({ error: error.code || 'privacy.mcp_dispatch_changed' }); return; }
       const req = lib.request(u, {
         method,
         headers: { ...this._baseHeaders(extraHeaders), ...(bodyBuf ? { 'Content-Length': bodyBuf.length } : {}) },
@@ -18890,6 +19134,7 @@ class McpHttpClient {
       }
       if (bodyBuf) req.write(bodyBuf);
       req.end();
+      if (options.managedSent) options.managedSent();
     });
   }
 
@@ -18933,6 +19178,7 @@ class McpHttpClient {
     if (ctype.includes('text/event-stream')) msgs = McpHttpClient._parseSseMessages(resp.body.toString('utf8'));
     else { const j = safeJsonParse(resp.body.toString('utf8'), null); if (j) msgs = [j]; }
     // 带 method 的是对端发来的请求(同 id 撞号也不是给我们的响应)。
+    for (const item of msgs) if (item && item.id == null && item.method) ManagedMcp.notify(this, item.method, item.params);
     const mine = msgs.find(m => m && m.id === id && m.method == null);
     if (!mine && this._sessionId && (resp.status === 404 || resp.status === 400 || resp.status === 401) && method !== 'initialize') {
       // 服务端会话失效(对端重启 / 会话过期:规范要求回 404,客户端须不带旧 Mcp-Session-Id 重新 initialize)。
@@ -18991,7 +19237,15 @@ class McpHttpClient {
     });
   }
 
-  _rpc(method, params, timeoutMs = 8000, options = {}) {
+  async _rpc(method, params, timeoutMs = 8000, options = {}) {
+    if (method === 'tools/call' && !options.managedAssert && ManagedMcp.active()) {
+      const prepared = await ManagedMcp.prepare(this, method, params, options);
+      let result, rpcError;
+      try { result = await this._rpc(method, prepared.params, timeoutMs, prepared.options); } catch (error) { rpcError = error; }
+      try { prepared.assert(); } catch (error) { error.mcpOperationMayHaveExecuted = prepared.sent; throw error; }
+      if (rpcError) throw rpcError;
+      return result;
+    }
     return this.transport === 'sse' ? this._rpcSse(method, params, timeoutMs, options) : this._rpcHttp(method, params, timeoutMs, options);
   }
 
@@ -19049,8 +19303,8 @@ class McpHttpClient {
               if (msgObj.error) p.reject(new Error(msgObj.error.message || 'mcp error'));
               else p.resolve(msgObj.result);
             }
-          } else if (msgObj.method === 'notifications/tools/list_changed') {
-            this._toolsStale = true; // 03 §4.2:响应 tools/list_changed —— 下次 listTools 前重列
+          } else if (msgObj.method) {
+            ManagedMcp.notify(this, msgObj.method, msgObj.params);
           }
         };
         res.on('data', chunk => {
@@ -19101,6 +19355,7 @@ class McpHttpClient {
       clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION },
     }, timeoutMs);
     this.serverInfo = (init && init.serverInfo) || {};
+    this.capabilities = (init && init.capabilities) || {};
     this._notify('notifications/initialized', {});
     return init;
   }
@@ -19127,6 +19382,8 @@ class McpHttpClient {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
+      if (e && e.mcpOperationMayHaveExecuted) return ManagedMcp.unavailable(e);
+      if (String(e && e.code || '').startsWith('privacy.')) return ManagedMcp.rejected(e);
       const m = (e && e.message) ? e.message : String(e);
       if (e && e.mcpAborted) {
         try { this.kill(); } catch { /* already dead */ }
@@ -41434,6 +41691,11 @@ function nativeToolsAcceptingArgKeys(keys) {
   }
   return out;
 }
+// Resource handles and subscriptions exist only inside a host-managed native turn.
+// CLI/stdin RPCs deliberately have no cross-request resource capability state.
+function nativeToolAvailableInContext(name) {
+  return name !== 'mcp_resource' || !!(ManagedMcp.active() && !ManagedMcp.active().ended);
+}
 function buildOpenAiTools(config, caps, opts) {
   // 116f: 管家会话标记。为 true 时本函数【只】返回 steward_*(收口在末尾的唯一出口,见那里的注释)。
   const stewardSession = !!(opts && opts.stewardSession === true);
@@ -41461,6 +41723,7 @@ function buildOpenAiTools(config, caps, opts) {
   // tools under 「当前不可用」 so the model is told why they're absent.
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   for (const t of MCP_TOOLS) {
+    if (!nativeToolAvailableInContext(t.name)) continue;
     if (t.name === 'list_tools' || t.name === 'tool_search' || t.name === 'tool_load' || t.name.startsWith('tool_invoke_')) continue;
     if (t.name === 'permission_prompt') continue;
     if (t.name === 'request_user_input' && noAgentTools) continue;
@@ -41567,7 +41830,7 @@ const NATIVE_TOOL_TIER = {
   git_diff: 'read', git_log: 'read', // v1.0-S4: read-only git inspection → auto-allow
   git_commit: 'exec', // v1.0-S4: commit triggers .git/hooks (arbitrary code) → must be exec (never lower)
   dependency_inventory: 'read', code_review_scan: 'read', frontend_audit: 'read', claude_md_audit: 'read', docs_search: 'read', codebase_symbol_search: 'read', debug_hypothesis: 'read', data_profile: 'read',
-  mcp_list: 'read', mcp_configure: 'exec',
+  mcp_list: 'read', mcp_resource: 'read', mcp_configure: 'exec',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
   // C2(61 号文):会话草稿本与 todo_write 同类 —— 只写工作台自有的会话旁车(sessions/<id>.scratchpad.json),不碰用户文件、
@@ -41787,7 +42050,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
   archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', send_to_agent: 'agents', skill_read: 'skills',
   playbook_list: 'skills', playbook_read: 'skills', skill_list: 'skills', // 61 号文 C1:不进 PROVIDER_STARTER_TOOLS(起手工具影响前缀缓存),说到 Playbook/技能时 classifyToolPacks 带出
-  mcp_list: 'integrations', mcp_configure: 'integrations',
+  mcp_list: 'integrations', mcp_resource: 'integrations', mcp_configure: 'integrations',
   // 116c: 管家工具族全部归 steward 包 —— 普通会话的 classifyToolPacks 永远不会路由到这个包
   // (四个 offer 面在包路由【之前】就按 isStewardToolName 拦掉了,包只是目录归属的一致性声明)。
   steward_self_status: 'steward', steward_threads_search: 'steward', steward_thread_status: 'steward',
@@ -44552,6 +44815,7 @@ async function markInterruptedAgentRuns() {
 // 抛错,以及第一次模型调用之前就被中止(修前这条路 break 出循环时 initBeat 还在跳:每秒一条 subagent_progress,
 // 一直重写 run 快照直到进程退出,审计 t8)。本体登记停心跳的函数,这里的 finally 负责调用。
 async function runSubAgentCore(opts) {
+  if (typeof ManagedMcp !== 'undefined' && ManagedMcp.active()?.owner !== opts) return ManagedMcp.runTurn(opts, () => runSubAgentCore(opts));
   if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(opts.config) && !PrivacyGateway.active()) return PrivacyGateway.run(String(opts.parentSession?.id || 'workflow') + ':' + String(opts.subagentId || opts.agentKey || 'agent'), opts.config, () => runSubAgentCore(opts));
   const lifecycle = { stopBeats: null };
   try { return await runSubAgentCoreBody(opts, lifecycle); }
@@ -48796,6 +49060,7 @@ function emptyReplyNotice(locale, afterText) {
 }
 
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta, executionOwner, delegationPlan }) {
+  if (typeof ManagedMcp !== 'undefined' && ManagedMcp.active()?.owner !== arguments[0]) return ManagedMcp.runTurn(arguments[0], () => runOpenAiTurn(arguments[0]));
   if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(config) && !PrivacyGateway.active()) return PrivacyGateway.run(session.id, config, () => runOpenAiTurn(arguments[0]));
   assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
@@ -51858,6 +52123,7 @@ function truncateToolResult(name, jsonStr) {
 
 // 模型历史只编码受保护的完整结果；扫描与映射落盘完成后才收缩，保留已执行但结果扣留的回执。
 async function encodeModelToolResult(name, value) {
+  if (typeof ManagedMcp !== 'undefined') value = ManagedMcp.drain(value);
   const protectedResult = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(value) : value;
   return truncateToolResult(name, JSON.stringify(protectedResult));
 }
@@ -61225,6 +61491,7 @@ async function adaptiveCatalogForMcp(config, opts) {
   const recallEnabled = observationRecallEnabled(config);
   const stewardSession = !!(opts && opts.stewardSession === true);
   const native = MCP_TOOLS
+    .filter(t => nativeToolAvailableInContext(t && t.name))
     .filter(t => t && t.name && !t.name.startsWith('tool_invoke_') && t.name !== 'tool_load' && t.name !== 'permission_prompt') // permission_prompt 是 CLI 权限桥的内部入口,不能代理调用,别进 list_tools / tool_search
     .filter(t => t.name !== 'observation_recall' || recallEnabled) // 105a: 目录同样按双开关隐藏
     .filter(t => !isStewardToolName(t.name) || stewardSession) // 116c: 管家工具只进管家会话的目录
@@ -62401,6 +62668,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 注意作用面:模型服务商回合里,代理到 list_tools / tool_search / tool_load / todo_write / mission_update / 代理工具族的调用
   // 在 09 入批处就被 unwrapProxiedControlCall 【有意】解开成直调(它们要活的回合闭包,经这里会是静默空操作),到不了这一行;
   // 这道闸拦的是 MCP / CLI 路径,以及没被解开的 permission_prompt 与 tool_invoke_* 自指(壳还原最多剥两层,剩下的在这里拒)。
+  if (!nativeToolAvailableInContext(targetName)) return ManagedMcp.rejected({ code: 'privacy.mcp_native_turn_required' });
   if (isControlPlaneToolName(targetName)) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   const config = await readConfig();
   const desktopOverride = await policyDesktopOverrideFor(ctx);
@@ -65413,6 +65681,7 @@ const INTEGRATION_TOOL_HANDLERS = {
       return { ok: true, servers: safeMcpInventory(cfg), browserAutomation: cfg.browserAutomation || defaultConfig().browserAutomation,
         note: 'env 仅返回键名，不返回可能含密钥的值。' };
   } },
+  mcp_resource: { paths: null, guardNote: '只读受管 MCP 资源；仅宿主签发 resourceId/cursor，不接受任意 URI 或原值还原许可', handler: async (args, ctx) => nativeToolAvailableInContext('mcp_resource') ? ManagedMcp.resource(args, ctx) : ManagedMcp.rejected({ code: 'privacy.mcp_native_turn_required' }) },
   mcp_configure: { paths: null, guardNote: "写应用配置(exec tier 门),不触任意文件路径", handler: async (args, ctx) => {
       const cfg = await readConfig(); // use latest disk config, not the turn-start snapshot
       return configureMcpFromTool(args, cfg);
@@ -66536,6 +66805,11 @@ const MCP_TOOLS = [
     name: 'mcp_list',
     description: 'List the currently configured built-in and external MCP connectors, their launch command, argument list, working directory, environment key names, and browser target. Secret environment values are never returned. Use this before changing tool/MCP configuration.',
     inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'mcp_resource',
+    description: 'Read managed MCP resources. list returns short-lived resourceId handles and an opaque cursor; templates only lists templates and does not authorize constructing a URI. read accepts an offered resourceId, never an arbitrary URI. Supported resource updates accompany the next actual tool result in this turn only; no background delivery after the turn ends. Binary resources are not supported by this text operation.',
+    inputSchema: { type: 'object', properties: { serverId: { type: 'string' }, operation: { type: 'string', enum: ['list', 'templates', 'read'] }, resourceId: { type: 'string' }, cursor: { type: 'string' } }, required: ['serverId', 'operation'], additionalProperties: false },
   },
   {
     name: 'mcp_configure',
@@ -70243,6 +70517,7 @@ async function startMcp() {
           // 'steward' 一律隐藏 steward_*(fail-closed —— 普通 CLI 会话永远看不到管家工具)。
           const stewardSession = process.env.WCW_SESSION_KIND === 'steward';
           const listed = MCP_TOOLS.filter(t => {
+            if (!nativeToolAvailableInContext(t.name)) return false;
             if (t.name === 'request_user_input' && !userInputEnabled) return false;
             if (t.name === 'observation_recall' && !recallEnabled) return false; // 105a: 双开关门
             if (isStewardToolName(t.name) && !stewardSession) return false; // 116c: 管家工具族门

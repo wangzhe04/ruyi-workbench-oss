@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 88 | 3885 | 3502 | 630 | 67 | 0 | 1 |
+| 88 | 3887 | 3511 | 631 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -39,7 +39,7 @@
 | 21 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 22 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
 | 23 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
-| 24 | `04-permission-runtime.js` | foundation | 166 | 41 | 9 |
+| 24 | `04-permission-runtime.js` | foundation | 167 | 43 | 10 |
 | 25 | `04-desktop-shell.js` | foundation | 1 | 11 | 3 |
 | 26 | `04f-toolbox-services.js` | foundation | 26 | 14 | 3 |
 | 27 | `04h-provider-http.js` | foundation | 16 | 1 | 1 |
@@ -63,19 +63,19 @@
 | 45 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
 | 46 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 47 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 48 | `07-autonomy.js` | orchestration | 150 | 81 | 19 |
-| 49 | `08-agent-runs.js` | orchestration | 127 | 120 | 22 |
+| 48 | `07-autonomy.js` | orchestration | 151 | 82 | 19 |
+| 49 | `08-agent-runs.js` | orchestration | 127 | 121 | 22 |
 | 50 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 51 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 52 | `09-workflow.js` | orchestration | 32 | 270 | 28 |
-| 53 | `10-context-governance.js` | orchestration | 229 | 106 | 20 |
+| 52 | `09-workflow.js` | orchestration | 32 | 271 | 28 |
+| 53 | `10-context-governance.js` | orchestration | 229 | 107 | 20 |
 | 54 | `11-native-tools.js` | tools | 141 | 47 | 7 |
 | 55 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 56 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
 | 57 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
-| 58 | `12-tool-dispatch.js` | tools | 77 | 140 | 22 |
+| 58 | `12-tool-dispatch.js` | tools | 77 | 142 | 22 |
 | 59 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 60 | `13-http-router.js` | transport | 70 | 271 | 35 |
+| 60 | `13-http-router.js` | transport | 70 | 272 | 35 |
 | 61 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
 | 62 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 63 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
@@ -170,9 +170,10 @@
 | `04-desktop-shell.js` | `04-permission-runtime.js` | backward | `killChildTree` |
 | `04-permission-runtime.js` | `00-boot.js` | backward | `OVERLAY_ID`, `SessionExecutionHooks`, `URL`, `VERSION`, `cp`, `crypto`, `dataRoot`, `decodeTextFileBytes`, `ensureDirs`, `externalRoot`, `fs`, `fsp`, `http`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `04-permission-runtime.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_SERVER_ID`, `isRuyiMcpServerId` |
-| `04-permission-runtime.js` | `01-config.js` | backward | `BROWSER_AUTOMATION_MODES`, `bridgedEnvKeyStripped`, `detectDesktopMcp`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `selectedAgentCli` |
+| `04-permission-runtime.js` | `01-config.js` | backward | `BROWSER_AUTOMATION_MODES`, `bridgedEnvKeyStripped`, `configReadGeneration`, `detectDesktopMcp`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `selectedAgentCli` |
 | `04-permission-runtime.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
 | `04-permission-runtime.js` | `02-session-store.js` | backward | `registerIntervention`, `settleIntervention` |
+| `04-permission-runtime.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `04-permission-runtime.js` | `05-claude-engine.js` | forward | `collectDisplayUrlRestores`, `maskKey`, `mcpArgsForDisplay`, `restoreExternalMcpServerSecrets`, `sanitizeExternalMcpServer` |
 | `04-permission-runtime.js` | `06d-memory-domain.js` | forward | `legacyAccMemoryMigrationComplete` |
 | `04-permission-runtime.js` | `13d-core-domain-routes.js` | forward | `decideIntervention` |
@@ -289,7 +290,7 @@
 | `07-autonomy.js` | `02f-turn-effect-kinds.js` | backward | `unprefixedBridgedName` |
 | `07-autonomy.js` | `03-bridge-guard.js` | backward | `buildAttachmentPrompt`, `existsExecutableAsync`, `normalizeCwd`, `pathWithinRoot` |
 | `07-autonomy.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
-| `07-autonomy.js` | `04-permission-runtime.js` | backward | `PermissionWaitHooks`, `killChildTree`, `logEvent`, `parseClaudeEvent`, `pendingPermissions`, `pendingPlans`, `promptWaitMs`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
+| `07-autonomy.js` | `04-permission-runtime.js` | backward | `ManagedMcp`, `PermissionWaitHooks`, `killChildTree`, `logEvent`, `parseClaudeEvent`, `pendingPermissions`, `pendingPlans`, `promptWaitMs`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
 | `07-autonomy.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
 | `07-autonomy.js` | `04h-provider-http.js` | backward | `providerBaseIsLocalOrLan`, `providerModelPostOnce`, `providerRetryAfterMs`, `providerScrubSecrets`, `providerThrownErrorText`, `withTransientRetry` |
 | `07-autonomy.js` | `04i-provider-wire.js` | backward | `ProviderWireHooks`, `providerWireProtocol`, `providerWireProtocolForBody` |
@@ -307,7 +308,7 @@
 | `08-agent-runs.js` | `02d-session-overrides.js` | backward | `applySessionPermissionModeOverride`, `liveSessionPermissionMode`, `sessionDesktopToolsOf` |
 | `08-agent-runs.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `guardWorkspacePath`, `journalBridgedWrite`, `normalizeCwd`, `preflightWriteBoundary`, `privacyMapBounded` |
 | `08-agent-runs.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
-| `08-agent-runs.js` | `04-permission-runtime.js` | backward | `bridgedServerUnavailableMessage`, `collectBridgedTools`, `getBridgedClient`, `logEvent`, `pendingPermissions`, `permissionWaitMs`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
+| `08-agent-runs.js` | `04-permission-runtime.js` | backward | `ManagedMcp`, `bridgedServerUnavailableMessage`, `collectBridgedTools`, `getBridgedClient`, `logEvent`, `pendingPermissions`, `permissionWaitMs`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
 | `08-agent-runs.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
 | `08-agent-runs.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCallIsTransient`, `withTransientRetry` |
 | `08-agent-runs.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerServerSearchCard`, `providerWireOutputLimited`, `providerWireProtocol` |
@@ -331,7 +332,7 @@
 | `09-workflow.js` | `02f-turn-effect-kinds.js` | backward | `normalizeToolInvokeArgs`, `toolInvokeEnvelopeRepair` |
 | `09-workflow.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `buildAttachmentPrompt`, `buildDeliveryRevisionPrompt`, `cwdWarning`, `journalBridgedWrite`, `normalizeCwd`, `preflightWriteBoundary`, `privacyMapBounded` |
 | `09-workflow.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
-| `09-workflow.js` | `04-permission-runtime.js` | backward | `activeChildren`, `appendLiveTail`, `assertSessionExecutionOwner`, `bridgedServerUnavailableMessage`, `clearPendingPermissions`, `clearPendingPlans`, `clearPendingQuestions`, `collectBridgedTools`, `getBridgedClient`, `hasPendingPermissionForSession`, `hasPendingQuestionForSession`, `installActiveChildEventFanout`, `lastAssistantEngine`, `logEvent`, `permissionWaitMs`, `redact`, `registerSessionExecutionChild`, `requestUserQuestion`, `resolveBridge`, `stopSession` |
+| `09-workflow.js` | `04-permission-runtime.js` | backward | `ManagedMcp`, `activeChildren`, `appendLiveTail`, `assertSessionExecutionOwner`, `bridgedServerUnavailableMessage`, `clearPendingPermissions`, `clearPendingPlans`, `clearPendingQuestions`, `collectBridgedTools`, `getBridgedClient`, `hasPendingPermissionForSession`, `hasPendingQuestionForSession`, `installActiveChildEventFanout`, `lastAssistantEngine`, `logEvent`, `permissionWaitMs`, `redact`, `registerSessionExecutionChild`, `requestUserQuestion`, `resolveBridge`, `stopSession` |
 | `09-workflow.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
 | `09-workflow.js` | `04h-provider-http.js` | backward | `providerCallIsTransient`, `providerThrownErrorText`, `withTransientRetry` |
 | `09-workflow.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerServerSearchCard`, `providerWireContentFiltered`, `providerWireContextExceeded`, `providerWireOutputLimited`, `providerWireProtocol` |
@@ -361,7 +362,7 @@
 | `10-context-governance.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf`, `sessionEngineRouteScopeOverrides` |
 | `10-context-governance.js` | `02e-session-engine-route.js` | backward | `configForSessionEngineRoute`, `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
 | `10-context-governance.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
-| `10-context-governance.js` | `04-permission-runtime.js` | backward | `activeChildren`, `assertSessionExecutionOwner`, `driverAutoSessions`, `logEvent`, `recordSessionExecutionOwner`, `redact`, `requestSessionExecutionStop`, `sessionExecutionSnapshot`, `stopSession`, `turnOutcomePending`, `turnSettlers` |
+| `10-context-governance.js` | `04-permission-runtime.js` | backward | `ManagedMcp`, `activeChildren`, `assertSessionExecutionOwner`, `driverAutoSessions`, `logEvent`, `recordSessionExecutionOwner`, `redact`, `requestSessionExecutionStop`, `sessionExecutionSnapshot`, `stopSession`, `turnOutcomePending`, `turnSettlers` |
 | `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerModelPostOnce` |
 | `10-context-governance.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle`, `providerWireProtocol` |
 | `10-context-governance.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `agentCliAdapter`, `runClaudeTurn` |
@@ -390,13 +391,13 @@
 | `12-tool-dispatch.js` | `03-bridge-guard.js` | backward | `PrivacyRecipientHooks`, `REVEAL_OPEN_SAFE_EXTS`, `UNC_DENIED_ERROR`, `WriteBoundaryHooks`, `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `buildBrowserOpenSpawn`, `buildOpenSpawn`, `buildRevealSpawn`, `guardFileToolPath`, `isBrowserDocumentTarget`, `journalBridgedWrite`, `normalizeCwd`, `pathWithinRoot`, `privacyInspectLocalPath`, `privacyInspectionSegment`, `privacyLocalIo`, `realpathForContainment`, `remoteUncDenialResolved` |
 | `12-tool-dispatch.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
 | `12-tool-dispatch.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
-| `12-tool-dispatch.js` | `04-permission-runtime.js` | backward | `bridgedServerUnavailableMessage`, `configureMcpFromTool`, `getBridgedClient`, `logEvent`, `resolveBridge`, `resolveExternalMcpServers`, `safeMcpInventory` |
+| `12-tool-dispatch.js` | `04-permission-runtime.js` | backward | `ManagedMcp`, `bridgedServerUnavailableMessage`, `configureMcpFromTool`, `getBridgedClient`, `logEvent`, `resolveBridge`, `resolveExternalMcpServers`, `safeMcpInventory` |
 | `12-tool-dispatch.js` | `04i-provider-wire.js` | backward | `providerWireProtocol` |
 | `12-tool-dispatch.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `resolveAsrProvider`, `transcribeAudioViaProvider`, `voiceLexiconAsrPromptFor` |
 | `12-tool-dispatch.js` | `06-provider-engine.js` | backward | `PLAYBOOK_REQUIRES`, `buildRuntimeIdentityFacts`, `evalPlaybookAvailability`, `getCapabilities`, `listPlaybooksWithAvailability`, `loadAllPlaybooks`, `markNetworkOnline`, `neutralizeAuthoredText`, `peekCapabilities`, `updateAutomaticThreadTitle` |
 | `12-tool-dispatch.js` | `06d-memory-domain.js` | backward | `listWorkbenchMemories`, `proposeMemoryRelationRevoke`, `proposeMemoryRelationTool`, `proposeMemoryRevision`, `proposeWorkbenchMemory`, `readWorkbenchMemory` |
 | `12-tool-dispatch.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName`, `stewardAssemblePlaybookPrompt`, `stewardPlaybookMissingInputs` |
-| `12-tool-dispatch.js` | `07-autonomy.js` | backward | `NATIVE_COMMAND_TOOL_NAMES`, `NATIVE_DESKTOP_TOOL_NAMES`, `bridgedToolTier`, `compareToolRetrievalShadow`, `listCompactTools`, `nativeToolDisabledByPolicy`, `nativeToolSchema`, `nativeToolsAcceptingArgKeys`, `searchToolCatalog`, `toolArgsSkeleton`, `toolDisabledByPolicy`, `toolDisabledResult` |
+| `12-tool-dispatch.js` | `07-autonomy.js` | backward | `NATIVE_COMMAND_TOOL_NAMES`, `NATIVE_DESKTOP_TOOL_NAMES`, `bridgedToolTier`, `compareToolRetrievalShadow`, `listCompactTools`, `nativeToolAvailableInContext`, `nativeToolDisabledByPolicy`, `nativeToolSchema`, `nativeToolsAcceptingArgKeys`, `searchToolCatalog`, `toolArgsSkeleton`, `toolDisabledByPolicy`, `toolDisabledResult` |
 | `12-tool-dispatch.js` | `08-agent-runs.js` | backward | `BUILTIN_AGENT_WORKFLOWS`, `getAgentWorkflows` |
 | `12-tool-dispatch.js` | `10-context-governance.js` | backward | `providerTurnQuotaKey`, `rehydrateObservation` |
 | `12-tool-dispatch.js` | `11-native-tools.js` | backward | `NativeSourceHooks`, `binaryReadHint`, `gitDiff`, `gitStatus`, `isBinaryReadPath`, `levenshtein`, `powershellMissingOr`, `privacyReadTextWindow`, `privacySourceActive`, `privacySourceLine`, `privacySourceLineOffsets`, `privacySourceMark`, `privacySourceViews`, `probeRgAsync`, `readIfExists` |
@@ -427,7 +428,7 @@
 | `13-http-router.js` | `06d-memory-domain.js` | backward | `MEMORY_EXCLUSION_MAX`, `analyzeMemoryMaintenance`, `applyMemoryRelationProposal`, `confirmMemoryRelation`, `decideMemoryProposal`, `deleteMemory`, `deleteMemoryRelation`, `draftMemoryFromSession`, `listMemoryProjectGroups`, `listMemoryRelations`, `loadMemoryRegistry`, `memoryFailureResponse`, `migrateLegacyAccMemory`, `migrateMemory`, `moveMemoryScope`, `projectKeyForCwd`, `proposeMemoryFromSession`, `proposeMemoryRelation`, `readMemoryItem`, `replayPendingMemoryProposal`, `resolveCoreMemoryState`, `saveMemory`, `syncAgentInstructionImports`, `validateMemoryProposalSave` |
 | `13-http-router.js` | `06f-autonomy-grants.js` | backward | `activeDriverRuns`, `autonomyGrants`, `dryRunGrantFiles`, `listGrantsView`, `normalizeGrant`, `revokeAllGrants`, `revokeGrant` |
 | `13-http-router.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName` |
-| `13-http-router.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `buildClaudeAgentDefinitions`, `fetchOpenAiModels`, `getAgentRoleLibrary`, `probeProviderCompletion`, `projectAgentRoleFile`, `projectCwdDirectoryFailure`, `readClaudeProjectAgentRoles`, `readProjectAgentRoles`, `saveProjectAgentRoles`, `toolPackForName` |
+| `13-http-router.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `buildClaudeAgentDefinitions`, `fetchOpenAiModels`, `getAgentRoleLibrary`, `nativeToolAvailableInContext`, `probeProviderCompletion`, `projectAgentRoleFile`, `projectCwdDirectoryFailure`, `readClaudeProjectAgentRoles`, `readProjectAgentRoles`, `saveProjectAgentRoles`, `toolPackForName` |
 | `13-http-router.js` | `08-agent-runs.js` | backward | `agentRunResultSlice`, `agentWorkflowSaveProblem`, `autoResumeInterruptedRuns`, `buildAgentRunEnvelope`, `deleteAgentWorkflow`, `getAgentWorkflows`, `markInterruptedAgentRuns`, `normalizeAgentWorkflow`, `resolveOrchestrateNodes`, `saveAgentRun`, `saveAgentWorkflow` |
 | `13-http-router.js` | `09-workflow.js` | backward | `AGENT_RUN_TERMINAL`, `deliverAgentRunEnvelope`, `resolveWaitAgentsMs`, `runAgentWorkflow`, `settleWaitEnvelopes`, `waitForAgentRunResults` |
 | `13-http-router.js` | `10-context-governance.js` | backward | `agentConversationContextMeta`, `cachedContextLength`, `configuredConversationWindow`, `contextWindowFromTable`, `learnedWindowCap`, `resolveContextWindow`, `runAgentExternalCompact`, `runProviderCompactTracked`, `scheduleAgentWakesAtBoot`, `streamChat`, `truncateToolResult` |

@@ -1941,6 +1941,7 @@
   "tools.verb.list_tools": "List tools",
   "tools.verb.mcp_configure": "Configure connector",
   "tools.verb.mcp_list": "List connectors",
+  "tools.verb.mcp_resource": "Read MCP resources",
   "tools.verb.memory": "Workbench memory",
   "tools.verb.mission_update": "Update mission",
   "tools.verb.observation_recall": "Recall full output",

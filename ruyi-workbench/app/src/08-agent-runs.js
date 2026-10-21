@@ -616,6 +616,7 @@ async function markInterruptedAgentRuns() {
 // 抛错,以及第一次模型调用之前就被中止(修前这条路 break 出循环时 initBeat 还在跳:每秒一条 subagent_progress,
 // 一直重写 run 快照直到进程退出,审计 t8)。本体登记停心跳的函数,这里的 finally 负责调用。
 async function runSubAgentCore(opts) {
+  if (typeof ManagedMcp !== 'undefined' && ManagedMcp.active()?.owner !== opts) return ManagedMcp.runTurn(opts, () => runSubAgentCore(opts));
   if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(opts.config) && !PrivacyGateway.active()) return PrivacyGateway.run(String(opts.parentSession?.id || 'workflow') + ':' + String(opts.subagentId || opts.agentKey || 'agent'), opts.config, () => runSubAgentCore(opts));
   const lifecycle = { stopBeats: null };
   try { return await runSubAgentCoreBody(opts, lifecycle); }

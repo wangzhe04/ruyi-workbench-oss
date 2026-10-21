@@ -427,13 +427,13 @@
       "auto",
       "bypass"
     ],
-    "nativeToolCount": 122,
+    "nativeToolCount": 123,
     "tierCounts": {
       "edit": 27,
       "exec": 24,
-      "read": 71
+      "read": 72
     },
-    "tierMapSha256": "427104654433c809c0aa9b50146bae5f70204005e3590c5b940a62368548c165"
+    "tierMapSha256": "d32a25af62098f153f41f891020ca41392ef2dbe5eb7988b68f4a229ad093fbc"
   },
   "persistence": {
     "durableJsonStoreApi": [

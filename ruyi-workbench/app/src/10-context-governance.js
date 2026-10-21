@@ -631,6 +631,7 @@ function truncateToolResult(name, jsonStr) {
 
 // 模型历史只编码受保护的完整结果；扫描与映射落盘完成后才收缩，保留已执行但结果扣留的回执。
 async function encodeModelToolResult(name, value) {
+  if (typeof ManagedMcp !== 'undefined') value = ManagedMcp.drain(value);
   const protectedResult = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(value) : value;
   return truncateToolResult(name, JSON.stringify(protectedResult));
 }

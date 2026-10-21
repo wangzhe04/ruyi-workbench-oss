@@ -111,6 +111,41 @@ rl.on('line', line => {
   if (msg.id === undefined && process.env.FAKE_MCP_NOTIFY_CAPTURE) {
     try { fs.appendFileSync(process.env.FAKE_MCP_NOTIFY_CAPTURE, JSON.stringify(msg) + '\n', 'utf8'); } catch { /* ignore */ }
   }
+  // Opt-in managed-resource fixture; ordinary fake tool/schema contracts remain unchanged.
+  if (process.env.FAKE_MCP_RESOURCE_CAPTURE) {
+    fs.appendFileSync(process.env.FAKE_MCP_RESOURCE_CAPTURE, JSON.stringify(msg) + '\n', 'utf8');
+    const secret = 'managed-private@example.test';
+    const reply = result => send({ jsonrpc: '2.0', id: msg.id, result });
+    if (msg.method === 'initialize') return reply({ protocolVersion: '2024-11-05', capabilities: { tools: {}, resources: { subscribe: true, listChanged: true } }, serverInfo: { name: 'fake-resource', version: '1' } });
+    if (msg.method === 'tools/list') return reply({ tools: [{ name: 'echo', description: secret, inputSchema: { type: 'object', properties: { text: { type: 'string', description: secret } } } }] });
+    if (msg.method === 'tools/call') {
+      if (msg.params.arguments.hold && process.env.FAKE_MCP_RESOURCE_RELEASE) {
+        const gate = process.env.FAKE_MCP_RESOURCE_RELEASE;
+        fs.writeFileSync(gate + '.ready', 'synthetic request accepted');
+        const timer = setInterval(() => {
+          if (fs.existsSync(gate)) { clearInterval(timer); reply({ content: [{ type: 'text', text: secret }], isError: false }); }
+        }, 10);
+        return;
+      }
+      return reply({ content: [{ type: 'text', text: secret }], isError: false });
+    }
+    if (msg.method === 'resources/list') return reply({ resources: msg.params.cursor ? [] : [{ uri: 'fixture://one', name: secret, description: 'managed-person@example.test', mimeType: 'text/plain' }, { uri: 'fixture://binary', name: 'Binary refusal fixture', mimeType: 'text/plain' }], ...(msg.params.cursor ? {} : { nextCursor: 'private-cursor-' + secret }) });
+    if (msg.method === 'resources/templates/list') return reply({ resourceTemplates: [{ uriTemplate: 'fixture://{name}', name: secret }] });
+    if (msg.method === 'resources/read') return reply({ contents: [{ uri: msg.params.uri, mimeType: 'text/plain', text: secret, ...(msg.params.uri === 'fixture://binary' ? { _meta: { nested: { image: 'binary-disguised-as-text' } } } : {}) }] });
+    if (msg.method === 'resources/subscribe') {
+      if (process.env.FAKE_MCP_SUBSCRIBE_RELEASE) {
+        const gate = process.env.FAKE_MCP_SUBSCRIBE_RELEASE;
+        fs.writeFileSync(gate + '.ready', 'synthetic subscribe accepted');
+        const timer = setInterval(() => {
+          if (fs.existsSync(gate)) { clearInterval(timer); reply({}); }
+        }, 10);
+        return;
+      }
+      send({ jsonrpc: '2.0', method: 'notifications/resources/updated', params: { uri: msg.params.uri, forbiddenRawField: secret } });
+      return reply({});
+    }
+    if (msg.method === 'resources/unsubscribe') return reply({});
+  }
   try {
     if (msg.method === 'initialize') {
       // 第55波 EC-C(55a): 故障注入测试件 -- 两个 env 开关模拟握手期失败,供 mcp-ops-closure.e2e 验证

@@ -1941,6 +1941,7 @@
   "tools.verb.list_tools": "查看可用工具",
   "tools.verb.mcp_configure": "配置连接器",
   "tools.verb.mcp_list": "查看连接器",
+  "tools.verb.mcp_resource": "读取MCP资源",
   "tools.verb.memory": "整理记忆",
   "tools.verb.mission_update": "更新任务进度",
   "tools.verb.observation_recall": "回看原始结果",

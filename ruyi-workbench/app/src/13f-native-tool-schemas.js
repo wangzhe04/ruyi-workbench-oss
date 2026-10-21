@@ -461,6 +461,11 @@ const MCP_TOOLS = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'mcp_resource',
+    description: 'Read managed MCP resources. list returns short-lived resourceId handles and an opaque cursor; templates only lists templates and does not authorize constructing a URI. read accepts an offered resourceId, never an arbitrary URI. Supported resource updates accompany the next actual tool result in this turn only; no background delivery after the turn ends. Binary resources are not supported by this text operation.',
+    inputSchema: { type: 'object', properties: { serverId: { type: 'string' }, operation: { type: 'string', enum: ['list', 'templates', 'read'] }, resourceId: { type: 'string' }, cursor: { type: 'string' } }, required: ['serverId', 'operation'], additionalProperties: false },
+  },
+  {
     name: 'mcp_configure',
     description: 'Configure tools/MCP on the user\'s explicit request. Supports upsert/remove/enable of an external stdio MCP connector and changing the ai-computer-control browser target. This is an exec-tier persistent configuration change: inspect with mcp_list first, explain the diff, and rely on the permission prompt before applying. It cannot replace the built-in desktop MCP executable or edit application binaries.',
     inputSchema: {

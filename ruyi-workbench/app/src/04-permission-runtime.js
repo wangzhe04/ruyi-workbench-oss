@@ -945,6 +945,230 @@ function mcpBridgeError(message, kind) {
   return e;
 }
 
+// Managed MCP capabilities are host-only. No model-provided scope, URI or schema grants restoration.
+const ManagedMcp = (() => {
+  const local = new (require('node:async_hooks').AsyncLocalStorage)();
+  const listeners = new WeakMap(), statesByClient = new WeakMap();
+  const MAX = Object.freeze({ handles: 256, events: 64, eventBytes: 65536, resultBytes: 1048576, ttl: 60000 });
+  const fail = code => {
+    const hints = {
+      'privacy.mcp_resource_binary_unsupported': '此只读资源入口仅支持文字；请使用已支持的媒体通路。 / This read-only resource operation supports text only; use a supported media path.',
+      'privacy.mcp_resource_limit': '资源超出本次读取预算；请缩小范围或读取下一页。 / Resource budget exceeded; narrow the selection or read the next page.',
+      'privacy.mcp_resource_unsupported': '该连接器未声明资源能力；请检查其工具或连接配置。 / This connector does not advertise resources; check its tools or connection settings.',
+      'privacy.mcp_resource_invalid': '资源请求或响应格式不受支持；请重新列出资源。 / Unsupported resource request or response; list resources again.',
+      'privacy.mcp_resource_unavailable': '连接器暂不可用；检查连接后重试。 / Connector unavailable; check the connection and retry.',
+    };
+    const error = new Error(hints[code] || '连接、策略或资源已变化；请重新列出资源后重试。 / Connection, policy or resource changed; list resources again and retry.');
+    error.code = code; throw error;
+  };
+  function rejected(error) {
+    return { ok: false, code: error.code,
+      error: '请求在发送前被拒绝：连接、保护策略或引用用途不匹配。请检查连接或改用有明确授权的本地工具；不要重复粘贴同一隐私代号。 / Request refused before dispatch: connector, privacy policy or reference purpose does not match. Check the connector or use an explicitly authorized local tool; do not repeatedly paste the same private reference.',
+      operationMayHaveExecuted: false };
+  }
+  function unavailable(error) {
+    return { ok: false, code: String(error.code || '').startsWith('privacy.') ? error.code : 'privacy.mcp_result_unavailable',
+      error: 'MCP操作可能已执行；结果因连接或保护策略变化被扣留，请勿为取回结果而重复副作用。 / The MCP operation may have executed; its result was withheld after a connection or privacy change. Do not repeat side effects to recover the result.',
+      operationMayHaveExecuted: true, resultUnavailable: true };
+  }
+  const clone = value => structuredClone(value);
+  const hash = value => require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const active = () => local.getStore();
+  async function runTurn(owner, work) {
+    const state = { owner, ended: false, handles: new Map(), events: [], eventBytes: 0, subscriptions: new Set(), clients: new Set(), guard: PrivacyGateway.disclosurePolicyGuard() };
+    return local.run(state, async () => {
+      try { return await work(); }
+      finally {
+        for (const subscription of state.subscriptions) {
+          listeners.get(subscription.client)?.delete(subscription);
+          // Best-effort teardown uses the same authority, never an unguarded URI dispatch.
+          if (!subscription.client.dead) subscription.client._rpc('resources/unsubscribe', { uri: subscription.uri }, 1000,
+            { managedAssert: () => assertTeardown(subscription) }).catch(() => {});
+        }
+        for (const client of state.clients) statesByClient.get(client)?.delete(state);
+        state.clients.clear(); state.ended = true;
+        state.handles.clear(); state.events.length = 0; state.subscriptions.clear();
+      }
+    });
+  }
+
+  function assertState(state) {
+    if (!state || state.ended || active() !== state) fail('privacy.mcp_turn_changed');
+    state.guard();
+  }
+  async function prepare(client, method, params, options = {}) {
+    const state = active();
+    if (!state) return { params, options };
+    assertState(state);
+    const generation = configReadGeneration;
+    const config = await readConfig();
+    assertState(state);
+    if (generation !== configReadGeneration) fail('privacy.mcp_recipient_changed');
+    const entry = resolveExternalMcpServers(config).find(item => item.id === client.id);
+    if (!entry || mcpClients.get(client.id) !== client || client.dead) fail('privacy.mcp_recipient_changed');
+    const fingerprint = mcpEntryFingerprint(entry), clientGeneration = mcpClientGen.get(client.id) || 0;
+    let states = statesByClient.get(client); if (!states) statesByClient.set(client, states = new Set());
+    states.add(state); state.clients.add(client);
+    // Unknown services receive no restoration capability. Existing literal/no-reference calls retain their bytes.
+    if (method === 'tools/call') await PrivacyGateway.revalidateExecution(params.name, params.arguments || {}, { bridge: { serverId: client.id, toolName: params.name } });
+    const snapshot = hash(params); let sent = false;
+    const assert = () => {
+      assertState(state);
+      if (options.signal?.aborted) fail('privacy.mcp_cancelled');
+      if (generation !== configReadGeneration || client.dead || mcpClients.get(client.id) !== client
+        || (mcpClientGen.get(client.id) || 0) !== clientGeneration || mcpClientFingerprints.get(client.id) !== fingerprint) fail('privacy.mcp_recipient_changed');
+      if (snapshot !== hash(params)) fail('privacy.mcp_arguments_changed');
+    };
+    assert();
+    return { params, options: { ...options, managedAssert: assert, managedSent: () => { sent = true; } }, get sent() { return sent; }, identity: { client, fingerprint, clientGeneration, generation }, assert };
+  }
+  function assertIdentity(identity, state) {
+    assertState(state);
+    const { client, fingerprint, clientGeneration, generation } = identity;
+    if (client.dead || configReadGeneration !== generation || mcpClients.get(client.id) !== client
+      || mcpClientFingerprints.get(client.id) !== fingerprint || (mcpClientGen.get(client.id) || 0) !== clientGeneration) fail('privacy.mcp_recipient_changed');
+  }
+  function connectionIdentity(client) {
+    return hash([client.transport || 'stdio', client.command || '', client.args || [], client.cwd || '', client.env || {}, client.url || '', client.headers || {}, client._ssePostUrl || '', client._sessionId || '']);
+  }
+  function assertTeardown(subscription) {
+    // Release only an already-attempted subscription on its exact old connection.
+    // Policy/config changes cannot grant more work, but must not prevent cleanup.
+    const { client, fingerprint, clientGeneration } = subscription.identity;
+    if (client.dead) fail('privacy.mcp_recipient_changed');
+    if (mcpClients.get(client.id) !== client || mcpClientFingerprints.get(client.id) !== fingerprint
+      || (mcpClientGen.get(client.id) || 0) !== clientGeneration || connectionIdentity(client) !== subscription.connection
+      || (subscription.child && client.child !== subscription.child) || (subscription.sseRequest && client._sseReq !== subscription.sseRequest)) {
+      client.kill(); fail('privacy.mcp_recipient_changed');
+    }
+  }
+
+  function offer(state, value) {
+    for (const [key, record] of state.handles) if (record.expires < Date.now()) state.handles.delete(key);
+    if (state.handles.size >= MAX.handles) fail('privacy.mcp_resource_limit');
+    const id = require('node:crypto').randomBytes(18).toString('base64url');
+    state.handles.set(id, { ...value, expires: Date.now() + MAX.ttl }); return id;
+  }
+  function handle(state, id, kind, serverId) {
+    const record = state.handles.get(id);
+    if (!record || record.expires < Date.now() || record.kind !== kind || record.identity.client.id !== serverId) fail('privacy.mcp_resource_changed');
+    assertIdentity(record.identity, state); return record;
+  }
+  function notify(client, method, params) {
+    if (method === 'notifications/tools/list_changed') { client._toolsStale = true; bridgedCatalogCache.value = null; return; }
+    if (method === 'notifications/resources/list_changed') {
+      for (const state of statesByClient.get(client) || []) {
+        for (const [id, record] of state.handles) if (record.identity.client === client) state.handles.delete(id);
+      }
+      return;
+    }
+    if (method !== 'notifications/resources/updated' || typeof params?.uri !== 'string') return;
+    for (const subscription of listeners.get(client) || []) {
+      const state = subscription.state;
+      if (state.ended || subscription.uri !== params.uri) continue;
+      // Never retain arbitrary notification fields, credentials, binary payloads or server messages.
+      const event = { serverId: client.id, resourceId: subscription.resourceId, status: 'updated' };
+      const bytes = Buffer.byteLength(JSON.stringify(event));
+      if (state.events.length >= MAX.events || state.eventBytes + bytes > MAX.eventBytes) { state.overflow = true; continue; }
+      state.events.push({ event, identity: subscription.identity }); state.eventBytes += bytes;
+    }
+  }
+  function drain(value) {
+    const state = active(); if (!state || !state.events.length && !state.overflow) return value;
+    const events = state.events.splice(0); state.eventBytes = 0;
+    const output = []; let discarded = 0;
+    for (const item of events) {
+      try { assertIdentity(item.identity, state); output.push(item.event); }
+      catch { discarded++; } // Notification expiry must not change the original operation's receipt.
+    }
+    const overflow = state.overflow === true; state.overflow = false;
+    return { ...(value && typeof value === 'object' && !Array.isArray(value) ? value : { value }), mcpNotifications: { events: output, discarded, overflow, lifetime: 'current_turn_only' } };
+  }
+  function textResource(item) {
+    if (!item || typeof item.text !== 'string' || typeof item.uri !== 'string' || item.blob !== undefined
+      || !/^(?:text\/[a-z0-9.+-]+|application\/(?:json|xml|javascript))$/i.test(item.mimeType || 'text/plain')) fail('privacy.mcp_resource_binary_unsupported');
+    let nodes = 0;
+    const inspect = (value, depth = 0) => {
+      if (++nodes > 10000 || depth > 32) fail('privacy.mcp_resource_limit');
+      if (typeof value === 'string') {
+        if (/^data:[^,]+;base64,/i.test(value) || value.length > 8000 && /^[A-Za-z0-9+/=\r\n]+$/.test(value)) fail('privacy.mcp_resource_binary_unsupported');
+      } else if (value && typeof value === 'object') {
+        if (Buffer.isBuffer(value)) fail('privacy.mcp_resource_binary_unsupported');
+        for (const [key, field] of Object.entries(value)) {
+          if (/^(?:blob|base64|image|audio|video|image_base64|screenshot)$/i.test(key)) fail('privacy.mcp_resource_binary_unsupported');
+          inspect(field, depth + 1);
+        }
+      }
+    };
+    // Return only protocol text-resource fields; extension media fields cannot masquerade as text.
+    const value = { uri: item.uri, text: item.text, ...(item.mimeType ? { mimeType: item.mimeType } : {}),
+      ...(item._meta ? { _meta: clone(item._meta) } : {}), ...(item.annotations ? { annotations: clone(item.annotations) } : {}) };
+    inspect(value); return value;
+  }
+
+  async function resource(args, ctx) {
+    const state = active(); assertState(state);
+    if (!args || typeof args.serverId !== 'string' || !['list', 'templates', 'read'].includes(args.operation)) fail('privacy.mcp_resource_invalid');
+    const guard = PrivacyGateway.disclosurePolicyGuard();
+    const config = await readConfig(); guard();
+    const client = await getBridgedClient(args.serverId, config); guard(); assertState(state);
+    if (!client) fail('privacy.mcp_resource_unavailable');
+    if (!client.capabilities?.resources) fail('privacy.mcp_resource_unsupported');
+    const operation = args.operation;
+    let params = {}, source, selected;
+    if (operation === 'read') { source = handle(state, args.resourceId, 'resource', args.serverId); selected = { id: args.resourceId, kind: 'resource' }; params.uri = source.uri; }
+    else if (args.cursor) { source = handle(state, args.cursor, operation, args.serverId); selected = { id: args.cursor, kind: operation }; params.cursor = source.cursor; }
+    const method = operation === 'list' ? 'resources/list' : operation === 'templates' ? 'resources/templates/list' : 'resources/read';
+    const prepared = await prepare(client, method, params, ctx?.signal ? { signal: ctx.signal } : {});
+    const assertSelected = () => { if (selected && handle(state, selected.id, selected.kind, args.serverId) !== source) fail('privacy.mcp_resource_changed'); };
+    assertSelected();
+    const dispatchAssert = prepared.options.managedAssert;
+    prepared.options.managedAssert = () => { dispatchAssert(); assertSelected(); };
+    let result;
+    try {
+      result = await client._rpc(method, prepared.params, 10000, prepared.options);
+      prepared.assert(); assertSelected();
+    } catch (error) { if (prepared.sent) return unavailable(error); throw error; }
+    if (Buffer.byteLength(JSON.stringify(result)) > MAX.resultBytes) fail('privacy.mcp_resource_limit');
+    if (operation === 'read') {
+      if (!Array.isArray(result?.contents)) fail('privacy.mcp_resource_invalid');
+      const contents = result.contents.map(textResource);
+      if (client.capabilities.resources.subscribe === true && ![...state.subscriptions].some(item => item.client === client && item.uri === source.uri)) {
+        const subscription = { client, uri: source.uri, resourceId: args.resourceId, state, identity: prepared.identity, connection: connectionIdentity(client), child: client.child, sseRequest: client._sseReq };
+        let set = listeners.get(client); if (!set) listeners.set(client, set = new Set());
+        set.add(subscription); state.subscriptions.add(subscription);
+        let sub;
+        try {
+          sub = await prepare(client, 'resources/subscribe', { uri: source.uri }, ctx?.signal ? { signal: ctx.signal } : {});
+          const subDispatchAssert = sub.options.managedAssert;
+          sub.options.managedAssert = () => { subDispatchAssert(); assertSelected(); };
+          await client._rpc('resources/subscribe', sub.params, 10000, sub.options); sub.assert(); assertSelected();
+        } catch (error) {
+          set.delete(subscription);
+          // Sent/unknown-outcome subscriptions still require exact-old-connection cleanup.
+          if (!sub?.sent) state.subscriptions.delete(subscription);
+          if (String(error.code || error.message).startsWith('privacy.')) { if (sub?.sent) return unavailable(error); throw error; }
+          try { prepared.assert(); assertSelected(); } catch (guardError) { if (sub?.sent) return unavailable(guardError); throw guardError; } // An unsupported optional subscription does not break an otherwise valid read.
+        }
+      }
+      return { ok: true, serverId: args.serverId, resourceId: args.resourceId, contents, subscriptionLifetime: 'current_turn_only' };
+    }
+    const key = operation === 'list' ? 'resources' : 'resourceTemplates';
+    if (!Array.isArray(result?.[key]) || result[key].length > MAX.handles) fail('privacy.mcp_resource_limit');
+    const items = result[key].map(item => {
+      if (!item || typeof item !== 'object') fail('privacy.mcp_resource_invalid');
+      if (operation === 'templates') return clone(item);
+      if (typeof item.uri !== 'string' || item.uri.length > 8192) fail('privacy.mcp_resource_invalid');
+      return { ...clone(item), resourceId: offer(state, { kind: 'resource', uri: item.uri, identity: prepared.identity }) };
+    });
+    const cursor = typeof result.nextCursor === 'string' && result.nextCursor.length <= 8192
+      ? offer(state, { kind: operation, cursor: result.nextCursor, identity: prepared.identity }) : undefined;
+    return { ok: true, serverId: args.serverId, [key]: items, ...(cursor ? { cursor } : {}), templatesAreListOnly: operation === 'templates' };
+  }
+  return Object.freeze({ active, runTurn, prepare, notify, drain, resource, unavailable, rejected });
+})();
+
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -971,7 +1195,15 @@ class McpStdioClient {
   }
 
   // Send one JSON-RPC request and await its result (by id). Rejects on timeout/child death.
-  _rpc(method, params, timeoutMs = 8000, options = {}) {
+  async _rpc(method, params, timeoutMs = 8000, options = {}) {
+    if (method === 'tools/call' && !options.managedAssert && ManagedMcp.active()) {
+      const prepared = await ManagedMcp.prepare(this, method, params, options);
+      let result, rpcError;
+      try { result = await this._rpc(method, prepared.params, timeoutMs, prepared.options); } catch (error) { rpcError = error; }
+      try { prepared.assert(); } catch (error) { error.mcpOperationMayHaveExecuted = prepared.sent; throw error; }
+      if (rpcError) throw rpcError;
+      return result;
+    }
     return new Promise((resolve, reject) => {
       if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) {
         return reject(new Error('mcp client not running'));
@@ -1004,7 +1236,10 @@ class McpStdioClient {
         if (signal.aborted) { abortHandler(); return; }
       }
       try {
-        this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params: params || {} }) + '\n', 'utf8');
+        const bytes = JSON.stringify({ jsonrpc: '2.0', id, method, params: params || {} }) + '\n';
+        if (options.managedAssert) options.managedAssert();
+        this.child.stdin.write(bytes, 'utf8');
+        if (options.managedSent) options.managedSent();
       } catch (e) {
         cleanup(); this._pending.delete(id); reject(e);
       }
@@ -1019,7 +1254,8 @@ class McpStdioClient {
     line = line.trim();
     if (!line) return;
     const msg = safeJsonParse(line);
-    if (!msg || msg.id == null) return;          // notifications/logs from the server: ignore
+    if (!msg) return;
+    if (msg.id == null) { if (msg.method) ManagedMcp.notify(this, msg.method, msg.params); return; }
     if (msg.method != null) {                     // 对端发起的请求(ping 等),不是给我们的响应
       if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) return;
       try { this.child.stdin.write(JSON.stringify(mcpServerRequestReply(msg)) + '\n', 'utf8'); } catch { /* ignore */ }
@@ -1114,6 +1350,7 @@ class McpStdioClient {
         clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 客户端标识名与 server id 一致
       }, mcpStartupRpcMs(this, 8000));
       this.serverInfo = (init && init.serverInfo) || {};
+      this.capabilities = (init && init.capabilities) || {};
       this._notify('notifications/initialized', {});
       this.tools = await this._listAllTools(mcpStartupRpcMs(this, 8000));
     } catch (e) {
@@ -1141,6 +1378,8 @@ class McpStdioClient {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
+      if (e && e.mcpOperationMayHaveExecuted) return ManagedMcp.unavailable(e);
+      if (String(e && e.code || '').startsWith('privacy.')) return ManagedMcp.rejected(e);
       const m = (e && e.message) ? e.message : String(e);
       if (e && e.mcpChildExit) return mcpChildExitResult(this, name, e.mcpChildExit);   // 审计 A14
       if (e && e.mcpTimeout) {
@@ -1238,6 +1477,7 @@ class McpHttpClient {
         if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
         resolve(why && value && value.error ? { ...value, why } : value);
       };
+      try { if (options.managedAssert) options.managedAssert(); } catch (error) { finish({ error: error.code || 'privacy.mcp_dispatch_changed' }); return; }
       const req = lib.request(u, {
         method,
         headers: { ...this._baseHeaders(extraHeaders), ...(bodyBuf ? { 'Content-Length': bodyBuf.length } : {}) },
@@ -1261,6 +1501,7 @@ class McpHttpClient {
       }
       if (bodyBuf) req.write(bodyBuf);
       req.end();
+      if (options.managedSent) options.managedSent();
     });
   }
 
@@ -1304,6 +1545,7 @@ class McpHttpClient {
     if (ctype.includes('text/event-stream')) msgs = McpHttpClient._parseSseMessages(resp.body.toString('utf8'));
     else { const j = safeJsonParse(resp.body.toString('utf8'), null); if (j) msgs = [j]; }
     // 带 method 的是对端发来的请求(同 id 撞号也不是给我们的响应)。
+    for (const item of msgs) if (item && item.id == null && item.method) ManagedMcp.notify(this, item.method, item.params);
     const mine = msgs.find(m => m && m.id === id && m.method == null);
     if (!mine && this._sessionId && (resp.status === 404 || resp.status === 400 || resp.status === 401) && method !== 'initialize') {
       // 服务端会话失效(对端重启 / 会话过期:规范要求回 404,客户端须不带旧 Mcp-Session-Id 重新 initialize)。
@@ -1362,7 +1604,15 @@ class McpHttpClient {
     });
   }
 
-  _rpc(method, params, timeoutMs = 8000, options = {}) {
+  async _rpc(method, params, timeoutMs = 8000, options = {}) {
+    if (method === 'tools/call' && !options.managedAssert && ManagedMcp.active()) {
+      const prepared = await ManagedMcp.prepare(this, method, params, options);
+      let result, rpcError;
+      try { result = await this._rpc(method, prepared.params, timeoutMs, prepared.options); } catch (error) { rpcError = error; }
+      try { prepared.assert(); } catch (error) { error.mcpOperationMayHaveExecuted = prepared.sent; throw error; }
+      if (rpcError) throw rpcError;
+      return result;
+    }
     return this.transport === 'sse' ? this._rpcSse(method, params, timeoutMs, options) : this._rpcHttp(method, params, timeoutMs, options);
   }
 
@@ -1420,8 +1670,8 @@ class McpHttpClient {
               if (msgObj.error) p.reject(new Error(msgObj.error.message || 'mcp error'));
               else p.resolve(msgObj.result);
             }
-          } else if (msgObj.method === 'notifications/tools/list_changed') {
-            this._toolsStale = true; // 03 §4.2:响应 tools/list_changed —— 下次 listTools 前重列
+          } else if (msgObj.method) {
+            ManagedMcp.notify(this, msgObj.method, msgObj.params);
           }
         };
         res.on('data', chunk => {
@@ -1472,6 +1722,7 @@ class McpHttpClient {
       clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION },
     }, timeoutMs);
     this.serverInfo = (init && init.serverInfo) || {};
+    this.capabilities = (init && init.capabilities) || {};
     this._notify('notifications/initialized', {});
     return init;
   }
@@ -1498,6 +1749,8 @@ class McpHttpClient {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
       return normalizeMcpToolResult(res);
     } catch (e) {
+      if (e && e.mcpOperationMayHaveExecuted) return ManagedMcp.unavailable(e);
+      if (String(e && e.code || '').startsWith('privacy.')) return ManagedMcp.rejected(e);
       const m = (e && e.message) ? e.message : String(e);
       if (e && e.mcpAborted) {
         try { this.kill(); } catch { /* already dead */ }

@@ -161,7 +161,11 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       }
       scan(/\beyJ[A-Za-z0-9_-]+\.[ \t]*(?:\r?\n[ \t]*)?[A-Za-z0-9_-]+\.[ \t]*(?:\r?\n[ \t]*)?[A-Za-z0-9_-]+\b/g, 'CREDENTIAL', 'builtin.jwt');
       scan(/(?:^|[\r\n])[ \t]*(?:Cookie|Set-Cookie)[ \t]*:[ \t]*([^\r\n]+)/gi, 'CREDENTIAL', 'builtin.cookie', 1, value => /\S/.test(value));
-      scan(/\b[a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@/]{1,256}:([^\s@/]{1,4096})@/gi, 'CREDENTIAL', 'builtin.url-password', 1);
+      // JSON wrapper spelling cannot form userinfo across quotes or escapes. Actual
+      // decoded string values retain the full raw URL rule, including apostrophes.
+      scan(context[lexicalJsonSource] === 'automatic'
+        ? /\b[a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@/"\\<>]{1,256}:([^\s@/"\\<>]{1,4096})@/gi
+        : /\b[a-z][a-z0-9+.-]{0,20}:\/\/[^\s:@/]{1,256}:([^\s@/]{1,4096})@/gi, 'CREDENTIAL', 'builtin.url-password', 1);
       scan(/[?&](?:access_token|api_key|apikey|token|signature|x-amz-signature|x-amz-credential)=([^&#\s"']+)/gi, 'CREDENTIAL', 'builtin.signed-url', 1);
       // Match field names exactly at their suffix. maxTokens/tokenCount stay intact.
       scan(/(?:^|[\s{,;])(?:["']?)(?:[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token|pwd|_pass))["']?\s*[:=]\s*"([^"\r\n]+)"/gi, 'CREDENTIAL', 'builtin.quoted-field', 1);

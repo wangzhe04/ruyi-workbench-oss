@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 88,
-    "providedSymbols": 3885,
-    "requiredSymbols": 3502,
-    "edges": 630,
+    "providedSymbols": 3887,
+    "requiredSymbols": 3511,
+    "edges": 631,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2594,6 +2594,7 @@
         "MCP_FAILURE_COOLDOWN_MS",
         "MCP_STDIO_LINE_MAX_CHARS",
         "MCP_TOOLS_LIST_MAX_PAGES",
+        "ManagedMcp",
         "McpHttpClient",
         "McpStdioClient",
         "NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS",
@@ -2910,6 +2911,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "configReadGeneration",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "detectDesktopMcp",
           "kinds": [
             "call"
@@ -2969,6 +2977,13 @@
           "symbol": "settleIntervention",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -7443,6 +7458,7 @@
         "looksLikePlan",
         "loopAbortExempt",
         "loopWarnOnly",
+        "nativeToolAvailableInContext",
         "nativeToolDisabledByPolicy",
         "nativeToolGate",
         "nativeToolSchema",
@@ -7826,6 +7842,13 @@
           "symbol": "logEvent",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ManagedMcp",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -8552,6 +8575,13 @@
           "symbol": "logEvent",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ManagedMcp",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -9809,6 +9839,13 @@
           "symbol": "logEvent",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ManagedMcp",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -11783,6 +11820,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "ManagedMcp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "recordSessionExecutionOwner",
           "kinds": [
             "call"
@@ -13226,6 +13270,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "ManagedMcp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "resolveBridge",
           "kinds": [
             "call"
@@ -13453,6 +13504,13 @@
           "symbol": "NATIVE_DESKTOP_TOOL_NAMES",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolAvailableInContext",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -15273,6 +15331,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolAvailableInContext",
           "kinds": [
             "call"
           ]
@@ -29988,6 +30053,7 @@
       "symbols": [
         "BROWSER_AUTOMATION_MODES",
         "bridgedEnvKeyStripped",
+        "configReadGeneration",
         "detectDesktopMcp",
         "ensureDesktopMcpWarm",
         "generateMcpConfig",
@@ -30011,6 +30077,14 @@
       "symbols": [
         "registerIntervention",
         "settleIntervention"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "04-permission-runtime.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
       ],
       "direction": "backward"
     },
@@ -31309,6 +31383,7 @@
       "from": "07-autonomy.js",
       "to": "04-permission-runtime.js",
       "symbols": [
+        "ManagedMcp",
         "PermissionWaitHooks",
         "killChildTree",
         "logEvent",
@@ -31517,6 +31592,7 @@
       "from": "08-agent-runs.js",
       "to": "04-permission-runtime.js",
       "symbols": [
+        "ManagedMcp",
         "bridgedServerUnavailableMessage",
         "collectBridgedTools",
         "getBridgedClient",
@@ -31835,6 +31911,7 @@
       "from": "09-workflow.js",
       "to": "04-permission-runtime.js",
       "symbols": [
+        "ManagedMcp",
         "activeChildren",
         "appendLiveTail",
         "assertSessionExecutionOwner",
@@ -32308,6 +32385,7 @@
       "from": "10-context-governance.js",
       "to": "04-permission-runtime.js",
       "symbols": [
+        "ManagedMcp",
         "activeChildren",
         "assertSessionExecutionOwner",
         "driverAutoSessions",
@@ -32678,6 +32756,7 @@
       "from": "12-tool-dispatch.js",
       "to": "04-permission-runtime.js",
       "symbols": [
+        "ManagedMcp",
         "bridgedServerUnavailableMessage",
         "configureMcpFromTool",
         "getBridgedClient",
@@ -32757,6 +32836,7 @@
         "bridgedToolTier",
         "compareToolRetrievalShadow",
         "listCompactTools",
+        "nativeToolAvailableInContext",
         "nativeToolDisabledByPolicy",
         "nativeToolSchema",
         "nativeToolsAcceptingArgKeys",
@@ -33220,6 +33300,7 @@
         "buildClaudeAgentDefinitions",
         "fetchOpenAiModels",
         "getAgentRoleLibrary",
+        "nativeToolAvailableInContext",
         "probeProviderCompletion",
         "projectAgentRoleFile",
         "projectCwdDirectoryFailure",

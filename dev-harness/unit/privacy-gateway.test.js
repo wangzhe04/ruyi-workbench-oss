@@ -757,3 +757,22 @@ test('MCP and Anthropic media cannot hide in JSON strings; typed sensitive value
     await api.run('known-' + value.length, policy, async () => { const result = await api.toolResult({ content: value }); assert.ok(!result.content.includes(value)); assert.ok(result.content.startsWith('[[RUYI_PVT:CREDENTIAL:')); });
   }
 });
+
+test('JSON resource metadata cannot form URL credentials across string boundaries while real URL passwords remain protected', async t => {
+  const { api } = await setup(t);
+  await api.run('json-url-boundary', { ...config, privacyModeV1: 'basic' }, async () => {
+    const resource = { resources: [{ uri: 'fixture://one', name: 'managed-private@example.test', resourceId: 'public-handle' }] };
+    for (const value of [resource, { nested: JSON.stringify(resource) }]) {
+      const content = JSON.stringify(value);
+      const wire = await api.beforeModelRequest({ messages: [{ role: 'tool', tool_call_id: 'resource', content }] });
+      assert.deepEqual(JSON.parse(wire.messages.find(row => row.role === 'tool').content), value);
+    }
+    for (const password of ["p'ass", 'p%40ss%25value', '私密口令']) {
+      const url = 'https://user:' + password + '@fixture.invalid/path';
+      for (const content of [url, JSON.stringify({ url }), JSON.stringify({ nested: JSON.stringify({ url }) })]) {
+        const wire = await api.beforeModelRequest({ messages: [{ role: 'tool', tool_call_id: 'url', content }] });
+        assert.ok(!wire.messages.find(row => row.role === 'tool').content.includes(password), password);
+      }
+    }
+  });
+});

@@ -1,0 +1,542 @@
+{
+  "date": "2026-10-21",
+  "batch": "M2-7",
+  "base": "2148e55e",
+  "status": "implemented, independently reviewed, scoped validation complete",
+  "contract": [
+    "One host-only native-turn lifetime surrounds main and child turns, including OFF. Configured connector identity, client generation, policy epoch and exact arguments are asserted at actual stdio/HTTP/SSE dispatch and after response.",
+    "Unknown MCP services gain no private-reference restoration authority. Ordinary no-reference arguments retain their bytes. A post-dispatch identity change returns only an executed/withheld receipt and never replays business work.",
+    "One read-tier mcp_resource entry lists resources/templates and reads only bounded, expiring, turn-owned handles/cursors. Templates confer no arbitrary URI authority; binary resources are refused. Updates retain only fixed metadata and drain at the existing shared result encoder.",
+    "Subscriptions end with the native turn; local capabilities/listeners always retire. A fixed old-connection unsubscribe is best effort, not a claim that a remote server acknowledged teardown.",
+    "A shared availability predicate excludes this new native-turn-only tool from CLI schemas and adaptive discovery. Direct/proxy guessed names are refused; existing CLI/local tools remain unchanged.",
+    "The URL detector uses JSON syntax boundaries only for the automatic lexical wrapper scan. Raw and decoded URL credential detection and explicit rules retain their original coverage."
+  ],
+  "independentReview": {
+    "reviewers": [
+      "m2_bot_delivery",
+      "m2_consumer_review",
+      "root (design and additional source review)"
+    ],
+    "findingsResolved": [
+      "Retain possibly accepted subscriptions and separate exact old-connection teardown authority from obsolete policy/config guards.",
+      "Revalidate exact handle membership/expiry after preparation and at actual dispatch, including list_changed before the first subscription.",
+      "Prevent a resource URI and adjacent JSON email field from forming a false URL-password match across JSON syntax.",
+      "Do not advertise native-turn resource handles to a CLI process without the required turn context."
+    ],
+    "notes": [
+      "m2-managed-mcp/independent-review-bot-delivery.md",
+      "m2-8-independent-review/mcp7-url-mcp8-v8-review.md",
+      "m2-8-independent-review/mcp7-offer-mcp8-v9-review.md",
+      "m2-8-independent-review/mcp7-final-metadata-review.md",
+      "m2-8-independent-review/mcp7-static-drift-followup.md"
+    ]
+  },
+  "tests": {
+    "focusedAndRelated": [
+      {
+        "log": "20-focused-offer-unit.log",
+        "pass": 102,
+        "tail": "ℹ duration_ms 8920.4066",
+        "sha256": "75EFEDED8220E3E4F2AF4AAFEC49E945B0B2A56176DEAEFB17448F82A05B261D"
+      },
+      {
+        "log": "23-managed-positive-final-a.log",
+        "pass": 483,
+        "tail": "PRIVACY MANAGED MCP E2E: ALL PASS",
+        "sha256": "8ED1C2106F41B1E35E370E2F19AD67DBF37273C576491730ACB7C5CFD8A7BE6D"
+      },
+      {
+        "log": "24-managed-positive-final-b.log",
+        "pass": 483,
+        "tail": "PRIVACY MANAGED MCP E2E: ALL PASS",
+        "sha256": "8ED1C2106F41B1E35E370E2F19AD67DBF37273C576491730ACB7C5CFD8A7BE6D"
+      },
+      {
+        "log": "25-mcp-remote-final.log",
+        "pass": 23,
+        "tail": "MCP REMOTE TRANSPORT E2E: ALL PASS",
+        "sha256": "6974DD3738D650E12288D7181A416065FB29147F9303A6379D94A0F6864DD441"
+      },
+      {
+        "log": "26-mcp-ops-final.log",
+        "pass": 108,
+        "tail": "MCP OPS CLOSURE E2E: ALL PASS",
+        "sha256": "40D57656F03DFC259F509391A6A75AA892CA60488FC9C2625C882AB8D668D72D"
+      },
+      {
+        "log": "27-disclosure-contract-final.log",
+        "pass": 6,
+        "tail": "PRIVACY DISCLOSURE CONTRACT E2E: ALL PASS",
+        "sha256": "AF6A91D59CDBCA217A7CC80BB978D90011AB990D222E1B6A7782EEAC332CE8B2"
+      },
+      {
+        "log": "28-model-tool-result-final.log",
+        "pass": 4,
+        "tail": "PRIVACY MODEL TOOL RESULT E2E: ALL PASS",
+        "sha256": "407FC30495504BD8ABFA5F0FF64F21E3E59D6FBF6CE846260C2E4471CF4DF92C"
+      },
+      {
+        "log": "29-privacy-channels-final.log",
+        "pass": 39,
+        "tail": "PRIVACY CHANNELS E2E: ALL PASS",
+        "sha256": "2CA8A6F703B6EBC3E20EEC1FE42927F8163E18237FB5FF7AAA060A18F5CBCEB7"
+      },
+      {
+        "log": "30-tool-loading-final.log",
+        "pass": 20,
+        "tail": "TOOL-LOADING E2E: ALL PASS",
+        "sha256": "55A9A91775E7E601C62AE06358A155239C4D296CFBA26015BC42EA15D04B1E41"
+      }
+    ],
+    "firstFailures": [
+      {
+        "logs": [
+          "03-managed-initial.log",
+          "04-managed-diagnostic.log",
+          "05-managed-compact-diagnostic.log",
+          "06-managed-match-diagnostic.log",
+          "07-managed-rule-diagnostic.log"
+        ],
+        "reason": "The new real resource round trip exposed the cross-JSON URL-password false positive; diagnosed and fixed without exempting resource output."
+      },
+      {
+        "logs": [
+          "08-json-url-unit.log",
+          "09-json-url-unit.log",
+          "10-json-url-focused.log"
+        ],
+        "reason": "Initial receiver oracle selected the system row; a later overbroad availability assertion rejected existing safe withholding of complex nested credential JSON. Resource availability and real credential non-disclosure assertions remain."
+      },
+      {
+        "logs": [
+          "13-managed-first.log",
+          "14-managed-bounded.log"
+        ],
+        "reason": "The fixture reused a stale connector client after a transport change. Production correctly refused before dispatch. Acceptance waits are now bounded and test-owned clients explicitly retire/rebuild. First run was interrupted; a later cleanup failed with Windows EPERM."
+      },
+      {
+        "logs": [
+          "15-managed-fresh-clients.log"
+        ],
+        "reason": "An overstrict fixture expected a new false flag instead of the existing steerInterrupted cancellation receipt. Final checks preserve that receipt, assert no may-have-executed claim, and require zero peer bytes."
+      }
+    ],
+    "unified": {
+      "syntax": {
+        "log": "31-syntax.log",
+        "files": 1115,
+        "failed": 0,
+        "finalDelta": "38-delta-syntax.log: final verb-map module and two changed static gates parse successfully"
+      },
+      "build": {
+        "log": "33-build-check.log",
+        "fresh": true
+      },
+      "unit": {
+        "log": "32-complete-unit.log",
+        "tests": 2553,
+        "suites": 192,
+        "pass": 2527,
+        "skip": 26,
+        "fail": 0,
+        "durationMs": 462498.9725
+      },
+      "fast": {
+        "log": "32-full-fast.log",
+        "firstPass": 76,
+        "firstFail": 4,
+        "flaky": 0,
+        "total": 80,
+        "repaired": [
+          "architecture-contract-snapshots.static.e2e.js",
+          "process-safety.static.e2e.js",
+          "tool-verb-coverage.static.e2e.js",
+          "steward-tools.static.e2e.js"
+        ],
+        "finalTargetedPass": true,
+        "whole80Rerun": false
+      },
+      "repairs": "Regenerated permission-tier snapshot (122 to 123); exact owned-cleanup file count (339 to 340); native registry count (120 to 121); added one bilingual tool verb. First verb key used an uppercase character outside the existing key contract: 34 failed, 35 final passes with tools.verb.mcp_resource. A mistaken nonexistent inventory-static command also remains in 34 logs; actual inventory check and its 14 tests pass in 37.",
+      "finalChecks": [
+        "34-architecture-contract-snapshots.static.e2e.js.log",
+        "34-process-safety.static.e2e.js.log",
+        "34-steward-tools.static.e2e.js.log",
+        "35-tool-verb-final.log",
+        "37-egress-unit.log",
+        "37-egress-check.log",
+        "38-i18n-final.log"
+      ],
+      "extraProtocolRegression": {
+        "log": "36-protocols-final.log",
+        "pass": 483,
+        "exit": 0
+      },
+      "sourceOrder": "The full unit run and 483-by-two transport matrix used the final backend bytes. Afterwards only one frontend verb-map entry and its four locale mirrors changed; final runtime verb/i18n and delta syntax gates verify those bytes. No backend test or protection was relaxed."
+    }
+  },
+  "metadata": {
+    "nativeTools": 121,
+    "e2e": 551,
+    "defaultE2e": 544,
+    "live": 7,
+    "unitFiles": 286,
+    "modules": 88,
+    "edges": 631,
+    "forwardEdges": 67,
+    "scc": 1,
+    "egressSources": 269,
+    "egressCandidates": 657,
+    "manuallyReviewedSources": 13,
+    "manuallyReviewedCandidates": 5,
+    "retiredCandidates": 0,
+    "privacyStatusPromotions": 0
+  },
+  "sourceHashes": [
+    {
+      "path": "dev-harness/fake-mcp.js",
+      "sha256": "4E299A9C094C9B6CE24514AD7AFEBEEA7C51CC3309822D4536554F443621C452",
+      "bytes": 36409
+    },
+    {
+      "path": "dev-harness/unit/privacy-gateway.test.js",
+      "sha256": "1D7A995CA09C3D9913DB4D00BCCE95F266B85AEE48979331C3E9EF4B6A473A81",
+      "bytes": 61368
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "AA4C77B3D29EDC58E00CD33D8D7F11DA350E63A17E423BBA4AA35520780F5E57",
+      "bytes": 6735781
+    },
+    {
+      "path": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "sha256": "8B0F87EB219CE0E571B2E7AF1AB7A0709998D72264C387ABE956A54B43489162",
+      "bytes": 38003
+    },
+    {
+      "path": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "sha256": "A4936955E4537F25C3621C5CF87E5F1788A0536170716D3FACE5C98F568E4689",
+      "bytes": 209694
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "F7769987F1C9E30FEE6D3A15E2FA27BA00392236F19875A566B86AD42053A194",
+      "bytes": 227414
+    },
+    {
+      "path": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "722F16EA6CFEB74073840001995A94C948E3653F0D2098947EE0CBF76CBA1EAD",
+      "bytes": 246688
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "54B2D20A2ADC7E6F2FD02D9AF8721A90667164F5BC100251722DB255F0BD64FA",
+      "bytes": 357522
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "AC5BCDCED92AFF46CD30CC552C832906B9C456BF8026C1DC2AD4DA581B5FEE8B",
+      "bytes": 319104
+    },
+    {
+      "path": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "BB44A3A3D5186442C58358F2264BA1D3EF236D837A675587866B4FA5BAEF62A6",
+      "bytes": 389482
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "5A0735CC85B1EF4C3DAF356787AE9E7708290A569D72FE1DE1615CF668086129",
+      "bytes": 311334
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "99ACBAD5BAAFB12819495589C6D0C2467830C2834FFACE007E78C500BCD932F2",
+      "bytes": 218088
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "sha256": "A014AD0671D3AD0E3F8277329BCCD080A1B5D5B3F426818BD090E931667D77B6",
+      "bytes": 151426
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "B4B464ED1E2F10B58149CEC92D059A624691FDD646EA1CA763E272D3F1140B29",
+      "bytes": 23425
+    },
+    {
+      "path": "dev-harness/privacy-managed-mcp.e2e.js",
+      "sha256": "736172DC988FD95E4FD8213E70B258D70FC68804B33174258219B3DA580ED7E0",
+      "bytes": 26871
+    }
+  ],
+  "finalAdditionalHashes": [
+    {
+      "file": "ruyi-workbench/app/public/js/interaction-prompts.js",
+      "sha256": "16834ff904fa30ecda2f8a6849d9415b06e946ed48b1b702ac94141cde7235ce"
+    },
+    {
+      "file": "ruyi-workbench/app/public/locales/en-US.json",
+      "sha256": "737f9eb7b8488c21ef4fb8b7e5bf8949bc499869b90aff60479c71659e43b340"
+    },
+    {
+      "file": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "sha256": "401f7b85599391f381cda81ad479361e4e96df15f5a6687ac3086645d68f7562"
+    },
+    {
+      "file": "docs/i18n/locales/en-US.json",
+      "sha256": "737f9eb7b8488c21ef4fb8b7e5bf8949bc499869b90aff60479c71659e43b340"
+    },
+    {
+      "file": "docs/i18n/locales/zh-CN.json",
+      "sha256": "401f7b85599391f381cda81ad479361e4e96df15f5a6687ac3086645d68f7562"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "fb2889368163a1056874dad5aa62b51c2646d7b70292c0eac0555793fdcd7e1b"
+    }
+  ],
+  "limits": [
+    "Synthetic Windows loopback MCP/model peers and fixture vault only; no real connector account, production credential, remote unsubscribe guarantee, full product E2E or release package claim.",
+    "No audited ACC/document raw-reference restoration adapter is introduced. Arbitrary peer networking, binary media, CLI containment/independent filesystem namespaces and ASR remain outside this slice.",
+    "The existing global config-read generation is deliberately conservative: an unrelated config save can withhold an in-flight result. No new daily dialog or permission step was added."
+  ],
+  "cleanup": {
+    "remainingOwnedTemporaryDirectories": [
+      "C:/Users/87179/AppData/Local/Temp/ruyi-managed-mcp-waIbOC",
+      "C:/Users/87179/AppData/Local/Temp/ruyi-managed-mcp-iKm7pf"
+    ],
+    "reason": "Automatic approval review rejected the cleanup operation (blocked by policy); no alternative deletion was attempted. No corresponding owned process remains."
+  },
+  "rawLogDirectory": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-maintenance-20261021\\checks\\m2-managed-mcp",
+  "rawLogs": [
+    {
+      "file": "01-build-initial.log",
+      "sha256": "eeea782d85e7c09102d229dca3384a88f7794bcb008d6d4497dfbd5be2817c12",
+      "bytes": 107
+    },
+    {
+      "file": "02-focused-initial.log",
+      "sha256": "42e80ac78726dab33ca53abbf5e1448fe998df85fe5d8e0fbd7b10b9f97464c9",
+      "bytes": 2759
+    },
+    {
+      "file": "03-managed-initial.log",
+      "sha256": "cde2d93e2ce3f0d44ddebe0c703e6cb64f3db863e0704a52e92340c19d5f1230",
+      "bytes": 3496
+    },
+    {
+      "file": "04-managed-diagnostic.log",
+      "sha256": "8b3087dfd1cf8052fa77b4ac165679a63f8a04bed4c35398a306f3e9771fb278",
+      "bytes": 353413
+    },
+    {
+      "file": "05-managed-compact-diagnostic.log",
+      "sha256": "077393edf2b434a610f2b69d3c66eddb75f2a36384f0ab36746cc215645ae0d4",
+      "bytes": 3355
+    },
+    {
+      "file": "06-managed-match-diagnostic.log",
+      "sha256": "dcc5ad1a07c24b876644d75209e1ba10d288528970202f8481a86f7bd81b3e3b",
+      "bytes": 3443
+    },
+    {
+      "file": "07-managed-rule-diagnostic.log",
+      "sha256": "9bd04569189455f61ee09fb8da7904633d9aaf8fe49c4173772332a8082911d2",
+      "bytes": 3542
+    },
+    {
+      "file": "08-json-url-unit.log",
+      "sha256": "089c11af73553a695d8c65f2e6174abf8947591f7b94f9f9cb2b80147f73734b",
+      "bytes": 6476
+    },
+    {
+      "file": "09-json-url-unit.log",
+      "sha256": "f0ff14636cb27cd0553c82e0f70273132ba37c4afd7b044d229745bf5c8649c7",
+      "bytes": 6577
+    },
+    {
+      "file": "10-json-url-focused.log",
+      "sha256": "54b3297c8b67215c428293e88cea9157df1c544d379ed032712aa041d69701b0",
+      "bytes": 1171
+    },
+    {
+      "file": "11-focused-unit.log",
+      "sha256": "607e3d0b7aedb628e2dcce6157b8627c052661eab8180f2210ded7a4449da0a9",
+      "bytes": 12711
+    },
+    {
+      "file": "12-focused-unit.log",
+      "sha256": "7064461490a890b49f04fafb903bf1b0e5737e1899b70a2a740796dfecc677c7",
+      "bytes": 11792
+    },
+    {
+      "file": "13-managed-first.log",
+      "sha256": "2fc7834c0b3fc395c611c7eed496049c0b09daff0eca6263c2c320d0afdcf6b1",
+      "bytes": 36480
+    },
+    {
+      "file": "14-managed-bounded.log",
+      "sha256": "b808a10349a46c0a3c15bab69a971a61de8f6f23604ac917eaa0ff6d0b7fbad2",
+      "bytes": 37867
+    },
+    {
+      "file": "15-managed-fresh-clients.log",
+      "sha256": "229ee1362e0a90a9e858b3b2463e4114f0de4c84ac5c2fa4f2bab32199825dc1",
+      "bytes": 39626
+    },
+    {
+      "file": "16-managed-final-a.log",
+      "sha256": "b7920cf1ab2f83580207c3d332e54c035e781ed356e91a737325cd02ae1191dd",
+      "bytes": 44066
+    },
+    {
+      "file": "17-managed-final-b.log",
+      "sha256": "b7920cf1ab2f83580207c3d332e54c035e781ed356e91a737325cd02ae1191dd",
+      "bytes": 44066
+    },
+    {
+      "file": "18-mcp-remote-regression.log",
+      "sha256": "6974dd3738d650e12288d7181a416065fb29147f9303a6379d94a0f6864dd441",
+      "bytes": 1693
+    },
+    {
+      "file": "19-mcp-ops-regression.log",
+      "sha256": "944581d6f5d8b95660d1eb041153b8af9810d028b33b826251fff75073ca9381",
+      "bytes": 5536
+    },
+    {
+      "file": "20-focused-offer-unit.log",
+      "sha256": "75efeded8220e3e4f2af4aafec49e945b0b2a56176deaefb17448f82a05b261d",
+      "bytes": 11807
+    },
+    {
+      "file": "21-managed-offer-final-a.log",
+      "sha256": "f9940b57b589c47521d0dfa73e52cf862280e24f5c5858679eff046c7add8484",
+      "bytes": 44712
+    },
+    {
+      "file": "22-managed-offer-final-b.log",
+      "sha256": "f9940b57b589c47521d0dfa73e52cf862280e24f5c5858679eff046c7add8484",
+      "bytes": 44712
+    },
+    {
+      "file": "23-managed-positive-final-a.log",
+      "sha256": "8ed1c2106f41b1e35e370e2f19ad67dbf37273c576491730acb7c5cfd8a7be6d",
+      "bytes": 44961
+    },
+    {
+      "file": "24-managed-positive-final-b.log",
+      "sha256": "8ed1c2106f41b1e35e370e2f19ad67dbf37273c576491730acb7c5cfd8a7be6d",
+      "bytes": 44961
+    },
+    {
+      "file": "25-mcp-remote-final.log",
+      "sha256": "6974dd3738d650e12288d7181a416065fb29147f9303a6379d94a0f6864dd441",
+      "bytes": 1693
+    },
+    {
+      "file": "26-mcp-ops-final.log",
+      "sha256": "40d57656f03dfc259f509391a6a75aa892ca60488fc9c2625c882ab8d668d72d",
+      "bytes": 5536
+    },
+    {
+      "file": "27-disclosure-contract-final.log",
+      "sha256": "af6a91d59cdbca217a7cc80bb978d90011ab990d222e1b6a7782eeac332ce8b2",
+      "bytes": 740
+    },
+    {
+      "file": "28-model-tool-result-final.log",
+      "sha256": "407fc30495504bd8abfa5f0ff64f21e3e59d6fbf6ce846260c2e4471cf4df92c",
+      "bytes": 511
+    },
+    {
+      "file": "29-privacy-channels-final.log",
+      "sha256": "2ca8a6f703b6ebc3e20eec1fe42927f8163e18237fb5ff7aaa060a18f5cbceb7",
+      "bytes": 3554
+    },
+    {
+      "file": "30-tool-loading-final.log",
+      "sha256": "55a9a91775e7e601c62ae06358a155239c4d296cfba26015bc42ea15d04b1e41",
+      "bytes": 1314
+    },
+    {
+      "file": "31-syntax.log",
+      "sha256": "9826353ca06778f70a44e13014f6920ec48855d1a43ff1fab4d143aafa2f0b9f",
+      "bytes": 61
+    },
+    {
+      "file": "32-complete-unit.log",
+      "sha256": "9cb69373fa4fb398149bcdcc5afacc4a22d6d67957c7f897e5e1b07104989b4c",
+      "bytes": 398715
+    },
+    {
+      "file": "32-full-fast.log",
+      "sha256": "edae0e5c471316702a8d5bf31ad0f5ece6fd907c54c79b3d63aa5284cb85d51c",
+      "bytes": 15193
+    },
+    {
+      "file": "33-build-check.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    {
+      "file": "34-architecture-contract-snapshots.static.e2e.js.log",
+      "sha256": "6854f05b4a23ea5c9445f617bf7bd2aaaac3a810f91eff4bdb0c976855406361",
+      "bytes": 884
+    },
+    {
+      "file": "34-i18n.static.e2e.js.log",
+      "sha256": "b287235588e12059fcc83ed729d5ba46aec6ac74df0060bd01c40c3a04d0a37e",
+      "bytes": 758
+    },
+    {
+      "file": "34-privacy-egress-inventory.static.e2e.js.log",
+      "sha256": "28cb47d6172968f1c3f69d72dc994733f52542d87480024b29e6feb832a44f7d",
+      "bytes": 756
+    },
+    {
+      "file": "34-process-safety.static.e2e.js.log",
+      "sha256": "9be3738aa91a45a4830e39997065a8e439936c8c30767ac40c2880826ab25957",
+      "bytes": 868
+    },
+    {
+      "file": "34-steward-tools.static.e2e.js.log",
+      "sha256": "159b3a426e7eb5f8485b609dc764b88421994b1cd1d583cc2acb3458f8cdbba9",
+      "bytes": 11427
+    },
+    {
+      "file": "34-tool-verb-coverage.static.e2e.js.log",
+      "sha256": "0327337204c2029802de4d3e24ce653962804dc94c02e56d15700d25f5e53e82",
+      "bytes": 1052
+    },
+    {
+      "file": "35-tool-verb-final.log",
+      "sha256": "5a42b44158517310b44b4eb8a3857c102f048de67af90bea0786249a1d1ebb2d",
+      "bytes": 1039
+    },
+    {
+      "file": "36-protocols-final.log",
+      "sha256": "5983d6f3ee626f4b169df028af9ab14a086763b2003e7099a34f39856b0db753",
+      "bytes": 44257
+    },
+    {
+      "file": "37-egress-check.log",
+      "sha256": "08a98ccaa80efa9849d030599b7c549c5b33c3a92a3d2ff4a5564369a6f07134",
+      "bytes": 67
+    },
+    {
+      "file": "37-egress-unit.log",
+      "sha256": "2c0458945799c47626c46e1d3950827a0ab79251b12752eab0bd16295395e99b",
+      "bytes": 1734
+    },
+    {
+      "file": "38-delta-syntax.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "file": "38-i18n-final.log",
+      "sha256": "b287235588e12059fcc83ed729d5ba46aec6ac74df0060bd01c40c3a04d0a37e",
+      "bytes": 758
+    }
+  ]
+}

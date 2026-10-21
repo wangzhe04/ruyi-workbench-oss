@@ -1531,6 +1531,7 @@ function emptyReplyNotice(locale, afterText) {
 }
 
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta, executionOwner, delegationPlan }) {
+  if (typeof ManagedMcp !== 'undefined' && ManagedMcp.active()?.owner !== arguments[0]) return ManagedMcp.runTurn(arguments[0], () => runOpenAiTurn(arguments[0]));
   if (typeof PrivacyGateway !== 'undefined' && PrivacyGateway.enabled(config) && !PrivacyGateway.active()) return PrivacyGateway.run(session.id, config, () => runOpenAiTurn(arguments[0]));
   assertSessionExecutionOwner(session.id, executionOwner);
   const turnStartedAt = Date.now();
