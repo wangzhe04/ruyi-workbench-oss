@@ -34,40 +34,125 @@ test('[P2] 快照解析', () => {
   assert.equal(rows[1].created - rows[0].created, 1n, 'FILETIME 精度没丢');
 });
 
-const alive = pid => { const t = snapshotProcessTable(); return Boolean(t && t.some(r => r.pid === pid)); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const stringify = value => JSON.stringify(value, (_, item) => typeof item === 'bigint' ? item.toString() : item);
+const reportedPid = buffer => { const match = /^([1-9]\d*)\r?\n/.exec(buffer); return match ? Number(match[1]) : null; };
+function checkedSnapshot() {
+  const table = snapshotProcessTable();
+  assert.ok(Array.isArray(table), '进程表获取失败,不能当成进程已退出');
+  return table;
+}
+function assertProcessGone(table, identity, context = {}) {
+  assert.ok(Array.isArray(table), '进程表获取失败,不能当成进程已退出');
+  const observed = table.find(row => row.pid === identity.pid);
+  assert.ok(!observed || observed.created !== identity.created,
+    '同一创建时间的进程仍在: ' + stringify({ identity, observed, ...context }));
+}
+function cleanupFixture(root, identities, originalError) {
+  try {
+  killOwnTree(root);
+  // Assertion failures must not leave a detached fixture behind. Only the identities
+  // observed while our root was alive are eligible. Get-Process is lazy: explicitly
+  // pin its native handle before checking StartTime, then kill through that handle.
+  if (!identities.length) return;
+  const items = identities.map(row => `${row.pid}:${row.created}`).join(',');
+  const script = `foreach($it in '${items}'.Split(',')) { $p=$null; try { `
+    + `$id0,$ft=$it.Split(':'); $p=Get-Process -Id ([int]$id0) -ErrorAction Stop; $null=$p.Handle; `
+    + `if([math]::Abs($p.StartTime.ToFileTimeUtc()-[int64]$ft)-lt 10000){$p.Kill();$p.WaitForExit(3000)|Out-Null} `
+    + `} catch {} finally {if($p){$p.Dispose()}} }`;
+  cp.spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 20000, stdio: 'ignore' });
+  const after = checkedSnapshot();
+  for (const identity of identities) assertProcessGone(after, identity, { phase: 'finally-cleanup' });
+  } catch (error) {
+    if (!originalError) throw error;
+    originalError.message += '\nfinally cleanup failed: ' + error.message;
+  }
+}
+
+test('[P3] 退出判据核创建时间;真存活和快照失败不能报成功;PID报告必须完整', () => {
+  const identity = { pid: 100, created: 1000n };
+  assert.throws(() => assertProcessGone([identity], identity), /同一创建时间/);
+  assert.throws(() => assertProcessGone(null, identity), /进程表获取失败/);
+  assert.doesNotThrow(() => assertProcessGone([{ pid: 100, created: 2000n }], identity));
+  assert.doesNotThrow(() => assertProcessGone([], identity));
+  assert.equal(reportedPid('12'), null, '分块的PID前缀不是完整PID');
+  assert.equal(reportedPid('12345\r\n'), 12345);
+});
 
 // 根是一个 node,它再 spawn 一个长跑的 node(孙子),把孙子的 pid 打到 stdout。
 async function rootWithGrandchild(detached) {
   const opts = detached ? "{stdio:'ignore',detached:true,windowsHide:true}" : "{stdio:'ignore',windowsHide:true}";
   const script = `const c=require('child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],${opts});console.log(c.pid);setInterval(()=>{},1000);`;
   const root = cp.spawn(process.execPath, ['-e', script], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
-  const grandPid = await new Promise((resolve, reject) => {
-    let buf = '';
-    root.stdout.on('data', d => { buf += d; const m = /(\d+)/.exec(buf); if (m) resolve(Number(m[1])); });
-    setTimeout(() => reject(new Error('grandchild pid not reported')), 10000);
-  });
-  return { root, grandPid };
+  try {
+    const grandPid = await new Promise((resolve, reject) => {
+      let buf = '';
+      const finish = (error, pid) => {
+        clearTimeout(timer);
+        root.stdout.off('data', onData);
+        root.off('error', onError);
+        root.off('exit', onExit);
+        if (error) reject(error); else resolve(pid);
+      };
+      const onData = data => { buf += data; const pid = reportedPid(buf); if (pid) finish(null, pid); };
+      const onError = error => finish(error);
+      const onExit = () => finish(new Error('root exited before grandchild pid was reported'));
+      const timer = setTimeout(() => finish(new Error('grandchild pid not reported')), 10000);
+      root.stdout.on('data', onData);
+      root.once('error', onError);
+      root.once('exit', onExit);
+    });
+    return { root, grandPid };
+  } catch (error) {
+    killOwnTree(root);
+    throw error;
+  }
 }
 
 // libuv 把非 detached 的子进程放进一个「句柄关闭即杀」的 job ⇒ 根一死它们就跟着没了(128c 取证时撞见的:
 // 修前以为是 /T 杀的)。真正需要按树去收的是逃出这个 job 的:detached 的、以及非 node 父进程拉起的(cmd start、python)。
 test('[R1] 真进程:detached 的孙子不会随根一起死,由树遍历收掉', { skip: process.platform !== 'win32' }, async () => {
   const { root, grandPid } = await rootWithGrandchild(true);
-  assert.ok(alive(grandPid), '前提:孙子在跑');
-  const res = killOwnTree(root);
-  assert.ok(res.killed.includes(root.pid), `根被杀(${JSON.stringify(res)})`);
-  assert.ok(res.killed.includes(grandPid), `detached 孙子由树遍历杀掉(${JSON.stringify(res)})`);
-  await sleep(300);
-  assert.equal(alive(grandPid), false, '孙子确实没了');
+  let identities = [], failure;
+  try {
+    identities = checkedSnapshot().filter(row => row.pid === root.pid || row.pid === grandPid);
+    assert.equal(identities.length, 2, '前提:根和孙子在跑');
+    const grand = identities.find(row => row.pid === grandPid);
+    const res = killOwnTree(root);
+    assert.ok(res.killed.includes(root.pid), `根被杀(${stringify(res)})`);
+    assert.ok(res.killed.includes(grandPid), `detached 孙子由树遍历杀掉(${stringify(res)})`);
+    await sleep(300);
+    assertProcessGone(checkedSnapshot(), grand, { before: identities, cleanup: res, rootExitCode: root.exitCode, rootSignalCode: root.signalCode });
+  } catch (error) { failure = error; throw error; }
+  finally { cleanupFixture(root, identities, failure); }
 });
 
 test('[R1b] 真进程:普通(非 detached)孙子随根一起走(libuv job),收尾后同样不留', { skip: process.platform !== 'win32' }, async () => {
   const { root, grandPid } = await rootWithGrandchild(false);
-  assert.ok(alive(grandPid), '前提:孙子在跑');
-  killOwnTree(root);
-  await sleep(300);
-  assert.equal(alive(grandPid), false, '孙子没了');
+  let identities = [], failure;
+  try {
+    identities = checkedSnapshot().filter(row => row.pid === root.pid || row.pid === grandPid);
+    assert.equal(identities.length, 2, '前提:根和孙子在跑');
+    const grand = identities.find(row => row.pid === grandPid);
+    const res = killOwnTree(root);
+    await sleep(300);
+    assertProcessGone(checkedSnapshot(), grand, { before: identities, cleanup: res, rootExitCode: root.exitCode, rootSignalCode: root.signalCode });
+  } catch (error) { failure = error; throw error; }
+  finally { cleanupFixture(root, identities, failure); }
+});
+
+test('[R1c] 真活进程负控:只杀根的坏实现会被同一退出判据拒绝', { skip: process.platform !== 'win32' }, async () => {
+  const { root, grandPid } = await rootWithGrandchild(true);
+  let identities = [], failure;
+  try {
+    identities = checkedSnapshot().filter(row => row.pid === root.pid || row.pid === grandPid);
+    assert.equal(identities.length, 2);
+    const grand = identities.find(row => row.pid === grandPid);
+    root.kill(); // Deliberately omit descendant cleanup; detached grandchild must remain.
+    await sleep(300);
+    assert.throws(() => assertProcessGone(checkedSnapshot(), grand), /同一创建时间的进程仍在/);
+  } catch (error) { failure = error; throw error; }
+  finally { cleanupFixture(root, identities, failure); }
 });
 
 test('[R2] 根已退出 ⇒ 不碰', async () => {

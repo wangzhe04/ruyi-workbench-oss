@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-21",
+  "baseline": "3fea5af1",
+  "firstFailure": {
+    "fullUnitSkipped": 26,
+    "rootCause": "UNRESOLVED: no cleanup receipt or process creation identity retained in original log",
+    "fullUnitPassed": 2473,
+    "fullUnitTests": 2500,
+    "observed": "R1b PID-only still present after 300ms",
+    "file": "ruyi-audio-fast-review.log",
+    "fullUnitFailed": 1
+  },
+  "reproduction": {
+    "concurrentChurn": 12,
+    "churnShortProcesses": 161,
+    "unexpectedErrors": 0,
+    "finalScriptCheck": 1,
+    "failures": 0,
+    "total": 21,
+    "sameCreatedSurvivorObserved": 0,
+    "baseline": 8,
+    "pidReuseObserved": 0
+  },
+  "confirmedObservationGaps": [
+    "PID-only identity cannot distinguish reuse",
+    "failed process snapshot was interpreted as exited",
+    "cleanup receipt was discarded by R1b",
+    "stdout PID prefix accepted before complete line"
+  ],
+  "changes": [
+    "No changes to kill-own-tree.js",
+    "Test requires PID + captured creation identity",
+    "Snapshot acquisition failure fails assertion",
+    "Failure message retains before/observed identity, cleanup receipt and root exit fields",
+    "Complete PID line and cleared report timer/listeners",
+    "finally cleanup uses captured identity and held Process object",
+    "Keep 300ms wait unchanged",
+    "Synthetic reuse/snapshot failure checks and real detached survivor negative control",
+    "Failure cleanup now explicitly pins native $p.Handle before StartTime comparison, Kill/WaitForExit and finally Dispose",
+    "Final cleanup post-checks every captured PID+created identity with checkedSnapshot/assertProcessGone; preserves an original assertion failure while appending any cleanup error",
+    "Diagnostic records cleanupVerified/cleanupError without replacing original iteration.error and exits nonzero on cleanup or observed survivor failures"
+  ],
+  "validation": {
+    "fullRegression": "not run",
+    "fixtureHome": "passed, 220 sites",
+    "finalUnit": "7/7 after explicit cleanup identity post-check",
+    "processSafety": "passed, 334 owners",
+    "earlierUnit": "7/7 before final listener tidy"
+  },
+  "commands": [
+    "node dev-harness/bench/kill-own-tree-repro.js 8",
+    "node dev-harness/bench/kill-own-tree-repro.js 12 --churn",
+    "node dev-harness/bench/kill-own-tree-repro.js 1",
+    "node --test dev-harness/unit/kill-own-tree.test.js"
+  ],
+  "rawReports": [
+    {
+      "sha256": "e3f6cd1032394687c950bc172c59a77b6bee3a8815be8b3a058998e9460eb7bf",
+      "file": "baseline-8.json"
+    },
+    {
+      "sha256": "7e13fab66c856668a1ec763f2e43329a03a5cee8040ead7fc1befaec5fa70a6d",
+      "file": "churn-12.json"
+    },
+    {
+      "sha256": "e6adae8ec47d9c4d3d84b36fa52df5245687af8a334415fe6e6cc1a7ae9891be",
+      "file": "final-script-1.json"
+    }
+  ],
+  "diagnosticSourceBinding": {
+    "observedHelperSha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730",
+    "finalTestSha256": "b0a911170a8fddae0f5fe62a509cf57803e5e270adb3924953f801435d48b125",
+    "finalDiagnosticSha256": "3ae1cfdb5fb064408e17eb193c88be892cb241dccf29ac7b0f4f709448efc832",
+    "priorRawReports": "All 21 observations preceded the cleanup native-handle pin and explicit cleanup identity post-check; immutable report SHA256 values retained under rawReports. Earlier reports did not record the full diagnostic source hash, so no retrospective full source binding is claimed."
+  }
+}
