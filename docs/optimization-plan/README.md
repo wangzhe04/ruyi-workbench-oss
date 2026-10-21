@@ -8,6 +8,7 @@
 - [87 · 代码规模与合理精简审计](87-code-size-and-simplification-audit.md)：当前基线的代码统计与共用机制候选；只读审计不代表改造已实施，安排由 86 统一维护。
 - [88 · M1 外发边界与本地处理原型](88-privacy-m1-prototypes.md)：外发清册、Windows CLI 隔离与媒体原型的设计、实验证据及未解决条件。
 - [89 · 音频修复与 CLI 隔离续验](89-audio-and-cli-isolation-followup.md)：发送边界与配置发布竞态修复、LPAC/网关后续实验，以及本地 ASR 改为可选组件的评估。
+- [90 · Claude 与严格文件边界验证](90-claude-and-filesystem-feasibility.md)：原生 Claude 初始化与网关候选、LPAC 文件视图反例、额外受限令牌，以及进程回收测试的调查与观测修正。
 - [全局路线图](../OPTIMIZATION-ROADMAP.md)：已发布基线、已合入状态和发布规则。
 - [文档总索引](../README.md)：使用、开发、发布和历史证据导航。
 

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "experiment": "kill-own-tree-r1b-instrumented-full-unit",
+  "recordedAt": "2026-10-21T04:49:28.197Z",
+  "baselineCommit": "4f80d4dc",
+  "command": "node --test --test-concurrency=4 'dev-harness/unit/*.test.js'",
+  "executionContext": "Direct node:test, same four-lane unit budget as the original fast unit gate; run-all prelude, static stage and E2E not executed.",
+  "platform": {
+    "os": "win32",
+    "release": "10.0.26200",
+    "node": "v24.14.0"
+  },
+  "exitCode": 0,
+  "counts": {
+    "tests": 2502,
+    "suites": 192,
+    "pass": 2476,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 26,
+    "todo": 0,
+    "duration_ms": 295481.7056
+  },
+  "r1b": "passed; first historical failure not reproduced",
+  "r1c": "passed; deliberate detached survivor rejected, finally verifies captured identities gone",
+  "sourceBinding": {
+    "unitFileCount": 279,
+    "unitManifestSha256": "8984e105b679e46bafd53ee579b74a7d0049323109453bc5026bebe394bcac63",
+    "unitManifestAlgorithm": "sha256(JSON.stringify(sorted basename records {file,sha256(raw bytes)} for dev-harness/unit/*.test.js))",
+    "relevantFiles": [
+      {
+        "file": "dev-harness/lib/kill-own-tree.js",
+        "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+      },
+      {
+        "file": "dev-harness/unit/kill-own-tree.test.js",
+        "sha256": "b0a911170a8fddae0f5fe62a509cf57803e5e270adb3924953f801435d48b125"
+      },
+      {
+        "file": "dev-harness/bench/kill-own-tree-repro.js",
+        "sha256": "3ae1cfdb5fb064408e17eb193c88be892cb241dccf29ac7b0f4f709448efc832"
+      }
+    ]
+  },
+  "rawLog": {
+    "file": "full-unit.log",
+    "sha256": "67a2b47b92c2336f6b662ade24cac80527ee31f5c8c1c3f684f03d8b0dbacc03",
+    "externalArchive": "checks/m1-r1b-full-unit-recheck/"
+  },
+  "originalFailure": {
+    "status": "UNRESOLVED; original log lacks cleanup receipt and process creation identity",
+    "investigation": "kill-own-tree-r1b-investigation.json"
+  },
+  "limitations": [
+    "26 skipped tests are not passes",
+    "Later passing recheck does not change the first failing run",
+    "The 21 earlier diagnostics preceded the final cleanup changes; they remain separately bound",
+    "This unit result does not pass failed Claude or filesystem OS gates"
+  ]
+}

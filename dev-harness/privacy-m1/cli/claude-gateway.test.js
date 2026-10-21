@@ -1,0 +1,23 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const {createGateway,LIMIT}=require('./gateway-broker');
+const {startFakeAnthropic}=require('../../lib/fake-anthropic-provider');
+const {createClaudeObserver}=require('./claude-observer');
+const request=content=>({version:1,id:crypto.randomUUID(),operation:'model-request',recipient:'m1-synthetic-provider',purpose:'model-inference',method:'POST',path:'/v1/messages',bodyBase64:Buffer.from(JSON.stringify({model:'synthetic-m1',stream:true,max_tokens:32,messages:[{role:'user',content}]})).toString('base64')});
+test('Anthropic fixed protocol traverses real PrivacyCore and captured receiver with matching body hash',async()=>{
+  const challenge='HOST_ONLY_'+crypto.randomBytes(16).toString('hex'),provider=await startFakeAnthropic({handler:()=>challenge});
+  try{const broker=createGateway({upstream:provider.url,protocol:'anthropic',responseChallenge:challenge}),{createFetchAdapter}=await import('./fetch-adapter.mjs'),adapter=createFetchAdapter((value)=>broker.handle(value),'anthropic');
+    const value=request('SYNTHETIC_M1_CONTACT_SECRET'),response=await adapter('https://privacy-gateway.invalid/v1/messages',{method:'POST',body:Buffer.from(value.bodyBase64,'base64'),headers:{'anthropic-version':'UNTRUSTED','x-api-key':'CLI_SYNTHETIC_NONCREDENTIAL'}});assert.equal(response.status,200);assert((await response.text()).includes(challenge));assert.equal(provider.requests.length,1);assert.equal(provider.requests[0].headers['anthropic-version'],'2023-06-01');assert.equal(provider.requests[0].headers['x-api-key'],undefined);assert(!provider.requests[0].raw.includes('SYNTHETIC_M1_CONTACT_SECRET'));assert.equal(crypto.createHash('sha256').update(provider.requests[0].raw).digest('hex'),broker.evidence.requests[0].upstreamBodySha256);assert.equal(broker.evidence.requests[0].matches,1);assert.equal(broker.evidence.requests[0].delivery,'confirmed');assert.equal(JSON.stringify(broker.evidence).includes(challenge),false);
+  }finally{await provider.close();}
+});
+test('Anthropic protocol rejects cross-protocol routes, query, arbitrary fields, oversized and unknown references before submit',async()=>{
+  const provider=await startFakeAnthropic();try{const broker=createGateway({upstream:provider.url,protocol:'anthropic'});for(const mutate of [r=>r.path='/v1/chat/completions',r=>r.path='/v1/messages?beta=true',r=>r.path='/v1/models',r=>r.url=provider.url,r=>r.method='GET',r=>r.purpose='exec',r=>r.bodyBase64='!',r=>r.bodyBase64='A'.repeat(Math.ceil(LIMIT/3)*4+1)]){const value=request('safe');mutate(value);await assert.rejects(broker.handle(value));}await assert.rejects(broker.handle(request('[[RUYI_PVT:INTERNAL:'+('a'.repeat(32))+']]')));assert.equal(provider.requests.length,0);
+    const {createFetchAdapter}=await import('./fetch-adapter.mjs');assert.throws(()=>createFetchAdapter(()=>{},'unknown'));assert.throws(()=>createGateway({upstream:provider.url,protocol:'unknown'}));let exchanges=0;const adapter=createFetchAdapter(()=>{exchanges++;},'anthropic');for(const route of ['/v1/chat/completions','/v1/messages?beta=true','/v1/models'])await assert.rejects(adapter('https://privacy-gateway.invalid'+route,{method:'POST',body:'{}'}));assert.equal(exchanges,0);
+  }finally{await provider.close();}
+});
+test('Claude completion requires nested assistant text and successful final result; echoes, tools, error and oversize cannot pass',()=>{
+  const challenge='HOST_ONLY_NONCE',assistant={type:'assistant',message:{role:'assistant',content:[{type:'text',text:challenge}]}},success={type:'result',subtype:'success',is_error:false,result:challenge};
+  for(const value of [{role:'assistant',content:challenge},{type:'user',message:assistant.message},{...assistant,message:{role:'assistant',content:[{type:'tool_use',text:challenge}]}},{...assistant,message:{role:'assistant',content:[{type:'text',text:challenge},{type:'tool_use'}]}},success]){const observer=createClaudeObserver(challenge);observer.write(JSON.stringify(value)+'\n');assert.equal(observer.observed,false);}
+  const observer=createClaudeObserver(challenge);observer.write(JSON.stringify(assistant).slice(0,30));observer.write(JSON.stringify(assistant).slice(30)+'\n');assert.equal(observer.observed,false);observer.write(JSON.stringify(success)+'\n');assert.equal(observer.observed,true);observer.write(JSON.stringify({type:'result',subtype:'error',is_error:true})+'\n');assert.equal(observer.observed,false);
+  const overflow=createClaudeObserver(challenge);overflow.write('x'.repeat(262145));overflow.write(JSON.stringify(assistant)+'\n');overflow.write(JSON.stringify(success)+'\n');assert.equal(overflow.observed,false);
+});

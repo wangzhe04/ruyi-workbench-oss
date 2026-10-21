@@ -2,6 +2,8 @@
 
 > 2026-10-21。承接 [88 号原型](88-privacy-m1-prototypes.md)，基线提交 `6d1e6544`。用户调整顺序：先修音频策略切换漏检查，再验证 LPAC 与 CLI 网关；ASR 先评估，成本过高可撤下。应用版本与正式发布门仍按 [86 号路线](86-3.1-completion-and-privacy-roadmap.md)。
 
+后续 Claude 原生程序、严格文件视图与进程回收调查见 [90 号记录](90-claude-and-filesystem-feasibility.md)。本页 LPAC/Kimi 证据冻结于 `3fea5af1` 的源码，不用后续变动改写原结果。
+
 ## 音频修复合同
 
 `transcribeAudioViaProvider` 与非 DELETE 的 `audioStreamUpstream` 在最后一次异步等待之后、实际 `fetch` 提交之前，同步检查当前权威策略。旧 off 配置快照不能覆盖已经开启的保护。DELETE 只负责回收已有会话，不因开启保护而禁止清理。

@@ -2,14 +2,15 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
 const LIMIT=256*1024,secret='SYNTHETIC_M1_CONTACT_SECRET';
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
-function createGateway({upstream,deadline=Date.now()+20000,responseChallenge='M1_RESPONSE_'+crypto.randomBytes(16).toString('hex')}) {
+function createGateway({upstream,deadline=Date.now()+20000,responseChallenge='M1_RESPONSE_'+crypto.randomBytes(16).toString('hex'),protocol='openai'}) {
+  if(!['openai','anthropic'].includes(protocol))throw new Error('protocol-denied');
   const root=path.resolve(__dirname,'../../..'),names=['01i-privacy-rules.js','01h-privacy-core.js'];
   const sources=names.map(name=>fs.readFileSync(path.join(root,'ruyi-workbench/app/src',name),'utf8'));
   const core=vm.runInNewContext(sources.join('\n')+'\nPrivacyCore;',{require,Buffer});
   const policy=Object.freeze({rules:[{id:'m1-cli-literal',kind:'literal',value:secret,category:'INTERNAL'}]});
   const scope=core.createScope({scopeId:'m1-cli-protected-scope',detector:core.createDetector(policy)});
   const originalPrompt='Return the synthetic provider reply verbatim. Contact: '+secret,projected=scope.protectRaw(originalPrompt);
-  const evidence={recipient:'m1-synthetic-provider',purpose:'model-inference',policySha256:sha(JSON.stringify(policy)),rulesSha256:sha(sources.join('\n')),originalPromptSha256:sha(originalPrompt),projectedPromptSha256:sha(projected.text),responseChallengeSha256:sha(responseChallenge),projectionMatches:projected.matches.length,requests:[],rejected:0};let inflight=false;
+  const evidence={protocol,recipient:'m1-synthetic-provider',purpose:'model-inference',policySha256:sha(JSON.stringify(policy)),rulesSha256:sha(sources.join('\n')),originalPromptSha256:sha(originalPrompt),projectedPromptSha256:sha(projected.text),responseChallengeSha256:sha(responseChallenge),projectionMatches:projected.matches.length,requests:[],rejected:0};let inflight=false;
   function protectString(text,budget) {
     scope.validateProtected(text);let out='',from=0,hits=0;
     for(const token of text.matchAll(/\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g)){const segment=scope.protectRaw(text.slice(from,token.index),{budget});out+=segment.text+token[0];hits+=segment.matches.length;from=token.index+token[0].length;}
@@ -18,7 +19,8 @@ function createGateway({upstream,deadline=Date.now()+20000,responseChallenge='M1
   async function handle(request) {
     if(inflight||Date.now()>=deadline){evidence.rejected++;throw new Error('broker-unavailable');}inflight=true;
     try {
-      if(!request||Object.keys(request).sort().join(',')!=='bodyBase64,id,method,operation,path,purpose,recipient,version'||request.version!==1||!/^[-a-f0-9]{36}$/.test(request.id)||request.operation!=='model-request'||request.recipient!==evidence.recipient||request.purpose!==evidence.purpose||!((request.method==='POST'&&request.path==='/v1/chat/completions')||(request.method==='GET'&&request.path==='/v1/models'))||typeof request.bodyBase64!=='string'||request.bodyBase64.length>Math.ceil(LIMIT/3)*4)throw new Error('request-denied');
+      const route=protocol==='anthropic'?request?.method==='POST'&&request?.path==='/v1/messages':(request?.method==='POST'&&request?.path==='/v1/chat/completions')||(request?.method==='GET'&&request?.path==='/v1/models');
+      if(!request||Object.keys(request).sort().join(',')!=='bodyBase64,id,method,operation,path,purpose,recipient,version'||request.version!==1||!/^[-a-f0-9]{36}$/.test(request.id)||request.operation!=='model-request'||request.recipient!==evidence.recipient||request.purpose!==evidence.purpose||!route||typeof request.bodyBase64!=='string'||request.bodyBase64.length>Math.ceil(LIMIT/3)*4)throw new Error('request-denied');
       const raw=Buffer.from(request.bodyBase64,'base64');if(raw.length>LIMIT||raw.toString('base64')!==request.bodyBase64)throw new Error('request-denied');
       let body,hits=0;
       if(request.method==='POST') {
@@ -28,7 +30,8 @@ function createGateway({upstream,deadline=Date.now()+20000,responseChallenge='M1
       }else if(raw.length)throw new Error('get-body-denied');
       if(Date.now()>=deadline)throw new Error('deadline');
       const record={method:request.method,path:request.path,sourceBodySha256:sha(raw),upstreamBodySha256:body?sha(body):null,upstreamBodyBytes:body?Buffer.byteLength(body):0,matches:hits,containsOriginal:false,delivery:'submitted-result-unknown'};evidence.requests.push(record);
-      const response=await fetch(upstream+request.path,{method:request.method,body,headers:body?{'content-type':'application/json'}:{},redirect:'error',signal:AbortSignal.timeout(Math.max(1,deadline-Date.now()))});
+      const headers=body?{'content-type':'application/json'}:{};if(protocol==='anthropic')headers['anthropic-version']='2023-06-01';
+      const response=await fetch(upstream+request.path,{method:request.method,body,headers,redirect:'error',signal:AbortSignal.timeout(Math.max(1,deadline-Date.now()))});
       const reader=response.body.getReader(),parts=[];let size=0;
       try {for(;;){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>LIMIT)throw new Error('response-limit');parts.push(value);}}finally{await reader.cancel().catch(()=>{});}
       const bytes=Buffer.concat(parts),contentType=response.headers.get('content-type')?.split(';')[0];if(!['application/json','text/event-stream'].includes(contentType))throw new Error('response-type');

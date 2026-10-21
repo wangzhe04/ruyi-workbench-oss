@@ -1,0 +1,3617 @@
+{
+  "schemaVersion": 1,
+  "experiment": "privacy-m1-cli-claude",
+  "stage": "compat-audit",
+  "generatedAt": "2026-10-21T04:35:24.413Z",
+  "productWired": false,
+  "completedM1": false,
+  "sourceManifest": {
+    "sha256": "064889b02be7858cb15645ad2d4201337428c1224501cf59f1f2c529c6e4959e",
+    "files": [
+      {
+        "sha256": "774267bbe95c5c1b9b773ff28562e3e800c2c58b225a2c42912e29cd4fb84e0d",
+        "path": "claude-run.js",
+        "size": 13656
+      },
+      {
+        "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859",
+        "path": "claude-preload-marker.mjs",
+        "size": 237
+      },
+      {
+        "sha256": "391f9cfa85d7cd73b41a033be5f1959258c495b355a0baa552393732c5ec26bc",
+        "path": "claude-preload.mjs",
+        "size": 672
+      },
+      {
+        "sha256": "cdd719db244fb902302ab8ec91b5faef095df7a72093294e46009ea6bd207773",
+        "path": "claude-diagnostic.mjs",
+        "size": 3064
+      },
+      {
+        "sha256": "fbedc98328dbec772c33e8746c2473a4f84f82155c40e6692c52e61b2b614d4b",
+        "path": "claude-ancestor.mjs",
+        "size": 1935
+      },
+      {
+        "sha256": "edf6a61736107f41e6fb95d746235c6ffcbabd455b0844ce1bd94be14e9d9d08",
+        "path": "claude-realpath.mjs",
+        "size": 3519
+      },
+      {
+        "sha256": "c2ed1487ac2593e7d7c98c9b82ed1222a68a738a7dc612884f94cd170214589d",
+        "path": "claude-help-preload.mjs",
+        "size": 331
+      },
+      {
+        "sha256": "461787d8956ffd7f9b9333b796f70f0a4cbd7323170eb5df3733b4440ef013b6",
+        "path": "claude-audit-preload.mjs",
+        "size": 628
+      },
+      {
+        "sha256": "d8f0047e9ce88be3b747461da9575778cf9dfd1814c8e42f96ea0be4771f60f8",
+        "path": "claude-contract.md",
+        "size": 7449
+      },
+      {
+        "sha256": "3fac693c2d73837127bcf2449b82af3127f54925042f480902470133444432a0",
+        "path": "claude-realpath.test.js",
+        "size": 3833
+      },
+      {
+        "sha256": "abe585840e3817a1bcbf358428b44ca5cea2cd689667f635e1d1fd599ba61407",
+        "path": "claude-observer.js",
+        "size": 5474
+      },
+      {
+        "sha256": "37bcffad06051a44803348dc1638363e7a6bd2675abff9e704bf4855f8eca506",
+        "path": "claude-run.test.js",
+        "size": 3642
+      },
+      {
+        "sha256": "cb2e989df108e63f332acacaa80149b698d9ffd5d765a6cd536f025d9661d87d",
+        "path": "claude-gateway.test.js",
+        "size": 4722
+      },
+      {
+        "sha256": "9dd6d8a19a03ea9bffff2879f690ba4f3e10fa1192cfbcf4b19b1aa0cc9db488",
+        "path": "run.js",
+        "size": 22215
+      },
+      {
+        "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9",
+        "path": "lpac.js",
+        "size": 16804
+      },
+      {
+        "sha256": "3a7bb1a2e554719ada5b4dc0415d77b83316c80d9bff166740587eabe047fac7",
+        "path": "gateway-broker.js",
+        "size": 5466
+      },
+      {
+        "sha256": "842c6d29b0747863bb6b54d9b5c439c22ef3b97b701a372978a92821c260b80b",
+        "path": "gateway-preload.mjs",
+        "size": 1801
+      },
+      {
+        "sha256": "80ba065bc8714f1e7eb9fc23738c7934cc2db0c0244b4b756d2167b9112be2ee",
+        "path": "fetch-adapter.mjs",
+        "size": 2309
+      },
+      {
+        "sha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162",
+        "path": "AppContainerHost.cs",
+        "size": 31744
+      },
+      {
+        "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730",
+        "path": "../../lib/kill-own-tree.js",
+        "size": 7839
+      },
+      {
+        "sha256": "b2b43accc6169067abe0a4a3b7afcf64daa14446bc9d837c18be1bf01a4628f1",
+        "path": "../../lib/fake-anthropic-provider.js",
+        "size": 10278
+      },
+      {
+        "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+        "path": "../../../ruyi-workbench/app/src/01i-privacy-rules.js",
+        "size": 26429
+      },
+      {
+        "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3",
+        "path": "../../../ruyi-workbench/app/src/01h-privacy-core.js",
+        "size": 37693
+      }
+    ]
+  },
+  "platform": {
+    "os": "Windows",
+    "release": "10.0.26200",
+    "node": "v24.14.0"
+  },
+  "references": [
+    {
+      "url": "https://bun.sh/docs/bundler/executables",
+      "claim": "Bun standalone executables accept BUN_OPTIONS; BUN_BE_BUN replaces the entrypoint and is only a runtime fixture."
+    },
+    {
+      "url": "https://bun.sh/docs/runtime/code-generation-from-strings",
+      "claim": "Strict compiled executables may reject external preloads; unsupported must remain blocked."
+    },
+    {
+      "url": "https://code.claude.com/docs/en/env-vars",
+      "claim": "ANTHROPIC_BASE_URL supports gateway routing; this does not establish an IPC transport."
+    },
+    {
+      "url": "https://code.claude.com/docs/en/network-config",
+      "claim": "HTTP(S) proxy variables are documented; no documented named-pipe model transport was found."
+    }
+  ],
+  "programs": {
+    "node": {
+      "version": "v24.14.0",
+      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+    },
+    "claude": {
+      "packageVersion": "2.1.202",
+      "installedProgramTree": {
+        "fileCount": 11,
+        "totalBytes": 504234049,
+        "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+        "files": [
+          {
+            "path": "bin/claude.exe",
+            "size": 252038816,
+            "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+          },
+          {
+            "path": "cli-wrapper.cjs",
+            "size": 4963,
+            "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+          },
+          {
+            "path": "install.cjs",
+            "size": 7162,
+            "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+          },
+          {
+            "path": "LICENSE.md",
+            "size": 147,
+            "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+          },
+          {
+            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+            "size": 252038816,
+            "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+          },
+          {
+            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+            "size": 148,
+            "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+          },
+          {
+            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+            "size": 272,
+            "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+          },
+          {
+            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+            "size": 150,
+            "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+          },
+          {
+            "path": "package.json",
+            "size": 1476,
+            "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+          },
+          {
+            "path": "README.md",
+            "size": 2037,
+            "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+          },
+          {
+            "path": "sdk-tools.d.ts",
+            "size": 140062,
+            "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+          }
+        ]
+      },
+      "projectedProgramTree": {
+        "fileCount": 11,
+        "totalBytes": 504234049,
+        "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+        "files": [
+          {
+            "path": "bin/claude.exe",
+            "size": 252038816,
+            "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+          },
+          {
+            "path": "cli-wrapper.cjs",
+            "size": 4963,
+            "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+          },
+          {
+            "path": "install.cjs",
+            "size": 7162,
+            "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+          },
+          {
+            "path": "LICENSE.md",
+            "size": 147,
+            "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+          },
+          {
+            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+            "size": 252038816,
+            "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+          },
+          {
+            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+            "size": 148,
+            "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+          },
+          {
+            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+            "size": 272,
+            "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+          },
+          {
+            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+            "size": 150,
+            "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+          },
+          {
+            "path": "package.json",
+            "size": 1476,
+            "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+          },
+          {
+            "path": "README.md",
+            "size": 2037,
+            "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+          },
+          {
+            "path": "sdk-tools.d.ts",
+            "size": 140062,
+            "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+          }
+        ]
+      },
+      "programTreesMatch": true
+    },
+    "helper": {
+      "sha256": "110ff4a0dfd67a2d03cde9182fd876c00a77f1d8d859ff465367870c8fe844b6",
+      "sourceSha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162",
+      "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+    }
+  },
+  "priorRuns": [
+    {
+      "schemaVersion": 1,
+      "experiment": "privacy-m1-cli-claude",
+      "stage": "compat-model",
+      "generatedAt": "2026-10-21T04:31:13.513Z",
+      "productWired": false,
+      "completedM1": false,
+      "sourceManifest": {
+        "sha256": "deabbbbd17d9539f0960044d48a58e6759cd2bdd29878fa461eae068694efd84",
+        "files": [
+          {
+            "sha256": "779396709e5f8cdeedcb1ff7dc9214a04256996958dc2ccc9926ec61ee183f38",
+            "path": "claude-run.js",
+            "size": 13147
+          },
+          {
+            "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859",
+            "path": "claude-preload-marker.mjs",
+            "size": 237
+          },
+          {
+            "sha256": "391f9cfa85d7cd73b41a033be5f1959258c495b355a0baa552393732c5ec26bc",
+            "path": "claude-preload.mjs",
+            "size": 672
+          },
+          {
+            "sha256": "cdd719db244fb902302ab8ec91b5faef095df7a72093294e46009ea6bd207773",
+            "path": "claude-diagnostic.mjs",
+            "size": 3064
+          },
+          {
+            "sha256": "fbedc98328dbec772c33e8746c2473a4f84f82155c40e6692c52e61b2b614d4b",
+            "path": "claude-ancestor.mjs",
+            "size": 1935
+          },
+          {
+            "sha256": "4d87d41b4efa5190a99e2f745f1b357c4782f94e398d11543a3543c7696f8334",
+            "path": "claude-realpath.mjs",
+            "size": 3118
+          },
+          {
+            "sha256": "c2ed1487ac2593e7d7c98c9b82ed1222a68a738a7dc612884f94cd170214589d",
+            "path": "claude-help-preload.mjs",
+            "size": 331
+          },
+          {
+            "sha256": "3fac693c2d73837127bcf2449b82af3127f54925042f480902470133444432a0",
+            "path": "claude-realpath.test.js",
+            "size": 3833
+          },
+          {
+            "sha256": "a46800a2ed0219d2dce7b0c7176cafc295f4d68706ad086c6e72ce53f60f2c96",
+            "path": "claude-observer.js",
+            "size": 5225
+          },
+          {
+            "sha256": "37bcffad06051a44803348dc1638363e7a6bd2675abff9e704bf4855f8eca506",
+            "path": "claude-run.test.js",
+            "size": 3642
+          },
+          {
+            "sha256": "cb2e989df108e63f332acacaa80149b698d9ffd5d765a6cd536f025d9661d87d",
+            "path": "claude-gateway.test.js",
+            "size": 4722
+          },
+          {
+            "sha256": "9dd6d8a19a03ea9bffff2879f690ba4f3e10fa1192cfbcf4b19b1aa0cc9db488",
+            "path": "run.js",
+            "size": 22215
+          },
+          {
+            "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9",
+            "path": "lpac.js",
+            "size": 16804
+          },
+          {
+            "sha256": "3a7bb1a2e554719ada5b4dc0415d77b83316c80d9bff166740587eabe047fac7",
+            "path": "gateway-broker.js",
+            "size": 5466
+          },
+          {
+            "sha256": "842c6d29b0747863bb6b54d9b5c439c22ef3b97b701a372978a92821c260b80b",
+            "path": "gateway-preload.mjs",
+            "size": 1801
+          },
+          {
+            "sha256": "80ba065bc8714f1e7eb9fc23738c7934cc2db0c0244b4b756d2167b9112be2ee",
+            "path": "fetch-adapter.mjs",
+            "size": 2309
+          },
+          {
+            "sha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162",
+            "path": "AppContainerHost.cs",
+            "size": 31744
+          },
+          {
+            "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730",
+            "path": "../../lib/kill-own-tree.js",
+            "size": 7839
+          },
+          {
+            "sha256": "b2b43accc6169067abe0a4a3b7afcf64daa14446bc9d837c18be1bf01a4628f1",
+            "path": "../../lib/fake-anthropic-provider.js",
+            "size": 10278
+          },
+          {
+            "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+            "path": "../../../ruyi-workbench/app/src/01i-privacy-rules.js",
+            "size": 26429
+          },
+          {
+            "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3",
+            "path": "../../../ruyi-workbench/app/src/01h-privacy-core.js",
+            "size": 37693
+          }
+        ]
+      },
+      "platform": {
+        "os": "Windows",
+        "release": "10.0.26200",
+        "node": "v24.14.0"
+      },
+      "references": [
+        {
+          "url": "https://bun.sh/docs/bundler/executables",
+          "claim": "Bun standalone executables accept BUN_OPTIONS; BUN_BE_BUN replaces the entrypoint and is only a runtime fixture."
+        },
+        {
+          "url": "https://bun.sh/docs/runtime/code-generation-from-strings",
+          "claim": "Strict compiled executables may reject external preloads; unsupported must remain blocked."
+        },
+        {
+          "url": "https://code.claude.com/docs/en/env-vars",
+          "claim": "ANTHROPIC_BASE_URL supports gateway routing; this does not establish an IPC transport."
+        },
+        {
+          "url": "https://code.claude.com/docs/en/network-config",
+          "claim": "HTTP(S) proxy variables are documented; no documented named-pipe model transport was found."
+        }
+      ],
+      "programs": {
+        "node": {
+          "version": "v24.14.0",
+          "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+        },
+        "claude": {
+          "packageVersion": "2.1.202",
+          "installedProgramTree": {
+            "fileCount": 11,
+            "totalBytes": 504234049,
+            "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+            "files": [
+              {
+                "path": "bin/claude.exe",
+                "size": 252038816,
+                "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+              },
+              {
+                "path": "cli-wrapper.cjs",
+                "size": 4963,
+                "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+              },
+              {
+                "path": "install.cjs",
+                "size": 7162,
+                "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+              },
+              {
+                "path": "LICENSE.md",
+                "size": 147,
+                "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+              },
+              {
+                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                "size": 252038816,
+                "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+              },
+              {
+                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                "size": 148,
+                "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+              },
+              {
+                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                "size": 272,
+                "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+              },
+              {
+                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                "size": 150,
+                "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+              },
+              {
+                "path": "package.json",
+                "size": 1476,
+                "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+              },
+              {
+                "path": "README.md",
+                "size": 2037,
+                "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+              },
+              {
+                "path": "sdk-tools.d.ts",
+                "size": 140062,
+                "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+              }
+            ]
+          },
+          "projectedProgramTree": {
+            "fileCount": 11,
+            "totalBytes": 504234049,
+            "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+            "files": [
+              {
+                "path": "bin/claude.exe",
+                "size": 252038816,
+                "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+              },
+              {
+                "path": "cli-wrapper.cjs",
+                "size": 4963,
+                "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+              },
+              {
+                "path": "install.cjs",
+                "size": 7162,
+                "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+              },
+              {
+                "path": "LICENSE.md",
+                "size": 147,
+                "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+              },
+              {
+                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                "size": 252038816,
+                "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+              },
+              {
+                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                "size": 148,
+                "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+              },
+              {
+                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                "size": 272,
+                "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+              },
+              {
+                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                "size": 150,
+                "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+              },
+              {
+                "path": "package.json",
+                "size": 1476,
+                "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+              },
+              {
+                "path": "README.md",
+                "size": 2037,
+                "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+              },
+              {
+                "path": "sdk-tools.d.ts",
+                "size": 140062,
+                "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+              }
+            ]
+          },
+          "programTreesMatch": true
+        },
+        "helper": {
+          "sha256": "ff5fdff8808f01b81aedeec1bb4960dd3d0f9a58662353500698418fbea3327a",
+          "sourceSha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162",
+          "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+        }
+      },
+      "priorRuns": [
+        {
+          "schemaVersion": 1,
+          "experiment": "privacy-m1-cli-claude",
+          "stage": "ancestor",
+          "generatedAt": "2026-10-21T04:25:46.247Z",
+          "productWired": false,
+          "completedM1": false,
+          "sourceManifest": {
+            "sha256": "56e275bc2907a5f0c5308992a5d9fc722977a2e17f95c6e2db893555a95776b4",
+            "files": [
+              {
+                "sha256": "360d644a0105963766c067e5e99b47de6f3ad48d43e09a1f820e43d63c5448c6",
+                "path": "claude-run.js",
+                "size": 12528
+              },
+              {
+                "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859",
+                "path": "claude-preload-marker.mjs",
+                "size": 237
+              },
+              {
+                "sha256": "288ff4ccc27bf6f0de125b5516ffb9cd516ff8670eff86eb4627b9da0d2ebe1e",
+                "path": "claude-preload.mjs",
+                "size": 294
+              },
+              {
+                "sha256": "cdd719db244fb902302ab8ec91b5faef095df7a72093294e46009ea6bd207773",
+                "path": "claude-diagnostic.mjs",
+                "size": 3064
+              },
+              {
+                "sha256": "fbedc98328dbec772c33e8746c2473a4f84f82155c40e6692c52e61b2b614d4b",
+                "path": "claude-ancestor.mjs",
+                "size": 1935
+              },
+              {
+                "sha256": "a4b91122ad5d2f4f21cb681c6faaea7f234ddc98e9281d4b5ba202514360560f",
+                "path": "claude-observer.js",
+                "size": 4539
+              },
+              {
+                "sha256": "37bcffad06051a44803348dc1638363e7a6bd2675abff9e704bf4855f8eca506",
+                "path": "claude-run.test.js",
+                "size": 3642
+              },
+              {
+                "sha256": "cb2e989df108e63f332acacaa80149b698d9ffd5d765a6cd536f025d9661d87d",
+                "path": "claude-gateway.test.js",
+                "size": 4722
+              },
+              {
+                "sha256": "9dd6d8a19a03ea9bffff2879f690ba4f3e10fa1192cfbcf4b19b1aa0cc9db488",
+                "path": "run.js",
+                "size": 22215
+              },
+              {
+                "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9",
+                "path": "lpac.js",
+                "size": 16804
+              },
+              {
+                "sha256": "3a7bb1a2e554719ada5b4dc0415d77b83316c80d9bff166740587eabe047fac7",
+                "path": "gateway-broker.js",
+                "size": 5466
+              },
+              {
+                "sha256": "842c6d29b0747863bb6b54d9b5c439c22ef3b97b701a372978a92821c260b80b",
+                "path": "gateway-preload.mjs",
+                "size": 1801
+              },
+              {
+                "sha256": "80ba065bc8714f1e7eb9fc23738c7934cc2db0c0244b4b756d2167b9112be2ee",
+                "path": "fetch-adapter.mjs",
+                "size": 2309
+              },
+              {
+                "sha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162",
+                "path": "AppContainerHost.cs",
+                "size": 31744
+              },
+              {
+                "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730",
+                "path": "../../lib/kill-own-tree.js",
+                "size": 7839
+              },
+              {
+                "sha256": "b2b43accc6169067abe0a4a3b7afcf64daa14446bc9d837c18be1bf01a4628f1",
+                "path": "../../lib/fake-anthropic-provider.js",
+                "size": 10278
+              },
+              {
+                "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+                "path": "../../../ruyi-workbench/app/src/01i-privacy-rules.js",
+                "size": 26429
+              },
+              {
+                "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3",
+                "path": "../../../ruyi-workbench/app/src/01h-privacy-core.js",
+                "size": 37693
+              }
+            ]
+          },
+          "platform": {
+            "os": "Windows",
+            "release": "10.0.26200",
+            "node": "v24.14.0"
+          },
+          "references": [
+            {
+              "url": "https://bun.sh/docs/bundler/executables",
+              "claim": "Bun standalone executables accept BUN_OPTIONS; BUN_BE_BUN replaces the entrypoint and is only a runtime fixture."
+            },
+            {
+              "url": "https://bun.sh/docs/runtime/code-generation-from-strings",
+              "claim": "Strict compiled executables may reject external preloads; unsupported must remain blocked."
+            },
+            {
+              "url": "https://code.claude.com/docs/en/env-vars",
+              "claim": "ANTHROPIC_BASE_URL supports gateway routing; this does not establish an IPC transport."
+            },
+            {
+              "url": "https://code.claude.com/docs/en/network-config",
+              "claim": "HTTP(S) proxy variables are documented; no documented named-pipe model transport was found."
+            }
+          ],
+          "programs": {
+            "node": {
+              "version": "v24.14.0",
+              "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+            },
+            "claude": {
+              "packageVersion": "2.1.202",
+              "installedProgramTree": {
+                "fileCount": 11,
+                "totalBytes": 504234049,
+                "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                "files": [
+                  {
+                    "path": "bin/claude.exe",
+                    "size": 252038816,
+                    "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                  },
+                  {
+                    "path": "cli-wrapper.cjs",
+                    "size": 4963,
+                    "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                  },
+                  {
+                    "path": "install.cjs",
+                    "size": 7162,
+                    "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                  },
+                  {
+                    "path": "LICENSE.md",
+                    "size": 147,
+                    "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                  },
+                  {
+                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                    "size": 252038816,
+                    "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                  },
+                  {
+                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                    "size": 148,
+                    "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                  },
+                  {
+                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                    "size": 272,
+                    "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                  },
+                  {
+                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                    "size": 150,
+                    "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                  },
+                  {
+                    "path": "package.json",
+                    "size": 1476,
+                    "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                  },
+                  {
+                    "path": "README.md",
+                    "size": 2037,
+                    "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                  },
+                  {
+                    "path": "sdk-tools.d.ts",
+                    "size": 140062,
+                    "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                  }
+                ]
+              },
+              "projectedProgramTree": {
+                "fileCount": 11,
+                "totalBytes": 504234049,
+                "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                "files": [
+                  {
+                    "path": "bin/claude.exe",
+                    "size": 252038816,
+                    "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                  },
+                  {
+                    "path": "cli-wrapper.cjs",
+                    "size": 4963,
+                    "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                  },
+                  {
+                    "path": "install.cjs",
+                    "size": 7162,
+                    "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                  },
+                  {
+                    "path": "LICENSE.md",
+                    "size": 147,
+                    "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                  },
+                  {
+                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                    "size": 252038816,
+                    "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                  },
+                  {
+                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                    "size": 148,
+                    "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                  },
+                  {
+                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                    "size": 272,
+                    "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                  },
+                  {
+                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                    "size": 150,
+                    "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                  },
+                  {
+                    "path": "package.json",
+                    "size": 1476,
+                    "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                  },
+                  {
+                    "path": "README.md",
+                    "size": 2037,
+                    "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                  },
+                  {
+                    "path": "sdk-tools.d.ts",
+                    "size": 140062,
+                    "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                  }
+                ]
+              },
+              "programTreesMatch": true
+            },
+            "helper": {
+              "sha256": "7497a17e3c0c7c24320618b2d6c4b8c40db8bee0dd7e94b25fd827cc6906654a",
+              "sourceSha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162",
+              "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+            }
+          },
+          "priorRuns": [
+            {
+              "schemaVersion": 1,
+              "experiment": "privacy-m1-cli-claude",
+              "stage": "diagnostic",
+              "generatedAt": "2026-10-21T04:20:06.797Z",
+              "productWired": false,
+              "completedM1": false,
+              "sourceManifest": {
+                "sha256": "99016439778262e3f883e84a1c0cab3d672c24b3e44930854a7a08aa22738de6",
+                "files": [
+                  {
+                    "path": "claude-run.js",
+                    "size": 12133,
+                    "sha256": "3cdc800d2472897d796fe8f7c88fda42edf1ee369bdbdb2790031e9f902393ba"
+                  },
+                  {
+                    "path": "claude-preload-marker.mjs",
+                    "size": 237,
+                    "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859"
+                  },
+                  {
+                    "path": "claude-preload.mjs",
+                    "size": 294,
+                    "sha256": "288ff4ccc27bf6f0de125b5516ffb9cd516ff8670eff86eb4627b9da0d2ebe1e"
+                  },
+                  {
+                    "path": "claude-diagnostic.mjs",
+                    "size": 3064,
+                    "sha256": "cdd719db244fb902302ab8ec91b5faef095df7a72093294e46009ea6bd207773"
+                  },
+                  {
+                    "path": "claude-observer.js",
+                    "size": 4185,
+                    "sha256": "545108dc017966396673fb94e33139928d53d53b6895a9c9ceadab45836b2c74"
+                  },
+                  {
+                    "path": "claude-run.test.js",
+                    "size": 3642,
+                    "sha256": "37bcffad06051a44803348dc1638363e7a6bd2675abff9e704bf4855f8eca506"
+                  },
+                  {
+                    "path": "claude-gateway.test.js",
+                    "size": 4722,
+                    "sha256": "cb2e989df108e63f332acacaa80149b698d9ffd5d765a6cd536f025d9661d87d"
+                  },
+                  {
+                    "path": "run.js",
+                    "size": 22215,
+                    "sha256": "9dd6d8a19a03ea9bffff2879f690ba4f3e10fa1192cfbcf4b19b1aa0cc9db488"
+                  },
+                  {
+                    "path": "lpac.js",
+                    "size": 16804,
+                    "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9"
+                  },
+                  {
+                    "path": "gateway-broker.js",
+                    "size": 5466,
+                    "sha256": "3a7bb1a2e554719ada5b4dc0415d77b83316c80d9bff166740587eabe047fac7"
+                  },
+                  {
+                    "path": "gateway-preload.mjs",
+                    "size": 1801,
+                    "sha256": "c1b8ac6f0f98bd081af953e1b54fa1efd9324fe78aedfef401ccb4713c9b2f39"
+                  },
+                  {
+                    "path": "fetch-adapter.mjs",
+                    "size": 2309,
+                    "sha256": "80ba065bc8714f1e7eb9fc23738c7934cc2db0c0244b4b756d2167b9112be2ee"
+                  },
+                  {
+                    "path": "AppContainerHost.cs",
+                    "size": 31744,
+                    "sha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162"
+                  },
+                  {
+                    "path": "../../lib/kill-own-tree.js",
+                    "size": 7839,
+                    "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+                  },
+                  {
+                    "path": "../../lib/fake-anthropic-provider.js",
+                    "size": 10278,
+                    "sha256": "b2b43accc6169067abe0a4a3b7afcf64daa14446bc9d837c18be1bf01a4628f1"
+                  },
+                  {
+                    "path": "../../../ruyi-workbench/app/src/01i-privacy-rules.js",
+                    "size": 26429,
+                    "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36"
+                  },
+                  {
+                    "path": "../../../ruyi-workbench/app/src/01h-privacy-core.js",
+                    "size": 37693,
+                    "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3"
+                  }
+                ]
+              },
+              "platform": {
+                "os": "Windows",
+                "release": "10.0.26200",
+                "node": "v24.14.0"
+              },
+              "references": [
+                {
+                  "url": "https://bun.sh/docs/bundler/executables",
+                  "claim": "Bun standalone executables accept BUN_OPTIONS; BUN_BE_BUN replaces the entrypoint and is only a runtime fixture."
+                },
+                {
+                  "url": "https://bun.sh/docs/runtime/code-generation-from-strings",
+                  "claim": "Strict compiled executables may reject external preloads; unsupported must remain blocked."
+                },
+                {
+                  "url": "https://code.claude.com/docs/en/env-vars",
+                  "claim": "ANTHROPIC_BASE_URL supports gateway routing; this does not establish an IPC transport."
+                },
+                {
+                  "url": "https://code.claude.com/docs/en/network-config",
+                  "claim": "HTTP(S) proxy variables are documented; no documented named-pipe model transport was found."
+                }
+              ],
+              "programs": {
+                "node": {
+                  "version": "v24.14.0",
+                  "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+                },
+                "claude": {
+                  "packageVersion": "2.1.202",
+                  "installedProgramTree": {
+                    "fileCount": 11,
+                    "totalBytes": 504234049,
+                    "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                    "files": [
+                      {
+                        "path": "bin/claude.exe",
+                        "size": 252038816,
+                        "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                      },
+                      {
+                        "path": "cli-wrapper.cjs",
+                        "size": 4963,
+                        "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                      },
+                      {
+                        "path": "install.cjs",
+                        "size": 7162,
+                        "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                      },
+                      {
+                        "path": "LICENSE.md",
+                        "size": 147,
+                        "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                      },
+                      {
+                        "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                        "size": 252038816,
+                        "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                      },
+                      {
+                        "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                        "size": 148,
+                        "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                      },
+                      {
+                        "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                        "size": 272,
+                        "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                      },
+                      {
+                        "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                        "size": 150,
+                        "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                      },
+                      {
+                        "path": "package.json",
+                        "size": 1476,
+                        "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                      },
+                      {
+                        "path": "README.md",
+                        "size": 2037,
+                        "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                      },
+                      {
+                        "path": "sdk-tools.d.ts",
+                        "size": 140062,
+                        "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                      }
+                    ]
+                  },
+                  "projectedProgramTree": {
+                    "fileCount": 11,
+                    "totalBytes": 504234049,
+                    "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                    "files": [
+                      {
+                        "path": "bin/claude.exe",
+                        "size": 252038816,
+                        "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                      },
+                      {
+                        "path": "cli-wrapper.cjs",
+                        "size": 4963,
+                        "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                      },
+                      {
+                        "path": "install.cjs",
+                        "size": 7162,
+                        "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                      },
+                      {
+                        "path": "LICENSE.md",
+                        "size": 147,
+                        "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                      },
+                      {
+                        "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                        "size": 252038816,
+                        "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                      },
+                      {
+                        "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                        "size": 148,
+                        "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                      },
+                      {
+                        "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                        "size": 272,
+                        "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                      },
+                      {
+                        "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                        "size": 150,
+                        "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                      },
+                      {
+                        "path": "package.json",
+                        "size": 1476,
+                        "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                      },
+                      {
+                        "path": "README.md",
+                        "size": 2037,
+                        "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                      },
+                      {
+                        "path": "sdk-tools.d.ts",
+                        "size": 140062,
+                        "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                      }
+                    ]
+                  },
+                  "programTreesMatch": true
+                },
+                "helper": {
+                  "sha256": "81a9fe4c4120b408bdfca19feccd8a2c9d4f8d37910921265666bf5183303f52",
+                  "sourceSha256": "1fdb87227b7aaba3dcb8373624b83366c886354c8d59a095bb1e409132c3a162",
+                  "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+                }
+              },
+              "priorRuns": [
+                {
+                  "schemaVersion": 1,
+                  "experiment": "privacy-m1-cli-claude",
+                  "stage": "model",
+                  "generatedAt": "2026-10-21T04:14:11.631Z",
+                  "productWired": false,
+                  "completedM1": false,
+                  "sourceManifest": {
+                    "sha256": "9e4d28cc52fad47e9d37840c3e9f2b85ab3fb247e13b2076f7c8b132cb283ae2",
+                    "files": [
+                      {
+                        "path": "claude-run.js",
+                        "size": 11331,
+                        "sha256": "367b71fcf23a35310ebb8ecf73fa6aa27904a75a660eea842e7710575e8252f1"
+                      },
+                      {
+                        "path": "claude-preload-marker.mjs",
+                        "size": 237,
+                        "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859"
+                      },
+                      {
+                        "path": "claude-preload.mjs",
+                        "size": 294,
+                        "sha256": "288ff4ccc27bf6f0de125b5516ffb9cd516ff8670eff86eb4627b9da0d2ebe1e"
+                      },
+                      {
+                        "path": "claude-observer.js",
+                        "size": 2027,
+                        "sha256": "74040ace4f8792c0417895e65582267a901e99dabdb0c86d3a325470804b3681"
+                      },
+                      {
+                        "path": "claude-run.test.js",
+                        "size": 972,
+                        "sha256": "560a8494036821fb10b0694488a79993689f62f407e81c4700a5acadd675e9b9"
+                      },
+                      {
+                        "path": "claude-gateway.test.js",
+                        "size": 4495,
+                        "sha256": "ddff551ecd45bca1b134f6d8f684525e56cd0935813dc470be8b87fbd2604942"
+                      },
+                      {
+                        "path": "run.js",
+                        "size": 22092,
+                        "sha256": "f5fbabb8220a90699a568810fd277f80aa869517a5af41a886fc400a5e7c12da"
+                      },
+                      {
+                        "path": "lpac.js",
+                        "size": 16804,
+                        "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9"
+                      },
+                      {
+                        "path": "gateway-broker.js",
+                        "size": 5377,
+                        "sha256": "a08bfa3354c306e856b484a702a8209f596300cb1903ae0fe63938beb157d3ad"
+                      },
+                      {
+                        "path": "gateway-preload.mjs",
+                        "size": 1801,
+                        "sha256": "c1b8ac6f0f98bd081af953e1b54fa1efd9324fe78aedfef401ccb4713c9b2f39"
+                      },
+                      {
+                        "path": "fetch-adapter.mjs",
+                        "size": 2309,
+                        "sha256": "80ba065bc8714f1e7eb9fc23738c7934cc2db0c0244b4b756d2167b9112be2ee"
+                      },
+                      {
+                        "path": "AppContainerHost.cs",
+                        "size": 27943,
+                        "sha256": "30e5f00c601c3a11bd2bca514c7397d815f49d98391499d994db43075e51d5a1"
+                      },
+                      {
+                        "path": "../../lib/kill-own-tree.js",
+                        "size": 7839,
+                        "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+                      },
+                      {
+                        "path": "../../lib/fake-anthropic-provider.js",
+                        "size": 10278,
+                        "sha256": "b2b43accc6169067abe0a4a3b7afcf64daa14446bc9d837c18be1bf01a4628f1"
+                      },
+                      {
+                        "path": "../../../ruyi-workbench/app/src/01i-privacy-rules.js",
+                        "size": 26429,
+                        "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36"
+                      },
+                      {
+                        "path": "../../../ruyi-workbench/app/src/01h-privacy-core.js",
+                        "size": 37693,
+                        "sha256": "d3d67c5ea09d70c69f8ceb6eb3ad8ec6d569f496783ccdbee10b270535e85ab3"
+                      }
+                    ]
+                  },
+                  "platform": {
+                    "os": "Windows",
+                    "release": "10.0.26200",
+                    "node": "v24.14.0"
+                  },
+                  "references": [
+                    {
+                      "url": "https://bun.sh/docs/bundler/executables",
+                      "claim": "Bun standalone executables accept BUN_OPTIONS; BUN_BE_BUN replaces the entrypoint and is only a runtime fixture."
+                    },
+                    {
+                      "url": "https://bun.sh/docs/runtime/code-generation-from-strings",
+                      "claim": "Strict compiled executables may reject external preloads; unsupported must remain blocked."
+                    },
+                    {
+                      "url": "https://code.claude.com/docs/en/env-vars",
+                      "claim": "ANTHROPIC_BASE_URL supports gateway routing; this does not establish an IPC transport."
+                    },
+                    {
+                      "url": "https://code.claude.com/docs/en/network-config",
+                      "claim": "HTTP(S) proxy variables are documented; no documented named-pipe model transport was found."
+                    }
+                  ],
+                  "programs": {
+                    "node": {
+                      "version": "v24.14.0",
+                      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+                    },
+                    "claude": {
+                      "packageVersion": "2.1.202",
+                      "installedProgramTree": {
+                        "fileCount": 11,
+                        "totalBytes": 504234049,
+                        "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                        "files": [
+                          {
+                            "path": "bin/claude.exe",
+                            "size": 252038816,
+                            "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                          },
+                          {
+                            "path": "cli-wrapper.cjs",
+                            "size": 4963,
+                            "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                          },
+                          {
+                            "path": "install.cjs",
+                            "size": 7162,
+                            "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                          },
+                          {
+                            "path": "LICENSE.md",
+                            "size": 147,
+                            "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                          },
+                          {
+                            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                            "size": 252038816,
+                            "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                          },
+                          {
+                            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                            "size": 148,
+                            "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                          },
+                          {
+                            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                            "size": 272,
+                            "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                          },
+                          {
+                            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                            "size": 150,
+                            "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                          },
+                          {
+                            "path": "package.json",
+                            "size": 1476,
+                            "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                          },
+                          {
+                            "path": "README.md",
+                            "size": 2037,
+                            "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                          },
+                          {
+                            "path": "sdk-tools.d.ts",
+                            "size": 140062,
+                            "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                          }
+                        ]
+                      },
+                      "projectedProgramTree": {
+                        "fileCount": 11,
+                        "totalBytes": 504234049,
+                        "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                        "files": [
+                          {
+                            "path": "bin/claude.exe",
+                            "size": 252038816,
+                            "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                          },
+                          {
+                            "path": "cli-wrapper.cjs",
+                            "size": 4963,
+                            "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                          },
+                          {
+                            "path": "install.cjs",
+                            "size": 7162,
+                            "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                          },
+                          {
+                            "path": "LICENSE.md",
+                            "size": 147,
+                            "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                          },
+                          {
+                            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                            "size": 252038816,
+                            "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                          },
+                          {
+                            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                            "size": 148,
+                            "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                          },
+                          {
+                            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                            "size": 272,
+                            "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                          },
+                          {
+                            "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                            "size": 150,
+                            "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                          },
+                          {
+                            "path": "package.json",
+                            "size": 1476,
+                            "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                          },
+                          {
+                            "path": "README.md",
+                            "size": 2037,
+                            "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                          },
+                          {
+                            "path": "sdk-tools.d.ts",
+                            "size": 140062,
+                            "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                          }
+                        ]
+                      },
+                      "programTreesMatch": true
+                    },
+                    "helper": {
+                      "sha256": "1cc2b1f01ce459c47a5e1556ae52b989d61e04ed71fcfb3f5cda50074745a996",
+                      "sourceSha256": "30e5f00c601c3a11bd2bca514c7397d815f49d98391499d994db43075e51d5a1",
+                      "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+                    }
+                  },
+                  "priorRuns": [
+                    {
+                      "schemaVersion": 1,
+                      "experiment": "privacy-m1-cli-claude",
+                      "stage": "runtime",
+                      "generatedAt": "2026-10-21T04:08:44.657Z",
+                      "productWired": false,
+                      "completedM1": false,
+                      "sourceManifest": {
+                        "sha256": "a940e8d5a5d1521c37a3fb876219691b20ea0d49a652f25a9eb5dad6d400815a",
+                        "files": [
+                          {
+                            "path": "claude-run.js",
+                            "size": 7438,
+                            "sha256": "ba33c5f328bfa854947bba579b46b87b66070a299420ea14a2cf72939e639fd6"
+                          },
+                          {
+                            "path": "claude-preload-marker.mjs",
+                            "size": 237,
+                            "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859"
+                          },
+                          {
+                            "path": "claude-run.test.js",
+                            "size": 972,
+                            "sha256": "560a8494036821fb10b0694488a79993689f62f407e81c4700a5acadd675e9b9"
+                          },
+                          {
+                            "path": "run.js",
+                            "size": 22092,
+                            "sha256": "f5fbabb8220a90699a568810fd277f80aa869517a5af41a886fc400a5e7c12da"
+                          },
+                          {
+                            "path": "lpac.js",
+                            "size": 16804,
+                            "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9"
+                          },
+                          {
+                            "path": "AppContainerHost.cs",
+                            "size": 27943,
+                            "sha256": "30e5f00c601c3a11bd2bca514c7397d815f49d98391499d994db43075e51d5a1"
+                          },
+                          {
+                            "path": "../../lib/kill-own-tree.js",
+                            "size": 7839,
+                            "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+                          }
+                        ]
+                      },
+                      "platform": {
+                        "os": "Windows",
+                        "release": "10.0.26200",
+                        "node": "v24.14.0"
+                      },
+                      "references": [
+                        {
+                          "url": "https://bun.sh/docs/bundler/executables",
+                          "claim": "Bun standalone executables accept BUN_OPTIONS; BUN_BE_BUN replaces the entrypoint and is only a runtime fixture."
+                        },
+                        {
+                          "url": "https://bun.sh/docs/runtime/code-generation-from-strings",
+                          "claim": "Strict compiled executables may reject external preloads; unsupported must remain blocked."
+                        },
+                        {
+                          "url": "https://code.claude.com/docs/en/env-vars",
+                          "claim": "ANTHROPIC_BASE_URL supports gateway routing; this does not establish an IPC transport."
+                        },
+                        {
+                          "url": "https://code.claude.com/docs/en/network-config",
+                          "claim": "HTTP(S) proxy variables are documented; no documented named-pipe model transport was found."
+                        }
+                      ],
+                      "programs": {
+                        "node": {
+                          "version": "v24.14.0",
+                          "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+                        },
+                        "claude": {
+                          "packageVersion": "2.1.202",
+                          "installedProgramTree": {
+                            "fileCount": 11,
+                            "totalBytes": 504234049,
+                            "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                            "files": [
+                              {
+                                "path": "bin/claude.exe",
+                                "size": 252038816,
+                                "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                              },
+                              {
+                                "path": "cli-wrapper.cjs",
+                                "size": 4963,
+                                "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                              },
+                              {
+                                "path": "install.cjs",
+                                "size": 7162,
+                                "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                              },
+                              {
+                                "path": "LICENSE.md",
+                                "size": 147,
+                                "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                              },
+                              {
+                                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                                "size": 252038816,
+                                "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                              },
+                              {
+                                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                                "size": 148,
+                                "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                              },
+                              {
+                                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                                "size": 272,
+                                "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                              },
+                              {
+                                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                                "size": 150,
+                                "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                              },
+                              {
+                                "path": "package.json",
+                                "size": 1476,
+                                "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                              },
+                              {
+                                "path": "README.md",
+                                "size": 2037,
+                                "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                              },
+                              {
+                                "path": "sdk-tools.d.ts",
+                                "size": 140062,
+                                "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                              }
+                            ]
+                          },
+                          "projectedProgramTree": {
+                            "fileCount": 11,
+                            "totalBytes": 504234049,
+                            "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                            "files": [
+                              {
+                                "path": "bin/claude.exe",
+                                "size": 252038816,
+                                "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                              },
+                              {
+                                "path": "cli-wrapper.cjs",
+                                "size": 4963,
+                                "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                              },
+                              {
+                                "path": "install.cjs",
+                                "size": 7162,
+                                "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                              },
+                              {
+                                "path": "LICENSE.md",
+                                "size": 147,
+                                "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                              },
+                              {
+                                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                                "size": 252038816,
+                                "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                              },
+                              {
+                                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                                "size": 148,
+                                "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                              },
+                              {
+                                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                                "size": 272,
+                                "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                              },
+                              {
+                                "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                                "size": 150,
+                                "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                              },
+                              {
+                                "path": "package.json",
+                                "size": 1476,
+                                "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                              },
+                              {
+                                "path": "README.md",
+                                "size": 2037,
+                                "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                              },
+                              {
+                                "path": "sdk-tools.d.ts",
+                                "size": 140062,
+                                "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                              }
+                            ]
+                          },
+                          "programTreesMatch": true
+                        },
+                        "helper": {
+                          "sha256": "9d21cdc6872f673e09e265a089bb1b80ac9b3818e3a008303d3e4398b3728fd5",
+                          "sourceSha256": "30e5f00c601c3a11bd2bca514c7397d815f49d98391499d994db43075e51d5a1",
+                          "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+                        }
+                      },
+                      "priorRuns": [
+                        {
+                          "schemaVersion": 1,
+                          "experiment": "privacy-m1-cli-claude",
+                          "generatedAt": "2026-10-21T04:07:23.958Z",
+                          "productWired": false,
+                          "completedM1": false,
+                          "sourceManifest": {
+                            "sha256": "504925afef918ea3af64bdf022995223645c5f58afdd4038c0addc9dffe56d7a",
+                            "files": [
+                              {
+                                "path": "claude-run.js",
+                                "size": 6286,
+                                "sha256": "745f122b328c9c779dbaff43875613ded7448442488f236f95614f8aa874da63"
+                              },
+                              {
+                                "path": "claude-preload-marker.mjs",
+                                "size": 237,
+                                "sha256": "da11f2928d8e70d161b2cf3873c58501e41f0365b5ac35c9f485bfdf87dea859"
+                              },
+                              {
+                                "path": "claude-run.test.js",
+                                "size": 972,
+                                "sha256": "560a8494036821fb10b0694488a79993689f62f407e81c4700a5acadd675e9b9"
+                              },
+                              {
+                                "path": "run.js",
+                                "size": 21613,
+                                "sha256": "b227ddd75fa3d82d32dba35607019d6c0b95b7b2468efdf38cfa975d0531d9c5"
+                              },
+                              {
+                                "path": "lpac.js",
+                                "size": 16804,
+                                "sha256": "b14383a1d2b319451756d5d5f6e99055ff2976e49478398135d66c97d83e1de9"
+                              },
+                              {
+                                "path": "AppContainerHost.cs",
+                                "size": 23715,
+                                "sha256": "22556891f659487edcc835c219cdbf236b494471370be2473890c751896d778c"
+                              },
+                              {
+                                "path": "../../lib/kill-own-tree.js",
+                                "size": 7839,
+                                "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+                              }
+                            ]
+                          },
+                          "platform": {
+                            "os": "Windows",
+                            "release": "10.0.26200",
+                            "node": "v24.14.0"
+                          },
+                          "references": [
+                            {
+                              "url": "https://bun.sh/docs/bundler/executables",
+                              "claim": "Bun standalone executables accept BUN_OPTIONS; BUN_BE_BUN replaces the entrypoint and is only a runtime fixture."
+                            },
+                            {
+                              "url": "https://bun.sh/docs/runtime/code-generation-from-strings",
+                              "claim": "Strict compiled executables may reject external preloads; unsupported must remain blocked."
+                            },
+                            {
+                              "url": "https://code.claude.com/docs/en/env-vars",
+                              "claim": "ANTHROPIC_BASE_URL supports gateway routing; this does not establish an IPC transport."
+                            },
+                            {
+                              "url": "https://code.claude.com/docs/en/network-config",
+                              "claim": "HTTP(S) proxy variables are documented; no documented named-pipe model transport was found."
+                            }
+                          ],
+                          "programs": {
+                            "node": {
+                              "version": "v24.14.0",
+                              "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+                            },
+                            "claude": {
+                              "packageVersion": "2.1.202",
+                              "installedProgramTree": {
+                                "fileCount": 11,
+                                "totalBytes": 504234049,
+                                "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                                "files": [
+                                  {
+                                    "path": "bin/claude.exe",
+                                    "size": 252038816,
+                                    "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                                  },
+                                  {
+                                    "path": "cli-wrapper.cjs",
+                                    "size": 4963,
+                                    "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                                  },
+                                  {
+                                    "path": "install.cjs",
+                                    "size": 7162,
+                                    "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                                  },
+                                  {
+                                    "path": "LICENSE.md",
+                                    "size": 147,
+                                    "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                                  },
+                                  {
+                                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                                    "size": 252038816,
+                                    "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                                  },
+                                  {
+                                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                                    "size": 148,
+                                    "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                                  },
+                                  {
+                                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                                    "size": 272,
+                                    "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                                  },
+                                  {
+                                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                                    "size": 150,
+                                    "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                                  },
+                                  {
+                                    "path": "package.json",
+                                    "size": 1476,
+                                    "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                                  },
+                                  {
+                                    "path": "README.md",
+                                    "size": 2037,
+                                    "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                                  },
+                                  {
+                                    "path": "sdk-tools.d.ts",
+                                    "size": 140062,
+                                    "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                                  }
+                                ]
+                              },
+                              "projectedProgramTree": {
+                                "fileCount": 11,
+                                "totalBytes": 504234049,
+                                "sha256": "b0cdb31eb7d386fe05819dc819789f1bf39e2ca8921185603430e20d8277c0d5",
+                                "files": [
+                                  {
+                                    "path": "bin/claude.exe",
+                                    "size": 252038816,
+                                    "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                                  },
+                                  {
+                                    "path": "cli-wrapper.cjs",
+                                    "size": 4963,
+                                    "sha256": "a31f8b55146e291e93b5fd94c2a674bed3a440180a8274c22ce508ffa3674a6f"
+                                  },
+                                  {
+                                    "path": "install.cjs",
+                                    "size": 7162,
+                                    "sha256": "ce7b19889e37bbca6bf6ddbec052a66f40b732f05b4e8d6c0b81a73f489d3ca8"
+                                  },
+                                  {
+                                    "path": "LICENSE.md",
+                                    "size": 147,
+                                    "sha256": "8ce94b9478bb9868f9641f818e06cd722fbe55d4c22e2d2ed11971b20146173a"
+                                  },
+                                  {
+                                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe",
+                                    "size": 252038816,
+                                    "sha256": "7ff0787ebdc19fc509ccea8886ebf6a53ad8213407fa3a2b7c6d1446efc419f6"
+                                  },
+                                  {
+                                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/LICENSE.md",
+                                    "size": 148,
+                                    "sha256": "fe8260e23b045e5d1ce9c31d2dfe06a39ec9227a12b1bde4c8c6bcb50e9310c8"
+                                  },
+                                  {
+                                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/package.json",
+                                    "size": 272,
+                                    "sha256": "c6aca5e5c133a0fb959ec294f2239447b9c28538e8cce7b7d6ba6527009e2e98"
+                                  },
+                                  {
+                                    "path": "node_modules/@anthropic-ai/claude-code-win32-x64/README.md",
+                                    "size": 150,
+                                    "sha256": "88b447ebed5c162732eb18e9bd51aed947841a82272225a636b84bfbef06eb55"
+                                  },
+                                  {
+                                    "path": "package.json",
+                                    "size": 1476,
+                                    "sha256": "b6ee38224d75b71441660b080bf7072941a30f789faee887feda24de1d361178"
+                                  },
+                                  {
+                                    "path": "README.md",
+                                    "size": 2037,
+                                    "sha256": "da7cf15ce4e35bad6a107acd6a36b4fe052083068bb9e564b1aa3f2078b5d0ce"
+                                  },
+                                  {
+                                    "path": "sdk-tools.d.ts",
+                                    "size": 140062,
+                                    "sha256": "b9a5fe71093ccd0307a2cb8f2fdaa212a1305ff6302d70d3e07477d791bacb64"
+                                  }
+                                ]
+                              },
+                              "programTreesMatch": true
+                            },
+                            "helper": {
+                              "sha256": "bb8b1d50a623ad6b837eadf801f1aa53ddde2e05d294301c6f1a8adb184ad99c",
+                              "sourceSha256": "22556891f659487edcc835c219cdbf236b494471370be2473890c751896d778c",
+                              "compilerSha256": "46809206887326d2d24db1eff1f3064de972c3451abe766b49111450a5e08e00"
+                            }
+                          },
+                          "attempts": [
+                            {
+                              "code": 0,
+                              "watchdogFired": false,
+                              "output": [],
+                              "events": [
+                                {
+                                  "stage": "token-verified",
+                                  "kind": "descendant-token",
+                                  "isAppContainer": true,
+                                  "isLessPrivilegedAppContainer": null,
+                                  "lpacQuerySucceeded": false,
+                                  "lpacQueryError": 87,
+                                  "packageSid": "S-1-15-2-2252160370-333587135-4134003079-498779149-2198576617-50214078-1884018929",
+                                  "capabilityCount": 1,
+                                  "capabilitySids": [
+                                    "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                                  ],
+                                  "profileSidMatched": true
+                                },
+                                {
+                                  "stage": "launched",
+                                  "isolation": "LPAC",
+                                  "capabilities": 1,
+                                  "capabilityNames": [
+                                    "registryRead"
+                                  ]
+                                },
+                                {
+                                  "stage": "exit",
+                                  "code": 0
+                                },
+                                {
+                                  "stage": "cleanup",
+                                  "profileDeleteHresult": 0,
+                                  "profileDirectoryAbsent": true,
+                                  "terminateSucceeded": true,
+                                  "rootWaitResult": 0,
+                                  "jobActiveProcesses": 0,
+                                  "jobTotalProcesses": 2,
+                                  "ownedTreeTerminated": true,
+                                  "processCreated": true
+                                }
+                              ],
+                              "stdout": "2.1.202 (Claude Code)\n",
+                              "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-2252160370-333587135-4134003079-498779149-2198576617-50214078-1884018929\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+                              "id": "native-version",
+                              "summary": {
+                                "executedToPreload": false,
+                                "exitCode": 0,
+                                "timedOut": false,
+                                "cleanupVerified": true,
+                                "modelTransportEstablished": false,
+                                "networkProtectionEstablished": false
+                              }
+                            },
+                            {
+                              "code": 0,
+                              "watchdogFired": false,
+                              "output": [],
+                              "events": [
+                                {
+                                  "stage": "token-verified",
+                                  "kind": "descendant-token",
+                                  "isAppContainer": true,
+                                  "isLessPrivilegedAppContainer": null,
+                                  "lpacQuerySucceeded": false,
+                                  "lpacQueryError": 87,
+                                  "packageSid": "S-1-15-2-1017923182-2608812639-803132006-277509532-2627123794-1158202511-3273102585",
+                                  "capabilityCount": 1,
+                                  "capabilitySids": [
+                                    "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                                  ],
+                                  "profileSidMatched": true
+                                },
+                                {
+                                  "stage": "launched",
+                                  "isolation": "LPAC",
+                                  "capabilities": 1,
+                                  "capabilityNames": [
+                                    "registryRead"
+                                  ]
+                                },
+                                {
+                                  "stage": "exit",
+                                  "code": 0
+                                },
+                                {
+                                  "stage": "cleanup",
+                                  "profileDeleteHresult": 0,
+                                  "profileDirectoryAbsent": true,
+                                  "terminateSucceeded": true,
+                                  "rootWaitResult": 0,
+                                  "jobActiveProcesses": 0,
+                                  "jobTotalProcesses": 2,
+                                  "ownedTreeTerminated": true,
+                                  "processCreated": true
+                                }
+                              ],
+                              "stdout": "2.1.202 (Claude Code)\n",
+                              "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-1017923182-2608812639-803132006-277509532-2627123794-1158202511-3273102585\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+                              "id": "bun-options-preload-version",
+                              "summary": {
+                                "executedToPreload": false,
+                                "exitCode": 0,
+                                "timedOut": false,
+                                "cleanupVerified": true,
+                                "modelTransportEstablished": false,
+                                "networkProtectionEstablished": false
+                              }
+                            },
+                            {
+                              "code": 124,
+                              "watchdogFired": false,
+                              "output": [],
+                              "events": [
+                                {
+                                  "stage": "token-verified",
+                                  "kind": "descendant-token",
+                                  "isAppContainer": true,
+                                  "isLessPrivilegedAppContainer": null,
+                                  "lpacQuerySucceeded": false,
+                                  "lpacQueryError": 87,
+                                  "packageSid": "S-1-15-2-4251206045-2849898037-3636262801-2669399129-2925846559-3354374342-3493408193",
+                                  "capabilityCount": 1,
+                                  "capabilitySids": [
+                                    "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                                  ],
+                                  "profileSidMatched": true
+                                },
+                                {
+                                  "stage": "launched",
+                                  "isolation": "LPAC",
+                                  "capabilities": 1,
+                                  "capabilityNames": [
+                                    "registryRead"
+                                  ]
+                                },
+                                {
+                                  "stage": "timeout",
+                                  "terminateJobSucceeded": true,
+                                  "rootWaitResult": 0
+                                },
+                                {
+                                  "stage": "cleanup",
+                                  "profileDeleteHresult": 0,
+                                  "profileDirectoryAbsent": true,
+                                  "terminateSucceeded": true,
+                                  "rootWaitResult": 0,
+                                  "jobActiveProcesses": 0,
+                                  "jobTotalProcesses": 2,
+                                  "ownedTreeTerminated": true,
+                                  "processCreated": true
+                                }
+                              ],
+                              "stdout": "",
+                              "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-4251206045-2849898037-3636262801-2669399129-2925846559-3354374342-3493408193\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+                              "id": "bun-options-preload-help",
+                              "summary": {
+                                "executedToPreload": false,
+                                "exitCode": 124,
+                                "timedOut": true,
+                                "cleanupVerified": true,
+                                "modelTransportEstablished": false,
+                                "networkProtectionEstablished": false
+                              }
+                            }
+                          ],
+                          "gateway": {
+                            "status": "blocked-before-preload",
+                            "modelRequestPassed": false,
+                            "reason": "A marker or version/help result is not an actual model request and is not evidence of network protection."
+                          },
+                          "cleanup": {
+                            "temporaryDirectoryAbsent": true,
+                            "launchCount": 3,
+                            "verified": true
+                          },
+                          "untested": [
+                            "real model inference",
+                            "tool/edit/compact/restart",
+                            "public Internet and LAN",
+                            "system DNS",
+                            "runtime private network bypass",
+                            "exclusive file/registry allowlist"
+                          ]
+                        }
+                      ],
+                      "attempts": [
+                        {
+                          "code": 0,
+                          "watchdogFired": false,
+                          "output": [],
+                          "events": [
+                            {
+                              "stage": "token-verified",
+                              "kind": "descendant-token",
+                              "isAppContainer": true,
+                              "isLessPrivilegedAppContainer": null,
+                              "lpacQuerySucceeded": false,
+                              "lpacQueryError": 87,
+                              "packageSid": "S-1-15-2-3689750812-498648545-2095806290-3746003757-2228868473-2890983771-4088023303",
+                              "capabilityCount": 1,
+                              "capabilitySids": [
+                                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                              ],
+                              "profileSidMatched": true
+                            },
+                            {
+                              "stage": "launched",
+                              "isolation": "LPAC",
+                              "capabilities": 1,
+                              "capabilityNames": [
+                                "registryRead"
+                              ]
+                            },
+                            {
+                              "stage": "exit",
+                              "code": 0
+                            },
+                            {
+                              "stage": "cleanup",
+                              "profileDeleteHresult": 0,
+                              "profileDirectoryAbsent": true,
+                              "terminateSucceeded": true,
+                              "rootWaitResult": 0,
+                              "jobActiveProcesses": 0,
+                              "jobTotalProcesses": 2,
+                              "ownedTreeTerminated": true,
+                              "processCreated": true
+                            }
+                          ],
+                          "stdout": "2.1.202 (Claude Code)\n",
+                          "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-3689750812-498648545-2095806290-3746003757-2228868473-2890983771-4088023303\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"exit\",\"code\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+                          "id": "bun-be-bun-version",
+                          "entrypointReplaced": true,
+                          "summary": {
+                            "executedToPreload": false,
+                            "exitCode": 0,
+                            "timedOut": false,
+                            "cleanupVerified": true,
+                            "modelTransportEstablished": false,
+                            "networkProtectionEstablished": false
+                          }
+                        },
+                        {
+                          "code": 124,
+                          "watchdogFired": false,
+                          "output": [],
+                          "events": [
+                            {
+                              "stage": "token-verified",
+                              "kind": "descendant-token",
+                              "isAppContainer": true,
+                              "isLessPrivilegedAppContainer": null,
+                              "lpacQuerySucceeded": false,
+                              "lpacQueryError": 87,
+                              "packageSid": "S-1-15-2-3458934522-1293024-3585797631-2435277630-3429073856-4076550777-3067682054",
+                              "capabilityCount": 1,
+                              "capabilitySids": [
+                                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                              ],
+                              "profileSidMatched": true
+                            },
+                            {
+                              "stage": "launched",
+                              "isolation": "LPAC",
+                              "capabilities": 1,
+                              "capabilityNames": [
+                                "registryRead"
+                              ]
+                            },
+                            {
+                              "stage": "timeout",
+                              "terminateJobSucceeded": true,
+                              "rootWaitResult": 0
+                            },
+                            {
+                              "stage": "cleanup",
+                              "profileDeleteHresult": 0,
+                              "profileDirectoryAbsent": true,
+                              "terminateSucceeded": true,
+                              "rootWaitResult": 0,
+                              "jobActiveProcesses": 0,
+                              "jobTotalProcesses": 2,
+                              "ownedTreeTerminated": true,
+                              "processCreated": true
+                            }
+                          ],
+                          "stdout": "",
+                          "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-3458934522-1293024-3585797631-2435277630-3429073856-4076550777-3067682054\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+                          "id": "bun-be-bun-eval",
+                          "entrypointReplaced": true,
+                          "summary": {
+                            "executedToPreload": false,
+                            "exitCode": 124,
+                            "timedOut": true,
+                            "cleanupVerified": true,
+                            "modelTransportEstablished": false,
+                            "networkProtectionEstablished": false
+                          }
+                        },
+                        {
+                          "code": 124,
+                          "watchdogFired": false,
+                          "output": [
+                            {
+                              "kind": "claude-runtime-preload",
+                              "runtime": "Bun",
+                              "version": "1.4.0"
+                            }
+                          ],
+                          "events": [
+                            {
+                              "stage": "token-verified",
+                              "kind": "descendant-token",
+                              "isAppContainer": true,
+                              "isLessPrivilegedAppContainer": null,
+                              "lpacQuerySucceeded": false,
+                              "lpacQueryError": 87,
+                              "packageSid": "S-1-15-2-2239707207-3287989126-2018747727-1661969693-3315598957-4077716835-92568158",
+                              "capabilityCount": 1,
+                              "capabilitySids": [
+                                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                              ],
+                              "profileSidMatched": true
+                            },
+                            {
+                              "stage": "launched",
+                              "isolation": "LPAC",
+                              "capabilities": 1,
+                              "capabilityNames": [
+                                "registryRead"
+                              ]
+                            },
+                            {
+                              "stage": "timeout",
+                              "terminateJobSucceeded": true,
+                              "rootWaitResult": 0
+                            },
+                            {
+                              "stage": "cleanup",
+                              "profileDeleteHresult": 0,
+                              "profileDirectoryAbsent": true,
+                              "terminateSucceeded": true,
+                              "rootWaitResult": 0,
+                              "jobActiveProcesses": 0,
+                              "jobTotalProcesses": 2,
+                              "ownedTreeTerminated": true,
+                              "processCreated": true
+                            }
+                          ],
+                          "stdout": "{\"kind\":\"claude-runtime-preload\",\"runtime\":\"Bun\",\"version\":\"1.4.0\"}\n",
+                          "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-2239707207-3287989126-2018747727-1661969693-3315598957-4077716835-92568158\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+                          "id": "relative-preload-help",
+                          "entrypointReplaced": false,
+                          "summary": {
+                            "executedToPreload": true,
+                            "exitCode": 124,
+                            "timedOut": true,
+                            "cleanupVerified": true,
+                            "modelTransportEstablished": false,
+                            "networkProtectionEstablished": false
+                          }
+                        },
+                        {
+                          "code": 124,
+                          "watchdogFired": false,
+                          "output": [
+                            {
+                              "kind": "claude-runtime-preload",
+                              "runtime": "Bun",
+                              "version": "1.4.0"
+                            }
+                          ],
+                          "events": [
+                            {
+                              "stage": "token-verified",
+                              "kind": "descendant-token",
+                              "isAppContainer": true,
+                              "isLessPrivilegedAppContainer": null,
+                              "lpacQuerySucceeded": false,
+                              "lpacQueryError": 87,
+                              "packageSid": "S-1-15-2-2843932376-1554930855-3202831389-4042186940-3042605991-1316318732-3615501074",
+                              "capabilityCount": 1,
+                              "capabilitySids": [
+                                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                              ],
+                              "profileSidMatched": true
+                            },
+                            {
+                              "stage": "launched",
+                              "isolation": "LPAC",
+                              "capabilities": 1,
+                              "capabilityNames": [
+                                "registryRead"
+                              ]
+                            },
+                            {
+                              "stage": "timeout",
+                              "terminateJobSucceeded": true,
+                              "rootWaitResult": 0
+                            },
+                            {
+                              "stage": "cleanup",
+                              "profileDeleteHresult": 0,
+                              "profileDirectoryAbsent": true,
+                              "terminateSucceeded": true,
+                              "rootWaitResult": 0,
+                              "jobActiveProcesses": 0,
+                              "jobTotalProcesses": 2,
+                              "ownedTreeTerminated": true,
+                              "processCreated": true
+                            }
+                          ],
+                          "stdout": "{\"kind\":\"claude-runtime-preload\",\"runtime\":\"Bun\",\"version\":\"1.4.0\"}\n",
+                          "stderr": "{\"stage\":\"token-verified\",\"kind\":\"descendant-token\",\"isAppContainer\":true,\"isLessPrivilegedAppContainer\":null,\"lpacQuerySucceeded\":false,\"lpacQueryError\":87,\"packageSid\":\"S-1-15-2-2843932376-1554930855-3202831389-4042186940-3042605991-1316318732-3615501074\",\"capabilityCount\":1,\"capabilitySids\":[\"S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681\"],\"profileSidMatched\":true}\r\n{\"stage\":\"launched\",\"isolation\":\"LPAC\",\"capabilities\":1,\"capabilityNames\":[\"registryRead\"]}\r\n{\"stage\":\"timeout\",\"terminateJobSucceeded\":true,\"rootWaitResult\":0}\r\n{\"stage\":\"cleanup\",\"profileDeleteHresult\":0,\"profileDirectoryAbsent\":true,\"terminateSucceeded\":true,\"rootWaitResult\":0,\"jobActiveProcesses\":0,\"jobTotalProcesses\":2,\"ownedTreeTerminated\":true,\"processCreated\":true}\r\n",
+                          "id": "equals-preload-help",
+                          "entrypointReplaced": false,
+                          "summary": {
+                            "executedToPreload": true,
+                            "exitCode": 124,
+                            "timedOut": true,
+                            "cleanupVerified": true,
+                            "modelTransportEstablished": false,
+                            "networkProtectionEstablished": false
+                          }
+                        }
+                      ],
+                      "gateway": {
+                        "status": "preload-reached-model-untested",
+                        "modelRequestPassed": false,
+                        "reason": "A marker or version/help result is not an actual model request and is not evidence of network protection. BUN_BE_BUN replaces the official entrypoint and cannot establish Claude execution."
+                      },
+                      "cleanup": {
+                        "temporaryDirectoryAbsent": true,
+                        "launchCount": 4,
+                        "verified": true
+                      },
+                      "untested": [
+                        "real model inference",
+                        "tool/edit/compact/restart",
+                        "public Internet and LAN",
+                        "system DNS",
+                        "runtime private network bypass",
+                        "exclusive file/registry allowlist"
+                      ]
+                    }
+                  ],
+                  "attempts": [
+                    {
+                      "code": 124,
+                      "watchdogFired": false,
+                      "output": [],
+                      "events": [
+                        {
+                          "stage": "pipe-created",
+                          "profileSidAuthorized": true,
+                          "hostUserAuthorized": true,
+                          "networkDenied": true,
+                          "lowIntegrity": true
+                        },
+                        {
+                          "stage": "token-verified",
+                          "kind": "descendant-token",
+                          "isAppContainer": true,
+                          "isLessPrivilegedAppContainer": null,
+                          "lpacQuerySucceeded": false,
+                          "lpacQueryError": 87,
+                          "packageSid": "S-1-15-2-2024958114-2414236135-2663848671-2594026222-45401856-4050209305-770912165",
+                          "capabilityCount": 1,
+                          "capabilitySids": [
+                            "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                          ],
+                          "profileSidMatched": true
+                        },
+                        {
+                          "stage": "launched",
+                          "isolation": "LPAC",
+                          "capabilities": 1,
+                          "capabilityNames": [
+                            "registryRead"
+                          ]
+                        },
+                        {
+                          "stage": "timeout",
+                          "terminateJobSucceeded": true,
+                          "rootWaitResult": 0
+                        },
+                        {
+                          "stage": "pipe-relay-stopped",
+                          "error": "IOException"
+                        },
+                        {
+                          "stage": "cleanup",
+                          "profileDeleteHresult": 0,
+                          "profileDirectoryAbsent": true,
+                          "terminateSucceeded": true,
+                          "rootWaitResult": 0,
+                          "jobActiveProcesses": 0,
+                          "jobTotalProcesses": 2,
+                          "ownedTreeTerminated": true,
+                          "processCreated": true
+                        }
+                      ],
+                      "stdoutBytes": 68,
+                      "stdoutSha256": "bb63aea14914e5bc8affdf22a740ade542b550e67071664b57d79f86f31a5a50",
+                      "stderrBytes": 976,
+                      "stderrSha256": "aa193199692e7f1be64dacee50074f4662996726c644c020b7468dc07f2e3bde",
+                      "expectedResponseObserved": false,
+                      "untrustedOutputDiagnosticCodes": [],
+                      "id": "bare-preload-help",
+                      "entrypointReplaced": false,
+                      "summary": {
+                        "executedToPreload": true,
+                        "exitCode": 124,
+                        "timedOut": true,
+                        "cleanupVerified": true,
+                        "modelTransportEstablished": false,
+                        "networkProtectionEstablished": false
+                      },
+                      "helpFlags": {
+                        "preloadObserved": true,
+                        "bareFlagSeen": false,
+                        "toolsFlagSeen": false,
+                        "settingSourcesFlagSeen": false
+                      },
+                      "stdin": "NUL"
+                    },
+                    {
+                      "code": 124,
+                      "watchdogFired": false,
+                      "output": [],
+                      "events": [
+                        {
+                          "stage": "pipe-created",
+                          "profileSidAuthorized": true,
+                          "hostUserAuthorized": true,
+                          "networkDenied": true,
+                          "lowIntegrity": true
+                        },
+                        {
+                          "stage": "token-verified",
+                          "kind": "descendant-token",
+                          "isAppContainer": true,
+                          "isLessPrivilegedAppContainer": null,
+                          "lpacQuerySucceeded": false,
+                          "lpacQueryError": 87,
+                          "packageSid": "S-1-15-2-2525008355-1056594453-1581998950-949056905-104196917-3997086382-3204666344",
+                          "capabilityCount": 1,
+                          "capabilitySids": [
+                            "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                          ],
+                          "profileSidMatched": true
+                        },
+                        {
+                          "stage": "launched",
+                          "isolation": "LPAC",
+                          "capabilities": 1,
+                          "capabilityNames": [
+                            "registryRead"
+                          ]
+                        },
+                        {
+                          "stage": "timeout",
+                          "terminateJobSucceeded": true,
+                          "rootWaitResult": 0
+                        },
+                        {
+                          "stage": "cleanup",
+                          "profileDeleteHresult": 0,
+                          "profileDirectoryAbsent": true,
+                          "terminateSucceeded": true,
+                          "rootWaitResult": 0,
+                          "jobActiveProcesses": 0,
+                          "jobTotalProcesses": 2,
+                          "ownedTreeTerminated": true,
+                          "processCreated": true
+                        }
+                      ],
+                      "stdoutBytes": 92,
+                      "stdoutSha256": "69addc0e040b082203031f43480c3b6d5ff0d75ed96815ada33238d4365acbf9",
+                      "stderrBytes": 923,
+                      "stderrSha256": "e6066721a589d6bb928cd9ba49d9401f3ea0fee4eb24ddcbb7a80bd95aa395e9",
+                      "expectedResponseObserved": false,
+                      "untrustedOutputDiagnosticCodes": [],
+                      "id": "native-pipe-model",
+                      "entrypointReplaced": false,
+                      "gatewayEvidence": {
+                        "protocol": "anthropic",
+                        "recipient": "m1-synthetic-provider",
+                        "purpose": "model-inference",
+                        "policySha256": "506c47eec9687d1457bc5afd470a35e447142c35da5a29be8a6fb37b97a88175",
+                        "rulesSha256": "d97e2a2a180c1f84d579edb2f0b85521695da836bbb9028878359e0584ad6d43",
+                        "originalPromptSha256": "131b778f752ea004c97cc5eb863cab2768664d50c65d2a96ad364e0d1694b825",
+                        "projectedPromptSha256": "9cf816f65d985868a0e93bb5a91f9bd8437859e92fb68d8b7637b67a47080e4d",
+                        "responseChallengeSha256": "50085cb4e76bac55c3b9df7747908a39a420e352a628fd2ce9f3ff68798dfe4e",
+                        "projectionMatches": 1,
+                        "requests": [],
+                        "rejected": 0
+                      },
+                      "observation": {
+                        "preloadConnected": true,
+                        "assistantChallengeObserved": false,
+                        "successResultObserved": false,
+                        "errorResultObserved": false
+                      },
+                      "receiver": {
+                        "positiveControlHttpStatus": 200,
+                        "modelRequests": 0,
+                        "bodySha256": [],
+                        "containsOriginal": false,
+                        "matchesBrokerBody": true
+                      },
+                      "summary": {
+                        "executedToPreload": true,
+                        "exitCode": 124,
+                        "timedOut": true,
+                        "cleanupVerified": true,
+                        "modelTransportEstablished": false,
+                        "networkProtectionEstablished": false
+                      },
+                      "modelRequestPassed": false
+                    }
+                  ],
+                  "gateway": {
+                    "status": "blocked-model-path",
+                    "modelRequestPassed": false,
+                    "completeLoop": false,
+                    "reason": "Preload/model initialization, transport or assistant completion did not satisfy the full predicate; zero requests alone does not establish protection."
+                  },
+                  "cleanup": {
+                    "temporaryDirectoryAbsent": true,
+                    "launchCount": 2,
+                    "verified": true
+                  },
+                  "untested": [
+                    "real model inference",
+                    "tool/edit/compact/restart",
+                    "public Internet and LAN",
+                    "system DNS",
+                    "runtime private network bypass",
+                    "exclusive file/registry allowlist"
+                  ]
+                }
+              ],
+              "attempts": [
+                {
+                  "code": 124,
+                  "watchdogFired": false,
+                  "output": [],
+                  "events": [
+                    {
+                      "stage": "pipe-created",
+                      "profileSidAuthorized": true,
+                      "hostUserAuthorized": true,
+                      "networkDenied": true,
+                      "lowIntegrity": true
+                    },
+                    {
+                      "stage": "token-verified",
+                      "kind": "descendant-token",
+                      "isAppContainer": true,
+                      "isLessPrivilegedAppContainer": null,
+                      "lpacQuerySucceeded": false,
+                      "lpacQueryError": 87,
+                      "packageSid": "S-1-15-2-2203468074-408363290-1525809589-2852644463-947966449-1513911692-551442120",
+                      "capabilityCount": 1,
+                      "capabilitySids": [
+                        "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                      ],
+                      "profileSidMatched": true,
+                      "restrictedSidCount": 0,
+                      "restrictedSids": [],
+                      "expectedRestrictionMatched": null
+                    },
+                    {
+                      "stage": "launched",
+                      "isolation": "LPAC",
+                      "capabilities": 1,
+                      "capabilityNames": [
+                        "registryRead"
+                      ]
+                    },
+                    {
+                      "stage": "timeout",
+                      "terminateJobSucceeded": true,
+                      "rootWaitResult": 0
+                    },
+                    {
+                      "stage": "pipe-relay-stopped",
+                      "error": "IOException"
+                    },
+                    {
+                      "stage": "cleanup",
+                      "profileDeleteHresult": 0,
+                      "profileDirectoryAbsent": true,
+                      "terminateSucceeded": true,
+                      "rootWaitResult": 0,
+                      "jobActiveProcesses": 0,
+                      "jobTotalProcesses": 2,
+                      "ownedTreeTerminated": true,
+                      "processCreated": true
+                    }
+                  ],
+                  "stdoutBytes": 970,
+                  "stdoutSha256": "7d413b64bac8084462729d4e09da85dbe5c6fe92c02d185dfa9ffe1a0903458c",
+                  "stderrBytes": 1053,
+                  "stderrSha256": "715c7452e643c104ed21540bfee501a0508167dc1c1385505ae03fd47d14873f",
+                  "expectedResponseObserved": false,
+                  "untrustedOutputDiagnosticCodes": [
+                    "EPERM"
+                  ],
+                  "id": "fs-audit-bare-help",
+                  "entrypointReplaced": false,
+                  "summary": {
+                    "executedToPreload": true,
+                    "exitCode": 124,
+                    "timedOut": true,
+                    "cleanupVerified": true,
+                    "modelTransportEstablished": false,
+                    "networkProtectionEstablished": false
+                  },
+                  "advisoryFsDiagnostics": [
+                    {
+                      "operation": "preload",
+                      "runtime": "Bun",
+                      "version": "1.4.0"
+                    },
+                    {
+                      "operation": "cwd-realpath",
+                      "phase": "own-preflight",
+                      "pathClass": "fixture-home",
+                      "pathSha256": "fb3e33b76ea9ce97bcdd050daf45d87d455964e69a19138dddf855c467a1922a",
+                      "ok": false,
+                      "errorCode": "EPERM"
+                    },
+                    {
+                      "operation": "entry-realpath",
+                      "phase": "own-preflight",
+                      "pathClass": "projection",
+                      "pathSha256": "8cdfddfa0023e38608c14d36d3562d639bfe1b8c2cf10734bc23c99641f7acfa",
+                      "ok": false,
+                      "errorCode": "EPERM"
+                    },
+                    {
+                      "operation": "realpathSync",
+                      "phase": "application-start",
+                      "pathClass": "fixture-home",
+                      "pathSha256": "fb3e33b76ea9ce97bcdd050daf45d87d455964e69a19138dddf855c467a1922a",
+                      "ok": null,
+                      "errorCode": null
+                    },
+                    {
+                      "operation": "realpathSync",
+                      "phase": "application",
+                      "pathClass": "fixture-home",
+                      "pathSha256": "fb3e33b76ea9ce97bcdd050daf45d87d455964e69a19138dddf855c467a1922a",
+                      "ok": false,
+                      "errorCode": "EPERM"
+                    }
+                  ],
+                  "stdin": "NUL"
+                },
+                {
+                  "code": 124,
+                  "watchdogFired": false,
+                  "output": [],
+                  "events": [
+                    {
+                      "stage": "pipe-created",
+                      "profileSidAuthorized": true,
+                      "hostUserAuthorized": true,
+                      "networkDenied": true,
+                      "lowIntegrity": true
+                    },
+                    {
+                      "stage": "token-verified",
+                      "kind": "descendant-token",
+                      "isAppContainer": true,
+                      "isLessPrivilegedAppContainer": null,
+                      "lpacQuerySucceeded": false,
+                      "lpacQueryError": 87,
+                      "packageSid": "S-1-15-2-308712584-1384514028-3124033332-2939545283-4072498644-2549184618-2192052239",
+                      "capabilityCount": 1,
+                      "capabilitySids": [
+                        "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                      ],
+                      "profileSidMatched": true,
+                      "restrictedSidCount": 0,
+                      "restrictedSids": [],
+                      "expectedRestrictionMatched": null
+                    },
+                    {
+                      "stage": "launched",
+                      "isolation": "LPAC",
+                      "capabilities": 1,
+                      "capabilityNames": [
+                        "registryRead"
+                      ]
+                    },
+                    {
+                      "stage": "timeout",
+                      "terminateJobSucceeded": true,
+                      "rootWaitResult": 0
+                    },
+                    {
+                      "stage": "pipe-relay-stopped",
+                      "error": "IOException"
+                    },
+                    {
+                      "stage": "cleanup",
+                      "profileDeleteHresult": 0,
+                      "profileDirectoryAbsent": true,
+                      "terminateSucceeded": true,
+                      "rootWaitResult": 0,
+                      "jobActiveProcesses": 0,
+                      "jobTotalProcesses": 2,
+                      "ownedTreeTerminated": true,
+                      "processCreated": true
+                    }
+                  ],
+                  "stdoutBytes": 970,
+                  "stdoutSha256": "dcfef3d75d3a297a7a495a05701687fffb22d1cb899cc27588ff4e88c75fbb1c",
+                  "stderrBytes": 1055,
+                  "stderrSha256": "b8a13ce7906baa297808452d00ae36440d577bc770da42de6a176fab866769f8",
+                  "expectedResponseObserved": false,
+                  "untrustedOutputDiagnosticCodes": [
+                    "EPERM"
+                  ],
+                  "id": "preserve-path-fs-audit-help",
+                  "entrypointReplaced": false,
+                  "summary": {
+                    "executedToPreload": true,
+                    "exitCode": 124,
+                    "timedOut": true,
+                    "cleanupVerified": true,
+                    "modelTransportEstablished": false,
+                    "networkProtectionEstablished": false
+                  },
+                  "advisoryFsDiagnostics": [
+                    {
+                      "operation": "preload",
+                      "runtime": "Bun",
+                      "version": "1.4.0"
+                    },
+                    {
+                      "operation": "cwd-realpath",
+                      "phase": "own-preflight",
+                      "pathClass": "fixture-home",
+                      "pathSha256": "3044cf78d35cec0488784bda94c040cceac635c082cee93d5d8abba81cde924f",
+                      "ok": false,
+                      "errorCode": "EPERM"
+                    },
+                    {
+                      "operation": "entry-realpath",
+                      "phase": "own-preflight",
+                      "pathClass": "projection",
+                      "pathSha256": "8cdfddfa0023e38608c14d36d3562d639bfe1b8c2cf10734bc23c99641f7acfa",
+                      "ok": false,
+                      "errorCode": "EPERM"
+                    },
+                    {
+                      "operation": "realpathSync",
+                      "phase": "application-start",
+                      "pathClass": "fixture-home",
+                      "pathSha256": "3044cf78d35cec0488784bda94c040cceac635c082cee93d5d8abba81cde924f",
+                      "ok": null,
+                      "errorCode": null
+                    },
+                    {
+                      "operation": "realpathSync",
+                      "phase": "application",
+                      "pathClass": "fixture-home",
+                      "pathSha256": "3044cf78d35cec0488784bda94c040cceac635c082cee93d5d8abba81cde924f",
+                      "ok": false,
+                      "errorCode": "EPERM"
+                    }
+                  ],
+                  "stdin": "NUL"
+                }
+              ],
+              "gateway": {
+                "status": "preload-reached-model-untested",
+                "modelRequestPassed": false,
+                "reason": "A marker or version/help result is not an actual model request and is not evidence of network protection. BUN_BE_BUN replaces the official entrypoint and cannot establish Claude execution."
+              },
+              "cleanup": {
+                "temporaryDirectoryAbsent": true,
+                "launchCount": 2,
+                "verified": true
+              },
+              "untested": [
+                "real model inference",
+                "tool/edit/compact/restart",
+                "public Internet and LAN",
+                "system DNS",
+                "runtime private network bypass",
+                "exclusive file/registry allowlist"
+              ]
+            }
+          ],
+          "attempts": [
+            {
+              "code": 0,
+              "watchdogFired": false,
+              "output": [],
+              "events": [
+                {
+                  "stage": "pipe-created",
+                  "profileSidAuthorized": true,
+                  "hostUserAuthorized": true,
+                  "networkDenied": true,
+                  "lowIntegrity": true
+                },
+                {
+                  "stage": "token-verified",
+                  "kind": "descendant-token",
+                  "isAppContainer": true,
+                  "isLessPrivilegedAppContainer": null,
+                  "lpacQuerySucceeded": false,
+                  "lpacQueryError": 87,
+                  "packageSid": "S-1-15-2-524058591-3939206109-2718360568-270122559-1155566948-1714672449-3153309821",
+                  "capabilityCount": 1,
+                  "capabilitySids": [
+                    "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+                  ],
+                  "profileSidMatched": true,
+                  "restrictedSidCount": 0,
+                  "restrictedSids": [],
+                  "expectedRestrictionMatched": null
+                },
+                {
+                  "stage": "launched",
+                  "isolation": "LPAC",
+                  "capabilities": 1,
+                  "capabilityNames": [
+                    "registryRead"
+                  ]
+                },
+                {
+                  "stage": "exit",
+                  "code": 0
+                },
+                {
+                  "stage": "pipe-relay-stopped",
+                  "error": "IOException"
+                },
+                {
+                  "stage": "cleanup",
+                  "profileDeleteHresult": 0,
+                  "profileDirectoryAbsent": true,
+                  "terminateSucceeded": true,
+                  "rootWaitResult": 0,
+                  "jobActiveProcesses": 0,
+                  "jobTotalProcesses": 2,
+                  "ownedTreeTerminated": true,
+                  "processCreated": true
+                }
+              ],
+              "stdoutBytes": 11284,
+              "stdoutSha256": "67b58a423231f5145f3a8c8195cb810936aa33c29e5f692fe402c392319eeb17",
+              "stderrBytes": 1012,
+              "stderrSha256": "811f9dca5932d6831fe9b8f05c21b080a16e0d6fdf94494a1b521aa23ed8ed50",
+              "expectedResponseObserved": false,
+              "untrustedOutputDiagnosticCodes": [
+                "EPERM"
+              ],
+              "id": "ancestor-metadata-runtime-fixture",
+              "entrypointReplaced": true,
+              "summary": {
+                "executedToPreload": true,
+                "exitCode": 0,
+                "timedOut": false,
+                "cleanupVerified": true,
+                "modelTransportEstablished": false,
+                "networkProtectionEstablished": false
+              },
+              "advisoryFsDiagnostics": [
+                {
+                  "operation": "preload",
+                  "runtime": "Bun",
+                  "version": "1.4.0"
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "volume-root",
+                  "level": 0,
+                  "pathSha256": "28f709d79730058e2a461518e34126da18ceda07729e792c92f7ca1251e730bf",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "volume-root",
+                  "level": 0,
+                  "pathSha256": "28f709d79730058e2a461518e34126da18ceda07729e792c92f7ca1251e730bf",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "volume-root",
+                  "level": 0,
+                  "pathSha256": "28f709d79730058e2a461518e34126da18ceda07729e792c92f7ca1251e730bf",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "volume-root",
+                  "level": 0,
+                  "pathSha256": "28f709d79730058e2a461518e34126da18ceda07729e792c92f7ca1251e730bf",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 1,
+                  "pathSha256": "88f13e55865ecbc2ee2096555affe9f6bb3437e63e217ae3869a63852fd36447",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 1,
+                  "pathSha256": "88f13e55865ecbc2ee2096555affe9f6bb3437e63e217ae3869a63852fd36447",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 1,
+                  "pathSha256": "88f13e55865ecbc2ee2096555affe9f6bb3437e63e217ae3869a63852fd36447",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 1,
+                  "pathSha256": "88f13e55865ecbc2ee2096555affe9f6bb3437e63e217ae3869a63852fd36447",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 2,
+                  "pathSha256": "df92ba0eef4ff208b08bd659b0d0845b635cfa232b3ddbb5f747125b75433c47",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 2,
+                  "pathSha256": "df92ba0eef4ff208b08bd659b0d0845b635cfa232b3ddbb5f747125b75433c47",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 2,
+                  "pathSha256": "df92ba0eef4ff208b08bd659b0d0845b635cfa232b3ddbb5f747125b75433c47",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 2,
+                  "pathSha256": "df92ba0eef4ff208b08bd659b0d0845b635cfa232b3ddbb5f747125b75433c47",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 3,
+                  "pathSha256": "4649cfcc03095dad23793216751ec6ff25b3596eb6c0ee0c96bdc3858b6cf52a",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 3,
+                  "pathSha256": "4649cfcc03095dad23793216751ec6ff25b3596eb6c0ee0c96bdc3858b6cf52a",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 3,
+                  "pathSha256": "4649cfcc03095dad23793216751ec6ff25b3596eb6c0ee0c96bdc3858b6cf52a",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 3,
+                  "pathSha256": "4649cfcc03095dad23793216751ec6ff25b3596eb6c0ee0c96bdc3858b6cf52a",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 4,
+                  "pathSha256": "2a26605a11dcc928489a7cc333d8daef13bf6ff4c6d00b20bba9dfd78ed78eca",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 4,
+                  "pathSha256": "2a26605a11dcc928489a7cc333d8daef13bf6ff4c6d00b20bba9dfd78ed78eca",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 4,
+                  "pathSha256": "2a26605a11dcc928489a7cc333d8daef13bf6ff4c6d00b20bba9dfd78ed78eca",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 4,
+                  "pathSha256": "2a26605a11dcc928489a7cc333d8daef13bf6ff4c6d00b20bba9dfd78ed78eca",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 5,
+                  "pathSha256": "9fd83433d3b973fb4acc5d7a5131ada4bd8891345f8c8154ea5e34f2f34551b9",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 5,
+                  "pathSha256": "9fd83433d3b973fb4acc5d7a5131ada4bd8891345f8c8154ea5e34f2f34551b9",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 5,
+                  "pathSha256": "9fd83433d3b973fb4acc5d7a5131ada4bd8891345f8c8154ea5e34f2f34551b9",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 5,
+                  "pathSha256": "9fd83433d3b973fb4acc5d7a5131ada4bd8891345f8c8154ea5e34f2f34551b9",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "owned-temp-root",
+                  "level": 6,
+                  "pathSha256": "19e20092d06551f90d4472fa8cf41a3de5e87fd8b7a894b3ff85fbe2229daea0",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "owned-temp-root",
+                  "level": 6,
+                  "pathSha256": "19e20092d06551f90d4472fa8cf41a3de5e87fd8b7a894b3ff85fbe2229daea0",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "owned-temp-root",
+                  "level": 6,
+                  "pathSha256": "19e20092d06551f90d4472fa8cf41a3de5e87fd8b7a894b3ff85fbe2229daea0",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "owned-temp-root",
+                  "level": 6,
+                  "pathSha256": "19e20092d06551f90d4472fa8cf41a3de5e87fd8b7a894b3ff85fbe2229daea0",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "projection",
+                  "level": 7,
+                  "pathSha256": "5bfb8126626059b28cd83a2ec3de5943db6c7facc0c550d5ff717cc003f684de",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "projection",
+                  "level": 7,
+                  "pathSha256": "5bfb8126626059b28cd83a2ec3de5943db6c7facc0c550d5ff717cc003f684de",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "projection",
+                  "level": 7,
+                  "pathSha256": "5bfb8126626059b28cd83a2ec3de5943db6c7facc0c550d5ff717cc003f684de",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "projection",
+                  "level": 7,
+                  "pathSha256": "5bfb8126626059b28cd83a2ec3de5943db6c7facc0c550d5ff717cc003f684de",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 8,
+                  "pathSha256": "b4479cd44fc9bbe6e3a88cea13cb4ba59961ed90cad2b198e6f1cc24e1615b7c",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 8,
+                  "pathSha256": "b4479cd44fc9bbe6e3a88cea13cb4ba59961ed90cad2b198e6f1cc24e1615b7c",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 8,
+                  "pathSha256": "b4479cd44fc9bbe6e3a88cea13cb4ba59961ed90cad2b198e6f1cc24e1615b7c",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "existing-ancestor",
+                  "level": 8,
+                  "pathSha256": "b4479cd44fc9bbe6e3a88cea13cb4ba59961ed90cad2b198e6f1cc24e1615b7c",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "fixture-home",
+                  "level": 9,
+                  "pathSha256": "b1a3ad31006a2cc1f489296214c40baae0999b891f66e6c20f352e8fbc753355",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "fixture-home",
+                  "level": 9,
+                  "pathSha256": "b1a3ad31006a2cc1f489296214c40baae0999b891f66e6c20f352e8fbc753355",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "fixture-home",
+                  "level": 9,
+                  "pathSha256": "b1a3ad31006a2cc1f489296214c40baae0999b891f66e6c20f352e8fbc753355",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "fixture-home",
+                  "level": 9,
+                  "pathSha256": "b1a3ad31006a2cc1f489296214c40baae0999b891f66e6c20f352e8fbc753355",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "program-entry",
+                  "level": 10,
+                  "pathSha256": "bf60293713949565ed9892676b9cae0925ffca996402e8d726e882c7558ff1d5",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "program-entry",
+                  "level": 10,
+                  "pathSha256": "bf60293713949565ed9892676b9cae0925ffca996402e8d726e882c7558ff1d5",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "program-entry",
+                  "level": 10,
+                  "pathSha256": "bf60293713949565ed9892676b9cae0925ffca996402e8d726e882c7558ff1d5",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "program-entry",
+                  "level": 10,
+                  "pathSha256": "bf60293713949565ed9892676b9cae0925ffca996402e8d726e882c7558ff1d5",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-stat",
+                  "phase": "own-preflight",
+                  "role": "extended-fixture-home",
+                  "level": 11,
+                  "pathSha256": "7d321c33847efc44d269ce7c7dcd2d0a193185958a41777ea8206bf56c3c7bee",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-lstat",
+                  "phase": "own-preflight",
+                  "role": "extended-fixture-home",
+                  "level": 11,
+                  "pathSha256": "7d321c33847efc44d269ce7c7dcd2d0a193185958a41777ea8206bf56c3c7bee",
+                  "ok": true,
+                  "errorCode": null
+                },
+                {
+                  "operation": "ancestor-realpath",
+                  "phase": "own-preflight",
+                  "role": "extended-fixture-home",
+                  "level": 11,
+                  "pathSha256": "7d321c33847efc44d269ce7c7dcd2d0a193185958a41777ea8206bf56c3c7bee",
+                  "ok": false,
+                  "errorCode": "EPERM"
+                },
+                {
+                  "operation": "ancestor-realpath-native",
+                  "phase": "own-preflight",
+                  "role": "extended-fixture-home",
+                  "level": 11,
+                  "pathSha256": "7d321c33847efc44d269ce7c7dcd2d0a193185958a41777ea8206bf56c3c7bee",
+                  "ok": true,
+                  "errorCode": null
+                }
+              ],
+              "diagnosticTrust": "untrusted-same-process-advisory-not-security-evidence",
+              "stdin": "NUL"
+            }
+          ],
+          "gateway": {
+            "status": "blocked-before-preload",
+            "modelRequestPassed": false,
+            "reason": "A marker or version/help result is not an actual model request and is not evidence of network protection. BUN_BE_BUN replaces the official entrypoint and cannot establish Claude execution."
+          },
+          "cleanup": {
+            "temporaryDirectoryAbsent": true,
+            "launchCount": 1,
+            "verified": true
+          },
+          "untested": [
+            "real model inference",
+            "tool/edit/compact/restart",
+            "public Internet and LAN",
+            "system DNS",
+            "runtime private network bypass",
+            "exclusive file/registry allowlist"
+          ]
+        }
+      ],
+      "attempts": [
+        {
+          "code": 124,
+          "watchdogFired": false,
+          "output": [],
+          "events": [
+            {
+              "stage": "pipe-created",
+              "profileSidAuthorized": true,
+              "hostUserAuthorized": true,
+              "networkDenied": true,
+              "lowIntegrity": true
+            },
+            {
+              "stage": "token-verified",
+              "kind": "descendant-token",
+              "isAppContainer": true,
+              "isLessPrivilegedAppContainer": null,
+              "lpacQuerySucceeded": false,
+              "lpacQueryError": 87,
+              "packageSid": "S-1-15-2-1948891099-2941362150-2724338283-646935528-2924280693-3492794852-2492990790",
+              "capabilityCount": 1,
+              "capabilitySids": [
+                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+              ],
+              "profileSidMatched": true,
+              "restrictedSidCount": 0,
+              "restrictedSids": [],
+              "expectedRestrictionMatched": null
+            },
+            {
+              "stage": "launched",
+              "isolation": "LPAC",
+              "capabilities": 1,
+              "capabilityNames": [
+                "registryRead"
+              ]
+            },
+            {
+              "stage": "timeout",
+              "terminateJobSucceeded": true,
+              "rootWaitResult": 0
+            },
+            {
+              "stage": "pipe-relay-stopped",
+              "error": "IOException"
+            },
+            {
+              "stage": "cleanup",
+              "profileDeleteHresult": 0,
+              "profileDirectoryAbsent": true,
+              "terminateSucceeded": true,
+              "rootWaitResult": 0,
+              "jobActiveProcesses": 0,
+              "jobTotalProcesses": 2,
+              "ownedTreeTerminated": true,
+              "processCreated": true
+            }
+          ],
+          "stdoutBytes": 200,
+          "stdoutSha256": "caf1afe554533cbe166350560fd8fe9aaa20fa3a453d47a7c3dd1b1ed357b287",
+          "stderrBytes": 1055,
+          "stderrSha256": "5c7fc75fa11c149c11dd8794bb348aa6771c9eb328595fcd49c85f8e768f198c",
+          "expectedResponseObserved": false,
+          "untrustedOutputDiagnosticCodes": [],
+          "id": "owned-native-compat-help",
+          "entrypointReplaced": false,
+          "summary": {
+            "executedToPreload": true,
+            "exitCode": 124,
+            "timedOut": true,
+            "cleanupVerified": true,
+            "modelTransportEstablished": false,
+            "networkProtectionEstablished": false
+          },
+          "helpFlags": {
+            "preloadObserved": true,
+            "realpathCompat": {
+              "installed": true,
+              "esmSyncSucceeded": true,
+              "namedBindingMatched": false,
+              "requireBindingMatched": true
+            },
+            "bareFlagSeen": false,
+            "toolsFlagSeen": false,
+            "settingSourcesFlagSeen": false
+          },
+          "stdin": "NUL"
+        },
+        {
+          "code": 124,
+          "watchdogFired": false,
+          "output": [],
+          "events": [
+            {
+              "stage": "pipe-created",
+              "profileSidAuthorized": true,
+              "hostUserAuthorized": true,
+              "networkDenied": true,
+              "lowIntegrity": true
+            },
+            {
+              "stage": "token-verified",
+              "kind": "descendant-token",
+              "isAppContainer": true,
+              "isLessPrivilegedAppContainer": null,
+              "lpacQuerySucceeded": false,
+              "lpacQueryError": 87,
+              "packageSid": "S-1-15-2-825746152-1826683020-2377830536-2550462567-2616849357-975862368-1185012499",
+              "capabilityCount": 1,
+              "capabilitySids": [
+                "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+              ],
+              "profileSidMatched": true,
+              "restrictedSidCount": 0,
+              "restrictedSids": [],
+              "expectedRestrictionMatched": null
+            },
+            {
+              "stage": "launched",
+              "isolation": "LPAC",
+              "capabilities": 1,
+              "capabilityNames": [
+                "registryRead"
+              ]
+            },
+            {
+              "stage": "timeout",
+              "terminateJobSucceeded": true,
+              "rootWaitResult": 0
+            },
+            {
+              "stage": "cleanup",
+              "profileDeleteHresult": 0,
+              "profileDirectoryAbsent": true,
+              "terminateSucceeded": true,
+              "rootWaitResult": 0,
+              "jobActiveProcesses": 0,
+              "jobTotalProcesses": 2,
+              "ownedTreeTerminated": true,
+              "processCreated": true
+            }
+          ],
+          "stdoutBytes": 224,
+          "stdoutSha256": "e3359ab94a5cb5fead60d6ef6873b000e54aaad29d11a836469c4c51ef5682c7",
+          "stderrBytes": 1000,
+          "stderrSha256": "cbfca41cfe21486bd73b5c5f4261b7627a2c6950ea8c4d3f80bff7d47ae77159",
+          "expectedResponseObserved": false,
+          "untrustedOutputDiagnosticCodes": [],
+          "id": "native-pipe-model",
+          "entrypointReplaced": false,
+          "gatewayEvidence": {
+            "protocol": "anthropic",
+            "recipient": "m1-synthetic-provider",
+            "purpose": "model-inference",
+            "policySha256": "506c47eec9687d1457bc5afd470a35e447142c35da5a29be8a6fb37b97a88175",
+            "rulesSha256": "d97e2a2a180c1f84d579edb2f0b85521695da836bbb9028878359e0584ad6d43",
+            "originalPromptSha256": "131b778f752ea004c97cc5eb863cab2768664d50c65d2a96ad364e0d1694b825",
+            "projectedPromptSha256": "023b9b3189ff449d68549b8dfc2f4b4aee136e90e9f317a5f7bff270685e6ed4",
+            "responseChallengeSha256": "8c9cba8410c24cae82eb8e042edbb6fcfd2b2f369fe36ccbda8f0dca6312cb61",
+            "projectionMatches": 1,
+            "requests": [],
+            "rejected": 0
+          },
+          "observation": {
+            "preloadConnected": true,
+            "realpathCompat": {
+              "installed": true,
+              "esmSyncSucceeded": true,
+              "namedBindingMatched": false,
+              "requireBindingMatched": true
+            },
+            "assistantChallengeObserved": false,
+            "successResultObserved": false,
+            "errorResultObserved": false
+          },
+          "receiver": {
+            "positiveControlHttpStatus": 200,
+            "modelRequests": 0,
+            "bodySha256": [],
+            "containsOriginal": false,
+            "matchesBrokerBody": null
+          },
+          "summary": {
+            "executedToPreload": true,
+            "exitCode": 124,
+            "timedOut": true,
+            "cleanupVerified": true,
+            "modelTransportEstablished": false,
+            "networkProtectionEstablished": false
+          },
+          "modelRequestPassed": false
+        }
+      ],
+      "gateway": {
+        "status": "blocked-model-path",
+        "modelRequestPassed": false,
+        "completeLoop": false,
+        "reason": "Preload/model initialization, transport or assistant completion did not satisfy the full predicate; zero requests alone does not establish protection."
+      },
+      "cleanup": {
+        "temporaryDirectoryAbsent": true,
+        "launchCount": 2,
+        "verified": true
+      },
+      "untested": [
+        "real model inference",
+        "tool/edit/compact/restart",
+        "public Internet and LAN",
+        "system DNS",
+        "runtime private network bypass",
+        "exclusive file/registry allowlist"
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "code": 124,
+      "watchdogFired": false,
+      "output": [],
+      "events": [
+        {
+          "stage": "pipe-created",
+          "profileSidAuthorized": true,
+          "hostUserAuthorized": true,
+          "networkDenied": true,
+          "lowIntegrity": true
+        },
+        {
+          "stage": "token-verified",
+          "kind": "descendant-token",
+          "isAppContainer": true,
+          "isLessPrivilegedAppContainer": null,
+          "lpacQuerySucceeded": false,
+          "lpacQueryError": 87,
+          "packageSid": "S-1-15-2-3727282573-277129430-2307961028-1254229258-1755870234-1592301-3319297317",
+          "capabilityCount": 1,
+          "capabilitySids": [
+            "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+          ],
+          "profileSidMatched": true,
+          "restrictedSidCount": 0,
+          "restrictedSids": [],
+          "expectedRestrictionMatched": null
+        },
+        {
+          "stage": "launched",
+          "isolation": "LPAC",
+          "capabilities": 1,
+          "capabilityNames": [
+            "registryRead"
+          ]
+        },
+        {
+          "stage": "timeout",
+          "terminateJobSucceeded": true,
+          "rootWaitResult": 0
+        },
+        {
+          "stage": "pipe-relay-stopped",
+          "error": "IOException"
+        },
+        {
+          "stage": "cleanup",
+          "profileDeleteHresult": 0,
+          "profileDirectoryAbsent": true,
+          "terminateSucceeded": true,
+          "rootWaitResult": 0,
+          "jobActiveProcesses": 0,
+          "jobTotalProcesses": 2,
+          "ownedTreeTerminated": true,
+          "processCreated": true
+        }
+      ],
+      "stdoutBytes": 2448,
+      "stdoutSha256": "e0e62e13ba091600e5a4a804e826ffe853fb6f7fa83c70ae2ac14f182777c48b",
+      "stderrBytes": 1052,
+      "stderrSha256": "a13a4d4c401e4a745a815b6cd646b85693bf30c820b5da12f5c1645498c803ab",
+      "expectedResponseObserved": false,
+      "untrustedOutputDiagnosticCodes": [
+        "EPERM"
+      ],
+      "id": "owned-native-shim-fs-audit-help",
+      "entrypointReplaced": false,
+      "summary": {
+        "executedToPreload": true,
+        "exitCode": 124,
+        "timedOut": true,
+        "cleanupVerified": true,
+        "modelTransportEstablished": false,
+        "networkProtectionEstablished": false
+      },
+      "advisoryFsDiagnostics": [
+        {
+          "operation": "preload",
+          "runtime": "Bun",
+          "version": "1.4.0"
+        },
+        {
+          "operation": "owned-regular-denied",
+          "phase": "compat-preflight",
+          "pathClass": "projection",
+          "pathSha256": "03a5562972c9eec9d30bc1cfe1c6a8efd872fd704380dd49a704d5f326d6ac52",
+          "ok": false,
+          "errorCode": "EPERM"
+        },
+        {
+          "operation": "owned-native-success",
+          "phase": "compat-preflight",
+          "pathClass": "projection",
+          "pathSha256": "03a5562972c9eec9d30bc1cfe1c6a8efd872fd704380dd49a704d5f326d6ac52",
+          "ok": true,
+          "errorCode": null
+        },
+        {
+          "operation": "cwd-realpath",
+          "phase": "own-preflight",
+          "pathClass": "fixture-home",
+          "pathSha256": "03a5562972c9eec9d30bc1cfe1c6a8efd872fd704380dd49a704d5f326d6ac52",
+          "ok": true,
+          "errorCode": null
+        },
+        {
+          "operation": "owned-regular-denied",
+          "phase": "compat-preflight",
+          "pathClass": "projection",
+          "pathSha256": "e3e0054d11f555a7504cecf201b4596c7d4fcae3d569640b2657eebc367bd775",
+          "ok": false,
+          "errorCode": "EPERM"
+        },
+        {
+          "operation": "owned-native-success",
+          "phase": "compat-preflight",
+          "pathClass": "projection",
+          "pathSha256": "e3e0054d11f555a7504cecf201b4596c7d4fcae3d569640b2657eebc367bd775",
+          "ok": true,
+          "errorCode": null
+        },
+        {
+          "operation": "entry-realpath",
+          "phase": "own-preflight",
+          "pathClass": "projection",
+          "pathSha256": "e3e0054d11f555a7504cecf201b4596c7d4fcae3d569640b2657eebc367bd775",
+          "ok": true,
+          "errorCode": null
+        },
+        {
+          "operation": "realpathSync",
+          "phase": "application-start",
+          "pathClass": "fixture-home",
+          "pathSha256": "03a5562972c9eec9d30bc1cfe1c6a8efd872fd704380dd49a704d5f326d6ac52",
+          "ok": null,
+          "errorCode": null
+        },
+        {
+          "operation": "owned-regular-denied",
+          "phase": "application",
+          "pathClass": "projection",
+          "pathSha256": "03a5562972c9eec9d30bc1cfe1c6a8efd872fd704380dd49a704d5f326d6ac52",
+          "ok": false,
+          "errorCode": "EPERM"
+        },
+        {
+          "operation": "owned-native-success",
+          "phase": "application",
+          "pathClass": "projection",
+          "pathSha256": "03a5562972c9eec9d30bc1cfe1c6a8efd872fd704380dd49a704d5f326d6ac52",
+          "ok": true,
+          "errorCode": null
+        },
+        {
+          "operation": "realpathSync",
+          "phase": "application",
+          "pathClass": "fixture-home",
+          "pathSha256": "03a5562972c9eec9d30bc1cfe1c6a8efd872fd704380dd49a704d5f326d6ac52",
+          "ok": true,
+          "errorCode": null
+        }
+      ],
+      "realpathCompat": {
+        "installed": true,
+        "esmSyncSucceeded": true,
+        "namedBindingMatched": false,
+        "requireBindingMatched": true
+      },
+      "diagnosticTrust": "untrusted-same-process-advisory-not-security-evidence",
+      "stdin": "NUL"
+    }
+  ],
+  "gateway": {
+    "status": "preload-reached-model-untested",
+    "modelRequestPassed": false,
+    "reason": "A marker or version/help result is not an actual model request and is not evidence of network protection. BUN_BE_BUN replaces the official entrypoint and cannot establish Claude execution."
+  },
+  "cleanup": {
+    "temporaryDirectoryAbsent": true,
+    "launchCount": 1,
+    "verified": true
+  },
+  "untested": [
+    "real model inference",
+    "tool/edit/compact/restart",
+    "public Internet and LAN",
+    "system DNS",
+    "runtime private network bypass",
+    "exclusive file/registry allowlist"
+  ]
+}

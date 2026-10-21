@@ -7,10 +7,12 @@ async function boundedBody(request) {
   try {for(;;){request.signal.throwIfAborted();const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>LIMIT)throw new Error('request-limit');parts.push(value);}return Buffer.concat(parts);}
   finally {await reader.cancel().catch(()=>{});}
 }
-export function createFetchAdapter(exchange) {
+export function createFetchAdapter(exchange,protocol='openai') {
+  if(!['openai','anthropic'].includes(protocol))throw new Error('protocol-denied');
   return async function protectedFetch(input,init) {
     const request=new Request(input,init),url=new URL(request.url);request.signal.throwIfAborted();
-    if(url.origin!==ORIGIN||url.username||url.password||url.search||url.hash||!((request.method==='POST'&&url.pathname==='/v1/chat/completions')||(request.method==='GET'&&url.pathname==='/v1/models')))throw new Error('recipient-denied');
+    const route=protocol==='anthropic'?request.method==='POST'&&url.pathname==='/v1/messages':(request.method==='POST'&&url.pathname==='/v1/chat/completions')||(request.method==='GET'&&url.pathname==='/v1/models');
+    if(url.origin!==ORIGIN||url.username||url.password||url.search||url.hash||!route)throw new Error('recipient-denied');
     const body=await boundedBody(request),id=crypto.randomUUID();request.signal.throwIfAborted();
     const reply=await exchange({version:1,id,operation:'model-request',recipient:'m1-synthetic-provider',purpose:'model-inference',method:request.method,path:url.pathname,bodyBase64:body.toString('base64')},request.signal);
     request.signal.throwIfAborted();

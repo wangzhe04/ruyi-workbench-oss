@@ -3,6 +3,8 @@ import net from 'node:net';
 import {once} from 'node:events';
 import {createFetchAdapter,writePipeFrame} from './fetch-adapter.mjs';
 const pipe=process.env.RUYI_M1_PIPE;
+const protocol=process.env.RUYI_M1_PROTOCOL??'openai';
+if(!['openai','anthropic'].includes(protocol))throw new Error('protocol-denied');
 if(!/^\\\\\.\\pipe\\LOCAL\\ruyi\.m1\.[a-f0-9]{32}$/.test(pipe||''))throw new Error('owned-pipe-required');
 const socket=net.connect(pipe);socket.setEncoding('utf8');await once(socket,'connect');socket.unref();
 let pending=null,buffer='';
@@ -16,4 +18,4 @@ globalThis.fetch=createFetchAdapter((request,signal)=>new Promise((resolve,rejec
   try{signal.throwIfAborted();}catch(error){reject(error);return;}
   if(pending||socket.destroyed){reject(new Error('broker-unavailable'));return;}
   const abort=()=>fail(),timer=setTimeout(fail,12000);pending={resolve,reject,timer,signal,abort};signal.addEventListener('abort',abort,{once:true});socket.ref();try{writePipeFrame(socket,request,signal);}catch{fail();}
-}));
+}),protocol);

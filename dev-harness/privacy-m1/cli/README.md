@@ -59,3 +59,17 @@ The host broker independently binds recipient, purpose, method and route. It hol
 The provider generates a fresh random response challenge held only by the host. It is absent from source, prompt, argv and child environment. A successful real Kimi observation requires an actual captured model request matching the broker body hash, no original synthetic secret in received bytes, a confirmed upstream challenge response, an exact final `role: assistant` content match, CLI exit 0, zero independent attack-receiver connections, and verified cleanup. Prompt/user/meta/log echoes and assistant tool-call rows cannot satisfy that predicate. The fixture and the actual Kimi attempt are separate evidence rows. Claude is only inventoried in this follow-up; its native executable is neither injected nor re-run through an unsupported bridge.
 
 This establishes a narrow real Kimi model transport when its row passes. It does **not** complete M1 or prove model/tool/edit/compact/restart behavior, CLI cache/transcript protection, hooks/plugins/MCP isolation, an exclusive file/registry view, or arbitrary CLI versions. All five normal launches must delete their profiles, terminate their owned Job processes, and remove temporary files. Abrupt runner/machine termination recovery remains untested.
+
+## Strict filesystem and native Claude continuation
+
+The stored LPAC/Kimi report above is frozen to `3fea5af1`; changed helper/adapter sources do not retrospectively update its hashes. Save fresh reproductions to separate reports. The [filesystem contract](filesystem-contract.md), [observations](filesystem-findings.md), [Claude experiment](claude-contract.md), and [decision record 90](../../../docs/optimization-plan/90-claude-and-filesystem-feasibility.md) describe the next gates.
+
+```powershell
+node --test dev-harness/privacy-m1/cli/filesystem.test.js
+$filesystemReport = Join-Path $env:TEMP ('ruyi-m1-filesystem-' + [guid]::NewGuid().ToString('N') + '.json')
+node dev-harness/privacy-m1/cli/filesystem.js --evidence $filesystemReport
+```
+
+The filesystem runner deliberately retains exit 1 when its token-probe CLR failures remain. Inspect each predicate: complete parent/child observations show ARAP/profile-granted outside resources accessible, so the strict filesystem contract **failed**. An extra restricting SID is actually verified before resume, but Node then exits before JS; that candidate is blocked, not successful enforcement. The hardlink case separately demonstrates an unsafe projection maker. Validator preflight rejects reparse and multi-link fixtures before ACL mutation. No existing user/system ACL is changed.
+
+The Claude stages distinguish native entrypoint, public Bun preload, LOCAL-pipe connection, canonicalization compatibility, model request and final assistant completion. Current native model attempts have not passed. A fixed Anthropic schema shares the bounded host PrivacyCore and transport with OpenAI; no arbitrary destination or CLI header forwarding is introduced. Runtime diagnostic metadata is untrusted advisory data and cannot satisfy a security or model-success predicate. See the Claude experiment for serial stage commands and preserved first failures.

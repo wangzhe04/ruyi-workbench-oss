@@ -2,6 +2,8 @@
 
 [86 号路线](../../docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md)规定版本范围；[88 号设计与结果](../../docs/optimization-plan/88-privacy-m1-prototypes.md)规定本轮实验合同。这里的代码均为独立原型，未接入生产发送路径。
 
+CLI 后续裁决按 [90 号记录](../../docs/optimization-plan/90-claude-and-filesystem-feasibility.md)：Kimi 的有限模型传输可行，严格文件视图有反例，Claude 的预加载/管道连通尚不能代替模型完成。历史证据保留原源码身份，重跑结果另存。
+
 | 目录 | 作用 | 运行说明 |
 |---|---|---|
 | `egress/` | 第一方外发能力清册与变更复核 | [审计说明](egress/AUDIT.md) |
