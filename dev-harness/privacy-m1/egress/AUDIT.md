@@ -47,15 +47,19 @@ M2/A3 将四处正文 POST 接线收敛到 `04h-provider-http.js / providerModel
 
 ## M2-3 受限本地原值使用审阅
 
-`prepareExecution` 在释放引用原值前使用宿主确定的本地文件/当前会话字段适配器，注册和工具tier不再授予通用还原。参数/代理归一、权限编辑、等待后的派发及真实文件I/O保留宿主绑定并重验；UNC、映射网络盘、未知介质或链接落点不继承本地授权。未适配脚本、HTTP和MCP收到引用时拒绝恢复；普通不含引用的调用及off语义不因此变成已隔离。搜索/HTTP/机器人/独立MCP的完整接收方合同仍待后续批次，原model-only/unknown/bypassed分类不作通道级升级。
+`prepareExecution` 在释放引用原值前使用宿主确定的本地文件/当前会话字段适配器，注册和工具tier不再授予通用还原。参数/代理归一、权限编辑、等待后的派发及真实文件I/O保留宿主绑定并重验；UNC、映射网络盘、未知介质或链接落点不继承本地授权。未适配脚本、HTTP和MCP收到引用时拒绝恢复；普通不含引用的调用及off语义不因此变成已隔离。该批完成时搜索/HTTP/机器人/独立MCP的完整接收方合同仍待后续批次；后续用户已收窄公开联网范围，见下节裁决。原model-only/unknown/bypassed分类不作通道级升级。
 
 新增六个词法候选逐项审阅：`03/privacyInspectionSegment/run`为短命AsyncLocalStorage检查段，记non-egress；`03a/withExecution/run`为AsyncLocalStorage本地回调，记non-egress；`03b/start/exec`为回复正则，记non-egress；`03b/start/spawn`和`03b/pump/write`为固定DriveInfo本地子进程及仅盘符根字母的stdin，单列privacy-drive-probe/local-only。新增`03b/<transport-import>`为局部node:child_process能力导入，沿用capability/unknown，不用固定调用点推导builtin内部普遍安全。探针仅提供受限介质判据，不是OS隔离；脚本无派生子进程，生命周期只处理仍存活的ChildProcess对象。主/子批准备、DriveType准入及根检查有界；检查缓存只在单次检查段内复用，实际I/O前重新读取实际目标和原词法接收方的介质/链接拓扑并复核权限、策略和引用。原子临时件和移动中间件仅有受限本地清理/恢复路径。这是明确适配器的宿主合同，并非所有文件系统元数据调用都加了新hook，更不是系统强制隔离或抵御同账户恶意程序的证明。最终依赖图为88模块/625边/0重复provides/1强连通分量；顶层冻结循环误识别和broker反向依赖导致的初始图失败由本批证据保留，不放宽政策。最终源码100文件合成搜索单次观察约1.35秒，对照无引用约196毫秒（非统计基准，不含真实DPAPI），剩余成本已记录，不能用盘符探针热查询约0.3毫秒代替整条工具成本。详细产品证据由本批记录承载，不用词法候选数量推导覆盖率。
+
+## 公开联网范围裁决（2026-10-21，M2-3之后）
+
+用户决定普通公开搜索、网页抓取和下载不新增内容脱敏；M2-4只核验公开调用正常通过，以及M2-3现有本地私密代号不自动还原到query/URL/body的轻量边界。M2-5通用HTTP脱敏/披露适配取消，移出发布阻塞项。SSRF、DNS固定、重定向、代理、权限及认证清理等原检查继续保留；机器人、导出、MCP、媒体等范围不变。未实现的完整HTTP保护不因范围调整变成已完成，清册原`bypassed/unknown/model-only`分类及历史证据不作升级；这里只更新后续任务要求。详见86/92。
 
 ## 外发链路的重要缺口
 
 | 通道 | 真实边界/生产关系 | 当前事实与 M2 后续要求 |
 |---|---|---|
-| Web 搜索/抓取/下载/任意 HTTP | `builtinSearch/webSearchViaBackend/deepseekWebRequest/httpRequest/httpGetGuarded` 经 `openHttpRequest`；代理有 CONNECT 与 TLS，DNS 本身也披露目标 | 现有 SSRF、权限、认证清理不等于接收方隐私合同。本批对带引用的未适配输入拒绝还原；普通query/body/header仍无完整接收方策略，通道级保留 `bypassed`，需后续目的地/字段用途接线 |
+| Web 搜索/抓取/下载/任意 HTTP | `builtinSearch/webSearchViaBackend/deepseekWebRequest/httpRequest/httpGetGuarded` 经 `openHttpRequest`；代理有 CONNECT 与 TLS，DNS 本身也披露目标 | 现有 SSRF、权限、认证清理不等于接收方隐私合同。本批对带引用的未适配输入拒绝还原；普通query/body/header仍无完整接收方策略，通道级保留 `bypassed`；用户已取消通用HTTP适配，后续仅以M2-4核验公开调用直通和私密引用不自动还原，不再把完整适配作为发布门 |
 | 受管 MCP | `McpStdioClient.start/_rpc/_notify/_onLine` 与 `McpHttpClient._request/_openSseStream`；HTTP/SSE 的 `lib`、`transport` 别名仍被 `.request` 候选发现 | `model-only` 是宿主模型侧结果投影的有界声明；本批未适配服务的引用参数拒绝恢复；本地 stdio 内部再联网、远程工具/资源/错误、独立消费者的连接级 scope 仍需单独实现/验收 |
 | 独立工作台 MCP consumer | `13-http-router.js/startMcp -> sendMcp/sendMcpNotification -> process.stdout.write`；工具文本/图片、resources、error、progress 均是输出数据 | 专属 `workbench-mcp-output` 合同，记 `unknown`；不同于受管 MCP 客户端和独立 ACC 服务器。工具/资源列表在保护开启时隐藏，工具结果、资源读取和 catch 错误各有条件拒绝检查，但两处 stdout serializer 没有统一的连接级身份/scope/最终披露合同。进度 timer 直接发 progress token/通知，初始化/协议返回与错误行为也不能从工具结果检查推导已覆盖 |
 | CLI 与任意子进程 | Claude 主/子任务，Kimi bridge/ACP/terminal，通用 shell、Git、媒体 helper、桌面/脚本启动器 | 现有开启保护时拒绝不支持 CLI，不是已经交付托管保护模式；关闭保护时的 hooks/MCP/plugins/遥测/子进程/缓存出口未知。清册记 `unknown`；无 OS 网络隔离证明 |
