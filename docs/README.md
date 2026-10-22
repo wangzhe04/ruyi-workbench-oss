@@ -22,7 +22,7 @@ Ruyi ships Chinese and English user and deployment guides. Historical design and
 | [发布与迭代路线](OPTIMIZATION-ROADMAP.md) | 当前发布基线、未发布内容和下一步范围 |
 | [3.1 补完与隐私路线](optimization-plan/86-3.1-completion-and-privacy-roadmap.md) | 当前执行入口；范围、隐私支持边界、依赖与发布门 |
 | [3.1 后续实施交接](optimization-plan/92-3.1-implementation-handoff.md) | 6.1 Sol 接手：实施批次、代码入口、设计约束、依赖与验收 |
-| [M3-1 工作数据加密冻结](optimization-plan/93-m3-1-encrypted-storage-freeze.md) | 存储族清册、独立密钥用途、v2 envelope 与迁移/唯一权威合同；性能基线未执行 |
+| [M3-1 工作数据加密冻结](optimization-plan/93-m3-1-encrypted-storage-freeze.md) | 存储族清册、独立密钥用途、v2 envelope、迁移/唯一权威合同与合成性能基线 |
 | [代码规模与合理精简审计](optimization-plan/87-code-size-and-simplification-audit.md) | 当前基线统计、重复机制与精简候选；实施安排见 86 |
 | [M1 隐私边界原型](optimization-plan/88-privacy-m1-prototypes.md) | 外发清册、CLI 隔离与本地媒体实验；已验证与未完成分别记录 |
 | [音频修复与 CLI 隔离续验](optimization-plan/89-audio-and-cli-isolation-followup.md) | 音频发送和配置竞态、LPAC/网关验证、ASR 可选范围 |

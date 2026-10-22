@@ -1,0 +1,371 @@
+{
+  "schema": 1,
+  "generatedBy": "dev-harness/m3-1-storage-baseline.js",
+  "generatedAt": "2026-10-22T06:53:44.381Z",
+  "scope": "M3-1b synthetic plaintext baseline before M3-2; temp data root and temp home, no user data, no external network",
+  "environment": {
+    "node": "v24.14.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpus": 12,
+    "totalMemBytes": 34247671808
+  },
+  "fixture": {
+    "sessions": 24,
+    "messagesPerSession": 200,
+    "messagesTotal": 4800,
+    "attachmentBytes": 1048593,
+    "reads": 20,
+    "writes": 10,
+    "turns": 5,
+    "dataBytes": 3979340,
+    "dataFiles": 118
+  },
+  "operations": {
+    "startup-cold": {
+      "samples": [
+        336.8
+      ],
+      "count": 1,
+      "p50": 336.8,
+      "p95": 336.8,
+      "min": 336.8,
+      "max": 336.8
+    },
+    "startup-warm": {
+      "samples": [
+        430.1,
+        384.4,
+        370.2
+      ],
+      "count": 3,
+      "p50": 384.4,
+      "p95": 430.1,
+      "min": 370.2,
+      "max": 430.1
+    },
+    "session-load-first-read": {
+      "samples": [
+        10.5
+      ],
+      "count": 1,
+      "p50": 10.5,
+      "p95": 10.5,
+      "min": 10.5,
+      "max": 10.5
+    },
+    "session-load-cold-process": {
+      "samples": [
+        10.9,
+        7,
+        7
+      ],
+      "count": 3,
+      "p50": 7,
+      "p95": 10.9,
+      "min": 7,
+      "max": 10.9
+    },
+    "session-load-hot": {
+      "samples": [
+        7.6,
+        6.8,
+        7.5,
+        9.5,
+        7.2,
+        6.7,
+        7,
+        6.7,
+        7.1,
+        6.4,
+        6,
+        7.1,
+        6.5,
+        6.9,
+        6.7,
+        5.7,
+        6.9,
+        6.6,
+        6.7,
+        6.9
+      ],
+      "count": 20,
+      "p50": 6.8,
+      "p95": 7.6,
+      "min": 5.7,
+      "max": 9.5
+    },
+    "session-create-import-write": {
+      "samples": [
+        145.5,
+        117.1,
+        132.4,
+        116.6,
+        116.2,
+        99.3,
+        116.5,
+        116.7,
+        99.2,
+        116.7
+      ],
+      "count": 10,
+      "p50": 116.6,
+      "p95": 145.5,
+      "min": 99.2,
+      "max": 145.5
+    },
+    "search-first-query": {
+      "samples": [
+        135
+      ],
+      "count": 1,
+      "p50": 135,
+      "p95": 135,
+      "min": 135,
+      "max": 135
+    },
+    "search-cold-process": {
+      "samples": [
+        756.6,
+        806.7,
+        796.6
+      ],
+      "count": 3,
+      "p50": 796.6,
+      "p95": 806.7,
+      "min": 756.6,
+      "max": 806.7
+    },
+    "search-hot": {
+      "samples": [
+        9.7,
+        7.3,
+        6.4,
+        7.2,
+        6.7,
+        7.5,
+        7.2,
+        7.7,
+        7.4,
+        6.6,
+        6.9,
+        6.7,
+        7.1,
+        7,
+        8.1,
+        7.7,
+        7,
+        7.3,
+        7.2,
+        7.8
+      ],
+      "count": 20,
+      "p50": 7.2,
+      "p95": 8.1,
+      "min": 6.4,
+      "max": 9.7
+    },
+    "attachment-first-read": {
+      "samples": [
+        5.6
+      ],
+      "count": 1,
+      "p50": 5.6,
+      "p95": 5.6,
+      "min": 5.6,
+      "max": 5.6
+    },
+    "attachment-repeat-read": {
+      "samples": [
+        5.1,
+        6.8,
+        6.1,
+        5.3,
+        7.3,
+        6.5,
+        5.9,
+        5,
+        5,
+        17.2,
+        5.6,
+        25.4,
+        6.1,
+        5.2,
+        5.9,
+        9.4,
+        5.6,
+        5.2,
+        4.9,
+        4.6
+      ],
+      "count": 20,
+      "p50": 5.6,
+      "p95": 17.2,
+      "min": 4.6,
+      "max": 25.4
+    },
+    "chat-first-response": {
+      "samples": [
+        11.7,
+        11.9,
+        9.4,
+        9.8,
+        10.9
+      ],
+      "count": 5,
+      "p50": 10.9,
+      "p95": 11.9,
+      "min": 9.4,
+      "max": 11.9
+    },
+    "chat-turn-total": {
+      "samples": [
+        2213.1,
+        2028.4,
+        2060.5,
+        1926,
+        2053.2
+      ],
+      "count": 5,
+      "p50": 2053.2,
+      "p95": 2213.1,
+      "min": 1926,
+      "max": 2213.1
+    },
+    "recovery-first-read": {
+      "samples": [
+        14.2,
+        12.3,
+        10.9
+      ],
+      "count": 3,
+      "p50": 12.3,
+      "p95": 14.2,
+      "min": 10.9,
+      "max": 14.2
+    }
+  },
+  "memory": {
+    "workPeakWorkingSetBytes": 137400320,
+    "recoveryPeakWorkingSetBytes": 92405760
+  },
+  "recovery": {
+    "cycles": 3,
+    "consistent": true,
+    "runs": [
+      {
+        "cycle": 0,
+        "status": 200,
+        "messagesBefore": 210,
+        "messagesAfter": 210,
+        "consistent": true
+      },
+      {
+        "cycle": 1,
+        "status": 200,
+        "messagesBefore": 210,
+        "messagesAfter": 210,
+        "consistent": true
+      },
+      {
+        "cycle": 2,
+        "status": 200,
+        "messagesBefore": 210,
+        "messagesAfter": 210,
+        "consistent": true
+      }
+    ]
+  },
+  "thresholds": {
+    "frozenAt": "2026-10-22T06:53:44.381Z",
+    "comparison": "same machine, same fixture: run this tool three times and compare the median p50/p95 of the three runs; a single run outside +10% is a trigger to investigate, not a verdict",
+    "smallNRule": "rows with n < 20 are informational only (nearest-rank percentiles on 1-5 samples move tens of percent between identical runs)",
+    "interactionStepsAdded": 0,
+    "baseline": {
+      "startup-cold": {
+        "n": 1,
+        "p50": 336.8,
+        "p95": 336.8
+      },
+      "startup-warm": {
+        "n": 3,
+        "p50": 384.4,
+        "p95": 430.1
+      },
+      "session-load-first-read": {
+        "n": 1,
+        "p50": 10.5,
+        "p95": 10.5
+      },
+      "session-load-cold-process": {
+        "n": 3,
+        "p50": 7,
+        "p95": 10.9
+      },
+      "session-load-hot": {
+        "n": 20,
+        "p50": 6.8,
+        "p95": 7.6
+      },
+      "session-create-import-write": {
+        "n": 10,
+        "p50": 116.6,
+        "p95": 145.5
+      },
+      "search-first-query": {
+        "n": 1,
+        "p50": 135,
+        "p95": 135
+      },
+      "search-cold-process": {
+        "n": 3,
+        "p50": 796.6,
+        "p95": 806.7
+      },
+      "search-hot": {
+        "n": 20,
+        "p50": 7.2,
+        "p95": 8.1
+      },
+      "attachment-first-read": {
+        "n": 1,
+        "p50": 5.6,
+        "p95": 5.6
+      },
+      "attachment-repeat-read": {
+        "n": 20,
+        "p50": 5.6,
+        "p95": 17.2
+      },
+      "chat-first-response": {
+        "n": 5,
+        "p50": 10.9,
+        "p95": 11.9
+      },
+      "chat-turn-total": {
+        "n": 5,
+        "p50": 2053.2,
+        "p95": 2213.1
+      },
+      "recovery-first-read": {
+        "n": 3,
+        "p50": 12.3,
+        "p95": 14.2
+      }
+    },
+    "absoluteBudgets": {
+      "startupMs": 7500,
+      "session-loadMs": 2000,
+      "source": "the two budgets perf.e2e.js already enforces; no other absolute budget exists in the product, so the relative rule is the gate"
+    },
+    "note": "relative comparison against this baseline is mandatory for M3-2/M3-3; new absolute budgets are frozen only when a product requirement exists, never invented from a single sample"
+  },
+  "notes": [
+    "cold = first call in a freshly started process; the OS page cache is not dropped (that needs machine-wide side effects), so these are cold-process/warm-disk numbers",
+    "session-load-first-read (n=1) is the writing process reading a session it just created; session-load-cold-process (n=3) is a fresh process reading a session it has never served",
+    "recovery-first-read re-reads the same session that was hot before the kill, so its page cache is warm and it is not comparable to session-load-cold-process",
+    "search-first-query (n=1) is the writing process; search-cold-process (n=3) is the first query in each restarted process",
+    "session-create-import-write creates a new session and imports 20 messages (POST /api/sessions with messages); it is not an append into an existing session",
+    "chat-turn-total includes turn finalisation (title/thread-brief and stream teardown), which is not on the storage append path; chat-first-response is the storage-relevant number"
+  ]
+}
