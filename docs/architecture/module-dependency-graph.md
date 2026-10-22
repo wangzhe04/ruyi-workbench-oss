@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 93 | 3905 | 3562 | 649 | 67 | 0 | 1 |
+| 93 | 3907 | 3562 | 649 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -33,12 +33,12 @@
 | 15 | `01n-work-data-crypto.js` | foundation | 1 | 1 | 1 |
 | 16 | `01o-work-data-keys.js` | foundation | 1 | 0 | 0 |
 | 17 | `01p-work-data-store.js` | foundation | 1 | 1 | 1 |
-| 18 | `01q-work-data-records.js` | foundation | 1 | 2 | 2 |
+| 18 | `01q-work-data-records.js` | foundation | 1 | 1 | 1 |
 | 19 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 20 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 21 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 22 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 23 | `02-session-store.js` | foundation | 345 | 79 | 20 |
+| 23 | `02-session-store.js` | foundation | 347 | 80 | 21 |
 | 24 | `03-bridge-guard.js` | foundation | 122 | 28 | 7 |
 | 25 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 26 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
@@ -143,7 +143,6 @@
 | `01m-privacy-regex.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
 | `01n-work-data-crypto.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
 | `01p-work-data-store.js` | `01n-work-data-crypto.js` | backward | `WorkDataCrypto` |
-| `01q-work-data-records.js` | `00-boot.js` | backward | `text` |
 | `01q-work-data-records.js` | `01n-work-data-crypto.js` | backward | `WorkDataCrypto` |
 | `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
 | `02-session-store.js` | `01-config.js` | backward | `DurableJsonStore`, `assertSessionIdForPath`, `atomicWriteJson`, `mutateConfig`, `noteSessionsDirOwnWrite`, `readConfig`, `readFileTail`, `safeSessionId`, `selectedAgentCli`, `sessionPath`, `sessionWriteChains` |
@@ -152,6 +151,7 @@
 | `02-session-store.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
 | `02-session-store.js` | `01o-work-data-keys.js` | backward | `WorkDataKeys` |
 | `02-session-store.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
+| `02-session-store.js` | `01q-work-data-records.js` | backward | `WorkDataRecords` |
 | `02-session-store.js` | `02d-session-overrides.js` | backward | `applySessionDesktopToolsOverride`, `applySessionPermissionModeOverride`, `normalizeSessionDesktopTools`, `normalizeSessionPermissionMode`, `sessionDesktopToolsOverrides`, `sessionEngineRouteOverrides`, `sessionEngineRouteScopeOverrides`, `sessionPermissionModeOf`, `sessionPermissionModeOverrides` |
 | `02-session-store.js` | `02e-session-engine-route.js` | backward | `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
 | `02-session-store.js` | `02f-turn-effect-kinds.js` | backward | `ARTIFACT_OUTPUT_PATH_KEYS`, `IRREVERSIBLE_LEDGER_MAX`, `TURN_SUMMARY_COMMAND_TOOLS`, `TURN_SUMMARY_FILE_TOOLS`, `TURN_SUMMARY_KNOWN_TOOLS`, `irreversibleDetail`, `irreversibleToolKind`, `isBridgedWriteTool`, `unprefixedBridgedName`, `unwrapToolInvokeCall` |

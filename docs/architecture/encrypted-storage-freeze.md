@@ -11,13 +11,13 @@ Frozen purposes (`WorkDataCrypto.PURPOSES`): `session`, `memory`, `queue`, `task
 
 Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)`, AAD binds `schema` / `scopeId` / `seq` on top of the privacy-core triple.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-scratchpad` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
 | session-head | required | `session` | sessions | wired | `id` (on-disk filename and sidebar route; opaque random id, never user text); `storageVersion` (chooses the reader before any decrypt); `createdAt` (age/sort only); `updatedAt` (freshness/sort only); `messageCount` (pagination bound without decrypting every line) | title, gist, threadBrief, createdBy and stewardTaint move inside the envelope; the head must still be readable enough to route and sort after unlock |
-| session-messages | required | `session` | sessions | pending | — (nothing readable) | append-only body: whole records are sealed, the encrypted head owns counts and revisions |
-| session-provider | required | `session` | sessions | pending | — (nothing readable) | model history and tool results are user content |
+| session-messages | required | `session` | sessions | wired | — (nothing readable) | append-only body: whole records are sealed, the encrypted head owns counts and revisions |
+| session-provider | required | `session` | sessions | wired | — (nothing readable) | model history and tool results are user content |
 | session-interventions | required | `session` | sessions | pending | — (nothing readable) | command journal carries the user commands and paths |
 | session-changes | required | `session` | sessions | pending | — (nothing readable) | change audit carries file paths and diffs |
 | session-scratchpad | required | `session` | sessions | wired | — (nothing readable) | model-owned notes are task content |

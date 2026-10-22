@@ -42,6 +42,34 @@ const sessionHeadIsWorkDataError = error => String((error && error.code) || '').
 async function readSessionHeadText(id) { return sessionHeadStore(id).read(); }
 async function writeSessionHead(id, text) { return sessionHeadStore(id).write(text); }
 
+// ── M3-2c-2: 正文 NDJSON 的逐记录编解码 ────────────────────────────────────────────────
+// kind 与会话 id 由文件名推出（`<id>.messages.ndjson` / `<id>.provider.ndjson`），序号 = 行位置。
+// 读侧逐行解码：行是 01q 记录才解密，明文行原样通过（迁移期混合正文合法）；解不开既不隔离也不截断，
+// 由 loadSession 报 work_data.body_locked（见那里的守卫）。
+function sessionBodyCodec(p) {
+  const file = String(p || '');
+  const kind = file.endsWith('.messages.ndjson') ? 'messages' : (file.endsWith('.provider.ndjson') ? 'provider' : '');
+  if (!kind) return null;
+  const sessionId = path.win32.basename(file).slice(0, -(kind.length + '.ndjson'.length + 1));
+  return sessionId ? { kind, sessionId } : null;
+}
+// 写侧：开关关 = 与旧路径逐字节相同的文本；开 = 逐行封装（序号从 startOrdinal 起）。
+async function sessionBodyWriteText(file, lines, startOrdinal = 0) {
+  if (!Array.isArray(lines) || !lines.length) return '';
+  const plain = lines.join('\n') + '\n';
+  const config = await readConfig().catch(() => null);   // a config read failure means "off", not "save fails"
+  if (!config || config.workDataEncryptionV1 !== true) return plain;
+  const codec = sessionBodyCodec(file);
+  if (!codec) throw Object.assign(new Error('unknown session body target'), { code: 'work_data.body_target_invalid' });
+  const key = await workDataKeys.unlock();
+  const instanceId = await workDataKeys.instance();
+  const encoded = new Array(lines.length);
+  for (let i = 0; i < lines.length; i++) {
+    encoded[i] = WorkDataRecords.encodeLine(lines[i], key, { instanceId, sessionId: codec.sessionId, kind: codec.kind, ordinal: startOrdinal + i });
+  }
+  return encoded.join('\n') + '\n';
+}
+
 // ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
 // L2 摘要成功后,把结构化摘要中的【已确认的决定】/【未完成事项】/【关键文件与上下文】三节确定性
 // 切出整写到本文件。默认每次 L2 成功整体重写(摘要本身即最新权威状态);105d 的
@@ -177,7 +205,14 @@ async function updateSessionScratchpad(session, mutate) {
   const store = sessionScratchpadStore(id);
   return runKeyedChain(sessionScratchpadChains, id, async () => {
     if (sessionSaveIsTombstoned(session)) return { refused: 'session-deleted' };
-    const current = (await store.read()).entries.map(e => ({ ...e }));
+    let record;
+    try { record = await store.read(); }
+    catch (error) {
+      // 读失败（含解不开的密文）绝不按空合并：如实回一个带状态码的稳定错误，别把内容静默盖掉。
+      throw Object.assign(new Error('session scratchpad could not be read'),
+        { code: 'session.scratchpad_unreadable', apiCode: 'session.scratchpad_unreadable', statusCode: 503, cause: error });
+    }
+    const current = record.entries.map(e => ({ ...e }));
     const out = mutate(current) || {};
     if (out.refused || !out.changed) return { entries: current, ...out };
     const saved = await store.write({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: nowIso(), entries: out.entries });
@@ -998,7 +1033,7 @@ async function recoverSessionBodyState(id, bp) {
   if (!head || typeof head !== 'object' || head.storageVersion !== SESSION_STORAGE_VERSION) return null;
   const msg = await readSessionBodyFile(bp.messages);
   const prov = await readSessionBodyFile(bp.provider);
-  const whole = (body, count) => body && !body.corrupt && !body.unreadable && body.tornAt == null
+  const whole = (body, count) => body && !body.corrupt && !body.unreadable && !body.locked && body.tornAt == null
     && Number.isInteger(count) && body.entries.length === count;
   if (!whole(msg, head.messageCount) || !whole(prov, head.providerHistoryCount)) return null;
   const state = {
@@ -1072,11 +1107,27 @@ async function readSessionBodyFile(p) {
   const stamp = stampBefore && stampBefore === sessionBodyStamp(after) && after.size === BigInt(buf.length) ? stampBefore : null;
   const entries = [], lines = [], lineEndBytes = [];
   let start = 0; // 已确认好行的字节数(含每行结尾 \n),撕裂截断点
+  const bodyCodec = sessionBodyCodec(p);
+  let bodyCredential = null, encodedLines = 0;
   for (;;) {
     const nl = buf.indexOf(10, start);
     if (nl < 0) break;   // 其后若还有字节 = 无 \n 终结的尾行(撕裂)
     if (nl === start) return { corrupt: true }; // 中间空行 = 坏
-    const line = buf.toString('utf8', start, nl);
+    let line = buf.toString('utf8', start, nl);
+    if (WorkDataRecords.isEncodedLine(line)) {
+      // M3-2c-2: 记录行先解密再参与后续一切判定（行哈希、前缀比较、JSON 解析都用明文）。
+      if (!bodyCodec) return { locked: true, code: 'work_data.body_target_invalid' };
+      try {
+        if (!bodyCredential) bodyCredential = { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() };
+        line = WorkDataRecords.decodeLine(line, bodyCredential.key, {
+          instanceId: bodyCredential.instanceId, sessionId: bodyCodec.sessionId, kind: bodyCodec.kind, ordinal: lines.length,
+        });
+        encodedLines += 1;
+      } catch (error) {
+        // 缺钥/解不开 ≠ 坏文件：既不隔离也不截断，交给 loadSession 如实报错。
+        return { locked: true, code: String((error && error.code) || 'work_data.body_locked') };
+      }
+    }
     try { entries.push(JSON.parse(line)); }
     catch { return { corrupt: true }; } // 中间坏行 = 坏
     lines.push(line);
@@ -1085,7 +1136,8 @@ async function readSessionBodyFile(p) {
   }
   // 撕裂尾行【只报告、不就地截断】:读的这一瞬可能正有 saveSession 在 append(Windows 上并发读能看到写了一半
   // 的行),在这里截断等于删掉正在落盘的那一行。截断交给 loadSession 在确认「没有写者」之后做。
-  return { entries, lines, lineEndBytes, tornAt: start < buf.length ? start : null, stamp, buf };
+  // encoded:盘上至少有一行是封装记录 —— 此时 buf/lineEndBytes 是密文字节，不能再拿去做「逐字节等于 JSON(消息)」的增量戳。
+  return { entries, lines, lineEndBytes, tornAt: start < buf.length ? start : null, stamp, buf, encoded: encodedLines > 0 };
 }
 // 快路径判定:entries 的前 record.count 条逐条序列化后与盘上的行全等 → 返回 { appendLines, allLines };
 // 否则(前缀变/缩短/无记录/有条目不可序列化)返回 null → 调用方全量重写。注意:必须逐条重新序列化比对,不能只比
@@ -1136,7 +1188,7 @@ async function rebaseStaleSessionBody(id, bp, state, messages, providerHistory) 
   const msgRec = state.msg, provRec = state.prov;
   if (!isStrictSessionBodyPrefix(messages, msgRec)) return false;
   const disk = await readSessionBodyFile(bp.messages);
-  if (!disk || disk.corrupt || disk.unreadable || disk.lines.length !== msgRec.count
+  if (!disk || disk.corrupt || disk.unreadable || disk.locked || disk.lines.length !== msgRec.count
     || !sessionBodyLineMatches(msgRec, msgRec.count - 1, disk.lines[msgRec.count - 1])) return false;
   const addedMessages = disk.entries.length - messages.length;
   messages.push(...disk.entries.slice(messages.length));
@@ -3453,7 +3505,7 @@ async function readSessionBodiesOmittingProvider(id, parsed, bp, writeSeqAtRead)
   if (!Number.isInteger(parsed.providerHistoryCount) || parsed.providerHistoryCount !== provRec.count) return null;
   if (await sessionBodyFileStamp(bp.provider) !== provRec.stamp) return null;
   const msg = await readSessionBodyFile(bp.messages);
-  if (!msg || msg.corrupt || msg.unreadable || msg.tornAt != null) return null;
+  if (!msg || msg.corrupt || msg.unreadable || msg.locked || msg.tornAt != null) return null;
   if (Number.isInteger(parsed.messageCount) && msg.entries.length !== parsed.messageCount) return null;
   if (sessionDiskWriteSeqOf(id) !== writeSeqAtRead || sessionWriteChains.has(id)) return null;
   const cur = sessionBodyState.get(id);
@@ -3461,7 +3513,7 @@ async function readSessionBodiesOmittingProvider(id, parsed, bp, writeSeqAtRead)
   // 与完整装载同样把读到的 messages 正文交给状态表(同一拍、同一个「没有写者」判据)。
   const msgRec = sessionBodyRecordFromRead(msg, cur.msg);
   setSessionBodyState(id, { msg: msgRec, prov: provRec, bodiesOk: true });
-  const body = msgRec.canonical ? { buf: msg.buf, lineEndBytes: msg.lineEndBytes, count: msg.lines.length } : null;
+  const body = msgRec.canonical && !msg.encoded ? { buf: msg.buf, lineEndBytes: msg.lineEndBytes, count: msg.lines.length } : null;
   return { messages: msg.entries, omitted: { count: provRec.count, dangling: provRec.dangling, body } };
 }
 async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
@@ -3510,6 +3562,13 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     if (unreadable(msg) || unreadable(prov)) {
       logEvent({ kind: 'session_body_unreadable', sessionId: id, code: String((unreadable(msg) ? msg : prov).code || '') });
       return null;
+    }
+    // M3-2c-2: 加密正文解不开（缺钥/认证失败）= 如实报错。绝不能落到 bodyBad() 那条隔离路径 ——
+    // 那会把正文与头一起改名 .corrupt，密钥回来也读不回来。
+    if ((msg && msg.locked) || (prov && prov.locked)) {
+      const code = String((msg && msg.locked ? msg.code : prov.code) || 'work_data.body_locked');
+      logEvent({ kind: 'session_body_locked', sessionId: id, code });
+      throw Object.assign(new Error('session body is encrypted and cannot be opened'), { code: 'work_data.body_locked', apiCode: code, statusCode: 503 });
     }
     // 头是提交点:正文行数【少于】头声明 = 已提交数据丢失,与 corrupt 同级;【多于】头声明 = 崩溃于
     // 「append 完成、头写未完成」之间,多余行是未提交尾巴,物理截断(见下),不算损坏。
@@ -3801,11 +3860,24 @@ async function saveSession(session, opts) {
     }
     const msgPlan = state && state.bodiesOk ? planSessionBodyAppend(messages, state.msg) : null;
     const provPlan = state && state.bodiesOk ? planSessionBodyAppend(providerHistory, state.prov) : null;
+    // M3-2c-2: sealed body records carry their physical line ordinal. Before taking the append fast
+    // path we must prove the file on disk is still the one the in-memory record describes (another
+    // instance on the same data root, or an external tool, may have appended). A stamp mismatch just
+    // falls back to the slow path, which rewrites and renumbers everything.
+    let appendStampsOk = true;
+    if (msgPlan && provPlan && (msgPlan.appendLines.length || provPlan.appendLines.length)) {
+      const sealing = (await readConfig().catch(() => null))?.workDataEncryptionV1 === true;
+      if (sealing) {
+        const [msgStampNow, provStampNow] = await Promise.all([sessionBodyFileStamp(bp.messages), sessionBodyFileStamp(bp.provider)]);
+        appendStampsOk = (!state.msg.stamp || msgStampNow === state.msg.stamp)
+          && (!state.prov.stamp || provStampNow === state.prov.stamp);
+      }
+    }
     let nextMsgLines, nextProvLines;
-    if (msgPlan && provPlan) {
+    if (msgPlan && provPlan && appendStampsOk) {
       // 快路径:只 append 增量行(0 增量 = 不动正文文件,仅更新头)。
-      if (msgPlan.appendLines.length) await fsp.appendFile(bp.messages, msgPlan.appendLines.join('\n') + '\n', 'utf8');
-      if (provPlan.appendLines.length) await fsp.appendFile(bp.provider, provPlan.appendLines.join('\n') + '\n', 'utf8');
+      if (msgPlan.appendLines.length) await fsp.appendFile(bp.messages, await sessionBodyWriteText(bp.messages, msgPlan.appendLines, msgPlan.allLines.length - msgPlan.appendLines.length), 'utf8');
+      if (provPlan.appendLines.length) await fsp.appendFile(bp.provider, await sessionBodyWriteText(bp.provider, provPlan.appendLines, provPlan.allLines.length - provPlan.appendLines.length), 'utf8');
       nextMsgLines = msgPlan.allLines;
       nextProvLines = provPlan.allLines;
     } else {
@@ -3819,8 +3891,8 @@ async function saveSession(session, opts) {
       await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
       await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
       try {
-        await atomicWriteJson(bp.messages, sessionBodyText(msgSer));
-        await atomicWriteJson(bp.provider, sessionBodyText(provSer));
+        await atomicWriteJson(bp.messages, await sessionBodyWriteText(bp.messages, msgSer, 0));
+        await atomicWriteJson(bp.provider, await sessionBodyWriteText(bp.provider, provSer, 0));
       } catch (werr) {
         // 进程内写失败(非崩溃)→ 立即回滚快照,磁盘回到重写前的一致态;bodiesOk=false 由外层标。
         await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});

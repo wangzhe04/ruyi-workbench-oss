@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 93,
-    "providedSymbols": 3905,
+    "providedSymbols": 3907,
     "requiredSymbols": 3562,
     "edges": 649,
     "forwardEdges": 67,
@@ -1277,13 +1277,6 @@
       ],
       "requires": [
         {
-          "provider": "00-boot.js",
-          "symbol": "text",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01n-work-data-crypto.js",
           "symbol": "WorkDataCrypto",
           "kinds": [
@@ -1636,6 +1629,7 @@
         "scratchpadTotalChars",
         "serializeSessionBody",
         "sessionAssociatedSaveIsTombstoned",
+        "sessionBodyCodec",
         "sessionBodyDanglingFromLines",
         "sessionBodyFileStamp",
         "sessionBodyLineCache",
@@ -1648,6 +1642,7 @@
         "sessionBodyStamp",
         "sessionBodyState",
         "sessionBodyText",
+        "sessionBodyWriteText",
         "sessionBriefOf",
         "sessionDeleteTombstones",
         "sessionDiskIdsExpectedInIndex",
@@ -1967,6 +1962,13 @@
         {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01q-work-data-records.js",
+          "symbol": "WorkDataRecords",
           "kinds": [
             "read"
           ]
@@ -30110,14 +30112,6 @@
     },
     {
       "from": "01q-work-data-records.js",
-      "to": "00-boot.js",
-      "symbols": [
-        "text"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "01q-work-data-records.js",
       "to": "01n-work-data-crypto.js",
       "symbols": [
         "WorkDataCrypto"
@@ -30204,6 +30198,14 @@
       "to": "01p-work-data-store.js",
       "symbols": [
         "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02-session-store.js",
+      "to": "01q-work-data-records.js",
+      "symbols": [
+        "WorkDataRecords"
       ],
       "direction": "backward"
     },

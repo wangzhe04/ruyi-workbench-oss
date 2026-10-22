@@ -32,6 +32,8 @@
   ],
   "adapterWired": [
     "session-head",
+    "session-messages",
+    "session-provider",
     "session-scratchpad"
   ],
   "envelope": {
@@ -82,7 +84,7 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "append-only body: whole records are sealed, the encrypted head owns counts and revisions",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-provider",
@@ -91,7 +93,7 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "model history and tool results are user content",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-interventions",

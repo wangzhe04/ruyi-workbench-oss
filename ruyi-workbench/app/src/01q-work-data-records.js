@@ -3,9 +3,10 @@
 // One record per line, each independently authenticated, so a reordered, copied or middle-deleted
 // copied line fails instead of being read as content from another position or another session. The
 // binding is (purpose=session, instance, sessionId=scopeId, kind:ordinal=recordId, ordinal=seq): the
-// ordinal is what makes "line 3 moved to line 5" detectable. Deliberately NOT wired into the session
-// body fast path yet — see 94 §11 (the body has line hashes, byte-offset truncation and crash
-// windows that need their own fault-injection batch).
+// ordinal is what makes "line 3 moved to line 5" detectable. The session body is wired through
+// 02-session-store's per-line decode (legacy plaintext lines may coexist during migration); decodeBody
+// is the STRICT whole-body checker (all records, no plaintext lines) for tests and migration tooling,
+// so do not use it where a mixed body is legal.
 const WorkDataRecords = (() => {
   const FORMAT = 2;
   const KINDS = Object.freeze(['messages', 'provider']);
@@ -53,8 +54,8 @@ const WorkDataRecords = (() => {
   // starting at ordinal 0: a tail-truncated block still decodes (the AAD carries no total count), so
   // truncation stays a caller-side concern. Returns the plaintext body with
   // the same trailing-newline shape, so callers keep their existing line splitting.
-  function decodeBody(text, key, context) {
-    const raw = String(text == null ? '' : text);
+  function decodeBody(bodyText, key, context) {   // not 	ext: that identifier collides with 00-boot's symbol
+    const raw = String(bodyText == null ? '' : bodyText);
     if (!raw) return '';
     const lines = raw.split('\n');
     const trailing = lines.length > 0 && lines[lines.length - 1] === '';

@@ -1,6 +1,6 @@
 # 94 · M3-2 加密存储适配：边界、开关与第一个数据族
 
-更新：2026-10-22。状态：**M3-2a/M3-2b 已实现并验证，M3-2c 完成了格式冻结与派生读点接线；M3-2 整体仍在进行中**（清册 41 个"必须加密"族里，已接线 2 个：会话头、草稿本；正文 NDJSON 与索引族仍明文）。起点提交 `c9234040`，分支 `codex/3.1-completion-plan`，应用版本仍为 `3.0.1`。本批**没有迁移任何用户数据**，也没有任何界面入口。
+更新：2026-10-22。状态：**M3-2a/M3-2b/M3-2c/M3-2c-2 已实现并验证；M3-2 整体仍在进行中**（清册 41 个"必须加密"族里，已接线 **4 个**：会话头、会话消息正文、provider 历史正文、草稿本；索引族与其余数据族仍明文）。起点提交 `c9234040`，分支 `codex/3.1-completion-plan`，应用版本仍为 `3.0.1`。本批**没有迁移任何用户数据**，也没有任何界面入口。
 
 ## 1. 本批交付
 
@@ -185,6 +185,62 @@ oteSessionIndexBadHead`）—— 开关开时先解密再判「好头/坏头」�
 
 ### 11.4 状态与验证
 
-- 清册 41 个"必须加密"族里，**已接线 2 个**（会话头、草稿本）；正文 NDJSON、索引族、其余数据族仍明文，不能说"会话已加密"。
+- 清册 41 个"必须加密"族里，本批（M3-2c）当时接线 2 个（会话头、草稿本）；M3-2c-2 之后是 4 个（另加 messages/provider 正文）。索引族与其余数据族仍明文，不能说"会话已加密"。
 - 派生读点 6/6 已接：开关打开时它们能解密；缺钥/密文损坏仍按既有容错返回 null 或跳过（`loadSession` 那条权威路径才抛），缺钥提示归 M3-3。
 - 本批验证：`work-data-records` 6/6；完整单测 2603 项 / 2577 过 / 26 跳过 / 0 失败；`session-get-etag`、`checkpoint-visibility`、`steward-conversation`、`interventions-pool`、`mission-index-late-materialize`、`autonomy-durability` 六件 e2e 全过；依赖图 93 模块 649 边、SCC 仍 31（01q 在环外）；facts 557 e2e / 294 unit suite。
+## 12. M3-2c-2：正文 NDJSON 接线（已验）
+
+上一节留下的正文快路径这一批接上了。四个雷逐个处理：
+
+| 雷 | 处理 |
+|---|---|
+| 行哈希是前缀判据 | `readSessionBodyFile` **逐行解码**：行是 01q 记录才解密，明文行原样通过；`lines[]`、`entries[]`、后续的行哈希/前缀比较/JSON 解析全部拿到明文 |
+| 字节级截断 | 截断仍按**盘上字节偏移**做（`lineEndBytes` 来自编码后的字节），撕裂尾行照样截到记录边界 —— 单测实测：加密正文追加半行后，`loadSession` 把文件截回最后一个完整记录 |
+| 崩溃窗口 | 快路径 append 用「记录数 + 本批偏移」算序号；慢路径整份重写从 0 重编号。写侧失败=抛错（不写半份），`.prevbody` 回滚路径原样 |
+| 性能 | 只在**该行是记录**时才解密（`isEncodedLine` 先判），密钥只解锁一次；关开关时零开销 |
+
+三条新合同：
+
+1. **缺钥/解不开 ≠ 坏文件**：`readSessionBodyFile` 返回 `{ locked: true, code }`，`loadSession` 抛 `work_data.body_locked`（503）。绝不走 `bodyBad()` 那条把正文与头一起改名 `.corrupt` 的路径——否则密钥回来数据也没了。
+2. **混合正文合法**：开关关时写的明文行与开关打开后追加的加密行可以共存（读侧逐行判定），全量重写时整份重编号。反向迁移归 M3-3。
+3. **增量戳的字节优化自动退让**：omit-provider 视图里的 `{buf,lineEndBytes}` 只在 `!body.encoded` 时提供；加密正文退回逐条序列化算戳，结果仍是同一个 sha1 输入。
+
+验证：`work-data-session-body` 6 项（真实 DPAPI + 真实 createSession/saveSession/loadSession）——关时明文逐行、开时逐行封且追加序号连续、撕裂尾截断、缺钥硬错且不产生 `.corrupt`、启用前正文仍可读、编辑后整份重写从 0 重编号。清册 `adapterWired` 现在是 `session-head`、`session-messages`、`session-provider`、`session-scratchpad`（**4/41**）。
+
+**仍未接**：会话索引/搜索索引族（`session-index`、`session-search-index`、`pretender-index`），记忆/队列/任务/日志/备份族，以及附件与媒体派生件；没有迁移器与启用 UI（M3-3）。
+## 13. 全面代码审查（M3-1a → M3-2c-2，三路并行）
+
+用户在 M3-2 收尾时要求"全面检查 code review"。三路独立子代理（DeepSeek `deepseek-flash`、exec 档、并行，204 次工具调用）分别从**密码学与存储**、**数据完整性与默认行为**、**仓库约束与文档真实性**审同一段分支（`origin/codex/3.1-completion-plan..HEAD` + 未提交改动）。
+
+**A 路（密码学）结论：底座无绕过。** 实测确认：HKDF 的 purpose+generation 双维隔离；AAD 任一字段变化 → binding_mismatch；容器键集合逐字比对挡住原型注入；数组/null/NaN/超大 seq/非法 recordId 全部拒绝；真实会话 id（含 steward 形态）不会意外不合法；缺钥/坏钥/错位置一律硬抛，不乱隔离。发现：
+
+| 编号 | 严重度 | 问题 | 处理 |
+|---|---|---|---|
+| A1 | 重要 | `locked` 没进三处正文完备性守卫（`whole()`、omit-provider 视图、`rebaseStaleSessionBody`），lock 态对象没有 `entries` → TypeError（换钥/换实例后保存会炸） | 三处都加 `!body.locked`：保存回落慢路径、只读路径返回 null、`loadSession` 如实报 `work_data.body_locked` |
+| A2 | 重要 | 快路径 append 的起始序号只信内存 `record.count`，盘上被别的写者追加过就会撞序号，且一旦错位该正文永久不可读 | 加密态下 append 前比对两个正文的文件戳，不符即降级慢路径（全量重写 + 重编号） |
+| A3 | 次要 | `01p` 把容器自带的 `instanceId` 回填给 `open`，该项校验恒真 | 改为从键集取 `instance()`；`seq` 仍固定 1（无外部锚点，M3-3 再收紧） |
+| A4 | 次要 | `clear()` 无调用点，解锁后的 master 常驻 | `ensure()` 换代前先 `clear()`；关闭/轮换流程仍归 M3-3 |
+| A5 | 次要 | `unlock()` 返回缓存本体，调用方清零会毁掉缓存 | 返回副本 |
+| A6 | 次要 | 无法识别正文目标时返回 `corrupt` → 会被改名 `.corrupt` | 改返回 `locked`（配置问题不是坏文件） |
+| A7 | 次要 | `decodeBody` 是死导出且语义与 02 的逐行读法相反（拒绝混合正文） | 保留为"严格整块校验器"，头注写明产品走逐行、混合正文合法 |
+
+**B 路（默认行为）结论：开关关闭路径与旧实现字节/语义等价**（头写、正文写、读侧恒等映射、崩溃语义、配置面、i18n、01j 改名均核过）。发现：
+
+| 编号 | 严重度 | 问题 | 处理 |
+|---|---|---|---|
+| B1 | 中 | `createText.write` 在开关判断**之前**就套 1 MiB 上限 → 关闭态下 >1 MiB 的会话头从"能存"变成"存不了"（读得进写不回） | 上限移进加密分支；读侧判据统一改为字节长度 |
+| B2 | 中 | 开关单向棘轮：任何一次配置补丁提到该键都 409，连关闭都不行 | 只拒绝 `true`（开启），关闭放行 |
+| B3 | 中 | 正文写裸 `await readConfig()`，配置读失败会让保存整体失败 | 改为 `.catch(() => null)` → 视为关闭 |
+| B4 | 低 | 读侧按字符、写侧按字节判 1 MiB | 统一字节 |
+| B5 | 低-中 | 草稿本读失败（含解不开）会以裸抛落成 500 | 包装成 `session.scratchpad_unreadable`（503） |
+| B6 | 低 | 列表侧把锁定会话 `catch → null`，表现为"消失" | 记为 M3-3 的可见性工作，未在本批改 |
+| B7 | 低 | 历史上被写过非法 UTF-8 的头，升级后首次 ETag 会变一次 | 接受（一次性缓存失配） |
+
+**C 路（约束与文档）结论：硬约束与全部门禁通过**（只改 app/src 后重建、零新依赖、生成物重算、SCC 31、语法/构建/依赖图/facts 门全绿）。发现主要是文档读数滞后与一个提交卫生陷阱：
+
+| 编号 | 严重度 | 问题 | 处理 |
+|---|---|---|---|
+| C1 | 高·阻断 | 新增的 `work-data-session-body.test.js` 未跟踪，而 facts/README 已按 295 suite 计数 → 只提交 facts 会留下缺口 | 本批一并 `git add` |
+| C2–C5 | 中/低 | 94 头部仍写 2/41、92 仍写"11 处替换"与旧单测计数、01q 头注仍说"未接线" | 全部按实测回填（4/41、12 处调用点/删 7 处、10 项、2588/2562、01q 注释改写） |
+
+修复后复跑：`work-data-store`(10) + `work-data-session-head`(4) + `work-data-session-body`(6) + `work-data-records`(6) 共 **26/26**；完整单测、`fast` 静态、`syntax-gate`、`build --check`、依赖图与 facts 门见提交说明。**未改**：压缩阈值、provider 配置、索引族与其余数据族的接线、任何用户数据。

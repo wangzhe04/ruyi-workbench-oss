@@ -44,7 +44,7 @@ const WorkDataKeys = ((cryptoApi) => {
       catch { fail('decrypt_failed'); }
       if (!Buffer.isBuffer(key) || key.length !== 32) { if (Buffer.isBuffer(key)) key.fill(0); fail('decrypt_failed'); }
       cache = { instanceId: state.instanceId, key };
-      return key;
+      return Buffer.from(key);   // copy: a caller zeroing its buffer must not brick the cached master
     }
     // Called only from an explicit enable flow (M3-3 UI / tests), never from a read or a write.
     async function ensure() {
@@ -52,6 +52,7 @@ const WorkDataKeys = ((cryptoApi) => {
       if (!host.protector.supported()) fail('unsupported');
       const state = await stateRead();
       if (state.instanceId) return unlock();
+      clear();   // a fresh master replaces whatever was cached
       const key = cryptoApi.randomBytes(32), instanceId = cryptoApi.randomBytes(16).toString('hex');
       let wrapped;
       try { wrapped = await host.protector.run('protect', key, entropy(instanceId)); }

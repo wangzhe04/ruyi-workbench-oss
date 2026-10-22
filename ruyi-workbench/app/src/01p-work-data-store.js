@@ -83,14 +83,18 @@ const WorkDataStore = ((fsp) => {
       const { workData, ...container } = parsed;
       if (workData !== CONTAINER) fail('corrupt');
       const key = await host.keys.unlock();
-      const plaintext = WorkDataCrypto.open(container, key, bindingOf(container));
-      if (typeof plaintext !== 'string' || plaintext.length > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
+      // instanceId from the key set (not from the container) so the binding is a real check; seq stays
+      // the container's own value until M3-3 pins revisions with an external anchor.
+      const plaintext = WorkDataCrypto.open(container, key, { ...bindingOf(container), instanceId: await host.keys.instance() });
+      if (typeof plaintext !== 'string' || Buffer.byteLength(plaintext, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
       return plaintext;
     }
     async function write(plainText) {   // not 	ext: that identifier collides with 00-boot's symbol
       if (typeof plainText !== 'string') fail('shape');
-      if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
+      // The size cap belongs to the sealed path only: the old plaintext writer had no limit, so a
+      // >1 MiB head must keep saving while encryption is off (the read side refuses it when sealed).
       if (!(await host.enabled())) { await host.writeJson(file(), plainText); return plainText; }
+      if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
       const key = await host.keys.unlock();
       const instanceId = await host.keys.instance();
       const container = WorkDataCrypto.seal(plainText, key, { purpose: host.purpose, instanceId, schema: host.schema,
