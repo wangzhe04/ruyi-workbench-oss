@@ -3215,7 +3215,7 @@ const PrivacyRegex = ((workerThreads, core) => {
 
 // 81-P1: Shared bounded Windows DPAPI helper. Secrets travel only over stdin/stdout.
 const LocalSecretCrypto = (() => {
-  const childProcess = require('node:child_process'), path = require('node:path');
+  const childProcess = require('node:child_process'), nodePath = require('node:path');   // local alias must not collide with 00-boot's path symbol (spurious graph edge)
   const LIMIT = Object.freeze({ processMs: 15000, outputBytes: 131072, cipherBytes: 65536 });
   const exact = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every(key => keys.includes(key));
   const base64 = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max * 2 && value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value) && Buffer.from(value, 'base64').length <= max && Buffer.from(value, 'base64').toString('base64') === value;
@@ -3258,10 +3258,10 @@ try {
       const environment = {};
       // Do not inherit RUYI_BOT_* or provider credentials into the helper environment.
       for (const key of ['SystemRoot', 'SystemDrive', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA']) if (typeof process.env[key] === 'string') environment[key] = process.env[key];
-      const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+      const executable = nodePath.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
       // Only Windows' built-in modules are needed. Without an explicit path PowerShell discovers
       // third-party modules installed machine-wide, even with -NoProfile and a sanitized environment.
-      environment.PSModulePath = path.join(path.dirname(executable), 'Modules');
+      environment.PSModulePath = nodePath.join(nodePath.dirname(executable), 'Modules');
       try {
         child = childProcess.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(DPAPI_SCRIPT, 'utf16le').toString('base64')],
           { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], env: environment });
@@ -3580,6 +3580,10 @@ function defaultConfig() {
     // 搜不到正文——“我上周让它改过那个文件”这类回忆式查找完全无法完成。
     // 默认开：新能力，旧子串过滤作为回退保留；显式 false 即整条路径关闭（回到今天）。
     sessionSearchIndexV1: true,
+    // M3-2: 工作数据加密（默认关）。开启后新写入的受管记录写成 WorkDataCrypto v2 容器；关闭时
+    // 落盘字节与既有实现完全一致。该开关目前只从配置文件读——启用/迁移 UI、首次迁移与恢复属于
+    // M3-3，M3-2 不提供任何界面入口。
+    workDataEncryptionV1: false,
     // 21-E0/E1: 三层调用账本(modelCallId → assistantBatchId → toolCallId)与工具经济性 shadow。
     // 只追加脱敏观测事件(model_call_started/completed、assistant_tool_batch、tool_call_completed、
     // tool_phase_completed),不改 prompt/调度/history。默认开但带采样与每回合事件上限;false 则零事件。
@@ -4346,7 +4350,7 @@ function normalizeConfig(raw, opts = {}) {
   if (!['auto', 'full'].includes(config.toolLoadingMode)) { config.toolLoadingMode = 'auto'; changed = true; }
   // Runtime-optimization flags accept only JSON booleans. A truthy string such as "true" must not silently
   // enable either shadow telemetry or active behavior in a hand-edited config file.
-  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1']) {
+  for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
@@ -7944,6 +7948,153 @@ const WorkDataCrypto = ((cryptoApi) => {
   return Object.freeze({ FORMAT_VERSION, MAX_PLAINTEXT, PURPOSES, keyId, deriveKey, seal, open });
 })(require('node:crypto'));
 
+// M3-2: independent work-data master key. It is deliberately NOT the credential vault master: 93 §4
+// froze separate lifecycles for credentials and work data, so this file owns its own DPAPI-wrapped
+// key and its own enable/rotate semantics. The key only exists after the user enables work-data
+// encryption; nothing here creates a key on a read, and a failed/short/absent key never degrades to
+// plaintext storage.
+const WorkDataKeys = ((cryptoApi) => {
+  const SCHEMA = 1;
+  const MAX_BYTES = 64 * 1024;
+  const STATE_KEYS = Object.freeze(['instanceId', 'protectedKey', 'schema']);
+  const entropy = instanceId => Buffer.from('ruyi.work-data.v1:' + instanceId, 'utf8');
+  const fail = suffix => { throw Object.assign(new Error('work_data_key.' + suffix), { code: 'work_data_key.' + suffix, apiCode: 'work_data_key.' + suffix }); };
+  const id = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
+  const sealed = value => typeof value === 'string' && value.length > 0 && value.length <= MAX_BYTES && /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+  const empty = () => ({ schema: SCHEMA, instanceId: '', protectedKey: '' });
+  function validate(state) {
+    if (!state || typeof state !== 'object' || Array.isArray(state)) return false;
+    if (Object.keys(state).sort().join(',') !== STATE_KEYS.join(',')) return false;
+    if (state.schema !== SCHEMA) return false;
+    if (!state.instanceId && !state.protectedKey) return true;
+    return id(state.instanceId) && sealed(state.protectedKey);
+  }
+  function create(host) {
+    // host: { store (DurableJsonStore), protector (LocalSecretCrypto), enabled() -> boolean }
+    let cache = null;   // { instanceId, key } — the only place the plaintext master lives
+    async function stateRead() {
+      let state;
+      try { state = await host.store.read(); } catch { fail('unavailable'); }
+      if (!validate(state)) fail('invalid');
+      return state;
+    }
+    // host.enabled() is allowed to be async (the product wires it to readConfig()), so it must be
+    // awaited here; `promise === true` would silently keep the switch off forever.
+    async function enabled() { try { return (await host.enabled()) === true; } catch { return false; } }
+    async function unlock() {
+      if (!(await enabled())) fail('disabled');
+      if (!host.protector.supported()) fail('unsupported');
+      const state = await stateRead();
+      if (!state.instanceId) fail('absent');
+      if (cache && cache.instanceId === state.instanceId) return cache.key;
+      let key;
+      try { key = await host.protector.run('unprotect', Buffer.from(state.protectedKey, 'base64'), entropy(state.instanceId)); }
+      catch { fail('decrypt_failed'); }
+      if (!Buffer.isBuffer(key) || key.length !== 32) { if (Buffer.isBuffer(key)) key.fill(0); fail('decrypt_failed'); }
+      cache = { instanceId: state.instanceId, key };
+      return key;
+    }
+    // Called only from an explicit enable flow (M3-3 UI / tests), never from a read or a write.
+    async function ensure() {
+      if (!(await enabled())) fail('disabled');
+      if (!host.protector.supported()) fail('unsupported');
+      const state = await stateRead();
+      if (state.instanceId) return unlock();
+      const key = cryptoApi.randomBytes(32), instanceId = cryptoApi.randomBytes(16).toString('hex');
+      let wrapped;
+      try { wrapped = await host.protector.run('protect', key, entropy(instanceId)); }
+      catch { key.fill(0); fail('protect_failed'); }
+      const next = { schema: SCHEMA, instanceId, protectedKey: wrapped.toString('base64') };
+      wrapped.fill(0);
+      try { await host.store.write(next); } catch { key.fill(0); fail('unavailable'); }
+      cache = { instanceId, key };
+      return key;
+    }
+    async function status() {
+      const state = await stateRead().catch(() => empty());
+      return Object.freeze({ enabled: await enabled(), present: !!state.instanceId });
+    }
+    async function instance() {
+      const state = await stateRead();
+      if (!state.instanceId) fail('absent');
+      return state.instanceId;
+    }
+    const clear = () => { if (cache) cache.key.fill(0); cache = null; };
+    return Object.freeze({ unlock, ensure, status, instance, clear, validate, empty });
+  }
+  return Object.freeze({ SCHEMA, create, validate, empty });
+})(require('node:crypto'));
+
+// M3-2: managed record store for the work-data families frozen in
+// docs/optimization-plan/93-m3-1-encrypted-storage-freeze.md.
+//
+// One whole-record JSON file per family record. With work-data encryption disabled (the default)
+// it writes exactly the object the previous DurableJsonStore/atomicWriteJson path wrote, so the
+// bytes on disk do not change. With it enabled it writes the WorkDataCrypto v2 container, and a
+// container that cannot be authenticated (wrong purpose/instance/schema/scope/record, missing or
+// unavailable key) throws — it never degrades to an empty record or to plaintext.
+const WorkDataStore = ((fsp) => {
+  const CONTAINER = 2;      // outer file version; inner envelope version comes from WorkDataCrypto
+  const fail = suffix => { throw Object.assign(new Error('work_data_store.' + suffix), { code: 'work_data_store.' + suffix, apiCode: 'work_data_store.' + suffix }); };
+  const generationOf = keyId => {
+    const match = /\.k(\d{1,2})$/.exec(String(keyId || ''));
+    const generation = match ? Number(match[1]) : NaN;
+    if (!Number.isSafeInteger(generation) || generation < 1) fail('corrupt');
+    return generation;
+  };
+  function create(host) {
+    // host: { file(), purpose, schema, scopeId, recordId, keys (WorkDataKeys api),
+    //         enabled() -> boolean (may be async), prepare(value) -> value, defaultValue() -> value,
+    //         onCorrupt?(error) }
+    const file = () => String(host.file());
+    const prepare = value => {
+      const next = host.prepare ? host.prepare(value) : value;
+      if (!next || typeof next !== 'object' || Array.isArray(next)) fail('shape');
+      return next;
+    };
+    const fallback = () => prepare(host.defaultValue ? host.defaultValue() : {});
+    const corrupt = error => { try { if (host.onCorrupt) host.onCorrupt(error); } catch { /* diagnostics never block */ } return fallback(); };
+    async function decrypt(parsed, budget) {
+      const { workData, ...container } = parsed;
+      if (workData !== CONTAINER) fail('corrupt');
+      const key = await host.keys.unlock();   // disabled/absent/unavailable are hard failures, not empty data
+      const plaintext = WorkDataCrypto.open(container, key, {
+        purpose: host.purpose, instanceId: container.instanceId, schema: host.schema, scopeId: host.scopeId,
+        recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
+      });
+      if (typeof plaintext !== 'string' || plaintext.length > budget) fail('corrupt');
+      let value;
+      try { value = JSON.parse(plaintext); } catch { fail('corrupt'); }
+      return prepare(value);
+    }
+    async function read() {
+      const target = file();
+      let rawText;
+      try { rawText = await fsp.readFile(target, 'utf8'); }
+      catch (error) { if (error && error.code === 'ENOENT') return fallback(); throw error; }
+      let parsed;
+      try { parsed = JSON.parse(rawText); } catch (error) { return corrupt(error); }   // legacy "invalid means empty" contract
+      if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) return decrypt(parsed, WorkDataCrypto.MAX_PLAINTEXT);
+      // Legacy plaintext record: keep the previous "bad shape means empty plus a diagnostic" contract.
+      try { return prepare(parsed); } catch (error) { return corrupt(error); }
+    }
+    async function write(value) {
+      const prepared = prepare(value);
+      if (!(await host.enabled())) { await host.writeJson(file(), prepared); return prepared; }
+      // Enabled: never create a key here. Key creation belongs to the explicit enable flow (M3-3).
+      const key = await host.keys.unlock();
+      const instanceId = await host.keys.instance();
+      const container = WorkDataCrypto.seal(JSON.stringify(prepared), key, {
+        purpose: host.purpose, instanceId, schema: host.schema, scopeId: host.scopeId, recordId: host.recordId, seq: 1,
+      });
+      await host.writeJson(file(), { workData: CONTAINER, ...container });
+      return prepared;
+    }
+    return Object.freeze({ read, write, filePath: file });
+  }
+  return Object.freeze({ create, CONTAINER });
+})(require('node:fs/promises'));
+
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
 // 第54波 EC-D: one ordered narrative ledger for both Claude CLI and OpenAI-compatible turns. The ledger is
 // additive: engines still persist content/thinking/toolCalls/turnSummary for old clients, while new clients
@@ -8667,25 +8818,59 @@ function sanitizeSessionScratchpad(value) {
   while (entries.length && scratchpadTotalChars(entries) > L.maxTotalChars) entries.shift();
   return { schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: typeof (value && value.updatedAt) === 'string' ? value.updatedAt.slice(0, 40) : '', entries };
 }
-function sessionScratchpadStore(id) {
-  return DurableJsonStore.create({
-    id: 'session-scratchpad',
-    file: sessionScratchpadPath(id),   // 不合形的 id 在这里就抛(assertSessionIdForPath)
-    schemaVersion: SESSION_SCRATCHPAD_SCHEMA,
+// M3-2: 草稿本接 WorkDataStore。开关关时落盘字节与旧 DurableJsonStore 完全一致；开时写 WorkDataCrypto
+// v2 容器。坏 JSON/形状不合仍是「当空 + 诊断」的旁车合同，但【解不开的密文】必须抛出：读侧
+// readSessionScratchpad 照旧回落空表，写侧 updateSessionScratchpad 直接失败——不许用空表覆盖密文。
+// 键集与原子写由本模块注入（WorkDataStore 不静态依赖 01-config，免得把新模块拖进依赖环）。
+const workDataKeys = WorkDataKeys.create({
+  store: DurableJsonStore.create({
+    id: 'work-data-key-v1',
+    file: () => path.join(paths.data, 'work-data-key-v1.json'),
+    schemaVersion: WorkDataKeys.SCHEMA,
+    defaultValue: WorkDataKeys.empty,
     cache: false,
+    strictRead: true,
     quarantine: false,
+    validate: WorkDataKeys.validate,
+  }),
+  protector: LocalSecretCrypto,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+});
+function sessionScratchpadStore(id) {
+  const file = sessionScratchpadPath(id);   // 不合形的 id 在这里就抛(assertSessionIdForPath)
+  const prepare = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw Object.assign(new Error('session_scratchpad.shape'), { code: 'session_scratchpad.shape' });
+    const next = sanitizeSessionScratchpad(value);
+    if (next.schema !== SESSION_SCRATCHPAD_SCHEMA || !Array.isArray(next.entries)) throw Object.assign(new Error('session_scratchpad.invalid'), { code: 'session_scratchpad.invalid' });
+    return next;
+  };
+  return WorkDataStore.create({
+    file: () => file,
+    purpose: 'session',
+    schema: SESSION_SCRATCHPAD_SCHEMA,
+    scopeId: 'sessions',
+    recordId: String(id),
+    keys: workDataKeys,
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+    prepare,
     defaultValue: () => ({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: '', entries: [] }),
-    sanitize: sanitizeSessionScratchpad,
-    validate: value => value.schema === SESSION_SCRATCHPAD_SCHEMA && Array.isArray(value.entries),
     onCorrupt(error) {
       try { logEvent({ kind: 'session_scratchpad_corrupt', sessionId: String(id), error: String((error && error.message) || error).slice(0, 200) }); } catch { /* 诊断绝不阻断 */ }
     },
   });
 }
 // 读:缺文件 / 坏文件 / 读不动 / 不合形的 id 一律空表 —— 草稿是旁车副本,绝不阻断回合。
+// M3-2:密文解不开也与「本来没有草稿」区分开记一条诊断(数据还在,只是这次读不到)。
 async function readSessionScratchpad(id) {
   try { return (await sessionScratchpadStore(id).read()).entries; }
-  catch { return []; }
+  catch (error) {
+    const code = String((error && error.code) || '');
+    if (code.startsWith('work_data')) {
+      try { logEvent({ kind: 'session_scratchpad_unreadable', sessionId: String(id), error: code.slice(0, 120) }); } catch { /* 诊断绝不阻断 */ }
+    }
+    return [];
+  }
 }
 // 读-改-写(按会话串行)。mutate 拿到条目副本,返回 { entries, changed, ...其余字段原样带回 };changed 为假 = 不落盘。
 // 会话已删除(墓碑,见 markSessionDeleted)时拒写:垂死回合里迟到的一次写不得在 unlink 之后把旁车写回来。
@@ -41530,6 +41715,13 @@ async function applyConfigPatch(rawBody, options = {}) {
   delete body.confirm;
   if (['privacyModeV1', 'privacyTechnicalV1', 'privacyRulesV1', 'privacyPolicyRecoveryRequiredV1', 'credentialEncryptionV1'].some(key => Object.hasOwn(body, key))) {
     throw Object.assign(new Error('Use the dedicated privacy settings endpoint.'), { code: 'privacy.dedicated_settings_required', statusCode: 409 });
+  }
+  // M3-2: 工作数据加密开关不走通用配置补丁 —— 它换的是磁盘存储格式与密钥生命周期，只能由本地启用流程
+  // (M3-3)打开。这里留一条明确的拒绝，M3-3 才有唯一的启用入口，持 token 的调用方也不能一键翻转。
+  if (Object.hasOwn(body, 'workDataEncryptionV1')) {
+    throw Object.assign(new Error('work-data encryption is enabled by the local setup flow, not by a config patch.'), {
+      code: 'work_data.encryption_requires_setup', statusCode: 409,
+    });
   }
   if (Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
     const requested = body.permissionMode == null ? '' : String(body.permissionMode);

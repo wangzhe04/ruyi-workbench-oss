@@ -99,25 +99,59 @@ function sanitizeSessionScratchpad(value) {
   while (entries.length && scratchpadTotalChars(entries) > L.maxTotalChars) entries.shift();
   return { schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: typeof (value && value.updatedAt) === 'string' ? value.updatedAt.slice(0, 40) : '', entries };
 }
-function sessionScratchpadStore(id) {
-  return DurableJsonStore.create({
-    id: 'session-scratchpad',
-    file: sessionScratchpadPath(id),   // 不合形的 id 在这里就抛(assertSessionIdForPath)
-    schemaVersion: SESSION_SCRATCHPAD_SCHEMA,
+// M3-2: 草稿本接 WorkDataStore。开关关时落盘字节与旧 DurableJsonStore 完全一致；开时写 WorkDataCrypto
+// v2 容器。坏 JSON/形状不合仍是「当空 + 诊断」的旁车合同，但【解不开的密文】必须抛出：读侧
+// readSessionScratchpad 照旧回落空表，写侧 updateSessionScratchpad 直接失败——不许用空表覆盖密文。
+// 键集与原子写由本模块注入（WorkDataStore 不静态依赖 01-config，免得把新模块拖进依赖环）。
+const workDataKeys = WorkDataKeys.create({
+  store: DurableJsonStore.create({
+    id: 'work-data-key-v1',
+    file: () => path.join(paths.data, 'work-data-key-v1.json'),
+    schemaVersion: WorkDataKeys.SCHEMA,
+    defaultValue: WorkDataKeys.empty,
     cache: false,
+    strictRead: true,
     quarantine: false,
+    validate: WorkDataKeys.validate,
+  }),
+  protector: LocalSecretCrypto,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+});
+function sessionScratchpadStore(id) {
+  const file = sessionScratchpadPath(id);   // 不合形的 id 在这里就抛(assertSessionIdForPath)
+  const prepare = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw Object.assign(new Error('session_scratchpad.shape'), { code: 'session_scratchpad.shape' });
+    const next = sanitizeSessionScratchpad(value);
+    if (next.schema !== SESSION_SCRATCHPAD_SCHEMA || !Array.isArray(next.entries)) throw Object.assign(new Error('session_scratchpad.invalid'), { code: 'session_scratchpad.invalid' });
+    return next;
+  };
+  return WorkDataStore.create({
+    file: () => file,
+    purpose: 'session',
+    schema: SESSION_SCRATCHPAD_SCHEMA,
+    scopeId: 'sessions',
+    recordId: String(id),
+    keys: workDataKeys,
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+    prepare,
     defaultValue: () => ({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: '', entries: [] }),
-    sanitize: sanitizeSessionScratchpad,
-    validate: value => value.schema === SESSION_SCRATCHPAD_SCHEMA && Array.isArray(value.entries),
     onCorrupt(error) {
       try { logEvent({ kind: 'session_scratchpad_corrupt', sessionId: String(id), error: String((error && error.message) || error).slice(0, 200) }); } catch { /* 诊断绝不阻断 */ }
     },
   });
 }
 // 读:缺文件 / 坏文件 / 读不动 / 不合形的 id 一律空表 —— 草稿是旁车副本,绝不阻断回合。
+// M3-2:密文解不开也与「本来没有草稿」区分开记一条诊断(数据还在,只是这次读不到)。
 async function readSessionScratchpad(id) {
   try { return (await sessionScratchpadStore(id).read()).entries; }
-  catch { return []; }
+  catch (error) {
+    const code = String((error && error.code) || '');
+    if (code.startsWith('work_data')) {
+      try { logEvent({ kind: 'session_scratchpad_unreadable', sessionId: String(id), error: code.slice(0, 120) }); } catch { /* 诊断绝不阻断 */ }
+    }
+    return [];
+  }
 }
 // 读-改-写(按会话串行)。mutate 拿到条目副本,返回 { entries, changed, ...其余字段原样带回 };changed 为假 = 不落盘。
 // 会话已删除(墓碑,见 markSessionDeleted)时拒写:垂死回合里迟到的一次写不得在 unlink 之后把旁车写回来。

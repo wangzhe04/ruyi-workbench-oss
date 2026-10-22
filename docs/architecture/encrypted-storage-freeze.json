@@ -3,14 +3,14 @@
   "generatedBy": "dev-harness/encrypted-storage-freeze.js",
   "scope": "M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration",
   "encryptionImplemented": false,
-  "count": 69,
+  "count": 70,
   "classCounts": {
     "required": 41,
-    "excluded": 28
+    "excluded": 29
   },
   "batchCounts": {
     "sessions": 12,
-    "not-migrated": 28,
+    "not-migrated": 29,
     "index-cache": 5,
     "memory-queue": 13,
     "tasks": 7,
@@ -29,6 +29,9 @@
     "audit",
     "migration",
     "user-config"
+  ],
+  "adapterWired": [
+    "session-scratchpad"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -68,7 +71,8 @@
           "why": "pagination bound without decrypting every line"
         }
       ],
-      "reason": "title, gist, threadBrief, createdBy and stewardTaint move inside the envelope; the head must still be readable enough to route and sort after unlock"
+      "reason": "title, gist, threadBrief, createdBy and stewardTaint move inside the envelope; the head must still be readable enough to route and sort after unlock",
+      "adapter": "pending"
     },
     {
       "id": "session-messages",
@@ -76,7 +80,8 @@
       "keyPurpose": "session",
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
-      "reason": "append-only body: whole records are sealed, the encrypted head owns counts and revisions"
+      "reason": "append-only body: whole records are sealed, the encrypted head owns counts and revisions",
+      "adapter": "pending"
     },
     {
       "id": "session-provider",
@@ -84,7 +89,8 @@
       "keyPurpose": "session",
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
-      "reason": "model history and tool results are user content"
+      "reason": "model history and tool results are user content",
+      "adapter": "pending"
     },
     {
       "id": "session-interventions",
@@ -92,7 +98,8 @@
       "keyPurpose": "session",
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
-      "reason": "command journal carries the user commands and paths"
+      "reason": "command journal carries the user commands and paths",
+      "adapter": "pending"
     },
     {
       "id": "session-changes",
@@ -100,7 +107,8 @@
       "keyPurpose": "session",
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
-      "reason": "change audit carries file paths and diffs"
+      "reason": "change audit carries file paths and diffs",
+      "adapter": "pending"
     },
     {
       "id": "session-scratchpad",
@@ -108,7 +116,8 @@
       "keyPurpose": "session",
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
-      "reason": "model-owned notes are task content"
+      "reason": "model-owned notes are task content",
+      "adapter": "wired"
     },
     {
       "id": "session-index",
@@ -125,7 +134,8 @@
           "why": "sort order only, no user text"
         }
       ],
-      "reason": "sidebar titles and gists are sensitive; only the opaque key and a timestamp stay readable"
+      "reason": "sidebar titles and gists are sensitive; only the opaque key and a timestamp stay readable",
+      "adapter": "pending"
     },
     {
       "id": "session-v1-backup",
@@ -133,7 +143,8 @@
       "keyPurpose": "session",
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
-      "reason": "legacy migration artifact: sealed like the session it restores, retired after the switch"
+      "reason": "legacy migration artifact: sealed like the session it restores, retired after the switch",
+      "adapter": "pending"
     },
     {
       "id": "journal-index",
@@ -146,7 +157,8 @@
           "why": "checkpoint ordering"
         }
       ],
-      "reason": "file lists, hashes and per-entry payloads stay sealed"
+      "reason": "file lists, hashes and per-entry payloads stay sealed",
+      "adapter": "pending"
     },
     {
       "id": "journal-reverts",
@@ -154,7 +166,8 @@
       "keyPurpose": "session",
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
-      "reason": "records which files the user undid"
+      "reason": "records which files the user undid",
+      "adapter": "pending"
     },
     {
       "id": "journal-history",
@@ -162,7 +175,8 @@
       "keyPurpose": "session",
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
-      "reason": "compressed context snapshots are conversation content"
+      "reason": "compressed context snapshots are conversation content",
+      "adapter": "pending"
     },
     {
       "id": "mission-container",
@@ -175,7 +189,8 @@
           "why": "attach a ledger to its session"
         }
       ],
-      "reason": "mission goals and milestones are user text"
+      "reason": "mission goals and milestones are user text",
+      "adapter": "pending"
     },
     {
       "id": "context-calibration",
@@ -183,7 +198,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "numeric calibration coefficients and sample counts only; no user content and no path"
+      "reason": "numeric calibration coefficients and sample counts only; no user content and no path",
+      "adapter": "pending"
     },
     {
       "id": "pretender-index",
@@ -196,7 +212,8 @@
           "why": "group rows per session"
         }
       ],
-      "reason": "derived from sealed bodies, so it must not become a plaintext side channel"
+      "reason": "derived from sealed bodies, so it must not become a plaintext side channel",
+      "adapter": "pending"
     },
     {
       "id": "memory-body",
@@ -213,7 +230,8 @@
           "why": "global vs project bucket; project key is already opaque"
         }
       ],
-      "reason": "memory bodies and frontmatter titles/descriptions are user content"
+      "reason": "memory bodies and frontmatter titles/descriptions are user content",
+      "adapter": "pending"
     },
     {
       "id": "memory-meta",
@@ -226,7 +244,8 @@
           "why": "join key to the body"
         }
       ],
-      "reason": "titles, tags and source references stay sealed"
+      "reason": "titles, tags and source references stay sealed",
+      "adapter": "pending"
     },
     {
       "id": "memory-usage",
@@ -234,7 +253,8 @@
       "keyPurpose": "memory",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "usage reveals which memories were used; cheap to seal together with memory-meta"
+      "reason": "usage reveals which memories were used; cheap to seal together with memory-meta",
+      "adapter": "pending"
     },
     {
       "id": "memory-relations",
@@ -242,7 +262,8 @@
       "keyPurpose": "memory",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "relation edges name memory ids and their meaning"
+      "reason": "relation edges name memory ids and their meaning",
+      "adapter": "pending"
     },
     {
       "id": "memory-proposals",
@@ -250,7 +271,8 @@
       "keyPurpose": "memory",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "pending proposals quote the user content they propose to remember"
+      "reason": "pending proposals quote the user content they propose to remember",
+      "adapter": "pending"
     },
     {
       "id": "memory-import-marker",
@@ -258,7 +280,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "content-free bookkeeping: entry hashes and timestamps, no text and no path"
+      "reason": "content-free bookkeeping: entry hashes and timestamps, no text and no path",
+      "adapter": "pending"
     },
     {
       "id": "agent-instructions-import",
@@ -266,7 +289,8 @@
       "keyPurpose": "memory",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "per-source file paths, entry hashes and core flags are content-derived and reveal local layout"
+      "reason": "per-source file paths, entry hashes and core flags are content-derived and reveal local layout",
+      "adapter": "pending"
     },
     {
       "id": "steward-memory",
@@ -274,7 +298,8 @@
       "keyPurpose": "memory",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "steward notes are task content"
+      "reason": "steward notes are task content",
+      "adapter": "pending"
     },
     {
       "id": "steward-visits",
@@ -282,7 +307,8 @@
       "keyPurpose": "memory",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "visit history reveals which threads and items the steward read"
+      "reason": "visit history reveals which threads and items the steward read",
+      "adapter": "pending"
     },
     {
       "id": "voice-lexicon",
@@ -290,7 +316,8 @@
       "keyPurpose": "user-config",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "personal vocabulary and names"
+      "reason": "personal vocabulary and names",
+      "adapter": "pending"
     },
     {
       "id": "steward-inbox",
@@ -298,7 +325,8 @@
       "keyPurpose": "queue",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "inbox items quote incoming messages"
+      "reason": "inbox items quote incoming messages",
+      "adapter": "pending"
     },
     {
       "id": "steward-cursor",
@@ -306,7 +334,8 @@
       "keyPurpose": "queue",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe"
+      "reason": "cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe",
+      "adapter": "pending"
     },
     {
       "id": "steward-decisions",
@@ -314,7 +343,17 @@
       "keyPurpose": "queue",
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
-      "reason": "decisions and rationales quote the triggering content"
+      "reason": "decisions and rationales quote the triggering content",
+      "adapter": "pending"
+    },
+    {
+      "id": "work-data-key-v1",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "the key envelope itself: a DPAPI-wrapped master with no user content; every work-data record needs it unlocked first, so it cannot live inside the envelope it protects",
+      "adapter": "pending"
     },
     {
       "id": "external-bots",
@@ -327,7 +366,8 @@
           "why": "route a delivery to its connection"
         }
       ],
-      "reason": "labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file"
+      "reason": "labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file",
+      "adapter": "pending"
     },
     {
       "id": "scheduler-tasks",
@@ -340,7 +380,8 @@
           "why": "occurrence routing"
         }
       ],
-      "reason": "templates embed prompts and targets"
+      "reason": "templates embed prompts and targets",
+      "adapter": "pending"
     },
     {
       "id": "scheduler-fires",
@@ -357,7 +398,8 @@
           "why": "idempotency key across restarts"
         }
       ],
-      "reason": "fire records quote the rendered prompt and result status"
+      "reason": "fire records quote the rendered prompt and result status",
+      "adapter": "pending"
     },
     {
       "id": "agent-run-snapshot",
@@ -374,7 +416,8 @@
           "why": "idempotency key"
         }
       ],
-      "reason": "run goals and step results are user content"
+      "reason": "run goals and step results are user content",
+      "adapter": "pending"
     },
     {
       "id": "agent-run-events",
@@ -391,7 +434,8 @@
           "why": "idempotency key"
         }
       ],
-      "reason": "event stream replays tool input/output"
+      "reason": "event stream replays tool input/output",
+      "adapter": "pending"
     },
     {
       "id": "background-job-ledger",
@@ -408,7 +452,8 @@
           "why": "append ordering only"
         }
       ],
-      "reason": "job output and exit detail"
+      "reason": "job output and exit detail",
+      "adapter": "pending"
     },
     {
       "id": "personal-workflows",
@@ -421,7 +466,8 @@
           "why": "workflow identity"
         }
       ],
-      "reason": "workflow steps embed prompts and paths"
+      "reason": "workflow steps embed prompts and paths",
+      "adapter": "pending"
     },
     {
       "id": "playbooks",
@@ -434,7 +480,8 @@
           "why": "playbook identity"
         }
       ],
-      "reason": "playbook bodies embed prompts and examples"
+      "reason": "playbook bodies embed prompts and examples",
+      "adapter": "pending"
     },
     {
       "id": "session-search-index",
@@ -451,7 +498,8 @@
           "why": "rebuild decision without decrypting every row"
         }
       ],
-      "reason": "derived text units are a plaintext side channel for sealed bodies"
+      "reason": "derived text units are a plaintext side channel for sealed bodies",
+      "adapter": "pending"
     },
     {
       "id": "web-cache",
@@ -464,7 +512,8 @@
           "why": "cache freshness only, no page text"
         }
       ],
-      "reason": "URLs and page bodies are sensitive; only a hash key and a timestamp stay readable"
+      "reason": "URLs and page bodies are sensitive; only a hash key and a timestamp stay readable",
+      "adapter": "pending"
     },
     {
       "id": "proxy-models-cache",
@@ -477,7 +526,8 @@
           "why": "cache freshness only, no page text"
         }
       ],
-      "reason": "model list is provider metadata but can embed account-scoped ids"
+      "reason": "model list is provider metadata but can embed account-scoped ids",
+      "adapter": "pending"
     },
     {
       "id": "engine-transcript-index",
@@ -490,7 +540,8 @@
           "why": "join to the session"
         }
       ],
-      "reason": "transcript paths and titles reveal engine sessions"
+      "reason": "transcript paths and titles reveal engine sessions",
+      "adapter": "pending"
     },
     {
       "id": "audit-log",
@@ -507,7 +558,8 @@
           "why": "routing/classification without decrypting"
         }
       ],
-      "reason": "event detail carries tool names, commands and paths"
+      "reason": "event detail carries tool names, commands and paths",
+      "adapter": "pending"
     },
     {
       "id": "migration-log",
@@ -520,7 +572,8 @@
           "why": "listing order"
         }
       ],
-      "reason": "applied file paths and change summaries are user data"
+      "reason": "applied file paths and change summaries are user data",
+      "adapter": "pending"
     },
     {
       "id": "migration-skill-backups",
@@ -533,7 +586,8 @@
           "why": "restore target directory"
         }
       ],
-      "reason": "verbatim user skill copies"
+      "reason": "verbatim user skill copies",
+      "adapter": "pending"
     },
     {
       "id": "skill-import-record",
@@ -546,7 +600,8 @@
           "why": "import target"
         }
       ],
-      "reason": "provenance paths and source hashes"
+      "reason": "provenance paths and source hashes",
+      "adapter": "pending"
     },
     {
       "id": "credential-vault-v1",
@@ -554,7 +609,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "own authenticated credential envelope (DPAPI CurrentUser master, AES-GCM records): work-data must never rewrap or duplicate it"
+      "reason": "own authenticated credential envelope (DPAPI CurrentUser master, AES-GCM records): work-data must never rewrap or duplicate it",
+      "adapter": "pending"
     },
     {
       "id": "credential-import-v1",
@@ -562,7 +618,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "rollback journal already sealed by the credential envelope under its own purpose"
+      "reason": "rollback journal already sealed by the credential envelope under its own purpose",
+      "adapter": "pending"
     },
     {
       "id": "privacy-mapping-v1",
@@ -570,7 +627,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "privacy reference map is already sealed under the credential envelope purpose privacy-mapping and must restore with the same unlock"
+      "reason": "privacy reference map is already sealed under the credential envelope purpose privacy-mapping and must restore with the same unlock",
+      "adapter": "pending"
     },
     {
       "id": "external-bot-credentials",
@@ -578,7 +636,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "dedicated DPAPI-protected secret records with their own connection-bound envelope"
+      "reason": "dedicated DPAPI-protected secret records with their own connection-bound envelope",
+      "adapter": "pending"
     },
     {
       "id": "config",
@@ -586,7 +645,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "settings skeleton: every secret already lives in the credential vault, and M3 does not change the user-chosen settings file format"
+      "reason": "settings skeleton: every secret already lives in the credential vault, and M3 does not change the user-chosen settings file format",
+      "adapter": "pending"
     },
     {
       "id": "config-backups",
@@ -594,7 +654,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "insurance copies written before a settings save; they must stay human-restorable outside the unlock path"
+      "reason": "insurance copies written before a settings save; they must stay human-restorable outside the unlock path",
+      "adapter": "pending"
     },
     {
       "id": "migration-backups",
@@ -602,7 +663,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "verbatim copies beside externally owned CLI configs, kept for hand recovery"
+      "reason": "verbatim copies beside externally owned CLI configs, kept for hand recovery",
+      "adapter": "pending"
     },
     {
       "id": "claude-settings",
@@ -610,7 +672,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "externally owned merge target: the workbench may not rewrite it into a sealed format"
+      "reason": "externally owned merge target: the workbench may not rewrite it into a sealed format",
+      "adapter": "pending"
     },
     {
       "id": "kimi-mcp",
@@ -618,7 +681,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "externally owned merge target"
+      "reason": "externally owned merge target",
+      "adapter": "pending"
     },
     {
       "id": "claude-settings-sidecar",
@@ -626,7 +690,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "ownership sidecar recording only the values this workbench wrote"
+      "reason": "ownership sidecar recording only the values this workbench wrote",
+      "adapter": "pending"
     },
     {
       "id": "kimi-mcp-sidecar",
@@ -634,7 +699,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "ownership sidecar recording only the managed ids this workbench wrote"
+      "reason": "ownership sidecar recording only the managed ids this workbench wrote",
+      "adapter": "pending"
     },
     {
       "id": "project-agents",
@@ -642,7 +708,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "workspace-owned interoperable declaration; encrypting it would break the user-readable/VCS-shared contract"
+      "reason": "workspace-owned interoperable declaration; encrypting it would break the user-readable/VCS-shared contract",
+      "adapter": "pending"
     },
     {
       "id": "project-workflows",
@@ -650,7 +717,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "workspace-owned interoperable declaration"
+      "reason": "workspace-owned interoperable declaration",
+      "adapter": "pending"
     },
     {
       "id": "steward-workspace-derived",
@@ -658,7 +726,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "derived steward workspace artifacts written for external consumption; the sealed steward state stays authoritative"
+      "reason": "derived steward workspace artifacts written for external consumption; the sealed steward state stays authoritative",
+      "adapter": "pending"
     },
     {
       "id": "overlay-state",
@@ -666,7 +735,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "external overlay installer bookkeeping"
+      "reason": "external overlay installer bookkeeping",
+      "adapter": "pending"
     },
     {
       "id": "kimi-session-index",
@@ -674,7 +744,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "external CLI-owned state; the workbench must not rewrite another tool's files"
+      "reason": "external CLI-owned state; the workbench must not rewrite another tool's files",
+      "adapter": "pending"
     },
     {
       "id": "kimi-wire",
@@ -682,7 +753,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "external CLI-owned transcript"
+      "reason": "external CLI-owned transcript",
+      "adapter": "pending"
     },
     {
       "id": "engine-transcripts",
@@ -690,7 +762,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "external engine-owned transcript protocol"
+      "reason": "external engine-owned transcript protocol",
+      "adapter": "pending"
     },
     {
       "id": "mcp-consumers-v1",
@@ -698,7 +771,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "authorization registry: token hashes only, and it must be readable before any unlock to authenticate a consumer"
+      "reason": "authorization registry: token hashes only, and it must be readable before any unlock to authenticate a consumer",
+      "adapter": "pending"
     },
     {
       "id": "install-registry",
@@ -706,7 +780,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "local package locators with no user content; every launch re-registers itself"
+      "reason": "local package locators with no user content; every launch re-registers itself",
+      "adapter": "pending"
     },
     {
       "id": "runtime-handshake",
@@ -714,7 +789,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "ephemeral boot handshake"
+      "reason": "ephemeral boot handshake",
+      "adapter": "pending"
     },
     {
       "id": "last-start-error",
@@ -722,7 +798,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "one-shot boot notice with no user content"
+      "reason": "one-shot boot notice with no user content",
+      "adapter": "pending"
     },
     {
       "id": "generated-mcp",
@@ -730,7 +807,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "regenerable launcher input"
+      "reason": "regenerable launcher input",
+      "adapter": "pending"
     },
     {
       "id": "mcp-host-v1",
@@ -738,7 +816,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "regenerable non-secret runtime locator"
+      "reason": "regenerable non-secret runtime locator",
+      "adapter": "pending"
     },
     {
       "id": "usage-ledger",
@@ -746,7 +825,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "numeric monthly counters only"
+      "reason": "numeric monthly counters only",
+      "adapter": "pending"
     },
     {
       "id": "storage-trend",
@@ -754,7 +834,8 @@
       "keyPurpose": null,
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
-      "reason": "numeric trend samples only"
+      "reason": "numeric trend samples only",
+      "adapter": "pending"
     }
   ]
 }

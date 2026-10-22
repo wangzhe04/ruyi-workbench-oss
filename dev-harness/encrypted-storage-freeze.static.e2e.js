@@ -41,6 +41,13 @@ try {
   }
   ok(data.encryptionImplemented === false && !data.entries.some(entry => entry.implemented === true),
     'M3-1 froze the contract only: no family may claim encryption before M3-2 exists');
+  ok(data.entries.every(entry => entry.adapter === 'wired' || entry.adapter === 'pending'), 'every surface declares its adapter state');
+  ok(data.adapterWired.every(id => data.entries.some(entry => entry.id === id && entry.encryption === 'required')),
+    'an adapter-wired family is always one that must be encrypted (wiring never exempts a surface)');
+  ok(data.entries.filter(entry => entry.adapter === 'wired').every(entry => entry.migrationBatch !== 'not-migrated'),
+    'an adapter-wired family always has a migration batch');
+  ok(data.entries.some(entry => entry.id === 'work-data-key-v1' && entry.encryption === 'excluded'),
+    'the key envelope itself stays outside the envelope it protects');
   ok(JSON.stringify(data.purposes) === JSON.stringify(codePurposes), 'generated purposes equal the code purpose list');
   ok(data.envelope.formatVersion === Number((constBlock(sources, 'FORMAT_VERSION') || '').match(/=\s*(\d+)/)?.[1] || NaN),
     'artifact envelope format version matches WorkDataCrypto.FORMAT_VERSION');

@@ -389,15 +389,7 @@
       "provides": [
         "LocalSecretCrypto"
       ],
-      "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "path",
-          "kinds": [
-            "read"
-          ]
-        }
-      ]
+      "requires": []
     },
     {
       "file": "01-config.js",
@@ -1206,6 +1198,30 @@
       ]
     },
     {
+      "file": "01o-work-data-keys.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataKeys"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01p-work-data-store.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataStore"
+      ],
+      "requires": [
+        {
+          "provider": "01n-work-data-crypto.js",
+          "symbol": "WorkDataCrypto",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02c-turn-segments.js",
       "layer": "foundation",
       "provides": [
@@ -1611,6 +1627,7 @@
         "withMissionContainerLock",
         "withSessionIndexLock",
         "withSessionMutateLock",
+        "workDataKeys",
         "workspaceBaselineBudgetMs",
         "workspaceBaselineBudgetOnly",
         "workspaceBaselineFileSnapshot",
@@ -1766,7 +1783,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -1844,6 +1862,27 @@
           "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {

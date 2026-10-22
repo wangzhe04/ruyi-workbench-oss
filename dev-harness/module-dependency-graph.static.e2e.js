@@ -41,7 +41,7 @@ ok(violations.forward.length === 0, '103b no forward/order-layer edge above the 
 // 架构还债批 1:环边已有逐条审过的上限,但「被卷进同一个强连通分量的模块数」没有 —— 往白名单里补一条边就可能把
 // 一个本来干净的模块拖进大环。这里给 SCC 的规模也钉一个只降不升的上限(2026-09-27 实数:1 个 SCC、32 个模块)。
 // 新模块默认挂在环外(零入边、经 *Hooks 延迟绑定,先例 06j-scheduler-core / 13t-steward-schedule);拆掉环以后把上限往下调。
-const SCC_MAX_COUNT = 1, SCC_MAX_MEMBERS = 32;
+const SCC_MAX_COUNT = 1, SCC_MAX_MEMBERS = 31;   // M3-2 把 01j 的假边(局部 path 撞 00-boot 符号)拆掉后 32 -> 31,只降不升
 const sccSizes = graph.stronglyConnectedComponents.map(component => component.length);
 ok(sccSizes.length <= SCC_MAX_COUNT && sccSizes.every(size => size <= SCC_MAX_MEMBERS),
   `SCC 规模不超过上限(${SCC_MAX_COUNT} 个 / 每个 ≤ ${SCC_MAX_MEMBERS} 个模块;实测 ${JSON.stringify(sccSizes)})`);

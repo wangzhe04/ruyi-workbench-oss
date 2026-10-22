@@ -1,6 +1,6 @@
 // 81-P1: Shared bounded Windows DPAPI helper. Secrets travel only over stdin/stdout.
 const LocalSecretCrypto = (() => {
-  const childProcess = require('node:child_process'), path = require('node:path');
+  const childProcess = require('node:child_process'), nodePath = require('node:path');   // local alias must not collide with 00-boot's path symbol (spurious graph edge)
   const LIMIT = Object.freeze({ processMs: 15000, outputBytes: 131072, cipherBytes: 65536 });
   const exact = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every(key => keys.includes(key));
   const base64 = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max * 2 && value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value) && Buffer.from(value, 'base64').length <= max && Buffer.from(value, 'base64').toString('base64') === value;
@@ -43,10 +43,10 @@ try {
       const environment = {};
       // Do not inherit RUYI_BOT_* or provider credentials into the helper environment.
       for (const key of ['SystemRoot', 'SystemDrive', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA']) if (typeof process.env[key] === 'string') environment[key] = process.env[key];
-      const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+      const executable = nodePath.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
       // Only Windows' built-in modules are needed. Without an explicit path PowerShell discovers
       // third-party modules installed machine-wide, even with -NoProfile and a sanitized environment.
-      environment.PSModulePath = path.join(path.dirname(executable), 'Modules');
+      environment.PSModulePath = nodePath.join(nodePath.dirname(executable), 'Modules');
       try {
         child = childProcess.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(DPAPI_SCRIPT, 'utf16le').toString('base64')],
           { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], env: environment });

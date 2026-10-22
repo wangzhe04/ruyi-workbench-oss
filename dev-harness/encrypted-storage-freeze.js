@@ -20,6 +20,9 @@ const EXCLUDED = 'excluded';
 // Families whose secrets already live in their own authenticated envelope: work-data must not rewrap,
 // re-key or duplicate them, and the census has to say so instead of silently omitting them.
 const OWN_ENVELOPE = new Set(['credential-vault-v1', 'credential-import-v1', 'privacy-mapping-v1', 'external-bot-credentials']);
+// M3-2: families whose adapter is wired while the switch is still off by default and no data has been
+// migrated. They may be 'wired' but must never be claimed as implemented until M3-3.
+const ADAPTER_WIRED = Object.freeze(['session-scratchpad']);
 
 // [id, encryption, keyPurpose, migrationBatch, plaintextFields, reason]
 // plaintextFields: [[field, why], ...] — the smallest readable metadata the family needs while its
@@ -57,6 +60,7 @@ const families = [
   ['steward-inbox', REQUIRED, 'queue', 'memory-queue', [], 'inbox items quote incoming messages'],
   ['steward-cursor', REQUIRED, 'queue', 'memory-queue', [], 'cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe'],
   ['steward-decisions', REQUIRED, 'queue', 'memory-queue', [], 'decisions and rationales quote the triggering content'],
+  ['work-data-key-v1', EXCLUDED, null, 'not-migrated', [], 'the key envelope itself: a DPAPI-wrapped master with no user content; every work-data record needs it unlocked first, so it cannot live inside the envelope it protects'],
   ['external-bots', REQUIRED, 'queue', 'memory-queue', [['connectionId', 'route a delivery to its connection']], 'labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file'],
   ['scheduler-tasks', REQUIRED, 'task', 'tasks', [['taskId', 'occurrence routing']], 'templates embed prompts and targets'],
   ['scheduler-fires', REQUIRED, 'task', 'tasks', [['taskId', 'join to the task'], ['occurrenceId', 'idempotency key across restarts']], 'fire records quote the rendered prompt and result status'],
@@ -163,9 +167,10 @@ function artifact() {
     scope: 'M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration',
     encryptionImplemented: false,
     count: entries.length, classCounts, batchCounts, purposes: codePurposes(),
+    adapterWired: [...ADAPTER_WIRED],
     envelope: { formatVersion: 2, keyIdPrefix: 'work-data-v2.k', aadBinding: ['schema', 'scopeId', 'seq'],
       derivation: `HKDF-SHA256(master, salt=${codeSalt()}, info=purpose:<purpose>:k<generation>)` },
-    entries,
+    entries: entries.map(entry => ({ ...entry, adapter: ADAPTER_WIRED.includes(entry.id) ? 'wired' : 'pending' })),
   };
 }
 
@@ -184,14 +189,14 @@ function markdown(data) {
     '',
     `Envelope: format version ${data.envelope.formatVersion}, key id \`${data.envelope.keyIdPrefix}<generation>\`, derivation \`${data.envelope.derivation}\`, AAD binds ${data.envelope.aadBinding.map(field => '`' + field + '`').join(' / ')} on top of the privacy-core triple.`,
     '',
-    `\`encryptionImplemented\`: **${data.encryptionImplemented}** — M3-1 only froze the contract; no user data has been migrated.`,
+    `\`encryptionImplemented\`: **${data.encryptionImplemented}** — no user data has been migrated. \`adapterWired\`: ${data.adapterWired.map(id => '`' + id + '`').join(', ') || 'none'} (adapter exists, switch still off by default).`,
     '',
-    '| ID | Class | Key purpose | Batch | Minimal plaintext metadata | Reason |',
-    '|---|---|---|---|---|---|',
+    '| ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |',
+    '|---|---|---|---|---|---|---|',
   ];
   for (const entry of data.entries) {
     const plaintext = entry.plaintextMetadata.length ? entry.plaintextMetadata.map(field => `\`${field.field}\` (${field.why})`).join('; ') : '— (nothing readable)';
-    lines.push(`| ${entry.id} | ${entry.encryption} | ${entry.keyPurpose ? '`' + entry.keyPurpose + '`' : '—'} | ${entry.migrationBatch} | ${plaintext} | ${entry.reason} |`);
+    lines.push(`| ${entry.id} | ${entry.encryption} | ${entry.keyPurpose ? '`' + entry.keyPurpose + '`' : '—'} | ${entry.migrationBatch} | ${entry.adapter} | ${plaintext} | ${entry.reason} |`);
   }
   lines.push('', '## Freeze rules', '',
     '- Migration order is `sessions` → `memory-queue` → `tasks` → `index-cache` → `logs` → `backups`; one family completes old/new read-write before the next starts (M3-2).',
