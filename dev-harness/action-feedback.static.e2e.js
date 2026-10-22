@@ -55,11 +55,14 @@ const app = read('app.js');
   ok(after(body, "'/api/checkpoints/rollback'", 'refreshToolPane()') && after(body, "classList.add('done')", 'refreshToolPane()'),
     'D1 撤销成功之后(按钮已经标成「已撤销」)右栏页签重读');
 }
-// D2 回溯 → 右栏页签重读(回溯连文件一起退的话「变更」页签要跟上)
+// D2 回溯 → 右栏页签重读(回溯连文件一起退的话「变更」页签要跟上)。2026-10:回读/刷新搬进独立的
+// refreshAfterRewind(刷新失败不再被报成回溯失败),所以锁的是那个函数体 + 成功分支确实调用它。
 {
-  const at = primitives.indexOf("'/api/session/rewind'");
-  const tail = at >= 0 ? primitives.slice(at, at + 2400) : '';
-  ok(after(tail, 'await refreshSessions();', 'refreshToolPane()') && /refreshToolPane = \(\) => \{\},/.test(primitives),
+  const refreshBody = functionBlock(primitives, 'refreshAfterRewind');
+  const rewindBody = functionBlock(primitives, 'openRewindModal');
+  ok(after(refreshBody, 'await refreshSessions();', 'refreshToolPane()')
+    && rewindBody.includes('await refreshAfterRewind(sid)')
+    && /refreshToolPane = \(\) => \{\},/.test(primitives),
     'D2 回溯成功之后(会话已重读、左栏已刷)右栏页签重读;缺省空实现可注入');
 }
 // D3 行动流水「撤销」→ 那张表重读(修前那一行仍挂着「撤销」)
@@ -104,6 +107,17 @@ ok((app.match(/refreshToolPane: \(\) => refreshToolPane\(\),   \/\/ 128f-⑫/g) 
 // P 页内广播本身:publishLocal 走的是同一个 emit(与服务端来的同名帧同一批订阅者),不经服务端
 ok(/function publishLocal\(name, payload\) \{ return emit\(name, payload\); \}/.test(stream) && /\n    publishLocal,\n/.test(stream),
   'P event-stream 导出 publishLocal = 同一个 emit(页内广播,不经服务端、不进补发环)');
+
+// 2026-10 用户报:插话后撤回,前端弹「回溯失败」,消息其实已经退回去了。根因是撤回请求与回读/刷新共用
+// 一个 try/catch —— 截断已经落盘,后面 reload/refreshSessions 一抛错就变成「回溯失败」。锁住形状:
+// 成功分支必须走独立的 refreshAfterRewind,且那里刷新失败只记日志、不再弹回溯失败。
+const rewindSrc = read('js/chat-render-primitives.js');
+const rewindRefresh = functionBlock(rewindSrc, 'refreshAfterRewind');
+ok(rewindRefresh.length > 100 && rewindRefresh.includes('console.warn') && !/toast\(/.test(rewindRefresh),
+  'R1 回溯后的刷新失败只记日志，不再弹「回溯失败」');
+const rewindModal = functionBlock(rewindSrc, 'openRewindModal');
+ok(rewindModal.includes('await refreshAfterRewind(sid)') && !rewindModal.includes('refreshSessions('),
+  'R2 回溯成功分支走独立的 refreshAfterRewind（刷新失败不会被报成回溯失败）');
 
 console.log(fail === 0 ? 'ACTION FEEDBACK STATIC E2E: ALL PASS' : `ACTION FEEDBACK STATIC E2E: FAILURES ${fail}`);
 process.exit(fail === 0 ? 0 : 1);

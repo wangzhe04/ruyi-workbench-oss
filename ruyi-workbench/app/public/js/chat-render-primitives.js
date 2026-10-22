@@ -857,6 +857,7 @@ export function createChatRenderPrimitives(deps = {}) {
     if (/haiku/.test(m)) return 200000;
     if (/opus-5|opus-4|sonnet-5|sonnet-4|fable|mythos/.test(m)) return 1000000;
     if (/deepseek-v4/.test(m)) return 1000000;   // deepseek-v4 = 1M(此前被并入 65536)
+    if (/deepseek-flash/.test(m)) return 1000000; // deepseek-flash 也是 1M(与 MODEL_CONTEXT_TABLE 同序)
     if (/deepseek/.test(m)) return 131072;        // 其余 deepseek(v3/chat/reasoner)= 128K
     if (/mimo-v2\.5-pro(?:$|[^a-z0-9])/.test(m) || /(?:^|\/)mimo-v2\.5$/.test(m)) return 1000000;
     if (/kimi|moonshot/.test(m)) return 262144;
@@ -1295,6 +1296,24 @@ export function createChatRenderPrimitives(deps = {}) {
     }
     return { turns, fileCount: filePaths.size };
   }
+  // Post-rewind refresh. The truncation is already durable when this runs, so every step is
+  // best-effort: a failed reload must still leave the truthful "rewound" toast on screen. The 2026-10
+  // report ("rewind shows a failure but the messages are gone") came from one shared try/catch that
+  // reported any refresh error as a rewind failure.
+  async function refreshAfterRewind(sid) {
+    try {
+      // GET 期间切到了别的会话:别把回溯后的这条写回 state(会盖掉刚打开的那条)—— 取回来之后再判一次。
+      if (state.currentSession?.id === sid) {
+        const s = await api(`/api/sessions/${sid}`);
+        if (state.currentSession?.id === sid) {
+          state.currentSession = s.session; state.resumable = s.resumable || null; state.msgWindowStart = null;
+          renderCurrentSession(); renderResumeBanner();
+        }
+      }
+      await refreshSessions();
+      try { refreshToolPane(); } catch { /* 128f-⑫：回溯连文件一起退的话，「变更」页签要当场跟上 */ }
+    } catch (error) { console.warn('[rewind] refresh after a successful rewind failed', error); }
+  }
   function openRewindModal(msg) {
     if (state.streaming) { toast(t("toast.rewindStopTurn"), ''); return; }
     const sid = state.currentSession?.id;
@@ -1320,24 +1339,30 @@ export function createChatRenderPrimitives(deps = {}) {
     cancel.onclick = () => modal.close();
     go.onclick = async () => {
       go.disabled = true; go.textContent = t('chat.rewinding');
+      let r;
       try {
-        const r = await api('/api/session/rewind', { method: 'POST', body: JSON.stringify({ sessionId: sid, targetTurnSeq, rollbackFiles: !!(fileBox && fileBox.checked) }) });
-        modal.close();
-        if (!r || !r.ok) { toast(t("toast.rewindFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err'); return; }
-        // Reload the truncated session and re-render; refill the composer with the removed user text.
-        // v1.0-S7 (perf): reset the window cursor so the shrunken conversation re-windows from its new tail.
-        // GET 期间切到了别的会话:别把回溯后的这条写回 state(会盖掉刚打开的那条)—— 取回来之后再判一次。
-        if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); if (state.currentSession?.id === sid) { state.currentSession = s.session; state.resumable = s.resumable || null; state.msgWindowStart = null; renderCurrentSession(); renderResumeBanner(); } }
-        await refreshSessions();
-        try { refreshToolPane(); } catch { /* 128f-⑫：回溯连文件一起退的话，「变更」页签要当场跟上 */ }
-        if (r.lastUserText != null) { $('promptInput').value = r.lastUserText; autoGrow($('promptInput')); $('promptInput').focus(); }
-        const reverted = (r.filesReverted || []).length;
-        const failed = (r.filesFailed || []).length;
-        let m = t('chat.rewindToast', { removed: r.removedTurns || 0 });
-        if (reverted) m += t('chat.rewindToastFiles', { reverted });
-        if (failed) m += t('chat.rewindToastFailed', { failed });
-        toast(m, failed ? '' : 'ok');
-      } catch (e) { modal.close(); toast(t("toast.rewindFail", { p1: apiErrText(e) }), 'err'); }
+        r = await api('/api/session/rewind', { method: 'POST', body: JSON.stringify({ sessionId: sid, targetTurnSeq, rollbackFiles: !!(fileBox && fileBox.checked) }) });
+      } catch (e) {
+        // Only the rewind request itself decides success: an error here means nothing was cut.
+        go.disabled = false; go.textContent = t('chat.rewind');
+        toast(t("toast.rewindFail", { p1: apiErrText(e) }), 'err');
+        return;
+      }
+      modal.close();
+      if (!r || !r.ok) {
+        go.disabled = false; go.textContent = t('chat.rewind');
+        toast(t("toast.rewindFail", { p1: apiErrText(r && r.error) || t('common.unknownError') }), 'err');
+        return;
+      }
+      // The truncation is already on disk from here on: reload failures must not read as a failure.
+      await refreshAfterRewind(sid);
+      if (r.lastUserText != null) { $('promptInput').value = r.lastUserText; autoGrow($('promptInput')); $('promptInput').focus(); }
+      const reverted = (r.filesReverted || []).length;
+      const failed = (r.filesFailed || []).length;
+      let m = t('chat.rewindToast', { removed: r.removedTurns || 0 });
+      if (reverted) m += t('chat.rewindToastFiles', { reverted });
+      if (failed) m += t('chat.rewindToastFailed', { failed });
+      toast(m, failed ? '' : 'ok');
     };
   }
   return {

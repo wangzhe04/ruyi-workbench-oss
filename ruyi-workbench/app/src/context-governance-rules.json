@@ -96,6 +96,10 @@
       "tokens": 10000000
     },
     {
+      "match": "deepseek-flash",
+      "tokens": 1000000
+    },
+    {
       "match": "deepseek",
       "tokens": 131072
     },

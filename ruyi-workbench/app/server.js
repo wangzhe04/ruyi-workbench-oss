@@ -52022,6 +52022,7 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       { match: 'qwen-turbo', tokens: 131072 },
       { match: 'qwen-max', tokens: 32768 },
       { match: 'qwen-long', tokens: 10000000 },
+      { match: 'deepseek-flash', tokens: 1000000 },
       { match: 'deepseek', tokens: 131072 },
       { match: 'qwen', tokens: 131072 },
       { match: 'glm-5.3', tokens: 1000000 },
@@ -54496,7 +54497,17 @@ function agentNodeContextWindow(node, provider, config) {
     if (manual > 0) return manual;
     return resolveContextWindow(null, model).value;
   }
-  return providerContextWindow(provider, node && node.model);
+  // 2026-10: a per-model conversation window set in Settings must also bound agent nodes of that
+  // provider. Before this the node ignored it and fell back to the name table (deepseek-flash ->
+  // 131072), so a sub-agent compacted ~8x earlier than the conversation that spawned it.
+  const nodeModel = String(node && node.model || '').trim();
+  // One effective model for BOTH lookups: the override key and the learned-cap key
+  // (`<providerId>/<model>`). Passing an empty model here made the calibration cap unreachable
+  // (`ds/` never matches `ds/deepseek-flash`), so a node without an explicit model ran past the
+  // only-learn-down cap that still bounds the main conversation.
+  const effModel = nodeModel || String(provider && provider.model || '').trim();
+  const manual = configuredConversationWindow(config, 'openai', provider && provider.id, effModel);
+  return providerContextWindow(manual > 0 ? { ...provider, contextWindow: manual } : provider, effModel);
 }
 
 async function agentConversationContextMeta(config, session) {

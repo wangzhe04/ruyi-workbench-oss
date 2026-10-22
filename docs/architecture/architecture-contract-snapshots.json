@@ -96,6 +96,10 @@
         "tokens": 10000000
       },
       {
+        "match": "deepseek-flash",
+        "tokens": 1000000
+      },
+      {
         "match": "deepseek",
         "tokens": 131072
       },
@@ -417,7 +421,7 @@
       "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
     },
     "ruleSchema": 1,
-    "rulesSha256": "8b6a9b517a64b7c38d863e9b6ac37fe14605f63ae4a9d7bf82995871ef792818"
+    "rulesSha256": "b01749cf14caf6b53c2eceb6e3ed6ce58edcef72677112edb1e82f4864aa7fb3"
   },
   "permission": {
     "modes": [
