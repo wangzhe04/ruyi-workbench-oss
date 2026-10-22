@@ -479,7 +479,15 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
   function checkKey(key) { if (!Buffer.isBuffer(key) || key.length !== 32) fail('key_invalid'); }
   function aadFor(binding, keyId) {
     if (!binding || typeof binding !== 'object') fail('binding_invalid');
-    return Buffer.from(JSON.stringify(['ruyi-privacy', 1, identity(keyId), identity(binding.instanceId), identity(binding.purpose), identity(binding.recordId)]), 'utf8');
+    const parts = ['ruyi-privacy', 1, identity(keyId), identity(binding.instanceId), identity(binding.purpose), identity(binding.recordId)];
+    // M3-1: optional trailing binding values (schema/scope/seq for work-data records). Callers that
+    // pass no `extra` keep the exact v1 AAD bytes, so every existing envelope stays readable; a
+    // non-empty extra list only ever tightens authentication.
+    if (binding.extra !== undefined) {
+      if (!Array.isArray(binding.extra) || binding.extra.length > 8) fail('binding_invalid');
+      for (const value of binding.extra) parts.push(typeof value === 'number' ? (Number.isSafeInteger(value) && value >= 0 ? value : fail('binding_invalid')) : identity(value));
+    }
+    return Buffer.from(JSON.stringify(parts), 'utf8');
   }
   function seal(plaintext, key, binding, keyId) {
     checkKey(key); const privacyText = checkText(plaintext); const aad = aadFor(binding, keyId);

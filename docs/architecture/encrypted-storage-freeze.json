@@ -1,0 +1,760 @@
+{
+  "schema": 1,
+  "generatedBy": "dev-harness/encrypted-storage-freeze.js",
+  "scope": "M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration",
+  "encryptionImplemented": false,
+  "count": 69,
+  "classCounts": {
+    "required": 41,
+    "excluded": 28
+  },
+  "batchCounts": {
+    "sessions": 12,
+    "not-migrated": 28,
+    "index-cache": 5,
+    "memory-queue": 13,
+    "tasks": 7,
+    "logs": 2,
+    "backups": 2
+  },
+  "purposes": [
+    "session",
+    "memory",
+    "queue",
+    "task",
+    "workflow",
+    "search-index",
+    "cache",
+    "backup",
+    "audit",
+    "migration",
+    "user-config"
+  ],
+  "envelope": {
+    "formatVersion": 2,
+    "keyIdPrefix": "work-data-v2.k",
+    "aadBinding": [
+      "schema",
+      "scopeId",
+      "seq"
+    ],
+    "derivation": "HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)"
+  },
+  "entries": [
+    {
+      "id": "session-head",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [
+        {
+          "field": "id",
+          "why": "on-disk filename and sidebar route; opaque random id, never user text"
+        },
+        {
+          "field": "storageVersion",
+          "why": "chooses the reader before any decrypt"
+        },
+        {
+          "field": "createdAt",
+          "why": "age/sort only"
+        },
+        {
+          "field": "updatedAt",
+          "why": "freshness/sort only"
+        },
+        {
+          "field": "messageCount",
+          "why": "pagination bound without decrypting every line"
+        }
+      ],
+      "reason": "title, gist, threadBrief, createdBy and stewardTaint move inside the envelope; the head must still be readable enough to route and sort after unlock"
+    },
+    {
+      "id": "session-messages",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "append-only body: whole records are sealed, the encrypted head owns counts and revisions"
+    },
+    {
+      "id": "session-provider",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "model history and tool results are user content"
+    },
+    {
+      "id": "session-interventions",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "command journal carries the user commands and paths"
+    },
+    {
+      "id": "session-changes",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "change audit carries file paths and diffs"
+    },
+    {
+      "id": "session-scratchpad",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "model-owned notes are task content"
+    },
+    {
+      "id": "session-index",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [
+        {
+          "field": "id",
+          "why": "sidebar row key (opaque session id)"
+        },
+        {
+          "field": "updatedAt",
+          "why": "sort order only, no user text"
+        }
+      ],
+      "reason": "sidebar titles and gists are sensitive; only the opaque key and a timestamp stay readable"
+    },
+    {
+      "id": "session-v1-backup",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "legacy migration artifact: sealed like the session it restores, retired after the switch"
+    },
+    {
+      "id": "journal-index",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [
+        {
+          "field": "seq",
+          "why": "checkpoint ordering"
+        }
+      ],
+      "reason": "file lists, hashes and per-entry payloads stay sealed"
+    },
+    {
+      "id": "journal-reverts",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "records which files the user undid"
+    },
+    {
+      "id": "journal-history",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "compressed context snapshots are conversation content"
+    },
+    {
+      "id": "mission-container",
+      "encryption": "required",
+      "keyPurpose": "task",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [
+        {
+          "field": "sessionId",
+          "why": "attach a ledger to its session"
+        }
+      ],
+      "reason": "mission goals and milestones are user text"
+    },
+    {
+      "id": "context-calibration",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "numeric calibration coefficients and sample counts only; no user content and no path"
+    },
+    {
+      "id": "pretender-index",
+      "encryption": "required",
+      "keyPurpose": "search-index",
+      "migrationBatch": "index-cache",
+      "plaintextMetadata": [
+        {
+          "field": "sessionId",
+          "why": "group rows per session"
+        }
+      ],
+      "reason": "derived from sealed bodies, so it must not become a plaintext side channel"
+    },
+    {
+      "id": "memory-body",
+      "encryption": "required",
+      "keyPurpose": "memory",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [
+        {
+          "field": "id",
+          "why": "frontmatter/file name; opaque memory id"
+        },
+        {
+          "field": "scope",
+          "why": "global vs project bucket; project key is already opaque"
+        }
+      ],
+      "reason": "memory bodies and frontmatter titles/descriptions are user content"
+    },
+    {
+      "id": "memory-meta",
+      "encryption": "required",
+      "keyPurpose": "memory",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [
+        {
+          "field": "id",
+          "why": "join key to the body"
+        }
+      ],
+      "reason": "titles, tags and source references stay sealed"
+    },
+    {
+      "id": "memory-usage",
+      "encryption": "required",
+      "keyPurpose": "memory",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "usage reveals which memories were used; cheap to seal together with memory-meta"
+    },
+    {
+      "id": "memory-relations",
+      "encryption": "required",
+      "keyPurpose": "memory",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "relation edges name memory ids and their meaning"
+    },
+    {
+      "id": "memory-proposals",
+      "encryption": "required",
+      "keyPurpose": "memory",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "pending proposals quote the user content they propose to remember"
+    },
+    {
+      "id": "memory-import-marker",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "content-free bookkeeping: entry hashes and timestamps, no text and no path"
+    },
+    {
+      "id": "agent-instructions-import",
+      "encryption": "required",
+      "keyPurpose": "memory",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "per-source file paths, entry hashes and core flags are content-derived and reveal local layout"
+    },
+    {
+      "id": "steward-memory",
+      "encryption": "required",
+      "keyPurpose": "memory",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "steward notes are task content"
+    },
+    {
+      "id": "steward-visits",
+      "encryption": "required",
+      "keyPurpose": "memory",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "visit history reveals which threads and items the steward read"
+    },
+    {
+      "id": "voice-lexicon",
+      "encryption": "required",
+      "keyPurpose": "user-config",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "personal vocabulary and names"
+    },
+    {
+      "id": "steward-inbox",
+      "encryption": "required",
+      "keyPurpose": "queue",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "inbox items quote incoming messages"
+    },
+    {
+      "id": "steward-cursor",
+      "encryption": "required",
+      "keyPurpose": "queue",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe"
+    },
+    {
+      "id": "steward-decisions",
+      "encryption": "required",
+      "keyPurpose": "queue",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [],
+      "reason": "decisions and rationales quote the triggering content"
+    },
+    {
+      "id": "external-bots",
+      "encryption": "required",
+      "keyPurpose": "queue",
+      "migrationBatch": "memory-queue",
+      "plaintextMetadata": [
+        {
+          "field": "connectionId",
+          "why": "route a delivery to its connection"
+        }
+      ],
+      "reason": "labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file"
+    },
+    {
+      "id": "scheduler-tasks",
+      "encryption": "required",
+      "keyPurpose": "task",
+      "migrationBatch": "tasks",
+      "plaintextMetadata": [
+        {
+          "field": "taskId",
+          "why": "occurrence routing"
+        }
+      ],
+      "reason": "templates embed prompts and targets"
+    },
+    {
+      "id": "scheduler-fires",
+      "encryption": "required",
+      "keyPurpose": "task",
+      "migrationBatch": "tasks",
+      "plaintextMetadata": [
+        {
+          "field": "taskId",
+          "why": "join to the task"
+        },
+        {
+          "field": "occurrenceId",
+          "why": "idempotency key across restarts"
+        }
+      ],
+      "reason": "fire records quote the rendered prompt and result status"
+    },
+    {
+      "id": "agent-run-snapshot",
+      "encryption": "required",
+      "keyPurpose": "task",
+      "migrationBatch": "tasks",
+      "plaintextMetadata": [
+        {
+          "field": "sessionId",
+          "why": "attach to the session"
+        },
+        {
+          "field": "runId",
+          "why": "idempotency key"
+        }
+      ],
+      "reason": "run goals and step results are user content"
+    },
+    {
+      "id": "agent-run-events",
+      "encryption": "required",
+      "keyPurpose": "task",
+      "migrationBatch": "tasks",
+      "plaintextMetadata": [
+        {
+          "field": "sessionId",
+          "why": "attach to the session"
+        },
+        {
+          "field": "runId",
+          "why": "idempotency key"
+        }
+      ],
+      "reason": "event stream replays tool input/output"
+    },
+    {
+      "id": "background-job-ledger",
+      "encryption": "required",
+      "keyPurpose": "task",
+      "migrationBatch": "tasks",
+      "plaintextMetadata": [
+        {
+          "field": "sessionId",
+          "why": "attach to the session"
+        },
+        {
+          "field": "seq",
+          "why": "append ordering only"
+        }
+      ],
+      "reason": "job output and exit detail"
+    },
+    {
+      "id": "personal-workflows",
+      "encryption": "required",
+      "keyPurpose": "workflow",
+      "migrationBatch": "tasks",
+      "plaintextMetadata": [
+        {
+          "field": "workflowId",
+          "why": "workflow identity"
+        }
+      ],
+      "reason": "workflow steps embed prompts and paths"
+    },
+    {
+      "id": "playbooks",
+      "encryption": "required",
+      "keyPurpose": "workflow",
+      "migrationBatch": "tasks",
+      "plaintextMetadata": [
+        {
+          "field": "playbookId",
+          "why": "playbook identity"
+        }
+      ],
+      "reason": "playbook bodies embed prompts and examples"
+    },
+    {
+      "id": "session-search-index",
+      "encryption": "required",
+      "keyPurpose": "search-index",
+      "migrationBatch": "index-cache",
+      "plaintextMetadata": [
+        {
+          "field": "sessionId",
+          "why": "group rows per session"
+        },
+        {
+          "field": "version",
+          "why": "rebuild decision without decrypting every row"
+        }
+      ],
+      "reason": "derived text units are a plaintext side channel for sealed bodies"
+    },
+    {
+      "id": "web-cache",
+      "encryption": "required",
+      "keyPurpose": "cache",
+      "migrationBatch": "index-cache",
+      "plaintextMetadata": [
+        {
+          "field": "fetchedAt",
+          "why": "cache freshness only, no page text"
+        }
+      ],
+      "reason": "URLs and page bodies are sensitive; only a hash key and a timestamp stay readable"
+    },
+    {
+      "id": "proxy-models-cache",
+      "encryption": "required",
+      "keyPurpose": "cache",
+      "migrationBatch": "index-cache",
+      "plaintextMetadata": [
+        {
+          "field": "fetchedAt",
+          "why": "cache freshness only, no page text"
+        }
+      ],
+      "reason": "model list is provider metadata but can embed account-scoped ids"
+    },
+    {
+      "id": "engine-transcript-index",
+      "encryption": "required",
+      "keyPurpose": "cache",
+      "migrationBatch": "index-cache",
+      "plaintextMetadata": [
+        {
+          "field": "sessionId",
+          "why": "join to the session"
+        }
+      ],
+      "reason": "transcript paths and titles reveal engine sessions"
+    },
+    {
+      "id": "audit-log",
+      "encryption": "required",
+      "keyPurpose": "audit",
+      "migrationBatch": "logs",
+      "plaintextMetadata": [
+        {
+          "field": "at",
+          "why": "rotation and ordering"
+        },
+        {
+          "field": "kind",
+          "why": "routing/classification without decrypting"
+        }
+      ],
+      "reason": "event detail carries tool names, commands and paths"
+    },
+    {
+      "id": "migration-log",
+      "encryption": "required",
+      "keyPurpose": "migration",
+      "migrationBatch": "logs",
+      "plaintextMetadata": [
+        {
+          "field": "appliedAt",
+          "why": "listing order"
+        }
+      ],
+      "reason": "applied file paths and change summaries are user data"
+    },
+    {
+      "id": "migration-skill-backups",
+      "encryption": "required",
+      "keyPurpose": "backup",
+      "migrationBatch": "backups",
+      "plaintextMetadata": [
+        {
+          "field": "skillId",
+          "why": "restore target directory"
+        }
+      ],
+      "reason": "verbatim user skill copies"
+    },
+    {
+      "id": "skill-import-record",
+      "encryption": "required",
+      "keyPurpose": "backup",
+      "migrationBatch": "backups",
+      "plaintextMetadata": [
+        {
+          "field": "skillId",
+          "why": "import target"
+        }
+      ],
+      "reason": "provenance paths and source hashes"
+    },
+    {
+      "id": "credential-vault-v1",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "own authenticated credential envelope (DPAPI CurrentUser master, AES-GCM records): work-data must never rewrap or duplicate it"
+    },
+    {
+      "id": "credential-import-v1",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "rollback journal already sealed by the credential envelope under its own purpose"
+    },
+    {
+      "id": "privacy-mapping-v1",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "privacy reference map is already sealed under the credential envelope purpose privacy-mapping and must restore with the same unlock"
+    },
+    {
+      "id": "external-bot-credentials",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "dedicated DPAPI-protected secret records with their own connection-bound envelope"
+    },
+    {
+      "id": "config",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "settings skeleton: every secret already lives in the credential vault, and M3 does not change the user-chosen settings file format"
+    },
+    {
+      "id": "config-backups",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "insurance copies written before a settings save; they must stay human-restorable outside the unlock path"
+    },
+    {
+      "id": "migration-backups",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "verbatim copies beside externally owned CLI configs, kept for hand recovery"
+    },
+    {
+      "id": "claude-settings",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "externally owned merge target: the workbench may not rewrite it into a sealed format"
+    },
+    {
+      "id": "kimi-mcp",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "externally owned merge target"
+    },
+    {
+      "id": "claude-settings-sidecar",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "ownership sidecar recording only the values this workbench wrote"
+    },
+    {
+      "id": "kimi-mcp-sidecar",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "ownership sidecar recording only the managed ids this workbench wrote"
+    },
+    {
+      "id": "project-agents",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "workspace-owned interoperable declaration; encrypting it would break the user-readable/VCS-shared contract"
+    },
+    {
+      "id": "project-workflows",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "workspace-owned interoperable declaration"
+    },
+    {
+      "id": "steward-workspace-derived",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "derived steward workspace artifacts written for external consumption; the sealed steward state stays authoritative"
+    },
+    {
+      "id": "overlay-state",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "external overlay installer bookkeeping"
+    },
+    {
+      "id": "kimi-session-index",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "external CLI-owned state; the workbench must not rewrite another tool's files"
+    },
+    {
+      "id": "kimi-wire",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "external CLI-owned transcript"
+    },
+    {
+      "id": "engine-transcripts",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "external engine-owned transcript protocol"
+    },
+    {
+      "id": "mcp-consumers-v1",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "authorization registry: token hashes only, and it must be readable before any unlock to authenticate a consumer"
+    },
+    {
+      "id": "install-registry",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "local package locators with no user content; every launch re-registers itself"
+    },
+    {
+      "id": "runtime-handshake",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "ephemeral boot handshake"
+    },
+    {
+      "id": "last-start-error",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "one-shot boot notice with no user content"
+    },
+    {
+      "id": "generated-mcp",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "regenerable launcher input"
+    },
+    {
+      "id": "mcp-host-v1",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "regenerable non-secret runtime locator"
+    },
+    {
+      "id": "usage-ledger",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "numeric monthly counters only"
+    },
+    {
+      "id": "storage-trend",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "numeric trend samples only"
+    }
+  ]
+}

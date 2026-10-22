@@ -1190,6 +1190,22 @@
       ]
     },
     {
+      "file": "01n-work-data-crypto.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataCrypto"
+      ],
+      "requires": [
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02c-turn-segments.js",
       "layer": "foundation",
       "provides": [
