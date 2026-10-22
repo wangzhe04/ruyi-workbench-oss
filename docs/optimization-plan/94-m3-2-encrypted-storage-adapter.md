@@ -1,6 +1,6 @@
 # 94 · M3-2 加密存储适配：边界、开关与第一个数据族
 
-更新：2026-10-22。状态：**M3-2a 已实现并验证；M3-2 整体仍在进行中**（清册 41 个"必须加密"族里，本批只接线了 1 个）。起点提交 `c9234040`，分支 `codex/3.1-completion-plan`，应用版本仍为 `3.0.1`。本批**没有迁移任何用户数据**，也没有任何界面入口。
+更新：2026-10-22。状态：**M3-2a/M3-2b 已实现并验证，M3-2c 完成了格式冻结与派生读点接线；M3-2 整体仍在进行中**（清册 41 个"必须加密"族里，已接线 2 个：会话头、草稿本；正文 NDJSON 与索引族仍明文）。起点提交 `c9234040`，分支 `codex/3.1-completion-plan`，应用版本仍为 `3.0.1`。本批**没有迁移任何用户数据**，也没有任何界面入口。
 
 ## 1. 本批交付
 
@@ -101,7 +101,8 @@ odePath` 后 SCC 回到 31，并把静态门上限从 32 调到 31（只降不�
 **唯一读写口**（`02-session-store.js`）：`sessionHeadStore(id)` → `WorkDataStore.createText`，配套 `readSessionHeadText(id)` / `writeSessionHead(id, payload)`。02 内共 **12 处读写调用点**，其中 **7 处是删掉的旧直读/直写**：
 
 - `loadSession` 的头读取、`saveSession` 的头写入与 `mergeMissionFromDisk` / `diskTurnSeq` 守卫读；
-- 索引扫描（重建与 `noteSessionIndexBadHead`）—— 开关开时先解密再判「好头/坏头」，否则密文会被误判成坏头、整库会话从列表消失；
+- 索引扫描（重建与 
+oteSessionIndexBadHead`）—— 开关开时先解密再判「好头/坏头」，否则密文会被误判成坏头、整库会话从列表消失；
 - `readSessionHeadResilient`（`/api/status`、`/api/models`、mission 头读）、`readSessionChangesWithMeta`、`bumpMissionChangeSeq` 的头改写、`journalResolveTurnSeq`、标题覆盖读取。
 
 **三条新合同**：
@@ -140,3 +141,50 @@ odePath` 后 SCC 回到 31，并把静态门上限从 32 调到 31（只降不�
 | D4 | 次要 | "手工置 true 但无密钥信封"的后果没写 | §9 补明 `work_data_key.absent` 与恢复方式 |
 
 复审复核通过、未改动的点：开关关时头字节与旧路径一致（字符串交给 `atomicWriteJson` 直接落盘）；密文错误全部走 `fail('corrupt')`，没有 `return null`、没有 `.corrupt` 改名；ENOENT 未被吞，`readSessionHeadResilient` 的退避重试与 `loadSession` 的"不存在"判据仍成立；空/非 JSON 头文件按旧契约原样返回；`workData≠2` 的容器对象当损坏处理；未启用用户拿不到密钥材料；`01n` 的 recordId 字符类本来就允许 `-`（本批只加注释）；`13d`/`13j`/`06` 的调用形态会安全降级。
+
+## 11. M3-2c：逐记录格式冻结与派生读点接线（本批范围）
+
+会话头接完之后，94 §9 列出的两件遗留是：正文 NDJSON（消息与 provider 历史）仍是明文，以及 6 处非 02 的派生读点仍按明文读头。本批只做了**可控的那一半**。
+
+### 11.1 逐记录格式已冻结（`01q-work-data-records.js`）
+
+每行一条独立认证的记录：`{"w":2,"e":<WorkDataCrypto v2 容器>}`，绑定 `purpose=session`、`instanceId`、`scopeId=会话 id`、`recordId=<kind>:<ordinal>`、`seq=ordinal`，`kind` 只能是 `messages` / `provider`。这组绑定让下面每一种"读错位置"都失败，而不是被当成内容：
+
+- 行被**调换 / 复制 / 中间挖空**（ordinal 对不上）→ `ordinal_mismatch`；
+- 整行**搬到另一条会话**或另一个 kind → `authenticate_failed`；
+- 换一个实例/密钥，或**改一个密文字节** → `authenticate_failed`；
+- 同一份正文里**混进明文行**、空行、未知版本 → `corrupt` / `format_unsupported`。
+
+两条边界要写清：① 正文行**不得为空**（内部空行视为损坏，`encodeLine` 也拒绝空文本）；② **尾部整行截断检测不到**——AAD 里没有总行数，"行 0..k 的前缀"仍然是可验证的合法块。能拦住的是调换、复制、中间挖空；截断防线在调用方（正文的字节级截断规则），这正是 §11.3 把"字节级截断"列为不接正文的原因之一。
+
+纯模块、不碰文件；6 项单测覆盖上述全部反面（`work-data-records.test.js`）。**这一层故意还没有接进正文快路径**，原因见 11.3。
+
+### 11.2 6 处派生读点已接到唯一解密读口
+
+| 文件 | 用途 | 改法 |
+|---|---|---|
+| `06-provider-engine.js` | 扫描活引擎转录（孤儿驱动回收） | 逐文件改走 `readSessionHeadResilient(id)` |
+| `13-http-router.js` | `resetOrphanedMissionDrivers` 的关键词预筛 | 改走 `readSessionHeadText(id)`（先解密再做 `until-done` 判定） |
+| `13d-core-domain-routes.js` | `sessionEnvelopeStamp`（条件 GET 的 ETag） | 头哈希改为哈希**解密后**的文本（同一内容换随机 nonce 不再让 ETag 抖动） |
+| `13e-pretender-index.js` | 看板投影 | 改走 `readSessionHeadResilient(sid)` |
+| `13i-steward-inbox.js` | `stewardReadTurnHead` | 改走 `readSessionHeadResilient(sessionId)` |
+| `13j-steward-tool-base.js` | 管家读会话权限档 | 改走 `readSessionHeadResilient(sid)` + 原有内存覆盖 |
+
+开关打开时这 6 处**能正常解密**了；但它们的容错语义原样保留：`readSessionHeadResilient` 只对瞬时错误（ENOENT/EPERM/EBUSY/EACCES）退避重试，其余错误（**包括缺钥与解不开的密文**）一律 `return null`；`loadSession` 那条权威装载路径仍然抛出。也就是说：**能解密时不再降级；缺钥/密文损坏仍按既有容错返回 null 或跳过**，排障时会被伪装成"会话不存在"。缺钥的用户可见提示归 M3-3——这条边界不藏，也不假装已经做到"永远冒泡"。
+
+### 11.3 正文 NDJSON 为什么还留着明文
+
+正文这条链比头难得多，硬塞逐记录加密会同时踩四个雷：
+
+1. **行哈希是前缀判据**：`sessionLineHash` 对**行原文**算 sha1，用来判断"调用方手里的消息是盘上正文的严格前缀"（并发写者补齐、陈旧副本 rebase）。随机 nonce 让同一条内容每次重写都换字节，前缀判定会失效——必须先解码成明文再哈希。
+2. **字节级截断**：撕裂尾行按**字节偏移**截断（`lineEndBytes`、`truncateSessionBody(file, len)`），密文边界与明文不一致，截断点要重算。
+3. **崩溃窗口**：快路径 append、慢路径整份重写 + 删 `.prevbody` 快照、头后提交，各有自己的崩溃语义；逐记录解码要在这三条路径上都成立。
+4. **性能**：装载是热路径（基线里会话首读 p50 8–10 ms、搜索首查约 800 ms），每行一次 AEAD 解码会把成本乘上行数。
+
+所以正确顺序是**先写故障注入用例**（追加中途崩溃、撕裂尾、慢路径重写中断、并发写者、解密失败不回退明文），再接线快路径。本批只冻格式，不接线。
+
+### 11.4 状态与验证
+
+- 清册 41 个"必须加密"族里，**已接线 2 个**（会话头、草稿本）；正文 NDJSON、索引族、其余数据族仍明文，不能说"会话已加密"。
+- 派生读点 6/6 已接：开关打开时它们能解密；缺钥/密文损坏仍按既有容错返回 null 或跳过（`loadSession` 那条权威路径才抛），缺钥提示归 M3-3。
+- 本批验证：`work-data-records` 6/6；完整单测 2603 项 / 2577 过 / 26 跳过 / 0 失败；`session-get-etag`、`checkpoint-visibility`、`steward-conversation`、`interventions-pool`、`mission-index-late-materialize`、`autonomy-durability` 六件 e2e 全过；依赖图 93 模块 649 边、SCC 仍 31（01q 在环外）；facts 557 e2e / 294 unit suite。

@@ -1958,7 +1958,7 @@ async function resetOrphanedMissionDrivers() {
   for (const f of files) {
     const hit = /^(sess_[A-Za-z0-9_-]+)\.json$/.exec(f);
     if (!hit) continue;
-    const text = await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => '');
+    const text = await readSessionHeadText(hit[1]).catch(() => '');   // M3-2c: 解密后再做关键词判定
     if (!/"autoMode"\s*:\s*"until-done"/.test(text)) continue;
     const head = safeJsonParse(text, null);
     const hm = head && head.mission;

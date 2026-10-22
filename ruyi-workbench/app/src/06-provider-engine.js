@@ -735,7 +735,7 @@ async function collectLiveClaudeSessionIds() {
   for (const f of files) {
     if (!f.endsWith('.json') || f === SESSION_INDEX_FILE) continue;
     try {
-      const o = safeJsonParse(await fsp.readFile(path.join(paths.sessions, f), 'utf8'), null);
+      const o = await readSessionHeadResilient(String(f).slice(0, -5));   // M3-2c: 开关开时先解密,否则密文头读不到
       if (o && typeof o.claudeSessionId === 'string' && ENGINE_TRANSCRIPT_ID_RE.test(o.claudeSessionId)) live.add(o.claudeSessionId);
     } catch { /* 单个坏文件不阻塞扫描 */ }
   }

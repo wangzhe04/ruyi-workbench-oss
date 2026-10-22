@@ -338,7 +338,7 @@ async function sessionEnvelopeStamp(id) {
   try {
     const bp = sessionBodyPaths(id);
     const [head, msg, prov, jobs] = await Promise.all([
-      fsp.readFile(sessionPath(id)),
+      readSessionHeadText(id),   // M3-2c: 解密后的头文本参与信封戳
       fsp.stat(bp.messages),
       fsp.stat(bp.provider),
       // 路径与 11-native-tools.js 的 backgroundJobFile 同一处约定(sessions/background-jobs/<id>.json)。这里不直接引用它:13d 引 11

@@ -1222,6 +1222,29 @@
       ]
     },
     {
+      "file": "01q-work-data-records.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataRecords"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01n-work-data-crypto.js",
+          "symbol": "WorkDataCrypto",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02c-turn-segments.js",
       "layer": "foundation",
       "provides": [
@@ -5882,6 +5905,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
           "kinds": [
             "call"
           ]
@@ -14522,6 +14552,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readSessionHeadText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readSessionRouteHead",
           "kinds": [
             "call"
@@ -16560,13 +16597,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "sessionPath",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "tokenMatches",
           "kinds": [
             "call"
@@ -16785,6 +16815,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readSessionHeadResilient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionHeadText",
           "kinds": [
             "call"
           ]
@@ -17661,6 +17698,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readSessionHeadText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionKind",
           "kinds": [
             "call"
@@ -17945,15 +17989,15 @@
           ]
         },
         {
-          "provider": "01-config.js",
-          "symbol": "sessionPath",
+          "provider": "02-session-store.js",
+          "symbol": "readMissionChangesWithMeta",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "readMissionChangesWithMeta",
+          "symbol": "readSessionHeadResilient",
           "kinds": [
             "call"
           ]
@@ -18225,13 +18269,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "sessionPath",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "tokenOk",
           "kinds": [
             "call"
@@ -18247,6 +18284,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "foldTurnSummaries",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
           "kinds": [
             "call"
           ]

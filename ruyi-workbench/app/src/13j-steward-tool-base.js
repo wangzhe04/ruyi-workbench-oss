@@ -88,7 +88,7 @@ async function stewardReadSessionHead(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
   try {
-    const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null);
+    const head = await readSessionHeadResilient(sid);   // M3-2c: 唯一解密读口
     // 116-2a: 这条读路径绕过 loadSession(只要头,不装正文),所以要自己盖一次会话级权限档的内存
     // 覆盖表 —— 否则用户刚在活回合期间切了档、还没落盘,管家读到的就是旧档(见 02 的覆盖表头注)。
     return head && typeof head === 'object' ? applySessionPermissionModeOverride(head) : head;

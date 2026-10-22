@@ -8133,6 +8133,77 @@ const WorkDataStore = ((fsp) => {
   return Object.freeze({ create, createText, CONTAINER });
 })(require('node:fs/promises'));
 
+// M3-2c: frozen per-record format for append-only NDJSON bodies (messages / provider history).
+//
+// One record per line, each independently authenticated, so a reordered, copied or middle-deleted
+// copied line fails instead of being read as content from another position or another session. The
+// binding is (purpose=session, instance, sessionId=scopeId, kind:ordinal=recordId, ordinal=seq): the
+// ordinal is what makes "line 3 moved to line 5" detectable. Deliberately NOT wired into the session
+// body fast path yet — see 94 §11 (the body has line hashes, byte-offset truncation and crash
+// windows that need their own fault-injection batch).
+const WorkDataRecords = (() => {
+  const FORMAT = 2;
+  const KINDS = Object.freeze(['messages', 'provider']);
+  const fail = suffix => { throw Object.assign(new Error('work_data_record.' + suffix), { code: 'work_data_record.' + suffix, apiCode: 'work_data_record.' + suffix }); };
+  const ordinalOf = value => {
+    if (!Number.isSafeInteger(value) || value < 0) fail('ordinal_invalid');
+    return value;
+  };
+  const kindOf = value => {
+    if (!KINDS.includes(value)) fail('kind_invalid');
+    return value;
+  };
+  const bindingOf = (context, ordinal) => ({
+    purpose: 'session', instanceId: context.instanceId, schema: FORMAT, scopeId: context.sessionId,
+    recordId: kindOf(context.kind) + ':' + ordinalOf(ordinal), seq: ordinal,   // ':' is inside the frozen identity charset
+  });
+  function isEncodedLine(line) {
+    const trimmed = String(line == null ? '' : line).trim();
+    if (!trimmed.startsWith('{')) return false;
+    try { const parsed = JSON.parse(trimmed); return !!parsed && typeof parsed === 'object' && parsed.w === FORMAT && Object.hasOwn(parsed, 'e'); }
+    catch { return false; }
+  }
+  function encodeLine(plainLine, key, context) {
+    if (typeof plainLine !== 'string' || !plainLine) fail('text_required');
+    const ordinal = ordinalOf(context && context.ordinal);
+    const container = WorkDataCrypto.seal(plainLine, key, bindingOf(context, ordinal));
+    return JSON.stringify({ w: FORMAT, e: container });
+  }
+  function decodeLine(line, key, context) {
+    let parsed;
+    try { parsed = JSON.parse(String(line == null ? '' : line)); } catch { fail('corrupt'); }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).sort().join(',') !== 'e,w') fail('corrupt');
+    if (parsed.w !== FORMAT) fail('format_unsupported');
+    const ordinal = ordinalOf(context && context.ordinal);
+    const envelope = parsed.e;
+    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) fail('corrupt');
+    if (envelope.seq !== ordinal) fail('ordinal_mismatch');
+    let plainLine;
+    try { plainLine = WorkDataCrypto.open(envelope, key, bindingOf(context, ordinal)); }
+    catch { fail('authenticate_failed'); }
+    if (typeof plainLine !== 'string' || !plainLine) fail('corrupt');
+    return plainLine;
+  }
+  // Whole body: every line must be a valid record at its own ordinal. This only accepts a full block
+  // starting at ordinal 0: a tail-truncated block still decodes (the AAD carries no total count), so
+  // truncation stays a caller-side concern. Returns the plaintext body with
+  // the same trailing-newline shape, so callers keep their existing line splitting.
+  function decodeBody(text, key, context) {
+    const raw = String(text == null ? '' : text);
+    if (!raw) return '';
+    const lines = raw.split('\n');
+    const trailing = lines.length > 0 && lines[lines.length - 1] === '';
+    const body = trailing ? lines.slice(0, -1) : lines;
+    const plain = [];
+    for (let index = 0; index < body.length; index++) {
+      if (!body[index]) fail('corrupt');   // an interior blank line is not a record
+      plain.push(decodeLine(body[index], key, { ...context, ordinal: index }));
+    }
+    return plain.join('\n') + (trailing ? '\n' : '');
+  }
+  return Object.freeze({ FORMAT, KINDS, isEncodedLine, encodeLine, decodeLine, decodeBody });
+})();
+
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
 // 第54波 EC-D: one ordered narrative ledger for both Claude CLI and OpenAI-compatible turns. The ledger is
 // additive: engines still persist content/thinking/toolCalls/turnSummary for old clients, while new clients
@@ -32649,7 +32720,7 @@ async function collectLiveClaudeSessionIds() {
   for (const f of files) {
     if (!f.endsWith('.json') || f === SESSION_INDEX_FILE) continue;
     try {
-      const o = safeJsonParse(await fsp.readFile(path.join(paths.sessions, f), 'utf8'), null);
+      const o = await readSessionHeadResilient(String(f).slice(0, -5));   // M3-2c: 开关开时先解密,否则密文头读不到
       if (o && typeof o.claudeSessionId === 'string' && ENGINE_TRANSCRIPT_ID_RE.test(o.claudeSessionId)) live.add(o.claudeSessionId);
     } catch { /* 单个坏文件不阻塞扫描 */ }
   }
@@ -70414,7 +70485,7 @@ async function resetOrphanedMissionDrivers() {
   for (const f of files) {
     const hit = /^(sess_[A-Za-z0-9_-]+)\.json$/.exec(f);
     if (!hit) continue;
-    const text = await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => '');
+    const text = await readSessionHeadText(hit[1]).catch(() => '');   // M3-2c: 解密后再做关键词判定
     if (!/"autoMode"\s*:\s*"until-done"/.test(text)) continue;
     const head = safeJsonParse(text, null);
     const hm = head && head.mission;
@@ -72811,7 +72882,7 @@ async function sessionEnvelopeStamp(id) {
   try {
     const bp = sessionBodyPaths(id);
     const [head, msg, prov, jobs] = await Promise.all([
-      fsp.readFile(sessionPath(id)),
+      readSessionHeadText(id),   // M3-2c: 解密后的头文本参与信封戳
       fsp.stat(bp.messages),
       fsp.stat(bp.provider),
       // 路径与 11-native-tools.js 的 backgroundJobFile 同一处约定(sessions/background-jobs/<id>.json)。这里不直接引用它:13d 引 11
@@ -75371,7 +75442,10 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentI
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
   pretenderIndexRuntime.counters.sliceBuilds += 1;
-  const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8').catch(() => ''), null);
+  // M3-2c: 唯一解密读口。逐会话隔离 —— 单个坏头不能把整次索引重建打 reject;孤儿会话(无头文件)用
+  // readSessionHeadText 直接拿 ENOENT,不走 resilient 那 80ms 退避。
+  let head = null;
+  try { head = safeJsonParse(await readSessionHeadText(sid), null); } catch { head = null; }
   let ivMeta = await readInterventionsWithMeta(sid);
   if ((!head || !head.id) && ivMeta.bytes === 0) return null;
   // External/legacy journals also get bounded maintenance on a rebuild. Never compact degraded authority.
@@ -76993,7 +77067,7 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
 // settle 之后落的 stewardLastTurn(会话头上本来没有任何回合成败字段,实测过)。
 // 成本:先拿投影免费给的 sourceStamp(会话文件的 size:mtime 指纹)比一次,没变就连头都不读。
 async function stewardReadTurnHead(sessionId) {
-  try { return safeJsonParse(await fsp.readFile(sessionPath(sessionId), 'utf8'), null); } catch { return null; }
+  try { return await readSessionHeadResilient(sessionId); } catch { return null; }   // M3-2c: 唯一解密读口
 }
 
 // 「管家关心这条会话吗」的唯一判据(§11.7)【定义已搬到 06i-steward-core.js】——
@@ -77544,7 +77618,7 @@ async function stewardReadSessionHead(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
   try {
-    const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null);
+    const head = await readSessionHeadResilient(sid);   // M3-2c: 唯一解密读口
     // 116-2a: 这条读路径绕过 loadSession(只要头,不装正文),所以要自己盖一次会话级权限档的内存
     // 覆盖表 —— 否则用户刚在活回合期间切了档、还没落盘,管家读到的就是旧档(见 02 的覆盖表头注)。
     return head && typeof head === 'object' ? applySessionPermissionModeOverride(head) : head;

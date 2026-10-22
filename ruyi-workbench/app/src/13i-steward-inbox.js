@@ -1021,7 +1021,7 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
 // settle 之后落的 stewardLastTurn(会话头上本来没有任何回合成败字段,实测过)。
 // 成本:先拿投影免费给的 sourceStamp(会话文件的 size:mtime 指纹)比一次,没变就连头都不读。
 async function stewardReadTurnHead(sessionId) {
-  try { return safeJsonParse(await fsp.readFile(sessionPath(sessionId), 'utf8'), null); } catch { return null; }
+  try { return await readSessionHeadResilient(sessionId); } catch { return null; }   // M3-2c: 唯一解密读口
 }
 
 // 「管家关心这条会话吗」的唯一判据(§11.7)【定义已搬到 06i-steward-core.js】——

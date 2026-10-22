@@ -242,7 +242,10 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentI
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
   pretenderIndexRuntime.counters.sliceBuilds += 1;
-  const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8').catch(() => ''), null);
+  // M3-2c: 唯一解密读口。逐会话隔离 —— 单个坏头不能把整次索引重建打 reject;孤儿会话(无头文件)用
+  // readSessionHeadText 直接拿 ENOENT,不走 resilient 那 80ms 退避。
+  let head = null;
+  try { head = safeJsonParse(await readSessionHeadText(sid), null); } catch { head = null; }
   let ivMeta = await readInterventionsWithMeta(sid);
   if ((!head || !head.id) && ivMeta.bytes === 0) return null;
   // External/legacy journals also get bounded maintenance on a rebuild. Never compact degraded authority.
