@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 93 | 3909 | 3563 | 650 | 67 | 0 | 1 |
+| 93 | 3911 | 3565 | 652 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -61,7 +61,7 @@
 | 43 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 44 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
 | 45 | `06i-steward-core.js` | engine | 167 | 1 | 1 |
-| 46 | `06d-memory-domain.js` | engine | 178 | 39 | 10 |
+| 46 | `06d-memory-domain.js` | engine | 179 | 40 | 11 |
 | 47 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 48 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 49 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
@@ -84,7 +84,7 @@
 | 66 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 67 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
 | 68 | `13e-pretender-index.js` | transport | 57 | 40 | 8 |
-| 69 | `13i-steward-inbox.js` | transport | 88 | 29 | 8 |
+| 69 | `13i-steward-inbox.js` | transport | 89 | 30 | 9 |
 | 70 | `13j-steward-tool-base.js` | transport | 82 | 26 | 9 |
 | 71 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
 | 72 | `13k-steward-threads.js` | transport | 60 | 127 | 17 |
@@ -264,6 +264,7 @@
 | `06d-memory-domain.js` | `00-boot.js` | backward | `SKILL_ID_RE`, `agentCliHomes`, `apiFailure`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `json`, `makeId`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `tildePath` |
 | `06d-memory-domain.js` | `01-config.js` | backward | `DurableJsonStore`, `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `06d-memory-domain.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `memoryIndexCharCap`, `memoryRelevanceMax`, `memoryVectorRecallEnabled` |
+| `06d-memory-domain.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `06d-memory-domain.js` | `02-session-store.js` | backward | `loadSession` |
 | `06d-memory-domain.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
 | `06d-memory-domain.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
@@ -554,6 +555,7 @@
 | `13h-steward-runner.js` | `13q-steward-runner-turn.js` | backward | `runStewardTurn`, `stewardApplyThreadTier`, `stewardOnInboxBatch`, `stewardRelayChannelFor`, `stewardRelayDeliver`, `stewardResetConversation`, `stewardRunAct`, `stewardVisit` |
 | `13i-steward-inbox.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `fs`, `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
+| `13i-steward-inbox.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13i-steward-inbox.js` | `02-session-store.js` | backward | `readMissionChangesWithMeta`, `readSessionHeadResilient`, `repairMissionChangeTornTail` |
 | `13i-steward-inbox.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `turnOutcomePending`, `turnSettlers` |
 | `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardCoveringLastTurn`, `stewardSanitizeText`, `stewardWatchedThread` |

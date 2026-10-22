@@ -39,6 +39,15 @@ function harness(t, rows = []) {
     safeJsonParse: (text, fallback) => { try { return JSON.parse(text); } catch { return fallback; } },
     repairMissionChangeTornTail: async () => {}, safeSessionId: value => value, nowIso: () => new Date().toISOString(),
     getPretenderProjectionIndex: async () => ({ sessions: [{ sessionId: 'sess_test', interventions: [] }] }),
+    // M3-2d: 13i 的游标改走 WorkDataStore.createText。这个 vm 只切了 steward 的源码，没有 01p，
+    // 所以给一个"明文直通"的最小实现（与适配器开关关闭时的行为一致），把留级/节流逻辑与加密层隔离。
+    WorkDataStore: {
+      createText: ({ file, writeJson }) => ({
+        read: async () => { try { return await fsp.readFile(file(), 'utf8'); } catch (error) { if (error && error.code === 'ENOENT') return null; throw error; } },
+        write: async text => { await writeJson(file(), text); return text; },
+      }),
+      requireKeys: () => { throw Object.assign(new Error('no keys in this fixture'), { code: 'work_data_store.not_initialised' }); },
+    },
   });
   vm.runInContext(atomicSource + '\n' + inboxSource + '\n' + projectionSource + '\n' + toolSource + '\n' +
     'globalThis.api = { stewardRuntime, stewardMaintainInbox, stewardAppendInboxRows, stewardInboxRead, stewardImplInboxRead, stewardSaveCursor, stewardLoadState };', context);

@@ -11,7 +11,7 @@ Frozen purposes (`WorkDataCrypto.PURPOSES`): `session`, `memory`, `queue`, `task
 
 Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)`, AAD binds `schema` / `scopeId` / `seq` on top of the privacy-core triple.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -31,7 +31,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 | pretender-index | required | `search-index` | index-cache | pending | `sessionId` (group rows per session) | derived from sealed bodies, so it must not become a plaintext side channel |
 | memory-body | required | `memory` | memory-queue | pending | `id` (frontmatter/file name; opaque memory id); `scope` (global vs project bucket; project key is already opaque) | memory bodies and frontmatter titles/descriptions are user content |
 | memory-meta | required | `memory` | memory-queue | pending | `id` (join key to the body) | titles, tags and source references stay sealed |
-| memory-usage | required | `memory` | memory-queue | pending | — (nothing readable) | usage reveals which memories were used; cheap to seal together with memory-meta |
+| memory-usage | required | `memory` | memory-queue | wired | — (nothing readable) | usage reveals which memories were used; cheap to seal together with memory-meta |
 | memory-relations | required | `memory` | memory-queue | pending | — (nothing readable) | relation edges name memory ids and their meaning |
 | memory-proposals | required | `memory` | memory-queue | pending | — (nothing readable) | pending proposals quote the user content they propose to remember |
 | memory-import-marker | excluded | — | not-migrated | pending | — (nothing readable) | content-free bookkeeping: entry hashes and timestamps, no text and no path |
@@ -40,7 +40,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 | steward-visits | required | `memory` | memory-queue | pending | — (nothing readable) | visit history reveals which threads and items the steward read |
 | voice-lexicon | required | `user-config` | memory-queue | wired | — (nothing readable) | personal vocabulary and names |
 | steward-inbox | required | `queue` | memory-queue | pending | — (nothing readable) | inbox items quote incoming messages |
-| steward-cursor | required | `queue` | memory-queue | pending | — (nothing readable) | cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe |
+| steward-cursor | required | `queue` | memory-queue | wired | — (nothing readable) | cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe |
 | steward-decisions | required | `queue` | memory-queue | pending | — (nothing readable) | decisions and rationales quote the triggering content |
 | work-data-key-v1 | excluded | — | not-migrated | pending | — (nothing readable) | the key envelope itself: a DPAPI-wrapped master with no user content; every work-data record needs it unlocked first, so it cannot live inside the envelope it protects |
 | external-bots | required | `queue` | memory-queue | pending | `connectionId` (route a delivery to its connection) | labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file |

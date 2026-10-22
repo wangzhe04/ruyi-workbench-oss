@@ -186,7 +186,9 @@ function typeExpressionLiterals(text) {
   ok(inbox.includes("path.join(paths.data, STEWARD_DIR_NAME)") && !inbox.includes("paths.steward"),
     'D5 <data>/steward 不进 paths 常量表(否则 ensureDirs 会在开关关时也建目录)');
   ok(inbox.includes('repairMissionChangeTornTail'), 'D5 inbox 追加复用 session-changes 同款 NDJSON 原语(不新造)');
-  ok(inbox.includes('atomicWriteJson(stewardCursorPath()'), 'D5 游标经 atomicWriteJson 落盘');
+  // M3-2d: 游标改走 WorkDataStore.createText（开关关时内部仍是 atomicWriteJson，字节不变）。
+  ok(inbox.includes('stewardCursorStore.write(') && inbox.includes('const stewardCursorStore = WorkDataStore.createText({'),
+    'D5 游标经 WorkDataStore.createText 落盘（关闭开关时等价于原 atomicWriteJson 字节）');
 
   const main = read('14-main.js');
   ok(/startStewardInbox\(await readConfig\(\)\)/.test(main), 'D5 14-main 在 startServer 返回后调用 startStewardInbox(config)');

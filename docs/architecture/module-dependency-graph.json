@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 93,
-    "providedSymbols": 3909,
-    "requiredSymbols": 3563,
-    "edges": 650,
+    "providedSymbols": 3911,
+    "requiredSymbols": 3565,
+    "edges": 652,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -6628,6 +6628,7 @@
         "memoryToolSupersededStatus",
         "memoryUsageFile",
         "memoryUsageKey",
+        "memoryUsageStore",
         "memoryUsageWriteChain",
         "memoryValidSupersededBy",
         "migrateLegacyAccMemory",
@@ -6823,7 +6824,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -6887,6 +6889,13 @@
           "symbol": "memoryVectorRecallEnabled",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18019,6 +18028,7 @@
         "stewardCollectEvents",
         "stewardCollectSessionTurn",
         "stewardCursorPath",
+        "stewardCursorStore",
         "stewardDir",
         "stewardEventDedupeKey",
         "stewardHeldTurnSessions",
@@ -18132,7 +18142,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -18147,6 +18158,13 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -31499,6 +31517,14 @@
     },
     {
       "from": "06d-memory-domain.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06d-memory-domain.js",
       "to": "02-session-store.js",
       "symbols": [
         "loadSession"
@@ -35155,6 +35181,14 @@
         "atomicWriteJson",
         "readConfig",
         "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
       ],
       "direction": "backward"
     },

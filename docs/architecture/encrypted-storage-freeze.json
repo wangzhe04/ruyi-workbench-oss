@@ -35,7 +35,9 @@
     "session-messages",
     "session-provider",
     "session-scratchpad",
-    "voice-lexicon"
+    "voice-lexicon",
+    "memory-usage",
+    "steward-cursor"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -258,7 +260,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "usage reveals which memories were used; cheap to seal together with memory-meta",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "memory-relations",
@@ -339,7 +341,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "steward-decisions",

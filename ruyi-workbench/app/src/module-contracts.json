@@ -6524,6 +6524,7 @@
         "memoryToolSupersededStatus",
         "memoryUsageFile",
         "memoryUsageKey",
+        "memoryUsageStore",
         "memoryUsageWriteChain",
         "memoryValidSupersededBy",
         "migrateLegacyAccMemory",
@@ -6719,7 +6720,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -6783,6 +6785,13 @@
           "symbol": "memoryVectorRecallEnabled",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -17869,6 +17878,7 @@
         "stewardCollectEvents",
         "stewardCollectSessionTurn",
         "stewardCursorPath",
+        "stewardCursorStore",
         "stewardDir",
         "stewardEventDedupeKey",
         "stewardHeldTurnSessions",
@@ -17982,7 +17992,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -17997,6 +18008,13 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {

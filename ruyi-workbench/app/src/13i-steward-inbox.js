@@ -553,6 +553,17 @@ function stewardInboxRowDedupeKeys(row) {
 function stewardDir() { return path.join(paths.data, STEWARD_DIR_NAME); }
 function stewardInboxPath() { return path.join(stewardDir(), STEWARD_INBOX_FILE); }
 function stewardCursorPath() { return path.join(stewardDir(), STEWARD_CURSOR_FILE); }
+// M3-2d: 游标是自定义序列化的文本记录（purpose=queue / scope=global / record=steward-cursor）。
+// 解不开时【不能】按"损坏"处理：那会把基线归零、把区间内的增量静默跳过（13i 里那段注释的旧事故），
+// 所以加密类错误直接冒泡，交给调用方如实失败并下一拍重试。
+const stewardCursorStore = WorkDataStore.createText({
+  id: 'steward-cursor',
+  file: () => stewardCursorPath(),
+  purpose: 'queue', schema: STEWARD_CURSOR_SCHEMA, scopeId: 'global', recordId: 'steward-cursor',
+  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  writeJson: atomicWriteJson,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+});
 
 const stewardRuntime = {
   timer: null,
@@ -854,10 +865,15 @@ async function stewardLoadState() {
   let raw = null;
   let corrupt = false;
   try {
-    raw = safeJsonParse(await fsp.readFile(stewardCursorPath(), 'utf8'), null);
-    if (!raw) corrupt = true;                                   // 文件在,但不是合法 JSON
+    const text = await stewardCursorStore.read();                // ENOENT → null(冷启动),加密错误 → 抛出
+    if (text == null) raw = null;
+    else {
+      raw = safeJsonParse(text, null);
+      if (!raw) corrupt = true;                                 // 文件在,但不是合法 JSON
+    }
   } catch (error) {
     raw = null;
+    if (String((error && error.code) || '').startsWith('work_data')) throw error;   // 解不开 ≠ 损坏
     if (!error || error.code !== 'ENOENT') corrupt = true;       // 文件在但读不动(权限/IO):同样按损坏处理
   }
   if (raw && typeof raw === 'object' && Number(raw.schema) !== STEWARD_CURSOR_SCHEMA) corrupt = true;
@@ -999,8 +1015,7 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
   const sessionTurns = st.persisted;
   const sig = stewardRuntime.inboxSeq + '|' + JSON.stringify({ missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns });
   if (sig === stewardRuntime.cursorSig) return { written: false };
-  await fsp.mkdir(stewardDir(), { recursive: true });
-  await atomicWriteJson(stewardCursorPath(), JSON.stringify({
+  await stewardCursorStore.write(JSON.stringify({
     schema: STEWARD_CURSOR_SCHEMA,
     inboxSeq: stewardRuntime.inboxSeq,
     updatedAt: nowIso(),

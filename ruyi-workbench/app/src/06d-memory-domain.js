@@ -52,6 +52,25 @@ function projectKeyForCwd(cwd) {
 }
 function memoryProjectDir(cwd) { return path.join(paths.memory, 'project', projectKeyForCwd(cwd)); }
 function memoryUsageFile() { return path.join(paths.memory, '_usage-v1.json'); }
+// M3-2d: 记忆使用记账接整文件适配器（purpose=memory / scope=global / record=memory-usage）。开关关时
+// 与旧的 atomicWriteJson 逐字节一致；开时封印。缺钥/解不开必须冒泡——把失败当"空账"会让下一次
+// touchMemoryUsage 用空对象覆盖密文（同 voice-lexicon 的 H1）。
+const memoryUsageStore = WorkDataStore.createJson({
+  id: 'memory-usage',
+  file: () => memoryUsageFile(),
+  schemaVersion: 1,
+  defaultValue: () => ({ schema: 1, entries: {} }),
+  sanitize: value => {
+    const entries = (value && value.entries && typeof value.entries === 'object' && !Array.isArray(value.entries)) ? value.entries : {};
+    return { ...(value && typeof value === 'object' ? value : {}), schema: 1, entries };
+  },
+  validate: value => value.schema === 1 && Boolean(value.entries) && typeof value.entries === 'object' && !Array.isArray(value.entries),
+  quarantine: false,
+  purpose: 'memory', scopeId: 'global', recordId: 'memory-usage',
+  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  writeJson: atomicWriteJson,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+});
 function memoryUsageKey(entry, cwd) {
   return entry.scope === 'global' ? 'global:' + entry.id : 'project:' + projectKeyForCwd(cwd) + ':' + entry.id;
 }
@@ -76,14 +95,12 @@ function memoryReviewDue(entry, nowMs = Date.now()) {
 }
 
 async function readMemoryUsageState() {
-  try {
-    const file = memoryUsageFile();
-    const st = await fsp.stat(file);
-    if (!st.isFile() || st.size > 2 * 1024 * 1024) return { schema: 1, entries: {} };
-    const raw = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
-    if (!raw || typeof raw !== 'object' || !raw.entries || typeof raw.entries !== 'object' || Array.isArray(raw.entries)) return { schema: 1, entries: {} };
-    return { schema: 1, entries: raw.entries };
-  } catch { return { schema: 1, entries: {} }; }
+  try { return await memoryUsageStore.read(); }
+  catch (error) {
+    // 明文坏文件沿用旧契约（当空 + 诊断由适配器记）；加密类错误一律冒泡，绝不回空。
+    if (!String((error && error.code) || '').startsWith('work_data')) return { schema: 1, entries: {} };
+    throw error;
+  }
 }
 
 let memoryUsageWriteChain = Promise.resolve();
@@ -109,8 +126,7 @@ async function touchMemoryUsage(entries, cwd, reason = 'relevant') {
       changed = true;
     }
     if (!changed) return;
-    await fsp.mkdir(paths.memory, { recursive: true });
-    await atomicWriteJson(memoryUsageFile(), { schema: 1, updatedAt: now, entries: state.entries });
+    await memoryUsageStore.write({ schema: 1, updatedAt: now, entries: state.entries });
   }).catch(() => {});
   memoryUsageWriteChain = job;
   await job;
@@ -119,8 +135,7 @@ async function mutateMemoryUsageState(mutator) {
   const job = memoryUsageWriteChain.then(async () => {
     const state = await readMemoryUsageState();
     if (mutator(state.entries) === false) return;
-    await fsp.mkdir(paths.memory, { recursive: true });
-    await atomicWriteJson(memoryUsageFile(), { schema: 1, updatedAt: nowIso(), entries: state.entries });
+    await memoryUsageStore.write({ schema: 1, updatedAt: nowIso(), entries: state.entries });
   }).catch(() => {});
   memoryUsageWriteChain = job;
   await job;

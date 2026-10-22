@@ -123,8 +123,10 @@ const WorkDataStore = ((fsp, pathModule) => {
   // path can keep writing byte-identical JSON while the enabled path seals the same bytes.
   function createText(host) {
     const file = () => String(host.file());
+    // schema 是 01n 的必填绑定项；族没显式给时用 record 格式版本（与 createJson 同口径）。
+    const schema = Number.isFinite(host.schema) ? host.schema : 1;
     const bindingOf = container => ({
-      purpose: host.purpose, instanceId: container.instanceId, schema: host.schema, scopeId: host.scopeId,
+      purpose: host.purpose, instanceId: container.instanceId, schema, scopeId: host.scopeId,
       recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
     });
     async function read() {
@@ -153,7 +155,7 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
       const key = await keysFor(host).unlock();
       const instanceId = await keysFor(host).instance();
-      const container = WorkDataCrypto.seal(plainText, key, { purpose: host.purpose, instanceId, schema: host.schema,
+      const container = WorkDataCrypto.seal(plainText, key, { purpose: host.purpose, instanceId, schema,
         scopeId: host.scopeId, recordId: host.recordId, seq: 1 });
       await host.writeJson(target, { workData: CONTAINER, ...container });
       return plainText;
