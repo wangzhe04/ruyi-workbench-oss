@@ -17,6 +17,7 @@ const WorkDataCrypto = ((cryptoApi) => {
   const SALT = Buffer.from(SALT_TEXT, 'utf8');
   const fail = suffix => { throw Object.assign(new Error('work_data.' + suffix), { code: 'work_data.' + suffix, apiCode: 'work_data.' + suffix }); };
   const identity = (value, suffix = 'binding_invalid') => {
+    // '-' is allowed: session-derived record ids (sess_xxx, steward-abc) are the common case.
     if (typeof value !== 'string' || !/^[a-zA-Z0-9_.:-]{1,160}$/.test(value)) fail(suffix);
     return value;
   };

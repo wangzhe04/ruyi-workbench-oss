@@ -93,3 +93,50 @@ odePath` 后 SCC 回到 31，并把静态门上限从 32 调到 31（只降不�
 审查者复核通过、未改动的点：主钥与凭据库完全独立（只写 `<data>/work-data-key-v1.json`）、DPAPI entropy 绑 `instanceId`、三处失败路径都 `fill(0)`、错误码不含路径或密钥、关时字节与旧实现一致、无钥写入硬拒、坏密文不吞空、草稿本只有一处读写路径、删除会话同删旁车（e2e D0–D2）、管家分级 forbidden 真实生效、零新依赖、依赖图 647 边 / SCC 31、`build --check` 与 `syntax-gate` 通过、doc 未把迁移/UI 写成已完成。
 
 修复后复跑：`work-data-store` 10/10、`work-data-crypto` 7/7、完整单测 2588/2562/26 跳过/0 失败（首轮 Q3 计时抖动一次，复跑通过）、`fast` 静态 81 件全过、`session-scratchpad.e2e` 全过、`syntax-gate` 1136 文件、`build --check` 新鲜、依赖图 `--check` 通过。
+
+## 9. M3-2b：会话头接线（已验）
+
+会话头是第一个"整件 JSON、被大量路径读取"的族，也是 M3-2 里风险最高的一刀，所以单独成批。
+
+**唯一读写口**（`02-session-store.js`）：`sessionHeadStore(id)` → `WorkDataStore.createText`，配套 `readSessionHeadText(id)` / `writeSessionHead(id, payload)`。02 内共 **12 处读写调用点**，其中 **7 处是删掉的旧直读/直写**：
+
+- `loadSession` 的头读取、`saveSession` 的头写入与 `mergeMissionFromDisk` / `diskTurnSeq` 守卫读；
+- 索引扫描（重建与 `noteSessionIndexBadHead`）—— 开关开时先解密再判「好头/坏头」，否则密文会被误判成坏头、整库会话从列表消失；
+- `readSessionHeadResilient`（`/api/status`、`/api/models`、mission 头读）、`readSessionChangesWithMeta`、`bumpMissionChangeSeq` 的头改写、`journalResolveTurnSeq`、标题覆盖读取。
+
+**三条新合同**：
+
+1. **开关只控制写**。读一个已封的头不需要开关打开；`WorkDataKeys.unlock()` 不再检查开关（创建仍由 `ensure()` 把关）。否则用户一关开关，所有已加密会话立刻读不出来。
+2. **ENOENT 照旧冒泡**。`createText.read()` 不把"文件不存在"吞成 null —— `readSessionHeadResilient` 的瞬时锁重试（5/15/25/35ms 退避）和 `loadSession` 的"读不到 = 会话不存在"判据都建立在 ENOENT 上，吞掉它会退化成"看起来没有这个会话"。
+3. **解不开的密文必须冒泡**。`loadSession` 对 `work_data*` 错误直接抛出（不是返回 null、不是当坏文件改名 `.corrupt`）；`readSessionHeadResilient` 这类只读路由仍按原有契约返回 null。缺钥的用户提示归 M3-3。
+
+**验证**（`dev-harness/unit/work-data-session-head.test.js`，用**真实 DPAPI** 与真实 `createSession/saveSession/loadSession`）：
+
+- 开关关：头文件是旧字节（含标题明文），没有任何密钥文件；
+- 开关开：头是 `workData: 2` 容器，标题与消息正文都不在文件里，`loadSession` 仍能读回；把容器拷成另一个 session id 必须解不开；
+- 开关关回去：已封的头仍然可读（写才受开关控制）；
+- 篡改密文或移走密钥信封：`loadSession` / 读口**报错**，恢复密钥后数据仍在、可读。
+
+完整单测 2592 项 / 2566 过 / 26 跳过 / 0 失败；`session-head-read` 的瞬时重试与隔离用例全过；`session-scratchpad`、`checkpoint-visibility`、`session-get-etag` 三件 e2e 全过。
+
+**还没接的**（都不损坏数据，但开关打开后会降级，属 M3-2c）：
+
+- 消息与 provider 正文仍是明文 NDJSON；会话索引/搜索索引仍未接线。
+- **6 处非 02 的派生读点仍按明文读会话头**：`06-provider-engine.js`（孤儿驱动重置）、`13-http-router.js`（`resetOrphanedMissionDrivers`）、`13d-core-domain-routes.js`（`sessionEnvelopeStamp`）、`13e-pretender-index.js`、`13i-steward-inbox.js`、`13j-steward-tool-base.js`。开关打开时它们读到容器对象，表现为"读不到 → 返回 null / 跳过"（例如孤儿驱动不再被重置、信封戳为空），不会写坏文件、也不会把密文改名 `.corrupt`。
+
+因此**41 个必需族里现在接了 2 个**（会话头、草稿本），不能说"会话已加密"。
+
+**手工打开开关的后果**：本批没有启用流程，直接改 `config.json` 把 `workDataEncryptionV1` 置 true 而没有密钥信封时，会话头读写会以 `work_data_key.absent` 失败（安全方向正确：不静默降级明文），恢复办法是走 M3-3 的启用流程或手工删除该开关。
+
+## 10. M3-2b 独立审查记录（2026-10-22）
+
+审查方式：独立子代理（worker、exec 档、126 次工具调用、DeepSeek `deepseek-flash`），工作树冻结后审查，自己跑了 4 组命令。结论：**需修复**（1 项待定判定 + 1 项重要 + 2 项次要），主体读写契约复核通过。
+
+| 编号 | 严重度 | 问题 | 处理 |
+|---|---|---|---|
+| D1 | 待定→排除 | 复审时 `session-get-etag.e2e.js` 两次 exit 1 且日志无判定行，与本批"三件 e2e 全过"的说法冲突 | 主会话连跑 5 次全部 `ALL PASS`（exit 0，含判定行）；该件不在 `run-all` 的 flaky 桶里，复审那两次是它自己在多个 shell 里并行跑 e2e 的环境产物。文档改为如实记录"5 次全过 + 复审两次未复现" |
+| D2 | 重要 | 02 之外还有 6 处**派生读点**按明文读会话头（`06-provider-engine`、`13-http-router` 的 `resetOrphanedMissionDrivers`、`13d` 的 `sessionEnvelopeStamp`、`13e-pretender-index`、`13i-steward-inbox`、`13j-steward-tool-base`）：开关打开时读到容器对象，表现为"读不到 → null/跳过"，不损坏数据但功能降级 | §9 明确列出这 6 处、说明降级形态与"不写坏文件、不改名 .corrupt"的边界，并归到 M3-2c（92 队列表同步），不再让人误以为会话头所有读路径都已接线 |
+| D3 | 次要 | §9 写"替换了 11 处"，实测口径不符（02 内读写调用点 12 处、删掉的旧直读/直写 7 处） | 改成这两个可复核的数 |
+| D4 | 次要 | "手工置 true 但无密钥信封"的后果没写 | §9 补明 `work_data_key.absent` 与恢复方式 |
+
+复审复核通过、未改动的点：开关关时头字节与旧路径一致（字符串交给 `atomicWriteJson` 直接落盘）；密文错误全部走 `fail('corrupt')`，没有 `return null`、没有 `.corrupt` 改名；ENOENT 未被吞，`readSessionHeadResilient` 的退避重试与 `loadSession` 的"不存在"判据仍成立；空/非 JSON 头文件按旧契约原样返回；`workData≠2` 的容器对象当损坏处理；未启用用户拿不到密钥材料；`01n` 的 recordId 字符类本来就允许 `-`（本批只加注释）；`13d`/`13j`/`06` 的调用形态会安全降级。

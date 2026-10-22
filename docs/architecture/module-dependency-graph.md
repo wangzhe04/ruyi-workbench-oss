@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 92 | 3899 | 3557 | 647 | 67 | 0 | 1 |
+| 92 | 3904 | 3557 | 647 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -37,7 +37,7 @@
 | 19 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 20 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 21 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 22 | `02-session-store.js` | foundation | 340 | 79 | 20 |
+| 22 | `02-session-store.js` | foundation | 345 | 79 | 20 |
 | 23 | `03-bridge-guard.js` | foundation | 122 | 28 | 7 |
 | 24 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 25 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |

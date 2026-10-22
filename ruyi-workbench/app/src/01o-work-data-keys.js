@@ -32,7 +32,9 @@ const WorkDataKeys = ((cryptoApi) => {
     // awaited here; `promise === true` would silently keep the switch off forever.
     async function enabled() { try { return (await host.enabled()) === true; } catch { return false; } }
     async function unlock() {
-      if (!(await enabled())) fail('disabled');
+      // Reads must not depend on the switch: once data is sealed it has to stay readable even if the
+      // user turns encryption off again (the reverse migration is M3-3). Only creation is gated, and
+      // unlock never creates anything.
       if (!host.protector.supported()) fail('unsupported');
       const state = await stateRead();
       if (!state.instanceId) fail('absent');

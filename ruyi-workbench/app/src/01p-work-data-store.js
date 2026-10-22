@@ -65,5 +65,40 @@ const WorkDataStore = ((fsp) => {
     }
     return Object.freeze({ read, write, filePath: file });
   }
-  return Object.freeze({ create, CONTAINER });
+  // Whole-record TEXT variant (session head): the caller owns the serialization, so the plaintext
+  // path can keep writing byte-identical JSON while the enabled path seals the same bytes.
+  function createText(host) {
+    const file = () => String(host.file());
+    const bindingOf = container => ({
+      purpose: host.purpose, instanceId: container.instanceId, schema: host.schema, scopeId: host.scopeId,
+      recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
+    });
+    async function read() {
+      // ENOENT propagates on purpose: the resilient session-head readers retry on it and must keep
+      // doing so; callers that treat a missing record as empty catch it themselves.
+      const rawText = await fsp.readFile(file(), 'utf8');
+      let parsed;
+      try { parsed = JSON.parse(rawText); } catch { return rawText; }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
+      const { workData, ...container } = parsed;
+      if (workData !== CONTAINER) fail('corrupt');
+      const key = await host.keys.unlock();
+      const plaintext = WorkDataCrypto.open(container, key, bindingOf(container));
+      if (typeof plaintext !== 'string' || plaintext.length > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
+      return plaintext;
+    }
+    async function write(plainText) {   // not 	ext: that identifier collides with 00-boot's symbol
+      if (typeof plainText !== 'string') fail('shape');
+      if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
+      if (!(await host.enabled())) { await host.writeJson(file(), plainText); return plainText; }
+      const key = await host.keys.unlock();
+      const instanceId = await host.keys.instance();
+      const container = WorkDataCrypto.seal(plainText, key, { purpose: host.purpose, instanceId, schema: host.schema,
+        scopeId: host.scopeId, recordId: host.recordId, seq: 1 });
+      await host.writeJson(file(), { workData: CONTAINER, ...container });
+      return plainText;
+    }
+    return Object.freeze({ read, write, filePath: file });
+  }
+  return Object.freeze({ create, createText, CONTAINER });
 })(require('node:fs/promises'));

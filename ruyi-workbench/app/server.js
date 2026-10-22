@@ -7883,6 +7883,7 @@ const WorkDataCrypto = ((cryptoApi) => {
   const SALT = Buffer.from(SALT_TEXT, 'utf8');
   const fail = suffix => { throw Object.assign(new Error('work_data.' + suffix), { code: 'work_data.' + suffix, apiCode: 'work_data.' + suffix }); };
   const identity = (value, suffix = 'binding_invalid') => {
+    // '-' is allowed: session-derived record ids (sess_xxx, steward-abc) are the common case.
     if (typeof value !== 'string' || !/^[a-zA-Z0-9_.:-]{1,160}$/.test(value)) fail(suffix);
     return value;
   };
@@ -7982,7 +7983,9 @@ const WorkDataKeys = ((cryptoApi) => {
     // awaited here; `promise === true` would silently keep the switch off forever.
     async function enabled() { try { return (await host.enabled()) === true; } catch { return false; } }
     async function unlock() {
-      if (!(await enabled())) fail('disabled');
+      // Reads must not depend on the switch: once data is sealed it has to stay readable even if the
+      // user turns encryption off again (the reverse migration is M3-3). Only creation is gated, and
+      // unlock never creates anything.
       if (!host.protector.supported()) fail('unsupported');
       const state = await stateRead();
       if (!state.instanceId) fail('absent');
@@ -8092,7 +8095,42 @@ const WorkDataStore = ((fsp) => {
     }
     return Object.freeze({ read, write, filePath: file });
   }
-  return Object.freeze({ create, CONTAINER });
+  // Whole-record TEXT variant (session head): the caller owns the serialization, so the plaintext
+  // path can keep writing byte-identical JSON while the enabled path seals the same bytes.
+  function createText(host) {
+    const file = () => String(host.file());
+    const bindingOf = container => ({
+      purpose: host.purpose, instanceId: container.instanceId, schema: host.schema, scopeId: host.scopeId,
+      recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
+    });
+    async function read() {
+      // ENOENT propagates on purpose: the resilient session-head readers retry on it and must keep
+      // doing so; callers that treat a missing record as empty catch it themselves.
+      const rawText = await fsp.readFile(file(), 'utf8');
+      let parsed;
+      try { parsed = JSON.parse(rawText); } catch { return rawText; }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
+      const { workData, ...container } = parsed;
+      if (workData !== CONTAINER) fail('corrupt');
+      const key = await host.keys.unlock();
+      const plaintext = WorkDataCrypto.open(container, key, bindingOf(container));
+      if (typeof plaintext !== 'string' || plaintext.length > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
+      return plaintext;
+    }
+    async function write(plainText) {   // not 	ext: that identifier collides with 00-boot's symbol
+      if (typeof plainText !== 'string') fail('shape');
+      if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
+      if (!(await host.enabled())) { await host.writeJson(file(), plainText); return plainText; }
+      const key = await host.keys.unlock();
+      const instanceId = await host.keys.instance();
+      const container = WorkDataCrypto.seal(plainText, key, { purpose: host.purpose, instanceId, schema: host.schema,
+        scopeId: host.scopeId, recordId: host.recordId, seq: 1 });
+      await host.writeJson(file(), { workData: CONTAINER, ...container });
+      return plainText;
+    }
+    return Object.freeze({ read, write, filePath: file });
+  }
+  return Object.freeze({ create, createText, CONTAINER });
 })(require('node:fs/promises'));
 
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
@@ -8744,6 +8782,23 @@ function sessionBodyPaths(id) {
   };
 }
 
+// ── M3-2: 会话头唯一读写口 ─────────────────────────────────────────────────────────────
+// 开关关:同一份 payload 字符串仍交给 atomicWriteJson,字节与旧路径完全一致;开关开:整件封装成
+// WorkDataCrypto v2 容器。读侧遇到解不开的密文【抛错】—— 不能当成「会话不存在」或「空会话」,
+// 否则一次缺钥就会让整库会话静默消失;缺钥提示归 M3-3 的处理路径。
+const SESSION_HEAD_ADAPTER_SCHEMA = 2;   // 头格式版本(不是 storageVersion)
+function sessionHeadStore(id) {
+  return WorkDataStore.createText({
+    file: () => sessionPath(id),
+    purpose: 'session', schema: SESSION_HEAD_ADAPTER_SCHEMA, scopeId: 'sessions', recordId: String(id),
+    keys: workDataKeys, writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  });
+}
+const sessionHeadIsWorkDataError = error => String((error && error.code) || '').startsWith('work_data');
+async function readSessionHeadText(id) { return sessionHeadStore(id).read(); }
+async function writeSessionHead(id, text) { return sessionHeadStore(id).write(text); }
+
 // ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
 // L2 摘要成功后,把结构化摘要中的【已确认的决定】/【未完成事项】/【关键文件与上下文】三节确定性
 // 切出整写到本文件。默认每次 L2 成功整体重写(摘要本身即最新权威状态);105d 的
@@ -9038,7 +9093,7 @@ async function readMissionChangesWithMeta(sessionId, currentRevision = null) {
   let current = currentRevision == null ? NaN : Number(currentRevision);
   if (!Number.isSafeInteger(current) || current < 0) {
     try {
-      const head = JSON.parse(await fsp.readFile(sessionPath(sid), 'utf8'));
+      const head = JSON.parse(await readSessionHeadText(sid));
       current = Math.max(0, Number(head && head.mission && head.mission.changeSeq) || 0);
     } catch { current = 0; }
   }
@@ -9056,7 +9111,7 @@ function bumpMissionChangeSeq(sessionId, payload = {}) {
   missionChangeSeqHighWater.set(sid, next); // sync: visible to concurrent saveSession before disk write
   const prev = sessionWriteChains.get(sid) || Promise.resolve();
   const w = prev.catch(() => {}).then(async () => {
-    let txt; try { txt = await fsp.readFile(sessionPath(sid), 'utf8'); } catch { if (missionChangeSeqHighWater.get(sid) === next) missionChangeSeqHighWater.delete(sid); return null; }
+    let txt; try { txt = await readSessionHeadText(sid); } catch { if (missionChangeSeqHighWater.get(sid) === next) missionChangeSeqHighWater.delete(sid); return null; }
     let head; try { head = JSON.parse(txt); } catch { if (missionChangeSeqHighWater.get(sid) === next) missionChangeSeqHighWater.delete(sid); return null; }
     if (!head || !head.mission || typeof head.mission !== 'object') { if (missionChangeSeqHighWater.get(sid) === next) missionChangeSeqHighWater.delete(sid); return null; }
     const revision = Math.max(next, Number(head.mission.changeSeq) + 1 || 1);
@@ -9064,7 +9119,7 @@ function bumpMissionChangeSeq(sessionId, payload = {}) {
     head.mission.changeSeq = revision;
     head.mission.updatedAt = nowIso();
     bumpSessionDiskWriteSeq(sid);   // 头被改写:在此之前读到头的装载不得再回写旧副本
-    await atomicWriteJson(sessionPath(sid), JSON.stringify(head, null, 2));
+    await writeSessionHead(sid, JSON.stringify(head, null, 2));
     const normalized = normalizeMissionChangePayload(payload);
     await appendMissionChangeRecord(sid, {
       schemaVersion: 1,
@@ -10207,7 +10262,7 @@ async function noteSessionIndexBadHead(id) {
   try {
     const file = path.join(paths.sessions, id + '.json');
     const st = await fsp.stat(file);
-    const raw = await fsp.readFile(file, 'utf8');
+    const raw = await readSessionHeadText(id);   // M3-2: 开关开时先解密,否则密文会被误判成坏头
     if (parseSessionHeadForIndex(raw, id)) return;   // 取戳与重读之间被换成了好文件:不记
     sessionIndexKnownBadHeads.set(id, sessionHeadStampOf(st));
   } catch { /* 读不到(瞬时锁/刚被删):不记,下一次扫描再判 */ }
@@ -10277,7 +10332,7 @@ async function listSessions() {
     for (const file of files) {
       const fileId = file.slice(0, -5);
       let raw;
-      try { raw = await fsp.readFile(path.join(paths.sessions, file), 'utf8'); }
+      try { raw = await readSessionHeadText(fileId); }
       catch { continue; }   // 读不到(瞬时锁/刚被删):跳过,不记坏头(见 sessionIndexKnownBadHeads 头注)
       const item = parseSessionHeadForIndex(raw, fileId);
       let meta = null;
@@ -12081,7 +12136,7 @@ const SESSION_HEAD_TRANSIENT = new Set(['ENOENT', 'EPERM', 'EBUSY', 'EACCES']);
 async function readSessionHeadResilient(id) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return safeJsonParse(await fsp.readFile(sessionPath(id), 'utf8'), null);
+      return safeJsonParse(await readSessionHeadText(id), null);
     } catch (error) {
       const code = String((error && error.code) || '');
       if (!SESSION_HEAD_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return null;
@@ -12172,8 +12227,10 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
   let raw;
   // hunt2-P3:头读撞上瞬时锁(EBUSY/EPERM/EACCES)先有界重试,别把「一时读不到」答成「会话不存在」。
   for (let attempt = 0; ; attempt++) {
-    try { raw = await fsp.readFile(sessionPath(id), 'utf8'); break; }
+    try { raw = await readSessionHeadText(id); break; }
     catch (error) {
+      // M3-2: 解不开的密文必须冒泡,不能答成「会话不存在」——那是静默丢会话。
+      if (sessionHeadIsWorkDataError(error)) throw error;
       const code = String((error && error.code) || '');
       if (code === 'ENOENT' || !SESSION_BODY_READ_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return null;
       await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
@@ -12477,7 +12534,7 @@ async function saveSession(session, opts) {
     // mission/kind 都在头上;读不到/解析不了(首存、损坏)一律当「磁盘没有账本」,与不传旗子逐字节等价。
     if (opts && opts.mergeMissionFromDisk) {
       let onDiskHead = null;
-      try { onDiskHead = JSON.parse(await fsp.readFile(finalPath, 'utf8')); } catch { onDiskHead = null; }
+      try { onDiskHead = JSON.parse(await readSessionHeadText(id)); } catch { onDiskHead = null; }
       if (onDiskHead && typeof onDiskHead === 'object' && mergeMissionBeforeSave(session, onDiskHead)) {
         payload = buildHeadPayload();
         metaSnapshot = sessionMeta(session);
@@ -12531,7 +12588,7 @@ async function saveSession(session, opts) {
       nextProvLines = provSer;
     }
     // 头最后写:头指向的正文状态必须先于头落盘(头=「正文有效」的声明)。
-    await atomicWriteJson(finalPath, payload);
+    await writeSessionHead(id, payload);
     // 头已提交 → prevbody 快照使命完成(崩溃于清理前也无妨:下次读取按「头计数==正文行数」判其为陈旧快照,
     // 顺带清除,见 loadSession)。
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
@@ -12578,7 +12635,7 @@ async function saveSession(session, opts) {
     // 读不到/解析不了(首存、损坏)一律放行,与不带旗子逐字节等价。
     if (opts && (opts.dropIfTurnSuperseded || opts.throwIfTurnSuperseded)) {
       let diskTurnSeq = 0;
-      try { diskTurnSeq = Number(JSON.parse(await fsp.readFile(finalPath, 'utf8')).turnSeq) || 0; } catch { diskTurnSeq = 0; }
+      try { diskTurnSeq = Number(JSON.parse(await readSessionHeadText(id)).turnSeq) || 0; } catch { diskTurnSeq = 0; }
       if (diskTurnSeq > (Number(session.turnSeq) || 0)) {
         logEvent({
           kind: 'session_superseded_turn_save_dropped', sessionId: id, turnSeq: Number(session.turnSeq) || 0, diskTurnSeq,
@@ -12930,7 +12987,7 @@ async function journalResolveTurnSeq(sessionId, explicitTurnSeq) {
   if (Number.isFinite(explicitTurnSeq)) return Number(explicitTurnSeq);
   if (!sessionId) return null;
   try {
-    const raw = await fsp.readFile(sessionPath(sessionId), 'utf8');
+    const raw = await readSessionHeadText(sessionId);
     const parsed = safeJsonParse(raw, null);
     const t = parsed && Number(parsed.turnSeq);
     return Number.isFinite(t) ? t : null;
@@ -14358,7 +14415,7 @@ function mergeMissionAcceptance(targetRows, sourceRows) {
 async function readMissionSessionHead(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
-  try { return applySessionTitleOverride(safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8'), null)); } catch { return null; }
+  try { return applySessionTitleOverride(safeJsonParse(await readSessionHeadText(sid), null)); } catch { return null; }
 }
 
 // 归属变更落一条 Mission Change(收件箱能看见事项级动作)。无 mission 账本的会话由

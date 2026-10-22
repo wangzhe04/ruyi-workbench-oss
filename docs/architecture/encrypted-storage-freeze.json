@@ -31,6 +31,7 @@
     "user-config"
   ],
   "adapterWired": [
+    "session-head",
     "session-scratchpad"
   ],
   "envelope": {
@@ -72,7 +73,7 @@
         }
       ],
       "reason": "title, gist, threadBrief, createdBy and stewardTaint move inside the envelope; the head must still be readable enough to route and sort after unlock",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-messages",
