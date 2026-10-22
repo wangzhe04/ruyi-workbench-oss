@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 93,
-    "providedSymbols": 3907,
+    "providedSymbols": 3909,
     "requiredSymbols": 3563,
     "edges": 650,
     "forwardEdges": 67,
@@ -3772,7 +3772,9 @@
         "urlStillMasked",
         "voiceLexiconAsrPromptFor",
         "voiceLexiconChains",
+        "voiceLexiconFailureIsWorkData",
         "voiceLexiconRead",
+        "voiceLexiconReadStrict",
         "voiceLexiconStore",
         "voiceLexiconUpdate"
       ],

@@ -44,24 +44,26 @@ if (process.platform !== 'win32') {
     assert.equal(read.terms['测试词条'].term, '测试词条');
   });
 
-  test('switch off again: the sealed lexicon is still readable and new writes stay sealed', async () => {
+  test('switch off with sealed data: reads still work and writes are refused instead of downgrading', async () => {
     await setSwitch(false);
     const read = await api.voiceLexiconRead();
     assert.equal(read.terms['测试词条'].term, '测试词条', 'reads do not depend on the switch');
-    // With the switch off a write goes back to plaintext; the reader must accept both shapes.
-    await api.voiceLexiconUpdate(state => ({ ...state, learn: false }));
-    const text = fs.readFileSync(file, 'utf8');
-    assert.equal(text.includes('"workData"'), false);
-    assert.equal((await api.voiceLexiconRead()).learn, false);
+    const before = fs.readFileSync(file, 'utf8');
+    // Turning the switch off must never rewrite a sealed record as plaintext: the write is refused
+    // until M3-3 migrates the data (fail closed, and the sealed bytes stay untouched).
+    await assert.rejects(() => api.voiceLexiconUpdate(state => ({ ...state, learn: false })), error => error.code === 'work_data_store.downgrade_refused');
+    assert.equal(fs.readFileSync(file, 'utf8'), before, 'the sealed file is untouched');
+    assert.equal(JSON.parse(before).workData, 2);
   });
 
   test('a missing key is a hard error on write, never a plaintext fallback', async () => {
     await setSwitch(true);
     const keyFile = path.join(HOME_DIR, 'work-data-key-v1.json');
+    const before = fs.readFileSync(file, 'utf8');
     api.workDataKeys.clear();
     fs.renameSync(keyFile, keyFile + '.bak');
-    try { await assert.rejects(() => api.voiceLexiconUpdate(state => ({ ...state, learn: true })), error => String(error.code).startsWith('work_data')); }
+    try { await assert.rejects(() => api.voiceLexiconUpdate(state => ({ ...state, learn: true })), error => /^(work_data|voice\.lexicon_unreadable)/.test(String(error.code))); }
     finally { fs.renameSync(keyFile + '.bak', keyFile); }
-    assert.equal(fs.readFileSync(file, 'utf8').includes('"workData"'), false, 'the failed write left the previous plaintext file in place');
+    assert.equal(fs.readFileSync(file, 'utf8'), before, 'the failed write left the sealed file untouched');
   });
 }

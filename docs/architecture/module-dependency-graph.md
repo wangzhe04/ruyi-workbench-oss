@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 93 | 3907 | 3563 | 650 | 67 | 0 | 1 |
+| 93 | 3909 | 3563 | 650 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -52,7 +52,7 @@
 | 34 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
 | 35 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
 | 36 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
-| 37 | `05-claude-engine.js` | engine | 76 | 142 | 26 |
+| 37 | `05-claude-engine.js` | engine | 78 | 142 | 26 |
 | 38 | `05b-kimi-bridge.js` | engine | 128 | 76 | 13 |
 | 39 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 40 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |

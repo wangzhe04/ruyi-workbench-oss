@@ -264,7 +264,7 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 
 1. 把 `DurableJsonStore.create({...})`（或等价的 read/write 助手）换成 `WorkDataStore.createJson({...})`，**原样保留** id/file/schemaVersion/defaultValue/sanitize/validate/capacity/onCorrupt；
 2. 补四个加密字段：`purpose`（用 93 的 11 个冻结用途之一）、`scopeId`（全局用 `global`，按会话的用会话 id）、`recordId`（族内稳定键，如 `voice-lexicon`）；
-3. `keys: { unlock: () => WorkDataHooks.keys.unlock(), instance: () => WorkDataHooks.keys.instance() }` + `writeJson: atomicWriteJson` + `quarantine`（与原 store 一致）；
+3. 键集二选一：本模块在 02 之前就装载 → 直接 `keys: workDataKeys`；否则 → `keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() }`（未填充时报 `work_data_store.not_initialised`，不是 TypeError）；再补 `writeJson: atomicWriteJson` + `quarantine`（与原 store 一致）；
 4. `enabled: () => readConfig().then(c => c.workDataEncryptionV1 === true).catch(() => false)`；
 5. 跑该族自己的单测，确认开关关闭时字节不变；再加一条"打开后封印 + 读回 + 缺钥拒写"的用例（可抄 `voice-lexicon-work-data.test.js`）；
 6. 在清册生成器的 `ADAPTER_WIRED` 里加这个 id。
@@ -279,7 +279,7 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 
 - **整文件 JSON / 单条（先用 createJson，最机械）**：`memory-usage`、`memory-relations`、`memory-proposals`、`steward-cursor`、`steward-decisions`、`engine-transcript-index`、`proxy-models-cache`、`scheduler-tasks`、`personal-workflows`、`agent-instructions-import`、`external-bots`（注意它自带 strict 校验链）、`steward-memory`、`steward-visits`。
 - **按会话/按 id 的分文件 JSON（`create` + per-record 的 recordId）**：`session-index`、`session-v1-backup`、`journal-index`、`journal-reverts`、`mission-container`、`memory-body`、`memory-meta`、`agent-run-snapshot`、`playbooks`、`skill-import-record`、`migration-skill-backups`、`scheduler-fires`（NDJSON 触发台账，需先转记录格式）。
-- **NDJSON（要逐记录 + 行哈希/戳同款改造）**：`steward-inbox`、`agent-run-events`、`background-job-ledger`、`journal-history`（gzip，需分块方案）。
+- **NDJSON（要逐记录 + 行哈希/戳同款改造）**：`steward-inbox`、`agent-run-events`、`background-job-ledger`、`journal-history`（gzip，需分块方案）、`session-interventions`（会话命令台账）、`session-changes`（会话变更审计）——这两族与会话正文同构（append-only + 行戳），批次归 `sessions`。
 - **索引/搜索族（要先定覆盖率语义）**：`session-search-index`、`pretender-index`、`web-cache`、`audit-log`、`migration-log`。
 
 ### 14.4 本批验证
@@ -287,3 +287,26 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 `voice-lexicon-work-data` 4 项（真实 DPAPI）：开关关时与旧 `DurableJsonStore` 逐字节一致的 pretty JSON、开时封印且读回、关回开关仍可读且新写回明文、缺钥写入硬拒且不回落明文。清册 `adapterWired` 现为 5 项；依赖图 SCC 仍 31（钩子生效）。
 
 **M3-2 尚未完成**：36 个族仍明文，索引族语义未定，M3-3（首次迁移、关闭加密、恢复包、启用 UI）未开始。本批不声称"M3-2 完成"。
+
+## 15. M3-2d 三路审查记录（2026-10-22）
+
+三路独立子代理（crypto / drift / docs，exec 档，DeepSeek `deepseek-flash`）审最新一批。**drift 路抓到两个 HIGH，都是真实的数据安全问题，已修并加回归**：
+
+| 编号 | 严重度 | 问题 | 处理 |
+|---|---|---|---|
+| H1 | **高** | `voiceLexiconRead` 把所有错误（含解密失败/缺钥）都吞成空词表，紧接着的 `voiceLexiconUpdate` 会拿空表把密文覆盖掉——探针实测永久丢数据 | 读侧只对**明文坏文件**沿用旧契约；加密类错误记 `voice_lexicon_unreadable` 并抛出。新增 `voiceLexiconReadStrict()` 专供写链：读不出来就不写（`voice.lexicon_unreadable` 503）。回归：`voice-lexicon-tamper.test.js`（篡改 keyId 后读抛错、写拒绝、文件逐字节不变） |
+| H2 | **高** | 开关关闭（或配置读不出来）时，写入会把**已封的容器重写成明文**——静默降级，违反 93 §4 | 所有写路径先过 `guardWrite`：目标已是容器且开关非 true → `work_data_store.downgrade_refused`；开关读不出来 → `switch_unavailable`（未知不等于关闭）。回归：`voice-lexicon-work-data` 的"关闭开关后写入被拒且文件不变" |
+| M1 | 中 | 密封记录认证失败既没有 `.corrupt`（有意不隔离）也没有事件，坏读看起来像"空" | 由 H1 一并解决：加密类错误一律抛出并记事件；`.corrupt` 保持不生成（改名密文更糟） |
+| M2 | 中 | `enabled()` 的 `.catch(() => false)` 把"读配置失败"当"关闭"，正是 H2 的降级入口 | 改为 `sealing(host)`：抛 → `switch_unavailable` |
+| M3 | 中 | `work_data_store.*` 没有 `statusCode`，路由落成 500 | 形状/校验类 400，其余 503 |
+| M4 | 中 | `create` 写侧没有大小上限、读侧按字符比较 | 统一字节上限（1 MiB），写侧在密封前检查 |
+| M5 | 中 | 写路径不建目录（旧 DurableJsonStore 写链会建） | `guardWrite` 里 `mkdir -p` |
+| M6 | 低 | 每次坏读都复制 `.corrupt` 并重复记事件 | 副本按大小去重、诊断每个 store 生命周期只记一次 |
+| M7 | 低 | `Hooks.keys` 未填时是 TypeError | `requireKeys()` → `work_data_store.not_initialised`；宿主自带 `keys` 时优先用它（`keysFor`） |
+| M8 | 低 | 05/04j 注释仍写"DurableJsonStore 缓存" | 已改 |
+| M9 | 低 | 清册 voice-lexicon 行的写路径描述陈旧 | 已改（03 号清册随生成器重算） |
+| C1–C3 | 中/低 | 94 §14.3 漏了 `session-interventions`/`session-changes`（写 36 实际列 34）、配方里写错钩子符号、93/92 仍按 69 面叙述 | 全部回填；历史数字加"当时/今"标注 |
+
+审查者实测：`voice-lexicon-work-data`（含 H2 回归）、`voice-lexicon-tamper`（H1 回归）、`work-data-store`、`work-data-session-head/body`、`work-data-records` 共 39 项全过；`facts`/`graph`/`freeze`/`syntax`/`build` 门全绿。
+
+**未完成（不在本批声称完成）**：剩余 36 个必需族仍按 §14.3 分组待接（会话索引/搜索索引/pretender 索引要先定覆盖率语义；NDJSON 族要逐记录改造；`journal-history` 是 gzip 需要分块方案）；M3-3（首次迁移、关闭加密的反向迁移、恢复包、启用 UI）未开始。

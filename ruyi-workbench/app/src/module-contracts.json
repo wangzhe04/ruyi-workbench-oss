@@ -3686,7 +3686,9 @@
         "urlStillMasked",
         "voiceLexiconAsrPromptFor",
         "voiceLexiconChains",
+        "voiceLexiconFailureIsWorkData",
         "voiceLexiconRead",
+        "voiceLexiconReadStrict",
         "voiceLexiconStore",
         "voiceLexiconUpdate"
       ],

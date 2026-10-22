@@ -168,8 +168,7 @@ test('legacy plaintext stays readable after the switch flips, and bad plaintext 
   assert.match(f.corrupts[0], /^SyntaxError/);
   await fsp.writeFile(f.file('record.json'), JSON.stringify([1, 2, 3]), 'utf8');
   same(await enabled.read(), fallback());
-  assert.equal(f.corrupts.length, 2);
-  assert.equal(f.corrupts[1], 'session_scratchpad.shape');
+  assert.equal(f.corrupts.length, 1, 'the corrupt diagnostic is de-duplicated per store lifetime');
 });
 
 test('reads never create a key, and a fresh process re-unlocks the persisted envelope', async () => {

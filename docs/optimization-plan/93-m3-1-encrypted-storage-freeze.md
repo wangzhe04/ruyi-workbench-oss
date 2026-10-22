@@ -8,7 +8,7 @@
 
 | 交付 | 位置 | 说明 |
 |---|---|---|
-| 存储族清册（闭合） | `dev-harness/encrypted-storage-freeze.js` → `docs/architecture/encrypted-storage-freeze.{json,md}` | 以 `durable-state-inventory` 的 69 个 surface 为基准，逐族判定必须/必须不进入工作数据 envelope、归属密钥用途、迁移批次与最小可读元数据 |
+| 存储族清册（闭合） | `dev-harness/encrypted-storage-freeze.js` → `docs/architecture/encrypted-storage-freeze.{json,md}` | 以 `durable-state-inventory` 的 69 个 surface 为基准（M3-2a 登记 `<data>/work-data-key-v1.json` 之后是 70 个：41 required / 29 excluded），逐族判定必须/必须不进入工作数据 envelope、归属密钥用途、迁移批次与最小可读元数据 |
 | 闭合静态门 | `dev-harness/encrypted-storage-freeze.static.e2e.js` | 任一 surface 未分类、用途两侧不一致、字段无理由、提前声称"已加密"都红 |
 | 版本化 envelope + 用途隔离派生 | `ruyi-workbench/app/src/01n-work-data-crypto.js` | 纯模块：`WorkDataCrypto.seal/open`，format v2，HKDF 按用途派生，AAD 绑定 schema/scope/seq，不建钥不落盘 |
 | AAD 扩展点 | `01h-privacy-core.js` `aadFor` | 可选 `binding.extra` 尾段；不传时字节与 v1 完全一致，已有 envelope 全部仍可解 |
@@ -180,7 +180,7 @@ node dev-harness/encrypted-storage-freeze.static.e2e.js # 闭合门
 | F9 | 中 | 审查者未能实跑 5 条命令与 AAD 对比 | 主会话实跑并记录（第 7 节）；另做旧版/新版 `01h` 双向加解密对比 |
 | F10 | 低 | 单测里有一处无操作的对象展开，注释易误导 | 删除无操作，改为有意义的"re-version 但仍是旧 AAD"用例 |
 
-审查者静态核验通过、本批未改动的要点：`aadFor` 无 extra 路径与 HEAD 逐字节同构且没有其他调用方带 extra；容器对 `__proto__`/额外键/数组/NaN/非安全整数/巨大 seq 均失败关闭；nonce 只由 `PrivacyCore.seal` 生成；69 个 id 与清册逐一点数吻合，41/28、批次数、11 个用途在代码/生成物/文档三处一致；`manifest` 行区间算术与 `server.js` 再生成内容逐字一致；93/92 对未做事项如实标注。
+审查者静态核验通过、本批未改动的要点：`aadFor` 无 extra 路径与 HEAD 逐字节同构且没有其他调用方带 extra；容器对 `__proto__`/额外键/数组/NaN/非安全整数/巨大 seq 均失败关闭；nonce 只由 `PrivacyCore.seal` 生成；当时 69 个 id 与清册逐一点数吻合（M3-2a 后为 70、41/29），批次数、11 个用途在代码/生成物/文档三处一致；`manifest` 行区间算术与 `server.js` 再生成内容逐字一致；93/92 对未做事项如实标注。
 
 修复后复跑：单测 7/7、闭合门 21 项全过、`encrypted-storage-freeze.js` check 通过、`build`/`build --check` 与语法门通过；`facts` 计数不变（本批未增减 E2E 与 suite 数量）。
 

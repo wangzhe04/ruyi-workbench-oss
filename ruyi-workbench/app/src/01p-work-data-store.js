@@ -6,13 +6,45 @@
 // bytes on disk do not change. With it enabled it writes the WorkDataCrypto v2 container, and a
 // container that cannot be authenticated (wrong purpose/instance/schema/scope/record, missing or
 // unavailable key) throws — it never degrades to an empty record or to plaintext.
-const WorkDataStore = ((fsp) => {
+const WorkDataStore = ((fsp, pathModule) => {
   // Late-binding hook (the `*Hooks` pattern from CLAUDE.md): modules loading after 02-session-store need
   // the process-wide key set, but a static reference would pull them into the dependency cycle. 02 fills
   // this at load time; consumers must treat a missing value as "not initialised yet".
   const Hooks = {};
   const CONTAINER = 2;      // outer file version; inner envelope version comes from WorkDataCrypto
-  const fail = suffix => { throw Object.assign(new Error('work_data_store.' + suffix), { code: 'work_data_store.' + suffix, apiCode: 'work_data_store.' + suffix }); };
+  const fail = suffix => {
+    const error = new Error('work_data_store.' + suffix);
+    error.code = 'work_data_store.' + suffix;
+    error.apiCode = error.code;
+    error.statusCode = suffix === 'shape' || suffix === 'schema' || suffix === 'sanitize' || suffix === 'validate' ? 400 : 503;
+    throw error;
+  };
+  // Hooks must be filled by 02 before any family store writes; a missing value is a boot-order bug,
+  // not a TypeError deep inside a write.
+  const requireKeys = () => {
+    const keys = Hooks.keys;
+    if (!keys || typeof keys.unlock !== 'function' || typeof keys.instance !== 'function') fail('not_initialised');
+    return keys;
+  };
+  // A host may pass its own key set (tests, and the stores 02 owns); everyone else goes through the
+  // late-binding hook so a family can live outside the dependency cycle.
+  const keysFor = host => ((host && host.keys && typeof host.keys.unlock === 'function') ? host.keys : requireKeys());
+  // The switch itself may be unreadable; that is "unknown", never "off" — a plaintext rewrite of a
+  // sealed record is the one outcome the frozen contract forbids without an explicit migration.
+  const sealing = async host => {
+    let enabled;
+    try { enabled = await host.enabled(); } catch { fail('switch_unavailable'); }
+    return enabled === true;
+  };
+  const guardWrite = async (host, target) => {
+    // mkdir first: atomicWriteJson does not create directories (the old DurableJsonStore write chain did).
+    await fsp.mkdir(pathModule.dirname(target), { recursive: true }).catch(() => {});
+    if (await sealing(host)) return;
+    let head = '';
+    try { head = (await fsp.readFile(target, 'utf8')).slice(0, 4096); }
+    catch (error) { if (error && error.code !== 'ENOENT') fail('storage_unavailable'); return; }
+    if (/"workData"\s*:\s*2/.test(head)) fail('downgrade_refused');   // sealed on disk, switch off: refuse
+  };
   const generationOf = keyId => {
     const match = /\.k(\d{1,2})$/.exec(String(keyId || ''));
     const generation = match ? Number(match[1]) : NaN;
@@ -30,22 +62,30 @@ const WorkDataStore = ((fsp) => {
       return next;
     };
     const fallback = () => prepare(host.defaultValue ? host.defaultValue() : {});
+    let corruptLogged = false;
     const corrupt = async error => {
       // quarantine:true mirrors DurableJsonStore's default (keep a .corrupt copy for forensics);
-      // quarantine:false leaves the file untouched so the next write replaces it.
-      if (host.quarantine === true) { try { await fsp.copyFile(file(), file() + '.corrupt'); } catch { /* best effort */ } }
-      try { if (host.onCorrupt) host.onCorrupt(error); } catch { /* diagnostics never block */ }
+      // quarantine:false leaves the file untouched so the next write replaces it. The copy is
+      // size-aware because a cacheless store can hit the same bad file several times in one request.
+      if (host.quarantine === true) {
+        try {
+          const target = file(), copy = target + '.corrupt';
+          const [stat, prev] = await Promise.all([fsp.stat(target), fsp.stat(copy).catch(() => null)]);
+          if (!prev || prev.size !== stat.size) await fsp.copyFile(target, copy);
+        } catch { /* best effort */ }
+      }
+      if (!corruptLogged) { corruptLogged = true; try { if (host.onCorrupt) host.onCorrupt(error); } catch { /* diagnostics never block */ } }
       return fallback();
     };
     async function decrypt(parsed, budget) {
       const { workData, ...container } = parsed;
       if (workData !== CONTAINER) fail('corrupt');
-      const key = await host.keys.unlock();   // disabled/absent/unavailable are hard failures, not empty data
+      const key = await keysFor(host).unlock();   // disabled/absent/unavailable are hard failures, not empty data
       const plaintext = WorkDataCrypto.open(container, key, {
         purpose: host.purpose, instanceId: container.instanceId, schema: host.schema, scopeId: host.scopeId,
         recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
       });
-      if (typeof plaintext !== 'string' || plaintext.length > budget) fail('corrupt');
+      if (typeof plaintext !== 'string' || Buffer.byteLength(plaintext, 'utf8') > budget) fail('corrupt');
       let value;
       try { value = JSON.parse(plaintext); } catch { fail('corrupt'); }
       return prepare(value);
@@ -63,14 +103,18 @@ const WorkDataStore = ((fsp) => {
     }
     async function write(value) {
       const prepared = prepare(value);
-      if (!(await host.enabled())) { await host.writeJson(file(), prepared); return prepared; }
+      const target = file();
+      await guardWrite(host, target);
+      if (!(await sealing(host))) { await host.writeJson(target, prepared); return prepared; }
       // Enabled: never create a key here. Key creation belongs to the explicit enable flow (M3-3).
-      const key = await host.keys.unlock();
-      const instanceId = await host.keys.instance();
-      const container = WorkDataCrypto.seal(JSON.stringify(prepared), key, {
+      const plaintext = JSON.stringify(prepared);
+      if (Buffer.byteLength(plaintext, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
+      const key = await keysFor(host).unlock();
+      const instanceId = await keysFor(host).instance();
+      const container = WorkDataCrypto.seal(plaintext, key, {
         purpose: host.purpose, instanceId, schema: host.schema, scopeId: host.scopeId, recordId: host.recordId, seq: 1,
       });
-      await host.writeJson(file(), { workData: CONTAINER, ...container });
+      await host.writeJson(target, { workData: CONTAINER, ...container });
       return prepared;
     }
     return Object.freeze({ read, write, filePath: file });
@@ -92,7 +136,7 @@ const WorkDataStore = ((fsp) => {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
       const { workData, ...container } = parsed;
       if (workData !== CONTAINER) fail('corrupt');
-      const key = await host.keys.unlock();
+      const key = await keysFor(host).unlock();
       // instanceId from the key set (not from the container) so the binding is a real check; seq stays
       // the container's own value until M3-3 pins revisions with an external anchor.
       const plaintext = WorkDataCrypto.open(container, key, { ...bindingOf(container), instanceId: await host.keys.instance() });
@@ -101,15 +145,17 @@ const WorkDataStore = ((fsp) => {
     }
     async function write(plainText) {   // not 	ext: that identifier collides with 00-boot's symbol
       if (typeof plainText !== 'string') fail('shape');
+      const target = file();
+      await guardWrite(host, target);
       // The size cap belongs to the sealed path only: the old plaintext writer had no limit, so a
       // >1 MiB head must keep saving while encryption is off (the read side refuses it when sealed).
-      if (!(await host.enabled())) { await host.writeJson(file(), plainText); return plainText; }
+      if (!(await sealing(host))) { await host.writeJson(target, plainText); return plainText; }
       if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
-      const key = await host.keys.unlock();
-      const instanceId = await host.keys.instance();
+      const key = await keysFor(host).unlock();
+      const instanceId = await keysFor(host).instance();
       const container = WorkDataCrypto.seal(plainText, key, { purpose: host.purpose, instanceId, schema: host.schema,
         scopeId: host.scopeId, recordId: host.recordId, seq: 1 });
-      await host.writeJson(file(), { workData: CONTAINER, ...container });
+      await host.writeJson(target, { workData: CONTAINER, ...container });
       return plainText;
     }
     return Object.freeze({ read, write, filePath: file });
@@ -154,5 +200,5 @@ const WorkDataStore = ((fsp) => {
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
-  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks });
-})(require('node:fs/promises'));
+  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys });
+})(require('node:fs/promises'), require('node:path'));

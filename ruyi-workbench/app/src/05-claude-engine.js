@@ -2151,19 +2151,39 @@ const voiceLexiconStore = WorkDataStore.createJson({
   // M3-2d: 工作数据加密（开关关时与旧 DurableJsonStore 逐字节一致）。键集经 01p 的延迟绑定钩子拿，
   // 免得本模块静态依赖 02、把 01o 拖进依赖环。
   purpose: 'user-config', scopeId: 'global', recordId: 'voice-lexicon',
-  keys: { unlock: () => WorkDataStore.Hooks.keys.unlock(), instance: () => WorkDataStore.Hooks.keys.instance() },
+  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   quarantine: true,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
 const voiceLexiconChains = new Map();
+// 读失败分两类：明文坏文件（旧契约：当空 + 诊断）与加密记录读不出来（缺钥/认证失败/开关不可知）。
+// 后者绝不能当成"空词表"——否则紧接着的 update 会拿空表把密文覆盖掉（2026-10 审查实测的数据丢失）。
+const voiceLexiconFailureIsWorkData = error => {
+  const code = String((error && error.code) || '');
+  return code.startsWith('work_data');
+};
 function voiceLexiconRead() {
-  return voiceLexiconStore.read().catch(() => VoiceLexicon.defaultState());
+  return voiceLexiconStore.read().catch(error => {
+    if (voiceLexiconFailureIsWorkData(error)) {
+      try { logEvent({ kind: 'voice_lexicon_unreadable', error: String(error.code || error).slice(0, 120) }); } catch { /* 诊断永不阻断 */ }
+      throw error;
+    }
+    return VoiceLexicon.defaultState();
+  });
+}
+// 只在"能读到"时才回写；读不出来就抛，绝不拿空表覆盖。
+async function voiceLexiconReadStrict() {
+  try { return await voiceLexiconStore.read(); }
+  catch (error) {
+    throw Object.assign(new Error('voice lexicon could not be read'),
+      { code: 'voice.lexicon_unreadable', apiCode: 'voice.lexicon_unreadable', statusCode: 503, cause: error });
+  }
 }
 // mutate(当前状态) → 新状态(或 null = 不写)。返回落盘后的状态。
 function voiceLexiconUpdate(mutate) {
   return runKeyedChain(voiceLexiconChains, 'voice-lexicon', async () => {
-    const next = await mutate(await voiceLexiconRead());
+    const next = await mutate(await voiceLexiconReadStrict());
     return next ? voiceLexiconStore.write(next) : voiceLexiconRead();
   });
 }
