@@ -2137,7 +2137,7 @@ function asrFixMessages(firstPass, audioText, context, glossary) {
 // 写面两处:设置页(13b POST /api/audio/lexicon)与从修改里学(13b POST /api/audio/lexicon/observe,59 号文 §6),
 // 都经 voiceLexiconUpdate 按同一个键串行「读-改-写」。日志只记条数,不记词。
 // 容量:词条 500(04j 学词时自己先腾位置,手加的不挤);还没攒够证据的候选 300(从最久没见的裁起)。
-const voiceLexiconStore = DurableJsonStore.create({
+const voiceLexiconStore = WorkDataStore.createJson({
   id: 'voice-lexicon',
   file: () => path.join(paths.data, 'voice-lexicon.json'),
   schemaVersion: VoiceLexicon.SCHEMA,
@@ -2148,6 +2148,13 @@ const voiceLexiconStore = DurableJsonStore.create({
   onCorrupt(error) {
     try { logEvent({ kind: 'voice_lexicon_corrupt', error: String(error && error.message || error).slice(0, 200) }); } catch { /* 诊断永不阻断 */ }
   },
+  // M3-2d: 工作数据加密（开关关时与旧 DurableJsonStore 逐字节一致）。键集经 01p 的延迟绑定钩子拿，
+  // 免得本模块静态依赖 02、把 01o 拖进依赖环。
+  purpose: 'user-config', scopeId: 'global', recordId: 'voice-lexicon',
+  keys: { unlock: () => WorkDataStore.Hooks.keys.unlock(), instance: () => WorkDataStore.Hooks.keys.instance() },
+  writeJson: atomicWriteJson,
+  quarantine: true,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
 const voiceLexiconChains = new Map();
 function voiceLexiconRead() {

@@ -162,6 +162,7 @@ const workDataKeys = WorkDataKeys.create({
   protector: LocalSecretCrypto,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
+WorkDataStore.Hooks.keys = workDataKeys;   // M3-2d: later families reach the key set through this hook
 function sessionScratchpadStore(id) {
   const file = sessionScratchpadPath(id);   // 不合形的 id 在这里就抛(assertSessionIdForPath)
   const prepare = value => {

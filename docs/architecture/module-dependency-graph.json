@@ -5,8 +5,8 @@
   "summary": {
     "modules": 93,
     "providedSymbols": 3907,
-    "requiredSymbols": 3562,
-    "edges": 649,
+    "requiredSymbols": 3563,
+    "edges": 650,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -3926,6 +3926,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "buildUserEnvelope",
           "kinds": [
             "call"
@@ -3936,13 +3943,6 @@
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "DurableJsonStore",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -4062,6 +4062,13 @@
           "symbol": "normalizeAgentCliType",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -30735,8 +30742,8 @@
       "from": "05-claude-engine.js",
       "to": "01-config.js",
       "symbols": [
-        "DurableJsonStore",
         "agentCliLauncherUsable",
+        "atomicWriteJson",
         "buildUserEnvelope",
         "decodeClaudeCliText",
         "effectiveAnthropicEnv",
@@ -30777,6 +30784,14 @@
       "to": "01f-agent-cli-types.js",
       "symbols": [
         "normalizeAgentCliType"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "05-claude-engine.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
       ],
       "direction": "backward"
     },

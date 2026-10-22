@@ -77,3 +77,6 @@ const WorkDataKeys = ((cryptoApi) => {
   }
   return Object.freeze({ SCHEMA, create, validate, empty });
 })(require('node:crypto'));
+
+// The process-wide key set. Families create their stores with it; enabled() reads the config switch
+// every time (M3-3 owns the enable flow).

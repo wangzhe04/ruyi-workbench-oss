@@ -11,7 +11,7 @@ Frozen purposes (`WorkDataCrypto.PURPOSES`): `session`, `memory`, `queue`, `task
 
 Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)`, AAD binds `schema` / `scopeId` / `seq` on top of the privacy-core triple.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -38,7 +38,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 | agent-instructions-import | required | `memory` | memory-queue | pending | — (nothing readable) | per-source file paths, entry hashes and core flags are content-derived and reveal local layout |
 | steward-memory | required | `memory` | memory-queue | pending | — (nothing readable) | steward notes are task content |
 | steward-visits | required | `memory` | memory-queue | pending | — (nothing readable) | visit history reveals which threads and items the steward read |
-| voice-lexicon | required | `user-config` | memory-queue | pending | — (nothing readable) | personal vocabulary and names |
+| voice-lexicon | required | `user-config` | memory-queue | wired | — (nothing readable) | personal vocabulary and names |
 | steward-inbox | required | `queue` | memory-queue | pending | — (nothing readable) | inbox items quote incoming messages |
 | steward-cursor | required | `queue` | memory-queue | pending | — (nothing readable) | cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe |
 | steward-decisions | required | `queue` | memory-queue | pending | — (nothing readable) | decisions and rationales quote the triggering content |

@@ -34,7 +34,8 @@
     "session-head",
     "session-messages",
     "session-provider",
-    "session-scratchpad"
+    "session-scratchpad",
+    "voice-lexicon"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -320,7 +321,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "personal vocabulary and names",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "steward-inbox",

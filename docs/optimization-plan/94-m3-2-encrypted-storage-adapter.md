@@ -244,3 +244,46 @@ oteSessionIndexBadHead`）—— 开关开时先解密再判「好头/坏头」�
 | C2–C5 | 中/低 | 94 头部仍写 2/41、92 仍写"11 处替换"与旧单测计数、01q 头注仍说"未接线" | 全部按实测回填（4/41、12 处调用点/删 7 处、10 项、2588/2562、01q 注释改写） |
 
 修复后复跑：`work-data-store`(10) + `work-data-session-head`(4) + `work-data-session-body`(6) + `work-data-records`(6) 共 **26/26**；完整单测、`fast` 静态、`syntax-gate`、`build --check`、依赖图与 facts 门见提交说明。**未改**：压缩阈值、provider 配置、索引族与其余数据族的接线、任何用户数据。
+
+## 14. M3-2d：整文件 JSON 适配机制 + 逐族接线配方
+
+M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线。本批先交机制与第一个族，并把每个族归到四种形态之一，后续按表推进。
+
+### 14.1 四类形态与对应适配器
+
+| 形态 | 适配器 | 判据 | 已接 |
+|---|---|---|---|
+| 整文件 JSON（单条记录） | `WorkDataStore.createJson` | 一个文件一条记录，写入走 `atomicWriteJson` | voice-lexicon |
+| 整文件文本（自定义序列化） | `WorkDataStore.createText` | 写入是字符串（会话头） | session-head |
+| 逐记录追加（NDJSON） | `WorkDataRecords` + 手写编解码 | append-only、行哈希/戳、字节截断 | session-messages、session-provider；会话草稿本用 `create`（小 JSON） |
+| 外部/派生 | 不接 | 外部 CLI 状态、可重建缓存、纯数字记账 | 见清册 29 个 excluded |
+
+`createJson` 的 prepare 管线与 `DurableJsonStore` 完全同序（形状 → schema → sanitize → 盖 schema → capacity → validate），所以"什么算合法记录"不变；`capacity` 在 01p 内本地实现，避免把模块拖进 01-config 的依赖环。
+
+### 14.2 单族接线配方（约 8 行）
+
+1. 把 `DurableJsonStore.create({...})`（或等价的 read/write 助手）换成 `WorkDataStore.createJson({...})`，**原样保留** id/file/schemaVersion/defaultValue/sanitize/validate/capacity/onCorrupt；
+2. 补四个加密字段：`purpose`（用 93 的 11 个冻结用途之一）、`scopeId`（全局用 `global`，按会话的用会话 id）、`recordId`（族内稳定键，如 `voice-lexicon`）；
+3. `keys: { unlock: () => WorkDataHooks.keys.unlock(), instance: () => WorkDataHooks.keys.instance() }` + `writeJson: atomicWriteJson` + `quarantine`（与原 store 一致）；
+4. `enabled: () => readConfig().then(c => c.workDataEncryptionV1 === true).catch(() => false)`；
+5. 跑该族自己的单测，确认开关关闭时字节不变；再加一条"打开后封印 + 读回 + 缺钥拒写"的用例（可抄 `voice-lexicon-work-data.test.js`）；
+6. 在清册生成器的 `ADAPTER_WIRED` 里加这个 id。
+
+**为什么用 `WorkDataHooks`**：`workDataKeys` 住在 02-session-store（已在大 SCC 内）。让 05/06/08/10/13 静态引用它会新增环边并把模块拖进 SCC；01p 只依赖 01n，把钩子放 01p、由 02 在装载时填充，既能拿到键集，又保持 SCC = 31。
+
+### 14.3 状态矩阵（41 required）
+
+已接（5）：session-head、session-messages、session-provider、session-scratchpad、voice-lexicon。
+
+按机制分组待接（36）：
+
+- **整文件 JSON / 单条（先用 createJson，最机械）**：`memory-usage`、`memory-relations`、`memory-proposals`、`steward-cursor`、`steward-decisions`、`engine-transcript-index`、`proxy-models-cache`、`scheduler-tasks`、`personal-workflows`、`agent-instructions-import`、`external-bots`（注意它自带 strict 校验链）、`steward-memory`、`steward-visits`。
+- **按会话/按 id 的分文件 JSON（`create` + per-record 的 recordId）**：`session-index`、`session-v1-backup`、`journal-index`、`journal-reverts`、`mission-container`、`memory-body`、`memory-meta`、`agent-run-snapshot`、`playbooks`、`skill-import-record`、`migration-skill-backups`、`scheduler-fires`（NDJSON 触发台账，需先转记录格式）。
+- **NDJSON（要逐记录 + 行哈希/戳同款改造）**：`steward-inbox`、`agent-run-events`、`background-job-ledger`、`journal-history`（gzip，需分块方案）。
+- **索引/搜索族（要先定覆盖率语义）**：`session-search-index`、`pretender-index`、`web-cache`、`audit-log`、`migration-log`。
+
+### 14.4 本批验证
+
+`voice-lexicon-work-data` 4 项（真实 DPAPI）：开关关时与旧 `DurableJsonStore` 逐字节一致的 pretty JSON、开时封印且读回、关回开关仍可读且新写回明文、缺钥写入硬拒且不回落明文。清册 `adapterWired` 现为 5 项；依赖图 SCC 仍 31（钩子生效）。
+
+**M3-2 尚未完成**：36 个族仍明文，索引族语义未定，M3-3（首次迁移、关闭加密、恢复包、启用 UI）未开始。本批不声称"M3-2 完成"。

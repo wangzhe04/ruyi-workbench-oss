@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 93 | 3907 | 3562 | 649 | 67 | 0 | 1 |
+| 93 | 3907 | 3563 | 650 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -52,7 +52,7 @@
 | 34 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
 | 35 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
 | 36 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
-| 37 | `05-claude-engine.js` | engine | 76 | 141 | 25 |
+| 37 | `05-claude-engine.js` | engine | 76 | 142 | 26 |
 | 38 | `05b-kimi-bridge.js` | engine | 128 | 76 | 13 |
 | 39 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 40 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
@@ -200,10 +200,11 @@
 | `04j-voice-learn.js` | `04j-voice-lexicon.js` | backward | `VoiceLexicon` |
 | `05-claude-engine.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `RUYI_EVENTS`, `URL`, `appendUsageLedger`, `claudeCostFields`, `computeProviderCost`, `cp`, `createCappedDiagnosticText`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |
 | `05-claude-engine.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_CLI_TOOL_PREFIX` |
-| `05-claude-engine.js` | `01-config.js` | backward | `DurableJsonStore`, `agentCliLauncherUsable`, `buildUserEnvelope`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `prepareAgentCliSpawn`, `readConfig`, `selectedAgentCli`, `syncMcpServersToKimi`, `writeToChild` |
+| `05-claude-engine.js` | `01-config.js` | backward | `agentCliLauncherUsable`, `atomicWriteJson`, `buildUserEnvelope`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `prepareAgentCliSpawn`, `readConfig`, `selectedAgentCli`, `syncMcpServersToKimi`, `writeToChild` |
 | `05-claude-engine.js` | `01d-win-cmdline.js` | backward | `CMD_EXE_LINE_LIMIT`, `CMD_LINE_QUOTE_MARGIN`, `cmdLineBudgetFor`, `cmdLineBudgetSeam`, `isBatchLauncher`, `quoteWinArg`, `spawnCmdLineLength` |
 | `05-claude-engine.js` | `01e-permission-modes.js` | backward | `CLAUDE_PERMISSION_MODE_MAP` |
 | `05-claude-engine.js` | `01f-agent-cli-types.js` | backward | `normalizeAgentCliType` |
+| `05-claude-engine.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `05-claude-engine.js` | `02-session-store.js` | backward | `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `mergeMissionBeforeSave`, `reconcileWorkspaceTurnBaseline`, `saveSession`, `saveTurnFinalSession` |
 | `05-claude-engine.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
 | `05-claude-engine.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf` |
