@@ -212,7 +212,7 @@ fsp.stat = async (p, ...rest) => {
     // (c2)
     if (bodySrc) {
       const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-      const writeBlock = new AsyncFunction('file', 'line', 'sid', 'fsp', 'repairMissionChangeTornTail', 'markPretenderIndexDirty', bodySrc);
+      const writeBlock = new AsyncFunction('file', 'line', 'sid', 'fsp', 'repairMissionChangeTornTail', 'markPretenderIndexDirty', 'appendProtectedSessionJournal', 'noteSessionJournalAppend', bodySrc);
       const f2 = tmpFile('c2-append-survives-repair-failure.ndjson');
       const torn2 = '{"id":"a"}\n{"id":"b","noNewline":true';
       fs.writeFileSync(f2, torn2, 'utf8');
@@ -226,7 +226,7 @@ fsp.stat = async (p, ...rest) => {
           return realTruncate2(p, ...rest);
         };
         try {
-          await writeBlock(f2, newLine, 'sid-c2', fsp, repairMissionChangeTornTail, () => {});
+          await writeBlock(f2, newLine, 'sid-c2', fsp, repairMissionChangeTornTail, () => {}, async () => false, async () => {});
         } catch (e) { writeBlockThrew = true; writeBlockErr = e; }
       } finally { fsp.truncate = realTruncate2; }
       const after2 = fs.readFileSync(f2, 'utf8');

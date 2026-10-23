@@ -73,7 +73,17 @@ test('an empty body and a body without a trailing newline keep their shape', () 
 test('kinds and ordinals are validated before any crypto runs', () => {
   fails(() => records.encodeLine(line('a'), KEY, ctx({ ordinal: -1 })), 'ordinal_invalid');
   fails(() => records.encodeLine(line('a'), KEY, ctx({ ordinal: 1.5 })), 'ordinal_invalid');
-  fails(() => records.encodeLine(line('a'), KEY, ctx({ kind: 'interventions', ordinal: 0 })), 'kind_invalid');
+  fails(() => records.encodeLine(line('a'), KEY, ctx({ kind: 'unregistered-journal', ordinal: 0 })), 'kind_invalid');
   fails(() => records.encodeLine('', KEY, ctx({ ordinal: 0 })), 'text_required');
-  assert.deepEqual([...records.KINDS], ['messages', 'provider']);
+  assert.deepEqual([...records.KINDS], ['messages', 'provider', 'interventions', 'changes']);
+});
+
+test('session side journals reuse the format while binding their own kind and physical ordinal', () => {
+  for (const kind of ['interventions', 'changes']) {
+    const value = JSON.stringify({ id: 'private-id', seq: 99, content: 'private journal text' });
+    const encoded = records.encodeLine(value, KEY, ctx({ kind, ordinal: 3 }));
+    assert.equal(records.decodeLine(encoded, KEY, ctx({ kind, ordinal: 3 })), value);
+    fails(() => records.decodeLine(encoded, KEY, ctx({ kind, ordinal: 99 })), 'ordinal_mismatch');
+    for (const other of records.KINDS.filter(item => item !== kind)) fails(() => records.decodeLine(encoded, KEY, ctx({ kind: other, ordinal: 3 })), 'authenticate_failed');
+  }
 });

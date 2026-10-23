@@ -12,11 +12,11 @@ const WorkDataStore = ((fsp, pathModule) => {
   // this at load time; consumers must treat a missing value as "not initialised yet".
   const Hooks = {};
   const CONTAINER = 2;      // outer file version; inner envelope version comes from WorkDataCrypto
-  const fail = suffix => {
+  const fail = (suffix, statusCode) => {
     const error = new Error('work_data_store.' + suffix);
     error.code = 'work_data_store.' + suffix;
     error.apiCode = error.code;
-    error.statusCode = suffix === 'shape' || suffix === 'schema' || suffix === 'sanitize' || suffix === 'validate' ? 400 : 503;
+    error.statusCode = statusCode || (suffix === 'shape' || suffix === 'schema' || suffix === 'sanitize' || suffix === 'validate' ? 400 : 503);
     throw error;
   };
   // Hooks must be filled by 02 before any family store writes; a missing value is a boot-order bug,
@@ -54,25 +54,124 @@ const WorkDataStore = ((fsp, pathModule) => {
       }
     } finally { await handle.close(); }
   };
+  const validateSealed = async (host, plainText) => {
+    if (typeof host.validateSealedText === 'function') {
+      let valid;
+      try { valid = await host.validateSealedText(plainText); }
+      catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; fail('validate', 503); }
+      if (valid !== true) fail('validate', 503);
+    }
+    return plainText;
+  };
+  // Probe only the bounded first line. Existing pretty JSON and arbitrary legacy plaintext remain
+  // on their original read path; the chunk writer always emits a compact, complete first-line header.
+  const chunkHeader = async target => {
+    const handle = await fsp.open(target, 'r');
+    try {
+      const max = 16 * 1024, buffer = Buffer.alloc(max + 1);
+      let used = 0;
+      while (used < buffer.length) {
+        const { bytesRead } = await handle.read(buffer, used, buffer.length - used, null);
+        if (!bytesRead) break;
+        used += bytesRead;
+        if (buffer.subarray(0, used).includes(10)) break;
+      }
+      const prefix = buffer.subarray(0, used).toString('utf8'), newline = prefix.indexOf('\n');
+      const first = newline < 0 ? prefix : prefix.slice(0, newline);
+      if (Buffer.byteLength(first, 'utf8') > max) {
+        if (/"workData"\s*:\s*3\b/.test(first)) fail('chunk_header_limit');
+        return null;
+      }
+      let parsed;
+      try { parsed = JSON.parse(first); } catch {
+        if (/"workData"\s*:\s*3\b/.test(first)) fail('corrupt');
+        return null;
+      }
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.workData === 3 ? parsed : null;
+    } finally { await handle.close(); }
+  };
+  const chunkLines = async function* (target, maxPlaintextBytes) {
+    const handle = await fsp.open(target, 'r');
+    try {
+      const maxFile = WorkDataChunks.maxFileBytes(maxPlaintextBytes);
+      if ((await handle.stat()).size > maxFile) fail('chunk_file_limit');
+      const buffer = Buffer.alloc(64 * 1024);
+      let carry = Buffer.alloc(0), total = 0, first = true;
+      for (;;) {
+        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+        if (!bytesRead) break;
+        total += bytesRead;
+        if (total > maxFile) fail('chunk_file_limit');
+        const data = carry.length ? Buffer.concat([carry, buffer.subarray(0, bytesRead)]) : buffer.subarray(0, bytesRead);
+        let start = 0;
+        for (let end = data.indexOf(10, start); end >= 0; end = data.indexOf(10, start)) {
+          const line = data.subarray(start, end), maxLine = first ? WorkDataChunks.MAX_HEADER_BYTES : WorkDataChunks.MAX_CHUNK_LINE_BYTES;
+          if (!line.length || line.length > maxLine) fail('chunk_line_limit');
+          const chunkLineText = line.toString('utf8');
+          if (!Buffer.from(chunkLineText, 'utf8').equals(line)) fail('corrupt');
+          yield chunkLineText;
+          first = false; start = end + 1;
+        }
+        carry = Buffer.from(data.subarray(start));
+        if (carry.length > (first ? WorkDataChunks.MAX_HEADER_BYTES : WorkDataChunks.MAX_CHUNK_LINE_BYTES)) fail('chunk_line_limit');
+      }
+      // Every encoded line, including the last, has exactly one LF. Missing LF is a torn write;
+      // an additional LF was already rejected as an empty line above.
+      if (carry.length || first) fail('corrupt');
+    } finally { await handle.close(); }
+  };
+  const readChunks = async (host, target, header) => {
+    const keys = keysFor(host), key = await keys.unlock();
+    const plainText = await WorkDataChunks.openLines(chunkLines(target, host.maxPlaintextBytes), key, {
+      purpose: host.purpose, instanceId: await keys.instance(), schema: Number.isFinite(host.schema) ? host.schema : 1,
+      scopeId: host.scopeId, recordId: host.recordId, seq: host.seq === undefined ? 1 : host.seq,
+      generation: generationOf(header.keyId),
+    }, host.maxPlaintextBytes);
+    return validateSealed(host, plainText);
+  };
   const guardWrite = async (host, target) => {
     // mkdir first: atomicWriteJson does not create directories (the old DurableJsonStore write chain did).
     await fsp.mkdir(pathModule.dirname(target), { recursive: true }).catch(() => {});
+    // One switch snapshot owns both the downgrade guard and this write. Re-reading it after the
+    // guard could turn an allowed sealed update into a plaintext overwrite during a toggle.
     const enabled = await sealing(host);
+    let header;
+    try { header = host.chunked === true ? await chunkHeader(target) : null; }
+    catch (error) { if (error && error.code === 'ENOENT') return enabled; throw error; }
+    if (header) {
+      if (!enabled) fail('downgrade_refused');
+      if (host.chunked !== true) fail('chunked_unsupported');
+      await readChunks(host, target, header); // never replace a missing-key, truncated or tampered old revision
+      return enabled;
+    }
     let rawText = '';
     try { rawText = await fsp.readFile(target, 'utf8'); }
-    catch (error) { if (error && error.code !== 'ENOENT') fail('storage_unavailable'); return; }
+    catch (error) { if (error && error.code !== 'ENOENT') fail('storage_unavailable'); return enabled; }
     let parsed;
     try { parsed = JSON.parse(rawText); } catch {
+      if (/"workData"\s*:\s*3\b/.test(rawText)) fail(enabled ? 'chunked_unsupported' : 'downgrade_refused');
       if (containerMarker(rawText)) fail('corrupt');
-      return;
+      return enabled;
     }
     if (!enabled && parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.hasOwn(parsed, 'workData')) fail('downgrade_refused');
+    if (enabled && host.chunked === true && parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) await openTextRecord(host, parsed);
+    return enabled;
   };
   const generationOf = keyId => {
     const match = /\.k(\d{1,2})$/.exec(String(keyId || ''));
     const generation = match ? Number(match[1]) : NaN;
     if (!Number.isSafeInteger(generation) || generation < 1) fail('corrupt');
     return generation;
+  };
+  const openTextRecord = async (host, parsed) => {
+    const { workData, ...container } = parsed;
+    if (workData !== CONTAINER) fail(workData === 3 ? 'chunked_unsupported' : 'corrupt');
+    const keys = keysFor(host), key = await keys.unlock();
+    const plainText = WorkDataCrypto.open(container, key, { purpose: host.purpose, instanceId: await keys.instance(),
+      schema: Number.isFinite(host.schema) ? host.schema : 1, scopeId: host.scopeId, recordId: host.recordId,
+      seq: container.seq, generation: generationOf(container.keyId) });
+    if (typeof plainText !== 'string' || Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
+    return validateSealed(host, plainText);
   };
   function create(host) {
     // host: { file(), purpose, schema, scopeId, recordId, keys (WorkDataKeys api),
@@ -105,12 +204,18 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (workData !== CONTAINER) fail('corrupt');
       const key = await keysFor(host).unlock();   // disabled/absent/unavailable are hard failures, not empty data
       const plaintext = WorkDataCrypto.open(container, key, {
-        purpose: host.purpose, instanceId: container.instanceId, schema: host.schema, scopeId: host.scopeId,
+        purpose: host.purpose, instanceId: await keysFor(host).instance(), schema: host.schema, scopeId: host.scopeId,
         recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
       });
       if (typeof plaintext !== 'string' || Buffer.byteLength(plaintext, 'utf8') > budget) fail('corrupt');
       let value;
       try { value = JSON.parse(plaintext); } catch { fail('corrupt'); }
+      if (typeof host.validateSealedValue === 'function') {
+        let valid;
+        try { valid = await host.validateSealedValue(value); }
+        catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; fail('validate', 503); }
+        if (valid !== true) fail('validate', 503);
+      }
       return prepare(value);
     }
     async function read() {
@@ -120,6 +225,7 @@ const WorkDataStore = ((fsp, pathModule) => {
       catch (error) { if (error && error.code === 'ENOENT') return fallback(); throw error; }
       let parsed;
       try { parsed = JSON.parse(rawText); } catch (error) {
+        if (/"workData"\s*:\s*3\b/.test(rawText)) fail('chunked_unsupported');
         if (containerMarker(rawText)) fail('corrupt');
         return await corrupt(error);   // legacy "invalid means empty" contract for plaintext only
       }
@@ -130,8 +236,9 @@ const WorkDataStore = ((fsp, pathModule) => {
     async function write(value) {
       const prepared = prepare(value);
       const target = file();
-      await guardWrite(host, target);
-      if (!(await sealing(host))) { await host.writeJson(target, prepared); return prepared; }
+      const enabled = await guardWrite(host, target);
+      if (typeof host.validateSealedValue === 'function') await read();
+      if (!enabled) { await host.writeJson(target, prepared); return prepared; }
       // Enabled: never create a key here. Key creation belongs to the explicit enable flow (M3-3).
       const plaintext = JSON.stringify(prepared);
       if (Buffer.byteLength(plaintext, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
@@ -149,38 +256,45 @@ const WorkDataStore = ((fsp, pathModule) => {
   // path can keep writing byte-identical JSON while the enabled path seals the same bytes.
   function createText(host) {
     const file = () => String(host.file());
+    if (host.chunked === true) WorkDataChunks.limitOf(host.maxPlaintextBytes);
     // schema 是 01n 的必填绑定项；族没显式给时用 record 格式版本（与 createJson 同口径）。
     const schema = Number.isFinite(host.schema) ? host.schema : 1;
-    const bindingOf = container => ({
-      purpose: host.purpose, instanceId: container.instanceId, schema, scopeId: host.scopeId,
-      recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
-    });
     async function read() {
       // ENOENT propagates on purpose: the resilient session-head readers retry on it and must keep
       // doing so; callers that treat a missing record as empty catch it themselves.
+      const header = host.chunked === true ? await chunkHeader(file()) : null;
+      if (header) {
+        if (host.chunked !== true) fail('chunked_unsupported');
+        return readChunks(host, file(), header);
+      }
       const rawText = await fsp.readFile(file(), 'utf8');
       let parsed;
       try { parsed = JSON.parse(rawText); } catch {
+        if (/"workData"\s*:\s*3\b/.test(rawText)) fail('chunked_unsupported');
         if (containerMarker(rawText)) fail('corrupt');
         return rawText;
       }
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
-      const { workData, ...container } = parsed;
-      if (workData !== CONTAINER) fail('corrupt');
-      const key = await keysFor(host).unlock();
       // instanceId from the key set (not from the container) so the binding is a real check; seq stays
       // the container's own value until M3-3 pins revisions with an external anchor.
-      const plaintext = WorkDataCrypto.open(container, key, { ...bindingOf(container), instanceId: await host.keys.instance() });
-      if (typeof plaintext !== 'string' || Buffer.byteLength(plaintext, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
-      return plaintext;
+      return openTextRecord(host, parsed);
     }
     async function write(plainText) {   // not 	ext: that identifier collides with 00-boot's symbol
       if (typeof plainText !== 'string') fail('shape');
       const target = file();
-      await guardWrite(host, target);
+      const enabled = await guardWrite(host, target);
       // The size cap belongs to the sealed path only: the old plaintext writer had no limit, so a
       // >1 MiB head must keep saving while encryption is off (the read side refuses it when sealed).
-      if (!(await sealing(host))) { await host.writeJson(target, plainText); return plainText; }
+      if (!enabled) { await host.writeJson(target, plainText); return plainText; }
+      if (host.chunked === true) {
+        const keys = keysFor(host), key = await keys.unlock();
+        const factory = WorkDataChunks.sealFactory(plainText, key, { purpose: host.purpose,
+          instanceId: await keys.instance(), schema, scopeId: host.scopeId, recordId: host.recordId,
+          seq: host.seq === undefined ? 1 : host.seq }, host.maxPlaintextBytes);
+        try { await host.writeJson(target, factory, { stream: true }); }
+        finally { factory.dispose(); }
+        return plainText;
+      }
       if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
       const key = await keysFor(host).unlock();
       const instanceId = await keysFor(host).instance();
@@ -227,7 +341,13 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (typeof host.validate === 'function' && host.validate(value) !== true) fail('validate');
       return value;
     };
-    const store = create({ ...host, schema: Number.isFinite(host.schema) ? host.schema : (schemaVersion === null ? 1 : schemaVersion), prepare, defaultValue: host.defaultValue });
+    const validateSealedValue = value => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+      if (schemaVersion !== null && value[schemaKey] !== schemaVersion) return false;
+      return typeof host.validate !== 'function' || host.validate(value) === true;
+    };
+    const store = create({ ...host, schema: Number.isFinite(host.schema) ? host.schema : (schemaVersion === null ? 1 : schemaVersion),
+      prepare, defaultValue: host.defaultValue, validateSealedValue });
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }

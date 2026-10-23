@@ -1,0 +1,346 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "status": "batch_verified",
+  "baselineCommit": "e8fa0f04",
+  "applicationVersion": "3.0.1",
+  "syntheticOnly": true,
+  "userDataMigrated": false,
+  "scope": [
+    "opt-in authenticated chunked whole-text storage and FIFO codec admission",
+    "session interventions/changes authenticated append, repair and compaction",
+    "mission container and user playbook sealing",
+    "project memory metadata sealing"
+  ],
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "442b5852548f92c27810d122e575ed9a4a725fb20b65f720cd84c57c1f2bd352"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "0b3d71ad9989f7ef540cbf58c1b429a2ca2e23bf7728e8018ece1e6d688c1a23"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "sha256": "dc0d43ea8a5d285954064e6ccc4903232d41a9857cf517b4a33fdedc43490b1f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "sha256": "5904f47f93f6fc41cb071cb46c7ffb65109c43adcd8961be3650161c84873416"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01q-work-data-records.js",
+      "sha256": "184b9094aff2283e7cce35861bb639b60e585a00688e4b1c3cb995cef2325503"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01r-work-data-chunks.js",
+      "sha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "7a31dc5d911adf474d1a988a0a8a33a726d491dc2a2a50dc7541292f7b9cd68f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "417bcd695c78af6433dc45a73acfbf6f401af07588a5c54d273cdcefeafcbd33"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "sha256": "96a44164395adaa0131e30ed59a762cc986425d3ce87343130effa61bb508d2a"
+    }
+  ],
+  "storage": {
+    "adapterWired": 17,
+    "required": 41,
+    "remaining": 24,
+    "notImplemented": [
+      "remaining 24 families",
+      "first migration and authority switch",
+      "enable/disable encryption UI",
+      "recovery bundle"
+    ]
+  },
+  "validations": [
+    {
+      "command": "node --test --test-concurrency=4 <8 focused unit files>",
+      "result": "89 pass, 0 fail, 0 skip",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\storage-wave2-units-initial.log"
+    },
+    {
+      "command": "node dev-harness/syntax-gate.js",
+      "result": "1161 checked, 0 failed",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\wave2-syntax.log"
+    },
+    {
+      "command": "node ruyi-workbench/app/build.js --check",
+      "result": "pass"
+    },
+    {
+      "command": "node dev-harness/memory-meta-work-data.e2e.js",
+      "round": 1,
+      "result": "exit 0; final ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\memory-meta-work-data-wave2-1.log"
+    },
+    {
+      "command": "node dev-harness/memory-meta-work-data.e2e.js",
+      "round": 2,
+      "result": "exit 0; final ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\memory-meta-work-data-wave2-2.log"
+    },
+    {
+      "command": "node dev-harness/mission-playbook-work-data.e2e.js",
+      "round": 1,
+      "result": "exit 0; final ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\mission-playbook-work-data-wave2-1.log"
+    },
+    {
+      "command": "node dev-harness/mission-playbook-work-data.e2e.js",
+      "round": 2,
+      "result": "exit 0; final ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\mission-playbook-work-data-wave2-2.log"
+    },
+    {
+      "command": "node dev-harness/work-data-session-journals.e2e.js",
+      "round": 1,
+      "result": "exit 0; final ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\work-data-session-journals-wave2-1.log"
+    },
+    {
+      "command": "node dev-harness/work-data-session-journals.e2e.js",
+      "round": 2,
+      "result": "exit 0; final ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\work-data-session-journals-wave2-2.log"
+    },
+    {
+      "command": "node dev-harness/readfiletail-torntail.e2e.js",
+      "round": 1,
+      "result": "exit 0; final ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\readfiletail-torntail-wave2-1.log"
+    },
+    {
+      "command": "node dev-harness/readfiletail-torntail.e2e.js",
+      "round": 2,
+      "result": "exit 0; final ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\readfiletail-torntail-wave2-2.log"
+    },
+    {
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "result": "before final identifier/switch snapshot repairs: full unit 2682 total, 2656 pass, 26 skip, 0 fail; static 80/81 pass, actual failed case module-dependency-graph",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\wave2-fast-initial.log"
+    },
+    {
+      "command": "node --test --test-concurrency=4 <8 focused unit files>",
+      "result": "final 90 pass, 0 fail, 0 skip; includes new three-variant switch-race regression",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\storage-wave2-units-switch-final.log"
+    },
+    {
+      "command": "node dev-harness/module-dependency-graph.static.e2e.js",
+      "result": "final pass, SCC size 31",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\wave2-graph-final.log"
+    },
+    {
+      "command": "node dev-harness/i18n.static.e2e.js",
+      "result": "direct followup pass; runner interleaved progress labeled the graph failure as i18n, final failure dump identifies graph",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\wave2-i18n-investigate.log"
+    },
+    {
+      "command": "node dev-harness/interventions-cas.e2e.js",
+      "result": "exit 0; final ALL PASS; before switch snapshot-only repair",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\interventions-cas-wave2-final.log"
+    },
+    {
+      "command": "node dev-harness/interventions-persist.e2e.js",
+      "result": "exit 0; final ALL PASS; before switch snapshot-only repair",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\interventions-persist-wave2-final.log"
+    },
+    {
+      "command": "node dev-harness/interventions-snapshot.e2e.js",
+      "result": "exit 0; final ALL PASS; before switch snapshot-only repair",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\interventions-snapshot-wave2-final.log"
+    },
+    {
+      "command": "node dev-harness/playbooks.e2e.js",
+      "result": "exit 0; final ALL PASS; before switch snapshot-only repair",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\playbooks-wave2-final.log"
+    },
+    {
+      "command": "node dev-harness/playbook-reuse.e2e.js",
+      "result": "exit 0; final ALL PASS; before switch snapshot-only repair",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\playbook-reuse-wave2-final.log"
+    },
+    {
+      "command": "node dev-harness/missions-readmodel.e2e.js",
+      "result": "exit 0; final ALL PASS; before switch snapshot-only repair",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\missions-readmodel-wave2-final.log"
+    },
+    {
+      "command": "node dev-harness/memory-meta-work-data.e2e.js",
+      "result": "final source exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\memory-meta-work-data-wave2-switch-final.log"
+    },
+    {
+      "command": "node dev-harness/mission-playbook-work-data.e2e.js",
+      "result": "final source exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\mission-playbook-work-data-wave2-switch-final.log"
+    },
+    {
+      "command": "node dev-harness/work-data-session-journals.e2e.js",
+      "result": "final source exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\work-data-session-journals-wave2-switch-final.log"
+    },
+    {
+      "command": "node dev-harness/memory-domain-work-data.e2e.js",
+      "result": "final source exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\memory-domain-work-data-wave2-switch-final.log"
+    }
+  ],
+  "independentReviews": [
+    {
+      "reviewer": "privacy_repro",
+      "scope": "mission/playbook final source",
+      "result": "no remaining blocker; 7 source-overlay tests pass"
+    },
+    {
+      "reviewer": "privacy_review",
+      "scope": "memory metadata final source",
+      "result": "no remaining blocker; 5 source-overlay tests pass"
+    },
+    {
+      "reviewer": "privacy_review",
+      "scope": "session journals",
+      "findings": [
+        "cached append authority lacked key identity",
+        "encode failure could repair old torn tail before rejecting"
+      ],
+      "resolution": "fixed and independently rechecked"
+    },
+    {
+      "reviewer": "privacy_repro",
+      "scope": "final chunk codec, store guards, UTF8, atomic stream and gate",
+      "result": "no blocker; 65 focused source tests pass, no skip"
+    },
+    {
+      "reviewer": "privacy_review",
+      "scope": "docs/generators/evidence and final local renames",
+      "result": "no blocker; corrected README_EN counts, metadata hard-error wording, v3-only gate scope; final rename is semantic no-op"
+    },
+    {
+      "reviewer": "privacy_review",
+      "scope": "final switch snapshot fix",
+      "result": "all guard success branches return enabled; create/createText/createJson share one sample; no remaining blocker"
+    }
+  ],
+  "capacity": {
+    "measurement": "synthetic retained domain object + JSON string + store roundtrip + parse; one isolated process per case",
+    "rawLogs": "benchmark outputs were retained in tool transcript only, not files; numbers below are observations, not a performance release gate",
+    "formatCeilingMiB": 256,
+    "chunkKiB": 512,
+    "activeCodecBudgetMiB": 64,
+    "maxActive": 4,
+    "overBudget": "exclusive FIFO admission",
+    "gateFinal": [
+      {
+        "recordMiB": 64,
+        "concurrency": 2,
+        "writeMs": 1157,
+        "readMs": 3034,
+        "maxRssMiB": 697
+      },
+      {
+        "recordMiB": 256,
+        "concurrency": 2,
+        "writeMs": 4490,
+        "readMs": 10175,
+        "maxRssMiB": 2195
+      }
+    ],
+    "gateBefore": {
+      "note": "before gate/native wellformed resource patch; all 8 synthetic cases round-tripped",
+      "singleMaxRssMiB": {
+        "40": 346,
+        "64": 460,
+        "128": 767,
+        "256": 1417
+      },
+      "dualMaxRssMiB": {
+        "40": 548,
+        "64": 646,
+        "128": 1295,
+        "256": 2465
+      }
+    },
+    "limitations": [
+      "gate does not bound caller-retained objects, result strings, garbage, or full process RSS",
+      "final gate reran only dual 64/256MiB cases",
+      "scan limits remain unchanged in this batch",
+      "real user datasets and migration preflight are not validated"
+    ],
+    "gateAppliesTo": "WorkDataChunks v3 only; v2 and individual journal records do not use this gate",
+    "benchmarkScript": {
+      "file": "dev-harness/work-data-chunks-benchmark.js",
+      "sha256": "7aa23a2e1ace30faefc349c6e773eec4e9f5e8a2d3e0cd2e8c903a70a20c517c"
+    }
+  },
+  "firstFailures": [
+    {
+      "scope": "implementation source tests",
+      "detail": "journal cleanup hook used os.tmpdir after fixture environment override; fixed by capturing original tempBase; no product assertion relaxed"
+    },
+    {
+      "scope": "cleanup",
+      "detail": "automatic review rejected a manual cleanup command for one synthetic journals fixture; command not retried through a bypass; fixture retained outside repo"
+    },
+    {
+      "scope": "full static gate",
+      "detail": "01p/01r local text identifier was counted as 00-boot global text, causing SCC33; renamed locals to chunkLineText/chunkPlainText without runtime change and regenerated; final graph gate passes SCC31"
+    },
+    {
+      "scope": "late review race",
+      "detail": "guardWrite and encoder sampled enabled separately; true then false could downgrade ciphertext. One operation now samples once; JSON/v2 text/v3 true-to-false and false-to-true regressions pass."
+    }
+  ],
+  "pending": [],
+  "priorSourceHashes": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "5fa725336f8e4e460499ffe2a3641023eaf69acf488f37b38097a1c033c39c4b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "0b3d71ad9989f7ef540cbf58c1b429a2ca2e23bf7728e8018ece1e6d688c1a23"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "sha256": "dc0d43ea8a5d285954064e6ccc4903232d41a9857cf517b4a33fdedc43490b1f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "sha256": "dbb9f56ef74f4b2cba1bb428e26a2a0b0fe9f4d58e670077b80fc651a9bf4c51"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01q-work-data-records.js",
+      "sha256": "184b9094aff2283e7cce35861bb639b60e585a00688e4b1c3cb995cef2325503"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01r-work-data-chunks.js",
+      "sha256": "59fed792408427a96b1dcf1de68ffa638a1ec202e4c7e9e2385ccec9bfeb5443"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "7a31dc5d911adf474d1a988a0a8a33a726d491dc2a2a50dc7541292f7b9cd68f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "417bcd695c78af6433dc45a73acfbf6f401af07588a5c54d273cdcefeafcbd33"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "sha256": "96a44164395adaa0131e30ed59a762cc986425d3ce87343130effa61bb508d2a"
+    }
+  ],
+  "limitations": [
+    "Full unit/static runner was not rerun as one all-green command after the two local renames and switch snapshot repair; affected final 90-unit set, failed graph gate and four encrypted family integrations were rerun.",
+    "Source VM unit tests cover chunks and journals; generated server tests cover mission/playbooks/meta, with generated server/real Windows DPAPI integration for all new families."
+  ]
+}

@@ -989,9 +989,47 @@ function normalizePlaybook(raw) {
 
 function builtinPlaybooksDir() { return path.join(externalRoot(), 'resources', 'playbooks'); }
 
+function userPlaybookStore(fileName) {
+  // Legacy user files may have a display filename different from their declared
+  // id. Bind the actual filename without restricting that existing read format.
+  return WorkDataStore.createText({
+    file: () => path.join(paths.playbooks, fileName),
+    purpose: 'workflow', schema: 1, scopeId: 'user',
+    recordId: 'playbook:' + crypto.createHash('sha256').update(fileName).digest('hex'),
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    writeJson: atomicWriteJson,
+    validateSealedText: text => !!normalizePlaybook(safeJsonParse(text.replace(/^\uFEFF/, ''), null)),
+  });
+}
+
+async function readUserPlaybookText(fileName) {
+  const file = path.join(paths.playbooks, fileName);
+  const handle = await fsp.open(file, 'r');
+  try {
+    const head = Buffer.alloc(2);
+    const { bytesRead } = await handle.read(head, 0, head.length, 0);
+    if (bytesRead === 2 && head[0] === 0xFF && head[1] === 0xFE) {
+      const text = (await handle.readFile()).toString('utf16le').replace(/^\uFEFF/, '');
+      const parsed = safeJsonParse(text, null);
+      // Workbench containers are UTF-8. A marked file with another encoding is
+      // a refusal, never an absent override that silently selects the built-in.
+      const marked = parsed && typeof parsed === 'object'
+        ? !Array.isArray(parsed) && Object.hasOwn(parsed, 'workData') : /"workData"\s*:/.test(text);
+      if (marked) {
+        throw Object.assign(new Error('work_data_store.encoding_unsupported'), { code: 'work_data_store.encoding_unsupported', statusCode: 503 });
+      }
+      return text;
+    }
+  } finally { await handle.close(); }
+  return userPlaybookStore(fileName).read();
+}
+
 // Read every *.json in a dir, normalize each; skip unreadable/invalid. Returns a Map<id, playbook>.
 async function readPlaybooksFromDir(dir) {
   const out = new Map();
+  const userFiles = path.resolve(dir) === path.resolve(paths.playbooks);
   let files = [];
   try { files = await fsp.readdir(dir); } catch { return out; } // dir absent → empty
   for (const f of files) {
@@ -999,12 +1037,19 @@ async function readPlaybooksFromDir(dir) {
     try {
       // 记事本另存的两种编码都认:「UTF-8」带 BOM、「Unicode」是带 BOM 的 UTF-16LE。修前 JSON.parse 认不得,这份 playbook
       // 被静默丢弃(SKILL.md 那边早已兼容 UTF-8 BOM)。
-      const buf = await fsp.readFile(path.join(dir, f));
-      const text = (buf[0] === 0xFF && buf[1] === 0xFE) ? buf.toString('utf16le') : buf.toString('utf8');
+      let text;
+      if (userFiles) text = await readUserPlaybookText(f);
+      else {
+        const buf = await fsp.readFile(path.join(dir, f));
+        text = (buf[0] === 0xFF && buf[1] === 0xFE) ? buf.toString('utf16le') : buf.toString('utf8');
+      }
       const raw = safeJsonParse(text.replace(/^\uFEFF/, ''), null);
       const pb = normalizePlaybook(raw);
       if (pb) out.set(pb.id, pb);
-    } catch { /* skip unreadable/corrupt */ }
+    } catch (error) {
+      if (String(error && error.code || '').startsWith('work_data')) throw error;
+      /* skip unreadable/corrupt legacy records */
+    }
   }
   return out;
 }
@@ -1116,8 +1161,10 @@ function matchServiceEntry(query, playbooks) {
 async function saveUserPlaybook(pb) {
   await fsp.mkdir(paths.playbooks, { recursive: true });
   // 第25波 25.1: 收编 atomicWriteJson(旧版固定 '.tmp' 名 + 无重试 + 失败不清 tmp)。
-  const dest = path.join(paths.playbooks, `${pb.id}.json`);
-  await atomicWriteJson(dest, pb);
+  const fileName = `${pb.id}.json`;
+  try { await readUserPlaybookText(fileName); }
+  catch (error) { if (error && error.code !== 'ENOENT') throw error; }
+  await userPlaybookStore(fileName).write(JSON.stringify(pb, null, 2));
   return pb;
 }
 

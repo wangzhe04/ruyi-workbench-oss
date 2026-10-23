@@ -1677,12 +1677,23 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
   const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
   noteOwn(finalPath);
   try {
-    const payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    let payload;
+    if (opts.stream === true) {
+      // Opt-in encrypted large-record writers pass a replayable factory. writeFile consumes it once;
+      // rename retries reuse the completed temp file and never rerun the encoder or other side effects.
+      if (typeof value !== 'function') throw new TypeError('stream writer requires an iterable factory');
+      payload = value();
+      if (!payload || typeof payload[Symbol.asyncIterator] !== 'function') throw new TypeError('stream factory requires an async iterable');
+    } else payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
     try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
-    catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    catch (e) {
+      if (opts.stream === true) { try { await fsp.unlink(tmpPath); } catch { /* best effort */ } }
+      else fsp.unlink(tmpPath).catch(() => {});
+      throw e;
+    }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
       try { await fsp.rename(tmpPath, finalPath); return; }

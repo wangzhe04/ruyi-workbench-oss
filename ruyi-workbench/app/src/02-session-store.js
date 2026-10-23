@@ -70,6 +70,112 @@ async function sessionBodyWriteText(file, lines, startOrdinal = 0) {
   return encoded.join('\n') + '\n';
 }
 
+// Session side journals retain their own append/CAS/compaction lifecycle. Only
+// complete lines are sealed: the physical ordinal is authenticated independently
+// of the business revision (intervention versions can repeat across different IDs).
+const sessionJournalAppendStates = new Map();
+function sessionJournalFailure(suffix) {
+  return Object.assign(new Error('work_data.journal_' + suffix), { code: 'work_data.journal_' + suffix });
+}
+function sessionJournalRecordCandidate(line) {
+  try {
+    const row = JSON.parse(line);
+    return !!row && typeof row === 'object' && Object.hasOwn(row, 'w')
+      && (Object.hasOwn(row, 'e') || !Object.hasOwn(row, 'id') && !Object.hasOwn(row, 'type'));
+  } catch { return /^\s*\{\s*"w"\s*:\s*\d+/.test(line); }
+}
+async function decodeSessionJournalText(sessionId, kind, raw, committedOnly = false, suppliedCredential = null) {
+  const lines = String(raw || '').split('\n'); let credential = suppliedCredential;
+  for (let ordinal = 0; ordinal < lines.length; ordinal++) {
+    const line = lines[ordinal];
+    if (!line || !sessionJournalRecordCandidate(line)) continue;
+    // A torn last line has never been committed. The append owner repairs it;
+    // readers report the same degraded suffix as the legacy fold, without edits.
+    if (ordinal === lines.length - 1 && !raw.endsWith('\n')) {
+      if (committedOnly) continue;
+      try { JSON.parse(line); } catch { continue; }
+    }
+    if (!credential) credential = { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() };
+    lines[ordinal] = WorkDataRecords.decodeLine(line, credential.key, { instanceId: credential.instanceId, sessionId, kind, ordinal });
+  }
+  return lines.join('\n');
+}
+function sessionJournalStamp(stat) { return stat ? [stat.size, stat.mtimeMs, stat.ctimeMs, stat.ino].join(':') : 'missing'; }
+async function sessionJournalAppendState(file, sessionId, kind, enabled, credential = null) {
+  const stamp = sessionJournalStamp(await fsp.stat(file).catch(error => { if (error.code === 'ENOENT') return null; throw error; }));
+  const authStamp = credential ? credential.instanceId + ':' + crypto.createHash('sha256').update(credential.key).digest('hex') : '';
+  const cached = sessionJournalAppendStates.get(file);
+  if (cached && cached.stamp === stamp && (!enabled || credential && cached.authStamp === authStamp)) {
+    if (!enabled && cached.sealed) throw sessionJournalFailure('downgrade_refused');
+    return cached;
+  }
+  let raw = '';
+  try { raw = await fsp.readFile(file, 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const lines = raw.split('\n'), sealed = lines.some(sessionJournalRecordCandidate);
+  if (!enabled && sealed) throw sessionJournalFailure('downgrade_refused');
+  if (sealed) await decodeSessionJournalText(sessionId, kind, raw, true, credential);
+  const state = { stamp, count: lines.length - 1, sealed, authStamp };
+  if (sessionJournalAppendStates.size >= 4096) sessionJournalAppendStates.delete(sessionJournalAppendStates.keys().next().value);
+  sessionJournalAppendStates.set(file, state); return state;
+}
+async function noteSessionJournalAppend(file, sealed = false) {
+  const previous = sessionJournalAppendStates.get(file);
+  if (!previous) return;
+  try {
+    const stat = await fsp.stat(file);
+    sessionJournalAppendStates.set(file, { ...previous, stamp: sessionJournalStamp(stat), count: previous.count + 1, sealed: previous.sealed || sealed });
+  } catch { sessionJournalAppendStates.delete(file); } // disposable metadata cannot turn a committed row into failure
+}
+// Unlike the legacy 64 KiB repair, a sealed record can span several windows.
+// Search backwards to a real LF, never truncate into another authenticated line.
+async function repairSealedSessionJournalTail(file) {
+  let handle;
+  try { handle = await fsp.open(file, 'r+'); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+  try {
+    const size = (await handle.stat()).size;
+    if (!size) return;
+    const buffer = Buffer.alloc(Math.min(65536, size)); let end = size;
+    while (end > 0) {
+      const start = Math.max(0, end - buffer.length), length = end - start;
+      const { bytesRead } = await handle.read(buffer, 0, length, start);
+      if (bytesRead !== length) throw sessionJournalFailure('repair_unreadable');
+      if (end === size && buffer[bytesRead - 1] === 10) return;
+      const newline = buffer.lastIndexOf(10, bytesRead - 1);
+      if (newline >= 0) { await handle.truncate(start + newline + 1); sessionJournalAppendStates.delete(file); return; }
+      end = start;
+    }
+    await handle.truncate(0); sessionJournalAppendStates.delete(file);
+  } finally { await handle.close(); }
+}
+async function appendProtectedSessionJournal(file, sessionId, kind, plainLine) {
+  const enabled = (await readConfig()).workDataEncryptionV1 === true;
+  if (!enabled) { await sessionJournalAppendState(file, sessionId, kind, false); return false; }
+  // Unlock/encode before any destructive repair: missing keys cannot alter even
+  // the torn suffix. Determine the ordinal from the complete physical prefix.
+  const key = await workDataKeys.unlock(), instanceId = await workDataKeys.instance();
+  const state = await sessionJournalAppendState(file, sessionId, kind, true, { key, instanceId });
+  const line = WorkDataRecords.encodeLine(plainLine.replace(/\n$/, ''), key, { instanceId, sessionId, kind, ordinal: state.count }) + '\n';
+  await repairSealedSessionJournalTail(file);
+  sessionJournalAppendStates.set(file, state);
+  try {
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.appendFile(file, line, 'utf8'); break; }
+      catch (error) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(error.code))) throw error; await new Promise(resolve => setTimeout(resolve, 10 + attempt * 20)); }
+    }
+    await noteSessionJournalAppend(file, true);
+  } catch (error) { sessionJournalAppendStates.delete(file); throw error; }
+  return true;
+}
+async function encodeSessionJournalReplacement(file, sessionId, kind, plain) {
+  const enabled = (await readConfig()).workDataEncryptionV1 === true;
+  const credential = enabled ? { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() } : null;
+  await sessionJournalAppendState(file, sessionId, kind, enabled, credential);
+  if (!enabled) return plain;
+  const { key, instanceId } = credential;
+  const lines = plain ? plain.slice(0, -1).split('\n') : [];
+  return lines.map((line, ordinal) => WorkDataRecords.encodeLine(line, key, { instanceId, sessionId, kind, ordinal })).join('\n') + (lines.length ? '\n' : '');
+}
+
 // ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
 // L2 摘要成功后,把结构化摘要中的【已确认的决定】/【未完成事项】/【关键文件与上下文】三节确定性
 // 切出整写到本文件。默认每次 L2 成功整体重写(摘要本身即最新权威状态);105d 的
@@ -257,6 +363,8 @@ function dropInterventionSessionState(sid) {
   const prefix = String(sid) + '\x00';
   for (const key of interventionRecordCache.keys()) if (key.startsWith(prefix)) interventionRecordCache.delete(key);
   interventionAppendCounts.delete(String(sid));
+  sessionJournalAppendStates.delete(interventionFilePath(sid));
+  sessionJournalAppendStates.delete(missionChangeFilePath(sid));
 }
 // 75a-2b (S3): per-session in-memory high-water mark of mission.changeSeq -- the max value written to disk
 // within this process lifecycle. Lets saveSession preserve disk-side bumps from intervention transitions
@@ -337,8 +445,12 @@ function appendMissionChangeRecord(sessionId, record) {
   if (!sid) return Promise.resolve();
   const file = missionChangeFilePath(sid);
   return runKeyedChain(missionChangeWriteChains, sid, async () => {
-    await repairMissionChangeTornTail(file);
-    await fsp.appendFile(file, JSON.stringify(record) + '\n', 'utf8');
+    const line = JSON.stringify(record) + '\n';
+    if (!await appendProtectedSessionJournal(file, sid, 'changes', line)) {
+      await repairMissionChangeTornTail(file);
+      await fsp.appendFile(file, line, 'utf8');
+      await noteSessionJournalAppend(file);
+    }
     markPretenderIndexDirty(sid, 'source');
   });
 }
@@ -378,7 +490,7 @@ async function readMissionChangesWithMeta(sessionId, currentRevision = null) {
   }
   let txt = '';
   try { txt = await fsp.readFile(missionChangeFilePath(sid), 'utf8'); } catch { /* missing journal = migration baseline */ }
-  return foldMissionChangeJournalText(txt, current);
+  return foldMissionChangeJournalText(await decodeSessionJournalText(sid, 'changes', txt), current);
 }
 // Persist a head advance and its record in one per-session chain. The head commits first; a crash between
 // head and journal creates a detectable tail gap instead of a silently false summary. Existing callers may
@@ -505,12 +617,16 @@ function appendIntervention(sessionId, record) {
   const file = interventionFilePath(sid);
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
   const next = prev.catch(() => {}).then(async () => {
+    if (await appendProtectedSessionJournal(file, sid, 'interventions', line)) {
+      markPretenderIndexDirty(sid, 'source'); return true;
+    }
     try { await repairMissionChangeTornTail(file); } catch { /* best-effort repair; a failed repair leaves the torn tail for the next append to retry (117q-B6fix) */ }
     for (let attempt = 0; ; attempt++) {   // Windows 瞬时锁有界重试;仍失败就抛给下面的 catch → next 解析为 undefined(= 没落盘)
       try { await fsp.appendFile(file, line, 'utf8'); break; }
       catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
     }
     markPretenderIndexDirty(sid, 'source'); // 75c: authority changed; materialized view is disposable
+    await noteSessionJournalAppend(file);
     return true;
   }).catch(() => {});
   interventionWriteChains.set(sid, next);
@@ -620,7 +736,7 @@ async function readInterventionsWithMeta(sessionId) {
       return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 };
     }
   }
-  return foldInterventionJournalText(txt);
+  return foldInterventionJournalText(await decodeSessionJournalText(sid, 'interventions', txt));
 }
 
 // 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
@@ -646,13 +762,15 @@ async function compactInterventionJournal(sessionId, opts = {}) {
   return runKeyedChain(interventionWriteChains, sid, async () => {
     let txt = '';
     try { txt = await fsp.readFile(file, 'utf8'); } catch { return { ok: true, compacted: false, rowsBefore: 0, rowsAfter: 0, bytesBefore: 0, bytesAfter: 0 }; }
-    const folded = foldInterventionJournalText(txt);
+    const folded = foldInterventionJournalText(await decodeSessionJournalText(sid, 'interventions', txt));
     if (folded.degraded) return { ok: false, compacted: false, degraded: true, corruptLines: folded.corruptLines };
     const rowsAfter = folded.interventions.length;
     const worthwhile = interventionJournalWorthCompacting(folded);
     if (!opts.force && !worthwhile) return { ok: true, compacted: false, rowsBefore: folded.rowCount, rowsAfter, bytesBefore: folded.bytes, bytesAfter: folded.bytes };
     const payload = folded.interventions.map(rec => JSON.stringify(rec)).join('\n') + (rowsAfter ? '\n' : '');
-    await atomicWriteJson(file, payload);
+    const storedPayload = await encodeSessionJournalReplacement(file, sid, 'interventions', payload);
+    await atomicWriteJson(file, storedPayload);
+    sessionJournalAppendStates.delete(file);
     markPretenderIndexDirty(sid, 'source');
     return {
       ok: true, compacted: true,
@@ -5498,6 +5616,22 @@ const MISSION_CONTAINER_LIMITS = Object.freeze({
 
 function missionsDir() { return path.join(paths.data, MISSIONS_DIR_NAME); }
 function missionContainerPath(missionId) { return path.join(missionsDir(), missionId + '.json'); }
+function missionContainerStore(missionId) {
+  return WorkDataStore.createText({
+    file: () => missionContainerPath(missionId),
+    purpose: 'task', schema: MISSION_CONTAINER_SCHEMA, scopeId: missionId, recordId: 'mission-container',
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    writeJson: atomicWriteJson,
+    validateSealedText: text => {
+      const raw = safeJsonParse(text, null);
+      return !!raw && typeof raw === 'object' && !Array.isArray(raw)
+        && raw.schema === MISSION_CONTAINER_SCHEMA && raw.missionId === missionId
+        && !!normalizeMissionContainer(raw, missionId)?.title;
+    },
+  });
+}
 // 事项 id 与会话 id 同一字符集(safeSessionId 是全仓唯一那道消毒),新建时取 `mission_<hex>` 前缀 ——
 // 与 `sess_` 分开,好在日志里一眼认出;13e 的投影扫描只认 `sess_*.json`,故事项文件天然不进投影。
 function safeMissionId(raw) { return safeSessionId(raw); }
@@ -5571,7 +5705,11 @@ async function readMissionContainer(missionId) {
   if (!id) return null;
   const file = missionContainerPath(id);
   let raw;
-  try { raw = await fsp.readFile(file, 'utf8'); } catch { return null; }
+  try { raw = await missionContainerStore(id).read(); }
+  catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    return null;
+  }
   let parsed = null;
   try { parsed = JSON.parse(raw); } catch { parsed = null; }
   const schemaOk = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
@@ -5594,9 +5732,12 @@ function withMissionContainerLock(missionId, work) {
 async function writeMissionContainer(record) {
   const normalized = normalizeMissionContainer(record, record && record.missionId);
   if (!normalized) throw new Error('invalid mission container');
+  // Authenticate an existing container before a direct replacement as well as a
+  // read-modify-write. An unreadable sealed mission must never become unclassified.
+  await readMissionContainer(normalized.missionId);
   normalized.updatedAt = nowIso();
   await fsp.mkdir(missionsDir(), { recursive: true });
-  await atomicWriteJson(missionContainerPath(normalized.missionId), JSON.stringify(normalized, null, 2));
+  await missionContainerStore(normalized.missionId).write(JSON.stringify(normalized, null, 2));
   return normalized;
 }
 

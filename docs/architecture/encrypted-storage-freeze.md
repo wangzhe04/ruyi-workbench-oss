@@ -11,26 +11,28 @@ Frozen purposes (`WorkDataCrypto.PURPOSES`): `session`, `memory`, `queue`, `task
 
 Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)`, AAD binds `schema` / `scopeId` / `seq` on top of the privacy-core triple.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals` (adapter exists, switch still off by default).
+Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v2 manifest and chunk envelopes. See [93 section 11](../optimization-plan/93-m3-1-encrypted-storage-freeze.md#11-m3-2-大记录格式补充2026-10-23); the frozen v2 crypto envelope is unchanged.
+
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
 | session-head | required | `session` | sessions | wired | `id` (on-disk filename and sidebar route; opaque random id, never user text); `storageVersion` (chooses the reader before any decrypt); `createdAt` (age/sort only); `updatedAt` (freshness/sort only); `messageCount` (pagination bound without decrypting every line) | title, gist, threadBrief, createdBy and stewardTaint move inside the envelope; the head must still be readable enough to route and sort after unlock |
 | session-messages | required | `session` | sessions | wired | — (nothing readable) | append-only body: whole records are sealed, the encrypted head owns counts and revisions |
 | session-provider | required | `session` | sessions | wired | — (nothing readable) | model history and tool results are user content |
-| session-interventions | required | `session` | sessions | pending | — (nothing readable) | command journal carries the user commands and paths |
-| session-changes | required | `session` | sessions | pending | — (nothing readable) | change audit carries file paths and diffs |
+| session-interventions | required | `session` | sessions | wired | — (nothing readable) | command journal carries the user commands and paths |
+| session-changes | required | `session` | sessions | wired | — (nothing readable) | change audit carries file paths and diffs |
 | session-scratchpad | required | `session` | sessions | wired | — (nothing readable) | model-owned notes are task content |
 | session-index | required | `session` | sessions | pending | `id` (sidebar row key (opaque session id)); `updatedAt` (sort order only, no user text) | sidebar titles and gists are sensitive; only the opaque key and a timestamp stay readable |
 | session-v1-backup | required | `session` | sessions | pending | — (nothing readable) | legacy migration artifact: sealed like the session it restores, retired after the switch |
 | journal-index | required | `session` | sessions | pending | `seq` (checkpoint ordering) | file lists, hashes and per-entry payloads stay sealed |
 | journal-reverts | required | `session` | sessions | pending | — (nothing readable) | records which files the user undid |
 | journal-history | required | `session` | sessions | pending | — (nothing readable) | compressed context snapshots are conversation content |
-| mission-container | required | `task` | sessions | pending | `sessionId` (attach a ledger to its session) | mission goals and milestones are user text |
+| mission-container | required | `task` | sessions | wired | `sessionId` (attach a ledger to its session) | mission goals and milestones are user text |
 | context-calibration | excluded | — | not-migrated | pending | — (nothing readable) | numeric calibration coefficients and sample counts only; no user content and no path |
 | pretender-index | required | `search-index` | index-cache | pending | `sessionId` (group rows per session) | derived from sealed bodies, so it must not become a plaintext side channel |
 | memory-body | required | `memory` | memory-queue | pending | `id` (frontmatter/file name; opaque memory id); `scope` (global vs project bucket; project key is already opaque) | memory bodies and frontmatter titles/descriptions are user content |
-| memory-meta | required | `memory` | memory-queue | pending | `id` (join key to the body) | titles, tags and source references stay sealed |
+| memory-meta | required | `memory` | memory-queue | wired | — (nothing readable) | project bucket path, label and creation time stay sealed; the opaque project directory key supplies routing |
 | memory-usage | required | `memory` | memory-queue | wired | — (nothing readable) | usage reveals which memories were used; cheap to seal together with memory-meta |
 | memory-relations | required | `memory` | memory-queue | wired | — (nothing readable) | relation edges name memory ids and their meaning |
 | memory-proposals | required | `memory` | memory-queue | wired | — (nothing readable) | pending proposals quote the user content they propose to remember |
@@ -50,7 +52,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 | agent-run-events | required | `task` | tasks | pending | `sessionId` (attach to the session); `runId` (idempotency key) | event stream replays tool input/output |
 | background-job-ledger | required | `task` | tasks | pending | `sessionId` (attach to the session); `seq` (append ordering only) | job output and exit detail |
 | personal-workflows | required | `workflow` | tasks | pending | `workflowId` (workflow identity) | workflow steps embed prompts and paths |
-| playbooks | required | `workflow` | tasks | pending | `playbookId` (playbook identity) | playbook bodies embed prompts and examples |
+| playbooks | required | `workflow` | tasks | wired | `playbookId` (playbook identity) | playbook bodies embed prompts and examples |
 | session-search-index | required | `search-index` | index-cache | pending | `sessionId` (group rows per session); `version` (rebuild decision without decrypting every row) | derived text units are a plaintext side channel for sealed bodies |
 | web-cache | required | `cache` | index-cache | pending | `fetchedAt` (cache freshness only, no page text) | URLs and page bodies are sensitive; only a hash key and a timestamp stay readable |
 | proxy-models-cache | required | `cache` | index-cache | pending | `fetchedAt` (cache freshness only, no page text) | model list is provider metadata but can embed account-scoped ids |

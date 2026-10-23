@@ -1206,6 +1206,22 @@
       "requires": []
     },
     {
+      "file": "01r-work-data-chunks.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataChunks"
+      ],
+      "requires": [
+        {
+          "provider": "01n-work-data-crypto.js",
+          "symbol": "WorkDataCrypto",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01p-work-data-store.js",
       "layer": "foundation",
       "provides": [
@@ -1215,6 +1231,13 @@
         {
           "provider": "01n-work-data-crypto.js",
           "symbol": "WorkDataCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01r-work-data-chunks.js",
+          "symbol": "WorkDataChunks",
           "kinds": [
             "read"
           ]
@@ -1379,6 +1402,7 @@
         "WORKSPACE_BASELINE_SKIP_DIRS",
         "appendIntervention",
         "appendMissionChangeRecord",
+        "appendProtectedSessionJournal",
         "applyMissionUpdate",
         "applySessionMetaPatch",
         "applySessionTitleOverride",
@@ -1405,12 +1429,14 @@
         "createMissionContainer",
         "createSession",
         "danglingTurnState",
+        "decodeSessionJournalText",
         "deleteSession",
         "demoteSessionBodyRecord",
         "detectDanglingTurn",
         "dirSize",
         "dropInterventionSessionState",
         "dropSessionBodyState",
+        "encodeSessionJournalReplacement",
         "evaluateMissionCheck",
         "evictSessionBodyStateOverflow",
         "finalizeMissionAfterTurn",
@@ -1495,6 +1521,7 @@
         "missionContainerChains",
         "missionContainerFail",
         "missionContainerPath",
+        "missionContainerStore",
         "missionControlCommand",
         "missionControlFailure",
         "missionControlView",
@@ -1527,6 +1554,7 @@
         "normalizeTodoWriteArgs",
         "noteMissionMembership",
         "noteSessionIndexBadHead",
+        "noteSessionJournalAppend",
         "overlayUnflushedSessionIndex",
         "parseSessionHeadForIndex",
         "patchMissionContainer",
@@ -1560,6 +1588,7 @@
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
+        "repairSealedSessionJournalTail",
         "rewindSession",
         "rewindSessionContents",
         "safeMissionId",
@@ -1606,6 +1635,11 @@
         "sessionIndexRebuildsActive",
         "sessionIndexRetireSeq",
         "sessionIndexWriteSeq",
+        "sessionJournalAppendState",
+        "sessionJournalAppendStates",
+        "sessionJournalFailure",
+        "sessionJournalRecordCandidate",
+        "sessionJournalStamp",
         "sessionKind",
         "sessionLegacyRewinds",
         "sessionLineHash",
@@ -5666,6 +5700,7 @@
         "readPlaybooksFromDir",
         "readProjectMemory",
         "readStorageTrend",
+        "readUserPlaybookText",
         "readWorkbenchAudit",
         "reassertThreadBrief",
         "recordEngineTranscript",
@@ -5695,7 +5730,8 @@
         "threadBriefProvider",
         "threadBriefRateLimited",
         "toolRequirementsMet",
-        "updateAutomaticThreadTitle"
+        "updateAutomaticThreadTitle",
+        "userPlaybookStore"
       ],
       "requires": [
         {
@@ -6505,6 +6541,7 @@
         "memoryHaystackHasTerm",
         "memoryIsExpired",
         "memoryProjectDir",
+        "memoryProjectMetaStore",
         "memoryProposalBatchInput",
         "memoryProposalDuplicateFailure",
         "memoryProposalHistoryRows",
@@ -6567,6 +6604,7 @@
         "readConfirmedSupersedeEdges",
         "readMemoryDir",
         "readMemoryItem",
+        "readMemoryProjectMeta",
         "readMemoryProposalState",
         "readMemoryRelations",
         "readMemoryUsageState",

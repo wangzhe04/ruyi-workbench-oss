@@ -573,7 +573,10 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       if (ciphertext.length > LIMITS.bytes) fail('envelope_invalid');
       const decipher = cryptoApi.createDecipheriv('aes-256-gcm', key, nonce);
       decipher.setAAD(aad); decipher.setAuthTag(tag);
-      return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+      const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+      const decoded = plaintext.toString('utf8');
+      if (!Buffer.from(decoded, 'utf8').equals(plaintext)) fail('unicode_invalid');
+      return decoded;
     } catch { fail('decrypt_failed'); }
   }
   // Filled by the storage adapter after config primitives exist; no forward dependency from config.

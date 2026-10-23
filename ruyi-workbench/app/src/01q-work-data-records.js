@@ -9,7 +9,7 @@
 // so do not use it where a mixed body is legal.
 const WorkDataRecords = (() => {
   const FORMAT = 2;
-  const KINDS = Object.freeze(['messages', 'provider']);
+  const KINDS = Object.freeze(['messages', 'provider', 'interventions', 'changes']);
   const fail = suffix => { throw Object.assign(new Error('work_data_record.' + suffix), { code: 'work_data_record.' + suffix, apiCode: 'work_data_record.' + suffix }); };
   const ordinalOf = value => {
     if (!Number.isSafeInteger(value) || value < 0) fail('ordinal_invalid');

@@ -141,16 +141,43 @@ async function mutateMemoryUsageState(mutator) {
   await job;
 }
 
-// 组目录内写 meta.json(明文 path+label+createdAt),面板反查不依赖 recentWorkspaces(LRU 会逐出)。原子写。
+// 项目桶元信息与正文分开绑定；目录名是稳定的 projectKey，不能拿容器自带 scope 证明归属。
+function memoryProjectMetaStore(dir) {
+  return WorkDataStore.createText({
+    file: () => path.join(dir, 'meta.json'), purpose: 'memory', schema: 1,
+    scopeId: 'project:' + path.basename(dir), recordId: 'memory-meta',
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    validateSealedText: value => {
+      const meta = safeJsonParse(value, null);
+      return !!meta && typeof meta === 'object' && !Array.isArray(meta)
+        && ['path', 'label', 'createdAt'].every(key => typeof meta[key] === 'string');
+    },
+  });
+}
+
+async function readMemoryProjectMeta(dir) {
+  try { return safeJsonParse(await memoryProjectMetaStore(dir).read(), null); }
+  catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    return null;
+  }
+}
+
+// 面板反查不依赖 recentWorkspaces(LRU 会逐出)。关闭时保留原 pretty JSON 字节。
 async function writeMemoryMeta(dir, cwd) {
   try {
-    const metaPath = path.join(dir, 'meta.json');
     const abs = path.resolve(String(cwd || ''));
     let createdAt = nowIso();
-    try { const prev = safeJsonParse(await fsp.readFile(metaPath, 'utf8'), null); if (prev && prev.createdAt) createdAt = prev.createdAt; } catch { /* 无旧 meta */ }
+    const prev = await readMemoryProjectMeta(dir);
+    if (prev && prev.createdAt) createdAt = prev.createdAt;
     const meta = { path: abs, label: path.basename(abs) || abs, createdAt };
-    await atomicWriteJson(metaPath, meta);   // 25.1 收编
-  } catch { /* meta 失败不阻断写入 */ }
+    await memoryProjectMetaStore(dir).write(JSON.stringify(meta, null, 2));
+  } catch (error) {
+    // 普通旧元信息依然是可选 sidecar；认证/缺钥错误不能伪装成缺失后覆盖或继续写正文。
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+  }
 }
 
 // 读一个 memory 目录下所有 <id>.md → Map<id, entry>。id 须过 SKILL_ID_RE(防穿越);frontmatter 复用
@@ -239,7 +266,7 @@ async function listMemoryProjectGroups(excludeKey) {
     if (!d.isDirectory() || d.name === excludeKey) continue;
     const entries = [...(await readMemoryDir(path.join(base, d.name), 'project')).values()];
     if (!entries.length) continue;
-    let meta = null; try { meta = safeJsonParse(await fsp.readFile(path.join(base, d.name, 'meta.json'), 'utf8'), null); } catch { meta = null; }
+    const meta = await readMemoryProjectMeta(path.join(base, d.name));
     out.push({ projectKey: d.name, path: (meta && meta.path) || '', label: (meta && meta.label) || d.name, count: entries.length, items: entries.map(e => ({ id: e.id, name: e.name })) });
   }
   return out;

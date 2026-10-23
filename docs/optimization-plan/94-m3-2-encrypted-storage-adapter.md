@@ -265,7 +265,7 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 1. 把 `DurableJsonStore.create({...})`（或等价的 read/write 助手）换成 `WorkDataStore.createJson({...})`，**原样保留** id/file/schemaVersion/defaultValue/sanitize/validate/capacity/onCorrupt；
 2. 补四个加密字段：`purpose`（用 93 的 11 个冻结用途之一）、`scopeId`（全局用 `global`，按会话的用会话 id）、`recordId`（族内稳定键，如 `voice-lexicon`）；
 3. 键集二选一：本模块在 02 之前就装载 → 直接 `keys: workDataKeys`；否则 → `keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() }`（未填充时报 `work_data_store.not_initialised`，不是 TypeError）；再补 `writeJson: atomicWriteJson` + `quarantine`（与原 store 一致）；
-4. `enabled: () => readConfig().then(c => c.workDataEncryptionV1 === true).catch(() => false)`；
+4. `enabled: () => readConfig().then(c => c.workDataEncryptionV1 === true)`；配置读取失败必须冒泡，不能当作关闭（见 §15 H2/M2）；
 5. 跑该族自己的单测，确认开关关闭时字节不变；再加一条"打开后封印 + 读回 + 缺钥拒写"的用例（可抄 `voice-lexicon-work-data.test.js`）；
 6. 在清册生成器的 `ADAPTER_WIRED` 里加这个 id。
 
@@ -328,3 +328,20 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 当前已接线 **12/41**：session-head、session-messages、session-provider、session-scratchpad、voice-lexicon、memory-usage、steward-cursor、engine-transcript-index、steward-memory、agent-instructions-import、memory-relations、memory-proposals；余 **29** 族待做。§14/§15的早期读数保留为当时结果。没有迁移用户数据，没有启用 UI，M3-3 仍未实施。
 
 验证及最终源码身份记录到 `evidence/privacy-old-session-and-memory-storage.json`；本片也与用户报告的老会话 privacy 限额/关闭后续聊故障一起进行最终回归。
+
+
+## 17. M3-2e：大记录与五类存储（2026-10-23）
+
+本批新增 session-interventions、session-changes、mission-container、playbooks、memory-meta 接线，当前 **17/41**，余 **24** 族。仍是适配器接线阶段；默认开关、用户数据、迁移权威和启用 UI 均未切换。
+
+- 两类会话侧日志按物理行序号封印，允许旧明文前缀；先解封再做 CAS/状态折叠。缓存绑定文件戳、实例和解锁密钥身份；新行编码成功后才修复撕裂尾，长密文尾向后查到实际 LF；密钥或认证错误不能压缩成空账本。
+- 任务容器及用户 Playbook 使用分块文本适配器，保持 OFF 原序列化和旧文件名。任务内嵌 missionId 必须与目标绑定；Playbook 绑定实际文件名的哈希，保留历史人类可读文件名与 UTF16/BOM 明文兼容。已封印文件坏形状不得隔离、跳过或回退同名内置模板。
+- memory-meta 是每个项目桶的 path/label/createdAt 侧文件，并非每条记忆的元数据。已封印元信息的密钥、认证或域形状错误阻止后续记忆修改；旧坏明文和普通 I/O 仍按可选侧文件处理；memory-body 仍待接线。
+
+新增 opt-in workData:3 / chunks-v1：512KiB UTF8 分块，清单加密并认证总字节数、块长度、整文 SHA256 和随机 revision；各块绑定外部实例、用途、scope、record、revision 和序号。原 v2、1MiB 单封包和 11 个用途不变。宿主显式提供明文字节上限，格式工程上限 256MiB；迁移预检遇到超限必须停止切换，不能丢内容。流原子写失败保留旧目标，rename 重试不重消费编码器。
+
+WorkDataChunks/v3 分块 codec 的进程内 FIFO 准入预算为 64MiB 活动明文、最多 4 项；超过预算的合法大记录独占。此预算只约束额外编解码工作量，不约束调用方对象、返回字符串和等待 GC 的内存。最终代码双并发实测：每件 64MiB 时峰值约 697MiB；每件 256MiB 时约 2195MiB，读耗时约 3.0/10.2 秒；因此不能宣称恒定缓冲或整进程 64MiB。更高负载及真实用户全集尚未验证。
+
+独立审查已修复侧日志缓存跨密钥复用、编码失败前修尾两项问题；分块审查补齐 generation 读取、严格 UTF8、sealed JSON 在 sanitize 前验证和并发准入。最终验证、首次失败和限制见 [本批证据](evidence/privacy-storage-chunks-and-journals.json)。
+
+收口补充：适配器的一次写操作只采样一次开关，并将同一值用于降级防护和编码，避免 guard 后再次读到关闭值而写出明文；三类适配器均验证 true→false 与 false→true，无额外 OFF 解锁。统一全单测先为2656通过/26跳过/零失败；静态80/81首轮图门失败已通过局部变量重命名修复，最终90项定向及相关集成复验通过。完整 runner 未再宣称一次全绿，详见证据分阶段记录。

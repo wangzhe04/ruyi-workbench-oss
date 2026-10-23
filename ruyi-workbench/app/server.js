@@ -3166,7 +3166,10 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       if (ciphertext.length > LIMITS.bytes) fail('envelope_invalid');
       const decipher = cryptoApi.createDecipheriv('aes-256-gcm', key, nonce);
       decipher.setAAD(aad); decipher.setAuthTag(tag);
-      return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+      const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+      const decoded = plaintext.toString('utf8');
+      if (!Buffer.from(decoded, 'utf8').equals(plaintext)) fail('unicode_invalid');
+      return decoded;
     } catch { fail('decrypt_failed'); }
   }
   // Filled by the storage adapter after config primitives exist; no forward dependency from config.
@@ -5028,12 +5031,23 @@ async function atomicWriteJson(finalPath, value, opts = {}) {
   const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
   noteOwn(finalPath);
   try {
-    const payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    let payload;
+    if (opts.stream === true) {
+      // Opt-in encrypted large-record writers pass a replayable factory. writeFile consumes it once;
+      // rename retries reuse the completed temp file and never rerun the encoder or other side effects.
+      if (typeof value !== 'function') throw new TypeError('stream writer requires an iterable factory');
+      payload = value();
+      if (!payload || typeof payload[Symbol.asyncIterator] !== 'function') throw new TypeError('stream factory requires an async iterable');
+    } else payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
     const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
     // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
     // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
     try { await fsp.writeFile(tmpPath, payload, Number.isInteger(opts.mode) ? { encoding: 'utf8', mode: opts.mode } : 'utf8'); }
-    catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    catch (e) {
+      if (opts.stream === true) { try { await fsp.unlink(tmpPath); } catch { /* best effort */ } }
+      else fsp.unlink(tmpPath).catch(() => {});
+      throw e;
+    }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     for (let attempt = 0; ; attempt++) {
       try { await fsp.rename(tmpPath, finalPath); return; }
@@ -8093,6 +8107,192 @@ const WorkDataKeys = ((cryptoApi) => {
 // The process-wide key set. Families create their stores with it; enabled() reads the config switch
 // every time (M3-3 owns the enable flow).
 
+// Opt-in large whole-text format. The file is NDJSON: one authenticated manifest header followed by
+// independently authenticated UTF-8 chunks. Pure crypto/iterators only: no filesystem or key creation.
+// Existing WorkDataCrypto v2 envelopes and its 1 MiB limit are unchanged.
+const WorkDataChunks = ((cryptoApi) => {
+  const FORMAT = 3, NAME = 'chunks-v1';
+  const CHUNK_BYTES = 512 * 1024;
+  // Engineering ceiling, not a business-domain capacity. Every opt-in host must supply its own cap;
+  // migration preflight must reject an oversized source before changing authority.
+  const MAX_PLAINTEXT_BYTES = 256 * 1024 * 1024;
+  const MAX_CHUNKS = Math.ceil(MAX_PLAINTEXT_BYTES / (CHUNK_BYTES - 3));
+  const MAX_HEADER_BYTES = 16 * 1024;
+  // GCM ciphertext has the same byte count as plaintext; base64 expands to 4*ceil(n/3). The remaining
+  // 2048 bytes cover the bounded identity fields, ordinal, nonce/tag and exact v2 envelope keys.
+  const MAX_CHUNK_LINE_BYTES = 4 * Math.ceil(CHUNK_BYTES / 3) + 2048;
+  const HEADER_KEYS = ['format', 'instanceId', 'keyId', 'manifest', 'purpose', 'recordId', 'revision', 'schema', 'scopeId', 'seq', 'workData'].sort().join(',');
+  const MANIFEST_KEYS = ['chunkBytes', 'count', 'format', 'lengths', 'revision', 'sha256', 'totalBytes'].sort().join(',');
+  const fail = suffix => { throw Object.assign(new Error('work_data_chunk.' + suffix), {
+    code: 'work_data_chunk.' + suffix, apiCode: 'work_data_chunk.' + suffix, statusCode: 503,
+  }); };
+  const exact = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).sort().join(',') === keys;
+  const integer = value => Number.isSafeInteger(value) && value >= 0;
+  const identity = value => typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(value);
+  // Process-wide codec admission, not a domain capacity or an RSS limit. Caller-retained objects,
+  // returned strings and garbage awaiting collection are outside this additional work-buffer budget.
+  function createAdmission({ budgetBytes, maxActive }) {
+    if (!Number.isSafeInteger(budgetBytes) || budgetBytes < 1 || !Number.isSafeInteger(maxActive) || maxActive < 1) fail('admission_invalid');
+    const queue = [];
+    let activeBytes = 0, activeCount = 0;
+    const drain = () => {
+      while (queue.length && activeCount < maxActive) {
+        const job = queue[0];
+        if (job.bytes > budgetBytes ? activeCount !== 0 : activeBytes + job.bytes > budgetBytes) return;
+        queue.shift(); activeBytes += job.bytes; activeCount++;
+        let released = false;
+        job.resolve(() => {
+          if (released) return;
+          released = true; activeBytes -= job.bytes; activeCount--; drain();
+        });
+      }
+    };
+    const acquire = bytes => {
+      if (!integer(bytes) || bytes > MAX_PLAINTEXT_BYTES) fail('admission_invalid');
+      return new Promise(resolve => { queue.push({ bytes, resolve }); drain(); });
+    };
+    const run = async (bytes, work) => {
+      const release = await acquire(bytes);
+      try { return await work(); } finally { release(); }
+    };
+    return Object.freeze({ acquire, run, snapshot: () => ({ budgetBytes, maxActive, activeBytes, activeCount, queued: queue.length }) });
+  }
+  const admission = createAdmission({ budgetBytes: 64 * 1024 * 1024, maxActive: 4 });
+  function limitOf(value) {
+    if (!Number.isSafeInteger(value) || value < 1 || value > MAX_PLAINTEXT_BYTES) fail('limit_invalid');
+    return value;
+  }
+  function maxFileBytes(value) {
+    const cap = limitOf(value), count = Math.ceil(cap / (CHUNK_BYTES - 3));
+    return MAX_HEADER_BYTES + 4 * Math.ceil(cap / 3) + count * 2056;
+  }
+  function contextOf(value) {
+    if (!value || !WorkDataCrypto.PURPOSES.includes(value.purpose)
+      || !identity(value.instanceId) || !identity(value.scopeId) || !identity(value.recordId)
+      || !integer(value.schema) || !integer(value.seq)) fail('binding_invalid');
+    const generation = value.generation === undefined ? 1 : value.generation;
+    if (!Number.isSafeInteger(generation) || generation < 1 || generation > 99) fail('binding_invalid');
+    return Object.freeze({ purpose: value.purpose, instanceId: value.instanceId, schema: value.schema,
+      scopeId: value.scopeId, recordId: value.recordId, seq: value.seq, generation });
+  }
+  const digest = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
+  function bindings(context, revision) {
+    const base = digest(JSON.stringify([context.purpose, context.instanceId, context.schema, context.scopeId, context.recordId, context.seq]));
+    const prefix = 'chunks:' + base + ':' + revision;
+    return ordinal => ({ ...context, recordId: prefix + (ordinal === null ? ':m' : ':c:' + ordinal), seq: ordinal === null ? 0 : ordinal });
+  }
+  function parseLine(line, maxBytes) {
+    if (typeof line !== 'string' || !line || Buffer.byteLength(line, 'utf8') > maxBytes) fail('line_invalid');
+    try { return JSON.parse(line); } catch { fail('corrupt'); }
+  }
+  function encodeLine(value, maxBytes) {
+    const line = JSON.stringify(value);
+    if (Buffer.byteLength(line, 'utf8') > maxBytes) fail('limit');
+    return line + '\n';
+  }
+  // Capture an immutable string and frozen identity. Each consumption creates fresh buffers/nonces;
+  // callers pass the factory, never a previously consumed generator, to their atomic writer.
+  function sealFactory(plainText, key, expected, maxPlaintextBytes) {
+    const cap = limitOf(maxPlaintextBytes), context = contextOf(expected);
+    if (typeof plainText !== 'string' || !Buffer.isBuffer(key) || key.length !== 32) fail('shape');
+    const totalBytes = Buffer.byteLength(plainText, 'utf8');
+    if (totalBytes > cap) fail('limit');
+    if (typeof plainText.isWellFormed === 'function') {
+      if (!plainText.isWellFormed()) fail('unicode_invalid');
+    } else for (let i = 0; i < plainText.length; i++) {
+        const unit = plainText.charCodeAt(i);
+        if (unit >= 0xd800 && unit <= 0xdbff) {
+          const next = plainText.charCodeAt(++i);
+          if (!(next >= 0xdc00 && next <= 0xdfff)) fail('unicode_invalid');
+        } else if (unit >= 0xdc00 && unit <= 0xdfff) fail('unicode_invalid');
+    }
+    const revision = cryptoApi.randomBytes(16).toString('hex');
+    const material = Buffer.from(key); // key-store clear/rotation must not change an in-flight revision
+    let disposed = false;
+    const factory = async function* () {
+      if (disposed) fail('key_released');
+      const release = await admission.acquire(totalBytes);
+      try {
+        if (disposed) fail('key_released');
+        const bytes = Buffer.from(plainText, 'utf8');
+        const lengths = [];
+        for (let start = 0; start < bytes.length;) {
+          let end = Math.min(bytes.length, start + CHUNK_BYTES);
+          while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) end--;
+          lengths.push(end - start); start = end;
+        }
+        if (lengths.length > MAX_CHUNKS) fail('limit');
+        const manifest = { format: 1, revision, totalBytes: bytes.length, count: lengths.length,
+          chunkBytes: CHUNK_BYTES, lengths, sha256: digest(bytes) };
+        const binding = bindings(context, revision);
+        yield encodeLine({ workData: FORMAT, format: NAME, purpose: context.purpose, instanceId: context.instanceId,
+          schema: context.schema, scopeId: context.scopeId, recordId: context.recordId, seq: context.seq,
+          keyId: WorkDataCrypto.keyId(context.generation), revision,
+          manifest: WorkDataCrypto.seal(JSON.stringify(manifest), material, binding(null)) }, MAX_HEADER_BYTES);
+        let offset = 0;
+        for (let ordinal = 0; ordinal < lengths.length; ordinal++) {
+          if (disposed) fail('key_released');
+          const end = offset + lengths[ordinal];
+          yield encodeLine({ i: ordinal, e: WorkDataCrypto.seal(bytes.toString('utf8', offset, end), material, binding(ordinal)) }, MAX_CHUNK_LINE_BYTES);
+          offset = end;
+        }
+      } finally { release(); }
+    };
+    factory.dispose = () => { disposed = true; material.fill(0); };
+    return factory;
+  }
+  async function openLines(lines, key, expected, maxPlaintextBytes) {
+    const cap = limitOf(maxPlaintextBytes), context = contextOf(expected);
+    if (!Buffer.isBuffer(key) || key.length !== 32) fail('shape');
+    let header = null, manifest = null, binding = null, output = null, offset = 0, ordinal = 0;
+    let release = null;
+    const hash = cryptoApi.createHash('sha256');
+    try {
+      for await (const line of lines) {
+        if (!header) {
+          header = parseLine(line, MAX_HEADER_BYTES);
+          if (!exact(header, HEADER_KEYS) || header.workData !== FORMAT || header.format !== NAME
+            || typeof header.revision !== 'string' || !/^[a-f0-9]{32}$/.test(header.revision)
+            || header.keyId !== WorkDataCrypto.keyId(context.generation)
+            || ['purpose', 'instanceId', 'schema', 'scopeId', 'recordId', 'seq'].some(name => header[name] !== context[name])) fail('binding_mismatch');
+          binding = bindings(context, header.revision);
+          try { manifest = JSON.parse(WorkDataCrypto.open(header.manifest, key, binding(null))); }
+          catch { fail('authenticate_failed'); }
+          if (!exact(manifest, MANIFEST_KEYS) || manifest.format !== 1 || manifest.revision !== header.revision
+            || manifest.chunkBytes !== CHUNK_BYTES || !integer(manifest.totalBytes) || manifest.totalBytes > cap
+            || !integer(manifest.count) || manifest.count > MAX_CHUNKS || !Array.isArray(manifest.lengths)
+            || manifest.lengths.length !== manifest.count || typeof manifest.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(manifest.sha256)
+            || (manifest.totalBytes === 0) !== (manifest.count === 0)) fail('manifest_invalid');
+          let sum = 0;
+          for (let i = 0; i < manifest.lengths.length; i++) {
+            const length = manifest.lengths[i];
+            if (!integer(length) || length < 1 || length > CHUNK_BYTES
+              || (i < manifest.lengths.length - 1 && length < CHUNK_BYTES - 3)) fail('manifest_invalid');
+            sum += length;
+          }
+          if (!Number.isSafeInteger(sum) || sum !== manifest.totalBytes) fail('manifest_invalid');
+          release = await admission.acquire(manifest.totalBytes);
+          output = Buffer.alloc(manifest.totalBytes); // only after manifest authentication and all limits
+          continue;
+        }
+        if (ordinal >= manifest.count) fail('sequence_invalid');
+        const row = parseLine(line, MAX_CHUNK_LINE_BYTES);
+        if (!exact(row, 'e,i') || row.i !== ordinal) fail('sequence_invalid');
+        let chunkPlainText;
+        try { chunkPlainText = WorkDataCrypto.open(row.e, key, binding(ordinal)); } catch { fail('authenticate_failed'); }
+        const bytes = Buffer.from(chunkPlainText, 'utf8');
+        if (bytes.toString('utf8') !== chunkPlainText || bytes.length !== manifest.lengths[ordinal]) fail('length_invalid');
+        bytes.copy(output, offset); offset += bytes.length; hash.update(bytes); ordinal++;
+      }
+      if (!header || ordinal !== manifest.count || offset !== manifest.totalBytes) fail('sequence_invalid');
+      if (hash.digest('hex') !== manifest.sha256) fail('hash_mismatch');
+      return output.toString('utf8');
+    } finally { if (release) release(); }
+  }
+  return Object.freeze({ FORMAT, NAME, CHUNK_BYTES, MAX_PLAINTEXT_BYTES, MAX_CHUNKS, MAX_HEADER_BYTES,
+    MAX_CHUNK_LINE_BYTES, limitOf, maxFileBytes, sealFactory, openLines, createAdmission, admission });
+})(require('node:crypto'));
+
 // M3-2: managed record store for the work-data families frozen in
 // docs/optimization-plan/93-m3-1-encrypted-storage-freeze.md.
 //
@@ -8107,11 +8307,11 @@ const WorkDataStore = ((fsp, pathModule) => {
   // this at load time; consumers must treat a missing value as "not initialised yet".
   const Hooks = {};
   const CONTAINER = 2;      // outer file version; inner envelope version comes from WorkDataCrypto
-  const fail = suffix => {
+  const fail = (suffix, statusCode) => {
     const error = new Error('work_data_store.' + suffix);
     error.code = 'work_data_store.' + suffix;
     error.apiCode = error.code;
-    error.statusCode = suffix === 'shape' || suffix === 'schema' || suffix === 'sanitize' || suffix === 'validate' ? 400 : 503;
+    error.statusCode = statusCode || (suffix === 'shape' || suffix === 'schema' || suffix === 'sanitize' || suffix === 'validate' ? 400 : 503);
     throw error;
   };
   // Hooks must be filled by 02 before any family store writes; a missing value is a boot-order bug,
@@ -8149,25 +8349,124 @@ const WorkDataStore = ((fsp, pathModule) => {
       }
     } finally { await handle.close(); }
   };
+  const validateSealed = async (host, plainText) => {
+    if (typeof host.validateSealedText === 'function') {
+      let valid;
+      try { valid = await host.validateSealedText(plainText); }
+      catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; fail('validate', 503); }
+      if (valid !== true) fail('validate', 503);
+    }
+    return plainText;
+  };
+  // Probe only the bounded first line. Existing pretty JSON and arbitrary legacy plaintext remain
+  // on their original read path; the chunk writer always emits a compact, complete first-line header.
+  const chunkHeader = async target => {
+    const handle = await fsp.open(target, 'r');
+    try {
+      const max = 16 * 1024, buffer = Buffer.alloc(max + 1);
+      let used = 0;
+      while (used < buffer.length) {
+        const { bytesRead } = await handle.read(buffer, used, buffer.length - used, null);
+        if (!bytesRead) break;
+        used += bytesRead;
+        if (buffer.subarray(0, used).includes(10)) break;
+      }
+      const prefix = buffer.subarray(0, used).toString('utf8'), newline = prefix.indexOf('\n');
+      const first = newline < 0 ? prefix : prefix.slice(0, newline);
+      if (Buffer.byteLength(first, 'utf8') > max) {
+        if (/"workData"\s*:\s*3\b/.test(first)) fail('chunk_header_limit');
+        return null;
+      }
+      let parsed;
+      try { parsed = JSON.parse(first); } catch {
+        if (/"workData"\s*:\s*3\b/.test(first)) fail('corrupt');
+        return null;
+      }
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.workData === 3 ? parsed : null;
+    } finally { await handle.close(); }
+  };
+  const chunkLines = async function* (target, maxPlaintextBytes) {
+    const handle = await fsp.open(target, 'r');
+    try {
+      const maxFile = WorkDataChunks.maxFileBytes(maxPlaintextBytes);
+      if ((await handle.stat()).size > maxFile) fail('chunk_file_limit');
+      const buffer = Buffer.alloc(64 * 1024);
+      let carry = Buffer.alloc(0), total = 0, first = true;
+      for (;;) {
+        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+        if (!bytesRead) break;
+        total += bytesRead;
+        if (total > maxFile) fail('chunk_file_limit');
+        const data = carry.length ? Buffer.concat([carry, buffer.subarray(0, bytesRead)]) : buffer.subarray(0, bytesRead);
+        let start = 0;
+        for (let end = data.indexOf(10, start); end >= 0; end = data.indexOf(10, start)) {
+          const line = data.subarray(start, end), maxLine = first ? WorkDataChunks.MAX_HEADER_BYTES : WorkDataChunks.MAX_CHUNK_LINE_BYTES;
+          if (!line.length || line.length > maxLine) fail('chunk_line_limit');
+          const chunkLineText = line.toString('utf8');
+          if (!Buffer.from(chunkLineText, 'utf8').equals(line)) fail('corrupt');
+          yield chunkLineText;
+          first = false; start = end + 1;
+        }
+        carry = Buffer.from(data.subarray(start));
+        if (carry.length > (first ? WorkDataChunks.MAX_HEADER_BYTES : WorkDataChunks.MAX_CHUNK_LINE_BYTES)) fail('chunk_line_limit');
+      }
+      // Every encoded line, including the last, has exactly one LF. Missing LF is a torn write;
+      // an additional LF was already rejected as an empty line above.
+      if (carry.length || first) fail('corrupt');
+    } finally { await handle.close(); }
+  };
+  const readChunks = async (host, target, header) => {
+    const keys = keysFor(host), key = await keys.unlock();
+    const plainText = await WorkDataChunks.openLines(chunkLines(target, host.maxPlaintextBytes), key, {
+      purpose: host.purpose, instanceId: await keys.instance(), schema: Number.isFinite(host.schema) ? host.schema : 1,
+      scopeId: host.scopeId, recordId: host.recordId, seq: host.seq === undefined ? 1 : host.seq,
+      generation: generationOf(header.keyId),
+    }, host.maxPlaintextBytes);
+    return validateSealed(host, plainText);
+  };
   const guardWrite = async (host, target) => {
     // mkdir first: atomicWriteJson does not create directories (the old DurableJsonStore write chain did).
     await fsp.mkdir(pathModule.dirname(target), { recursive: true }).catch(() => {});
+    // One switch snapshot owns both the downgrade guard and this write. Re-reading it after the
+    // guard could turn an allowed sealed update into a plaintext overwrite during a toggle.
     const enabled = await sealing(host);
+    let header;
+    try { header = host.chunked === true ? await chunkHeader(target) : null; }
+    catch (error) { if (error && error.code === 'ENOENT') return enabled; throw error; }
+    if (header) {
+      if (!enabled) fail('downgrade_refused');
+      if (host.chunked !== true) fail('chunked_unsupported');
+      await readChunks(host, target, header); // never replace a missing-key, truncated or tampered old revision
+      return enabled;
+    }
     let rawText = '';
     try { rawText = await fsp.readFile(target, 'utf8'); }
-    catch (error) { if (error && error.code !== 'ENOENT') fail('storage_unavailable'); return; }
+    catch (error) { if (error && error.code !== 'ENOENT') fail('storage_unavailable'); return enabled; }
     let parsed;
     try { parsed = JSON.parse(rawText); } catch {
+      if (/"workData"\s*:\s*3\b/.test(rawText)) fail(enabled ? 'chunked_unsupported' : 'downgrade_refused');
       if (containerMarker(rawText)) fail('corrupt');
-      return;
+      return enabled;
     }
     if (!enabled && parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.hasOwn(parsed, 'workData')) fail('downgrade_refused');
+    if (enabled && host.chunked === true && parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) await openTextRecord(host, parsed);
+    return enabled;
   };
   const generationOf = keyId => {
     const match = /\.k(\d{1,2})$/.exec(String(keyId || ''));
     const generation = match ? Number(match[1]) : NaN;
     if (!Number.isSafeInteger(generation) || generation < 1) fail('corrupt');
     return generation;
+  };
+  const openTextRecord = async (host, parsed) => {
+    const { workData, ...container } = parsed;
+    if (workData !== CONTAINER) fail(workData === 3 ? 'chunked_unsupported' : 'corrupt');
+    const keys = keysFor(host), key = await keys.unlock();
+    const plainText = WorkDataCrypto.open(container, key, { purpose: host.purpose, instanceId: await keys.instance(),
+      schema: Number.isFinite(host.schema) ? host.schema : 1, scopeId: host.scopeId, recordId: host.recordId,
+      seq: container.seq, generation: generationOf(container.keyId) });
+    if (typeof plainText !== 'string' || Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
+    return validateSealed(host, plainText);
   };
   function create(host) {
     // host: { file(), purpose, schema, scopeId, recordId, keys (WorkDataKeys api),
@@ -8200,12 +8499,18 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (workData !== CONTAINER) fail('corrupt');
       const key = await keysFor(host).unlock();   // disabled/absent/unavailable are hard failures, not empty data
       const plaintext = WorkDataCrypto.open(container, key, {
-        purpose: host.purpose, instanceId: container.instanceId, schema: host.schema, scopeId: host.scopeId,
+        purpose: host.purpose, instanceId: await keysFor(host).instance(), schema: host.schema, scopeId: host.scopeId,
         recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
       });
       if (typeof plaintext !== 'string' || Buffer.byteLength(plaintext, 'utf8') > budget) fail('corrupt');
       let value;
       try { value = JSON.parse(plaintext); } catch { fail('corrupt'); }
+      if (typeof host.validateSealedValue === 'function') {
+        let valid;
+        try { valid = await host.validateSealedValue(value); }
+        catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; fail('validate', 503); }
+        if (valid !== true) fail('validate', 503);
+      }
       return prepare(value);
     }
     async function read() {
@@ -8215,6 +8520,7 @@ const WorkDataStore = ((fsp, pathModule) => {
       catch (error) { if (error && error.code === 'ENOENT') return fallback(); throw error; }
       let parsed;
       try { parsed = JSON.parse(rawText); } catch (error) {
+        if (/"workData"\s*:\s*3\b/.test(rawText)) fail('chunked_unsupported');
         if (containerMarker(rawText)) fail('corrupt');
         return await corrupt(error);   // legacy "invalid means empty" contract for plaintext only
       }
@@ -8225,8 +8531,9 @@ const WorkDataStore = ((fsp, pathModule) => {
     async function write(value) {
       const prepared = prepare(value);
       const target = file();
-      await guardWrite(host, target);
-      if (!(await sealing(host))) { await host.writeJson(target, prepared); return prepared; }
+      const enabled = await guardWrite(host, target);
+      if (typeof host.validateSealedValue === 'function') await read();
+      if (!enabled) { await host.writeJson(target, prepared); return prepared; }
       // Enabled: never create a key here. Key creation belongs to the explicit enable flow (M3-3).
       const plaintext = JSON.stringify(prepared);
       if (Buffer.byteLength(plaintext, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
@@ -8244,38 +8551,45 @@ const WorkDataStore = ((fsp, pathModule) => {
   // path can keep writing byte-identical JSON while the enabled path seals the same bytes.
   function createText(host) {
     const file = () => String(host.file());
+    if (host.chunked === true) WorkDataChunks.limitOf(host.maxPlaintextBytes);
     // schema 是 01n 的必填绑定项；族没显式给时用 record 格式版本（与 createJson 同口径）。
     const schema = Number.isFinite(host.schema) ? host.schema : 1;
-    const bindingOf = container => ({
-      purpose: host.purpose, instanceId: container.instanceId, schema, scopeId: host.scopeId,
-      recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
-    });
     async function read() {
       // ENOENT propagates on purpose: the resilient session-head readers retry on it and must keep
       // doing so; callers that treat a missing record as empty catch it themselves.
+      const header = host.chunked === true ? await chunkHeader(file()) : null;
+      if (header) {
+        if (host.chunked !== true) fail('chunked_unsupported');
+        return readChunks(host, file(), header);
+      }
       const rawText = await fsp.readFile(file(), 'utf8');
       let parsed;
       try { parsed = JSON.parse(rawText); } catch {
+        if (/"workData"\s*:\s*3\b/.test(rawText)) fail('chunked_unsupported');
         if (containerMarker(rawText)) fail('corrupt');
         return rawText;
       }
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
-      const { workData, ...container } = parsed;
-      if (workData !== CONTAINER) fail('corrupt');
-      const key = await keysFor(host).unlock();
       // instanceId from the key set (not from the container) so the binding is a real check; seq stays
       // the container's own value until M3-3 pins revisions with an external anchor.
-      const plaintext = WorkDataCrypto.open(container, key, { ...bindingOf(container), instanceId: await host.keys.instance() });
-      if (typeof plaintext !== 'string' || Buffer.byteLength(plaintext, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
-      return plaintext;
+      return openTextRecord(host, parsed);
     }
     async function write(plainText) {   // not 	ext: that identifier collides with 00-boot's symbol
       if (typeof plainText !== 'string') fail('shape');
       const target = file();
-      await guardWrite(host, target);
+      const enabled = await guardWrite(host, target);
       // The size cap belongs to the sealed path only: the old plaintext writer had no limit, so a
       // >1 MiB head must keep saving while encryption is off (the read side refuses it when sealed).
-      if (!(await sealing(host))) { await host.writeJson(target, plainText); return plainText; }
+      if (!enabled) { await host.writeJson(target, plainText); return plainText; }
+      if (host.chunked === true) {
+        const keys = keysFor(host), key = await keys.unlock();
+        const factory = WorkDataChunks.sealFactory(plainText, key, { purpose: host.purpose,
+          instanceId: await keys.instance(), schema, scopeId: host.scopeId, recordId: host.recordId,
+          seq: host.seq === undefined ? 1 : host.seq }, host.maxPlaintextBytes);
+        try { await host.writeJson(target, factory, { stream: true }); }
+        finally { factory.dispose(); }
+        return plainText;
+      }
       if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
       const key = await keysFor(host).unlock();
       const instanceId = await keysFor(host).instance();
@@ -8322,7 +8636,13 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (typeof host.validate === 'function' && host.validate(value) !== true) fail('validate');
       return value;
     };
-    const store = create({ ...host, schema: Number.isFinite(host.schema) ? host.schema : (schemaVersion === null ? 1 : schemaVersion), prepare, defaultValue: host.defaultValue });
+    const validateSealedValue = value => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+      if (schemaVersion !== null && value[schemaKey] !== schemaVersion) return false;
+      return typeof host.validate !== 'function' || host.validate(value) === true;
+    };
+    const store = create({ ...host, schema: Number.isFinite(host.schema) ? host.schema : (schemaVersion === null ? 1 : schemaVersion),
+      prepare, defaultValue: host.defaultValue, validateSealedValue });
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
@@ -8340,7 +8660,7 @@ const WorkDataStore = ((fsp, pathModule) => {
 // so do not use it where a mixed body is legal.
 const WorkDataRecords = (() => {
   const FORMAT = 2;
-  const KINDS = Object.freeze(['messages', 'provider']);
+  const KINDS = Object.freeze(['messages', 'provider', 'interventions', 'changes']);
   const fail = suffix => { throw Object.assign(new Error('work_data_record.' + suffix), { code: 'work_data_record.' + suffix, apiCode: 'work_data_record.' + suffix }); };
   const ordinalOf = value => {
     if (!Number.isSafeInteger(value) || value < 0) fail('ordinal_invalid');
@@ -9095,6 +9415,112 @@ async function sessionBodyWriteText(file, lines, startOrdinal = 0) {
   return encoded.join('\n') + '\n';
 }
 
+// Session side journals retain their own append/CAS/compaction lifecycle. Only
+// complete lines are sealed: the physical ordinal is authenticated independently
+// of the business revision (intervention versions can repeat across different IDs).
+const sessionJournalAppendStates = new Map();
+function sessionJournalFailure(suffix) {
+  return Object.assign(new Error('work_data.journal_' + suffix), { code: 'work_data.journal_' + suffix });
+}
+function sessionJournalRecordCandidate(line) {
+  try {
+    const row = JSON.parse(line);
+    return !!row && typeof row === 'object' && Object.hasOwn(row, 'w')
+      && (Object.hasOwn(row, 'e') || !Object.hasOwn(row, 'id') && !Object.hasOwn(row, 'type'));
+  } catch { return /^\s*\{\s*"w"\s*:\s*\d+/.test(line); }
+}
+async function decodeSessionJournalText(sessionId, kind, raw, committedOnly = false, suppliedCredential = null) {
+  const lines = String(raw || '').split('\n'); let credential = suppliedCredential;
+  for (let ordinal = 0; ordinal < lines.length; ordinal++) {
+    const line = lines[ordinal];
+    if (!line || !sessionJournalRecordCandidate(line)) continue;
+    // A torn last line has never been committed. The append owner repairs it;
+    // readers report the same degraded suffix as the legacy fold, without edits.
+    if (ordinal === lines.length - 1 && !raw.endsWith('\n')) {
+      if (committedOnly) continue;
+      try { JSON.parse(line); } catch { continue; }
+    }
+    if (!credential) credential = { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() };
+    lines[ordinal] = WorkDataRecords.decodeLine(line, credential.key, { instanceId: credential.instanceId, sessionId, kind, ordinal });
+  }
+  return lines.join('\n');
+}
+function sessionJournalStamp(stat) { return stat ? [stat.size, stat.mtimeMs, stat.ctimeMs, stat.ino].join(':') : 'missing'; }
+async function sessionJournalAppendState(file, sessionId, kind, enabled, credential = null) {
+  const stamp = sessionJournalStamp(await fsp.stat(file).catch(error => { if (error.code === 'ENOENT') return null; throw error; }));
+  const authStamp = credential ? credential.instanceId + ':' + crypto.createHash('sha256').update(credential.key).digest('hex') : '';
+  const cached = sessionJournalAppendStates.get(file);
+  if (cached && cached.stamp === stamp && (!enabled || credential && cached.authStamp === authStamp)) {
+    if (!enabled && cached.sealed) throw sessionJournalFailure('downgrade_refused');
+    return cached;
+  }
+  let raw = '';
+  try { raw = await fsp.readFile(file, 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const lines = raw.split('\n'), sealed = lines.some(sessionJournalRecordCandidate);
+  if (!enabled && sealed) throw sessionJournalFailure('downgrade_refused');
+  if (sealed) await decodeSessionJournalText(sessionId, kind, raw, true, credential);
+  const state = { stamp, count: lines.length - 1, sealed, authStamp };
+  if (sessionJournalAppendStates.size >= 4096) sessionJournalAppendStates.delete(sessionJournalAppendStates.keys().next().value);
+  sessionJournalAppendStates.set(file, state); return state;
+}
+async function noteSessionJournalAppend(file, sealed = false) {
+  const previous = sessionJournalAppendStates.get(file);
+  if (!previous) return;
+  try {
+    const stat = await fsp.stat(file);
+    sessionJournalAppendStates.set(file, { ...previous, stamp: sessionJournalStamp(stat), count: previous.count + 1, sealed: previous.sealed || sealed });
+  } catch { sessionJournalAppendStates.delete(file); } // disposable metadata cannot turn a committed row into failure
+}
+// Unlike the legacy 64 KiB repair, a sealed record can span several windows.
+// Search backwards to a real LF, never truncate into another authenticated line.
+async function repairSealedSessionJournalTail(file) {
+  let handle;
+  try { handle = await fsp.open(file, 'r+'); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+  try {
+    const size = (await handle.stat()).size;
+    if (!size) return;
+    const buffer = Buffer.alloc(Math.min(65536, size)); let end = size;
+    while (end > 0) {
+      const start = Math.max(0, end - buffer.length), length = end - start;
+      const { bytesRead } = await handle.read(buffer, 0, length, start);
+      if (bytesRead !== length) throw sessionJournalFailure('repair_unreadable');
+      if (end === size && buffer[bytesRead - 1] === 10) return;
+      const newline = buffer.lastIndexOf(10, bytesRead - 1);
+      if (newline >= 0) { await handle.truncate(start + newline + 1); sessionJournalAppendStates.delete(file); return; }
+      end = start;
+    }
+    await handle.truncate(0); sessionJournalAppendStates.delete(file);
+  } finally { await handle.close(); }
+}
+async function appendProtectedSessionJournal(file, sessionId, kind, plainLine) {
+  const enabled = (await readConfig()).workDataEncryptionV1 === true;
+  if (!enabled) { await sessionJournalAppendState(file, sessionId, kind, false); return false; }
+  // Unlock/encode before any destructive repair: missing keys cannot alter even
+  // the torn suffix. Determine the ordinal from the complete physical prefix.
+  const key = await workDataKeys.unlock(), instanceId = await workDataKeys.instance();
+  const state = await sessionJournalAppendState(file, sessionId, kind, true, { key, instanceId });
+  const line = WorkDataRecords.encodeLine(plainLine.replace(/\n$/, ''), key, { instanceId, sessionId, kind, ordinal: state.count }) + '\n';
+  await repairSealedSessionJournalTail(file);
+  sessionJournalAppendStates.set(file, state);
+  try {
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.appendFile(file, line, 'utf8'); break; }
+      catch (error) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(error.code))) throw error; await new Promise(resolve => setTimeout(resolve, 10 + attempt * 20)); }
+    }
+    await noteSessionJournalAppend(file, true);
+  } catch (error) { sessionJournalAppendStates.delete(file); throw error; }
+  return true;
+}
+async function encodeSessionJournalReplacement(file, sessionId, kind, plain) {
+  const enabled = (await readConfig()).workDataEncryptionV1 === true;
+  const credential = enabled ? { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() } : null;
+  await sessionJournalAppendState(file, sessionId, kind, enabled, credential);
+  if (!enabled) return plain;
+  const { key, instanceId } = credential;
+  const lines = plain ? plain.slice(0, -1).split('\n') : [];
+  return lines.map((line, ordinal) => WorkDataRecords.encodeLine(line, key, { instanceId, sessionId, kind, ordinal })).join('\n') + (lines.length ? '\n' : '');
+}
+
 // ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
 // L2 摘要成功后,把结构化摘要中的【已确认的决定】/【未完成事项】/【关键文件与上下文】三节确定性
 // 切出整写到本文件。默认每次 L2 成功整体重写(摘要本身即最新权威状态);105d 的
@@ -9282,6 +9708,8 @@ function dropInterventionSessionState(sid) {
   const prefix = String(sid) + '\x00';
   for (const key of interventionRecordCache.keys()) if (key.startsWith(prefix)) interventionRecordCache.delete(key);
   interventionAppendCounts.delete(String(sid));
+  sessionJournalAppendStates.delete(interventionFilePath(sid));
+  sessionJournalAppendStates.delete(missionChangeFilePath(sid));
 }
 // 75a-2b (S3): per-session in-memory high-water mark of mission.changeSeq -- the max value written to disk
 // within this process lifecycle. Lets saveSession preserve disk-side bumps from intervention transitions
@@ -9362,8 +9790,12 @@ function appendMissionChangeRecord(sessionId, record) {
   if (!sid) return Promise.resolve();
   const file = missionChangeFilePath(sid);
   return runKeyedChain(missionChangeWriteChains, sid, async () => {
-    await repairMissionChangeTornTail(file);
-    await fsp.appendFile(file, JSON.stringify(record) + '\n', 'utf8');
+    const line = JSON.stringify(record) + '\n';
+    if (!await appendProtectedSessionJournal(file, sid, 'changes', line)) {
+      await repairMissionChangeTornTail(file);
+      await fsp.appendFile(file, line, 'utf8');
+      await noteSessionJournalAppend(file);
+    }
     markPretenderIndexDirty(sid, 'source');
   });
 }
@@ -9403,7 +9835,7 @@ async function readMissionChangesWithMeta(sessionId, currentRevision = null) {
   }
   let txt = '';
   try { txt = await fsp.readFile(missionChangeFilePath(sid), 'utf8'); } catch { /* missing journal = migration baseline */ }
-  return foldMissionChangeJournalText(txt, current);
+  return foldMissionChangeJournalText(await decodeSessionJournalText(sid, 'changes', txt), current);
 }
 // Persist a head advance and its record in one per-session chain. The head commits first; a crash between
 // head and journal creates a detectable tail gap instead of a silently false summary. Existing callers may
@@ -9530,12 +9962,16 @@ function appendIntervention(sessionId, record) {
   const file = interventionFilePath(sid);
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
   const next = prev.catch(() => {}).then(async () => {
+    if (await appendProtectedSessionJournal(file, sid, 'interventions', line)) {
+      markPretenderIndexDirty(sid, 'source'); return true;
+    }
     try { await repairMissionChangeTornTail(file); } catch { /* best-effort repair; a failed repair leaves the torn tail for the next append to retry (117q-B6fix) */ }
     for (let attempt = 0; ; attempt++) {   // Windows 瞬时锁有界重试;仍失败就抛给下面的 catch → next 解析为 undefined(= 没落盘)
       try { await fsp.appendFile(file, line, 'utf8'); break; }
       catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
     }
     markPretenderIndexDirty(sid, 'source'); // 75c: authority changed; materialized view is disposable
+    await noteSessionJournalAppend(file);
     return true;
   }).catch(() => {});
   interventionWriteChains.set(sid, next);
@@ -9645,7 +10081,7 @@ async function readInterventionsWithMeta(sessionId) {
       return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 };
     }
   }
-  return foldInterventionJournalText(txt);
+  return foldInterventionJournalText(await decodeSessionJournalText(sid, 'interventions', txt));
 }
 
 // 读一个会话的全部 Intervention,按 id 后写胜折叠。返回 Intervention[](按 requestedAt 稳定排序)。
@@ -9671,13 +10107,15 @@ async function compactInterventionJournal(sessionId, opts = {}) {
   return runKeyedChain(interventionWriteChains, sid, async () => {
     let txt = '';
     try { txt = await fsp.readFile(file, 'utf8'); } catch { return { ok: true, compacted: false, rowsBefore: 0, rowsAfter: 0, bytesBefore: 0, bytesAfter: 0 }; }
-    const folded = foldInterventionJournalText(txt);
+    const folded = foldInterventionJournalText(await decodeSessionJournalText(sid, 'interventions', txt));
     if (folded.degraded) return { ok: false, compacted: false, degraded: true, corruptLines: folded.corruptLines };
     const rowsAfter = folded.interventions.length;
     const worthwhile = interventionJournalWorthCompacting(folded);
     if (!opts.force && !worthwhile) return { ok: true, compacted: false, rowsBefore: folded.rowCount, rowsAfter, bytesBefore: folded.bytes, bytesAfter: folded.bytes };
     const payload = folded.interventions.map(rec => JSON.stringify(rec)).join('\n') + (rowsAfter ? '\n' : '');
-    await atomicWriteJson(file, payload);
+    const storedPayload = await encodeSessionJournalReplacement(file, sid, 'interventions', payload);
+    await atomicWriteJson(file, storedPayload);
+    sessionJournalAppendStates.delete(file);
     markPretenderIndexDirty(sid, 'source');
     return {
       ok: true, compacted: true,
@@ -14523,6 +14961,22 @@ const MISSION_CONTAINER_LIMITS = Object.freeze({
 
 function missionsDir() { return path.join(paths.data, MISSIONS_DIR_NAME); }
 function missionContainerPath(missionId) { return path.join(missionsDir(), missionId + '.json'); }
+function missionContainerStore(missionId) {
+  return WorkDataStore.createText({
+    file: () => missionContainerPath(missionId),
+    purpose: 'task', schema: MISSION_CONTAINER_SCHEMA, scopeId: missionId, recordId: 'mission-container',
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    writeJson: atomicWriteJson,
+    validateSealedText: text => {
+      const raw = safeJsonParse(text, null);
+      return !!raw && typeof raw === 'object' && !Array.isArray(raw)
+        && raw.schema === MISSION_CONTAINER_SCHEMA && raw.missionId === missionId
+        && !!normalizeMissionContainer(raw, missionId)?.title;
+    },
+  });
+}
 // 事项 id 与会话 id 同一字符集(safeSessionId 是全仓唯一那道消毒),新建时取 `mission_<hex>` 前缀 ——
 // 与 `sess_` 分开,好在日志里一眼认出;13e 的投影扫描只认 `sess_*.json`,故事项文件天然不进投影。
 function safeMissionId(raw) { return safeSessionId(raw); }
@@ -14596,7 +15050,11 @@ async function readMissionContainer(missionId) {
   if (!id) return null;
   const file = missionContainerPath(id);
   let raw;
-  try { raw = await fsp.readFile(file, 'utf8'); } catch { return null; }
+  try { raw = await missionContainerStore(id).read(); }
+  catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    return null;
+  }
   let parsed = null;
   try { parsed = JSON.parse(raw); } catch { parsed = null; }
   const schemaOk = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
@@ -14619,9 +15077,12 @@ function withMissionContainerLock(missionId, work) {
 async function writeMissionContainer(record) {
   const normalized = normalizeMissionContainer(record, record && record.missionId);
   if (!normalized) throw new Error('invalid mission container');
+  // Authenticate an existing container before a direct replacement as well as a
+  // read-modify-write. An unreadable sealed mission must never become unclassified.
+  await readMissionContainer(normalized.missionId);
   normalized.updatedAt = nowIso();
   await fsp.mkdir(missionsDir(), { recursive: true });
-  await atomicWriteJson(missionContainerPath(normalized.missionId), JSON.stringify(normalized, null, 2));
+  await missionContainerStore(normalized.missionId).write(JSON.stringify(normalized, null, 2));
   return normalized;
 }
 
@@ -33292,9 +33753,47 @@ function normalizePlaybook(raw) {
 
 function builtinPlaybooksDir() { return path.join(externalRoot(), 'resources', 'playbooks'); }
 
+function userPlaybookStore(fileName) {
+  // Legacy user files may have a display filename different from their declared
+  // id. Bind the actual filename without restricting that existing read format.
+  return WorkDataStore.createText({
+    file: () => path.join(paths.playbooks, fileName),
+    purpose: 'workflow', schema: 1, scopeId: 'user',
+    recordId: 'playbook:' + crypto.createHash('sha256').update(fileName).digest('hex'),
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    writeJson: atomicWriteJson,
+    validateSealedText: text => !!normalizePlaybook(safeJsonParse(text.replace(/^\uFEFF/, ''), null)),
+  });
+}
+
+async function readUserPlaybookText(fileName) {
+  const file = path.join(paths.playbooks, fileName);
+  const handle = await fsp.open(file, 'r');
+  try {
+    const head = Buffer.alloc(2);
+    const { bytesRead } = await handle.read(head, 0, head.length, 0);
+    if (bytesRead === 2 && head[0] === 0xFF && head[1] === 0xFE) {
+      const text = (await handle.readFile()).toString('utf16le').replace(/^\uFEFF/, '');
+      const parsed = safeJsonParse(text, null);
+      // Workbench containers are UTF-8. A marked file with another encoding is
+      // a refusal, never an absent override that silently selects the built-in.
+      const marked = parsed && typeof parsed === 'object'
+        ? !Array.isArray(parsed) && Object.hasOwn(parsed, 'workData') : /"workData"\s*:/.test(text);
+      if (marked) {
+        throw Object.assign(new Error('work_data_store.encoding_unsupported'), { code: 'work_data_store.encoding_unsupported', statusCode: 503 });
+      }
+      return text;
+    }
+  } finally { await handle.close(); }
+  return userPlaybookStore(fileName).read();
+}
+
 // Read every *.json in a dir, normalize each; skip unreadable/invalid. Returns a Map<id, playbook>.
 async function readPlaybooksFromDir(dir) {
   const out = new Map();
+  const userFiles = path.resolve(dir) === path.resolve(paths.playbooks);
   let files = [];
   try { files = await fsp.readdir(dir); } catch { return out; } // dir absent → empty
   for (const f of files) {
@@ -33302,12 +33801,19 @@ async function readPlaybooksFromDir(dir) {
     try {
       // 记事本另存的两种编码都认:「UTF-8」带 BOM、「Unicode」是带 BOM 的 UTF-16LE。修前 JSON.parse 认不得,这份 playbook
       // 被静默丢弃(SKILL.md 那边早已兼容 UTF-8 BOM)。
-      const buf = await fsp.readFile(path.join(dir, f));
-      const text = (buf[0] === 0xFF && buf[1] === 0xFE) ? buf.toString('utf16le') : buf.toString('utf8');
+      let text;
+      if (userFiles) text = await readUserPlaybookText(f);
+      else {
+        const buf = await fsp.readFile(path.join(dir, f));
+        text = (buf[0] === 0xFF && buf[1] === 0xFE) ? buf.toString('utf16le') : buf.toString('utf8');
+      }
       const raw = safeJsonParse(text.replace(/^\uFEFF/, ''), null);
       const pb = normalizePlaybook(raw);
       if (pb) out.set(pb.id, pb);
-    } catch { /* skip unreadable/corrupt */ }
+    } catch (error) {
+      if (String(error && error.code || '').startsWith('work_data')) throw error;
+      /* skip unreadable/corrupt legacy records */
+    }
   }
   return out;
 }
@@ -33419,8 +33925,10 @@ function matchServiceEntry(query, playbooks) {
 async function saveUserPlaybook(pb) {
   await fsp.mkdir(paths.playbooks, { recursive: true });
   // 第25波 25.1: 收编 atomicWriteJson(旧版固定 '.tmp' 名 + 无重试 + 失败不清 tmp)。
-  const dest = path.join(paths.playbooks, `${pb.id}.json`);
-  await atomicWriteJson(dest, pb);
+  const fileName = `${pb.id}.json`;
+  try { await readUserPlaybookText(fileName); }
+  catch (error) { if (error && error.code !== 'ENOENT') throw error; }
+  await userPlaybookStore(fileName).write(JSON.stringify(pb, null, 2));
   return pb;
 }
 
@@ -38336,16 +38844,43 @@ async function mutateMemoryUsageState(mutator) {
   await job;
 }
 
-// 组目录内写 meta.json(明文 path+label+createdAt),面板反查不依赖 recentWorkspaces(LRU 会逐出)。原子写。
+// 项目桶元信息与正文分开绑定；目录名是稳定的 projectKey，不能拿容器自带 scope 证明归属。
+function memoryProjectMetaStore(dir) {
+  return WorkDataStore.createText({
+    file: () => path.join(dir, 'meta.json'), purpose: 'memory', schema: 1,
+    scopeId: 'project:' + path.basename(dir), recordId: 'memory-meta',
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    validateSealedText: value => {
+      const meta = safeJsonParse(value, null);
+      return !!meta && typeof meta === 'object' && !Array.isArray(meta)
+        && ['path', 'label', 'createdAt'].every(key => typeof meta[key] === 'string');
+    },
+  });
+}
+
+async function readMemoryProjectMeta(dir) {
+  try { return safeJsonParse(await memoryProjectMetaStore(dir).read(), null); }
+  catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    return null;
+  }
+}
+
+// 面板反查不依赖 recentWorkspaces(LRU 会逐出)。关闭时保留原 pretty JSON 字节。
 async function writeMemoryMeta(dir, cwd) {
   try {
-    const metaPath = path.join(dir, 'meta.json');
     const abs = path.resolve(String(cwd || ''));
     let createdAt = nowIso();
-    try { const prev = safeJsonParse(await fsp.readFile(metaPath, 'utf8'), null); if (prev && prev.createdAt) createdAt = prev.createdAt; } catch { /* 无旧 meta */ }
+    const prev = await readMemoryProjectMeta(dir);
+    if (prev && prev.createdAt) createdAt = prev.createdAt;
     const meta = { path: abs, label: path.basename(abs) || abs, createdAt };
-    await atomicWriteJson(metaPath, meta);   // 25.1 收编
-  } catch { /* meta 失败不阻断写入 */ }
+    await memoryProjectMetaStore(dir).write(JSON.stringify(meta, null, 2));
+  } catch (error) {
+    // 普通旧元信息依然是可选 sidecar；认证/缺钥错误不能伪装成缺失后覆盖或继续写正文。
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+  }
 }
 
 // 读一个 memory 目录下所有 <id>.md → Map<id, entry>。id 须过 SKILL_ID_RE(防穿越);frontmatter 复用
@@ -38434,7 +38969,7 @@ async function listMemoryProjectGroups(excludeKey) {
     if (!d.isDirectory() || d.name === excludeKey) continue;
     const entries = [...(await readMemoryDir(path.join(base, d.name), 'project')).values()];
     if (!entries.length) continue;
-    let meta = null; try { meta = safeJsonParse(await fsp.readFile(path.join(base, d.name, 'meta.json'), 'utf8'), null); } catch { meta = null; }
+    const meta = await readMemoryProjectMeta(path.join(base, d.name));
     out.push({ projectKey: d.name, path: (meta && meta.path) || '', label: (meta && meta.label) || d.name, count: entries.length, items: entries.map(e => ({ id: e.id, name: e.name })) });
   }
   return out;

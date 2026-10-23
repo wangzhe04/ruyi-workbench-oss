@@ -22,7 +22,7 @@ const EXCLUDED = 'excluded';
 const OWN_ENVELOPE = new Set(['credential-vault-v1', 'credential-import-v1', 'privacy-mapping-v1', 'external-bot-credentials']);
 // M3-2: families whose adapter is wired while the switch is still off by default and no data has been
 // migrated. They may be 'wired' but must never be claimed as implemented until M3-3.
-const ADAPTER_WIRED = Object.freeze(['session-head', 'session-messages', 'session-provider', 'session-scratchpad', 'voice-lexicon', 'memory-usage', 'steward-cursor', 'engine-transcript-index', 'steward-memory', 'agent-instructions-import', 'memory-relations', 'memory-proposals']);
+const ADAPTER_WIRED = Object.freeze(['session-head', 'session-messages', 'session-provider', 'session-scratchpad', 'voice-lexicon', 'memory-usage', 'steward-cursor', 'engine-transcript-index', 'steward-memory', 'agent-instructions-import', 'memory-relations', 'memory-proposals', 'session-interventions', 'session-changes', 'mission-container', 'playbooks', 'memory-meta']);
 
 // [id, encryption, keyPurpose, migrationBatch, plaintextFields, reason]
 // plaintextFields: [[field, why], ...] — the smallest readable metadata the family needs while its
@@ -48,7 +48,7 @@ const families = [
   ['pretender-index', REQUIRED, 'search-index', 'index-cache', [['sessionId', 'group rows per session']], 'derived from sealed bodies, so it must not become a plaintext side channel'],
   // Memory and queues.
   ['memory-body', REQUIRED, 'memory', 'memory-queue', [['id', 'frontmatter/file name; opaque memory id'], ['scope', 'global vs project bucket; project key is already opaque']], 'memory bodies and frontmatter titles/descriptions are user content'],
-  ['memory-meta', REQUIRED, 'memory', 'memory-queue', [['id', 'join key to the body']], 'titles, tags and source references stay sealed'],
+  ['memory-meta', REQUIRED, 'memory', 'memory-queue', [], 'project bucket path, label and creation time stay sealed; the opaque project directory key supplies routing'],
   ['memory-usage', REQUIRED, 'memory', 'memory-queue', [], 'usage reveals which memories were used; cheap to seal together with memory-meta'],
   ['memory-relations', REQUIRED, 'memory', 'memory-queue', [], 'relation edges name memory ids and their meaning'],
   ['memory-proposals', REQUIRED, 'memory', 'memory-queue', [], 'pending proposals quote the user content they propose to remember'],
@@ -188,6 +188,8 @@ function markdown(data) {
     `Frozen purposes (\`WorkDataCrypto.PURPOSES\`): ${data.purposes.map(purpose => '`' + purpose + '`').join(', ')}.`,
     '',
     `Envelope: format version ${data.envelope.formatVersion}, key id \`${data.envelope.keyIdPrefix}<generation>\`, derivation \`${data.envelope.derivation}\`, AAD binds ${data.envelope.aadBinding.map(field => '`' + field + '`').join(' / ')} on top of the privacy-core triple.`,
+    '',
+    'Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v2 manifest and chunk envelopes. See [93 section 11](../optimization-plan/93-m3-1-encrypted-storage-freeze.md#11-m3-2-大记录格式补充2026-10-23); the frozen v2 crypto envelope is unchanged.',
     '',
     `\`encryptionImplemented\`: **${data.encryptionImplemented}** — no user data has been migrated. \`adapterWired\`: ${data.adapterWired.map(id => '`' + id + '`').join(', ') || 'none'} (adapter exists, switch still off by default).`,
     '',

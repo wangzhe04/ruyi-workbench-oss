@@ -42,7 +42,12 @@
     "steward-memory",
     "agent-instructions-import",
     "memory-relations",
-    "memory-proposals"
+    "memory-proposals",
+    "session-interventions",
+    "session-changes",
+    "mission-container",
+    "playbooks",
+    "memory-meta"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -110,7 +115,7 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "command journal carries the user commands and paths",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-changes",
@@ -119,7 +124,7 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "change audit carries file paths and diffs",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-scratchpad",
@@ -201,7 +206,7 @@
         }
       ],
       "reason": "mission goals and milestones are user text",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "context-calibration",
@@ -249,14 +254,9 @@
       "encryption": "required",
       "keyPurpose": "memory",
       "migrationBatch": "memory-queue",
-      "plaintextMetadata": [
-        {
-          "field": "id",
-          "why": "join key to the body"
-        }
-      ],
-      "reason": "titles, tags and source references stay sealed",
-      "adapter": "pending"
+      "plaintextMetadata": [],
+      "reason": "project bucket path, label and creation time stay sealed; the opaque project directory key supplies routing",
+      "adapter": "wired"
     },
     {
       "id": "memory-usage",
@@ -492,7 +492,7 @@
         }
       ],
       "reason": "playbook bodies embed prompts and examples",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-search-index",
