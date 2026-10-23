@@ -37,7 +37,9 @@
     "session-scratchpad",
     "voice-lexicon",
     "memory-usage",
-    "steward-cursor"
+    "steward-cursor",
+    "engine-transcript-index",
+    "steward-memory"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -305,7 +307,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "steward notes are task content",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "steward-visits",
@@ -547,7 +549,7 @@
         }
       ],
       "reason": "transcript paths and titles reveal engine sessions",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "audit-log",

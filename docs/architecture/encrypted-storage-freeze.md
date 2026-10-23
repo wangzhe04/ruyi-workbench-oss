@@ -11,7 +11,7 @@ Frozen purposes (`WorkDataCrypto.PURPOSES`): `session`, `memory`, `queue`, `task
 
 Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)`, AAD binds `schema` / `scopeId` / `seq` on top of the privacy-core triple.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -36,7 +36,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 | memory-proposals | required | `memory` | memory-queue | pending | — (nothing readable) | pending proposals quote the user content they propose to remember |
 | memory-import-marker | excluded | — | not-migrated | pending | — (nothing readable) | content-free bookkeeping: entry hashes and timestamps, no text and no path |
 | agent-instructions-import | required | `memory` | memory-queue | pending | — (nothing readable) | per-source file paths, entry hashes and core flags are content-derived and reveal local layout |
-| steward-memory | required | `memory` | memory-queue | pending | — (nothing readable) | steward notes are task content |
+| steward-memory | required | `memory` | memory-queue | wired | — (nothing readable) | steward notes are task content |
 | steward-visits | required | `memory` | memory-queue | pending | — (nothing readable) | visit history reveals which threads and items the steward read |
 | voice-lexicon | required | `user-config` | memory-queue | wired | — (nothing readable) | personal vocabulary and names |
 | steward-inbox | required | `queue` | memory-queue | pending | — (nothing readable) | inbox items quote incoming messages |
@@ -54,7 +54,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 | session-search-index | required | `search-index` | index-cache | pending | `sessionId` (group rows per session); `version` (rebuild decision without decrypting every row) | derived text units are a plaintext side channel for sealed bodies |
 | web-cache | required | `cache` | index-cache | pending | `fetchedAt` (cache freshness only, no page text) | URLs and page bodies are sensitive; only a hash key and a timestamp stay readable |
 | proxy-models-cache | required | `cache` | index-cache | pending | `fetchedAt` (cache freshness only, no page text) | model list is provider metadata but can embed account-scoped ids |
-| engine-transcript-index | required | `cache` | index-cache | pending | `sessionId` (join to the session) | transcript paths and titles reveal engine sessions |
+| engine-transcript-index | required | `cache` | index-cache | wired | `sessionId` (join to the session) | transcript paths and titles reveal engine sessions |
 | audit-log | required | `audit` | logs | pending | `at` (rotation and ordering); `kind` (routing/classification without decrypting) | event detail carries tool names, commands and paths |
 | migration-log | required | `migration` | logs | pending | `appliedAt` (listing order) | applied file paths and change summaries are user data |
 | migration-skill-backups | required | `backup` | backups | pending | `skillId` (restore target directory) | verbatim user skill copies |

@@ -32879,11 +32879,30 @@ const engineTranscriptKnown = new Map(); // sessionId -> { cwd, firstSeen }
 let engineTranscriptLedgerLoaded = false;
 let engineTranscriptLedgerChain = Promise.resolve();
 function engineTranscriptLedgerPath() { return path.join(paths.data, 'engine-transcripts.json'); }
+// M3-2d: 转录账本接整文件适配器（purpose=cache / scope=global）。开关关时与旧 atomicWriteJson 字节一致。
+// 解不开时不改写：账本丢失只会让「不认识的转录不碰」，但用空账本覆盖密文就再也给不回来了。
+let engineTranscriptLedgerFrozen = false;
+const engineTranscriptLedgerStore = WorkDataStore.createJson({
+  id: 'engine-transcript-index',
+  file: () => engineTranscriptLedgerPath(),
+  // 账本旧格式就是 {version, known}：把适配器的 schema 槽指向已有的 version 键，别凭空多写一个
+  // "schema"（那会让开关关闭时的字节与旧实现不一致，stage review Q3 实测 +15 字节）。
+  schemaKey: 'version',
+  schemaVersion: 1,
+  defaultValue: () => ({ version: 1, known: {} }),
+  sanitize: value => ({ version: 1, known: (value && value.known && typeof value.known === 'object' && !Array.isArray(value.known)) ? value.known : {} }),
+  validate: value => value.version === 1 && Boolean(value.known) && typeof value.known === 'object' && !Array.isArray(value.known),
+  quarantine: false,
+  purpose: 'cache', scopeId: 'global', recordId: 'engine-transcript-index',
+  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  writeJson: atomicWriteJson,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+});
 async function engineTranscriptLedgerLoad() {
   if (engineTranscriptLedgerLoaded) return;
   engineTranscriptLedgerLoaded = true;
   try {
-    const raw = safeJsonParse(await fsp.readFile(engineTranscriptLedgerPath(), 'utf8'), null);
+    const raw = await engineTranscriptLedgerStore.read();
     const known = raw && raw.known;
     if (known && typeof known === 'object' && !Array.isArray(known)) {
       for (const [sid, meta] of Object.entries(known)) {
@@ -32891,12 +32910,16 @@ async function engineTranscriptLedgerLoad() {
         engineTranscriptKnown.set(sid, { cwd: String((meta && meta.cwd) || ''), firstSeen: String((meta && meta.firstSeen) || '') });
       }
     }
-  } catch { /* 无账本/坏账本 → 空起步(保守:不认识的一律不碰) */ }
+  } catch (error) {
+    // 无账本/坏明文 → 空起步(保守:不认识的一律不碰)；解不开 → 空起步但冻结写入，别拿空账本覆盖密文。
+    if (String((error && error.code) || '').startsWith('work_data')) engineTranscriptLedgerFrozen = true;
+  }
 }
 async function engineTranscriptLedgerSave() {
+  if (engineTranscriptLedgerFrozen) return;   // 账本解不开：本次进程内不写，等密钥回来再读一次
   const known = {};
   for (const [sid, meta] of engineTranscriptKnown) known[sid] = { cwd: meta.cwd, firstSeen: meta.firstSeen };
-  const thisWrite = engineTranscriptLedgerChain.catch(() => {}).then(() => atomicWriteJson(engineTranscriptLedgerPath(), { version: 1, known }));
+  const thisWrite = engineTranscriptLedgerChain.catch(() => {}).then(() => engineTranscriptLedgerStore.write({ version: 1, known }));
   engineTranscriptLedgerChain = thisWrite;
   await thisWrite;
 }
@@ -78110,6 +78133,21 @@ function stewardMemoryScopeLabel(scope, config) {
 
 // ── 管家记忆存储(§4)────────────────────────────────────────────────────────────────────
 const stewardMemoryPath = () => path.join(stewardDir(), STEWARD_MEMORY_FILE);
+// M3-2d: 管家记忆接整文件适配器（purpose=memory / scope=global）。读-改-写链上，解不开必须冒泡：
+// 否则 mutator 会在空库上跑完再把空库写回，把已有记忆盖掉。
+const stewardMemoryStore = WorkDataStore.createJson({
+  id: 'steward-memory',
+  file: () => stewardMemoryPath(),
+  schemaVersion: STEWARD_MEMORY_SCHEMA,
+  defaultValue: () => stewardEmptyMemoryStore(),
+  sanitize: value => ({ ...(value && typeof value === 'object' ? value : {}), schema: STEWARD_MEMORY_SCHEMA, entries: Array.isArray(value && value.entries) ? value.entries : [] }),
+  validate: value => value.schema === STEWARD_MEMORY_SCHEMA && Array.isArray(value.entries),
+  quarantine: false,
+  purpose: 'memory', scopeId: 'global', recordId: 'steward-memory',
+  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  writeJson: atomicWriteJson,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+});
 // 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
 // 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。
 async function stewardPanelGate(req) {
@@ -78168,7 +78206,12 @@ function stewardNormalizeMemoryEntry(raw) {
 }
 async function stewardReadMemoryStore() {
   let raw = null;
-  try { raw = safeJsonParse(await fsp.readFile(stewardMemoryPath(), 'utf8'), null); } catch { raw = null; }
+  try { raw = await stewardMemoryStore.read(); }
+  catch (error) {
+    // 加密类读失败绝不当空库：读-改-写链会拿空库覆盖密文（同 voice-lexicon 的 H1）。
+    if (String((error && error.code) || '').startsWith('work_data')) throw error;
+    raw = null;
+  }
   // 损坏/缺失/错 schema = 空库(不抢救、不 mkdir):记忆是旁路增强,坏了不该拖住任何回合。
   if (!raw || raw.schema !== STEWARD_MEMORY_SCHEMA || !Array.isArray(raw.entries)) return stewardEmptyMemoryStore();
   // 生效条与被否决条【各自】封顶 maxEntries:写入闸只数生效条(13l),修前读库却把【总条数】截在 maxEntries ——
@@ -78199,8 +78242,7 @@ function stewardMutateMemory(mutator) {
       stewardMemoryWriteEpoch++;
       try {
         store.updatedAt = nowIso();
-        await fsp.mkdir(stewardDir(), { recursive: true });
-        await atomicWriteJson(stewardMemoryPath(), store);
+        await stewardMemoryStore.write(store);
       } finally { stewardMemoryWriteEpoch++; }
     }
     return outcome ? outcome.result : null;

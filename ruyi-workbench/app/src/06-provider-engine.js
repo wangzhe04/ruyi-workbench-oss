@@ -687,11 +687,30 @@ const engineTranscriptKnown = new Map(); // sessionId -> { cwd, firstSeen }
 let engineTranscriptLedgerLoaded = false;
 let engineTranscriptLedgerChain = Promise.resolve();
 function engineTranscriptLedgerPath() { return path.join(paths.data, 'engine-transcripts.json'); }
+// M3-2d: 转录账本接整文件适配器（purpose=cache / scope=global）。开关关时与旧 atomicWriteJson 字节一致。
+// 解不开时不改写：账本丢失只会让「不认识的转录不碰」，但用空账本覆盖密文就再也给不回来了。
+let engineTranscriptLedgerFrozen = false;
+const engineTranscriptLedgerStore = WorkDataStore.createJson({
+  id: 'engine-transcript-index',
+  file: () => engineTranscriptLedgerPath(),
+  // 账本旧格式就是 {version, known}：把适配器的 schema 槽指向已有的 version 键，别凭空多写一个
+  // "schema"（那会让开关关闭时的字节与旧实现不一致，stage review Q3 实测 +15 字节）。
+  schemaKey: 'version',
+  schemaVersion: 1,
+  defaultValue: () => ({ version: 1, known: {} }),
+  sanitize: value => ({ version: 1, known: (value && value.known && typeof value.known === 'object' && !Array.isArray(value.known)) ? value.known : {} }),
+  validate: value => value.version === 1 && Boolean(value.known) && typeof value.known === 'object' && !Array.isArray(value.known),
+  quarantine: false,
+  purpose: 'cache', scopeId: 'global', recordId: 'engine-transcript-index',
+  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  writeJson: atomicWriteJson,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+});
 async function engineTranscriptLedgerLoad() {
   if (engineTranscriptLedgerLoaded) return;
   engineTranscriptLedgerLoaded = true;
   try {
-    const raw = safeJsonParse(await fsp.readFile(engineTranscriptLedgerPath(), 'utf8'), null);
+    const raw = await engineTranscriptLedgerStore.read();
     const known = raw && raw.known;
     if (known && typeof known === 'object' && !Array.isArray(known)) {
       for (const [sid, meta] of Object.entries(known)) {
@@ -699,12 +718,16 @@ async function engineTranscriptLedgerLoad() {
         engineTranscriptKnown.set(sid, { cwd: String((meta && meta.cwd) || ''), firstSeen: String((meta && meta.firstSeen) || '') });
       }
     }
-  } catch { /* 无账本/坏账本 → 空起步(保守:不认识的一律不碰) */ }
+  } catch (error) {
+    // 无账本/坏明文 → 空起步(保守:不认识的一律不碰)；解不开 → 空起步但冻结写入，别拿空账本覆盖密文。
+    if (String((error && error.code) || '').startsWith('work_data')) engineTranscriptLedgerFrozen = true;
+  }
 }
 async function engineTranscriptLedgerSave() {
+  if (engineTranscriptLedgerFrozen) return;   // 账本解不开：本次进程内不写，等密钥回来再读一次
   const known = {};
   for (const [sid, meta] of engineTranscriptKnown) known[sid] = { cwd: meta.cwd, firstSeen: meta.firstSeen };
-  const thisWrite = engineTranscriptLedgerChain.catch(() => {}).then(() => atomicWriteJson(engineTranscriptLedgerPath(), { version: 1, known }));
+  const thisWrite = engineTranscriptLedgerChain.catch(() => {}).then(() => engineTranscriptLedgerStore.write({ version: 1, known }));
   engineTranscriptLedgerChain = thisWrite;
   await thisWrite;
 }

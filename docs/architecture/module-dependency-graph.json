@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 93,
-    "providedSymbols": 3911,
-    "requiredSymbols": 3565,
-    "edges": 652,
+    "providedSymbols": 3914,
+    "requiredSymbols": 3567,
+    "edges": 654,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -5721,10 +5721,12 @@
         "engineTranscriptCwd",
         "engineTranscriptKnown",
         "engineTranscriptLedgerChain",
+        "engineTranscriptLedgerFrozen",
         "engineTranscriptLedgerLoad",
         "engineTranscriptLedgerLoaded",
         "engineTranscriptLedgerPath",
         "engineTranscriptLedgerSave",
+        "engineTranscriptLedgerStore",
         "evalPlaybookAvailability",
         "fenceSafeSlice",
         "getCapabilities",
@@ -5962,7 +5964,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -6005,6 +6008,13 @@
           "symbol": "isAgentCliType",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18353,6 +18363,7 @@
         "stewardMemoryScopeLabel",
         "stewardMemoryScopeMatches",
         "stewardMemoryScopeOf",
+        "stewardMemoryStore",
         "stewardMemoryWriteEpoch",
         "stewardMutateMemory",
         "stewardNormalizeMemoryEntry",
@@ -18424,7 +18435,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -18460,6 +18471,13 @@
           "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -31326,6 +31344,14 @@
     },
     {
       "from": "06-provider-engine.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06-provider-engine.js",
       "to": "02-session-store.js",
       "symbols": [
         "SESSION_BRIEF_GIST_CHARS",
@@ -35281,6 +35307,14 @@
       "to": "01e-permission-modes.js",
       "symbols": [
         "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13j-steward-tool-base.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
       ],
       "direction": "backward"
     },

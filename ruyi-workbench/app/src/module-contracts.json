@@ -5627,10 +5627,12 @@
         "engineTranscriptCwd",
         "engineTranscriptKnown",
         "engineTranscriptLedgerChain",
+        "engineTranscriptLedgerFrozen",
         "engineTranscriptLedgerLoad",
         "engineTranscriptLedgerLoaded",
         "engineTranscriptLedgerPath",
         "engineTranscriptLedgerSave",
+        "engineTranscriptLedgerStore",
         "evalPlaybookAvailability",
         "fenceSafeSlice",
         "getCapabilities",
@@ -5868,7 +5870,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -5911,6 +5914,13 @@
           "symbol": "isAgentCliType",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18201,6 +18211,7 @@
         "stewardMemoryScopeLabel",
         "stewardMemoryScopeMatches",
         "stewardMemoryScopeOf",
+        "stewardMemoryStore",
         "stewardMemoryWriteEpoch",
         "stewardMutateMemory",
         "stewardNormalizeMemoryEntry",
@@ -18272,7 +18283,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -18308,6 +18319,13 @@
           "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 93 | 3911 | 3565 | 652 | 67 | 0 | 1 |
+| 93 | 3914 | 3567 | 654 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -56,7 +56,7 @@
 | 38 | `05b-kimi-bridge.js` | engine | 128 | 76 | 13 |
 | 39 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 40 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 41 | `06-provider-engine.js` | engine | 141 | 63 | 17 |
+| 41 | `06-provider-engine.js` | engine | 143 | 64 | 18 |
 | 42 | `06b-prompt-registry.js` | engine | 10 | 1 | 1 |
 | 43 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 44 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
@@ -85,7 +85,7 @@
 | 67 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
 | 68 | `13e-pretender-index.js` | transport | 57 | 40 | 8 |
 | 69 | `13i-steward-inbox.js` | transport | 89 | 30 | 9 |
-| 70 | `13j-steward-tool-base.js` | transport | 82 | 26 | 9 |
+| 70 | `13j-steward-tool-base.js` | transport | 83 | 27 | 10 |
 | 71 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
 | 72 | `13k-steward-threads.js` | transport | 60 | 127 | 17 |
 | 73 | `13l-steward-ops.js` | transport | 54 | 129 | 21 |
@@ -246,6 +246,7 @@
 | `06-provider-engine.js` | `01-config.js` | backward | `RUNTIME`, `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `06-provider-engine.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
 | `06-provider-engine.js` | `01f-agent-cli-types.js` | backward | `AGENT_CLI_DEFAULT_TYPE`, `isAgentCliType` |
+| `06-provider-engine.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `06-provider-engine.js` | `02-session-store.js` | backward | `SESSION_BRIEF_GIST_CHARS`, `SESSION_BRIEF_TITLE_CHARS`, `SESSION_INDEX_FILE`, `loadSession`, `readSessionHeadResilient`, `sessionTitleOverrides`, `updateSessionMeta` |
 | `06-provider-engine.js` | `03-bridge-guard.js` | backward | `existsExecutableAsync`, `probeGitCliAsync` |
 | `06-provider-engine.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
@@ -565,6 +566,7 @@
 | `13j-steward-tool-base.js` | `00-boot.js` | backward | `apiFailure`, `fsp`, `nowIso`, `path`, `safeJsonParse`, `text` |
 | `13j-steward-tool-base.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readFileTail`, `safeSessionId`, `tokenOk` |
 | `13j-steward-tool-base.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
+| `13j-steward-tool-base.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13j-steward-tool-base.js` | `02-session-store.js` | backward | `foldTurnSummaries`, `readSessionHeadResilient`, `repairMissionChangeTornTail` |
 | `13j-steward-tool-base.js` | `02d-session-overrides.js` | backward | `applySessionPermissionModeOverride` |
 | `13j-steward-tool-base.js` | `06d-memory-domain.js` | backward | `cleanMemoryDate`, `projectKeyForCwd` |

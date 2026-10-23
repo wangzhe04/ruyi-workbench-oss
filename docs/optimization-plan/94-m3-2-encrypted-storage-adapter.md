@@ -273,11 +273,11 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 
 ### 14.3 状态矩阵（41 required）
 
-已接（7）：session-head、session-messages、session-provider、session-scratchpad、voice-lexicon、memory-usage、steward-cursor。
+已接（9）：session-head、session-messages、session-provider、session-scratchpad、voice-lexicon、memory-usage、steward-cursor、engine-transcript-index、steward-memory。
 
 按机制分组待接（36）：
 
-- **整文件 JSON / 单条（先用 createJson，最机械）**：`memory-relations`、`memory-proposals`、`steward-decisions`、`engine-transcript-index`、`proxy-models-cache`、`scheduler-tasks`、`personal-workflows`、`agent-instructions-import`、`external-bots`（注意它自带 strict 校验链）、`steward-memory`、`steward-visits`。
+- **整文件 JSON / 单条（先用 createJson，最机械）**：`memory-relations`、`memory-proposals`、`steward-decisions`、`proxy-models-cache`（同步读路径，需先改异步）、`scheduler-tasks`、`personal-workflows`、`agent-instructions-import`、`external-bots`（注意它自带 strict 校验链）、`steward-visits`。
 - **按会话/按 id 的分文件 JSON（`create` + per-record 的 recordId）**：`session-index`、`session-v1-backup`、`journal-index`、`journal-reverts`、`mission-container`、`memory-body`、`memory-meta`、`agent-run-snapshot`、`playbooks`、`skill-import-record`、`migration-skill-backups`、`scheduler-fires`（NDJSON 触发台账，需先转记录格式）。
 - **NDJSON（要逐记录 + 行哈希/戳同款改造）**：`steward-inbox`、`agent-run-events`、`background-job-ledger`、`journal-history`（gzip，需分块方案）、`session-interventions`（会话命令台账）、`session-changes`（会话变更审计）——这两族与会话正文同构（append-only + 行戳），批次归 `sessions`。
 - **索引/搜索族（要先定覆盖率语义）**：`session-search-index`、`pretender-index`、`web-cache`、`audit-log`、`migration-log`。
@@ -310,3 +310,10 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 审查者实测：`voice-lexicon-work-data`（含 H2 回归）、`voice-lexicon-tamper`（H1 回归）、`work-data-store`、`work-data-session-head/body`、`work-data-records` 共 39 项全过；`facts`/`graph`/`freeze`/`syntax`/`build` 门全绿。
 
 **未完成（不在本批声称完成）**：剩余 36 个必需族仍按 §14.3 分组待接（会话索引/搜索索引/pretender 索引要先定覆盖率语义；NDJSON 族要逐记录改造；`journal-history` 是 gzip 需要分块方案）；M3-3（首次迁移、关闭加密的反向迁移、恢复包、启用 UI）未开始。
+
+### 14.5 批次 3 的取舍（stage review 之后）
+
+- **账本的 schema 槽指向已有键**：`engine-transcripts.json` 旧格式是 `{version, known}`，适配器原本会无条件再加一个 `"schema":1`，让开关关闭时的字节比旧实现多 15 字节（stage review Q3 实测）。现在 `createJson` 支持 `schemaKey`，该族用 `version` 当 schema 键，字节恢复一致；新用例直接比对整份文件文本，不再只 `JSON.parse` 后看字段。
+- **账本解不开 = 本进程内冻结写入**：`engineTranscriptLedgerLoad` 遇到 `work_data*` 错误时置 `engineTranscriptLedgerFrozen`，后续 `engineTranscriptLedgerSave` 直接返回。取舍是"宁可让账本停止增长，也绝不用空账本覆盖解不开的密文"；账本丢失只会让清理器"不碰不认识的转录"（保守方向）。唯一生产调用点是 `saveSession` 里的 fire-and-forget（`.catch(() => {})`），不会连带会话保存。
+- **管家记忆读失败分两类**：只读召回类调用点（`13k`、`13o`）本来就 `.catch(() => ({entries: []}))`；直接 await 的（`13g` 面板/导出、`13ab` 忘记记忆、`13j` mutator）会冒泡成失败——缺钥的用户提示归 M3-3。`stewardMutateMemory` 先读后调 mutator，读失败时 mutator 根本没执行，零副作用。
+- **`proxy-models-cache` 暂缓**：它走 `fs.readFileSync` + 进程内 memo，适配器是异步的，要先把它改成异步读才能接；已从"整文件 JSON"组里单独摘出来，排在后续批次。
