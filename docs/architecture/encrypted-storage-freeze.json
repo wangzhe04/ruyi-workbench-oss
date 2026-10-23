@@ -55,7 +55,13 @@
     "external-bots",
     "session-index",
     "session-v1-backup",
-    "proxy-models-cache"
+    "proxy-models-cache",
+    "journal-index",
+    "journal-reverts",
+    "journal-history",
+    "memory-body",
+    "session-search-index",
+    "pretender-index"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -182,7 +188,7 @@
         }
       ],
       "reason": "file lists, hashes and per-entry payloads stay sealed",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "journal-reverts",
@@ -191,7 +197,7 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "records which files the user undid",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "journal-history",
@@ -200,7 +206,7 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "compressed context snapshots are conversation content",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "mission-container",
@@ -237,7 +243,7 @@
         }
       ],
       "reason": "derived from sealed bodies, so it must not become a plaintext side channel",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "memory-body",
@@ -255,7 +261,7 @@
         }
       ],
       "reason": "memory bodies and frontmatter titles/descriptions are user content",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "memory-meta",
@@ -518,7 +524,7 @@
         }
       ],
       "reason": "derived text units are a plaintext side channel for sealed bodies",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "web-cache",

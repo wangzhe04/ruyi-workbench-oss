@@ -1,0 +1,157 @@
+{
+  "status": "UNTESTED latest metadata revision; three domain families incomplete; do not apply",
+  "completeFamiliesAdded": 0,
+  "productEdited": false,
+  "generatedBuild": false,
+  "directE2E": false,
+  "fullTempDirectory": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e",
+  "fullTempArchive": "C:/Users/87179/AppData/Local/Temp/ruyi-ndjson-draft-shutdown-2026-10-23.zip",
+  "fullTempArchiveSha256": "2b21e58362dc41bec3db5e45eccf2b93880c9ed1dd07b9a0b9b710790593ce39",
+  "fullTempHandoffSha256": "e18878463949699baeca6b1c1ae397663a83fb3c33d492fcdc30b53001578cf4",
+  "sourcePatches": [
+    {
+      "candidate": "01q-work-data-records.js",
+      "baseline": "reviewed minimal lineProbe CC531FA226C537AF6B64DD287B3316B2A25F6B4F25469915D5B254769722E4E0",
+      "baselineSha256": "cc531fa226c537af6b64dd287b3316b2a25f6b4f25469915d5b254769722e4e0",
+      "candidateSha256": "e401a91babf073d7a77481799721e0a68e822fab2b8cc6ff07e8152fbdd291a2",
+      "patch": "01q-work-data-records.js.patch",
+      "patchSha256": "dc44a46b761e587ab7a8e5f0da54df85ab1820f9d0a6c3966e14bae95c3b2ee6"
+    },
+    {
+      "candidate": "01s-work-data-journals.js",
+      "baseline": "new file; absent baseline",
+      "baselineSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "candidateSha256": "a59a33f1b80974666cedff172ab651d0ebaf1d6175c5b166419b7484d9716c9a",
+      "patch": "01s-work-data-journals.js.patch",
+      "patchSha256": "e76f8b90c03affa9be52e0b8b8346132addb88f21e4536f5165856374d059525"
+    },
+    {
+      "candidate": "08-agent-runs.js",
+      "baseline": "git a61144fc:ruyi-workbench/app/src/08-agent-runs.js",
+      "baselineSha256": "c73b54fe3abec970eb4f2b743caf212e23d9b7ddfe4203c08ce6da5925783564",
+      "candidateSha256": "774d0600e7bd69cb69b0f543a0ee9768adaade298b28161bd31d403a3cc9f185",
+      "patch": "08-agent-runs.js.patch",
+      "patchSha256": "37498cc97000b956f61f267a2d18061a2bd4bc01eb4bf6d33ffa2f712cc8a6b8"
+    },
+    {
+      "candidate": "13i-steward-inbox.js",
+      "baseline": "git a61144fc:ruyi-workbench/app/src/13i-steward-inbox.js",
+      "baselineSha256": "8cdb61302108a3a4a2d3d188630fdd84b6ac22a65871041485e1da4658d359f9",
+      "candidateSha256": "c5aac17fac922d9b8251050955e945f00abee132c797648e6db3e79f12c5298e",
+      "patch": "13i-steward-inbox.js.patch",
+      "patchSha256": "fc4641a2822cd5f7df02b066f2c67ace795c6ee309bf6c6b8763265cfcf37705"
+    },
+    {
+      "candidate": "13j-steward-tool-base.js",
+      "baseline": "git a61144fc:ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "baselineSha256": "994e7471731903568e6a04b2ac1fe56167585dcd0521061402d110455f4cab7e",
+      "candidateSha256": "e5ae490dc3f9d73c183c0d6fc565561ccdf2d1b239fe3ed60df7632c65869f1b",
+      "patch": "13j-steward-tool-base.js.patch",
+      "patchSha256": "3fac022ddf114642411cb7eca1ab0b304b05df7fee84583ff53e827dc0279ced"
+    }
+  ],
+  "rawEvidence": [
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\journals-domain-first.log",
+      "sha256": "cfd484320cd05d7c9d4857209140b9394db0c45af6cd988a7c910badbf1ad55f"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\journals-domain-second.log",
+      "sha256": "be5de338edde078550fcf6e7516a07947155a307ec690b5a339f1c2d72dd6a27"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\journals-domain-third.log",
+      "sha256": "c433007d9b454020db0c8965db11e61383ad93d5983d288d97af932feb7adfd5"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\journals-host-first.log",
+      "sha256": "ca0f82db8fdadef6be649d6048c65eca9433552029e271df782c62c38a89d9b4"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\pure-codec-compat-expanded.log",
+      "sha256": "385a5b0549bf665047e2951ff34d95cf9c8721621ee168f1abd6174132a9a6ae"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\pure-codec-existing-and-new.log",
+      "sha256": "bc9a20c15136e3b39948991580c30e07cdd7e78f61b45d97ca7186a8e4091464"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\pure-codec-first.log",
+      "sha256": "400c34b763c9392029e3eba5515164883cd89bf5f1586ea83d8f46fa936f5650"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\pure-codec-fixed.log",
+      "sha256": "60ee00dae68fcdbbf6c7c38b111d9a16c3757633e54aab0461512029b1df2e38"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\recovery-domain-first.log",
+      "sha256": "56f0addffc8126b87e88fc3aaa3a9d7da042404e0263d8954d770ed3a7802915"
+    },
+    {
+      "tempPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ndjson-adapters-draft-f39912814b8b4c6e9d1c464fc7b0fe5e\\recovery-gate-first.log",
+      "sha256": "6d0f8a95aaa7a5b396ca11c4c73b8f58dc2bb4c1f6ec752f70891aed34e734b5"
+    }
+  ],
+  "archiveFiles": [
+    {
+      "path": "01q-work-data-records.js.patch",
+      "bytes": 6749,
+      "sha256": "dc44a46b761e587ab7a8e5f0da54df85ab1820f9d0a6c3966e14bae95c3b2ee6"
+    },
+    {
+      "path": "01s-work-data-journals.js.patch",
+      "bytes": 19260,
+      "sha256": "e76f8b90c03affa9be52e0b8b8346132addb88f21e4536f5165856374d059525"
+    },
+    {
+      "path": "08-agent-runs.js.patch",
+      "bytes": 11536,
+      "sha256": "37498cc97000b956f61f267a2d18061a2bd4bc01eb4bf6d33ffa2f712cc8a6b8"
+    },
+    {
+      "path": "13i-steward-inbox.js.patch",
+      "bytes": 11382,
+      "sha256": "fc4641a2822cd5f7df02b066f2c67ace795c6ee309bf6c6b8763265cfcf37705"
+    },
+    {
+      "path": "13j-steward-tool-base.js.patch",
+      "bytes": 2960,
+      "sha256": "3fac022ddf114642411cb7eca1ab0b304b05df7fee84583ff53e827dc0279ced"
+    },
+    {
+      "path": "journals-domain.test.cjs",
+      "bytes": 10330,
+      "sha256": "4fdaf867ab8036a697b0c3609d2d068d1aa44f80a6615d2d8bf8e3841d1b4726"
+    },
+    {
+      "path": "journals-host.test.cjs",
+      "bytes": 10923,
+      "sha256": "4b7276ad990f4550981c1c5e25392a0a39a2dd144f61d7e5b394f347c2ebd70c"
+    },
+    {
+      "path": "preload-records-overlay.js",
+      "bytes": 713,
+      "sha256": "d954d99b1e4641c18a388c84ae70304c6fd9189e141de8add8206c63728d3623"
+    },
+    {
+      "path": "README.md",
+      "bytes": 6293,
+      "sha256": "b28a5ddab5bf8da7cfdbad34351d5814ee941c639f0e331b4f7895405adb6070"
+    },
+    {
+      "path": "records-existing-expanded.test.js",
+      "bytes": 1071,
+      "sha256": "d616e4507a2d3fbded2ab42c0393cd17168b5dd71a8fbe8e72e7dd0b91ab3efb"
+    },
+    {
+      "path": "records-new-families.test.js",
+      "bytes": 8400,
+      "sha256": "5064c8e4c7201b956087b267b2539d84a0168356abcbad89a2a049d7b06af005"
+    },
+    {
+      "path": "recovery-and-scan-design.md",
+      "bytes": 5670,
+      "sha256": "81c98f39af21ed0aa3246586afccd6d33066b5c59f4bcdd0524a34c130755be0"
+    }
+  ]
+}

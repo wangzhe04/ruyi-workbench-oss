@@ -1,0 +1,168 @@
+diff --git a/src/13s-scheduler.js b/src/13s-scheduler.js
+index 2ca7f306..69a2506c 100644
+--- a/src/13s-scheduler.js
++++ b/src/13s-scheduler.js
+@@ -161,6 +161,72 @@ function schedulerNotify(schedHookName, schedRow) {
+   return Promise.resolve(null);
+ }
+ 
++// Task definitions are live in memory, but encrypted storage authority remains
++// current on warm API/tick paths. Never export a cached key into the scheduler.
++const SCHEDULER_TASK_ENGINEERING_BYTES = 256 * 1024 * 1024;
++const schedulerIsWorkDataError = error => String(error?.code || '').startsWith('work_data');
++function schedulerStorageFailure(suffix) {
++  return Object.assign(new Error('work_data.scheduler_' + suffix), { code: 'work_data.scheduler_' + suffix, statusCode: 503 });
++}
++function schedulerTaskStore(operation, metadata = {}) {
++  return WorkDataStore.createText({
++    file: schedulerTasksPath, purpose: 'task', schema: SCHEDULER_TASKS_SCHEMA,
++    scopeId: 'scheduler', recordId: 'scheduler-tasks', chunked: true,
++    maxPlaintextBytes: SCHEDULER_TASK_ENGINEERING_BYTES,
++    keys: operation.keys, enabled: () => operation.enabled,
++    writeJson: atomicWriteJson,
++    validateSealedText: text => {
++      let parsed; try { parsed = JSON.parse(text); } catch { return false; }
++      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
++        || parsed.schema !== SCHEDULER_TASKS_SCHEMA || !Array.isArray(parsed.tasks)) return false;
++      metadata.sealed = true; return true;
++    },
++  });
++}
++async function withSchedulerTaskOperation(work, supplied = null) {
++  if (supplied) return work(supplied);
++  const config = await readConfig();
++  let pending = null, failed = false;
++  const credential = () => pending || (pending = WorkDataStore.acquireSnapshot());
++  const operation = { enabled: config.workDataEncryptionV1 === true, credential,
++    keys: { snapshot: async () => { const lease = await credential(); return { key: lease.key, instanceId: lease.instanceId, release: () => {} }; } },
++  };
++  try {
++    // ON legacy/plain warm state still needs current key authority. This never
++    // creates a key; OFF ordinary files retain their zero-unlock behavior.
++    if (operation.enabled) await credential();
++    return await work(operation);
++  } catch (error) { failed = true; throw error; }
++  finally {
++    let lease; try { if (pending) lease = await pending; } catch { /* original failure wins */ }
++    if (lease) { try { await lease.release(); } catch (error) { if (!failed) throw error; } }
++  }
++}
++function schedulerTaskPayload() {
++  return { schema: SCHEDULER_TASKS_SCHEMA, updatedAt: new Date(schedulerClockNow()).toISOString(),
++    globalRuns: schedulerRuntime.globalRuns, tasks: [...schedulerRuntime.tasks, ...schedulerRuntime.opaqueTasks] };
++}
++function schedulerTaskEncodingPreflight(payload, operation, growthBytes = 0) {
++  const text = JSON.stringify(payload, null, 2); // exact OFF atomicWriteJson object serialization
++  if (operation.enabled && Buffer.byteLength(text, 'utf8') + growthBytes > SCHEDULER_TASK_ENGINEERING_BYTES) throw schedulerStorageFailure('tasks_limit');
++  return text;
++}
++async function schedulerAuthenticateLoaded() {
++  return withSchedulerTaskOperation(async operation => {
++    try { await schedulerTaskStore(operation).read(); }
++    catch (error) { if (error?.code !== 'ENOENT') throw error; }
++  });
++}
++async function schedulerTaskAdmission(work, growthBytes = 0) {
++  return withSchedulerTaskOperation(async operation => {
++    try { await schedulerTaskStore(operation).read(); }
++    catch (error) { if (error?.code !== 'ENOENT') throw error; }
++    schedulerTaskEncodingPreflight(schedulerTaskPayload(), operation, growthBytes);
++    return work(operation);
++  });
++}
++
++
+ // ── 落盘:tasks-v1.json(atomicWriteJson)────────────────────────────────────────────────────
+ async function schedulerReadTasksFile() {
+   const file = schedulerTasksPath();
+@@ -169,8 +235,9 @@ async function schedulerReadTasksFile() {
+   // EBUSY/EPERM、句柄耗尽)都答成 missing:true,调度器按空表装载 —— 下一次 schedulerSaveTasks 就把
+   // 用户整张任务表冲成空的。瞬时错误先有界重试,仍失败回 unreadable:schedulerLoad 不置 loaded、不许写盘。
+   for (let attempt = 0; ; attempt++) {
+-    try { text = await fsp.readFile(file, 'utf8'); break; }
++    try { text = await withSchedulerTaskOperation(operation => schedulerTaskStore(operation).read()); break; }
+     catch (e) {
++      if (schedulerIsWorkDataError(e)) throw e;
+       const code = String((e && e.code) || '');
+       if (code === 'ENOENT') return { tasks: [], globalRuns: { date: '', count: 0 }, missing: true };
+       if (!['EBUSY', 'EPERM', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN'].includes(code) || attempt >= 4) {
+@@ -198,25 +265,18 @@ async function schedulerReadTasksFile() {
+ }
+ // 写盘。**零任务时也要写**(用户刚把最后一条删掉,那份空表就是事实);但 startScheduler 在
+ // schedulerEnabledV1 关时压根不会走到这里(红线⑤:关着一个字节都不写)。
+-function schedulerSaveTasks() {
+-  // hunt2-P6:没装载成功(任务表存在却读不出来)就不许写 —— 此刻内存里的空表不是事实,写下去就是删用户的任务。
++function schedulerSaveTasks(operation = null) {
+   if (!schedulerRuntime.loaded) {
+-    try { logEvent({ kind: 'scheduler_save_refused', reason: 'not_loaded' }); } catch { /* ignore */ }
++    try { logEvent({ kind: 'scheduler_save_refused', reason: 'not_loaded' }); } catch {}
+     return Promise.resolve();
+   }
+-  const payload = {
+-    schema: SCHEDULER_TASKS_SCHEMA,
+-    updatedAt: new Date(schedulerClockNow()).toISOString(),
+-    globalRuns: schedulerRuntime.globalRuns,
+-    // hunt2-P6:装载时归一化不过的行原样写回(见 schedulerLoad),不因为「这一版读不懂」就从盘上消失。
+-    tasks: [...schedulerRuntime.tasks, ...schedulerRuntime.opaqueTasks],
+-  };
+-  const next = schedulerTasksChain.catch(() => {}).then(async () => {
++  const payload = schedulerTaskPayload();
++  const next = schedulerTasksChain.catch(() => {}).then(() => withSchedulerTaskOperation(async scope => {
++    const text = schedulerTaskEncodingPreflight(payload, scope);
+     await fsp.mkdir(schedulerDir(), { recursive: true });
+-    await atomicWriteJson(schedulerTasksPath(), payload);
+-  });
+-  schedulerTasksChain = next.catch(() => {});
+-  return next;
++    await schedulerTaskStore(scope).write(text);
++  }, operation));
++  schedulerTasksChain = next.catch(() => {}); return next;
+ }
+ 
+ // ── 落盘:fires-v1.ndjson(append-only;与 session-changes / inbox 同款原语)──────────────────
+@@ -279,7 +339,7 @@ function schedulerRestorePersistedState(schedTask, schedRawTask) {
+   return schedTask;
+ }
+ async function schedulerLoad() {
+-  if (schedulerRuntime.loaded) return;
++  if (schedulerRuntime.loaded) { await schedulerAuthenticateLoaded(); return; }
+   const now = schedulerClockNow();
+   const file = await schedulerReadTasksFile();
+   if (file.unreadable) {
+@@ -296,10 +356,6 @@ async function schedulerLoad() {
+     if (!normalized.ok || !normalized.task.id || tasks.length >= SCHEDULER_LIMITS.maxTasks) { opaque.push(rawTask); continue; }
+     tasks.push(schedulerRestorePersistedState(normalized.task, rawTask));
+   }
+-  schedulerRuntime.tasks = tasks;
+-  schedulerRuntime.opaqueTasks = opaque;
+-  schedulerRuntime.loadedFromDisk = new Set(tasks.map(task => task.id));
+-  schedulerRuntime.globalRuns = file.globalRuns;
+   // fires 的单调 seq 与「同 occurrence 试过几次」都从盘上的账重建 —— 进程内计数器不跨重启。
+   const rows = await schedulerReadFireRows();
+   let maxSeq = 0;
+@@ -312,6 +368,10 @@ async function schedulerLoad() {
+       if (key) attempts.set(key, (attempts.get(key) || 0) + 1);
+     }
+   }
++  schedulerRuntime.tasks = tasks;
++  schedulerRuntime.opaqueTasks = opaque;
++  schedulerRuntime.loadedFromDisk = new Set(tasks.map(task => task.id));
++  schedulerRuntime.globalRuns = file.globalRuns;
+   schedulerRuntime.fireSeq = maxSeq;
+   schedulerRuntime.attempts = attempts;
+   schedulerRuntime.loaded = true;
+@@ -865,7 +925,13 @@ async function startScheduler(schedConfig) {
+   schedulerRuntime.enabled = true;
+   schedulerRuntime.started = true;
+   schedulerRuntime.generation += 1;
+-  const rows = await schedulerLoad();
++  let rows;
++  try { rows = await schedulerLoad(); }
++  catch (error) {
++    schedulerRuntime.started = false; schedulerRuntime.startDeferred = true;
++    schedulerRuntime.generation += 1;
++    throw error;
++  }
+   if (!schedulerRuntime.loaded) {
+     // hunt2-P6:任务表在却读不出来 —— 不恢复、不起 interval(恢复会写盘)。退回「未启动」,路由闸下次装载成功时再起。
+     schedulerRuntime.started = false;

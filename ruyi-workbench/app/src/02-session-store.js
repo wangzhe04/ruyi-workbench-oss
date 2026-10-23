@@ -2852,7 +2852,7 @@ async function buildMissionResult(session, opts) {
   const m = session.mission;
   const ms = (m && Array.isArray(m.milestones)) ? m.milestones : [];
   const fold = foldTurnSummaries(session);
-  const cpEntries = await journalReadIndex(session.id).catch(() => []);
+  const cpEntries = await journalReadIndex(session.id).catch(error => { if (sessionHeadIsWorkDataError(error)) throw error; return []; });
   const cpTurnSeqs = [...new Set(cpEntries.map(e => e && e.turnSeq).filter(Number.isFinite))].sort((a, b) => a - b);
   const byOp = {};
   for (const f of fold.filesChanged) byOp[f.op || 'unknown'] = (byOp[f.op || 'unknown'] || 0) + 1;
@@ -3173,7 +3173,7 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
     logEvent({ kind: 'mission_ledger_seeded', sessionId, action, source: 'mission_control' });
   }
 
-  let cpEntries = await journalReadIndex(sessionId).catch(() => []);
+  let cpEntries = await journalReadIndex(sessionId).catch(error => { if (sessionHeadIsWorkDataError(error)) throw error; return []; });
 let runs = await listAgentRuns(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
   let controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
   const capability = controls.actions[action];
@@ -3287,7 +3287,7 @@ let runs = await listAgentRuns(sessionId).catch(error => { if (String(error && e
   if (reg && reg.session && reg.session !== session) reg.session.mission = session.mission;
   if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } }
 
-  cpEntries = await journalReadIndex(sessionId).catch(() => []);
+  cpEntries = await journalReadIndex(sessionId).catch(error => { if (sessionHeadIsWorkDataError(error)) throw error; return []; });
 runs = await listAgentRuns(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
   controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
   return { status: 200, body: { ok: true, action, mission: session.mission, controls, requiresTurn, stoppedRuns, ...(rollback ? { rollback } : {}) } };
@@ -4547,13 +4547,185 @@ async function withJournalWriteLock(sessionId, work) {
 function journalDir(sessionId) { return path.join(paths.checkpoints, assertSessionIdForPath(sessionId)); }
 function journalIndexPath(sessionId) { return path.join(journalDir(sessionId), 'index.json'); }
 
-// Read a session's checkpoint index (array of entries). Missing/corrupt → []. Never throws.
-async function journalReadIndex(sessionId) {
+const JOURNAL_ARTIFACT_ENGINEERING_BYTES = 256 * 1024 * 1024;
+function journalArtifactFailure(suffix) {
+  return Object.assign(new Error('work_data.journal_' + suffix), {
+    code: 'work_data.journal_' + suffix, apiCode: 'work_data.journal_' + suffix, statusCode: 503,
+  });
+}
+// Caller-owned operations can cover an entire rollback preflight/restore/index
+// transaction. Individual read-only consumers simply use each store's own scope.
+async function withJournalArtifactOperation(work, supplied = null) {
+  if (supplied) return work(supplied);
+  const config = await readConfig();
+  let pending = null, failed = false;
+  const credential = () => pending || (pending = WorkDataStore.acquireSnapshot());
+  const operation = {
+    enabled: config.workDataEncryptionV1 === true, credential,
+    keys: { snapshot: async () => {
+      const lease = await credential();
+      return { key: lease.key, instanceId: lease.instanceId, release: () => {} };
+    } },
+  };
+  try { return await work(operation); }
+  catch (error) { failed = true; throw error; }
+  finally {
+    let lease;
+    try { if (pending) lease = await pending; } catch { /* the original acquisition failure wins */ }
+    if (lease) {
+      try { await lease.release(); }
+      catch (error) { if (!failed) throw error; }
+    }
+  }
+}
+function journalJsonStore(sessionId, kind, operation = null, metadata = {}) {
+  const sid = assertSessionIdForPath(sessionId);
+  const file = kind === 'index' ? journalIndexPath(sid)
+    : kind === 'reverts' ? journalRevertLogPath(sid) : (() => { throw journalArtifactFailure('kind'); })();
+  return WorkDataStore.createText({
+    file: () => file, purpose: 'session', schema: 1,
+    scopeId: sid, recordId: kind === 'index' ? 'journal-index' : 'journal-reverts',
+    keys: operation ? operation.keys : WorkDataStore.requireKeys(),
+    chunked: true, maxPlaintextBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    enabled: operation ? () => operation.enabled : () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    writeJson: (target, value, options = {}) => atomicWriteJson(target, value, { ...options, retries: kind === 'index' ? 0 : 3 }),
+    validateSealedText: plainText => {
+    metadata.sealed = true;
+    const value = safeJsonParse(plainText, null);
+    return kind === 'index' ? Array.isArray(value)
+      : !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === 1 && Array.isArray(value.items);
+    },
+  });
+}
+function journalGzipIdentity(sessionId, name) {
+  const sid = assertSessionIdForPath(sessionId), base = String(name || '');
+  if (!/^(?:\d+-\d+\.gz|history-\d+(?:-[a-f0-9]{16})?\.json\.gz)$/.test(base)) throw journalArtifactFailure('snapshot_name');
+  return { sid, base, file: path.join(journalDir(sid), base), history: base.startsWith('history-') };
+}
+function journalGzipStore(sessionId, name, metadata = {}, operation = null) {
+  const identity = journalGzipIdentity(sessionId, name);
+  return WorkDataStore.createBinary({
+    file: () => identity.file, purpose: 'session', schema: 1,
+    scopeId: identity.sid, recordId: identity.base,
+    keys: operation ? operation.keys : WorkDataStore.requireKeys(), chunked: true,
+    maxBinaryBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    maxPlaintextBytes: JOURNAL_ARTIFACT_ENGINEERING_BYTES,
+    enabled: operation ? () => operation.enabled : () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    // Existing index writer is fail-fast across processes. All gzip publications
+    // finish before the matching index commit and use the same no-retry policy.
+    writeJson: (target, value, options = {}) => atomicWriteJson(target, value, { ...options, retries: 0 }),
+    validateLegacyBinary(bytes, context = { sealed: true, enabled: true }) {
+      // Ordinary old history had no per-record cap. Only ON preparation/sealed
+      // records acquire the new representation's engineering ceiling.
+      const bounded = !identity.history || context.sealed || context.enabled;
+      const options = bounded ? { maxOutputLength: identity.history ? JOURNAL_ARTIFACT_ENGINEERING_BYTES : JOURNAL_MAX_BEFORE_BYTES } : {};
+      const decoded = zlib.gunzipSync(bytes, options);
+      // Capture for this facade only, allowing callers to use the completed decode
+      // rather than decompressing a large carrier a second time.
+      metadata.decoded = decoded;
+      if (identity.history) {
+        try {
+        const raw = decoded.toString('utf8');
+        if (!Buffer.from(raw, 'utf8').equals(decoded)) throw new Error('invalid history UTF8');
+        const history = JSON.parse(raw);
+        if (!Array.isArray(history)) throw new Error('invalid history shape');
+        const hash = /^history-\d+-([a-f0-9]{16})\.json\.gz$/.exec(identity.base);
+        if (hash && crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16) !== hash[1]) throw new Error('history hash mismatch');
+        metadata.history = history;
+        } catch (error) {
+          // Decoding already proved a complete valid gzip. A domain-format error
+          // must never cause the guard to search its compressed business payload.
+          error.gzipValidated = true; throw error;
+        }
+      }
+      return true;
+    },
+  });
+}
+async function journalReadBefore(sessionId, turnSeq, entrySeq, operation = null) {
+  if (!Number.isSafeInteger(Number(turnSeq)) || Number(turnSeq) < 0
+      || !Number.isSafeInteger(Number(entrySeq)) || Number(entrySeq) < 0) throw journalArtifactFailure('snapshot_name');
+  const metadata = {};
+  await journalGzipStore(sessionId, `${Number(turnSeq)}-${Number(entrySeq)}.gz`, metadata, operation).read();
+  return metadata.decoded;
+}
+async function journalWriteBefore(sessionId, turnSeq, entrySeq, bytes, operation = null) {
+  const gz = zlib.gzipSync(bytes);
+  const identity = journalGzipIdentity(sessionId, `${turnSeq}-${entrySeq}.gz`);
+  const beforeSize = await fsp.stat(identity.file).then(stat => stat.size).catch(() => 0);
+  await journalGzipStore(sessionId, identity.base, {}, operation).write(gz);
+  const afterSize = (await fsp.stat(identity.file)).size;
+  journalBytesAdjust(afterSize - beforeSize);
+}
+async function journalReadHistory(sessionId, name, operation = null) {
+  const metadata = {};
+  await journalGzipStore(sessionId, name, metadata, operation).read();
+  return metadata.history;
+}
+
+// Side-effect preflight is intentionally separate from normal UI reads: a sealed
+// record can be read after OFF, but a rollback must not mutate the workspace and
+// only then discover that writing its encrypted index is forbidden.
+// A single outer B snapshot covers preflight/read/restore/index transaction. This
+// is operation consistency, not a cross-process atomic rotation claim.
+async function journalAssertWritable(sessionId, kinds, operation) {
+  if (operation.enabled) {
+    await operation.credential();
+  } else {
+    for (const kind of kinds) {
+      const metadata = {};
+      // The sealed-only callback is reached after the real reader has parsed and
+      // authenticated its container, including escaped JSON keys and chunked
+      // headers. A literal marker regexp cannot establish this write permission.
+      const store = kind === 'head' ? WorkDataStore.createText({
+        file: () => sessionPath(sessionId), purpose: 'session', schema: SESSION_HEAD_ADAPTER_SCHEMA,
+        scopeId: 'sessions', recordId: String(sessionId), keys: operation.keys,
+        enabled: () => operation.enabled, writeJson: atomicWriteJson,
+        validateSealedText: () => { metadata.sealed = true; return true; },
+      }) : journalJsonStore(sessionId, kind, operation, metadata);
+      try { await store.read(); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (metadata.sealed) throw journalArtifactFailure('downgrade_refused');
+    }
+  }
+}
+function journalPreflightIndex(index, operation) {
+  // Every remaining index is a subset of this parsed array. Bounding the complete
+  // current compact representation before destructive work is conservative, and
+  // prevents a new deterministic encoding failure after deleting/restoring files.
+  if (operation.enabled && Buffer.byteLength(JSON.stringify(index), 'utf8') > JOURNAL_ARTIFACT_ENGINEERING_BYTES) {
+    throw journalArtifactFailure('index_limit');
+  }
+}
+async function journalPreflightMutation(sessionId, index, targets, operation) {
+  await journalRevertLogRead(sessionId, operation); // never silently erase pending sealed notices
+  await journalAssertWritable(sessionId, ['index', 'reverts'], operation);
+  journalPreflightIndex(index, operation);
+  const before = new Map();
+  for (const entry of targets) {
+    if (entry && !entry.skipped && entry.op !== 'create') {
+      if (!Number.isSafeInteger(Number(entry.turnSeq)) || Number(entry.turnSeq) < 0
+          || !Number.isSafeInteger(Number(entry.entrySeq)) || Number(entry.entrySeq) < 0) continue;
+      // Authenticate the entire selected set before its first workspace mutation,
+      // but retain only hashes, not N x five-MiB decoded originals. Each actual
+      // restore reopens/authenticates its record with the same operation lease.
+      try {
+        const decoded = await journalReadBefore(sessionId, entry.turnSeq, entry.entrySeq, operation);
+        before.set(`${entry.turnSeq}-${entry.entrySeq}`, crypto.createHash('sha256').update(decoded).digest('hex'));
+      }
+      catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; /* original per-file failure remains */ }
+    }
+  }
+  return before;
+}
+
+// Ordinary legacy missing/corrupt -> []; sealed authentication failures remain hard.
+async function journalReadIndex(sessionId, operation = null) {
   try {
-    const raw = await fsp.readFile(journalIndexPath(sessionId), 'utf8');
+    const raw = await journalJsonStore(sessionId, 'index', operation).read();
     const arr = safeJsonParse(raw, null);
     return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
+  } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; return []; }
 }
 
 // hunt2 #18:写者(record / drop / GC)用的严格读。宽松版把【任何】读错误都当成「没有条目」,下一次 record
@@ -4561,10 +4733,10 @@ async function journalReadIndex(sessionId) {
 // 就把这条会话全部检查点抹掉(entrySeq 还从 0 重来,覆写既有 .gz)。这里只有 ENOENT 才算空;别的读错误照抛,
 // 由调用方的安全网 catch 转成 journal_write_error(本次不记,既有条目不动)。内容坏了(非 JSON / 非数组)
 // 读重试也好不了,原样改名隔离成 index.json.corrupt-<时间戳> 留作取证,再按空索引继续,检查点功能自愈。
-async function journalReadIndexForWrite(sessionId) {
+async function journalReadIndexForWrite(sessionId, operation = null) {
   const file = journalIndexPath(sessionId);
   let raw;
-  try { raw = await fsp.readFile(file, 'utf8'); }
+  try { raw = await journalJsonStore(sessionId, 'index', operation).read(); }
   catch (e) { if (e && e.code === 'ENOENT') return []; throw e; }
   const arr = safeJsonParse(raw, null);
   if (Array.isArray(arr)) return arr;
@@ -4578,10 +4750,10 @@ async function journalReadIndexForWrite(sessionId) {
 // 进程间无法串行),rename 重试会让旧载荷在 ~680ms 退避后覆写掉别进程刚落的新条目(丢检查点)。
 // 保持旧的 fail-fast 语义:输给并发写者就立刻失败(调用方本就 best-effort 包裹),绝不迟到覆写。
 // hunt2 #13:紧凑 JSON(不缩进)—— 索引每记一条就整份重写一次,缩进让体积与序列化时间都翻倍。
-async function journalWriteIndex(sessionId, entries) {
+async function journalWriteIndex(sessionId, entries, operation = null) {
   const dir = journalDir(sessionId);
   await fsp.mkdir(dir, { recursive: true });
-  await atomicWriteJson(journalIndexPath(sessionId), JSON.stringify(entries), { retries: 0 });
+  await journalJsonStore(sessionId, 'index', operation).write(JSON.stringify(entries));
 }
 
 // hunt2 #6:本回合下一个 entrySeq = 本回合现有最大值 + 1。修前取「本回合条目数」—— 中间的条目被
@@ -4632,6 +4804,10 @@ async function journalRecordMany(sessionId, turnSeq, rows) {
 }
 
 async function journalRecordManyUnlocked(sessionId, turnSeq, rows) {
+  try { return await withJournalArtifactOperation(operation => journalRecordManyContents(sessionId, turnSeq, rows, operation)); }
+  catch { return (Array.isArray(rows) ? rows : []).map(() => ({ ok: false, reason: 'journal_write_error' })); }
+}
+async function journalRecordManyContents(sessionId, turnSeq, rows, operation) {
   const list = Array.isArray(rows) ? rows : [];
   // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
   if (!sessionId || !Number.isFinite(turnSeq)) return list.map(() => ({ ok: false, reason: 'no_session_context' }));
@@ -4639,7 +4815,8 @@ async function journalRecordManyUnlocked(sessionId, turnSeq, rows) {
   try {
     const dir = journalDir(sessionId);
     await fsp.mkdir(dir, { recursive: true });
-    const index = await journalReadIndexForWrite(sessionId);
+    const index = await journalReadIndexForWrite(sessionId, operation);
+    await journalAssertWritable(sessionId, ['index'], operation);
     let nextSeq = journalNextEntrySeq(index, turnSeq); // per-turn autoincrement (hunt2 #6: max+1)
     const results = [];
     for (const { tool, filePath, op, beforeContent } of list) {
@@ -4659,19 +4836,17 @@ async function journalRecordManyUnlocked(sessionId, turnSeq, rows) {
           // Too large to snapshot — record the entry as skipped (rollback of this entry will fail loudly).
           skipped = true;
         } else {
-          const gz = zlib.gzipSync(buf); // built-in zlib — zero npm
-          await fsp.writeFile(path.join(dir, `${turnSeq}-${entrySeq}.gz`), gz);
-          journalBytesAdjust(gz.length); // PF1: keep the size-cap cache current
+          await journalWriteBefore(sessionId, turnSeq, entrySeq, buf, operation);
         }
       }
       index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
       results.push(skipped ? { ok: true, skipped: true, entrySeq } : { ok: true, entrySeq });
     }
-    await journalWriteIndex(sessionId, index);
+    await journalWriteIndex(sessionId, index, operation);
     // v1.4.1 (audit #8):必须 await —— 此前 detached 触发,GC 的 index.json 读改写会与下一条 journalRecord 竞争,
     // 修剪写回时可覆盖刚追加的条目(lost-write → 该文件变更不可撤销)。await 让 GC 在下一条 record 前完成,
     // 消除并发。GC 内部全 try/catch 静默,不抛。hunt2 #13:把刚写下的索引交给 GC,省掉它再读一遍。
-    await journalGc(sessionId, index).catch(() => {});
+    await journalGc(sessionId, index, operation).catch(() => {});
     return results;
   } catch {
     // Safety-net discipline: a failed journal write must NOT abort the tool. Swallow and continue — the
@@ -5027,15 +5202,19 @@ async function reconcileWorkspaceTurnBaseline(baseline, sessionId, turnSeq) {
 // entrySeqs(可选):只删这几个 entrySeq 的条目 —— 调用方知道自己刚记了哪几条时传入,同一回合早先涉及同一
 // 路径、同一工具的条目(例如本回合先把 X 移到 A、再把 A 移走)不受牵连。空数组 = 一条也不删。
 async function journalDropEntries(sessionId, turnSeq, tool, paths, entrySeqs) {
-  return withJournalWriteLock(sessionId, () => journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs));
+  try { return await withJournalWriteLock(sessionId, () => withJournalArtifactOperation(operation =>
+    journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs, operation))); }
+  catch { return { ok: false, reason: 'journal_drop_error' }; }
 }
 
-async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs) {
+async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs, operation) {
   try {
     if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
-    const index = await journalReadIndexForWrite(sessionId);
+    const index = await journalReadIndexForWrite(sessionId, operation);
     if (!index.length) return { ok: true, dropped: 0 };
+    await journalAssertWritable(sessionId, ['index'], operation);
+    journalPreflightIndex(index, operation);
     const seqSet = Array.isArray(entrySeqs) ? new Set(entrySeqs.map(Number)) : null;
     const pathSet = new Set((paths || []).map(p => String(p)));
     const kept = [];
@@ -5056,7 +5235,7 @@ async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entry
       }
       kept.push(e);
     }
-    if (dropped) await journalWriteIndex(sessionId, kept);
+    if (dropped) await journalWriteIndex(sessionId, kept, operation);
     return { ok: true, dropped };
   } catch {
     return { ok: false, reason: 'journal_drop_error' };
@@ -5067,12 +5246,18 @@ async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entry
 // .gz files. (2) Global: if the whole checkpoints/ tree exceeds JOURNAL_GLOBAL_MAX_BYTES, remove entire
 // oldest sessions (by dir mtime) until under budget. All failures are silent.
 // knownIndex:调用方(持会话写锁)刚写下的索引,传入即不再重读(hunt2 #13)。
-async function journalGc(sessionId, knownIndex) {
+async function journalGc(sessionId, knownIndex, operation = null) {
+  try { return await withJournalArtifactOperation(scope => journalGcContents(sessionId, knownIndex, scope), operation); }
+  catch { /* retention is best effort, never plaintext fallback */ }
+}
+async function journalGcContents(sessionId, knownIndex, operation) {
   let freedBytes = 0; // PF1: bytes reclaimed by the per-session prune below, to decrement the size-cap cache
   try {
     const dir = journalDir(sessionId);
-    const index = Array.isArray(knownIndex) ? knownIndex : await journalReadIndexForWrite(sessionId);
+    const index = Array.isArray(knownIndex) ? knownIndex : await journalReadIndexForWrite(sessionId, operation);
     if (index.length) {
+      await journalAssertWritable(sessionId, ['index'], operation);
+      journalPreflightIndex(index, operation);
       const turns = [...new Set(index.map(e => Number(e.turnSeq)))].sort((a, b) => a - b);
       if (turns.length > JOURNAL_KEEP_TURNS) {
         const keep = new Set(turns.slice(turns.length - JOURNAL_KEEP_TURNS));
@@ -5086,7 +5271,7 @@ async function journalGc(sessionId, knownIndex) {
             if (st) freedBytes += st.size;
           }
         }
-        await journalWriteIndex(sessionId, kept);
+        await journalWriteIndex(sessionId, kept, operation);
       }
     }
   } catch { /* silent */ }
@@ -5229,9 +5414,13 @@ async function dirSize(dir) {
 // content) and are listed in `failed` without aborting the rest. Reverted entries are REMOVED from the
 // index (idempotent: rolling back the same turn again → {ok:false,error:'no entries'}). The rollback
 // action itself is NEVER journaled (anti-recursion). Returns {ok, reverted:[{path,op,turnSeq,entrySeq,tool,ts}], failed:[{path,reason}]}.
-async function journalRollback(sessionId, turnSeq, entrySeq) {
+async function journalRollback(sessionId, turnSeq, entrySeq, operation = null, preparedBefore = null) {
+  return withJournalWriteLock(sessionId, () => withJournalArtifactOperation(scope =>
+    journalRollbackContents(sessionId, turnSeq, entrySeq, scope, preparedBefore), operation));
+}
+async function journalRollbackContents(sessionId, turnSeq, entrySeq, operation, preparedBefore) {
   const dir = journalDir(sessionId);
-  const index = await journalReadIndex(sessionId);
+  const index = await journalReadIndex(sessionId, operation);
   const tSeq = Number(turnSeq);
   let targets = index.filter(e => e && Number(e.turnSeq) === tSeq);
   if (entrySeq !== undefined && entrySeq !== null && entrySeq !== '') {
@@ -5241,13 +5430,14 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
   if (!targets.length) return { ok: false, error: 'no entries' };
   // Reverse order so multiple mutations to the same file unwind to the earliest recorded `before`.
   targets = targets.slice().sort((a, b) => b.entrySeq - a.entrySeq);
+  const beforeImages = preparedBefore || await journalPreflightMutation(sessionId, index, targets, operation);
   // 安全审计 #8:index.json 是盘上的数据,不是可信输入 —— 条目里的 path 会被原样写回(或删掉)。修前不验:谁能改
   // index.json(检查点目录曾是文件工具可写的数据根子树)就能借「回滚」把任意内容落到任意位置。现在每条都按【写】
   // 重过一遍与文件工具同一个闸(三层硬地板 + 受保护数据 + 包含判定;包含判定用读根集合,见 guardFileToolPath
   // 的 rootSet:'read' 注),权限档按会话当前的有效档位(宽写档下工作区外的合法条目照样能回滚)。不过闸的条目
   // 不动盘、记进 failed(原因 path-denied),其余照常回滚;它们留在索引里。序号不是整数的条目同样拒(.gz 文件名由它拼)。
   let guardSession = null, guardConfig = null;
-  try { guardSession = await loadSession(sessionId); } catch { guardSession = null; }
+  try { guardSession = await loadSession(sessionId); } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; guardSession = null; }
   try { guardConfig = await readConfig(); } catch { guardConfig = {}; }
   const guardCtx = {
     session: guardSession, config: guardConfig,
@@ -5276,8 +5466,9 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
         await fsp.unlink(e.path).catch(() => {}); // idempotent: gone already is fine
       } else {
         // modify | delete → restore the gzipped before content
-        const gz = await fsp.readFile(path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`));
-        const before = zlib.gunzipSync(gz);
+        const before = await journalReadBefore(sessionId, e.turnSeq, e.entrySeq, operation);
+        const expectedBefore = beforeImages.get(key);
+        if (expectedBefore && expectedBefore !== crypto.createHash('sha256').update(before).digest('hex')) throw journalArtifactFailure('snapshot_changed');
         await fsp.mkdir(path.dirname(e.path), { recursive: true });
         // Atomic restore (tmp + rename, same discipline as saveSession): the trust layer's own rollback
         // must be lossless — a crash (power loss / kill) mid-writeFile would TRUNCATE the user's file,
@@ -5298,7 +5489,7 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
   // Remove the successfully-reverted entries from the index (idempotency). Failed ones stay so a retry
   // is possible. The rollback is NOT journaled — no new checkpoint entries are created here.
   const remaining = index.filter(e => !revertedKeys.has(`${e.turnSeq}-${e.entrySeq}`));
-  await journalWriteIndex(sessionId, remaining).catch(() => {});
+  await journalWriteIndex(sessionId, remaining, operation).catch(error => { if (sessionHeadIsWorkDataError(error)) throw error; });
   return { ok: reverted.length > 0, reverted, failed };
 }
 
@@ -5335,17 +5526,17 @@ function journalRevertRecordOf(raw) {
     announced: raw.announced === true,
   };
 }
-// 从不抛;文件不存在 / 读不动 / 不是预期形状 → []。
-async function journalRevertLogRead(sessionId) {
+// 普通旧明文不存在 / 读不动 / 不是预期形状 → [];已识别密文认证失败不得当空。
+async function journalRevertLogRead(sessionId, operation = null) {
   try {
-    const parsed = safeJsonParse(await fsp.readFile(journalRevertLogPath(sessionId), 'utf8'), null);
+    const parsed = safeJsonParse(await journalJsonStore(sessionId, 'reverts', operation).read(), null);
     const rows = parsed && typeof parsed === 'object' && Array.isArray(parsed.items) ? parsed.items : [];
     return rows.map(journalRevertRecordOf).filter(Boolean);
-  } catch { return []; }
+  } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; return []; }
 }
-async function journalRevertLogWrite(sessionId, items) {
+async function journalRevertLogWrite(sessionId, items, operation = null) {
   await fsp.mkdir(journalDir(sessionId), { recursive: true });
-  await atomicWriteJson(journalRevertLogPath(sessionId), JSON.stringify({ schema: 1, items }), { retries: 3 });
+  await journalJsonStore(sessionId, 'reverts', operation).write(JSON.stringify({ schema: 1, items }));
 }
 // 路由在 journalRollback 成功后调:reverted = journalRollback 回的 [{path, op, turnSeq, entrySeq, tool, ts}]。
 // 同一次撤销里 (turnSeq, tool, op) 相同的并成一条;已有【还没告知】的同键记录就并进去(用户先撤 a 再撤 b,两次都发生在
@@ -5353,8 +5544,8 @@ async function journalRevertLogWrite(sessionId, items) {
 async function journalRevertLogRecord(sessionId, reverted) {
   const rows = (Array.isArray(reverted) ? reverted : []).filter(r => r && typeof r.path === 'string' && r.path && Number.isSafeInteger(Number(r.turnSeq)));
   if (!rows.length) return;
-  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
-    const items = await journalRevertLogRead(sessionId);
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), () => withJournalArtifactOperation(async operation => {
+    const items = await journalRevertLogRead(sessionId, operation);
     const now = nowIso();
     let nextSeq = items.reduce((m, r) => Math.max(m, r.seq), 0) + 1;
     const groups = new Map();
@@ -5383,35 +5574,35 @@ async function journalRevertLogRecord(sessionId, reverted) {
       const i = items.findIndex(r => r.announced);
       items.splice(i >= 0 ? i : 0, 1);   // 先丢最旧的已告知项,没有才丢最旧的待告知项
     }
-    await journalRevertLogWrite(sessionId, items);
-  });
+    await journalRevertLogWrite(sessionId, items, operation);
+  }));
 }
 // 09 在 provider 回合起跑时读:还没告知的记录(回合升序)。读不到 = []。
 async function journalRevertNoticesPeek(sessionId) {
   try { return (await journalRevertLogRead(sessionId)).filter(r => !r.announced).sort((a, b) => a.turnSeq - b.turnSeq || a.seq - b.seq); }
-  catch { return []; }
+  catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; return []; }
 }
 // 09 在带着告知的那条 user 消息【已落盘】之后调:只把 peek 到的那几条标成已告知(按 seq),期间新记的不动。
 // 先 peek、落盘后才 ack 的顺序是有意的:中途失败只会让告知多发一次(无害),不会让模型永远收不到。
 async function journalRevertNoticesAck(sessionId, seqs) {
   const wanted = new Set((Array.isArray(seqs) ? seqs : []).map(Number));
   if (!wanted.size) return;
-  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
-    const items = await journalRevertLogRead(sessionId);
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), () => withJournalArtifactOperation(async operation => {
+    const items = await journalRevertLogRead(sessionId, operation);
     let touched = false;
     for (const r of items) if (wanted.has(r.seq) && !r.announced) { r.announced = true; touched = true; }
-    if (touched) await journalRevertLogWrite(sessionId, items);
-  });
+    if (touched) await journalRevertLogWrite(sessionId, items, operation);
+  }));
 }
 // rewindSession 截断成功后调:回合号 >= fromTurnSeq 的记录都属于已被丢弃的回合,留着只会给模型一句指向「不存在的回合」的告知。
-async function journalRevertLogPrune(sessionId, fromTurnSeq) {
+async function journalRevertLogPrune(sessionId, fromTurnSeq, suppliedOperation = null) {
   const from = Number(fromTurnSeq);
   if (!Number.isFinite(from)) return;
-  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
-    const items = await journalRevertLogRead(sessionId);
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), () => withJournalArtifactOperation(async operation => {
+    const items = await journalRevertLogRead(sessionId, operation);
     const kept = items.filter(r => r.turnSeq < from);
-    if (kept.length !== items.length) await journalRevertLogWrite(sessionId, kept);
-  });
+    if (kept.length !== items.length) await journalRevertLogWrite(sessionId, kept, operation);
+  }, suppliedOperation));
 }
 
 // v0.8-S4b B2 — conversation REWIND (Claude Code-style "back up to just before this message"). Truncates
@@ -5491,6 +5682,13 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles, options = 
 }
 
 async function rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles, options = {}) {
+  // Config/key preparation can yield too. Preserve the execution observed by the
+  // original request before that first await, as well as before loading the body.
+  const observation = { registered: activeChildren.get(sessionId),
+    observedExecution: typeof SessionExecutionHooks.snapshot === 'function' ? SessionExecutionHooks.snapshot(sessionId) : undefined };
+  return withJournalArtifactOperation(operation => rewindSessionArtifactContents(sessionId, targetTurnSeq, rollbackFiles, options, operation, observation));
+}
+async function rewindSessionArtifactContents(sessionId, targetTurnSeq, rollbackFiles, options, operation, observation) {
   // 117d 波实测竞态(既有缺陷,本波暴露):回合收尾的【原子头文件换名】窗口里磁盘读会短暂看不到头
   // 文件(loadSession 的 ENOENT 分支回 null),而撤回的调用序是「先 /api/stop 再 rewind」—— stop 已经
   // 把 activeChildren 删了,dying turn 的收尾 save 才刚开始写。于是首读回 null,rewind 直接吐
@@ -5499,10 +5697,9 @@ async function rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles, op
   // 真正不存在的会话在这条路径上没有活回合也没有 settler,两处 await 都是 no-op,仍然如实回 404。
   // 活回合注册表持有同一权威 session,顺带兜住「stop 还没跑」的那一瞬(与 1628 行
   // missionControlCommand 同一处置)。复现:117c 递话后立刻点撤回,约五成命中。
-  const registered = activeChildren.get(sessionId);
+  const { registered, observedExecution } = observation;
   // Legacy callers retain their API, but an automatic stop still targets the execution observed
   // before the first asynchronous read, rather than whichever execution happens to be current later.
-  const observedExecution = typeof SessionExecutionHooks.snapshot === 'function' ? SessionExecutionHooks.snapshot(sessionId) : undefined;
   let session = await loadSession(sessionId) || (registered && registered.session) || null;
   // 第69波:回合进行中不再拒绝,改为【自动停回合 + 等 settle 再截断】(supersede 语义,与 09-workflow
   // 新回合 stopSession('superseded') 对齐)。原拒绝路径(activeChildren.has → '回合进行中,请先停止')
@@ -5591,15 +5788,23 @@ async function rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles, op
   // 用户看到「文件已回滚」会以为磁盘复原了,实际改动原封不动留着。这里把第二种如实说出来,
   // 让上层能在提示旁边补一句「以下回合的文件改动未被追踪,可能没有被撤销」。只加字段,不改行为。
   const filesReverted = [], filesFailed = [], turnsWithoutCheckpoint = [];
+  await journalRevertLogRead(sessionId, operation);
+  await journalAssertWritable(sessionId, ['head', 'reverts'], operation);
+  let preparedBefore = null;
+  if (rollbackFiles) {
+    const index = await journalReadIndex(sessionId, operation);
+    preparedBefore = await journalPreflightMutation(sessionId, index,
+      index.filter(entry => entry && discarded.has(Number(entry.turnSeq))), operation);
+  }
   if (rollbackFiles) {
     const seqs = [...discarded].sort((a, b) => b - a); // newest first
     for (const s of seqs) {
       try {
-        const r = await journalRollback(sessionId, s); // whole-turn rollback
+        const r = await journalRollback(sessionId, s, undefined, operation, preparedBefore); // whole-turn rollback
         if (r && Array.isArray(r.reverted)) for (const x of r.reverted) filesReverted.push(x);
         if (r && Array.isArray(r.failed)) for (const x of r.failed) filesFailed.push(x);
         if (r && r.ok === false && r.error === 'no entries') turnsWithoutCheckpoint.push(s);
-      } catch (e) { filesFailed.push({ path: '', reason: (e && e.message) ? e.message : String(e) }); }
+      } catch (e) { if (sessionHeadIsWorkDataError(e)) throw e; filesFailed.push({ path: '', reason: (e && e.message) ? e.message : String(e) }); }
     }
     turnsWithoutCheckpoint.sort((a, b) => a - b);
   }
@@ -5639,7 +5844,7 @@ async function rewindSessionContents(sessionId, targetTurnSeq, rollbackFiles, op
   // 对话与磁盘是自洽的,再告知「第 N 回合的修改已被撤销」反而是在讲一个它看不到的回合。反过来,截断前已经在待告知里的记录
   // (用户先在界面撤了第 4 回合的文件、没发消息就回退到第 3 回合)指向的回合同样被丢了,一并清掉,不留一句悬空的告知。
   // 截断被代数闸顶掉(上面已 return rewind_superseded)时不走到这里。
-  await journalRevertLogPrune(sessionId, target).catch(() => {});
+  await journalRevertLogPrune(sessionId, target, operation).catch(error => { if (sessionHeadIsWorkDataError(error)) throw error; });
   await bumpMissionChangeSeq(sessionId, {
     type: 'rewind',
     cursor: { targetTurnSeq: target },

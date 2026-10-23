@@ -1339,6 +1339,9 @@ const MigrationHooks = {};
 // → Promise<{ entries: 已激活核心条目[], conflicts: Map|null }>,绝不抛(调用方也 try 包着)。
 const SubAgentMemoryHooks = {};
 
+// Per-execution read-only CLI memory relay. Filled late, without a forward module dependency.
+const MemoryCliHooks = {};
+
 // 其它 Agent CLI 的用户级目录。一律在【调用时】按 os.homedir() 与各家的覆盖变量解析(不缓存):测试把
 // USERPROFILE/HOME 指到临时家,这里立刻跟着走 —— 这就是「测试绝不碰真机家目录」的那一道闸。
 //   Claude Code:~/.claude 与 ~/.claude.json;Codex:$CODEX_HOME,缺省 ~/.codex;

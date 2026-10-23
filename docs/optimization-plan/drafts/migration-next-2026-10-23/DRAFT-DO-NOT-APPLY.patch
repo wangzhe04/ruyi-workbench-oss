@@ -1,0 +1,282 @@
+--- a/ruyi-workbench/app/src/12-tool-dispatch.js
++++ b/ruyi-workbench/app/src/12-tool-dispatch.js
+@@ -744,7 +744,7 @@
+         const cwd = (ctx && ctx.workingDir) || (ctx && ctx.session && ctx.session.cwd) || process.cwd();
+         const [caps, entries, workflows] = await Promise.all([
+           getCapabilities(config).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }),
+-          loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; }),
++          loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('privacy.') || String(error?.code || '').startsWith('work_data')) throw error; return []; }),
+           getAgentWorkflows(cwd).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }),
+         ]);
+         const kindCount = k => entries.filter(e => e.kind === k).length;
+@@ -3082,7 +3082,7 @@
+       // P3-4: cwd 单一真源 —— 优先用回合传入的 workingDir(ctx.workingDir),缺省再退 session.cwd,与注入路径一致。
+       const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), cfg && cfg.defaultWorkspace);
+       let registry = [];
+-      try { registry = await loadSkillRegistry(cwd, cfg); } catch { registry = []; }
++      try { registry = await loadSkillRegistry(cwd, cfg); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; registry = []; }
+       const entry = registry.find(e => e && e.id === id && e.kind === 'skill');
+       if (!entry || !entry.dir) return { ok: false, error: '技能不存在或无内容目录', id };
+       // P2-2: 来源锁定 —— 启用时记录了 source,若注册表现解析出的来源不一致(换 cwd 后被项目技能顶替等)→ 明确拒绝。
+@@ -3219,7 +3219,7 @@
+       const session = await policySessionFor(ctx);
+       const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), cfg && cfg.defaultWorkspace);
+       let registry = [];
+-      try { registry = await loadSkillRegistry(cwd, cfg); } catch { registry = []; }
++      try { registry = await loadSkillRegistry(cwd, cfg); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; registry = []; }
+       // 「已启用」与 skill_read 的白名单同口径:在 effectiveSkillSelection 里,且启用时锁定的来源与注册表现在解析出的一致。
+       const picked = new Map();
+       for (const raw of effectiveSkillSelection(session, cfg)) {
+@@ -3724,14 +3724,42 @@
+ // 这里只负责读:坏的、超大的、来源不认识的一律当没有(副本照常是 user 技能,只是不显示「复制自」)。
+ const SKILL_IMPORT_RECORD = '.ruyi-import.json';
+ const SKILL_IMPORT_SOURCES = Object.freeze(['claude-code', 'codex', 'kimi', 'claude-plugin']);
++function skillImportRecordStore(dir, finalId = path.basename(dir), enabled) {
++  if (!SKILL_ID_RE.test(String(finalId || ''))) throw Object.assign(new Error('work_data_store.binding'), { code: 'work_data_store.binding', statusCode: 503 });
++  const id = process.platform === 'win32' ? finalId.toLowerCase() : finalId;
++  return WorkDataStore.createText({
++    file: () => path.join(dir, SKILL_IMPORT_RECORD), purpose: 'backup', schema: 1,
++    scopeId: 'skills', recordId: 'skill-import:' + id, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
++    enabled: enabled === undefined ? async () => (await readConfig()).workDataEncryptionV1 === true : () => enabled,
++    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
++    validateSealedText: text => {
++      if (Buffer.byteLength(text, 'utf8') > 16 * 1024) return false;
++      const value = safeJsonParse(text, null);
++      return !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === 1 && SKILL_IMPORT_SOURCES.includes(value.source)
++        && ['plugin', 'sourcePath', 'importedAt', 'sourceTreeHash', 'copyTreeHash'].every(key => typeof value[key] === 'string');
++    },
++    writeJson: atomicWriteJson,
++  });
++}
++async function writeSkillImportRecord(dir, value, finalId) {
++  const enabled = (await readConfig()).workDataEncryptionV1 === true;
++  const text = JSON.stringify(value, null, 2) + '\n';
++  // The old read boundary is 16KiB. Do not publish a newly sealed record that its own
++  // reader must reject; OFF retains its existing uncapped writer and exact bytes.
++  if (enabled && Buffer.byteLength(text, 'utf8') > 16 * 1024) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', statusCode: 503 });
++  await skillImportRecordStore(dir, finalId, enabled).write(text);
++}
+ async function readSkillImportRecord(dir) {
+   let rec = null;
+   try {
+     const file = path.join(dir, SKILL_IMPORT_RECORD);
+     const st = await fsp.lstat(file);
+-    if (!st.isFile() || st.size > 16 * 1024) return null;
+-    rec = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+-  } catch { return null; }
++    if (!st.isFile()) return null;
++    if (st.size > 16 * 1024 && !(await WorkDataStore.hasContainerMarker(file))) return null;
++    const text = await skillImportRecordStore(dir).read();
++    if (Buffer.byteLength(text, 'utf8') > 16 * 1024) return null;
++    rec = safeJsonParse(text, null);
++  } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; return null; }
+   if (!rec || typeof rec !== 'object' || rec.schema !== 1 || !SKILL_IMPORT_SOURCES.includes(rec.source)) return null;
+   const str = v => (typeof v === 'string' ? v : '');
+   return { schema: 1, source: rec.source, plugin: str(rec.plugin).slice(0, 120), sourcePath: str(rec.sourcePath), importedAt: str(rec.importedAt),
+@@ -3898,7 +3926,7 @@
+   const enabled = effectiveSkillSelection(session, config);
+   if (!enabled.length) return [];
+   let registry = [];
+-  try { registry = await loadSkillRegistry(cwd, config, caps); } catch { return []; }
++  try { registry = await loadSkillRegistry(cwd, config, caps); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; return []; }
+   const byId = new Map(registry.filter(e => e.kind === 'skill').map(e => [e.id, e]));
+   const out = [];
+   for (const raw of enabled) {
+--- a/ruyi-workbench/app/src/13u-migration-center.js
++++ b/ruyi-workbench/app/src/13u-migration-center.js
+@@ -35,6 +35,32 @@
+   return job;
+ }
+ function migrationDir() { return path.join(paths.data, 'migrations'); }
++function migrationLogStore(id) {
++  if (!/^[0-9TZ-]+$/.test(String(id || ''))) throw Object.assign(new Error('work_data_store.binding'), { code: 'work_data_store.binding', statusCode: 503 });
++  return WorkDataStore.createText({
++    file: () => path.join(migrationDir(), id + '.json'), purpose: 'migration', schema: MIGRATION_LOG_SCHEMA,
++    scopeId: 'global', recordId: 'migration-log:' + id, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
++    enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
++    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
++    validateSealedText: text => {
++      const value = safeJsonParse(text, null);
++      return !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === MIGRATION_LOG_SCHEMA && value.id === id
++        && ['createdAt', 'currentRoot', 'version'].every(key => value[key] === undefined || typeof value[key] === 'string') && Array.isArray(value.files)
++        && value.files.every(file => file && typeof file === 'object' && !Array.isArray(file) && typeof file.file === 'string'
++          && ['ruyi-config', 'json', 'toml', 'skill-copy'].includes(file.kind) && Array.isArray(file.items)
++          && file.items.every(item => item && typeof item === 'object' && !Array.isArray(item)));
++    },
++    writeJson: atomicWriteJson,
++  });
++}
++async function writeMigrationLog(log) { await migrationLogStore(log.id).write(JSON.stringify(log, null, 2)); }
++async function migrationStoragePreflight() {
++  if ((await readConfig()).workDataEncryptionV1 !== true) return;
++  // No key creation. Detect unavailable work-data authority before touching an external
++  // configuration/live skill. This is not a cross-file transaction or rotation CAS.
++  const lease = await WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys());
++  await lease.release();
++}
+ function migrationStamp() { return new Date().toISOString().replace(/[:.]/g, '-'); }
+ function migrationHash(text) { return crypto.createHash('sha1').update(String(text), 'utf8').digest('hex').slice(0, 12); }
+ function migrationCurrentRoot() { return path.resolve(externalRoot()); }
+@@ -435,7 +461,7 @@
+     if (!copyTreeHash) throw new Error('copy unreadable');
+     const record = { schema: 1, source: row.source, sourcePath: row._dir, plugin: row.plugin || '', importedAt: nowIso(),
+       sourceTreeHash: copyTreeHash, copyTreeHash };
+-    await fsp.writeFile(path.join(stage, SKILL_IMPORT_RECORD), JSON.stringify(record, null, 2) + '\n', 'utf8');
++    await writeSkillImportRecord(stage, record, row.id);
+     const existing = await migrationLstat(dest);
+     if (existing) {
+       if (existing.isSymbolicLink() || !existing.isDirectory()) throw new Error('target is not a directory');
+@@ -450,6 +476,7 @@
+   } catch (e) {
+     await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
+     if (backup && !(await migrationLstat(dest))) await fsp.rename(backup, dest).catch(() => {});
++    if (String(e?.code || '').startsWith('work_data')) throw e;
+     return { ok: false, reason: 'copy-failed', detail: String((e && e.message) || e).slice(0, 200) };
+   }
+ }
+@@ -462,6 +489,7 @@
+     const keys = Array.isArray(b.keys) ? [...new Set(b.keys.map(k => String(k == null ? '' : k)))].slice(0, 200) : [];
+     if (!keys.length) return { ok: false, error: 'keys-required', status: 400 };
+     const overwrite = b.overwrite === true;
++    await migrationStoragePreflight();
+     // 上一次崩在半路留下的暂存目录先清掉(它们不是技能:名字过不了 SKILL_ID_RE,注册表本来就不读)。
+     try {
+       for (const d of await fsp.readdir(paths.skills, { withFileTypes: true })) {
+@@ -492,7 +520,7 @@
+     const copied = log.files.length;
+     if (copied) {
+       await fsp.mkdir(migrationDir(), { recursive: true });
+-      await atomicWriteJson(path.join(migrationDir(), ts + '.json'), log);
++      await writeMigrationLog(log);
+       logEvent({ kind: 'migration_skill_copy', id: ts, copied, rejected: results.filter(r => r.outcome === 'rejected').length });
+     }
+     return { ok: true, id: copied ? ts : null, copied, results };
+@@ -526,7 +554,10 @@
+   try { files = (await fsp.readdir(migrationDir())).filter(f => /^[0-9TZ-]+\.json$/.test(f)).sort().reverse(); } catch { return []; }
+   const out = [];
+   for (const f of files.slice(0, 20)) {
+-    const log = safeJsonParse(await fsp.readFile(path.join(migrationDir(), f), 'utf8').catch(() => ''), null);
++    let text = '';
++    try { text = await migrationLogStore(f.slice(0, -5)).read(); }
++    catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; }
++    const log = safeJsonParse(text, null);
+     if (log && log.schema === MIGRATION_LOG_SCHEMA) out.push(log);
+   }
+   return out;
+@@ -686,6 +717,7 @@
+   const selected = refs.filter(r => wantIds.has(r.id) && (r.action === 'rewrite' || r.action === 'remove'));
+   const stale = [...wantIds].filter(id => !refs.some(r => r.id === id));
+   if (!selected.length) return { ok: false, error: 'nothing-to-apply', stale, status: 409 };
++  await migrationStoragePreflight();
+   await migrationRememberPackages(selected.flatMap(item => item.packageRoots)).catch(() => 0);
+   const ts = migrationStamp();
+   const log = { schema: MIGRATION_LOG_SCHEMA, id: ts, createdAt: nowIso(), currentRoot: migrationCurrentRoot(), version: VERSION, files: [] };
+@@ -760,7 +792,7 @@
+   }
+   if (!applied) return { ok: false, error: 'nothing-applied', failures, status: 409 };
+   await fsp.mkdir(migrationDir(), { recursive: true });
+-  await atomicWriteJson(path.join(migrationDir(), ts + '.json'), log);
++  await writeMigrationLog(log);
+   logEvent({ kind: 'migration_apply', id: ts, files: log.files.length, items: applied, failures: failures.length });
+   return { ok: true, id: ts, items: applied, files: log.files.map(f => ({ file: tildePath(f.file), backup: f.backup, items: f.items.length })), failures, stale };
+ }
+@@ -811,6 +843,7 @@
+     const log = wantId ? logs.find(l => l.id === wantId) : logs.find(l => !l.undoneAt);
+     if (!log) return { ok: false, error: 'no-migration-to-undo', status: 404 };
+     if (log.undoneAt) return { ok: false, error: 'already-undone', status: 409 };
++    await migrationStoragePreflight();
+     let restored = 0, skipped = 0;
+     const failed = [];   // 读写抛错、这一轮没能改回的文件(与「值已被用户改过、按设计留着」的 skipped 不是一回事)
+     const skills = [];
+@@ -888,7 +921,6 @@
+         failed.push({ file: tildePath(f.file || ''), error: (e && e.message) || String(e) });
+       }
+     }
+-    const logFile = path.join(migrationDir(), log.id + '.json');
+     // 累计账:部分失败后重试,restored / skipped 接着前几轮算(最终写进 undoResult)。
+     const prior = log.undoProgress && typeof log.undoProgress === 'object' ? log.undoProgress : {};
+     const total = { restored: restored + (Number(prior.restored) || 0), skipped: skipped + (Number(prior.skipped) || 0) };
+@@ -899,14 +931,14 @@
+       // 现在:有失败就【不】置 undoneAt,已改回的文件各自带 undoneAt 落盘,这条迁移仍是「可撤销的最近一次」,
+       // 处理掉原因(文件被占用/权限)后再点一次撤销,只重做没完成的文件。
+       log.undoProgress = total;
+-      await atomicWriteJson(logFile, log);
++      await writeMigrationLog(log);
+       logEvent({ kind: 'migration_undo_partial', id: log.id, restored, skipped, failed: failed.length });
+       return { ok: false, error: 'undo-incomplete', status: 500, id: log.id, restored, skipped, failed, ...(skills.length ? { skills } : {}) };
+     }
+     delete log.undoProgress;
+     log.undoneAt = nowIso();
+     log.undoResult = { restored: total.restored, skipped: total.skipped, ...(allSkills.length ? { skills: allSkills } : {}) };
+-    await atomicWriteJson(logFile, log);
++    await writeMigrationLog(log);
+     logEvent({ kind: 'migration_undo', id: log.id, restored, skipped });
+     return { ok: true, id: log.id, restored, skipped, ...(allSkills.length ? { skills: allSkills } : {}) };
+   });
+--- a/ruyi-workbench/app/src/13-http-router.js
++++ b/ruyi-workbench/app/src/13-http-router.js
+@@ -111,7 +111,7 @@
+   if (!session) return { ok: false, error: 'session not found' };
+   const config = await readConfig();
+   const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
+-  const registry = await loadSkillRegistry(cwd, config).catch(() => []);
++  const registry = await loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
+   const byIdReg = new Map(registry.filter(e => e.kind === 'skill').map(e => [e.id, e]));
+   const cleaned = [];
+   const seen = new Set();
+@@ -579,7 +579,7 @@
+       const resolved = normalizeCwd(cwdQ, config.defaultWorkspace);
+       if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved;
+     }
+-    const registry = await loadSkillRegistry(cwd, config).catch(() => []);
++    const registry = await loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
+     const skills = registry.map(e => ({
+       id: e.id, name: e.name, description: e.description, detail: e.detail || '', kind: e.kind, type: e.kind,
+       source: e.source, insert: e.insert, dir: e.dir, requires: e.requires,
+@@ -615,7 +615,7 @@
+     if (!id || !SKILL_ID_RE.test(id)) return send(res, json({ ok: false, error: '无效的技能 id' }, 400));
+     if (confirm !== id) return send(res, json({ ok: false, error: '确认不匹配:请输入该技能的 id 以确认删除' }, 400));
+     const config = await readConfig();
+-    const registry = await loadSkillRegistry('', config).catch(() => []);
++    const registry = await loadSkillRegistry('', config).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
+     const entry = registry.find(e => e && e.id === id && e.kind === 'skill');
+     if (!entry) return send(res, json({ ok: false, error: '未找到该技能: ' + id }, 404));
+     if (entry.source !== 'user') return send(res, json({ ok: false, error: `仅可删除用户技能(当前来源: ${entry.source || '未知'})。内置/项目/Claude Code 技能请到对应位置管理。` }, 403));
+--- a/ruyi-workbench/app/src/13l-steward-ops.js
++++ b/ruyi-workbench/app/src/13l-steward-ops.js
+@@ -959,7 +959,7 @@
+     if (!head || !head.id) return stewardFail('not_found', `thread ${stewardSanitizeText(sid)} not found`);
+     if (head.cwd) cwd = String(head.cwd);
+   }
+-  const registry = await loadSkillRegistry(cwd, config).catch(() => []);
++  const registry = await loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
+   const q = stewardSanitizeText(String((args && args.q) || '')).trim().toLowerCase();
+   const rows = (Array.isArray(registry) ? registry : [])
+     .filter(e => e && e.kind === 'skill')
+--- a/ruyi-workbench/app/src/05-claude-engine.js
++++ b/ruyi-workbench/app/src/05-claude-engine.js
+@@ -511,11 +511,11 @@
+         // P2-2: 传 onSourceMismatch —— 某技能的注册表来源与启用时锁定的 source 不一致(换 cwd 被顶替)→ 跳过注入并通知一次。
+         const skillEntries = await resolveEnabledSkillEntries(session, config, workingDir, capsForSkills,
+           (id, was, now) => { try { onEvent({ type: 'stderr', text: `[技能] 技能 ${id} 来源已变化(启用时为 ${was || '未知'},现为 ${now || '未知'}),已暂停注入,请在技能库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
+-        ).catch(() => []);
++        ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
+         const skillSec = buildSkillsPromptSection(skillEntries, 'claude', config);
+         // 第35波 P2: 技能索引改走 stdin(indexSecs),不再经 cmd.exe 命令行 —— 无需 %/! 全角中和,原文注入保真。
+         if (skillSec) indexSecs.push(skillSec);
+-      } catch { /* 技能注入绝不可阻断回合 */ }
++      } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; /* ordinary skill injection errors remain optional */ }
+     }
+     // 108b 两引擎对称: Playbook 精简索引与技能索引同信道(stdin indexSecs)、同一段位置注入。与技能索引不同,
+     // 它不受 session.skills 选择门控: playbook 是工作台级预置流程,始终列出可用项。空列表 -> 零注入。
+--- a/ruyi-workbench/app/src/09-workflow.js
++++ b/ruyi-workbench/app/src/09-workflow.js
+@@ -1779,7 +1779,7 @@
+   // P2-2: onSourceMismatch —— 某技能的注册表来源与启用时锁定的 source 不一致(换 cwd 被顶替)→ 跳过注入 + 通知一次。
+   const enabledSkillEntries = await resolveEnabledSkillEntries(session, config, workingDir, caps,
+     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[技能] 技能 ${id} 来源已变化(启用时为 ${was || '未知'},现为 ${now || '未知'}),已暂停注入,请在技能库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
+-  ).catch(() => []);
++  ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
+   // 116f(27 号文 §3.5/§11.3):管家会话的三处分叉 —— 工具面只给 steward pack、不采集桥接工具、
+   // 不走按需装载。判定读【原始】 session.kind(sessionKind() 会把 steward 归一成 quick_ask,不能用)。
+   const isStewardTurn = session.kind === 'steward';

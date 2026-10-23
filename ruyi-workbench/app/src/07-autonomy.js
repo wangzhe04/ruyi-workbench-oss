@@ -2503,7 +2503,7 @@ function claudeSubAgentTurnBudget(maxIters, role) {
   const customized = role && (!role.builtin || (role.source && role.source !== 'builtin'));
   return customized ? Math.max(0, Math.round(Number(role.budgets?.claude) || 0)) : 0;
 }
-async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
+async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder, memoryCliContext }) {
   if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
   const claude = config.claudePath || detectClaudePath();
@@ -2537,7 +2537,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
   if (subModel && subModel !== 'inherit') args.push('--model', subModel);
   if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
-  if (grant.tools.length) args.push('--allowed-tools', grant.tools.join(','));
+  const cliTools = config.workDataEncryptionV1 === true
+    ? [...new Set([...grant.tools, MemoryCliHooks.readerTool(config).replace(/workbench_memory_read$/, 'workbench_memory_list'), MemoryCliHooks.readerTool(config)])] : grant.tools;
+  if (cliTools.length) args.push('--allowed-tools', cliTools.join(','));
   if (grant.deny.length) args.push('--disallowed-tools', grant.deny.join(',')); // 节点档位硬上限,下面的命令行阶梯永不丢它
   // 内置角色的 100/150 是旧的工具检查点，不能偷偷变成 CLI 的强制停机回合数。
   const turnBudget = claudeSubAgentTurnBudget(maxIters, role);
@@ -2560,7 +2562,10 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // role.mcpServers narrows an exec-tier node to just those servers; empty/absent means everything the
   // workbench has configured (generateAgentNodeMcpConfig mirrors generateSessionMcpConfig, keyed by subagentId).
   const roleMcpServers = (role && role.mcpServers) || [];
-  const mcpConfigPath = (tier === 'exec' && !grant.capped) ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
+  const nodeFullMcpPath = (tier === 'exec' && !grant.capped && (config.workDataEncryptionV1 !== true || config.includeWorkbenchMcp))
+    ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
+  const mcpConfigPath = config.workDataEncryptionV1 === true
+    ? path.join(paths.generated, `workbench.memory-mcp.${subagentId}.json`) : nodeFullMcpPath;
   if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
 
   // cmd8191 防线(子代理): 子代理 args 小(无技能索引),但自定义 role.claudeTools/超长路径仍可能顶爆 cmd 上限。
@@ -2588,6 +2593,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
 
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
   const env = effectiveAnthropicEnv(config);
+  for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
   if (fakeClaude) env.WCW_FAKE_INTERACTIVE = '1';
 
   onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: roleMcpServers, engine: 'claude' });
@@ -2612,9 +2618,15 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // One CLI spawn attempt -> collected exit/output state. Does NOT decide retry; the loop below does.
   const runOnce = async () => {
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+    const memoryGrant = config.workDataEncryptionV1 === true
+      ? await MemoryCliHooks.createNode({ config, context: memoryCliContext, subagentId, baseConfigPath: nodeFullMcpPath }) : null;
     return new Promise(resolve => {
     const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     currentChild = child;
+    if (memoryGrant) {
+      try { MemoryCliHooks.bindNode(memoryGrant, child); }
+      catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
+    }
     let lastEventAt = Date.now();
     // Idle watchdog - a wedged CLI must not hang the whole DAG run forever (per-attempt).
     const watchdog = setInterval(() => { if (!killed && Date.now() - lastEventAt > idleLimitMs) onAbort(); }, 5000);

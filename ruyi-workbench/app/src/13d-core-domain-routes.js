@@ -121,10 +121,102 @@ function sessionSearchRowIsNoise(row) {
   const text = typeof row.content === 'string' ? row.content.trimStart() : '';
   return /^(?:\[(?:代理完成通知|后台任务完成通知|后台任务|工具结果)|<system-reminder>)/.test(text);
 }
+// Cipher records require physical ordinals, so authenticate a streaming pass while retaining
+// only bounded logical plaintext head/tail rows. Legacy unsealed searches retain their old edge IO.
+async function sessionSearchRows(sessionId) {
+  const file = sessionBodyPaths(sessionId).messages;
+  const protectedLine = line => {
+    const probe = WorkDataRecords.lineProbe();
+    probe.feed(Buffer.from(line, 'utf8'));
+    return probe.reserved();
+  };
+  let enabled;
+  try { enabled = (await readConfig()).workDataEncryptionV1 === true; }
+  catch { throw Object.assign(new Error('work_data_store.switch_unavailable'), { code: 'work_data_store.switch_unavailable', apiCode: 'work_data_store.switch_unavailable', statusCode: 503 }); }
+  // Enabling encryption can leave a mixed body. Scan it even when the sampled edges are legacy:
+  // ciphertext in the middle still changes the physical offsets of the logical plaintext tail.
+  if (!enabled) {
+    const edges = await readNdjsonEdges(file, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
+    if (!(edges.head + '\n' + edges.tail).split('\n').some(protectedLine)) {
+      return [...parseNdjsonRows(edges.head), ...parseNdjsonRows(edges.tail)];
+    }
+  }
+  const headWindow = SESSION_SEARCH_HEAD_BYTES + NDJSON_EDGE_EXTEND_MAX + NDJSON_EDGE_EXTEND_CHUNK;
+  const tailWindow = SESSION_SEARCH_TAIL_BYTES + NDJSON_EDGE_EXTEND_MAX + NDJSON_EDGE_EXTEND_CHUNK;
+  let lease = null, handle = null, ordinal = 0, total = 0, primaryError = null;
+  let pending = [], pendingBytes = 0, skipping = false, tailStart = 0, probe = WorkDataRecords.lineProbe();
+  const head = [], tail = [];
+  const fail = code => { throw Object.assign(new Error(code), { code, apiCode: code, statusCode: 503 }); };
+  const accept = async (line, bytes, sealed = false) => {
+    let raw = line;
+    if (sealed) {
+      if (!lease) lease = await WorkDataStore.acquireSnapshot();
+      raw = await WorkDataRecords.decodeLine(raw, lease.key, { instanceId: lease.instanceId, sessionId, kind: 'messages', ordinal });
+      bytes = Buffer.byteLength(raw, 'utf8') + 1;
+    }
+    const start = total;
+    total += bytes;
+    ordinal++;
+    if (!raw) return;
+    let value;
+    try { value = JSON.parse(raw); }
+    catch { if (sealed) fail('work_data_record.corrupt'); return; }
+    const row = { start, end: total, value };
+    if (start < SESSION_SEARCH_HEAD_BYTES + SESSION_SEARCH_TAIL_BYTES && total <= headWindow) head.push(row);
+    tail.push(row);
+    while (tailStart < tail.length && tail[tailStart].end <= total - tailWindow) tail[tailStart++] = null;
+    if (tailStart > 4096 && tailStart * 2 > tail.length) { tail.splice(0, tailStart); tailStart = 0; }
+  };
+  try {
+    handle = await fsp.open(file, 'r');
+    const buffer = Buffer.alloc(64 * 1024);
+    for (;;) {
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+      if (!bytesRead) break;
+      let start = 0;
+      for (let end = buffer.indexOf(10, start); end >= 0 && end < bytesRead; end = buffer.indexOf(10, start)) {
+        const part = buffer.subarray(start, end);
+        probe.feed(part);
+        pendingBytes += part.length;
+        if (pendingBytes > headWindow && probe.reserved()) fail('work_data_record.text_limit');
+        if (!skipping) pending.push(Buffer.from(part));
+        await accept(skipping ? '' : Buffer.concat(pending, pendingBytes).toString('utf8'), pendingBytes + 1, probe.reserved());
+        pending = []; pendingBytes = 0; skipping = false; start = end + 1; probe = WorkDataRecords.lineProbe();
+      }
+      if (start < bytesRead) {
+        const part = buffer.subarray(start, bytesRead);
+        probe.feed(part);
+        pendingBytes += part.length;
+        if (pendingBytes > headWindow && probe.reserved()) fail('work_data_record.text_limit');
+        if (!skipping) pending.push(Buffer.from(part));
+        if (!skipping && pendingBytes > headWindow) {
+          pending = []; skipping = true;
+        }
+      }
+    }
+    // Search used to accept a final complete legacy JSON without LF. An incomplete encrypted
+    // append is not a search row; refuse it without repairing or publishing a derived index.
+    if (pendingBytes) {
+      const raw = skipping ? '' : Buffer.concat(pending, pendingBytes).toString('utf8');
+      if (probe.reserved()) fail('work_data_record.corrupt');
+      await accept(raw, pendingBytes);
+    }
+    if (total <= SESSION_SEARCH_HEAD_BYTES + SESSION_SEARCH_TAIL_BYTES) return head.map(row => row.value);
+    const first = head.filter(row => row.start < SESSION_SEARCH_HEAD_BYTES && row.end <= headWindow);
+    const last = tail.slice(tailStart).filter(row => row.end > total - SESSION_SEARCH_TAIL_BYTES && row.start >= Math.max(0, total - tailWindow));
+    return [...first, ...last].map(row => row.value);
+  } catch (error) {
+    if (String(error?.code || '').startsWith('work_data')) { primaryError = error; throw error; }
+    // Legacy ordinary I/O remains a missing search unit, not a mutation of session authority.
+    return [];
+  } finally {
+    if (handle) await handle.close().catch(() => {});
+    if (lease) { try { await lease.release(); } catch { if (!primaryError) fail('work_data_store.snapshot_release'); } }
+  }
+}
+
 async function buildSessionSearchUnit(meta) {
-  const body = sessionBodyPaths(meta.id);
-  const { head, tail } = await readNdjsonEdges(body.messages, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
-  const rows = [...parseNdjsonRows(head), ...parseNdjsonRows(tail)].filter(row => !sessionSearchRowIsNoise(row));   // 两段都是整行(见 readNdjsonEdges)
+  const rows = (await sessionSearchRows(meta.id)).filter(row => !sessionSearchRowIsNoise(row));   // 两段都是整行(见 readNdjsonEdges)
   // 116-5b:线程的名字与那句概括也进检索单元。它们是模型对「这条线程到底要干什么」的概括,
   // 常常用了用户原话里没打出来的词(原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」)——
   // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉。
@@ -148,19 +240,52 @@ async function buildSessionSearchUnit(meta) {
 
 // 进程内缓存:侧栏搜索是边打字边搜(200ms 去抖),修前每敲一个字就把整份索引(会话多时十几 MB)读盘再解析一遍。
 // 按文件的 mtime + size 认新旧;本进程自己写索引时直接更新缓存。
+function sessionSearchIndexStore(onSealed, onMode, expectedStamp) {
+  let usedStamp = "";
+  return WorkDataStore.createText({ file: sessionSearchIndexPath, purpose: 'search-index', schema: 1,
+    scopeId: 'global', recordId: 'session-search-index', chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { snapshot: async () => {
+      const lease=await WorkDataStore.acquireSnapshot();
+      usedStamp=lease.instanceId+':'+crypto.createHash('sha256').update(lease.key).digest('hex');
+      if(expectedStamp && usedStamp!==expectedStamp) {try { await lease.release(); } catch { /* preserve changed authority */ } throw Object.assign(new Error('work_data_key.changed'),{code:'work_data_key.changed',apiCode:'work_data_key.changed',statusCode:503});}
+      return lease;
+    }, unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: async () => { const enabled = (await readConfig()).workDataEncryptionV1 === true; if (onMode) onMode(enabled); return enabled; },
+    writeJson: atomicWriteJson, validateSealedText: text => {
+      const value = JSON.parse(text);
+      if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== SESSION_SEARCH_INDEX_VERSION
+        || !value.entries || typeof value.entries !== 'object' || Array.isArray(value.entries)
+        || Object.values(value.entries).some(row => !row || typeof row !== 'object' || typeof row.stamp !== 'string' || typeof row.unit !== 'string')) return false;
+      if (onSealed) onSealed(usedStamp); return true;
+    },
+  });
+}
+async function sessionSearchIndexAuthStamp() {
+  const lease = await WorkDataStore.acquireSnapshot();
+  try { return lease.instanceId + ':' + crypto.createHash('sha256').update(lease.key).digest('hex'); }
+  finally { try { await lease.release(); } catch { throw Object.assign(new Error('work_data_store.snapshot_release'), {code:'work_data_store.snapshot_release',apiCode:'work_data_store.snapshot_release',statusCode:503}); } }
+}
+const sessionSearchIndexFileStamp = st => [st.dev, st.ino, st.size, st.mtimeMs, st.ctimeMs].join(':');
+
 let sessionSearchIndexCache = null;
 async function readSessionSearchIndex() {
   try {
-    const file = sessionSearchIndexPath();
-    const st = await fsp.stat(file);
-    const stamp = `${st.mtimeMs}|${st.size}`;
-    if (sessionSearchIndexCache && sessionSearchIndexCache.stamp === stamp) return sessionSearchIndexCache.data;
-    const raw = JSON.parse(await fsp.readFile(file, 'utf8'));
-    if (!raw || raw.version !== SESSION_SEARCH_INDEX_VERSION || !raw.entries || typeof raw.entries !== 'object') return null;
-    sessionSearchIndexCache = { stamp, data: raw };
+    let enabled;
+    try { enabled = (await readConfig()).workDataEncryptionV1 === true; }
+    catch { throw Object.assign(new Error('work_data_store.switch_unavailable'), {code:'work_data_store.switch_unavailable',apiCode:'work_data_store.switch_unavailable',statusCode:503}); }
+    const file = sessionSearchIndexPath(), st = await fsp.stat(file), stamp = file + ':' + sessionSearchIndexFileStamp(st);
+    let authStamp = enabled || sessionSearchIndexCache?.sealed ? await sessionSearchIndexAuthStamp() : '';
+    if (sessionSearchIndexCache && sessionSearchIndexCache.stamp === stamp && sessionSearchIndexCache.authStamp === authStamp) return sessionSearchIndexCache.data;
+    let sealed = false;
+    const raw = JSON.parse(await sessionSearchIndexStore(stamp => { sealed = true; authStamp = stamp; }, null, authStamp).read());
+    if (!raw || raw.version !== SESSION_SEARCH_INDEX_VERSION || !raw.entries || typeof raw.entries !== 'object') { sessionSearchIndexCache = null; return null; }
+
+    sessionSearchIndexCache = { stamp, data: raw, sealed, authStamp, requiresKey: !!authStamp };
     return raw;
-  } catch {
-    return null; // 缺失/损坏 = 全量重建。索引是纯派生物,没有需要抢救的权威数据。
+  } catch (error) {
+    sessionSearchIndexCache = null;
+    if (String(error?.code || '').startsWith('work_data')) throw error;
+    return null;
   }
 }
 
@@ -188,9 +313,17 @@ async function refreshSessionSearchIndexNow(metas) {
   const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
   // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
   // 性能批 C1:紧凑 JSON(3000 条会话时带缩进写出来有 34 MB,每次会话有变都整份重写一遍)
-  const wrote = await atomicWriteJson(sessionSearchIndexPath(), JSON.stringify(payload)).then(() => true, () => false);
+  let sealedWrite = false;
+  sessionSearchIndexCache = null;
+  const wrote = await sessionSearchIndexStore(null, enabled => { sealedWrite = enabled; }).write(JSON.stringify(payload)).then(() => true, error => {
+    if (String(error?.code || '').startsWith('work_data')) throw error;
+    return false;
+  });
   if (wrote) {
-    try { const st = await fsp.stat(sessionSearchIndexPath()); sessionSearchIndexCache = { stamp: `${st.mtimeMs}|${st.size}`, data: payload }; } catch { sessionSearchIndexCache = null; }
+    if (!sealedWrite) {
+      try { const file = sessionSearchIndexPath(), st = await fsp.stat(file); sessionSearchIndexCache = { stamp: file + ':' + sessionSearchIndexFileStamp(st), data: payload, sealed: false, requiresKey: false, authStamp: '' }; }
+      catch { sessionSearchIndexCache = null; }
+    }
   }
   return entries;
 }
@@ -1449,7 +1582,7 @@ const runs = await listAgentRuns(sessionId).catch(error => { if (String(error &&
     const filesChangedList = fold.filesChanged, artifactsList = fold.artifacts, commands = fold.commands;
 
     // 检查点引用(真实回滚能力的入口:POST /api/checkpoints/rollback {sessionId, turnSeq, entrySeq?})。
-    const cpEntries = await journalReadIndex(sessionId).catch(() => []);
+    const cpEntries = await journalReadIndex(sessionId).catch(error => { if (sessionHeadIsWorkDataError(error)) throw error; return []; });
     const cpTurnSeqs = [...new Set(cpEntries.map(e => e && e.turnSeq).filter(Number.isFinite))].sort((a, b) => a - b);
     const checkpoints = {
       entries: cpEntries.length,

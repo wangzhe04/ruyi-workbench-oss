@@ -44,7 +44,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     id: 'claude',
     interactive: config => config.engineMode === 'interactive',
     slashCommandVerbatim: false,
-    async buildArgs({ config, session, basePrompt, attachments, interactive }) {
+    async buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath }) {
       const args = ['-p', '--output-format', 'stream-json', '--verbose'];
       if (interactive) args.push('--input-format', 'stream-json');
       if (config.includePartialMessages) args.push('--include-partial-messages');
@@ -57,9 +57,13 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
         // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
         if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
       }
+      if (!config.includeWorkbenchMcp && memoryReadOnlyConfigPath) {
+        args.push('--mcp-config', memoryReadOnlyConfigPath, '--allowedTools',
+          [RUYI_MCP_CLI_TOOL_PREFIX + 'workbench_memory_list', RUYI_MCP_CLI_TOOL_PREFIX + 'workbench_memory_read'].join(','));
+      }
       // cmd8191 防线: --agents 的推送延后到 runClaudeTurn 的「预算核算与降级阶梯」——角色定义吃 append 之后的剩余预算。
       // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
-      if (config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto') {
+      if (config.permissionBridge && (config.includeWorkbenchMcp || config.workDataEncryptionV1 !== true) && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto') {
         // permission-prompt-tool 名派生自 MCP server id,须与之一致(RUYI_MCP_CLI_TOOL_PREFIX)。
         args.push('--permission-prompt-tool', `${RUYI_MCP_CLI_TOOL_PREFIX}permission_prompt`);
       }
@@ -84,6 +88,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     cmdLineBudget: command => cmdLineBudgetFor(command),
     appendSystemPromptFlag: '--append-system-prompt',
     runPreparedTurn: null,
+    memoryMcpViaLifecycle: false,
     buildAgentDefinitions: (workingDir, config, budget) => buildClaudeAgentDefinitions(workingDir, config, budget),
     // v1.4.4: effectiveAnthropicEnv overlays the config-driven third-party endpoint/model (modelsApiBase/
     // modelsApiKey/claudeAuthMode/model) onto process.env, so a frontend change to any of those actually
@@ -167,6 +172,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     cmdLineBudget: () => 0,
     appendSystemPromptFlag: '',
     runPreparedTurn: context => runKimiAcpTurnPrepared(context),
+    memoryMcpViaLifecycle: true,
     buildAgentDefinitions: async () => ({ definitions: {}, roles: [], omitted: [] }),
     buildEnv: (config, common) => ({ ...process.env, ...common }),
     async beforeSpawn(config, onEvent) {
@@ -373,12 +379,14 @@ async function runClaudeTurn({
   const interactive = adapter.interactive(config);
 
   // 回合主参数(输出格式/MCP/权限/模型/思考强度……)由适配器给;--agents 的推送延后到下方「预算核算与降级阶梯」。
-  const args = await adapter.buildArgs({ config, session, basePrompt, attachments, interactive });
+  const memoryCliGrant = config.workDataEncryptionV1 === true && (!config.includeWorkbenchMcp || adapter.memoryMcpViaLifecycle)
+    ? await MemoryCliHooks.create({ session, executionOwner, config }) : null;
+  const args = await adapter.buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath: memoryCliGrant?.configPath });
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
     { cliType: agentCliType }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
-  ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
+  ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
   // 本条消息的记忆检索结果:回执,稍后(记忆段)再把相关记忆索引接在它后面 —— 都随每条消息变化,所以走每回合信封(turnMemoryEnvelope),
   // 不进按 hash 去重的稳定索引(#10)。用 let 并沿用这个名字,是因为 kimi-prompt-parts 把下面那段信封装配抽出来单独执行,只认这个变量。
   let memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
@@ -398,7 +406,7 @@ async function runClaudeTurn({
     const memDirs = new Set();
     if (memDirEntries.some(e => e && e.scope === 'global')) memDirs.add(memoryGlobalDir());
     if (memDirEntries.some(e => e && e.scope === 'project')) memDirs.add(memoryProjectDir(workingDir));
-    for (const d of memDirs) { if (path.resolve(d) !== path.resolve(workingDir || '')) tailArgs.push('--add-dir', d); }
+    if (config.workDataEncryptionV1 !== true) for (const d of memDirs) { if (path.resolve(d) !== path.resolve(workingDir || '')) tailArgs.push('--add-dir', d); }
   } catch { /* ignore */ }
   // v1.4.3: additional directories from config
   if (Array.isArray(config.additionalDirectories)) {
@@ -539,9 +547,9 @@ async function runClaudeTurn({
       // #10:稳定索引(经 hash 去重、resume 时不重发)里只放跨回合稳定的核心胶囊;随每条消息变化的相关记忆索引改拼进每回合信封
       // (下面 turnMemoryEnvelope,与检索回执同处)。修前相关索引也在 indexSecs 里:召回一变 hash 就变,整块 <workbench-context>
       // (playbook 索引、记忆指南…≈5KB)带着新的相关列表全量重发进 transcript,旧回合的列表还不标过期。
-      const memSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts, { part: 'core' });
+      const memSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts, { part: 'core', readTool: memoryCliGrant ? MemoryCliHooks.readerTool(config) : undefined });
       if (memSec) indexSecs.push(memSec);
-      const relatedSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts, { part: 'related' });
+      const relatedSec = buildMemoryPromptSection(memEntries, 'claude', config, memoryConflicts, { part: 'related', readTool: memoryCliGrant ? MemoryCliHooks.readerTool(config) : undefined });
       if (relatedSec) memoryTurnCheck = memoryTurnCheck ? memoryTurnCheck + '\n' + relatedSec : relatedSec;
     } catch { /* 记忆注入绝不可阻断回合 */ }
     // 第26波b(两引擎对称): 任务账本 digest 并入 append —— 与 Provider 侧 buildMissionPromptSection 同源,
@@ -623,7 +631,7 @@ async function runClaudeTurn({
     return adapter.runPreparedTurn({
       executionOwner,
       session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
-      additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
+      additionalDirectories, memoryCliGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
       resumeResetReason, promptTaskContext, workspaceTurnBaseline, agentRecoverySummary, kimiNativeSlashCommand,
     });
@@ -732,6 +740,10 @@ async function runClaudeTurn({
   installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   registerSessionExecutionChild(session.id, reg, executionOwner);
+  if (memoryCliGrant) {
+    try { MemoryCliHooks.bind(memoryCliGrant, reg, executionOwner); }
+    catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
+  }
   RUYI_EVENTS.emit('thread.state', { sessionId: session.id });
   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });

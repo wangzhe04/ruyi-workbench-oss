@@ -1,0 +1,90 @@
+{
+  "status": "STOPPED for user shutdown deadline; partial TEMP only; no product adapter or family claim",
+  "families": [
+    "scheduler-tasks",
+    "scheduler-fires",
+    "background-job-ledger"
+  ],
+  "purpose": "task",
+  "repoProductsChanged": false,
+  "build": false,
+  "directE2E": false,
+  "validation": {
+    "smallVM": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 274.4163
+    },
+    "note": "Only partial tasks core; not full consumer wiring acceptance"
+  },
+  "files": [
+    {
+      "file": "design.md",
+      "sha256": "e298e44bdb72918604ac98702bcc2a854129e4b4c4117dc940efdf91d89ed686"
+    },
+    {
+      "file": "scheduler-task-helpers.fragment.js",
+      "sha256": "0848573618251deb10098314eb628dee31f7e8b079040d808277df9cf4c60da4"
+    },
+    {
+      "file": "assemble-task-candidate.cjs",
+      "sha256": "b3b7e9498834da473d430b56653b81623f937b987d4e8e05ecaec9c525f52936"
+    },
+    {
+      "file": "scheduler-task-source.test.cjs",
+      "sha256": "14849185652ca179ee7ce87561d7382c3772d39792243a6f3676f38c93ae63e4"
+    },
+    {
+      "file": "tasks-source-first.log",
+      "sha256": "2971d70831df9555e6bec96442132839c579ff4af54e1a0d8d0858e5685b0ede"
+    },
+    {
+      "file": "src/13s-scheduler.js",
+      "sha256": "36d2d7f2d4711650d10ef03d871bf8985263b8113e8e90b810af87d3fd15cc42"
+    },
+    {
+      "file": "baseline-sha256.json",
+      "sha256": "25a5b484752efaa9a5a0540e58ba7c62f530b7064284c09fdc13b2c863fe0400"
+    }
+  ],
+  "next": [
+    "Read design.md full census",
+    "Complete short operation admission before every CRUD/register/reconcile mutation; avoid long model-turn key leases",
+    "Wire scheduler-fires per physical ordinal with streamed bounded memory and exact plaintext 8MiB/1MiB windows; shared01s still unreviewed",
+    "Convert all background receipt consumers to async with per-session chain and bounded normal-shutdown drain per root decision; OFF sync writer may remain but no Promise-as-array",
+    "Independent review and generated-runtime real DPAPI E2E only after root apply/build/window"
+  ],
+  "rootDecision": "background ledger async reader + serialized receipts + publication waits chain + bounded normal shutdown drain; code-only diagnostics, never replay completed commands, no warm key bypass or spawnSync DPAPI",
+  "deadline": "2026-10-23 18:50 CST",
+  "limitations": [
+    "Tasks prototype source not product-ready; admission helper exists but all mutation sites not wired",
+    "Fire journal and background ledger have no candidate code yet",
+    "No full runtime/DPAPI/direct E2E for this draft",
+    "No patch produced or adapter count raised"
+  ],
+  "baseline": {
+    "commit": "b5ded56da7137d189c49a45c34fc5919c90805ef",
+    "repositoryPath": "ruyi-workbench/app/src/13s-scheduler.js",
+    "sha256": "4e497f2c278257ac0528ed7a0b9743d55536699bbd2cadd1c702b74f561f8cf7"
+  },
+  "patch": {
+    "file": "tasks-partial.patch",
+    "sha256": "fdf081fb42019934f3d9a55e9383484aefc11af98dbcc2176382bfb1b2b07026",
+    "candidateSourceSHA256": "36d2d7f2d4711650d10ef03d871bf8985263b8113e8e90b810af87d3fd15cc42"
+  },
+  "archiveFiles": [
+    "README.md",
+    "handoff.json",
+    "tasks-partial.patch",
+    "scheduler-task-source.test.cjs.txt",
+    "tasks-source-first.log.txt"
+  ],
+  "archiveNote": "No baseline/candidate full source is archived. Recover baseline from git history and apply the partial patch in a fresh TEMP repository. Test source/log match original TEMP hashes above.",
+  "archiveRestoreProof": {
+    "gitApplyConfig": "core.autocrlf=false",
+    "candidateExact": true,
+    "actualSHA256": "36d2d7f2d4711650d10ef03d871bf8985263b8113e8e90b810af87d3fd15cc42"
+  }
+}

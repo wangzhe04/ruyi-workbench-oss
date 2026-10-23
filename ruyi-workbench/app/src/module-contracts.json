@@ -21,6 +21,7 @@
         "LEGACY_API_ERROR_CODES",
         "LEGACY_DATA_DIR_NAME",
         "MAX_BODY_BYTES",
+        "MemoryCliHooks",
         "MigrationHooks",
         "OVERLAY_ID",
         "PS_UTF8_OUTPUT_PREAMBLE",
@@ -1348,6 +1349,7 @@
         "BRIDGED_WRITE_PATH_ARGS",
         "IMPORTED_MESSAGE_ROLE_MAX",
         "INTERVENTION_TERMINAL",
+        "JOURNAL_ARTIFACT_ENGINEERING_BYTES",
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
         "JOURNAL_GLOBAL_MAX_BYTES",
@@ -1462,23 +1464,34 @@
         "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
         "ivCacheKey",
+        "journalArtifactFailure",
+        "journalAssertWritable",
         "journalBytesAdjust",
         "journalDeltaDuringSweep",
         "journalDir",
         "journalDropEntries",
         "journalDropEntriesUnlocked",
         "journalGc",
+        "journalGcContents",
         "journalGcProbe",
         "journalGcSinceScan",
         "journalGlobalBytes",
         "journalGlobalSweep",
         "journalGlobalSweepOnce",
+        "journalGzipIdentity",
+        "journalGzipStore",
         "journalIndexPath",
+        "journalJsonStore",
         "journalNextEntrySeq",
+        "journalPreflightIndex",
+        "journalPreflightMutation",
+        "journalReadBefore",
+        "journalReadHistory",
         "journalReadIndex",
         "journalReadIndexForWrite",
         "journalRecord",
         "journalRecordMany",
+        "journalRecordManyContents",
         "journalRecordManyUnlocked",
         "journalRecordUnlocked",
         "journalResolveTurnSeq",
@@ -1492,12 +1505,14 @@
         "journalRevertNoticesPeek",
         "journalRevertRecordOf",
         "journalRollback",
+        "journalRollbackContents",
         "journalSessionCtx",
         "journalSweepBackoffUntil",
         "journalSweepInFlight",
         "journalSweepProtect",
         "journalSweeping",
         "journalTrimProtectedSnapshots",
+        "journalWriteBefore",
         "journalWriteChains",
         "journalWriteIndex",
         "kindForPath",
@@ -1595,6 +1610,7 @@
         "repairSealedSessionJournalTail",
         "retireSessionV1Backup",
         "rewindSession",
+        "rewindSessionArtifactContents",
         "rewindSessionContents",
         "safeMissionId",
         "sanitizeImportedSessionMessages",
@@ -1694,6 +1710,7 @@
         "updateSessionMetaAttempt",
         "updateSessionScratchpad",
         "waitMissionTurnSettled",
+        "withJournalArtifactOperation",
         "withJournalWriteLock",
         "withMissionContainerLock",
         "withSessionIndexLock",
@@ -2494,13 +2511,6 @@
           ]
         },
         {
-          "provider": "00-boot.js",
-          "symbol": "zlib",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
@@ -2551,6 +2561,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "journalReadBefore",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "journalRecord",
           "kinds": [
             "call"
@@ -2566,6 +2583,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "kindForPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionHeadIsWorkDataError",
           "kinds": [
             "call"
           ]
@@ -3814,6 +3838,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MemoryCliHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "normalizePricing",
           "kinds": [
             "call"
@@ -4940,6 +4971,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "MAX_BODY_BYTES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MemoryCliHooks",
           "kinds": [
             "read"
           ]
@@ -6550,6 +6588,10 @@
         "listWorkbenchMemories",
         "loadMemoryRegistry",
         "memoryAutoGlobalAllowed",
+        "memoryBodyAuthority",
+        "memoryBodyIsWorkDataError",
+        "memoryBodyScope",
+        "memoryBodyStore",
         "memoryCoreLine",
         "memoryCoreScore",
         "memoryDraftFromObject",
@@ -6792,7 +6834,6 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call",
             "read"
           ]
         },
@@ -7658,6 +7699,13 @@
           "symbol": "makeId",
           "kinds": [
             "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MemoryCliHooks",
+          "kinds": [
             "read"
           ]
         },
@@ -9396,6 +9444,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MemoryCliHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
           "kinds": [
             "call"
@@ -9740,6 +9795,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveTurnFinalSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionHeadIsWorkDataError",
           "kinds": [
             "call"
           ]
@@ -11763,6 +11825,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "journalGc",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalGzipStore",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalReadHistory",
           "kinds": [
             "call"
           ]
@@ -14131,6 +14207,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MemoryCliHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "migrateLegacyDataRoot",
           "kinds": [
             "call"
@@ -14237,13 +14320,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "zlib",
           "kinds": [
             "read"
           ]
@@ -14664,7 +14740,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "journalDir",
+          "symbol": "journalReadBefore",
           "kinds": [
             "call"
           ]
@@ -14749,6 +14825,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "recordMissionCheckResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionHeadIsWorkDataError",
           "kinds": [
             "call"
           ]
@@ -16594,10 +16677,14 @@
         "sessionSearchCorpusCache",
         "sessionSearchHayMemo",
         "sessionSearchHayOf",
+        "sessionSearchIndexAuthStamp",
         "sessionSearchIndexCache",
+        "sessionSearchIndexFileStamp",
         "sessionSearchIndexPath",
+        "sessionSearchIndexStore",
         "sessionSearchRefreshChains",
         "sessionSearchRowIsNoise",
+        "sessionSearchRows",
         "sessionSearchScope",
         "sessionSearchSnippet"
       ],
@@ -16746,7 +16833,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -16817,6 +16904,20 @@
           "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01q-work-data-records.js",
+          "symbol": "WorkDataRecords",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -17039,6 +17140,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionHeadIsWorkDataError",
           "kinds": [
             "call"
           ]
@@ -17683,6 +17791,7 @@
         "paginatePretenderProjection",
         "persistPretenderIndex",
         "pretenderChangedSourceIds",
+        "pretenderCheckIndexAuth",
         "pretenderCheckRunSourceAuth",
         "pretenderCompareCodeUnits",
         "pretenderEtag",
@@ -17691,6 +17800,7 @@
         "pretenderIndexMeta",
         "pretenderIndexPath",
         "pretenderIndexRuntime",
+        "pretenderIndexStore",
         "pretenderIndexTestHooks",
         "pretenderListSourceIds",
         "pretenderLiveOverlayRevision",
@@ -17807,7 +17917,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -17855,6 +17965,13 @@
         {
           "provider": "01-config.js",
           "symbol": "THREAD_INDEX_RECENT_MIN",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
           "kinds": [
             "read"
           ]
@@ -25704,6 +25821,190 @@
           "symbol": "truncateToolResult",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ad-memory-cli-relay.js",
+      "layer": "unclassified",
+      "provides": [
+        "MemoryCliRelay"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "http",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MemoryCliHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_SERVER_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "commandForSelfMcp",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "requestIsLoopback",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "RUNTIME",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "listWorkbenchMemories",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "readWorkbenchMemory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "AGENT_RUN_TERMINAL",
+          "kinds": [
+            "read"
           ]
         },
         {

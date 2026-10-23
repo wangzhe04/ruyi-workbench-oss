@@ -1,0 +1,14 @@
+✔ OFF tasks retain exact pretty JSON bytes and zero key access (35.4265ms)
+✔ only malformed ordinary legacy definitions use the existing rename quarantine path (14.8163ms)
+✔ ON task payload seals with task bindings and reads through the real chunk codec (19.3038ms)
+✔ warm ON legacy and sealed definitions cannot bypass removed keys or alter authority (29.5705ms)
+✔ sealed wrong shape and malformed reserved carriers never reach ordinary quarantine (19.9513ms)
+✔ small-cap admission rejects before invoking a mutating callback and preserves ordinary authority (13.6056ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 274.4163

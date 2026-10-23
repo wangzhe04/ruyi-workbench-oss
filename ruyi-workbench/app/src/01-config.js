@@ -4083,6 +4083,13 @@ function authorizeRoute(req, method, pathname) {
     }
     // Consumer transport precheck grants no management authority. The exact
     // owner authenticates the token hash before reading its bounded body.
+    if (r.auth === 'memory-cli') {
+      return m === 'POST' && !r.prefix && pathname === '/api/memory-cli' && !remote && !browser
+        && typeof req.headers['x-ruyi-memory-cap'] === 'string'
+        && /^[a-f0-9]{64}$/.test(req.headers['x-ruyi-memory-cap'])
+        && (!req.headers['content-length'] || /^\d{1,7}$/.test(req.headers['content-length']) && Number(req.headers['content-length']) <= 16384)
+        ? null : 'memory relay request not authorized';
+    }
     if (r.auth === 'mcp-consumer') {
       return m === 'POST' && !r.prefix && pathname === '/api/mcp/consumer' && !remote && !browser
         && typeof req.headers['x-ruyi-mcp-consumer'] === 'string'

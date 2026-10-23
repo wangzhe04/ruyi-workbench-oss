@@ -1493,17 +1493,16 @@ async function materializeCheckpointEditorDiff(sessionId, entry, currentPath) {
   const root = path.join(journalDir(sessionId), 'external-diff');
   const dir = path.join(root, `${turnSeq}-${entrySeq}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`);
   const beforeDir = path.join(dir, 'before'), afterDir = path.join(dir, 'after');
-  await fsp.mkdir(beforeDir, { recursive: true });
-  await fsp.mkdir(afterDir, { recursive: true });
   const beforePath = path.join(beforeDir, fileName);
   const afterTempPath = path.join(afterDir, fileName);
   let before = Buffer.alloc(0);
   if (entry.op !== 'create') {
     try {
-      const gz = await fsp.readFile(path.join(journalDir(sessionId), `${turnSeq}-${entrySeq}.gz`));
-      before = zlib.gunzipSync(gz);
-    } catch { return { ok: false, error: '无法读取改动前快照' }; }
+      before = await journalReadBefore(sessionId, turnSeq, entrySeq);
+    } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; return { ok: false, error: '无法读取改动前快照' }; }
   }
+  await fsp.mkdir(beforeDir, { recursive: true });
+  await fsp.mkdir(afterDir, { recursive: true });
   await fsp.writeFile(beforePath, before);
   await fsp.chmod(beforePath, 0o444).catch(() => {});
   let afterPath = String(currentPath || '');

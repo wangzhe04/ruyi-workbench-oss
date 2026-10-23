@@ -274,12 +274,12 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentI
   // M3-2c: 唯一解密读口。逐会话隔离 —— 单个坏头不能把整次索引重建打 reject;孤儿会话(无头文件)用
   // readSessionHeadText 直接拿 ENOENT,不走 resilient 那 80ms 退避。
   let head = null;
-  try { head = safeJsonParse(await readSessionHeadText(sid), null); } catch { head = null; }
+  try { head = safeJsonParse(await readSessionHeadText(sid), null); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; head = null; }
   let ivMeta = await readInterventionsWithMeta(sid);
   if ((!head || !head.id) && ivMeta.bytes === 0) return null;
   // External/legacy journals also get bounded maintenance on a rebuild. Never compact degraded authority.
   if (!ivMeta.degraded && interventionJournalWorthCompacting(ivMeta)) {   // 判据与 02 自己的周期压实同一个(修前这里也是 ×3,永不触发)
-    await compactInterventionJournal(sid).catch(() => {});
+    await compactInterventionJournal(sid).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; });
     ivMeta = await readInterventionsWithMeta(sid);
     sourceStamp = await pretenderSessionSourceStamp(sid);
   }
@@ -353,11 +353,42 @@ function validatePretenderIndex(value) {
   return value.sessions.every(row => row && typeof row.sessionId === 'string' && typeof row.revision === 'string');
 }
 
+function pretenderIndexStore(onSealed, onMode, onCredential) {
+  let usedStamp = "";
+  return WorkDataStore.createText({file:pretenderIndexPath, purpose:'search-index', schema:1, scopeId:'global', recordId:'pretender-index',
+    chunked:true,maxPlaintextBytes:256*1024*1024,
+    keys:{snapshot:async()=>{
+      const lease=await WorkDataStore.acquireSnapshot();
+      usedStamp=lease.instanceId+':'+crypto.createHash('sha256').update(lease.key).digest('hex');
+      if (onCredential) onCredential(usedStamp);
+      if(pretenderIndexRuntime.workDataAuthStamp && usedStamp!==pretenderIndexRuntime.workDataAuthStamp) {try { await lease.release(); } catch { /* preserve changed authority */ } throw Object.assign(new Error('work_data_key.changed'),{code:'work_data_key.changed',apiCode:'work_data_key.changed',statusCode:503});}
+      return lease;
+    },unlock:()=>WorkDataStore.requireKeys().unlock(),instance:()=>WorkDataStore.requireKeys().instance()},
+    enabled:async()=>{const enabled=(await readConfig()).workDataEncryptionV1===true;if(onMode)onMode(enabled);return enabled;},writeJson:atomicWriteJson,
+    validateSealedText:text=>{const value=JSON.parse(text);if(!validatePretenderIndex(value))return false;if(onSealed)onSealed(usedStamp);return true;},
+  });
+}
+async function pretenderCheckIndexAuth() {
+  let enabled;
+  try {enabled=(await readConfig()).workDataEncryptionV1===true;}
+  catch {throw Object.assign(new Error('work_data_store.switch_unavailable'),{code:'work_data_store.switch_unavailable',apiCode:'work_data_store.switch_unavailable',statusCode:503});}
+  if (!enabled && !pretenderIndexRuntime.workDataAuthRequired) { pretenderIndexRuntime.workDataAuthStamp = ''; return; }
+  const lease=await WorkDataStore.acquireSnapshot();
+  let failed = false;
+  try {
+    const stamp=lease.instanceId+':'+crypto.createHash('sha256').update(lease.key).digest('hex');
+    if(pretenderIndexRuntime.workDataAuthStamp && pretenderIndexRuntime.workDataAuthStamp!==stamp) pretenderIndexRuntime.value=null;
+    pretenderIndexRuntime.workDataAuthStamp=stamp;
+  }
+  catch (error) { failed = true; throw error; }
+  finally {try { await lease.release(); } catch { if (!failed) throw Object.assign(new Error('work_data_store.snapshot_release'), {code:'work_data_store.snapshot_release',apiCode:'work_data_store.snapshot_release',statusCode:503}); }}
+}
+
 async function readPretenderIndexDisk() {
   try {
-    const value = safeJsonParse(await fsp.readFile(pretenderIndexPath(), 'utf8'), null);
+    const value = safeJsonParse(await pretenderIndexStore(stamp => { pretenderIndexRuntime.workDataAuthRequired = true; pretenderIndexRuntime.workDataAuthStamp = stamp; }).read(), null);
     return validatePretenderIndex(value) ? value : null;
-  } catch { return null; }
+  } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; return null; }
 }
 
 function sameSourceMap(a, b) {
@@ -412,14 +443,20 @@ async function writePretenderIndexFileNow(value) {
   const file = pretenderIndexPath();
   // writers:改名落盘到记下新 diskStamp 之间,盘上那份与 diskStamp 对不上是我们自己造成的,别当成「用户动了缓存」。
   pretenderIndexRuntime.writers += 1;
+  let sealedWrite = false, authStamp = '';
   try {
     await fsp.mkdir(path.dirname(file), { recursive: true });
     // 性能批 P2:紧凑 JSON(索引是可删缓存、没人读它;atomicWriteJson 缺省的两格缩进让 7 MB 的索引多出四成字节与序列化时间)
-    await atomicWriteJson(file, JSON.stringify(value));
+    await pretenderIndexStore(null, enabled => { sealedWrite = enabled; }, stamp => { authStamp = stamp; }).write(JSON.stringify(value));
+    pretenderIndexRuntime.workDataAuthRequired = sealedWrite;
+    pretenderIndexRuntime.workDataAuthStamp = sealedWrite ? authStamp : '';
     pretenderIndexRuntime.counters.persists += 1;
     pretenderIndexRuntime.diskStamp = await pretenderFileStamp(file);
     return true;
   } catch {
+    // A custom cleanup may fail after publication. Drop the warm projection on
+    // any failed sealed write: the next request must inspect/authenticate disk.
+    if (sealedWrite) { pretenderIndexRuntime.value = null; pretenderIndexRuntime.workDataAuthStamp = ''; }
     // Cache write failure never compromises authority or blocks reads. Keep the current in-memory projection.
     pretenderIndexRuntime.diskStamp = await pretenderFileStamp(file);
     return false;
@@ -543,6 +580,7 @@ function pretenderChangedSourceIds(before, after) {
 }
 
 async function buildOrLoadPretenderIndex() {
+  await pretenderCheckIndexAuth();
   await pretenderCheckRunSourceAuth();
   const indexFile = pretenderIndexPath();
   const currentDiskStamp = await pretenderFileStamp(indexFile);

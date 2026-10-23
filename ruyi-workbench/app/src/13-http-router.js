@@ -189,6 +189,8 @@ async function handleApi(req, res, pathname) {
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
+  if (req.method === 'POST' && pathname === '/api/memory-cli' && typeof MemoryCliHooks.handle === 'function'
+    && await MemoryCliHooks.handle(req, res, pathname)) return;
   if (typeof PrivacyCore !== 'undefined' && typeof PrivacyCore.configHooks.handleApiRoutes === 'function' && await PrivacyCore.configHooks.handleApiRoutes(req, res, pathname)) return;
   if (typeof ExternalBotHooks.handleApiRoutes === 'function') {
     const handled = await ExternalBotHooks.handleApiRoutes(req, res, pathname);
@@ -634,7 +636,7 @@ async function handleApi(req, res, pathname) {
     if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
-    const registry = await loadMemoryRegistry(cwd).catch(() => []);
+    const registry = await loadMemoryRegistry(cwd).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
     const byKey = new Map(registry.map(e => [e.scope + ':' + e.id, e]));
     const projKey = projectKeyForCwd(cwd); // P3-3: 权威 projectKey(取自 session.cwd),给 project 条目落盘锁定来源
     // 128b:三个字段一起走 mutateSession 落盘(撤回插在中间时在新读的副本上重放,不被闸静默丢掉还回 ok)。
@@ -689,7 +691,7 @@ async function handleApi(req, res, pathname) {
     const cwdQ = new URL(req.url, 'http://x').searchParams.get('cwd') || '';
     let cwd = normalizeCwd(config.defaultWorkspace, config.defaultWorkspace);
     if (cwdQ) { const resolved = normalizeCwd(cwdQ, config.defaultWorkspace); if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved; }
-    const registry = await loadMemoryRegistry(cwd).catch(() => []);
+    const registry = await loadMemoryRegistry(cwd).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
     const coreState = await resolveCoreMemoryState(cwd, registry, config).catch(() => ({ all: registry, active: [], standby: [], expired: [], stats: { total: registry.length, coreRequested: 0, active: 0, standby: 0, expired: 0, reviewDue: 0, charsUsed: 0, charLimit: coreMemoryCharBudget(config), itemLimit: coreMemoryMaxItems(config) } }));
     const projectKey = projectKeyForCwd(cwd);
     const otherProjects = await listMemoryProjectGroups(projectKey).catch(() => []);
@@ -1386,7 +1388,7 @@ async function handleApi(req, res, pathname) {
     const textish = PREVIEW_TEXT_EXTS.has(ext) || ext === '' || ext === 'log';
     let beforeBuf = null, afterBuf = null;
     if (entry.op !== 'create' && !entry.skipped) {
-      try { beforeBuf = zlib.gunzipSync(await fsp.readFile(path.join(journalDir(sessionId), `${turnSeq}-${entrySeq}.gz`))); } catch { beforeBuf = null; }
+      try { beforeBuf = await journalReadBefore(sessionId, turnSeq, entrySeq); } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; beforeBuf = null; }
     }
     if (entry.op !== 'delete') { try { afterBuf = await fsp.readFile(p); } catch { afterBuf = null; } }
     const looksBinary = b => !!b && b.slice(0, 8192).includes(0);
@@ -2548,6 +2550,10 @@ function sendMcpNotification(method, params) {
 }
 
 async function startMcp() {
+  if (process.argv.includes('--memory-read-only')) {
+    if (typeof MemoryCliHooks.startRelay !== 'function') throw new Error('memory_cli.unavailable');
+    return MemoryCliHooks.startRelay();
+  }
   if (process.argv.includes('--consumer') || process.env.RUYI_MCP_CONSUMER_ID || process.env.RUYI_MCP_CONSUMER_TOKEN) return PrivacyCore.configHooks.startConsumerMcp();
   await ensureDirs();
   // v0.8-S2: mark this process as the one-shot MCP child. Shell-session tools detect this and return a
@@ -2614,7 +2620,10 @@ async function startMcp() {
             // 经 truncateToolResult 截断(file_read 走 head/tail,其余 60KB+标记),与 OpenAI 引擎 push 路径一致。
             const images = VisualPipeline.extractToolImages(result);
             const modelResult = images.length ? VisualPipeline.stripToolImageFields(result, '[image attached in MCP content]') : result;
-            const text = truncateToolResult(name, JSON.stringify(modelResult, null, 2));
+            const serialized = JSON.stringify(modelResult, null, 2);
+            const memoryRead = name === 'workbench_memory_list' || name === 'workbench_memory_read';
+            if (memoryRead && Buffer.byteLength(serialized, 'utf8') > 2 * 1024 * 1024) throw new Error('memory_cli.result_too_large');
+            const text = memoryRead ? serialized : truncateToolResult(name, serialized);
             return sendMcp(msg.id, {
               content: [{ type: 'text', text }, ...images.map(uri => {
                 const split = uri.indexOf(';base64,');

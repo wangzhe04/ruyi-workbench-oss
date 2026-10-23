@@ -382,3 +382,13 @@ WorkDataChunks/v3 分块 codec 的进程内 FIFO 准入预算为 64MiB 活动明
 旧session-index E2E首段三条磁盘断言在旧02对照同样失败：测试自然走pending merge快速路径，却假设50ms内必须已落盘。只为首段显式建立冷索引重建前提，既有断言和sleep均未放宽，最终34/34通过。两项新增真实DPAPI E2E在最终B后各两遍，快照/侧日志/工作流归档也复验；首次失败、独审和统一门详见[证据](evidence/privacy-index-backup-and-key-lifecycle.json)。完整离线总回归留到剩余接线完成后执行，不以本片快门代替。
 
 本片全单测最终2800项：2774过、26项既有跳过；首轮资源耗尽与中间一项观察窗口抖动均保留证据。81静态首轮79过、2失败，已用早声明的模型缓存读取hook去掉新增环边、明确私有sealed-stage命名保留随机排他发布，并分别复验通过；最终58项定向单测及五份生成运行时回归日志全过。索引E2E另补等待既有owner链的屏障，防timer已取走pending而夹具尚未等完落盘；不放宽冷恢复断言。最后的小修未重复宣称整套统一全绿，完整离线回归继续留到隐私接入收口。
+
+## 21. 检查点、记忆正文和派生索引（2026-10-23）
+
+当前31/41，余10族。检查点三族共用操作lease和二进制适配器：OFF保原compact JSON/native gzip及旧容量，ON先预检格式/容量/全部恢复目标，再做破坏性操作。坏gzip伪前缀、转义workData容器、缺钥及超sealed工程cap均不能先恢复/删除文件后才失败。before-image保任意字节，历史/编辑器/观察重建统一解封。撤回在首次配置await前捕获原执行身份，避免A变B时误停B；失败释放原admission。
+
+记忆正文按global/project+id绑定，保原Markdown业务容量，密文膨胀不减注册表准入。原生CLI通过按执行绑定的只读list/read桥取得完整正文，无明文临时副本；完整MCP启用时另用独立reader名字，不覆盖既有服务器；Kimi冷恢复每次带新cap。该桥不提供通用API权限，完成/停止/owner替换后失效。
+
+两派生索引用途search-index，分别绑定recordId；暖缓存区分实际sealed与仅ON期间检查过密钥的plain，OFF普通plain不继承假锁。搜索对加密/混合正文按物理ordinal解封，再保持原逻辑明文头尾覆盖；共享有界词法probe识别转义/重排的保留键，巨型旧plain行不引入新业务帽。所有新lease释放等待完成且保主错误。shared marker对截断转义workData键也拒读写，流式carry改线性扫描，避免长空白回溯。256MiB仍只是sealed格式工程cap；M3-3迁移/启用UI尚未实施，不迁移真实用户数据。
+
+本片独审、实际DPAPI/本地CLI协议夹具、首次测试夹具错误和最终门状态见[证据](evidence/privacy-storage-consumers-shutdown.json)。源码之外的草稿以小patch留在drafts，未接线NDJSON/scheduler/migration不计本片完成。

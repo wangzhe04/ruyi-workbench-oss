@@ -23,6 +23,87 @@ const WorkDataRecords = (() => {
     purpose: 'session', instanceId: context.instanceId, schema: FORMAT, scopeId: context.sessionId,
     recordId: kindOf(context.kind) + ':' + ordinalOf(ordinal), seq: ordinal,   // ':' is inside the frozen identity charset
   });
+  // A bounded lexical probe, not a JSON validator or an authentication decision.
+  // Feed one physical row in arbitrary byte fragments. It remembers whether a
+  // top-level object key decodes to "w", even when that key comes after a giant
+  // value or uses Unicode escapes. No key/value/string/row buffer is retained.
+  // Once reserved, the result is sticky; callers still decode/validate the row.
+  function lineProbe() {
+    let started = false, objectRoot = false, done = false, depth = 0;
+    let quoted = false, keyString = false, expectKey = false, escaped = false;
+    let unicodeLeft = 0, unicodeValue = 0, unicodeValid = true;
+    let keyUnits = 0, keyIsW = false, found = false;
+    let leadingLeft = 0, leadingValue = 0, leadingMin = 0;
+    const trimSpace = code => code === 32 || code >= 9 && code <= 13 || code === 0xa0 || code === 0x1680
+      || code >= 0x2000 && code <= 0x200a || code === 0x2028 || code === 0x2029 || code === 0x202f
+      || code === 0x205f || code === 0x3000 || code === 0xfeff;
+    const keyUnit = code => {
+      if (!keyString) return;
+      keyUnits = Math.min(2, keyUnits + 1);
+      keyIsW = keyUnits === 1 && code === 119;
+    };
+    const feed = bytes => {
+      if (!ArrayBuffer.isView(bytes) || bytes.BYTES_PER_ELEMENT !== 1 || typeof bytes.length !== 'number') fail('probe_input');
+      if (found || done) return;
+      for (let offset = 0; offset < bytes.length; offset++) {
+        const code = bytes[offset] & 255;
+        if (!started) {
+          // isEncodedLine trims JS whitespace before classifying a row. Also
+          // observe those noncanonical prefixes here, split safely at any UTF8
+          // byte. The actual JSON decoder still rejects unsupported whitespace.
+          if (leadingLeft) {
+            if (code < 128 || code > 191) { done = true; return; }
+            leadingValue = (leadingValue << 6) | (code & 63);
+            if (--leadingLeft === 0 && (leadingValue < leadingMin || leadingValue > 0x10ffff
+              || leadingValue >= 0xd800 && leadingValue <= 0xdfff || !trimSpace(leadingValue))) { done = true; return; }
+            continue;
+          }
+          if (code >= 128) {
+            if (code >= 194 && code <= 223) { leadingLeft = 1; leadingMin = 0x80; leadingValue = code & 31; }
+            else if (code >= 224 && code <= 239) { leadingLeft = 2; leadingMin = 0x800; leadingValue = code & 15; }
+            else if (code >= 240 && code <= 244) { leadingLeft = 3; leadingMin = 0x10000; leadingValue = code & 7; }
+            else done = true;
+            if (done) return;
+            continue;
+          }
+          if (trimSpace(code)) continue;
+          started = true; objectRoot = code === 123;
+          if (!objectRoot) { done = true; return; }
+          depth = 1; expectKey = true; continue;
+        }
+        if (quoted) {
+          if (unicodeLeft) {
+            const digit = code >= 48 && code <= 57 ? code - 48 : code >= 65 && code <= 70 ? code - 55 : code >= 97 && code <= 102 ? code - 87 : -1;
+            if (digit < 0) unicodeValid = false;
+            unicodeValue = (unicodeValue << 4) | Math.max(0, digit);
+            if (--unicodeLeft === 0) keyUnit(unicodeValid ? unicodeValue : -1);
+            continue;
+          }
+          if (escaped) {
+            escaped = false;
+            if (code === 117) { unicodeLeft = 4; unicodeValue = 0; unicodeValid = true; }
+            else keyUnit(code === 34 || code === 47 || code === 92 ? code : -1);
+            continue;
+          }
+          if (code === 92) { escaped = true; continue; }
+          if (code === 34) {
+            quoted = false;
+            if (keyString && keyUnits === 1 && keyIsW) { found = true; return; }
+            keyString = false; continue;
+          }
+          keyUnit(code); continue;
+        }
+        if (code === 34) {
+          quoted = true; keyString = depth === 1 && expectKey;
+          keyUnits = 0; keyIsW = false; escaped = false; unicodeLeft = 0;
+        } else if (code === 123 || code === 91) depth++;
+        else if (code === 125 || code === 93) { if (--depth <= 0) { done = true; return; } }
+        else if (depth === 1 && code === 44) expectKey = true;
+        else if (depth === 1 && code === 58) expectKey = false;
+      }
+    };
+    return Object.freeze({ feed, reserved: () => found });
+  }
   function isEncodedLine(line) {
     const trimmed = String(line == null ? '' : line).trim();
     if (!trimmed.startsWith('{')) return false;
@@ -67,5 +148,5 @@ const WorkDataRecords = (() => {
     }
     return plain.join('\n') + (trailing ? '\n' : '');
   }
-  return Object.freeze({ FORMAT, KINDS, isEncodedLine, encodeLine, decodeLine, decodeBody });
+  return Object.freeze({ FORMAT, KINDS, lineProbe, isEncodedLine, encodeLine, decodeLine, decodeBody });
 })();

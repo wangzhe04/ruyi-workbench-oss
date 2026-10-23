@@ -1,0 +1,105 @@
+--- a/ruyi-workbench/app/src/01q-work-data-records.js
++++ b/ruyi-workbench/app/src/01q-work-data-records.js
+@@ -2,14 +2,16 @@
+ //
+ // One record per line, each independently authenticated, so a reordered, copied or middle-deleted
+ // copied line fails instead of being read as content from another position or another session. The
+-// binding is (purpose=session, instance, sessionId=scopeId, kind:ordinal=recordId, ordinal=seq): the
++// Legacy session binding is (purpose=session, instance, sessionId=scopeId, kind:ordinal=recordId, ordinal=seq): the
+ // ordinal is what makes "line 3 moved to line 5" detectable. The session body is wired through
+ // 02-session-store's per-line decode (legacy plaintext lines may coexist during migration); decodeBody
+ // is the STRICT whole-body checker (all records, no plaintext lines) for tests and migration tooling,
+ // so do not use it where a mixed body is legal.
+ const WorkDataRecords = (() => {
+   const FORMAT = 2;
+-  const KINDS = Object.freeze(['messages', 'provider', 'interventions', 'changes']);
++  const LARGE_FORMAT = 3;
++  const LARGE_KINDS = Object.freeze(['steward-inbox', 'steward-decisions', 'agent-run-events']);
++  const KINDS = Object.freeze(['messages', 'provider', 'interventions', 'changes', 'steward-inbox', 'steward-decisions', 'agent-run-events']);
+   const fail = suffix => { throw Object.assign(new Error('work_data_record.' + suffix), { code: 'work_data_record.' + suffix, apiCode: 'work_data_record.' + suffix }); };
+   const ordinalOf = value => {
+     if (!Number.isSafeInteger(value) || value < 0) fail('ordinal_invalid');
+@@ -19,10 +21,21 @@
+     if (!KINDS.includes(value)) fail('kind_invalid');
+     return value;
+   };
+-  const bindingOf = (context, ordinal) => ({
+-    purpose: 'session', instanceId: context.instanceId, schema: FORMAT, scopeId: context.sessionId,
+-    recordId: kindOf(context.kind) + ':' + ordinalOf(ordinal), seq: ordinal,   // ':' is inside the frozen identity charset
+-  });
++  function bindingOf(context, ordinal) {
++    const kind = kindOf(context.kind), position = ordinalOf(ordinal);
++    const purpose = kind === 'steward-inbox' || kind === 'steward-decisions' ? 'queue' : kind === 'agent-run-events' ? 'task' : 'session';
++    let recordId = kind + ':' + position;
++    if (kind === 'agent-run-events') {
++      // Every run has its own physical journal under a session directory. Bind both
++      // names; a valid row from a sibling run is never a row of this stream.
++      if (typeof context.runId !== 'string' || !/^[A-Za-z0-9_-]{1,96}$/.test(context.runId)) fail('run_invalid');
++      recordId = kind + ':' + context.runId + ':' + position;
++    }
++    // These purposes are fixed by the host-selected kind, never by a plaintext row
++    // or a caller's optional purpose property. Old four-kind AAD bytes are unchanged.
++    return { purpose, instanceId: context.instanceId, schema: FORMAT, scopeId: context.sessionId,
++      recordId, seq: position };
++  }
+   // A bounded lexical probe, not a JSON validator or an authentication decision.
+   // Feed one physical row in arbitrary byte fragments. It remembers whether a
+   // top-level object key decodes to "w", even when that key comes after a giant
+@@ -131,6 +144,50 @@
+     if (typeof plainLine !== 'string' || !plainLine) fail('corrupt');
+     return plainLine;
+   }
++  // New journal hosts may stage a complete encrypted record before repairing an
++  // uncommitted tail. The factory streams ONE physical NDJSON line; it does not
++  // assemble a whole large ciphertext string or retain every encrypted block.
++  // The owner must dispose after staging succeeds/fails and owns key acquisition.
++  function encodeRecordFactory(plainLine, key, context, maxPlaintextBytes) {
++    if (typeof plainLine !== 'string' || !plainLine) fail('text_required');
++    const ordinal = ordinalOf(context && context.ordinal), binding = bindingOf(context, ordinal);
++    if (Buffer.byteLength(plainLine, 'utf8') <= WorkDataCrypto.MAX_PLAINTEXT || !LARGE_KINDS.includes(context.kind)) {
++      const encoded = encodeLine(plainLine, key, context) + '\n'; let disposed = false;
++      const factory = async function* () { if (disposed) fail('key_released'); yield encoded; };
++      factory.dispose = () => { disposed = true; };
++      return factory;
++    }
++    const chunks = WorkDataChunks.sealFactory(plainLine, key, { ...binding, schema: LARGE_FORMAT }, maxPlaintextBytes);
++    const factory = async function* () {
++      let first = true, block = false;
++      for await (const chunkLine of chunks()) {
++        const chunkJson = chunkLine.slice(0, -1); //01r supplies exactly one final LF
++        if (first) { yield '{"w":3,"h":' + chunkJson + ',"b":['; first = false; }
++        else { yield (block ? ',' : '') + chunkJson; block = true; }
++      }
++      yield ']}\n';
++    };
++    factory.dispose = () => chunks.dispose();
++    return factory;
++  }
++  async function decodeRecordLine(line, key, context, maxPlaintextBytes) {
++    let row;
++    try { row = JSON.parse(String(line == null ? '' : line)); } catch { fail('corrupt'); }
++    if (row && row.w === FORMAT) return decodeLine(line, key, context);
++    if (!row || row.w !== LARGE_FORMAT) fail('format_unsupported');
++    if (!LARGE_KINDS.includes(context && context.kind)) fail('format_unsupported');
++    if (Object.keys(row).sort().join(',') !== 'b,h,w' || !row.h || typeof row.h !== 'object' || Array.isArray(row.h)
++      || !Array.isArray(row.b) || row.b.length > WorkDataChunks.MAX_CHUNKS) fail('corrupt');
++    const ordinal = ordinalOf(context && context.ordinal);
++    if (row.h.seq !== ordinal) fail('ordinal_mismatch');
++    const binding = { ...bindingOf(context, ordinal), schema: LARGE_FORMAT };
++    // The manifest authenticates total bytes/count/lengths/hash and every chunk's
++    // revision/position. No partial plaintext is returned on any failed block.
++    return WorkDataChunks.openLines((async function* () {
++      yield JSON.stringify(row.h);
++      for (const block of row.b) yield JSON.stringify(block);
++    })(), key, binding, maxPlaintextBytes);
++  }
+   // Whole body: every line must be a valid record at its own ordinal. This only accepts a full block
+   // starting at ordinal 0: a tail-truncated block still decodes (the AAD carries no total count), so
+   // truncation stays a caller-side concern. Returns the plaintext body with
+@@ -148,5 +205,5 @@
+     }
+     return plain.join('\n') + (trailing ? '\n' : '');
+   }
+-  return Object.freeze({ FORMAT, KINDS, lineProbe, isEncodedLine, encodeLine, decodeLine, decodeBody });
++  return Object.freeze({ FORMAT, LARGE_FORMAT, KINDS, lineProbe, isEncodedLine, encodeLine, decodeLine, decodeBody, encodeRecordFactory, decodeRecordLine });
+ })();

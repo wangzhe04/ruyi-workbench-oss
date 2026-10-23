@@ -1,0 +1,156 @@
+--- a/ruyi-workbench/app/src/08-agent-runs.js
++++ b/ruyi-workbench/app/src/08-agent-runs.js
+@@ -6,6 +6,12 @@
+ // 针对的是【快照】,快照才是恢复依据)。
+ const agentRunEventChains = new Map(); // runId -> append chain
+ function agentRunEventsFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.events.ndjson`); }
++function agentRunEventsJournal(sessionId, runId) {
++  const sid = safeSessionId(sessionId), rid = safeSessionId(runId);
++  return WorkDataJournals.create({ file: () => agentRunEventsFile(sid, rid),
++    context: { sessionId: sid, runId: rid, kind: 'agent-run-events' },
++    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true), writeJson: atomicWriteJson });
++}
+ // 对抗轮修(第25波): 从磁盘装载 run 后、任何 append 前,把 run.eventSeq 快进到事件文件尾行的 seq ——
+ // 崩溃窗口里(事件已落行、快照没跟上)重启装载的是旧 eventSeq,不快进就会复用已存在的 seq(严格单调破功,
+ // 取证排序在最需要它的崩溃场景失效)。只在装载点调用(markInterruptedAgentRuns / launchPersistedAgentRun)。
+@@ -26,6 +32,14 @@
+   };
+   const file = agentRunEventsFile(run.sessionId, run.id);
+   try {
++    const journal = agentRunEventsJournal(run.sessionId, run.id);
++    if (journal.recoveryPending()) {
++      let maxSeq = 0;
++      const recovered = await journal.readWindow(0, 0, line => { maxSeq = Math.max(maxSeq, scanMax(line)); });
++      if (maxSeq > (Number(run.eventSeq) || 0)) run.eventSeq = maxSeq;
++      await journal.acknowledgeRecovery(recovered.recoveryTicket);
++      return;
++    }
+     const { size } = await fsp.stat(file);
+     if (size > AGENT_RUN_EVENTS_TAIL_BYTES) {
+       let fh = null;
+@@ -33,15 +47,18 @@
+         fh = await fsp.open(file, 'r');
+         const buf = Buffer.alloc(AGENT_RUN_EVENTS_TAIL_BYTES);
+         const { bytesRead } = await fh.read(buf, 0, AGENT_RUN_EVENTS_TAIL_BYTES, size - AGENT_RUN_EVENTS_TAIL_BYTES);
+-        const maxSeq = scanMax(buf.toString('utf8', 0, bytesRead));
++        const decoded = await agentRunEventsJournal(run.sessionId, run.id).decodeLegacyWindow(
++          { text: buf.toString('utf8', 0, bytesRead), droppedHead: true }, AGENT_RUN_EVENTS_TAIL_BYTES, AGENT_RUN_EVENTS_TAIL_BYTES);
++        const maxSeq = scanMax(decoded.text);
+         if (maxSeq > 0) { if (maxSeq > (Number(run.eventSeq) || 0)) run.eventSeq = maxSeq; return; }
+       } finally { if (fh) await fh.close().catch(() => {}); }
+       // 窗内无 seq(单行大于窗)→ 落下面全读
+     }
+     const raw = await fsp.readFile(file, 'utf8');
+-    const maxSeq = scanMax(raw);
++    const decoded = await agentRunEventsJournal(run.sessionId, run.id).decodeLegacyWindow({ text: raw, droppedHead: false }, Infinity, 1);
++    const maxSeq = scanMax(decoded.text);
+     if (maxSeq > (Number(run.eventSeq) || 0)) run.eventSeq = maxSeq;
+-  } catch { /* 无事件文件 → 无需快进 */ }
++  } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* 无事件文件 → 无需快进 */ }
+ }
+ function appendAgentRunEvent(run, evt) {
+   try {
+@@ -56,7 +73,11 @@
+     runKeyedChain(agentRunEventChains, run.id, async () => {
+       if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
+       await fsp.mkdir(dir, { recursive: true });
+-      await fsp.appendFile(file, rec, 'utf8');
++      const journal = agentRunEventsJournal(run.sessionId, run.id);
++      if (journal.recoveryPending()) await syncRunEventSeq(run);
++      await journal.append([rec.slice(0, -1)], () => fsp.appendFile(file, rec, 'utf8'));
++    }).catch(error => {
++      try { logEvent({ kind: 'agent_run_event_append_failed', runId: run.id, code: String(error && error.code || 'io') }); } catch { /* diagnostics never replay the completed action */ }
+     });
+   } catch { /* 取证辅助,不阻断执行 */ }
+ }
+@@ -155,7 +176,11 @@
+   const floor = Math.max(0, Number(afterSeq) || 0);
+   const file = agentRunEventsFile(sessionId, runId);
+   const finish = matched => { matched.sort((a, b) => Number(a.seq) - Number(b.seq)); return { events: matched.slice(0, cap), hasMore: matched.length > cap }; };
+-  const fullRead = async () => { let raw = ''; try { raw = await fsp.readFile(file, 'utf8'); } catch { return { events: [], hasMore: false }; } return finish(parseEventWindow(raw, floor, false).matched); };
++  const fullRead = async () => {
++    let raw = ''; try { raw = await fsp.readFile(file, 'utf8'); } catch { return { events: [], hasMore: false }; }
++    const decoded = await agentRunEventsJournal(sessionId, runId).decodeLegacyWindow({ text: raw, droppedHead: false }, Infinity, 1);
++    return finish(parseEventWindow(decoded.text, floor, false).matched);
++  };
+   let size = -1;
+   try { size = (await fsp.stat(file)).size; } catch {
+     // v1.9 数据管家:事件日志可能已被 gzip 归档(<file>.gz,仅真终态 run)。归档文件不再增长,无尾窗
+@@ -171,11 +196,13 @@
+   // bytesRead 定界(无 bug),这里只是把手写的四步换成共用原语,行为不变。
+   try {
+     const { buf, bytesRead } = await readFileTail(file, AGENT_RUN_EVENTS_TAIL_BYTES);
+-    const { matched, minSeq } = parseEventWindow(buf.toString('utf8', 0, bytesRead), floor, true);
++    const decoded = await agentRunEventsJournal(sessionId, runId).decodeLegacyWindow(
++      { text: buf.toString('utf8', 0, bytesRead), droppedHead: true }, AGENT_RUN_EVENTS_TAIL_BYTES, AGENT_RUN_EVENTS_TAIL_BYTES);
++    const { matched, minSeq } = parseEventWindow(decoded.text, floor, decoded.droppedHead);
+     // 窗内最小完整 seq ≤ afterSeq+1 ⇒ 所有 seq>afterSeq 的事件都在窗内(afterSeq+1 是待返回的最小 seq)。
+     if (minSeq <= floor + 1) return finish(matched);
+     // afterSeq 远落后于尾窗(冷客户端 / afterSeq=0 遇大文件)→ 回落全读(罕见,保正确性)。
+-  } catch { /* 读尾窗失败 → 回落全读 */ }
++  } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* 读尾窗失败 → 回落全读 */ }
+   return fullRead();
+ }
+ // 第29波(§29c 运营指标):run 级干预计数 —— 用户对 run 的每次手动操作(pause/resume/stop/steer/池审批/
+@@ -364,7 +391,7 @@
+       const hit = agentRunDigestCache.get(full);
+       if (hit && hit.mtimeMs === st.mtimeMs && hit.ctimeMs === st.ctimeMs && hit.size === st.size && hit.ino === st.ino) {
+         // Plaintext keeps its zero-key cache path. Sealed cache entries require the current key identity.
+-        if (!hit.authStamp || hit.authStamp === (await agentRunSnapshotCredential()).stamp) {
++        if (!hit.authStamp || hit.authStamp === await agentRunSnapshotStamp()) {
+           agentRunDigestStats.hits += 1;
+           if (hit.shadow) out.push(hit.shadow);
+           continue;
+@@ -533,7 +560,11 @@
+       if (activeAgentRuns.has(run.id)) return;
+       const cls = classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config));
+       const attempts = Number(run.autoResumeCount) || 0;
+-      await syncRunEventSeq(run); // 装载点纪律:append 前快进(见 syncRunEventSeq 注释)
++      try { await syncRunEventSeq(run); } // 装载点纪律:append 前快进(见 syncRunEventSeq 注释)
++      catch (error) {
++        try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId, runId: run.id, reason: error.code || 'io' }); } catch { /* Boot diagnostic only. */ }
++        return;
++      }
+       if (activeAgentRuns.has(run.id)) return; // syncRunEventSeq 的 await 后再复检一次(窗口内可能刚被手动 resume 接管)
+       if (cls.tier === 'auto_resumable' && attempts < AUTO_RESUME_MAX) {
+         run.autoResumeCount = attempts + 1;
+@@ -571,6 +602,13 @@
+   // 71b: paused run 的 proposed 池提案在 71b 前没有 Intervention 记录 —— 收集后统一对账补登记(见 mapPool 后)。
+   const legacyPoolProposed = []; // { sessionId, runId, item }
+   await mapPool(workItems, 4, async run => {
++      if (['paused', 'running', 'waiting_pool'].includes(run.status)) {
++        try { await syncRunEventSeq(run); }
++        catch (error) {
++          try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId: run.sessionId, runId: run.id, reason: error.code || 'io' }); } catch { /* Boot diagnostic only. */ }
++          return;
++        }
++      }
+       // 团队模式 v2: waiting_pool(收尾宽限窗)也是活跃 live 态,进程重启后同样是"未清理的孤儿",一并标中断。
+       // 对抗轮 P3: paused run 不标中断(resume 仍可续跑),但内存邮箱同样已随进程消失——未投递消息补标 dropped,
+       // 否则 UI 邮箱时间线里这些消息永远显示"待投递"(与 P3-1 诚实标记原则对齐)。
+@@ -602,7 +640,6 @@
+       // 29b: 中断时就盖恢复分级戳(UI 有 tier 徽章可看;autoResumeInterruptedRuns 决策时【重算】,戳只做展示,
+       // 不做信任来源 —— 分级函数才是单一事实源)。config 读不到则跳过,标死不受影响。
+       if (bootConfig) { const cls = classifyRunResumeTier(run, await agentRunPermissionMode(run.sessionId, bootConfig)); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
+-      await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
+       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
+       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
+       // 模型以 background:true 起的 run 被重启打断、又不会自动续跑:补一份 interrupted 信封进后台任务账本 —— 修前模型对用户说过
+@@ -2017,7 +2054,7 @@
+     // Bind the file identity without changing those legacy names or exposing a path in metadata.
+     recordId: 'workflow:' + crypto.createHash('sha256').update(identity, 'utf8').digest('hex'),
+     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
++    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+     writeJson: atomicWriteJson,
+     validateSealedText: text => {
+@@ -2839,7 +2876,7 @@
+     // 第30波:池提案节点 model 解析 —— 提案 item.model(校验后)> 角色按引擎默认 > 提案者节点 model(继承);
+     // 无 provider 句柄(物化在调度器内,opts 不带 provider)则校验退回 offlineModelList(含 config.model/knownModels)。
+     const poolRoleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
+-    const poolModel = resolveNodeModel(item.model, poolRoleModel || (proposer && proposer.model), toolTier, engine, opts.config, opts.provider);
++    const poolModel = resolveNodeModel(item.model, poolRoleModel || (proposer && proposer.model), toolTier, engine, opts.config, opts.provider, opts.proxyModelsCache);
+     const node = {
+       id: item.id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null,
+       dependsOn, resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label),

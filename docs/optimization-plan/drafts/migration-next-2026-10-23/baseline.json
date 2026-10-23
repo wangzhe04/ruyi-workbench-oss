@@ -1,0 +1,51 @@
+{
+  "state": "TEMP-only draft; intentionally stopped for shutdown deadline; NOT independently reviewed or applied",
+  "files": [
+    {
+      "relative": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "baseSha256": "82D8AA9564183E5A82583C16DC98BAF3673374F2628D302C0C630E6E8DD92531",
+      "candidateSha256": "64D1AD9AC8078FBD167FD0631A4C6C388C6978F88433ACF1211D74112F821AAA"
+    },
+    {
+      "relative": "ruyi-workbench/app/src/13u-migration-center.js",
+      "baseSha256": "EBF1F82FE28BAD36F1822B577FEE0CBB3667DB1F025D7A3ACD1DA585D2BEAA0D",
+      "candidateSha256": "1C932D7AB5025B94692EEAB1B7B79B69FAAC6EF1708BA5EB20441BEBCEB68439"
+    },
+    {
+      "relative": "ruyi-workbench/app/src/13-http-router.js",
+      "baseSha256": "4768C6121704531576DBD18F3187D2E0DCBC4EC4E556F68DC0BA8323EEDCBC91",
+      "candidateSha256": "033FB85815E696B871F575B57069F3BA1EE5DC08AB3D445B2EDDFA45547AB508"
+    },
+    {
+      "relative": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "baseSha256": "747457E24724AB3EFD088D8D642662D8DCF38A61A7FCA20C8D7A3F9EC43B89F3",
+      "candidateSha256": "05055DB2BEF8624912514E1E972963B1890795C1A8EDBBB50D25B2D717DD268E"
+    },
+    {
+      "relative": "ruyi-workbench/app/src/05-claude-engine.js",
+      "baseSha256": "66282D19A46AE22AD113C92E031A5AC46D62F16EF0082F9A31B918388F19A12F",
+      "candidateSha256": "F10533985487D67885C3DA2294F41E15392A55FA335D2BF172E35BE75719208D"
+    },
+    {
+      "relative": "ruyi-workbench/app/src/09-workflow.js",
+      "baseSha256": "068215FE6B24A91B3E5759D6C4F1F3AEA7CA6731B6428FD9E9495BDAD7B44535",
+      "candidateSha256": "C658426D8AC18D6E81A813B630D691791DC8911249073BE4780E602FEAFE4C1C"
+    },
+    {
+      "relative": "dev-harness/unit/migration-records-work-data.test.js",
+      "candidateSha256": "7DBBDD5F19B808841692075F99E4EB85372BF15D8CA63AF85E25380BEF240E96"
+    }
+  ],
+  "draftPatchSha256": "D7D532E85A2815F1492AF3BBC1039918835E988ACCEB61F5CEE6DD2A295860D4",
+  "coreDependency": "shared-escaped-marker.patch",
+  "coreDependencySha256": "3A90FCF25439242640E5CFB296DDD48CDE1576BC3C30052C601275809F6C6E64",
+  "priorSourceLog": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-migration-storage-draft-367f207e7af849f88770528882a241db\\migration-source-precise-green.log",
+  "priorSourceLogSha256": "C6AC6E28981633C6AAD215A53E7023A79841E3E416BD9F6499F0D66B3C387ACB",
+  "priorResult": "14/14 pass, 0 skip, before final linear marker-carry refinement; final draft needs rerun after rebase and independent review",
+  "baseCommit": "b5ded56da7137d189c49a45c34fc5919c90805ef",
+  "baseNote": "Draft created 2026-10-23 18:21 CST after this commit; product baseline was the working tree. Per-file base SHA is authoritative; this is not a clean-commit patch.",
+  "tempDirectory": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-migration-storage-draft-367f207e7af849f88770528882a241db",
+  "docsProductOnlyPatchSha256": "F27929E83BF7FC2319DEC18ECB1D5D5C82DD12C75D24C66AAA0F2C9E0F4C5B28",
+  "docsUnitSha256": "7DBBDD5F19B808841692075F99E4EB85372BF15D8CA63AF85E25380BEF240E96",
+  "excluded": "No full baseline/candidate source files or raw logs are copied here."
+}

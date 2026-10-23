@@ -81,7 +81,13 @@ const WorkDataStore = ((fsp, pathModule) => {
   };
   // workData is a reserved container marker. A truncated container must not enter the legacy
   // "bad plaintext means empty" path, which would let a subsequent mutation erase ciphertext.
-  const containerMarker = rawText => /"workData"\s*:/.test(rawText);
+  // Match the reserved JSON key token itself, including per-character unicode escapes.
+  // Do not decode the entire document: escaped quotation marks inside ordinary text
+  // must not turn a JSON string example into a container header.
+  const containerMarker = rawText => /"(?:w|\\u0077)(?:o|\\u006[fF])(?:r|\\u0072)(?:k|\\u006[bB])(?:D|\\u0044)(?:a|\\u0061)(?:t|\\u0074)(?:a|\\u0061)"\s*:/.test(rawText);
+  // Opt-in Markdown may legitimately discuss the reserved JSON key in its body. An object,
+  // array or quoted JSON-looking prefix retains the existing fail-closed container classifier.
+  const markdownPlaintext = (host, rawText) => host.legacyText === 'markdown' && !/^[\s\ufeff]*[\{\["]/.test(rawText);
   const hasContainerMarker = async target => {
     const handle = await fsp.open(target, 'r');
     try {
@@ -93,7 +99,11 @@ const WorkDataStore = ((fsp, pathModule) => {
         const chunk = carry + buffer.subarray(0, bytesRead).toString('latin1');
         if (containerMarker(chunk)) return true;
         // Keep a split key or a key followed by arbitrarily long JSON whitespace across chunks.
-        carry = chunk.replace(/[ \t\r\n]+$/, '').slice(-10);
+        let end = chunk.length;
+        // A trailing-whitespace regex retries from every leading space when the buffer
+        // ends in a key fragment. Trim backwards once instead of quadratic backtracking.
+        while (end > 0 && [32, 9, 13, 10].includes(chunk.charCodeAt(end - 1))) end--;
+        carry = chunk.slice(Math.max(0, end - 80), end);
       }
     } finally { await handle.close(); }
   };
@@ -178,6 +188,17 @@ const WorkDataStore = ((fsp, pathModule) => {
     // One switch snapshot owns both the downgrade guard and this write. Re-reading it after the
     // guard could turn an allowed sealed update into a plaintext overwrite during a toggle.
     const enabled = await sealing(host);
+    if (host.binaryLegacy === true) {
+      let legacy;
+      try { legacy = await readGzipLegacy(host, target, enabled ? host.maxBinaryBytes : Infinity); }
+      catch (error) { if (error && error.code === 'ENOENT') return enabled; throw error; }
+      if (legacy) {
+        // Valid gzip is unambiguously legacy binary. Ordinary malformed legacy
+        // gzip could previously be replaced; never search its payload as UTF8.
+        validateBinaryLegacy(host, legacy, { sealed: false, enabled }, true);
+        return enabled;
+      }
+    }
     let header;
     try { header = host.chunked === true ? await chunkHeader(target) : null; }
     catch (error) { if (error && error.code === 'ENOENT') return enabled; throw error; }
@@ -190,6 +211,7 @@ const WorkDataStore = ((fsp, pathModule) => {
     let rawText = '';
     try { rawText = await fsp.readFile(target, 'utf8'); }
     catch (error) { if (error && error.code !== 'ENOENT') fail('storage_unavailable'); return enabled; }
+    if (markdownPlaintext(host, rawText)) return enabled;
     let parsed;
     try { parsed = JSON.parse(rawText); } catch {
       if (/"workData"\s*:\s*3\b/.test(rawText)) fail(enabled ? 'chunked_unsupported' : 'downgrade_refused');
@@ -312,6 +334,7 @@ const WorkDataStore = ((fsp, pathModule) => {
         return readChunks(host, file(), header, operation);
       }
       const rawText = await fsp.readFile(file(), 'utf8');
+      if (markdownPlaintext(host, rawText)) return rawText;
       let parsed;
       try { parsed = JSON.parse(rawText); } catch {
         if (/"workData"\s*:\s*3\b/.test(rawText)) fail('chunked_unsupported');
@@ -354,6 +377,143 @@ const WorkDataStore = ((fsp, pathModule) => {
   // DurableJsonStore (shape → schema → sanitize → schema stamp → capacity → validate), so a family
   // can be moved onto the envelope without changing what counts as a valid record. capacity is applied
   // locally to keep this module out of the 01-config cycle.
+const gzipMagic = bytes => bytes.length >= 3 && bytes[0] === 0x1f && bytes[1] === 0x8b && bytes[2] === 8;
+// Used only after gzip decoding failed. Complete valid gzip is never searched
+// for JSON markers inside its compressed payload. Carry escaped key characters
+// across chunks so a damaged prefixed container cannot disguise workData.
+function damagedBinaryMarker(bytes) {
+  let carry = '';
+  for (let offset = 0; offset < bytes.length; offset += 64 * 1024) {
+    const raw = carry + bytes.subarray(offset, offset + 64 * 1024).toString('latin1');
+    const decoded = raw.replace(/\\u([a-fA-F0-9]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+    if (containerMarker(decoded)) return true;
+    carry = raw.replace(/[ \t\r\n]+$/, '').slice(-80);
+  }
+  return false;
+}
+function validateBinaryLegacy(host, bytes, context, replaceMalformed = false) {
+  try {
+    if (host.validateLegacyBinary(bytes, context) !== true) throw new Error('invalid gzip');
+  } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    if (error && error.code === 'ERR_BUFFER_TOO_LARGE') fail('binary_decode_limit');
+    if (!(error && error.gzipValidated === true) && damagedBinaryMarker(bytes)) fail('corrupt');
+    if (!replaceMalformed) throw error;
+  }
+}
+async function readGzipLegacy(host, target, legacyCap = Infinity) {
+  const handle = await fsp.open(target, 'r');
+  try {
+    const prefix = Buffer.alloc(3);
+    let prefixUsed = 0;
+    while (prefixUsed < prefix.length) {
+      const read = await handle.read(prefix, prefixUsed, prefix.length - prefixUsed, prefixUsed);
+      if (!read.bytesRead) break;
+      prefixUsed += read.bytesRead;
+    }
+    const legacy = prefixUsed === 3 && gzipMagic(prefix);
+    const stat = await handle.stat();
+    const cap = legacy ? legacyCap : WorkDataChunks.maxFileBytes(host.maxPlaintextBytes);
+    if (stat.size > cap) fail('binary_file_limit');
+    if (!legacy) return null;
+    // Bounded allocation and complete read from one descriptor. A concurrent
+    // growth cannot make readFile allocate outside the host engineering cap.
+    const bytes = Buffer.alloc(stat.size); let used = 0;
+    while (used < bytes.length) {
+      const next = await handle.read(bytes, used, Math.min(64 * 1024, bytes.length - used), used);
+      if (!next.bytesRead) break;
+      used += next.bytesRead;
+    }
+    const extra = await handle.read(Buffer.alloc(1), 0, 1, used);
+    if (extra.bytesRead) fail('binary_changed');
+    return bytes.subarray(0, used);
+  } finally { await handle.close(); }
+}
+function createBinary(host) {
+  if (typeof host.validateLegacyBinary !== 'function') fail('binary_codec');
+  if (host.chunked !== true) fail('chunked_unsupported');
+  if (!Number.isSafeInteger(host.maxBinaryBytes) || host.maxBinaryBytes < 1
+      || host.maxBinaryBytes > WorkDataChunks.MAX_PLAINTEXT_BYTES) fail('binary_file_limit');
+  WorkDataChunks.limitOf(host.maxPlaintextBytes);
+  const file = () => String(host.file());
+  const decode = plainText => {
+    let value;
+    try { value = JSON.parse(plainText); } catch { fail('binary_shape'); }
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+        || Object.keys(value).sort().join(',') !== 'data,encoding'
+        || value.encoding !== 'gzip-base64-v1' || typeof value.data !== 'string'
+        || value.data.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value.data)) fail('binary_shape');
+    const bytes = Buffer.from(value.data, 'base64');
+    if (bytes.length > host.maxBinaryBytes || bytes.toString('base64') !== value.data || !gzipMagic(bytes)) fail('binary_shape');
+    try { if (host.validateLegacyBinary(bytes, { sealed: true, enabled: true }) !== true) fail('binary_shape'); }
+    catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; fail('binary_shape'); }
+    return bytes;
+  };
+  const validateSealedText = plainText => { decode(plainText); return true; };
+  const borrowedKeys = operation => ({
+    snapshot: async () => {
+      const lease = await operation.credential();
+      return { key: lease.key, instanceId: lease.instanceId, release: () => {} };
+    },
+    // Existing requireKeys compatibility checks these functions. createText's
+    // B acquireSnapshot will prefer snapshot and never mix these two snapshots.
+    unlock: async () => (await operation.credential()).key,
+    instance: async () => (await operation.credential()).instanceId,
+  });
+  async function read() {
+    return withOperation(host, async operation => {
+      const legacy = await readGzipLegacy(host, file());
+      if (legacy) {
+        // Complete validity is checked before classifying it as a legacy carrier.
+        // Invalid legacy gzip retains its original zlib/domain error.
+        validateBinaryLegacy(host, legacy, { sealed: false, enabled: false });
+        return legacy;
+      }
+      // A read's validation and return share one decoded Buffer; never retain it
+      // on the reusable store or across operations/scopes.
+      let validated;
+      const validateRead = plainText => { validated = { plainText, bytes: decode(plainText) }; return true; };
+      const plainText = await createText({ ...host, keys: borrowedKeys(operation), validateSealedText: validateRead }).read();
+      // createText returns unmarked legacy plaintext unchanged. Such text was
+      // never a gzip carrier, so it must not become an unauthenticated binary JSON
+      // alternate format. Only a real marked container may produce this wrapper.
+      if (!validated) {
+        host.validateLegacyBinary(Buffer.alloc(0), { sealed: false, enabled: false }); // original invalid-gzip domain error
+        throw new Error('invalid gzip');
+      }
+      return validated && validated.plainText === plainText ? validated.bytes : decode(plainText);
+    });
+  }
+  async function write(bytes) {
+    if (!Buffer.isBuffer(bytes) || !gzipMagic(bytes)) fail('binary_shape');
+    return withOperation(host, async operation => {
+      const target = file();
+      const scopedHost = { ...host, binaryLegacy: true, validateSealedText };
+      const enabled = await guardWrite(scopedHost, target, operation);
+      if (enabled && bytes.length > host.maxBinaryBytes) fail('binary_file_limit');
+      if (host.validateLegacyBinary(bytes, { sealed: enabled, enabled }) !== true) fail('binary_shape');
+      if (!enabled) {
+        // Atomic writer's existing async-iterable path preserves raw Buffer bytes.
+        const factory = async function* () { yield bytes; };
+        await host.writeJson(target, factory, { stream: true });
+        return bytes;
+      }
+      const plainText = JSON.stringify({ encoding: 'gzip-base64-v1', data: bytes.toString('base64') });
+      const lease = await operation.credential();
+      const factory = WorkDataChunks.sealFactory(plainText, lease.key, {
+        purpose: host.purpose, instanceId: lease.instanceId,
+        schema: Number.isFinite(host.schema) ? host.schema : 1,
+        scopeId: host.scopeId, recordId: host.recordId,
+        seq: host.seq === undefined ? 1 : host.seq,
+      }, host.maxPlaintextBytes);
+      try { await host.writeJson(target, factory, { stream: true }); }
+      finally { factory.dispose(); }
+      return bytes;
+    });
+  }
+  return Object.freeze({ read, write, filePath: file });
+}
+
   function createJson(host) {
     const schemaKey = String(host.schemaKey || 'schema');
     const schemaVersion = Number.isFinite(host.schemaVersion) ? host.schemaVersion : null;
@@ -396,5 +556,5 @@ const WorkDataStore = ((fsp, pathModule) => {
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
-  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys, acquireSnapshot, hasContainerMarker });
+  return Object.freeze({ create, createJson, createText, createBinary, CONTAINER, Hooks, requireKeys, acquireSnapshot, hasContainerMarker });
 })(require('node:fs/promises'), require('node:path'));

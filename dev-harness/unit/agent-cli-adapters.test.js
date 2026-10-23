@@ -38,7 +38,7 @@ const plain = v => JSON.parse(JSON.stringify(v));   // 解析结果里的 undefi
 const INTERFACE = {
   id: 'string', interactive: 'function', slashCommandVerbatim: 'boolean', buildArgs: 'function', resumeArgs: 'function',
   extraArgs: 'function', prepareSpawn: 'function', cmdLineBudget: 'function', appendSystemPromptFlag: 'string',
-  runPreparedTurn: 'optional', buildAgentDefinitions: 'function', buildEnv: 'function', beforeSpawn: 'optional',
+  runPreparedTurn: 'optional', memoryMcpViaLifecycle: 'boolean', buildAgentDefinitions: 'function', buildEnv: 'function', beforeSpawn: 'optional',
   thinkingEffortLabel: 'function', watchSideChannel: 'function', promptViaStdin: 'boolean', isNativeAgentTool: 'function',
   parseEvent: 'function', isResumeMissingError: 'function', syncPostTurnUsage: 'optional', recordTurnUsage: 'function',
   // 架构还债批 4:回合外能力(05 之后的模块经 agentCliAdapter 取;金样见 unit/agent-cli-registry.test.js [C])。

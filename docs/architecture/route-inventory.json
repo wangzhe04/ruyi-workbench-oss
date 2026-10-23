@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-23T07:36:26.423Z",
+  "generatedAt": "2026-10-23T10:41:27.473Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -20,10 +20,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 165,
-    "decisionPoints": 179,
+    "routeAuthEntries": 166,
+    "decisionPoints": 180,
     "byKind": {
-      "exact": 156,
+      "exact": 157,
       "prefix": 11,
       "regex": 12
     },
@@ -32,6 +32,7 @@
       "external-callback",
       "host-gate",
       "mcp-consumer",
+      "memory-cli",
       "open",
       "token",
       "token-browser"
@@ -41,6 +42,12 @@
     "warnings": 0
   },
   "routeAuth": [
+    {
+      "m": "POST",
+      "p": "/api/memory-cli",
+      "auth": "memory-cli",
+      "prefix": false
+    },
     {
       "m": "POST",
       "p": "/api/mcp/consumer",
@@ -1035,6 +1042,23 @@
   "decisionPoints": [
     {
       "kind": "exact",
+      "path": "/api/memory-cli",
+      "file": "13-http-router.js",
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "memory-cli",
+      "coveredBy": [
+        "dev-harness\\memory-cli-relay.e2e.js",
+        "dev-harness\\unit\\memory-cli-relay.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/bootstrap",
       "file": "13-http-router.js",
       "handler": "handleApi",
@@ -1678,6 +1702,7 @@
         "dev-harness\\frontend-wave2.browser.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-cli-relay.e2e.js",
         "dev-harness\\memory-recall-injection.e2e.js",
         "dev-harness\\memory-scope-card.browser.e2e.js",
         "dev-harness\\memory-scope.e2e.js",
@@ -1685,6 +1710,7 @@
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\memory-cli-relay.test.js",
         "dev-harness\\unit\\memory-scope-fixes.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
@@ -1834,6 +1860,7 @@
         "dev-harness\\frontend-wave2.browser.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\memory-cli-relay.e2e.js",
         "dev-harness\\memory-recall-injection.e2e.js",
         "dev-harness\\memory-scope-card.browser.e2e.js",
         "dev-harness\\memory-scope.e2e.js",
@@ -1841,6 +1868,7 @@
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\memory-cli-relay.test.js",
         "dev-harness\\unit\\memory-scope-fixes.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
@@ -2822,6 +2850,7 @@
         "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\memory-cli-relay.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\workbench-self-status.e2e.js"
       ]

@@ -1,0 +1,188 @@
+--- a/ruyi-workbench/app/src/13i-steward-inbox.js
++++ b/ruyi-workbench/app/src/13i-steward-inbox.js
+@@ -552,6 +552,10 @@
+ function stewardDir() { return path.join(paths.data, STEWARD_DIR_NAME); }
+ function stewardInboxPath() { return path.join(stewardDir(), STEWARD_INBOX_FILE); }
+ function stewardCursorPath() { return path.join(stewardDir(), STEWARD_CURSOR_FILE); }
++function stewardInboxJournal() {
++  return WorkDataJournals.create({ file: stewardInboxPath, context: { sessionId: 'steward', kind: 'steward-inbox' },
++    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true), writeJson: atomicWriteJson });
++}
+ // M3-2d: 游标是自定义序列化的文本记录（purpose=queue / scope=global / record=steward-cursor）。
+ // 解不开时【不能】按"损坏"处理：那会把基线归零、把区间内的增量静默跳过（13i 里那段注释的旧事故），
+ // 所以加密类错误直接冒泡，交给调用方如实失败并下一拍重试。
+@@ -559,7 +563,7 @@
+   id: 'steward-cursor',
+   file: () => stewardCursorPath(),
+   purpose: 'queue', schema: STEWARD_CURSOR_SCHEMA, scopeId: 'global', recordId: 'steward-cursor',
+-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
++  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+   writeJson: atomicWriteJson,
+   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+ });
+@@ -762,6 +766,7 @@
+   stewardRuntime.lastMaintenanceAt = 0;
+   stewardRuntime.lastError = '';
+   stewardRuntime.seen = new Set();
++  stewardRuntime.inboxAuthStamp = '';
+   stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} };
+   stewardRuntime.cursorSig = '';   // 重置 = 磁盘上那份不再可信,下一拍必须重写
+   stewardRuntime.carry = [];
+@@ -771,7 +776,7 @@
+ 
+ // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8
+ // 多字节序列中 —— 与 readAgentRunEvents 的尾窗纪律同源)。文件不存在 = 空(绝不 mkdir)。
+-async function stewardReadInboxText() {
++async function stewardReadInboxLegacyText() {
+   const file = stewardInboxPath();
+   let size = -1;
+   try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
+@@ -786,6 +791,10 @@
+     return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
+   } catch { return { text: '', droppedHead: false }; }
+   finally { if (fh) await fh.close().catch(() => {}); }
++}
++async function stewardReadInboxText() {
++  const window = await stewardReadInboxLegacyText();
++  return stewardInboxJournal().decodeLegacyWindow(window, STEWARD_INBOX_FULL_READ_BYTES, STEWARD_INBOX_TAIL_BYTES);
+ }
+ 
+ // 解析 inbox 文本为行对象。坏行/尾部半行一律跳过(append-only 日志的既有纪律)。
+@@ -803,8 +812,9 @@
+   return rows;
+ }
+ 
+-async function stewardReadInboxRows() {
+-  const { text, droppedHead } = await stewardReadInboxText();
++async function stewardReadInboxRows(metadata = null) {
++  const { text, droppedHead, authStamp = '', recoveryTicket } = await stewardReadInboxText();
++  if (metadata) { metadata.authStamp = authStamp; metadata.recoveryTicket = recoveryTicket; }
+   return stewardParseInboxText(text, droppedHead);
+ }
+ 
+@@ -826,13 +836,10 @@
+     stewardRuntime.lastMaintenanceAt = now; // 故障也节流,坏文件/瞬时锁不能让每拍变成全量扫描。
+     const file = stewardInboxPath();
+     try { await fsp.stat(file); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+-    const input = fs.createReadStream(file, { encoding: 'utf8' });
+-    const lines = require('node:readline').createInterface({ input, crlfDelay: Infinity });
+     const history = [], active = [];
+     let latest = null, count = 0;
+-    try {
+-      for await (const line of lines) {
+-        if (!line.trim()) continue;
++    await stewardInboxJournal().readWindow(Infinity, 1, line => {
++        if (!line.trim()) return;
+         const row = safeJsonParse(line, null);
+         // 未知/损坏格式交给原有读取与修复纪律;整理器不擅自丢弃无法理解的数据。
+         if (!row || !Number.isSafeInteger(Number(row.inboxSeq)) || !STEWARD_EVENT_KINDS.includes(row.kind)) throw new Error('steward.inbox_maintenance_invalid_row');
+@@ -843,12 +850,15 @@
+           history.push(row);
+           if (history.length > STEWARD_INBOX_HISTORY_MAX) history.shift();
+         }
+-      }
+-    } finally { lines.close(); input.destroy(); }
++    }, true);
+     const kept = active.concat(history);
+     if (latest && !kept.includes(latest)) kept.push(latest);
+     kept.sort((a, b) => Number(a.inboxSeq) - Number(b.inboxSeq));
+-    if (kept.length < count) await atomicWriteJson(file, kept.map(row => JSON.stringify(row)).join('\n') + '\n', { mode: 0o600 });
++    if (kept.length < count) {
++      const rows = kept.map(row => JSON.stringify(row));
++      const result = await stewardInboxJournal().replace(rows, () => atomicWriteJson(file, rows.join('\n') + '\n', { mode: 0o600 }));
++      if (stewardRuntime.loaded) stewardRuntime.inboxAuthStamp = result.authStamp;
++    }
+     stewardRuntime.lastMaintenanceAt = now;
+   });
+   stewardAppendChain = next.catch(() => {});
+@@ -858,9 +868,17 @@
+ // 游标读取。读坏/缺失 → 冷启动(inboxSeq 从 inbox 尾行恢复,去重集合从 inbox 尾部 N 行重建,
+ // 三源只建基线不补历史)。这条正是「cursor 读坏 → 从零开始但不重复已在 inbox 里的键」。
+ async function stewardLoadState() {
+-  if (stewardRuntime.loaded) return;
++  const recovering = stewardInboxJournal().recoveryPending();
++  if (stewardRuntime.loaded && !recovering) {
++    if (!await stewardInboxJournal().checkAuthority(stewardRuntime.inboxAuthStamp)) throw Object.assign(new Error('work_data.authenticate_failed'), { code: 'work_data.authenticate_failed', statusCode: 503 });
++    return;
++  }
++  const carried = recovering ? { carry: [...(stewardRuntime.carry || [])], adopted: [...(stewardRuntime.adopted || [])], adoptedRecent: new Map(stewardRuntime.adoptedRecent || []) } : null;
+   stewardResetRuntimeState();
+-  const rows = await stewardReadInboxRows();
++  if (carried) Object.assign(stewardRuntime, carried);
++  const inboxMetadata = {};
++  const rows = await stewardReadInboxRows(inboxMetadata);
++  stewardRuntime.inboxAuthStamp = inboxMetadata.authStamp;
+   const tail = rows.slice(-STEWARD_DEDUPE_TAIL_ROWS);
+   for (const row of tail) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
+   for (const row of rows) stewardRuntime.inboxSeq = Math.max(stewardRuntime.inboxSeq, Number(row.inboxSeq) || 0);
+@@ -925,6 +943,10 @@
+     try { logEvent({ kind: 'steward_cursor_corrupt', detail: stewardRuntime.lastError }); } catch { /* 观测绝不反噬 */ }
+   }
+   stewardRuntime.loaded = true;
++  if (recovering) {
++    try { await stewardInboxJournal().acknowledgeRecovery(inboxMetadata.recoveryTicket); }
++    catch (error) { stewardRuntime.loaded = false; throw error; }
++  }
+ }
+ 
+ // append:与 session-changes 同款原语(repairMissionChangeTornTail + appendFile),per-process 串行。
+@@ -934,6 +956,7 @@
+   const payload = rows.map(row => JSON.stringify(row)).join('\n') + '\n';
+   const next = stewardAppendChain.catch(() => {}).then(async () => {
+     await fsp.mkdir(stewardDir(), { recursive: true });
++    const result = await stewardInboxJournal().append(rows.map(row => JSON.stringify(row)), async () => {
+     await repairMissionChangeTornTail(file); // 尾部半行先截干净,再整行 append(防焊接)
+     // Windows 上杀软/备份软件短暂持锁的 EBUSY/EPERM/EACCES:与 02 appendIntervention 同款有界重试。
+     // 仍失败就抛给 stewardTickOnce —— 那里把这一批原始事件放回结转队列,下一拍重来(见那里的注释)。
+@@ -941,6 +964,8 @@
+       try { await fsp.appendFile(file, payload, 'utf8'); break; }
+       catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
+     }
++    });
++    if (stewardRuntime.loaded) stewardRuntime.inboxAuthStamp = result.authStamp;
+     // 121-K2a(§6.1 第 3 条):箱子真的多了这些行之后才派。正文不进事件面 —— 只有「哪条线程、哪一类」;
+     // 想看内容仍走 GET /api/steward/inbox(§6.1 红线:事件流不承载正文)。
+     // 121-K6a(34 号文 §4.3 安静卡):补 quiet(在场门②情形打的旗)与卡上要印的一句话(ask)——
+@@ -1272,7 +1297,10 @@
+       if (knownSeq == null) afterSeq = (stewardRuntime.cold || !runRecent || eventSeq > STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ) ? eventSeq : 0;
+       else afterSeq = knownSeq;
+       stewardRuntime.cursor.agentRuns[runId] = afterSeq;
+-      const page = await readAgentRunEvents(sid, runId, afterSeq, STEWARD_RUN_EVENT_PAGE).catch(() => ({ events: [] }));
++      const page = await readAgentRunEvents(sid, runId, afterSeq, STEWARD_RUN_EVENT_PAGE).catch(error => {
++        if (String(error && error.code || '').startsWith('work_data')) throw error;
++        return { events: [] };
++      });
+       let maxSeq = afterSeq;
+       for (const evt of (page && Array.isArray(page.events) ? page.events : [])) {
+         maxSeq = Math.max(maxSeq, Number(evt.seq) || 0);
+@@ -1464,12 +1492,16 @@
+   const file = stewardInboxPath();
+   let key = '', size = 0;
+   try {
+-    const st = await fsp.stat(file);
+-    size = st.size;
+-    key = [file, st.size, st.mtimeMs, st.ino].join('|');
++    const st = await fsp.stat(file, { bigint: true });
++    size = Number(st.size);
++    key = [file, st.size, st.mtimeNs, st.ctimeNs, st.ino].join('|');
+   } catch { /* 文件不存在:下面按空箱子算,不进备忘 */ }
+-  if (key && stewardInboxCountsMemo && stewardInboxCountsMemo.key === key) return stewardInboxCountsMemo;
+-  const rows = await stewardReadInboxRows();
++  if (key && stewardInboxCountsMemo && stewardInboxCountsMemo.key === key) {
++    if (!await stewardInboxJournal().checkAuthority(stewardInboxCountsMemo.authStamp)) throw Object.assign(new Error('work_data.authenticate_failed'), { code: 'work_data.authenticate_failed', statusCode: 503 });
++    return stewardInboxCountsMemo;
++  }
++  const metadata = {};
++  const rows = await stewardReadInboxRows(metadata);
+   const byKind = {};
+   for (const kind of STEWARD_EVENT_KINDS) byKind[kind] = 0;
+   let inboxSeq = 0;
+@@ -1477,7 +1509,7 @@
+     inboxSeq = Math.max(inboxSeq, Number(row.inboxSeq) || 0);
+     if (Object.prototype.hasOwnProperty.call(byKind, row.kind)) byKind[row.kind] += 1;
+   }
+-  const counts = { key, byKind, inboxSeq };
++  const counts = { key, byKind, inboxSeq, authStamp: metadata.authStamp };
+   // 文件非空却一行都没读出来:多半是这一次读撞上瞬时锁(stewardReadInboxText 吞掉错误回空串;Windows 杀软 / 索引器
+   // 常见),别把「空箱子」记进备忘 —— 否则文件不再变就一直报零(审查轮复现过)。下一次照旧重读。
+   stewardInboxCountsMemo = key && (size === 0 || rows.length > 0) ? counts : null;

@@ -34,6 +34,12 @@ function fixture(overrides = {}) {
     activeChildren: new Map(), turnSettlers: new Map(),
     loadSession: async () => { calls.push(['load']); return structuredClone(session); },
     saveSession: async value => { calls.push(['save', value.messages.map(m => m.content)]); },
+    readConfig: async () => ({ workDataEncryptionV1: false }),
+    WorkDataStore: { acquireSnapshot: () => { throw new Error('OFF rewind must not unlock'); } },
+    // This suite controls execution/admission interleavings. Persistence crypto
+    // and its no-mutation preflights are exercised by journal-work-data tests.
+    journalRevertLogRead: async () => [], journalAssertWritable: async () => {},
+    journalReadIndex: async () => [], journalPreflightMutation: async () => new Map(),
     logEvent: () => {}, setTimeout, clearTimeout,
     journalRollback: async () => { calls.push(['rollback']); return { ok: true, reverted: [], failed: [] }; },
     journalRevertLogPrune: async () => {}, bumpMissionChangeSeq: async () => {},
@@ -42,7 +48,7 @@ function fixture(overrides = {}) {
   });
   const guarded = sliceBlock(store, '// A guarded rewind owns admission', 'async function rewindSessionContents');
   assert.ok(guarded.includes('async function rewindSession('));
-  vm.runInContext(guarded + '\n' + functionBlock(store, 'rewindSessionContents') + '\nthis.rewind = rewindSession;', ctx);
+  vm.runInContext(guarded + '\n' + ['withJournalArtifactOperation', 'rewindSessionContents', 'rewindSessionArtifactContents'].map(name => functionBlock(store, name)).join('\n') + '\nthis.rewind = rewindSession;', ctx);
   return { ctx, calls, session, rewind: ctx.rewind, blocked: () => ctx.SessionExecutionHooks.admissionBlocked('s') };
 }
 
@@ -211,6 +217,31 @@ test('legacy automatic stop compares the pre-read identity and refuses a replace
   };
   assert.equal((await f.rewind('s', 2, true)).error, 'execution_changed');
   assert.equal(f.calls.some(c => c[0] === 'save' || c[0] === 'rollback'), false);
+});
+
+test('legacy rewind observes execution before encryption configuration can yield', async () => {
+  const configRead = deferred(), a = execution('A'), b = execution('B');
+  let current = a;
+  const f = fixture({ readConfig: async () => { await configRead.promise; return { workDataEncryptionV1: false }; },
+    activeChildren: new Map([['s', { session: { id: 's' } }]]) });
+  f.ctx.SessionExecutionHooks.snapshot = () => current;
+  f.ctx.SessionExecutionHooks.stop = (_id, expected) => {
+    f.calls.push(['stop', expected]);
+    return expected === current ? { ok: true } : { ok: false, error: 'execution_changed' };
+  };
+  const pending = f.rewind('s', 2, true);
+  current = b; f.ctx.activeChildren.set('s', { session: { id: 's' }, owner: b });
+  configRead.resolve();
+  assert.equal((await pending).error, 'execution_changed');
+  assert.equal(f.calls.find(call => call[0] === 'stop')[1], a);
+  assert.equal(f.calls.some(call => call[0] === 'save' || call[0] === 'rollback'), false);
+});
+
+test('storage preflight failure releases guarded admission before any rollback or save', async () => {
+  const f = fixture({ journalAssertWritable: async () => { throw Object.assign(new Error('locked'), { code: 'work_data_store.downgrade_refused' }); } });
+  await assert.rejects(f.rewind('s', 2, true, idleOptions()), error => error.code === 'work_data_store.downgrade_refused');
+  assert.equal(f.calls.some(call => call[0] === 'save' || call[0] === 'rollback'), false);
+  assert.equal(f.blocked(), false);
 });
 
 test('completed A can rewind using bounded admission evidence; completed B invalidates old A', async () => {

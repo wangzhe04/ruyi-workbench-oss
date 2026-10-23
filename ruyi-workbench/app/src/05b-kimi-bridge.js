@@ -2112,9 +2112,9 @@ async function kimiAcpRestoreSession(rpc, nativeSessionId, lifecycle, capabiliti
   throw lastError || new Error('Kimi ACP session restore failed');
 }
 
-function kimiAcpLifecycle(capabilities, workingDir, additionalDirectories, onEvent) {
+function kimiAcpLifecycle(capabilities, workingDir, additionalDirectories, onEvent, mcpServers = []) {
   const extraState = kimiAcpCapabilityState(capabilities || {}, 'additionalDirectories', ['additionalDirs']);
-  const lifecycle = { cwd: workingDir, mcpServers: [] };
+  const lifecycle = { cwd: workingDir, mcpServers: [...mcpServers] };
   if (extraState === false) {
     onEvent({ type: 'stderr', text: '[Kimi ACP 能力] agent 未声明 additionalDirectories；已省略附加目录' });
   } else {
@@ -2322,7 +2322,7 @@ function prepareKimiAcpSpawn(command) {
 async function runKimiAcpTurnPrepared(context) {
   const {
     session, message, onEvent, config, executionOwner, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
-    additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
+    additionalDirectories, memoryCliGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
     currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
     resumeResetReason, promptTaskContext, agentRecoverySummary, attachments, kimiNativeSlashCommand,
   } = context;
@@ -2338,6 +2338,7 @@ async function runKimiAcpTurnPrepared(context) {
     WCW_TOKEN: RUNTIME.token,
   };
   if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
+  else for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
   const spawn = prepareKimiAcpSpawn(claude);
   if (spawn.kimiAcpCompat) env.RUYI_KIMI_ACP_COMPAT = '1';
   const cwdWarn = cwdWarning(workingDir);
@@ -2538,6 +2539,10 @@ async function runKimiAcpTurnPrepared(context) {
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
     registerSessionExecutionChild(session.id, reg, executionOwner);
+    if (memoryCliGrant) {
+      try { MemoryCliHooks.bind(memoryCliGrant, reg, executionOwner); }
+      catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
+    }
     // 121-K3(34 号文 §13.4 登记项①):Kimi ACP 这一路在 K2a 漏了起跑/收尾两帧。形状照 05/09 逐字
     // 一样(同一个事件名、同一个载荷键),位置也一样 —— 紧跟 activeChildren.set,此刻这条线程对
     // 任何读 activeChildren 的判据来说都已经是「在跑」了,派晚一行就会出现「订阅者算出来还是停着」。
@@ -2667,7 +2672,8 @@ async function runKimiAcpTurnPrepared(context) {
     }, 15000);
     session.kimiAcpAgentInfo = initialized && initialized.agentInfo || null;
     session.kimiAcpCapabilities = initialized && initialized.agentCapabilities || null;
-    const lifecycle = kimiAcpLifecycle(session.kimiAcpCapabilities, workingDir, additionalDirectories, onEvent);
+    const lifecycle = kimiAcpLifecycle(session.kimiAcpCapabilities, workingDir, additionalDirectories, onEvent,
+      memoryCliGrant ? [MemoryCliHooks.kimiDefinition(memoryCliGrant)] : []);
     let activated;
     if (config.autoResumeClaudeSessions && session.claudeSessionId) {
       nativeSessionId = String(session.claudeSessionId);

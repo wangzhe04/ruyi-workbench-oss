@@ -1,0 +1,61 @@
+--- a/ruyi-workbench/app/src/13j-steward-tool-base.js
++++ b/ruyi-workbench/app/src/13j-steward-tool-base.js
+@@ -181,6 +181,10 @@
+   return base;
+ }
+ 
++function stewardDecisionJournal() {
++  return WorkDataJournals.create({ file: stewardDecisionsPath, context: { sessionId: 'steward', kind: 'steward-decisions' },
++    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true), writeJson: atomicWriteJson });
++}
+ function stewardAppendDecision(row) {
+   const record = {
+     seq: ++stewardDecisionSeq,
+@@ -197,9 +201,15 @@
+   stewardDecisionChain = stewardDecisionChain.then(async () => {
+     await fsp.mkdir(stewardDir(), { recursive: true });
+     const file = stewardDecisionsPath();
+-    await repairMissionChangeTornTail(file);
+-    await fsp.appendFile(file, line, 'utf8');
+-  }).catch(() => {}); // 记账失败绝不回滚已经做完的动作(与 usage ledger 同款 fire-and-forget 纪律)
++    await stewardDecisionJournal().append([line.slice(0, -1)], async () => {
++      await repairMissionChangeTornTail(file);
++      await fsp.appendFile(file, line, 'utf8');
++    });
++  }).catch(error => {
++    // The action has already executed. A failed encrypted diagnostic append is
++    // visible by code only, never a reason to retry/rollback the action itself.
++    try { logEvent({ kind: 'steward_decision_append_failed', code: String(error && error.code || 'io') }); } catch { /* diagnostics */ }
++  });
+   return record;
+ }
+ 
+@@ -231,7 +241,7 @@
+   return out;
+ }
+ 
+-async function stewardReadDecisionsText() {
++async function stewardReadDecisionsLegacyText() {
+   const file = stewardDecisionsPath();
+   let size = -1;
+   try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
+@@ -244,6 +254,10 @@
+     const { buf, bytesRead } = await readFileTail(file, STEWARD_DECISIONS_TAIL_BYTES);
+     return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
+   } catch { return { text: '', droppedHead: false }; }
++}
++async function stewardReadDecisionsText() {
++  const window = await stewardReadDecisionsLegacyText();
++  return stewardDecisionJournal().decodeLegacyWindow(window, STEWARD_DECISIONS_FULL_READ_BYTES, STEWARD_DECISIONS_TAIL_BYTES);
+ }
+ 
+ // { limit, sessionId, since } -> { ok, rows, total, limit }
+@@ -353,7 +367,7 @@
+   validate: value => value.schema === STEWARD_MEMORY_SCHEMA && Array.isArray(value.entries),
+   quarantine: false,
+   purpose: 'memory', scopeId: 'global', recordId: 'steward-memory',
+-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
++  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+   writeJson: atomicWriteJson,
+   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+ });

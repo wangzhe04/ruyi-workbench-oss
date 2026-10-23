@@ -500,12 +500,11 @@ async function scratchpadWriteTool(args, ctx) {
 // 新工具忘了声明 = 锁红 —— archive 漏 guard(第27波)、desktop_screenshot 越界写(第36波)这类漏审整类收口。
 async function workbenchMemoryReadLoopback(name, args) {
   const sessionId = safeSessionId(process.env.WCW_SESSION_ID || '');
-  const session = sessionId ? await loadSession(sessionId).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }) : null;
-  if (!session) return { ok: false, error: 'memory session unavailable' };
+  if (!sessionId) return { ok: false, error: 'memory session unavailable' };
   try {
     const response = await httpRequest({ url: `http://${process.env.WCW_HOST || '127.0.0.1'}:${process.env.WCW_PORT}/api/tools/${name}`,
-      method: 'POST', headers: { 'content-type': 'application/json', 'x-wcw-token': process.env.WCW_TOKEN }, timeoutMs: 15000, maxBodyChars: 300000,
-      body: JSON.stringify({ ...args, sessionId, turnSeq: session.turnSeq, memoryLiveRead: true }) });
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-wcw-token': process.env.WCW_TOKEN }, timeoutMs: 15000, maxBodyChars: 2 * 1024 * 1024,
+      body: JSON.stringify({ ...args, sessionId, memoryLiveRead: true }) });
     const data = safeJsonParse(response.body, null);
     return data && data.ok && data.result || { ok: false, error: 'memory parent read unavailable' };
   } catch { return { ok: false, error: 'memory parent read unavailable' }; }

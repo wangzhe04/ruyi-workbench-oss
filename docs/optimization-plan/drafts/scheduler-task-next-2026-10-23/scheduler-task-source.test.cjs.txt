@@ -1,0 +1,34 @@
+'use strict';
+// Small source VM only; no generated runtime, DPAPI or external execution.
+const {test,after}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),vm=require('node:vm'),crypto=require('node:crypto');
+const repo='C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss';
+const {constBlock,functionBlock}=require(path.join(repo,'dev-harness/lib/source-slice')),{loadWorkDataChunks}=require(path.join(repo,'dev-harness/lib/work-data-chunks-fixture'));
+const parent=path.resolve(os.tmpdir()),root=fs.mkdtempSync(path.join(parent,'ruyi-scheduler-vm-'));
+after(()=>{assert.equal(path.dirname(root),parent);fs.rmSync(root,{recursive:true,force:true});});
+function fixture(cap=256*1024*1024){
+ const dir=fs.mkdtempSync(path.join(root,'case-')),fx=loadWorkDataChunks(),master=crypto.randomBytes(32),state={enabled:false,missing:false,acquires:0,releases:0};
+ const store=vm.runInNewContext(constBlock(fs.readFileSync(path.join(repo,'ruyi-workbench/app/src/01p-work-data-store.js'),'utf8'),'WorkDataStore')+'\nWorkDataStore;',{require,Buffer,WorkDataCrypto:fx.crypto,WorkDataChunks:fx.chunks});
+ store.Hooks.keys={snapshot:async()=>{state.acquires++;if(state.missing)throw Object.assign(Error('missing'),{code:'work_data_key.absent'});const key=Buffer.from(master);return{key,instanceId:'scheduler-vm',release:()=>{state.releases++;key.fill(0);}};}};
+ const runtime={loaded:true,tasks:[],opaqueTasks:[],globalRuns:{date:'',count:0}},context={require,Buffer,crypto,path,fs,fsp,WorkDataStore:store,paths:{data:dir},SCHEDULER_DIR_NAME:'scheduler',SCHEDULER_TASKS_FILE:'tasks-v1.json',SCHEDULER_TASKS_SCHEMA:1,SCHEDULER_TASK_ENGINEERING_BYTES:cap,schedulerRuntime:runtime,schedulerTasksChain:Promise.resolve(),schedulerClockNow:()=>0,readConfig:async()=>({workDataEncryptionV1:state.enabled}),atomicWriteJson:fx.atomicWriteJson,schedulerIsWorkDataError:error=>String(error?.code||'').startsWith('work_data'),logEvent:()=>{},setTimeout};
+ const names=['schedulerDir','schedulerTasksPath','schedulerStorageFailure','schedulerTaskStore','withSchedulerTaskOperation','schedulerTaskPayload','schedulerTaskEncodingPreflight','schedulerAuthenticateLoaded','schedulerTaskAdmission','schedulerReadTasksFile','schedulerSaveTasks'];
+ const source=fs.readFileSync(path.join(__dirname,'src/13s-scheduler.js'),'utf8'),api=vm.runInNewContext(names.map(name=>functionBlock(source,name)).join('\n')+'\n({'+names.join(',')+'});',context);
+ return{...api,context,state,runtime,file:api.schedulerTasksPath(),master};
+}
+test('OFF tasks retain exact pretty JSON bytes and zero key access',async()=>{
+ const f=fixture();f.runtime.tasks=[{id:'a',payload:{text:'普通中文😀'}}];await f.schedulerSaveTasks();assert.equal(fs.readFileSync(f.file,'utf8'),JSON.stringify(f.schedulerTaskPayload(),null,2));assert.equal((await f.schedulerReadTasksFile()).tasks[0].id,'a');assert.equal(f.state.acquires,0);
+});
+test('only malformed ordinary legacy definitions use the existing rename quarantine path',async()=>{
+ const f=fixture();await fsp.mkdir(path.dirname(f.file),{recursive:true});await fsp.writeFile(f.file,'{broken');assert.deepEqual(Array.from((await f.schedulerReadTasksFile()).tasks),[]);assert.equal(fs.existsSync(f.file),false);assert.equal(fs.readFileSync(f.file+'.corrupt','utf8'),'{broken');assert.equal(f.state.acquires,0);
+});
+test('ON task payload seals with task bindings and reads through the real chunk codec',async()=>{
+ const f=fixture();f.state.enabled=true;f.runtime.tasks=[{id:'a',payload:{text:'TASK-PRIVATE中文😀'}}];await f.schedulerSaveTasks();assert.equal(fs.readFileSync(f.file).includes(Buffer.from('TASK-PRIVATE')),false);const header=JSON.parse(fs.readFileSync(f.file,'utf8').split('\n')[0]);assert.equal(header.purpose,'task');assert.equal(header.recordId,'scheduler-tasks');assert.equal((await f.schedulerReadTasksFile()).tasks[0].payload.text,'TASK-PRIVATE中文😀');assert.equal(f.state.acquires,f.state.releases);
+});
+test('warm ON legacy and sealed definitions cannot bypass removed keys or alter authority',async()=>{
+ for(const sealed of [false,true]){const f=fixture();f.state.enabled=sealed;await f.schedulerSaveTasks();const before=fs.readFileSync(f.file);f.state.enabled=true;f.state.missing=true;await assert.rejects(()=>f.schedulerAuthenticateLoaded(),{code:'work_data_key.absent'});assert.deepEqual(fs.readFileSync(f.file),before);assert.equal(fs.existsSync(f.file+'.corrupt'),false);}
+});
+test('sealed wrong shape and malformed reserved carriers never reach ordinary quarantine',async()=>{
+ const f=fixture();f.state.enabled=true;await f.schedulerSaveTasks();await f.withSchedulerTaskOperation(scope=>f.schedulerTaskStore(scope).write('{"schema":1,"tasks":false}'));const before=fs.readFileSync(f.file);await assert.rejects(()=>f.schedulerReadTasksFile(),error=>String(error.code).startsWith('work_data'));assert.deepEqual(fs.readFileSync(f.file),before);assert.equal(fs.existsSync(f.file+'.corrupt'),false);
+});
+test('small-cap admission rejects before invoking a mutating callback and preserves ordinary authority',async()=>{
+ const f=fixture(1024);f.runtime.opaqueTasks=[{legacy:'x'.repeat(1500)}];await f.schedulerSaveTasks();const before=fs.readFileSync(f.file);f.state.enabled=true;let touched=false;await assert.rejects(()=>f.schedulerTaskAdmission(()=>{touched=true;}),{code:'work_data.scheduler_tasks_limit'});assert.equal(touched,false);assert.deepEqual(fs.readFileSync(f.file),before);
+});

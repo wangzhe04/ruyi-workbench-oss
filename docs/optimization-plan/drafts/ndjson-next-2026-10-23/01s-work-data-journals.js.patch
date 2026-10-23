@@ -1,0 +1,312 @@
+--- /dev/null
++++ b/ruyi-workbench/app/src/01s-work-data-journals.js
+@@ -0,0 +1,309 @@
++// Shared filesystem owner for the three auxiliary NDJSON journals. Domain owners
++// keep their own serialization chains, legacy readers/retention and action policy.
++// No plaintext temporary files; no implicit key creation; a key lease belongs to
++// one complete read/append/replacement operation, never to a warm count cache.
++const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
++  const MAX_RECORD_BYTES = 256 * 1024 * 1024;
++  const MAX_CIPHER_RECORD_BYTES = WorkDataChunks.maxFileBytes(MAX_RECORD_BYTES) + 64;
++  const CACHE_MAX = 64, states = new Map(), recoveryGates = new Map(), recoveryTickets = new WeakMap();
++  const fail = suffix => { throw Object.assign(new Error('work_data_journal.' + suffix), { code: 'work_data_journal.' + suffix, apiCode: 'work_data_journal.' + suffix, statusCode: 503 }); };
++  const stampOf = stat => stat ? [stat.size, stat.mtimeNs, stat.ctimeNs, stat.ino].join('|') : 'missing';
++  const fileStamp = async file => {
++    try { return stampOf(await fsp.stat(file, { bigint: true })); }
++    catch (error) { if (error.code === 'ENOENT') return 'missing'; throw error; }
++  };
++  const remember = (file, value) => {
++    states.delete(file); states.set(file, value);
++    while (states.size > CACHE_MAX) states.delete(states.keys().next().value);
++  };
++  const candidate = line => {
++    const trimmed = String(line).trim();
++    if (!trimmed.startsWith('{')) return false;
++    try { const row = JSON.parse(trimmed); return !!row && typeof row === 'object' && !Array.isArray(row) && Object.hasOwn(row, 'w'); }
++    catch { return /^\{\s*"(?:w|\\u0077)"\s*:/i.test(trimmed); }
++  };
++  const authority = credential => credential.instanceId + ':' + cryptoApi.createHash('sha256').update(credential.key).digest('hex');
++  // Classify/count physical records without keeping any key, string or line.
++  // This pass can discover a late escaped/reordered w after a giant value before
++  // the authentication pass allocates a sealed row. Giant ordinary legacy rows
++  // acquire no new cap and require no row copy merely to prove their metadata.
++  async function readMetadata(file) {
++    let handle;
++    try { handle = await fsp.open(file, 'r'); }
++    catch (error) { if (error.code === 'ENOENT') return { count: 0, committedBytes: 0, tornBytes: 0, sealed: false, authStamp: '', stamp: 'missing' }; throw error; }
++    try {
++      const stamp = stampOf(await handle.stat({ bigint: true })), buffer = Buffer.alloc(64 * 1024);
++      let probe = WorkDataRecords.lineProbe(), rowBytes = 0, count = 0, committedBytes = 0, sealed = false;
++      for (;;) {
++        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null); if (!bytesRead) break;
++        let start = 0;
++        while (start < bytesRead) {
++          const newline = buffer.indexOf(10, start), end = newline < 0 || newline >= bytesRead ? bytesRead : newline;
++          const part = buffer.subarray(start, end); probe.feed(part); rowBytes += part.length;
++          if (end === bytesRead) break;
++          if (probe.reserved()) {
++            sealed = true;
++            if (rowBytes > MAX_CIPHER_RECORD_BYTES) fail('physical_record_limit');
++          }
++          count++; committedBytes += rowBytes + 1; rowBytes = 0; probe = WorkDataRecords.lineProbe(); start = end + 1;
++        }
++      }
++      if (stampOf(await handle.stat({ bigint: true })) !== stamp || await fileStamp(file) !== stamp) fail('source_changed');
++      return { count, committedBytes, tornBytes: rowBytes, tornReserved: probe.reserved(), sealed, authStamp: '', stamp };
++    } finally { await handle.close(); }
++  }
++  async function readPhysicalRow(handle, start, length) {
++    if (length > MAX_CIPHER_RECORD_BYTES) fail('physical_record_limit');
++    const bytes = Buffer.alloc(length); let used = 0;
++    while (used < length) {
++      const result = await handle.read(bytes, used, Math.min(64 * 1024, length - used), start + used);
++      if (!result.bytesRead) fail('source_changed'); used += result.bytesRead;
++    }
++    return bytes.toString('utf8');
++  }
++  const withLease = async (host, work) => {
++    let pending = null, failed = false;
++    const owner = { credential: () => pending || (pending = WorkDataStore.acquireSnapshot(host.keys || WorkDataStore.requireKeys())) };
++    try { return await work(owner); }
++    catch (error) { failed = true; throw error; }
++    finally {
++      let lease;
++      try { if (pending) lease = await pending; } catch { /* acquisition already failed */ }
++      if (lease) { try { await lease.release(); } catch { if (!failed) fail('snapshot_release'); } }
++    }
++  };
++  // Every LF consumes an ordinal, including blank and malformed legacy rows.
++  // The non-LF suffix is returned separately and never treated as a committed
++  // record. A committed invalid sealed row throws; ordinary legacy rows retain
++  // each domain's old parse/skip policy. A large legacy row is not a new cap.
++  async function scan(file, host, owner, visit, refuseSealed = false, includeTorn = false, visitInvalidTorn = false, proof = null) {
++    const metadata = proof || await readMetadata(file);
++    if (metadata.sealed && refuseSealed) fail('downgrade_refused');
++    if (!visit && !metadata.sealed) return metadata;
++    if (includeTorn && metadata.tornReserved && metadata.tornBytes > MAX_CIPHER_RECORD_BYTES) fail('physical_record_limit');
++    if (await fileStamp(file) !== metadata.stamp) fail('source_changed');
++    let handle;
++    try { handle = await fsp.open(file, 'r'); }
++    catch (error) { if (error.code === 'ENOENT') return { count: 0, committedBytes: 0, tornBytes: 0, sealed: false, authStamp: '' }; throw error; }
++    const buffer = Buffer.alloc(64 * 1024);
++    let pieces = [], pieceBytes = 0, count = 0, committedBytes = 0, sealed = false, authStamp = '', rowProbe = WorkDataRecords.lineProbe();
++    try {
++      for (;;) {
++        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
++        if (!bytesRead) break;
++        let start = 0;
++        while (start < bytesRead) {
++          const newline = buffer.indexOf(10, start);
++          const end = newline < 0 || newline >= bytesRead ? bytesRead : newline;
++          const part = buffer.subarray(start, end); rowProbe.feed(part);
++          if (visit) pieces.push(Buffer.from(part)); pieceBytes += end - start;
++          if (rowProbe.reserved() && pieceBytes > MAX_CIPHER_RECORD_BYTES) fail('physical_record_limit');
++          if (pieceBytes > MAX_CIPHER_RECORD_BYTES && await fileStamp(file) !== metadata.stamp) fail('source_changed');
++          if (end === bytesRead) break;
++          const reserved = rowProbe.reserved();
++          const raw = visit ? Buffer.concat(pieces, pieceBytes).toString('utf8') : reserved ? await readPhysicalRow(handle, committedBytes, pieceBytes) : '';
++          let plain = raw;
++          if (reserved) {
++            if (refuseSealed) fail('downgrade_refused');
++            const credential = await owner.credential();
++            plain = await WorkDataRecords.decodeRecordLine(raw, credential.key,
++              { ...host.context, instanceId: credential.instanceId, ordinal: count }, MAX_RECORD_BYTES);
++            sealed = true; authStamp = authority(credential);
++          }
++          if (visit) await visit(plain, count, true);
++          count++; committedBytes += pieceBytes + 1; pieces = []; pieceBytes = 0; rowProbe = WorkDataRecords.lineProbe(); start = end + 1;
++        }
++      }
++      if (includeTorn && visit && pieceBytes) {
++        const raw = Buffer.concat(pieces, pieceBytes).toString('utf8'); let plain = raw, readable = true;
++        if (rowProbe.reserved()) {
++          // Legacy readers accept a complete final JSON value without LF. An
++          // incomplete ciphertext suffix is uncommitted and remains unreadable.
++          try { JSON.parse(raw); } catch { readable = false; }
++          if (readable) {
++            const credential = await owner.credential();
++            plain = await WorkDataRecords.decodeRecordLine(raw, credential.key,
++              { ...host.context, instanceId: credential.instanceId, ordinal: count }, MAX_RECORD_BYTES);
++            sealed = true; authStamp = authority(credential);
++          }
++        }
++        if (readable || visitInvalidTorn) await visit(plain, count, false);
++      }
++      if (await fileStamp(file) !== metadata.stamp) fail('source_changed');
++      return { count, committedBytes, tornBytes: pieceBytes, sealed, authStamp };
++    } finally { await handle.close(); }
++  }
++  function create(host) {
++    const file = () => typeof host.file === 'function' ? host.file() : host.file;
++    if (!host.context || !['steward-inbox', 'steward-decisions', 'agent-run-events'].includes(host.context.kind)) fail('kind');
++    const keyFor = target => target + '\u0000' + host.context.kind + '\u0000' + host.context.sessionId + '\u0000' + (host.context.runId || '');
++    const recoveryPending = () => recoveryGates.has(keyFor(file()));
++    const assertAdmission = target => {
++      if (recoveryGates.has(keyFor(target))) fail('recovery_required');
++      // Failure gates are never LRU-evicted. Reserve a slot before another write
++      // could need one, so repeated I/O faults cannot grow this metadata forever.
++      if (recoveryGates.size >= CACHE_MAX) fail('recovery_capacity');
++    };
++    const isEnabled = async () => {
++      try { return await host.enabled() === true; }
++      catch { fail('switch_unavailable'); }
++    };
++    const auth = () => withLease(host, async owner => authority(await owner.credential()));
++    const checkAuthority = async expected => !expected || expected === await auth();
++    const stateWithin = async (target, owner, enabled) => {
++      const cacheKey = keyFor(target), stamp = await fileStamp(target), known = states.get(cacheKey);
++      if (known && known.stamp === stamp) {
++        if (!enabled && known.sealed) fail('downgrade_refused');
++        if (!known.authStamp || known.authStamp === authority(await owner.credential())) return known;
++      }
++      const proof = await readMetadata(target);
++      const result = await scan(target, host, owner, null, !enabled, false, false, proof);
++      const after = await fileStamp(target);
++      if (after !== stamp) fail('source_changed');
++      const state = { ...result, stamp: after };
++      remember(cacheKey, state); return state;
++    };
++    // Read a complete logical stream or its logical UTF-8 byte tail. The result
++    // window is measured AFTER decryption so base64 expansion cannot shrink the
++    // amount of history retained. Oversized rows still require whole-row decode;
++    // this adapter does not claim constant peak memory or range decryption.
++    const readWindow = (fullBytes, tailBytes, visit, includeInvalidTorn = false) => withLease(host, async owner => {
++      const target = file(), before = await fileStamp(target);
++      const chunks = []; let size = 0, droppedHead = false;
++      const result = await scan(target, host, owner, async (plain, ordinal, committed) => {
++        if (visit) await visit(plain, ordinal);
++        else {
++          const chunk = Buffer.from(plain + (committed ? '\n' : '')); chunks.push(chunk); size += chunk.length;
++          if (!droppedHead && size > fullBytes) droppedHead = true;
++          if (droppedHead) {
++            while (chunks.length && size - chunks[0].length >= tailBytes) size -= chunks.shift().length;
++          }
++        }
++      }, false, true, !!visit && includeInvalidTorn);
++      if (await fileStamp(target) !== before) fail('source_changed');
++      remember(keyFor(target), { ...result, stamp: before });
++      let output = visit ? Buffer.alloc(0) : Buffer.concat(chunks, size);
++      if (droppedHead && output.length > tailBytes) output = output.subarray(output.length - tailBytes);
++      const gate = recoveryGates.get(keyFor(target)); let recoveryTicket;
++      if (gate) {
++        recoveryTicket = Object.freeze({});
++        recoveryTickets.set(recoveryTicket, { key: keyFor(target), gate, stamp: before, authStamp: result.authStamp });
++      }
++      return { text: output.toString('utf8'), droppedHead, ...result, stamp: before, recoveryTicket };
++    });
++    // Ordinary OFF readers already paid for their original byte window. Avoid a
++    // second read/unlock unless this window actually contains a sealed record.
++    const decodeLegacyWindow = async (window, fullBytes, tailBytes) => {
++      const raw = String(window.text || '');
++      if (!raw.split('\n').some(candidate) && !(window.droppedHead && /"(?:keyId|ciphertext|manifest)"\s*:/.test(raw))) return { ...window, authStamp: '' };
++      return readWindow(fullBytes, tailBytes);
++    };
++    const stage = async (target, rows, startOrdinal, credential) => {
++      await fsp.mkdir(pathModule.dirname(target), { recursive: true });
++      const temp = target + '.sealed-stage-' + cryptoApi.randomBytes(12).toString('hex');
++      let output, complete = false;
++      try {
++        output = await fsp.open(temp, 'wx', 0o600);
++        for (let index = 0; index < rows.length; index++) {
++          const factory = WorkDataRecords.encodeRecordFactory(rows[index], credential.key,
++            { ...host.context, instanceId: credential.instanceId, ordinal: startOrdinal + index }, MAX_RECORD_BYTES);
++          try {
++            for await (const part of factory()) {
++              const bytes = Buffer.from(part); let offset = 0;
++              while (offset < bytes.length) {
++                const result = await output.write(bytes, offset, bytes.length - offset, null);
++                if (!result.bytesWritten) fail('short_write'); offset += result.bytesWritten;
++              }
++            }
++          } finally { factory.dispose(); }
++        }
++        await output.close(); output = null; complete = true; return temp;
++      } finally {
++        if (output) await output.close().catch(() => {});
++        if (!complete) await fsp.unlink(temp).catch(() => {});
++      }
++    };
++    const copyStage = async (target, temp) => {
++      const input = await fsp.open(temp, 'r'); let output;
++      try {
++        output = await fsp.open(target, 'a'); const buffer = Buffer.alloc(64 * 1024);
++        for (;;) {
++          const { bytesRead } = await input.read(buffer, 0, buffer.length, null); if (!bytesRead) break;
++          let offset = 0;
++          while (offset < bytesRead) {
++            const result = await output.write(buffer, offset, bytesRead - offset, null);
++            if (!result.bytesWritten) fail('short_write'); offset += result.bytesWritten;
++          }
++        }
++      } finally { if (output) await output.close(); await input.close(); }
++    };
++    // Callers serialize this owner with their existing append/rewrite chain.
++    const append = (rows, legacyAppend) => withLease(host, async owner => {
++      const target = file(), enabled = await isEnabled();
++      assertAdmission(target);
++      const state = await stateWithin(target, owner, enabled);
++      if (!enabled) {
++        await legacyAppend();
++        const after = await fileStamp(target);
++        remember(keyFor(target), { count: state.count + rows.length, committedBytes: Number(after.split('|')[0]),
++          tornBytes: 0, sealed: false, authStamp: '', stamp: after });
++        return { sealed: false, authStamp: '' };
++      }
++      const credential = await owner.credential(), temp = await stage(target, rows, state.count, credential);
++      try {
++        if (await fileStamp(target) !== state.stamp) fail('source_changed');
++        if (state.tornBytes) await fsp.truncate(target, state.committedBytes);
++        try { await copyStage(target, temp); }
++        catch (error) {
++          // A failed batch must not leave its first complete rows for an inbox
++          // retry to duplicate. The caller owns the per-file serialization chain.
++          // A second filesystem failure during rollback is diagnosed separately;
++          // neither this layer nor its caller replays an already executed action.
++          try { await fsp.truncate(target, state.committedBytes); }
++          catch (rollbackError) {
++            recoveryGates.set(keyFor(target), Object.freeze({}));
++            try { if (host.onRollbackFailure) host.onRollbackFailure(rollbackError); } catch { /* diagnostics */ }
++            fail('recovery_required');
++          }
++          throw error;
++        }
++        const after = await fileStamp(target);
++        const next = { count: state.count + rows.length, committedBytes: Number(after.split('|')[0]), tornBytes: 0, sealed: true,
++          authStamp: authority(credential), stamp: after };
++        remember(keyFor(target), next); return { sealed: true, authStamp: next.authStamp };
++      } catch (error) { states.delete(keyFor(target)); throw error; }
++      finally { await fsp.unlink(temp).catch(() => {}); }
++    });
++    const replace = (rows, legacyReplace) => withLease(host, async owner => {
++      const target = file(), enabled = await isEnabled();
++      assertAdmission(target);
++      const state = await stateWithin(target, owner, enabled);
++      if (!enabled) {
++        await legacyReplace(); states.delete(keyFor(target)); return { sealed: false, authStamp: '' };
++      }
++      const credential = await owner.credential(), temp = await stage(target, rows, 0, credential);
++      try {
++        if (await fileStamp(target) !== state.stamp) fail('source_changed');
++        const factory = async function* () {
++          const input = await fsp.open(temp, 'r'); const buffer = Buffer.alloc(64 * 1024);
++          try {
++            for (;;) { const { bytesRead } = await input.read(buffer, 0, buffer.length, null); if (!bytesRead) break; yield Buffer.from(buffer.subarray(0, bytesRead)); }
++          } finally { await input.close(); }
++        };
++        await host.writeJson(target, factory, { stream: true }); states.delete(keyFor(target));
++        return { sealed: rows.length > 0, authStamp: rows.length ? authority(credential) : '' };
++      } finally { await fsp.unlink(temp).catch(() => {}); }
++    });
++    const acknowledgeRecovery = ticket => withLease(host, async owner => {
++      const proof = ticket && recoveryTickets.get(ticket), key = keyFor(file());
++      if (!proof || proof.key !== key || proof.gate !== recoveryGates.get(key)) fail('recovery_ticket');
++      if (await fileStamp(file()) !== proof.stamp) fail('source_changed');
++      if (proof.authStamp && authority(await owner.credential()) !== proof.authStamp) fail('recovery_key_changed');
++      if (await fileStamp(file()) !== proof.stamp) fail('source_changed');
++      recoveryGates.delete(key); recoveryTickets.delete(ticket);
++    });
++    return Object.freeze({ append, replace, readWindow, decodeLegacyWindow, checkAuthority, recoveryPending, acknowledgeRecovery, authStamp: auth, metadataProof: () => readMetadata(file()),
++      fileStamp: () => fileStamp(file()), forget: () => states.delete(keyFor(file())) });
++  }
++  return Object.freeze({ create, candidate, MAX_RECORD_BYTES });
++})(require('node:fs/promises'), require('node:path'), require('node:crypto'));

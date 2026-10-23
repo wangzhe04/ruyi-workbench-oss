@@ -722,7 +722,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           parentSession, provider: subProvider, config, engine: failedNode.engine || 'openai',
           task: reviewTask, displayTask: '重规划审查 ' + failedNode.id, agentKey: failedNode.id + '-replan-review',
           toolTier: 'read', maxIters: 12, model: failedNode.model, onEvent: () => {}, subagentId: makeId('sub'), depth: 1,
-          ctrl: rctrl || undefined, roleDefinition: (() => { const r = roleLibrary.get('reviewer'); return r ? { ...r, claudeTools: [], openaiTools: [] } : null; })(),
+          ctrl: rctrl || undefined, memoryCliContext: { runtime, runId, node: failedNode, attempt: failedNode.attempts, ctrl: rctrl, session: parentSession, workingDir: normalizeCwd(parentSession.cwd, config.defaultWorkspace), review: true }, roleDefinition: (() => { const r = roleLibrary.get('reviewer'); return r ? { ...r, claudeTools: [], openaiTools: [] } : null; })(),
           outputSchema: reviewSchema,
         });
         if (timer) clearTimeout(timer);
@@ -788,9 +788,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
       const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
-      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '' }).catch(() => ({
-        entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 },
-      }));
+      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '' }).catch(error => {
+        if (String(error?.code || '').startsWith('work_data')) throw error;
+        return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 } };
+      });
       // 137 集成:Claude 节点跑的是 Claude CLI,它原生读 ~/.claude/CLAUDE.md —— 与主会话同一条去重(W2 迁移中心导入的那份不再重复注入)。
       const nodeMemoryEntries = filterMemoryForNativeCli([...(nodeMemory.coreEntries || []), ...(nodeMemory.entries || [])], node.engine === 'claude' ? 'claude' : '');
       const nodeMemoryConflicts = nodeMemoryEntries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
@@ -799,7 +800,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         // #15:openai 节点走 runSubAgentCore,它现在把【核心胶囊】放进子代理系统提示 —— 这里只补相关索引,免得胶囊在同一次请求里出现两遍;
         // claude 节点不经 runSubAgentCore(自己 spawn CLI),仍整段(核心 + 相关)进任务正文。
         // 读取线索按引擎分叉(#6):openai 节点是 [id](scope) + workbench_memory_read,claude 节点仍是绝对路径 + Read。
-        buildMemoryPromptSection(nodeMemoryEntries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts, node.engine === 'claude' ? undefined : { part: 'related' }),
+        buildMemoryPromptSection(nodeMemoryEntries, node.engine === 'claude' ? 'claude' : 'openai', config, nodeMemoryConflicts, node.engine === 'claude' ? { readTool: config.workDataEncryptionV1 === true ? MemoryCliHooks.readerTool(config) : undefined } : { part: 'related' }),
       ].filter(Boolean).join('\n');
       const effectiveTask = contextPrefix + nodeContextPrefix + (priorText ? `${node.task}\n\n以下是前序节点结果，请基于它们继续：\n\n${priorText}` : node.task) + iterationText + continuationText + reliabilityInstruction + throttlingInstruction + toolEvidenceInstruction + qualityInstruction + evidenceInstruction + (memoryInstruction ? '\n\n' + memoryInstruction : '') + schemaInstruction;
       let agentSession = parentSession;
@@ -885,6 +886,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               displayTask: node.task, agentKey: node.id,
               dependsOn: (Array.isArray(node.reportedDependsOn) && node.reportedDependsOn.length) ? node.reportedDependsOn : node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
               onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: nodeCtrl, permModeOverride, runId,
+              memoryCliContext: { runtime, runId, node, attempt: node.attempts, ctrl: nodeCtrl, session: parentSession, workingDir: wfCwd },
               // 116-2b:节点的工具迭代预算耗尽 → run_budget_tripped(收件箱的 budget 类)。
               onBudgetTripped: info => recordRunBudgetTrippedEvent(run, { ...info, nodeId: node.id }),
               interactivePermissions: run.kind === 'steward_delegation',
@@ -1673,7 +1675,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       revertNotice = packForTurn.revertNotice({ turns: revertNoticeTurns(pendingReverts) });
       revertNoticeSeqs = pendingReverts.map(r => r.seq);
     }
-  } catch { revertNotice = ''; revertNoticeSeqs = []; }
+  } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; revertNotice = ''; revertNoticeSeqs = []; }
   const historyPrompt = fullPrompt + '\n\n' + packForTurn.turnTime(localTurnTimeParts(Date.now())) + (revertNotice ? '\n' + revertNotice : '');
   if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
     const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
@@ -1833,7 +1835,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     : await resolveMemoryPreflight(session, workingDir, promptTaskContext,
       (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
       config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
-    ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
+    ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }; });
   const enabledMemoryEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
   // R4-S1:主 Provider 回合把 confirmed contradicts 传进真实 volatile prompt；此前只在单测直调时生效。
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;

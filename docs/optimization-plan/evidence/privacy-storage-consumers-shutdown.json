@@ -1,0 +1,231 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "baselineCommit": "b5ded56d",
+  "status": "targeted_verified_final_gates_running",
+  "syntheticOnly": true,
+  "userDataChanged": false,
+  "adapterWired": 31,
+  "required": 41,
+  "remaining": 10,
+  "migrationUI": false,
+  "scope": [
+    "journal-index/reverts/history and binary before-images",
+    "memory-body and execution-bound readonly native CLI memory consumer",
+    "session-search-index and pretender-index",
+    "shared bounded reserved-key probe and escaped truncated-container protection"
+  ],
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "ec22bf4f64c29c2c3ed9177d76398426b440827c4387fd6a9e8c1a3193635d3c"
+    },
+    {
+      "file": "ruyi-workbench/app/src/00-boot.js",
+      "sha256": "b4ccf63eaf6f9957a6f59f977bc940b3b9fa628fa027e0df40751ad7d700021f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "d9b92e3f1650a1ce8bde49e1f6f56c8e30f07525ff16b24841c3405c004d1a3d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01b-route-auth.js",
+      "sha256": "648167883a8e332d37cf3afe0d06db1da4a2b4ca3b694e1d6ac38a758884c7ce"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "sha256": "10cdee7ef20946a83573d7672300b45f407315027ae216b3aa9e071502926285"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01q-work-data-records.js",
+      "sha256": "cc531fa226c537af6b64dd287b3316b2a25f6b4f25469915d5b254769722e4e0"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "07f5b0da8ea08d94ff05aedd425f34a5ff27470448695a07eb40ed1753950fec"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03-bridge-guard.js",
+      "sha256": "85bb17bef7b2a57d65b538d1d00d9100317919525bf246738752af02333e97da"
+    },
+    {
+      "file": "ruyi-workbench/app/src/05-claude-engine.js",
+      "sha256": "66282d19a46ae22ad113c92e031a5ac46d62f16ef0082f9a31b918388f19a12f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "sha256": "8f327a2e8deab59aeef3f056ad170b40a91ace8f2b79a053d5c8e83012ccb05e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "sha256": "6e3eb32bd0bc9428ec6d64cdf7a80473527a23febd81cc38ddb3b10008d192c5"
+    },
+    {
+      "file": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "47fc181f8019aa23b30a547ba8b4b0a938c7a23096239cf6335841f5c31544c6"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "068215fe6b24a91b3e5759d6c4f1f3aea7ca6731b6428fd9e9495bdad7b44535"
+    },
+    {
+      "file": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "d23bf5615e0d6fe9880b4db95fd968168c7a2f499b4a95108354d2808e8973ff"
+    },
+    {
+      "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "82d8aa9564183e5a82583c16dc98baf3673374f2628d302c0c630e6e8dd92531"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "622ee86c3826a2a5945bbede1d854d3585f49db6ba4a9de81e9952a3c4a2147b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+      "sha256": "78e1c0d4234d7cc808967720de80a2250cefa5aee08dd5902257cd4884096ad6"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "sha256": "cda9396f98d8118d69ada69451b4b42e00cf5033aff198e575d55b404915b648"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "sha256": "f7c3ec89368e6c5dfbc728c36da4229dd610eb38855a4b6fea6ea994b5134c8f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "b1ea9346eefbc7166945ec7f81032b544a294d439fd6cfa48845e13824d724f0"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "98a7b1a3c165f5b200006d9bee0a0149f4528b4d684d87eb3085194c7f826314"
+    }
+  ],
+  "independentReview": {
+    "journal": {
+      "reviewer": "privacy_review",
+      "pass": 6,
+      "fail": 0,
+      "priorFindings": 4,
+      "packet": "C:/Users/87179/AppData/Local/Temp/ruyi-checkpoint-artifacts-draft-ef977c6dfa0d4eba818e2dfc946d6b09/handoff.json"
+    },
+    "rewindObservation": {
+      "reviewer": "privacy_repro",
+      "pass": 2,
+      "fail": 0,
+      "negativeControl": "Moving observation after config await makes config-gate strict identity assertion fail"
+    },
+    "memory": {
+      "reviewer": "privacy_repro",
+      "pass": 7,
+      "fail": 0,
+      "packet": "C:/Users/87179/AppData/Local/Temp/ruyi-memory-body-draft-cf10ab3d2c1d4edb896d1be4de5638ef/independent-review.md"
+    },
+    "derived": {
+      "reviewer": "privacy_review",
+      "pass": 6,
+      "fail": 0,
+      "report": "C:/Users/87179/AppData/Local/Temp/ruyi-derived-indexes-09171a09f07b4ae09bef5115d0ff98d3/independent-review-final-report.json"
+    },
+    "sharedMechanisms": {
+      "lineProbe": "authored privacy_review, independently reviewed root;14 source checks incl7 existing",
+      "escapedMarker": "authored storage_progress, independently reviewed root;7 source checks with baseline-negative read/write controls"
+    },
+    "fixtureAndRouteClosure": {
+      "reviewer": "privacy_repro",
+      "status": "no blockers after final independent static review; no weakened assertions or expanded authority"
+    }
+  },
+  "targeted": {
+    "journalUnit": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\checkpoint-applied-source-first.log",
+      "sha256": "c3c6da507e70e77b6a03835854503b40b1432af9a30269bb26aa04230be5ad8e"
+    },
+    "legacyJournal": {
+      "first": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\checkpoint-applied-legacy-source-final.log",
+        "sha256": "c98849ac3ab6b3520dfea63f472242240f736cc35a2a711e94e1aebe75d265ac"
+      },
+      "final": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\checkpoint-applied-legacy-source-repeat.log",
+        "sha256": "b58555f0557a6bd205eb9a9555008efe056b2ccee2e7658f52f122cf84584824"
+      },
+      "finalTests": 53,
+      "pass": 52,
+      "skip": 1,
+      "fail": 0,
+      "firstIssue": "Source-sliced rewind fixture omitted the new operation/helper functions. Loaded actual helpers, retained domain storage seams; added config-await identity and no-side-effect preflight cases."
+    },
+    "memoryUnit": {
+      "first": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\memory-probe-applied-source-first.log",
+        "sha256": "7dc112e8127932416935135f56f9b8b7ae56682078b94944ce0d14f75d41e14b"
+      },
+      "final": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\memory-probe-applied-source-repeat.log",
+        "sha256": "9abffe5c472a1cfeda500342f4cccf43e0e1cba05acc585c6ba3368a8c867af0"
+      },
+      "pass": 47,
+      "fail": 0,
+      "firstIssue": "An adapter-interface test read a sibling unit file from src; corrected the fixture path."
+    },
+    "derivedUnit": {
+      "pass": 14,
+      "fail": 0,
+      "log": "C:/Users/87179/AppData/Local/Temp/ruyi-derived-indexes-09171a09f07b4ae09bef5115d0ff98d3/source-review-expanded-first.log"
+    }
+  },
+  "actualGenerated": {
+    "journalTwoRuns": [
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\checkpoint-generated-first.log",
+        "sha256": "90143602a154e601f49c692d9b82742a85dfd74e04da41d545a3e3f9415f4e00"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\checkpoint-generated-repeat.log",
+        "sha256": "90143602a154e601f49c692d9b82742a85dfd74e04da41d545a3e3f9415f4e00"
+      }
+    ],
+    "memoryBody": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\memory-body-generated-first.log",
+      "sha256": "b3f7e03584e10e5fa89c0aa36c5be026de765531b2985599497581409929fa2e"
+    },
+    "memoryCLI": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\memory-cli-generated-stream-input-fixed.log",
+      "sha256": "4e3b8f9fbf020f958e219827f5562983a047b9f25f42d35c1102aca5fe32018f"
+    },
+    "derived": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\derived-index-generated-first.log",
+      "sha256": "18036ba20f98d55bb4d10678969a41efddab8a6112e15ba034bfe7ad1184b131"
+    },
+    "limits": "Actual Windows DPAPI/local filesystem/generated runtime; Claude/Kimi are local protocol fixture processes, not a live model or complete installed CLI integration. Earlier runs preceded final shared-marker/route-dispatch small fixes; final gate and affected reruns are recorded separately."
+  },
+  "initialFixtureFailures": [
+    "memory E2E used harness.finish rather than done; fixed before running",
+    "Kimi fake omitted requested mode/model advertisements; production refused rather than silently applying unsupported mode",
+    "workflow fake omitted maxNodes and correctly early-returned disabled orchestration",
+    "fake Claude waited for stdin EOF, but workflow keeps stdin open for steering; changed fake to consume first input and complete; hung owned fixture tree explicitly stopped after verifying process lineage"
+  ],
+  "finalGates": {
+    "status": "running",
+    "syntax": {
+      "checked": 1194,
+      "fail": 0,
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\shutdown-syntax-final.log"
+    },
+    "fast": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\shutdown-fast-final.log",
+    "offlineDefaultE2E": "not run;565 default cases pending after remaining privacy integration"
+  },
+  "limits": [
+    "No real user data migration, new encryption enable UI, recovery package or cross-file key-rotation transaction",
+    "Strict CLI/VM isolation and ASR retain their explicit deferral",
+    "Remaining10 families and M3-3/M4 incomplete",
+    "Drafts are saved as small patches plus minimal tests and baseline hashes; none are product wiring"
+  ],
+  "shutdown": {
+    "userRequestedCommitAndPushBefore": "2026-10-23T18:50:00+08:00",
+    "previousVerifiedCommitPushed": "b5ded56d",
+    "branch": "codex/3.1-completion-plan",
+    "checkpoint": "User explicitly requested existing progress committed/pushed before shutdown; final fast runner still running at checkpoint, results to be appended separately."
+  }
+}
