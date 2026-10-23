@@ -275,7 +275,7 @@ async function saveAgentRun(run) {
     // 先乐观清、写失败在 catch 里按计数恢复,则任何一次成功写落盘的都是干净旗标。
     try {
       const runFile = agentRunFile(run.sessionId, run.id);
-      await atomicWriteJson(runFile, snapshot);
+      await agentRunSnapshotStore(run.sessionId, run.id).write(snapshot);
       agentRunDigestWriteSeq += 1;
       agentRunDigestCache.delete(runFile); // digest 摘要缓存:进程内写成功即作废该文件条目(见 listAgentRunDigests 头注)
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
@@ -316,9 +316,9 @@ async function listAgentRuns(sessionId) {
   const out = [];
   for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
     try {
-      const run = safeJsonParse(await fsp.readFile(path.join(dir, file), 'utf8'), null);
+      const run = await readAgentRunSnapshot(sessionId, file.slice(0, -5));
       if (run) out.push(run);
-    } catch { /* skip corrupt/incomplete records */ }
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* skip corrupt/incomplete legacy records */ }
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
@@ -363,17 +363,21 @@ async function listAgentRunDigests(sessionId) {
       const st = await fsp.stat(full);
       const hit = agentRunDigestCache.get(full);
       if (hit && hit.mtimeMs === st.mtimeMs && hit.ctimeMs === st.ctimeMs && hit.size === st.size && hit.ino === st.ino) {
-        agentRunDigestStats.hits += 1;
-        if (hit.shadow) out.push(hit.shadow);
-        continue;
+        // Plaintext keeps its zero-key cache path. Sealed cache entries require the current key identity.
+        if (!hit.authStamp || hit.authStamp === (await agentRunSnapshotCredential()).stamp) {
+          agentRunDigestStats.hits += 1;
+          if (hit.shadow) out.push(hit.shadow);
+          continue;
+        }
       }
       agentRunDigestStats.reads += 1;
-      const run = safeJsonParse(await fsp.readFile(full, 'utf8'), null);
+      const metadata = {};
+      const run = await readAgentRunSnapshot(sessionId, file.slice(0, -5), metadata);
       const shadow = run ? agentRunDigestShadow(run) : null;   // 坏/空快照也记一笔(同戳不再重读),与 listAgentRuns 一样跳过
       if (agentRunDigestCache.size >= AGENT_RUN_DIGEST_CACHE_MAX && !agentRunDigestCache.has(full)) agentRunDigestCache.clear();
-      if (writeSeq === agentRunDigestWriteSeq) agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size, ino: st.ino, shadow });
+      if (writeSeq === agentRunDigestWriteSeq) agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size, ino: st.ino, shadow, authStamp: metadata.authStamp || '' });
       if (shadow) out.push(shadow);
-    } catch { agentRunDigestCache.delete(full); /* skip corrupt/incomplete records */ }
+    } catch (error) { agentRunDigestCache.delete(full); if (String(error && error.code || '').startsWith('work_data')) throw error; /* skip corrupt/incomplete legacy records */ }
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
@@ -510,7 +514,14 @@ async function autoResumeInterruptedRuns() {
   // 并发不会串起引擎进程尖峰(顺序循环的启动本来也就是背靠背)。
   const workItems = [];
   await mapPool(sessionDirs.filter(d => d.isDirectory() && safeSessionId(d.name)), 4, async dirent => {
-    const runs = await listAgentRuns(dirent.name).catch(() => []);
+    let runs;
+    try { runs = await listAgentRuns(dirent.name); }
+    catch (error) {
+      if (String(error && error.code || '').startsWith('work_data')) {
+        try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId: dirent.name, reason: error.code }); } catch { /* Boot diagnostic only. */ }
+      }
+      return; // Unknown authority never produces a resume work item.
+    }
     for (const run of runs) if (run && run.status === 'interrupted') workItems.push({ sessionId: dirent.name, run });
   });
   await mapPool(workItems, 4, async ({ sessionId, run }) => {
@@ -547,7 +558,14 @@ async function markInterruptedAgentRuns() {
   // 第40波:与 autoResumeInterruptedRuns 同款并发化 —— 先并发收集 (sessionId, run) 工作项再池化处理。
   const workItems = [];
   await mapPool(sessionDirs.filter(d => d.isDirectory() && safeSessionId(d.name)), 4, async dirent => {
-    const runs = await listAgentRuns(dirent.name).catch(() => []);
+    let runs;
+    try { runs = await listAgentRuns(dirent.name); }
+    catch (error) {
+      if (String(error && error.code || '').startsWith('work_data')) {
+        try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId: dirent.name, reason: error.code }); } catch { /* Boot diagnostic only. */ }
+      }
+      return; // Do not interrupt, settle pool proposals or rewrite an unreadable session.
+    }
     for (const run of runs) if (run) workItems.push(run);
   });
   // 71b: paused run 的 proposed 池提案在 71b 前没有 Intervention 记录 —— 收集后统一对账补登记(见 mapPool 后)。
@@ -2653,10 +2671,10 @@ async function readAgentRunRecord(sessionId, runId) {
     return { run: live.run, live: true };
   }
   try {
-    const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, rid), 'utf8'), null);
+    const run = await readAgentRunSnapshot(sessionId, rid);
     if (run && run.sessionId === sessionId && EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
     return run && run.sessionId === sessionId ? { run, live: false } : null;
-  } catch { return null; }
+  } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; }
 }
 // agent_result:有界切片。offset/maxChars 分页;单节点 run 可省 nodeId。
 async function agentRunResultSlice({ sessionId, runId, nodeId, maxChars, offset }) {

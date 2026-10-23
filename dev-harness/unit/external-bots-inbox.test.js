@@ -1,25 +1,44 @@
 'use strict';
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
+const os = require('node:os');
+const fsp = require('node:fs/promises');
+const { loadWorkDataChunks } = require('../lib/work-data-chunks-fixture');
+const temp = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(temp, 'ruyi-external-work-data-unit-'));
+const fixtureKeys = [];
+after(() => {
+  fixtureKeys.forEach(key => key.fill(0));
+  assert.equal(path.dirname(root), temp); assert.ok(path.basename(root).startsWith('ruyi-external-work-data-unit-'));
+  fs.rmSync(root, { recursive: true, force: true });
+});
+const until = async predicate => {
+  const end = Date.now() + 10000;
+  while (!predicate()) { if (Date.now() > end) throw new Error('fixture timeout'); await new Promise(resolve => setTimeout(resolve, 1)); }
+};
 const { constBlock, functionBlock } = require('../lib/source-slice');
 const src = file => fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/src', file), 'utf8');
 const plain = value => JSON.parse(JSON.stringify(value));
-function fixture() {
-  let disk, writeFailure = false, writeGate = null, writes = 0, verified = 0, runs = 0, sends = 0, modelGate = null, modelError = null, sendGate = null, sendResult = { status: 'sent', messageId: 'platform_reply' };
+function fixture(options = {}) {
+  const dir = fs.mkdtempSync(path.join(root, 'ledger-')), file = path.join(dir, 'external-bots', 'state-v1.json');
+  const fx = loadWorkDataChunks(), key = options.key || crypto.randomBytes(32);
+  fixtureKeys.push(key);
+  const storage = { enabled: options.enabled === true, missing: false, unlocks: 0, readError: null };
+  fx.store.Hooks.keys = { unlock: async () => { storage.unlocks++; if (storage.missing) throw Object.assign(new Error('missing'), { code: 'work_data_key.absent' }); return key; }, instance: async () => 'external-bots-unit' };
+  let writeFailure = false, writeGate = null, writes = 0, verified = 0, runs = 0, sends = 0, modelGate = null, modelError = null, sendGate = null, sendResult = { status: 'sent', messageId: 'platform_reply' };
   const envReads = []; const localCredentials = new Map(); let credentialRevision = 0, clockOffset = 0;
   class FixtureDate extends Date { static now() { return Date.now() + clockOffset; } }
-  const missing = () => Object.assign(new Error('missing'), { code: 'ENOENT' });
-  const read = () => { if (disk === undefined) throw missing(); return disk; };
+  const read = () => fs.readFileSync(file, 'utf8');
   const context = vm.createContext({ Buffer, TextDecoder, URL, AbortController, Date: FixtureDate, setTimeout, clearTimeout, crypto, path,
-    fs: { readFileSync: read }, fsp: { readFile: async () => read(), stat: async () => ({ size: Buffer.byteLength(read()) }), mkdir: async () => {} },
+    fs, fsp: { ...fsp, stat: async (...args) => { if (storage.readError) throw storage.readError; return fsp.stat(...args); } },
+    WorkDataStore: fx.store, readConfig: async () => ({ workDataEncryptionV1: storage.enabled }),
     process: { env: new Proxy({ RUYI_BOT_QQ: 'TEST_ONLY_FAKE_KEY' }, { get(object, key) { envReads.push(key); assert.match(key, /^RUYI_BOT_/); return object[key]; } }) },
-    paths: { data: '/isolated' }, OVERLAY_ID: 'epoch_' + crypto.randomBytes(6).toString('hex'), ExternalBotHooks: {}, nowIso: () => new Date().toISOString(), makeId: prefix => prefix + '_' + crypto.randomBytes(8).toString('hex'),
+    paths: { data: dir }, OVERLAY_ID: 'epoch_' + crypto.randomBytes(6).toString('hex'), ExternalBotHooks: {}, nowIso: () => new Date().toISOString(), makeId: prefix => prefix + '_' + crypto.randomBytes(8).toString('hex'),
     STEWARD_SESSION_ID: 'fixture-steward', PrivacyGateway: { withPolicy: (_scope, work) => work(), disclosurePolicyGuard: () => () => {} },
-    atomicWriteJson: async (_file, value) => { writes++; if (writeGate) await writeGate; if (writeFailure) throw new Error('disk full'); disk = JSON.stringify(value); },
+    atomicWriteJson: async (...args) => { writes++; if (writeGate) await writeGate; if (writeFailure) throw new Error('disk full'); return fx.atomicWriteJson(...args); },
     ExternalChannelProtocols: { verifyAndNormalize(_platform, _connection, _headers, raw) { verified++; return { kind: 'message', message: JSON.parse(raw.toString('utf8')) }; } },
     runStewardTurn: async input => { await context.ExternalBotHooks.validateActor(input.externalActor); assert.equal(input.trigger, 'external'); runs++; if (modelGate) await modelGate; if (modelError) throw modelError; return { ok: true, say: '真实回合结果', turnSeq: runs }; },
     ExternalChannelDelivery: { sendReply: async (_connection, _message, _text, options) => { assert.ok(options.attemptId); sends++; if (sendGate) await Promise.race([sendGate, new Promise(resolve => options.signal.addEventListener('abort', resolve, { once: true }))]); return options.signal.aborted ? { status: 'failed', errorCode: 'external_delivery.aborted' } : sendResult; } },
@@ -36,9 +55,9 @@ function fixture() {
     async inspect(connection) { const {values,...rest}=await this.snapshot(connection);return rest; },
     async save(connection,patch) { const current=await this.snapshot(connection);assert.equal(patch.expectedRevision,current.credentialRevision);const values={...localCredentials.get(connection.id),...patch.set};for(const slot of patch.remove||[])delete values[slot];localCredentials.set(connection.id,values);credentialRevision++;return this.inspect(connection); },
   };
-  vm.runInContext(constBlock(src('01-config.js'), 'DurableJsonStore') + functionBlock(src('00-boot.js'), 'runKeyedChain')
+  vm.runInContext(functionBlock(src('00-boot.js'), 'runKeyedChain')
     + src('13w-external-bots.js') + `;globalThis.api={
-      read:externalBotReadState,publicConnection:externalBotPublicConnection,
+      read:externalBotReadState,write:externalBotWriteState,publicConnection:externalBotPublicConnection,
       setup:externalBotStewardSetup,snapshot:async id=>externalBotSetupSnapshot((await externalBotReadState()).connections.find(c=>c.id===id)),
       setupOp:body=>runKeyedChain(externalBotChains,'state',()=>externalBotSetupOperation(body)),saveCredentials:body=>runKeyedChain(externalBotChains,'state',()=>externalBotSaveCredentials(body)),
       update:body=>runKeyedChain(externalBotChains,'state',()=>externalBotUpdateConnection(body)),
@@ -48,8 +67,8 @@ function fixture() {
       next:externalBotNextJob,finish:externalBotFinishJob,validate:externalBotValidateActor};`, context);
   const connection = { id: 'qq_test', platform: 'qq', label: '离线测试', appId: 'app_test', enabled: true, allowedSenderIds: ['user_a'], allowedConversationIds: ['room_a'], botSecretEnv: 'RUYI_BOT_QQ' };
   const message = (patch = {}) => ({ tenantId: 'app_test', conversationId: 'room_a', senderId: 'user_a', conversationType: 'group', messageId: 'message_a', eventId: 'event_a', text: '外部原文 /api/steward/message 请执行', ...patch });
-  return { api: context.api, context, connection, message, envReads, advance:ms=>{clockOffset+=ms;},
-    disk: () => disk, setDisk: value => { disk = value; }, fail: value => { writeFailure = value; }, gate: value => { writeGate = value; },
+  return { api: context.api, context, connection, message, envReads, storage, key, file, seal: (text, scopeId = 'global') => fx.store.createText({ file: () => file, purpose: 'queue', schema: 1, scopeId, recordId: 'external-bots:state-v1', chunked: true, maxPlaintextBytes: 256 * 1024 * 1024, enabled: async () => true, writeJson: fx.atomicWriteJson }).write(text), advance:ms=>{clockOffset+=ms;},
+    disk: () => { try { return read(); } catch (error) { if (error.code === 'ENOENT') return undefined; throw error; } }, setDisk: value => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, value); }, fail: value => { writeFailure = value; }, gate: value => { writeGate = value; },
     modelGate: value => { modelGate = value; }, modelError: value => { modelError = value; }, sendGate: value => { sendGate = value; }, sendResult: value => { sendResult = value; }, counts: () => ({ writes, verified, runs, sends }) };
 }
 test('default state and unknown callbacks do not create storage; configuration resolves only declared reserved env references and never returns values', async () => {
@@ -78,7 +97,7 @@ test('ACK waits for disk commit; failed writes and corrupt/schema-less ledgers f
   assert.equal((await f.api.read()).items.length, 0); f.fail(false);
   let release; f.gate(new Promise(resolve => { release = resolve; })); let settled = false;
   const accepted = f.api.accept(f.message()).then(() => { settled = true; });
-  await new Promise(resolve => setImmediate(resolve)); assert.equal(settled, false); assert.equal(JSON.parse(f.disk()).items.length, 0);
+  await until(() => f.counts().writes === 2); assert.equal(settled, false); assert.equal(JSON.parse(f.disk()).items.length, 0);
   release(); await accepted; assert.equal((await f.api.read()).items.length, 1);
   for (const corrupt of ['{', '{"connections":[],"items":[]}', '{"schema":99,"connections":[],"items":[],"retiredConnectionIds":[]}']) {
     f.setDisk(corrupt); await assert.rejects(f.api.read(), { apiCode: 'external_channel.storage_unavailable' }); assert.equal(f.disk(), corrupt);
@@ -123,7 +142,7 @@ test('control requires explicit local confirmation, stable id retries and opaque
 test('control admission commits running before invocation, persists result before send and never reruns duplicate deliveries', async () => {
   const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true });
   await f.api.accept(f.message()); let release; f.modelGate(new Promise(resolve => { release = resolve; }));
-  const running = f.api.drain(); await new Promise(resolve => setImmediate(resolve));
+  const running = f.api.drain(); await until(() => f.counts().runs === 1);
   assert.equal((await f.api.read()).items[0].execution.status, 'running'); assert.equal(f.counts().runs, 1); assert.equal(f.counts().sends, 0);
   await f.api.accept(f.message({ eventId: 'retry_while_running' })); release(); await running;
   const item = (await f.api.read()).items[0]; assert.equal(item.execution.status, 'completed'); assert.equal(item.delivery.status, 'sent');
@@ -150,14 +169,14 @@ test('write failure blocks running side effects, revoked queued work never invok
 test('a failed completion write projects unknown with a visible worker error and next recovery settles unknown without re-execution', async () => {
   const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
   let release; f.modelGate(new Promise(resolve => { release = resolve; })); const running = f.api.drain();
-  await new Promise(resolve => setImmediate(resolve)); f.fail(true); release(); await running;
+  await until(() => f.counts().runs === 1); f.fail(true); release(); await running;
   const raw = (await f.api.read()).items[0]; assert.equal(raw.execution.status, 'running');
   assert.equal(f.api.publicItem(raw).execution.status, 'unknown'); assert.equal(f.api.workerError(), 'external_channel.storage_unavailable');
   f.fail(false); await f.api.drain(); assert.equal((await f.api.read()).items[0].execution.status, 'unknown'); assert.equal(f.counts().runs, 1); assert.equal(f.counts().sends, 0);
 });
 test('disable aborts an in-flight delivery and retains the typed delivery error rather than claiming an unknown success', async () => {
   const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
-  f.sendGate(new Promise(() => {})); const pending = f.api.drain(); await new Promise(resolve => setImmediate(resolve));
+  f.sendGate(new Promise(() => {})); const pending = f.api.drain(); await until(() => f.counts().sends === 1);
   assert.equal(f.counts().sends, 1); await f.api.update({ op: 'disable', id: 'qq_test' }); await pending;
   const item = (await f.api.read()).items[0]; assert.equal(item.delivery.status, 'failed'); assert.equal(item.delivery.errorCode, 'external_delivery.aborted');
 });
@@ -244,4 +263,89 @@ test('outbox capacity refuses oversized projection source without widening state
   const item = (await f.api.read()).items[0]; assert.equal(item.execution.status, 'completed'); assert.equal(item.delivery.status, 'failed');
   assert.equal(item.delivery.errorCode, 'external_delivery.source_limit'); assert.ok(!item.execution.replyText.includes('PRIVATE_PREFIX'));
   assert.ok(Buffer.byteLength(f.disk()) <= f.api.limits.stateBytes);
+});
+
+test('external ledger OFF keeps exact pretty bytes, never needs keys, and only ENOENT defaults', async () => {
+  const f = fixture();
+  assert.equal(f.disk(), undefined); assert.deepEqual(plain(await f.api.read()), { schema: 1, connections: [], items: [], retiredConnectionIds: [] });
+  await f.api.update({ op: 'upsert', connection: f.connection });
+  assert.equal(f.disk(), JSON.stringify(await f.api.read(), null, 2)); assert.equal(f.storage.unlocks, 0);
+  for (const bad of ['null', '[]', '{}', '{', JSON.stringify({ schema: 1, connections: [], items: [], retiredConnectionIds: [], unexpected: true })]) {
+    f.setDisk(bad);
+    await assert.rejects(f.api.read(), { code: 'external_channel.storage_unavailable' });
+    await assert.rejects(f.api.update({ op: 'upsert', connection: f.connection }), { code: 'external_channel.storage_unavailable' });
+    assert.equal(f.disk(), bad);
+  }
+  f.storage.readError = Object.assign(new Error('denied'), { code: 'EACCES' });
+  await assert.rejects(f.api.read(), { code: 'external_channel.storage_unavailable' });
+});
+
+test('turning encryption on resumes existing authority and dedupe without storing callback text in clear', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true });
+  await f.api.accept(f.message()); const old = plain(await f.api.read()); f.storage.enabled = true;
+  assert.deepEqual(plain(await f.api.read()), old); // Reading an old ledger does not migrate it.
+  await f.api.accept(f.message({ messageId: 'message_b', text: 'PRIVATE_CALLBACK_TEXT' }));
+  const bytes = f.disk(), header = JSON.parse(bytes.split('\n')[0]); assert.equal(header.workData, 3); assert.equal(header.purpose, 'queue'); assert.equal(header.manifest.purpose, 'queue'); assert.ok(!bytes.includes('PRIVATE_CALLBACK_TEXT'));
+  const restart = fixture({ key: f.key, enabled: true }); restart.setDisk(bytes);
+  await restart.api.accept(restart.message({ eventId: 'new_delivery_id' }));
+  assert.equal((await restart.api.read()).items.length, 2); assert.equal(restart.counts().writes, 0);
+  const before = restart.disk(); restart.storage.enabled = false;
+  await assert.rejects(restart.api.accept(restart.message({ messageId: 'no_plain_downgrade' })), { code: 'external_channel.storage_unavailable' });
+  assert.equal(restart.disk(), before);
+});
+
+test('missing keys and authenticated invalid state never ACK, execute, send, cache permissions, or overwrite disk', async () => {
+  const f = fixture({ enabled: true }); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true });
+  await f.api.accept(f.message()); const before = f.disk(); f.storage.missing = true;
+  await assert.rejects(f.api.accept(f.message({ messageId: 'while_key_missing' })), { code: 'external_channel.storage_unavailable' });
+  await assert.rejects(f.api.update({ op: 'disable', id: 'qq_test' }), { code: 'external_channel.storage_unavailable' });
+  await f.api.drain(); assert.equal(f.counts().runs, 0); assert.equal(f.counts().sends, 0); assert.equal(f.disk(), before);
+  f.storage.missing = false;
+  for (const invalid of [{ schema: 99, connections: [], items: [], retiredConnectionIds: [] }, { schema: 1, connections: [], items: [{}], retiredConnectionIds: [] }]) {
+    f.setDisk(before); await f.seal(JSON.stringify(invalid)); const bad = f.disk();
+    await assert.rejects(f.api.read(), { code: 'external_channel.storage_unavailable' });
+    await assert.rejects(f.api.accept(f.message()), { code: 'external_channel.storage_unavailable' });
+    await f.api.drain(); assert.equal(f.counts().runs, 0); assert.equal(f.counts().sends, 0); assert.equal(f.disk(), bad);
+  }
+  f.setDisk('{}'); await f.seal(JSON.stringify({ schema: 1, connections: [], items: [], retiredConnectionIds: [] }), 'different-owner');
+  await assert.rejects(f.api.read(), { code: 'external_channel.storage_unavailable' });
+});
+
+test('every transaction rereads current disk and corrupt chunks block both new ACK and queued runner admission', async () => {
+  const f = fixture({ enabled: true }); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true });
+  await f.api.accept(f.message()); const bytes = f.disk(); await f.api.read();
+  for (const bad of [bytes.slice(0, -10), bytes.replace(/"ciphertext":"./, '"ciphertext":"!'), '{"workData":3,"manifest":']) {
+    f.setDisk(bad); await assert.rejects(f.api.accept(f.message({ messageId: 'must_not_ack' })), { code: 'external_channel.storage_unavailable' });
+    await f.api.drain(); assert.equal(f.counts().runs, 0); assert.equal(f.counts().sends, 0); assert.equal(f.disk(), bad);
+  }
+  f.setDisk(bytes); const job = await f.api.next(); await f.api.finish(job, { ok: true, say: 'bounded pending reply' });
+  const pending = f.disk(); f.storage.missing = true; await f.api.drain();
+  assert.equal(f.counts().runs, 0); assert.equal(f.counts().sends, 0); assert.equal(f.disk(), pending);
+});
+
+test('40 MiB means legacy plain disk bytes but authenticated compact business bytes, never base64 bytes', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
+  const state = plain(await f.api.read()), base = state.items[0]; state.items = [];
+  for (let i = 0; i < 32; i++) {
+    const item = plain(base); item.id = 'large_item_' + i; item.messageId = 'large_message_' + i;
+    item.sourceKey = JSON.stringify([item.connectionId, item.tenantId, item.conversationId, item.messageId]);
+    item.execution.status = 'completed'; item.execution.replyText = 'x'.repeat(1048576); item.delivery = null; state.items.push(item);
+  }
+  assert.equal(f.api.valid(state), true); assert.ok(Buffer.byteLength(JSON.stringify(state)) < f.api.limits.stateBytes);
+  f.storage.enabled = true; await f.api.write(state);
+  assert.ok(Buffer.byteLength(f.disk()) > f.api.limits.stateBytes); assert.equal((await f.api.read()).items.length, 32);
+  const valid = f.disk();
+  for (let i = 32; i < 41; i++) {
+    const item = plain(base); item.id = 'large_item_' + i; item.messageId = 'large_message_' + i;
+    item.sourceKey = JSON.stringify([item.connectionId, item.tenantId, item.conversationId, item.messageId]);
+    item.execution.status = 'completed'; item.execution.replyText = 'x'.repeat(1048576); item.delivery = null; state.items.push(item);
+  }
+  await assert.rejects(f.api.write(state), { code: 'external_channel.inbox_full' }); assert.equal(f.disk(), valid);
+  await f.seal(JSON.stringify(state)); const oversizeSealed = f.disk();
+  await assert.rejects(f.api.read(), { code: 'external_channel.storage_unavailable' }); assert.equal(f.disk(), oversizeSealed);
+  const initial = JSON.stringify({ schema: 1, connections: [], items: [], retiredConnectionIds: [] });
+  f.storage.enabled = false; f.setDisk(initial + ' '.repeat(f.api.limits.stateBytes)); const oversizedPlain = f.disk(), unlocks = f.storage.unlocks;
+  await assert.rejects(f.api.read(), { code: 'external_channel.storage_unavailable' });
+  await assert.rejects(f.api.update({ op: 'upsert', connection: f.connection }), { code: 'external_channel.storage_unavailable' });
+  assert.equal(f.disk(), oversizedPlain); assert.equal(f.storage.unlocks, unlocks);
 });

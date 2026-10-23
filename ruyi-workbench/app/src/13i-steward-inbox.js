@@ -1254,7 +1254,7 @@ async function stewardCollectEvents() {
 
     // ── ② agent run 事件增量(只看活跃会话里的活跃 run) ──
     if (!active) continue;
-    const runs = await listAgentRuns(sid).catch(() => []);
+const runs = await listAgentRuns(sid).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
     for (const run of runs) {
       const runId = run && safeSessionId(run.id);
       if (!runId) continue;

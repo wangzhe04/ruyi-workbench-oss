@@ -124,6 +124,20 @@ async function pretenderFileStamp(file) {
   } catch { return '-'; }
 }
 
+// Derived run facts may outlive the decrypted object. Cache only their source/key identity;
+// cold reuse first authenticates the underlying snapshots, and warm reads check current credentials.
+const pretenderRunSourceAuth = new Map(); // sessionId -> { sourceStamp, authStamp }
+async function pretenderCheckRunSourceAuth() {
+  const sealed = [...pretenderRunSourceAuth].filter(([, value]) => value.authStamp);
+  if (!sealed.length) return;
+  const stamp = (await agentRunSnapshotCredential()).stamp;
+  for (const [sid, value] of sealed) {
+    if (value.authStamp !== stamp) {
+      pretenderIndexRuntime.dirtySessions.add(sid);
+    }
+  }
+}
+
 async function pretenderSessionSourceStamp(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return '-';
@@ -138,7 +152,21 @@ async function pretenderSessionSourceStamp(sessionId) {
   let files = [];
   try { files = (await fsp.readdir(dir)).filter(f => /^run_[a-f0-9]+\.json$/i.test(f)).sort(); } catch { files = []; }
   for (const file of files) parts.push('r=' + file + ':' + await pretenderFileStamp(path.join(dir, file)));
-  return pretenderHash(parts.join('|'));
+  const sourceStamp = pretenderHash(parts.join('|'));
+  const known = pretenderRunSourceAuth.get(sid);
+  let authStamp = known && known.sourceStamp === sourceStamp ? known.authStamp : null;
+  if (authStamp && authStamp !== (await agentRunSnapshotCredential()).stamp) authStamp = null;
+  if (authStamp === null) {
+    authStamp = '';
+    for (const file of files) {
+      const metadata = {};
+      try { await readAgentRunSnapshot(sid, file.slice(0, -5), metadata); }
+      catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* Legacy IO/shape remains skippable. */ }
+      if (metadata.authStamp) authStamp = metadata.authStamp;
+    }
+    pretenderRunSourceAuth.set(sid, { sourceStamp, authStamp });
+  }
+  return authStamp ? pretenderHash([sourceStamp, authStamp]) : sourceStamp;
 }
 
 // sessions 目录里「有会话头或有 Intervention journal」的会话 id(一次 readdir,不 stat)。
@@ -161,6 +189,7 @@ async function scanPretenderSessionSources() {
   pretenderIndexRuntime.knownMasks = masks;
   for (const sid of [...pretenderIndexRuntime.headMtimes.keys()]) if (!masks.has(sid)) pretenderIndexRuntime.headMtimes.delete(sid);
   const ids = [...masks.keys()].sort();
+  for (const sid of pretenderRunSourceAuth.keys()) if (!masks.has(sid)) pretenderRunSourceAuth.delete(sid);
   const sources = {};
   let cursor = 0;
   const workers = Array.from({ length: Math.min(16, Math.max(1, ids.length)) }, async () => {
@@ -283,7 +312,7 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentI
     inFlight,
     recent: recentIds instanceof Set ? recentIds.has(sid) : false,
   });
-  const runs = carded ? await listAgentRuns(sid).catch(() => []) : [];
+const runs = carded ? await listAgentRuns(sid).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; }) : [];
   const card = carded
     ? await buildMissionCard(head, runs, { interventions: ivMeta.interventions, persistent: true })
     : null;
@@ -514,6 +543,7 @@ function pretenderChangedSourceIds(before, after) {
 }
 
 async function buildOrLoadPretenderIndex() {
+  await pretenderCheckRunSourceAuth();
   const indexFile = pretenderIndexPath();
   const currentDiskStamp = await pretenderFileStamp(indexFile);
   // User deleted/replaced/corrupted the cache while the process was live: discard memory and prove rebuild.
@@ -663,6 +693,10 @@ async function getPretenderProjectionIndexShared() {
   const current = buildOrLoadPretenderIndex();
   pretenderIndexRuntime.building = current;
   try { return await current; }
+  catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) pretenderIndexRuntime.value = null;
+    throw error;
+  }
   finally { if (pretenderIndexRuntime.building === current) pretenderIndexRuntime.building = null; }
 }
 

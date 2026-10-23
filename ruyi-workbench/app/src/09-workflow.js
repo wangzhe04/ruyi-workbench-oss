@@ -1295,7 +1295,8 @@ async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
-  try { run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); } catch { run = null; }
+  try { run = await readAgentRunSnapshot(sessionId, runId); }
+  catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; run = null; }
   if (!run) return { ok: false, error: 'agent run not found' };
   await syncRunEventSeq(run);   // 对抗轮修: 磁盘装载点快进 eventSeq(见 syncRunEventSeq 注释)
   if (interventionKind) bumpRunIntervention(run, interventionKind); // 29c: 冷 resume/retry_node 是人工干预(boot 自动续跑不传,不计)

@@ -801,9 +801,18 @@ async function markInterruptedInterventions() {
     // interrupted/终态 run 的提案由 markInterruptedAgentRuns(boot 先于本函数,13:961)顺手 settle 'expired';
     // 这里只需兜「run 非 paused 但 settle 丢失」(崩溃窗口)与「run 已不存在」的孤儿。paused → 保留 pending(诚实)。
     let poolRuns = null;
+    if (pending.some(iv => iv.type === 'pool')) {
+      try { poolRuns = await listAgentRuns(sessionId); }
+      catch (error) {
+        if (String(error && error.code || '').startsWith('work_data')) {
+          try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId, reason: error.code }); } catch { /* Boot remains available; authority stays untouched. */ }
+          continue;
+        }
+        poolRuns = [];
+      }
+    }
     for (const iv of pending) {
       if (iv.type === 'pool') {
-        if (!poolRuns) poolRuns = await listAgentRuns(sessionId).catch(() => []);
         const run = poolRuns.find(r => r && r.id === iv.runId);
         if (run && run.status === 'paused') continue; // 恢复后可决策,保留 pending
       }
@@ -3067,7 +3076,7 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   }
 
   let cpEntries = await journalReadIndex(sessionId).catch(() => []);
-  let runs = await listAgentRuns(sessionId).catch(() => []);
+let runs = await listAgentRuns(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
   let controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
   const capability = controls.actions[action];
   if (!capability || !capability.enabled) return missionControlFailure(capability && capability.reason || 'unavailable');
@@ -3181,7 +3190,7 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } }
 
   cpEntries = await journalReadIndex(sessionId).catch(() => []);
-  runs = await listAgentRuns(sessionId).catch(() => []);
+runs = await listAgentRuns(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
   controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
   return { status: 200, body: { ok: true, action, mission: session.mission, controls, requiresTurn, stoppedRuns, ...(rollback ? { rollback } : {}) } };
 }

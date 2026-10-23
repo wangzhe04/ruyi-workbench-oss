@@ -13,7 +13,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 
 Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v2 manifest and chunk envelopes. See [93 section 11](../optimization-plan/93-m3-1-encrypted-storage-freeze.md#11-m3-2-大记录格式补充2026-10-23); the frozen v2 crypto envelope is unchanged.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits`, `agent-run-snapshot`, `web-cache`, `external-bots` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -45,16 +45,16 @@ Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v
 | steward-cursor | required | `queue` | memory-queue | wired | — (nothing readable) | cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe |
 | steward-decisions | required | `queue` | memory-queue | pending | — (nothing readable) | decisions and rationales quote the triggering content |
 | work-data-key-v1 | excluded | — | not-migrated | pending | — (nothing readable) | the key envelope itself: a DPAPI-wrapped master with no user content; every work-data record needs it unlocked first, so it cannot live inside the envelope it protects |
-| external-bots | required | `queue` | memory-queue | pending | `connectionId` (route a delivery to its connection) | labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file |
+| external-bots | required | `queue` | memory-queue | wired | `connectionId` (route a delivery to its connection) | labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file |
 | scheduler-tasks | required | `task` | tasks | pending | `taskId` (occurrence routing) | templates embed prompts and targets |
 | scheduler-fires | required | `task` | tasks | pending | `taskId` (join to the task); `occurrenceId` (idempotency key across restarts) | fire records quote the rendered prompt and result status |
-| agent-run-snapshot | required | `task` | tasks | pending | `sessionId` (attach to the session); `runId` (idempotency key) | run goals and step results are user content |
+| agent-run-snapshot | required | `task` | tasks | wired | `sessionId` (attach to the session); `runId` (idempotency key) | run goals and step results are user content |
 | agent-run-events | required | `task` | tasks | pending | `sessionId` (attach to the session); `runId` (idempotency key) | event stream replays tool input/output |
 | background-job-ledger | required | `task` | tasks | pending | `sessionId` (attach to the session); `seq` (append ordering only) | job output and exit detail |
 | personal-workflows | required | `workflow` | tasks | wired | `workflowId` (workflow identity) | workflow steps embed prompts and paths |
 | playbooks | required | `workflow` | tasks | wired | `playbookId` (playbook identity) | playbook bodies embed prompts and examples |
 | session-search-index | required | `search-index` | index-cache | pending | `sessionId` (group rows per session); `version` (rebuild decision without decrypting every row) | derived text units are a plaintext side channel for sealed bodies |
-| web-cache | required | `cache` | index-cache | pending | `fetchedAt` (cache freshness only, no page text) | URLs and page bodies are sensitive; only a hash key and a timestamp stay readable |
+| web-cache | required | `cache` | index-cache | wired | `fetchedAt` (cache freshness only, no page text) | URLs and page bodies are sensitive; only a hash key and a timestamp stay readable |
 | proxy-models-cache | required | `cache` | index-cache | pending | `fetchedAt` (cache freshness only, no page text) | model list is provider metadata but can embed account-scoped ids |
 | engine-transcript-index | required | `cache` | index-cache | wired | `sessionId` (join to the session) | transcript paths and titles reveal engine sessions |
 | audit-log | required | `audit` | logs | pending | `at` (rotation and ordering); `kind` (routing/classification without decrypting) | event detail carries tool names, commands and paths |

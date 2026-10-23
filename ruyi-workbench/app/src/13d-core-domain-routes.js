@@ -1011,7 +1011,7 @@ async function buildMissionAggregateRows(options = {}) {
     return { path: p, name: known.name, ruyiOwned: known.ruyiOwned };
   };
   const overlayAt = nowIso();   // 一次装配只取一次「叠加时刻」:每行各取一次是 2000 次 Date + toISOString,而它们本就是同一个请求
-  const index = await getPretenderProjectionIndex().catch(() => null);
+  const index = await getPretenderProjectionIndex().catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; });
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
   const metas = await listSessions().catch(() => []);          // 管家会话已在 listSessions 里滤掉
   const containers = await listMissionContainers().catch(() => []);
@@ -1428,7 +1428,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     if (etag && pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     const session = await loadSession(sessionId);
     if (!session) return send(res, apiSessionNotFound());
-    const runs = await listAgentRuns(sessionId).catch(() => []);
+const runs = await listAgentRuns(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
 
     // 验收投影(124-P1):里程碑计数与 items 形状一个字不动,另带「这条是谁判的」四态、机器检查的
     // 实情(没跑过 / 最近一次没通过 —— J08)、事项容器那一套(人工复核)与「有没有账本」。判据单点
@@ -1776,7 +1776,8 @@ async function decideIntervention(command = {}) {
         if (live.run.sessionId !== missionId) return { ok: false, reason: 'not_found' };
         runObj = live.run;
       } else {
-        try { runObj = safeJsonParse(await fsp.readFile(agentRunFile(missionId, runId), 'utf8'), null); } catch {}
+        try { runObj = await readAgentRunSnapshot(missionId, runId); }
+        catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; }
         if (!runObj || runObj.sessionId !== missionId) return { ok: false, reason: 'run_not_found', runId, message: 'run is not found' };
       }
       const patch = (Array.isArray(runObj.replanPatches) ? runObj.replanPatches : []).find(p => p && String(p.id) === interventionId);
@@ -1790,7 +1791,8 @@ async function decideIntervention(command = {}) {
     const live = activeAgentRuns.get(runId);
     if (!live || !live.run || live.closing) {
       let persisted = null;
-      try { persisted = safeJsonParse(await fsp.readFile(agentRunFile(missionId, runId), 'utf8'), null); } catch {}
+      try { persisted = await readAgentRunSnapshot(missionId, runId); }
+      catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; }
       const reason = persisted && persisted.status === 'paused' ? 'run_paused' : 'run_not_live';
       return { ok: false, reason, runId, message: reason === 'run_paused' ? 'run is paused; resume it before deciding' : 'run is not live' };
     }
@@ -1944,6 +1946,7 @@ async function decideIntervention(command = {}) {
       },
     );
   } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
     const message = String(error && error.message || error);
     return interventionCommandFailure('execution_failed', 500, {}, message);
   }
@@ -2573,7 +2576,10 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     if (action === 'apply_isolation') {
       if (live) return send(res, json({ ok: false, error: '请先等待当前运行结束' }, 409));
       const nodeId = String(body.nodeId || '').trim();
-      const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8').catch(() => ''), null);
+      const run = await readAgentRunSnapshot(sessionId, runId).catch(error => {
+        if (String(error && error.code || '').startsWith('work_data')) throw error;
+        return null;
+      });
       if (!run || run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
       const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e) }));
       return send(res, json(applied, applied.ok ? 200 : 409));
@@ -2615,7 +2621,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     if (activeAgentRuns.has(runId)) return send(res, json({ ok: false, error: '运行中的工作流不能删除' }, 409));
     try {
       const file = agentRunFile(sessionId, runId);
-      const run = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+      const run = await readAgentRunSnapshot(sessionId, runId);
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
       await fsp.unlink(file);
       agentRunDigestWriteSeq += 1;
@@ -2624,7 +2630,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});
       await fsp.unlink(agentRunEventsFile(sessionId, runId) + '.gz').catch(() => {}); // v1.9 数据管家: 归档压缩变体一并删
-    } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
     await bumpMissionChangeSeq(sessionId, {
       type: 'run_deleted', cursor: { runId }, detail: { runId },
     });
@@ -2645,11 +2651,11 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       return send(res, json({ ok: true, run: { ...liveOne.run, live: true, paused: !!liveOne.paused } }));
     }
     try {
-      const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
+      const run = await readAgentRunSnapshot(sessionId, runId);
       if (!run) throw new Error('invalid run');
       if (EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
       return send(res, json({ ok: true, run }));
-    } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
   }
   return false;
 }

@@ -4150,20 +4150,47 @@ function webCachePath(url) {
   const h = crypto.createHash('sha256').update(String(url)).digest('hex');
   return path.join(paths.webcache, `${h}.json`);
 }
+function webCacheStore(url) {
+  const address = String(url), file = webCachePath(address);
+  return WorkDataStore.createText({
+    file: () => file, purpose: 'cache', schema: 1, scopeId: 'global',
+    recordId: 'web-cache:' + path.basename(file, '.json'),
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    validateSealedText: cacheText => {
+      const entry = JSON.parse(cacheText);
+      return !!entry && typeof entry === 'object' && !Array.isArray(entry)
+        && entry.url === address && typeof entry.text === 'string';
+    },
+  });
+}
 async function readWebCache(url) {
   try {
-    const raw = await fsp.readFile(webCachePath(url), 'utf8');
+    const raw = await webCacheStore(url).read();
     const j = JSON.parse(raw);
     if (j && typeof j === 'object' && typeof j.text === 'string') return j;
-  } catch { /* miss */ }
+  } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    // Only legacy plaintext and ordinary I/O retain the previous cache-miss contract.
+  }
   return null;
 }
 async function writeWebCache(entry) {
   try {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)
+      || typeof entry.url !== 'string' || typeof entry.text !== 'string') return;
     await fsp.mkdir(paths.webcache, { recursive: true });
-    await atomicWriteJson(webCachePath(entry.url), JSON.stringify(entry));   // 25.1 收编
+    await webCacheStore(entry.url).write(JSON.stringify(entry));
     await evictWebCacheOverCap();
-  } catch { /* best-effort cache write; never fail the fetch on a cache error */ }
+  } catch (error) {
+    // A cache failure must not discard a successfully fetched page. The store still refuses any
+    // plaintext downgrade/unauthenticated overwrite; do not prune other entries after a failed save.
+    if (String(error && error.code || '').startsWith('work_data')) {
+      try { logEvent({ kind: 'web_cache_write_failed', reason: error.code }); } catch { /* diagnostics only */ }
+    }
+  }
 }
 // 缓存条目现在存完整抽取文本(既有下载硬界内,重定向后还有第二份),没有上限会无限长。这里是【硬兜底】:超过 WEB_CACHE_HARD_MAX_ENTRIES
 // (WCW_WEBCACHE_HARD_MAX 可覆写,测试缝)条就按 mtime 删最旧的;用户配的 storagePolicy.webcacheMaxEntries(可更小)仍由 storageSweep 管。

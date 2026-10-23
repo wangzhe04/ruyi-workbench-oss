@@ -547,22 +547,70 @@ function externalBotValidState(state) {
     && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
     && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length;
 }
-const externalBotStore = DurableJsonStore.create({
-  id: 'external-bots', file: () => path.join(paths.data, 'external-bots', 'state-v1.json'), schemaVersion: 1,
-  defaultValue: () => ({ schema: 1, connections: [], items: [], retiredConnectionIds: [] }), cache: false, quarantine: false, strictRead: true,
-  validate: externalBotValidState,
-});
+// This authority/dedupe ledger never caches or quarantines. Only a missing file is an initial state.
+// The 40 MiB business cap measures compact JSON; the old plaintext read cap still measures disk bytes.
+const externalBotStore = (() => {
+  const filePath = () => path.join(paths.data, 'external-bots', 'state-v1.json');
+  const initial = () => ({ schema: 1, connections: [], items: [], retiredConnectionIds: [] });
+  const parse = (text, sealed) => {
+    const value = JSON.parse(text);
+    if (!value || typeof value !== 'object' || Array.isArray(value) || !externalBotValidState(value)
+      || (sealed && Buffer.byteLength(JSON.stringify(value), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes)) throw new Error('invalid external bot ledger');
+    return value;
+  };
+  const textStore = onSealed => WorkDataStore.createText({
+    file: filePath, purpose: 'queue', schema: 1, scopeId: 'global', recordId: 'external-bots:state-v1',
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
+    writeJson: atomicWriteJson,
+    validateSealedText: text => { const value = parse(text, true); if (onSealed) onSealed(value); return true; },
+  });
+  async function read() {
+    const stat = await fsp.stat(filePath()).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+    if (!stat) return initial();
+    const oversized = stat.size > EXTERNAL_BOT_LIMITS.stateBytes;
+    // Only chunks-v1 can legitimately exceed the old disk cap. Inspect a bounded complete first
+    // line; a nested marker in a huge plain business value must not bypass the legacy read limit.
+    if (oversized) {
+      const handle = await fsp.open(filePath(), 'r');
+      try {
+        const buffer = Buffer.alloc(16 * 1024 + 1); let used = 0;
+        while (used < buffer.length) {
+          const { bytesRead } = await handle.read(buffer, used, buffer.length - used, null);
+          if (!bytesRead) break;
+          used += bytesRead;
+          if (buffer.subarray(0, used).includes(10)) break;
+        }
+        const end = buffer.subarray(0, used).indexOf(10);
+        if (end < 0 || end > 16 * 1024 || JSON.parse(buffer.subarray(0, end).toString('utf8'))?.workData !== 3) throw new Error('oversized plaintext ledger');
+      } finally { await handle.close(); }
+    }
+    let sealedValue;
+    let text;
+    try { text = await textStore(value => { sealedValue = value; }).read(); }
+    catch (error) { if (error.code === 'ENOENT') return initial(); throw error; }
+    if (sealedValue !== undefined) return sealedValue;
+    if (oversized) throw new Error('oversized plaintext ledger');
+    return parse(text, false);
+  }
+  async function write(value) {
+    // Match DurableJsonStore's strict schema check, JSON snapshot and pretty plaintext bytes.
+    const snapshot = parse(JSON.stringify(value), true);
+    await read(); // Never overwrite a bad legacy ledger, even when sealing is currently disabled.
+    await textStore().write(JSON.stringify(snapshot, null, 2));
+    return snapshot;
+  }
+  return Object.freeze({ filePath, read, write });
+})();
 async function externalBotReadState() {
-  try {
-    const stat = await fsp.stat(externalBotStore.filePath()).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
-    if (stat && stat.size > EXTERNAL_BOT_LIMITS.stateBytes) throw new Error('oversized state');
-    return await externalBotStore.read();
-  } catch { throw externalBotError('external_channel.storage_unavailable', 503); }
+  try { return await externalBotStore.read(); }
+  catch { throw externalBotError('external_channel.storage_unavailable', 503); }
 }
 async function externalBotWriteState(state) {
   if (Buffer.byteLength(JSON.stringify(state), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes) throw externalBotError('external_channel.inbox_full', 503);
   try { await externalBotStore.write(state); }
-  catch { externalBotStore.invalidate(); throw externalBotError('external_channel.storage_unavailable', 503); }
+  catch { throw externalBotError('external_channel.storage_unavailable', 503); }
 }
 async function externalBotReadBody(req) {
   const declared = Number(req.headers['content-length']);

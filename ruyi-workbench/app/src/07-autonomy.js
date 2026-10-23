@@ -2132,6 +2132,47 @@ async function drainSteerQueue(reg, session, onEvent) {
 // config.permissionMode, so an UN-approved plan-mode turn still hard-blocks its sub-agents' edit/exec tools.
 function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionId(sessionId)); }
 function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
+// Snapshot identity is anchored to the containing session and filename, never to untrusted JSON.
+// A per-operation credential snapshot also makes digest-cache authentication independent of key rotation.
+async function agentRunSnapshotCredential(copyKey = false) {
+  const keys = WorkDataStore.requireKeys();
+  const unlockedKey = await keys.unlock(), key = copyKey ? Buffer.from(unlockedKey) : unlockedKey;
+  try {
+    const instanceId = await keys.instance();
+    return { key, instanceId, stamp: String(instanceId) + ':' + crypto.createHash('sha256').update(key).digest('hex') };
+  } catch (error) { if (copyKey) key.fill(0); throw error; }
+}
+function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
+  const sid = safeSessionId(sessionId), rid = safeSessionId(runId);
+  const operate = async (method, input) => {
+    let credential;
+    const resolveCredential = () => credential || (credential = agentRunSnapshotCredential(true).then(value => {
+      metadata.authStamp = value.stamp;
+      return value;
+    }));
+    const store = WorkDataStore.createText({
+      file: () => agentRunFile(sid, rid), purpose: 'task', schema: 1,
+      scopeId: sid, recordId: 'agent-run:' + rid,
+      chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+      keys: { unlock: async () => (await resolveCredential()).key, instance: async () => (await resolveCredential()).instanceId },
+      enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
+      writeJson: atomicWriteJson,
+      validateSealedText: snapshotText => {
+        const run = safeJsonParse(snapshotText, null);
+        return !!run && typeof run === 'object' && !Array.isArray(run)
+          && run.id === rid && run.sessionId === sid && Array.isArray(run.nodes);
+      },
+    });
+    try { return await store[method](input); }
+    finally { if (credential) await credential.then(value => value.key.fill(0), () => {}); }
+  };
+  return Object.freeze({ read: () => operate('read'), write: snapshotText => operate('write', snapshotText), filePath: () => agentRunFile(sid, rid) });
+}
+async function readAgentRunSnapshot(sessionId, runId, metadata = {}) {
+  return safeJsonParse(await agentRunSnapshotStore(sessionId, runId, metadata).read(), null);
+}
+// Storage housekeeping loads before autonomy. Use the existing late hook instead of a forward edge.
+EventStreamHooks.readAgentRunSnapshot = readAgentRunSnapshot;
 const agentRunWriteChains = new Map();
 const activeAgentRuns = new Map(); // runId -> { run, ctrl, paused, stopRequested, resumeWaiters, steerQueues }
 // 第46波46e(双冷 resume 窄窗修复):resume「在飞」标记。activeAgentRuns 只在 runtime 构造好才注册,

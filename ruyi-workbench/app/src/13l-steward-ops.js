@@ -46,7 +46,7 @@ async function stewardImplRunsStatus(args, ctx, config) {
   let sessionIds = [];
   if (explicit) sessionIds = [explicit];
   else {
-    const index = await getPretenderProjectionIndex().catch(() => null);
+    const index = await getPretenderProjectionIndex().catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; });
     sessionIds = ((index && index.sessions) || []).filter(row => row.card).map(row => row.sessionId);
   }
   const runs = [];
@@ -54,7 +54,7 @@ async function stewardImplRunsStatus(args, ctx, config) {
     if (runs.length >= STEWARD_RUNS_MAX) break;
     const head = await stewardReadSessionHead(sid);
     if (stewardRawKind(head) === 'steward') continue;
-    for (const run of await listAgentRuns(sid).catch(() => [])) {
+for (const run of await listAgentRuns(sid).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; })) {
       if (runs.length >= STEWARD_RUNS_MAX) break;
       const live = activeAgentRuns.get(run.id);
       const mem = live && live.run ? live.run : run;
@@ -506,19 +506,19 @@ const STEWARD_RUN_ACTION_KIND = Object.freeze({ resume: 'failed', retry_node: 'f
 // 它被停没停 -> stewardStoppedTarget 只看 head 那一半,不凭空拦)。执行序上这道闸排在分级【之前】,
 // 拦下了就不会再读第二次。
 async function stewardReadRunSnapshot(sessionId, runId) {
-  try { return safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); }
-  catch { return null; }
+  try { return await readAgentRunSnapshot(sessionId, runId); }
+  catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; }
 }
 async function stewardRunResumeTier(sessionId, runId, config) {
-  let raw = null;
+  let run = null;
   try {
-    raw = await fsp.readFile(agentRunFile(sessionId, runId), 'utf8');
+    run = await readAgentRunSnapshot(sessionId, runId);
   } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
     // 快照【根本不存在】≠「不敢续跑」:那是「没有这条班组可续」,核心自己会回 run_action_failed,
     // 拿它当危险来挡会把一个 not-found 说成安全问题。其余读失败(权限/IO)一律按不安全处理。
     return (error && error.code === 'ENOENT') ? 'missing' : 'unknown';
   }
-  const run = safeJsonParse(raw, null);
   if (!run) return 'unknown';
   return String(classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config || {})).tier || '');
 }

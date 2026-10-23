@@ -49,7 +49,10 @@
     "playbooks",
     "memory-meta",
     "personal-workflows",
-    "steward-visits"
+    "steward-visits",
+    "agent-run-snapshot",
+    "web-cache",
+    "external-bots"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -380,7 +383,7 @@
         }
       ],
       "reason": "labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "scheduler-tasks",
@@ -430,7 +433,7 @@
         }
       ],
       "reason": "run goals and step results are user content",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "agent-run-events",
@@ -526,7 +529,7 @@
         }
       ],
       "reason": "URLs and page bodies are sensitive; only a hash key and a timestamp stay readable",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "proxy-models-cache",

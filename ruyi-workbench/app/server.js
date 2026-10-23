@@ -2838,14 +2838,157 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     }
     return Object.freeze({ detect });
   }
+  // Accounting weights bound retained indexes and enumerable metadata, not V8 RSS.
+  // Scope mappings, caller inputs, allocator overhead and garbage awaiting GC are outside this cache.
+  const INDEX_CACHE_LIMITS = Object.freeze({ bytes: 64 * 1024 * 1024, indexes: 64,
+    patterns: 40000, branchMaps: 40000, branchEdges: 80000 });
+  function createLearnedIndexCache(limits = INDEX_CACHE_LIMITS) {
+    const quota = Object.freeze(Object.fromEntries(Object.keys(INDEX_CACHE_LIMITS).map(key => {
+      const amount = limits[key];
+      if (!Number.isSafeInteger(amount) || amount < 1) fail('scan_budget_invalid');
+      return [key, amount];
+    })));
+    const records = new Map(), reservations = new Map();
+    const totals = { bytes: 0, typedBytes: 0, scratchBytes: 0, stringBytes: 0, indexes: 0, patterns: 0, branchMaps: 0, branchEdges: 0 };
+    let evictions = 0, commits = 0;
+    const keys = Object.keys(totals);
+    const counted = stats => {
+      const value = { typedBytes: stats.typedBytes, scratchBytes: stats.scratchBytes ?? 0, stringBytes: stats.stringBytes ?? 0,
+        indexes: 1, patterns: stats.patterns, branchMaps: stats.branchMaps ?? 0, branchEdges: stats.branchEdges ?? 0 };
+      for (const amount of Object.values(value)) if (!Number.isSafeInteger(amount) || amount < 0) fail('scan_budget_invalid');
+      // Exact typed-array bytes plus fixed accounting charges for values-array slots/records,
+      // branching Map objects/entries and one cache/handle record. Separate count caps apply too.
+      value.bytes = value.typedBytes + value.scratchBytes + value.stringBytes + 128 * value.patterns
+        + 96 * value.branchMaps + 48 * value.branchEdges + 256;
+      if (!Number.isSafeInteger(value.bytes)) fail('scan_budget_invalid');
+      return value;
+    };
+    const fits = value => Object.entries(quota).every(([key, max]) => totals[key] + value[key] <= max);
+    const adjust = (value, sign) => { for (const key of keys) totals[key] += sign * value[key]; };
+    const drop = handle => {
+      const record = records.get(handle); if (!record) return false;
+      records.delete(handle); adjust(record.stats, -1); return true;
+    };
+    const reserve = stats => {
+      const needed = counted(stats);
+      if (Object.entries(quota).some(([key, max]) => needed[key] > max)) fail('learned_scan_limit');
+      while (!fits(needed)) {
+        const oldest = records.keys().next();
+        if (oldest.done) fail('learned_scan_limit'); // in-flight reservations cannot be evicted
+        drop(oldest.value); evictions++;
+      }
+      const ticket = Object.freeze({}); reservations.set(ticket, needed); adjust(needed, 1); return ticket;
+    };
+    const release = ticket => {
+      const reserved = reservations.get(ticket); if (!reserved) return;
+      reservations.delete(ticket); adjust(reserved, -1);
+    };
+    const commit = (ticket, index, stats) => {
+      const reserved = reservations.get(ticket), actual = counted(stats);
+      if (!reserved || keys.some(key => actual[key] > reserved[key])) fail('scan_budget_invalid');
+      release(ticket);
+      const handle = Object.freeze({}); records.set(handle, { index, stats: actual }); adjust(actual, 1); commits++;
+      return handle;
+    };
+    const get = handle => {
+      const record = records.get(handle); if (!record) return null;
+      records.delete(handle); records.set(handle, record); return record.index;
+    };
+    // Handles are empty objects, never a scope, callback, token store or owner reference. A scope
+    // retains only two handles; eviction leaves harmless cache misses that can rebuild from mappings.
+    return Object.freeze({ reserve, release, commit, get, drop,
+      snapshot: () => ({ ...totals, retained: records.size, pending: reservations.size, evictions, commits, limits: { ...quota } }) });
+  }
+  const learnedIndexCache = createLearnedIndexCache();
+  // This builder is module-level: a cached transition closure cannot capture a createScope instance.
+  function buildLearnedIndex(values, budget, longBucket) {
+    const kmp = longBucket && values.length === 1;
+    const capacity = kmp ? values[0].value.length : 1 + values.reduce((sum, item) => sum + item.value.length, 0);
+    const bound = { typedBytes: (kmp ? 4 : 22) * capacity, scratchBytes: kmp ? 0 : 4 * capacity,
+      // Charge backing text as two bytes per UTF-16 code unit, even when the scope currently
+      // shares the same strings. The cache may become their owner after that scope is collected.
+      stringBytes: 2 * values.reduce((sum, item) => sum + item.value.length + (item.token?.length || 0), 0),
+      patterns: values.length, branchMaps: kmp ? 0 : Math.max(0, values.length - 1),
+      branchEdges: kmp ? 0 : Math.max(0, 2 * values.length - 2) };
+    const ticket = learnedIndexCache.reserve(bound);
+    try {
+      let index, actual;
+      if (kmp) {
+        const needle = values[0].value, prefix = new Uint32Array(needle.length);
+        for (let i = 1, j = 0; i < needle.length; i++) {
+          let equal = false;
+          while (j > 0) { spend(budget, 'comparisons'); equal = needle[i] === needle[j]; if (equal) break; j = prefix[j - 1]; }
+          if (j === 0) { spend(budget, 'comparisons'); equal = needle[i] === needle[j]; }
+          if (equal) j++;
+          prefix[i] = j;
+        }
+        index = { kind: 'kmp', values, prefix };
+        actual = { ...bound, scratchBytes: 0 };
+      } else {
+        const child = new Uint32Array(capacity), sibling = new Uint32Array(capacity), label = new Uint16Array(capacity),
+          failure = new Uint32Array(capacity), output = new Uint32Array(capacity), terminal = new Uint32Array(capacity);
+        const branches = new Map(); let size = 1, branchEdges = 0;
+        const next = (at, char) => branches.has(at) ? branches.get(at).get(char) || 0 : child[at] && label[child[at]] === char ? child[at] : 0;
+        for (let token = 0; token < values.length; token++) {
+          const value = values[token].value; let at = 0;
+          for (let i = 0; i < value.length; i++) {
+            spend(budget, 'comparisons');
+            const char = value.charCodeAt(i); let target = next(at, char);
+            if (!target) {
+              target = size++; label[target] = char;
+              if (child[at]) {
+                if (!branches.has(at)) { branches.set(at, new Map([[label[child[at]], child[at]]])); branchEdges++; }
+                branches.get(at).set(char, target); branchEdges++;
+              }
+              sibling[target] = child[at]; child[at] = target;
+            }
+            at = target;
+          }
+          terminal[at] = token + 1;
+        }
+        // Block scope is intentional: next() cannot retain the temporary BFS queue.
+        {
+          const queue = new Uint32Array(size); let tail = 0;
+          for (let at = child[0]; at; at = sibling[at]) queue[tail++] = at;
+          for (let i = 0; i < tail; i++) {
+            const at = queue[i];
+            for (let target = child[at]; target; target = sibling[target]) {
+              const char = label[target]; let suffix = failure[at];
+              while (suffix && !next(suffix, char)) { spend(budget, 'comparisons'); suffix = failure[suffix]; }
+              spend(budget, 'comparisons'); failure[target] = next(suffix, char);
+              output[target] = terminal[failure[target]] ? failure[target] : output[failure[target]];
+              queue[tail++] = target;
+            }
+          }
+        }
+        index = { kind: 'ac', next, failure, output, terminal, values };
+        actual = { typedBytes: bound.typedBytes, scratchBytes: 0, stringBytes: bound.stringBytes, patterns: values.length,
+          branchMaps: branches.size, branchEdges };
+      }
+      const handle = learnedIndexCache.commit(ticket, index, actual);
+      return { handle, index };
+    } finally { learnedIndexCache.release(ticket); }
+  }
+
   function createScope(options) {
     const scopeId = identity(options.scopeId), detector = options.detector;
     if (!detector || typeof detector.detect !== 'function') fail('detector_required');
     const clock = options.clock || Date.now;
     const ttl = options.ttlMs === undefined ? 24 * 60 * 60 * 1000 : options.ttlMs;
     if (!Number.isSafeInteger(ttl) || ttl < 1 || ttl > 365 * 24 * 60 * 60 * 1000) fail('ttl_invalid');
-    const entries = new Map(), byValue = new Map(), revokedValues = new Set(), aliases = new Map(), prefixes = new Map();
-    let valueBytes = 0, revision = 0, learnedIndex = null;
+    const entries = new Map(), byValue = new Map(), revokedValues = new Set(), aliases = new Map();
+    // A short value discovered during a transform must not rebuild all long source aliases.
+    // Pattern membership is separate from category/expiry/alias authority, which is checked live.
+    const learnedValues = [new Map(), new Map()], learnedIndexes = [null, null];
+    const shortestLearned = [Infinity, Infinity];
+    let valueBytes = 0, revision = 0;
+    function rememberLearned(value, token) {
+      if (!/\S/.test(value)) return; // retained legacy whitespace references are never global patterns
+      const bucket = value.length <= 4096 ? 0 : 1;
+      learnedValues[bucket].set(value, token);
+      shortestLearned[bucket] = Math.min(shortestLearned[bucket], value.length);
+      learnedIndexCache.drop(learnedIndexes[bucket]); learnedIndexes[bucket] = null;
+    }
     function entryFor(token) {
       const entry = entries.get(token); if (!entry) fail('reference_unknown');
       const group = aliases.get(entry.value);
@@ -2874,7 +3017,7 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       let token;
       do { token = PREFIX + category(type) + ':' + cryptoApi.randomBytes(16).toString('hex') + ']]'; } while (entries.has(token));
       entries.set(token, { value, category: type, expiresAt: clock() + ttl }); byValue.set(value, token);
-      learnedIndex = null;
+      rememberLearned(value, token);
       valueBytes += bytes; revision++;
       return token;
     }
@@ -2911,80 +3054,13 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       issue(decoded, type, localBudget); const token = issue(value, type, localBudget);
       linkAliases(value, decoded, localBudget); return token;
     }
-    // One failure-linked trie scans ordinary learned values together. Scanning a
-    // long old conversation no longer repeats its full text for every short mapping.
-    // Construction, fallback transitions and every pre-merge hit still share the
-    // host transform's bounded budget. Output links avoid quadratic suffix lists.
-    function exactIndex(budget) {
-      if (learnedIndex) return learnedIndex;
-      const values = [...entries].map(([token, entry]) => ({ value: entry.value, token }))
-        .concat([...revokedValues].map(value => ({ value, token: null }))).filter(({ value }) => value.length <= 4096 && /\S/.test(value));
-      // Mapping bytes bound the number of UTF-16 trie edges. Single-child nodes
-      // use compact arrays; only branching nodes need a Map, avoiding one Map
-      // object per character for imported mappings.
-      const capacity = 1 + values.reduce((sum, item) => sum + item.value.length, 0);
-      const child = new Uint32Array(capacity), sibling = new Uint32Array(capacity), label = new Uint16Array(capacity),
-        failure = new Uint32Array(capacity), output = new Uint32Array(capacity), terminal = new Uint32Array(capacity);
-      const branches = new Map(); let size = 1;
-      const next = (at, char) => branches.has(at) ? branches.get(at).get(char) || 0 : child[at] && label[child[at]] === char ? child[at] : 0;
-      const insert = (value, token) => {
-        let at = 0;
-        for (let i = 0; i < value.length; i++) {
-          spend(budget, 'comparisons');
-          const char = value.charCodeAt(i); let target = next(at, char);
-          if (!target) {
-            target = size++; label[target] = char;
-            if (child[at]) {
-              if (!branches.has(at)) branches.set(at, new Map([[label[child[at]], child[at]]]));
-              branches.get(at).set(char, target);
-            }
-            sibling[target] = child[at]; child[at] = target;
-          }
-          at = target;
-        }
-        terminal[at] = token + 1;
-      };
-      values.forEach((item, i) => insert(item.value, i));
-      const queue = new Uint32Array(size); let tail = 0;
-      for (let at = child[0]; at; at = sibling[at]) queue[tail++] = at;
-      for (let i = 0; i < tail; i++) {
-        const at = queue[i];
-        for (let target = child[at]; target; target = sibling[target]) {
-          const char = label[target]; let suffix = failure[at];
-          while (suffix && !next(suffix, char)) { spend(budget, 'comparisons'); suffix = failure[suffix]; }
-          spend(budget, 'comparisons');
-          failure[target] = next(suffix, char);
-          output[target] = terminal[failure[target]] ? failure[target] : output[failure[target]];
-          queue[tail++] = target;
-        }
-      }
-      learnedIndex = { next, failure, output, terminal, values }; return learnedIndex;
-    }
-    // Long source-spelling aliases are uncommon, but rebuilding their character
-    // paths after every newly discovered short value is expensive. Keep those in
-    // the bounded KMP path, which skips a leaf shorter than the source immediately.
-    function eachLongExact(input, needle, budget, found) {
-      spend(budget, 'comparisons');
-      if (needle.length > input.length) return;
-      let prefix = prefixes.get(needle);
-      if (!prefix) {
-        prefix = new Uint32Array(needle.length);
-        for (let i = 1, j = 0; i < needle.length; i++) {
-          let equal = false;
-          while (j > 0) { spend(budget, 'comparisons'); equal = needle[i] === needle[j]; if (equal) break; j = prefix[j - 1]; }
-          if (j === 0) { spend(budget, 'comparisons'); equal = needle[i] === needle[j]; }
-          if (equal) j++;
-          prefix[i] = j;
-        }
-        prefixes.set(needle, prefix);
-      }
-      for (let i = 0, j = 0; i < input.length; i++) {
-        let equal = false;
-        while (j > 0) { spend(budget, 'comparisons'); equal = input[i] === needle[j]; if (equal) break; j = prefix[j - 1]; }
-        if (j === 0) { spend(budget, 'comparisons'); equal = input[i] === needle[j]; }
-        if (equal) j++;
-        if (j === needle.length) { spend(budget, 'matches'); found(i - needle.length + 1, i + 1); j = prefix[j - 1]; }
-      }
+    // Separate failure-linked tries share the caller's work/hit budget. Each collection
+    // is invalidated only by its own membership changes. Output links avoid quadratic suffix lists.
+    function exactIndex(bucket, budget) {
+      const cached = learnedIndexCache.get(learnedIndexes[bucket]); if (cached) return cached;
+      const values = [...learnedValues[bucket]].map(([value, token]) => ({ value, token }));
+      const built = buildLearnedIndex(values, budget, bucket === 1);
+      learnedIndexes[bucket] = built.handle; return built.index;
     }
     function appendLearned(privacyText, budget, found, intervals) {
       const embeddedShortNumber = (value, start, end) => /^[0-9]{1,6}$/.test(value)
@@ -2997,19 +3073,33 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
         if (entry.category === 'PHONE' && (/[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[start - 1] || '') || /[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[end] || ''))) return;
         found.push({ start, end, category: entryFor(token).category, ruleIds: ['scope.learned-exact'] });
       };
-      const index = exactIndex(budget); let at = 0;
-      for (let i = 0; index.values.length && i < privacyText.length; i++) {
-        const char = privacyText.charCodeAt(i);
-        while (at && !index.next(at, char)) { spend(budget, 'comparisons'); at = index.failure[at]; }
-        spend(budget, 'comparisons'); at = index.next(at, char);
-        for (let hit = index.terminal[at] ? at : index.output[at]; hit; hit = index.output[hit]) {
-          spend(budget, 'matches');
-          const { value, token } = index.values[index.terminal[hit] - 1], end = i + 1, start = end - value.length;
-          accept(value, token, start, end);
+      for (let bucket = 0; bucket < learnedValues.length; bucket++) {
+        // Avoid constructing a large old alias trie for a tiny new field or object key.
+        if (!learnedValues[bucket].size || bucket === 1 && privacyText.length < shortestLearned[bucket]) continue;
+        const index = exactIndex(bucket, budget); let at = 0;
+        if (index.kind === 'kmp') {
+          const { value, token } = index.values[0], prefix = index.prefix;
+          spend(budget, 'comparisons');
+          for (let i = 0, j = 0; i < privacyText.length; i++) {
+            let equal = false;
+            while (j > 0) { spend(budget, 'comparisons'); equal = privacyText[i] === value[j]; if (equal) break; j = prefix[j - 1]; }
+            if (j === 0) { spend(budget, 'comparisons'); equal = privacyText[i] === value[j]; }
+            if (equal) j++;
+            if (j === value.length) { spend(budget, 'matches'); accept(value, token, i - value.length + 1, i + 1); j = prefix[j - 1]; }
+          }
+          continue;
+        }
+        for (let i = 0; i < privacyText.length; i++) {
+          const char = privacyText.charCodeAt(i);
+          while (at && !index.next(at, char)) { spend(budget, 'comparisons'); at = index.failure[at]; }
+          spend(budget, 'comparisons'); at = index.next(at, char);
+          for (let hit = index.terminal[at] ? at : index.output[at]; hit; hit = index.output[hit]) {
+            spend(budget, 'matches');
+            const { value, token } = index.values[index.terminal[hit] - 1], end = i + 1, start = end - value.length;
+            accept(value, token, start, end);
+          }
         }
       }
-      for (const [token, entry] of entries) if (entry.value.length > 4096 && /\S/.test(entry.value)) eachLongExact(privacyText, entry.value, budget, (start, end) => accept(entry.value, token, start, end));
-      for (const value of revokedValues) if (value.length > 4096 && /\S/.test(value)) eachLongExact(privacyText, value, budget, (start, end) => accept(value, null, start, end));
       return mergeMatches(found);
     }
     function detectLearned(privacyText, context = {}) {
@@ -3080,11 +3170,17 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     function revoke(token) {
       const entry = entries.get(token); if (!entry) return false;
       entries.delete(token); byValue.delete(entry.value); revokedValues.add(entry.value);
-      learnedIndex = null;
+      rememberLearned(entry.value, null);
       const group = aliases.get(entry.value); if (group) group.revoked = true;
       revision++; return true;
     }
-    function clear() { entries.clear(); byValue.clear(); revokedValues.clear(); aliases.clear(); prefixes.clear(); learnedIndex = null; valueBytes = 0; revision++; }
+    function clear() {
+      entries.clear(); byValue.clear(); revokedValues.clear(); aliases.clear();
+      for (let bucket = 0; bucket < learnedValues.length; bucket++) {
+        learnedValues[bucket].clear(); learnedIndexCache.drop(learnedIndexes[bucket]); learnedIndexes[bucket] = null; shortestLearned[bucket] = Infinity;
+      }
+      valueBytes = 0; revision++;
+    }
     function exportState() { return { version: 1, scopeId, entries: [...entries].map(([token, entry]) => ({ token, ...entry })),
       ...(revokedValues.size ? { revokedValues: [...revokedValues] } : {}),
       ...(aliases.size ? { aliasGroups: [...new Set(aliases.values())].map(group => [...group.members]) } : {}) }; }
@@ -3114,8 +3210,8 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
         for (const value of group) { if (!values.has(value) || grouped.has(value)) fail('state_invalid'); grouped.add(value); }
       }
       clear(); valueBytes = bytes;
-      for (const { token, ...entry } of checked) { entries.set(token, entry); byValue.set(entry.value, token); }
-      for (const value of revoked) revokedValues.add(value);
+      for (const { token, ...entry } of checked) { entries.set(token, entry); byValue.set(entry.value, token); rememberLearned(entry.value, token); }
+      for (const value of revoked) { revokedValues.add(value); rememberLearned(value, null); }
       for (const members of groups) {
         let type, expiresAt = Infinity;
         for (const member of members) { const entry = entries.get(byValue.get(member)); if (entry) { type = type === undefined ? entry.category : stricter(type, entry.category); expiresAt = Math.min(expiresAt, entry.expiresAt); } }
@@ -10146,9 +10242,18 @@ async function markInterruptedInterventions() {
     // interrupted/终态 run 的提案由 markInterruptedAgentRuns(boot 先于本函数,13:961)顺手 settle 'expired';
     // 这里只需兜「run 非 paused 但 settle 丢失」(崩溃窗口)与「run 已不存在」的孤儿。paused → 保留 pending(诚实)。
     let poolRuns = null;
+    if (pending.some(iv => iv.type === 'pool')) {
+      try { poolRuns = await listAgentRuns(sessionId); }
+      catch (error) {
+        if (String(error && error.code || '').startsWith('work_data')) {
+          try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId, reason: error.code }); } catch { /* Boot remains available; authority stays untouched. */ }
+          continue;
+        }
+        poolRuns = [];
+      }
+    }
     for (const iv of pending) {
       if (iv.type === 'pool') {
-        if (!poolRuns) poolRuns = await listAgentRuns(sessionId).catch(() => []);
         const run = poolRuns.find(r => r && r.id === iv.runId);
         if (run && run.status === 'paused') continue; // 恢复后可决策,保留 pending
       }
@@ -12412,7 +12517,7 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   }
 
   let cpEntries = await journalReadIndex(sessionId).catch(() => []);
-  let runs = await listAgentRuns(sessionId).catch(() => []);
+let runs = await listAgentRuns(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
   let controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
   const capability = controls.actions[action];
   if (!capability || !capability.enabled) return missionControlFailure(capability && capability.reason || 'unavailable');
@@ -12526,7 +12631,7 @@ async function missionControlCommand(sessionId, rawAction, rawPrompt = '') {
   if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } }
 
   cpEntries = await journalReadIndex(sessionId).catch(() => []);
-  runs = await listAgentRuns(sessionId).catch(() => []);
+runs = await listAgentRuns(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
   controls = missionControlView(session, { checkpointEntries: cpEntries, runs });
   return { status: 200, body: { ok: true, action, mission: session.mission, controls, requiresTurn, stoppedRuns, ...(rollback ? { rollback } : {}) } };
 }
@@ -33386,7 +33491,10 @@ async function sweepAgentRunEventsStore(policy, result) {
       if (!m) continue;
       const runId = m[1];
       let run = null;
-      try { run = safeJsonParse(await fsp.readFile(path.join(dir, f), 'utf8'), null); } catch { continue; }
+      try {
+        if (typeof EventStreamHooks.readAgentRunSnapshot !== 'function') throw Object.assign(new Error('work_data_store.not_initialised'), { code: 'work_data_store.not_initialised', statusCode: 503 });
+        run = await EventStreamHooks.readAgentRunSnapshot(dirent.name, runId);
+      } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; continue; }
       if (!run || !STORAGE_ARCHIVE_TERMINAL.has(String(run.status || ''))) continue;
       let basis = Date.parse(run.updatedAt || run.completedAt || '');
       if (!Number.isFinite(basis)) { const st = await fsp.stat(path.join(dir, f)).catch(() => null); basis = st ? st.mtimeMs : NaN; }
@@ -45069,6 +45177,47 @@ async function drainSteerQueue(reg, session, onEvent) {
 // config.permissionMode, so an UN-approved plan-mode turn still hard-blocks its sub-agents' edit/exec tools.
 function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionId(sessionId)); }
 function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
+// Snapshot identity is anchored to the containing session and filename, never to untrusted JSON.
+// A per-operation credential snapshot also makes digest-cache authentication independent of key rotation.
+async function agentRunSnapshotCredential(copyKey = false) {
+  const keys = WorkDataStore.requireKeys();
+  const unlockedKey = await keys.unlock(), key = copyKey ? Buffer.from(unlockedKey) : unlockedKey;
+  try {
+    const instanceId = await keys.instance();
+    return { key, instanceId, stamp: String(instanceId) + ':' + crypto.createHash('sha256').update(key).digest('hex') };
+  } catch (error) { if (copyKey) key.fill(0); throw error; }
+}
+function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
+  const sid = safeSessionId(sessionId), rid = safeSessionId(runId);
+  const operate = async (method, input) => {
+    let credential;
+    const resolveCredential = () => credential || (credential = agentRunSnapshotCredential(true).then(value => {
+      metadata.authStamp = value.stamp;
+      return value;
+    }));
+    const store = WorkDataStore.createText({
+      file: () => agentRunFile(sid, rid), purpose: 'task', schema: 1,
+      scopeId: sid, recordId: 'agent-run:' + rid,
+      chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+      keys: { unlock: async () => (await resolveCredential()).key, instance: async () => (await resolveCredential()).instanceId },
+      enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
+      writeJson: atomicWriteJson,
+      validateSealedText: snapshotText => {
+        const run = safeJsonParse(snapshotText, null);
+        return !!run && typeof run === 'object' && !Array.isArray(run)
+          && run.id === rid && run.sessionId === sid && Array.isArray(run.nodes);
+      },
+    });
+    try { return await store[method](input); }
+    finally { if (credential) await credential.then(value => value.key.fill(0), () => {}); }
+  };
+  return Object.freeze({ read: () => operate('read'), write: snapshotText => operate('write', snapshotText), filePath: () => agentRunFile(sid, rid) });
+}
+async function readAgentRunSnapshot(sessionId, runId, metadata = {}) {
+  return safeJsonParse(await agentRunSnapshotStore(sessionId, runId, metadata).read(), null);
+}
+// Storage housekeeping loads before autonomy. Use the existing late hook instead of a forward edge.
+EventStreamHooks.readAgentRunSnapshot = readAgentRunSnapshot;
 const agentRunWriteChains = new Map();
 const activeAgentRuns = new Map(); // runId -> { run, ctrl, paused, stopRequested, resumeWaiters, steerQueues }
 // 第46波46e(双冷 resume 窄窗修复):resume「在飞」标记。activeAgentRuns 只在 runtime 构造好才注册,
@@ -45975,7 +46124,7 @@ async function saveAgentRun(run) {
     // 先乐观清、写失败在 catch 里按计数恢复,则任何一次成功写落盘的都是干净旗标。
     try {
       const runFile = agentRunFile(run.sessionId, run.id);
-      await atomicWriteJson(runFile, snapshot);
+      await agentRunSnapshotStore(run.sessionId, run.id).write(snapshot);
       agentRunDigestWriteSeq += 1;
       agentRunDigestCache.delete(runFile); // digest 摘要缓存:进程内写成功即作废该文件条目(见 listAgentRunDigests 头注)
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
@@ -46016,9 +46165,9 @@ async function listAgentRuns(sessionId) {
   const out = [];
   for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
     try {
-      const run = safeJsonParse(await fsp.readFile(path.join(dir, file), 'utf8'), null);
+      const run = await readAgentRunSnapshot(sessionId, file.slice(0, -5));
       if (run) out.push(run);
-    } catch { /* skip corrupt/incomplete records */ }
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* skip corrupt/incomplete legacy records */ }
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
@@ -46063,17 +46212,21 @@ async function listAgentRunDigests(sessionId) {
       const st = await fsp.stat(full);
       const hit = agentRunDigestCache.get(full);
       if (hit && hit.mtimeMs === st.mtimeMs && hit.ctimeMs === st.ctimeMs && hit.size === st.size && hit.ino === st.ino) {
-        agentRunDigestStats.hits += 1;
-        if (hit.shadow) out.push(hit.shadow);
-        continue;
+        // Plaintext keeps its zero-key cache path. Sealed cache entries require the current key identity.
+        if (!hit.authStamp || hit.authStamp === (await agentRunSnapshotCredential()).stamp) {
+          agentRunDigestStats.hits += 1;
+          if (hit.shadow) out.push(hit.shadow);
+          continue;
+        }
       }
       agentRunDigestStats.reads += 1;
-      const run = safeJsonParse(await fsp.readFile(full, 'utf8'), null);
+      const metadata = {};
+      const run = await readAgentRunSnapshot(sessionId, file.slice(0, -5), metadata);
       const shadow = run ? agentRunDigestShadow(run) : null;   // 坏/空快照也记一笔(同戳不再重读),与 listAgentRuns 一样跳过
       if (agentRunDigestCache.size >= AGENT_RUN_DIGEST_CACHE_MAX && !agentRunDigestCache.has(full)) agentRunDigestCache.clear();
-      if (writeSeq === agentRunDigestWriteSeq) agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size, ino: st.ino, shadow });
+      if (writeSeq === agentRunDigestWriteSeq) agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size, ino: st.ino, shadow, authStamp: metadata.authStamp || '' });
       if (shadow) out.push(shadow);
-    } catch { agentRunDigestCache.delete(full); /* skip corrupt/incomplete records */ }
+    } catch (error) { agentRunDigestCache.delete(full); if (String(error && error.code || '').startsWith('work_data')) throw error; /* skip corrupt/incomplete legacy records */ }
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
@@ -46210,7 +46363,14 @@ async function autoResumeInterruptedRuns() {
   // 并发不会串起引擎进程尖峰(顺序循环的启动本来也就是背靠背)。
   const workItems = [];
   await mapPool(sessionDirs.filter(d => d.isDirectory() && safeSessionId(d.name)), 4, async dirent => {
-    const runs = await listAgentRuns(dirent.name).catch(() => []);
+    let runs;
+    try { runs = await listAgentRuns(dirent.name); }
+    catch (error) {
+      if (String(error && error.code || '').startsWith('work_data')) {
+        try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId: dirent.name, reason: error.code }); } catch { /* Boot diagnostic only. */ }
+      }
+      return; // Unknown authority never produces a resume work item.
+    }
     for (const run of runs) if (run && run.status === 'interrupted') workItems.push({ sessionId: dirent.name, run });
   });
   await mapPool(workItems, 4, async ({ sessionId, run }) => {
@@ -46247,7 +46407,14 @@ async function markInterruptedAgentRuns() {
   // 第40波:与 autoResumeInterruptedRuns 同款并发化 —— 先并发收集 (sessionId, run) 工作项再池化处理。
   const workItems = [];
   await mapPool(sessionDirs.filter(d => d.isDirectory() && safeSessionId(d.name)), 4, async dirent => {
-    const runs = await listAgentRuns(dirent.name).catch(() => []);
+    let runs;
+    try { runs = await listAgentRuns(dirent.name); }
+    catch (error) {
+      if (String(error && error.code || '').startsWith('work_data')) {
+        try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId: dirent.name, reason: error.code }); } catch { /* Boot diagnostic only. */ }
+      }
+      return; // Do not interrupt, settle pool proposals or rewrite an unreadable session.
+    }
     for (const run of runs) if (run) workItems.push(run);
   });
   // 71b: paused run 的 proposed 池提案在 71b 前没有 Intervention 记录 —— 收集后统一对账补登记(见 mapPool 后)。
@@ -48353,10 +48520,10 @@ async function readAgentRunRecord(sessionId, runId) {
     return { run: live.run, live: true };
   }
   try {
-    const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, rid), 'utf8'), null);
+    const run = await readAgentRunSnapshot(sessionId, rid);
     if (run && run.sessionId === sessionId && EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
     return run && run.sessionId === sessionId ? { run, live: false } : null;
-  } catch { return null; }
+  } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; }
 }
 // agent_result:有界切片。offset/maxChars 分页;单节点 run 可省 nodeId。
 async function agentRunResultSlice({ sessionId, runId, nodeId, maxChars, offset }) {
@@ -50357,7 +50524,8 @@ async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
-  try { run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); } catch { run = null; }
+  try { run = await readAgentRunSnapshot(sessionId, runId); }
+  catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; run = null; }
   if (!run) return { ok: false, error: 'agent run not found' };
   await syncRunEventSeq(run);   // 对抗轮修: 磁盘装载点快进 eventSeq(见 syncRunEventSeq 注释)
   if (interventionKind) bumpRunIntervention(run, interventionKind); // 29c: 冷 resume/retry_node 是人工干预(boot 自动续跑不传,不计)
@@ -61449,20 +61617,47 @@ function webCachePath(url) {
   const h = crypto.createHash('sha256').update(String(url)).digest('hex');
   return path.join(paths.webcache, `${h}.json`);
 }
+function webCacheStore(url) {
+  const address = String(url), file = webCachePath(address);
+  return WorkDataStore.createText({
+    file: () => file, purpose: 'cache', schema: 1, scopeId: 'global',
+    recordId: 'web-cache:' + path.basename(file, '.json'),
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    validateSealedText: cacheText => {
+      const entry = JSON.parse(cacheText);
+      return !!entry && typeof entry === 'object' && !Array.isArray(entry)
+        && entry.url === address && typeof entry.text === 'string';
+    },
+  });
+}
 async function readWebCache(url) {
   try {
-    const raw = await fsp.readFile(webCachePath(url), 'utf8');
+    const raw = await webCacheStore(url).read();
     const j = JSON.parse(raw);
     if (j && typeof j === 'object' && typeof j.text === 'string') return j;
-  } catch { /* miss */ }
+  } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    // Only legacy plaintext and ordinary I/O retain the previous cache-miss contract.
+  }
   return null;
 }
 async function writeWebCache(entry) {
   try {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)
+      || typeof entry.url !== 'string' || typeof entry.text !== 'string') return;
     await fsp.mkdir(paths.webcache, { recursive: true });
-    await atomicWriteJson(webCachePath(entry.url), JSON.stringify(entry));   // 25.1 收编
+    await webCacheStore(entry.url).write(JSON.stringify(entry));
     await evictWebCacheOverCap();
-  } catch { /* best-effort cache write; never fail the fetch on a cache error */ }
+  } catch (error) {
+    // A cache failure must not discard a successfully fetched page. The store still refuses any
+    // plaintext downgrade/unauthenticated overwrite; do not prune other entries after a failed save.
+    if (String(error && error.code || '').startsWith('work_data')) {
+      try { logEvent({ kind: 'web_cache_write_failed', reason: error.code }); } catch { /* diagnostics only */ }
+    }
+  }
 }
 // 缓存条目现在存完整抽取文本(既有下载硬界内,重定向后还有第二份),没有上限会无限长。这里是【硬兜底】:超过 WEB_CACHE_HARD_MAX_ENTRIES
 // (WCW_WEBCACHE_HARD_MAX 可覆写,测试缝)条就按 mtime 删最旧的;用户配的 storagePolicy.webcacheMaxEntries(可更小)仍由 storageSweep 管。
@@ -74532,7 +74727,7 @@ async function buildMissionAggregateRows(options = {}) {
     return { path: p, name: known.name, ruyiOwned: known.ruyiOwned };
   };
   const overlayAt = nowIso();   // 一次装配只取一次「叠加时刻」:每行各取一次是 2000 次 Date + toISOString,而它们本就是同一个请求
-  const index = await getPretenderProjectionIndex().catch(() => null);
+  const index = await getPretenderProjectionIndex().catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; });
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
   const metas = await listSessions().catch(() => []);          // 管家会话已在 listSessions 里滤掉
   const containers = await listMissionContainers().catch(() => []);
@@ -74949,7 +75144,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     if (etag && pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     const session = await loadSession(sessionId);
     if (!session) return send(res, apiSessionNotFound());
-    const runs = await listAgentRuns(sessionId).catch(() => []);
+const runs = await listAgentRuns(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
 
     // 验收投影(124-P1):里程碑计数与 items 形状一个字不动,另带「这条是谁判的」四态、机器检查的
     // 实情(没跑过 / 最近一次没通过 —— J08)、事项容器那一套(人工复核)与「有没有账本」。判据单点
@@ -75297,7 +75492,8 @@ async function decideIntervention(command = {}) {
         if (live.run.sessionId !== missionId) return { ok: false, reason: 'not_found' };
         runObj = live.run;
       } else {
-        try { runObj = safeJsonParse(await fsp.readFile(agentRunFile(missionId, runId), 'utf8'), null); } catch {}
+        try { runObj = await readAgentRunSnapshot(missionId, runId); }
+        catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; }
         if (!runObj || runObj.sessionId !== missionId) return { ok: false, reason: 'run_not_found', runId, message: 'run is not found' };
       }
       const patch = (Array.isArray(runObj.replanPatches) ? runObj.replanPatches : []).find(p => p && String(p.id) === interventionId);
@@ -75311,7 +75507,8 @@ async function decideIntervention(command = {}) {
     const live = activeAgentRuns.get(runId);
     if (!live || !live.run || live.closing) {
       let persisted = null;
-      try { persisted = safeJsonParse(await fsp.readFile(agentRunFile(missionId, runId), 'utf8'), null); } catch {}
+      try { persisted = await readAgentRunSnapshot(missionId, runId); }
+      catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; }
       const reason = persisted && persisted.status === 'paused' ? 'run_paused' : 'run_not_live';
       return { ok: false, reason, runId, message: reason === 'run_paused' ? 'run is paused; resume it before deciding' : 'run is not live' };
     }
@@ -75465,6 +75662,7 @@ async function decideIntervention(command = {}) {
       },
     );
   } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
     const message = String(error && error.message || error);
     return interventionCommandFailure('execution_failed', 500, {}, message);
   }
@@ -76094,7 +76292,10 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     if (action === 'apply_isolation') {
       if (live) return send(res, json({ ok: false, error: '请先等待当前运行结束' }, 409));
       const nodeId = String(body.nodeId || '').trim();
-      const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8').catch(() => ''), null);
+      const run = await readAgentRunSnapshot(sessionId, runId).catch(error => {
+        if (String(error && error.code || '').startsWith('work_data')) throw error;
+        return null;
+      });
       if (!run || run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
       const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e) }));
       return send(res, json(applied, applied.ok ? 200 : 409));
@@ -76136,7 +76337,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     if (activeAgentRuns.has(runId)) return send(res, json({ ok: false, error: '运行中的工作流不能删除' }, 409));
     try {
       const file = agentRunFile(sessionId, runId);
-      const run = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+      const run = await readAgentRunSnapshot(sessionId, runId);
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
       await fsp.unlink(file);
       agentRunDigestWriteSeq += 1;
@@ -76145,7 +76346,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});
       await fsp.unlink(agentRunEventsFile(sessionId, runId) + '.gz').catch(() => {}); // v1.9 数据管家: 归档压缩变体一并删
-    } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
     await bumpMissionChangeSeq(sessionId, {
       type: 'run_deleted', cursor: { runId }, detail: { runId },
     });
@@ -76166,11 +76367,11 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       return send(res, json({ ok: true, run: { ...liveOne.run, live: true, paused: !!liveOne.paused } }));
     }
     try {
-      const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
+      const run = await readAgentRunSnapshot(sessionId, runId);
       if (!run) throw new Error('invalid run');
       if (EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
       return send(res, json({ ok: true, run }));
-    } catch { return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
   }
   return false;
 }
@@ -76301,6 +76502,20 @@ async function pretenderFileStamp(file) {
   } catch { return '-'; }
 }
 
+// Derived run facts may outlive the decrypted object. Cache only their source/key identity;
+// cold reuse first authenticates the underlying snapshots, and warm reads check current credentials.
+const pretenderRunSourceAuth = new Map(); // sessionId -> { sourceStamp, authStamp }
+async function pretenderCheckRunSourceAuth() {
+  const sealed = [...pretenderRunSourceAuth].filter(([, value]) => value.authStamp);
+  if (!sealed.length) return;
+  const stamp = (await agentRunSnapshotCredential()).stamp;
+  for (const [sid, value] of sealed) {
+    if (value.authStamp !== stamp) {
+      pretenderIndexRuntime.dirtySessions.add(sid);
+    }
+  }
+}
+
 async function pretenderSessionSourceStamp(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return '-';
@@ -76315,7 +76530,21 @@ async function pretenderSessionSourceStamp(sessionId) {
   let files = [];
   try { files = (await fsp.readdir(dir)).filter(f => /^run_[a-f0-9]+\.json$/i.test(f)).sort(); } catch { files = []; }
   for (const file of files) parts.push('r=' + file + ':' + await pretenderFileStamp(path.join(dir, file)));
-  return pretenderHash(parts.join('|'));
+  const sourceStamp = pretenderHash(parts.join('|'));
+  const known = pretenderRunSourceAuth.get(sid);
+  let authStamp = known && known.sourceStamp === sourceStamp ? known.authStamp : null;
+  if (authStamp && authStamp !== (await agentRunSnapshotCredential()).stamp) authStamp = null;
+  if (authStamp === null) {
+    authStamp = '';
+    for (const file of files) {
+      const metadata = {};
+      try { await readAgentRunSnapshot(sid, file.slice(0, -5), metadata); }
+      catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* Legacy IO/shape remains skippable. */ }
+      if (metadata.authStamp) authStamp = metadata.authStamp;
+    }
+    pretenderRunSourceAuth.set(sid, { sourceStamp, authStamp });
+  }
+  return authStamp ? pretenderHash([sourceStamp, authStamp]) : sourceStamp;
 }
 
 // sessions 目录里「有会话头或有 Intervention journal」的会话 id(一次 readdir,不 stat)。
@@ -76338,6 +76567,7 @@ async function scanPretenderSessionSources() {
   pretenderIndexRuntime.knownMasks = masks;
   for (const sid of [...pretenderIndexRuntime.headMtimes.keys()]) if (!masks.has(sid)) pretenderIndexRuntime.headMtimes.delete(sid);
   const ids = [...masks.keys()].sort();
+  for (const sid of pretenderRunSourceAuth.keys()) if (!masks.has(sid)) pretenderRunSourceAuth.delete(sid);
   const sources = {};
   let cursor = 0;
   const workers = Array.from({ length: Math.min(16, Math.max(1, ids.length)) }, async () => {
@@ -76460,7 +76690,7 @@ async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentI
     inFlight,
     recent: recentIds instanceof Set ? recentIds.has(sid) : false,
   });
-  const runs = carded ? await listAgentRuns(sid).catch(() => []) : [];
+const runs = carded ? await listAgentRuns(sid).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; }) : [];
   const card = carded
     ? await buildMissionCard(head, runs, { interventions: ivMeta.interventions, persistent: true })
     : null;
@@ -76691,6 +76921,7 @@ function pretenderChangedSourceIds(before, after) {
 }
 
 async function buildOrLoadPretenderIndex() {
+  await pretenderCheckRunSourceAuth();
   const indexFile = pretenderIndexPath();
   const currentDiskStamp = await pretenderFileStamp(indexFile);
   // User deleted/replaced/corrupted the cache while the process was live: discard memory and prove rebuild.
@@ -76840,6 +77071,10 @@ async function getPretenderProjectionIndexShared() {
   const current = buildOrLoadPretenderIndex();
   pretenderIndexRuntime.building = current;
   try { return await current; }
+  catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) pretenderIndexRuntime.value = null;
+    throw error;
+  }
   finally { if (pretenderIndexRuntime.building === current) pretenderIndexRuntime.building = null; }
 }
 
@@ -78277,7 +78512,7 @@ async function stewardCollectEvents() {
 
     // ── ② agent run 事件增量(只看活跃会话里的活跃 run) ──
     if (!active) continue;
-    const runs = await listAgentRuns(sid).catch(() => []);
+const runs = await listAgentRuns(sid).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; });
     for (const run of runs) {
       const runId = run && safeSessionId(run.id);
       if (!runId) continue;
@@ -81221,7 +81456,7 @@ async function stewardImplRunsStatus(args, ctx, config) {
   let sessionIds = [];
   if (explicit) sessionIds = [explicit];
   else {
-    const index = await getPretenderProjectionIndex().catch(() => null);
+    const index = await getPretenderProjectionIndex().catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; });
     sessionIds = ((index && index.sessions) || []).filter(row => row.card).map(row => row.sessionId);
   }
   const runs = [];
@@ -81229,7 +81464,7 @@ async function stewardImplRunsStatus(args, ctx, config) {
     if (runs.length >= STEWARD_RUNS_MAX) break;
     const head = await stewardReadSessionHead(sid);
     if (stewardRawKind(head) === 'steward') continue;
-    for (const run of await listAgentRuns(sid).catch(() => [])) {
+for (const run of await listAgentRuns(sid).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return []; })) {
       if (runs.length >= STEWARD_RUNS_MAX) break;
       const live = activeAgentRuns.get(run.id);
       const mem = live && live.run ? live.run : run;
@@ -81681,19 +81916,19 @@ const STEWARD_RUN_ACTION_KIND = Object.freeze({ resume: 'failed', retry_node: 'f
 // 它被停没停 -> stewardStoppedTarget 只看 head 那一半,不凭空拦)。执行序上这道闸排在分级【之前】,
 // 拦下了就不会再读第二次。
 async function stewardReadRunSnapshot(sessionId, runId) {
-  try { return safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null); }
-  catch { return null; }
+  try { return await readAgentRunSnapshot(sessionId, runId); }
+  catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; }
 }
 async function stewardRunResumeTier(sessionId, runId, config) {
-  let raw = null;
+  let run = null;
   try {
-    raw = await fsp.readFile(agentRunFile(sessionId, runId), 'utf8');
+    run = await readAgentRunSnapshot(sessionId, runId);
   } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
     // 快照【根本不存在】≠「不敢续跑」:那是「没有这条班组可续」,核心自己会回 run_action_failed,
     // 拿它当危险来挡会把一个 not-found 说成安全问题。其余读失败(权限/IO)一律按不安全处理。
     return (error && error.code === 'ENOENT') ? 'missing' : 'unknown';
   }
-  const run = safeJsonParse(raw, null);
   if (!run) return 'unknown';
   return String(classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config || {})).tier || '');
 }
@@ -92389,22 +92624,70 @@ function externalBotValidState(state) {
     && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
     && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length;
 }
-const externalBotStore = DurableJsonStore.create({
-  id: 'external-bots', file: () => path.join(paths.data, 'external-bots', 'state-v1.json'), schemaVersion: 1,
-  defaultValue: () => ({ schema: 1, connections: [], items: [], retiredConnectionIds: [] }), cache: false, quarantine: false, strictRead: true,
-  validate: externalBotValidState,
-});
+// This authority/dedupe ledger never caches or quarantines. Only a missing file is an initial state.
+// The 40 MiB business cap measures compact JSON; the old plaintext read cap still measures disk bytes.
+const externalBotStore = (() => {
+  const filePath = () => path.join(paths.data, 'external-bots', 'state-v1.json');
+  const initial = () => ({ schema: 1, connections: [], items: [], retiredConnectionIds: [] });
+  const parse = (text, sealed) => {
+    const value = JSON.parse(text);
+    if (!value || typeof value !== 'object' || Array.isArray(value) || !externalBotValidState(value)
+      || (sealed && Buffer.byteLength(JSON.stringify(value), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes)) throw new Error('invalid external bot ledger');
+    return value;
+  };
+  const textStore = onSealed => WorkDataStore.createText({
+    file: filePath, purpose: 'queue', schema: 1, scopeId: 'global', recordId: 'external-bots:state-v1',
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
+    writeJson: atomicWriteJson,
+    validateSealedText: text => { const value = parse(text, true); if (onSealed) onSealed(value); return true; },
+  });
+  async function read() {
+    const stat = await fsp.stat(filePath()).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+    if (!stat) return initial();
+    const oversized = stat.size > EXTERNAL_BOT_LIMITS.stateBytes;
+    // Only chunks-v1 can legitimately exceed the old disk cap. Inspect a bounded complete first
+    // line; a nested marker in a huge plain business value must not bypass the legacy read limit.
+    if (oversized) {
+      const handle = await fsp.open(filePath(), 'r');
+      try {
+        const buffer = Buffer.alloc(16 * 1024 + 1); let used = 0;
+        while (used < buffer.length) {
+          const { bytesRead } = await handle.read(buffer, used, buffer.length - used, null);
+          if (!bytesRead) break;
+          used += bytesRead;
+          if (buffer.subarray(0, used).includes(10)) break;
+        }
+        const end = buffer.subarray(0, used).indexOf(10);
+        if (end < 0 || end > 16 * 1024 || JSON.parse(buffer.subarray(0, end).toString('utf8'))?.workData !== 3) throw new Error('oversized plaintext ledger');
+      } finally { await handle.close(); }
+    }
+    let sealedValue;
+    let text;
+    try { text = await textStore(value => { sealedValue = value; }).read(); }
+    catch (error) { if (error.code === 'ENOENT') return initial(); throw error; }
+    if (sealedValue !== undefined) return sealedValue;
+    if (oversized) throw new Error('oversized plaintext ledger');
+    return parse(text, false);
+  }
+  async function write(value) {
+    // Match DurableJsonStore's strict schema check, JSON snapshot and pretty plaintext bytes.
+    const snapshot = parse(JSON.stringify(value), true);
+    await read(); // Never overwrite a bad legacy ledger, even when sealing is currently disabled.
+    await textStore().write(JSON.stringify(snapshot, null, 2));
+    return snapshot;
+  }
+  return Object.freeze({ filePath, read, write });
+})();
 async function externalBotReadState() {
-  try {
-    const stat = await fsp.stat(externalBotStore.filePath()).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
-    if (stat && stat.size > EXTERNAL_BOT_LIMITS.stateBytes) throw new Error('oversized state');
-    return await externalBotStore.read();
-  } catch { throw externalBotError('external_channel.storage_unavailable', 503); }
+  try { return await externalBotStore.read(); }
+  catch { throw externalBotError('external_channel.storage_unavailable', 503); }
 }
 async function externalBotWriteState(state) {
   if (Buffer.byteLength(JSON.stringify(state), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes) throw externalBotError('external_channel.inbox_full', 503);
   try { await externalBotStore.write(state); }
-  catch { externalBotStore.invalidate(); throw externalBotError('external_channel.storage_unavailable', 503); }
+  catch { throw externalBotError('external_channel.storage_unavailable', 503); }
 }
 async function externalBotReadBody(req) {
   const declared = Number(req.headers['content-length']);

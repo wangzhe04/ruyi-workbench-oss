@@ -5792,6 +5792,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "externalRoot",
           "kinds": [
             "call"
@@ -7481,6 +7488,8 @@
         "adaptiveMetaToolSchemas",
         "agentRunDir",
         "agentRunFile",
+        "agentRunSnapshotCredential",
+        "agentRunSnapshotStore",
         "agentRunWriteChains",
         "agentWorktreePathOwned",
         "applyAgentWorktree",
@@ -7538,6 +7547,7 @@
         "projectAgentRoleFile",
         "projectCwdDirectoryFailure",
         "rankToolCatalog",
+        "readAgentRunSnapshot",
         "readClaudeProjectAgentRoles",
         "readProjectAgentRoles",
         "requestNativePermission",
@@ -7615,6 +7625,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -7681,7 +7698,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -7808,6 +7826,13 @@
           "symbol": "normalizeAgentRole",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -8867,6 +8892,20 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "agentRunSnapshotCredential",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunSnapshotStore",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "agentRunWriteChains",
           "kinds": [
             "read"
@@ -8966,6 +9005,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "openAiStreamOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "readAgentRunSnapshot",
           "kinds": [
             "call"
           ]
@@ -9351,13 +9397,6 @@
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "safeJsonParse",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -10349,13 +10388,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "agentRunFile",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "bridgedToolTier",
           "kinds": [
             "call"
@@ -10560,6 +10592,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "projectActionModelView",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "readAgentRunSnapshot",
           "kinds": [
             "call"
           ]
@@ -12469,7 +12508,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -12491,6 +12530,13 @@
           "symbol": "sessionPath",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -16620,13 +16666,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "safeJsonParse",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -17341,6 +17380,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "readAgentRunSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "STEER_QUEUE_MAX",
           "kinds": [
             "read"
@@ -17580,6 +17626,7 @@
         "paginatePretenderProjection",
         "persistPretenderIndex",
         "pretenderChangedSourceIds",
+        "pretenderCheckRunSourceAuth",
         "pretenderCompareCodeUnits",
         "pretenderEtag",
         "pretenderFileStamp",
@@ -17594,6 +17641,7 @@
         "pretenderNoteSourcesScan",
         "pretenderOwnWriteSeq",
         "pretenderRecentSessionIds",
+        "pretenderRunSourceAuth",
         "pretenderRunVerify",
         "pretenderScheduleVerify",
         "pretenderSessionSourceStamp",
@@ -17862,6 +17910,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunDir",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunSnapshotCredential",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "readAgentRunSnapshot",
           "kinds": [
             "call"
           ]
@@ -19736,13 +19798,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "fsp",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
             "call"
@@ -19767,13 +19822,6 @@
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "safeJsonParse",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -20212,14 +20260,14 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "agentRunFile",
+          "symbol": "httpRequestInternalTargetReason",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "httpRequestInternalTargetReason",
+          "symbol": "readAgentRunSnapshot",
           "kinds": [
             "call"
           ]
@@ -25242,7 +25290,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "DurableJsonStore",
+          "symbol": "atomicWriteJson",
           "kinds": [
             "read"
           ]
@@ -25250,6 +25298,13 @@
         {
           "provider": "01-config.js",
           "symbol": "originOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
           "kinds": [
             "call"
           ]
@@ -25266,6 +25321,13 @@
           "symbol": "tokenOk",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {

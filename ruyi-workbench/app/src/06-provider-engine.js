@@ -622,7 +622,10 @@ async function sweepAgentRunEventsStore(policy, result) {
       if (!m) continue;
       const runId = m[1];
       let run = null;
-      try { run = safeJsonParse(await fsp.readFile(path.join(dir, f), 'utf8'), null); } catch { continue; }
+      try {
+        if (typeof EventStreamHooks.readAgentRunSnapshot !== 'function') throw Object.assign(new Error('work_data_store.not_initialised'), { code: 'work_data_store.not_initialised', statusCode: 503 });
+        run = await EventStreamHooks.readAgentRunSnapshot(dirent.name, runId);
+      } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; continue; }
       if (!run || !STORAGE_ARCHIVE_TERMINAL.has(String(run.status || ''))) continue;
       let basis = Date.parse(run.updatedAt || run.completedAt || '');
       if (!Number.isFinite(basis)) { const st = await fsp.stat(path.join(dir, f)).catch(() => null); basis = st ? st.mtimeMs : NaN; }

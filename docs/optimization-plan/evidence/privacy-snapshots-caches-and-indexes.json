@@ -1,0 +1,348 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "status": "batch_verified",
+  "baselineCommit": "d202970f",
+  "syntheticOnly": true,
+  "userDataMigrated": false,
+  "scope": [
+    "bounded cached long learned indexes; unchanged privacy limits",
+    "agent-run-snapshot",
+    "web-cache",
+    "external-bots"
+  ],
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "ae2900b93c3c889ac2c2e8e04f41c5be83f0a56107ebcc7381123a5de6c269c8"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "sha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "2f3ce597993da530eff280db8e565ff1beb4a8e01aa42a9f45b68fa5af283ad9"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "097cba9ae94bb86e0923344d0aa2579c6d2ae303d2368637af565d4adcd3814a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "b49b8d2c8001e9b3ab5696881f46e08e58e731962f653cdbbac1eeed69a4d458"
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "c73b54fe3abec970eb4f2b743caf212e23d9b7ddfe4203c08ce6da5925783564"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "702702ac683425272af7c24ab82f3039a1804202f4aa6a3f12d2dba39d919ede"
+    },
+    {
+      "file": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "f4a482d587fe705ea66becdffe8f292cb644037c818a9247394c0f62520f41d2"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "sha256": "79809b795a600a279cce7fd5b4b74639d5a205f26a6b6ac027ebe4ecf9b7226e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "sha256": "7e3bad8b11138bf5e5ea0313d64b9a42c1c78da9cb7ae261473cfc21042904aa"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "sha256": "8cdb61302108a3a4a2d3d188630fdd84b6ac22a65871041485e1da4658d359f9"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "sha256": "747457e24724ab3efd088d8d642662d8dcf38a61a7fca20c8d7a3f9ec43b89f3"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "ff44015dfda6173ed0cf36128935aa8587bf617efe350ab7bb143c67efa2f848"
+    }
+  ],
+  "storage": {
+    "adapterWired": 22,
+    "required": 41,
+    "remaining": 19
+  },
+  "tests": [
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\snapshot-e2e-initial.log",
+      "sha256": "593a8c5438d404f1b2600548e5102f2a8a8208e79401b49bfe71c38f5ab43aae",
+      "passLines": 6,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\snapshot-e2e-repeat.log",
+      "sha256": "593a8c5438d404f1b2600548e5102f2a8a8208e79401b49bfe71c38f5ab43aae",
+      "passLines": 6,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\web-cache-e2e-fixed.log",
+      "sha256": "0c29439da4ffd3452413e7083054a4aee7d191260a6329780e8d68211900d851",
+      "passLines": 10,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\web-cache-e2e-repeat.log",
+      "sha256": "0c29439da4ffd3452413e7083054a4aee7d191260a6329780e8d68211900d851",
+      "passLines": 10,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\external-bots-work-data-current-1.log",
+      "sha256": "0e4e5c7e3c8cd5ea326621518fea710f702e6e8c818a105fbf93c4ffde106736",
+      "passLines": 7,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\external-bots-work-data-current-2.log",
+      "sha256": "0e4e5c7e3c8cd5ea326621518fea710f702e6e8c818a105fbf93c4ffde106736",
+      "passLines": 7,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\agent-run-lifecycle-current-3.log",
+      "sha256": "8979cd1a0ad59ae039a3f6fadb62a2b28a9cdf659fb0793aa261ff4dfa1497c9",
+      "passLines": 14,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\session-delete-agent-runs-current-4.log",
+      "sha256": "18f3d2e88c589a4f4552b1de6867a0dcbdb8c54027dfe665403c0fa1efc91744",
+      "passLines": 16,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\autonomy-durability-current-5.log",
+      "sha256": "0efe1a2916ac6a49aa29a45553ef0e4675045c106177c81a8c2969a3edac2863",
+      "passLines": 45,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\storage-steward-current-6.log",
+      "sha256": "3e6b6f87fcd954cfa4df96c51107d3e393c5759b805f2c8965741d0109052a7e",
+      "passLines": 28,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\privacy-gateway-snapshot-cache-core-final.log",
+      "sha256": "015797c0a011ed0724bc67d53075bda9f1af33443d6265b48580a6bc17bd0d02",
+      "passLines": 128,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\privacy-protocols-snapshot-cache-core-final.log",
+      "sha256": "5983d6f3ee626f4b169df028af9ab14a086763b2003e7099a34f39856b0db753",
+      "passLines": 483,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\privacy-model-tool-result-snapshot-cache-core-final.log",
+      "sha256": "bb89503b68f8810dc4bec25d035feca397f32c588e3cfc6d717ae9669f226670",
+      "passLines": 6,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\websearch-snapshot-cache-core-final.log",
+      "sha256": "b62047ef34ce1d36876f5bad590bed620fc42dc9462c0180beecf57098e1750f",
+      "passLines": 97,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\external-bots-snapshot-cache-core-final.log",
+      "sha256": "660ed02e422bd623bd8a1d9596d621fdc7bc381bd7535d132aef4c2335a4b0d9",
+      "passLines": 43,
+      "failLines": 0,
+      "allPass": true
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\external-bots-control-snapshot-cache-core-final.log",
+      "sha256": "699d85a4d5bf42970bc039c7a1f1fefe08e377e40acf0f4598ce889b7660df4e",
+      "passLines": 21,
+      "failLines": 0,
+      "allPass": true
+    }
+  ],
+  "snapshot": {
+    "platform": "win32",
+    "node": "v24.14.0",
+    "generatedServerSHA256": "31c66392041ecbed6ddc2ce00d7cf1fdc5c0dc8774b855db5f582b736861b236",
+    "testSHA256": "7148f8411f411b795751abc03eb893ef868b778622b7e519b3e0876a13b233f3",
+    "unicodeResultUTF8Bytes": 1600000,
+    "runs": [
+      {
+        "file": "snapshot-e2e-initial.log",
+        "passes": 6,
+        "failures": 0,
+        "allPass": true
+      },
+      {
+        "file": "snapshot-e2e-repeat.log",
+        "passes": 6,
+        "failures": 0,
+        "allPass": true
+      }
+    ],
+    "initialFailure": false,
+    "testFixtureChanges": false,
+    "productChanges": false,
+    "realDPAPI": true,
+    "coldRuntimeModules": 2,
+    "networkProvider": "localhost synthetic HTTP only",
+    "observedContracts": [
+      "OFF byte equality",
+      "sealed Unicode roundtrip in second module",
+      "warm digest/projection refuse twice after actual key-file rename",
+      "no overwrite, DELETE or resume side effect without key",
+      "boot leaves snapshot/event bytes unchanged",
+      "actual PowerShell counter has one line after cold continuation; completed n1 attempts=1 and resumed n2 HTTP calls=1"
+    ]
+  },
+  "sourceTests": {
+    "core": "49/49; privacy_review independently repeated 49 plus 300 seeded oracle samples",
+    "snapshot": "11/11 author and independent review",
+    "webCache": "6/6 source tests plus 7 independent source-VM groups",
+    "externalBots": "27/27 author then root independent repeat; 22 original groups plus 5 new"
+  },
+  "independentReviews": [
+    {
+      "scope": "core",
+      "author": "privacy_repro",
+      "reviewer": "privacy_review",
+      "final": "no blocker; 49 tests plus 300 independent cases"
+    },
+    {
+      "scope": "snapshot",
+      "author": "privacy_review",
+      "reviewer": "privacy_repro",
+      "final": "no blocker; complete consumer scan, source tests, real DPAPI twice"
+    },
+    {
+      "scope": "web-cache",
+      "author": "root",
+      "reviewer": "privacy_repro",
+      "final": "no blocker; pagination, redirect/offline and error propagation independently probed"
+    },
+    {
+      "scope": "external-bots",
+      "author": "storage_progress",
+      "reviewer": "root",
+      "final": "no blocker; frozen queue purpose, strict authority, no cache/default fallback, 40MiB accounting and side-effect boundaries reviewed; candidate source27/27 independently repeated"
+    },
+    {
+      "scope": "final metadata/docs/evidence",
+      "author": "root",
+      "reviewer": "privacy_review",
+      "initialFinding": "budget phrasing incorrectly suggested global cross-scope sharing",
+      "resolution": "limited claim to same protection invocation tiers/stabilization passes and existing sourceWork context accumulation",
+      "final": "no blocker; all13 source SHA,16 directed log SHA,3 gate SHA,22/41 counts,565/558/312 facts and split gate outcome independently verified"
+    }
+  ],
+  "firstFailures": [
+    {
+      "scope": "web-cache E2E fixture",
+      "detail": "maxChars 80 was below existing minimum 500, causing four pagination assertions. Test now requests complete repeated-line boundaries above 500. Product unchanged; two final runs pass.",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\web-cache-e2e-initial.log"
+    },
+    {
+      "scope": "module graph generator",
+      "detail": "one Windows UNKNOWN open error writing module-contracts.json; identical generator retry succeeded without content or test relaxation."
+    },
+    {
+      "scope": "unified static",
+      "detail": "route-inventory generated test-usage references were stale after adding snapshot tests; route decisions and auth remained179/165 with zero closure drift; regeneration and targeted case pass."
+    }
+  ],
+  "performance": {
+    "provenance": "TEMP source-overlay synthetic benchmark before application, exact applied core SHA4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783; no real provider",
+    "rawReport": "C:/Users/87179/AppData/Local/Temp/ruyi-long-ac-draft-b87tdS/capped-final-report.json",
+    "multiScopeReport": "C:/Users/87179/AppData/Local/Temp/ruyi-long-ac-draft-b87tdS/multi-scope-benchmark-results.json",
+    "longWork": {
+      "baselineMedianMs": 6160.3257,
+      "baselineOutcome": "privacy.learned_scan_limit",
+      "candidateMedianMs": 489.583,
+      "candidateOutcome": "pass"
+    },
+    "history6MiB": {
+      "baselineMs": 1741,
+      "candidateMs": 1686
+    },
+    "cache": "64MiB engineering charge, max64 indexes, patterns40000/maps40000/edges80000 incl reservations and scratch queue; NOT RSS or V8 heap bound",
+    "cancellation": "not changed in this slice; synchronous leaf detector remains bounded but can block"
+  },
+  "syntax": {
+    "command": "node dev-harness/syntax-gate.js",
+    "result": "1170 checked, 0 failed",
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\snapshot-cache-core-syntax.log"
+  },
+  "unifiedGate": {
+    "command": "node dev-harness/run-all.js --fast --parallel 4",
+    "unit": {
+      "total": 2733,
+      "pass": 2707,
+      "fail": 0,
+      "skip": 26
+    },
+    "staticInitial": {
+      "total": 81,
+      "pass": 80,
+      "fail": 1,
+      "failedCase": "route-inventory.static.e2e.js (two generated-byte freshness assertions)"
+    },
+    "resolution": "regenerated route-inventory test-usage references using the required generator, same179 decisions/165 auth entries; targeted final static passes; no product change after full run",
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\snapshot-cache-core-fast.log",
+    "finalTargetedLog": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\snapshot-cache-core-route-final.log",
+    "claim": "all unit pass; static results complete after one generated-artifact repair, not a second unified all-green run"
+  },
+  "limitations": [
+    "remaining19 families pending; no M3-3 migration/recovery/UI or M4 claim",
+    "OFF cannot write sealed records until explicit reverse migration; reads remain available with the same valid key",
+    "unchanged privacy leaf/structure/node/comparison/match limits",
+    "web cache pruning2000 entries and original page/source limits unchanged",
+    "snapshot real E2E generated server31c663... ran before unrelated external-bots application; affected snapshot sources unchanged; relevant lifecycle tests repeated on final generated runtime"
+  ],
+  "buildFreshness": "pass",
+  "generated": {
+    "modules": 94,
+    "edges": 662,
+    "stronglyConnectedMax": 31,
+    "e2e": 565,
+    "defaultE2e": 558,
+    "unitSuites": 312
+  },
+  "gateLogHashes": [
+    {
+      "file": "snapshot-cache-core-fast.log",
+      "sha256": "d67f1b3bb7fe7c28c95cf6615e728f30e8e89089e6b4fb7b692f2592a1a217a7"
+    },
+    {
+      "file": "snapshot-cache-core-route-final.log",
+      "sha256": "0442f6e4037ab8e2c4802519b980b294c46b002179f16341a53e82bfbc0a9739"
+    },
+    {
+      "file": "snapshot-cache-core-syntax.log",
+      "sha256": "887e3ddf859379f2a7006b1bdc2c4003173330287ca1daf48c3c6eae12007b2a"
+    }
+  ]
+}
