@@ -47687,9 +47687,41 @@ function normalizeAgentWorkflow(raw, opts = {}) {
   return { schemaVersion: 1, id, title, description: String(raw.description || '').trim().slice(0, 800), nodes, source: opts.source || raw.source || 'personal', builtin: !!opts.builtin };
 }
 function projectAgentWorkflowsFile(cwd) { return path.join(path.resolve(cwd), '.ruyi', 'workflows.json'); }
+function personalAgentWorkflowStore(fileName) {
+  // This is a native readdir entry, not a model-supplied Windows path. On POSIX a backslash is a
+  // legitimate filename character and must not select a different file.
+  const name = path.basename(String(fileName || ''));
+  const identity = process.platform === 'win32' ? name.toLowerCase() : name;
+  return WorkDataStore.createText({
+    file: () => path.join(paths.agentWorkflows, name),
+    purpose: 'workflow', schema: 1, scopeId: 'global',
+    // Hand-maintained legacy filenames may differ from workflow.id and contain Unicode/spaces.
+    // Bind the file identity without changing those legacy names or exposing a path in metadata.
+    recordId: 'workflow:' + crypto.createHash('sha256').update(identity, 'utf8').digest('hex'),
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    writeJson: atomicWriteJson,
+    validateSealedText: text => {
+      const raw = JSON.parse(text);
+      return Boolean(raw && typeof raw === 'object' && !Array.isArray(raw) && raw.schemaVersion === 1
+        && normalizeAgentWorkflow(raw, { source: 'personal' }));
+    },
+  });
+}
 async function readPersonalAgentWorkflows() {
   let files = []; try { files = await fsp.readdir(paths.agentWorkflows); } catch { return []; }
-  const out = []; for (const file of files.filter(x => x.endsWith('.json'))) { try { const wf = normalizeAgentWorkflow(safeJsonParse(await fsp.readFile(path.join(paths.agentWorkflows, file), 'utf8')), { source: 'personal' }); if (wf) out.push(wf); } catch {} } return out;
+  const out = [];
+  for (const file of files.filter(x => x.endsWith('.json'))) {
+    try {
+      const wf = normalizeAgentWorkflow(safeJsonParse(await personalAgentWorkflowStore(file).read()), { source: 'personal' });
+      if (wf) out.push(wf);
+    } catch (error) {
+      // Legacy bad plaintext is still skipped. Sealed failures cannot hide a missing personal layer.
+      if (String(error && error.code || '').startsWith('work_data')) throw error;
+    }
+  }
+  return out;
 }
 async function readProjectAgentWorkflows(cwd) {
   try { const raw = safeJsonParse(await fsp.readFile(projectAgentWorkflowsFile(cwd), 'utf8'), {}); return (Array.isArray(raw.workflows) ? raw.workflows : []).map(x => normalizeAgentWorkflow(x, { source: 'project' })).filter(Boolean); } catch { return []; }
@@ -47868,7 +47900,7 @@ async function saveAgentWorkflow(scope, cwd, raw) {
   // 个人模板,属数据丢失,故明确不做。编辑器切换保存范围本质是"新增一层覆盖",不是移动。
   if (scope === 'project') {
     const dest = projectAgentWorkflowsFile(cwd); await fsp.mkdir(path.dirname(dest), { recursive: true }); const list = await readProjectAgentWorkflows(cwd); const next = list.filter(x => x.id !== wf.id); next.push(wf); await atomicWriteJson(dest, { schemaVersion: 1, workflows: next });   // 25.1 收编
-  } else { await fsp.mkdir(paths.agentWorkflows, { recursive: true }); await atomicWriteJson(path.join(paths.agentWorkflows, wf.id + '.json'), wf); }   // 25.1 收编
+  } else { await fsp.mkdir(paths.agentWorkflows, { recursive: true }); await personalAgentWorkflowStore(wf.id + '.json').write(JSON.stringify(wf, null, 2)); }   // 25.1 收编
   return wf;
 }
 async function deleteAgentWorkflow(scope, cwd, id) {
@@ -86471,10 +86503,43 @@ function stewardOnInboxBatch(rows) {
 // 等一次模型往返,也不该因为端点不通就什么都看不到。
 // ────────────────────────────────────────────────────────────────────────────
 function stewardVisitsDir() { return path.join(stewardDir(), STEWARD_VISITS_DIR); }
+const stewardArchiveChains = new Map(); // one read/persist/truncate transaction per conversation
 
 // 归档文件名:ISO 时间戳里的 ':' 与 '.' 在 Windows 文件名里非法,换成 '-'(§CONTRIBUTING 第 4 条)。
 function stewardVisitFileName(at) {
   return String(at || nowIso()).replace(/[:.]/g, '-') + '.json';
+}
+
+function stewardVisitStore(file) {
+  const name = path.basename(String(file || ''));
+  const identity = process.platform === 'win32' ? name.toLowerCase() : name;
+  return WorkDataStore.createText({
+    file: () => file,
+    purpose: 'memory', schema: STEWARD_VISIT_SCHEMA, scopeId: STEWARD_SESSION_ID,
+    recordId: 'visit:' + crypto.createHash('sha256').update(identity, 'utf8').digest('hex'),
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    writeJson: atomicWriteJson,
+    validateSealedText: text => {
+      const raw = JSON.parse(text);
+      return Boolean(raw && typeof raw === 'object' && !Array.isArray(raw) && raw.schema === STEWARD_VISIT_SCHEMA
+        && raw.sessionId === STEWARD_SESSION_ID && Array.isArray(raw.messages));
+    },
+  });
+}
+
+async function stewardUnusedVisitFile(baseFile) {
+  for (let collision = 0; ; collision++) {
+    const file = collision ? baseFile.replace(/\.json$/, '-' + makeId('archive') + '-' + collision + '.json') : baseFile;
+    try { await stewardVisitStore(file).read(); }
+    catch (error) {
+      if (error && error.code === 'ENOENT') return file;
+      throw error; // unreadable ciphertext or an occupied/unreadable path is never permission to overwrite
+    }
+    // Existing plaintext or an authenticated archive remains untouched. The process-wide archive
+    // chain prevents a second local archiver from claiming the same missing path before it persists.
+  }
 }
 
 async function stewardTrimVisits() {
@@ -86547,72 +86612,85 @@ async function stewardResetConversation() {
 //   forever : 不归档不清空。
 // 返回 { archived, file, kept }。
 async function stewardArchiveConversation(config, startedAt, options = {}) {
-  const retention = options.reset === true ? 'visit' : String((config && config.stewardConversationRetention) || 'forever');
-  if (retention === 'forever') return { archived: 0, file: '', kept: -1 };
-  const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
-  if (!session) return { archived: 0, file: '', kept: 0 };
-  if (options.generation !== undefined && options.generation !== stewardRunnerRuntime.conversationGeneration) throw new Error('conversation changed');
-  const baseGen = Number(session.rewindGen) || 0;   // 128b:归档文件与截断必须基于同一份正文
-  const messages = Array.isArray(session.messages) ? session.messages : [];
-  if (!messages.length && !options.reset) return { archived: 0, file: '', kept: 0 };
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-  const keepFrom = retention === '24h'
-    ? messages.findIndex(m => {
-      const at = Date.parse(String((m && m.createdAt) || ''));
-      return Number.isFinite(at) && at >= cutoff;
-    })
-    : messages.length;
-  const splitAt = keepFrom < 0 ? messages.length : keepFrom;
-  const archived = messages.slice(0, splitAt);
-  if (!archived.length && !options.reset) return { archived: 0, file: '', kept: messages.length };
-  const at = nowIso();
-  const file = path.join(stewardVisitsDir(), options.reset ? stewardVisitFileName(at).replace('.json', '-' + makeId('reset') + '.json') : stewardVisitFileName(startedAt || at));
-  await fsp.mkdir(stewardVisitsDir(), { recursive: true });
-  await atomicWriteJson(file, {
-    schema: STEWARD_VISIT_SCHEMA,
-    sessionId: STEWARD_SESSION_ID,
-    startedAt: String(startedAt || ''),
-    archivedAt: at,
-    retention,
-    messages: archived,
-    ...(options.reset ? { sessionNotes: await readSessionNotes(STEWARD_SESSION_ID) } : {}),
+  return runKeyedChain(stewardArchiveChains, STEWARD_SESSION_ID, async () => {
+    const retention = options.reset === true ? 'visit' : String((config && config.stewardConversationRetention) || 'forever');
+    if (retention === 'forever') return { archived: 0, file: '', kept: -1 };
+    const session = await loadSession(STEWARD_SESSION_ID).catch(error => {
+      if (String(error && error.code || '').startsWith('work_data')) throw error;
+      return null;
+    });
+    if (!session) return { archived: 0, file: '', kept: 0 };
+    if (options.generation !== undefined && options.generation !== stewardRunnerRuntime.conversationGeneration) throw new Error('conversation changed');
+    const baseGen = Number(session.rewindGen) || 0;   // 128b:归档文件与截断必须基于同一份正文
+    const messages = Array.isArray(session.messages) ? session.messages : [];
+    if (!messages.length && !options.reset) return { archived: 0, file: '', kept: 0 };
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const keepFrom = retention === '24h'
+      ? messages.findIndex(m => {
+        const at = Date.parse(String((m && m.createdAt) || ''));
+        return Number.isFinite(at) && at >= cutoff;
+      })
+      : messages.length;
+    const splitAt = keepFrom < 0 ? messages.length : keepFrom;
+    const archived = messages.slice(0, splitAt);
+    if (!archived.length && !options.reset) return { archived: 0, file: '', kept: messages.length };
+    const at = nowIso();
+    const baseFile = path.join(stewardVisitsDir(), options.reset ? stewardVisitFileName(at).replace('.json', '-' + makeId('reset') + '.json') : stewardVisitFileName(startedAt || at));
+    await fsp.mkdir(stewardVisitsDir(), { recursive: true });
+    const file = await stewardUnusedVisitFile(baseFile);
+    const archive = {
+      schema: STEWARD_VISIT_SCHEMA,
+      sessionId: STEWARD_SESSION_ID,
+      startedAt: String(startedAt || ''),
+      archivedAt: at,
+      retention,
+      messages: archived,
+      ...(options.reset ? { sessionNotes: await readSessionNotes(STEWARD_SESSION_ID) } : {}),
+    };
+    // Preserve the old JSON bytes while OFF. While ON, sealing must finish before live truncation.
+    await stewardVisitStore(file).write(JSON.stringify(archive, null, 2));
+    // 正文按保留策略截断。providerHistory 与消息不是一一对应(工具轮次更多),整段清空是唯一
+    // 安全的做法:留半截会让下一回合带着孤儿 tool_calls 去请求(strict provider 直接 400)。
+    // 128b:修前是裸 saveSession(...).catch —— 被撤回闸丢掉时,归档文件已经写了、会话里那几条却还在(同一段对话存两份,
+    // 下次拜访再归档一次)。现在截断带 expectGen 走 mutateSession:期间撤回过,或正文头部已不是刚归档的那几条,就不截断,
+    // 并把刚写的归档文件删掉 —— 归档先写、截断后做的次序不变(截断之前归档一定已经在盘上,不会两头都没有)。
+    let kept = messages.length - splitAt;
+    let truncated = false;
+    let storageError = null;
+    try {
+      const written = await mutateSession(STEWARD_SESSION_ID, fresh => {
+        if (options.generation !== undefined && options.generation !== stewardRunnerRuntime.conversationGeneration) return { abort: 'conversation_changed' };
+        const now = Array.isArray(fresh.messages) ? fresh.messages : [];
+        const samePrefix = now.length >= splitAt && archived.every((m, i) => now[i] && now[i].createdAt === m.createdAt && now[i].role === m.role);
+        if (!samePrefix) return { abort: 'prefix_changed' };
+        fresh.messages = now.slice(splitAt);
+        fresh.providerHistory = [];
+        fresh.providerHistoryCursor = fresh.messages.length;
+        fresh.autoCompactWatermark = 0;
+        if (options.reset) {
+          fresh.summary = '';
+          fresh.claudeSessionId = null;
+          fresh.attachments = [];
+          delete fresh.stewardTaint;
+        }
+        kept = fresh.messages.length;
+        return undefined;
+      }, { writer: 'steward_archive', expectGen: baseGen, saveOpts: { shrinkBody: true, ...(options.reset ? { rewindBump: true, throwIfStale: true } : {}) } });   // 有意截短:不让 saveSession 当旧副本补回
+      truncated = Boolean(written && written.ok);
+    } catch (error) {
+      truncated = false;
+      if (String(error && error.code || '').startsWith('work_data')) storageError = error;
+    }
+    if (!truncated) {
+      await fsp.unlink(file).catch(() => {});
+      logEvent({ kind: 'steward_archive_rolled_back', sessionId: STEWARD_SESSION_ID, archived: archived.length });
+      if (storageError) throw storageError;
+      if (options.reset) throw new Error('conversation reset could not persist');
+      return { archived: 0, file: '', kept: messages.length };
+    }
+    await stewardTrimVisits();
+    return { archived: archived.length, file: path.basename(file), kept };
   });
-  // 正文按保留策略截断。providerHistory 与消息不是一一对应(工具轮次更多),整段清空是唯一
-  // 安全的做法:留半截会让下一回合带着孤儿 tool_calls 去请求(strict provider 直接 400)。
-  // 128b:修前是裸 saveSession(...).catch —— 被撤回闸丢掉时,归档文件已经写了、会话里那几条却还在(同一段对话存两份,
-  // 下次拜访再归档一次)。现在截断带 expectGen 走 mutateSession:期间撤回过,或正文头部已不是刚归档的那几条,就不截断,
-  // 并把刚写的归档文件删掉 —— 归档先写、截断后做的次序不变(截断之前归档一定已经在盘上,不会两头都没有)。
-  let kept = messages.length - splitAt;
-  let truncated = false;
-  try {
-    const written = await mutateSession(STEWARD_SESSION_ID, fresh => {
-      if (options.generation !== undefined && options.generation !== stewardRunnerRuntime.conversationGeneration) return { abort: 'conversation_changed' };
-      const now = Array.isArray(fresh.messages) ? fresh.messages : [];
-      const samePrefix = now.length >= splitAt && archived.every((m, i) => now[i] && now[i].createdAt === m.createdAt && now[i].role === m.role);
-      if (!samePrefix) return { abort: 'prefix_changed' };
-      fresh.messages = now.slice(splitAt);
-      fresh.providerHistory = [];
-      fresh.providerHistoryCursor = fresh.messages.length;
-      fresh.autoCompactWatermark = 0;
-      if (options.reset) {
-        fresh.summary = '';
-        fresh.claudeSessionId = null;
-        fresh.attachments = [];
-        delete fresh.stewardTaint;
-      }
-      kept = fresh.messages.length;
-      return undefined;
-    }, { writer: 'steward_archive', expectGen: baseGen, saveOpts: { shrinkBody: true, ...(options.reset ? { rewindBump: true, throwIfStale: true } : {}) } });   // 有意截短:不让 saveSession 当旧副本补回
-    truncated = Boolean(written && written.ok);
-  } catch { truncated = false; }
-  if (!truncated) {
-    await fsp.unlink(file).catch(() => {});
-    logEvent({ kind: 'steward_archive_rolled_back', sessionId: STEWARD_SESSION_ID, archived: archived.length });
-    if (options.reset) throw new Error('conversation reset could not persist');
-    return { archived: 0, file: '', kept: messages.length };
-  }
-  await stewardTrimVisits();
-  return { archived: archived.length, file: path.basename(file), kept };
 }
 
 // 确定性到访摘要:自上次到访以来的收件箱事件按七类归纳成 ≤5 条人话,再加 123-M2 的【承诺三项】。

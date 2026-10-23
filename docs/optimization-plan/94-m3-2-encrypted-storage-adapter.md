@@ -345,3 +345,12 @@ WorkDataChunks/v3 分块 codec 的进程内 FIFO 准入预算为 64MiB 活动明
 独立审查已修复侧日志缓存跨密钥复用、编码失败前修尾两项问题；分块审查补齐 generation 读取、严格 UTF8、sealed JSON 在 sanitize 前验证和并发准入。最终验证、首次失败和限制见 [本批证据](evidence/privacy-storage-chunks-and-journals.json)。
 
 收口补充：适配器的一次写操作只采样一次开关，并将同一值用于降级防护和编码，避免 guard 后再次读到关闭值而写出明文；三类适配器均验证 true→false 与 false→true，无额外 OFF 解锁。统一全单测先为2656通过/26跳过/零失败；静态80/81首轮图门失败已通过局部变量重命名修复，最终90项定向及相关集成复验通过。完整 runner 未再宣称一次全绿，详见证据分阶段记录。
+
+
+## 18. M3-2f：个人工作流与到访归档（2026-10-23）
+
+个人工作流及管家到访归档接入分块文本适配器，当前19/41，余22族。用户工作流按实际文件名hash绑定，保留历史文件名不等于payload id、POSIX反斜杠文件名；builtin和项目声明继续按原所有者处理。模板执行解析链遇已封印文件坏读会失败，不降级执行内置模板。
+
+归档事务按会话串行：读取live→认证既有目标并挑选空闲新名→持久化归档→核generation/prefix后截断live。已有归档绝不覆盖，CAS失败只清本次新档；mutation期间work_data错误在回滚后继续抛，不推进到访。正常OFF文件名及pretty字节不变，200份旧档保留策略继续。首次审查发现的碰撞丢旧档、吞加密错误与跨平台文件名问题均已加针对回归。
+
+源码unit12项和真实Windows DPAPI E2E两遍已过；统一门及独立收口详见[证据](evidence/privacy-personal-workflows-and-visits.json)。无用户数据迁移，M3-3仍待实施。

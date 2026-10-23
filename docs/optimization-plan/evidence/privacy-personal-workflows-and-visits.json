@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "status": "batch_verified",
+  "baselineCommit": "96d79556",
+  "syntheticOnly": true,
+  "userDataMigrated": false,
+  "scope": [
+    "personal-workflows opt-in chunked sealing with historic filenames",
+    "steward-visits persist/authenticate before live truncation, collision-safe rollback"
+  ],
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "2b5fc702e5d3d6d53175add61cb6239ef7f2ff8ef7d1b34df73c7a42258186fe"
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "579e6adb0cf10b2782f63eb009ca45ef58817266ea7aef5cb688aa4e029e7814"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "sha256": "273f667686b047aecc154a19dca60b975b5d312372afdc3bdc0ffee58f4247a9"
+    }
+  ],
+  "storage": {
+    "adapterWired": 19,
+    "required": 41,
+    "remaining": 22
+  },
+  "tests": [
+    {
+      "command": "node --test dev-harness/unit/personal-visits-work-data.test.js",
+      "result": "12 pass, 0 fail, 0 skip; source VM plus generated reference normalization",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\personal-visits-source-units-final.log"
+    },
+    {
+      "command": "node dev-harness/personal-visits-work-data.e2e.js",
+      "round": 1,
+      "result": "real generated runtime + Windows DPAPI; exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\personal-visits-e2e-1.log"
+    },
+    {
+      "command": "node dev-harness/personal-visits-work-data.e2e.js",
+      "round": 2,
+      "result": "real generated runtime + Windows DPAPI; exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\personal-visits-e2e-2.log"
+    },
+    {
+      "command": "node dev-harness/agent-workflow-templates.e2e.js",
+      "result": "exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\agent-workflow-templates-personal-visits-final.log"
+    },
+    {
+      "command": "node dev-harness/steward-conversation.e2e.js",
+      "result": "exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\steward-conversation-personal-visits-final.log"
+    }
+  ],
+  "independentReview": {
+    "reviewer": "privacy_review",
+    "initialFindings": [
+      "archive target already existed: overwrite then rejected CAS deleted the original archive",
+      "work_data failure during mutateSession was hidden and could advance visit state",
+      "win32 basename changed legal POSIX filenames"
+    ],
+    "resolution": [
+      "serialize whole archive transaction; authenticate and preserve existing target, choose unique free filename, rollback only new file",
+      "roll back new archive then rethrow encrypted storage failures",
+      "native basename with actual Windows-only case normalization"
+    ],
+    "final": "privacy_review final source review: no blocker; original reproductions and 12 source tests plus updated E2E checked read-only"
+  },
+  "firstFailures": [
+    {
+      "scope": "unit fixture",
+      "detail": "cross-realm comparison and fixture cleanup tempBase snapshot fixed; initial failed fixture retained outside repo after automatic cleanup review rejection"
+    },
+    {
+      "scope": "independent source repro",
+      "detail": "valid pre-existing archive disappeared after generation abort; encrypted mutation failure returned ordinary archived=0. Both corrected and locked with new tests."
+    }
+  ],
+  "pending": [],
+  "limitations": [
+    "format engineering cap 256MiB is not a domain or RSS bound",
+    "archives preserve existing explicit retention policy: oldest filenames pruned beyond 200",
+    "no runtime archive browsing added",
+    "external project workflow file and builtin assets remain excluded"
+  ],
+  "unifiedGate": {
+    "command": "node dev-harness/run-all.js --fast --parallel 4",
+    "unit": {
+      "total": 2695,
+      "pass": 2669,
+      "fail": 0,
+      "skip": 26
+    },
+    "staticInitial": {
+      "pass": 79,
+      "fail": 2,
+      "total": 81,
+      "failures": [
+        "frontend-domains.static.e2e.js D51 CSS payload pin",
+        "live-full-text.static.e2e.js F3 CSS payload pin"
+      ]
+    },
+    "resolution": "intentional reviewed CSS row/action layout; original HEAD payload self-proof and corrupt-CSS negative probes completed; updated shared pin and both final static cases pass; no product changed after this full run",
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\ui-personal-fast-final.log",
+    "finalTargetedLogs": [
+      "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\frontend-domains.static-integrated-artifacts-final.log",
+      "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\live-full-text.static-integrated-artifacts-final.log"
+    ],
+    "claim": "full unit passes; all static cases have passing results after two targeted pin repairs, not a rerun of one all-green full command"
+  },
+  "syntax": {
+    "command": "node dev-harness/syntax-gate.js",
+    "result": "1163 checked, 0 failed",
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\ui-personal-syntax-final.log"
+  },
+  "buildFreshness": "pass"
+}

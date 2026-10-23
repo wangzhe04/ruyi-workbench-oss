@@ -47,7 +47,9 @@
     "session-changes",
     "mission-container",
     "playbooks",
-    "memory-meta"
+    "memory-meta",
+    "personal-workflows",
+    "steward-visits"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -319,7 +321,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "visit history reveals which threads and items the steward read",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "voice-lexicon",
@@ -478,7 +480,7 @@
         }
       ],
       "reason": "workflow steps embed prompts and paths",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "playbooks",

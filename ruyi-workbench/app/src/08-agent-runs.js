@@ -1987,9 +1987,41 @@ function normalizeAgentWorkflow(raw, opts = {}) {
   return { schemaVersion: 1, id, title, description: String(raw.description || '').trim().slice(0, 800), nodes, source: opts.source || raw.source || 'personal', builtin: !!opts.builtin };
 }
 function projectAgentWorkflowsFile(cwd) { return path.join(path.resolve(cwd), '.ruyi', 'workflows.json'); }
+function personalAgentWorkflowStore(fileName) {
+  // This is a native readdir entry, not a model-supplied Windows path. On POSIX a backslash is a
+  // legitimate filename character and must not select a different file.
+  const name = path.basename(String(fileName || ''));
+  const identity = process.platform === 'win32' ? name.toLowerCase() : name;
+  return WorkDataStore.createText({
+    file: () => path.join(paths.agentWorkflows, name),
+    purpose: 'workflow', schema: 1, scopeId: 'global',
+    // Hand-maintained legacy filenames may differ from workflow.id and contain Unicode/spaces.
+    // Bind the file identity without changing those legacy names or exposing a path in metadata.
+    recordId: 'workflow:' + crypto.createHash('sha256').update(identity, 'utf8').digest('hex'),
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+    writeJson: atomicWriteJson,
+    validateSealedText: text => {
+      const raw = JSON.parse(text);
+      return Boolean(raw && typeof raw === 'object' && !Array.isArray(raw) && raw.schemaVersion === 1
+        && normalizeAgentWorkflow(raw, { source: 'personal' }));
+    },
+  });
+}
 async function readPersonalAgentWorkflows() {
   let files = []; try { files = await fsp.readdir(paths.agentWorkflows); } catch { return []; }
-  const out = []; for (const file of files.filter(x => x.endsWith('.json'))) { try { const wf = normalizeAgentWorkflow(safeJsonParse(await fsp.readFile(path.join(paths.agentWorkflows, file), 'utf8')), { source: 'personal' }); if (wf) out.push(wf); } catch {} } return out;
+  const out = [];
+  for (const file of files.filter(x => x.endsWith('.json'))) {
+    try {
+      const wf = normalizeAgentWorkflow(safeJsonParse(await personalAgentWorkflowStore(file).read()), { source: 'personal' });
+      if (wf) out.push(wf);
+    } catch (error) {
+      // Legacy bad plaintext is still skipped. Sealed failures cannot hide a missing personal layer.
+      if (String(error && error.code || '').startsWith('work_data')) throw error;
+    }
+  }
+  return out;
 }
 async function readProjectAgentWorkflows(cwd) {
   try { const raw = safeJsonParse(await fsp.readFile(projectAgentWorkflowsFile(cwd), 'utf8'), {}); return (Array.isArray(raw.workflows) ? raw.workflows : []).map(x => normalizeAgentWorkflow(x, { source: 'project' })).filter(Boolean); } catch { return []; }
@@ -2168,7 +2200,7 @@ async function saveAgentWorkflow(scope, cwd, raw) {
   // 个人模板,属数据丢失,故明确不做。编辑器切换保存范围本质是"新增一层覆盖",不是移动。
   if (scope === 'project') {
     const dest = projectAgentWorkflowsFile(cwd); await fsp.mkdir(path.dirname(dest), { recursive: true }); const list = await readProjectAgentWorkflows(cwd); const next = list.filter(x => x.id !== wf.id); next.push(wf); await atomicWriteJson(dest, { schemaVersion: 1, workflows: next });   // 25.1 收编
-  } else { await fsp.mkdir(paths.agentWorkflows, { recursive: true }); await atomicWriteJson(path.join(paths.agentWorkflows, wf.id + '.json'), wf); }   // 25.1 收编
+  } else { await fsp.mkdir(paths.agentWorkflows, { recursive: true }); await personalAgentWorkflowStore(wf.id + '.json').write(JSON.stringify(wf, null, 2)); }   // 25.1 收编
   return wf;
 }
 async function deleteAgentWorkflow(scope, cwd, id) {

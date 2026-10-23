@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 94,
-    "providedSymbols": 3927,
-    "requiredSymbols": 3573,
-    "edges": 657,
+    "providedSymbols": 3931,
+    "requiredSymbols": 3576,
+    "edges": 659,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -8366,6 +8366,7 @@
         "ownAgentMessageReceipt",
         "parseEventWindow",
         "parseStructuredAgentOutput",
+        "personalAgentWorkflowStore",
         "poolChainDepth",
         "projectAgentWorkflowsFile",
         "propagateAssignments",
@@ -8532,7 +8533,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -8575,6 +8577,13 @@
           "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -22738,6 +22747,7 @@
         "stewardActInflight",
         "stewardActReceiptFloor",
         "stewardApplyThreadTier",
+        "stewardArchiveChains",
         "stewardArchiveConversation",
         "stewardDecideNudged",
         "stewardDeferredNotified",
@@ -22764,11 +22774,13 @@
         "stewardRunClaimedTurn",
         "stewardScheduleInboxDrain",
         "stewardTrimVisits",
+        "stewardUnusedVisitFile",
         "stewardUserWaiters",
         "stewardViewedPendingStillOpen",
         "stewardVisit",
         "stewardVisitDigest",
         "stewardVisitFileName",
+        "stewardVisitStore",
         "stewardVisitsDir"
       ],
       "requires": [
@@ -22816,6 +22828,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -22825,7 +22844,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -22840,6 +22859,13 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -32167,6 +32193,14 @@
     },
     {
       "from": "08-agent-runs.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "08-agent-runs.js",
       "to": "02-session-store.js",
       "symbols": [
         "MISSION_STALL_SIGNAL_WINDOW_MS",
@@ -36460,7 +36494,8 @@
         "fsp",
         "makeId",
         "nowIso",
-        "path"
+        "path",
+        "runKeyedChain"
       ],
       "direction": "backward"
     },
@@ -36471,6 +36506,14 @@
         "atomicWriteJson",
         "readConfig",
         "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
       ],
       "direction": "backward"
     },

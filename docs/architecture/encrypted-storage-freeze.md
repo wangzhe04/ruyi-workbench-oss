@@ -13,7 +13,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 
 Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v2 manifest and chunk envelopes. See [93 section 11](../optimization-plan/93-m3-1-encrypted-storage-freeze.md#11-m3-2-大记录格式补充2026-10-23); the frozen v2 crypto envelope is unchanged.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -39,7 +39,7 @@ Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v
 | memory-import-marker | excluded | — | not-migrated | pending | — (nothing readable) | content-free bookkeeping: entry hashes and timestamps, no text and no path |
 | agent-instructions-import | required | `memory` | memory-queue | wired | — (nothing readable) | per-source file paths, entry hashes and core flags are content-derived and reveal local layout |
 | steward-memory | required | `memory` | memory-queue | wired | — (nothing readable) | steward notes are task content |
-| steward-visits | required | `memory` | memory-queue | pending | — (nothing readable) | visit history reveals which threads and items the steward read |
+| steward-visits | required | `memory` | memory-queue | wired | — (nothing readable) | visit history reveals which threads and items the steward read |
 | voice-lexicon | required | `user-config` | memory-queue | wired | — (nothing readable) | personal vocabulary and names |
 | steward-inbox | required | `queue` | memory-queue | pending | — (nothing readable) | inbox items quote incoming messages |
 | steward-cursor | required | `queue` | memory-queue | wired | — (nothing readable) | cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe |
@@ -51,7 +51,7 @@ Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v
 | agent-run-snapshot | required | `task` | tasks | pending | `sessionId` (attach to the session); `runId` (idempotency key) | run goals and step results are user content |
 | agent-run-events | required | `task` | tasks | pending | `sessionId` (attach to the session); `runId` (idempotency key) | event stream replays tool input/output |
 | background-job-ledger | required | `task` | tasks | pending | `sessionId` (attach to the session); `seq` (append ordering only) | job output and exit detail |
-| personal-workflows | required | `workflow` | tasks | pending | `workflowId` (workflow identity) | workflow steps embed prompts and paths |
+| personal-workflows | required | `workflow` | tasks | wired | `workflowId` (workflow identity) | workflow steps embed prompts and paths |
 | playbooks | required | `workflow` | tasks | wired | `playbookId` (playbook identity) | playbook bodies embed prompts and examples |
 | session-search-index | required | `search-index` | index-cache | pending | `sessionId` (group rows per session); `version` (rebuild decision without decrypting every row) | derived text units are a plaintext side channel for sealed bodies |
 | web-cache | required | `cache` | index-cache | pending | `fetchedAt` (cache freshness only, no page text) | URLs and page bodies are sensitive; only a hash key and a timestamp stay readable |

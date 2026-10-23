@@ -8246,6 +8246,7 @@
         "ownAgentMessageReceipt",
         "parseEventWindow",
         "parseStructuredAgentOutput",
+        "personalAgentWorkflowStore",
         "poolChainDepth",
         "projectAgentWorkflowsFile",
         "propagateAssignments",
@@ -8412,7 +8413,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -8455,6 +8457,13 @@
           "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -22566,6 +22575,7 @@
         "stewardActInflight",
         "stewardActReceiptFloor",
         "stewardApplyThreadTier",
+        "stewardArchiveChains",
         "stewardArchiveConversation",
         "stewardDecideNudged",
         "stewardDeferredNotified",
@@ -22592,11 +22602,13 @@
         "stewardRunClaimedTurn",
         "stewardScheduleInboxDrain",
         "stewardTrimVisits",
+        "stewardUnusedVisitFile",
         "stewardUserWaiters",
         "stewardViewedPendingStillOpen",
         "stewardVisit",
         "stewardVisitDigest",
         "stewardVisitFileName",
+        "stewardVisitStore",
         "stewardVisitsDir"
       ],
       "requires": [
@@ -22644,6 +22656,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -22653,7 +22672,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -22668,6 +22687,13 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {

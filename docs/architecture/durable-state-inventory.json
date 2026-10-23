@@ -757,14 +757,14 @@
       "pattern": "<data>/agent-workflows/<id>.json",
       "owner": "08-agent-runs.js",
       "anchor": "paths.agentWorkflows",
-      "schema": "object / normalized",
-      "writePrimitive": "atomicWriteJson",
-      "corruption": "invalid workflow skipped",
-      "capacity": "one per workflow",
+      "schema": "object / normalized; opt-in authenticated chunked text",
+      "writePrimitive": "WorkDataStore.createText + atomicWriteJson",
+      "corruption": "legacy invalid workflow skipped; sealed authentication or domain-shape errors propagate",
+      "capacity": "one per workflow; 256MiB sealed plaintext engineering ceiling",
       "cache": "none",
-      "recovery": "user recreates",
+      "recovery": "user recreates; authenticated files remain bound to their actual basename",
       "lifecycle": "shared-lifecycle",
-      "exemptionReason": "shared atomic domain state"
+      "exemptionReason": "shared atomic domain state; builtin and project layers retain their owners"
     },
     {
       "id": "context-calibration",
@@ -911,14 +911,14 @@
       "pattern": "<data>/steward/visits/<ISO>.json",
       "owner": "13q-steward-runner-turn.js",
       "anchor": "STEWARD_VISITS_DIR",
-      "schema": "object / schema 1",
-      "writePrimitive": "atomicWriteJson",
-      "corruption": "an unreadable archive is a lost transcript copy, never a wedged steward: the live conversation was already truncated inside the same write chain and nothing reads archives back",
-      "capacity": "one file per visit, oldest files pruned beyond 200",
-      "cache": "none: written once at visit start and never read back by the runtime",
-      "recovery": "nothing rebuilds it - the archived turns are gone from the live session by design (the decision ledger keeps what the steward actually did)",
+      "schema": "object / schema 1; opt-in authenticated chunked text",
+      "writePrimitive": "WorkDataStore.createText + atomicWriteJson inside the per-session archive transaction, then generation/prefix-checked live truncation",
+      "corruption": "unreadable existing targets refuse overwrite; work_data errors during truncation roll back only the new archive and propagate without advancing the visit",
+      "capacity": "one file per archive, unique suffix on collision, oldest filenames pruned beyond 200; 256MiB sealed plaintext engineering ceiling",
+      "cache": "none: existing target is authenticated before choosing a free filename",
+      "recovery": "successful archives are authoritative copies of truncated live turns; failed CAS preserves live turns and all previous archives",
       "lifecycle": "shared-lifecycle",
-      "exemptionReason": "small workbench-owned JSON on the shared atomic-write lifecycle"
+      "exemptionReason": "shared atomic file lifecycle plus a keyed read/persist/truncate transaction"
     },
     {
       "id": "steward-workspace-derived",

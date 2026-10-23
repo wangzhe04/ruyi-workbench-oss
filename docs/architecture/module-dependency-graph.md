@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 94 | 3927 | 3573 | 657 | 67 | 0 | 1 |
+| 94 | 3931 | 3576 | 659 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -69,7 +69,7 @@
 | 51 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 52 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
 | 53 | `07-autonomy.js` | orchestration | 152 | 82 | 19 |
-| 54 | `08-agent-runs.js` | orchestration | 127 | 121 | 22 |
+| 54 | `08-agent-runs.js` | orchestration | 128 | 122 | 23 |
 | 55 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 56 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 57 | `09-workflow.js` | orchestration | 32 | 272 | 28 |
@@ -95,7 +95,7 @@
 | 77 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
 | 78 | `13o-steward-runner-prompt.js` | transport | 22 | 67 | 17 |
 | 79 | `13p-steward-runner-actions.js` | transport | 37 | 67 | 13 |
-| 80 | `13q-steward-runner-turn.js` | transport | 45 | 86 | 20 |
+| 80 | `13q-steward-runner-turn.js` | transport | 48 | 88 | 21 |
 | 81 | `13h-steward-runner.js` | transport | 7 | 50 | 13 |
 | 82 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
 | 83 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
@@ -321,6 +321,7 @@
 | `08-agent-runs.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readFileTail`, `safeSessionId` |
 | `08-agent-runs.js` | `01c-runtime-flags.js` | backward | `estimateBucketsEnabled` |
 | `08-agent-runs.js` | `01e-permission-modes.js` | backward | `clampAgentRoleToParent`, `resolvePermissionMode` |
+| `08-agent-runs.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `08-agent-runs.js` | `02-session-store.js` | backward | `MISSION_STALL_SIGNAL_WINDOW_MS`, `bridgedWriteRelativePathArg`, `isProviderToolArgsObject`, `missionSignalThrottleAllow`, `mutateSession`, `providerHistoryToolCalls`, `readInterventions`, `readSessionHeadResilient`, `registerIntervention`, `sessionAssociatedSaveIsTombstoned`, `settleIntervention` |
 | `08-agent-runs.js` | `02d-session-overrides.js` | backward | `applySessionPermissionModeOverride`, `liveSessionPermissionMode`, `sessionDesktopToolsOf` |
 | `08-agent-runs.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `guardWorkspacePath`, `journalBridgedWrite`, `normalizeCwd`, `preflightWriteBoundary`, `privacyMapBounded` |
@@ -657,8 +658,9 @@
 | `13p-steward-runner-actions.js` | `13l-steward-ops.js` | backward | `stewardReadRunSnapshot`, `stewardRunResumeTier` |
 | `13p-steward-runner-actions.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_CONTINUE_FRESH_MS`, `STEWARD_CONTINUE_PROMPT`, `STEWARD_INBOX_DELIVERABLE_CHARS`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_INBOX_EVENT_CHARS`, `STEWARD_INBOX_MESSAGE_CHARS`, `STEWARD_SELF_SERVE_ATTEMPT_MAX`, `STEWARD_SELF_SERVE_RETRY_WINDOW_MS`, `STEWARD_TURN_DAY_MS`, `STEWARD_TURN_WINDOW_MS`, `stewardFailureExplain`, `stewardRunnerRuntime` |
 | `13p-steward-runner-actions.js` | `13o-steward-runner-prompt.js` | backward | `stewardActConfirmLines`, `stewardActLabel`, `stewardNormalizeAct`, `stewardThreadDigestRows` |
-| `13q-steward-runner-turn.js` | `00-boot.js` | backward | `OVERLAY_ID`, `RUYI_EVENTS`, `crypto`, `fsp`, `makeId`, `nowIso`, `path` |
+| `13q-steward-runner-turn.js` | `00-boot.js` | backward | `OVERLAY_ID`, `RUYI_EVENTS`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `runKeyedChain` |
 | `13q-steward-runner-turn.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
+| `13q-steward-runner-turn.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13q-steward-runner-turn.js` | `02-session-store.js` | backward | `loadSession`, `mutateSession`, `readSessionNotes`, `waitMissionTurnSettled`, `writeSessionNotes` |
 | `13q-steward-runner-turn.js` | `02e-session-engine-route.js` | backward | `normalizeSessionEngineRoute` |
 | `13q-steward-runner-turn.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingQuestions`, `promptDeadlineIsReal`, `stopSession`, `turnSettlers` |
