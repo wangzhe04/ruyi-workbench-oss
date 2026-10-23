@@ -489,6 +489,8 @@ async function installedMcp(python, module, env) {
     report.acceptanceHarnessSha256 = hash(__filename);
     report.releaseChecksSha256 = hash(path.join(__dirname, 'lib/release-checks.js'));
     report.applicationVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'ruyi-workbench/package.json'), 'utf8')).version;
+    const expectedNativeTools = JSON.parse(fs.readFileSync(path.join(ROOT, 'facts.json'), 'utf8')).nativeTools;
+    check(Number.isInteger(expectedNativeTools) && expectedNativeTools > 0, 'candidate tool registry count comes from the generated facts');
     report.sourceAppSha256 = treeHash(path.join(ROOT, 'ruyi-workbench/app')); save();
     fake = await startFakeProvider({ handler(req) { if (privacyScenario) return privateProviderResponse(req); if (!req.messages.some(m => m.role === 'tool')) return toolCallFrames('file_write', { path: targetFile, content: 'PACKAGE_ACCEPTANCE_OK\n' }, 'qa_write'); return [...textFrames('PACKAGE_ACCEPTANCE_OK'), usageFrame(8, 4)]; } });
     const bundles = {};
@@ -519,7 +521,7 @@ async function installedMcp(python, module, env) {
         try { const status = await server.request('/api/status'); check(status.version === report.applicationVersion && path.resolve(status.dataRoot) === data, label + ': actual runtime version/data root correct');
           check(String(await server.request('/')).includes('如意'), label + ': packaged UI is served');
           await conversation(server, work, label);
-          const counts = await server.request('/api/tools/workbench_self_status', { section: 'counts' }); check(counts.result?.counts?.nativeTools === 120, label + ': actual runtime has the candidate tool registry');
+          const counts = await server.request('/api/tools/workbench_self_status', { section: 'counts' }); check(counts.result?.counts?.nativeTools === expectedNativeTools, label + ': actual runtime has the candidate tool registry');
           await candidatePrivacy(server, data, work, label);
           await candidateVaultAndRules(server, data, work, label);
         } finally { await stop(server.child); }
