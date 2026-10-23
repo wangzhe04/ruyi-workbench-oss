@@ -24,6 +24,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { constBlock, functionBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'ruyi-workbench', 'app', 'src');
@@ -187,7 +188,11 @@ function typeExpressionLiterals(text) {
     'D5 <data>/steward 不进 paths 常量表(否则 ensureDirs 会在开关关时也建目录)');
   ok(inbox.includes('repairMissionChangeTornTail'), 'D5 inbox 追加复用 session-changes 同款 NDJSON 原语(不新造)');
   // M3-2d: 游标改走 WorkDataStore.createText（开关关时内部仍是 atomicWriteJson，字节不变）。
-  ok(inbox.includes('stewardCursorStore.write(') && inbox.includes('const stewardCursorStore = WorkDataStore.createText({'),
+  // The tick borrows its already-owned operation lease through the same host.
+  ok(constBlock(inbox, 'stewardCursorStore').includes('WorkDataStore.createText(stewardCursorHost)')
+      && constBlock(inbox, 'stewardCursorHost').includes("recordId: 'steward-cursor'")
+      && functionBlock(inbox, 'stewardSaveCursor').includes('await stewardCursorStorage(operation).write(')
+      && functionBlock(inbox, 'stewardCursorStorage').includes('...stewardCursorHost'),
     'D5 游标经 WorkDataStore.createText 落盘（关闭开关时等价于原 atomicWriteJson 字节）');
 
   const main = read('14-main.js');

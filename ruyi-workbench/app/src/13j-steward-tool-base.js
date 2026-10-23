@@ -181,9 +181,19 @@ function stewardBasisOf(args, extra) {
   return base;
 }
 
+function stewardDecisionJournal() {
+  return WorkDataJournals.create({ file: stewardDecisionsPath, context: { sessionId: 'steward', kind: 'steward-decisions' },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true), writeJson: atomicWriteJson,
+    validateSealedLine: plain => { const row = safeJsonParse(plain, null); return !!row && !Array.isArray(row) && !!row.tool; } });
+}
+function stewardPreflightDecision() {
+  const next = stewardDecisionChain.catch(() => {}).then(() => stewardDecisionJournal().preflight());
+  stewardDecisionChain = next.catch(() => {}); return next;
+}
+StewardHooks.preflightDecision = stewardPreflightDecision;
 function stewardAppendDecision(row) {
   const record = {
-    seq: ++stewardDecisionSeq,
+    seq: 0,
     at: nowIso(),
     tool: String((row && row.tool) || ''),
     args: (row && row.args && typeof row.args === 'object') ? row.args : {},
@@ -193,13 +203,17 @@ function stewardAppendDecision(row) {
     undoRef: (row && row.undoRef) || null,
     basis: (row && row.basis && typeof row.basis === 'object') ? row.basis : {},
   };
-  const line = JSON.stringify(record) + '\n';
-  stewardDecisionChain = stewardDecisionChain.then(async () => {
-    await fsp.mkdir(stewardDir(), { recursive: true });
-    const file = stewardDecisionsPath();
-    await repairMissionChangeTornTail(file);
-    await fsp.appendFile(file, line, 'utf8');
-  }).catch(() => {}); // 记账失败绝不回滚已经做完的动作(与 usage ledger 同款 fire-and-forget 纪律)
+  stewardDecisionChain = stewardDecisionChain.catch(() => {}).then(() => stewardDecisionJournal().withOperation(async operation => {
+    const journal = stewardDecisionJournal(), file = stewardDecisionsPath();
+    await journal.preflight(operation);
+    const seq = stewardDecisionSeq + 1, line = JSON.stringify({ ...record, seq });
+    await journal.append([line], async () => {
+      await fsp.mkdir(stewardDir(), { recursive: true });
+      await repairMissionChangeTornTail(file);
+      await fsp.appendFile(file, line + '\n', 'utf8');
+    }, operation);
+    stewardDecisionSeq = seq; record.seq = seq;
+  })).catch(error => { try { logEvent({ kind: 'steward_decision_append_failed', code: String(error && error.code || 'io') }); } catch { /* diagnostic only */ } }); // 记账失败绝不回滚已经做完的动作(与 usage ledger 同款 fire-and-forget 纪律)
   return record;
 }
 
@@ -231,7 +245,7 @@ function stewardMaskDecisionArgs(value, depth = 0) {
   return out;
 }
 
-async function stewardReadDecisionsText() {
+async function stewardReadDecisionsLegacyText() {
   const file = stewardDecisionsPath();
   let size = -1;
   try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
@@ -245,6 +259,12 @@ async function stewardReadDecisionsText() {
     return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
   } catch { return { text: '', droppedHead: false }; }
 }
+async function stewardReadDecisionsText() {
+  const next = stewardDecisionChain.catch(() => {}).then(() => stewardDecisionJournal().readWindow(
+    STEWARD_DECISIONS_FULL_READ_BYTES, STEWARD_DECISIONS_TAIL_BYTES, null, false, stewardReadDecisionsLegacyText));
+  stewardDecisionChain = next.catch(() => {}); return next;
+}
+
 
 // { limit, sessionId, since } -> { ok, rows, total, limit }
 //   · rows 按时间【倒序】(最近的在最前),这是行动流水页的自然阅读序;

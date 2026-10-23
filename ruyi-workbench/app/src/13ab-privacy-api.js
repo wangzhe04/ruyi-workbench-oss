@@ -95,8 +95,12 @@ const PrivacySettings = (() => {
     let result;
     try {
       if (!successful) result = { ok: false, saved: false, error: 'privacy.turn_cancelled' };
-      else result = { ...await apply(item.body), saved: true, status: 'applied', mode: item.body.mode, technical: item.body.technical, ruleCount: item.body.rules.length };
-    } catch (error) { result = { ok: false, saved: false, error: /^(?:privacy|credential_vault)\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed' }; }
+      else {
+        if (typeof StewardHooks.preflightDecision !== 'function') throw Object.assign(new Error('work_data_store.not_initialised'), { code: 'work_data_store.not_initialised' });
+        await StewardHooks.preflightDecision();
+        result = { ...await apply(item.body), saved: true, status: 'applied', mode: item.body.mode, technical: item.body.technical, ruleCount: item.body.rules.length };
+      }
+    } catch (error) { result = { ok: false, saved: false, error: /^(?:privacy|credential_vault|work_data[a-z_]*)\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed' }; }
     // Only metadata enters the decision log; no patterns, literal secrets or samples.
     stewardAppendDecision({ tool: 'steward_config_set', args: { privacy: true, turnSeq, result }, targetSessionId: sessionId,
       permissionMode: '', mayAct: 'user', undoRef: { kind: 'none' }, basis: {} });

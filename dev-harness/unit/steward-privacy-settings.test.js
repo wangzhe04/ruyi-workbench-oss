@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), crypto = require('node:crypto');
 const { constBlock } = require('../lib/source-slice');
 const { fixture } = require('../lib/privacy-test-fixture');
-function setup() {
+function setup(preflight = async () => {}) {
   const f = fixture(), turns = new Map(), decisions = [];
   let config = { privacyModeV1: 'off', privacyTechnicalV1: false, privacyRulesV1: [], credentialEncryptionV1: false }, writes = 0;
   const version = c => crypto.createHash('sha256').update(JSON.stringify([c.privacyModeV1, c.privacyTechnicalV1, c.privacyRulesV1])).digest('hex').slice(0, 16);
@@ -26,7 +26,7 @@ function setup() {
   const api = vm.runInNewContext(constBlock(source, 'PrivacySettings') + '\nPrivacySettings', { PrivacyCore: core, PrivacyRegex: f.PrivacyRegex,
     PrivacyGateway: { ruleVersion: version, preview }, structuredClone, Buffer, process: { platform: 'win32' }, turnSettlers: turns,
     readConfig: async () => structuredClone(config), mutateConfig: async fn => { const next = structuredClone(config); fn(next); config = next; writes++; },
-    stewardAppendDecision: row => decisions.push(structuredClone(row)) });
+    StewardHooks: {preflightDecision: preflight}, stewardAppendDecision: row => decisions.push(structuredClone(row)) });
   const current = () => structuredClone(config), request = extras => ({ op: 'update', expectedRuleVersion: version(config), ...extras });
   const owner = { sessionId: 'steward', turnSeq: 1 };
   return { api, turns, decisions, current, request, owner, writes: () => writes, mutate: fn => fn(config) };
@@ -93,4 +93,19 @@ test('literal and complete JSON pointer rules test independently and upsert pres
   f.turns.clear(); assert.equal((await f.api.settle('steward', 1, true)).saved, true);
   f.turns.set('steward', {}); await f.api.administer(f.request({ remove: [rows[0].id] }), f.owner); f.turns.clear(); await f.api.settle('steward', 1, true);
   assert.equal(f.current().privacyRulesV1.length, 1); assert.equal(f.current().privacyRulesV1[0].id, rows[1].id);
+});
+
+test('deferred privacy settlement authenticates the real decision owner before applying settings', async () => {
+  const { loadWorkDataJournals } = require('../lib/work-data-journals-fixture');
+  const journal = loadWorkDataJournals().WorkDataJournals.create({
+    file: path.join(require('node:os').tmpdir(), 'ruyi-privacy-no-write-' + crypto.randomUUID(), 'decisions.ndjson'),
+    context: { kind: 'steward-decisions', sessionId: 'steward' }, enabled: async () => true,
+    keys: { snapshot: async () => { throw Object.assign(Error('synthetic private detail'), { code: 'work_data_key.absent' }); } },
+  });
+  const f = setup(() => journal.preflight()); f.turns.set('steward', {});
+  await f.api.administer(f.request({ mode: 'off' }), f.owner); f.turns.clear();
+  const result = await f.api.settle('steward', 1, true);
+  assert.equal(result.saved, false); assert.equal(result.error, 'work_data_key.absent'); assert.equal(f.writes(), 0);
+  assert.equal(await f.api.settle('steward', 1, true), null, 'no deferred replay after authority failure');
+  assert.equal(JSON.stringify(f.decisions).includes('synthetic private detail'), false);
 });

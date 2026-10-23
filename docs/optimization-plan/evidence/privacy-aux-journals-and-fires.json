@@ -1,0 +1,2429 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baselineCommit": "9c12fe35c4e6d46d60a94c59545eccfacb469346",
+  "branch": "codex/3.1-completion-plan",
+  "applicationVersion": "3.0.1",
+  "nodeVersion": "v24.14.1",
+  "status": "accepted_adapter_slice_not_release",
+  "syntheticOnly": true,
+  "userDataChanged": false,
+  "adapterWired": 38,
+  "required": 41,
+  "remaining": [
+    "background-job-ledger",
+    "audit-log",
+    "migration-skill-backups"
+  ],
+  "scope": [
+    "steward-inbox",
+    "steward-decisions",
+    "agent-run-events including gzip archive",
+    "scheduler-fires"
+  ],
+  "sourceHashes": [
+    {
+      "file": "dev-harness/aux-journals-work-data.e2e.js",
+      "sha256": "4060fe932f876ab0bacd2560c99404ca72ef813348432f02e834cc9996b7cb09"
+    },
+    {
+      "file": "dev-harness/durable-state-inventory.js",
+      "sha256": "aac4a33a70387027c3df4caf440087caec13faa2fe333c1e6f69243b7efe027f"
+    },
+    {
+      "file": "dev-harness/encrypted-storage-freeze.js",
+      "sha256": "6b6c5b167d043299cd4b6152a1b5145a3c0c38d43fb9e494f3b8f5be5f64843e"
+    },
+    {
+      "file": "dev-harness/lib/work-data-journals-fixture.js",
+      "sha256": "8314709c3110789c747ab0217abf676b1143373177fb2d1791bfb5b14eb5de47"
+    },
+    {
+      "file": "dev-harness/privacy-m1/egress/AUDIT.md",
+      "sha256": "fe7e35c8e70f389b497ee85f32b5fa2de30eb178165011faf200438216e5f9ab"
+    },
+    {
+      "file": "dev-harness/privacy-m1/egress/manifest.json",
+      "sha256": "de33ba0de76f7c6900b53f6d0983f81e561bce76bd115be28151b8a0fbed5658"
+    },
+    {
+      "file": "dev-harness/scheduler-tasks-work-data.e2e.js",
+      "sha256": "d7084c0aa2699bb9bcc12b83329f9e9624fc06da719b0560238c22d1abc86d72"
+    },
+    {
+      "file": "dev-harness/steward-events.static.e2e.js",
+      "sha256": "71d9b97216437d6ef5d0d6fc6d707118d620ef4ece9fa37de3b90ea1231e7d04"
+    },
+    {
+      "file": "dev-harness/steward-inbox-integrity.e2e.js",
+      "sha256": "1c9b6ed8d34b161e8f98652dc5ed3a5608f2b4dd3997d5911e4e12513718898e"
+    },
+    {
+      "file": "dev-harness/unit/aux-journals-work-data.test.js",
+      "sha256": "6e6b88ef1224f3c84efdf13cec0c0b4e59030037013e9f74a55eb03501d126ed"
+    },
+    {
+      "file": "dev-harness/unit/external-owner-runner.test.js",
+      "sha256": "8fa2da6f4eba5d7336bd2908830459e098bdc267fccf74e965d2c138429e5bd6"
+    },
+    {
+      "file": "dev-harness/unit/memory-usage-work-data.test.js",
+      "sha256": "4f4b2daa837695a8099ab801e981d06c309d467a1e3cd8178f69711687456e47"
+    },
+    {
+      "file": "dev-harness/unit/scheduler-tasks-work-data.test.js",
+      "sha256": "1149581acdeef68bdb9fba9fb4ab1a9863e4205d0f142f6f8fcfdc4f528b13b7"
+    },
+    {
+      "file": "dev-harness/unit/steward-inbox-retention.test.js",
+      "sha256": "b15b2059c43c8ae6774d3386f455d2467c98e6299bd6de4a68093da410de721f"
+    },
+    {
+      "file": "dev-harness/unit/steward-inbox-tick-cost.test.js",
+      "sha256": "53ba3fb20c18d411a8598a850d13856f41852bf2951c77342ddca6504124bdd3"
+    },
+    {
+      "file": "dev-harness/unit/steward-privacy-settings.test.js",
+      "sha256": "79e3e3f34da6aaeaa5322617771a0c12aafd8287ac918e95c2abd253692be36f"
+    },
+    {
+      "file": "dev-harness/unit/work-data-journals.test.js",
+      "sha256": "13dbc96de727f52642a306f8122ebf4880373d9feb3bb9f7c749ec02089c7ea4"
+    },
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "2ebe35ab6d18df008f66a53563aee04901bc03ad8a160b1207eef0626bdffcb6"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01q-work-data-records.js",
+      "sha256": "90dee8fb44a036977904c87060ed01aabcf1a0837132675f39639c32b6aa2114"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01s-work-data-journals.js",
+      "sha256": "fddb5bbdaa925db981f6fcfd78a57ec61f40e0be3f89ff4ea95d03f0d20242d8"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "b02997d755d8585273b36fa447091b085bdb79879d41ee221e568f09aea6fe96"
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "b79c409b007de9148e6bade6440e8fc22c39f330d2c21b45702af074cb509559"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "913ad1165f8e8a5a300240678369ff1b632995da1ce7603146d1ef8412100f8b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "a323cc7c5be04be9540772ca42f5b0521b67f7af1b786b625f8a1dcede808292"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13g-steward.js",
+      "sha256": "ea8b4a06c91afc647875c0af7ac370c70ef39812444e1afb45dba18f82084493"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13h-steward-runner.js",
+      "sha256": "299a07bdfa21f093dc26ac2c5154909bdeb7e250e427bbd1fcafc71b9ae13593"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "sha256": "019d8b3801c82f853f3e704cad1e98746ac7ab211d8ccbc969ff9b64fc1dcab8"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "sha256": "eb4a62ddc83092ff8d8354126feb3efc21f6dc8b9e23b456f299b2966988b279"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13s-scheduler.js",
+      "sha256": "263f540613696c3b9ba89c75cc1e3d601354010f1176901b4b2927e6ef402836"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "c4bb5a263f349919424de7d58bfb0c55cbaedaf96130b14134580111c864b08a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "f0be4836a4155dfae4291b691d7c49dc5976c5bb5db6c1433ddc457ec70147f2"
+    }
+  ],
+  "contracts": [
+    "Old four WorkDataRecords kinds and v2 AAD unchanged; four fixed auxiliary kind purposes use existing Records/Chunks/Store. No runtime npm dependencies.",
+    "One short key lease per storage operation, borrowed through preflight/write/archive; no model-turn-held lease. OFF bytes and original business caps preserved.",
+    "Metadata classification scans every call with bounded buffers; a stat tuple is never content authentication. Sealed windows use decoded plaintext bytes and physical ordinal is distinct from business seq.",
+    "Complete authenticated sealed no-LF suffix remains readable but mutation refuses sealed_tail_uncommitted. Stage before destructive repair.",
+    "Append partial copy plus failed rollback establishes process-local non-evictable recovery gate. Pending writers reserve capacity. Inbox/events/fires rebuild temporary business waterlines after full authentication before opaque acknowledgement; UI reads cannot clear gate.",
+    "Decisions double-I/O failure conservatively gates until restart; already completed effects remain completed and never replay merely to recover a receipt.",
+    "Event archive uses actual shared binary writer, readback/decompression equality, a second full authentication and comparison of current source before unlink, then final stat guard; not cross-process CAS.",
+    "Scheduler keeps Tasks-to-Fires lock order, publishes seq after append and preflights before producer/inFlight/late-queue mutations. Completed reminders retain inFlight on failed reconciliation and cold recovery is unknown without replay."
+  ],
+  "validation": {
+    "syntax": {
+      "files": 1204,
+      "failed": 0,
+      "log": "syntax-final.log"
+    },
+    "sourceBatchFirst": {
+      "tests": 91,
+      "pass": 91,
+      "fail": 0,
+      "log": "source-batch-first.log",
+      "note": "Original91-case relevant source run before four later memo regressions; final24-case independent run and complete third gate cover final source."
+    },
+    "realDPAPI": {
+      "initialFixtureGroups": {
+        "aux": 7,
+        "scheduler": 9
+      },
+      "initialRunsEach": 2,
+      "initialAllPass": true,
+      "runnerCwdFix": "Final defaults use path.resolve(__dirname, ..), preserving explicit override. Both root and HARNESS working directories verified.",
+      "finalRuns": [
+        {
+          "log": "aux-journals-dpapi-counts-first.log",
+          "groups": 7,
+          "pass": 7,
+          "fail": 0,
+          "productSource13i": "019d8b3801c82f853f3e704cad1e98746ac7ab211d8ccbc969ff9b64fc1dcab8",
+          "fixtureCwd": "repository-root"
+        },
+        {
+          "log": "aux-journals-dpapi-counts-second.log",
+          "groups": 7,
+          "pass": 7,
+          "fail": 0,
+          "productSource13i": "019d8b3801c82f853f3e704cad1e98746ac7ab211d8ccbc969ff9b64fc1dcab8",
+          "fixtureCwd": "dev-harness"
+        },
+        {
+          "log": "scheduler-fires-dpapi-counts-first.log",
+          "groups": 9,
+          "pass": 9,
+          "fail": 0,
+          "productSource13i": "019d8b3801c82f853f3e704cad1e98746ac7ab211d8ccbc969ff9b64fc1dcab8",
+          "fixtureCwd": "dev-harness"
+        },
+        {
+          "log": "scheduler-fires-dpapi-counts-second.log",
+          "groups": 9,
+          "pass": 9,
+          "fail": 0,
+          "productSource13i": "019d8b3801c82f853f3e704cad1e98746ac7ab211d8ccbc969ff9b64fc1dcab8",
+          "fixtureCwd": "repository-root"
+        }
+      ]
+    },
+    "fullFast": {
+      "pending": false,
+      "runs": [
+        {
+          "command": "node dev-harness/run-all.js --fast --parallel 4",
+          "log": "full-fast-first.log",
+          "unit": {
+            "tests": 2968,
+            "suites": 192,
+            "pass": 2939,
+            "fail": 3,
+            "skipped": 26,
+            "cancelled": 0,
+            "duration_ms": 247261.2004
+          },
+          "staticStarted": false,
+          "reason": "Old cursor structural lock and mandatory classification/parse cost locks; repaired and independently reviewed."
+        },
+        {
+          "command": "node dev-harness/run-all.js --fast --parallel 4",
+          "log": "full-fast-second.log",
+          "unit": {
+            "tests": 2971,
+            "suites": 191,
+            "pass": 2943,
+            "fail": 2,
+            "skipped": 26,
+            "cancelled": 0,
+            "duration_ms": 276856.7164
+          },
+          "staticStarted": false,
+          "reason": "Unchanged session-artifacts allocation RangeError and walk-tools process-level test failure; root cause not established."
+        },
+        {
+          "command": "node dev-harness/run-all.js --fast --parallel 2",
+          "log": "full-fast-third.log",
+          "unit": {
+            "tests": 2972,
+            "suites": 192,
+            "pass": 2946,
+            "fail": 0,
+            "skipped": 26,
+            "cancelled": 0,
+            "duration_ms": 438861.0641
+          },
+          "static": {
+            "pass": 80,
+            "fail": 1,
+            "knownFail": 0,
+            "unexpectedPass": 0,
+            "flaky": 0,
+            "ran": 81,
+            "liveSkipped": 7
+          }
+        }
+      ],
+      "isolatedUnchangedFailures": {
+        "command": "node --test --test-concurrency=1 dev-harness/unit/session-artifacts-work-data.test.js dev-harness/unit/walk-tools.test.js",
+        "log": "second-gate-two-failures-isolated.log",
+        "tests": 58,
+        "suites": 10,
+        "pass": 58,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "duration_ms": 73975.6057
+      },
+      "limits": "No code/assertion/cap change for second-run failures. After-run free memory is not peak evidence; no proven resource-exhaustion diagnosis."
+    },
+    "build": "Final build and --check fresh; generated runtime includes all accepted source. Manual product source unchanged through final third gate.",
+    "relatedIntegrity": {
+      "originalRuntimeFailure": {
+        "log": "steward-inbox-integrity-final.log",
+        "failed": "E2 queue remained45"
+      },
+      "baseline9cSameFailure": {
+        "log": "steward-inbox-integrity-baseline-9c.log",
+        "failed": "E2 queue remained45",
+        "method": "Original fixture and actual HEAD9c server bytes compiled with original module filename through a TEMP loader. No live product overwrite."
+      },
+      "fixtureFix": "Supply shared local fake provider and usable selected engine; keep45 rows and45-second E2; add actual two model requests/errors0.",
+      "finalRuns": [
+        {
+          "log": "steward-inbox-integrity-fixed-first.log",
+          "pass": 31,
+          "fail": 0
+        },
+        {
+          "log": "steward-inbox-integrity-fixed-second.log",
+          "pass": 31,
+          "fail": 0
+        }
+      ]
+    },
+    "countsCursorRepair": {
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "independentNegativeCases": 4,
+      "contract": "Read/classify/authenticate actual current bytes before memo lookup; digest+authority+head-cut memo contains only derived counts. Preserve original zero head/changes/cursor writes and independent full-file reference. Classifier/open/read bytes now measured separately."
+    },
+    "staticAfterAssertionFix": {
+      "command": "TEMP isolated serial all81 .static.e2e.js; fixtureChildEnv + guard + killOwnTree timeout",
+      "pass": 81,
+      "fail": 0,
+      "results": [
+        {
+          "file": "acc-offline-installer.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 61
+        },
+        {
+          "file": "action-feedback.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 54
+        },
+        {
+          "file": "agent-mode-v2.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 160
+        },
+        {
+          "file": "agent-team-budget.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 1083
+        },
+        {
+          "file": "agent-workflows-polling-visibility.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 46
+        },
+        {
+          "file": "architecture-contract-snapshots.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 182
+        },
+        {
+          "file": "asr-config-ui.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 77
+        },
+        {
+          "file": "browser-mcp.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 1045
+        },
+        {
+          "file": "c2-evidence-spawn-budget.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 54
+        },
+        {
+          "file": "copy-path-guard.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 127
+        },
+        {
+          "file": "copy-terms.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 100
+        },
+        {
+          "file": "cost-zero.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 58
+        },
+        {
+          "file": "css-typography-debt.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 50
+        },
+        {
+          "file": "desktop-dpi.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 48
+        },
+        {
+          "file": "desktop-shell.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 54
+        },
+        {
+          "file": "durable-state-inventory.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 172
+        },
+        {
+          "file": "ec-d-closure.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 68
+        },
+        {
+          "file": "encrypted-storage-freeze.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 60
+        },
+        {
+          "file": "engine-env-brief.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 2546
+        },
+        {
+          "file": "eol-policy.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 772
+        },
+        {
+          "file": "facts.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 148
+        },
+        {
+          "file": "finalize-segments.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 50
+        },
+        {
+          "file": "fixture-home.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 981
+        },
+        {
+          "file": "frontend-domains.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 88
+        },
+        {
+          "file": "health-i18n.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 73
+        },
+        {
+          "file": "i18n-en-terms.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 59
+        },
+        {
+          "file": "i18n.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 1147
+        },
+        {
+          "file": "inline-script-csp-hash.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 71
+        },
+        {
+          "file": "kimi-plan-ui.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 63
+        },
+        {
+          "file": "live-full-text.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 73
+        },
+        {
+          "file": "manifest-ranges.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 104
+        },
+        {
+          "file": "mcp-ops-gui.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 96
+        },
+        {
+          "file": "memory-toolbox.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 60
+        },
+        {
+          "file": "mermaid-render.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 549
+        },
+        {
+          "file": "model-menu-classes.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 63
+        },
+        {
+          "file": "module-dependency-graph.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 706
+        },
+        {
+          "file": "ndjson-line-feeder.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 100
+        },
+        {
+          "file": "net-token-replay.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 55
+        },
+        {
+          "file": "new-thread-engine-default.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 77
+        },
+        {
+          "file": "onboarding.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 91
+        },
+        {
+          "file": "overlay-payload-lock.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 131
+        },
+        {
+          "file": "overlay-update-gui.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 74
+        },
+        {
+          "file": "process-safety.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 261
+        },
+        {
+          "file": "progress-events.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 211
+        },
+        {
+          "file": "prompt-snapshot.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 159
+        },
+        {
+          "file": "provider-reasoning-effort-ui.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 55
+        },
+        {
+          "file": "rail-pocket.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 57
+        },
+        {
+          "file": "resume-banner-dismiss.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 56
+        },
+        {
+          "file": "route-inventory.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 795
+        },
+        {
+          "file": "runtime-optimization.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 346
+        },
+        {
+          "file": "scheduler-ui.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 148
+        },
+        {
+          "file": "session-save-census.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 109
+        },
+        {
+          "file": "software-engineering-prompt.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 133
+        },
+        {
+          "file": "start-experience.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 70
+        },
+        {
+          "file": "steward-avatar.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 59
+        },
+        {
+          "file": "steward-board.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 101
+        },
+        {
+          "file": "steward-config.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 1065
+        },
+        {
+          "file": "steward-conversation.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 113
+        },
+        {
+          "file": "steward-drawer.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 103
+        },
+        {
+          "file": "steward-events.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 189
+        },
+        {
+          "file": "steward-runner.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 269
+        },
+        {
+          "file": "steward-settings.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 123
+        },
+        {
+          "file": "steward-shell.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 92
+        },
+        {
+          "file": "steward-tools.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 2895
+        },
+        {
+          "file": "steward-walkthrough.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 121
+        },
+        {
+          "file": "streaming-responsiveness.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 65
+        },
+        {
+          "file": "thinking-boundary.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 50
+        },
+        {
+          "file": "thread-brief.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 116
+        },
+        {
+          "file": "thread-commission.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 93
+        },
+        {
+          "file": "tool-image-inline.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 67
+        },
+        {
+          "file": "tool-verb-coverage.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 143
+        },
+        {
+          "file": "turn-narrative.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 149
+        },
+        {
+          "file": "ui-bugfix.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 64
+        },
+        {
+          "file": "ui-v3-p1.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 84
+        },
+        {
+          "file": "ui-v3-p2.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 85
+        },
+        {
+          "file": "ui-v3-p3a.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 101
+        },
+        {
+          "file": "ui-v3-p3b.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 98
+        },
+        {
+          "file": "ui-v3-wave1.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 96
+        },
+        {
+          "file": "ui-v4-glass.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 76
+        },
+        {
+          "file": "v17-review-fixes.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 194
+        },
+        {
+          "file": "workflow-editor-v2.static.e2e.js",
+          "ok": true,
+          "code": 0,
+          "signal": null,
+          "timedOut": false,
+          "ms": 98
+        }
+      ],
+      "summaryLog": "all-static-final.log",
+      "resultFile": "static-final/results.json",
+      "resultSha256": "c2523073fe7a6aed5944a2c1e0724f3aeaead702c8458c539fd50fb9bc03d5e7",
+      "perCaseLogs": [
+        {
+          "file": "static-final/acc-offline-installer.static.e2e.js.log",
+          "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd"
+        },
+        {
+          "file": "static-final/action-feedback.static.e2e.js.log",
+          "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc"
+        },
+        {
+          "file": "static-final/agent-mode-v2.static.e2e.js.log",
+          "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111"
+        },
+        {
+          "file": "static-final/agent-team-budget.static.e2e.js.log",
+          "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06"
+        },
+        {
+          "file": "static-final/agent-workflows-polling-visibility.static.e2e.js.log",
+          "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370"
+        },
+        {
+          "file": "static-final/architecture-contract-snapshots.static.e2e.js.log",
+          "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87"
+        },
+        {
+          "file": "static-final/asr-config-ui.static.e2e.js.log",
+          "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd"
+        },
+        {
+          "file": "static-final/browser-mcp.static.e2e.js.log",
+          "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7"
+        },
+        {
+          "file": "static-final/c2-evidence-spawn-budget.static.e2e.js.log",
+          "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff"
+        },
+        {
+          "file": "static-final/copy-path-guard.static.e2e.js.log",
+          "sha256": "cd8a581ee8cdef7c8643e9893fdd20e7c4096fd78f3b921cbb908c950617bc06"
+        },
+        {
+          "file": "static-final/copy-terms.static.e2e.js.log",
+          "sha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e"
+        },
+        {
+          "file": "static-final/cost-zero.static.e2e.js.log",
+          "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd"
+        },
+        {
+          "file": "static-final/css-typography-debt.static.e2e.js.log",
+          "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0"
+        },
+        {
+          "file": "static-final/desktop-dpi.static.e2e.js.log",
+          "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309"
+        },
+        {
+          "file": "static-final/desktop-shell.static.e2e.js.log",
+          "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201"
+        },
+        {
+          "file": "static-final/durable-state-inventory.static.e2e.js.log",
+          "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144"
+        },
+        {
+          "file": "static-final/ec-d-closure.static.e2e.js.log",
+          "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784"
+        },
+        {
+          "file": "static-final/encrypted-storage-freeze.static.e2e.js.log",
+          "sha256": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184"
+        },
+        {
+          "file": "static-final/engine-env-brief.static.e2e.js.log",
+          "sha256": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56"
+        },
+        {
+          "file": "static-final/eol-policy.static.e2e.js.log",
+          "sha256": "507e43fab7e0307ecb0782c19784ef4f3969bfe3319952209120048441c8f8fb"
+        },
+        {
+          "file": "static-final/facts.static.e2e.js.log",
+          "sha256": "aff88a5f990e51a0e703dca4b18755cdd678e624f8da85d9d06fd9cea22774cd"
+        },
+        {
+          "file": "static-final/finalize-segments.static.e2e.js.log",
+          "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93"
+        },
+        {
+          "file": "static-final/fixture-home.static.e2e.js.log",
+          "sha256": "95742eec5882d16c99fb73807c5c912d937ac349709b0a5230a0301e47831872"
+        },
+        {
+          "file": "static-final/frontend-domains.static.e2e.js.log",
+          "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0"
+        },
+        {
+          "file": "static-final/health-i18n.static.e2e.js.log",
+          "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2"
+        },
+        {
+          "file": "static-final/i18n-en-terms.static.e2e.js.log",
+          "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99"
+        },
+        {
+          "file": "static-final/i18n.static.e2e.js.log",
+          "sha256": "adf88ce432f5ba9432b2f307dc3a11c606790b9c03df14510871e30f00fd284f"
+        },
+        {
+          "file": "static-final/inline-script-csp-hash.static.e2e.js.log",
+          "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8"
+        },
+        {
+          "file": "static-final/kimi-plan-ui.static.e2e.js.log",
+          "sha256": "2741ab30597a4b121d02101dda5a313e5a45fae9e195f63eb63c52c3c1056af5"
+        },
+        {
+          "file": "static-final/live-full-text.static.e2e.js.log",
+          "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf"
+        },
+        {
+          "file": "static-final/manifest-ranges.static.e2e.js.log",
+          "sha256": "0ae84a42e5e284c4de877579247bae928910ca2ca4b1e12c1c5a605a974a9f5f"
+        },
+        {
+          "file": "static-final/mcp-ops-gui.static.e2e.js.log",
+          "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c"
+        },
+        {
+          "file": "static-final/memory-toolbox.static.e2e.js.log",
+          "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527"
+        },
+        {
+          "file": "static-final/mermaid-render.static.e2e.js.log",
+          "sha256": "1db841122a4919b5a467db9bc5e9fb7d3d384549a24443ce6f6573b42739f0c7"
+        },
+        {
+          "file": "static-final/model-menu-classes.static.e2e.js.log",
+          "sha256": "f186933f006d9cc0c9fba0381f53dc03c99fe016f75eb4bbe8814dda02a3a439"
+        },
+        {
+          "file": "static-final/module-dependency-graph.static.e2e.js.log",
+          "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a"
+        },
+        {
+          "file": "static-final/ndjson-line-feeder.static.e2e.js.log",
+          "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b"
+        },
+        {
+          "file": "static-final/net-token-replay.static.e2e.js.log",
+          "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6"
+        },
+        {
+          "file": "static-final/new-thread-engine-default.static.e2e.js.log",
+          "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d"
+        },
+        {
+          "file": "static-final/onboarding.static.e2e.js.log",
+          "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb"
+        },
+        {
+          "file": "static-final/overlay-payload-lock.static.e2e.js.log",
+          "sha256": "85afb0d0db63eb7968978193925554628ae8feb83f712b91896ca84766af06c2"
+        },
+        {
+          "file": "static-final/overlay-update-gui.static.e2e.js.log",
+          "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675"
+        },
+        {
+          "file": "static-final/process-safety.static.e2e.js.log",
+          "sha256": "6a32d80b4ec18b07cb6420b0ace801e145d5407c796d3e65722badb1620cf41d"
+        },
+        {
+          "file": "static-final/progress-events.static.e2e.js.log",
+          "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5"
+        },
+        {
+          "file": "static-final/prompt-snapshot.static.e2e.js.log",
+          "sha256": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4"
+        },
+        {
+          "file": "static-final/provider-reasoning-effort-ui.static.e2e.js.log",
+          "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb"
+        },
+        {
+          "file": "static-final/rail-pocket.static.e2e.js.log",
+          "sha256": "2ae6ba4e8a439051bea2f983320556f3244b547b8b6aab7ea944c3b3e1cb7758"
+        },
+        {
+          "file": "static-final/resume-banner-dismiss.static.e2e.js.log",
+          "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00"
+        },
+        {
+          "file": "static-final/route-inventory.static.e2e.js.log",
+          "sha256": "33d684d07a5aaf03a95b0f59f7c2487efaa78a09c177f81ad4a2c6e7463ab02d"
+        },
+        {
+          "file": "static-final/runtime-optimization.static.e2e.js.log",
+          "sha256": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e"
+        },
+        {
+          "file": "static-final/scheduler-ui.static.e2e.js.log",
+          "sha256": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b"
+        },
+        {
+          "file": "static-final/session-save-census.static.e2e.js.log",
+          "sha256": "c103dd7c5d0311191adbba41411a252f8036596fda4ecfdf39fa673f015537f4"
+        },
+        {
+          "file": "static-final/software-engineering-prompt.static.e2e.js.log",
+          "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b"
+        },
+        {
+          "file": "static-final/start-experience.static.e2e.js.log",
+          "sha256": "d3392504fa0668561946a6c47645920f399dcf7873003fc91220b5b81f53aead"
+        },
+        {
+          "file": "static-final/steward-avatar.static.e2e.js.log",
+          "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf"
+        },
+        {
+          "file": "static-final/steward-board.static.e2e.js.log",
+          "sha256": "fb0df2417e4186e6188ff90e5740d481be98a8507854629e7c3f484a04d9d819"
+        },
+        {
+          "file": "static-final/steward-config.static.e2e.js.log",
+          "sha256": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec"
+        },
+        {
+          "file": "static-final/steward-conversation.static.e2e.js.log",
+          "sha256": "9bfe18dacf46d91671f1b27e7530986994d594e72ff5726932fc1a84448f7c91"
+        },
+        {
+          "file": "static-final/steward-drawer.static.e2e.js.log",
+          "sha256": "585f56cc8b6e36772033c2bf68310e70928c2f16cd6395e547517c2c4ceb377d"
+        },
+        {
+          "file": "static-final/steward-events.static.e2e.js.log",
+          "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f"
+        },
+        {
+          "file": "static-final/steward-runner.static.e2e.js.log",
+          "sha256": "b3149ec297bf9ca19b1fd129063cf42e30046cfb59cfe338eb8dd9f33e0364f4"
+        },
+        {
+          "file": "static-final/steward-settings.static.e2e.js.log",
+          "sha256": "80cc6744b0f1b6fc00bb81f537a73d6b495bdca39681a8c3ab83fa01bb7e94f7"
+        },
+        {
+          "file": "static-final/steward-shell.static.e2e.js.log",
+          "sha256": "b4f4fb6f8247468b9f363395c7487ea4721c461365bfde7478b037cea0c9175e"
+        },
+        {
+          "file": "static-final/steward-tools.static.e2e.js.log",
+          "sha256": "c428dbd48053b6475e835756d3fe93488b7b0c2594006a354c53e3019b287b69"
+        },
+        {
+          "file": "static-final/steward-walkthrough.static.e2e.js.log",
+          "sha256": "d70957b90979941b085dfe6e20a064848935b64af4f0bea0865844b99f1fa276"
+        },
+        {
+          "file": "static-final/streaming-responsiveness.static.e2e.js.log",
+          "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4"
+        },
+        {
+          "file": "static-final/thinking-boundary.static.e2e.js.log",
+          "sha256": "cd0d78460b502a2c0611e7ba278a115036d1ca3c9997799c37d86f82407ad137"
+        },
+        {
+          "file": "static-final/thread-brief.static.e2e.js.log",
+          "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216"
+        },
+        {
+          "file": "static-final/thread-commission.static.e2e.js.log",
+          "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb"
+        },
+        {
+          "file": "static-final/tool-image-inline.static.e2e.js.log",
+          "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8"
+        },
+        {
+          "file": "static-final/tool-verb-coverage.static.e2e.js.log",
+          "sha256": "65276d08eb4536658b1844342fd8cc1edde7a26076930475d3509c91bee1701b"
+        },
+        {
+          "file": "static-final/turn-narrative.static.e2e.js.log",
+          "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570"
+        },
+        {
+          "file": "static-final/ui-bugfix.static.e2e.js.log",
+          "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f"
+        },
+        {
+          "file": "static-final/ui-v3-p1.static.e2e.js.log",
+          "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58"
+        },
+        {
+          "file": "static-final/ui-v3-p2.static.e2e.js.log",
+          "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc"
+        },
+        {
+          "file": "static-final/ui-v3-p3a.static.e2e.js.log",
+          "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9"
+        },
+        {
+          "file": "static-final/ui-v3-p3b.static.e2e.js.log",
+          "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f"
+        },
+        {
+          "file": "static-final/ui-v3-wave1.static.e2e.js.log",
+          "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3"
+        },
+        {
+          "file": "static-final/ui-v4-glass.static.e2e.js.log",
+          "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f"
+        },
+        {
+          "file": "static-final/v17-review-fixes.static.e2e.js.log",
+          "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd"
+        },
+        {
+          "file": "static-final/workflow-editor-v2.static.e2e.js.log",
+          "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f"
+        }
+      ],
+      "review": {
+        "file": "dev-harness/steward-events.static.e2e.js",
+        "sha256": "71d9b97216437d6ef5d0d6fc6d707118d620ef4ece9fa37de3b90ea1231e7d04",
+        "independentAgent": "fix_token_memo",
+        "negativeControls": 4,
+        "note": "Current predicate true; wrong factory/recordId/unborrowed write/missing host variants false. Product source unchanged."
+      }
+    },
+    "finalAcceptance": "Complete2972 unit set passed in third run. Third static stage80/81; only old cursor inline-structure predicate changed. Entire81 static set then rerun serially with independent fixture homes and passed. No claim of first-run complete fast success."
+  },
+  "performance": {
+    "node": "v24.14.1",
+    "platform": "win32",
+    "plainBytes": 134217771,
+    "rows": [
+      {
+        "name": "legacy-tail",
+        "elapsedMs": 2.212699999999998,
+        "readBytes": 1048576,
+        "readCalls": 1
+      },
+      {
+        "name": "new-cold",
+        "elapsedMs": 304.4674,
+        "readBytes": 135266347,
+        "readCalls": 2051
+      },
+      {
+        "name": "new-warm1",
+        "elapsedMs": 340.74429999999995,
+        "readBytes": 135266347,
+        "readCalls": 2051
+      },
+      {
+        "name": "new-warm2",
+        "elapsedMs": 335.70950000000005,
+        "readBytes": 135266347,
+        "readCalls": 2051
+      }
+    ],
+    "limits": "Synthetic single giant legacy JSON string. Full metadata scan is intentional authentication classification; not a normal workload p95 or a claim of peak RSS."
+  },
+  "maintainability": {
+    "manualProduct": [
+      {
+        "file": "ruyi-workbench/app/src/01q-work-data-records.js",
+        "added": 62,
+        "deleted": 1
+      },
+      {
+        "file": "ruyi-workbench/app/src/01s-work-data-journals.js",
+        "added": 351,
+        "deleted": 0
+      },
+      {
+        "file": "ruyi-workbench/app/src/06-provider-engine.js",
+        "added": 3,
+        "deleted": 7
+      },
+      {
+        "file": "ruyi-workbench/app/src/08-agent-runs.js",
+        "added": 131,
+        "deleted": 57
+      },
+      {
+        "file": "ruyi-workbench/app/src/09-workflow.js",
+        "added": 2,
+        "deleted": 0
+      },
+      {
+        "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+        "added": 6,
+        "deleted": 2
+      },
+      {
+        "file": "ruyi-workbench/app/src/13g-steward.js",
+        "added": 15,
+        "deleted": 0
+      },
+      {
+        "file": "ruyi-workbench/app/src/13h-steward-runner.js",
+        "added": 1,
+        "deleted": 0
+      },
+      {
+        "file": "ruyi-workbench/app/src/13i-steward-inbox.js",
+        "added": 118,
+        "deleted": 63
+      },
+      {
+        "file": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+        "added": 29,
+        "deleted": 9
+      },
+      {
+        "file": "ruyi-workbench/app/src/13s-scheduler.js",
+        "added": 75,
+        "deleted": 14
+      }
+    ],
+    "totals": {
+      "files": 11,
+      "added": 793,
+      "deleted": 153
+    },
+    "generatedServerSeparate": true,
+    "noNewParallelCrypto": true,
+    "benchmarkLimit": "~0.3 seconds full classification on 128MiB giant old row versus old2.21ms tail read. Investigated cost exceeds10%; no O(tail), p95/16ms or bounded peak RSS performance claim."
+  },
+  "failureHistory": [
+    "Core same-stat authority shortcuts, cached plain downgrade, complete sealed noLF overwriting or silent retirement, empty expected-authority skipping key, simultaneous capacity reservation and replace reservation release all found and fixed; exact historical hashes/results in independent core report.",
+    "Scheduler old fixture parsed raw cipher JSON to inspect phase/outcome (22/24), updated to authenticated actual reader; expanded first31/33 failed due to guessed envelope tag path causing fixture TypeError. Final33/33 and exact negative controls passed.",
+    "Public runner cwd path defect in both E2E fixtures discovered by static root review after root-cwd DPAPI passes; fixed fallback path, no product/semantic assertion change.",
+    "Backup native root/child-handle rename, metadata, read-owner and readonly experiments are TEMP next-batch work, excluded from this acceptance and38 count.",
+    "First complete unit2968/2939pass/26skip/3fail stopped static stage. Cursor structural lock followed extracted host; inbox tests now separate mandatory classification I/O from unchanged zero head/changes/cursor writes, and preserve real parser reuse plus independent oracle. Final counts24 and exact negative controls passed.",
+    "Old inbox integrity E2 failed under both current runtime and HEAD9c before selected-engine fixture fix. Shared fake provider supplies real turns, original45-second queue drain assertion preserved; both final runs pass with two actual requests.",
+    "Second complete unit2971/2943pass/26skip/2fail stopped static stage: unchanged1,273,891-byte index case allocation RangeError after152267ms; walk-tools process failed near final65534-entry group without detailed exit/signal. Same files58/58 isolated; lower-concurrency final full gate retained as a separate run, no invented root cause.",
+    "Third complete unit2972/2946pass/26skip/0fail; static80/81 because steward-events D5 still expected inline cursor host/direct store.write. Adapted structural predicate to existing host and borrowed operation, independent four exact negative controls; no product edits. Entire81 static set separately rerun and passed."
+  ],
+  "egress": {
+    "acceptedSources": [
+      {
+        "file": "ruyi-workbench/app/src/01s-work-data-journals.js",
+        "fingerprint": "fddb5bbdaa925db981f6fcfd78a57ec61f40e0be3f89ff4ea95d03f0d20242d8"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+        "fingerprint": "a323cc7c5be04be9540772ca42f5b0521b67f7af1b786b625f8a1dcede808292"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13g-steward.js",
+        "fingerprint": "ea8b4a06c91afc647875c0af7ac370c70ef39812444e1afb45dba18f82084493"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13s-scheduler.js",
+        "fingerprint": "263f540613696c3b9ba89c75cc1e3d601354010f1176901b4b2927e6ef402836"
+      }
+    ],
+    "removedEntry": "ruyi-workbench/app/src/06-provider-engine.js#sweepAgentRunEventsStore#writeFile#1",
+    "sources": 281,
+    "candidates": 687,
+    "retainedErrors": [
+      "source-unreviewed:ruyi-workbench/app/public/index.html",
+      "source-unreviewed:ruyi-workbench/app/public/js/chat-render-primitives.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/privacy-failure.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/provider-settings.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/steward-settings.js",
+      "source-unreviewed:ruyi-workbench/app/src/00-boot.js",
+      "source-unreviewed:ruyi-workbench/app/src/01-config.js",
+      "source-unreviewed:ruyi-workbench/app/src/01b-route-auth.js",
+      "source-unreviewed:ruyi-workbench/app/src/01h-privacy-core.js",
+      "source-unreviewed:ruyi-workbench/app/src/01j-local-crypto.js",
+      "source-unreviewed:ruyi-workbench/app/src/01n-work-data-crypto.js",
+      "source-unreviewed:ruyi-workbench/app/src/01o-work-data-keys.js",
+      "source-unreviewed:ruyi-workbench/app/src/01p-work-data-store.js",
+      "source-unreviewed:ruyi-workbench/app/src/01q-work-data-records.js",
+      "source-unreviewed:ruyi-workbench/app/src/01r-work-data-chunks.js",
+      "source-unreviewed:ruyi-workbench/app/src/02-session-store.js",
+      "source-unreviewed:ruyi-workbench/app/src/03-bridge-guard.js",
+      "source-unreviewed:ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "source-unreviewed:ruyi-workbench/app/src/04h-provider-http.js",
+      "source-unreviewed:ruyi-workbench/app/src/05-claude-engine.js",
+      "source-unreviewed:ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "source-unreviewed:ruyi-workbench/app/src/06-provider-engine.js",
+      "source-unreviewed:ruyi-workbench/app/src/06b-prompt-registry.js",
+      "source-unreviewed:ruyi-workbench/app/src/06d-memory-domain.js",
+      "source-unreviewed:ruyi-workbench/app/src/06i-steward-core.js",
+      "source-unreviewed:ruyi-workbench/app/src/06k-config-patch.js",
+      "source-unreviewed:ruyi-workbench/app/src/07-autonomy.js",
+      "source-unreviewed:ruyi-workbench/app/src/08-agent-runs.js",
+      "source-unreviewed:ruyi-workbench/app/src/09-workflow.js",
+      "source-unreviewed:ruyi-workbench/app/src/10-context-governance.js",
+      "source-unreviewed:ruyi-workbench/app/src/11-native-tools.js",
+      "source-unreviewed:ruyi-workbench/app/src/12-tool-dispatch.js",
+      "source-unreviewed:ruyi-workbench/app/src/13-http-router.js",
+      "source-unreviewed:ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+      "source-unreviewed:ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "source-unreviewed:ruyi-workbench/app/src/13e-pretender-index.js",
+      "source-unreviewed:ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "source-unreviewed:ruyi-workbench/app/src/13h-steward-runner.js",
+      "source-unreviewed:ruyi-workbench/app/src/13i-steward-inbox.js",
+      "source-unreviewed:ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "source-unreviewed:ruyi-workbench/app/src/13k-steward-threads.js",
+      "source-unreviewed:ruyi-workbench/app/src/13l-steward-ops.js",
+      "source-unreviewed:ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "source-unreviewed:ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "source-unreviewed:ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "source-unreviewed:ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "source-unreviewed:ruyi-workbench/app/src/13w-external-bots.js",
+      "source-unreviewed:ruyi-workbench/app/src/context-governance-rules.json",
+      "source-unreviewed:ruyi-workbench/app/src/manifest.json",
+      "source-unreviewed:ruyi-workbench/app/src/module-contracts.json",
+      "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#ensureOnce#run#1",
+      "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#snapshot#run#1",
+      "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#<module>#exec#1",
+      "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#create#copyFile#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#ensureSessionV1Backup#copyFile#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#journalRollbackContents#writeFile#1",
+      "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#1",
+      "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#2",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#sessionArtifactStore#<computed-call>#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#validateLegacyBinary#exec#1",
+      "changed-boundary:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#1",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#2",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectedTransform#run#1",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectHostHistory#run#1",
+      "unclassified:ruyi-workbench/app/src/07-autonomy.js#agentRunSnapshotStore#<computed-call>#1",
+      "changed-boundary:ruyi-workbench/app/src/12-tool-dispatch.js#workbenchMemoryReadLoopback#httpRequest#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#<transport-import>#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#request#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#write#1",
+      "changed-boundary:ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1",
+      "changed-boundary:ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+      "changed-boundary:ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRecordManyUnlocked#writeFile#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRollback#writeFile#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#3",
+      "stale-classification:ruyi-workbench/app/src/10-context-governance.js#writeHistorySnapshot#writeFile#1"
+    ],
+    "baselineErrorSetUnchanged": true,
+    "finalGenerated": {
+      "sources": 281,
+      "candidates": 687,
+      "errors": 76,
+      "exactBaselineErrorSetUnchanged": true,
+      "checkExit": 1
+    }
+  },
+  "independentReviews": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\journals-core-review.json",
+      "sha256": "92b66abe078fe88793fd31aacb240763030d1c7a21f44c6cd9cb8772978704dc",
+      "report": {
+        "schema": 1,
+        "date": "2026-10-23",
+        "baseline": "9c12fe35",
+        "status": "shared_core_independently_accepted_domain_wiring_not_yet_accepted",
+        "productModifiedByReviewer": false,
+        "directE2E": false,
+        "build": false,
+        "sourceHashes": [
+          {
+            "file": "ruyi-workbench/app/src/01q-work-data-records.js",
+            "sha256": "90dee8fb44a036977904c87060ed01aabcf1a0837132675f39639c32b6aa2114"
+          },
+          {
+            "file": "ruyi-workbench/app/src/01s-work-data-journals.js",
+            "sha256": "b5157986fbaa49f3400eb284fea71a81e1b42dbca8744123f70e19bab72deec0"
+          },
+          {
+            "file": "dev-harness/unit/work-data-journals.test.js",
+            "sha256": "c9d837d306f3f024a3082aac62f5d8b34af911cc16155e4edc1d594b59f7fba7"
+          }
+        ],
+        "normal": {
+          "command": "node --test <TEMP>/journals-independent-no-lf.test.cjs dev-harness/unit/work-data-records.test.js",
+          "pass": 30,
+          "fail": 0,
+          "skip": 0,
+          "composition": "20 new shared tests +3 independent TEMP cases(noLF/empty authority/fires task binding) +7 original Records tests",
+          "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/journals-source-b515-final.log",
+          "sha256": "2a482de1a3183ecb6a7f811c159f9ec7db1b3778e0b2e2e69a2fc2bce5031162"
+        },
+        "negativeControls": [
+          {
+            "control": "mutation-cache",
+            "mutation": "In-memory fs.readFileSync source overlay only; no product file mutation",
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "exitCode": 1,
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/journals-negative-mutation-cache.log",
+            "sha256": "73b31800a2528605572cd93facaf8f15d3c036c0fab52f508317e47d39b065a0"
+          },
+          {
+            "control": "read-cache",
+            "mutation": "In-memory fs.readFileSync source overlay only; no product file mutation",
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "exitCode": 1,
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/journals-negative-read-cache.log",
+            "sha256": "c100eae4dd52bed6f8e82d4cb5fadefcf4b219bf55d5174c226cf8915e842018"
+          },
+          {
+            "control": "recovery-proof",
+            "mutation": "In-memory fs.readFileSync source overlay only; no product file mutation",
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "exitCode": 1,
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/journals-negative-recovery-proof.log",
+            "sha256": "fcc7f430d8c618beb9a8da5dfdef9460894f4de2198b8b560f5782b90accd11b"
+          },
+          {
+            "control": "empty-key",
+            "mutation": "In-memory fs.readFileSync source overlay only; no product file mutation",
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "exitCode": 1,
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/journals-negative-empty-key.log",
+            "sha256": "52f23f726d2bc3a3b29f2c78270fd51fc381f9e266adc155b49d3aa0052f9682"
+          },
+          {
+            "control": "ignore-tail",
+            "mutation": "In-memory fs.readFileSync source overlay only; no product file mutation",
+            "tests": 2,
+            "pass": 0,
+            "fail": 2,
+            "exitCode": 1,
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/journals-negative-ignore-tail.log",
+            "sha256": "e2af93b06ae59b746eaa5782a778d2e1ddeb7d85507d0609130615ca337c8681"
+          }
+        ],
+        "history": [
+          {
+            "source01s": "fe1b1e2f72de2f6d3bf6cfb3a37764bdc16768a85d114534c3eb175b0ba5cf13",
+            "normalPass": 24,
+            "additionalFailure": "Independent complete valid sealed JSON noLF read succeeds but OFF append overwrites with plaintext;17pass/1fail preserves actual product defect",
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/journals-no-lf-first.log",
+            "sha256": "1c2f69c1e8bd704167bc67d81f99ec7c971554f798e1a05805f41259e2a6c4e4"
+          },
+          {
+            "source01s": "06cf3852512bdac012cac674c3226209fee26ef22a5ec8a5b4e17644862e0c82",
+            "normalPass": 26,
+            "additionalFailure": "ON checkAuthority empty expected proof short-circuits and skips key acquisition; independent missing-key case0/1",
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/journals-empty-proof-authority-first.log",
+            "sha256": "91557d9714a589f24099f5e6314c22d1ff81846947a4ebfee82265c41f74becb"
+          },
+          {
+            "source01s": "067e124ac28bfacd18ee53a5bafa7c85e066223cc55589f0aa4eeeffe0188105",
+            "normalPass": 28,
+            "additionalFindingByParent": "ON authenticated complete sealed noLF tail was still silently retired by mutation. Parent selected hard refusal rather than inventing newline repair transaction."
+          }
+        ],
+        "fixedFindings": [
+          "Mutation and reads always fresh bounded reserved-marker classification; current sealed bytes authenticated; stamp cache never authorization.",
+          "Full recovery acknowledgement re-scans and compares plaintext digest/auth, not only stat+key.",
+          "Complete noLF sealed read remains available; OFF mutations downgrade_refused; ON mutations sealed_tail_uncommitted without truncate.",
+          "ON empty prior proof still acquires current key; staged new sealed rows use same domain shape validator as reads; OFF retains malformed plain writer semantics."
+        ],
+        "reviewScope": [
+          "Old4 session KINDS/AAD unchanged. New4 auxiliary kinds have fixed queue/task purpose, kind/run/scope/physical ordinal binding.",
+          "Physical LF ordinal includes blank/bad ordinary rows; no file/row cap added merely for legacy metadata classification; reserved sealed engineering cap explicit.",
+          "Decoded windows preserve old logical byte windows; full visitors only receive recovery tickets; partial append+rollback failure gate never auto-cleared by UI read.",
+          "Lazy operation snapshot release awaited; borrowed operation spans preflight/mutation without key held through downstream model turn.",
+          "No plaintext stages; append stage ciphertext validates payload before destructive repair; batch failed append rollback trims to committed boundary; double failure gates further mutation."
+        ],
+        "limits": [
+          "Core source/unit acceptance only. Actual inbox/decisions/events/fires consumers, all cold/warm/sweep/host error catches and actual DPAPI still require independent review and parent runtime evidence.",
+          "Full visitor callbacks must build temporary state and publish only after complete scan success; helper itself streams callbacks and cannot roll back host effects.",
+          "No new family counted wired by this shared core acceptance. No cross-process CAS claim."
+        ],
+        "incrementalCoreGrowth": {
+          "tracked01q": {
+            "added": 62,
+            "deleted": 1
+          },
+          "new01s": {
+            "lines": 339
+          },
+          "newSharedUnit": {
+            "lines": 135
+          },
+          "note": "Partial shared core snapshot only, not final batch growth. Generated runtime counted separately by parent."
+        },
+        "laterConcurrencyFinding": {
+          "status": "resolved_source_regression_and_negative_control",
+          "origin": "parent independent review",
+          "description": "assertAdmission only checks recoveryGates.size; cross-file concurrent pending writes do not reserve slots and can exceed64 on double failure",
+          "priorCoverage": "original serial capacity proof did not cover simultaneous distinct files",
+          "productBytes": "b5157986fbaa49f3400eb284fea71a81e1b42dbca8744123f70e19bab72deec0",
+          "acceptance": "prior source conclusions retained as historical only; new concurrency condition not accepted until fix and regression"
+        },
+        "reservationFinal": {
+          "status": "source_accepted_runtime_pending",
+          "sourceSHA256": "fddb5bbdaa925db981f6fcfd78a57ec61f40e0be3f89ff4ea95d03f0d20242d8",
+          "unitSHA256": "13dbc96de727f52642a306f8122ebf4880373d9feb3bb9f7c749ec02089c7ea4",
+          "history": [
+            {
+              "finding": "parent found recoveryGates.size-only check allowed cross-file pending writes to exceed64 failure slots",
+              "identity": "b5157986"
+            },
+            {
+              "firstResult": "independent successive-success and encode-failure replacement cases both failed write_pending (0/2)",
+              "identity": "f9c8e62e",
+              "log": "journal-reservation-leak-first.log",
+              "finding": "reviewer found replace finally omitted releaseReservation"
+            }
+          ],
+          "resolution": "append/replace reserve synchronously before async stage; finally frees pending on success/stage/publication failure; append rollback failure atomically converts pending to persistent gate; preflight does not reserve",
+          "finalCommand": "node --test <TEMP>/journal-reservation-independent.test.cjs dev-harness/unit/work-data-records.test.js",
+          "finalResult": {
+            "pass": 31,
+            "tests": 31,
+            "fail": 0,
+            "log": "journals-reservation-fddb-final.log"
+          },
+          "negative": {
+            "mutation": "remove pendingReservations.size from admission capacity calculation",
+            "inMemoryOnly": true,
+            "result": "0pass/1fail final-slot interleaving test, B entered stage instead of capacity refusal",
+            "log": "journal-reservation-negative-capacity.log"
+          },
+          "limits": "per-file domain owner serializes writers; metadata stat remains non-CAS; generated runtime/DPAPI parent pending"
+        }
+      }
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\aux-consumers-review.json",
+      "sha256": "58ade13e2cbe4e35d4334a84cf0133893d307d20a423be8d58cec7fb3c515d41",
+      "report": {
+        "status": "source_review_no_domain_blocker_core_reservation_resolved_runtime_pending",
+        "scope": "consumer source only; no build or direct E2E",
+        "hashes": {
+          "06-provider-engine.js": "b02997d755d8585273b36fa447091b085bdb79879d41ee221e568f09aea6fe96",
+          "08-agent-runs.js": "b79c409b007de9148e6bade6440e8fc22c39f330d2c21b45702af074cb509559",
+          "09-workflow.js": "913ad1165f8e8a5a300240678369ff1b632995da1ce7603146d1ef8412100f8b",
+          "13g-steward.js": "ea8b4a06c91afc647875c0af7ac370c70ef39812444e1afb45dba18f82084493",
+          "13h-steward-runner.js": "299a07bdfa21f093dc26ac2c5154909bdeb7e250e427bbd1fcafc71b9ae13593",
+          "13i-steward-inbox.js": "d5a8899ed9aa345ce6a454a84dd87c829e1e839452d8f33faa608104c3feb70e",
+          "13j-steward-tool-base.js": "eb4a62ddc83092ff8d8354126feb3efc21f6dc8b9e23b456f299b2966988b279",
+          "13ab-privacy-api.js": "a323cc7c5be04be9540772ca42f5b0521b67f7af1b786b625f8a1dcede808292",
+          "aux-journals-work-data.test.js": "b3e49c0ca5b091fd3e552acda7159cace3b5c5da51b16acc38f508308734d566"
+        },
+        "firstCommand": "node --test dev-harness/unit/aux-journals-work-data.test.js",
+        "firstResult": {
+          "log": "aux-consumers-first.log",
+          "pass": 9,
+          "tests": 9,
+          "fail": 0
+        },
+        "independentCollect": {
+          "fixtureReason": "baseline collect seam not yet supplied; getPretenderProjectionIndex undefined; fixed only TEMP fixture",
+          "pass": 1,
+          "tests": 1,
+          "log": "aux-independent-collect-final.log",
+          "fail": 0,
+          "fixtureFirstFailures": [
+            "aux-independent-collect.log",
+            "aux-independent-collect-fixed.log"
+          ]
+        },
+        "negativeControls": [
+          {
+            "log": "aux-negative-archive-current.log",
+            "name": "archive-current",
+            "expectedFailure": "Missing expected authenticate_failed rejection for same-full-stat sealed tamper"
+          },
+          {
+            "log": "aux-negative-tool-gate.log",
+            "name": "tool-gate",
+            "expectedFailure": "missing-key gate bypass reached actual priority effect"
+          },
+          {
+            "log": "aux-negative-collect-rollback.log",
+            "name": "collect-rollback",
+            "expectedFailure": "source cursor sess_x=99 leaked after collection authentication error"
+          }
+        ],
+        "contracts": [
+          "archive reauthenticates all current bytes after archive verify before final stat/unlink; not cross-process CAS",
+          "task/run receipts allocate sequence after committed append; action never replayed for failed receipt",
+          "inbox fullvisitor rebuild seq/seen/cursor before ack; collection failures restore prior cursor",
+          "decisions receipt double-I/O failure conservatively gates process until restart; UI does not ack",
+          "createBinary OFF legacy gzip capacity is Infinity and write cap applies only enabled ON",
+          "no key lease across inbox onInboxBatch dispatch/model turn"
+        ],
+        "remaining": [
+          "parent generated runtime/DPAPI/transport/boot closures pending; do not count families complete from this report"
+        ]
+      }
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\scheduler-fires-review.json",
+      "sha256": "abaf8bc3602133fbe7c85f8f69cfe78419895a508f9d83c37eabf1a2763d9b04",
+      "report": {
+        "schema": 1,
+        "date": "2026-10-23",
+        "baseline": "9c12fe35",
+        "status": "independent_source_review_accepted_pending_parent_generated_runtime_dpapi_and_gates",
+        "productModifiedByReviewer": false,
+        "directE2E": false,
+        "build": false,
+        "sourceHashes": [
+          {
+            "file": "ruyi-workbench/app/src/13s-scheduler.js",
+            "sha256": "263f540613696c3b9ba89c75cc1e3d601354010f1176901b4b2927e6ef402836"
+          },
+          {
+            "file": "ruyi-workbench/app/src/01q-work-data-records.js",
+            "sha256": "90dee8fb44a036977904c87060ed01aabcf1a0837132675f39639c32b6aa2114"
+          },
+          {
+            "file": "ruyi-workbench/app/src/01s-work-data-journals.js",
+            "sha256": "b5157986fbaa49f3400eb284fea71a81e1b42dbca8744123f70e19bab72deec0"
+          },
+          {
+            "file": "dev-harness/unit/scheduler-tasks-work-data.test.js",
+            "sha256": "1149581acdeef68bdb9fba9fb4ab1a9863e4205d0f142f6f8fcfdc4f528b13b7"
+          }
+        ],
+        "scope": "scheduler-fires whole domain:13s append/read/load/recovery/tick/registration/reminder/model/reconcile and unchanged13t commitments through actual reader; not just shared codec",
+        "normal": {
+          "command": "node --test dev-harness/unit/scheduler-tasks-work-data.test.js",
+          "tests": 33,
+          "pass": 33,
+          "fail": 0,
+          "skip": 0,
+          "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/fires-consumer-source-first.log",
+          "sha256": "707495ce87ea8430ae78308150755a8b6b34d362a64b47e63f169196b6adf5c1"
+        },
+        "negativeControls": [
+          {
+            "control": "register-preflight",
+            "scope": "In-memory13s source mutation only",
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "exitCode": 1,
+            "actualFailure": "Original exact task bytes changed before rejecting fire authority",
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/fires-negative-register-preflight.log",
+            "sha256": "658bb50507a3ee4b9a93420e1b3bd10473912810e022d311ce1ade033aff1f12"
+          },
+          {
+            "control": "reconcile-preflight",
+            "scope": "In-memory13s source mutation only",
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "exitCode": 1,
+            "actualFailure": "Original inFlight assertion false after actual reminder and tampered fire journal",
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/fires-negative-reconcile-preflight.log",
+            "sha256": "727a8151f043019960cd6e3da61fa8300b4d55a5b05182310df97950f13145d2"
+          },
+          {
+            "control": "recover-waterline",
+            "scope": "In-memory13s source mutation only",
+            "tests": 1,
+            "pass": 0,
+            "fail": 1,
+            "exitCode": 1,
+            "actualFailure": "Expected rebuilt fireSeq1 but remained0 before subsequent append",
+            "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/fires-negative-recover-waterline.log",
+            "sha256": "c0f592ad23724b24942864c041b9b66d314ba756ceb319daffb66e36ba9854ea"
+          }
+        ],
+        "findingsReviewed": [
+          "Tasks->Fires is sole nested lock direction; fire append/read never queues into Tasks. UI read waits fire owner and cannot acknowledge recovery.",
+          "Shared source is exact b515; every read/mutation classifies current bytes; no stat-cache authentication. OFF legacy writer keeps real repairMissionChangeTornTail and exact compact JSON+LF, no new key acquisition.",
+          "Encrypted journal rows use fixed task purpose, scheduler-global scope and physical ordinal identity; phase/businessseq validation preserves legacy predicate; bad sealed shape fails before effects.",
+          "Fire preflight precedes relevant register/cap/recover/reminder/new-session/reconcile/tick queue/state effects. Task snapshot retains identity on uncommitted task writes.",
+          "Full recovery visitor collects local maxSeq/attempt Map, publishes only after full scan; failed acknowledgement restores former waterlines. No live mutation inside partial streaming visitor.",
+          "Successful append publishes businessseq after durable journal append; failed batch+rollback failure blocks later writes until explicit business rebuild, not mere UI read.",
+          "Completed reminder followed by bad fire authority retains inFlight; restored key/journal cold recovery marks unknown once without another reminder/model turn.",
+          "No key held through model turn; all short operation releases verified through actual storage fixture. Existing24 assertions retained, ciphertext observers use actual journal append completion/plain input instead of pretending bare ciphertext is raw JSON."
+        ],
+        "inheritedAndParentFirstIssues": [
+          {
+            "kind": "fixture adaptation",
+            "tests": 24,
+            "pass": 22,
+            "fail": 2,
+            "detail": "Existing tests parsed new ciphertext directly as legacy fire JSON; changed to actual authenticated reader and explicit missing-key rejection, preserving behavioral assertions."
+          },
+          {
+            "kind": "fixture path",
+            "tests": 33,
+            "pass": 31,
+            "fail": 2,
+            "detail": "Initial new tamper probes assumed wrong ciphertext field; actual path row.e.envelope.ciphertext used. Not a product repair."
+          }
+        ],
+        "growthSnapshot": {
+          "numstat": "167\t12\tdev-harness/unit/scheduler-tasks-work-data.test.js\n75\t14\truyi-workbench/app/src/13s-scheduler.js",
+          "note": "Partial domain diff only, shared new module and generated bytes not double-counted; parent computes final batch growth."
+        },
+        "remainingEvidence": [
+          "Parent build/generated runtime and real DPAPI consumer lifecycle",
+          "Broader unified unit/static and final metadata/egress review",
+          "Do not count family accepted solely from source unit. No user data migration or UI enabled by this review."
+        ]
+      }
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\journals-e2e-static-review.json",
+      "sha256": "9965362bfdf154b838d38d18c78c4f0d06e9f3d5f9f33497adfcdcf257556bf8",
+      "report": {
+        "status": "static_e2e_review_no_blocker_parent_runtime_counts_passed_final_gates_pending",
+        "scheduler": {
+          "file": "dev-harness/scheduler-tasks-work-data.e2e.js",
+          "verifiedStatic": [
+            "loadServerInternals compiles actual generated server with appended internals only; no key/codec overrides",
+            "large final carrier w3 wire >8MiB, decoded logical window <8MiB and exact opaque Unicode; actual local HTTP runs endpoint",
+            "real DPAPI key file rename after all runtime key caches cleared; direct read/write/commitments and actual sendError HTTP500 work_data_key.absent; task/fire bytes unchanged",
+            "real committed-cipher flip/no-LF/OFF preflight failures; no corrupt rename, no truncation; exact fire bytes preserved",
+            "actual journal codec under foreign scheduler scope then live scope read/write refusal and unchanged task bytes"
+          ],
+          "totalGroups": 9,
+          "newGroups": 4,
+          "sha256": "3e2ed20a897f3490135c64d8cb8ac31972843a69fa89a0cc33437137bc23bb8a"
+        },
+        "aux": {
+          "file": "dev-harness/aux-journals-work-data.e2e.js",
+          "groups": 7,
+          "verifiedStatic": [
+            "self-isolate-home and releaseEnvironment point HOME/AppData/data at synthetic TEMP before loadServerInternals",
+            "OFF exact inbox/decision bytes and event business seq; ON real workDataKeys ensure and chunked carriers",
+            "cold runtime exact large Unicode payload for all3 families; event sequence42 recovered; windows decoded before cap",
+            "missing actual key blocks warm readers/tick/load/seq recovery/memorypanel/toolcallback before mutation and seq allocation; exact source files unchanged",
+            "changed current instance, ciphertext corruption, complete no-LF suffix and OFF downgrade hard-fail with sealed authority preserved",
+            "actual EventStreamHooks archive creates real binary sealed gzip, removes source only after verified archive/current proof; cold fallback returns original content and rejects missing key"
+          ],
+          "sha256": "d1fe8a1620dc0666d8933914393df758bc1140964973f64dc369bd69e076a6e0"
+        },
+        "sourceIncrement": {
+          "tests": 3,
+          "log": "aux-final-new-source.log",
+          "command": "node --test --test-name-pattern boot interruption|direct arbiter HTTP|deferred privacy settlement dev-harness/unit/aux-journals-work-data.test.js dev-harness/unit/steward-privacy-settings.test.js",
+          "fail": 0,
+          "pass": 3,
+          "hashes": {
+            "aux": "5f8db23b8b01ae7ffd4a5c1e8cde0512b7f01bd3e26868a3cad7032d4137e022",
+            "privacySettings": "79e3e3f34da6aaeaa5322617771a0c12aafd8287ac918e95c2abd253692be36f"
+          }
+        },
+        "limits": [
+          "Reviewer did not execute direct E2E or build; parent must run against fresh exact generated bytes",
+          "These tests do not send notifications to real platforms or run a real model turn",
+          "Filesystem same-stat/fault injection, recovery rebuild, key-lease release and concurrency proofs are source-unit evidence, not claimed as DPAPI crash execution",
+          "broad privateError predicates prove hard refusal in corruption/foreign-binding cases but not one specific error subtype; missing-key HTTP path asserts exact code/status",
+          "Not global egress closure or release acceptance"
+        ],
+        "cwdOnlyFinalIdentity": {
+          "aux": "4060fe932f876ab0bacd2560c99404ca72ef813348432f02e834cc9996b7cb09",
+          "scheduler": "d7084c0aa2699bb9bcc12b83329f9e9624fc06da719b0560238c22d1abc86d72",
+          "proof": "replacing only dirname fallback back to process.cwd() exactly reconstructs original reviewed d1fe/3e2e raw SHA256, preserving every other byte",
+          "parentLogs": "root final-harness-cwd/final-root-cwd and counts-first/counts-second logs exist with7+9 groups; not reviewer execution"
+        }
+      }
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\egress-scoped-review.json",
+      "sha256": "1988198112d066170bc4ddf06b340a1e7668f759f3215e88cb95a21f243238a6",
+      "report": {
+        "status": "scoped_source_acceptance_only_not_global_pass",
+        "sourceCount": 281,
+        "candidateCount": 687,
+        "baselineErrorCount": 76,
+        "currentErrorCount": 81,
+        "proposedSources": [
+          {
+            "file": "ruyi-workbench/app/src/01s-work-data-journals.js",
+            "fingerprint": "fddb5bbdaa925db981f6fcfd78a57ec61f40e0be3f89ff4ea95d03f0d20242d8"
+          },
+          {
+            "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+            "fingerprint": "a323cc7c5be04be9540772ca42f5b0521b67f7af1b786b625f8a1dcede808292"
+          },
+          {
+            "file": "ruyi-workbench/app/src/13g-steward.js",
+            "fingerprint": "ea8b4a06c91afc647875c0af7ac370c70ef39812444e1afb45dba18f82084493"
+          },
+          {
+            "file": "ruyi-workbench/app/src/13s-scheduler.js",
+            "fingerprint": "263f540613696c3b9ba89c75cc1e3d601354010f1176901b4b2927e6ef402836"
+          }
+        ],
+        "proposedRemovedEntry": "ruyi-workbench/app/src/06-provider-engine.js#sweepAgentRunEventsStore#writeFile#1",
+        "candidateDeltaForFourFiles": [],
+        "proposedGlobalErrors": [
+          "source-unreviewed:ruyi-workbench/app/public/index.html",
+          "source-unreviewed:ruyi-workbench/app/public/js/chat-render-primitives.js",
+          "source-unreviewed:ruyi-workbench/app/public/js/privacy-failure.js",
+          "source-unreviewed:ruyi-workbench/app/public/js/provider-settings.js",
+          "source-unreviewed:ruyi-workbench/app/public/js/steward-settings.js",
+          "source-unreviewed:ruyi-workbench/app/src/00-boot.js",
+          "source-unreviewed:ruyi-workbench/app/src/01-config.js",
+          "source-unreviewed:ruyi-workbench/app/src/01b-route-auth.js",
+          "source-unreviewed:ruyi-workbench/app/src/01h-privacy-core.js",
+          "source-unreviewed:ruyi-workbench/app/src/01j-local-crypto.js",
+          "source-unreviewed:ruyi-workbench/app/src/01n-work-data-crypto.js",
+          "source-unreviewed:ruyi-workbench/app/src/01o-work-data-keys.js",
+          "source-unreviewed:ruyi-workbench/app/src/01p-work-data-store.js",
+          "source-unreviewed:ruyi-workbench/app/src/01q-work-data-records.js",
+          "source-unreviewed:ruyi-workbench/app/src/01r-work-data-chunks.js",
+          "source-unreviewed:ruyi-workbench/app/src/02-session-store.js",
+          "source-unreviewed:ruyi-workbench/app/src/03-bridge-guard.js",
+          "source-unreviewed:ruyi-workbench/app/src/03a-privacy-gateway.js",
+          "source-unreviewed:ruyi-workbench/app/src/04h-provider-http.js",
+          "source-unreviewed:ruyi-workbench/app/src/05-claude-engine.js",
+          "source-unreviewed:ruyi-workbench/app/src/05b-kimi-bridge.js",
+          "source-unreviewed:ruyi-workbench/app/src/06-provider-engine.js",
+          "source-unreviewed:ruyi-workbench/app/src/06b-prompt-registry.js",
+          "source-unreviewed:ruyi-workbench/app/src/06d-memory-domain.js",
+          "source-unreviewed:ruyi-workbench/app/src/06i-steward-core.js",
+          "source-unreviewed:ruyi-workbench/app/src/06k-config-patch.js",
+          "source-unreviewed:ruyi-workbench/app/src/07-autonomy.js",
+          "source-unreviewed:ruyi-workbench/app/src/08-agent-runs.js",
+          "source-unreviewed:ruyi-workbench/app/src/09-workflow.js",
+          "source-unreviewed:ruyi-workbench/app/src/10-context-governance.js",
+          "source-unreviewed:ruyi-workbench/app/src/11-native-tools.js",
+          "source-unreviewed:ruyi-workbench/app/src/12-tool-dispatch.js",
+          "source-unreviewed:ruyi-workbench/app/src/13-http-router.js",
+          "source-unreviewed:ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+          "source-unreviewed:ruyi-workbench/app/src/13d-core-domain-routes.js",
+          "source-unreviewed:ruyi-workbench/app/src/13e-pretender-index.js",
+          "source-unreviewed:ruyi-workbench/app/src/13f-native-tool-schemas.js",
+          "source-unreviewed:ruyi-workbench/app/src/13h-steward-runner.js",
+          "source-unreviewed:ruyi-workbench/app/src/13i-steward-inbox.js",
+          "source-unreviewed:ruyi-workbench/app/src/13j-steward-tool-base.js",
+          "source-unreviewed:ruyi-workbench/app/src/13k-steward-threads.js",
+          "source-unreviewed:ruyi-workbench/app/src/13l-steward-ops.js",
+          "source-unreviewed:ruyi-workbench/app/src/13m-steward-runner-base.js",
+          "source-unreviewed:ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+          "source-unreviewed:ruyi-workbench/app/src/13p-steward-runner-actions.js",
+          "source-unreviewed:ruyi-workbench/app/src/13q-steward-runner-turn.js",
+          "source-unreviewed:ruyi-workbench/app/src/13w-external-bots.js",
+          "source-unreviewed:ruyi-workbench/app/src/context-governance-rules.json",
+          "source-unreviewed:ruyi-workbench/app/src/manifest.json",
+          "source-unreviewed:ruyi-workbench/app/src/module-contracts.json",
+          "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#ensureOnce#run#1",
+          "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#snapshot#run#1",
+          "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#<module>#exec#1",
+          "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#create#copyFile#1",
+          "unclassified:ruyi-workbench/app/src/02-session-store.js#ensureSessionV1Backup#copyFile#1",
+          "unclassified:ruyi-workbench/app/src/02-session-store.js#journalRollbackContents#writeFile#1",
+          "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#1",
+          "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#2",
+          "unclassified:ruyi-workbench/app/src/02-session-store.js#sessionArtifactStore#<computed-call>#1",
+          "unclassified:ruyi-workbench/app/src/02-session-store.js#validateLegacyBinary#exec#1",
+          "changed-boundary:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#1",
+          "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#2",
+          "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectedTransform#run#1",
+          "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectHostHistory#run#1",
+          "unclassified:ruyi-workbench/app/src/07-autonomy.js#agentRunSnapshotStore#<computed-call>#1",
+          "changed-boundary:ruyi-workbench/app/src/12-tool-dispatch.js#workbenchMemoryReadLoopback#httpRequest#1",
+          "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#<transport-import>#1",
+          "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#request#1",
+          "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#write#1",
+          "changed-boundary:ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1",
+          "changed-boundary:ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+          "changed-boundary:ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+          "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRecordManyUnlocked#writeFile#1",
+          "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRollback#writeFile#1",
+          "stale-classification:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#3",
+          "stale-classification:ruyi-workbench/app/src/10-context-governance.js#writeHistorySnapshot#writeFile#1"
+        ],
+        "remainingOldErrorSetIdentical": true,
+        "policy": "Do not accept any other previously stale source or boundary; no protected upgrade; no product or manifest mutation by reviewer",
+        "logicalBoundaries": {
+          "01s-work-data-journals.js": "host-specified internal journal/stage filesystem handles and writeJson callbacks; encrypted carriers ON, original host legacy append/replace OFF; no socket/child process/stdio dispatch. Filesystem locality is not OS/network isolation; generic file-boundary remains unknown where applicable. Scanner does not enumerate open/FileHandle.write/appendFile as candidates.",
+          "13ab-privacy-api.js": "new decision preflight is local journal admission before existing config apply and code-only failure receipt; existing exports/routes unchanged",
+          "13g-steward.js": "new local producer Set and preflight gates precede existing authorized callbacks; code-only work_data failures; no new receiver or transport",
+          "13s-scheduler.js": "scheduler-fires purpose-task journal owner; Task-to-Fires lock; existing OFF fs append callback and existing model/notification onward receivers unchanged",
+          "06-provider-engine.js deleted writeFile": "old local gzip temp write moved to EventStreamHooks.archiveAgentRunEvents actual shared createBinary/atomic archive store; remove only exact old lexical candidate; leave stale source fingerprint untouched"
+        }
+      }
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\journals-documentation-review.json",
+      "sha256": "bd3757ca25f6a20ff267069d37c517b4dfffa326f6e3e78139c907d9b5858035",
+      "report": {
+        "status": "narrow_source_docs_review_no_substantive_blocker_final_gate_receipts_pending",
+        "baseline": "9c12fe35",
+        "verified": {
+          "routes": {
+            "newRoutes": 0,
+            "routeAuth": 166,
+            "decisionPoints": 180,
+            "delta": "timestamp and new source-test lexical coveredBy entries only; not independent runtime coverage proof"
+          },
+          "egress": {
+            "entryDelta": "only delete06 sweep gzip writeFile",
+            "classificationGroupsUnchanged": true,
+            "candidates": 687,
+            "sourceCount": 281,
+            "oldErrorCount": 76,
+            "manifestSourceDelta": "only add01s/change13ab13g13s"
+          },
+          "graph": {
+            "forward": 67,
+            "forwardEdgeSetUnchanged": true,
+            "modulesAfter": 96,
+            "stronglyConnectedComponents": 1,
+            "modulesBefore": 95,
+            "edgesAfter": 688,
+            "allAddedEdgesBackward": true,
+            "duplicateProvides": 0,
+            "addedEdges": 10,
+            "edgesBefore": 678
+          },
+          "freeze": {
+            "pending": [
+              "background-job-ledger",
+              "audit-log",
+              "migration-skill-backups"
+            ],
+            "surfaces": 70,
+            "encryptionImplemented": false,
+            "excluded": 29,
+            "wired": 38,
+            "required": 41
+          },
+          "facts": {
+            "toolCountsUnchanged": true,
+            "e2eFiles": 575,
+            "unitSuites": 331,
+            "modules": 96,
+            "defaultE2eFiles": 568,
+            "liveProbes": 7
+          }
+        },
+        "findings": [
+          {
+            "issue": "94 header stale34/41 and old date/section/remaining7",
+            "state": "fixed_verified38/date24/section23/remaining3"
+          },
+          {
+            "issue": "92 tail repair wording should explicitly refer to identified sealed tails; OFF ordinary tail original repair remains",
+            "state": "fixed_verified_sealed_tail_vs_OFF_plain_old_repair"
+          },
+          {
+            "issue": "E2E repo process.cwd default fails HARNESS runner working directory",
+            "state": "narrow_dirname_fix_verified_aux4060_schedulerd708_parent_final_logs_exist"
+          }
+        ],
+        "parentExecutionsRead": {
+          "note": "parent logs under ruyi31-final-wiring-20261023; not reviewer E2E execution and old fixture hashes precede cwd-only repair",
+          "auxSecond": "7/7 all pass",
+          "auxFirst": "7/7 all pass",
+          "schedulerFirst": "9/9 all pass"
+        },
+        "limits": [
+          "final fullfast still running; no final global-gate acceptance",
+          "evidence/privacy-aux-journals-and-fires.json not yet generated",
+          "no user-data migration or enable UI; defaultoff; version3.0.1; no release/platform/model/CAS claim",
+          "backup v2 is TEMP independent batch and not counted in38"
+        ],
+        "firstFullFast": {
+          "total": 2968,
+          "pass": 2939,
+          "skip": 26,
+          "fail": 3,
+          "staticStarted": false,
+          "source": "parent first full-fast log",
+          "failures": [
+            "memory-usage-work-data.test.js cursor structural assertion",
+            "steward-inbox-tick-cost T1",
+            "steward-inbox-tick-cost S1"
+          ],
+          "review": "mandatory fresh authentication I/O must be split from business costs, not waived or reauthorized by stat; retain head/changes/cursor-write zero and independent business oracle; counts parser memo fix pending"
+        },
+        "countsMemoReview": "counts-memo-review.json:019d/24pass/negative4fail; fullgates still pending",
+        "durableDelta": {
+          "before": 70,
+          "after": 70,
+          "changedOnly": [
+            "agent-run-events",
+            "steward-inbox",
+            "steward-decisions",
+            "scheduler-fires"
+          ],
+          "classificationsUnchanged": true,
+          "sourceDelta": "4lines replaced4",
+          "review": "contracts match current core/domain source; unrelated old lifecycle descriptions preserved"
+        },
+        "integrityFixtureRepair": {
+          "file": "dev-harness/steward-inbox-integrity.e2e.js",
+          "sha256": "1c9b6ed8d34b161e8f98652dc5ed3a5608f2b4dd3997d5911e4e12513718898e",
+          "status": "static_no_blocker_parent_execution_pending",
+          "trigger": "baseline9c and current both queued45 with absent engine",
+          "change": "public localhost fake provider/config makes existing real runner executable; E145/E2same45sec self-drain retained; adds >=2 real HTTP requests/errors0; finally stopRunner/close",
+          "noReviewerRun": true
+        },
+        "pendingEvidence": {
+          "file": "docs/optimization-plan/evidence/privacy-aux-journals-and-fires.json",
+          "observedStatus": "runtime_slice_passed_final_gates_pending",
+          "actualSourceHashesAllMatch": true,
+          "remainingWriterItems": [
+            "final DPAPI runs and cwd identities instead of stale pending text",
+            "first2968/2939pass/26skip/3fail and static not started retained",
+            "counts019d24pass+negative4fail/source lock fix and distinct costs",
+            "integrity baseline9c got45 fixture premise plus fixed actual runs",
+            "second fullfast actual result"
+          ],
+          "noNewProductWorkRequired": true
+        },
+        "maintainabilityVerified": {
+          "files": 11,
+          "added": 793,
+          "deleted": 153,
+          "net": 640,
+          "generatedSeparate": true,
+          "note": "Current source diff; writer must use final actual stats if only evidence/docs added later"
+        },
+        "todayStopBoundary": "User requested current38 batch close then stop; backup8.3 delayed-undo alias loss pending in TEMP and not applied; no new family counted or further implementation required today."
+      }
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\counts-memo-review.json",
+      "sha256": "d34188649ac2ce64933b2ead7c99444debae437ab7aee50e6c65d90f1cbc25dd",
+      "report": {
+        "status": "source_accepted_generated_final_gates_parent_pending",
+        "product": {
+          "file": "13i-steward-inbox.js",
+          "sha256": "019d8b3801c82f853f3e704cad1e98746ac7ab211d8ccbc969ff9b64fc1dcab8"
+        },
+        "tests": {
+          "cost": "53ba3fb20c18d411a8598a850d13856f41852bf2951c77342ddca6504124bdd3",
+          "cursorStructural": "4f4b2daa837695a8099ab801e981d06c309d467a1e3cd8178f69711687456e47",
+          "aux": "6e6b88ef1224f3c84efdf13cec0c0b4e59030037013e9f74a55eb03501d126ed"
+        },
+        "firstFullFast": {
+          "reason": [
+            "memory-usage-work-data structural lock still expected old inline host and calls",
+            "T1 mandatory classifier open merged into old inboxRead0 metric",
+            "S1 repeated raw reads and business parsing; old stat memo intentionally removed earlier"
+          ],
+          "pass": 2939,
+          "skip": 26,
+          "fail": 3,
+          "total": 2968,
+          "staticStarted": false
+        },
+        "resolution": [
+          "fresh stewardReadInboxText executes before every memo lookup including key/instance authentication",
+          "memo contains derived counts only; SHA256 exact returned logical text + authority stamp + droppedHead; no source stat authority and no retained body",
+          "T1 original headRead/changesOpen/cursorWrite0 unchanged; inbox readFile0 unchanged; mandatory open/bytes positive separate",
+          "S1 all3 real window reads and classifiers retained; actual business parser cold1 repeated0 append1 positive controls; independent full-file reference/value mutation/transient EBUSY assertions retained",
+          "cursor host/borrowed source structural lock adapted with actual schema seal/save/load tests still present"
+        ],
+        "independentRun": {
+          "pass": 24,
+          "fail": 0,
+          "command": "node --test dev-harness/unit/aux-journals-work-data.test.js dev-harness/unit/memory-usage-work-data.test.js dev-harness/unit/steward-inbox-tick-cost.test.js",
+          "total": 24,
+          "log": "counts-019d-review-final.log"
+        },
+        "negativeControls": [
+          {
+            "mutation": "remove memo-hit return only",
+            "result": "0/1 business parser2 !=1",
+            "name": "memo",
+            "log": "counts-negative-memo.log"
+          },
+          {
+            "mutation": "omit full/tail prefix from signature",
+            "result": "0/1 same text but changed droppedHead counts1 !=0",
+            "name": "dropped-head",
+            "log": "counts-negative-dropped-head.log"
+          },
+          {
+            "mutation": "return memo before real reader",
+            "result": "0/2 missing authenticated-tamper and missing-current-key rejections",
+            "name": "auth-order",
+            "log": "counts-negative-auth-order.log"
+          }
+        ],
+        "limits": [
+          "I/O cost is not removed or claimed O(tail); plaintext/ciphertext classification and complete required authentication remain",
+          "No reviewer direct E2E or build; parent runtime and final global gates still pending",
+          "Historical initial unrelated fixture ENOENT is owner-reported fixture issue, not product failure; product firstfull3fails retained"
+        ]
+      }
+    }
+  ],
+  "rawLogs": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\all-static-final.log",
+      "sha256": "a55a096ce5cde6aecb0ef45f7d912956b2565ee25c6c0048d11e7b680c74843e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\aux-journals-dpapi-counts-first.log",
+      "sha256": "34e087c167f0e65b7c9c4badb97986fdfa083c92b068598258c38ddc208cd145"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\aux-journals-dpapi-counts-second.log",
+      "sha256": "34e087c167f0e65b7c9c4badb97986fdfa083c92b068598258c38ddc208cd145"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\aux-journals-dpapi-final-harness-cwd.log",
+      "sha256": "34e087c167f0e65b7c9c4badb97986fdfa083c92b068598258c38ddc208cd145"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\aux-journals-dpapi-final-root-cwd.log",
+      "sha256": "34e087c167f0e65b7c9c4badb97986fdfa083c92b068598258c38ddc208cd145"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\aux-journals-dpapi-first.log",
+      "sha256": "34e087c167f0e65b7c9c4badb97986fdfa083c92b068598258c38ddc208cd145"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\aux-journals-dpapi-second.log",
+      "sha256": "34e087c167f0e65b7c9c4badb97986fdfa083c92b068598258c38ddc208cd145"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\egress-scoped-after-counts.log",
+      "sha256": "72e26b191216ad9c2ca506d0233d4c811eb8885648cc093ca5af17a692e7753e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\egress-scoped-final-order.log",
+      "sha256": "72e26b191216ad9c2ca506d0233d4c811eb8885648cc093ca5af17a692e7753e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\egress-scoped-final.log",
+      "sha256": "72e26b191216ad9c2ca506d0233d4c811eb8885648cc093ca5af17a692e7753e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\full-fast-first.log",
+      "sha256": "88560f66a7b171a41a0c7e6fe337f91a77f3a6a174dad6f6a079dc96bb37a690"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\full-fast-second.log",
+      "sha256": "28142fd11823ded278368597c086854926bcfffbbf748a3110813db84a94c09f"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\full-fast-third.log",
+      "sha256": "046c35e513b046276e20cf80b17fea148b1a3d94a381aa5e94c058ed56908304"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\full-unit-first.log",
+      "sha256": "7ff1f308624c0d30015bddcd43b9b4f4229fed83f7c484950d722767973af462"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\full-unit-second.log",
+      "sha256": "e6490211e6c0eba064b1fbdcfe1ac0c7e4f2a17d7b782789c45cb416d2f7b503"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\full-unit-third.log",
+      "sha256": "30f1fc16be9908e53ed767c7918a7485f7daf59845960dea3e84337dad6bc320"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\inbox-counts-and-cursor-recovery-first.log",
+      "sha256": "9881e7c77ad096ead013dc3b2756035aac924dd339315642af69272bacee10db"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-dpapi-counts-first.log",
+      "sha256": "d6dbf80867f18807536d50bd0857490a1471b22198e66bc11395eb7026973e3c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-dpapi-counts-second.log",
+      "sha256": "d6dbf80867f18807536d50bd0857490a1471b22198e66bc11395eb7026973e3c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-dpapi-final-harness-cwd.log",
+      "sha256": "d6dbf80867f18807536d50bd0857490a1471b22198e66bc11395eb7026973e3c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-dpapi-final-root-cwd.log",
+      "sha256": "d6dbf80867f18807536d50bd0857490a1471b22198e66bc11395eb7026973e3c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-dpapi-first.log",
+      "sha256": "d6dbf80867f18807536d50bd0857490a1471b22198e66bc11395eb7026973e3c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-dpapi-second.log",
+      "sha256": "d6dbf80867f18807536d50bd0857490a1471b22198e66bc11395eb7026973e3c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-expanded-final.log",
+      "sha256": "1e39636e3ce10d9b428358300fd05b1fb427713c798c232a43147d58a9ff84a2"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-expanded-first.log",
+      "sha256": "4c6b67201dbb6035142d9a6f2b23fc300bde921b314c2074c7980b860efe4389"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-source-adapted.log",
+      "sha256": "3ce64a9eb2c92d1d4b48bd5ce00853853e694b7d088eea2244ed57180485c30a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\scheduler-fires-source-first.log",
+      "sha256": "7c8ed1374e98393736918d3724e6bb4d7fba3d9931b8e65ae55eeb4b3fc89035"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\second-gate-two-failures-isolated.log",
+      "sha256": "29221f55816c590b99cbda811cae620381bca1bb1c602c377f81ce1223d85ad0"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\source-batch-first.log",
+      "sha256": "9c325649c33408852d023f83c7515d38b898aa6df79695ac008c13441f5ae52c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\steward-inbox-integrity-baseline-9c.log",
+      "sha256": "495216ec6129e1933050b9d28570ae81c0efd2510858a068916ed1c352e57829"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\steward-inbox-integrity-final.log",
+      "sha256": "b930d135d55903b102d86cde2d75504d5df446485f159b708a0ec7bf2f53bd5e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\steward-inbox-integrity-fixed-first.log",
+      "sha256": "c2f740b8a5e0d7de09b0f377e629f40b7b336e980b8eff0fefad07f199d8fde2"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\steward-inbox-integrity-fixed-second.log",
+      "sha256": "20b4a26a236eb28142214e546a856aa5d1b02837584cbde8e0218e37fc782855"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\syntax-final.log",
+      "sha256": "da2eed223a5f54be8bc07e4c4d74c0cc0aadc466ea1f6d0766d0643740e3e02a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-final-wiring-20261023\\syntax-first.log",
+      "sha256": "da2eed223a5f54be8bc07e4c4d74c0cc0aadc466ea1f6d0766d0643740e3e02a"
+    }
+  ],
+  "limitations": [
+    "No user data migrated, enable UI/reverse migration/recovery package or release. M3-3 still pending.",
+    "No complete568-piece default offline regression or production installer/real provider/platform acceptance.",
+    "Native fault seams and deterministic same-stat controls are source tests, not actual process crash/real DPAPI fault injection.",
+    "Historical global egress debt remains76 exact baseline error IDs; scoped source acceptance does not prove whole-product protection. Scanner misses FileHandle/open/appendFile boundaries; manual review records local host callbacks without OS isolation claim.",
+    "Skill backups remain TEMP native protocol review, not wired. Full scan incurs substantial legacy large-file I/O; no new OFF cap to hide cost."
+  ],
+  "pauseAndHandoff": {
+    "requestedByUser": "Finish current fixes and stop for today; finish this38-family batch, commit/push, then pause.",
+    "remaining": [
+      "background-job-ledger not implemented",
+      "audit-log plan only",
+      "migration-skill-backups candidate not applied:V3 delayed8.3 alias loss; V4 two positive source cases fail Win5"
+    ],
+    "auditNotes": "docs/optimization-plan/drafts/audit-next-2026-10-24/README.md",
+    "backupPacket": "docs/optimization-plan/drafts/skill-backups-next-2026-10-24",
+    "backupPacketHash": "afe77119f1c3771eb08113cb5adcdc7cd344cbd601b642782a9b881532668f9c",
+    "backupPacketVerified": true
+  }
+}

@@ -1,7 +1,7 @@
 'use strict';
 // Actual generated runtime, real Windows DPAPI and isolated synthetic task definitions.
-// Only scheduler-tasks is accepted here; the fires journal remains its existing plaintext family.
-const path = require('node:path'), repo = process.env.RUYI_SCHEDULER_REPO || process.cwd();
+// Task definitions and fire journals use the actual storage/DPAPI; notifications are not sent to real platforms.
+const path = require('node:path'), repo = process.env.RUYI_SCHEDULER_REPO || path.resolve(__dirname, '..');
 require(path.join(repo, 'dev-harness/lib/self-isolate-home'));
 const fs = require('node:fs'), os = require('node:os'), http = require('node:http'), assert = require('node:assert/strict');
 const base = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(base, 'ruyi-scheduler-tasks-e2e-'));
@@ -10,6 +10,7 @@ const { loadServerInternals } = require(path.join(repo, 'dev-harness/lib/server-
 const t = require(path.join(repo, 'dev-harness/lib/harness')).createRunner('SCHEDULER TASKS WORK DATA');
 const names = ['sendError', 'readConfig', 'writeConfig', 'workDataKeys', 'paths', 'normalizeSchedulerTask', 'schedulerRuntime', 'schedulerTasksPath', 'schedulerFiresPath',
   'schedulerLoad', 'schedulerSaveTasks', 'schedulerReadTasksFile', 'schedulerRecover', 'schedulerTick', 'schedulerAppendFire', 'schedulerFireOnce', 'stopScheduler',
+  'schedulerReadFireRows', 'schedulerReadFiresText', 'schedulerFireJournal', 'WorkDataJournals', 'atomicWriteJson',
   'handleSchedulerApiRoutes', 'pretenderIndexRuntime', 'stewardImplScheduleList', 'stewardImplSchedulePause', 'stewardImplScheduleDelete', 'schedulerCommitmentsSince'];
 const runtimes = [], servers = [];
 const load = () => { const api = loadServerInternals(names); runtimes.push(api); return api; };
@@ -96,8 +97,51 @@ async function serve(api) {
   cold.workDataKeys.clear(); const recovered = load(), rows = await recovered.schedulerLoad(); await recovered.schedulerRecover(rows);
   assert.equal(recovered.schedulerRuntime.tasks[0].state.inFlightRunId, ''); assert.equal(recovered.schedulerRuntime.tasks[0].state.lastResult, 'unknown');
   assert.equal(recovered.schedulerRuntime.firedTotal, 0);
-  const fires = fs.readFileSync(recovered.schedulerFiresPath(), 'utf8').trim().split('\n').map(JSON.parse); assert.equal(fires.at(-1).outcome, 'unknown'); assert.equal(fires.filter(row => row.phase === 'registered').length, 1);
+  const fires = await recovered.schedulerReadFireRows(); assert.equal(fires.at(-1).outcome, 'unknown'); assert.equal(fires.filter(row => row.phase === 'registered').length, 1);
   t.ok(true, 'cold registered occurrence recovers as unknown once without replaying a reminder or model turn');
+
+  const fireFile = recovered.schedulerFiresPath(), large = 'FIRE-PRIVATE-PAYLOAD' + '火😀'.repeat(1050000);
+  await recovered.schedulerAppendFire({ taskId: task.id, phase: 'reconciled', outcome: 'succeeded', occurrenceKey: 'large-fire', opaque: large });
+  const fireBytes = fs.readFileSync(fireFile); assert.ok(fireBytes.length > 8 * 1024 * 1024); assert.equal(fireBytes.includes(Buffer.from('FIRE-PRIVATE-PAYLOAD')), false);
+  assert.equal(JSON.parse(fireBytes.toString('utf8').trim().split('\n').at(-1)).w, 3);
+  recovered.workDataKeys.clear(); const fireCold = load(), fireCall = await serve(fireCold);
+  const window = await fireCold.schedulerReadFiresText(); assert.equal(window.droppedHead, false); assert.ok(Buffer.byteLength(window.text) < 8 * 1024 * 1024);
+  assert.equal((await fireCold.schedulerReadFireRows()).at(-1).opaque, large);
+  const listed = await fireCall('GET', '/api/scheduler/tasks/' + task.id + '/runs'); assert.equal(listed.status, 200); assert.ok(listed.body.runs.length > 0);
+  t.ok(true, 'real DPAPI chunked fire exceeds the physical 8 MiB window yet cold logical reads and actual HTTP runs preserve its complete content');
+
+  const taskBytes = fs.readFileSync(file); for (const runtime of runtimes) runtime.workDataKeys.clear(); fs.renameSync(keyFile, keyFile + '.missing');
+  try {
+    await assert.rejects(() => fireCold.schedulerReadFireRows(), privateError);
+    await assert.rejects(() => fireCold.schedulerAppendFire({ phase: 'running' }), privateError);
+    await assert.rejects(() => fireCold.schedulerCommitmentsSince(0), privateError);
+    const refused = await fireCall('GET', '/api/scheduler/tasks/' + task.id + '/runs'); assert.equal(refused.status, 500); assert.equal(refused.body.error.code, 'work_data_key.absent');
+    assert.deepEqual(fs.readFileSync(fireFile), fireBytes); assert.deepEqual(fs.readFileSync(file), taskBytes);
+  } finally { fs.renameSync(keyFile + '.missing', keyFile); }
+  t.ok(true, 'real key loss refuses direct fire reads, writes, commitments and actual HTTP runs without changing task or journal bytes');
+
+  const carriers = fireBytes.toString('utf8').trim().split('\n'), damaged = JSON.parse(carriers[0]), cipher = damaged.e.envelope.ciphertext;
+  damaged.e.envelope.ciphertext = (cipher[0] === 'A' ? 'B' : 'A') + cipher.slice(1); carriers[0] = JSON.stringify(damaged);
+  const badBytes = Buffer.from(carriers.join('\n') + '\n'); fs.writeFileSync(fireFile, badBytes);
+  await assert.rejects(() => fireCold.schedulerReadFireRows(), privateError); await assert.rejects(() => fireCold.schedulerAppendFire({ phase: 'running' }), privateError);
+  assert.deepEqual(fs.readFileSync(fireFile), badBytes); assert.equal(fs.existsSync(fireFile + '.corrupt'), false);
+  const noLf = fireBytes.subarray(0, fireBytes.length - 1); fs.writeFileSync(fireFile, noLf);
+  assert.equal((await fireCold.schedulerReadFireRows()).at(-1).opaque, large);
+  await assert.rejects(() => fireCold.schedulerAppendFire({ phase: 'running' }), { code: 'work_data_journal.sealed_tail_uncommitted' }); assert.deepEqual(fs.readFileSync(fireFile), noLf);
+  fs.writeFileSync(fireFile, fireBytes); await toggle(fireCold, false);
+  assert.equal((await fireCold.schedulerReadFireRows()).at(-1).opaque, large);
+  await assert.rejects(() => fireCold.schedulerAppendFire({ phase: 'running' }), { code: 'work_data_journal.downgrade_refused' }); assert.deepEqual(fs.readFileSync(fireFile), fireBytes);
+  t.ok(true, 'tampering, complete sealed no-LF tails and OFF downgrade never quarantine, truncate or overwrite valid recovery authority');
+
+  await toggle(fireCold, true);
+  const foreign = path.join(path.dirname(fireFile), 'foreign-fire.fixture.ndjson');
+  const store = fireCold.WorkDataJournals.create({ file: foreign, context: { kind: 'scheduler-fires', sessionId: 'foreign-scheduler' },
+    enabled: async () => true, writeJson: fireCold.atomicWriteJson });
+  await store.append([JSON.stringify({ seq: 1, phase: 'registered', occurrenceKey: 'foreign' })], async () => { throw Error('encrypted writer must not use legacy append'); });
+  const foreignBytes = fs.readFileSync(foreign); fs.writeFileSync(fireFile, foreignBytes);
+  await assert.rejects(() => fireCold.schedulerReadFireRows(), privateError); await assert.rejects(() => fireCold.schedulerAppendFire({ phase: 'running' }), privateError);
+  assert.deepEqual(fs.readFileSync(fireFile), foreignBytes); assert.deepEqual(fs.readFileSync(file), taskBytes); fs.writeFileSync(fireFile, fireBytes);
+  t.ok(true, 'a real DPAPI journal bound to another scheduler scope cannot be read or rewritten under the live scope');
 })().catch(error => { t.fail(error?.stack || String(error)); }).finally(async () => {
   await Promise.all(servers.map(server => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); })));
   for (const api of runtimes) { api.stopScheduler(); clearTimeout(api.pretenderIndexRuntime.verifyTimer); clearTimeout(api.pretenderIndexRuntime.persistTimer); api.workDataKeys.clear(); }

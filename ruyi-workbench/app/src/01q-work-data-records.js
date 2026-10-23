@@ -131,6 +131,67 @@ const WorkDataRecords = (() => {
     if (typeof plainLine !== 'string' || !plainLine) fail('corrupt');
     return plainLine;
   }
+  // Auxiliary journals have fixed purposes independent of their payload. The
+  // original four session kinds and their v2 AAD remain unchanged above.
+  const JOURNAL_KINDS = Object.freeze(['steward-inbox', 'steward-decisions', 'agent-run-events', 'scheduler-fires']);
+  function journalBinding(context, schema) {
+    if (!context || !JOURNAL_KINDS.includes(context.kind)) fail('kind_invalid');
+    const ordinal = ordinalOf(context.ordinal), kind = context.kind;
+    let recordId = kind + ':' + ordinal;
+    if (kind === 'agent-run-events') {
+      if (typeof context.runId !== 'string' || !/^[A-Za-z0-9_-]{1,96}$/.test(context.runId)) fail('run_invalid');
+      recordId = kind + ':' + context.runId + ':' + ordinal;
+    }
+    return { purpose: kind === 'agent-run-events' || kind === 'scheduler-fires' ? 'task' : 'queue', instanceId: context.instanceId,
+      schema, scopeId: context.sessionId, recordId, seq: ordinal };
+  }
+  // One physical NDJSON row, including for a chunked record. No plaintext stage.
+  function encodeRecordFactory(plainLine, key, context, maxPlaintextBytes) {
+    if (typeof plainLine !== 'string' || !plainLine) fail('text_required');
+    const binding = journalBinding(context, FORMAT);
+    if (Buffer.byteLength(plainLine, 'utf8') <= WorkDataCrypto.MAX_PLAINTEXT) {
+      const encoded = JSON.stringify({ w: FORMAT, e: WorkDataCrypto.seal(plainLine, key, binding) }) + '\n';
+      let disposed = false;
+      const factory = async function* () { if (disposed) fail('key_released'); yield encoded; };
+      factory.dispose = () => { disposed = true; };
+      return factory;
+    }
+    const chunks = WorkDataChunks.sealFactory(plainLine, key, { ...binding, schema: 3 }, maxPlaintextBytes);
+    const factory = async function* () {
+      let first = true, block = false;
+      for await (const line of chunks()) {
+        const encoded = line.slice(0, -1);
+        if (first) { yield '{"w":3,"h":' + encoded + ',"b":['; first = false; }
+        else { yield (block ? ',' : '') + encoded; block = true; }
+      }
+      yield ']}\n';
+    };
+    factory.dispose = () => chunks.dispose();
+    return factory;
+  }
+  async function decodeRecordLine(line, key, context, maxPlaintextBytes) {
+    let row;
+    try { row = JSON.parse(String(line == null ? '' : line)); } catch { fail('corrupt'); }
+    if (!row || typeof row !== 'object' || Array.isArray(row)) fail('corrupt');
+    if (row.w === FORMAT) {
+      if (Object.keys(row).sort().join(',') !== 'e,w' || !row.e || typeof row.e !== 'object' || Array.isArray(row.e)) fail('corrupt');
+      const binding = journalBinding(context, FORMAT);
+      if (row.e.seq !== binding.seq) fail('ordinal_mismatch');
+      let plain;
+      try { plain = WorkDataCrypto.open(row.e, key, binding); } catch { fail('authenticate_failed'); }
+      if (typeof plain !== 'string' || !plain) fail('corrupt');
+      return plain;
+    }
+    if (row.w !== 3) fail('format_unsupported');
+    if (Object.keys(row).sort().join(',') !== 'b,h,w' || !row.h || typeof row.h !== 'object' || Array.isArray(row.h)
+      || !Array.isArray(row.b) || row.b.length > WorkDataChunks.MAX_CHUNKS) fail('corrupt');
+    const binding = journalBinding(context, 3);
+    if (row.h.seq !== binding.seq) fail('ordinal_mismatch');
+    return WorkDataChunks.openLines((async function* () {
+      yield JSON.stringify(row.h);
+      for (const block of row.b) yield JSON.stringify(block);
+    })(), key, binding, maxPlaintextBytes);
+  }
   // Whole body: every line must be a valid record at its own ordinal. This only accepts a full block
   // starting at ordinal 0: a tail-truncated block still decodes (the AAD carries no total count), so
   // truncation stays a caller-side concern. Returns the plaintext body with
@@ -148,5 +209,5 @@ const WorkDataRecords = (() => {
     }
     return plain.join('\n') + (trailing ? '\n' : '');
   }
-  return Object.freeze({ FORMAT, KINDS, lineProbe, isEncodedLine, encodeLine, decodeLine, decodeBody });
+  return Object.freeze({ FORMAT, KINDS, JOURNAL_KINDS, lineProbe, isEncodedLine, encodeLine, decodeLine, decodeBody, encodeRecordFactory, decodeRecordLine });
 })();

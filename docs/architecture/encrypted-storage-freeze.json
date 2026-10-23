@@ -64,7 +64,11 @@
     "pretender-index",
     "migration-log",
     "skill-import-record",
-    "scheduler-tasks"
+    "scheduler-tasks",
+    "steward-inbox",
+    "steward-decisions",
+    "agent-run-events",
+    "scheduler-fires"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -354,7 +358,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "inbox items quote incoming messages",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "steward-cursor",
@@ -372,7 +376,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "decisions and rationales quote the triggering content",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "work-data-key-v1",
@@ -427,7 +431,7 @@
         }
       ],
       "reason": "fire records quote the rendered prompt and result status",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "agent-run-snapshot",
@@ -463,7 +467,7 @@
         }
       ],
       "reason": "event stream replays tool input/output",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "background-job-ledger",

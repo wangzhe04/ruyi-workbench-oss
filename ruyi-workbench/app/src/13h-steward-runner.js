@@ -217,6 +217,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
     if (!safeSessionId(body && body.sessionId)) {
       return send(res, apiFailure('invalid_session', {}, 'invalid sessionId', 400));
     }
+    await stewardPreflightDecision();
     const result = await stewardImplThreadPrioritize({ sessionId: body.sessionId }, { config }, config);
     // 116g 硬教训:域层的 {ok:false,error} 直接送进 json() 会被 normalizeApiErrorPayload 归一成
     // api.request_failed,稳定信封必须在【路由层】转成 apiFailure。

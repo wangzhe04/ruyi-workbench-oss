@@ -3,6 +3,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), fsp = require('node:fs/promises'), path = require('node:path');
 const os = require('node:os'), vm = require('node:vm'), crypto = require('node:crypto');
+const { functionBlock } = require('../lib/source-slice');
 const repo = process.env.RUYI_SCHEDULER_REPO || path.resolve(__dirname, '../..');
 const candidate = process.env.RUYI_SCHEDULER_SOURCE || path.join(repo, 'ruyi-workbench/app/src');
 const { loadWorkDataChunks } = require(path.join(repo, 'dev-harness/lib/work-data-chunks-fixture'));
@@ -12,10 +13,28 @@ function fixture(options = {}) {
   const dir = fs.mkdtempSync(path.join(root, 'case-'));
   const state = { enabled: false, missing: false, instance: 'scheduler-test-instance', key: crypto.randomBytes(32), acquires: 0, releases: 0,
     reminders: 0, sessions: 0, turns: 0, decisions: [], events: [], reads: 0, readFaults: 0 };
-  const testFs = { ...fsp, appendFile: async (file, payload, ...args) => {
-    const value = await fsp.appendFile(file, payload, ...args);
-    if (String(file).endsWith('fires-v1.ndjson') && state.onAppendFire) await state.onAppendFire(JSON.parse(payload));
-    return value;
+  const isFires = file => String(file).endsWith('fires-v1.ndjson');
+  const testFs = { ...fsp, stat: async (file, options) => {
+    const value = await fsp.stat(file, options);
+    return isFires(file) && options?.bigint && state.fireStat ? { ...value, ...state.fireStat } : value;
+  }, open: async (file, flags, ...args) => {
+    const handle = await fsp.open(file, flags, ...args);
+    if (!isFires(file)) return handle;
+    return new Proxy(handle, { get(target, key) {
+      if (key === 'stat') return async options => {
+        const value = await target.stat(options);
+        return options?.bigint && state.fireStat ? { ...value, ...state.fireStat } : value;
+      };
+      if (key === 'write' && flags === 'a') return async (...params) => {
+        const value = await target.write(...params);
+        if (state.failAfterFireWrite) { state.failAfterFireWrite = false; throw Object.assign(Error('synthetic append failure after bytes'), { code: 'ENOSPC' }); }
+        return value;
+      };
+      const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value;
+    } });
+  }, truncate: async (file, ...args) => {
+    if (isFires(file) && state.failFireRollback) { state.failFireRollback = false; throw Object.assign(Error('synthetic rollback failure'), { code: 'EIO' }); }
+    return fsp.truncate(file, ...args);
   }, readFile: async (file, ...args) => {
     if (String(file).endsWith('tasks-v1.json')) {
       state.reads++;
@@ -30,14 +49,28 @@ function fixture(options = {}) {
     const key = Buffer.from(state.key);
     return { key, instanceId: state.instance, release: () => { state.releases++; key.fill(0); } };
   } };
+  const journals = vm.runInNewContext(fs.readFileSync(path.join(candidate, '01q-work-data-records.js'), 'utf8') + '\n'
+    + fs.readFileSync(path.join(candidate, '01s-work-data-journals.js'), 'utf8') + '\n({ journals: WorkDataJournals, records: WorkDataRecords });', {
+    require: name => name === 'node:fs/promises' ? testFs : require(name), Buffer, console,
+    WorkDataCrypto: fx.crypto, WorkDataChunks: fx.chunks, WorkDataStore: fx.store,
+  });
+  // Observe the actual journal's committed plaintext input; sealed appends now
+  // stream through FileHandle.write rather than the old appendFile call.
+  const observedJournals = { create: host => {
+    const store = journals.journals.create(host);
+    return { ...store, append: async (rows, ...args) => {
+      const result = await store.append(rows, ...args);
+      if (host.context.kind === 'scheduler-fires' && state.onAppendFire) await state.onAppendFire(JSON.parse(rows[0]));
+      return result;
+    } };
+  } };
   const context = vm.createContext({ require, Buffer, console, crypto, fs, fsp: testFs, path,
     setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, process: { env: {} },
-    WorkDataStore: fx.store, paths: { data: dir }, atomicWriteJson: async (file, data, options) => { if (state.failSaves && String(file).endsWith('tasks-v1.json')) throw Object.assign(Error('synthetic disk full'), { code: 'ENOSPC' }); return fx.atomicWriteJson(file, data, options); },
+    WorkDataStore: fx.store, WorkDataJournals: observedJournals, paths: { data: dir }, atomicWriteJson: async (file, data, options) => { if (state.failSaves && String(file).endsWith('tasks-v1.json')) throw Object.assign(Error('synthetic disk full'), { code: 'ENOSPC' }); return fx.atomicWriteJson(file, data, options); },
     __clockNow: Date.parse('2026-10-23T12:00:00Z'),
     RUYI_EVENTS: { subscribe() {}, emit(name, row) { state.events.push([name, row]); } },
     readConfig: async () => ({ schedulerEnabledV1: true, workDataEncryptionV1: state.enabled, permissionMode: 'default' }),
     logEvent: row => state.events.push(row), makeId: prefix => prefix + '_' + crypto.randomBytes(8).toString('hex'),
-    repairMissionChangeTornTail: async () => {},
     StewardHooks: {}, stewardToolHandler: (_name, fn) => fn, stewardFail: (code, message, params) => ({ ok: false, error: code, message, ...params }),
     stewardUnattendedByModel: () => false, stewardSanitizeText: value => String(value), stewardAppendDecision: row => { state.decisions.push(row); },
     safeSessionId: id => String(id || ''), stewardReadSessionHead: async id => ({ id }), stewardRawKind: head => head.kind || '',
@@ -52,12 +85,17 @@ function fixture(options = {}) {
     apiFailure: (code, params, message, status) => ({ ok: false, error: code, params, message, status }),
     json: value => value, send: (res, value) => { res.value = value; return value; },
   });
-  let source = fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/06j-scheduler-core.js'), 'utf8') + '\n'
+  let source = functionBlock(fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/01-config.js'), 'utf8'), 'readFileTail') + '\n'
+    + functionBlock(fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/02-session-store.js'), 'utf8'), 'repairMissionChangeTornTail') + '\n'
+    + fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/06j-scheduler-core.js'), 'utf8') + '\n'
     + fs.readFileSync(path.join(candidate, '13s-scheduler.js'), 'utf8') + '\n'
     + fs.readFileSync(path.join(candidate, '13t-steward-schedule.js'), 'utf8');
   if (options.cap) source = source.replace('const SCHEDULER_TASK_ENGINEERING_BYTES = 256 * 1024 * 1024;', 'const SCHEDULER_TASK_ENGINEERING_BYTES = ' + options.cap + ';');
+  if (options.fireWindow) source = source.replace('const SCHEDULER_FIRES_FULL_READ_BYTES = 8 * 1024 * 1024;', 'const SCHEDULER_FIRES_FULL_READ_BYTES = ' + options.fireWindow.full + ';')
+    .replace('const SCHEDULER_FIRES_TAIL_BYTES = 1024 * 1024;', 'const SCHEDULER_FIRES_TAIL_BYTES = ' + options.fireWindow.tail + ';');
   const names = ['schedulerRuntime', 'SchedulerHooks', 'schedulerTasksPath', 'schedulerFiresPath', 'schedulerTaskPayload', 'schedulerTaskStore', 'withSchedulerTaskOperation',
     'schedulerTaskAdmission', 'schedulerReadTasksFile', 'schedulerSaveTasks', 'schedulerLoad', 'schedulerRecover', 'schedulerFireOnce', 'schedulerTick', 'schedulerRunNow',
+    'schedulerAppendFire', 'schedulerReadFireRows', 'schedulerReadFiresText', 'schedulerFireJournal', 'schedulerFirePreflight',
     'handleSchedulerApiRoutes', 'normalizeSchedulerTask', 'schedulerClockNow', 'schedulerDayKey', 'startScheduler', 'stopScheduler',
     'stewardImplScheduleCreate', 'stewardImplScheduleList', 'stewardImplScheduleDelete', 'stewardImplSchedulePause', 'stewardImplScheduleResume', 'schedulerCommitmentsSince'];
   const api = vm.runInContext(source + '\nschedulerClockNow = () => __clockNow;\n({' + names.join(',') + '});', context);
@@ -77,10 +115,21 @@ function fixture(options = {}) {
     const req = { method, url, headers: {}, body, beforeBody }, res = {};
     await api.handleSchedulerApiRoutes(req, res, url); return res.value;
   };
-  return { ...api, runtime, state, context, task, prepare, call, dir, file: api.schedulerTasksPath(), fires: api.schedulerFiresPath() };
+  return { ...api, runtime, state, context, task, prepare, call, dir, file: api.schedulerTasksPath(), fires: api.schedulerFiresPath(), records: journals.records };
 }
 const privateError = error => String(error?.code || '').startsWith('work_data');
 const bytesOrAbsent = file => fs.existsSync(file) ? fs.readFileSync(file) : null;
+async function encodeFire(f, row, binding = {}) {
+  const factory = f.records.encodeRecordFactory(typeof row === 'string' ? row : JSON.stringify(row), f.state.key,
+    { kind: 'scheduler-fires', sessionId: 'scheduler-global', instanceId: f.state.instance, ordinal: 0, ...binding }, 256 * 1024 * 1024);
+  try { const parts = []; for await (const part of factory()) parts.push(Buffer.from(part)); return Buffer.concat(parts); }
+  finally { factory.dispose(); }
+}
+function tamperFire(row) {
+  const value = row.e.envelope.ciphertext;
+  row.e.envelope.ciphertext = (value[0] === 'A' ? 'B' : 'A') + value.slice(1);
+  return row;
+}
 test('OFF exact pretty bytes and opaque rows, original retry and quarantine branches remain', async () => {
   const f = fixture(); await f.prepare(); f.runtime.opaqueTasks = [{ unknown: 'OPAQUE-PRIVATE' }]; await f.schedulerSaveTasks();
   assert.equal(fs.readFileSync(f.file, 'utf8'), JSON.stringify(f.schedulerTaskPayload(), null, 2)); assert.equal(f.state.acquires, 0);
@@ -169,10 +218,12 @@ test('model turn holds no task key lease; post-execution loss blocks reconcile a
   f.state.onTurn = async () => { assert.equal(f.state.acquires, f.state.releases, 'all task operation leases released before actual model turn'); reached(); await gate; f.state.missing = true; return { ok: true, result: { ok: true } }; };
   const running = f.schedulerRunNow(task); await atTurn; assert.equal(f.state.turns, 1); assert.equal(f.state.sessions, 1); const registered = fs.readFileSync(f.file); release();
   await assert.rejects(() => running, privateError); assert.ok(task.state.inFlightRunId); assert.deepEqual(fs.readFileSync(f.file), registered);
-  const rows = fs.readFileSync(f.fires, 'utf8').trim().split('\n').map(JSON.parse); assert.equal(rows.filter(row => row.phase === 'reconciled').length, 0);
-  f.state.missing = false; f.runtime.loaded = false; const coldRows = await f.schedulerLoad(); await f.schedulerRecover(coldRows);
+  await assert.rejects(() => f.schedulerReadFireRows(), privateError);
+  f.state.missing = false;
+  const rows = await f.schedulerReadFireRows(); assert.equal(rows.filter(row => row.phase === 'reconciled').length, 0);
+  f.runtime.loaded = false; const coldRows = await f.schedulerLoad(); await f.schedulerRecover(coldRows);
   assert.equal(f.state.turns, 1); assert.equal(f.runtime.tasks[0].state.inFlightRunId, ''); assert.equal(f.runtime.tasks[0].state.lastResult, 'unknown');
-  assert.equal(fs.readFileSync(f.fires, 'utf8').trim().split('\n').map(JSON.parse).at(-1).outcome, 'unknown');
+  assert.equal((await f.schedulerReadFireRows()).at(-1).outcome, 'unknown');
 });
 test('small encrypted capacity refuses oversized existing definitions before registration or callbacks; OFF remains unlimited', async () => {
   const f = fixture({ cap: 1024 }); const task = await f.prepare(false); f.runtime.opaqueTasks = [{ opaque: 'x'.repeat(2000) }]; await f.schedulerSaveTasks();
@@ -247,7 +298,9 @@ test('key revocation after running journal publication blocks the actual model t
   f.state.onAppendFire = row => { if (row.phase === 'running') f.state.missing = true; };
   await assert.rejects(() => f.schedulerRunNow(task), privateError);
   assert.equal(f.state.turns, 0); assert.ok(task.state.inFlightRunId);
-  const rows = fs.readFileSync(f.fires, 'utf8').trim().split('\n').map(JSON.parse);
+  const sealed = fs.readFileSync(f.fires);
+  await assert.rejects(() => f.schedulerReadFireRows(), privateError); f.state.missing = false;
+  const rows = await f.schedulerReadFireRows(); assert.deepEqual(fs.readFileSync(f.fires), sealed);
   assert.equal(rows.at(-1).phase, 'running'); assert.equal(rows.filter(row => row.phase === 'registered').length, 1); assert.equal(rows.filter(row => row.phase === 'reconciled').length, 0);
   assert.equal(fs.existsSync(f.file + '.corrupt'), false);
 });
@@ -362,4 +415,106 @@ test('scheduler storage failures retain stable codes and existing statuses throu
     transport.sendError({}, error); const response = responses.at(-1);
     assert.equal(response.status, 503); assert.equal(JSON.parse(response.body).error.code, error.code);
   }
+});
+
+test('fire OFF append preserves exact JSON bytes, valid rows and old torn-tail repair without keys', async () => {
+  const f = fixture(); await f.prepare();
+  const old = { seq: 8, phase: 'registered', occurrenceKey: 'old', opaque: '原文😀' };
+  const prefix = JSON.stringify(old) + '\nBROKEN\n\n'; fs.writeFileSync(f.fires, prefix + '{torn'); f.runtime.fireSeq = 8;
+  const row = await f.schedulerAppendFire({ phase: 'reconciled', outcome: 'succeeded', occurrenceKey: 'new' });
+  assert.equal(fs.readFileSync(f.fires, 'utf8'), prefix + JSON.stringify(row) + '\n');
+  assert.deepEqual(Array.from(await f.schedulerReadFireRows(), row => row.seq), [8, 9]); assert.equal(f.state.acquires, 0);
+});
+
+test('fire mixed prefixes retain every legacy byte and bind encrypted rows to physical ordinal', async () => {
+  const f = fixture(); await f.prepare(true);
+  const prefix = 'BROKEN\n\n' + JSON.stringify({ seq: 7, phase: 'registered', occurrenceKey: 'old' }) + '\n';
+  fs.writeFileSync(f.fires, prefix); f.runtime.fireSeq = 7;
+  await f.schedulerAppendFire({ phase: 'reconciled', outcome: 'succeeded', occurrenceKey: 'old', opaque: 'FIRE-SECRET' });
+  const raw = fs.readFileSync(f.fires, 'utf8'); assert.equal(raw.slice(0, prefix.length), prefix);
+  assert.equal(JSON.parse(raw.slice(prefix.length).trim()).e.seq, 3); assert.equal(raw.includes('FIRE-SECRET'), false);
+  assert.deepEqual(Array.from(await f.schedulerReadFireRows(), row => row.seq), [7, 8]); assert.equal(f.state.acquires, f.state.releases);
+});
+
+test('large fire records use the real chunk codec and cold load reconstructs exact opaque content', async () => {
+  const f = fixture(); await f.prepare(true); const opaque = '火😀'.repeat(240000);
+  await f.schedulerAppendFire({ phase: 'registered', occurrenceKey: 'large', opaque });
+  const raw = fs.readFileSync(f.fires, 'utf8'); assert.equal(JSON.parse(raw.trim()).w, 3); assert.equal(raw.includes('火😀'), false);
+  f.runtime.loaded = false; const rows = await f.schedulerLoad(); assert.equal(rows[0].opaque, opaque); assert.equal(f.runtime.fireSeq, 1);
+});
+
+test('fire windows use plaintext bytes when ciphertext alone exceeds the full-read threshold', async () => {
+  const f = fixture({ fireWindow: { full: 1024, tail: 600 } }); await f.prepare(true);
+  await f.schedulerAppendFire({ phase: 'registered', occurrenceKey: 'window', opaque: 'x'.repeat(650) });
+  assert.ok(fs.statSync(f.fires).size > 1024);
+  const window = await f.schedulerReadFiresText(); assert.equal(window.droppedHead, false); assert.ok(Buffer.byteLength(window.text) < 1024);
+  assert.equal((await f.schedulerReadFireRows())[0].opaque, 'x'.repeat(650));
+});
+
+test('fire key, instance, scope and authenticated domain-shape failures preserve task and fire bytes before business', async () => {
+  for (const issue of ['missing', 'instance', 'scope', 'shape']) {
+    const f = fixture(); const task = await f.prepare(false); f.state.enabled = true;
+    const row = { seq: 1, phase: 'registered', occurrenceKey: 'prior', opaque: 'PRIVATE' };
+    fs.writeFileSync(f.fires, await encodeFire(f, issue === 'shape' ? { ...row, phase: 'not-a-phase' } : row,
+      issue === 'scope' ? { sessionId: 'foreign-scheduler' } : {}));
+    if (issue === 'missing') f.state.missing = true;
+    if (issue === 'instance') f.state.instance += '-foreign';
+    const before = fs.readFileSync(f.fires), tasks = fs.readFileSync(f.file), memory = JSON.stringify(task);
+    await assert.rejects(() => f.schedulerReadFireRows(), privateError);
+    await assert.rejects(() => f.schedulerRunNow(task), privateError);
+    assert.deepEqual(fs.readFileSync(f.fires), before); assert.deepEqual(fs.readFileSync(f.file), tasks);
+    assert.equal(JSON.stringify(task), memory); assert.equal(f.runtime.fireSeq, 0); assert.equal(f.runtime.attempts.size, 0);
+    assert.equal(f.state.reminders, 0); assert.equal(f.state.sessions, 0); assert.equal(f.state.turns, 0);
+    assert.equal(fs.existsSync(f.fires + '.corrupt'), false);
+  }
+});
+
+test('same-stat warm fire tampering cannot authorize an append or a task registration', async () => {
+  const f = fixture(); const task = await f.prepare(true); await f.schedulerAppendFire({ phase: 'registered', occurrenceKey: 'warm' });
+  await f.schedulerReadFireRows(); const before = fs.statSync(f.fires, { bigint: true }), raw = fs.readFileSync(f.fires, 'utf8');
+  f.state.fireStat = Object.fromEntries(['size', 'mtimeNs', 'ctimeNs', 'dev', 'ino'].map(key => [key, before[key]]));
+  const row = tamperFire(JSON.parse(raw.trim()));
+  fs.writeFileSync(f.fires, JSON.stringify(row) + '\n'); const damaged = fs.readFileSync(f.fires), tasks = fs.readFileSync(f.file), memory = JSON.stringify(task), seq = f.runtime.fireSeq;
+  await assert.rejects(() => f.schedulerAppendFire({ phase: 'running' }), privateError);
+  await assert.rejects(() => f.schedulerRunNow(task), privateError);
+  assert.deepEqual(fs.readFileSync(f.fires), damaged); assert.deepEqual(fs.readFileSync(f.file), tasks); assert.equal(JSON.stringify(task), memory); assert.equal(f.runtime.fireSeq, seq);
+});
+
+test('sealed fire read works OFF but append and complete no-LF tail repair refuse plaintext downgrade', async () => {
+  for (const noLf of [false, true]) {
+    const f = fixture(); await f.prepare(false); f.state.enabled = true;
+    let sealed = await encodeFire(f, { seq: 1, phase: 'registered', occurrenceKey: 'off' }); if (noLf) sealed = sealed.subarray(0, sealed.length - 1);
+    fs.writeFileSync(f.fires, sealed); f.state.enabled = false;
+    assert.equal((await f.schedulerReadFireRows())[0].occurrenceKey, 'off');
+    await assert.rejects(() => f.schedulerAppendFire({ phase: 'running' }), privateError);
+    assert.deepEqual(fs.readFileSync(f.fires), sealed); assert.equal(f.runtime.fireSeq, 0);
+  }
+});
+
+test('failed fire append and failed rollback gate writes; UI read cannot acknowledge business recovery', async () => {
+  const f = fixture(); await f.prepare(true); f.state.failAfterFireWrite = true; f.state.failFireRollback = true;
+  await assert.rejects(() => f.schedulerAppendFire({ phase: 'registered', occurrenceKey: 'partial' }), { code: 'work_data_journal.recovery_required' });
+  const committed = fs.readFileSync(f.fires); assert.equal(f.runtime.fireSeq, 0); assert.equal(f.schedulerFireJournal().recoveryPending(), true);
+  assert.equal((await f.schedulerReadFireRows())[0].seq, 1);
+  await assert.rejects(() => f.schedulerAppendFire({ phase: 'running', occurrenceKey: 'partial' }), { code: 'work_data_journal.recovery_required' });
+  assert.deepEqual(fs.readFileSync(f.fires), committed);
+  await f.schedulerTaskAdmission(() => f.schedulerFirePreflight());
+  assert.equal(f.runtime.fireSeq, 1); assert.equal(f.runtime.attempts.get('partial'), 1); assert.equal(f.schedulerFireJournal().recoveryPending(), false);
+  await f.schedulerAppendFire({ phase: 'reconciled', occurrenceKey: 'partial', outcome: 'unknown' });
+  assert.deepEqual(Array.from(await f.schedulerReadFireRows(), row => row.seq), [1, 2]); assert.equal(f.state.reminders, 0); assert.equal(f.state.turns, 0);
+});
+
+test('fire failure after a real reminder keeps inFlight and cold recovery records unknown without another reminder', async () => {
+  const f = fixture(); const task = await f.prepare(true);
+  f.SchedulerHooks.onReminderDue = async () => {
+    f.state.reminders++; f.state.cleanFires = fs.readFileSync(f.fires);
+    const lines = f.state.cleanFires.toString('utf8').trim().split('\n');
+    lines[lines.length - 1] = JSON.stringify(tamperFire(JSON.parse(lines.at(-1))));
+    fs.writeFileSync(f.fires, lines.join('\n') + '\n');
+  };
+  await assert.rejects(() => f.schedulerRunNow(task), privateError); assert.equal(f.state.reminders, 1); assert.ok(task.state.inFlightRunId);
+  const head = fs.readFileSync(f.file); await assert.rejects(() => f.schedulerRecover(), privateError); assert.deepEqual(fs.readFileSync(f.file), head);
+  fs.writeFileSync(f.fires, f.state.cleanFires); f.runtime.loaded = false;
+  const rows = await f.schedulerLoad(); await f.schedulerRecover(rows);
+  assert.equal(f.state.reminders, 1); assert.equal(f.runtime.tasks[0].state.lastResult, 'unknown'); assert.equal((await f.schedulerReadFireRows()).at(-1).outcome, 'unknown');
 });

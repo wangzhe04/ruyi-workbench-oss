@@ -1,0 +1,45 @@
+{
+  "allLf": true,
+  "files": [
+    {
+      "file": "dev-harness/lib/migration-skill-backup-fixture.js",
+      "sha256": "86cd17734392165bba25cdddc8053309fbadf51d29beb304500f5655261731f3",
+      "bytes": 5810
+    },
+    {
+      "file": "dev-harness/lib/skill-capsule-native-fixture.js",
+      "sha256": "349983c006f66298c197c30f6279ff59247b92c7a010ce1d773eaccb19326322",
+      "bytes": 4798
+    },
+    {
+      "file": "dev-harness/migration-skill-backups-work-data.e2e.js",
+      "sha256": "49c9f934ab15500f8a731048d498431725a49f6f8290f4bcc21a38f09221b7c1",
+      "bytes": 10305
+    },
+    {
+      "file": "dev-harness/unit/migration-skill-backups-work-data.test.js",
+      "sha256": "6ca12102216949212c18dee95f45d5dce151cf68e3b7203f6844b6db47da5e86",
+      "bytes": 29154
+    },
+    {
+      "file": "handoff.json",
+      "sha256": "405930991678fe97072cd49d5ba28e83b6e10fcd6fb4b0a4be69f3a5e9db5f99",
+      "bytes": 10120
+    },
+    {
+      "file": "probes/shortname-delayed.cjs",
+      "sha256": "43179de421d5a17ca026249901e569826a22c2ce50656c35d23c33c24b859c93",
+      "bytes": 3655
+    },
+    {
+      "file": "product.patch",
+      "sha256": "faf9d7fff12e748aa3d5c0d313fa1e841b52dcf9d1bfd66728441ad2861f4e4d",
+      "bytes": 80503
+    },
+    {
+      "file": "README.md",
+      "sha256": "532cd095a47fcc59180b6e9bf0db2b74920397d3dfc84a73d46563df51fbc64a",
+      "bytes": 4670
+    }
+  ]
+}

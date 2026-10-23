@@ -1259,6 +1259,43 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "01r-work-data-chunks.js",
+          "symbol": "WorkDataChunks",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01s-work-data-journals.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataJournals"
+      ],
+      "requires": [
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01q-work-data-records.js",
+          "symbol": "WorkDataRecords",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01r-work-data-chunks.js",
+          "symbol": "WorkDataChunks",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -5859,13 +5896,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "fs",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -5944,13 +5974,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "zlib",
           "kinds": [
             "read"
           ]
@@ -8277,7 +8300,11 @@
         "agentRunDigestStats",
         "agentRunDigestWriteSeq",
         "agentRunEventChains",
+        "agentRunEventWindow",
+        "agentRunEventsArchiveStore",
+        "agentRunEventsArchiveText",
         "agentRunEventsFile",
+        "agentRunEventsJournal",
         "agentRunHealth",
         "agentRunHealthChanged",
         "agentRunLastHealth",
@@ -8364,6 +8391,7 @@
         "structuredOfNode",
         "summarizeAgentWorkflowRun",
         "syncRunEventSeq",
+        "syncRunEventSeqWithin",
         "validateAgentJsonSchema",
         "verdictPasses",
         "verifyNodeClaims",
@@ -8551,6 +8579,20 @@
         {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01q-work-data-records.js",
+          "symbol": "WorkDataRecords",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01s-work-data-journals.js",
+          "symbol": "WorkDataJournals",
           "kinds": [
             "read"
           ]
@@ -10733,6 +10775,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "agentRunCapabilities",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunEventsJournal",
           "kinds": [
             "call"
           ]
@@ -18192,13 +18241,16 @@
         "stewardClipSummary",
         "stewardCollectEvents",
         "stewardCollectSessionTurn",
+        "stewardCursorHost",
         "stewardCursorPath",
+        "stewardCursorStorage",
         "stewardCursorStore",
         "stewardDir",
         "stewardEventDedupeKey",
         "stewardHeldTurnSessions",
         "stewardInboxCounts",
         "stewardInboxCountsMemo",
+        "stewardInboxJournal",
         "stewardInboxPath",
         "stewardInboxPendingState",
         "stewardInboxRead",
@@ -18221,6 +18273,7 @@
         "stewardPendingStillOpen",
         "stewardPresenceRows",
         "stewardQueueThreadAdopted",
+        "stewardReadInboxLegacyText",
         "stewardReadInboxRows",
         "stewardReadInboxText",
         "stewardReadTurnHead",
@@ -18234,6 +18287,7 @@
         "stewardSaveCursor",
         "stewardScheduleWake",
         "stewardThreadBackgroundBusy",
+        "stewardTickInboxWithin",
         "stewardTickOnce",
         "stewardTrimCursorMap",
         "stewardViewingSessionIds",
@@ -18242,14 +18296,14 @@
       "requires": [
         {
           "provider": "00-boot.js",
-          "symbol": "EventStreamHooks",
+          "symbol": "crypto",
           "kinds": [
             "read"
           ]
         },
         {
           "provider": "00-boot.js",
-          "symbol": "fs",
+          "symbol": "EventStreamHooks",
           "kinds": [
             "read"
           ]
@@ -18328,6 +18382,13 @@
         {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01s-work-data-journals.js",
+          "symbol": "WorkDataJournals",
           "kinds": [
             "read"
           ]
@@ -18497,6 +18558,7 @@
         "stewardBasisOf",
         "stewardClampInt",
         "stewardDecisionChain",
+        "stewardDecisionJournal",
         "stewardDecisionSeq",
         "stewardDecisionsPath",
         "stewardDecisionsRead",
@@ -18524,10 +18586,12 @@
         "stewardNotifyRecord",
         "stewardNotifyTimes",
         "stewardPanelGate",
+        "stewardPreflightDecision",
         "stewardQuickClosed",
         "stewardQuickThread",
         "stewardRawKind",
         "stewardReadBucket",
+        "stewardReadDecisionsLegacyText",
         "stewardReadDecisionsText",
         "stewardReadMemoryStore",
         "stewardReadSessionHead",
@@ -18633,6 +18697,13 @@
           ]
         },
         {
+          "provider": "01s-work-data-journals.js",
+          "symbol": "WorkDataJournals",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "foldTurnSummaries",
           "kinds": [
@@ -18656,6 +18727,13 @@
         {
           "provider": "02d-session-overrides.js",
           "symbol": "applySessionPermissionModeOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
           "kinds": [
             "call"
           ]
@@ -18705,6 +18783,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_NOTIFY_WINDOW_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
           "kinds": [
             "read"
           ]
@@ -20865,6 +20950,7 @@
       "file": "13g-steward.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_DECISION_TOOLS",
         "STEWARD_STRING_AS_ARRAY",
         "STEWARD_TAINT_GATED_TOOLS",
         "handleStewardApiRoutes",
@@ -21124,6 +21210,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardPanelGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardPreflightDecision",
           "kinds": [
             "call"
           ]
@@ -23622,6 +23715,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardPreflightDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardRawKind",
           "kinds": [
             "call"
@@ -24022,7 +24122,10 @@
         "schedulerEmitChanged",
         "schedulerEnabled",
         "schedulerEnsureTimer",
+        "schedulerFireJournal",
         "schedulerFireOnce",
+        "schedulerFirePreflight",
+        "schedulerFireRowValid",
         "schedulerFiresChain",
         "schedulerFiresPath",
         "schedulerIsWorkDataError",
@@ -24035,6 +24138,7 @@
         "schedulerPublicTask",
         "schedulerReadFireRows",
         "schedulerReadFiresText",
+        "schedulerReadLegacyFiresText",
         "schedulerReadTasksFile",
         "schedulerRecordMissedSkip",
         "schedulerRecover",
@@ -24059,6 +24163,7 @@
         "schedulerTurnTimeoutMs",
         "startScheduler",
         "stopScheduler",
+        "withSchedulerFireLock",
         "withSchedulerTaskOperation"
       ],
       "requires": [
@@ -24184,6 +24289,13 @@
         {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01s-work-data-journals.js",
+          "symbol": "WorkDataJournals",
           "kinds": [
             "read"
           ]

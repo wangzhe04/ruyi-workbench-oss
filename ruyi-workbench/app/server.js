@@ -9140,6 +9140,67 @@ const WorkDataRecords = (() => {
     if (typeof plainLine !== 'string' || !plainLine) fail('corrupt');
     return plainLine;
   }
+  // Auxiliary journals have fixed purposes independent of their payload. The
+  // original four session kinds and their v2 AAD remain unchanged above.
+  const JOURNAL_KINDS = Object.freeze(['steward-inbox', 'steward-decisions', 'agent-run-events', 'scheduler-fires']);
+  function journalBinding(context, schema) {
+    if (!context || !JOURNAL_KINDS.includes(context.kind)) fail('kind_invalid');
+    const ordinal = ordinalOf(context.ordinal), kind = context.kind;
+    let recordId = kind + ':' + ordinal;
+    if (kind === 'agent-run-events') {
+      if (typeof context.runId !== 'string' || !/^[A-Za-z0-9_-]{1,96}$/.test(context.runId)) fail('run_invalid');
+      recordId = kind + ':' + context.runId + ':' + ordinal;
+    }
+    return { purpose: kind === 'agent-run-events' || kind === 'scheduler-fires' ? 'task' : 'queue', instanceId: context.instanceId,
+      schema, scopeId: context.sessionId, recordId, seq: ordinal };
+  }
+  // One physical NDJSON row, including for a chunked record. No plaintext stage.
+  function encodeRecordFactory(plainLine, key, context, maxPlaintextBytes) {
+    if (typeof plainLine !== 'string' || !plainLine) fail('text_required');
+    const binding = journalBinding(context, FORMAT);
+    if (Buffer.byteLength(plainLine, 'utf8') <= WorkDataCrypto.MAX_PLAINTEXT) {
+      const encoded = JSON.stringify({ w: FORMAT, e: WorkDataCrypto.seal(plainLine, key, binding) }) + '\n';
+      let disposed = false;
+      const factory = async function* () { if (disposed) fail('key_released'); yield encoded; };
+      factory.dispose = () => { disposed = true; };
+      return factory;
+    }
+    const chunks = WorkDataChunks.sealFactory(plainLine, key, { ...binding, schema: 3 }, maxPlaintextBytes);
+    const factory = async function* () {
+      let first = true, block = false;
+      for await (const line of chunks()) {
+        const encoded = line.slice(0, -1);
+        if (first) { yield '{"w":3,"h":' + encoded + ',"b":['; first = false; }
+        else { yield (block ? ',' : '') + encoded; block = true; }
+      }
+      yield ']}\n';
+    };
+    factory.dispose = () => chunks.dispose();
+    return factory;
+  }
+  async function decodeRecordLine(line, key, context, maxPlaintextBytes) {
+    let row;
+    try { row = JSON.parse(String(line == null ? '' : line)); } catch { fail('corrupt'); }
+    if (!row || typeof row !== 'object' || Array.isArray(row)) fail('corrupt');
+    if (row.w === FORMAT) {
+      if (Object.keys(row).sort().join(',') !== 'e,w' || !row.e || typeof row.e !== 'object' || Array.isArray(row.e)) fail('corrupt');
+      const binding = journalBinding(context, FORMAT);
+      if (row.e.seq !== binding.seq) fail('ordinal_mismatch');
+      let plain;
+      try { plain = WorkDataCrypto.open(row.e, key, binding); } catch { fail('authenticate_failed'); }
+      if (typeof plain !== 'string' || !plain) fail('corrupt');
+      return plain;
+    }
+    if (row.w !== 3) fail('format_unsupported');
+    if (Object.keys(row).sort().join(',') !== 'b,h,w' || !row.h || typeof row.h !== 'object' || Array.isArray(row.h)
+      || !Array.isArray(row.b) || row.b.length > WorkDataChunks.MAX_CHUNKS) fail('corrupt');
+    const binding = journalBinding(context, 3);
+    if (row.h.seq !== binding.seq) fail('ordinal_mismatch');
+    return WorkDataChunks.openLines((async function* () {
+      yield JSON.stringify(row.h);
+      for (const block of row.b) yield JSON.stringify(block);
+    })(), key, binding, maxPlaintextBytes);
+  }
   // Whole body: every line must be a valid record at its own ordinal. This only accepts a full block
   // starting at ordinal 0: a tail-truncated block still decodes (the AAD carries no total count), so
   // truncation stays a caller-side concern. Returns the plaintext body with
@@ -9157,8 +9218,360 @@ const WorkDataRecords = (() => {
     }
     return plain.join('\n') + (trailing ? '\n' : '');
   }
-  return Object.freeze({ FORMAT, KINDS, lineProbe, isEncodedLine, encodeLine, decodeLine, decodeBody });
+  return Object.freeze({ FORMAT, KINDS, JOURNAL_KINDS, lineProbe, isEncodedLine, encodeLine, decodeLine, decodeBody, encodeRecordFactory, decodeRecordLine });
 })();
+
+// Shared filesystem owner for the three auxiliary NDJSON journals. Domain owners
+// keep their own serialization chains, legacy readers/retention and action policy.
+// No plaintext temporary files; no implicit key creation; a key lease belongs to
+// one complete read/append/replacement operation, never to a warm count cache.
+const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
+  const MAX_RECORD_BYTES = 256 * 1024 * 1024;
+  const MAX_CIPHER_RECORD_BYTES = WorkDataChunks.maxFileBytes(MAX_RECORD_BYTES) + 64;
+  const CACHE_MAX = 64, states = new Map(), recoveryGates = new Map(), pendingReservations = new Set(), recoveryTickets = new WeakMap();
+  const fail = suffix => { throw Object.assign(new Error('work_data_journal.' + suffix), { code: 'work_data_journal.' + suffix, apiCode: 'work_data_journal.' + suffix, statusCode: 503 }); };
+  const stampOf = stat => stat ? [stat.size, stat.mtimeNs, stat.ctimeNs, stat.dev, stat.ino].join('|') : 'missing';
+  const fileStamp = async file => {
+    try { return stampOf(await fsp.stat(file, { bigint: true })); }
+    catch (error) { if (error.code === 'ENOENT') return 'missing'; throw error; }
+  };
+  const remember = (file, value) => {
+    states.delete(file); states.set(file, value);
+    while (states.size > CACHE_MAX) states.delete(states.keys().next().value);
+  };
+  const candidate = line => {
+    const trimmed = String(line).trim();
+    if (!trimmed.startsWith('{')) return false;
+    try { const row = JSON.parse(trimmed); return !!row && typeof row === 'object' && !Array.isArray(row) && Object.hasOwn(row, 'w'); }
+    catch { return /^\{\s*"(?:w|\\u0077)"\s*:/i.test(trimmed); }
+  };
+  const authority = credential => credential.instanceId + ':' + cryptoApi.createHash('sha256').update(credential.key).digest('hex');
+  // Classify/count physical records without keeping any key, string or line.
+  // This pass can discover a late escaped/reordered w after a giant value before
+  // the authentication pass allocates a sealed row. Giant ordinary legacy rows
+  // acquire no new cap and require no row copy merely to prove their metadata.
+  async function readMetadata(file) {
+    let handle;
+    try { handle = await fsp.open(file, 'r'); }
+    catch (error) { if (error.code === 'ENOENT') return { count: 0, committedBytes: 0, tornBytes: 0, sealed: false, authStamp: '', stamp: 'missing' }; throw error; }
+    try {
+      const stamp = stampOf(await handle.stat({ bigint: true })), buffer = Buffer.alloc(64 * 1024);
+      let probe = WorkDataRecords.lineProbe(), rowBytes = 0, count = 0, committedBytes = 0, sealed = false;
+      for (;;) {
+        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null); if (!bytesRead) break;
+        let start = 0;
+        while (start < bytesRead) {
+          const newline = buffer.indexOf(10, start), end = newline < 0 || newline >= bytesRead ? bytesRead : newline;
+          const part = buffer.subarray(start, end); probe.feed(part); rowBytes += part.length;
+          if (end === bytesRead) break;
+          if (probe.reserved()) {
+            sealed = true;
+            if (rowBytes > MAX_CIPHER_RECORD_BYTES) fail('physical_record_limit');
+          }
+          count++; committedBytes += rowBytes + 1; rowBytes = 0; probe = WorkDataRecords.lineProbe(); start = end + 1;
+        }
+      }
+      if (stampOf(await handle.stat({ bigint: true })) !== stamp || await fileStamp(file) !== stamp) fail('source_changed');
+      return { count, committedBytes, tornBytes: rowBytes, tornReserved: probe.reserved(), sealed, authStamp: '', stamp };
+    } finally { await handle.close(); }
+  }
+  async function readPhysicalRow(handle, start, length) {
+    if (length > MAX_CIPHER_RECORD_BYTES) fail('physical_record_limit');
+    const bytes = Buffer.alloc(length); let used = 0;
+    while (used < length) {
+      const result = await handle.read(bytes, used, Math.min(64 * 1024, length - used), start + used);
+      if (!result.bytesRead) fail('source_changed'); used += result.bytesRead;
+    }
+    return bytes.toString('utf8');
+  }
+  const withLease = async (host, work) => {
+    let pending = null, failed = false;
+    const owner = { credential: () => pending || (pending = WorkDataStore.acquireSnapshot(host.keys || WorkDataStore.requireKeys())) };
+    try { return await work(owner); }
+    catch (error) { failed = true; throw error; }
+    finally {
+      let lease;
+      try { if (pending) lease = await pending; } catch { /* acquisition already failed */ }
+      if (lease) { try { await lease.release(); } catch { if (!failed) fail('snapshot_release'); } }
+    }
+  };
+  async function validateSealed(host, plain, ordinal) {
+    if (!host.validateSealedLine) return;
+    try { if (await host.validateSealedLine(plain, ordinal) !== true) fail('shape'); }
+    catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; fail('shape'); }
+  }
+  // Each physical LF consumes an ordinal, including blank/bad legacy rows.
+  // Metadata never retains row bytes. A finite window copies ordinary rows in
+  // bounded pieces only after their offsets are known; only sealed rows need a
+  // complete bounded allocation for the existing authenticated codec.
+  async function scan(file, host, owner, visit, refuseSealed = false, includeTorn = false, visitInvalidTorn = false, proof = null, sink = null) {
+    const metadata = proof || await readMetadata(file);
+    if (metadata.sealed && refuseSealed) fail('downgrade_refused');
+    if (!visit && !sink && !metadata.sealed && !(includeTorn && metadata.tornReserved)) return metadata;
+    if (includeTorn && metadata.tornReserved && metadata.tornBytes > MAX_CIPHER_RECORD_BYTES) fail('physical_record_limit');
+    if (await fileStamp(file) !== metadata.stamp) fail('source_changed');
+    if (metadata.stamp === 'missing') return metadata;
+    const handle = await fsp.open(file, 'r'), buffer = Buffer.alloc(64 * 1024);
+    let count = 0, committedBytes = 0, rowBytes = 0, authStamp = '', sealed = false, sealedTail = false, probe = WorkDataRecords.lineProbe();
+    const digest = visit ? cryptoApi.createHash('sha256') : null;
+    const emit = async (reserved, committed) => {
+      let plain;
+      if (reserved) {
+        if (refuseSealed) fail('downgrade_refused');
+        const raw = await readPhysicalRow(handle, committedBytes, rowBytes);
+        if (!committed) { try { JSON.parse(raw); } catch { return; } }
+        const credential = await owner.credential();
+        plain = await WorkDataRecords.decodeRecordLine(raw, credential.key,
+          { ...host.context, instanceId: credential.instanceId, ordinal: count }, MAX_RECORD_BYTES);
+        await validateSealed(host, plain, count);
+        if (!committed) sealedTail = true;
+        sealed = true; authStamp = authority(credential);
+      } else if (visit) {
+        // Full maintenance visitors preserve the old full-row legacy semantics.
+        const parts = []; let used = 0;
+        while (used < rowBytes) {
+          const part = Buffer.alloc(Math.min(64 * 1024, rowBytes - used));
+          const { bytesRead } = await handle.read(part, 0, part.length, committedBytes + used);
+          if (!bytesRead) fail('source_changed'); parts.push(part.subarray(0, bytesRead)); used += bytesRead;
+        }
+        plain = Buffer.concat(parts, rowBytes).toString('utf8');
+      }
+      if (visit) { digest.update(plain, 'utf8'); if (committed) digest.update('\n'); await visit(plain, count, committed); }
+      if (sink) {
+        if (reserved) sink(Buffer.from(plain, 'utf8'));
+        else {
+          let used = 0;
+          while (used < rowBytes) {
+            const part = Buffer.alloc(Math.min(64 * 1024, rowBytes - used));
+            const { bytesRead } = await handle.read(part, 0, part.length, committedBytes + used);
+            if (!bytesRead) fail('source_changed'); sink(part.subarray(0, bytesRead)); used += bytesRead;
+          }
+        }
+        if (committed) sink(Buffer.from('\n'));
+      }
+    };
+    try {
+      for (;;) {
+        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null); if (!bytesRead) break;
+        let start = 0;
+        while (start < bytesRead) {
+          const newline = buffer.indexOf(10, start), end = newline < 0 || newline >= bytesRead ? bytesRead : newline;
+          const part = buffer.subarray(start, end); probe.feed(part); rowBytes += part.length;
+          if (probe.reserved() && rowBytes > MAX_CIPHER_RECORD_BYTES) fail('physical_record_limit');
+          if (end === bytesRead) break;
+          await emit(probe.reserved(), true);
+          count++; committedBytes += rowBytes + 1; rowBytes = 0; probe = WorkDataRecords.lineProbe(); start = end + 1;
+        }
+      }
+      if (includeTorn && rowBytes) await emit(probe.reserved(), false);
+      if (stampOf(await handle.stat({ bigint: true })) !== metadata.stamp || await fileStamp(file) !== metadata.stamp) fail('source_changed');
+      return { ...metadata, count, committedBytes, tornBytes: rowBytes, sealed, sealedTail, authStamp, digest: digest ? digest.digest('hex') : '' };
+    } finally { await handle.close(); }
+  }
+  function create(host) {
+    const file = () => typeof host.file === 'function' ? host.file() : host.file;
+    if (!host.context || !WorkDataRecords.JOURNAL_KINDS.includes(host.context.kind)) fail('kind');
+    const keyFor = target => target + '\u0000' + host.context.kind + '\u0000' + host.context.sessionId + '\u0000' + (host.context.runId || '');
+    const recoveryPending = () => recoveryGates.has(keyFor(file()));
+    const assertAdmission = target => {
+      if (recoveryGates.has(keyFor(target))) fail('recovery_required');
+      // Failure gates are never LRU-evicted. Pending writers reserve the same
+      // bounded slots so independent file chains cannot overfill them on failure.
+      if (recoveryGates.size + pendingReservations.size >= CACHE_MAX) fail('recovery_capacity');
+    };
+    const reserveWrite = target => {
+      const key = keyFor(target);
+      assertAdmission(target);
+      if (pendingReservations.has(key)) fail('write_pending');
+      pendingReservations.add(key);
+      return () => pendingReservations.delete(key);
+    };
+    const isEnabled = async () => {
+      try { return await host.enabled() === true; }
+      catch { fail('switch_unavailable'); }
+    };
+    const auth = () => withLease(host, async owner => authority(await owner.credential()));
+    const checkAuthority = async expected => withLease(host, async owner => {
+      const enabled = await isEnabled();
+      if (enabled || expected) { const credential = await owner.credential(); return !expected || expected === authority(credential); }
+      return true;
+    });
+    const stateWithin = async (target, owner, enabled) => {
+      const cacheKey = keyFor(target), stamp = await fileStamp(target);
+      // Mutation admission authenticates current bytes. File stamps are useful
+      // read-cache hints, never content proof (Windows can preserve all fields).
+      const proof = await readMetadata(target);
+      if (!enabled && proof.tornReserved) fail('downgrade_refused');
+      const result = await scan(target, host, owner, null, !enabled, true, false, proof);
+      if (result.sealedTail) fail('sealed_tail_uncommitted');
+      const after = await fileStamp(target);
+      if (after !== stamp) fail('source_changed');
+      const state = { ...result, stamp: after };
+      remember(cacheKey, state); return state;
+    };
+    // A reusable operation owns one lazy key snapshot and switch value. Domain
+    // chains may borrow it for preflight + mutation + append; never for a model turn.
+    const withOperation = work => withLease(host, async owner => {
+      owner.enabled = await isEnabled();
+      if (owner.enabled) await owner.credential();
+      return work(owner);
+    });
+    const within = (operation, work) => operation ? work(operation) : withOperation(work);
+    const preflight = operation => within(operation, async owner => {
+      assertAdmission(file()); return stateWithin(file(), owner, owner.enabled);
+    });
+    // Select windows AFTER decryption; ciphertext expansion is never a capacity.
+    // Each read pays one bounded metadata pass: Windows can preserve the full stat
+    // tuple across an external in-place replacement. The legacy reader keeps its
+    // original byte window, surrounded by real stamps; no O(tail) claim is made.
+    const readWindow = (fullBytes, tailBytes, visit, includeInvalidTorn = false, legacyRead = null, operation = null) => within(operation, async owner => {
+      const target = file(), before = await fileStamp(target), cacheKey = keyFor(target);
+      const proof = await readMetadata(target);
+      if (!proof.sealed && !proof.tornReserved && !visit && legacyRead) {
+        const window = await legacyRead();
+        if (await fileStamp(target) !== before) fail('source_changed');
+        remember(cacheKey, { ...proof, stamp: before });
+        return { ...window, ...proof, stamp: before, authStamp: '' };
+      }
+      const chunks = []; let size = 0, droppedHead = false;
+      const sink = visit ? null : part => {
+        chunks.push(part); size += part.length;
+        if (size > fullBytes) droppedHead = true;
+        if (droppedHead) {
+          while (chunks.length && size - chunks[0].length >= tailBytes) size -= chunks.shift().length;
+          if (chunks.length && size > tailBytes) {
+            const cut = size - tailBytes; chunks[0] = chunks[0].subarray(cut); size -= cut;
+          }
+        }
+      };
+      const result = await scan(target, host, owner, visit, false, true, includeInvalidTorn, proof, sink);
+      if (await fileStamp(target) !== before) fail('source_changed');
+      remember(cacheKey, { ...result, stamp: before });
+      const gate = recoveryGates.get(cacheKey); let recoveryTicket;
+      // Only explicit full visitors can attest that the domain rebuilt all state.
+      if (gate && visit) {
+        recoveryTicket = Object.freeze({});
+        recoveryTickets.set(recoveryTicket, { key: cacheKey, gate, stamp: before, authStamp: result.authStamp, digest: result.digest });
+      }
+      return { text: visit ? '' : Buffer.concat(chunks, size).toString('utf8'), droppedHead, ...result, stamp: before, recoveryTicket };
+    });
+    const stage = async (target, rows, startOrdinal, credential) => {
+      await fsp.mkdir(pathModule.dirname(target), { recursive: true });
+      const temp = target + '.sealed-stage-' + cryptoApi.randomBytes(12).toString('hex');
+      let output, complete = false;
+      try {
+        output = await fsp.open(temp, 'wx', 0o600);
+        for (let index = 0; index < rows.length; index++) {
+          await validateSealed(host, rows[index], startOrdinal + index);
+          const factory = WorkDataRecords.encodeRecordFactory(rows[index], credential.key,
+            { ...host.context, instanceId: credential.instanceId, ordinal: startOrdinal + index }, MAX_RECORD_BYTES);
+          try {
+            for await (const part of factory()) {
+              const bytes = Buffer.from(part); let offset = 0;
+              while (offset < bytes.length) {
+                const result = await output.write(bytes, offset, bytes.length - offset, null);
+                if (!result.bytesWritten) fail('short_write'); offset += result.bytesWritten;
+              }
+            }
+          } finally { factory.dispose(); }
+        }
+        await output.close(); output = null; complete = true; return temp;
+      } finally {
+        if (output) await output.close().catch(() => {});
+        if (!complete) await fsp.unlink(temp).catch(() => {});
+      }
+    };
+    const copyStage = async (target, temp) => {
+      const input = await fsp.open(temp, 'r'); let output;
+      try {
+        output = await fsp.open(target, 'a'); const buffer = Buffer.alloc(64 * 1024);
+        for (;;) {
+          const { bytesRead } = await input.read(buffer, 0, buffer.length, null); if (!bytesRead) break;
+          let offset = 0;
+          while (offset < bytesRead) {
+            const result = await output.write(buffer, offset, bytesRead - offset, null);
+            if (!result.bytesWritten) fail('short_write'); offset += result.bytesWritten;
+          }
+        }
+      } finally { if (output) await output.close(); await input.close(); }
+    };
+    // Callers serialize this owner with their existing append/rewrite chain.
+    const append = (rows, legacyAppend, operation = null) => within(operation, async owner => {
+      const target = file(), enabled = owner.enabled;
+      assertAdmission(target);
+      const state = await stateWithin(target, owner, enabled);
+      if (!enabled) {
+        await legacyAppend();
+        const after = await fileStamp(target);
+        remember(keyFor(target), { count: state.count + rows.length, committedBytes: Number(after.split('|')[0]),
+          tornBytes: 0, sealed: false, authStamp: '', stamp: after });
+        return { sealed: false, authStamp: '' };
+      }
+      const credential = await owner.credential(), releaseReservation = reserveWrite(target);
+      let temp;
+      try {
+        temp = await stage(target, rows, state.count, credential);
+        if (await fileStamp(target) !== state.stamp) fail('source_changed');
+        if (state.tornBytes) await fsp.truncate(target, state.committedBytes);
+        try { await copyStage(target, temp); }
+        catch (error) {
+          // A failed batch must not leave its first complete rows for an inbox
+          // retry to duplicate. The caller owns the per-file serialization chain.
+          // A second filesystem failure during rollback is diagnosed separately;
+          // neither this layer nor its caller replays an already executed action.
+          try { await fsp.truncate(target, state.committedBytes); }
+          catch (rollbackError) {
+            pendingReservations.delete(keyFor(target));
+            recoveryGates.set(keyFor(target), Object.freeze({}));
+            try { if (host.onRollbackFailure) host.onRollbackFailure(rollbackError); } catch { /* diagnostics */ }
+            fail('recovery_required');
+          }
+          throw error;
+        }
+        const after = await fileStamp(target);
+        const next = { count: state.count + rows.length, committedBytes: Number(after.split('|')[0]), tornBytes: 0, sealed: true,
+          authStamp: authority(credential), stamp: after };
+        remember(keyFor(target), next); return { sealed: true, authStamp: next.authStamp };
+      } catch (error) { states.delete(keyFor(target)); throw error; }
+      finally { if (temp) await fsp.unlink(temp).catch(() => {}); releaseReservation(); }
+    });
+    const replace = (rows, legacyReplace, operation = null) => within(operation, async owner => {
+      const target = file(), enabled = owner.enabled;
+      assertAdmission(target);
+      const state = await stateWithin(target, owner, enabled);
+      if (!enabled) {
+        await legacyReplace(); states.delete(keyFor(target)); return { sealed: false, authStamp: '' };
+      }
+      const credential = await owner.credential(), releaseReservation = reserveWrite(target);
+      let temp;
+      try {
+        temp = await stage(target, rows, 0, credential);
+        if (await fileStamp(target) !== state.stamp) fail('source_changed');
+        const factory = async function* () {
+          const input = await fsp.open(temp, 'r'); const buffer = Buffer.alloc(64 * 1024);
+          try {
+            for (;;) { const { bytesRead } = await input.read(buffer, 0, buffer.length, null); if (!bytesRead) break; yield Buffer.from(buffer.subarray(0, bytesRead)); }
+          } finally { await input.close(); }
+        };
+        await host.writeJson(target, factory, { stream: true }); states.delete(keyFor(target));
+        return { sealed: rows.length > 0, authStamp: rows.length ? authority(credential) : '' };
+      } finally { if (temp) await fsp.unlink(temp).catch(() => {}); releaseReservation(); }
+    });
+    const acknowledgeRecovery = (ticket, operation = null) => within(operation, async owner => {
+      const proof = ticket && recoveryTickets.get(ticket), key = keyFor(file());
+      if (!proof || proof.key !== key || proof.gate !== recoveryGates.get(key)) fail('recovery_ticket');
+      if (await fileStamp(file()) !== proof.stamp) fail('source_changed');
+      if (proof.authStamp && authority(await owner.credential()) !== proof.authStamp) fail('recovery_key_changed');
+      const current = await scan(file(), host, owner, () => {}, false, true);
+      if (current.digest !== proof.digest || current.authStamp !== proof.authStamp) fail('recovery_changed');
+      if (await fileStamp(file()) !== proof.stamp) fail('source_changed');
+      recoveryGates.delete(key); recoveryTickets.delete(ticket);
+    });
+    return Object.freeze({ append, replace, readWindow, withOperation, preflight, checkAuthority, recoveryPending, acknowledgeRecovery, authStamp: auth, metadataProof: () => readMetadata(file()),
+      fileStamp: () => fileStamp(file()), forget: () => states.delete(keyFor(file())) });
+  }
+  return Object.freeze({ create, candidate, MAX_RECORD_BYTES });
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'));
 
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
 // 第54波 EC-D: one ordered narrative ledger for both Claude CLI and OpenAI-compatible turns. The ledger is
@@ -34345,16 +34758,12 @@ async function sweepAgentRunEventsStore(policy, result) {
       const st = await fsp.stat(eventsFile).catch(() => null);
       if (!st || st.size === 0) continue;
       try {
-        if (!fs.existsSync(gzFile)) {
-          const gz = zlib.gzipSync(await fsp.readFile(eventsFile));
-          await fsp.writeFile(gzTmp, gz);
-          await fsp.rename(gzTmp, gzFile);
-        }
-        await fsp.unlink(eventsFile);
+        if (typeof EventStreamHooks.archiveAgentRunEvents !== 'function') throw Object.assign(new Error('work_data_store.not_initialised'), { code: 'work_data_store.not_initialised', statusCode: 503 });
+        if (!await EventStreamHooks.archiveAgentRunEvents(dirent.name, runId)) continue;
         const gzSize = (await fsp.stat(gzFile).catch(() => null) || {}).size || 0;
         result.freedBytes += Math.max(0, st.size - gzSize);
         result.actions.push({ store: 'agentRuns', action: 'gzip', detail: `${dirent.name}/${runId}.events.ndjson`, bytes: Math.max(0, st.size - gzSize) });
-      } catch { await fsp.unlink(gzTmp).catch(() => {}); /* best-effort: 下次 sweep 重试 */ }
+      } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* best-effort: 下次 sweep 重试 */ }
     }
   }
 }
@@ -46756,6 +47165,67 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
 // 针对的是【快照】,快照才是恢复依据)。
 const agentRunEventChains = new Map(); // runId -> append chain
 function agentRunEventsFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.events.ndjson`); }
+function agentRunEventsJournal(sessionId, runId) {
+  const sid = safeSessionId(sessionId), rid = safeSessionId(runId);
+  return WorkDataJournals.create({ file: () => agentRunEventsFile(sid, rid),
+    context: { sessionId: sid, runId: rid, kind: 'agent-run-events' },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true), writeJson: atomicWriteJson,
+    validateSealedLine: plain => { const row = safeJsonParse(plain, null); return !!row && !Array.isArray(row) && Number.isSafeInteger(Number(row.seq)) && Number(row.seq) >= 0; } });
+}
+function agentRunEventsArchiveStore(sessionId, runId, operation) {
+  return WorkDataStore.createBinary({ file: () => agentRunEventsFile(sessionId, runId) + '.gz',
+    purpose: 'task', schema: 1, scopeId: sessionId, recordId: 'agent-run-events-archive:' + runId,
+    chunked: true, maxBinaryBytes: 192 * 1024 * 1024 - 1024, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { snapshot: async () => { const credential = await operation.credential(); return { ...credential, release: () => {} }; } },
+    enabled: () => operation.enabled, writeJson: atomicWriteJson,
+    validateLegacyBinary: bytes => { zlib.gunzipSync(bytes); return true; } });
+}
+async function agentRunEventsArchiveText(sessionId, runId, operation) {
+  const bytes = await agentRunEventsArchiveStore(sessionId, runId, operation).read();
+  const raw = zlib.gunzipSync(bytes).toString('utf8'), lines = raw.split('\n');
+  for (let ordinal = 0; ordinal < lines.length; ordinal++) {
+    const probe = WorkDataRecords.lineProbe(); probe.feed(Buffer.from(lines[ordinal]));
+    if (!probe.reserved()) continue;
+    const credential = await operation.credential();
+    lines[ordinal] = await WorkDataRecords.decodeRecordLine(lines[ordinal], credential.key,
+      { kind: 'agent-run-events', sessionId, runId, ordinal, instanceId: credential.instanceId }, WorkDataJournals.MAX_RECORD_BYTES);
+    const row = safeJsonParse(lines[ordinal], null);
+    if (!row || Array.isArray(row) || !Number.isSafeInteger(Number(row.seq)) || Number(row.seq) < 0)
+      throw Object.assign(new Error('work_data_journal.shape'), { code: 'work_data_journal.shape', apiCode: 'work_data_journal.shape', statusCode: 503 });
+  }
+  return lines.join('\n');
+}
+async function agentRunEventWindow(sessionId, runId, fullBytes, tailBytes, operation) {
+  const file = agentRunEventsFile(sessionId, runId);
+  return agentRunEventsJournal(sessionId, runId).readWindow(fullBytes, tailBytes, null, false, async () => {
+    try {
+      const { size } = await fsp.stat(file);
+      if (size <= fullBytes) return { text: await fsp.readFile(file, 'utf8'), droppedHead: false };
+      const { buf, bytesRead } = await readFileTail(file, tailBytes);
+      return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
+    } catch (error) { if (error.code === 'ENOENT') return { text: '', droppedHead: false }; throw error; }
+  }, operation);
+}
+
+// Maintenance borrows this same journal operation for source authentication,
+// archive codec/write verification and retirement. Stat guards are not a CAS.
+EventStreamHooks.archiveAgentRunEvents = (sessionId, runId) => runKeyedChain(agentRunEventChains, runId, () => {
+  const journal = agentRunEventsJournal(sessionId, runId), file = agentRunEventsFile(sessionId, runId);
+  return journal.withOperation(async operation => {
+    const state = await journal.preflight(operation);
+    if (state.stamp === 'missing' || state.committedBytes + state.tornBytes === 0) return false;
+    const source = await agentRunEventWindow(sessionId, runId, Infinity, 1, operation);
+    let archiveExists = true;
+    try { await fsp.stat(file + '.gz'); } catch (error) { if (error.code !== 'ENOENT') throw error; archiveExists = false; }
+    if (!archiveExists) await agentRunEventsArchiveStore(sessionId, runId, operation).write(zlib.gzipSync(Buffer.from(source.text, 'utf8')));
+    const archived = await agentRunEventsArchiveText(sessionId, runId, operation);
+    if (archived !== source.text) throw Object.assign(new Error('work_data_journal.archive_mismatch'), { code: 'work_data_journal.archive_mismatch', apiCode: 'work_data_journal.archive_mismatch', statusCode: 503 });
+    const current = await agentRunEventWindow(sessionId, runId, Infinity, 1, operation);
+    if (current.text !== source.text || current.stamp !== source.stamp || await journal.fileStamp() !== current.stamp)
+      throw Object.assign(new Error('work_data_journal.source_changed'), { code: 'work_data_journal.source_changed', apiCode: 'work_data_journal.source_changed', statusCode: 503 });
+    await fsp.unlink(file); journal.forget(); return true;
+  });
+});
 // 对抗轮修(第25波): 从磁盘装载 run 后、任何 append 前,把 run.eventSeq 快进到事件文件尾行的 seq ——
 // 崩溃窗口里(事件已落行、快照没跟上)重启装载的是旧 eventSeq,不快进就会复用已存在的 seq(严格单调破功,
 // 取证排序在最需要它的崩溃场景失效)。只在装载点调用(markInterruptedAgentRuns / launchPersistedAgentRun)。
@@ -46765,50 +47235,70 @@ function agentRunEventsFile(sessionId, runId) { return path.join(agentRunDir(ses
 // 最大 seq 必在尾部;崩溃撕裂只留不完整尾行,regex 扫片段的行为与旧全读逐字节一致(同一 match 语义)。
 // 故:小文件整读;大文件只读尾窗(与 readAgentRunEvents 同阈值);窗内一个 seq 都找不到(极端:单行大于窗,
 // seq 前缀在窗外)→ 回落全读保正确。
-async function syncRunEventSeq(run) {
+async function syncRunEventSeqWithin(run, journal, operation) {
   const scanMax = raw => {
     let maxSeq = 0;
-    for (const line of raw.split('\n')) {
-      const t = line.trim(); if (!t) continue;
-      const m = t.match(/"seq":(\d+)/); if (m) { const s = Number(m[1]); if (s > maxSeq) maxSeq = s; }
-    }
+    for (const line of raw.split('\n')) { const match = line.trim().match(/"seq":(\d+)/); if (match) maxSeq = Math.max(maxSeq, Number(match[1]) || 0); }
     return maxSeq;
   };
-  const file = agentRunEventsFile(run.sessionId, run.id);
-  try {
-    const { size } = await fsp.stat(file);
-    if (size > AGENT_RUN_EVENTS_TAIL_BYTES) {
-      let fh = null;
+  let maxSeq = 0;
+  if (journal.recoveryPending()) {
+    const recovered = await journal.readWindow(0, 0, line => { maxSeq = Math.max(maxSeq, scanMax(line)); }, false, null, operation);
+    await journal.acknowledgeRecovery(recovered.recoveryTicket, operation);
+  } else {
+    const window = await agentRunEventWindow(run.sessionId, run.id, AGENT_RUN_EVENTS_TAIL_BYTES, AGENT_RUN_EVENTS_TAIL_BYTES, operation);
+    maxSeq = scanMax(window.text);
+    if (!maxSeq && window.droppedHead) maxSeq = scanMax((await agentRunEventWindow(run.sessionId, run.id, Infinity, 1, operation)).text);
+    if (window.stamp === 'missing') {
       try {
-        fh = await fsp.open(file, 'r');
-        const buf = Buffer.alloc(AGENT_RUN_EVENTS_TAIL_BYTES);
-        const { bytesRead } = await fh.read(buf, 0, AGENT_RUN_EVENTS_TAIL_BYTES, size - AGENT_RUN_EVENTS_TAIL_BYTES);
-        const maxSeq = scanMax(buf.toString('utf8', 0, bytesRead));
-        if (maxSeq > 0) { if (maxSeq > (Number(run.eventSeq) || 0)) run.eventSeq = maxSeq; return; }
-      } finally { if (fh) await fh.close().catch(() => {}); }
-      // 窗内无 seq(单行大于窗)→ 落下面全读
+        const archived = await agentRunEventsArchiveText(run.sessionId, run.id, operation);
+        if (!operation.enabled) {
+          const handle = await fsp.open(agentRunEventsFile(run.sessionId, run.id) + '.gz', 'r');
+          try {
+            const head = Buffer.alloc(2); const { bytesRead } = await handle.read(head, 0, 2, 0);
+            if (bytesRead !== 2 || head[0] !== 0x1f || head[1] !== 0x8b)
+              throw Object.assign(new Error('work_data_journal.downgrade_refused'), { code: 'work_data_journal.downgrade_refused', apiCode: 'work_data_journal.downgrade_refused', statusCode: 503 });
+          } finally { await handle.close(); }
+        }
+        maxSeq = Math.max(maxSeq, scanMax(archived));
+      }
+      catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; }
     }
-    const raw = await fsp.readFile(file, 'utf8');
-    const maxSeq = scanMax(raw);
-    if (maxSeq > (Number(run.eventSeq) || 0)) run.eventSeq = maxSeq;
-  } catch { /* 无事件文件 → 无需快进 */ }
+  }
+  return maxSeq;
+}
+async function syncRunEventSeq(run) {
+  return runKeyedChain(agentRunEventChains, run.id, () => {
+    const journal = agentRunEventsJournal(run.sessionId, run.id);
+    return journal.withOperation(async operation => {
+      const maxSeq = await syncRunEventSeqWithin(run, journal, operation);
+      await journal.preflight(operation);
+      if (maxSeq > (Number(run.eventSeq) || 0)) run.eventSeq = maxSeq;
+    });
+  });
 }
 function appendAgentRunEvent(run, evt) {
   try {
-    // 对抗轮修: id 畸形(手编/半写坏的 run JSON)时 safeSessionId→null 会字符串化成 "null.events.ndjson",
-    // 多个坏 run 的事件合流互相交错 —— 归属不清的取证不如不记,直接丢弃。(无穿越面,纯归属完整性。)
-    if (!safeSessionId(run.id) || !safeSessionId(run.sessionId)) return;
-    if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
-    run.eventSeq = (Number(run.eventSeq) || 0) + 1;
-    const rec = JSON.stringify({ seq: run.eventSeq, ts: nowIso(), runId: run.id, ...evt }) + '\n';
-    const dir = agentRunDir(run.sessionId);
-    const file = agentRunEventsFile(run.sessionId, run.id);
+    if (!safeSessionId(run.id) || !safeSessionId(run.sessionId) || sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
+    // Capture the event now, but publish its sequence only after authenticated
+    // persistence. A failed receipt never reruns an already executed action.
+    const event = { ...evt }, ts = nowIso();
     runKeyedChain(agentRunEventChains, run.id, async () => {
       if (sessionAssociatedSaveIsTombstoned(run.sessionId)) return;
-      await fsp.mkdir(dir, { recursive: true });
-      await fsp.appendFile(file, rec, 'utf8');
-    });
-  } catch { /* 取证辅助,不阻断执行 */ }
+      const journal = agentRunEventsJournal(run.sessionId, run.id);
+      await journal.withOperation(async operation => {
+        const recoveredSeq = await syncRunEventSeqWithin(run, journal, operation);
+        await journal.preflight(operation);
+        const seq = Math.max(Number(run.eventSeq) || 0, recoveredSeq) + 1;
+        const rec = JSON.stringify({ seq, ts, runId: run.id, ...event });
+        await journal.append([rec], async () => {
+          await fsp.mkdir(agentRunDir(run.sessionId), { recursive: true });
+          await fsp.appendFile(agentRunEventsFile(run.sessionId, run.id), rec + '\n', 'utf8');
+        }, operation);
+        run.eventSeq = seq;
+      });
+    }).catch(error => { try { logEvent({ kind: 'agent_run_event_append_failed', runId: run.id, code: String(error && error.code || 'io') }); } catch { /* diagnostics */ } });
+  } catch { /* A completed action is never replayed for its receipt. */ }
 }
 // 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
 // 事件日志里 —— 修前追加链不等,终稿可能先落(autonomy-resume H2 在 Windows CI 上偶发「事件链缺 run_end」)。
@@ -46903,30 +47393,19 @@ function parseEventWindow(raw, floor, droppedHead) {
 async function readAgentRunEvents(sessionId, runId, afterSeq, limit) {
   const cap = Math.max(1, Math.min(AGENT_RUN_EVENTS_PAGE_MAX, Number(limit) || AGENT_RUN_EVENTS_PAGE_MAX));
   const floor = Math.max(0, Number(afterSeq) || 0);
-  const file = agentRunEventsFile(sessionId, runId);
   const finish = matched => { matched.sort((a, b) => Number(a.seq) - Number(b.seq)); return { events: matched.slice(0, cap), hasMore: matched.length > cap }; };
-  const fullRead = async () => { let raw = ''; try { raw = await fsp.readFile(file, 'utf8'); } catch { return { events: [], hasMore: false }; } return finish(parseEventWindow(raw, floor, false).matched); };
-  let size = -1;
-  try { size = (await fsp.stat(file)).size; } catch {
-    // v1.9 数据管家:事件日志可能已被 gzip 归档(<file>.gz,仅真终态 run)。归档文件不再增长,无尾窗
-    // 需求,整体 gunzip 后按全读路径解析;读不到 = 无事件(与原"无文件"语义一致)。
+  return runKeyedChain(agentRunEventChains, runId, () => agentRunEventsJournal(sessionId, runId).withOperation(async operation => {
     try {
-      const raw = zlib.gunzipSync(await fsp.readFile(file + '.gz')).toString('utf8');
-      return finish(parseEventWindow(raw, floor, false).matched);
-    } catch { return { events: [], hasMore: false }; }
-  }
-  if (size <= AGENT_RUN_EVENTS_TAIL_BYTES) return fullRead(); // 小文件整读(恒完整,便宜)
-  // 大文件:先只读尾窗;窗回溯到 afterSeq+1 即完整,否则回落全读。
-  // 117q-B6(30 号文 P2-10):open/alloc/read/close 收编进 01-config.js 的 readFileTail —— 本处早已按
-  // bytesRead 定界(无 bug),这里只是把手写的四步换成共用原语,行为不变。
-  try {
-    const { buf, bytesRead } = await readFileTail(file, AGENT_RUN_EVENTS_TAIL_BYTES);
-    const { matched, minSeq } = parseEventWindow(buf.toString('utf8', 0, bytesRead), floor, true);
-    // 窗内最小完整 seq ≤ afterSeq+1 ⇒ 所有 seq>afterSeq 的事件都在窗内(afterSeq+1 是待返回的最小 seq)。
-    if (minSeq <= floor + 1) return finish(matched);
-    // afterSeq 远落后于尾窗(冷客户端 / afterSeq=0 遇大文件)→ 回落全读(罕见,保正确性)。
-  } catch { /* 读尾窗失败 → 回落全读 */ }
-  return fullRead();
+      const window = await agentRunEventWindow(sessionId, runId, AGENT_RUN_EVENTS_TAIL_BYTES, AGENT_RUN_EVENTS_TAIL_BYTES, operation);
+      if (window.stamp === 'missing') {
+        try { return finish(parseEventWindow(await agentRunEventsArchiveText(sessionId, runId, operation), floor, false).matched); }
+        catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return finish([]); }
+      }
+      const { matched, minSeq } = parseEventWindow(window.text, floor, window.droppedHead);
+      if (!window.droppedHead || minSeq <= floor + 1) return finish(matched);
+      return finish(parseEventWindow((await agentRunEventWindow(sessionId, runId, Infinity, 1, operation)).text, floor, false).matched);
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return finish([]); }
+  }));
 }
 // 第29波(§29c 运营指标):run 级干预计数 —— 用户对 run 的每次手动操作(pause/resume/stop/steer/池审批/
 // 重试)自增一格,存 run.metrics.interventions(随快照持久,GET 零改动下发)。无人值守质量的核心度量是
@@ -47283,7 +47762,8 @@ async function autoResumeInterruptedRuns() {
       if (activeAgentRuns.has(run.id)) return;
       const cls = classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config));
       const attempts = Number(run.autoResumeCount) || 0;
-      await syncRunEventSeq(run); // 装载点纪律:append 前快进(见 syncRunEventSeq 注释)
+      try { await syncRunEventSeq(run); }
+      catch (error) { try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId, runId: run.id, reason: error.code || 'io' }); } catch {} return; }
       if (activeAgentRuns.has(run.id)) return; // syncRunEventSeq 的 await 后再复检一次(窗口内可能刚被手动 resume 接管)
       if (cls.tier === 'auto_resumable' && attempts < AUTO_RESUME_MAX) {
         run.autoResumeCount = attempts + 1;
@@ -47321,6 +47801,10 @@ async function markInterruptedAgentRuns() {
   // 71b: paused run 的 proposed 池提案在 71b 前没有 Intervention 记录 —— 收集后统一对账补登记(见 mapPool 后)。
   const legacyPoolProposed = []; // { sessionId, runId, item }
   await mapPool(workItems, 4, async run => {
+      if (['paused', 'running', 'waiting_pool'].includes(run.status)) {
+        try { await syncRunEventSeq(run); }
+        catch (error) { try { logEvent({ kind: 'agent_run_recovery_blocked', sessionId: run.sessionId, runId: run.id, reason: error.code || 'io' }); } catch {} return; }
+      }
       // 团队模式 v2: waiting_pool(收尾宽限窗)也是活跃 live 态,进程重启后同样是"未清理的孤儿",一并标中断。
       // 对抗轮 P3: paused run 不标中断(resume 仍可续跑),但内存邮箱同样已随进程消失——未投递消息补标 dropped,
       // 否则 UI 邮箱时间线里这些消息永远显示"待投递"(与 P3-1 诚实标记原则对齐)。
@@ -47352,7 +47836,6 @@ async function markInterruptedAgentRuns() {
       // 29b: 中断时就盖恢复分级戳(UI 有 tier 徽章可看;autoResumeInterruptedRuns 决策时【重算】,戳只做展示,
       // 不做信任来源 —— 分级函数才是单一事实源)。config 读不到则跳过,标死不受影响。
       if (bootConfig) { const cls = classifyRunResumeTier(run, await agentRunPermissionMode(run.sessionId, bootConfig)); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
-      await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
       // 模型以 background:true 起的 run 被重启打断、又不会自动续跑:补一份 interrupted 信封进后台任务账本 —— 修前模型对用户说过
@@ -50202,6 +50685,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (!nodes.length) return { ok: false, error: '运行记录没有节点', startedCount: 0 };
     resumeInFlight.add(runId);
     try {
+    await syncRunEventSeq(run); // Authenticate events before changing nodes or launching work.
     const reset = new Set();
     if (retryNodeId) {
       const target = nodes.find(n => n.id === retryNodeId);
@@ -50279,6 +50763,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
   } else {
     runId = safeSessionId(runIdOverride) || makeId('run');
+    await agentRunEventsJournal(parentSession.id, runId).preflight();
     const limit = Math.max(0, Number(maxNodes) || 0);
     if (!Array.isArray(rawNodes) || !rawNodes.length) return { ok: false, error: 'nodes 必须是非空数组', startedCount: 0 };
     // 第23波: 现在 in-turn orchestrate 与 persisted DAG launch 两条路径的 limit 都 = agentWorkflowMaxNodes(节点数上限),
@@ -78987,17 +79472,29 @@ function stewardInboxRowDedupeKeys(row) {
 function stewardDir() { return path.join(paths.data, STEWARD_DIR_NAME); }
 function stewardInboxPath() { return path.join(stewardDir(), STEWARD_INBOX_FILE); }
 function stewardCursorPath() { return path.join(stewardDir(), STEWARD_CURSOR_FILE); }
+function stewardInboxJournal() {
+  return WorkDataJournals.create({ file: stewardInboxPath, context: { sessionId: 'steward', kind: 'steward-inbox' },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true), writeJson: atomicWriteJson,
+    validateSealedLine: plain => { const row = safeJsonParse(plain, null); return !!row && !Array.isArray(row) && Number.isSafeInteger(Number(row.inboxSeq)) && STEWARD_EVENT_KINDS.includes(row.kind); } });
+}
+
 // M3-2d: 游标是自定义序列化的文本记录（purpose=queue / scope=global / record=steward-cursor）。
 // 解不开时【不能】按"损坏"处理：那会把基线归零、把区间内的增量静默跳过（13i 里那段注释的旧事故），
 // 所以加密类错误直接冒泡，交给调用方如实失败并下一拍重试。
-const stewardCursorStore = WorkDataStore.createText({
+const stewardCursorHost = {
   id: 'steward-cursor',
   file: () => stewardCursorPath(),
   purpose: 'queue', schema: STEWARD_CURSOR_SCHEMA, scopeId: 'global', recordId: 'steward-cursor',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
-});
+};
+const stewardCursorStore = WorkDataStore.createText(stewardCursorHost);
+function stewardCursorStorage(operation) {
+  if (!operation) return stewardCursorStore;
+  return WorkDataStore.createText({ ...stewardCursorHost, enabled: () => operation.enabled,
+    keys: { snapshot: async () => { const credential = await operation.credential(); return { ...credential, release: () => {} }; } } });
+}
 
 const stewardRuntime = {
   timer: null,
@@ -79206,7 +79703,7 @@ function stewardResetRuntimeState() {
 
 // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8
 // 多字节序列中 —— 与 readAgentRunEvents 的尾窗纪律同源)。文件不存在 = 空(绝不 mkdir)。
-async function stewardReadInboxText() {
+async function stewardReadInboxLegacyText() {
   const file = stewardInboxPath();
   let size = -1;
   try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
@@ -79222,6 +79719,10 @@ async function stewardReadInboxText() {
   } catch { return { text: '', droppedHead: false }; }
   finally { if (fh) await fh.close().catch(() => {}); }
 }
+async function stewardReadInboxText(operation = null) {
+  return stewardInboxJournal().readWindow(STEWARD_INBOX_FULL_READ_BYTES, STEWARD_INBOX_TAIL_BYTES, null, false, stewardReadInboxLegacyText, operation);
+}
+
 
 // 解析 inbox 文本为行对象。坏行/尾部半行一律跳过(append-only 日志的既有纪律)。
 function stewardParseInboxText(text, droppedHead) {
@@ -79238,8 +79739,8 @@ function stewardParseInboxText(text, droppedHead) {
   return rows;
 }
 
-async function stewardReadInboxRows() {
-  const { text, droppedHead } = await stewardReadInboxText();
+async function stewardReadInboxRows(operation = null) {
+  const { text, droppedHead } = await stewardReadInboxText(operation);
   return stewardParseInboxText(text, droppedHead);
 }
 
@@ -79254,20 +79755,20 @@ function stewardInboxPendingState(row, pending) {
 
 // 只整理通知副本,不动会话/待决/审计源。与 append 共用写链,读失败绝不能把原文件覆盖成空。
 // 当前待决不受年龄/历史条数限制;最后一行保留作序号水位,重启和增量读取都不会倒退。
-function stewardMaintainInbox(now = Date.now()) {
+function stewardMaintainInbox(now = Date.now(), operation = null) {
   if (now - stewardRuntime.lastMaintenanceAt < STEWARD_INBOX_MAINTENANCE_MS) return Promise.resolve();
   const pending = new Set(stewardRuntime.cursor.pendingIds);
-  const next = stewardAppendChain.catch(() => {}).then(async () => {
+  const journal = stewardInboxJournal();
+  const next = stewardAppendChain.catch(() => {}).then(() => operation ? run(operation) : journal.withOperation(run));
+  async function run(operation) {
     stewardRuntime.lastMaintenanceAt = now; // 故障也节流,坏文件/瞬时锁不能让每拍变成全量扫描。
+    await journal.preflight(operation);
     const file = stewardInboxPath();
     try { await fsp.stat(file); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
-    const input = fs.createReadStream(file, { encoding: 'utf8' });
-    const lines = require('node:readline').createInterface({ input, crlfDelay: Infinity });
     const history = [], active = [];
     let latest = null, count = 0;
-    try {
-      for await (const line of lines) {
-        if (!line.trim()) continue;
+    const scanned = await journal.readWindow(Infinity, 1, line => {
+        if (!line.trim()) return;
         const row = safeJsonParse(line, null);
         // 未知/损坏格式交给原有读取与修复纪律;整理器不擅自丢弃无法理解的数据。
         if (!row || !Number.isSafeInteger(Number(row.inboxSeq)) || !STEWARD_EVENT_KINDS.includes(row.kind)) throw new Error('steward.inbox_maintenance_invalid_row');
@@ -79278,27 +79779,50 @@ function stewardMaintainInbox(now = Date.now()) {
           history.push(row);
           if (history.length > STEWARD_INBOX_HISTORY_MAX) history.shift();
         }
-      }
-    } finally { lines.close(); input.destroy(); }
+    }, true, null, operation);
+    if (scanned.tornReserved && scanned.tornBytes) throw new Error('steward.inbox_maintenance_invalid_row');
     const kept = active.concat(history);
     if (latest && !kept.includes(latest)) kept.push(latest);
     kept.sort((a, b) => Number(a.inboxSeq) - Number(b.inboxSeq));
-    if (kept.length < count) await atomicWriteJson(file, kept.map(row => JSON.stringify(row)).join('\n') + '\n', { mode: 0o600 });
+    if (kept.length < count) {
+      const rows = kept.map(row => JSON.stringify(row));
+      await journal.replace(rows, () => atomicWriteJson(file, rows.join('\n') + '\n', { mode: 0o600 }), operation);
+    }
     stewardRuntime.lastMaintenanceAt = now;
-  });
+  }
   stewardAppendChain = next.catch(() => {});
   return next;
 }
 
 // 游标读取。读坏/缺失 → 冷启动(inboxSeq 从 inbox 尾行恢复,去重集合从 inbox 尾部 N 行重建,
 // 三源只建基线不补历史)。这条正是「cursor 读坏 → 从零开始但不重复已在 inbox 里的键」。
-async function stewardLoadState() {
-  if (stewardRuntime.loaded) return;
+async function stewardLoadState(operation = null) {
+  const journal = stewardInboxJournal();
+  if (!operation) return journal.withOperation(owner => stewardLoadState(owner));
+  const recovering = journal.recoveryPending();
+  if (!recovering) await journal.preflight(operation);
+  if (stewardRuntime.loaded && !recovering) return;
+  // Read both authorities before resetting any live cursor/seen/sequence state.
+  let rows, recovered, recoveredMax = 0;
+  if (recovering) {
+    rows = [];
+    recovered = await journal.readWindow(0, 0, line => {
+      const parsed = stewardParseInboxText(line, false); rows.push(...parsed);
+      for (const row of parsed) recoveredMax = Math.max(recoveredMax, Number(row.inboxSeq) || 0);
+      if (rows.length > STEWARD_DEDUPE_TAIL_ROWS) rows.splice(0, rows.length - STEWARD_DEDUPE_TAIL_ROWS);
+    }, false, null, operation);
+  } else rows = await stewardReadInboxRows(operation);
+  let cursorText, cursorError;
+  try { cursorText = await stewardCursorStorage(operation).read(); }
+  catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; cursorError = error; }
+  const carried = recovering ? { carry: [...stewardRuntime.carry], adopted: [...stewardRuntime.adopted], adoptedRecent: new Map(stewardRuntime.adoptedRecent) } : null;
+  const prior = { ...stewardRuntime };
   stewardResetRuntimeState();
-  const rows = await stewardReadInboxRows();
+  if (carried) Object.assign(stewardRuntime, carried);
   const tail = rows.slice(-STEWARD_DEDUPE_TAIL_ROWS);
   for (const row of tail) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   for (const row of rows) stewardRuntime.inboxSeq = Math.max(stewardRuntime.inboxSeq, Number(row.inboxSeq) || 0);
+  stewardRuntime.inboxSeq = Math.max(stewardRuntime.inboxSeq, recoveredMax);
 
   // 116-3 P1-8:把「游标文件不存在」与「游标文件坏了」分开。前者是真冷启动(第一次跑,没有历史要补);
   // 后者按注释一直宣称的口径是「从零开始,重复由 seen 兜底」,而修前的实现是 cold 保持 true ->
@@ -79307,7 +79831,8 @@ async function stewardLoadState() {
   let raw = null;
   let corrupt = false;
   try {
-    const text = await stewardCursorStore.read();                // ENOENT → null(冷启动),加密错误 → 抛出
+    if (cursorError) throw cursorError;
+    const text = cursorText;                // ENOENT → null(冷启动),加密错误 → 抛出
     if (text == null) raw = null;
     else {
       raw = safeJsonParse(text, null);
@@ -79359,23 +79884,29 @@ async function stewardLoadState() {
     stewardRuntime.lastError = 'cursor-v1.json 损坏或不可读,本次按「从零开始」重建(重复由去重集合兜底)';
     try { logEvent({ kind: 'steward_cursor_corrupt', detail: stewardRuntime.lastError }); } catch { /* 观测绝不反噬 */ }
   }
+  if (recovering) {
+    try { await journal.acknowledgeRecovery(recovered.recoveryTicket, operation); }
+    catch (error) { Object.assign(stewardRuntime, prior); throw error; }
+  }
   stewardRuntime.loaded = true;
 }
 
 // append:与 session-changes 同款原语(repairMissionChangeTornTail + appendFile),per-process 串行。
-function stewardAppendInboxRows(rows) {
+function stewardAppendInboxRows(rows, operation = null) {
   if (!rows.length) return Promise.resolve();
   const file = stewardInboxPath();
   const payload = rows.map(row => JSON.stringify(row)).join('\n') + '\n';
   const next = stewardAppendChain.catch(() => {}).then(async () => {
-    await fsp.mkdir(stewardDir(), { recursive: true });
-    await repairMissionChangeTornTail(file); // 尾部半行先截干净,再整行 append(防焊接)
-    // Windows 上杀软/备份软件短暂持锁的 EBUSY/EPERM/EACCES:与 02 appendIntervention 同款有界重试。
-    // 仍失败就抛给 stewardTickOnce —— 那里把这一批原始事件放回结转队列,下一拍重来(见那里的注释)。
-    for (let attempt = 0; ; attempt++) {
-      try { await fsp.appendFile(file, payload, 'utf8'); break; }
-      catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
-    }
+    await stewardInboxJournal().append(rows.map(row => JSON.stringify(row)), async () => {
+      await fsp.mkdir(stewardDir(), { recursive: true });
+      await repairMissionChangeTornTail(file); // 尾部半行先截干净,再整行 append(防焊接)
+      // Windows 上杀软/备份软件短暂持锁的 EBUSY/EPERM/EACCES:与 02 appendIntervention 同款有界重试。
+      // 仍失败就抛给 stewardTickOnce —— 那里把这一批原始事件放回结转队列,下一拍重来(见那里的注释)。
+      for (let attempt = 0; ; attempt++) {
+        try { await fsp.appendFile(file, payload, 'utf8'); break; }
+        catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
+      }
+    }, operation);
     // 121-K2a(§6.1 第 3 条):箱子真的多了这些行之后才派。正文不进事件面 —— 只有「哪条线程、哪一类」;
     // 想看内容仍走 GET /api/steward/inbox(§6.1 红线:事件流不承载正文)。
     // 121-K6a(34 号文 §4.3 安静卡):补 quiet(在场门②情形打的旗)与卡上要印的一句话(ask)——
@@ -79431,7 +79962,7 @@ function stewardTrimCursorMap(order, source, memMax, persistMax) {
 // 会话被删了自然被清掉),落盘只取其中排在最前(活跃优先)的 STEWARD_CURSOR_MAX_* 条 —— 重启后读回的
 // 语义与修前一致(超出落盘上限的会话重启后仍算首见),但运行期不再每拍把它们重新当首见。
 // 落盘只在内容真的变了时才写(指纹见 stewardRuntime.cursorSig),并且写紧凑 JSON(没人读缩进)。
-async function stewardSaveCursor(activeSessionIds, activeRunIds) {
+async function stewardSaveCursor(activeSessionIds, activeRunIds, operation = null) {
   const mc = stewardTrimCursorMap(activeSessionIds, stewardRuntime.cursor.missionChanges, STEWARD_CURSOR_MEM_MAX_SESSIONS, STEWARD_CURSOR_MAX_SESSIONS);
   const ar = stewardTrimCursorMap(activeRunIds, stewardRuntime.cursor.agentRuns, STEWARD_CURSOR_MEM_MAX_RUNS, STEWARD_CURSOR_MAX_RUNS);
   stewardRuntime.cursor.missionChanges = mc.kept;
@@ -79457,7 +79988,7 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
   const sessionTurns = st.persisted;
   const sig = stewardRuntime.inboxSeq + '|' + JSON.stringify({ missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns });
   if (sig === stewardRuntime.cursorSig) return { written: false };
-  await stewardCursorStore.write(JSON.stringify({
+  await stewardCursorStorage(operation).write(JSON.stringify({
     schema: STEWARD_CURSOR_SCHEMA,
     inboxSeq: stewardRuntime.inboxSeq,
     updatedAt: nowIso(),
@@ -79707,7 +80238,10 @@ const runs = await listAgentRuns(sid).catch(error => { if (String(error && error
       if (knownSeq == null) afterSeq = (stewardRuntime.cold || !runRecent || eventSeq > STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ) ? eventSeq : 0;
       else afterSeq = knownSeq;
       stewardRuntime.cursor.agentRuns[runId] = afterSeq;
-      const page = await readAgentRunEvents(sid, runId, afterSeq, STEWARD_RUN_EVENT_PAGE).catch(() => ({ events: [] }));
+      const page = await readAgentRunEvents(sid, runId, afterSeq, STEWARD_RUN_EVENT_PAGE).catch(error => {
+        if (String(error && error.code || '').startsWith('work_data')) throw error;
+        return { events: [] };
+      });
       let maxSeq = afterSeq;
       for (const evt of (page && Array.isArray(page.events) ? page.events : [])) {
         maxSeq = Math.max(maxSeq, Number(evt.seq) || 0);
@@ -79725,10 +80259,15 @@ const runs = await listAgentRuns(sid).catch(error => { if (String(error && error
   return { events, activeSessionIds: [...activeSessionIds, ...idleSessionIds], activeRunIds };
 }
 
-async function stewardTickOnce() {
+async function stewardTickInboxWithin(operation) {
   const generation = stewardRuntime.generation;
-  await stewardLoadState();
-  const { events, activeSessionIds, activeRunIds } = await stewardCollectEvents();
+  await stewardLoadState(operation);
+  const collectedBefore = structuredClone({ cursor: stewardRuntime.cursor, adopted: stewardRuntime.adopted,
+    adoptedRecent: stewardRuntime.adoptedRecent, sourcesSeen: stewardRuntime.sourcesSeen, carry: stewardRuntime.carry });
+  let collected;
+  try { collected = await stewardCollectEvents(); }
+  catch (error) { Object.assign(stewardRuntime, collectedBefore); throw error; }
+  const { events, activeSessionIds, activeRunIds } = collected;
   if (generation !== stewardRuntime.generation) return { written: 0, aborted: true };
   // 116-3 P0-3:上一轮结转下来的事件排在最前(它们更早发生,游标也早已越过它们)。
   const carried = stewardRuntime.carry;
@@ -79752,9 +80291,8 @@ async function stewardTickOnce() {
   const seqBefore = stewardRuntime.inboxSeq;
   const rows = [];
   for (const row of merged) {
-    stewardRuntime.inboxSeq += 1;
     rows.push({
-      inboxSeq: stewardRuntime.inboxSeq,
+      inboxSeq: seqBefore + rows.length + 1,
       kind: row.kind,
       sessionId: row.sessionId,
       missionId: row.missionId,
@@ -79778,38 +80316,45 @@ async function stewardTickOnce() {
   // 下一拍它们排在最前、照样过去重、不再过在场门(已经过过一次)。inboxSeq 退回本批之前,
   // 不留空号;游标这一拍不落盘(异常照旧冒到 stewardRunTick 记 lastError),重启则从旧游标重读 + seen 去重。
   if (rows.length) {
-    try { await stewardAppendInboxRows(rows); }
+    try { await stewardAppendInboxRows(rows, operation); }
     catch (error) {
       stewardRuntime.inboxSeq = seqBefore;
-      stewardRuntime.carry = head.concat(stewardRuntime.carry).slice(0, STEWARD_CARRY_MAX_EVENTS);
+      if (String(error && error.code || '').startsWith('work_data')) Object.assign(stewardRuntime, collectedBefore);
+      else stewardRuntime.carry = head.concat(stewardRuntime.carry).slice(0, STEWARD_CARRY_MAX_EVENTS);
       try { logEvent({ kind: 'steward_inbox_append_failed', code: String((error && error.code) || ''), requeued: head.length }); } catch { /* 观测绝不反噬 */ }
       throw error;
     }
   }
+  if (rows.length) stewardRuntime.inboxSeq = rows[rows.length - 1].inboxSeq;
   if (rows.length) stewardRuntime.lastInboxAt = nowIso();   // 116-4:唤醒链诚实 —— 「箱子最后一次真的收到东西」
   for (const row of rows) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   // 去重集合在长跑进程里只增不减 —— 超过硬顶就按「装载时」的口径从 inbox 尾部重建(旧键本来也已经
   // 被游标挡住了,重建只是把内存占用重新压回上限)。
   if (stewardRuntime.seen.size > STEWARD_SEEN_MAX_KEYS) {
-    const recent = (await stewardReadInboxRows()).slice(-STEWARD_DEDUPE_TAIL_ROWS);
+    const recent = (await stewardReadInboxRows(operation)).slice(-STEWARD_DEDUPE_TAIL_ROWS);
     const rebuilt = new Set();
     for (const row of recent) for (const key of stewardInboxRowDedupeKeys(row)) rebuilt.add(key);
     stewardRuntime.seen = rebuilt;
   }
   // 冷启动只建基线,基线本身也必须落盘 —— 否则下次仍是冷启动,永远补不上历史增量。
-  await stewardSaveCursor(activeSessionIds, activeRunIds);
+  await stewardSaveCursor(activeSessionIds, activeRunIds, operation);
   // 独立于入箱成功与否:整理失败不能把已落盘的一批重新投递,也不能阻止唤醒管家。
-  try { await stewardMaintainInbox(); }
+  try { await stewardMaintainInbox(Date.now(), operation); }
   catch (error) { try { logEvent({ kind: 'steward_inbox_maintenance_failed', code: String(error.code || error.message || '').slice(0, 100) }); } catch { /* 旁路 */ } }
   stewardRuntime.cold = false;
   stewardRuntime.lastTickAt = nowIso();
+  return { rows, written: rows.length, aborted: false };
+}
+async function stewardTickOnce() {
+  const result = await stewardInboxJournal().withOperation(stewardTickInboxWithin);
+  const rows = result.rows || [];
   // 116f: 本轮真的写进箱子的行交给回合运行器(13h 去抖 5 秒后起一个收件箱回合)。经 06i 的延迟绑定
   // 命名空间调(13g → 06i 是后向边;直接写 13h 的函数名会是前向边)。它是【旁路】:钩子未填充、
   // 抛错或运行器熔断,都不影响这一轮已经落盘的收件箱与游标。
   if (rows.length && typeof StewardHooks.onInboxBatch === 'function') {
     try { StewardHooks.onInboxBatch(rows); } catch { /* 运行器故障绝不反噬轮询器 */ }
   }
-  return { written: rows.length, aborted: false };
+  return { written: result.written, aborted: result.aborted };
 }
 
 async function stewardRunTick() {
@@ -79888,23 +80433,17 @@ async function stewardInboxRead(opts) {
   };
 }
 
-// 收件箱的「按类计数 + 最大 inboxSeq」备忘。/api/steward/state 由前端 30 秒(SSE 断时 5–15 秒)轮询,
-// 每个管家回合的状态块也会取一次;修前每次都把整份 inbox-v1.ndjson(全读上限 8MB)重读重解析,
-// 只为数这两样(7MB / 1.7 万行实测每次 80–130ms)。
-// 备忘的键是文件自己的 stat 指纹(路径 + size + mtimeMs + ino):追加、截断、被外部改写都会让指纹变,
-// 变了就照旧整份重算 —— 所以输出与修前逐位一致,而不是靠「每处写入都记得同步计数」的约定。
-// 先 stat 后读:读到的内容只可能【不早于】键所代表的那一刻,竞态下最坏是下次多重算一回,不会读到陈旧值。
-let stewardInboxCountsMemo = null;   // { key, byKind, inboxSeq }
+// Every call reads/classifies current bytes and authenticates sealed rows first.
+// Only the derived counts are memoized by that returned logical window, its key
+// authority and head-cut shape. This saves business parsing, never storage I/O or
+// authentication; a Windows same-stat replacement still reaches the real reader.
+let stewardInboxCountsMemo = null;
 async function stewardInboxCounts() {
-  const file = stewardInboxPath();
-  let key = '', size = 0;
-  try {
-    const st = await fsp.stat(file);
-    size = st.size;
-    key = [file, st.size, st.mtimeMs, st.ino].join('|');
-  } catch { /* 文件不存在:下面按空箱子算,不进备忘 */ }
-  if (key && stewardInboxCountsMemo && stewardInboxCountsMemo.key === key) return stewardInboxCountsMemo;
-  const rows = await stewardReadInboxRows();
+  const window = await stewardReadInboxText();
+  const signature = (window.droppedHead ? 'tail:' : 'full:') + (window.authStamp || '') + ':'
+    + crypto.createHash('sha256').update(window.text, 'utf8').digest('hex');
+  if (stewardInboxCountsMemo && stewardInboxCountsMemo.signature === signature) return stewardInboxCountsMemo.counts;
+  const rows = stewardParseInboxText(window.text, window.droppedHead);
   const byKind = {};
   for (const kind of STEWARD_EVENT_KINDS) byKind[kind] = 0;
   let inboxSeq = 0;
@@ -79912,10 +80451,11 @@ async function stewardInboxCounts() {
     inboxSeq = Math.max(inboxSeq, Number(row.inboxSeq) || 0);
     if (Object.prototype.hasOwnProperty.call(byKind, row.kind)) byKind[row.kind] += 1;
   }
-  const counts = { key, byKind, inboxSeq };
-  // 文件非空却一行都没读出来:多半是这一次读撞上瞬时锁(stewardReadInboxText 吞掉错误回空串;Windows 杀软 / 索引器
-  // 常见),别把「空箱子」记进备忘 —— 否则文件不再变就一直报零(审查轮复现过)。下一次照旧重读。
-  stewardInboxCountsMemo = key && (size === 0 || rows.length > 0) ? counts : null;
+  const counts = { byKind, inboxSeq };
+  // A transient legacy-window read failure can return empty text for a nonempty
+  // file. Never retain that false empty result across an unchanged source.
+  stewardInboxCountsMemo = (window.count === 0 && !window.tornBytes) || rows.length
+    ? { signature, counts } : null;
   return counts;
 }
 
@@ -80125,9 +80665,19 @@ function stewardBasisOf(args, extra) {
   return base;
 }
 
+function stewardDecisionJournal() {
+  return WorkDataJournals.create({ file: stewardDecisionsPath, context: { sessionId: 'steward', kind: 'steward-decisions' },
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true), writeJson: atomicWriteJson,
+    validateSealedLine: plain => { const row = safeJsonParse(plain, null); return !!row && !Array.isArray(row) && !!row.tool; } });
+}
+function stewardPreflightDecision() {
+  const next = stewardDecisionChain.catch(() => {}).then(() => stewardDecisionJournal().preflight());
+  stewardDecisionChain = next.catch(() => {}); return next;
+}
+StewardHooks.preflightDecision = stewardPreflightDecision;
 function stewardAppendDecision(row) {
   const record = {
-    seq: ++stewardDecisionSeq,
+    seq: 0,
     at: nowIso(),
     tool: String((row && row.tool) || ''),
     args: (row && row.args && typeof row.args === 'object') ? row.args : {},
@@ -80137,13 +80687,17 @@ function stewardAppendDecision(row) {
     undoRef: (row && row.undoRef) || null,
     basis: (row && row.basis && typeof row.basis === 'object') ? row.basis : {},
   };
-  const line = JSON.stringify(record) + '\n';
-  stewardDecisionChain = stewardDecisionChain.then(async () => {
-    await fsp.mkdir(stewardDir(), { recursive: true });
-    const file = stewardDecisionsPath();
-    await repairMissionChangeTornTail(file);
-    await fsp.appendFile(file, line, 'utf8');
-  }).catch(() => {}); // 记账失败绝不回滚已经做完的动作(与 usage ledger 同款 fire-and-forget 纪律)
+  stewardDecisionChain = stewardDecisionChain.catch(() => {}).then(() => stewardDecisionJournal().withOperation(async operation => {
+    const journal = stewardDecisionJournal(), file = stewardDecisionsPath();
+    await journal.preflight(operation);
+    const seq = stewardDecisionSeq + 1, line = JSON.stringify({ ...record, seq });
+    await journal.append([line], async () => {
+      await fsp.mkdir(stewardDir(), { recursive: true });
+      await repairMissionChangeTornTail(file);
+      await fsp.appendFile(file, line + '\n', 'utf8');
+    }, operation);
+    stewardDecisionSeq = seq; record.seq = seq;
+  })).catch(error => { try { logEvent({ kind: 'steward_decision_append_failed', code: String(error && error.code || 'io') }); } catch { /* diagnostic only */ } }); // 记账失败绝不回滚已经做完的动作(与 usage ledger 同款 fire-and-forget 纪律)
   return record;
 }
 
@@ -80175,7 +80729,7 @@ function stewardMaskDecisionArgs(value, depth = 0) {
   return out;
 }
 
-async function stewardReadDecisionsText() {
+async function stewardReadDecisionsLegacyText() {
   const file = stewardDecisionsPath();
   let size = -1;
   try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
@@ -80189,6 +80743,12 @@ async function stewardReadDecisionsText() {
     return { text: buf.toString('utf8', 0, bytesRead), droppedHead: true };
   } catch { return { text: '', droppedHead: false }; }
 }
+async function stewardReadDecisionsText() {
+  const next = stewardDecisionChain.catch(() => {}).then(() => stewardDecisionJournal().readWindow(
+    STEWARD_DECISIONS_FULL_READ_BYTES, STEWARD_DECISIONS_TAIL_BYTES, null, false, stewardReadDecisionsLegacyText));
+  stewardDecisionChain = next.catch(() => {}); return next;
+}
+
 
 // { limit, sessionId, since } -> { ok, rows, total, limit }
 //   · rows 按时间【倒序】(最近的在最前),这是行动流水页的自然阅读序;
@@ -84296,6 +84856,7 @@ async function handleStewardApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/steward/memory/veto') {
     const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
     const body = await readJsonBody(req).catch(() => ({}));
+    await stewardPreflightDecision();
     const result = await stewardImplMemoryVeto({ id: (body && body.id) || '' });
     return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
   }
@@ -84429,6 +84990,15 @@ function stewardTaintGateApplies(toolName, args) {
 
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
 async function stewardImplBotSetup(args, ctx) { return ExternalBotHooks.stewardSetup(args, ctx); }
+// Receipt producers have a separate admission policy from taint gates: even a
+// tightening action must authenticate its journal before changing business state.
+const STEWARD_DECISION_TOOLS = new Set([
+  'steward_thread_new', 'steward_thread_continue', 'steward_thread_rename', 'steward_thread_workspace',
+  'steward_thread_permission', 'steward_thread_note', 'steward_thread_prioritize', 'steward_thread_stop',
+  'steward_decide', 'steward_run_action', 'steward_memory_write', 'steward_memory_veto', 'steward_notify',
+  'steward_config_set', 'steward_playbook_draft', 'steward_skill_toggle', 'steward_quick_ask',
+  'steward_schedule_create', 'steward_schedule_pause', 'steward_schedule_resume', 'steward_schedule_run_now', 'steward_schedule_delete',
+]);
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
     let config = null;
@@ -84457,8 +85027,10 @@ function stewardToolHandler(toolName, impl) {
           });
         }
       }
+      if (STEWARD_DECISION_TOOLS.has(toolName)) await stewardPreflightDecision();
       return await impl(clean, turnCtx, config);
     } catch (error) {
+      if (String(error && error.code || '').startsWith('work_data')) return stewardFail(error.code, error.code);
       if (error && error.code === 'external_channel.control_revoked') return stewardFail(error.code, 'external owner authorization was revoked');
       const message = String((error && error.message) || error);
       logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
@@ -84534,6 +85106,7 @@ async function stewardMemoryPanelEdit(body) {
     return stewardFail('sensitive_rejected', 'the text looks like a credential/secret and will never be stored in steward memory');
   }
   const version = body && body.version != null ? String(body.version) : '';
+  await stewardPreflightDecision();
   return stewardMutateMemory(async store => {
     const entry = store.entries.find(e => e.id === id);
     if (!entry) return { persist: false, result: stewardFail('not_found', `memory ${stewardSanitizeText(id)} not found`) };
@@ -84556,6 +85129,7 @@ async function stewardMemoryPanelEdit(body) {
 async function stewardMemoryPanelRestore(idArg) {
   const id = String(idArg || '');
   if (!id) return stewardFail('invalid_request', 'id is required');
+  await stewardPreflightDecision();
   return stewardMutateMemory(async store => {
     const entry = store.entries.find(e => e.id === id);
     if (!entry) return { persist: false, result: stewardFail('not_found', `memory ${stewardSanitizeText(id)} not found`) };
@@ -84570,6 +85144,7 @@ async function stewardMemoryPanelRestore(idArg) {
 // 清空:confirm 必须【逐字】等于 'clear'(同 DELETE /api/skills 的「输入 id 才解锁」摩擦)。
 async function stewardMemoryPanelClear(confirm) {
   if (String(confirm) !== 'clear') return stewardFail('invalid_request', "confirm must be exactly 'clear'");
+  await stewardPreflightDecision();
   return stewardMutateMemory(async store => {
     const removed = store.entries.length;
     store.entries = [];
@@ -88828,6 +89403,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
     if (!safeSessionId(body && body.sessionId)) {
       return send(res, apiFailure('invalid_session', {}, 'invalid sessionId', 400));
     }
+    await stewardPreflightDecision();
     const result = await stewardImplThreadPrioritize({ sessionId: body.sessionId }, { config }, config);
     // 116g 硬教训:域层的 {ok:false,error} 直接送进 json() 会被 normalizeApiErrorPayload 归一成
     // api.request_failed,稳定信封必须在【路由层】转成 apiFailure。
@@ -89829,21 +90405,71 @@ function schedulerSaveTasks(operation = null) {
   return next;
 }
 
-// ── 落盘:fires-v1.ndjson(append-only;与 session-changes / inbox 同款原语)──────────────────
-function schedulerAppendFire(schedRow) {
-  schedulerRuntime.fireSeq += 1;
-  const row = { seq: schedulerRuntime.fireSeq, at: new Date(schedulerClockNow()).toISOString(), ...schedRow };
-  const file = schedulerFiresPath();
-  const payload = JSON.stringify(row) + '\n';
-  const next = schedulerFiresChain.catch(() => {}).then(async () => {
-    await fsp.mkdir(schedulerDir(), { recursive: true });
-    await repairMissionChangeTornTail(file);   // 尾部半行先截干净,再整行 append(防焊接)
-    await fsp.appendFile(file, payload, 'utf8');
-  });
-  schedulerFiresChain = next.catch(() => {});
-  return next.then(() => row);
+// ── 落盘:fires-v1.ndjson(append-only;共享物理序号与认证窗口)──────────────────
+function schedulerFireRowValid(row) {
+  return !!row && typeof row === 'object' && !Array.isArray(row)
+    && Number.isSafeInteger(Number(row.seq)) && SCHEDULER_PHASES.includes(String(row.phase || ''));
 }
-async function schedulerReadFiresText() {
+function schedulerFireJournal() {
+  return WorkDataJournals.create({ file: schedulerFiresPath,
+    context: { kind: 'scheduler-fires', sessionId: 'scheduler-global' },
+    enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
+    writeJson: atomicWriteJson,
+    validateSealedLine: text => { try { return schedulerFireRowValid(JSON.parse(text)); } catch { return false; } },
+    onRollbackFailure: () => { schedulerRuntime.lastError = 'work_data_journal.recovery_required'; },
+  });
+}
+function withSchedulerFireLock(work) {
+  const next = schedulerFiresChain.catch(() => {}).then(work);
+  schedulerFiresChain = next.catch(() => {});
+  return next;
+}
+// Must be called under the task owner: Tasks -> Fires is the sole nested lock
+// order. UI reads cannot acknowledge recovery or publish new business counters.
+async function schedulerFirePreflight() {
+  return withSchedulerFireLock(() => {
+    const journal = schedulerFireJournal();
+    return journal.withOperation(async operation => {
+      if (journal.recoveryPending()) {
+        let maxSeq = 0;
+        const attempts = new Map();
+        const proof = await journal.readWindow(0, 0, text => {
+          let row; try { row = JSON.parse(text); } catch { return; }
+          if (!schedulerFireRowValid(row)) return;
+          maxSeq = Math.max(maxSeq, Number(row.seq));
+          if (row.phase === 'registered' && row.occurrenceKey) {
+            const key = String(row.occurrenceKey); attempts.set(key, (attempts.get(key) || 0) + 1);
+          }
+        }, false, null, operation);
+        const previousSeq = schedulerRuntime.fireSeq, previousAttempts = schedulerRuntime.attempts;
+        schedulerRuntime.fireSeq = Math.max(previousSeq, maxSeq);
+        schedulerRuntime.attempts = attempts;
+        try { await journal.acknowledgeRecovery(proof.recoveryTicket); }
+        catch (error) { schedulerRuntime.fireSeq = previousSeq; schedulerRuntime.attempts = previousAttempts; throw error; }
+      }
+      await journal.preflight(operation);
+    });
+  });
+}
+function schedulerAppendFire(schedRow) {
+  const at = new Date(schedulerClockNow()).toISOString();
+  return withSchedulerFireLock(async () => {
+    const journal = schedulerFireJournal();
+    return journal.withOperation(async operation => {
+      await journal.preflight(operation);
+      const seq = schedulerRuntime.fireSeq + 1, row = { seq, at, ...schedRow };
+      const file = schedulerFiresPath(), text = JSON.stringify(row);
+      await journal.append([text], async () => {
+        await fsp.mkdir(schedulerDir(), { recursive: true });
+        await repairMissionChangeTornTail(file);
+        await fsp.appendFile(file, text + '\n', 'utf8');
+      }, operation);
+      schedulerRuntime.fireSeq = seq;
+      return row;
+    });
+  });
+}
+async function schedulerReadLegacyFiresText() {
   const file = schedulerFiresPath();
   let size = -1;
   try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
@@ -89859,6 +90485,11 @@ async function schedulerReadFiresText() {
   } catch { return { text: '', droppedHead: false }; }
   finally { if (fh) await fh.close().catch(() => {}); }
 }
+function schedulerReadFiresText() {
+  return withSchedulerFireLock(() => schedulerFireJournal().readWindow(
+    SCHEDULER_FIRES_FULL_READ_BYTES, SCHEDULER_FIRES_TAIL_BYTES,
+    null, false, schedulerReadLegacyFiresText));
+}
 // 坏行/尾部半行一律跳过(append-only 日志的既有纪律)。
 async function schedulerReadFireRows() {
   const { text, droppedHead } = await schedulerReadFiresText();
@@ -89869,8 +90500,7 @@ async function schedulerReadFireRows() {
     if (!line) continue;
     let row = null;
     try { row = JSON.parse(line); } catch { row = null; }
-    if (!row || typeof row !== 'object') continue;
-    if (!Number.isSafeInteger(Number(row.seq)) || !SCHEDULER_PHASES.includes(String(row.phase || ''))) continue;
+    if (!schedulerFireRowValid(row)) continue;
     rows.push(row);
   }
   return rows;
@@ -89964,6 +90594,7 @@ async function schedulerRecordMissedSkip(task, missed, now) {
 //   ② 错过的时点 —— 必须排在 ① 之后:被崩溃消费掉的那个时点不该再算作「错过」。
 async function schedulerRecover(schedFireRows) {
   return schedulerTaskAdmission(async operation => {
+    await schedulerFirePreflight();
     const now = schedulerClockNow();
     const rows = Array.isArray(schedFireRows) ? schedFireRows : await schedulerReadFireRows();
     const byRun = new Map();          // runId -> { occurrenceKey, dueAt, mode, reconciled }
@@ -90076,6 +90707,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       // Recovery already advances a late task's nextFireAt; only ontime binds that due.
       if (schedMode !== 'manual' && (!task.state.enabled
         || (schedMode === 'ontime' && Date.parse(task.state.nextFireAt) !== schedDueMs))) return 'skipped';
+      await schedulerFirePreflight();
       if (schedulerRuntime.globalRuns.date !== day) schedulerRuntime.globalRuns = { date: day, count: 0 };
       if (!task.state.runsToday || task.state.runsToday.date !== day) task.state.runsToday = { date: day, count: 0 };
 
@@ -90134,6 +90766,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
     if (task.payload.kind === 'reminder') {
       // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
       await schedulerTaskAdmission(async () => {
+        await schedulerFirePreflight();
         await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
         schedulerEmitChanged(task.id, 'dispatched', '');
         schedulerMaybeCrash('after-dispatch');
@@ -90146,6 +90779,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       });
     } else {
       const session = await schedulerTaskAdmission(async operation => {
+        await schedulerFirePreflight();
         let session = null;
         if (task.target.mode === 'existing-session' && task.target.sessionId) {
           session = await loadSession(task.target.sessionId).catch(() => null);
@@ -90337,6 +90971,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   // ── ④ 收尾 ────────────────────────────────────────────────────────────────
   schedulerMaybeCrash('before-reconcile');
   return schedulerTaskAdmission(async operation => {
+    await schedulerFirePreflight();
     const finishedMs   = schedulerClockNow();
     if (refundDailyCounts) {
       if (task.state.runsToday && task.state.runsToday.date === day) task.state.runsToday = { date: day, count: Math.max(0, task.state.runsToday.count - 1) };
@@ -90438,6 +91073,7 @@ async function schedulerTick() {
     if (generation !== schedulerRuntime.generation) return;
     await schedulerLoad();
     if (generation !== schedulerRuntime.generation) return;
+    await schedulerTaskAdmission(() => schedulerFirePreflight());
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
     while (schedulerRuntime.lateQueue.length) {
       if (generation !== schedulerRuntime.generation) return;
@@ -90465,6 +91101,7 @@ async function schedulerTick() {
       if (missed && missed.lateByMs > SCHEDULER_ONTIME_SLACK_MS) {
         if (missed.runLate) { schedulerDispatchFire(task, 'late', missed.dueMs); continue; }
         await schedulerTaskAdmission(async operation => {
+          await schedulerFirePreflight();
           const nextMs = nextFireAt(task.schedule, now);
           task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
           await schedulerRecordMissedSkip(task, missed, now);
@@ -93150,8 +93787,12 @@ const PrivacySettings = (() => {
     let result;
     try {
       if (!successful) result = { ok: false, saved: false, error: 'privacy.turn_cancelled' };
-      else result = { ...await apply(item.body), saved: true, status: 'applied', mode: item.body.mode, technical: item.body.technical, ruleCount: item.body.rules.length };
-    } catch (error) { result = { ok: false, saved: false, error: /^(?:privacy|credential_vault)\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed' }; }
+      else {
+        if (typeof StewardHooks.preflightDecision !== 'function') throw Object.assign(new Error('work_data_store.not_initialised'), { code: 'work_data_store.not_initialised' });
+        await StewardHooks.preflightDecision();
+        result = { ...await apply(item.body), saved: true, status: 'applied', mode: item.body.mode, technical: item.body.technical, ruleCount: item.body.rules.length };
+      }
+    } catch (error) { result = { ok: false, saved: false, error: /^(?:privacy|credential_vault|work_data[a-z_]*)\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed' }; }
     // Only metadata enters the decision log; no patterns, literal secrets or samples.
     stewardAppendDecision({ tool: 'steward_config_set', args: { privacy: true, turnSeq, result }, targetSessionId: sessionId,
       permissionMode: '', mayAct: 'user', undoRef: { kind: 'none' }, basis: {} });

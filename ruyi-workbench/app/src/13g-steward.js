@@ -135,6 +135,7 @@ async function handleStewardApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/steward/memory/veto') {
     const gate = await stewardPanelGate(req); if (gate) return send(res, gate);
     const body = await readJsonBody(req).catch(() => ({}));
+    await stewardPreflightDecision();
     const result = await stewardImplMemoryVeto({ id: (body && body.id) || '' });
     return send(res, result.ok === false ? stewardPanelFailure(result) : json(result));
   }
@@ -268,6 +269,15 @@ function stewardTaintGateApplies(toolName, args) {
 
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
 async function stewardImplBotSetup(args, ctx) { return ExternalBotHooks.stewardSetup(args, ctx); }
+// Receipt producers have a separate admission policy from taint gates: even a
+// tightening action must authenticate its journal before changing business state.
+const STEWARD_DECISION_TOOLS = new Set([
+  'steward_thread_new', 'steward_thread_continue', 'steward_thread_rename', 'steward_thread_workspace',
+  'steward_thread_permission', 'steward_thread_note', 'steward_thread_prioritize', 'steward_thread_stop',
+  'steward_decide', 'steward_run_action', 'steward_memory_write', 'steward_memory_veto', 'steward_notify',
+  'steward_config_set', 'steward_playbook_draft', 'steward_skill_toggle', 'steward_quick_ask',
+  'steward_schedule_create', 'steward_schedule_pause', 'steward_schedule_resume', 'steward_schedule_run_now', 'steward_schedule_delete',
+]);
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
     let config = null;
@@ -296,8 +306,10 @@ function stewardToolHandler(toolName, impl) {
           });
         }
       }
+      if (STEWARD_DECISION_TOOLS.has(toolName)) await stewardPreflightDecision();
       return await impl(clean, turnCtx, config);
     } catch (error) {
+      if (String(error && error.code || '').startsWith('work_data')) return stewardFail(error.code, error.code);
       if (error && error.code === 'external_channel.control_revoked') return stewardFail(error.code, 'external owner authorization was revoked');
       const message = String((error && error.message) || error);
       logEvent({ kind: 'steward_tool_error', tool: toolName, message: message.slice(0, 400) });
@@ -373,6 +385,7 @@ async function stewardMemoryPanelEdit(body) {
     return stewardFail('sensitive_rejected', 'the text looks like a credential/secret and will never be stored in steward memory');
   }
   const version = body && body.version != null ? String(body.version) : '';
+  await stewardPreflightDecision();
   return stewardMutateMemory(async store => {
     const entry = store.entries.find(e => e.id === id);
     if (!entry) return { persist: false, result: stewardFail('not_found', `memory ${stewardSanitizeText(id)} not found`) };
@@ -395,6 +408,7 @@ async function stewardMemoryPanelEdit(body) {
 async function stewardMemoryPanelRestore(idArg) {
   const id = String(idArg || '');
   if (!id) return stewardFail('invalid_request', 'id is required');
+  await stewardPreflightDecision();
   return stewardMutateMemory(async store => {
     const entry = store.entries.find(e => e.id === id);
     if (!entry) return { persist: false, result: stewardFail('not_found', `memory ${stewardSanitizeText(id)} not found`) };
@@ -409,6 +423,7 @@ async function stewardMemoryPanelRestore(idArg) {
 // 清空:confirm 必须【逐字】等于 'clear'(同 DELETE /api/skills 的「输入 id 才解锁」摩擦)。
 async function stewardMemoryPanelClear(confirm) {
   if (String(confirm) !== 'clear') return stewardFail('invalid_request', "confirm must be exactly 'clear'");
+  await stewardPreflightDecision();
   return stewardMutateMemory(async store => {
     const removed = store.entries.length;
     store.entries = [];

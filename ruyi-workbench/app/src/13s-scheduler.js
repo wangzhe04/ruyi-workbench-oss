@@ -309,21 +309,71 @@ function schedulerSaveTasks(operation = null) {
   return next;
 }
 
-// ── 落盘:fires-v1.ndjson(append-only;与 session-changes / inbox 同款原语)──────────────────
-function schedulerAppendFire(schedRow) {
-  schedulerRuntime.fireSeq += 1;
-  const row = { seq: schedulerRuntime.fireSeq, at: new Date(schedulerClockNow()).toISOString(), ...schedRow };
-  const file = schedulerFiresPath();
-  const payload = JSON.stringify(row) + '\n';
-  const next = schedulerFiresChain.catch(() => {}).then(async () => {
-    await fsp.mkdir(schedulerDir(), { recursive: true });
-    await repairMissionChangeTornTail(file);   // 尾部半行先截干净,再整行 append(防焊接)
-    await fsp.appendFile(file, payload, 'utf8');
-  });
-  schedulerFiresChain = next.catch(() => {});
-  return next.then(() => row);
+// ── 落盘:fires-v1.ndjson(append-only;共享物理序号与认证窗口)──────────────────
+function schedulerFireRowValid(row) {
+  return !!row && typeof row === 'object' && !Array.isArray(row)
+    && Number.isSafeInteger(Number(row.seq)) && SCHEDULER_PHASES.includes(String(row.phase || ''));
 }
-async function schedulerReadFiresText() {
+function schedulerFireJournal() {
+  return WorkDataJournals.create({ file: schedulerFiresPath,
+    context: { kind: 'scheduler-fires', sessionId: 'scheduler-global' },
+    enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
+    writeJson: atomicWriteJson,
+    validateSealedLine: text => { try { return schedulerFireRowValid(JSON.parse(text)); } catch { return false; } },
+    onRollbackFailure: () => { schedulerRuntime.lastError = 'work_data_journal.recovery_required'; },
+  });
+}
+function withSchedulerFireLock(work) {
+  const next = schedulerFiresChain.catch(() => {}).then(work);
+  schedulerFiresChain = next.catch(() => {});
+  return next;
+}
+// Must be called under the task owner: Tasks -> Fires is the sole nested lock
+// order. UI reads cannot acknowledge recovery or publish new business counters.
+async function schedulerFirePreflight() {
+  return withSchedulerFireLock(() => {
+    const journal = schedulerFireJournal();
+    return journal.withOperation(async operation => {
+      if (journal.recoveryPending()) {
+        let maxSeq = 0;
+        const attempts = new Map();
+        const proof = await journal.readWindow(0, 0, text => {
+          let row; try { row = JSON.parse(text); } catch { return; }
+          if (!schedulerFireRowValid(row)) return;
+          maxSeq = Math.max(maxSeq, Number(row.seq));
+          if (row.phase === 'registered' && row.occurrenceKey) {
+            const key = String(row.occurrenceKey); attempts.set(key, (attempts.get(key) || 0) + 1);
+          }
+        }, false, null, operation);
+        const previousSeq = schedulerRuntime.fireSeq, previousAttempts = schedulerRuntime.attempts;
+        schedulerRuntime.fireSeq = Math.max(previousSeq, maxSeq);
+        schedulerRuntime.attempts = attempts;
+        try { await journal.acknowledgeRecovery(proof.recoveryTicket); }
+        catch (error) { schedulerRuntime.fireSeq = previousSeq; schedulerRuntime.attempts = previousAttempts; throw error; }
+      }
+      await journal.preflight(operation);
+    });
+  });
+}
+function schedulerAppendFire(schedRow) {
+  const at = new Date(schedulerClockNow()).toISOString();
+  return withSchedulerFireLock(async () => {
+    const journal = schedulerFireJournal();
+    return journal.withOperation(async operation => {
+      await journal.preflight(operation);
+      const seq = schedulerRuntime.fireSeq + 1, row = { seq, at, ...schedRow };
+      const file = schedulerFiresPath(), text = JSON.stringify(row);
+      await journal.append([text], async () => {
+        await fsp.mkdir(schedulerDir(), { recursive: true });
+        await repairMissionChangeTornTail(file);
+        await fsp.appendFile(file, text + '\n', 'utf8');
+      }, operation);
+      schedulerRuntime.fireSeq = seq;
+      return row;
+    });
+  });
+}
+async function schedulerReadLegacyFiresText() {
   const file = schedulerFiresPath();
   let size = -1;
   try { size = (await fsp.stat(file)).size; } catch { return { text: '', droppedHead: false }; }
@@ -339,6 +389,11 @@ async function schedulerReadFiresText() {
   } catch { return { text: '', droppedHead: false }; }
   finally { if (fh) await fh.close().catch(() => {}); }
 }
+function schedulerReadFiresText() {
+  return withSchedulerFireLock(() => schedulerFireJournal().readWindow(
+    SCHEDULER_FIRES_FULL_READ_BYTES, SCHEDULER_FIRES_TAIL_BYTES,
+    null, false, schedulerReadLegacyFiresText));
+}
 // 坏行/尾部半行一律跳过(append-only 日志的既有纪律)。
 async function schedulerReadFireRows() {
   const { text, droppedHead } = await schedulerReadFiresText();
@@ -349,8 +404,7 @@ async function schedulerReadFireRows() {
     if (!line) continue;
     let row = null;
     try { row = JSON.parse(line); } catch { row = null; }
-    if (!row || typeof row !== 'object') continue;
-    if (!Number.isSafeInteger(Number(row.seq)) || !SCHEDULER_PHASES.includes(String(row.phase || ''))) continue;
+    if (!schedulerFireRowValid(row)) continue;
     rows.push(row);
   }
   return rows;
@@ -444,6 +498,7 @@ async function schedulerRecordMissedSkip(task, missed, now) {
 //   ② 错过的时点 —— 必须排在 ① 之后:被崩溃消费掉的那个时点不该再算作「错过」。
 async function schedulerRecover(schedFireRows) {
   return schedulerTaskAdmission(async operation => {
+    await schedulerFirePreflight();
     const now = schedulerClockNow();
     const rows = Array.isArray(schedFireRows) ? schedFireRows : await schedulerReadFireRows();
     const byRun = new Map();          // runId -> { occurrenceKey, dueAt, mode, reconciled }
@@ -556,6 +611,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       // Recovery already advances a late task's nextFireAt; only ontime binds that due.
       if (schedMode !== 'manual' && (!task.state.enabled
         || (schedMode === 'ontime' && Date.parse(task.state.nextFireAt) !== schedDueMs))) return 'skipped';
+      await schedulerFirePreflight();
       if (schedulerRuntime.globalRuns.date !== day) schedulerRuntime.globalRuns = { date: day, count: 0 };
       if (!task.state.runsToday || task.state.runsToday.date !== day) task.state.runsToday = { date: day, count: 0 };
 
@@ -614,6 +670,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
     if (task.payload.kind === 'reminder') {
       // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
       await schedulerTaskAdmission(async () => {
+        await schedulerFirePreflight();
         await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
         schedulerEmitChanged(task.id, 'dispatched', '');
         schedulerMaybeCrash('after-dispatch');
@@ -626,6 +683,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       });
     } else {
       const session = await schedulerTaskAdmission(async operation => {
+        await schedulerFirePreflight();
         let session = null;
         if (task.target.mode === 'existing-session' && task.target.sessionId) {
           session = await loadSession(task.target.sessionId).catch(() => null);
@@ -817,6 +875,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   // ── ④ 收尾 ────────────────────────────────────────────────────────────────
   schedulerMaybeCrash('before-reconcile');
   return schedulerTaskAdmission(async operation => {
+    await schedulerFirePreflight();
     const finishedMs   = schedulerClockNow();
     if (refundDailyCounts) {
       if (task.state.runsToday && task.state.runsToday.date === day) task.state.runsToday = { date: day, count: Math.max(0, task.state.runsToday.count - 1) };
@@ -918,6 +977,7 @@ async function schedulerTick() {
     if (generation !== schedulerRuntime.generation) return;
     await schedulerLoad();
     if (generation !== schedulerRuntime.generation) return;
+    await schedulerTaskAdmission(() => schedulerFirePreflight());
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
     while (schedulerRuntime.lateQueue.length) {
       if (generation !== schedulerRuntime.generation) return;
@@ -945,6 +1005,7 @@ async function schedulerTick() {
       if (missed && missed.lateByMs > SCHEDULER_ONTIME_SLACK_MS) {
         if (missed.runLate) { schedulerDispatchFire(task, 'late', missed.dueMs); continue; }
         await schedulerTaskAdmission(async operation => {
+          await schedulerFirePreflight();
           const nextMs = nextFireAt(task.schedule, now);
           task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
           await schedulerRecordMissedSkip(task, missed, now);

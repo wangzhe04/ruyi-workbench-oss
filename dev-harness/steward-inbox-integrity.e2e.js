@@ -312,26 +312,38 @@ console.log('── (C) P1-8 游标损坏 ──');
 // 进程重启整份丢失。修后:一批处理完队列还有就接着排。
 console.log('── (E) P1-10 队列自持排空 ──');
 {
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const waitUntil = async (fn, ms) => {
-    const t0 = Date.now();
-    while (Date.now() - t0 < ms) { if (await fn()) return true; await sleep(400); }
-    return false;
-  };
-  try { srv.StewardHooks.resumeRunner(); } catch { /* 前面 stopStewardInbox 顺带停了回合队列,这里放开 */ }
-  const events = [];
-  for (let i = 1; i <= 45; i++) {
-    events.push({
-      inboxSeq: 900 + i, kind: 'done', sessionId: 'sess_inbox_a', missionId: 'sess_inbox_a', runId: '',
-      seq: 900 + i, at: new Date().toISOString(), payload: { summary: '收工 ' + i }, count: 1,
-    });
+  // Queue draining exercises real model turns. An empty activeProvider now
+  // correctly requeues an engine-unavailable batch, so supply only its endpoint.
+  const { startFakeProvider } = require('./lib/fake-openai-provider');
+  const fake = await startFakeProvider({ handler: () => JSON.stringify({ say: '看过了。', why: '收件箱通知', acts: [], actions: [] }) });
+  try {
+    writeConfig({ activeProvider: 'inbox-fake', stewardProviderId: 'inbox-fake', stewardModel: 'fake-model',
+      stewardThreadBriefV1: false, autoImportClaudeCodeMcp: false,
+      providers: [{ id: 'inbox-fake', label: 'Inbox fixture', type: 'openai-compat', baseUrl: fake.url, apiKey: 'fixture', model: 'fake-model' }] });
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const waitUntil = async (fn, ms) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { if (await fn()) return true; await sleep(400); }
+      return false;
+    };
+    try { srv.StewardHooks.resumeRunner(); } catch { /* 前面 stopStewardInbox 顺带停了回合队列,这里放开 */ }
+    const events = [];
+    for (let i = 1; i <= 45; i++) {
+      events.push({
+        inboxSeq: 900 + i, kind: 'done', sessionId: 'sess_inbox_a', missionId: 'sess_inbox_a', runId: '',
+        seq: 900 + i, at: new Date().toISOString(), payload: { summary: '收工 ' + i }, count: 1,
+      });
+    }
+    srv.StewardHooks.onInboxBatch(events);
+    const queued = async () => Number((await srv.StewardHooks.runnerState(config).catch(() => ({}))).queued) || 0;
+    ok(await queued() === 45, `E1 45 条事件先全部进内存队列(一个回合最多带 30 条;got ${await queued()})`);
+    // 一轮去抖 5 秒切走 30 条,修前剩下的 15 条就永远躺在这里了(没有新事件 = 没人再排定时器)。
+    const drained = await waitUntil(async () => (await queued()) === 0 && fake.requests.length >= 2, 45000);
+    ok(drained, `E2 不再有任何新事件进来,队列仍然自己排空(修前会永久停在 15 条;got ${await queued()})`);
+    ok(fake.requests.length >= 2 && fake.errors.length === 0, `E3 两批均到达真实模型请求入口(got ${fake.requests.length} requests / ${fake.errors.length} errors)`);
+  } finally {
+    try { srv.StewardHooks.stopRunner(); } finally { await fake.close(); }
   }
-  srv.StewardHooks.onInboxBatch(events);
-  const queued = async () => Number((await srv.StewardHooks.runnerState(config).catch(() => ({}))).queued) || 0;
-  ok(await queued() === 45, `E1 45 条事件先全部进内存队列(一个回合最多带 30 条;got ${await queued()})`);
-  // 一轮去抖 5 秒切走 30 条,修前剩下的 15 条就永远躺在这里了(没有新事件 = 没人再排定时器)。
-  const drained = await waitUntil(async () => (await queued()) === 0, 45000);
-  ok(drained, `E2 不再有任何新事件进来,队列仍然自己排空(修前会永久停在 15 条;got ${await queued()})`);
 }
 
 console.log('');

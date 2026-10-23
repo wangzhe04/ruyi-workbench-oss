@@ -113,3 +113,9 @@ M2/A3 产品独立验收：`node dev-harness/privacy-model-send-boundary.e2e.js`
 仅接受此前指纹有效且本片独审过的13u/13s/13t源码，以及上述一个删除和一个备份调用指纹变更。05/09/12/13/13l在本片前已有未审指纹，继续保留，不借本片清零旧债。最终扫描280份源码/配置、688条候选，`--write --check`仍有76项历史审阅错误，退出1；本片增量已核对，但全局清册未闭合，不能当作完整安全验收。生成视图保留这些错误；实际DPAPI及回归证据见 `docs/optimization-plan/evidence/privacy-migration-scheduler-storage.json`。
 
 本片全单测追加发现旧备份退役的完整文件戳碰撞风险。02最小修复复用现有存储读取/认证与本地stat/unlink，无候选新增、删除或调用指纹变化；重建后的manifest配置候选指纹随行区间改变。02及生成manifest既有未审错误均保留，76项错误ID集合不变，不接受旧文件的全量指纹。
+
+## 2026-10-24 辅助日志与调度触发的限定增量审阅
+
+独立全源阅读新增01s及此前指纹有效的13ab/13g/13s：新增边界为宿主指定的内部日志/stage文件句柄、原子归档和本地准入回调，没有新socket、子进程或stdio接收方。只接受这四份源指纹；删除06中已移到共享二进制归档适配器的一个旧gzip writeFile候选，不接受06的既存stale源指纹。分类组保持原状，没有升级protected。
+
+扫描器没有枚举FileHandle.write、open、appendFile等调用；四份源的零词法候选不能当作零边界。文件系统路径由本地owner确定，不构成OS或网络盘隔离。完整扫描为281源、687候选，限定增量处理后仍有与基线完全相同的76个错误ID，生成视图明确保留，检查退出1。实际DPAPI、源码故障与回归各自证据见 `docs/optimization-plan/evidence/privacy-aux-journals-and-fires.json`；不据此声称全局清册已通过。

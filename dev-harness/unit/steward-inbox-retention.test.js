@@ -9,6 +9,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 const { functionBlock } = require('../lib/source-slice');
+const { loadWorkDataJournals } = require('../lib/work-data-journals-fixture');
 const src = path.resolve(__dirname, '../../ruyi-workbench/app/src');
 const projectionSource = functionBlock(fs.readFileSync(path.join(src, '06i-steward-core.js'), 'utf8'), 'stewardForeignProjection');
 const inboxSource = fs.readFileSync(path.join(src, '13i-steward-inbox.js'), 'utf8');
@@ -33,23 +34,15 @@ function harness(t, rows = []) {
   const file = path.join(home, 'steward', 'inbox-v1.ndjson');
   fs.mkdirSync(path.dirname(file));
   fs.writeFileSync(file, rows.map(value => JSON.stringify(value)).join('\n') + (rows.length ? '\n' : ''));
-  const context = vm.createContext({ require, fs, fsp: { ...fsp }, path, crypto, Buffer, Date, process, setTimeout, clearTimeout,
+  const io = { ...fsp };
+  const context = vm.createContext({ require, fs, fsp: io, path, crypto, Buffer, Date, process, setTimeout, clearTimeout,
     paths: { data: home }, RUYI_EVENTS: { subscribe() {}, emit() {} }, STEWARD_SESSION_ID: 'steward',
     STEWARD_EVENT_KINDS: ['needs_you', 'failed', 'done', 'stalled', 'budget', 'adopted', 'reminder'],
     safeJsonParse: (text, fallback) => { try { return JSON.parse(text); } catch { return fallback; } },
     repairMissionChangeTornTail: async () => {}, safeSessionId: value => value, nowIso: () => new Date().toISOString(),
     getPretenderProjectionIndex: async () => ({ sessions: [{ sessionId: 'sess_test', interventions: [] }] }),
-    // M3-2d: 13i 的游标改走 WorkDataStore.createText。这个 vm 只切了 steward 的源码，没有 01p，
-    // 所以给一个"明文直通"的最小实现（与适配器开关关闭时的行为一致），把留级/节流逻辑与加密层隔离。
-    // 13g 在真实装载里定义并填充它；这个 vm 只切了 13j 的片段，给个空注册表即可。
-    StewardHooks: {},
-    WorkDataStore: {
-      createText: ({ file, writeJson }) => ({
-        read: async () => { try { return await fsp.readFile(file(), 'utf8'); } catch (error) { if (error && error.code === 'ENOENT') return null; throw error; } },
-        write: async text => { await writeJson(file(), text); return text; },
-      }),
-      requireKeys: () => { throw Object.assign(new Error('no keys in this fixture'), { code: 'work_data_store.not_initialised' }); },
-    },
+    StewardHooks: {}, readConfig: async () => ({workDataEncryptionV1:false}),
+    ...loadWorkDataJournals({io}), crypto,
   });
   vm.runInContext(atomicSource + '\n' + inboxSource + '\n' + projectionSource + '\n' + toolSource + '\n' +
     'globalThis.api = { stewardRuntime, stewardMaintainInbox, stewardAppendInboxRows, stewardInboxRead, stewardImplInboxRead, stewardSaveCursor, stewardLoadState };', context);
@@ -103,7 +96,7 @@ test('整理和追加共用写链,重写前后的新通知都不丢;一小时内
   const h = harness(t, [row(1, 60), row(2)]);
   await Promise.all([h.stewardAppendInboxRows([row(3)]), h.stewardMaintainInbox(NOW), h.stewardAppendInboxRows([row(4)])]);
   assert.deepEqual(h.read().map(r => r.inboxSeq), [2, 3, 4]);
-  h.context.fs = { ...fs, createReadStream() { throw new Error('must not rescan'); } };
+  h.context.fsp.open = async () => { throw new Error('must not rescan'); };
   await h.stewardMaintainInbox(NOW + 1);
 });
 
@@ -111,7 +104,7 @@ test('读失败、坏行或原子替换失败都保留原文件;整理故障也�
   for (const failure of ['read', 'invalid', 'rename']) {
     const h = harness(t, [row(1, 60), row(2)]);
     if (failure === 'invalid') fs.appendFileSync(h.file, '{torn');
-    if (failure === 'read') h.context.fs = { ...fs, createReadStream: file => fs.createReadStream(file + '.missing') };
+    if (failure === 'read') h.context.fsp.open = async () => { throw Object.assign(new Error('read I/O'), {code:'EIO'}); };
     if (failure === 'rename') h.context.fsp.rename = async () => { throw Object.assign(new Error('I/O'), { code: 'EIO' }); };
     const before = fs.readFileSync(h.file, 'utf8');
     await assert.rejects(h.stewardMaintainInbox(NOW));

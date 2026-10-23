@@ -1,0 +1,145 @@
+{
+  "status": "UNFINISHED; DO NOT APPLY; DO NOT COUNT WIRED",
+  "stopReason": "User asked to finish current 38-family batch then stop today. Root will archive this draft without applying.",
+  "baseline": "9c12fe35",
+  "identities": [
+    {
+      "file": "ruyi-workbench/app/src/13u-migration-center.js",
+      "baseline": "8488a7ac0ebfc7ca33ebd4f42c8034de9f740c97c9f35c47c1daba63d533902e",
+      "currentV4": "5c512b275203070c78afddca932362a8b38484f75b7284e09d725867a39010fc"
+    },
+    {
+      "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "baseline": "ae7eb62349b95005c07c4ed338a67bba121c5ecc8cc505e72931f55e47e1dfcd",
+      "currentV4": "bb1c3b54c505d9d4e64f83550a6f59dec4c4bcca25089f98caf5a30e5a8bc777"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "baseline": "2bea765b05ec3280b10f8f1d6ff7026fc3fafff759c32e04afcd11044f9e94f3",
+      "currentV4": "0dfc31143920b676564122ebc138e81ace2cfe88f1a0f1a39df2afef8af4c6ab"
+    }
+  ],
+  "immutableHistory": {
+    "v3": {
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-skill-backups-v3-2a55886ae1e84b40b03c8317671d99bc",
+      "product13u": "123a93ee642e06a5d126762b21d2647a8bed3adfafb11494fc15d9ab11a4ab89",
+      "sourceResult": "48/48 PASS; does not cover delayed DOS alias fidelity",
+      "independentlyAccepted": [
+        "original object/regular DATA+ADS/readonly roundtrip",
+        "known readonly and directory ADS writer preflight",
+        "readonly handoff new writer: no truncation/ADS deletion/rename, original Basic restored",
+        "final Basic all four times/attrs; readable owner/group/DACL SDDL",
+        "whole registry/readEnabledSkill owner; pre-listen recovery ordering; negative controls"
+      ]
+    },
+    "v3Blocker": "independent 22-second delayed undo lost ORIGONE.TXT/ORIGTWO.TXT aliases to LONG-P~1.TXT/LONG-P~2.TXT on SAME original file IDs; immediate undo passed via NTFS tunneling",
+    "v4": {
+      "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-skill-backups-v4-c5c908c882a54175a570eb9f16292dc1",
+      "sourceResult": "2/2 targeted positive cases FAIL; same first failure repeated into saved log after root stop request",
+      "command": "node --test --test-name-pattern 'ON ordinary|read-only ordinary' dev-harness/unit/migration-skill-backups-work-data.test.js",
+      "error": "work_data_backup.restore_verify_win32_5; operationMayHaveExecuted=true/resultUnavailable=true/retry=false",
+      "location": "new native RestoreAliases after private tree/content reconstruction; suspected directory alias operation with descendant handles open, not yet isolated or fixed",
+      "attempted": [
+        "authenticated original shortName per node",
+        "NtQueryInformationFile class21 and CheckNameLegalDOS8Dot3W",
+        "disposable set/remove short-name capability probe in owned stage before original changes",
+        "remove capsule aliases after opaque rename",
+        "restore child aliases/private tree then root alias after publication",
+        "finish-published metadata recovery branch"
+      ],
+      "noFinalReview": true,
+      "noBuild": true,
+      "noDirectE2E": true
+    }
+  },
+  "commands": {
+    "source": "node --test dev-harness/unit/migration-skill-backups-work-data.test.js dev-harness/unit/migration-records-work-data.test.js",
+    "delayed": "$env:RUYI_MIGRATION_CANDIDATE=<reconstructed-checkout>; node <packet>/probes/shortname-delayed.cjs",
+    "delayedNote": "RUYI_SHORTNAME_DELAY_MS defaults 22000, reproducing this machine; not a universal maximum tunnel age. No registry/cache changes.",
+    "preparedE2E": "$env:MIGRATION_REPO=<reconstructed-checkout>; node dev-harness/migration-skill-backups-work-data.e2e.js",
+    "preparedE2ENote": "real generated runtime + CurrentUser DPAPI + isolated HOME/config/source. Only node --check performed. Root builds/runs it after actual fix and independent review."
+  },
+  "resume": [
+    "Reconstruct 9c12fe35 in an isolated checkout; apply product.patch only there; copy four included dev-harness files. Existing harness/crypto/source helpers come from that checkout.",
+    "Rebase local differences only over current HEAD; never restore historical shared 01q/01s/06/08/09 or dependencies from TEMP.",
+    "Isolate native SetFileShortName Win5 by node kind and open descendant/ADS handles. Do not treat suspected cause as already proven.",
+    "Restore each child alias while original directories remain empty or release/reopen only the necessary handles; final root alias must use actual skills parent without colliding with wrapper names.",
+    "Before publication validate root alias against unrelated siblings. Do not overwrite/delete unknown nodes or aliases.",
+    "For every release/reopen retain original object guards, check exact IDs/DATA/ADS/entry/stream/alias sets, then restore+verify original Basic AFTER all reads/namespace operations.",
+    "Complete restoring+already-published root via verified metadata finalization, never content-only completion. Add crash-cut tests.",
+    "Test original shortName empty, custom aliases, reversed collision suffixes, legal OEM/non-ASCII, readonly/dir aliases, capability preflight failure. Do not rely on tunneling.",
+    "Keep V3 positive and precise negative controls, repeat source tests, freeze next identity, get independent review, then root alone applies/builds/executes generated DPAPI/startup/E2E/full gates."
+  ],
+  "contracts": {
+    "off": "original whole-directory rename/undo, arbitrary bytes, no new sealed archive cap or key creation",
+    "on": "same NTFS root/dirs/files; all ordinary DATA/file and directory ADS in authenticated binary archive; durable preparing/ready/published/restoring/complete/aborted intent; sealed capsule opaque/empty; no plaintext temp archive",
+    "security": "original objects retain security descriptors; SACL not read/recreated. Only readable owner/group/DACL SDDL is empirically compared.",
+    "preflight": "hardlink/reparse/EA/unsupported attributes/stream kinds/filesystem/cross-volume/shape/format/key/capacity and known DATA writers safely refuse before original data mutation",
+    "owner": "migrationSerial handles recovery/copy/undo and complete registry/readEnabledSkill reads; startup awaits recovery after ensureDirs before boot consumers/listen; no recursive acquisition",
+    "receipt": "post-intent or post-log failures retain archive/objects/intent and uncertain/no-retry receipts; recovery never replays source copying or blindly repeats destructive undo",
+    "limitation": "no cross-process CAS/no defense against malicious same-account changes in private directories; unknown children/streams are preserved"
+  },
+  "primaryReferences": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setfileshortnamew",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationfile",
+    "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/fltkernel/nf-fltkernel-fltgettunneledname",
+    "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/cb90d9e0-695d-4418-8d89-a29e2ba9faf8"
+  ],
+  "evidence": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-skill-backups-v4-c5c908c882a54175a570eb9f16292dc1\\source-v4-current-known-failure.log",
+      "sha256": "5e5749f536c99231c10cefc0cc64c54bbf808af476c900062afcb1a35ec6db7a",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-skill-backups-v3-2a55886ae1e84b40b03c8317671d99bc/source-v3-final-first.log",
+      "sha256": "d56692436b022cd76d1e916fbdb2ed4d9e7e236fcb02e0025e6f9850140fc998",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/backup-shortname-delayed-probe.cjs",
+      "sha256": "86619828c8a6a201cea4bd382817892f0c54e93cb32f5ff582309a9bb94f9daa",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/backup-shortname-delayed-result.json",
+      "sha256": "a0e22d2aa71352a322b90d5e9ed84c9e9ed43c65f25098c85d5815ae3536ccf6",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/backup-shortname-delayed-first.log",
+      "sha256": "401e63b3d897bd7bb7a5c76a41ddedf3c4974d29cf6cc1796808b0057528611b",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/backup-shortname-result.json",
+      "sha256": "9f1f8a92db2b6342f89011c90e7470a68e3885a066fdbcf665ff56e1b4e68e1d",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/backup-readonly-writer-independent.test.cjs",
+      "sha256": "74701ffba4a17175bf5b5878eb5db7fbea051e33d04c5adbb7cecac4343f77ec",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/backup-readonly-writer-result.json",
+      "sha256": "2539bfa156b264cdda1f7042ce592fa8d96eb07311b78ce41d32174297e296dc",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/backup-readonly-writer-first.log",
+      "sha256": "10f91b01cc6e7a7fd43d4a7b95f531bc409e64576154a27935f7a3887df858f6",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/backup-protocol-review-pending.json",
+      "sha256": "e270abe732f4f1a1f0d984722b3079f04b38c688c0368a0922a94247b3177879",
+      "copiedIntoPacket": false
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-capsule-shortname-8071fe255e48443bb70bbbefa1ad8e04/result.json",
+      "sha256": "56e4b1462a314ccf5a86aa02947736b94e4be332e3fa31f24abdc905342b8b44",
+      "copiedIntoPacket": false
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # NDJSON draft shutdown handoff — 2026-10-23
 
+Historical draft, partially superseded on 2026-10-24: the three families and scheduler-fires were rebased, completed and independently reviewed; see [current evidence](../../evidence/privacy-aux-journals-and-fires.json). The old patches and failures below remain historical and must not be applied over current source. Cached stat authority was rejected by same-stat content experiments; current reads classify the full file each time.
+
 FROZEN INCOMPLETE DRAFT. Do not apply these product files or count these three families as wired. No product repo edits, build, generated-runtime test, DPAPI test or direct E2E were performed for this draft.
 
 Scope: steward-inbox (13i), steward-decisions (13j), agent-run-events (08 plus planned 06 gzip archive and 08 gzip reader). Scheduler tasks/fires/background-job-ledger are outside this draft.

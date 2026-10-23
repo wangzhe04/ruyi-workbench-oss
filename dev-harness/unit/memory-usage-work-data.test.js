@@ -61,13 +61,18 @@ if (process.platform !== 'win32') {
   });
 
   test('the cursor family is wired through the adapter (structural lock)', () => {
-    const { constBlock } = require('../lib/source-slice');
+    const { constBlock, functionBlock } = require('../lib/source-slice');
     const src = fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/src/13i-steward-inbox.js'), 'utf8');
     const store = constBlock(src, 'stewardCursorStore');
     assert.match(store, /WorkDataStore\.createText\(/);
-    assert.match(store, /recordId: 'steward-cursor'/);
-    assert.match(src, /const text = await stewardCursorStore\.read\(\)/);
-    assert.match(src, /await stewardCursorStore\.write\(JSON\.stringify\(\{/);
+    const host = constBlock(src, 'stewardCursorHost');
+    assert.match(host, /recordId: 'steward-cursor'/);
+    assert.match(store, /WorkDataStore\.createText\(stewardCursorHost\)/);
+    assert.match(functionBlock(src, 'stewardLoadState'), /await stewardCursorStorage\(operation\)\.read\(\)/);
+    assert.match(functionBlock(src, 'stewardSaveCursor'), /await stewardCursorStorage\(operation\)\.write\(JSON\.stringify\(\{/);
+    const borrowed = functionBlock(src, 'stewardCursorStorage');
+    assert.match(borrowed, /\.\.\.stewardCursorHost/);
+    assert.match(borrowed, /await operation\.credential\(\)/);
     assert.doesNotMatch(src, /atomicWriteJson\(stewardCursorPath\(\)/);
   });
 }

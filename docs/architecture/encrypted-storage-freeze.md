@@ -13,7 +13,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 
 Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v2 manifest and chunk envelopes. See [93 section 11](../optimization-plan/93-m3-1-encrypted-storage-freeze.md#11-m3-2-大记录格式补充2026-10-23); the frozen v2 crypto envelope is unchanged.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits`, `agent-run-snapshot`, `web-cache`, `external-bots`, `session-index`, `session-v1-backup`, `proxy-models-cache`, `journal-index`, `journal-reverts`, `journal-history`, `memory-body`, `session-search-index`, `pretender-index`, `migration-log`, `skill-import-record`, `scheduler-tasks` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits`, `agent-run-snapshot`, `web-cache`, `external-bots`, `session-index`, `session-v1-backup`, `proxy-models-cache`, `journal-index`, `journal-reverts`, `journal-history`, `memory-body`, `session-search-index`, `pretender-index`, `migration-log`, `skill-import-record`, `scheduler-tasks`, `steward-inbox`, `steward-decisions`, `agent-run-events`, `scheduler-fires` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -41,15 +41,15 @@ Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v
 | steward-memory | required | `memory` | memory-queue | wired | — (nothing readable) | steward notes are task content |
 | steward-visits | required | `memory` | memory-queue | wired | — (nothing readable) | visit history reveals which threads and items the steward read |
 | voice-lexicon | required | `user-config` | memory-queue | wired | — (nothing readable) | personal vocabulary and names |
-| steward-inbox | required | `queue` | memory-queue | pending | — (nothing readable) | inbox items quote incoming messages |
+| steward-inbox | required | `queue` | memory-queue | wired | — (nothing readable) | inbox items quote incoming messages |
 | steward-cursor | required | `queue` | memory-queue | wired | — (nothing readable) | cursors rarely carry text but they reveal activity pacing; sealed with the inbox they describe |
-| steward-decisions | required | `queue` | memory-queue | pending | — (nothing readable) | decisions and rationales quote the triggering content |
+| steward-decisions | required | `queue` | memory-queue | wired | — (nothing readable) | decisions and rationales quote the triggering content |
 | work-data-key-v1 | excluded | — | not-migrated | pending | — (nothing readable) | the key envelope itself: a DPAPI-wrapped master with no user content; every work-data record needs it unlocked first, so it cannot live inside the envelope it protects |
 | external-bots | required | `queue` | memory-queue | wired | `connectionId` (route a delivery to its connection) | labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file |
 | scheduler-tasks | required | `task` | tasks | wired | `taskId` (occurrence routing) | templates embed prompts and targets |
-| scheduler-fires | required | `task` | tasks | pending | `taskId` (join to the task); `occurrenceId` (idempotency key across restarts) | fire records quote the rendered prompt and result status |
+| scheduler-fires | required | `task` | tasks | wired | `taskId` (join to the task); `occurrenceId` (idempotency key across restarts) | fire records quote the rendered prompt and result status |
 | agent-run-snapshot | required | `task` | tasks | wired | `sessionId` (attach to the session); `runId` (idempotency key) | run goals and step results are user content |
-| agent-run-events | required | `task` | tasks | pending | `sessionId` (attach to the session); `runId` (idempotency key) | event stream replays tool input/output |
+| agent-run-events | required | `task` | tasks | wired | `sessionId` (attach to the session); `runId` (idempotency key) | event stream replays tool input/output |
 | background-job-ledger | required | `task` | tasks | pending | `sessionId` (attach to the session); `seq` (append ordering only) | job output and exit detail |
 | personal-workflows | required | `workflow` | tasks | wired | `workflowId` (workflow identity) | workflow steps embed prompts and paths |
 | playbooks | required | `workflow` | tasks | wired | `playbookId` (playbook identity) | playbook bodies embed prompts and examples |

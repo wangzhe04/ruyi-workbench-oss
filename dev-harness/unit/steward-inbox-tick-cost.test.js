@@ -10,7 +10,7 @@
 //   [T1] 会话数 > 500 时,无变化的第二/三拍【零】会话头读取、零 .changes.ndjson 打开、零游标写盘
 //   [T2] 落盘游标仍按 500 封顶(重启后读回的语义不变)、写的是紧凑 JSON、内容结构完好
 //   [T3] 有真变化(用户交接入箱)的那一拍照常写游标、照常入箱 —— 「不写」不是「写不出」
-//   [S1] stewardInboxState 在 inbox 文件没变时不重读文件;追加(外部写、tick 写)之后的结果与
+//   [S1] stewardInboxState 每次做真实分类/认证读取，但同一逻辑窗口不重复业务解析；追加之后的结果与
 //        「独立按行解析整份文件」的参考值逐项相等;返回的 byKind 是拷贝,改它污染不了下一次
 //   [S2] 读 inbox 撞上一次瞬时锁(EBUSY,Windows 杀软 / 索引器常见):那一次报零可以,但不许把「空箱子」记进备忘 ——
 //        文件没再变,下一次也得读出真值(审查轮复现过:修前一直报零,直到文件下次变化)
@@ -62,7 +62,8 @@ for (let i = 0; i < COUNT; i++) {
 const fsp = require('fs/promises');
 const counts = {};
 const reset = () => { for (const k of Object.keys(counts)) delete counts[k]; };
-const snap = () => ({ headRead: 0, changesOpen: 0, cursorWrite: 0, inboxRead: 0, ...counts });
+const snap = () => ({ headRead: 0, changesOpen: 0, cursorWrite: 0, inboxRead: 0, inboxOpen: 0,
+  inboxWindowBytes: 0, inboxOpenBytes: 0, inboxParse: 0, ...counts });
 for (const name of ['readFile', 'open', 'writeFile']) {
   const orig = fsp[name].bind(fsp);
   fsp[name] = function (p, ...rest) {
@@ -71,9 +72,23 @@ for (const name of ['readFile', 'open', 'writeFile']) {
     if (name === 'readFile' && /sessions[\\/]sess_\d+\.json$/.test(s)) cat = 'headRead';
     else if (/\.changes\.ndjson$/.test(s)) cat = 'changesOpen';
     else if (name === 'writeFile' && /cursor-v1\.json/.test(s)) cat = 'cursorWrite';
-    else if ((name === 'readFile' || name === 'open') && /inbox-v1\.ndjson$/.test(s)) cat = 'inboxRead';
+    else if (name === 'readFile' && /inbox-v1\.ndjson$/.test(s)) cat = 'inboxRead';
+    else if (name === 'open' && /inbox-v1\.ndjson$/.test(s)) cat = 'inboxOpen';
     if (cat) counts[cat] = (counts[cat] || 0) + 1;
-    return orig(p, ...rest);
+    const pending = orig(p, ...rest);
+    if (cat === 'inboxRead') return pending.then(value => {
+      counts.inboxWindowBytes = (counts.inboxWindowBytes || 0) + Buffer.byteLength(value);
+      return value;
+    });
+    if (cat === 'inboxOpen') return pending.then(handle => new Proxy(handle, { get(target, property) {
+      if (property === 'read') return async (...args) => {
+        const result = await target.read(...args);
+        counts.inboxOpenBytes = (counts.inboxOpenBytes || 0) + result.bytesRead;
+        return result;
+      };
+      const value = Reflect.get(target, property); return typeof value === 'function' ? value.bind(target) : value;
+    } }));
+    return pending;
   };
 }
 
@@ -97,7 +112,10 @@ function reference() {
 }
 
 (async () => {
-  const srv = require(server);
+  const { loadServerInternals } = require(path.resolve(path.dirname(server), '../../dev-harness/lib/server-internals'));
+  const srv = loadServerInternals(['normalizeConfig', 'startStewardInbox', 'stopStewardInbox', 'StewardHooks', 'RUYI_EVENTS'], { withEval: true });
+  srv.__eval('observe => { const original = stewardParseInboxText; stewardParseInboxText = (...args) => { observe(); return original(...args); }; }')(
+    () => { counts.inboxParse = (counts.inboxParse || 0) + 1; });
   const cfg = srv.normalizeConfig(JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8'))).config;
   const out = { ticks: [] };
   // 已在跑时再 start = 幂等地补一拍(见 startStewardInbox),用它当「手动 tick」。
@@ -115,14 +133,16 @@ function reference() {
   out.seqBefore = seqBefore; out.seqAfter = reference().inboxSeq;
   reset(); await srv.startStewardInbox(cfg); out.settleTick = snap();   // 变化之后又归于平静
 
-  // [S1] state:第一次(文件自上次读之后被 tick 追加过)最多读一次,之后同一份文件零次读取
+  // [S1] Every call still reads/classifies/authenticates current bytes. Only the
+  // business parser is memoized; its first/changed positive controls must fire.
   reset();
   const s1 = await srv.StewardHooks.inboxState(cfg);
   const afterFirst = snap().inboxRead;
+  const firstIo = snap();
   const s2 = await srv.StewardHooks.inboxState(cfg);
   const s3 = await srv.StewardHooks.inboxState(cfg);
   const totalReads = snap().inboxRead;
-  out.state = JSON.parse(JSON.stringify({ firstReads: afterFirst, totalReads, s1, s2, s3, ref: reference() }));   // 先序列化定格,下面要故意改 s3
+  out.state = JSON.parse(JSON.stringify({ firstReads: afterFirst, totalReads, firstIo, totalIo: snap(), s1, s2, s3, ref: reference() }));
 
   // 返回的 byKind 是拷贝:改它不该污染下一次
   s3.counts.byKind.needs_you = 99999;
@@ -138,6 +158,7 @@ function reference() {
   reset();
   out.stateAfterAppend = await srv.StewardHooks.inboxState(cfg);
   out.stateAfterAppendReads = snap().inboxRead;
+  out.stateAfterAppendIo = snap();
   out.stateAfterAppendRef = reference();
 
   srv.stopStewardInbox();
@@ -166,6 +187,8 @@ test('[T1] 会话数 > 500:无变化的稳态拍零会话头读取、零 .change
     assert.equal(t.changesOpen, 0, `稳态第 ${i + 1} 拍还在开 .changes.ndjson:${JSON.stringify(t)}`);
     assert.equal(t.cursorWrite, 0, `稳态第 ${i + 1} 拍游标内容没变却重写了 cursor-v1.json:${JSON.stringify(t)}`);
     assert.equal(t.inboxRead, 0, `稳态第 ${i + 1} 拍读了 inbox:${JSON.stringify(t)}`);
+    assert.ok(t.inboxOpen > 0 && t.inboxOpenBytes > 0, `真实分类读取未触达:${JSON.stringify(t)}`);
+    assert.equal(t.inboxParse, 0, `稳态拍不得重新解析 inbox 业务行:${JSON.stringify(t)}`);
   }
 });
 
@@ -194,10 +217,15 @@ test('[T3] 真变化的那一拍照常写游标、照常入箱;之后归于平�
   assert.equal(R.settleTick.headRead, 0);
 });
 
-test('[S1] stewardInboxState:文件没变不重读;追加之后与独立解析的参考值逐项相等', () => {
+test('[S1] stewardInboxState:每次真实分类/读，但窗口没变不重解析；追加后与独立参考相等', () => {
   const st = R.state;
   assert.ok(st.firstReads <= 1, `第一次最多读一遍文件,实际 ${st.firstReads}`);
-  assert.equal(st.totalReads, st.firstReads, `文件没变的第 2/3 次调用还在重读 inbox(共 ${st.totalReads} 次)`);
+  assert.equal(st.totalReads, 3, '三次调用均保留真实 legacy-window 读取，不把 memo 当授权');
+  assert.equal(st.firstIo.inboxParse, 1, '首调必须触发真实业务 parser 正控制');
+  assert.equal(st.totalIo.inboxParse, 1, '同窗口后两次不再调用真实业务 parser');
+  assert.equal(st.totalIo.inboxOpen, 3, '三次调用均做真实当前元数据分类');
+  assert.ok(st.totalIo.inboxOpenBytes > st.firstIo.inboxOpenBytes, '分类 I/O 成本单列且确实增加');
+  assert.ok(st.totalIo.inboxWindowBytes > st.firstIo.inboxWindowBytes, '原窗口 I/O 不伪装为零');
   for (const s of [st.s1, st.s2, st.s3]) {
     assert.deepEqual(s.counts.byKind, st.ref.byKind, 'tick 写入之后的 byKind 与参考值不等');
     assert.equal(s.inboxSeq, st.ref.inboxSeq);
@@ -207,6 +235,8 @@ test('[S1] stewardInboxState:文件没变不重读;追加之后与独立解析�
   assert.deepEqual(R.stateAfterMutation.counts.byKind, st.ref.byKind, '改返回值污染了备忘');
   // 外部追加:failed +1、done +1,白名单外与坏行被跳过,inboxSeq 取到 90002(90003 是白名单外的行)
   assert.equal(R.stateAfterAppendReads, 1, '文件变了应恰好重算一次');
+  assert.equal(R.stateAfterAppendIo.inboxParse, 1, '真实追加后 parser 正控制必须重新触发');
+  assert.equal(R.stateAfterAppendIo.inboxOpen, 1, '追加后重新分类当前物理文件');
   assert.deepEqual(R.stateAfterAppend.counts.byKind, R.stateAfterAppendRef.byKind);
   assert.equal(R.stateAfterAppend.counts.byKind.failed, st.ref.byKind.failed + 1);
   assert.equal(R.stateAfterAppend.counts.byKind.done, st.ref.byKind.done + 1);

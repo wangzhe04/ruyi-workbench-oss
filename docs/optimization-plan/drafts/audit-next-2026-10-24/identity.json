@@ -1,0 +1,41 @@
+{
+  "status": "plan_only_not_implemented",
+  "identities": [
+    {
+      "name": "01q-work-data-records.js",
+      "expected": "90dee8fb44a036977904c87060ed01aabcf1a0837132675f39639c32b6aa2114",
+      "actual": "90dee8fb44a036977904c87060ed01aabcf1a0837132675f39639c32b6aa2114",
+      "unchanged": true
+    },
+    {
+      "name": "01s-work-data-journals.js",
+      "expected": "fddb5bbdaa925db981f6fcfd78a57ec61f40e0be3f89ff4ea95d03f0d20242d8",
+      "actual": "fddb5bbdaa925db981f6fcfd78a57ec61f40e0be3f89ff4ea95d03f0d20242d8",
+      "unchanged": true
+    },
+    {
+      "name": "04-permission-runtime.js",
+      "expected": "6e8078be86da95fe47cdb511d6f0c11ed5f692df1195d0cbdfdd06ab8e19a09e",
+      "actual": "6e8078be86da95fe47cdb511d6f0c11ed5f692df1195d0cbdfdd06ab8e19a09e",
+      "unchanged": true
+    },
+    {
+      "name": "06-provider-engine.js",
+      "expected": "b02997d755d8585273b36fa447091b085bdb79879d41ee221e568f09aea6fe96",
+      "actual": "b02997d755d8585273b36fa447091b085bdb79879d41ee221e568f09aea6fe96",
+      "unchanged": true
+    },
+    {
+      "name": "13-http-router.js",
+      "expected": "2bea765b05ec3280b10f8f1d6ff7026fc3fafff759c32e04afcd11044f9e94f3",
+      "actual": "2bea765b05ec3280b10f8f1d6ff7026fc3fafff759c32e04afcd11044f9e94f3",
+      "unchanged": true
+    },
+    {
+      "name": "13ab-privacy-api.js",
+      "expected": "a323cc7c5be04be9540772ca42f5b0521b67f7af1b786b625f8a1dcede808292",
+      "actual": "a323cc7c5be04be9540772ca42f5b0521b67f7af1b786b625f8a1dcede808292",
+      "unchanged": true
+    }
+  ]
+}

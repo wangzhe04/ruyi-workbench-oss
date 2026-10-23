@@ -636,16 +636,12 @@ async function sweepAgentRunEventsStore(policy, result) {
       const st = await fsp.stat(eventsFile).catch(() => null);
       if (!st || st.size === 0) continue;
       try {
-        if (!fs.existsSync(gzFile)) {
-          const gz = zlib.gzipSync(await fsp.readFile(eventsFile));
-          await fsp.writeFile(gzTmp, gz);
-          await fsp.rename(gzTmp, gzFile);
-        }
-        await fsp.unlink(eventsFile);
+        if (typeof EventStreamHooks.archiveAgentRunEvents !== 'function') throw Object.assign(new Error('work_data_store.not_initialised'), { code: 'work_data_store.not_initialised', statusCode: 503 });
+        if (!await EventStreamHooks.archiveAgentRunEvents(dirent.name, runId)) continue;
         const gzSize = (await fsp.stat(gzFile).catch(() => null) || {}).size || 0;
         result.freedBytes += Math.max(0, st.size - gzSize);
         result.actions.push({ store: 'agentRuns', action: 'gzip', detail: `${dirent.name}/${runId}.events.ndjson`, bytes: Math.max(0, st.size - gzSize) });
-      } catch { await fsp.unlink(gzTmp).catch(() => {}); /* best-effort: 下次 sweep 重试 */ }
+      } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* best-effort: 下次 sweep 重试 */ }
     }
   }
 }

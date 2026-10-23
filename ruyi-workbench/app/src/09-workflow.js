@@ -72,6 +72,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (!nodes.length) return { ok: false, error: '运行记录没有节点', startedCount: 0 };
     resumeInFlight.add(runId);
     try {
+    await syncRunEventSeq(run); // Authenticate events before changing nodes or launching work.
     const reset = new Set();
     if (retryNodeId) {
       const target = nodes.find(n => n.id === retryNodeId);
@@ -149,6 +150,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
   } else {
     runId = safeSessionId(runIdOverride) || makeId('run');
+    await agentRunEventsJournal(parentSession.id, runId).preflight();
     const limit = Math.max(0, Number(maxNodes) || 0);
     if (!Array.isArray(rawNodes) || !rawNodes.length) return { ok: false, error: 'nodes 必须是非空数组', startedCount: 0 };
     // 第23波: 现在 in-turn orchestrate 与 persisted DAG launch 两条路径的 limit 都 = agentWorkflowMaxNodes(节点数上限),
