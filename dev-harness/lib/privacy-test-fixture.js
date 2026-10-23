@@ -21,10 +21,11 @@ function syntheticComparisonPlan(name) {
     authorize: ref => ref.category !== 'CREDENTIAL' && /^\/(?:path|content|oldText|newText)(?:\/.*)?$/.test(ref.pointer),
     revalidate: async () => {}, assertCurrent() {}, beforeIo: async () => { throw Error('Synthetic comparison recipient cannot execute filesystem operations.'); } };
 }
-function gateway(root, f) {
-  return vm.runInNewContext(read('03a-privacy-gateway.js') + '\nPrivacyGateway.setHost({ data: paths.data, planDisclosure: syntheticComparisonPlan, makeStore: file => ({ read: async () => JSON.parse(await fsp.readFile(file, "utf8")), write: value => atomicWriteJson(file, value) }) }); PrivacyGateway', {
+function gateway(root, f, options = {}) {
+  return vm.runInNewContext((options.source || read('03a-privacy-gateway.js')) + '\nPrivacyGateway.setHost({ data: paths.data, planDisclosure: syntheticComparisonPlan, makeStore: file => ({ read: async () => JSON.parse(await fsp.readFile(file, "utf8")), write: value => atomicWriteJson(file, value) }) }); PrivacyGateway', {
     require, Buffer, structuredClone, URL, syntheticComparisonPlan, PrivacyRegex: f.PrivacyRegex, PrivacyCore: { ...f.PrivacyCore, configHooks: { sealLocal: f.vault.sealLocal, openLocal: f.vault.openLocal } },
     fsp: fs.promises, path, paths: { data: root }, atomicWriteJson: async (file, value) => { await fs.promises.writeFile(file, JSON.stringify(value)); },
+    setImmediate: options.setImmediate || setImmediate,
   });
 }
 module.exports = { fixture, gateway, clone, syntheticComparisonPlan };

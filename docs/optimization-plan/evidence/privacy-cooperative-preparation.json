@@ -1,0 +1,266 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "status": "batch_verified",
+  "baselineCommit": "b034c424",
+  "syntheticOnly": true,
+  "userDataChanged": false,
+  "scope": [
+    "cooperative privacy preparation",
+    "operation-only signal/regex ALS and unchanged context authority",
+    "actual main/child HTTP Stop,disconnect,policy epoch and completed tool noReplay"
+  ],
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "a86a65aa35ade4ceeae3aa8fdfb18b0053a6eb2c97d4a933904a24af6fc489b7"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "51709c7829d39cbdf21ab2222a2e1d8ce60dc51501d5550b5289ce16a263e91a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/04h-provider-http.js",
+      "sha256": "c81db18fc30be70ffd997ad956bef984e8b5437fe029bea61fbd02dd95553540"
+    },
+    {
+      "file": "ruyi-workbench/app/src/10-context-governance.js",
+      "sha256": "a62568c8d4ad9932b73944138f4e68cf2f9a357a1d530c54f87a1fb0bbb30ffc"
+    },
+    {
+      "file": "dev-harness/privacy-preparation-stop.e2e.js",
+      "sha256": "b7fa338e72406915fc77398132f8283b4c67f20428d86b4adc4549316fa8c4b8"
+    },
+    {
+      "file": "dev-harness/lib/privacy-preparation-http-worker.js",
+      "sha256": "b059f9ab099abaaa75ff932f70cbb96423a66b924ff8f8b4186a30eaac8a8b74"
+    },
+    {
+      "file": "dev-harness/lib/privacy-preparation-observer.js",
+      "sha256": "cb40fe4a8319f05633ed31d8adc33d38aa13868fa5b6bd5340e2e02bf8442f3c"
+    },
+    {
+      "file": "dev-harness/unit/privacy-cooperative-yield.test.js",
+      "sha256": "c15deeefc2b62cd80b35cb478e584900833d205de4869bd99d92993b98d95f6e"
+    },
+    {
+      "file": "dev-harness/unit/privacy-preparation-observer.test.js",
+      "sha256": "5766467a579acc3b4b4261a46938d190c7fd08244bbdf547d0d847be25d2a19b"
+    }
+  ],
+  "sourceUnit": {
+    "rootAppliedGroups": 108,
+    "pass": 108,
+    "fail": 0,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\gateway-yield-applied-source.log",
+    "observer": 4
+  },
+  "independentReview": {
+    "review": "independent source review, no blocking findings",
+    "patchSHA256": "02caf7f608205368dfa7cb5416e561ee92303a424762bfad517b9e3fcc95947c",
+    "testSHA256": "b3c164823e88a00f94a6106c488733633aab23ef0e88deded0bb60fde64060d5",
+    "pass": 6,
+    "fail": 0,
+    "differentialCases": 160,
+    "cancelSamples": 9,
+    "coverage": [
+      "baseline versus candidate strict tool and model data semantic/error parity",
+      "three protocol shapes cancel at scheduler yield 1/3/9, zero fetch calls",
+      "revoke a valid reference while suspended, reject before send",
+      "two scopes interleave without activeContext or sourceWork identity crossover; 4 budget objects total, never per-pass/per-yield reset",
+      "abort during real mapping vault persistence, zero send; next operation fresh signal succeeds",
+      "transient connection close during yield rejects without publishing result"
+    ],
+    "limits": [
+      "source/VM adapters only; not real main/child HTTP Stop route or killOnDisconnect E2E",
+      "single core leaf scan, native JSON operations and history preprocessing remain bounded synchronous sections; no hard event-loop latency guarantee"
+    ],
+    "initialProbeFixtureCorrections": [
+      "budget is deliberately an opaque frozen object, not .comparisons; assertion changed to identity/count",
+      "vault adapter is frozen; wrapped it rather than assigning a method"
+    ],
+    "repoProductWrites": false,
+    "directE2E": false
+  },
+  "realHttpEvidence": {
+    "date": "2026-10-23",
+    "status": "observer source unit4/4 and real generated HTTP30/30 twice passed; exclusive direct runtime window released to parent",
+    "productEditedByThisTask": false,
+    "buildPerformedByThisTask": false,
+    "syntheticOnly": true,
+    "generatedServerSha256": "a86a65aa35ade4ceeae3aa8fdfb18b0053a6eb2c97d4a933904a24af6fc489b7",
+    "generatedUnchangedAcrossRuns": true,
+    "sourceUnit": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skip": 0,
+      "log": "tool transcript only, no raw file; observer-unit-first-result.json records tested SHA"
+    },
+    "e2e": {
+      "command": "node dev-harness/privacy-preparation-stop.e2e.js",
+      "casesPerRun": 30,
+      "passPerRun": 30,
+      "skipPerRun": 0,
+      "failPerRun": 0,
+      "exitPerRun": 0,
+      "verdict": "PRIVACY PREPARATION STOP E2E: ALL PASS",
+      "firstLog": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-gateway-yield-draft-cac84d98ae1749cd9e32e743ae996c1e/http-stop/e2e-first.log",
+        "sha256": "ba4ec6a6eb1ca49cf5c949ae060ba7ffb5275544f82a77e6f452e2c0027bbcc8"
+      },
+      "repeatLog": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-gateway-yield-draft-cac84d98ae1749cd9e32e743ae996c1e/http-stop/e2e-repeat.log",
+        "sha256": "897c27ec370bff5f2a7564e6db8c3ba164f8c081bec5b6cbf7337c7bdce66084"
+      },
+      "firstReport": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-preparation-stop-zW8Sim/report.json",
+        "sha256": "83d4bfaf41afe118a1627645548a70f9eba6b1dd363d953be4ed2ba1f7617e3c"
+      },
+      "repeatReport": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-preparation-stop-NqrX9l/report.json",
+        "sha256": "83d4bfaf41afe118a1627645548a70f9eba6b1dd363d953be4ed2ba1f7617e3c"
+      },
+      "workerLogs": "Each report directory contains chat/responses/anthropic/worker.log; workers exited and fake provider sockets were closed before each run returned. Evidence directories intentionally retained."
+    },
+    "observed": {
+      "protocols": [
+        "chat",
+        "responses",
+        "anthropic"
+      ],
+      "roles": [
+        "actual main HTTP turn",
+        "actual synchronous orchestrated child reached through runSubAgentCore"
+      ],
+      "modes": [
+        "HTTP Stop",
+        "policy epoch away/back",
+        "killOnDisconnect true",
+        "killOnDisconnect false",
+        "completed real file_write followed by Stop during second preparation"
+      ],
+      "actualPreparedBodyBytes": {
+        "min": 308395,
+        "max": 344064
+      },
+      "rendezvous": "Real consumeSteps setImmediate, one-shot paused while real model transport signal is still live; 4096 ordinary metadata rows injected into the selected actual request as bounded test input",
+      "stop": "POST /api/stop accepted current execution identity; actual held transport signal observed aborted before resuming; no additional provider POST, model retry or fallback afterward",
+      "disconnect": "Actual client socket destroyed, server HTTP shell disconnect observed independently; true aborts with zero additional POST; false leaves transport live and completes exactly once",
+      "sideEffect": "six main/child x three protocol completed-stop cases each retain exact durable output and one physical real toolCall(file_write) dispatch; no stubbed tool implementation or replay",
+      "childEpoch": "Each protocol: first parent POST starts child; held child request throws privacy.policy_changed and sends no POST; existing parent failure reporting makes one subsequent normal parent POST. Actual report main=2,child=0. Does not claim entire turn sends zero POST after epoch.",
+      "mainEpoch": "Held main request throws privacy.policy_changed and sends zero POST"
+    },
+    "firstFindings": [
+      {
+        "phase": "before source unit/E2E execution",
+        "scope": "observer self-review",
+        "detail": "Added one-shot binding.observed so release cannot intercept the same request again; four tests subsequently pass."
+      },
+      {
+        "phase": "before source unit/E2E execution",
+        "scope": "root independent fixture review",
+        "detail": "Initial TEMP driver lacked shared createRunner verdict and duplicated HTTP fake service. Replaced with createRunner plus startFakeProvider chat and Responses/Anthropic fallback using existing frame helpers; no removed security assertion."
+      },
+      {
+        "phase": "before source unit/E2E execution",
+        "scope": "scope clarification agreed with parent",
+        "detail": "Existing child catch can return policy failure to parent, which normally reports it in a new parent request. Epoch test asserts child denial/no retry and records separate parent continuation; actual Stop/kill=true still forbid every subsequent POST."
+      }
+    ],
+    "runtimeFailures": [],
+    "limitations": [
+      "No hard 16ms latency claim; single leaf detector, JSON.parse/stringify, Object.entries and some history projection work remain synchronous.",
+      "Vault protector is synthetic fixture isolation; these HTTP cancellation tests are not DPAPI provisioning evidence.",
+      "Optional CLI/MCP/background probes are disabled; privacy transformers, real HTTP Stop/disconnect controllers, actual orchestrator child and file_write dispatcher are retained.",
+      "This does not re-prove every source/disclosure authority gate; existing gateway parity and independent review cover those boundaries.",
+      "No product limit was raised: leaf1MiB, aggregate8MiB, nodes50k, depth32, comparisons32M, matches10k remain unchanged."
+    ]
+  },
+  "existingE2e": [
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\privacy-model-send-boundary-cooperative-final.log",
+      "sha256": "3eb3847ee8fdc404e354169fbf48182b19f4ca277fff1d7e25c229f733e0ba3d",
+      "allPass": true,
+      "failLines": 0
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\privacy-protocols-cooperative-final.log",
+      "sha256": "5983d6f3ee626f4b169df028af9ab14a086763b2003e7099a34f39856b0db753",
+      "allPass": true,
+      "failLines": 0
+    },
+    {
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\privacy-model-tool-result-cooperative-final.log",
+      "sha256": "bb89503b68f8810dc4bec25d035feca397f32c588e3cfc6d717ae9669f226670",
+      "allPass": true,
+      "failLines": 0
+    }
+  ],
+  "limits": {
+    "leafBytes": 1048576,
+    "aggregateBytes": 8388608,
+    "nodes": 50000,
+    "depth": 32,
+    "learnedComparisons": 33554432,
+    "matches": 10000,
+    "changed": false
+  },
+  "storage": {
+    "adapterWired": 22,
+    "required": 41,
+    "remaining": 19,
+    "changed": false
+  },
+  "limitations": [
+    "core single leaf scanning and some JSON.parse/stringify/Object.entries/history preprocessing still synchronous; no hard16ms/event-loop delay claim",
+    "toolResult/projectSource can yield but receive no new implicit turn cancellation signal; existing killOnDisconnect authority preserved",
+    "30-case fixture uses synthetic vault protector; not DPAPI acceptance evidence",
+    "independent child epoch refusal can be followed by normal parent failure report; no whole-turn zero-POST claim for that case"
+  ],
+  "unifiedGate": {
+    "command": "node dev-harness/run-all.js --fast --parallel 4",
+    "unit": {
+      "total": 2746,
+      "pass": 2720,
+      "fail": 0,
+      "skip": 26
+    },
+    "static": {
+      "total": 81,
+      "pass": 81,
+      "fail": 0,
+      "flaky": 0
+    },
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\gateway-cooperative-fast.log"
+  },
+  "syntax": {
+    "command": "node dev-harness/syntax-gate.js",
+    "checked": 1175,
+    "fail": 0,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\gateway-cooperative-syntax.log"
+  },
+  "generated": {
+    "modules": 94,
+    "edges": 662,
+    "stronglyConnectedMax": 31,
+    "e2e": 566,
+    "defaultE2e": 559,
+    "unitSuites": 314
+  },
+  "buildFreshness": "pass",
+  "gateLogHashes": [
+    {
+      "file": "gateway-cooperative-fast.log",
+      "sha256": "c0b8f3fd967e6861ab541b91a933bb948a822b9e681cbdc9c1464915c856d0c0"
+    },
+    {
+      "file": "gateway-cooperative-syntax.log",
+      "sha256": "5b885b197831d55ccbe0c876a5dfe0601d7d91d1c62c841dedec8f531d0dd3d1"
+    }
+  ],
+  "metadataReview": {
+    "reviewer": "privacy_repro",
+    "final": "no blocker;18 source/log/report SHA and exact counts independently checked, cancellation scope and bounded synchronous sections accurately stated"
+  }
+}

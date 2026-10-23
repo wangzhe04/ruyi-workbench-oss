@@ -17150,7 +17150,7 @@ function buildAttachmentPrompt(attachments) {
 // 81-P2: Async-local model boundary. Execution copies are restored before permission checks.
 const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, UrlApi) => {
   const host = {};
-  const local = new AsyncLocalStorage(), policyLocal = new AsyncLocalStorage(), loaded = new Map();
+  const local = new AsyncLocalStorage(), policyLocal = new AsyncLocalStorage(), operationLocal = new AsyncLocalStorage(), loaded = new Map();
   const sourceViews = new WeakMap(), sourceProofs = new WeakMap();
   const PREFIX = '[[RUYI_PVT:', pattern = () => /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
   let currentPolicy = { mode: 'off', signature: '' }, unavailable = false;
@@ -17221,6 +17221,32 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     } catch (error) { setUnavailable(true); throw error; }
   }
   function active() { return local.getStore(); }
+  function assertOperation(operation = operationLocal.getStore()) {
+    if (!operation) return;
+    if (operation.signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
+    assertPolicyAvailable();
+    if (active() !== operation.activeContext) fail('scope_changed');
+    if (operation.policy !== currentPolicy.signature || operation.epoch !== policyEpoch) fail('policy_changed');
+  }
+  function operationFor(context, signal) {
+    return { context, activeContext: active(), signal: signal || operationLocal.getStore()?.signal,
+      policy: currentPolicy.signature, epoch: policyEpoch, regexMatches: null };
+  }
+  async function consumeSteps(iterator) {
+    const operation = operationLocal.getStore();
+    let workNodes = 0, workBytes = 0;
+    for (;;) {
+      assertOperation(operation);
+      const step = iterator.next();
+      if (step.done) { assertOperation(operation); return step.value; }
+      workNodes++; workBytes += Number(step.value?.bytes) || 0;
+      if (workNodes >= 128 || workBytes >= 64 * 1024) {
+        await new Promise(resolve => setImmediate(resolve));
+        workNodes = 0; workBytes = 0;
+        assertOperation(operation);
+      }
+    }
+  }
   const keyOf = scopeId => cryptoApi.createHash('sha256').update(scopeId).digest('hex');
   async function scopeFor(scopeId, config) {
     if (typeof scopeId !== 'string' || !scopeId || scopeId.length > 160) fail('scope_invalid');
@@ -17279,87 +17305,102 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   }
   function makeDetector(config) {
     return core.createDetector({ ...options(config), regexMatches: input => {
-      const matches = active()?.regexMatches;
+      const matches = operationLocal.getStore()?.regexMatches;
       if (!matches || !matches.has(input)) fail('regex_scan_required');
       return matches.get(input);
     } });
   }
   function regexInputs(value) {
+    const iterator = regexInputSteps(value);
+    for (;;) { const step = iterator.next(); if (step.done) return step.value; }
+  }
+  function* regexInputSteps(value) {
     const result = new Set(); let bytes = 0, nodes = 0;
-    const add = input => {
+    function* add(input) {
+      yield { bytes: Buffer.byteLength(input) };
       if (result.has(input)) return;
       if (Buffer.byteLength(input) > core.LIMITS.bytes || (bytes += Buffer.byteLength(input)) > 8 * 1024 * 1024 || result.size >= 50000) fail('regex_input_limit');
       result.add(input);
       // Protected history is scanned by raw segments, never by rewriting its registered references.
-      if (input.includes(PREFIX)) { let from = 0; for (const match of input.matchAll(pattern())) { add(input.slice(from, match.index)); from = match.index + match[0].length; } add(input.slice(from)); }
-    };
-    const visit = (item, depth) => {
+      if (input.includes(PREFIX)) { let from = 0; for (const match of input.matchAll(pattern())) { yield* add(input.slice(from, match.index)); from = match.index + match[0].length; } yield* add(input.slice(from)); }
+    }
+    function* visit(item, depth) {
+      yield;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof item === 'string') {
-        add(item);
+        yield* add(item);
         if (/^\s*[\[{]/.test(item) && !item.startsWith(PREFIX)) {
           let parsed; try { parsed = JSON.parse(item); } catch { return; }
           if (!parsed || typeof parsed !== 'object') return;
           // Lexical tokens preserve long numeric spelling and duplicate object keys.
           for (const token of item.matchAll(/"(?:[^"\\]|\\[\s\S])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b/g)) {
-            if (token[0][0] === '"') visit(JSON.parse(token[0]), depth + 1); else add(token[0]);
+            if (token[0][0] === '"') yield* visit(JSON.parse(token[0]), depth + 1); else yield* add(token[0]);
           }
         }
-      } else if (Array.isArray(item)) for (const row of item) visit(row, depth + 1);
-      else if (item && typeof item === 'object') for (const [key, row] of Object.entries(item)) { add(key); visit(row, depth + 1); }
-      else if (item === null || typeof item === 'number' || typeof item === 'boolean') add(String(item));
-    };
-    visit(value, 0); return [...result];
+      } else if (Array.isArray(item)) for (const row of item) yield* visit(row, depth + 1);
+      else if (item && typeof item === 'object') for (const [key, row] of Object.entries(item)) { yield* add(key); yield* visit(row, depth + 1); }
+      else if (item === null || typeof item === 'number' || typeof item === 'boolean') yield* add(String(item));
+    }
+    yield* visit(value, 0); return [...result];
   }
 
   const DATA_WITHHELD = '[RUYI_LOCAL_DATA_WITHHELD]';
   const contentRecoveryError = error => ['privacy.typed_sensitive', 'privacy.numeric_sensitive', 'privacy.json_sensitive_structure'].includes(error?.code);
   // Only protocol data slots may be replaced. Routing, IDs, schemas, policy and vault
   // failures remain strict. A replacement never authorizes or re-executes a tool.
-  function contentRecoveryPaths(value) {
+  function* contentRecoverySteps(value) {
     const recoverySlots = new Map(); let nodes = 0;
-    const put = (pointer, replacement) => { if (++nodes > 50000) fail('structure_limit'); recoverySlots.set(pointer, replacement); };
-    const content = (item, pointer) => {
-      if (typeof item === 'string') { put(pointer, DATA_WITHHELD); return; }
+    function* put(pointer, replacement) { yield; if (++nodes > 50000) fail('structure_limit'); recoverySlots.set(pointer, replacement); }
+    function* content(item, pointer) {
+      if (typeof item === 'string') { yield* put(pointer, DATA_WITHHELD); return; }
       if (!Array.isArray(item)) return;
-      item.forEach((part, index) => {
+      for (const [index, part] of item.entries()) {
+        if (!(index in item)) continue;
+        yield;
         if (++nodes > 50000) fail('structure_limit');
-        if (!part || typeof part !== 'object') return;
+        if (!part || typeof part !== 'object') continue;
         const at = pointer + '/' + index;
-        if (['text', 'input_text', 'output_text', 'reasoning_text'].includes(part.type) && typeof part.text === 'string') put(at + '/text', DATA_WITHHELD);
-        if (part.type === 'thinking' && typeof part.thinking === 'string') put(at + '/thinking', DATA_WITHHELD);
-        if (part.type === 'tool_use' && part.input && typeof part.input === 'object') put(at + '/input', {});
-        if (part.type === 'tool_result') put(at + '/content', DATA_WITHHELD);
-      });
-    };
-    const messages = (rows, prefix) => (rows || []).forEach((message, index) => {
-      if (++nodes > 50000) fail('structure_limit');
-      if (!message || !['user', 'assistant', 'tool'].includes(message.role)) return;
-      const at = prefix + '/' + index; content(message.content, at + '/content');
-      if (message.role === 'assistant') {
-        for (const key of ['reasoning_content', 'thinking']) if (typeof message[key] === 'string') put(at + '/' + key, DATA_WITHHELD);
-        (message.tool_calls || []).forEach((call, i) => { if (typeof call?.function?.arguments === 'string') put(at + '/tool_calls/' + i + '/function/arguments', '{}'); });
+        if (['text', 'input_text', 'output_text', 'reasoning_text'].includes(part.type) && typeof part.text === 'string') yield* put(at + '/text', DATA_WITHHELD);
+        if (part.type === 'thinking' && typeof part.thinking === 'string') yield* put(at + '/thinking', DATA_WITHHELD);
+        if (part.type === 'tool_use' && part.input && typeof part.input === 'object') yield* put(at + '/input', {});
+        if (part.type === 'tool_result') yield* put(at + '/content', DATA_WITHHELD);
       }
-    });
-    if (Array.isArray(value)) messages(value, '');
+    }
+    function* messages(rows, prefix) { for (const [index, message] of (rows || []).entries()) {
+      if (!(index in rows)) continue;
+      yield;
+      if (++nodes > 50000) fail('structure_limit');
+      if (!message || !['user', 'assistant', 'tool'].includes(message.role)) continue;
+      const at = prefix + '/' + index; yield* content(message.content, at + '/content');
+      if (message.role === 'assistant') {
+        for (const key of ['reasoning_content', 'thinking']) if (typeof message[key] === 'string') yield* put(at + '/' + key, DATA_WITHHELD);
+        for (const [i, call] of (message.tool_calls || []).entries()) { if (typeof call?.function?.arguments === 'string') yield* put(at + '/tool_calls/' + i + '/function/arguments', '{}'); }
+      }
+    } }
+    if (Array.isArray(value)) yield* messages(value, '');
     else if (value && typeof value === 'object') {
-      if (Array.isArray(value.messages)) messages(value.messages, '/messages');
-      if (Array.isArray(value.input)) value.input.forEach((item, index) => {
+      if (Array.isArray(value.messages)) yield* messages(value.messages, '/messages');
+      if (Array.isArray(value.input)) for (const [index, item] of value.input.entries()) {
+        if (!(index in value.input)) continue;
+        yield;
         if (++nodes > 50000) fail('structure_limit');
-        if (!item || typeof item !== 'object') return;
+        if (!item || typeof item !== 'object') continue;
         const at = '/input/' + index;
-        if (item.type === 'function_call') put(at + '/arguments', '{}');
-        else if (item.type === 'function_call_output') put(at + '/output', DATA_WITHHELD);
-        else if (item.type === 'reasoning') { content(item.content, at + '/content'); content(item.summary, at + '/summary'); }
-        else if (['user', 'assistant'].includes(item.role)) content(item.content, at + '/content');
-      });
+        if (item.type === 'function_call') yield* put(at + '/arguments', '{}');
+        else if (item.type === 'function_call_output') yield* put(at + '/output', DATA_WITHHELD);
+        else if (item.type === 'reasoning') { yield* content(item.content, at + '/content'); yield* content(item.summary, at + '/summary'); }
+        else if (['user', 'assistant'].includes(item.role)) yield* content(item.content, at + '/content');
+      }
     }
     return recoverySlots;
   }
 
   async function protectedTransform(value, context, flags) {
+    const operation = operationFor(context, flags?.signal);
+    return operationLocal.run(operation, async () => {
+    assertOperation(operation);
     const rules = context.config.privacyRulesV1 || [];
-    const stable = () => {
+    const stable = async () => {
       const budget = flags?.budget || core.createMatchBudget(), traceStart = context.trace?.length || 0;
       for (let pass = 0; pass < 4; pass++) {
         if (context.trace) context.trace.length = traceStart;
@@ -17368,16 +17409,21 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         // Rescan the original input, never a raw-protected copy. Later fields can teach an
         // earlier prose/metadata leaf, and classification can tighten an existing alias.
         const trustedLeaves = flags?.sourceProof ? sourceLeaves(value, context) : flags?.trustedLeaves;
-        const result = transform(value, context, { ...flags, budget, trustedLeaves });
+        const result = await consumeSteps(transformSteps(value, context, { ...flags, budget, trustedLeaves }));
         if (context.scope.revision() === revision) return flags?.snapshot ? { value: result, revision } : result;
       }
       fail('learning_not_stable');
     };
     if (!rules.some(rule => rule.kind === 'regex')) return stable();
-    const matches = await PrivacyRegex.scan(rules, regexInputs(flags?.recoveryPaths ? [value, ...flags.recoveryPaths.values()] : value));
-    if (context.policy !== currentPolicy.signature) fail('policy_changed');
-    const previous = context.regexMatches; context.regexMatches = matches;
-    try { return stable(); } finally { context.regexMatches = previous; }
+    const inputs = await consumeSteps(regexInputSteps(flags?.recoveryPaths ? [value, ...flags.recoveryPaths.values()] : value));
+    try { operation.regexMatches = await PrivacyRegex.scan(rules, inputs, { signal: operation.signal }); }
+    catch (error) {
+      if (error?.code === 'privacy.regex_aborted' && operation.signal?.aborted) assertOperation(operation);
+      throw error;
+    }
+    assertOperation(operation);
+    return stable();
+    });
   }
   async function run(scopeId, config, work) {
     assertPolicyAvailable(config);
@@ -17636,7 +17682,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     if (Buffer.byteLength(output) > core.LIMITS.bytes) fail('text_limit');
     return output;
   }
-  function transform(value, context, { raw = false, data = false, trustedToolSchemas = false, budget, proof, trustedLeaves, recoveryPaths } = {}) {
+  function* transformSteps(value, context, { raw = false, data = false, trustedToolSchemas = false, budget, proof, trustedLeaves, recoveryPaths } = {}) {
     let nodes = 0, bytes = 0;
     const detect = (input, pointer, allowReferences = false, lexicalJsonSource = false, automaticJsonSource = false) => {
       try { return context.scope.detect(input, { pointer, budget, opaqueReferences: (!raw || allowReferences) && input.includes(PREFIX), lexicalJsonSource, automaticJsonSource }); }
@@ -17649,67 +17695,78 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const explicitFields = new Set((context.config.privacyRulesV1 || []).filter(rule => rule.kind === 'field').map(rule => rule.value));
     const declarations = new Set();
     const segment = key => key.replace(/~/g, '~0').replace(/\//g, '~1');
-    const schemaNodes = (item, pointer, depth = 0) => {
+    function* schemaNodes(item, pointer, depth = 0) {
+      yield;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof item !== 'boolean' && (!item || typeof item !== 'object' || Array.isArray(item))) return;
       declarations.add(pointer);
       if (typeof item === 'boolean') return;
       for (const key of ['properties', 'patternProperties', '$defs', 'definitions', 'dependentSchemas', 'dependencies']) {
         const map = item[key]; if (!map || typeof map !== 'object' || Array.isArray(map)) continue;
-        for (const [name, schema] of Object.entries(map)) schemaNodes(schema, pointer + '/' + key + '/' + segment(name), depth + 1);
+        for (const [name, schema] of Object.entries(map)) yield* schemaNodes(schema, pointer + '/' + key + '/' + segment(name), depth + 1);
       }
       for (const key of ['items', 'additionalItems', 'additionalProperties', 'unevaluatedProperties', 'unevaluatedItems', 'contains', 'propertyNames', 'not', 'if', 'then', 'else', 'contentSchema']) {
-        if (Array.isArray(item[key]) && key === 'items') item[key].forEach((schema, i) => schemaNodes(schema, pointer + '/' + key + '/' + i, depth + 1));
-        else if (Object.hasOwn(item, key)) schemaNodes(item[key], pointer + '/' + key, depth + 1);
+        if (Array.isArray(item[key]) && key === 'items') { for (const [i, schema] of item[key].entries()) if (i in item[key]) yield* schemaNodes(schema, pointer + '/' + key + '/' + i, depth + 1); }
+        else if (Object.hasOwn(item, key)) yield* schemaNodes(item[key], pointer + '/' + key, depth + 1);
       }
-      for (const key of ['allOf', 'anyOf', 'oneOf', 'prefixItems']) if (Array.isArray(item[key])) item[key].forEach((schema, i) => schemaNodes(schema, pointer + '/' + key + '/' + i, depth + 1));
-    };
-    if (trustedToolSchemas && !data && Array.isArray(value?.tools)) value.tools.forEach((tool, i) => {
-      if (!tool || typeof tool !== 'object') return;
-      if (tool.type === 'function' && tool.function && typeof tool.function === 'object') schemaNodes(tool.function.parameters, '/tools/' + i + '/function/parameters');
-      if (tool.type === 'function') schemaNodes(tool.parameters, '/tools/' + i + '/parameters');
-      if (!tool.type && typeof tool.name === 'string') schemaNodes(tool.input_schema, '/tools/' + i + '/input_schema');
-    });
-    const schemaHasValues = (item, depth = 0) => {
+      for (const key of ['allOf', 'anyOf', 'oneOf', 'prefixItems']) if (Array.isArray(item[key])) for (const [i, schema] of item[key].entries()) if (i in item[key]) yield* schemaNodes(schema, pointer + '/' + key + '/' + i, depth + 1);
+    }
+    if (trustedToolSchemas && !data && Array.isArray(value?.tools)) for (const [i, tool] of value.tools.entries()) {
+      yield;
+      if (!tool || typeof tool !== 'object') continue;
+      if (tool.type === 'function' && tool.function && typeof tool.function === 'object') yield* schemaNodes(tool.function.parameters, '/tools/' + i + '/function/parameters');
+      if (tool.type === 'function') yield* schemaNodes(tool.parameters, '/tools/' + i + '/parameters');
+      if (!tool.type && typeof tool.name === 'string') yield* schemaNodes(tool.input_schema, '/tools/' + i + '/input_schema');
+    }
+    function* schemaHasValues(item, depth = 0) {
+      yield;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (!item || typeof item !== 'object') return false;
       // Schema references may hide values in another definition; conservatively refuse them
       // inside a sensitive declaration rather than claim to resolve arbitrary schema graphs.
-      return Object.entries(item).some(([key, row]) => ['default', 'const', 'enum', 'examples', '$ref', '$dynamicRef'].includes(key) || schemaHasValues(row, depth + 1));
-    };
-    const assertTypedField = (pointer, item, protocolDeclaration = false) => {
+      for (const [key, row] of Object.entries(item)) {
+        if (['default', 'const', 'enum', 'examples', '$ref', '$dynamicRef'].includes(key) || (yield* schemaHasValues(row, depth + 1))) return true;
+      }
+      return false;
+    }
+    function* assertTypedField(pointer, item, protocolDeclaration = false) {
       if (!pointer) return;
       if (!typedPointers.has(pointer)) typedPointers.set(pointer, typedDetector.detect('ruyi-typed-field-value', { pointer }).length > 0);
       if (!typedPointers.get(pointer)) return;
       // Only host-supplied tool schema nodes get this exception. Business objects, JSON text,
       // tool results and explicit custom field rules retain the fail-closed typed-value gate.
-      if (protocolDeclaration && declarations.has(pointer) && !explicitFields.has(pointer) && !schemaHasValues(item)) return;
+      if (protocolDeclaration && declarations.has(pointer) && !explicitFields.has(pointer) && !(yield* schemaHasValues(item))) return;
       fail('typed_sensitive');
-    };
+    }
     const mediaShape = item => ['image', 'audio', 'video', 'document', 'input_image', 'input_audio', 'input_file'].includes(item.type) || (item.type === 'resource' && (item.resource?.blob || item.resource?.mimeType && !/^(?:text\/|application\/(?:json|xml))/.test(item.resource.mimeType))) || item.type === 'base64' && item.media_type || typeof item.mimeType === 'string' && /^(?:image|audio|video)\//.test(item.mimeType);
     // Validate JSON, then edit lexical spans only. Never round-trip source files through JS Number/JSON.stringify.
-    function protectJson(source, initialDepth, proof, allowReferences = false, parsedRoot) {
+    function* protectJson(source, initialDepth, proof, allowReferences = false, parsedRoot) {
+      yield { bytes: Buffer.byteLength(source) };
       let cursor = 0, hasReferences = false; const replacements = [], concealed = [], stringValues = [];
       const sourceMatches = detect(source, undefined, allowReferences, true);
       const automaticMatches = detect(source, undefined, allowReferences, false, true);
-      const space = () => { while (cursor < source.length && /\s/.test(source[cursor])) cursor++; };
-      const quoted = () => {
+      function* space() { while (cursor < source.length && /\s/.test(source[cursor])) { cursor++; if ((cursor & 4095) === 0) yield { bytes: 16384 }; } }
+      function* quoted() {
         const start = cursor++;
         while (cursor < source.length) {
+          if ((cursor & 4095) === 0) yield { bytes: 16384 };
           const current = source[cursor++];
           if (current.charCodeAt(0) === 92) { cursor++; continue; }
           if (current === '"') break;
         }
         return { start, end: cursor, value: JSON.parse(source.slice(start, cursor)) };
-      };
-      const protectQuoted = (token, pointer, depth) => {
+      }
+      function* protectQuoted(token, pointer, depth) {
         const child = { edits: [], covered: [], references: false };
-        const protectedValue = walk(token.value, pointer, depth, true, child, allowReferences);
+        const protectedValue = yield* walk(token.value, pointer, depth, true, child, allowReferences);
         const original = source.slice(token.start, token.end);
         const spelling = original.slice(1, -1), offsets = [];
         // JSON escapes encode one UTF-16 code unit. Keep a positional proof so nested
         // trusted history can retain every untouched source escape and numeric spelling.
-        for (let i = 0; i < spelling.length;) { offsets.push(i); i += spelling.charCodeAt(i) === 92 ? (spelling[i + 1] === 'u' ? 6 : 2) : 1; }
+        for (let i = 0, measured = 0; i < spelling.length;) {
+          offsets.push(i); i += spelling.charCodeAt(i) === 92 ? (spelling[i + 1] === 'u' ? 6 : 2) : 1;
+          if (i - measured >= 4096) { yield { bytes: 4 * (i - measured) }; measured = i; }
+        }
         offsets.push(spelling.length);
         if (offsets.length !== token.value.length + 1) fail('json_sensitive_structure');
         const mapped = child.covered.map(span => ({ start: token.start + 1 + offsets[span.start], end: token.start + 1 + offsets[span.end], category: span.category, ...(span.reference ? { reference: span.reference } : {}) }));
@@ -17721,6 +17778,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           // by the leaf walk; copy only its proven edits into the original lexical text.
           let encoded = '', from = 0;
           for (const edit of child.edits) {
+            yield;
             const start = offsets[edit.start], end = offsets[edit.end];
             if (start === undefined || end === undefined || start < from || end < start) fail('json_sensitive_structure');
             encoded += spelling.slice(from, start) + JSON.stringify(edit.replacement).slice(1, -1); from = end;
@@ -17735,36 +17793,37 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           concealed.push({ start: token.start + 1, end: token.end - 1, category: credential ? 'CREDENTIAL' : 'INTERNAL' });
         } else concealed.push(...mapped);
         replacements.push({ start: token.start, end: token.end, replacement });
-      };
-      const value = (pointer, depth, parsedValue) => {
-        space(); const current = source[cursor];
+      }
+      function* value(pointer, depth, parsedValue) {
+        yield;
+        yield* space(); const current = source[cursor];
         // Decoded strings are counted by walk; counting them here as well, plus
         // an entire parsed-object prepass, made ordinary wide legacy tool JSON
         // exhaust the structure budget several times before its actual size.
         if (depth > 32 || current !== '"' && ++nodes > 50000) fail('structure_limit');
-        if (current === '"') { const token = quoted(); stringValues.push({ start: token.start + 1, end: token.end - 1 }); protectQuoted(token, pointer, depth + 1); return; }
+        if (current === '"') { const token = yield* quoted(); stringValues.push({ start: token.start + 1, end: token.end - 1 }); yield* protectQuoted(token, pointer, depth + 1); return; }
         if (parsedValue && typeof parsedValue === 'object' && mediaShape(parsedValue)) fail('media_not_supported');
-        if (!/[-0-9]/.test(current)) assertTypedField(pointer);
+        if (!/[-0-9]/.test(current)) yield* assertTypedField(pointer);
         if (current === '{') {
-          cursor++; space();
+          cursor++; yield* space();
           if (source[cursor] === '}') { cursor++; return; }
           while (cursor < source.length) {
-            space(); const key = quoted(); protectQuoted(key, '', depth + 1); space(); cursor++; // colon
-            value(pointer + '/' + key.value.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1, parsedValue?.[key.value]); space();
+            yield* space(); const key = yield* quoted(); yield* protectQuoted(key, '', depth + 1); yield* space(); cursor++; // colon
+            yield* value(pointer + '/' + key.value.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1, parsedValue?.[key.value]); yield* space();
             if (source[cursor++] === '}') return;
           }
         } else if (current === '[') {
-          cursor++; space(); let index = 0;
+          cursor++; yield* space(); let index = 0;
           if (source[cursor] === ']') { cursor++; return; }
-          while (cursor < source.length) { const child = index++; value(pointer + '/' + child, depth + 1, parsedValue?.[child]); space(); if (source[cursor++] === ']') return; }
+          while (cursor < source.length) { const child = index++; yield* value(pointer + '/' + child, depth + 1, parsedValue?.[child]); yield* space(); if (source[cursor++] === ']') return; }
         } else {
-          const start = cursor; while (cursor < source.length && !/[\s,\]}]/.test(source[cursor])) cursor++;
+          const start = cursor; while (cursor < source.length && !/[\s,\]}]/.test(source[cursor])) { cursor++; if ((cursor & 4095) === 0) yield { bytes: 16384 }; }
           const literal = source.slice(start, cursor);
           // Typed numeric secrets need a future typed serializer; do not leak them or coerce a long integer.
           if (detect(literal, pointer).length) fail(/^-?\d/.test(literal) ? 'numeric_sensitive' : 'typed_sensitive');
         }
-      };
-      value('', initialDepth, parsedRoot);
+      }
+      yield* value('', initialDepth, parsedRoot);
       // A match spanning JSON syntax cannot be safely replaced inside one string leaf.
       // Reject it rather than silently discard the whole-source rule or corrupt typed JSON.
       const references = raw && !allowReferences ? [] : [...source.matchAll(pattern())];
@@ -17778,27 +17837,39 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       // to that decoded evidence. Explicit rules and any match crossing JSON syntax
       // retain the original structural guard, including split PEM/XML secrets.
       for (const match of [...sourceMatches, ...automaticMatches.filter(match => !withinStringValue(match))]) {
+        yield;
         if (match.category === 'CREDENTIAL') for (const ref of references) {
+          yield;
           if (credentialContext(match, ref.index, ref.index + ref[0].length)) context.scope.validateProtected(ref[0], { requiredCategory: 'CREDENTIAL' });
         }
-        for (const span of concealed) if (span.reference && credentialContext(match, span.start, span.end)) context.scope.validateProtected(span.reference, { requiredCategory: 'CREDENTIAL' });
-        if (!concealed.some(span => match.start >= span.start && match.end <= span.end && (match.category !== 'CREDENTIAL' || span.category === 'CREDENTIAL')) && !references.some(ref => match.start >= ref.index && match.end <= ref.index + ref[0].length)) fail('json_sensitive_structure');
+        let covered = false;
+        for (const span of concealed) {
+          yield;
+          if (span.reference && credentialContext(match, span.start, span.end)) context.scope.validateProtected(span.reference, { requiredCategory: 'CREDENTIAL' });
+          if (match.start >= span.start && match.end <= span.end && (match.category !== 'CREDENTIAL' || span.category === 'CREDENTIAL')) covered = true;
+        }
+        if (!covered) for (const ref of references) {
+          yield;
+          if (match.start >= ref.index && match.end <= ref.index + ref[0].length) { covered = true; break; }
+        }
+        if (!covered) fail('json_sensitive_structure');
       }
       let output = '', from = 0;
-      for (const span of replacements.sort((a, b) => a.start - b.start)) { output += source.slice(from, span.start) + span.replacement; from = span.end; }
+      for (const span of replacements.sort((a, b) => a.start - b.start)) { yield; output += source.slice(from, span.start) + span.replacement; from = span.end; }
       if (proof) { proof.edits.push(...replacements); proof.covered.push(...concealed); proof.references ||= hasReferences; }
       return output + source.slice(from);
     }
-    const walk = (item, pointer, depth, structuredData = data, proof, allowReferences = false) => {
-      try { return visit(item, pointer, depth, structuredData, proof, allowReferences); }
+    function* walk(item, pointer, depth, structuredData = data, proof, allowReferences = false) {
+      try { return yield* visit(item, pointer, depth, structuredData, proof, allowReferences); }
       catch (error) {
         if (!recoveryPaths?.has(pointer) || !contentRecoveryError(error)) throw error;
         // Validate even the fixed host notice against current rules. No raw content,
         // exception text or credentials are carried into the replacement.
-        return transform(recoveryPaths.get(pointer), context, { data: true, budget });
+        return yield* transformSteps(recoveryPaths.get(pointer), context, { data: true, budget });
       }
-    };
-    const visit = (item, pointer, depth, structuredData = data, proof, allowReferences = false) => {
+    }
+    function* visit(item, pointer, depth, structuredData = data, proof, allowReferences = false) {
+      yield { bytes: typeof item === 'string' ? Buffer.byteLength(item) : 0 };
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof item === 'string') {
         allowReferences ||= trustedLeaves?.get(pointer) === item;
@@ -17806,7 +17877,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         // JSON tool outputs/arguments preserve escaping and detect sensitive structured fields.
         if (/^\s*[\[{]/.test(item) && !item.startsWith(PREFIX)) {
           let parsed; try { parsed = JSON.parse(item); } catch { /* ordinary prose */ }
-          if (parsed && typeof parsed === 'object') return protectJson(item, depth + 1, proof, allowReferences, parsed);
+          if (parsed && typeof parsed === 'object') return yield* protectJson(item, depth + 1, proof, allowReferences, parsed);
         }
         if (item.startsWith('data:') || /\/(?:image|audio|video)(?:_url)?(?:\/url)?$/.test(pointer)) fail('media_not_supported');
         const result = protectString(item, context, pointer, raw && !allowReferences, budget, proof);
@@ -17814,26 +17885,31 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         if (!structuredData && /\/(?:thinking|signature|encrypted_content)$/.test(pointer) && item) fail('opaque_content_not_supported');
         return result;
       }
-      if (item === null || typeof item === 'boolean' || typeof item === 'object') assertTypedField(pointer, item, !structuredData);
+      if (item === null || typeof item === 'boolean' || typeof item === 'object') yield* assertTypedField(pointer, item, !structuredData);
       if ((item === null || typeof item === 'boolean') && detect(String(item)).length) fail('typed_sensitive');
-      if (Array.isArray(item)) return item.map((row, i) => walk(row, pointer + '/' + i, depth + 1, structuredData));
+      if (Array.isArray(item)) {
+        const rows = new Array(item.length);
+        for (let i = 0; i < item.length; i++) if (i in item) rows[i] = yield* walk(item[i], pointer + '/' + i, depth + 1, structuredData);
+        return rows;
+      }
       if (item && typeof item === 'object') {
         if (mediaShape(item)) fail('media_not_supported');
         if (!structuredData && (item.type === 'redacted_thinking' || (item.type === 'reasoning' && item.encrypted_content))) fail('opaque_content_not_supported');
         const result = Object.create(null);
         for (const [key, row] of Object.entries(item)) {
+          yield { bytes: Buffer.byteLength(key) };
           const protectedKey = protectString(key, context, '', raw, budget);
           if (!structuredData && protectedKey !== key) fail('control_field_sensitive');
           const nextKey = structuredData ? protectedKey : key;
           if (Object.hasOwn(result, nextKey)) fail('key_collision');
-          result[nextKey] = walk(row, pointer + '/' + key.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1, structuredData || (item.type === 'tool_use' && key === 'input'));
+          result[nextKey] = yield* walk(row, pointer + '/' + key.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1, structuredData || (item.type === 'tool_use' && key === 'input'));
         }
         return result;
       }
       if (typeof item === 'number' && detect(String(item), pointer).length) fail('numeric_sensitive');
       return item;
-    };
-    return walk(value, '', 0, data, proof);
+    }
+    return yield* walk(value, '', 0, data, proof);
   }
   const historyBindings = new WeakMap();
   const HISTORY_REFUSED = '[Local privacy validation refused an unavailable reference in an earlier model message. No value was recovered; inspect the original local transcript and tool error before retrying.]';
@@ -17940,14 +18016,21 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       return message;
     });
   }
-  async function protectHostHistory(owner, history) {
-    const projected = projectHostHistory(owner, history), context = active();
-    if (!context) return projected;
+  async function protectHostHistory(owner, history, options = {}) {
+    const context = active();
+    if (!context) return projectHostHistory(owner, history);
+    const operation = operationFor(context, options.signal);
+    return operationLocal.run(operation, async () => {
+    assertOperation(operation);
+    const projected = projectHostHistory(owner, history);
     // Scan complete structured sources before summaries add tags, extract facts or
     // truncate text. A JSON Pointer rule must still see its original decoded object.
-    const result = await protectedTransform(projected, context, { recoveryPaths: contentRecoveryPaths(projected) });
+    const recoveryPaths = await consumeSteps(contentRecoverySteps(projected));
+    const result = await protectedTransform(projected, context, { recoveryPaths });
     await context.persist(); assertPolicyAvailable();
+    assertOperation(operation);
     return result;
+    });
   }
   function bindRestoredHostHistory(owner, original, restored) {
     if (active() || !Array.isArray(original) || !Array.isArray(restored) || original.length !== restored.length) fail('history_projection_invalid');
@@ -17956,14 +18039,17 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     historyBindings.set(owner, { offCopies });
   }
   const beforeRequest = body => prepareRequest(body, false);
-  const beforeModelRequest = body => prepareRequest(body, true);
-  async function prepareRequest(body, recoverContent) {
+  const beforeModelRequest = (body, options = {}) => prepareRequest(body, true, options);
+  async function prepareRequest(body, recoverContent, options = {}) {
     assertPolicyAvailable();
     const context = active();
     if (!context) {
-      if (currentPolicy.mode !== 'off') return run('auxiliary', currentPolicy.config, () => prepareRequest(body, recoverContent));
+      if (currentPolicy.mode !== 'off') return run('auxiliary', currentPolicy.config, () => prepareRequest(body, recoverContent, options));
       return body;
     }
+    const operation = operationFor(context, options.signal);
+    return operationLocal.run(operation, async () => {
+    assertOperation(operation);
     if (context.policy !== currentPolicy.signature) fail('policy_changed');
     if ((body.tools || []).some(tool => tool.type && !['function', 'custom'].includes(tool.type))) fail('server_tools_not_supported');
     // Models sometimes abbreviate a reference in their narration/reasoning. Only host
@@ -18003,11 +18089,14 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       if (Object.hasOwn(body, 'system')) prepared.system = typeof body.system === 'string' ? instruction + recoveryInstruction + '\n' + body.system : [{ type: 'text', text: instruction + recoveryInstruction }, ...(body.system || [])];
       else prepared.messages = [{ role: 'system', content: instruction + recoveryInstruction }, ...narrationBody.messages];
     } else if (Array.isArray(body.input)) prepared.instructions = instruction + recoveryInstruction + '\n' + String(body.instructions || '');
-    const result = await protectedTransform(prepared, context, { trustedToolSchemas: true, ...(recoverContent ? { recoveryPaths: contentRecoveryPaths(prepared) } : {}) });
+    const recoveryPaths = recoverContent ? await consumeSteps(contentRecoverySteps(prepared)) : undefined;
+    const result = await protectedTransform(prepared, context, { trustedToolSchemas: true, ...(recoverContent ? { recoveryPaths } : {}) });
     // Commit the map before a network call can expose its references, including on retries.
     await context.persist(); assertPolicyAvailable();
+    assertOperation(operation);
     if (context.policy !== currentPolicy.signature) fail('policy_changed');
     return result;
+    });
   }
   async function projectSource(source, allowExistingReferences = false) {
     assertPolicyAvailable();
@@ -23397,9 +23486,13 @@ function providerSseAsCompletion(raw) {
 // 异步保护完成后先编码，再检查当前策略，直接提交 fetch；不得返回正文让调用方 await 后另发。
 async function providerModelPostOnce({ url, headers, body, signal }) {
   const postPreparedBody = async () => {
-    const prepared = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body) : body;
+    const policyGuard = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.disclosurePolicyGuard() : null;
+    if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
+    const prepared = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body, { signal }) : body;
     const encoded = JSON.stringify(prepared);
+    if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
+    if (policyGuard) policyGuard();
     return fetch(url, { method: 'POST', headers, body: encoded, signal });
   };
   // OFF 也绑定当前策略，拒绝 beforeModelRequest 的 await 期间发生的开启/规则切换。
@@ -55594,7 +55687,13 @@ async function providerSummaryCallCore(provider, history, opts) {
 // 105c: 实体抽检 wrapper —— providerSummaryCallCore 的唯一出口增强点。开关关/摘要不成功/抽检内部异常
 // 都原样透传;只有 sc.ok 且显式开启时才做抽样检查与一次定向修补(见 applySummaryEntityCheck)。
 async function providerSummaryCall(provider, history, opts) {
-  if (opts?.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') history = await PrivacyGateway.protectHostHistory(opts.privacyHistoryOwner, history);
+  if (opts?.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') {
+    try { history = await PrivacyGateway.protectHostHistory(opts.privacyHistoryOwner, history, { signal: summaryStopSignal(opts) }); }
+    catch (error) {
+      if (error?.name === 'AbortError' && summaryStopSignal(opts)?.aborted) return summaryStoppedResult();
+      throw error;
+    }
+  }
   const sc = await providerSummaryCallCore(provider, history, opts);
   // 失败发生在回合被停之后 = 是停止取消了它(fetch 的 AbortError 会被 singleSummaryCall 记成超时/兄弟块失败):统一标
   // aborted,调用方据此不把它算成「摘要服务坏了」(不进冷却、不武装滞回水位)。

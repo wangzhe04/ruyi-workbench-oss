@@ -2391,7 +2391,13 @@ async function providerSummaryCallCore(provider, history, opts) {
 // 105c: 实体抽检 wrapper —— providerSummaryCallCore 的唯一出口增强点。开关关/摘要不成功/抽检内部异常
 // 都原样透传;只有 sc.ok 且显式开启时才做抽样检查与一次定向修补(见 applySummaryEntityCheck)。
 async function providerSummaryCall(provider, history, opts) {
-  if (opts?.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') history = await PrivacyGateway.protectHostHistory(opts.privacyHistoryOwner, history);
+  if (opts?.privacyHistoryOwner && typeof PrivacyGateway !== 'undefined') {
+    try { history = await PrivacyGateway.protectHostHistory(opts.privacyHistoryOwner, history, { signal: summaryStopSignal(opts) }); }
+    catch (error) {
+      if (error?.name === 'AbortError' && summaryStopSignal(opts)?.aborted) return summaryStoppedResult();
+      throw error;
+    }
+  }
   const sc = await providerSummaryCallCore(provider, history, opts);
   // 失败发生在回合被停之后 = 是停止取消了它(fetch 的 AbortError 会被 singleSummaryCall 记成超时/兄弟块失败):统一标
   // aborted,调用方据此不把它算成「摘要服务坏了」(不进冷却、不武装滞回水位)。
