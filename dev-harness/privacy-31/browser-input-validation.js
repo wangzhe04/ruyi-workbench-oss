@@ -51,6 +51,9 @@ function corpus() {
   return rows;
 }
 function expected(row, mode, technical) { return mode !== 'off' && (row.tier === 'basic' || row.tier === 'personal' && ['enhanced','strict'].includes(mode) || row.tier === 'technical' && technical || row.tier === 'confidential' && mode === 'strict'); }
+function containsOriginal(text, secret) {
+  return secret.length >= 8 ? text.includes(secret) : new RegExp('(?<![A-Za-z0-9])' + secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z0-9])').test(text);
+}
 function textContent(value) { if (typeof value === 'string') return value; if (Array.isArray(value)) return value.map(row => typeof row === 'string' ? row : row.text || '').join('\n'); return ''; }
 function textViews(value, depth=0, out=[]) {
   if(depth>12)return out;
@@ -88,7 +91,7 @@ async function main() {
       try {
         report.providerRequests++;
         const bodyViews=textViews(ctx.body).map(value=>value.replace(TOKEN,''));
-        const leaked=[...rows,...mixedCorpus.cases,...secondCorpus.cases,...thirdCorpus.cases].filter(row=>expected(row,livePolicy.mode,livePolicy.technical)).find(row=>(row.secrets||[row.secret]).some(secret=>bodyViews.some(value=>secret.length>=8 ? value.includes(secret) : new RegExp('(?<![A-Za-z0-9])'+secret.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![A-Za-z0-9])').test(value))));
+        const leaked=[...rows,...mixedCorpus.cases,...secondCorpus.cases,...thirdCorpus.cases].filter(row=>expected(row,livePolicy.mode,livePolicy.technical)).find(row=>(row.secrets||[row.secret]).some(secret=>bodyViews.some(value=>containsOriginal(value,secret))));
         check(!leaked, 'wire '+report.providerRequests+': complete recursively decoded body, including all roles and tool returns, contains no protected originals'+(leaked?' ['+leaked.id+']':''));
         const user = ctx.messages.filter(row => row.role === 'user').map(row => textContent(row.content)).findLast(value => value.includes('BROWSER_INPUT_BEGIN_')) || '';
         const label = user.match(/BROWSER_INPUT_BEGIN_([a-z-]+)/)?.[1];
@@ -202,17 +205,17 @@ async function main() {
   }
   for(const [n,observation] of observations.filter(row=>row.stream).entries()) {
     const visible=observation.user.replace(TOKEN,'');
-    check(rows.filter(row=>expected(row,observation.policy.mode,observation.policy.technical)).every(row=>!visible.includes(row.secret)), 'stream '+n+': every actual main request protects all sensitive values across the full user context');
+    check(rows.filter(row=>expected(row,observation.policy.mode,observation.policy.technical)).every(row=>!containsOriginal(visible,row.secret)), 'stream '+n+': every actual main request protects all sensitive values across the full user context');
   }
   for(const [n,observation] of observations.filter(row=>row.label.startsWith('mixed-')).entries()) {
     const visible=observation.user.replace(TOKEN,'');
-    check(mixedCorpus.cases.filter(row=>expected(row,observation.policy.mode,observation.policy.technical)).every(row=>(row.secrets||[row.secret]).every(secret=>!visible.includes(secret))), 'mixed request '+n+': main or auxiliary wire contains no protected originals');
+    check(mixedCorpus.cases.filter(row=>expected(row,observation.policy.mode,observation.policy.technical)).every(row=>(row.secrets||[row.secret]).every(secret=>!containsOriginal(visible,secret))), 'mixed request '+n+': main or auxiliary wire contains no protected originals');
   }
   const auxiliary = observations.filter(row => !row.stream);
   check(auxiliary.length > 0, 'real non-streaming title/brief requests were captured separately');
   for (const [n, observation] of auxiliary.entries()) {
     const {mode,technical}=observation.policy, visible=observation.user.replace(TOKEN,'');
-    check(rows.filter(row=>expected(row,mode,technical)).every(row=>!visible.includes(row.secret)), 'auxiliary '+n+' '+observation.label+': protected original values absent from actual title/brief request');
+    check(rows.filter(row=>expected(row,mode,technical)).every(row=>!containsOriginal(visible,row.secret)), 'auxiliary '+n+' '+observation.label+': protected original values absent from actual title/brief request');
     if(mode==='off') check(observation.priorReferences,'auxiliary '+n+' '+observation.label+': off emits no newly observed references');
     for(const [i,row] of rows.entries()) {
       const begin='CASE_'+i+'_BEGIN\n',end='\nCASE_'+i+'_END',at=observation.user.indexOf(begin),close=observation.user.indexOf(end,at+begin.length);
