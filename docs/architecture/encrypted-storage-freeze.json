@@ -40,7 +40,9 @@
     "steward-cursor",
     "engine-transcript-index",
     "steward-memory",
-    "agent-instructions-import"
+    "agent-instructions-import",
+    "memory-relations",
+    "memory-proposals"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -272,7 +274,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "relation edges name memory ids and their meaning",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "memory-proposals",
@@ -281,7 +283,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "pending proposals quote the user content they propose to remember",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "memory-import-marker",

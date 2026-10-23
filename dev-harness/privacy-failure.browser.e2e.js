@@ -119,6 +119,21 @@ async function selectCardAction(fx,label,keyboard=false){
       const genericSid=genericSession.json?.session?.id||genericSession.json?.id;if(!genericSid)throw Error('generic-error session creation failed');
       await reload(fx,genericSid);const beforeGeneric=providerRequests;await send(fx,'P0_SYNTHETIC_PROVIDER_ERROR');
       t.ok(await fx.waitForEval(`!window.state.streaming&&[...document.querySelectorAll('#messages .error-card')].some(card=>card.querySelector('.error-card-title')?.textContent===${JSON.stringify(strings['error.providerError'])}&&card.textContent.includes(${JSON.stringify(strings['error.providerError.next'])})&&!card.textContent.includes(${JSON.stringify(strings['privacy.failure.title'])}))`)&&providerRequests===beforeGeneric+1,locale+': actual ordinary provider error keeps the existing generic class despite privacy-code prose and does not auto-retry');
+      const limitedSession=await fx.request('POST','/api/sessions',{title:'Synthetic privacy scan limit '+locale,cwd:fx.work});
+      const limitedSid=limitedSession.json?.session?.id||limitedSession.json?.id;if(!limitedSid)throw Error('scan-limit session creation failed');
+      await reload(fx,limitedSid);const beforeLimit=providerRequests;
+      await fx.request('POST','/api/privacy/settings',{mode:'enhanced',technical:false,rules:[{id:'synthetic-limit',kind:'literal',value:'SYNTHETIC_LIMIT_MATCH',category:'INTERNAL'}]});
+      await send(fx,'SYNTHETIC_LIMIT_MATCH '.repeat(10001));
+      const limitCard=`!![...document.querySelectorAll('#messages .error-card')].find(card=>card.textContent.includes(${JSON.stringify(strings['privacy.failure.scanLimit'])})&&!card.querySelector('.error-card-btn'))`;
+      const limitRefused=await fx.waitForEval(`!window.state.streaming&&${limitCard}`)&&providerRequests===beforeLimit;
+      if(!limitRefused)console.log('LIMIT-DIAGNOSTIC '+JSON.stringify({locale,beforeLimit,providerRequests,dom:await fx.evaluate("document.getElementById('messages').textContent.slice(-1800)")}));
+      t.ok(limitRefused,locale+': real scan-limit refusal has localized recovery guidance and sends zero provider bytes');
+      await reload(fx,limitedSid);
+      t.ok(await fx.waitForEval(limitCard)&&providerRequests===beforeLimit,locale+': persisted resource-limit guidance survives reload without automatic resend');
+      await fx.request('POST','/api/privacy/settings',{mode:'off',technical:false,rules:[]});
+      await reload(fx,limitedSid);await send(fx,'P0_SYNTHETIC_CONTINUE_AFTER_PRIVACY_OFF');
+      t.ok(await fx.waitForEval(`!window.state.streaming&&document.getElementById('messages').textContent.includes('P0_SYNTHETIC_NATIVE_DONE')`)&&providerRequests===beforeLimit+1,locale+': same session continues after a privacy failure and explicit disable despite its retained history');
+      await fx.request('POST','/api/privacy/settings',{mode:'enhanced',technical:false,rules:[]});
       await reload(fx,sid);await probes(fx);
       for(const [lens,button]of [['classic','#composerVoiceBtn'],['steward','#stewardComposerVoice']]){
         await setLens(fx,lens);await click(fx,button);

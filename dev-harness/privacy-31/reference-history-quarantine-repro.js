@@ -6,7 +6,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const temp = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(temp, 'ruyi-reference-history-'));
 const data = path.join(root, 'data'), work = path.join(root, 'work'); fs.mkdirSync(data); fs.mkdirSync(work);
 Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), data));
-const app = require('../lib/server-internals').loadServerInternals(['PrivacyCore', 'PrivacyGateway', 'runSessionTurn', 'runSubAgentCore', 'createSession', 'loadSession', 'readConfig', 'mutateConfig'], { withEval: true });
+const app = require('../lib/server-internals').loadServerInternals(['PrivacyCore', 'PrivacyGateway', 'runSessionTurn', 'runSubAgentCore', 'createSession', 'loadSession', 'saveSession', 'readConfig', 'mutateConfig'], { withEval: true });
 const protocol = process.argv.find(arg => arg.startsWith('--protocol='))?.split('=')[1] || 'chat';
 if (!['chat', 'responses', 'anthropic'].includes(protocol)) throw Error('synthetic_protocol_invalid');
 const f = require('../lib/privacy-test-fixture').fixture();
@@ -94,12 +94,45 @@ const outcome = async (sessionId, message) => {
     // Off is deliberately allowed to send restored historical values. The enabled wire remains opaque.
     state.wire.pop();
     report.noOriginalOnWire = state.wire.every(body => !JSON.stringify(body).includes(original));
+    // A genuinely old OFF conversation must survive opt-in, a strict resource
+    // refusal, and disabling again. Exercise the real turn admission/history
+    // migration, not only a direct gateway call or a retained error card.
+    const legacy = await app.createSession({ cwd: work, title: 'Synthetic legacy resource history' });
+    const wide = JSON.stringify(Array.from({ length: 10000 }, () => ({ ok: 'ordinary' })));
+    legacy.providerHistory = [{ role: 'assistant', content: wide }]; await app.saveSession(legacy);
+    state.steps.length = 0; state.steps.push(text('LEGACY_OFF_OK'));
+    const legacyOff = await outcome(legacy.id, 'Continue the existing public task.');
+    await app.mutateConfig(current => { current.privacyModeV1 = 'enhanced'; return {}; });
+    state.steps.length = 0; state.steps.push(text('LEGACY_ENABLED_OK'));
+    const enabledLegacy = await outcome(legacy.id, 'Continue with privacy enabled.');
+    const currentConfig = await app.readConfig(); let legacyReference;
+    await app.PrivacyGateway.run(legacy.id, currentConfig, async () => {
+      legacyReference = (await app.PrivacyGateway.toolResult({ email: 'synthetic-legacy-resource@example.test' })).email;
+    });
+    const oversized = await app.loadSession(legacy.id);
+    const ordinaryRows = Array.from({ length: 7000 }, () => ({ role: 'assistant', content: 'ordinary public historical context' }));
+    oversized.messages.push(...ordinaryRows.map(row => ({ ...row })));
+    oversized.providerHistory.push(...ordinaryRows, { role: 'assistant', content: legacyReference });
+    await app.saveSession(oversized);
+    state.steps.length = 0; state.steps.push(text('MUST_NOT_REACH_MODEL'));
+    const beforeRefusal = state.wire.length, refusedResource = await outcome(legacy.id, 'Exercise the bounded old-history refusal.');
+    await app.mutateConfig(current => { current.privacyModeV1 = 'off'; return {}; });
+    state.steps.length = 0; state.steps.push(text('LEGACY_OFF_RECOVERED'));
+    const beforeOffRecovery = state.wire.length, legacyRecovered = await outcome(legacy.id, 'Continue this same task after disabling privacy.');
+    report.resourceHistory = { initialOffOk: legacyOff.ok, enabledWideJsonOk: enabledLegacy.ok,
+      enabledResourceRefused: !refusedResource.ok && /privacy\.(?:structure_limit|aggregate_limit|learned_scan_limit)/.test(refusedResource.error),
+      enabledRefusalSentNoBytes: beforeOffRecovery === beforeRefusal,
+      offRecovered: legacyRecovered.ok, offModelRequests: state.wire.length - beforeOffRecovery,
+      offWireHasRestoredReference: state.wire.slice(beforeOffRecovery).some(body => JSON.stringify(body).includes('synthetic-legacy-resource@example.test')) };
     report.desiredContract = report.validToolSucceeded && report.invalidExecutionCount === 0 && report.invalidArtifactAbsent
       && report.normalFollowup.ok && report.normalFollowup.modelRequests > 0 && report.validReferenceRetained
       && report.modelAuthoredCases.every(row => row.followupOk && row.followupRequests > 0) && report.freshUserForgery.refused
       && report.freshUserForgery.modelRequests === 0 && report.noOriginalOnWire && report.invalidArgumentPersisted
       && report.negativeTurn.ok && report.rejectedUserFollowup.ok && report.rejectedUserFollowup.modelRequests > 0
-      && report.offFollowup.ok && report.offFollowup.auditRetained && report.subagentRecovery.ok && report.subagentRecovery.invalidArtifactAbsent;
+      && report.offFollowup.ok && report.offFollowup.auditRetained && report.subagentRecovery.ok && report.subagentRecovery.invalidArtifactAbsent
+      && report.resourceHistory.initialOffOk && report.resourceHistory.enabledWideJsonOk && report.resourceHistory.enabledResourceRefused
+      && report.resourceHistory.enabledRefusalSentNoBytes && report.resourceHistory.offRecovered && report.resourceHistory.offModelRequests > 0
+      && report.resourceHistory.offWireHasRestoredReference;
     report.protocol = protocol;
     console.log(JSON.stringify(report, null, 2));
     if (!process.argv.includes('--observe')) assert.ok(report.desiredContract, 'a refused model reference must not poison later normal turns');

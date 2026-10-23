@@ -104,6 +104,53 @@ test('policy and resource failures remain hard errors for history projection', a
     api.markUnavailable(); assert.throws(() => api.projectHostHistory(owner, [{ role: 'assistant', content: unknown }]), /privacy.policy_unavailable/);
   });
 });
+
+test('wide historical JSON is counted once and OFF can continue after an enabled structure refusal', async t => {
+  const { api, root } = await setup(t);
+  const content = JSON.stringify(Array.from({ length: 10000 }, () => ({ ok: 'ordinary' })));
+  const history = [{ role: 'tool', tool_call_id: 'old-read', content }], frozen = JSON.stringify(history);
+  await api.run('wide-old-history', config, async () => {
+    const owner = {}; api.bindHostHistory(owner, history);
+    const projected = api.projectHostHistory(owner, history);
+    const result = await api.beforeModelRequest({ messages: projected });
+    assert.equal(result.messages.at(-1).content, content);
+    const tooWide = [{ role: 'tool', tool_call_id: 'oversized-old-read', content: JSON.stringify(Array.from({ length: 18000 }, () => ({ ok: 'ordinary' }))) }];
+    await assert.rejects(api.beforeModelRequest({ messages: tooWide }), /privacy.structure_limit/);
+    api.configure({ ...config, privacyModeV1: 'off' });
+  });
+  const off = { messages: Array.from({ length: 12000 }, () => ({ role: 'assistant', content: 'ordinary public history' })), providerHistory: history };
+  assert.equal(await api.restoreHistory('wide-old-history', off, true), off);
+  assert.equal(await api.beforeModelRequest({ messages: history }).then(body => body.messages), history);
+  assert.equal(JSON.stringify(history), frozen); assert.deepEqual(fs.readdirSync(root), []);
+});
+
+test('OFF restores only referenced subtrees across large dual histories while preserving exact ordinary JSON', async t => {
+  const { api } = await setup(t); let valid, revoked;
+  await api.run('wide-ref-off', config, async () => {
+    valid = (await api.toolResult({ email: 'synthetic-wide-off@example.test' })).email;
+    revoked = api.active().scope.protectValue('synthetic-revoked-wide@example.test', 'EMAIL');
+    api.active().scope.revoke(revoked);
+  });
+  api.configure({ ...config, privacyModeV1: 'off' });
+  const ordinary = JSON.stringify(Array.from({ length: 20000 }, () => ({ ok: 'ordinary' })));
+  const rows = Array.from({ length: 10000 }, () => ({ role: 'assistant', content: 'ordinary retained context' }));
+  const escaped = JSON.stringify({ content: valid }).replaceAll('R', '\\u0052').replaceAll('[', '\\u005b');
+  const source = { messages: rows, providerHistory: [...rows, { role: 'tool', tool_call_id: 'wide', content: ordinary },
+    { role: 'tool', tool_call_id: 'mixed-wide', content: ordinary.slice(0, -1) + ',{"ref":' + JSON.stringify(valid) + ',"unavailable":' + JSON.stringify(unknown) + '}]' },
+    { role: 'assistant', content: escaped }, { role: 'assistant', content: revoked }] };
+  const frozen = JSON.stringify(source), restored = await api.restoreHistory('wide-ref-off', source, true);
+  assert.equal(restored.providerHistory.at(-4).content, ordinary);
+  assert.ok(!restored.providerHistory.at(-3).content.includes(unknown));
+  assert.equal(JSON.parse(restored.providerHistory.at(-2).content).content, 'synthetic-wide-off@example.test');
+  assert.ok(!JSON.stringify(restored).includes(revoked));
+  assert.equal(JSON.stringify(source), frozen);
+  const mixedValid = { providerHistory: [{ role: 'tool', content: ordinary.slice(0, -1) + ',{"ref":' + JSON.stringify(valid) + '}]' }] };
+  const restoredValid = await api.restoreHistory('wide-ref-off', mixedValid, true);
+  assert.equal(JSON.parse(restoredValid.providerHistory[0].content).at(-1).ref, 'synthetic-wide-off@example.test');
+  const credentialContext = { providerHistory: [{ role: 'tool', content: JSON.stringify({ password: valid }) }] };
+  assert.ok(!JSON.stringify(await api.restoreHistory('wide-ref-off', credentialContext, true)).includes('synthetic-wide-off@example.test'));
+  await assert.rejects(api.restoreHistory('wide-ref-off', { providerHistory: [{ role: 'assistant', content: unknown }] }), /privacy.reference_unknown/);
+});
 test('summary source protection precedes JSON tagging, extraction and truncation', async t => {
   const { api } = await setup(t), policy = { ...config, privacyRulesV1: [{ id: 'patient', kind: 'field', value: '/patientCode', category: 'INTERNAL' }] };
   api.configure(policy);

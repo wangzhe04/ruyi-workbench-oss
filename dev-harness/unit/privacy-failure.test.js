@@ -99,6 +99,29 @@ test('actual tool renderer keeps successful and unflagged business results visib
 });
 
 const loadPublicModule=name=>import('data:text/javascript;base64,'+fs.readFileSync(path.join(root,'ruyi-workbench/app/public/js',name+'.js')).toString('base64'));
+test('privacy resource limits give bounded bilingual guidance and preserve execution uncertainty',async()=>{
+  const {privacyFailure}=await load();
+  const {createChatRenderPrimitives}=await loadPublicModule('chat-render-primitives');
+  for(const code of ['learned_scan_limit','structure_limit','text_limit','matches_limit','mapping_limit','aggregate_limit','regex_input_limit','regex_matches_limit']){
+    const value={ok:false,code:'privacy.'+code,operationMayHaveExecuted:true,resultUnavailable:true,params:{private:'DO_NOT_SHOW'}};
+    const failure=privacyFailure(value);
+    assert.equal(failure.key,'privacy.failure.'+(code==='mapping_limit'?'mappingLimit':'scanLimit'));
+    assert.equal(failure.action,'');assert.equal(failure.mayHaveExecuted,true);assert.equal(failure.resultUnavailable,true);
+    assert.equal(privacyFailure('Provider mentioned privacy.'+code),null);
+    assert.equal(privacyFailure({ok:true,code:value.code}),null);
+    for(const locale of ['zh-CN','en-US']){
+      const catalog=JSON.parse(fs.readFileSync(path.join(root,'ruyi-workbench/app/public/locales',locale+'.json'),'utf8'));
+      const mirror=JSON.parse(fs.readFileSync(path.join(root,'docs/i18n/locales',locale+'.json'),'utf8'));
+      const guidance=catalog[failure.key];assert.equal(guidance,mirror[failure.key]);
+      assert.match(guidance,locale==='zh-CN'?/检查已完成的操作/:/Check completed operations/);
+      assert.ok(!/关闭|disable|turn off/i.test(guidance));
+      const renderer=createChatRenderPrimitives({privacyFailure,privacyFailureCard:error=>({textContent:catalog[privacyFailure(error).key]})});
+      const host={textContent:'',children:[],classList:{add(){}},appendChild(card){this.children.push(card);}};
+      renderer.renderToolResultInto(host,'file_read',value);
+      assert.equal(host.children[0].textContent,guidance);assert.ok(!JSON.stringify(host.children).includes('DO_NOT_SHOW'));
+    }
+  }
+});
 test('API presenter preserves legacy detail priority, stable mappings and raw unknown errors',async()=>{
   const [{createApiErrorPresenter},net,{privacyFailure}]=await Promise.all([loadPublicModule('api-error-i18n'),loadPublicModule('net'),load()]);
   const present=createApiErrorPresenter({t:(key,params)=>({key,params}),apiErrorInfo:net.apiErrorInfo,rawApiErrText:net.apiErrText,privacyFailure});

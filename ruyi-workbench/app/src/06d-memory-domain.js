@@ -1490,21 +1490,44 @@ function memoryProposalStateFile(sessionId) {
   return sid ? path.join(paths.memory, 'proposals', sid + '.json') : '';
 }
 
+// 保留既有 pretty JSON 字节与容量契约；容量在解封后的文本上算，不能拿膨胀的密文容器判空。
+function memoryProposalStateStore(sessionId) {
+  return WorkDataStore.createText({
+    file: () => memoryProposalStateFile(sessionId),
+    purpose: 'memory', schema: 1, scopeId: safeSessionId(sessionId), recordId: 'memory-proposals',
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+  });
+}
+
 async function readMemoryProposalState(sessionId) {
   const file = memoryProposalStateFile(sessionId);
   if (!file) return { schema: 1, history: [] };
   try {
     const stat = await fsp.stat(file);
-    if (!stat.isFile() || stat.size > MEMORY_PROPOSAL_STATE_MAX_BYTES) return { schema: 1, history: [] };
-    const raw = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+    if (!stat.isFile()) return { schema: 1, history: [] };
+    if (stat.size > MEMORY_PROPOSAL_STATE_MAX_BYTES) {
+      // 固定内存扫描整份文件，不把大明文读入内存，也不假定容器字段顺序或 marker 所在偏移。
+      // 密文的 base64 膨胀不计入明文容量；确认是容器后解封，再核对明文大小。
+      if (!(await WorkDataStore.hasContainerMarker(file))) return { schema: 1, history: [] };
+    }
+    const text = await memoryProposalStateStore(sessionId).read();
+    if (Buffer.byteLength(text, 'utf8') > MEMORY_PROPOSAL_STATE_MAX_BYTES) return { schema: 1, history: [] };
+    const raw = safeJsonParse(text, null);
     if (!raw || typeof raw !== 'object') return { schema: 1, history: [] };
     return { schema: 1, lastEvaluatedTurn: Math.max(0, Number(raw.lastEvaluatedTurn) || 0), lastShownTurn: Math.max(0, Number(raw.lastShownTurn) || 0), current: raw.current && typeof raw.current === 'object' ? raw.current : null, history: Array.isArray(raw.history) ? raw.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX) : [] };
-  } catch { return { schema: 1, history: [] }; }
+  } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    return { schema: 1, history: [] };
+  }
 }
 
 async function writeMemoryProposalState(sessionId, state) {
   const file = memoryProposalStateFile(sessionId);
   if (!file) return;
+  // 即便调用方直接写一个新 state，也不能覆盖缺钥/认证失败的旧容器。
+  await readMemoryProposalState(sessionId);
   await fsp.mkdir(path.dirname(file), { recursive: true });
   const clean = { schema: 1, lastEvaluatedTurn: Math.max(0, Number(state.lastEvaluatedTurn) || 0), lastShownTurn: Math.max(0, Number(state.lastShownTurn) || 0), current: state.current || null, history: (Array.isArray(state.history) ? state.history : []).slice(-MEMORY_PROPOSAL_HISTORY_MAX) };
   // 写侧兜底:与读侧同一把尺(UTF-8 字节、atomicWriteJson 同款两空格缩进)。按上限推算正常写不到这里;真超了就先丢
@@ -1514,7 +1537,7 @@ async function writeMemoryProposalState(sessionId, state) {
     clean.history = clean.history.slice(Math.max(1, Math.ceil(clean.history.length / 4)));
     payload = JSON.stringify(clean, null, 2);
   }
-  await atomicWriteJson(file, payload);
+  await memoryProposalStateStore(sessionId).write(payload);
 }
 
 function recordMemoryProposalUsage(sc, provider, session) {
@@ -1960,23 +1983,38 @@ function memoryRelationsFile(scope, cwd) {
     : path.join(memoryProjectDir(cwd), '_relations.json');
 }
 
+// 裸数组不能经 createJson 加 schema 槽；文本适配器封印原序列化结果，关时格式不变。
+function memoryRelationsStore(scope, cwd) {
+  return WorkDataStore.createText({
+    file: () => memoryRelationsFile(scope, cwd),
+    purpose: 'memory', schema: 1, scopeId: scope === 'global' ? 'global' : 'project:' + projectKeyForCwd(cwd),
+    recordId: 'memory-relations',
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+  });
+}
+
 // 读一个 scope 的关系数组(空文件/不存在 -> [])。不做过滤,过滤由 listMemoryRelations 按 confirmed 分桶。
 async function readMemoryRelations(scope, cwd) {
-  const file = memoryRelationsFile(scope, cwd);
   try {
-    const raw = await fsp.readFile(file, 'utf8');
+    const raw = await memoryRelationsStore(scope, cwd).read();
     const arr = safeJsonParse(raw, null);
     if (!Array.isArray(arr)) return [];
     return arr.filter(r => r && typeof r === 'object' && SKILL_ID_RE.test(r.id)
       && MEMORY_RELATION_TYPES.has(r.type) && SKILL_ID_RE.test(String(r.from)) && SKILL_ID_RE.test(String(r.to)));
-  } catch { return []; }
+  } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    return [];
+  }
 }
 
 async function writeMemoryRelations(scope, cwd, arr) {
+  await readMemoryRelations(scope, cwd); // 认证既有容器，禁止用新数组覆盖解不开的数据。
   const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
   try { await fsp.mkdir(dir, { recursive: true }); } catch { /* 已存在 */ }
   if (scope === 'project') await writeMemoryMeta(dir, cwd);
-  await atomicWriteJson(memoryRelationsFile(scope, cwd), arr);
+  await memoryRelationsStore(scope, cwd).write(JSON.stringify(arr, null, 2));
 }
 
 // listMemoryRelations(cwd, scope, opts) -> {ok, relations, pending, confirmed}。opts.includePending=false 时

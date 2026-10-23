@@ -286,6 +286,26 @@ test('learned matching has shared comparison and pre-merge hit budgets, includin
   assertCode(() => tiny.detect('x', { budget: {} }), 'scan_budget_invalid');
 });
 
+test('learned multi-pattern scanning covers suffixes, UTF-16 offsets and cache changes within the same bounded budget', () => {
+  const s = scope({ detector: core.createDetector() });
+  s.protectValue('he', 'INTERNAL'); s.protectValue('she', 'INTERNAL'); s.protectValue('hers', 'CREDENTIAL');
+  s.protectValue('😀私密', 'INTERNAL');
+  const matches = plain(s.detect('ushers 😀私密'));
+  assert.deepEqual(matches.map(({ start, end, category }) => ({ start, end, category })),
+    [{ start: 1, end: 6, category: 'CREDENTIAL' }, { start: 7, end: 11, category: 'INTERNAL' }]);
+  s.protectValue('she', 'CREDENTIAL');
+  assert.equal(s.detect('she')[0].category, 'CREDENTIAL');
+  const late = s.protectValue('late-value', 'INTERNAL');
+  assert.equal(s.protectRaw('late-value').text, late);
+  s.revoke(late); assertCode(() => s.detect('late-value'), 'reference_revoked');
+  const rebuilding = scope({ detector: core.createDetector() }); rebuilding.protectValue('abc'.repeat(50), 'INTERNAL');
+  assertCode(() => rebuilding.detect('ordinary', { budget: core.createMatchBudget(20) }), 'learned_scan_limit');
+  assert.deepEqual(plain(rebuilding.detect('ordinary')), [], 'an incomplete index is never cached');
+  const many = scope({ detector: core.createDetector() });
+  for (let i = 0; i < 300; i++) many.protectValue('synthetic-private-' + i, 'INTERNAL');
+  assert.deepEqual(plain(many.detect('z'.repeat(200000))), [], 'old history is scanned once across hundreds of mappings');
+});
+
 test('learned mapping counts and bytes include revoked values; imports validate empty, duplicate and alias state atomically', () => {
   const s = scope({ detector: core.createDetector() }), token = s.protectValue('a'.repeat(600000), 'INTERNAL'); s.revoke(token);
   assertCode(() => s.protectValue('b'.repeat(600000), 'INTERNAL'), 'mapping_limit');

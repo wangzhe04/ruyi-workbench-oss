@@ -84,6 +84,42 @@ async function check(label, work) { try { await work(); t.ok(true, label); } cat
         }
       });
     }
+    for (const child of [false, true]) {
+      if (process.platform !== 'win32') { console.log('SKIP reserved source PowerShell output requires Windows'); continue; }
+      await check((child ? 'child' : 'main') + ' reads privacy source markers once and continues with an explicit withheld result', async () => {
+        const index = (child ? 'child' : 'main') + '-reserved-source';
+        const counter = path.join(work, index + '-counter.txt'), source = path.join(work, index + '-source.js');
+        const raw = 'const PREFIX = "[[RUYI_PVT:"; // PUBLIC-RESERVED-SOURCE-SENTINEL\n';
+        fs.writeFileSync(source, raw);
+        const command = "Add-Content -LiteralPath './" + path.basename(counter) + "' -Value '1'; Get-Content -Raw -LiteralPath './" + path.basename(source) + "'";
+        step = { name: 'powershell_run', args: { command }, id: 'call-' + index, requests: [] };
+        const before = state.executions.length, session = await app.createSession({ cwd: work, title: 'Synthetic ' + index });
+        const config = await app.readConfig();
+        if (child) {
+          const result = await app.runSubAgentCore({ parentSession: session, provider: config.providers[0], config,
+            task: 'Read the synthetic source once and finish without repeating the command.', agentKey: 'reserved-fixture', toolTier: 'exec', maxIters: 4, model: 'synthetic-model',
+            onEvent() {}, subagentId: index, depth: 1, ctrl: new AbortController(), permModeOverride: 'bypass' });
+          assert.equal(result.ok, true);
+        } else {
+          const events = [];
+          await app.runSessionTurn({ sessionId: session.id, message: 'Read the synthetic source once and finish without repeating the command.', source: 'user', onEvent: event => events.push(event) });
+          const terminal = events.findLast(event => event.type === 'result');
+          assert.equal(terminal?.ok, true); assert.equal(terminal?.aborted, false);
+          assert.equal(events.some(event => event.type === 'error'), false);
+          assert.ok(JSON.stringify((await app.loadSession(session.id)).messages).includes('PUBLIC-RESERVED-SOURCE-SENTINEL'), 'local tool audit retains the original stdout');
+        }
+        assert.equal(step.requests.length, 2);
+        assert.equal(state.executions.slice(before).filter(row => row.name === 'powershell_run').length, 1);
+        assert.equal(fs.readFileSync(counter, 'utf8').trim().split(/\r?\n/).length, 1);
+        assert.equal(fs.readFileSync(source, 'utf8'), raw);
+        const next = step.requests[1], results = next.body.messages.filter(row => row.role === 'tool' && row.tool_call_id === step.id);
+        assert.equal(results.length, 1);
+        const receipt = JSON.parse(results[0].content);
+        assert.equal(receipt.code, 'privacy.tool_result_withheld'); assert.equal(receipt.reason, 'privacy.reserved_literal');
+        assert.equal(receipt.privacyFiltered, true); assert.equal(receipt.operationMayHaveExecuted, true); assert.equal(receipt.resultUnavailable, true);
+        assert.ok(!next.raw.includes('PUBLIC-RESERVED-SOURCE-SENTINEL')); assert.ok(!next.raw.includes('const PREFIX'));
+      });
+    }
     assert.equal(fake.errors.length, 0);
   } finally {
     if (fake) await fake.close(); f.vault.clear(); assert.equal(path.dirname(root), base); fs.rmSync(root, { recursive: true, force: true });

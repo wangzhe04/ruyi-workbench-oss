@@ -45,6 +45,30 @@ test('model tool result recovery withholds incompatible data, persists protectio
   });
 });
 
+test('completed tool output containing privacy source markers is withheld without trusting raw echoed references', async t => {
+  const { api } = await setup(t);
+  await api.run('reserved-output', config, async () => {
+    const valid = api.active().scope.protectValue('synthetic-reserved@example.test', 'EMAIL');
+    const foreign = '[[RUYI_PVT:EMAIL:' + 'f'.repeat(32) + ']]';
+    for (const stdout of ['const PREFIX = "[[RUYI_PVT:"; // PUBLIC-SOURCE-SENTINEL', valid, foreign,
+      JSON.stringify({ source: '[[RUYI_PVT:' }).replaceAll('[', '\\u005b')]) {
+      const result = { ok: true, exitCode: 0, stdout }, snapshot = JSON.stringify(result);
+      await assert.rejects(api.toolResult(result), /privacy\.reserved_literal/);
+      const safe = await api.modelToolResult(result);
+      assert.equal(safe.code, 'privacy.tool_result_withheld'); assert.equal(safe.reason, 'privacy.reserved_literal');
+      assert.equal(safe.operationMayHaveExecuted, true); assert.equal(safe.resultUnavailable, true); assert.equal(safe.privacyFiltered, true);
+      assert.ok(!JSON.stringify(safe).includes('[[RUYI_PVT:')); assert.ok(!JSON.stringify(safe).includes('PUBLIC-SOURCE-SENTINEL'));
+      assert.equal(JSON.stringify(result), snapshot);
+      const next = await api.beforeModelRequest({ messages: [{ role: 'tool', tool_call_id: 'completed-once', content: JSON.stringify(safe) }] });
+      assert.equal(next.messages.at(-1).tool_call_id, 'completed-once');
+      assert.match(next.messages.at(-1).content, /privacy.tool_result_withheld/);
+    }
+    await assert.rejects(api.projectSource('const PREFIX = "[[RUYI_PVT:";'), /privacy\.reserved_literal/);
+    await assert.rejects(api.beforeModelRequest({ messages: [{ role: 'user', content: foreign }] }), /privacy\.reference_unknown/);
+    assert.equal((await api.prepareExecution({ name: 'file_write', rawArgs: JSON.stringify({ content: foreign }) })).privacyError.code, 'privacy.reference_unknown');
+  });
+});
+
 test('resilient APIs retain the off identity path without invoking object getters or creating vault files', async t => {
   const { api, root } = await setup(t); api.configure({ ...config, privacyModeV1: 'off' });
   const body = {}; Object.defineProperty(body, 'messages', { get() { throw Error('off path inspected data'); } });
@@ -271,6 +295,32 @@ test('one learned scanning budget covers all leaves and stabilization passes rat
     assert.match(learned.password, /^\[\[RUYI_PVT:CREDENTIAL:/);
     assert.ok(api.active().scope.revision() > revision);
     assert.equal(budgets, beforeLearning + 1, 'learning and its stabilization pass share the same budget');
+  });
+});
+
+test('discovering short values beside a long legacy alias does not repeatedly rebuild the alias index', async t => {
+  const { api } = await setup(t);
+  await api.run('long-legacy-alias', config, async () => {
+    const value = 'LONG-LEGACY-SOURCE-'.repeat(20000), scope = api.active().scope;
+    const token = scope.protectValue(value, 'INTERNAL');
+    const values = Array.from({ length: 100 }, (_, index) => 'synthetic-person-' + index + '@example.test');
+    const result = await api.toolResult(values);
+    assert.equal(result.length, values.length);
+    assert.ok(result.every(item => /^\[\[RUYI_PVT:EMAIL:/.test(item)));
+    assert.equal(scope.protectRaw(value).text, token);
+  });
+});
+
+test('multi-megabyte old conversation with hundreds of learned mappings stays inside the shared default budget', async t => {
+  const { api } = await setup(t);
+  await api.run('long-old-conversation', config, async () => {
+    const scope = api.active().scope;
+    for (let index = 0; index < 300; index++) scope.protectValue('SYNTHETIC-PRIVATE-' + index, 'INTERNAL');
+    const messages = Array.from({ length: 16 }, () => ({ role: 'assistant', content: 'z'.repeat(200000) }));
+    assert.equal(messages.reduce((sum, row) => sum + Buffer.byteLength(row.content), 0), 3200000);
+    const result = await api.beforeModelRequest({ messages });
+    assert.deepEqual(structuredClone(result.messages.slice(-messages.length)), messages);
+    assert.equal(scope.size(), 300);
   });
 });
 

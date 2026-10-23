@@ -36,14 +36,37 @@ const WorkDataStore = ((fsp, pathModule) => {
     try { enabled = await host.enabled(); } catch { fail('switch_unavailable'); }
     return enabled === true;
   };
+  // workData is a reserved container marker. A truncated container must not enter the legacy
+  // "bad plaintext means empty" path, which would let a subsequent mutation erase ciphertext.
+  const containerMarker = rawText => /"workData"\s*:/.test(rawText);
+  const hasContainerMarker = async target => {
+    const handle = await fsp.open(target, 'r');
+    try {
+      const buffer = Buffer.alloc(64 * 1024);
+      let carry = '';
+      for (;;) {
+        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+        if (!bytesRead) return false;
+        const chunk = carry + buffer.subarray(0, bytesRead).toString('latin1');
+        if (containerMarker(chunk)) return true;
+        // Keep a split key or a key followed by arbitrarily long JSON whitespace across chunks.
+        carry = chunk.replace(/[ \t\r\n]+$/, '').slice(-10);
+      }
+    } finally { await handle.close(); }
+  };
   const guardWrite = async (host, target) => {
     // mkdir first: atomicWriteJson does not create directories (the old DurableJsonStore write chain did).
     await fsp.mkdir(pathModule.dirname(target), { recursive: true }).catch(() => {});
-    if (await sealing(host)) return;
-    let head = '';
-    try { head = (await fsp.readFile(target, 'utf8')).slice(0, 4096); }
+    const enabled = await sealing(host);
+    let rawText = '';
+    try { rawText = await fsp.readFile(target, 'utf8'); }
     catch (error) { if (error && error.code !== 'ENOENT') fail('storage_unavailable'); return; }
-    if (/"workData"\s*:\s*2/.test(head)) fail('downgrade_refused');   // sealed on disk, switch off: refuse
+    let parsed;
+    try { parsed = JSON.parse(rawText); } catch {
+      if (containerMarker(rawText)) fail('corrupt');
+      return;
+    }
+    if (!enabled && parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.hasOwn(parsed, 'workData')) fail('downgrade_refused');
   };
   const generationOf = keyId => {
     const match = /\.k(\d{1,2})$/.exec(String(keyId || ''));
@@ -96,7 +119,10 @@ const WorkDataStore = ((fsp, pathModule) => {
       try { rawText = await fsp.readFile(target, 'utf8'); }
       catch (error) { if (error && error.code === 'ENOENT') return fallback(); throw error; }
       let parsed;
-      try { parsed = JSON.parse(rawText); } catch (error) { return await corrupt(error); }   // legacy "invalid means empty" contract
+      try { parsed = JSON.parse(rawText); } catch (error) {
+        if (containerMarker(rawText)) fail('corrupt');
+        return await corrupt(error);   // legacy "invalid means empty" contract for plaintext only
+      }
       if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) return decrypt(parsed, WorkDataCrypto.MAX_PLAINTEXT);
       // Legacy plaintext record: keep the previous "bad shape means empty plus a diagnostic" contract.
       try { return prepare(parsed); } catch (error) { return await corrupt(error); }
@@ -134,7 +160,10 @@ const WorkDataStore = ((fsp, pathModule) => {
       // doing so; callers that treat a missing record as empty catch it themselves.
       const rawText = await fsp.readFile(file(), 'utf8');
       let parsed;
-      try { parsed = JSON.parse(rawText); } catch { return rawText; }
+      try { parsed = JSON.parse(rawText); } catch {
+        if (containerMarker(rawText)) fail('corrupt');
+        return rawText;
+      }
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
       const { workData, ...container } = parsed;
       if (workData !== CONTAINER) fail('corrupt');
@@ -202,5 +231,5 @@ const WorkDataStore = ((fsp, pathModule) => {
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
-  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys });
+  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys, hasContainerMarker });
 })(require('node:fs/promises'), require('node:path'));

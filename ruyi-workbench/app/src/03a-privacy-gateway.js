@@ -538,14 +538,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       fail('typed_sensitive');
     };
     const mediaShape = item => ['image', 'audio', 'video', 'document', 'input_image', 'input_audio', 'input_file'].includes(item.type) || (item.type === 'resource' && (item.resource?.blob || item.resource?.mimeType && !/^(?:text\/|application\/(?:json|xml))/.test(item.resource.mimeType))) || item.type === 'base64' && item.media_type || typeof item.mimeType === 'string' && /^(?:image|audio|video)\//.test(item.mimeType);
-    function inspectParsed(item, depth) {
-      if (++nodes > 50000 || depth > 32) fail('structure_limit');
-      if (!item || typeof item !== 'object') return;
-      if (mediaShape(item)) fail('media_not_supported');
-      for (const row of Object.values(item)) inspectParsed(row, depth + 1);
-    }
     // Validate JSON, then edit lexical spans only. Never round-trip source files through JS Number/JSON.stringify.
-    function protectJson(source, initialDepth, proof, allowReferences = false) {
+    function protectJson(source, initialDepth, proof, allowReferences = false, parsedRoot) {
       let cursor = 0, hasReferences = false; const replacements = [], concealed = [], stringValues = [];
       const sourceMatches = detect(source, undefined, allowReferences, true);
       const automaticMatches = detect(source, undefined, allowReferences, false, true);
@@ -593,23 +587,27 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         } else concealed.push(...mapped);
         replacements.push({ start: token.start, end: token.end, replacement });
       };
-      const value = (pointer, depth) => {
-        if (++nodes > 50000 || depth > 32) fail('structure_limit');
+      const value = (pointer, depth, parsedValue) => {
         space(); const current = source[cursor];
+        // Decoded strings are counted by walk; counting them here as well, plus
+        // an entire parsed-object prepass, made ordinary wide legacy tool JSON
+        // exhaust the structure budget several times before its actual size.
+        if (depth > 32 || current !== '"' && ++nodes > 50000) fail('structure_limit');
         if (current === '"') { const token = quoted(); stringValues.push({ start: token.start + 1, end: token.end - 1 }); protectQuoted(token, pointer, depth + 1); return; }
+        if (parsedValue && typeof parsedValue === 'object' && mediaShape(parsedValue)) fail('media_not_supported');
         if (!/[-0-9]/.test(current)) assertTypedField(pointer);
         if (current === '{') {
           cursor++; space();
           if (source[cursor] === '}') { cursor++; return; }
           while (cursor < source.length) {
             space(); const key = quoted(); protectQuoted(key, '', depth + 1); space(); cursor++; // colon
-            value(pointer + '/' + key.value.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1); space();
+            value(pointer + '/' + key.value.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1, parsedValue?.[key.value]); space();
             if (source[cursor++] === '}') return;
           }
         } else if (current === '[') {
           cursor++; space(); let index = 0;
           if (source[cursor] === ']') { cursor++; return; }
-          while (cursor < source.length) { value(pointer + '/' + index++, depth + 1); space(); if (source[cursor++] === ']') return; }
+          while (cursor < source.length) { const child = index++; value(pointer + '/' + child, depth + 1, parsedValue?.[child]); space(); if (source[cursor++] === ']') return; }
         } else {
           const start = cursor; while (cursor < source.length && !/[\s,\]}]/.test(source[cursor])) cursor++;
           const literal = source.slice(start, cursor);
@@ -617,7 +615,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           if (detect(literal, pointer).length) fail(/^-?\d/.test(literal) ? 'numeric_sensitive' : 'typed_sensitive');
         }
       };
-      value('', initialDepth);
+      value('', initialDepth, parsedRoot);
       // A match spanning JSON syntax cannot be safely replaced inside one string leaf.
       // Reject it rather than silently discard the whole-source rule or corrupt typed JSON.
       const references = raw && !allowReferences ? [] : [...source.matchAll(pattern())];
@@ -659,7 +657,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         // JSON tool outputs/arguments preserve escaping and detect sensitive structured fields.
         if (/^\s*[\[{]/.test(item) && !item.startsWith(PREFIX)) {
           let parsed; try { parsed = JSON.parse(item); } catch { /* ordinary prose */ }
-          if (parsed && typeof parsed === 'object') { inspectParsed(parsed, depth + 1); return protectJson(item, depth + 1, proof, allowReferences); }
+          if (parsed && typeof parsed === 'object') return protectJson(item, depth + 1, proof, allowReferences, parsed);
         }
         if (item.startsWith('data:') || /\/(?:image|audio|video)(?:_url)?(?:\/url)?$/.test(pointer)) fail('media_not_supported');
         const result = protectString(item, context, pointer, raw && !allowReferences, budget, proof);
@@ -698,10 +696,11 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     historyBindings.set(owner, { scope: context.scope, historicalUsers: new WeakSet(history.filter(row => row && row.role === 'user')),
       strictUsers: new Set(), originals: new WeakMap() });
   }
-  function projectHistoryCopy(history, scope, binding) {
+  function projectHistoryCopy(history, scope, binding, referenceHints) {
     let nodes = 0, bytes = 0;
     const fieldDetector = core.createDetector();
     const inspect = (value, pointer = '', depth = 0) => {
+      if (referenceHints && !referenceHints(value)) return false;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string') {
         if ((bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
@@ -712,8 +711,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
             const space = () => { while (/\s/.test(value[cursor] || '') && cursor < value.length) cursor++; };
             const quoted = () => { const start = cursor++; while (cursor < value.length) { const char = value[cursor++]; if (char === '\\') cursor++; else if (char === '"') break; } return JSON.parse(value.slice(start, cursor)); };
             const walk = (at, level) => {
-              if (++nodes > 50000 || level > 32) fail('structure_limit');
               space();
+              if (level > 32 || !referenceHints && value[cursor] !== '"' && ++nodes > 50000) fail('structure_limit');
               if (value[cursor] === '"') { bad = inspect(quoted(), at, level + 1) || bad; return; }
               if (value[cursor] === '{') {
                 cursor++; space(); if (value[cursor] === '}') { cursor++; return; }
@@ -970,7 +969,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   async function modelToolResult(value) {
     try { return await toolResult(value); }
     catch (error) {
-      if (!active() || !contentRecoveryError(error)) throw error;
+      // A completed command can read the privacy implementation itself or echo
+      // marker-shaped file data. Keep raw source/reference validation strict;
+      // withhold this result rather than trusting the marker or aborting the turn.
+      if (!active() || !contentRecoveryError(error) && error?.code !== 'privacy.reserved_literal') throw error;
       assertPolicyAvailable();
       return toolResult({ ok: false, privacyFiltered: true, resultUnavailable: true, operationMayHaveExecuted: true,
         code: 'privacy.tool_result_withheld', reason: error.code,
@@ -1229,8 +1231,21 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   // Migrate that history once before constructing the next request; the disabled tool path stays identity.
   // This capability is for host-loaded history only, never for a new model/tool/user input.
   async function restoreHistory(scopeId, history, hostProjection = false) {
+    // OFF must not apply the enabled scanner's history limits when there is
+    // nothing to migrate. Unicode JSON escapes can conceal any marker character,
+    // so those candidates retain the bounded decoder below rather than guessing.
+    const hints = new WeakMap();
+    const mayContain = value => {
+      if (value && typeof value === 'object' && hints.has(value)) return hints.get(value);
+      const spelling = typeof value === 'string' ? value : JSON.stringify(value);
+      const candidate = !!spelling && (spelling.includes(PREFIX) || /\\u[0-9a-f]{4}/i.test(spelling));
+      if (value && typeof value === 'object') hints.set(value, candidate);
+      return candidate;
+    };
+    if (!mayContain(history)) return history;
     let nodes = 0, bytes = 0;
     const couldContain = (value, depth = 0) => {
+      if (!mayContain(value)) return false;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string') {
         if ((bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
@@ -1272,6 +1287,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const restore = value => scope.restoreForTool(value, { scopeId, tool: 'privacy_history', pointer: '/history',
       destination: 'local-history', purpose: 'disabled-privacy-history', allowCredentialEmbedding: true, authorize: () => true });
     const restoreText = (value, depth = 0) => {
+      if (!mayContain(value)) return value;
       if (depth > 32 || ++nodes > 50000) fail('structure_limit');
       if ((bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
       // Change only affected JSON string tokens. Leave whitespace, duplicate keys and long integers exact.
@@ -1289,6 +1305,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     nodes = 0; bytes = 0;
     const walk = (value, depth = 0) => {
+      if (!mayContain(value)) return value;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string') {
         return restoreText(value);
@@ -1308,7 +1325,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     try {
       if (hostProjection && Array.isArray(history.providerHistory)) {
         const binding = { historicalUsers: new WeakSet(history.providerHistory.filter(row => row?.role === 'user')), strictUsers: new Set(), originals: new WeakMap() };
-        history = { ...history, providerHistory: projectHistoryCopy(history.providerHistory, scope, binding) };
+        history = { ...history, providerHistory: history.providerHistory.map(message => mayContain(message) ? projectHistoryCopy([message], scope, binding, mayContain)[0] : message) };
       }
       return walk(history);
     } finally { if (temporary) scope.clear(); }

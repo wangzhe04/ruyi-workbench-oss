@@ -14,7 +14,7 @@ async function main() {
     // Actual engine regression uses an isolated home and a synthetic transport, independently
     // of the browser fixture below. A negative reference must not poison the next request.
     for (const protocol of ['chat', 'responses', 'anthropic']) {
-      const regression = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'privacy-31/reference-history-quarantine-repro.js'), '--protocol=' + protocol], { encoding: 'utf8', windowsHide: true, timeout: 45000 });
+      const regression = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'privacy-31/reference-history-quarantine-repro.js'), '--protocol=' + protocol], { encoding: 'utf8', windowsHide: true, timeout: 120000 });
       t.ok(regression.status === 0 && regression.stdout.includes('"desiredContract": true'), 'H0 ' + protocol + ': refused references recover in the actual main/child engines while execution stays strict and canonical audit survives');
       if (regression.status !== 0) throw Error('history_quarantine_regression_failed_' + protocol);
       const typed = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'privacy-31/typed-turn-recovery-repro.js'), '--protocol=' + protocol], { encoding: 'utf8', windowsHide: true, timeout: 45000 });

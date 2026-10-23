@@ -55,12 +55,21 @@ test('source proofs survive encoding by identity and unproven copies cannot auth
     const row = { text: view.text }; gateway.markSourceView(row, ['/text'], view);
     const encoded = await app.encodeModelToolResult('fixture', { matches: [row] });
     assert.equal(JSON.parse(encoded).matches[0].text, row.text); assert.match(encoded, /RUYI_PVT/);
-    await assert.rejects(app.encodeModelToolResult('fixture', { matches: [{ ...row }] }), /privacy.reserved_literal/);
+    const unproven = { matches: [{ ...row }] }, snapshot = JSON.stringify(unproven);
+    await assert.rejects(gateway.toolResult(unproven), /privacy.reserved_literal/);
+    await assert.rejects(gateway.projectSource(row.text), /privacy.reserved_literal/);
+    // The completed-result encoder now keeps the turn alive with a no-replay
+    // receipt. It never turns the unproven copy into trusted source provenance.
+    const withheld = await app.encodeModelToolResult('fixture', unproven), receipt = JSON.parse(withheld);
+    assert.equal(receipt.code, 'privacy.tool_result_withheld'); assert.equal(receipt.reason, 'privacy.reserved_literal');
+    assert.equal(receipt.privacyFiltered, true); assert.equal(receipt.resultUnavailable, true); assert.equal(receipt.operationMayHaveExecuted, true);
+    assert.equal(withheld.includes(row.text), false); assert.equal(withheld.includes('proof@example.test'), false);
+    assert.equal(receipt.matches, undefined); assert.equal(JSON.stringify(unproven), snapshot);
     row.text += ' changed'; await assert.rejects(app.encodeModelToolResult('fixture', { matches: [row] }), /privacy.source_view_changed/);
   });
 });
 
-test('typed incompatible results encode the original no-replay receipt; unknown aliases remain strict errors', async () => {
+test('typed incompatible and untrusted alias results encode no-replay receipts while raw alias validation stays strict', async () => {
   await scoped(async () => {
     const source = { ok: true, password: null, content: 'receipt-private@example.test' }, snapshot = JSON.stringify(source);
     const encoded = await app.encodeModelToolResult('fixture', source), result = JSON.parse(encoded);
@@ -68,7 +77,14 @@ test('typed incompatible results encode the original no-replay receipt; unknown 
     assert.equal(result.operationMayHaveExecuted, true); assert.equal(result.code, 'privacy.tool_result_withheld'); assert.equal(result.reason, 'privacy.typed_sensitive');
     assert.equal(encoded.includes(source.content), false); assert.equal(JSON.stringify(source), snapshot);
     const unknown = '[[RUYI_PVT:EMAIL:' + 'f'.repeat(32) + ']]';
-    await assert.rejects(app.encodeModelToolResult('fixture', { content: unknown }), error => error.code === 'privacy.reserved_literal');
+    const untrusted = { content: unknown }, before = JSON.stringify(untrusted);
+    await assert.rejects(gateway.toolResult(untrusted), error => error.code === 'privacy.reserved_literal');
+    await assert.rejects(gateway.projectSource(unknown), error => error.code === 'privacy.reserved_literal');
+    await assert.rejects(gateway.beforeModelRequest({ messages: [{ role: 'user', content: unknown }] }), error => error.code === 'privacy.reference_unknown');
+    const withheld = await app.encodeModelToolResult('fixture', untrusted), receipt = JSON.parse(withheld);
+    assert.equal(receipt.code, 'privacy.tool_result_withheld'); assert.equal(receipt.reason, 'privacy.reserved_literal');
+    assert.equal(receipt.privacyFiltered, true); assert.equal(receipt.resultUnavailable, true); assert.equal(receipt.operationMayHaveExecuted, true);
+    assert.equal(withheld.includes(unknown), false); assert.equal(receipt.content, undefined); assert.equal(JSON.stringify(untrusted), before);
   });
 });
 

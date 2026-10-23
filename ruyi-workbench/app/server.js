@@ -2845,7 +2845,7 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     const ttl = options.ttlMs === undefined ? 24 * 60 * 60 * 1000 : options.ttlMs;
     if (!Number.isSafeInteger(ttl) || ttl < 1 || ttl > 365 * 24 * 60 * 60 * 1000) fail('ttl_invalid');
     const entries = new Map(), byValue = new Map(), revokedValues = new Set(), aliases = new Map(), prefixes = new Map();
-    let valueBytes = 0, revision = 0;
+    let valueBytes = 0, revision = 0, learnedIndex = null;
     function entryFor(token) {
       const entry = entries.get(token); if (!entry) fail('reference_unknown');
       const group = aliases.get(entry.value);
@@ -2874,6 +2874,7 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       let token;
       do { token = PREFIX + category(type) + ':' + cryptoApi.randomBytes(16).toString('hex') + ']]'; } while (entries.has(token));
       entries.set(token, { value, category: type, expiresAt: clock() + ttl }); byValue.set(value, token);
+      learnedIndex = null;
       valueBytes += bytes; revision++;
       return token;
     }
@@ -2910,9 +2911,59 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       issue(decoded, type, localBudget); const token = issue(value, type, localBudget);
       linkAliases(value, decoded, localBudget); return token;
     }
-    // KMP bounds both prefix construction and matching by actual character comparisons.
-    // The budget belongs to the entire host transform, rather than each leaf or pass.
-    function eachExact(input, needle, budget, found) {
+    // One failure-linked trie scans ordinary learned values together. Scanning a
+    // long old conversation no longer repeats its full text for every short mapping.
+    // Construction, fallback transitions and every pre-merge hit still share the
+    // host transform's bounded budget. Output links avoid quadratic suffix lists.
+    function exactIndex(budget) {
+      if (learnedIndex) return learnedIndex;
+      const values = [...entries].map(([token, entry]) => ({ value: entry.value, token }))
+        .concat([...revokedValues].map(value => ({ value, token: null }))).filter(({ value }) => value.length <= 4096 && /\S/.test(value));
+      // Mapping bytes bound the number of UTF-16 trie edges. Single-child nodes
+      // use compact arrays; only branching nodes need a Map, avoiding one Map
+      // object per character for imported mappings.
+      const capacity = 1 + values.reduce((sum, item) => sum + item.value.length, 0);
+      const child = new Uint32Array(capacity), sibling = new Uint32Array(capacity), label = new Uint16Array(capacity),
+        failure = new Uint32Array(capacity), output = new Uint32Array(capacity), terminal = new Uint32Array(capacity);
+      const branches = new Map(); let size = 1;
+      const next = (at, char) => branches.has(at) ? branches.get(at).get(char) || 0 : child[at] && label[child[at]] === char ? child[at] : 0;
+      const insert = (value, token) => {
+        let at = 0;
+        for (let i = 0; i < value.length; i++) {
+          spend(budget, 'comparisons');
+          const char = value.charCodeAt(i); let target = next(at, char);
+          if (!target) {
+            target = size++; label[target] = char;
+            if (child[at]) {
+              if (!branches.has(at)) branches.set(at, new Map([[label[child[at]], child[at]]]));
+              branches.get(at).set(char, target);
+            }
+            sibling[target] = child[at]; child[at] = target;
+          }
+          at = target;
+        }
+        terminal[at] = token + 1;
+      };
+      values.forEach((item, i) => insert(item.value, i));
+      const queue = new Uint32Array(size); let tail = 0;
+      for (let at = child[0]; at; at = sibling[at]) queue[tail++] = at;
+      for (let i = 0; i < tail; i++) {
+        const at = queue[i];
+        for (let target = child[at]; target; target = sibling[target]) {
+          const char = label[target]; let suffix = failure[at];
+          while (suffix && !next(suffix, char)) { spend(budget, 'comparisons'); suffix = failure[suffix]; }
+          spend(budget, 'comparisons');
+          failure[target] = next(suffix, char);
+          output[target] = terminal[failure[target]] ? failure[target] : output[failure[target]];
+          queue[tail++] = target;
+        }
+      }
+      learnedIndex = { next, failure, output, terminal, values }; return learnedIndex;
+    }
+    // Long source-spelling aliases are uncommon, but rebuilding their character
+    // paths after every newly discovered short value is expensive. Keep those in
+    // the bounded KMP path, which skips a leaf shorter than the source immediately.
+    function eachLongExact(input, needle, budget, found) {
       spend(budget, 'comparisons');
       if (needle.length > input.length) return;
       let prefix = prefixes.get(needle);
@@ -2938,21 +2989,27 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     function appendLearned(privacyText, budget, found, intervals) {
       const embeddedShortNumber = (value, start, end) => /^[0-9]{1,6}$/.test(value)
         && (/[\p{L}\p{N}_.-]/u.test(privacyText[start - 1] || '') || /[\p{L}\p{N}_.-]/u.test(privacyText[end] || ''));
-      for (const [token, entry] of entries) {
-        // Legacy whitespace mappings still resolve their issued tokens, but must never
-        // turn every unrelated formatting space into a newly learned secret.
-        if (!/\S/.test(entry.value)) continue;
-        eachExact(privacyText, entry.value, budget, (start, end) => {
-          if (insideOpaque(start, end, intervals)) return;
-          if (embeddedShortNumber(entry.value, start, end)) return;
-          if (entry.category === 'PHONE' && (/[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[start - 1] || '') || /[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[end] || ''))) return;
-          const current = entryFor(token);
-          found.push({ start, end, category: current.category, ruleIds: ['scope.learned-exact'] });
-        });
+      if (!entries.size && !revokedValues.size) return mergeMatches(found);
+      const accept = (value, token, start, end) => {
+        if (insideOpaque(start, end, intervals) || embeddedShortNumber(value, start, end)) return;
+        if (token === null) fail('reference_revoked');
+        const entry = entries.get(token);
+        if (entry.category === 'PHONE' && (/[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[start - 1] || '') || /[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[end] || ''))) return;
+        found.push({ start, end, category: entryFor(token).category, ruleIds: ['scope.learned-exact'] });
+      };
+      const index = exactIndex(budget); let at = 0;
+      for (let i = 0; index.values.length && i < privacyText.length; i++) {
+        const char = privacyText.charCodeAt(i);
+        while (at && !index.next(at, char)) { spend(budget, 'comparisons'); at = index.failure[at]; }
+        spend(budget, 'comparisons'); at = index.next(at, char);
+        for (let hit = index.terminal[at] ? at : index.output[at]; hit; hit = index.output[hit]) {
+          spend(budget, 'matches');
+          const { value, token } = index.values[index.terminal[hit] - 1], end = i + 1, start = end - value.length;
+          accept(value, token, start, end);
+        }
       }
-      for (const value of revokedValues) if (/\S/.test(value)) eachExact(privacyText, value, budget, (start, end) => {
-        if (!insideOpaque(start, end, intervals) && !embeddedShortNumber(value, start, end)) fail('reference_revoked');
-      });
+      for (const [token, entry] of entries) if (entry.value.length > 4096 && /\S/.test(entry.value)) eachLongExact(privacyText, entry.value, budget, (start, end) => accept(entry.value, token, start, end));
+      for (const value of revokedValues) if (value.length > 4096 && /\S/.test(value)) eachLongExact(privacyText, value, budget, (start, end) => accept(value, null, start, end));
       return mergeMatches(found);
     }
     function detectLearned(privacyText, context = {}) {
@@ -3023,10 +3080,11 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     function revoke(token) {
       const entry = entries.get(token); if (!entry) return false;
       entries.delete(token); byValue.delete(entry.value); revokedValues.add(entry.value);
+      learnedIndex = null;
       const group = aliases.get(entry.value); if (group) group.revoked = true;
       revision++; return true;
     }
-    function clear() { entries.clear(); byValue.clear(); revokedValues.clear(); aliases.clear(); prefixes.clear(); valueBytes = 0; revision++; }
+    function clear() { entries.clear(); byValue.clear(); revokedValues.clear(); aliases.clear(); prefixes.clear(); learnedIndex = null; valueBytes = 0; revision++; }
     function exportState() { return { version: 1, scopeId, entries: [...entries].map(([token, entry]) => ({ token, ...entry })),
       ...(revokedValues.size ? { revokedValues: [...revokedValues] } : {}),
       ...(aliases.size ? { aliasGroups: [...new Set(aliases.values())].map(group => [...group.members]) } : {}) }; }
@@ -8073,14 +8131,37 @@ const WorkDataStore = ((fsp, pathModule) => {
     try { enabled = await host.enabled(); } catch { fail('switch_unavailable'); }
     return enabled === true;
   };
+  // workData is a reserved container marker. A truncated container must not enter the legacy
+  // "bad plaintext means empty" path, which would let a subsequent mutation erase ciphertext.
+  const containerMarker = rawText => /"workData"\s*:/.test(rawText);
+  const hasContainerMarker = async target => {
+    const handle = await fsp.open(target, 'r');
+    try {
+      const buffer = Buffer.alloc(64 * 1024);
+      let carry = '';
+      for (;;) {
+        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+        if (!bytesRead) return false;
+        const chunk = carry + buffer.subarray(0, bytesRead).toString('latin1');
+        if (containerMarker(chunk)) return true;
+        // Keep a split key or a key followed by arbitrarily long JSON whitespace across chunks.
+        carry = chunk.replace(/[ \t\r\n]+$/, '').slice(-10);
+      }
+    } finally { await handle.close(); }
+  };
   const guardWrite = async (host, target) => {
     // mkdir first: atomicWriteJson does not create directories (the old DurableJsonStore write chain did).
     await fsp.mkdir(pathModule.dirname(target), { recursive: true }).catch(() => {});
-    if (await sealing(host)) return;
-    let head = '';
-    try { head = (await fsp.readFile(target, 'utf8')).slice(0, 4096); }
+    const enabled = await sealing(host);
+    let rawText = '';
+    try { rawText = await fsp.readFile(target, 'utf8'); }
     catch (error) { if (error && error.code !== 'ENOENT') fail('storage_unavailable'); return; }
-    if (/"workData"\s*:\s*2/.test(head)) fail('downgrade_refused');   // sealed on disk, switch off: refuse
+    let parsed;
+    try { parsed = JSON.parse(rawText); } catch {
+      if (containerMarker(rawText)) fail('corrupt');
+      return;
+    }
+    if (!enabled && parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.hasOwn(parsed, 'workData')) fail('downgrade_refused');
   };
   const generationOf = keyId => {
     const match = /\.k(\d{1,2})$/.exec(String(keyId || ''));
@@ -8133,7 +8214,10 @@ const WorkDataStore = ((fsp, pathModule) => {
       try { rawText = await fsp.readFile(target, 'utf8'); }
       catch (error) { if (error && error.code === 'ENOENT') return fallback(); throw error; }
       let parsed;
-      try { parsed = JSON.parse(rawText); } catch (error) { return await corrupt(error); }   // legacy "invalid means empty" contract
+      try { parsed = JSON.parse(rawText); } catch (error) {
+        if (containerMarker(rawText)) fail('corrupt');
+        return await corrupt(error);   // legacy "invalid means empty" contract for plaintext only
+      }
       if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) return decrypt(parsed, WorkDataCrypto.MAX_PLAINTEXT);
       // Legacy plaintext record: keep the previous "bad shape means empty plus a diagnostic" contract.
       try { return prepare(parsed); } catch (error) { return await corrupt(error); }
@@ -8171,7 +8255,10 @@ const WorkDataStore = ((fsp, pathModule) => {
       // doing so; callers that treat a missing record as empty catch it themselves.
       const rawText = await fsp.readFile(file(), 'utf8');
       let parsed;
-      try { parsed = JSON.parse(rawText); } catch { return rawText; }
+      try { parsed = JSON.parse(rawText); } catch {
+        if (containerMarker(rawText)) fail('corrupt');
+        return rawText;
+      }
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
       const { workData, ...container } = parsed;
       if (workData !== CONTAINER) fail('corrupt');
@@ -8239,7 +8326,7 @@ const WorkDataStore = ((fsp, pathModule) => {
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
-  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys });
+  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys, hasContainerMarker });
 })(require('node:fs/promises'), require('node:path'));
 
 // M3-2c: frozen per-record format for append-only NDJSON bodies (messages / provider history).
@@ -17034,14 +17121,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       fail('typed_sensitive');
     };
     const mediaShape = item => ['image', 'audio', 'video', 'document', 'input_image', 'input_audio', 'input_file'].includes(item.type) || (item.type === 'resource' && (item.resource?.blob || item.resource?.mimeType && !/^(?:text\/|application\/(?:json|xml))/.test(item.resource.mimeType))) || item.type === 'base64' && item.media_type || typeof item.mimeType === 'string' && /^(?:image|audio|video)\//.test(item.mimeType);
-    function inspectParsed(item, depth) {
-      if (++nodes > 50000 || depth > 32) fail('structure_limit');
-      if (!item || typeof item !== 'object') return;
-      if (mediaShape(item)) fail('media_not_supported');
-      for (const row of Object.values(item)) inspectParsed(row, depth + 1);
-    }
     // Validate JSON, then edit lexical spans only. Never round-trip source files through JS Number/JSON.stringify.
-    function protectJson(source, initialDepth, proof, allowReferences = false) {
+    function protectJson(source, initialDepth, proof, allowReferences = false, parsedRoot) {
       let cursor = 0, hasReferences = false; const replacements = [], concealed = [], stringValues = [];
       const sourceMatches = detect(source, undefined, allowReferences, true);
       const automaticMatches = detect(source, undefined, allowReferences, false, true);
@@ -17089,23 +17170,27 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         } else concealed.push(...mapped);
         replacements.push({ start: token.start, end: token.end, replacement });
       };
-      const value = (pointer, depth) => {
-        if (++nodes > 50000 || depth > 32) fail('structure_limit');
+      const value = (pointer, depth, parsedValue) => {
         space(); const current = source[cursor];
+        // Decoded strings are counted by walk; counting them here as well, plus
+        // an entire parsed-object prepass, made ordinary wide legacy tool JSON
+        // exhaust the structure budget several times before its actual size.
+        if (depth > 32 || current !== '"' && ++nodes > 50000) fail('structure_limit');
         if (current === '"') { const token = quoted(); stringValues.push({ start: token.start + 1, end: token.end - 1 }); protectQuoted(token, pointer, depth + 1); return; }
+        if (parsedValue && typeof parsedValue === 'object' && mediaShape(parsedValue)) fail('media_not_supported');
         if (!/[-0-9]/.test(current)) assertTypedField(pointer);
         if (current === '{') {
           cursor++; space();
           if (source[cursor] === '}') { cursor++; return; }
           while (cursor < source.length) {
             space(); const key = quoted(); protectQuoted(key, '', depth + 1); space(); cursor++; // colon
-            value(pointer + '/' + key.value.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1); space();
+            value(pointer + '/' + key.value.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1, parsedValue?.[key.value]); space();
             if (source[cursor++] === '}') return;
           }
         } else if (current === '[') {
           cursor++; space(); let index = 0;
           if (source[cursor] === ']') { cursor++; return; }
-          while (cursor < source.length) { value(pointer + '/' + index++, depth + 1); space(); if (source[cursor++] === ']') return; }
+          while (cursor < source.length) { const child = index++; value(pointer + '/' + child, depth + 1, parsedValue?.[child]); space(); if (source[cursor++] === ']') return; }
         } else {
           const start = cursor; while (cursor < source.length && !/[\s,\]}]/.test(source[cursor])) cursor++;
           const literal = source.slice(start, cursor);
@@ -17113,7 +17198,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
           if (detect(literal, pointer).length) fail(/^-?\d/.test(literal) ? 'numeric_sensitive' : 'typed_sensitive');
         }
       };
-      value('', initialDepth);
+      value('', initialDepth, parsedRoot);
       // A match spanning JSON syntax cannot be safely replaced inside one string leaf.
       // Reject it rather than silently discard the whole-source rule or corrupt typed JSON.
       const references = raw && !allowReferences ? [] : [...source.matchAll(pattern())];
@@ -17155,7 +17240,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         // JSON tool outputs/arguments preserve escaping and detect sensitive structured fields.
         if (/^\s*[\[{]/.test(item) && !item.startsWith(PREFIX)) {
           let parsed; try { parsed = JSON.parse(item); } catch { /* ordinary prose */ }
-          if (parsed && typeof parsed === 'object') { inspectParsed(parsed, depth + 1); return protectJson(item, depth + 1, proof, allowReferences); }
+          if (parsed && typeof parsed === 'object') return protectJson(item, depth + 1, proof, allowReferences, parsed);
         }
         if (item.startsWith('data:') || /\/(?:image|audio|video)(?:_url)?(?:\/url)?$/.test(pointer)) fail('media_not_supported');
         const result = protectString(item, context, pointer, raw && !allowReferences, budget, proof);
@@ -17194,10 +17279,11 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     historyBindings.set(owner, { scope: context.scope, historicalUsers: new WeakSet(history.filter(row => row && row.role === 'user')),
       strictUsers: new Set(), originals: new WeakMap() });
   }
-  function projectHistoryCopy(history, scope, binding) {
+  function projectHistoryCopy(history, scope, binding, referenceHints) {
     let nodes = 0, bytes = 0;
     const fieldDetector = core.createDetector();
     const inspect = (value, pointer = '', depth = 0) => {
+      if (referenceHints && !referenceHints(value)) return false;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string') {
         if ((bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
@@ -17208,8 +17294,8 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
             const space = () => { while (/\s/.test(value[cursor] || '') && cursor < value.length) cursor++; };
             const quoted = () => { const start = cursor++; while (cursor < value.length) { const char = value[cursor++]; if (char === '\\') cursor++; else if (char === '"') break; } return JSON.parse(value.slice(start, cursor)); };
             const walk = (at, level) => {
-              if (++nodes > 50000 || level > 32) fail('structure_limit');
               space();
+              if (level > 32 || !referenceHints && value[cursor] !== '"' && ++nodes > 50000) fail('structure_limit');
               if (value[cursor] === '"') { bad = inspect(quoted(), at, level + 1) || bad; return; }
               if (value[cursor] === '{') {
                 cursor++; space(); if (value[cursor] === '}') { cursor++; return; }
@@ -17466,7 +17552,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   async function modelToolResult(value) {
     try { return await toolResult(value); }
     catch (error) {
-      if (!active() || !contentRecoveryError(error)) throw error;
+      // A completed command can read the privacy implementation itself or echo
+      // marker-shaped file data. Keep raw source/reference validation strict;
+      // withhold this result rather than trusting the marker or aborting the turn.
+      if (!active() || !contentRecoveryError(error) && error?.code !== 'privacy.reserved_literal') throw error;
       assertPolicyAvailable();
       return toolResult({ ok: false, privacyFiltered: true, resultUnavailable: true, operationMayHaveExecuted: true,
         code: 'privacy.tool_result_withheld', reason: error.code,
@@ -17725,8 +17814,21 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   // Migrate that history once before constructing the next request; the disabled tool path stays identity.
   // This capability is for host-loaded history only, never for a new model/tool/user input.
   async function restoreHistory(scopeId, history, hostProjection = false) {
+    // OFF must not apply the enabled scanner's history limits when there is
+    // nothing to migrate. Unicode JSON escapes can conceal any marker character,
+    // so those candidates retain the bounded decoder below rather than guessing.
+    const hints = new WeakMap();
+    const mayContain = value => {
+      if (value && typeof value === 'object' && hints.has(value)) return hints.get(value);
+      const spelling = typeof value === 'string' ? value : JSON.stringify(value);
+      const candidate = !!spelling && (spelling.includes(PREFIX) || /\\u[0-9a-f]{4}/i.test(spelling));
+      if (value && typeof value === 'object') hints.set(value, candidate);
+      return candidate;
+    };
+    if (!mayContain(history)) return history;
     let nodes = 0, bytes = 0;
     const couldContain = (value, depth = 0) => {
+      if (!mayContain(value)) return false;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string') {
         if ((bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
@@ -17768,6 +17870,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const restore = value => scope.restoreForTool(value, { scopeId, tool: 'privacy_history', pointer: '/history',
       destination: 'local-history', purpose: 'disabled-privacy-history', allowCredentialEmbedding: true, authorize: () => true });
     const restoreText = (value, depth = 0) => {
+      if (!mayContain(value)) return value;
       if (depth > 32 || ++nodes > 50000) fail('structure_limit');
       if ((bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
       // Change only affected JSON string tokens. Leave whitespace, duplicate keys and long integers exact.
@@ -17785,6 +17888,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     nodes = 0; bytes = 0;
     const walk = (value, depth = 0) => {
+      if (!mayContain(value)) return value;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string') {
         return restoreText(value);
@@ -17804,7 +17908,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     try {
       if (hostProjection && Array.isArray(history.providerHistory)) {
         const binding = { historicalUsers: new WeakSet(history.providerHistory.filter(row => row?.role === 'user')), strictUsers: new Set(), originals: new WeakMap() };
-        history = { ...history, providerHistory: projectHistoryCopy(history.providerHistory, scope, binding) };
+        history = { ...history, providerHistory: history.providerHistory.map(message => mayContain(message) ? projectHistoryCopy([message], scope, binding, mayContain)[0] : message) };
       }
       return walk(history);
     } finally { if (temporary) scope.clear(); }
@@ -39581,21 +39685,44 @@ function memoryProposalStateFile(sessionId) {
   return sid ? path.join(paths.memory, 'proposals', sid + '.json') : '';
 }
 
+// 保留既有 pretty JSON 字节与容量契约；容量在解封后的文本上算，不能拿膨胀的密文容器判空。
+function memoryProposalStateStore(sessionId) {
+  return WorkDataStore.createText({
+    file: () => memoryProposalStateFile(sessionId),
+    purpose: 'memory', schema: 1, scopeId: safeSessionId(sessionId), recordId: 'memory-proposals',
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+  });
+}
+
 async function readMemoryProposalState(sessionId) {
   const file = memoryProposalStateFile(sessionId);
   if (!file) return { schema: 1, history: [] };
   try {
     const stat = await fsp.stat(file);
-    if (!stat.isFile() || stat.size > MEMORY_PROPOSAL_STATE_MAX_BYTES) return { schema: 1, history: [] };
-    const raw = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+    if (!stat.isFile()) return { schema: 1, history: [] };
+    if (stat.size > MEMORY_PROPOSAL_STATE_MAX_BYTES) {
+      // 固定内存扫描整份文件，不把大明文读入内存，也不假定容器字段顺序或 marker 所在偏移。
+      // 密文的 base64 膨胀不计入明文容量；确认是容器后解封，再核对明文大小。
+      if (!(await WorkDataStore.hasContainerMarker(file))) return { schema: 1, history: [] };
+    }
+    const text = await memoryProposalStateStore(sessionId).read();
+    if (Buffer.byteLength(text, 'utf8') > MEMORY_PROPOSAL_STATE_MAX_BYTES) return { schema: 1, history: [] };
+    const raw = safeJsonParse(text, null);
     if (!raw || typeof raw !== 'object') return { schema: 1, history: [] };
     return { schema: 1, lastEvaluatedTurn: Math.max(0, Number(raw.lastEvaluatedTurn) || 0), lastShownTurn: Math.max(0, Number(raw.lastShownTurn) || 0), current: raw.current && typeof raw.current === 'object' ? raw.current : null, history: Array.isArray(raw.history) ? raw.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX) : [] };
-  } catch { return { schema: 1, history: [] }; }
+  } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    return { schema: 1, history: [] };
+  }
 }
 
 async function writeMemoryProposalState(sessionId, state) {
   const file = memoryProposalStateFile(sessionId);
   if (!file) return;
+  // 即便调用方直接写一个新 state，也不能覆盖缺钥/认证失败的旧容器。
+  await readMemoryProposalState(sessionId);
   await fsp.mkdir(path.dirname(file), { recursive: true });
   const clean = { schema: 1, lastEvaluatedTurn: Math.max(0, Number(state.lastEvaluatedTurn) || 0), lastShownTurn: Math.max(0, Number(state.lastShownTurn) || 0), current: state.current || null, history: (Array.isArray(state.history) ? state.history : []).slice(-MEMORY_PROPOSAL_HISTORY_MAX) };
   // 写侧兜底:与读侧同一把尺(UTF-8 字节、atomicWriteJson 同款两空格缩进)。按上限推算正常写不到这里;真超了就先丢
@@ -39605,7 +39732,7 @@ async function writeMemoryProposalState(sessionId, state) {
     clean.history = clean.history.slice(Math.max(1, Math.ceil(clean.history.length / 4)));
     payload = JSON.stringify(clean, null, 2);
   }
-  await atomicWriteJson(file, payload);
+  await memoryProposalStateStore(sessionId).write(payload);
 }
 
 function recordMemoryProposalUsage(sc, provider, session) {
@@ -40051,23 +40178,38 @@ function memoryRelationsFile(scope, cwd) {
     : path.join(memoryProjectDir(cwd), '_relations.json');
 }
 
+// 裸数组不能经 createJson 加 schema 槽；文本适配器封印原序列化结果，关时格式不变。
+function memoryRelationsStore(scope, cwd) {
+  return WorkDataStore.createText({
+    file: () => memoryRelationsFile(scope, cwd),
+    purpose: 'memory', schema: 1, scopeId: scope === 'global' ? 'global' : 'project:' + projectKeyForCwd(cwd),
+    recordId: 'memory-relations',
+    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    writeJson: atomicWriteJson,
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
+  });
+}
+
 // 读一个 scope 的关系数组(空文件/不存在 -> [])。不做过滤,过滤由 listMemoryRelations 按 confirmed 分桶。
 async function readMemoryRelations(scope, cwd) {
-  const file = memoryRelationsFile(scope, cwd);
   try {
-    const raw = await fsp.readFile(file, 'utf8');
+    const raw = await memoryRelationsStore(scope, cwd).read();
     const arr = safeJsonParse(raw, null);
     if (!Array.isArray(arr)) return [];
     return arr.filter(r => r && typeof r === 'object' && SKILL_ID_RE.test(r.id)
       && MEMORY_RELATION_TYPES.has(r.type) && SKILL_ID_RE.test(String(r.from)) && SKILL_ID_RE.test(String(r.to)));
-  } catch { return []; }
+  } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) throw error;
+    return [];
+  }
 }
 
 async function writeMemoryRelations(scope, cwd, arr) {
+  await readMemoryRelations(scope, cwd); // 认证既有容器，禁止用新数组覆盖解不开的数据。
   const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
   try { await fsp.mkdir(dir, { recursive: true }); } catch { /* 已存在 */ }
   if (scope === 'project') await writeMemoryMeta(dir, cwd);
-  await atomicWriteJson(memoryRelationsFile(scope, cwd), arr);
+  await memoryRelationsStore(scope, cwd).write(JSON.stringify(arr, null, 2));
 }
 
 // listMemoryRelations(cwd, scope, opts) -> {ok, relations, pending, confirmed}。opts.includePending=false 时

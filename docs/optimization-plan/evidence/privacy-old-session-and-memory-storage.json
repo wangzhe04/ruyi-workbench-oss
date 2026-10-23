@@ -1,0 +1,724 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "status": "batch_verified",
+  "baselineCommit": "b596e2ad590e5c6ad77510e7913b544d9606b0d7",
+  "syntheticOnly": true,
+  "userDataMigrated": false,
+  "applicationVersion": "3.0.1",
+  "scope": [
+    "old-session privacy scanning, JSON counting and OFF continuation",
+    "reserved marker in already-executed native tool results",
+    "bilingual bounded resource errors",
+    "memory-relations and memory-proposals sealing plus truncated-container protection"
+  ],
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "01ab6f5d2d42f2e1518728e2566bb0beab40c62d77e12d236cc251a9790519c1"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01h-privacy-core.js",
+      "sha256": "6c6483384d259228f7c86f4a29fe8f56486edce00f40d613cd616e628771e9fb"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "sha256": "6a1728e95aab2f50a4de0e69785968f79969d039400ff7ec8748cd2becaede40"
+    },
+    {
+      "file": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "sha256": "409c0fe07354ca0c002d924608a90d5d148559e4ad80f0a2a323aae5467af2bd"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "sha256": "b11062efcab328a15eb088b31b43e5164320c890403a7715123a67f77fb3fbe3"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/privacy-failure.js",
+      "sha256": "dd583fa80676a046c370e60b0adfa790e450ff89c219e2321cb1e112d1e1a1cc"
+    }
+  ],
+  "storage": {
+    "adapterWired": 12,
+    "required": 41,
+    "remaining": 29,
+    "notImplemented": [
+      "bulk migration",
+      "enable/disable encryption UI",
+      "remaining 29 families"
+    ]
+  },
+  "privacy": {
+    "comparisonBudgetUnchanged": 33554432,
+    "aggregateLimitUnchanged": 8388608,
+    "textLimitUnchanged": 1048576,
+    "structureNodesUnchanged": 50000,
+    "depthUnchanged": 32,
+    "longRegression": {
+      "utf8Bytes": 3200000,
+      "mappings": 300,
+      "contentPreserved": true
+    },
+    "oldServerReverseProof": {
+      "protocol": "chat",
+      "enabledWideJsonOk": false,
+      "offRecovered": false,
+      "offModelRequests": 0
+    },
+    "fixedProtocols": [
+      {
+        "protocol": "chat",
+        "runs": 2,
+        "desiredContract": true,
+        "offModelRequests": 1
+      },
+      {
+        "protocol": "responses",
+        "runs": 2,
+        "desiredContract": true,
+        "offModelRequests": 1
+      },
+      {
+        "protocol": "anthropic",
+        "runs": 2,
+        "desiredContract": true,
+        "offModelRequests": 1
+      }
+    ],
+    "reservedResult": {
+      "mainAndChild": true,
+      "runs": 2,
+      "passLabelsPerRun": 6,
+      "strictRawAndFreshInputGatesRetained": true,
+      "sideEffectCountPerCase": 1
+    }
+  },
+  "verification": {
+    "coreGatewayHistoryUnitBeforeReserved": {
+      "pass": 94,
+      "fail": 0
+    },
+    "reservedGatewayUnit": {
+      "pass": 50,
+      "fail": 0
+    },
+    "storageE2e": {
+      "runs": 2,
+      "passLabelsPerRun": 12
+    },
+    "browserE2eBeforeReservedPatch": {
+      "runs": 2,
+      "passLabelsPerRun": 128
+    },
+    "syntax": {
+      "files": 1151,
+      "fail": 0
+    },
+    "buildFreshness": true,
+    "unifiedGate": {
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "completeUnitAttempt": {
+        "tests": 2649,
+        "pass": 2621,
+        "skip": 26,
+        "fail": 2
+      },
+      "initialFailures": [
+        "model-tool-result-encoding.test.js: unproven copy expected entire turn rejection",
+        "model-tool-result-encoding.test.js: raw unknown alias expected entire turn rejection"
+      ],
+      "resolution": "Updated the two obsolete encoding expectations for the intentional completed-result withholding contract. Raw/source/fresh validation remains strict; encoding+gateway+source-views+transport targeted 75/75 pass. No unresolved unit failures. This was not one all-green full runner invocation.",
+      "staticPhase": "Runner stopped at unit failures. All 81 static files were then executed separately: 78 exited 0, 3 failed; copy terms, facts and the pre-existing stale durable-store lock were corrected and their affected gates passed.",
+      "unresolved": 0
+    },
+    "localizedTerminologyCorrection": {
+      "keys": [
+        "privacy.failure.scanLimit",
+        "privacy.failure.mappingLimit"
+      ],
+      "change": "Use the established 线程 term",
+      "frontendUnitPass": 12,
+      "i18nStaticPass": true,
+      "copyTermsPass": true
+    }
+  },
+  "initialFailures": [
+    {
+      "phase": "browser fixture initial",
+      "failures": 6,
+      "reason": "The initial deeply nested user JSON fixture did not reach a structured JSON boundary because the real prompt prepends context; replaced with an actual 10001-hit detector limit input. Both locales then passed twice."
+    },
+    {
+      "phase": "unbounded concurrent full unit",
+      "tests": 2647,
+      "pass": 2616,
+      "skip": 26,
+      "fail": 5,
+      "reason": "Desktop probe timing, redos watchdog timing, git checkpoint timing, turn abort observation and scheduler deadline assertions failed under duplicate full-unit + syntax load. The five files were rerun serially: 41 tests, 40 pass, 1 conditional skip, 0 fail. Initial failures are preserved."
+    },
+    {
+      "phase": "separate duplicate unit invocation",
+      "reason": "Interrupted this redundant standalone run after discovering run-all --fast already runs the full unit gate. It is not a passing result."
+    },
+    {
+      "phase": "controlled complete unit after reserved-result behavior change",
+      "tests": 2649,
+      "pass": 2621,
+      "skip": 26,
+      "fail": 2,
+      "reason": "Two old encoding tests expected a completed result to crash the turn. Corrected expectations keep strict raw/source/fresh gates and assert a withheld no-replay receipt; targeted 75 tests pass."
+    },
+    {
+      "phase": "separate complete static pass",
+      "byExitCode": {
+        "pass": 78,
+        "fail": 3,
+        "total": 81
+      },
+      "reason": "New Chinese recovery copy used 会话 instead of 线程; README counts needed updating; pre-existing agent instruction import store lock still expected DurableJsonStore. All 3 targeted gates passed after correction. Initial collector also misclassified 12 exit-zero legacy tests due to its stricter footer matcher; not a product failure."
+    }
+  ],
+  "independentReview": {
+    "privacy": "500 seeded overlapping/UTF16 oracle trials; long alias rebuild and mixed wide JSON OFF recovery findings corrected; no remaining blocker",
+    "storage": "Truncated marked container could become empty then overwrite: corrected in adapters and direct write guard, reviewed and verified; nested business marker compatibility retained",
+    "reserved": "Only modelToolResult recovers the executed result. Policy/storage failures and strict input/source gates remain hard errors."
+  },
+  "limits": [
+    "No live user session was edited or replayed. Current running application needs its normal restart to load the rebuilt server.",
+    "No release/package acceptance, real external platform messages or media production integration in this batch.",
+    "The optional egress manifest was already stale for many previously committed files; its check failed and is not represented as passing."
+  ],
+  "logRoot": "C:/Users/87179/AppData/Local/Temp/ruyi-31-privacy-followup-th68FS",
+  "logs": [
+    {
+      "name": "fast-controlled-final.log",
+      "sha256": "4918d45c1deb8319ba84cabe0788e0e2cd08e4e088f402c5718990e2856e6041",
+      "bytes": 2536
+    },
+    {
+      "name": "fast-final.log",
+      "sha256": "50daeed084e7f90d65fcaaadbdd01c56830270e0c301b4fc8104294e87f3b034",
+      "bytes": 2661
+    },
+    {
+      "name": "full-unit-first-failure.log",
+      "sha256": "2f87dcfee0eed09c0dc353fdcd1808c672d5fc1cba1dbd39ccad207985064837",
+      "bytes": 411749
+    },
+    {
+      "name": "i18n-corrected.log",
+      "sha256": "4bc78be944c06ee6fe4cd6208ef3ed501c42dae5367d59b135efa2ba91099aa9",
+      "bytes": 758
+    },
+    {
+      "name": "privacy-core-gateway-history-final-unit.log",
+      "sha256": "241af833623c48011caf8e0bc3fd14b3bf5f677e0cfeecd95ded65c3de7e3f4c",
+      "bytes": 10764
+    },
+    {
+      "name": "privacy-failure-browser-final-1.log",
+      "sha256": "c71fd221e5318a26e3240822201bfe735f1c9c70d18fb4a9293a348f7277ceb4",
+      "bytes": 12610
+    },
+    {
+      "name": "privacy-failure-browser-final-2.log",
+      "sha256": "c71fd221e5318a26e3240822201bfe735f1c9c70d18fb4a9293a348f7277ceb4",
+      "bytes": 12610
+    },
+    {
+      "name": "privacy-failure-browser-initial.log",
+      "sha256": "e7dfa8b2c917fb78cd3e194bb1890b1796e5c49f0d6babb6a3374935abec0d4a",
+      "bytes": 12630
+    },
+    {
+      "name": "privacy-history-anthropic-1.log",
+      "sha256": "bfe6f3cd56cfce36d50d8372231fa18e86d92261fb6836c0b5a4861292bcd51a",
+      "bytes": 1517
+    },
+    {
+      "name": "privacy-history-anthropic-2.log",
+      "sha256": "bfe6f3cd56cfce36d50d8372231fa18e86d92261fb6836c0b5a4861292bcd51a",
+      "bytes": 1517
+    },
+    {
+      "name": "privacy-history-chat-1.log",
+      "sha256": "00ceb09d722e9efa2eaf8bfc032cef5e5d3c2263cd00930bc8b65d047fd7225f",
+      "bytes": 1512
+    },
+    {
+      "name": "privacy-history-chat-2.log",
+      "sha256": "00ceb09d722e9efa2eaf8bfc032cef5e5d3c2263cd00930bc8b65d047fd7225f",
+      "bytes": 1512
+    },
+    {
+      "name": "privacy-history-chat-baseline.log",
+      "sha256": "77c397a05533d4e708a7851801558b1e950cfa446cfcc930c267aba7c49398b7",
+      "bytes": 1516
+    },
+    {
+      "name": "privacy-history-responses-1.log",
+      "sha256": "13855f76f156426992c1699a4acb8b5a364d3fc72191ec4c30fcb7b13e4c8f32",
+      "bytes": 1517
+    },
+    {
+      "name": "privacy-history-responses-2.log",
+      "sha256": "13855f76f156426992c1699a4acb8b5a364d3fc72191ec4c30fcb7b13e4c8f32",
+      "bytes": 1517
+    },
+    {
+      "name": "privacy-model-tool-result-reserved-1.log",
+      "sha256": "bb89503b68f8810dc4bec25d035feca397f32c588e3cfc6d717ae9669f226670",
+      "bytes": 696
+    },
+    {
+      "name": "privacy-model-tool-result-reserved-2.log",
+      "sha256": "bb89503b68f8810dc4bec25d035feca397f32c588e3cfc6d717ae9669f226670",
+      "bytes": 696
+    },
+    {
+      "name": "static-acc-offline-installer.static.e2e.js.log",
+      "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "bytes": 4389
+    },
+    {
+      "name": "static-action-feedback.static.e2e.js.log",
+      "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "bytes": 1029
+    },
+    {
+      "name": "static-agent-mode-v2.static.e2e.js.log",
+      "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "bytes": 4237
+    },
+    {
+      "name": "static-agent-team-budget.static.e2e.js.log",
+      "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "bytes": 93
+    },
+    {
+      "name": "static-agent-workflows-polling-visibility.static.e2e.js.log",
+      "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "bytes": 829
+    },
+    {
+      "name": "static-all-final.log",
+      "sha256": "b3fc3c480c991da8548dbc09174f004fbe3228675af5aba4f7610148d91ecb41",
+      "bytes": 2984
+    },
+    {
+      "name": "static-architecture-contract-snapshots.static.e2e.js.log",
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "bytes": 869
+    },
+    {
+      "name": "static-asr-config-ui.static.e2e.js.log",
+      "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "bytes": 35
+    },
+    {
+      "name": "static-browser-mcp.static.e2e.js.log",
+      "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "bytes": 962
+    },
+    {
+      "name": "static-c2-evidence-spawn-budget.static.e2e.js.log",
+      "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "bytes": 745
+    },
+    {
+      "name": "static-copy-path-guard.static.e2e.js.log",
+      "sha256": "cd8a581ee8cdef7c8643e9893fdd20e7c4096fd78f3b921cbb908c950617bc06",
+      "bytes": 5477
+    },
+    {
+      "name": "static-copy-terms-corrected.log",
+      "sha256": "90121052d9a3aa7d92e20894497506c0142f258e9399f7496d807434389a377c",
+      "bytes": 4714
+    },
+    {
+      "name": "static-copy-terms.static.e2e.js.log",
+      "sha256": "60fc4b15f28dc3c4af2f15ca4e7362a25ad5e2e597b95e182e9d9af2f2795788",
+      "bytes": 4820
+    },
+    {
+      "name": "static-cost-zero.static.e2e.js.log",
+      "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "bytes": 740
+    },
+    {
+      "name": "static-css-typography-debt.static.e2e.js.log",
+      "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "bytes": 1326
+    },
+    {
+      "name": "static-desktop-dpi.static.e2e.js.log",
+      "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "bytes": 33
+    },
+    {
+      "name": "static-desktop-shell.static.e2e.js.log",
+      "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "bytes": 3360
+    },
+    {
+      "name": "static-durable-state-corrected.log",
+      "sha256": "71c6e00d86e9e68f73e59088790789b83dec4389ed9058cca187da84a34ae27b",
+      "bytes": 808
+    },
+    {
+      "name": "static-durable-state-inventory.static.e2e.js.log",
+      "sha256": "25152974f32859ad9741278e5ea7052d331578beec146fe9cdf4dedf8f3e6608",
+      "bytes": 816
+    },
+    {
+      "name": "static-ec-d-closure.static.e2e.js.log",
+      "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "bytes": 802
+    },
+    {
+      "name": "static-encrypted-storage-freeze.static.e2e.js.log",
+      "sha256": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184",
+      "bytes": 1698
+    },
+    {
+      "name": "static-engine-env-brief.static.e2e.js.log",
+      "sha256": "aafef739bef4cd9a6356b7139b6b931a5a6699973f96a1f0212d0ec0eb3ec127",
+      "bytes": 4471
+    },
+    {
+      "name": "static-eol-policy.static.e2e.js.log",
+      "sha256": "0f2556ab34b2cb9d2f7c12e823c7062ab239dc85a57dbf9fe715ab0f1a3d18c4",
+      "bytes": 257
+    },
+    {
+      "name": "static-facts-corrected.log",
+      "sha256": "4591bb660d65371e9a99aa731b1f8e8c01f3f60ce1e9445652a3c3587735faf0",
+      "bytes": 2368
+    },
+    {
+      "name": "static-facts.static.e2e.js.log",
+      "sha256": "15a3e33a844d635880f17232e5c65d1af4ac0499b307aa2143e9b41ecee14f3f",
+      "bytes": 2487
+    },
+    {
+      "name": "static-finalize-segments.static.e2e.js.log",
+      "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "bytes": 1244
+    },
+    {
+      "name": "static-fixture-home.static.e2e.js.log",
+      "sha256": "95742eec5882d16c99fb73807c5c912d937ac349709b0a5230a0301e47831872",
+      "bytes": 4377
+    },
+    {
+      "name": "static-frontend-domains.static.e2e.js.log",
+      "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "bytes": 7594
+    },
+    {
+      "name": "static-health-i18n.static.e2e.js.log",
+      "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "bytes": 3392
+    },
+    {
+      "name": "static-i18n-en-terms.static.e2e.js.log",
+      "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "bytes": 673
+    },
+    {
+      "name": "static-i18n.static.e2e.js.log",
+      "sha256": "adf88ce432f5ba9432b2f307dc3a11c606790b9c03df14510871e30f00fd284f",
+      "bytes": 749
+    },
+    {
+      "name": "static-inline-script-csp-hash.static.e2e.js.log",
+      "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "bytes": 863
+    },
+    {
+      "name": "static-kimi-plan-ui.static.e2e.js.log",
+      "sha256": "45252447955f63f70eea77864fc0b2afe5df1c84f70c25ba64d2fa877f543f04",
+      "bytes": 573
+    },
+    {
+      "name": "static-live-full-text.static.e2e.js.log",
+      "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "bytes": 7248
+    },
+    {
+      "name": "static-manifest-ranges.static.e2e.js.log",
+      "sha256": "bf65882e828293fdc574cfe089dc2481de938014f779b59176723385ad267ff1",
+      "bytes": 21881
+    },
+    {
+      "name": "static-mcp-ops-gui.static.e2e.js.log",
+      "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "bytes": 2978
+    },
+    {
+      "name": "static-memory-toolbox.static.e2e.js.log",
+      "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "bytes": 813
+    },
+    {
+      "name": "static-mermaid-render.static.e2e.js.log",
+      "sha256": "b742531a9381a3ebada05e13606bb8afbc67de0d7eac7b8886c0103de78e702c",
+      "bytes": 9059
+    },
+    {
+      "name": "static-model-menu-classes.static.e2e.js.log",
+      "sha256": "76320434bf851590bc5fb6ad1e76ca8c57db937e8b579d3eec86108e776fa99f",
+      "bytes": 1087
+    },
+    {
+      "name": "static-module-dependency-graph.static.e2e.js.log",
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "bytes": 1233
+    },
+    {
+      "name": "static-ndjson-line-feeder.static.e2e.js.log",
+      "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "bytes": 1836
+    },
+    {
+      "name": "static-net-token-replay.static.e2e.js.log",
+      "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "bytes": 1350
+    },
+    {
+      "name": "static-new-thread-engine-default.static.e2e.js.log",
+      "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "bytes": 1545
+    },
+    {
+      "name": "static-onboarding.static.e2e.js.log",
+      "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "bytes": 9579
+    },
+    {
+      "name": "static-overlay-payload-lock.static.e2e.js.log",
+      "sha256": "17a4cee7961732fbf0896dad16576f77a8d1a6f6fe2276000663ce95a1906d75",
+      "bytes": 1816
+    },
+    {
+      "name": "static-overlay-update-gui.static.e2e.js.log",
+      "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "bytes": 1269
+    },
+    {
+      "name": "static-process-safety.static.e2e.js.log",
+      "sha256": "7b3d6591ae55b63c623e0e05c9c540c90c5114701ef77342b715db4851d69240",
+      "bytes": 855
+    },
+    {
+      "name": "static-progress-events.static.e2e.js.log",
+      "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "bytes": 2394
+    },
+    {
+      "name": "static-prompt-snapshot.static.e2e.js.log",
+      "sha256": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "bytes": 8054
+    },
+    {
+      "name": "static-provider-reasoning-effort-ui.static.e2e.js.log",
+      "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "bytes": 50
+    },
+    {
+      "name": "static-rail-pocket.static.e2e.js.log",
+      "sha256": "b930162537ad10ce25ac87a97039db4bbfd0ac177d21f751cd5a6da434813bbf",
+      "bytes": 2948
+    },
+    {
+      "name": "static-resume-banner-dismiss.static.e2e.js.log",
+      "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "bytes": 335
+    },
+    {
+      "name": "static-route-inventory.static.e2e.js.log",
+      "sha256": "dedf2f3f34ef32f11d41f4764be940ffb324b967014c1ad7e0c837e000c8c993",
+      "bytes": 1313
+    },
+    {
+      "name": "static-runtime-optimization.static.e2e.js.log",
+      "sha256": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "bytes": 12813
+    },
+    {
+      "name": "static-scheduler-ui.static.e2e.js.log",
+      "sha256": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b",
+      "bytes": 3110
+    },
+    {
+      "name": "static-session-save-census.static.e2e.js.log",
+      "sha256": "c103dd7c5d0311191adbba41411a252f8036596fda4ecfdf39fa673f015537f4",
+      "bytes": 2050
+    },
+    {
+      "name": "static-software-engineering-prompt.static.e2e.js.log",
+      "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "bytes": 2961
+    },
+    {
+      "name": "static-start-experience.static.e2e.js.log",
+      "sha256": "84283592bca26ce7c902607d5522c92d49ae658b0aa7de4fe1772af610735454",
+      "bytes": 5285
+    },
+    {
+      "name": "static-steward-avatar.static.e2e.js.log",
+      "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "bytes": 5169
+    },
+    {
+      "name": "static-steward-board.static.e2e.js.log",
+      "sha256": "a561553d93c8b15d34cf5b96aed7163775e19c38bf805b4557622877c775c37e",
+      "bytes": 22724
+    },
+    {
+      "name": "static-steward-config.static.e2e.js.log",
+      "sha256": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "bytes": 6750
+    },
+    {
+      "name": "static-steward-conversation.static.e2e.js.log",
+      "sha256": "5461a306980bac5aad04066d7f280788df8c6775c698793a63e959cda4893cd7",
+      "bytes": 31834
+    },
+    {
+      "name": "static-steward-drawer.static.e2e.js.log",
+      "sha256": "7e08318077e86a403fae42946bc8f638c0d97422fc5503dcfff3acc53668eb93",
+      "bytes": 23287
+    },
+    {
+      "name": "static-steward-events.static.e2e.js.log",
+      "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "bytes": 5780
+    },
+    {
+      "name": "static-steward-runner.static.e2e.js.log",
+      "sha256": "eed941b07abfb8889a6056bdc36f559dc59c1fdfeeb376fbc777d04a1fcacde0",
+      "bytes": 14598
+    },
+    {
+      "name": "static-steward-settings.static.e2e.js.log",
+      "sha256": "14404f725941846f764c294791890d8d2708479257d5bfc98d9d29dffd828e2e",
+      "bytes": 12382
+    },
+    {
+      "name": "static-steward-shell.static.e2e.js.log",
+      "sha256": "953712c78586316d4ef33be3e207d8d7961bbd67a32b37b1b6ffd95ffec62c75",
+      "bytes": 5454
+    },
+    {
+      "name": "static-steward-tools.static.e2e.js.log",
+      "sha256": "36bc445b3b0e05cd91de785349fe0e99a22864ab3b463602f5e86db3c4789c4f",
+      "bytes": 11293
+    },
+    {
+      "name": "static-steward-walkthrough.static.e2e.js.log",
+      "sha256": "992931a842df1dd79b13986f2713aa7b9efcaf16239aa3aee7db3274f496d0f4",
+      "bytes": 12711
+    },
+    {
+      "name": "static-streaming-responsiveness.static.e2e.js.log",
+      "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "bytes": 1189
+    },
+    {
+      "name": "static-thinking-boundary.static.e2e.js.log",
+      "sha256": "a6ff75394abb80353a1578584db1d7634b504dc943fcb435e2977f27a5bbcae1",
+      "bytes": 579
+    },
+    {
+      "name": "static-thread-brief.static.e2e.js.log",
+      "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "bytes": 3219
+    },
+    {
+      "name": "static-thread-commission.static.e2e.js.log",
+      "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "bytes": 1725
+    },
+    {
+      "name": "static-tool-image-inline.static.e2e.js.log",
+      "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "bytes": 2817
+    },
+    {
+      "name": "static-tool-verb-coverage.static.e2e.js.log",
+      "sha256": "df8eef0d66f6eb183e4a707d59135ef0c1be697056db96f7d361ac7e27b3bb2b",
+      "bytes": 1026
+    },
+    {
+      "name": "static-turn-narrative.static.e2e.js.log",
+      "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "bytes": 2351
+    },
+    {
+      "name": "static-ui-bugfix.static.e2e.js.log",
+      "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "bytes": 1159
+    },
+    {
+      "name": "static-ui-v3-p1.static.e2e.js.log",
+      "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "bytes": 3986
+    },
+    {
+      "name": "static-ui-v3-p2.static.e2e.js.log",
+      "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "bytes": 4131
+    },
+    {
+      "name": "static-ui-v3-p3a.static.e2e.js.log",
+      "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "bytes": 4739
+    },
+    {
+      "name": "static-ui-v3-p3b.static.e2e.js.log",
+      "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "bytes": 4227
+    },
+    {
+      "name": "static-ui-v3-wave1.static.e2e.js.log",
+      "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "bytes": 3383
+    },
+    {
+      "name": "static-ui-v4-glass.static.e2e.js.log",
+      "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "bytes": 1284
+    },
+    {
+      "name": "static-v17-review-fixes.static.e2e.js.log",
+      "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "bytes": 1379
+    },
+    {
+      "name": "static-workflow-editor-v2.static.e2e.js.log",
+      "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "bytes": 3537
+    },
+    {
+      "name": "storage-e2e-1.log",
+      "sha256": "98a24d3911e38479f92c67d78b21475302b2c2402c172bf8c4a424e24d649676",
+      "bytes": 737
+    },
+    {
+      "name": "storage-e2e-2.log",
+      "sha256": "98a24d3911e38479f92c67d78b21475302b2c2402c172bf8c4a424e24d649676",
+      "bytes": 737
+    },
+    {
+      "name": "unit-final.log",
+      "sha256": "b6e97e438b6e63341f468545913f1c8b198d0e96f3617c7c19e1fe6d5af0c249",
+      "bytes": 307226
+    },
+    {
+      "name": "unit-initial-failures-isolated.log",
+      "sha256": "bcaf8e2b4c26eb3ee6bd0faf2aedfcb4824b81c54abb6191eccaf6720bb7df54",
+      "bytes": 4447
+    }
+  ]
+}

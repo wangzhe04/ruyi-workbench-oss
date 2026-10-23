@@ -20,10 +20,10 @@ try {
   // 架构还债批 2 B3:06d 的两个「坏了就当空」小存储迁到 DurableJsonStore(quarantine:false + cache:false),
   // 不再各自手写 read/parse/schema/mkdir/atomicWriteJson;清册里记的写原语跟着改。
   const src06d = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '06d-memory-domain.js'), 'utf8');
-  for (const [id, storeName, fileFn] of [['memory-import-marker', 'accMemoryImportStore', 'accMemoryImportMarker'], ['agent-instructions-import', 'agentInstructionImportStore', 'agentInstructionImportFile']]) {
+  for (const [id, storeName, fileFn, creator] of [['memory-import-marker', 'accMemoryImportStore', 'accMemoryImportMarker', 'DurableJsonStore.create'], ['agent-instructions-import', 'agentInstructionImportStore', 'agentInstructionImportFile', 'WorkDataStore.createJson']]) {
     const entry = data.entries.find(item => item.id === id);
-    ok(entry && /DurableJsonStore/.test(entry.writePrimitive) && entry.lifecycle === 'shared-lifecycle', `${id} is recorded on the DurableJsonStore lifecycle`);
-    ok(new RegExp('const ' + storeName + ' = DurableJsonStore\\.create\\(').test(src06d) && !new RegExp('atomicWriteJson\\(' + fileFn + '\\(').test(src06d),
+    ok(entry && entry.writePrimitive.includes(creator.split('.')[0]) && entry.lifecycle === 'shared-lifecycle', `${id} is recorded on its managed lifecycle`);
+    ok(src06d.includes('const ' + storeName + ' = ' + creator + '(') && !new RegExp('atomicWriteJson\\(' + fileFn + '\\(').test(src06d),
       `${id}: 06d writes it only through ${storeName} (no private atomicWriteJson on that file)`);
   }
   const server = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'server.js'), 'utf8');

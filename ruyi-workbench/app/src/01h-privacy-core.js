@@ -252,7 +252,7 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     const ttl = options.ttlMs === undefined ? 24 * 60 * 60 * 1000 : options.ttlMs;
     if (!Number.isSafeInteger(ttl) || ttl < 1 || ttl > 365 * 24 * 60 * 60 * 1000) fail('ttl_invalid');
     const entries = new Map(), byValue = new Map(), revokedValues = new Set(), aliases = new Map(), prefixes = new Map();
-    let valueBytes = 0, revision = 0;
+    let valueBytes = 0, revision = 0, learnedIndex = null;
     function entryFor(token) {
       const entry = entries.get(token); if (!entry) fail('reference_unknown');
       const group = aliases.get(entry.value);
@@ -281,6 +281,7 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       let token;
       do { token = PREFIX + category(type) + ':' + cryptoApi.randomBytes(16).toString('hex') + ']]'; } while (entries.has(token));
       entries.set(token, { value, category: type, expiresAt: clock() + ttl }); byValue.set(value, token);
+      learnedIndex = null;
       valueBytes += bytes; revision++;
       return token;
     }
@@ -317,9 +318,59 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
       issue(decoded, type, localBudget); const token = issue(value, type, localBudget);
       linkAliases(value, decoded, localBudget); return token;
     }
-    // KMP bounds both prefix construction and matching by actual character comparisons.
-    // The budget belongs to the entire host transform, rather than each leaf or pass.
-    function eachExact(input, needle, budget, found) {
+    // One failure-linked trie scans ordinary learned values together. Scanning a
+    // long old conversation no longer repeats its full text for every short mapping.
+    // Construction, fallback transitions and every pre-merge hit still share the
+    // host transform's bounded budget. Output links avoid quadratic suffix lists.
+    function exactIndex(budget) {
+      if (learnedIndex) return learnedIndex;
+      const values = [...entries].map(([token, entry]) => ({ value: entry.value, token }))
+        .concat([...revokedValues].map(value => ({ value, token: null }))).filter(({ value }) => value.length <= 4096 && /\S/.test(value));
+      // Mapping bytes bound the number of UTF-16 trie edges. Single-child nodes
+      // use compact arrays; only branching nodes need a Map, avoiding one Map
+      // object per character for imported mappings.
+      const capacity = 1 + values.reduce((sum, item) => sum + item.value.length, 0);
+      const child = new Uint32Array(capacity), sibling = new Uint32Array(capacity), label = new Uint16Array(capacity),
+        failure = new Uint32Array(capacity), output = new Uint32Array(capacity), terminal = new Uint32Array(capacity);
+      const branches = new Map(); let size = 1;
+      const next = (at, char) => branches.has(at) ? branches.get(at).get(char) || 0 : child[at] && label[child[at]] === char ? child[at] : 0;
+      const insert = (value, token) => {
+        let at = 0;
+        for (let i = 0; i < value.length; i++) {
+          spend(budget, 'comparisons');
+          const char = value.charCodeAt(i); let target = next(at, char);
+          if (!target) {
+            target = size++; label[target] = char;
+            if (child[at]) {
+              if (!branches.has(at)) branches.set(at, new Map([[label[child[at]], child[at]]]));
+              branches.get(at).set(char, target);
+            }
+            sibling[target] = child[at]; child[at] = target;
+          }
+          at = target;
+        }
+        terminal[at] = token + 1;
+      };
+      values.forEach((item, i) => insert(item.value, i));
+      const queue = new Uint32Array(size); let tail = 0;
+      for (let at = child[0]; at; at = sibling[at]) queue[tail++] = at;
+      for (let i = 0; i < tail; i++) {
+        const at = queue[i];
+        for (let target = child[at]; target; target = sibling[target]) {
+          const char = label[target]; let suffix = failure[at];
+          while (suffix && !next(suffix, char)) { spend(budget, 'comparisons'); suffix = failure[suffix]; }
+          spend(budget, 'comparisons');
+          failure[target] = next(suffix, char);
+          output[target] = terminal[failure[target]] ? failure[target] : output[failure[target]];
+          queue[tail++] = target;
+        }
+      }
+      learnedIndex = { next, failure, output, terminal, values }; return learnedIndex;
+    }
+    // Long source-spelling aliases are uncommon, but rebuilding their character
+    // paths after every newly discovered short value is expensive. Keep those in
+    // the bounded KMP path, which skips a leaf shorter than the source immediately.
+    function eachLongExact(input, needle, budget, found) {
       spend(budget, 'comparisons');
       if (needle.length > input.length) return;
       let prefix = prefixes.get(needle);
@@ -345,21 +396,27 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     function appendLearned(privacyText, budget, found, intervals) {
       const embeddedShortNumber = (value, start, end) => /^[0-9]{1,6}$/.test(value)
         && (/[\p{L}\p{N}_.-]/u.test(privacyText[start - 1] || '') || /[\p{L}\p{N}_.-]/u.test(privacyText[end] || ''));
-      for (const [token, entry] of entries) {
-        // Legacy whitespace mappings still resolve their issued tokens, but must never
-        // turn every unrelated formatting space into a newly learned secret.
-        if (!/\S/.test(entry.value)) continue;
-        eachExact(privacyText, entry.value, budget, (start, end) => {
-          if (insideOpaque(start, end, intervals)) return;
-          if (embeddedShortNumber(entry.value, start, end)) return;
-          if (entry.category === 'PHONE' && (/[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[start - 1] || '') || /[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[end] || ''))) return;
-          const current = entryFor(token);
-          found.push({ start, end, category: current.category, ruleIds: ['scope.learned-exact'] });
-        });
+      if (!entries.size && !revokedValues.size) return mergeMatches(found);
+      const accept = (value, token, start, end) => {
+        if (insideOpaque(start, end, intervals) || embeddedShortNumber(value, start, end)) return;
+        if (token === null) fail('reference_revoked');
+        const entry = entries.get(token);
+        if (entry.category === 'PHONE' && (/[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[start - 1] || '') || /[0-9０-９零〇一二三四五六七八九幺壹贰叁肆伍陆柒捌玖]/.test(privacyText[end] || ''))) return;
+        found.push({ start, end, category: entryFor(token).category, ruleIds: ['scope.learned-exact'] });
+      };
+      const index = exactIndex(budget); let at = 0;
+      for (let i = 0; index.values.length && i < privacyText.length; i++) {
+        const char = privacyText.charCodeAt(i);
+        while (at && !index.next(at, char)) { spend(budget, 'comparisons'); at = index.failure[at]; }
+        spend(budget, 'comparisons'); at = index.next(at, char);
+        for (let hit = index.terminal[at] ? at : index.output[at]; hit; hit = index.output[hit]) {
+          spend(budget, 'matches');
+          const { value, token } = index.values[index.terminal[hit] - 1], end = i + 1, start = end - value.length;
+          accept(value, token, start, end);
+        }
       }
-      for (const value of revokedValues) if (/\S/.test(value)) eachExact(privacyText, value, budget, (start, end) => {
-        if (!insideOpaque(start, end, intervals) && !embeddedShortNumber(value, start, end)) fail('reference_revoked');
-      });
+      for (const [token, entry] of entries) if (entry.value.length > 4096 && /\S/.test(entry.value)) eachLongExact(privacyText, entry.value, budget, (start, end) => accept(entry.value, token, start, end));
+      for (const value of revokedValues) if (value.length > 4096 && /\S/.test(value)) eachLongExact(privacyText, value, budget, (start, end) => accept(value, null, start, end));
       return mergeMatches(found);
     }
     function detectLearned(privacyText, context = {}) {
@@ -430,10 +487,11 @@ const PrivacyCore = ((cryptoApi, ruleCatalog) => {
     function revoke(token) {
       const entry = entries.get(token); if (!entry) return false;
       entries.delete(token); byValue.delete(entry.value); revokedValues.add(entry.value);
+      learnedIndex = null;
       const group = aliases.get(entry.value); if (group) group.revoked = true;
       revision++; return true;
     }
-    function clear() { entries.clear(); byValue.clear(); revokedValues.clear(); aliases.clear(); prefixes.clear(); valueBytes = 0; revision++; }
+    function clear() { entries.clear(); byValue.clear(); revokedValues.clear(); aliases.clear(); prefixes.clear(); learnedIndex = null; valueBytes = 0; revision++; }
     function exportState() { return { version: 1, scopeId, entries: [...entries].map(([token, entry]) => ({ token, ...entry })),
       ...(revokedValues.size ? { revokedValues: [...revokedValues] } : {}),
       ...(aliases.size ? { aliasGroups: [...new Set(aliases.values())].map(group => [...group.members]) } : {}) }; }

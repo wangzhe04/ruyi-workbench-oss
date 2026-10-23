@@ -1,6 +1,6 @@
 # 94 · M3-2 加密存储适配：边界、开关与第一个数据族
 
-更新：2026-10-22。状态：**M3-2a/M3-2b/M3-2c/M3-2c-2 已实现并验证；M3-2 整体仍在进行中**（清册 41 个"必须加密"族里，已接线 **4 个**：会话头、会话消息正文、provider 历史正文、草稿本；索引族与其余数据族仍明文）。起点提交 `c9234040`，分支 `codex/3.1-completion-plan`，应用版本仍为 `3.0.1`。本批**没有迁移任何用户数据**，也没有任何界面入口。
+更新：2026-10-23。状态：**M3-2a/M3-2b/M3-2c/M3-2c-2 已实现并验证；M3-2 整体仍在进行中**（清册 41 个"必须加密"族里，已接线 **12 个**，新增记忆关系与提议状态，当前清单见 §16；索引族与其余 29 族仍待接线）。起点提交 `c9234040`，分支 `codex/3.1-completion-plan`，应用版本仍为 `3.0.1`。本批**没有迁移任何用户数据**，也没有任何界面入口。
 
 ## 1. 本批交付
 
@@ -317,3 +317,14 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 - **账本解不开 = 本进程内冻结写入**：`engineTranscriptLedgerLoad` 遇到 `work_data*` 错误时置 `engineTranscriptLedgerFrozen`，后续 `engineTranscriptLedgerSave` 直接返回。取舍是"宁可让账本停止增长，也绝不用空账本覆盖解不开的密文"；账本丢失只会让清理器"不碰不认识的转录"（保守方向）。唯一生产调用点是 `saveSession` 里的 fire-and-forget（`.catch(() => {})`），不会连带会话保存。
 - **管家记忆读失败分两类**：只读召回类调用点（`13k`、`13o`）本来就 `.catch(() => ({entries: []}))`；直接 await 的（`13g` 面板/导出、`13ab` 忘记记忆、`13j` mutator）会冒泡成失败——缺钥的用户提示归 M3-3。`stewardMutateMemory` 先读后调 mutator，读失败时 mutator 根本没执行，零副作用。
 - **`proxy-models-cache` 暂缓**：它走 `fs.readFileSync` + 进程内 memo，适配器是异步的，要先把它改成异步读才能接；已从"整文件 JSON"组里单独摘出来，排在后续批次。
+
+
+## 16. M3-2d：记忆关系与提议状态（2026-10-23）
+
+本片将 `memory-relations` 与 `memory-proposals` 接到 `06d-memory-domain.js` 的 `WorkDataStore.createText`：关系保留裸数组，提议保留原 pretty JSON。用途固定为 `memory`；关系按 global/project 绑定，提议按 session 绑定；两族有不同 recordId。关闭时原序列化字节不变；已封印数据在关闭后拒绝明文重写，缺钥、认证失败及错作用域均不回空、不覆盖。
+
+提议容量继续按明文 256 KiB 核对，不能把 base64 膨胀后的密文大小当成空状态。独立审查发现适配层对截断容器的坏 JSON 会沿用旧明文容错而回空；本片同时补齐明确容器损坏的硬错与不覆盖回归。关系并发读改写沿用原有语义，本片不声称新增并发合并。
+
+当前已接线 **12/41**：session-head、session-messages、session-provider、session-scratchpad、voice-lexicon、memory-usage、steward-cursor、engine-transcript-index、steward-memory、agent-instructions-import、memory-relations、memory-proposals；余 **29** 族待做。§14/§15的早期读数保留为当时结果。没有迁移用户数据，没有启用 UI，M3-3 仍未实施。
+
+验证及最终源码身份记录到 `evidence/privacy-old-session-and-memory-storage.json`；本片也与用户报告的老会话 privacy 限额/关闭后续聊故障一起进行最终回归。

@@ -4517,5 +4517,7 @@
   "privacy.failure.consumerAudit": "The independent MCP file audit thread is busy, changed or unavailable. Check that thread and local changes in Ruyi before deciding what to do next.",
   "privacy.failure.consumerRequest": "Independent MCP does not support this request format or method. Check the tools and resources actually advertised by this connection.",
   "privacy.failure.consumerSubscription": "A subscription to this URI is still being established. Wait for the current subscription request to finish or check the connection; do not repeat the business operation.",
-  "privacy.failure.consumerFailed": "Independent MCP returned no usable result. Check local changes and operation status before continuing; do not automatically repeat the operation."
+  "privacy.failure.consumerFailed": "Independent MCP returned no usable result. Check local changes and operation status before continuing; do not automatically repeat the operation.",
+  "privacy.failure.scanLimit": "This content exceeds the privacy check processing limit. The affected content was not sent. Reduce the content, or continue in a new conversation with the necessary summary. Check completed operations before retrying.",
+  "privacy.failure.mappingLimit": "This conversation has reached the privacy reference capacity limit. The affected content was not sent. Continue in a new conversation with the necessary summary. Check completed operations and do not automatically repeat them."
 }

@@ -4517,5 +4517,7 @@
   "privacy.failure.consumerAudit": "独立 MCP 的文件审计线程忙碌、已变化或不可用。请在工作台检查该线程和本地变更后再决定下一步。",
   "privacy.failure.consumerRequest": "独立 MCP 不支持此请求格式或方法。请核对该连接实际公布的工具与资源能力。",
   "privacy.failure.consumerSubscription": "同一 URI 的订阅尚未完成。请等待当前订阅请求结束或检查连接；不要因此重新执行业务操作。",
-  "privacy.failure.consumerFailed": "独立 MCP 未返回可用结果。请检查本地变更和操作状态，再决定下一步；不要自动重复操作。"
+  "privacy.failure.consumerFailed": "独立 MCP 未返回可用结果。请检查本地变更和操作状态，再决定下一步；不要自动重复操作。",
+  "privacy.failure.scanLimit": "本次内容超出隐私检查的处理上限，受影响的内容未发送。请缩小本次内容，或在新线程中提供必要摘要后继续；重试前先检查已完成的操作。",
+  "privacy.failure.mappingLimit": "当前线程的隐私代号映射已达到容量上限，受影响的内容未发送。请在新线程中提供必要摘要后继续；先检查已完成的操作，不要自动重复执行。"
 }
