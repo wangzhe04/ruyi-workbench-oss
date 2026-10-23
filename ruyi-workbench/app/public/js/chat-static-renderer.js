@@ -22,7 +22,6 @@ export function createChatStaticRenderer(deps = {}) {
     tCount,
     thinkingPanel,
     toolCard,
-    turnArtifactChips,
     turnSummaryCard,
     turnToolAnchorId,
     usageLine,
@@ -625,7 +624,6 @@ export function createChatStaticRenderer(deps = {}) {
     }
     if (msg.turnSummary && !options.readonly) {
       main.appendChild(turnSummaryCard(msg.turnSummary)); // v0.8-S3 「本轮变更」
-      const chips = turnArtifactChips(msg.turnSummary); if (chips) main.appendChild(chips); // v1.0.2 (G2)
     }
     if (msg.usage) main.appendChild(usageLine(msg.usage, meta));
     if (!options.readonly) main.appendChild(msgActions(msg));

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-21T16:31:25.563Z",
+  "generatedAt": "2026-10-23T06:29:07.183Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2343,7 +2343,8 @@
         "dev-harness\\i18n.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\subagent.e2e.js",
-        "dev-harness\\tools-v3.e2e.js"
+        "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\turn-summary-collapse.browser.e2e.js"
       ]
     },
     {
@@ -2471,7 +2472,8 @@
         "dev-harness\\copy-path-guard.static.e2e.js",
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
-        "dev-harness\\steward-delivery.browser.e2e.js"
+        "dev-harness\\steward-delivery.browser.e2e.js",
+        "dev-harness\\turn-summary-collapse.browser.e2e.js"
       ]
     },
     {
@@ -3335,7 +3337,8 @@
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
-        "dev-harness\\tools-v3.e2e.js"
+        "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\turn-summary-collapse.browser.e2e.js"
       ]
     },
     {

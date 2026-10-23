@@ -154,14 +154,12 @@ function runTurn(port, token, sessionId, message, cwd) {
       const card = row.closest('.turn-summary');
       const undoBtn = row.querySelector('button.ts-undo');
       const undoAllBtn = card && card.querySelector('button.ts-undo-all');
-      const main = card && card.parentElement;
-      const chip = main && [...main.querySelectorAll('.artifact-chip')].find(c => c.textContent.includes('report.md'));
-      return { rowText: row.textContent, undoBtn: Boolean(undoBtn), undoAllBtn: Boolean(undoAllBtn), chip: Boolean(chip) };
+      return { rowText: row.textContent, undoBtn: Boolean(undoBtn), undoAllBtn: Boolean(undoAllBtn), fileActions: row.querySelectorAll('.ts-file-action').length };
     })()`, 300);
     ok(Boolean(after) && !after.undoBtn && /已撤销/.test(after.rowText),
       `C1 刷新后那一行画「已撤销」，不是一枚可点的「撤销」（实测 ${JSON.stringify(after)}）`);
     ok(Boolean(after) && !after.undoAllBtn, 'C2 刷新后「撤销整轮」不再可点（这一轮已经没有可撤的文件）');
-    ok(Boolean(after) && !after.chip, 'C3 产物 chip 不再给已经删掉的 report.md 一个「打开」');
+    ok(Boolean(after) && after.fileActions === 0, 'C3 已撤销的新建文件行不再提供打开或定位');
 
     /* ═════════ D 整轮撤销只撤回了一部分（代码走查 C6 / 走查 U9） ═════════ */
     // big.log 改前 6MB，超过留底上限 → 撤不回；note.md 是新建的 → 撤得回。修前：按钮写「已撤销」、提示说成功，

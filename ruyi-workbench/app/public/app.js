@@ -384,7 +384,6 @@ const {
   toolCard,
   toolArgSummary,
   toolGroupSummaryText,
-  turnArtifactChips: (...args) => turnArtifactChips(...args),
   turnSummaryCard: (...args) => turnSummaryCard(...args),
   turnToolIndexCard: (...args) => turnToolIndexCard(...args),
   messageAttachmentStrip: (...args) => messageAttachmentStrip(...args),
@@ -601,7 +600,6 @@ const {
   tCount,
   thinkingPanel,
   toolCard,
-  turnArtifactChips: summary => turnArtifactChips(summary),
   turnSummaryCard: summary => turnSummaryCard(summary),
   turnToolAnchorId,
   usageLine,
@@ -835,7 +833,6 @@ const {
   stopMission,
   submitGrant,
   toggleStepBar,
-  turnArtifactChips,
   turnSummaryCard,
 } = createSessionExperienceDomain({
   privacyFailure,

@@ -99,3 +99,9 @@ M2/A3 将四处正文 POST 接线收敛到 `04h-provider-http.js / providerModel
 M2/A3 产品独立验收：`node dev-harness/privacy-model-send-boundary.e2e.js` 16 项 ALL PASS。真实 PrivacyGateway 与本机接收端覆盖三线协议各四入口、off 原字节且不建 scope/worker/映射密封、无 scope 的 off→三档开启及 on→off/规则切换阻断、无上下文 auxiliary、已有 scope 对象与代号复用、JSON 编码时策略切换、持久化失败、取消，以及兼容重发每次保护和切换后阻止第二次发送。这是该发送边界的证据，不提升搜索、机器人或独立 MCP 的状态。
 
 这些测试证明的是清点器和审阅门的行为，不是被清点产品的隐私性能或真实出口封锁。产品全量 E2E、真实 provider/CLI/MCP/机器人、网络抓包均不在此原型测试结论内。
+
+## 2026-10-23 本轮变更卡文件操作合并的限定源码审阅
+
+本次独立阅读 `public/app.js`、`public/js/session-experience.js`、`public/js/chat-static-renderer.js`、`public/js/chat-stream-runtime.js` 的变更及共同卡片工厂调用关系。产物与 journal 文件按路径合并为一行；journal 保留操作及撤销依据，artifact-only 不获得撤销权限。打开/定位仍调用既有同源 `/api/file/reveal`，撤销仍调用既有同源 `/api/checkpoints/rollback`；卡片所属 sessionId 贯穿确认后的撤销、异步完成后的状态更新及恢复删除后的文件按钮。路径、文件名与操作标签通过文本节点或 DOM 属性设置，没有新增 HTML 执行入口。静态与 live 调用均移除第二条产物 chip，不新增实际外发点或接收方授权。
+
+上述四份源码的候选数依次为 6、12、5、4；与现有手工条目逐项对照，新增、删除及局部调用指纹变化均为 0。仅手工更新这四个 `sources` 原字节指纹；`entries`、分类组及其他源码指纹保持原状。该限定范围的校验为 0 errors，不能据此宣称全局清册通过：其余既存源码 stale、未分类及变更边界仍保留，未刷新生成 JSON/Markdown。源码复现验证路径斜杠合并及跨会话异步绑定；真实 browser 回归由本批独立记录承载，不以清点器代替产品验收，也不提升原 local-only/unknown 分类。

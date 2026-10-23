@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "status": "batch_verified",
+  "baselineCommit": "96d79556",
+  "syntheticOnly": true,
+  "scope": [
+    "turn artifacts merged into turn changes by path",
+    "per-file Open/Show in File Explorer actions reuse existing same-origin endpoint",
+    "unchanged journal rollback authority with captured card session identity"
+  ],
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/public/app.js",
+      "sha256": "d57fa01b575fec440a126c052e5471d5e245986d3d78cc45ae48b90d60236186"
+    },
+    {
+      "file": "ruyi-workbench/app/public/css/states/chat-live.css",
+      "sha256": "8bb012f8024a0daad4f2579b4621f1975f988f97f1b08d180bdae1d12297a4b5"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/session-experience.js",
+      "sha256": "edba5ec7331f05aa376d8883638e8a6d04d66e336f5332f8459e78049fb1d444"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/chat-static-renderer.js",
+      "sha256": "4e7c3edbdf18415e18bf4544df4e92470d550e2e938b3f3873d6eda0c87bf2ef"
+    },
+    {
+      "file": "ruyi-workbench/app/public/js/chat-stream-runtime.js",
+      "sha256": "42b2169461cdb410eba527f03ee754168c982cafae8cb6faffdfb1b2750bd6f0"
+    }
+  ],
+  "tests": [
+    {
+      "command": "node --test --test-concurrency=4 <8 frontend unit files>",
+      "result": "116 pass, 0 fail, 0 skip",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\integrated-artifacts-frontend-units.log"
+    },
+    {
+      "command": "node dev-harness/turn-summary-collapse.browser.e2e.js",
+      "result": "exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\turn-summary-collapse.browser-integrated-artifacts-initial.log"
+    },
+    {
+      "command": "node dev-harness/turn-undo.browser.e2e.js",
+      "result": "exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\turn-undo.browser-integrated-artifacts-initial.log"
+    },
+    {
+      "command": "node dev-harness/artifacts.e2e.js",
+      "result": "exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\artifacts-integrated-artifacts-initial.log"
+    },
+    {
+      "command": "node dev-harness/chat-stream-remount.browser.e2e.js",
+      "result": "exit 0; ALL PASS",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\chat-stream-remount.browser-integrated-artifacts-initial.log"
+    },
+    {
+      "command": "node dev-harness/turn-summary-collapse.browser.e2e.js (preview run)",
+      "result": "second pass; 300px zh/en and light/dark all fit; screenshot captured",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\turn-summary-collapse.browser-integrated-artifacts-preview.log"
+    }
+  ],
+  "independentReview": {
+    "reviewer": "privacy_repro",
+    "initialFindings": [
+      "Windows slash/case spellings duplicated one file and left stale Open after undo",
+      "confirmation or rollback completion after changing chat could bind actions to the wrong chat"
+    ],
+    "resolution": [
+      "normalize Windows-shaped path identity, preserving journal row authority",
+      "capture owning session in card/confirm/rollback and restored file actions",
+      "update old browser C3 to assert real new actions rather than removed chip class",
+      "artifact-only live summary suppresses false no-files reassurance"
+    ],
+    "final": "reviewer source-extraction repro: one row, zero actions after undo creation, rollback/reveal keep owning chat; no remaining blocker"
+  },
+  "visualCheck": {
+    "image": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\integrated-artifacts-preview.png",
+    "result": "root inspected rendered screenshot; single card, three rows, aligned actions and preserved undo"
+  },
+  "limitations": [
+    "button request test intercepts same-origin reveal request to avoid opening native applications",
+    "backend reveal permission/shell behavior is reused unchanged",
+    "narrow layout exercised shared production card factory; live/static call sites both consume it, and real static rollback/reload browser journey passes"
+  ],
+  "egressReview": {
+    "reviewer": "privacy_repro",
+    "scope": "four changed UI JavaScript sources only",
+    "boundaryCandidates": {
+      "app": 6,
+      "sessionExperience": 12,
+      "staticRenderer": 5,
+      "streamRuntime": 4
+    },
+    "added": 0,
+    "changed": 0,
+    "removed": 0,
+    "scopedErrors": 0,
+    "manifest": "only four reviewed source fingerprints updated; classifications and other sources retained",
+    "globalErrors": 48,
+    "globalResult": "existing unreviewed/stale inventory remains; not a global pass",
+    "rawEvidence": "C:/Users/87179/AppData/Local/Temp/ruyi-ui-review-9GS0wB/egress-{before,after}.json"
+  },
+  "unifiedGate": {
+    "command": "node dev-harness/run-all.js --fast --parallel 4",
+    "unit": {
+      "total": 2695,
+      "pass": 2669,
+      "fail": 0,
+      "skip": 26
+    },
+    "staticInitial": {
+      "pass": 79,
+      "fail": 2,
+      "total": 81,
+      "failures": [
+        "frontend-domains.static.e2e.js D51 CSS payload pin",
+        "live-full-text.static.e2e.js F3 CSS payload pin"
+      ]
+    },
+    "resolution": "intentional reviewed CSS row/action layout; original HEAD payload self-proof and corrupt-CSS negative probes completed; updated shared pin and both final static cases pass; no product changed after this full run",
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\ui-personal-fast-final.log",
+    "finalTargetedLogs": [
+      "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\frontend-domains.static-integrated-artifacts-final.log",
+      "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\live-full-text.static-integrated-artifacts-final.log"
+    ],
+    "claim": "full unit passes; all static cases have passing results after two targeted pin repairs, not a rerun of one all-green full command"
+  },
+  "syntax": {
+    "command": "node dev-harness/syntax-gate.js",
+    "result": "1163 checked, 0 failed",
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\ui-personal-syntax-final.log"
+  },
+  "buildFreshness": "pass",
+  "cssPin": {
+    "proof": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\integrated-artifacts-css-pin-proof.json",
+    "before": "0990a6250d726cc0df5a0ac053ccd5ffeb8077af0db8663e31117772fb2f8fa3",
+    "after": "78df055adf11a3766d65a18a0ed217a3f674b668d064536c6098275a21139ef3",
+    "negative": "in-memory corrupt CSS made D51/F3 fail without changing disk CSS"
+  },
+  "firstFailures": [
+    {
+      "scope": "full static run",
+      "detail": "two expected payload fingerprint failures from reviewed CSS changes; original guard remains strict after documented re-pin"
+    }
+  ]
+}

@@ -261,34 +261,24 @@
 .ts-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 .ts-disclosure { display: inline-block; flex: none; }
 .ts-toggle[aria-expanded="false"] .ts-disclosure { transform: rotate(-90deg); }
-.turn-summary-file { display: flex; align-items: baseline; gap: 8px; line-height: 1.4; }
+.turn-summary-file { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; line-height: 1.4; }
 .turn-summary-file .ts-op { flex: none; font-size: var(--fs-xs); padding: 1px 6px; border-radius: 4px; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .turn-summary-file .ts-op.create { color: var(--ok-fg); background: var(--ok-bg); }
 .turn-summary-file .ts-op.modify { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .turn-summary-file .ts-op.delete { color: var(--danger-fg); background: var(--danger-bg); }
-.turn-summary-file .ts-path { font-family: var(--mono); font-size: var(--fs-sm); min-width: 0; overflow-wrap: anywhere; flex: 1; }
+.turn-summary-file .ts-path { font-family: var(--mono); font-size: var(--fs-sm); min-width: 0; overflow-wrap: anywhere; flex: 1 1 160px; }
+.ts-file-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-left: auto; max-width: 100%; }
 .turn-summary-cmds { color: var(--muted); }
 .turn-summary-empty { color: var(--muted); font-style: normal; }
 .turn-summary-warn { color: var(--warn-fg); font-size: var(--fs-sm); }
 /* v0.8-S4b: undo controls on the summary card (整轮 + per-file). */
 .turn-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ts-undo, .ts-undo-all { flex: none; padding: 1px 8px; font-size: var(--fs-xs); background: transparent; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); cursor: pointer; }
-.ts-undo:hover:not(:disabled), .ts-undo-all:hover:not(:disabled) { color: var(--ink); background: var(--panel); border-color: var(--muted); }
+.ts-undo, .ts-undo-all, .ts-file-action { flex: none; padding: 1px 8px; font-size: var(--fs-xs); background: transparent; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); cursor: pointer; }
+.ts-undo:hover:not(:disabled), .ts-undo-all:hover:not(:disabled), .ts-file-action:hover { color: var(--ink); background: var(--panel); border-color: var(--muted); }
 .ts-undo:disabled, .ts-undo-all:disabled { cursor: default; opacity: .7; }
 .ts-undo.done, .ts-undo-all.done { color: var(--ok-fg); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
 span.ts-undo, span.ts-undo-all { cursor: default; }   /* 刷新后画的「已撤销」是状态，不是按钮 */
 .turn-summary-file.reverted .ts-path, .turn-summary-file.reverted .ts-op { opacity: .6; text-decoration: line-through; }
-
-/* v1.0.2 (G2): 消息尾部生成文件 chip 行 */
-.turn-artifacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.artifact-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 6px 3px 9px;
-  border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); font-size: var(--fs-sm); }
-.artifact-chip-icon { flex: none; font-size: var(--fs-sm); }
-.artifact-chip-name { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  max-width: 220px; min-width: 0; }
-.artifact-chip-btn { flex: none; padding: 1px 8px; font-size: var(--fs-xs); background: transparent;
-  border: 1px solid var(--line); border-radius: 999px; color: var(--muted); cursor: pointer; }
-.artifact-chip-btn:hover { color: var(--ink); background: var(--panel); border-color: var(--muted); }
 
 /* v0.8-S4b: permission popup v2 — humanized verb, tier badge, revertibility line. */
 .perm-title-row { display: flex; align-items: center; gap: 8px; margin: 2px 0; }

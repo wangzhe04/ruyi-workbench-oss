@@ -551,9 +551,25 @@ async function submitGrant(ev) {
 function revertConfirmName(op) { return op === 'create' ? 'revertFileCreate' : op === 'delete' ? 'revertFileDelete' : 'revertFileModify'; }
 // Remember only explicit choices for this domain's session/turn cards, not a global preference.
 const turnSummaryExpanded = new Map();
+function summaryPathKey(value) {
+  const normalized = String(value || '').replace(/\\/g, '/');
+  return /^[a-z]:\//i.test(normalized) || normalized.startsWith('//') ? normalized.toLowerCase() : normalized;
+}
 function turnSummaryCard(summary) {
   const s = summary || {};
-  const files = Array.isArray(s.filesChanged) ? s.filesChanged : [];
+  // The journal owns operation/revert authority; artifacts only supply missing output paths.
+  // Keep one row per path without mutating the persisted summary or inventing undo authority.
+  const fileRows = new Map();
+  for (const file of Array.isArray(s.filesChanged) ? s.filesChanged : []) {
+    if (file && file.path) fileRows.set(summaryPathKey(file.path), { ...file });
+  }
+  for (const artifact of Array.isArray(s.artifacts) ? s.artifacts : []) {
+    if (!artifact || !artifact.path || artifact.reverted) continue;
+    const fullPath = String(artifact.path);
+    const key = summaryPathKey(fullPath);
+    if (!fileRows.has(key)) fileRows.set(key, { path: fullPath, kind: artifact.kind, artifactOnly: true });
+  }
+  const files = [...fileRows.values()];
   const commands = Number(s.commands) || 0;
   const turnSeq = Number(s.turnSeq);
   const hasRevertible = files.some(f => f && f.revertible && !f.reverted);   // f.reverted：服务端撤销时记在这一轮上（刷新后照实画）
@@ -572,7 +588,7 @@ function turnSummaryCard(summary) {
   // there is at least one revertible file AND we know the turnSeq (static or live event both carry it).
   if (hasRevertible && Number.isFinite(turnSeq)) {
     const undoAll = el('button', 'ts-undo-all', t('changes.revertTurn'));
-    undoAll.onclick = async () => { if (!await confirmDanger({ name: 'revertTurn' })) return; rollbackTurn(turnSeq, undefined, undoAll, t('changes.turnLabel')); };
+    undoAll.onclick = async () => { if (!await confirmDanger({ name: 'revertTurn' })) return; rollbackTurn(turnSeq, undefined, undoAll, t('changes.turnLabel'), sessionId); };
     head.append(undoAll);
   } else if (allReverted) {
     head.append(el('span', 'ts-undo-all done', t('changes.revert.done')));
@@ -582,6 +598,7 @@ function turnSummaryCard(summary) {
   body.id = 'turn-summary-body-' + (++turnSummaryBodySeq);
   toggle.setAttribute('aria-controls', body.id);
   const sessionId = state.currentSession?.id;
+  if (sessionId) card.dataset.sessionId = sessionId;
   const choiceKey = sessionId && Number.isFinite(turnSeq) ? JSON.stringify([sessionId, turnSeq]) : '';
   const setExpanded = expanded => {
     body.hidden = !expanded;
@@ -606,21 +623,27 @@ function turnSummaryCard(summary) {
       const row = el('div', 'turn-summary-file');
       row.dataset.path = String(f.path || '');   // rollbackTurn 按它把撤掉的那几行就地改成「已撤销」
       const op = (f.op === 'create' || f.op === 'modify' || f.op === 'delete') ? f.op : 'unknown';
-      const opLabel = op === 'create' ? t('changes.create') : op === 'modify' ? t('changes.modify') : op === 'delete' ? t('changes.delete') : t('common.unknown');
+      row.dataset.op = op;
+      const opLabel = f.artifactOnly ? `${ARTIFACT_KIND_ICON[f.kind] || ARTIFACT_KIND_ICON.other} ${t('tool.artifacts')}`
+        : op === 'create' ? t('changes.create') : op === 'modify' ? t('changes.modify') : op === 'delete' ? t('changes.delete') : t('common.unknown');
       // 走查 U8：普通模式只印文件名，整条路径放悬停提示；专业模式照旧印全路径。
       const pathNode = el('span', 'ts-path', document.documentElement.getAttribute('data-ui-mode') === 'pro' ? (f.path || '') : (fileBasename(f.path || '') || f.path || ''));
       if (f.path) pathNode.title = f.path;
       row.append(el('span', `ts-op ${op}`, opLabel), pathNode);
+      const actions = el('div', 'ts-file-actions');
+      // A reverted creation or a deletion has no file to open. Restored modifications remain usable.
+      if (op === 'delete' ? f.reverted : !(op === 'create' && f.reverted)) appendSummaryFileActions(actions, f.path, sessionId);
       // v0.8-S4b: per-file 「撤销」— rolls back a single entry (turnSeq + entrySeq). Only for revertible
       // files that carry an entrySeq (journal-driven). Non-revertible files show nothing extra.
       if (f.reverted) {
         row.classList.add('reverted');
-        row.append(el('span', 'ts-undo done', t('changes.revert.done')));
+        actions.append(el('span', 'ts-undo done', t('changes.revert.done')));
       } else if (f.revertible && Number.isFinite(turnSeq) && Number.isFinite(Number(f.entrySeq))) {
         const undo = el('button', 'ts-undo', t('changes.revert'));
-        undo.onclick = async () => { if (!await confirmDanger({ name: revertConfirmName(op), bodyParams: { path: fileBasename(f.path || '') } })) return; rollbackTurn(turnSeq, Number(f.entrySeq), undo, f.path || ''); };
-        row.append(undo);
+        undo.onclick = async () => { if (!await confirmDanger({ name: revertConfirmName(op), bodyParams: { path: fileBasename(f.path || '') } })) return; rollbackTurn(turnSeq, Number(f.entrySeq), undo, f.path || '', sessionId); };
+        actions.append(undo);
       }
+      row.append(actions);
       body.append(row);
     }
     // commands can't be auto-undone — say so, once, when any command ran (C6/B3 discipline).
@@ -629,35 +652,18 @@ function turnSummaryCard(summary) {
   card.append(body);
   return card;
 }
-// v1.0.2 (G2): 消息尾部生成文件 chip 行。数据源 summary.artifacts([{path, kind}])。每个 chip:kind 图标 +
-// 文件名 + 两个小按钮(打开 / 📂 定位),走 POST /api/file/reveal。无 artifacts → 返回 null(调用处不追加)。
-// 文件名一律 textContent(el 内部)——XSS 红线:artifacts 来自模型/文件系统。
-function turnArtifactChips(summary) {
-  const arts = summary && Array.isArray(summary.artifacts) ? summary.artifacts.filter(a => a && a.path && !a.reverted) : [];   // 撤掉的新建文件已经不在了
-  if (!arts.length) return null;
-  const wrap = el('div', 'turn-artifacts');
-  // de-dup by path, keep first (newest-in-turn insertion order preserved).
-  const seen = new Set();
-  for (const a of arts) {
-    const p = String(a.path);
-    if (seen.has(p)) continue; seen.add(p);
-    const chip = el('span', 'artifact-chip');
-    chip.append(el('span', 'artifact-chip-icon', ARTIFACT_KIND_ICON[a.kind] || ARTIFACT_KIND_ICON.other));
-    const nameEl = el('span', 'artifact-chip-name', fileBasename(p)); nameEl.title = p; // XSS-safe textContent
-    chip.append(nameEl);
-    const openBtn = el('button', 'artifact-chip-btn', t('file.open')); openBtn.type = 'button'; openBtn.title = t('file.open');
-    openBtn.onclick = () => revealArtifact(p, 'open');
-    const locBtn = el('button', 'artifact-chip-btn', `📂 ${t('file.reveal')}`); locBtn.type = 'button'; locBtn.title = t('file.reveal');
-    locBtn.onclick = () => revealArtifact(p, 'select');
-    chip.append(openBtn, locBtn);
-    wrap.append(chip);
+function appendSummaryFileActions(actions, fullPath, sessionId) {
+  for (const [mode, label] of [['open', t('file.open')], ['select', t('file.reveal')]]) {
+    const button = el('button', 'ts-file-action', label);
+    button.type = 'button'; button.title = label; button.dataset.mode = mode;
+    button.onclick = () => revealArtifact(String(fullPath), mode, sessionId);
+    actions.append(button);
   }
-  return wrap;
 }
 // v1.0.2 (G2): POST /api/file/reveal {sessionId, path, mode}. 成功时:若响应带 degradedTo(可执行/脚本文件
 // 「打开」被降级为「定位」),toast 其 note;否则静默(资源管理器已弹出)。失败(400/403/404/非 win)toast 人话。
-async function revealArtifact(fullPath, mode) {
-  const sid = state.currentSession?.id || '';
+async function revealArtifact(fullPath, mode, sessionId) {
+  const sid = sessionId || state.currentSession?.id || '';
   try {
     const r = await api('/api/file/reveal', { method: 'POST', body: JSON.stringify({ sessionId: sid, path: fullPath, mode }) });
     if (!r || !r.ok) { toast(apiErrText(r && r.error) || t('file.open.unavailable'), 'err'); return; }
@@ -757,10 +763,16 @@ function cliMissingCard() {
 // 撤掉的那几行就地改成「已撤销」；这张卡上再没有可撤的文件时，「撤销整轮」也收起。
 function markSummaryRowsReverted(card, reverted) {
   if (!card) return;
-  const paths = new Set(reverted.map(x => String(x && x.path || '')));
+  const paths = new Set(reverted.map(x => summaryPathKey(x && x.path)));
   for (const row of card.querySelectorAll('.turn-summary-file')) {
-    if (!paths.has(row.dataset.path || '')) continue;
+    if (!paths.has(summaryPathKey(row.dataset.path))) continue;
     row.classList.add('reverted');
+    const actions = row.querySelector('.ts-file-actions');
+    if (row.dataset.op === 'create') {
+      for (const button of row.querySelectorAll('.ts-file-action')) button.remove();
+    } else if (row.dataset.op === 'delete' && actions && !actions.querySelector('.ts-file-action')) {
+      appendSummaryFileActions(actions, row.dataset.path, card.dataset.sessionId);
+    }
     const undo = row.querySelector('button.ts-undo');
     if (undo) undo.replaceWith(el('span', 'ts-undo done', t('changes.revert.done')));
   }
@@ -772,8 +784,8 @@ function revertFailureReason(reason) {
 }
 // v0.8-S4b: roll back a turn (entrySeq omitted) or a single file (entrySeq given). On success the button
 // becomes 「已撤销」+ disabled; on failure a toast surfaces the error. Uses api() (carries the UI token).
-async function rollbackTurn(turnSeq, entrySeq, btn, label) {
-  const sid = state.currentSession?.id;
+async function rollbackTurn(turnSeq, entrySeq, btn, label, sessionId) {
+  const sid = sessionId || (btn && btn.closest ? btn.closest('.turn-summary')?.dataset.sessionId : '') || state.currentSession?.id;
   if (!sid) { toast(t('error.generic.description'), 'err'); return; }
   if (btn) { btn.disabled = true; btn.textContent = t('changes.revert'); }
   try {
@@ -1863,7 +1875,6 @@ function buildEmptyCTA() {
     submitGrant,
     syncLivePolling, // 117m-A5: 在途回合气泡的唯一开关表入口
     toggleStepBar,
-    turnArtifactChips,
     turnSummaryCard,
   });
 }

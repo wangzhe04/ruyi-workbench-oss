@@ -128,7 +128,6 @@ export function createChatStreamRuntime(deps = {}) {
     toolCard,
     toolArgSummary,
     toolGroupSummaryText,
-    turnArtifactChips,
     turnSummaryCard,
     turnToolIndexCard,
     updateContextMeter,
@@ -1552,11 +1551,12 @@ export function createChatStreamRuntime(deps = {}) {
         // the streamed markdown bubble intact; this card sits after the tools wrap.
         { const record = turnToolIndexCard(live && live.toolIndex ? live.toolIndex : [], main); if (record) main.appendChild(record); }
         main.appendChild(turnSummaryCard(evt));
-        { const chips = turnArtifactChips(evt); if (chips) main.appendChild(chips); } // v1.0.2 (G2)
         if (live && live.pendingUsage) { main.appendChild(usageLine(live.pendingUsage)); live.pendingUsage = null; }
         // v0.9-S1 (C6): remember whether anything actually changed, so a following error `result` can decide
         // whether to append the 「本次未改动任何文件」 reassurance line.
-        if (live) live.filesTouched = (Array.isArray(evt.filesChanged) && evt.filesChanged.length > 0) || (Number(evt.commands) || 0) > 0;
+        if (live) live.filesTouched = (Array.isArray(evt.filesChanged) && evt.filesChanged.length > 0)
+          || (Array.isArray(evt.artifacts) && evt.artifacts.some(artifact => artifact && artifact.path && !artifact.reverted))
+          || (Number(evt.commands) || 0) > 0;
         maybeScrollToBottom();
         break;
       case 'result':
