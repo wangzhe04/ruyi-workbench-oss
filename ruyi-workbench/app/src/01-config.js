@@ -109,7 +109,7 @@ function defaultConfig() {
     asrFixMode: 'auto',
     asrFixProviderId: '',
     asrFixModel: '',
-    openaiMaxToolIterations: 100, // v1.6.3: standard base budget 1..200; long turns start at 200 and may extend to hard cap 300 while progressing
+    openaiMaxToolIterations: 100, // 起始工具检查点；持续有进展时按批扩展，不设固定总次数
     // --- v0.7d: external / desktop MCP integration ---
     // Convenience entry for the user's own ai-computer-control desktop MCP (Windows control). When
     // enabled + command empty + autodetect, detectDesktopMcp() locates it; blank command => absent => graceful.
@@ -437,7 +437,7 @@ function defaultConfig() {
     // (「上次任务未完成」横幅同一判据 / 计划还有没勾完的步骤)时,管家自己给线程续一轮;默认开,有上限(13m)。
     stewardAutoActions: { retry: true, resume: null, relay: true, newThread: true, answer: false, continueUnfinished: true },
     // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
-    stewardContextBudgetTokens: 200000,
+    stewardContextBudgetTokens: 1000000,
     // 136(同上「上下文太紧」):预算的几成触发 L2 压缩,clamp [0.3,0.95],非法回默认 0.6。
     // 大窗口模型(百万级)下 0.6 偏保守,可调高;代价是管家每回合更贵、压缩更少触发。
     // 管家自己改不了它:confirm 档(会花钱),只能递按钮等用户按;tokens 键则撞密钥正则仍 forbidden。
@@ -450,10 +450,8 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440]。
     stewardVisitIdleMinutes: 60,
     // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit|24h|forever。
-    // 136(用户 2026-09-23「不记事」):默认 visit → 24h —— 「到访即忘」(60 分钟静默就整段归档清空)是
-    // 「管家不像个熟人」观感的最大来源;跨到访的长期连续性仍走管家记忆库,24h 只是把【今天】留住。
-    // 不迁移存量(同上一条纪律);normalizeConfig 的兜底值同步是 '24h',两处必须同一个值。
-    stewardConversationRetention: '24h',
+    // 默认长期保留对话；上下文按 token 预算压缩，监工委托另随线程持久保存。
+    stewardConversationRetention: 'forever',
     // 136(同上「言行不够拟人」):管家人设。两键皆空 = 用 stable 层的默认自称「如意」与默认口吻。
     // 名字 ≤20 字、口吻偏好 ≤200 字(01-config 归一截断);进提示词的【易变层】(13o 的 personaBlock),
     // 不进 stable —— 用户级变量,进了稳定层就破前缀缓存纪律。free 档:改错了一眼看得见、一键清空。
@@ -493,7 +491,7 @@ function defaultConfig() {
     // workflow heartbeats keep the parent turn informed while the node works. 0 disables automatic wrap-up.
     // 出厂 30 分钟(修前 8 分钟:到点催收尾、再 2 分钟墙钟一到就杀,单个子代理实际只有 10 分钟)。催收尾之后节点只在
     // 「宽限期内没有任何进展」或「总时长达到硬上限(= 本值的 2 倍)」时才被中止 —— 见 09 workflowControlTimer 的头注。
-    agentNodeWrapUpMs: 1800000,
+    agentNodeWrapUpMs: 0,
     // 团队模式 v2 (A2): 共享任务池审批策略。manual=UI 运行卡逐条批准(默认);auto-capped=自动批准直到 poolAutoCap
     // 用尽后转 manual;off=不注册 propose_task 工具。物化仍受 agentWorkflowMaxNodes(上限 64)复检(见 materializePoolItem)。
     agentTaskPoolPolicy: 'manual',
@@ -910,7 +908,10 @@ function normalizeConfig(raw, opts = {}) {
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
   const aw = Number(config.agentNodeWrapUpMs);
-  config.agentNodeWrapUpMs = Number.isFinite(aw) ? (aw <= 0 ? 0 : Math.min(7200000, Math.max(60000, aw))) : 1800000;
+  // 迁移未显式设置的旧出厂时限；保留用户自己选定的时限。
+  config.agentNodeWrapUpMs = opts.inferExplicit !== false && aw === 1800000 && !rawExplicit.has('agentNodeWrapUpMs')
+    ? 0 : Number.isFinite(aw) ? (aw <= 0 ? 0 : Math.min(7200000, Math.max(60000, aw))) : 0;
+  if (config.agentNodeWrapUpMs !== aw) changed = true;
   // 第27f波:autonomyPauseOnTimeout 布尔(默认 false=安全默认);autonomyPauseTtlMs clamp [5min, 6h] 默认 45min。
   config.autonomyPauseOnTimeout = config.autonomyPauseOnTimeout === true;
   const apt = Number(config.autonomyPauseTtlMs);
@@ -1453,10 +1454,11 @@ function normalizeConfig(raw, opts = {}) {
     if (JSON.stringify(aa) !== JSON.stringify(config.stewardAutoActions)) { config.stewardAutoActions = aa; changed = true; }
     else config.stewardAutoActions = aa;
   }
-  // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000],非法回默认 200000。
+  // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000],非法回默认 1000000。
   {
     const n = Number(config.stewardContextBudgetTokens);
-    const clamped = Number.isFinite(n) ? Math.min(2000000, Math.max(16000, Math.round(n))) : 200000;
+    const oldDefault = opts.inferExplicit !== false && n === 200000 && !rawExplicit.has('stewardContextBudgetTokens');
+    const clamped = oldDefault ? 1000000 : Number.isFinite(n) ? Math.min(2000000, Math.max(16000, Math.round(n))) : 1000000;
     if (clamped !== config.stewardContextBudgetTokens) { config.stewardContextBudgetTokens = clamped; changed = true; }
   }
   // 136(用户 2026-09-23「上下文太紧」):压缩触发线系数,clamp [0.3,0.95],非法回默认 0.6
@@ -1494,7 +1496,8 @@ function normalizeConfig(raw, opts = {}) {
   // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,枚举 visit|24h|forever,非法回默认。
   // 136:默认 visit → 24h,兜底同步改(两处必须同一个值,否则缺省与填垃圾落到不同策略)。
   {
-    const norm = ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : '24h';
+    const oldDefault = opts.inferExplicit !== false && config.stewardConversationRetention === '24h' && !rawExplicit.has('stewardConversationRetention');
+    const norm = oldDefault ? 'forever' : ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : 'forever';
     if (norm !== config.stewardConversationRetention) { config.stewardConversationRetention = norm; changed = true; }
   }
   // 136(用户 2026-09-23「言行不够拟人」):管家人设两个字符串键 —— trim + 上限截断(名字 20 字 /

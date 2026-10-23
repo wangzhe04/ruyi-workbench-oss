@@ -41,6 +41,8 @@ function harness(t, rows = []) {
     getPretenderProjectionIndex: async () => ({ sessions: [{ sessionId: 'sess_test', interventions: [] }] }),
     // M3-2d: 13i 的游标改走 WorkDataStore.createText。这个 vm 只切了 steward 的源码，没有 01p，
     // 所以给一个"明文直通"的最小实现（与适配器开关关闭时的行为一致），把留级/节流逻辑与加密层隔离。
+    // 13g 在真实装载里定义并填充它；这个 vm 只切了 13j 的片段，给个空注册表即可。
+    StewardHooks: {},
     WorkDataStore: {
       createText: ({ file, writeJson }) => ({
         read: async () => { try { return await fsp.readFile(file(), 'utf8'); } catch (error) { if (error && error.code === 'ENOENT') return null; throw error; } },

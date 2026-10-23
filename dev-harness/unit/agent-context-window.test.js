@@ -18,11 +18,11 @@ const { agentNodeContextWindow, contextWindowFromTable, configuredConversationWi
 const overrideKey = (engine, routeId, model) => JSON.stringify([engine, routeId, model]);
 const provider = { id: 'ds', model: 'deepseek-flash', models: [{ id: 'deepseek-flash' }] };
 
-test('the model name table knows deepseek-flash is 1M and keeps the 128K rows intact', () => {
+test('the model name table knows deepseek-flash is 1M and uses at least 1M for model-name guesses', () => {
   assert.equal(contextWindowFromTable('deepseek-flash'), 1000000);
   assert.equal(contextWindowFromTable('deepseek-v4-flash'), 1000000);
-  assert.equal(contextWindowFromTable('deepseek-chat'), 131072);
-  assert.equal(contextWindowFromTable('deepseek-reasoner'), 131072);
+  assert.equal(contextWindowFromTable('deepseek-chat'), 1000000);
+  assert.equal(contextWindowFromTable('deepseek-reasoner'), 1000000);
 });
 
 test('an openai agent node inherits the per-model conversation window', () => {
@@ -30,7 +30,7 @@ test('an openai agent node inherits the per-model conversation window', () => {
   assert.equal(bare, 1000000, 'deepseek-flash resolves to 1M from the table');
   // A provider whose model the table only knows generically: the manual window must win.
   const legacyProvider = { id: 'ds', model: 'deepseek-chat', models: [{ id: 'deepseek-chat' }] };
-  assert.equal(agentNodeContextWindow({ engine: 'openai', model: 'deepseek-chat' }, legacyProvider, {}), 131072);
+  assert.equal(agentNodeContextWindow({ engine: 'openai', model: 'deepseek-chat' }, legacyProvider, {}), 1000000);
   const config = { contextWindowOverrides: { [overrideKey('openai', 'ds', 'deepseek-chat')]: 1000000 } };
   assert.equal(configuredConversationWindow(config, 'openai', 'ds', 'deepseek-chat'), 1000000);
   assert.equal(agentNodeContextWindow({ engine: 'openai', model: 'deepseek-chat' }, legacyProvider, config), 1000000,
@@ -41,7 +41,7 @@ test('an out-of-range manual window is ignored, and claude nodes keep their own 
   const legacyProvider = { id: 'ds', model: 'deepseek-chat', models: [{ id: 'deepseek-chat' }] };
   const tooSmall = { contextWindowOverrides: { [overrideKey('openai', 'ds', 'deepseek-chat')]: 4000 } };
   assert.equal(configuredConversationWindow(tooSmall, 'openai', 'ds', 'deepseek-chat'), 0);
-  assert.equal(agentNodeContextWindow({ engine: 'openai', model: 'deepseek-chat' }, legacyProvider, tooSmall), 131072);
+  assert.equal(agentNodeContextWindow({ engine: 'openai', model: 'deepseek-chat' }, legacyProvider, tooSmall), 1000000);
   const claudeConfig = { contextWindowOverrides: { [overrideKey('agent', 'claude', 'sonnet-5')]: 400000 } };
   assert.equal(agentNodeContextWindow({ engine: 'claude', model: 'sonnet-5' }, null, claudeConfig), 400000);
   assert.equal(agentNodeContextWindow({ engine: 'claude', model: 'sonnet-5' }, null, {}), 1000000);

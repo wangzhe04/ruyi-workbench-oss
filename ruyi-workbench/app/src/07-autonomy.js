@@ -2450,6 +2450,11 @@ function classifyClaudeSubagentFailure({ killed, exitCode, stderrText, assistant
 // looked frozen to the polling UI. Every N chars of streamed assistant text we fire a lightweight
 // subagent_progress milestone (recordAgentNodeProgress folds it into node.progressLog as "生成中 · N 字").
 const CLAUDE_PROGRESS_CHAR_STEP = 400;
+function claudeSubAgentTurnBudget(maxIters, role) {
+  if (maxIters != null && maxIters !== '' && Number.isFinite(Number(maxIters))) return Math.max(0, Math.round(Number(maxIters)));
+  const customized = role && (!role.builtin || (role.source && role.source !== 'builtin'));
+  return customized ? Math.max(0, Math.round(Number(role.budgets?.claude) || 0)) : 0;
+}
 async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, ctrl, permModeOverride, roleDefinition, cwd, getSteer, steerReminder }) {
   if (typeof PrivacyGateway !== 'undefined') { PrivacyGateway.assertSupported(config, 'cli'); PrivacyGateway.assertSupported(await readConfig(), 'cli'); }
   const started = Date.now();
@@ -2486,8 +2491,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
   if (grant.tools.length) args.push('--allowed-tools', grant.tools.join(','));
   if (grant.deny.length) args.push('--disallowed-tools', grant.deny.join(',')); // 节点档位硬上限,下面的命令行阶梯永不丢它
-  const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
-  if (turnBudget > 0) args.push('--max-turns', String(Math.min(300, Math.round(turnBudget))));
+  // 内置角色的 100/150 是旧的工具检查点，不能偷偷变成 CLI 的强制停机回合数。
+  const turnBudget = claudeSubAgentTurnBudget(maxIters, role);
+  if (turnBudget > 0) args.push('--max-turns', String(Math.round(turnBudget)));
   // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
   // 2026-10:角色提示词(role.prompt)也走这里 —— 修前 Claude 节点只带语言政策,Reviewer 不改文件、Verifier 不改产品代码、
   // Critic 默认怀疑这些靠提示词立的规矩在 Claude 引擎下全丢(OpenAI 路径 runSubAgentCoreBody 一直把它放进系统提示)。

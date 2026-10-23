@@ -273,11 +273,11 @@ M3-2d 的目标是把"其余 36 个必需族"从人工研判变成机械接线�
 
 ### 14.3 状态矩阵（41 required）
 
-已接（9）：session-head、session-messages、session-provider、session-scratchpad、voice-lexicon、memory-usage、steward-cursor、engine-transcript-index、steward-memory。
+已接（10）：session-head、session-messages、session-provider、session-scratchpad、voice-lexicon、memory-usage、steward-cursor、engine-transcript-index、steward-memory、agent-instructions-import。
 
 按机制分组待接（36）：
 
-- **整文件 JSON / 单条（先用 createJson，最机械）**：`memory-relations`、`memory-proposals`、`steward-decisions`、`proxy-models-cache`（同步读路径，需先改异步）、`scheduler-tasks`、`personal-workflows`、`agent-instructions-import`、`external-bots`（注意它自带 strict 校验链）、`steward-visits`。
+- **整文件 JSON / 单条（先用 createJson，最机械）**：`memory-relations`、`memory-proposals`、`steward-decisions`、`proxy-models-cache`（同步读路径，需先改异步）、`scheduler-tasks`（读状态机：ENOENT/瞬时重试/损坏隔离三个分支必须逐条保留，单独一批）、`personal-workflows`、`external-bots`（自带 strict 校验链）、`steward-visits`。
 - **按会话/按 id 的分文件 JSON（`create` + per-record 的 recordId）**：`session-index`、`session-v1-backup`、`journal-index`、`journal-reverts`、`mission-container`、`memory-body`、`memory-meta`、`agent-run-snapshot`、`playbooks`、`skill-import-record`、`migration-skill-backups`、`scheduler-fires`（NDJSON 触发台账，需先转记录格式）。
 - **NDJSON（要逐记录 + 行哈希/戳同款改造）**：`steward-inbox`、`agent-run-events`、`background-job-ledger`、`journal-history`（gzip，需分块方案）、`session-interventions`（会话命令台账）、`session-changes`（会话变更审计）——这两族与会话正文同构（append-only + 行戳），批次归 `sessions`。
 - **索引/搜索族（要先定覆盖率语义）**：`session-search-index`、`pretender-index`、`web-cache`、`audit-log`、`migration-log`。

@@ -541,8 +541,8 @@ try {
       lastResult = await srv.runStewardTurn({ trigger: 'inbox', events: [{ inboxSeq: 100 + i, kind: 'done', sessionId: FIXED_THREAD, missionId: FIXED_THREAD, seq: 100 + i, at: new Date().toISOString(), payload: { summary: '收工' }, count: 1 }] });
       if (lastResult && lastResult.circuit) break;
     }
-    ok(lastResult && lastResult.circuit && lastResult.circuit.kind === 'no_progress',
-      `H5 连续 ${5} 次收件箱回合零 acts 零 actions -> no_progress 退避(got ${lastResult && JSON.stringify(lastResult.circuit)})`);
+    ok(lastResult && lastResult.ok === true && !lastResult.circuit,
+      'H5 连续 6 批无需动作的通知不停止后续监工');
     const afterUser = await srv.runStewardTurn({ trigger: 'user', message: '你还在吗' });
     ok(afterUser && afterUser.ok === true && !afterUser.circuit, 'H6 用户消息永远优先:一说话就解除无进展退避');
   }
@@ -612,13 +612,13 @@ try {
     const session = { id: 'steward', kind: 'steward' };
     const big = srv.stewardContextBudget(session, config, 1000000);
     const small = srv.stewardContextBudget(session, config, 50000);
-    ok(big === Math.round(200000 * 0.6), `I1 模型窗口够大时预算 = stewardContextBudgetTokens × 60%(got ${big})`);
+    ok(big === Math.round(1000000 * 0.6), `I1 模型窗口够大时预算 = stewardContextBudgetTokens × 60%(got ${big})`);
     ok(small === Math.round(50000 * 0.6), `I2 模型窗口更小时取小值 × 60%(got ${small})`);
     // 136(用户 2026-09-23「上下文太紧」):触发线系数可配。这里直传 raw 键值(不走 normalize),
     // 顺便钉住 13o 那道「防旁路」的再夹。
-    ok(srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.9 }, 1000000) === Math.round(200000 * 0.9),
-      `I5 136 系数可配:0.9 → ${Math.round(200000 * 0.9)}(got ${srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.9 }, 1000000)})`);
-    ok(srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.01 }, 1000000) === Math.round(200000 * 0.3),
+    ok(srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.9 }, 1000000) === Math.round(1000000 * 0.9),
+      `I5 136 系数可配:0.9 → ${Math.round(1000000 * 0.9)}(got ${srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.9 }, 1000000)})`);
+    ok(srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.01 }, 1000000) === Math.round(1000000 * 0.3),
       'I6 136 系数越界低,夹到下限 0.3(不经过 normalize 也守得住)');
     ok(typeof srv.StewardHooks.contextBudget === 'function' && typeof srv.StewardHooks.visitNotesPrompt === 'function',
       'I3 分叉经 StewardHooks 挂接(10-context-governance 不认识 13h)');

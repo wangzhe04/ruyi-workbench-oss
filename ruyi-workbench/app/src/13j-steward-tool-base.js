@@ -49,7 +49,6 @@ const STEWARD_MEMORY_SCHEMA = 1;
 const STEWARD_SEARCH_LIMIT_DEFAULT = 10, STEWARD_SEARCH_LIMIT_MAX = 50;
 const STEWARD_READ_TAIL_DEFAULT = 6, STEWARD_READ_TAIL_MAX = 20;
 const STEWARD_READ_CHARS_DEFAULT = 12000, STEWARD_READ_CHARS_MIN = 1000, STEWARD_READ_CHARS_MAX = 12000;
-const STEWARD_READ_CALLS_PER_TURN = 6;      // §11.2:每回合 ≤6 次深读
 const STEWARD_READ_ROW_OVERHEAD = 16;       // 每行的行首开销(角色/回合号那一截),算预算时按行计
 const STEWARD_READ_CLIP_MARK = '…';         // 117s-H3:被截了头的那一行的行首标记
 const STEWARD_AUDIT_LIMIT_DEFAULT = 20, STEWARD_AUDIT_LIMIT_MAX = 100;
@@ -461,7 +460,7 @@ function stewardMutateMemory(mutator) {
   return next;
 }
 
-// ── §11.2 深读预算:每回合 ≤6 次、累计字符 ≤ stewardReadBudgetChars ─────────────────────────
+// ── 深读预算:不限调用次数，累计字符 ≤ stewardReadBudgetChars ─────────────────────────
 // 桶键与 105a observation_recall 同款:会话 id + 回合键(10 providerTurnQuotaKey:优先 turnSeq,回合内稳定、
 // 压缩不改它)。每会话保留最近 4 个桶,全局最多 64 个会话,先进先出。
 const _stewardReadBudget = new Map(); // sessionId -> Map(turnKey -> { calls, chars })

@@ -59,7 +59,7 @@ ok(/stewardMaxCostPerDay:\s*5,/.test(configSrc), '默认值: stewardMaxCostPerDa
 // (有上限、记流水、受每小时回合数与日费用约束,见 13m 的 STEWARD_CONTINUE_*);关掉就退回只提议。
 ok(/stewardAutoActions:\s*\{\s*retry:\s*true,\s*resume:\s*null,\s*relay:\s*true,\s*newThread:\s*true,\s*answer:\s*false,\s*continueUnfinished:\s*true\s*\},/.test(configSrc),
   "默认值: stewardAutoActions={retry:true,resume:null,relay:true,newThread:true,answer:false,continueUnfinished:true}(136:relay 翻默认;continueUnfinished 默认开)");
-ok(/stewardContextBudgetTokens:\s*200000,/.test(configSrc), '默认值: stewardContextBudgetTokens=200000');
+ok(/stewardContextBudgetTokens:\s*1000000,/.test(configSrc), '默认值: stewardContextBudgetTokens=1000000');
 // 136:触发线系数(0.6)与人设两键(空串)的默认值字面量。
 ok(/stewardContextBudgetRatio:\s*0\.6,/.test(configSrc), '默认值: stewardContextBudgetRatio=0.6(136 新增)');
 ok(/stewardPersonaName:\s*'',/.test(configSrc) && /stewardPersonaStyle:\s*'',/.test(configSrc),
@@ -68,11 +68,11 @@ ok(/stewardReadBudgetChars:\s*48000,/.test(configSrc), '默认值: stewardReadBu
 ok(/stewardVisitIdleMinutes:\s*60,/.test(configSrc), '默认值: stewardVisitIdleMinutes=60');
 // 136(用户 2026-09-23「管家不记事」):默认 visit → 24h。与 maxTurnsPerHour 同一条 B10b 纪律 ——
 // 默认表与 sanitize 兜底必须是同一个值,否则「缺省」和「填了垃圾」落到不同策略。
-ok(/stewardConversationRetention:\s*'24h',/.test(configSrc), "默认值: stewardConversationRetention='24h'(136 从 visit 翻默认)");
+ok(/stewardConversationRetention:\s*'forever',/.test(configSrc), "默认值: stewardConversationRetention='forever'(136 从 visit 翻默认)");
 {
   const declared = (configSrc.match(/stewardConversationRetention:\s*'(\w+)',/) || [])[1];
   const fallback = (configSrc.match(/\? config\.stewardConversationRetention : '(\w+)';/) || [])[1];
-  ok(declared === '24h' && fallback === '24h',
+  ok(declared === 'forever' && fallback === 'forever',
     `默认值: retention 默认表与 sanitize 兜底是同一个值(默认表 ${declared} / 兜底 ${fallback})`);
 }
 // 116h(27 号文 §3.1 116h 行;用户 2026-09-03 拍板「默认 5、设置可调」):线程间仲裁三个全局闸。
@@ -93,7 +93,7 @@ const clampChecks = [
   { label: 'stewardPollMs clamp [5000,120000]', re: /Math\.min\(120000, Math\.max\(5000, Math\.round\(n\)\)\) : 5000;/ },
   { label: 'stewardMaxTurnsPerHour clamp [1,120]', re: /Math\.min\(120, Math\.max\(1, Math\.round\(n\)\)\) : 30;/ }, // 117m-A1:区间 [1,120] 一字未动,只有兜底默认 12→30
   { label: 'stewardMaxCostPerDay clamp [0,1000]', re: /Math\.min\(1000, Math\.max\(0, n\)\) : 5;/ },
-  { label: 'stewardContextBudgetTokens clamp [16000,2000000]', re: /Math\.min\(2000000, Math\.max\(16000, Math\.round\(n\)\)\) : 200000;/ },
+  { label: 'stewardContextBudgetTokens clamp [16000,2000000]', re: /Math\.min\(2000000, Math\.max\(16000, Math\.round\(n\)\)\) : 1000000;/ },
   { label: 'stewardContextBudgetRatio clamp [0.3,0.95](136)', re: /Math\.min\(0\.95, Math\.max\(0\.3, n\)\) : 0\.6;/ },
   { label: 'stewardReadBudgetChars clamp [4000,400000]', re: /Math\.min\(400000, Math\.max\(4000, Math\.round\(n\)\)\) : 48000;/ },
   { label: 'stewardVisitIdleMinutes clamp [5,1440]', re: /Math\.min\(1440, Math\.max\(5, Math\.round\(n\)\)\) : 60;/ },
@@ -244,7 +244,7 @@ ok(c1.stewardPersonaName === 'x'.repeat(20), 'stewardPersonaName 超长截断到
 ok(c1.stewardPersonaStyle === '更活泼', 'stewardPersonaStyle 首尾空白被 trim(136)');
 ok(c1.stewardReadBudgetChars === 4000, 'stewardReadBudgetChars 越界低 clamp 到 4000');
 ok(c1.stewardVisitIdleMinutes === 1440, 'stewardVisitIdleMinutes 越界高 clamp 到 1440');
-ok(c1.stewardConversationRetention === '24h', "非法枚举 'never' 回默认 '24h'(136 起)");
+ok(c1.stewardConversationRetention === 'forever', "非法枚举 'never' 回默认 'forever'");
 ok(c1.stewardMaxParallelThreads === 32, 'stewardMaxParallelThreads 越界高 clamp 到 32');
 ok(c1.stewardGlobalMaxTurnsPerHour === 1, 'stewardGlobalMaxTurnsPerHour=0 clamp 到下限 1');
 ok(c1.stewardGlobalMaxCostPerDay === 50, "非法 stewardGlobalMaxCostPerDay='lots' 回默认 50");

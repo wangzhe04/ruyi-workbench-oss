@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 93 | 3914 | 3567 | 654 | 67 | 0 | 1 |
+| 93 | 3909 | 3571 | 655 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -67,12 +67,12 @@
 | 49 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
 | 50 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 51 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 52 | `07-autonomy.js` | orchestration | 151 | 82 | 19 |
+| 52 | `07-autonomy.js` | orchestration | 152 | 82 | 19 |
 | 53 | `08-agent-runs.js` | orchestration | 127 | 121 | 22 |
 | 54 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 55 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 56 | `09-workflow.js` | orchestration | 32 | 271 | 28 |
-| 57 | `10-context-governance.js` | orchestration | 229 | 107 | 20 |
+| 56 | `09-workflow.js` | orchestration | 32 | 272 | 28 |
+| 57 | `10-context-governance.js` | orchestration | 228 | 107 | 20 |
 | 58 | `11-native-tools.js` | tools | 141 | 47 | 7 |
 | 59 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 60 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
@@ -84,18 +84,18 @@
 | 66 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 67 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
 | 68 | `13e-pretender-index.js` | transport | 57 | 40 | 8 |
-| 69 | `13i-steward-inbox.js` | transport | 89 | 30 | 9 |
-| 70 | `13j-steward-tool-base.js` | transport | 83 | 27 | 10 |
+| 69 | `13i-steward-inbox.js` | transport | 88 | 30 | 9 |
+| 70 | `13j-steward-tool-base.js` | transport | 82 | 27 | 10 |
 | 71 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
-| 72 | `13k-steward-threads.js` | transport | 60 | 127 | 17 |
-| 73 | `13l-steward-ops.js` | transport | 54 | 129 | 21 |
+| 72 | `13k-steward-threads.js` | transport | 60 | 126 | 17 |
+| 73 | `13l-steward-ops.js` | transport | 54 | 128 | 21 |
 | 74 | `13g-steward.js` | transport | 19 | 75 | 12 |
-| 75 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
+| 75 | `13m-steward-runner-base.js` | transport | 44 | 16 | 7 |
 | 76 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
 | 77 | `13o-steward-runner-prompt.js` | transport | 22 | 67 | 17 |
-| 78 | `13p-steward-runner-actions.js` | transport | 35 | 63 | 12 |
+| 78 | `13p-steward-runner-actions.js` | transport | 37 | 67 | 13 |
 | 79 | `13q-steward-runner-turn.js` | transport | 45 | 86 | 20 |
-| 80 | `13h-steward-runner.js` | transport | 7 | 49 | 13 |
+| 80 | `13h-steward-runner.js` | transport | 7 | 50 | 13 |
 | 81 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
 | 82 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
 | 83 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
@@ -358,7 +358,7 @@
 | `09-workflow.js` | `06f-autonomy-grants.js` | backward | `consumeGrant` |
 | `09-workflow.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `inferToolResources`, `normalizeAgentResources`, `releaseResourceLease`, `remapAgentResources` |
 | `09-workflow.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName` |
-| `09-workflow.js` | `07-autonomy.js` | backward | `ACTION_VIEW_MIN_CHARS`, `ACTION_VIEW_TOOLS`, `LOOP_GUARD_LIMITS`, `MAIL_GLOBAL_MAX`, `MAIL_PER_SENDER_MAX`, `MAIL_QUEUE_MAX`, `MAIL_TEXT_MAX`, `POOL_CHAIN_MAX`, `POOL_GRACE_MS`, `POOL_MAX_TOTAL`, `actionTargetMeta`, `activeAgentRuns`, `agentRunFile`, `bridgedToolTier`, `buildOpenAiTools`, `classifyRuntimeToolFailure`, `cleanupAgentWorktree`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `drainSteerQueue`, `dropPolicyDisabledBridgedTools`, `estimateToolSchemaTokens`, `failoverStickyBase`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `hasInterruptingSteer`, `looksLikePlan`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `openAiStreamOnce`, `projectActionModelView`, `requestNativePermission`, `requestPlanApproval`, `resumeInFlight`, `toolDisabledByPolicy`, `toolDisabledResult`, `webPayloadReason` |
+| `09-workflow.js` | `07-autonomy.js` | backward | `ACTION_VIEW_MIN_CHARS`, `ACTION_VIEW_TOOLS`, `LOOP_GUARD_LIMITS`, `MAIL_GLOBAL_MAX`, `MAIL_PER_SENDER_MAX`, `MAIL_QUEUE_MAX`, `MAIL_TEXT_MAX`, `POOL_CHAIN_MAX`, `POOL_GRACE_MS`, `POOL_MAX_TOTAL`, `actionTargetMeta`, `activeAgentRuns`, `agentRunFile`, `bridgedToolTier`, `buildOpenAiTools`, `classifyRuntimeToolFailure`, `claudeSubAgentTurnBudget`, `cleanupAgentWorktree`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `drainSteerQueue`, `dropPolicyDisabledBridgedTools`, `estimateToolSchemaTokens`, `failoverStickyBase`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `hasInterruptingSteer`, `looksLikePlan`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `openAiStreamOnce`, `projectActionModelView`, `requestNativePermission`, `requestPlanApproval`, `resumeInFlight`, `toolDisabledByPolicy`, `toolDisabledResult`, `webPayloadReason` |
 | `09-workflow.js` | `08-agent-runs.js` | backward | `accumulateRunUsage`, `agentRunCapabilities`, `agentRunResultSlice`, `agentRunRoster`, `agentRunSaveFailures`, `aggregateAgentVote`, `aggregateCoverage`, `appendAgentRunEvent`, `buildAgentRunEnvelope`, `buildOrchestrateHint`, `buildUpstreamContext`, `bumpRunIntervention`, `classifyNodeErrorText`, `computeSchedulerStep`, `dedupeAgentFindings`, `deriveNodeOutputs`, `evalWaitCondition`, `evaluateNodeToolEvidence`, `evaluateWorkflowCondition`, `flushAgentRunEvents`, `formatNodeEvidencePrompt`, `getAgentWorkflows`, `indexNodeEvidence`, `materializePoolItem`, `nodeDeliveryEligibility`, `normalizeAgentGate`, `normalizeWaitSpec`, `normalizeWorkflowCondition`, `normalizeWorkflowLoop`, `orchestrateArgsProblem`, `orchestrateModelNotes`, `ownAgentMessageReceipt`, `parseStructuredAgentOutput`, `poolChainDepth`, `propagateAssignments`, `purgeNodeEvidence`, `readAgentRunRecord`, `recordAgentNodeProgress`, `recordRunBudgetTrippedEvent`, `recordRunStalledEvent`, `resolveAgentTeamRoute`, `resolveOrchestrateFollowup`, `resolveOrchestrateNodes`, `runSubAgent`, `sanitizeAgentOutputSchema`, `saveAgentRun`, `summarizeAgentWorkflowRun`, `syncRunEventSeq`, `validateAgentJsonSchema`, `verdictPasses`, `verifyNodeClaims`, `workflowProgressFingerprint` |
 | `09-workflow.js` | `09b-replan-ledger.js` | backward | `proposeReplanPatch`, `recordNodeContinuation`, `validateReplanPatch` |
 | `09-workflow.js` | `09d-token-estimation.js` | backward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
@@ -552,7 +552,7 @@
 | `13h-steward-runner.js` | `13m-steward-runner-base.js` | backward | `STEWARD_TURN_DAY_MS`, `STEWARD_TURN_WINDOW_MS`, `ensureStewardSession`, `stewardResumeRunner`, `stewardRunnerRuntime`, `stewardStopRunner` |
 | `13h-steward-runner.js` | `13n-steward-arbiter.js` | backward | `stewardAcquireTurnSlot`, `stewardArbiterPrioritize`, `stewardArbiterRefresh`, `stewardArbiterState`, `stewardArbiterWait`, `stewardCancelQueuedTurn` |
 | `13h-steward-runner.js` | `13o-steward-runner-prompt.js` | backward | `buildStewardSystemPrompt`, `stewardContextBudget`, `stewardPreroute`, `stewardVisitNotesPrompt` |
-| `13h-steward-runner.js` | `13p-steward-runner-actions.js` | backward | `stewardDayCost`, `stewardTurnsInWindow` |
+| `13h-steward-runner.js` | `13p-steward-runner-actions.js` | backward | `stewardDayCost`, `stewardRecoveryEvents`, `stewardTurnsInWindow` |
 | `13h-steward-runner.js` | `13q-steward-runner-turn.js` | backward | `runStewardTurn`, `stewardApplyThreadTier`, `stewardOnInboxBatch`, `stewardRelayChannelFor`, `stewardRelayDeliver`, `stewardResetConversation`, `stewardRunAct`, `stewardVisit` |
 | `13i-steward-inbox.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `fs`, `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
@@ -589,7 +589,7 @@
 | `13k-steward-threads.js` | `13b-api-domain-routes.js` | backward | `steerSessionCore` |
 | `13k-steward-threads.js` | `13d-core-domain-routes.js` | backward | `SESSION_SEARCH_MIN_QUERY`, `buildMissionAggregateRows`, `missionPendingCounts`, `searchSessionsByContent`, `sessionSearchScope` |
 | `13k-steward-threads.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
-| `13k-steward-threads.js` | `13j-steward-tool-base.js` | backward | `STEWARD_NOTE_PREFIX`, `STEWARD_NOTE_TEXT_MAX`, `STEWARD_PENDING_SUMMARY_MAX`, `STEWARD_QUICK_ASKS_PER_TURN`, `STEWARD_READ_CALLS_PER_TURN`, `STEWARD_READ_CHARS_DEFAULT`, `STEWARD_READ_CHARS_MAX`, `STEWARD_READ_CHARS_MIN`, `STEWARD_READ_CLIP_MARK`, `STEWARD_READ_ROW_OVERHEAD`, `STEWARD_READ_TAIL_DEFAULT`, `STEWARD_READ_TAIL_MAX`, `STEWARD_SEARCH_LIMIT_DEFAULT`, `STEWARD_SEARCH_LIMIT_MAX`, `STEWARD_TITLE_MAX`, `stewardAppendDecision`, `stewardBasisOf`, `stewardClampInt`, `stewardDisplayKind`, `stewardEngineOf`, `stewardFail`, `stewardLastAssistantText`, `stewardQuickClosed`, `stewardQuickThread`, `stewardRawKind`, `stewardReadBucket`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardTurnAssistantText`, `stewardTurnFiles`, `stewardTurnKeyOf`, `stewardTurnQuotaTake`, `stewardTurnTaintedBy` |
+| `13k-steward-threads.js` | `13j-steward-tool-base.js` | backward | `STEWARD_NOTE_PREFIX`, `STEWARD_NOTE_TEXT_MAX`, `STEWARD_PENDING_SUMMARY_MAX`, `STEWARD_QUICK_ASKS_PER_TURN`, `STEWARD_READ_CHARS_DEFAULT`, `STEWARD_READ_CHARS_MAX`, `STEWARD_READ_CHARS_MIN`, `STEWARD_READ_CLIP_MARK`, `STEWARD_READ_ROW_OVERHEAD`, `STEWARD_READ_TAIL_DEFAULT`, `STEWARD_READ_TAIL_MAX`, `STEWARD_SEARCH_LIMIT_DEFAULT`, `STEWARD_SEARCH_LIMIT_MAX`, `STEWARD_TITLE_MAX`, `stewardAppendDecision`, `stewardBasisOf`, `stewardClampInt`, `stewardDisplayKind`, `stewardEngineOf`, `stewardFail`, `stewardLastAssistantText`, `stewardQuickClosed`, `stewardQuickThread`, `stewardRawKind`, `stewardReadBucket`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardTurnAssistantText`, `stewardTurnFiles`, `stewardTurnKeyOf`, `stewardTurnQuotaTake`, `stewardTurnTaintedBy` |
 | `13l-steward-ops.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `forEachUsageRow`, `fsp`, `makeId`, `nowIso`, `path`, `safeJsonParse`, `text`, `usageDayKey`, `usageDayKeyMemo` |
 | `13l-steward-ops.js` | `01-config.js` | backward | `ConfigPatchHooks`, `normalizeConfig`, `safeSessionId` |
 | `13l-steward-ops.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES_REQUIRING_CONFIRM` |
@@ -609,7 +609,7 @@
 | `13l-steward-ops.js` | `13d-core-domain-routes.js` | backward | `agentRunActionCommand`, `buildMissionAggregateRows`, `decideIntervention`, `missionRunDigest` |
 | `13l-steward-ops.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |
 | `13l-steward-ops.js` | `13i-steward-inbox.js` | backward | `stewardInboxPendingState`, `stewardInboxRead`, `stewardInboxState` |
-| `13l-steward-ops.js` | `13j-steward-tool-base.js` | backward | `STEWARD_AUDIT_LIMIT_DEFAULT`, `STEWARD_AUDIT_LIMIT_MAX`, `STEWARD_MEMORY_MERGED_FROM_MAX`, `STEWARD_MISSIONS_LIMIT_DEFAULT`, `STEWARD_MISSIONS_LIMIT_MAX`, `STEWARD_PLAYBOOK_DRAFTS_PER_TURN`, `STEWARD_READ_CALLS_PER_TURN`, `STEWARD_RUNS_MAX`, `STEWARD_STEER_TEXT_MAX`, `stewardAppendDecision`, `stewardBasisOf`, `stewardClampInt`, `stewardExemptDelegationRecord`, `stewardExemptDelegationsInWindow`, `stewardFail`, `stewardMarkTurnTainted`, `stewardMemoryScopeMatches`, `stewardMemoryScopeOf`, `stewardMutateMemory`, `stewardNormalizeMemoryScope`, `stewardNotifiesInWindow`, `stewardNotifyRecord`, `stewardRawKind`, `stewardReadBucket`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardTurnKeyOf`, `stewardTurnQuotaRefund`, `stewardTurnQuotaTake`, `stewardTurnTaintedBy` |
+| `13l-steward-ops.js` | `13j-steward-tool-base.js` | backward | `STEWARD_AUDIT_LIMIT_DEFAULT`, `STEWARD_AUDIT_LIMIT_MAX`, `STEWARD_MEMORY_MERGED_FROM_MAX`, `STEWARD_MISSIONS_LIMIT_DEFAULT`, `STEWARD_MISSIONS_LIMIT_MAX`, `STEWARD_PLAYBOOK_DRAFTS_PER_TURN`, `STEWARD_RUNS_MAX`, `STEWARD_STEER_TEXT_MAX`, `stewardAppendDecision`, `stewardBasisOf`, `stewardClampInt`, `stewardExemptDelegationRecord`, `stewardExemptDelegationsInWindow`, `stewardFail`, `stewardMarkTurnTainted`, `stewardMemoryScopeMatches`, `stewardMemoryScopeOf`, `stewardMutateMemory`, `stewardNormalizeMemoryScope`, `stewardNotifiesInWindow`, `stewardNotifyRecord`, `stewardRawKind`, `stewardReadBucket`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardTurnKeyOf`, `stewardTurnQuotaRefund`, `stewardTurnQuotaTake`, `stewardTurnTaintedBy` |
 | `13l-steward-ops.js` | `13k-steward-threads.js` | backward | `stewardExemptDelegatedLog`, `stewardExemptLiveTurn`, `stewardExemptPendingSummary`, `stewardKnownWorkspaces`, `stewardLiveTurnPermissionMode`, `stewardSeatedByUser`, `stewardSeatedFail`, `stewardToolCallLine`, `stewardToolCallVerdict`, `stewardUserDirected`, `stewardWorkspaceNameOf` |
 | `13m-steward-runner-base.js` | `00-boot.js` | backward | `SESSION_SCHEMA`, `nowIso`, `paths` |
 | `13m-steward-runner-base.js` | `01f-agent-cli-types.js` | backward | `AGENT_CLI_TYPES`, `normalizeAgentCliType` |
@@ -632,27 +632,28 @@
 | `13o-steward-runner-prompt.js` | `06-provider-engine.js` | backward | `buildModelIdentityPrompt` |
 | `13o-steward-runner-prompt.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
 | `13o-steward-runner-prompt.js` | `06d-memory-domain.js` | backward | `memoryIsExpired` |
-| `13o-steward-runner-prompt.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_KNOWN_WORKSPACE_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_SESSION_ID`, `STEWARD_WORKSPACE_TABLE_MAX`, `StewardHooks`, `buildStewardDigestLine`, `isStewardToolName`, `prerouteText`, `stewardActConfirmSpec`, `stewardForeignProjection`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardThreadStateFromHead`, `stewardTrimSayAtSentence`, `waitReasonFor` |
+| `13o-steward-runner-prompt.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_KNOWN_WORKSPACE_LIMITS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_SESSION_ID`, `STEWARD_WORKSPACE_TABLE_MAX`, `StewardHooks`, `buildStewardDigestLine`, `isStewardToolName`, `prerouteText`, `stewardActConfirmSpec`, `stewardForeignProjection`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardThreadStateFromHead`, `stewardTrimSayAtSentence`, `stewardWatchedThread`, `waitReasonFor` |
 | `13o-steward-runner-prompt.js` | `06j-scheduler-core.js` | backward | `normalizeSchedulerTask` |
 | `13o-steward-runner-prompt.js` | `07-autonomy.js` | backward | `nativeToolSchema` |
 | `13o-steward-runner-prompt.js` | `08-agent-runs.js` | backward | `parseStructuredAgentOutput` |
 | `13o-steward-runner-prompt.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `overlayMissionCard` |
 | `13o-steward-runner-prompt.js` | `13j-steward-tool-base.js` | backward | `stewardMemoryScopeLabel`, `stewardQuickThread`, `stewardRawKind`, `stewardReadMemoryStore`, `stewardReadSessionHead`, `stewardThreadPermissionMode` |
 | `13o-steward-runner-prompt.js` | `13k-steward-threads.js` | backward | `stewardCanonWorkspacePath`, `stewardFoldWorkspacePath`, `stewardKnownWorkspaces`, `stewardSeatedByUser`, `stewardThreadDisplayTitle` |
-| `13o-steward-runner-prompt.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTIONS_MAX`, `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_CONFIRM_LABEL_MAX`, `STEWARD_ACT_CONFIRM_VALUE_CHARS`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_DECIDE_LABELS`, `STEWARD_MEMORY_BLOCK_CHARS`, `STEWARD_MEMORY_VETOED_BLOCK_CHARS`, `STEWARD_MEMORY_VETOED_MAX`, `STEWARD_RUN_ACTION_LABELS`, `STEWARD_SAY_CEILING`, `STEWARD_TOOL_LABELS`, `STEWARD_WHY_MAX`, `stewardRunnerRuntime` |
+| `13o-steward-runner-prompt.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_CONFIRM_LABEL_MAX`, `STEWARD_ACT_CONFIRM_VALUE_CHARS`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_DECIDE_LABELS`, `STEWARD_MEMORY_BLOCK_CHARS`, `STEWARD_MEMORY_VETOED_BLOCK_CHARS`, `STEWARD_MEMORY_VETOED_MAX`, `STEWARD_RUN_ACTION_LABELS`, `STEWARD_SAY_CEILING`, `STEWARD_TOOL_LABELS`, `STEWARD_WHY_MAX`, `stewardRunnerRuntime` |
 | `13o-steward-runner-prompt.js` | `13n-steward-arbiter.js` | backward | `stewardArbiterWait` |
-| `13p-steward-runner-actions.js` | `00-boot.js` | backward | `forEachUsageRow`, `text`, `usageDayKey`, `usageDayKeyMemo`, `usageRangeLowerMs` |
+| `13p-steward-runner-actions.js` | `00-boot.js` | backward | `crypto`, `forEachUsageRow`, `nowIso`, `text`, `usageDayKey`, `usageDayKeyMemo`, `usageRangeLowerMs` |
 | `13p-steward-runner-actions.js` | `01-config.js` | backward | `configValueEquals`, `safeSessionId` |
 | `13p-steward-runner-actions.js` | `02-session-store.js` | backward | `SESSION_LOAD_OMIT_PROVIDER`, `detectDanglingTurn`, `loadSession`, `mutateSession`, `readInterventions`, `sessionDisplayTitle`, `sessionTodosSignature` |
-| `13p-steward-runner-actions.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
+| `13p-steward-runner-actions.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `turnOutcomePending`, `turnSettlers` |
 | `13p-steward-runner-actions.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
-| `13p-steward-runner-actions.js` | `06i-steward-core.js` | backward | `STEWARD_ANSWER_BASIS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardActConfirmSpec`, `stewardAsksYouForThread`, `stewardForeignProjection`, `stewardHumanizeIds`, `stewardMayAct`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStoppedRefusal`, `stewardStoppedTarget` |
+| `13p-steward-runner-actions.js` | `06i-steward-core.js` | backward | `STEWARD_ANSWER_BASIS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardActConfirmSpec`, `stewardAsksYouForThread`, `stewardForeignProjection`, `stewardHumanizeIds`, `stewardMayAct`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStoppedRefusal`, `stewardStoppedTarget`, `stewardWatchedThread` |
 | `13p-steward-runner-actions.js` | `13g-steward.js` | backward | `stewardAuthorizeExternalContext`, `stewardExternalOwnerDirected` |
+| `13p-steward-runner-actions.js` | `13i-steward-inbox.js` | backward | `stewardThreadBackgroundBusy` |
 | `13p-steward-runner-actions.js` | `13j-steward-tool-base.js` | backward | `stewardAppendDecision`, `stewardFail`, `stewardLastAssistantText`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardTurnTaintedBy` |
 | `13p-steward-runner-actions.js` | `13k-steward-threads.js` | backward | `stewardSeatedByUser` |
 | `13p-steward-runner-actions.js` | `13l-steward-ops.js` | backward | `stewardReadRunSnapshot`, `stewardRunResumeTier` |
-| `13p-steward-runner-actions.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_CONTINUE_FRESH_MS`, `STEWARD_CONTINUE_NOPLAN_MAX`, `STEWARD_CONTINUE_PROMPT`, `STEWARD_INBOX_DELIVERABLE_CHARS`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_INBOX_EVENT_CHARS`, `STEWARD_INBOX_MESSAGE_CHARS`, `STEWARD_NO_PROGRESS_MAX`, `STEWARD_SELF_SERVE_ATTEMPT_MAX`, `STEWARD_SELF_SERVE_PER_TURN_MAX`, `STEWARD_SELF_SERVE_RETRY_WINDOW_MS`, `STEWARD_TURN_DAY_MS`, `STEWARD_TURN_WINDOW_MS`, `stewardFailureExplain`, `stewardRunnerRuntime` |
-| `13p-steward-runner-actions.js` | `13o-steward-runner-prompt.js` | backward | `stewardActConfirmLines`, `stewardActLabel`, `stewardNormalizeAct` |
+| `13p-steward-runner-actions.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_CONTINUE_FRESH_MS`, `STEWARD_CONTINUE_PROMPT`, `STEWARD_INBOX_DELIVERABLE_CHARS`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_INBOX_EVENT_CHARS`, `STEWARD_INBOX_MESSAGE_CHARS`, `STEWARD_SELF_SERVE_ATTEMPT_MAX`, `STEWARD_SELF_SERVE_RETRY_WINDOW_MS`, `STEWARD_TURN_DAY_MS`, `STEWARD_TURN_WINDOW_MS`, `stewardFailureExplain`, `stewardRunnerRuntime` |
+| `13p-steward-runner-actions.js` | `13o-steward-runner-prompt.js` | backward | `stewardActConfirmLines`, `stewardActLabel`, `stewardNormalizeAct`, `stewardThreadDigestRows` |
 | `13q-steward-runner-turn.js` | `00-boot.js` | backward | `OVERLAY_ID`, `RUYI_EVENTS`, `crypto`, `fsp`, `makeId`, `nowIso`, `path` |
 | `13q-steward-runner-turn.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `13q-steward-runner-turn.js` | `02-session-store.js` | backward | `loadSession`, `mutateSession`, `readSessionNotes`, `waitMissionTurnSettled`, `writeSessionNotes` |

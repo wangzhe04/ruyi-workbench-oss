@@ -507,15 +507,21 @@ function agentInstructionImportFile() { return path.join(paths.memory, '.agent-i
 //   · 合格的文件原样读回(含 updatedAt 与任何多余的键),不缓存(每次同步都重读盘);
 //   · 写:mkdir memory 目录 + atomicWriteJson,形状固定 { schema, updatedAt, sources }。
 //   读-改-写的串行仍由 agentInstructionChain 负责(整段同步是一个临界区),store 自己的写链只是再串一层。
-const agentInstructionImportStore = DurableJsonStore.create({
+const agentInstructionImportStore = WorkDataStore.createJson({
   id: 'agent-instructions-import',
   file: () => agentInstructionImportFile(),
   schemaVersion: AGENT_INSTRUCTION_IMPORT_SCHEMA,
-  cache: false,
   quarantine: false,
   defaultValue: () => ({ schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} }),
   sanitize: value => (value.schema === AGENT_INSTRUCTION_IMPORT_SCHEMA && value.sources && typeof value.sources === 'object' && !Array.isArray(value.sources)
     ? value : { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} }),
+  validate: value => value.schema === AGENT_INSTRUCTION_IMPORT_SCHEMA && Boolean(value.sources) && typeof value.sources === 'object' && !Array.isArray(value.sources),
+  // M3-2d: 子代理指令导入所有权副车（purpose=memory / scope=global）。开关关时与旧 DurableJsonStore
+  // 逐字节一致；读不动/坏文件仍按空表（旧契约），但解不开的密文必须冒泡——否则下一轮同步会用空表覆盖它。
+  purpose: 'memory', scopeId: 'global', recordId: 'agent-instructions-import',
+  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  writeJson: atomicWriteJson,
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
 function agentInstructionMemoryId(key, n) { return 'agentmd-' + key + '-' + n; }
 function agentInstructionSourceKeyOf(id) {

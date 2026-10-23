@@ -53,7 +53,6 @@ const STEWARD_ACTIVE_WINDOW_MS = 24 * 60 * 60 * 1000; // 「活跃」= 有待决
 const STEWARD_RUN_EVENT_PAGE = 200;        // 单个 run 单轮最多读多少条事件(下轮继续)
 const STEWARD_FIRST_SIGHT_MAX_REVISION = 200; // 首见会话:revision 不超过它才全读,否则只建基线
 const STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ = 500; // 首见 run:同上
-const STEWARD_FIRST_SIGHT_MAX_TURNS = 50;  // 116-4 首见会话:回合数不超过它才补一条,否则只建基线
 
 // ── 容量常量(游标不得无限增长) ───────────────────────────────────────────────
 // 这三个上限管的是【落盘】的游标(cursor-v1.json 的体积与重启后读回的条数),不管进程内存里的游标。
@@ -622,11 +621,13 @@ RUYI_EVENTS.subscribe((name, payload) => {
 // 同一阵连来的待决只留最后一组定时器(先清后排),轮询器本身串行(stewardRunTick 的 ticking 闸)。
 const STEWARD_WAKE_DELAYS_MS = Object.freeze([400, 2500]);
 RUYI_EVENTS.subscribe((name, payload) => {
-  if (name !== 'thread.needs_you') return;
+  if (name !== 'thread.needs_you' && name !== 'thread.done' && name !== 'thread.adopted') return;
   const sid = safeSessionId(payload && payload.sessionId);
   if (!sid || sid === STEWARD_SESSION_ID) return;
   stewardScheduleWake();
 });
+// 回合成败账落定后补拍；thread.done 有时早于 turnSettlers / 成败账的释放。
+StewardHooks.onThreadSettled = stewardScheduleWake;
 function stewardClearWake() {
   for (const timer of (Array.isArray(stewardRuntime.wakeTimers) ? stewardRuntime.wakeTimers : [])) clearTimeout(timer);
   stewardRuntime.wakeTimers = [];
@@ -732,13 +733,19 @@ function stewardApplyPresenceGate(events) {
     if (sid) seated.add(sid);
   }
   if (stewardPresent || !classicPresent) {                 // ③ 与「只有别的 lens 连着」
-    return list.filter(evt => !seated.has(String((evt && evt.sessionId) || '')) || String((evt && evt.kind) || '') === 'adopted');
+    return list.filter(evt => !seated.has(String((evt && evt.sessionId) || '')) || String((evt && evt.kind) || '') === 'adopted'
+      || (evt?.kind === 'done' && evt.payload?.source === 'session_turn'));
   }
   const out = [];
   for (const evt of list) {
     const sid = String((evt && evt.sessionId) || '');
     const kind = String((evt && evt.kind) || '');
     if (kind === 'adopted') { out.push(evt); continue; }
+    // 监工执行不能被通知的在场门吞掉。第四源已只收被看管线程；选中别的线程时仍要检查是否做完。
+    if (kind === 'done' && evt.payload?.source === 'session_turn') {
+      out.push({ ...evt, payload: { ...evt.payload, quiet: true } });
+      continue;
+    }
     if (seated.has(sid)) continue;                         // ①
     if (kind === 'done') continue;                         // ②:收工只更新左栏
     out.push({ ...evt, payload: { ...((evt && evt.payload && typeof evt.payload === 'object') ? evt.payload : {}), quiet: true } });
@@ -1106,7 +1113,7 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
     // 冷启动(本次装载没有可用游标)与存量老线程仍然只建基线,不把历史倒灌进箱子。
     const updatedMs = Date.parse(String(head.updatedAt || ''));
     const fresh = Number.isFinite(updatedMs) && (now - updatedMs) <= STEWARD_ACTIVE_WINDOW_MS;
-    const backfill = watched && fresh && !stewardRuntime.cold && turnSeq > 0 && turnSeq <= STEWARD_FIRST_SIGHT_MAX_TURNS;
+    const backfill = watched && fresh && !stewardRuntime.cold && turnSeq > 0;
     // 117p ②(同一条真机证据的另一半):上面 activeChildren.has(sid) 那道判据挡不住「回合已起手、
     // 还没登记进 activeChildren」的窗口 —— 09-workflow.js 把 turnSeq 落盘(1292)与
     // activeChildren.set(1381)之间隔着 captureWorkspaceTurnBaseline(大工作区要好几秒)。首见正好
@@ -1409,6 +1416,9 @@ async function startStewardInbox(config) {
   if (stewardRuntime.timer) clearInterval(stewardRuntime.timer);   // 兜底:任何时候最多一个轮询器
   stewardRuntime.timer = setInterval(() => { void stewardRunTick(); }, pollMs);
   if (stewardRuntime.timer && typeof stewardRuntime.timer.unref === 'function') stewardRuntime.timer.unref();
+  if (typeof StewardHooks.recoverWatchedThreads === 'function') {
+    try { await StewardHooks.recoverWatchedThreads(cfg); } catch { /* 恢复读失败不停止常规监工 */ }
+  }
   return { ok: true, running: true, enabled: true };
 }
 

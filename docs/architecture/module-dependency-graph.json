@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 93,
-    "providedSymbols": 3914,
-    "requiredSymbols": 3567,
-    "edges": 654,
+    "providedSymbols": 3909,
+    "requiredSymbols": 3571,
+    "edges": 655,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -7575,6 +7575,7 @@
         "classifyRuntimeToolFailure",
         "classifyToolPacks",
         "claudePermissionMode",
+        "claudeSubAgentTurnBudget",
         "claudeSubagentPermission",
         "cleanupAgentWorktree",
         "compareToolRetrievalShadow",
@@ -10451,6 +10452,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "claudeSubAgentTurnBudget",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "cleanupAgentWorktree",
           "kinds": [
             "call"
@@ -11250,7 +11258,6 @@
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
         "AGENT_WAKE_BOOT_WINDOW_MS",
-        "AGENT_WAKE_CHAIN_MAX",
         "AGENT_WAKE_DEBOUNCE_MS",
         "AGENT_WAKE_SOURCE",
         "COMPACTION_HISTORY_PREFIX",
@@ -18009,7 +18016,6 @@
         "STEWARD_DIR_NAME",
         "STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ",
         "STEWARD_FIRST_SIGHT_MAX_REVISION",
-        "STEWARD_FIRST_SIGHT_MAX_TURNS",
         "STEWARD_INBOX_FILE",
         "STEWARD_INBOX_FULL_READ_BYTES",
         "STEWARD_INBOX_HISTORY_MAX",
@@ -18324,7 +18330,6 @@
         "STEWARD_PENDING_SUMMARY_MAX",
         "STEWARD_PLAYBOOK_DRAFTS_PER_TURN",
         "STEWARD_QUICK_ASKS_PER_TURN",
-        "STEWARD_READ_CALLS_PER_TURN",
         "STEWARD_READ_CHARS_DEFAULT",
         "STEWARD_READ_CHARS_MAX",
         "STEWARD_READ_CHARS_MIN",
@@ -19566,13 +19571,6 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
-          "symbol": "STEWARD_READ_CALLS_PER_TURN",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13j-steward-tool-base.js",
           "symbol": "STEWARD_READ_CHARS_DEFAULT",
           "kinds": [
             "read"
@@ -20491,13 +20489,6 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
-          "symbol": "STEWARD_READ_CALLS_PER_TURN",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13j-steward-tool-base.js",
           "symbol": "STEWARD_RUNS_MAX",
           "kinds": [
             "read"
@@ -21310,7 +21301,6 @@
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
-        "STEWARD_ACTIONS_MAX",
         "STEWARD_ACTION_HOOKS",
         "STEWARD_ACTS_MAX",
         "STEWARD_ACT_CONFIRM_LABEL_MAX",
@@ -21318,8 +21308,6 @@
         "STEWARD_ACT_LABEL_MAX",
         "STEWARD_BLOCKING_DEBOUNCE_MS",
         "STEWARD_CONTINUE_FRESH_MS",
-        "STEWARD_CONTINUE_NOPLAN_MAX",
-        "STEWARD_CONTINUE_PLAN_MAX",
         "STEWARD_CONTINUE_PROMPT",
         "STEWARD_DEBOUNCE_MS",
         "STEWARD_DECIDE_LABELS",
@@ -21331,7 +21319,6 @@
         "STEWARD_MEMORY_BLOCK_CHARS",
         "STEWARD_MEMORY_VETOED_BLOCK_CHARS",
         "STEWARD_MEMORY_VETOED_MAX",
-        "STEWARD_NO_PROGRESS_MAX",
         "STEWARD_PENDING_LIST_MAX",
         "STEWARD_PREEMPT_WAIT_MS",
         "STEWARD_QUICK_DEBOUNCE_MS",
@@ -21339,7 +21326,6 @@
         "STEWARD_SAY_CEILING",
         "STEWARD_SAY_TARGET",
         "STEWARD_SELF_SERVE_ATTEMPT_MAX",
-        "STEWARD_SELF_SERVE_PER_TURN_MAX",
         "STEWARD_SELF_SERVE_RETRY_WINDOW_MS",
         "STEWARD_TOOL_LABELS",
         "STEWARD_TURN_DAY_MS",
@@ -21944,6 +21930,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "waitReasonFor",
           "kinds": [
             "call"
@@ -22091,13 +22084,6 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
-          "symbol": "STEWARD_ACTIONS_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_ACTS_MAX",
           "kinds": [
             "read"
@@ -22187,6 +22173,7 @@
         "STEWARD_ROUTE_HINT_MAX",
         "STEWARD_ROUTE_HINT_REASON_CHARS",
         "stewardCircuitCheck",
+        "stewardContinuationOnly",
         "stewardContinueUnfinishedGate",
         "stewardDayCost",
         "stewardDecideNudgeNote",
@@ -22202,6 +22189,7 @@
         "stewardLastAssistantContent",
         "stewardLastAssistantFinalSegment",
         "stewardNormalizeRouteHint",
+        "stewardRecoveryEvents",
         "stewardSelfServeAllows",
         "stewardSelfServeEntry",
         "stewardSelfServeGate",
@@ -22220,7 +22208,21 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "forEachUsageRow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
           "kinds": [
             "call"
           ]
@@ -22331,6 +22333,20 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06b-prompt-registry.js",
           "symbol": "getPromptPack",
           "kinds": [
@@ -22436,6 +22452,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13g-steward.js",
           "symbol": "stewardAuthorizeExternalContext",
           "kinds": [
@@ -22445,6 +22468,13 @@
         {
           "provider": "13g-steward.js",
           "symbol": "stewardExternalOwnerDirected",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardThreadBackgroundBusy",
           "kinds": [
             "call"
           ]
@@ -22542,13 +22572,6 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
-          "symbol": "STEWARD_CONTINUE_NOPLAN_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_CONTINUE_PROMPT",
           "kinds": [
             "read"
@@ -22584,21 +22607,7 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
-          "symbol": "STEWARD_NO_PROGRESS_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_SELF_SERVE_ATTEMPT_MAX",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13m-steward-runner-base.js",
-          "symbol": "STEWARD_SELF_SERVE_PER_TURN_MAX",
           "kinds": [
             "read"
           ]
@@ -22658,6 +22667,13 @@
           "kinds": [
             "call"
           ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardThreadDigestRows",
+          "kinds": [
+            "call"
+          ]
         }
       ]
     },
@@ -22670,7 +22686,6 @@
         "STEWARD_ACT_ATTEMPT_LIMITS",
         "STEWARD_COMMITMENT_I18N",
         "STEWARD_COMMITMENT_TEXT",
-        "STEWARD_INBOX_TURN_RETRY_MAX",
         "STEWARD_RELAY_CHANNELS",
         "STEWARD_RELAY_SETTLE_WAIT_MS",
         "STEWARD_VISIT_DIGEST_PAGES",
@@ -22690,6 +22705,7 @@
         "stewardHoldViewedEvents",
         "stewardInboxDebounceMs",
         "stewardInboxRetryCounts",
+        "stewardInboxRetryDelay",
         "stewardLastAssistantCreatedAt",
         "stewardMergeDelegationReceipts",
         "stewardOnInboxBatch",
@@ -23617,6 +23633,13 @@
         },
         {
           "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardRecoveryEvents",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
           "symbol": "stewardTurnsInWindow",
           "kinds": [
             "call"
@@ -23640,6 +23663,7 @@
           "provider": "13q-steward-runner-turn.js",
           "symbol": "stewardOnInboxBatch",
           "kinds": [
+            "call",
             "read"
           ]
         },
@@ -32629,6 +32653,7 @@
         "bridgedToolTier",
         "buildOpenAiTools",
         "classifyRuntimeToolFailure",
+        "claudeSubAgentTurnBudget",
         "cleanupAgentWorktree",
         "compareToolRetrievalShadow",
         "createAgentWorktree",
@@ -35165,6 +35190,7 @@
       "to": "13p-steward-runner-actions.js",
       "symbols": [
         "stewardDayCost",
+        "stewardRecoveryEvents",
         "stewardTurnsInWindow"
       ],
       "direction": "backward"
@@ -35587,7 +35613,6 @@
         "STEWARD_NOTE_TEXT_MAX",
         "STEWARD_PENDING_SUMMARY_MAX",
         "STEWARD_QUICK_ASKS_PER_TURN",
-        "STEWARD_READ_CALLS_PER_TURN",
         "STEWARD_READ_CHARS_DEFAULT",
         "STEWARD_READ_CHARS_MAX",
         "STEWARD_READ_CHARS_MIN",
@@ -35850,7 +35875,6 @@
         "STEWARD_MISSIONS_LIMIT_DEFAULT",
         "STEWARD_MISSIONS_LIMIT_MAX",
         "STEWARD_PLAYBOOK_DRAFTS_PER_TURN",
-        "STEWARD_READ_CALLS_PER_TURN",
         "STEWARD_RUNS_MAX",
         "STEWARD_STEER_TEXT_MAX",
         "stewardAppendDecision",
@@ -36118,6 +36142,7 @@
         "stewardThreadStateFromCard",
         "stewardThreadStateFromHead",
         "stewardTrimSayAtSentence",
+        "stewardWatchedThread",
         "waitReasonFor"
       ],
       "direction": "backward"
@@ -36184,7 +36209,6 @@
       "from": "13o-steward-runner-prompt.js",
       "to": "13m-steward-runner-base.js",
       "symbols": [
-        "STEWARD_ACTIONS_MAX",
         "STEWARD_ACTION_HOOKS",
         "STEWARD_ACTS_MAX",
         "STEWARD_ACT_CONFIRM_LABEL_MAX",
@@ -36214,7 +36238,9 @@
       "from": "13p-steward-runner-actions.js",
       "to": "00-boot.js",
       "symbols": [
+        "crypto",
         "forEachUsageRow",
+        "nowIso",
         "text",
         "usageDayKey",
         "usageDayKeyMemo",
@@ -36250,7 +36276,9 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
-        "logEvent"
+        "logEvent",
+        "turnOutcomePending",
+        "turnSettlers"
       ],
       "direction": "backward"
     },
@@ -36279,7 +36307,8 @@
         "stewardSanitizeBlock",
         "stewardSanitizeText",
         "stewardStoppedRefusal",
-        "stewardStoppedTarget"
+        "stewardStoppedTarget",
+        "stewardWatchedThread"
       ],
       "direction": "backward"
     },
@@ -36289,6 +36318,14 @@
       "symbols": [
         "stewardAuthorizeExternalContext",
         "stewardExternalOwnerDirected"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13p-steward-runner-actions.js",
+      "to": "13i-steward-inbox.js",
+      "symbols": [
+        "stewardThreadBackgroundBusy"
       ],
       "direction": "backward"
     },
@@ -36330,15 +36367,12 @@
         "STEWARD_ACTS_MAX",
         "STEWARD_ACT_LABEL_MAX",
         "STEWARD_CONTINUE_FRESH_MS",
-        "STEWARD_CONTINUE_NOPLAN_MAX",
         "STEWARD_CONTINUE_PROMPT",
         "STEWARD_INBOX_DELIVERABLE_CHARS",
         "STEWARD_INBOX_EVENTS_PER_TURN",
         "STEWARD_INBOX_EVENT_CHARS",
         "STEWARD_INBOX_MESSAGE_CHARS",
-        "STEWARD_NO_PROGRESS_MAX",
         "STEWARD_SELF_SERVE_ATTEMPT_MAX",
-        "STEWARD_SELF_SERVE_PER_TURN_MAX",
         "STEWARD_SELF_SERVE_RETRY_WINDOW_MS",
         "STEWARD_TURN_DAY_MS",
         "STEWARD_TURN_WINDOW_MS",
@@ -36353,7 +36387,8 @@
       "symbols": [
         "stewardActConfirmLines",
         "stewardActLabel",
-        "stewardNormalizeAct"
+        "stewardNormalizeAct",
+        "stewardThreadDigestRows"
       ],
       "direction": "backward"
     },

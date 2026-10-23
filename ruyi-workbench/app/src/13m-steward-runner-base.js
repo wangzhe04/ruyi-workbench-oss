@@ -64,7 +64,6 @@ const STEWARD_ACT_LABEL_MAX = 12;             // 按钮文字 ≤12 字
 const STEWARD_ACT_CONFIRM_LABEL_MAX = 32;     // confirm 族按钮文字 ≤32 字(要写得下「键=值」)
 const STEWARD_ACT_CONFIRM_VALUE_CHARS = 40;   // 确认面板里每个值的裁剪长度
 const STEWARD_ACTS_MAX = 3;                   // 一次回合按钮 ≤3 个
-const STEWARD_ACTIONS_MAX = 5;                // 一次回合最多执行 5 条 action(其余丢弃并如实标注)
 const STEWARD_DEBOUNCE_MS = 5000;             // 收件箱去抖窗口
 // 116-4(27 号文 §11.7 第 2 项「速查闭环」):速查线程的答案是【用户正在等的那一句】。让它也压满
 // 5 秒去抖,用户的体感就是「问一次要等两趟」。带 quick:true 的 done 行把本次去抖压到 0,其余事件
@@ -79,7 +78,6 @@ const STEWARD_BLOCKING_DEBOUNCE_MS = 1000;
 // 只是「管家替你处理」的那次机会,收件箱里的那一行与安静卡都还在)。
 const STEWARD_VIEW_RECHECK_MS = 5000;
 const STEWARD_VIEW_HELD_MAX = 200;
-const STEWARD_NO_PROGRESS_MAX = 5;            // 连续 5 次收件箱回合零 acts 零 actions -> 退避
 const STEWARD_VISIT_DIGEST_MAX = 5;           // 到访摘要 ≤5 条人话
 const STEWARD_PENDING_LIST_MAX = 20;          // 到访返回的待决列表上限
 const STEWARD_TURN_WINDOW_MS = 60 * 60 * 1000; // 每小时回合上限的滑动窗口
@@ -92,16 +90,7 @@ const STEWARD_USER_QUEUE_WAIT_MS = 5 * 60 * 1000;
 // ── 116-2b 自理动作(§3.3 自理清单的【真实执行】)──────────────────────────────────────────
 const STEWARD_SELF_SERVE_ATTEMPT_MAX = 2;    // 同一目标连续 2 次自理动作后仍失败 -> 停自动、只提议
 const STEWARD_SELF_SERVE_RETRY_WINDOW_MS = 60 * 60 * 1000; // 同一目标本小时只自动重试一次
-const STEWARD_SELF_SERVE_PER_TURN_MAX = 3;   // 一个收件箱回合最多自理 3 个目标(其余进回合层)
-// ── 「回合收了但任务没做完」的自动续跑(stewardAutoActions.continueUnfinished)的上限 ─────────────────
-// 防死循环烧钱,两道,都按【同一条线程连续自动续跑】数,线程自己正常收工(不再未完成)就清零:
-//   · 有计划(todo)的线程:最多连续续 STEWARD_CONTINUE_PLAN_MAX 次,且【每一次续跑之后计划都要往前走】
-//     (已完成步数增加)—— 续了一轮计划纹丝不动就停,不再续;
-//   · 没有计划、只靠「上次任务未完成」横幅判据(回合被工具次数/预算截断)的线程:没有进度可量,
-//     只续 STEWARD_CONTINUE_NOPLAN_MAX 次。
-// 超过上限的那一次不是静默放弃:降级成一条提议按钮,并落一行行动流水(见 stewardContinueUnfinishedGate)。
-const STEWARD_CONTINUE_PLAN_MAX = 5;
-const STEWARD_CONTINUE_NOPLAN_MAX = 2;
+// 自动续跑不设连续次数上限；计划与工具结果连续无变化才停。停止、权限、用户预算仍有效。
 const STEWARD_CONTINUE_FRESH_MS = 6 * 60 * 60 * 1000;   // 上次自动续跑过去这么久,再遇到没做完就当全新的一次,账从 0 数
 const STEWARD_CONTINUE_PROMPT = '请继续完成上一个未完成的任务。';   // 与前端「继续」横幅发的那一句同文(chat.resume.prompt)
 

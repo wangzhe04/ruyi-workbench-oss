@@ -352,7 +352,7 @@ try {
   console.log('── (F) 读预算 ──');
   {
     const okRead = await call('steward_thread_read', { sessionId: threadId, tail: 2, maxChars: 1000 }, stewardCtx('steward-quota'));
-    ok(okRead && okRead.ok === true && Array.isArray(okRead.rows) && okRead.quota.callsMax === 6,
+    ok(okRead && okRead.ok === true && Array.isArray(okRead.rows) && okRead.quota.callsMax === null,
       'F1 thread_read 正向返回回合原话行 + 配额账面');
     ok(okRead && okRead.rows.every(r => r.role !== 'tool' || /→ \d+ 字符|不可序列化/.test(r.text)),
       'F1b 工具调用只给一行摘要与结果长度(不给工具输出全文)');
@@ -372,10 +372,13 @@ try {
       ok(!!toolRow && !JSON.stringify(read).includes(FAKE) && String(toolRow.text).includes('«redacted»'),
         `F1c 入参提示已脱敏:整份结果搜不到明文 key、那一行留着「Authorization: Bearer «redacted»」的形状(got ${JSON.stringify(String((toolRow && toolRow.text) || '').slice(0, 140))})`);
     }
-    // 配额:同一 ctx(同会话 + 同回合键)第 7 次必红。
+    // 同一回合重复短页读取不受旧的 6 次配额影响；后面单独验证字符预算。
+    const quotaThread = await srv.createSession({ title: '短页读取', cwd: HOME });
+    quotaThread.messages.push({ role: 'assistant', content: '短回执。', createdAt: new Date().toISOString() });
+    await srv.saveSession(quotaThread);
     let quota = null;
-    for (let i = 0; i < 6; i++) quota = await call('steward_thread_read', { sessionId: threadId, tail: 1, maxChars: 1000 }, stewardCtx('steward-quota'));
-    ok(quota && quota.ok === false && quota.error === 'quota_exceeded', 'F2 每回合第 7 次深读 -> quota_exceeded');
+    for (let i = 0; i < 7; i++) quota = await call('steward_thread_read', { sessionId: quotaThread.id, tail: 1, maxChars: 1000 }, stewardCtx('steward-many-reads'));
+    ok(quota && quota.ok === true, 'F2 每回合第 7 次深读仍成功，字符预算继续生效');
     // 预算:stewardReadBudgetChars=4000;上面的递话是一条 ≥2500 字的真回合,两次全量深读即读满(换一个
     // 桶,避开配额)。第三次必须撞预算而不是配额 —— 两个信封要分得开。
     let budget = null, budgetCalls = 0;

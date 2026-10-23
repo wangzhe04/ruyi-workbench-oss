@@ -12,7 +12,7 @@ const read = p => fs.readFileSync(path.join(WB, p), 'utf8');
 const ordinary = server.resolveToolIterationBudget(100, '请读取这个文件并告诉我标题');
 assert.deepStrictEqual(
   { initial: ordinary.initial, hardLimit: ordinary.hardLimit, mode: ordinary.mode, longTask: ordinary.longTask },
-  { initial: 100, hardLimit: 300, mode: 'standard', longTask: false },
+  { initial: 100, hardLimit: Number.MAX_SAFE_INTEGER, mode: 'standard', longTask: false },
 );
 
 const longSingle = server.resolveToolIterationBudget(100, '请全面实现这次迁移，然后测试、打包、重启并提交推送');

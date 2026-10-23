@@ -90,7 +90,7 @@ function killTree(child) {
     ok(!!live, 'workbench starts');
     const events = await postStream(wbPort, { message: 'Inspect the available tools and answer briefly.' });
     const extended = events.find(event => event.type === 'tool_budget' && event.state === 'extended');
-    ok(extended && extended.from === 3 && extended.to === 53 && extended.hardLimit === 300, 'live loop extends 3 → 53 after three distinct successful tool calls');
+    ok(extended && extended.from === 3 && extended.to === 53 && extended.hardLimit === Number.MAX_SAFE_INTEGER, 'live loop extends 3 → 53 after three distinct successful tool calls without a fixed total ceiling');
     ok(!events.some(event => event.type === 'assistant_delta' && String(event.text || '').includes('已达工具调用上限 3')), 'turn is not stopped at the original budget');
     ok(events.some(event => event.type === 'result' && event.ok === true), 'turn completes normally after extension');
 

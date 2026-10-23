@@ -1282,7 +1282,7 @@ export function createStewardSettingsDomain({
     // 136:预算两格 —— 送原样数字、服务端 normalizeConfig 钳完再回填(与 cfgStewardThreadIndexRecent 同一模具,
     // 客户端不抄第二份钳位)。tokens 键在 06i 是 forbidden(密钥正则),管家改不了,只能在这里改。
     onChange('cfgStewardContextBudget', async event => {
-      if (!await saveConfig({ stewardContextBudgetTokens: num(event.target, 200000) })) return;
+      if (!await saveConfig({ stewardContextBudgetTokens: num(event.target, 1000000) })) return;
       const clamped = Number(config().stewardContextBudgetTokens);
       if (Number.isFinite(clamped)) event.target.value = String(clamped);
     });

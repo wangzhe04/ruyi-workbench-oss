@@ -2315,6 +2315,8 @@ function prerouteText(q, index, memory, opts) {
 //           contextBudget(session,config,window) -> number(§11.2 预算 = min(配置, 模型窗口) 的触发线)
 //           visitNotesPrompt(config) -> string(到访内 L2 压缩用的摘要 prompt)
 //           onInboxBatch(rows)(116b 每轮写完箱子后调,13h 去抖后起一个收件箱回合)
+//           onThreadSettled()(线程结果落定后补拍轮询；13i 注册)
+//           recoverWatchedThreads(config)(启动时从线程持久委托重建未完成任务的处置机会)
 //           runnerState(config) -> object(并进 GET /api/steward/state 的响应)
 //           handleRunnerApiRoutes(req,res,pathname)(/api/steward/{visit,message,act})
 //           stopRunner()/resumeRunner()(一键停机同时停回合队列;start 恢复)

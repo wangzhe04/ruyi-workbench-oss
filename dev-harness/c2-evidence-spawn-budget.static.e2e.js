@@ -22,8 +22,8 @@ ok(!runs.includes('rawValue:'), 'evidence graph does not persist raw determinist
 
 ok(runs.includes('Math.min(1000, Math.max(1, Number(maxIters'), 'sub-agent request budget accepts up to 1000');
 ok(runs.includes('budget = Math.min(adaptiveBudgetLimit, budget + TOOL_ITERATION_BUDGETS.extension)'), 'sub-agent grows budget in bounded increments');
-ok(provider.includes('standardHard: 300, hard: 1000'), 'ordinary and complex hard caps remain distinct');
-ok(provider.includes('hardLimit: elevated ? TOOL_ITERATION_BUDGETS.hard : TOOL_ITERATION_BUDGETS.standardHard'), '1000 cap requires elevated task complexity');
+ok(provider.includes('standardHard: Number.MAX_SAFE_INTEGER, hard: Number.MAX_SAFE_INTEGER'), 'progressing tasks have no fixed 300/1000 ceiling');
+ok(provider.includes('hardLimit: elevated ? TOOL_ITERATION_BUDGETS.hard : TOOL_ITERATION_BUDGETS.standardHard'), 'ordinary and complex tasks share progress-based extension');
 ok(workflow.includes('Math.min(1000, Math.max(1, Number(raw.maxIters'), 'workflow normalization preserves requested adaptive ceiling');
 
 ok(ui.includes("syncAgentRunsPolling().then"), 'spawn workflow event refreshes persisted runs');

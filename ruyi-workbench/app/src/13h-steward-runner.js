@@ -464,6 +464,11 @@ Object.assign(StewardHooks, {
   // 补法放在 13g 的 stewardToolHandler 一处(42 个工具的唯一咽喉),它经本口取真值;
   // inflight 在回合本体开跑【前】同步认领、收尾时清空,所以工具循环期间它就是当前回合的那一个。
   currentTurnTrigger: () => (stewardRunnerRuntime.inflight ? String(stewardRunnerRuntime.inflight.kind || '') : ''),
+  recoverWatchedThreads: async config => {
+    const rows = await stewardRecoveryEvents(config);
+    stewardOnInboxBatch(rows);
+    return rows.length;
+  },
   currentTurnContext: () => {
     const entry = stewardRunnerRuntime.inflight;
     return entry ? { trigger: String(entry.kind || ''), ...(entry.kind === 'external' ? { externalActor: entry.externalActor } : {}) } : null;

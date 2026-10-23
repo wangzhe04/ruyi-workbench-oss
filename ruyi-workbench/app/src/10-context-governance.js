@@ -223,7 +223,8 @@ function contextWindowFromTable(model) {
   if (!m) return undefined;
   for (const [needle, size, exact] of MODEL_CONTEXT_TABLE) {
     const n = String(needle || '').toLowerCase();
-    if (exact ? (m === n || m.endsWith('/' + n)) : m.includes(n)) return size;
+    // 名称猜测不是上游实测能力。默认至少按 1M，手填、探测与超窗学习仍可收紧。
+    if (exact ? (m === n || m.endsWith('/' + n)) : m.includes(n)) return Math.max(CONTEXT_WINDOW_FALLBACK, size);
   }
   return undefined;
 }
@@ -3980,7 +3981,10 @@ async function runSessionTurn(input) {
       Promise.resolve()
         .then(() => updateSessionMeta(outcomeId, { stewardLastTurn: outcomePatch }))
         .catch(() => { /* 旁路:少一笔账只是退回「账缺席」,不反噬回合 */ })
-        .finally(() => { turnOutcomePending.delete(outcomeId); });
+        .finally(() => {
+          turnOutcomePending.delete(outcomeId);
+          if (typeof StewardHooks.onThreadSettled === 'function') StewardHooks.onThreadSettled();
+        });
     }
     // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
     //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
@@ -4026,7 +4030,7 @@ async function runSessionTurn(input) {
 //     撤回(rewind)同理:线程已被改写,别替一段被撤回的对话把模型叫醒。表在下一个【不是唤醒起的】回合起手清掉(用户重新说话了);
 //     被拦下的信封一份都不丢 —— 仍在账本里,随用户下一句话的回合开头送达(与关掉 agentAutoWake 时同一条路);
 //   · 每份信封只唤醒一次(进程内记账,按 job id + 完成时刻:续跑 / 重试的同一个 run 再交一份信封会再唤醒);
-//     连续唤醒最多 AGENT_WAKE_CHAIN_MAX 次,防模型「起后台代理 → 被唤醒 → 再起」无限循环,任何不是唤醒起的回合都清零;
+//     新完成信封持续唤醒，不设固定唤醒次数；显式停止、去重与实际工具进展约束仍有效;
 //   · 进程重启:信封落了账、唤醒还没起成就重启的,启动时补排(scheduleAgentWakesAtBoot);重启打断的后台 run 由 08 补一份
 //     interrupted 信封,但不唤醒(重启不是代理「做完了」,留到用户下一句话时送达);
 //   · 手动压缩进行中不唤醒(摘要要算几秒,期间起回合会让那份摘要作废),压缩结束再排一次;
@@ -4036,7 +4040,6 @@ const AGENT_WAKE_SOURCE = 'agent_wake';
 // 系统自己起的回合:同一条线程上已经有一个同源回合在跑时,后来者不顶替、而是被挡回去(见 runSessionTurn 的忙判定)。
 const EXCLUSIVE_TURN_SOURCES = new Set(['scheduler', AGENT_WAKE_SOURCE]);
 const AGENT_WAKE_DEBOUNCE_MS = 1500;   // 同一批并行代理前后脚收尾时合成一次唤醒
-const AGENT_WAKE_CHAIN_MAX = 6;
 const agentWakeTimers = new Map();     // sessionId -> 防抖定时器
 const agentWakeAttempted = new Map();  // sessionId -> Set(账本 job id):已经为它唤醒过的信封
 const agentWakeChain = new Map();      // sessionId -> 自上一条用户消息以来的连续唤醒次数
@@ -4090,10 +4093,6 @@ async function runAgentWake(sessionId, reason) {
     .filter(job => !attempted.has(agentWakeJobKey(job)) && !agentWakeSkipsStatus(String(job.status || '')));
   if (!pending.length) return { ok: false, skipped: 'nothing_pending' };
   const chain = agentWakeChain.get(sessionId) || 0;
-  if (chain >= AGENT_WAKE_CHAIN_MAX) {
-    logEvent({ kind: 'agent_wake_capped', sessionId, chain, runIds: pending.map(job => String(job.runId || '')) });
-    return { ok: false, skipped: 'chain_capped' };
-  }
   // 装载会话期间用户可能刚发了一句 / 按了停止:再判一次。下面到 runSessionTurn 登记 turnSettlers 之间 runSessionTurn 自己还有 await
   // (装载配置与会话),那一段由它的忙判定(409,见 catch)与「系统来源装载不到会话就不新建」兜住。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };

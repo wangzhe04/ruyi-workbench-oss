@@ -39,7 +39,8 @@
     "memory-usage",
     "steward-cursor",
     "engine-transcript-index",
-    "steward-memory"
+    "steward-memory",
+    "agent-instructions-import"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -298,7 +299,7 @@
       "migrationBatch": "memory-queue",
       "plaintextMetadata": [],
       "reason": "per-source file paths, entry hashes and core flags are content-derived and reveal local layout",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "steward-memory",

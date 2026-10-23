@@ -29,14 +29,13 @@ after(() => fs.rmSync(root, { recursive: true, force: true }));
 const MIN = 60000;
 const limitsOf = (config = {}, env = {}) => agentNodeTimeLimits(config, env);
 
-test('[L1] 出厂:自动收尾 30 分钟 / 宽限 5 分钟 / 硬上限 60 分钟', () => {
-  assert.equal(defaultConfig().agentNodeWrapUpMs, 30 * MIN);
+test('[L1] 出厂不按总运行时长催停；显式时限仍可配置', () => {
+  assert.equal(defaultConfig().agentNodeWrapUpMs, 0);
   const { config } = normalizeConfig({});
-  assert.equal(config.agentNodeWrapUpMs, 30 * MIN, 'normalizeConfig 对缺省值回落到 30 分钟(不是旧的 8 分钟)');
+  assert.equal(config.agentNodeWrapUpMs, 0);
   const l = limitsOf(config);
-  assert.deepEqual(l, { wrapUpMs: 30 * MIN, graceMs: 5 * MIN, hardCapMs: 60 * MIN });
-  assert.ok(l.hardCapMs >= 30 * MIN, '单个子代理的硬上限不低于 30 分钟');
-  assert.ok(l.wrapUpMs + l.graceMs > 10 * MIN, '修前整个节点只有 8 + 2 = 10 分钟');
+  assert.equal(l.wrapUpMs, 0);
+  assert.equal(nodeWrapUpAction({ now: 1e12, modelStartedAt: 1, requestedAt: 0, lastActivityAt: 1, forced: false }, l), 'none');
 });
 
 test('[L2] 用户设置:调大 / 调小 / 关闭都按公式走,硬上限不低于 收尾 + 宽限', () => {
@@ -52,7 +51,7 @@ test('[L2] 用户设置:调大 / 调小 / 关闭都按公式走,硬上限不低�
 });
 
 test('[L3] 持续有进展的节点:跑过收尾时限、跑过「收尾 + 宽限」都不被中止,只在硬上限处才停', () => {
-  const limits = limitsOf({});
+  const limits = limitsOf({ agentNodeWrapUpMs: 30 * MIN });
   const t0 = 1_000_000_000_000;
   const requestedAt = t0 + limits.wrapUpMs;
   const act = (minutes, recent = 1000) => ({ now: t0 + minutes * MIN, modelStartedAt: t0, requestedAt: minutes * MIN >= limits.wrapUpMs ? requestedAt : 0, lastActivityAt: t0 + minutes * MIN - recent, forced: false });
@@ -66,7 +65,7 @@ test('[L3] 持续有进展的节点:跑过收尾时限、跑过「收尾 + 宽�
 });
 
 test('[L4] 真正卡死的节点仍会被中止:催收尾后宽限期内毫无进展 → quiet;有动静就重新数', () => {
-  const limits = limitsOf({});
+  const limits = limitsOf({ agentNodeWrapUpMs: 30 * MIN });
   const t0 = 1_000_000_000_000;
   const requestedAt = t0 + 30 * MIN;
   const at = (minutes, lastActivityMinutes) => ({ now: t0 + minutes * MIN, modelStartedAt: t0, requestedAt, lastActivityAt: t0 + lastActivityMinutes * MIN, forced: false });
@@ -77,7 +76,7 @@ test('[L4] 真正卡死的节点仍会被中止:催收尾后宽限期内毫无�
 });
 
 test('[L5] 没催过收尾的节点不归这条管;已强制过的不重复判', () => {
-  const limits = limitsOf({});
+  const limits = limitsOf({ agentNodeWrapUpMs: 30 * MIN });
   const t0 = 1_000_000_000_000;
   assert.equal(nodeWrapUpAction({ now: t0 + 20 * MIN, modelStartedAt: t0, requestedAt: 0, lastActivityAt: t0, forced: false }, limits), 'none', '没到收尾时限、再安静也由空闲看门狗盯,不在这里判');
   assert.equal(nodeWrapUpAction({ now: t0 + 90 * MIN, modelStartedAt: t0, requestedAt: t0 + 30 * MIN, lastActivityAt: t0, forced: true }, limits), 'none');
@@ -104,21 +103,21 @@ test('[W2] 模型真实看到的工具描述写明等待窗与节点时限', () 
   assert.match(wait.description, /timedOut:true means only the wait window ended/);
   assert.match(wait.parameters.properties.timeoutMs.description, /0\.\.300000 \(default 120000\)/);
   const orch = full.find(t => t.function.name === 'orchestrate_agents').function.description;
-  assert.match(orch, /still running after 30 min to wrap up/);
-  assert.match(orch, /passes 60 min in total/);
-  assert.match(orch, /a node that keeps producing is not cut off/);
+  assert.match(orch, /Default node duration is unlimited/);
+  assert.match(orch, /explicit wrap-up settings/);
+  assert.match(orch, /Idle watchdogs and explicit cancellation remain active/);
 });
 
-test('[S1] 设置页:自动收尾的占位值与回填默认值跟出厂一致(30 分钟)', () => {
+test('[S1] 设置页:自动收尾的占位值与回填默认值跟出厂一致(0)', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/public/index.html'), 'utf8');
-  assert.match(html, /id="cfgAgentNodeWrapUpMinutes"[^>]*placeholder="30"/);
+  assert.match(html, /id="cfgAgentNodeWrapUpMinutes"[^>]*placeholder="0"/);
   const settings = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/public/js/provider-settings.js'), 'utf8');
-  assert.match(settings, /clampedInt\('cfgAgentNodeWrapUpMinutes', 30, 0, 120\)/);
+  assert.match(settings, /clampedInt\('cfgAgentNodeWrapUpMinutes', 0, 0, 120\)/);
   for (const loc of ['zh-CN', 'en-US']) {
     const dict = JSON.parse(fs.readFileSync(path.resolve(__dirname, `../../ruyi-workbench/app/public/locales/${loc}.json`), 'utf8'));
     const mirror = JSON.parse(fs.readFileSync(path.resolve(__dirname, `../../docs/i18n/locales/${loc}.json`), 'utf8'));
     for (const key of ['settings.advanced.agentNodeWrapUp.hint', 'settings.limits.turnIdleHint']) {
-      assert.ok(dict[key] && /30|10/.test(dict[key]), `${loc} ${key} 存在且带默认值`);
+      assert.ok(dict[key] && (key.endsWith('agentNodeWrapUp.hint') ? /0/.test(dict[key]) : /10/.test(dict[key])), `${loc} ${key} 存在且带默认值`);
       assert.equal(mirror[key], dict[key], `${loc} ${key} 与 docs/i18n 镜像逐字一致`);
     }
     // 工作流卡的状态行按中止原因说话(hard_cap / quiet),两份 locale 与镜像齐备,且都点明「设置里调大」。

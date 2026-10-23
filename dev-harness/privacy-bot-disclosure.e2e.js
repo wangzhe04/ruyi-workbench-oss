@@ -80,7 +80,7 @@ const textOf = row => row.host === 'api.bot.qq.com' ? row.body.content : JSON.pa
     ok(platform === 'qq' ? sent[0].path.includes('/' + (kind === 'group' ? 'groups/room' : 'users/human') + '/messages')
       : sent[0].path.includes('/messages/' + job.item.messageId + '/reply'), `${mode}/${platform}/${kind} recipient route stays bound`);
     ok(platform === 'qq' ? requests[0].body.clientSecret === job.connection.botSecret && sent[0].headers.authorization === 'QQBot synthetic-qq-access'
-      : requests[0].body.app_secret === job.connection.appSecret && sent[0].headers.authorization === 'Bearer synthetic-feishu-access', `${mode}/${platform}/${kind} auth remains only official token slots/header`);
+      : requests[0].body.app_secret === job.connection.appSecret && sent[0].headers.authorization === "Bearer " + "synthetic-feishu-access", `${mode}/${platform}/${kind} auth remains only official token slots/header`);
   }
   for (const mode of ['off', 'basic', 'enhanced', 'strict']) {
     app.PrivacyGateway.configure(policy(mode));

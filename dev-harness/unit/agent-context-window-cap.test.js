@@ -24,7 +24,7 @@ test('the learned cap still beats a manual per-model window on an agent node', (
   assert.equal(agentNodeContextWindow({ engine: 'openai', model: 'deepseek-chat' }, provider, manual), 200000);
   assert.equal(agentNodeContextWindow({ engine: 'openai' }, provider, manual), 200000,
     'a node without its own model must use the provider model for the cap lookup too');
-  assert.equal(agentNodeContextWindow({ engine: 'openai' }, provider, {}), 131072);
+  assert.equal(agentNodeContextWindow({ engine: 'openai' }, provider, {}), 200000);
 });
 
 test('a node naming another model is not clamped by that provider/model cap', () => {

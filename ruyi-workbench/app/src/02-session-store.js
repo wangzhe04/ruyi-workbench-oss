@@ -1770,6 +1770,10 @@ function applySessionMetaPatch(session, patch) {
   // 写 false 对管家自己开的线程同样生效(= 用户接手,别再盯了)。
   if (patch.stewardWatch === true) session.stewardWatch = true;
   else if (patch.stewardWatch === false) session.stewardWatch = false;
+  // 委托跟随线程持久保存；重新勾选但没补充文字时保留原委托，显式空串才清除。
+  if (patch.stewardWatch === true && typeof patch.stewardWatchNote === 'string') {
+    session.stewardWatchNote = stewardWatchNoteFrom(patch);
+  }
   // 成败账只进不退:turnSeq 单调(rewind 也不回退它),两笔写入乱序落盘时(10 的收尾写与 13k/13s 的写不在一条链上)
   // 旧回合那笔不能盖掉新回合那笔;同号允许覆盖(同一回合的后写者带的是更完整的那份)。
   const prevLastTurnSeq = session.stewardLastTurn && typeof session.stewardLastTurn === 'object' ? Number(session.stewardLastTurn.seq) : NaN;

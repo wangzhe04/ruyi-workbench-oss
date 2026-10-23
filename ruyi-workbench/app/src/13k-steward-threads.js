@@ -634,11 +634,8 @@ async function stewardImplThreadRead(args, ctx, config) {
   const budgetChars = stewardClampInt(config.stewardReadBudgetChars, 4000, 400000, 48000);
   const stewardSessionId = String((ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || 'steward');
   const bucket = stewardReadBucket(stewardSessionId, stewardTurnKeyOf(ctx));
-  if (bucket.calls >= STEWARD_READ_CALLS_PER_TURN) {
-    return stewardFail('quota_exceeded', `thread read quota exhausted for this turn (${STEWARD_READ_CALLS_PER_TURN} deep reads); answer with already-read information`, { quota: { callsRemaining: 0, charsRemaining: Math.max(0, budgetChars - bucket.chars) } });
-  }
   if (budgetChars - bucket.chars <= STEWARD_READ_ROW_OVERHEAD + STEWARD_READ_CLIP_MARK.length) {
-    return stewardFail('budget_exceeded', `thread read budget exhausted for this turn (${budgetChars} chars); answer with already-read information`, { quota: { callsRemaining: Math.max(0, STEWARD_READ_CALLS_PER_TURN - bucket.calls), charsRemaining: 0 } });
+    return stewardFail('budget_exceeded', `thread read character budget exhausted for this turn (${budgetChars} chars); answer with already-read information`, { quota: { callsRemaining: null, charsRemaining: 0 } });
   }
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
@@ -708,8 +705,8 @@ async function stewardImplThreadRead(args, ctx, config) {
     recentUserRequest: stewardRecentUserRequest(session),
     activityGuidance: getPromptPack(config && config.locale).steward.activityGuidance,
     relatedThreads: threadRelatedThreads(head, await listSessions()),
-    quota: { callsUsed: bucket.calls, callsMax: STEWARD_READ_CALLS_PER_TURN, charsUsed: bucket.chars, charsMax: budgetChars,
-      callsRemaining: Math.max(0, STEWARD_READ_CALLS_PER_TURN - bucket.calls), charsRemaining: Math.max(0, budgetChars - bucket.chars) },
+    quota: { callsUsed: bucket.calls, callsMax: null, charsUsed: bucket.chars, charsMax: budgetChars,
+      callsRemaining: null, charsRemaining: Math.max(0, budgetChars - bucket.chars) },
     rows: kept,
   });
 }
@@ -746,7 +743,9 @@ function stewardRecordLaunchOutcome(sessionId, result) {
       errorClass: String((inner && inner.errorClass) || ''),
       at: nowIso(),
     },
-  }).catch(() => null);
+  }).catch(() => null).finally(() => {
+    if (typeof StewardHooks.onThreadSettled === 'function') StewardHooks.onThreadSettled();
+  });
 }
 
 // 管家刚发起、但 runSessionTurn 还没走到登记 turnSettlers 的那几个 await 窗口里,线程既不在 activeChildren

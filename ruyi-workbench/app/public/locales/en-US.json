@@ -1069,7 +1069,7 @@
   "settings.advanced.workflowMaxNodes": "Maximum Agent workflow nodes",
   "settings.advanced.workflowMaxNodes.hint": "Maximum nodes in one persistent DAG workflow run (graph editor/templates). Range: 1–64; default: 48. This is separate from the per-turn subagent budget.",
   "settings.advanced.agentNodeWrapUp": "Auto wrap-up per node (minutes)",
-  "settings.advanced.agentNodeWrapUp.hint": "After one model node runs this long (default 30 minutes), the orchestrator asks it to stop expanding and summarize now; this step never stops it. Afterwards only two things stop that node (siblings are unaffected): no progress at all during the grace period, or a total runtime reaching the hard cap (about twice this value, default 60 minutes). A node that is still producing output is not stopped. Set to 0 to disable.",
+  "settings.advanced.agentNodeWrapUp.hint": "Default 0: long tasks are not asked to stop based on elapsed time. A positive value requests wrap-up at that point, then stops only that node after a quiet grace period or about twice the configured duration. Idle timeouts, explicit stops and user budgets remain effective.",
   "settings.agentRoles.add": "+ Custom role",
   "settings.agentRoles.hint": "The same roles work with OpenAI-compatible APIs and Claude CLI. Claude uses native --agents, and project .claude/agents are discovered automatically.",
   "settings.agentRoles.save": "Save roles",

@@ -1076,9 +1076,6 @@ function stewardExternalBlock(kind, source, text) {
 function stewardEyesTake(ctx, config, chars) {
   const budgetChars = stewardClampInt(config && config.stewardReadBudgetChars, 4000, 400000, 48000);
   const bucket = stewardReadBucket(String((ctx.session && ctx.session.id) || 'steward'), stewardTurnKeyOf(ctx));
-  if (bucket.calls >= STEWARD_READ_CALLS_PER_TURN) {
-    return stewardFail('quota_exceeded', `steward read quota exhausted for this turn (${STEWARD_READ_CALLS_PER_TURN} reads); answer from what you already have instead of retrying`);
-  }
   if (bucket.chars >= budgetChars) {
     return stewardFail('budget_exceeded', `steward read budget exhausted for this visit (${budgetChars} chars, stewardReadBudgetChars); answer from what you already have instead of retrying`);
   }

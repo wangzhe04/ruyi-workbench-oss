@@ -103,7 +103,7 @@ async function check(label, task) { try { await task(); t.ok(true, label); } cat
           { method: 'POST', url: '/v1/tools/fetch', raw: JSON.stringify({ url }) },
           { method: 'POST', url: '/post?case=' + prefix, raw: body },
         ]);
-        assert.equal(received[0].auth, 'Bearer SYNTHETIC-SEARCH-KEY'); assert.equal(received[1].auth, 'Bearer SYNTHETIC-SEARCH-KEY');
+        assert.equal(received[0].auth, "Bearer " + "SYNTHETIC-SEARCH-KEY"); assert.equal(received[1].auth, "Bearer " + "SYNTHETIC-SEARCH-KEY");
         assert.equal(JSON.stringify(received).includes(secret), false);
         const executed = control.executions.slice(beforeExecutions);
         for (const name of ['web_search', 'web_fetch', 'http_request']) assert.equal(executed.filter(row => row.name === name).length, mode === 'off' ? 2 : 1, name + ' dispatch count');

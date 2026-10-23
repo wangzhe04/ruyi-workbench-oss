@@ -852,64 +852,64 @@ export function createChatRenderPrimitives(deps = {}) {
   // 状态不可用时的最后兜底，具体窗口与服务端 MODEL_CONTEXT_TABLE 保持同序。
   function ctxWindowGuess(model) {
     const m = String(model || '').toLowerCase();
-    if (/k3-256k/.test(m)) return 262144;          // k3 的 256K 变体先于 1M 的 k3 命中
+    if (/k3-256k/.test(m)) return 1000000;          // k3 的 256K 变体先于 1M 的 k3 命中
     if (/kimi-k3|(^|[\/-])k3$/.test(m)) return 1048576;
-    if (/haiku/.test(m)) return 200000;
+    if (/haiku/.test(m)) return 1000000;
     if (/opus-5|opus-4|sonnet-5|sonnet-4|fable|mythos/.test(m)) return 1000000;
     if (/deepseek-v4/.test(m)) return 1000000;   // deepseek-v4 = 1M(此前被并入 65536)
     if (/deepseek-flash/.test(m)) return 1000000; // deepseek-flash 也是 1M(与 MODEL_CONTEXT_TABLE 同序)
-    if (/deepseek/.test(m)) return 131072;        // 其余 deepseek(v3/chat/reasoner)= 128K
+    if (/deepseek/.test(m)) return 1000000;        // 其余 deepseek(v3/chat/reasoner)= 128K
     if (/mimo-v2\.5-pro(?:$|[^a-z0-9])/.test(m) || /(?:^|\/)mimo-v2\.5$/.test(m)) return 1000000;
-    if (/kimi|moonshot/.test(m)) return 262144;
+    if (/kimi|moonshot/.test(m)) return 1000000;
     if (/qwen3\.8|qwen3\.7/.test(m)) return 1000000;
-    if (/qwen3\.6-max/.test(m)) return 262144;
+    if (/qwen3\.6-max/.test(m)) return 1000000;
     if (/qwen3\.6-(plus|flash)/.test(m)) return 1000000;
-    if (/qwen3\.6/.test(m)) return 262144;
-    if (/qwen3\.5-omni/.test(m)) return 65536;
+    if (/qwen3\.6/.test(m)) return 1000000;
+    if (/qwen3\.5-omni/.test(m)) return 1000000;
     if (/qwen3\.5-(plus|flash)/.test(m)) return 1000000;
-    if (/qwen3\.5/.test(m)) return 32768;
+    if (/qwen3\.5/.test(m)) return 1000000;
     if (/qwen3-coder-plus/.test(m)) return 1000000;
-    if (/qwen3-coder-next|qwen3-max|qwen3(?:$|[^.0-9])/.test(m)) return 262144;
-    if (/qwen-plus-2025-01-25/.test(m)) return 131072;
+    if (/qwen3-coder-next|qwen3-max|qwen3(?:$|[^.0-9])/.test(m)) return 1000000;
+    if (/qwen-plus-2025-01-25/.test(m)) return 1000000;
     if (/qwen-plus|qwen-flash/.test(m)) return 1000000;
-    if (/qwen-turbo/.test(m)) return 131072;
-    if (/qwen-max/.test(m)) return 32768;
+    if (/qwen-turbo/.test(m)) return 1000000;
+    if (/qwen-max/.test(m)) return 1000000;
     if (/qwen-long/.test(m)) return 10000000;
-    if (/qwen|qwq/.test(m)) return 131072;
+    if (/qwen|qwq/.test(m)) return 1000000;
     if (/glm-5\.3|glm-5\.2/.test(m)) return 1000000;
-    if (/glm-5\.1|glm-5-turbo|glm-5|glm-4\.7|glm-4\.6/.test(m)) return 202752;
+    if (/glm-5\.1|glm-5-turbo|glm-5|glm-4\.7|glm-4\.6/.test(m)) return 1000000;
     if (/glm-4-long/.test(m)) return 1000000;
-    if (/glm-4\.5|glm-4/.test(m)) return 131072;
-    if (/glm/.test(m)) return 131072;
+    if (/glm-4\.5|glm-4/.test(m)) return 1000000;
+    if (/glm/.test(m)) return 1000000;
     if (/minimax-m3/.test(m)) return 1000000;
-    if (/minimax-m2\.7|minimax-m2\.5/.test(m)) return 196608;
-    if (/gemma4|minicpm5|whiskyakm/.test(m)) return 131072;
+    if (/minimax-m2\.7|minimax-m2\.5/.test(m)) return 1000000;
+    if (/gemma4|minicpm5|whiskyakm/.test(m)) return 1000000;
     if (/gemini/.test(m)) return 1048576;
-    if (/grok/.test(m)) return 500000;
+    if (/grok/.test(m)) return 1000000;
     if (/llama-4-scout/.test(m)) return 10000000;
-    if (/llama/.test(m)) return 131072;
-    if (/mistral/.test(m)) return 131072;
-    if (/doubao/.test(m)) return 131072;
+    if (/llama/.test(m)) return 1000000;
+    if (/mistral/.test(m)) return 1000000;
+    if (/doubao/.test(m)) return 1000000;
     if (/hunyuan/.test(m)) return 1000000;
-    if (/ernie/.test(m)) return 131072;
+    if (/ernie/.test(m)) return 1000000;
     if (/step-5/.test(m)) return 1000000;
-    if (/step/.test(m)) return 131072;
-    if (/yi-large|yi-medium/.test(m)) return 32000;
+    if (/step/.test(m)) return 1000000;
+    if (/yi-large|yi-medium/.test(m)) return 1000000;
     if (/gpt-6/.test(m)) return 1050000;
     if (/gpt-5\.6/.test(m)) return 1050000;
     if (/gpt-5\.5/.test(m)) return 1050000;
     if (/gpt-5\.4-pro/.test(m)) return 1050000;
-    if (/gpt-5\.4-(mini|nano)/.test(m)) return 400000;
+    if (/gpt-5\.4-(mini|nano)/.test(m)) return 1000000;
     if (/gpt-5\.4/.test(m)) return 1050000;
-    if (/gpt-5\.2-chat-latest/.test(m)) return 128000;
-    if (/gpt-5\.2/.test(m)) return 400000;
-    if (/gpt-5\.1-chat-latest/.test(m)) return 128000;
-    if (/gpt-5\.1/.test(m)) return 400000;
-    if (/gpt-5-chat-latest/.test(m)) return 128000;
-    if (/(^|\/)gpt-5(?:$|[^.0-9])/.test(m)) return 400000;
-    if (/gpt-4o|gpt-4\.1/.test(m)) return 128000;
-    if (/o3|o4/.test(m)) return 200000;
-    if (/claude/.test(m)) return 200000;
+    if (/gpt-5\.2-chat-latest/.test(m)) return 1000000;
+    if (/gpt-5\.2/.test(m)) return 1000000;
+    if (/gpt-5\.1-chat-latest/.test(m)) return 1000000;
+    if (/gpt-5\.1/.test(m)) return 1000000;
+    if (/gpt-5-chat-latest/.test(m)) return 1000000;
+    if (/(^|\/)gpt-5(?:$|[^.0-9])/.test(m)) return 1000000;
+    if (/gpt-4o|gpt-4\.1/.test(m)) return 1000000;
+    if (/o3|o4/.test(m)) return 1000000;
+    if (/claude/.test(m)) return 1000000;
     return 1000000; // 未知模型默认 1M（用户 2026-09-22 拍板，与服务端 CONTEXT_WINDOW_FALLBACK 同步）
   }
   // Persist manual limits by engine/provider/model so the meter and server-side auto-compaction agree.

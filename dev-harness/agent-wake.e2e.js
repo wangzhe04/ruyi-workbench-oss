@@ -68,7 +68,7 @@ function handleChat(req) {
   }
   const tail = tailUserText(messages);
   // W6:这条线程的每个唤醒回合都再起一个后台代理(模型「起 → 被唤醒 → 再起」的闭环)。
-  if (tail.includes(WAKE_MARK) && humanText(messages).includes('CMD_W6')) return toolCallFrames('orchestrate_agents', { task: 'WAKE_FAST 再来', agentKey: 'again', toolTier: 'read', background: true }, 'call_w6', FRAME_ID);
+  if (tail.includes(WAKE_MARK) && humanText(messages).includes('CMD_W6') && messages.filter(m => m.role === 'user' && textOf(m).includes(WAKE_MARK)).length < 8) return toolCallFrames('orchestrate_agents', { task: 'WAKE_FAST 再来', agentKey: 'again', toolTier: 'read', background: true }, 'call_w6', FRAME_ID);
   if (tail.includes(WAKE_MARK)) return textFrames('WAKE_REPLY 已根据代理结果继续。', FRAME_ID);
   const lastTool = [...messages].reverse().find(m => m && m.role === 'tool');
   const afterTool = messages.length && messages[messages.length - 1].role === 'tool';
@@ -252,10 +252,10 @@ function streamChatStopAfterToolResult(body, afterMs, onStop, authHeaders) {
     // ── W6 唤醒链上限 ──
     const s6 = await newSession('wake chain cap');
     await streamChat({ sessionId: s6, message: 'CMD_W6 每次被唤醒都再派一个', cwd: HOME });
-    await waitFor(async () => wakeMessages(await loadMessages(s6)).length >= 6, 45000);
+    await waitFor(async () => wakeMessages(await loadMessages(s6)).length >= 8, 60000);
     await sleep(6000);
     const wakes6 = wakeMessages(await loadMessages(s6)).length;
-    ok(wakes6 === 6, `W6 a wake → launch → wake loop stops at the chain cap of 6 (got ${wakes6})`);
+    ok(wakes6 === 8, `W6 eight completed deliveries wake the parent beyond the old six-turn cap (got ${wakes6})`);
 
     // ── W7 重启:落账未唤醒的补排;被打断的后台 run 补 interrupted 信封、不唤醒 ──
     const s7 = await newSession('wake at boot');

@@ -129,7 +129,7 @@ test('[R3] 端点 500:回合如实失败;收件箱批次回到队列,重试有�
     queued.push((await srv.StewardHooks.runnerState(cfg)).queued);
     srv.StewardHooks.stopRunner(); srv.StewardHooks.resumeRunner();   // 清队列,模拟排空器把它取走
   }
-  assert.deepEqual(queued, [1, 1, 1, 0], '前三次失败都把这批事件放回队列,第四次放弃');
+  assert.deepEqual(queued, [1, 1, 1, 1], '端点暂时故障不因重试三次就丢弃监工事件');
   mode = 'reply';
 });
 

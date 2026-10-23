@@ -1229,8 +1229,8 @@
                 </div>
                 <div class="field-block">
                   <label for="cfgAgentNodeWrapUpMinutes" data-i18n="settings.advanced.agentNodeWrapUp">节点自动收尾（分钟）</label>
-                  <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="30" />
-                  <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">单个模型节点运行超过该时长（默认 30 分钟）后，编排器会要求它停止扩展并立即总结，这一步不会中止它。此后只有两种情况才会中止该节点（兄弟节点不受影响）：宽限期内完全没有进展，或总时长达到硬上限（约为该值的 2 倍，默认 60 分钟）；仍在持续产出的节点不会被中止。设为 0 可关闭。</p>
+                  <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="0" />
+                  <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">默认 0，不按总运行时长催停长任务。设置正数后，到时要求节点收尾；此后无进展超过宽限期，或总时长达到约两倍设置值时才中止该节点。空闲超时、明确停止和用户预算始终生效。</p>
                 </div>
               </div>
               <!-- turnIdleTimeoutMs 此前没有界面：服务端钳 [1, 60] 分钟、出厂 10 分钟（01-config normalizeConfig）。 -->

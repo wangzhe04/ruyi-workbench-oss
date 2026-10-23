@@ -60,6 +60,7 @@ Ruyi ships Chinese and English user and deployment guides. Historical design and
 
 | 清册 | 维护方式 |
 |---|---|
+| [管家持续监工与长任务恢复](architecture/steward-supervision.md) | 唤醒、持久委托、1M 上下文与运行限制审计 |
 | [路由](architecture/route-inventory.md) | node dev-harness/route-inventory.js |
 | [模块依赖](architecture/module-dependency-graph.md) | node dev-harness/module-dependency-graph.js --write |
 | [架构契约快照](architecture/architecture-contract-snapshots.md) | 生成命令见该文页首 |

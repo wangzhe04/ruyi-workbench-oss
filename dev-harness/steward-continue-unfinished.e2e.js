@@ -75,7 +75,7 @@ function threadScript(req) {
     case 'S0': return toolsAfter === 0 ? planCall(5) : text('五步都做完了。');                              // 计划全勾完
     case 'S1': if (!cont) return toolsAfter === 0 ? planCall(1) : text('先做完第一步,其余的下一回合接着做。');
                return toolsAfter === 0 ? planCall(5) : text('五步全部完成。');                            // 续一轮后做完
-    case 'S2': return toolsAfter === 0 ? planCall(1) : text('第一步完成了。要我继续做剩下的吗?'.replace('?', '？')); // 最后一句在问用户
+    case 'S2': return toolsAfter === 0 ? planCall(1) : text('第一步完成了。剩下的步骤选 A 还是 B？'); // 真正需要用户选择
     case 'S3': if (cont) return text('好了,已经完成。');                                                   // 被截断,续一轮后收口
                return readOne();
     case 'S4': return readOne();                                                                          // 永远被截断
@@ -326,14 +326,15 @@ try {
     await waitTurn(th.sid, 3);
     const r3 = await visit(th.sid, 3);
     const a3 = autoRow(r3);
-    ok(!!a3 && a3.result && a3.result.error === 'propose_required' && /连续自动续跑 2 次/.test(String(a3.result.message || '')),
-      `B5.3 第 3 次到顶 → 不再自动,降级成提议(got ${a3 && a3.result && a3.result.message})`);
-    ok((r3.acts || []).some(a => a.label === '继续' && a.tool === 'steward_thread_continue'), 'B5.4 用户手里留着一枚「继续」按钮');
-    await sleep(300);
-    ok((await srv.loadSession(th.sid)).turnSeq === 3 && continueRows(th.sid).length === 2, 'B5.5 线程没再被续(turnSeq 仍是 3,只有两行续跑流水)');
-    const stop = await waitFor(() => stoppedRows(th.sid)[0] || null, 3000);
-    ok(stop && stop.args.reason === 'max' && stop.mayAct === 'propose' && stop.basis.origin === 'steward-continue',
-      `B5.6 到顶这一次也记了流水(steward_continue_stopped,reason=${stop && stop.args && stop.args.reason})`);
+    ok(!!a3 && a3.result?.ok === true, 'B5.3 没有计划但工具在推进，第 3 次仍自动续');
+    await waitTurn(th.sid, 4);
+    for (let seq = 4; seq <= 6; seq++) {
+      const next = autoRow(await visit(th.sid, seq));
+      ok(next?.result?.ok === true, `B5.4 第 ${seq} 次仍自动续`);
+      await waitTurn(th.sid, seq + 1);
+    }
+    ok((await srv.loadSession(th.sid)).turnSeq === 7 && continueRows(th.sid).length === 6, 'B5.5 已连续自动续 6 次');
+    ok(stoppedRows(th.sid).length === 0, 'B5.6 不再因为连续次数封顶而停工');
     writeConfig({});
   }
   {
@@ -344,12 +345,15 @@ try {
     ok(!!a1 && a1.result && a1.result.ok === true, 'B6.1 第一次:计划 1/5 → 续');
     const s2 = await waitTurn(th.sid, 2);
     ok(doneCount(s2) === 1, 'B6.2 续了一轮,计划仍是 1/5');
-    const r2 = await visit(th.sid, 2);
-    const a2 = autoRow(r2);
-    ok(!!a2 && a2.result && a2.result.error === 'propose_required' && /计划没有往前走/.test(String(a2.result.message || '')),
-      `B6.3 计划没往前走 → 停(got ${a2 && a2.result && a2.result.message})`);
+    let stoppedAt = 0, a2;
+    for (let seq = 2; seq <= 8; seq++) {
+      a2 = autoRow(await visit(th.sid, seq));
+      if (a2?.result?.error === 'propose_required') { stoppedAt = seq; break; }
+      await waitTurn(th.sid, seq + 1);
+    }
+    ok(stoppedAt >= 4 && /连续三轮/.test(String(a2?.result?.message || '')), 'B6.3 连续三轮计划与工具结果无变化才暂停');
     await sleep(300);
-    ok((await srv.loadSession(th.sid)).turnSeq === 2, 'B6.4 线程没再被续');
+    ok((await srv.loadSession(th.sid)).turnSeq === stoppedAt, 'B6.4 无进展暂停后线程没再被续');
     const stop = await waitFor(() => stoppedRows(th.sid)[0] || null, 3000);
     ok(stop && stop.args.reason === 'no_progress' && stop.args.todosDone === 1 && stop.args.todosTotal === 5, `B6.5 记了流水 reason=no_progress(got ${stop && JSON.stringify(stop.args)})`);
   }

@@ -11,7 +11,7 @@ Frozen purposes (`WorkDataCrypto.PURPOSES`): `session`, `memory`, `queue`, `task
 
 Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)`, AAD binds `schema` / `scopeId` / `seq` on top of the privacy-core triple.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -35,7 +35,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 | memory-relations | required | `memory` | memory-queue | pending | — (nothing readable) | relation edges name memory ids and their meaning |
 | memory-proposals | required | `memory` | memory-queue | pending | — (nothing readable) | pending proposals quote the user content they propose to remember |
 | memory-import-marker | excluded | — | not-migrated | pending | — (nothing readable) | content-free bookkeeping: entry hashes and timestamps, no text and no path |
-| agent-instructions-import | required | `memory` | memory-queue | pending | — (nothing readable) | per-source file paths, entry hashes and core flags are content-derived and reveal local layout |
+| agent-instructions-import | required | `memory` | memory-queue | wired | — (nothing readable) | per-source file paths, entry hashes and core flags are content-derived and reveal local layout |
 | steward-memory | required | `memory` | memory-queue | wired | — (nothing readable) | steward notes are task content |
 | steward-visits | required | `memory` | memory-queue | pending | — (nothing readable) | visit history reveals which threads and items the steward read |
 | voice-lexicon | required | `user-config` | memory-queue | wired | — (nothing readable) | personal vocabulary and names |

@@ -103,10 +103,7 @@ async function stewardSelfServeAllows(tool, args, config, trigger, ctx) {
   return { allowed: true }; // decide / rename:由 13g 内部的 stewardMayAct 与永久豁免清单裁决
 }
 
-// 116-3 P2-11:「每回合最多自理 3 个目标」是【一个】上限,不是两个。修前
-// STEWARD_SELF_SERVE_PER_TURN_MAX(3,只管确定性自理)与 STEWARD_ACTIONS_MAX(5,只管模型声明的
-// actions)彼此独立、不去重 sessionId,于是一个回合合规地触达 3+5=8 条不同线程 —— 与 §11.3 写的
-// 「≤3 个自理目标」对不上。priorTargets 把自理侧【真的动过】的目标带进来,两边合起来数。
+// 每条动作按目标权限独立执行；不因同批线程多就把剩余动作转交用户。
 async function stewardExecuteActions(actions, session, config, trigger, priorTargets, externalActor) {
   const out = [];
   const touched = new Set((Array.isArray(priorTargets) ? priorTargets : []).filter(Boolean));
@@ -126,16 +123,7 @@ async function stewardExecuteActions(actions, session, config, trigger, priorTar
       out.push({ tool, label, args, result: stewardFail('not_allowed', `${tool} 不能作为 action 执行(只有写类管家工具可以;只读工具请在回合里直接调用)`) });
       continue;
     }
-    // 116-3 P2-11:同一回合触达的【不同目标线程】总数硬顶 3(与确定性自理共用同一个数)。
-    // 超出的照既有路径降级成一条按钮(propose_required 不算失败)。对同一条线程的第二个动作不再计数
-    // ——「3 个目标」数的是目标,不是动作次数。
     const target = args && (args.sessionId || args.missionId) ? safeSessionId(args.sessionId || args.missionId) : '';
-    if (target && !touched.has(target) && touched.size >= STEWARD_SELF_SERVE_PER_TURN_MAX) {
-      out.push({ tool, label, args, result: stewardFail('propose_required',
-        `这一回合已经动过 ${touched.size} 条线程(每回合最多 ${STEWARD_SELF_SERVE_PER_TURN_MAX} 条),这一条只能作为提议交给用户`,
-        { reason: 'per_turn_target_max', sessionId: target }) });
-      continue;
-    }
     let actionCtx;
     try { actionCtx = await stewardAuthorizeExternalContext({ session, sessionId: session.id, config, trigger, ...(trigger === 'external' ? { externalActor } : {}) }); }
     catch { out.push({ tool, label, args, result: stewardFail('external_channel.control_revoked', 'external owner authorization was revoked') }); continue; }
@@ -378,9 +366,13 @@ async function stewardSelfServeGate(plan, config) {
 //   silent(不留痕):线程其实做完了 / 还在跑 / 在问用户(正式待决或软问句)/ 用户正坐在上面 / 事项驱动器
 //                    (until-done)自己会续 / 上一回合是被停下的;
 //   提议:开关没勾 / 小时窗满 / 当日花费到顶 / 线程是「每步都问」档 / 达到上限(记行动流水)。
-// 上限见 13m 的 STEWARD_CONTINUE_*:有计划 = 每次续跑之后已完成步数必须增加、且最多连续 5 次;
-// 无计划 = 最多 2 次。全局的并发/小时/日费用仲裁由 runSessionTurn 里的 13n 仲裁器照常管着(续跑也是一个回合)。
+// 连续次数不限；计划与工具结果连续三轮无变化才暂停。全局并发、小时与日费用仲裁仍有效。
 // ────────────────────────────────────────────────────────────────────────────
+// 只认「继续原任务」的空确认。涉及新的操作、对象或选择的问题仍交给真正的待决/代答通道。
+function stewardContinuationOnly(text) {
+  const tail = String(text || '').trim().split(/[。！!\n]/).filter(Boolean).pop() || '';
+  return /^(?:(?:你|您)(?:说|回复)[「“"']?继续[」”"']?[,， ]*(?:我就|就|我会|我)?(?:接着|继续)(?:按批)?(?:往下)?(?:推|推进|做|完成)[^？?。]*|(?:需要|要|是否)(?:我)?(?:继续|接着)(?:做剩下的|完成剩余(?:任务|工作)|推进|往下做|做下去|执行|处理|修改|做)?(?:吗|么)?[？?]|(?:shall I|should I|do you want me to) (?:continue|proceed)(?: with (?:the remaining work|the task))?[?])$/i.test(tail.trim());
+}
 async function stewardUnfinishedFacts(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
@@ -398,6 +390,12 @@ async function stewardUnfinishedFacts(sessionId) {
   const todosTouched = !!(last && Number(last.seq) === turnSeq && last.todosStartSig
     && last.todosStartSig !== sessionTodosSignature(session.todos));
   const mission = session.mission || null;
+  const calls = (Array.isArray(session.messages) ? session.messages : [])
+    .filter(m => m && m.role === 'assistant' && Number(m.turnSeq) === turnSeq)
+    .flatMap(m => Array.isArray(m.toolCalls) ? m.toolCalls : [])
+    .filter(c => c && c.result && c.result.ok !== false)
+    .map(c => ({ name: c.name, input: c.input, result: c.result }));
+  const progressSig = crypto.createHash('sha256').update(JSON.stringify([sessionTodosSignature(session.todos), calls])).digest('hex');
   return {
     sessionId: sid,
     head: session,
@@ -405,7 +403,9 @@ async function stewardUnfinishedFacts(sessionId) {
     dangling: dangling.dangling === true ? String(dangling.kind || '') : '',
     todos: { total, done, open },
     todosTouched,
-    active: activeChildren.has(sid),
+    continuationRequested: stewardContinuationOnly(stewardLastAssistantText(session)),
+    progressSig,
+    active: activeChildren.has(sid) || turnSettlers.has(sid) || turnOutcomePending.has(sid) || stewardThreadBackgroundBusy(sid),
     missionDone: !!(mission && mission.result && mission.result.status === 'complete'),
     driverOwns: !!(mission && mission.autoMode === 'until-done'),
   };
@@ -413,12 +413,14 @@ async function stewardUnfinishedFacts(sessionId) {
 // 「在问用户」:只在确实没做完时才读待决(读的是磁盘上的一份文件,收工事件每条都来一遍不划算)。
 async function stewardUnfinishedAsks(facts) {
   const sid = facts.sessionId;
-  const pending = (await readInterventions(sid).catch(() => [])).filter(iv => iv && iv.status === 'pending');
+  let pending;
+  try { pending = (await readInterventions(sid)).filter(iv => iv && iv.status === 'pending'); }
+  catch { return true; } // 读不清待决时不假定「没有待决」。
   const asks = stewardAsksYouForThread({
     pending, activeTurn: activeChildren.has(sid),
     lastAssistantText: stewardLastAssistantText(facts.head),
   });
-  return !!asks || pending.length > 0;
+  return pending.length > 0 || (!!asks && !facts.continuationRequested);
 }
 // 行动流水 / 提示里那一句「没做完」的人话:横幅判据与计划进度各说各的,都有就并说。
 function stewardUnfinishedBrief(facts) {
@@ -428,22 +430,40 @@ function stewardUnfinishedBrief(facts) {
   return bits.join(';') || '回合没有收口';
 }
 
+// 启动恢复只重建监工的处置机会，不把旧聊天当成用户新指令。任务真值仍来自对应线程。
+async function stewardRecoveryEvents(config) {
+  if (config?.stewardEnabledV1 !== true) return [];
+  const events = [];
+  for (const row of (await stewardThreadDigestRows(config)).filter(row => row.watched)) {
+    const facts = await stewardUnfinishedFacts(row.sessionId);
+    if (!facts || facts.active || facts.missionDone || facts.driverOwns
+        || !stewardWatchedThread(facts.head, row.sessionId, row.missionId)
+        || stewardStoppedTarget(facts.head, null)) continue;
+    const planOpen = facts.todosTouched && facts.todos.open > 0;
+    if (!facts.dangling && !planOpen && !facts.continuationRequested) continue;
+    events.push({ kind: 'done', sessionId: row.sessionId, missionId: row.missionId, seq: facts.turnSeq,
+      at: nowIso(), count: 1, payload: { source: 'session_turn', turnSeq: facts.turnSeq, recovery: true,
+        summary: '监工恢复：核对持久委托与未完成任务，按原授权继续' } });
+  }
+  return events;
+}
+
 async function stewardContinueUnfinishedGate(plan, config) {
   const silent = { allowed: false, silent: true };
   const sid = plan.sessionId;
   const rt = stewardRunnerRuntime.continueUnfinished;
   const facts = await stewardUnfinishedFacts(sid);
-  if (!facts || facts.active) return silent;
+  if (!facts || facts.active || facts.head.stewardWatch === false) return silent;
   const now = Date.now();
   // 上限与「计划有没有往前走」。账只认【连续】的自动续跑:中间若有别人(用户)插进来说了话 —— 当前回合号不是
   // 「上次续跑前的回合号 + 1」—— 或者隔了太久,就当这是一次全新的没做完,从 0 数。
   let prev = rt.get(sid) || null;
   if (prev && (facts.turnSeq !== prev.turnSeq + 1 || now - prev.at > STEWARD_CONTINUE_FRESH_MS)) { rt.delete(sid); prev = null; }
   // 计划证据:上一回合动过计划,或者这本就是管家续跑链上的一环(续跑回合由 13k 记账、不带指纹)。
-  const planOpen = facts.todos.open > 0 && (facts.todosTouched || !!prev);
-  if ((!facts.dangling && !planOpen) || facts.missionDone) { rt.delete(sid); return silent; }   // 做完了:账清零,什么都不说
+  const planOpen = facts.todos.open > 0 && (facts.todosTouched || !!prev || facts.continuationRequested);
+  if ((!facts.dangling && !planOpen && !facts.continuationRequested) || facts.missionDone) { rt.delete(sid); return silent; }
   facts.planOpen = planOpen;
-  // 在问用户 / 有待决:不是「没做完」,是「等你」—— 那条路归 needs_you 与代答那一格,这里不插手。
+  // 真正的提问和正式待决归 needs_you / 代答；仅确认是否继续原任务时不用重新请示。
   if (await stewardUnfinishedAsks(facts)) return silent;
   if (facts.driverOwns) return silent;                     // until-done 驱动器会自己续,不抢
   if (stewardSeatedByUser(sid)) return silent;             // §4.5 用户正坐在这条线程上:他自己看得见横幅
@@ -465,17 +485,12 @@ async function stewardContinueUnfinishedGate(plan, config) {
   if (stewardMayAct(mode, 'failed', 'exec') !== 'auto') {
     return deny(`目标线程权限为「${stewardPermissionLabel(mode)}」,没做完的任务只能提议`);
   }
-  if (prev) {
-    const hasPlan = facts.todos.total > 0;
-    const cap = hasPlan ? STEWARD_CONTINUE_PLAN_MAX : STEWARD_CONTINUE_NOPLAN_MAX;
-    if (hasPlan && facts.todos.done <= prev.doneAt) {
-      return deny(`上次自动续跑之后计划没有往前走(仍是 ${facts.todos.done}/${facts.todos.total}),不再自动续,只提议`, { capped: 'no_progress' });
-    }
-    if (prev.count >= cap) {
-      return deny(`已经连续自动续跑 ${prev.count} 次,仍没做完,不再自动续,只提议`, { capped: 'max' });
-    }
+  // 不按回合数截断长任务，也不把「todo 还没打勾」误判成没进展。连续三轮工具结果和计划均无变化才停。
+  const stagnant = prev && facts.progressSig === prev.progressSig ? (prev.stagnant || 0) + 1 : 0;
+  if (stagnant >= 3) {
+    return deny('连续三轮计划与工具结果均无变化，暂停自动续跑，请检查阻塞原因', { capped: 'no_progress' });
   }
-  return { allowed: true, facts, brief, mode, count: (prev ? prev.count : 0) + 1 };
+  return { allowed: true, facts, brief, mode, count: (prev ? prev.count : 0) + 1, stagnant };
 }
 
 // 一批收件箱事件 -> 自理结果行。每个目标最多处置一次(同一线程同一批里连报三条失败不该重试三遍)。
@@ -492,7 +507,6 @@ async function stewardSelfServeInbox(events, session, config) {
     .filter(x => x.plan);
   planned.sort((a, b) => (a.plan.intent === 'continue' ? 1 : 0) - (b.plan.intent === 'continue' ? 1 : 0));
   for (const { evt, plan } of planned) {
-    if (executed.length >= STEWARD_SELF_SERVE_PER_TURN_MAX) break;
     const key = stewardSelfServeKey(plan.sessionId, plan.runId);
     if (seen.has(key)) continue;
     const inboxSeq = Number(evt && evt.inboxSeq) || 0;
@@ -525,11 +539,12 @@ async function stewardSelfServeInbox(events, session, config) {
       continue;
     }
     const hookKey = STEWARD_ACTION_HOOKS[plan.tool];
-    row.acted = true;   // 116-3 P2-11:闸门放行、真的发出去了 —— 这条目标要计进「每回合 ≤3 个目标」
+    row.acted = true;   // 116-3 P2-11:闸门放行、真的发出去了 —— 记入本批执行回执
     // 计账在【发起前】:动作发出去了就算用过一次配额,哪怕它失败 —— 否则失败会变成免费重试。
     stewardRunnerRuntime.turns.push(Date.now());
     if (isContinue) {
-      stewardRunnerRuntime.continueUnfinished.set(plan.sessionId, { count: gate.count, doneAt: gate.facts.todos.done, turnSeq: gate.facts.turnSeq, at: Date.now() });
+      stewardRunnerRuntime.continueUnfinished.set(plan.sessionId, { count: gate.count, doneAt: gate.facts.todos.done,
+        progressSig: gate.facts.progressSig, stagnant: gate.stagnant, turnSeq: gate.facts.turnSeq, at: Date.now() });
     } else {
       const entry = stewardSelfServeEntry(key);
       entry.attempts += 1;
@@ -634,10 +649,7 @@ async function stewardCircuitCheck(config, trigger) {
     const spent = await stewardDayCost(config);
     if (spent >= maxCost) return { kind: 'cost_per_day', detail: `今天管家自己已经花了 ${spent},到了上限 ${maxCost}`, limit: maxCost, spent };
   }
-  // 无进展只挡【收件箱】回合:用户消息永远优先,任何时候都能把管家叫醒(顺带清零退避)。
-  if (trigger === 'inbox' && stewardRunnerRuntime.noProgress >= STEWARD_NO_PROGRESS_MAX) {
-    return { kind: 'no_progress', detail: `连续 ${STEWARD_NO_PROGRESS_MAX} 次收件箱回合没有任何动作,退避到下一次你说话`, limit: STEWARD_NO_PROGRESS_MAX };
-  }
+  // 无需动作的通知已被收件箱游标消费，不能当作「无进展」永久停掉后续监工。
   return null;
 }
 
@@ -766,7 +778,7 @@ async function stewardInboxMessage(events, config, selfServeNotes) {
   // 116-2b:自理动作的结果作为事件的【补充信息】进回合层 —— 模型于是只需要「说」,不必再决定
   // 该不该重试(那件事工作台已经按规则做完或明确放弃了)。没有自理行时这一段整段不出现,
   // 收件箱回合的消息与 116f 逐字节相同。
-  const notes = stewardForeignProjection((Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean).slice(0, STEWARD_SELF_SERVE_PER_TURN_MAX));
+  const notes = stewardForeignProjection((Array.isArray(selfServeNotes) ? selfServeNotes : []).filter(Boolean));
   const headlines = rows.map(row => stewardEventLine(row, sid => titles.get(sid) || ''));
   const bodies = rows.map(row => stewardDeliverableBlock(row, titles.get(safeSessionId(row && row.sessionId)) || ''));
   // 127 波 2-quater B1 ③:豁免命令摘录块(没有 exempt 的行是空串,消息与修前逐字节相同)。
