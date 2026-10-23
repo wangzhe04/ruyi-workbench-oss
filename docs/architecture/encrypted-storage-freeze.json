@@ -52,7 +52,10 @@
     "steward-visits",
     "agent-run-snapshot",
     "web-cache",
-    "external-bots"
+    "external-bots",
+    "session-index",
+    "session-v1-backup",
+    "proxy-models-cache"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -156,7 +159,7 @@
         }
       ],
       "reason": "sidebar titles and gists are sensitive; only the opaque key and a timestamp stay readable",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-v1-backup",
@@ -165,7 +168,7 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "legacy migration artifact: sealed like the session it restores, retired after the switch",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "journal-index",
@@ -543,7 +546,7 @@
         }
       ],
       "reason": "model list is provider metadata but can embed account-scoped ids",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "engine-transcript-index",

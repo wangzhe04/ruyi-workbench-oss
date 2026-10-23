@@ -161,6 +161,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (defaultRoute.fallbackReason && typeof onEvent === 'function') {
       onEvent({ type: 'stderr', text: `[Agent team] ${defaultRoute.fallbackReason}` });
     }
+    const proxyModelsCache = routeConfig.agentAutoModelTiering ? await getProxyModelsCache() : { models: [] };
     const ids = new Set(); nodes = [];
     for (const raw of rawNodes.slice(0, 64)) {
       const id = String(raw && raw.id || '').trim().slice(0, 64);
@@ -191,7 +192,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
       // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
       const matProvider = engine === 'openai' ? (defaultRoute.provider || provider) : provider;
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: engine === 'claude' && raw.maxIters == null ? claudeSubAgentTurnBudget(undefined, role) : engine === 'claude' && Number(raw.maxIters) === 0 ? 0 : Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider, proxyModelsCache), maxIters: engine === 'claude' && raw.maxIters == null ? claudeSubAgentTurnBudget(undefined, role) : engine === 'claude' && Number(raw.maxIters) === 0 ? 0 : Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -458,9 +459,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   const poolPolicy = ['manual', 'auto-capped', 'off'].includes(run.poolPolicy) ? run.poolPolicy : 'manual';
   const wfCwd = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
   // 工作流节点按各自 task 做轻量记忆预检；不再把整次 run 的同一份索引无差别塞给所有节点。
-  const proposeTaskImpl = (proposerId, args) => {
+  const proposeTaskImpl = async (proposerId, args) => {
     try {
       if (poolPolicy === 'off') return { ok: false, error: '任务池未启用' };
+      const proxyModelsCache = poolPolicy === 'auto-capped' && config.agentAutoModelTiering ? await getProxyModelsCache() : { models: [] };
       if (runtime.closing) return { ok: false, error: '工作流正在收尾,无法再提交提案' };
       if (!Array.isArray(run.taskPool)) run.taskPool = [];
       const task = String(args && args.task || '').trim().slice(0, 4000);
@@ -484,7 +486,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const cap = Number.isFinite(Number(run.poolAutoCap)) ? Number(run.poolAutoCap) : 3;
         const autoUsed = run.taskPool.filter(p => p !== item && p.decidedBy === 'auto' && p.status === 'materialized').length;
         if (autoUsed < cap) {
-          const mat = materializePoolItem(run, item, { roleLibrary, cwd: wfCwd, config, provider }); // 第30波:传 provider 供 model 白名单/tier 校验
+          const mat = materializePoolItem(run, item, { roleLibrary, cwd: wfCwd, config, provider, proxyModelsCache }); // 第30波:传 provider 供 model 白名单/tier 校验
           if (mat.ok) { item.status = 'materialized'; item.decidedBy = 'auto'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id; try { runtime.poolGraceArmed = true; } catch {} appendAgentRunEvent(run, { type: 'run_pool', data: { action: 'materialized', poolId: item.id, by: 'auto' } }); }
           else { item.materializeError = String(mat.error || '').slice(0, 2000); }
         }
@@ -1852,7 +1854,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // 第30波:编排可用时注入"可选模型 + 能力档位 + 按难度选型指引",让 AI 自主为不同节点选模型。数据取 offlineModelList,零网络。
   if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
-    volatileExtras += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
+    volatileExtras += await buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
     // 代理模式 v2:后台规则 + 信封契约(只改这段子代理/后台文字)。
     volatileExtras += '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）；届时本对话若已空闲，工作台会自己起一个新回合把信封送来，所以主线做完就可以结束本回合（告诉用户代理还在后台跑），不必空等。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。send_to_agent({action:"list",runId?}) 查询本会话活组或指定组的节点实时资格；queued 表示可排队，名单不保证随后送达。消息是参考通信，不会重启终态节点；明确续派用 orchestrate_agents({followup:{previousRunId,previousNodeId,task}}) 新建独立 run。任务池默认 off；显式 poolPolicy:"manual" 仅开放待审批提案，审批物化仍受原发起回合预算约束，不会自动扩展。';
   }

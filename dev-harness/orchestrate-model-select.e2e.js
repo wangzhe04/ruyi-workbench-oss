@@ -9,6 +9,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 'use strict';
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
+const { functionBlock } = require('./lib/source-slice');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
 
@@ -50,8 +51,8 @@ ok(/function modelCapabilityTier\(id, label\)/.test(src), 'S 能力档位启发�
 ok(/const CLAUDE_ALIAS_IDS = new Set\(\['opus', 'sonnet', 'haiku'\]\)/.test(src), 'S CLAUDE_ALIAS_IDS(44e:别名仅引擎归属判定,不进显示列表)');
 ok(/function buildModelHint\(config, provider\)/.test(src), 'S 模型档位提示 buildModelHint(引擎分组,2 参带 provider)');
 ok(/OpenAI 引擎节点\(engine:openai\)可选/.test(src) && /Claude 引擎节点\(engine:claude\)可选/.test(src), 'S buildModelHint 按引擎分组(防选错)');
-ok(/function tierModelForNode\(toolTier, engine, config, provider\)/.test(src), 'S tier 兜底 tierModelForNode(引擎感知)');
-ok(/function resolveNodeModel\(rawModel, roleModel, toolTier, engine, config, provider\)/.test(src), 'S 统一解析 resolveNodeModel(带 engine)');
+ok(/function tierModelForNode\(toolTier, engine, config, provider, proxyCache\)/.test(src), 'S tier 兜底 tierModelForNode(引擎感知)');
+ok(/function resolveNodeModel\(rawModel, roleModel, toolTier, engine, config, provider, proxyCache\)/.test(src), 'S 统一解析 resolveNodeModel(带 engine)');
 // 对抗轮修:去掉白名单丢弃 + inherit 归空。
 ok(!/isKnownModelId/.test(src), 'S 白名单丢弃已移除(isKnownModelId 不再存在 —— 消除误杀真实模型的回归)');
 ok(/if \(m === 'inherit'\) m = '';/.test(src), 'S resolveNodeModel: inherit 归一为空(修 OpenAI 把字面量当模型发失败)');
@@ -60,14 +61,14 @@ ok(/if \(m\) return m;\s*\/\/ 显式非空 → 原样尊重/.test(src), 'S resol
 ok(/if \(engine === 'claude'\) return '';/.test(src), 'S tier 兜底:claude 引擎继承 CLI 默认(不猜)');
 ok(/for \(const id of \(config\.knownModels \|\| \[\]\)\) if \(id\) ids\.push\(String\(id\)\);/.test(src) && /\.filter\(id => !CLAUDE_ALIAS_IDS\.has\(id\) && !claudeCacheIds\.has\(id\)\)/.test(src), 'S tier 池拓宽 knownModels/config.model 且排除 Claude 别名+代理缓存(修 provider.models=[] 静默失效;第44波缓存同属 Claude 端)');
 // 三写入点都走 resolveNodeModel(engine 参)。
-ok(/const matProvider = engine === 'openai' \? \(defaultRoute\.provider \|\| provider\) : provider;/.test(src) && /engine, model: resolveNodeModel\(raw\.model, roleModel, explicitTier \|\| \(role && role\.toolTier\) \|\| 'read', engine, routeConfig, matProvider\)/.test(src), 'S 主 DAG 写入点使用预检后的默认路由解析模型(带 engine)');
-ok(/const poolModel = resolveNodeModel\(item\.model, poolRoleModel \|\| \(proposer && proposer\.model\), toolTier, engine, opts\.config, opts\.provider\);/.test(src), 'S 池物化用 resolveNodeModel');
+ok(/const matProvider = engine === 'openai' \? \(defaultRoute\.provider \|\| provider\) : provider;/.test(src) && /engine, model: resolveNodeModel\(raw\.model, roleModel, explicitTier \|\| \(role && role\.toolTier\) \|\| 'read', engine, routeConfig, matProvider, proxyModelsCache\)/.test(src), 'S 主 DAG 写入点使用预检后的默认路由解析模型(带 engine)');
+ok(/const poolModel = resolveNodeModel\(item\.model, poolRoleModel \|\| \(proposer && proposer\.model\), toolTier, engine, opts\.config, opts\.provider, opts\.proxyModelsCache\);/.test(src), 'S 池物化用 resolveNodeModel');
 ok(/function singleAgentShorthandNode\(args\)/.test(src) && /if \(args\.model\) node\.model = args\.model;/.test(src), 'S 代理模式 v2:单代理简写透传 model,由主 DAG 写入点 resolveNodeModel 解析(旧 spawn 站点已删)');
 // propose_task model 通道。
 ok(/model: \{ type: 'string', description: '可选。为新节点按任务难易指定模型/.test(src) && /model: String\(args && args\.model \|\| ''\)\.trim\(\)\.slice\(0, 160\), \/\/ 第30波/.test(src), 'S propose_task model 通道(schema + item)');
 // 两引擎注入 buildModelHint(带 provider)+ Claude 侧索引信道(第35波 P2: stdin indexSecs)。
-ok(/volatileExtras \+= buildModelHint\(config, provider\);/.test(src), 'S provider 引擎在 volatile user 前缀注入 buildModelHint(带 provider)');
-ok(/const oh = buildOrchestrateHint\(wfs\);/.test(src) && /if \(oh\) indexSecs\.push\(oh\);/.test(src) && /const mh = buildModelHint\(config, activeOpenAiProvider\(config\)\);/.test(src) && /if \(mh\) indexSecs\.push\(mh\);/.test(src), 'S Claude 引擎:编排提示与模型提示各自独立进 stdin 索引段(第35波 P2:indexSecs 注入,不再连坐丢弃、不走命令行故无需 % ! 中和)');
+ok(/volatileExtras \+= await buildModelHint\(config, provider\);/.test(src), 'S provider 引擎在 volatile user 前缀注入 buildModelHint(带 provider)');
+ok(/const oh = buildOrchestrateHint\(wfs\);/.test(src) && /if \(oh\) indexSecs\.push\(oh\);/.test(src) && /const mh = await buildModelHint\(config, activeOpenAiProvider\(config\)\);/.test(src) && /if \(mh\) indexSecs\.push\(mh\);/.test(src), 'S Claude 引擎:编排提示与模型提示各自独立进 stdin 索引段(第35波 P2:indexSecs 注入,不再连坐丢弃、不走命令行故无需 % ! 中和)');
 // schema 描述改为"填错会失败"(不再宣称"忽略回落")。
 ok(/Omit by default so the runtime can validate and use the configured sub-agent preferred endpoint\/model/.test(src) && /fall back to the current conversation endpoint\/model/.test(src), 'S orchestrate model 描述要求默认走预检偏好→当前对话回退');
 // ── 第44波(模型列表 API 化):版本化型号不再硬编码;代理 /v1/models 发现写 sidecar 缓存;Claude 组=别名∪缓存 ──
@@ -75,9 +76,9 @@ ok(!/id: 'claude-opus-4-8'/.test(src) && !/id: 'claude-fable-5'/.test(src) && !/
 ok(!/\{ id: 'opus',/.test(src) && !/\{ id: 'sonnet',/.test(src) && !/\{ id: 'haiku',/.test(src), 'S 44e:别名也出显示列表(MODEL_PRESETS 只剩 默认)');
 ok(/const PROXY_MODELS_CACHE_PATH = \(\) => path\.join\(paths\.data, 'proxy-models-cache\.json'\);/.test(src), 'S 代理缓存 sidecar(dataRoot 独立文件,不入 config 防竞态)');
 ok(/function getProxyModelsCache\(\)/.test(src) && /function setProxyModelsCache\(models\)/.test(src), 'S 缓存读写函数存在');
-ok(/for \(const m of getProxyModelsCache\(\)\.models\) add\(m\.id, m\.label\);/.test(src), 'S offlineModelList 合并代理缓存');
-ok(/if \(proxy\.length\) setProxyModelsCache\(proxy\);/.test(src), 'S discoverModels 发现成功即写缓存');
-ok(/atomicWriteJson\(PROXY_MODELS_CACHE_PATH\(\), next\)/.test(src), 'S 缓存经 atomicWriteJson 落盘(25.1 纪律)');
+ok(/for \(const m of \(proxyCache \|\| await getProxyModelsCache\(\)\)\.models\) add\(m\.id, m\.label\);/.test(src), 'S offlineModelList 合并代理缓存');
+ok(/if \(proxy\.length\) await setProxyModelsCache\(proxy\);/.test(src), 'S discoverModels 发现成功即写缓存');
+ok(/writeJson: atomicWriteJson/.test(src) && /await proxyModelsCacheStore\(\).write\(JSON.stringify\(next, null, 2\)\)/.test(src), 'S 缓存经 WorkDataStore 与 atomicWriteJson 落盘(25.1 纪律)');
 ok(/CLAUDE_ALIAS_IDS\.has\(m\.id\) \|\| claudeCacheIds\.has\(m\.id\)/.test(src), 'S buildModelHint Claude 组=别名(用户持有的)∪代理缓存');
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -85,15 +86,15 @@ ok(/CLAUDE_ALIAS_IDS\.has\(m\.id\) \|\| claudeCacheIds\.has\(m\.id\)/.test(src),
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 console.log('\n── [P] 纯逻辑 ──');
 const grab = (re, name) => { const m = src.match(re); ok(!!m, 'P 源抽取 ' + name); return m ? m[0] : ''; };
-const offList = grab(/function offlineModelList\(config\) \{[\s\S]*?\n\}/, 'offlineModelList');
+const offList = functionBlock(src, 'offlineModelList');
 const mpresets = grab(/const MODEL_PRESETS = \[[\s\S]*?\];/, 'MODEL_PRESETS');
 const presetIds = grab(/const CLAUDE_ALIAS_IDS = new Set\([^;]*\);/, 'CLAUDE_ALIAS_IDS');
 const tier = grab(/function modelCapabilityTier\(id, label\) \{[\s\S]*?\n\}/, 'modelCapabilityTier');
 const tierLbl = grab(/const MODEL_TIER_LABEL = \{[^}]*\};/, 'MODEL_TIER_LABEL');
 const tierUse = grab(/const MODEL_TIER_USE = \{[^}]*\};/, 'MODEL_TIER_USE');
-const hint = grab(/function buildModelHint\(config, provider\) \{[\s\S]*?\n\}/, 'buildModelHint');
-const tierModel = grab(/function tierModelForNode\(toolTier, engine, config, provider\) \{[\s\S]*?\n\}/, 'tierModelForNode');
-const resolve = grab(/function resolveNodeModel\(rawModel, roleModel, toolTier, engine, config, provider\) \{[\s\S]*?\n\}/, 'resolveNodeModel');
+const hint = functionBlock(src, 'buildModelHint');
+const tierModel = functionBlock(src, 'tierModelForNode');
+const resolve = functionBlock(src, 'resolveNodeModel');
 // 第44波: offlineModelList/buildModelHint/tierModelForNode 现在读代理缓存 —— 抽取沙箱里注入 stub(夹具 2 条)。
 const cacheFixture = [{ id: 'claude-cache-strong', label: 'Claude Cache Strong【强】' }, { id: 'claude-cache-fast', label: 'Claude Cache Fast【快】' }];
 const cacheStub = 'const getProxyModelsCache = () => ({ at: "", models: ' + JSON.stringify(cacheFixture) + ' });';
@@ -110,6 +111,10 @@ ok(M.modelCapabilityTier('x', '自定义【快】') === 'fast', 'P 用户标签(
 
 const cfg = { knownModels: ['deepseek-v4-flash', 'qwen3.7-max-preview'], extraModels: [], model: 'glm-5-2-260617' };
 const prov = { id: 'deepseek', model: 'deepseek-v4-flash', models: [{ id: 'deepseek-v4-flash' }, { id: 'qwen3.7-max-preview' }] };
+// The pure tier/resolve helpers receive an already-authorized snapshot from async entry points.
+const tierFromSnapshot = M.tierModelForNode, resolveFromSnapshot = M.resolveNodeModel;
+M.tierModelForNode = (...args) => tierFromSnapshot(...args, { models: cacheFixture });
+M.resolveNodeModel = (...args) => resolveFromSnapshot(...args, { models: cacheFixture });
 // resolveNodeModel:显式尊重(合法/未知都不丢)+ inherit 归空 + 优先级链。
 ok(M.resolveNodeModel('qwen3.7-max-preview', '', 'read', 'openai', cfg, prov) === 'qwen3.7-max-preview', 'P 显式合法→尊重');
 ok(M.resolveNodeModel('some-real-but-unlisted', '', 'read', 'openai', cfg, prov) === 'some-real-but-unlisted', 'P 对抗轮:显式【未列出】也尊重(不误杀真实模型 —— 消除回归)');
@@ -133,12 +138,12 @@ ok(M.tierModelForNode('exec', 'openai', { knownModels: [], extraModels: [], mode
   const provDeep = { id: 'deepseek', model: 'ds-flash', models: [{ id: 'ds-flash' }, { id: 'ds-pro-max' }] };
   const cfgCross = { knownModels: ['qwen-plus', 'ds-flash'], extraModels: [], model: 'glm-x', agentAutoModelTiering: true };
   ok(M.tierModelForNode('exec', 'openai', cfgCross, provDeep) === 'ds-pro-max', 'P live修:provider 声明 models 时 exec 从【当前 provider】挑强(ds-pro-max),不选跨 provider 的 qwen/glm');
-  const hCross = M.buildModelHint(cfgCross, provDeep);
+  const hCross = await M.buildModelHint(cfgCross, provDeep);
   const oa = hCross.slice(hCross.indexOf('OpenAI 引擎节点'), hCross.indexOf('Claude 引擎节点') >= 0 ? hCross.indexOf('Claude 引擎节点') : hCross.length);
   ok(/ds-flash/.test(oa) && /ds-pro-max/.test(oa) && !/qwen-plus/.test(oa) && !/glm-x/.test(oa), 'P live修:OpenAI 组只列当前 provider 声明的模型(不混 knownModels/config.model 的跨 provider 模型)');
 }
 // buildModelHint 引擎分组。
-const h = M.buildModelHint(cfg, prov);
+const h = await M.buildModelHint(cfg, prov);
 ok(/OpenAI 引擎节点/.test(h) && /Claude 引擎节点/.test(h), 'P buildModelHint 按引擎分组');
 ok(/deepseek-v4-flash【快/.test(h) && /qwen3\.7-max-preview【强/.test(h), 'P openai 组含 provider 模型带档位');
 // deepseek(openai)清单不应把 Claude 别名 opus 放进 openai 组;opus 应在 Claude 组。
@@ -147,14 +152,14 @@ ok(!/opus|sonnet|haiku/.test(oaSeg), 'P 对抗轮:Claude 预设别名不进 Open
 ok(/须与节点 engine 匹配/.test(h) && /填与引擎不符或不存在的模型会让该节点失败/.test(h), 'P buildModelHint 含引擎匹配 + 填错失败声明');
 
 // ── 第44波: 代理缓存合流 + 引擎归属(cacheFixture 2 条:claude-cache-strong/fast) ──
-const off = M.offlineModelList({ knownModels: ['remembered-x'], extraModels: ['my-custom|我的'], model: '' });
+const off = await M.offlineModelList({ knownModels: ['remembered-x'], extraModels: ['my-custom|我的'], model: '' });
 ok(off.some(m => m.id === ''), 'P 离线列表保留 默认(CLI 配置)');
 ok(!off.some(m => ['opus', 'sonnet', 'haiku'].includes(m.id)), 'P 44e:离线列表不再含别名 opus/sonnet/haiku');
 ok(!off.some(m => m.id === 'claude-opus-4-8') && !off.some(m => m.id === 'claude-fable-5'), 'P 离线列表无版本化硬编码型号');
 ok(off.some(m => m.id === 'claude-cache-strong' && m.label === 'Claude Cache Strong【强】'), 'P 离线列表合并代理缓存(带 label)');
 ok(off.some(m => m.id === 'my-custom' && m.label === '我的') && off.some(m => m.id === 'remembered-x'), 'P 离线列表保留 extraModels/knownModels');
 // Claude 组含缓存;openai 兜底池(provider 未声明时)排除缓存 —— 防跨引擎诱导。
-const h2 = M.buildModelHint({ knownModels: ['claude-cache-strong', 'qwen-plus'], extraModels: [], model: '' }, { models: [] });
+const h2 = await M.buildModelHint({ knownModels: ['claude-cache-strong', 'qwen-plus'], extraModels: [], model: '' }, { models: [] });
 const clSeg = h2.slice(h2.indexOf('Claude 引擎节点'));
 ok(/claude-cache-strong/.test(clSeg), 'P Claude 组含代理缓存模型');
 const oaSeg2 = h2.slice(h2.indexOf('OpenAI 引擎节点'), h2.indexOf('Claude 引擎节点') >= 0 ? h2.indexOf('Claude 引擎节点') : h2.length);

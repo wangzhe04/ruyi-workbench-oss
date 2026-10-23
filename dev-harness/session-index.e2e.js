@@ -105,6 +105,9 @@ const byId = arr => new Map((arr || []).map(e => [String(e.id), e]));
     ok(ids.every(Boolean) && new Set(ids).size === 3, 'three sessions created');
 
     // ── ① list builds an index that matches the real files ──────────────────────────────────────────────
+    // Boot readers can already have created an empty/partial index. Pending metadata is deliberately
+    // visible before its 200ms flush, so explicitly establish this case's cold rebuild precondition.
+    fs.rmSync(IDX, { force: true });
     const l1 = await getJson(WB_PORT, '/api/sessions', hdr);
     ok(l1.status === 200 && l1.json && l1.json.ok && l1.json.sessions.length === 3, '① GET /api/sessions → 3 sessions');
     await sleep(50);

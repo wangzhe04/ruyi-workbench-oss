@@ -29,6 +29,7 @@ const VERSION = '3.0.1'; // 如意 Ruyi 3.0.1 修复更新（2026-10-16）
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 // Runtime execution admission/cancellation hooks; early declaration also serves session rewind.
 const SessionExecutionHooks = {};
+const ProxyModelHooks = {};
 const DeliveryHooks = {};
 const ExternalBotHooks = {};
 const DEFAULT_PORT = 8765;

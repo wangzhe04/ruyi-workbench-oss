@@ -22,7 +22,7 @@ const EXCLUDED = 'excluded';
 const OWN_ENVELOPE = new Set(['credential-vault-v1', 'credential-import-v1', 'privacy-mapping-v1', 'external-bot-credentials']);
 // M3-2: families whose adapter is wired while the switch is still off by default and no data has been
 // migrated. They may be 'wired' but must never be claimed as implemented until M3-3.
-const ADAPTER_WIRED = Object.freeze(['session-head', 'session-messages', 'session-provider', 'session-scratchpad', 'voice-lexicon', 'memory-usage', 'steward-cursor', 'engine-transcript-index', 'steward-memory', 'agent-instructions-import', 'memory-relations', 'memory-proposals', 'session-interventions', 'session-changes', 'mission-container', 'playbooks', 'memory-meta', 'personal-workflows', 'steward-visits', 'agent-run-snapshot', 'web-cache', 'external-bots']);
+const ADAPTER_WIRED = Object.freeze(['session-head', 'session-messages', 'session-provider', 'session-scratchpad', 'voice-lexicon', 'memory-usage', 'steward-cursor', 'engine-transcript-index', 'steward-memory', 'agent-instructions-import', 'memory-relations', 'memory-proposals', 'session-interventions', 'session-changes', 'mission-container', 'playbooks', 'memory-meta', 'personal-workflows', 'steward-visits', 'agent-run-snapshot', 'web-cache', 'external-bots', 'session-index', 'session-v1-backup', 'proxy-models-cache']);
 
 // [id, encryption, keyPurpose, migrationBatch, plaintextFields, reason]
 // plaintextFields: [[field, why], ...] — the smallest readable metadata the family needs while its

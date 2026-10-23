@@ -1,0 +1,427 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "status": "batch_verified_with_staged_gates",
+  "baselineCommit": "a61144fc",
+  "syntheticOnly": true,
+  "userDataChanged": false,
+  "scope": [
+    "session-index",
+    "session-v1-backup",
+    "proxy-models-cache",
+    "key lifecycle A owned snapshots and serial ensure",
+    "key lifecycle B operation-scoped credentials"
+  ],
+  "storage": {
+    "wired": 25,
+    "required": 41,
+    "remaining": 16,
+    "migrationUI": false
+  },
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "0e2938e5ef01efd394fd55b8a6a7e1e99537f26383f322e5e5cb0d294de57382"
+    },
+    {
+      "file": "ruyi-workbench/app/src/00-boot.js",
+      "sha256": "5a314fe31438ff4bc0ff1e2a74d07ca4f8df13ccf9d919c0cc22f0fc87595994"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01o-work-data-keys.js",
+      "sha256": "3168ef70cd9672010fc824a08cbaeded498ac558f4c35e06eaa79c23dbc7c173"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "sha256": "7f3feb70781f921cbcc192c69ffc244dadae8872520b212ce12b3e9c42a4402c"
+    },
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "795c951cec908ccbaf4cc8fe94c984381e9bd956d60f199be49a371960cb194b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/05-claude-engine.js",
+      "sha256": "2992147dfec7073a3c87b4ef519ce58355dbb5c9673fb06e1f4f677c0d1e55ed"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "fa28111823f9f1fc6d5176ddcea8b0e05c0e329fe648d87f114c988e27ebbcf9"
+    },
+    {
+      "file": "ruyi-workbench/app/src/06d-memory-domain.js",
+      "sha256": "b3d937aa8868878988c1793b41ff0f79bb4e5ca74f9dce5b8212545b64b89fc6"
+    },
+    {
+      "file": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "514f2cc79210c1e771c58034c473ad0be25a49e51feedc03d981f9adb918d84d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/08-agent-runs.js",
+      "sha256": "9c4e97dbb1ad24333ce69f8674653555d73bb5033f1b985adf4e60948a12e83d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "eadfb78657afb75bf11607b1325191ed162af2c7f8c45b461215cc800c5282da"
+    },
+    {
+      "file": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "8fec9e897e4bd745f2419d6787821ec852fdd96afc74ee069d79ee8a4a34de10"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "6849041710dee8d6e6bc00f0090a5220e940d433e63e0d12cae481001d278c15"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "sha256": "c019242a34bf7be9a65edc0bdaee52f84b0e2fcadff04678c133c72231212735"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13e-pretender-index.js",
+      "sha256": "54da59f1070e40625bf4c74301c1e8db2b8171c5ecdc384595728a5ffcd4cb7d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13i-steward-inbox.js",
+      "sha256": "e82cf245adb080b467b69f681457f6128e48662bf9961ead5f31abb48a1893f6"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "sha256": "96dbc8adf0d000c677cb58b84967de4be151d4e77533ad3ad9694f98f720418a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "sha256": "2df7c81b939bab7a38f21d53d650d45e5263df38dd86e946df06c3abed403f6a"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "6b875cb079e3bd67cb47198740bb7d5b3d3ead21ff46b36518cd7e7bb116152e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "196053e9fdc410e0f718c1e4ddb8ec6760242d4990af3d72f02331c14174b2f7"
+    },
+    {
+      "file": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "680398ceea429401d079804e1c4509052ee9880e42d0420810bd36ba792e49d3"
+    }
+  ],
+  "newTests": [
+    {
+      "file": "dev-harness/session-artifacts-work-data.e2e.js",
+      "sha256": "954bd2a41c166b0e79c5c30ca42bf3755a74d9a8c09e9c46a6763d7befa87d12"
+    },
+    {
+      "file": "dev-harness/proxy-models-work-data.e2e.js",
+      "sha256": "4ae9267da182bda183444e7e3e7b6559b45567e330c0ad7d7edfed769c641244"
+    },
+    {
+      "file": "dev-harness/unit/session-artifacts-work-data.test.js",
+      "sha256": "5d375642d00701f554fdc81730595de6cfaf848a70a6a31fa7362360bcd0bc69"
+    },
+    {
+      "file": "dev-harness/unit/proxy-models-work-data.test.js",
+      "sha256": "33d5c863e9e536369ae9701635190e9bdeb2b7646ce08c738611a07581220e13"
+    },
+    {
+      "file": "dev-harness/unit/work-data-keys-lifecycle.test.js",
+      "sha256": "35ddcbb33719eb0ba0c38532eef57258e154185c90c01ac4c4f7f6f1a2203297"
+    },
+    {
+      "file": "dev-harness/unit/work-data-key-scopes.test.js",
+      "sha256": "9a104b049d28a17cb8465b95e497cd73b4d25d0a3c4ddcc8b127600ab264101b"
+    },
+    {
+      "file": "dev-harness/unit/work-data-key-owner-paths.test.js",
+      "sha256": "f828fb877358676aedaf88aca27898109e026fd57ff9d5ffee0ac6e3094f5961"
+    }
+  ],
+  "sourceUnit": {
+    "finalApplied": {
+      "pass": 54,
+      "fail": 0,
+      "skip": 0,
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\keys-B-index-proxy-applied.log",
+        "sha256": "6fc30c64d4995f52ecde872d7ab3e63f6850024f686b2bb203c6fbe26af6c789"
+      }
+    },
+    "initialCommandCorrection": "The initial combined command misspelled singular work-data-key-lifecycle.test.js and Node omitted it: 33 tests really passed, not 45. The exact plural lifecycle filename then passed all12; final combined54 includes it."
+  },
+  "independentReview": {
+    "sessionArtifacts": {
+      "reviewer": "privacy_review",
+      "status": "no blockers after fixes",
+      "fixes": [
+        "invalidate under the common writer chain",
+        "retirement checks complete ctime/inode/size/mtime and current key/instance",
+        "ordinary backup EIO is distinct from absent across four consumers"
+      ],
+      "packet": "C:/Users/87179/AppData/Local/Temp/ruyi-session-artifacts-draft-8d55bc129f3e4e9faa0793803dcca665/handoff.json"
+    },
+    "proxyModels": {
+      "reviewer": "root",
+      "status": "no blockers after fixtures and async registry consumer fixed",
+      "scope": "all async read/write and task-pool approval/proposal entry points; preserved synchronous critical model materialization"
+    },
+    "keysA": {
+      "reviewer": "privacy_review",
+      "status": "no blockers after random16 failure cleanup fix",
+      "packet": "C:/Users/87179/AppData/Local/Temp/ruyi-work-keys-lifecycle-b2de13e01c434e03b02cfd83900adcec/A-validation.json",
+      "baselineDefects": [
+        "same instance but new protectedKey reused stale cached master",
+        "clear during awaited instance zeroed a borrowed in-flight master",
+        "concurrent ensure created two masters"
+      ]
+    },
+    "keysB": {
+      "status": "independent review: no blocking finding",
+      "scope": "Exact TEMP B patch; no repo edits/build/direct E2E",
+      "patchSha256": "28748B8CDD210AC701FC9CE87B8470F7C5829758CAEC2E6B83603B1C890A7B50",
+      "testSha256": "1EE62E8AA16FA1F70EB7779EEB7830C3635F96C7A104AA92889ED7B5C91F07D3",
+      "logSha256": "04A55FC887D20E289370666C07B328D50191212E30D3F8466D80DCFE45F87D16",
+      "sourcePass": 7,
+      "sourceFail": 0,
+      "sourceSkip": 0,
+      "negativeControls": [
+        {
+          "mutation": "credential reacquired per guard/encode",
+          "observed": "work_data_chunk.binding_mismatch",
+          "exit": 1
+        },
+        {
+          "mutation": "owned operation Buffer not zeroed",
+          "observed": "nonzero operation key assertion",
+          "exit": 1
+        }
+      ],
+      "limits": [
+        "Legacy custom unlock/instance consistency remains provider contract",
+        "No cross-file rotation, process CAS, keyring or revocation claim",
+        "Custom provider release can fail after publication; native A release is synchronous idempotent zero"
+      ]
+    },
+    "metadata": {
+      "reviewer": "privacy_repro",
+      "status": "36 initial identities,7 final-B DPAPI logs,54 source tests and70-surface/41required/25wired counts checked; no blockers",
+      "correction": "two new E2E tests cover three families; corrected wording in94§20"
+    },
+    "finalArchitecture": {
+      "reviewer": "storage_progress",
+      "status": "independent static review, no blockers",
+      "scope": "ProxyModelHooks registration/await consumers, random .sealed-stage/finally cleanup, Q3 positive observations, and index E2E settle owner-chain barrier; all independently reviewed without blockers"
+    }
+  },
+  "actualWindowsDPAPI": {
+    "generatedServerSha256": "c814ec4b845b107fd5dfb69a062f0902a3c365f82095fd35856ed87b7ccfba94",
+    "allPassed": true,
+    "logs": [
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\session-artifacts-work-data-keys-B-final-1.log",
+        "sha256": "11940287c40a30ac1064bf58a070843501f4acf1fc78e91c772559b98871a124"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\session-artifacts-work-data-keys-B-final-2.log",
+        "sha256": "11940287c40a30ac1064bf58a070843501f4acf1fc78e91c772559b98871a124"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\proxy-models-work-data-keys-B-final-3.log",
+        "sha256": "55c7d0f9431acf8612959f7d0e9f60890a6974504bf8350ef2df7378940186d5"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\proxy-models-work-data-keys-B-final-4.log",
+        "sha256": "55c7d0f9431acf8612959f7d0e9f60890a6974504bf8350ef2df7378940186d5"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\agent-run-snapshot-work-data-keys-B-final-5.log",
+        "sha256": "593a8c5438d404f1b2600548e5102f2a8a8208e79401b49bfe71c38f5ab43aae"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\work-data-session-journals-keys-B-final-6.log",
+        "sha256": "0f203a0555585b6575266d49a34f2fbc53a8e92a29763771411ef435ffe7a9a3"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\personal-visits-work-data-keys-B-final-7.log",
+        "sha256": "842fd4ad289b5853ea05e5a246936d9f01c58a549783f999f5d71713fad4f5b3"
+      }
+    ]
+  },
+  "compatibility": {
+    "passed": [
+      "session-storage-v2",
+      "orchestrate-model-select",
+      "orchestration-blindspots"
+    ],
+    "sessionIndexFirstFailure": {
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\session-index-index-proxy-keys-A-final.log",
+        "sha256": "9f179ad4119f900647edf6ca7620b88ae2d7a68a86243ac52735ae15dfdf04ab"
+      },
+      "failed": 3,
+      "total": 34,
+      "explanation": "The initial GET used pending merge, not a cold rebuild; the old02 baseline reproduced the same three disk-timing failures. Only the test now removes the derived index before the first GET, explicitly requiring cold rebuild. Existing assertions and waits remain unchanged.",
+      "baselineEvidence": "C:/Users/87179/AppData/Local/Temp/ruyi-session-index-compat-abec4f9054b24a68b1a30cb20971eb6d/evidence.json",
+      "finalPass": 34,
+      "finalFail": 0,
+      "finalLog": "C:/Users/87179/AppData/Local/Temp/ruyi-session-index-compat-abec4f9054b24a68b1a30cb20971eb6d/fixture-cold-final.log"
+    }
+  },
+  "fullFast": {
+    "syntax": {
+      "checked": 1182,
+      "fail": 0,
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-syntax.log",
+        "sha256": "1c83908439967e6b17f7d16a2ea3a5726ed77e452f10e4e4202342820c15eca6"
+      },
+      "scope": "whole tree before final late-hook/staging-name and fixture-only corrections; final generated code compiled and changed tests parsed by targeted execution"
+    },
+    "build": {
+      "fresh": true,
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-build-check.log",
+        "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9"
+      },
+      "finalGeneratedServerSha256": "0e2938e5ef01efd394fd55b8a6a7e1e99537f26383f322e5e5cb0d294de57382"
+    },
+    "firstUnit": {
+      "tests": 2755,
+      "pass": 2716,
+      "fail": 13,
+      "skip": 26,
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-all-unit.log",
+        "sha256": "b220c4a8d527502bf6a64c82c92dc5c17e04e261dcce51ff2a06d5e00f0cf799"
+      },
+      "reason": "Windows array buffer allocation/VirtualAlloc/out-of-memory/spawn UNKNOWN during unconstrained default concurrency. Some test files could not start or finish; failures are retained, not accepted as skips."
+    },
+    "concurrency2Unit": {
+      "tests": 2800,
+      "pass": 2773,
+      "fail": 1,
+      "skip": 26,
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-all-unit-concurrency2.log",
+        "sha256": "baec7f0e42096bdcfd7e25d88b23371638139c326787a3ee0cf1881dd3a3fab1"
+      },
+      "remainingFailure": "Q3 queue-budget fixture positive observation spun2000 setImmediate turns (~19ms) before real awaited config/ledger I/O finished. Isolated original fixture passed4/4; positive observations now use monotonic5-second deadlines while fake-clock half-hour and61-minute behavior assertions are unchanged."
+    },
+    "isolatedQueue": {
+      "pass": 4,
+      "fail": 0,
+      "initialDiagnostic": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\queue-robustness-unit-diagnostic.log",
+        "sha256": "4e750abd7116511000181035fb3619daeed9f55eebffb9e90ac0d2294b128189"
+      },
+      "final": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\queue-robustness-unit-final.log",
+        "sha256": "8741ffe5d239a892aed3247e31e1a995fa2eded67f8cf9717b42ea543aa73ba0"
+      }
+    },
+    "runnerUnit": {
+      "tests": 2800,
+      "pass": 2774,
+      "fail": 0,
+      "skip": 26,
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-runner-unit-final.log",
+        "sha256": "9222b58092b9d3c4927125fc69aeac3b016216b98781cd00fc595306afc80322"
+      },
+      "scope": "run-all --fast preflight full unit run; before final product late-hook and staging-name corrections"
+    },
+    "static": {
+      "pass": 79,
+      "fail": 2,
+      "total": 81,
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-fast-static.log",
+        "sha256": "7605eafb961f1ec989da9c6085ea087d123419e8060beecb6e2665e94e95ac0f"
+      },
+      "failures": [
+        "new direct13d->13 cache call adds an unreviewed cycle edge",
+        "new random sealed backup stage ended in .tmp, matching the existing fixed-tmp textual gate"
+      ],
+      "fixes": [
+        "early00 ProxyModelHooks declaration and13 registration;13d uses the narrow late-bound reader, retains all awaits/critical state rechecks",
+        "random exclusive private backup staging uses explicit .sealed-stage suffix, cleanup asserted; no fixed tmp writer added"
+      ],
+      "finalTargeted": [
+        {
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-durable-final.log",
+          "sha256": "71c6e00d86e9e68f73e59088790789b83dec4389ed9058cca187da84a34ae27b"
+        },
+        {
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-graph-final.log",
+          "sha256": "9940d9a1770d1503e367a7b4aa5ffacd809ff56919328b1d765b23c55884ecdb"
+        }
+      ],
+      "finalGraph": {
+        "modules": 94,
+        "edges": 663,
+        "sccCount": 1,
+        "sccMaxMembers": 31
+      }
+    },
+    "unifiedFinalRepeat": false,
+    "note": "All identified failures were corrected and affected groups passed. No claim that the whole syntax/unit/static runner was repeated as one final all-green run after the last small corrections. Full default offline E2E remains a later final privacy gate."
+  },
+  "limits": [
+    "No real user migration or UI enablement",
+    "Immutable old plaintext backups are preserved until successfully retired; not already migrated",
+    "Exclusive encrypted backup publication requires same-directory hard links; migration preflight must refuse unsupported filesystems",
+    "Owned operation snapshots do not provide cross-file rotation transactions, cross-process CAS or a keyring",
+    "Legacy custom unlock/instance consistency remains the provider contract",
+    "A custom provider release can fail after a write has committed; native release is synchronous/idempotent zeroing",
+    "Full default offline regression remains pending until the remaining privacy integration is complete"
+  ],
+  "finalArchitectureUnit": {
+    "pass": 58,
+    "fail": 0,
+    "skip": 0,
+    "log": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-final-targeted-unit-repeat.log",
+      "sha256": "82f9cf4ac10e832ee0aa73c1b864530fbbc1fd4d1b632b7736b9511660706c8c"
+    },
+    "firstFailure": {
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\index-keys-final-targeted-unit.log",
+        "sha256": "d6f33987c80e3f11de99f15fea356c7686a641ba9b39f9c58625ce5245e19bd1"
+      },
+      "pass": 57,
+      "fail": 1,
+      "reason": "A source-sliced approval fixture still asserted/injected the direct cache function after the approved late hook refactor. Updated the fixture to inject ProxyModelHooks.read; all post-await stop/no-materialization assertions remain."
+    }
+  },
+  "finalGeneratedDPAPI": {
+    "generatedServerSha256": "0e2938e5ef01efd394fd55b8a6a7e1e99537f26383f322e5e5cb0d294de57382",
+    "allPassed": true,
+    "logs": [
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\session-artifacts-architecture-final-repeat.log",
+        "sha256": "11940287c40a30ac1064bf58a070843501f4acf1fc78e91c772559b98871a124"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\session-artifacts-architecture-final-repeat2.log",
+        "sha256": "11940287c40a30ac1064bf58a070843501f4acf1fc78e91c772559b98871a124"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\proxy-models-architecture-final.log",
+        "sha256": "55c7d0f9431acf8612959f7d0e9f60890a6974504bf8350ef2df7378940186d5"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\model-select-architecture-final.log",
+        "sha256": "231a0e7988cb63d9f10ec18ae8b948f5c709a2e3864a2f0568f3ef97cec3e360"
+      },
+      {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\pool-blindspots-architecture-final.log",
+        "sha256": "dd62042de9d2ede48bcd8e7ce3a3104124a422f5415d5d151d7c11ef523ea925"
+      }
+    ],
+    "initialFixtureFailure": {
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\session-artifacts-architecture-final.log",
+        "sha256": "8936e0c7aad0daa8bd8adf45fd908066b6872769acc400d7d403d60209eb9829"
+      },
+      "reason": "The timer had already taken a pending index batch, so flushSessionIndex returned while the old in-flight batch still owned the writer chain. The test then wrote its synthetic500-row index outside that owner and the old batch overlaid two actual metadata rows. settle now joins withSessionIndexLock before installing synthetic data; original cold exact assertions stay unchanged."
+    },
+    "scope": "Two real-DPAPI session-artifact runs and one real-DPAPI proxy-cache run, plus two existing generated model/pool regressions"
+  }
+}

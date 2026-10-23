@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 94,
-    "providedSymbols": 3936,
-    "requiredSymbols": 3584,
-    "edges": 662,
+    "providedSymbols": 3957,
+    "requiredSymbols": 3589,
+    "edges": 663,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -36,6 +36,7 @@
         "MigrationHooks",
         "OVERLAY_ID",
         "PS_UTF8_OUTPUT_PREAMBLE",
+        "ProxyModelHooks",
         "RUYI_DATA_DIR_NAME",
         "RUYI_EVENTS",
         "RUYI_EVENT_SUBSCRIBERS",
@@ -1497,6 +1498,7 @@
         "dropInterventionSessionState",
         "dropSessionBodyState",
         "encodeSessionJournalReplacement",
+        "ensureSessionV1Backup",
         "evaluateMissionCheck",
         "evictSessionBodyStateOverflow",
         "finalizeMissionAfterTurn",
@@ -1515,6 +1517,7 @@
         "interventionTransitionLocks",
         "interventionWriteChains",
         "invalidateSessionIndex",
+        "invalidateSessionIndexNow",
         "isProviderToolArgsObject",
         "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
@@ -1634,6 +1637,7 @@
         "readSessionNotes",
         "readSessionRouteHead",
         "readSessionScratchpad",
+        "readSessionV1BackupRecord",
         "rebaseStaleSessionBody",
         "reconcileMissionThreads",
         "reconcileWorkspaceTurnBaseline",
@@ -1649,6 +1653,7 @@
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
         "repairSealedSessionJournalTail",
+        "retireSessionV1Backup",
         "rewindSession",
         "rewindSessionContents",
         "safeMissionId",
@@ -1659,6 +1664,9 @@
         "scheduleSessionIndexUpdate",
         "scratchpadTotalChars",
         "serializeSessionBody",
+        "sessionArtifactCredential",
+        "sessionArtifactStamp",
+        "sessionArtifactStore",
         "sessionAssociatedSaveIsTombstoned",
         "sessionBodyCodec",
         "sessionBodyDanglingFromLines",
@@ -1687,13 +1695,17 @@
         "sessionIndexChain",
         "sessionIndexFileStamp",
         "sessionIndexFlushTimer",
+        "sessionIndexInvalidated",
+        "sessionIndexInvalidationSeq",
         "sessionIndexKnownBadHeads",
         "sessionIndexLatestWrite",
         "sessionIndexMemo",
         "sessionIndexPath",
+        "sessionIndexPlainSourceStamp",
         "sessionIndexRebuildScanHook",
         "sessionIndexRebuildsActive",
         "sessionIndexRetireSeq",
+        "sessionIndexStore",
         "sessionIndexWriteSeq",
         "sessionJournalAppendState",
         "sessionJournalAppendStates",
@@ -1726,6 +1738,9 @@
         "sessionScratchpadStore",
         "sessionTitleOverrides",
         "sessionTodosSignature",
+        "sessionV1BackupPath",
+        "sessionV1BackupShape",
+        "sessionV1BackupStore",
         "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
         "settleIntervention",
@@ -7607,6 +7622,7 @@
         "agentRunDir",
         "agentRunFile",
         "agentRunSnapshotCredential",
+        "agentRunSnapshotStamp",
         "agentRunSnapshotStore",
         "agentRunWriteChains",
         "agentWorktreePathOwned",
@@ -9012,7 +9028,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "agentRunSnapshotCredential",
+          "symbol": "agentRunSnapshotStamp",
           "kinds": [
             "call"
           ]
@@ -11328,6 +11344,13 @@
         {
           "provider": "13-http-router.js",
           "symbol": "buildModelHint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "getProxyModelsCache",
           "kinds": [
             "call"
           ]
@@ -14035,8 +14058,13 @@
         "probeHealth",
         "processCommandLine",
         "processImage",
+        "proxyModelsCacheChains",
+        "proxyModelsCacheFailure",
         "proxyModelsCacheMemo",
+        "proxyModelsCacheMemoState",
+        "proxyModelsCacheStore",
         "readOwnRuntimeRecord",
+        "readProxyModelsCache",
         "resetOrphanedMissionDrivers",
         "resolveBindHost",
         "resolveNodeModel",
@@ -14287,6 +14315,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "ProxyModelHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "readline",
           "kinds": [
             "read"
@@ -14295,6 +14330,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "recordInstallLaunch",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
           "kinds": [
             "call"
           ]
@@ -14366,7 +14408,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -14715,6 +14758,13 @@
         {
           "provider": "01h-privacy-core.js",
           "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
           "kinds": [
             "read"
           ]
@@ -16793,6 +16843,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "ProxyModelHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "runKeyedChain",
           "kinds": [
             "call"
@@ -18066,7 +18123,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "agentRunSnapshotCredential",
+          "symbol": "agentRunSnapshotStamp",
           "kinds": [
             "call"
           ]
@@ -32419,7 +32476,7 @@
         "activeAgentRuns",
         "agentRunDir",
         "agentRunFile",
-        "agentRunSnapshotCredential",
+        "agentRunSnapshotStamp",
         "agentRunSnapshotStore",
         "agentRunWriteChains",
         "bridgedToolTier",
@@ -32959,6 +33016,7 @@
       "to": "13-http-router.js",
       "symbols": [
         "buildModelHint",
+        "getProxyModelsCache",
         "resolveNodeModel"
       ],
       "direction": "forward"
@@ -33666,6 +33724,7 @@
         "EventStreamHooks",
         "ExternalBotHooks",
         "OVERLAY_ID",
+        "ProxyModelHooks",
         "SKILL_ID_RE",
         "URL",
         "VERSION",
@@ -33697,6 +33756,7 @@
         "paths",
         "readline",
         "recordInstallLaunch",
+        "runKeyedChain",
         "safeJsonParse",
         "spawnDetachedChecked",
         "text",
@@ -33803,6 +33863,14 @@
       "to": "01h-privacy-core.js",
       "symbols": [
         "PrivacyCore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13-http-router.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
       ],
       "direction": "backward"
     },
@@ -34710,6 +34778,7 @@
       "to": "00-boot.js",
       "symbols": [
         "EventStreamHooks",
+        "ProxyModelHooks",
         "RUYI_EVENTS",
         "URL",
         "apiFailure",
@@ -35055,7 +35124,7 @@
       "symbols": [
         "activeAgentRuns",
         "agentRunDir",
-        "agentRunSnapshotCredential",
+        "agentRunSnapshotStamp",
         "readAgentRunSnapshot"
       ],
       "direction": "backward"

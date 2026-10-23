@@ -154,6 +154,9 @@ async function waitFor(label, fn, tries = 120, gap = 250) {
   );
   // 代理缓存桩:假装 /v1/models 发现过 kimi-k2(Claude 端),它【绝不】应进 openai 池。
   const tier = sandbox(() => ({ models: [{ id: 'kimi-k2' }] }));
+  const tierFromSnapshot = tier.tierModelForNode, resolveFromSnapshot = tier.resolveNodeModel;
+  tier.tierModelForNode = (...args) => tierFromSnapshot(...args, { models: [{ id: 'kimi-k2' }] });
+  tier.resolveNodeModel = (...args) => resolveFromSnapshot(...args, { models: [{ id: 'kimi-k2' }] });
   const prov = { id: 'p1', model: 'qwen-max', models: [{ id: 'qwen-max' }, { id: 'qwen-turbo' }, { id: 'glm-4' }] };
   const cfgT = { agentAutoModelTiering: true, extraModels: [], knownModels: [] };
   for (const t of ['read', 'edit', 'exec']) {

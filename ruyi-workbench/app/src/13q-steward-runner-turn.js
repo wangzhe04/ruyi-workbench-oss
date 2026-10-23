@@ -636,7 +636,7 @@ function stewardVisitStore(file) {
     purpose: 'memory', schema: STEWARD_VISIT_SCHEMA, scopeId: STEWARD_SESSION_ID,
     recordId: 'visit:' + crypto.createHash('sha256').update(identity, 'utf8').digest('hex'),
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: atomicWriteJson,
     validateSealedText: text => {

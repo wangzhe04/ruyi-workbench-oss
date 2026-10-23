@@ -168,13 +168,20 @@ test('[Q3] 被预算挡着、没有回合在跑:窗口滑过去之后自己放�
   try {
     H.acquireTurnSlot({ sessionId: s.id, cwd: root, config: cfg, title: s.title }).then(r => { cDone = true; cRes = r; });
     const spin = async (n, until) => { for (let i = 0; i < n && !until(); i++) await new Promise(r => setImmediate(r)); };
-    await spin(2000, () => !!H.arbiterWait(s.id) && !!H.arbiterWait(s.id).budget);
+    // drain awaits real config/ledger I/O. An iteration count can finish in ~20ms
+    // under suite load, before that I/O returns. Bound positive observations by a
+    // real monotonic deadline; the mocked Date/setTimeout still controls the hour.
+    const observe = async until => {
+      const deadline = process.hrtime.bigint() + 5_000_000_000n;
+      while (!until() && process.hrtime.bigint() < deadline) await new Promise(r => setImmediate(r));
+    };
+    await observe(() => !!H.arbiterWait(s.id) && !!H.arbiterWait(s.id).budget);
     assert.ok(H.arbiterWait(s.id) && H.arbiterWait(s.id).budget, '前提:被预算挡着(没有任何回合在跑)');
     mock.timers.tick(30 * 60 * 1000);              // 半小时:窗口还没滑过去
     await spin(2000, () => cDone);
     assert.equal(cDone, false, '半小时时还不该放行');
     mock.timers.tick(31 * 60 * 1000);              // 再过 31 分钟:烧预算的那一笔滑出了小时窗
-    await spin(5000, () => cDone);
+    await observe(() => cDone);
     assert.equal(cDone, true, '窗口滑过去之后自己放行(修前没人唤醒,永远挂着)');
     assert.equal(cRes && cRes.granted, true);
   } finally {

@@ -561,7 +561,7 @@ const externalBotStore = (() => {
   const textStore = onSealed => WorkDataStore.createText({
     file: filePath, purpose: 'queue', schema: 1, scopeId: 'global', recordId: 'external-bots:state-v1',
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
     writeJson: atomicWriteJson,
     validateSealedText: text => { const value = parse(text, true); if (onSealed) onSealed(value); return true; },

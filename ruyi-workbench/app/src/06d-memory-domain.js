@@ -67,7 +67,7 @@ const memoryUsageStore = WorkDataStore.createJson({
   validate: value => value.schema === 1 && Boolean(value.entries) && typeof value.entries === 'object' && !Array.isArray(value.entries),
   quarantine: false,
   purpose: 'memory', scopeId: 'global', recordId: 'memory-usage',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
@@ -146,7 +146,7 @@ function memoryProjectMetaStore(dir) {
   return WorkDataStore.createText({
     file: () => path.join(dir, 'meta.json'), purpose: 'memory', schema: 1,
     scopeId: 'project:' + path.basename(dir), recordId: 'memory-meta',
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     validateSealedText: value => {
@@ -546,7 +546,7 @@ const agentInstructionImportStore = WorkDataStore.createJson({
   // M3-2d: 子代理指令导入所有权副车（purpose=memory / scope=global）。开关关时与旧 DurableJsonStore
   // 逐字节一致；读不动/坏文件仍按空表（旧契约），但解不开的密文必须冒泡——否则下一轮同步会用空表覆盖它。
   purpose: 'memory', scopeId: 'global', recordId: 'agent-instructions-import',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
@@ -1522,7 +1522,7 @@ function memoryProposalStateStore(sessionId) {
   return WorkDataStore.createText({
     file: () => memoryProposalStateFile(sessionId),
     purpose: 'memory', schema: 1, scopeId: safeSessionId(sessionId), recordId: 'memory-proposals',
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
   });
@@ -2016,7 +2016,7 @@ function memoryRelationsStore(scope, cwd) {
     file: () => memoryRelationsFile(scope, cwd),
     purpose: 'memory', schema: 1, scopeId: scope === 'global' ? 'global' : 'project:' + projectKeyForCwd(cwd),
     recordId: 'memory-relations',
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
   });

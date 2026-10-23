@@ -105,7 +105,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     // Claude 交互模式禁了原生 AskUserQuestion(--disallowedTools),提问走如意的 MCP 工具。
     nativeAskUserQuestion: false,
     modelCatalog: Object.freeze({
-      offline: config => offlineModelList(config),
+      offline: async config => offlineModelList(config),
       discover: async config => ({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(config)) }),
     }),
     // Claude 的上下文占用来自流内用量帧;没有可查询的原生状态面,也没有可从外部触发的原生压缩(用户在 CLI 里打 /compact)。
@@ -561,7 +561,7 @@ async function runClaudeTurn({
         const wfs = await getAgentWorkflows(workingDir).catch(() => []);
         const oh = buildOrchestrateHint(wfs);
         if (oh) indexSecs.push(oh);
-        const mh = buildModelHint(config, activeOpenAiProvider(config)); // openai 组模型取当前激活 provider
+        const mh = await buildModelHint(config, activeOpenAiProvider(config)); // openai 组模型取当前激活 provider
         if (mh) indexSecs.push(mh);
       }
     } catch { /* 编排提示注入绝不阻断回合 */ }
@@ -2151,7 +2151,7 @@ const voiceLexiconStore = WorkDataStore.createJson({
   // M3-2d: 工作数据加密（开关关时与旧 DurableJsonStore 逐字节一致）。键集经 01p 的延迟绑定钩子拿，
   // 免得本模块静态依赖 02、把 01o 拖进依赖环。
   purpose: 'user-config', scopeId: 'global', recordId: 'voice-lexicon',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   quarantine: true,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),

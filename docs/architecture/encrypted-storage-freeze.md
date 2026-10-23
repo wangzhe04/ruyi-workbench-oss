@@ -13,7 +13,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 
 Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v2 manifest and chunk envelopes. See [93 section 11](../optimization-plan/93-m3-1-encrypted-storage-freeze.md#11-m3-2-大记录格式补充2026-10-23); the frozen v2 crypto envelope is unchanged.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits`, `agent-run-snapshot`, `web-cache`, `external-bots` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits`, `agent-run-snapshot`, `web-cache`, `external-bots`, `session-index`, `session-v1-backup`, `proxy-models-cache` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -23,8 +23,8 @@ Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v
 | session-interventions | required | `session` | sessions | wired | — (nothing readable) | command journal carries the user commands and paths |
 | session-changes | required | `session` | sessions | wired | — (nothing readable) | change audit carries file paths and diffs |
 | session-scratchpad | required | `session` | sessions | wired | — (nothing readable) | model-owned notes are task content |
-| session-index | required | `session` | sessions | pending | `id` (sidebar row key (opaque session id)); `updatedAt` (sort order only, no user text) | sidebar titles and gists are sensitive; only the opaque key and a timestamp stay readable |
-| session-v1-backup | required | `session` | sessions | pending | — (nothing readable) | legacy migration artifact: sealed like the session it restores, retired after the switch |
+| session-index | required | `session` | sessions | wired | `id` (sidebar row key (opaque session id)); `updatedAt` (sort order only, no user text) | sidebar titles and gists are sensitive; only the opaque key and a timestamp stay readable |
+| session-v1-backup | required | `session` | sessions | wired | — (nothing readable) | legacy migration artifact: sealed like the session it restores, retired after the switch |
 | journal-index | required | `session` | sessions | pending | `seq` (checkpoint ordering) | file lists, hashes and per-entry payloads stay sealed |
 | journal-reverts | required | `session` | sessions | pending | — (nothing readable) | records which files the user undid |
 | journal-history | required | `session` | sessions | pending | — (nothing readable) | compressed context snapshots are conversation content |
@@ -55,7 +55,7 @@ Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v
 | playbooks | required | `workflow` | tasks | wired | `playbookId` (playbook identity) | playbook bodies embed prompts and examples |
 | session-search-index | required | `search-index` | index-cache | pending | `sessionId` (group rows per session); `version` (rebuild decision without decrypting every row) | derived text units are a plaintext side channel for sealed bodies |
 | web-cache | required | `cache` | index-cache | wired | `fetchedAt` (cache freshness only, no page text) | URLs and page bodies are sensitive; only a hash key and a timestamp stay readable |
-| proxy-models-cache | required | `cache` | index-cache | pending | `fetchedAt` (cache freshness only, no page text) | model list is provider metadata but can embed account-scoped ids |
+| proxy-models-cache | required | `cache` | index-cache | wired | `fetchedAt` (cache freshness only, no page text) | model list is provider metadata but can embed account-scoped ids |
 | engine-transcript-index | required | `cache` | index-cache | wired | `sessionId` (join to the session) | transcript paths and titles reveal engine sessions |
 | audit-log | required | `audit` | logs | pending | `at` (rotation and ordering); `kind` (routing/classification without decrypting) | event detail carries tool names, commands and paths |
 | migration-log | required | `migration` | logs | pending | `appliedAt` (listing order) | applied file paths and change summaries are user data |

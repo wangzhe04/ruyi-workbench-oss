@@ -705,7 +705,7 @@ const engineTranscriptLedgerStore = WorkDataStore.createJson({
   validate: value => value.version === 1 && Boolean(value.known) && typeof value.known === 'object' && !Array.isArray(value.known),
   quarantine: false,
   purpose: 'cache', scopeId: 'global', recordId: 'engine-transcript-index',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
@@ -1000,7 +1000,7 @@ function userPlaybookStore(fileName) {
     purpose: 'workflow', schema: 1, scopeId: 'user',
     recordId: 'playbook:' + crypto.createHash('sha256').update(fileName).digest('hex'),
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: atomicWriteJson,
     validateSealedText: text => !!normalizePlaybook(safeJsonParse(text.replace(/^\uFEFF/, ''), null)),

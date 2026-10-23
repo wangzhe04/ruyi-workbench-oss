@@ -353,7 +353,7 @@ const stewardMemoryStore = WorkDataStore.createJson({
   validate: value => value.schema === STEWARD_MEMORY_SCHEMA && Array.isArray(value.entries),
   quarantine: false,
   purpose: 'memory', scopeId: 'global', recordId: 'steward-memory',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });

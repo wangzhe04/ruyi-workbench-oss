@@ -1811,7 +1811,8 @@ async function decideIntervention(command = {}) {
         roleLibrary = new Map((await getAgentRoleLibrary(cwd, config)).map(role => [role.id, role]));
       } catch { /* preserve the existing empty-role-library fallback */ }
       const dryRun = { ...live.run, nodes: Array.isArray(live.run.nodes) ? [...live.run.nodes] : [] };
-      const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config, dryRun: true });
+      const proxyModelsCache = config?.agentAutoModelTiering ? await ProxyModelHooks.read() : { models: [] };
+      const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config, proxyModelsCache, dryRun: true });
       if (!dry.ok) return { ok: false, reason: dry.reason || 'pool_materialize_rejected', runId, message: dry.error || 'pool item cannot be materialized' };
     }
     poolContext = { runId, live, item, config, cwd, roleLibrary };
@@ -1866,6 +1867,7 @@ async function decideIntervention(command = {}) {
     }
     return (async () => {
       const { runId, live, item, config, cwd, roleLibrary } = poolContext;
+      const proxyModelsCache = action === 'approve' && config?.agentAutoModelTiering ? await ProxyModelHooks.read() : { models: [] };
       if (activeAgentRuns.get(runId) !== live || live.closing || live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted) || item.status !== 'proposed') {
         return { ok: false, reason: 'run_state_changed' };
       }
@@ -1876,7 +1878,7 @@ async function decideIntervention(command = {}) {
         await saveAgentRun(live.run);
         return { ok: true, poolId: interventionId };
       }
-      const mat = materializePoolItem(live.run, item, { roleLibrary, cwd, config });
+      const mat = materializePoolItem(live.run, item, { roleLibrary, cwd, config, proxyModelsCache });
       if (!mat.ok) return { ok: false, reason: mat.reason || 'pool_materialize_failed', message: mat.error || '' };
       item.status = 'materialized'; item.decidedBy = String(command.decidedBy || 'user'); item.decidedAt = nowIso(); item.resultNodeId = mat.node.id;
       bumpRunIntervention(live.run, 'pool_approve');

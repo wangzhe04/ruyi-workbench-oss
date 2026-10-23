@@ -29,6 +29,7 @@ const VERSION = '3.0.1'; // 如意 Ruyi 3.0.1 修复更新（2026-10-16）
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 // Runtime execution admission/cancellation hooks; early declaration also serves session rewind.
 const SessionExecutionHooks = {};
+const ProxyModelHooks = {};
 const DeliveryHooks = {};
 const ExternalBotHooks = {};
 const DEFAULT_PORT = 8765;
@@ -8142,48 +8143,94 @@ const WorkDataKeys = ((cryptoApi) => {
     return id(state.instanceId) && sealed(state.protectedKey);
   }
   function create(host) {
-    // host: { store (DurableJsonStore), protector (LocalSecretCrypto), enabled() -> boolean }
-    let cache = null;   // { instanceId, key } — the only place the plaintext master lives
+    // Internal cache owns its master; operations receive independent copies only.
+    let cache = null, epoch = 0, ensureTail = Promise.resolve();
+    const sameHeader = (a, b) => !!a && !!b && a.schema === b.schema
+      && a.instanceId === b.instanceId && a.protectedKey === b.protectedKey;
+    const evict = () => { if (cache) cache.key.fill(0); cache = null; };
+    // clear is memory eviction, not rotation. Existing operation copies remain valid; an in-flight
+    // unprotect begun before clear may finish but cannot silently repopulate the cleared cache.
+    const clear = () => { epoch++; evict(); };
     async function stateRead() {
       let state;
-      try { state = await host.store.read(); } catch { fail('unavailable'); }
-      if (!validate(state)) fail('invalid');
-      return state;
+      try { state = await host.store.read(); } catch { evict(); fail('unavailable'); }
+      if (!validate(state)) { evict(); fail('invalid'); }
+      const header = { schema: state.schema, instanceId: state.instanceId, protectedKey: state.protectedKey };
+      if (cache && !sameHeader(cache, header)) evict();
+      return header;
     }
-    // host.enabled() is allowed to be async (the product wires it to readConfig()), so it must be
-    // awaited here; `promise === true` would silently keep the switch off forever.
     async function enabled() { try { return (await host.enabled()) === true; } catch { return false; } }
-    async function unlock() {
-      // Reads must not depend on the switch: once data is sealed it has to stay readable even if the
-      // user turns encryption off again (the reverse migration is M3-3). Only creation is gated, and
-      // unlock never creates anything.
+    const leaseOf = (master, instanceId) => {
+      const key = Buffer.from(master); let released = false;
+      return Object.freeze({ key, instanceId, release: () => { if (!released) { released = true; key.fill(0); } } });
+    };
+    async function snapshot() {
+      // Existing sealed records remain readable after disabling encryption. No read ever creates a key.
       if (!host.protector.supported()) fail('unsupported');
       const state = await stateRead();
       if (!state.instanceId) fail('absent');
-      if (cache && cache.instanceId === state.instanceId) return cache.key;
-      let key;
-      try { key = await host.protector.run('unprotect', Buffer.from(state.protectedKey, 'base64'), entropy(state.instanceId)); }
-      catch { fail('decrypt_failed'); }
-      if (!Buffer.isBuffer(key) || key.length !== 32) { if (Buffer.isBuffer(key)) key.fill(0); fail('decrypt_failed'); }
-      cache = { instanceId: state.instanceId, key };
-      return Buffer.from(key);   // copy: a caller zeroing its buffer must not brick the cached master
+      if (cache && sameHeader(cache, state)) return leaseOf(cache.key, state.instanceId);
+      const startedEpoch = epoch;
+      let key, wrapped, domain;
+      try {
+        wrapped = Buffer.from(state.protectedKey, 'base64'); domain = entropy(state.instanceId);
+        try { key = await host.protector.run('unprotect', wrapped, domain); }
+        catch { fail('decrypt_failed'); }
+        if (!Buffer.isBuffer(key) || key.length !== 32) fail('decrypt_failed');
+        // Key and instance come from one exact header. A replacement during an async unprotect is
+        // not a usable snapshot, even when it retained the same instance id.
+        if (!sameHeader(state, await stateRead())) fail('changed');
+        if (epoch === startedEpoch) {
+          if (!cache || !sameHeader(cache, state)) {
+            evict(); cache = { ...state, key: Buffer.from(key) };
+          }
+          return leaseOf(cache.key, state.instanceId);
+        }
+        return leaseOf(key, state.instanceId);
+      } finally {
+        if (Buffer.isBuffer(key)) key.fill(0);
+        if (wrapped) wrapped.fill(0);
+        if (domain) domain.fill(0);
+      }
     }
-    // Called only from an explicit enable flow (M3-3 UI / tests), never from a read or a write.
-    async function ensure() {
+    async function unlock() {
+      const lease = await snapshot();
+      try { return Buffer.from(lease.key); }
+      finally { lease.release(); }
+    }
+    // Serial creation is explicit and rejection-resilient. The tail never retains a returned master.
+    async function ensureOnce() {
       if (!(await enabled())) fail('disabled');
       if (!host.protector.supported()) fail('unsupported');
       const state = await stateRead();
       if (state.instanceId) return unlock();
-      clear();   // a fresh master replaces whatever was cached
-      const key = cryptoApi.randomBytes(32), instanceId = cryptoApi.randomBytes(16).toString('hex');
-      let wrapped;
-      try { wrapped = await host.protector.run('protect', key, entropy(instanceId)); }
-      catch { key.fill(0); fail('protect_failed'); }
-      const next = { schema: SCHEMA, instanceId, protectedKey: wrapped.toString('base64') };
-      wrapped.fill(0);
-      try { await host.store.write(next); } catch { key.fill(0); fail('unavailable'); }
-      cache = { instanceId, key };
-      return key;
+      clear(); const startedEpoch = epoch;
+      let key = cryptoApi.randomBytes(32), wrapped, domain;
+      let instanceId;
+      try {
+        instanceId = cryptoApi.randomBytes(16).toString('hex');
+        domain = entropy(instanceId);
+        try { wrapped = await host.protector.run('protect', key, domain); }
+        catch { fail('protect_failed'); }
+        if (!Buffer.isBuffer(wrapped) || !wrapped.length) fail('protect_failed');
+        const next = { schema: SCHEMA, instanceId, protectedKey: wrapped.toString('base64') };
+        if (!validate(next)) fail('protect_failed');
+        // Do not overwrite authority created externally while protection was awaiting. Cross-process
+        // CAS/rotation remains the data-root owner's job; this queue covers this native key set.
+        if ((await stateRead()).instanceId) return unlock();
+        try { await host.store.write(next); } catch { fail('unavailable'); }
+        if (epoch === startedEpoch) { evict(); cache = { ...next, key: Buffer.from(key) }; }
+        return Buffer.from(key);
+      } finally {
+        key.fill(0);
+        if (Buffer.isBuffer(wrapped)) wrapped.fill(0);
+        if (domain) domain.fill(0);
+      }
+    }
+    function ensure() {
+      const pending = ensureTail.then(ensureOnce, ensureOnce);
+      ensureTail = pending.then(() => undefined, () => undefined);
+      return pending;
     }
     async function status() {
       const state = await stateRead().catch(() => empty());
@@ -8194,8 +8241,7 @@ const WorkDataKeys = ((cryptoApi) => {
       if (!state.instanceId) fail('absent');
       return state.instanceId;
     }
-    const clear = () => { if (cache) cache.key.fill(0); cache = null; };
-    return Object.freeze({ unlock, ensure, status, instance, clear, validate, empty });
+    return Object.freeze({ unlock, ensure, snapshot, status, instance, clear, validate, empty });
   }
   return Object.freeze({ SCHEMA, create, validate, empty });
 })(require('node:crypto'));
@@ -8412,14 +8458,57 @@ const WorkDataStore = ((fsp, pathModule) => {
   };
   // Hooks must be filled by 02 before any family store writes; a missing value is a boot-order bug,
   // not a TypeError deep inside a write.
+  const keyApi = keys => !!keys && (typeof keys.snapshot === 'function' || typeof keys.unlock === 'function' && typeof keys.instance === 'function');
   const requireKeys = () => {
     const keys = Hooks.keys;
-    if (!keys || typeof keys.unlock !== 'function' || typeof keys.instance !== 'function') fail('not_initialised');
+    if (!keyApi(keys)) fail('not_initialised');
     return keys;
   };
   // A host may pass its own key set (tests, and the stores 02 owns); everyone else goes through the
   // late-binding hook so a family can live outside the dependency cycle.
-  const keysFor = host => ((host && host.keys && typeof host.keys.unlock === 'function') ? host.keys : requireKeys());
+  const keysFor = host => (host && keyApi(host.keys) ? host.keys : requireKeys());
+  const ownedSnapshot = (key, instanceId, releaseSource) => {
+    if (!Buffer.isBuffer(key) || key.length !== 32 || typeof instanceId !== 'string' || !instanceId) fail('key_snapshot', 503);
+    const owned = Buffer.from(key); let released = false;
+    return Object.freeze({ key: owned, instanceId, release: async () => {
+      if (released) return;
+      released = true; owned.fill(0);
+      if (releaseSource) await releaseSource();
+    } });
+  };
+  const acquireSnapshot = async (keys = requireKeys()) => {
+    if (!keyApi(keys)) fail('not_initialised');
+    if (typeof keys.snapshot === 'function') {
+      const source = await keys.snapshot();
+      try {
+        if (!source || typeof source.release !== 'function') fail('key_snapshot', 503);
+        return ownedSnapshot(source.key, source.instanceId, () => source.release());
+      } catch (error) {
+        try { if (typeof source?.release === 'function') await source.release(); } catch { /* preserve acquisition failure */ }
+        throw error;
+      }
+    }
+    const unlocked = await keys.unlock();
+    if (!Buffer.isBuffer(unlocked) || unlocked.length !== 32) fail('key_snapshot', 503);
+    // Legacy custom providers are supported, but never retain their shared Buffer across an await.
+    const copy = Buffer.from(unlocked);
+    try { return ownedSnapshot(copy, await keys.instance()); }
+    finally { copy.fill(0); }
+  };
+  const withOperation = async (host, work) => {
+    let pending = null, failed = false;
+    const operation = { credential: () => pending || (pending = acquireSnapshot(keysFor(host))) };
+    try { return await work(operation); }
+    catch (error) { failed = true; throw error; }
+    finally {
+      let lease;
+      try { if (pending) lease = await pending; } catch { /* acquisition already failed */ }
+      if (lease) {
+        try { await lease.release(); }
+        catch { if (!failed) fail('snapshot_release', 503); }
+      }
+    }
+  };
   // The switch itself may be unreadable; that is "unknown", never "off" — a plaintext rewrite of a
   // sealed record is the one outcome the frozen contract forbids without an explicit migration.
   const sealing = async host => {
@@ -8511,16 +8600,16 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (carry.length || first) fail('corrupt');
     } finally { await handle.close(); }
   };
-  const readChunks = async (host, target, header) => {
-    const keys = keysFor(host), key = await keys.unlock();
-    const plainText = await WorkDataChunks.openLines(chunkLines(target, host.maxPlaintextBytes), key, {
-      purpose: host.purpose, instanceId: await keys.instance(), schema: Number.isFinite(host.schema) ? host.schema : 1,
+  const readChunks = async (host, target, header, operation) => {
+    const credential = await operation.credential();
+    const plainText = await WorkDataChunks.openLines(chunkLines(target, host.maxPlaintextBytes), credential.key, {
+      purpose: host.purpose, instanceId: credential.instanceId, schema: Number.isFinite(host.schema) ? host.schema : 1,
       scopeId: host.scopeId, recordId: host.recordId, seq: host.seq === undefined ? 1 : host.seq,
       generation: generationOf(header.keyId),
     }, host.maxPlaintextBytes);
     return validateSealed(host, plainText);
   };
-  const guardWrite = async (host, target) => {
+  const guardWrite = async (host, target, operation) => {
     // mkdir first: atomicWriteJson does not create directories (the old DurableJsonStore write chain did).
     await fsp.mkdir(pathModule.dirname(target), { recursive: true }).catch(() => {});
     // One switch snapshot owns both the downgrade guard and this write. Re-reading it after the
@@ -8532,7 +8621,7 @@ const WorkDataStore = ((fsp, pathModule) => {
     if (header) {
       if (!enabled) fail('downgrade_refused');
       if (host.chunked !== true) fail('chunked_unsupported');
-      await readChunks(host, target, header); // never replace a missing-key, truncated or tampered old revision
+      await readChunks(host, target, header, operation); // never replace a missing-key, truncated or tampered old revision
       return enabled;
     }
     let rawText = '';
@@ -8545,7 +8634,7 @@ const WorkDataStore = ((fsp, pathModule) => {
       return enabled;
     }
     if (!enabled && parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.hasOwn(parsed, 'workData')) fail('downgrade_refused');
-    if (enabled && host.chunked === true && parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) await openTextRecord(host, parsed);
+    if (enabled && host.chunked === true && parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) await openTextRecord(host, parsed, operation);
     return enabled;
   };
   const generationOf = keyId => {
@@ -8554,11 +8643,11 @@ const WorkDataStore = ((fsp, pathModule) => {
     if (!Number.isSafeInteger(generation) || generation < 1) fail('corrupt');
     return generation;
   };
-  const openTextRecord = async (host, parsed) => {
+  const openTextRecord = async (host, parsed, operation) => {
     const { workData, ...container } = parsed;
     if (workData !== CONTAINER) fail(workData === 3 ? 'chunked_unsupported' : 'corrupt');
-    const keys = keysFor(host), key = await keys.unlock();
-    const plainText = WorkDataCrypto.open(container, key, { purpose: host.purpose, instanceId: await keys.instance(),
+    const credential = await operation.credential();
+    const plainText = WorkDataCrypto.open(container, credential.key, { purpose: host.purpose, instanceId: credential.instanceId,
       schema: Number.isFinite(host.schema) ? host.schema : 1, scopeId: host.scopeId, recordId: host.recordId,
       seq: container.seq, generation: generationOf(container.keyId) });
     if (typeof plainText !== 'string' || Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
@@ -8590,12 +8679,12 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (!corruptLogged) { corruptLogged = true; try { if (host.onCorrupt) host.onCorrupt(error); } catch { /* diagnostics never block */ } }
       return fallback();
     };
-    async function decrypt(parsed, budget) {
+    async function decrypt(parsed, budget, operation) {
       const { workData, ...container } = parsed;
       if (workData !== CONTAINER) fail('corrupt');
-      const key = await keysFor(host).unlock();   // disabled/absent/unavailable are hard failures, not empty data
-      const plaintext = WorkDataCrypto.open(container, key, {
-        purpose: host.purpose, instanceId: await keysFor(host).instance(), schema: host.schema, scopeId: host.scopeId,
+      const credential = await operation.credential(); // key and instance share this complete operation
+      const plaintext = WorkDataCrypto.open(container, credential.key, {
+        purpose: host.purpose, instanceId: credential.instanceId, schema: host.schema, scopeId: host.scopeId,
         recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
       });
       if (typeof plaintext !== 'string' || Buffer.byteLength(plaintext, 'utf8') > budget) fail('corrupt');
@@ -8609,7 +8698,7 @@ const WorkDataStore = ((fsp, pathModule) => {
       }
       return prepare(value);
     }
-    async function read() {
+    async function readWithin(operation) {
       const target = file();
       let rawText;
       try { rawText = await fsp.readFile(target, 'utf8'); }
@@ -8620,27 +8709,28 @@ const WorkDataStore = ((fsp, pathModule) => {
         if (containerMarker(rawText)) fail('corrupt');
         return await corrupt(error);   // legacy "invalid means empty" contract for plaintext only
       }
-      if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) return decrypt(parsed, WorkDataCrypto.MAX_PLAINTEXT);
+      if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) return decrypt(parsed, WorkDataCrypto.MAX_PLAINTEXT, operation);
       // Legacy plaintext record: keep the previous "bad shape means empty plus a diagnostic" contract.
       try { return prepare(parsed); } catch (error) { return await corrupt(error); }
     }
-    async function write(value) {
+    async function writeWithin(value, operation) {
       const prepared = prepare(value);
       const target = file();
-      const enabled = await guardWrite(host, target);
-      if (typeof host.validateSealedValue === 'function') await read();
+      const enabled = await guardWrite(host, target, operation);
+      if (typeof host.validateSealedValue === 'function') await readWithin(operation);
       if (!enabled) { await host.writeJson(target, prepared); return prepared; }
       // Enabled: never create a key here. Key creation belongs to the explicit enable flow (M3-3).
       const plaintext = JSON.stringify(prepared);
       if (Buffer.byteLength(plaintext, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
-      const key = await keysFor(host).unlock();
-      const instanceId = await keysFor(host).instance();
-      const container = WorkDataCrypto.seal(plaintext, key, {
-        purpose: host.purpose, instanceId, schema: host.schema, scopeId: host.scopeId, recordId: host.recordId, seq: 1,
+      const credential = await operation.credential();
+      const container = WorkDataCrypto.seal(plaintext, credential.key, {
+        purpose: host.purpose, instanceId: credential.instanceId, schema: host.schema, scopeId: host.scopeId, recordId: host.recordId, seq: 1,
       });
       await host.writeJson(target, { workData: CONTAINER, ...container });
       return prepared;
     }
+    const read = () => withOperation(host, readWithin);
+    const write = value => withOperation(host, operation => writeWithin(value, operation));
     return Object.freeze({ read, write, filePath: file });
   }
   // Whole-record TEXT variant (session head): the caller owns the serialization, so the plaintext
@@ -8650,13 +8740,13 @@ const WorkDataStore = ((fsp, pathModule) => {
     if (host.chunked === true) WorkDataChunks.limitOf(host.maxPlaintextBytes);
     // schema 是 01n 的必填绑定项；族没显式给时用 record 格式版本（与 createJson 同口径）。
     const schema = Number.isFinite(host.schema) ? host.schema : 1;
-    async function read() {
+    async function readWithin(operation) {
       // ENOENT propagates on purpose: the resilient session-head readers retry on it and must keep
       // doing so; callers that treat a missing record as empty catch it themselves.
       const header = host.chunked === true ? await chunkHeader(file()) : null;
       if (header) {
         if (host.chunked !== true) fail('chunked_unsupported');
-        return readChunks(host, file(), header);
+        return readChunks(host, file(), header, operation);
       }
       const rawText = await fsp.readFile(file(), 'utf8');
       let parsed;
@@ -8668,32 +8758,33 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
       // instanceId from the key set (not from the container) so the binding is a real check; seq stays
       // the container's own value until M3-3 pins revisions with an external anchor.
-      return openTextRecord(host, parsed);
+      return openTextRecord(host, parsed, operation);
     }
-    async function write(plainText) {   // not 	ext: that identifier collides with 00-boot's symbol
+    async function writeWithin(plainText, operation) {   // not 	ext: that identifier collides with 00-boot's symbol
       if (typeof plainText !== 'string') fail('shape');
       const target = file();
-      const enabled = await guardWrite(host, target);
+      const enabled = await guardWrite(host, target, operation);
       // The size cap belongs to the sealed path only: the old plaintext writer had no limit, so a
       // >1 MiB head must keep saving while encryption is off (the read side refuses it when sealed).
       if (!enabled) { await host.writeJson(target, plainText); return plainText; }
       if (host.chunked === true) {
-        const keys = keysFor(host), key = await keys.unlock();
-        const factory = WorkDataChunks.sealFactory(plainText, key, { purpose: host.purpose,
-          instanceId: await keys.instance(), schema, scopeId: host.scopeId, recordId: host.recordId,
+        const credential = await operation.credential();
+        const factory = WorkDataChunks.sealFactory(plainText, credential.key, { purpose: host.purpose,
+          instanceId: credential.instanceId, schema, scopeId: host.scopeId, recordId: host.recordId,
           seq: host.seq === undefined ? 1 : host.seq }, host.maxPlaintextBytes);
         try { await host.writeJson(target, factory, { stream: true }); }
         finally { factory.dispose(); }
         return plainText;
       }
       if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
-      const key = await keysFor(host).unlock();
-      const instanceId = await keysFor(host).instance();
-      const container = WorkDataCrypto.seal(plainText, key, { purpose: host.purpose, instanceId, schema,
+      const credential = await operation.credential();
+      const container = WorkDataCrypto.seal(plainText, credential.key, { purpose: host.purpose, instanceId: credential.instanceId, schema,
         scopeId: host.scopeId, recordId: host.recordId, seq: 1 });
       await host.writeJson(target, { workData: CONTAINER, ...container });
       return plainText;
     }
+    const read = () => withOperation(host, readWithin);
+    const write = plainText => withOperation(host, operation => writeWithin(plainText, operation));
     return Object.freeze({ read, write, filePath: file });
   }
   // DurableJsonStore-compatible whole-file JSON store (M3-2d). Same prepare pipeline as
@@ -8742,7 +8833,7 @@ const WorkDataStore = ((fsp, pathModule) => {
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
-  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys, hasContainerMarker });
+  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys, acquireSnapshot, hasContainerMarker });
 })(require('node:fs/promises'), require('node:path'));
 
 // M3-2c: frozen per-record format for append-only NDJSON bodies (messages / provider history).
@@ -9502,13 +9593,15 @@ async function sessionBodyWriteText(file, lines, startOrdinal = 0) {
   if (!config || config.workDataEncryptionV1 !== true) return plain;
   const codec = sessionBodyCodec(file);
   if (!codec) throw Object.assign(new Error('unknown session body target'), { code: 'work_data.body_target_invalid' });
-  const key = await workDataKeys.unlock();
-  const instanceId = await workDataKeys.instance();
-  const encoded = new Array(lines.length);
-  for (let i = 0; i < lines.length; i++) {
-    encoded[i] = WorkDataRecords.encodeLine(lines[i], key, { instanceId, sessionId: codec.sessionId, kind: codec.kind, ordinal: startOrdinal + i });
-  }
-  return encoded.join('\n') + '\n';
+  const credential = await WorkDataStore.acquireSnapshot(workDataKeys);
+  try {
+    const { key, instanceId } = credential;
+    const encoded = new Array(lines.length);
+    for (let i = 0; i < lines.length; i++) {
+      encoded[i] = WorkDataRecords.encodeLine(lines[i], key, { instanceId, sessionId: codec.sessionId, kind: codec.kind, ordinal: startOrdinal + i });
+    }
+    return encoded.join('\n') + '\n';
+  } finally { await credential.release(); }
 }
 
 // Session side journals retain their own append/CAS/compaction lifecycle. Only
@@ -9527,19 +9620,21 @@ function sessionJournalRecordCandidate(line) {
 }
 async function decodeSessionJournalText(sessionId, kind, raw, committedOnly = false, suppliedCredential = null) {
   const lines = String(raw || '').split('\n'); let credential = suppliedCredential;
-  for (let ordinal = 0; ordinal < lines.length; ordinal++) {
-    const line = lines[ordinal];
-    if (!line || !sessionJournalRecordCandidate(line)) continue;
-    // A torn last line has never been committed. The append owner repairs it;
-    // readers report the same degraded suffix as the legacy fold, without edits.
-    if (ordinal === lines.length - 1 && !raw.endsWith('\n')) {
-      if (committedOnly) continue;
-      try { JSON.parse(line); } catch { continue; }
+  try {
+    for (let ordinal = 0; ordinal < lines.length; ordinal++) {
+      const line = lines[ordinal];
+      if (!line || !sessionJournalRecordCandidate(line)) continue;
+      // A torn last line has never been committed. The append owner repairs it;
+      // readers report the same degraded suffix as the legacy fold, without edits.
+      if (ordinal === lines.length - 1 && !raw.endsWith('\n')) {
+        if (committedOnly) continue;
+        try { JSON.parse(line); } catch { continue; }
+      }
+      if (!credential) credential = await WorkDataStore.acquireSnapshot(workDataKeys);
+      lines[ordinal] = WorkDataRecords.decodeLine(line, credential.key, { instanceId: credential.instanceId, sessionId, kind, ordinal });
     }
-    if (!credential) credential = { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() };
-    lines[ordinal] = WorkDataRecords.decodeLine(line, credential.key, { instanceId: credential.instanceId, sessionId, kind, ordinal });
-  }
-  return lines.join('\n');
+    return lines.join('\n');
+  } finally { if (!suppliedCredential && credential) await credential.release(); }
 }
 function sessionJournalStamp(stat) { return stat ? [stat.size, stat.mtimeMs, stat.ctimeMs, stat.ino].join(':') : 'missing'; }
 async function sessionJournalAppendState(file, sessionId, kind, enabled, credential = null) {
@@ -9593,28 +9688,33 @@ async function appendProtectedSessionJournal(file, sessionId, kind, plainLine) {
   if (!enabled) { await sessionJournalAppendState(file, sessionId, kind, false); return false; }
   // Unlock/encode before any destructive repair: missing keys cannot alter even
   // the torn suffix. Determine the ordinal from the complete physical prefix.
-  const key = await workDataKeys.unlock(), instanceId = await workDataKeys.instance();
-  const state = await sessionJournalAppendState(file, sessionId, kind, true, { key, instanceId });
-  const line = WorkDataRecords.encodeLine(plainLine.replace(/\n$/, ''), key, { instanceId, sessionId, kind, ordinal: state.count }) + '\n';
-  await repairSealedSessionJournalTail(file);
-  sessionJournalAppendStates.set(file, state);
+  const credential = await WorkDataStore.acquireSnapshot(workDataKeys);
   try {
-    for (let attempt = 0; ; attempt++) {
-      try { await fsp.appendFile(file, line, 'utf8'); break; }
-      catch (error) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(error.code))) throw error; await new Promise(resolve => setTimeout(resolve, 10 + attempt * 20)); }
-    }
-    await noteSessionJournalAppend(file, true);
-  } catch (error) { sessionJournalAppendStates.delete(file); throw error; }
-  return true;
+    const { key, instanceId } = credential;
+    const state = await sessionJournalAppendState(file, sessionId, kind, true, { key, instanceId });
+    const line = WorkDataRecords.encodeLine(plainLine.replace(/\n$/, ''), key, { instanceId, sessionId, kind, ordinal: state.count }) + '\n';
+    await repairSealedSessionJournalTail(file);
+    sessionJournalAppendStates.set(file, state);
+    try {
+      for (let attempt = 0; ; attempt++) {
+        try { await fsp.appendFile(file, line, 'utf8'); break; }
+        catch (error) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(error.code))) throw error; await new Promise(resolve => setTimeout(resolve, 10 + attempt * 20)); }
+      }
+      await noteSessionJournalAppend(file, true);
+    } catch (error) { sessionJournalAppendStates.delete(file); throw error; }
+    return true;
+  } finally { await credential.release(); }
 }
 async function encodeSessionJournalReplacement(file, sessionId, kind, plain) {
   const enabled = (await readConfig()).workDataEncryptionV1 === true;
-  const credential = enabled ? { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() } : null;
-  await sessionJournalAppendState(file, sessionId, kind, enabled, credential);
-  if (!enabled) return plain;
-  const { key, instanceId } = credential;
-  const lines = plain ? plain.slice(0, -1).split('\n') : [];
-  return lines.map((line, ordinal) => WorkDataRecords.encodeLine(line, key, { instanceId, sessionId, kind, ordinal })).join('\n') + (lines.length ? '\n' : '');
+  const credential = enabled ? await WorkDataStore.acquireSnapshot(workDataKeys) : null;
+  try {
+    await sessionJournalAppendState(file, sessionId, kind, enabled, credential);
+    if (!enabled) return plain;
+    const { key, instanceId } = credential;
+    const lines = plain ? plain.slice(0, -1).split('\n') : [];
+    return lines.map((line, ordinal) => WorkDataRecords.encodeLine(line, key, { instanceId, sessionId, kind, ordinal })).join('\n') + (lines.length ? '\n' : '');
+  } finally { if (credential) await credential.release(); }
 }
 
 // ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
@@ -10678,35 +10778,37 @@ async function readSessionBodyFile(p) {
   let start = 0; // 已确认好行的字节数(含每行结尾 \n),撕裂截断点
   const bodyCodec = sessionBodyCodec(p);
   let bodyCredential = null, encodedLines = 0;
-  for (;;) {
-    const nl = buf.indexOf(10, start);
-    if (nl < 0) break;   // 其后若还有字节 = 无 \n 终结的尾行(撕裂)
-    if (nl === start) return { corrupt: true }; // 中间空行 = 坏
-    let line = buf.toString('utf8', start, nl);
-    if (WorkDataRecords.isEncodedLine(line)) {
-      // M3-2c-2: 记录行先解密再参与后续一切判定（行哈希、前缀比较、JSON 解析都用明文）。
-      if (!bodyCodec) return { locked: true, code: 'work_data.body_target_invalid' };
-      try {
-        if (!bodyCredential) bodyCredential = { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() };
-        line = WorkDataRecords.decodeLine(line, bodyCredential.key, {
-          instanceId: bodyCredential.instanceId, sessionId: bodyCodec.sessionId, kind: bodyCodec.kind, ordinal: lines.length,
-        });
-        encodedLines += 1;
-      } catch (error) {
-        // 缺钥/解不开 ≠ 坏文件：既不隔离也不截断，交给 loadSession 如实报错。
-        return { locked: true, code: String((error && error.code) || 'work_data.body_locked') };
+  try {
+    for (;;) {
+      const nl = buf.indexOf(10, start);
+      if (nl < 0) break;   // 其后若还有字节 = 无 \n 终结的尾行(撕裂)
+      if (nl === start) return { corrupt: true }; // 中间空行 = 坏
+      let line = buf.toString('utf8', start, nl);
+      if (WorkDataRecords.isEncodedLine(line)) {
+        // M3-2c-2: 记录行先解密再参与后续一切判定（行哈希、前缀比较、JSON 解析都用明文）。
+        if (!bodyCodec) return { locked: true, code: 'work_data.body_target_invalid' };
+        try {
+          if (!bodyCredential) bodyCredential = await WorkDataStore.acquireSnapshot(workDataKeys);
+          line = WorkDataRecords.decodeLine(line, bodyCredential.key, {
+            instanceId: bodyCredential.instanceId, sessionId: bodyCodec.sessionId, kind: bodyCodec.kind, ordinal: lines.length,
+          });
+          encodedLines += 1;
+        } catch (error) {
+          // 缺钥/解不开 ≠ 坏文件：既不隔离也不截断，交给 loadSession 如实报错。
+          return { locked: true, code: String((error && error.code) || 'work_data.body_locked') };
+        }
       }
+      try { entries.push(JSON.parse(line)); }
+      catch { return { corrupt: true }; } // 中间坏行 = 坏
+      lines.push(line);
+      start = nl + 1;
+      lineEndBytes.push(start);
     }
-    try { entries.push(JSON.parse(line)); }
-    catch { return { corrupt: true }; } // 中间坏行 = 坏
-    lines.push(line);
-    start = nl + 1;
-    lineEndBytes.push(start);
-  }
-  // 撕裂尾行【只报告、不就地截断】:读的这一瞬可能正有 saveSession 在 append(Windows 上并发读能看到写了一半
-  // 的行),在这里截断等于删掉正在落盘的那一行。截断交给 loadSession 在确认「没有写者」之后做。
-  // encoded:盘上至少有一行是封装记录 —— 此时 buf/lineEndBytes 是密文字节，不能再拿去做「逐字节等于 JSON(消息)」的增量戳。
-  return { entries, lines, lineEndBytes, tornAt: start < buf.length ? start : null, stamp, buf, encoded: encodedLines > 0 };
+    // 撕裂尾行【只报告、不就地截断】:读的这一瞬可能正有 saveSession 在 append(Windows 上并发读能看到写了一半
+    // 的行),在这里截断等于删掉正在落盘的那一行。截断交给 loadSession 在确认「没有写者」之后做。
+    // encoded:盘上至少有一行是封装记录 —— 此时 buf/lineEndBytes 是密文字节，不能再拿去做「逐字节等于 JSON(消息)」的增量戳。
+    return { entries, lines, lineEndBytes, tornAt: start < buf.length ? start : null, stamp, buf, encoded: encodedLines > 0 };
+  } finally { if (bodyCredential) await bodyCredential.release(); }
 }
 // 快路径判定:entries 的前 record.count 条逐条序列化后与盘上的行全等 → 返回 { appendLines, allLines };
 // 否则(前缀变/缩短/无记录/有条目不可序列化)返回 null → 调用方全量重写。注意:必须逐条重新序列化比对,不能只比
@@ -10784,6 +10886,48 @@ async function rebaseStaleSessionBody(id, bp, state, messages, providerHistory) 
 // child never writes session files), so a process-global write lock is enough to serialize index mutations.
 const SESSION_INDEX_FILE = 'index.json';
 function sessionIndexPath() { return path.join(paths.sessions, SESSION_INDEX_FILE); }
+// These two session artifacts own their serialization. Keep a copied credential for one operation,
+// including an old-revision guard and its replacement; clearing the shared key cannot zero this copy.
+async function sessionArtifactCredential() {
+  const credential = await WorkDataStore.acquireSnapshot();
+  try {
+    const stamp = String(credential.instanceId) + ':' + crypto.createHash('sha256').update(credential.key).digest('hex');
+    return { ...credential, stamp };
+  } catch (error) { await credential.release(); throw error; }
+}
+async function sessionArtifactStamp() {
+  const credential = await sessionArtifactCredential();
+  try { return credential.stamp; }
+  finally { await credential.release(); }
+}
+function sessionArtifactStore(file, scopeId, recordId, validateSealedText, metadata = {}, enabled) {
+  const operate = async (method, text) => {
+    let credential;
+    const resolve = () => credential || (credential = sessionArtifactCredential().then(value => {
+      metadata.authStamp = value.stamp; return value;
+    }));
+    const store = WorkDataStore.createText({
+      file: () => file, purpose: 'session', schema: 1, scopeId, recordId,
+      chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+      keys: { snapshot: async () => {
+        const value = await resolve();
+        return { key: value.key, instanceId: value.instanceId, release: () => {} }; // borrowed from this outer operation
+      }, unlock: async () => (await resolve()).key, instance: async () => (await resolve()).instanceId },
+      enabled: enabled || (() => readConfig().then(config => config.workDataEncryptionV1 === true)),
+      writeJson: atomicWriteJson, validateSealedText,
+    });
+    try { return await store[method](text); }
+    finally { if (credential) await credential.then(value => value.release(), () => {}); }
+  };
+  return Object.freeze({ read: () => operate('read'), write: text => operate('write', text) });
+}
+function sessionIndexStore(metadata = {}) {
+  return sessionArtifactStore(sessionIndexPath(), 'sessions', 'session-index',
+    text => Array.isArray(safeJsonParse(text, null)), metadata);
+}
+// Invalidating a derived cache never needs to erase an unreadable encrypted record. Reads still
+// authenticate it before honoring this flag; only a successful rebuild clears the invalidation.
+let sessionIndexInvalidated = false, sessionIndexInvalidationSeq = 0;
 
 // 第70波(EC-E):会话类型显式标识 —— 'quick_ask'(纯问答,默认) | 'mission'(任务会话,mission start 时显式翻转,
 // 非启发式文本猜测)。旧会话(第70波前落盘)无 kind 字段:有 mission 派生 'mission',否则 'quick_ask'。
@@ -10946,10 +11090,17 @@ function sortSessionMetas(arr) {
 // Read the index array, or null when missing/corrupt/not-an-array (caller falls back to a full scan).
 async function readSessionIndex() {
   try {
-    const raw = await fsp.readFile(sessionIndexPath(), 'utf8');
+    const before = await sessionIndexFileStamp(), metadata = {};
+    const raw = await sessionIndexStore(metadata).read();
     const arr = safeJsonParse(raw, null);
-    return Array.isArray(arr) ? arr : null;
-  } catch { return null; }
+    const after = await sessionIndexFileStamp();
+    sessionIndexPlainSourceStamp = !metadata.authStamp && Array.isArray(arr) && before && before === after ? before : null;
+    return !sessionIndexInvalidated && Array.isArray(arr) ? arr : null;
+  } catch (error) {
+    sessionIndexPlainSourceStamp = null;
+    if (sessionHeadIsWorkDataError(error)) { sessionIndexMemo = null; throw error; }
+    return null;
+  }
 }
 // 索引的【内存镜像】(perf):flushSessionIndex 每个 200 ms 去抖窗口都要「读 → 解析 → 合并 → 整份写」一遍 index.json
 // (3000 条会话 ≈ 1.3 MB,每次 ~25 ms,回合进行中每个窗口都在跑)。我们自己刚写下的那份内容就是合并后的 map,
@@ -10958,25 +11109,49 @@ async function readSessionIndex() {
 // listSessions 重建覆盖/flushSessionIndexSync 写过/文件不在)一律作废镜像走原来的读盘路径。戳 = 路径 + size + mtimeNs + ino
 // (写入是 tmp + rename,每次换 inode)。只有 flushSessionIndex 那一处产生镜像;所有别的写口都不给 map → 镜像作废。
 // 镜像只在 withSessionIndexLock 里读写(与索引写同一把锁),无并发。
-let sessionIndexMemo = null;   // { stamp, map }
+let sessionIndexMemo = null;   // { stamp, map, authStamp }
+let sessionIndexPlainSourceStamp = null; // proof from a parsed plaintext array, never from decrypted text
 async function sessionIndexFileStamp() {
   try {
     const st = await fsp.stat(sessionIndexPath(), { bigint: true });
-    return `${sessionIndexPath()}|${st.size}|${st.mtimeNs}|${st.ino}`;
+    return `${sessionIndexPath()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`;
   } catch { return null; }
 }
 // Atomic index write (tmp + rename, same discipline as saveSession). Caller wraps failures.
 // 第二参 map(可选)= 这份 entries 对应的合并结果,给了就登记成内存镜像(见 sessionIndexMemo)。
 async function writeSessionIndex(entries, map = null) {
   sessionIndexMemo = null;   // 写之前先作废:写到一半失败/被别的写口接着覆盖,镜像都不该再被信
+  const invalidationSeq = sessionIndexInvalidationSeq, metadata = {};
   await fsp.mkdir(paths.sessions, { recursive: true });
-  await atomicWriteJson(sessionIndexPath(), entries);   // 25.1 收编
-  if (map) {
-    const stamp = await sessionIndexFileStamp();
-    if (stamp) sessionIndexMemo = { stamp, map };
+  const text = JSON.stringify(entries, null, 2);
+  let plainAllowed = false;
+  try { plainAllowed = (await readConfig()).workDataEncryptionV1 !== true; } catch { /* unknown takes the strict store path */ }
+  // OFF's existing memo contract avoids rereading an already-proven ordinary array on every 200ms
+  // flush. Its complete file stamp must still match now; encrypted/decrypted records never get this
+  // proof. Any replacement, mode change or unknown state goes through the store's full old guard.
+  if (plainAllowed && sessionIndexPlainSourceStamp && sessionIndexPlainSourceStamp === await sessionIndexFileStamp()) {
+    await atomicWriteJson(sessionIndexPath(), text);
+  } else await sessionIndexStore(metadata).write(text);
+  if (invalidationSeq === sessionIndexInvalidationSeq) sessionIndexInvalidated = false;
+  const stamp = await sessionIndexFileStamp();
+  sessionIndexPlainSourceStamp = metadata.authStamp ? null : stamp;
+  if (map && !sessionIndexInvalidated) {
+    if (stamp) sessionIndexMemo = { stamp, map, authStamp: metadata.authStamp || '' };
   }
 }
-async function invalidateSessionIndex() { sessionIndexMemo = null; await fsp.unlink(sessionIndexPath()).catch(() => {}); }
+async function invalidateSessionIndexNow() {
+  sessionIndexMemo = null; sessionIndexPlainSourceStamp = null; sessionIndexInvalidated = true; sessionIndexInvalidationSeq++;
+  // Keep the original physical invalidation for recognizable plaintext arrays. Unknown/marker-shaped
+  // data stay in place until a later authenticated rebuild replaces them. Boot remains available.
+  try {
+    const handle = await fsp.open(sessionIndexPath(), 'r');
+    let ordinaryArray;
+    try { const bytes = Buffer.alloc(256), read = await handle.read(bytes, 0, bytes.length, 0); ordinaryArray = bytes.subarray(0, read.bytesRead).toString('utf8').trimStart().startsWith('['); }
+    finally { await handle.close(); }
+    if (ordinaryArray) await fsp.unlink(sessionIndexPath()).catch(() => {});
+  } catch { /* invalidation is logical even if the old cache cannot be opened */ }
+}
+async function invalidateSessionIndex() { return withSessionIndexLock(invalidateSessionIndexNow); }
 // Serialize all index mutations (single global chain) so concurrent saveSession calls can't lose updates or
 // tear the file. Session FILES are still written concurrently; only the shared index write is serialized.
 let sessionIndexChain = Promise.resolve();
@@ -11045,7 +11220,8 @@ async function flushSessionIndex() {
         // 镜像命中(文件戳与我们上次写完时一致)就不读盘不解析,直接在镜像 map 上合并;否则走原来的读盘路径。
         const stamp = await sessionIndexFileStamp();
         let map = null;
-        if (stamp && sessionIndexMemo && sessionIndexMemo.stamp === stamp) map = sessionIndexMemo.map;
+        if (!sessionIndexInvalidated && stamp && sessionIndexMemo && sessionIndexMemo.stamp === stamp
+          && (!sessionIndexMemo.authStamp || sessionIndexMemo.authStamp === await sessionArtifactStamp())) map = sessionIndexMemo.map;
         else {
           sessionIndexMemo = null;
           const index = await readSessionIndex();
@@ -11055,7 +11231,13 @@ async function flushSessionIndex() {
         sessionIndexMemo = null;   // 下面要就地改 map:改到一半失败它就是脏的,写成功后 writeSessionIndex 再登记回来
         for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
         await writeSessionIndex([...map.values()], map);
-      } catch { await invalidateSessionIndex(); }
+      } catch (error) {
+        sessionIndexMemo = null; sessionIndexPlainSourceStamp = null;
+        if (sessionHeadIsWorkDataError(error)) {
+          sessionIndexInvalidated = true; sessionIndexInvalidationSeq++;
+          try { logEvent({ kind: 'session_index_write_blocked', reason: error.code }); } catch { /* diagnostic only */ }
+        } else await invalidateSessionIndexNow();
+      }
     }).catch(() => {});
   } finally {
     // The write has settled: it landed (disk now carries the batch), or there was no index to update / the index
@@ -11087,6 +11269,13 @@ function overlayUnflushedSessionIndex(map) {
 function flushSessionIndexSync() {
   try {
     if (!pendingSessionIndex.size && !inflightSessionIndex.size) return;
+    // The exit hook cannot await DPAPI or the asynchronous chunk codec. Sealed/ON caches keep their
+    // last complete bytes; boot's logical invalidation rebuilds from authoritative session heads.
+    // Do not emit a new plaintext index during an opt-in or unknown configuration state.
+    try {
+      const config = safeJsonParse(fs.readFileSync(paths.config, 'utf8'), null);
+      if (!config || typeof config !== 'object' || Array.isArray(config) || config.workDataEncryptionV1 === true) return;
+    } catch (error) { if (!error || error.code !== 'ENOENT' || fs.existsSync(paths.config + '.prev')) return; }
     let index = null;
     try { const arr = safeJsonParse(fs.readFileSync(sessionIndexPath(), 'utf8'), null); index = Array.isArray(arr) ? arr : null; } catch { index = null; }
     if (!index) return; // no valid index → don't fabricate a partial one; boot rebuild + fallback scan self-heal
@@ -11129,7 +11318,7 @@ async function noteSessionIndexBadHead(id) {
     const raw = await readSessionHeadText(id);   // M3-2: 开关开时先解密,否则密文会被误判成坏头
     if (parseSessionHeadForIndex(raw, id)) return;   // 取戳与重读之间被换成了好文件:不记
     sessionIndexKnownBadHeads.set(id, sessionHeadStampOf(st));
-  } catch { /* 读不到(瞬时锁/刚被删):不记,下一次扫描再判 */ }
+  } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; /* ordinary unreadable heads remain unclassified */ }
 }
 // 快路径用:返回「应当与索引 id 集对得上」的磁盘 id 集 = 磁盘 id 集扣掉仍然有效的已知坏头。
 async function sessionDiskIdsExpectedInIndex(diskIds, indexIds) {
@@ -11197,7 +11386,7 @@ async function listSessions() {
       const fileId = file.slice(0, -5);
       let raw;
       try { raw = await readSessionHeadText(fileId); }
-      catch { continue; }   // 读不到(瞬时锁/刚被删):跳过,不记坏头(见 sessionIndexKnownBadHeads 头注)
+      catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; continue; }   // ordinary transient I/O stays skippable; encrypted authority does not
       const item = parseSessionHeadForIndex(raw, fileId);
       let meta = null;
       if (item) { try { meta = sessionMeta(item); } catch { meta = null; } }
@@ -13127,6 +13316,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     legacy = false;
   } else if (parsed && parsed.storageVersion === SESSION_STORAGE_VERSION) {
     const bp = sessionBodyPaths(id);
+    // Prove an existing encrypted recovery artifact before any repair/retirement can touch it.
+    const backupRecord = await readSessionV1BackupRecord(id);
+    if (backupRecord && backupRecord.unreadable) return null;
     let msg = await readSessionBodyFile(bp.messages);
     let prov = await readSessionBodyFile(bp.provider);
     // hunt2-P3:正文【在但读不出来】(重试过仍被锁/句柄耗尽)不是「正文丢了」—— 下面的判据会把它当缺失,
@@ -13197,7 +13389,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
       dropSessionBodyState(id);
       // 正文缺失/损坏 → 迁移备份回退(v1 原文重走迁移,等价于回到迁移前一刻)。
-      const bak = await loadSessionV1Backup(id);
+      const bak = await loadSessionV1Backup(id, backupRecord);
       if (bak) return bak;
       // 无备份可退:坏正文隔离(不删,留取证),头按损坏处理。
       for (const p of [bp.messages, bp.provider]) await fsp.rename(p, p + '.corrupt').catch(() => {});
@@ -13234,7 +13426,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       });
     }
     // v2 完整可读 → 迁移残留的 v1bak 与慢路径残留 prevbody 快照一并清掉(备份使命已完成;也防无界堆积)。
-    await fsp.unlink(sessionPath(id) + '.v1bak').catch(() => {});
+    await retireSessionV1Backup(id, backupRecord);
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
     await fsp.unlink(bp.provider + '.prevbody').catch(() => {});
     delete parsed.storageVersion; // 运行时对象不携带存储标记(保持与 v1 同形),saveSession 落盘时重新加
@@ -13272,7 +13464,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
   if (legacy) {
     // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(() => {});
+    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(error => {
+      if (sessionHeadIsWorkDataError(error)) throw error;
+    });
   } else if (changed || healed) await saveSession(session, { writer: 'load_normalize', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(() => {});
   // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
   // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
@@ -13293,17 +13487,83 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
 // 读出后走正常 legacy 路径(重打迁移标记,save 时 v1bak 已存在 → EXCL 失败被吞,内容不变 —— 幂等)。
 // 防线:v1bak 里若是 v2 头(带 storageVersion 且没有 messages 数组),说明备份已被污染/根本不是备份,
 // 宁可回退失败走损坏隔离,也绝不拿一个空正文重建会话(那等于丢历史)。
-async function loadSessionV1Backup(id) {
-  let raw;
-  try { raw = await fsp.readFile(sessionPath(id) + '.v1bak', 'utf8'); }
-  catch { return null; }
-  const parsed = safeJsonParse(raw, null);
-  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') return null;
-  if (parsed.storageVersion === SESSION_STORAGE_VERSION) return null;
+function sessionV1BackupPath(id) { return sessionPath(id) + '.v1bak'; }
+function sessionV1BackupShape(value, id) {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+    && value.storageVersion !== SESSION_STORAGE_VERSION
+    && (value.id == null || value.id === id) && Array.isArray(value.messages)
+    && (value.providerHistory == null || Array.isArray(value.providerHistory));
+}
+function sessionV1BackupStore(id, file = sessionV1BackupPath(id), metadata = {}, enabled) {
+  assertSessionIdForPath(id);
+  return sessionArtifactStore(file, id, 'session-v1-backup',
+    text => sessionV1BackupShape(safeJsonParse(text, null), id), metadata, enabled);
+}
+async function readSessionV1BackupRecord(id) {
+  try {
+    const file = sessionV1BackupPath(id), before = await fsp.stat(file, { bigint: true });
+    const metadata = {}, text = await sessionV1BackupStore(id, file, metadata).read();
+    return { text, stamp: `${before.size}|${before.mtimeNs}|${before.ctimeNs}|${before.ino}`, authStamp: metadata.authStamp || '' };
+  } catch (error) {
+    if (sessionHeadIsWorkDataError(error)) throw error;
+    return error && error.code === 'ENOENT' ? null : { unreadable: true, error };
+  }
+}
+async function retireSessionV1Backup(id, record) {
+  if (!record || record.unreadable) return; // A locked/unreadable legacy backup is retained, never guessed to be disposable.
+  try {
+    if (record.authStamp && record.authStamp !== await sessionArtifactStamp()) throw Object.assign(new Error('work_data.authenticate_failed'), { code: 'work_data.authenticate_failed', statusCode: 503 });
+    const file = sessionV1BackupPath(id), current = await fsp.stat(file, { bigint: true });
+    if (`${current.size}|${current.mtimeNs}|${current.ctimeNs}|${current.ino}` === record.stamp) await fsp.unlink(file);
+  } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; /* Successful v2 authority remains usable if retirement is temporarily locked. */ }
+}
+async function ensureSessionV1Backup(id) {
+  const sealing = (await readConfig()).workDataEncryptionV1 === true;
+  const existing = await readSessionV1BackupRecord(id);
+  if (existing && existing.unreadable) { if (sealing) throw existing.error; return; }
+  if (existing) {
+    if (sealing) {
+      if (!sessionV1BackupShape(safeJsonParse(existing.text, null), id)) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', statusCode: 503 });
+      const credential = await sessionArtifactCredential(); await credential.release();
+    }
+    return; // The pristine backup is immutable, including an old plaintext migration artifact.
+  }
+  if (!sealing) {
+    // OFF retains COPYFILE_EXCL and exact source bytes. A sealed legacy head cannot be copied as a
+    // differently-bound backup or silently downgraded to plaintext without an explicit migration.
+    try {
+      const raw = await fsp.readFile(sessionPath(id), 'utf8'), parsed = safeJsonParse(raw, null);
+      if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) throw Object.assign(new Error('work_data_store.downgrade_refused'), { code: 'work_data_store.downgrade_refused', statusCode: 503 });
+      await fsp.copyFile(sessionPath(id), sessionV1BackupPath(id), fs.constants.COPYFILE_EXCL);
+    } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; /* original OFF backup is best effort */ }
+    return;
+  }
+  const source = await readSessionHeadText(id);
+  if (!sessionV1BackupShape(safeJsonParse(source, null), id)) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', statusCode: 503 });
+  // Seal into a private staging file, then publish with an exclusive hard link. Never expose a
+  // partially-written backup or replace the pristine recovery revision after a crash/retry.
+  const target = sessionV1BackupPath(id), staged = target + '.' + process.pid + '.' + crypto.randomBytes(8).toString('hex') + '.sealed-stage';
+  try {
+    await sessionV1BackupStore(id, staged, {}, () => true).write(source);
+    try { await fsp.link(staged, target); }
+    catch (error) {
+      if (!error || error.code !== 'EEXIST') throw error;
+      const winner = await sessionV1BackupStore(id).read();
+      if (!sessionV1BackupShape(safeJsonParse(winner, null), id)) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', statusCode: 503 });
+    }
+  } finally { await fsp.unlink(staged).catch(() => {}); }
+}
+async function loadSessionV1Backup(id, record) {
+  const backup = record === undefined ? await readSessionV1BackupRecord(id) : record;
+  if (!backup || backup.unreadable) return null;
+  const parsed = safeJsonParse(backup.text, null);
+  if (!sessionV1BackupShape(parsed, id)) return null;
   const { session } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
   Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-  await saveSession(session, { writer: 'load_v1bak_restore', keepUpdatedAt: true }).catch(() => {});
+  await saveSession(session, { writer: 'load_v1bak_restore', keepUpdatedAt: true }).catch(error => {
+    if (sessionHeadIsWorkDataError(error)) throw error;
+  });
   return session;
 }
 
@@ -13419,7 +13679,7 @@ async function saveSession(session, opts) {
     // 懒迁移:legacy 单文件先原样备份 v1bak。必须 COPYFILE_EXCL(已存在则失败被吞)—— v1bak 回退
     // 恢复路径也会走到这里,若允许覆盖会把「 pristine legacy 备份」冲成 v2 头,备份使命直接报废。
     if (session.__v1bakPending === true) {
-      await fsp.copyFile(finalPath, finalPath + '.v1bak', fs.constants.COPYFILE_EXCL).catch(() => {});
+      await ensureSessionV1Backup(id);
       session.__v1bakPending = false;
     }
     // 记录缺失(条目上限淘汰过 / 重启后没装载就存)→ 先按盘上已提交的内容重建,旧副本补齐与快路径照常可用。
@@ -15071,7 +15331,7 @@ function missionContainerStore(missionId) {
     file: () => missionContainerPath(missionId),
     purpose: 'task', schema: MISSION_CONTAINER_SCHEMA, scopeId: missionId, recordId: 'mission-container',
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: atomicWriteJson,
     validateSealedText: text => {
@@ -26823,7 +27083,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     // Claude 交互模式禁了原生 AskUserQuestion(--disallowedTools),提问走如意的 MCP 工具。
     nativeAskUserQuestion: false,
     modelCatalog: Object.freeze({
-      offline: config => offlineModelList(config),
+      offline: async config => offlineModelList(config),
       discover: async config => ({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(config)) }),
     }),
     // Claude 的上下文占用来自流内用量帧;没有可查询的原生状态面,也没有可从外部触发的原生压缩(用户在 CLI 里打 /compact)。
@@ -27279,7 +27539,7 @@ async function runClaudeTurn({
         const wfs = await getAgentWorkflows(workingDir).catch(() => []);
         const oh = buildOrchestrateHint(wfs);
         if (oh) indexSecs.push(oh);
-        const mh = buildModelHint(config, activeOpenAiProvider(config)); // openai 组模型取当前激活 provider
+        const mh = await buildModelHint(config, activeOpenAiProvider(config)); // openai 组模型取当前激活 provider
         if (mh) indexSecs.push(mh);
       }
     } catch { /* 编排提示注入绝不阻断回合 */ }
@@ -28869,7 +29129,7 @@ const voiceLexiconStore = WorkDataStore.createJson({
   // M3-2d: 工作数据加密（开关关时与旧 DurableJsonStore 逐字节一致）。键集经 01p 的延迟绑定钩子拿，
   // 免得本模块静态依赖 02、把 01o 拖进依赖环。
   purpose: 'user-config', scopeId: 'global', recordId: 'voice-lexicon',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   quarantine: true,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
@@ -33667,7 +33927,7 @@ const engineTranscriptLedgerStore = WorkDataStore.createJson({
   validate: value => value.version === 1 && Boolean(value.known) && typeof value.known === 'object' && !Array.isArray(value.known),
   quarantine: false,
   purpose: 'cache', scopeId: 'global', recordId: 'engine-transcript-index',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
@@ -33962,7 +34222,7 @@ function userPlaybookStore(fileName) {
     purpose: 'workflow', schema: 1, scopeId: 'user',
     recordId: 'playbook:' + crypto.createHash('sha256').update(fileName).digest('hex'),
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: atomicWriteJson,
     validateSealedText: text => !!normalizePlaybook(safeJsonParse(text.replace(/^\uFEFF/, ''), null)),
@@ -38971,7 +39231,7 @@ const memoryUsageStore = WorkDataStore.createJson({
   validate: value => value.schema === 1 && Boolean(value.entries) && typeof value.entries === 'object' && !Array.isArray(value.entries),
   quarantine: false,
   purpose: 'memory', scopeId: 'global', recordId: 'memory-usage',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
@@ -39050,7 +39310,7 @@ function memoryProjectMetaStore(dir) {
   return WorkDataStore.createText({
     file: () => path.join(dir, 'meta.json'), purpose: 'memory', schema: 1,
     scopeId: 'project:' + path.basename(dir), recordId: 'memory-meta',
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     validateSealedText: value => {
@@ -39450,7 +39710,7 @@ const agentInstructionImportStore = WorkDataStore.createJson({
   // M3-2d: 子代理指令导入所有权副车（purpose=memory / scope=global）。开关关时与旧 DurableJsonStore
   // 逐字节一致；读不动/坏文件仍按空表（旧契约），但解不开的密文必须冒泡——否则下一轮同步会用空表覆盖它。
   purpose: 'memory', scopeId: 'global', recordId: 'agent-instructions-import',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
@@ -40426,7 +40686,7 @@ function memoryProposalStateStore(sessionId) {
   return WorkDataStore.createText({
     file: () => memoryProposalStateFile(sessionId),
     purpose: 'memory', schema: 1, scopeId: safeSessionId(sessionId), recordId: 'memory-proposals',
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
   });
@@ -40920,7 +41180,7 @@ function memoryRelationsStore(scope, cwd) {
     file: () => memoryRelationsFile(scope, cwd),
     purpose: 'memory', schema: 1, scopeId: scope === 'global' ? 'global' : 'project:' + projectKeyForCwd(cwd),
     recordId: 'memory-relations',
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
   });
@@ -45271,20 +45531,24 @@ async function drainSteerQueue(reg, session, onEvent) {
 function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionId(sessionId)); }
 function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
 // Snapshot identity is anchored to the containing session and filename, never to untrusted JSON.
-// A per-operation credential snapshot also makes digest-cache authentication independent of key rotation.
-async function agentRunSnapshotCredential(copyKey = false) {
-  const keys = WorkDataStore.requireKeys();
-  const unlockedKey = await keys.unlock(), key = copyKey ? Buffer.from(unlockedKey) : unlockedKey;
+// A per-operation owned lease binds digest-cache authentication to the credentials used by its read.
+async function agentRunSnapshotCredential() {
+  const credential = await WorkDataStore.acquireSnapshot();
   try {
-    const instanceId = await keys.instance();
-    return { key, instanceId, stamp: String(instanceId) + ':' + crypto.createHash('sha256').update(key).digest('hex') };
-  } catch (error) { if (copyKey) key.fill(0); throw error; }
+    const stamp = String(credential.instanceId) + ':' + crypto.createHash('sha256').update(credential.key).digest('hex');
+    return { ...credential, stamp };
+  } catch (error) { await credential.release(); throw error; }
+}
+async function agentRunSnapshotStamp() {
+  const credential = await agentRunSnapshotCredential();
+  try { return credential.stamp; }
+  finally { await credential.release(); }
 }
 function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
   const sid = safeSessionId(sessionId), rid = safeSessionId(runId);
   const operate = async (method, input) => {
     let credential;
-    const resolveCredential = () => credential || (credential = agentRunSnapshotCredential(true).then(value => {
+    const resolveCredential = () => credential || (credential = agentRunSnapshotCredential().then(value => {
       metadata.authStamp = value.stamp;
       return value;
     }));
@@ -45292,7 +45556,10 @@ function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
       file: () => agentRunFile(sid, rid), purpose: 'task', schema: 1,
       scopeId: sid, recordId: 'agent-run:' + rid,
       chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-      keys: { unlock: async () => (await resolveCredential()).key, instance: async () => (await resolveCredential()).instanceId },
+      keys: { snapshot: async () => {
+        const value = await resolveCredential();
+        return { key: value.key, instanceId: value.instanceId, release: () => {} }; // borrowed from this outer operation
+      }, unlock: async () => (await resolveCredential()).key, instance: async () => (await resolveCredential()).instanceId },
       enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
       writeJson: atomicWriteJson,
       validateSealedText: snapshotText => {
@@ -45302,7 +45569,7 @@ function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
       },
     });
     try { return await store[method](input); }
-    finally { if (credential) await credential.then(value => value.key.fill(0), () => {}); }
+    finally { if (credential) await credential.then(value => value.release(), () => {}); }
   };
   return Object.freeze({ read: () => operate('read'), write: snapshotText => operate('write', snapshotText), filePath: () => agentRunFile(sid, rid) });
 }
@@ -46306,7 +46573,7 @@ async function listAgentRunDigests(sessionId) {
       const hit = agentRunDigestCache.get(full);
       if (hit && hit.mtimeMs === st.mtimeMs && hit.ctimeMs === st.ctimeMs && hit.size === st.size && hit.ino === st.ino) {
         // Plaintext keeps its zero-key cache path. Sealed cache entries require the current key identity.
-        if (!hit.authStamp || hit.authStamp === (await agentRunSnapshotCredential()).stamp) {
+        if (!hit.authStamp || hit.authStamp === await agentRunSnapshotStamp()) {
           agentRunDigestStats.hits += 1;
           if (hit.shadow) out.push(hit.shadow);
           continue;
@@ -47959,7 +48226,7 @@ function personalAgentWorkflowStore(fileName) {
     // Bind the file identity without changing those legacy names or exposing a path in metadata.
     recordId: 'workflow:' + crypto.createHash('sha256').update(identity, 'utf8').digest('hex'),
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: atomicWriteJson,
     validateSealedText: text => {
@@ -48781,7 +49048,7 @@ function materializePoolItem(run, item, opts = {}) {
     // 第30波:池提案节点 model 解析 —— 提案 item.model(校验后)> 角色按引擎默认 > 提案者节点 model(继承);
     // 无 provider 句柄(物化在调度器内,opts 不带 provider)则校验退回 offlineModelList(含 config.model/knownModels)。
     const poolRoleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-    const poolModel = resolveNodeModel(item.model, poolRoleModel || (proposer && proposer.model), toolTier, engine, opts.config, opts.provider);
+    const poolModel = resolveNodeModel(item.model, poolRoleModel || (proposer && proposer.model), toolTier, engine, opts.config, opts.provider, opts.proxyModelsCache);
     const node = {
       id: item.id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null,
       dependsOn, resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label),
@@ -49483,6 +49750,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     if (defaultRoute.fallbackReason && typeof onEvent === 'function') {
       onEvent({ type: 'stderr', text: `[Agent team] ${defaultRoute.fallbackReason}` });
     }
+    const proxyModelsCache = routeConfig.agentAutoModelTiering ? await getProxyModelsCache() : { models: [] };
     const ids = new Set(); nodes = [];
     for (const raw of rawNodes.slice(0, 64)) {
       const id = String(raw && raw.id || '').trim().slice(0, 64);
@@ -49513,7 +49781,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const roleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
       // 52x: openai 节点用子 agent 优先端点(跨 provider)挑模型,与运行时 subProvider 一致,防 tier 用主 provider 池挑模型送 subProvider 跑 404
       const matProvider = engine === 'openai' ? (defaultRoute.provider || provider) : provider;
-      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider), maxIters: engine === 'claude' && raw.maxIters == null ? claudeSubAgentTurnBudget(undefined, role) : engine === 'claude' && Number(raw.maxIters) === 0 ? 0 : Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
+      nodes.push({ id, task, wait, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null, dependsOn: [...new Set((Array.isArray(raw.dependsOn) ? raw.dependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), reportedDependsOn: [...new Set((Array.isArray(raw.reportedDependsOn) ? raw.reportedDependsOn : []).map(v => String(v || '').trim()).filter(Boolean))].slice(0, 16), resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label), isolationMode: (!wait && (raw.isolation === 'worktree' || (!raw.isolation && role && role.isolation === 'worktree'))) ? 'worktree' : 'none', toolTier: explicitTier || (role && role.toolTier) || 'read', engine, model: resolveNodeModel(raw.model, roleModel, explicitTier || (role && role.toolTier) || 'read', engine, routeConfig, matProvider, proxyModelsCache), maxIters: engine === 'claude' && raw.maxIters == null ? claudeSubAgentTurnBudget(undefined, role) : engine === 'claude' && Number(raw.maxIters) === 0 ? 0 : Math.min(1000, Math.max(1, Number(raw.maxIters || (role && role.budgets && role.budgets[engine])) || 100)), outputSchema, gate, failurePolicy, dependencyPolicy: raw.dependencyPolicy === 'all_settled' ? 'all_settled' : 'all_success', degradedPolicy, maxRetries: Math.max(0, Math.min(5, Math.round(Number(raw.maxRetries) || 0))), retryFallback: raw.retryFallback === 'continue' ? 'continue' : 'block', minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(raw.minSuccessfulToolCalls) || 0))), condition: normalizeWorkflowCondition(raw.condition), loop: normalizeWorkflowLoop(raw.loop), position: raw.position && typeof raw.position === 'object' ? { x: Number(raw.position.x) || 0, y: Number(raw.position.y) || 0 } : null, context: (raw && raw.context) ? String(raw.context).trim().slice(0, 4000) : '', replan: raw.replan === true, status: 'queued', attempts: 0, loopIteration: 0, noProgressCount: 0, progressFingerprint: '', result: '', structuredResult: null, schemaErrors: [], confidence: null, error: '', startedAt: null, completedAt: null, waitingForResources: [], progressLog: [] });
     }
     for (const node of nodes) {
       const missing = node.dependsOn.filter(id => !ids.has(id));
@@ -49780,9 +50048,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   const poolPolicy = ['manual', 'auto-capped', 'off'].includes(run.poolPolicy) ? run.poolPolicy : 'manual';
   const wfCwd = normalizeCwd(parentSession.cwd, config.defaultWorkspace);
   // 工作流节点按各自 task 做轻量记忆预检；不再把整次 run 的同一份索引无差别塞给所有节点。
-  const proposeTaskImpl = (proposerId, args) => {
+  const proposeTaskImpl = async (proposerId, args) => {
     try {
       if (poolPolicy === 'off') return { ok: false, error: '任务池未启用' };
+      const proxyModelsCache = poolPolicy === 'auto-capped' && config.agentAutoModelTiering ? await getProxyModelsCache() : { models: [] };
       if (runtime.closing) return { ok: false, error: '工作流正在收尾,无法再提交提案' };
       if (!Array.isArray(run.taskPool)) run.taskPool = [];
       const task = String(args && args.task || '').trim().slice(0, 4000);
@@ -49806,7 +50075,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const cap = Number.isFinite(Number(run.poolAutoCap)) ? Number(run.poolAutoCap) : 3;
         const autoUsed = run.taskPool.filter(p => p !== item && p.decidedBy === 'auto' && p.status === 'materialized').length;
         if (autoUsed < cap) {
-          const mat = materializePoolItem(run, item, { roleLibrary, cwd: wfCwd, config, provider }); // 第30波:传 provider 供 model 白名单/tier 校验
+          const mat = materializePoolItem(run, item, { roleLibrary, cwd: wfCwd, config, provider, proxyModelsCache }); // 第30波:传 provider 供 model 白名单/tier 校验
           if (mat.ok) { item.status = 'materialized'; item.decidedBy = 'auto'; item.decidedAt = nowIso(); item.resultNodeId = mat.node.id; try { runtime.poolGraceArmed = true; } catch {} appendAgentRunEvent(run, { type: 'run_pool', data: { action: 'materialized', poolId: item.id, by: 'auto' } }); }
           else { item.materializeError = String(mat.error || '').slice(0, 2000); }
         }
@@ -51174,7 +51443,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // 第30波:编排可用时注入"可选模型 + 能力档位 + 按难度选型指引",让 AI 自主为不同节点选模型。数据取 offlineModelList,零网络。
   if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
-    volatileExtras += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
+    volatileExtras += await buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
     // 代理模式 v2:后台规则 + 信封契约(只改这段子代理/后台文字)。
     volatileExtras += '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）；届时本对话若已空闲，工作台会自己起一个新回合把信封送来，所以主线做完就可以结束本回合（告诉用户代理还在后台跑），不必空等。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。send_to_agent({action:"list",runId?}) 查询本会话活组或指定组的节点实时资格；queued 表示可排队，名单不保证随后送达。消息是参考通信，不会重启终态节点；明确续派用 orchestrate_agents({followup:{previousRunId,previousNodeId,task}}) 新建独立 run。任务池默认 off；显式 poolPolicy:"manual" 仅开放待审批提案，审批物化仍受原发起回合预算约束，不会自动扩展。';
   }
@@ -61722,7 +61991,7 @@ function webCacheStore(url) {
     file: () => file, purpose: 'cache', schema: 1, scopeId: 'global',
     recordId: 'web-cache:' + path.basename(file, '.json'),
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     validateSealedText: cacheText => {
@@ -70046,7 +70315,7 @@ async function handleApi(req, res, pathname) {
         const cap = p ? learnedWindowCap(p.id, model) : 0;
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
-      models: agentCliAdapter(conversationConfig.agentCliType).modelCatalog.offline(conversationConfig), // instant offline list for the requested conversation route (per-CLI adapter, 05)
+      models: await agentCliAdapter(conversationConfig.agentCliType).modelCatalog.offline(conversationConfig), // instant offline list for the requested conversation route (per-CLI adapter, 05)
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (local Ollama/LM Studio + custom; no vendor presets)
       toolbox: typeof ToolboxHooks.statusView === 'function' ? ToolboxHooks.statusView(config) : { autoDiscover: false, components: [] },   // ruyi-toolbox 已登记的组件与各自状态(只读视图;命令不出进程)
       claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (custom only; no vendor presets)
@@ -72034,44 +72303,100 @@ const MODEL_PRESETS = [
 // 兜底 + buildModelHint 的 Claude 组。【不】写进 config.json:GET /api/models 是读路径,把缓存合并进 config 再
 // writeConfig 会让陈旧全量快照与用户的 POST /api/config 竞态互踩(25.1 对抗轮教训);sidecar 独占写点、零竞态。
 const PROXY_MODELS_CACHE_PATH = () => path.join(paths.data, 'proxy-models-cache.json');
-let proxyModelsCacheMemo = null; // null=未读盘;读后为 {at, models:[{id,label}]}(可为空数组)
-function getProxyModelsCache() {
-  if (proxyModelsCacheMemo === null) {
-    proxyModelsCacheMemo = { at: '', models: [] };
-    try {
-      const j = JSON.parse(fs.readFileSync(PROXY_MODELS_CACHE_PATH(), 'utf8'));
-      if (j && Array.isArray(j.models)) {
-        proxyModelsCacheMemo = {
-          at: String(j.at || ''),
-          models: j.models.filter(m => m && m.id).map(m => ({ id: String(m.id), label: String(m.label || m.id) })).slice(0, 50),
-        };
-      }
-    } catch { /* 无缓存文件/坏 JSON → 空缓存 */ }
-  }
-  return proxyModelsCacheMemo;
+let proxyModelsCacheMemo = null;
+let proxyModelsCacheMemoState = null;
+const proxyModelsCacheChains = new Map();
+function proxyModelsCacheFailure(error) {
+  if (String(error?.code || '').startsWith('work_data')) return error;
+  return Object.assign(new Error('work_data_store.storage_unavailable'), { code: 'work_data_store.storage_unavailable', apiCode: 'work_data_store.storage_unavailable', statusCode: 503 });
 }
-// 发现成功时调用:归一化 + 去重 + cap 50;内容没变则不写盘(避免每次 /api/models 都动文件)。尽力而为,不抛。
-function setProxyModelsCache(models) {
-  const seen = new Map();
-  for (const m of (Array.isArray(models) ? models : [])) {
-    const id = String((m && m.id) || '').trim();
-    if (id && !seen.has(id)) seen.set(id, { id, label: String((m && m.label) || id) });
-    if (seen.size >= 50) break;
+function proxyModelsCacheStore(onSealed) {
+  return WorkDataStore.createText({
+    file: PROXY_MODELS_CACHE_PATH, purpose: 'cache', schema: 1, scopeId: 'global', recordId: 'proxy-models-cache',
+    chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
+    writeJson: atomicWriteJson,
+    validateSealedText: text => {
+      const value = JSON.parse(text);
+      if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['at', 'models'].includes(key))
+        || typeof value.at !== 'string' || !Array.isArray(value.models) || value.models.length > 50
+        || value.models.some(model => !model || typeof model !== 'object' || Array.isArray(model)
+          || Object.keys(model).some(key => !['id', 'label'].includes(key)) || typeof model.id !== 'string' || !model.id
+          || typeof model.label !== 'string')) return false;
+      if (onSealed) onSealed();
+      return true;
+    },
+  });
+}
+async function readProxyModelsCache() {
+  let enabled, authority = 'off';
+  try {
+    try { enabled = (await readConfig()).workDataEncryptionV1 === true; } catch (error) { throw proxyModelsCacheFailure(error); }
+    // Plain memo can survive enabling, but never bypass current key/instance authority once ON.
+    if (enabled) {
+      const credential = await WorkDataStore.acquireSnapshot();
+      try { authority = 'on:' + credential.instanceId + ':' + crypto.createHash('sha256').update(credential.key).digest('hex'); }
+      finally { await credential.release(); }
+    }
+    const file = PROXY_MODELS_CACHE_PATH();
+    const stat = await fsp.stat(file).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+    const signature = file + ':' + (stat ? [stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs].join(':') : 'absent');
+    // Sealed data is deliberately reauthenticated on every use. Its plaintext is never served from
+    // a warm process memo, even if filesystem timestamps and the previously-unlocked key match.
+    if (proxyModelsCacheMemo && proxyModelsCacheMemoState && !proxyModelsCacheMemoState.sealed
+      && proxyModelsCacheMemoState.signature === signature && proxyModelsCacheMemoState.authority === authority) return proxyModelsCacheMemo;
+    let sealed = false, value = { at: '', models: [] };
+    if (stat) {
+      let raw;
+      try { raw = await proxyModelsCacheStore(() => { sealed = true; }).read(); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (raw !== undefined) {
+        let parsed;
+        try { parsed = JSON.parse(raw); } catch { /* Legacy malformed cache remains a miss. */ }
+        if (parsed && Array.isArray(parsed.models)) value = { at: String(parsed.at || ''),
+          models: parsed.models.filter(model => model && model.id).map(model => ({ id: String(model.id), label: String(model.label || model.id) })).slice(0, 50) };
+      }
+    }
+    proxyModelsCacheMemo = value; proxyModelsCacheMemoState = { signature, authority, sealed };
+    return value;
+  } catch (error) {
+    proxyModelsCacheMemo = null; proxyModelsCacheMemoState = null;
+    if (String(error?.code || '').startsWith('work_data')) throw error;
+    return { at: '', models: [] }; // Ordinary cache I/O remains a derived-data miss.
   }
-  const next = { at: new Date().toISOString(), models: [...seen.values()] };
-  const prev = getProxyModelsCache();
-  if (JSON.stringify(prev.models) === JSON.stringify(next.models)) return;
-  proxyModelsCacheMemo = next;
-  atomicWriteJson(PROXY_MODELS_CACHE_PATH(), next).catch(() => { /* 失败只影响下次离线兜底 */ });
+}
+async function getProxyModelsCache() {
+  return runKeyedChain(proxyModelsCacheChains, 'cache', readProxyModelsCache);
+}
+ProxyModelHooks.read = getProxyModelsCache;
+// Normalize/dedupe/cap 50, retain the original pretty bytes and avoid unchanged-content writes.
+async function setProxyModelsCache(models) {
+  return runKeyedChain(proxyModelsCacheChains, 'cache', async () => {
+    const seen = new Map();
+    for (const model of (Array.isArray(models) ? models : [])) {
+      const id = String((model && model.id) || '').trim();
+      if (id && !seen.has(id)) seen.set(id, { id, label: String((model && model.label) || id) });
+      if (seen.size >= 50) break;
+    }
+    const next = { at: new Date().toISOString(), models: [...seen.values()] };
+    const prev = await readProxyModelsCache();
+    if (JSON.stringify(prev.models) === JSON.stringify(next.models)) return;
+    // Publish no uncommitted memo. A failed encrypted write cannot turn the old ledger into an
+    // empty in-memory fallback and an ordinary OFF disk failure remains best effort.
+    proxyModelsCacheMemo = null; proxyModelsCacheMemoState = null;
+    try { await proxyModelsCacheStore().write(JSON.stringify(next, null, 2)); }
+    catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; }
+  });
 }
 
 // Offline list = 默认+别名预设 ∪ 代理发现缓存 ∪ manual (extraModels: "id" or "id|Label") ∪ remembered (knownModels)
 // ∪ the current custom model. Deduped by id; the empty '默认' entry stays first. No network.
-function offlineModelList(config) {
+async function offlineModelList(config, proxyCache) {
   const seen = new Map();
   const add = (id, label) => { const k = String(id ?? ''); if (!seen.has(k)) seen.set(k, { id: k, label: label || (k || '默认 (CLI 配置)') }); };
   for (const m of MODEL_PRESETS) add(m.id, m.label);
-  for (const m of getProxyModelsCache().models) add(m.id, m.label); // 第44波: API 发现的版本化型号由此进列表
+  for (const m of (proxyCache || await getProxyModelsCache()).models) add(m.id, m.label); // 第44波: API 发现的版本化型号由此进列表
   for (const raw of (config.extraModels || [])) { const [id, label] = String(raw).split('|'); if (id && id.trim()) add(id.trim(), (label || '').trim() || undefined); }
   for (const id of (config.knownModels || [])) if (id) add(id);
   if (config.model && !seen.has(String(config.model))) add(config.model, config.model + ' (自定义)');
@@ -72176,8 +72501,9 @@ const CLAUDE_ALIAS_IDS = new Set(['opus', 'sonnet', 'haiku']); // Claude CLI 内
 // 供编排者(AI)选型的可选模型清单 + 能力档位 + 按难度选型指引。【引擎分组】:OpenAI 节点用 provider 模型 + 用户
 // 自定义(非预设);Claude 节点用代理发现缓存 ∪ 用户持有的别名(第44波,替代原硬编码版本型号;44e 别名出列表)。防 AI 给
 // openai 节点选 Claude 别名(必失败)。label 扁平化防注入。
-function buildModelHint(config, provider) {
-  const all = offlineModelList(config).filter(m => m.id);
+async function buildModelHint(config, provider) {
+  const proxyCache = await getProxyModelsCache();
+  const all = (await offlineModelList(config, proxyCache)).filter(m => m.id);
   if (!all.length) return '';
   // OpenAI 组【优先用当前激活 provider 声明的模型】—— 只有它们对该 provider 真实可用;knownModels/config.model 可能
   // 是【别的 provider】的模型(如 deepseek 激活时 knownModels 里的 qwen 属 dashscope),混进来会诱导 AI 选了必失败。
@@ -72187,7 +72513,7 @@ function buildModelHint(config, provider) {
   if (provider) { if (Array.isArray(provider.models)) for (const x of provider.models) addP((x && x.id) || x); if (provider.model) addP(provider.model); }
   // provider 声明了模型 → 只列这些;什么都没声明(自建单模型)→ 退回非预设自定义(尽力)。
   // 第44波: Claude 组 = 别名 ∪ 代理发现缓存(API 真实清单);openai 兜底池同步排除两者(防跨引擎诱导选错必失败)。
-  const claudeCacheIds = new Set(getProxyModelsCache().models.map(m => m.id));
+  const claudeCacheIds = new Set(proxyCache.models.map(m => m.id));
   const openaiModels = provList.length ? provList : all.filter(m => !CLAUDE_ALIAS_IDS.has(m.id) && !claudeCacheIds.has(m.id));
   const claudeModels = all.filter(m => CLAUDE_ALIAS_IDS.has(m.id) || claudeCacheIds.has(m.id)); // 别名(用户持有的) + 代理缓存(Claude)
   const fmt = m => { const t = modelCapabilityTier(m.id, m.label); const lb = m.label && m.label !== m.id ? '（' + String(m.label).replace(/\s+/g, ' ').trim() + '）' : ''; return `- ${m.id}【${MODEL_TIER_LABEL[t]}·${MODEL_TIER_USE[t]}】${lb}`; };
@@ -72203,7 +72529,7 @@ function buildModelHint(config, provider) {
 // 目标档缺则顺位降级,全无则空(继承)。【引擎感知】:claude→空(继承 CLI 默认,不替它挑贵模型);openai 从 provider
 // 模型 ∪ 用户自定义模型(knownModels/config.model/extraModels)里挑,【排除 Claude 预设别名】(对 openai 无意义)。
 // 对抗轮 P3:池扩到 knownModels/config.model,修 provider.models=[] (常见自建配置)时 tier 兜底静默失效。
-function tierModelForNode(toolTier, engine, config, provider) {
+function tierModelForNode(toolTier, engine, config, provider, proxyCache) {
   if (engine === 'claude') return '';
   // 优先【当前激活 provider 声明的模型】(对该 provider 真实可用);只有 provider 什么都没声明时才退回用户全局
   // 自定义模型(knownModels/config.model,尽力兜底,可能跨 provider —— 但总比 provider.models=[] 时静默失效强)。
@@ -72213,7 +72539,7 @@ function tierModelForNode(toolTier, engine, config, provider) {
   let ids;
   if (provIds.length) ids = provIds;
   else { ids = []; for (const raw of (config.extraModels || [])) { const id = String(raw).split('|')[0].trim(); if (id) ids.push(id); } for (const id of (config.knownModels || [])) if (id) ids.push(String(id)); if (config.model) ids.push(String(config.model)); }
-  const claudeCacheIds = new Set(getProxyModelsCache().models.map(m => m.id)); // 第44波: 缓存的 Claude 端模型同样排除
+  const claudeCacheIds = new Set((proxyCache?.models || []).map(m => m.id)); // 第44波: 缓存的 Claude 端模型同样排除
   const pool = [...new Set(ids)].filter(id => !CLAUDE_ALIAS_IDS.has(id) && !claudeCacheIds.has(id)); // 排除 Claude 别名+代理缓存
   if (!pool.length) return '';
   const want = toolTier === 'exec' ? 'strong' : (toolTier === 'edit' ? 'balanced' : 'fast');
@@ -72224,7 +72550,7 @@ function tierModelForNode(toolTier, engine, config, provider) {
 // 节点最终 model 解析:显式(原样尊重,'inherit'→空)> 角色按引擎默认 > 按 tier 兜底(opt-in,引擎感知)> 继承(空)。
 // 对抗轮:【不】做白名单丢弃 —— 显式 model 无论人工/AI 一律尊重(避免误杀 live 发现/未记住的真实模型,消除回归);
 // 'inherit' 归一为空(两引擎都用空表达"用默认";OpenAI runner 不剥 inherit 字面量会当真模型发失败)。
-function resolveNodeModel(rawModel, roleModel, toolTier, engine, config, provider) {
+function resolveNodeModel(rawModel, roleModel, toolTier, engine, config, provider, proxyCache) {
   let m = String(rawModel || '').trim().slice(0, 160);
   if (m === 'inherit') m = '';                      // 归一:两引擎"用默认"都用空
   if (m) return m;                                  // 显式非空 → 原样尊重(不白名单丢弃)
@@ -72232,7 +72558,7 @@ function resolveNodeModel(rawModel, roleModel, toolTier, engine, config, provide
   if (rm && rm !== 'inherit') return rm;            // 角色默认(用户配置)
   // 52x: 全局子 agent 优先模型(openai 引擎,跨 provider)--用户显式选择,优先于自动 tier
   if (engine === 'openai' && config && config.subagentPreferredModel) { const pm = String(config.subagentPreferredModel).trim().slice(0, 160); if (pm) return pm; }
-  if (config && config.agentAutoModelTiering) { const t = tierModelForNode(toolTier, engine, config, provider); if (t) return t; }
+  if (config && config.agentAutoModelTiering) { const t = tierModelForNode(toolTier, engine, config, provider, proxyCache); if (t) return t; }
   return '';                                        // 继承 / provider 兜底链
 }
 
@@ -72267,12 +72593,12 @@ async function fetchProxyModels(config, timeoutMs = 2500) {
 // 第44波: 发现成功即更新 sidecar 缓存(setProxyModelsCache 内部做变更比对,没变不写盘)。
 async function discoverModels(config) {
   const proxy = (config && config.discoverModelsFromProxy !== false) ? await fetchProxyModels(config).catch(() => []) : [];
-  if (proxy.length) setProxyModelsCache(proxy);
+  if (proxy.length) await setProxyModelsCache(proxy);
   const seen = new Map();
   const add = (id, label) => { const k = String(id ?? ''); if (!seen.has(k)) seen.set(k, { id: k, label: label || k }); };
   add('', '默认 (CLI 配置)');
   for (const m of proxy) add(m.id, m.label);
-  for (const m of offlineModelList(config)) if (m.id !== '') add(m.id, m.label);
+  for (const m of await offlineModelList(config)) if (m.id !== '') add(m.id, m.label);
   return { models: [...seen.values()], proxyCount: proxy.length };
 }
 
@@ -75626,7 +75952,8 @@ async function decideIntervention(command = {}) {
         roleLibrary = new Map((await getAgentRoleLibrary(cwd, config)).map(role => [role.id, role]));
       } catch { /* preserve the existing empty-role-library fallback */ }
       const dryRun = { ...live.run, nodes: Array.isArray(live.run.nodes) ? [...live.run.nodes] : [] };
-      const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config, dryRun: true });
+      const proxyModelsCache = config?.agentAutoModelTiering ? await ProxyModelHooks.read() : { models: [] };
+      const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config, proxyModelsCache, dryRun: true });
       if (!dry.ok) return { ok: false, reason: dry.reason || 'pool_materialize_rejected', runId, message: dry.error || 'pool item cannot be materialized' };
     }
     poolContext = { runId, live, item, config, cwd, roleLibrary };
@@ -75681,6 +76008,7 @@ async function decideIntervention(command = {}) {
     }
     return (async () => {
       const { runId, live, item, config, cwd, roleLibrary } = poolContext;
+      const proxyModelsCache = action === 'approve' && config?.agentAutoModelTiering ? await ProxyModelHooks.read() : { models: [] };
       if (activeAgentRuns.get(runId) !== live || live.closing || live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted) || item.status !== 'proposed') {
         return { ok: false, reason: 'run_state_changed' };
       }
@@ -75691,7 +76019,7 @@ async function decideIntervention(command = {}) {
         await saveAgentRun(live.run);
         return { ok: true, poolId: interventionId };
       }
-      const mat = materializePoolItem(live.run, item, { roleLibrary, cwd, config });
+      const mat = materializePoolItem(live.run, item, { roleLibrary, cwd, config, proxyModelsCache });
       if (!mat.ok) return { ok: false, reason: mat.reason || 'pool_materialize_failed', message: mat.error || '' };
       item.status = 'materialized'; item.decidedBy = String(command.decidedBy || 'user'); item.decidedAt = nowIso(); item.resultNodeId = mat.node.id;
       bumpRunIntervention(live.run, 'pool_approve');
@@ -76607,7 +76935,7 @@ const pretenderRunSourceAuth = new Map(); // sessionId -> { sourceStamp, authSta
 async function pretenderCheckRunSourceAuth() {
   const sealed = [...pretenderRunSourceAuth].filter(([, value]) => value.authStamp);
   if (!sealed.length) return;
-  const stamp = (await agentRunSnapshotCredential()).stamp;
+  const stamp = await agentRunSnapshotStamp();
   for (const [sid, value] of sealed) {
     if (value.authStamp !== stamp) {
       pretenderIndexRuntime.dirtySessions.add(sid);
@@ -76632,7 +76960,7 @@ async function pretenderSessionSourceStamp(sessionId) {
   const sourceStamp = pretenderHash(parts.join('|'));
   const known = pretenderRunSourceAuth.get(sid);
   let authStamp = known && known.sourceStamp === sourceStamp ? known.authStamp : null;
-  if (authStamp && authStamp !== (await agentRunSnapshotCredential()).stamp) authStamp = null;
+  if (authStamp && authStamp !== await agentRunSnapshotStamp()) authStamp = null;
   if (authStamp === null) {
     authStamp = '';
     for (const file of files) {
@@ -77916,7 +78244,7 @@ const stewardCursorStore = WorkDataStore.createText({
   id: 'steward-cursor',
   file: () => stewardCursorPath(),
   purpose: 'queue', schema: STEWARD_CURSOR_SCHEMA, scopeId: 'global', recordId: 'steward-cursor',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
@@ -79219,7 +79547,7 @@ const stewardMemoryStore = WorkDataStore.createJson({
   validate: value => value.schema === STEWARD_MEMORY_SCHEMA && Array.isArray(value.entries),
   quarantine: false,
   purpose: 'memory', scopeId: 'global', recordId: 'steward-memory',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });
@@ -86852,7 +87180,7 @@ function stewardVisitStore(file) {
     purpose: 'memory', schema: STEWARD_VISIT_SCHEMA, scopeId: STEWARD_SESSION_ID,
     recordId: 'visit:' + crypto.createHash('sha256').update(identity, 'utf8').digest('hex'),
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: atomicWriteJson,
     validateSealedText: text => {
@@ -92737,7 +93065,7 @@ const externalBotStore = (() => {
   const textStore = onSealed => WorkDataStore.createText({
     file: filePath, purpose: 'queue', schema: 1, scopeId: 'global', recordId: 'external-bots:state-v1',
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
     writeJson: atomicWriteJson,
     validateSealedText: text => { const value = parse(text, true); if (onSealed) onSealed(value); return true; },

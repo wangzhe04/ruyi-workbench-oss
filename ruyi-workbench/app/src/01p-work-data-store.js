@@ -21,14 +21,57 @@ const WorkDataStore = ((fsp, pathModule) => {
   };
   // Hooks must be filled by 02 before any family store writes; a missing value is a boot-order bug,
   // not a TypeError deep inside a write.
+  const keyApi = keys => !!keys && (typeof keys.snapshot === 'function' || typeof keys.unlock === 'function' && typeof keys.instance === 'function');
   const requireKeys = () => {
     const keys = Hooks.keys;
-    if (!keys || typeof keys.unlock !== 'function' || typeof keys.instance !== 'function') fail('not_initialised');
+    if (!keyApi(keys)) fail('not_initialised');
     return keys;
   };
   // A host may pass its own key set (tests, and the stores 02 owns); everyone else goes through the
   // late-binding hook so a family can live outside the dependency cycle.
-  const keysFor = host => ((host && host.keys && typeof host.keys.unlock === 'function') ? host.keys : requireKeys());
+  const keysFor = host => (host && keyApi(host.keys) ? host.keys : requireKeys());
+  const ownedSnapshot = (key, instanceId, releaseSource) => {
+    if (!Buffer.isBuffer(key) || key.length !== 32 || typeof instanceId !== 'string' || !instanceId) fail('key_snapshot', 503);
+    const owned = Buffer.from(key); let released = false;
+    return Object.freeze({ key: owned, instanceId, release: async () => {
+      if (released) return;
+      released = true; owned.fill(0);
+      if (releaseSource) await releaseSource();
+    } });
+  };
+  const acquireSnapshot = async (keys = requireKeys()) => {
+    if (!keyApi(keys)) fail('not_initialised');
+    if (typeof keys.snapshot === 'function') {
+      const source = await keys.snapshot();
+      try {
+        if (!source || typeof source.release !== 'function') fail('key_snapshot', 503);
+        return ownedSnapshot(source.key, source.instanceId, () => source.release());
+      } catch (error) {
+        try { if (typeof source?.release === 'function') await source.release(); } catch { /* preserve acquisition failure */ }
+        throw error;
+      }
+    }
+    const unlocked = await keys.unlock();
+    if (!Buffer.isBuffer(unlocked) || unlocked.length !== 32) fail('key_snapshot', 503);
+    // Legacy custom providers are supported, but never retain their shared Buffer across an await.
+    const copy = Buffer.from(unlocked);
+    try { return ownedSnapshot(copy, await keys.instance()); }
+    finally { copy.fill(0); }
+  };
+  const withOperation = async (host, work) => {
+    let pending = null, failed = false;
+    const operation = { credential: () => pending || (pending = acquireSnapshot(keysFor(host))) };
+    try { return await work(operation); }
+    catch (error) { failed = true; throw error; }
+    finally {
+      let lease;
+      try { if (pending) lease = await pending; } catch { /* acquisition already failed */ }
+      if (lease) {
+        try { await lease.release(); }
+        catch { if (!failed) fail('snapshot_release', 503); }
+      }
+    }
+  };
   // The switch itself may be unreadable; that is "unknown", never "off" — a plaintext rewrite of a
   // sealed record is the one outcome the frozen contract forbids without an explicit migration.
   const sealing = async host => {
@@ -120,16 +163,16 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (carry.length || first) fail('corrupt');
     } finally { await handle.close(); }
   };
-  const readChunks = async (host, target, header) => {
-    const keys = keysFor(host), key = await keys.unlock();
-    const plainText = await WorkDataChunks.openLines(chunkLines(target, host.maxPlaintextBytes), key, {
-      purpose: host.purpose, instanceId: await keys.instance(), schema: Number.isFinite(host.schema) ? host.schema : 1,
+  const readChunks = async (host, target, header, operation) => {
+    const credential = await operation.credential();
+    const plainText = await WorkDataChunks.openLines(chunkLines(target, host.maxPlaintextBytes), credential.key, {
+      purpose: host.purpose, instanceId: credential.instanceId, schema: Number.isFinite(host.schema) ? host.schema : 1,
       scopeId: host.scopeId, recordId: host.recordId, seq: host.seq === undefined ? 1 : host.seq,
       generation: generationOf(header.keyId),
     }, host.maxPlaintextBytes);
     return validateSealed(host, plainText);
   };
-  const guardWrite = async (host, target) => {
+  const guardWrite = async (host, target, operation) => {
     // mkdir first: atomicWriteJson does not create directories (the old DurableJsonStore write chain did).
     await fsp.mkdir(pathModule.dirname(target), { recursive: true }).catch(() => {});
     // One switch snapshot owns both the downgrade guard and this write. Re-reading it after the
@@ -141,7 +184,7 @@ const WorkDataStore = ((fsp, pathModule) => {
     if (header) {
       if (!enabled) fail('downgrade_refused');
       if (host.chunked !== true) fail('chunked_unsupported');
-      await readChunks(host, target, header); // never replace a missing-key, truncated or tampered old revision
+      await readChunks(host, target, header, operation); // never replace a missing-key, truncated or tampered old revision
       return enabled;
     }
     let rawText = '';
@@ -154,7 +197,7 @@ const WorkDataStore = ((fsp, pathModule) => {
       return enabled;
     }
     if (!enabled && parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.hasOwn(parsed, 'workData')) fail('downgrade_refused');
-    if (enabled && host.chunked === true && parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) await openTextRecord(host, parsed);
+    if (enabled && host.chunked === true && parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) await openTextRecord(host, parsed, operation);
     return enabled;
   };
   const generationOf = keyId => {
@@ -163,11 +206,11 @@ const WorkDataStore = ((fsp, pathModule) => {
     if (!Number.isSafeInteger(generation) || generation < 1) fail('corrupt');
     return generation;
   };
-  const openTextRecord = async (host, parsed) => {
+  const openTextRecord = async (host, parsed, operation) => {
     const { workData, ...container } = parsed;
     if (workData !== CONTAINER) fail(workData === 3 ? 'chunked_unsupported' : 'corrupt');
-    const keys = keysFor(host), key = await keys.unlock();
-    const plainText = WorkDataCrypto.open(container, key, { purpose: host.purpose, instanceId: await keys.instance(),
+    const credential = await operation.credential();
+    const plainText = WorkDataCrypto.open(container, credential.key, { purpose: host.purpose, instanceId: credential.instanceId,
       schema: Number.isFinite(host.schema) ? host.schema : 1, scopeId: host.scopeId, recordId: host.recordId,
       seq: container.seq, generation: generationOf(container.keyId) });
     if (typeof plainText !== 'string' || Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('corrupt');
@@ -199,12 +242,12 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (!corruptLogged) { corruptLogged = true; try { if (host.onCorrupt) host.onCorrupt(error); } catch { /* diagnostics never block */ } }
       return fallback();
     };
-    async function decrypt(parsed, budget) {
+    async function decrypt(parsed, budget, operation) {
       const { workData, ...container } = parsed;
       if (workData !== CONTAINER) fail('corrupt');
-      const key = await keysFor(host).unlock();   // disabled/absent/unavailable are hard failures, not empty data
-      const plaintext = WorkDataCrypto.open(container, key, {
-        purpose: host.purpose, instanceId: await keysFor(host).instance(), schema: host.schema, scopeId: host.scopeId,
+      const credential = await operation.credential(); // key and instance share this complete operation
+      const plaintext = WorkDataCrypto.open(container, credential.key, {
+        purpose: host.purpose, instanceId: credential.instanceId, schema: host.schema, scopeId: host.scopeId,
         recordId: host.recordId, seq: container.seq, generation: generationOf(container.keyId),
       });
       if (typeof plaintext !== 'string' || Buffer.byteLength(plaintext, 'utf8') > budget) fail('corrupt');
@@ -218,7 +261,7 @@ const WorkDataStore = ((fsp, pathModule) => {
       }
       return prepare(value);
     }
-    async function read() {
+    async function readWithin(operation) {
       const target = file();
       let rawText;
       try { rawText = await fsp.readFile(target, 'utf8'); }
@@ -229,27 +272,28 @@ const WorkDataStore = ((fsp, pathModule) => {
         if (containerMarker(rawText)) fail('corrupt');
         return await corrupt(error);   // legacy "invalid means empty" contract for plaintext only
       }
-      if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) return decrypt(parsed, WorkDataCrypto.MAX_PLAINTEXT);
+      if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) return decrypt(parsed, WorkDataCrypto.MAX_PLAINTEXT, operation);
       // Legacy plaintext record: keep the previous "bad shape means empty plus a diagnostic" contract.
       try { return prepare(parsed); } catch (error) { return await corrupt(error); }
     }
-    async function write(value) {
+    async function writeWithin(value, operation) {
       const prepared = prepare(value);
       const target = file();
-      const enabled = await guardWrite(host, target);
-      if (typeof host.validateSealedValue === 'function') await read();
+      const enabled = await guardWrite(host, target, operation);
+      if (typeof host.validateSealedValue === 'function') await readWithin(operation);
       if (!enabled) { await host.writeJson(target, prepared); return prepared; }
       // Enabled: never create a key here. Key creation belongs to the explicit enable flow (M3-3).
       const plaintext = JSON.stringify(prepared);
       if (Buffer.byteLength(plaintext, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
-      const key = await keysFor(host).unlock();
-      const instanceId = await keysFor(host).instance();
-      const container = WorkDataCrypto.seal(plaintext, key, {
-        purpose: host.purpose, instanceId, schema: host.schema, scopeId: host.scopeId, recordId: host.recordId, seq: 1,
+      const credential = await operation.credential();
+      const container = WorkDataCrypto.seal(plaintext, credential.key, {
+        purpose: host.purpose, instanceId: credential.instanceId, schema: host.schema, scopeId: host.scopeId, recordId: host.recordId, seq: 1,
       });
       await host.writeJson(target, { workData: CONTAINER, ...container });
       return prepared;
     }
+    const read = () => withOperation(host, readWithin);
+    const write = value => withOperation(host, operation => writeWithin(value, operation));
     return Object.freeze({ read, write, filePath: file });
   }
   // Whole-record TEXT variant (session head): the caller owns the serialization, so the plaintext
@@ -259,13 +303,13 @@ const WorkDataStore = ((fsp, pathModule) => {
     if (host.chunked === true) WorkDataChunks.limitOf(host.maxPlaintextBytes);
     // schema 是 01n 的必填绑定项；族没显式给时用 record 格式版本（与 createJson 同口径）。
     const schema = Number.isFinite(host.schema) ? host.schema : 1;
-    async function read() {
+    async function readWithin(operation) {
       // ENOENT propagates on purpose: the resilient session-head readers retry on it and must keep
       // doing so; callers that treat a missing record as empty catch it themselves.
       const header = host.chunked === true ? await chunkHeader(file()) : null;
       if (header) {
         if (host.chunked !== true) fail('chunked_unsupported');
-        return readChunks(host, file(), header);
+        return readChunks(host, file(), header, operation);
       }
       const rawText = await fsp.readFile(file(), 'utf8');
       let parsed;
@@ -277,32 +321,33 @@ const WorkDataStore = ((fsp, pathModule) => {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
       // instanceId from the key set (not from the container) so the binding is a real check; seq stays
       // the container's own value until M3-3 pins revisions with an external anchor.
-      return openTextRecord(host, parsed);
+      return openTextRecord(host, parsed, operation);
     }
-    async function write(plainText) {   // not 	ext: that identifier collides with 00-boot's symbol
+    async function writeWithin(plainText, operation) {   // not 	ext: that identifier collides with 00-boot's symbol
       if (typeof plainText !== 'string') fail('shape');
       const target = file();
-      const enabled = await guardWrite(host, target);
+      const enabled = await guardWrite(host, target, operation);
       // The size cap belongs to the sealed path only: the old plaintext writer had no limit, so a
       // >1 MiB head must keep saving while encryption is off (the read side refuses it when sealed).
       if (!enabled) { await host.writeJson(target, plainText); return plainText; }
       if (host.chunked === true) {
-        const keys = keysFor(host), key = await keys.unlock();
-        const factory = WorkDataChunks.sealFactory(plainText, key, { purpose: host.purpose,
-          instanceId: await keys.instance(), schema, scopeId: host.scopeId, recordId: host.recordId,
+        const credential = await operation.credential();
+        const factory = WorkDataChunks.sealFactory(plainText, credential.key, { purpose: host.purpose,
+          instanceId: credential.instanceId, schema, scopeId: host.scopeId, recordId: host.recordId,
           seq: host.seq === undefined ? 1 : host.seq }, host.maxPlaintextBytes);
         try { await host.writeJson(target, factory, { stream: true }); }
         finally { factory.dispose(); }
         return plainText;
       }
       if (Buffer.byteLength(plainText, 'utf8') > WorkDataCrypto.MAX_PLAINTEXT) fail('shape');
-      const key = await keysFor(host).unlock();
-      const instanceId = await keysFor(host).instance();
-      const container = WorkDataCrypto.seal(plainText, key, { purpose: host.purpose, instanceId, schema,
+      const credential = await operation.credential();
+      const container = WorkDataCrypto.seal(plainText, credential.key, { purpose: host.purpose, instanceId: credential.instanceId, schema,
         scopeId: host.scopeId, recordId: host.recordId, seq: 1 });
       await host.writeJson(target, { workData: CONTAINER, ...container });
       return plainText;
     }
+    const read = () => withOperation(host, readWithin);
+    const write = plainText => withOperation(host, operation => writeWithin(plainText, operation));
     return Object.freeze({ read, write, filePath: file });
   }
   // DurableJsonStore-compatible whole-file JSON store (M3-2d). Same prepare pipeline as
@@ -351,5 +396,5 @@ const WorkDataStore = ((fsp, pathModule) => {
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
-  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys, hasContainerMarker });
+  return Object.freeze({ create, createJson, createText, CONTAINER, Hooks, requireKeys, acquireSnapshot, hasContainerMarker });
 })(require('node:fs/promises'), require('node:path'));

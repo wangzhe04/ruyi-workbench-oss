@@ -110,7 +110,7 @@ test('[N] CLI 类型归一:对输入表与修前逐项相同', () => {
   assert.equal(normalizeAgentCliType('kimi', ''), 'kimi');
 });
 
-test('[C] 适配器回合外能力:环境说明、原生提问、模型清单、原生上下文状态与压缩', () => {
+test('[C] 适配器回合外能力:环境说明、原生提问、模型清单、原生上下文状态与压缩', async () => {
   const pack = srv.getPromptPack('zh-CN').engineBrief;
   // 环境说明(06 engineBriefFacts):登记过的 CLI 原样、provider 族归 provider、其余归 claude;交互标志只随适配器的 interactive。
   const kindOf = engine => srv.buildEngineEnvBrief({ engine, config: { engineMode: 'interactive' } }).facts;
@@ -132,7 +132,7 @@ test('[C] 适配器回合外能力:环境说明、原生提问、模型清单、
   // 离线模型清单:Kimi 只列自己的默认项与当前选择,不混入 Claude 的 knownModels。
   assert.deepEqual(AGENT_CLI_ADAPTERS.kimi.modelCatalog.offline({ model: 'kimi-code/k3', knownModels: ['claude-x'] }),
     [{ id: '', label: '默认 (Kimi 配置)' }, { id: 'kimi-code/k3', label: 'kimi-code/k3 (当前选择)' }]);
-  const claudeModels = AGENT_CLI_ADAPTERS.claude.modelCatalog.offline({ model: 'my-model', knownModels: ['known-a'] });
+  const claudeModels = await AGENT_CLI_ADAPTERS.claude.modelCatalog.offline({ model: 'my-model', knownModels: ['known-a'] });
   assert.ok(claudeModels.some(m => m.id === 'known-a') && claudeModels.some(m => m.id === 'my-model' && m.label === 'my-model (自定义)'));
   assert.ok(!claudeModels.some(m => m.label === '默认 (Kimi 配置)'));
   for (const adapter of Object.values(AGENT_CLI_ADAPTERS)) assert.equal(typeof adapter.modelCatalog.discover, 'function');

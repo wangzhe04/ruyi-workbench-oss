@@ -20,48 +20,94 @@ const WorkDataKeys = ((cryptoApi) => {
     return id(state.instanceId) && sealed(state.protectedKey);
   }
   function create(host) {
-    // host: { store (DurableJsonStore), protector (LocalSecretCrypto), enabled() -> boolean }
-    let cache = null;   // { instanceId, key } — the only place the plaintext master lives
+    // Internal cache owns its master; operations receive independent copies only.
+    let cache = null, epoch = 0, ensureTail = Promise.resolve();
+    const sameHeader = (a, b) => !!a && !!b && a.schema === b.schema
+      && a.instanceId === b.instanceId && a.protectedKey === b.protectedKey;
+    const evict = () => { if (cache) cache.key.fill(0); cache = null; };
+    // clear is memory eviction, not rotation. Existing operation copies remain valid; an in-flight
+    // unprotect begun before clear may finish but cannot silently repopulate the cleared cache.
+    const clear = () => { epoch++; evict(); };
     async function stateRead() {
       let state;
-      try { state = await host.store.read(); } catch { fail('unavailable'); }
-      if (!validate(state)) fail('invalid');
-      return state;
+      try { state = await host.store.read(); } catch { evict(); fail('unavailable'); }
+      if (!validate(state)) { evict(); fail('invalid'); }
+      const header = { schema: state.schema, instanceId: state.instanceId, protectedKey: state.protectedKey };
+      if (cache && !sameHeader(cache, header)) evict();
+      return header;
     }
-    // host.enabled() is allowed to be async (the product wires it to readConfig()), so it must be
-    // awaited here; `promise === true` would silently keep the switch off forever.
     async function enabled() { try { return (await host.enabled()) === true; } catch { return false; } }
-    async function unlock() {
-      // Reads must not depend on the switch: once data is sealed it has to stay readable even if the
-      // user turns encryption off again (the reverse migration is M3-3). Only creation is gated, and
-      // unlock never creates anything.
+    const leaseOf = (master, instanceId) => {
+      const key = Buffer.from(master); let released = false;
+      return Object.freeze({ key, instanceId, release: () => { if (!released) { released = true; key.fill(0); } } });
+    };
+    async function snapshot() {
+      // Existing sealed records remain readable after disabling encryption. No read ever creates a key.
       if (!host.protector.supported()) fail('unsupported');
       const state = await stateRead();
       if (!state.instanceId) fail('absent');
-      if (cache && cache.instanceId === state.instanceId) return cache.key;
-      let key;
-      try { key = await host.protector.run('unprotect', Buffer.from(state.protectedKey, 'base64'), entropy(state.instanceId)); }
-      catch { fail('decrypt_failed'); }
-      if (!Buffer.isBuffer(key) || key.length !== 32) { if (Buffer.isBuffer(key)) key.fill(0); fail('decrypt_failed'); }
-      cache = { instanceId: state.instanceId, key };
-      return Buffer.from(key);   // copy: a caller zeroing its buffer must not brick the cached master
+      if (cache && sameHeader(cache, state)) return leaseOf(cache.key, state.instanceId);
+      const startedEpoch = epoch;
+      let key, wrapped, domain;
+      try {
+        wrapped = Buffer.from(state.protectedKey, 'base64'); domain = entropy(state.instanceId);
+        try { key = await host.protector.run('unprotect', wrapped, domain); }
+        catch { fail('decrypt_failed'); }
+        if (!Buffer.isBuffer(key) || key.length !== 32) fail('decrypt_failed');
+        // Key and instance come from one exact header. A replacement during an async unprotect is
+        // not a usable snapshot, even when it retained the same instance id.
+        if (!sameHeader(state, await stateRead())) fail('changed');
+        if (epoch === startedEpoch) {
+          if (!cache || !sameHeader(cache, state)) {
+            evict(); cache = { ...state, key: Buffer.from(key) };
+          }
+          return leaseOf(cache.key, state.instanceId);
+        }
+        return leaseOf(key, state.instanceId);
+      } finally {
+        if (Buffer.isBuffer(key)) key.fill(0);
+        if (wrapped) wrapped.fill(0);
+        if (domain) domain.fill(0);
+      }
     }
-    // Called only from an explicit enable flow (M3-3 UI / tests), never from a read or a write.
-    async function ensure() {
+    async function unlock() {
+      const lease = await snapshot();
+      try { return Buffer.from(lease.key); }
+      finally { lease.release(); }
+    }
+    // Serial creation is explicit and rejection-resilient. The tail never retains a returned master.
+    async function ensureOnce() {
       if (!(await enabled())) fail('disabled');
       if (!host.protector.supported()) fail('unsupported');
       const state = await stateRead();
       if (state.instanceId) return unlock();
-      clear();   // a fresh master replaces whatever was cached
-      const key = cryptoApi.randomBytes(32), instanceId = cryptoApi.randomBytes(16).toString('hex');
-      let wrapped;
-      try { wrapped = await host.protector.run('protect', key, entropy(instanceId)); }
-      catch { key.fill(0); fail('protect_failed'); }
-      const next = { schema: SCHEMA, instanceId, protectedKey: wrapped.toString('base64') };
-      wrapped.fill(0);
-      try { await host.store.write(next); } catch { key.fill(0); fail('unavailable'); }
-      cache = { instanceId, key };
-      return key;
+      clear(); const startedEpoch = epoch;
+      let key = cryptoApi.randomBytes(32), wrapped, domain;
+      let instanceId;
+      try {
+        instanceId = cryptoApi.randomBytes(16).toString('hex');
+        domain = entropy(instanceId);
+        try { wrapped = await host.protector.run('protect', key, domain); }
+        catch { fail('protect_failed'); }
+        if (!Buffer.isBuffer(wrapped) || !wrapped.length) fail('protect_failed');
+        const next = { schema: SCHEMA, instanceId, protectedKey: wrapped.toString('base64') };
+        if (!validate(next)) fail('protect_failed');
+        // Do not overwrite authority created externally while protection was awaiting. Cross-process
+        // CAS/rotation remains the data-root owner's job; this queue covers this native key set.
+        if ((await stateRead()).instanceId) return unlock();
+        try { await host.store.write(next); } catch { fail('unavailable'); }
+        if (epoch === startedEpoch) { evict(); cache = { ...next, key: Buffer.from(key) }; }
+        return Buffer.from(key);
+      } finally {
+        key.fill(0);
+        if (Buffer.isBuffer(wrapped)) wrapped.fill(0);
+        if (domain) domain.fill(0);
+      }
+    }
+    function ensure() {
+      const pending = ensureTail.then(ensureOnce, ensureOnce);
+      ensureTail = pending.then(() => undefined, () => undefined);
+      return pending;
     }
     async function status() {
       const state = await stateRead().catch(() => empty());
@@ -72,8 +118,7 @@ const WorkDataKeys = ((cryptoApi) => {
       if (!state.instanceId) fail('absent');
       return state.instanceId;
     }
-    const clear = () => { if (cache) cache.key.fill(0); cache = null; };
-    return Object.freeze({ unlock, ensure, status, instance, clear, validate, empty });
+    return Object.freeze({ unlock, ensure, snapshot, status, instance, clear, validate, empty });
   }
   return Object.freeze({ SCHEMA, create, validate, empty });
 })(require('node:crypto'));

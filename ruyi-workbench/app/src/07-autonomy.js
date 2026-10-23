@@ -2133,20 +2133,24 @@ async function drainSteerQueue(reg, session, onEvent) {
 function agentRunDir(sessionId) { return path.join(paths.agentRuns, safeSessionId(sessionId)); }
 function agentRunFile(sessionId, runId) { return path.join(agentRunDir(sessionId), `${safeSessionId(runId)}.json`); }
 // Snapshot identity is anchored to the containing session and filename, never to untrusted JSON.
-// A per-operation credential snapshot also makes digest-cache authentication independent of key rotation.
-async function agentRunSnapshotCredential(copyKey = false) {
-  const keys = WorkDataStore.requireKeys();
-  const unlockedKey = await keys.unlock(), key = copyKey ? Buffer.from(unlockedKey) : unlockedKey;
+// A per-operation owned lease binds digest-cache authentication to the credentials used by its read.
+async function agentRunSnapshotCredential() {
+  const credential = await WorkDataStore.acquireSnapshot();
   try {
-    const instanceId = await keys.instance();
-    return { key, instanceId, stamp: String(instanceId) + ':' + crypto.createHash('sha256').update(key).digest('hex') };
-  } catch (error) { if (copyKey) key.fill(0); throw error; }
+    const stamp = String(credential.instanceId) + ':' + crypto.createHash('sha256').update(credential.key).digest('hex');
+    return { ...credential, stamp };
+  } catch (error) { await credential.release(); throw error; }
+}
+async function agentRunSnapshotStamp() {
+  const credential = await agentRunSnapshotCredential();
+  try { return credential.stamp; }
+  finally { await credential.release(); }
 }
 function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
   const sid = safeSessionId(sessionId), rid = safeSessionId(runId);
   const operate = async (method, input) => {
     let credential;
-    const resolveCredential = () => credential || (credential = agentRunSnapshotCredential(true).then(value => {
+    const resolveCredential = () => credential || (credential = agentRunSnapshotCredential().then(value => {
       metadata.authStamp = value.stamp;
       return value;
     }));
@@ -2154,7 +2158,10 @@ function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
       file: () => agentRunFile(sid, rid), purpose: 'task', schema: 1,
       scopeId: sid, recordId: 'agent-run:' + rid,
       chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-      keys: { unlock: async () => (await resolveCredential()).key, instance: async () => (await resolveCredential()).instanceId },
+      keys: { snapshot: async () => {
+        const value = await resolveCredential();
+        return { key: value.key, instanceId: value.instanceId, release: () => {} }; // borrowed from this outer operation
+      }, unlock: async () => (await resolveCredential()).key, instance: async () => (await resolveCredential()).instanceId },
       enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
       writeJson: atomicWriteJson,
       validateSealedText: snapshotText => {
@@ -2164,7 +2171,7 @@ function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
       },
     });
     try { return await store[method](input); }
-    finally { if (credential) await credential.then(value => value.key.fill(0), () => {}); }
+    finally { if (credential) await credential.then(value => value.release(), () => {}); }
   };
   return Object.freeze({ read: () => operate('read'), write: snapshotText => operate('write', snapshotText), filePath: () => agentRunFile(sid, rid) });
 }

@@ -559,7 +559,7 @@ const stewardCursorStore = WorkDataStore.createText({
   id: 'steward-cursor',
   file: () => stewardCursorPath(),
   purpose: 'queue', schema: STEWARD_CURSOR_SCHEMA, scopeId: 'global', recordId: 'steward-cursor',
-  keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+  keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
 });

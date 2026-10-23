@@ -364,7 +364,7 @@ async function listAgentRunDigests(sessionId) {
       const hit = agentRunDigestCache.get(full);
       if (hit && hit.mtimeMs === st.mtimeMs && hit.ctimeMs === st.ctimeMs && hit.size === st.size && hit.ino === st.ino) {
         // Plaintext keeps its zero-key cache path. Sealed cache entries require the current key identity.
-        if (!hit.authStamp || hit.authStamp === (await agentRunSnapshotCredential()).stamp) {
+        if (!hit.authStamp || hit.authStamp === await agentRunSnapshotStamp()) {
           agentRunDigestStats.hits += 1;
           if (hit.shadow) out.push(hit.shadow);
           continue;
@@ -2017,7 +2017,7 @@ function personalAgentWorkflowStore(fileName) {
     // Bind the file identity without changing those legacy names or exposing a path in metadata.
     recordId: 'workflow:' + crypto.createHash('sha256').update(identity, 'utf8').digest('hex'),
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: atomicWriteJson,
     validateSealedText: text => {
@@ -2839,7 +2839,7 @@ function materializePoolItem(run, item, opts = {}) {
     // 第30波:池提案节点 model 解析 —— 提案 item.model(校验后)> 角色按引擎默认 > 提案者节点 model(继承);
     // 无 provider 句柄(物化在调度器内,opts 不带 provider)则校验退回 offlineModelList(含 config.model/knownModels)。
     const poolRoleModel = role && role.models && (engine === 'claude' ? (role.models.claude !== 'inherit' && role.models.claude) : role.models.openai);
-    const poolModel = resolveNodeModel(item.model, poolRoleModel || (proposer && proposer.model), toolTier, engine, opts.config, opts.provider);
+    const poolModel = resolveNodeModel(item.model, poolRoleModel || (proposer && proposer.model), toolTier, engine, opts.config, opts.provider, opts.proxyModelsCache);
     const node = {
       id: item.id, task, roleId, roleLabel: role && role.label || '', roleSnapshot: role || null,
       dependsOn, resources: resourceSpecs.map(r => (r.mode === 'read' ? 'read:' : '') + r.label),

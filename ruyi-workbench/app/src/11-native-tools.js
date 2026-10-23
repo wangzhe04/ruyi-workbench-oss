@@ -4156,7 +4156,7 @@ function webCacheStore(url) {
     file: () => file, purpose: 'cache', schema: 1, scopeId: 'global',
     recordId: 'web-cache:' + path.basename(file, '.json'),
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     validateSealedText: cacheText => {

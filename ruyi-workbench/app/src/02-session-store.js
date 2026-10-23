@@ -61,13 +61,15 @@ async function sessionBodyWriteText(file, lines, startOrdinal = 0) {
   if (!config || config.workDataEncryptionV1 !== true) return plain;
   const codec = sessionBodyCodec(file);
   if (!codec) throw Object.assign(new Error('unknown session body target'), { code: 'work_data.body_target_invalid' });
-  const key = await workDataKeys.unlock();
-  const instanceId = await workDataKeys.instance();
-  const encoded = new Array(lines.length);
-  for (let i = 0; i < lines.length; i++) {
-    encoded[i] = WorkDataRecords.encodeLine(lines[i], key, { instanceId, sessionId: codec.sessionId, kind: codec.kind, ordinal: startOrdinal + i });
-  }
-  return encoded.join('\n') + '\n';
+  const credential = await WorkDataStore.acquireSnapshot(workDataKeys);
+  try {
+    const { key, instanceId } = credential;
+    const encoded = new Array(lines.length);
+    for (let i = 0; i < lines.length; i++) {
+      encoded[i] = WorkDataRecords.encodeLine(lines[i], key, { instanceId, sessionId: codec.sessionId, kind: codec.kind, ordinal: startOrdinal + i });
+    }
+    return encoded.join('\n') + '\n';
+  } finally { await credential.release(); }
 }
 
 // Session side journals retain their own append/CAS/compaction lifecycle. Only
@@ -86,19 +88,21 @@ function sessionJournalRecordCandidate(line) {
 }
 async function decodeSessionJournalText(sessionId, kind, raw, committedOnly = false, suppliedCredential = null) {
   const lines = String(raw || '').split('\n'); let credential = suppliedCredential;
-  for (let ordinal = 0; ordinal < lines.length; ordinal++) {
-    const line = lines[ordinal];
-    if (!line || !sessionJournalRecordCandidate(line)) continue;
-    // A torn last line has never been committed. The append owner repairs it;
-    // readers report the same degraded suffix as the legacy fold, without edits.
-    if (ordinal === lines.length - 1 && !raw.endsWith('\n')) {
-      if (committedOnly) continue;
-      try { JSON.parse(line); } catch { continue; }
+  try {
+    for (let ordinal = 0; ordinal < lines.length; ordinal++) {
+      const line = lines[ordinal];
+      if (!line || !sessionJournalRecordCandidate(line)) continue;
+      // A torn last line has never been committed. The append owner repairs it;
+      // readers report the same degraded suffix as the legacy fold, without edits.
+      if (ordinal === lines.length - 1 && !raw.endsWith('\n')) {
+        if (committedOnly) continue;
+        try { JSON.parse(line); } catch { continue; }
+      }
+      if (!credential) credential = await WorkDataStore.acquireSnapshot(workDataKeys);
+      lines[ordinal] = WorkDataRecords.decodeLine(line, credential.key, { instanceId: credential.instanceId, sessionId, kind, ordinal });
     }
-    if (!credential) credential = { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() };
-    lines[ordinal] = WorkDataRecords.decodeLine(line, credential.key, { instanceId: credential.instanceId, sessionId, kind, ordinal });
-  }
-  return lines.join('\n');
+    return lines.join('\n');
+  } finally { if (!suppliedCredential && credential) await credential.release(); }
 }
 function sessionJournalStamp(stat) { return stat ? [stat.size, stat.mtimeMs, stat.ctimeMs, stat.ino].join(':') : 'missing'; }
 async function sessionJournalAppendState(file, sessionId, kind, enabled, credential = null) {
@@ -152,28 +156,33 @@ async function appendProtectedSessionJournal(file, sessionId, kind, plainLine) {
   if (!enabled) { await sessionJournalAppendState(file, sessionId, kind, false); return false; }
   // Unlock/encode before any destructive repair: missing keys cannot alter even
   // the torn suffix. Determine the ordinal from the complete physical prefix.
-  const key = await workDataKeys.unlock(), instanceId = await workDataKeys.instance();
-  const state = await sessionJournalAppendState(file, sessionId, kind, true, { key, instanceId });
-  const line = WorkDataRecords.encodeLine(plainLine.replace(/\n$/, ''), key, { instanceId, sessionId, kind, ordinal: state.count }) + '\n';
-  await repairSealedSessionJournalTail(file);
-  sessionJournalAppendStates.set(file, state);
+  const credential = await WorkDataStore.acquireSnapshot(workDataKeys);
   try {
-    for (let attempt = 0; ; attempt++) {
-      try { await fsp.appendFile(file, line, 'utf8'); break; }
-      catch (error) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(error.code))) throw error; await new Promise(resolve => setTimeout(resolve, 10 + attempt * 20)); }
-    }
-    await noteSessionJournalAppend(file, true);
-  } catch (error) { sessionJournalAppendStates.delete(file); throw error; }
-  return true;
+    const { key, instanceId } = credential;
+    const state = await sessionJournalAppendState(file, sessionId, kind, true, { key, instanceId });
+    const line = WorkDataRecords.encodeLine(plainLine.replace(/\n$/, ''), key, { instanceId, sessionId, kind, ordinal: state.count }) + '\n';
+    await repairSealedSessionJournalTail(file);
+    sessionJournalAppendStates.set(file, state);
+    try {
+      for (let attempt = 0; ; attempt++) {
+        try { await fsp.appendFile(file, line, 'utf8'); break; }
+        catch (error) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(error.code))) throw error; await new Promise(resolve => setTimeout(resolve, 10 + attempt * 20)); }
+      }
+      await noteSessionJournalAppend(file, true);
+    } catch (error) { sessionJournalAppendStates.delete(file); throw error; }
+    return true;
+  } finally { await credential.release(); }
 }
 async function encodeSessionJournalReplacement(file, sessionId, kind, plain) {
   const enabled = (await readConfig()).workDataEncryptionV1 === true;
-  const credential = enabled ? { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() } : null;
-  await sessionJournalAppendState(file, sessionId, kind, enabled, credential);
-  if (!enabled) return plain;
-  const { key, instanceId } = credential;
-  const lines = plain ? plain.slice(0, -1).split('\n') : [];
-  return lines.map((line, ordinal) => WorkDataRecords.encodeLine(line, key, { instanceId, sessionId, kind, ordinal })).join('\n') + (lines.length ? '\n' : '');
+  const credential = enabled ? await WorkDataStore.acquireSnapshot(workDataKeys) : null;
+  try {
+    await sessionJournalAppendState(file, sessionId, kind, enabled, credential);
+    if (!enabled) return plain;
+    const { key, instanceId } = credential;
+    const lines = plain ? plain.slice(0, -1).split('\n') : [];
+    return lines.map((line, ordinal) => WorkDataRecords.encodeLine(line, key, { instanceId, sessionId, kind, ordinal })).join('\n') + (lines.length ? '\n' : '');
+  } finally { if (credential) await credential.release(); }
 }
 
 // ── 105b: session-notes.md 状态外置(旁车副本)─────────────────────────────────
@@ -1237,35 +1246,37 @@ async function readSessionBodyFile(p) {
   let start = 0; // 已确认好行的字节数(含每行结尾 \n),撕裂截断点
   const bodyCodec = sessionBodyCodec(p);
   let bodyCredential = null, encodedLines = 0;
-  for (;;) {
-    const nl = buf.indexOf(10, start);
-    if (nl < 0) break;   // 其后若还有字节 = 无 \n 终结的尾行(撕裂)
-    if (nl === start) return { corrupt: true }; // 中间空行 = 坏
-    let line = buf.toString('utf8', start, nl);
-    if (WorkDataRecords.isEncodedLine(line)) {
-      // M3-2c-2: 记录行先解密再参与后续一切判定（行哈希、前缀比较、JSON 解析都用明文）。
-      if (!bodyCodec) return { locked: true, code: 'work_data.body_target_invalid' };
-      try {
-        if (!bodyCredential) bodyCredential = { key: await workDataKeys.unlock(), instanceId: await workDataKeys.instance() };
-        line = WorkDataRecords.decodeLine(line, bodyCredential.key, {
-          instanceId: bodyCredential.instanceId, sessionId: bodyCodec.sessionId, kind: bodyCodec.kind, ordinal: lines.length,
-        });
-        encodedLines += 1;
-      } catch (error) {
-        // 缺钥/解不开 ≠ 坏文件：既不隔离也不截断，交给 loadSession 如实报错。
-        return { locked: true, code: String((error && error.code) || 'work_data.body_locked') };
+  try {
+    for (;;) {
+      const nl = buf.indexOf(10, start);
+      if (nl < 0) break;   // 其后若还有字节 = 无 \n 终结的尾行(撕裂)
+      if (nl === start) return { corrupt: true }; // 中间空行 = 坏
+      let line = buf.toString('utf8', start, nl);
+      if (WorkDataRecords.isEncodedLine(line)) {
+        // M3-2c-2: 记录行先解密再参与后续一切判定（行哈希、前缀比较、JSON 解析都用明文）。
+        if (!bodyCodec) return { locked: true, code: 'work_data.body_target_invalid' };
+        try {
+          if (!bodyCredential) bodyCredential = await WorkDataStore.acquireSnapshot(workDataKeys);
+          line = WorkDataRecords.decodeLine(line, bodyCredential.key, {
+            instanceId: bodyCredential.instanceId, sessionId: bodyCodec.sessionId, kind: bodyCodec.kind, ordinal: lines.length,
+          });
+          encodedLines += 1;
+        } catch (error) {
+          // 缺钥/解不开 ≠ 坏文件：既不隔离也不截断，交给 loadSession 如实报错。
+          return { locked: true, code: String((error && error.code) || 'work_data.body_locked') };
+        }
       }
+      try { entries.push(JSON.parse(line)); }
+      catch { return { corrupt: true }; } // 中间坏行 = 坏
+      lines.push(line);
+      start = nl + 1;
+      lineEndBytes.push(start);
     }
-    try { entries.push(JSON.parse(line)); }
-    catch { return { corrupt: true }; } // 中间坏行 = 坏
-    lines.push(line);
-    start = nl + 1;
-    lineEndBytes.push(start);
-  }
-  // 撕裂尾行【只报告、不就地截断】:读的这一瞬可能正有 saveSession 在 append(Windows 上并发读能看到写了一半
-  // 的行),在这里截断等于删掉正在落盘的那一行。截断交给 loadSession 在确认「没有写者」之后做。
-  // encoded:盘上至少有一行是封装记录 —— 此时 buf/lineEndBytes 是密文字节，不能再拿去做「逐字节等于 JSON(消息)」的增量戳。
-  return { entries, lines, lineEndBytes, tornAt: start < buf.length ? start : null, stamp, buf, encoded: encodedLines > 0 };
+    // 撕裂尾行【只报告、不就地截断】:读的这一瞬可能正有 saveSession 在 append(Windows 上并发读能看到写了一半
+    // 的行),在这里截断等于删掉正在落盘的那一行。截断交给 loadSession 在确认「没有写者」之后做。
+    // encoded:盘上至少有一行是封装记录 —— 此时 buf/lineEndBytes 是密文字节，不能再拿去做「逐字节等于 JSON(消息)」的增量戳。
+    return { entries, lines, lineEndBytes, tornAt: start < buf.length ? start : null, stamp, buf, encoded: encodedLines > 0 };
+  } finally { if (bodyCredential) await bodyCredential.release(); }
 }
 // 快路径判定:entries 的前 record.count 条逐条序列化后与盘上的行全等 → 返回 { appendLines, allLines };
 // 否则(前缀变/缩短/无记录/有条目不可序列化)返回 null → 调用方全量重写。注意:必须逐条重新序列化比对,不能只比
@@ -1343,6 +1354,48 @@ async function rebaseStaleSessionBody(id, bp, state, messages, providerHistory) 
 // child never writes session files), so a process-global write lock is enough to serialize index mutations.
 const SESSION_INDEX_FILE = 'index.json';
 function sessionIndexPath() { return path.join(paths.sessions, SESSION_INDEX_FILE); }
+// These two session artifacts own their serialization. Keep a copied credential for one operation,
+// including an old-revision guard and its replacement; clearing the shared key cannot zero this copy.
+async function sessionArtifactCredential() {
+  const credential = await WorkDataStore.acquireSnapshot();
+  try {
+    const stamp = String(credential.instanceId) + ':' + crypto.createHash('sha256').update(credential.key).digest('hex');
+    return { ...credential, stamp };
+  } catch (error) { await credential.release(); throw error; }
+}
+async function sessionArtifactStamp() {
+  const credential = await sessionArtifactCredential();
+  try { return credential.stamp; }
+  finally { await credential.release(); }
+}
+function sessionArtifactStore(file, scopeId, recordId, validateSealedText, metadata = {}, enabled) {
+  const operate = async (method, text) => {
+    let credential;
+    const resolve = () => credential || (credential = sessionArtifactCredential().then(value => {
+      metadata.authStamp = value.stamp; return value;
+    }));
+    const store = WorkDataStore.createText({
+      file: () => file, purpose: 'session', schema: 1, scopeId, recordId,
+      chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+      keys: { snapshot: async () => {
+        const value = await resolve();
+        return { key: value.key, instanceId: value.instanceId, release: () => {} }; // borrowed from this outer operation
+      }, unlock: async () => (await resolve()).key, instance: async () => (await resolve()).instanceId },
+      enabled: enabled || (() => readConfig().then(config => config.workDataEncryptionV1 === true)),
+      writeJson: atomicWriteJson, validateSealedText,
+    });
+    try { return await store[method](text); }
+    finally { if (credential) await credential.then(value => value.release(), () => {}); }
+  };
+  return Object.freeze({ read: () => operate('read'), write: text => operate('write', text) });
+}
+function sessionIndexStore(metadata = {}) {
+  return sessionArtifactStore(sessionIndexPath(), 'sessions', 'session-index',
+    text => Array.isArray(safeJsonParse(text, null)), metadata);
+}
+// Invalidating a derived cache never needs to erase an unreadable encrypted record. Reads still
+// authenticate it before honoring this flag; only a successful rebuild clears the invalidation.
+let sessionIndexInvalidated = false, sessionIndexInvalidationSeq = 0;
 
 // 第70波(EC-E):会话类型显式标识 —— 'quick_ask'(纯问答,默认) | 'mission'(任务会话,mission start 时显式翻转,
 // 非启发式文本猜测)。旧会话(第70波前落盘)无 kind 字段:有 mission 派生 'mission',否则 'quick_ask'。
@@ -1505,10 +1558,17 @@ function sortSessionMetas(arr) {
 // Read the index array, or null when missing/corrupt/not-an-array (caller falls back to a full scan).
 async function readSessionIndex() {
   try {
-    const raw = await fsp.readFile(sessionIndexPath(), 'utf8');
+    const before = await sessionIndexFileStamp(), metadata = {};
+    const raw = await sessionIndexStore(metadata).read();
     const arr = safeJsonParse(raw, null);
-    return Array.isArray(arr) ? arr : null;
-  } catch { return null; }
+    const after = await sessionIndexFileStamp();
+    sessionIndexPlainSourceStamp = !metadata.authStamp && Array.isArray(arr) && before && before === after ? before : null;
+    return !sessionIndexInvalidated && Array.isArray(arr) ? arr : null;
+  } catch (error) {
+    sessionIndexPlainSourceStamp = null;
+    if (sessionHeadIsWorkDataError(error)) { sessionIndexMemo = null; throw error; }
+    return null;
+  }
 }
 // 索引的【内存镜像】(perf):flushSessionIndex 每个 200 ms 去抖窗口都要「读 → 解析 → 合并 → 整份写」一遍 index.json
 // (3000 条会话 ≈ 1.3 MB,每次 ~25 ms,回合进行中每个窗口都在跑)。我们自己刚写下的那份内容就是合并后的 map,
@@ -1517,25 +1577,49 @@ async function readSessionIndex() {
 // listSessions 重建覆盖/flushSessionIndexSync 写过/文件不在)一律作废镜像走原来的读盘路径。戳 = 路径 + size + mtimeNs + ino
 // (写入是 tmp + rename,每次换 inode)。只有 flushSessionIndex 那一处产生镜像;所有别的写口都不给 map → 镜像作废。
 // 镜像只在 withSessionIndexLock 里读写(与索引写同一把锁),无并发。
-let sessionIndexMemo = null;   // { stamp, map }
+let sessionIndexMemo = null;   // { stamp, map, authStamp }
+let sessionIndexPlainSourceStamp = null; // proof from a parsed plaintext array, never from decrypted text
 async function sessionIndexFileStamp() {
   try {
     const st = await fsp.stat(sessionIndexPath(), { bigint: true });
-    return `${sessionIndexPath()}|${st.size}|${st.mtimeNs}|${st.ino}`;
+    return `${sessionIndexPath()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`;
   } catch { return null; }
 }
 // Atomic index write (tmp + rename, same discipline as saveSession). Caller wraps failures.
 // 第二参 map(可选)= 这份 entries 对应的合并结果,给了就登记成内存镜像(见 sessionIndexMemo)。
 async function writeSessionIndex(entries, map = null) {
   sessionIndexMemo = null;   // 写之前先作废:写到一半失败/被别的写口接着覆盖,镜像都不该再被信
+  const invalidationSeq = sessionIndexInvalidationSeq, metadata = {};
   await fsp.mkdir(paths.sessions, { recursive: true });
-  await atomicWriteJson(sessionIndexPath(), entries);   // 25.1 收编
-  if (map) {
-    const stamp = await sessionIndexFileStamp();
-    if (stamp) sessionIndexMemo = { stamp, map };
+  const text = JSON.stringify(entries, null, 2);
+  let plainAllowed = false;
+  try { plainAllowed = (await readConfig()).workDataEncryptionV1 !== true; } catch { /* unknown takes the strict store path */ }
+  // OFF's existing memo contract avoids rereading an already-proven ordinary array on every 200ms
+  // flush. Its complete file stamp must still match now; encrypted/decrypted records never get this
+  // proof. Any replacement, mode change or unknown state goes through the store's full old guard.
+  if (plainAllowed && sessionIndexPlainSourceStamp && sessionIndexPlainSourceStamp === await sessionIndexFileStamp()) {
+    await atomicWriteJson(sessionIndexPath(), text);
+  } else await sessionIndexStore(metadata).write(text);
+  if (invalidationSeq === sessionIndexInvalidationSeq) sessionIndexInvalidated = false;
+  const stamp = await sessionIndexFileStamp();
+  sessionIndexPlainSourceStamp = metadata.authStamp ? null : stamp;
+  if (map && !sessionIndexInvalidated) {
+    if (stamp) sessionIndexMemo = { stamp, map, authStamp: metadata.authStamp || '' };
   }
 }
-async function invalidateSessionIndex() { sessionIndexMemo = null; await fsp.unlink(sessionIndexPath()).catch(() => {}); }
+async function invalidateSessionIndexNow() {
+  sessionIndexMemo = null; sessionIndexPlainSourceStamp = null; sessionIndexInvalidated = true; sessionIndexInvalidationSeq++;
+  // Keep the original physical invalidation for recognizable plaintext arrays. Unknown/marker-shaped
+  // data stay in place until a later authenticated rebuild replaces them. Boot remains available.
+  try {
+    const handle = await fsp.open(sessionIndexPath(), 'r');
+    let ordinaryArray;
+    try { const bytes = Buffer.alloc(256), read = await handle.read(bytes, 0, bytes.length, 0); ordinaryArray = bytes.subarray(0, read.bytesRead).toString('utf8').trimStart().startsWith('['); }
+    finally { await handle.close(); }
+    if (ordinaryArray) await fsp.unlink(sessionIndexPath()).catch(() => {});
+  } catch { /* invalidation is logical even if the old cache cannot be opened */ }
+}
+async function invalidateSessionIndex() { return withSessionIndexLock(invalidateSessionIndexNow); }
 // Serialize all index mutations (single global chain) so concurrent saveSession calls can't lose updates or
 // tear the file. Session FILES are still written concurrently; only the shared index write is serialized.
 let sessionIndexChain = Promise.resolve();
@@ -1604,7 +1688,8 @@ async function flushSessionIndex() {
         // 镜像命中(文件戳与我们上次写完时一致)就不读盘不解析,直接在镜像 map 上合并;否则走原来的读盘路径。
         const stamp = await sessionIndexFileStamp();
         let map = null;
-        if (stamp && sessionIndexMemo && sessionIndexMemo.stamp === stamp) map = sessionIndexMemo.map;
+        if (!sessionIndexInvalidated && stamp && sessionIndexMemo && sessionIndexMemo.stamp === stamp
+          && (!sessionIndexMemo.authStamp || sessionIndexMemo.authStamp === await sessionArtifactStamp())) map = sessionIndexMemo.map;
         else {
           sessionIndexMemo = null;
           const index = await readSessionIndex();
@@ -1614,7 +1699,13 @@ async function flushSessionIndex() {
         sessionIndexMemo = null;   // 下面要就地改 map:改到一半失败它就是脏的,写成功后 writeSessionIndex 再登记回来
         for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
         await writeSessionIndex([...map.values()], map);
-      } catch { await invalidateSessionIndex(); }
+      } catch (error) {
+        sessionIndexMemo = null; sessionIndexPlainSourceStamp = null;
+        if (sessionHeadIsWorkDataError(error)) {
+          sessionIndexInvalidated = true; sessionIndexInvalidationSeq++;
+          try { logEvent({ kind: 'session_index_write_blocked', reason: error.code }); } catch { /* diagnostic only */ }
+        } else await invalidateSessionIndexNow();
+      }
     }).catch(() => {});
   } finally {
     // The write has settled: it landed (disk now carries the batch), or there was no index to update / the index
@@ -1646,6 +1737,13 @@ function overlayUnflushedSessionIndex(map) {
 function flushSessionIndexSync() {
   try {
     if (!pendingSessionIndex.size && !inflightSessionIndex.size) return;
+    // The exit hook cannot await DPAPI or the asynchronous chunk codec. Sealed/ON caches keep their
+    // last complete bytes; boot's logical invalidation rebuilds from authoritative session heads.
+    // Do not emit a new plaintext index during an opt-in or unknown configuration state.
+    try {
+      const config = safeJsonParse(fs.readFileSync(paths.config, 'utf8'), null);
+      if (!config || typeof config !== 'object' || Array.isArray(config) || config.workDataEncryptionV1 === true) return;
+    } catch (error) { if (!error || error.code !== 'ENOENT' || fs.existsSync(paths.config + '.prev')) return; }
     let index = null;
     try { const arr = safeJsonParse(fs.readFileSync(sessionIndexPath(), 'utf8'), null); index = Array.isArray(arr) ? arr : null; } catch { index = null; }
     if (!index) return; // no valid index → don't fabricate a partial one; boot rebuild + fallback scan self-heal
@@ -1688,7 +1786,7 @@ async function noteSessionIndexBadHead(id) {
     const raw = await readSessionHeadText(id);   // M3-2: 开关开时先解密,否则密文会被误判成坏头
     if (parseSessionHeadForIndex(raw, id)) return;   // 取戳与重读之间被换成了好文件:不记
     sessionIndexKnownBadHeads.set(id, sessionHeadStampOf(st));
-  } catch { /* 读不到(瞬时锁/刚被删):不记,下一次扫描再判 */ }
+  } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; /* ordinary unreadable heads remain unclassified */ }
 }
 // 快路径用:返回「应当与索引 id 集对得上」的磁盘 id 集 = 磁盘 id 集扣掉仍然有效的已知坏头。
 async function sessionDiskIdsExpectedInIndex(diskIds, indexIds) {
@@ -1756,7 +1854,7 @@ async function listSessions() {
       const fileId = file.slice(0, -5);
       let raw;
       try { raw = await readSessionHeadText(fileId); }
-      catch { continue; }   // 读不到(瞬时锁/刚被删):跳过,不记坏头(见 sessionIndexKnownBadHeads 头注)
+      catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; continue; }   // ordinary transient I/O stays skippable; encrypted authority does not
       const item = parseSessionHeadForIndex(raw, fileId);
       let meta = null;
       if (item) { try { meta = sessionMeta(item); } catch { meta = null; } }
@@ -3686,6 +3784,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
     legacy = false;
   } else if (parsed && parsed.storageVersion === SESSION_STORAGE_VERSION) {
     const bp = sessionBodyPaths(id);
+    // Prove an existing encrypted recovery artifact before any repair/retirement can touch it.
+    const backupRecord = await readSessionV1BackupRecord(id);
+    if (backupRecord && backupRecord.unreadable) return null;
     let msg = await readSessionBodyFile(bp.messages);
     let prov = await readSessionBodyFile(bp.provider);
     // hunt2-P3:正文【在但读不出来】(重试过仍被锁/句柄耗尽)不是「正文丢了」—— 下面的判据会把它当缺失,
@@ -3756,7 +3857,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
       dropSessionBodyState(id);
       // 正文缺失/损坏 → 迁移备份回退(v1 原文重走迁移,等价于回到迁移前一刻)。
-      const bak = await loadSessionV1Backup(id);
+      const bak = await loadSessionV1Backup(id, backupRecord);
       if (bak) return bak;
       // 无备份可退:坏正文隔离(不删,留取证),头按损坏处理。
       for (const p of [bp.messages, bp.provider]) await fsp.rename(p, p + '.corrupt').catch(() => {});
@@ -3793,7 +3894,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       });
     }
     // v2 完整可读 → 迁移残留的 v1bak 与慢路径残留 prevbody 快照一并清掉(备份使命已完成;也防无界堆积)。
-    await fsp.unlink(sessionPath(id) + '.v1bak').catch(() => {});
+    await retireSessionV1Backup(id, backupRecord);
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
     await fsp.unlink(bp.provider + '.prevbody').catch(() => {});
     delete parsed.storageVersion; // 运行时对象不携带存储标记(保持与 v1 同形),saveSession 落盘时重新加
@@ -3831,7 +3932,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
   if (legacy) {
     // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(() => {});
+    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(error => {
+      if (sessionHeadIsWorkDataError(error)) throw error;
+    });
   } else if (changed || healed) await saveSession(session, { writer: 'load_normalize', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(() => {});
   // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
   // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
@@ -3852,17 +3955,83 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
 // 读出后走正常 legacy 路径(重打迁移标记,save 时 v1bak 已存在 → EXCL 失败被吞,内容不变 —— 幂等)。
 // 防线:v1bak 里若是 v2 头(带 storageVersion 且没有 messages 数组),说明备份已被污染/根本不是备份,
 // 宁可回退失败走损坏隔离,也绝不拿一个空正文重建会话(那等于丢历史)。
-async function loadSessionV1Backup(id) {
-  let raw;
-  try { raw = await fsp.readFile(sessionPath(id) + '.v1bak', 'utf8'); }
-  catch { return null; }
-  const parsed = safeJsonParse(raw, null);
-  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') return null;
-  if (parsed.storageVersion === SESSION_STORAGE_VERSION) return null;
+function sessionV1BackupPath(id) { return sessionPath(id) + '.v1bak'; }
+function sessionV1BackupShape(value, id) {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+    && value.storageVersion !== SESSION_STORAGE_VERSION
+    && (value.id == null || value.id === id) && Array.isArray(value.messages)
+    && (value.providerHistory == null || Array.isArray(value.providerHistory));
+}
+function sessionV1BackupStore(id, file = sessionV1BackupPath(id), metadata = {}, enabled) {
+  assertSessionIdForPath(id);
+  return sessionArtifactStore(file, id, 'session-v1-backup',
+    text => sessionV1BackupShape(safeJsonParse(text, null), id), metadata, enabled);
+}
+async function readSessionV1BackupRecord(id) {
+  try {
+    const file = sessionV1BackupPath(id), before = await fsp.stat(file, { bigint: true });
+    const metadata = {}, text = await sessionV1BackupStore(id, file, metadata).read();
+    return { text, stamp: `${before.size}|${before.mtimeNs}|${before.ctimeNs}|${before.ino}`, authStamp: metadata.authStamp || '' };
+  } catch (error) {
+    if (sessionHeadIsWorkDataError(error)) throw error;
+    return error && error.code === 'ENOENT' ? null : { unreadable: true, error };
+  }
+}
+async function retireSessionV1Backup(id, record) {
+  if (!record || record.unreadable) return; // A locked/unreadable legacy backup is retained, never guessed to be disposable.
+  try {
+    if (record.authStamp && record.authStamp !== await sessionArtifactStamp()) throw Object.assign(new Error('work_data.authenticate_failed'), { code: 'work_data.authenticate_failed', statusCode: 503 });
+    const file = sessionV1BackupPath(id), current = await fsp.stat(file, { bigint: true });
+    if (`${current.size}|${current.mtimeNs}|${current.ctimeNs}|${current.ino}` === record.stamp) await fsp.unlink(file);
+  } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; /* Successful v2 authority remains usable if retirement is temporarily locked. */ }
+}
+async function ensureSessionV1Backup(id) {
+  const sealing = (await readConfig()).workDataEncryptionV1 === true;
+  const existing = await readSessionV1BackupRecord(id);
+  if (existing && existing.unreadable) { if (sealing) throw existing.error; return; }
+  if (existing) {
+    if (sealing) {
+      if (!sessionV1BackupShape(safeJsonParse(existing.text, null), id)) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', statusCode: 503 });
+      const credential = await sessionArtifactCredential(); await credential.release();
+    }
+    return; // The pristine backup is immutable, including an old plaintext migration artifact.
+  }
+  if (!sealing) {
+    // OFF retains COPYFILE_EXCL and exact source bytes. A sealed legacy head cannot be copied as a
+    // differently-bound backup or silently downgraded to plaintext without an explicit migration.
+    try {
+      const raw = await fsp.readFile(sessionPath(id), 'utf8'), parsed = safeJsonParse(raw, null);
+      if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'workData')) throw Object.assign(new Error('work_data_store.downgrade_refused'), { code: 'work_data_store.downgrade_refused', statusCode: 503 });
+      await fsp.copyFile(sessionPath(id), sessionV1BackupPath(id), fs.constants.COPYFILE_EXCL);
+    } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; /* original OFF backup is best effort */ }
+    return;
+  }
+  const source = await readSessionHeadText(id);
+  if (!sessionV1BackupShape(safeJsonParse(source, null), id)) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', statusCode: 503 });
+  // Seal into a private staging file, then publish with an exclusive hard link. Never expose a
+  // partially-written backup or replace the pristine recovery revision after a crash/retry.
+  const target = sessionV1BackupPath(id), staged = target + '.' + process.pid + '.' + crypto.randomBytes(8).toString('hex') + '.sealed-stage';
+  try {
+    await sessionV1BackupStore(id, staged, {}, () => true).write(source);
+    try { await fsp.link(staged, target); }
+    catch (error) {
+      if (!error || error.code !== 'EEXIST') throw error;
+      const winner = await sessionV1BackupStore(id).read();
+      if (!sessionV1BackupShape(safeJsonParse(winner, null), id)) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', statusCode: 503 });
+    }
+  } finally { await fsp.unlink(staged).catch(() => {}); }
+}
+async function loadSessionV1Backup(id, record) {
+  const backup = record === undefined ? await readSessionV1BackupRecord(id) : record;
+  if (!backup || backup.unreadable) return null;
+  const parsed = safeJsonParse(backup.text, null);
+  if (!sessionV1BackupShape(parsed, id)) return null;
   const { session } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
   Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-  await saveSession(session, { writer: 'load_v1bak_restore', keepUpdatedAt: true }).catch(() => {});
+  await saveSession(session, { writer: 'load_v1bak_restore', keepUpdatedAt: true }).catch(error => {
+    if (sessionHeadIsWorkDataError(error)) throw error;
+  });
   return session;
 }
 
@@ -3978,7 +4147,7 @@ async function saveSession(session, opts) {
     // 懒迁移:legacy 单文件先原样备份 v1bak。必须 COPYFILE_EXCL(已存在则失败被吞)—— v1bak 回退
     // 恢复路径也会走到这里,若允许覆盖会把「 pristine legacy 备份」冲成 v2 头,备份使命直接报废。
     if (session.__v1bakPending === true) {
-      await fsp.copyFile(finalPath, finalPath + '.v1bak', fs.constants.COPYFILE_EXCL).catch(() => {});
+      await ensureSessionV1Backup(id);
       session.__v1bakPending = false;
     }
     // 记录缺失(条目上限淘汰过 / 重启后没装载就存)→ 先按盘上已提交的内容重建,旧副本补齐与快路径照常可用。
@@ -5630,7 +5799,7 @@ function missionContainerStore(missionId) {
     file: () => missionContainerPath(missionId),
     purpose: 'task', schema: MISSION_CONTAINER_SCHEMA, scopeId: missionId, recordId: 'mission-container',
     chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
-    keys: { unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
+    keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true),
     writeJson: atomicWriteJson,
     validateSealedText: text => {

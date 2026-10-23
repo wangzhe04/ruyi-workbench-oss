@@ -130,7 +130,7 @@ const pretenderRunSourceAuth = new Map(); // sessionId -> { sourceStamp, authSta
 async function pretenderCheckRunSourceAuth() {
   const sealed = [...pretenderRunSourceAuth].filter(([, value]) => value.authStamp);
   if (!sealed.length) return;
-  const stamp = (await agentRunSnapshotCredential()).stamp;
+  const stamp = await agentRunSnapshotStamp();
   for (const [sid, value] of sealed) {
     if (value.authStamp !== stamp) {
       pretenderIndexRuntime.dirtySessions.add(sid);
@@ -155,7 +155,7 @@ async function pretenderSessionSourceStamp(sessionId) {
   const sourceStamp = pretenderHash(parts.join('|'));
   const known = pretenderRunSourceAuth.get(sid);
   let authStamp = known && known.sourceStamp === sourceStamp ? known.authStamp : null;
-  if (authStamp && authStamp !== (await agentRunSnapshotCredential()).stamp) authStamp = null;
+  if (authStamp && authStamp !== await agentRunSnapshotStamp()) authStamp = null;
   if (authStamp === null) {
     authStamp = '';
     for (const file of files) {
