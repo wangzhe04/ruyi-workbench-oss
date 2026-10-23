@@ -2,7 +2,7 @@
   "schema": 1,
   "date": "2026-10-23",
   "baselineCommit": "b5ded56d",
-  "status": "targeted_verified_final_gates_running",
+  "status": "shutdown_checkpoint_with_open_regression_failures",
   "syntheticOnly": true,
   "userDataChanged": false,
   "adapterWired": 31,
@@ -207,14 +207,30 @@
     "fake Claude waited for stdin EOF, but workflow keeps stdin open for steering; changed fake to consume first input and complete; hung owned fixture tree explicitly stopped after verifying process lineage"
   ],
   "finalGates": {
-    "status": "running",
     "syntax": {
       "checked": 1194,
       "fail": 0,
       "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\shutdown-syntax-final.log"
     },
-    "fast": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-privacy-followup-th68FS\\shutdown-fast-final.log",
-    "offlineDefaultE2E": "not run;565 default cases pending after remaining privacy integration"
+    "buildFresh": true,
+    "unit": {
+      "tests": 2862,
+      "pass": 2834,
+      "fail": 2,
+      "skip": 26,
+      "log": "C:/Users/87179/AppData/Local/Temp/ruyi-31-privacy-followup-th68FS/shutdown-unit-final.log",
+      "sha256": "025da75e710882baf5548b4037b7f909d0a11eda5718eda88369e7e255dca1d3",
+      "failures": [
+        "session-artifacts OFF memo proof -> later ON sync write assertion; targeted previously passed, needs diagnosis",
+        "token-estimate-memo process failed; needs diagnosis"
+      ],
+      "failureExcerpt": "✖ failing tests:\n\ntest at dev-harness\\unit\\session-artifacts-work-data.test.js:108:1\n✖ OFF plaintext memo proof cannot authorize an encrypted external replacement or a later ON write (188.9864ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + '[\\n  {\\n    \"id\": \"sess_off_proof\",\\n    \"title\": \"NO ON SYNC PLAINTEXT\"\\n  }\\n]'\n  - '[\\n  {\\n    \"id\": \"sess_off_proof\",\\n    \"title\": \"PUBLIC-PROOF\"\\n  }\\n]'\n  \n      at TestContext.<anonymous> (C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\unit\\session-artifacts-work-data.test.js:120:59)\n      at async Test.run (node:internal/test_runner/test:1125:7)\n      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: '[\\n  {\\n    \"id\": \"sess_off_proof\",\\n    \"title\": \"NO ON SYNC PLAINTEXT\"\\n  }\\n]',\n    expected: '[\\n  {\\n    \"id\": \"sess_off_proof\",\\n    \"title\": \"PUBLIC-PROOF\"\\n  }\\n]',\n    operator: 'strictEqual',\n    diff: 'simple'\n  }\n\ntest at dev-harness\\unit\\token-estimate-memo.test.js:1:1\n✖ C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\unit\\token-estimate-memo.test.js (248.8727ms)\n  'test failed'\n"
+    },
+    "static": {
+      "status": "not run because unit preflight failed",
+      "cases": 81
+    },
+    "offlineDefaultE2E": "565 default cases not run"
   },
   "limits": [
     "No real user data migration, new encryption enable UI, recovery package or cross-file key-rotation transaction",
@@ -226,6 +242,8 @@
     "userRequestedCommitAndPushBefore": "2026-10-23T18:50:00+08:00",
     "previousVerifiedCommitPushed": "b5ded56d",
     "branch": "codex/3.1-completion-plan",
-    "checkpoint": "User explicitly requested existing progress committed/pushed before shutdown; final fast runner still running at checkpoint, results to be appended separately."
+    "checkpoint": "User explicitly requested existing progress committed/pushed before shutdown; final fast runner still running at checkpoint, results to be appended separately.",
+    "latestProductCommit": "a6b87566",
+    "note": "All progress pushed as development checkpoint; do not describe as complete privacy delivery or all-green regression."
   }
 }
