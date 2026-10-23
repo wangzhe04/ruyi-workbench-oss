@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "worktree": "E:/Claude/worktrees/steward-3x-implementation",
+  "nodeVersion": "v24.14.1",
+  "changedFiles": [
+    "dev-harness/unit/session-artifacts-work-data.test.js",
+    "docs/architecture/architecture-contract-snapshots.json",
+    "docs/architecture/architecture-contract-snapshots.md"
+  ],
+  "tokenMemo": {
+    "status": "not_reproduced_root_cause_unknown",
+    "originalFailure": {
+      "source": "docs/optimization-plan/evidence/privacy-storage-consumers-shutdown.json",
+      "durationMs": 248.8727,
+      "detail": "Whole test process failed. Retained excerpt contains no stderr, exitCode, or signal.",
+      "originalLogAvailable": false,
+      "log": "C:/Users/87179/AppData/Local/Temp/ruyi-31-privacy-followup-th68FS/shutdown-unit-final.log",
+      "classification": "unknown; evidence cannot distinguish startup fixture exception, resource exhaustion, or product failure"
+    },
+    "firstReproduction": {
+      "command": "node --test dev-harness/unit/token-estimate-memo.test.js",
+      "exitCode": 0,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "durationMs": 1768.7325
+    },
+    "finalVerification": {
+      "command": "node --test --test-reporter=tap --test-concurrency=4 dev-harness/unit/token-estimate-memo.test.js dev-harness/unit/token-estimate-cjk.test.js",
+      "exitCode": 0,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "durationMs": 1596.9507,
+      "log": "C:/Users/87179/AppData/Local/Temp/ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92/related-estimation-unit-final.tap",
+      "logSha256": "24de22de6463a8658c000a93f053baf1068d0e9ae2b44fbd9feaaccbd888849b"
+    },
+    "sourceHashes": {
+      "ruyi-workbench/app/server.js": "ec22bf4f64c29c2c3ed9177d76398426b440827c4387fd6a9e8c1a3193635d3c",
+      "ruyi-workbench/app/src/09d-token-estimation.js": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04",
+      "dev-harness/unit/token-estimate-memo.test.js": "7c489b99bad770c509e29a58ec8db46464937545b08505578ffebf43ae5bce2e",
+      "dev-harness/src-reader.js": "7d218b73fb782e2a499e2bd4bbf566c12e7e1ae43555c35d31741ad241d2e11b"
+    },
+    "inspection": {
+      "topLevel": "Reads estimation rules, readServerSource with strict src/artifact freshness comparison, two slices, four small real text samples. vm cluster execution and estimates occur within tests.",
+      "sourceCodeUnits": 5879680,
+      "serverBytes": 6995190,
+      "sourceReadRssBytes": 75952128,
+      "availableParallelism": 24,
+      "limits": "Current memory/process observations cannot establish the shutdown host state. No 2GB fixture was found. Passing targeted runs do not replace the unified gate or prove original failure repaired."
+    },
+    "repairDecision": "No product/test repair justified by the available evidence. Preserve assertions and capture full process diagnostics in unified verification."
+  },
+  "sessionArtifactsIndependentReview": {
+    "status": "no_blocking_findings",
+    "reviewedFile": "dev-harness/unit/session-artifacts-work-data.test.js",
+    "reviewedSha256": "f8ae5869a74280a760c5502830ed6ff842ddc39f5f3e7ea22d4495ee5ab431f5",
+    "diff": "+4/-1, only reorders completed ON config publication before pending sync-flush probe",
+    "rootCause": "Original test scheduled an OFF batch then awaited readConfig/writeConfig. The legitimate 200ms debounce could complete its OFF plaintext write before ON atomic publication. A subsequent correctly refusing sync flush cannot undo that earlier write.",
+    "assertionAssessment": "All original assertions remain: OFF plaintext proof and sealed replacement refusal, exact disk bytes after ON sync flush, and subsequent real encrypted write. Completed ON publication precedes schedule+sync flush in one synchronous stack, leaving no await for the debounce to interleave.",
+    "ordinaryCommand": "node --test --test-reporter=tap dev-harness/unit/session-artifacts-work-data.test.js",
+    "ordinary": {
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "exitCode": 0,
+      "durationMs": 2350.4178
+    },
+    "delayedConfigCommand": "node --require C:/Users/87179/AppData/Local/Temp/ruyi-session-artifact-diagnosis-6d780bf13c10402a98e15e3444ea0cd7/delay-on-config.cjs --test --test-reporter=tap dev-harness/unit/session-artifacts-work-data.test.js",
+    "delayedConfig": {
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "exitCode": 0,
+      "durationMs": 3298.6936
+    },
+    "negativeControlCommand": "node --require C:/Users/87179/AppData/Local/Temp/ruyi-session-artifact-diagnosis-6d780bf13c10402a98e15e3444ea0cd7/bypass-sync-on-guard.cjs --test --test-reporter=tap dev-harness/unit/session-artifacts-work-data.test.js",
+    "negativeControl": {
+      "tests": 16,
+      "pass": 15,
+      "fail": 1,
+      "exitCode": 1,
+      "durationMs": 2777.1204,
+      "preciseFailure": "Original unchanged strict disk-byte assertion at line123; NO ON SYNC PLAINTEXT instead of PUBLIC-PROOF",
+      "mutation": "Only remove ON config guard from actual flushSessionIndexSync source in memory; no product disk mutation"
+    },
+    "reproductionEvidenceReviewed": "Author old-fixture-order delayed-config log reproduces original exact title diff, 15 pass/1 fail. Reviewer independently read preload and old log, then reran current ordinary/delayed/negative-control runs.",
+    "limits": "Existing standalone test-name-pattern fixture depends on earlier ensureKey setup; not introduced by reviewed diff.",
+    "committed": false
+  },
+  "baseline": "4dc0b7bf",
+  "gates": {
+    "syntax": {
+      "fail": 0,
+      "checked": 1194
+    },
+    "buildFresh": true,
+    "unit": {
+      "pass": 2845,
+      "skip": 26,
+      "fail": 0,
+      "tests": 2871,
+      "concurrency": 4
+    },
+    "fastFirst": {
+      "failed": "architecture-contract-snapshots.static.e2e.js",
+      "exitCode": 1,
+      "ran": 81,
+      "pass": 80,
+      "fail": 1,
+      "liveSkipped": 7
+    },
+    "repair": {
+      "cause": "a6b87566 added POST /api/memory-cli. The route census and runtime were current; the contract snapshot still described the earlier 179-decision/165-auth state.",
+      "generator": "node dev-harness/architecture-contract-snapshots.js --write",
+      "targetedFinal": [
+        "architecture-contract-snapshots.static.e2e.js: PASS",
+        "route-inventory.static.e2e.js: ALL PASS"
+      ],
+      "diff": "Only routing counts 180/166 and auth hashes, plus the generated Markdown routing row",
+      "fullRunnerRepeated": false
+    }
+  },
+  "logs": [
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\regression-build.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\regression-fast.log",
+      "sha256": "bb0e0f32d35a9cd1b2037954649b3557ea6cf4de829609ba0373a188ca95b164"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\regression-route-final.log",
+      "sha256": "d5687ea168e92f77c4c997ab46d7e22ed6bf927ad532e9f864273d7261fede06"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\regression-snapshot-final.log",
+      "sha256": "6854f05b4a23ea5c9445f617bf7bd2aaaac3a810f91eff4bdb0c976855406361"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\regression-syntax.log",
+      "sha256": "7097f1b14576102ac9fdca9a6c8346994b86e39591004e547a4c1806b93fd14d"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\regression-unit.log",
+      "sha256": "933bb167d6383e8b944c67be9f442f41e73ab0ff9a19c0556195960ef56b39ed"
+    }
+  ],
+  "limits": [
+    "No product logic change, migration, activation UI or user data changes",
+    "Original token test process failure remains unexplained; current targeted and full unit passes are new evidence",
+    "No complete product E2E or actual package acceptance",
+    "Full runner first result was 80/81; the one regenerated snapshot and related route gate were rerun separately"
+  ],
+  "sourceGrowth": {
+    "test": {
+      "deleted": 1,
+      "added": 4
+    },
+    "generated": "Two architecture contract snapshot views; server.js and manifest unchanged",
+    "handMaintainedProduct": {
+      "deleted": 0,
+      "added": 0
+    }
+  }
+}

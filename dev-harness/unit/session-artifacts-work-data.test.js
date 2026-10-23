@@ -116,8 +116,11 @@ test('OFF plaintext memo proof cannot authorize an encrypted external replacemen
   await assert.rejects(() => api.writeSessionIndex([{ id: 'sess_off_proof', title: 'NO DOWNGRADE' }]), { code: 'work_data_store.downgrade_refused' });
   assert.deepEqual(fs.readFileSync(api.sessionIndexPath()), sealed);
   fs.writeFileSync(api.sessionIndexPath(), plain); await api.readSessionIndex();
+  // Publish ON before queuing the sync-only probe: awaiting config I/O with a pending batch
+  // lets the legitimate 200ms OFF debounce flush first on a busy runner.
+  await toggle(true);
   api.scheduleSessionIndexUpdate('sess_off_proof', { ...rows[0], title: 'NO ON SYNC PLAINTEXT' });
-  await toggle(true); api.flushSessionIndexSync(); assert.equal(fs.readFileSync(api.sessionIndexPath(), 'utf8'), plain);
+  api.flushSessionIndexSync(); assert.equal(fs.readFileSync(api.sessionIndexPath(), 'utf8'), plain);
   await api.writeSessionIndex(rows); assert.equal(JSON.parse(fs.readFileSync(api.sessionIndexPath(), 'utf8').split('\n')[0]).workData, 3);
 });
 
